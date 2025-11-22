@@ -654,7 +654,8 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   // the "navigation" triggered by history.pushState(). However, the start
   // notification for the history.pushState() navigation should set
   // should_show_loading_ui to false, as should all stop notifications.
-  EXPECT_EQ("pushState", shell()->web_contents()->GetLastCommittedURL().ref());
+  EXPECT_EQ("pushState",
+            shell()->web_contents()->GetLastCommittedURL().GetRef());
   EXPECT_EQ(4, delegate->loadingStateChangedCount());
   EXPECT_EQ(1, delegate->loadingStateShowLoadingUICount());
 }
@@ -687,8 +688,16 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, ResourceLoadComplete) {
 
 // Same as WebContentsImplBrowserTest.ResourceLoadComplete but with resources
 // retrieved from the network cache.
+// TODO(crbug.com/440535492): Flaky on Win dbg. Re-enable this test.
+#if BUILDFLAG(IS_WIN) && !defined(NDEBUG)
+#define MAYBE_ResourceLoadCompleteFromNetworkCache \
+  DISABLED_ResourceLoadCompleteFromNetworkCache
+#else
+#define MAYBE_ResourceLoadCompleteFromNetworkCache \
+  ResourceLoadCompleteFromNetworkCache
+#endif
 IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
-                       ResourceLoadCompleteFromNetworkCache) {
+                       MAYBE_ResourceLoadCompleteFromNetworkCache) {
   ResourceLoadObserver observer(shell());
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL page_url(
@@ -1265,8 +1274,8 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, ViewSourceDirectNavigation) {
   // Displayed view-source URLs don't include the scheme of the effective URL if
   // the effective URL is HTTP. (e.g. view-source:example.com is displayed
   // instead of view-source:http://example.com).
-  EXPECT_EQ(base::ASCIIToUTF16(std::string("view-source:") + kUrl.host() + ":" +
-                               kUrl.port() + kUrl.path()),
+  EXPECT_EQ(base::ASCIIToUTF16(std::string("view-source:") + kUrl.GetHost() +
+                               ":" + kUrl.GetPort() + kUrl.GetPath()),
             shell()->web_contents()->GetTitle());
   EXPECT_TRUE(shell()
                   ->web_contents()
@@ -3507,10 +3516,13 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, TitleUpdateOnRestore) {
 
   // Set up all the expected title change in the original WebContents.
   std::queue<std::u16string> original_expected_title_changes;
-  // The first "title change" is not an actual title change, it's triggered by a
-  // INVALIDATE_TYPE_ALL NotifyNavigationStateChanged call from
-  // NavigationControllerImpl::DiscardNonCommittedEntries().
-  original_expected_title_changes.push(u"");
+  if (!base::FeatureList::IsEnabled(
+          features::kSkipRedundantNavigationStateNotification)) {
+    // The first "title change" is not an actual title change, it's triggered by
+    // a INVALIDATE_TYPE_ALL NotifyNavigationStateChanged call from
+    // NavigationControllerImpl::DiscardNonCommittedEntries().
+    original_expected_title_changes.push(u"");
+  }
   // When the navigation to `main_url` commits, the document title is not set
   // yet, so we use the URL as the title.
   original_expected_title_changes.push(main_url_as_title);
@@ -3558,15 +3570,18 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, TitleUpdateOnRestore) {
 
   // Set up all the expected title change in the new WebContents.
   std::queue<std::u16string> new_expected_title_changes;
-  // Similar to the original WebContents' case above, the first "title change"
-  // is not an actual title change, but instead triggered by a
-  // INVALIDATE_TYPE_ALL NotifyNavigationStateChanged call from
-  // NavigationControllerImpl::DiscardNonCommittedEntries(). For the
-  // original WebContents' case we expect an empty title because there's no
-  // entries and GetNavigationEntryForTitle() returns null. However, in the new
-  // WebContents we already have the restored entry, so we will use the entry's
-  // title.
-  new_expected_title_changes.push(main_title);
+  if (!base::FeatureList::IsEnabled(
+          features::kSkipRedundantNavigationStateNotification)) {
+    // Similar to the original WebContents' case above, the first "title change"
+    // is not an actual title change, but instead triggered by a
+    // INVALIDATE_TYPE_ALL NotifyNavigationStateChanged call from
+    // NavigationControllerImpl::DiscardNonCommittedEntries(). For the original
+    // WebContents' case we expect an empty title because there's no entries and
+    // GetNavigationEntryForTitle() returns null. However, in the new
+    // WebContents we already have the restored entry, so we will use the
+    // entry's title.
+    new_expected_title_changes.push(main_title);
+  }
   // When the navigation to `main_url` commits, we also got another "update"
   // that is not really a title change, but it is triggered by a
   // INVALIDATE_TYPE_ALL NotifyNavigationStateChanged call from
@@ -5120,6 +5135,102 @@ IN_PROC_BROWSER_TEST_F(UnownedInnerWebContentsBrowserTest,
     EXPECT_EQ(0U, inner_event_router->RegisteredViewCountForTesting());
     EXPECT_EQ(0U,
               inner_text_input_manager->GetRegisteredViewsCountForTesting());
+  }
+}
+
+IN_PROC_BROWSER_TEST_F(
+    UnownedInnerWebContentsBrowserTest,
+    AttachUnownedInnerWebContentsWithPendingCrossSiteNavigation) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  const GURL outer_url(
+      embedded_test_server()->GetURL("a.com", "/page_with_iframe.html"));
+  const GURL inner_url_a(
+      embedded_test_server()->GetURL("a.com", "/title1.html"));
+  const GURL inner_url_b(
+      embedded_test_server()->GetURL("b.com", "/title1.html"));
+
+  // Setup outer WebContents.
+  ASSERT_TRUE(NavigateToURL(shell(), outer_url));
+  WebContentsImpl* outer_wc =
+      static_cast<WebContentsImpl*>(shell()->web_contents());
+  RenderFrameHostImpl* iframe_rfh = static_cast<RenderFrameHostImpl*>(
+      ChildFrameAt(outer_wc->GetPrimaryMainFrame(), 0));
+  ASSERT_TRUE(iframe_rfh);
+
+  // Setup inner WebContents with a pending cross site navigation.
+  WebContents::CreateParams inner_params(
+      shell()->web_contents()->GetBrowserContext());
+  std::unique_ptr<WebContents> inner_wc = WebContents::Create(inner_params);
+  WebContentsImpl* inner_wc_impl =
+      static_cast<WebContentsImpl*>(inner_wc.get());
+  ASSERT_TRUE(NavigateToURL(inner_wc.get(), inner_url_a));
+  // Navigate inner WebContents and pause after speculative render frame host is
+  // is created for the cross site navigation at which time the view for it is
+  // also created.
+  TestNavigationManager nav_manager_b(inner_wc_impl, inner_url_b);
+  inner_wc->GetController().LoadURLWithParams(
+      NavigationController::LoadURLParams(inner_url_b));
+  nav_manager_b.WaitForSpeculativeRenderFrameHostCreation();
+
+  // Get the RenderFrameHosts in inner WebContents.
+  RenderFrameHost* rfh_a = inner_wc->GetPrimaryMainFrame();
+  ASSERT_TRUE(rfh_a);
+  // Cross site pending navigation should be using speculative render frame host
+  // for the navigation.
+  RenderFrameHost* rfh_b = inner_wc_impl->GetPrimaryFrameTree()
+                               .root()
+                               ->render_manager()
+                               ->speculative_frame_host();
+  ASSERT_TRUE(rfh_b);
+
+  // Verify that RenderWidgetHostViews have not changed to
+  // RenderWidgetHostViewChildFrame yet.
+  {
+    auto* rwhv_a = static_cast<RenderWidgetHostViewBase*>(rfh_a->GetView());
+    ASSERT_TRUE(rwhv_a);
+    ASSERT_FALSE(rwhv_a->IsRenderWidgetHostViewChildFrame());
+    auto* rwhv_b = static_cast<RenderWidgetHostViewBase*>(rfh_b->GetView());
+    ASSERT_TRUE(rwhv_b);
+    ASSERT_FALSE(rwhv_b->IsRenderWidgetHostViewChildFrame());
+  }
+
+  // Attach the inner WebContents.
+  outer_wc->AttachUnownedInnerWebContents(
+      UnownedInnerWebContentsClient::GetPassKeyForTesting(), inner_wc.get(),
+      iframe_rfh);
+  ASSERT_EQ(outer_wc, inner_wc->GetOuterWebContents());
+
+  // Verify that RenderFrameHosts are not changed after attaching inner
+  // WebContents.
+  EXPECT_EQ(rfh_a, inner_wc->GetPrimaryMainFrame());
+  EXPECT_EQ(rfh_b, inner_wc_impl->GetPrimaryFrameTree()
+                       .root()
+                       ->render_manager()
+                       ->speculative_frame_host());
+
+  // Verify that RenderWidgetHostViews have updated to be
+  // RenderWidgetHostViewChildFrame.
+  {
+    auto* rwhv_a = static_cast<RenderWidgetHostViewBase*>(rfh_a->GetView());
+    ASSERT_TRUE(rwhv_a);
+    EXPECT_TRUE(rwhv_a->IsRenderWidgetHostViewChildFrame());
+    auto* rwhv_b = static_cast<RenderWidgetHostViewBase*>(rfh_b->GetView());
+    ASSERT_TRUE(rwhv_b);
+    EXPECT_TRUE(rwhv_b->IsRenderWidgetHostViewChildFrame());
+  }
+
+  // Let the navigation complete.
+  ASSERT_TRUE(nav_manager_b.WaitForNavigationFinished());
+  EXPECT_TRUE(WaitForLoadStop(inner_wc_impl));
+
+  // Verify the speculative rfh is switched to be current rfh.
+  ASSERT_EQ(rfh_b, inner_wc->GetPrimaryMainFrame());
+
+  // Verify that RenderWidgetHostViews is still RenderWidgetHostViewChildFrame.
+  {
+    auto* rwhv_b = static_cast<RenderWidgetHostViewBase*>(rfh_b->GetView());
+    ASSERT_TRUE(rwhv_b);
+    ASSERT_TRUE(rwhv_b->IsRenderWidgetHostViewChildFrame());
   }
 }
 
@@ -6694,6 +6805,94 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   EXPECT_FALSE(handle_observer.has_committed());
   EXPECT_TRUE(new_contents->GetController().IsInitialBlankNavigation());
   EXPECT_TRUE(new_contents->GetLastCommittedURL().is_empty());
+}
+
+namespace {
+void RunDeferredNavigationTest(
+    net::EmbeddedTestServer* embedded_test_server,
+    Shell* shell,
+    base::OnceCallback<std::string(const GURL&)> js_code_generator,
+    base::OnceCallback<void(Shell*, const GURL&)> opener_action) {
+  // Force WebContents in a new Shell to defer new navigations until the
+  // delegate is set.
+  shell->set_delay_popup_contents_delegate_for_testing(true);
+
+  // Load an initial page.
+  ASSERT_TRUE(embedded_test_server->Start());
+  const GURL url(embedded_test_server->GetURL("/title1.html"));
+  const GURL second_url(embedded_test_server->GetURL("/title2.html"));
+  const GURL third_url(embedded_test_server->GetURL("/title3.html"));
+  EXPECT_TRUE(NavigateToURL(shell, url));
+
+  // Open a popup to a same-site URL via window.open.
+  ShellAddedObserver new_shell_observer;
+  EXPECT_TRUE(ExecJs(shell, std::move(js_code_generator).Run(second_url)));
+  Shell* new_shell = new_shell_observer.GetShell();
+  WebContents* new_contents = new_shell->web_contents();
+
+  // The navigation in the new popup should be deferred.
+  EXPECT_TRUE(WaitForLoadStop(new_contents));
+  EXPECT_TRUE(new_contents->GetController().IsInitialBlankNavigation());
+  EXPECT_TRUE(new_contents->GetLastCommittedURL().is_empty());
+
+  // Set the new shell's delegate now. This doesn't resume the navigation just
+  // yet.
+  EXPECT_FALSE(new_contents->GetDelegate());
+  new_contents->SetDelegate(new_shell);
+
+  // Run the action that triggers navigation/close of original shell.
+  std::move(opener_action).Run(shell, third_url);
+
+  // Ensure navigation completes and that this doesn't crash or hit DCHECK.
+  NavigationHandleObserver handle_observer(new_contents, second_url);
+  new_contents->ResumeLoadingCreatedWebContents();
+  EXPECT_TRUE(WaitForLoadStop(new_contents));
+  EXPECT_TRUE(handle_observer.has_committed());
+  EXPECT_EQ(new_contents->GetLastCommittedURL(), second_url);
+}
+}  // namespace
+
+IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
+                       DeferredWindowNavigationIfOpenerNavigated) {
+  auto open_window = base::BindLambdaForTesting(
+      [](const GURL& url) { return JsReplace("window.open($1);", url); });
+  auto navigate_opener =
+      base::BindLambdaForTesting([](Shell* shell, const GURL& new_url) {
+        EXPECT_TRUE(NavigateToURL(shell, new_url));
+      });
+
+  RunDeferredNavigationTest(embedded_test_server(), shell(),
+                            std::move(open_window), std::move(navigate_opener));
+}
+
+// Open a window with noreferrer. This leads to that the opener is not forwarded
+// to the popup WebContents. Make sure this does not crash if we navigate the
+// parent away.
+IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
+                       DeferredWindowNavigationIfOpenerNavigatedNoReferrer) {
+  auto open_window_no_referrer =
+      base::BindLambdaForTesting([](const GURL& url) {
+        return JsReplace("window.open($1, \"noreferrer\");", url);
+      });
+  auto navigate_opener =
+      base::BindLambdaForTesting([](Shell* shell, const GURL& new_url) {
+        EXPECT_TRUE(NavigateToURL(shell, new_url));
+      });
+
+  RunDeferredNavigationTest(embedded_test_server(), shell(),
+                            std::move(open_window_no_referrer),
+                            std::move(navigate_opener));
+}
+
+IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
+                       DeferredWindowNavigationIfOpenerDestroyed) {
+  auto open_window = base::BindLambdaForTesting(
+      [](const GURL& url) { return JsReplace("window.open($1);", url); });
+  auto close_opener = base::BindLambdaForTesting(
+      [](Shell* shell, const GURL& new_url) { shell->Close(); });
+
+  RunDeferredNavigationTest(embedded_test_server(), shell(),
+                            std::move(open_window), std::move(close_opener));
 }
 
 namespace {

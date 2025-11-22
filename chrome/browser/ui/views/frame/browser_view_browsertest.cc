@@ -22,6 +22,7 @@
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
 #include "chrome/browser/ui/tab_modal_confirm_dialog.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
@@ -845,7 +846,8 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, MAYBE_DragNotSupportedInFullscreen) {
 
   // Attempt to start a drag
   content::DropData drop_data;
-  drop_data.url = GURL("https://mail.google.com");
+  drop_data.url_infos = {
+      ui::ClipboardUrlInfo(GURL("https://mail.google.com"), u"")};
   const gfx::Rect bounds = browser_view()->GetBoundsInScreen();
   const gfx::PointF point(bounds.left_center().x() + 10,
                           bounds.left_center().y());
@@ -881,15 +883,15 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, ScrimForTabModalInSplitView) {
       active_contents_container_view()->contents_scrim_view()->GetVisible());
 
   // Swapping the tab with the tab modal dialog into the inactive spot in the
-  // split should make that view active and show the scrim.
+  // split should show the scrim but not change the active tab.
   browser()->tab_strip_model()->UpdateTabInSplit(
       browser()->tab_strip_model()->GetTabAtIndex(1), 2,
       TabStripModel::SplitUpdateType::kSwap);
-  EXPECT_EQ(1, browser()->tab_strip_model()->active_index());
+  EXPECT_EQ(0, browser()->tab_strip_model()->active_index());
   EXPECT_TRUE(
-      active_contents_container_view()->contents_scrim_view()->GetVisible());
-  EXPECT_FALSE(
       inactive_contents_container_view()->contents_scrim_view()->GetVisible());
+  EXPECT_FALSE(
+      active_contents_container_view()->contents_scrim_view()->GetVisible());
 }
 
 // Tests that GetAccessibleTabLabel correctly labels each tab in a split.
@@ -974,16 +976,16 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, SplitViewFullscreenLayout) {
   views::View* overlay_view = browser_view()->overlay_view();
 
   // Verify top_container is parented to browser_view before fullscreen
-  EXPECT_EQ(browser_view(), top_container->parent());
+  EXPECT_EQ(browser_view()->main_container(), top_container->parent());
   ui_test_utils::ToggleFullscreenModeAndWait(browser());
 
   // Verify top_container is parented to overlay after entering fullscreen
   EXPECT_EQ(overlay_view, top_container->parent());
 
-  browser_view()->ExitFullscreen();
+  browser_view()->GetExclusiveAccessContext()->ExitFullscreen();
 
   // Verify top_container is re-parented to browser_view after fullscreen exit
-  EXPECT_EQ(browser_view(), top_container->parent());
+  EXPECT_EQ(browser_view()->main_container(), top_container->parent());
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserViewTest, SplitViewTabRevealFullscreen) {

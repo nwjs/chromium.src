@@ -6,7 +6,6 @@
 
 #include "base/check_op.h"
 #include "base/dcheck_is_on.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/shared_memory_mapping.h"
 #include "base/memory/weak_ptr.h"
 #include "base/notreached.h"
@@ -102,11 +101,6 @@ class PLATFORM_EXPORT CanvasResource
   // the thread where it was created.
   virtual void Transfer() {}
 
-  // Returns the sync token to indicate when all writes to the current resource
-  // are finished on the GPU thread. Note that the token is not guaranteed to be
-  // verified at the time of calling this method.
-  virtual const gpu::SyncToken GetSyncToken() = 0;
-
   // Provides a TransferableResource representation of this resource to share it
   // with the compositor.
   bool PrepareTransferableResource(viz::TransferableResource*,
@@ -165,6 +159,7 @@ class PLATFORM_EXPORT CanvasResource
 
  private:
   friend class CanvasResourceProviderTest;
+  friend class WebGPUMailboxTexture;
 
   static void OnPlaceholderReleasedResourceOnOwningThread(
       scoped_refptr<CanvasResource> resource);
@@ -214,12 +209,17 @@ class PLATFORM_EXPORT CanvasResourceSharedImage final : public CanvasResource {
   scoped_refptr<StaticBitmapImage> Bitmap() final;
   void Transfer() final;
 
+  // Save (and wait on) this sync token on the context used by this resource for
+  // rendering.
+  // TODO(crbug.com/40286368): completely defer the waiting to the
+  // zero-parameter variant of WaitSyncToken().
   void WaitSyncToken(const gpu::SyncToken&) override;
-  const gpu::SyncToken GetSyncToken() override;
+
+  std::unique_ptr<gpu::RasterScopedAccess> BeginAccess(bool readonly);
+  void EndAccess(std::unique_ptr<gpu::RasterScopedAccess> access);
 
   void NotifyResourceLost() final;
 
-  void WillDraw();
   bool IsLost() const { return owning_thread_data().is_lost; }
 
   const scoped_refptr<gpu::ClientSharedImage>& GetClientSharedImage()
@@ -239,7 +239,11 @@ class PLATFORM_EXPORT CanvasResourceSharedImage final : public CanvasResource {
   // Should be called only if the resource is using software raster.
   void UploadSoftwareRenderingResults(SkSurface* sk_surface);
 
+  void PrepareForWebGPUDummyMailbox();
+
  private:
+  friend class CanvasResourceProviderSharedImage;
+
   // These members are either only accessed on the owning thread, or are only
   // updated on the owning thread and then are read on a different thread.
   // We ensure to correctly update their state in Transfer, which is called
@@ -292,6 +296,7 @@ class PLATFORM_EXPORT CanvasResourceSharedImage final : public CanvasResource {
   // This should only be de-referenced on the owning thread but may be copied
   // on a different thread.
   base::WeakPtr<WebGraphicsContext3DProviderWrapper> context_provider_wrapper_;
+  gpu::SyncToken acquire_sync_token_;
 
   // Accessed on any thread.
   const bool is_accelerated_;
@@ -322,7 +327,7 @@ class PLATFORM_EXPORT ExternalCanvasResource final : public CanvasResource {
     return client_si_;
   }
   void WaitSyncToken(const gpu::SyncToken&) override;
-  const gpu::SyncToken GetSyncToken() override;
+  void GetSyncToken();
 
   scoped_refptr<StaticBitmapImage> Bitmap() override;
 
@@ -387,7 +392,6 @@ class PLATFORM_EXPORT CanvasResourceSwapChain final : public CanvasResource {
   const scoped_refptr<gpu::ClientSharedImage>& GetClientSharedImage()
       const override;
   void WaitSyncToken(const gpu::SyncToken&) override;
-  const gpu::SyncToken GetSyncToken() override;
 
  private:
   bool UsesAcceleratedRaster() const final { return true; }

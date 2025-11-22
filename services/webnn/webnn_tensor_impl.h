@@ -21,7 +21,9 @@ class WebNNContextImpl;
 
 // GPU process implementation of the MLTensor interface exposed to script.
 class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNTensorImpl
-    : public WebNNObjectImpl<mojom::WebNNTensor, blink::WebNNTensorToken> {
+    : public WebNNObjectImpl<mojom::WebNNTensor,
+                             blink::WebNNTensorToken,
+                             mojo::AssociatedReceiver<mojom::WebNNTensor>> {
  public:
   explicit WebNNTensorImpl(
       mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
@@ -67,9 +69,8 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNTensorImpl
   // Backend subclasses implement this to perform any necessary
   // device synchronization and store the access. Returns true on success.
   // On success, the subclass should assign `representation_access_` to
-  // `access`.
-  virtual bool ImportTensorImpl(
-      std::unique_ptr<gpu::WebNNTensorRepresentation::ScopedAccess> access) = 0;
+  // gpu::WebNNTensorRepresentation::BeginScopedAccess().
+  virtual bool ImportTensorImpl() = 0;
 
  protected:
   ~WebNNTensorImpl() override;

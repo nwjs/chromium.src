@@ -101,6 +101,15 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/browser/performance_manager/mechanisms/page_discarder.cc:DiscardPageOnUIThreadOutcome) -->
 
+<!-- LINT.IfChange(DiscardReason) -->
+
+<enum name="DiscardReason">
+  <int value="0" label="OnDemand"/>
+  <int value="1" label="AppendNavigation"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/tab/TabImpl.java:DiscardReason) -->
+
 <!-- LINT.IfChange(DiscardTabOutcome) -->
 
 <enum name="DiscardTabOutcome">
@@ -192,6 +201,7 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Tab strip menu option"/>
   <int value="3" label="New tab button in toolbar for touch"/>
   <int value="4" label="New tab button in the WebUI tab strip"/>
+  <int value="5" label="No user action taken"/>
 </enum>
 
 <enum name="PullDownGestureAction">
@@ -288,6 +298,7 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="Extensions API"/>
   <int value="8" label="What's new"/>
   <int value="9" label="Keyboard shortcut"/>
+  <int value="10" label="New tab button"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/tabs/split_tab_metrics.h:SplitTabCreatedSource) -->
@@ -320,12 +331,12 @@ chromium-metrics-reviews@google.com.
 <!-- LINT.IfChange(TabGroupingTransitionType) -->
 
 <enum name="TabGroupingTransitionType">
-  <int value="-1" label="Invalid type"/>
-  <int value="0" label="Active tab was ungrouped, new tab was left ungrouped"/>
-  <int value="1" label="Active tab was ungrouped, new tab later grouped"/>
-  <int value="2" label="Active tab was grouped, new tab left ungrouped"/>
-  <int value="3" label="Active tab was grouped, new tab left in that group"/>
-  <int value="4"
+  <int value="0" label="Invalid type"/>
+  <int value="1" label="Active tab was ungrouped, new tab was left ungrouped"/>
+  <int value="2" label="Active tab was ungrouped, new tab later grouped"/>
+  <int value="3" label="Active tab was grouped, new tab left ungrouped"/>
+  <int value="4" label="Active tab was grouped, new tab left in that group"/>
+  <int value="5"
       label="Active tab was grouped, new tab put in different group"/>
 </enum>
 

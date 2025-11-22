@@ -122,8 +122,10 @@ void TabModalDialogHost::OnWidgetBoundsChanged(views::Widget* browser_widget,
 }
 
 int TabModalDialogHost::GetDialogYCoordinate() {
-  return browser_view_->toolbar()->bounds().bottom() + browser_view_->y() -
-         kConstrainedWindowOverlap;
+  gfx::Rect toolbar_coordinates_in_browser =
+      browser_view_->toolbar()->ConvertRectToWidget(
+          browser_view_->toolbar()->GetLocalBounds());
+  return toolbar_coordinates_in_browser.bottom() - kConstrainedWindowOverlap;
 }
 
 void TabModalDialogHost::NotifyPositionRequiresUpdate() {

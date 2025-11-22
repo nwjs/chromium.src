@@ -13,7 +13,6 @@
 #include "base/time/time.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/action_result.h"
-#include "chrome/common/actor/actor_utils.h"
 #include "chrome/common/actor/journal_details_builder.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/renderer/actor/click_tool.h"
@@ -36,12 +35,15 @@ using content::RenderFrame;
 namespace actor {
 
 ToolExecutor::ToolExecutor(RenderFrame* frame, Journal& journal)
-    : frame_(*frame), journal_(journal) {}
+    : frame_(*frame), journal_(journal) {
+  CHECK(base::FeatureList::IsEnabled(features::kGlicActor));
+}
 
 ToolExecutor::~ToolExecutor() {
   if (completion_callback_) {
     std::move(completion_callback_)
         .Run(MakeResult(mojom::ActionResultCode::kExecutorDestroyed,
+                        /*requires_page_stabilization=*/false,
                         "The tool executor was destroyed before invocation "
                         "could complete."));
   }
@@ -52,6 +54,7 @@ void ToolExecutor::InvokeTool(mojom::ToolInvocationPtr invocation,
   if (tool_) {
     std::move(callback).Run(
         MakeResult(mojom::ActionResultCode::kExecutorBusy,
+                   /*requires_page_stabilization=*/false,
                    "Another tool invocation is still running."));
     return;
   }
@@ -147,14 +150,6 @@ void ToolExecutor::InvokeTool(mojom::ToolInvocationPtr invocation,
       NOTREACHED();
   }
 
-  // If GeneralPageStabilityMode is kAllEnabled, the monitor is created in a
-  // separate mojo call from the browser.
-  if (!UseGeneralPageStabilityAllTools()) {
-    page_stability_monitor_ = std::make_unique<PageStabilityMonitor>(
-        *frame_, tool_->SupportsPaintStability(), invocation->task_id,
-        *journal_);
-  }
-
   if (features::kGlicActorScrollTargetIntoView.Get()) {
     tool_->EnsureTargetInView();
   }
@@ -169,19 +164,11 @@ void ToolExecutor::InvokeTool(mojom::ToolInvocationPtr invocation,
 void ToolExecutor::ToolFinished(mojom::ActionResultPtr result) {
   execute_journal_entry_.reset();
   result->execution_end_time = base::TimeTicks::Now();
-  if (page_stability_monitor_) {
-    page_stability_monitor_->NotifyWhenStable(
-        tool_->ExecutionObservationDelay(),
-        base::BindOnce(&ToolExecutor::OnCompletion,
-                       weak_ptr_factory_.GetWeakPtr(), std::move(result)));
-  } else {
-    OnCompletion(std::move(result));
-  }
+  OnCompletion(std::move(result));
 }
 
 void ToolExecutor::OnCompletion(mojom::ActionResultPtr result) {
   CHECK(completion_callback_);
-  page_stability_monitor_.reset();
 
   CHECK(tool_);
   // Release current tool so we can accept a new tool invocation.

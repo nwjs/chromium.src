@@ -2,7 +2,7 @@
     {
         "name": "activity",
         "group": "androidx.activity",
-        "version": "1.12.0-alpha08"
+        "version": "1.12.0-beta01"
     },
     {
         "name": "activity-compose",
@@ -22,7 +22,7 @@
     {
         "name": "annotation-experimental",
         "group": "androidx.annotation",
-        "version": "1.6.0-SNAPSHOT"
+        "version": "1.6.0-alpha01"
     },
     {
         "name": "annotation-jvm",
@@ -137,7 +137,7 @@
     {
         "name": "collection-ktx",
         "group": "androidx.collection",
-        "version": "1.6.0-SNAPSHOT"
+        "version": "1.6.0-alpha01"
     },
     {
         "name": "animation",
@@ -212,12 +212,12 @@
     {
         "name": "runtime-annotation",
         "group": "androidx.compose.runtime",
-        "version": "1.10.0-SNAPSHOT"
+        "version": "1.10.0-beta01"
     },
     {
         "name": "runtime-annotation-android",
         "group": "androidx.compose.runtime",
-        "version": "1.10.0-SNAPSHOT"
+        "version": "1.10.0-beta01"
     },
     {
         "name": "runtime-retain",
@@ -392,7 +392,7 @@
     {
         "name": "credentials",
         "group": "androidx.credentials",
-        "version": "1.6.0-alpha05"
+        "version": "1.6.0-beta03"
     },
     {
         "name": "credentials-play-services-auth",
@@ -417,62 +417,62 @@
     {
         "name": "datastore",
         "group": "androidx.datastore",
-        "version": "1.2.0-alpha02"
+        "version": "1.2.0-beta01"
     },
     {
         "name": "datastore-android",
         "group": "androidx.datastore",
-        "version": "1.2.0-alpha02"
+        "version": "1.2.0-beta01"
     },
     {
         "name": "datastore-core",
         "group": "androidx.datastore",
-        "version": "1.2.0-alpha02"
+        "version": "1.2.0-beta01"
     },
     {
         "name": "datastore-core-android",
         "group": "androidx.datastore",
-        "version": "1.2.0-alpha02"
+        "version": "1.2.0-beta01"
     },
     {
         "name": "datastore-core-okio",
         "group": "androidx.datastore",
-        "version": "1.2.0-alpha02"
+        "version": "1.2.0-beta01"
     },
     {
         "name": "datastore-core-okio-jvm",
         "group": "androidx.datastore",
-        "version": "1.2.0-alpha02"
+        "version": "1.2.0-beta01"
     },
     {
         "name": "datastore-preferences",
         "group": "androidx.datastore",
-        "version": "1.2.0-alpha02"
+        "version": "1.2.0-beta01"
     },
     {
         "name": "datastore-preferences-android",
         "group": "androidx.datastore",
-        "version": "1.2.0-alpha02"
+        "version": "1.2.0-beta01"
     },
     {
         "name": "datastore-preferences-core",
         "group": "androidx.datastore",
-        "version": "1.2.0-alpha02"
+        "version": "1.2.0-beta01"
     },
     {
         "name": "datastore-preferences-core-android",
         "group": "androidx.datastore",
-        "version": "1.2.0-alpha02"
+        "version": "1.2.0-beta01"
     },
     {
         "name": "datastore-preferences-external-protobuf",
         "group": "androidx.datastore",
-        "version": "1.2.0-alpha02"
+        "version": "1.2.0-beta01"
     },
     {
         "name": "datastore-preferences-proto",
         "group": "androidx.datastore",
-        "version": "1.2.0-alpha02"
+        "version": "1.2.0-beta01"
     },
     {
         "name": "documentfile",
@@ -542,12 +542,12 @@
     {
         "name": "graphics-shapes",
         "group": "androidx.graphics",
-        "version": "1.1.0-rc01"
+        "version": "1.1.0"
     },
     {
         "name": "graphics-shapes-android",
         "group": "androidx.graphics",
-        "version": "1.1.0-rc01"
+        "version": "1.1.0"
     },
     {
         "name": "gridlayout",
@@ -592,17 +592,17 @@
     {
         "name": "lifecycle-common",
         "group": "androidx.lifecycle",
-        "version": "2.10.0-alpha03"
+        "version": "2.10.0-beta01"
     },
     {
         "name": "lifecycle-common-java8",
         "group": "androidx.lifecycle",
-        "version": "2.10.0-alpha03"
+        "version": "2.10.0-beta01"
     },
     {
         "name": "lifecycle-common-jvm",
         "group": "androidx.lifecycle",
-        "version": "2.10.0-alpha03"
+        "version": "2.10.0-beta01"
     },
     {
         "name": "lifecycle-livedata",
@@ -612,7 +612,7 @@
     {
         "name": "lifecycle-livedata-core",
         "group": "androidx.lifecycle",
-        "version": "2.10.0-alpha03"
+        "version": "2.10.0-beta01"
     },
     {
         "name": "lifecycle-livedata-core-ktx",
@@ -627,17 +627,17 @@
     {
         "name": "lifecycle-process",
         "group": "androidx.lifecycle",
-        "version": "2.10.0-alpha03"
+        "version": "2.10.0-beta01"
     },
     {
         "name": "lifecycle-runtime",
         "group": "androidx.lifecycle",
-        "version": "2.10.0-alpha03"
+        "version": "2.10.0-beta01"
     },
     {
         "name": "lifecycle-runtime-android",
         "group": "androidx.lifecycle",
-        "version": "2.10.0-alpha03"
+        "version": "2.10.0-beta01"
     },
     {
         "name": "lifecycle-runtime-compose",
@@ -667,12 +667,12 @@
     {
         "name": "lifecycle-viewmodel",
         "group": "androidx.lifecycle",
-        "version": "2.10.0-alpha03"
+        "version": "2.10.0-beta01"
     },
     {
         "name": "lifecycle-viewmodel-android",
         "group": "androidx.lifecycle",
-        "version": "2.10.0-alpha03"
+        "version": "2.10.0-beta01"
     },
     {
         "name": "lifecycle-viewmodel-compose",
@@ -692,12 +692,12 @@
     {
         "name": "lifecycle-viewmodel-savedstate",
         "group": "androidx.lifecycle",
-        "version": "2.10.0-alpha03"
+        "version": "2.10.0-beta01"
     },
     {
         "name": "lifecycle-viewmodel-savedstate-android",
         "group": "androidx.lifecycle",
-        "version": "2.10.0-alpha03"
+        "version": "2.10.0-beta01"
     },
     {
         "name": "loader",
@@ -802,22 +802,22 @@
     {
         "name": "navigationevent",
         "group": "androidx.navigationevent",
-        "version": "1.0.0-alpha08"
+        "version": "1.1.0-SNAPSHOT"
     },
     {
         "name": "navigationevent-android",
         "group": "androidx.navigationevent",
-        "version": "1.0.0-alpha08"
+        "version": "1.1.0-SNAPSHOT"
     },
     {
         "name": "navigationevent-compose",
         "group": "androidx.navigationevent",
-        "version": "1.0.0-SNAPSHOT"
+        "version": "1.1.0-SNAPSHOT"
     },
     {
         "name": "navigationevent-compose-android",
         "group": "androidx.navigationevent",
-        "version": "1.0.0-SNAPSHOT"
+        "version": "1.1.0-SNAPSHOT"
     },
     {
         "name": "paging-common",
@@ -857,17 +857,17 @@
     {
         "name": "pdf-document-service",
         "group": "androidx.pdf",
-        "version": "1.0.0-alpha06"
+        "version": "1.0.0-SNAPSHOT"
     },
     {
         "name": "pdf-viewer",
         "group": "androidx.pdf",
-        "version": "1.0.0-alpha06"
+        "version": "1.0.0-SNAPSHOT"
     },
     {
         "name": "pdf-viewer-fragment",
         "group": "androidx.pdf",
-        "version": "1.0.0-alpha06"
+        "version": "1.0.0-SNAPSHOT"
     },
     {
         "name": "preference",
@@ -907,32 +907,32 @@
     {
         "name": "room-common",
         "group": "androidx.room",
-        "version": "2.8.0"
+        "version": "2.8.3"
     },
     {
         "name": "room-common-jvm",
         "group": "androidx.room",
-        "version": "2.8.0"
+        "version": "2.8.3"
     },
     {
         "name": "room-runtime",
         "group": "androidx.room",
-        "version": "2.8.0"
+        "version": "2.8.3"
     },
     {
         "name": "room-runtime-android",
         "group": "androidx.room",
-        "version": "2.8.0"
+        "version": "2.8.3"
     },
     {
         "name": "savedstate",
         "group": "androidx.savedstate",
-        "version": "1.4.0-alpha03"
+        "version": "1.4.0-rc01"
     },
     {
         "name": "savedstate-android",
         "group": "androidx.savedstate",
-        "version": "1.4.0-alpha03"
+        "version": "1.4.0-rc01"
     },
     {
         "name": "savedstate-compose",
@@ -957,22 +957,22 @@
     {
         "name": "sqlite",
         "group": "androidx.sqlite",
-        "version": "2.6.0"
+        "version": "2.6.1"
     },
     {
         "name": "sqlite-android",
         "group": "androidx.sqlite",
-        "version": "2.6.0"
+        "version": "2.6.1"
     },
     {
         "name": "sqlite-framework",
         "group": "androidx.sqlite",
-        "version": "2.6.0"
+        "version": "2.6.1"
     },
     {
         "name": "sqlite-framework-android",
         "group": "androidx.sqlite",
-        "version": "2.6.0"
+        "version": "2.6.1"
     },
     {
         "name": "startup-runtime",
@@ -1127,22 +1127,32 @@
     {
         "name": "window",
         "group": "androidx.window",
-        "version": "1.5.0-SNAPSHOT"
+        "version": "1.6.0-SNAPSHOT"
     },
     {
         "name": "window-core",
         "group": "androidx.window",
-        "version": "1.5.0-SNAPSHOT"
+        "version": "1.6.0-SNAPSHOT"
     },
     {
         "name": "window-core-android",
         "group": "androidx.window",
-        "version": "1.5.0-SNAPSHOT"
+        "version": "1.6.0-SNAPSHOT"
     },
     {
         "name": "window-extensions",
         "group": "androidx.window",
         "version": "1.0.0-alpha01"
+    },
+    {
+        "name": "work-multiprocess",
+        "group": "androidx.work",
+        "version": "2.12.0-SNAPSHOT"
+    },
+    {
+        "name": "work-runtime",
+        "group": "androidx.work",
+        "version": "2.12.0-SNAPSHOT"
     },
     {
         "name": "arcore",
@@ -1172,7 +1182,7 @@
     {
         "name": "lottie",
         "group": "com.airbnb.android",
-        "version": "6.6.9"
+        "version": "6.6.10"
     },
     {
         "name": "sqlite4java",
@@ -1182,7 +1192,7 @@
     {
         "name": "extensions-xr",
         "group": "com.android.extensions.xr",
-        "version": "1.0.0"
+        "version": "1.1.0"
     },
     {
         "name": "support-annotations",
@@ -1232,7 +1242,7 @@
     {
         "name": "play-services-auth-api-phone",
         "group": "com.google.android.gms",
-        "version": "18.2.0"
+        "version": "18.3.0"
     },
     {
         "name": "play-services-auth-base",
@@ -1247,22 +1257,22 @@
     {
         "name": "play-services-base",
         "group": "com.google.android.gms",
-        "version": "18.8.0"
+        "version": "18.9.0"
     },
     {
         "name": "play-services-basement",
         "group": "com.google.android.gms",
-        "version": "18.8.0"
+        "version": "18.9.0"
     },
     {
         "name": "play-services-cast",
         "group": "com.google.android.gms",
-        "version": "22.1.0"
+        "version": "22.2.0"
     },
     {
         "name": "play-services-cast-framework",
         "group": "com.google.android.gms",
-        "version": "22.1.0"
+        "version": "22.2.0"
     },
     {
         "name": "play-services-clearcut",
@@ -1342,7 +1352,7 @@
     {
         "name": "material",
         "group": "com.google.android.material",
-        "version": "1.14.0-alpha04"
+        "version": "1.14.0-alpha06"
     },
     {
         "name": "core-common",
@@ -1362,7 +1372,7 @@
     {
         "name": "impress",
         "group": "com.google.ar",
-        "version": "0.0.5"
+        "version": "0.0.7"
     },
     {
         "name": "auto-service-annotations",
@@ -1392,7 +1402,7 @@
     {
         "name": "error_prone_annotations",
         "group": "com.google.errorprone",
-        "version": "2.42.0"
+        "version": "2.43.0"
     },
     {
         "name": "firebase-annotations",
@@ -1477,7 +1487,7 @@
     {
         "name": "protobuf-javalite",
         "group": "com.google.protobuf",
-        "version": "4.32.1"
+        "version": "4.33.0"
     },
     {
         "name": "protobuf-lite",
@@ -1505,6 +1515,106 @@
         "version": "11.0.0_r3"
     },
     {
+        "name": "curtains",
+        "group": "com.squareup.curtains",
+        "version": "1.2.4"
+    },
+    {
+        "name": "leakcanary-android",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "leakcanary-android-core",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "leakcanary-android-instrumentation",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "leakcanary-android-test",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "leakcanary-android-utils",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "leakcanary-core",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "leakcanary-gc",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "leakcanary-object-watcher",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "leakcanary-object-watcher-android",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "leakcanary-object-watcher-android-androidx",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "leakcanary-object-watcher-android-core",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "leakcanary-test-core",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "plumber-android",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "plumber-android-core",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "shark",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "shark-android",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "shark-graph",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "shark-hprof",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
+        "name": "shark-log",
+        "group": "com.squareup.leakcanary",
+        "version": "3.0-alpha-8"
+    },
+    {
         "name": "moshi",
         "group": "com.squareup.moshi",
         "version": "1.13.0"
@@ -1517,7 +1627,7 @@
     {
         "name": "okio-jvm",
         "group": "com.squareup.okio",
-        "version": "3.16.0"
+        "version": "3.16.2"
     },
     {
         "name": "wire-runtime",
@@ -1542,52 +1652,52 @@
     {
         "name": "grpc-android",
         "group": "io.grpc",
-        "version": "1.75.0"
+        "version": "1.76.0"
     },
     {
         "name": "grpc-api",
         "group": "io.grpc",
-        "version": "1.75.0"
+        "version": "1.76.0"
     },
     {
         "name": "grpc-binder",
         "group": "io.grpc",
-        "version": "1.75.0"
+        "version": "1.76.0"
     },
     {
         "name": "grpc-context",
         "group": "io.grpc",
-        "version": "1.75.0"
+        "version": "1.76.0"
     },
     {
         "name": "grpc-core",
         "group": "io.grpc",
-        "version": "1.75.0"
+        "version": "1.76.0"
     },
     {
         "name": "grpc-inprocess",
         "group": "io.grpc",
-        "version": "1.75.0"
+        "version": "1.76.0"
     },
     {
         "name": "grpc-protobuf-lite",
         "group": "io.grpc",
-        "version": "1.75.0"
+        "version": "1.76.0"
     },
     {
         "name": "grpc-stub",
         "group": "io.grpc",
-        "version": "1.75.0"
+        "version": "1.76.0"
     },
     {
         "name": "grpc-testing",
         "group": "io.grpc",
-        "version": "1.75.0"
+        "version": "1.76.0"
     },
     {
         "name": "grpc-util",
         "group": "io.grpc",
-        "version": "1.75.0"
+        "version": "1.76.0"
     },
     {
         "name": "perfmark-api",
@@ -1652,17 +1762,17 @@
     {
         "name": "checker-qual",
         "group": "org.checkerframework",
-        "version": "3.51.0"
+        "version": "3.51.1"
     },
     {
         "name": "checker-util",
         "group": "org.checkerframework",
-        "version": "3.51.0"
+        "version": "3.51.1"
     },
     {
         "name": "animal-sniffer-annotations",
         "group": "org.codehaus.mojo",
-        "version": "1.24"
+        "version": "1.26"
     },
     {
         "name": "conscrypt-openjdk-uber",
@@ -1707,12 +1817,12 @@
     {
         "name": "kotlin-stdlib",
         "group": "org.jetbrains.kotlin",
-        "version": "2.2.0"
+        "version": "2.2.20"
     },
     {
         "name": "kotlin-stdlib-common",
         "group": "org.jetbrains.kotlin",
-        "version": "2.1.20"
+        "version": "2.0.20"
     },
     {
         "name": "kotlin-stdlib-jdk7",
@@ -1792,7 +1902,7 @@
     {
         "name": "kotlinx-serialization-json-jvm",
         "group": "org.jetbrains.kotlinx",
-        "version": "1.7.2"
+        "version": "1.7.3"
     },
     {
         "name": "annotations",
@@ -1832,17 +1942,17 @@
     {
         "name": "asm",
         "group": "org.ow2.asm",
-        "version": "9.8"
+        "version": "9.9"
     },
     {
         "name": "asm-commons",
         "group": "org.ow2.asm",
-        "version": "9.8"
+        "version": "9.9"
     },
     {
         "name": "asm-tree",
         "group": "org.ow2.asm",
-        "version": "9.8"
+        "version": "9.9"
     },
     {
         "name": "reactive-streams",

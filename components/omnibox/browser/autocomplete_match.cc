@@ -83,7 +83,7 @@ bool WordMatchesURLContent(
     const std::vector<std::u16string>& terms_prefixed_by_http_or_https,
     const GURL& url) {
   size_t prefix_length =
-      url.scheme().length() + strlen(url::kStandardSchemeSeparator);
+      url.GetScheme().length() + strlen(url::kStandardSchemeSeparator);
   DCHECK_GE(url.spec().length(), prefix_length);
   const std::u16string& formatted_url = url_formatter::FormatUrl(
       url, url_formatter::kFormatUrlOmitNothing, base::UnescapeRule::NORMAL,
@@ -135,6 +135,27 @@ int GetDeduplicationProviderPreferenceScore(
       });
   const auto it = kProviderPrefMap.find(type);
   return it != kProviderPrefMap.end() ? it->second : 0;
+}
+
+int GetOrderForActionType(scoped_refptr<OmniboxAction> action) {
+  // Sort: Call -> Directions -> Reviews -> Tab Switch.
+  auto* action_in_suggest = OmniboxActionInSuggest::FromAction(action.get());
+  if (action_in_suggest == nullptr) {
+    return 0;
+  }
+  switch (action_in_suggest->Type()) {
+    case omnibox::SuggestTemplateInfo_TemplateAction_ActionType_CALL:
+      return 1;
+    case omnibox::SuggestTemplateInfo_TemplateAction_ActionType_DIRECTIONS:
+      return 2;
+    case omnibox::SuggestTemplateInfo_TemplateAction_ActionType_REVIEWS:
+      return 3;
+    case omnibox::
+        SuggestTemplateInfo_TemplateAction_ActionType_CHROME_TAB_SWITCH:
+      return 4;
+    default:
+      return 0;
+  }
 }
 
 }  // namespace
@@ -373,7 +394,6 @@ AutocompleteMatch& AutocompleteMatch::operator=(
 #if BUILDFLAG(IS_ANDROID)
   DestroyJavaObject();
   std::swap(java_match_, match.java_match_);
-  std::swap(matching_java_tab_, match.matching_java_tab_);
   UpdateJavaObjectNativeRef();
 #endif
   return *this;
@@ -1014,7 +1034,7 @@ GURL AutocompleteMatch::GURLToStrippedGURL(
   // from history that differ only by some obscure query param from each other
   // or from the search/keyword provider matches.
   const TemplateURL* template_url = GetTemplateURLWithKeyword(
-      template_url_service, keyword, stripped_destination_url.host());
+      template_url_service, keyword, stripped_destination_url.GetHost());
   if (template_url && template_url->SupportsReplacement(
                           template_url_service->search_terms_data())) {
     using CacheKey = std::tuple<const TemplateURL*, GURL, bool>;
@@ -1043,7 +1063,7 @@ GURL AutocompleteMatch::GURLToStrippedGURL(
   // Remove the www. prefix from the host.
   static const char prefix[] = "www.";
   static const size_t prefix_len = std::size(prefix) - 1;
-  std::string host = stripped_destination_url.host();
+  std::string host = stripped_destination_url.GetHost();
   if (host.compare(0, prefix_len, prefix) == 0 && host.length() > prefix_len) {
     replacements.SetHostStr(std::string_view(host).substr(prefix_len));
     needs_replacement = true;
@@ -1086,12 +1106,11 @@ void AutocompleteMatch::GetMatchComponents(
 
   size_t host_pos = parsed.CountCharactersBefore(url::Parsed::HOST, false);
 
-  bool has_subdomain =
-      domain_length > 0 && domain_length < url.host_piece().length();
+  bool has_subdomain = domain_length > 0 && domain_length < url.host().length();
   // Subtract an extra character from the domain start to exclude the '.'
   // delimiter between subdomain and domain.
   size_t subdomain_end =
-      has_subdomain ? host_pos + url.host_piece().length() - domain_length - 1
+      has_subdomain ? host_pos + url.host().length() - domain_length - 1
                     : std::string::npos;
 
   for (auto& position : match_positions) {
@@ -1146,7 +1165,7 @@ void AutocompleteMatch::LogSearchEngineUsed(
   // no longer necessary to track these additional search engine types.
   if (search_engine_type == SEARCH_ENGINE_OTHER) {
     if (match.destination_url.is_valid() &&
-        url::DomainIs(match.destination_url.host_piece(), "siteadvisor.com")) {
+        url::DomainIs(match.destination_url.host(), "siteadvisor.com")) {
       search_engine_type = SEARCH_ENGINE_MCAFEE;
     }
   }
@@ -1268,6 +1287,14 @@ bool AutocompleteMatch::HasInstantKeyword(
   const TemplateURL* turl =
       GetTemplateURLWithKeyword(template_url_service, associated_keyword, "");
   return turl && (turl->starter_pack_id() != 0 || turl->featured_by_policy());
+}
+
+bool AutocompleteMatch::ShouldHideBasedOnStarterPack(
+    const TemplateURLService* template_url_service) const {
+  const TemplateURL* turl =
+      template_url_service->GetTemplateURLForKeyword(keyword);
+  return from_keyword && turl &&
+         turl->starter_pack_id() == template_url_starter_pack_data::kGemini;
 }
 
 void AutocompleteMatch::GetKeywordUIState(
@@ -1771,30 +1798,10 @@ void AutocompleteMatch::FilterAndSortActionsInSuggest() {
     return;
   }
 
-  // Sort: Call -> Directions -> Reviews, or Reviews -> Directions -> Call.
-  auto less_comparator = [](auto k1, auto k2) -> bool {
-    bool is_less_ascending =
-        (k1 == omnibox::SuggestTemplateInfo_TemplateAction_ActionType_CALL) ||
-        (k2 == omnibox::SuggestTemplateInfo_TemplateAction_ActionType_REVIEWS);
-    return is_less_ascending;
-  };
-  std::multimap<omnibox::SuggestTemplateInfo_TemplateAction_ActionType,
-                scoped_refptr<OmniboxAction>, decltype(less_comparator)>
-      actions_in_suggest_to_reinsert(less_comparator);
-
-  // Collect all Actions in Suggest.
-  std::erase_if(actions, [&actions_in_suggest_to_reinsert](
-                             const scoped_refptr<OmniboxAction>& action) {
-    auto* ais = OmniboxActionInSuggest::FromAction(action.get());
-    if (ais != nullptr) {
-      actions_in_suggest_to_reinsert.emplace(ais->Type(), action);
-    }
-    return ais != nullptr;
-  });
-
-  for (auto pair : actions_in_suggest_to_reinsert) {
-    actions.emplace_back(std::move(pair.second));
-  }
+  std::stable_sort(
+      actions.begin(), actions.end(), [](const auto& a1, const auto& a2) {
+        return GetOrderForActionType(a1) < GetOrderForActionType(a2);
+      });
 }
 
 bool AutocompleteMatch::IsTrivialAutocompletion() const {

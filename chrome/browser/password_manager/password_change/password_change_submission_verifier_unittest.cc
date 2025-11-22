@@ -15,7 +15,7 @@
 #include "chrome/browser/password_manager/password_change/annotated_page_content_capturer.h"
 #include "chrome/browser/password_manager/password_change/model_quality_logs_uploader.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
-#include "components/optimization_guide/core/mock_optimization_guide_model_executor.h"
+#include "components/optimization_guide/core/model_execution/test/mock_remote_model_executor.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -151,4 +151,19 @@ TEST_F(PasswordChangeSubmissionVerifierTest,
       password_manager::metrics_util::PasswordChangeFlowStep::
           kVerifySubmissionStep,
       1);
+}
+
+TEST_F(PasswordChangeSubmissionVerifierTest, DurationRecordedOnDestruction) {
+  auto verifier = std::make_unique<PasswordChangeSubmissionVerifier>(
+      web_contents(), logs_uploader());
+
+  task_environment()->FastForwardBy(base::Milliseconds(4543));
+
+  verifier.reset();
+  EXPECT_EQ(4543, logs_uploader()
+                      ->GetFinalLog()
+                      .password_change_submission()
+                      .quality()
+                      .verify_submission()
+                      .request_latency_ms());
 }

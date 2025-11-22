@@ -40,6 +40,7 @@ source_set("ui") {
     "//ios/chrome/browser/shared/ui/list_model",
     "//ios/chrome/browser/shared/ui/symbols",
     "//ios/chrome/browser/shared/ui/util",
+    "//ios/chrome/common:string_util",
     "//ios/chrome/common/ui/colors",
     "//ios/chrome/common/ui/promo_style:constants",
     "//ios/chrome/common/ui/promo_style:utils",
@@ -82,4 +83,14 @@ source_set("ui_util") {
   }
 
   frameworks = [ "UIKit.framework" ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "snippet_search_engine_button_unittest.mm" ]
+  deps = [
+    ":ui",
+    "//base",
+    "//base/test:test_support",
+  ]
 }

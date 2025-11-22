@@ -22,6 +22,7 @@
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_document_loader.h"
 #include "third_party/blink/public/web/web_local_frame.h"
+#include "third_party/blink/public/web/web_local_frame_client.h"
 #include "third_party/blink/public/web/web_performance_metrics_for_reporting.h"
 #include "url/gurl.h"
 
@@ -126,6 +127,16 @@ MetricsRenderFrameObserver::MetricsRenderFrameObserver(
     render_frame->SetLoadFromMemoryCacheCallback(base::BindRepeating(
         &MetricsRenderFrameObserver::DidLoadResourceFromMemoryCache,
         weak_factory_.GetWeakPtr()));
+
+    render_frame->SetDidStartResponseCallback(
+        base::BindRepeating(&MetricsRenderFrameObserver::DidStartResponse,
+                            weak_factory_.GetWeakPtr()));
+    render_frame->SetDidCompleteResponseCallback(
+        base::BindRepeating(&MetricsRenderFrameObserver::DidCompleteResponse,
+                            weak_factory_.GetWeakPtr()));
+    render_frame->SetDidCancelResponseCallback(
+        base::BindRepeating(&MetricsRenderFrameObserver::DidCancelResponse,
+                            weak_factory_.GetWeakPtr()));
   }
 }
 
@@ -323,7 +334,7 @@ void MetricsRenderFrameObserver::DidStartNavigation(
 }
 
 void MetricsRenderFrameObserver::DidSetPageLifecycleState(
-    bool restoring_from_bfcache) {
+    blink::BFCacheStateChange bfcache_change) {
   // Send current metrics, as this RenderFrame might be replaced by a new
   // RenderFrame or its process might be killed, and this might be the last
   // point we can send the metrics to the browser. See crbug.com/1150242 for
@@ -929,6 +940,24 @@ MetricsRenderFrameObserver::Timing MetricsRenderFrameObserver::GetTiming()
 
   if (perf.UserTimingMarkInteractive().has_value()) {
     timing->user_timing_mark_interactive = perf.UserTimingMarkInteractive();
+  }
+
+  blink::WebLocalFrame* web_frame = render_frame()->GetWebFrame();
+  if (web_frame->Client()->IsForInitialWebUI()) {
+    if (!perf.FirstPaintAsMonotonicTime().is_null()) {
+      if (!timing->monotonic_paint_timing) {
+        timing->monotonic_paint_timing = mojom::MonotonicPaintTiming::New();
+      }
+      timing->monotonic_paint_timing->first_paint =
+          perf.FirstPaintAsMonotonicTime();
+    }
+    if (!perf.FirstContentfulPaintAsMonotonicTime().is_null()) {
+      if (!timing->monotonic_paint_timing) {
+        timing->monotonic_paint_timing = mojom::MonotonicPaintTiming::New();
+      }
+      timing->monotonic_paint_timing->first_contentful_paint =
+          perf.FirstContentfulPaintAsMonotonicTime();
+    }
   }
 
   return Timing(std::move(timing), monotonic_timing);

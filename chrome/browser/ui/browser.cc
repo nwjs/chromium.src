@@ -85,7 +85,6 @@
 #include "chrome/browser/printing/background_printing_manager.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
-#include "chrome/browser/profiles/nuke_profile_directory_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_destroyer.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -126,6 +125,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
@@ -159,14 +159,12 @@
 #include "chrome/browser/ui/views/frame/multi_contents_view.h"
 #include "chrome/browser/ui/views/status_bubble_views.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
-#include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
-#include "chrome/browser/ui/webui/new_tab_page_third_party/new_tab_page_third_party_ui.h"
-#include "chrome/browser/ui/webui/ntp/new_tab_ui.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/browser/ui/window_sizer/window_sizer.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
+#include "chrome/browser/web_applications/web_app_tab_helper.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_features.h"
@@ -212,7 +210,6 @@
 #include "components/tabs/public/split_tab_visual_data.h"
 #include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/tab_interface.h"
-#include "components/user_manager/user_manager.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "components/zoom/zoom_controller.h"
 #include "content/public/browser/color_chooser.h"
@@ -252,7 +249,6 @@
 #include "net/base/filename_util.h"
 #include "third_party/blink/public/common/security/protocol_handler_security_level.h"
 #include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom.h"
-#include "third_party/blink/public/mojom/frame/frame.mojom.h"
 #include "third_party/blink/public/mojom/frame/fullscreen.mojom.h"
 #include "third_party/blink/public/mojom/page/draggable_region.mojom.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom.h"
@@ -281,7 +277,6 @@
 #include "ash/constants/ash_features.h"
 #include "chrome/browser/ash/guest_os/guest_os_terminal.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
-#include "components/session_manager/core/session_manager.h"
 #endif
 
 #if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
@@ -352,36 +347,11 @@ const extensions::Extension* GetExtensionForOrigin(
 
   const extensions::Extension* extension =
       extensions::ExtensionRegistry::Get(profile)->enabled_extensions().GetByID(
-          security_origin.host());
+          security_origin.GetHost());
   DCHECK(extension);
   return extension;
 #else
   return nullptr;
-#endif
-}
-
-bool IsOnKioskSplashScreen() {
-#if BUILDFLAG(IS_CHROMEOS)
-  session_manager::SessionManager* session_manager =
-      session_manager::SessionManager::Get();
-  if (!session_manager) {
-    return false;
-  }
-  // We have to check this way because of CHECK() in UserManager::Get().
-  if (!user_manager::UserManager::IsInitialized()) {
-    return false;
-  }
-  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
-  if (!user_manager->IsLoggedInAsAnyKioskApp()) {
-    return false;
-  }
-  if (session_manager->session_state() !=
-      session_manager::SessionState::LOGIN_PRIMARY) {
-    return false;
-  }
-  return true;
-#else
-  return false;
 #endif
 }
 
@@ -604,22 +574,9 @@ void Browser::OnDidFinishFirstNavigation() {
 // Browser, Constructors, Creation, Showing:
 
 // static
-Browser::CreationStatus Browser::GetCreationStatusForProfile(Profile* profile) {
-  if (!g_browser_process || g_browser_process->IsShuttingDown()) {
-    return CreationStatus::kErrorNoProcess;
-  }
-
-  if (!IncognitoModePrefs::CanOpenBrowser(profile) ||
-      !profile->AllowsBrowserWindows() ||
-      IsProfileDirectoryMarkedForDeletion(profile->GetPath())) {
-    return CreationStatus::kErrorProfileUnsuitable;
-  }
-
-  if (IsOnKioskSplashScreen()) {
-    return CreationStatus::kErrorLoadingKiosk;
-  }
-
-  return CreationStatus::kOk;
+BrowserWindowInterface::CreationStatus Browser::GetCreationStatusForProfile(
+    Profile* profile) {
+  return GetBrowserWindowCreationStatusForProfile(*profile);
 }
 
 // static
@@ -672,7 +629,8 @@ Browser::Browser(const CreateParams& params)
       session_id_(SessionID::NewUnique()),
       omit_from_session_restore_(params.omit_from_session_restore),
       should_trigger_session_restore_(params.should_trigger_session_restore),
-      cancel_download_confirmation_state_(NOT_PROMPTED),
+      cancel_download_confirmation_state_(
+          CancelDownloadConfirmationState::kNotPrompted),
       override_bounds_(params.initial_bounds),
       initial_show_state_(params.initial_show_state),
       initial_workspace_(params.initial_workspace),
@@ -1192,13 +1150,15 @@ bool Browser::HandleBeforeClose() {
 bool Browser::TryToCloseWindow(
     bool skip_beforeunload,
     const base::RepeatingCallback<void(bool)>& on_close_confirmed) {
-  cancel_download_confirmation_state_ = RESPONSE_RECEIVED;
+  cancel_download_confirmation_state_ =
+      CancelDownloadConfirmationState::kResponseReceived;
   return unload_controller_.TryToCloseWindow(skip_beforeunload,
                                              on_close_confirmed);
 }
 
 void Browser::ResetTryToCloseWindow() {
-  cancel_download_confirmation_state_ = NOT_PROMPTED;
+  cancel_download_confirmation_state_ =
+      CancelDownloadConfirmationState::kNotPrompted;
   unload_controller_.ResetTryToCloseWindow();
 }
 
@@ -1251,10 +1211,6 @@ std::vector<StatusBubble*> Browser::GetStatusBubblesForTesting() {
   return GetStatusBubbles();
 }
 
-views::WebView* Browser::GetWebView() {
-  return window_->GetContentsWebView();
-}
-
 Profile* Browser::GetProfile() {
   return profile();
 }
@@ -1302,16 +1258,8 @@ base::CallbackListSubscription Browser::RegisterBrowserCloseCancelled(
   return browser_close_cancelled_callback_list_.Add(std::move(callback));
 }
 
-views::View* Browser::TopContainer() {
-  return window_->GetTopContainer();
-}
-
 base::WeakPtr<BrowserWindowInterface> Browser::GetWeakPtr() {
   return AsWeakPtr();
-}
-
-views::View* Browser::LensOverlayView() {
-  return window_->GetLensOverlayView();
 }
 
 base::CallbackListSubscription Browser::RegisterActiveTabDidChange(
@@ -1387,10 +1335,6 @@ ExclusiveAccessManager* Browser::GetExclusiveAccessManager() {
   return GetFeatures().exclusive_access_manager();
 }
 
-ImmersiveModeController* Browser::GetImmersiveModeController() {
-  return GetBrowserView().immersive_mode_controller();
-}
-
 BrowserActions* Browser::GetActions() {
   return GetFeatures().browser_actions();
 }
@@ -1416,6 +1360,10 @@ std::vector<tabs::TabInterface*> Browser::GetAllTabInterfaces() {
 }
 
 Browser* Browser::GetBrowserForMigrationOnly() {
+  return this;
+}
+
+const Browser* Browser::GetBrowserForMigrationOnly() const {
   return this;
 }
 
@@ -1488,19 +1436,6 @@ void Browser::OnWindowClosing() {
     return;
   }
 
-  // Application should shutdown on last window close if the user is explicitly
-  // trying to quit, or if there is nothing keeping the browser alive (such as
-  // AppController on the Mac, or BackgroundContentsService for background
-  // pages).
-  bool should_quit_if_last_browser =
-      browser_shutdown::IsTryingToQuit() ||
-      KeepAliveRegistry::GetInstance()->IsKeepingAliveOnlyByBrowserOrigin();
-
-  if (should_quit_if_last_browser && ShouldStartShutdown()) {
-    browser_shutdown::OnShutdownStarting(
-        browser_shutdown::ShutdownType::kWindowClose);
-  }
-
   // Don't use GetForProfileIfExisting here, we want to force creation of the
   // session service so that user can restore what was open.
   SessionServiceBase* service = GetAppropriateSessionServiceForProfile(this);
@@ -1531,6 +1466,24 @@ void Browser::OnWindowClosing() {
     // If there are no tabs, then a task will be scheduled (by views) to delete
     // this Browser.
     is_delete_scheduled_ = true;
+
+    // Application should shutdown on last window close if the user is
+    // explicitly trying to quit, or if there is nothing keeping the browser
+    // alive (such as AppController on the Mac, or BackgroundContentsService for
+    // background pages).
+    const bool should_quit_if_last_browser =
+        browser_shutdown::IsTryingToQuit() ||
+        KeepAliveRegistry::GetInstance()->IsKeepingAliveOnlyByBrowserOrigin();
+
+    // Below will not consider browsers for which delete has already been
+    // scheduled.
+    const bool is_last_browser =
+        !GetLastActiveBrowserWindowInterfaceWithAnyProfile();
+
+    if (should_quit_if_last_browser && is_last_browser) {
+      browser_shutdown::OnShutdownStarting(
+          browser_shutdown::ShutdownType::kWindowClose);
+    }
 
     // At this point the browser has successfully closed and is scheduled for
     // deletion.
@@ -2526,9 +2479,9 @@ bool Browser::ShouldFocusLocationBarByDefault(WebContents* source) {
     }
 
     if ((url.SchemeIs(content::kChromeUIScheme) &&
-         url.host_piece() == chrome::kChromeUINewTabHost) ||
+         url.host() == chrome::kChromeUINewTabHost) ||
         (virtual_url.SchemeIs(content::kChromeUIScheme) &&
-         virtual_url.host_piece() == chrome::kChromeUINewTabHost)) {
+         virtual_url.host() == chrome::kChromeUINewTabHost)) {
       return true;
     }
 
@@ -3179,19 +3132,6 @@ web_modal::WebContentsModalDialogHost* Browser::GetWebContentsModalDialogHost(
   return window_->GetWebContentsModalDialogHostFor(web_contents);
 }
 
-void Browser::OnWebContentsModalDialogFirstShown(
-    content::WebContents* web_contents) {
-  // Check that the WebContents isn't already active to avoid re-entrancy in
-  // TabStripModel when activating a tab triggers a dialog to show.
-  if (base::FeatureList::IsEnabled(features::kSideBySide) &&
-      tab_strip_model_->GetActiveWebContents() != web_contents) {
-    const int tab_index = tab_strip_model_->GetIndexOfWebContents(web_contents);
-    if (tab_strip_model_->IsTabInForeground(tab_index)) {
-      tab_strip_model_->ActivateTabAt(tab_index);
-    }
-  }
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 // Browser, BookmarkTabHelperObserver implementation:
 
@@ -3298,7 +3238,7 @@ void Browser::OnTabDetached(WebContents* contents, bool was_active) {
     }
   }
 
-  TabDetachedAtImpl(contents, was_active, DETACH_TYPE_DETACH);
+  TabDetachedAtImpl(contents, was_active, DetachType::kDetach);
 
   window_->OnTabDetached(contents, was_active);
 }
@@ -3422,7 +3362,7 @@ void Browser::OnTabReplacedAt(WebContents* old_contents,
   if (was_active) {
     did_active_tab_change_callback_list_.Notify(this);
   }
-  TabDetachedAtImpl(old_contents, was_active, DETACH_TYPE_REPLACE);
+  TabDetachedAtImpl(old_contents, was_active, DetachType::kReplace);
   browser_window_features()->exclusive_access_manager()->OnTabClosing(
       old_contents);
   SessionServiceBase* session_service =
@@ -3702,8 +3642,10 @@ bool Browser::CanCloseWithInProgressDownloads() {
 
   // If we've prompted, we need to hear from the user before we
   // can close.
-  if (cancel_download_confirmation_state_ != NOT_PROMPTED) {
-    return cancel_download_confirmation_state_ != WAITING_FOR_RESPONSE;
+  if (cancel_download_confirmation_state_ !=
+      CancelDownloadConfirmationState::kNotPrompted) {
+    return cancel_download_confirmation_state_ !=
+           CancelDownloadConfirmationState::kWaitingForResponse;
   }
 
   int num_downloads_blocking;
@@ -3715,7 +3657,8 @@ bool Browser::CanCloseWithInProgressDownloads() {
 
   // Closing this window will kill some downloads; prompt to make sure
   // that's ok.
-  cancel_download_confirmation_state_ = WAITING_FOR_RESPONSE;
+  cancel_download_confirmation_state_ =
+      CancelDownloadConfirmationState::kWaitingForResponse;
   window_->ConfirmBrowserCloseWithPendingDownloads(
       num_downloads_blocking, dialog_type,
       base::BindOnce(&Browser::InProgressDownloadResponse,
@@ -3728,7 +3671,8 @@ bool Browser::CanCloseWithInProgressDownloads() {
 
 void Browser::InProgressDownloadResponse(bool cancel_downloads) {
   if (cancel_downloads) {
-    cancel_download_confirmation_state_ = RESPONSE_RECEIVED;
+    cancel_download_confirmation_state_ =
+        CancelDownloadConfirmationState::kResponseReceived;
 
     if (ShouldShowCookieMigrationNoticeForBrowser(*this)) {
       ShowCookieClearOnExitMigrationNotice(
@@ -3741,9 +3685,11 @@ void Browser::InProgressDownloadResponse(bool cancel_downloads) {
     return;
   }
 
-  // Sets the confirmation state to NOT_PROMPTED so that if the user tries to
+  // Sets the confirmation state to
+  // CancelDownloadConfirmationState::kNotPrompted so that if the user tries to
   // close again we'll show the warning again.
-  cancel_download_confirmation_state_ = NOT_PROMPTED;
+  cancel_download_confirmation_state_ =
+      CancelDownloadConfirmationState::kNotPrompted;
 
   // Show the download page so the user can figure-out what downloads are still
   // in-progress.
@@ -3799,7 +3745,7 @@ void Browser::SetAsDelegate(WebContents* web_contents, bool set_delegate) {
 void Browser::TabDetachedAtImpl(content::WebContents* contents,
                                 bool was_active,
                                 DetachType type) {
-  if (type == DETACH_TYPE_DETACH) {
+  if (type == DetachType::kDetach) {
     // Save the current location bar state, but only if the tab being detached
     // is the selected tab.  Because saving state can conditionally revert the
     // location bar, saving the current tab's location bar state to a
@@ -4001,16 +3947,6 @@ bool Browser::IsBrowserClosing() const {
       browser_list->currently_closing_browsers();
 
   return base::Contains(closing_browsers, this) || removed_from_browserlist;
-}
-
-bool Browser::ShouldStartShutdown() const {
-  if (IsBrowserClosing()) {
-    return false;
-  }
-
-  const size_t closing_browsers_count =
-      BrowserList::GetInstance()->currently_closing_browsers().size();
-  return BrowserList::GetInstance()->size() == closing_browsers_count + 1u;
 }
 
 bool Browser::ShouldCreateBackgroundContents(

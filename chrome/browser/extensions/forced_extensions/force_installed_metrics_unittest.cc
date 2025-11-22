@@ -31,6 +31,7 @@
 #include "extensions/browser/install/sandboxed_unpacker_failure_reason.h"
 #include "extensions/browser/pref_names.h"
 #include "extensions/browser/updater/safe_manifest_parser.h"
+#include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/manifest.h"
 #include "extensions/common/switches.h"
@@ -53,6 +54,8 @@
 #include "components/policy/core/common/management/scoped_management_service_override_for_testing.h"
 #include "extensions/browser/blocklist_extension_prefs.h"
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
 namespace {
 

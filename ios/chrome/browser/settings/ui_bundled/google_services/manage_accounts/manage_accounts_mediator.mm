@@ -72,7 +72,7 @@
 
 #pragma mark - AccountsModelIdentityDataSource
 
-- (id<SystemIdentity>)identityWithGaiaID:(NSString*)gaiaID {
+- (id<SystemIdentity>)identityWithGaiaID:(const GaiaId&)gaiaID {
   return _accountManagerService->GetIdentityOnDeviceWithGaiaID(gaiaID);
 }
 
@@ -104,7 +104,7 @@
 
 #pragma mark - ManageAccountsMutator
 
-- (void)requestRemoveIdentityWithGaiaID:(NSString*)gaiaID
+- (void)requestRemoveIdentityWithGaiaID:(const GaiaId&)gaiaID
                                itemView:(UIView*)itemView {
   [self.delegate handleRemoveIdentity:[self identityWithGaiaID:gaiaID]
                              itemView:itemView];
@@ -123,6 +123,12 @@
 - (void)onExtendedAccountInfoUpdated:(const AccountInfo&)info {
   id<SystemIdentity> identity =
       _accountManagerService->GetIdentityOnDeviceWithGaiaID(info.gaia);
+  if (!identity) {
+    DUMP_WILL_BE_NOTREACHED();
+    // If the user is signed-out, the view may currently be dismissed. No need
+    // to update the view.
+    return;
+  }
   [self handleIdentityUpdated:identity];
 }
 
@@ -153,7 +159,7 @@
   IdentityViewItem* identityViewItem = [[IdentityViewItem alloc] init];
   identityViewItem.userEmail = identity.userEmail;
   identityViewItem.userFullName = identity.userFullName;
-  identityViewItem.gaiaID = identity.gaiaID;
+  identityViewItem.gaiaID = identity.gaiaId;
   identityViewItem.managed = [self isIdentityKnownToBeManaged:identity];
   IdentityAvatarSize avatarSize = IdentityAvatarSize::Regular;
   identityViewItem.avatar = [self identityAvatarWithSizeForIdentity:identity

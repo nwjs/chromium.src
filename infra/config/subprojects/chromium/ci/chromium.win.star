@@ -32,6 +32,9 @@ ci.defaults.set(
     main_console_view = "main",
     contact_team_email = "chrome-desktop-engprod@google.com",
     execution_timeout = ci_constants.DEFAULT_EXECUTION_TIMEOUT,
+    experiments = {
+        "chromium_tests.resultdb_module": 100,
+    },
     health_spec = health_spec.default(),
     service_account = ci_constants.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci_constants.DEFAULT_SHADOW_SERVICE_ACCOUNT,
@@ -156,6 +159,10 @@ ci.builder(
         configs = [
             "gpu_tests",
             "debug_builder",
+            # TODO(https://crbug.com/449751912): Prformance overhead of
+            # symbolizing crash stacks in debug builds were causing renderer
+            # crash related tests to timeout.
+            "no_symbols",
             "remoteexec",
             "win",
             "x64",
@@ -260,10 +267,13 @@ ci.builder(
                 # crbug.com/870673
                 experiment_percentage = 100,
             ),
+            "content_browsertests": targets.mixin(
+                swarming = targets.swarming(
+                    shards = 12,
+                ),
+            ),
         },
     ),
-    # Too flaky. See crbug.com/876224 for more details.
-    gardener_rotations = args.ignore_default(None),
     tree_closing = False,
     console_view_entry = consoles.console_view_entry(
         category = "debug|tester",
@@ -562,6 +572,11 @@ ci.thin_tester(
             ),
             "components_browsertests_no_field_trial": targets.remove(
                 reason = "crbug/40630866",
+            ),
+            "interactive_ui_tests": targets.mixin(
+                swarming = targets.swarming(
+                    shards = 9,
+                ),
             ),
             "interactive_ui_tests_no_field_trial": targets.remove(
                 reason = "crbug/40630866",

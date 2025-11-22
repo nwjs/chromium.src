@@ -7,51 +7,70 @@
 #include <algorithm>
 
 #include "base/containers/to_vector.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/time/time.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
-#include "components/one_time_tokens/core/browser/sms_otp_backend.h"
+#include "components/autofill/core/browser/integrators/one_time_tokens/otp_phish_guard_delegate.h"
 #include "components/password_manager/core/browser/features/password_features.h"
+
+using one_time_tokens::ExpiringSubscriptionHandle;
+using one_time_tokens::OneTimeToken;
+using one_time_tokens::OneTimeTokenRetrievalError;
+using one_time_tokens::OneTimeTokenService;
+using one_time_tokens::OneTimeTokenSource;
+using one_time_tokens::OneTimeTokenType;
 
 namespace autofill {
 
 namespace {
-std::vector<std::string> OtpsToSuggestionStrings(
-    const std::vector<one_time_tokens::OneTimeToken>& otp_values) {
-  return base::ToVector(otp_values, &one_time_tokens::OneTimeToken::value);
-}
+constexpr base::TimeDelta kSubscriptionDuration = base::Minutes(1);
 }  // namespace
 
-OtpManagerImpl::OtpManagerImpl(BrowserAutofillManager* owner,
-                               one_time_tokens::SmsOtpBackend* sms_otp_backend)
-    : owner_(owner), sms_otp_backend_(sms_otp_backend) {
-  if (owner_) {
-    autofill_manager_observation_.Observe(owner);
-  }
-
-  // TODO(crbug.com/415273270) This is just a hack to prepopulate the OTPs in
-  // case no real backend is triggered. The feature definition should migrate to
-  // autofill.
-  if (base::FeatureList::IsEnabled(
-          password_manager::features::kDebugUiForOtps)) {
-    otp_suggestions_ = {one_time_tokens::OneTimeToken(
-        // TODO(crbug.com/41527327) kSmsOtp is just a dummy value at the
-        // moment. It's unclear if otp_source_ will remain in the current form.
-        // Depending on that we may want to fix this or not.
-        one_time_tokens::OneTimeTokenType::kSmsOtp, "Identified OTP field.",
-        base::Time::Now())};
-  }
+OtpManagerImpl::OtpManagerImpl(BrowserAutofillManager& owner,
+                               OneTimeTokenService* one_time_token_service)
+    : owner_(owner), one_time_token_services_(one_time_token_service) {
+  autofill_manager_observation_.Observe(&owner);
 }
 
 OtpManagerImpl::~OtpManagerImpl() = default;
 
 void OtpManagerImpl::GetOtpSuggestions(
     OtpManagerImpl::GetOtpSuggestionsCallback callback) {
-  if (!sms_otp_retrieval_in_progress_) {
-    std::move(callback).Run(OtpsToSuggestionStrings(otp_suggestions_));
-  } else {
-    last_pending_get_suggestions_callback_ = std::move(callback);
+  // TODO(crbug.com/415273270) This is just a hack to prepopulate the OTPs in
+  // case no real backend is triggered. The feature definition should migrate to
+  // autofill.
+  if (base::FeatureList::IsEnabled(
+          password_manager::features::kDebugUiForOtps)) {
+    std::move(callback).Run({"Identified OTP field."});
+    return;
   }
+
+  last_pending_get_suggestions_callback_ = std::move(callback);
+
+  // This queries OTPs from the backend and calls `OnOneTimeTokenReceived` to
+  // deliver the OTP to `last_pending_get_suggestions_callback_`.
+  GetRecentOtpsAndRenewSubscription();
+}
+
+void OtpManagerImpl::GetRecentOtpsAndRenewSubscription() {
+  if (!one_time_token_services_) {
+    return;
+  }
+
+  one_time_token_services_->GetRecentOneTimeTokens(base::BindRepeating(
+      &OtpManagerImpl::OnOneTimeTokenReceived, weak_ptr_factory_.GetWeakPtr()));
+
+  if (subscription_.IsAlive()) {
+    subscription_.SetExpirationTime(base::Time::Now() + kSubscriptionDuration);
+    return;
+  }
+
+  subscription_ = one_time_token_services_->Subscribe(
+      base::Time::Now() + kSubscriptionDuration,
+      base::BindRepeating(&OtpManagerImpl::OnOneTimeTokenReceived,
+                          weak_ptr_factory_.GetWeakPtr()));
 }
 
 void OtpManagerImpl::OnFieldTypesDetermined(
@@ -59,17 +78,7 @@ void OtpManagerImpl::OnFieldTypesDetermined(
     FormGlobalId form_id,
     AutofillManager::Observer::FieldTypeSource source) {
   // On non-android platforms and in tests the backend may be not initialized.
-  if (!sms_otp_backend_) {
-    return;
-  }
-  // The first time an OTP field is detected, Chrome sends a request that is
-  // valid for 5 minutes. Therefore, we don't send multiple requests. There is
-  // no concept of failing to retrieve OTPs (having no OTP permission is
-  // currently out of scope). We don't try again after 5 minutes because the OTP
-  // is probably too old by that time.
-  // TODO(crbug.com/415273270) This will be replaced by a subscription
-  // mechanism.
-  if (sms_otp_retrieval_was_ever_started_) {
+  if (!one_time_token_services_) {
     return;
   }
 
@@ -86,40 +95,115 @@ void OtpManagerImpl::OnFieldTypesDetermined(
     return;
   }
 
-  StartOtpRetrieval();
+  GetRecentOtpsAndRenewSubscription();
 }
 
-void OtpManagerImpl::StartOtpRetrieval() {
-  sms_otp_retrieval_was_ever_started_ = true;
-  sms_otp_retrieval_in_progress_ = true;
-  sms_otp_backend_->RetrieveSmsOtp(base::BindOnce(
-      &OtpManagerImpl::OnOtpRetrievalComplete, weak_ptr_factory_.GetWeakPtr()));
+// This is a workaround to prevent the Keyboard Accessory from popping up when
+// an OTP arrives and the keyboard is hidden.
+// TODO(crbug.com/451991285): Remove this method once we switch to using
+// observers instead of delaying the callback.
+void OtpManagerImpl::OnBeforeFocusOnFormField(AutofillManager& manager,
+                                              FormGlobalId form,
+                                              FieldGlobalId field) {
+  if (!last_pending_get_suggestions_callback_.is_null()) {
+    std::move(last_pending_get_suggestions_callback_).Run({});
+  }
 }
 
-void OtpManagerImpl::OnOtpRetrievalComplete(
-    const one_time_tokens::OtpFetchReply& reply) {
-  sms_otp_retrieval_in_progress_ = false;
-  if (reply.otp_value.has_value() && !reply.otp_value->value().empty()) {
-    // If the same token was retrieved before, remove it.
-    std::erase_if(otp_suggestions_,
-                  [&reply](const one_time_tokens::OneTimeToken& token) {
-                    return token.value() == reply.otp_value.value().value();
-                  });
-    otp_suggestions_.push_back(reply.otp_value.value());
-
-    if (owner_ && owner_->GetMetricState().has_value()) {
-      owner_->GetMetricState()->otp_form_event_logger.OnOtpAvailable();
-    }
+// This is a workaround to prevent the Keyboard Accessory from popping up when
+// an OTP arrives and the keyboard is hidden.
+// TODO(crbug.com/451991285): Remove this method once we switch to using
+// observers instead of delaying the callback.
+void OtpManagerImpl::OnBeforeFocusOnNonFormField(AutofillManager& manager) {
+  if (!last_pending_get_suggestions_callback_.is_null()) {
+    std::move(last_pending_get_suggestions_callback_).Run({});
   }
+}
 
-  // Process the last pending callbacks from the UI to provide suggestions.
-  if (last_pending_get_suggestions_callback_.has_value()) {
-    std::move(*last_pending_get_suggestions_callback_)
-        .Run(OtpsToSuggestionStrings(otp_suggestions_));
-  }
-
+void OtpManagerImpl::OnOneTimeTokenReceived(
+    OneTimeTokenSource backend_type,
+    std::variant<OneTimeToken, OneTimeTokenRetrievalError> token_or_error) {
   // TODO(crbug.com/415272524): Record metrics on how often the retrieval
   // succeeds or fails, in combination with the OTP source.
+  // If token_or_error holds an error, run the callback with empty otp value.
+  if (std::holds_alternative<OneTimeTokenRetrievalError>(token_or_error)) {
+    if (!last_pending_get_suggestions_callback_.is_null()) {
+      std::move(last_pending_get_suggestions_callback_).Run({});
+    }
+    return;
+  }
+
+  // If we are here, token_or_error holds a OneTimeToken, we check if the
+  // callback is valid.
+  if (!last_pending_get_suggestions_callback_) {
+    return;
+  }
+
+  OneTimeToken& token = std::get<OneTimeToken>(token_or_error);
+
+  // We run PhishGuard check to make sure OTPs are not shown to users on
+  // potential phishing sites.
+  if (OtpPhishGuardDelegate* delegate =
+          owner_->client().GetOtpPhishGuardDelegate()) {
+    phish_guard_check_start_time_ = base::TimeTicks::Now();
+    base::UmaHistogramBoolean(
+        "Autofill.OneTimeTokens.PhishGuard.CheckPerformed", true);
+    delegate->StartOtpPhishGuardCheck(
+        owner_->client().GetLastCommittedPrimaryMainFrameURL(),
+        base::BindOnce(
+            [](base::WeakPtr<OtpManagerImpl> self, OneTimeToken token,
+               bool is_phishing_site) {
+              if (self) {
+                self->MaybeShowOtpSuggestions(
+                    std::move(token),
+                    is_phishing_site
+                        ? OneTimeTokensPhishGuardVerdict::kPhishing
+                        : OneTimeTokensPhishGuardVerdict::kNotPhishing);
+              }
+            },
+            weak_ptr_factory_.GetWeakPtr(), std::move(token)));
+  } else {
+    base::UmaHistogramBoolean(
+        "Autofill.OneTimeTokens.PhishGuard.CheckPerformed", false);
+    MaybeShowOtpSuggestions(std::move(token),
+                            OneTimeTokensPhishGuardVerdict::kUnknown);
+  }
+}
+
+void OtpManagerImpl::MaybeShowOtpSuggestions(
+    OneTimeToken token,
+    OneTimeTokensPhishGuardVerdict verdict) {
+  if (!phish_guard_check_start_time_.is_null()) {
+    base::UmaHistogramTimes(
+        "Autofill.OneTimeTokens.PhishGuard.Latency",
+        base::TimeTicks::Now() - phish_guard_check_start_time_);
+  }
+
+  base::UmaHistogramEnumeration("Autofill.OneTimeTokens.PhishGuard.Verdict",
+                                verdict);
+
+  if (!last_pending_get_suggestions_callback_) {
+    return;
+  }
+
+  std::vector<std::string> suggestions;
+  if (!token.value().empty()) {
+    suggestions.emplace_back(std::move(token).value());
+  }
+
+  if (IsOtpDeliveryBlocked() ||
+      verdict == OneTimeTokensPhishGuardVerdict::kPhishing) {
+    suggestions.clear();
+  }
+
+  if (owner_->GetMetricState().has_value()) {
+    owner_->GetMetricState()->otp_form_event_logger.OnOtpAvailable();
+  }
+  std::move(last_pending_get_suggestions_callback_).Run(std::move(suggestions));
+}
+
+bool OtpManagerImpl::IsOtpDeliveryBlocked() {
+  return owner_->client().DocumentUsedWebOTP();
 }
 
 }  // namespace autofill

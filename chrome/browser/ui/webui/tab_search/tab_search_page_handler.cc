@@ -62,7 +62,7 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
-#include "components/optimization_guide/core/optimization_guide_model_executor.h"
+#include "components/optimization_guide/core/model_execution/remote_model_executor.h"
 #include "components/optimization_guide/proto/model_quality_service.pb.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_metrics.h"
@@ -1428,10 +1428,13 @@ tab_search::mojom::TabPtr TabSearchPageHandler::GetTab(
   // A visible URL is used when the a new tab is still loading.
   // If it is cancelled during loading the visible URL becomes empty.
   // We will display an empty URL as about:blank in Javascript.
-  tab_data->url =
-      !last_committed_url.is_valid() || last_committed_url.is_empty()
-          ? tab_renderer_data.visible_url
-          : last_committed_url;
+  if (!last_committed_url.is_valid() || last_committed_url.is_empty()) {
+    tab_data->url = tab_renderer_data.should_display_url
+                        ? tab_renderer_data.visible_url
+                        : GURL(url::kAboutBlankURL);
+  } else {
+    tab_data->url = last_committed_url;
+  }
 
   if (tab_renderer_data.favicon.IsEmpty()) {
     tab_data->is_default_favicon = true;

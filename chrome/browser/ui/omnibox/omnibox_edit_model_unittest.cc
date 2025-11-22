@@ -17,6 +17,7 @@
 #include "base/test/task_environment.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_state_manager.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/omnibox/test_omnibox_edit_model.h"
@@ -31,6 +32,7 @@
 #include "components/omnibox/browser/fake_autocomplete_controller.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/omnibox/browser/omnibox_triggered_feature_service.h"
+#include "components/omnibox/browser/open_tab_provider.h"
 #include "components/omnibox/browser/search_provider.h"
 #include "components/omnibox/browser/test_location_bar_model.h"
 #include "components/omnibox/browser/test_omnibox_client.h"
@@ -93,13 +95,15 @@ void OpenUrlFromEditBox(OmniboxController* controller,
 class OmniboxEditModelTest : public testing::Test {
  public:
   OmniboxEditModelTest() {
-    view_ = std::make_unique<TestOmniboxView>(
-        std::make_unique<TestOmniboxClient>());
-    view_->controller()->SetEditModelForTesting(
-        std::make_unique<TestOmniboxEditModel>(view_->controller(), view_.get(),
-                                               pref_service()));
+    // Create the controller and the view and wire them together.
+    auto client = std::make_unique<TestOmniboxClient>();
+    auto* client_ptr = client.get();
+    controller_ = std::make_unique<OmniboxController>(std::move(client));
+    controller_->SetEditModelForTesting(std::make_unique<TestOmniboxEditModel>(
+        controller_.get(), pref_service()));
+    view_ = std::make_unique<TestOmniboxView>(controller_.get());
 
-    EXPECT_CALL(*client(), GetPrefs()).WillRepeatedly(Return(pref_service()));
+    EXPECT_CALL(*client_ptr, GetPrefs()).WillRepeatedly(Return(pref_service()));
   }
 
   void SetUp() override {
@@ -131,15 +135,16 @@ class OmniboxEditModelTest : public testing::Test {
     return client()->location_bar_model();
   }
   TestOmniboxEditModel* model() {
-    return static_cast<TestOmniboxEditModel*>(view_->model());
+    return static_cast<TestOmniboxEditModel*>(controller_->edit_model());
   }
-  OmniboxController* controller() { return view_->controller(); }
+  OmniboxController* controller() { return controller_.get(); }
   TestOmniboxClient* client() {
     return static_cast<TestOmniboxClient*>(controller()->client());
   }
 
  protected:
   base::test::TaskEnvironment task_environment_;
+  std::unique_ptr<OmniboxController> controller_;
   std::unique_ptr<TestOmniboxView> view_;
 };
 
@@ -276,7 +281,7 @@ TEST_F(OmniboxEditModelTest, CurrentMatch) {
 
     EXPECT_EQ(u"example.com", view()->GetText());
 
-    AutocompleteMatch match = model()->CurrentMatch(nullptr);
+    AutocompleteMatch match = model()->CurrentMatch();
     EXPECT_EQ(AutocompleteMatchType::URL_WHAT_YOU_TYPED, match.type);
     EXPECT_TRUE(model()->CurrentTextIsURL());
     EXPECT_EQ("http://www.example.com/", match.destination_url.spec());
@@ -292,7 +297,7 @@ TEST_F(OmniboxEditModelTest, CurrentMatch) {
 
     EXPECT_EQ(u"google.com", view()->GetText());
 
-    AutocompleteMatch match = model()->CurrentMatch(nullptr);
+    AutocompleteMatch match = model()->CurrentMatch();
     EXPECT_EQ(AutocompleteMatchType::URL_WHAT_YOU_TYPED, match.type);
     EXPECT_TRUE(model()->CurrentTextIsURL());
 
@@ -345,32 +350,7 @@ TEST_F(OmniboxEditModelTest, UnelideDoesNothingWhenFullURLAlreadyShown) {
   EXPECT_TRUE(model()->ShouldShowCurrentPageIcon());
 }
 
-// The tab-switching system sometimes focuses the Omnibox even if it was not
-// previously focused. In those cases, ignore the saved focus state.
-TEST_F(OmniboxEditModelTest, IgnoreInvalidSavedFocusStates) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {}, {omnibox::kOmniboxRestoreInvisibleFocusOnly});
-
-  // The Omnibox starts out unfocused. Save that state.
-  ASSERT_FALSE(model()->has_focus());
-  OmniboxEditModel::State state = model()->GetStateForTabSwitch();
-  ASSERT_EQ(OMNIBOX_FOCUS_NONE, state.focus_state);
-
-  // Simulate the tab-switching system focusing the Omnibox.
-  model()->OnSetFocus(false);
-
-  // Restoring the old saved state should not clobber the model's focus state.
-  model()->RestoreState(&state);
-  EXPECT_TRUE(model()->has_focus());
-  EXPECT_TRUE(model()->is_caret_visible());
-}
-
 TEST_F(OmniboxEditModelTest, RestoreInvisibleFocusOnlyForVisibleState) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {omnibox::kOmniboxRestoreInvisibleFocusOnly}, {});
-
   // The Omnibox starts out focused. Save that state.
   model()->OnSetFocus(false);
   ASSERT_TRUE(model()->has_focus());
@@ -387,10 +367,6 @@ TEST_F(OmniboxEditModelTest, RestoreInvisibleFocusOnlyForVisibleState) {
 }
 
 TEST_F(OmniboxEditModelTest, RestoreInvisibleFocusOnlyForInvisibleState) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {omnibox::kOmniboxRestoreInvisibleFocusOnly}, {});
-
   // The Omnibox starts out invisibly focused. Save that state.
   model()->OnSetFocus(false);
   model()->SetCaretVisibility(false);
@@ -410,36 +386,38 @@ TEST_F(OmniboxEditModelTest, RestoreInvisibleFocusOnlyForInvisibleState) {
 // Tests ConsumeCtrlKey() consumes ctrl key when down, but does not affect ctrl
 // state otherwise.
 TEST_F(OmniboxEditModelTest, ConsumeCtrlKey) {
-  model()->control_key_state_ = TestOmniboxEditModel::UP;
-  model()->ConsumeCtrlKey();
-  EXPECT_EQ(model()->control_key_state_, TestOmniboxEditModel::UP);
-  model()->control_key_state_ = TestOmniboxEditModel::DOWN;
+  model()->control_key_state_ = TestOmniboxEditModel::ControlKeyState::kUp;
   model()->ConsumeCtrlKey();
   EXPECT_EQ(model()->control_key_state_,
-            TestOmniboxEditModel::DOWN_AND_CONSUMED);
+            TestOmniboxEditModel::ControlKeyState::kUp);
+  model()->control_key_state_ = TestOmniboxEditModel::ControlKeyState::kDown;
   model()->ConsumeCtrlKey();
   EXPECT_EQ(model()->control_key_state_,
-            TestOmniboxEditModel::DOWN_AND_CONSUMED);
+            TestOmniboxEditModel::ControlKeyState::kDownAndConsumed);
+  model()->ConsumeCtrlKey();
+  EXPECT_EQ(model()->control_key_state_,
+            TestOmniboxEditModel::ControlKeyState::kDownAndConsumed);
 }
 
 // Tests ctrl_key_state_ is set consumed if the ctrl key is down on focus.
 TEST_F(OmniboxEditModelTest, ConsumeCtrlKeyOnRequestFocus) {
-  model()->control_key_state_ = TestOmniboxEditModel::DOWN;
+  model()->control_key_state_ = TestOmniboxEditModel::ControlKeyState::kDown;
   model()->OnSetFocus(false);
-  EXPECT_EQ(model()->control_key_state_, TestOmniboxEditModel::UP);
+  EXPECT_EQ(model()->control_key_state_,
+            TestOmniboxEditModel::ControlKeyState::kUp);
   model()->OnSetFocus(true);
   EXPECT_EQ(model()->control_key_state_,
-            TestOmniboxEditModel::DOWN_AND_CONSUMED);
+            TestOmniboxEditModel::ControlKeyState::kDownAndConsumed);
 }
 
 // Tests the ctrl key is consumed on a ctrl-action (e.g. ctrl-c to copy)
 TEST_F(OmniboxEditModelTest, ConsumeCtrlKeyOnCtrlAction) {
-  model()->control_key_state_ = TestOmniboxEditModel::DOWN;
+  model()->control_key_state_ = TestOmniboxEditModel::ControlKeyState::kDown;
   OmniboxView::StateChanges state_changes{nullptr, nullptr, {},   false,
                                           false,   false,   false};
   model()->OnAfterPossibleChange(state_changes, false);
   EXPECT_EQ(model()->control_key_state_,
-            TestOmniboxEditModel::DOWN_AND_CONSUMED);
+            TestOmniboxEditModel::ControlKeyState::kDownAndConsumed);
 }
 
 TEST_F(OmniboxEditModelTest, KeywordModePreservesInlineAutocompleteText) {
@@ -535,6 +513,17 @@ TEST_F(OmniboxEditModelTest,
 
 class OmniboxEditModelPopupTest : public ::testing::Test {
  public:
+  class TestObserver : public OmniboxEditModel::Observer {
+   public:
+    MOCK_METHOD(void,
+                OnSelectionChanged,
+                (OmniboxPopupSelection, OmniboxPopupSelection),
+                (override));
+    MOCK_METHOD(void, OnMatchIconUpdated, (size_t), (override));
+    MOCK_METHOD(void, OnContentsChanged, (), (override));
+    MOCK_METHOD(void, OnKeywordStateChanged, (bool), (override));
+  };
+
   OmniboxEditModelPopupTest() {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
     // `kExperimentalOmniboxLabs` feature flag has to be enabled
@@ -545,16 +534,19 @@ class OmniboxEditModelPopupTest : public ::testing::Test {
         extensions_features::kExperimentalOmniboxLabs);
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
-    view_ = std::make_unique<TestOmniboxView>(
-        std::make_unique<TestOmniboxClient>());
-    view_->controller()->SetEditModelForTesting(
-        std::make_unique<TestOmniboxEditModel>(view_->controller(), view_.get(),
-                                               pref_service()));
+    // Create the controller and the view and wire them together.
+    auto client = std::make_unique<TestOmniboxClient>();
+    auto* client_ptr = client.get();
+    controller_ = std::make_unique<OmniboxController>(std::move(client));
+    controller_->SetEditModelForTesting(std::make_unique<TestOmniboxEditModel>(
+        controller_.get(), pref_service()));
+    view_ = std::make_unique<TestOmniboxView>(controller_.get());
 
-    EXPECT_CALL(*client(), GetPrefs()).WillRepeatedly(Return(pref_service()));
+    EXPECT_CALL(*client_ptr, GetPrefs()).WillRepeatedly(Return(pref_service()));
 
     model()->set_popup_view(&popup_view_);
-    model()->SetPopupIsOpen(true);
+    controller_->popup_state_manager()->SetPopupState(
+        OmniboxPopupState::kClassic);
   }
 
   void SetUp() override {
@@ -585,16 +577,23 @@ class OmniboxEditModelPopupTest : public ::testing::Test {
     return &triggered_feature_service_;
   }
   TestOmniboxEditModel* model() {
-    return static_cast<TestOmniboxEditModel*>(view_->model());
+    return static_cast<TestOmniboxEditModel*>(controller_->edit_model());
   }
-  OmniboxController* controller() { return view_->controller(); }
+  OmniboxController* controller() { return controller_.get(); }
   TestOmniboxClient* client() {
     return static_cast<TestOmniboxClient*>(controller()->client());
+  }
+  AutocompleteInput& AutocompleteControllerInput() {
+    return controller()->autocomplete_controller()->input_;
+  }
+  AutocompleteResult& AutocompleteControllerPublishedResult() {
+    return controller()->autocomplete_controller()->published_result_;
   }
 
  protected:
   base::test::ScopedFeatureList feature_list_;
   base::test::TaskEnvironment task_environment_;
+  std::unique_ptr<OmniboxController> controller_;
   std::unique_ptr<TestOmniboxView> view_;
   TestOmniboxPopupView popup_view_;
   OmniboxTriggeredFeatureService triggered_feature_service_;
@@ -612,7 +611,7 @@ TEST_F(OmniboxEditModelPopupTest, SetSelectedLine) {
     match.allowed_to_be_default_match = true;
     matches.push_back(match);
   }
-  auto* result = &controller()->autocomplete_controller()->published_result_;
+  auto* result = &AutocompleteControllerPublishedResult();
   AutocompleteInput input(u"match", metrics::OmniboxEventProto::NTP,
                           TestSchemeClassifier());
   result->AppendMatches(matches);
@@ -677,8 +676,7 @@ TEST_F(OmniboxEditModelPopupTest,
   matches.push_back(gemini_match);
   matches.push_back(sitesearch_featured_match);
   matches.push_back(sitesearch_nonfeatured_match);
-  AutocompleteResult* result =
-      &controller()->autocomplete_controller()->published_result_;
+  AutocompleteResult* result = &AutocompleteControllerPublishedResult();
   result->AppendMatches(matches);
 
   // Test cases.
@@ -712,7 +710,7 @@ TEST_F(OmniboxEditModelPopupTest, SetSelectedLineWithNoDefaultMatches) {
     match.keyword = u"match";
     matches.push_back(match);
   }
-  auto* result = &controller()->autocomplete_controller()->published_result_;
+  auto* result = &AutocompleteControllerPublishedResult();
   AutocompleteInput input(u"match", metrics::OmniboxEventProto::NTP,
                           TestSchemeClassifier());
   result->AppendMatches(matches);
@@ -747,7 +745,7 @@ TEST_F(OmniboxEditModelPopupTest, PopupPositionChanging) {
     match.allowed_to_be_default_match = true;
     matches.push_back(match);
   }
-  auto* result = &controller()->autocomplete_controller()->published_result_;
+  auto* result = &AutocompleteControllerPublishedResult();
   AutocompleteInput input(u"match", metrics::OmniboxEventProto::NTP,
                           TestSchemeClassifier());
   result->AppendMatches(matches);
@@ -798,7 +796,7 @@ TEST_F(OmniboxEditModelPopupTest, PopupStepSelection) {
   // Make match index 5 have a suggestion_group_id but no header text.
   matches[5].suggestion_group_id = omnibox::GROUP_HISTORY_CLUSTER;
 
-  auto* result = &controller()->autocomplete_controller()->published_result_;
+  auto* result = &AutocompleteControllerPublishedResult();
   result->AppendMatches(matches);
 
   omnibox::GroupConfigMap suggestion_groups_map;
@@ -913,7 +911,7 @@ TEST_F(OmniboxEditModelPopupTest, PopupStepSelectionWithActions) {
   matches[3].takeover_action = base::MakeRefCounted<OmniboxAction>(
       OmniboxAction::LabelStrings(), GURL());
 
-  auto* result = &controller()->autocomplete_controller()->published_result_;
+  auto* result = &AutocompleteControllerPublishedResult();
   result->AppendMatches(matches);
 
   AutocompleteInput input(u"match", metrics::OmniboxEventProto::NTP,
@@ -1011,7 +1009,7 @@ TEST_F(OmniboxEditModelPopupTest, PopupInlineAutocompleteAndTemporaryText) {
   const auto kNewGroupId = omnibox::GROUP_PREVIOUS_SEARCH_RELATED;
   matches[2].suggestion_group_id = kNewGroupId;
 
-  auto* result = &controller()->autocomplete_controller()->published_result_;
+  auto* result = &AutocompleteControllerPublishedResult();
   result->AppendMatches(matches);
 
   omnibox::GroupConfigMap suggestion_groups_map;
@@ -1058,10 +1056,8 @@ TEST_F(OmniboxEditModelPopupTest, PopupInlineAutocompleteAndTemporaryText) {
   EXPECT_TRUE(model()->is_temporary_text());
 }
 
-// Makes sure focus remains on the tab switch button when nothing changes,
-// and leaves when it does. Exercises the ratcheting logic in
-// OmniboxEditModel::OnPopupResultChanged().
-TEST_F(OmniboxEditModelPopupTest, TestFocusFixing) {
+// Makes sure focus resets to the default match when results changes.
+TEST_F(OmniboxEditModelPopupTest, ResetFocusOnResultChange) {
   ACMatches matches;
   AutocompleteMatch match(nullptr, 1000, false,
                           AutocompleteMatchType::URL_WHAT_YOU_TYPED);
@@ -1071,7 +1067,7 @@ TEST_F(OmniboxEditModelPopupTest, TestFocusFixing) {
   match.has_tab_match = true;
   matches.push_back(match);
 
-  auto* result = &controller()->autocomplete_controller()->published_result_;
+  auto* result = &AutocompleteControllerPublishedResult();
   AutocompleteInput input(u"match", metrics::OmniboxEventProto::NTP,
                           TestSchemeClassifier());
   result->AppendMatches(matches);
@@ -1079,18 +1075,20 @@ TEST_F(OmniboxEditModelPopupTest, TestFocusFixing) {
                       triggered_feature_service(), /*is_lens_active=*/false,
                       /*can_show_contextual_suggestions=*/false,
                       /*mia_enabled=*/false, /*is_incognito=*/false);
+  // Default match should be focused initially.
   model()->OnPopupResultChanged();
+  EXPECT_EQ(model()->GetPopupSelection(),
+            OmniboxPopupSelection(0u, Selection::NORMAL));
   model()->SetPopupSelection(Selection(0), true, false);
-  // The default state should be unfocused.
-  EXPECT_EQ(Selection::NORMAL, model()->GetPopupSelection().state);
+  EXPECT_EQ(model()->GetPopupSelection(),
+            OmniboxPopupSelection(0u, Selection::NORMAL));
 
-  // Focus the selection.
+  // Focus the button.
   model()->SetPopupSelection(Selection(0, Selection::FOCUSED_BUTTON_ACTION));
-  EXPECT_EQ(Selection::FOCUSED_BUTTON_ACTION,
-            model()->GetPopupSelection().state);
+  EXPECT_EQ(model()->GetPopupSelection(),
+            OmniboxPopupSelection(0u, Selection::FOCUSED_BUTTON_ACTION));
 
-  // Adding a match at end won't change that we selected first suggestion, so
-  // shouldn't change focused state.
+  // Adding a match at end. Expect focus to reset.
   matches[0].relevance = 999;
   // Give it a different name so not deduped.
   matches[0].contents = u"match2.com";
@@ -1101,17 +1099,21 @@ TEST_F(OmniboxEditModelPopupTest, TestFocusFixing) {
                       /*can_show_contextual_suggestions=*/false,
                       /*mia_enabled=*/false, /*is_incognito=*/false);
   model()->OnPopupResultChanged();
-  EXPECT_EQ(Selection::FOCUSED_BUTTON_ACTION,
-            model()->GetPopupSelection().state);
+  EXPECT_EQ(model()->GetPopupSelection(),
+            OmniboxPopupSelection(0u, Selection::NORMAL));
 
-  // Changing selection should change focused state.
+  // Focus the 2nd match.
   model()->SetPopupSelection(Selection(1));
-  EXPECT_EQ(Selection::NORMAL, model()->GetPopupSelection().state);
+  EXPECT_EQ(model()->GetPopupSelection(),
+            OmniboxPopupSelection(1u, Selection::NORMAL));
 
-  // Adding a match at end will reset selection to first, so should change
-  // selected line, and thus focus.
+  // Focus the button.
   model()->SetPopupSelection(Selection(model()->GetPopupSelection().line,
                                        Selection::FOCUSED_BUTTON_ACTION));
+  EXPECT_EQ(model()->GetPopupSelection(),
+            OmniboxPopupSelection(1u, Selection::FOCUSED_BUTTON_ACTION));
+
+  // Adding a match at end. Expect focus to reset.
   matches[0].relevance = 999;
   matches[0].contents = u"match3.com";
   matches[0].destination_url = GURL("http://match3.com");
@@ -1121,31 +1123,8 @@ TEST_F(OmniboxEditModelPopupTest, TestFocusFixing) {
                       /*can_show_contextual_suggestions=*/false,
                       /*mia_enabled=*/false, /*is_incognito=*/false);
   model()->OnPopupResultChanged();
-  EXPECT_EQ(0U, model()->GetPopupSelection().line);
-  EXPECT_EQ(Selection::NORMAL, model()->GetPopupSelection().state);
-
-  // Prepending a match won't change selection, but since URL is different,
-  // should clear the focus state.
-  model()->SetPopupSelection(Selection(model()->GetPopupSelection().line,
-                                       Selection::FOCUSED_BUTTON_ACTION));
-  matches[0].relevance = 1100;
-  matches[0].contents = u"match4.com";
-  matches[0].destination_url = GURL("http://match4.com");
-  result->AppendMatches(matches);
-  result->SortAndCull(input, /*template_url_service=*/nullptr,
-                      triggered_feature_service(), /*is_lens_active=*/false,
-                      /*can_show_contextual_suggestions=*/false,
-                      /*mia_enabled=*/false, /*is_incognito=*/false);
-  model()->OnPopupResultChanged();
-  EXPECT_EQ(0U, model()->GetPopupSelection().line);
-  EXPECT_EQ(Selection::NORMAL, model()->GetPopupSelection().state);
-
-  // Selecting |kNoMatch| should clear focus.
-  model()->SetPopupSelection(Selection(model()->GetPopupSelection().line,
-                                       Selection::FOCUSED_BUTTON_ACTION));
-  model()->SetPopupSelection(Selection(Selection::kNoMatch));
-  model()->OnPopupResultChanged();
-  EXPECT_EQ(Selection::NORMAL, model()->GetPopupSelection().state);
+  EXPECT_EQ(model()->GetPopupSelection(),
+            OmniboxPopupSelection(0u, Selection::NORMAL));
 }
 
 // Android handles actions and metrics differently from other platforms.
@@ -1165,8 +1144,7 @@ TEST_F(OmniboxEditModelPopupTest, OpenActionSelectionLogsOmniboxEvent) {
   matches[1].provider =
       controller()->autocomplete_controller()->search_provider();
   matches[1].actions.push_back(base::MakeRefCounted<TabSwitchAction>(url));
-  AutocompleteResult* result =
-      &controller()->autocomplete_controller()->published_result_;
+  AutocompleteResult* result = &AutocompleteControllerPublishedResult();
   result->AppendMatches(matches);
   AutocompleteInput input(u"match", metrics::OmniboxEventProto::NTP,
                           TestSchemeClassifier());
@@ -1185,7 +1163,7 @@ TEST_F(OmniboxEditModelPopupTest, OpenActionSelectionLogsOmniboxEvent) {
 
 TEST_F(OmniboxEditModelPopupTest, OpenThumbsDownSelectionShowsFeedback) {
   // Set the input on the controller.
-  controller()->autocomplete_controller()->input_ = AutocompleteInput(
+  AutocompleteControllerInput() = AutocompleteInput(
       u"a", metrics::OmniboxEventProto::NTP, TestSchemeClassifier());
 
   // Set the matches on the controller.
@@ -1205,9 +1183,9 @@ TEST_F(OmniboxEditModelPopupTest, OpenThumbsDownSelectionShowsFeedback) {
     match.destination_url = GURL("https://foo/");
     matches.push_back(match);
   }
-  auto* result = &controller()->autocomplete_controller()->published_result_;
+  auto* result = &AutocompleteControllerPublishedResult();
   result->AppendMatches(matches);
-  result->SortAndCull(controller()->autocomplete_controller()->input_,
+  result->SortAndCull(AutocompleteControllerInput(),
                       /*template_url_service=*/nullptr,
                       triggered_feature_service(), /*is_lens_active=*/false,
                       /*can_show_contextual_suggestions=*/false,
@@ -1358,8 +1336,7 @@ TEST_F(OmniboxEditModelPopupTest,
                               AutocompleteMatchType::URL_WHAT_YOU_TYPED);
   url_match.keyword = u"match";
   matches.push_back(url_match);
-  AutocompleteResult* result =
-      &controller()->autocomplete_controller()->published_result_;
+  AutocompleteResult* result = &AutocompleteControllerPublishedResult();
   result->AppendMatches(matches);
 
   // Sets the icon bitmap for search aggregator match.
@@ -1384,8 +1361,7 @@ TEST_F(OmniboxEditModelPopupTest,
                                   AutocompleteMatchType::NAVSUGGEST);
   content_match.icon_url = GURL("https://example.com/icon.png");
   matches.push_back(content_match);
-  AutocompleteResult* result =
-      &controller()->autocomplete_controller()->published_result_;
+  AutocompleteResult* result = &AutocompleteControllerPublishedResult();
   result->AppendMatches(matches);
 
   // Sets the icon bitmap for content match.
@@ -1460,8 +1436,7 @@ TEST_F(OmniboxEditModelPopupTest, GetIconForExtensionWithImageURL) {
   // Creates a set of matches.
   ACMatches matches;
   matches.push_back(match);
-  AutocompleteResult* result =
-      &controller()->autocomplete_controller()->published_result_;
+  AutocompleteResult* result = &AutocompleteControllerPublishedResult();
   result->AppendMatches(matches);
 
   // Sets the popup rich suggestion bitmap for the extension match.
@@ -1484,14 +1459,15 @@ TEST_F(OmniboxEditModelTest, OmniboxEscapeHistogram) {
   view()->SetUserText(u"user text");
   model()->OnSetFocus(false);
   model()->SetInputInProgress(true);
-  model()->SetPopupIsOpen(true);
+  controller()->popup_state_manager()->SetPopupState(
+      OmniboxPopupState::kClassic);
   model()->OnPopupDataChanged(/*temporary_text=*/u"fake_temporary_text",
                               /*is_temporary_text=*/true, std::u16string(),
                               std::u16string(), std::u16string(), false,
                               std::u16string(), {});
 
   EXPECT_TRUE(model()->HasTemporaryText());
-  EXPECT_TRUE(model()->PopupIsOpen());
+  EXPECT_TRUE(controller()->IsPopupOpen());
   EXPECT_EQ(view()->GetText(), u"fake_temporary_text");
   EXPECT_TRUE(model()->user_input_in_progress());
   EXPECT_TRUE(model()->has_focus());
@@ -1502,7 +1478,7 @@ TEST_F(OmniboxEditModelTest, OmniboxEscapeHistogram) {
     EXPECT_TRUE(model()->OnEscapeKeyPressed());
     histogram_tester.ExpectUniqueSample("Omnibox.Escape", 1, 1);
     EXPECT_FALSE(model()->HasTemporaryText());
-    EXPECT_TRUE(model()->PopupIsOpen());
+    EXPECT_TRUE(controller()->IsPopupOpen());
     EXPECT_EQ(view()->GetText(), u"");
     EXPECT_TRUE(model()->user_input_in_progress());
     EXPECT_TRUE(model()->has_focus());
@@ -1513,9 +1489,10 @@ TEST_F(OmniboxEditModelTest, OmniboxEscapeHistogram) {
     base::HistogramTester histogram_tester;
     EXPECT_TRUE(model()->OnEscapeKeyPressed());
     histogram_tester.ExpectUniqueSample("Omnibox.Escape", 2, 1);
-    model()->SetPopupIsOpen(false);  // `TestOmniboxEditModel` stubs the popup.
+    controller()->popup_state_manager()->SetPopupState(
+        OmniboxPopupState::kNone);
     EXPECT_FALSE(model()->HasTemporaryText());
-    EXPECT_FALSE(model()->PopupIsOpen());
+    EXPECT_FALSE(controller()->IsPopupOpen());
     EXPECT_EQ(view()->GetText(), u"");
     EXPECT_TRUE(model()->user_input_in_progress());
     EXPECT_TRUE(model()->has_focus());
@@ -1527,7 +1504,7 @@ TEST_F(OmniboxEditModelTest, OmniboxEscapeHistogram) {
     EXPECT_TRUE(model()->OnEscapeKeyPressed());
     histogram_tester.ExpectUniqueSample("Omnibox.Escape", 3, 1);
     EXPECT_FALSE(model()->HasTemporaryText());
-    EXPECT_FALSE(model()->PopupIsOpen());
+    EXPECT_FALSE(controller()->IsPopupOpen());
     EXPECT_EQ(view()->GetText(), u"");
     EXPECT_FALSE(model()->user_input_in_progress());
     EXPECT_TRUE(model()->has_focus());
@@ -1541,7 +1518,7 @@ TEST_F(OmniboxEditModelTest, OmniboxEscapeHistogram) {
     model()->OnKillFocus();  // `TestOmniboxEditModel` stubs the client which
                              // handles blurring the omnibox.
     EXPECT_FALSE(model()->HasTemporaryText());
-    EXPECT_FALSE(model()->PopupIsOpen());
+    EXPECT_FALSE(controller()->IsPopupOpen());
     EXPECT_EQ(view()->GetText(), u"");
     EXPECT_FALSE(model()->user_input_in_progress());
     EXPECT_FALSE(model()->has_focus());
@@ -1636,12 +1613,12 @@ TEST_F(OmniboxEditModelPopupTest,
   match_without_associated_keyword.keyword =
       u"match_without_associated_keyword";
   matches.push_back(match_without_associated_keyword);
-  auto* result = &controller()->autocomplete_controller()->published_result_;
+  auto* result = &AutocompleteControllerPublishedResult();
   result->AppendMatches(matches);
 
-  const SkBitmap* actual_bitmap = model()->GetPopupRichSuggestionBitmap(
-      u"match_without_associated_keyword");
-
+  const SkBitmap* actual_bitmap =
+      model()->GetPopupRichSuggestionBitmapForKeyword(
+          u"match_without_associated_keyword");
   EXPECT_FALSE(actual_bitmap);
 }
 
@@ -1665,19 +1642,48 @@ TEST_F(OmniboxEditModelPopupTest,
   match_with_bitmap.keyword = u"match_with_bitmap";
   match_with_bitmap.associated_keyword = u"match_with_bitmap";
   matches.push_back(match_with_bitmap);
-  auto* result = &controller()->autocomplete_controller()->published_result_;
+  auto* result = &AutocompleteControllerPublishedResult();
   result->AppendMatches(matches);
 
   // Store bitmap for 'match_with_bitmap' match.
   model()->rich_suggestion_bitmaps_.insert({1, expected_bitmap});
 
   const SkBitmap* match_without_bitmap_bitmap =
-      model()->GetPopupRichSuggestionBitmap(u"match_without_bitmap");
+      model()->GetPopupRichSuggestionBitmapForKeyword(u"match_without_bitmap");
   EXPECT_FALSE(match_without_bitmap_bitmap);
 
   const SkBitmap* match_with_bitmap_bitmap =
-      model()->GetPopupRichSuggestionBitmap(u"match_with_bitmap");
-  EXPECT_TRUE(match_with_bitmap_bitmap);
+      model()->GetPopupRichSuggestionBitmapForKeyword(u"match_with_bitmap");
+  ASSERT_TRUE(match_with_bitmap_bitmap);
   gfx::test::CheckColors(expected_bitmap.getColor(0, 0),
                          match_with_bitmap_bitmap->getColor(0, 0));
+}
+
+TEST_F(OmniboxEditModelPopupTest, KeywordStateObserver) {
+  TestObserver observer;
+  model()->AddObserver(&observer);
+
+  // Entering keyword mode should notify observers.
+  EXPECT_CALL(observer, OnKeywordStateChanged(true));
+  model()->SetKeyword(u"keyword");
+  model()->SetIsKeywordHint(false);
+  testing::Mock::VerifyAndClearExpectations(&observer);
+
+  // Leaving keyword mode should notify observers.
+  EXPECT_CALL(observer, OnKeywordStateChanged(false));
+  model()->SetKeyword(u"");
+  testing::Mock::VerifyAndClearExpectations(&observer);
+
+  // Setting hint state should notify if it changes keyword selected state.
+  model()->SetKeyword(u"keyword");
+  EXPECT_CALL(observer, OnKeywordStateChanged(false));
+  model()->SetIsKeywordHint(true);
+  testing::Mock::VerifyAndClearExpectations(&observer);
+
+  // Setting hint state should not notify if it doesn't change selected state.
+  EXPECT_CALL(observer, OnKeywordStateChanged(testing::_)).Times(0);
+  model()->SetIsKeywordHint(true);
+  testing::Mock::VerifyAndClearExpectations(&observer);
+
+  model()->RemoveObserver(&observer);
 }

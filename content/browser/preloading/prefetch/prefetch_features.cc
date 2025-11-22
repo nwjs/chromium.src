@@ -58,8 +58,6 @@ bool IsPrefetchServiceWorkerEnabled(content::BrowserContext* browser_context) {
              browser_context);
 }
 
-BASE_FEATURE(kPrefetchBrowsingDataRemoval, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kPrefetchScheduler, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<bool> kPrefetchSchedulerProgressSyncBestEffort{
     &kPrefetchScheduler, "kPrefetchSchedulerProgressSyncBestEffort", true};
@@ -74,9 +72,6 @@ const base::FeatureParam<size_t>
         &kPrefetchSchedulerTesting,
         "kPrefetchSchedulerTestingActiveSetSizeLimitForBurst", 1};
 
-BASE_FEATURE(kPrefetchQueueingPartialFixWithoutScheduler,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kPrefetchCanaryCheckerParams, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPrefetchMultipleActiveSetSizeLimitForBase,
@@ -86,7 +81,11 @@ const base::FeatureParam<size_t>
         &kPrefetchMultipleActiveSetSizeLimitForBase,
         "prefetch_multiple_active_set_size_limit_for_base_value", 2};
 
-// Currently this feature is disabled for https://crbug.com/444634885.
-BASE_FEATURE(kPreloadServingMetrics, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kPreloadServingMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPrefetchGracefulNotification, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPrefetchAsyncCancelOnCookiesChange,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace features

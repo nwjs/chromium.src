@@ -23,8 +23,6 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/glic_fre_resources.h"
 #include "chrome/grit/glic_fre_resources_map.h"
-#include "chrome/grit/glic_resources.h"
-#include "chrome/grit/glic_resources_map.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_contents.h"
@@ -68,9 +66,6 @@ GlicFreUI::GlicFreUI(content::WebUI* web_ui) : ui::MojoWebUIController(web_ui) {
       browser_context, chrome::kChromeUIGlicFreHost);
   ConfigureSharedWebUISource(*source);
 
-  // Explicitly add source shared with chrome://glic.
-  source->AddResourcePath("glic/glic_request_headers.js",
-      IDR_GLIC_GLIC_REQUEST_HEADERS_JS);
   source->AddResourcePath("glic_logo.svg", GetResourceID(IDR_GLIC_LOGO));
 
   // Add required resources.
@@ -80,7 +75,7 @@ GlicFreUI::GlicFreUI(content::WebUI* web_ui) : ui::MojoWebUIController(web_ui) {
   source->AddLocalizedStrings(kStrings);
 
   // Add parameterized admin notice string.
-  source->AddString("disabledByAdminNotice",
+  source->AddString("disabledByAdminNoticeWithLink",
                     l10n_util::GetStringFUTF16(
                         IDS_GLIC_DISABLED_BY_ADMIN_NOTICE_WITH_LINK,
                         base::UTF8ToUTF16(features::kGlicCaaLinkUrl.Get()),
@@ -96,6 +91,9 @@ GlicFreUI::GlicFreUI(content::WebUI* web_ui) : ui::MojoWebUIController(web_ui) {
 
   int reload_max_loading_time_ms = features::kGlicReloadMaxLoadingTimeMs.Get();
   source->AddInteger("reloadMaxLoadingTimeMs", reload_max_loading_time_ms);
+  source->AddBoolean("isUnifiedFre",
+                     GlicEnabling::IsUnifiedFreEnabled(
+                         Profile::FromBrowserContext(browser_context)));
   source->AddBoolean("caaGuestError", base::FeatureList::IsEnabled(
                                           features::kGlicCaaGuestError));
 }
@@ -113,7 +111,8 @@ void GlicFreUI::BindInterface(
 void GlicFreUI::CreatePageHandler(
     mojo::PendingReceiver<glic::mojom::FrePageHandler> receiver) {
   fre_page_handler_ = std::make_unique<GlicFrePageHandler>(
-      web_ui()->GetWebContents(), std::move(receiver));
+      /*is_unified_fre=*/false, web_ui()->GetWebContents(),
+      std::move(receiver));
 }
 
 }  // namespace glic

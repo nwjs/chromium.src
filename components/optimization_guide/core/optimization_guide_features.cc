@@ -84,12 +84,6 @@ BASE_FEATURE(kOptimizationGuideFetchingForSRP,
 // Kill switch for disabling model quality logging.
 BASE_FEATURE(kModelQualityLogging, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables fetching personalized metadata from the Optimization Guide Service
-// (on-demand fetching).
-BASE_FEATURE(kOptimizationGuidePersonalizedFetching,
-             "OptimizationPersonalizedHintsFetching",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // An emergency kill switch feature to stop serving certain model versions per
 // optimization target. This is useful in exceptional situations when a bad
 // model version got served that lead to crashes or critical failures, and an
@@ -136,9 +130,6 @@ BASE_FEATURE(kOnDeviceModelFetchPerformanceClassEveryStartup,
 // would be unavailable otherwise. This is meant for development and test
 // purposes only.
 BASE_FEATURE(kAiSettingsPageForceAvailable, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enable AI settings page integration with Privacy Guide.
-BASE_FEATURE(kPrivacyGuideAiSettings, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kOnDeviceModelPerformanceParams, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -259,25 +250,7 @@ bool ShouldPersistHintsToDisk() {
 
 RequestContextSet GetAllowedContextsForPersonalizedMetadata() {
   RequestContextSet allowed_contexts;
-  if (!base::FeatureList::IsEnabled(kOptimizationGuidePersonalizedFetching)) {
-    return allowed_contexts;
-  }
-  base::FieldTrialParams params;
-  if (base::GetFieldTrialParamsByFeature(kOptimizationGuidePersonalizedFetching,
-                                         &params) &&
-      params.contains("allowed_contexts")) {
-    for (const auto& context_str : base::SplitString(
-             base::GetFieldTrialParamValueByFeature(
-                 kOptimizationGuidePersonalizedFetching, "allowed_contexts"),
-             ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY)) {
-      proto::RequestContext context;
-      if (proto::RequestContext_Parse(context_str, &context)) {
-        allowed_contexts.Put(context);
-      }
-    }
-  } else {
-    allowed_contexts.Put(proto::RequestContext::CONTEXT_PAGE_INSIGHTS_HUB);
-  }
+  allowed_contexts.Put(proto::RequestContext::CONTEXT_PAGE_INSIGHTS_HUB);
   return allowed_contexts;
 }
 
@@ -446,47 +419,6 @@ base::TimeDelta GetOnDeviceModelExecutionValidationStartupDelay() {
   return kOnDeviceModelExecutionValidationStartupDelay.Get();
 }
 
-int GetOnDeviceModelMinTokensForContext() {
-  static const base::FeatureParam<int> kOnDeviceModelMinTokensForContext{
-      &kOptimizationGuideOnDeviceModel,
-      "on_device_model_min_tokens_for_context", 1024};
-  return kOnDeviceModelMinTokensForContext.Get();
-}
-
-int GetOnDeviceModelMaxTokensForContext() {
-  static const base::FeatureParam<int> kOnDeviceModelMaxTokensForContext{
-      &kOptimizationGuideOnDeviceModel,
-      "on_device_model_max_tokens_for_context", 8192};
-  return kOnDeviceModelMaxTokensForContext.Get();
-}
-
-int GetOnDeviceModelContextTokenChunkSize() {
-  static const base::FeatureParam<int> kOnDeviceModelContextTokenChunkSize{
-      &kOptimizationGuideOnDeviceModel,
-      "on_device_model_context_token_chunk_size", 512};
-  return kOnDeviceModelContextTokenChunkSize.Get();
-}
-
-int GetOnDeviceModelMaxTokensForExecute() {
-  static const base::FeatureParam<int> kOnDeviceModelMaxTokensForExecute{
-      &kOptimizationGuideOnDeviceModel,
-      "on_device_model_max_tokens_for_execute", 1024};
-  return kOnDeviceModelMaxTokensForExecute.Get();
-}
-
-int GetOnDeviceModelMaxTokensForOutput() {
-  static const base::FeatureParam<int> kOnDeviceModelMaxTokensForOutput{
-      &kOptimizationGuideOnDeviceModel, "on_device_model_max_tokens_for_output",
-      1024};
-  return kOnDeviceModelMaxTokensForOutput.Get();
-}
-
-uint32_t GetOnDeviceModelMaxTokens() {
-  return static_cast<uint32_t>(GetOnDeviceModelMaxTokensForContext() +
-                               GetOnDeviceModelMaxTokensForExecute() +
-                               GetOnDeviceModelMaxTokensForOutput());
-}
-
 int GetOnDeviceModelCrashCountBeforeDisable() {
   static const base::FeatureParam<int> kOnDeviceModelDisableCrashCount{
       &kOptimizationGuideOnDeviceModel, "on_device_model_disable_crash_count",
@@ -515,14 +447,6 @@ base::TimeDelta GetOnDeviceStartupMetricDelay() {
       &kLogOnDeviceMetricsOnStartup, "on_device_startup_metric_delay",
       base::Minutes(3)};
   return kOnDeviceStartupMetricDelay.Get();
-}
-
-bool GetOnDeviceFallbackToServerOnDisconnect() {
-  static const base::FeatureParam<bool>
-      kOnDeviceModelFallbackToServerOnDisconnect{
-          &kOptimizationGuideOnDeviceModel,
-          "on_device_fallback_to_server_on_disconnect", true};
-  return kOnDeviceModelFallbackToServerOnDisconnect.Get();
 }
 
 bool CanLaunchOnDeviceModelService() {
@@ -653,10 +577,6 @@ std::vector<uint32_t> GetOnDeviceModelAllowedAdaptationRanks() {
 
 bool ShouldEnableOptimizationGuideIconView() {
   return base::FeatureList::IsEnabled(kOptimizationGuideIconView);
-}
-
-bool IsPrivacyGuideAiSettingsEnabled() {
-  return base::FeatureList::IsEnabled(kPrivacyGuideAiSettings);
 }
 
 }  // namespace features

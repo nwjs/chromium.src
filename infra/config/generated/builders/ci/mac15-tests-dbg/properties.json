@@ -6,8 +6,8 @@
           {
             "builder_id": {
               "bucket": "ci",
-              "builder": "Mac Builder (dbg)",
-              "project": "chromium-m142"
+              "builder": "mac-arm64-dbg",
+              "project": "chromium-m143"
             },
             "builder_spec": {
               "builder_group": "chromium.mac",
@@ -18,7 +18,7 @@
                 ],
                 "build_config": "Debug",
                 "config": "chromium",
-                "target_arch": "intel",
+                "target_arch": "arm",
                 "target_bits": 64,
                 "target_platform": "mac"
               },
@@ -31,7 +31,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "mac15-tests-dbg",
-              "project": "chromium-m142"
+              "project": "chromium-m143"
             },
             "builder_spec": {
               "builder_group": "chromium.mac",
@@ -42,7 +42,7 @@
                 ],
                 "build_config": "Debug",
                 "config": "chromium",
-                "target_arch": "intel",
+                "target_arch": "arm",
                 "target_bits": 64,
                 "target_platform": "mac"
               },
@@ -51,8 +51,8 @@
               },
               "parent": {
                 "bucket": "ci",
-                "builder": "Mac Builder (dbg)",
-                "project": "chromium-m142"
+                "builder": "mac-arm64-dbg",
+                "project": "chromium-m143"
               }
             }
           }
@@ -62,7 +62,7 @@
         {
           "bucket": "ci",
           "builder": "mac15-tests-dbg",
-          "project": "chromium-m142"
+          "project": "chromium-m143"
         }
       ],
       "mirroring_builder_group_and_names": [

@@ -10,8 +10,6 @@
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
 #import "components/browsing_data/core/browsing_data_utils.h"
-#import "ios/chrome/browser/settings/ui_bundled/clear_browsing_data/clear_browsing_data_coordinator.h"
-#import "ios/chrome/browser/settings/ui_bundled/clear_browsing_data/features.h"
 #import "ios/chrome/browser/settings/ui_bundled/privacy/handoff_table_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/privacy/incognito/incognito_lock_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/privacy/incognito/incognito_lock_coordinator_delegate.h"
@@ -21,7 +19,6 @@
 #import "ios/chrome/browser/settings/ui_bundled/privacy/privacy_navigation_commands.h"
 #import "ios/chrome/browser/settings/ui_bundled/privacy/privacy_safe_browsing_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/privacy/privacy_table_view_controller.h"
-#import "ios/chrome/browser/settings/ui_bundled/privacy/tracking_protections/tracking_protections_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_navigation_controller.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -37,14 +34,12 @@
 #import "ui/base/device_form_factor.h"
 
 @interface PrivacyCoordinator () <
-    ClearBrowsingDataCoordinatorDelegate,
     IncognitoLockCoordinatorDelegate,
     PrivacyGuideMainCoordinatorDelegate,
     PrivacyNavigationCommands,
     PrivacySafeBrowsingCoordinatorDelegate,
     PrivacyTableViewControllerPresentationDelegate,
-    LockdownModeCoordinatorDelegate,
-    TrackingProtectionsCoordinatorDelegate> {
+    LockdownModeCoordinatorDelegate> {
 }
 
 @property(nonatomic, strong) PrivacyTableViewController* viewController;
@@ -54,11 +49,6 @@
 
 // Coordinator for Incognito lock settings.
 @property(nonatomic, strong) IncognitoLockCoordinator* incognitoLockCoordinator;
-
-// TODO(crbug.com/335387869): Delete this coordinator when Quick Delete is fully
-// launched. The coordinator for the clear browsing data screen.
-@property(nonatomic, strong)
-    ClearBrowsingDataCoordinator* clearBrowsingDataCoordinator;
 
 // Coordinator for Lockdown Mode settings.
 @property(nonatomic, strong) LockdownModeCoordinator* lockdownModeCoordinator;
@@ -71,9 +61,6 @@
 @implementation PrivacyCoordinator {
   // Verifies that `stop` is always called before dealloc.
   BOOL _stopped;
-
-  // Coordinator for the tracking protections screen.
-  TrackingProtectionsCoordinator* _trackingProtectionsCoordinator;
 }
 
 @synthesize baseNavigationController = _baseNavigationController;
@@ -118,12 +105,9 @@
 
 - (void)stop {
   _stopped = YES;
-  [self.clearBrowsingDataCoordinator stop];
-  self.clearBrowsingDataCoordinator = nil;
   [self stopLockdownModeCoordinator];
   [self stopSafeBrowsingCoordinator];
   [self stopIncognitoLockCoordinator];
-  [self stopTrackingProtectionsCoordinator];
 
   [self.viewController disconnect];
   self.viewController = nil;
@@ -160,19 +144,11 @@
       browsing_data::DeleteBrowsingDataDialogAction::
           kPrivacyEntryPointSelected);
 
-  if (IsIosQuickDeleteEnabled()) {
-    id<QuickDeleteCommands> quickDeleteHandler = HandlerForProtocol(
-        self.browser->GetCommandDispatcher(), QuickDeleteCommands);
-    [quickDeleteHandler
-        showQuickDeleteAndCanPerformTabsClosureAnimation:
-            ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET];
-  } else {
-    self.clearBrowsingDataCoordinator = [[ClearBrowsingDataCoordinator alloc]
-        initWithBaseNavigationController:self.baseNavigationController
-                                 browser:self.browser];
-    self.clearBrowsingDataCoordinator.delegate = self;
-    [self.clearBrowsingDataCoordinator start];
-  }
+  id<QuickDeleteCommands> quickDeleteHandler = HandlerForProtocol(
+      self.browser->GetCommandDispatcher(), QuickDeleteCommands);
+  [quickDeleteHandler
+      showQuickDeleteAndCanPerformTabsClosureAnimation:
+          ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET];
 }
 
 - (void)showSafeBrowsing {
@@ -210,24 +186,6 @@
   self.privacyGuideMainCoordinator.delegate = self;
   [self.privacyGuideMainCoordinator start];
 }
-
-- (void)showTrackingProtections {
-  _trackingProtectionsCoordinator = [[TrackingProtectionsCoordinator alloc]
-      initWithBaseNavigationController:self.baseNavigationController
-                               browser:self.browser];
-  _trackingProtectionsCoordinator.delegate = self;
-  [_trackingProtectionsCoordinator start];
-}
-
-#pragma mark - ClearBrowsingDataCoordinatorDelegate
-
-- (void)clearBrowsingDataCoordinatorViewControllerWasRemoved:
-    (ClearBrowsingDataCoordinator*)coordinator {
-  DCHECK_EQ(self.clearBrowsingDataCoordinator, coordinator);
-  [self.clearBrowsingDataCoordinator stop];
-  self.clearBrowsingDataCoordinator = nil;
-}
-
 #pragma mark - SafeBrowsingCoordinatorDelegate
 
 - (void)privacySafeBrowsingCoordinatorDidRemove:
@@ -259,13 +217,6 @@
   [self stopPrivacyGuideMainCoordinator];
 }
 
-#pragma mark - TrackingProtectionsCoordinatorDelegate
-
-- (void)trackingProtectionsCoordinatorDidRemove:
-    (TrackingProtectionsCoordinator*)coordinator {
-  [self stopTrackingProtectionsCoordinator];
-}
-
 #pragma mark - Private
 
 - (void)stopLockdownModeCoordinator {
@@ -290,12 +241,6 @@
   [self.privacyGuideMainCoordinator stop];
   self.privacyGuideMainCoordinator.delegate = nil;
   self.privacyGuideMainCoordinator = nil;
-}
-
-- (void)stopTrackingProtectionsCoordinator {
-  [_trackingProtectionsCoordinator stop];
-  _trackingProtectionsCoordinator.delegate = nil;
-  _trackingProtectionsCoordinator = nil;
 }
 
 @end

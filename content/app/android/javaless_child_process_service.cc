@@ -16,7 +16,6 @@
 #include "base/android/child_process_service.h"
 #include "base/android/command_line_android.h"
 #include "base/android/device_info.h"
-#include "base/android/jni_onload.h"
 #include "base/android/library_loader/library_loader_hooks.h"
 #include "base/command_line.h"
 #include "base/functional/bind.h"
@@ -246,10 +245,8 @@ ScopedAStatus ChildProcessService::onMemoryPressure(int32_t pressure) {
     // renderer, so we trust what it sends entirely.
     base::ThreadPool::PostTask(
         FROM_HERE,
-        base::BindOnce(
-            &base::MemoryPressureListener::NotifyMemoryPressure,
-            static_cast<base::MemoryPressureListener::MemoryPressureLevel>(
-                pressure)));
+        base::BindOnce(&base::MemoryPressureListener::NotifyMemoryPressure,
+                       static_cast<base::MemoryPressureLevel>(pressure)));
   }
   return ScopedAStatus::ok();
 }

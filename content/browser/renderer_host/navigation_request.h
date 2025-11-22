@@ -51,6 +51,7 @@
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/preloading_trigger_type.h"
+#include "content/public/browser/process_selection_user_data.h"
 #include "content/public/browser/render_process_host_observer.h"
 #include "content/public/browser/weak_document_ptr.h"
 #include "content/public/browser/web_ui_controller.h"
@@ -456,6 +457,7 @@ class CONTENT_EXPORT NavigationRequest
   const std::optional<GURL>& GetInitiatorBaseUrl() override;
   const std::vector<std::string>& GetDnsAliases() override;
   bool IsSameProcess() override;
+  ProcessSelectionUserData& GetProcessSelectionUserData() override;
   NavigationEntry* GetNavigationEntry() const override;
   int GetNavigationEntryOffset() const override;
   void RegisterSubresourceOverride(
@@ -1003,7 +1005,10 @@ class CONTENT_EXPORT NavigationRequest
   }
 
   // Returns the current url from GetURL() packaged with other state required to
-  // properly determine SiteInstances and process allocation.
+  // properly determine SiteInstances and process allocation. The returned
+  // UrlInfo must not outlive this NavigationRequest because it contains a
+  // reference to ProcessSelectionUserData, which is owned by this
+  // NavigationRequest.
   UrlInfo GetUrlInfo();
 
   bool is_overriding_user_agent() const {
@@ -1700,6 +1705,19 @@ class CONTENT_EXPORT NavigationRequest
   // value will be returned.
   PrerenderHostId GetPrerenderHostId() const;
 
+  // Checks whether the navigation request contains active view transition
+  // resources.
+  bool HasViewTransitionResources() const {
+    return !!view_transition_resources_;
+  }
+
+  bool HasCookieChangeListener() const {
+    return !!cookie_change_listener_.get();
+  }
+  // Checks whether cookies for the navigation target changed since the
+  // navigation started.
+  bool DidCookiesChangeAfterStart(bool exclude_http_only) const;
+
  private:
   friend class NavigationRequestTest;
   FRIEND_TEST_ALL_PREFIXES(NavigationRequestTest, SanitizeRedirectsForCommit);
@@ -1999,6 +2017,8 @@ class CONTENT_EXPORT NavigationRequest
   // process crashes.
   void OnNavigationClientDisconnected(uint32_t reason,
                                       const std::string& description);
+
+  void ReuseRequestNavigationClientForCommitIfNeeded();
 
   // Binds the given error_handler to be called when an interface disconnection
   // happens on the renderer side.
@@ -3367,6 +3387,10 @@ class CONTENT_EXPORT NavigationRequest
   // The token value for canvas noising. This should only be set on main frame
   // navigations that subsequently set the token value on the page.
   std::optional<blink::NoiseToken> canvas_noise_token_ = std::nullopt;
+
+  // A container for embedder-specific data that needs to be available during
+  // the renderer process selection phase of a navigation.
+  ProcessSelectionUserData process_selection_user_data_;
 
   // For NavigationRequests not in a prerendered page, the value will be the
   // default-constructed null value.

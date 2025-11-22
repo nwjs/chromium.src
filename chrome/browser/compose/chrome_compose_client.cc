@@ -24,7 +24,6 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/segmentation_platform/segmentation_platform_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
@@ -51,6 +50,8 @@
 #include "components/compose/core/browser/compose_manager_impl.h"
 #include "components/compose/core/browser/compose_metrics.h"
 #include "components/compose/core/browser/config.h"
+#include "components/optimization_guide/core/hints/optimization_guide_decision.h"
+#include "components/optimization_guide/core/model_execution/remote_model_executor.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/proto/features/compose.pb.h"
 #include "components/strings/grit/components_strings.h"
@@ -871,7 +872,7 @@ void ChromeComposeClient::OnAfterFocusOnFormField(
   active_compose_ids_.reset();
 }
 
-optimization_guide::OptimizationGuideModelExecutor*
+optimization_guide::RemoteModelExecutor*
 ChromeComposeClient::GetModelExecutor() {
   return model_executor_for_test_.value_or(
       OptimizationGuideKeyedServiceFactory::GetForProfile(
@@ -900,7 +901,7 @@ InnerTextProvider* ChromeComposeClient::GetInnerTextProvider() {
 }
 
 void ChromeComposeClient::SetModelExecutorForTest(
-    optimization_guide::OptimizationGuideModelExecutor* model_executor) {
+    optimization_guide::RemoteModelExecutor* model_executor) {
   model_executor_for_test_ = model_executor;
 }
 

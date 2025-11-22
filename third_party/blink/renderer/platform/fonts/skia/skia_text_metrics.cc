@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "third_party/blink/renderer/platform/fonts/skia/skia_text_metrics.h"
 
 #include "base/containers/span.h"
@@ -22,13 +17,14 @@ namespace {
 
 template <class T>
 T* advance_by_byte_size(T* p, unsigned byte_size) {
-  return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(p) + byte_size);
+  return reinterpret_cast<T*>(
+      UNSAFE_TODO(reinterpret_cast<uint8_t*>(p) + byte_size));
 }
 
 template <class T>
 const T* advance_by_byte_size(const T* p, unsigned byte_size) {
-  return reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(p) +
-                                    byte_size);
+  return reinterpret_cast<const T*>(
+      UNSAFE_TODO(reinterpret_cast<const uint8_t*>(p) + byte_size));
 }
 
 }  // namespace
@@ -106,9 +102,8 @@ void SkFontGetGlyphExtentsForHarfBuzz(const SkFont& font,
 #if BUILDFLAG(IS_APPLE)
   // TODO(drott): Remove this once we have better metrics bounds
   // on Mac, https://bugs.chromium.org/p/skia/issues/detail?id=5328
-  SkPath path;
-  if (font.getPath(glyph, &path)) {
-    sk_bounds = path.getBounds();
+  if (const auto path = font.getPath(glyph)) {
+    sk_bounds = path->getBounds();
   } else {
     sk_bounds = font.getBounds(glyph, nullptr);
   }
@@ -133,9 +128,8 @@ void SkFontGetBoundsForGlyph(const SkFont& font, Glyph glyph, SkRect* bounds) {
 #if BUILDFLAG(IS_APPLE)
   // TODO(drott): Remove this once we have better metrics bounds
   // on Mac, https://bugs.chromium.org/p/skia/issues/detail?id=5328
-  SkPath path;
-  if (font.getPath(glyph, &path)) {
-    *bounds = path.getBounds();
+  if (const auto path = font.getPath(glyph)) {
+    *bounds = path->getBounds();
   } else {
     // Fonts like Apple Color Emoji have no paths, fall back to bounds here.
     *bounds = font.getBounds(glyph, nullptr);

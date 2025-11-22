@@ -31,7 +31,7 @@ Host::EmbedderDelegate* GlicInactiveFloatingUi::GetHostEmbedderDelegate() {
   return nullptr;
 }
 
-void GlicInactiveFloatingUi::Show() {
+void GlicInactiveFloatingUi::Show(const ShowOptions& options) {
   // TODO: implement show.
   NOTIMPLEMENTED();
 }
@@ -46,9 +46,36 @@ void GlicInactiveFloatingUi::Close() {
   NOTIMPLEMENTED();
 }
 
+base::WeakPtr<views::View> GlicInactiveFloatingUi::GetView() {
+  return nullptr;
+}
+
+gfx::Size GlicInactiveFloatingUi::GetPanelSize() {
+  return gfx::Size();
+}
+
+mojom::PanelState GlicInactiveFloatingUi::GetPanelState() const {
+  mojom::PanelState state;
+  state.kind = glic::mojom::PanelStateKind::kHidden;
+  return state;
+}
+
 std::unique_ptr<GlicUiEmbedder> GlicInactiveFloatingUi::CreateInactiveEmbedder()
     const {
   NOTREACHED() << "The embedder is already inactive.";
+}
+
+void GlicInactiveFloatingUi::Focus() {
+  NOTIMPLEMENTED();
+}
+
+bool GlicInactiveFloatingUi::HasFocus() {
+  NOTIMPLEMENTED();
+  return false;
+}
+
+std::string GlicInactiveFloatingUi::DescribeForTesting() {
+  return "InactiveFloatingUi";
 }
 
 }  // namespace glic

@@ -27,7 +27,7 @@
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 // static
-bool ProfileIOData::IsHandledProtocol(const std::string& scheme) {
+bool ProfileIOData::IsHandledProtocol(std::string_view scheme) {
   DCHECK_EQ(scheme, base::ToLowerASCII(scheme));
 
   constexpr auto kProtocolList = base::MakeFixedFlatSet<std::string_view>({
@@ -73,5 +73,5 @@ bool ProfileIOData::IsHandledURL(const GURL& url) {
     return true;
   }
 
-  return IsHandledProtocol(url.scheme());
+  return IsHandledProtocol(url.GetScheme());
 }

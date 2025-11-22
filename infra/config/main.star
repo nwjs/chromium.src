@@ -166,6 +166,7 @@ chromium_luci.configure_project(
     experiments = [
         "targets.module_name_without_slash",
         "targets.module_scheme_junit_tests",
+        "targets.module_scheme_regex",
         "targets.module_scheme_script_tests",
     ],
 )
@@ -318,6 +319,7 @@ luci.realm(
             users = [
                 "chromium-status-hr@appspot.gserviceaccount.com",
                 "luci-notify@appspot.gserviceaccount.com",
+                "luci-bisection@appspot.gserviceaccount.com",
             ],
         ),
         # Only allow Googlers and service accounts.
@@ -328,6 +330,7 @@ luci.realm(
             ],
             users = [
                 "luci-notify@appspot.gserviceaccount.com",
+                "luci-bisection@appspot.gserviceaccount.com",
             ],
         ),
     ],

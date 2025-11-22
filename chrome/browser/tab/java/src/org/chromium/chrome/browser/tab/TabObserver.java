@@ -162,21 +162,6 @@ public interface TabObserver {
     void onRestoreFailed(Tab tab);
 
     /**
-     * Called when the WebContents of a {@link Tab} is about to be swapped.
-     * @param tab The notifying {@link Tab}
-     */
-    void webContentsWillSwap(Tab tab);
-
-    /**
-     * Called when the WebContents of a {@link Tab} have been swapped.
-     * @param tab The notifying {@link Tab}.
-     * @param didStartLoad Whether WebContentsObserver::DidStartProvisionalLoadForFrame() has
-     *     already been called.
-     * @param didFinishLoad Whether WebContentsObserver::DidFinishLoad() has already been called.
-     */
-    void onWebContentsSwapped(Tab tab, boolean didStartLoad, boolean didFinishLoad);
-
-    /**
      * Called when a context menu is shown for a {@link WebContents} owned by a {@link Tab}.
      * @param tab  The notifying {@link Tab}.
      */

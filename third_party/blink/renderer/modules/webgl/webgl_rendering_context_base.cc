@@ -1835,61 +1835,6 @@ void WebGLRenderingContextBase::MarkLayerComposited() {
     GetDrawingBuffer()->SetBufferClearNeeded(true);
 }
 
-bool WebGLRenderingContextBase::
-    CanUseDrawingBufferSIWithoutCopyForLowLatency() {
-  if (!SharedGpuContext::IsGpuCompositingEnabled()) {
-    return false;
-  }
-
-  if (!Host()->LowLatencyEnabled()) {
-    return false;
-  }
-
-  // SharedGpuContext::IsGpuCompositingEnabled can potentially replace the
-  // context_provider_wrapper, so it's important to call that first as it can
-  // invalidate the weak pointer.
-  auto context_provider_wrapper = SharedGpuContext::ContextProviderWrapper();
-  auto size = Host()->Size();
-  auto format = GetSharedImageFormat();
-
-  bool using_webgl_image_chromium =
-      SharedGpuContext::MaySupportImageChromium() &&
-      (RuntimeEnabledFeatures::WebGLImageChromiumEnabled() ||
-       base::FeatureList::IsEnabled(features::kLowLatencyWebGLImageChromium));
-  bool using_swap_chain =
-      GetDrawingBuffer() && GetDrawingBuffer()->UsingSwapChain();
-  if (!using_swap_chain && !using_webgl_image_chromium) {
-    return false;
-  }
-
-  if (!context_provider_wrapper) {
-    return false;
-  }
-
-  const auto& capabilities =
-      context_provider_wrapper->ContextProvider().GetCapabilities();
-  if (size.width() > capabilities.max_texture_size ||
-      size.height() > capabilities.max_texture_size) {
-    return false;
-  }
-
-  const auto& shared_image_capabilities =
-      context_provider_wrapper->ContextProvider()
-          .SharedImageInterface()
-          ->GetCapabilities();
-
-  bool shared_image_format_supported =
-      gpu::IsFormatSupportedForSIWithNativeBuffer(format, capabilities);
-
-  // Either swap_chain or shared image should be supported for this be used.
-  if (!shared_image_capabilities.shared_image_swap_chain &&
-      !shared_image_format_supported) {
-    return false;
-  }
-
-  return true;
-}
-
 void WebGLRenderingContextBase::PageVisibilityChanged() {
   if (GetDrawingBuffer())
     GetDrawingBuffer()->SetIsInHiddenPage(!Host()->IsPageVisible());
@@ -1905,10 +1850,8 @@ scoped_refptr<ExternalCanvasResource>
 WebGLRenderingContextBase::ExportLowLatencyCanvasResource(
     SourceDrawingBuffer source_buffer) {
   CHECK(Host()->LowLatencyEnabled());
-
-  if (isContextLost() || !GetDrawingBuffer()) {
-    return nullptr;
-  }
+  CHECK(GetDrawingBuffer());
+  CHECK(!isContextLost());
 
   ClearIfComposited(kClearCallerOther);
 
@@ -1925,13 +1868,14 @@ scoped_refptr<StaticBitmapImage>
 WebGLRenderingContextBase::PaintRenderingResultsToSnapshot(
     SourceDrawingBuffer source_buffer,
     FlushReason reason) {
-  if (CanUseDrawingBufferSIWithoutCopyForLowLatency()) {
-    auto resource = ExportLowLatencyCanvasResource(source_buffer);
-    return resource ? resource->Bitmap() : nullptr;
-  }
-
   if (isContextLost() || !GetDrawingBuffer()) {
     return nullptr;
+  }
+
+  if (Host()->LowLatencyEnabled() &&
+      GetDrawingBuffer()->SupportsNoCopyExportForLowLatency()) {
+    auto resource = ExportLowLatencyCanvasResource(source_buffer);
+    return resource ? resource->Bitmap() : nullptr;
   }
 
   bool cleared_content = ClearIfComposited(kClearCallerOther) != kSkipped;
@@ -1963,7 +1907,7 @@ WebGLRenderingContextBase::PaintRenderingResultsToSnapshot(
   }
 
   CanvasResourceProviderSharedImage* resource_provider =
-      GetOrCreateCanvasResourceProvider();
+      GetSharedImageResourceProvider();
   if (!resource_provider) {
     // As a last resort, try to create and return an unaccelerated snapshot.
     // Match the SBI configuration to that produced when using GPU compositing:
@@ -2014,20 +1958,23 @@ scoped_refptr<CanvasResource>
 WebGLRenderingContextBase::PaintRenderingResultsToResource(
     SourceDrawingBuffer source_buffer,
     FlushReason reason) {
-  if (CanUseDrawingBufferSIWithoutCopyForLowLatency()) {
+  if (isContextLost() || !GetDrawingBuffer()) {
+    return nullptr;
+  }
+
+  if (Host()->LowLatencyEnabled() &&
+      GetDrawingBuffer()->SupportsNoCopyExportForLowLatency()) {
     return ExportLowLatencyCanvasResource(source_buffer);
   }
 
   auto* resource_provider =
       PaintRenderingResultsToResourceProvider(source_buffer);
-  if (resource_provider) {
-    return resource_provider->ProduceCanvasResource(reason);
-  }
-  return nullptr;
+  return resource_provider ? resource_provider->ProduceCanvasResource(reason)
+                           : nullptr;
 }
 
 CanvasResourceProviderSharedImage*
-WebGLRenderingContextBase::GetOrCreateCanvasResourceProvider() {
+WebGLRenderingContextBase::GetSharedImageResourceProvider() {
   // If `cached_snapshot_` is non-null, it means that
   // PaintRenderingResultsToSnapshot() was unable to populate
   // `resource_provider_`. We will try to create `resource_provider_` again
@@ -2037,59 +1984,66 @@ WebGLRenderingContextBase::GetOrCreateCanvasResourceProvider() {
     return nullptr;
   }
 
-  auto* provider = resource_provider_.get();
-  if (!provider && !did_fail_to_create_resource_provider_) {
-    if (Host()->IsValidImageSize()) {
-      const SkAlphaType alpha_type = GetAlphaType();
-      const viz::SharedImageFormat format = GetSharedImageFormat();
-      const gfx::ColorSpace color_space = GetColorSpace();
-      // Do not initialize the CRP using Skia. The CRP can have bottom left
-      // origin in which case Skia Graphite won't be able to render into it, and
-      // WebGL is responsible for clearing the CRP when it renders anyway and we
-      // have clear rect tracking in the shared image system to enforce this.
-      constexpr auto kShouldInitialize =
-          CanvasResourceProvider::ShouldInitialize::kNo;
-      CHECK(!CanUseDrawingBufferSIWithoutCopyForLowLatency());
-      if (SharedGpuContext::IsGpuCompositingEnabled()) {
-        gpu::SharedImageUsageSet shared_image_usage_flags =
-            gpu::SHARED_IMAGE_USAGE_DISPLAY_READ;
-
-        if (SharedGpuContext::MaySupportImageChromium() &&
-            RuntimeEnabledFeatures::WebGLImageChromiumEnabled()) {
-          shared_image_usage_flags |= gpu::SHARED_IMAGE_USAGE_SCANOUT;
-        }
-        resource_provider_ = CanvasResourceProvider::CreateSharedImageProvider(
-            Host()->Size(), format, alpha_type, color_space, kShouldInitialize,
-            SharedGpuContext::ContextProviderWrapper(), RasterMode::kGPU,
-            shared_image_usage_flags, Host());
-      } else {
-        resource_provider_ = CanvasResourceProvider::
-            CreateSharedImageProviderForSoftwareCompositor(
-                Host()->Size(), format, alpha_type, color_space,
-                kShouldInitialize,
-                SharedGpuContext::SharedImageInterfaceProvider(), Host());
-      }
-      Host()->UpdateMemoryUsage();
-      provider = resource_provider_.get();
-    }
-    if (!provider) {
-      did_fail_to_create_resource_provider_ = true;
-    } else if (provider->IsValid()) {
-      base::UmaHistogramBoolean("Blink.Canvas.ResourceProviderIsAccelerated",
-                                provider->IsAccelerated());
-      base::UmaHistogramEnumeration("Blink.Canvas.ResourceProviderType",
-                                    provider->GetType());
-    }
+  if (resource_provider_) {
+    return resource_provider_.get();
   }
 
-  return provider;
+  if (did_fail_to_create_resource_provider_) {
+    return nullptr;
+  }
+
+  if (!Host()->IsValidImageSize()) {
+    did_fail_to_create_resource_provider_ = true;
+    return nullptr;
+  }
+
+  const SkAlphaType alpha_type = GetAlphaType();
+  const viz::SharedImageFormat format = GetSharedImageFormat();
+  const gfx::ColorSpace color_space = GetColorSpace();
+  // Do not initialize the CRP using Skia. The CRP can have bottom left
+  // origin in which case Skia Graphite won't be able to render into it, and
+  // WebGL is responsible for clearing the CRP when it renders anyway and we
+  // have clear rect tracking in the shared image system to enforce this.
+  constexpr auto kShouldInitialize =
+      CanvasResourceProvider::ShouldInitialize::kNo;
+  if (SharedGpuContext::IsGpuCompositingEnabled()) {
+    gpu::SharedImageUsageSet shared_image_usage_flags =
+        gpu::SHARED_IMAGE_USAGE_DISPLAY_READ;
+
+    if (SharedGpuContext::MaySupportImageChromium() &&
+        RuntimeEnabledFeatures::WebGLImageChromiumEnabled()) {
+      shared_image_usage_flags |= gpu::SHARED_IMAGE_USAGE_SCANOUT;
+    }
+    resource_provider_ = CanvasResourceProvider::CreateSharedImageProvider(
+        Host()->Size(), format, alpha_type, color_space, kShouldInitialize,
+        SharedGpuContext::ContextProviderWrapper(), RasterMode::kGPU,
+        shared_image_usage_flags, Host());
+  } else {
+    resource_provider_ =
+        CanvasResourceProvider::CreateSharedImageProviderForSoftwareCompositor(
+            Host()->Size(), format, alpha_type, color_space, kShouldInitialize,
+            SharedGpuContext::SharedImageInterfaceProvider(), Host());
+  }
+  Host()->UpdateMemoryUsage();
+
+  if (!resource_provider_) {
+    did_fail_to_create_resource_provider_ = true;
+    return nullptr;
+  }
+
+  if (resource_provider_->IsValid()) {
+    base::UmaHistogramBoolean("Blink.Canvas.ResourceProviderIsAccelerated",
+                              resource_provider_->IsAccelerated());
+    base::UmaHistogramEnumeration("Blink.Canvas.ResourceProviderType",
+                                  resource_provider_->GetType());
+  }
+
+  return resource_provider_.get();
 }
 
 CanvasResourceProvider*
 WebGLRenderingContextBase::PaintRenderingResultsToResourceProvider(
     SourceDrawingBuffer source_buffer) {
-  CHECK(!CanUseDrawingBufferSIWithoutCopyForLowLatency());
-
   TRACE_EVENT0(
       "blink",
       "WebGLRenderingContextBase::PaintRenderingResultsToResourceProvider");
@@ -2116,7 +2070,7 @@ WebGLRenderingContextBase::PaintRenderingResultsToResourceProvider(
   }
 
   CanvasResourceProviderSharedImage* resource_provider =
-      GetOrCreateCanvasResourceProvider();
+      GetSharedImageResourceProvider();
   if (!resource_provider)
     return nullptr;
 
@@ -5877,20 +5831,28 @@ scoped_refptr<Image> WebGLRenderingContextBase::DrawImageIntoBufferForTexImage(
     return nullptr;
   }
 
-  if (!image->IsOpaque()) {
-    resource_provider->Canvas().clear(SkColors::kTransparent);
-  }
+  CHECK_EQ(resource_provider->GetType(),
+           CanvasResourceProvider::ResourceProviderType::kBitmap);
+  CanvasResourceProviderBitmap* resource_provider_bitmap =
+      static_cast<CanvasResourceProviderBitmap*>(resource_provider);
 
-  gfx::Rect src_rect(image->Size());
-  gfx::Rect dest_rect(0, 0, width, height);
-  cc::PaintFlags flags;
-  // TODO(ccameron): WebGL should produce sRGB images.
-  // https://crbug.com/672299
-  ImageDrawOptions draw_options;
-  draw_options.clamping_mode = Image::kDoNotClampImageToSourceRect;
-  image->Draw(&resource_provider->Canvas(), flags, gfx::RectF(dest_rect),
-              gfx::RectF(src_rect), draw_options);
-  return resource_provider->Snapshot(FlushReason::kWebGLTexImage);
+  resource_provider_bitmap->ExternalCanvasDrawHelper(
+      [&](MemoryManagedPaintCanvas& canvas) {
+        if (!image->IsOpaque()) {
+          canvas.clear(SkColors::kTransparent);
+        }
+        gfx::Rect src_rect(image->Size());
+        gfx::Rect dest_rect(0, 0, width, height);
+        cc::PaintFlags flags;
+        // TODO(ccameron): WebGL should produce sRGB images.
+        // https://crbug.com/672299
+        ImageDrawOptions draw_options;
+        draw_options.clamping_mode = Image::kDoNotClampImageToSourceRect;
+        image->Draw(&canvas, flags, gfx::RectF(dest_rect), gfx::RectF(src_rect),
+                    draw_options);
+      });
+
+  return resource_provider_bitmap->Snapshot(FlushReason::kWebGLTexImage);
 }
 
 WebGLTexture* WebGLRenderingContextBase::ValidateTexImageBinding(
@@ -6105,6 +6067,11 @@ void WebGLRenderingContextBase::TexImageHelperHTMLImageElement(
       SourceImageStatus status;
       image_for_render = image->GetSourceImageForCanvas(
           FlushReason::kWebGLTexImage, &status, gfx::SizeF(300, 150));
+      // Since the size of the source has not been previously validated,
+      // GetSourceImageForCanvas() can return nullptr.
+      if (!image_for_render) {
+        image_for_render = Image::NullImage();
+      }
     }
     // DrawImageIntoBuffer always respects orientation
     image_for_render = DrawImageIntoBufferForTexImage(
@@ -6667,10 +6634,10 @@ void WebGLRenderingContextBase::TexImageHelperMediaVideoFrame(
   // Since TexImageStaticBitmapImage() and TexImageGPU() don't know how to
   // handle tagged orientation, we set |prefer_tagged_orientation| to false.
   scoped_refptr<StaticBitmapImage> image = CreateImageFromVideoFrame(
-      std::move(media_video_frame), /*allow_zero_copy_images=*/true,
+      std::move(media_video_frame),
       image_cache.GetCanvasResourceProvider(dest_rect.size(), format,
                                             alpha_type, color_space),
-      video_renderer, dest_rect, /*prefer_tagged_orientation=*/false,
+      video_renderer, /*prefer_tagged_orientation=*/false,
       /*reinterpret_video_as_srgb=*/!params.unpack_colorspace_conversion);
   if (!image)
     return;
@@ -6880,58 +6847,20 @@ void WebGLRenderingContextBase::texElementImage2D(
     Element* element,
     ExceptionState& exception_state) {
   CHECK(RuntimeEnabledFeatures::CanvasDrawElementEnabled());
+
   if (isContextLost()) {
     return;
   }
 
-  if (!ValidateTexture2DBinding("texImage2D", target, true)) {
+  if (!ValidateTexture2DBinding("texElementImage2D", target, true)) {
     return;
   }
-
-  canvas()->GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
-      DocumentUpdateReason::kCanvasDrawElementImage);
-
-  if (!IsDrawElementImageEligible(element, "texElementImage2D()",
-                                  exception_state)) {
-    return;
-  }
-
-  LayoutBox* layout_box = element->GetLayoutBox();
-  PaintLayer* layer = layout_box->EnclosingLayer();
-
-  auto box_rect =
-      gfx::Rect(ToCeiledSize(layer->GetLayoutBox()->StitchedSize()));
-  OverriddenCullRectScope cull_rect_scope(*layer, CullRect(box_rect),
-                                          /*disable_expansion*/ true);
-  PaintRecordBuilder builder;
-
-  PaintLayerPainter paint_layer_painter = PaintLayerPainter(*layer);
-  paint_layer_painter.Paint(
-      builder.Context(),
-      PaintFlag::kPrivacyPreserving | PaintFlag::kOmitCompositingInfo);
-
-  PropertyTreeState tree_state = layer->GetLayoutObject()
-                                     .FirstFragment()
-                                     .LocalBorderBoxProperties()
-                                     .Unalias();
-
-  SkSurfaceProps surface_props;
-
-  int width = box_rect.width();
-  int height = box_rect.height();
-
-  sk_sp<SkSurface> surface = SkSurfaces::Raster(
-      SkImageInfo::MakeN32Premul(width, height), &surface_props);
-  if (!surface) {
-    return;
-  }
-
-  // TODO(crbug.com/416733209): Update clip offset if there's visual overflow.
-  SkiaPaintCanvas skia_paint_canvas(surface->getCanvas());
-  builder.EndRecording(skia_paint_canvas, tree_state);
 
   scoped_refptr<Image> image_for_render =
-      UnacceleratedStaticBitmapImage::Create(surface->makeImageSnapshot());
+      GetElementImage(element, "texElementImage2D()", exception_state);
+  if (!image_for_render) {
+    return;
+  }
 
   TexImageParams params = {
       .source_type = kSourceImageBitmap,

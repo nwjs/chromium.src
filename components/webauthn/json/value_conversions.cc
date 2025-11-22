@@ -4,6 +4,7 @@
 
 #include "components/webauthn/json/value_conversions.h"
 
+#include <algorithm>
 #include <iterator>
 #include <optional>
 #include <ranges>
@@ -13,6 +14,7 @@
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
 #include "base/feature_list.h"
+#include "base/time/time.h"
 #include "base/values.h"
 #include "device/fido/attestation_object.h"
 #include "device/fido/authenticator_selection_criteria.h"
@@ -369,6 +371,35 @@ base::Value ToValue(const std::vector<blink::mojom::Hint>& hints) {
   return base::Value(std::move(ret));
 }
 
+base::Value::Dict ToValue(
+    const blink::mojom::AllAcceptedCredentialsOptions& options) {
+  base::Value::Dict value;
+  value.Set("userId", Base64UrlEncode(options.user_id));
+
+  base::Value::List accepted_credential_ids;
+  accepted_credential_ids.reserve(options.all_accepted_credentials_ids.size());
+  for (const auto& credential_id : options.all_accepted_credentials_ids) {
+    accepted_credential_ids.Append(Base64UrlEncode(credential_id));
+  }
+  value.Set("allAcceptedCredentialIds", std::move(accepted_credential_ids));
+  return value;
+}
+
+base::Value::Dict ToValue(
+    const blink::mojom::CurrentUserDetailsOptions& options) {
+  base::Value::Dict value;
+  value.Set("userId", Base64UrlEncode(options.user_id));
+  value.Set("name", options.name);
+  value.Set("displayName", options.display_name);
+  return value;
+}
+
+int adjustTimeout(int timeout) {
+  const int minTimeoutMs = device::kMinRequestTimeout.InMilliseconds();
+  const int maxTimeoutMs = device::kMaxRequestTimeout.InMilliseconds();
+  return std::max(minTimeoutMs, std::min(maxTimeoutMs, timeout));
+}
+
 }  // namespace
 
 base::Value ToValue(
@@ -400,6 +431,12 @@ base::Value ToValue(
 
   if (!options->attestation_formats.empty()) {
     value.Set("attestationFormats", ToValue(options->attestation_formats));
+  }
+
+  if (options->timeout) {
+    int timeout =
+        adjustTimeout(base::TimeDelta(*options->timeout).InMilliseconds());
+    value.Set("timeout", timeout);
   }
 
   base::Value::Dict extensions;
@@ -496,6 +533,12 @@ base::Value ToValue(
     value.Set("hints", ToValue(options->hints));
   }
 
+  if (options->timeout) {
+    int timeout =
+        adjustTimeout(base::TimeDelta(*options->timeout).InMilliseconds());
+    value.Set("timeout", timeout);
+  }
+
   base::Value::Dict extensions;
 
   if (options->extensions->appid) {
@@ -567,6 +610,25 @@ base::Value ToValue(
   }
 
   return base::Value(std::move(value));
+}
+
+base::Value ToValue(
+    const blink::mojom::PublicKeyCredentialReportOptionsPtr& options) {
+  if (options->all_accepted_credentials) {
+    base::Value::Dict value = ToValue(*options->all_accepted_credentials);
+    value.Set("rpId", options->relying_party_id);
+    return base::Value(std::move(value));
+  } else if (options->current_user_details) {
+    base::Value::Dict value = ToValue(*options->current_user_details);
+    value.Set("rpId", options->relying_party_id);
+    return base::Value(std::move(value));
+  } else if (options->unknown_credential_id) {
+    base::Value::Dict value;
+    value.Set("rpId", options->relying_party_id);
+    value.Set("credentialId", Base64UrlEncode(*options->unknown_credential_id));
+    return base::Value(std::move(value));
+  }
+  NOTREACHED();
 }
 
 std::optional<blink::mojom::PRFValuesPtr> ParsePRFResults(

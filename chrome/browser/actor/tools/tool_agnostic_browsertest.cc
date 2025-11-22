@@ -7,6 +7,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/time/time.h"
+#include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/execution_engine.h"
 #include "chrome/browser/actor/tools/tool_request.h"
@@ -40,7 +41,11 @@ namespace {
 
 class ActorToolAgnosticBrowserTest : public ActorToolsTest {
  public:
-  ActorToolAgnosticBrowserTest() = default;
+  ActorToolAgnosticBrowserTest() {
+    scoped_feature_list_.InitWithFeatures(
+        /*enabled_features=*/{},
+        /*disabled_features=*/{kGlicCrossOriginNavigationGating});
+  }
   ~ActorToolAgnosticBrowserTest() override = default;
 
   void SetUpOnMainThread() override {
@@ -48,6 +53,9 @@ class ActorToolAgnosticBrowserTest : public ActorToolsTest {
     ASSERT_TRUE(embedded_test_server()->Start());
     ASSERT_TRUE(embedded_https_test_server().Start());
   }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Test that requesting tool use on a page that's not active fails. In this case
@@ -101,10 +109,12 @@ IN_PROC_BROWSER_TEST_F(ActorToolAgnosticBrowserTest,
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url_background));
 
   WebContents* background_contents = web_contents();
+
   NavigateParams params(browser(), url_foreground, ::ui::PAGE_TRANSITION_LINK);
   params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
   ::ui_test_utils::NavigateToURL(&params);
 
+  WebContents* foreground_contents = web_contents();
   ASSERT_NE(web_contents(), background_contents);
   ASSERT_FALSE(background_contents->GetPrimaryMainFrame()
                    ->GetRenderWidgetHost()
@@ -122,11 +132,48 @@ IN_PROC_BROWSER_TEST_F(ActorToolAgnosticBrowserTest,
   std::unique_ptr<ToolRequest> action =
       MakeClickRequest(*background_main_frame, input_id.value());
 
-  ActResultFuture result;
-  actor_task().Act(ToRequestList(action), result.GetCallback());
-  ExpectOkResult(result);
+  {
+    ActResultFuture result;
+    actor_task().Act(ToRequestList(action), result.GetCallback());
+    ExpectOkResult(result);
 
-  EXPECT_EQ(true, EvalJs(background_contents, "focus_fired"));
+    // We shouldn't have change the active web contents, just renderer focus.
+    ASSERT_NE(web_contents(), background_contents);
+    ASSERT_EQ(web_contents(), foreground_contents);
+
+    ASSERT_EQ(true, EvalJs(background_contents, "focus_fired"));
+    EXPECT_EQ(true, EvalJs(background_contents, "document.hasFocus()"));
+    // The foreground tab should still think it has focus.
+    EXPECT_EQ(true, EvalJs(foreground_contents, "document.hasFocus()"));
+  }
+
+  // Reset the page for the next check
+  ASSERT_TRUE(ExecJs(background_contents, "focus_fired = false;"));
+
+  // Check that a second action during this task doesn't get another focus
+  // event.
+  {
+    ActResultFuture result;
+    action = MakeClickRequest(*background_main_frame, input_id.value());
+    actor_task().Act(ToRequestList(action), result.GetCallback());
+    ExpectOkResult(result);
+
+    EXPECT_EQ(false, EvalJs(background_contents, "focus_fired"));
+    EXPECT_EQ(true, EvalJs(background_contents, "document.hasFocus()"));
+    // The foreground tab should still think it has focus and is the active web
+    // contents.
+    EXPECT_EQ(true, EvalJs(foreground_contents, "document.hasFocus()"));
+    ASSERT_EQ(web_contents(), foreground_contents);
+  }
+
+  actor_task().Stop(ActorTask::StoppedReason::kTaskComplete);
+
+  // Now that the actor has stopped, the background should lose focus
+  EXPECT_EQ(false, EvalJs(background_contents, "document.hasFocus()"));
+  // The foreground tab should still think it has focus and is the active web
+  // contents.
+  EXPECT_EQ(true, EvalJs(foreground_contents, "document.hasFocus()"));
+  ASSERT_EQ(web_contents(), foreground_contents);
 }
 
 // Basic test to ensure sending a click to an element in a same-site subframe
@@ -216,6 +263,27 @@ IN_PROC_BROWSER_TEST_F(ActorToolAgnosticBrowserTest, OffscreenElement) {
   actor_task().Act(ToRequestList(action), result.GetCallback());
   ExpectOkResult(result);
   EXPECT_EQ(EvalJs(web_contents(), "offscreen_button_clicked"), true);
+}
+
+// Same as above but the element is an inline element. (i.e. doesn't have a
+// LayoutBox).
+IN_PROC_BROWSER_TEST_F(ActorToolAgnosticBrowserTest, OffscreenElementInline) {
+  const GURL url =
+      embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  ASSERT_EQ(EvalJs(web_contents(), "offscreen_inline_clicked"), false);
+
+  std::optional<int> anchor_id =
+      GetDOMNodeId(*main_frame(), "a#offscreenInline");
+  ASSERT_TRUE(anchor_id);
+
+  std::unique_ptr<ToolRequest> action =
+      MakeClickRequest(*main_frame(), anchor_id.value());
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(action), result.GetCallback());
+  ExpectOkResult(result);
+  EXPECT_EQ(EvalJs(web_contents(), "offscreen_inline_clicked"), true);
 }
 
 // Sending an action to an offscreen coordinate should fail.
@@ -333,10 +401,39 @@ IN_PROC_BROWSER_TEST_F(ActorToolAgnosticBrowserTest,
       MakeClickRequest(*main_frame(), button_id.value());
   ActResultFuture result;
   actor_task().Act(ToRequestList(action), result.GetCallback());
-  ExpectErrorResult(
-      result, mojom::ActionResultCode::kTargetNodeInteractionPointObscured);
-  EXPECT_EQ(EvalJs(web_contents(), "target_button_clicked"), false);
-  EXPECT_EQ(EvalJs(web_contents(), "obstruction_button_clicked"), false);
+  if (base::FeatureList::IsEnabled(features::kGlicActorToctouValidation)) {
+    ExpectErrorResult(
+        result, mojom::ActionResultCode::kTargetNodeInteractionPointObscured);
+    EXPECT_EQ(EvalJs(web_contents(), "target_button_clicked"), false);
+    EXPECT_EQ(EvalJs(web_contents(), "obstruction_button_clicked"), false);
+  } else {
+    ExpectOkResult(result);
+    EXPECT_EQ(EvalJs(web_contents(), "target_button_clicked"), false);
+    EXPECT_EQ(EvalJs(web_contents(), "obstruction_button_clicked"), true);
+  }
+}
+
+IN_PROC_BROWSER_TEST_F(ActorToolAgnosticBrowserTest,
+                       ToolFailingValidationAddsTab) {
+  const GURL url_start =
+      embedded_https_test_server().GetURL("/actor/blank.html?start");
+  const GURL url_target = embedded_https_test_server().GetURL(
+      "blocked.example.com", "/actor/blank.html?target");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url_start));
+
+  // A navigation to a blocked URL fails in the Validation phase.
+  std::unique_ptr<ToolRequest> action =
+      MakeNavigateRequest(*active_tab(), url_target.spec());
+  ActResultFuture result;
+
+  ASSERT_TRUE(actor_task().GetLastActedTabs().empty());
+
+  actor_task().Act(ToRequestList(action), result.GetCallback());
+  ExpectErrorResult(result, mojom::ActionResultCode::kUrlBlocked);
+
+  // Ensure the tab was added to the tab set even though the tool failed before
+  // invoking.
+  EXPECT_FALSE(actor_task().GetLastActedTabs().empty());
 }
 
 class ActorToolAgnosticBrowserTestWithCustomDelay

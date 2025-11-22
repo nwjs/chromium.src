@@ -4,29 +4,37 @@
 
 #include "chrome/browser/glic/glic_occlusion_notifier.h"
 
+#include "base/feature_list.h"
 #include "chrome/browser/glic/widget/glic_widget.h"
 #include "chrome/browser/picture_in_picture/picture_in_picture_occlusion_tracker.h"
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
+#include "chrome/common/chrome_features.h"
 #include "ui/views/widget/widget.h"
 
 namespace glic {
 
-GlicOcclusionNotifier::GlicOcclusionNotifier(
-    GlicWindowController& window_controller)
-    : window_controller_(window_controller) {
-  window_controller_->AddStateObserver(this);
+GlicOcclusionNotifier::GlicOcclusionNotifier(GlicInstance& instance)
+    : glic_instance_(instance) {
+  glic_instance_->AddStateObserver(this);
 }
 
 GlicOcclusionNotifier::~GlicOcclusionNotifier() {
-  window_controller_->RemoveStateObserver(this);
+  glic_instance_->RemoveStateObserver(this);
 }
 
 void GlicOcclusionNotifier::PanelStateChanged(
     const mojom::PanelState& panel_state,
     const GlicWindowController::PanelStateContext& context) {
+  // Under GlicMultiInstance, occlusion tracking is managed through
+  // GlicFloatingUi.
+  if (GlicEnabling::IsMultiInstanceEnabled()) {
+    return;
+  }
+
   PictureInPictureOcclusionTracker* tracker =
       PictureInPictureWindowManager::GetInstance()->GetOcclusionTracker();
-  if (!window_controller_->IsDetached() || !tracker) {
+  if (!glic_instance_->IsShowing() || glic_instance_->IsAttached() ||
+      !tracker) {
     return;
   }
 
@@ -34,7 +42,7 @@ void GlicOcclusionNotifier::PanelStateChanged(
     return;
   }
 
-  if (panel_state.kind == mojom::PanelState_Kind::kDetached) {
+  if (panel_state.kind == mojom::PanelStateKind::kDetached) {
     tracker->OnPictureInPictureWidgetOpened(context.glic_widget);
   } else {
     tracker->RemovePictureInPictureWidget(context.glic_widget);

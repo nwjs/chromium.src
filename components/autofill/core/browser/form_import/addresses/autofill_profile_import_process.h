@@ -113,6 +113,8 @@ struct ProfileImportMetadata {
   // GUIDs of `AutofillProfile`s that were used to fill the form. Empty if the
   // user edited any of the filled fields in the form.
   base::flat_set<std::string> unedited_autofilled_profile_guids;
+  // Tracks if the submitted form contained non-empty split zip fields.
+  bool observed_split_zip = false;
 };
 
 // This class holds the state associated with the import of an AutofillProfile
@@ -308,6 +310,23 @@ class ProfileImportProcess {
   // types, depending on the import type. Returns the number of edited fields.
   // If the user didn't edit any fields (or wasn't prompted), this is a no-op.
   int CollectedEditedTypeHistograms() const;
+
+  // Records UKM metrics after the import was applied.
+  void LogUkmMetrics(
+      ukm::UkmRecorder* ukm_recorder,
+      const std::vector<const AutofillProfile*>& existing_profiles,
+      int num_edited_fields = 0) const;
+
+  // Records new profile import metrics after the import was applied.
+  void LogNewProfileMetrics(
+      const std::vector<const AutofillProfile*>& existing_profiles) const;
+
+  // Records confirmable profile update metrics after the import was applied.
+  void LogConfirmableProfileUpdateMetrics(
+      const std::vector<const AutofillProfile*>& existing_profiles) const;
+
+  // Records Home and Work superset metrics after the import was applied.
+  void LogHomeAndWorkSupersetMetrics() const;
 
   // Indicates if the user is already prompted.
   bool prompt_shown_{false};

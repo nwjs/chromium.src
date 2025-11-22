@@ -17,8 +17,9 @@
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
+#include "components/viz/common/resources/shared_image_format_utils.h"
 #include "third_party/khronos/EGL/egl.h"
-#include "ui/gfx/buffer_format_util.h"
+#include "ui/gfx/buffer_types.h"
 #include "ui/gfx/extension_set.h"
 #include "ui/gfx/linux/drm_util_linux.h"
 #include "ui/gfx/linux/gbm_defines.h"
@@ -120,13 +121,13 @@ class GLOzoneEGLGbm : public GLOzoneEGL {
 
   ~GLOzoneEGLGbm() override = default;
 
-  bool CanImportNativePixmap(gfx::BufferFormat format) override {
+  bool CanImportNativePixmap(viz::SharedImageFormat format) override {
     if (!gl::GLSurfaceEGL::GetGLDisplayEGL()
              ->ext->b_EGL_EXT_image_dma_buf_import) {
       return false;
     }
 
-    return NativePixmapEGLBinding::IsBufferFormatSupported(format);
+    return NativePixmapEGLBinding::IsSharedImageFormatSupported(format);
   }
 
   std::unique_ptr<NativePixmapGLBinding> ImportNativePixmap(
@@ -339,7 +340,8 @@ scoped_refptr<gfx::NativePixmap> GbmSurfaceFactory::CreateNativePixmapForVulkan(
   DCHECK(vk_image_fd.is_valid());
 
   // TODO(spang): Fix this for formats other than gfx::BufferFormat::BGRA_8888
-  DCHECK_EQ(format, display::DisplaySnapshot::PrimaryFormat());
+  DCHECK_EQ(viz::GetSharedImageFormat(format),
+            display::DisplaySnapshot::PrimaryFormat());
   VkFormat vk_format = VK_FORMAT_B8G8R8A8_SRGB;
 
   VkDmaBufImageCreateInfo dma_buf_image_create_info = {
@@ -431,7 +433,7 @@ scoped_refptr<gfx::NativePixmap>
 GbmSurfaceFactory::CreateNativePixmapFromHandle(
     gfx::AcceleratedWidget widget,
     gfx::Size size,
-    gfx::BufferFormat format,
+    viz::SharedImageFormat format,
     gfx::NativePixmapHandle handle) {
   // Query the external service (if available), whether it recognizes this
   // NativePixmapHandle, and whether it can provide a corresponding NativePixmap
@@ -443,8 +445,9 @@ GbmSurfaceFactory::CreateNativePixmapFromHandle(
       return protected_pixmap;
   }
 
-  return CreateNativePixmapFromHandleInternal(widget, size, format,
-                                              std::move(handle));
+  return CreateNativePixmapFromHandleInternal(
+      widget, size, viz::SharedImageFormatToBufferFormat(format),
+      std::move(handle));
 }
 
 scoped_refptr<gfx::NativePixmap>

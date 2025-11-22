@@ -37,12 +37,14 @@
 #include "components/endpoint_fetcher/endpoint_fetcher.h"
 #include "components/lens/lens_features.h"
 #include "components/lens/lens_overlay_mime_type.h"
+#include "components/lens/lens_overlay_permission_utils.h"
 #include "components/lens/lens_payload_construction.h"
 #include "components/lens/lens_request_construction.h"
 #include "components/lens/lens_url_utils.h"
 #include "components/lens/proto/server/lens_overlay_response.pb.h"
 #include "components/lens/ref_counted_lens_overlay_client_logs.h"
 #include "components/metrics_services_manager/metrics_services_manager.h"
+#include "components/prefs/pref_service.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/identity_manager/access_token_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -62,6 +64,9 @@
 #include "third_party/lens_server_proto/lens_overlay_client_platform.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_document.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_filters.pb.h"
+#include "third_party/lens_server_proto/lens_overlay_image_crop.pb.h"
+#include "third_party/lens_server_proto/lens_overlay_image_data.pb.h"
+#include "third_party/lens_server_proto/lens_overlay_interaction_request_metadata.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_platform.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_polygon.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_request_id.pb.h"
@@ -450,7 +455,8 @@ void LensOverlayQueryController::EndQuery() {
 }
 
 void LensOverlayQueryController::MaybeRestartQueryFlow() {
-  if (query_controller_state_ == QueryControllerState::kClusterInfoExpired) {
+  if (query_controller_state_ == QueryControllerState::kClusterInfoExpired ||
+      query_controller_state_ == QueryControllerState::kWaitingForPermissions) {
     PrepareAndFetchFullImageRequest();
   }
 }
@@ -572,6 +578,12 @@ void LensOverlayQueryController::SendContextualTextQuery(
         &LensOverlayQueryController::SendContextualTextQuery,
         weak_ptr_factory_.GetWeakPtr(), query_start_time, query_text,
         lens_selection_type, additional_search_query_params);
+    if (lens::features::IsLensOverlayNonBlockingPrivacyNoticeEnabled() &&
+        !cluster_info_.has_value()) {
+      // If the cluster info is expired, restart a new query flow so the pending
+      // interaction request will be sent once the cluster info is available.
+      MaybeRestartQueryFlow();
+    }
     return;
   }
 
@@ -606,13 +618,16 @@ void LensOverlayQueryController::SendTextOnlyQuery(
   // interactions in quick succession.
   if (lens::features::SendVisualSearchInteractionParamForLensTextQueries() &&
       IsLensTextSelectionType(lens_selection_type)) {
-    std::string encoded_vsint = GetEncodedVisualSearchInteractionLogData(
-        query_text, lens_selection_type);
+    visual_search_interaction_data_ =
+        BuildVisualSearchInteractionLogData(query_text, lens_selection_type);
+    std::string encoded_vsint = EncodeVisualSearchInteractionLogData(
+        visual_search_interaction_data_.value());
     suggest_inputs_.set_encoded_visual_search_interaction_log_data(
         encoded_vsint);
     additional_search_query_params.insert(
         {kVisualSearchInteractionDataQueryParameterKey, encoded_vsint});
   } else {
+    visual_search_interaction_data_.reset();
     suggest_inputs_.clear_encoded_visual_search_interaction_log_data();
   }
   suggest_inputs_.clear_encoded_image_signals();
@@ -682,7 +697,8 @@ LensOverlayQueryController::GetNextRequestId(
 void LensOverlayQueryController::RunSuggestInputsCallback() {
   suggest_inputs_.set_send_gsession_vsrid_for_contextual_suggest(true);
   suggest_inputs_.set_send_gsession_vsrid_vit_for_lens_suggest(
-      lens::features::GetLensOverlaySendLensInputsForLensSuggest());
+      lens::features::GetLensOverlaySendLensInputsForLensSuggest() ||
+      lens::features::GetAimSuggestionsEnabled());
   suggest_inputs_.set_send_vsint_for_lens_suggest(
       lens::features::
           GetLensOverlaySendLensVisualInteractionDataForLensSuggest());
@@ -892,6 +908,14 @@ void LensOverlayQueryController::ClusterInfoFetchResponseHandler(
 }
 
 void LensOverlayQueryController::PrepareAndFetchFullImageRequest() {
+  // If permissions have not yet been granted, exit early. Once permissions are
+  // granted and the cluster info response is received,
+  // PrepareAndFetchFullImageRequest will be called again.
+  if (!DidUserGrantLensOverlayNeededPermissions(profile_->GetPrefs())) {
+    query_controller_state_ = QueryControllerState::kWaitingForPermissions;
+    return;
+  }
+
   if (query_controller_state_ ==
       QueryControllerState::kAwaitingClusterInfoResponse) {
     // If we are still waiting for the cluster info response, we can't send the
@@ -1161,6 +1185,7 @@ void LensOverlayQueryController::FullImageFetchResponseHandler(
       translate_options_.has_value(), kImageVisualInputTypeQueryParameterValue);
 
   // Image signals and vsint are only valid after an interaction request.
+  visual_search_interaction_data_.reset();
   suggest_inputs_.clear_encoded_image_signals();
   suggest_inputs_.clear_encoded_visual_search_interaction_log_data();
   RunSuggestInputsCallback();
@@ -1193,7 +1218,15 @@ void LensOverlayQueryController::RunFullImageCallbackForError() {
 }
 
 void LensOverlayQueryController::PrepareAndFetchPageContentRequest() {
-  if (query_controller_state_ == QueryControllerState::kClusterInfoExpired) {
+  // If permissions have not yet been granted, exit early. The full image
+  // request will recall this method once permissions are granted and the
+  // cluster info is fetched.
+  if (!DidUserGrantLensOverlayNeededPermissions(profile_->GetPrefs())) {
+    return;
+  }
+
+  if (query_controller_state_ == QueryControllerState::kClusterInfoExpired ||
+      query_controller_state_ == QueryControllerState::kWaitingForPermissions) {
     // If the cluster info has expired, we need to refetch the cluster info. The
     // full image request will recall this method once the cluster info is
     // fetched.
@@ -1545,6 +1578,13 @@ void LensOverlayQueryController::PageContentUploadFinished() {
 }
 
 void LensOverlayQueryController::PrepareAndFetchPartialPageContentRequest() {
+  // If permissions have not yet been granted, exit early. The full image
+  // request will recall this method once permissions are granted and the
+  // cluster info is fetched.
+  if (!DidUserGrantLensOverlayNeededPermissions(profile_->GetPrefs())) {
+    return;
+  }
+
   if (!cluster_info_ || !IsPartialPageContentSubstantial()) {
     // Cannot send this request without cluster info. Do not send the request
     // if the partial page content is not substantial enough to yield deatialed
@@ -1891,8 +1931,10 @@ void LensOverlayQueryController::CreateSearchUrlAndSendToCallback(
   // The visual search interaction log data should be added as late as possible,
   // so that is_parent_query can be accurately set if the user issues multiple
   // interactions in quick succession.
-  std::string encoded_vsint =
-      GetEncodedVisualSearchInteractionLogData(query_text, selection_type);
+  visual_search_interaction_data_ =
+      BuildVisualSearchInteractionLogData(query_text, selection_type);
+  std::string encoded_vsint = EncodeVisualSearchInteractionLogData(
+      visual_search_interaction_data_.value());
   additional_search_query_params.insert(
       {kVisualSearchInteractionDataQueryParameterKey, encoded_vsint});
   suggest_inputs_.set_encoded_visual_search_interaction_log_data(encoded_vsint);
@@ -2147,8 +2189,8 @@ LensOverlayQueryController::CreateOAuthHeadersAndContinue(
   return nullptr;
 }
 
-std::string
-LensOverlayQueryController::GetEncodedVisualSearchInteractionLogData(
+lens::LensOverlayVisualSearchInteractionData
+LensOverlayQueryController::BuildVisualSearchInteractionLogData(
     const std::optional<std::string>& selected_text,
     lens::LensOverlaySelectionType selection_type) {
   lens::LensOverlayVisualSearchInteractionData interaction_data;
@@ -2196,9 +2238,29 @@ LensOverlayQueryController::GetEncodedVisualSearchInteractionLogData(
     interaction_data.mutable_text_select()->set_selected_texts(
         selected_text.value());
   }
+  // If the interaction type of the request is either a PDF_QUERY or
+  // WEPAGE_QUERY, a zoomed crop consisting of the full image should be sent.
+  if (interaction_data.interaction_type() ==
+          lens::LensOverlayInteractionRequestMetadata::PDF_QUERY ||
+      interaction_data.interaction_type() ==
+          lens::LensOverlayInteractionRequestMetadata::WEBPAGE_QUERY) {
+    interaction_data.mutable_zoomed_crop()->mutable_crop()->set_center_x(0.5f);
+    interaction_data.mutable_zoomed_crop()->mutable_crop()->set_center_y(0.5f);
+    interaction_data.mutable_zoomed_crop()->mutable_crop()->set_width(1);
+    interaction_data.mutable_zoomed_crop()->mutable_crop()->set_height(1);
+    interaction_data.mutable_zoomed_crop()->mutable_crop()->set_coordinate_type(
+        ::lens::CoordinateType::NORMALIZED);
+    interaction_data.mutable_zoomed_crop()->set_zoom(1);
+  }
+  return interaction_data;
+}
 
+std::string LensOverlayQueryController::EncodeVisualSearchInteractionLogData(
+    const lens::LensOverlayVisualSearchInteractionData& interaction_data) {
+  // Set this to true to indicate that the initial parent query has been sent.
+  // This ensures that subsequent interactions will correctly report
+  // is_parent_query as false.
   parent_query_sent_ = true;
-
   std::string serialized_proto;
   CHECK(interaction_data.SerializeToString(&serialized_proto));
   std::string encoded_proto;
@@ -2280,6 +2342,7 @@ void LensOverlayQueryController::ResetRequestClusterInfoState() {
   query_controller_state_ = QueryControllerState::kClusterInfoExpired;
   request_id_generator_->ResetRequestId();
   suggest_inputs_.Clear();
+  visual_search_interaction_data_.reset();
   RunSuggestInputsCallback();
   parent_query_sent_ = false;
   is_first_page_contents_request_ = true;

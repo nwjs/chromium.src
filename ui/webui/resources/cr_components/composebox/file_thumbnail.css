@@ -24,7 +24,7 @@
 .spinner-circle {
   animation: spin 1.5s linear infinite;
   fill: none;
-  stroke: var(--color-new-tab-page-composebox-upload-button);
+  stroke: var(--color-composebox-file-chip-spinner);
   stroke-dasharray: 240;
   stroke-dashoffset: 60;
   stroke-linecap: round;
@@ -43,15 +43,15 @@
   align-items: center;
   border-radius: 8px;
   display: flex;
-  height: 44px;
+  height: var(--composebox-thumbnail-img-chip-size, 44px);
   justify-content: center;
   overflow: hidden;
   position: relative;
-  width: 44px;
+  width: var(--composebox-thumbnail-img-chip-size, 44px);
 }
 
 .img-overlay {
-  background-color: var(--color-new-tab-page-composebox-file-image-overlay);
+  background-color: var(--color-composebox-file-image-overlay);
   height: 100%;
   left: 0;
   opacity: 0;
@@ -72,7 +72,7 @@
 
 .chip {
   align-items: center;
-  background-color: var(--color-new-tab-page-composebox-file-chip-background);
+  background-color: var(--color-composebox-file-chip-background);
   border-radius: 8px;
   display: flex;
   gap: 6px;
@@ -80,12 +80,12 @@
   overflow: hidden;
   padding: 0px 12px 0px 8px;
   position: relative;
-  width: 174px;
+  width: 154px;
 }
 
 .thumbnail {
   align-items: center;
-  background-color: var(--color-new-tab-page-composebox-file-chip-favicon-background);
+  background-color: var(--color-composebox-file-chip-favicon-background);
   border-radius: 4px;
   display: flex;
   flex-shrink: 0;
@@ -97,22 +97,17 @@
 }
 
 .pdf-icon {
-  background-color: var(--color-new-tab-page-composebox-background);
+  background-color: var(--color-composebox-background);
   box-sizing: border-box;
   border-radius: 4px;
-  color: var(--color-new-tab-page-composebox-pdf-chip-icon);
+  color: var(--color-composebox-pdf-chip-icon);
   height: 100%;
   padding: 4px;
   width: 100%;
 }
 
-.chip:hover .pdf-icon,
-.chip:hover composebox-tab-favicon {
-  display: none;
-}
-
 .chip-overlay {
-  background-color: var(--color-new-tab-page-composebox-context-entrypoint-hover-background);
+  background-color: var(--color-composebox-context-entrypoint-hover-background);
   border-radius: inherit;
   inset: 0;
   display: none;
@@ -125,30 +120,46 @@
 }
 
 .overlay {
+  align-items: center;
+  display: flex;
   height: 100%;
-  left: 0;
+  justify-content: center;
   opacity: 0;
   position: absolute;
+  right: 0;
   top: 0;
-  width: 100%;
+  width: 44px;
+}
+
+.gradient-protection {
+  background: linear-gradient(
+    270deg,
+    var(--color-composebox-file-carousel-remove-gradient-start) 85.29%,
+    var(--color-composebox-file-carousel-remove-gradient-end) 123.53%
+  );
+  border-radius: 0 8px 8px 0;
+  height: 44px;
+  left: -12px;
+  position: absolute;
+  top: 0;
+  width: 56px;
+  pointer-events: none;
 }
 
 .remove-button {
-  --cr-icon-button-fill-color: white;
-  --cr-icon-button-icon-size: 20px;
+  --cr-icon-button-fill-color: black;
+  --cr-icon-button-height: 24px;
+  --cr-icon-button-width: 24px;
+  --cr-icon-button-icon-size: 16px;
   --cr-icon-button-margin-start: 0;
-  background-color: var(--color-new-tab-page-composebox-file-image-overlay);
-  border-radius: 4px;
-  color: var(--color-new-tab-page-composebox-pdf-chip-icon);
-  height: 100%;
-  left: 0;
-  position: absolute;
-  top: 0;
-  width: 100%;
+  background-color: var(--color-composebox-file-carousel-remove-button);
+  border-radius: 50%;
+  color: var(--color-composebox-pdf-chip-icon);
+  position: relative;
 }
 
 .title {
-  color: var(--color-new-tab-page-composebox-file-chip-text);
+  color: var(--color-composebox-file-chip-text);
   font-family: inherit;
   font-size: 12px;
   font-style: normal;
@@ -167,8 +178,24 @@
   opacity: 1;
 }
 
-#tabThumbnail composebox-tab-favicon {
+#tabThumbnail cr-composebox-tab-favicon {
   border-radius: 50%;
   height: 16px;
   width: 16px;
+}
+
+.tabInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.url {
+  color: var(--color-composebox-file-carousel-url);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

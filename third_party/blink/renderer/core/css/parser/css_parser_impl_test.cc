@@ -116,6 +116,11 @@ class TestCSSParserImpl {
                                   nested, invalid_rule_error);
   }
 
+  StyleRuleBase* ConsumeAtRule(CSSParserTokenStream& stream) {
+    return impl_.ConsumeAtRule(stream, CSSParserImpl::kTopLevelRules,
+                               CSSNestingType::kNone, nullptr);
+  }
+
  private:
   CSSParserImpl impl_;
 };
@@ -1431,6 +1436,76 @@ TEST(CSSParserImplTest, UnexpectedTokenInVar_IdentFunctionDisabled) {
   // Don't crash:
   css_test_helpers::ParseRule(*document, ".a { color: var(42); }");
   css_test_helpers::ParseRule(*document, ".a { color: var(ident('thing')); }");
+}
+
+TEST(CSSParserImplTest, CustomMediaBoolValueValid) {
+  CSSParserTokenStream stream("@custom-media --true-val true;");
+  TestCSSParserImpl parser;
+  const StyleRuleCustomMedia* rule =
+      DynamicTo<StyleRuleCustomMedia>(parser.ConsumeAtRule(stream));
+
+  EXPECT_TRUE(rule);
+  EXPECT_TRUE(stream.AtEnd());
+  EXPECT_EQ(rule->GetName(), "--true-val");
+  EXPECT_TRUE(rule->GetBooleanValue());
+}
+
+TEST(CSSParserImplTest, CustomMediaBoolValueValidWithoutSemicolon) {
+  CSSParserTokenStream stream("@custom-media --false-val false");
+  TestCSSParserImpl parser;
+  const StyleRuleCustomMedia* rule =
+      DynamicTo<StyleRuleCustomMedia>(parser.ConsumeAtRule(stream));
+
+  EXPECT_TRUE(rule);
+  EXPECT_TRUE(stream.AtEnd());
+  EXPECT_EQ(rule->GetName(), "--false-val");
+  EXPECT_FALSE(rule->GetBooleanValue());
+}
+
+TEST(CSSParserImplTest, CustomMediaBoolValueInvalid) {
+  CSSParserTokenStream stream("@custom-media --false-val false f;");
+  TestCSSParserImpl parser;
+  const StyleRuleCustomMedia* rule =
+      DynamicTo<StyleRuleCustomMedia>(parser.ConsumeAtRule(stream));
+
+  EXPECT_FALSE(rule);
+  EXPECT_TRUE(stream.AtEnd());
+}
+
+TEST(CSSParserImplTest, CustomMediaQueryValueValid) {
+  CSSParserTokenStream stream("@custom-media --query (min-width > 300px);");
+  TestCSSParserImpl parser;
+  const StyleRuleCustomMedia* rule =
+      DynamicTo<StyleRuleCustomMedia>(parser.ConsumeAtRule(stream));
+
+  EXPECT_TRUE(rule);
+  EXPECT_TRUE(stream.AtEnd());
+  EXPECT_EQ(rule->GetName(), "--query");
+  EXPECT_EQ(rule->GetMediaQueryValue()->MediaText(), "(min-width > 300px)");
+}
+
+TEST(CSSParserImplTest, CustomMediaQueryValueValidWithoutSemicolon) {
+  CSSParserTokenStream stream("@custom-media --query (screen)");
+  TestCSSParserImpl parser;
+  const StyleRuleCustomMedia* rule =
+      DynamicTo<StyleRuleCustomMedia>(parser.ConsumeAtRule(stream));
+
+  EXPECT_TRUE(rule);
+  EXPECT_TRUE(stream.AtEnd());
+  EXPECT_EQ(rule->GetName(), "--query");
+  EXPECT_EQ(rule->GetMediaQueryValue()->MediaText(), "(screen)");
+}
+
+TEST(CSSParserImplTest, CustomMediaQueryValueInvalid) {
+  CSSParserTokenStream stream("@custom-media --query invalid !;");
+  TestCSSParserImpl parser;
+  const StyleRuleCustomMedia* rule =
+      DynamicTo<StyleRuleCustomMedia>(parser.ConsumeAtRule(stream));
+
+  EXPECT_TRUE(rule);
+  EXPECT_TRUE(stream.AtEnd());
+  EXPECT_EQ(rule->GetName(), "--query");
+  EXPECT_EQ(rule->GetMediaQueryValue()->MediaText(), "not all");
 }
 
 }  // namespace blink

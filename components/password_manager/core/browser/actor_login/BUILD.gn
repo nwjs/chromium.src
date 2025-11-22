@@ -2,8 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/features.gni")
-
 # The code can theoretically be used on mobile too, it's just currently
 # not needed. Remove the asserts if using it on mobile and remember
 # to also modify components/BUILD.gn to start building the tests.
@@ -12,12 +10,15 @@ assert(!is_android && !is_ios)
 # All actor_login code should be able to depend on this.
 source_set("common") {
   sources = [
+    "actor_login_quality_logger_interface.h",
     "actor_login_types.cc",
     "actor_login_types.h",
   ]
 
   deps = [
     "//base",
+    "//components/optimization_guide/proto:optimization_guide_proto",
+    "//components/translate/core/browser",
     "//url",
   ]
 }

@@ -77,6 +77,7 @@ public class DisplayAndroidManagerTest {
     @After
     public void teardown() {
         DisplayAndroidManager.resetInstanceForTesting();
+        DisplayAndroidManager.resetIsDisplayTopologyAvailableForTesting();
         ShadowDisplayManager.reset();
         mBounds.clear();
     }
@@ -212,6 +213,35 @@ public class DisplayAndroidManagerTest {
                 "External Display absolute bounds incorrect after density update.",
                 new Rect(0, -1080, 1920, 0),
                 displayAndroidManager.mIdMap.get(externalDisplayId).getBounds());
+    }
+
+    @Test
+    public void testIsDisplayTopologyAvailableHistogram() {
+        final HistogramWatcher histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectBooleanRecord(
+                                DisplayAndroidManager.IS_DISPLAY_TOPOLOGY_AVAILABLE_HISTOGRAM_NAME,
+                                false)
+                        .expectBooleanRecord(
+                                DisplayAndroidManager.IS_DISPLAY_TOPOLOGY_AVAILABLE_HISTOGRAM_NAME,
+                                true)
+                        .build();
+
+        // ANDROID_USE_DISPLAY_TOPOLOGY is enabled and
+        // mAconfigFlaggedApiDelegate.isDisplayTopologyAvailable() is true
+        DisplayAndroidManager displayAndroidManager = DisplayAndroidManager.getInstance();
+
+        DisplayAndroidManager.resetInstanceForTesting();
+        DisplayAndroidManager.resetIsDisplayTopologyAvailableForTesting();
+        doReturn(false)
+                .when(mAconfigFlaggedApiDelegate)
+                .isDisplayTopologyAvailable(mDisplayManager);
+
+        // ANDROID_USE_DISPLAY_TOPOLOGY is enabled, but
+        // mAconfigFlaggedApiDelegate.isDisplayTopologyAvailable() is false
+        displayAndroidManager = DisplayAndroidManager.getInstance();
+
+        histogramWatcher.assertExpected("Incorrect histogram values.");
     }
 
     @Test

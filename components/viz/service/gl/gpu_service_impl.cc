@@ -30,6 +30,7 @@
 #include "base/trace_event/trace_event.h"
 #include "base/unguessable_token.h"
 #include "build/build_config.h"
+#include "components/persistent_cache/backend_params.h"
 #include "components/startup_metric_utils/gpu/startup_metric_utils.h"
 #include "components/version_info/version_info.h"
 #include "components/viz/common/features.h"
@@ -45,16 +46,15 @@
 #include "gpu/command_buffer/service/sync_point_manager.h"
 #include "gpu/config/gpu_finch_features.h"
 #include "gpu/config/gpu_info_collector.h"
+#include "gpu/config/gpu_preferences.h"
 #include "gpu/config/gpu_switches.h"
 #include "gpu/config/gpu_util.h"
 #include "gpu/ipc/common/gpu_client_ids.h"
-#include "gpu/ipc/common/gpu_memory_buffer_support.h"
 #include "gpu/ipc/common/gpu_peak_memory.h"
 #include "gpu/ipc/common/memory_stats.h"
 #include "gpu/ipc/service/gpu_channel.h"
 #include "gpu/ipc/service/gpu_channel_manager.h"
 #include "gpu/ipc/service/gpu_watchdog_thread.h"
-#include "gpu/ipc/service/image_decode_accelerator_worker.h"
 #include "gpu/vulkan/buildflags.h"
 #include "ipc/ipc_channel.h"
 #include "ipc/ipc_sync_channel.h"
@@ -83,10 +83,6 @@
 #include "ui/gl/init/create_gr_gl_interface.h"
 #include "ui/gl/init/gl_factory.h"
 #include "url/gurl.h"
-
-#if BUILDFLAG(USE_VAAPI)
-#include "media/gpu/vaapi/vaapi_image_decode_accelerator_worker.h"
-#endif  // BUILDFLAG(USE_VAAPI)
 
 #if BUILDFLAG(IS_ANDROID)
 #include "components/viz/service/gl/throw_uncaught_exception.h"
@@ -152,20 +148,6 @@ bool IsAcceleratedJpegDecodeSupported() {
 #else
   return false;
 #endif  // BUILDFLAG(IS_CHROMEOS)
-}
-
-bool WillGetGmbConfigFromGpu() {
-#if BUILDFLAG(IS_OZONE)
-  // Ozone/X11 requires gpu initialization to be done before it can determine
-  // what formats gmb can use. This limitation comes from the requirement to
-  // have GLX bindings initialized. The buffer formats will be passed through
-  // gpu extra info.
-  return ui::OzonePlatform::GetInstance()
-      ->GetPlatformProperties()
-      .fetch_buffer_formats_for_gmb_on_gpu;
-#else
-  return false;
-#endif
 }
 
 void RunGetPeakGpuMemoryUsageCallbackOnMainThread(
@@ -243,9 +225,17 @@ GpuServiceImpl::GpuServiceImpl(
       // outlives the DawnContextProvider.
       std::unique_ptr<gpu::webgpu::DawnCachingInterface> caching_interface;
       if (features::kSkiaGraphiteDawnUsePersistentCache.Get()) {
+        gpu::GpuPersistentCache::AsyncDiskWriteOpts async_opts;
+        async_opts.task_runner =
+            base::ThreadPool::CreateSequencedTaskRunner(
+                {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+                 base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN});
+        async_opts.max_pending_bytes_to_write =
+            gpu::GetDefaultGpuDiskCacheSize();
         caching_interface = dawn_caching_interface_factory_->CreateInstance(
             gpu::kGraphiteDawnGpuDiskCacheHandle,
-            std::make_unique<gpu::GpuPersistentCache>());
+            std::make_unique<gpu::GpuPersistentCache>("GraphiteDawn",
+                                                      std::move(async_opts)));
       } else {
         auto cache_blob_callback = base::BindRepeating(
             [](GpuServiceImpl* self, const std::string& key,
@@ -270,11 +260,6 @@ GpuServiceImpl::GpuServiceImpl(
     }
 #endif  // BUILDFLAG(SKIA_USE_METAL)
   }
-
-#if BUILDFLAG(USE_VAAPI_IMAGE_CODECS)
-  image_decode_accelerator_worker_ =
-      media::VaapiImageDecodeAcceleratorWorker::Create();
-#endif  // BUILDFLAG(USE_VAAPI_IMAGE_CODECS)
 
 #if BUILDFLAG(IS_WIN)
   if (media::SupportMediaFoundationClearPlayback()) {
@@ -341,7 +326,6 @@ GpuServiceImpl::~GpuServiceImpl() {
   // The image decode accelerator worker must outlive the GPU channel manager so
   // that it doesn't get any decode requests during/after destruction.
   DCHECK(!gpu_channel_manager_);
-  image_decode_accelerator_worker_.reset();
 
   // Signal this event before destroying the child process. That way all
   // background threads can cleanup. For example, in the renderer the
@@ -357,11 +341,6 @@ void GpuServiceImpl::UpdateGPUInfo() {
 
   gpu_info_.jpeg_decode_accelerator_supported =
       IsAcceleratedJpegDecodeSupported();
-
-  if (image_decode_accelerator_worker_) {
-    gpu_info_.image_decode_accelerator_supported_profiles =
-        image_decode_accelerator_worker_->GetSupportedProfiles();
-  }
 
   // Record initialization only after collecting the GPU info because that can
   // take a significant amount of time.
@@ -497,9 +476,9 @@ void GpuServiceImpl::InitializeWithHostInternal(
       gpu_preferences_, this, watchdog_thread_.get(), main_runner_, io_runner_,
       scheduler_, sync_point_manager, shared_image_manager, gpu_feature_info_,
       &use_shader_cache_shm_count_, std::move(default_offscreen_surface),
-      image_decode_accelerator_worker_.get(), vulkan_context_provider(),
-      metal_context_provider(), dawn_context_provider(),
-      dawn_caching_interface_factory(), gr_context_options_provider_);
+      vulkan_context_provider(), metal_context_provider(),
+      dawn_context_provider(), dawn_caching_interface_factory(),
+      gr_context_options_provider_);
 
   media_gpu_channel_manager_ = std::make_unique<media::MediaGpuChannelManager>(
       gpu_channel_manager_.get());
@@ -866,6 +845,7 @@ bool GpuServiceImpl::IsExiting() const {
 void GpuServiceImpl::EstablishGpuChannel(int32_t client_id,
                                          uint64_t client_tracing_id,
                                          bool is_gpu_host,
+                                         bool enable_extra_handles_validation,
                                          EstablishGpuChannelCallback callback) {
   // This should always be called on the IO thread first.
   if (io_runner_->BelongsToCurrentThread()) {
@@ -890,14 +870,15 @@ void GpuServiceImpl::EstablishGpuChannel(int32_t client_id,
     main_runner_->PostTask(
         FROM_HERE, base::BindOnce(&GpuServiceImpl::EstablishGpuChannel,
                                   weak_ptr_, client_id, client_tracing_id,
-                                  is_gpu_host, std::move(wrap_callback)));
+                                  is_gpu_host, enable_extra_handles_validation,
+                                  std::move(wrap_callback)));
     return;
   }
 
   auto channel_token = base::UnguessableToken::Create();
   gpu::GpuChannel* gpu_channel = gpu_channel_manager_->EstablishChannel(
       channel_token, client_id, client_tracing_id, is_gpu_host,
-      gpu_extra_info_);
+      enable_extra_handles_validation, gpu_extra_info_);
 
   if (!gpu_channel) {
     // This returns a null handle, which is treated by the client as a failure
@@ -932,13 +913,11 @@ void GpuServiceImpl::SetChannelClientPid(int32_t client_id,
   gpu_channel_manager_->SetChannelClientPid(client_id, client_pid);
 }
 
-void GpuServiceImpl::SetChannelPersistentCacheFile(
+void GpuServiceImpl::SetChannelPersistentCacheParams(
     int32_t client_id,
     const gpu::GpuDiskCacheHandle& handle,
-    base::File db_file,
-    base::File journal_file,
-    base::UnsafeSharedMemoryRegion shared_lock) {
-  TRACE_EVENT2("gpu", "GpuServiceImpl::SetChannelPersistentCacheFile",
+    persistent_cache::BackendParams backend_params) {
+  TRACE_EVENT2("gpu", "GpuServiceImpl::SetChannelPersistentCacheParams",
                "client_id", client_id, "handle_type", GetHandleType(handle));
 #if BUILDFLAG(SKIA_USE_DAWN)
   // TODO(399642827): Support other cache types.
@@ -950,8 +929,7 @@ void GpuServiceImpl::SetChannelPersistentCacheFile(
 
   auto* cache = dawn_context_provider_->GetCachingInterface();
   CHECK(cache);
-  cache->InitializePersistentCache(std::move(db_file), std::move(journal_file),
-                                   std::move(shared_lock));
+  cache->InitializePersistentCache(std::move(backend_params));
 #endif
 }
 
@@ -1162,8 +1140,7 @@ void GpuServiceImpl::OnForegroundedOnMainThread() {
 }
 
 #if !BUILDFLAG(IS_ANDROID)
-void GpuServiceImpl::OnMemoryPressure(
-    base::MemoryPressureListener::MemoryPressureLevel level) {
+void GpuServiceImpl::OnMemoryPressure(base::MemoryPressureLevel level) {
   // Forward the notification to the registry of MemoryPressureListeners.
   base::SingleThreadTaskRunner::GetMainThreadDefault()->PostTask(
       FROM_HERE,
@@ -1253,10 +1230,11 @@ bool GpuServiceImpl::IsGMBNV12Supported() {
   // Determine whether it's possible to create an NV12 NativePixmap with
   // GPU_READ_CPU_READ_WRITE usage (the relevant usage for the clients of this
   // method).
-  auto buffer_format = gfx::BufferFormat::YUV_420_BIPLANAR;
+  auto format = MultiPlaneFormat::kNV12;
   auto buffer_usage = gfx::BufferUsage::GPU_READ_CPU_READ_WRITE;
 
-  if (!IsNativeBufferSupported(buffer_format, buffer_usage)) {
+  if (!gpu::SharedImageFactory::IsNativeBufferSupported(format, buffer_usage,
+                                                        gpu_extra_info_)) {
     return false;
   }
 
@@ -1268,7 +1246,8 @@ bool GpuServiceImpl::IsGMBNV12Supported() {
                                vulkan_context_provider()
                                    ? vulkan_context_provider()->GetDeviceQueue()
                                    : nullptr,
-                               size, buffer_format, buffer_usage, size);
+                               size, SharedImageFormatToBufferFormat(format),
+                               buffer_usage, size);
   if (!pixmap.get() || pixmap->ExportHandle().planes.empty()) {
     return false;
   }
@@ -1359,34 +1338,6 @@ base::WaitableEvent* GpuServiceImpl::CreateShutdownEvent() {
       base::WaitableEvent::ResetPolicy::MANUAL,
       base::WaitableEvent::InitialState::NOT_SIGNALED);
   return owned_shutdown_event_.get();
-}
-
-bool GpuServiceImpl::IsNativeBufferSupported(gfx::BufferFormat format,
-                                             gfx::BufferUsage usage) {
-  // Note that we are initializing the |supported_gmb_configurations_| here to
-  // make sure gpu service have already initialized and required metadata like
-  // supported buffer configurations have already been sent from browser
-  // process to GPU process for wayland.
-  if (!supported_gmb_configurations_inited_) {
-    supported_gmb_configurations_inited_ = true;
-    if (WillGetGmbConfigFromGpu()) {
-      // Note that Chrome can be compiled with multiple OZONE platforms but
-      // actual OZONE platform is chosen at run-time. Eg: Chrome can be
-      // compiled with X11 and Wayland but Wayland can be chosen at runtime.
-      // Hence using WillGetGmbConfigFromGpu() which will determine
-      // configurations based on actual platform chosen at runtime.
-#if BUILDFLAG(IS_OZONE_X11)
-      for (const auto& config : gpu_extra_info_.gpu_memory_buffer_support_x11) {
-        supported_gmb_configurations_.emplace(config);
-      }
-#endif  // BUILDFLAG(IS_OZONE_X11)
-    } else {
-      supported_gmb_configurations_ =
-          gpu::GpuMemoryBufferSupport::GetNativeGpuMemoryBufferConfigurations();
-    }
-  }
-  return supported_gmb_configurations_.find(gfx::BufferUsageAndFormat(
-             usage, format)) != supported_gmb_configurations_.end();
 }
 
 void GpuServiceImpl::GetDawnInfo(bool collect_metrics,

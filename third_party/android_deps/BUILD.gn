@@ -28,12 +28,17 @@ if (!limit_android_deps) {
     ]
   }
 
+  # TODO(agrieve): Delete this alias.
   java_group("guava_android_java") {
+    deps = [ ":guava_java" ]
+  }
+
+  java_group("guava_java") {
     preferred_dep = true
     if (defined(guava_android_target)) {
       deps = [ guava_android_target ]
     } else {
-      deps = [ "//third_party/android_deps:com_google_guava_guava_java" ]
+      deps = [ ":com_google_guava_guava_java" ]
     }
   }
 
@@ -80,14 +85,17 @@ if (!limit_android_deps) {
     }
   }
 
-  android_library("chromium_play_services_availability_java") {
-    sources = [ "util/org/chromium/gms/ChromiumPlayServicesAvailability.java" ]
-    deps = [ "$google_play_services_package:google_play_services_base_java" ]
-  }
-
-  robolectric_library("chromium_play_services_availability_shadows_java") {
-    sources = [ "util/org/chromium/gms/shadows/ShadowChromiumPlayServicesAvailability.java" ]
-    deps = [ ":chromium_play_services_availability_java" ]
+  # Guard because some consumers may not have //base.
+  if (build_with_chromium) {
+    android_library("chromium_play_services_availability_java") {
+      sources =
+          [ "util/org/chromium/gms/ChromiumPlayServicesAvailability.java" ]
+      deps = [
+        "$google_play_services_package:google_play_services_base_java",
+        "$google_play_services_package:google_play_services_basement_java",
+        "//base:resetters_java",
+      ]
+    }
   }
 
   java_group("playcore_java") {
@@ -168,7 +176,7 @@ if (!limit_android_deps) {
       ":com_google_errorprone_error_prone_annotations_java",
       ":org_checkerframework_checker_qual_java",
       ":org_jsoup_jsoup_java",
-      "//third_party/android_deps:guava_android_java",
+      "//third_party/android_deps:guava_java",
       "//third_party/android_deps:material_design_java",
       "//third_party/android_deps:protobuf_lite_runtime_java",
       "//third_party/androidx:androidx_core_core_java",
@@ -257,6 +265,7 @@ if (!limit_android_deps) {
     enable_bytecode_checks = false
     deps = [
       ":org_jetbrains_kotlinx_kotlinx_coroutines_core_java",
+      "//third_party/android_deps:guava_java",
       "//third_party/kotlin_stdlib:kotlin_stdlib_java",
     ]
   }

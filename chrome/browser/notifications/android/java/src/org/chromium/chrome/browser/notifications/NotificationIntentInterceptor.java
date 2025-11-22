@@ -9,6 +9,7 @@ import static org.chromium.build.NullUtil.assertNonNull;
 import android.app.Activity;
 import android.app.Notification;
 import android.app.PendingIntent;
+import android.app.RemoteInput;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -219,9 +220,6 @@ public class NotificationIntentInterceptor {
         }
         // The delete intent needs to be handled by broadcast receiver from Q due to background
         // activity start restriction.
-        boolean shouldUseService =
-                actionType == NotificationUmaTracker.ActionType.PRE_UNSUBSCRIBE
-                        && shouldUseServiceIntentForPreUnsubscribeAction();
         boolean shouldUseBroadcast =
                 intentType == NotificationIntentInterceptor.IntentType.DELETE_INTENT
                         || actionType == NotificationUmaTracker.ActionType.PRE_UNSUBSCRIBE
@@ -243,9 +241,7 @@ public class NotificationIntentInterceptor {
 
         Context applicationContext = ContextUtils.getApplicationContext();
         Intent intent = null;
-        if (shouldUseService) {
-            intent = new Intent(applicationContext, NotificationIntentInterceptorService.class);
-        } else if (shouldUseBroadcast) {
+        if (shouldUseBroadcast) {
             intent = new Intent(applicationContext, Receiver.class);
         } else {
             intent = new Intent(applicationContext, TrampolineActivity.class);
@@ -275,10 +271,6 @@ public class NotificationIntentInterceptor {
                 pendingIntentProvider != null ? pendingIntentProvider.getRequestCode() : 0;
         int requestCode = computeHashCode(metadata, intentType, actionType, originalRequestCode);
 
-        if (shouldUseService) {
-            return PendingIntent.getService(applicationContext, requestCode, intent, flags);
-        }
-
         return shouldUseBroadcast
                 ? PendingIntent.getBroadcast(applicationContext, requestCode, intent, flags)
                 : PendingIntent.getActivity(applicationContext, requestCode, intent, flags);
@@ -298,15 +290,6 @@ public class NotificationIntentInterceptor {
                 /* pendingIntentProvider= */ null);
     }
 
-    /** Whether to use a service-type intent for handling PRE_UNSUBSCRIBE actions. */
-    public static boolean shouldUseServiceIntentForPreUnsubscribeAction() {
-        final String useServiceIntentParam = "use_service_intent";
-        return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
-                ChromeFeatureList.NOTIFICATION_ONE_TAP_UNSUBSCRIBE,
-                useServiceIntentParam,
-                false);
-    }
-
     /**
      * Launches the notification's pending intent, which will perform Chrome feature related tasks.
      *
@@ -319,6 +302,18 @@ public class NotificationIntentInterceptor {
             return false;
         }
 
+        // If the notification action was a text action, add the reply to the PendingIntent
+        Intent replyIntent = new Intent();
+        Bundle remoteInputResults = RemoteInput.getResultsFromIntent(intent);
+        if (remoteInputResults != null) {
+            CharSequence reply =
+                    remoteInputResults.getCharSequence(NotificationConstants.KEY_TEXT_REPLY);
+            if (reply != null) {
+                replyIntent.putExtra(
+                        NotificationConstants.EXTRA_NOTIFICATION_REPLY, reply.toString());
+            }
+        }
+
         PendingIntent pendingIntent =
                 (PendingIntent) intent.getParcelableExtra(EXTRA_PENDING_INTENT);
         if (pendingIntent == null) {
@@ -326,8 +321,13 @@ public class NotificationIntentInterceptor {
             return false;
         }
 
+        Context applicationContext = ContextUtils.getApplicationContext();
+
         try {
-            pendingIntent.send();
+            pendingIntent.send(
+                    applicationContext,
+                    NotificationConstants.PENDING_INTENT_REQUEST_CODE,
+                    replyIntent);
             return true;
         } catch (PendingIntent.CanceledException e) {
             Log.e(TAG, "The PendingIntent to fire is canceled.");

@@ -6,6 +6,10 @@ assert(is_win || is_mac || is_linux || is_chromeos)
 
 source_set("searchbox") {
   sources = [
+    "composebox_handler.cc",
+    "composebox_handler.h",
+    "contextual_search_type_converters.cc",
+    "contextual_search_type_converters.h",
     "contextual_searchbox_handler.cc",
     "contextual_searchbox_handler.h",
     "lens_searchbox_client.h",
@@ -24,6 +28,7 @@ source_set("searchbox") {
     "//base",
     "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ui/webui/new_tab_page/composebox/variations",
+    "//chrome/browser/ui/webui/top_chrome",
     "//components/lens/proto/server:proto",
     "//components/omnibox/browser",
     "//components/omnibox/browser:mojo_bindings",
@@ -57,14 +62,17 @@ source_set("searchbox") {
     "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/browser/ui/views/location_bar",
     "//chrome/browser/ui/webui:webui_util",
+    "//chrome/browser/ui/webui/omnibox_popup/mojom",
+    "//chrome/browser/ui/webui/top_chrome",
+    "//components/application_locale_storage",
     "//components/bookmarks/browser",
+    "//components/contextual_search:public",
     "//components/lens",
     "//components/navigation_metrics",
     "//components/omnibox/browser",
     "//components/omnibox/browser:location_bar",
     "//components/omnibox/browser:vector_icons",
     "//components/omnibox/common",
-    "//components/omnibox/composebox",
     "//components/prefs",
     "//components/profile_metrics",
     "//components/search",
@@ -73,6 +81,7 @@ source_set("searchbox") {
     "//components/strings:components_strings",
     "//components/strings:components_strings_grit",
     "//components/variations",
+    "//components/variations/service",
     "//components/vector_icons",
     "//content/public/browser",
     "//net",
@@ -80,6 +89,9 @@ source_set("searchbox") {
     "//ui/base",
     "//ui/webui/resources/cr_components/composebox:mojo_bindings",
   ]
+  if (!is_android) {
+    deps += [ "//chrome/browser/contextual_tasks" ]
+  }
 }
 
 source_set("searchbox_test_utils") {
@@ -100,6 +112,7 @@ source_set("searchbox_test_utils") {
     "//testing/gtest",
   ]
   deps = [
+    "//chrome/browser/ui/omnibox",
     "//components/omnibox/browser:vector_icons",
     "//components/search",
   ]

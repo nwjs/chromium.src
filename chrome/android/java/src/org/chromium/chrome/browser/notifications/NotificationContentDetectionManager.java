@@ -34,7 +34,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
 
 /** Helper utils for replacing suspicious notifications with warnings. */
 @NullMarked
@@ -490,17 +489,17 @@ public class NotificationContentDetectionManager {
                             continue;
                         }
 
-                        Optional<Notification> notificationBackupOptional =
+                        Notification notificationBackup =
                                 NotificationPlatformBridge.getNotificationBackupOrCancel(
                                         proxy.getNotification().extras,
                                         proxy.getTag(),
                                         NotificationConstants
                                                 .EXTRA_NOTIFICATION_BACKUP_FOR_SUSPICIOUS_VERDICT);
 
-                        if (notificationBackupOptional.isPresent()) {
+                        if (notificationBackup != null) {
                             Notification.Builder builder =
                                     Notification.Builder.recoverBuilder(
-                                            context, notificationBackupOptional.get());
+                                            context, notificationBackup);
                             appendUnsubscribeButton(
                                     builder,
                                     notificationId,
@@ -534,10 +533,13 @@ public class NotificationContentDetectionManager {
         }
     }
 
-    static void onUnsubscribeMaybeCommittedAfterWarning(String notificationId, String origin) {
+    static void onPreUnsubscribeMaybeCommittedAfterWarning(String notificationId, String origin) {
         // Record when the unsubscribe is completed.
         recordInteractionForUMAIfSuspicious(
                 origin, notificationId, SuspiciousNotificationWarningInteractions.UNSUBSCRIBE);
+    }
+
+    static void removeOriginFromSuspiciousMap(String origin) {
         sSuspiciousNotificationsMap.remove(origin);
         sWarningNotificationAttributesByOrigin.remove(origin);
     }
@@ -573,7 +575,7 @@ public class NotificationContentDetectionManager {
                                     activeNotifications, warningNotificationId);
 
                     // Obtain the backup notification from the extras found above.
-                    Optional<Notification> notificationBackupOptional =
+                    Notification notificationBackup =
                             NotificationPlatformBridge.getNotificationBackupOrCancel(
                                     warningNotificationExtras,
                                     warningNotificationId,
@@ -582,9 +584,7 @@ public class NotificationContentDetectionManager {
 
                     // If a backup is found, use it to display the notification silently using the
                     // other fields stored in the extras.
-                    if (notificationBackupOptional.isPresent()) {
-                        Notification notificationBackup = notificationBackupOptional.get();
-
+                    if (notificationBackup != null) {
                         // Get notification attributes from Bundle.
                         String scopeUrl =
                                 getStringFromBackupBundle(
@@ -683,7 +683,7 @@ public class NotificationContentDetectionManager {
         mNotificationManager = notificationManager;
     }
 
-    private static boolean isNotificationSuspicious(String notificationId, String origin) {
+    static boolean isNotificationSuspicious(String notificationId, String origin) {
         if (sSuspiciousNotificationsMap.containsKey(origin)) {
             return sSuspiciousNotificationsMap.get(origin).contains(notificationId);
         }
@@ -815,16 +815,10 @@ public class NotificationContentDetectionManager {
         // ever get called with ACTION_PRE_UNSUBSCRIBE when displaying a web notification, which
         // implies native is running, making this a non-issue. Neverthelerss, removing support for
         // startService-type intents would be the cleanest solution here.
-        boolean useServiceIntent =
-                NotificationConstants.ACTION_PRE_UNSUBSCRIBE.equals(action)
-                        && NotificationIntentInterceptor
-                                .shouldUseServiceIntentForPreUnsubscribeAction();
         Intent intent = new Intent(action, intentData);
         intent.setClass(
                 context,
-                useServiceIntent
-                        ? NotificationService.class
-                        : NotificationServiceImpl.Receiver.class);
+                NotificationServiceImpl.Receiver.class);
 
         // Make sure to update NotificationJobService.getJobExtrasFromIntent() when changing any
         // of the extras included with the |intent|.
@@ -845,19 +839,9 @@ public class NotificationContentDetectionManager {
         // receiver gets a shorter timeout interval before it may be killed, but this is ok because
         // we schedule a job to handle the intent in NotificationService.Receiver.
         intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-
-        if (useServiceIntent) {
-            return PendingIntentProvider.getService(
-                    context,
-                    NotificationPlatformBridge.PENDING_INTENT_REQUEST_CODE,
-                    intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT,
-                    /* mutable= */ false);
-        }
-
         return PendingIntentProvider.getBroadcast(
                 context,
-                NotificationPlatformBridge.PENDING_INTENT_REQUEST_CODE,
+                NotificationConstants.PENDING_INTENT_REQUEST_CODE,
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT,
                 /* mutable= */ false);

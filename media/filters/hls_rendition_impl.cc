@@ -93,7 +93,7 @@ void HlsRenditionImpl::CheckState(
 
     ResumeLivePlayback(
         pause_duration + media_time + segments_->GetMaxDuration(),
-        base::BindOnce(std::move(time_remaining_cb), base::Seconds(0)));
+        base::BindOnce(std::move(time_remaining_cb), kNoTimestamp));
     return;
   }
 
@@ -451,6 +451,15 @@ void HlsRenditionImpl::FetchNext(base::OnceClosure cb,
   bool needs_init = false;
   std::tie(segment, segment_start, segment_end, needs_init) =
       segments_->GetNextSegment();
+
+  if (segment->IsGap()) {
+    TryFillingBuffers(
+        base::BindOnce(
+            [](base::OnceClosure cb, base::TimeDelta) { std::move(cb).Run(); },
+            std::move(cb)),
+        time.value_or(base::Seconds(0)));
+    return;
+  }
 
   // If this segment has a different init segment than the segment before it,
   // we need to include the init segment before we fetch. Alternatively, if

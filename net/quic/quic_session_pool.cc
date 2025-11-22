@@ -11,6 +11,7 @@
 #include <string_view>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
@@ -87,6 +88,7 @@
 #include "net/third_party/quiche/src/quiche/quic/platform/api/quic_flags.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "third_party/boringssl/src/include/openssl/aead.h"
+#include "third_party/boringssl/src/include/openssl/ssl.h"
 #include "url/gurl.h"
 #include "url/scheme_host_port.h"
 #include "url/url_constants.h"
@@ -542,26 +544,30 @@ QuicSessionPool::QuicCryptoClientConfigOwner::QuicCryptoClientConfigOwner(
       clock_(base::DefaultClock::GetInstance()),
       quic_session_pool_(quic_session_pool) {
   DCHECK(quic_session_pool_);
-  memory_pressure_listener_ =
-      std::make_unique<base::AsyncMemoryPressureListener>(
-          FROM_HERE, base::MemoryPressureListenerTag::kQuicSessionPool,
-          base::BindRepeating(&QuicCryptoClientConfigOwner::OnMemoryPressure,
-                              base::Unretained(this)));
+  memory_pressure_listener_registration_ =
+      std::make_unique<base::AsyncMemoryPressureListenerRegistration>(
+          FROM_HERE, base::MemoryPressureListenerTag::kQuicSessionPool, this);
   config_.set_preferred_groups(
       quic_session_pool_->ssl_config_service_->GetSSLContextConfig()
           .GetSupportedGroups());
-  // TODO(crbug.com/445967223): Also set client key shares. This depends on
-  // changes in QUICHE.
-  // TODO(crbug.com/445967223): Also set the SSL compliance policy to prefer
-  // AES-256-GCM iff the SSLContextConfig specifies that. This requires plumbing
-  // in QUICHE.
+  if (std::vector<uint16_t> client_key_shares =
+          quic_session_pool_->ssl_config_service_->GetSSLContextConfig()
+              .GetSupportedGroups(/*key_shares_only=*/true);
+      !client_key_shares.empty()) {
+    config_.set_client_key_shares(std::move(client_key_shares));
+  }
+  if (quic_session_pool_->ssl_config_service_->GetSSLContextConfig()
+          .tls13_cipher_prefer_aes_256) {
+    config_.set_ssl_compliance_policy(ssl_compliance_policy_cnsa_202407);
+  }
 }
+
 QuicSessionPool::QuicCryptoClientConfigOwner::~QuicCryptoClientConfigOwner() {
   DCHECK_EQ(num_refs_, 0);
 }
 
 void QuicSessionPool::QuicCryptoClientConfigOwner::OnMemoryPressure(
-    base::MemoryPressureListener::MemoryPressureLevel memory_pressure_level) {
+    base::MemoryPressureLevel memory_pressure_level) {
   quic::SessionCache* session_cache = config_.session_cache();
   if (!session_cache) {
     return;
@@ -572,13 +578,13 @@ void QuicSessionPool::QuicCryptoClientConfigOwner::OnMemoryPressure(
     now_u64 = static_cast<uint64_t>(now);
   }
   switch (memory_pressure_level) {
-    case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_NONE:
+    case base::MEMORY_PRESSURE_LEVEL_NONE:
       break;
-    case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_MODERATE:
+    case base::MEMORY_PRESSURE_LEVEL_MODERATE:
       session_cache->RemoveExpiredEntries(
           quic::QuicWallTime::FromUNIXSeconds(now_u64));
       break;
-    case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL:
+    case base::MEMORY_PRESSURE_LEVEL_CRITICAL:
       session_cache->Clear();
       break;
   }

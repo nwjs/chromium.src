@@ -16,7 +16,6 @@ import org.junit.runner.RunWith;
 
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
-import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.browsing_data.BrowsingDataBridge;
@@ -43,7 +42,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Batch(Batch.PER_CLASS)
-@EnableFeatures(ChromeFeatureList.HISTORY_PANE_ANDROID)
+@EnableFeatures({
+    ChromeFeatureList.HISTORY_PANE_ANDROID,
+    ChromeFeatureList.ENABLE_ESCAPE_HANDLING_FOR_SECONDARY_ACTIVITIES
+})
 public class HistoryPaneTest {
     @Rule
     public AutoResetCtaTransitTestRule mCtaTestRule =
@@ -76,7 +78,6 @@ public class HistoryPaneTest {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "https://crbug.com/442838631")
     public void testOpenedHistoryItem_HistoryItemsAreDisplayed() {
         String urlOne =
                 mCtaTestRule.getTestServer().getURL("/chrome/test/data/android/navigate/one.html");
@@ -95,7 +96,6 @@ public class HistoryPaneTest {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "https://crbug.com/442651404")
     public void testOpenedHistoryItem_SearchMatch() {
         String urlOne =
                 mCtaTestRule.getTestServer().getURL("/chrome/test/data/android/navigate/one.html");

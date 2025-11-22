@@ -48,21 +48,7 @@ void ExtensionsMenuButton::AddedToWidget() {
   UpdateState();
 }
 
-// ToolbarActionViewDelegateViews:
-views::FocusManager* ExtensionsMenuButton::GetFocusManagerForAccelerator() {
-  return GetFocusManager();
-}
-
-views::BubbleAnchor ExtensionsMenuButton::GetReferenceButtonForPopup() {
-  return BrowserView::GetBrowserViewForBrowser(browser_)
-      ->toolbar()
-      ->GetExtensionsButton();
-}
-
-content::WebContents* ExtensionsMenuButton::GetCurrentWebContents() const {
-  return browser_->tab_strip_model()->GetActiveWebContents();
-}
-
+// ToolbarActionViewDelegate:
 void ExtensionsMenuButton::UpdateState() {
   ChromeLayoutProvider* const provider = ChromeLayoutProvider::Get();
   const int icon_size =
@@ -91,11 +77,8 @@ void ExtensionsMenuButton::UpdateState() {
   }
 }
 
-void ExtensionsMenuButton::ShowContextMenuAsFallback() {
-  // The items in the extensions menu are disabled and unclickable if the
-  // primary action cannot be taken; ShowContextMenuAsFallback() should never
-  // be called directly.
-  NOTREACHED();
+content::WebContents* ExtensionsMenuButton::GetCurrentWebContents() const {
+  return browser_->tab_strip_model()->GetActiveWebContents();
 }
 
 void ExtensionsMenuButton::ButtonPressed() {

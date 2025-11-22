@@ -22,6 +22,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
+#include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -418,10 +419,6 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest,
   EXPECT_EQ(expected_title, title_watcher.WaitAndGetTitle());
   WaitForHistoryBackendToRun(browser()->profile());
 
-  std::string search_string =
-      "data:text/html,<title>Popup Success!</title>you should not see this "
-      "message if popup blocker is enabled";
-
   ui_test_utils::HistoryEnumerator history(browser()->profile());
   std::vector<GURL>& history_urls = history.urls();
   ASSERT_EQ(2u, history_urls.size());
@@ -432,12 +429,16 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest,
   TemplateURLService* service =
       TemplateURLServiceFactory::GetForProfile(browser()->profile());
   search_test_utils::WaitForTemplateURLServiceToLoad(service);
-  ui_test_utils::SendToOmniboxAndSubmit(browser(), search_string);
-  OmniboxEditModel* model =
-      browser()->window()->GetLocationBar()->GetOmniboxView()->model();
-  EXPECT_EQ(GURL(search_string), model->CurrentMatch(nullptr).destination_url);
-  EXPECT_EQ(base::ASCIIToUTF16(search_string),
-            model->CurrentMatch(nullptr).contents);
+
+  constexpr std::string_view kSearchString =
+      "data:text/html,<title>Popup Success!</title>you should not see this "
+      "message if popup blocker is enabled";
+  ui_test_utils::SendToOmniboxAndSubmit(browser(), kSearchString);
+  auto* location_bar = browser()->window()->GetLocationBar();
+  AutocompleteMatch match =
+      location_bar->GetOmniboxController()->edit_model()->CurrentMatch();
+  EXPECT_EQ(GURL(kSearchString), match.destination_url);
+  EXPECT_EQ(base::ASCIIToUTF16(kSearchString), match.contents);
 }
 
 // This test fails on linux AURA with this change

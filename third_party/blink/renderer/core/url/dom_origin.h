@@ -5,6 +5,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_URL_DOM_ORIGIN_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_URL_DOM_ORIGIN_H_
 
+#include "base/types/pass_key.h"
+#include "third_party/blink/renderer/bindings/core/v8/script_value.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
@@ -13,6 +15,7 @@
 namespace blink {
 
 class ExceptionState;
+class ScriptState;
 
 class CORE_EXPORT DOMOrigin final : public ScriptWrappable {
   DEFINE_WRAPPERTYPEINFO();
@@ -21,11 +24,13 @@ class CORE_EXPORT DOMOrigin final : public ScriptWrappable {
   // Creates a unique opaque origin:
   static DOMOrigin* Create();
 
+  static DOMOrigin* Create(scoped_refptr<const SecurityOrigin>);
+
   // Parses |value|, throwing an error if it isn't a validly serialized origin:
   static DOMOrigin* Create(const String& value,
                            ExceptionState& exception_state);
 
-  explicit DOMOrigin(scoped_refptr<const SecurityOrigin> origin);
+  DOMOrigin(base::PassKey<DOMOrigin>, scoped_refptr<const SecurityOrigin>);
   ~DOMOrigin() override;
 
   // Parses |value|, returning `null` if it isn't a validly serialized origin:
@@ -34,7 +39,11 @@ class CORE_EXPORT DOMOrigin final : public ScriptWrappable {
   // Parses |value|, returning `null` if it isn't a validly serialized URL:
   static DOMOrigin* fromURL(const String& value);
 
-  String toJSON() const;
+  // Converts |value| to an Origin, throwing an error if conversion isn't
+  // possible.
+  static DOMOrigin* from(ScriptState* script_state,
+                         ScriptValue value,
+                         ExceptionState& exception_state);
 
   bool opaque() const;
 
@@ -42,6 +51,9 @@ class CORE_EXPORT DOMOrigin final : public ScriptWrappable {
   bool isSameSite(const DOMOrigin* other) const;
 
   void Trace(Visitor*) const override;
+
+  // Expose the internal `SecurityOrigin` for unit tests:
+  const SecurityOrigin* GetOriginForTesting() const { return origin_.get(); }
 
  private:
   const scoped_refptr<const SecurityOrigin> origin_;

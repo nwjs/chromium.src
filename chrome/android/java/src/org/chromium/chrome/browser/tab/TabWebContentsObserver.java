@@ -43,13 +43,13 @@ import org.chromium.chrome.browser.pdf.PdfUtils;
 import org.chromium.chrome.browser.policy.PolicyAuditor;
 import org.chromium.chrome.browser.policy.PolicyAuditor.AuditEvent;
 import org.chromium.chrome.browser.serial.SerialNotificationManager;
-import org.chromium.chrome.browser.tab.Tab.MediaState;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.usb.UsbNotificationManager;
 import org.chromium.content_public.browser.GlobalRenderFrameHostId;
 import org.chromium.content_public.browser.LifecycleState;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.Page;
+import org.chromium.content_public.browser.RenderCoordinates;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.net.NetError;
@@ -438,7 +438,19 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
             View view = mTab.getView();
             if (view == null) return;
 
-            Rect boundsInView = new Rect(leftInView, topInView, rightInView, bottomInView);
+            // Correct bounds for page scale and browser UI offset to place in view coordinates
+            WebContents webContents = mTab.getWebContents();
+            if (webContents == null) return;
+
+            RenderCoordinates coords = RenderCoordinates.fromWebContents(webContents);
+            final int topOffset = coords.getContentOffsetYPixInt();
+
+            Rect boundsInView =
+                    new Rect(
+                            (int) coords.fromLocalCssToPix(leftInView),
+                            ((int) coords.fromLocalCssToPix(topInView)) + topOffset,
+                            (int) coords.fromLocalCssToPix(rightInView),
+                            ((int) coords.fromLocalCssToPix(bottomInView)) + topOffset);
             if (boundsInView.isEmpty()) return;
 
             // TODO(aaronmoss): when Baklava 36.1 support lands in Clank, remove delegate
@@ -451,29 +463,6 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
                     && ChromeFeatureList.isEnabled(
                             ChromeFeatureList.ACCESSIBILITY_MAGNIFICATION_FOLLOWS_INPUT_FOCUS)) {
                 view.requestRectangleOnScreen(boundsInView);
-            }
-        }
-
-        @Override
-        public void mediaStartedPlaying() {
-            WebContents contents = mTab.getWebContents();
-            if (contents == null) {
-                mTab.setMediaState(MediaState.NONE);
-            } else {
-                mTab.setMediaState(contents.isAudioMuted() ? MediaState.MUTED : MediaState.AUDIBLE);
-            }
-        }
-
-        @Override
-        public void mediaStoppedPlaying() {
-            mTab.setMediaState(MediaState.NONE);
-        }
-
-        @Override
-        public void didUpdateAudioMutingState(boolean muted) {
-            @MediaState int state = mTab.getMediaState();
-            if (state == MediaState.AUDIBLE || state == MediaState.MUTED) {
-                mTab.setMediaState(muted ? MediaState.MUTED : MediaState.AUDIBLE);
             }
         }
     }

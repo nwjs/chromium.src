@@ -113,6 +113,14 @@ const char kAutoLoginHeaderName[] = "X-Auto-Login";
 
 // Handles intercepted, in-progress requests/responses, so that they can be
 // controlled and modified accordingly.
+//
+// At a high level this class calls shouldInterceptRequest (when appropriate)
+// then either:
+// - loads the response provided by shouldInterceptRequest.
+// - loads the response from an Android resource.
+// - loads the response from the network.
+//
+// It also handles redirects and origin-matched headers.
 class InterceptedRequest : public network::mojom::URLLoader,
                            public network::mojom::URLLoaderClient {
  public:
@@ -139,6 +147,7 @@ class InterceptedRequest : public network::mojom::URLLoader,
 
   ~InterceptedRequest() override;
 
+  // Main entry point for the request.
   void Restart();
 
   // network::mojom::URLLoaderClient
@@ -164,22 +173,21 @@ class InterceptedRequest : public network::mojom::URLLoader,
   void SetPriority(net::RequestPriority priority,
                    int32_t intra_priority_value) override;
 
+  // Returns true if the request was restarted or completed.
+  bool InputStreamFailed(bool restart_needed);
+
+ private:
+  void InterceptWithCookieHeader(std::string cookie);
+  void InterceptResponseReceived(
+      AwContentsIoThreadClient::InterceptResponseData async_result);
+
+  // Called to progress the request without calling shouldInterceptRequest.
+  void SendNoIntercept();
+
   void ContinueAfterIntercept();
   void ContinueAfterInterceptWithOverride(
       std::unique_ptr<embedder_support::WebResourceResponse> response,
       std::unique_ptr<embedder_support::InputStream> input_stream);
-
-  void InterceptResponseReceived(
-      AwContentsIoThreadClient::InterceptResponseData async_result);
-
-  // Returns true if the request was restarted or completed.
-  bool InputStreamFailed(bool restart_needed);
-
-  void GetCookieStringOnUI(bool accept_third_party_cookies,
-                           base::OnceClosure complete);
-
-  void InterceptWithCookieHeader(
-      std::string cookie);
 
   // Applies the `AwOriginMatchedHeaders` that match the current
   // `request_.url`.
@@ -189,8 +197,6 @@ class InterceptedRequest : public network::mojom::URLLoader,
   void ApplyOriginMatchedHeaders(
       std::vector<std::string>* redirect_headers_to_remove,
       net::HttpRequestHeaders* redirect_headers_to_modify);
-
- private:
 
   std::unique_ptr<AwContentsIoThreadClient> GetIoThreadClient();
 
@@ -214,8 +220,6 @@ class InterceptedRequest : public network::mojom::URLLoader,
   // Posts the error callback to the UI thread, ensuring that at most we send
   // only one.
   void SendErrorCallback(int error_code, bool safebrowsing_hit);
-
-  void SendNoIntercept();
 
   // Logs the cumulative time spent by the AwContentsIoThreadClient during this
   // request.
@@ -389,82 +393,6 @@ InterceptedRequest::~InterceptedRequest() {
     SendErrorCallback(error_status_, false);
 }
 
-void InterceptedRequest::InterceptWithCookieHeader(
-    std::string cookie) {
-  if (cookie != "") {
-    request_.headers.SetHeader(net::HttpRequestHeaders::kCookie, cookie);
-  }
-
-  std::unique_ptr<AwContentsIoThreadClient> io_thread_client =
-      GetIoThreadClient();
-
-  if (io_thread_client != nullptr) {
-    // TODO: verify the case when WebContents::RenderFrameDeleted is called
-    // before network request is intercepted (i.e. if that's possible and
-    // whether it can result in any issues).
-    io_thread_client->ShouldInterceptRequestAsync(
-        AwWebResourceRequest(request_),
-        base::BindOnce(&InterceptedRequest::InterceptResponseReceived,
-                       weak_factory_.GetWeakPtr()));
-  } else {
-    SendNoIntercept();
-  }
-}
-
-void InterceptedRequest::ApplyOriginMatchedHeaders(
-    std::vector<std::string>* redirect_headers_to_remove,
-    net::HttpRequestHeaders* redirect_headers_to_modify) {
-  // TODO(crbug.com/422368112): Figure out how to handle CORS requests.
-  url::Origin request_origin = url::Origin::Create(request_.url);
-  if (options_ & network::mojom::kURLLoadOptionAsCorsPreflight) {
-    for (const auto& matched_header : origin_matched_headers_) {
-      if (matched_header->MatchesOrigin(request_origin)) {
-        base::UmaHistogramBoolean(
-            "Android.WebView.AndroidX.Profile.ExtraHeaderTargetsCorsPreflight",
-            true);
-        break;
-      }
-    }
-    // For now we simply omit the header on a CORS preflight, but otherwise
-    // attach the header on the GET request.
-    return;
-  }
-
-  if (redirect_headers_to_remove) {
-    redirect_headers_to_remove->insert(redirect_headers_to_remove->end(),
-                                       attached_origin_matched_headers_.begin(),
-                                       attached_origin_matched_headers_.end());
-  }
-
-  // This request might be in the process of being redirected to a different
-  // domain, where we need to apply different headers, so remove previously
-  // attached headers from the canonical set of headers.
-  for (const auto& header_name : attached_origin_matched_headers_) {
-    request_.headers.RemoveHeader(header_name);
-  }
-
-  attached_origin_matched_headers_.clear();
-
-  for (const auto& matched_header :
-       AwOriginMatchedHeader::GetCombinedMatchingHeaders(
-           origin_matched_headers_, request_origin)) {
-    // TODO(crbug.com/423581920): Follow up to determine what the best merging
-    // strategy is. The current strategy is to only attach if there is no
-    // collision, which is least likely to break existing web pages.
-    bool should_attach = !request_.headers.HasHeader(matched_header.first);
-    base::UmaHistogramBoolean(
-        "Android.WebView.AndroidX.Profile.ExtraHeaderAttached", should_attach);
-    if (should_attach) {
-      request_.headers.SetHeader(matched_header.first, matched_header.second);
-      attached_origin_matched_headers_.emplace_back(matched_header.first);
-      if (redirect_headers_to_modify) {
-        redirect_headers_to_modify->SetHeader(matched_header.first,
-                                              matched_header.second);
-      }
-    }
-  }
-}
-
 void InterceptedRequest::Restart() {
   TRACE_EVENT0("android_webview", "InterceptedRequest::Restart");
   io_thread_client_call_duration_ = base::TimeDelta();
@@ -516,33 +444,25 @@ void InterceptedRequest::Restart() {
   }
 }
 
-// logic for when not to invoke shouldInterceptRequest callback
-bool InterceptedRequest::ShouldNotInterceptRequest() {
-  if (request_was_redirected_) {
-    return true;
+void InterceptedRequest::InterceptWithCookieHeader(std::string cookie) {
+  if (cookie != "") {
+    request_.headers.SetHeader(net::HttpRequestHeaders::kCookie, cookie);
   }
 
-  bool should_skip_intercept_for_prefetch_enabled =
-      base::FeatureList::IsEnabled(features::kWebViewSkipInterceptsForPrefetch);
-  if (should_skip_intercept_for_prefetch_enabled) {
-    // Only skip if the prefetch is not also a prerender.
-    if (AwPrefetchManager::IsPrefetchRequest(request_) &&
-        !AwPrefetchManager::IsPrerenderRequest(request_)) {
-      // Only skip if the prefetch if it is not associated with any web
-      // contents. This is required in order for browser context initiated
-      // prefetch requests to skip shouldInterceptRequest while excluding
-      // renderer initiated prefetches (e.g. speculation rules).
-      return web_contents_key_ == std::nullopt;
-    }
-  }
+  std::unique_ptr<AwContentsIoThreadClient> io_thread_client =
+      GetIoThreadClient();
 
-  // Do not call shouldInterceptRequest callback for special android urls,
-  // unless they fail to load on first attempt. Special android urls are urls
-  // such as "file:///android_asset/", "file:///android_res/" urls or
-  // "content:" scheme urls.
-  return !input_stream_previously_failed_ &&
-         (request_.url.SchemeIs(url::kContentScheme) ||
-          android_webview::IsAndroidSpecialFileUrl(request_.url));
+  if (io_thread_client != nullptr) {
+    // TODO: verify the case when WebContents::RenderFrameDeleted is called
+    // before network request is intercepted (i.e. if that's possible and
+    // whether it can result in any issues).
+    io_thread_client->ShouldInterceptRequestAsync(
+        AwWebResourceRequest(request_),
+        base::BindOnce(&InterceptedRequest::InterceptResponseReceived,
+                       weak_factory_.GetWeakPtr()));
+  } else {
+    SendNoIntercept();
+  }
 }
 
 void InterceptedRequest::InterceptResponseReceived(
@@ -584,38 +504,6 @@ void InterceptedRequest::InterceptResponseReceived(
   }
 
   ContinueAfterIntercept();
-}
-
-void InterceptedRequest::LogIoThreadClientTimeSpent() {
-  base::UmaHistogramMicrosecondsTimes(
-      "Android.WebView.IoThreadClientOnUrlLoaderTime.RequestDone",
-      io_thread_client_call_duration_);
-}
-
-// returns true if the request has been restarted or was completed.
-bool InterceptedRequest::InputStreamFailed(bool restart_needed) {
-  DCHECK(!input_stream_previously_failed_);
-  LogIoThreadClientTimeSpent();
-
-  if (intercept_only_) {
-    // This can happen for unsupported schemes, when no proper
-    // response from shouldInterceptRequest() is received, i.e.
-    // the provided input stream in response failed to load. In
-    // this case we send and error and stop loading.
-    SendErrorAndCompleteImmediately(net::ERR_UNKNOWN_URL_SCHEME);
-    return true;  // request completed
-  }
-
-  if (!restart_needed) {
-    // request will not be restarted, error reporting will be done
-    // via other means e.g. setting appropriate response header status.
-    return false;
-  }
-
-  input_stream_previously_failed_ = true;
-  proxied_client_receiver_.reset();
-  Restart();
-  return true;  // request restarted
 }
 
 void InterceptedRequest::ContinueAfterIntercept() {
@@ -664,6 +552,120 @@ void InterceptedRequest::ContinueAfterInterceptWithOverride(
               std::move(response), weak_factory_.GetWeakPtr()),
           std::nullopt, set_cookie_header_);
   loader->Start(std::move(input_stream));
+}
+
+void InterceptedRequest::ApplyOriginMatchedHeaders(
+    std::vector<std::string>* redirect_headers_to_remove,
+    net::HttpRequestHeaders* redirect_headers_to_modify) {
+  // TODO(crbug.com/422368112): Figure out how to handle CORS requests.
+  url::Origin request_origin = url::Origin::Create(request_.url);
+  if (options_ & network::mojom::kURLLoadOptionAsCorsPreflight) {
+    for (const auto& matched_header : origin_matched_headers_) {
+      if (matched_header->MatchesOrigin(request_origin)) {
+        base::UmaHistogramBoolean(
+            "Android.WebView.AndroidX.Profile.ExtraHeaderTargetsCorsPreflight",
+            true);
+        break;
+      }
+    }
+    // For now we simply omit the header on a CORS preflight, but otherwise
+    // attach the header on the GET request.
+    return;
+  }
+
+  if (redirect_headers_to_remove) {
+    redirect_headers_to_remove->insert(redirect_headers_to_remove->end(),
+                                       attached_origin_matched_headers_.begin(),
+                                       attached_origin_matched_headers_.end());
+  }
+
+  // This request might be in the process of being redirected to a different
+  // domain, where we need to apply different headers, so remove previously
+  // attached headers from the canonical set of headers.
+  for (const auto& header_name : attached_origin_matched_headers_) {
+    request_.headers.RemoveHeader(header_name);
+  }
+
+  attached_origin_matched_headers_.clear();
+
+  for (const auto& [header_name, header_value] :
+       AwOriginMatchedHeader::GetCombinedMatchingHeaders(
+           origin_matched_headers_, request_origin)) {
+    // TODO(crbug.com/423581920): Follow up to determine what the best merging
+    // strategy is. The current strategy is to only attach if there is no
+    // collision, which is least likely to break existing web pages.
+    bool should_attach = !request_.headers.HasHeader(header_name);
+    base::UmaHistogramBoolean(
+        "Android.WebView.AndroidX.Profile.ExtraHeaderAttached", should_attach);
+    if (should_attach) {
+      request_.headers.SetHeader(header_name, header_value);
+      attached_origin_matched_headers_.emplace_back(header_name);
+      if (redirect_headers_to_modify) {
+        redirect_headers_to_modify->SetHeader(header_name, header_value);
+      }
+    }
+  }
+}
+
+// logic for when not to invoke shouldInterceptRequest callback
+bool InterceptedRequest::ShouldNotInterceptRequest() {
+  if (request_was_redirected_) {
+    return true;
+  }
+
+  bool should_skip_intercept_for_prefetch_enabled =
+      base::FeatureList::IsEnabled(features::kWebViewSkipInterceptsForPrefetch);
+  if (should_skip_intercept_for_prefetch_enabled) {
+    // Only skip if the prefetch is not also a prerender.
+    if (AwPrefetchManager::IsPrefetchRequest(request_) &&
+        !AwPrefetchManager::IsPrerenderRequest(request_)) {
+      // Only skip if the prefetch if it is not associated with any web
+      // contents. This is required in order for browser context initiated
+      // prefetch requests to skip shouldInterceptRequest while excluding
+      // renderer initiated prefetches (e.g. speculation rules).
+      return web_contents_key_ == std::nullopt;
+    }
+  }
+
+  // Do not call shouldInterceptRequest callback for special android urls,
+  // unless they fail to load on first attempt. Special android urls are urls
+  // such as "file:///android_asset/", "file:///android_res/" urls or
+  // "content:" scheme urls.
+  return !input_stream_previously_failed_ &&
+         (request_.url.SchemeIs(url::kContentScheme) ||
+          android_webview::IsAndroidSpecialFileUrl(request_.url));
+}
+
+void InterceptedRequest::LogIoThreadClientTimeSpent() {
+  base::UmaHistogramMicrosecondsTimes(
+      "Android.WebView.IoThreadClientOnUrlLoaderTime.RequestDone",
+      io_thread_client_call_duration_);
+}
+
+// returns true if the request has been restarted or was completed.
+bool InterceptedRequest::InputStreamFailed(bool restart_needed) {
+  DCHECK(!input_stream_previously_failed_);
+  LogIoThreadClientTimeSpent();
+
+  if (intercept_only_) {
+    // This can happen for unsupported schemes, when no proper
+    // response from shouldInterceptRequest() is received, i.e.
+    // the provided input stream in response failed to load. In
+    // this case we send and error and stop loading.
+    SendErrorAndCompleteImmediately(net::ERR_UNKNOWN_URL_SCHEME);
+    return true;  // request completed
+  }
+
+  if (!restart_needed) {
+    // request will not be restarted, error reporting will be done
+    // via other means e.g. setting appropriate response header status.
+    return false;
+  }
+
+  input_stream_previously_failed_ = true;
+  proxied_client_receiver_.reset();
+  Restart();
+  return true;  // request restarted
 }
 
 namespace {

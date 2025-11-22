@@ -124,6 +124,15 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/browser/ui/startup/default_browser_prompt/pin_infobar/pin_infobar_delegate.h:PinInfoBarUserInteraction) -->
 
+<!-- LINT.IfChange(ReloadButtonInputType) -->
+
+<enum name="ReloadButtonInputType">
+  <int value="0" label="MouseRelease"/>
+  <int value="1" label="KeyPress"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/waap/waap_ui_metrics_recorder.h:ReloadButtonInputType) -->
+
 <!-- LINT.IfChange(RenderViewContextMenuItem) -->
 
 <enum name="RenderViewContextMenuItem">
@@ -400,6 +409,7 @@ chromium-metrics-reviews@google.com.
   <int value="73" label="UMA_SEARCH_ENGINE_CHANGED_NOTIFICATION"/>
   <int value="74" label="UMA_BOOKMARK_BATCH_UPLOAD"/>
   <int value="75" label="UMA_NTP_MOST_VISITED_UNPIN_UNDO"/>
+  <int value="76" label="UMA_SIGN_IN"/>
 </enum>
 
 <enum name="WebUIPreloadReason">
@@ -624,6 +634,7 @@ chromium-metrics-reviews@google.com.
   <int value="-1949142440" label="chrome://smb-credentials-dialog/"/>
   <int value="-1941995226" label="chrome://attribution-internals/"/>
   <int value="-1911971715" label="chrome://history/"/>
+  <int value="-1905481895" label="chrome://reload-button.top-chrome/"/>
   <int value="-1899361569" label="chrome-untrusted://eche-app/"/>
   <int value="-1887206190" label="chrome://nfc-debug/"/>
   <int value="-1877210733" label="chrome-untrusted://privacy-sandbox-dialog/"/>
@@ -1085,6 +1096,7 @@ chromium-metrics-reviews@google.com.
   <int value="95" label="Find Extensions"/>
   <int value="96" label="Show signin page"/>
   <int value="97" label="Open recent tabs from other devices"/>
+  <int value="98" label="Trigger installed app update dialog"/>
 </enum>
 
 <!-- LINT.ThenChange(/chrome/browser/ui/toolbar/app_menu_model.h:AppMenuAction) -->

@@ -1486,25 +1486,25 @@ class AndroidBannedImportTest(unittest.TestCase):
         for file in test_files:
             mock_input_api.files = [file]
             msgs.append(
-                PRESUBMIT._CheckAndroidNoBannedImports(mock_input_api,
-                                                       mock_output_api))
+                PRESUBMIT.CheckNoBannedPatterns(mock_input_api,
+                                                mock_output_api))
         self.assertEqual(0, len(msgs[0]))
         self.assertEqual(0, len(msgs[1]))
         self.assertTrue(msgs[2][0].message.startswith(
             textwrap.dedent("""\
-      Banned imports were used.
+      A banned pattern was used.
           BannedUri.java:1:""")))
         self.assertTrue(msgs[3][0].message.startswith(
             textwrap.dedent("""\
-      Banned imports were used.
+      A banned pattern was used.
           BannedTargetApi.java:1:""")))
         self.assertTrue(msgs[4][0].message.startswith(
             textwrap.dedent("""\
-      Banned imports were used.
+      A banned pattern was used.
           BannedActivityTestRule.java:1:""")))
         self.assertTrue(msgs[5][0].message.startswith(
             textwrap.dedent("""\
-      Banned imports were used.
+      A banned pattern was used.
           BannedVectorDrawableCompat.java:1:""")))
 
 
@@ -2938,7 +2938,7 @@ class BannedTypeCheckTest(unittest.TestCase):
             MockFile('some/js/ok/file.js', ['chrome.send(something);']),
         ]
 
-        results = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
+        results = PRESUBMIT.CheckNoBannedPatterns(input_api, MockOutputApi())
 
         self.assertEqual(1, len(results))
         self.assertTrue('ash/webui/file.js' in results[0].message)
@@ -2987,7 +2987,7 @@ class BannedTypeCheckTest(unittest.TestCase):
                 ]),
         ]
 
-        errors = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
+        errors = PRESUBMIT.CheckNoBannedPatterns(input_api, MockOutputApi())
         self.assertEqual(14, len(errors))
         self.assertTrue(
             'some/java/problematic/diskread.java' in errors[0].message)
@@ -3069,7 +3069,7 @@ class BannedTypeCheckTest(unittest.TestCase):
             ]),
         ]
 
-        results = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
+        results = PRESUBMIT.CheckNoBannedPatterns(input_api, MockOutputApi())
 
         # Each entry in results corresponds to a BanRule with a violation, in
         # the order they were encountered.
@@ -3126,7 +3126,7 @@ class BannedTypeCheckTest(unittest.TestCase):
                          [f'{banned_rng} engine;']),
                 MockFile('third_party/ok/file.cc', [f'{banned_rng} engine;']),
             ]
-            results = PRESUBMIT.CheckNoBannedFunctions(input_api,
+            results = PRESUBMIT.CheckNoBannedPatterns(input_api,
                                                        MockOutputApi())
             self.assertEqual(2, len(results), banned_rng)
             self.assertTrue(
@@ -3154,7 +3154,7 @@ class BannedTypeCheckTest(unittest.TestCase):
             ]),
         ]
 
-        errors = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
+        errors = PRESUBMIT.CheckNoBannedPatterns(input_api, MockOutputApi())
         self.assertEqual(3, len(errors))
         self.assertTrue('some/ios/file.mm' in errors[0].message)
         self.assertTrue('another/ios_file.mm' in errors[1].message)
@@ -3170,7 +3170,7 @@ class BannedTypeCheckTest(unittest.TestCase):
             MockFile('content/renderer/ok/file3.cc', ['mojo::ConvertTo<>']),
         ]
 
-        results = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
+        results = PRESUBMIT.CheckNoBannedPatterns(input_api, MockOutputApi())
 
         # Each entry in results corresponds to a BanRule with a violation, in
         # the order they were encountered.
@@ -3195,7 +3195,7 @@ class BannedTypeCheckTest(unittest.TestCase):
             ]),
         ]
 
-        results = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
+        results = PRESUBMIT.CheckNoBannedPatterns(input_api, MockOutputApi())
 
         # Each entry in results corresponds to a BanRule with a violation, in
         # the order they were encountered.
@@ -3223,7 +3223,7 @@ class BannedTypeCheckTest(unittest.TestCase):
 
         # Each entry in results corresponds to a BanRule with a violation, in
         # the order they were encountered.
-        results = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
+        results = PRESUBMIT.CheckNoBannedPatterns(input_api, MockOutputApi())
 
         self.assertEqual(3, len(results))
 
@@ -3248,12 +3248,15 @@ class NoProductionCodeUsingTestOnlyFunctionsTest(unittest.TestCase):
             MockFile('some/path/foo.mm', ['FooForTesting();']),
             MockFile('some/path/foo.cxx', ['FooForTests();']),
             MockFile('some/path/foo.cpp', ['foo_for_test();']),
+            MockFile('some/path/foo.cc', ['::FooForTesting();']),
+            MockFile('some/path/foo.cc', ['FooForTesting());']),
+            MockFile('some/path/foo.cc', ['::FooForTesting());']),
         ]
 
         results = PRESUBMIT.CheckNoProductionCodeUsingTestOnlyFunctions(
             mock_input_api, MockOutputApi())
         self.assertEqual(1, len(results))
-        self.assertEqual(4, len(results[0].items))
+        self.assertEqual(7, len(results[0].items))
         self.assertTrue('foo.cc' in results[0].items[0])
         self.assertTrue('foo.mm' in results[0].items[1])
         self.assertTrue('foo.cxx' in results[0].items[2])
@@ -3264,7 +3267,7 @@ class NoProductionCodeUsingTestOnlyFunctionsTest(unittest.TestCase):
         mock_input_api.files = [
             MockFile('some/path/foo.h', ['foo_for_testing();']),
             MockFile('some/path/foo.mm', ['FooForTesting() {']),
-            MockFile('some/path/foo.cc', ['::FooForTests();']),
+            MockFile('some/path/foo.cc', ['::FooForTesting() {']),
             MockFile('some/path/foo.cpp', ['// foo_for_test();']),
             MockFile('some/path/foo.cxx', ['foo_for_test(); // IN-TEST']),
         ]
@@ -5799,7 +5802,7 @@ class CheckDeprecatedSyncConsentFunctionsTest(unittest.TestCase):
                      ['IsSyncFeatureActive']),
         ]
 
-        results = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
+        results = PRESUBMIT.CheckNoBannedPatterns(input_api, MockOutputApi())
 
         self.assertEqual(7, len(results))
         self.assertTrue(all('chrome/browser/android/file.cc' not in r.message for r in results))
@@ -5823,7 +5826,7 @@ class CheckDeprecatedSyncConsentFunctionsTest(unittest.TestCase):
             MockFile('components/kiosk/file.cc', ['HasSyncConsent']),
         ]
 
-        results = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
+        results = PRESUBMIT.CheckNoBannedPatterns(input_api, MockOutputApi())
 
         self.assertEqual(0, len(results))
 
@@ -5837,7 +5840,7 @@ class CheckDeprecatedSyncConsentFunctionsTest(unittest.TestCase):
             MockFile('chrome/foo/file5.java', ['isSyncFeatureActive']),
         ]
 
-        results = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
+        results = PRESUBMIT.CheckNoBannedPatterns(input_api, MockOutputApi())
 
         self.assertEqual(4, len(results))
         self.assertTrue(all('components/foo/file1.java' not in r.message for r in results))
@@ -5860,7 +5863,7 @@ class CheckAnonymousNamespaceTest(unittest.TestCase):
             MockFile('chrome/test.txt', ['namespace {']),
         ]
 
-        results = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
+        results = PRESUBMIT.CheckNoBannedPatterns(input_api, MockOutputApi())
 
         self.assertEqual(1, len(results))
         self.assertTrue(

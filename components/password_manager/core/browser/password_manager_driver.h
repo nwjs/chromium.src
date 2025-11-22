@@ -116,13 +116,6 @@ class PasswordManagerDriver {
       base::OnceCallback<void(const std::optional<autofill::FormData>&)>
           form_data_callback) {}
 
-  // Submits a form based on field id if all conditions for submission with
-  // Enter are satisfied, i.e. the form exists, there is a submit element inside
-  // a form, the submit element is not disabled.
-  virtual void SubmitFormWithEnter(
-      autofill::FieldRendererId field,
-      base::OnceCallback<void(bool)> success_callback) {}
-
   // Tells the driver to fill the currently focused form with the `username` and
   // `password`.
   virtual void FillSuggestion(
@@ -197,8 +190,19 @@ class PasswordManagerDriver {
   // chrome://password-manager-internals is available.
   virtual void SendLoggingAvailability() {}
 
+  // Returns true if the driver corresponds to a frame who's
+  // parent is in the main frame. If the frame has no parent
+  // it returns `false`.
+  // TODO(crbug.com/456636505): Refactor this code since it doesn't seem
+  // relevant to other password manager code.
+  virtual bool IsDirectChildOfPrimaryMainFrame() const = 0;
+
   // Return true iff the driver corresponds to the main frame.
   virtual bool IsInPrimaryMainFrame() const = 0;
+
+  // Return true if the driver corresponds to a fenced frame or to
+  // a frame nested in a fenced frame.
+  virtual bool IsNestedWithinFencedFrame() const = 0;
 
   // Returns true iff a popup can be shown on the behalf of the associated
   // frame.
@@ -220,6 +224,10 @@ class PasswordManagerDriver {
 
   virtual gfx::RectF TransformToRootCoordinates(
       const gfx::RectF& bounds_in_frame_coordinates) = 0;
+
+  // Checks if the view area of the field is visible.
+  virtual void CheckViewAreaVisible(autofill::FieldRendererId field_id,
+                                    base::OnceCallback<void(bool)>) = 0;
 
   // Get a WeakPtr to the instance.
   virtual base::WeakPtr<PasswordManagerDriver> AsWeakPtr() = 0;

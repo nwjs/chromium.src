@@ -59,8 +59,11 @@ class CONTENT_EXPORT PreloadingDecider
   //  Receives and processes ML model score for 'url' target link.
   void OnPreloadingHeuristicsModelDone(const GURL& url, float score);
 
-  // Receives and processes 'url' selected by viewport heuristic.
-  void OnViewportHeuristicTriggered(const GURL& url);
+  // Receives and processes `url` selected by "moderate" viewport heuristic.
+  void OnModerateViewportHeuristicTriggered(const GURL& url);
+
+  // Receives and processes `url` selected by "eager" viewport heuristic.
+  void OnEagerViewportHeuristicTriggered(const GURL& url);
 
   // Sets the new preloading decider observer for testing and returns the old
   // one.
@@ -77,7 +80,8 @@ class CONTENT_EXPORT PreloadingDecider
 
   // Processes the received speculation rules candidates list.
   void UpdateSpeculationCandidates(
-      std::vector<blink::mojom::SpeculationCandidatePtr>& candidates);
+      std::vector<blink::mojom::SpeculationCandidatePtr>& candidates,
+      bool enable_cross_origin_prerender_iframes = false);
 
   // Called when LCP is predicted.
   // This is used to defer starting prerenders until LCP timing and is only
@@ -135,13 +139,14 @@ class CONTENT_EXPORT PreloadingDecider
   // discarded by Prefetcher yet, and we should wait for it to finish.
   bool ShouldWaitForPrefetchResult(const GURL& url);
 
-  // Prerenders the |url| if it is safe and eligible to be prerendered. Returns
-  // false for the first bool if no suitable (given |enacting_predictor|)
-  // on-standby candidate is found for the given |url|, or the Prerenderer does
-  // not accept the candidate. Returns true for the second bool if a
-  // PreloadingPrediction has been added.
-  std::pair<bool, bool> MaybePrerender(
+  // Performs "prerender" or "prerender-until-script" `action` for the `url` if
+  // it is safe and eligible to be prerendered. Returns false for the first bool
+  // if no suitable (given `enacting_predictor`) on-standby candidate is found
+  // for the given `url`, or the Prerenderer does not accept the candidate.
+  // Returns true for the second bool if a PreloadingPrediction has been added.
+  std::pair<bool, bool> MaybePrerenderForAction(
       const GURL& url,
+      blink::mojom::SpeculationAction action,
       const PreloadingPredictor& enacting_predictor,
       PreloadingConfidence confidence,
       EagernessSet eagerness_to_exclude);

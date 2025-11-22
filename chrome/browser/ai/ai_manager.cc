@@ -25,6 +25,7 @@
 #include "base/types/pass_key.h"
 #include "chrome/browser/ai/ai_context_bound_object.h"
 #include "chrome/browser/ai/ai_context_bound_object_set.h"
+#include "chrome/browser/ai/ai_create_on_device_session_task.h"
 #include "chrome/browser/ai/ai_crx_component.h"
 #include "chrome/browser/ai/ai_language_model.h"
 #include "chrome/browser/ai/ai_never_load_component.h"
@@ -41,9 +42,9 @@
 #include "components/language/core/common/locale_util.h"
 #include "components/optimization_guide/core/delivery/model_util.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
+#include "components/optimization_guide/core/model_execution/on_device_capability.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
-#include "components/optimization_guide/core/optimization_guide_model_executor.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
@@ -181,8 +182,7 @@ class CreateWritingAssistanceSessionTask : public CreateOnDeviceSessionTask {
       base::MakeFixedFlatSet<std::string_view>({"en", "ja", "es"});
   using WritingAssistanceSessionTaskCallback = base::OnceCallback<void(
       mojo::Remote<ClientRemoteInterface>,
-      std::unique_ptr<
-          optimization_guide::OptimizationGuideModelExecutor::Session>)>;
+      std::unique_ptr<optimization_guide::OnDeviceSession>)>;
 
   static void CreateAndStart(
       content::BrowserContext* browser_context,
@@ -220,9 +220,8 @@ class CreateWritingAssistanceSessionTask : public CreateOnDeviceSessionTask {
   ~CreateWritingAssistanceSessionTask() override = default;
 
  protected:
-  void OnFinish(std::unique_ptr<
-                optimization_guide::OptimizationGuideModelExecutor::Session>
-                    session) override {
+  void OnFinish(
+      std::unique_ptr<optimization_guide::OnDeviceSession> session) override {
     std::move(callback_).Run(std::move(client_remote_), std::move(session));
   }
 
@@ -864,8 +863,13 @@ void AIManager::FinishCanCreateSession(
   // the reason.
   if (eligibility !=
       optimization_guide::OnDeviceModelEligibilityReason::kSuccess) {
+    // If context_bound_object_set_ size or model_download_progress_manager_
+    // reporters are non-zero, it implies that a download is pending.
+    // TODO(crbug.com/444320307): Make this more robust by actually checking
+    // opt-guide download status.
     bool is_downloading =
-        model_download_progress_manager_.GetNumberOfReporters() >= 1;
+        model_download_progress_manager_.GetNumberOfReporters() >= 1 ||
+        context_bound_object_set_.GetSize() >= 1;
     std::move(callback).Run(
         ConvertOnDeviceModelEligibilityReasonToModelAvailabilityCheckResult(
             eligibility, is_downloading));
@@ -892,8 +896,7 @@ void AIManager::OnSessionCreated(
     CreateOptionsPtrType options,
     std::optional<optimization_guide::MultimodalMessage> initial_request,
     mojo::Remote<ClientRemoteInterface> client_remote,
-    std::unique_ptr<optimization_guide::OptimizationGuideModelExecutor::Session>
-        session) {
+    std::unique_ptr<optimization_guide::OnDeviceSession> session) {
   if (!session) {
     AIUtils::AIUtils::SendClientRemoteError(
         client_remote,
@@ -911,9 +914,7 @@ void AIManager::OnSessionCreated(
             [](AIContextBoundObjectSet& context_bound_object_set,
                CreateOptionsPtrType options,
                mojo::Remote<ClientRemoteInterface> client_remote,
-               std::unique_ptr<
-                   optimization_guide::OptimizationGuideModelExecutor::Session>
-                   session,
+               std::unique_ptr<optimization_guide::OnDeviceSession> session,
                std::optional<uint32_t> result) {
               if (!result.has_value()) {
                 AIUtils::SendClientRemoteError(

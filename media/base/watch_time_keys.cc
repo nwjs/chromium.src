@@ -26,6 +26,10 @@ constexpr char kWatchTimeAudioVideoDisplayInline[] =
     "Media.WatchTime.AudioVideo.DisplayInline";
 constexpr char kWatchTimeAudioVideoDisplayPictureInPicture[] =
     "Media.WatchTime.AudioVideo.DisplayPictureInPicture";
+constexpr char kWatchTimeAudioVideoDominantVisibleContent[] =
+    "Media.WatchTime.AudioVideo.DominantVisibleContent";
+constexpr char kWatchTimeAudioVideoAuxiliaryVisibleContent[] =
+    "Media.WatchTime.AudioVideo.AuxiliaryVisibleContent";
 constexpr char kWatchTimeAudioVideoEmbeddedExperience[] =
     "Media.WatchTime.AudioVideo.EmbeddedExperience";
 constexpr char kWatchTimeAudioVideoNativeControlsOn[] =
@@ -94,6 +98,10 @@ constexpr char kWatchTimeAudioVideoMutedSrc[] =
     "Media.WatchTime.AudioVideo.Muted.SRC";
 constexpr char kWatchTimeAudioVideoMutedHls[] =
     "Media.WatchTime.AudioVideo.Muted.HLS";
+constexpr char kWatchTimeAudioVideoMutedDominantVisibleContent[] =
+    "Media.WatchTime.AudioVideo.Muted.DominantVisibleContent";
+constexpr char kWatchTimeAudioVideoMutedAuxiliaryVisibleContent[] =
+    "Media.WatchTime.AudioVideo.Muted.AuxiliaryVisibleContent";
 
 // Media Foundation AudioVideo watch time metric.
 constexpr char kWatchTimeAudioVideoMediaFoundationAll[] =
@@ -174,6 +182,10 @@ std::string_view ConvertWatchTimeKeyToStringForUma(WatchTimeKey key) {
       return kWatchTimeAudioVideoDisplayInline;
     case WatchTimeKey::kAudioVideoDisplayPictureInPicture:
       return kWatchTimeAudioVideoDisplayPictureInPicture;
+    case WatchTimeKey::kAudioVideoDominantVisibleContent:
+      return kWatchTimeAudioVideoDominantVisibleContent;
+    case WatchTimeKey::kAudioVideoAuxiliaryVisibleContent:
+      return kWatchTimeAudioVideoAuxiliaryVisibleContent;
     case WatchTimeKey::kAudioVideoEmbeddedExperience:
       return kWatchTimeAudioVideoEmbeddedExperience;
     case WatchTimeKey::kAudioVideoNativeControlsOn:
@@ -196,6 +208,10 @@ std::string_view ConvertWatchTimeKeyToStringForUma(WatchTimeKey key) {
       return kWatchTimeAudioVideoBackgroundAc;
     case WatchTimeKey::kAudioVideoBackgroundEmbeddedExperience:
       return kWatchTimeAudioVideoBackgroundEmbeddedExperience;
+    case WatchTimeKey::kAudioVideoHdrAll:
+      return kWatchTimeAudioVideoHdrAll;
+    case WatchTimeKey::kAudioVideoHdrEme:
+      return kWatchTimeAudioVideoHdrEme;
     case WatchTimeKey::kAudioVideoMutedAll:
       return kWatchTimeAudioVideoMutedAll;
     case WatchTimeKey::kAudioVideoMutedMse:
@@ -206,6 +222,10 @@ std::string_view ConvertWatchTimeKeyToStringForUma(WatchTimeKey key) {
       return kWatchTimeAudioVideoMutedSrc;
     case WatchTimeKey::kAudioVideoMutedHls:
       return kWatchTimeAudioVideoMutedHls;
+    case WatchTimeKey::kAudioVideoMutedDominantVisibleContent:
+      return kWatchTimeAudioVideoMutedDominantVisibleContent;
+    case WatchTimeKey::kAudioVideoMutedAuxiliaryVisibleContent:
+      return kWatchTimeAudioVideoMutedAuxiliaryVisibleContent;
     case WatchTimeKey::kAudioVideoMediaFoundationAll:
       return kWatchTimeAudioVideoMediaFoundationAll;
     case WatchTimeKey::kAudioVideoMediaFoundationEme:
@@ -218,6 +238,8 @@ std::string_view ConvertWatchTimeKeyToStringForUma(WatchTimeKey key) {
     case WatchTimeKey::kAudioDisplayFullscreen:
     case WatchTimeKey::kAudioDisplayInline:
     case WatchTimeKey::kAudioDisplayPictureInPicture:
+    case WatchTimeKey::kAudioVideoSdrAll:
+    case WatchTimeKey::kAudioVideoSdrEme:
     case WatchTimeKey::kAudioVideoMutedBattery:
     case WatchTimeKey::kAudioVideoMutedAc:
     case WatchTimeKey::kAudioVideoMutedEmbeddedExperience:
@@ -236,6 +258,8 @@ std::string_view ConvertWatchTimeKeyToStringForUma(WatchTimeKey key) {
     case WatchTimeKey::kVideoDisplayFullscreen:
     case WatchTimeKey::kVideoDisplayInline:
     case WatchTimeKey::kVideoDisplayPictureInPicture:
+    case WatchTimeKey::kVideoDominantVisibleContent:
+    case WatchTimeKey::kVideoAuxiliaryVisibleContent:
     case WatchTimeKey::kVideoEmbeddedExperience:
     case WatchTimeKey::kVideoNativeControlsOn:
     case WatchTimeKey::kVideoNativeControlsOff:

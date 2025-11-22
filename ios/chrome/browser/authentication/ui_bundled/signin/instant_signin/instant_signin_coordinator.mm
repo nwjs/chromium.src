@@ -94,7 +94,7 @@
   signin::IdentityManager* identityManager =
       IdentityManagerFactory::GetForProfile(self.profile->GetOriginalProfile());
   CHECK(!identityManager->HasPrimaryAccount(signin::ConsentLevel::kSignin),
-        base::NotFatalUntil::M142);
+        base::NotFatalUntil::M148);
   _signinLogger = [[UserSigninLogger alloc] initWithAccessPoint:self.accessPoint
                                                     promoAction:_promoAction];
   [_signinLogger logSigninStarted];
@@ -230,24 +230,25 @@
 #pragma mark - InstantSigninMediatorDelegate
 
 - (void)instantSigninMediator:(InstantSigninMediator*)mediator
-          didSigninWithResult:(SigninCoordinatorResult)result {
+    didSigninWithCancelationResult:
+        (signin_ui::CancelationReason)cancelationResult {
   [self removeActivityOverlay];
-  switch (result) {
-    case SigninCoordinatorResultSuccess: {
+  switch (cancelationResult) {
+    case signin_ui::CancelationReason::kNotCanceled: {
       signin_metrics::RecordConsistencyPromoUserAction(_actionToRecordOnSuccess,
                                                        self.accessPoint);
       [self runCompletionWithSigninResult:SigninCoordinatorResultSuccess
                        completionIdentity:_identity];
       break;
     }
-    case SigninCoordinatorResultDisabled:
-    case SigninCoordinatorResultInterrupted:
-    case SigninCoordinatorResultCanceledByUser:
-    case SigninCoordinatorProfileSwitch:
-      [self runCompletionWithSigninResult:result completionIdentity:nil];
+    case signin_ui::CancelationReason::kUserCanceled:
+      [self runCompletionWithSigninResult:SigninCoordinatorResultCanceledByUser
+                       completionIdentity:nil];
       break;
-    case SigninCoordinatorUINotAvailable:
-      NOTREACHED();
+    case signin_ui::CancelationReason::kFailed:
+      [self runCompletionWithSigninResult:SigninCoordinatorResultInterrupted
+                       completionIdentity:nil];
+      break;
   }
 }
 

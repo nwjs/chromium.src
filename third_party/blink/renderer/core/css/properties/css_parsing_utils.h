@@ -281,6 +281,8 @@ CSSIdentifierValue* ConsumeVisualBox(CSSParserTokenStream&);
 CSSIdentifierValue* ConsumeCoordBox(CSSParserTokenStream&);
 
 CSSIdentifierValue* ConsumeGeometryBox(CSSParserTokenStream&);
+CSSIdentifierValue* ConsumeGeometryBoxForBorderShape(
+    CSSParserTokenStream& stream);
 
 enum class IsImplicitProperty { kNotImplicit, kImplicit };
 
@@ -686,8 +688,8 @@ bool ShouldLowerCaseCounterStyleNameOnParse(const AtomicString&,
                                             const CSSParserContext&);
 
 // https://drafts.csswg.org/css-anchor-position-1/#typedef-position-area
-CSSValue* ConsumePositionArea(CSSParserTokenStream&,
-                              bool allow_any_keyword = false);
+CORE_EXPORT CSSValue* ConsumePositionArea(CSSParserTokenStream&,
+                                          bool allow_any_keyword = false);
 
 // https://drafts.csswg.org/css-anchor-position-2/#anchored
 CSSValue* ConsumeAnchoredFallbackQueryValue(CSSParserTokenStream&,
@@ -708,6 +710,9 @@ CSSValue* ConsumeSingleTimelineTriggerName(CSSParserTokenStream& stream,
                                            const CSSParserContext& context);
 
 // https://drafts.csswg.org/css-animations-2/#animation-trigger
+CSSIdentifierValue* ConsumeAnimationTriggerBehavior(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context);
 CSSValue* ConsumeSingleAnimationTriggerAttachment(
     CSSParserTokenStream& stream,
     const CSSParserContext& context);

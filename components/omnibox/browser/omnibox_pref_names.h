@@ -27,6 +27,12 @@ inline constexpr char kAimHintTotalImpressions[] =
 
 inline constexpr char kAIModeSettings[] = "omnibox.ai_mode_settings";
 
+// LINT.IfChange(TipsPrefNames)
+// Boolean for whether bottom omnibox was ever used.
+inline constexpr char kBottomOmniboxEverUsed[] =
+    "omnibox.bottom_omnibox_ever_used";
+// LINT.ThenChange(//chrome/browser/ui/android/toolbar/java/src/org/chromium/chrome/browser/toolbar/ToolbarPositionController.java:TipsPrefNames)
+
 // Booleans that specify whether various IPH suggestions have been dismissed.
 inline constexpr char kDismissedEnterpriseSearchAggregatorIphPrefName[] =
     "omnibox.dismissed_enterprise_search_aggregator_iph";
@@ -64,6 +70,10 @@ inline constexpr char kPreventUrlElisionsInOmnibox[] =
 // Boolean that specifies whether to show the LensOverlay entry point.
 inline constexpr char kShowGoogleLensShortcut[] =
     "omnibox.show_google_lens_shortcut";
+
+// Boolean that specifies whether to show the AI Mode omnibox button.
+inline constexpr char kShowAiModeOmniboxButton[] =
+    "omnibox.show_ai_mode_omnibox_button";
 
 // Boolean that specifies whether to show the search tools at the bottom of the
 // omnibox.

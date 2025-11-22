@@ -62,6 +62,7 @@ group("resources") {
       "privacy_sandbox:resources",
       "privacy_sandbox/internals:resources",
       "profile_internals:resources",
+      "reload_button:resources",
       "search_engine_choice:resources",
       "settings:resources",
       "settings_shared:resources",
@@ -79,11 +80,11 @@ group("resources") {
       "support_tool:resources",
       "tab_group_home:resources",
       "tab_search:resources",
-      "tab_strip_api:resources",
       "web_app_internals:resources",
       "webui_browser:resources",
       "webui_gallery:resources",
       "whats_new:resources",
+      "//components/browser_apis/tab_strip/resources",
     ]
     if (is_chrome_branded) {
       public_deps += [ "media_router/cast_feedback:resources" ]
@@ -175,6 +176,7 @@ group("resources") {
     public_deps += [
       "glic:resources",
       "glic/fre:resources",
+      "glic/shared:resources",
     ]
   }
 

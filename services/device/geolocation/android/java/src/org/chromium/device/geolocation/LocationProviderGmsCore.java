@@ -10,6 +10,7 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.Granularity;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
@@ -20,6 +21,8 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.components.permissions.PermissionsAndroidFeatureList;
+import org.chromium.components.permissions.PermissionsAndroidFeatureMap;
 import org.chromium.device.DeviceFeatureList;
 import org.chromium.gms.ChromiumPlayServicesAvailability;
 
@@ -38,7 +41,8 @@ public class LocationProviderGmsCore implements LocationProvider {
 
     private final Context mContext;
     private final FusedLocationProviderClient mClient;
-    private boolean mEnableHighAccuracy;
+    private boolean mEffectiveHighAccuracy;
+    private boolean mRequestedHighAccuracy;
 
     private @Nullable LocationCallback mLocationCallback;
 
@@ -62,31 +66,39 @@ public class LocationProviderGmsCore implements LocationProvider {
     @Override
     public void start(boolean enableHighAccuracy) {
         ThreadUtils.assertOnUiThread();
-
-        LocationRequest locationRequest = LocationRequest.create();
+        mRequestedHighAccuracy = enableHighAccuracy;
+        mEffectiveHighAccuracy = mRequestedHighAccuracy;
         if (mContext.checkCallingOrSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
             // Workaround for a bug in Google Play Services where, if an app only has
             // ACCESS_COARSE_LOCATION, trying to request PRIORITY_HIGH_ACCURACY will throw a
             // SecurityException even on Android S. See: b/184924939.
-            enableHighAccuracy = false;
+            mEffectiveHighAccuracy = false;
         }
-
-        mEnableHighAccuracy = enableHighAccuracy;
-
-        if (mEnableHighAccuracy) {
-            // With enableHighAccuracy, request a faster update interval and configure the provider
-            // for high accuracy mode.
-            locationRequest
-                    .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
-                    .setInterval(UPDATE_INTERVAL_FAST_MS);
+        LocationRequest locationRequest;
+        final long interval = mEffectiveHighAccuracy ? UPDATE_INTERVAL_FAST_MS : UPDATE_INTERVAL_MS;
+        final int priority =
+                mEffectiveHighAccuracy
+                        ? LocationRequest.PRIORITY_HIGH_ACCURACY
+                        : LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY;
+        // When the `APPROXIMATE_GEOLOCATION_PERMISSION` feature is enabled,
+        // `mEffectiveHighAccuracy`
+        // explicitly controls the location granularity. Otherwise, it only acts as a hint for the
+        // location provider.
+        if (PermissionsAndroidFeatureMap.isEnabled(
+                PermissionsAndroidFeatureList.APPROXIMATE_GEOLOCATION_PERMISSION)) {
+            LocationRequest.Builder builder =
+                    new LocationRequest.Builder(
+                            /* priority= */ priority, /* intervalMillis= */ interval);
+            if (mEffectiveHighAccuracy) {
+                builder.setGranularity(Granularity.GRANULARITY_FINE);
+            } else {
+                builder.setGranularity(Granularity.GRANULARITY_COARSE);
+            }
+            locationRequest = builder.build();
         } else {
-            // Use balanced mode by default. In this mode, the API will prefer the network provider
-            // but may use sensor data (for instance, GPS) if high accuracy is requested by another
-            // app.
-            locationRequest
-                    .setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY)
-                    .setInterval(UPDATE_INTERVAL_MS);
+            locationRequest = LocationRequest.create();
+            locationRequest.setPriority(priority).setInterval(interval);
         }
 
         if (DeviceFeatureList.sGmsCoreLocationRequestParamOverride.isEnabled()) {
@@ -102,7 +114,6 @@ public class LocationProviderGmsCore implements LocationProvider {
         }
 
         stop();
-
         mLocationCallback =
                 new LocationCallback() {
                     @Override
@@ -115,14 +126,18 @@ public class LocationProviderGmsCore implements LocationProvider {
                             if (location.hasAccuracy()) {
                                 final String histogramName =
                                         "Geolocation.GMSCoreLocationProvider"
-                                                + (mEnableHighAccuracy
+                                                + (mEffectiveHighAccuracy
                                                         ? ".HighAccuracyHint"
                                                         : ".LowAccuracyHint")
                                                 + ".Accuracy";
                                 RecordHistogram.recordCount100000Histogram(
                                         histogramName, (int) location.getAccuracy());
                             }
-                            LocationProviderAdapter.onNewLocationAvailable(location);
+                            // Using `mRequestedHighAccuracy` for location update cause
+                            // `mEffectiveHighAccuracy` can be override by app-level permission
+                            // check.
+                            LocationProviderAdapter.onNewLocationAvailable(
+                                    location, mRequestedHighAccuracy);
                         }
                     }
                 };

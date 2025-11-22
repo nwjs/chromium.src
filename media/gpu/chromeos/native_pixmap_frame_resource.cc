@@ -16,11 +16,9 @@
 #include "base/posix/eintr_wrapper.h"
 #include "base/synchronization/lock.h"
 #include "base/types/pass_key.h"
-#include "components/viz/common/resources/shared_image_format_utils.h"
 #include "media/base/format_utils.h"
 #include "media/gpu/chromeos/platform_video_frame_utils.h"
 #include "media/gpu/macros.h"
-#include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/switches.h"
 
 namespace media {
@@ -78,14 +76,14 @@ scoped_refptr<NativePixmapFrameResource> NativePixmapFrameResource::Create(
     return nullptr;
   }
 
-  auto buffer_format = VideoPixelFormatToGfxBufferFormat(pixel_format);
+  auto si_format = VideoPixelFormatToSharedImageFormat(pixel_format);
   // Using CHECK() here is fine. AllocateGpuMemoryBufferHandle() won't return a
   // gfx::GpuMemoryBufferHandle if this conversion fails.
-  CHECK(buffer_format.has_value());
+  CHECK(si_format.has_value());
 
   return Create(visible_rect, natural_size, timestamp, buffer_usage,
                 base::MakeRefCounted<gfx::NativePixmapDmaBuf>(
-                    coded_size, *buffer_format,
+                    coded_size, *si_format,
                     std::move(gmb_handle).native_pixmap_handle()));
 }
 
@@ -111,13 +109,11 @@ scoped_refptr<NativePixmapFrameResource> NativePixmapFrameResource::Create(
     return nullptr;
   }
 
-  // This converts |layout|'s VideoPixelFormat to a gfx::BufferFormat, which is
-  // needed by the NativePixmapFrameResource constructor.
-  auto buffer_format = VideoPixelFormatToGfxBufferFormat(layout.format());
-  if (!buffer_format) {
+  auto si_format = VideoPixelFormatToSharedImageFormat(layout.format());
+  if (!si_format) {
     DLOGF(ERROR) << " Unable to convert pixel format "
                  << VideoPixelFormatToString(layout.format())
-                 << " to BufferFormat";
+                 << " to SharedImageFormat";
     return nullptr;
   }
 
@@ -139,7 +135,7 @@ scoped_refptr<NativePixmapFrameResource> NativePixmapFrameResource::Create(
   // STORAGE_GPU_MEMORY_BUFFER VideoFrame.
   return base::MakeRefCounted<NativePixmapFrameResource>(
       base::PassKey<NativePixmapFrameResource>(), layout, visible_rect,
-      natural_size, timestamp, *buffer_format, base::UnguessableToken::Create(),
+      natural_size, timestamp, *si_format, base::UnguessableToken::Create(),
       /*buffer_usage=*/std::nullopt, std::move(handle));
 }
 
@@ -159,7 +155,7 @@ scoped_refptr<NativePixmapFrameResource> NativePixmapFrameResource::Create(
     return nullptr;
   }
 
-  auto si_format = viz::GetSharedImageFormat(pixmap->GetBufferFormat());
+  auto si_format = pixmap->GetSharedImageFormat();
   auto pixel_format = SharedImageFormatToVideoPixelFormat(si_format);
   if (!pixel_format) {
     DLOGF(ERROR) << " Unable to convert shared image format "
@@ -205,7 +201,7 @@ NativePixmapFrameResource::NativePixmapFrameResource(
     const gfx::Rect& visible_rect,
     const gfx::Size& natural_size,
     base::TimeDelta timestamp,
-    gfx::BufferFormat buffer_format,
+    viz::SharedImageFormat si_format,
     const base::UnguessableToken& tracking_token,
     std::optional<gfx::BufferUsage> buffer_usage,
     gfx::NativePixmapHandle handle)
@@ -218,7 +214,7 @@ NativePixmapFrameResource::NativePixmapFrameResource(
           tracking_token,
           buffer_usage,
           base::MakeRefCounted<gfx::NativePixmapDmaBuf>(layout.coded_size(),
-                                                        buffer_format,
+                                                        si_format,
                                                         std::move(handle))) {}
 
 NativePixmapFrameResource::NativePixmapFrameResource(

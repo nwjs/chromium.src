@@ -7,6 +7,8 @@
 
 #include <optional>
 
+#include "base/task/sequenced_task_runner.h"
+#include "components/download/public/background_service/download_params.h"
 #include "components/optimization_guide/core/delivery/optimization_target_model_observer.h"
 #include "components/optimization_guide/proto/models.pb.h"
 
@@ -16,7 +18,8 @@ namespace optimization_guide {
 // for inference.
 class OptimizationGuideModelProvider {
  public:
-  // Adds an observer for updates to the model for |optimization_target|.
+  // Adds an observer for updates to the model for `optimization_target`.
+  // Model loading tasks are expected to be performed on `model_task_runner`.
   //
   // It is assumed that any model retrieved this way will be passed to the
   // Machine Learning Service for inference.
@@ -27,6 +30,7 @@ class OptimizationGuideModelProvider {
   virtual void AddObserverForOptimizationTargetModel(
       proto::OptimizationTarget optimization_target,
       const std::optional<proto::Any>& model_metadata,
+      scoped_refptr<base::SequencedTaskRunner> model_task_runner,
       OptimizationTargetModelObserver* observer) = 0;
 
   // Removes an observer for updates to the model for |optimization_target|.
@@ -37,6 +41,13 @@ class OptimizationGuideModelProvider {
   virtual void RemoveObserverForOptimizationTargetModel(
       proto::OptimizationTarget optimization_target,
       OptimizationTargetModelObserver* observer) = 0;
+
+  // Sets the scheduling params for a given optimization target. This is
+  // optional and only needs to be called if the default download params are not
+  // sufficient.
+  virtual void SetModelDownloadSchedulingParams(
+      proto::OptimizationTarget optimization_target,
+      const download::SchedulingParams& params) {}
 
  protected:
   OptimizationGuideModelProvider() = default;
@@ -50,29 +61,17 @@ class OptimizationGuideModelProviderObservation {
  public:
   OptimizationGuideModelProviderObservation(
       OptimizationGuideModelProvider* model_provider,
-      OptimizationTargetModelObserver* observer)
-      : model_provider_(model_provider), observer_(observer) {}
+      scoped_refptr<base::SequencedTaskRunner> model_task_runner,
+      OptimizationTargetModelObserver* observer);
 
-  ~OptimizationGuideModelProviderObservation() { Reset(); }
+  ~OptimizationGuideModelProviderObservation();
 
   void Observe(proto::OptimizationTarget optimization_target,
-               const std::optional<proto::Any>& model_metadata) {
-    optimization_target_ = optimization_target;
-    model_provider_->AddObserverForOptimizationTargetModel(
-        optimization_target, model_metadata, observer_);
-  }
+               const std::optional<proto::Any>& model_metadata);
 
-  void Reset() {
-    if (optimization_target_ != proto::OPTIMIZATION_TARGET_UNKNOWN) {
-      model_provider_->RemoveObserverForOptimizationTargetModel(
-          optimization_target_, observer_);
-      optimization_target_ = proto::OPTIMIZATION_TARGET_UNKNOWN;
-    }
-  }
+  void Reset();
 
-  bool IsRegistered() const {
-    return optimization_target_ != proto::OPTIMIZATION_TARGET_UNKNOWN;
-  }
+  bool IsRegistered() const;
 
   OptimizationGuideModelProviderObservation(
       const OptimizationGuideModelProviderObservation&) = delete;
@@ -81,6 +80,7 @@ class OptimizationGuideModelProviderObservation {
 
  private:
   const raw_ptr<OptimizationGuideModelProvider> model_provider_;
+  const scoped_refptr<base::SequencedTaskRunner> model_task_runner_;
   const raw_ptr<OptimizationTargetModelObserver> observer_;
 
   // The optimization target for which the models are being observed. If this is

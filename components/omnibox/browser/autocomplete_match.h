@@ -354,10 +354,6 @@ struct AutocompleteMatch {
   void UpdateJavaAnswer();
   // Update the Java object description.
   void UpdateJavaDescription();
-  // Update the pointer to corresponding Java tab object.
-  void UpdateMatchingJavaTab(const JavaObjectWeakGlobalRef& tab);
-  // Get the matching Java Tab object.
-  JavaObjectWeakGlobalRef GetMatchingJavaTab() const;
 #endif
 
 #if (!BUILDFLAG(IS_ANDROID) || BUILDFLAG(ENABLE_VR)) && !BUILDFLAG(IS_IOS)
@@ -581,6 +577,16 @@ struct AutocompleteMatch {
   // into keyword mode when the match is focused via keyboard, instead of
   // the usual waiting for activation of a visible keyword button.
   bool HasInstantKeyword(const TemplateURLService* template_url_service) const;
+
+  // Returns whether or not the row for this match should be hidden in the UI,
+  // based on its starter pack. This is currently used to hide suggestions in
+  // the 'Gemini' scope when the starter pack expansion feature is enabled.
+  //
+  // The match must remain in the `AutocompleteResult` set to maintain correct
+  // match indexing and focus tracking required by keyword features and
+  // `OmniboxEditModel::OpenMatch()`.
+  bool ShouldHideBasedOnStarterPack(
+      const TemplateURLService* template_url_service) const;
 
   // Gets data relevant to whether there should be any special keyword-related
   // UI shown for this match. If this match represents a selected keyword, i.e.
@@ -1127,9 +1133,6 @@ struct AutocompleteMatch {
   // See AutocompleteControllerAndroid for more details.
   mutable std::unique_ptr<base::android::ScopedJavaGlobalRef<jobject>>
       java_match_;
-
-  // When set, holds a weak reference to Java Tab object.
-  JavaObjectWeakGlobalRef matching_java_tab_{};
 
   base::WeakPtrFactory<AutocompleteMatch> weak_ptr_factory_{this};
 #endif

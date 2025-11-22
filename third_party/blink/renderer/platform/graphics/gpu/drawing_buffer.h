@@ -310,7 +310,9 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
   // Restore all state that may have been dirtied by any call.
   void RestoreAllState();
 
-  bool UsingSwapChain() const { return using_swap_chain_; }
+  // Returns true if the drawing buffer supports direct (no-copy) export for low
+  // latency (e.g., to the display compositor).
+  bool SupportsNoCopyExportForLowLatency();
 
   // Keep track of low latency buffer status.
   bool low_latency_enabled() const { return low_latency_enabled_; }
@@ -595,9 +597,6 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
   // Reallocate Multisampled renderbuffer, used by explicit resolve when resize
   // and GPU switch
   bool ReallocateMultisampleRenderbuffer(const gfx::Size&);
-
-  // Presents swap chain if swap chain is being used and contents have changed.
-  void ResolveAndPresentSwapChainIfNeeded();
 
   WebGraphicsSharedImageInterfaceProvider*
   GetSharedImageInterfaceProviderForBitmap();

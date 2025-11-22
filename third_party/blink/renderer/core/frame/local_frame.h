@@ -771,8 +771,8 @@ class CORE_EXPORT LocalFrame final
   void AdvanceFocusForIME(mojom::blink::FocusType focus_type);
   void PostMessageEvent(
       const std::optional<RemoteFrameToken>& source_frame_token,
-      const String& source_origin,
-      const String& target_origin,
+      scoped_refptr<const SecurityOrigin> source_origin,
+      scoped_refptr<const SecurityOrigin> target_origin,
       BlinkTransferableMessage message);
 
   void SetScaleFactor(float scale);
@@ -780,7 +780,7 @@ class CORE_EXPORT LocalFrame final
   void SetInitialFocus(bool reverse);
 
 #if BUILDFLAG(IS_MAC)
-  void GetCharacterIndexAtPoint(const gfx::Point& point);
+  uint32_t GetCharacterIndexAtPoint(const gfx::Point& point);
 #endif
 
   void UpdateWindowControlsOverlay(const gfx::Rect& bounding_rect_in_dips);
@@ -853,12 +853,8 @@ class CORE_EXPORT LocalFrame final
   void OnFirstPaint(bool text_painted, bool image_painted);
 
   // Invoked on first contentful paint on this frame.
-  void OnFirstContentfulPaint(const base::TimeTicks& first_paint_time);
-
-#if BUILDFLAG(IS_MAC)
-  void ResetTextInputHostForTesting();
-  void RebindTextInputHostForTesting();
-#endif
+  void OnFirstContentfulPaint(const base::TimeTicks& paint_time,
+                              const base::TimeTicks& navigation_time);
 
   void WriteIntoTrace(perfetto::TracedValue ctx) const;
 

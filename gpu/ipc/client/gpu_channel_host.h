@@ -23,7 +23,6 @@
 #include "gpu/config/gpu_info.h"
 #include "gpu/ipc/client/gpu_channel_observer.h"
 #include "gpu/ipc/client/gpu_ipc_client_export.h"
-#include "gpu/ipc/client/image_decode_accelerator_proxy.h"
 #include "gpu/ipc/client/shared_image_interface_proxy.h"
 #include "gpu/ipc/common/gpu_channel.mojom.h"
 #include "ipc/ipc_listener.h"
@@ -145,11 +144,14 @@ class GPU_IPC_CLIENT_EXPORT GpuChannelHost
       std::vector<SyncToken> sync_token_dependencies,
       uint64_t release_count,
       base::OnceCallback<void(bool)> callback);
+#endif  // BUILDFLAG(IS_WIN)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
   void CopyNativeGmbToSharedMemoryAsync(
       gfx::GpuMemoryBufferHandle buffer_handle,
       base::UnsafeSharedMemoryRegion memory_region,
       base::OnceCallback<void(bool)> callback);
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
 
   // Crashes the GPU process. This functionality is added here because
   // of instability when creating a new tab just to navigate to
@@ -164,10 +166,6 @@ class GPU_IPC_CLIENT_EXPORT GpuChannelHost
   // Virtual for testing.
   virtual scoped_refptr<ClientSharedImageInterface>
   CreateClientSharedImageInterface();
-
-  ImageDecodeAcceleratorProxy* image_decode_accelerator_proxy() {
-    return &image_decode_accelerator_proxy_;
-  }
 
   // Calls ConnectionTracker::AddObserverIfNotAlreadyLost directly.
   [[nodiscard]] bool AddObserverIfNotAlreadyLost(GpuChannelLostObserver* obs);
@@ -303,9 +301,6 @@ class GPU_IPC_CLIENT_EXPORT GpuChannelHost
   // Used to synchronize flushed request ids with the GPU process.
   std::optional<mojo::SharedMemoryVersionClient> shared_memory_version_client_
       GUARDED_BY(shared_memory_version_lock_);
-
-  // A client-side helper to send image decode requests to the GPU process.
-  ImageDecodeAcceleratorProxy image_decode_accelerator_proxy_;
 
   // Used to reduce frequency of metrics logging.
   base::MetricsSubSampler metrics_sub_sampler_;

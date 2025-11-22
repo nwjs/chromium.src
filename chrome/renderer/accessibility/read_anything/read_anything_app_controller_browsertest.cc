@@ -250,11 +250,6 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
     return GetCurrentTextSegments(model().GetCurrentlyVisibleNodes());
   }
 
-  // std::vector<ui::AXNodeID> MoveToPreviousGranularityAndGetText() {
-  //   controller().MovePositionToPreviousGranularity();
-  //   return GetCurrentTextSegments();
-  // }
-
   std::vector<ReadAloudTextSegment> MoveToPreviousGranularityAndGetSegments() {
     controller().MovePositionToPreviousGranularity();
     return GetCurrentTextSegments(model().GetCurrentlyVisibleNodes());
@@ -310,14 +305,6 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
     scoped_feature_list_.Reset();
     scoped_feature_list_.InitWithFeatures({},
                                           {features::kReadAnythingReadAloud});
-  }
-
-  void EnablePhraseHighlighting() {
-    scoped_feature_list_.Reset();
-    scoped_feature_list_.InitWithFeatures(
-        {features::kReadAnythingReadAloud,
-         features::kReadAnythingReadAloudPhraseHighlighting},
-        {});
   }
 
   void ExpectNodesMapToEntireText(std::vector<ReadAloudTextSegment> segments,
@@ -1518,8 +1505,6 @@ TEST_F(ReadAnythingAppControllerTest, DoesNotCrashIfContentNodeNotFoundInTree) {
 TEST_F(ReadAnythingAppControllerTest, Draw_RecomputeDisplayNodes) {
   ui::AXNodeData node;
   node.id = 4;
-  controller().InitAXPositionWithNode(node.id);
-  EXPECT_TRUE(controller().IsSpeechTreeInitialized());
 
   // This update changes the structure of the tree. When the controller receives
   // it in AccessibilityEventReceived, it will re-distill the tree.
@@ -1527,7 +1512,6 @@ TEST_F(ReadAnythingAppControllerTest, Draw_RecomputeDisplayNodes) {
   model().Reset({3, 4});
   controller().Draw(/* recompute_display_nodes= */ true);
 
-  EXPECT_FALSE(controller().IsSpeechTreeInitialized());
   EXPECT_TRUE(base::Contains(model().display_node_ids(), 1));
   EXPECT_FALSE(base::Contains(model().display_node_ids(), 2));
   EXPECT_TRUE(base::Contains(model().display_node_ids(), 3));
@@ -2161,32 +2145,6 @@ TEST_F(ReadAnythingAppControllerTest, OnLinkClicked_DistillationInProgress) {
   Mock::VerifyAndClearExpectations(distiller_);
 }
 
-TEST_F(ReadAnythingAppControllerTest,
-       InitAXPositionWithNode_PreprocessesTextForSpeech) {
-  // Text indices:             0123456789012345678901234567890
-  std::u16string sentence1 = u"Never feel heavy ";
-  std::u16string sentence2 = u"or earthbound, ";
-  std::u16string sentence3 = u"no worries or doubts interfere.";
-  ui::AXNodeData static_text1 = test::TextNode(kId1, sentence1);
-  ui::AXNodeData static_text2 = test::TextNode(kId2, sentence2);
-  ui::AXNodeData static_text3 = test::TextNode(kId3, sentence3);
-
-  EXPECT_THAT(read_aloud_model().GetHighlightForCurrentSegmentIndex(1, false),
-              IsEmpty());
-
-  InitializeWithAndProcessNodes({std::move(static_text1),
-                                 std::move(static_text2),
-                                 std::move(static_text3)});
-
-  // After initializing, GetHighlightForCurrentSegmentIndex should return
-  // highlights, since this means text was preprocessed.
-  EXPECT_EQ(
-      read_aloud_model().GetHighlightForCurrentSegmentIndex(1, false).size(),
-      1u);
-  EXPECT_EQ(controller().GetCurrentTextContent(),
-            sentence1 + sentence2 + sentence3);
-}
-
 TEST_F(ReadAnythingAppControllerTest, ScrollToTargetNode_ScrollsIfGoogleDocs) {
   ui::AXNodeData root;
   ui::AXNodeData node;
@@ -2280,31 +2238,6 @@ TEST_F(ReadAnythingAppControllerTest, OnCollapseSelection) {
   EXPECT_CALL(page_handler_, OnCollapseSelection()).Times(1);
   controller().OnCollapseSelection();
   Mock::VerifyAndClearExpectations(distiller_);
-}
-
-TEST_F(ReadAnythingAppControllerTest, DrawSelection_ResetsReadAloudState) {
-  ui::AXNodeData node1 = test::TextNode(/* id= */ 2, u"Not like you- ");
-  ui::AXNodeData node2 =
-      test::TextNode(/* id= */ 3, u" you lost your nerve, you lost the game.");
-  SendUpdateWithNodes({std::move(node1), std::move(node2)});
-
-  // Initialize read aloud state.
-  controller().InitAXPositionWithNode(2);
-  EXPECT_TRUE(controller().IsSpeechTreeInitialized());
-
-  // Create a selection from node 2-3. This will trigger DrawSelection.
-  ui::AXTreeUpdate update;
-  test::SetUpdateTreeID(&update, tree_id_);
-  update.has_tree_data = true;
-  update.tree_data.sel_anchor_object_id = 2;
-  update.tree_data.sel_focus_object_id = 3;
-  update.tree_data.sel_anchor_offset = 1;
-  update.tree_data.sel_focus_offset = 3;
-  update.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({std::move(update)});
-
-  // After a selection, the read aloud state should be reset.
-  EXPECT_FALSE(controller().IsSpeechTreeInitialized());
 }
 
 TEST_F(ReadAnythingAppControllerTest,
@@ -2731,105 +2664,6 @@ TEST_F(ReadAnythingAppControllerTest,
   ExpectNodesMapToEntireText(next_segments, {kId2}, {sentence2});
 
   // Move to the last node
-  next_segments = MoveToNextGranularityAndGetSegments();
-  ExpectNodesMapToEntireText(next_segments, {kId3}, {sentence3});
-
-  // Attempt to move to another node.
-  MoveToNextAndAssertEmpty();
-}
-
-TEST_F(ReadAnythingAppControllerTest,
-       PreprocessNodes_DoesNotImpactCurrentNodes) {
-  std::u16string sentence1 = u"Life was a chore. ";
-  std::u16string sentence2 = u"So she set sail. ";
-  std::u16string sentence3 = u"Fifteen twenty-two, came straight to the UK.";
-  ui::AXNodeData static_text1 = test::TextNode(kId1, sentence1);
-  ui::AXNodeData static_text2 = test::TextNode(kId2, sentence2);
-  ui::AXNodeData static_text3 = test::TextNode(kId3, sentence3);
-  SendUpdateAndDistillNodes({std::move(static_text1), std::move(static_text2),
-                             std::move(static_text3)});
-  controller().PreprocessTextForSpeech();
-
-  std::vector<ReadAloudTextSegment> next_segments = GetCurrentTextSegments();
-  ExpectNodesMapToEntireText(next_segments, {kId1}, {sentence1});
-
-  // Move to the next node
-  next_segments = MoveToNextGranularityAndGetSegments();
-  ExpectNodesMapToEntireText(next_segments, {kId2}, {sentence2});
-
-  // Move to the last node
-  next_segments = MoveToNextGranularityAndGetSegments();
-  ExpectNodesMapToEntireText(next_segments, {kId3}, {sentence3});
-
-  // Move backwards
-  next_segments = MoveToPreviousGranularityAndGetSegments();
-  ExpectNodesMapToEntireText(next_segments, {kId2}, {sentence2});
-
-  // Move to the last node again.
-  next_segments = MoveToNextGranularityAndGetSegments();
-  ExpectNodesMapToEntireText(next_segments, {kId3}, {sentence3});
-
-  // Attempt to move to another node.
-  MoveToNextAndAssertEmpty();
-}
-
-TEST_F(ReadAnythingAppControllerTest,
-       PreprocessNodes_CalledMultipleTimes_DoesNotImpactCurrentNodes) {
-  std::u16string sentence1 = u"Keep a grip and take a deep breath. ";
-  std::u16string sentence2 = u"And soon we'll know what's what. ";
-  std::u16string sentence3 =
-      u"Put on a show, rewards will flow, and we'll go from there. ";
-
-  ui::AXNodeData static_text1 = test::TextNode(kId1, sentence1);
-  ui::AXNodeData static_text2 = test::TextNode(kId2, sentence2);
-  ui::AXNodeData static_text3 = test::TextNode(kId3, sentence3);
-
-  SendUpdateAndDistillNodes({std::move(static_text1), std::move(static_text2),
-                             std::move(static_text3)});
-  controller().PreprocessTextForSpeech();
-  controller().PreprocessTextForSpeech();
-
-  std::vector<ReadAloudTextSegment> next_segments = GetCurrentTextSegments();
-
-  ExpectNodesMapToEntireText(next_segments, {kId1}, {sentence1});
-
-  // Preprocess is called again.
-  controller().PreprocessTextForSpeech();
-  controller().PreprocessTextForSpeech();
-
-  // But nothing changes with what's returned by GetCurrentText
-  next_segments = GetCurrentTextSegments();
-  ExpectNodesMapToEntireText(next_segments, {kId1}, {sentence1});
-
-  // Move to the next node
-  next_segments = MoveToNextGranularityAndGetSegments();
-  ExpectNodesMapToEntireText(next_segments, {kId2}, {sentence2});
-
-  // Move to the last node
-  next_segments = MoveToNextGranularityAndGetSegments();
-  ExpectNodesMapToEntireText(next_segments, {kId3}, {sentence3});
-
-  // Preprocess is called again.
-  controller().PreprocessTextForSpeech();
-  controller().PreprocessTextForSpeech();
-
-  // And nothing has changed with the current text.
-  next_segments = GetCurrentTextSegments();
-  ExpectNodesMapToEntireText(next_segments, {kId3}, {sentence3});
-
-  // Move backwards
-  next_segments = MoveToPreviousGranularityAndGetSegments();
-  ExpectNodesMapToEntireText(next_segments, {kId2}, {sentence2});
-
-  // Preprocess is called again.
-  controller().PreprocessTextForSpeech();
-  controller().PreprocessTextForSpeech();
-
-  // And nothing has changed with the current text.
-  next_segments = GetCurrentTextSegments();
-  ExpectNodesMapToEntireText(next_segments, {kId2}, {sentence2});
-
-  // Move to the last node again.
   next_segments = MoveToNextGranularityAndGetSegments();
   ExpectNodesMapToEntireText(next_segments, {kId3}, {sentence3});
 
@@ -3968,6 +3802,188 @@ TEST_F(ReadAnythingAppControllerTest,
   controller().OnActiveAXTreeIDChanged(id, ukm::kInvalidSourceId, false);
 
   EXPECT_EQ(0, model().words_heard());
+}
+
+class ReadAnythingAppControllerV8SegmentationTest
+    : public ReadAnythingAppControllerTest {
+ public:
+  void SetUp() override {
+    ReadAnythingAppControllerTest::SetUp();
+    scoped_feature_list_.Reset();
+    scoped_feature_list_.InitWithFeatures(
+        {features::kReadAnythingReadAloud},
+        {features::kReadAnythingReadAloudTSTextSegmentation});
+  }
+};
+TEST_F(ReadAnythingAppControllerV8SegmentationTest,
+       DrawSelection_ResetsReadAloudState) {
+  ui::AXNodeData node1 = test::TextNode(/* id= */ 2, u"Not like you- ");
+  ui::AXNodeData node2 = test::TextNode(
+      /* id= */ 3, u" you lost your nerve, you lost the game.");
+  SendUpdateWithNodes({std::move(node1), std::move(node2)});
+
+  // Initialize read aloud state.
+  controller().InitAXPositionWithNode(2);
+  EXPECT_TRUE(controller().IsSpeechTreeInitialized());
+
+  // Create a selection from node 2-3. This will trigger DrawSelection.
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  update.has_tree_data = true;
+  update.tree_data.sel_anchor_object_id = 2;
+  update.tree_data.sel_focus_object_id = 3;
+  update.tree_data.sel_anchor_offset = 1;
+  update.tree_data.sel_focus_offset = 3;
+  update.tree_data.sel_is_backward = false;
+  AccessibilityEventReceived({std::move(update)});
+
+  // After a selection, the read aloud state should be reset.
+  EXPECT_FALSE(controller().IsSpeechTreeInitialized());
+}
+
+TEST_F(ReadAnythingAppControllerV8SegmentationTest,
+       Draw_RecomputeDisplayNodes) {
+  ui::AXNodeData node;
+  node.id = 4;
+  controller().InitAXPositionWithNode(node.id);
+  EXPECT_TRUE(controller().IsSpeechTreeInitialized());
+
+  // This update changes the structure of the tree. When the controller
+  // receives it in AccessibilityEventReceived, it will re-distill the tree.
+  SendUpdateWithNodes({std::move(node)});
+  model().Reset({3, 4});
+  controller().Draw(/* recompute_display_nodes= */ true);
+
+  EXPECT_FALSE(controller().IsSpeechTreeInitialized());
+  EXPECT_TRUE(base::Contains(model().display_node_ids(), 1));
+  EXPECT_FALSE(base::Contains(model().display_node_ids(), 2));
+  EXPECT_TRUE(base::Contains(model().display_node_ids(), 3));
+  EXPECT_TRUE(base::Contains(model().display_node_ids(), 4));
+}
+
+TEST_F(ReadAnythingAppControllerV8SegmentationTest,
+       InitAXPositionWithNode_PreprocessesTextForSpeech) {
+  // Text indices:             0123456789012345678901234567890
+  std::u16string sentence1 = u"Never feel heavy ";
+  std::u16string sentence2 = u"or earthbound, ";
+  std::u16string sentence3 = u"no worries or doubts interfere.";
+  ui::AXNodeData static_text1 = test::TextNode(kId1, sentence1);
+  ui::AXNodeData static_text2 = test::TextNode(kId2, sentence2);
+  ui::AXNodeData static_text3 = test::TextNode(kId3, sentence3);
+
+  EXPECT_THAT(read_aloud_model().GetHighlightForCurrentSegmentIndex(1, false),
+              IsEmpty());
+
+  InitializeWithAndProcessNodes({std::move(static_text1),
+                                 std::move(static_text2),
+                                 std::move(static_text3)});
+
+  // After initializing, GetHighlightForCurrentSegmentIndex should return
+  // highlights, since this means text was preprocessed.
+  EXPECT_EQ(
+      read_aloud_model().GetHighlightForCurrentSegmentIndex(1, false).size(),
+      1u);
+  EXPECT_EQ(controller().GetCurrentTextContent(),
+            sentence1 + sentence2 + sentence3);
+}
+
+TEST_F(ReadAnythingAppControllerV8SegmentationTest,
+       PreprocessNodes_DoesNotImpactCurrentNodes) {
+  std::u16string sentence1 = u"Life was a chore. ";
+  std::u16string sentence2 = u"So she set sail. ";
+  std::u16string sentence3 = u"Fifteen twenty-two, came straight to the UK.";
+  ui::AXNodeData static_text1 = test::TextNode(kId1, sentence1);
+  ui::AXNodeData static_text2 = test::TextNode(kId2, sentence2);
+  ui::AXNodeData static_text3 = test::TextNode(kId3, sentence3);
+  SendUpdateAndDistillNodes({std::move(static_text1), std::move(static_text2),
+                             std::move(static_text3)});
+  controller().PreprocessTextForSpeech();
+
+  std::vector<ReadAloudTextSegment> next_segments = GetCurrentTextSegments();
+  ExpectNodesMapToEntireText(next_segments, {kId1}, {sentence1});
+
+  // Move to the next node
+  next_segments = MoveToNextGranularityAndGetSegments();
+  ExpectNodesMapToEntireText(next_segments, {kId2}, {sentence2});
+
+  // Move to the last node
+  next_segments = MoveToNextGranularityAndGetSegments();
+  ExpectNodesMapToEntireText(next_segments, {kId3}, {sentence3});
+
+  // Move backwards
+  next_segments = MoveToPreviousGranularityAndGetSegments();
+  ExpectNodesMapToEntireText(next_segments, {kId2}, {sentence2});
+
+  // Move to the last node again.
+  next_segments = MoveToNextGranularityAndGetSegments();
+  ExpectNodesMapToEntireText(next_segments, {kId3}, {sentence3});
+
+  // Attempt to move to another node.
+  MoveToNextAndAssertEmpty();
+}
+
+TEST_F(ReadAnythingAppControllerV8SegmentationTest,
+       PreprocessNodes_CalledMultipleTimes_DoesNotImpactCurrentNodes) {
+  std::u16string sentence1 = u"Keep a grip and take a deep breath. ";
+  std::u16string sentence2 = u"And soon we'll know what's what. ";
+  std::u16string sentence3 =
+      u"Put on a show, rewards will flow, and we'll go from there. ";
+
+  ui::AXNodeData static_text1 = test::TextNode(kId1, sentence1);
+  ui::AXNodeData static_text2 = test::TextNode(kId2, sentence2);
+  ui::AXNodeData static_text3 = test::TextNode(kId3, sentence3);
+
+  SendUpdateAndDistillNodes({std::move(static_text1), std::move(static_text2),
+                             std::move(static_text3)});
+  controller().PreprocessTextForSpeech();
+  controller().PreprocessTextForSpeech();
+
+  std::vector<ReadAloudTextSegment> next_segments = GetCurrentTextSegments();
+
+  ExpectNodesMapToEntireText(next_segments, {kId1}, {sentence1});
+
+  // Preprocess is called again.
+  controller().PreprocessTextForSpeech();
+  controller().PreprocessTextForSpeech();
+
+  // But nothing changes with what's returned by GetCurrentText
+  next_segments = GetCurrentTextSegments();
+  ExpectNodesMapToEntireText(next_segments, {kId1}, {sentence1});
+
+  // Move to the next node
+  next_segments = MoveToNextGranularityAndGetSegments();
+  ExpectNodesMapToEntireText(next_segments, {kId2}, {sentence2});
+
+  // Move to the last node
+  next_segments = MoveToNextGranularityAndGetSegments();
+  ExpectNodesMapToEntireText(next_segments, {kId3}, {sentence3});
+
+  // Preprocess is called again.
+  controller().PreprocessTextForSpeech();
+  controller().PreprocessTextForSpeech();
+
+  // And nothing has changed with the current text.
+  next_segments = GetCurrentTextSegments();
+  ExpectNodesMapToEntireText(next_segments, {kId3}, {sentence3});
+
+  // Move backwards
+  next_segments = MoveToPreviousGranularityAndGetSegments();
+  ExpectNodesMapToEntireText(next_segments, {kId2}, {sentence2});
+
+  // Preprocess is called again.
+  controller().PreprocessTextForSpeech();
+  controller().PreprocessTextForSpeech();
+
+  // And nothing has changed with the current text.
+  next_segments = GetCurrentTextSegments();
+  ExpectNodesMapToEntireText(next_segments, {kId2}, {sentence2});
+
+  // Move to the last node again.
+  next_segments = MoveToNextGranularityAndGetSegments();
+  ExpectNodesMapToEntireText(next_segments, {kId3}, {sentence3});
+
+  // Attempt to move to another node.
+  MoveToNextAndAssertEmpty();
 }
 
 class ReadAnythingAppControllerScreen2xDataCollectionModeTest

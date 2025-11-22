@@ -21,6 +21,9 @@ CustomizationSection* const kCustomizationSectionMagicStackToggles =
 
 NSString* const kBottomSheetDetentIdentifier = @"kBottomSheetDetentIdentifier";
 
+NSString* const kBottomSheetExpandedDetentIdentifier =
+    @"kBottomSheetExpandedDetentIdentifier";
+
 NSString* const kNavigationBarDismissButtonIdentifier =
     @"kNavigationBarDismissButtonIdentifier";
 
@@ -34,8 +37,6 @@ NSString* const kCustomizationToggleMagicStackIdentifier =
 NSString* const kCustomizationToggleDiscoverIdentifier =
     @"kCustomizationToggleDiscoverIdentifier";
 
-NSString* const kCustomizationToggleSetUpListIdentifier =
-    @"kCustomizationToggleSetUpListIdentifier";
 NSString* const kCustomizationToggleSafetyCheckIdentifier =
     @"kCustomizationToggleSafetyCheckIdentifier";
 NSString* const kCustomizationToggleTabResumptionIdentifier =

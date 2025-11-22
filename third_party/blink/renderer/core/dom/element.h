@@ -31,6 +31,7 @@
 #include "base/types/pass_key.h"
 #include "third_party/blink/public/common/input/pointer_id.h"
 #include "third_party/blink/public/common/metrics/document_update_reason.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
 #include "third_party/blink/renderer/bindings/core/v8/idl_types.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_typedefs.h"
@@ -39,6 +40,7 @@
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
 #include "third_party/blink/renderer/core/css/css_property_value.h"
 #include "third_party/blink/renderer/core/css/css_selector.h"
+#include "third_party/blink/renderer/core/css/out_of_flow_data.h"
 #include "third_party/blink/renderer/core/css/resolver/cascade_filter.h"
 #include "third_party/blink/renderer/core/css/style_recalc_change.h"
 #include "third_party/blink/renderer/core/css/style_request.h"
@@ -62,6 +64,7 @@
 #include "third_party/blink/renderer/platform/region_capture_crop_id.h"
 #include "third_party/blink/renderer/platform/restriction_target_id.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
+#include "third_party/blink/renderer/platform/theme_types.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string_table.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
@@ -113,7 +116,6 @@ class KURL;
 class Locale;
 class MutableCSSPropertyValueSet;
 class NamedNodeMap;
-class OutOfFlowData;
 class Patch;
 class PointerLockOptions;
 class PopoverData;
@@ -233,8 +235,6 @@ enum class CommandEventType {
   // kClose
   // Input / Select
   kShowPicker,
-  // Interest invokers (`interestfor`)
-  kToggleInterest,
   // Number Input
   kStepUp,
   kStepDown,
@@ -554,7 +554,6 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   void scrollByForTesting(double x, double y);
   void scrollToForTesting(double x, double y);
 
-  bool SetScrollOffset(const ScrollOffset&);
   bool SetScrollOffset(const ScrollToOptions*);
 
   // Returns the bounds of this Element, unclipped, in the coordinate space of
@@ -580,6 +579,9 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   gfx::Rect VisibleBoundsRespectingClipsInLocalRoot() const;
 
   DOMRectList* getClientRects();
+  // Returns a list of clients Rects in zoomed pixel units.
+  Vector<gfx::RectF> GetClientRectsNoAdjustment();
+
   // Returns a rectangle in zoomed pixel units.
   gfx::RectF GetBoundingClientRectNoLifecycleUpdateNoAdjustment() const;
   // Returns a rectangle in CSS pixel units.  i.e. ignoring zoom.
@@ -795,16 +797,16 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   // Returns false if the element definitely does not have an attribute
   // matching the given name. Is allowed to return false positives.
   bool CouldHaveAttribute(const QualifiedName& attribute_name) const {
-    return CouldHaveAttributeWithPrecomputedFilter(
-        FilterForAttribute(attribute_name));
+    return CouldMatchFilter(FilterForAttribute(attribute_name));
   }
   bool CouldHaveClass(const AtomicString& class_name) const {
-    return CouldHaveClassWithPrecomputedFilter(FilterForString(class_name));
+    return CouldMatchFilter(FilterForString(class_name));
   }
 
   // A variant of CouldHave{Attribute,Class}() that allows you to compute
   // the filter ahead-of-time; useful if you want to test many elements
-  // against the same attribute/class name.
+  // against the same attribute/class name, or to test against multiple
+  // attributes/classes at the same time.
   using TinyBloomFilter = uint32_t;
   static TinyBloomFilter FilterForAttribute(
       const QualifiedName& attribute_name) {
@@ -820,10 +822,22 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
     filter |= 1u << ((hash >> 5) & 31);
     return filter;
   }
-  bool CouldHaveAttributeWithPrecomputedFilter(TinyBloomFilter filter) const {
-    return (attribute_or_class_bloom_ & filter) == filter;
+  bool SubtreeMayMatchClassOrAttrFilter(TinyBloomFilter filter) const {
+    bool match = CouldMatchFilter(filter);
+#if DCHECK_IS_ON()
+    if (!match) {
+      // The caller is going to skip this entire subtree,
+      // so verify that we're not missing anything.
+      VerifyBloomFilterTreeConsistencyIncludingChildren();
+    }
+#endif
+    return match;
   }
-  bool CouldHaveClassWithPrecomputedFilter(TinyBloomFilter filter) const {
+  // Exactly the same as SubtreeMayMatchClassOrAttrFilter(),
+  // except that it can be called before the entire tree is
+  // attached correctly, so we don't DCHECK that the Bloom filters
+  // are consistent.
+  bool CouldMatchFilter(TinyBloomFilter filter) const {
     return (attribute_or_class_bloom_ & filter) == filter;
   }
   // Useful if you are to match the same element against a lot of different
@@ -831,6 +845,31 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   TinyBloomFilter AttributeOrClassBloomFilter() const {
     return attribute_or_class_bloom_;
   }
+
+#if DCHECK_IS_ON()
+  void VerifyBloomFilterTreeConsistency() const {
+    if (!parentElement()) {
+      return;
+    }
+
+    if ((parentElement()->attribute_or_class_bloom_ &
+         attribute_or_class_bloom_) != attribute_or_class_bloom_) {
+      char bitsstr[256];
+      snprintf(bitsstr, sizeof(bitsstr),
+               "bits=0x%08x subtree=0x%08x parentbits=0x%08x missing=0x%08x",
+               attribute_or_class_bloom_, attribute_or_class_bloom_,
+               parentElement()->attribute_or_class_bloom_,
+               attribute_or_class_bloom_ &
+                   ~parentElement()->attribute_or_class_bloom_);
+      LOG(FATAL) << this << " Bloom bits were not properly propagated up to "
+                 << parentElement() << " " << bitsstr;
+    }
+  }
+
+  // Used when skipping over an entire subtree, to check that we're not
+  // missing anything inside it.
+  void VerifyBloomFilterTreeConsistencyIncludingChildren() const;
+#endif
 
   // Step 5 of https://dom.spec.whatwg.org/#concept-node-clone
   virtual void CloneNonAttributePropertiesFrom(const Element&,
@@ -945,6 +984,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
                                    SlotAssignmentMode,
                                    bool serializable,
                                    bool clonable,
+                                   const AtomicString& adopted_stylesheets,
                                    const AtomicString& reference_target,
                                    const bool waiting_for_scoped_registry);
 
@@ -1130,6 +1170,14 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   bool IsFocusedElementInDocument() const;
   Element* AdjustedFocusedElementInTreeScope() const;
   bool IsAutofocusable() const;
+
+  // Returns true if `last_focus_type_` was not the result of an unknown or
+  // script source. For more see:
+  // https://explainers-by-googlers.github.io/user-dictionary-leaks/
+  bool WasLastFocusFromUserGesture() const {
+    return last_focus_type_ != mojom::blink::FocusType::kNone &&
+           last_focus_type_ != mojom::blink::FocusType::kScript;
+  }
 
   // Returns false if the event was canceled, and true otherwise.
   virtual bool DispatchFocusEvent(
@@ -1328,7 +1376,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   void BeginParsingChildren() { SetIsFinishedParsingChildren(false); }
 
   // Returns the pseudo-element for the given PseudoId type.
-  // |view_transition_name| is used to uniquely identify a pseudo-element
+  // |pseudo_argument| is used to uniquely identify a pseudo-element
   // from a set of pseudo-elements which share the same |pseudo_id|. The current
   // usage of this ID is limited to pseudo-elements generated for a
   // ViewTransition. See
@@ -1337,11 +1385,12 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   // Also see GetStyledPseudoElement() below.
   PseudoElement* GetPseudoElement(
       PseudoId,
-      const AtomicString& view_transition_name = g_null_atom) const;
+      const AtomicString& pseudo_argument = g_null_atom) const;
   LayoutObject* PseudoElementLayoutObject(PseudoId) const;
   CSSPseudoElement* pseudo(const AtomicString& type);
 
   // Used to cache CSSPseudoElement objects.
+  CSSPseudoElement* EnsureCSSPseudoElement(PseudoId);
   void CacheCSSPseudoElement(PseudoId, CSSPseudoElement&);
   CSSPseudoElement* GetCSSPseudoElement(PseudoId) const;
 
@@ -1455,7 +1504,15 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   // Scoped Custom Elements
   CustomElementRegistry* customElementRegistry() const;
-  void SetCustomElementRegistry(CustomElementRegistry*);
+  // When it comes to storing an element's custom element registry, we have an
+  // optimization where if the registry to be set is the same as element's tree
+  // scope's registry, we don't store it in the element itself and rely on tree
+  // scope to find the registry to save memory. In the scenario of cross scope
+  // adoption, we can set explicitly_set to true to force the registry storage
+  // so we can retain knowledge of the prior registry even when the scope is
+  // changed.
+  void SetCustomElementRegistry(CustomElementRegistry*,
+                                bool explicitly_set = false);
 
   // https://dom.spec.whatwg.org/#concept-element-is-value
   void SetIsValue(const AtomicString&);
@@ -1599,6 +1656,8 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   OutOfFlowData& EnsureOutOfFlowData();
   OutOfFlowData* GetOutOfFlowData() const;
+  bool SetPendingRememberedScrollOffsets(
+      const OutOfFlowData::RememberedScrollOffsets*);
 
   // See PostStyleUpdateScope::PseudoData::AddPendingBackdrop
   void ApplyPendingBackdropPseudoElementUpdate();
@@ -1677,7 +1736,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   std::optional<LayoutUnit> LastRememberedBlockSize() const;
 
   // Returns the element that represents the given |pseudo_id| and
-  // |view_transition_name| originating from this DOM element.  The
+  // |pseudo_argument| originating from this DOM element.  The
   // returned element may be a PseudoElement, or (for element-backed
   // pseudo-elements) an Element.
   //
@@ -1687,9 +1746,8 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   //
   // Callers that need to deal with all CSS pseudo-elements should use
   // this rather than GetPseudoElement().
-  Element* GetStyledPseudoElement(
-      PseudoId pseudo_id,
-      const AtomicString& view_transition_name) const;
+  Element* GetStyledPseudoElement(PseudoId pseudo_id,
+                                  const AtomicString& pseudo_argument) const;
 
   // Performs an incremental update of the view-transition pseudo-elements.
   void UpdateTransitionPseudoElements(const StyleRecalcChange,
@@ -1697,11 +1755,15 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   // Returns true if the element has the 'inert' attribute, forcing itself and
   // all its subtree to be inert.
-  // TODO(crbug.com/1511354): Make this not virtual after the override in
-  // HTMLButtonElement::IsInertRoot is removed.
+  // TODO(crbug.com/370065759): This API is only used in HasEditableLevel().
   virtual bool IsInertRoot() const;
 
-  FocusgroupFlags GetFocusgroupFlags() const;
+  FocusgroupData GetFocusgroupData() const;
+  Element* GetFocusgroupLastFocused() const;
+  // May only be called on a focusgroup that supports restoring the last focused
+  // element.
+  void SetFocusgroupLastFocused(Element& element);
+  void ClearFocusgroupLastFocused();
 
   bool checkVisibility(CheckVisibilityOptions* options) const;
 
@@ -1816,6 +1878,30 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   NamedAnimationTriggerMap* NamedTriggers() const;
   AnimationTrigger* NamedTrigger(const ScopedCSSName* name) const;
 
+  enum AttributesToExcludeHashesFor {
+    // Exclude [id], [style] and [class], which are the attributes
+    // ignored by SelectorFilter by default.
+    kExcludeStandardAttributesOnly,
+
+    // Exclude any attribute that may be lazily synchronized and thus
+    // not show up in Element's Bloom filter (in particular, its subtree).
+    // Note that this may be overly conservative (the set required for SVG
+    // is rather large), but it should at least be safe.
+    kExcludeAllLazilySynchronizedAttributes,
+
+    // Same, but case-sensitive (used for non-HTML documents); this means
+    // that e.g. STYLE="" will _not_ be ignored.
+    kExcludeLowercaseLazilySynchronizedAttributes,
+  };
+  static bool IsExcludedAttribute(
+      const QualifiedName& qname,
+      AttributesToExcludeHashesFor attributes_to_exclude);
+
+  enum class BaseAppearanceValue { kBaseSelect, kBase };
+  // Returns true if this element supports base appearance given a value for the
+  // appearance property, such as `base` or `base-select`.
+  bool SupportsBaseAppearance(AppearanceValue) const;
+
  protected:
   bool HasElementData() const { return static_cast<bool>(element_data_); }
   const ElementData* GetElementData() const { return element_data_.Get(); }
@@ -1891,6 +1977,23 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   void UpdateClassList(const AtomicString& old_class_string,
                        const AtomicString& new_class_string);
 
+  // Update parents' subtree Bloom filters recursively. Must be called after
+  // anything that could add bits, or when this element is attached to a new
+  // parent, so that the tree is consistent.
+  void UpdateSubtreeBloomFilterAfterInsert();
+
+  // Update this element's subtree Bloom filter after removing a child.
+  // Unlike UpdateSubtreeBloomFilterAfterInsert, this is called on the
+  // _parent_ of the element that's being removed or changed. It is also
+  // voluntary; it is generally hard to remove bits from a Bloom filter,
+  // so we only do updates for some special cases (such as the entire
+  // subtree under an element going away).
+  void UpdateSubtreeBloomFilterAfterChildRemoval();
+
+  // Recompute the desired value of the subtree Bloom filter, given only
+  // this element's attributes and classes (not including children).
+  TinyBloomFilter RecomputeLocalBloomFilter() const;
+
   static bool AttributeValueIsJavaScriptURL(const Attribute&);
 
   const ComputedStyle* OriginalStyleForLayoutObject(const StyleRecalcContext&);
@@ -1912,6 +2015,10 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   void DetachPseudoElement(PseudoId, bool performing_reattach);
 
   void ProcessElementRenderBlocking(const AtomicString& id_or_name);
+
+  virtual bool SupportsBaseAppearanceInternal(BaseAppearanceValue) const {
+    return false;
+  }
 
  private:
   friend class AXObject;
@@ -1941,9 +2048,8 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   void SetElementFlag(ElementFlags, bool value = true);
   void ClearElementFlag(ElementFlags);
 
-  void ClearPseudoElement(
-      PseudoId,
-      const AtomicString& view_transition_name = g_null_atom);
+  void ClearPseudoElement(PseudoId,
+                          const AtomicString& pseudo_argument = g_null_atom);
 
   bool IsElementNode() const =
       delete;  // This will catch anyone doing an unnecessary check.
@@ -2034,14 +2140,11 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   void UpdateColumnPseudoElements(const StyleRecalcChange,
                                   const StyleRecalcContext&);
-  PseudoElement* UpdateLayoutSiblingPseudoElement(PseudoId pseudo_id,
-                                                  const StyleRecalcChange,
-                                                  const StyleRecalcContext&);
   PseudoElement* UpdatePseudoElement(
       PseudoId,
       const StyleRecalcChange,
       const StyleRecalcContext&,
-      const AtomicString& view_transition_name = g_null_atom);
+      const AtomicString& pseudo_argument = g_null_atom);
   enum class StyleUpdatePhase {
     kRecalc,
     kRebuildLayoutTree,
@@ -2063,7 +2166,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   inline PseudoElement* CreatePseudoElementIfNeeded(
       PseudoId,
       const StyleRecalcContext&,
-      const AtomicString& view_transition_name = g_null_atom);
+      const AtomicString& pseudo_argument = g_null_atom);
 
   // For document element scroll control pseudo-elements become not layout
   // siblings, but layout children.
@@ -2170,8 +2273,6 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
       ShadowRootMode,
       SlotAssignmentMode = SlotAssignmentMode::kNamed);
 
-  // FIXME: Everyone should allow author shadows.
-  virtual bool AreAuthorShadowsAllowed() const { return true; }
   virtual void DidAddUserAgentShadowRoot(ShadowRoot&) {}
   virtual bool AlwaysCreateUserAgentShadowRoot() const { return false; }
 
@@ -2370,12 +2471,19 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   subtle::UncompressedMember<const ComputedStyle> computed_style_;
   Member<ElementData> element_data_;
 
-  // A tiny Bloom filter for which attribute names and class names we have;
-  // saves going to ElementData if the attribute/class doesn't exist. May have
-  // false positives, of course. We do not currently update this when
-  // attributes/classes are removed, only when they are added. Attribute
-  // _values_ are not part of this filter, except for the values of class="".
+  // A tiny Bloom filter for which attribute names and class names exist
+  // in this subtree; saves going to ElementData if the attribute/class
+  // doesn't exist, and used to accelerate querySelector() (can quickly
+  // skip entire subtrees). May have false positives, of course.
+  // We do not currently update this when attributes/classes are removed,
+  // only when they are added. Attribute _values_ are not part of this
+  // filter, except for the values of class="".
   uint32_t attribute_or_class_bloom_ = 0;
+
+  // This records the last type of a focus on this element via `SetFocused`.
+  // For more see:
+  // https://explainers-by-googlers.github.io/user-dictionary-leaks/
+  mojom::blink::FocusType last_focus_type_ = mojom::blink::FocusType::kNone;
 };
 
 template <>

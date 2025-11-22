@@ -11,6 +11,7 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ptr_exclusion.h"
+#include "base/memory/ref_counted.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/unsafe_shared_memory_pool.h"
 #include "base/task/single_thread_task_runner.h"
@@ -94,29 +95,26 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
   // plane.
   class GPU_COMMAND_BUFFER_CLIENT_EXPORT ScopedMapping {
    public:
-    virtual ~ScopedMapping() = default;
+    ScopedMapping(const gfx::Size& size, viz::SharedImageFormat format);
+    ~ScopedMapping();
 
-    virtual base::span<uint8_t> GetMemoryForPlane(
-        const uint32_t plane_index) = 0;
+    base::span<uint8_t> GetMemoryForPlane(const uint32_t plane_index);
 
     SkPixmap GetSkPixmapForPlane(const uint32_t plane_index,
                                  SkImageInfo sk_image_info);
 
     // Returns plane stride.
-    virtual size_t Stride(const uint32_t plane_index) = 0;
+    size_t Stride(const uint32_t plane_index);
 
     // Returns the size of the buffer.
-    virtual gfx::Size Size() = 0;
+    gfx::Size Size();
 
     // Returns whether the underlying resource is shared memory.
-    virtual bool IsSharedMemory() = 0;
+    bool IsSharedMemory();
 
    private:
     friend class ClientSharedImage;
 
-    static std::unique_ptr<ScopedMapping> Create(
-        SharedImageMetadata metadata_,
-        base::WritableSharedMemoryMapping* mapping);
     static std::unique_ptr<ScopedMapping> Create(
         SharedImageMetadata metadata_,
         MappableBuffer* mappable_buffer,
@@ -130,6 +128,13 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
         MappableBuffer* mappable_buffer,
         base::OnceCallback<void(std::unique_ptr<ScopedMapping>)> result_cb,
         bool success);
+
+    bool Init(MappableBuffer* mappable_buffer, bool is_already_mapped);
+
+    // RAW_PTR_EXCLUSION: Performance reasons (based on analysis of MotionMark).
+    RAW_PTR_EXCLUSION MappableBuffer* buffer_ = nullptr;
+    gfx::Size size_;
+    viz::SharedImageFormat format_;
   };
 
   // `sii_holder` must not be null.
@@ -396,7 +401,6 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
   SyncToken destruction_sync_token_;
 
   std::unique_ptr<MappableBuffer> mappable_buffer_;
-  base::WritableSharedMemoryMapping shared_memory_mapping_;
   std::optional<gfx::BufferUsage> buffer_usage_;
   scoped_refptr<SharedImageInterfaceHolder> sii_holder_;
 
@@ -617,8 +621,8 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT WebGPUBufferScopedAccess {
   const raw_ptr<webgpu::WebGPUInterface> webgpu_;
   std::unique_ptr<wgpu::dawn::wire::client::Buffer> buffer_;
   raw_ptr<gpu::ClientSharedImage> shared_image_;
-  uint32_t wire_buffer_id_ = 0;
-  uint32_t wire_buffer_generation_ = 0;
+  uint32_t buffer_id_ = 0;
+  uint32_t buffer_generation_ = 0;
 };
 
 }  // namespace gpu

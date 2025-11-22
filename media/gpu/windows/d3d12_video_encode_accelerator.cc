@@ -10,6 +10,7 @@
 
 #include "base/check_is_test.h"
 #include "base/logging.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
@@ -43,6 +44,7 @@
 namespace media {
 
 namespace {
+
 // Minimum number of frames in flight for pipeline depth, adjust to this number
 // if encoder requests less. We assumes hardware encoding consists of 4 stages:
 // motion estimation/compensation, transform/quantization, entropy coding and
@@ -51,10 +53,38 @@ namespace {
 // properly.
 constexpr size_t kMinNumFramesInFlight = 4;
 
+// UMA histogram for tracking D3D12 VEA usage and success rate.
+// kInit: Recorded every time VEA Initialize() is called.
+// kSuccess: Recorded only when VEA initialization completes successfully.
+// Success percentage = (kSuccess count / kInit count) * 100.
+enum class VEAInitSuccessRate {
+  kInit = 0,
+  kSuccess = 1,
+  kMaxValue = kSuccess,
+};
+
+constexpr std::string_view kInitSuccessRateHistogramPrefix =
+    "Media.VideoEncoder.D3D12VEA.InitSuccessRate.";
+constexpr std::string_view kEncoderStatusHistogramPrefix =
+    "Media.VideoEncoder.D3D12VEA.EncodeStatus.";
+
+std::string GetInitSuccessRateHistogramName(VideoCodecProfile profile) {
+  return base::StrCat(
+      {kInitSuccessRateHistogramPrefix,
+       GetCodecNameForUMA(VideoCodecProfileToVideoCodec(profile))});
+}
+
+std::string GetEncoderStatusHistogramName(VideoCodecProfile profile) {
+  return base::StrCat(
+      {kEncoderStatusHistogramPrefix,
+       GetCodecNameForUMA(VideoCodecProfileToVideoCodec(profile))});
+}
+
 #define RETURN_ON_FAILURE_WITH_CALLBACK(hr, message)                       \
   if (FAILED(hr)) {                                                        \
     LOG(ERROR) << message << ": " << logging::SystemErrorCodeToString(hr); \
-    std::move(frame_available_cb).Run(std::move(frame), nullptr, hr);      \
+    std::move(frame_available_cb)                                          \
+        .Run(std::move(frame), base::win::ScopedHandle(), hr);             \
     return;                                                                \
   }
 
@@ -109,11 +139,11 @@ struct D3D12VideoEncodeAccelerator::InputFrameRef {
   bool resolving_shared_image = false;
   gpu::Mailbox shared_image_token;
   Microsoft::WRL::ComPtr<ID3D12Resource> resolved_resource;
+  base::TimeTicks frame_encode_start_time = base::TimeTicks::Now();
 };
 
 void GenerateResourceOnSynTokenReleased(
     scoped_refptr<VideoFrame> frame,
-    Microsoft::WRL::ComPtr<ID3D12Device> d3d12_device,
     Microsoft::WRL::ComPtr<ID3D11Device> d3d11_device,
     scoped_refptr<CommandBufferHelper> command_buffer_helper,
     FrameAvailableCB frame_available_cb) {
@@ -229,23 +259,17 @@ void GenerateResourceOnSynTokenReleased(
     shared_handle.Set(copied_handle);
   }
 
-  Microsoft::WRL::ComPtr<ID3D12Resource> d3d12_texture;
-  hr = d3d12_device->OpenSharedHandle(shared_handle.Get(),
-                                      IID_PPV_ARGS(&d3d12_texture));
-  RETURN_ON_FAILURE_WITH_CALLBACK(
-      hr, "Failed to open shared handle for D3D12 resource");
-
   std::move(frame_available_cb)
-      .Run(std::move(frame), std::move(d3d12_texture), hr);
+      .Run(std::move(frame), std::move(shared_handle), S_OK);
 }
 
 void GenerateResourceFromSharedImageVideoFrame(
     scoped_refptr<VideoFrame> frame,
-    Microsoft::WRL::ComPtr<ID3D12Device> d3d12_device,
     scoped_refptr<CommandBufferHelper> command_buffer_helper,
     FrameAvailableCB frame_available_cb) {
   if (!frame->HasSharedImage()) {
-    std::move(frame_available_cb).Run(std::move(frame), nullptr, E_FAIL);
+    std::move(frame_available_cb)
+        .Run(std::move(frame), base::win::ScopedHandle(), E_FAIL);
     return;
   }
 
@@ -254,7 +278,8 @@ void GenerateResourceFromSharedImageVideoFrame(
           ->shared_context_state()
           ->GetD3D11Device();
   if (!d3d11_device) {
-    std::move(frame_available_cb).Run(std::move(frame), nullptr, E_FAIL);
+    std::move(frame_available_cb)
+        .Run(std::move(frame), base::win::ScopedHandle(), E_FAIL);
     return;
   }
 
@@ -262,7 +287,7 @@ void GenerateResourceFromSharedImageVideoFrame(
   command_buffer_helper->WaitForSyncToken(
       acquire_sync_token,
       base::BindOnce(&GenerateResourceOnSynTokenReleased, std::move(frame),
-                     d3d12_device, d3d11_device, command_buffer_helper,
+                     d3d11_device, command_buffer_helper,
                      std::move(frame_available_cb)));
 }
 
@@ -333,6 +358,12 @@ D3D12VideoEncodeAccelerator::D3D12VideoEncodeAccelerator(
 D3D12VideoEncodeAccelerator::~D3D12VideoEncodeAccelerator() {
   VLOGF(2);
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
+
+  if (!error_occurred_ && encoded_at_least_one_frame_) {
+    base::UmaHistogramEnumeration(
+        GetEncoderStatusHistogramName(config_.output_profile),
+        EncoderStatus::Codes::kOk);
+  }
 }
 
 void D3D12VideoEncodeAccelerator::SetEncoderFactoryForTesting(
@@ -357,6 +388,10 @@ EncoderStatus D3D12VideoEncodeAccelerator::Initialize(
     const Config& config,
     Client* client,
     std::unique_ptr<MediaLog> media_log) {
+  base::UmaHistogramEnumeration(
+      GetInitSuccessRateHistogramName(config.output_profile),
+      VEAInitSuccessRate::kInit);
+
   DCHECK_CALLED_ON_VALID_SEQUENCE(child_sequence_checker_);
   VLOGF(2) << "Initializing D3D12VEA with config "
            << config.AsHumanReadableString();
@@ -461,7 +496,20 @@ void D3D12VideoEncodeAccelerator::RequestEncodingParametersChange(
       FROM_HERE,
       BindOnce(
           &D3D12VideoEncodeAccelerator::RequestEncodingParametersChangeTask,
-          encoder_weak_this_, bitrate, framerate, size));
+          encoder_weak_this_, BitrateToBitrateAllocation(bitrate), framerate,
+          size));
+}
+
+void D3D12VideoEncodeAccelerator::RequestEncodingParametersChange(
+    const VideoBitrateAllocation& bitrate_allocation,
+    uint32_t framerate,
+    const std::optional<gfx::Size>& size) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(child_sequence_checker_);
+  encoder_task_runner_->PostTask(
+      FROM_HERE,
+      BindOnce(
+          &D3D12VideoEncodeAccelerator::RequestEncodingParametersChangeTask,
+          encoder_weak_this_, bitrate_allocation, framerate, size));
 }
 
 void D3D12VideoEncodeAccelerator::Destroy() {
@@ -565,6 +613,14 @@ void D3D12VideoEncodeAccelerator::InitializeTask(
       FROM_HERE,
       BindOnce(&Client::RequireBitstreamBuffers, client_, num_frames_in_flight_,
                config.input_visible_size, bitstream_buffer_size_));
+
+  metrics_helper_ = std::make_unique<VEAEncodingLatencyMetricsHelper>(
+      "Media.VideoEncoder.D3D12VEA.EncodingLatency.",
+      VideoCodecProfileToVideoCodec(config.output_profile));
+
+  base::UmaHistogramEnumeration(
+      GetInitSuccessRateHistogramName(config.output_profile),
+      VEAInitSuccessRate::kSuccess);
 }
 
 void D3D12VideoEncodeAccelerator::UseOutputBitstreamBufferTask(
@@ -580,7 +636,7 @@ void D3D12VideoEncodeAccelerator::UseOutputBitstreamBufferTask(
 }
 
 void D3D12VideoEncodeAccelerator::RequestEncodingParametersChangeTask(
-    const Bitrate& bitrate,
+    const VideoBitrateAllocation& bitrate_allocation,
     uint32_t framerate,
     const std::optional<gfx::Size>& size) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
@@ -590,8 +646,8 @@ void D3D12VideoEncodeAccelerator::RequestEncodingParametersChangeTask(
                         "Update output frame size is not supported"});
   }
 
-  if (!encoder_->UpdateRateControl(bitrate, framerate)) {
-    VLOGF(1) << "Failed to update bitrate " << bitrate.ToString()
+  if (!encoder_->UpdateRateControl(bitrate_allocation, framerate)) {
+    VLOGF(1) << "Failed to update bitrate " << bitrate_allocation.ToString()
              << " and framerate " << framerate;
   }
 }
@@ -728,7 +784,7 @@ void D3D12VideoEncodeAccelerator::EncodeTask(
       gpu_task_runner_->PostTask(
           FROM_HERE,
           base::BindOnce(
-              &GenerateResourceFromSharedImageVideoFrame, frame, device_,
+              &GenerateResourceFromSharedImageVideoFrame, frame,
               command_buffer_helper_,
               base::BindPostTask(
                   encoder_task_runner_,
@@ -760,7 +816,8 @@ void D3D12VideoEncodeAccelerator::TryEncodeFrames() {
     }
 
     DoEncodeTask(next_input.frame, next_input.resolved_resource,
-                 next_input.options, bitstream_buffers_.front());
+                 next_input.options, next_input.frame_encode_start_time,
+                 bitstream_buffers_.front());
     input_frames_queue_.pop_front();
     bitstream_buffers_.pop();
   }
@@ -777,6 +834,7 @@ void D3D12VideoEncodeAccelerator::DoEncodeTask(
     scoped_refptr<VideoFrame> frame,
     Microsoft::WRL::ComPtr<ID3D12Resource> resolved_texture,
     const VideoEncoder::EncodeOptions& options,
+    base::TimeTicks start_time,
     const BitstreamBuffer& bitstream_buffer) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
 
@@ -814,6 +872,15 @@ void D3D12VideoEncodeAccelerator::DoEncodeTask(
   D3D12VideoEncodeDelegate::EncodeResult result =
       std::move(result_or_error).value();
   result.metadata.timestamp = frame->timestamp();
+
+  if (metrics_helper_) {
+    metrics_helper_->EncodeOneFrame(result.metadata.key_frame,
+                                    base::TimeTicks::Now() - start_time);
+  }
+  if (!encoded_at_least_one_frame_) {
+    encoded_at_least_one_frame_ = true;
+  }
+
   child_task_runner_->PostTask(
       FROM_HERE, BindOnce(&Client::BitstreamBufferReady, client_,
                           result.bitstream_buffer_id, result.metadata));
@@ -823,10 +890,18 @@ void D3D12VideoEncodeAccelerator::DestroyTask() {
   DVLOGF(2);
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
 
+  // Invalidate weak pointers created by |encoder_weak_this_factory_| so that
+  // any tasks posted with the encoder weak pointer will safely no-op if they
+  // run after this call.
+  encoder_weak_this_factory_.InvalidateWeakPtrs();
+
   delete this;
 }
 
 void D3D12VideoEncodeAccelerator::NotifyError(EncoderStatus status) {
+  base::UmaHistogramEnumeration(
+      GetEncoderStatusHistogramName(config_.output_profile), status.code());
+
   if (!child_task_runner_->RunsTasksInCurrentSequence()) {
     child_task_runner_->PostTask(
         FROM_HERE, BindOnce(&D3D12VideoEncodeAccelerator::NotifyError,
@@ -883,7 +958,7 @@ void D3D12VideoEncodeAccelerator::SetCommandBufferHelperCB(
 // corresponding entry in the `input_frames_queue_`.
 void D3D12VideoEncodeAccelerator::OnSharedImageResolved(
     scoped_refptr<VideoFrame> frame,
-    Microsoft::WRL::ComPtr<ID3D12Resource> input_texture,
+    base::win::ScopedHandle shared_handle,
     HRESULT hr) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
 
@@ -893,6 +968,13 @@ void D3D12VideoEncodeAccelerator::OnSharedImageResolved(
         << hr;
     return NotifyError({EncoderStatus::Codes::kSystemAPICallError,
                         "Failed to resolve shared image"});
+  }
+  Microsoft::WRL::ComPtr<ID3D12Resource> input_texture;
+  hr = device_->OpenSharedHandle(shared_handle.Get(),
+                                 IID_PPV_ARGS(&input_texture));
+  if (FAILED(hr)) {
+    return NotifyError({EncoderStatus::Codes::kSystemAPICallError,
+                        "Failed to open shared handle for D3D12 resource"});
   }
 
   // Find the matching frame in the queue and update it.
@@ -927,7 +1009,7 @@ void D3D12VideoEncodeAccelerator::ResolveQueuedSharedImages() {
           FROM_HERE,
           base::BindOnce(
               &GenerateResourceFromSharedImageVideoFrame, input_frame.frame,
-              device_, command_buffer_helper_,
+              command_buffer_helper_,
               base::BindPostTask(
                   encoder_task_runner_,
                   base::BindOnce(

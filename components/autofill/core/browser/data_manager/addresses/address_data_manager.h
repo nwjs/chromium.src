@@ -19,6 +19,7 @@
 #include "base/time/time.h"
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
+#include "components/autofill/core/browser/strike_databases/addresses/address_on_typing_suggestion_strike_database.h"
 #include "components/autofill/core/browser/strike_databases/addresses/address_suggestion_strike_database.h"
 #include "components/autofill/core/browser/strike_databases/addresses/autofill_profile_migration_strike_database.h"
 #include "components/autofill/core/browser/strike_databases/addresses/autofill_profile_save_strike_database.h"
@@ -309,6 +310,23 @@ class AddressDataManager : public AutofillWebDataServiceObserverOnUISequence {
     return home_and_work_metadata_.get();
   }
 
+  // Used to get a pointer to the strike database for Address on typing
+  // suggestions. Note, the result can be a nullptr, for example, in incognito
+  // mode.
+  AddressOnTypingSuggestionStrikeDatabase*
+  GetAddressOnTypingSuggestionStrikeDatabase();
+  virtual const AddressOnTypingSuggestionStrikeDatabase*
+  GetAddressOnTypingSuggestionStrikeDatabase() const;
+
+#if BUILDFLAG(IS_IOS)
+  // Calls `account_name_email_store_` in order to create or update the
+  // kAccountNameEmail profile using current primary account info.
+  // TODO(crbug.com/449708427): Remove once `AccountInfo` supports full_name on
+  // IOS.
+  void MaybeCreateAccountNameEmailProfile(std::string account_name,
+                                          std::string email);
+#endif
+
  protected:
   friend class AddressDataManagerTestApi;
 
@@ -316,28 +334,28 @@ class AddressDataManager : public AutofillWebDataServiceObserverOnUISequence {
   void SetStrikeDatabase(strike_database::StrikeDatabaseBase* strike_database);
 
   // Used to get a pointer to the strike database for migrating existing
-  // profiles. Note, the result can be a nullptr, for example, on incognito
+  // profiles. Note, the result can be a nullptr, for example, in incognito
   // mode.
   AutofillProfileMigrationStrikeDatabase* GetProfileMigrationStrikeDatabase();
   virtual const AutofillProfileMigrationStrikeDatabase*
   GetProfileMigrationStrikeDatabase() const;
 
   // Used to get a pointer to the strike database for importing new profiles.
-  // Note, the result can be a nullptr, for example, on incognito
+  // Note, the result can be a nullptr, for example, in incognito
   // mode.
   AutofillProfileSaveStrikeDatabase* GetProfileSaveStrikeDatabase();
   virtual const AutofillProfileSaveStrikeDatabase*
   GetProfileSaveStrikeDatabase() const;
 
   // Used to get a pointer to the strike database for updating existing
-  // profiles. Note, the result can be a nullptr, for example, on incognito
+  // profiles. Note, the result can be a nullptr, for example, in incognito
   // mode.
   AutofillProfileUpdateStrikeDatabase* GetProfileUpdateStrikeDatabase();
   virtual const AutofillProfileUpdateStrikeDatabase*
   GetProfileUpdateStrikeDatabase() const;
 
   // Used to get a pointer to the strike database for updating existing
-  // profiles. Note, the result can be a nullptr, for example, on incognito
+  // profiles. Note, the result can be a nullptr, for example, in incognito
   // mode.
   AddressSuggestionStrikeDatabase* GetAddressSuggestionStrikeDatabase();
   virtual const AddressSuggestionStrikeDatabase*
@@ -429,6 +447,11 @@ class AddressDataManager : public AutofillWebDataServiceObserverOnUISequence {
   // migration-prompt of new profiles.
   std::unique_ptr<AutofillProfileMigrationStrikeDatabase>
       profile_migration_strike_database_;
+
+  // The database that is used to count field type keyed strikes to suppress the
+  // creation of Address on typing suggestions.
+  std::unique_ptr<AddressOnTypingSuggestionStrikeDatabase>
+      address_on_typing_suggestion_strike_database_;
 
   // The database that is used to count domain-keyed strikes to suppress the
   // import of new profiles.

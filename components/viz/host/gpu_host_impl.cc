@@ -21,6 +21,7 @@
 #include "build/build_config.h"
 #include "components/viz/common/buildflags.h"
 #include "components/viz/common/features.h"
+#include "components/viz/host/persistent_cache_sandboxed_file_factory.h"
 #include "gpu/config/gpu_driver_bug_workaround_type.h"
 #include "gpu/config/gpu_feature_info.h"
 #include "gpu/config/gpu_finch_features.h"
@@ -195,6 +196,12 @@ GpuHostImpl::~GpuHostImpl() {
   SendOutstandingReplies();
 }
 
+void GpuHostImpl::NotifyWorkloadIncrease() {
+#if BUILDFLAG(IS_ANDROID)
+  viz_main_->NotifyWorkloadIncrease();
+#endif
+}
+
 // static
 void GpuHostImpl::InitFontRenderParams(const gfx::FontRenderParams& params) {
   DCHECK(!GetFontRenderParams().Get());
@@ -277,11 +284,13 @@ void GpuHostImpl::ConnectFrameSinkManager(
 void GpuHostImpl::EstablishGpuChannel(int client_id,
                                       uint64_t client_tracing_id,
                                       bool is_gpu_host,
+                                      bool enable_extra_handles_validation,
                                       bool sync,
                                       EstablishChannelCallback callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   TRACE_EVENT2("gpu", "GpuHostImpl::EstablishGpuChannel", "client_id",
                client_id, "is_gpu_host", is_gpu_host);
+  DCHECK(!(is_gpu_host && enable_extra_handles_validation));
 
   shutdown_timeout_.Stop();
 
@@ -304,7 +313,8 @@ void GpuHostImpl::EstablishGpuChannel(int client_id,
     {
       mojo::SyncCallRestrictions::ScopedAllowSyncCall scoped_allow;
       gpu_service_remote_->EstablishGpuChannel(
-          client_id, client_tracing_id, is_gpu_host, &channel_handle, &gpu_info,
+          client_id, client_tracing_id, is_gpu_host,
+          enable_extra_handles_validation, &channel_handle, &gpu_info,
           &gpu_feature_info, &shared_image_capabilities);
     }
     OnChannelEstablished(client_id, true, std::move(channel_handle), gpu_info,
@@ -312,6 +322,7 @@ void GpuHostImpl::EstablishGpuChannel(int client_id,
   } else {
     gpu_service_remote_->EstablishGpuChannel(
         client_id, client_tracing_id, is_gpu_host,
+        enable_extra_handles_validation,
         base::BindOnce(&GpuHostImpl::OnChannelEstablished,
                        weak_ptr_factory_.GetWeakPtr(), client_id, false));
   }
@@ -456,19 +467,23 @@ void GpuHostImpl::InitPersistentCache() {
     // TODO(crbug.com/399642827): Enable persistent cache for other cache types.
     auto* persistent_cache_file_factory =
         PersistentCacheSandboxedFileFactory::GetInstance();
+    if (!persistent_cache_file_factory) {
+      // This can happen in tests when the cache directory is not defined.
+      return;
+    }
     persistent_cache_file_factory->CreateFilesAsync(
         /*cache_id=*/GetGpuDiskCacheSubdir(
             gpu::GpuDiskCacheType::kDawnGraphite),
         GraphiteDawnCacheVersion(),
         base::BindOnce(
             [](base::WeakPtr<GpuHostImpl> gpu_host,
-               std::optional<PersistentCacheSandboxedFiles> files) {
+               std::optional<persistent_cache::BackendParams> backend_params) {
               TRACE_EVENT0("gpu", "GpuHostImpl::InitPersistentCacheCallback");
               if (!gpu_host) {
                 return;
               }
               gpu_host->graphite_dawn_persistent_cache_files_ =
-                  std::move(files);
+                  std::move(backend_params);
               if (gpu_host
                       ->pending_graphite_dawn_persistent_cache_files_request_) {
                 // If channel is already initialized, we send the files to the
@@ -476,7 +491,7 @@ void GpuHostImpl::InitPersistentCache() {
                 gpu_host
                     ->pending_graphite_dawn_persistent_cache_files_request_ =
                     false;
-                gpu_host->SetChannelPersistentCacheFile(
+                gpu_host->SetChannelPersistentCacheParams(
                     gpu::kGraphiteDawnClientId,
                     gpu::kGraphiteDawnGpuDiskCacheHandle,
                     std::move(gpu_host->graphite_dawn_persistent_cache_files_));
@@ -488,18 +503,17 @@ void GpuHostImpl::InitPersistentCache() {
 #endif  // BUILDFLAG(SKIA_USE_DAWN)
 }
 
-void GpuHostImpl::SetChannelPersistentCacheFile(
+void GpuHostImpl::SetChannelPersistentCacheParams(
     int client_id,
     const gpu::GpuDiskCacheHandle& handle,
-    std::optional<PersistentCacheSandboxedFiles> files) {
-  if (!files) {
+    std::optional<persistent_cache::BackendParams> backend_params) {
+  if (!backend_params) {
     return;
   }
-  TRACE_EVENT2("gpu", "GpuHostImpl::SetChannelPersistentCacheFile", "client_id",
-               client_id, "handle_type", GetHandleType(handle));
-  gpu_service()->SetChannelPersistentCacheFile(
-      client_id, handle, std::move(files->db_file),
-      std::move(files->journal_file), std::move(files->shared_lock));
+  TRACE_EVENT2("gpu", "GpuHostImpl::SetChannelPersistentCacheParams",
+               "client_id", client_id, "handle_type", GetHandleType(handle));
+  gpu_service()->SetChannelPersistentCacheParams(client_id, handle,
+                                                 *std::move(backend_params));
 }
 
 std::string GpuHostImpl::GetShaderPrefixKey() {
@@ -614,7 +628,7 @@ void GpuHostImpl::DidInitialize(
         // available.
         pending_graphite_dawn_persistent_cache_files_request_ = true;
       } else {
-        SetChannelPersistentCacheFile(
+        SetChannelPersistentCacheParams(
             gpu::kGraphiteDawnClientId, gpu::kGraphiteDawnGpuDiskCacheHandle,
             std::move(graphite_dawn_persistent_cache_files_));
       }
@@ -743,6 +757,10 @@ void GpuHostImpl::MaybeSendFontRenderParams() {
   } else {
     GetFontRenderParams().SetGpuHostImpl(this);
   }
+}
+
+gpu::GpuProcessHostShmCount* GpuHostImpl::GetShaderCacheShmCountForTesting() {
+  return &use_shader_cache_shm_count_;
 }
 
 void GpuHostImpl::StoreBlobToDisk(const gpu::GpuDiskCacheHandle& handle,

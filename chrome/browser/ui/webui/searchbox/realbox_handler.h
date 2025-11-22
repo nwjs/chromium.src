@@ -9,10 +9,7 @@
 #include "chrome/browser/ui/webui/searchbox/contextual_searchbox_handler.h"
 #include "components/omnibox/browser/omnibox_popup_selection.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
-#include "components/omnibox/composebox/contextual_session_service.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "mojo/public/cpp/bindings/receiver.h"
-#include "mojo/public/cpp/bindings/remote.h"
 #include "ui/gfx/geometry/size.h"
 
 class Profile;

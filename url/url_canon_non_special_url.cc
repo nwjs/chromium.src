@@ -12,7 +12,7 @@ namespace url {
 namespace {
 
 template <typename CHAR>
-bool DoCanonicalizeNonSpecialURL(const URLComponentSource<CHAR>& source,
+bool DoCanonicalizeNonSpecialUrl(const URLComponentSource<CHAR>& source,
                                  const Parsed& parsed,
                                  CharsetConverter* query_converter,
                                  CanonOutput& output,
@@ -73,8 +73,10 @@ bool DoCanonicalizeNonSpecialURL(const URLComponentSource<CHAR>& source,
 
     // Host
     if (parsed.host.is_valid()) {
-      success &= CanonicalizeNonSpecialHost(source.host, parsed.host, output,
-                                            new_parsed.host);
+      success &= CanonicalizeNonSpecialHost(
+          std::basic_string_view<CHAR>(
+              source.host, parsed.host.is_valid() ? parsed.host.end() : 0),
+          parsed.host, output, new_parsed.host);
     } else {
       new_parsed.host.reset();
       // URL is invalid if `have_authority` is true, but `parsed.host` is
@@ -88,8 +90,9 @@ bool DoCanonicalizeNonSpecialURL(const URLComponentSource<CHAR>& source,
     // - https://url.spec.whatwg.org/#cannot-have-a-username-password-port
     // - https://url.spec.whatwg.org/#dom-url-port
     if (parsed.host.is_nonempty()) {
-      success &= CanonicalizePort(source.port, parsed.port, PORT_UNSPECIFIED,
-                                  &output, &new_parsed.port);
+      success &=
+          CanonicalizePort(parsed.port.maybe_as_string_view_on(source.port),
+                           PORT_UNSPECIFIED, &output, &new_parsed.port);
     } else {
       new_parsed.port.reset();
     }
@@ -182,8 +185,7 @@ bool DoCanonicalizeNonSpecialURL(const URLComponentSource<CHAR>& source,
 
 }  // namespace
 
-bool CanonicalizeNonSpecialURL(const char* spec,
-                               int spec_len,
+bool CanonicalizeNonSpecialUrl(std::string_view spec,
                                const Parsed& parsed,
                                CharsetConverter* query_converter,
                                CanonOutput& output,
@@ -192,14 +194,14 @@ bool CanonicalizeNonSpecialURL(const char* spec,
   new_parsed.has_opaque_path = parsed.has_opaque_path;
 
   if (parsed.has_opaque_path) {
-    return CanonicalizePathURL(spec, spec_len, parsed, &output, &new_parsed);
+    return CanonicalizePathURL(spec.data(), spec.length(), parsed, &output,
+                               &new_parsed);
   }
-  return DoCanonicalizeNonSpecialURL(URLComponentSource(spec), parsed,
+  return DoCanonicalizeNonSpecialUrl(URLComponentSource(spec.data()), parsed,
                                      query_converter, output, new_parsed);
 }
 
-bool CanonicalizeNonSpecialURL(const char16_t* spec,
-                               int spec_len,
+bool CanonicalizeNonSpecialUrl(std::u16string_view spec,
                                const Parsed& parsed,
                                CharsetConverter* query_converter,
                                CanonOutput& output,
@@ -208,13 +210,14 @@ bool CanonicalizeNonSpecialURL(const char16_t* spec,
   new_parsed.has_opaque_path = parsed.has_opaque_path;
 
   if (parsed.has_opaque_path) {
-    return CanonicalizePathURL(spec, spec_len, parsed, &output, &new_parsed);
+    return CanonicalizePathURL(spec.data(), spec.length(), parsed, &output,
+                               &new_parsed);
   }
-  return DoCanonicalizeNonSpecialURL(URLComponentSource(spec), parsed,
+  return DoCanonicalizeNonSpecialUrl(URLComponentSource(spec.data()), parsed,
                                      query_converter, output, new_parsed);
 }
 
-bool ReplaceNonSpecialURL(const char* base,
+bool ReplaceNonSpecialUrl(std::string_view base,
                           const Parsed& base_parsed,
                           const Replacements<char>& replacements,
                           CharsetConverter* query_converter,
@@ -224,20 +227,20 @@ bool ReplaceNonSpecialURL(const char* base,
   new_parsed.has_opaque_path = base_parsed.has_opaque_path;
 
   if (base_parsed.has_opaque_path) {
-    return ReplacePathURL(base, base_parsed, replacements, &output,
+    return ReplacePathURL(base.data(), base_parsed, replacements, &output,
                           &new_parsed);
   }
 
-  URLComponentSource<char> source(base);
+  URLComponentSource<char> source(base.data());
   Parsed parsed(base_parsed);
-  SetupOverrideComponents(base, replacements, &source, &parsed);
-  return DoCanonicalizeNonSpecialURL(source, parsed, query_converter, output,
+  SetupOverrideComponents(base.data(), replacements, &source, &parsed);
+  return DoCanonicalizeNonSpecialUrl(source, parsed, query_converter, output,
                                      new_parsed);
 }
 
 // For 16-bit replacements, we turn all the replacements into UTF-8 so the
 // regular code path can be used.
-bool ReplaceNonSpecialURL(const char* base,
+bool ReplaceNonSpecialUrl(std::string_view base,
                           const Parsed& base_parsed,
                           const Replacements<char16_t>& replacements,
                           CharsetConverter* query_converter,
@@ -247,15 +250,16 @@ bool ReplaceNonSpecialURL(const char* base,
   new_parsed.has_opaque_path = base_parsed.has_opaque_path;
 
   if (base_parsed.has_opaque_path) {
-    return ReplacePathURL(base, base_parsed, replacements, &output,
+    return ReplacePathURL(base.data(), base_parsed, replacements, &output,
                           &new_parsed);
   }
 
   RawCanonOutput<1024> utf8;
-  URLComponentSource<char> source(base);
+  URLComponentSource<char> source(base.data());
   Parsed parsed(base_parsed);
-  SetupUTF16OverrideComponents(base, replacements, &utf8, &source, &parsed);
-  return DoCanonicalizeNonSpecialURL(source, parsed, query_converter, output,
+  SetupUTF16OverrideComponents(base.data(), replacements, &utf8, &source,
+                               &parsed);
+  return DoCanonicalizeNonSpecialUrl(source, parsed, query_converter, output,
                                      new_parsed);
 }
 

@@ -90,12 +90,9 @@ Session::~Session() = default;
 // static
 base::expected<std::unique_ptr<Session>, SessionError> Session::CreateIfValid(
     const SessionParams& params) {
+  CHECK(!params.session_id.empty());
   if (!params.fetcher_url.is_valid()) {
-    return base::unexpected(
-        SessionError{SessionError::ErrorType::kInvalidFetcherUrl});
-  } else if (params.session_id.empty()) {
-    return base::unexpected(
-        SessionError{SessionError::ErrorType::kInvalidSessionId});
+    return base::unexpected(SessionError{SessionError::kInvalidFetcherUrl});
   }
 
   // If there is an origin in the scope, verify it is valid. Default to the
@@ -105,8 +102,7 @@ base::expected<std::unique_ptr<Session>, SessionError> Session::CreateIfValid(
                                  : GURL(params.scope.origin);
   url::Origin scope_origin = url::Origin::Create(scope_origin_as_url);
   if (scope_origin.opaque()) {
-    return base::unexpected(
-        SessionError{SessionError::ErrorType::kInvalidScopeOrigin});
+    return base::unexpected(SessionError{SessionError::kInvalidScopeOrigin});
   }
 
   // If there is an origin in the scope, verify it has no path (including '/').
@@ -114,11 +110,10 @@ base::expected<std::unique_ptr<Session>, SessionError> Session::CreateIfValid(
       !params.scope.origin.empty()) {
     std::string_view origin_view =
         base::TrimWhitespaceASCII(params.scope.origin, base::TRIM_ALL);
-    if ((scope_origin_as_url.has_path() &&
-         scope_origin_as_url.path_piece() != "/") ||
+    if ((scope_origin_as_url.has_path() && scope_origin_as_url.path() != "/") ||
         base::EndsWith(origin_view, "/")) {
       return base::unexpected(
-          SessionError{SessionError::ErrorType::kInvalidScopeOrigin});
+          SessionError{SessionError::kScopeOriginContainsPath});
     }
   }
 
@@ -126,7 +121,7 @@ base::expected<std::unique_ptr<Session>, SessionError> Session::CreateIfValid(
   if (net::SchemefulSite(scope_origin_as_url) !=
       net::SchemefulSite(params.fetcher_url)) {
     return base::unexpected(
-        SessionError{SessionError::ErrorType::kScopeOriginSameSiteMismatch});
+        SessionError{SessionError::kScopeOriginSameSiteMismatch});
   }
 
   // The refresh endpoint can be a full URL (samesite with request origin)
@@ -142,15 +137,14 @@ base::expected<std::unique_ptr<Session>, SessionError> Session::CreateIfValid(
   // Check if the refresh URL is valid, secure.
   if (!candidate_refresh_endpoint.is_valid() ||
       !IsSecure(candidate_refresh_endpoint)) {
-    return base::unexpected(
-        SessionError{SessionError::ErrorType::kInvalidRefreshUrl});
+    return base::unexpected(SessionError{SessionError::kInvalidRefreshUrl});
   }
 
   // Check if the refresh URL is same-site with the fetcher URL.
   if (net::SchemefulSite(candidate_refresh_endpoint) !=
       net::SchemefulSite(params.fetcher_url)) {
     return base::unexpected(
-        SessionError{SessionError::ErrorType::kRefreshUrlSameSiteMismatch});
+        SessionError{SessionError::kRefreshUrlSameSiteMismatch});
   }
 
   ASSIGN_OR_RETURN(SessionInclusionRules session_inclusion_rules,
@@ -161,13 +155,12 @@ base::expected<std::unique_ptr<Session>, SessionError> Session::CreateIfValid(
                   candidate_refresh_endpoint));
 
   for (const auto& cred : params.credentials) {
-    std::optional<CookieCraving> craving = CookieCraving::Create(
+    base::expected<CookieCraving, SessionError> craving = CookieCraving::Create(
         params.fetcher_url, cred.name, cred.attributes, base::Time::Now());
-    if (craving) {
-      session->cookie_cravings_.push_back(*craving);
+    if (craving.has_value()) {
+      session->cookie_cravings_.push_back(craving.value());
     } else {
-      return base::unexpected(
-          SessionError{SessionError::ErrorType::kInvalidCredentials});
+      return base::unexpected(SessionError{std::move(craving.error())});
     }
   }
 
@@ -178,7 +171,7 @@ base::expected<std::unique_ptr<Session>, SessionError> Session::CreateIfValid(
   for (const std::string& initiator : params.allowed_refresh_initiators) {
     if (!IsValidHostPattern(initiator)) {
       return base::unexpected(
-          SessionError{SessionError::ErrorType::kInvalidRefreshInitiators});
+          SessionError{SessionError::kRefreshInitiatorInvalidHostPattern});
     }
   }
   session->set_allowed_refresh_initiators(
@@ -270,9 +263,7 @@ proto::Session Session::ToProto() const {
   return session_proto;
 }
 
-bool Session::ShouldDeferRequest(
-    URLRequest* request,
-    const net::FirstPartySetMetadata& first_party_set_metadata) {
+bool Session::IsInScope(URLRequest* request) {
   if (!IncludesUrl(request->url())) {
     // Request is not in scope for this session.
     return false;
@@ -316,6 +307,12 @@ bool Session::ShouldDeferRequest(
     return false;
   }
 
+  return true;
+}
+
+base::TimeDelta Session::MinimumBoundCookieLifetime(
+    URLRequest* request,
+    const FirstPartySetMetadata& first_party_set_metadata) {
   // TODO(crbug.com/438783631): Refactor this.
   // The below is all copied from AddCookieHeaderAndStart. We should refactor
   // it.
@@ -375,9 +372,11 @@ bool Session::ShouldDeferRequest(
       // but there might be similar cases.
       if (cookie_craving.IsSatisfiedBy(request_cookie.cookie)) {
         satisfied = true;
-        minimum_remaining_lifetime =
-            std::min(minimum_remaining_lifetime,
-                     request_cookie.cookie.ExpiryDate() - current_timestamp);
+        if (!request_cookie.cookie.ExpiryDate().is_null()) {
+          minimum_remaining_lifetime =
+              std::min(minimum_remaining_lifetime,
+                       request_cookie.cookie.ExpiryDate() - current_timestamp);
+        }
         break;
       }
     }
@@ -398,7 +397,7 @@ bool Session::ShouldDeferRequest(
 
       // There's an unsatisfied craving. Defer the request.
       request->set_device_bound_session_usage(SessionUsage::kDeferred);
-      return true;
+      return base::TimeDelta();
     }
   }
 
@@ -415,7 +414,7 @@ bool Session::ShouldDeferRequest(
                               });
 
   // All cookiecravings satisfied.
-  return false;
+  return minimum_remaining_lifetime;
 }
 
 bool Session::IsEqualForTesting(const Session& other) const {
@@ -469,7 +468,8 @@ bool Session::ShouldBackoff() const {
   return backoff_.ShouldRejectRequest();
 }
 
-void Session::InformOfRefreshResult(SessionError::ErrorType error_type) {
+void Session::InformOfRefreshResult(bool was_proactive,
+                                    SessionError::ErrorType error_type) {
   using enum SessionError::ErrorType;
 
   switch (error_type) {
@@ -482,7 +482,16 @@ void Session::InformOfRefreshResult(SessionError::ErrorType error_type) {
     case kServerRequestedTermination:
     case kInvalidConfigJson:
     case kInvalidSessionId:
-    case kInvalidCredentials:
+    case kInvalidCredentialsConfig:
+    case kInvalidCredentialsType:
+    case kInvalidCredentialsEmptyName:
+    case kInvalidCredentialsCookie:
+    case kInvalidCredentialsCookieCreationTime:
+    case kInvalidCredentialsCookieName:
+    case kInvalidCredentialsCookieParsing:
+    case kInvalidCredentialsCookieUnpermittedAttribute:
+    case kInvalidCredentialsCookieInvalidDomain:
+    case kInvalidCredentialsCookiePrefix:
     case kInvalidChallenge:
     case kTooManyChallenges:
     case kInvalidFetcherUrl:
@@ -491,22 +500,39 @@ void Session::InformOfRefreshResult(SessionError::ErrorType error_type) {
     case kScopeOriginSameSiteMismatch:
     case kRefreshUrlSameSiteMismatch:
     case kInvalidScopeOrigin:
+    case kScopeOriginContainsPath:
     case kMismatchedSessionId:
-    case kInvalidRefreshInitiators:
-    case kInvalidScopeRule:
+    case kRefreshInitiatorNotString:
+    case kRefreshInitiatorInvalidHostPattern:
+    case kInvalidScopeRulePath:
+    case kInvalidScopeRuleHostPattern:
+    case kScopeRuleOriginScopedHostPatternMismatch:
+    case kScopeRuleSiteScopedHostPatternMismatch:
+    case kInvalidScopeSpecification:
+    case kMissingScopeSpecificationType:
+    case kEmptyScopeSpecificationDomain:
+    case kEmptyScopeSpecificationPath:
+    case kInvalidScopeSpecificationType:
     case kMissingScope:
     case kNoCredentials:
     case kInvalidScopeIncludeSite:
+    case kMissingScopeIncludeSite:
     case kFederatedKeyThumbprintMismatch:
     case kInvalidFederatedSessionUrl:
-    case kInvalidFederatedSession:
+    case kInvalidFederatedSessionProviderSessionMissing:
+    case kInvalidFederatedSessionWrongProviderOrigin:
     case kInvalidFederatedKey:
 
     // We do not want to back off on many network connection errors
     // (e.g. internet disconnected), so we do not hit our maximum
     // backoff whenever the machine goes offline while the browser is
-    // running.
+    // running. Proxy errors (407) count as net errors.
     case kNetError:
+    case kProxyError:
+      break;
+    // There is no need to increment backoff because the signing quota
+    // prevents a network request.
+    case kSigningQuotaExceeded:
       break;
     case kTransientHttpError:
     case kBoundCookieSetForbidden:
@@ -516,13 +542,26 @@ void Session::InformOfRefreshResult(SessionError::ErrorType error_type) {
     case kSubdomainRegistrationWellKnownUnavailable:
     case kSubdomainRegistrationUnauthorized:
     case kSubdomainRegistrationWellKnownMalformed:
-    case kFederatedNotAuthorized:
+    case kFederatedNotAuthorizedByProvider:
+    case kFederatedNotAuthorizedByRelyingParty:
     case kSessionProviderWellKnownUnavailable:
     case kSessionProviderWellKnownMalformed:
+    case kSessionProviderWellKnownHasProviderOrigin:
     case kRelyingPartyWellKnownUnavailable:
     case kRelyingPartyWellKnownMalformed:
+    case kRelyingPartyWellKnownHasRelyingOrigins:
     case kTooManyRelyingOriginLabels:
+    case kEmptySessionConfig:
+    case kRegistrationAttemptedChallenge:
       NOTREACHED();
+  }
+
+  if (error_type == kSuccess) {
+    attempted_proactive_refresh_since_last_success_ = false;
+  }
+
+  if (was_proactive && error_type != kSuccess) {
+    attempted_proactive_refresh_since_last_success_ = true;
   }
 }
 

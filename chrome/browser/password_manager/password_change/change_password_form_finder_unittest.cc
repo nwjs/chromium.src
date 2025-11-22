@@ -18,7 +18,7 @@
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/autofill/core/common/autofill_test_utils.h"
 #include "components/autofill/core/common/form_data_test_api.h"
-#include "components/optimization_guide/core/mock_optimization_guide_model_executor.h"
+#include "components/optimization_guide/core/model_execution/test/mock_remote_model_executor.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/os_crypt/sync/os_crypt_mocker.h"
 #include "components/password_manager/core/browser/fake_form_fetcher.h"
@@ -532,4 +532,23 @@ TEST_F(ChangePasswordFormFinderTest,
           PasswordChangeQuality_StepQuality_SubmissionStatus_ACTION_SUCCESS);
   // Form finder holds a pointer to `form_manager`
   form_finder.reset();
+}
+
+TEST_F(ChangePasswordFormFinderTest, DurationRecordedOnDestruction) {
+  base::MockCallback<
+      base::OnceCallback<void(optimization_guide::OnAIPageContentDone)>>
+      capture_annotated_page_content;
+  ModelQualityLogsUploader logs_uploader(web_contents(), GURL());
+  auto form_finder = std::make_unique<ChangePasswordFormFinder>(
+      pass_key(), web_contents(), client(), &logs_uploader, base::DoNothing(),
+      capture_annotated_page_content.Get());
+
+  task_environment()->FastForwardBy(base::Milliseconds(1232));
+
+  form_finder.reset();
+  EXPECT_EQ(1232, logs_uploader.GetFinalLog()
+                      .password_change_submission()
+                      .quality()
+                      .open_form()
+                      .request_latency_ms());
 }

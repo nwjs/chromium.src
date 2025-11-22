@@ -5,18 +5,17 @@
 #include "services/webnn/ort/environment.h"
 
 #include <set>
-#include <sstream>
 #include <string_view>
 
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/memory/raw_span.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/strings/cstring_view.h"
-#include "base/strings/strcat.h"
-#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split_win.h"
 #include "base/strings/utf_string_conversions.h"
+#include "services/webnn/ort/logging.h"
 #include "services/webnn/ort/ort_status.h"
 #include "services/webnn/ort/platform_functions_ort.h"
 #include "services/webnn/webnn_switches.h"
@@ -39,7 +38,7 @@ struct EpInfo {
 constexpr auto kKnownEPs = base::MakeFixedFlatMap<base::cstring_view, EpInfo>({
     // Intel
     {
-        "OpenVINOExecutionProvider",
+        kOpenVINOExecutionProvider,
         {
             .package_family_name = L"MicrosoftCorporationII.WinML.Intel."
                                    L"OpenVINO.EP.1.8_8wekyb3d8bbwe",
@@ -54,7 +53,6 @@ constexpr auto kKnownEPs = base::MakeFixedFlatMap<base::cstring_view, EpInfo>({
             .vendor_id = 0x8086,
             .workarounds =
                 {
-                    .disable_external_data = true,
                     .resample2d_limit_to_nchw = true,
                 },
             // OpenVINO EP configuration. Keys and values must align with the
@@ -148,7 +146,7 @@ bool VendorIdExistsInGpuInfo(const gpu::GPUInfo& gpu_info, uint32_t vendor_id) {
 // Returns a span of registered execution provider devices in `env`. The span is
 // guaranteed to be valid until `env` is released or the list of execution
 // providers is modified.
-base::span<const OrtEpDevice* const> GetRegisteredEpDevices(
+base::span<const OrtEpDevice* const> GetRegisteredEpDevicesImpl(
     const OrtApi* ort_api,
     const OrtEnv* env) {
   size_t num_ep_devices = 0;
@@ -163,7 +161,7 @@ bool IsExecutionProviderRegistered(const OrtApi* ort_api,
                                    const OrtEnv* env,
                                    base::cstring_view ep_name) {
   base::span<const OrtEpDevice* const> ep_devices =
-      GetRegisteredEpDevices(ort_api, env);
+      GetRegisteredEpDevicesImpl(ort_api, env);
   for (const auto* ep_device : ep_devices) {
     CHECK(ep_device);
     const char* registered_ep_name = ort_api->EpDevice_EpName(ep_device);
@@ -175,25 +173,6 @@ bool IsExecutionProviderRegistered(const OrtApi* ort_api,
     }
   }
   return false;
-}
-
-// Helper function to convert a string to OrtLoggingLevel enum.
-OrtLoggingLevel StringToOrtLoggingLevel(std::string_view logging_level) {
-  if (logging_level == "VERBOSE") {
-    return ORT_LOGGING_LEVEL_VERBOSE;
-  } else if (logging_level == "INFO") {
-    return ORT_LOGGING_LEVEL_INFO;
-  } else if (logging_level == "WARNING") {
-    return ORT_LOGGING_LEVEL_WARNING;
-  } else if (logging_level == "ERROR") {
-    return ORT_LOGGING_LEVEL_ERROR;
-  } else if (logging_level == "FATAL") {
-    return ORT_LOGGING_LEVEL_FATAL;
-  }
-  // Default to ERROR if the input is invalid.
-  LOG(WARNING) << "[WebNN] Unrecognized logging level: " << logging_level
-               << ". Default ERROR level will be used.";
-  return ORT_LOGGING_LEVEL_ERROR;
 }
 
 std::string_view OrtLoggingLevelToString(OrtLoggingLevel logging_level) {
@@ -224,102 +203,6 @@ void ORT_API_CALL OrtCustomLoggingFunction(void* /*param*/,
   // level via `--webnn-ort-logging-level`, ORT will print the verbose logs.
   LOG(ERROR) << "[ORT] [" << OrtLoggingLevelToString(severity) << ": "
              << category << ", " << code_location << "] " << message;
-}
-
-std::string_view OrtHardwareDeviceTypeToString(
-    OrtHardwareDeviceType device_type) {
-  switch (device_type) {
-    case OrtHardwareDeviceType_CPU:
-      return "CPU";
-    case OrtHardwareDeviceType_GPU:
-      return "GPU";
-    case OrtHardwareDeviceType_NPU:
-      return "NPU";
-  }
-}
-
-std::string OrtKeyValuePairsToString(
-    const OrtApi* ort_api,
-    const OrtKeyValuePairs* ort_key_value_pairs) {
-  size_t num_entries = 0;
-  const char* const* keys = nullptr;
-  const char* const* values = nullptr;
-  ort_api->GetKeyValuePairs(ort_key_value_pairs, &keys, &values, &num_entries);
-  std::string result = "{";
-  for (size_t i = 0; i < num_entries; ++i) {
-    result = base::StrCat(
-        {result,
-         // SAFETY: ORT guarantees that `keys[i]` is valid and null-terminated.
-         UNSAFE_BUFFERS(base::cstring_view(keys[i])), ": ",
-         // SAFETY: ORT guarantees that `values[i]` is valid and
-         // null-terminated.
-         UNSAFE_BUFFERS(base::cstring_view(values[i])),
-         i != num_entries - 1 ? ", " : ""});
-  }
-  return base::StrCat({result, "}"});
-}
-
-std::string Uint32ToHexString(uint32_t value) {
-  std::stringstream ss;
-  ss << "0x" << std::hex << value;
-  return ss.str();
-}
-
-void LogRegisteredEpDevices(const OrtApi* ort_api, const OrtEnv* env) {
-  base::span<const OrtEpDevice* const> ep_devices =
-      GetRegisteredEpDevices(ort_api, env);
-  int i = 0;
-  for (const auto* ep_device : ep_devices) {
-    CHECK(ep_device);
-    std::string ep_device_info = base::StrCat(
-        {"[INFO] OrtEpDevice #", base::NumberToString(i++), ": {ep_name: ",
-         // SAFETY: ORT guarantees that `ep_name` is valid and null-terminated.
-         UNSAFE_BUFFERS(
-             base::cstring_view(ort_api->EpDevice_EpName(ep_device))),
-         ", ep_vendor: ",
-         // SAFETY: ORT guarantees that `ep_vendor` is valid and
-         // null-terminated.
-         UNSAFE_BUFFERS(
-             base::cstring_view(ort_api->EpDevice_EpVendor(ep_device)))});
-
-    const OrtKeyValuePairs* ep_metadata =
-        ort_api->EpDevice_EpMetadata(ep_device);
-    CHECK(ep_metadata);
-    base::StrAppend(
-        &ep_device_info,
-        {", ep_metadata: ", OrtKeyValuePairsToString(ort_api, ep_metadata)});
-
-    const OrtKeyValuePairs* ep_options = ort_api->EpDevice_EpOptions(ep_device);
-    CHECK(ep_options);
-    base::StrAppend(
-        &ep_device_info,
-        {", ep_options: ", OrtKeyValuePairsToString(ort_api, ep_options), "}"});
-
-    const OrtHardwareDevice* hardware_device =
-        ort_api->EpDevice_Device(ep_device);
-    CHECK(hardware_device);
-    base::StrAppend(
-        &ep_device_info,
-        {", OrtHardwareDevice: {type: ",
-         OrtHardwareDeviceTypeToString(
-             ort_api->HardwareDevice_Type(hardware_device)),
-         ", vendor: ",
-         // SAFETY: ORT guarantees that `OrtHardwareDevice::vendor`
-         // is valid and null-terminated.
-         UNSAFE_BUFFERS(base::cstring_view(
-             ort_api->HardwareDevice_Vendor(hardware_device))),
-         ", vendor_id: ",
-         Uint32ToHexString(ort_api->HardwareDevice_VendorId(hardware_device)),
-         ", device_id: ",
-         Uint32ToHexString(ort_api->HardwareDevice_DeviceId(hardware_device))});
-    const OrtKeyValuePairs* device_metadata =
-        ort_api->HardwareDevice_Metadata(hardware_device);
-    CHECK(device_metadata);
-    base::StrAppend(&ep_device_info,
-                    {", device_metadata: ",
-                     OrtKeyValuePairsToString(ort_api, device_metadata), "}"});
-    LOG(ERROR) << ep_device_info;
-  }
 }
 
 // Parses the value of `--webnn-ort-ep-library-path-for-testing` switch. Returns
@@ -653,19 +536,14 @@ Environment::GetInstance(const gpu::GPUInfo& gpu_info) {
 // static
 base::expected<scoped_refptr<Environment>, std::string> Environment::Create(
     const gpu::GPUInfo& gpu_info) {
+  SCOPED_UMA_HISTOGRAM_TIMER("WebNN.ORT.TimingMs.CreateEnvironment");
+
   auto* platform_functions = PlatformFunctions::GetInstance();
   if (!platform_functions) {
     return base::unexpected("Failed to get ONNX Runtime platform functions.");
   }
 
-  OrtLoggingLevel ort_logging_level = ORT_LOGGING_LEVEL_ERROR;
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kWebNNOrtLoggingLevel)) {
-    std::string user_logging_level =
-        base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-            switches::kWebNNOrtLoggingLevel);
-    ort_logging_level = StringToOrtLoggingLevel(user_logging_level);
-  }
+  OrtLoggingLevel ort_logging_level = GetOrtLoggingLevel();
 
   const OrtApi* ort_api = platform_functions->ort_api();
   ScopedOrtEnv env;
@@ -728,7 +606,9 @@ base::expected<scoped_refptr<Environment>, std::string> Environment::Create(
 
   if (ort_logging_level == ORT_LOGGING_LEVEL_VERBOSE ||
       ort_logging_level == ORT_LOGGING_LEVEL_INFO) {
-    LogRegisteredEpDevices(ort_api, env.get());
+    // Logs all registered EP devices in this environment.
+    LogEpDevices(ort_api, GetRegisteredEpDevicesImpl(ort_api, env.get()),
+                 "Registered OrtEpDevice");
   }
 
   return base::MakeRefCounted<Environment>(base::PassKey<Environment>(),
@@ -786,11 +666,17 @@ std::vector<const OrtEpDevice*> Environment::SelectEpDevicesForDeviceType(
   return selected_devices;
 }
 
+base::span<const OrtEpDevice* const> Environment::GetRegisteredEpDevices()
+    const {
+  const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
+  return GetRegisteredEpDevicesImpl(ort_api, this->get());
+}
+
 EpWorkarounds Environment::GetEpWorkarounds(mojom::Device device_type) const {
   EpWorkarounds workarounds;
   const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
   base::span<const OrtEpDevice* const> registered_ep_devices =
-      GetRegisteredEpDevices(ort_api, this->get());
+      GetRegisteredEpDevicesImpl(ort_api, this->get());
   std::vector<const OrtEpDevice*> selected_ep_devices =
       SelectEpDevicesForDeviceType(registered_ep_devices, device_type);
   for (const auto* ep_device : selected_ep_devices) {
@@ -810,7 +696,7 @@ std::vector<Environment::SessionConfigEntry> Environment::GetEpConfigEntries(
     mojom::Device device_type) const {
   const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
   base::span<const OrtEpDevice* const> registered_ep_devices =
-      GetRegisteredEpDevices(ort_api, this->get());
+      GetRegisteredEpDevicesImpl(ort_api, this->get());
   std::vector<const OrtEpDevice*> selected_ep_devices =
       SelectEpDevicesForDeviceType(registered_ep_devices, device_type);
   std::vector<SessionConfigEntry> ep_config_entries;

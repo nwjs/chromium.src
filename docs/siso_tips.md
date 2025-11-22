@@ -45,6 +45,16 @@ $ compile base/time/time.cc base/time/time_unittest.cc
 ...
 ```
 
+## Build gn target
+
+GN emits phony target for a gn target label, dropping `//`-prefix,
+e.g. `base:base` for `//base:base`, which is `base` target in `base/BUILD.gn`,
+so you can use this as a build target.
+
+```shell
+$ autoninja -C out/Default base:base
+```
+
 ## Preferred command line flags
 
 If you keep using the same command line flags, you can put it in
@@ -108,6 +118,12 @@ Siso will stop building if it detects step failure.
 If you want to run steps as much as possible to see
 all error messages at once, use `-k=0` as Ninja.
 
+If build failed, Siso remembers what targets failed
+and tried to rebuild the failed targets first to
+focus on fixing the failure targets with quick iterations.
+To disable this feature, use `-batch` or
+`-fast_last_failure=false` (available since siso v1.4.11).
+
 ## Check step's error messages.
 
 Siso records steps output in `siso_output` files,
@@ -131,7 +147,49 @@ and see how build works.
 
 `--fs_keep_tainted` will keep modified output files.
 
-## Use siso other than third_party/siso/cipd/siso
+## Use siso other than current release version.
 
-Set the siso binary path in environment variable `SISO_PATH`,
-so `depot_tools/siso` use it instead of `third_party/siso/cipd/siso`.
+If you want to use different CIPD version than `siso_version` in `DEPS`,
+you can use `custom_vars` in `.gclient`.
+
+e.g. To use the latest, non-released version,
+
+```
+solutions = [
+ {
+    "name": "src",
+    "url": "https://chromium.googlesource.com/chromium/src.git",
+    ...,
+    "custom_vars": {
+       "siso_version": "latest",
+       ...
+    },
+ },
+]
+```
+
+or to use specific version,
+
+```
+      # Git revision is for https://chromium.googlesource.com/build repo,
+      # and the CIPD package for the git revision needs to be exist in
+      # https://chrome-infra-packages.appspot.com/p/build/siso
+      "siso_version": "git_revision:<git_revision>",
+```
+
+Once you modified `.gclient`, run `gclient sync`.
+
+Or if you might want to pin depot_tools version (for autoninja, siso
+wrapper), checkout specific version of depot_tools, and run
+`update_depot_tools_toggle.py --disable`.
+
+If you want to use locally built Siso, Set the siso binary path in
+environment variable `SISO_PATH`, so `depot_tools/siso` use it instead
+of `third_party/siso/cipd/siso`.
+
+e.g.
+
+```shell
+$ export SISO_PATH=$HOME/go/bin/siso
+```
+

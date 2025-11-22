@@ -88,7 +88,6 @@ class CORE_EXPORT TextRecord final : public PaintTimingRecord {
              const gfx::RectF& element_timing_rect,
              const gfx::Rect& frame_visual_rect,
              const gfx::RectF& root_visual_rect,
-             uint32_t frame_index,
              bool is_needed_for_element_timing,
              SoftNavigationContext* soft_navigation_context);
 
@@ -152,9 +151,6 @@ class CORE_EXPORT ImageRecord final : public PaintTimingRecord {
     is_first_animated_frame_paint_timing_queued_ = value;
   }
 
-  bool IsOriginClean() const { return is_origin_clean_; }
-  void SetIsOriginClean(bool value) { is_origin_clean_ = value; }
-
   MediaRecordIdHash Hash() const { return hash_; }
   const MediaTiming* GetMediaTiming() const { return media_timing_; }
 
@@ -165,10 +161,6 @@ class CORE_EXPORT ImageRecord final : public PaintTimingRecord {
   base::TimeTicks first_animated_frame_time_;
   bool is_first_animated_frame_paint_timing_queued_ = false;
   bool is_loaded_ = false;
-  // A non-style image, or a style image that comes from an origin-clean style.
-  // Images that come from origin-dirty styles should have some limitations on
-  // what they report.
-  bool is_origin_clean_ = true;
   const double entropy_for_lcp_;
 };
 

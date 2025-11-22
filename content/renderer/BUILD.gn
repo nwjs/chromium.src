@@ -4,7 +4,6 @@
 
 import("//build/config/cast.gni")
 import("//build/config/chromeos/ui_mode.gni")
-import("//build/config/features.gni")
 import("//build/config/ui.gni")
 import("//content/common/features.gni")
 import("//media/media_options.gni")
@@ -97,6 +96,8 @@ target(link_target_type, "renderer") {
     "media/renderer_web_media_player_delegate.h",
     "media/renderer_webaudiodevice_impl.cc",
     "media/renderer_webaudiodevice_impl.h",
+    "memory_coordinator/renderer_memory_coordinator_policy.cc",
+    "memory_coordinator/renderer_memory_coordinator_policy.h",
     "mhtml_handle_writer.cc",
     "mhtml_handle_writer.h",
     "mojo/blink_interface_registry_impl.cc",
@@ -252,6 +253,7 @@ target(link_target_type, "renderer") {
     "//content/common",
     "//content/common:buildflags",
     "//content/common:main_frame_counter",
+    "//content/common/memory_coordinator/mojom",
     "//content/gpu:gpu_sources",
     "//content/public/child:child_sources",
     "//content/public/common:buildflags",

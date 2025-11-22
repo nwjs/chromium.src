@@ -15,7 +15,6 @@
 #include "build/build_config.h"
 #include "chrome/browser/buildflags.h"
 #include "chrome/browser/first_run/first_run.h"
-#include "chrome/browser/policy/messaging_layer/public/report_client.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/common/buildflags.h"
 #include "content/public/browser/browser_main_parts.h"
@@ -48,6 +47,11 @@ class SyntheticTrialSyncer;
 
 class ChromeBrowserMainParts : public content::BrowserMainParts {
  public:
+  static std::unique_ptr<content::BrowserMainParts> Create(
+      bool is_integration_test,
+      StartupData* startup_data,
+      base::OnceClosure threads_ready_closure);
+
   ChromeBrowserMainParts(const ChromeBrowserMainParts&) = delete;
   ChromeBrowserMainParts& operator=(const ChromeBrowserMainParts&) = delete;
   ~ChromeBrowserMainParts() override;
@@ -63,14 +67,9 @@ class ChromeBrowserMainParts : public content::BrowserMainParts {
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_PROCESS_SINGLETON)
-  // Handles notifications from other processes. The function receives the
-  // command line and directory with which the other Chrome process was
-  // launched. Return true if the command line will be handled within the
-  // current browser instance or false if the remote process should handle it
-  // (i.e., because the current process is shutting down).
-  static bool ProcessSingletonNotificationCallback(
-      base::CommandLine command_line,
-      const base::FilePath& current_directory);
+  // See ProcessSingletonNotificationCallback() for details.
+  static bool ProcessSingletonNotificationForTesting(
+      base::CommandLine command_line);
 #endif  // BUILDFLAG(ENABLE_PROCESS_SINGLETON)
 
  protected:
@@ -177,10 +176,6 @@ class ChromeBrowserMainParts : public content::BrowserMainParts {
   std::vector<std::unique_ptr<ChromeBrowserMainExtraParts>> chrome_extra_parts_;
 
   std::unique_ptr<content::SyntheticTrialSyncer> synthetic_trial_syncer_;
-
-  // ERP client instance, serving all reporting needs in the browser.
-  reporting::ReportQueueProvider::SmartPtr<reporting::ReportingClient>
-      reporting_client_{nullptr, base::OnTaskRunnerDeleter(nullptr)};
 
   // Members initialized after / released before main_message_loop_ ------------
 

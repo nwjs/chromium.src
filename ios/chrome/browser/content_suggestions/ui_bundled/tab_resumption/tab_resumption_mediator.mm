@@ -25,6 +25,7 @@
 #import "components/commerce/core/price_tracking_utils.h"
 #import "components/commerce/core/proto/price_tracking.pb.h"
 #import "components/commerce/core/shopping_service.h"
+#import "components/ntp_tiles/pref_names.h"
 #import "components/optimization_guide/core/hints/optimization_guide_decision.h"
 #import "components/optimization_guide/proto/common_types.pb.h"
 #import "components/optimization_guide/proto/hints.pb.h"
@@ -354,24 +355,34 @@ class TabResumptionMediatorProxy {
   // returned twice, or to ignore update on obsolete items.
   TabResumptionItem* _pendingItem;
 
+  // Weak pointer to the SceneState.
+  __weak SceneState* _sceneState;
+
+  // LINT.IfChange(Dependencies)
   // The owning Browser.
-  raw_ptr<Browser, DanglingUntriaged> _browser;
-  raw_ptr<PrefService, DanglingUntriaged> _profilePrefs;
-  SceneState* _sceneState;
+  raw_ptr<Browser> _browser;
+  raw_ptr<PrefService> _profilePrefs;
   // Loads favicons.
   raw_ptr<FaviconLoader> _faviconLoader;
   // Browser Agent that manages the most recent WebState.
   raw_ptr<StartSurfaceRecentTabBrowserAgent> _recentTabBrowserAgent;
   // KeyedService responsible session sync.
-  raw_ptr<sync_sessions::SessionSyncService, DanglingUntriaged>
-      _sessionSyncService;
+  raw_ptr<sync_sessions::SessionSyncService> _sessionSyncService;
   // KeyedService responsible for sync state.
-  raw_ptr<syncer::SyncService, DanglingUntriaged> _syncService;
-  raw_ptr<UrlLoadingBrowserAgent, DanglingUntriaged> _URLLoadingBrowserAgent;
-  raw_ptr<WebStateList, DanglingUntriaged> _webStateList;
+  raw_ptr<syncer::SyncService> _syncService;
+  raw_ptr<UrlLoadingBrowserAgent> _URLLoadingBrowserAgent;
+  raw_ptr<WebStateList> _webStateList;
   // KeyedService for Salient images.
-  raw_ptr<page_image_service::ImageService, DanglingUntriaged>
-      _pageImageService;
+  raw_ptr<page_image_service::ImageService> _pageImageService;
+  // Other KeyedServices.
+  raw_ptr<OptimizationGuideService> _optimizationGuideService;
+  raw_ptr<ImpressionLimitService> _impressionLimitService;
+  raw_ptr<commerce::ShoppingService> _shoppingService;
+  raw_ptr<bookmarks::BookmarkModel> _bookmarkModel;
+  raw_ptr<PushNotificationService> _pushNotificationService;
+  raw_ptr<AuthenticationService> _authenticationService;
+  // LINT.ThenChange(//ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/tab_resumption_mediator.mm:ClearDependencies)
+
   // Observer bridge for mediator to listen to
   // StartSurfaceRecentTabObserverBridge.
   std::unique_ptr<StartSurfaceRecentTabObserverBridge> _startSurfaceObserver;
@@ -387,12 +398,6 @@ class TabResumptionMediatorProxy {
   // Whether the item is currently presented as Top Module by Magic Stack.
   BOOL _currentlyTopModule;
   PrefBackedBoolean* _tabResumptionDisabled;
-  raw_ptr<OptimizationGuideService> _optimizationGuideService;
-  raw_ptr<ImpressionLimitService> _impressionLimitService;
-  raw_ptr<commerce::ShoppingService> _shoppingService;
-  raw_ptr<bookmarks::BookmarkModel> _bookmarkModel;
-  raw_ptr<PushNotificationService> _pushNotificationService;
-  raw_ptr<AuthenticationService> _authenticationService;
   id<TabResumptionConsumer> _consumer;
 }
 
@@ -419,8 +424,7 @@ class TabResumptionMediatorProxy {
 
     _tabResumptionDisabled = [[PrefBackedBoolean alloc]
         initWithPrefService:_profilePrefs
-                   prefName:
-                       prefs::kHomeCustomizationMagicStackTabResumptionEnabled];
+                   prefName:ntp_tiles::prefs::kTabResumptionHomeModuleEnabled];
     [_tabResumptionDisabled setObserver:self];
 
     ProfileIOS* profile = _browser->GetProfile();
@@ -437,13 +441,15 @@ class TabResumptionMediatorProxy {
     _pageImageService = PageImageServiceFactory::GetForProfile(profile);
     _imageFetcher = std::make_unique<image_fetcher::ImageDataFetcher>(
         profile->GetSharedURLLoaderFactory());
-    _syncedSessionsObserverBridge.reset(
-        new synced_sessions::SyncedSessionsObserverBridge(self,
-                                                          _sessionSyncService));
+    _syncedSessionsObserverBridge =
+        std::make_unique<synced_sessions::SyncedSessionsObserverBridge>(
+            self, _sessionSyncService);
 
-    _syncObserverModelBridge.reset(new SyncObserverBridge(self, _syncService));
-    _identityManagerObserverBridge.reset(
-        new signin::IdentityManagerObserverBridge(identityManager, self));
+    _syncObserverModelBridge =
+        std::make_unique<SyncObserverBridge>(self, _syncService);
+    _identityManagerObserverBridge =
+        std::make_unique<signin::IdentityManagerObserverBridge>(identityManager,
+                                                                self);
     if (optimizationGuideService) {
       _optimizationGuideService = optimizationGuideService;
       _optimizationGuideService->RegisterOptimizationTypes(
@@ -464,16 +470,30 @@ class TabResumptionMediatorProxy {
     _recentTabBrowserAgent->RemoveObserver(_startSurfaceObserver.get());
     _startSurfaceObserver.reset();
   }
-  _recentTabBrowserAgent = nullptr;
   _syncObserverModelBridge.reset();
   _identityManagerObserverBridge.reset();
   [_tabResumptionDisabled stop];
   [_tabResumptionDisabled setObserver:nil];
   _tabResumptionDisabled = nil;
-  _shoppingService = nil;
-  _bookmarkModel = nil;
-  _pushNotificationService = nil;
-  _authenticationService = nil;
+
+  // LINT.IfChange(ClearDependencies)
+  // Clear all pointers to C++ services.
+  _browser = nullptr;
+  _profilePrefs = nullptr;
+  _faviconLoader = nullptr;
+  _recentTabBrowserAgent = nullptr;
+  _sessionSyncService = nullptr;
+  _syncService = nullptr;
+  _URLLoadingBrowserAgent = nullptr;
+  _webStateList = nullptr;
+  _pageImageService = nullptr;
+  _optimizationGuideService = nullptr;
+  _impressionLimitService = nullptr;
+  _shoppingService = nullptr;
+  _bookmarkModel = nullptr;
+  _pushNotificationService = nullptr;
+  _authenticationService = nullptr;
+  // LINT.ThenChange(//ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/tab_resumption_mediator.mm:Dependencies)
 }
 
 #pragma mark - Public methods
@@ -548,7 +568,7 @@ class TabResumptionMediatorProxy {
   id<SystemIdentity> identity =
       _authenticationService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
   _pushNotificationService->SetPreference(
-      identity.gaiaID, PushNotificationClientId::kCommerce, true);
+      identity.gaiaId, PushNotificationClientId::kCommerce, true);
 
   const bookmarks::BookmarkNode* bookmark =
       _bookmarkModel->GetMostRecentlyAddedUserNodeForURL(item.tabURL);
@@ -930,6 +950,13 @@ class TabResumptionMediatorProxy {
   if (commerce::kShopCardVariation.Get() != commerce::kShopCardArm6) {
     return;
   }
+  __weak TabResumptionMediator* weakSelf = self;
+  web::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(^{
+                                             [weakSelf fetchPriceDrop:item];
+                                           }));
+}
+
+- (void)fetchPriceDrop:(TabResumptionItem*)item {
   __weak __typeof(self) weakSelf = self;
   TabResumptionMediatorProxy::CanApplyOptimizationOnDemand(
       _optimizationGuideService, item.tabURL,
@@ -1023,7 +1050,7 @@ class TabResumptionMediatorProxy {
                     updateImage:(BOOL)updateImage {
   __weak TabResumptionMediator* weakSelf = self;
   if (!URL.is_valid() || !URL.SchemeIsCryptographic() ||
-      !base::EndsWith(URL.host(), kGStatic)) {
+      !base::EndsWith(URL.GetHost(), kGStatic)) {
     return;
   }
   _imageFetcher->FetchImageData(

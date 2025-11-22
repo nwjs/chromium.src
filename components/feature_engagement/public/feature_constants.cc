@@ -56,11 +56,14 @@ BASE_FEATURE(kIPHComposeNewBadgeFeature,
 BASE_FEATURE(kIPHDesktopSharedHighlightingFeature,
              "IPH_DesktopSharedHighlighting",
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHDesktopCustomizeChromeFeature,
-             "IPH_DesktopCustomizeChrome",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHDesktopCustomizeChromeExperimentFeature,
+             "IPH_DesktopCustomizeChromeExperiment",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHDesktopCustomizeChromeRefreshFeature,
              "IPH_DesktopCustomizeChromeRefresh",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHDesktopCustomizeChromeAutoOpenFeature,
+             "IPH_DesktopCustomizeChromeAutoOpen",
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHDiscardRingFeature,
              "IPH_DiscardRing",
@@ -88,8 +91,12 @@ const base::FeatureParam<IPHExtensionsZeroStatePromoVariant>::Option
     kIPHExtensionsZeroStatePromoVariantOptions[] = {
         {IPHExtensionsZeroStatePromoVariant::kCustomActionIph,
          "custom-action-iph"},
-        {IPHExtensionsZeroStatePromoVariant::kCustomUiChipIph,
+        {IPHExtensionsZeroStatePromoVariant::kCustomUiChipIphV1,
          "custom-ui-chip-iph"},
+        {IPHExtensionsZeroStatePromoVariant::kCustomUiChipIphV2,
+         "custom-ui-chip-iph-v2"},
+        {IPHExtensionsZeroStatePromoVariant::kCustomUiChipIphV3,
+         "custom-ui-chip-iph-v3"},
         {IPHExtensionsZeroStatePromoVariant::kCustomUIPlainLinkIph,
          "custom-ui-plain-link-iph"}};
 BASE_FEATURE_ENUM_PARAM(
@@ -97,7 +104,7 @@ BASE_FEATURE_ENUM_PARAM(
     kIPHExtensionsZeroStatePromoVariantParam,
     &feature_engagement::kIPHExtensionsZeroStatePromoFeature,
     "x_iph-variant",
-    IPHExtensionsZeroStatePromoVariant::kCustomActionIph,
+    IPHExtensionsZeroStatePromoVariant::kCustomUiChipIphV2,
     &kIPHExtensionsZeroStatePromoVariantOptions);
 #endif
 BASE_FEATURE(kIPHFocusHelpBubbleScreenReaderPromoFeature,
@@ -228,9 +235,6 @@ BASE_FEATURE(kIPHSideSearchAutoTriggeringFeature,
 BASE_FEATURE(kIPHSideSearchPageActionLabelFeature,
              "IPH_SideSearchPageActionLabel",
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHSignoutWebInterceptFeature,
-             "IPH_SignoutWebIntercept",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHPwaQuietNotificationFeature,
              "IPH_PwaQuietNotification",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -417,9 +421,6 @@ BASE_FEATURE(kIPHRequestDesktopSiteExceptionsGenericFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHRequestDesktopSiteWindowSettingFeature,
              "IPH_RequestDesktopSiteWindowSetting",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHRtlGestureNavigationFeature,
-             "IPH_RtlGestureNavigation",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHShoppingListSaveFlowFeature,
              "IPH_ShoppingListSaveFlow",
@@ -856,13 +857,13 @@ BASE_FEATURE(kIPHAutofillBnplAffirmZipOrKlarnaSuggestionFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAutofillCardInfoRetrievalSuggestionFeature,
              "IPH_AutofillCardInfoRetrievalSuggestion",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAutofillCreditCardBenefitFeature,
              "IPH_AutofillCreditCardBenefit",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAutofillDisabledVirtualCardSuggestionFeature,
              "IPH_AutofillDisabledVirtualCardSuggestion",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAutofillExternalAccountProfileSuggestionFeature,
              "IPH_AutofillExternalAccountProfileSuggestion",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -875,6 +876,9 @@ BASE_FEATURE(kIPHAutofillAccountNameEmailSuggestionFeature,
 BASE_FEATURE(kIPHAutofillAiOptInFeature,
              "IPH_AutofillAiOptIn",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHAutofillAiValuablesFeature,
+             "IPH_AutofillAiValuables",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAutofillVirtualCardCVCSuggestionFeature,
              "IPH_AutofillVirtualCardCVCSuggestion",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -889,7 +893,7 @@ BASE_FEATURE(kIPHPlusAddressCreateSuggestionFeature,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAutofillEnableLoyaltyCardsFeature,
              "IPH_AutofillEnableLoyaltyCards",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) ||
         // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
         // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)

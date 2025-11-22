@@ -244,7 +244,6 @@ static_library("safe_browsing") {
       "//chrome/browser:browser_process",
       "//chrome/browser/content_settings:content_settings_factory",
       "//chrome/browser/download",
-      "//chrome/browser/enterprise/connectors/analysis:features",
       "//chrome/browser/permissions:permissions_proto",
       "//chrome/browser/profiles",
       "//chrome/browser/profiles:profile",
@@ -580,6 +579,8 @@ static_library("advanced_protection") {
     "advanced_protection_status_manager.h",
     "advanced_protection_status_manager_factory.cc",
     "advanced_protection_status_manager_factory.h",
+    "application_advanced_protection_status_detector.cc",
+    "application_advanced_protection_status_detector.h",
   ]
 
   if (is_android) {
@@ -597,6 +598,7 @@ static_library("advanced_protection") {
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   deps = [
+    "//chrome/browser:browser_process",
     "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/signin",
@@ -640,6 +642,7 @@ source_set("unit_tests") {
   sources = [
     "advanced_protection_status_manager_factory_unittest.cc",
     "advanced_protection_status_manager_unittest.cc",
+    "application_advanced_protection_status_detector_unittest.cc",
   ]
 
   deps = [
@@ -660,6 +663,7 @@ source_set("unit_tests") {
     sources += [ "safe_browsing_pref_change_handler_unittest.cc" ]
 
     deps += [
+      "//chrome/browser/sync",
       "//chrome/browser/ui",
       "//chrome/browser/ui/toasts",
       "//testing/gmock",

@@ -6,7 +6,6 @@
 # pylint: disable=too-many-lines
 
 from collections.abc import Callable
-from datetime import date
 from enum import Enum
 import json
 import logging
@@ -83,6 +82,7 @@ class PixelTestPage(sghitb.SkiaGoldHeartbeatTestCase):
       should_capture_full_screenshot_func: Callable[[browser_module.Browser],
                                                     bool] | None = None,
       requires_fullscreen_os_screenshot_func: Callable[[], bool] | None = None,
+      known_flaky_output_test: bool = False,
       **kwargs):
     # Video tests can result in non-hermetic test behavior due to overlays, so
     # do a full refresh after each one. See crbug.com/1484212.
@@ -120,6 +120,12 @@ class PixelTestPage(sghitb.SkiaGoldHeartbeatTestCase):
       requires_fullscreen_os_screenshot_func = (
           DoNotRequireFullscreenOsScreenshot)
     self.RequiresFullScreenOSScreenshot = requires_fullscreen_os_screenshot_func
+    # Some tests are known to produce flaky output that cannot be handled with
+    # inexact matching without relaxing comparison parameters so much that
+    # regressions could make it in. Such tests are allowed to potentially run
+    # multiple times so that inexact matching with stricter parameters can
+    # match.
+    self.known_flaky_output_test = known_flaky_output_test
 
 # pytype: disable=signature-mismatch
 
@@ -673,14 +679,17 @@ class PixelTestPages():
             crop_action=ca.FixedRectCropAction(500, 500, 600, 600),
             # Small Fuchsia screens result in an incomplete capture
             # without this.
-            should_capture_full_screenshot_func=CaptureFullScreenshotOnFuchsia,
+            should_capture_full_screenshot_func=(
+                CaptureFullScreenshotOnFuchsia),
             browser_args=['--enable-features=TreesInViz']),
-        PixelTestPage('pixel_render_passes.html',
-            base_name + '_RenderPasses' + '_TreesInViz',
-            crop_action=ca.FixedRectCropAction(3, 90, 485, 245),
-            requires_fullscreen_os_screenshot_func=\
-            RequiresFullScreenOSScreenshot,
-            browser_args=['--enable-features=TreesInViz']),
+        # TODO(crbug.com/431824747): Re-enable once the issue with TreesInViz
+        # capturing non-browser content is fixed.
+        # PixelTestPage('pixel_render_passes.html',
+        #     base_name + '_RenderPasses' + '_TreesInViz',
+        #     crop_action=ca.FixedRectCropAction(3, 90, 485, 245),
+        #     requires_fullscreen_os_screenshot_func=\
+        #     RequiresFullScreenOSScreenshot,
+        #     browser_args=['--enable-features=TreesInViz']),
     ]
 
   @staticmethod
@@ -692,9 +701,7 @@ class PixelTestPages():
       VULKAN_SWIFTSHADER = 2
 
     def webgpu_pages_helper(base_name, mode):
-      webgpu_args = cba.ENABLE_WEBGPU_FOR_TESTING + [
-          cba.ENABLE_EXPERIMENTAL_WEB_PLATFORM_FEATURES
-      ]
+      webgpu_args = [cba.ENABLE_EXPERIMENTAL_WEB_PLATFORM_FEATURES]
       video_frame_query_params = '?sourceType=hw_decoder'
       if mode == Mode.WEBGPU_SWIFTSHADER:
         base_name += '_WebGPUSwiftShader'
@@ -707,7 +714,7 @@ class PixelTestPages():
         webgpu_args += [
             '--enable-features=Vulkan', '--use-angle=swiftshader',
             '--use-vulkan=swiftshader', '--use-webgpu-adapter=swiftshader',
-            '--disable-vulkan-surface'
+            '--disable-vulkan-surface', '--enable-unsafe-webgpu'
         ]
         video_frame_query_params = '?sourceType=sw_decoder'
 
@@ -755,6 +762,10 @@ class PixelTestPages():
                         browser_args=webgpu_args),
           PixelTestPage('pixel_webgpu_canvas2d_drawimage.html',
                         base_name + '_WebGPUCanvas2DDrawImage',
+                        crop_action=standard_crop,
+                        browser_args=webgpu_args),
+          PixelTestPage('pixel_webgpu_texture_storage.html',
+                        base_name + '_WebGPUCanvasTextureStorage',
                         crop_action=standard_crop,
                         browser_args=webgpu_args),
           PixelTestPage('pixel_webgpu_copy_image.html',
@@ -806,9 +817,7 @@ class PixelTestPages():
 
   @staticmethod
   def WebGPUCanvasCapturePages(base_name) -> list[PixelTestPage]:
-    webgpu_args = cba.ENABLE_WEBGPU_FOR_TESTING + [
-        cba.ENABLE_EXPERIMENTAL_WEB_PLATFORM_FEATURES
-    ]
+    webgpu_args = [cba.ENABLE_EXPERIMENTAL_WEB_PLATFORM_FEATURES]
 
     browser_args_canvas_one_copy_capture = webgpu_args + [
         '--enable-features=OneCopyCanvasCapture'
@@ -826,8 +835,6 @@ class PixelTestPages():
     standard_crop = ca.NonWhiteContentCropAction(
         initial_crop=ca.FixedRectCropAction(0, 0, 500, 500))
 
-    # Setting grace_period_end to monitor the affects on bots for 2 weeks
-    # without making the bots red unexpectedly.
     return [
         # Enabled OneCopyCapture
         PixelTestPage('pixel_webgpu_canvas_capture_to_video.html',
@@ -854,9 +861,7 @@ class PixelTestPages():
 
   @staticmethod
   def WebGPUDeviceDestroyPages(base_name) -> list[PixelTestPage]:
-    webgpu_args = cba.ENABLE_WEBGPU_FOR_TESTING + [
-        cba.ENABLE_EXPERIMENTAL_WEB_PLATFORM_FEATURES
-    ]
+    webgpu_args = [cba.ENABLE_EXPERIMENTAL_WEB_PLATFORM_FEATURES]
 
     standard_crop = ca.NonWhiteContentCropAction(
         initial_crop=ca.FixedRectCropAction(0, 0, 320, 210))
@@ -1840,26 +1845,29 @@ class PixelTestPages():
     # scrollbar to appear along the bottom. So, crop that first.
     standard_crop = ca.NonWhiteContentCropAction(
         ca.FixedRectCropAction(0, 60, None, -20))
-    # Run the tests on CI for a while to see how stable they are with
-    # fuzzy matching enabled.
-    grace_period_end = date(2025, 12, 1)
+    # These tests are known to produce flaky output that cannot be consistently
+    # handled by inexact matching without relaxing inexact matching parameters
+    # to the point of letting basically any image through. This is mostly
+    # caused by rendered content shifting by a fraction of a pixel, which causes
+    # a large number of differences along edges. See b/434910221 for more
+    # information.
     return [
         PixelTestPage('meet_effects/meet-gpu-tests/index.html?effectId=359',
                       f'{base_name}_MeetEffectsCatOnHead',
                       crop_action=standard_crop,
                       browser_args=video_args,
                       matching_algorithm=meet_sample_area_matching,
-                      grace_period_end=grace_period_end),
+                      known_flaky_output_test=True),
         PixelTestPage('meet_effects/meet-gpu-tests/index.html?effectId=539',
                       f'{base_name}_MeetEffectsRainbowWig',
                       crop_action=standard_crop,
                       browser_args=video_args,
                       matching_algorithm=meet_sample_area_matching,
-                      grace_period_end=grace_period_end),
+                      known_flaky_output_test=True),
         PixelTestPage('meet_effects/meet-gpu-tests/index.html?effectId=530',
                       f'{base_name}_MeetEffectsTruckerHat',
                       crop_action=standard_crop,
                       browser_args=video_args,
                       matching_algorithm=meet_sample_area_matching,
-                      grace_period_end=grace_period_end),
+                      known_flaky_output_test=True),
     ]

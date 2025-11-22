@@ -9,6 +9,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_multi_source_observation.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/gfx/animation/slide_animation.h"
@@ -32,6 +33,8 @@ class SidePanel : public views::AccessiblePaneView,
   enum class HorizontalAlignment { kLeft = 0, kRight };
   explicit SidePanel(
       BrowserView* browser_view,
+      SidePanelEntry::PanelType type,
+      bool has_border,
       HorizontalAlignment horizontal_alignment = HorizontalAlignment::kRight);
   SidePanel(const SidePanel&) = delete;
   SidePanel& operator=(const SidePanel&) = delete;
@@ -45,8 +48,8 @@ class SidePanel : public views::AccessiblePaneView,
   gfx::RoundedCornersF background_radii() const { return background_radii_; }
   void SetBackgroundRadii(const gfx::RoundedCornersF& radii);
   void SetHorizontalAlignment(HorizontalAlignment alignment);
-  HorizontalAlignment GetHorizontalAlignment();
-  bool IsRightAligned();
+  HorizontalAlignment GetHorizontalAlignment() const;
+  bool IsRightAligned() const;
   gfx::Size GetMinimumSize() const override;
   bool IsClosing();
   void DisableAnimationsForTesting() { animations_disabled_ = true; }
@@ -54,12 +57,19 @@ class SidePanel : public views::AccessiblePaneView,
     keyboard_resized_ = keyboard_resized;
   }
 
+  template <typename T>
+  T* GetHeaderView() {
+    return views::AsViewClass<T>(header_view_);
+  }
+
   // Add a header view that gets painted over the side panel border. The top
   // border area grows to accommodate the additional height of the header,
   // pushing the other side panel content down.
   void AddHeaderView(std::unique_ptr<views::View> view);
 
-  void SetHeaderVisibility(bool visible);
+  void RemoveHeaderView();
+
+  void SetOutlineVisibility(bool visible);
 
   // Gets the upper bound of the content area size if the side panel is shown
   // right now. If the side panel is not showing, returns the minimum width
@@ -87,9 +97,8 @@ class SidePanel : public views::AccessiblePaneView,
   // This is the parent view for the contents of the side panel.
   views::View* GetContentParentView();
 
-  views::View* get_header_for_testing() { return header_view_; }
-
  private:
+  class BorderView;
   class VisibleBoundsViewClipper;
 
   // This method is the shared implementation of Open/Close.
@@ -114,8 +123,9 @@ class SidePanel : public views::AccessiblePaneView,
   base::TimeTicks last_animation_step_timestamp_;
   std::optional<base::TimeDelta> largest_animation_step_time_;
 
-  raw_ptr<View> border_view_ = nullptr;
+  raw_ptr<BorderView> border_view_ = nullptr;
   const raw_ptr<BrowserView> browser_view_;
+  const SidePanelEntry::PanelType type_;
   raw_ptr<View> resize_area_ = nullptr;
   raw_ptr<views::View> header_view_ = nullptr;
 

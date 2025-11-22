@@ -141,20 +141,10 @@ void RasterImplementationGLES::EndQueryEXT(GLenum target) {
   gl_->EndQueryEXT(target);
 }
 
-void RasterImplementationGLES::QueryCounterEXT(GLuint id, GLenum target) {
-  gl_->QueryCounterEXT(id, target);
-}
-
 void RasterImplementationGLES::GetQueryObjectuivEXT(GLuint id,
                                                     GLenum pname,
                                                     GLuint* params) {
   gl_->GetQueryObjectuivEXT(id, pname, params);
-}
-
-void RasterImplementationGLES::GetQueryObjectui64vEXT(GLuint id,
-                                                      GLenum pname,
-                                                      GLuint64* params) {
-  gl_->GetQueryObjectui64vEXT(id, pname, params);
 }
 
 void RasterImplementationGLES::CopySharedImage(
@@ -276,15 +266,6 @@ void RasterImplementationGLES::SetActiveURLCHROMIUM(const char* url) {
 }
 
 void RasterImplementationGLES::EndRasterCHROMIUM() {
-  NOTREACHED();
-}
-
-SyncToken RasterImplementationGLES::ScheduleImageDecode(
-    base::span<const uint8_t> encoded_data,
-    const gfx::Size& output_size,
-    uint32_t transfer_cache_entry_id,
-    const gfx::ColorSpace& target_color_space,
-    bool needs_mips) {
   NOTREACHED();
 }
 

@@ -40,7 +40,7 @@ using WebUIDomains = std::vector<std::string>;
 // chrome://foo.bar/. Domains are returned in the same order they appear in the
 // host.
 WebUIDomains GetWebUIDomains(const GURL& url) {
-  return base::SplitString(url.host_piece(), ".", base::TRIM_WHITESPACE,
+  return base::SplitString(url.host(), ".", base::TRIM_WHITESPACE,
                            base::SPLIT_WANT_ALL);
 }
 
@@ -125,28 +125,21 @@ bool IsOriginIsolatedSandboxedFrame(const UrlInfo& url_info) {
 }
 
 // Computes whether to disable v8-optimization for the
-// (browsing_instance_id, process_lock_origin) pair. Caches the result in
-// ChildProcessSecurityPolicyImpl.
-bool CheckAndCacheShouldDisableV8Optimization(
+// (browsing_instance_id, process_lock_origin) pair.
+bool CheckShouldDisableV8Optimization(
     BrowserContext* browser_context,
     const BrowsingInstanceId& browsing_instance_id,
-    const url::Origin& process_lock_origin) {
+    const GURL& process_lock_url) {
   std::optional<bool> are_v8_optimizations_disabled_result =
       ChildProcessSecurityPolicyImpl::GetInstance()
-          ->LookupAreV8OptimizationsDisabled(browsing_instance_id,
-                                             process_lock_origin);
+          ->LookupAreV8OptimizationsDisabled(
+              browsing_instance_id, url::Origin::Create(process_lock_url));
   if (are_v8_optimizations_disabled_result.has_value()) {
     return are_v8_optimizations_disabled_result.value();
   }
 
-  bool are_v8_optimizations_disabled =
-      GetContentClient()->browser()->AreV8OptimizationsDisabledForSite(
-          browser_context, process_lock_origin.GetURL());
-  ChildProcessSecurityPolicyImpl::GetInstance()
-      ->AddV8OptimizationDisabledStateForOrigin(browsing_instance_id,
-                                                process_lock_origin,
-                                                are_v8_optimizations_disabled);
-  return are_v8_optimizations_disabled;
+  return GetContentClient()->browser()->AreV8OptimizationsDisabledForSite(
+      browser_context, process_lock_url);
 }
 
 }  // namespace
@@ -194,8 +187,8 @@ SiteInfo SiteInfo::CreateForDefaultSiteInstance(
       isolation_context.browser_or_resource_context().ToBrowserContext();
   bool is_jit_disabled = GetContentClient()->browser()->IsJitDisabledForSite(
       browser_context, GURL());
-  bool are_v8_optimizations_disabled = CheckAndCacheShouldDisableV8Optimization(
-      browser_context, isolation_context.browsing_instance_id(), url::Origin());
+  bool are_v8_optimizations_disabled = CheckShouldDisableV8Optimization(
+      browser_context, isolation_context.browsing_instance_id(), GURL());
 
   WebExposedIsolationLevel web_exposed_isolation_level =
       SiteInfo::ComputeWebExposedIsolationLevelForEmptySite(
@@ -303,16 +296,15 @@ SiteInfo SiteInfo::Create(const IsolationContext& isolation_context,
                   site_url, isolation_context, browser_context,
                   url_info.requests_coop_isolation(),
                   !url_info.oac_header_request.has_value(),
-                  site_url == GetErrorPageSiteAndLockURL(),
                   url_info.is_sandboxed, url_info.is_pdf)
           ? GURL()
           : agent_cluster_key.GetURL();
   is_jitless =
       is_jitless || GetContentClient()->browser()->IsJitDisabledForSite(
                         browser_context, agent_cluster_url_or_default);
-  are_v8_optimizations_disabled = CheckAndCacheShouldDisableV8Optimization(
+  are_v8_optimizations_disabled = CheckShouldDisableV8Optimization(
       browser_context, isolation_context.browsing_instance_id(),
-      url::Origin::Create(agent_cluster_url_or_default));
+      agent_cluster_url_or_default);
 
   if (!storage_partition_config.has_value()) {
     storage_partition_config =
@@ -507,8 +499,7 @@ bool SiteInfo::IsSamePrincipalWith(const SiteInfo& other) const {
 
 bool SiteInfo::IsExactMatch(const SiteInfo& other) const {
   bool is_match =
-      site_url_ == other.site_url_ &&
-      is_sandboxed_ == other.is_sandboxed_ &&
+      site_url_ == other.site_url_ && is_sandboxed_ == other.is_sandboxed_ &&
       unique_sandbox_id_ == other.unique_sandbox_id_ &&
       storage_partition_config_ == other.storage_partition_config_ &&
       web_exposed_isolation_info_ == other.web_exposed_isolation_info_ &&
@@ -674,7 +665,7 @@ bool SiteInfo::RequiresDedicatedProcess(
   BrowserContext* browser_context =
       isolation_context.browser_or_resource_context().ToBrowserContext();
   return RequiresDedicatedProcessInternal(
-      site_url_, isolation_context, browser_context, is_error_page(),
+      site_url_, isolation_context, browser_context,
       does_site_request_dedicated_process_for_coop_,
       agent_cluster_key_.IsOriginKeyed(), is_sandboxed_, is_pdf_);
 }
@@ -801,7 +792,7 @@ AgentClusterKey SiteInfo::GetAgentClusterKeyForURL(
       !effective_url.has_value()) {
     WebUIDomains host_domains = GetWebUIDomains(url_info.url);
     return AgentClusterKey::CreateSiteKeyed(
-        GURL(url_info.url.scheme() + url::kStandardSchemeSeparator +
+        GURL(url_info.url.GetScheme() + url::kStandardSchemeSeparator +
              host_domains.back()),
         AgentClusterKey::OACStatus::kSiteKeyedByDefault);
   }
@@ -1031,8 +1022,8 @@ AgentClusterKey SiteInfo::GetAgentClusterKeyForURL(
   }
 
   // All other URLs use a site-keyed agent cluster based on their scheme.
-  DCHECK(!url.scheme().empty());
-  GURL site_url = GURL(url.scheme() + ":");
+  DCHECK(!url.GetScheme().empty());
+  GURL site_url = GURL(url.GetScheme() + ":");
   return AgentClusterKey::CreateSiteKeyed(site_url, oac_status);
 }
 
@@ -1093,7 +1084,6 @@ bool SiteInfo::RequiresDedicatedProcessInternal(
     BrowserContext* browser_context,
     bool does_site_request_dedicated_process_for_coop,
     bool requires_origin_keyed_process,
-    bool is_error_page,
     bool is_sandboxed,
     bool is_pdf) {
 #if 0
@@ -1128,7 +1118,7 @@ bool SiteInfo::RequiresDedicatedProcessInternal(
   // Error pages in main frames do require isolation, however since this is
   // missing the context whether this is for a main frame or not, that part
   // is enforced in RenderFrameHostManager.
-  if (is_error_page) {
+  if (site_url == GetErrorPageSiteAndLockURL()) {
     return true;
   }
 

@@ -3,6 +3,7 @@
     clippy::doc_markdown,
     clippy::elidable_lifetime_names,
     clippy::enum_glob_use,
+    clippy::expl_impl_clone_on_copy, // https://github.com/rust-lang/rust-clippy/issues/15842
     clippy::inherent_to_string,
     clippy::items_after_statements,
     clippy::match_bool,
@@ -13,6 +14,7 @@
     clippy::nonminimal_bool,
     clippy::redundant_else,
     clippy::ref_option,
+    clippy::similar_names,
     clippy::single_match_else,
     clippy::struct_field_names,
     clippy::too_many_arguments,

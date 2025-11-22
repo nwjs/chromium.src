@@ -62,7 +62,9 @@ class StubPasswordManagerDriver : public PasswordManagerDriver {
   PasswordGenerationFrameHelper* GetPasswordGenerationHelper() override;
   PasswordManagerInterface* GetPasswordManager() override;
   PasswordAutofillManager* GetPasswordAutofillManager() override;
+  bool IsDirectChildOfPrimaryMainFrame() const override;
   bool IsInPrimaryMainFrame() const override;
+  bool IsNestedWithinFencedFrame() const override;
   bool CanShowAutofillUi() const override;
   int GetFrameId() const override;
   const GURL& GetLastCommittedURL() const override;
@@ -70,6 +72,8 @@ class StubPasswordManagerDriver : public PasswordManagerDriver {
 
   gfx::RectF TransformToRootCoordinates(
       const gfx::RectF& bounds_in_frame_coordinates) override;
+  void CheckViewAreaVisible(autofill::FieldRendererId field_id,
+                            base::OnceCallback<void(bool)>) override;
   base::WeakPtr<password_manager::PasswordManagerDriver> AsWeakPtr() override;
 
  private:

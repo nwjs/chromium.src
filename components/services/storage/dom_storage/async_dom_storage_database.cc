@@ -10,6 +10,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/sequenced_task_runner.h"
+#include "components/services/storage/dom_storage/dom_storage_batch_operation_leveldb.h"
 #include "third_party/leveldatabase/env_chromium.h"
 
 namespace storage {
@@ -71,7 +72,7 @@ void AsyncDomStorageDatabase::RunBatchDatabaseTasks(
                       [](RunBatchTasksContext context,
                          std::vector<BatchDatabaseTask> tasks,
                          DomStorageDatabase& db) -> DbStatus {
-                        std::unique_ptr<DomStorageBatchOperation> batch =
+                        std::unique_ptr<DomStorageBatchOperationLevelDB> batch =
                             db.CreateBatchOperation();
                         // TODO(crbug.com/40245293): Remove this after debugging
                         // is complete.
@@ -125,22 +126,17 @@ void AsyncDomStorageDatabase::RemoveCommitter(Committer* source) {
   DCHECK(erased);
 }
 
-void AsyncDomStorageDatabase::InitiateCommit(Committer* source) {
+void AsyncDomStorageDatabase::InitiateCommit() {
   std::vector<Commit> commits;
   std::vector<base::OnceCallback<void(DbStatus)>> commit_dones;
-  if (base::FeatureList::IsEnabled(kCoalesceStorageAreaCommits)) {
-    commits.reserve(committers_.size());
-    commit_dones.reserve(committers_.size());
-    for (Committer* committer : committers_) {
-      std::optional<Commit> commit = committer->CollectCommit();
-      if (commit) {
-        commits.emplace_back(std::move(*commit));
-        commit_dones.emplace_back(committer->GetCommitCompleteCallback());
-      }
+  commits.reserve(committers_.size());
+  commit_dones.reserve(committers_.size());
+  for (Committer* committer : committers_) {
+    std::optional<Commit> commit = committer->CollectCommit();
+    if (commit) {
+      commits.emplace_back(std::move(*commit));
+      commit_dones.emplace_back(committer->GetCommitCompleteCallback());
     }
-  } else {
-    commits.emplace_back(*source->CollectCommit());
-    commit_dones.emplace_back(source->GetCommitCompleteCallback());
   }
 
   auto run_all = base::BindOnce(
@@ -155,7 +151,7 @@ void AsyncDomStorageDatabase::InitiateCommit(Committer* source) {
   RunDatabaseTask(
       base::BindOnce(
           [](std::vector<Commit> commits, DomStorageDatabase& db) {
-            std::unique_ptr<DomStorageBatchOperation> batch =
+            std::unique_ptr<DomStorageBatchOperationLevelDB> batch =
                 db.CreateBatchOperation();
             for (const Commit& commit : commits) {
               const auto now = base::TimeTicks::Now();

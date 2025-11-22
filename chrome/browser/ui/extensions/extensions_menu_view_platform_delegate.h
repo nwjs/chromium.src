@@ -1,0 +1,66 @@
+// Copyright 2025 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef CHROME_BROWSER_UI_EXTENSIONS_EXTENSIONS_MENU_VIEW_PLATFORM_DELEGATE_H_
+#define CHROME_BROWSER_UI_EXTENSIONS_EXTENSIONS_MENU_VIEW_PLATFORM_DELEGATE_H_
+
+#include "chrome/browser/ui/extensions/extensions_menu_view_model.h"
+
+namespace content {
+class WebContents;
+}  // namespace content
+
+class ExtensionsMenuViewModel;
+
+class ExtensionsMenuViewPlatformDelegate {
+ public:
+  virtual ~ExtensionsMenuViewPlatformDelegate() = default;
+
+  // Attaches the delegate to a platform-agnostic menu view model. It is called
+  // by the model on its constructor.
+  virtual void AttachToModel(ExtensionsMenuViewModel* model) = 0;
+
+  // Detaches the delegate from a platform-agnostic menu view model. It is
+  // called by the model on its destructor.
+  virtual void DetachFromModel() = 0;
+
+  // Notifies the delegate that a new host access request was added or updated
+  // for `extension_id` on `web_contents`.
+  virtual void OnHostAccessRequestAddedOrUpdated(
+      const extensions::ExtensionId& extension_id,
+      content::WebContents* web_contents) = 0;
+
+  // Notifies the delegate that the host access request for
+  // `extension_id` was removed.
+  // TODO(crbug.com/449814184): Rename to `OnHostAccessRequestAdded` after we
+  // finish migrating all PermissionsManager::Observer method from the platform
+  // delegate to the model, since same name causes parameter type mismatch.
+  virtual void OnAccessRequestRemoved(
+      const extensions::ExtensionId& extension_id) = 0;
+
+  // Notifies the delegate that host access requests on the current site were
+  // cleared.
+  // TODO(crbug.com/449814184): Rename to `OnHostAccessRequestCleared` after we
+  // finish migrating all PermissionsManager::Observer method from the platform
+  // delegate to the model, since same name causes parameter type mismatch.
+  virtual void OnAccessRequestsCleared() = 0;
+
+  // Notifies the delegate that the host access requests for `extension_id` on
+  // the current site was dismissed.
+  // TODO(crbug.com/449814184): Rename to `OnHostAccessRequestDismissedByUser`
+  // after we finish migrating all PermissionsManager::Observer method from the
+  // platform delegate to the model, since same name causes parameter type
+  // mismatch.
+  virtual void OnAccessRequestDismissedByUser(
+      const extensions::ExtensionId& extension_id) = 0;
+
+  // Notifies the delegate that a new toolbar action was added.
+  // TODO(crbug.com/449814184): Rename to `OnToolbarActionAdded` after we
+  // finish migrating all ToolbarActionsModel::Observer method from the platform
+  // delegate to the model, since same name causes parameter type mismatch.
+  virtual void OnActionAdded(
+      const ToolbarActionsModel::ActionId& action_id) = 0;
+};
+
+#endif  // CHROME_BROWSER_UI_EXTENSIONS_EXTENSIONS_MENU_VIEW_PLATFORM_DELEGATE_H_

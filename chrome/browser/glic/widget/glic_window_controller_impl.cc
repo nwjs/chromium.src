@@ -5,6 +5,7 @@
 #include "chrome/browser/glic/widget/glic_window_controller_impl.h"
 
 #include <algorithm>
+#include <utility>
 
 #include "base/check.h"
 #include "base/check_deref.h"
@@ -21,6 +22,7 @@
 #include "chrome/browser/glic/glic_metrics.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
+#include "chrome/browser/glic/host/context/glic_screenshot_capturer.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/host/webui_contents_container.h"
@@ -49,6 +51,7 @@
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/views/tabs/glic_button.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_action_container.h"
 #include "chrome/browser/ui/views/tabs/window_finder.h"
@@ -65,6 +68,7 @@
 #include "ui/display/display_observer.h"
 #include "ui/display/screen.h"
 #include "ui/events/event_observer.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/event_monitor.h"
@@ -88,9 +92,6 @@ namespace {
 
 // Default value for adding a buffer to the attachment zone.
 constexpr static int kAttachmentBuffer = 20;
-constexpr static int kInitialPositionBuffer = 4;
-constexpr static int kMaxWidgetSize = 16'384;
-constexpr static int kDraggableAreaHeight = 44;
 
 constexpr static base::TimeDelta kAnimationDuration = base::Milliseconds(300);
 
@@ -98,63 +99,14 @@ mojom::PanelState CreatePanelState(bool widget_visible,
                                    Browser* attached_browser) {
   mojom::PanelState panel_state;
   if (!widget_visible) {
-    panel_state.kind = mojom::PanelState_Kind::kHidden;
+    panel_state.kind = mojom::PanelStateKind::kHidden;
   } else if (attached_browser) {
-    panel_state.kind = mojom::PanelState_Kind::kAttached;
+    panel_state.kind = mojom::PanelStateKind::kAttached;
     panel_state.window_id = attached_browser->session_id().id();
   } else {
-    panel_state.kind = mojom::PanelState_Kind::kDetached;
+    panel_state.kind = mojom::PanelStateKind::kDetached;
   }
   return panel_state;
-}
-
-GlicButton* GetGlicButton(BrowserWindowInterface& browser) {
-  return BrowserElementsViews::From(&browser)->GetViewAs<glic::GlicButton>(
-      kGlicButtonElementId);
-}
-
-display::Display GetDisplayForOpeningDetached() {
-  // Get the Display for the most recently active browser. If there was no
-  // recently active browser, use the primary display.
-  BrowserWindowInterface* const bwi =
-      GetLastActiveBrowserWindowInterfaceWithAnyProfile();
-  ui::BaseWindow* const window = bwi ? bwi->GetWindow() : nullptr;
-  if (window) {
-    const std::optional<display::Display> widget_display =
-        views::Widget::GetWidgetForNativeWindow(window->GetNativeWindow())
-            ->GetNearestDisplay();
-    if (widget_display) {
-      return *widget_display;
-    }
-  }
-  return display::Screen::Get()->GetPrimaryDisplay();
-}
-
-// True if |bounds| is an allowed position the Widget can be shown in.
-bool IsWidgetLocationAllowed(const gfx::Rect& bounds) {
-  const std::vector<display::Display>& displays =
-      display::Screen::Get()->GetAllDisplays();
-
-  // Calculate inset corners to allow part of the widget to be off screen.
-  std::array<gfx::Point, 4> inset_points = {
-      // top-left: Allow 40% on left and |kInitialPositionBuffer| on top.
-      gfx::Point(bounds.x() + bounds.width() * .4,
-                 bounds.y() + kInitialPositionBuffer),
-      // top-right: Allow 40% on right and |kInitialPositionBuffer| on top.
-      gfx::Point(bounds.right() - bounds.width() * .4,
-                 bounds.y() + kInitialPositionBuffer),
-      // bottom-left: Allow 40% on left and 70% on bottom.
-      gfx::Point(bounds.x() + bounds.width() * .4,
-                 bounds.bottom() - bounds.height() * .7),
-      // bottom-right: Allow 40% on right and 70% on bottom.
-      gfx::Point(bounds.right() - bounds.width() * .4,
-                 bounds.bottom() - bounds.height() * .7),
-  };
-
-  // Check that all four points are on an existing display.
-  return std::ranges::all_of(inset_points, [&](gfx::Point p) {
-    return display::FindDisplayContainingPoint(displays, p) != displays.end();
-  });
 }
 
 std::optional<int> GetOptionalIntPreference(PrefService* prefs,
@@ -183,124 +135,13 @@ std::optional<gfx::Point> GetPreviousPositionFromPrefs(PrefService* prefs) {
 }
 }  // namespace
 
-// Helper class for observing mouse and key events from native window.
-class GlicWindowControllerImpl::WindowEventObserver : public ui::EventObserver {
- public:
-  WindowEventObserver(glic::GlicWindowControllerImpl* glic_window_controller,
-                      glic::GlicView* glic_view)
-      : glic_window_controller_(glic_window_controller), glic_view_(glic_view) {
-    event_monitor_ = views::EventMonitor::CreateWindowMonitor(
-        this, glic_view->GetWidget()->GetNativeWindow(),
-        {
-            ui::EventType::kMousePressed,
-            ui::EventType::kMouseReleased,
-            ui::EventType::kMouseDragged,
-            ui::EventType::kTouchReleased,
-            ui::EventType::kTouchPressed,
-            ui::EventType::kTouchMoved,
-            ui::EventType::kTouchCancelled,
-        });
-  }
-
-  WindowEventObserver(const WindowEventObserver&) = delete;
-  WindowEventObserver& operator=(const WindowEventObserver&) = delete;
-  ~WindowEventObserver() override = default;
-
-  void OnEvent(const ui::Event& event) override {
-#if BUILDFLAG(IS_WIN)
-    if (event.IsTouchEvent()) {
-      // If we get a touch event, send the corresponding mouse event so that
-      // drag drop of the floaty window will work with touch screens. This is a
-      // bit hacky; it would be better to have non client hit tests for the
-      // draggable area return HT_CAPTION but that requires the web client to
-      // set the draggable areas correctly, and not include the buttons in the
-      // titlebar. See crbug.com/388000848.
-
-      const ui::TouchEvent* touch_event = event.AsTouchEvent();
-      gfx::Point touch_location = touch_event->location();
-      auto touch_screen_point =
-          views::View::ConvertPointToScreen(glic_view_, touch_location);
-      auto* host = glic_view_->GetWidget()->GetNativeWindow()->GetHost();
-
-      host->ConvertDIPToPixels(&touch_screen_point);
-      if (event.type() == ui::EventType::kTouchPressed) {
-        POINT cursor_location = touch_screen_point.ToPOINT();
-        ::SetCursorPos(cursor_location.x, cursor_location.y);
-        touch_down_in_draggable_area_ =
-            glic_view_->IsPointWithinDraggableArea(touch_location);
-        if (touch_down_in_draggable_area_) {
-          ui::SendMouseEvent(touch_screen_point, MOUSEEVENTF_LEFTDOWN);
-          ui::SendMouseEvent(touch_screen_point, MOUSEEVENTF_MOVE);
-        }
-      }
-      if (!touch_down_in_draggable_area_) {
-        // If we're not in a potential touch drag of the window, ignore touch
-        // events.
-        return;
-      }
-      if (event.type() == ui::EventType::kTouchCancelled ||
-          event.type() == ui::EventType::kTouchReleased) {
-        touch_down_in_draggable_area_ = false;
-        ui::SendMouseEvent(touch_screen_point, MOUSEEVENTF_LEFTUP);
-      }
-      if (event.type() == ui::EventType::kTouchMoved) {
-        ui::SendMouseEvent(touch_screen_point, MOUSEEVENTF_MOVE);
-      }
-      return;
-    }
-#endif  // BUILDFLAG(IS_WIN)
-
-    gfx::Point mouse_location = event_monitor_->GetLastMouseLocation();
-    views::View::ConvertPointFromScreen(glic_view_, &mouse_location);
-    if (event.type() == ui::EventType::kMousePressed) {
-      mouse_down_in_draggable_area_ =
-          glic_view_->IsPointWithinDraggableArea(mouse_location);
-      initial_press_loc_ = mouse_location;
-    }
-    if (event.type() == ui::EventType::kMouseReleased ||
-        event.type() == ui::EventType::kMouseExited) {
-      mouse_down_in_draggable_area_ = false;
-      initial_press_loc_ = gfx::Point();
-    }
-
-    // Window should only be dragged if a corresponding mouse drag event was
-    // initiated in the draggable area.
-    if (mouse_down_in_draggable_area_ &&
-        event.type() == ui::EventType::kMouseDragged &&
-        glic_window_controller_->ShouldStartDrag(initial_press_loc_,
-                                                 mouse_location)) {
-      glic_window_controller_->HandleWindowDragWithOffset(
-          initial_press_loc_.OffsetFromOrigin());
-    }
-  }
-
- private:
-  raw_ptr<glic::GlicWindowControllerImpl> glic_window_controller_;
-  raw_ptr<glic::GlicView> glic_view_;
-  std::unique_ptr<views::EventMonitor> event_monitor_;
-
-  // Tracks whether the mouse is pressed and was initially within a draggable
-  // area of the window.
-  bool mouse_down_in_draggable_area_ = false;
-
-#if BUILDFLAG(IS_WIN)
-  // Tracks whether a touch pressed event occurred within the draggable area. If
-  // so, subsequent touch events will trigger corresponding mouse events so that
-  // window drag works.
-  bool touch_down_in_draggable_area_ = false;
-#endif  // BUILDFLAG(IS_WIN)
-
-  // Tracks the initial kMousePressed location of a potential drag.
-  gfx::Point initial_press_loc_;
-};
-
 GlicWindowControllerImpl::GlicWindowControllerImpl(
     Profile* profile,
     signin::IdentityManager* identity_manager,
     GlicKeyedService* glic_service,
     GlicEnabling* enabling)
     : profile_(profile),
-      host_(profile),
+      host_(profile, nullptr, this, glic_service),
       window_finder_(std::make_unique<WindowFinder>()),
       glic_service_(glic_service),
       enabling_(enabling),
@@ -311,7 +152,8 @@ GlicWindowControllerImpl::GlicWindowControllerImpl(
   } else {
     previous_position_ = GetPreviousPositionFromPrefs(profile_->GetPrefs());
   }
-  application_hotkey_manager_ = MakeApplicationHotkeyManager(GetWeakPtr());
+  application_hotkey_manager_ =
+      MakeApplicationHotkeyManager(weak_ptr_factory_.GetWeakPtr());
   host_.SetDelegate(this);
   host_observation_.Observe(&host());
 }
@@ -326,7 +168,7 @@ void GlicWindowControllerImpl::WebClientInitializeFailed() {
     // now, show the UI anyway, which should be helpful in development.
     LOG(ERROR)
         << "Glic web client failed to initialize, it won't work properly.";
-    glic_service_->metrics()->set_show_start_time(base::TimeTicks());
+    glic_service_->metrics()->OnGlicWindowOpenInterrupted();
     GlicLoadedAndReadyToDisplay();
   }
 }
@@ -336,7 +178,7 @@ void GlicWindowControllerImpl::LoginPageCommitted() {
   if (state_ == State::kWaitingForGlicToLoad && !host().IsReady()) {
     // TODO(crbug.com/388328847): Temporarily allow showing the UI when a login
     // page is reached.
-    glic_service_->metrics()->set_show_start_time(base::TimeTicks());
+    glic_service_->metrics()->OnGlicWindowOpenInterrupted();
     GlicLoadedAndReadyToDisplay();
   }
 }
@@ -377,7 +219,7 @@ void GlicWindowControllerImpl::OnWidgetDestroyed(views::Widget* widget) {
 void GlicWindowControllerImpl::OnWidgetBoundsChanged(
     views::Widget* widget,
     const gfx::Rect& new_bounds) {
-  if (in_move_loop_ && !AlwaysDetached()) {
+  if (window_event_observer_->IsDragging() && !AlwaysDetached()) {
     // While in a move loop, look for nearby browsers to toggle the drop to
     // attach indicator.
     HandleGlicButtonIndicator();
@@ -422,44 +264,33 @@ void GlicWindowControllerImpl::OnWidgetUserResizeEnded() {
 void GlicWindowControllerImpl::OnDisplayMetricsChanged(
     const display::Display& display,
     uint32_t changed_metrics) {
+  if (!IsDetached()) {
+    return;
+  }
+
   MaybeAdjustSizeForDisplay(/*animate=*/false);
-  AdjustPositionIfNeeded();
+  window_event_observer_->AdjustPositionIfNeeded();
 }
 
 void GlicWindowControllerImpl::ShowAfterSignIn(base::WeakPtr<Browser> browser) {
   Toggle(browser.get(), true,
          // Prefer the source that triggered the sign-in, but if that's not
          // available, report it as coming from the sign-in flow.
-         opening_source_.value_or(mojom::InvocationSource::kAfterSignIn));
+         opening_source_.value_or(mojom::InvocationSource::kAfterSignIn),
+         prompt_suggestion_);
 }
 
-void GlicWindowControllerImpl::Toggle(BrowserWindowInterface* bwi,
-                                      bool prevent_close,
-                                      mojom::InvocationSource source) {
-  // If `bwi` is non-null, the glic button was clicked on a specific window and
-  // glic should be attached to that window. Otherwise glic was invoked from the
-  // hotkey or other OS-level entrypoint.
+void GlicWindowControllerImpl::Toggle(
+    BrowserWindowInterface* bwi,
+    bool prevent_close,
+    mojom::InvocationSource source,
+    std::optional<std::string> prompt_suggestion) {
   Browser* new_attached_browser =
       bwi ? bwi->GetBrowserForMigrationOnly() : nullptr;
 
-  mojom::PanelState panel_state = ComputePanelState();
-  bool is_detached = panel_state.kind == mojom::PanelState_Kind::kDetached;
-
-  // In the case where the user invokes the hotkey, or the status tray glic
-  // icon and the most recently used window for the glic profile is active,
-  // treat this as if the user clicked the glic button on that window if
-  // Chrome is currently in the foreground and we aren't in detached state.
-  if (!new_attached_browser && !is_detached) {
-    BrowserWindowInterface* const active_bwi =
-        GetLastActiveBrowserWindowInterfaceWithAnyProfile();
-    if (active_bwi && IsBrowserGlicAttachable(profile_, active_bwi) &&
-        IsBrowserInForeground(active_bwi)) {
-      new_attached_browser = active_bwi->GetBrowserForMigrationOnly();
-    }
-  }
-
   if (!AlwaysDetached()) {
-    ToggleWhenNotAlwaysDetached(new_attached_browser, prevent_close, source);
+    ToggleWhenNotAlwaysDetached(new_attached_browser, prevent_close, source,
+                                prompt_suggestion);
     return;
   }
 
@@ -477,7 +308,7 @@ void GlicWindowControllerImpl::Toggle(BrowserWindowInterface* bwi,
 
   // If floaty is closed, open floaty
   if (state_ == State::kClosed) {
-    Show(new_attached_browser, source);
+    Show(new_attached_browser, source, prompt_suggestion);
     return;
   }
 
@@ -521,7 +352,8 @@ void GlicWindowControllerImpl::MaybeSendViewChangeRequest(
 void GlicWindowControllerImpl::ToggleWhenNotAlwaysDetached(
     Browser* new_attached_browser,
     bool prevent_close,
-    mojom::InvocationSource source) {
+    mojom::InvocationSource source,
+    std::optional<std::string> prompt_suggestion) {
   auto maybe_close = [this, prevent_close] {
     if (!prevent_close) {
       Close();
@@ -601,7 +433,7 @@ void GlicWindowControllerImpl::ToggleWhenNotAlwaysDetached(
     // Currently in the process of showing the widget, allow that to finish.
     return;
   } else {
-    Show(new_attached_browser, source);
+    Show(new_attached_browser, source, prompt_suggestion);
   }
 }
 
@@ -619,7 +451,7 @@ void GlicWindowControllerImpl::FocusIfOpen() {
 
 void GlicWindowControllerImpl::ShowDetachedForTesting() {
   glic::GlicProfileManager::GetInstance()->SetActiveGlic(glic_service_);
-  Show(nullptr, mojom::InvocationSource::kOsHotkey);
+  Show(nullptr, mojom::InvocationSource::kOsHotkey, std::nullopt);
 }
 
 void GlicWindowControllerImpl::SetPreviousPositionForTesting(
@@ -644,13 +476,14 @@ std::vector<GlicInstance*> GlicWindowControllerImpl::GetInstances() {
 }
 
 GlicInstance* GlicWindowControllerImpl::GetInstanceForTab(
-    tabs::TabInterface* tab) {
-  return this;
+    const tabs::TabInterface* tab) const {
+  return const_cast<GlicWindowControllerImpl*>(this);
 }
 
 bool GlicWindowControllerImpl::BeforeViewCreated(
     Browser* browser,
-    mojom::InvocationSource source) {
+    mojom::InvocationSource source,
+    std::optional<std::string> prompt_suggestion) {
   if (state_ == State::kWaitingForSidePanelToShow) {
     return false;
   }
@@ -658,6 +491,7 @@ bool GlicWindowControllerImpl::BeforeViewCreated(
   // unset.
   CHECK(!attached_browser_);
   opening_source_ = source;
+  prompt_suggestion_ = prompt_suggestion;
   if (!glic_service_->GetAuthController().CheckAuthBeforeShowSync(
           base::BindOnce(&GlicWindowControllerImpl::ShowAfterSignIn,
                          weak_ptr_factory_.GetWeakPtr(),
@@ -667,17 +501,17 @@ bool GlicWindowControllerImpl::BeforeViewCreated(
 
   SetWindowState(State::kWaitingForGlicToLoad);
 
-  glic_service_->metrics()->OnGlicWindowOpen(/*attached=*/browser, source);
+  glic_service_->metrics()->OnGlicWindowStartedOpening(/*attached=*/browser,
+                                                       source);
   glic_service_->GetAuthController().OnGlicWindowOpened();
-
-  glic_service_->metrics()->set_show_start_time(base::TimeTicks::Now());
 
   MaybeResetPanelPostionOnShow(source);
 
   host().CreateContents(/*initially_hidden=*/false);
   host().NotifyWindowIntentToShow();
 
-  glic_panel_hotkey_manager_ = MakeGlicWindowHotkeyManager(GetWeakPtr());
+  glic_panel_hotkey_manager_ =
+      MakeGlicWindowHotkeyManager(weak_ptr_factory_.GetWeakPtr());
   return true;
 }
 
@@ -689,22 +523,29 @@ void GlicWindowControllerImpl::AfterViewShown() {
   // `NotifyIfPanelStateChanged()` first, so that the host will receive the
   // correct panel state.
   NotifyIfPanelStateChanged();
-  host().PanelWillOpen(opening_source_.value(), {});
+  Host::PanelWillOpenOptions open_options;
+  if (prompt_suggestion_) {
+    open_options.prompt_suggestion = prompt_suggestion_.value();
+  }
+  host().PanelWillOpen(opening_source_.value(), std::move(open_options));
+  prompt_suggestion_.reset();
 
   if (login_page_committed_) {
     // This indicates that we've warmed the web client and it has hit a login
     // page. See LoginPageCommitted.
     GlicLoadedAndReadyToDisplay();
-  } else {
+  } else if (IsDetached()) {
     // This adds dragging functionality to special case panels (e.g. error,
     // offline, loading).
-    SetDraggingAreasAndWatchForMouseEvents();
+    window_event_observer_->SetDraggingAreasAndWatchForMouseEvents();
   }
 }
 
-void GlicWindowControllerImpl::Show(Browser* browser,
-                                    mojom::InvocationSource source) {
-  if (!BeforeViewCreated(browser, source)) {
+void GlicWindowControllerImpl::Show(
+    Browser* browser,
+    mojom::InvocationSource source,
+    std::optional<std::string> prompt_suggestion) {
+  if (!BeforeViewCreated(browser, source, prompt_suggestion)) {
     return;
   }
   if (browser && !AlwaysDetached()) {
@@ -722,7 +563,8 @@ std::unique_ptr<views::View> GlicWindowControllerImpl::CreateViewForSidePanel(
   // Browser
   auto* browser = tab.GetBrowserWindowInterface()->GetBrowserForMigrationOnly();
   // TODO: Add Invocation source for toolbar button
-  if (BeforeViewCreated(browser, mojom::InvocationSource::kThreeDotsMenu) &&
+  if (BeforeViewCreated(browser, mojom::InvocationSource::kThreeDotsMenu,
+                        std::nullopt) &&
       browser) {
     AttachToBrowser(*browser, AttachChangeReason::kInit);
   }
@@ -737,10 +579,16 @@ std::unique_ptr<views::View> GlicWindowControllerImpl::CreateViewForSidePanel(
 }
 
 void GlicWindowControllerImpl::SetupAndShowGlicWidget(Browser* browser) {
-  auto initial_bounds = GetInitialBounds(browser);
-  glic_widget_ = GlicWidget::Create(profile_, initial_bounds,
-                                    glic_panel_hotkey_manager_->GetWeakPtr(),
-                                    user_resizable_);
+  const gfx::Rect initial_bounds = GetInitialBounds(browser);
+
+  auto glic_view =
+      std::make_unique<GlicView>(profile_, initial_bounds.size(),
+                                 glic_panel_hotkey_manager_->GetWeakPtr());
+  glic_delegate_ =
+      GlicWidget::CreateWidgetDelegate(std::move(glic_view), user_resizable_);
+  glic_widget_ = GlicWidget::Create(glic_delegate_.get(), profile_,
+                                    initial_bounds, user_resizable_);
+
   glic_widget_observation_.Observe(glic_widget_.get());
   SetupGlicWidgetAccessibilityText();
 
@@ -750,6 +598,9 @@ void GlicWindowControllerImpl::SetupAndShowGlicWidget(Browser* browser) {
       glic_widget_->GetWeakPtr(),
       base::BindRepeating(&GlicWindowControllerImpl::MaybeSetWidgetCanResize,
                           weak_ptr_factory_.GetWeakPtr()));
+
+  window_event_observer_ = std::make_unique<GlicWindowEventObserver>(
+      glic_widget_->GetWeakPtr(), this);
 
   glic_widget_->Show();
 
@@ -808,11 +659,12 @@ void GlicWindowControllerImpl::SetGlicWindowToFloatingMode(bool floating) {
 }
 
 gfx::Rect GlicWindowControllerImpl::GetInitialBounds(Browser* browser) {
-  gfx::Size target_size = GetLastRequestedSizeClamped();
+  gfx::Size target_size = GlicWidget::ClampSize(glic_size_, GetGlicWidget());
 
   // Reset previous position if it results in an invalid location.
   if (previous_position_.has_value() &&
-      !IsWidgetLocationAllowed({previous_position_.value(), target_size})) {
+      !GlicWidget::IsWidgetLocationAllowed(
+          {previous_position_.value(), target_size})) {
     previous_position_.reset();
   }
   // Use the previous position if there is one.
@@ -820,45 +672,7 @@ gfx::Rect GlicWindowControllerImpl::GetInitialBounds(Browser* browser) {
     return {previous_position_.value(), target_size};
   }
 
-  std::optional<gfx::Rect> bounds_with_browser =
-      GetInitialDetachedBoundsFromBrowser(browser, target_size);
-  return bounds_with_browser.value_or(
-      GetInitialDetachedBoundsNoBrowser(target_size));
-}
-
-gfx::Rect GlicWindowControllerImpl::GetInitialDetachedBoundsNoBrowser(
-    const gfx::Size& target_size) {
-  // Get the default position offset equal distances from the top right corner
-  // of the work area (which excludes system UI such as the taskbar).
-  display::Display display = GetDisplayForOpeningDetached();
-  gfx::Point top_right = display.work_area().top_right();
-  int initial_x =
-      top_right.x() - target_size.width() - kDefaultDetachedTopRightDistance;
-  int initial_y = top_right.y() + kDefaultDetachedTopRightDistance;
-  return {{initial_x, initial_y}, target_size};
-}
-
-std::optional<gfx::Rect>
-GlicWindowControllerImpl::GetInitialDetachedBoundsFromBrowser(
-    Browser* browser,
-    const gfx::Size& target_size) {
-  if (!browser) {
-    return std::nullopt;
-  }
-
-  // Set the origin so the top right of glic meets the bottom left of the glic
-  // button.
-  GlicButton* glic_button = GetGlicButton(*browser);
-  CHECK(glic_button);
-  gfx::Rect glic_button_inset_bounds = glic_button->GetBoundsWithInset();
-
-  gfx::Point origin(glic_button_inset_bounds.x() - target_size.width() -
-                        kInitialPositionBuffer,
-                    glic_button_inset_bounds.bottom() + kInitialPositionBuffer);
-  gfx::Rect bounds = {origin, target_size};
-
-  return IsWidgetLocationAllowed(bounds) ? std::make_optional(bounds)
-                                         : std::nullopt;
+  return GlicWidget::GetInitialBounds(browser, target_size);
 }
 
 void GlicWindowControllerImpl::MaybeResetPanelPostionOnShow(
@@ -888,7 +702,6 @@ void GlicWindowControllerImpl::MaybeResetPanelPostionOnShow(
 void GlicWindowControllerImpl::ClientReadyToShow(
     const mojom::OpenPanelInfo& open_info) {
   DVLOG(1) << "Glic client ready to show " << open_info.web_client_mode;
-  glic_service_->metrics()->set_starting_mode(open_info.web_client_mode);
   glic_service_->metrics()->OnGlicWindowOpenAndReady();
   if (open_info.panelSize.has_value()) {
     Resize(*open_info.panelSize, open_info.resizeDuration, base::DoNothing());
@@ -929,23 +742,8 @@ void GlicWindowControllerImpl::GlicLoadedAndReadyToDisplay() {
   // TODO(crbug.com/390637019): Fully fix and remove this comment.
   GetGlicView()->GetWebContents()->Focus();
 
-  SetDraggingAreasAndWatchForMouseEvents();
+  window_event_observer_->SetDraggingAreasAndWatchForMouseEvents();
   NotifyIfPanelStateChanged();
-}
-
-void GlicWindowControllerImpl::SetDraggingAreasAndWatchForMouseEvents() {
-  if (window_event_observer_) {
-    return;
-  }
-
-  window_event_observer_ =
-      std::make_unique<WindowEventObserver>(this, GetGlicView());
-
-  if (!draggable_area_) {
-    // Set the draggable area to the top bar of the window.
-    GetGlicView()->SetDraggableAreas(
-        {{0, 0, GetGlicView()->width(), kDraggableAreaHeight}});
-  }
 }
 
 GlicView* GlicWindowControllerImpl::GetGlicView() const {
@@ -962,24 +760,19 @@ GlicView* GlicWindowControllerImpl::GetGlicView() const {
   return nullptr;
 }
 
-base::WeakPtr<views::View> GlicWindowControllerImpl::GetGlicViewAsView() {
+base::WeakPtr<views::View> GlicWindowControllerImpl::GetView() {
   if (auto* view = GetGlicView()) {
     return view->GetWeakPtr();
   }
   return nullptr;
 }
 
-GlicWidget* GlicWindowControllerImpl::GetGlicWidget() const {
-  return glic_widget_.get();
+GlicWindowAnimator* GlicWindowControllerImpl::window_animator() {
+  return glic_window_animator_.get();
 }
 
-gfx::NativeWindow GlicWindowControllerImpl::GetHostNativeWindow() {
-  if (!glic_widget_) {
-    // TODO(b:440090981): Implement for side panel.
-    NOTIMPLEMENTED();
-    return gfx::NativeWindow();
-  }
-  return glic_widget_->GetNativeWindow();
+GlicWidget* GlicWindowControllerImpl::GetGlicWidget() const {
+  return glic_widget_.get();
 }
 
 void GlicWindowControllerImpl::AttachedBrowserDidClose(
@@ -1015,7 +808,7 @@ void GlicWindowControllerImpl::Detach() {
 
   // Open the panel detached.
   SetupAndShowGlicWidget(current_browser);
-  SetDraggingAreasAndWatchForMouseEvents();
+  window_event_observer_->SetDraggingAreasAndWatchForMouseEvents();
   SetWindowState(State::kOpen);
   NotifyIfPanelStateChanged();
 }
@@ -1050,7 +843,7 @@ void GlicWindowControllerImpl::SidePanelShown(BrowserWindowInterface* browser) {
 
   // Trigger custom event for testing.
   views::ElementTrackerViews::GetInstance()->NotifyCustomEvent(
-      kGlicWidgetAttached, GetGlicButton(*browser));
+      kGlicWidgetAttached, GlicButton::FromBrowser(browser));
   AfterViewShown();
 }
 
@@ -1071,8 +864,9 @@ void GlicWindowControllerImpl::Resize(const gfx::Size& size,
   // animation and resize to the final size. Investigate a smoother way to
   // animate this transition.
   if (in_resizable_state && !user_resizing_) {
-    glic_window_animator_->AnimateSize(GetLastRequestedSizeClamped(), duration,
-                                       std::move(callback));
+    glic_window_animator_->AnimateSize(
+        GlicWidget::ClampSize(glic_size_, GetGlicWidget()), duration,
+        std::move(callback));
   } else {
     // If the glic window is closed, or the widget isn't ready (e.g. because
     // it's currently still animating closed) immediately post the callback.
@@ -1133,7 +927,7 @@ void GlicWindowControllerImpl::MaybeSetWidgetCanResize() {
 #endif  // BUILDFLAG(IS_WIN)
 }
 
-gfx::Size GlicWindowControllerImpl::GetSize() {
+gfx::Size GlicWindowControllerImpl::GetPanelSize() {
   if (IsDetached()) {
     return GetGlicWidget()->GetSize();
   }
@@ -1218,6 +1012,13 @@ void GlicWindowControllerImpl::Close() {
   }
 }
 
+void GlicWindowControllerImpl::ClosePanel() {
+  Close();
+  if (screenshot_capturer_) {
+    screenshot_capturer_->CloseScreenPicker();
+  }
+}
+
 void GlicWindowControllerImpl::ResetAndHidePanel() {
   if (IsDetached()) {
     SaveWidgetPosition(/*user_modified=*/false);
@@ -1235,18 +1036,19 @@ void GlicWindowControllerImpl::ResetAndHidePanel() {
     if (glic_view_) {
       glic_view_->SetWebContents(nullptr);
     }
-    attached_browser_->GetFeatures().side_panel_coordinator()->Close();
+    attached_browser_->GetFeatures().side_panel_coordinator()->Close(
+        SidePanelEntry::PanelType::kContent);
   }
 
   // The following state is always safe to reset regardless of if the panel is
   // detached, attached or currently closed.
 
   // Floating Panel State
-  draggable_area_ = std::nullopt;
   window_event_observer_.reset();
   glic_window_animator_.reset();
   glic_widget_observation_.Reset();
   glic_widget_.reset();
+  glic_delegate_.reset();
   scoped_glic_button_indicator_.reset();
 
   // Attached Side Panel State.
@@ -1281,85 +1083,20 @@ void GlicWindowControllerImpl::ShowTitleBarContextMenuAt(gfx::Point event_loc) {
 #endif  // BUILDFLAG(IS_WIN)
 }
 
-bool GlicWindowControllerImpl::ShouldStartDrag(
-    const gfx::Point& initial_press_loc,
-    const gfx::Point& mouse_location) {
-  // Determine if the mouse has moved beyond a minimum elasticity distance
-  // in any direction from the starting point.
-  static const int kMinimumDragDistance = 10;
-  int x_offset = abs(mouse_location.x() - initial_press_loc.x());
-  int y_offset = abs(mouse_location.y() - initial_press_loc.y());
-  return sqrt(pow(static_cast<float>(x_offset), 2) +
-              pow(static_cast<float>(y_offset), 2)) > kMinimumDragDistance;
-}
-
-void GlicWindowControllerImpl::HandleWindowDragWithOffset(
-    gfx::Vector2d mouse_offset) {
-  if (!IsDetached()) {
-    return;
-  }
-  // This code isn't set up to handle nested run loops. Nested run loops will
-  // lead to crashes.
-  if (!in_move_loop_) {
-    glic_window_animator_->CancelAnimation();
-    in_move_loop_ = true;
-#if BUILDFLAG(IS_MAC)
-    GetGlicWidget()->SetCapture(nullptr);
-#endif
-    const views::Widget::MoveLoopSource move_loop_source =
-        views::Widget::MoveLoopSource::kMouse;
-    GetGlicWidget()->RunMoveLoop(
-        mouse_offset, move_loop_source,
-        views::Widget::MoveLoopEscapeBehavior::kDontHide);
-    in_move_loop_ = false;
-    scoped_glic_button_indicator_.reset();
-
-    // Only handle positioning if glic wasn't closed during the drag.
-    if (state_ == State::kClosed) {
-      return;
-    }
-    // Dragging stops animations. This makes sure we honor the last resize
-    // request.
-    glic_window_animator_->MaybeAnimateToTargetSize();
-
-    MaybeAdjustSizeForDisplay(/*animate=*/false);
-    AdjustPositionIfNeeded();
-    SaveWidgetPosition(/*user_modified=*/true);
-
-    if (!AlwaysDetached()) {
-      // Check whether `GetGlicWidget()` is in a position to attach to a
-      // browser window.
-      OnDragComplete();
-    }
-  }
-}
-
-const mojom::PanelState& GlicWindowControllerImpl::GetPanelState() const {
+mojom::PanelState GlicWindowControllerImpl::GetPanelState() {
   return panel_state_;
 }
 
-void GlicWindowControllerImpl::AdjustPositionIfNeeded() {
-  if (!IsDetached()) {
-    return;
-  }
-  // Always have at least `kMinimumVisible` px visible from glic window in
-  // both vertical and horizontal directions.
-  constexpr int kMinimumVisible = 40;
-  const auto widget_size = GetGlicWidget()->GetSize();
-  const int horizontal_buffer = widget_size.width() - kMinimumVisible;
-  const int vertical_buffer = widget_size.height() - kMinimumVisible;
-
-  // Adjust bounds of visible area screen to allow part of glic to go off
-  // screen.
-  auto workarea = GetGlicWidget()->GetWorkAreaBoundsInScreen();
-  workarea.Outset(gfx::Outsets::VH(vertical_buffer, horizontal_buffer));
-
-  auto rect = GetGlicWidget()->GetRestoredBounds();
-  rect.AdjustToFit(workarea);
-  GetGlicWidget()->SetBounds(rect);
+bool GlicWindowControllerImpl::IsPanelShowingForBrowser(
+    const BrowserWindowInterface& bwi) const {
+  return IsShowing();
 }
 
 void GlicWindowControllerImpl::OnDragComplete() {
+  if (AlwaysDetached()) {
+    // Do not handle attachment.
+    return;
+  }
   BrowserWindowInterface* browser = FindBrowserForAttachment();
   // No browser within attachment range.
   if (!browser) {
@@ -1377,7 +1114,7 @@ void GlicWindowControllerImpl::HandleGlicButtonIndicator() {
     scoped_glic_button_indicator_.reset();
     return;
   }
-  GlicButton* glic_button = GetGlicButton(*browser);
+  GlicButton* glic_button = GlicButton::FromBrowser(browser);
   // If there isn't an existing scoped indicator for this button, create one.
   if (!scoped_glic_button_indicator_ ||
       scoped_glic_button_indicator_->GetGlicButton() != glic_button) {
@@ -1462,6 +1199,16 @@ void GlicWindowControllerImpl::RemoveStateObserver(StateObserver* observer) {
   state_observers_.RemoveObserver(observer);
 }
 
+void GlicWindowControllerImpl::AddGlobalStateObserver(
+    PanelStateObserver* observer) {
+  AddStateObserver(observer);
+}
+
+void GlicWindowControllerImpl::RemoveGlobalStateObserver(
+    PanelStateObserver* observer) {
+  RemoveStateObserver(observer);
+}
+
 void GlicWindowControllerImpl::NotifyIfPanelStateChanged() {
   auto new_state = ComputePanelState();
   if (new_state != panel_state_) {
@@ -1488,6 +1235,10 @@ bool GlicWindowControllerImpl::IsActive() {
   return IsDetached() && GetGlicWidget()->IsActive();
 }
 
+bool GlicWindowControllerImpl::HasFocus() {
+  return IsActive();
+}
+
 bool GlicWindowControllerImpl::IsShowing() const {
   return !(state_ == State::kClosed);
 }
@@ -1498,8 +1249,26 @@ void GlicWindowControllerImpl::SwitchConversation(
   std::move(callback).Run(mojom::SwitchConversationErrorReason::kUnknown);
 }
 
+void GlicWindowControllerImpl::CaptureScreenshot(
+    glic::mojom::WebClientHandler::CaptureScreenshotCallback callback) {
+  if (!GetGlicWidget()) {
+    std::move(callback).Run(mojom::CaptureScreenshotResult::NewErrorReason(
+        mojom::CaptureScreenshotErrorReason::kUnknown));
+    return;
+  }
+  if (!screenshot_capturer_) {
+    screenshot_capturer_ = std::make_unique<GlicScreenshotCapturer>();
+  }
+  screenshot_capturer_->CaptureScreenshot(GetGlicWidget()->GetNativeWindow(),
+                                          std::move(callback));
+}
+
 bool GlicWindowControllerImpl::IsAttached() const {
   return IsShowing() && attached_browser_;
+}
+
+bool GlicWindowControllerImpl::IsAttached() {
+  return const_cast<const GlicWindowControllerImpl*>(this)->IsAttached();
 }
 
 bool GlicWindowControllerImpl::IsDetached() const {
@@ -1512,6 +1281,15 @@ GlicWindowControllerImpl::AddWindowActivationChangedCallback(
   return window_activation_callback_list_.Add(std::move(callback));
 }
 
+base::CallbackListSubscription
+GlicWindowControllerImpl::AddGlobalShowHideCallback(
+    base::RepeatingClosure callback) {
+  return RegisterStateChange(
+      base::BindRepeating([](base::RepeatingClosure callback, bool,
+                             mojom::CurrentView) { callback.Run(); },
+                          std::move(callback)));
+}
+
 void GlicWindowControllerImpl::Preload() {
   if (!host().contents_container()) {
     host().CreateContents(/*initially_hidden=*/true);
@@ -1519,18 +1297,17 @@ void GlicWindowControllerImpl::Preload() {
   }
 }
 
-void GlicWindowControllerImpl::Reload() {
-  if (auto* webui_contents = host().webui_contents()) {
-    webui_contents->GetController().Reload(content::ReloadType::BYPASSING_CACHE,
-                                           /*check_for_repost=*/false);
-  }
+void GlicWindowControllerImpl::Reload(
+    content::RenderFrameHost* render_frame_host) {
+  host().Reload(render_frame_host);
 }
 
 bool GlicWindowControllerImpl::IsWarmed() const {
   return const_cast<Host&>(host_).contents_container();
 }
 
-base::WeakPtr<GlicWindowController> GlicWindowControllerImpl::GetWeakPtr() {
+base::WeakPtr<GlicWindowControllerInterface>
+GlicWindowControllerImpl::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
 }
 
@@ -1556,28 +1333,11 @@ bool GlicWindowControllerImpl::IsBrowserOccludedAtPoint(
   return false;
 }
 
-gfx::Size GlicWindowControllerImpl::GetLastRequestedSizeClamped() const {
-  gfx::Size min = GlicWidget::GetInitialSize();
-  if (IsDetached()) {
-    gfx::Size widget_min = GetGlicWidget()->GetMinimumSize();
-    if (!widget_min.IsEmpty()) {
-      min = widget_min;
-    }
-  }
-
-  gfx::Size max(kMaxWidgetSize, kMaxWidgetSize);
-  gfx::Size result = glic_size_.value_or(min);
-
-  result.SetToMax(min);
-  result.SetToMin(max);
-  return result;
-}
-
 void GlicWindowControllerImpl::MaybeAdjustSizeForDisplay(bool animate) {
   if (!IsDetached()) {
     return;
   }
-  const auto target_size = GetLastRequestedSizeClamped();
+  const auto target_size = GlicWidget::ClampSize(glic_size_, GetGlicWidget());
   if (target_size != glic_window_animator_->GetCurrentTargetBounds().size()) {
     glic_window_animator_->AnimateSize(
         target_size, animate ? kAnimationDuration : base::Milliseconds(0),
@@ -1588,6 +1348,15 @@ void GlicWindowControllerImpl::MaybeAdjustSizeForDisplay(bool animate) {
 base::CallbackListSubscription GlicWindowControllerImpl::RegisterStateChange(
     StateChangeCallback callback) {
   return state_change_callback_list_.Add(std::move(callback));
+}
+
+base::CallbackListSubscription
+GlicWindowControllerImpl::AddActiveInstanceChangedCallbackAndNotifyImmediately(
+    ActiveInstanceChangedCallback callback) {
+  NOTREACHED();
+}
+GlicInstance* GlicWindowControllerImpl::GetActiveInstance() {
+  NOTREACHED();
 }
 
 void GlicWindowControllerImpl::SetWindowState(State new_state) {
@@ -1629,7 +1398,7 @@ Profile* GlicWindowControllerImpl::profile() {
   return profile_;
 }
 
-GlicWindowAnimator* GlicWindowControllerImpl::window_animator() {
+GlicWindowAnimator* GlicWindowControllerImpl::GetWindowAnimatorForTesting() {
   return glic_window_animator_.get();
 }
 
@@ -1722,6 +1491,10 @@ bool GlicWindowControllerImpl::InvocationSourceMatchesCurrentView(
           current_view == mojom::CurrentView::kActuation) ||
          (source == mojom::InvocationSource::kTopChromeButton &&
           current_view == mojom::CurrentView::kConversation);
+}
+
+glic::GlicInstanceMetrics* GlicWindowControllerImpl::instance_metrics() {
+  return nullptr;
 }
 
 }  // namespace glic

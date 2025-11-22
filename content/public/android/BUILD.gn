@@ -112,6 +112,7 @@ android_library("content_main_dex_java") {
     "//third_party/android_deps:com_google_code_findbugs_jsr305_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
     "//third_party/jni_zero:jni_zero_java",
+    "//ui/accessibility:accessibility_features_java",
     "//ui/android:ui_no_recycler_view_java",
   ]
   sources = [
@@ -173,6 +174,7 @@ android_library("content_full_java") {
     "$google_play_services_package:google_play_services_basement_java",
     "$google_play_services_package:google_play_services_tasks_java",
     "//base:base_java",
+    "//base:flagged_apis_java",
     "//base:process_launcher_java",
     "//base:service_loader_java",
     "//build/android:build_java",
@@ -413,6 +415,7 @@ android_library("content_full_java") {
     "java/src/org/chromium/content_public/browser/NavigationHandle.java",
     "java/src/org/chromium/content_public/browser/NavigationHistory.java",
     "java/src/org/chromium/content_public/browser/Page.java",
+    "java/src/org/chromium/content_public/browser/PendingSelectionMenu.java",
     "java/src/org/chromium/content_public/browser/PermissionsPolicyFeature.java",
     "java/src/org/chromium/content_public/browser/RenderCoordinates.java",
     "java/src/org/chromium/content_public/browser/RenderFrameHost.java",
@@ -422,7 +425,6 @@ android_library("content_full_java") {
     "java/src/org/chromium/content_public/browser/SelectAroundCaretResult.java",
     "java/src/org/chromium/content_public/browser/SelectionClient.java",
     "java/src/org/chromium/content_public/browser/SelectionEventProcessor.java",
-    "java/src/org/chromium/content_public/browser/SelectionMenuGroup.java",
     "java/src/org/chromium/content_public/browser/SelectionMenuItem.java",
     "java/src/org/chromium/content_public/browser/SelectionPopupController.java",
     "java/src/org/chromium/content_public/browser/SiteZoomInfo.java",
@@ -579,6 +581,7 @@ android_library("content_javatests") {
     "//base:base_java",
     "//base:base_java_test_support",
     "//base:base_java_test_support_uncommon",
+    "//base:flagged_apis_java",
     "//base:process_launcher_java",
     "//cc/mojom:mojom_java",
     "//components/payments/mojom:mojom_java",
@@ -722,6 +725,7 @@ robolectric_binary("content_junit_tests") {
   resources_package = "org.chromium.content"
   sources = [
     "java/src/org/chromium/content/browser/input/ImeAdapterImplUnitTest.java",
+    "java/src/org/chromium/content/browser/input/ImeUtilsTest.java",
     "junit/src/org/chromium/content/browser/BindingManagerTest.java",
     "junit/src/org/chromium/content/browser/ChildProcessConnectionMetricsUnitTest.java",
     "junit/src/org/chromium/content/browser/ChildProcessRankingTest.java",
@@ -757,6 +761,7 @@ robolectric_binary("content_junit_tests") {
     "//base:base_java_process_launcher_test_support",
     "//base:base_java_test_support",
     "//base:base_junit_test_support",
+    "//base:flagged_apis_java",
     "//cc/mojom:mojom_java",
     "//content/common:common_java",
     "//content/public/common:common_java",

@@ -478,7 +478,7 @@ class SitePerProcessWithMainFrameThresholdAndSiteRestrictionBrowserClient
       const GURL& site_instance_original_url) override {
     // Only reuse for foo.com/title1.html specifically.
     if (site_instance_original_url.DomainIs("foo.com") &&
-        site_instance_original_url.path_piece() == "/title1.html") {
+        site_instance_original_url.path() == "/title1.html") {
       return true;
     }
     // For all other URLs, including other paths on foo.com or other domains,
@@ -1164,9 +1164,12 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest, CleanupCrossSiteIframe) {
 
   // Use Javascript in the parent to remove one of the frames and ensure that
   // the subframe goes away.
+  RenderFrameHost* frame_to_delete = root->child_at(0)->current_frame_host();
+  RenderFrameDeletedObserver deleted_observer(frame_to_delete);
   EXPECT_TRUE(ExecJs(shell(),
                      "document.body.removeChild("
                      "document.querySelectorAll('iframe')[0])"));
+  deleted_observer.WaitUntilDeleted();
   ASSERT_EQ(1U, root->child_count());
 
   // Load a new same-site page in the top-level frame and ensure the other
@@ -4816,9 +4819,11 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest, ParentDetachRemoteChild) {
 
   // Have the parent frame remove the child frame from its DOM. This should
   // result in the child RenderFrame being deleted in the remote process.
+  RenderFrameDeletedObserver deleted_observer(node->current_frame_host());
   EXPECT_TRUE(ExecJs(contents,
                      "document.body.removeChild("
                      "document.querySelectorAll('iframe')[0])"));
+  deleted_observer.WaitUntilDeleted();
   EXPECT_EQ(1U, contents->GetPrimaryFrameTree().root()->child_count());
 
   {
@@ -5981,8 +5986,8 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
   }
   ASSERT_EQ(2U, new_root->child_count());
   EXPECT_EQ(main_url, new_root->current_url());
-  EXPECT_EQ("data", new_root->child_at(0)->current_url().scheme());
-  EXPECT_EQ("data", new_root->child_at(1)->current_url().scheme());
+  EXPECT_EQ("data", new_root->child_at(0)->current_url().GetScheme());
+  EXPECT_EQ("data", new_root->child_at(1)->current_url().GetScheme());
 
   EXPECT_NE(new_root->current_frame_host()->GetSiteInstance(),
             new_root->child_at(0)->current_frame_host()->GetSiteInstance());
@@ -6732,10 +6737,15 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
   EXPECT_TRUE(pending_process->Shutdown(0));
   crash_observer.Wait();
 
-  // Since the navigation above didn't commit, the b.com RenderViewHost in the
-  // main tab should still not be active.
+  // The navigation may or may not get canceled, depending on whether the
+  // feature ResumeNavigationWithSpeculativeRFHProcessGone is enabled. However
+  // the navigation will never commit and hence the b.com RVH should not be
+  // active.
   EXPECT_FALSE(rvh->is_active());
-  EXPECT_EQ(net::ERR_ABORTED, handle_observer.net_error_code());
+  if (!base::FeatureList::IsEnabled(
+          features::kResumeNavigationWithSpeculativeRFHProcessGone)) {
+    EXPECT_EQ(net::ERR_ABORTED, handle_observer.net_error_code());
+  }
 
   // Navigate popup to b.com to recreate the b.com process.  When creating
   // opener proxies, |rvh| should be reused as a swapped out RVH.  In
@@ -7791,8 +7801,8 @@ class RequestDelayingSitePerProcessBrowserTest
   // Then we release the barrier and finish all delayed requests.
   std::unique_ptr<net::test_server::HttpResponse> HandleMockResource(
       const net::test_server::HttpRequest& request) {
-    auto it =
-        num_remaining_requests_to_delay_for_path_.find(request.GetURL().path());
+    auto it = num_remaining_requests_to_delay_for_path_.find(
+        request.GetURL().GetPath());
     if (it == num_remaining_requests_to_delay_for_path_.end())
       return nullptr;
 
@@ -8907,8 +8917,12 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
 
   ASSERT_TRUE(nav_manager.WaitForNavigationFinished());
   // The navigation should be committed if and only if it committed in a new
-  // RFH (i.e. if the navigation used a speculative RFH).
-  EXPECT_EQ(using_speculative_rfh, nav_manager.was_committed());
+  // RFH (i.e. if the navigation used a speculative RFH) and
+  // kSkipRendererCancellationThrottle is off.
+  EXPECT_EQ(
+      using_speculative_rfh && !base::FeatureList::IsEnabled(
+                                   features::kSkipRendererCancellationThrottle),
+      nav_manager.was_committed());
 }
 
 namespace {
@@ -10874,8 +10888,8 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
 
   EXPECT_TRUE(child->current_frame_host()->IsCrossProcessSubframe());
   EXPECT_EQ(
-      bar_url.host(),
-      child->current_frame_host()->GetSiteInstance()->GetSiteURL().host());
+      bar_url.GetHost(),
+      child->current_frame_host()->GetSiteInstance()->GetSiteURL().GetHost());
 
   // The subframe's SiteInstance should still be different from second_shell's
   // SiteInstance, and they should be in separate BrowsingInstances.
@@ -12890,7 +12904,7 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
   FrameTreeNode* child =
       web_contents()->GetPrimaryFrameTree().root()->child_at(0);
   GURL original_frame_url(child->current_frame_host()->GetLastCommittedURL());
-  EXPECT_EQ("b.com", original_frame_url.host());
+  EXPECT_EQ("b.com", original_frame_url.GetHost());
 
   WebContentsConsoleObserver console_observer(web_contents());
   console_observer.SetPattern("Not allowed to load local resource: file:*");
@@ -14546,7 +14560,7 @@ class SitePerProcessWithMainFrameThresholdLocalhostTest
 IN_PROC_BROWSER_TEST_P(SitePerProcessWithMainFrameThresholdLocalhostTest,
                        AllowReuseLocalHost) {
   const GURL kUrl = embedded_test_server()->GetURL("localhost", "/title1.html");
-  ASSERT_TRUE(net::IsLocalHostname(kUrl.host()));
+  ASSERT_TRUE(net::IsLocalHostname(kUrl.GetHost()));
 
   ASSERT_TRUE(NavigateToURL(shell(), kUrl));
   Shell* second_shell = CreateShellAndNavigateToURL(kUrl);

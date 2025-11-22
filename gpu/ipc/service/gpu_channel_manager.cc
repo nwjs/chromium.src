@@ -334,7 +334,6 @@ GpuChannelManager::GpuChannelManager(
     const GpuFeatureInfo& gpu_feature_info,
     GpuProcessShmCount* use_shader_cache_shm_count,
     scoped_refptr<gl::GLSurface> default_offscreen_surface,
-    ImageDecodeAcceleratorWorker* image_decode_accelerator_worker,
     viz::VulkanContextProvider* vulkan_context_provider,
     viz::MetalContextProvider* metal_context_provider,
     DawnContextProvider* dawn_context_provider,
@@ -355,15 +354,11 @@ GpuChannelManager::GpuChannelManager(
       shader_translator_cache_(gpu_preferences_),
       default_offscreen_surface_(std::move(default_offscreen_surface)),
       gpu_feature_info_(gpu_feature_info),
-      discardable_manager_(gpu_preferences_),
-      passthrough_discardable_manager_(gpu_preferences_),
-      image_decode_accelerator_worker_(image_decode_accelerator_worker),
       use_shader_cache_shm_count_(use_shader_cache_shm_count),
-      memory_pressure_listener_(
+      memory_pressure_listener_registration_(
           FROM_HERE,
           base::MemoryPressureListenerTag::kGpuChannelManager,
-          base::BindRepeating(&GpuChannelManager::HandleMemoryPressure,
-                              base::Unretained(this))),
+          this),
       dawn_caching_interface_factory_(dawn_caching_interface_factory),
       vulkan_context_provider_(vulkan_context_provider),
       metal_context_provider_(metal_context_provider),
@@ -479,6 +474,7 @@ GpuChannel* GpuChannelManager::EstablishChannel(
     int client_id,
     uint64_t client_tracing_id,
     bool is_gpu_host,
+    bool enable_extra_handles_validation,
     const gfx::GpuExtraInfo& gpu_extra_info) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
@@ -497,7 +493,7 @@ GpuChannel* GpuChannelManager::EstablishChannel(
   std::unique_ptr<GpuChannel> gpu_channel = GpuChannel::Create(
       this, channel_token, scheduler_, sync_point_manager_, share_group_,
       task_runner_, io_task_runner_, client_id, client_tracing_id, is_gpu_host,
-      image_decode_accelerator_worker_, gpu_extra_info);
+      enable_extra_handles_validation, gpu_extra_info);
 
   if (!gpu_channel)
     return nullptr;
@@ -609,8 +605,6 @@ void GpuChannelManager::PopulateCache(const gpu::GpuDiskCacheHandle& handle,
 void GpuChannelManager::LoseAllContexts() {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
-  discardable_manager_.OnContextLost();
-  passthrough_discardable_manager_.OnContextLost();
   share_group_ = base::MakeRefCounted<gl::GLShareGroup>();
   for (auto& kv : gpu_channels_) {
     kv.second->MarkAllContextsLost();
@@ -779,9 +773,7 @@ void GpuChannelManager::OnApplicationBackgrounded() {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
   if (shared_context_state_) {
-    shared_context_state_->PurgeMemory(
-        base::MemoryPressureListener::MemoryPressureLevel::
-            MEMORY_PRESSURE_LEVEL_CRITICAL);
+    shared_context_state_->PurgeMemory(base::MEMORY_PRESSURE_LEVEL_CRITICAL);
   }
 
   // Release all skia caching when the application is backgrounded.
@@ -824,19 +816,16 @@ void GpuChannelManager::PerformImmediateCleanup() {
 #endif
 }
 
-void GpuChannelManager::HandleMemoryPressure(
-    base::MemoryPressureListener::MemoryPressureLevel memory_pressure_level) {
+void GpuChannelManager::OnMemoryPressure(
+    base::MemoryPressureLevel memory_pressure_level) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
   if (program_cache_)
     program_cache_->HandleMemoryPressure(memory_pressure_level);
 
-  // These caches require a current context for cleanup.
+  // SharedContextState requires a current context for cleanup.
   if (shared_context_state_ &&
       shared_context_state_->MakeCurrent(nullptr, true /* needs_gl */)) {
-      discardable_manager_.HandleMemoryPressure(memory_pressure_level);
-      passthrough_discardable_manager_.HandleMemoryPressure(
-          memory_pressure_level);
     shared_context_state_->PurgeMemory(memory_pressure_level);
   }
 
@@ -1071,14 +1060,6 @@ void GpuChannelManager::ScheduleGrContextCleanup() {
 void GpuChannelManager::StoreShader(const std::string& key,
                                     const std::string& shader) {
   delegate_->StoreBlobToDisk(kGrShaderGpuDiskCacheHandle, key, shader);
-}
-
-void GpuChannelManager::SetImageDecodeAcceleratorWorkerForTesting(
-    ImageDecodeAcceleratorWorker* worker) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-
-  DCHECK(gpu_channels_.empty());
-  image_decode_accelerator_worker_ = worker;
 }
 
 }  // namespace gpu

@@ -6,9 +6,15 @@
 
 #include "base/test/bind.h"
 #include "base/test/gmock_expected_support.h"
+#include "base/test/scoped_feature_list.h"
+#include "components/optimization_guide/content/browser/mock_autofill_annotations_provider.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
+#include "content/public/test/browser_task_environment.h"
+#include "content/public/test/test_browser_context.h"
+#include "content/test/test_web_contents.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/geometry/point.h"
@@ -18,6 +24,7 @@ namespace {
 
 using optimization_guide::TargetNodeInfo;
 using optimization_guide::proto::AnnotatedPageContent;
+using optimization_guide::proto::ContentAttributes;
 using optimization_guide::proto::ContentNode;
 using optimization_guide::proto::Coordinate;
 using optimization_guide::proto::DocumentIdentifier;
@@ -137,7 +144,12 @@ void AssertValidOrigin(
       << "actual: " << actual << ", expected: " << expected;
 }
 
-TEST(PageContentProtoUtilTest, IframeNodeWithNoData) {
+class PageContentProtoUtilTest : public testing::Test {
+ protected:
+  content::BrowserTaskEnvironment task_environment_;
+};
+
+TEST_F(PageContentProtoUtilTest, IframeNodeWithNoData) {
   auto main_frame_token = CreateFrameToken();
   auto root_content = CreatePageContent();
   root_content->root_node->children_nodes.emplace_back(
@@ -171,7 +183,7 @@ TEST(PageContentProtoUtilTest, IframeNodeWithNoData) {
               base::test::ErrorIs("iframe missing iframe_data"));
 }
 
-TEST(PageContentProtoUtilTest, IframeDestroyed) {
+TEST_F(PageContentProtoUtilTest, IframeDestroyed) {
   auto main_frame_token = CreateFrameToken();
   auto root_content = CreatePageContent();
   root_content->root_node->children_nodes.emplace_back(
@@ -216,7 +228,7 @@ TEST(PageContentProtoUtilTest, IframeDestroyed) {
   EXPECT_EQ(iframe_token.frame_token, *query_token);
 }
 
-TEST(PageContentProtoUtilTest, Basic) {
+TEST_F(PageContentProtoUtilTest, Basic) {
   auto root_content = CreatePageContent();
   root_content->root_node->children_nodes.emplace_back(
       CreateTextNode("text", blink::mojom::AIPageContentTextSize::kXS,
@@ -231,7 +243,7 @@ TEST(PageContentProtoUtilTest, Basic) {
   ASSERT_EQ(page_content.proto.root_node().children_nodes_size(), 1);
 }
 
-TEST(PageContentProtoUtilTest, ConvertTextInfo) {
+TEST_F(PageContentProtoUtilTest, ConvertTextInfo) {
   auto root_content = CreatePageContent();
   auto xs_black_text_node =
       CreateTextNode("XS text", blink::mojom::AIPageContentTextSize::kXS,
@@ -284,7 +296,7 @@ TEST(PageContentProtoUtilTest, ConvertTextInfo) {
                      /*has_emphasis=*/false, MakeRgbColor(255, 255, 255));
 }
 
-TEST(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Text) {
+TEST_F(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Text) {
   auto root_content = CreatePageContent();
   auto text_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kText);
@@ -297,10 +309,11 @@ TEST(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Text) {
               base::test::ErrorIs("image_info present, but node isn't kImage"));
 }
 
-TEST(PageContentProtoUtilTest, ConvertImageInfo) {
+TEST_F(PageContentProtoUtilTest, ConvertImageInfo) {
   auto root_content = CreatePageContent();
   auto image_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kImage);
+  image_node->content_attributes->is_ad_related = true;
   image_node->content_attributes->image_info =
       blink::mojom::AIPageContentImageInfo::New();
   image_node->content_attributes->image_info->image_caption = "image caption";
@@ -322,6 +335,10 @@ TEST(PageContentProtoUtilTest, ConvertImageInfo) {
                 .content_attributes()
                 .attribute_type(),
             optimization_guide::proto::CONTENT_ATTRIBUTE_IMAGE);
+  EXPECT_TRUE(page_content.proto.root_node()
+                  .children_nodes(0)
+                  .content_attributes()
+                  .is_ad_related());
   const auto& image_data = page_content.proto.root_node()
                                .children_nodes(0)
                                .content_attributes()
@@ -330,7 +347,7 @@ TEST(PageContentProtoUtilTest, ConvertImageInfo) {
   AssertValidOrigin(image_data.security_origin(), expected_origin);
 }
 
-TEST(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Image) {
+TEST_F(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Image) {
   auto root_content = CreatePageContent();
   auto image_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kImage);
@@ -343,7 +360,7 @@ TEST(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Image) {
               base::test::ErrorIs("text_info present, but node isn't kText"));
 }
 
-TEST(PageContentProtoUtilTest, ConvertVideoData) {
+TEST_F(PageContentProtoUtilTest, ConvertVideoData) {
   auto root_content = CreatePageContent();
   auto video_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kVideo);
@@ -376,7 +393,7 @@ TEST(PageContentProtoUtilTest, ConvertVideoData) {
   AssertValidOrigin(video_data.security_origin(), expected_origin);
 }
 
-TEST(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Video) {
+TEST_F(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Video) {
   auto root_content = CreatePageContent();
   auto video_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kVideo);
@@ -389,7 +406,7 @@ TEST(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Video) {
               base::test::ErrorIs("text_info present, but node isn't kText"));
 }
 
-TEST(PageContentProtoUtilTest, ConvertAnchorData) {
+TEST_F(PageContentProtoUtilTest, ConvertAnchorData) {
   auto root_content = CreatePageContent();
   auto anchor_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kAnchor);
@@ -441,7 +458,7 @@ TEST(PageContentProtoUtilTest, ConvertAnchorData) {
             optimization_guide::proto::ANCHOR_REL_TERMS_OF_SERVICE);
 }
 
-TEST(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Anchor) {
+TEST_F(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Anchor) {
   auto root_content = CreatePageContent();
   auto anchor_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kAnchor);
@@ -454,7 +471,7 @@ TEST(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Anchor) {
               base::test::ErrorIs("table_data present, but node isn't kTable"));
 }
 
-TEST(PageContentProtoUtilTest, TitleSet) {
+TEST_F(PageContentProtoUtilTest, TitleSet) {
   auto root_content = CreatePageContent();
 
   AIPageContentResult page_content;
@@ -463,7 +480,7 @@ TEST(PageContentProtoUtilTest, TitleSet) {
   EXPECT_EQ("Page Title", page_content.proto.main_frame_data().title());
 }
 
-TEST(PageContentProtoUtilTest, MainFrameUrlSet) {
+TEST_F(PageContentProtoUtilTest, MainFrameUrlSet) {
   constexpr std::string_view kCases[] = {"https://example.com",
                                          "http://example.com", "about:blank"};
   for (const auto url : kCases) {
@@ -480,7 +497,7 @@ TEST(PageContentProtoUtilTest, MainFrameUrlSet) {
   }
 }
 
-TEST(PageContentProtoUtilTest, MainFrameDataUrlSet) {
+TEST_F(PageContentProtoUtilTest, MainFrameDataUrlSet) {
   const GURL data_url("data:text/plain,Hello");
 
   auto root_content = CreatePageContent();
@@ -492,7 +509,7 @@ TEST(PageContentProtoUtilTest, MainFrameDataUrlSet) {
   EXPECT_EQ("data:", page_content.proto.main_frame_data().url());
 }
 
-TEST(PageContentProtoUtilTest, MediaDataSet) {
+TEST_F(PageContentProtoUtilTest, MediaDataSet) {
   auto root_content = CreatePageContent();
 
   AIPageContentResult page_content;
@@ -501,7 +518,7 @@ TEST(PageContentProtoUtilTest, MediaDataSet) {
   EXPECT_TRUE(page_content.proto.main_frame_data().has_media_data());
 }
 
-TEST(PageContentProtoUtilTest, ConvertTableData) {
+TEST_F(PageContentProtoUtilTest, ConvertTableData) {
   auto root_content = CreatePageContent();
   auto table_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kTable);
@@ -529,7 +546,7 @@ TEST(PageContentProtoUtilTest, ConvertTableData) {
   EXPECT_EQ(table_data.table_name(), "table name");
 }
 
-TEST(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Table) {
+TEST_F(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Table) {
   auto root_content = CreatePageContent();
   auto table_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kTable);
@@ -543,7 +560,7 @@ TEST(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Table) {
       base::test::ErrorIs("anchor_data present, but node isn't kAnchor"));
 }
 
-TEST(PageContentProtoUtilTest, ConvertTableRowData) {
+TEST_F(PageContentProtoUtilTest, ConvertTableRowData) {
   auto root_content = CreatePageContent();
   auto header_row_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kTableRow);
@@ -597,7 +614,7 @@ TEST(PageContentProtoUtilTest, ConvertTableRowData) {
             optimization_guide::proto::TABLE_ROW_TYPE_FOOTER);
 }
 
-TEST(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_TableRow) {
+TEST_F(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_TableRow) {
   auto root_content = CreatePageContent();
   auto table_row_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kTableRow);
@@ -611,7 +628,7 @@ TEST(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_TableRow) {
               base::test::ErrorIs("form_data present, but node isn't kForm"));
 }
 
-TEST(PageContentProtoUtilTest, ConvertIframeData) {
+TEST_F(PageContentProtoUtilTest, ConvertIframeData) {
   auto main_frame_token = CreateFrameToken();
   auto root_content = CreatePageContent();
   root_content->root_node->children_nodes.emplace_back(
@@ -620,7 +637,6 @@ TEST(PageContentProtoUtilTest, ConvertIframeData) {
   auto iframe_token = CreateFrameToken();
   auto iframe_data = blink::mojom::AIPageContentIframeData::New();
   iframe_data->frame_token = iframe_token.frame_token;
-  iframe_data->likely_ad_frame = true;
   auto frame_data = blink::mojom::AIPageContentFrameData::New();
   frame_data->frame_interaction_info =
       blink::mojom::AIPageContentFrameInteractionInfo::New();
@@ -636,8 +652,9 @@ TEST(PageContentProtoUtilTest, ConvertIframeData) {
       blink::mojom::AIPageContentIframeContent::NewLocalFrameData(
           std::move(frame_data));
 
-  root_content->root_node->children_nodes.back()
-      ->content_attributes->iframe_data = std::move(iframe_data);
+  auto& iframe_node = root_content->root_node->children_nodes.back();
+  iframe_node->content_attributes->is_ad_related = true;
+  iframe_node->content_attributes->iframe_data = std::move(iframe_data);
 
   AIPageContentMap page_content_map;
   page_content_map[main_frame_token] = std::move(root_content);
@@ -679,11 +696,14 @@ TEST(PageContentProtoUtilTest, ConvertIframeData) {
                 .content_attributes()
                 .attribute_type(),
             optimization_guide::proto::CONTENT_ATTRIBUTE_IFRAME);
+  EXPECT_TRUE(page_content.proto.root_node()
+                  .children_nodes(0)
+                  .content_attributes()
+                  .is_ad_related());
   const auto& proto_iframe_data = page_content.proto.root_node()
                                       .children_nodes(0)
                                       .content_attributes()
                                       .iframe_data();
-  EXPECT_TRUE(proto_iframe_data.likely_ad_frame());
   const auto& frame_interaction_info =
       proto_iframe_data.frame_data().frame_interaction_info();
   const auto& selection = frame_interaction_info.selection();
@@ -697,7 +717,7 @@ TEST(PageContentProtoUtilTest, ConvertIframeData) {
   EXPECT_TRUE(proto_iframe_data.frame_data().has_media_data());
 }
 
-TEST(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Form) {
+TEST_F(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Form) {
   auto root_content = CreatePageContent();
   auto form_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kForm);
@@ -711,7 +731,7 @@ TEST(PageContentProtoUtilTest, AttributeTypeDoesNotMatchData_Form) {
       base::test::ErrorIs("table_row_data present, but node isn't kTableRow"));
 }
 
-TEST(PageContentProtoUtilTest, ConvertGeometry) {
+TEST_F(PageContentProtoUtilTest, ConvertGeometry) {
   auto root_content = CreatePageContent();
   auto text_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kText);
@@ -751,7 +771,7 @@ TEST(PageContentProtoUtilTest, ConvertGeometry) {
   EXPECT_TRUE(geometry.is_fixed_or_sticky_position());
 }
 
-TEST(PageContentProtoUtilTest, ConvertPageInteractionInfo) {
+TEST_F(PageContentProtoUtilTest, ConvertPageInteractionInfo) {
   auto root_content = CreatePageContent();
   root_content->page_interaction_info =
       blink::mojom::AIPageContentPageInteractionInfo::New();
@@ -773,7 +793,7 @@ TEST(PageContentProtoUtilTest, ConvertPageInteractionInfo) {
   EXPECT_EQ(page_interaction_info.mouse_position().y(), 20);
 }
 
-TEST(PageContentProtoUtilTest, ConvertMainFrameInteractionInfo) {
+TEST_F(PageContentProtoUtilTest, ConvertMainFrameInteractionInfo) {
   auto root_content = CreatePageContent();
 
   auto frame_data = blink::mojom::AIPageContentFrameData::New();
@@ -808,7 +828,7 @@ TEST(PageContentProtoUtilTest, ConvertMainFrameInteractionInfo) {
   EXPECT_EQ(selection.end_offset(), 4);
 }
 
-TEST(PageContentProtoUtilTest, ConvertAnnotatedRoles) {
+TEST_F(PageContentProtoUtilTest, ConvertAnnotatedRoles) {
   auto root_content = CreatePageContent();
   auto container_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kContainer);
@@ -861,7 +881,7 @@ TEST(PageContentProtoUtilTest, ConvertAnnotatedRoles) {
             optimization_guide::proto::ANNOTATED_ROLE_FOOTER);
 }
 
-TEST(PageContentProtoUtilTest, ConvertFormData) {
+TEST_F(PageContentProtoUtilTest, ConvertFormData) {
   auto root_content = CreatePageContent();
   auto form_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kForm);
@@ -884,7 +904,7 @@ TEST(PageContentProtoUtilTest, ConvertFormData) {
   EXPECT_EQ(form_data_proto.form_name(), "form name");
 }
 
-TEST(PageContentProtoUtilTest, ConvertFormControlData) {
+TEST_F(PageContentProtoUtilTest, ConvertFormControlData) {
   auto root_content = CreatePageContent();
   auto form_control_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kFormControl);
@@ -940,7 +960,7 @@ TEST(PageContentProtoUtilTest, ConvertFormControlData) {
       optimization_guide::proto::REDACTION_DECISION_NO_REDACTION_NECESSARY);
 }
 
-TEST(PageContentProtoUtilTest, ConvertFormControlDataRedactionDecision) {
+TEST_F(PageContentProtoUtilTest, ConvertFormControlDataRedactionDecision) {
   auto root_content = CreatePageContent();
 
   // Test kUnredacted_EmptyPassword
@@ -1010,7 +1030,7 @@ TEST(PageContentProtoUtilTest, ConvertFormControlDataRedactionDecision) {
       optimization_guide::proto::REDACTION_DECISION_REDACTED_HAS_BEEN_PASSWORD);
 }
 
-TEST(PageContentProtoUtilTest, ConvertLabel) {
+TEST_F(PageContentProtoUtilTest, ConvertLabel) {
   auto root_content = CreatePageContent();
   auto anchor_node =
       CreateContentNode(blink::mojom::AIPageContentAttributeType::kAnchor);
@@ -1029,6 +1049,39 @@ TEST(PageContentProtoUtilTest, ConvertLabel) {
   EXPECT_EQ(anchor_attributes.attribute_type(),
             optimization_guide::proto::CONTENT_ATTRIBUTE_ANCHOR);
   EXPECT_EQ(anchor_attributes.label(), "aria label");
+}
+
+TEST_F(PageContentProtoUtilTest, ConvertPopup) {
+  base::test::ScopedFeatureList feature_list(
+      blink::features::kAIPageContentIncludePopupWindows);
+  auto mojom_content = CreatePageContent();
+
+  blink::mojom::AIPageContentPopupPtr popup =
+      blink::mojom::AIPageContentPopup::New();
+  popup->root_node =
+      CreateContentNode(blink::mojom::AIPageContentAttributeType::kRoot);
+  popup->root_node->children_nodes.push_back(
+      CreateContentNode(blink::mojom::AIPageContentAttributeType::kText));
+  popup->root_node->children_nodes.push_back(
+      CreateContentNode(blink::mojom::AIPageContentAttributeType::kText));
+  popup->opener_dom_node_id = 1;
+  mojom_content->frame_data->popup = std::move(popup);
+
+  AIPageContentResult page_content;
+
+  EXPECT_TRUE(
+      ConvertAIPageContentToProto(mojom_content, page_content).has_value());
+
+  EXPECT_EQ(page_content.proto.version(),
+            optimization_guide::proto::ANNOTATED_PAGE_CONTENT_VERSION_1_0);
+  EXPECT_EQ(page_content.proto.root_node().children_nodes_size(), 0);
+
+  ASSERT_TRUE(page_content.proto.has_popup_window());
+  EXPECT_EQ(
+      page_content.proto.popup_window().root_node().children_nodes().size(), 2);
+  EXPECT_EQ(
+      page_content.proto.popup_window().opener_common_ancestor_dom_node_id(),
+      1);
 }
 
 // Test helper to set the geometry of a ContentNode.
@@ -1473,6 +1526,138 @@ TEST(FindNodeWithIDTest, SameNodeIDInDifferentDocuments) {
   std::optional<TargetNodeInfo> result_wrong_doc =
       FindNodeWithID(page_content, "wrong_doc", target_node_id);
   EXPECT_EQ(result_wrong_doc, std::nullopt);
+}
+
+TEST_F(PageContentProtoUtilTest, VisitContentNodes) {
+  AnnotatedPageContent page_content;
+  page_content.mutable_main_frame_data()
+      ->mutable_document_identifier()
+      ->set_serialized_token("main_doc");
+
+  ContentNode* root = page_content.mutable_root_node();
+
+  // Setup the iframe node in the main document.
+  ContentNode* iframe_node_in_main_doc = root->add_children_nodes();
+  DocumentIdentifier iframe_internal_doc_id;
+  const std::string iframe_internal_token = "iframe_doc";
+  iframe_internal_doc_id.set_serialized_token(iframe_internal_token);
+  SetIframeData(iframe_node_in_main_doc, iframe_internal_doc_id);
+
+  // Setup the content *inside* the iframe.
+  ContentNode* iframe_internal_root =
+      iframe_node_in_main_doc->add_children_nodes();
+
+  // Add form_control_node as a child node of iframe_internal_root.
+  ContentNode* form_control_node = iframe_internal_root->add_children_nodes();
+
+  ContentAttributes* form_control_node_attributes =
+      form_control_node->mutable_content_attributes();
+  form_control_node_attributes->set_attribute_type(
+      proto::CONTENT_ATTRIBUTE_FORM_CONTROL);
+
+  std::vector<const proto::ContentNode*> visited_nodes;
+  std::vector<std::string> visited_docs;
+  VisitContentNodes(page_content.root_node(), "main_doc",
+                    [&](const optimization_guide::proto::ContentNode& node,
+                        std::string_view document_identifier) {
+                      visited_nodes.push_back(&node);
+                      visited_docs.emplace_back(document_identifier);
+                    });
+
+  // Expect 4 nodes: main_root, iframe_node_in_main_doc, iframe_internal_root,
+  // and form_control_node.
+  ASSERT_EQ(visited_nodes.size(), 4u);
+  EXPECT_EQ(visited_nodes[0], root);
+  EXPECT_EQ(visited_nodes[1], iframe_node_in_main_doc);
+  EXPECT_EQ(visited_nodes[2], iframe_internal_root);
+  EXPECT_EQ(visited_nodes[3], &iframe_internal_root->children_nodes(0));
+
+  ASSERT_EQ(visited_docs.size(), 4u);
+  EXPECT_EQ(visited_docs[0], "main_doc");
+  EXPECT_EQ(visited_docs[1], "main_doc");
+  EXPECT_EQ(visited_docs[2], "iframe_doc");
+  EXPECT_EQ(visited_docs[3], "iframe_doc");
+
+  // Do a similar exercise with mutable nodes.
+  std::vector<proto::ContentNode*> visited_mutable_nodes;
+  VisitContentNodes(*page_content.mutable_root_node(), "main_doc",
+                    [&](optimization_guide::proto::ContentNode& node,
+                        std::string_view document_identifier) {
+                      visited_mutable_nodes.push_back(&node);
+                    });
+  EXPECT_EQ(visited_mutable_nodes.size(), 4u);
+}
+
+TEST_F(PageContentProtoUtilTest, ConvertFormControlDataWithAutofill) {
+  content::RenderViewHostTestEnabler rvh_test_enabler;
+
+  std::unique_ptr<content::TestBrowserContext> browser_context =
+      std::make_unique<content::TestBrowserContext>();
+  content::WebContents::CreateParams create_params(browser_context.get());
+  std::unique_ptr<content::TestWebContents> web_contents(
+      content::TestWebContents::Create(create_params));
+  web_contents->NavigateAndCommit(GURL("https://example.com"));
+  auto* rfh = web_contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(rfh);
+  auto main_frame_token = rfh->GetGlobalFrameToken();
+
+  auto root_content = CreatePageContent();
+  auto form_control_node =
+      CreateContentNode(blink::mojom::AIPageContentAttributeType::kFormControl);
+  form_control_node->content_attributes->form_control_data =
+      blink::mojom::AIPageContentFormControlData::New();
+  form_control_node->content_attributes->form_control_data->form_control_type =
+      blink::mojom::FormControlType::kInputText;
+  form_control_node->content_attributes->form_control_data->field_value =
+      "some value";
+  root_content->root_node->children_nodes.emplace_back(
+      std::move(form_control_node));
+
+  AIPageContentMap page_content_map;
+  page_content_map[main_frame_token] = std::move(root_content);
+
+  auto provider =
+      std::make_unique<testing::NiceMock<MockAutofillAnnotationsProvider>>();
+  AutofillFieldMetadata metadata;
+  metadata.section_id = 12345;
+  metadata.coarse_field_type = proto::COARSE_AUTOFILL_FIELD_TYPE_CREDIT_CARD;
+  EXPECT_CALL(*provider, GetAutofillFieldData)
+      .WillOnce(testing::Return(metadata));
+  AutofillAnnotationsProvider::SetFor(web_contents.get(), std::move(provider));
+
+  auto get_render_frame_info = base::BindLambdaForTesting(
+      [&](int, blink::FrameToken token) -> std::optional<RenderFrameInfo> {
+        if (token == main_frame_token.frame_token) {
+          RenderFrameInfo render_frame_info;
+          render_frame_info.global_frame_token = main_frame_token;
+          render_frame_info.source_origin =
+              url::Origin::Create(GURL("https://example.com"));
+          render_frame_info.url = GURL("https://example.com");
+          render_frame_info.serialized_server_token =
+              DocumentIdentifierUserData::GetOrCreateForCurrentDocument(rfh)
+                  ->serialized_token();
+          return render_frame_info;
+        }
+        return std::nullopt;
+      });
+
+  AIPageContentResult page_content;
+  FrameTokenSet frame_token_set;
+  EXPECT_TRUE(ConvertAIPageContentToProto(
+                  blink::mojom::AIPageContentOptions::New(), main_frame_token,
+                  page_content_map, get_render_frame_info, frame_token_set,
+                  page_content)
+                  .has_value());
+
+  ASSERT_EQ(page_content.proto.root_node().children_nodes_size(), 1);
+  const auto& form_control_data_proto = page_content.proto.root_node()
+                                            .children_nodes(0)
+                                            .content_attributes()
+                                            .form_control_data();
+  EXPECT_EQ(form_control_data_proto.autofill_section_id(), 12345u);
+  ASSERT_EQ(form_control_data_proto.coarse_autofill_field_type_size(), 1);
+  EXPECT_EQ(form_control_data_proto.coarse_autofill_field_type(0),
+            proto::COARSE_AUTOFILL_FIELD_TYPE_CREDIT_CARD);
 }
 
 }  // namespace

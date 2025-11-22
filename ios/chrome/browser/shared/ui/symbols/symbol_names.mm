@@ -155,6 +155,7 @@ NSString* const kAutofillDataSymbol = @"wand.and.rays";
 NSString* const kSecureLocationBarSymbol = @"lock.fill";
 NSString* const kNavigateToTabSymbol = @"arrow.right.circle";
 NSString* const kRefineQuerySymbol = @"arrow.up.backward";
+NSString* const kRefineQueryDownSymbol = @"arrow.down.backward";
 NSString* const kLinkActionSymbol = @"link";
 NSString* const kQRCodeFinderActionSymbol = @"qrcode.viewfinder";
 NSString* const kNewTabActionSymbol = @"plus.square";
@@ -171,6 +172,7 @@ NSString* const kCopyActionSymbol = @"doc.on.doc";
 NSString* const kPasteActionSymbol = @"doc.on.clipboard";
 NSString* const kPlusRectangleSymbol = @"plus.rectangle";
 NSString* const kNewWindowActionSymbol = @"square.split.2x1";
+NSString* const kEyedropperSymbol = @"eyedropper";
 NSString* const kShowActionSymbol = @"eye";
 NSString* const kHideActionSymbol = @"eye.slash";
 NSString* const kFindInPageActionSymbol = @"doc.text.magnifyingglass";
@@ -194,6 +196,7 @@ NSString* const kShareSymbol = @"square.and.arrow.up";
 NSString* const kXMarkSymbol = @"xmark";
 NSString* const kXMarkSquareSymbol = @"xmark.square";
 NSString* const kXMarkSquareFillSymbol = @"xmark.square.fill";
+NSString* const kXMarkCircleSymbol = @"xmark.circle";
 NSString* const kXMarkCircleFillSymbol = @"xmark.circle.fill";
 NSString* const kPlusSymbol = @"plus";
 NSString* const kSearchSymbol = @"magnifyingglass";
@@ -328,6 +331,11 @@ NSString* const kBuilding2Symbol = @"building.2";
 NSString* const kBookSymbol = @"book";
 NSString* const kKeySymbol = @"key";
 NSString* const kTextDocument = @"text.document";
+NSString* const kTextJustifyLeftSymbol = @"text.justifyleft";
+NSString* const kVideoSymbol = @"video";
+NSString* const kWaveformSymbol = @"waveform.mid";
+NSString* const kPhotoOnRectangleSymbol = @"photo.on.rectangle";
+NSString* const kSystemCameraSymbol = @"camera";
 
 // Names of the default symbol being non-monochrome by default. When using them,
 // you probably want to set their color to monochrome.

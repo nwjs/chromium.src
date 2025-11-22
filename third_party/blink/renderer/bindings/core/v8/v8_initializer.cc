@@ -102,6 +102,7 @@
 #include "third_party/blink/renderer/platform/weborigin/reporting_disposition.h"
 #include "third_party/blink/renderer/platform/wtf/sanitizers.h"
 #include "third_party/blink/renderer/platform/wtf/stack_util.h"
+#include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "tools/v8_context_snapshot/buildflags.h"
 #include "v8/include/v8-profiler.h"
@@ -756,7 +757,7 @@ v8::MaybeLocal<v8::Promise> HostImportModuleWithPhaseDynamically(
   if (module_request.HasInvalidImportAttributeKey(&invalid_attribute_key)) {
     resolver->Reject(V8ThrowException::CreateTypeError(
         script_state->GetIsolate(),
-        "Invalid attribute key \"" + invalid_attribute_key + "\"."));
+        StrCat({"Invalid attribute key \"", invalid_attribute_key, "\"."})));
   } else {
     ReferrerScriptInfo referrer_info =
         ReferrerScriptInfo::FromV8HostDefinedOptions(
@@ -1243,7 +1244,8 @@ class ArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
   ArrayBufferAllocator() : total_allocation_(0) {
     // size_t may be equivalent to uint32_t or uint64_t, cast all values to
     // uint64_t to compare.
-    uint64_t virtual_size = base::SysInfo::AmountOfVirtualMemory();
+    uint64_t virtual_size =
+        base::SysInfo::AmountOfVirtualMemory().InBytesUnsigned();
     uint64_t size_t_max = std::numeric_limits<std::size_t>::max();
     DCHECK(virtual_size < size_t_max);
     // If AmountOfVirtualMemory() returns 0, there is no limit on virtual

@@ -130,8 +130,8 @@ if (enable_vulkan) {
     deps = [
       ":buildflags",
       "//base",
-      "//build:android_buildflags",
       "//components/crash/core/common:crash_key",
+      "//components/viz/common/resources:shared_image_format",
       "//third_party/vulkan_memory_allocator",
       "//ui/base:ozone_buildflags",
       "//ui/gfx",

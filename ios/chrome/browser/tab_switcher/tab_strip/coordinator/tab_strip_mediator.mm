@@ -14,7 +14,6 @@
 #import "components/collaboration/public/collaboration_service.h"
 #import "components/collaboration/public/messaging/message.h"
 #import "components/collaboration/public/messaging/messaging_backend_service.h"
-#import "components/data_sharing/public/group_data.h"
 #import "components/favicon/ios/web_favicon_driver.h"
 #import "components/saved_tab_groups/public/saved_tab_group.h"
 #import "components/saved_tab_groups/public/tab_group_sync_service.h"
@@ -262,6 +261,10 @@ NSMutableArray<TabStripItemIdentifier*>* CreateItemIdentifiers(
 // The consumer for this object.
 @property(nonatomic, weak) id<TabStripConsumer> consumer;
 
+// The WebStateList that this mediator listens for any changes on the total
+// number of Webstates.
+@property(nonatomic, assign) WebStateList* webStateList;
+
 @end
 
 @implementation TabStripMediator {
@@ -442,6 +445,11 @@ NSMutableArray<TabStripItemIdentifier*>* CreateItemIdentifiers(
   }
 }
 
+- (void)setBrowser:(Browser*)browser {
+  _browser = browser;
+  self.webStateList = browser->GetWebStateList();
+}
+
 - (void)deleteSavedGroupWithID:(const base::Uuid&)savedID {
   _tabGroupSyncService->RemoveGroup(savedID);
 }
@@ -466,22 +474,6 @@ NSMutableArray<TabStripItemIdentifier*>* CreateItemIdentifiers(
                            WebStateList::ClosingReason::kUserAction);
 }
 
-- (void)leaveSharedGroup:(TabGroupItem*)tabGroupItem {
-  if (!_collaborationService || !tabGroupItem.tabGroup) {
-    return;
-  }
-  [self takeActionForActionType:TabGroupActionType::kLeaveSharedTabGroup
-                 sharedTabGroup:tabGroupItem.tabGroup];
-}
-
-- (void)deleteSharedGroup:(TabGroupItem*)tabGroupItem {
-  if (!_collaborationService || !tabGroupItem.tabGroup) {
-    return;
-  }
-  [self takeActionForActionType:TabGroupActionType::kDeleteSharedTabGroup
-                 sharedTabGroup:tabGroupItem.tabGroup];
-}
-
 - (void)closeSavedTabFromGroup:(TabGroupItem*)tabGroupItem {
   if (!self.webStateList) {
     return;
@@ -504,34 +496,7 @@ NSMutableArray<TabStripItemIdentifier*>* CreateItemIdentifiers(
 
 #pragma mark - Public properties
 
-- (void)setWebStateList:(WebStateList*)webStateList {
-  if (_webStateList) {
-    [self removeWebStateObservations];
-    _webStateListFaviconObserver.reset();
-    _webStateList->RemoveObserver(_webStateListObserver.get());
-  }
 
-  _webStateList = webStateList;
-
-  if (_webStateList) {
-    DCHECK_GE(_webStateList->count(), 0);
-    _webStateListObserver = std::make_unique<WebStateListObserverBridge>(self);
-    _webStateList->AddObserver(_webStateListObserver.get());
-
-    _webStateListFaviconObserver =
-        std::make_unique<WebStateListFaviconDriverObserver>(_webStateList,
-                                                            self);
-
-    _webStateObserver = std::make_unique<web::WebStateObserverBridge>(self);
-    [self addWebStateObservations];
-
-    // `fetchMessages` depends on the web state list to obtain a group that is
-    // corresponded to a message.
-    [self fetchMessages];
-  }
-
-  [self populateConsumerItems];
-}
 
 #pragma mark - WebStateListObserving
 
@@ -1899,47 +1864,32 @@ NSMutableArray<TabStripItemIdentifier*>* CreateItemIdentifiers(
                reconfigureItems:YES];
 }
 
-// Takes the corresponding action to `actionType` for the shared `group`.
-// TabGroupActionType must be kLeaveSharedTabGroup or kDeleteSharedTabGroup.
-- (void)takeActionForActionType:(TabGroupActionType)actionType
-                 sharedTabGroup:(const TabGroup*)group {
-  CHECK(_collaborationService);
-
-  const syncer::CollaborationId collabId =
-      tab_groups::utils::GetTabGroupCollabID(group, _tabGroupSyncService);
-  CHECK(!collabId->empty());
-  const data_sharing::GroupId groupId = data_sharing::GroupId(collabId.value());
-
-  __weak TabStripMediator* weakSelf = self;
-  auto callback = base::BindOnce(^(bool success) {
-    [weakSelf handleTakeActionForActionTypeOutcome:success];
-  });
-
-  // TODO(crbug.com/393073658): Block the screen.
-
-  // Asynchronously call on the server.
-  switch (actionType) {
-    case TabGroupActionType::kLeaveSharedTabGroup:
-      _collaborationService->LeaveGroup(groupId, std::move(callback));
-      break;
-    case TabGroupActionType::kDeleteSharedTabGroup:
-      _collaborationService->DeleteGroup(groupId, std::move(callback));
-      break;
-    case TabGroupActionType::kUngroupTabGroup:
-    case TabGroupActionType::kDeleteTabGroup:
-    case TabGroupActionType::kLeaveOrKeepSharedTabGroup:
-    case TabGroupActionType::kDeleteOrKeepSharedTabGroup:
-    case TabGroupActionType::kCloseLastTabUnknownRole:
-      NOTREACHED();
+- (void)setWebStateList:(WebStateList*)webStateList {
+  if (_webStateList) {
+    [self removeWebStateObservations];
+    _webStateListFaviconObserver.reset();
+    _webStateList->RemoveObserver(_webStateListObserver.get());
   }
-}
 
-// Called when `takeActionForActionType:forSharedTabGroup:` server's call
-// returned.
-- (void)handleTakeActionForActionTypeOutcome:(BOOL)success {
-  // TODO(crbug.com/393073658):
-  // - Unblock the screen.
-  // - Show an error if needed.
+  _webStateList = webStateList;
+
+  if (_webStateList) {
+    DCHECK_GE(_webStateList->count(), 0);
+    _webStateListObserver = std::make_unique<WebStateListObserverBridge>(self);
+    _webStateList->AddObserver(_webStateListObserver.get());
+
+    _webStateListFaviconObserver =
+        std::make_unique<WebStateListFaviconDriverObserver>(_browser, self);
+
+    _webStateObserver = std::make_unique<web::WebStateObserverBridge>(self);
+    [self addWebStateObservations];
+
+    // `fetchMessages` depends on the web state list to obtain a group that is
+    // corresponded to a message.
+    [self fetchMessages];
+  }
+
+  [self populateConsumerItems];
 }
 
 @end

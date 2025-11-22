@@ -159,6 +159,7 @@
 #include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
 #include "third_party/blink/renderer/core/dom/focus_params.h"
 #include "third_party/blink/renderer/core/dom/focused_element_change_observer.h"
+#include "third_party/blink/renderer/core/dom/focusgroup_flags.h"
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
 #include "third_party/blink/renderer/core/dom/live_node_list.h"
 #include "third_party/blink/renderer/core/dom/mutation_observer.h"
@@ -310,6 +311,7 @@
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/event_with_hit_test_results.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
+#include "third_party/blink/renderer/core/page/focusgroup_controller_utils.h"
 #include "third_party/blink/renderer/core/page/frame_tree.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/page_animator.h"
@@ -1620,7 +1622,7 @@ Element* Document::CreateElement(const QualifiedName& q_name,
   }
 
   return CustomElement::CreateUncustomizedOrUndefinedElement(
-      *this, q_name, flags, is, registry);
+      *this, q_name, flags, is, registry, /*wait_for_registry=*/false);
 }
 
 DocumentFragment* Document::createDocumentFragment() {
@@ -3676,6 +3678,10 @@ void Document::DisplayNoneChangedForFrame() {
   documentElement()->SetNeedsStyleRecalc(
       kLocalStyleChange,
       StyleChangeReasonForTracing::Create(style_change_reason::kFrame));
+  if (GetLayoutView() && GetFrame()->Owner() &&
+      !GetFrame()->Owner()->IsDisplayNone()) {
+    GetLayoutView()->CacheScrollDimensions();
+  }
 }
 
 bool Document::WillPrintSoon() {
@@ -4337,13 +4343,8 @@ void Document::ImplicitClose() {
   if (SvgExtensions())
     AccessSVGExtensions().StartAnimations();
 
-  if (RuntimeEnabledFeatures::ResponsiveIframesEnabled() && IsHTMLDocument() &&
-      responsive_embedded_sizing_) {
-    if (auto* owner = GetFrame()->Owner()) {
-      UpdateStyleAndLayout(DocumentUpdateReason::kUnknown);
-      View()->RecordNaturalDimensions();
-      owner->NaturalSizingInfoChanged();
-    }
+  if (RuntimeEnabledFeatures::ResponsiveIframesEnabled()) {
+    RequestResizeResponsiveIframe();
   }
 }
 
@@ -5946,6 +5947,9 @@ bool Document::SetFocusedElement(Element* new_focused_element,
         true, ancestor, /*need_snap_container_search=*/true);
     DisplayLockUtilities::ElementGainedFocus(focused_element_.Get());
 
+    // Update focusgroup memory for memory-enabled focusgroups.
+    UpdateFocusgroupLastFocused(*focused_element_);
+
     // Element::setFocused for frames can dispatch events.
     if (focused_element_ != new_focused_element) {
       UpdateStyleAndLayoutTree();
@@ -6030,6 +6034,22 @@ void Document::ClearFocusedElement(bool omit_blur_events) {
                      mojom::blink::FocusType::kNone, nullptr);
   params.omit_blur_events = omit_blur_events;
   SetFocusedElement(nullptr, params);
+}
+
+void Document::UpdateFocusgroupLastFocused(Element& focused_element) {
+  if (!RuntimeEnabledFeatures::FocusgroupEnabled(GetExecutionContext())) {
+    return;
+  }
+  // Use shared helper to retrieve nearest focusgroup ancestor element.
+  Element* focusgroup_owner =
+      FocusgroupControllerUtils::GetFocusgroupOwnerOfItem(&focused_element);
+  if (!focusgroup_owner) {
+    return;
+  }
+  if (!(focusgroup_owner->GetFocusgroupData().flags &
+        FocusgroupFlags::kNoMemory)) {
+    focusgroup_owner->SetFocusgroupLastFocused(focused_element);
+  }
 }
 
 void Document::SendFocusNotification(Element* new_focused_element,
@@ -8041,6 +8061,10 @@ void Document::FinishedParsing() {
       }
     }
 
+    if (RuntimeEnabledFeatures::ResponsiveIframesEnabled()) {
+      RequestResizeResponsiveIframe();
+    }
+
     BeginLifecycleUpdatesIfRenderingReady();
 
     frame->GetIdlenessDetector()->DomContentLoadedEventFired();
@@ -8088,6 +8112,10 @@ void Document::FinishedParsing() {
                                                    /*did_commit_load=*/false);
     // Record the total taken time by subresource load observer update.
     Loader()->ReportTotalTakenTimeToUpdateSubresourceLoadMetrics();
+    // Record the total taken time by resource load from memory cache.
+    base::UmaHistogramMicrosecondsTimes(
+        "Blink.MemoryCache.TotalTakenTimeForDidLoadResourceFromMemoryCache",
+        fetcher_->total_taken_time_for_did_load_resource_from_memory_cache());
   }
 }
 
@@ -8269,15 +8297,39 @@ void Document::ColorSchemeMetaChanged() {
   GetStyleEngine().SetPageColorSchemes(color_scheme);
 }
 
+void Document::RequestResizeResponsiveIframe(ExceptionState* exception_state) {
+  DCHECK(RuntimeEnabledFeatures::ResponsiveIframesEnabled());
+  if (!IsHTMLDocument() || !responsive_embedded_sizing_) {
+    if (exception_state) {
+      exception_state->ThrowDOMException(
+          DOMExceptionCode::kNotAllowedError,
+          "Requesting resize is allowed only from HTML documents "
+          "with `responsive-embedded-sizing` meta tags.");
+    }
+    return;
+  }
+  if (auto* owner = GetFrame()->Owner()) {
+    UpdateStyleAndLayout(DocumentUpdateReason::kUnknown);
+    if (View()->RecordNaturalDimensions()) {
+      owner->NaturalSizingInfoChanged();
+    }
+  } else if (exception_state) {
+    exception_state->ThrowDOMException(
+        DOMExceptionCode::kNotAllowedError,
+        "Requesting resize is allowed only from IFRAME content.");
+  }
+}
+
 void Document::ResponsiveEmbeddedSizingChanged() {
   DCHECK(RuntimeEnabledFeatures::ResponsiveIframesEnabled());
   responsive_embedded_sizing_ = false;
-  if (auto* root_element = documentElement()) {
-    for (HTMLMetaElement& meta_element :
+  if (const auto* root_element = documentElement()) {
+    for (const HTMLMetaElement& meta_element :
          Traversal<HTMLMetaElement>::DescendantsOf(*root_element)) {
       if (EqualIgnoringASCIICase(meta_element.GetName(),
                                  keywords::kResponsiveEmbeddedSizing)) {
         responsive_embedded_sizing_ = true;
+        break;
       }
     }
   }
@@ -8557,7 +8609,7 @@ void Document::AddToTopLayer(Element* element, const Element* before) {
   // element in the top layer list.
   if (PseudoElement* backdrop =
           element->GetPseudoElement(PseudoId::kPseudoIdBackdrop,
-                                    /*view_transition_name=*/g_null_atom)) {
+                                    /*pseudo_argument=*/g_null_atom)) {
     CHECK(!backdrop->IsInTopLayer());
     AddToTopLayer(backdrop, element);
   }
@@ -8631,7 +8683,7 @@ void Document::RemoveFromTopLayerImmediately(Element* element) {
   // element in the top layer list.
   if (PseudoElement* backdrop =
           element->GetPseudoElement(PseudoId::kPseudoIdBackdrop,
-                                    /*view_transition_name=*/g_null_atom)) {
+                                    /*pseudo_argument=*/g_null_atom)) {
     CHECK(backdrop->IsInTopLayer());
     RemoveFromTopLayerImmediately(backdrop);
   }
@@ -10235,6 +10287,15 @@ bool Document::CanThrottleFrameRate() {
     }
   }
   return true;
+}
+
+CustomElementRegistry* Document::EffectiveGlobalCustomElementRegistry() const {
+  DCHECK(RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled());
+  auto* registry = customElementRegistry();
+  if (registry && registry->IsGlobalRegistry()) {
+    return registry;
+  }
+  return nullptr;
 }
 
 template class CORE_TEMPLATE_EXPORT Supplement<Document>;

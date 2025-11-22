@@ -195,9 +195,7 @@ class ProfileKeyedServiceBrowserTest : public InProcessBrowserTest {
           network::features::kBrowsingTopics,
           blink::features::kBuiltInAIAPI,
           extensions_features::kForceWebRequestProxyForTest,
-          net::features::kTopLevelTpcdOriginTrial,
           net::features::kTpcdTrialSettings,
-          net::features::kTopLevelTpcdTrialSettings,
           network::features::kReduceAcceptLanguage,
           features::kMainNodeAnnotations,
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
@@ -238,8 +236,18 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
       CreateProfileAndWaitForAllTasks(ProfileManager::GetSystemProfilePath());
   ASSERT_FALSE(system_profile->IsOffTheRecord());
   ASSERT_TRUE(system_profile->IsSystemProfile());
-  TestKeyedProfileServicesActives(system_profile,
-                                  /*expected_active_services_names=*/{});
+  TestKeyedProfileServicesActives(
+      system_profile,
+      /*expected_active_services_names=*/{
+          // There is no control over the creation based on the Profile types in
+          // components/. These services are created for the System Profile by
+          // default because their `ServiceIsCreatedWithBrowserContext()`
+          // returns true.
+          "BrowserBoundKeyDeleter",
+          // `WebDataService` is required because `BrowserBoundKeyDeleter`
+          // depends on it.
+          "WebDataService",
+      });
 }
 
 IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
@@ -250,13 +258,14 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
   ASSERT_TRUE(system_profile->IsSystemProfile());
 
   // clang-format off
-  std::set<std::string> exepcted_created_services_names = {
+  std::set<std::string> expected_created_services_names = {
     // in components:
     // There is no control over the creation based on the Profile types in
     // components/. These services are not created for the System Profile by
     // default, however their creation is still possible.
     "AutocompleteControllerEmitter",
     "AutofillInternalsService",
+    "BrowserBoundKeyDeleter",
     "DataControlsRulesService",
     "HasEnrolledInstrumentQuery",
     "LocalPresentationManager",
@@ -268,7 +277,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
 #endif
     "PasswordManagerInternalsService",
     "PasswordRequirementsServiceFactory",
-    "PolicyBlocklist",
     "PolicyClipboardRestriction",
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
     "ReportingEventRouter",
@@ -284,11 +292,14 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     "PermissionsUpdaterShutdownFactory",
     "PluginInfoHostImpl",
     "TurnSyncOnHelperShutdownNotifier",
+
+    // This service is needed to handle navigations in the Profile Picker.
+    "ChromePolicyBlocklistService",
   };
   // clang-format on
 
   TestKeyedProfileServicesActives(system_profile,
-                                  exepcted_created_services_names,
+                                  expected_created_services_names,
                                   /*force_create_services=*/true);
 }
 
@@ -316,7 +327,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     BUILDFLAG(IS_CHROMEOS)
     "PasswordManagerBlocklist",
 #endif
-    "PolicyBlocklist",
     "PolicyClipboardRestriction",
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
     "ReportingEventRouter",
@@ -336,6 +346,9 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     // Picker.
     "feature_engagement::Tracker",
     "UserEducationService",
+
+    // This service is needed to handle navigations in the Profile Picker.
+    "ChromePolicyBlocklistService",
   };
   // clang-format on
 
@@ -462,6 +475,9 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
 #endif  // BUILDFLAG(IS_WIN)
     "UsbDeviceManager",
     "UsbDeviceResourceManager",
+#if !BUILDFLAG(IS_ANDROID)
+    "WaapUIMetricsService",
+#endif  // !BUILDFLAG(IS_ANDROID)
     "sct_reporting::Factory",
 
     "BtmBrowserSigninDetector",
@@ -605,6 +621,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "BookmarkUndoService",
     "BookmarksAPI",
     "BrailleDisplayPrivateAPI",
+    "BrowserBoundKeyDeleter",
     "BrowsingTopicsService",
     "ChildAccountService",
     "ChromeSigninClient",
@@ -736,7 +753,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "OneTimePermissionsTrackerKeyedService",
     "OperationManager",
     "OptimizationGuideKeyedService",
-    "OriginTrialService",
 #if !BUILDFLAG(IS_CHROMEOS)
     // TODO(crbug.com/374351946): Investigate if this is necessary on CrOS.
     "PageContentAnnotationsService",
@@ -829,7 +845,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "TemplateURLServiceFactory",
     "ThemeService",
     "ToolbarActionsModel",
-    "TopLevelTrialService",
     "TpcdTrialService",
     "TrackingProtectionSettings",
     "TranslateRanker",

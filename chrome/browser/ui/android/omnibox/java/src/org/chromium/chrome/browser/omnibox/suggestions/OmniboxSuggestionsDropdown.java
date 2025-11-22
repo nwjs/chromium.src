@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.omnibox.suggestions;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
+import static org.chromium.ui.base.KeyNavigationUtil.isTabNavigation;
 
 import android.content.Context;
 import android.content.res.Resources;
@@ -19,6 +20,7 @@ import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.FrameLayout;
 
+import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -294,6 +296,10 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
                 resources.getDimensionPixelOffset(R.dimen.omnibox_suggestion_list_padding_top);
         this.setPaddingRelative(0, paddingTop, 0, mBaseBottomPadding);
 
+        // Disable the scrollbar since it causes the hover events happening near the
+        // scrollbar not dispatched to the underlying views.
+        setVerticalScrollBarEnabled(false);
+
         if (OmniboxFeatures.sAsyncViewInflation.isEnabled()) {
             setRecycledViewPool(new PreWarmingRecycledViewPool(mAdapter, context));
         }
@@ -436,7 +442,7 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
             return true;
         }
 
-        if (keyCode == KeyEvent.KEYCODE_TAB) {
+        if (isTabNavigation(event)) {
             boolean maybeProcessed = super.onKeyDown(keyCode, event);
             if (maybeProcessed) return true;
             if (event.isShiftPressed()) {
@@ -488,6 +494,13 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
 
     public void emitWindowContentChangedAnnouncement() {
         cancelWindowContentChangedAnnouncement();
+
+        @StringRes
+        int announcedStringRes =
+                mToolbarOnTop
+                        ? R.string.accessibility_omnibox_suggested_items
+                        : R.string.accessibility_omnibox_suggested_items_above;
+
         // Note: can't use postDelayed until minSdk is 28.
         mHandler.postAtTime(
                 () -> {
@@ -495,7 +508,7 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
                     setContentDescription(
                             getContext()
                                     .getString(
-                                            R.string.accessibility_omnibox_suggested_items,
+                                            announcedStringRes,
                                             mAdapter == null ? 0 : mAdapter.getItemCount()));
                     sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED);
                     setAccessibilityLiveRegion(ACCESSIBILITY_LIVE_REGION_NONE);

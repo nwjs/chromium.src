@@ -2,20 +2,36 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {stringToMojoString16} from 'chrome://resources/js/mojo_type_util.js';
-import type {AutocompleteResult} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {createAutocompleteMatch} from 'chrome://new-tab-page/new_tab_page.js';
+import type {AutocompleteMatch, AutocompleteResult} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertEquals} from 'chrome://webui-test/chai_assert.js';
 
 export function createAutocompleteResult(
     modifiers: Partial<AutocompleteResult> = {}): AutocompleteResult {
   const base: AutocompleteResult = {
-    input: stringToMojoString16(''),
+    input: '',
     matches: [],
     suggestionGroupsMap: {},
     smartComposeInlineHint: null,
   };
 
   return Object.assign(base, modifiers);
+}
+
+export function createSearchMatch(modifiers: Partial<AutocompleteMatch> = {}):
+    AutocompleteMatch {
+  return Object.assign(
+      createAutocompleteMatch(), {
+        isSearchType: true,
+        contents: 'hello world',
+        contentsClass: [{offset: 0, style: 0}],
+        description: 'Google search',
+        descriptionClass: [{offset: 0, style: 4}],
+        destinationUrl: {url: 'https://www.google.com/search?q=hello+world'},
+        fillIntoEdit: 'hello world',
+        type: 'search-what-you-typed',
+      },
+      modifiers);
 }
 
 /**

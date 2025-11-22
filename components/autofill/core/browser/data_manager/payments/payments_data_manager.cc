@@ -45,6 +45,7 @@
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/autofill/core/common/credit_card_number_validation.h"
+#include "components/autofill/core/common/dense_set.h"
 #include "components/prefs/pref_service.h"
 #include "components/sync/base/data_type.h"
 #include "components/sync/protocol/autofill_specifics.pb.h"
@@ -1098,6 +1099,20 @@ void PaymentsDataManager::SetAutofillHasSeenBnpl() {
 }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+
+bool PaymentsDataManager::IsAutofillAmountExtractionAiTermsSeenPrefEnabled()
+    const {
+  return base::FeatureList::IsEnabled(
+             features::kAutofillEnableAiBasedAmountExtraction) &&
+         prefs::AmountExtractionAiTermsSeen(pref_service_);
+}
+
+void PaymentsDataManager::SetAutofillAmountExtractionAiTermsSeen() {
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillEnableAiBasedAmountExtraction)) {
+    prefs::SetAutofillAmountExtractionAiTermsSeen(pref_service_);
+  }
+}
 
 bool PaymentsDataManager::IsAutofillWalletImportEnabled() const {
   if (is_syncing_for_test_) {

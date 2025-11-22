@@ -74,7 +74,6 @@ union ContextCreationAttribs {
 };
 
 struct CreateCommandBufferParams {
-  int32 share_group_id;
   int32 stream_id;
   SchedulingPriority stream_priority;
   ContextCreationAttribs attribs;
@@ -101,18 +100,6 @@ struct CommandBufferState {
   ContextLostReason context_lost_reason;
   uint32 generation;
   uint32 set_get_buffer_count;
-};
-
-struct ScheduleImageDecodeParams {
-  array<uint8> encoded_data;
-  gfx.mojom.Size output_size;
-  int32 raster_decoder_route_id;
-  uint32 transfer_cache_entry_id;
-  int32 discardable_handle_shm_id;
-  uint32 discardable_handle_shm_offset;
-  uint64 discardable_handle_release_count;
-  gfx.mojom.ColorSpace target_color_space;
-  bool needs_mips;
 };
 
 // Main control interface for a GPU process connection. For now an instance of
@@ -170,12 +157,6 @@ interface GpuChannel {
   // destructor, so that the stub deletes the actual CommandBufferService
   // object that it's hosting.
   [Sync, NoInterrupt] DestroyCommandBuffer(int32 routing_id) => ();
-
-  // Schedules a hardware-accelerated image decode in the GPU process. Renderers
-  // should use gpu::ImageDecodeAcceleratorProxy to schedule decode requests
-  // which are processed by gpu::ImageDecodeAcceleratorStub on the service side.
-  ScheduleImageDecode(ScheduleImageDecodeParams params,
-                      uint64 decode_release_count);
 
   // Sends a batch of DeferredRequests to be executed by the service.
   // `flushed_deferred_message_id` is used to update the per-channel id of
@@ -255,7 +236,7 @@ interface GpuChannel {
   // Note that this method has some similar functionality but is different than
   // above CopyToGpuMemoryBufferAsync in the sense that above method is only
   // used for shared memory GMBs whereas this method is used for native GMBs.
-  [EnableIf=is_win]
+  [EnableIf=is_win|is_android]
   CopyNativeGmbToSharedMemoryAsync(gfx.mojom.GpuMemoryBufferHandle
       buffer_handle, mojo_base.mojom.UnsafeSharedMemoryRegion shared_memory)
                      => (bool success);

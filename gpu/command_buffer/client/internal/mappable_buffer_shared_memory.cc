@@ -16,7 +16,6 @@
 #include "base/numerics/safe_math.h"
 #include "base/process/memory.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
-#include "ui/gfx/buffer_format_util.h"
 #include "ui/gl/gl_bindings.h"
 
 namespace gpu {
@@ -108,6 +107,23 @@ MappableBufferSharedMemory::CreateFromHandle(gfx::GpuMemoryBufferHandle handle,
   return base::WrapUnique(new MappableBufferSharedMemory(
       size, format, std::move(handle).region(),
       base::WritableSharedMemoryMapping(), offset, stride));
+}
+
+std::unique_ptr<MappableBufferSharedMemory>
+MappableBufferSharedMemory::CreateFromMapping(
+    base::WritableSharedMemoryMapping shared_memory_mapping,
+    const gfx::Size& size,
+    viz::SharedImageFormat format) {
+  CHECK(shared_memory_mapping.IsValid());
+  std::optional<size_t> stride =
+      viz::SharedMemoryRowSizeForSharedImageFormat(format, 0, size.width());
+  if (!stride) {
+    return nullptr;
+  }
+
+  return base::WrapUnique(new MappableBufferSharedMemory(
+      size, format, base::UnsafeSharedMemoryRegion(),
+      std::move(shared_memory_mapping), /*offset=*/0, stride.value()));
 }
 
 // static

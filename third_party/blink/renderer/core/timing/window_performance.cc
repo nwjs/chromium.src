@@ -635,9 +635,8 @@ void WindowPerformance::EventTimingProcessingStart(
   // `target` can be non-null but detached from DOM and GC-ed before observer
   // fires.
   PerformanceEventTiming* entry = PerformanceEventTiming::Create(
-      event_type, reporting_info, event.cancelable(),
-      hit_test_target ? hit_test_target->ToNode() : nullptr, DomWindow(),
-      NavigationId());
+      event_type, reporting_info, event.cancelable(), hit_test_target,
+      DomWindow(), NavigationId());
 
   event_timing_entries_.push_back(entry);
   current_event_ = &event;
@@ -699,7 +698,7 @@ void WindowPerformance::EventTimingProcessingEnd(
     // `event->target()` is assigned as part of EventDispatch, and will be unset
     // whenever we skip dispatch. (See: crbug.com/1367329).
     // Note: target may be dom detached, and even GC-ed, before Observer fires.
-    entry->SetTarget(event.RawTarget()->ToNode());
+    entry->SetTarget(event.RawTarget());
   }
 
   // Request presentation time first, because this might increment presentation
@@ -1512,25 +1511,18 @@ uint64_t WindowPerformance::interactionCount() const {
 }
 
 void WindowPerformance::OnLargestContentfulPaintUpdated(
-    std::optional<DOMPaintTimingInfo> paint_timing_info,
+    const DOMPaintTimingInfo& paint_timing_info,
     uint64_t paint_size,
     base::TimeTicks load_time,
     const AtomicString& id,
     const String& url,
     Element* element) {
-  DOMHighResTimeStamp load_timestamp =
-      MonotonicTimeToDOMHighResTimeStamp(load_time);
-
   auto* entry = MakeGarbageCollected<LargestContentfulPaint>(
-      paint_timing_info.has_value() ? paint_timing_info->presentation_time
-                                    : load_timestamp,
-      paint_timing_info.has_value() ? paint_timing_info->presentation_time : 0,
-      paint_size, load_timestamp, id, url, element, DomWindow(),
-      NavigationId());
-
-  if (paint_timing_info) {
-    entry->SetPaintTimingInfo(paint_timing_info.value());
-  }
+      /*start_time=*/paint_timing_info.presentation_time,
+      /*render_time=*/paint_timing_info.presentation_time, paint_size,
+      MonotonicTimeToDOMHighResTimeStamp(load_time), id, url, element,
+      DomWindow(), NavigationId());
+  entry->SetPaintTimingInfo(paint_timing_info);
 
   if (HasObserverFor(PerformanceEntry::kLargestContentfulPaint)) {
     NotifyObserversOfEntry(*entry);
@@ -1561,7 +1553,7 @@ void WindowPerformance::OnLargestContentfulPaintUpdated(
 }
 
 void WindowPerformance::OnInteractionContentfulPaintUpdated(
-    std::optional<DOMPaintTimingInfo> paint_timing_info,
+    const DOMPaintTimingInfo& paint_timing_info,
     uint64_t paint_size,
     base::TimeTicks load_time,
     const AtomicString& id,
@@ -1572,19 +1564,12 @@ void WindowPerformance::OnInteractionContentfulPaintUpdated(
           GetExecutionContext())) {
     return;
   }
-  DOMHighResTimeStamp load_timestamp =
-      MonotonicTimeToDOMHighResTimeStamp(load_time);
-
   auto* entry = MakeGarbageCollected<InteractionContentfulPaint>(
-      paint_timing_info.has_value() ? paint_timing_info->presentation_time
-                                    : load_timestamp,
-      paint_timing_info.has_value() ? paint_timing_info->presentation_time : 0,
-      paint_size, load_timestamp, id, url, element, DomWindow(),
-      navigation_id);
-
-  if (paint_timing_info) {
-    entry->SetPaintTimingInfo(paint_timing_info.value());
-  }
+      /*start_time=*/paint_timing_info.presentation_time,
+      /*render_time=*/paint_timing_info.presentation_time, paint_size,
+      MonotonicTimeToDOMHighResTimeStamp(load_time), id, url, element,
+      DomWindow(), navigation_id);
+  entry->SetPaintTimingInfo(paint_timing_info);
 
   if (HasObserverFor(PerformanceEntry::kInteractionContentfulPaint)) {
     NotifyObserversOfEntry(*entry);

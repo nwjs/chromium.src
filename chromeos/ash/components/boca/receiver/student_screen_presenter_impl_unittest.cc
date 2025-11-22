@@ -10,6 +10,7 @@
 
 #include "base/functional/callback_helpers.h"
 #include "base/json/json_reader.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "base/values.h"
@@ -40,6 +41,11 @@ constexpr std::string_view kConnectionIdPair =
     R"({"connectionId": "connection-id"})";
 constexpr std::string_view kDisconnectedState = "DISCONNECTED";
 constexpr std::string_view kStopRequestedState = "STOP_REQUESTED";
+
+constexpr char kBocaPresentStudentScreenResultUmaPath[] =
+    "Ash.Boca.ScreenShare.PresentStudentScreen.Result";
+constexpr char kBocaPresentStudentScreenFailureReasonUmaPath[] =
+    "Ash.Boca.ScreenShare.PresentStudentScreen.FailureReason";
 
 class StudentScreenPresenterImplTest : public testing::Test {
  protected:
@@ -140,7 +146,16 @@ class StudentScreenPresenterImplTest : public testing::Test {
   ::boca::UserIdentity student_identity_;
 };
 
+TEST_F(StudentScreenPresenterImplTest, IsPresentingInitiallyFalse) {
+  StudentScreenPresenterImpl presenter(kSessionId, teacher_identity_,
+                                       kTeacherDeviceId,
+                                       url_loader_factory_.GetSafeWeakWrapper(),
+                                       identity_test_env_.identity_manager());
+  EXPECT_FALSE(presenter.IsPresenting(/*student_id=*/std::nullopt));
+}
+
 TEST_F(StudentScreenPresenterImplTest, StartSuccess) {
+  base::HistogramTester histogram_tester;
   base::test::TestFuture<bool> start_future;
   StudentScreenPresenterImpl presenter(kSessionId, teacher_identity_,
                                        kTeacherDeviceId,
@@ -153,6 +168,9 @@ TEST_F(StudentScreenPresenterImplTest, StartSuccess) {
       GetStartReceiverUrl(kReceiverId), kConnectionIdPair);
 
   EXPECT_TRUE(start_future.Get());
+  EXPECT_TRUE(presenter.IsPresenting(/*student_id=*/std::nullopt));
+  EXPECT_TRUE(presenter.IsPresenting(student_identity_.gaia_id()));
+  EXPECT_FALSE(presenter.IsPresenting(/*student_id=*/"other-student-id"));
   ASSERT_TRUE(request_dict.has_value());
   EXPECT_EQ(*request_dict->FindString("sessionId"), kSessionId);
   VerifyUserDeviceInfo(
@@ -161,9 +179,15 @@ TEST_F(StudentScreenPresenterImplTest, StartSuccess) {
   VerifyUserDeviceInfo(
       request_dict->FindDictByDottedPath("connection.presenter"),
       student_identity_, kStudentDeviceId);
+  histogram_tester.ExpectTotalCount(
+      kBocaPresentStudentScreenFailureReasonUmaPath, 0);
+  histogram_tester.ExpectTotalCount(kBocaPresentStudentScreenResultUmaPath, 1);
+  histogram_tester.ExpectBucketCount(kBocaPresentStudentScreenResultUmaPath,
+                                     /* success */ 1, 1);
 }
 
 TEST_F(StudentScreenPresenterImplTest, StartFailure) {
+  base::HistogramTester histogram_tester;
   base::test::TestFuture<bool> start_future1;
   base::test::TestFuture<bool> start_future2;
   StudentScreenPresenterImpl presenter(kSessionId, teacher_identity_,
@@ -176,6 +200,16 @@ TEST_F(StudentScreenPresenterImplTest, StartFailure) {
   WaitAndRespond(GetStartReceiverUrl(kReceiverId), "",
                  net::HTTP_INTERNAL_SERVER_ERROR);
   EXPECT_FALSE(start_future1.Get());
+  EXPECT_FALSE(presenter.IsPresenting(/*student_id=*/std::nullopt));
+  EXPECT_FALSE(presenter.IsPresenting(student_identity_.gaia_id()));
+  histogram_tester.ExpectTotalCount(
+      kBocaPresentStudentScreenFailureReasonUmaPath, 1);
+  histogram_tester.ExpectBucketCount(
+      kBocaPresentStudentScreenFailureReasonUmaPath,
+      /* kStartKioskConnectionRequestFailed */ 3, 1);
+  histogram_tester.ExpectTotalCount(kBocaPresentStudentScreenResultUmaPath, 1);
+  histogram_tester.ExpectBucketCount(kBocaPresentStudentScreenResultUmaPath,
+                                     /* failure */ 0, 1);
 
   // Verify that a new request will be accepted.
   presenter.Start(kReceiverId, student_identity_, kStudentDeviceId,
@@ -186,8 +220,13 @@ TEST_F(StudentScreenPresenterImplTest, StartFailure) {
 }
 
 TEST_F(StudentScreenPresenterImplTest, OverlappingStartWillFail) {
+  base::HistogramTester histogram_tester;
   base::test::TestFuture<bool> start_future1;
   base::test::TestFuture<bool> start_future2;
+  ::boca::UserIdentity other_student_identity;
+  other_student_identity.set_email("other@email.com");
+  other_student_identity.set_full_name("Other Name");
+  other_student_identity.set_gaia_id("other-gaia-id");
   StudentScreenPresenterImpl presenter(kSessionId, teacher_identity_,
                                        kTeacherDeviceId,
                                        url_loader_factory_.GetSafeWeakWrapper(),
@@ -195,13 +234,25 @@ TEST_F(StudentScreenPresenterImplTest, OverlappingStartWillFail) {
   presenter.Start(kReceiverId, student_identity_, kStudentDeviceId,
                   start_future1.GetCallback(),
                   /*disconnected_cb=*/base::DoNothing());
-  presenter.Start(kReceiverId, student_identity_, kStudentDeviceId,
+  presenter.Start(kReceiverId, other_student_identity, kStudentDeviceId,
                   start_future2.GetCallback(),
                   /*disconnected_cb=*/base::DoNothing());
   EXPECT_FALSE(start_future2.Get());
+  EXPECT_TRUE(presenter.IsPresenting(/*student_id=*/std::nullopt));
+  EXPECT_TRUE(presenter.IsPresenting(student_identity_.gaia_id()));
+  EXPECT_FALSE(presenter.IsPresenting(other_student_identity.gaia_id()));
 
   WaitAndRespond(GetStartReceiverUrl(kReceiverId), kConnectionIdPair);
   EXPECT_TRUE(start_future1.Get());
+  histogram_tester.ExpectTotalCount(
+      kBocaPresentStudentScreenFailureReasonUmaPath, 1);
+  histogram_tester.ExpectBucketCount(
+      kBocaPresentStudentScreenFailureReasonUmaPath,
+      /* kStudentScreenShareActive */ 1, 1);
+  // Recorded for each call to `Start`.
+  histogram_tester.ExpectTotalCount(kBocaPresentStudentScreenResultUmaPath, 2);
+  histogram_tester.ExpectBucketCount(kBocaPresentStudentScreenResultUmaPath,
+                                     /* failure */ 0, 1);
 }
 
 TEST_F(StudentScreenPresenterImplTest, CheckConnectionDisconnected) {
@@ -291,6 +342,7 @@ TEST_F(StudentScreenPresenterImplTest, StopSuccess) {
   base::test::TestFuture<bool> start_future1;
   base::test::TestFuture<bool> start_future2;
   base::test::TestFuture<bool> stop_future;
+  base::test::TestFuture<bool> overlap_stop_future;
   base::test::TestFuture<void> disconnected_future;
   StudentScreenPresenterImpl presenter(kSessionId, teacher_identity_,
                                        kTeacherDeviceId,
@@ -304,12 +356,14 @@ TEST_F(StudentScreenPresenterImplTest, StopSuccess) {
   EXPECT_TRUE(start_future1.Get());
 
   presenter.Stop(stop_future.GetCallback());
+  presenter.Stop(overlap_stop_future.GetCallback());
   std::optional<base::Value::Dict> update_request =
       GetRequestBodyAndRespond(GetUpdateReceiverUrl(kReceiverId, kConnectionId),
                                UpdateConnectionStateJson(kDisconnectedState));
   ASSERT_TRUE(update_request.has_value());
   EXPECT_EQ(*update_request->FindString("state"), kStopRequestedState);
   EXPECT_TRUE(stop_future.Get());
+  EXPECT_TRUE(overlap_stop_future.Get());
   EXPECT_FALSE(disconnected_future.IsReady());
 
   // Verify that a new request will be accepted.
@@ -539,6 +593,19 @@ TEST_F(StudentScreenPresenterImplTest, StopWithoutStart) {
                                        kTeacherDeviceId,
                                        url_loader_factory_.GetSafeWeakWrapper(),
                                        identity_test_env_.identity_manager());
+  presenter.Stop(stop_future.GetCallback());
+  EXPECT_TRUE(stop_future.Get());
+}
+
+TEST_F(StudentScreenPresenterImplTest, StopBeforeStartReceiverResponse) {
+  base::test::TestFuture<bool> stop_future;
+  StudentScreenPresenterImpl presenter(kSessionId, teacher_identity_,
+                                       kTeacherDeviceId,
+                                       url_loader_factory_.GetSafeWeakWrapper(),
+                                       identity_test_env_.identity_manager());
+  presenter.Start(kReceiverId, student_identity_, kStudentDeviceId,
+                  base::DoNothing(), base::DoNothing());
+
   presenter.Stop(stop_future.GetCallback());
   EXPECT_FALSE(stop_future.Get());
 }

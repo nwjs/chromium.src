@@ -100,6 +100,10 @@
     background-color: transparent;
   }
 
+  :host([hide-background-image-canvas]) #backgroundImageCanvas {
+    visibility: hidden;
+  }
+
   #selectionOverlay :not(#backgroundImageCanvas) {
     transition: opacity 150ms linear;
   }
@@ -233,6 +237,10 @@
     animation: scale-in 250ms cubic-bezier(0.2, 0, 0, 1);
     opacity: 1;
     visibility: visible;
+  }
+
+  :host(:not([enable-region-context-menu])) #selectedRegionContextMenu {
+    display: none;
   }
 
   .context-menu-item {

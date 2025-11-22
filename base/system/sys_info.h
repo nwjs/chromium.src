@@ -87,18 +87,17 @@ class BASE_EXPORT SysInfo {
   // Return the number of bytes of virtual memory of this process. A return
   // value of zero means that there is no limit on the available virtual
   // memory.
-  // TODO(crbug.com/429140103): Convert the return type to ByteCount.
-  static uint64_t AmountOfVirtualMemory();
+  static ByteCount AmountOfVirtualMemory();
 
   // Return the available disk space in bytes on the volume containing |path|,
-  // or -1 on failure.
+  // or nullopt on failure.
   // TODO(crbug.com/429140103): Convert the return type to ByteCount.
-  static int64_t AmountOfFreeDiskSpace(const FilePath& path);
+  static std::optional<int64_t> AmountOfFreeDiskSpace(const FilePath& path);
 
-  // Return the total disk space in bytes on the volume containing |path|, or -1
-  // on failure.
+  // Return the total disk space in bytes on the volume containing |path|, or
+  // nullopt on failure.
   // TODO(crbug.com/429140103): Convert the return type to ByteCount.
-  static int64_t AmountOfTotalDiskSpace(const FilePath& path);
+  static std::optional<int64_t> AmountOfTotalDiskSpace(const FilePath& path);
 
 #if BUILDFLAG(IS_FUCHSIA)
   // Sets the total amount of disk space to report under the specified |path|.

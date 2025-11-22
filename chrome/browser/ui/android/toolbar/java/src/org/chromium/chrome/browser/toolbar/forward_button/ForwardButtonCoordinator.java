@@ -115,8 +115,20 @@ public class ForwardButtonCoordinator extends ToolbarChildButton {
     }
 
     @Override
-    public void setVisibility(boolean visible) {
-        mImageButton.setVisibility(visible ? View.VISIBLE : View.GONE);
+    public boolean isVisible() {
+        return mImageButton.getVisibility() == View.VISIBLE;
+    }
+
+    // TODO(crbug.com/455658153): Ensure setVisibility() can handle multiple sources for setting
+    //  visibility. Currently this only accounts for visibility being set due to the width of the
+    //  ToolbarTablet.
+    public void setVisibility(boolean visibility) {
+        mImageButton.setVisibility(visibility ? View.VISIBLE : View.GONE);
+    }
+
+    @Override
+    public void setHasSpaceToShow(boolean hasSpaceToShow) {
+        setVisibility(hasSpaceToShow);
     }
 
     /** Updates whether the forward button is enabled based on the current Tab. */

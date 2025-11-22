@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <utility>
+#include <variant>
 
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -17,8 +18,10 @@
 #include "components/permissions/permission_decision.h"
 #include "components/permissions/permission_request_data.h"
 #include "components/permissions/permission_request_id.h"
+#include "components/permissions/permission_uma_util.h"
 #include "components/permissions/permissions_client.h"
 #include "components/permissions/pref_names.h"
+#include "components/permissions/resolvers/permission_prompt_options.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_thread.h"
@@ -135,13 +138,11 @@ void GeolocationPermissionContextAndroid::RequestPermission(
   }
 
   DCHECK(render_frame_host);
-  PermissionStatus status =
-      GeolocationPermissionContext::GetPermissionStatus(
-          *request_data->resolver, render_frame_host,
-          request_data->requesting_origin, request_data->embedding_origin)
-          .status;
+  PermissionStatus status = GeolocationPermissionContext::GetPermissionStatus(
+                                *request_data, render_frame_host)
+                                .status;
   if (!request_data->IsEmbeddedPermissionElementInitiated() &&
-      status == PermissionStatus::GRANTED &&
+      (status == PermissionStatus::GRANTED) &&
       ShouldRepromptUserForPermissions(web_contents,
                                        {content_settings_type()}) ==
           PermissionRepromptState::kShow) {

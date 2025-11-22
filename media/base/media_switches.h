@@ -105,12 +105,8 @@ MEDIA_EXPORT extern const char kUserGestureRequiredPolicy[];
 
 }  // namespace autoplay
 
-// TODO(crbug.com/414429305): Restrict this flag to USE_V4L2_CODEC.
-#if BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
-MEDIA_EXPORT extern const char kHardwareVideoDecodeFrameRate[];
-#endif
-
 #if BUILDFLAG(USE_V4L2_CODEC)
+MEDIA_EXPORT extern const char kHardwareVideoDecodeFrameRate[];
 MEDIA_EXPORT extern const char kEnablePrimaryNodeAccessForVkmsTesting[];
 #endif
 
@@ -180,7 +176,6 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kAutoplayDisableSettings);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAVDColorSpaceChanges);
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
-MEDIA_EXPORT BASE_DECLARE_FEATURE(kCameraMicEffects);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS) &&
         // !BUILDFLAG(IS_FUCHSIA)
 
@@ -298,7 +293,6 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kLiveCaption);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kLiveCaptionAutomaticLanguageDownload);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kLiveCaptionRightClick);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kLiveCaptionLogFlickerRate);
-MEDIA_EXPORT BASE_DECLARE_FEATURE(kLiveCaptionMultiLanguage);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kLiveCaptionExperimentalLanguages);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kLiveCaptionUseGreedyTextStabilizer);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kLiveCaptionUseWaitK);
@@ -312,7 +306,6 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseSCContentSharingPicker);
 #endif  // BUILDFLAG(IS_MAC)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaCapabilitiesQueryGpuFactories);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaCapabilitiesWithParameters);
-MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaCastOverlayButton);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaEngagementBypassAutoplayPolicies);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaEngagementHTTPSOnly);
 #if BUILDFLAG(IS_WIN)
@@ -321,7 +314,6 @@ MEDIA_EXPORT extern const base::FeatureParam<std::string>
 #endif  // BUILDFLAG(IS_WIN)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaOptimizer);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaPowerExperiment);
-MEDIA_EXPORT BASE_DECLARE_FEATURE(kMemoryPressureBasedSourceBufferGC);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kOverlayFullscreenVideo);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kPauseBackgroundTimer);
 #if !BUILDFLAG(IS_ANDROID)
@@ -394,6 +386,7 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kWebRTCColorAccuracy);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kWebrtcMediaCapabilitiesParameters);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kWidevinePersistentLicenseSupport);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kResolutionBasedDecoderPriority);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kMatchSourceAudioChannelLayout);
 
 #if BUILDFLAG(IS_ANDROID)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAllowEnhancedPipTransition);
@@ -439,6 +432,10 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kEnableArmHwdrm);
 #endif  // defined(ARCH_CPU_ARM_FAMILY)
 #endif  // BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
 
+#if BUILDFLAG(ENABLE_OPENH264)
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kOpenH264SoftwareEncoder);
+#endif  // BUILDFLAG(ENABLE_OPENH264)
+
 #if BUILDFLAG(IS_WIN)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kDirectShowGetPhotoState);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kIncludeIRCamerasInDeviceEnumeration);
@@ -453,27 +450,6 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaFoundationD3D11VideoCaptureZeroCopy);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaFoundationClearPlayback);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAllowMediaFoundationFrameServerMode);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kD3D11Vp9kSVCHWDecoding);
-
-// Strategy affecting how Media Foundation Renderer determines its rendering
-// mode when used with clear video media. This strategy does not impact
-// protected media which must always use Direct Composition mode.
-enum class MediaFoundationClearRenderingStrategy {
-  // The renderer will operate in Direct Composition mode (e.g. windowless
-  // swapchain).
-  kDirectComposition,
-  // The renderer will operate in Frame Server mode.
-  kFrameServer,
-  // The renderer is allowed to switch between Direct Composition & Frame Server
-  // mode at its discretion.
-  kDynamic,
-};
-
-// Under this feature, a given MediaFoundationClearRenderingStrategy param is
-// used by the Media Foundation Renderer for Clear content scenarios.
-MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaFoundationClearRendering);
-MEDIA_EXPORT extern const base::FeatureParam<
-    MediaFoundationClearRenderingStrategy>
-    kMediaFoundationClearRenderingStrategyParam;
 
 // Enables the batch audio/video buffers reading for media playback.
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaFoundationBatchRead);
@@ -499,6 +475,7 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kBackgroundListening);
 // is enabled instead of directly checking this feature flag. The reason is that
 // that function may perform checks beyond the feature flag.
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseOutOfProcessVideoDecoding);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseSharedImageInOOPVDProcess);
 #endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
@@ -557,6 +534,10 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaLinkHelpers);
 
 // Enables showing auto picture-in-picture permission details in page info.
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAutoPictureInPicturePageInfoDetails);
+
+// Enables sending provisioning requests in the body of the POST request rather
+// than encoding it inside the URL.
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kUsePostBodyForUrlProvisionFetcher);
 
 // Based on a |command_line| and the current platform, returns the effective
 // autoplay policy. In other words, it will take into account the default policy

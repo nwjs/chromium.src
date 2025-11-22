@@ -142,19 +142,19 @@ class TabStripActionContainer : public views::View,
   // GlicButtonControllerDelegate:
   void SetGlicShowState(bool show) override;
   void SetGlicDetached(bool detached) override;
+  void SetGlicPanelIsOpen(bool open) override;
 
   // UI Controls for the GlicActorTaskIcon:
-  void TriggerGlicActorTaskIconCheckTasksNudge();
-  void TriggerGlicActorTaskIconCompleteTasksNudge();
   void ShowGlicActorTaskIcon();
   void HideGlicActorTaskIcon();
   bool GetIsShowingGlicActorTaskIconNudge();
+#if BUILDFLAG(ENABLE_GLIC)
+  void TriggerGlicActorNudge(const std::u16string nudge_text);
+#endif
 
   // UI controls for updating buttons based on the floaty view state:
   void HighlightGlicActorTaskIcon();
   void UnhighlightGlicActorTaskIcon();
-  void HighlightGlicButton();
-  void UnhighlightGlicButton();
 
   void UpdateButtonBorders(gfx::Insets button_insets);
 
@@ -258,8 +258,8 @@ class TabStripActionContainer : public views::View,
   // Timer for hiding tab_strip_nudge_button_ after show.
   base::OneShotTimer hide_tab_strip_nudge_timer_;
 
-  // When locked, the container is unable to change its expanded state. Changes
-  // will be staged until after this is unlocked.
+  // When locked, the container is unable to change its expanded state.
+  // Changes will be staged until after this is unlocked.
   LockedExpansionMode locked_expansion_mode_ = LockedExpansionMode::kNone;
 
   base::ScopedObservation<TabOrganizationService, TabOrganizationObserver>

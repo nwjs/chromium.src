@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <memory>
 #include <optional>
+#include <utility>
 
 #include "ash/constants/ash_constants.h"
 #include "ash/constants/ash_features.h"
@@ -45,6 +46,7 @@
 #include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/user_manager.h"
 #include "google_apis/common/api_error_codes.h"
+#include "remoting/proto/audio.pb.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/message_center/message_center.h"
@@ -421,12 +423,15 @@ void BocaSessionManager::StartCrdClient(
 
   remoting_client_manager_->StartCrdClient(
       crd_connection_code, std::move(done_callback),
-      std::move(frame_received_callback), std::move(crd_state_callback));
+      std::move(frame_received_callback),
+      /* audio_packet_received_callback= */ base::DoNothing(),
+      std::move(crd_state_callback));
 }
 
-void BocaSessionManager::EndSpotlightSession() {
+void BocaSessionManager::EndSpotlightSession(
+    base::OnceClosure on_stopped_callback) {
   CHECK(ash::features::IsBocaSpotlightRobotRequesterEnabled());
-  remoting_client_manager_->StopCrdClient(base::DoNothing());
+  remoting_client_manager_->StopCrdClient(std::move(on_stopped_callback));
 }
 
 std::string BocaSessionManager::GetDeviceRobotEmail() {
@@ -489,17 +494,24 @@ TeacherScreenPresenter* BocaSessionManager::GetTeacherScreenPresenter() {
 
 std::optional<std::string> BocaSessionManager::GetStudentActiveDeviceId(
     std::string_view student_id) {
-  if (!current_session_ ||
-      !current_session_->student_statuses().contains(student_id)) {
+  if (!current_session_) {
     return std::nullopt;
   }
-  for (const auto& [device_id, device] :
-       current_session_->student_statuses().at(student_id).devices()) {
+  auto it = current_session_->student_statuses().find(student_id);
+  if (it == current_session_->student_statuses().end()) {
+    return std::nullopt;
+  }
+  for (const auto& [device_id, device] : it->second.devices()) {
     if (device.state() == ::boca::StudentDevice::ACTIVE) {
       return device_id;
     }
   }
   return std::nullopt;
+}
+
+void BocaSessionManager::CleanupPresenters() {
+  student_screen_presenter_.reset();
+  teacher_screen_presenter_.reset();
 }
 
 void BocaSessionManager::LoadInitialNetworkState() {
@@ -718,7 +730,7 @@ void BocaSessionManager::NotifyConsumerActivityUpdate() {
     return;
   }
 
-  auto current_activity = current_session_->student_statuses();
+  auto& current_activity = current_session_->student_statuses();
 
   if (!previous_session_ && current_activity.empty()) {
     return;
@@ -733,12 +745,11 @@ void BocaSessionManager::NotifyConsumerActivityUpdate() {
     return;
   }
 
-  auto previous_activity = previous_session_->student_statuses();
-  for (auto status : current_activity) {
-    auto key = status.first;
-    if (!previous_activity.contains(key) ||
-        (previous_activity.at(key).SerializeAsString() !=
-         status.second.SerializeAsString())) {
+  auto& previous_activity = previous_session_->student_statuses();
+  for (auto& [key, value] : current_activity) {
+    if (auto it = previous_activity.find(key);
+        it == previous_activity.end() ||
+        it->second.SerializeAsString() != value.SerializeAsString()) {
       for (auto& observer : observers_) {
         observer.OnConsumerActivityUpdated(
             std::map<std::string, ::boca::StudentStatus>(

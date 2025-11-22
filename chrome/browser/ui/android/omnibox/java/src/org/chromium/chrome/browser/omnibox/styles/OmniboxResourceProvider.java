@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.omnibox.styles;
 
 import android.content.Context;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Drawable.ConstantState;
@@ -25,16 +26,20 @@ import androidx.core.content.ContextCompat;
 
 import com.google.android.material.color.MaterialColors;
 
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.ThreadUtils;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.night_mode.NightModeUtils;
 import org.chromium.chrome.browser.omnibox.R;
+import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.theme.ThemeUtils;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.util.ColorUtils;
+
+import java.util.function.Function;
 
 /** Provides resources specific to Omnibox. */
 @NullMarked
@@ -43,6 +48,9 @@ public class OmniboxResourceProvider {
 
     private static SparseArray<ConstantState> sDrawableCache = new SparseArray<>();
     private static SparseArray<String> sStringCache = new SparseArray<>();
+    private static @Nullable Function<Tab, @Nullable Bitmap> sTabFaviconFactory;
+    private static @ColorInt @Nullable Integer sUrlBarPrimaryTextColorForTesting;
+    private static @ColorInt @Nullable Integer sUrlBarHintTextColorForTesting;
 
     /**
      * As {@link androidx.appcompat.content.res.AppCompatResources#getDrawable(Context, int)} but
@@ -191,6 +199,9 @@ public class OmniboxResourceProvider {
      */
     public static @ColorInt int getUrlBarPrimaryTextColor(
             Context context, @BrandedColorScheme int brandedColorScheme) {
+        if (sUrlBarPrimaryTextColorForTesting != null) {
+            return sUrlBarPrimaryTextColorForTesting;
+        }
         final @ColorInt int color;
         if (brandedColorScheme == BrandedColorScheme.LIGHT_BRANDED_THEME) {
             color = context.getColor(R.color.branded_url_text_on_light_bg);
@@ -202,6 +213,11 @@ public class OmniboxResourceProvider {
             color = MaterialColors.getColor(context, R.attr.colorOnSurface, TAG);
         }
         return color;
+    }
+
+    public static void setUrlBarPrimaryTextColorForTesting(@ColorInt int value) {
+        sUrlBarPrimaryTextColorForTesting = value;
+        ResettersForTesting.register(() -> sUrlBarPrimaryTextColorForTesting = null);
     }
 
     /**
@@ -235,7 +251,15 @@ public class OmniboxResourceProvider {
      */
     public static @ColorInt int getUrlBarHintTextColor(
             Context context, @BrandedColorScheme int brandedColorScheme) {
+        if (sUrlBarHintTextColorForTesting != null) {
+            return sUrlBarHintTextColorForTesting;
+        }
         return getUrlBarSecondaryTextColor(context, brandedColorScheme);
+    }
+
+    public static void setUrlBarHintTextColorForTesting(@ColorInt int value) {
+        sUrlBarHintTextColorForTesting = value;
+        ResettersForTesting.register(() -> sUrlBarHintTextColorForTesting = null);
     }
 
     /**
@@ -606,5 +630,14 @@ public class OmniboxResourceProvider {
     @ColorInt
     public static int getAdditionalTextColor(Context context) {
         return SemanticColorUtils.getDefaultTextColorSecondary(context);
+    }
+
+    public static @Nullable Bitmap getFaviconBitmapForTab(Tab tab) {
+        if (sTabFaviconFactory == null) return null;
+        return sTabFaviconFactory.apply(tab);
+    }
+
+    public static void setTabFaviconFactory(Function<Tab, @Nullable Bitmap> tabFaviconFactory) {
+        sTabFaviconFactory = tabFaviconFactory;
     }
 }

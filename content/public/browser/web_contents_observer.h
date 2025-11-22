@@ -22,7 +22,6 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents_capability_type.h"
-#include "ipc/ipc_message.h"
 #include "mojo/public/cpp/system/message_pipe.h"
 #include "services/network/public/mojom/fetch_api.mojom-forward.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
@@ -34,7 +33,6 @@
 #include "third_party/blink/public/mojom/frame/viewport_intersection_state.mojom-forward.h"
 #include "third_party/blink/public/mojom/loader/resource_load_info.mojom-forward.h"
 #include "third_party/blink/public/mojom/media/capture_handle_config.mojom-forward.h"
-#include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 
@@ -911,10 +909,6 @@ class CONTENT_EXPORT WebContentsObserver : public base::CheckedObserver {
   // support content::ClipboardPasteData directly.
   virtual void OnTextCopiedToClipboard(RenderFrameHost* render_frame_host,
                                        const std::u16string& copied_text) {}
-
-  // Invoked if an IPC message is coming from a specific RenderFrameHost.
-  virtual bool OnMessageReceived(const IPC::Message& message,
-                                 RenderFrameHost* render_frame_host);
 
   // Notification that the |render_widget_host| for this WebContents has gained
   // focus.

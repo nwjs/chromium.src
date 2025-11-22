@@ -29,9 +29,9 @@
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/browser_view_layout.h"
 #include "chrome/browser/ui/views/frame/browser_widget.h"
 #include "chrome/browser/ui/views/frame/caption_button_placeholder_container.h"
+#include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/frame/tab_strip_view_interface.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
@@ -52,7 +52,10 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/rect_f.h"
+#include "ui/gfx/geometry/size.h"
 #include "ui/views/cocoa/native_widget_mac_ns_window_host.h"
+#include "ui/views/controls/label.h"
+#include "ui/views/layout/layout_types.h"
 #include "ui/views/widget/widget.h"
 
 namespace {
@@ -133,8 +136,8 @@ void BrowserFrameViewMac::OnFullscreenStateChanged() {
   }
 
   if (browser_view()->UsesImmersiveFullscreenMode()) {
-    browser_view()->immersive_mode_controller()->SetEnabled(
-        browser_view()->IsFullscreen());
+    ImmersiveModeController::From(browser_view()->browser())
+        ->SetEnabled(browser_view()->IsFullscreen());
     UpdateFullscreenTopUI();
 
     // browser_view()->DeprecatedLayoutImmediately() is not needed since top
@@ -159,8 +162,19 @@ bool BrowserFrameViewMac::CaptionButtonsOnLeadingEdge() const {
   // In "partial" RTL mode (where the OS is in LTR mode while Chrome is in RTL
   // mode, or vice versa), the traffic lights are on the trailing edge rather
   // than the leading edge.
-  return base::i18n::IsRTL() == (NSApp.userInterfaceLayoutDirection ==
-                                 NSUserInterfaceLayoutDirectionRightToLeft);
+  if (!GetWidget()) {
+    return true;
+  }
+
+  NSWindow* const window = GetWidget()->GetNativeWindow().GetNativeNSWindow();
+  if (!window) {
+    return true;
+  }
+
+  NSUserInterfaceLayoutDirection direction =
+      [window windowTitlebarLayoutDirection];
+  return base::i18n::IsRTL() ==
+         (direction == NSUserInterfaceLayoutDirectionRightToLeft);
 }
 
 gfx::Rect BrowserFrameViewMac::GetBoundsForTabStripRegion(
@@ -195,9 +209,6 @@ gfx::Rect BrowserFrameViewMac::GetBoundsForTabStripRegion(
 
 gfx::Rect BrowserFrameViewMac::GetBoundsForWebAppFrameToolbar(
     const gfx::Size& toolbar_preferred_size) const {
-  if (ShouldHideTopUIForFullscreen()) {
-    return gfx::Rect();
-  }
   gfx::Rect bounds(0, 0, width(),
                    toolbar_preferred_size.height() + kWebAppMenuMargin * 2);
 
@@ -207,6 +218,22 @@ gfx::Rect BrowserFrameViewMac::GetBoundsForWebAppFrameToolbar(
   }
 
   return bounds;
+}
+
+BrowserLayoutParams BrowserFrameViewMac::GetBrowserLayoutParams() const {
+  auto params = BrowserFrameView::GetBrowserLayoutParams();
+  if (browser_view()->IsFullscreen()) {
+    // No insets for caption buttons in fullscreen, since caption buttons are on
+    // a separate pane that slides in. However, preserve the height of the
+    // caption area to ensure that the toolbar renders correctly (this is kind
+    // of a hack but it prevents having to insert random hard-coded constants -
+    // which is worse - see https://crbug.com/450817281).
+    params.leading_exclusion.content.set_width(0);
+    params.leading_exclusion.horizontal_padding = 0;
+    params.trailing_exclusion.content.set_width(0);
+    params.trailing_exclusion.horizontal_padding = 0;
+  }
+  return params;
 }
 
 int BrowserFrameViewMac::GetTopInset(bool restored) const {
@@ -249,13 +276,13 @@ void BrowserFrameViewMac::UpdateFullscreenTopUI() {
 
     // Update the immersive controller about content fullscreen changes.
     if (mapped_style == remote_cocoa::mojom::ToolbarVisibilityStyle::kNone) {
-      browser_view()->immersive_mode_controller()->OnContentFullscreenChanged(
-          true);
+      ImmersiveModeController::From(browser_view()->browser())
+          ->OnContentFullscreenChanged(true);
     } else if (old_style.has_value() &&
                old_style ==
                    remote_cocoa::mojom::ToolbarVisibilityStyle::kNone) {
-      browser_view()->immersive_mode_controller()->OnContentFullscreenChanged(
-          false);
+      ImmersiveModeController::From(browser_view()->browser())
+          ->OnContentFullscreenChanged(false);
     }
 
     // The layout changes further down are not needed in immersive fullscreen.
@@ -293,12 +320,9 @@ void BrowserFrameViewMac::OnAppRegistrarDestroyed() {
   always_show_toolbar_in_fullscreen_observation_.Reset();
 }
 
-bool BrowserFrameViewMac::ShouldHideTopUIForFullscreen() const {
-  if (browser_widget()->IsFullscreen()) {
-    return [fullscreen_toolbar_controller_ toolbarStyle] !=
-           FullscreenToolbarStyle::TOOLBAR_PRESENT;
-  }
-  return false;
+bool BrowserFrameViewMac::ShouldHideTopUIInFullscreen() const {
+  return [fullscreen_toolbar_controller_ toolbarStyle] !=
+         FullscreenToolbarStyle::TOOLBAR_PRESENT;
 }
 
 void BrowserFrameViewMac::UpdateThrobber(bool running) {}
@@ -312,6 +336,39 @@ void BrowserFrameViewMac::OnThemeChanged() {
   UpdateCaptionButtonPlaceholderContainerBackground();
   BrowserFrameView::OnThemeChanged();
 }
+
+void BrowserFrameViewMac::LayoutWebAppWindowTitle(
+    const gfx::Rect& available_space,
+    views::Label& window_title_label) const {
+  // LINT.IfChange(mac_title_padding_width_fraction)
+  static constexpr double kTitlePaddingWidthFraction = 0.1;
+  // LINT.ThenChange(//chrome/browser/ui/views/web_apps/frame_toolbar/web_app_frame_toolbar_browsertest.cc:mac_title_padding_width_fraction)
+
+  gfx::Rect toolbar_bounds(0, 0, width(), available_space.height());
+  gfx::Rect title_bounds = available_space;
+
+  const int title_padding =
+      base::ClampRound(width() * kTitlePaddingWidthFraction);
+  title_bounds.Inset(gfx::Insets::VH(0, title_padding));
+
+  // Center in the container and make it fit in the available space.
+  int preferred_title_width =
+      window_title_label
+          .GetPreferredSize(views::SizeBounds(window_title_label.width(), {}))
+          .width();
+  toolbar_bounds.ClampToCenteredSize(
+      gfx::Size(preferred_title_width, toolbar_bounds.height()));
+  toolbar_bounds.AdjustToFit(title_bounds);
+
+  window_title_label.SetBoundsRect(toolbar_bounds);
+
+  // The background of the title area is always opaquely drawn, but when in
+  // immersive fullscreen, it is drawn in a way that isn't detected by the
+  // DCHECK in Label. As such, disable the DCHECK.
+  window_title_label.SetSkipSubpixelRenderingOpacityCheck(
+      ImmersiveModeController::From(browser_view()->browser())->IsEnabled());
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserFrameViewMac, views::FrameView implementation:
 
@@ -398,7 +455,7 @@ void BrowserFrameViewMac::PaintChildren(const views::PaintInfo& info) {
   // allow painting of the frame's children, which fixes a flickering bug:
   // 1400287.
   if (browser_view()->UsesImmersiveFullscreenTabbedMode() ||
-      !browser_view()->immersive_mode_controller()->IsRevealed()) {
+      !ImmersiveModeController::From(browser_view()->browser())->IsRevealed()) {
     BrowserFrameView::PaintChildren(info);
   }
 }
@@ -451,10 +508,10 @@ BrowserFrameViewMac::GetCaptionButtonBoundsNative() const {
     //  - X axis is inverted in RTL mode only (Mac coordinates are invariant
     //    while Chrome reverses them).
     button_rects.emplace_back(
-        gfx::RectF(is_rtl ? width() - (ns_rect.origin.x + ns_rect.size.width)
-                          : ns_rect.origin.x,
-                   height() - (ns_rect.origin.y + ns_rect.size.height),
-                   ns_rect.size.width, ns_rect.size.height));
+        is_rtl ? width() - (ns_rect.origin.x + ns_rect.size.width)
+               : ns_rect.origin.x,
+        height() - (ns_rect.origin.y + ns_rect.size.height), ns_rect.size.width,
+        ns_rect.size.height);
     const auto& rect = button_rects.back();
     if (rect.IsEmpty()) {
       return result;
@@ -502,6 +559,11 @@ BrowserFrameViewMac::GetCaptionButtonBounds() const {
   } else {
     result.bounds = gfx::RectF(20, 11, 54, 16);
     result.margins = gfx::OutsetsF::VH(11, 20);
+  }
+
+  // Mirror for when caption buttons are on the "wrong" side.
+  if (!CaptionButtonsOnLeadingEdge()) {
+    result.bounds.set_x(width() - (result.bounds.x() + result.bounds.width()));
   }
 
   return result;
@@ -613,9 +675,6 @@ int BrowserFrameViewMac::TopUIFullscreenYOffset() const {
   CGFloat title_bar_height =
       NSHeight([NSWindow frameRectForContentRect:NSZeroRect
                                        styleMask:NSWindowStyleMaskTitled]);
-  if (browser_view()->UsesImmersiveFullscreenMode()) {
-    return menu_bar_height == 0 ? 0 : menu_bar_height + title_bar_height;
-  }
   return [[fullscreen_toolbar_controller_ menubarTracker] menubarFraction] *
          (menu_bar_height + title_bar_height);
 }

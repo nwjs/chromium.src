@@ -20,7 +20,8 @@ enum class GetCredentialsResult {
   kSuccess = 1,
   kErrorServiceBusy = 2,
   kErrorInvalidTabInterface = 3,
-  kMaxValue = kErrorInvalidTabInterface,
+  kErrorFillingNotAllowed = 4,
+  kMaxValue = kErrorFillingNotAllowed
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/password/enums.xml:ActorLoginGetCredentialsResult)
 
@@ -41,7 +42,9 @@ enum class AttemptLoginResult {
   kErrorFillingNotAllowed = 7,
   kErrorServiceBusy = 8,
   kErrorInvalidTabInterface = 9,
-  kMaxValue = kErrorInvalidTabInterface,
+  kErrorDeviceReauthRequired = 10,
+  kErrorDeviceReauthFailed = 11,
+  kMaxValue = kErrorDeviceReauthFailed,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/password/enums.xml:ActorLoginAttemptLoginResult)
 

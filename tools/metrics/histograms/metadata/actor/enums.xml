@@ -51,7 +51,14 @@ chromium-metrics-reviews@google.com.
   <int value="30" label="ObservedTargetElementDestroyed"/>
   <int value="31" label="ObservedTargetElementChanged"/>
   <int value="32" label="TargetNodeInteractionPointObscured"/>
+  <int value="33" label="ToolTimeout"/>
+  <int value="34" label="kFilePickerTriggered"/>
+  <int value="35" label="kFilePickerConfirmed"/>
+  <int value="36" label="kFilePickerCancelled"/>
+  <int value="37" label="ExecutionEngineExistingAction"/>
+  <int value="38" label="ExternalProtocolNavigationBlocked"/>
   <int value="100" label="NavigateInvalidUrl"/>
+  <int value="101" label="NavigateFailedToStart"/>
   <int value="200" label="ClickSuppressed"/>
   <int value="300" label="DragAndReleaseFromOffscreen"/>
   <int value="301" label="DragAndReleaseToOffscreen"/>
@@ -72,19 +79,35 @@ chromium-metrics-reviews@google.com.
   <int value="702" label="TypeUnsupportedCharacters"/>
   <int value="703" label="TypeFailedMappingCharToKey"/>
   <int value="704" label="TypeKeyDownSuppressed"/>
+  <int value="705" label="TypeInvalidTextEncoding"/>
   <int value="800" label="HistoryNoNavigationsCreated"/>
   <int value="801" label="HistoryCancelledBeforeStart"/>
   <int value="802" label="HistoryNoBackEntries"/>
   <int value="803" label="HistoryNoForwardEntries"/>
   <int value="804" label="HistoryFailedBeforeCommit"/>
   <int value="805" label="HistoryErrorPage"/>
+  <int value="806" label="HistoryNavigationEntryChanged"/>
   <int value="900" label="LoginNoCredentialsAvailable"/>
   <int value="901" label="LoginNotLoginPage"/>
   <int value="902" label="LoginCredentialsEnteredButAnotherActionNeeded"/>
   <int value="903" label="LoginNoFillableFields"/>
+  <int value="904" label="LoginFillingNotAllowed"/>
+  <int value="905" label="LoginPageChangedDuringSelection"/>
+  <int value="906" label="LoginDeviceReauthRequired"/>
+  <int value="907" label="LoginDeviceReauthFailed"/>
+  <int value="1000" label="MediaControlNoMedia"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/common/actor.mojom:ActionResultCode) -->
+
+<!-- LINT.IfChange(ActorUiTabControllerError) -->
+
+<enum name="ActorUiTabControllerError">
+  <int value="0" label="kRequestedForNonExistentTab"/>
+  <int value="1" label="kCallbackError"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/actor/ui/actor_ui_tab_controller_interface.h:ActorUiTabControllerError) -->
 
 <!-- LINT.IfChange(ComputedTargetResult) -->
 
@@ -96,6 +119,17 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/actor/ui/event_dispatcher.h:ComputedTargetResult) -->
+
+<!-- LINT.IfChange(GatingDecision) -->
+
+<enum name="GatingDecision">
+  <int value="0" label="kAllowSameOrigin"/>
+  <int value="1" label="kAllowByStaticList"/>
+  <int value="2" label="kBlockByStaticList"/>
+  <int value="3" label="kNeedsAsyncCheck"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/actor/execution_engine.h:GatingDecision) -->
 
 <!-- LINT.IfChange(GetDomNodeResult) -->
 

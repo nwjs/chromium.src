@@ -111,10 +111,10 @@ int SysInfo::NumberOfProcessors() {
 }
 
 // static
-uint64_t SysInfo::AmountOfVirtualMemory() {
+ByteCount SysInfo::AmountOfVirtualMemory() {
   // Fuchsia does not provide this type of information.
   // Return zero to indicate that there is unlimited available virtual memory.
-  return 0;
+  return ByteCount(0);
 }
 
 // static
@@ -123,7 +123,7 @@ std::string SysInfo::OperatingSystemName() {
 }
 
 // static
-int64_t SysInfo::AmountOfFreeDiskSpace(const FilePath& path) {
+std::optional<int64_t> SysInfo::AmountOfFreeDiskSpace(const FilePath& path) {
   ScopedBlockingCall scoped_blocking_call(FROM_HERE, BlockingType::MAY_BLOCK);
 
   // First check whether there is a soft-quota that applies to |path|.
@@ -139,18 +139,19 @@ int64_t SysInfo::AmountOfFreeDiskSpace(const FilePath& path) {
   // Report the actual amount of free space in |path|'s filesystem.
   int64_t available;
   if (GetDiskSpaceInfo(path, &available, nullptr)) {
+    CHECK(available >= 0, base::NotFatalUntil::M150);
     return available;
   }
 
-  return -1;
+  return std::nullopt;
 }
 
 // static
-int64_t SysInfo::AmountOfTotalDiskSpace(const FilePath& path) {
+std::optional<int64_t> SysInfo::AmountOfTotalDiskSpace(const FilePath& path) {
   ScopedBlockingCall scoped_blocking_call(FROM_HERE, BlockingType::MAY_BLOCK);
 
   if (path.empty()) {
-    return -1;
+    return std::nullopt;
   }
 
   // Return the soft-quota that applies to |path|, if one is configured.
@@ -161,10 +162,11 @@ int64_t SysInfo::AmountOfTotalDiskSpace(const FilePath& path) {
 
   // Report the actual space in |path|'s filesystem.
   if (GetDiskSpaceInfo(path, nullptr, &total_space)) {
+    CHECK(total_space >= 0, base::NotFatalUntil::M150);
     return total_space;
   }
 
-  return -1;
+  return std::nullopt;
 }
 
 // static

@@ -63,11 +63,9 @@ const CGFloat kNTPShrunkLogoSearchFieldBottomPadding = 20;
 const CGFloat kGoogleSearchDoodleHeight = 120;
 
 // Height for the shrunk doodle frame.
-// TODO(crbug.com/40744549): clean up post-launch.
 const CGFloat kGoogleSearchDoodleShrunkHeight = 68;
 
 // Height for the shrunk logo frame.
-// TODO(crbug.com/40744549): clean up post-launch.
 const CGFloat kGoogleSearchLogoHeight = 36;
 const CGFloat kLargeFakeboxGoogleSearchLogoHeight = 50;
 
@@ -163,7 +161,7 @@ CGFloat DoodleHeight(SearchEngineLogoState logo_state,
       (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET)) {
     return kGoogleSearchDoodleShrunkHeight;
   }
-  if (ShouldEnlargeLogoAndFakebox()) {
+  if (ShouldEnlargeNTPFakeboxForMIA()) {
     return kLargeFakeboxGoogleSearchLogoHeight;
   }
   return kGoogleSearchLogoHeight;
@@ -176,7 +174,7 @@ CGFloat DoodleTopMargin(SearchEngineLogoState logo_state,
   }
   CGFloat top_inset = 0;
   if ((logo_state == SearchEngineLogoState::kLogo) &&
-      ShouldEnlargeLogoAndFakebox()) {
+      ShouldEnlargeNTPFakeboxForMIA()) {
     // Shrink the top inset so that the enlarged logo has the same bottom
     // positioning as the regular logo.
     top_inset = kGoogleSearchLogoHeight - kLargeFakeboxGoogleSearchLogoHeight;
@@ -186,8 +184,6 @@ CGFloat DoodleTopMargin(SearchEngineLogoState logo_state,
       AlignValueToPixel(kDoodleScaledTopMarginOther *
                         ui_util::SystemSuggestedFontSizeMultiplier());
   top_margin += kDoodleTopMarginOther;
-  top_margin += GetDeprecateFeedHeaderParameterValueAsDouble(
-      kDeprecateFeedHeaderParameterTopPadding, /*default_value=*/0);
   return top_margin;
 }
 
@@ -196,12 +192,8 @@ CGFloat HeaderSeparatorHeight() {
 }
 
 CGFloat SearchFieldTopMargin() {
-  if (ShouldEnlargeNTPFakeboxForMIA()) {
-    return kMIASearchFieldTopMargin;
-  }
-  return GetDeprecateFeedHeaderParameterValueAsDouble(
-      kDeprecateFeedHeaderParameterSearchFieldTopMargin,
-      /*default_value=*/kSearchFieldTopMargin);
+  return ShouldEnlargeNTPFakeboxForMIA() ? kMIASearchFieldTopMargin
+                                         : kSearchFieldTopMargin;
 }
 
 CGFloat SearchFieldWidth(CGFloat width, UITraitCollection* trait_collection) {
@@ -219,7 +211,7 @@ CGFloat SearchFieldWidth(CGFloat width, UITraitCollection* trait_collection) {
 }
 
 CGFloat FakeOmniboxHeight() {
-  if (ShouldEnlargeLogoAndFakebox()) {
+  if (ShouldEnlargeNTPFakeboxForMIA()) {
     CGFloat multiplier = ui_util::SystemSuggestedFontSizeMultiplier();
     return AlignValueToPixel((kFakeboxHeight - kFakeboxHeightNonDynamic) *
                                  multiplier +
@@ -230,7 +222,7 @@ CGFloat FakeOmniboxHeight() {
 }
 
 CGFloat PinnedFakeOmniboxHeight() {
-  if (ShouldEnlargeLogoAndFakebox()) {
+  if (ShouldEnlargeNTPFakeboxForMIA()) {
     CGFloat multiplier = ui_util::SystemSuggestedFontSizeMultiplier();
     return AlignValueToPixel(
         (kPinnedFakeboxHeight - kPinnedFakeboxHeightNonDynamic) * multiplier +
@@ -241,7 +233,7 @@ CGFloat PinnedFakeOmniboxHeight() {
 }
 
 CGFloat FakeToolbarHeight() {
-  if (ShouldEnlargeLogoAndFakebox()) {
+  if (ShouldEnlargeNTPFakeboxForMIA()) {
     return PinnedFakeOmniboxHeight() + FakeToolbarVerticalMargin();
   }
   return ToolbarExpandedHeight(
@@ -271,11 +263,9 @@ CGFloat HeightForLogoHeader(SearchEngineLogoState logo_state,
 }
 
 CGFloat HeaderBottomPadding(UITraitCollection* trait_collection) {
-  if (IsSplitToolbarMode(trait_collection)) {
-    return GetDeprecateFeedHeaderParameterValueAsDouble(
-        kDeprecateFeedHeaderParameterHeaderBottomPadding, 0);
-  }
-  return kNTPShrunkLogoSearchFieldBottomPadding;
+  return IsSplitToolbarMode(trait_collection)
+             ? 0
+             : kNTPShrunkLogoSearchFieldBottomPadding;
 }
 
 void ConfigureSearchHintLabel(UILabel* search_hint_label,
@@ -410,19 +400,11 @@ UIColor* SearchHintLabelColor() {
   return [UIColor colorNamed:kGrey800Color];
 }
 
-int SetUpListTitleStringID() {
-  return IDS_IOS_SET_UP_LIST_TIPS_TITLE;
-}
-
 UIColor* DefaultIconTintColorWithAIMAllowed(bool aim_allowed) {
   if (aim_allowed && ShouldEnlargeNTPFakeboxForMIA()) {
     return [UIColor colorNamed:kSolidBlackColor];
   }
   return [UIColor colorNamed:kGrey700Color];
-}
-
-NSString* SetUpListTitleString() {
-  return l10n_util::GetNSString(SetUpListTitleStringID());
 }
 
 }  // namespace content_suggestions

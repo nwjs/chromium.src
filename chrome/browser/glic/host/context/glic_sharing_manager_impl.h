@@ -17,6 +17,7 @@
 namespace glic {
 
 class GlicMetrics;
+class GlicStablePinningDelegatingSharingManager;
 
 // Implements GlicSharingManager and provides additional functionality needed
 // by chrome/browser/glic. It also provides some common sharing-related
@@ -24,19 +25,23 @@ class GlicMetrics;
 class GlicSharingManagerImpl : public GlicSharingManager {
  public:
   GlicSharingManagerImpl(Profile* profile,
-                         GlicWindowController* window_controller,
+                         GlicWindowControllerInterface* window_controller,
                          GlicMetrics* metrics);
   GlicSharingManagerImpl(
       std::unique_ptr<GlicFocusedTabManagerInterface> focused_tab_manager,
       std::unique_ptr<GlicFocusedBrowserManagerInterface>
           focused_browser_manager,
-      std::unique_ptr<GlicPinnedTabManager> pinned_tab_manager,
+      GlicPinnedTabManager* pinned_tab_manager,
       Profile* profile,
       GlicMetrics* metrics);
   ~GlicSharingManagerImpl() override;
 
   GlicSharingManagerImpl(const GlicSharingManagerImpl&) = delete;
   GlicSharingManagerImpl& operator=(const GlicSharingManagerImpl&) = delete;
+
+  // Grants special access to internals for enforcing invariants,
+  // without exposing generally.
+  friend class GlicStablePinningDelegatingSharingManager;
 
   // GlicSharingManager implementation.
 
@@ -112,9 +117,13 @@ class GlicSharingManagerImpl : public GlicSharingManager {
       const mojom::GetTabContextOptions& options,
       base::OnceCallback<void(GlicGetContextResult)> callback);
 
+  GlicPinnedTabManager* pinned_tab_manager() const;
+
   std::unique_ptr<GlicFocusedBrowserManagerInterface> focused_browser_manager_;
   std::unique_ptr<GlicFocusedTabManagerInterface> focused_tab_manager_;
-  std::unique_ptr<GlicPinnedTabManager> pinned_tab_manager_;
+  std::variant<std::unique_ptr<GlicPinnedTabManager>,
+               raw_ptr<GlicPinnedTabManager>>
+      pinned_tab_manager_;
 
   // The profile for which to manage sharing.
   raw_ptr<Profile> profile_;

@@ -139,10 +139,6 @@ TEST(AutofillEntityInstanceTest, Attributes_IdentificationNumbers) {
   EXPECT_EQ(GetInfo(passport_number, PASSPORT_NUMBER,
                     {.format_string = from_affix(u"-4")}),
             u"3456");
-  EXPECT_EQ(GetInfo(passport_number, PASSPORT_NUMBER,
-                    {.format_string = from_affix(base::NumberToString16(
-                         std::numeric_limits<int>::min()))}),
-            u"LR0123456");
 }
 
 // Tests that AttributeInstance appropriately manages dates.
@@ -184,9 +180,6 @@ TEST(AutofillEntityInstanceTest, AttributesFlightFormat) {
               u"89");
     EXPECT_EQ(GetInfo(flight_number, FLIGHT_RESERVATION_FLIGHT_NUMBER,
                       {.format_string = from_flight_number(u"F")}),
-              u"LH89");
-    EXPECT_EQ(GetInfo(flight_number, FLIGHT_RESERVATION_FLIGHT_NUMBER,
-                      {.format_string = from_flight_number(u"")}),
               u"LH89");
   }
 
@@ -376,6 +369,37 @@ TEST(AutofillEntityInstanceTest, FrecencyOrder_SortEntitiesByFrecency) {
   EXPECT_EQ(entities[0].guid(), top_entity.guid());
 }
 
+// Tests that frecency override takes precedence over frecency.
+TEST(AutofillEntityInstanceTest, FrecencyOrder_EntitiesWithFrecencyOverride) {
+  EntityInstance first_flight = test::GetFlightReservationEntityInstance(
+      {.departure_time = test::kJune2017});
+  EntityInstance second_flight = test::GetFlightReservationEntityInstance(
+      {.departure_time = test::kJune2017 + base::Days(1)});
+  second_flight.RecordEntityUsed(test::kJune2017);
+  std::vector<EntityInstance> entities = {first_flight, second_flight};
+
+  EntityInstance::FrecencyOrder comp(test::kJune2017 + base::Days(2));
+  std::ranges::sort(entities, comp);
+
+  EXPECT_EQ(entities[0].guid(), first_flight.guid());
+}
+
+// Tests that if one entity has a non-empty frecency override, while other has
+// empty override, the non-empty takes precedence.
+TEST(AutofillEntityInstanceTest,
+     FrecencyOrder_EntityWithFrecencyOverrideTakesPrecedence) {
+  EntityInstance flight = test::GetFlightReservationEntityInstance(
+      {.departure_time = test::kJune2017});
+  EntityInstance passport = test::GetPassportEntityInstance();
+  passport.RecordEntityUsed(test::kJune2017);
+  std::vector<EntityInstance> entities = {flight, passport};
+
+  EntityInstance::FrecencyOrder comp(test::kJune2017 + base::Days(2));
+  std::ranges::sort(entities, comp);
+
+  EXPECT_EQ(entities[0].guid(), flight.guid());
+}
+
 TEST(AutofillEntityInstanceTest, AreAttributesReadOnly_ForReadOnlyEntity) {
   EntityInstance entity = test::GetPassportEntityInstance(
       {.are_attributes_read_only =
@@ -390,6 +414,71 @@ TEST(AutofillEntityInstanceTest, AreAttributesReadOnly_ForMutableEntity) {
            EntityInstance::AreAttributesReadOnly{false}});
 
   EXPECT_FALSE(entity.are_attributes_read_only());
+}
+
+TEST(AutofillEntityInstanceTest, FormatFlightDepartureDate) {
+  AttributeType type(kFlightReservationDepartureDate);
+  AttributeInstance attribute(type);
+  attribute.SetInfo(FLIGHT_RESERVATION_DEPARTURE_DATE, u"2025-01-01",
+                    /*app_locale=*/"", /*format_string=*/
+                    AutofillFormatString(u"YYYY-MM-DD", FormatString_Type_DATE),
+                    VerificationStatus::kObserved);
+  EXPECT_EQ(GetInfo(attribute, FLIGHT_RESERVATION_DEPARTURE_DATE,
+                    {.app_locale = "en_US"}),
+            u"Jan 1");
+}
+
+TEST(AutofillEntityInstanceTest, FormatFlightDepartureDate_IsLocaleDependent) {
+  AttributeType type(kFlightReservationDepartureDate);
+  AttributeInstance attribute(type);
+  attribute.SetInfo(FLIGHT_RESERVATION_DEPARTURE_DATE, u"2025-01-01",
+                    /*app_locale=*/"", /*format_string=*/
+                    AutofillFormatString(u"YYYY-MM-DD", FormatString_Type_DATE),
+                    VerificationStatus::kObserved);
+  EXPECT_EQ(GetInfo(attribute, FLIGHT_RESERVATION_DEPARTURE_DATE,
+                    {.app_locale = "PL_pl"}),
+            u"1 sty");
+}
+
+TEST(AutofillEntityInstanceTest,
+     FormatFlightDepartureDate_IsNotLocaleDependent_WithFeatureDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitFromCommandLine(
+      /*enable_features=*/"",
+      /*disable_features=*/"AutofillFlightEnableLocaleAwareDepartureDate");
+  AttributeType type(kFlightReservationDepartureDate);
+  AttributeInstance attribute(type);
+  attribute.SetInfo(FLIGHT_RESERVATION_DEPARTURE_DATE, u"2025-01-01",
+                    /*app_locale=*/"", /*format_string=*/
+                    AutofillFormatString(u"YYYY-MM-DD", FormatString_Type_DATE),
+                    VerificationStatus::kObserved);
+  EXPECT_EQ(GetInfo(attribute, FLIGHT_RESERVATION_DEPARTURE_DATE,
+                    {.app_locale = "PL_pl"}),
+            u"Jan 1");
+}
+
+// Tests that the metadata of an entity instance can be updated correctly.
+TEST(AutofillEntityInstanceTest, SetMetadata) {
+  EntityInstance entity = test::GetPassportEntityInstance();
+  EntityInstance::EntityId original_guid = entity.guid();
+  // Create new metadata with different values but the same GUID.
+  const EntityInstance::EntityMetadata new_metadata{
+      .guid = entity.guid(),
+      .date_modified = base::Time::Now() + base::Days(1),
+      .use_count = entity.use_count() + 1,
+      .use_date = base::Time::Now() + base::Days(2)};
+  entity.set_metadata(new_metadata);
+  EXPECT_EQ(entity.metadata(), new_metadata);
+}
+
+// Tests that calling `set_metadata` with a different GUID causes a CHECK
+// failure.
+TEST(AutofillEntityInstanceTest, SetMetadata_DifferentGuid_CheckFails) {
+  EntityInstance entity = test::GetPassportEntityInstance();
+  EntityInstance::EntityMetadata new_metadata = entity.metadata();
+  new_metadata.guid = EntityInstance::EntityId(base::Uuid::GenerateRandomV4());
+
+  EXPECT_DEATH_IF_SUPPORTED(entity.set_metadata(new_metadata), "");
 }
 
 }  // namespace

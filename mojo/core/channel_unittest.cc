@@ -23,6 +23,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/threading/thread.h"
 #include "build/build_config.h"
@@ -833,7 +834,20 @@ class CallbackIpczChannelDelegate : public Channel::Delegate {
   bool has_error_ = false;
 };
 
+// For a few ipcz message header sizes checks that sending the message results
+// in OnChannelMessage() getting called on the delegate at the receiver side.
+// Note: While this test emulates sending behavior of old clients, it does not
+// emulate old receiving behaviors.
 TEST(ChannelTest, IpczHeaderCompatibilityTest) {
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+  base::test::ScopedFeatureList scoped_feature_list;
+  if (Channel::SupportsMultipleNotifiers()) {
+    // The test constructs messages as if the feature is enabled. Enable the
+    // feature to match behavior on the receiving side.
+    scoped_feature_list.InitAndEnableFeature(mojo::core::kMojoUseEventFd);
+  }
+#endif
+
   // The delegate is created before the task environment, because it will be
   // notified when the channel is destructed, which happens when the task
   // environment is shut down.
@@ -857,6 +871,7 @@ TEST(ChannelTest, IpczHeaderCompatibilityTest) {
   // - The sender is ahead of the receiver
   //
   // In all cases, the message should be correctly received, and not corrupted.
+  [[maybe_unused]] uint32_t channel_sequence_number = 0;
   for (size_t actual_header_size :
        {Channel::Message::kMinIpczHeaderSize,
         sizeof(Channel::Message::IpczHeader),
@@ -870,13 +885,22 @@ TEST(ChannelTest, IpczHeaderCompatibilityTest) {
     header->size = actual_header_size;
     header->num_handles = 0;
     header->num_bytes = static_cast<uint32_t>(message.size());
+    if (Channel::Message::IsAtLeastV2(*header)) {
+      header->v2.creation_timeticks_us =
+          (base::TimeTicks::Now() - base::TimeTicks()).InMicroseconds();
+    }
+
+    if (Channel::Message::IsExperimentalV3(*header)) {
+      Channel::Message::SetType(*header, Channel::Message::MessageType::NORMAL);
+      Channel::Message::SetChannelSequenceNumber(*header,
+                                                 ++channel_sequence_number);
+    }
 
     auto on_message = [&](const void* payload, size_t payload_size,
                           scoped_refptr<ipcz_driver::Envelope> envelope) {
       got_message = true;
       EXPECT_EQ(100u, payload_size);
-      EXPECT_EQ(0, memcmp(payload,
-                          message.data() + Channel::Message::kMinIpczHeaderSize,
+      EXPECT_EQ(0, memcmp(payload, message.data() + actual_header_size,
                           payload_size));
     };
     receiver_delegate.set_on_message(base::BindLambdaForTesting(on_message));
@@ -913,6 +937,8 @@ class TestEnvelope : public ipcz_driver::Envelope {
 
 }  // namespace
 
+// Sends an ipcz message (in the oldest format) and expects OnChannelMessage()
+// to be called on the delegate at the receiver side.
 TEST(ChannelTest, TryDispatchMessageWithEnvelope) {
   // The delegate is created before the task environment, because it will be
   // notified when the channel is destructed, which happens when the task

@@ -19,6 +19,7 @@
 #include "build/build_config.h"
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/unique_ids.h"
@@ -39,12 +40,12 @@ class SharedURLLoaderFactory;
 }
 
 namespace one_time_tokens {
-class SmsOtpBackend;
-}
+class OneTimeTokenService;
+}  // namespace one_time_tokens
 
 namespace optimization_guide {
 class ModelQualityLogsUploaderService;
-class OptimizationGuideModelExecutor;
+class RemoteModelExecutor;
 }  // namespace optimization_guide
 
 namespace optimization_guide::proto {
@@ -114,6 +115,7 @@ class FormFieldData;
 struct FormInteractionsFlowId;
 class LogManager;
 class OtpFieldDetector;
+class OtpPhishGuardDelegate;
 struct PasswordFormClassification;
 class PasswordManagerDelegate;
 class PersonalDataManager;
@@ -124,6 +126,7 @@ enum class SuggestionType;
 class SingleFieldFillRouter;
 class ValuablesDataManager;
 class VotesUploader;
+class PasswordManagerAutofillHelperDelegate;
 
 namespace autofill_metrics {
 class FormInteractionsUkmLogger;
@@ -179,6 +182,26 @@ class AutofillClient {
     kMaxValue = kAutoDeclined,
   };
 
+  // Represents the user's possible decisions or outcomes in response to a
+  // prompt related to AutofillAi saving, updating, or migrating.
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  enum class AutofillAiBubbleClosedReason {
+    // Bubble closed reason not specified.
+    kUnknown = 0,
+    // The user explicitly accepted the bubble.
+    kAccepted = 1,
+    // The user explicitly cancelled the bubble.
+    kCancelled = 2,
+    // The user explicitly closed the bubble (via the close button or the ESC).
+    kClosed = 3,
+    // The bubble was not interacted with.
+    kNotInteracted = 4,
+    // The bubble lost focus and was closed.
+    kLostFocus = 5,
+    kMaxValue = kLostFocus
+  };
+
   // Describes the types of Iph shown by Autofill and anchored to a field.
   enum class IphFeature {
     kAutofillAi,
@@ -228,34 +251,17 @@ class AutofillClient {
     };
     ArrowPosition arrow_position;
   };
-
-  // Contains the result of a user interaction with the save/update AutofillAi
-  // prompt.
-  struct EntitySaveOrUpdatePromptResult final {
-    EntitySaveOrUpdatePromptResult();
-    EntitySaveOrUpdatePromptResult(bool did_user_decline,
-                                   std::optional<EntityInstance> entity);
-    EntitySaveOrUpdatePromptResult(const EntitySaveOrUpdatePromptResult&);
-    EntitySaveOrUpdatePromptResult(EntitySaveOrUpdatePromptResult&&);
-    EntitySaveOrUpdatePromptResult& operator=(
-        const EntitySaveOrUpdatePromptResult&);
-    EntitySaveOrUpdatePromptResult& operator=(EntitySaveOrUpdatePromptResult&&);
-    ~EntitySaveOrUpdatePromptResult();
-
-    // Whether the user explicitly declined the dialog.
-    bool did_user_decline = false;
-
-    // Non-empty iff the prompt was accepted.
-    std::optional<EntityInstance> entity;
-  };
-  using EntitySaveOrUpdatePromptResultCallback =
-      base::OnceCallback<void(EntitySaveOrUpdatePromptResult result)>;
+  using EntityImportPromptResultCallback =
+      base::OnceCallback<void(AutofillAiBubbleClosedReason close_reason)>;
 
   // The types of prompts that AutofillAi can show to the user after a form
-  // submission.
-  enum class AutofillAiPromptTypes {
-    kSave,
-    kUpdate,
+  // submission. The values are ordered by decreasing priority of being shown
+  // vis-a-vis each other.
+  enum class AutofillAiImportPromptType {
+    kSave = 0,
+    kUpdate = 1,
+    kMigrate = 2,
+    kMaxValue = kMigrate
   };
 
   // Specifies the type of the address save prompt.
@@ -319,6 +325,13 @@ class AutofillClient {
   // Autofill server.
   virtual AutofillCrowdsourcingManager& GetCrowdsourcingManager() = 0;
 
+  // Returns whether the client has a PersonalDataManager.
+  //
+  // TODO(crbug.cm/455121491) This is a temporary fix to avoid crashes when
+  // AutofillAnnotationsProviderImpl::AddAutofillInformation tries to query
+  // autofillable data but deals with an AndroidAutofillClient.
+  virtual bool HasPersonalDataManager() const;
+
   // Gets the PersonalDataManager instance associated with the original Chrome
   // profile.
   // To distinguish between (non-)incognito mode when deciding to persist data,
@@ -381,9 +394,8 @@ class AutofillClient {
   // `kAutofillAiServerModel` is not enabled or the profile is OTR.
   virtual AutofillAiModelExecutor* GetAutofillAiModelExecutor();
 
-  // Returns the per-profile `OptimizationGuideModelExecutor`.
-  virtual optimization_guide::OptimizationGuideModelExecutor*
-  GetOptimizationGuideModelExecutor();
+  // Returns the per-profile `RemoteModelExecutor`.
+  virtual optimization_guide::RemoteModelExecutor* GetRemoteModelExecutor();
 
   // Returns nullptr if no identity credential conditional request was made
   // before.
@@ -588,6 +600,24 @@ class AutofillClient {
   // Triggers a survey to ask the user why they declined saving an address.
   virtual void TriggerDeclinedSaveAddressReasonSurvey();
 
+  // Triggers a survey after the user sees an Autofill AI suggestion and submits
+  // a form. The triggering happens only if the uses sees an Autofill AI
+  // suggestion, regardless of whether they accepted it or not.
+  // `suggestion_accepted` defines whether the suggestion seen by the user was
+  // accepted. `entity_type` defines the type of entity used to generate the
+  // suggestion.
+  virtual void TriggerAutofillAiFillingJourneySurvey(
+      bool suggestion_accepted,
+      EntityType entity_type,
+      const base::flat_set<EntityTypeName>& saved_entities,
+      const FieldTypeSet& triggering_field_types);
+
+  // Triggers a survey after the user sees an Autofill AI save prompt.
+  virtual void TriggerAutofillAiSavePromptSurvey(
+      bool prompt_accepted,
+      EntityType entity_type,
+      const base::flat_set<EntityTypeName>& saved_entities);
+
   // Returns true if either Profile or CreditCard Autofill is enabled.
   virtual bool IsAutofillEnabled() const = 0;
 
@@ -612,9 +642,16 @@ class AutofillClient {
   // If the context is secure.
   virtual bool IsContextSecure() const = 0;
 
+  // Returns whether Google Wallet storage is supported.
+  virtual bool IsImportingToWalletEnabled() const = 0;
+
   // Returns true if the client supports saving CVCs. This allows specific
   // clients (IosWebView) to opt out of the CVC saving feature.
   virtual bool IsCvcSavingSupported() const;
+
+  // Returns true if all the conditions for enabling the upload of credit card
+  // are satisfied.
+  virtual bool IsCreditCardUploadEnabled() const;
 
   // Returns a LogManager instance (for chrome://autofill-internals). Note that
   // the return value may change over the lifetime of an AutofillClient from
@@ -705,16 +742,34 @@ class AutofillClient {
   // Shows a bubble asking whether the user wants to save or update Autofill AI
   // data. `old_entity` is present in the update cases. It is used to give users
   // a better understanding of what was updated.
-  virtual void ShowEntitySaveOrUpdateBubble(
+  virtual void ShowEntityImportBubble(
       EntityInstance new_entity,
       std::optional<EntityInstance> old_entity,
-      EntitySaveOrUpdatePromptResultCallback save_prompt_acceptance_callback);
+      EntityImportPromptResultCallback prompt_closed_callback);
+
+  virtual void ShowEmailVerifiedToast();
 
   // May return null on platforms where OTPs are not supported.
   virtual OtpFieldDetector* GetOtpFieldDetector();
 
-  // May return null on platforms where no SmsOtpBackend is supported.
-  virtual one_time_tokens::SmsOtpBackend* GetSmsOtpBackend() const;
+  // Returns the delegate for OTP phish guard, which can be used to perform
+  // security checks before offering an OTP. May return nullptr.
+  virtual OtpPhishGuardDelegate* GetOtpPhishGuardDelegate();
+
+  // May return null on platforms where no OneTimeTokenService is supported.
+  virtual one_time_tokens::OneTimeTokenService* GetOneTimeTokenService() const;
+
+  // Returns true if the primary main frame's document used the WebOTP API. This
+  // exists only for the main frame because only the main frame has the
+  // permission to call the WeOTP API.
+  virtual bool DocumentUsedWebOTP();
+
+  // Returns the helper for Password Manager integrations.
+  virtual PasswordManagerAutofillHelperDelegate*
+  GetPasswordManagerAutofillHelper();
+
+  // Returns the AutofillManager instance for the current frame/tab.
+  virtual AutofillManager* GetAutofillManagerForPrimaryMainFrame();
 };
 
 }  // namespace autofill

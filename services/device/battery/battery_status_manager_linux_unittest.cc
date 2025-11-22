@@ -7,6 +7,7 @@
 #include <limits>
 #include <list>
 #include <string>
+#include <utility>
 
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
@@ -72,7 +73,7 @@ class MockBatteryObject {
 
   void CallMethod(dbus::MethodCall* method_call,
                   int timeout_ms,
-                  dbus::ObjectProxy::ResponseCallback* callback) {
+                  dbus::ObjectProxy::ResponseCallback callback) {
     std::unique_ptr<dbus::Response> response;
     if (method_call->GetInterface() == dbus::kPropertiesInterface) {
       if (method_call->GetMember() == dbus::kPropertiesGet) {
@@ -96,20 +97,20 @@ class MockBatteryObject {
       ADD_FAILURE() << "Unexpected method call: " << method_call->ToString();
     }
 
-    std::move(*callback).Run(response.get());
+    std::move(callback).Run(response.get());
   }
 
   MockBatteryObject& ExpectConnectToSignalPropertyChanged() {
-    EXPECT_CALL(*proxy.get(), DoConnectToSignal(dbus::kPropertiesInterface,
-                                                dbus::kPropertiesChanged, _, _))
+    EXPECT_CALL(*proxy.get(), ConnectToSignal(dbus::kPropertiesInterface,
+                                              dbus::kPropertiesChanged, _, _))
         .WillRepeatedly(
             [this](
                 const std::string& interface_name,
                 const std::string& signal_name,
                 dbus::ObjectProxy::SignalCallback signal_callback,
-                dbus::ObjectProxy::OnConnectedCallback* on_connected_callback) {
+                dbus::ObjectProxy::OnConnectedCallback on_connected_callback) {
               ConnectToSignal(interface_name, signal_name, signal_callback,
-                              std::move(*on_connected_callback));
+                              std::move(on_connected_callback));
             });
     return *this;
   }
@@ -192,7 +193,7 @@ class BatteryStatusManagerLinuxTest : public testing::Test {
     dbus::Bus::Options options;
     options.bus_type = dbus::Bus::SYSTEM;
     options.connection_type = dbus::Bus::PRIVATE;
-    mock_bus_ = new NiceMock<dbus::MockBus>(options);
+    mock_bus_ = new NiceMock<dbus::MockBus>(std::move(options));
 
     EXPECT_CALL(*mock_bus_, Connect()).WillRepeatedly(Return(true));
     mock_display_device_ = CreateMockBatteryObject();
@@ -239,7 +240,7 @@ class BatteryStatusManagerLinuxTest : public testing::Test {
   std::unique_ptr<MockBatteryObject> CreateMockBatteryObject() {
     auto mock_object = std::make_unique<MockBatteryObject>(mock_bus_.get());
     ExpectGetObjectProxy(kUPowerDevicePath, mock_object.get());
-    EXPECT_CALL(*mock_object->proxy.get(), DoCallMethod(_, _, _))
+    EXPECT_CALL(*mock_object->proxy.get(), CallMethod(_, _, _))
         .WillRepeatedly(
             Invoke(mock_object.get(), &MockBatteryObject::CallMethod));
     return mock_object;

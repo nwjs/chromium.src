@@ -8,7 +8,9 @@
 #include <string>
 #include <vector>
 
+#include "base/functional/callback.h"
 #include "base/functional/callback_forward.h"
+#include "base/memory/raw_ref.h"
 #include "components/autofill/core/browser/ui/payments/bnpl_ui_delegate.h"
 
 namespace autofill {
@@ -21,12 +23,13 @@ struct BnplTosModel;
 namespace payments {
 
 struct BnplIssuerContext;
+class PaymentsAutofillClient;
 
 // Android implementation of the BnplUiDelegate interface. This class handles
 // the UI for the BNPL autofill flow on the Android platform.
 class AndroidBnplUiDelegate : public BnplUiDelegate {
  public:
-  AndroidBnplUiDelegate();
+  explicit AndroidBnplUiDelegate(PaymentsAutofillClient* client);
   AndroidBnplUiDelegate(const AndroidBnplUiDelegate& other) = delete;
   AndroidBnplUiDelegate& operator=(const AndroidBnplUiDelegate& other) = delete;
   ~AndroidBnplUiDelegate() override;
@@ -35,7 +38,7 @@ class AndroidBnplUiDelegate : public BnplUiDelegate {
   void ShowSelectBnplIssuerUi(
       std::vector<BnplIssuerContext> bnpl_issuer_context,
       std::string app_locale,
-      base::OnceCallback<void(BnplIssuer)> selected_issuer_callback,
+      base::OnceCallback<void(autofill::BnplIssuer)> selected_issuer_callback,
       base::OnceClosure cancel_callback) override;
   void DismissSelectBnplIssuerUi() override;
   void ShowBnplTosUi(BnplTosModel bnpl_tos_model,
@@ -46,6 +49,9 @@ class AndroidBnplUiDelegate : public BnplUiDelegate {
                       base::OnceClosure cancel_callback) override;
   void CloseProgressUi(bool show_confirmation_before_closing) override;
   void ShowAutofillErrorUi(AutofillErrorDialogContext context) override;
+
+ private:
+  const raw_ref<PaymentsAutofillClient> client_;
 };
 
 }  // namespace payments

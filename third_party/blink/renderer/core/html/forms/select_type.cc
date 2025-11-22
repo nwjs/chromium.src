@@ -188,7 +188,7 @@ class PopoverElementForAppearanceBase : public HTMLDivElement {
     HTMLDivElement::DidRecalcStyle(change);
     if (auto* style = GetComputedStyle()) {
       AppearanceState new_appearance_state =
-          style->EffectiveAppearance() == AppearanceValue::kBaseSelect
+          SupportsBaseAppearance(style->EffectiveAppearance())
               ? AppearanceState::kAppearanceBase
               : AppearanceState::kAppearanceNotBase;
       auto* select = ParentSelect();
@@ -220,8 +220,16 @@ class PopoverElementForAppearanceBase : public HTMLDivElement {
     }
   }
 
+  bool SupportsBaseAppearanceInternal(
+      BaseAppearanceValue appearance_value) const override {
+    if (auto* select = ParentSelect()) {
+      return select->SupportsBaseAppearanceInternal(appearance_value);
+    }
+    return false;
+  }
+
  private:
-  HTMLSelectElement* ParentSelect() {
+  HTMLSelectElement* ParentSelect() const {
     if (auto* shadowroot = DynamicTo<ShadowRoot>(parentNode())) {
       HTMLSelectElement* select =
           DynamicTo<HTMLSelectElement>(shadowroot->host());
@@ -298,6 +306,7 @@ class MenuListSelectType final : public SelectType {
   void UnobserveTreeMutation();
 
   Member<PopupMenu> popup_;
+  bool is_popup_external_ = false;
   Member<PopupUpdater> popup_updater_;
   Member<const ComputedStyle> option_style_;
   Member<HTMLSlotElement> button_slot_;
@@ -472,13 +481,15 @@ bool MenuListSelectType::DefaultEventHandler(const Event& event) {
         // TODO(lanwei): Will check if we need to add
         // InputDeviceCapabilities here when select menu list gets
         // focus, see https://crbug.com/476530.
-        if (PickerIsPopover() && !mouse_event->FromTouch()) {
-          // If the popover is shown before pointerup, then popover light
-          // dismiss will close the popover when the user releases/lifts the
-          // pointer unless we change the pointerdown target like this.
-          // pointerup is fired before mousedown on touch, so this is only
-          // needed when the event is not from touch.
-          select_->GetDocument().SetPopoverPointerdownTarget(popover_);
+        if (PickerIsPopover()) {
+          if (!mouse_event->FromTouch()) {
+            // If the popover is shown before pointerup, then popover light
+            // dismiss will close the popover when the user releases/lifts the
+            // pointer unless we change the pointerdown target like this.
+            // pointerup is fired before mousedown on touch, so this is only
+            // needed when the event is not from touch.
+            select_->GetDocument().SetPopoverPointerdownTarget(popover_);
+          }
 
           // Keep track of the mouse pixel location, so that when the mouseup
           // happens, we can see whether there was a mouse drag to pick an
@@ -529,14 +540,6 @@ bool MenuListSelectType::ShouldOpenPopupForKeyPressEvent(
     const KeyboardEvent& event) {
   LayoutTheme& layout_theme = LayoutTheme::GetTheme();
   int key_code = event.keyCode();
-
-  // TODO(crbug.com/1511354): Reconsider making appearance:base-select affect
-  // keyboard behavior after a resolution here:
-  // https://github.com/openui/open-ui/issues/1087
-  if (IsAppearanceBase() && key_code == '\r') {
-    return false;
-  }
-
   return ((key_code == ' ' && !select_->type_ahead_.HasActiveSession(event)) ||
           (layout_theme.PopsMenuByReturnKey() && key_code == '\r'));
 }
@@ -638,7 +641,7 @@ HTMLElement* MenuListSelectType::PopoverPickerElement() const {
 bool MenuListSelectType::IsAppearanceBase() const {
   DCHECK(select_);
   if (auto* style = select_->GetComputedStyle()) {
-    return style->EffectiveAppearance() == AppearanceValue::kBaseSelect;
+    return select_->SupportsBaseAppearance(style->EffectiveAppearance());
   }
   return false;
 }
@@ -651,9 +654,7 @@ bool MenuListSelectType::IsAppearanceBasePicker() const {
   }
   DCHECK(popover_);
   if (auto* style = popover_->GetComputedStyle()) {
-    bool is_base_appearance =
-        style->EffectiveAppearance() == AppearanceValue::kBaseSelect;
-    return is_base_appearance;
+    return popover_->SupportsBaseAppearance(style->EffectiveAppearance());
   }
   // In the case that the picker is closed and doesn't have a computed style, we
   // can use this value which is set during style recalc before the style gets
@@ -762,9 +763,19 @@ void MenuListSelectType::ShowPopup(PopupMenu::ShowEventType type) {
   select_->GetDocument().UpdateStyleAndLayoutForNode(
       select_, DocumentUpdateReason::kPagePopup);
 
+  ChromeClient& chrome_client = document.GetPage()->GetChromeClient();
   if (!popup_) {
-    popup_ = document.GetPage()->GetChromeClient().OpenPopupMenu(
-        *document.GetFrame(), *select_);
+    popup_ = chrome_client.OpenPopupMenu(*document.GetFrame(), *select_);
+    is_popup_external_ = chrome_client.UseExternalPopupMenus();
+  } else {
+    // There's an existing popup -- if switching between native and non-native
+    // UI, hide and destroy the existing popup, and create a new one.
+    bool popup_is_external = chrome_client.UseExternalPopupMenus();
+    if (is_popup_external_ != popup_is_external) {
+      popup_->Hide();
+      popup_ = chrome_client.OpenPopupMenu(*document.GetFrame(), *select_);
+      is_popup_external_ = popup_is_external;
+    }
   }
   if (!popup_) {
     SetNativePopupIsVisible(false);
@@ -931,7 +942,7 @@ void MenuListSelectType::DidDetachLayoutTree() {
 void MenuListSelectType::DidRecalcStyle(const StyleRecalcChange change) {
   if (auto* style = select_->GetComputedStyle()) {
     bool is_appearance_base_select =
-        style->EffectiveAppearance() == AppearanceValue::kBaseSelect;
+        select_->SupportsBaseAppearance(style->EffectiveAppearance());
     if (is_appearance_base_select_ != is_appearance_base_select) {
       if (PopupIsVisible()) {
         // The picker, as the result of CSS, changed `appearance` values upon
@@ -1872,7 +1883,7 @@ bool ListBoxSelectType::IsAppearanceBase() const {
   }
   DCHECK(select_);
   if (auto* style = select_->GetComputedStyle()) {
-    return style->EffectiveAppearance() == AppearanceValue::kBaseSelect;
+    return select_->SupportsBaseAppearance(style->EffectiveAppearance());
   }
   return false;
 }

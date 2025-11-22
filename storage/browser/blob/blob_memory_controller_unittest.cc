@@ -43,7 +43,7 @@ const uint64_t kTestSmallBlobStorageMaxDiskSpace = 100;
 static int64_t sFakeDiskSpace = 0;
 static bool sFakeDiskSpaceCalled = true;
 
-int64_t FakeDiskSpaceMethod(const base::FilePath& path) {
+std::optional<int64_t> FakeDiskSpaceMethod(const base::FilePath& path) {
   EXPECT_FALSE(sFakeDiskSpaceCalled);
   sFakeDiskSpaceCalled = true;
   return sFakeDiskSpace;
@@ -1153,9 +1153,7 @@ TEST_F(BlobMemoryControllerTest, OnMemoryPressure) {
   EXPECT_FALSE(file_runner_->HasPendingTask());
   EXPECT_EQ(size_to_load, controller.memory_usage());
 
-  controller.OnMemoryPressure(
-      base::MemoryPressureListener::MemoryPressureLevel::
-          MEMORY_PRESSURE_LEVEL_MODERATE);
+  controller.OnMemoryPressure(base::MEMORY_PRESSURE_LEVEL_MODERATE);
 
   EXPECT_TRUE(file_runner_->HasPendingTask());
 

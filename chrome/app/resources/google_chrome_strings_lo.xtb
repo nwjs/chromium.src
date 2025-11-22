@@ -21,6 +21,7 @@
 <translation id="110877069173485804">ນີ້​ແມ່ນ Chrome ຂອງ​ທ່ານ</translation>
 <translation id="1125124144982679672">ໃຜກຳລັງໃຊ້ Chrome?</translation>
 <translation id="1142745911746664600">ບໍ່ສາມາດອັບເດດ Chrome ໄດ້</translation>
+<translation id="1148360048981192980">ເທື່ອຕໍ່ໄປທີ່ທ່ານເປີດ Chrome ຢູ່ <ph name="DEVICE_TYPE" /> ຂອງທ່ານ, ທ່ານຈະເຫັນຂໍ້ຄວາມແຈ້ງໃຫ້ໃຊ້ຕົວຈັດການລະຫັດຜ່ານ Google.</translation>
 <translation id="1152920704813762236">ກ່ຽວກັບ ChromeOS</translation>
 <translation id="1154147086299354128">&amp;ເປີດໃນ Chrome</translation>
 <translation id="1157985233335035034">ພາສາຫຼ້າສຸດ</translation>
@@ -92,6 +93,7 @@
 <translation id="2018528049276128029">ແຕ່ລະໂປຣໄຟລ໌ມີຂໍ້ມູນ Chrome ຂອງມັນເອງ ເຊັ່ນ: ບຸກມາກ, ປະຫວັດ, ລະຫັດຜ່ານ ແລະ ອື່ນໆອີກ</translation>
 <translation id="2018879682492276940">ການຕິດຕັ້ງບໍ່ສຳເລັດ. ກະລຸນາລອງໃໝ່.</translation>
 <translation id="2024959665595762054">ເພື່ອໃຊ້ ແລະ ບັນທຶກຂໍ້ມູນ Chrome ໃນບັນຊີ Google ຂອງທ່ານ, ກະລຸນາຢັ້ງຢືນວ່າແມ່ນທ່ານ</translation>
+<translation id="2026377840141807639">ໂປຣໄຟລ໌ Chrome ຊ່ວຍໃຫ້ທ່ານແຍກການທ່ອງເວັບສ່ວນຕົວ ແລະ ການທ່ອງເວັບສຳລັບວຽກອອກຈາກກັນໄດ້. ເພີ່ມໂປຣໄຟລ໌ໃໝ່ຕອນນີ້ເລີຍ.</translation>
 <translation id="2034233344106846793">Chrome ອັບເກຣດການເຊື່ອມຕໍ່ທີ່ບໍ່ປອດໄພເປັນ HTTPS ໂດຍອັດຕະໂນມັດຫາກເປັນໄປໄດ້</translation>
 <translation id="2039417478970545937">ການຕັ້ງຄ່າ.</translation>
 <translation id="2091012649849228750">ເພື່ອຮັບການອັບເດດ Google Chrome ໃນອະນາຄົດ, ທ່ານຈະຕ້ອງໃຊ້ Windows 10 ຫຼື ໃໝ່ກວ່າ. ຄອມພິວເຕີນີ້ກຳລັງນຳໃຊ້ Windows 8.</translation>
@@ -150,9 +152,11 @@
 <translation id="2681444469812712297">ເປີດ <ph name="URL" /> ໃນແຖບໃໝ່ໃນ Google Chrome.</translation>
 <translation id="2699790011615497488">ເປີດ Gemini ໃນ Chrome Beta</translation>
 <translation id="2712141162840347885">ເລືອກຫຍັງກໍໄດ້ເພື່ອຊອກຫາດ້ວຍ Google Lens ຫຼື ກົດ Escape ເພື່ອອອກຈາກ Google Lens</translation>
+<translation id="2723860029395667894">ສະແດງທາງລັດຂອງໂໝດ Google AI ສະເໝີ</translation>
 <translation id="2738871930057338499">ບໍ່ສາມາດເຊື່ອມຕໍ່ກັບອິນເຕີເນັດໄດ້. HTTP 403 ຖືກຫ້າມ. ກະລຸນາກວດສອບການຕັ້ງຄ່າພຣັອກຊີຂອງທ່ານ.</translation>
 <translation id="2742320827292110288">ຄຳເຕືອນ: Google Chrome ບໍ່ສາມາດປ້ອງກັນບໍ່ໃຫ້ສ່ວນຂະຫຍາຍບັນທຶກປະຫວັດການທ່ອງເວັບຂອງທ່ານໄດ້. ເພື່ອປິດການນຳໃຊ້ສ່ວນຂະຫຍາຍນີ້ໃນໂໝດບໍ່ເປີດເຜີຍຕົວຕົນ, ກະລຸນາບໍ່ເລືອກຕົວເລືອກນີ້.</translation>
 <translation id="2753623023919742414">ຄລິກເພື່ອຊອກຫາ</translation>
+<translation id="2757826245013442432">{COUNT,plural, =0{ການປົກປ້ອງຂັ້ນສູງກຳນົດໃຫ້ທ່ານຕ້ອງເລີ່ມເປີດໃຊ້ Chrome ໃໝ່ເພື່ອນຳໃຊ້ການອັບເດດ}=1{ການປົກປ້ອງຂັ້ນສູງກຳນົດໃຫ້ທ່ານຕ້ອງເລີ່ມເປີດໃຊ້ Chrome ໃໝ່ເພື່ອນຳໃຊ້ການອັບເດດ. ໜ້າຈໍທີ່ບໍ່ເປີດເຜີຍຕົວຕົນຂອງທ່ານຈະບໍ່ເປີດຄືນໃໝ່.}other{ການປົກປ້ອງຂັ້ນສູງກຳນົດໃຫ້ທ່ານຕ້ອງເລີ່ມເປີດໃຊ້ Chrome ໃໝ່ເພື່ອນຳໃຊ້ການອັບເດດ. ໜ້າຈໍທີ່ບໍ່ເປີດເຜີຍຕົວຕົນຂອງທ່ານ # ລາຍການຈະບໍ່ເປີດຄືນໃໝ່.}}</translation>
 <translation id="2765403129283291972">Chrome ຕ້ອງການການອະນຸຍາດເພື່ອເຂົ້າເຖິງໄມໂຄຣໂຟນຂອງທ່ານສຳລັບເວັບໄຊນີ້</translation>
 <translation id="2770231113462710648">ປ່ຽນບຣາວ​ເຊີມາດຕະຖານເປັນ:</translation>
 <translation id="2775140325783767197">Chrome ບໍ່ສາມາດກວດລະຫັດຜ່ານຂອງທ່ານໄດ້. ລອງກວດເບິ່ງການເຊື່ອມຕໍ່ອິນເຕີເນັດຂອງທ່ານ.</translation>
@@ -190,6 +194,7 @@
 <translation id="3047590466164881923">ປິດກ່ອງໂຕ້ຕອບຄຳຕິຊົມ</translation>
 <translation id="306179102415443347">ໃຊ້ທາງລັດຂອງທ່ານເພື່ອເຂົ້າຫາຕົວຈັດການລະຫັດຜ່ານ Google ຢ່າງວ່ອງໄວ. ທ່ານສາມາດຍ້າຍທາງລັດຂອງທ່ານໄປຫາໜ້າຈໍຫຼັກຂອງຄອມພິວເຕີ ຫຼື ຕົວເປີດແອັບຂອງທ່ານໄດ້.</translation>
 <translation id="3065168410429928842">ແຖບ Chrome</translation>
+<translation id="3073571714401714450">ເປີດ/ປິດ Gemini ໃນ Chrome Dev</translation>
 <translation id="3080151273017101988">ສືບຕໍ່ແລ່ນແອັບພື້ນຫຼັງ ເມື່ອ Google Chrome ປິດ</translation>
 <translation id="308397506772922478">ຫາກທ່ານລືມລະຫັດຜ່ານຂອງຕົນເອງ ຫຼື ຕ້ອງການປ່ຽນການຕັ້ງຄ່ານີ້, ໃຫ້ <ph name="BEGIN_LINK" />ລຶບຂໍ້ມູນ Chrome ໃນບັນຊີຂອງທ່ານ<ph name="END_LINK" /></translation>
 <translation id="3100998948628680988">ຕັ້ງຊື່ໂປຣໄຟລ໌ Chrome ຂອງທ່ານ</translation>
@@ -275,7 +280,6 @@
 <translation id="409936259433005390">ຈະອັບເກຣດເປັນ Windows 11 ໃນໄວໆນີ້ບໍ? ດາວໂຫຼດຕົວຕິດຕັ້ງ Chrome ໃສ່ໃນ OneDrive ເພື່ອໃຫ້ທ່ານພ້ອມນຳໃຊ້ຕັ້ງແຕ່ມື້ທຳອິດ.</translation>
 <translation id="4110895483821904099">ຕັ້ງຄ່າໂປຣໄຟລ໌ Chrome ໃໝ່ຂອງທ່ານ</translation>
 <translation id="4111566860456076004">Chrome ບໍ່ສາມາດຢັ້ງຢືນໄດ້ວ່າສ່ວນຂະຫຍາຍນີ້ມາຈາກໃສ ແລະ ມັນອາດບໍ່ປອດໄພ. ລຶບສ່ວນຂະຫຍາຍດັ່ງກ່າວອອກຈາກ Chrome ເພື່ອບໍ່ໃຫ້ເບິ່ງ ແລະ ປ່ຽນຂໍ້ມູນຂອງທ່ານຢູ່ເວັບໄຊທີ່ທ່ານເຂົ້າເບິ່ງ, ເຊິ່ງຮວມເຖິງຂໍ້ມູນສ່ວນຕົວ.</translation>
-<translation id="4128488089242627000">Chrome ເຮັດວຽກໄດ້ໄວຂຶ້ນ ແລະ ຄຸນສົມບັດທີ່ໃຊ້ JavaScript ຄວນເຮັດວຽກຕາມທີ່ອອກແບບໄວ້ (ແນະນຳ)</translation>
 <translation id="4147555960264124640">ທ່ານກໍາລັງລົງຊື່ເຂົ້າໃຊ້ດ້ວຍບັນຊີຄຸ້ມຄອງ ແລະໃຫ້ຜູ້ຄວບຄູມຂອງມັນຄວບຄຸມໂປຣໄຟລ໌ Google Chrome ຂອງທ່ານ. ຂໍ້ມູນ Chrome ຂອງທ່ານ, ເຊັ່ນ ແອັບ, ບຸກມາກສ໌, ປະຫວັດ, ລະຫັດຜ່ານ, ແລະການຕັ້ງອື່ນຂອງທ່ານຈະຖືກຜູກ​ມັດ​ກັບ <ph name="USER_NAME" /> ຢ່າງຖາວອນ. ທ່ານຈະສາມາດລຶບຂໍ້ມູນນີ້ໄດ້ຜ່ານ Google Accounts Dashboard, ແຕ່ທ່ານຈະບໍ່ສາມາດນໍາເອົາຂໍ້ມູນນີ້ມາກ່ຽວຂ້ອງກັບບັນຊີອື່ນໄດ້. <ph name="LEARN_MORE" /></translation>
 <translation id="4148957013307229264">ກໍາລັງ​ຕິດ​ຕັ້ງ...</translation>
 <translation id="4149882025268051530">ຕົວຕິດຕັ້ງບໍ່ສາມາດ​ຄາຍ​ການບີບອັດຈາກຄັງເກັບມ້ຽນ. ກະລຸນາດາວໂຫຼດ Google Chrome ອີກ.</translation>
@@ -365,6 +369,7 @@
 ອາດຈະບໍ່ມີບາງຄຸນສົມບັດຢູ່. ກະລຸນາລະບຸໄດເຣັກຕໍຣີໂປຣໄຟລ໌ອື່ນ ຫຼືໃຊ້ Chrome ລຸ້ນໃໝ່ກ່ວາ.</translation>
 <translation id="5174969993834422967">ໂດຍປົກກະຕິແລ້ວທ່ານບລັອກການແຈ້ງເຕືອນ. ເພື່ອໃຫ້ເວັບໄຊນີ້ແຈ້ງເຕືອນທ່ານ, ໃຫ້ຄລິກທີ່ໄອຄອນການແຈ້ງເຕືອນຢູ່ມຸມຂວາຂອງແຖບສະຖານທີ່ຂອງທ່ານ.</translation>
 <translation id="5174983315706567306">ພື້ນທີ່ດິສກ໌ບໍ່ພຽງພໍ.</translation>
+<translation id="5190467473654176081">ປັບແຕ່ງ Chrome ເພື່ອໃຫ້ມີຮູບລັກໃໝ່</translation>
 <translation id="5201744974236816379">ການອັບເດດ Chrome</translation>
 <translation id="521447420733633466">ຖ້າທ່ານໃຊ້ອຸປະກອນຮ່ວມກັນ, ໝູ່ ແລະ ຄອບຄົວສາມາດທ່ອງເວັບແຍກກັນ ແລະ ຕັ້ງຄ່າ Chrome ໃນແບບທີ່ເຂົາເຈົ້າຕ້ອງການໄດ້</translation>
 <translation id="5234764350956374838">ປ່ອຍໄປ</translation>
@@ -380,6 +385,7 @@
 <translation id="5368118228313795342">ລະຫັດເພີ່ມເຕີມ: <ph name="EXTRA_CODE" />.</translation>
 <translation id="5386244825306882791">ມັນຍັງຄວບຄຸມວ່າຈະໃຫ້ສະແດງໜ້າໃດຂຶ້ນ ເມື່ອທ່ານເລີ່ມຕົ້ນເປີດ Chrome ຫຼືຄົ້ນຫາຈາກ Omnibox.</translation>
 <translation id="5394833366792865639">ແບ່ງປັນແຖບ Chrome</translation>
+<translation id="5402307365844630024">ເປີດ/ປິດ Gemini ໃນ Chrome Beta</translation>
 <translation id="5430073640787465221">ໄຟລ໌ທີ່ມັກຂອງທ່ານຂັດຂ້ອງ ຫຼືໃຊ້ບໍ່ໄດ້.
 
 Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ່າໄດ້.</translation>
@@ -387,6 +393,7 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="5510398294750420479">ດາວໂຫຼດ Chrome ຢູ່ໂທລະສັບຂອງທ່ານເພື່ອເພີ່ມຊັ້ນການປົກປ້ອງພິເສດເມື່ອທ່ານຢູ່ໃນໂໝດເວລາເດີນທາງ</translation>
 <translation id="5524890928877629608">ມຸມຊ້າຍເທິງຂອງພື້ນທີ່ຊອກຫາ: ຊ້າຍ <ph name="LEFT" />%, ເທິງ <ph name="TOP" />%</translation>
 <translation id="5530733413481476019">ເຮັດໃຫ້ Chrome ໄວຂຶ້ນ</translation>
+<translation id="5550137307985173298">ຄລິກປຸ່ມປັບແຕ່ງ Chrome ຢູ່ໜ້າແຖບໃໝ່ເພື່ອໃຫ້ Chrome ມີຮູບລັກໃໝ່</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5579324208890605088">ຂໍ້ຜິດພາດໃນການເລີ່ມຕົ້ນ: ກະລຸນາເອີ້ນໃຊ້ຕົວຕິດຕັ້ງໃນຖານະຜູ້ໃຊ້ທົ່ວໄປ, ບໍ່ແມ່ນໃນຖານະຜູ້ເບິ່ງແຍງລະບົບ.</translation>
 <translation id="5596627076506792578">ໂຕ​ເລືອກ​ເພີ່ມ​ເຕີມ</translation>
@@ -415,6 +422,7 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="5736850870166430177">ຖ້າເວັບໄຊພະຍາຍາມລັກເອົາລະຫັດຜ່ານຂອງທ່ານ ຫຼື ເມື່ອທ່ານດາວໂຫຼດໄຟລ໌ອັນຕະລາຍ, Chrome ອາດຈະສົ່ງ URL, ຮວມທັງເນື້ອຫາບາງສ່ວນໃນໜ້າໄປໃຫ້ Safe Browsing ນຳ</translation>
 <translation id="5756509061973259733">ມີໂປຣໄຟລ໌ Chrome ກັບບັນຊີນີ້ຢູ່ອຸປະກອນນີ້ຢູ່ກ່ອນແລ້ວ</translation>
 <translation id="5759947850379142561">ເລືອກຂໍ້ຄວາມ ຫຼື ຮູບເພື່ອຊອກຫາດ້ວຍ Google Lens ຫຼື ກົດ Escape ເພື່ອອອກຈາກ Google Lens</translation>
+<translation id="5762867845020858790">ເພີ່ມໂປຣໄຟລ໌ Chrome ໃໝ່ເພື່ອແຍກບຸກມາກ, ລະຫັດຜ່ານ ແລະ ການຕັ້ງຄ່າອອກຈາກກັນ.</translation>
 <translation id="5795887333006832406"><ph name="PAGE_TITLE" /> - Google Chrome Canary</translation>
 <translation id="5804318322022881572">ບໍ່ສາມາດເປີດໃຊ້ Chrome. ກະລຸນາລອງອີກຄັ້ງ.</translation>
 <translation id="5809516625706423866">ບໍ່ສາມາດເຊື່ອມຕໍ່ກັບອິນເຕີເນັດໄດ້. HTTP 401 ບໍ່ໄດ້ຮັບອະນຸຍາດ. ກະລຸນາກວດສອບການຕັ້ງຄ່າພຣັອກຊີຂອງທ່ານ.</translation>
@@ -431,6 +439,7 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="5941711191222866238">ຫຍໍ້ລົງ</translation>
 <translation id="5941830788786076944">ເຮັດ Google Chrome ເປັນບຣາວເຊີມາດຕະຖານ</translation>
 <translation id="5947104538377036631">ທາງລັດ Chrome</translation>
+<translation id="5960071705175224773">ແອັບທີ່ບໍ່ຮູ້ຈັກປ່ຽນການຕັ້ງຄ່າຂອງທ່ານ</translation>
 <translation id="5968400720580217226">ໂໝດ AI</translation>
 <translation id="5980111191913430208">ສ່ວນຂະຫຍາຍ, ແອັບ ແລະ ຮູບແບບສີສັນຈາກແຫຼ່ງຂໍ້ມູນທີ່ບໍ່ຮູ້ຈັກອາດເປັນອັນຕະລາຍກັບອຸປະກອນຂອງທ່ານໄດ້. Chrome ແນະນຳໃຫ້ຕິດຕັ້ງພວກມັນຈາກ <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> ເທົ່ານັ້ນ</translation>
 <translation id="6003112304606738118">ກຳລັງດາວໂຫຼດ... ຍັງເຫຼືອ <ph name="HOURS" /> ຊົ່ວໂມງ</translation>
@@ -481,6 +490,7 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="6412673304250309937">ກວດສອບ URL ກັບລາຍການເວັບໄຊທີ່ບໍ່ປອດໄພທີ່ເກັບໄວ້ໃນ Chrome. ຖ້າເວັບໄຊພະຍາຍາມລັກເອົາລະຫັດຜ່ານຂອງທ່ານ ຫຼື ເມື່ອທ່ານດາວໂຫຼດໄຟລ໌ອັນຕະລາຍ, Chrome ອາດຈະສົ່ງ URL, ຮວມທັງເນື້ອຫາບາງສ່ວນໃນໜ້າໄປໃຫ້ Safe Browsing.</translation>
 <translation id="6417690341895039567">{COUNT,plural, =1{ອົງກອນຂອງທ່ານຈະປິດ Chrome ໂດຍອັດຕະໂນມັດເມື່ອບໍ່ມີການນຳໃຊ້ເປັນເວລາ 1 ນາທີ. ລຶບຂໍ້ມູນການທ່ອງເວັບອອກແລ້ວ. ເຊິ່ງຮວມເຖິງປະຫວັດ, ການຕື່ມຂໍ້ມູນອັດຕະໂນມັດ ແລະ ການດາວໂຫຼດ.}other{ອົງກອນຂອງທ່ານຈະປິດ Chrome ໂດຍອັດຕະໂນມັດເມື່ອບໍ່ມີການນຳໃຊ້ເປັນເວລາ # ນາທີ. ລຶບຂໍ້ມູນການທ່ອງເວັບອອກແລ້ວ. ເຊິ່ງຮວມເຖິງປະຫວັດ, ການຕື່ມຂໍ້ມູນອັດຕະໂນມັດ ແລະ ການດາວໂຫຼດ.}}</translation>
 <translation id="6418662306461808273">ສະຫຼັບໄປຫາໂປຣໄຟລ໌ Chrome ທີ່ມີຢູ່ກ່ອນແລ້ວບໍ?</translation>
+<translation id="6426623519983252346">ທ່ານຈະເຫັນຂໍ້ຄວາມແຈ້ງໃຫ້ລອງໃຊ້ <ph name="FEATURE_NAME" /> ໃນເທື່ອຕໍ່ໄປທີ່ທ່ານເປີດ Chrome ຢູ່ iOS.</translation>
 <translation id="6473905796280459355">ເຂົ້າໄປໜ້າກ່ຽວກັບ Chrome</translation>
 <translation id="6481963882741794338">ລິ້ງ Chrome ແລະ ບໍລິການອື່ນໆຂອງ Google ເພື່ອການປັບແຕ່ງເປັນແບບສ່ວນຕົວ ແລະ ຈຸດປະສົງອື່ນໆ</translation>
 <translation id="648319183876919572">Safe Browsing ທີ່ປັບປຸງດີຂຶ້ນຊ່ວຍປົກປ້ອງທ່ານຈາກເວັບໄຊ ແລະ ການດາວໂຫຼດທີ່ອັນຕະລາຍ</translation>
@@ -513,6 +523,7 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="6800285125190089494">ເຂົ້າສູ່ລະບົບເວັບໄຊໄວຂຶ້ນໂດຍໃຊ້ລະຫັດຜ່ານທີ່ບັນທຶກໄວ້ສຳລັບ Chrome ຢູ່ iOS</translation>
 <translation id="6831043979455480757">ແປພາສາ</translation>
 <translation id="683440813066116847">ກົດລະບຽບຂາເຂົ້າສໍາລັບ Google Chrome Canary ເພື່ອອະນຸຍາດໃຫ້ການຈາລະຈອນ mDNS.</translation>
+<translation id="6841242485723266823">ໂປຣໄຟລ໌ Chrome ຊ່ວຍໃຫ້ທ່ານແຍກພາກສ່ວນຕ່າງໆໃນຊີວິດຂອງທ່ານອອກຈາກກັນໄດ້. ເພີ່ມໂປຣໄຟລ໌ໃໝ່ຕອນນີ້ເລີຍ.</translation>
 <translation id="684888714667046800">ບໍ່ສາມາດເຊື່ອມຕໍ່ກັບອິນເຕີເນັດໄດ້. ຫາກທ່ານໃຊ້ firewall, ກະລຸນາກວດສອບໃຫ້ໝັ້ນໃຈວ່າ <ph name="PRODUCT_EXE_NAME" /> ຢູ່ໃນລາຍຊື່ອະນຸຍາດ.</translation>
 <translation id="6877155553248388166">ມຸມຂວາລຸ່ມຂອງພື້ນທີ່ຊອກຫາ: ຂວາ <ph name="RIGHT" />%, ລຸ່ມ <ph name="BOTTOM" />%</translation>
 <translation id="6881299373831449287">ກຳລັງອັບເດດ Chrome</translation>
@@ -528,6 +539,7 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="6967962315388095737">ກົດລະບຽບຂາເຂົ້າສໍາລັບ Google Chrome Beta ເພື່ອອະນຸຍາດການຮັບສົ່ງຂໍ້ມູນ mDNS.</translation>
 <translation id="6979589607440534284">ສຶກສາວ່າເປັນຫຍັງ Chrome ຈຶ່ງບລັອກບາງໄຟລ໌, ເປີດໃນແຖບໃໝ່</translation>
 <translation id="6991926986715044139">ສະແດງທາງລັດຂອງ Google Lens ສະເໝີ</translation>
+<translation id="6999131147875565462">Chrome ຈະເຮັດວຽກໄດ້ໄວຂຶ້ນ ແລະ ຄຸນສົມບັດທີ່ໃຊ້ JavaScript ຄວນເຮັດວຽກຕາມທີ່ອອກແບບໄວ້</translation>
 <translation id="7011190694940573312">ການຕິດຕັ້ງບໍ່ສຳເລັດເນື່ອງຈາກລະບົບບໍ່ຮອງຮັບລະບົບປະຕິບັດການເວີຊັນນີ້.</translation>
 <translation id="7024536598735240744">ແຕກໄຟລ໌ຜິດພາດ: <ph name="UNPACK_ERROR" />.</translation>
 <translation id="7025789849649390912">ຢຸດການຕິດຕັ້ງແລ້ວ.</translation>
@@ -653,6 +665,7 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="8362914115861174987">ແປພາສາເປັນ</translation>
 <translation id="8366770919198174997">ຫຼຸດປະສິດທິພາບ ແຕ່ເຮັດໃຫ້ Chrome ທົນທານຕໍ່ການໂຈມຕີໄດ້ຫຼາຍຂຶ້ນ</translation>
 <translation id="8370517070665726704">ລິຂະສິດ <ph name="YEAR" /> Google LLC. ສະຫງວນສິດທັງໝົດ.</translation>
+<translation id="8377158135256176353">ເປີດ/ປິດ Gemini ໃນ Chrome Canary</translation>
 <translation id="8387459386171870978">ສືບຕໍ່ນຳໃຊ້ Chrome</translation>
 <translation id="8394720698884623075">ກວດສອບ URL ກັບລາຍການເວັບໄຊທີ່ບໍ່ປອດໄພທີ່ຈັດເກັບໄວ້ໃນ Chrome</translation>
 <translation id="8403038600646341038">ໂລໂກ້ Chrome ໃນໜ້າຈໍຄອມພິວເຕີ.</translation>
@@ -675,8 +688,10 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="8625237574518804553">{0,plural, =1{Chrome ຈະເປີດຄືນໃໝ່ໃນ 1 ນາທີ}other{Chrome ຈະເປີດຄືນໃໝ່ໃນ # ນາທີ}}</translation>
 <translation id="8637932705841171563">ເພື່ອແບ່ງປັນໜ້າຈໍຂອງທ່ານ, ໃຫ້ອະນຸຍາດການບັນທຶກໜ້າຈໍສຳລັບ Chrome ໃນການຕັ້ງຄ່າລະບົບ</translation>
 <translation id="8641606876632989680">Chrome ຈະແຈ້ງບອກທ່ານເມື່ອທ່ານເຂົ້າສູ່ລະບົບດ້ວຍລະຫັດຜ່ານທີ່ຖືກລະເມີດ</translation>
+<translation id="8647930742055103497">ເກັບທຸກຢ່າງໄວ້ໃນ Chrome</translation>
 <translation id="8656634243791296665">ເປີດ Gemini ໃນ Chrome Dev</translation>
 <translation id="8669527147644353129">ຕົວຊ່ວຍ Google Chrome</translation>
+<translation id="8677922833187616101">ສະແດງທາງລັດຂອງໂໝດ Google AI ສະເໝີ</translation>
 <translation id="8679801911857917785">ມັນຍັງຄວບຄຸມວ່າຈະໃຫ້ສະແດງໜ້າໃດຂຶ້ນ ເມື່ອທ່ານເລີ່ມຕົ້ນເປີດ Chrome.</translation>
 <translation id="8712637175834984815">ເຂົ້າໃຈແລ້ວ</translation>
 <translation id="8712767363896337380">ອັບເດດໃກ້ແລ້ວໆ! ເລີ່ມເປີດໃຊ້ Chrome ໃໝ່ເພື່ອອັບເດດໃຫ້ແລ້ວ.</translation>
@@ -685,7 +700,6 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="873133009373065397">Google Chrome ບໍ່ສາມາດກຳນົດ ຫຼື ຕັ້ງໂປຣແກຣມທ່ອງເວັບເລີ່ມຕົ້ນໄດ້</translation>
 <translation id="8747073452963259673">ມຸມຊ້າຍລຸ່ມຂອງພື້ນທີ່ຊອກຫາ: ຊ້າຍ <ph name="LEFT" />%, ລຸ່ມ <ph name="BOTTOM" />%</translation>
 <translation id="8748735421235723888">Chrome ຈະເພີ່ມໜ່ວຍຄວາມຈຳຈາກແຖບທີ່ບໍ່ໄດ້ນຳໃຊ້. ເຊິ່ງນີ້ເຮັດໃຫ້ແຖບທີ່ນຳໃຊ້ຢູ່ ແລະ ແອັບອື່ນໆມີຊັບພະຍາກອນສຳລັບຄອມພິວເຕີເພີ່ມຂຶ້ນ ແລະ ຊ່ວຍໃຫ້ Chrome ເຮັດວຽກໄດ້ໄວ. ແຖບທີ່ບໍ່ມີການນຳໃຊ້ຂອງທ່ານຈະກັບມາເຮັດວຽກໂດຍອັດຕະໂນມັດອີກຄັ້ງເມື່ອທ່ານກັບຄືນໄປຫາແຖບເຫຼົ່ານັ້ນ. <ph name="BEGIN_LINK" />ສຶກສາເພີ່ມເຕີມກ່ຽວກັບຕົວປະຢັດໜ່ວຍຄວາມຈຳ<ph name="END_LINK" /></translation>
-<translation id="8753189155654018347">ລຶບຂໍ້ມູນແອັບນີ້ອອກຈາກ Chrome</translation>
 <translation id="8765470054473112089">ເມື່ອທ່ານພິມໃນແຖບທີ່ຢູ່ ຫຼື ກ່ອງຊອກຫາ, Chrome ຈະສົ່ງສິ່ງທີ່ທ່ານພິມໄປຫາໂປຣແກຣມຊອກຫາຄ່າເລີ່ມຕົ້ນຂອງທ່ານເພື່ອຮັບການແນະນຳທີ່ດີຍິ່ງຂຶ້ນ. ສິ່ງນີ້ຖືກປິດໃນໂໝດບໍ່ເປີດເຜີຍຕົວຕົນ.</translation>
 <translation id="8781673607513845160">ເພື່ອໃຊ້ກ້ອງຂອງທ່ານ, ກະລຸນາມອບສິດເຂົ້າເຖິງໃຫ້ Chrome ໃນ <ph name="BEGIN_LINK" />ການຕັ້ງຄ່າລະບົບ<ph name="END_LINK" /></translation>
 <translation id="878572486461146056">ຂໍ້ຜິດພາດໃນການຕິດຕັ້ງ: ຜູ້ເບິ່ງແຍງລະບົບເຄືອຂ່າຍຂອງທ່ານໃຊ້ນະໂຍບາຍລະດັບກຸ່ມເຊິ່ງປ້ອງກັນການຕິດຕັ້ງ: <ph name="INSTALL_ERROR" /></translation>
@@ -701,12 +715,15 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="8883862939660515976">ຖາມ Google Lens ກ່ຽວກັບຮູບນີ້</translation>
 <translation id="8914504000324227558">ເປີດໃຊ້ Chrome ຄືນໃໝ່</translation>
 <translation id="8922193594870374009">ເພື່ອສົ່ງເບີຈາກ <ph name="ORIGIN" /> ໃຫ້ໂທລະສັບ Android ຂອງທ່ານ, ກະລຸນາເຂົ້າສູ່ລະບົບ Chrome ຢູ່ໃນທັງສອງອຸປະກອນ.</translation>
+<translation id="8922998289262614701">ລຶບຂໍ້ມູນຂອງແອັບນີ້ອອກຈາກ Chrome</translation>
+<translation id="8936233353620149764">ເປີດ/ປິດ Gemini ໃນ Chrome</translation>
 <translation id="8948460679427074738">ສ່ວນຂະຫຍາຍນີ້ບໍ່ໄດ້ເຜີຍແຜ່ຂໍ້ປະຕິບັດຄວາມເປັນສ່ວນຕົວ, ເຊັ່ນ: ວິທີທີ່ມັນຮວບຮວມ ແລະ ໃຊ້ຂໍ້ມູນ. Chrome ແນະນຳໃຫ້ທ່ານລຶບມັນອອກ.</translation>
 <translation id="8958307504142971576">ຕອນນີ້ທ່ານມີຄຸນສົມບັດເພີ່ມເຕີມໃນ Chrome</translation>
 <translation id="8991530961471831170">ເປີດ Gemini ໃນ Chrome</translation>
 <translation id="8992769679401294069">ຂໍ້ມູນຂອງທ່ານໄດ້ຖືກເຂົ້າລະຫັດໄວ້ດ້ວຍລະຫັດຜ່ານຂອງທ່ານ. ລະບຸລະຫັດຜ່ານເພື່ອໃຊ້ ແລະ ບັນທຶກຂໍ້ມູນ Chrome ໃນບັນຊີ Google ຂອງທ່ານ.</translation>
 <translation id="8999117580775242387">ເມື່ອບໍ່ສາມາດໃຊ້ HTTPS ໄດ້, Chrome ຈະໃຊ້ການເຊື່ອມຕໍ່ທີ່ບໍ່ປອດໄພໂດຍບໍ່ເຕືອນທ່ານ</translation>
 <translation id="8999208279178790196">{0,plural, =0{ມີການອັບເດດ Chrome}=1{ມີການອັບເດດ Chrome}other{ມີການອັບເດດ Chrome ເປັນເວລາ # ມື້ແລ້ວ}}</translation>
+<translation id="9010418943148193727">ມີການປ່ຽນໂປຣແກຣມຊອກຫາເລີ່ມຕົ້ນຂອງທ່ານຈາກພາຍນອກ Chrome. ເພື່ອປົກປ້ອງທ່ານ, Chrome ຈຶ່ງຣີເຊັດໂປຣແກຣມດັ່ງກ່າວ.</translation>
 <translation id="9014771989710951291">ຫຼາຍອົງການຈັດການ Chrome</translation>
 <translation id="9024318700713112071">ຕັ້ງ Chrome ເປັນຄ່າເລີ່ມຕົ້ນຂອງທ່ານ</translation>
 <translation id="9066987883552592250">ປິດ Gemini ໃນ Chrome Canary</translation>

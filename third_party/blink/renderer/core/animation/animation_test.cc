@@ -2691,8 +2691,9 @@ TEST_P(AnimationAnimationTestCompositing,
 
     // Attach the trigger to the animation.
     trigger->addAnimation(
-        animation, AtomicString(TimelineTriggerAction::kEnter),
+        animation,
         V8AnimationTriggerBehavior(V8AnimationTriggerBehavior::Enum::kPlay),
+        V8AnimationTriggerBehavior(V8AnimationTriggerBehavior::Enum::kPause),
         ASSERT_NO_EXCEPTION);
     EXPECT_EQ(animation->CalculateAnimationPlayState(),
               V8AnimationPlayState::Enum::kPaused);
@@ -2770,14 +2771,13 @@ class ScriptedTimelineTriggerTest : public PageTestBase {
           ));
 
         let trigger = new TimelineTrigger({
-          type: "alternate",
           timeline: new ViewTimeline({
             subject: document.getElementById('subject'), axis: "y"
           }),
           rangeStart: "contain 0%",
           rangeEnd: "contain 100%"});
 
-        trigger.addAnimation(animation, "enter", "play-forwards");
+        trigger.addAnimation(animation, "play-forwards", "play-backwards");
       }
 
       setupTriggeredAnimation();
@@ -2980,6 +2980,111 @@ TEST_F(ScriptedTimelineTriggerTest, RemoveAnimationTarget) {
   EXPECT_EQ(trigger_, nullptr);
   EXPECT_EQ(timeline_, nullptr);
   EXPECT_EQ(animation_, nullptr);
+}
+
+class AnimationTypeMetricsTest : public AnimationAnimationTestCompositing {
+ public:
+  AnimationTypeMetricsTest() = default;
+
+ protected:
+  void SetUp() override {
+    EnableCompositing();
+    AnimationAnimationTestNoCompositing::SetUp();
+    histogram_tester_ = std::make_unique<base::HistogramTester>();
+  }
+
+  void CreateSVGCompositedAnimation() {
+    SetBodyInnerHTML(R"HTML(
+      <svg>
+        <rect id="target" width="100" height="100"/>
+      </svg>
+    )HTML");
+    MakeCompositedAnimation();
+  }
+
+  void ExpectHistogramCounts(
+      const std::vector<std::pair<BlinkAnimationType, int>>& expected_counts) {
+    for (const auto& [animation_type, count] : expected_counts) {
+      histogram_tester_->ExpectBucketCount("Blink.Animation.AnimationType",
+                                           static_cast<int>(animation_type),
+                                           count);
+    }
+  }
+
+  void ExpectUseCounts(
+      const std::vector<std::pair<WebFeature, bool>>& expected_use_counts) {
+    for (const auto& [feature, should_be_counted] : expected_use_counts) {
+      EXPECT_EQ(GetDocument().IsUseCounted(feature), should_be_counted);
+    }
+  }
+
+ protected:
+  std::unique_ptr<base::HistogramTester> histogram_tester_;
+};
+
+INSTANTIATE_PAINT_TEST_SUITE_P(AnimationTypeMetricsTest);
+
+TEST_P(AnimationTypeMetricsTest, Animations) {
+  // Initially the animation in this test has no target, so it is invalid.
+  ASSERT_TRUE(animation->PreCommit(0, nullptr, true));
+  ExpectHistogramCounts({{BlinkAnimationType::kAllAnimations, 1},
+                         {BlinkAnimationType::kSvgAnimations, 0},
+                         {BlinkAnimationType::kNonCompositedAnimations, 1},
+                         {BlinkAnimationType::kCompositedAnimations, 0},
+                         {BlinkAnimationType::kSvgNonCompositedAnimations, 0},
+                         {BlinkAnimationType::kSvgCompositedAnimations, 0}});
+
+  // Restart the animation with a target and compositing state.
+  ResetWithCompositedAnimation();
+  ExpectHistogramCounts({{BlinkAnimationType::kAllAnimations, 2},
+                         {BlinkAnimationType::kSvgAnimations, 0},
+                         {BlinkAnimationType::kNonCompositedAnimations, 1},
+                         {BlinkAnimationType::kCompositedAnimations, 1},
+                         {BlinkAnimationType::kSvgNonCompositedAnimations, 0},
+                         {BlinkAnimationType::kSvgCompositedAnimations, 0}});
+
+  ExpectUseCounts({{WebFeature::kAnimationAllTypes, true},
+                   {WebFeature::kAnimationSvgTypes, false},
+                   {WebFeature::kAnimationNonCompositedTypes, true},
+                   {WebFeature::kAnimationCompositedTypes, true},
+                   {WebFeature::kAnimationSvgNonCompositedTypes, false},
+                   {WebFeature::kAnimationSvgCompositedTypes, false}});
+}
+
+TEST_P(AnimationTypeMetricsTest, SVGAnimations) {
+  CreateSVGCompositedAnimation();
+  ExpectHistogramCounts({{BlinkAnimationType::kAllAnimations, 1},
+                         {BlinkAnimationType::kSvgAnimations, 1},
+                         {BlinkAnimationType::kNonCompositedAnimations, 0},
+                         {BlinkAnimationType::kCompositedAnimations, 1},
+                         {BlinkAnimationType::kSvgNonCompositedAnimations, 0},
+                         {BlinkAnimationType::kSvgCompositedAnimations, 1}});
+
+  ExpectUseCounts({{WebFeature::kAnimationAllTypes, true},
+                   {WebFeature::kAnimationSvgTypes, true},
+                   {WebFeature::kAnimationNonCompositedTypes, false},
+                   {WebFeature::kAnimationCompositedTypes, true},
+                   {WebFeature::kAnimationSvgNonCompositedTypes, false},
+                   {WebFeature::kAnimationSvgCompositedTypes, true}});
+
+  // Now make the playback rate 0. This trips both the invalid animation and
+  // unsupported timing parameter reasons.
+  animation->setPlaybackRate(0);
+  animation->NotifyReady(ANIMATION_TIME_DELTA_FROM_SECONDS(100));
+  ASSERT_TRUE(animation->PreCommit(0, nullptr, true));
+  ExpectHistogramCounts({{BlinkAnimationType::kAllAnimations, 2},
+                         {BlinkAnimationType::kSvgAnimations, 2},
+                         {BlinkAnimationType::kNonCompositedAnimations, 1},
+                         {BlinkAnimationType::kCompositedAnimations, 1},
+                         {BlinkAnimationType::kSvgNonCompositedAnimations, 1},
+                         {BlinkAnimationType::kSvgCompositedAnimations, 1}});
+
+  ExpectUseCounts({{WebFeature::kAnimationAllTypes, true},
+                   {WebFeature::kAnimationSvgTypes, true},
+                   {WebFeature::kAnimationNonCompositedTypes, true},
+                   {WebFeature::kAnimationCompositedTypes, true},
+                   {WebFeature::kAnimationSvgNonCompositedTypes, true},
+                   {WebFeature::kAnimationSvgCompositedTypes, true}});
 }
 
 }  // namespace blink

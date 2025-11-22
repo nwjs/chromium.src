@@ -13,6 +13,7 @@ import './cards.js';
 import './categories.js';
 import './customize_toolbar/toolbar.js';
 import './footer.js';
+import './tools.js';
 import './shortcuts.js';
 import './themes.js';
 import './wallpaper_search/wallpaper_search.js';
@@ -28,13 +29,13 @@ import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
 import type {AppearanceElement} from './appearance.js';
 import type {CategoriesElement} from './categories.js';
-import {CustomizeChromeImpression, recordCustomizeChromeImpression} from './common.js';
 import type {BackgroundCollection, CustomizeChromePageHandlerInterface, ManagementNoticeState} from './customize_chrome.mojom-webui.js';
 import {ChromeWebStoreCategory, ChromeWebStoreCollection, CustomizeChromeSection, NewTabPageType} from './customize_chrome.mojom-webui.js';
 import {CustomizeChromeApiProxy} from './customize_chrome_api_proxy.js';
 import type {ThemesElement} from './themes.js';
 
 const SECTION_TO_SELECTOR = {
+  [CustomizeChromeSection.kUnspecified]: '',
   [CustomizeChromeSection.kAppearance]: '#appearance',
   [CustomizeChromeSection.kShortcuts]: '#shortcuts',
   [CustomizeChromeSection.kModules]: '#modules',
@@ -83,9 +84,11 @@ export class AppElement extends AppElementBase {
       selectedCollection_: {type: Object},
       extensionPolicyEnabled_: {type: Boolean},
       extensionsCardEnabled_: {type: Boolean},
+      ntpNextFeaturesEnabled_: {type: Boolean},
+      aimPolicyEnabled_: {type: Boolean},
       footerEnabled_: {type: Boolean},
       wallpaperSearchEnabled_: {type: Boolean},
-      newTabPageType_: {type: NewTabPageType},
+      newTabPageType_: {type: Number},
       showEditTheme_: {type: Boolean},
       showFooter_: {type: Boolean},
       showFooterForManagedBrowser_: {type: Boolean},
@@ -105,7 +108,11 @@ export class AppElement extends AppElementBase {
   protected accessor selectedCollection_: BackgroundCollection|null = null;
   protected accessor extensionsCardEnabled_: boolean =
       loadTimeData.getBoolean('extensionsCardEnabled');
+  protected accessor ntpNextFeaturesEnabled_: boolean =
+      loadTimeData.getBoolean('ntpNextFeaturesEnabled');
   protected accessor extensionPolicyEnabled_: boolean = false;
+  protected accessor aimPolicyEnabled_: boolean =
+      loadTimeData.getBoolean('aimPolicyEnabled');
   protected accessor footerEnabled_: boolean =
       loadTimeData.getBoolean('footerEnabled');
   protected accessor wallpaperSearchEnabled_: boolean =
@@ -199,8 +206,6 @@ export class AppElement extends AppElementBase {
               extensionsCardSectionObserver.disconnect();
               this.dispatchEvent(
                   new Event('detect-extensions-card-section-impression'));
-              recordCustomizeChromeImpression(
-                  CustomizeChromeImpression.EXTENSIONS_CARD_SECTION_DISPLAYED);
             }
           }, {
             threshold: 1.0,

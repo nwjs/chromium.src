@@ -279,11 +279,6 @@ bool MockRenderProcessHost::IsReady() {
   return is_ready_;
 }
 
-bool MockRenderProcessHost::Send(IPC::Message* msg) {
-  delete msg;
-  return true;
-}
-
 ChildProcessId MockRenderProcessHost::GetID() const {
   return id_;
 }
@@ -322,6 +317,10 @@ void MockRenderProcessHost::Cleanup() {
     return;
   }
   delayed_cleanup_ = false;
+
+  if (pending_reuse_ref_count_ > 0) {
+    return;
+  }
 
   if (listeners_.IsEmpty() && !deletion_callback_called_ &&
       !pending_view_count_) {
@@ -637,13 +636,6 @@ MockRenderProcessHost::StartRtpDump(bool incoming,
                                     bool outgoing,
                                     WebRtcRtpPacketCallback packet_callback) {
   return base::NullCallback();
-}
-
-bool MockRenderProcessHost::OnMessageReceived(const IPC::Message& msg) {
-  IPC::Listener* listener = listeners_.Lookup(msg.routing_id());
-  if (listener)
-    return listener->OnMessageReceived(msg);
-  return false;
 }
 
 void MockRenderProcessHost::OnChannelConnected(int32_t peer_pid) {}

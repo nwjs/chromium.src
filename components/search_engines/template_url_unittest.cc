@@ -3089,6 +3089,7 @@ TEST_F(TemplateURLTest, GetBuiltinImageResourceId_FromCustomEngine) {
   EXPECT_EQ(t_url.GetBuiltinImageResourceId(), "IDR_DEFAULT_FAVICON");
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 TEST_F(TemplateURLTest, GetMarketingSnippet_Custom) {
   std::u16string engine_name = u"My Custom Engine";
   TemplateURLData custom_data;
@@ -3097,6 +3098,59 @@ TEST_F(TemplateURLTest, GetMarketingSnippet_Custom) {
   TemplateURL custom_url(custom_data);
   EXPECT_NE(custom_url.GetMarketingSnippet().find(engine_name),
             std::u16string::npos);
+}
+#endif
+
+TEST_F(TemplateURLTest, GetBuiltinImageResourceId_YahooJpBranded) {
+  // Test relevant for this special case of prepopulated search engines data. If
+  // these preconditions turn out false, consider removing the test, and maybe
+  // the associated logic too.
+  ASSERT_EQ(TemplateURLPrepopulateData::yahoo_jp.id,
+            TemplateURLPrepopulateData::yahoo_fr.id);
+  ASSERT_NE(TemplateURLPrepopulateData::yahoo_jp.keyword,
+            TemplateURLPrepopulateData::yahoo_fr.keyword);
+  ASSERT_NE(TemplateURLPrepopulateData::yahoo_jp.base_builtin_resource_id,
+            TemplateURLPrepopulateData::yahoo_fr.base_builtin_resource_id);
+
+  TemplateURLData data;
+  data.prepopulate_id = TemplateURLPrepopulateData::yahoo_jp.id;
+  data.SetKeyword(TemplateURLPrepopulateData::yahoo_jp.keyword);
+  TemplateURL t_url(data);
+
+  if constexpr (kEnableBuiltinSearchProviderAssets) {
+    EXPECT_NE(
+        t_url.GetBuiltinImageResourceId().find(
+            TemplateURLPrepopulateData::yahoo_jp.base_builtin_resource_id),
+        std::u16string::npos);
+  } else {
+    EXPECT_EQ(t_url.GetBuiltinImageResourceId(), "IDR_DEFAULT_FAVICON");
+  }
+}
+
+TEST_F(TemplateURLTest, GetBuiltinImageResourceId_YahooFrBranded) {
+  // Test relevant for this special case of prepopulated search engines data. If
+  // these preconditions turn out false, consider removing the test, and maybe
+  // the associated logic too.
+  ASSERT_EQ(TemplateURLPrepopulateData::yahoo_jp.id,
+            TemplateURLPrepopulateData::yahoo_fr.id);
+  ASSERT_NE(TemplateURLPrepopulateData::yahoo_jp.keyword,
+            TemplateURLPrepopulateData::yahoo_fr.keyword);
+  ASSERT_NE(TemplateURLPrepopulateData::yahoo_jp.base_builtin_resource_id,
+            TemplateURLPrepopulateData::yahoo_fr.base_builtin_resource_id);
+
+  TemplateURLData data;
+  data.prepopulate_id = TemplateURLPrepopulateData::yahoo_fr.id;
+  data.SetKeyword(TemplateURLPrepopulateData::yahoo_fr.keyword);
+  TemplateURL t_url(data);
+
+  if constexpr (kEnableBuiltinSearchProviderAssets) {
+    EXPECT_NE(
+        t_url.GetBuiltinImageResourceId().find(
+            TemplateURLPrepopulateData::yahoo_fr.base_builtin_resource_id),
+        std::u16string::npos);
+  } else {
+    EXPECT_EQ(t_url.GetBuiltinImageResourceId(), "IDR_DEFAULT_FAVICON");
+  }
 }
 
 struct IsBetterThanEngineTestEngine {

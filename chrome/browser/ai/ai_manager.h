@@ -12,7 +12,6 @@
 #include "base/supports_user_data.h"
 #include "base/types/pass_key.h"
 #include "chrome/browser/ai/ai_context_bound_object_set.h"
-#include "chrome/browser/ai/ai_create_on_device_session_task.h"
 #include "chrome/browser/ai/ai_language_model.h"
 #include "chrome/browser/ai/ai_model_download_progress_manager.h"
 #include "chrome/browser/ai/ai_proofreader.h"
@@ -62,7 +61,7 @@ class AIManager : public base::SupportsUserData::Data,
   void AddReceiver(mojo::PendingReceiver<blink::mojom::AIManager> receiver);
 
   size_t GetContextBoundObjectSetSizeForTesting() {
-    return context_bound_object_set_.GetSizeForTesting();
+    return context_bound_object_set_.GetSize();
   }
 
   size_t GetDownloadProgressObserversSizeForTesting() {
@@ -154,8 +153,7 @@ class AIManager : public base::SupportsUserData::Data,
       CreateOptionsPtrType options,
       std::optional<optimization_guide::MultimodalMessage> initial_request,
       mojo::Remote<ClientRemoteInterface> client_remote,
-      std::unique_ptr<
-          optimization_guide::OptimizationGuideModelExecutor::Session> session);
+      std::unique_ptr<optimization_guide::OnDeviceSession> session);
 
   // Eagerly initializes a broad set of features.
   void MaybeTryEagerInit();

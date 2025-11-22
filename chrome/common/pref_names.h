@@ -2422,6 +2422,15 @@ inline constexpr char kNtpDisabledModules[] = "NewTabPage.DisabledModules";
 // List keeping track of modules hidden in Customize Chrome.
 inline constexpr char kNtpCustomizeChromeHiddenModules[] =
     "NewTabPage.CustomizeChromeHiddenModules";
+// Number of how many times Customize Chrome was auto opened on NTP.
+inline constexpr char kNtpCustomizeChromeSidePanelAutoOpeningsCount[] =
+    "NewTabPage.CustomizeChromeSidePanelAutoOpeningsCount";
+// Whether user has explicitly canceled Customize Chrome side panel.
+inline constexpr char kNtpCustomizeChromeExplicitlyClosed[] =
+    "NewTabPage.CustomizeChromeExplicitlyClosed";
+// Whether Customize Chrome IPH was auto opened on NTP.
+inline constexpr char kNtpCustomizeChromeIPHAutoOpened[] =
+    "NewTabPage.CustomizeChromeIPHAutoOpened";
 // List keeping track of modules not allowed to show on New Tab Page.
 inline constexpr char kNtpHiddenModules[] = "NewTabPage.HiddenModules";
 // Time the Microsoft files module was last dismissed.
@@ -2435,6 +2444,8 @@ inline constexpr char kNtpMicrosoftFilesModuleRetryAfterTime[] =
 inline constexpr char kNtpModulesOrder[] = "NewTabPage.ModulesOrder";
 // Whether NTP modules are visible.
 inline constexpr char kNtpModulesVisible[] = "NewTabPage.ModulesVisible";
+// Whether the AI action chips are visible in the NTP.
+inline constexpr char kNtpToolChipsVisible[] = "NewTabPage.ToolChipsVisible";
 // Dictionary of number of times a module has loaded.
 inline constexpr char kNtpModulesLoadedCountDict[] =
     "NewTabPage.ModulesLoadedCountDict";
@@ -3828,6 +3839,10 @@ inline constexpr char kEnterpriseHardwarePlatformAPIEnabled[] =
 // Boolean that specifies whether Signed HTTP Exchange (SXG) loading is enabled.
 inline constexpr char kSignedHTTPExchangeEnabled[] =
     "web_package.signed_exchange.enabled";
+
+// A boolean pref that indicates whether silent printing is enabled.
+inline constexpr char kSilentPrintingEnabled[] =
+    "printing.silent_printing_enabled";
 
 #if BUILDFLAG(IS_CHROMEOS)
 // Enum that specifies client certificate management permissions for user. It

@@ -101,7 +101,15 @@ void AddSharedGroup(BOOL owner,
 }
 
 // Tests that deleting a shared tab group from groups panel works.
-- (void)testSharedTabGroupsPanelDeleteSharedGroup {
+// TODO:(crbug.com/450935810): The test is flaky on simulator.
+#if TARGET_OS_SIMULATOR
+#define MAYBE_testSharedTabGroupsPanelDeleteSharedGroup \
+  FLAKY_testSharedTabGroupsPanelDeleteSharedGroup
+#else
+#define MAYBE_testSharedTabGroupsPanelDeleteSharedGroup \
+  testSharedTabGroupsPanelDeleteSharedGroup
+#endif
+- (void)MAYBE_testSharedTabGroupsPanelDeleteSharedGroup {
   AddSharedGroup(/*owner=*/YES, self.testServer);
 
   [[EarlGrey selectElementWithMatcher:TabGridTabGroupsPanelButton()]
@@ -178,7 +186,8 @@ void AddSharedGroup(BOOL owner,
 
 // Checks that being removed from a shared group makes a notification appear at
 // the top of the Tab Groups panel.
-- (void)testNotificationOnSharedGroupRemoved {
+// TODO(crbug.com/451982715): Test is flaky.
+- (void)FLAKY_testNotificationOnSharedGroupRemoved {
   AddSharedGroup(/*owner=*/NO, self.testServer);
   [ChromeEarlGrey waitForMainTabCount:1];
 

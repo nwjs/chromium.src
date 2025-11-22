@@ -9,6 +9,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "components/lens/contextual_input.h"
 #include "components/omnibox/browser/actions/omnibox_action.h"
 #include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/omnibox/browser/autocomplete_provider_client.h"
@@ -97,8 +98,14 @@ class OmniboxClient {
   virtual PrefService* GetPrefs() = 0;
   virtual const PrefService* GetPrefs() const = 0;
   virtual bookmarks::BookmarkModel* GetBookmarkModel();
+  const bookmarks::BookmarkModel* GetBookmarkModel() const {
+    return const_cast<OmniboxClient*>(this)->GetBookmarkModel();
+  }
   virtual AutocompleteControllerEmitter* GetAutocompleteControllerEmitter() = 0;
   virtual TemplateURLService* GetTemplateURLService();
+  const TemplateURLService* GetTemplateURLService() const {
+    return const_cast<OmniboxClient*>(this)->GetTemplateURLService();
+  }
   virtual const AutocompleteSchemeClassifier& GetSchemeClassifier() const = 0;
   virtual AutocompleteClassifier* GetAutocompleteClassifier();
   virtual bool ShouldDefaultTypedNavigationsToHttps() const = 0;
@@ -166,6 +173,10 @@ class OmniboxClient {
   virtual std::optional<lens::proto::LensOverlaySuggestInputs>
   GetLensOverlaySuggestInputs() const;
 
+  // Returns ContextualInputData if available.
+  virtual std::optional<lens::ContextualInputData> GetContextualInputData()
+      const;
+
   // Asks the `ExtensionOmniboxEventRouter` to process `match` for it.
   // Some more processing is done to separate the keyword from the
   // text if in keyword mode. `observer` is the OmniboxNavigationObserver that
@@ -220,11 +231,28 @@ class OmniboxClient {
   virtual gfx::Image GetFaviconForPageUrl(
       const GURL& page_url,
       FaviconFetchedCallback on_favicon_fetched);
+  gfx::Image GetFaviconForPageUrl(
+      const GURL& page_url,
+      FaviconFetchedCallback on_favicon_fetched) const {
+    return const_cast<OmniboxClient*>(this)->GetFaviconForPageUrl(
+        page_url, std::move(on_favicon_fetched));
+  }
   virtual gfx::Image GetFaviconForDefaultSearchProvider(
       FaviconFetchedCallback on_favicon_fetched);
+  gfx::Image GetFaviconForDefaultSearchProvider(
+      FaviconFetchedCallback on_favicon_fetched) const {
+    return const_cast<OmniboxClient*>(this)->GetFaviconForDefaultSearchProvider(
+        std::move(on_favicon_fetched));
+  }
   virtual gfx::Image GetFaviconForKeywordSearchProvider(
       const TemplateURL* template_url,
       FaviconFetchedCallback on_favicon_fetched);
+  gfx::Image GetFaviconForKeywordSearchProvider(
+      const TemplateURL* template_url,
+      FaviconFetchedCallback on_favicon_fetched) const {
+    return const_cast<OmniboxClient*>(this)->GetFaviconForKeywordSearchProvider(
+        template_url, std::move(on_favicon_fetched));
+  }
 
   // Called when the text may have changed in the edit.
   virtual void OnTextChanged(const AutocompleteMatch& current_match,
@@ -296,6 +324,10 @@ class OmniboxClient {
   // Optionally warm-up for the default search engine so that we can navigate to
   // the search result page effectively.
   virtual void MaybePrewarmForDefaultSearchEngine() {}
+
+  // Whether WebUi Omnibox's aim popup is enabled and the user is eligible to
+  // use it.
+  virtual bool IsAimPopupEnabled() const;
 
   virtual base::WeakPtr<OmniboxClient> AsWeakPtr() = 0;
 };

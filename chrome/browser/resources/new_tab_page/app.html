@@ -51,21 +51,20 @@ import {nothing} from '//resources/lit/v3_0/lit.rollup.js';
         ?can-show-secondary-side="${this.realboxCanShowSecondarySide}"
         ?compose-button-enabled="${this.composeButtonEnabled}"
         ?composebox-enabled="${this.composeboxEnabled}"
-        realbox-layout-mode="${this.realboxLayoutMode_}"
+        searchbox-layout-mode="${this.realboxLayoutMode_}"
         ?ntp-realbox-next-enabled="${this.ntpRealboxNextEnabled_}"
         ?cycling-placeholders="${this.searchboxCyclingPlaceholders_}"
-        @dropdown-visible-changed="${this.onDropdownVisibleChanged_}"
-        @searchbox-input-focus-changed="${this.onInputFocusChanged_}">
+        @searchbox-input-focus-changed="${this.onInputFocusChanged_}"
+        ?ntp-next-features-enabled="${this.ntpNextFeaturesEnabled_}">
     </cr-searchbox>
     ${this.showComposebox_ ? html`
-      <ntp-composebox id="composebox" ?is_collapsible="false"
+      <cr-composebox id="composebox"
           ?ntp-realbox-next-enabled="${this.ntpRealboxNextEnabled_}"
           @composebox-initialized="${this.onComposeboxInitialized_}"
           @close-composebox="${this.closeComposebox_}"
-          @composebox-dropdown-visible-changed="${this.onDropdownVisibleChanged_}"
           @composebox-input-focus-changed="${this.onInputFocusChanged_}"
-          realbox-layout-mode="${this.realboxLayoutMode_}">
-      </ntp-composebox>
+          searchbox-layout-mode="${this.realboxLayoutMode_}">
+      </cr-composebox>
     ` : ''}
     ${this.showLensUploadDialog_ ? html`
       <ntp-lens-upload-dialog id="lensUploadDialog"
@@ -73,6 +72,12 @@ import {nothing} from '//resources/lit/v3_0/lit.rollup.js';
       </ntp-lens-upload-dialog>
     ` : ''}
   </div>
+  ${this.lazyRender_
+    && this.ntpNextFeaturesEnabled_ && this.isActionChipsVisible_ ? html`
+    <ntp-action-chips
+        @action-chip-click="${this.openComposebox_}">
+    </ntp-action-chips>
+  ` : ''}
   ${this.lazyRender_ ? html`
     <cr-toast id="webstoreToast" duration="10000" hidden>
       <div>$i18n{webstoreThemesToastMessage}</div>
@@ -84,7 +89,8 @@ import {nothing} from '//resources/lit/v3_0/lit.rollup.js';
   ${this.lazyRender_ ? html`
     ${this.shortcutsEnabled_ ? html`
       <cr-most-visited id="mostVisited" .theme="${this.theme_?.mostVisited || null}"
-          single-row reflow-on-overflow>
+          single-row reflow-on-overflow
+          ?expandable-tiles-enabled="${this.ntpNextFeaturesEnabled_}">
       </cr-most-visited>
     ` : ''}
     ${this.middleSlotPromoEnabled_ ? html`

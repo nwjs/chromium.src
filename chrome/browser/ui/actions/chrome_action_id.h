@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_ACTIONS_CHROME_ACTION_ID_H_
 
 #include "build/branding_buildflags.h"
+#include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "ui/actions/action_id.h"
 
@@ -189,6 +190,7 @@
   E(kActionCloseSignInPromo, IDC_CLOSE_SIGN_IN_PROMO) \
   E(kActionShowFullUrls, IDC_SHOW_FULL_URLS) \
   E(kActionShowGoogleLensShortcut, IDC_SHOW_GOOGLE_LENS_SHORTCUT) \
+  E(kActionShowAiModeOmniboxButton, IDC_SHOW_AI_MODE_OMNIBOX_BUTTON) \
   E(kActionShowSearchTools, IDC_SHOW_SEARCH_TOOLS) \
   E(kActionCaretBrowsingToggle, IDC_CARET_BROWSING_TOGGLE) \
   E(kActionChromeTips, IDC_CHROME_TIPS) \
@@ -508,6 +510,11 @@
   /*Commerce*/ \
   E(kActionCommercePriceInsights) \
   E(kActionCommerceDiscounts) \
+  /*Omnibox Context Menu*/       \
+  E(kActionOmniboxContextAddImage, IDC_OMNIBOX_CONTEXT_ADD_IMAGE)\
+  E(kActionOmniboxContextAddFile, IDC_OMNIBOX_CONTEXT_ADD_FILE)  \
+  E(kActionOmniboxContextCreateImages, IDC_OMNIBOX_CONTEXT_CREATE_IMAGES)  \
+  E(kActionOmniboxContextDeepResearch, IDC_OMNIBOX_CONTEXT_DEEP_RESEARCH)  \
 
 #if BUILDFLAG(IS_CHROMEOS)
 #define CHROME_PLATFORM_SPECIFIC_ACTION_IDS \
@@ -543,6 +550,7 @@
   E(kActionSidePanelShowCustomizeChromeToolbar) \
   E(kActionSidePanelShowFeed) \
   E(kActionSidePanelShowGlic) \
+  E(kActionSidePanelShowContextualTasks) \
   E(kActionSidePanelShowHistoryCluster) \
   E(kActionSidePanelShowHistory) \
   E(kActionSidePanelShowLens) \
@@ -580,6 +588,7 @@
   E(kActionShowPasswordsBubbleOrPage) \
   E(kActionManagePasswordsForPage, IDC_MANAGE_PASSWORDS_FOR_PAGE) \
   E(kActionCopyUrl, IDC_COPY_URL) \
+  E(kActionTabGroupsMenu, IDC_SAVED_TAB_GROUPS_MENU) \
   E(kActionTabSearch, IDC_TAB_SEARCH) \
   E(kActionSplitTab, IDC_SPLIT_TAB) \
 

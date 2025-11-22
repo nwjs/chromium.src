@@ -10,6 +10,8 @@
 #include <string>
 #include <variant>
 
+#include "base/hash/hash.h"
+#include "base/i18n/time_formatting.h"
 #include "base/memory/raw_ptr.h"
 #include "base/rand_util.h"
 #include "base/strings/strcat.h"
@@ -725,6 +727,19 @@ base::flat_set<url::Origin> GetOriginsForMerchantBenefit() {
           url::Origin::Create(GURL("http://www.example3.com"))};
 }
 
+void HideAccountNameEmailProfile(PrefService* pref_service, AccountInfo info) {
+  // Sets the `kAutofillNameAndEmailProfileNotSelectedCounter` and
+  // `kAutofillNameAndEmailProfileSignature` prefs in `pref_service`, such that
+  // the kAccountNameEmail profile that matches `info` will be removed.
+  pref_service->SetInteger(
+      prefs::kAutofillNameAndEmailProfileNotSelectedCounter,
+      features::kAutofillNameAndEmailProfileNotSelectedThreshold.Get() + 1);
+  pref_service->SetString(
+      prefs::kAutofillNameAndEmailProfileSignature,
+      base::NumberToString(base::PersistentHash(
+          base::StrCat({info.full_name, "|", info.email}))));
+}
+
 void SetUpCreditCardAndBenefitData(
     CreditCard& card,
     const std::string& issuer_id,
@@ -951,8 +966,8 @@ EntityInstance GetPassportEntityInstance(PassportEntityOptions options) {
       EntityInstance::EntityId(base::Uuid::ParseLowercase(options.guid)),
       std::string(options.nickname),
       base::Time::FromTimeT(options.date_modified.ToTimeT()), options.use_count,
-      /*use_date=*/base::Time::FromTimeT(0), options.record_type,
-      options.are_attributes_read_only);
+      base::Time::FromTimeT(options.use_date.ToTimeT()), options.record_type,
+      options.are_attributes_read_only, /*frecency_override=*/"");
 }
 
 EntityInstance GetPassportEntityInstanceWithRandomGuid(
@@ -1005,8 +1020,8 @@ EntityInstance GetDriversLicenseEntityInstance(DriversLicenseOptions options) {
       EntityInstance::EntityId(base::Uuid::ParseLowercase(options.guid)),
       std::string(options.nickname),
       base::Time::FromTimeT(options.date_modified.ToTimeT()), options.use_count,
-      /*use_date=*/base::Time::FromTimeT(0), options.record_type,
-      options.are_attributes_read_only);
+      base::Time::FromTimeT(options.use_date.ToTimeT()), options.record_type,
+      options.are_attributes_read_only, /*frecency_override=*/"");
 }
 
 EntityInstance GetDriversLicenseEntityInstanceWithRandomGuid(
@@ -1038,9 +1053,9 @@ EntityInstance GetKnownTravelerNumberInstance(
       EntityType(EntityTypeName::kKnownTravelerNumber), std::move(attributes),
       EntityInstance::EntityId(base::Uuid::ParseLowercase(options.guid)),
       std::string(options.nickname), base::Time::FromTimeT(kJune2017.ToTimeT()),
-      options.use_count,
-      /*use_date=*/base::Time::FromTimeT(0), options.record_type,
-      options.are_attributes_read_only);
+      options.use_count, base::Time::FromTimeT(options.use_date.ToTimeT()),
+      options.record_type, options.are_attributes_read_only,
+      /*frecency_override=*/"");
 }
 
 EntityInstance GetRedressNumberEntityInstance(RedressNumberOptions options) {
@@ -1057,9 +1072,9 @@ EntityInstance GetRedressNumberEntityInstance(RedressNumberOptions options) {
       EntityType(EntityTypeName::kRedressNumber), std::move(attributes),
       EntityInstance::EntityId(base::Uuid::ParseLowercase(options.guid)),
       std::string(options.nickname), base::Time::FromTimeT(kJune2017.ToTimeT()),
-      options.use_count,
-      /*use_date=*/base::Time::FromTimeT(0), options.record_type,
-      options.are_attributes_read_only);
+      options.use_count, base::Time::FromTimeT(options.use_date.ToTimeT()),
+      options.record_type, options.are_attributes_read_only,
+      /*frecency_override=*/"");
 }
 
 EntityInstance GetVehicleEntityInstance(VehicleOptions options) {
@@ -1113,8 +1128,8 @@ EntityInstance GetVehicleEntityInstance(VehicleOptions options) {
       EntityInstance::EntityId(base::Uuid::ParseLowercase(options.guid)),
       std::string(options.nickname),
       base::Time::FromTimeT(options.date_modified.ToTimeT()), options.use_count,
-      /*use_date=*/base::Time::FromTimeT(0), options.record_type,
-      options.are_attributes_read_only);
+      base::Time::FromTimeT(options.use_date.ToTimeT()), options.record_type,
+      options.are_attributes_read_only, /*frecency_override=*/"");
 }
 
 EntityInstance GetVehicleEntityInstanceWithRandomGuid(VehicleOptions options) {
@@ -1158,9 +1173,9 @@ EntityInstance GetNationalIdCardEntityInstance(NationalIdCardOptions options) {
       EntityType(EntityTypeName::kNationalIdCard), std::move(attributes),
       EntityInstance::EntityId(base::Uuid::ParseLowercase(options.guid)),
       std::string(options.nickname), base::Time::FromTimeT(kJune2017.ToTimeT()),
-      options.use_count,
-      /*use_date=*/base::Time::FromTimeT(0), options.record_type,
-      options.are_attributes_read_only);
+      options.use_count, base::Time::FromTimeT(options.use_date.ToTimeT()),
+      options.record_type, options.are_attributes_read_only,
+      /*frecency_override=*/"");
 }
 
 EntityInstance GetFlightReservationEntityInstance(
@@ -1210,13 +1225,31 @@ EntityInstance GetFlightReservationEntityInstance(
         /*format_string=*/std::nullopt, VerificationStatus::kNoStatus);
   }
 
+  std::string frecency_override;
+  if (options.departure_time) {
+    frecency_override = base::TimeFormatAsIso8601(*options.departure_time);
+
+    attributes.emplace_back(AttributeType(kFlightReservationDepartureDate));
+    // The departure date must be stored in the departure airport's time zone.
+    std::string offsetted_departure_time = base::TimeFormatAsIso8601(
+        *options.departure_time + options.departure_time_zone_offset);
+    std::string date = offsetted_departure_time.substr(
+        0, offsetted_departure_time.find_first_of('T'));
+    attributes.back().SetInfo(
+        FLIGHT_RESERVATION_DEPARTURE_DATE, base::UTF8ToUTF16(date),
+        std::string(options.app_locale),
+        /*format_string=*/
+        AutofillFormatString(u"YYYY-MM-DD", FormatString_Type_DATE),
+        VerificationStatus::kNoStatus);
+  }
+
   return EntityInstance(
       EntityType(EntityTypeName::kFlightReservation), std::move(attributes),
       EntityInstance::EntityId(base::Uuid::ParseLowercase(options.guid)),
       std::string(options.nickname),
       base::Time::FromTimeT(options.date_modified.ToTimeT()), options.use_count,
-      /*use_date=*/base::Time::FromTimeT(0), options.record_type,
-      options.are_attributes_read_only);
+      base::Time::FromTimeT(options.use_date.ToTimeT()), options.record_type,
+      options.are_attributes_read_only, frecency_override);
 }
 
 EntityInstance GetFlightReservationEntityInstanceWithRandomGuid(

@@ -18,8 +18,10 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/system/sys_info.h"
+#include "base/task/common/task_annotator.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_id_helper.h"
@@ -1009,14 +1011,6 @@ void CompositorFrameSinkSupport::DidReceiveCompositorFrameAck() {
     return;
   }
 
-  // TODO(https://crbug.com/40902503): Drawing from a layer context is indeed
-  // local, but we'll likely want to use a different resource return policy.
-  if (layer_context_) {
-    client_->ReclaimResources(std::move(surface_returned_resources_));
-    surface_returned_resources_.clear();
-    return;
-  }
-
   client_->DidReceiveCompositorFrameAck(std::move(surface_returned_resources_));
   surface_returned_resources_.clear();
 }
@@ -1421,13 +1415,6 @@ bool CompositorFrameSinkSupport::ShouldSendBeginFrame(
     BeginFrameId frame_id,
     base::TimeTicks frame_time,
     base::TimeDelta vsync_interval) {
-  if (base::FeatureList::IsEnabled(features::kNoCompositorFrameAcks)) {
-    const int pending_frames_limit =
-        features::kNumberPendingFramesUntilThrottle.Get();
-    if (pending_frames_ >= pending_frames_limit) {
-      return RecordShouldSendBeginFrame("PendingAck", false);
-    }
-  }
   // Don't send the same BeginFrameId to a client twice. This could otherwise
   // happen if the client removes and then immediately re-adds a
   // BeginFrameObserver before the next BeginFrame arrives. See
@@ -1484,6 +1471,13 @@ bool CompositorFrameSinkSupport::ShouldSendBeginFrame(
   if (!frame_timing_details_.empty() && !should_throttle_as_requested &&
       (!should_throttle_undrawn_frames || !frame_timing_details_all_failed)) {
     return RecordShouldSendBeginFrame("SendFrameTiming", true);
+  }
+  if (base::FeatureList::IsEnabled(features::kNoCompositorFrameAcks)) {
+    const int pending_frames_limit =
+        features::kNumberPendingFramesUntilThrottle.Get();
+    if (pending_frames_ >= pending_frames_limit) {
+      return RecordShouldSendBeginFrame("PendingAck", false);
+    }
   }
 
   if (!client_needs_begin_frame_ && !layer_context_wants_begin_frames_) {
@@ -1588,8 +1582,22 @@ void CompositorFrameSinkSupport::ProcessCompositorFrameTransitionDirective(
                 transition_token)) {
           return;
         }
-        view_transition_token_to_animation_manager_[transition_token] =
+        std::unique_ptr<SurfaceAnimationManager> surface_animation_manager =
             frame_sink_manager_->TakeSurfaceAnimationManager(transition_token);
+        // Emit how often for cross frame-sink view transitions,
+        // SurfaceAnimationManager is not cached when `kAnimateRenderer` is
+        // requested.
+        base::UmaHistogramBoolean(
+            "Viz.CompositorFrameSinkSupport."
+            "HasSurfaceAnimationManagerOnAnimate",
+            !!surface_animation_manager);
+        // If Frame deadline has passed before Save is completed, there is no
+        // SurfaceAnimationManager in the map.
+        if (!surface_animation_manager) {
+          return;
+        }
+        view_transition_token_to_animation_manager_[transition_token] =
+            std::move(surface_animation_manager);
       }
 
       auto it =

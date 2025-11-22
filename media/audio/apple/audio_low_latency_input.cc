@@ -35,6 +35,7 @@
 #include "media/base/audio_timestamp_helper.h"
 #include "media/base/data_buffer.h"
 #include "media/base/media_switches.h"
+#include "media/base/sample_format.h"
 
 #if BUILDFLAG(IS_MAC)
 #include "media/audio/mac/core_audio_util_mac.h"
@@ -72,6 +73,11 @@ constexpr base::TimeDelta kMaxErrorTimeout = base::Seconds(1);
 // Media.Audio.InputStartupSuccessMac is then updated where true is added
 // if input callbacks have started, and false otherwise.
 constexpr base::TimeDelta kInputCallbackStartTimeout = base::Seconds(5);
+
+// TODO(crbug.com/354625679): For now, our pipeline is set for only
+// kSampleFormatS16 only. We plan to implement changes to take higher bit depths
+// such as 24bit or 32bit float.
+constexpr SampleFormat kSampleFormat = kSampleFormatS16;
 
 // Returns true if the format flags in |format_flags| has the "non-interleaved"
 // flag (kAudioFormatFlagIsNonInterleaved) cleared (set to 0).
@@ -168,7 +174,6 @@ AUAudioInputStream::AUAudioInputStream(
     }
   }
 #endif
-  const SampleFormat kSampleFormat = kSampleFormatS16;
 
   // Set up the desired (output) format specified by the client.
   format_.mSampleRate = input_params.sample_rate();
@@ -1115,12 +1120,10 @@ OSStatus AUAudioInputStream::Provide(UInt32 number_of_frames,
   capture_time -= AudioTimestampHelper::FramesToTime(fifo_.GetAvailableFrames(),
                                                      format_.mSampleRate);
 
-  const int bytes_per_sample = format_.mBitsPerChannel / 8;
-
-  peak_detector_.FindPeak(audio_data_span, bytes_per_sample);
+  peak_detector_.FindPeak(audio_data_span, kSampleFormat);
 
   // Copy captured (and interleaved) data into FIFO.
-  fifo_.Push(audio_data_span, number_of_frames, bytes_per_sample);
+  fifo_.Push(audio_data_span, number_of_frames, kSampleFormat);
 
   // Consume and deliver the data when the FIFO has a block of available data.
   while (fifo_.available_blocks()) {
@@ -1179,11 +1182,11 @@ void AUAudioInputStream::HandleError(OSStatus err,
 }
 
 void AUAudioInputStream::SetInputCallbackIsActive(bool enabled) {
-  base::subtle::Release_Store(&input_callback_is_active_, enabled);
+  input_callback_is_active_.store(enabled, std::memory_order_release);
 }
 
 bool AUAudioInputStream::GetInputCallbackIsActive() {
-  return (base::subtle::Acquire_Load(&input_callback_is_active_) != false);
+  return input_callback_is_active_.load(std::memory_order_acquire);
 }
 
 void AUAudioInputStream::CheckInputStartupSuccess() {

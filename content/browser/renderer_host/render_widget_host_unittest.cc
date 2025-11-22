@@ -2238,9 +2238,9 @@ TEST_F(RenderWidgetHostTest, RendererExitedResetsIsHidden) {
   host_->SetView(new TestView(host_.get()));
   host_->WasShown({} /* record_tab_switch_time_request */);
 
-  ASSERT_FALSE(host_->is_hidden());
+  ASSERT_FALSE(host_->IsHidden());
   host_->RendererExited();
-  ASSERT_TRUE(host_->is_hidden());
+  ASSERT_TRUE(host_->IsHidden());
 
   // Make sure the input router is in a fresh state.
   ASSERT_FALSE(host_->input_router()->HasPendingEvents());
@@ -2267,7 +2267,7 @@ TEST_F(RenderWidgetHostTest, RendererExitedNoDrag) {
 
   GURL http_url = GURL("http://www.domain.com/index.html");
   DropData drop_data;
-  drop_data.url = http_url;
+  drop_data.url_infos = {ui::ClipboardUrlInfo{http_url, u""}};
   drop_data.html_base_url = http_url;
   FileSystemAccessManagerImpl* file_system_manager =
       static_cast<StoragePartitionImpl*>(process_->GetStoragePartition())

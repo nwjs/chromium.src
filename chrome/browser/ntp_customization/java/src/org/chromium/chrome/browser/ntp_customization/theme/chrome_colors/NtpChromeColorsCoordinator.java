@@ -13,8 +13,6 @@ import android.content.Context;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
-import android.support.annotation.ColorInt;
-import android.support.annotation.VisibleForTesting;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -22,7 +20,9 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.constraintlayout.widget.ConstraintSet;
 import androidx.recyclerview.widget.GridLayoutManager;
@@ -33,6 +33,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ntp_customization.BottomSheetDelegate;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundImageType;
 import org.chromium.chrome.browser.ntp_customization.R;
 import org.chromium.ui.text.EmptyTextWatcher;
 import org.chromium.ui.widget.ButtonCompat;
@@ -55,8 +56,8 @@ public class NtpChromeColorsCoordinator {
     private final ColorGridView mChromeColorsRecyclerView;
     private final int mItemWidth;
     private final int mSpacing;
-    private @Nullable final @ColorInt Integer mPrimaryColor;
     private final Runnable mOnChromeColorSelectedCallback;
+    private final @Nullable NtpThemeColorInfo mPrimaryColorInfo;
     private @Nullable EditText mBackgroundColorInput;
     private @Nullable EditText mPrimaryColorInput;
     private @Nullable ImageView mBackgroundColorCircleImageView;
@@ -106,7 +107,7 @@ public class NtpChromeColorsCoordinator {
                         .getDimensionPixelSize(
                                 R.dimen.ntp_customization_chrome_colors_grid_spacing);
 
-        mPrimaryColor = NtpCustomizationUtils.getPrimaryColorFromCustomizedThemeColor();
+        mPrimaryColorInfo = NtpCustomizationUtils.loadColorInfoFromSharedPreference(mContext);
         buildRecyclerView();
         setRecyclerViewMaxWidth(ntpChromeColorsBottomSheetView);
     }
@@ -117,7 +118,7 @@ public class NtpChromeColorsCoordinator {
 
         int primaryColorIndex =
                 NtpThemeColorUtils.initColorsListAndFindPrimaryColorIndex(
-                        mContext, mChromeColorsList, mPrimaryColor);
+                        mContext, mChromeColorsList, mPrimaryColorInfo);
         NtpChromeColorsAdapter adapter =
                 new NtpChromeColorsAdapter(
                         mContext, mChromeColorsList, this::onItemClicked, primaryColorIndex);
@@ -148,13 +149,15 @@ public class NtpChromeColorsCoordinator {
     @VisibleForTesting
     void onItemClicked(NtpThemeColorInfo ntpThemeColorInfo) {
         mDelegate.onNewColorSelected(
-                mPrimaryColor == null
-                        || ntpThemeColorInfo.primaryColor != mPrimaryColor.intValue());
+                !NtpThemeColorUtils.isPrimaryColorMatched(
+                        mContext, mPrimaryColorInfo, ntpThemeColorInfo));
+        @NtpBackgroundImageType
+        int newType =
+                ntpThemeColorInfo instanceof NtpThemeColorFromHexInfo
+                        ? NtpBackgroundImageType.COLOR_FROM_HEX
+                        : NtpBackgroundImageType.CHROME_COLOR;
         NtpCustomizationConfigManager.getInstance()
-                .onBackgroundColorChanged(
-                        mContext,
-                        ntpThemeColorInfo,
-                        NtpCustomizationUtils.NtpBackgroundImageType.CHROME_COLOR);
+                .onBackgroundColorChanged(mContext, ntpThemeColorInfo, newType);
         mOnChromeColorSelectedCallback.run();
     }
 
@@ -249,6 +252,7 @@ public class NtpChromeColorsCoordinator {
         Drawable background = circleImageView.getBackground();
         if (background instanceof GradientDrawable) {
             ((GradientDrawable) background.mutate()).setColor(color);
+            circleImageView.setVisibility(View.VISIBLE);
             return color;
         }
         return null;
@@ -262,13 +266,13 @@ public class NtpChromeColorsCoordinator {
         if (mTypedBackgroundColor == null || mTypedPrimaryColor == null) return;
 
         NtpThemeColorInfo colorInfo =
-                new NtpThemeColorInfo(
+                new NtpThemeColorFromHexInfo(
                         mContext, mTypedBackgroundColor.intValue(), mTypedPrimaryColor.intValue());
         onItemClicked(colorInfo);
     }
 
-    public @Nullable @ColorInt Integer getPrimaryColorForTesting() {
-        return mPrimaryColor;
+    public @Nullable NtpThemeColorInfo getPrimaryColorInfoForTesting() {
+        return mPrimaryColorInfo;
     }
 
     public @Nullable ImageView getBackgroundColorCircleImageViewForTesting() {

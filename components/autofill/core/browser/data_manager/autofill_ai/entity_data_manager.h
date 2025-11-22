@@ -97,6 +97,9 @@ class EntityDataManager : public KeyedService,
   base::optional_ref<const EntityInstance> GetEntityInstance(
       const EntityInstance::EntityId& guid) const LIFETIME_BOUND;
 
+  // Returns if there are any pending queries to the web database.
+  bool HasPendingQueries() const;
+
   // AutofillWebDataServiceObserver:
   void OnAutofillChangedBySync(syncer::DataType data_type) override;
 
@@ -123,6 +126,10 @@ class EntityDataManager : public KeyedService,
 
   base::optional_ref<EntityInstance> GetMutableEntityInstance(
       const EntityInstance::EntityId& guid);
+
+  // Boolean that allows the EntityDataManager to differentiate between initial
+  // data loads and data updates.
+  bool entity_data_loaded_ = false;
 
   // Non-null except perhaps in TestEntityDataManager, which overrides all
   // functions that access it.

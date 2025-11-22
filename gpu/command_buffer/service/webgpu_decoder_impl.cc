@@ -54,7 +54,7 @@
 #include "gpu/config/gpu_feature_info.h"
 #include "gpu/config/gpu_finch_features.h"
 #include "gpu/config/gpu_preferences.h"
-#include "gpu/config/webgpu_blocklist.h"
+#include "gpu/config/webgpu_blocklist_impl.h"
 #include "gpu/webgpu/callback.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/dawn/include/dawn/native/DawnNative.h"
@@ -137,6 +137,8 @@ class DawnWireServer : public dawn::wire::WireServer {
     descriptor.procs = &procs;
     descriptor.serializer = serializer;
     descriptor.memoryTransferService = memory_transfer_service;
+    descriptor.useSpontaneousCallbacks =
+        features::kWebGPUSpontaneousWireServer.Get();
 
     return base::WrapUnique(new DawnWireServer(decoder, descriptor));
   }
@@ -241,14 +243,17 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
   void PerformIdleWork() override {}
 
   bool HasPollingWork() const override {
-    return has_polling_work_ || wire_serializer_->NeedsFlush();
+    return has_polling_work_ ||
+           (!use_spontaneous_wire_server_ && wire_serializer_->NeedsFlush());
   }
 
   void PerformPollingWork() override {
     TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("gpu.dawn"),
                  "WebGPUDecoderImpl::PerformPollingWork");
     if (known_device_metadata_.empty()) {
-      wire_serializer_->Flush();
+      if (!use_spontaneous_wire_server_) {
+        wire_serializer_->Flush();
+      }
       return;
     }
 
@@ -268,7 +273,9 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
         ++it;
       }
     }
-    wire_serializer_->Flush();
+    if (!use_spontaneous_wire_server_) {
+      wire_serializer_->Flush();
+    }
   }
 
   TextureBase* GetTextureBase(uint32_t client_id) override { NOTREACHED(); }
@@ -453,6 +460,7 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
   std::vector<std::string> require_disabled_toggles_;
   base::flat_set<std::string> runtime_unsafe_features_;
   bool tiered_adapter_limits_;
+  bool use_spontaneous_wire_server_;
 
   // Isolation key that is necessary for device requests. Optional to
   // differentiate between an empty isolation key, and an unset one.
@@ -1196,6 +1204,7 @@ WebGPUDecoderImpl::WebGPUDecoderImpl(
         std::forward<decltype(args)>(args)...);
   };
 
+  use_spontaneous_wire_server_ = features::kWebGPUSpontaneousWireServer.Get();
   wire_server_ = DawnWireServer::Create(
       this, wire_serializer_.get(), memory_transfer_service_.get(), wire_procs);
 
@@ -1256,10 +1265,13 @@ ContextResult WebGPUDecoderImpl::Initialize(
     force_fallback_adapter_ = true;
   }
 
-  // Create a Chrome-side EGL context. This isn't actually used by Dawn,
-  // but it prevents rendering artifacts in Chrome. This workaround should
-  // be revisited once EGL context creation is reworked. See crbug.com/1465911
-  if (use_webgpu_adapter_ == WebGPUAdapterName::kOpenGLES) {
+  // Create a Chrome-side EGL context. Dawn actually creates its own
+  // EGL contexts per-device, but since Chrome is unaware of those
+  // contexts, this wrapper context keeps Chrome's virtual context
+  // bookkeeping up-to-date.
+  // This is only an issue for native EGL/GLES, not ANGLE (which is
+  // aware of the the EGL contexts created by Dawn).
+  if (gl::GetGLImplementation() == gl::kGLImplementationEGLGLES2) {
     scoped_refptr<gl::GLSurface> gl_surface(new gl::SurfacelessEGL(
         gl::GLSurfaceEGL::GetGLDisplayEGL(), gfx::Size(1, 1)));
     gl::GLContextAttribs attribs;
@@ -1268,7 +1280,6 @@ ContextResult WebGPUDecoderImpl::Initialize(
     gl_context_ = new gl::GLContextEGL(nullptr);
     gl_context_->Initialize(gl_surface.get(), attribs);
     DCHECK(gl_context_->default_surface());
-    gl_context_->MakeCurrentDefault();
   }
   return ContextResult::kSuccess;
 }
@@ -1279,7 +1290,6 @@ bool WebGPUDecoderImpl::IsFeatureExposed(wgpu::FeatureName feature) const {
     case wgpu::FeatureName::MultiDrawIndirect:
     case wgpu::FeatureName::SharedBufferMemoryD3D12Resource:
     case wgpu::FeatureName::ChromiumExperimentalSubgroupMatrix:
-    case wgpu::FeatureName::TextureComponentSwizzle:
       return safety_level_ == webgpu::SafetyLevel::kUnsafe;
     case wgpu::FeatureName::AdapterPropertiesD3D:
     case wgpu::FeatureName::AdapterPropertiesVk:
@@ -1308,7 +1318,8 @@ bool WebGPUDecoderImpl::IsFeatureExposed(wgpu::FeatureName feature) const {
     case wgpu::FeatureName::DawnMultiPlanarFormats:
     case wgpu::FeatureName::TextureFormatsTier1:
     case wgpu::FeatureName::TextureFormatsTier2:
-    case wgpu::FeatureName::PrimitiveIndex: {
+    case wgpu::FeatureName::PrimitiveIndex:
+    case wgpu::FeatureName::TextureComponentSwizzle: {
       // Likely case when no features are blocked.
       if (runtime_unsafe_features_.empty() ||
           safety_level_ == webgpu::SafetyLevel::kUnsafe) {

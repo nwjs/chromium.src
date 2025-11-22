@@ -311,11 +311,6 @@ BrowserTestBase::BrowserTestBase() {
 }
 
 BrowserTestBase::~BrowserTestBase() {
-#if BUILDFLAG(IS_ANDROID)
-  // DiscardableSharedMemoryManager destruction can block the current thread.
-  base::ScopedAllowBaseSyncPrimitivesForTesting allow_wait;
-  discardable_shared_memory_manager_.reset();
-#endif
   CHECK(set_up_called_ || IsSkipped() || HasFatalFailure())
       << "SetUp was not called. This probably means that the "
          "developer has overridden the method and not called "
@@ -345,7 +340,7 @@ void BrowserTestBase::SetUp() {
   // Don't overwrite any IP address overrides that test have already set.
   if (!command_line->HasSwitch(network::switches::kIpAddressSpaceOverrides)) {
     command_line->AppendSwitchASCII(network::switches::kIpAddressSpaceOverrides,
-                                    "127.0.0.1:0=public");
+                                    "127.0.0.1:0=public,[::1]:0=public");
   }
 
   if (use_fake_media_stream_devices_ &&
@@ -722,7 +717,9 @@ void BrowserTestBase::SetUp() {
 
     // Waits for Java to finish initialization, then we can run the test.
     loop.Run();
+  }
 
+  {
     // The BrowserMainLoop startup tasks will call DisallowUnresponsiveTasks().
     // So when we run the ProxyRunTestOnMainThreadLoop() we no longer can block,
     // but tests should be allowed to. So we undo that blocking inside here.
@@ -735,11 +732,26 @@ void BrowserTestBase::SetUp() {
   }
 
   {
+    // We need to finish the Activity before this function returns because
+    // otherwise we will crash when finishing the Activity as too much
+    // infrastructure has been torn down.
+    base::RunLoop loop{base::RunLoop::Type::kNestableTasksAllowed};
+    testing::android::RunActivityTeardownCallback();
+    WaitUntilActivityTeardownIsFinished(loop.QuitClosure(),
+                                        TestTimeouts::action_max_timeout());
+    loop.Run();
+  }
+
+  {
     base::ScopedAllowBaseSyncPrimitivesForTesting allow_wait;
     // Shutting these down will block the thread.
     ShutDownNetworkService();
     ipc_support.reset();
   }
+
+  // Can hang if run after BrowserTaskExecutor is shut down.
+  base::ScopedAllowBaseSyncPrimitivesForTesting allow_wait;
+  discardable_shared_memory_manager_.reset();
 
   // Like in BrowserMainLoop::ShutdownThreadsAndCleanUp(), allow IO during main
   // thread tear down.
@@ -827,7 +839,26 @@ void BrowserTestBase::WaitUntilJavaIsReady(
                      base::Unretained(this), std::move(quit_closure),
                      wait_retry_left - retry_interval),
       retry_interval);
-  return;
+}
+
+void BrowserTestBase::WaitUntilActivityTeardownIsFinished(
+    base::OnceClosure quit_closure,
+    const base::TimeDelta& wait_retry_left) {
+  CHECK_GE(wait_retry_left.InMilliseconds(), 0)
+      << "WaitUntilActivityTeardownIsFinished() timed out.";
+
+  if (testing::android::JavaActivityTeardownCompleteForBrowserTests()) {
+    std::move(quit_closure).Run();
+    return;
+  }
+
+  base::TimeDelta retry_interval = base::Milliseconds(100);
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&BrowserTestBase::WaitUntilActivityTeardownIsFinished,
+                     base::Unretained(this), std::move(quit_closure),
+                     wait_retry_left - retry_interval),
+      retry_interval);
 }
 #endif
 

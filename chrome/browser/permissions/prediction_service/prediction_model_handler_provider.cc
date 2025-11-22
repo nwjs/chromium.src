@@ -9,19 +9,48 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
+#include "build/build_config.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
-#include "chrome/browser/permissions/prediction_service/permissions_aiv1_handler.h"
 #include "components/optimization_guide/core/delivery/optimization_guide_model_provider.h"
 #include "components/permissions/features.h"
 #include "components/permissions/prediction_service/permissions_aiv3_handler.h"
 #include "components/permissions/prediction_service/permissions_aiv4_handler.h"
 #include "components/permissions/request_type.h"
 
+#if BUILDFLAG(IS_ANDROID)
+#include "components/download/public/background_service/download_params.h"
+#endif
+
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
 #include "components/permissions/prediction_service/prediction_model_handler.h"
 #endif  // BUILDFLAG(BUILD_WITH_TFLITE_LIB)
 
 namespace permissions {
+
+using optimization_guide::proto::OptimizationTarget;
+
+namespace {
+
+inline OptimizationTarget getGeolocationAiv4OptTarget() {
+#if BUILDFLAG(IS_ANDROID)
+  return OptimizationTarget::
+      OPTIMIZATION_TARGET_PERMISSIONS_AIV4_GEOLOCATION_ANDROID;
+#else
+  return OptimizationTarget::
+      OPTIMIZATION_TARGET_PERMISSIONS_AIV4_GEOLOCATION_DESKTOP;
+#endif
+}
+inline OptimizationTarget getNotificationsAiv4OptTarget() {
+#if BUILDFLAG(IS_ANDROID)
+  return OptimizationTarget::
+      OPTIMIZATION_TARGET_PERMISSIONS_AIV4_NOTIFICATIONS_ANDROID;
+#else
+  return OptimizationTarget::
+      OPTIMIZATION_TARGET_PERMISSIONS_AIV4_NOTIFICATIONS_DESKTOP;
+#endif
+}
+
+}  // namespace
 
 PredictionModelHandlerProvider::PredictionModelHandlerProvider(
     OptimizationGuideKeyedService* optimization_guide,
@@ -42,7 +71,7 @@ PredictionModelHandlerProvider::PredictionModelHandlerProvider(
   }
 
   // We set up model handlers if necessary in order of preference:
-  // Aiv4, Aiv3, Aiv1
+  // Aiv4, Aiv3
   // CPSSv1 is defined always as backup if further requirements for AivX are not
   // fulfilled (like the MSBB bit that we don't check here at the moment).
   // TODO(crbug.com/414527270) Only create models when its really necessary (see
@@ -51,60 +80,67 @@ PredictionModelHandlerProvider::PredictionModelHandlerProvider(
   if (embedder_metadata_provider) {
     embedder_metadata_observation_.Observe(embedder_metadata_provider);
   }
-  notification_prediction_model_handler_ =
-      std::make_unique<PredictionModelHandler>(
-          optimization_guide,
-          optimization_guide::proto::OptimizationTarget::
-              OPTIMIZATION_TARGET_NOTIFICATION_PERMISSION_PREDICTIONS);
 
-  geolocation_prediction_model_handler_ =
-      std::make_unique<PredictionModelHandler>(
-          optimization_guide,
-          optimization_guide::proto::OptimizationTarget::
-              OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS);
+  // This feature is enabled by default; we add the check here to fix internally
+  // failing tests.
+  if (base::FeatureList::IsEnabled(
+          permissions::features::kPermissionOnDeviceNotificationPredictions)) {
+    notification_prediction_model_handler_ =
+        std::make_unique<PredictionModelHandler>(
+            optimization_guide,
+            OptimizationTarget::
+                OPTIMIZATION_TARGET_NOTIFICATION_PERMISSION_PREDICTIONS);
+  }
 
-  if (IsAiv4ModelAvailable()) {
+  // This feature is enabled by default; we add the check here to fix internally
+  // failing tests.
+  if (base::FeatureList::IsEnabled(
+          permissions::features::kPermissionOnDeviceGeolocationPredictions)) {
+    geolocation_prediction_model_handler_ =
+        std::make_unique<PredictionModelHandler>(
+            optimization_guide,
+            OptimizationTarget::
+                OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS);
+  }
+
+  if (IsAIv4FeatureEnabled()) {
     VLOG(1) << "[PermissionsAI] PredictionModelHandlerProvider init AIv4";
+#if BUILDFLAG(IS_ANDROID)
+    download::SchedulingParams scheduling_params;
+    scheduling_params.priority = download::SchedulingParams::Priority::HIGH;
+    scheduling_params.battery_requirements =
+        download::SchedulingParams::BatteryRequirements::BATTERY_SENSITIVE;
+    scheduling_params.network_requirements =
+        download::SchedulingParams::NetworkRequirements::UNMETERED;
+#else
+    std::optional<download::SchedulingParams> scheduling_params = std::nullopt;
+#endif
     notification_aiv4_handler_ = std::make_unique<PermissionsAiv4Handler>(
-        optimization_guide,
-        optimization_guide::proto::OptimizationTarget::
-            OPTIMIZATION_TARGET_PERMISSIONS_AIV4_NOTIFICATIONS_DESKTOP,
-        RequestType::kNotifications);
+        optimization_guide, getNotificationsAiv4OptTarget(),
+        RequestType::kNotifications, scheduling_params);
     geolocation_aiv4_handler_ = std::make_unique<PermissionsAiv4Handler>(
-        optimization_guide,
-        optimization_guide::proto::OptimizationTarget::
-            OPTIMIZATION_TARGET_PERMISSIONS_AIV4_GEOLOCATION_DESKTOP,
-        RequestType::kGeolocation);
+        optimization_guide, getGeolocationAiv4OptTarget(),
+        RequestType::kGeolocation, scheduling_params);
     return;
   }
   if (base::FeatureList::IsEnabled(permissions::features::kPermissionsAIv3)) {
     VLOG(1) << "[PermissionsAI] PredictionModelHandlerProvider init AIv3";
     notification_aiv3_handler_ = std::make_unique<PermissionsAiv3Handler>(
         optimization_guide,
-        optimization_guide::proto::OptimizationTarget::
+        OptimizationTarget::
             OPTIMIZATION_TARGET_NOTIFICATION_IMAGE_PERMISSION_RELEVANCE,
         RequestType::kNotifications);
     geolocation_aiv3_handler_ = std::make_unique<PermissionsAiv3Handler>(
         optimization_guide,
-        optimization_guide::proto::OptimizationTarget::
+        OptimizationTarget::
             OPTIMIZATION_TARGET_GEOLOCATION_IMAGE_PERMISSION_RELEVANCE,
         RequestType::kGeolocation);
     return;
   }
 #endif  // BUILDFLAG(BUILD_WITH_TFLITE_LIB)
-
-  if (base::FeatureList::IsEnabled(permissions::features::kPermissionsAIv1)) {
-    permissions_aiv1_handler_ =
-        std::make_unique<PermissionsAiv1Handler>(optimization_guide);
-  }
 }
 
 PredictionModelHandlerProvider::~PredictionModelHandlerProvider() = default;
-
-PermissionsAiv1Handler*
-PredictionModelHandlerProvider::GetPermissionsAiv1Handler() {
-  return permissions_aiv1_handler_.get();
-}
 
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
 void PredictionModelHandlerProvider::EmbedderMetadataUpdated(
@@ -195,7 +231,7 @@ void PredictionModelHandlerProvider::set_passage_embedder_for_testing(
   passage_embedder_ = passage_embedder;
 }
 
-bool PredictionModelHandlerProvider::IsAiv4ModelAvailable() {
+bool PredictionModelHandlerProvider::IsAIv4FeatureEnabled() {
   return base::FeatureList::IsEnabled(permissions::features::kPermissionsAIv4);
 }
 

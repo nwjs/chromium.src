@@ -634,13 +634,10 @@ void RelaunchApp() {
       selectElementWithMatcher:ContextMenuItemWithAccessibilityLabelId(
                                    IDS_IOS_CONTENT_CONTEXT_OPENLINKNEWTAB)]
       assertWithMatcher:grey_sufficientlyVisible()];
-  if (@available(iOS 17, *)) {
-    // Tab group is only available on iOS 17+ on iPad.
-    [[EarlGrey selectElementWithMatcher:
-                   ContextMenuItemWithAccessibilityLabelId(
-                       IDS_IOS_CONTENT_CONTEXT_OPENLINKINNEWTABGROUP)]
-        assertWithMatcher:grey_sufficientlyVisible()];
-  }
+  [[EarlGrey selectElementWithMatcher:
+                 ContextMenuItemWithAccessibilityLabelId(
+                     IDS_IOS_CONTENT_CONTEXT_OPENLINKINNEWTABGROUP)]
+      assertWithMatcher:grey_sufficientlyVisible()];
   [[EarlGrey
       selectElementWithMatcher:ContextMenuItemWithAccessibilityLabelId(
                                    IDS_IOS_OPEN_IN_INCOGNITO_ACTION_TITLE)]
@@ -818,10 +815,6 @@ void RelaunchApp() {
 // exists in the tab grid, the option `Open in group` will become a submenu,
 // tapping it will result in listing all the existing tab groups.
 - (void)testContextMenuOpenInGroup {
-  if (@available(iOS 17, *)) {
-  } else if ([ChromeEarlGrey isIPadIdiom]) {
-    EARL_GREY_TEST_SKIPPED(@"Only available on iOS 17+ on iPad.");
-  }
   const GURL initialURL = self.testServer->GetURL(kInitialPageUrl);
   [ChromeEarlGrey loadURL:initialURL];
   [ChromeEarlGrey
@@ -979,15 +972,6 @@ void RelaunchApp() {
 
 // Tests that opening the context menu for a link in Reading mode
 // displays all options.
-// TODO(crbug.com/436842225): Renable this test. It is flaky on iphone-device
-// and ipad-device.
-#if TARGET_OS_SIMULATOR
-#define MAYBE_testOpenContextMenuFromReadingMode \
-  testOpenContextMenuFromReadingMode
-#else
-#define MAYBE_testOpenContextMenuFromReadingMode \
-  FLAKY_testOpenContextMenuFromReadingMode
-#endif
 - (void)testOpenContextMenuFromReadingMode {
   [self setUpHistogramTester];
 
@@ -1042,15 +1026,6 @@ void RelaunchApp() {
 }
 
 // Tests that the context menu is displayed for an image url in Reading mode.
-// TODO(crbug.com/436842225): Renable this test. It is flaky on iphone-device
-// and ipad-device.
-#if TARGET_OS_SIMULATOR
-#define MAYBE_testContextMenuDisplayedOnImageForReadingMode \
-  testContextMenuDisplayedOnImageForReadingMode
-#else
-#define MAYBE_testContextMenuDisplayedOnImageForReadingMode \
-  FLAKY_testContextMenuDisplayedOnImageForReadingMode
-#endif
 - (void)testContextMenuDisplayedOnImageForReadingMode {
   [self setUpHistogramTester];
 

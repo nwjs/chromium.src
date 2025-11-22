@@ -97,7 +97,6 @@
 #include "third_party/skia/include/private/chromium/GrPromiseImageTexture.h"
 #include "third_party/skia/include/utils/SkNoDrawCanvas.h"
 #include "ui/base/ui_base_features.h"
-#include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gl/gl_context.h"
 #include "ui/gl/gl_gl_api_implementation.h"
@@ -1161,8 +1160,6 @@ Capabilities RasterDecoderImpl::GetCapabilities() {
   caps.using_vulkan_context =
       shared_context_state_->GrContextIsVulkan() ? true : false;
 
-  caps.max_copy_texture_chromium_size =
-      feature_info()->workarounds().max_copy_texture_chromium_size;
   caps.texture_format_etc1_npot =
       feature_info()->feature_flags().oes_compressed_etc1_rgb8_texture &&
       !feature_info()->workarounds().etc1_power_of_two_only;
@@ -1175,8 +1172,6 @@ Capabilities RasterDecoderImpl::GetCapabilities() {
   caps.render_buffer_format_bgra8888 =
       feature_info()->feature_flags().ext_render_buffer_format_bgra8888;
 
-  caps.angle_rgbx_internal_format =
-      feature_info()->feature_flags().angle_rgbx_internal_format;
   caps.chromium_gpu_fence = feature_info()->feature_flags().chromium_gpu_fence;
   caps.mesa_framebuffer_flip_y =
       feature_info()->feature_flags().mesa_framebuffer_flip_y;
@@ -1778,55 +1773,6 @@ error::Error RasterDecoderImpl::HandleEndQueryEXT(
   }
 
   query_manager_->EndQuery(query, submit_count);
-  return error::kNoError;
-}
-
-error::Error RasterDecoderImpl::HandleQueryCounterEXT(
-    uint32_t immediate_data_size,
-    const volatile void* cmd_data) {
-  const volatile raster::cmds::QueryCounterEXT& c =
-      *static_cast<const volatile raster::cmds::QueryCounterEXT*>(cmd_data);
-  GLenum target = static_cast<GLenum>(c.target);
-  GLuint client_id = static_cast<GLuint>(c.id);
-  int32_t sync_shm_id = static_cast<int32_t>(c.sync_data_shm_id);
-  uint32_t sync_shm_offset = static_cast<uint32_t>(c.sync_data_shm_offset);
-  uint32_t submit_count = static_cast<GLuint>(c.submit_count);
-
-  if (target != GL_COMMANDS_ISSUED_TIMESTAMP_CHROMIUM) {
-    LOCAL_SET_GL_ERROR(GL_INVALID_ENUM, "glQueryCounterEXT",
-                       "unknown query target");
-    return error::kNoError;
-  }
-
-  scoped_refptr<Buffer> buffer = GetSharedMemoryBuffer(sync_shm_id);
-  if (!buffer)
-    return error::kInvalidArguments;
-  QuerySync* sync = static_cast<QuerySync*>(
-      buffer->GetDataAddress(sync_shm_offset, sizeof(QuerySync)));
-  if (!sync)
-    return error::kOutOfBounds;
-
-  QueryManager::Query* query = query_manager_->GetQuery(client_id);
-  if (!query) {
-    if (!query_manager_->IsValidQuery(client_id)) {
-      LOCAL_SET_GL_ERROR(GL_INVALID_OPERATION, "glQueryCounterEXT",
-                         "id not made by glGenQueriesEXT");
-      return error::kNoError;
-    }
-    query =
-        query_manager_->CreateQuery(target, client_id, std::move(buffer), sync);
-  } else {
-    if (query->target() != target) {
-      LOCAL_SET_GL_ERROR(GL_INVALID_OPERATION, "glQueryCounterEXT",
-                         "target does not match");
-      return error::kNoError;
-    } else if (query->sync() != sync) {
-      DLOG(ERROR) << "Shared memory used by query not the same as before";
-      return error::kInvalidArguments;
-    }
-  }
-  query_manager_->QueryCounter(query, submit_count);
-
   return error::kNoError;
 }
 

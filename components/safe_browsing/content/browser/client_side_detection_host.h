@@ -16,10 +16,13 @@
 #include "base/containers/flat_map.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/time/time.h"
+#include "base/unguessable_token.h"
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
 #include "components/autofill/core/browser/foundations/scoped_autofill_managers_observation.h"
+#include "components/history/core/browser/history_service.h"
+#include "components/history/core/browser/history_service_observer.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/permissions/permission_request_manager.h"
 #include "components/safe_browsing/content/browser/async_check_tracker.h"
@@ -28,7 +31,6 @@
 #include "components/safe_browsing/content/common/safe_browsing.mojom.h"
 #include "components/safe_browsing/core/browser/db/database_manager.h"
 #include "components/safe_browsing/core/browser/safe_browsing_token_fetcher.h"
-#include "components/safe_browsing/core/browser/verdict_cache_manager.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/navigation_entry.h"
@@ -47,6 +49,7 @@ class TickClock;
 namespace safe_browsing {
 class ClientPhishingRequest;
 class ClientSideDetectionService;
+class VerdictCacheManager;
 
 using HostInnerTextCallback = base::OnceCallback<void(std::string)>;
 
@@ -58,7 +61,8 @@ class ClientSideDetectionHost
     : public content::WebContentsObserver,
       public permissions::PermissionRequestManager::Observer,
       public AsyncCheckTracker::Observer,
-      public autofill::AutofillManager::Observer {
+      public autofill::AutofillManager::Observer,
+      public history::HistoryServiceObserver {
  public:
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused.
@@ -132,13 +136,14 @@ class ClientSideDetectionHost
         bool log_failed_eligibility_reason) = 0;
     // Gets the intelligent scan result from the on-device model. The callback
     // will return an empty optional if the on-device model is not available.
-    virtual void InquireOnDeviceModel(
+    // Returns a token that can be used to cancel the request. The token will be
+    // std::nullopt in case the inquiry fails immediately without start.
+    virtual std::optional<base::UnguessableToken> InquireOnDeviceModel(
         std::string rendered_texts,
         InquireOnDeviceModelDoneCallback callback) = 0;
-    // Resets the session that's created by the on-device model. Returns true if
-    // the session was reset. Does nothing and returns false if there is no
-    // session.
-    virtual bool ResetOnDeviceSession() = 0;
+    // Cancels a specific on-device model session. If the |session_id| is
+    // ongoing, it will return true, and false otherwise.
+    virtual bool CancelSession(const base::UnguessableToken& session_id) = 0;
     // Determines if a scam warning should be shown based on the intelligent
     // scan verdict.
     virtual bool ShouldShowScamWarning(
@@ -156,6 +161,7 @@ class ClientSideDetectionHost
       std::unique_ptr<Delegate> delegate,
       IntelligentScanDelegate* intelligent_scan_delegate,
       PrefService* pref_service,
+      history::HistoryService* history_service,
       std::unique_ptr<SafeBrowsingTokenFetcher> token_fetcher,
       bool is_off_the_record,
       const PrimaryAccountSignedIn& account_signed_in_callback);
@@ -200,6 +206,10 @@ class ClientSideDetectionHost
       autofill::FormGlobalId formId,
       autofill::AutofillManager::Observer::FieldTypeSource source) override;
 
+  // history::HistoryServiceObserver method:
+  void HistoryServiceBeingDeleted(
+      history::HistoryService* history_service) override;
+
   void RegisterAutofillManager();
 
  protected:
@@ -208,6 +218,7 @@ class ClientSideDetectionHost
       std::unique_ptr<Delegate> delegate,
       IntelligentScanDelegate* intelligent_scan_delegate,
       PrefService* pref_service,
+      history::HistoryService* history_service,
       std::unique_ptr<SafeBrowsingTokenFetcher> token_fetcher,
       bool is_off_the_record,
       const PrimaryAccountSignedIn& account_signed_in_callback);
@@ -220,6 +231,8 @@ class ClientSideDetectionHost
   friend class ClientSideDetectionHostTestBase;
   friend class ClientSideDetectionHostNotificationTest;
   friend class ClientSideDetectionHostScamDetectionTest;
+  friend class ClientSideDetectionHostCreditCardFormTest;
+  friend class ClientSideDetectionHostClipboardDataTest;
   class ShouldClassifyUrlRequest;
   friend class ShouldClassifyUrlRequest;
   FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionHostPrerenderBrowserTest,
@@ -286,10 +299,25 @@ class ClientSideDetectionHost
   FRIEND_TEST_ALL_PREFIXES(
       ClientSideDetectionHostCreditCardFormTest,
       EventDoesNotTriggerPreclassificationChecksWhenESBDisabled);
+  FRIEND_TEST_ALL_PREFIXES(
+      ClientSideDetectionHostCreditCardFormTest,
+      CreditCardFormDoesNotStartPreclassificationOnRepeatVisit);
+  FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionHostCreditCardFormTest,
+                           CreditCardFormUsesCachedHistoryServiceResult);
   FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionHostCreditCardFormTest,
                            CreditCardFormTriggersPreclassificationCheck);
   FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionHostCreditCardFormTest,
                            CreditCardFormClassificationTriggersCSDPing);
+
+  // Extracts suspicious tokens from a copied clipboard payload into a
+  // structured object.
+  //
+  // See https://crbug.com/454952204 for the security review around clipboard
+  // data extraction. UTF16 to UTF8 conversion is already done in the renderer,
+  // and the payload parsing does not involve complex grammar.
+  ClipboardExtractedData ExtractClipboardData(const std::u16string& payload);
+
+  std::vector<std::string_view> GetSuspiciousTokensListForTesting();
 
   // Helper function to create preclassification check once requirements are
   // met.
@@ -400,6 +428,9 @@ class ClientSideDetectionHost
     intelligent_scan_delegate_ = intelligent_scan_delegate;
   }
 
+  void set_history_service_for_testing(
+      history::HistoryService* history_service);
+
   // Callbacks for when preclassification is started/done.
   using PreclassificationStarted =
       base::RepeatingCallback<void(ClientSideDetectionType)>;
@@ -462,6 +493,13 @@ class ClientSideDetectionHost
   bool HasDonePreclassificationCheckOnSameURL(
       ClientSideDetectionType client_side_detection_type);
 
+  // OnCreditCardFormEvent is a callback that is called to determine
+  // whether a credit card from event should trigger a CSD ping.
+  void OnCreditCardFormEvent(
+      std::string event_name,
+      std::optional<base::TimeTicks> start_time,
+      history::VisibleVisitCountToHostResult history_result);
+
   // This pointer may be nullptr if client-side phishing detection is
   // disabled.
   base::WeakPtr<ClientSideDetectionService> csd_service_;
@@ -498,6 +536,17 @@ class ClientSideDetectionHost
 
   // Unowned object used for getting preference settings.
   raw_ptr<PrefService> pref_service_;
+
+  // Unowned object used for getting site history.
+  raw_ptr<history::HistoryService> history_service_;
+  base::ScopedObservation<history::HistoryService,
+                          history::HistoryServiceObserver>
+      history_service_observer_{this};
+
+  // Cached result of calling HistoryService.GetVisibleVisitCountToHost
+  // for some URL.
+  std::optional<GURL> last_history_url_;
+  std::optional<history::VisibleVisitCountToHostResult> last_history_result_;
 
   // The token fetcher used for getting access token.
   std::unique_ptr<SafeBrowsingTokenFetcher> token_fetcher_;
@@ -550,6 +599,14 @@ class ClientSideDetectionHost
   // Callback settable by tests for verifying whether
   // OnPhishingPreClassificationDone was called at the end of preclassification.
   PreclassificationDone preclassification_done_cb_for_testing_;
+
+  // The session ID for the current intelligent scan request.
+  std::optional<base::UnguessableToken> intelligent_scan_session_id_;
+
+  // The last text that was copied to the clipboard.
+  std::u16string last_copied_text_;
+
+  base::CancelableTaskTracker task_tracker_;
 
   base::WeakPtrFactory<ClientSideDetectionHost> weak_factory_{this};
 };

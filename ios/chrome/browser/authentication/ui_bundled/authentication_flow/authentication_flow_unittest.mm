@@ -25,6 +25,7 @@
 #import "components/sync/test/test_sync_service.h"
 #import "components/sync_preferences/pref_service_mock_factory.h"
 #import "components/sync_preferences/pref_service_syncable.h"
+#import "components/test/ios/test_utils.h"
 #import "ios/chrome/app/change_profile_commands.h"
 #import "ios/chrome/app/change_profile_continuation.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow_delegate.h"
@@ -103,13 +104,13 @@ class AuthenticationFlowTest : public PlatformTest,
       managed_profile1_ = CreateProfile(
           *GetApplicationContext()
                ->GetAccountProfileMapper()
-               ->FindProfileNameForGaiaID(GaiaId(managed_identity1_.gaiaID)));
+               ->FindProfileNameForGaiaID(managed_identity1_.gaiaId));
       managed_browser1_ =
           std::make_unique<TestBrowser>(managed_profile1_.get());
       managed_profile2_ = CreateProfile(
           *GetApplicationContext()
                ->GetAccountProfileMapper()
-               ->FindProfileNameForGaiaID(GaiaId(managed_identity2_.gaiaID)));
+               ->FindProfileNameForGaiaID(managed_identity2_.gaiaId));
       managed_browser2_ =
           std::make_unique<TestBrowser>(managed_profile2_.get());
     }
@@ -192,29 +193,23 @@ class AuthenticationFlowTest : public PlatformTest,
       // the mock can call back into it.
       OCMExpect([(id)in_profile_performer_mock_ alloc])
           .andReturn(in_profile_performer_mock_);
-      OCMExpect([in_profile_performer_mock_
-                    initWithInProfileDelegate:[OCMArg any]
-                         changeProfileHandler:[OCMArg any]])
-          .andDo(^(NSInvocation* invocation) {
-            __unsafe_unretained id argument;
-            [invocation getArgument:&argument atIndex:2];
-            authentication_flow_in_profile_ = argument;
-          })
+      OCMExpect(
+          [in_profile_performer_mock_
+              initWithInProfileDelegate:AssignValueToVariable(
+                                            authentication_flow_in_profile_)
+                   changeProfileHandler:[OCMArg any]])
           .andReturn(in_profile_performer_mock_);
     }
 
     signin_ui::SigninCompletionCallback sign_in_completion =
-        ^(SigninCoordinatorResult result) {
+        ^(signin_ui::CancelationReason cancelationReason) {
           run_loop_->Quit();
-          switch (result) {
-            case SigninCoordinatorResult::SigninCoordinatorResultSuccess:
+          switch (cancelationReason) {
+            case signin_ui::CancelationReason::kNotCanceled:
               signin_result_ = signin::Tribool::kTrue;
               break;
-            case SigninCoordinatorResult::SigninCoordinatorResultInterrupted:
-            case SigninCoordinatorResult::SigninCoordinatorResultCanceledByUser:
-            case SigninCoordinatorResult::SigninCoordinatorResultDisabled:
-            case SigninCoordinatorResult::SigninCoordinatorUINotAvailable:
-            case SigninCoordinatorResult::SigninCoordinatorProfileSwitch:
+            case signin_ui::CancelationReason::kUserCanceled:
+            case signin_ui::CancelationReason::kFailed:
               signin_result_ = signin::Tribool::kFalse;
               break;
           }
@@ -227,8 +222,8 @@ class AuthenticationFlowTest : public PlatformTest,
               ChangeProfileContinuation continuation = base::BindOnce(
                   [](signin_ui::SigninCompletionCallback sign_in_completion,
                      SceneState* sceneState, base::OnceClosure closure) {
-                    sign_in_completion(SigninCoordinatorResult::
-                                           SigninCoordinatorResultSuccess);
+                    sign_in_completion(
+                        signin_ui::CancelationReason::kNotCanceled);
                     std::move(closure).Run();
                   },
                   sign_in_completion);

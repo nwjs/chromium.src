@@ -8,6 +8,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
@@ -71,7 +72,7 @@ class BadMessageTestHelper {
 };
 
 struct CreateContextSuccess {
-  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote;
+  mojo::Remote<mojom::WebNNContext> webnn_context_remote;
   blink::WebNNContextToken webnn_context_handle;
 };
 
@@ -131,6 +132,7 @@ class WebNNTensorImplBackendTest : public testing::Test {
   CreateWebNNContext();
 
   base::test::ScopedFeatureList scoped_feature_list_;
+  base::test::TaskEnvironment task_environment_;
   WebNNTestEnvironment webnn_test_environment_;
   mojo::Remote<mojom::WebNNContextProvider> webnn_provider_remote_;
 };
@@ -163,6 +165,7 @@ class WebNNTensorImplBackendTest : public testing::Test {
   CreateWebNNContext();
 
   base::test::ScopedFeatureList scoped_feature_list_;
+  base::test::TaskEnvironment task_environment_;
   WebNNTestEnvironment webnn_test_environment_;
   mojo::Remote<mojom::WebNNContextProvider> webnn_provider_remote_;
 };
@@ -184,7 +187,7 @@ WebNNTensorImplBackendTest::CreateWebNNContext() {
       create_context_future.GetCallback());
   auto create_context_result = create_context_future.Take();
   if (create_context_result->is_success()) {
-    mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote;
+    mojo::Remote<mojom::WebNNContext> webnn_context_remote;
     webnn_context_remote.Bind(
         std::move(create_context_result->get_success()->context_remote));
     return CreateContextSuccess{
@@ -196,9 +199,8 @@ WebNNTensorImplBackendTest::CreateWebNNContext() {
 }
 
 base::expected<CreateTensorSuccess, webnn::mojom::Error::Code>
-CreateWebNNTensor(
-    mojo::AssociatedRemote<mojom::WebNNContext>& webnn_context_remote,
-    mojom::TensorInfoPtr tensor_info) {
+CreateWebNNTensor(mojo::Remote<mojom::WebNNContext>& webnn_context_remote,
+                  mojom::TensorInfoPtr tensor_info) {
   base::test::TestFuture<mojom::CreateTensorResultPtr> create_tensor_future;
   webnn_context_remote->CreateTensor(std::move(tensor_info),
                                      mojo_base::BigBuffer(0),
@@ -225,7 +227,7 @@ bool IsBufferDataEqual(const mojo_base::BigBuffer& a,
 TEST_F(WebNNTensorImplBackendTest, CreateTensorImplTest) {
   BadMessageTestHelper bad_message_helper;
 
-  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote;
+  mojo::Remote<mojom::WebNNContext> webnn_context_remote;
   base::expected<CreateContextSuccess, webnn::mojom::Error::Code>
       context_result = CreateWebNNContext();
   if (!context_result.has_value() &&
@@ -255,7 +257,7 @@ TEST_F(WebNNTensorImplBackendTest, CreateTensorImplTest) {
 TEST_F(WebNNTensorImplBackendTest, CreateTensorImplManyTest) {
   BadMessageTestHelper bad_message_helper;
 
-  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote;
+  mojo::Remote<mojom::WebNNContext> webnn_context_remote;
   base::expected<CreateContextSuccess, webnn::mojom::Error::Code>
       context_result = CreateWebNNContext();
   if (!context_result.has_value() &&
@@ -294,7 +296,7 @@ TEST_F(WebNNTensorImplBackendTest, MAYBE_CreateTooLargeTensorTest) {
 
   BadMessageTestHelper bad_message_helper;
 
-  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote;
+  mojo::Remote<mojom::WebNNContext> webnn_context_remote;
   base::expected<CreateContextSuccess, webnn::mojom::Error::Code>
       context_result = CreateWebNNContext();
   if (!context_result.has_value() &&
@@ -323,7 +325,7 @@ TEST_F(WebNNTensorImplBackendTest, MAYBE_CreateTooLargeTensorTest) {
 TEST_F(WebNNTensorImplBackendTest, WriteTensorImplTest) {
   BadMessageTestHelper bad_message_helper;
 
-  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote;
+  mojo::Remote<mojom::WebNNContext> webnn_context_remote;
   base::expected<CreateContextSuccess, webnn::mojom::Error::Code>
       context_result = CreateWebNNContext();
   if (!context_result.has_value() &&
@@ -367,7 +369,7 @@ TEST_F(WebNNTensorImplBackendTest, WriteTensorImplTest) {
 TEST_F(WebNNTensorImplBackendTest, WriteTensorImplTooLargeTest) {
   BadMessageTestHelper bad_message_helper;
 
-  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote;
+  mojo::Remote<mojom::WebNNContext> webnn_context_remote;
   base::expected<CreateContextSuccess, webnn::mojom::Error::Code>
       context_result = CreateWebNNContext();
   if (!context_result.has_value() &&
@@ -404,7 +406,7 @@ TEST_F(WebNNTensorImplBackendTest, WriteTensorImplTooLargeTest) {
 TEST_F(WebNNTensorImplBackendTest, CreateContextImplManyTest) {
   BadMessageTestHelper bad_message_helper;
 
-  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote_1;
+  mojo::Remote<mojom::WebNNContext> webnn_context_remote_1;
   base::expected<CreateContextSuccess, webnn::mojom::Error::Code>
       context_1_result = CreateWebNNContext();
   if (!context_1_result.has_value() &&
@@ -417,7 +419,7 @@ TEST_F(WebNNTensorImplBackendTest, CreateContextImplManyTest) {
 
   EXPECT_TRUE(webnn_context_remote_1.is_bound());
 
-  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote_2;
+  mojo::Remote<mojom::WebNNContext> webnn_context_remote_2;
   base::expected<CreateContextSuccess, webnn::mojom::Error::Code>
       context_2_result = CreateWebNNContext();
   if (!context_2_result.has_value() &&
@@ -438,7 +440,7 @@ TEST_F(WebNNTensorImplBackendTest, ContextImplSyncToken) {
   BadMessageTestHelper bad_message_helper;
 
   blink::WebNNContextToken webnn_context_handle;
-  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote;
+  mojo::Remote<mojom::WebNNContext> webnn_context_remote;
   base::expected<CreateContextSuccess, webnn::mojom::Error::Code>
       context_result = CreateWebNNContext();
   if (!context_result.has_value() &&
@@ -511,7 +513,7 @@ class WebNNTensorImplDmlBackendTest : public WebNNTensorImplBackendTest {
   }
 
  protected:
-  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote_;
+  mojo::Remote<mojom::WebNNContext> webnn_context_remote_;
   blink::WebNNContextToken webnn_context_handle_;
 };
 

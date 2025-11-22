@@ -174,6 +174,7 @@ public class TabSwitcherPaneCoordinatorFactory {
      * @param onTabGroupCreation Should be run when the UI is used to create a tab group.
      * @param edgeToEdgeSupplier Supplier to the {@link EdgeToEdgeController} instance.
      * @param setOverlayViewCallback Sets a view to overlay the Hub.
+     * @param hubSearchBoxVisibilitySupplier Used to set the visibility of the hub search box.
      * @return a {@link TabSwitcherPaneCoordinator} to use.
      */
     TabSwitcherPaneCoordinator create(
@@ -182,11 +183,11 @@ public class TabSwitcherPaneCoordinatorFactory {
             ObservableSupplier<Boolean> isVisibleSupplier,
             ObservableSupplier<Boolean> isAnimatingSupplier,
             Callback<Integer> onTabClickCallback,
-            Callback<Boolean> setHairlineVisibilityCallback,
             boolean isIncognito,
             @Nullable Runnable onTabGroupCreation,
             ObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier,
-            Callback<@Nullable View> setOverlayViewCallback) {
+            Callback<@Nullable View> setOverlayViewCallback,
+            ObservableSupplierImpl<Boolean> hubSearchBoxVisibilitySupplier) {
         int token = mMessageManagerTokenHolder.acquireToken();
         assert mMessageManager != null;
 
@@ -206,7 +207,6 @@ public class TabSwitcherPaneCoordinatorFactory {
                 isVisibleSupplier,
                 isAnimatingSupplier,
                 onTabClickCallback,
-                setHairlineVisibilityCallback,
                 mMode,
                 /* supportsEmptyState= */ !isIncognito,
                 onTabGroupCreation,
@@ -217,7 +217,8 @@ public class TabSwitcherPaneCoordinatorFactory {
                 mTabBookmarkerSupplier,
                 mUndoBarThrottle,
                 setOverlayViewCallback,
-                mTabSwitcherDragHandler);
+                mTabSwitcherDragHandler,
+                hubSearchBoxVisibilitySupplier);
     }
 
     /** Returns the {@link TabListMode} of the produced {@link TabListCoordinator}s. */

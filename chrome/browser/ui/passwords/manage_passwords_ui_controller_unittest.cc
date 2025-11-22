@@ -202,7 +202,7 @@ class TestManagePasswordsUIController : public ManagePasswordsUIController {
 
  private:
   void UpdateBubbleAndIconVisibility() override;
-  void HideBubble() override;
+  void HideBubble(bool initiated_by_bubble_manager) override;
 
   bool opened_automatic_bubble_ = false;
 };
@@ -229,7 +229,8 @@ void TestManagePasswordsUIController::UpdateBubbleAndIconVisibility() {
   }
 }
 
-void TestManagePasswordsUIController::HideBubble() {
+void TestManagePasswordsUIController::HideBubble(
+    bool initiated_by_bubble_manager) {
   opened_automatic_bubble_ = false;
   if (std::exchange(opened_automatic_bubble_, false) &&
       !web_contents()->IsBeingDestroyed()) {
@@ -290,16 +291,25 @@ class MockPasswordChangeService : public ChromePasswordChangeService {
 
   MOCK_METHOD(void,
               OfferPasswordChangeUi,
-              (const GURL&,
-               const std::u16string&,
-               const std::u16string&,
-               content::WebContents*),
+              (password_manager::PasswordForm, content::WebContents*),
               (override));
   MOCK_METHOD(PasswordChangeDelegate*,
               GetPasswordChangeDelegate,
               (content::WebContents*),
               (override));
 };
+
+password_manager::PasswordForm CreatePasswordForm(
+    const std::string& url,
+    const std::u16string& username,
+    const std::u16string& password) {
+  PasswordForm password_form;
+  password_form.url = GURL(url);
+  password_form.signon_realm = GURL(url).GetWithEmptyPath().spec();
+  password_form.username_value = username;
+  password_form.password_value = password;
+  return password_form;
+}
 
 }  // namespace
 
@@ -1568,7 +1578,7 @@ TEST_P(ManagePasswordsUIControllerTest, SaveBubbleAfterLeakCheck) {
       password_manager::CreateLeakType(password_manager::IsSaved(false),
                                        password_manager::IsReused(false),
                                        password_manager::IsSyncing(false)),
-      GURL(kExampleUrl), kExampleUsername, kExamplePassword,
+      CreatePasswordForm(kExampleUrl, kExampleUsername, kExamplePassword),
       /*in_account_store=*/false));
   // The bubble is gone.
   EXPECT_FALSE(controller()->opened_automatic_bubble());
@@ -1610,7 +1620,7 @@ TEST_P(ManagePasswordsUIControllerTest,
       password_manager::CreateLeakType(password_manager::IsSaved(false),
                                        password_manager::IsReused(false),
                                        password_manager::IsSyncing(false)),
-      GURL(kExampleUrl), kExampleUsername, kExamplePassword,
+      CreatePasswordForm(kExampleUrl, kExampleUsername, kExamplePassword),
       /*in_account_store=*/false));
   // The bubble is gone.
   EXPECT_FALSE(controller()->opened_automatic_bubble());
@@ -1648,7 +1658,7 @@ TEST_P(ManagePasswordsUIControllerTest, UpdateBubbleAfterLeakCheck) {
       password_manager::CreateLeakType(password_manager::IsSaved(true),
                                        password_manager::IsReused(false),
                                        password_manager::IsSyncing(false)),
-      GURL(kExampleUrl), kExampleUsername, kExamplePassword,
+      CreatePasswordForm(kExampleUrl, kExampleUsername, kExamplePassword),
       /*in_account_store=*/false));
   // The bubble is gone.
   EXPECT_FALSE(controller()->opened_automatic_bubble());
@@ -1689,7 +1699,7 @@ TEST_P(ManagePasswordsUIControllerTest,
           password_manager::IsSyncing(false),
           password_manager::HasChangePasswordUrl(true),
           password_manager::IsSavedAsBackup(true)),
-      GURL(kExampleUrl), kExampleUsername, kExamplePassword,
+      CreatePasswordForm(kExampleUrl, kExampleUsername, kExamplePassword),
       /*in_account_store=*/false));
   // The bubble is gone.
   EXPECT_FALSE(controller()->opened_automatic_bubble());

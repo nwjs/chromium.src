@@ -9,6 +9,7 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/common/chrome_features.h"
 #include "components/search/ntp_features.h"
 #include "components/variations/service/variations_service.h"
 #include "components/webui/flags/feature_entry.h"
@@ -44,17 +45,13 @@ BASE_FEATURE(kCreateNewTabGroupAppMenuTopLevel,
 BASE_FEATURE(kFewerUpdateConfirmations, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-#if !BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kDesktopNewTopAreaLayoutFeature,
-             "DesktopNewTopAreaLayout",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 
 BASE_FEATURE(kExtensionsCollapseMainMenu, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+
+BASE_FEATURE(kInfobarRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN)
 BASE_FEATURE(kOfferPinToTaskbarWhenSettingToDefault,
@@ -123,10 +120,30 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    "drop_target_show_delay",
                    base::Milliseconds(500));
 BASE_FEATURE_PARAM(base::TimeDelta,
+                   kSideBySideShowDropTargetForLinkDelay,
+                   &kSideBySide,
+                   "drop_target_for_link_show_delay",
+                   base::Milliseconds(500));
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kSideBySideShowDropTargetForLinkAfterHideDelay,
+                   &kSideBySide,
+                   "drop_target_for_link_after_hide_show_delay",
+                   base::Milliseconds(3000));
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kSideBySideShowDropTargetForLinkAfterHideLookbackWindow,
+                   &kSideBySide,
+                   "drop_target_for_link_after_hide_lookback_window",
+                   base::Seconds(30));
+BASE_FEATURE_PARAM(base::TimeDelta,
                    kSideBySideHideDropTargetDelay,
                    &kSideBySide,
                    "drop_target_hide_delay",
                    base::Milliseconds(100));
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kSideBySideShowNudgeDelay,
+                   &kSideBySide,
+                   "show_nudge_delay",
+                   base::Milliseconds(1000));
 BASE_FEATURE_PARAM(int,
                    kSideBySideDropTargetMinWidth,
                    &kSideBySide,
@@ -142,6 +159,11 @@ BASE_FEATURE_PARAM(int,
                    &kSideBySide,
                    "drop_target_width_percentage",
                    30);
+BASE_FEATURE_PARAM(int,
+                   kSideBySideDropTargetForLinkTargetWidthPercentage,
+                   &kSideBySide,
+                   "drop_target_for_link_width_percentage",
+                   15);
 BASE_FEATURE_PARAM(int,
                    kSideBySideDropTargetHideForOSWidth,
                    &kSideBySide,
@@ -258,7 +280,7 @@ bool IsSideBySideKeyboardShortcutEnabled() {
          base::FeatureList::IsEnabled(features::kSideBySideKeyboardShortcut);
 }
 
-BASE_FEATURE(kSidePanelResizing, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kSideBySideFocusClearing, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTabDuplicateMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -382,16 +404,29 @@ BASE_FEATURE(kTearOffWebAppTabOpensWebAppWindow,
 BASE_FEATURE(kThreeButtonPasswordSaveDialog, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
+BASE_FEATURE(kToolbarHeightSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables enterprise profile badging for managed profiles on the toolbar avatar
 // and in the profile menu. On managed profiles, a building icon will be used as
 // a badge in the profile menu.
 BASE_FEATURE(kEnterpriseProfileBadgingForMenu,
              base::FEATURE_ENABLED_BY_DEFAULT);
-// Enables enterprise badging for managed bnpwser on the new tab page footer.
+
+// Enables enterprise badging for managed browsers on the new tab page footer.
 // On managed browsers, a building icon and "Managed by <domain>" string will be
 // shown in the footer, unless the icon and label are customized by the admin.
 BASE_FEATURE(kEnterpriseBadgingForNtpFooter, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables enterprise badging for managed browsers with local management only on
+// the new tab page footer. On managed browsers, a building icon and "Managed by
+// your organization" string will be shown in the footer.
+BASE_FEATURE(kEnterpriseBadgingForLocalManagemenetNtpFooter,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables enterprise badging for managed browsers with local management only
+// AND 3 or more policies on the new tab page footer.
+BASE_FEATURE(kEnterpriseBadgingForNtpFooterWithOverThreePolicies,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables the management notice in the NTP footer if the custom policies are
 // set. This acts as a kill switch for "EnterpriseCustomLabelForBrowser" and
@@ -406,6 +441,8 @@ BASE_FEATURE(kEnterpriseManagementDisclaimerUsesCustomLabel,
 
 BASE_FEATURE(kManagedProfileRequiredInterstitial,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kUseNewTabbedBrowserLayout, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables a web-based tab strip. See https://crbug.com/989131. Note this
 // feature only works when the ENABLE_WEBUI_TAB_STRIP buildflag is enabled.
@@ -429,7 +466,7 @@ BASE_FEATURE(kWebUITabStripContextMenuAfterTap,
 );
 
 #if BUILDFLAG(IS_MAC)
-BASE_FEATURE(kViewsFirstRunDialog, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kViewsFirstRunDialog, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kViewsJSAppModalDialog, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
@@ -574,6 +611,12 @@ BASE_FEATURE_PARAM(bool,
                    "sharing_hub",
                    false);
 
+BASE_FEATURE_PARAM(bool,
+                   kPageActionsMigrationAiMode,
+                   &kPageActionsMigration,
+                   "ai_mode",
+                   false);
+
 BASE_FEATURE(kSavePasswordsContextualUi, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kCompositorLoadingAnimations, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -649,6 +692,11 @@ BASE_FEATURE(kNewTabAddsToActiveGroup, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsNewTabAddsToActiveGroupEnabled() {
   return base::FeatureList::IsEnabled(kNewTabAddsToActiveGroup);
+}
+
+bool IsWebUIReloadButtonEnabled() {
+  return base::FeatureList::IsEnabled(features::kInitialWebUI) &&
+         base::FeatureList::IsEnabled(features::kWebUIReloadButton);
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 

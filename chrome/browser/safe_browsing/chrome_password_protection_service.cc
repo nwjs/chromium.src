@@ -731,7 +731,8 @@ void ChromePasswordProtectionService::MaybeLogPasswordReuseDetectedEvent(
     content::WebContents* web_contents) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-  if (IsIncognito() && !WebUIContentInfoSingleton::HasListener()) {
+  if (IsIncognito() &&
+      !WebUIContentInfoSingleton::GetInstance()->HasListener()) {
     return;
   }
 
@@ -777,7 +778,8 @@ void ChromePasswordProtectionService::MaybeLogPasswordReuseDialogInteraction(
     PasswordReuseDialogInteraction::InteractionResult interaction_result) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-  if (IsIncognito() && !WebUIContentInfoSingleton::HasListener()) {
+  if (IsIncognito() &&
+      !WebUIContentInfoSingleton::GetInstance()->HasListener()) {
     return;
   }
 
@@ -805,7 +807,8 @@ void ChromePasswordProtectionService::MaybeLogPasswordReuseLookupResult(
     PasswordReuseLookup::LookupResult result) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-  if (IsIncognito() && !WebUIContentInfoSingleton::HasListener()) {
+  if (IsIncognito() &&
+      !WebUIContentInfoSingleton::GetInstance()->HasListener()) {
     return;
   }
 
@@ -835,7 +838,8 @@ void ChromePasswordProtectionService::
         const std::string& verdict_token) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-  if (IsIncognito() && !WebUIContentInfoSingleton::HasListener()) {
+  if (IsIncognito() &&
+      !WebUIContentInfoSingleton::GetInstance()->HasListener()) {
     return;
   }
 
@@ -1347,12 +1351,6 @@ void ChromePasswordProtectionService::MaybeReportPasswordReuseDetected(
           "PasswordProtection.GmailReportSent",
           base::EndsWith(username_or_email, "@gmail.com"));
     }
-#else   // BUILDFLAG(IS_ANDROID)
-    if (!base::FeatureList::IsEnabled(
-            enterprise_connectors::
-                kEnterpriseSecurityEventReportingOnAndroid)) {
-      return;
-    }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
     auto* reporting_event_router = enterprise_connectors::
@@ -1377,11 +1375,6 @@ void ChromePasswordProtectionService::ReportPasswordChanged() {
   if (safe_browsing_event_router) {
     safe_browsing_event_router->OnPolicySpecifiedPasswordChanged(
         GetAccountInfo().email);
-  }
-#else   // BUILDFLAG(IS_ANDROID)
-  if (!base::FeatureList::IsEnabled(
-          enterprise_connectors::kEnterpriseSecurityEventReportingOnAndroid)) {
-    return;
   }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -1607,25 +1600,37 @@ bool ChromePasswordProtectionService::IsPingingEnabled(
     return false;
   }
   bool extended_reporting_enabled = IsExtendedReporting();
-  if (trigger_type == LoginReputationClientRequest::PASSWORD_REUSE_EVENT) {
+  if (trigger_type == LoginReputationClientRequest::PASSWORD_REUSE_EVENT ||
+      trigger_type ==
+          LoginReputationClientRequest::ONE_TIME_PASSWORD_FIELD_DETECTED) {
     // Don't send a ping if the password protection setting is off
     if (GetPasswordProtectionWarningTriggerPref(password_type) ==
         PASSWORD_PROTECTION_OFF) {
       return false;
     }
+    // Don't send a ping if in password alert mode.
+    if (IsInPasswordAlertMode(password_type)) {
+      return false;
+    }
     // If the account type is UNKNOWN (i.e. AccountInfo fields could not be
-    // retrieved from server), pings should be gated by SBER.
-    if (password_type.account_type() == ReusedPasswordAccountType::UNKNOWN) {
+    // retrieved from server) and it's not an OTP ping, pings should be gated by
+    // SBER.
+    if (password_type.account_type() == ReusedPasswordAccountType::UNKNOWN &&
+        trigger_type !=
+            LoginReputationClientRequest::ONE_TIME_PASSWORD_FIELD_DETECTED) {
       return extended_reporting_enabled;
     }
 
 // Only saved password and GAIA password reuse warnings are shown to users on
 // Android, so other types of password reuse events should be gated by Safe
-// Browsing extended reporting.
+// Browsing extended reporting. OTP pings are also not gated by Safe Browsing
+// extended reporting.
 #if BUILDFLAG(IS_ANDROID)
     if (password_type.account_type() ==
             ReusedPasswordAccountType::SAVED_PASSWORD ||
-        password_type.account_type() == ReusedPasswordAccountType::GMAIL) {
+        password_type.account_type() == ReusedPasswordAccountType::GMAIL ||
+        trigger_type ==
+            LoginReputationClientRequest::ONE_TIME_PASSWORD_FIELD_DETECTED) {
       return true;
     }
 

@@ -22,6 +22,30 @@
 
 namespace sync_preferences {
 
+// Service availability state of the `CrossDevicePrefTracker` when the Query API
+// (`GetValues()` or `GetMostRecentValue()`) is called. This logs how often the
+// Tracker is being used before it's fully ready.
+//
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+//
+// LINT.IfChange(CrossDevicePrefTrackerAvailabilityAtQuery)
+enum class CrossDevicePrefTrackerAvailabilityAtQuery {
+  // The tracker is fully operational.
+  kAvailable = 0,
+  // `DeviceInfoTracker` is not available.
+  kDeviceInfoTrackerMissing = 1,
+  // Sync is not configured for writes (e.g., user is signed out or Prefs sync
+  // disabled).
+  kSyncNotConfigured = 2,
+  // `LocalDeviceInfo` (Cache GUID) is not yet initialized.
+  kLocalDeviceInfoMissing = 3,
+  // Both `LocalDeviceInfo` is missing and Sync is not configured for writes.
+  kSyncNotConfiguredAndLocalDeviceInfoMissing = 4,
+  kMaxValue = kSyncNotConfiguredAndLocalDeviceInfoMissing,
+};
+// LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:CrossDevicePrefTrackerAvailabilityAtQuery)
+
 // Abstract interface for a keyed service responsible for querying the values of
 // select non-syncing prefs across all of a user's syncing devices. It allows
 // clients to observe how a particular non-syncing pref value differs across
@@ -45,6 +69,8 @@ class CrossDevicePrefTracker : public KeyedService {
   class Observer : public base::CheckedObserver {
    public:
     // Called when `pref_name` is updated to `pref_value` on a remote device.
+    // The `pref_name` reported here is always the tracked pref name (e.g.,
+    // "ios.example_pref").
     virtual void OnRemotePrefChanged(
         std::string_view pref_name,
         const TimestampedPrefValue& pref_value,
@@ -55,6 +81,10 @@ class CrossDevicePrefTracker : public KeyedService {
   struct DeviceFilter {
     std::optional<syncer::DeviceInfo::OsType> os_type;
     std::optional<syncer::DeviceInfo::FormFactor> form_factor;
+    // If provided, only include devices whose
+    // `DeviceInfo::last_updated_timestamp` is within this duration from the
+    // time the filter is applied.
+    std::optional<base::TimeDelta> max_sync_recency;
   };
 
   ~CrossDevicePrefTracker() override;
@@ -64,11 +94,16 @@ class CrossDevicePrefTracker : public KeyedService {
 
   // Retrieves all values for a tracked pref matching the filter, sorted in
   // descending order by timestamp (i.e., most recent first).
+  // `pref_name` can be either the tracked pref name (e.g.,
+  // "ios.example_pref") or the cross-device pref name (e.g.,
+  // "cross_device.ios.example_pref").
   virtual std::vector<TimestampedPrefValue> GetValues(
       std::string_view pref_name,
       const DeviceFilter& filter) const = 0;
 
   // Convenience wrapper to get the single most recent value.
+  // `pref_name` can be either the tracked pref name or the cross-device pref
+  // name.
   //
   // NOTE: In the case of a timestamp collision, we'll use the value of the
   // device that's most recently updated with the sync servers (via
@@ -81,16 +116,22 @@ class CrossDevicePrefTracker : public KeyedService {
   // Return the Java object that allows access to the CrossDevicePrefTracker.
   virtual base::android::ScopedJavaLocalRef<jobject> GetJavaObject() = 0;
   // Java versions of query methods.
+  // `pref_name` can be either the tracked pref name or the cross-device pref
+  // name.
   virtual base::android::ScopedJavaLocalRef<jobjectArray> GetValues(
       JNIEnv* env,
       const base::android::JavaParamRef<jstring>& pref_name,
       std::optional<int> os_type,
-      std::optional<int> form_factor) const = 0;
+      std::optional<int> form_factor,
+      std::optional<jlong> max_sync_recency_microseconds) const = 0;
+  // `pref_name` can be either the tracked pref name or the cross-device pref
+  // name.
   virtual base::android::ScopedJavaLocalRef<jobject> GetMostRecentValue(
       JNIEnv* env,
       const base::android::JavaParamRef<jstring>& pref_name,
       std::optional<int> os_type,
-      std::optional<int> form_factor) const = 0;
+      std::optional<int> form_factor,
+      std::optional<jlong> max_sync_recency_microseconds) const = 0;
 #endif  // BUILDFLAG(IS_ANDROID)
 
  protected:

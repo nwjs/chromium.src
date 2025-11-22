@@ -365,7 +365,7 @@ const IID& GetElevatorIid() {
 
 std::wstring GetElevationServiceName() {
   std::wstring name = GetElevationServiceDisplayName();
-  name.erase(std::remove_if(name.begin(), name.end(), isspace), name.end());
+  std::erase_if(name, isspace);
   return name;
 }
 
@@ -385,7 +385,7 @@ const IID& GetTracingServiceIid() {
 
 std::wstring GetTracingServiceName() {
   std::wstring name = GetTracingServiceDisplayName();
-  name.erase(std::remove_if(name.begin(), name.end(), isspace), name.end());
+  std::erase_if(name, isspace);
   return name;
 }
 

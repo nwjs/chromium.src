@@ -12,6 +12,8 @@ source_set("focus") {
   sources = [
     "focus_handler.cc",
     "focus_handler.h",
+    "focus_result_file_writer.cc",
+    "focus_result_file_writer.h",
     "match_candidate.cc",
     "match_candidate.h",
     "selector.cc",
@@ -21,10 +23,8 @@ source_set("focus") {
   deps = [
     "//base",
     "//chrome/browser/profiles",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_list",
     "//chrome/browser/ui/browser_window",
-    "//chrome/browser/ui/startup",
     "//chrome/browser/ui/sync",
     "//chrome/browser/ui/tabs",
     "//chrome/browser/ui/tabs:tab_strip",

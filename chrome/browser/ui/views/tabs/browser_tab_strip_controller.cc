@@ -218,6 +218,9 @@ class BrowserTabStripController::TabContextMenuContents
     // `controller_`. So stop the highlights before executing the command.
     controller_->ExecuteCommandForTab(
         static_cast<TabStripModel::ContextMenuCommand>(command_id), tab_);
+    // Clearing reference to `tab_` avoids dangling pointers when executing
+    // commands results in the tab being destroyed.
+    tab_ = nullptr;
   }
 
  private:
@@ -443,7 +446,7 @@ void BrowserTabStripController::OnCloseTab(
 #if BUILDFLAG(IS_CHROMEOS)
   // Tabs cannot be closed when the app is in locked fullscreen, which is
   // available only on ChromeOS.
-  if (browser_view_->IsTrustedPinned()) {
+  if (browser_view_->IsLockedFullscreen()) {
     return;
   }
 #endif
@@ -509,7 +512,7 @@ void BrowserTabStripController::ToggleTabAudioMute(int model_index) {
   content::WebContents* const contents = model_->GetWebContentsAt(model_index);
   bool mute_tab = !contents->IsAudioMuted();
   UMA_HISTOGRAM_BOOLEAN("Media.Audio.TabAudioMuted", mute_tab);
-  SetTabAudioMuted(contents, mute_tab, TabMutedReason::AUDIO_INDICATOR,
+  SetTabAudioMuted(contents, mute_tab, TabMutedReason::kAudioIndicator,
                    std::string());
 }
 
@@ -629,8 +632,8 @@ void BrowserTabStripController::OnDropIndexUpdate(
   }
 }
 
-void BrowserTabStripController::CreateNewTab() {
-  chrome::NewTab(GetBrowser());
+void BrowserTabStripController::CreateNewTab(NewTabTypes context) {
+  chrome::NewTab(GetBrowser(), context);
 }
 
 void BrowserTabStripController::CreateNewTabWithLocation(
@@ -653,8 +656,8 @@ void BrowserTabStripController::OnStartedDragging(bool dragging_window) {
     // revealed if the user is attempting to attach a tab to a tabstrip
     // belonging to an immersive fullscreen window.
     immersive_reveal_lock_ =
-        browser_view_->immersive_mode_controller()->GetRevealedLock(
-            ImmersiveModeController::ANIMATE_REVEAL_NO);
+        ImmersiveModeController::From(browser_view_->browser())
+            ->GetRevealedLock(ImmersiveModeController::ANIMATE_REVEAL_NO);
   }
 
   browser_view_->browser_widget()->SetTabDragKind(
@@ -786,11 +789,16 @@ bool BrowserTabStripController::HasVisibleBackgroundTabShapes() const {
 }
 
 bool BrowserTabStripController::EverHasVisibleBackgroundTabShapes() const {
-  return GetFrameView()->EverHasVisibleBackgroundTabShapes();
+  return GetFrameView()->HasVisibleBackgroundTabShapes(
+             BrowserFrameActiveState::kActive) ||
+         GetFrameView()->HasVisibleBackgroundTabShapes(
+             BrowserFrameActiveState::kInactive);
 }
 
 bool BrowserTabStripController::CanDrawStrokes() const {
-  return GetFrameView()->CanDrawStrokes();
+  // Web apps should not draw strokes if they don't have a tab strip.
+  return !browser_view_->browser()->app_controller() ||
+         browser_view_->browser()->app_controller()->has_tab_strip();
 }
 
 SkColor BrowserTabStripController::GetFrameColor(
@@ -897,7 +905,7 @@ void BrowserTabStripController::OnTabStripModelChanged(
 }
 
 void BrowserTabStripController::OnTabWillBeAdded() {
-  tabstrip_->EndDrag(EndDragReason::END_DRAG_MODEL_ADDED_TAB);
+  tabstrip_->EndDrag(EndDragReason::kModelAddedTab);
 }
 
 void BrowserTabStripController::OnTabWillBeRemoved(

@@ -18,9 +18,7 @@
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/authentication/test/signin_matchers.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
-#import "ios/chrome/browser/passwords/model/features.h"
 #import "ios/chrome/browser/policy/model/policy_earl_grey_utils.h"
-#import "ios/chrome/browser/settings/ui_bundled/clear_browsing_data/features.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_app_interface.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/elements/activity_overlay_egtest_util.h"
@@ -118,7 +116,6 @@ id<GREYMatcher> SafariImportButton() {
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config = [super appConfigurationForTestCase];
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
-  config.features_enabled.push_back(kIOSQuickDelete);
   if ([self isRunningTest:@selector
             (testSafariImportButtonHiddenWhenAllBlocked)] ||
       [self isRunningTest:@selector
@@ -302,7 +299,7 @@ id<GREYMatcher> SafariImportButton() {
 // Tests that clearing the cookies through the UI does clear all of them. Use a
 // local server to navigate to a page that sets then tests a cookie, and then
 // clears the cookie and tests it is not set.
-// TODO(crbug.com/384871835): Re-enable this test.
+// TODO(crbug.com/451929382): Re-enable this test.
 - (void)DISABLED_testClearCookies {
   // Set pref to the last hour.
   [ChromeEarlGrey

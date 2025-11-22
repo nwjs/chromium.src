@@ -44,6 +44,7 @@
 #include "remoting/protocol/clipboard_filter.h"
 #include "remoting/protocol/clipboard_stub.h"
 #include "remoting/protocol/connection_to_client.h"
+#include "remoting/protocol/coordinate_converter.h"
 #include "remoting/protocol/data_channel_manager.h"
 #include "remoting/protocol/display_size.h"
 #include "remoting/protocol/errors.h"
@@ -89,7 +90,7 @@ class ClientSession : public protocol::HostStub,
                       public ClientSessionDetails,
                       public ClientSessionEvents,
                       public DesktopAndCursorComposerNotifier::EventHandler,
-                      public MouseCursorMonitor::Callback,
+                      public protocol::MouseCursorMonitor::Callback,
                       public mojom::ChromotingSessionServices {
  public:
   // Callback interface for passing events to the ChromotingHost.
@@ -301,11 +302,11 @@ class ClientSession : public protocol::HostStub,
   // whenever the screen id associated with the active window changes.
   void OnActiveDisplayChanged(webrtc::ScreenId display);
 
-  // Sets the fallback geometry on `fractional_input_filter_` according to the
+  // Sets the fallback geometry on `coordinate_converter` according to the
   // current display-layout and selected display index. This is only used for
   // single-stream mode, when the client provides fractional-coordinates without
   // any screen_id.
-  void UpdateFractionalFilterFallback();
+  void UpdateCoordinateConverterFallback();
 
   raw_ptr<EventHandler> event_handler_;
 
@@ -321,8 +322,16 @@ class ClientSession : public protocol::HostStub,
   // Pending actions to run once the desktop environment has been created.
   std::vector<base::OnceClosure> desktop_environment_ready_callbacks_;
 
+  // Used to convert fractional coordinates to absolute coordinates.
+  protocol::CoordinateConverter coordinate_converter_;
+
   // Tracker used to release pressed keys and buttons when disconnecting.
   protocol::InputEventTracker input_tracker_;
+
+  // Filter used to detect transitions into and out of client-side pointer lock,
+  // and to monitor local input to determine whether or not to include the mouse
+  // cursor in the desktop image.
+  DesktopAndCursorComposerNotifier desktop_and_cursor_composer_notifier_;
 
   // Filter used to disable remote inputs during local input activity.
   RemoteInputFilter remote_input_filter_;
@@ -336,11 +345,6 @@ class ClientSession : public protocol::HostStub,
 
   // Filter used to notify listeners when remote input events are received.
   protocol::ObservingInputFilter observing_input_filter_;
-
-  // Filter used to detect transitions into and out of client-side pointer lock,
-  // and to monitor local input to determine whether or not to include the mouse
-  // cursor in the desktop image.
-  DesktopAndCursorComposerNotifier desktop_and_cursor_composer_notifier_;
 
   // Filter to used to stop clipboard items sent from the client being echoed
   // back to it.  It is the final element in the clipboard (client -> host)

@@ -74,6 +74,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "content/public/browser/site_instance.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_web_contents_observer.h"
 #include "extensions/browser/extensions_browser_client.h"
@@ -346,7 +347,7 @@ void ChromeContentBrowserClient::RegisterBrowserInterfaceBindersForFrame(
       render_frame_host->GetProcess()->GetBrowserContext();
   auto* extension = extensions::ExtensionRegistry::Get(browser_context)
                         ->enabled_extensions()
-                        .GetByID(site.host());
+                        .GetByID(site.GetHost());
   if (!extension)
     return;
   extensions::ExtensionsBrowserClient::Get()
@@ -379,7 +380,7 @@ void ChromeContentBrowserClient::
 
   auto* extension = extensions::ExtensionRegistry::Get(browser_context)
                         ->enabled_extensions()
-                        .GetByID(site.host());
+                        .GetByID(site.GetHost());
   if (!extension) {
     return;
   }

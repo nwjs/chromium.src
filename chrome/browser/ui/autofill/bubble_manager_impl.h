@@ -34,9 +34,10 @@ class BubbleManagerImpl : public BubbleManager {
   // BubbleManager:
   void RequestShowController(BubbleControllerBase& controller_to_show,
                              bool force_show) override;
-  void OnBubbleHiddenByController(
-      BubbleControllerBase& controller_to_hide) override;
+  void OnBubbleHiddenByController(BubbleControllerBase& controller_to_hide,
+                                  bool show_next_bubble) override;
   bool HasPendingBubbleOfSameType(const BubbleType bubble_type) const override;
+  bool HasConflictingPendingBubble(const BubbleType bubble_type) const override;
 
  private:
   struct PendingRequest {
@@ -58,7 +59,7 @@ class BubbleManagerImpl : public BubbleManager {
 
   // Checks the pending bubbles queue and shows the highest-priority one if no
   // bubble is currently active.
-  void ProcessPendingBubbles();
+  void ProcessPendingBubbles(bool tab_entered_foreground);
 
   // Shows the given controller, sets it as the active one, and ensures
   // it's removed from the pending queue.
@@ -99,6 +100,7 @@ class BubbleManagerImpl : public BubbleManager {
   bool handling_tab_will_enter_background_request_ = false;
 
   std::vector<base::CallbackListSubscription> tab_subscriptions_;
+  raw_ptr<tabs::TabInterface> tab_interface_;
 };
 
 }  // namespace autofill

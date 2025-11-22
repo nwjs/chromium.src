@@ -26,12 +26,14 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_list_observer.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/idle_bubble.h"
 #include "chrome/browser/ui/profiles/profile_picker.h"
 #include "chrome/browser/ui/profiles/profile_ui_test_utils.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/user_education/user_education_service_factory.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/testing_profile.h"
@@ -203,11 +205,13 @@ class IdleServiceTest : public InProcessBrowserTest {
 
   int GetBrowserCount(Profile* profile) {
     int count = 0;
-    for (Browser* browser : *BrowserList::GetInstance()) {
-      if (browser->profile() == profile) {
-        count++;
-      }
-    }
+    ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+        [profile, &count](BrowserWindowInterface* browser_window_interface) {
+          if (browser_window_interface->GetProfile() == profile) {
+            count++;
+          }
+          return true;
+        });
     return count;
   }
 
@@ -684,7 +688,7 @@ IN_PROC_BROWSER_TEST_F(IdleServiceTest, ReloadPages) {
   // timeouts with RenderDocument enabled and revert this test to being
   // navigated to about:blank.
   ASSERT_TRUE(embedded_test_server()->Start());
-  const GURL main_url = ui_test_utils::GetTestUrl(
+  const GURL main_url = chrome_test_utils::GetTestUrl(
       base::FilePath(), base::FilePath(FILE_PATH_LITERAL("empty.html")));
   EXPECT_TRUE(NavigateToURL(web_contents, main_url));
 

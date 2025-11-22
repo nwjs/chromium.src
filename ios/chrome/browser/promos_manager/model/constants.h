@@ -45,7 +45,7 @@ enum class Promo {
   MadeForIOSDefaultBrowser = 14,   // "Made For iOS" default browser promo.
   StaySafeDefaultBrowser = 15,     // "Stay Safe" default browser promo.
   PostDefaultAbandonment = 16,     // Post-default browser abandonment alert.
-  SigninFullscreen = 17,           // Sign-in fullscreen promo.
+  FullscreenSignin = 17,           // Fullscreen sign-in promo.
   WelcomeBack = 18,                // Welcome Back promo.
   BWGPromo = 19,                   // BWG promo.
   SafariImportRemindMeLater =
@@ -55,7 +55,8 @@ enum class Promo {
 };
 // LINT.ThenChange(/ios/chrome/browser/promos_manager/model/constants.cc)
 // Also update IOSPromosManagerPromo in
-// (/tools/metrics/histograms/metadata/ios/enums.xml).
+// (/tools/metrics/histograms/metadata/ios/enums.xml) and PromosManagerPromo in
+// (/tools/metrics/histograms/metadata/ios/histograms.xml).
 
 // Enum for IOS.PromosManager.Promo.Type histogram.
 // Entries should not be renumbered and numeric values should never be reused.
@@ -91,6 +92,16 @@ std::string_view ShortNameForPromo(Promo promo);
 std::optional<Promo> PromoForName(std::string_view promo);
 
 std::optional<Impression> ImpressionFromDict(const base::Value::Dict& dict);
+
+// Represents distinct outcomes of the promo registration lifecycle.
+// LINT.IfChange(PromoRegistrationState)
+enum class PromoRegistrationState {
+  kRegistration = 0,
+  kDeregistrationBeforePromoDisplay = 1,
+  kDeregistrationAfterPromoDisplay = 2,
+  kMaxValue = kDeregistrationAfterPromoDisplay,
+};
+// LINT.ThenChange(/tools/metrics/histograms/metadata/ios/enums.xml:IOSPromoRegistrationState)
 
 }  // namespace promos_manager
 

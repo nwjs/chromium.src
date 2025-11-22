@@ -19,6 +19,7 @@
 <translation id="110877069173485804">Ini Chrome anda</translation>
 <translation id="1125124144982679672">Siapakah yang sedang menggunakan Chrome?</translation>
 <translation id="1142745911746664600">Tidak dapat mengemas kini Chrome</translation>
+<translation id="1148360048981192980">Apabila anda membuka Chrome pada <ph name="DEVICE_TYPE" /> anda selepas ini, anda akan melihat gesaan untuk menggunakan Google Password Manager.</translation>
 <translation id="1152920704813762236">Perihal ChromeOS</translation>
 <translation id="1154147086299354128">&amp;Buka dalam Chrome</translation>
 <translation id="1157985233335035034">Bahasa baru-baru ini</translation>
@@ -88,6 +89,7 @@
 <translation id="2018528049276128029">Setiap profil menyimpan maklumat Chrome profil itu sendiri seperti penanda halaman, sejarah, kata laluan dan pelbagai lagi</translation>
 <translation id="2018879682492276940">Pemasangan gagal. Sila cuba lagi.</translation>
 <translation id="2024959665595762054">Untuk menggunakan dan menyimpan data Chrome dalam Google Account anda, sahkan identiti anda</translation>
+<translation id="2026377840141807639">Profil Chrome membolehkan anda memisahkan penyemakan imbas peribadi dan kerja. Tambahkan profil baharu sekarang.</translation>
 <translation id="2034233344106846793">Chrome meningkatkan sambungan tidak selamat kepada HTTPS secara automatik jika boleh</translation>
 <translation id="2039417478970545937">Tetapan.</translation>
 <translation id="2091012649849228750">Untuk mendapatkan kemaskinian Google Chrome yang akan datang, anda memerlukan Windows 10 atau yang lebih baharu. Komputer ini menggunakan Windows 8.</translation>
@@ -146,9 +148,11 @@
 <translation id="2681444469812712297">Buka <ph name="URL" /> dalam tab baharu dalam Google Chrome.</translation>
 <translation id="2699790011615497488">Buka Gemini dalam Chrome Beta</translation>
 <translation id="2712141162840347885">Pilih apa-apa sahaja untuk mencari dengan Google Lens atau tekan kekunci Esc untuk keluar daripada Google Lens</translation>
+<translation id="2723860029395667894">Sentiasa paparkan pintasan AI Mode Google</translation>
 <translation id="2738871930057338499">Tidak dapat disambungkan kepada Internet. HTTP 403 Dilarang. Sila semak konfigurasi proksi anda.</translation>
 <translation id="2742320827292110288">Amaran: Google Chrome tidak dapat menghalang sambungan daripada merakam sejarah penyemakan imbas anda. Untuk melumpuhkan sambungan ini dalam mod Inkognito, nyahpilih pilihan ini.</translation>
 <translation id="2753623023919742414">Klik untuk mencari</translation>
+<translation id="2757826245013442432">{COUNT,plural, =0{Perlindungan Lanjutan memerlukan anda melancarkan semula Chrome untuk menggunakan kemaskinian}=1{Perlindungan Lanjutan memerlukan anda melancarkan semula Chrome untuk menggunakan kemaskinian. Tetingkap Inkognito anda tidak dapat dibuka semula.}other{Perlindungan Lanjutan memerlukan anda melancarkan semula Chrome untuk menggunakan kemaskinian. # tetingkap Inkognito anda tidak dapat dibuka semula.}}</translation>
 <translation id="2765403129283291972">Chrome memerlukan kebenaran untuk mengakses mikrofon anda bagi tapak ini</translation>
 <translation id="2770231113462710648">Tukar penyemak imbas lalai kepada:</translation>
 <translation id="2775140325783767197">Chrome tidak dapat menyemak kata laluan anda. Cuba periksa sambungan Internet anda.</translation>
@@ -186,6 +190,7 @@
 <translation id="3047590466164881923">Tutup dialog maklum balas</translation>
 <translation id="306179102415443347">Gunakan pintasan anda untuk mengakses Google Password Manager dengan pantas. Anda boleh mengalihkan pintasan anda kepada skrin utama atau pelancar apl komputer anda.</translation>
 <translation id="3065168410429928842">Tab Chrome</translation>
+<translation id="3073571714401714450">Togol Gemini dalam Chrome Dev</translation>
 <translation id="3080151273017101988">Terus menjalankan apl latar belakang apabila Google Chrome ditutup</translation>
 <translation id="308397506772922478">Jika anda terlupa ungkapan laluan anda atau mahu menukar tetapan ini, <ph name="BEGIN_LINK" />padamkan data Chrome dalam akaun anda<ph name="END_LINK" /></translation>
 <translation id="3100998948628680988">Namakan profil Chrome anda</translation>
@@ -271,7 +276,6 @@
 <translation id="409936259433005390">Mahu membuat peningkatan kepada Windows 11? Muat turun Pemasang Chrome kepada OneDrive supaya anda bersedia dari awal.</translation>
 <translation id="4110895483821904099">Sediakan profil Chrome baharu anda</translation>
 <translation id="4111566860456076004">Chrome tidak dapat mengesahkan tempat asal sambungan ini, maka tindakan ini mungkin tidak selamat. Alih keluar sambungan ini daripada Chrome supaya sambungan ini tidak dapat melihat dan mengubah data anda pada laman yang anda lawati lagi, termasuk maklumat peribadi.</translation>
-<translation id="4128488089242627000">Chrome berfungsi dengan lebih pantas dan ciri yang menggunakan JavaScript sepatutnya berfungsi seperti yang direka bentuk (disyorkan)</translation>
 <translation id="4147555960264124640">Anda log masuk menggunakan akaun terurus dan memberikan pentadbirnya kawalan terhadap profil Google Chrome anda. Data Chrome anda, seperti apl, penanda halaman, sejarah, kata laluan dan tetapan anda yang lain akan terikat kepada <ph name="USER_NAME" /> secara kekal. Anda akan dapat memadamkan data ini melalui Papan Pemuka Google Account, tetapi anda tidak akan dapat mengaitkan data ini dengan akaun lain. <ph name="LEARN_MORE" /></translation>
 <translation id="4148957013307229264">Memasang...</translation>
 <translation id="4149882025268051530">Pemasang gagal untuk nyahmampat arkib. Sila muat turun Google Chrome semula.</translation>
@@ -359,6 +363,7 @@
 <translation id="5170938038195470297">Profil anda tidak boleh digunakan kerana ia adalah dari versi Google Chrome yang lebih baharu. Beberapa ciri mungkin tidak tersedia. Sila tetapkan direktori profil lain atau gunakan versi Chrome yang lebih baharu.</translation>
 <translation id="5174969993834422967">Anda biasanya menyekat pemberitahuan. Untuk membenarkan laman ini memaklumi anda, klik ikon pemberitahuan pada penjuru kanan bar lokasi anda.</translation>
 <translation id="5174983315706567306">Ruang cakera tidak mencukupi.</translation>
+<translation id="5190467473654176081">Sesuaikan Chrome untuk memberikan rupa baharu</translation>
 <translation id="5201744974236816379">Kemaskinian Chrome</translation>
 <translation id="521447420733633466">Jika anda berkongsi peranti, rakan dan keluarga boleh menyemak imbas secara terpisah dan menyediakan Chrome sebagaimana yang mereka ingini</translation>
 <translation id="5234764350956374838">Ketepikan</translation>
@@ -374,11 +379,13 @@
 <translation id="5368118228313795342">Kod tambahan: <ph name="EXTRA_CODE" />.</translation>
 <translation id="5386244825306882791">Sambungan turut mengawal halaman yang ditunjukkan apabila anda memulakan Chrome atau membuat carian dari Kotak Omni.</translation>
 <translation id="5394833366792865639">Kongsi tab Chrome</translation>
+<translation id="5402307365844630024">Togol Gemini dalam Chrome Beta</translation>
 <translation id="5430073640787465221">Fail pilihan anda rosak atau tidak sah. Google Chrome tidak dapat mengembalikan tetapan anda.</translation>
 <translation id="5468572406162360320">Untuk membantu meningkatkan ciri ini, Chrome menghantar interaksi anda dengan ciri tersebut kepada Google. Data ini boleh dibaca, diproses dan dianotasikan oleh jurusemak.</translation>
 <translation id="5510398294750420479">Muat turun Chrome pada telefon anda untuk menambahkan lapisan perlindungan tambahan semasa dalam perjalanan</translation>
 <translation id="5524890928877629608">penjuru atas sebelah kiri kawasan carian: kiri <ph name="LEFT" />%, atas <ph name="TOP" />%</translation>
 <translation id="5530733413481476019">Jadikan Chrome Lebih Pantas</translation>
+<translation id="5550137307985173298">Klik butang Sesuaikan Chrome pada Halaman Tab Baharu untuk memberikan rupa baharu pada Chrome</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5579324208890605088">Ralat permulaan: sila jalankan pemasang sebagai pengguna biasa, bukan sebagai pentadbir.</translation>
 <translation id="5596627076506792578">Lagi pilihan</translation>
@@ -407,6 +414,7 @@
 <translation id="5736850870166430177">Jika tapak cuba mencuri kata laluan anda atau apabila anda memuat turun fail yang berbahaya, Chrome juga mungkin menghantar URL, termasuk sedikit kandungan halaman, kepada Penyemakan Imbas Selamat</translation>
 <translation id="5756509061973259733">Profil Chrome dengan akaun ini telah pun wujud pada peranti ini</translation>
 <translation id="5759947850379142561">Pilih mana-mana teks atau imej untuk membuat carian dengan Google Lens atau tekan Escape untuk keluar daripada Google Lens</translation>
+<translation id="5762867845020858790">Tambahkan profil Chrome baharu untuk memisahkan penanda halaman, kata laluan dan tetapan.</translation>
 <translation id="5795887333006832406"><ph name="PAGE_TITLE" /> - Google Chrome Canary</translation>
 <translation id="5804318322022881572">Tidak dapat melancarkan Chrome. Cuba lagi.</translation>
 <translation id="5809516625706423866">Tidak dapat disambungkan kepada Internet. HTTP 401 Tidak Dibenarkan. Sila semak konfigurasi proksi anda.</translation>
@@ -423,6 +431,7 @@
 <translation id="5941711191222866238">Minimumkan</translation>
 <translation id="5941830788786076944">Jadikan Google Chrome penyemak imbas lalai</translation>
 <translation id="5947104538377036631">Pintasan Chrome</translation>
+<translation id="5960071705175224773">Tetapan anda telah diubah oleh apl yang tidak diketahui</translation>
 <translation id="5968400720580217226">AI Mode</translation>
 <translation id="5980111191913430208">Sambungan, apl dan tema daripada sumber yang tidak diketahui boleh membahayakan peranti anda. Chrome mengesyorkan agar fail dipasang daripada <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> sahaja</translation>
 <translation id="6003112304606738118">Memuat turun… <ph name="HOURS" /> jam lagi</translation>
@@ -473,6 +482,7 @@
 <translation id="6412673304250309937">Semak URL melalui perbandingan dengan senarai tapak tidak selamat yang disimpan dalam Chrome. Jika tapak cuba mencuri kata laluan anda atau apabila anda memuat turun fail yang berbahaya, Chrome juga mungkin menghantar URL, termasuk sedikit kandungan halaman, kepada Penyemakan Imbas Selamat.</translation>
 <translation id="6417690341895039567">{COUNT,plural, =1{Organisasi anda akan menutup Chrome secara automatik apabila Chrome tidak digunakan selama 1 minit. Data semakan imbas dipadamkan. Pemadaman ini termasuk sejarah, autolengkap dan muat turun.}other{Organisasi anda akan menutup Chrome secara automatik apabila Chrome tidak digunakan selama # minit. Data semakan imbas dipadamkan. Pemadaman ini termasuk sejarah, autolengkap dan muat turun.}}</translation>
 <translation id="6418662306461808273">Tukar kepada profil Chrome yang sedia ada?</translation>
+<translation id="6426623519983252346">Anda akan melihat gesaan untuk mencuba <ph name="FEATURE_NAME" /> apabila anda membuka Chrome iOS selepas ini.</translation>
 <translation id="6473905796280459355">Akses halaman Perihal Chrome</translation>
 <translation id="6481963882741794338">Pautkan Chrome dan perkhidmatan Google lain untuk pemeribadian dan tujuan lain</translation>
 <translation id="648319183876919572">Penyemakan Imbas Selamat Dipertingkatkan melakukan lebih banyak lagi untuk melindungi anda daripada laman web dan muat turun berbahaya</translation>
@@ -505,6 +515,7 @@
 <translation id="6800285125190089494">Log masuk ke laman dengan lebih pantas menggunakan kata laluan yang disimpan untuk Chrome pada iOS</translation>
 <translation id="6831043979455480757">Terjemah</translation>
 <translation id="683440813066116847">Peraturan masuk bagi Google Chrome Canary untuk membenarkan trafik mDNS.</translation>
+<translation id="6841242485723266823">Profil Chrome membantu anda mengasingkan bahagian kehidupan anda yang berbeza. Tambahkan profil baharu sekarang.</translation>
 <translation id="684888714667046800">Tidak dapat disambungkan kepada Internet. Jika anda menggunakan tembok api, sila pastikan bahawa <ph name="PRODUCT_EXE_NAME" /> terkandung dalam senarai putih.</translation>
 <translation id="6877155553248388166">penjuru bawah sebelah kanan kawasan carian: kanan <ph name="RIGHT" />%, bawah <ph name="BOTTOM" />%</translation>
 <translation id="6881299373831449287">Mengemas kini Chrome</translation>
@@ -520,6 +531,7 @@
 <translation id="6967962315388095737">Peraturan masuk bagi Google Chrome Beta untuk membenarkan trafik mDNS.</translation>
 <translation id="6979589607440534284">Ketahui sebab Chrome menyekat sesetengah fail, dibuka dalam tab baharu</translation>
 <translation id="6991926986715044139">Sentiasa Paparkan Pintasan Google Lens</translation>
+<translation id="6999131147875565462">Chrome berfungsi dengan lebih pantas dan ciri yang menggunakan JavaScript sepatutnya berfungsi seperti spesifikasinya.</translation>
 <translation id="7011190694940573312">Pemasangan gagal kerana versi sistem operasi ini tidak disokong.</translation>
 <translation id="7024536598735240744">Ralat penyahpadatan: <ph name="UNPACK_ERROR" />.</translation>
 <translation id="7025789849649390912">Pemasangan Dihentikan.</translation>
@@ -645,6 +657,7 @@
 <translation id="8362914115861174987">Terjemahkan kepada</translation>
 <translation id="8366770919198174997">Mengurangkan prestasi tetapi menjadikan Chrome lebih tahan kepada serangan</translation>
 <translation id="8370517070665726704">Hak Cipta <ph name="YEAR" /> Google LLC. Hak cipta terpelihara.</translation>
+<translation id="8377158135256176353">Togol Gemini dalam Chrome Canary</translation>
 <translation id="8387459386171870978">Terus menggunakan Chrome</translation>
 <translation id="8394720698884623075">Semak URL melalui perbandingan dengan senarai laman tidak selamat yang disimpan dalam Chrome</translation>
 <translation id="8403038600646341038">Logo Chrome dalam skrin komputer.</translation>
@@ -667,8 +680,10 @@
 <translation id="8625237574518804553">{0,plural, =1{Chrome akan dilancarkan semula dalam masa seminit}other{Chrome akan dilancarkan semula dalam masa # minit}}</translation>
 <translation id="8637932705841171563">Untuk berkongsi tetingkap anda, benarkan rakaman skrin untuk Chrome dalam Tetapan Sistem</translation>
 <translation id="8641606876632989680">Chrome akan memaklumkan kepada anda apabila anda log masuk menggunakan kata laluan yang terjejas</translation>
+<translation id="8647930742055103497">Simpan semua perkara dalam Chrome</translation>
 <translation id="8656634243791296665">Buka Gemini dalam Chrome Dev</translation>
 <translation id="8669527147644353129">Pembantu Google Chrome</translation>
+<translation id="8677922833187616101">Sentiasa Paparkan Pintasan AI Mode Google</translation>
 <translation id="8679801911857917785">Sambungan turut mengawal halaman yang ditunjukkan apabila anda memulakan Chrome.</translation>
 <translation id="8712637175834984815">Faham</translation>
 <translation id="8712767363896337380">Kemas kini hampir selesai! Lancarkan semula Chrome untuk menyelesaikan kemas kini.</translation>
@@ -677,7 +692,6 @@
 <translation id="873133009373065397">Google Chrome tidak dapat menentukan atau menetapkan penyemak imbas lalai</translation>
 <translation id="8747073452963259673">penjuru bawah sebelah kiri kawasan carian: kiri <ph name="LEFT" />%, bawah <ph name="BOTTOM" />%</translation>
 <translation id="8748735421235723888">Chrome mengosongkan memori daripada tab yang tidak aktif. Langkah ini memberi tab aktif dan apl lain lebih banyak sumber komputer dan memastikan Chrome pantas. Tab anda yang tidak aktif menjadi aktif semula secara automatik apabila anda kembali kepada tab tersebut. <ph name="BEGIN_LINK" />Ketahui Penjimat Memori dengan lebih lanjut<ph name="END_LINK" /></translation>
-<translation id="8753189155654018347">Alih keluar data apl ini daripada Chrome</translation>
 <translation id="8765470054473112089">Apabila anda menaip dalam bar alamat atau kotak carian, Chrome menghantar perkara yang anda taip ke enjin carian lalai anda untuk mendapatkan cadangan yang lebih baik. Tetapan ini dimatikan dalam Inkognito.</translation>
 <translation id="8781673607513845160">Untuk menggunakan kamera anda, berikan akses kepada Chrome dalam <ph name="BEGIN_LINK" />tetapan sistem<ph name="END_LINK" /></translation>
 <translation id="878572486461146056">Ralat pemasangan: Pentadbir rangkaian anda telah menggunakan Dasar Kumpulan yang menghalang pemasangan: <ph name="INSTALL_ERROR" /></translation>
@@ -693,12 +707,15 @@
 <translation id="8883862939660515976">Tanya Google Lens tentang imej ini</translation>
 <translation id="8914504000324227558">Lancarkan semula Chrome</translation>
 <translation id="8922193594870374009">Untuk menghantar nombor daripada <ph name="ORIGIN" /> ke telefon Android anda, log masuk ke Chrome pada kedua-dua peranti.</translation>
+<translation id="8922998289262614701">Alih keluar data apl ini daripada Chrome</translation>
+<translation id="8936233353620149764">Togol Gemini dalam Chrome</translation>
 <translation id="8948460679427074738">Sambungan ini belum menerbitkan amalan privasi, seperti cara sambungan ini mengumpulkan dan menggunakan data. Chrome mengesyorkan supaya anda mengalih keluar sambungan tersebut.</translation>
 <translation id="8958307504142971576">Kini anda mempunyai lebih banyak ciri yang tersedia dalam Chrome</translation>
 <translation id="8991530961471831170">Buka Gemini dalam Chrome</translation>
 <translation id="8992769679401294069">Data anda telah disulitkan dengan ungkapan laluan anda. Masukkan ungkapan laluan tersebut untuk menggunakan dan menyimpan data Chrome dalam Google Account anda.</translation>
 <translation id="8999117580775242387">Apabila HTTPS tidak tersedia, Chrome akan menggunakan sambungan yang tidak selamat tanpa memberi anda amaran</translation>
 <translation id="8999208279178790196">{0,plural, =0{Kemas kini Chrome tersedia}=1{Kemas kini Chrome tersedia}other{Kemas kini Chrome telah tersedia selama # hari}}</translation>
+<translation id="9010418943148193727">Enjin carian lalai anda telah ditukar dari luar Chrome. Untuk melindungi anda, Chrome telah menetapkan semula tetapan tersebut.</translation>
 <translation id="9014771989710951291">Berbilang organisasi mengurus Chrome</translation>
 <translation id="9024318700713112071">Tetapkan Chrome sebagai lalai anda</translation>
 <translation id="9066987883552592250">Tutup Gemini dalam Chrome Canary</translation>

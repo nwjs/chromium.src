@@ -41,8 +41,9 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHCompanionSidePanelRegionSearchFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHComposeMSBBSettingsFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHComposeNewBadgeFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopSharedHighlightingFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopCustomizeChromeFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopCustomizeChromeExperimentFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopCustomizeChromeRefreshFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopCustomizeChromeAutoOpenFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDiscardRingFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDownloadEsbPromoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
@@ -60,7 +61,12 @@ enum IPHExtensionsZeroStatePromoVariant {
   kCustomActionIph,
   // A custom UI IPH, presenting the user with different collections of
   // extension collections in cr-chip buttons.
-  kCustomUiChipIph,
+  kCustomUiChipIphV1,
+  // Same as above, but with a slightly different color scheme to highlight
+  // the chips button, and a different selection of links.
+  kCustomUiChipIphV2,
+  // Same as V2, but with a slightly different selection of links and orders.
+  kCustomUiChipIphV3,
   // A custom UI IPH, presenting the user with different collections of
   // extension collections in plain text links.
   kCustomUIPlainLinkIph,
@@ -124,7 +130,6 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHSidePanelLensOverlayPinnableFollowupFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSideSearchAutoTriggeringFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSideSearchPageActionLabelFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSignoutWebInterceptFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPwaQuietNotificationFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSaveV2IntroFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSaveV2CloseGroupFeature);
@@ -396,6 +401,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillHomeWorkProfileSuggestionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHAutofillAccountNameEmailSuggestionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillAiOptInFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillAiValuablesFeature);
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillVirtualCardCVCSuggestionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillVirtualCardSuggestionFeature);

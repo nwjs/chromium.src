@@ -10,7 +10,7 @@
 #include <memory>
 #include <string_view>
 
-#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "components/subresource_filter/core/common/indexed_ruleset.h"
 #include "components/subresource_filter/core/common/load_policy.h"
 #include "components/subresource_filter/core/common/scoped_rule.h"
@@ -68,7 +68,7 @@ class DocumentSubresourceFilter {
   // should be allowed. If no rule matches, returns nullptr.
   const url_pattern_index::flat::UrlRule* FindMatchingUrlRule(
       const GURL& subresource_url,
-      url_pattern_index::proto::ElementType subresource_type) const;
+      url_pattern_index::proto::ElementType subresource_type);
 
   // Called if the DocumentSubresourceFilter needs to change how it filters
   // subresources.

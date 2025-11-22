@@ -20,13 +20,12 @@
  *
  */
 
-#include "base/memory/stack_allocated.h"
-
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_CSS_RULE_SET_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_RULE_SET_H_
 
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
+#include "base/memory/stack_allocated.h"
 #include "base/substring_set_matcher/substring_set_matcher.h"
 #include "base/types/pass_key.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -44,6 +43,7 @@
 #include "third_party/blink/renderer/core/css/style_rule_font_palette_values.h"
 #include "third_party/blink/renderer/core/css/style_rule_view_transition.h"
 #include "third_party/blink/renderer/core/dom/element.h"
+#include "third_party/blink/renderer/core/route_matching/route_match_state.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_set.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_linked_stack.h"
@@ -390,12 +390,12 @@ class CORE_EXPORT RuleSet final : public GarbageCollected<RuleSet> {
    public:
     Member<StyleRuleMixin> mixin;
     Member<StyleRuleApplyMixin> invoking_apply_rule;
-    Member<CustomEnvBindings> env_bindings;
+    Member<MixinParameterBindings> mixin_parameter_bindings;
 
     void Trace(Visitor* visitor) const {
       visitor->Trace(mixin);
       visitor->Trace(invoking_apply_rule);
-      visitor->Trace(env_bindings);
+      visitor->Trace(mixin_parameter_bindings);
     }
   };
   using ApplyMixinsStack = HeapVector<ApplyingMixin, 4>;
@@ -807,7 +807,9 @@ class CORE_EXPORT RuleSet final : public GarbageCollected<RuleSet> {
   HeapVector<Member<StyleRulePositionTry>> position_try_rules_;
   HeapVector<MediaQuerySetResult> media_query_set_results_;
   HeapVector<Member<StyleRuleFunction>> function_rules_;
-  HashSet<String> active_routes_;
+
+  // State of route matching when this RuleSet was built.
+  Member<RouteMatchState> route_match_state_;
 
   // Whether there is a ruleset bucket for rules with a selector on
   // the style attribute (which is rare, but allowed). If so, the caller

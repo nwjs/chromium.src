@@ -11,6 +11,7 @@
 #include "base/containers/lru_cache.h"
 #include "base/dcheck_is_on.h"
 #include "base/memory/weak_ptr.h"
+#include "base/sequence_checker.h"
 #include "content/browser/preloading/prefetch/prefetch_container.h"
 #include "content/browser/preloading/prefetch/prefetch_key.h"
 #include "content/browser/preloading/prefetch/prefetch_streaming_url_loader_common_types.h"
@@ -224,6 +225,8 @@ class CONTENT_EXPORT PrefetchService : public PrefetchContainer::Observer {
                          bool is_nav_prerender,
                          base::WeakPtr<PrefetchServingPageMetricsContainer>
                              serving_page_metrics_container);
+  PrefetchContainer* FindPrefetchAheadOfPrerenderForMetrics(
+      const PreloadPipelineInfo& pipeline_info);
 
   // Exposes methods for `PrefetchScheduler`. See documentation of private
   // methods with the same names except for `PrepareProgress()`.
@@ -236,6 +239,12 @@ class CONTENT_EXPORT PrefetchService : public PrefetchContainer::Observer {
   bool StartSinglePrefetch(base::PassKey<PrefetchScheduler>,
                            base::WeakPtr<PrefetchContainer> prefetch_container);
 
+  bool StartSinglePrefetchForTesting(
+      base::WeakPtr<PrefetchContainer> prefetch_container);
+
+  const PrefetchScheduler& GetPrefetchSchedulerForMetrics() {
+    return *scheduler_;
+  }
   PrefetchScheduler& GetPrefetchSchedulerForTesting() { return *scheduler_; }
 
   base::WeakPtr<PrefetchService> GetWeakPtr();

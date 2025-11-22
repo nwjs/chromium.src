@@ -193,7 +193,7 @@ void TabHelper::RenderFrameCreated(content::RenderFrameHost* host) {
   if (browser && browser->is_frameless()) {
     mojo::AssociatedRemote<chrome::mojom::ChromeRenderFrame> client;
     host->GetRemoteAssociatedInterfaces()->GetInterface(&client);
-    client->SetSupportsDraggableRegions(true);
+    web_contents()->SetSupportsDraggableRegions(true);
   }
 }
 
@@ -203,7 +203,7 @@ void TabHelper::PrimaryPageChanged(content::Page& page) {
     mojo::AssociatedRemote<chrome::mojom::ChromeRenderFrame> client;
     content::RenderFrameHost& host = page.GetMainDocument();
     host.GetRemoteAssociatedInterfaces()->GetInterface(&client);
-    client->SetSupportsDraggableRegions(true);
+    web_contents()->SetSupportsDraggableRegions(true);
   }
 }
 

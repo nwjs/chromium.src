@@ -10,7 +10,6 @@ try/android_compile_x86_dbg
 try/chromeos-amd64-generic-dbg
 try/chromeos-arm-generic-rel
 try/chromeos-arm64-generic-rel
-try/chromium_presubmit
 try/fuchsia-arm64-cast-receiver-rel
 try/fuchsia-binary-size
 try/fuchsia-x64-cast-receiver-rel

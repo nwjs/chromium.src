@@ -212,9 +212,14 @@ void WebContentsObserverProxy::DOMContentLoaded(
 }
 
 void WebContentsObserverProxy::OnFirstContentfulPaintInPrimaryMainFrame() {
+  Page& primaryPage = web_contents()->GetPrimaryPage();
+  std::optional<base::TimeDelta> duration =
+      static_cast<PageImpl&>(primaryPage)
+          .GetFirstContentfulPaintInMainDocumentDuration();
+  DCHECK(duration);
   Java_WebContentsObserverProxy_firstContentfulPaintInPrimaryMainFrame(
-      AttachCurrentThread(), java_observer_,
-      web_contents()->GetPrimaryPage().GetJavaPage());
+      AttachCurrentThread(), java_observer_, primaryPage.GetJavaPage(),
+      duration->InMicroseconds());
 }
 
 void WebContentsObserverProxy::NavigationEntryCommitted(
@@ -374,6 +379,11 @@ void WebContentsObserverProxy::MediaSessionCreated(MediaSession* session) {
       static_cast<MediaSessionImpl*>(session)
           ->GetMediaSessionAndroid()
           ->GetJavaObject());
+}
+
+void WebContentsObserverProxy::WasDiscarded() {
+  JNIEnv* env = AttachCurrentThread();
+  Java_WebContentsObserverProxy_wasDiscarded(env, java_observer_);
 }
 
 void WebContentsObserverProxy::DidUpdateAudioMutingState(bool muted) {

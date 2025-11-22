@@ -72,6 +72,7 @@
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/mojom/quota/quota_types.mojom-shared.h"
 #include "third_party/blink/public/mojom/storage_key/storage_key.mojom.h"
+#include "url/gurl.h"
 #include "url/origin.h"
 
 using ::blink::StorageKey;
@@ -3160,8 +3161,9 @@ QuotaAvailability QuotaManagerImpl::CallGetVolumeInfo(
 
 // static
 QuotaAvailability QuotaManagerImpl::GetVolumeInfo(const base::FilePath& path) {
-  return QuotaAvailability(base::SysInfo::AmountOfTotalDiskSpace(path),
-                           base::SysInfo::AmountOfFreeDiskSpace(path));
+  return QuotaAvailability(
+      base::SysInfo::AmountOfTotalDiskSpace(path).value_or(-1),
+      base::SysInfo::AmountOfFreeDiskSpace(path).value_or(-1));
 }
 
 void QuotaManagerImpl::AddObserver(

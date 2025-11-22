@@ -36,7 +36,6 @@
 #include "skia/ext/platform_canvas.h"
 #include "third_party/blink/public/mojom/frame/color_scheme.mojom-blink.h"
 #include "third_party/blink/renderer/platform/fonts/plain_text_painter.h"
-#include "third_party/blink/renderer/platform/fonts/text_run_paint_info.h"
 #include "third_party/blink/renderer/platform/geometry/contoured_rect.h"
 #include "third_party/blink/renderer/platform/geometry/float_rounded_rect.h"
 #include "third_party/blink/renderer/platform/geometry/path.h"
@@ -809,10 +808,11 @@ void GraphicsContext::StrokeRect(const gfx::RectF& rect,
   } else if (valid_w || valid_h) {
     // we are expected to respect the lineJoin, so we can't just call
     // drawLine -- we have to create a path that doubles back on itself.
-    SkPath path;
-    path.moveTo(r.fLeft, r.fTop);
-    path.lineTo(r.fRight, r.fBottom);
-    path.close();
+    const SkPath path = SkPathBuilder()
+                            .moveTo(r.fLeft, r.fTop)
+                            .lineTo(r.fRight, r.fBottom)
+                            .close()
+                            .detach();
     DrawPath(path, flags, auto_dark_mode);
   }
 }

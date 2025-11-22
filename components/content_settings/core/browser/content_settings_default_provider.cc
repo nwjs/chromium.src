@@ -75,6 +75,8 @@ constexpr char kGeolocationMigrateDefaultValue[] =
     "profile.default_content_setting_values.migrate_geolocation";
 
 #if !BUILDFLAG(IS_IOS)
+constexpr char kObsoleteTopLevelTpcdTrialDefaultPref[] =
+    "profile.default_content_setting_values.top_level_3pcd_support";
 // This setting was accidentally bound to a UI surface intended for a different
 // setting (https://crbug.com/364820109). It should not have been settable
 // except via enterprise policy, so it is temporarily cleaned up here to revert
@@ -130,6 +132,7 @@ void DefaultProvider::RegisterProfilePrefs(
   // be deleted on startup (see DiscardOrMigrateObsoletePreferences).
 #if !BUILDFLAG(IS_IOS)
   registry->RegisterIntegerPref(kObsoleteNfcDefaultPref, 0);
+  registry->RegisterIntegerPref(kObsoleteTopLevelTpcdTrialDefaultPref, 0);
 #if !BUILDFLAG(IS_ANDROID)
   registry->RegisterIntegerPref(
       kObsoleteMouseLockDefaultPref, 0,
@@ -183,15 +186,12 @@ DefaultProvider::DefaultProvider(PrefService* prefs,
 
 DefaultProvider::~DefaultProvider() = default;
 
-// TODO(b/307193732): handle the PartitionKey in all relevant methods, including
-// when we call NotifyObservers().
 bool DefaultProvider::SetWebsiteSetting(
     const ContentSettingsPattern& primary_pattern,
     const ContentSettingsPattern& secondary_pattern,
     ContentSettingsType content_type,
     base::Value&& in_value,
-    const ContentSettingConstraints& constraints,
-    const PartitionKey& partition_key) {
+    const ContentSettingConstraints& constraints) {
   DCHECK(CalledOnValidThread());
   DCHECK(prefs_);
 
@@ -224,16 +224,14 @@ bool DefaultProvider::SetWebsiteSetting(
   }
 
   NotifyObservers(ContentSettingsPattern::Wildcard(),
-                  ContentSettingsPattern::Wildcard(), content_type,
-                  /*partition_key=*/nullptr);
+                  ContentSettingsPattern::Wildcard(), content_type);
 
   return true;
 }
 
 std::unique_ptr<RuleIterator> DefaultProvider::GetRuleIterator(
     ContentSettingsType content_type,
-    bool off_the_record,
-    const PartitionKey& partition_key) const {
+    bool off_the_record) const {
   // The default provider never has off-the-record-specific settings.
   if (off_the_record)
     return nullptr;
@@ -246,12 +244,10 @@ std::unique_ptr<RuleIterator> DefaultProvider::GetRuleIterator(
   return std::make_unique<SingleValueWildcardRuleIterator>(it->second.Clone());
 }
 
-std::unique_ptr<Rule> DefaultProvider::GetRule(
-    const GURL& primary_url,
-    const GURL& secondary_url,
-    ContentSettingsType content_type,
-    bool off_the_record,
-    const PartitionKey& partition_key) const {
+std::unique_ptr<Rule> DefaultProvider::GetRule(const GURL& primary_url,
+                                               const GURL& secondary_url,
+                                               ContentSettingsType content_type,
+                                               bool off_the_record) const {
   // The default provider never has off-the-record-specific settings.
   if (off_the_record) {
     return nullptr;
@@ -273,8 +269,7 @@ std::unique_ptr<Rule> DefaultProvider::GetRule(
 }
 
 void DefaultProvider::ClearAllContentSettingsRules(
-    ContentSettingsType content_type,
-    const PartitionKey& partition_key) {
+    ContentSettingsType content_type) {
   // TODO(markusheintz): This method is only called when the
   // |DesktopNotificationService| calls |ClearAllSettingsForType| method on the
   // |HostContentSettingsMap|. Don't implement this method yet, otherwise the
@@ -365,8 +360,7 @@ void DefaultProvider::OnPreferenceChanged(const std::string& name) {
   }
 
   NotifyObservers(ContentSettingsPattern::Wildcard(),
-                  ContentSettingsPattern::Wildcard(), content_type,
-                  /*partition_key=*/nullptr);
+                  ContentSettingsPattern::Wildcard(), content_type);
 }
 
 base::Value DefaultProvider::ReadFromPref(ContentSettingsType content_type) {
@@ -393,6 +387,7 @@ void DefaultProvider::DiscardOrMigrateObsoletePreferences() {
   // deleted.
 #if !BUILDFLAG(IS_IOS)
   prefs_->ClearPref(kObsoleteNfcDefaultPref);
+  prefs_->ClearPref(kObsoleteTopLevelTpcdTrialDefaultPref);
 #if !BUILDFLAG(IS_ANDROID)
   prefs_->ClearPref(kObsoleteMouseLockDefaultPref);
   prefs_->ClearPref(kObsoletePluginsDefaultPref);

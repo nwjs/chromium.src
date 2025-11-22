@@ -7,12 +7,12 @@ import 'chrome://webui-test/cr_elements/cr_policy_strings.js';
 
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import type {SiteEntryElement} from 'chrome://settings/lazy_load.js';
-import {SiteSettingsPrefsBrowserProxyImpl, SortMethod} from 'chrome://settings/lazy_load.js';
+import {SiteSettingsBrowserProxyImpl, SortMethod} from 'chrome://settings/lazy_load.js';
 import {Router, routes} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {eventToPromise, microtasksFinished, isChildVisible} from 'chrome://webui-test/test_util.js';
 
-import {TestSiteSettingsPrefsBrowserProxy} from './test_site_settings_prefs_browser_proxy.js';
+import {TestSiteSettingsBrowserProxy} from './test_site_settings_browser_proxy.js';
 import {createOriginInfo, createSiteGroup} from './test_util.js';
 
 // clang-format on
@@ -38,7 +38,7 @@ suite('SiteEntry', function() {
   /**
    * The mock proxy object to use during test.
    */
-  let browserProxy: TestSiteSettingsPrefsBrowserProxy;
+  let browserProxy: TestSiteSettingsBrowserProxy;
 
   /**
    * A site list element created before each test.
@@ -52,8 +52,8 @@ suite('SiteEntry', function() {
 
   // Initialize a site-list before each test.
   setup(function() {
-    browserProxy = new TestSiteSettingsPrefsBrowserProxy();
-    SiteSettingsPrefsBrowserProxyImpl.setInstance(browserProxy);
+    browserProxy = new TestSiteSettingsBrowserProxy();
+    SiteSettingsBrowserProxyImpl.setInstance(browserProxy);
 
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     testElement = document.createElement('site-entry');
@@ -171,7 +171,7 @@ suite('SiteEntry', function() {
     const args = await browserProxy.whenCalled('getNumCookiesString');
     assertEquals(3, args);
     assertFalse(cookiesLabel.hidden);
-    assertEquals('· 3 cookies', cookiesLabel.textContent!.trim());
+    assertEquals('· 3 cookies', cookiesLabel.textContent.trim());
   });
 
   test('cookies show for ungrouped entries', async function() {
@@ -192,7 +192,7 @@ suite('SiteEntry', function() {
     const args = await browserProxy.whenCalled('getNumCookiesString');
     assertEquals(3, args);
     assertFalse(cookiesLabel.hidden);
-    assertEquals('· 3 cookies', cookiesLabel.textContent!.trim());
+    assertEquals('· 3 cookies', cookiesLabel.textContent.trim());
   });
 
   test('data usage shown correctly for grouped entries', async function() {
@@ -213,7 +213,7 @@ suite('SiteEntry', function() {
         `${sumBytes} B`,
         testElement.shadowRoot!
             .querySelector<HTMLElement>(
-                '#displayName .data-unit')!.textContent!.trim());
+                '#displayName .data-unit')!.textContent.trim());
   });
 
   test('data usage shown correctly for ungrouped entries', async function() {
@@ -229,7 +229,7 @@ suite('SiteEntry', function() {
         `${numBytes} B`,
         testElement.shadowRoot!
             .querySelector<HTMLElement>(
-                '#displayName .data-unit')!.textContent!.trim());
+                '#displayName .data-unit')!.textContent.trim());
   });
 
   test(
@@ -252,7 +252,7 @@ suite('SiteEntry', function() {
             `${sumBytes} B`,
             testElement.shadowRoot!
                 .querySelector<HTMLElement>(
-                    '#displayName .data-unit')!.textContent!.trim());
+                    '#displayName .data-unit')!.textContent.trim());
       });
 
   test('favicon with www.etld+1 chosen for site group', function() {
@@ -626,13 +626,13 @@ suite('SiteEntry', function() {
     // Check if the extension name shown correctly.
     assertEquals(
         testElement.$.collapseParent.querySelector('.url-directionality')!
-            .textContent!.trim(),
+            .textContent.trim(),
         'Test Extension');
 
     // Check if the extension id is shown correctly.
     assertFalse(testElement.$.extensionIdDescription.hidden);
     assertEquals(
-        testElement.$.extensionIdDescription.textContent!.trim(),
+        testElement.$.extensionIdDescription.textContent.trim(),
         '· ID: mhabknllooicelmdboebjilbohdbihln');
   });
 });

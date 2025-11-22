@@ -23,6 +23,7 @@
 #import "components/remote_cocoa/app_shim/bridged_content_view.h"
 #import "components/remote_cocoa/app_shim/native_widget_mac_nswindow.h"
 #import "components/remote_cocoa/app_shim/native_widget_ns_window_bridge.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #import "testing/gtest_mac.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkCanvas.h"
@@ -59,6 +60,14 @@
 namespace {
 // "{}" in base64encode, to create some dummy restoration data.
 const std::string kDummyWindowRestorationData = "e30=";
+
+class WidgetModalVisibilityObserver : public views::WidgetObserver {
+ public:
+  MOCK_METHOD(void,
+              OnWidgetWindowModalVisibilityChanged,
+              (views::Widget*, bool),
+              (override));
+};
 }  // namespace
 
 // Donates an implementation of -[NSAnimation stopAnimation] which calls the
@@ -2574,6 +2583,36 @@ TEST_F(NativeWidgetMacTest,
   EXPECT_EQ(ui::ZOrderLevel::kFloatingWindow, child->GetZOrderLevel());
 
   parent->CloseNow();
+}
+
+// Tests behavior of window-modal dialogs, displayed as sheets.
+TEST_F(NativeWidgetMacTest, OnWidgetWindowModalVisibilityChanged) {
+  WidgetAutoclosePtr parent_widget(CreateTopLevelPlatformWidget());
+  parent_widget->Show();
+  NSWindow* parent_nswindow =
+      parent_widget->GetNativeWindow().GetNativeNSWindow();
+
+  testing::NiceMock<WidgetModalVisibilityObserver> observer;
+  base::ScopedObservation<Widget, WidgetObserver> observation(&observer);
+  observation.Observe(parent_widget.get());
+
+  NSRect frame = NSMakeRect(0, 0, 200, 100);
+  NSWindow* sheet_nswindow =
+      [[NSWindow alloc] initWithContentRect:frame
+                                  styleMask:NSWindowStyleMaskTitled
+                                    backing:NSBackingStoreBuffered
+                                      defer:NO];
+
+  EXPECT_CALL(observer,
+              OnWidgetWindowModalVisibilityChanged(parent_widget.get(), true));
+  [parent_nswindow beginSheet:sheet_nswindow completionHandler:nil];
+  testing::Mock::VerifyAndClearExpectations(&observer);
+
+  EXPECT_CALL(observer,
+              OnWidgetWindowModalVisibilityChanged(parent_widget.get(), false));
+  [parent_nswindow endSheet:sheet_nswindow];
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return parent_nswindow.attachedSheet == nil; }));
 }
 
 }  // namespace views::test

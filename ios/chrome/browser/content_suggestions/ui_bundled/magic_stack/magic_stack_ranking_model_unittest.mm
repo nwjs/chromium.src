@@ -23,6 +23,7 @@
 #import "components/image_fetcher/core/image_data_fetcher.h"
 #import "components/ntp_tiles/icon_cacher.h"
 #import "components/ntp_tiles/most_visited_sites.h"
+#import "components/ntp_tiles/pref_names.h"
 #import "components/segmentation_platform/embedder/home_modules/constants.h"
 #import "components/segmentation_platform/embedder/home_modules/tips_manager/constants.h"
 #import "components/segmentation_platform/public/constants.h"
@@ -269,7 +270,7 @@ class MagicStackRankingModelTest : public PlatformTest {
 
     // Necessary set up for kIOSSetUpList.
     GetProfile()->GetPrefs()->SetBoolean(
-        prefs::kHomeCustomizationMagicStackSetUpListEnabled, true);
+        ntp_tiles::prefs::kTipsHomeModuleEnabled, true);
     ClearDefaultBrowserPromoData();
     WriteFirstRunSentinel();
 
@@ -321,8 +322,7 @@ class MagicStackRankingModelTest : public PlatformTest {
             /*popular_sites*/ nullptr,
             /*custom_links*/ nullptr,
             /*managed_custom_links*/ nullptr, /*icon_cacher*/ nullptr,
-            /*is_default_chrome_app_migrated*/ true,
-            /*is_custom_links_mixable*/ false);
+            /*is_default_chrome_app_migrated*/ true);
     _mostVisitedTilesMediator = [[FakeMostVisitedTilesMediator alloc]
         initWithMostVisitedSite:std::move(most_visited_sites)
                     prefService:GetProfile()->GetPrefs()
@@ -664,8 +664,7 @@ TEST_F(MagicStackRankingModelTest, TestDisabledSegmentationRanking) {
 TEST_F(MagicStackRankingModelTest, TestEphemeralModelDidGetCardToShow) {
   scoped_feature_list_.Reset();
   scoped_feature_list_.InitWithFeaturesAndParameters(
-      {{commerce::kPriceTrackingPromo, {}},
-       {segmentation_platform::features::
+      {{segmentation_platform::features::
             kSegmentationPlatformEphemeralCardRanker,
         {{segmentation_platform::features::
               kEphemeralCardRankerForceShowCardParam,

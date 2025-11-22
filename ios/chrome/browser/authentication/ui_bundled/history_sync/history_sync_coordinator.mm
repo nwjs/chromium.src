@@ -22,6 +22,7 @@
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
+#import "ios/chrome/browser/signin/model/constants.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/common/ui/promo_style/promo_style_view_controller.h"
@@ -146,6 +147,12 @@ HistorySyncResult HistorySyncSkipReasonToHistorySyncResult(
     return;
   }
 
+  if (_accessPoint == signin_metrics::AccessPoint::kFullscreenSigninPromo) {
+    base::UmaHistogramEnumeration(
+        "IOS.SignInpromo.Fullscreen.PromoEvents",
+        SigninFullscreenPromoEvents::kHistorySyncUIStarted);
+  }
+
   _viewController =
       [[HistorySyncViewController alloc] initWithContextStyle:_contextStyle];
   _viewController.delegate = self;
@@ -223,7 +230,6 @@ HistorySyncResult HistorySyncSkipReasonToHistorySyncResult(
 
   history_sync::ResetDeclinePrefs(_prefService);
   base::RecordAction(base::UserMetricsAction("Signin_HistorySync_Completed"));
-  [self recordActionButtonTappedWithHistorySyncCompleted:YES];
   if (_firstRun) {
     base::UmaHistogramEnumeration(
         first_run::kFirstRunStageHistogram,
@@ -240,7 +246,6 @@ HistorySyncResult HistorySyncSkipReasonToHistorySyncResult(
 - (void)didTapSecondaryActionButton {
   history_sync::RecordDeclinePrefs(_prefService);
   base::RecordAction(base::UserMetricsAction("Signin_HistorySync_Declined"));
-  [self recordActionButtonTappedWithHistorySyncCompleted:NO];
   if (_firstRun) {
     base::UmaHistogramEnumeration(
         first_run::kFirstRunStageHistogram,
@@ -255,29 +260,6 @@ HistorySyncResult HistorySyncSkipReasonToHistorySyncResult(
 }
 
 #pragma mark - Private
-
-- (void)recordActionButtonTappedWithHistorySyncCompleted:(BOOL)completed {
-  std::optional<signin_metrics::SyncButtonClicked> buttonClicked;
-  switch (_viewController.actionButtonsVisibility) {
-    case ActionButtonsVisibility::kDefault:
-    case ActionButtonsVisibility::kRegularButtonsShown:
-      buttonClicked = completed ? signin_metrics::SyncButtonClicked::
-                                      kHistorySyncOptInNotEqualWeighted
-                                : signin_metrics::SyncButtonClicked::
-                                      kHistorySyncCancelNotEqualWeighted;
-      break;
-    case ActionButtonsVisibility::kEquallyWeightedButtonShown:
-      buttonClicked = completed ? signin_metrics::SyncButtonClicked::
-                                      kHistorySyncOptInEqualWeighted
-                                : signin_metrics::SyncButtonClicked::
-                                      kHistorySyncCancelEqualWeighted;
-      break;
-    default:
-      NOTREACHED();
-  }
-
-  base::UmaHistogramEnumeration("Signin.SyncButtons.Clicked", *buttonClicked);
-}
 
 - (void)skipHistorySyncWithSkipReason:
     (history_sync::HistorySyncSkipReason)skipReason {

@@ -28,7 +28,11 @@
 #include "chrome/browser/ui/lens/lens_search_feature_flag_utils.h"
 #include "chrome/browser/ui/lens/lens_searchbox_controller.h"
 #include "chrome/browser/ui/lens/lens_session_metrics_logger.h"
+#include "chrome/browser/ui/promos/ios_promo_trigger_service.h"
+#include "chrome/browser/ui/promos/ios_promo_trigger_service_factory.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
+#include "chrome/browser/ui/webui/util/image_util.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/grit/branded_strings.h"
 #include "components/lens/lens_features.h"
@@ -36,15 +40,56 @@
 #include "components/lens/lens_url_utils.h"
 #include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/optimization_guide/content/browser/page_context_eligibility.h"
+#include "components/prefs/pref_service.h"
+#include "components/sharing_message/features.h"
+#include "skia/ext/codec_utils.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/image/image_skia_operations.h"
 
 namespace {
+// The size of the thumbnail to send to the searchbox.
+inline constexpr float kMaxThumbnailWidth = 100.0f;
+inline constexpr float kMaxThumbnailHeight = 100.0f;
+
 void CheckInitialized(bool initialized) {
   CHECK(initialized)
       << "The LensSearchController has not been initialized. Initialize() must "
          "be called before using the LensSearchController.";
+}
+
+std::string ScaleBitmapAndEncodeToDataUri(SkBitmap bitmap) {
+  float scale = std::min(kMaxThumbnailWidth / bitmap.width(),
+                         kMaxThumbnailHeight / bitmap.height());
+  int target_height = static_cast<int>(bitmap.height() * scale);
+  int target_width = static_cast<int>(bitmap.width() * scale);
+
+  SkBitmap scaled_bitmap = skia::ImageOperations::Resize(
+      bitmap, skia::ImageOperations::RESIZE_BEST, target_width, target_height);
+  if (scaled_bitmap.drawsNothing()) {
+    return std::string();
+  }
+
+  return skia::EncodePngAsDataUri(scaled_bitmap.pixmap());
+}
+
+bool UseNonBlockingPrivacyNotice(
+    lens::LensOverlayInvocationSource invocation_source) {
+  if (!lens::features::IsLensOverlayNonBlockingPrivacyNoticeEnabled()) {
+    return false;
+  }
+  // Invocation sources that simply open the overlay without submitting a query
+  // are permitted to use the non-blocking privacy notice.
+  return (invocation_source == lens::LensOverlayInvocationSource::kAppMenu ||
+          invocation_source ==
+              lens::LensOverlayInvocationSource::kContentAreaContextMenuPage ||
+          invocation_source == lens::LensOverlayInvocationSource::kToolbar ||
+          invocation_source == lens::LensOverlayInvocationSource::kOmnibox ||
+          invocation_source ==
+              lens::LensOverlayInvocationSource::kOmniboxPageAction ||
+          invocation_source ==
+              lens::LensOverlayInvocationSource::kHomeworkActionChip);
 }
 
 }  // namespace
@@ -354,7 +399,8 @@ void LensSearchController::CloseLensAsync(
     // closing process.
     state_ = State::kClosingSidePanel;
     last_dismissal_source_ = dismissal_source;
-    side_panel_coordinator->Close();
+    side_panel_coordinator->Close(
+        lens_overlay_side_panel_coordinator_->GetPanelType());
     // Also trigger the overlay fade out animation, but don't pass a callback
     // to finish the closing process since the side panel will call
     // the finish closing process callback in OnSidePanelHidden().
@@ -400,7 +446,7 @@ void LensSearchController::HideOverlay(
 }
 
 void LensSearchController::HideOverlay() {
-  if (state() == State::kOff) {
+  if (state() == State::kOff || !lens_overlay_controller_->IsOverlayShowing()) {
     return;
   }
 
@@ -485,6 +531,10 @@ std::optional<std::string> LensSearchController::GetPageTitle() {
         base::UTF16ToUTF8(active_web_contents->GetTitle()));
   }
   return page_title;
+}
+
+void LensSearchController::ClearVisualSelectionThumbnail() {
+  lens_searchbox_controller_->SetSearchboxThumbnail("");
 }
 
 base::WeakPtr<LensSearchController> LensSearchController::GetWeakPtr() {
@@ -658,6 +708,13 @@ bool LensSearchController::RunLensEligibilityChecks(
     return false;
   }
 
+  // The non-blocking privacy notice permits the overlay to open without
+  // requesting user permission via the bubble.
+  if (lens::features::IsLensOverlayNonBlockingPrivacyNoticeEnabled() &&
+      UseNonBlockingPrivacyNotice(invocation_source)) {
+    return true;
+  }
+
   // If the user hasn't granted permission, request user permission before
   // showing the UI.
   if (!lens::CanSharePageScreenshotWithLensOverlay(pref_service_) ||
@@ -689,6 +746,16 @@ void LensSearchController::NotifyOverlayOpened() {
 
   // Record the UMA for lens overlay invocation.
   lens_session_metrics_logger_->RecordInvocation();
+}
+
+void LensSearchController::OnThumbnailProcessed(
+    bool is_region_selection,
+    const std::string& thumbnail_uri) {
+  lens_searchbox_controller_->SetSearchboxThumbnail(thumbnail_uri);
+  if (is_region_selection &&
+      lens_overlay_controller_->use_aim_for_visual_search()) {
+    lens_composebox_controller_->AddVisualSelectionContext(thumbnail_uri);
+  }
 }
 
 void LensSearchController::CloseLensPart2(
@@ -733,7 +800,11 @@ void LensSearchController::OnOverlayHidden(
 
   // Since the side panel is open and the overlay has smoothly faded out, hide
   // the overlay to restore state to the live page.
-  lens_overlay_controller_->HideOverlayAndMaybeSetHiddenState();
+  lens_overlay_controller_->HideOverlayAndSetHiddenState();
+  lens_overlay_controller_->ClearAllSelections();
+  // Any pending visual selection that had not yet been submitted should be
+  // cleared whenever the overlay is hidden.
+  lens_composebox_controller_->ClearVisualSelectionContext();
 }
 
 void LensSearchController::OnSidePanelWillHide(
@@ -780,6 +851,7 @@ void LensSearchController::HandleStartQueryResponse(
 void LensSearchController::HandleInteractionURLResponse(
     lens::proto::LensOverlayUrlResponse response) {
   lens_overlay_controller_->HandleInteractionURLResponse(response);
+  MaybeShowMobilePromo();
 }
 
 void LensSearchController::HandleInteractionResponse(
@@ -790,6 +862,7 @@ void LensSearchController::HandleInteractionResponse(
 void LensSearchController::HandleSuggestInputsResponse(
     lens::proto::LensOverlaySuggestInputs suggest_inputs) {
   lens_searchbox_controller_->HandleSuggestInputsResponse(suggest_inputs);
+  lens_composebox_controller_->UpdateSuggestInputs(suggest_inputs);
 }
 
 void LensSearchController::HandlePageContentUploadProgress(uint64_t position,
@@ -797,11 +870,35 @@ void LensSearchController::HandlePageContentUploadProgress(uint64_t position,
   lens_overlay_controller_->HandlePageContentUploadProgress(position, total);
 }
 
+void LensSearchController::HandleThumbnailCreatedBitmap(
+    const SkBitmap& thumbnail) {
+  if (!lens::features::GetVisualSelectionUpdatesEnableCsbThumbnail() ||
+      thumbnail.drawsNothing()) {
+    return;
+  }
+
+  // SkBitmap is ref-counted, so a copy is cheap and safe for task posting.
+  SkBitmap thumbnail_copy = thumbnail;
+
+  // Downscale the bitmap to a size that is appropriate for the searchbox.
+  // Keeping it full resolution will cause stuttering when the UI opens. Push
+  // off the main thread to avoid blocking the overlay initialization.
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::TaskPriority::USER_VISIBLE},
+      base::BindOnce(&ScaleBitmapAndEncodeToDataUri, std::move(thumbnail_copy)),
+      base::BindOnce(&LensSearchController::OnThumbnailProcessed,
+                     weak_ptr_factory_.GetWeakPtr(),
+                     /*is_region_selection=*/false));
+}
+
 void LensSearchController::HandleThumbnailCreated(
     const std::string& thumbnail_bytes,
     const SkBitmap& region_bitmap) {
   lens_overlay_controller_->HandleRegionBitmapCreated(region_bitmap);
-  lens_searchbox_controller_->HandleThumbnailCreated(thumbnail_bytes);
+
+  std::string thumbnail_uri =
+      webui::MakeDataURIForImage(base::as_byte_span(thumbnail_bytes), "jpeg");
+  OnThumbnailProcessed(/*is_region_selection=*/true, thumbnail_uri);
 }
 
 void LensSearchController::TabForegrounded(tabs::TabInterface* tab) {
@@ -824,6 +921,16 @@ void LensSearchController::TabWillEnterBackground(tabs::TabInterface* tab) {
 
   // Ignore the event if the overlay is already backgrounded.
   if (state_ == State::kBackground) {
+    return;
+  }
+
+  // TODO(crbug.com/459478871): If the overlay is in an initializing state, then
+  // the entire Lens session is closed as there is no way to currently recover
+  // from this state. In the future, the side panel should remain open and the
+  // overlay should close.
+  if (lens_overlay_controller_->IsOverlayInitializing()) {
+    CloseLensSync(
+        lens::LensOverlayDismissalSource::kTabBackgroundedWhileInitializing);
     return;
   }
 
@@ -883,5 +990,18 @@ void LensSearchController::OnPageContextUpdatedForZeroStateRequest(
         lens::LensOverlaySelectionType::REGION_SEARCH,
         /*additional_search_query_params=*/std::map<std::string, std::string>(),
         /*region_bytes=*/std::nullopt);
+  }
+}
+
+void LensSearchController::MaybeShowMobilePromo() {
+  if (MobilePromoOnDesktopTypeEnabled() ==
+      MobilePromoOnDesktopPromoType::kLensPromo) {
+    IOSPromoTriggerService* service =
+        IOSPromoTriggerServiceFactory::GetForProfile(
+            Profile::FromBrowserContext(
+                tab_->GetContents()->GetBrowserContext()));
+    if (service) {
+      service->NotifyPromoShouldBeShown(IOSPromoType::kLens);
+    }
   }
 }

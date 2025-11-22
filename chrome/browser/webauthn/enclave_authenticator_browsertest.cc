@@ -29,6 +29,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/lock.h"
+#include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_logging_settings.h"
@@ -57,7 +58,9 @@
 #include "chrome/browser/webauthn/passkey_model_factory.h"
 #include "chrome/browser/webauthn/proto/enclave_local_state.pb.h"
 #include "chrome/browser/webauthn/test_util.h"
+#include "chrome/browser/webauthn/unexportable_key_utils.h"
 #include "chrome/browser/webauthn/webauthn_pref_names.h"
+#include "chrome/browser/webauthn/webauthn_scoped_fake_unexportable_key_provider.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -80,7 +83,9 @@
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "crypto/scoped_fake_user_verifying_key_provider.h"
 #include "crypto/unexportable_key.h"
+#include "crypto/user_verifying_key.h"
 #include "device/fido/features.h"
 #include "device/fido/fido_parsing_utils.h"
 #include "device/fido/fido_request_handler_base.h"
@@ -1050,6 +1055,67 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest, NonWebauthnRequest) {
           AuthenticatorRequestDialogModel::Step::kCreatePasskey ||
       dialog_model()->step() ==
           AuthenticatorRequestDialogModel::Step::kErrorNoAvailableTransports);
+}
+
+// Regression test for https://crbug.com/451876194.
+// Tests a make credential operation when the enclave is already loaded and
+// ready and checking for UV takes long enough that the enclave is selected
+// before the check is complete. At the time of writing, that resulted in a GPM
+// failure.
+IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
+                       MakeCredentialEnclaveLoadedButWaitingForUv) {
+  // First we need to set up and make ready the enclave with a PIN.
+  SetTrustedVaultEmpty();
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::DOMMessageQueue message_queue(web_contents);
+  content::ExecuteScriptAsync(web_contents, kMakeCredentialUvRequired);
+  delegate_observer()->WaitForUI();
+  model_observer()->SetStepToObserve(
+      AuthenticatorRequestDialogModel::Step::kGPMCreatePasskey);
+  model_observer()->WaitForStep();
+  EXPECT_EQ(request_delegate()
+                ->enclave_controller_for_testing()
+                ->account_state_for_testing(),
+            GPMEnclaveController::AccountState::kEmpty);
+  dialog_model()->OnGPMCreatePasskey();
+  EXPECT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kGPMCreatePin);
+  dialog_model()->OnGPMPinEntered(u"123456");
+  std::string script_result;
+  ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
+  EXPECT_EQ(script_result, "\"webauthn: uv=true\"");
+
+  // At this point, the enclave should be ready with a PIN. Make a UV = required
+  // request, and stall the UV key check.
+  crypto::UserVerifyingKeysSupportedCallback uv_callback;
+  crypto::ScopedUserVerifyingKeysSupportedOverride uvkey_supported_override(
+      base::BindLambdaForTesting(
+          [&](crypto::UserVerifyingKeysSupportedCallback callback) {
+            uv_callback = std::move(callback);
+          }));
+  SetTrustedVaultRecoverable();
+  content::ExecuteScriptAsync(web_contents, kMakeCredentialUvRequired);
+
+  // The enclave is still loading so the UI should not be shown yet.
+  delegate_observer()->WaitForUI();
+  ASSERT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kNotStarted);
+  ASSERT_TRUE(uv_callback);
+
+  // Run the UV callback, which should advance the UI and resolve the request.
+  model_observer()->SetStepToObserve(
+      AuthenticatorRequestDialogModel::Step::kGPMCreatePasskey);
+  std::move(uv_callback).Run(false);
+  model_observer()->WaitForStep();
+
+  // Finish the request.
+  dialog_model()->OnGPMCreatePasskey();
+  EXPECT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kGPMEnterPin);
+  dialog_model()->OnGPMPinEntered(u"123456");
+  ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
+  EXPECT_EQ(script_result, "\"webauthn: uv=true\"");
 }
 
 IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest, MakeCredentialWithPrf) {
@@ -2668,12 +2734,6 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
   // Disable Touch ID. The request should still resolve with uv=true.
   request_delegate()->dialog_model()->OnTouchIDComplete(false);
 
-  EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
-      ->StoreKeys(kSyncGaiaId,
-                  {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
-                                        std::end(kSecurityDomainSecret))},
-                  kSecretVersion);
-
   ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
   EXPECT_EQ(script_result, "\"webauthn: uv=true\"");
 }
@@ -3242,8 +3302,11 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
             profile->GetWeakPtr()),
         url_loader_factory_.GetSafeWeakWrapper());
 
-    second_manager.StoreKeys(kSyncGaiaId, {*security_domain_secret},
-                             /*last_key_version=*/kSecretVersion);
+    {
+      auto store_keys_lock = second_manager.GetStoreKeysLock();
+      second_manager.StoreKeys(kSyncGaiaId, {*security_domain_secret},
+                               /*last_key_version=*/kSecretVersion);
+    }
 
     base::test::TestFuture<bool> add_future;
     second_manager.AddDeviceToAccount(std::nullopt, add_future.GetCallback());
@@ -3296,7 +3359,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
   // Without support for unexportable keys, IsUVPAA should return false because
   // the enclave cannot be used.
   fake_hw_provider_.reset();
-  crypto::ScopedNullUnexportableKeyProvider no_hw_key_support;
+  WebAuthnScopedNullUnexportableKeyProvider no_hw_key_support;
   EXPECT_FALSE(IsUVPAA());
 }
 
@@ -3583,7 +3646,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest, CancelRacesTPMCheck) {
   // Set the UnexportableKeyProvider to one that will block inside
   // `SelectAlgorithm` so that we can simulate a slow TPM check.
   fake_hw_provider_.reset();
-  crypto::internal::SetUnexportableKeyProviderForTesting(
+  SetWebAuthnUnexportableKeyProviderForTesting(
       BlockingUnexportableKeyProviderFactory);
 
   // Start a WebAuthn request. It'll block when checking the TPM.
@@ -3831,12 +3894,46 @@ INSTANTIATE_TEST_SUITE_P(WithSyncFeatureEnabled,
 
 IN_PROC_BROWSER_TEST_P(EnclaveAuthenticatorConditionalCreateBrowserTest,
                        ConditionalCreate) {
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), https_server_.GetURL("www.example.com", "/title1.html")));
-
+  // Set up the enclave and inject a password with a recent last use timestamp.
+  // A conditional create request for the same username should succeed.
   BootstrapEnclave();
   InjectPassword(base::Time::Now());
 
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), https_server_.GetURL("www.example.com", "/title1.html")));
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::DOMMessageQueue message_queue(web_contents);
+  content::ExecuteScriptAsync(web_contents, kMakeCredentialConditionalCreate);
+  delegate_observer()->WaitForUI();
+
+  std::string script_result;
+  ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
+  std::optional<std::vector<uint8_t>> cred_id =
+      ParseCredentialId(script_result);
+  EXPECT_TRUE(cred_id);
+
+  histogram_tester_.ExpectUniqueSample(
+      "WebAuthentication.AutomaticPasskeyUpgrade.Result",
+      /*sample=*/PasskeyUpgradeResult::kSuccess,
+      /*expected_bucket_count=*/1);
+
+  // The request should not have instantiated non-enclave discoveries.
+  ASSERT_TRUE(
+      delegate_observer()->on_transport_availability_enumerated_called());
+  EXPECT_TRUE(delegate_observer()->transports_observed()->empty());
+}
+
+IN_PROC_BROWSER_TEST_P(EnclaveAuthenticatorConditionalCreateBrowserTest,
+                       ConditionalCreate_EnclaveNotLoaded) {
+  // Set up the enclave and then reset it to force it to be loaded from disk at
+  // the beginning of the subsequent conditional create request.
+  BootstrapEnclave();
+  enclave_manager().ResetForTesting();
+  InjectPassword(base::Time::Now());
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), https_server_.GetURL("www.example.com", "/title1.html")));
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
   content::DOMMessageQueue message_queue(web_contents);

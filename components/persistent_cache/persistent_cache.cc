@@ -91,6 +91,22 @@ void PersistentCache::Insert(std::string_view key,
   }
 }
 
+std::optional<BackendParams> PersistentCache::ExportReadOnlyBackendParams() {
+  if (!backend_) {
+    return std::nullopt;
+  }
+
+  return backend_->ExportReadOnlyParams();
+}
+
+std::optional<BackendParams> PersistentCache::ExportReadWriteBackendParams() {
+  if (!backend_) {
+    return std::nullopt;
+  }
+
+  return backend_->ExportReadWriteParams();
+}
+
 Backend* PersistentCache::GetBackendForTesting() {
   return backend_.get();
 }
@@ -98,6 +114,7 @@ Backend* PersistentCache::GetBackendForTesting() {
 std::optional<base::ElapsedTimer> PersistentCache::MaybeGetTimerForHistogram() {
   std::optional<base::ElapsedTimer> timer;
 
+  base::AutoLock lock(metrics_subsampler_lock_);
   if (metrics_subsampler_.ShouldSample(kTimingLoggingProbability)) {
     timer.emplace();
   }

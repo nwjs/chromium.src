@@ -108,6 +108,11 @@ class ToastManagerImplTest : public AshTestBase,
     SetShouldLockScreenAutomatically(false);
   }
 
+  void TearDown() override {
+    manager_ = nullptr;
+    AshTestBase::TearDown();
+  }
+
  protected:
   ToastManagerImpl* manager() { return manager_; }
 
@@ -195,7 +200,7 @@ class ToastManagerImplTest : public AshTestBase,
   }
 
  private:
-  raw_ptr<ToastManagerImpl, DanglingUntriaged> manager_ = nullptr;
+  raw_ptr<ToastManagerImpl> manager_ = nullptr;
   unsigned int serial_ = 0;
 };
 
@@ -515,7 +520,7 @@ TEST_F(ToastManagerImplTest, PositionWithHotseatExtendedOnAnotherMonitor) {
 
 TEST_F(ToastManagerImplTest, PositionWithAutoHiddenBottomShelf) {
   std::unique_ptr<aura::Window> window(
-      CreateTestWindowInShellWithBounds(gfx::Rect(1, 2, 3, 4)));
+      CreateTestWindowInShell({.bounds = {1, 2, 3, 4}, .window_id = 0}));
 
   Shelf* shelf = GetPrimaryShelf();
   EXPECT_EQ(ShelfAlignment::kBottom, shelf->alignment());

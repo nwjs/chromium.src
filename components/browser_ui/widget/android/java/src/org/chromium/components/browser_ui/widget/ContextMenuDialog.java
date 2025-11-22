@@ -15,6 +15,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnDragListener;
 import android.view.View.OnLayoutChangeListener;
+import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.Window;
 import android.view.WindowManager;
@@ -30,7 +31,9 @@ import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.ui.animation.EmptyAnimationListener;
 import org.chromium.ui.dragdrop.DragEventDispatchHelper;
 import org.chromium.ui.dragdrop.DragEventDispatchHelper.DragEventDispatchDestination;
+import org.chromium.ui.hierarchicalmenu.HierarchicalMenuController;
 import org.chromium.ui.interpolators.Interpolators;
+import org.chromium.ui.listmenu.ListMenuUtils;
 import org.chromium.ui.util.ColorUtils;
 import org.chromium.ui.widget.AnchoredPopupWindow;
 import org.chromium.ui.widget.FlyoutPopupSpecCalculator;
@@ -279,8 +282,21 @@ public class ContextMenuDialog extends AlwaysDismissedDialog {
     }
 
     /**
-     * Start the entering animation for context menu dialog. Only used when dialog is presenting
-     * as a full screen dialog.
+     * Gets the {@link Rect} of this dialog, relative to the application window.
+     *
+     * @return {@link Rect} of this popup.
+     */
+    public Rect getDialogRect() {
+        if (mContentView == null) {
+            return new Rect();
+        }
+
+        return ListMenuUtils.getViewRectRelativeToItsRootView(mContentView);
+    }
+
+    /**
+     * Start the entering animation for context menu dialog. Only used when dialog is presenting as
+     * a full screen dialog.
      */
     private void startEnterAnimation() {
         Rect windowRect = new Rect();
@@ -401,5 +417,14 @@ public class ContextMenuDialog extends AlwaysDismissedDialog {
     @Nullable
     OnDragListener getOnDragListenerForTesting() {
         return mDragEventDispatchHelper;
+    }
+
+    /**
+     * Set the focus state for this dialog's content view.
+     *
+     * @param hasFocus Whether this dialog's content should have focus.
+     */
+    public void setWindowFocusForFlyoutMenus(boolean hasFocus) {
+        HierarchicalMenuController.setWindowFocusForFlyoutMenus((ViewGroup) mContentView, hasFocus);
     }
 }

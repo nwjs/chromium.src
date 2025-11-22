@@ -81,6 +81,11 @@ EXCLUDED_TESTS = [
                  'issue-122600-ptr-discriminant-update.rs'),
     os.path.join('tests', 'codegen-llvm', 'vec_pop_push_noop.rs'),
     os.path.join('tests', 'codegen-llvm', 'vecdeque_pop_push.rs'),
+    # Temporarily disabled due to https://crbug.com/453668132
+    os.path.join('tests', 'codegen-llvm', 'simd-intrinsic', 'simd-intrinsic-generic-scatter.rs'),
+    os.path.join('tests', 'codegen-llvm', 'simd-intrinsic', 'simd-intrinsic-generic-gather.rs'),
+    os.path.join('tests', 'codegen-llvm', 'simd-intrinsic', 'simd-intrinsic-generic-masked-store.rs'),
+    os.path.join('tests', 'codegen-llvm', 'simd-intrinsic', 'simd-intrinsic-generic-masked-load.rs'),
 ]
 EXCLUDED_TESTS_WINDOWS = [
     # Temporarily disabled due to https://crbug.com/379308086
@@ -733,10 +738,6 @@ def main():
         action='store_true',
         help='After building rust, also build bindgen using build_bindgen.py')
     parser.add_argument(
-        '--build-vet',
-        action='store_true',
-        help='After building rust, also build cargo-vet using build_vet.py')
-    parser.add_argument(
         '--build-crubit',
         action='store_true',
         help='After building rust, also build crubit using build_crubit.py')
@@ -745,21 +746,19 @@ def main():
         action='store_true',
         help='After building rust, also generate stdlib GN rules using '
         'gnrt_stdlib.py')
-    parser.add_argument(
-        '--entire-toolchain',
-        action='store_true',
-        help='Build rust and the rest of the rust toolchain. '
-        'Equivalent to --build-bindgen --build-vet --build-crubit '
-        '--gnrt-stdlib')
+    parser.add_argument('--entire-toolchain',
+                        action='store_true',
+                        help='Build rust and the rest of the rust toolchain. '
+                        'Equivalent to --build-bindgen --build-crubit '
+                        '--gnrt-stdlib')
     if sys.platform == 'win32':
         parser.add_argument('--sh', help='path to the sh.exe to use')
     args, rest = parser.parse_known_args()
 
     if args.entire_toolchain:
-      args.build_bindgen = True
-      args.build_vet = True
-      args.build_crubit = True
-      args.gnrt_stdlib = True
+        args.build_bindgen = True
+        args.build_crubit = True
+        args.gnrt_stdlib = True
 
     if sys.platform == 'win32':
         if args.sh:
@@ -948,20 +947,15 @@ def main():
               'w',
               encoding='utf-8') as log:
         if args.build_bindgen:
+            print('Building bindgen...')
             build_cmd = [
                 sys.executable,
                 os.path.join(THIS_DIR, 'build_bindgen.py')
             ]
             TeeCmd(build_cmd, log)
 
-        if args.build_vet:
-            build_cmd = [
-                sys.executable,
-                os.path.join(THIS_DIR, 'build_vet.py')
-            ]
-            TeeCmd(build_cmd, log)
-
         if args.build_crubit:
+            print('Building crubit...')
             build_cmd = [
                 sys.executable,
                 os.path.join(THIS_DIR, 'build_crubit.py')
@@ -972,7 +966,9 @@ def main():
             TeeCmd(build_cmd, log, fail_hard=False)
 
         if args.gnrt_stdlib:
+            print('Building gnrt...')
             InstallRustBetaSysroot(checkout_revision, [RustTargetTriple()])
+            print('Beta sysroot installed.')
             build_cmd = [
                 sys.executable,
                 os.path.join(THIS_DIR, 'gnrt_stdlib.py'), '--skip-prep'

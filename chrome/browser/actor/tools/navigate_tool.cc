@@ -4,6 +4,8 @@
 
 #include "chrome/browser/actor/tools/navigate_tool.h"
 
+#include "base/feature_list.h"
+#include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/site_policy.h"
 #include "chrome/browser/actor/tools/observation_delay_controller.h"
@@ -14,9 +16,11 @@
 #include "chrome/common/actor/journal_details_builder.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
+#include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
 
 using content::NavigationHandle;
@@ -61,13 +65,40 @@ void NavigateTool::Validate(ValidateCallback callback) {
 }
 
 void NavigateTool::Invoke(InvokeCallback callback) {
+  CHECK(web_contents());
+  invoke_callback_ = std::move(callback);
+
+  if (base::FeatureList::IsEnabled(kGlicNavigateUsingLoadURL)) {
+    content::NavigationController::LoadURLParams params(url_);
+    params.transition_type = ::ui::PAGE_TRANSITION_AUTO_TOPLEVEL;
+    params.is_renderer_initiated = false;
+    params.has_user_gesture = true;
+    base::WeakPtr<content::NavigationHandle> handle =
+        web_contents()->GetController().LoadURLWithParams(params);
+    if (handle) {
+      NavigationHandleCallback(*handle);
+    } else {
+      PostResponseTask(
+          std::move(invoke_callback_),
+          MakeResult(mojom::ActionResultCode::kNavigateFailedToStart));
+    }
+    return;
+  }
+
+  // TODO(b/460113906): Legacy code path - remove once the
+  // NavigateUsingLoadURL path lands safely.
   content::OpenURLParams params(
       url_, content::Referrer(), WindowOpenDisposition::CURRENT_TAB,
       ::ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL,
       false /* is_renderer_initiated */);
 
-  CHECK(web_contents());
-  invoke_callback_ = std::move(callback);
+  // TODO(b/460113906): Alternate to the NavigateUsingLoadURL path to fix for
+  // this bug. Unfortunately, OpenURL has the side effect that a navigation
+  // having a user gesture will force the navigating window to be activated.
+  // Setting this to false fixes the issue but may have other consequences...
+  if (base::FeatureList::IsEnabled(kGlicNavigateWithoutUserGesture)) {
+    params.user_gesture = false;
+  }
 
   // TODO(crbug.com/406545255): If the page has a BeforeUnload handler the user
   // may be prompted to confirm/abort the navigation, what should we do in those
@@ -86,10 +117,10 @@ std::string NavigateTool::JournalEvent() const {
 }
 
 std::unique_ptr<ObservationDelayController> NavigateTool::GetObservationDelayer(
-    std::optional<ObservationDelayController::PageStabilityConfig>
-        page_stability_config) const {
+    ObservationDelayController::PageStabilityConfig page_stability_config) {
   return std::make_unique<ObservationDelayController>(
-      *web_contents()->GetPrimaryMainFrame(), task_id(), page_stability_config);
+      *web_contents()->GetPrimaryMainFrame(), task_id(), journal(),
+      page_stability_config);
 }
 
 void NavigateTool::UpdateTaskBeforeInvoke(ActorTask& task,
@@ -104,8 +135,7 @@ tabs::TabHandle NavigateTool::GetTargetTab() const {
 void NavigateTool::DidFinishNavigation(NavigationHandle* navigation_handle) {
   if (pending_navigation_handle_id_ &&
       navigation_handle->GetNavigationId() == *pending_navigation_handle_id_) {
-    journal().Log(url_, task_id(), mojom::JournalTrack::kActor,
-                  "NavigateTool::DidFinishNavigation",
+    journal().Log(url_, task_id(), "NavigateTool::DidFinishNavigation",
                   JournalDetailsBuilder()
                       .Add("id", navigation_handle->GetNavigationId())
                       .Build());
@@ -123,8 +153,7 @@ void NavigateTool::DidFinishNavigation(NavigationHandle* navigation_handle) {
 
 void NavigateTool::NavigationHandleCallback(NavigationHandle& handle) {
   journal().Log(
-      url_, task_id(), mojom::JournalTrack::kActor,
-      "NavigateTool::NavigationHandleCallback",
+      url_, task_id(), "NavigateTool::NavigationHandleCallback",
       JournalDetailsBuilder().Add("id", handle.GetNavigationId()).Build());
   pending_navigation_handle_id_ = handle.GetNavigationId();
 }

@@ -25,6 +25,7 @@
 #include "third_party/blink/renderer/platform/graphics/paint/paint_recorder.h"
 #include "third_party/blink/renderer/platform/graphics/scoped_raster_timer.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
+#include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/web_graphics_context_3d_provider_wrapper.h"
 #include "third_party/blink/renderer/platform/instrumentation/canvas_memory_dump_provider.h"
 #include "third_party/blink/renderer/platform/wtf/thread_specific.h"
@@ -33,7 +34,6 @@
 #include "third_party/skia/include/gpu/ganesh/GrTypes.h"
 
 namespace cc {
-class ImageDecodeCache;
 class PaintCanvas;
 class SkiaPaintCanvas;
 }  // namespace cc
@@ -236,7 +236,7 @@ class PLATFORM_EXPORT CanvasResourceProvider
   MemoryManagedPaintCanvas& Canvas();
   // FlushCanvas and preserve recording only if IsPrinting or
   // FlushReason indicates printing in progress.
-  std::optional<cc::PaintRecord> FlushCanvas(FlushReason);
+  std::optional<cc::PaintRecord> FlushCanvas(FlushReason = FlushReason::kOther);
 
   // TODO(crbug.com/371227617): Trim callsites of this method to those that
   // actually need to pass this info to Skia APIs and then eliminate the
@@ -330,8 +330,9 @@ class PLATFORM_EXPORT CanvasResourceProvider
     return context_provider_wrapper_;
   }
 
-  scoped_refptr<StaticBitmapImage> SnapshotInternal(ImageOrientation,
-                                                    FlushReason);
+  scoped_refptr<UnacceleratedStaticBitmapImage> UnacceleratedSnapshot(
+      ImageOrientation,
+      FlushReason);
 
   CanvasResourceProvider(const ResourceProviderType&,
                          gfx::Size size,
@@ -342,12 +343,6 @@ class PLATFORM_EXPORT CanvasResourceProvider
                              context_provider_wrapper,
                          Delegate* delegate);
 
-  // Its important to use this method for generating PaintImage wrapped canvas
-  // snapshots to get a cache hit from cc's ImageDecodeCache. This method
-  // ensures that the PaintImage ID for the snapshot, used for keying
-  // decodes/uploads in the cache is invalidated only when the canvas contents
-  // change.
-  cc::PaintImage MakeImageSnapshot(FlushReason);
   virtual void RasterRecord(cc::PaintRecord) = 0;
   void UnacceleratedRasterRecord(cc::PaintRecord);
   void AcceleratedRasterRecord(cc::PaintRecord last_recording,
@@ -369,9 +364,6 @@ class PLATFORM_EXPORT CanvasResourceProvider
   friend class FlushForImageListener;
 
   virtual sk_sp<SkSurface> CreateSkSurface() const = 0;
-  // Notifies before any drawing will be done on the resource used by this
-  // provider.
-  virtual void WillDraw() {}
 
   size_t ComputeSurfaceSize() const;
   size_t GetSize() const override;
@@ -423,7 +415,6 @@ class PLATFORM_EXPORT CanvasResourceProvider
   size_t max_pinned_image_bytes_;
 
   bool clear_frame_ = true;
-  FlushReason last_flush_reason_ = FlushReason::kNone;
   std::optional<cc::PaintRecord> last_recording_;
 };
 
@@ -570,7 +561,13 @@ class PLATFORM_EXPORT CanvasResourceProviderSharedImage
                    size_t row_bytes,
                    int x,
                    int y) override;
-  void WillDraw() final;
+  // Notifies before any unaccelerated drawing will be done on the resource used
+  // by this provider.
+  void WillDrawUnaccelerated();
+
+  // This is a workaround to ensure WaitSyncToken() is still called even when
+  // copying is effectively skipped due to a dummy WebGPU texture.
+  void PrepareForWebGPUDummyMailbox();
 
  private:
   scoped_refptr<CanvasResourceSharedImage> CreateResource();
@@ -601,7 +598,7 @@ class PLATFORM_EXPORT CanvasResourceProviderSharedImage
       PaintImage::ContentId content_id = PaintImage::kInvalidContentId);
   void EnsureWriteAccess();
   void EndWriteAccess();
-  void WillDrawInternal(bool write_to_local_texture);
+  std::unique_ptr<gpu::RasterScopedAccess> WillDrawInternal();
 
   void RecycleResource(scoped_refptr<CanvasResourceSharedImage>&& resource);
   void MaybePostUnusedResourcesReclaimTask();

@@ -72,7 +72,8 @@ class OmniboxTextControllerTest : public PlatformTest {
 
     omnibox_autocomplete_controller_ = [[OmniboxAutocompleteController alloc]
         initWithOmniboxClient:omnibox_client_.get()
-             omniboxTextModel:omnibox_text_model_.get()];
+             omniboxTextModel:omnibox_text_model_.get()
+          presentationContext:OmniboxPresentationContext::kLocationBar];
 
     omnibox_text_controller_ = [[TestOmniboxTextController alloc]
         initWithOmniboxClient:omnibox_client_.get()
@@ -213,5 +214,46 @@ TEST_F(OmniboxTextControllerTest, DisplayText) {
 TEST_F(OmniboxTextControllerTest, OnTextChangedAfterDisconnect) {
   [omnibox_text_controller_ disconnect];
   [omnibox_text_controller_ onTextChanged];
+  // The test passes if it doesn't crash.
+}
+
+// Tests that calling getInfoForCurrentText after disconnect doesn't crash.
+TEST_F(OmniboxTextControllerTest, GetInfoForCurrentTextAfterDisconnect) {
+  [omnibox_text_controller_ disconnect];
+  AutocompleteMatch match;
+  GURL alternate_url;
+  [omnibox_text_controller_ getInfoForCurrentText:&match
+                           alternateNavigationURL:&alternate_url];
+  // The test passes if it doesn't crash.
+}
+
+// Tests that calling setUserText after disconnect doesn't crash.
+TEST_F(OmniboxTextControllerTest, SetUserTextAfterDisconnect) {
+  [omnibox_text_controller_ disconnect];
+  [omnibox_text_controller_ setUserText:u"test"];
+  // The test passes if it doesn't crash.
+}
+
+// Tests that calling currentMatch after disconnect doesn't crash.
+TEST_F(OmniboxTextControllerTest, CurrentMatchAfterDisconnect) {
+  [omnibox_text_controller_ disconnect];
+  GURL alternate_url;
+  [omnibox_text_controller_ currentMatch:&alternate_url];
+  // The test passes if it doesn't crash.
+}
+
+// Tests that calling onPopupDataChanged after disconnect doesn't crash.
+TEST_F(OmniboxTextControllerTest, OnPopupDataChangedAfterDisconnect) {
+  [omnibox_text_controller_ disconnect];
+  [omnibox_text_controller_ onPopupDataChanged:u"inline"
+                                additionalText:u"additional"
+                                      newMatch:AutocompleteMatch()];
+  // The test passes if it doesn't crash.
+}
+
+// Tests that calling onCopy after disconnect doesn't crash.
+TEST_F(OmniboxTextControllerTest, OnCopyAfterDisconnect) {
+  [omnibox_text_controller_ disconnect];
+  [omnibox_text_controller_ onCopy];
   // The test passes if it doesn't crash.
 }

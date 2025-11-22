@@ -18,6 +18,7 @@
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
+#include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
@@ -121,7 +122,6 @@ class ToastControllerInteractiveTest : public InteractiveBrowserTest {
     feature_list_.InitWithFeatures(
         {toast_features::kLinkCopiedToast, toast_features::kImageCopiedToast,
          toast_features::kReadingListToast,
-         toast_features::kPinnedTabToastOnClose,
          plus_addresses::features::kPlusAddressesEnabled},
         // Disable `kAiModeOmniboxEntryPoint` as it changes the focus and popup
         // opening order of the omnibox. If it launches, updates the tests to
@@ -283,7 +283,7 @@ IN_PROC_BROWSER_TEST_F(ToastControllerInteractiveTest, ForwardFocusTraversal) {
                   return !toast->close_button_for_testing()->HasFocus();
                 }),
       CheckView(kBrowserViewElementId, [](BrowserView* browser_view) {
-        return browser_view->GetContentsWebView()->HasFocus();
+        return browser_view->GetActiveContentsWebView()->HasFocus();
       }));
 }
 
@@ -385,7 +385,7 @@ IN_PROC_BROWSER_TEST_F(ToastControllerInteractiveTest,
   OmniboxView* const omnibox_view = location_bar->GetOmniboxView();
   ASSERT_TRUE(omnibox_view);
   browser()->window()->SetFocusToLocationBar(true);
-  ASSERT_FALSE(omnibox_view->model()->PopupIsOpen());
+  ASSERT_FALSE(location_bar->GetOmniboxController()->IsPopupOpen());
 
   // Even though the omnibox is focused, the toast should still show because
   // the omnibox doesn't have a popup and the user isn't interacting with the
@@ -430,12 +430,12 @@ IN_PROC_BROWSER_TEST_F(ToastControllerInteractiveTest,
   ASSERT_TRUE(location_bar);
   OmniboxView* const omnibox_view = location_bar->GetOmniboxView();
   ASSERT_TRUE(omnibox_view);
-  ASSERT_FALSE(omnibox_view->model()->PopupIsOpen());
+  ASSERT_FALSE(location_bar->GetOmniboxController()->IsPopupOpen());
   omnibox_view->OnBeforePossibleChange();
   omnibox_view->SetUserText(u"hello world");
   omnibox_view->OnAfterPossibleChange(true);
 
-  ASSERT_TRUE(omnibox_view->model()->PopupIsOpen());
+  ASSERT_TRUE(location_bar->GetOmniboxController()->IsPopupOpen());
 
   // The toast widget should no longer be visible because there is a popup.
   EXPECT_TRUE(toast_controller->IsShowingToast());
@@ -443,7 +443,7 @@ IN_PROC_BROWSER_TEST_F(ToastControllerInteractiveTest,
 
   // Toast widget is visible again after the omnibox is no longer focused.
   RemoveOmniboxFocus();
-  ASSERT_FALSE(omnibox_view->model()->PopupIsOpen());
+  ASSERT_FALSE(location_bar->GetOmniboxController()->IsPopupOpen());
   EXPECT_TRUE(toast_controller->IsShowingToast());
   EXPECT_TRUE(toast_controller->GetToastWidgetForTesting()->IsVisible());
 }
@@ -536,7 +536,7 @@ IN_PROC_BROWSER_TEST_F(ToastControllerInteractiveTest,
       toast_controller->GetToastViewForTesting()->GetBoundsInScreen();
   const gfx::Rect web_view_bounds =
       BrowserView::GetBrowserViewForBrowser(browser())
-          ->GetContentsWebView()
+          ->GetActiveContentsWebView()
           ->GetBoundsInScreen();
   EXPECT_TRUE(web_view_bounds.Contains(toast_bounds));
 }

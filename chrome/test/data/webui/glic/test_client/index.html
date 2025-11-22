@@ -174,9 +174,20 @@ found in the LICENSE file.
     max-width: 100%;
     height: auto;
   }
+  #captureRegionBtn[pressed] {
+    background-color: red;
+    color: white;
+  }
 </style>
 <div id="pageHeader">
   <h1>Test Web Client</h1>
+  <div class="permission-switch">
+    <label>Interaction Mode:</label>
+    <input type="radio" id="textmode" name="interactionMode" value="text" checked>
+    <label for="textmode">Text</label>
+    <input type="radio" id="audiomode" name="interactionMode" value="audio">
+    <label for="audiomode">Audio</label>
+  </div>
   <button id="refreshbn">🔄</button>
   <button id="closebn">❌</button>
   <button id="shutdownbn">⏻</button>
@@ -215,6 +226,10 @@ found in the LICENSE file.
     <div class="permission-switch">
       <label for="defaultTabContextSwitch">Default Tab Context:</label>
       <input type="checkbox" id="defaultTabContextSwitch" disabled />
+    </div>
+    <div class="permission-switch">
+      <label for="actuationOnWebSwitch">Actuation on Web:</label>
+      <input type="checkbox" id="actuationOnWebSwitch" disabled />
     </div>
     <select id="permissionSelect">
       <option value="geolocation">Geolocation</option>
@@ -455,6 +470,11 @@ found in the LICENSE file.
     <img id="desktopScreenshotImg" />
   </div>
   <div class="section">
+    <h1>Region Capture</h1>
+    <button id="captureRegionBtn">Capture Region</button>
+    <ul id="captureRegionResultList"></ul>
+  </div>
+  <div class="section">
     <h1>Scroll-To and Highlight</h1>
     <div>
       <button id="scrollToFetchAPCBn">Fetch AnnotatedPageContent</button>
@@ -544,6 +564,12 @@ found in the LICENSE file.
       <button id="executeAction">Perform Actions</button>
     </div>
     <span id="actionStatus"></span>
+    <div id="credentialSelection" style="display: none">
+      <label for="selectCredential">Select credential:</label>
+      <select id="selectCredential"></select>
+      <button id="credentialOnce">Allow once</button>
+      <button id="credentialAlways">Allow always</button>
+    </div>
   </div>
   <div class="section" id="multiTabSection">
     <h1>Multi-Tab</h1>

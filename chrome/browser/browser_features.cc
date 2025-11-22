@@ -35,7 +35,7 @@ BASE_FEATURE(kBookmarkTriggerForPrerender2KillSwitch,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // This flag is used for enabling BookmarkBar triggered preconnect.
-BASE_FEATURE(kBookmarkTriggerForPreconnect, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kBookmarkTriggerForPreconnect, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // This flag is used for enabling BookmarkBar triggered prefetch.  See
 // crbug.com/413259638 for more details of Bookmark triggered prefetching.
@@ -74,12 +74,9 @@ BASE_FEATURE(kClearUserDataUponProfileDestruction,
 // Enables usage of os_crypt_async::SecretPortalKeyProvider.  Once
 // `kSecretPortalKeyProviderUseForEncryption` is enabled, this flag cannot be
 // disabled without losing data.
+
 BASE_FEATURE(kDbusSecretPortal, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables usage of os_crypt_async::FreedesktopSecretKeyProvider, which is
-// compatible with the synchronous backend.
-BASE_FEATURE(kUseFreedesktopSecretKeyProvider,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_LINUX)
 
 // Destroy profiles when their last browser window is closed, instead of when
@@ -147,13 +144,12 @@ BASE_FEATURE(kNewTabPageTriggerForPrerender2, base::FEATURE_ENABLED_BY_DEFAULT);
 // crbug.com/421941586 for more details of New Tab Page triggered prefetching.
 BASE_FEATURE(kNewTabPageTriggerForPrefetch, base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_ANDROID)
 // Adds an "Unsubscribe" action to web push notifications that allows stopping
 // notifications from a given origin with a single tap (with an option to undo).
-BASE_FEATURE(kNotificationOneTapUnsubscribe, base::FEATURE_ENABLED_BY_DEFAULT);
-base::FeatureParam<bool> kNotificationOneTapUnsubscribeUseServiceIntentParam{
-    &kNotificationOneTapUnsubscribe, "use_service_intent", false};
-#endif
+#if !BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kNotificationOneTapUnsubscribeOnDesktop,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Enables executing the browser commands sent by the NTP promos.
 BASE_FEATURE(kPromoBrowserCommands, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -172,7 +168,7 @@ BASE_FEATURE(kRegisterOsUpdateHandlerWin, base::FEATURE_ENABLED_BY_DEFAULT);
 // When this feature is enabled, Chrome will install the
 // platform_experience_helper.
 BASE_FEATURE(kInstallPlatformExperienceHelperWin,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 // When this feature is enabled, the network service will restart unsandboxed if
@@ -209,11 +205,6 @@ BASE_FEATURE(kSandboxExternalProtocolBlockedWarning,
 // Otherwise, it will only decrypt existing data.
 BASE_FEATURE(kSecretPortalKeyProviderUseForEncryption,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If true, encrypt new data with the key provided by
-// FreedesktopSecretKeyProvider. Otherwise, it will only decrypt existing data.
-BASE_FEATURE(kUseFreedesktopSecretKeyProviderForEncryption,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_LINUX)
 
 // Enables migration of the network context data from `unsandboxed_data_path` to

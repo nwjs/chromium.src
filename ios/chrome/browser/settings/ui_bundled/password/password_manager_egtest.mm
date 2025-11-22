@@ -2435,7 +2435,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 
   // Check that the help center article was opened.
   GREYAssertEqual(std::string("support.google.com"),
-                  [ChromeEarlGrey webStateVisibleURL].host(),
+                  [ChromeEarlGrey webStateVisibleURL].GetHost(),
                   @"Did not navigate to the help center article.");
 }
 
@@ -4139,9 +4139,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
       assertWithMatcher:grey_sufficientlyVisible()];
 }
 
-// TODO(crbug.com/440119404): Re-enable after roll is complete and testers are
-// also updated.
-- (void)DISABLED_testSwipingAnotherAffiliatedGroupWhenAnotherIsInEditMode {
+- (void)testSwipingAnotherAffiliatedGroupWhenAnotherIsInEditMode {
   // Form an affiliated group with two passwords.
   SavePasswordFormToProfileStore(/*password=*/@"password1",
                                  /*username=*/@"user1",

@@ -230,7 +230,9 @@ class ManagePasswordsUIController
 
   // BubbleControllerBase:
   void ShowBubble() override;
-  void HideBubble() override;
+  void HideBubble(bool initiated_by_bubble_manager) override;
+  void OnBubbleDiscarded() override {}
+  bool CanBeReshown() const override;
   autofill::BubbleType GetBubbleType() const override;
   bool IsShowingBubble() const override;
   bool IsMouseHovered() const override;
@@ -378,6 +380,10 @@ class ManagePasswordsUIController
       const std::u16string& username,
       const std::u16string& password,
       const std::u16string& password_backup) const;
+
+  // Returns true if there exists a password manager bubble yet to be shown in
+  // the `autofill::BubbleManager` queue.
+  bool BubbleManagerHasPasswordBubbleInQueue() const;
 
   // Timeout in seconds for the manual fallback for saving.
   static int save_fallback_timeout_in_seconds_;

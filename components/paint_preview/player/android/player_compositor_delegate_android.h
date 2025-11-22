@@ -7,7 +7,7 @@
 
 #include "base/android/jni_android.h"
 #include "base/android/scoped_java_ref.h"
-#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/task_runner.h"
 #include "base/time/time.h"
@@ -36,8 +36,8 @@ class PlayerCompositorDelegateAndroid : public PlayerCompositorDelegate {
       float page_scale_factor,
       std::unique_ptr<ui::AXTreeUpdate> ax_tree) override;
 
-  void OnMemoryPressure(base::MemoryPressureListener::MemoryPressureLevel
-                            memory_pressure_level) override;
+  void OnMemoryPressure(
+      base::MemoryPressureLevel memory_pressure_level) override;
 
   base::android::ScopedJavaLocalRef<jintArray> GetRootFrameOffsets(JNIEnv* env);
 

@@ -51,6 +51,8 @@ void ChildMemoryConsumerRegistry::ConsumerGroup::RemoveMemoryConsumer(
 ChildMemoryConsumerRegistry::ChildMemoryConsumerRegistry() = default;
 
 ChildMemoryConsumerRegistry::~ChildMemoryConsumerRegistry() {
+  NotifyDestruction();
+
   CHECK(consumer_groups_.empty());
   CHECK(child_memory_consumers_.empty());
   CHECK(consumer_infos_.empty());
@@ -121,14 +123,16 @@ void ChildMemoryConsumerRegistry::OnMemoryConsumerRemoved(
   auto it = consumer_groups_.find(consumer_id);
   CHECK(it != consumer_groups_.end());
   ConsumerGroup& consumer_group = it->second.consumer_group;
-  mojo::ReceiverId receiver_id = it->second.receiver_id;
+  std::optional<mojo::ReceiverId> receiver_id = it->second.receiver_id;
 
   consumer_group.RemoveMemoryConsumer(consumer);
 
   if (consumer_group.empty()) {
     // Last consumer with this ID. First remove the connection with the browser
-    // process.
-    child_memory_consumers_.Remove(receiver_id);
+    // process, if there ever was one.
+    if (receiver_id) {
+      child_memory_consumers_.Remove(*receiver_id);
+    }
 
     // Then clean up from `consumer_infos_`.
     size_t removed = std::erase_if(

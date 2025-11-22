@@ -18,7 +18,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/notimplemented.h"
 #include "build/build_config.h"
-#include "components/viz/common/resources/resource_sizes.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/service/gl_utils.h"
@@ -51,7 +50,7 @@
 #include "third_party/skia/include/gpu/ganesh/vk/GrVkTypes.h"
 #include "third_party/skia/include/gpu/vk/VulkanMutableTextureState.h"
 #include "third_party/skia/include/private/chromium/GrPromiseImageTexture.h"
-#include "ui/gfx/buffer_format_util.h"
+#include "ui/gfx/buffer_types.h"
 #include "ui/gl/buildflags.h"
 #include "ui/gl/gl_context.h"
 #include "ui/gl/gl_utils.h"
@@ -343,7 +342,8 @@ ExternalVkImageBacking::CreateWithPixmap(
     gfx::BufferUsage buffer_usage) {
 #if BUILDFLAG(IS_OZONE)
   // Create a pixmap.
-  gfx::BufferFormat buffer_format = ToBufferFormat(format);
+  gfx::BufferFormat buffer_format =
+      viz::SharedImageFormatToBufferFormat(format);
   VulkanDeviceQueue* device_queue = nullptr;
   if (context_state->vk_context_provider()) {
     device_queue = context_state->vk_context_provider()->GetDeviceQueue();
@@ -409,7 +409,7 @@ ExternalVkImageBacking::ExternalVkImageBacking(
     pixmap_ = ui::OzonePlatform::GetInstance()
                   ->GetSurfaceFactoryOzone()
                   ->CreateNativePixmapFromHandle(
-                      kNullSurfaceHandle, size, ToBufferFormat(format),
+                      kNullSurfaceHandle, size, format,
                       std::move(handle).native_pixmap_handle());
   }
 #endif  // BUILDFLAG(IS_OZONE)

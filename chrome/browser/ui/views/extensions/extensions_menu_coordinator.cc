@@ -7,8 +7,11 @@
 #include <memory>
 
 #include "base/feature_list.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/extensions/extensions_menu_view_model.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
-#include "chrome/browser/ui/views/extensions/extensions_menu_view_controller.h"
+#include "chrome/browser/ui/views/extensions/extensions_menu_view_platform_delegate_views.h"
+#include "extensions/browser/permissions_manager.h"
 #include "extensions/common/extension_features.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
@@ -29,7 +32,7 @@ ExtensionsMenuCoordinator::~ExtensionsMenuCoordinator() {
 
 void ExtensionsMenuCoordinator::Show(
     views::BubbleAnchor anchor,
-    ExtensionsContainer* extensions_container) {
+    ExtensionsContainerViews* extensions_container) {
   DCHECK(base::FeatureList::IsEnabled(
       extensions_features::kExtensionsMenuAccessControl));
   std::unique_ptr<views::BubbleDialogDelegate> bubble_delegate =
@@ -60,14 +63,14 @@ views::Widget* ExtensionsMenuCoordinator::GetExtensionsMenuWidget() {
 std::unique_ptr<views::BubbleDialogDelegate>
 ExtensionsMenuCoordinator::CreateExtensionsMenuBubbleDialogDelegateForTesting(
     views::BubbleAnchor anchor,
-    ExtensionsContainer* extensions_container) {
+    ExtensionsContainerViews* extensions_container) {
   return CreateExtensionsMenuBubbleDialogDelegate(anchor, extensions_container);
 }
 
 std::unique_ptr<views::BubbleDialogDelegate>
 ExtensionsMenuCoordinator::CreateExtensionsMenuBubbleDialogDelegate(
     views::BubbleAnchor anchor,
-    ExtensionsContainer* extensions_container) {
+    ExtensionsContainerViews* extensions_container) {
   DCHECK(base::FeatureList::IsEnabled(
       extensions_features::kExtensionsMenuAccessControl));
   auto bubble_delegate = std::make_unique<views::BubbleDialogDelegate>(
@@ -89,9 +92,14 @@ ExtensionsMenuCoordinator::CreateExtensionsMenuBubbleDialogDelegate(
   bubble_view_observation_.Observe(bubble_contents);
   bubble_tracker_.SetView(bubble_contents);
 
-  controller_ = std::make_unique<ExtensionsMenuViewController>(
-      browser_, extensions_container, bubble_contents);
-  controller_->OpenMainPage();
+  auto menu_delegate =
+      std::make_unique<ExtensionsMenuViewPlatformDelegateViews>(
+          browser_, extensions_container, bubble_contents);
+  menu_delegate_ = menu_delegate.get();
+  menu_model_ = std::make_unique<ExtensionsMenuViewModel>(
+      browser_, std::move(menu_delegate));
+
+  menu_delegate_->OpenMainPage();
 
   return bubble_delegate;
 }
@@ -99,6 +107,8 @@ ExtensionsMenuCoordinator::CreateExtensionsMenuBubbleDialogDelegate(
 void ExtensionsMenuCoordinator::OnViewIsDeleting(views::View* observed_view) {
   bubble_tracker_.SetView(nullptr);
   bubble_view_observation_.Reset();
-  // Reset the controller to keep 1:1 lifetime with the view.
-  controller_.reset();
+  // Reset the model to keep 1:1 lifetime with the view. The model owns the
+  // delegate, so it must be set to nullptr first.
+  menu_delegate_ = nullptr;
+  menu_model_.reset();
 }

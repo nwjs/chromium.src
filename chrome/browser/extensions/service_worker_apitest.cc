@@ -1970,6 +1970,65 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
   EXPECT_TRUE(finished_listener.WaitUntilSatisfied());
 }
 
+// Regression test for crbug.com/c/448034422. Other tests already test that a
+// background page is wakened via WakeEventPage, but this tests that service
+// worker based extensions wake too.
+IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
+                       WakeEventPage_WakesServiceWorkerBasedExtension) {
+  ExtensionTestMessageListener event_listener_added("ready");
+  event_listener_added.set_failure_message("ERROR");
+
+  // Note: Extension is packed to avoid reloading while loading.
+  const Extension* extension = LoadExtension(
+      PackExtension(test_data_dir_.AppendASCII(
+          "service_worker/worker_based_background/events_to_stopped_worker")),
+      // Wait for the registration to be stored so that it's persistent
+      // before the test terminates.
+      {.wait_for_registration_stored = true});
+  ASSERT_TRUE(extension);
+  EXPECT_TRUE(event_listener_added.WaitUntilSatisfied());
+  EXPECT_EQ(process_manager()->GetAllWorkersIdsForTesting().size(), 1u);
+
+  // Stop the service worker.
+  {
+    base::RunLoop run_loop;
+    content::ServiceWorkerContext* context = GetServiceWorkerContext();
+    // The service worker is registered at the root scope.
+    content::StopServiceWorkerForScope(context, extension->url(),
+                                       run_loop.QuitClosure());
+    run_loop.Run();
+  }
+  EXPECT_EQ(process_manager()->GetAllWorkersIdsForTesting().size(), 0u);
+
+  service_worker_test_utils::TestServiceWorkerContextObserver regular_observer(
+      profile(), extension->id());
+  EXPECT_TRUE(
+      process_manager()->WakeEventPage(extension->id(), base::DoNothing()));
+
+  regular_observer.WaitForWorkerStarted();
+  EXPECT_EQ(process_manager()->GetAllWorkersIdsForTesting().size(), 1u);
+}
+
+IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
+                       WakeEventPage_ReturnsFalseIfServiceWorkerAlreadyAwake) {
+  ExtensionTestMessageListener event_listener_added("ready");
+  event_listener_added.set_failure_message("ERROR");
+
+  // Note: Extension is packed to avoid reloading while loading.
+  const Extension* extension = LoadExtension(
+      PackExtension(test_data_dir_.AppendASCII(
+          "service_worker/worker_based_background/events_to_stopped_worker")),
+      // Wait for the registration to be stored so that it's persistent
+      // before the test terminates.
+      {.wait_for_registration_stored = true});
+  ASSERT_TRUE(extension);
+  EXPECT_TRUE(event_listener_added.WaitUntilSatisfied());
+  EXPECT_EQ(process_manager()->GetAllWorkersIdsForTesting().size(), 1u);
+
+  EXPECT_FALSE(
+      process_manager()->WakeEventPage(extension->id(), base::DoNothing()));
+}
+
 namespace {
 
 constexpr char kIncognitoManifest[] =
@@ -2206,6 +2265,65 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest, TabsOnUpdatedSplit) {
     EXPECT_TRUE(tabs_listener.WaitUntilSatisfied());
     EXPECT_EQ(R"(["chrome://about/"])", tabs_listener.message());
   }
+}
+
+IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
+                       UnloadSplitModeExtensionStopsWorkers) {
+  Browser* browser_incognito =
+      OpenURLOffTheRecord(profile(), GURL("about:blank"));
+  ASSERT_TRUE(browser_incognito);
+  content::BrowserContext* incognito_context = browser_incognito->profile();
+
+  const ExtensionId extension_id("iegclhlplifhodhkoafiokenjoapiobj");
+  static constexpr const char kKey[] =
+      "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjzv7dI7Ygyh67VHE1DdidudpYf8P"
+      "Ffv8iucWvzO+3xpF/Dm5xNo7aQhPNiEaNfHwJQ7lsp4gc+C+4bbaVewBFspTruoSJhZc5uEf"
+      "qxwovJwN+v1/SUFXTXQmQBv6gs0qZB4gBbl4caNQBlqrFwAMNisnu1V6UROna8rOJQ90D7Nv"
+      "7TCwoVPKBfVshpFjdDOTeBg4iLctO3S/06QYqaTDrwVceSyHkVkvzBY6tc6mnYX0RZu78J9i"
+      "L8bdqwfllOhs69cqoHHgrLdI6JdOyiuh6pBP6vxMlzSKWJ3YTNjaQTPwfOYaLMuzdl0v+Ydz"
+      "afIzV9zwe4Xiskk+5JNGt8b2rQIDAQAB";
+
+  service_worker_test_utils::TestServiceWorkerContextObserver regular_observer(
+      profile(), extension_id);
+  service_worker_test_utils::TestServiceWorkerContextObserver
+      incognito_observer(incognito_context, extension_id);
+
+  TestExtensionDir test_dir;
+  test_dir.WriteManifest(base::StringPrintf(
+      R"({
+           "name": "Incognito Test Extension",
+           "version": "0.1",
+           "key": "%s",
+           "manifest_version": 3,
+           "background": {"service_worker": "worker.js"},
+           "incognito": "split"
+         })",
+      kKey));
+  test_dir.WriteFile(FILE_PATH_LITERAL("worker.js"),
+                     R"(// Intentionally left blank.)");
+
+  const Extension* extension =
+      LoadExtension(test_dir.UnpackedPath(), {.allow_in_incognito = true});
+  ASSERT_TRUE(extension);
+  regular_observer.WaitForWorkerStarted();
+  incognito_observer.WaitForWorkerStarted();
+
+  std::vector<WorkerId> regular_workers =
+      ProcessManager::Get(profile())->GetAllWorkersIdsForTesting();
+  std::vector<WorkerId> incognito_workers =
+      ProcessManager::Get(incognito_context)->GetAllWorkersIdsForTesting();
+  EXPECT_EQ(regular_workers.size(), 1ul);
+  EXPECT_EQ(incognito_workers.size(), 1ul);
+
+  // Ensure unloading the extension stops both workers.
+  UnloadExtension(extension_id);
+
+  regular_workers =
+      ProcessManager::Get(profile())->GetAllWorkersIdsForTesting();
+  incognito_workers =
+      ProcessManager::Get(incognito_context)->GetAllWorkersIdsForTesting();
+  EXPECT_EQ(regular_workers.size(), 0ul);
+  EXPECT_EQ(incognito_workers.size(), 0ul);
 }
 
 // Test extension with OnInstalled listener can be successfully updated when,

@@ -4,10 +4,13 @@
 
 #include "chrome/browser/ui/promos/ios_promos_utils.h"
 
+#include "base/json/values_util.h"
+#include "base/time/time.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/promos/promos_utils.h"
 #include "chrome/browser/segmentation_platform/segmentation_platform_service_factory.h"
+#include "chrome/browser/sync/prefs/cross_device_pref_tracker/cross_device_pref_tracker_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
@@ -17,56 +20,87 @@
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
 #include "chrome/browser/ui/views/promos/ios_promo_bubble.h"
+#include "chrome/browser/ui/views/side_panel/side_panel.h"
+#include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/segmentation_platform/embedder/default_model/device_switcher_model.h"
 #include "components/segmentation_platform/public/constants.h"
 #include "components/segmentation_platform/public/segmentation_platform_service.h"
 #include "components/sync/service/sync_service.h"
+#include "components/sync_preferences/cross_device_pref_tracker/cross_device_pref_tracker.h"
+#include "components/sync_preferences/cross_device_pref_tracker/prefs/cross_device_pref_names.h"
+#include "components/sync_preferences/cross_device_pref_tracker/timestamped_pref_value.h"
+
+using sync_preferences::CrossDevicePrefTracker;
+using sync_preferences::TimestampedPrefValue;
 
 namespace {
+
+// The time period over which the user has to have been active for at least 16
+// days in order to be considered active on iOS.
+const base::TimeDelta kActiveUserRecency = base::Days(28);
+
+// Returns true if `time` is less time ago than `delta`.
+bool IsRecent(base::Time time, base::TimeDelta delta) {
+  return base::Time::Now() - time < delta;
+}
 
 // ShowIOSDesktopPromoBubble shows the iOS Desktop Promo Bubble based on the
 // given promo type.
 void ShowIOSDesktopPromoBubble(IOSPromoType promo_type,
                                IOSPromoBubbleType bubble_type,
                                Profile* profile,
-                               ToolbarButtonProvider* toolbar_button_provider) {
+                               BrowserView* browser_view) {
+  ToolbarButtonProvider* toolbar_button_provider =
+      browser_view->toolbar_button_provider();
   switch (promo_type) {
     case IOSPromoType::kPassword:
       IOSPromoBubble::ShowPromoBubble(
-          toolbar_button_provider->GetAnchorView(
-              kActionShowPasswordsBubbleOrPage),
+          {toolbar_button_provider->GetAnchorView(
+              kActionShowPasswordsBubbleOrPage)},
           toolbar_button_provider->GetPageActionView(
               kActionShowPasswordsBubbleOrPage),
           profile, IOSPromoType::kPassword, bubble_type);
       break;
     case IOSPromoType::kAddress: {
-      views::Button* highlighted_button =
-          IsPageActionMigrated(PageActionIconType::kAutofillAddress)
-              ? nullptr
-              : toolbar_button_provider->GetPageActionIconView(
-                    PageActionIconType::kAutofillAddress);
-
-      IOSPromoBubble::ShowPromoBubble(toolbar_button_provider->GetAnchorView(
-                                          kActionShowAddressesBubbleOrPage),
-                                      highlighted_button, profile,
-                                      IOSPromoType::kAddress, bubble_type);
+      IOSPromoBubble::ShowPromoBubble(
+          {toolbar_button_provider->GetAnchorView(
+              kActionShowAddressesBubbleOrPage)},
+          toolbar_button_provider->GetPageActionView(
+              kActionShowAddressesBubbleOrPage),
+          profile, IOSPromoType::kAddress, bubble_type);
       break;
     }
     case IOSPromoType::kPayment:
       IOSPromoBubble::ShowPromoBubble(
-          toolbar_button_provider->GetAnchorView(
-              kActionShowPaymentsBubbleOrPage),
+          {toolbar_button_provider->GetAnchorView(
+              kActionShowPaymentsBubbleOrPage)},
           toolbar_button_provider->GetPageActionIconView(
               PageActionIconType::kSaveCard),
           profile, IOSPromoType::kPayment, bubble_type);
       break;
     case IOSPromoType::kEnhancedBrowsing:
-      // TODO(crbug.com/438769954): Create and show promo bubble.
+      IOSPromoBubble::ShowPromoBubble(
+          {browser_view->toolbar()->app_menu_button()},
+          /*highlighted_button=*/nullptr, profile,
+          IOSPromoType::kEnhancedBrowsing, bubble_type);
       break;
-    case IOSPromoType::kLens:
-      // TODO(crbug.com/438769954): Create and show promo bubble.
+    case IOSPromoType::kLens: {
+      SidePanel* side_panel = browser_view->contents_height_side_panel();
+      IOSPromoBubble::Anchor anchor = {side_panel};
+      if (side_panel) {
+        anchor.arrow = side_panel->IsRightAligned()
+                           ? views::BubbleBorder::LEFT_CENTER
+                           : views::BubbleBorder::RIGHT_CENTER;
+      } else {
+        anchor.view = browser_view->toolbar()->app_menu_button();
+      }
+      IOSPromoBubble::ShowPromoBubble(anchor,
+                                      /*highlighted_button=*/nullptr, profile,
+                                      IOSPromoType::kLens, bubble_type);
       break;
+    }
   }
 }
 
@@ -103,7 +137,7 @@ void OnIOSPromoClassificationResult(
     promos_utils::IOSDesktopPromoShown(browser->profile(), promo_type);
     ShowIOSDesktopPromoBubble(
         promo_type, bubble_type, browser->profile(),
-        browser->GetBrowserView().toolbar_button_provider());
+        BrowserView::GetBrowserViewForBrowser(browser.get()));
     return;
   }
 
@@ -169,6 +203,22 @@ void MaybeOverrideCardConfirmationBubbleWithIOSPaymentPromo(
       IOSPromoType::kPayment, IOSPromoBubbleType::kQRCode, browser,
       std::move(promo_will_be_shown_callback),
       std::move(promo_not_shown_callback));
+}
+
+bool IsUserActiveOnIOS(Profile* profile) {
+  CrossDevicePrefTracker* pref_tracker =
+      CrossDevicePrefTrackerFactory::GetForProfile(profile);
+  CHECK(pref_tracker);
+  std::vector<TimestampedPrefValue> values = pref_tracker->GetValues(
+      prefs::kCrossDeviceCrossPlatformPromosIOS16thActiveDay,
+      /*filter=*/{syncer::DeviceInfo::OsType::kIOS});
+  for (const TimestampedPrefValue& value : values) {
+    std::optional<base::Time> date = base::ValueToTime(value.value);
+    if (date.has_value() && IsRecent(date.value(), kActiveUserRecency)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace ios_promos_utils

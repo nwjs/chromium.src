@@ -69,6 +69,8 @@ import org.chromium.components.prefs.PrefChangeRegistrar;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.search_engines.TemplateUrlService.TemplateUrlServiceObserver;
+import org.chromium.components.signin.SigninFeatureMap;
+import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.identitymanager.PrimaryAccountChangeEvent;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
@@ -195,7 +197,8 @@ public class FeedSurfaceMediator
 
     /**
      * Wrapper class on top of {@link SigninPromoCoordinator} to also account for suggestions
-     * available signal.
+     * available signal. TODO(crbug.com/448227402): remove this class once Seamless Sign-in is
+     * launched.
      */
     private class FeedSigninPromo {
         private final SigninPromoCoordinator mSigninPromoCoordinator;
@@ -693,7 +696,7 @@ public class FeedSurfaceMediator
                                         listener.onScrolled(dx, dy);
                                     }
                                     // Null if the stream has not been binded yet.
-                                    if (GestureNavigationUtils.areBackForwardTransitionsEnabled()
+                                    if (GestureNavigationUtils.shouldAnimateBackForwardTransitions()
                                             && mCoordinator.getHybridListRenderer() != null
                                             && mCoordinator
                                                             .getHybridListRenderer()
@@ -960,6 +963,7 @@ public class FeedSurfaceMediator
 
     /**
      * Notifies a bound stream of new header count number.
+     *
      * @param newHeaderCount Number of headers in the {@link RecyclerView}.
      */
     void notifyHeadersChanged(int newHeaderCount) {
@@ -986,8 +990,11 @@ public class FeedSurfaceMediator
      * @return Whether the SignPromo should be visible.
      */
     private boolean shouldShowSigninPromo() {
+        if (SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)) {
+            return false;
+        }
         // TODO(crbug.com/352735671): Move SignInPromo.shouldCreatePromo inside FeedSigninPromo
-        //  after phase 2 follow-up launch.
+        //  after phase 2 follow-up launch.§
         boolean shouldCreatePromo = SignInPromo.shouldCreatePromo();
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.UNO_PHASE_2_FOLLOW_UP)) {
             if (!shouldCreatePromo) {
@@ -1328,8 +1335,8 @@ public class FeedSurfaceMediator
     }
 
     /**
-     * @return Whether the touch events are enabled.
-     * TODO(huayinz): Move this method to a Model once a Model is introduced.
+     * @return Whether the touch events are enabled. TODO(huayinz): Move this method to a Model once
+     *     a Model is introduced.
      */
     boolean getTouchEnabled() {
         return mTouchEnabled;
@@ -1419,6 +1426,7 @@ public class FeedSurfaceMediator
 
     /**
      * Scrolls the page to show the view at the given {@code viewPosition} if not already visible.
+     *
      * @param viewPosition The position of the view that should be visible or scrolled to.
      */
     void scrollToViewIfNecessary(int viewPosition) {
@@ -1441,7 +1449,7 @@ public class FeedSurfaceMediator
     }
 
     @Override
-    public void onItemSelected(PropertyModel item) {
+    public void onItemSelected(PropertyModel item, View view) {
         assert mSectionHeaderModel != null;
         int itemId = item.get(ListMenuItemProperties.MENU_ITEM_ID);
         int feedType =

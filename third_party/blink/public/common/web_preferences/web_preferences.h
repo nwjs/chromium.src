@@ -441,27 +441,27 @@ struct BLINK_COMMON_EXPORT WebPreferences {
   bool modal_context_menu = true;
 
   // Whether the safe-area-insets should be changed dynamically based on
-  // browser controls shown ratio. This value is used in web settings only
-  // when feature DynamicSafeAreaInsets is enabled.
+  // browser controls shown ratio on Android.
   bool dynamic_safe_area_insets_enabled = false;
 
   // Whether PaymentRequest is enabled. Controlled by WebView settings on
   // WebView and by `kWebPayments` feature flag everywhere.
   bool payment_request_enabled = false;
 
-  // Whether API-specific interventions aimed at reducing the efficacy of
-  // fingerprinting are enabled.
-  bool api_based_fingerprinting_interventions_enabled = false;
-
   // Whether fingerprinting protection based on page content is enabled.
   bool content_based_fingerprinting_protection_enabled = false;
 
   bool ai_prompt_api_enabled = false;
 
+#if BUILDFLAG(IS_MAC)
+  bool should_disable_external_popups = false;
+#endif  // BUILDFLAG(IS_MAC)
+
 #if BUILDFLAG(IS_ANDROID)
-  // Whether every traversable mainframe same-doc navigation will increment the
-  // `viz::LocalSurfaceId` from the impl thread.
-  bool increment_local_surface_id_for_mainframe_same_doc_navigation = true;
+  // Whether a screenshot will be take for every traversable mainframe same-doc
+  // navigation. This will increment the `viz::LocalSurfaceId` from the impl
+  // thread as a side-effect.
+  bool should_screenshot_on_mainframe_same_doc_navigation = true;
 #endif  // BUILDFLAG(IS_ANDROID)
 
   // We try to keep the default values the same as the default values in

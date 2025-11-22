@@ -10,10 +10,10 @@
 #include "base/memory/weak_ptr.h"
 #include "base/types/pass_key.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
+#include "components/optimization_guide/core/model_execution/on_device_capability.h"
 #include "components/optimization_guide/core/model_execution/on_device_context.h"
 #include "components/optimization_guide/core/model_execution/safety_checker.h"
 #include "components/optimization_guide/core/model_execution/session_impl.h"
-#include "components/optimization_guide/core/optimization_guide_model_executor.h"
 #include "components/optimization_guide/proto/on_device_model_execution_config.pb.h"
 #include "components/optimization_guide/proto/text_safety_model_metadata.pb.h"
 #include "components/optimization_guide/public/mojom/model_broker.mojom-shared.h"
@@ -25,25 +25,16 @@ namespace optimization_guide {
 
 namespace {
 
-std::unique_ptr<OptimizationGuideModelExecutor::Session>
-CreateSessionWithParams(const CreateSessionArgs& args,
-                        const std::optional<SessionConfigParams>& config_params,
-                        base::WeakPtr<ModelClient> client) {
+std::unique_ptr<OnDeviceSession> CreateSessionWithParams(
+    const SessionConfigParams& config_params,
+    base::WeakPtr<ModelClient> client) {
   if (!client) {
     return nullptr;
   }
-  return client->CreateSession(args, config_params);
+  return client->CreateSession(config_params);
 }
 
 }  // namespace
-
-CreateSessionArgs::CreateSessionArgs(
-    base::WeakPtr<OptimizationGuideLogger> logger,
-    ExecuteRemoteFn remote_fn)
-    : logger_(std::move(logger)), remote_fn_(std::move(remote_fn)) {}
-CreateSessionArgs::~CreateSessionArgs() = default;
-
-CreateSessionArgs::CreateSessionArgs(const CreateSessionArgs&) = default;
 
 class ModelClient::OnDeviceOptionsClient final
     : public OnDeviceOptions::Client {
@@ -97,10 +88,8 @@ void ModelClient::StartSession(
   remote_->CreateTextSafetySession(std::move(session));
 }
 
-std::unique_ptr<OptimizationGuideModelExecutor::Session>
-ModelClient::CreateSession(
-    const CreateSessionArgs& args,
-    const std::optional<SessionConfigParams>& config_params) {
+std::unique_ptr<OnDeviceSession> ModelClient::CreateSession(
+    const SessionConfigParams& config_params) {
   OnDeviceOptions opts;
   opts.model_client = std::make_unique<ModelClient::OnDeviceOptionsClient>(
       weak_ptr_factory_.GetWeakPtr());
@@ -109,58 +98,40 @@ ModelClient::CreateSession(
   opts.safety_checker = std::make_unique<SafetyChecker>(
       weak_ptr_factory_.GetWeakPtr(), SafetyConfig(safety_config_));
   opts.token_limits = feature_adapter_->GetTokenLimits();
-
-  opts.logger = args.logger_;
-
-  ExecuteRemoteFn execute_fn = args.remote_fn_;
-  if (config_params) {
-    opts.capabilities = config_params->capabilities;
-    if (config_params->sampling_params) {
-      opts.sampling_params = *config_params->sampling_params;
-    }
-    if (config_params->execution_mode ==
-        SessionConfigParams::ExecutionMode::kOnDeviceOnly) {
-      execute_fn = CreateNoOpExecuteRemoteFn();
-    }
+  opts.session_params = config_params;
+  if (!opts.session_params.sampling_params) {
+    opts.session_params.sampling_params =
+        feature_adapter_->GetDefaultSamplingParams();
   }
-
-  return std::make_unique<SessionImpl>(key_, std::move(opts), execute_fn,
-                                       std::nullopt);
+  return std::make_unique<SessionImpl>(key_, std::move(opts));
 }
 
 void ModelClient::OnDisconnect() {
   weak_ptr_factory_.InvalidateWeakPtrs();
 }
 
-ModelSubscriber::ModelSubscriber(
-    mojo::PendingReceiver<mojom::ModelSubscriber> pending)
-    : receiver_(this, std::move(pending)) {
-  receiver_.set_disconnect_handler(
-      base::BindOnce(&ModelSubscriber::Unavailable, base::Unretained(this),
-                     mojom::ModelUnavailableReason::kNotSupported));
-}
-ModelSubscriber::~ModelSubscriber() = default;
+ModelSubscriberImpl::ModelSubscriberImpl() = default;
+ModelSubscriberImpl::~ModelSubscriberImpl() = default;
 
-void ModelSubscriber::CreateSession(
-    const CreateSessionArgs& args,
-    const std::optional<SessionConfigParams>& config_params,
+void ModelSubscriberImpl::CreateSession(
+    const SessionConfigParams& config_params,
     CreateSessionCallback callback) {
-  WaitForClient(base::BindOnce(&CreateSessionWithParams, args, config_params)
+  WaitForClient(base::BindOnce(&CreateSessionWithParams, config_params)
                     .Then(std::move(callback)));
 }
 
-void ModelSubscriber::WaitForClient(ClientCallback callback) {
+void ModelSubscriberImpl::WaitForClient(ClientCallback callback) {
   callbacks_.emplace_back(std::move(callback));
   FlushCallbacks();
 }
 
-void ModelSubscriber::Unavailable(mojom::ModelUnavailableReason reason) {
+void ModelSubscriberImpl::Unavailable(mojom::ModelUnavailableReason reason) {
   unavailable_reason_ = reason;
   client_.reset();
   FlushCallbacks();
 }
 
-void ModelSubscriber::Available(
+void ModelSubscriberImpl::Available(
     mojom::ModelSolutionConfigPtr config,
     mojo::PendingRemote<mojom::ModelSolution> remote) {
   unavailable_reason_ = std::nullopt;
@@ -168,7 +139,7 @@ void ModelSubscriber::Available(
   FlushCallbacks();
 }
 
-void ModelSubscriber::FlushCallbacks() {
+void ModelSubscriberImpl::FlushCallbacks() {
   if (client_) {
     std::vector to_call(std::move(callbacks_));
     callbacks_.clear();
@@ -187,10 +158,21 @@ void ModelSubscriber::FlushCallbacks() {
   }
 }
 
+ModelSubscriber::ModelSubscriber(
+    mojo::PendingReceiver<mojom::ModelSubscriber> pending)
+    : receiver_(this, std::move(pending)) {
+  receiver_.set_disconnect_handler(
+      base::BindOnce(&ModelSubscriber::OnDisconnect, base::Unretained(this)));
+}
+ModelSubscriber::~ModelSubscriber() = default;
+
+void ModelSubscriber::OnDisconnect() {
+  Unavailable(mojom::ModelUnavailableReason::kNotSupported);
+}
+
 ModelBrokerClient::ModelBrokerClient(
-    mojo::PendingRemote<mojom::ModelBroker> remote,
-    CreateSessionArgs args)
-    : remote_(std::move(remote)), args_(std::move(args)) {}
+    mojo::PendingRemote<mojom::ModelBroker> remote)
+    : remote_(std::move(remote)) {}
 ModelBrokerClient::~ModelBrokerClient() = default;
 
 ModelSubscriber& ModelBrokerClient::GetSubscriber(
@@ -210,11 +192,10 @@ bool ModelBrokerClient::HasSubscriber(mojom::ModelBasedCapabilityKey key) {
   return subscribers_.contains(key);
 }
 
-void ModelBrokerClient::CreateSession(
-    mojom::ModelBasedCapabilityKey key,
-    const std::optional<SessionConfigParams>& config_params,
-    CreateSessionCallback callback) {
-  GetSubscriber(key).CreateSession(args_, std::move(config_params),
+void ModelBrokerClient::CreateSession(mojom::ModelBasedCapabilityKey key,
+                                      const SessionConfigParams& config_params,
+                                      CreateSessionCallback callback) {
+  GetSubscriber(key).CreateSession(std::move(config_params),
                                    std::move(callback));
 }
 

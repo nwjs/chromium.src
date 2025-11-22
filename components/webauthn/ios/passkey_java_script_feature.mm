@@ -35,10 +35,13 @@ PasskeyJavaScriptFeature::PasskeyJavaScriptFeature()
               // (https://w3c.github.io/webauthn/#sctn-permissions-policy).
               FeatureScript::TargetFrames::kAllFrames,
               FeatureScript::ReinjectionBehavior::kInjectOncePerWindow)},
-          {web::java_script_features::GetCommonJavaScriptFeature(),
-           web::java_script_features::GetMessageJavaScriptFeature()}) {}
+          {web::java_script_features::GetCommonJavaScriptFeature()}) {}
 
 PasskeyJavaScriptFeature::~PasskeyJavaScriptFeature() = default;
+
+void PasskeyJavaScriptFeature::SetAllowModalLogin(bool allow_modal_login) {
+  // TODO(crbug.com/385174410): Allow modal login when desired.
+}
 
 std::optional<std::string>
 PasskeyJavaScriptFeature::GetScriptMessageHandlerName() const {

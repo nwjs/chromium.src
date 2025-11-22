@@ -79,6 +79,7 @@
 #include "remoting/protocol/display_size.h"
 #include "remoting/protocol/errors.h"
 #include "remoting/protocol/input_event_timestamps.h"
+#include "remoting/protocol/input_event_tracker.h"
 #include "remoting/protocol/keyboard_layout_stub.h"
 #include "remoting/protocol/message_pipe.h"
 #include "remoting/protocol/network_settings.h"
@@ -119,12 +120,18 @@ ClientSession::ClientSession(
     : event_handler_(event_handler),
       desktop_environment_factory_(desktop_environment_factory),
       desktop_environment_options_(desktop_environment_options),
-      remote_input_filter_(&input_tracker_),
-      fractional_input_filter_(&remote_input_filter_),
+      desktop_and_cursor_composer_notifier_(&input_tracker_, this),
+      remote_input_filter_(
+          &desktop_and_cursor_composer_notifier_,
+          // Unretained() is safe because `remote_input_filter_` will be
+          // destroyed before `input_tracker_`, after which the callback will no
+          // longer be called.
+          base::BindRepeating(&protocol::InputEventTracker::ReleaseAll,
+                              base::Unretained(&input_tracker_))),
+      fractional_input_filter_(&remote_input_filter_, &coordinate_converter_),
       mouse_clamping_filter_(&fractional_input_filter_),
       observing_input_filter_(&mouse_clamping_filter_),
-      desktop_and_cursor_composer_notifier_(&observing_input_filter_, this),
-      disable_input_filter_(&desktop_and_cursor_composer_notifier_),
+      disable_input_filter_(&observing_input_filter_),
       host_clipboard_filter_(clipboard_echo_filter_.host_filter()),
       client_clipboard_filter_(clipboard_echo_filter_.client_filter()),
       client_clipboard_factory_(&client_clipboard_filter_),
@@ -490,7 +497,7 @@ void ClientSession::SelectDesktopDisplay(
   if (oldGeo != nullptr && newGeo != nullptr) {
     if (oldGeo->width == newGeo->width && oldGeo->height == newGeo->height) {
       UpdateMouseClampingFilterOffset();
-      UpdateFractionalFilterFallback();
+      UpdateCoordinateConverterFallback();
     }
   }
 #else
@@ -680,7 +687,7 @@ void ClientSession::CreatePerMonitorVideoStreams() {
 
   // Undo any previously-set fallback. When there are multiple streams, all
   // fractional coordinates must specify a screen_id.
-  fractional_input_filter_.set_fallback_geometry({});
+  coordinate_converter_.set_fallback_geometry({});
 
   // Create new streams for any monitors that don't already have streams.
   for (int i = 0; i < desktop_display_info_.NumDisplays(); i++) {
@@ -1173,7 +1180,7 @@ void ClientSession::OnVideoSizeChanged(protocol::VideoStream* video_stream,
   webrtc_capture_size_ = size;
 
   SetMouseClampingFilter(size);
-  UpdateFractionalFilterFallback();
+  UpdateCoordinateConverterFallback();
 
   // Record default DPI in case a display reports 0 for DPI.
   default_x_dpi_ = dpi.x();
@@ -1389,9 +1396,10 @@ void ClientSession::OnDesktopDisplayChanged(
     }
   }
 
-  // We need to update the input filters whenever the displays change.
-  fractional_input_filter_.set_video_layout(*displays);
-  UpdateFractionalFilterFallback();
+  // We need to update the coordinate converter and input filters whenever the
+  // displays change.
+  coordinate_converter_.set_video_layout(*displays);
+  UpdateCoordinateConverterFallback();
   DisplaySize display_size =
       DisplaySize::FromPixels(size.width(), size.height(), default_x_dpi_);
   SetMouseClampingFilter(display_size);
@@ -1566,7 +1574,7 @@ void ClientSession::OnActiveDisplayChanged(webrtc::ScreenId display) {
   connection_->client_stub()->SetActiveDisplay(active_display);
 }
 
-void ClientSession::UpdateFractionalFilterFallback() {
+void ClientSession::UpdateCoordinateConverterFallback() {
   if (!IsValidDisplayIndex(selected_display_index_)) {
     return;
   }
@@ -1604,7 +1612,7 @@ void ClientSession::UpdateFractionalFilterFallback() {
   // implemented in DesktopDisplayInfo::CalcDisplayOffset().
   webrtc::DesktopVector offset =
       desktop_display_info_.CalcDisplayOffset(selected_display_index_);
-  fractional_input_filter_.set_fallback_geometry(
+  coordinate_converter_.set_fallback_geometry(
       webrtc::DesktopRect::MakeOriginSize(offset, new_size));
 }
 

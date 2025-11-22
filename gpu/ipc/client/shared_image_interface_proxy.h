@@ -84,11 +84,14 @@ class SharedImageInterfaceProxy {
   void UpdateSharedImage(const SyncToken& sync_token,
                          scoped_refptr<gfx::D3DSharedFence> d3d_shared_fence,
                          const Mailbox& mailbox);
+#endif  // BUILDFLAG(IS_WIN)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
   void CopyNativeGmbToSharedMemoryAsync(
       gfx::GpuMemoryBufferHandle buffer_handle,
       base::UnsafeSharedMemoryRegion memory_region,
       base::OnceCallback<void(bool)> callback);
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
 
   void UpdateSharedImage(const SyncToken& sync_token, const Mailbox& mailbox);
   void UpdateSharedImage(const SyncToken& sync_token,
@@ -102,6 +105,8 @@ class SharedImageInterfaceProxy {
   SyncToken GenVerifiedSyncToken();
   SyncToken GenUnverifiedSyncToken();
   void VerifySyncToken(SyncToken& sync_token);
+  bool CanVerifySyncToken(const gpu::SyncToken& sync_token);
+  void VerifyFlush();
   void WaitSyncToken(const SyncToken& sync_token);
 
   SwapChainMailboxes CreateSwapChain(viz::SharedImageFormat format,

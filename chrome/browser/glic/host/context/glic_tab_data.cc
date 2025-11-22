@@ -16,6 +16,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/common/chrome_features.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/favicon/core/favicon_driver_observer.h"
@@ -237,10 +238,6 @@ int GetTabId(content::WebContents* web_contents) {
   }
 }
 
-int GetWindowId(BrowserWindowInterface& browser) {
-  return browser.GetSessionID().id();
-}
-
 const GURL& GetTabUrl(content::WebContents* web_contents) {
   return web_contents->GetLastCommittedURL();
 }
@@ -266,18 +263,35 @@ glic::mojom::TabDataPtr CreateTabData(content::WebContents* web_contents) {
     }
   }
 
+  tabs::TabInterface* tab =
+      tabs::TabInterface::MaybeGetFromContents(web_contents);
+
   // TODO(b/426644734): investigate triggering updates due to changes to
   // observability for focused tab data.
   bool is_audible = web_contents->IsCurrentlyAudible();
   bool is_tab_content_captured = web_contents->IsBeingCaptured();
   bool is_foreground = IsForeground(web_contents->GetVisibility());
   bool is_observable = is_audible || is_foreground;
+  bool is_active_in_window = false;
+  bool is_window_active = false;
+  if (base::FeatureList::IsEnabled(features::kGlicGetTabByIdApi)) {
+    is_active_in_window = tab && tab->IsActivated();
+    // This code may be reached during the dragging of the tab out into a new
+    // window. In that case the BrowserWindowInterface would be null, but we
+    // cannot call GetBrowserWindowInterface to check for null. So we resort to
+    // null checking the underlying tab strip.
+    // TODO(crbug.com/456445100): Determine a better way to safely call this.
+    is_window_active = tab &&
+                       static_cast<tabs::TabModel*>(tab)->owning_model() &&
+                       tab->GetBrowserWindowInterface()->IsActive();
+  }
   return glic::mojom::TabData::New(
       GetTabId(web_contents),
       sessions::SessionTabHelper::IdForWindowContainingTab(web_contents).id(),
       GetTabUrl(web_contents), base::UTF16ToUTF8(web_contents->GetTitle()),
       favicon, favicon_url, web_contents->GetContentsMimeType(), is_observable,
-      is_audible, is_tab_content_captured);
+      is_audible, is_tab_content_captured, is_active_in_window,
+      is_window_active);
 }
 
 // CreateFocusedTabData Implementation:

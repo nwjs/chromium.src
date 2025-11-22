@@ -7,7 +7,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
-#include "chrome/browser/extensions/install_verifier.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -23,6 +22,7 @@
 #include "components/themes/ntp_background_data.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/url_loader_interceptor.h"
+#include "extensions/browser/install_verifier.h"
 #include "extensions/test/test_extension_dir.h"
 
 namespace {
@@ -123,7 +123,7 @@ class CustomizeChromeInteractiveTest
     return std::make_unique<content::URLLoaderInterceptor>(
         base::BindLambdaForTesting(
             [&](content::URLLoaderInterceptor::RequestParams* params) -> bool {
-              if (params->url_request.url.path() ==
+              if (params->url_request.url.GetPath() ==
                   "/cast/chromecast/home/wallpaper/collections") {
                 std::string headers =
                     "HTTP/1.1 200 OK\nContent-Type: application/json\n\n";
@@ -140,7 +140,7 @@ class CustomizeChromeInteractiveTest
                     headers, response_string, params->client.get(),
                     std::optional<net::SSLInfo>());
                 return true;
-              } else if (params->url_request.url.path() ==
+              } else if (params->url_request.url.GetPath() ==
                          "/cast/chromecast/home/wallpaper/collection-images") {
                 std::string headers =
                     "HTTP/1.1 200 OK\nContent-Type: application/json\n\n";

@@ -17,6 +17,7 @@
 #import "ios/chrome/browser/toolbar/ui_bundled/buttons/toolbar_configuration.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/buttons/toolbar_tab_grid_button.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/buttons/toolbar_tab_group_state.h"
+#import "ios/chrome/browser/toolbar/ui_bundled/public/omnibox_position_util.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/public/toolbar_constants.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/public/toolbar_utils.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/tab_groups/ui/tab_group_indicator_constants.h"
@@ -30,6 +31,8 @@
 namespace {
 // Extra vertical spacing when the banner promo is active.
 const CGFloat kBannerPromoVerticalSpacing = 8;
+// The padding required for the X shaped cancel icon.
+const CGFloat kPaddingForXCircleCancelIcon = 20;
 }  // namespace
 
 @interface PrimaryToolbarView () <TabGroupIndicatorViewDelegate>
@@ -147,6 +150,9 @@ const CGFloat kBannerPromoVerticalSpacing = 8;
   // Constraints for the banner promo and related views when the promo is
   // enabled but hidden.
   NSArray<NSLayoutConstraint*>* _bannerPromoHiddenConstraints;
+
+  // The cancel button specific constraints.
+  NSMutableArray<NSLayoutConstraint*>* _cancelButtonConstraints;
 }
 
 @synthesize fakeOmniboxTarget = _fakeOmniboxTarget;
@@ -174,6 +180,7 @@ const CGFloat kBannerPromoVerticalSpacing = 8;
 @synthesize contractedConstraints = _contractedConstraints;
 @synthesize contractedNoMarginConstraints = _contractedNoMarginConstraints;
 @synthesize contentView = _contentView;
+@synthesize locationBarHeight = _locationBarHeight;
 
 #pragma mark - Public
 
@@ -186,7 +193,7 @@ const CGFloat kBannerPromoVerticalSpacing = 8;
 }
 
 - (void)setUp {
-  if (self.subviews.count > 0) {
+  if ([self initialSetUpExecuted]) {
     // Setup the view only once.
     return;
   }
@@ -209,6 +216,10 @@ const CGFloat kBannerPromoVerticalSpacing = 8;
       registerForTraitChanges:
           @[ UITraitVerticalSizeClass.class, UITraitHorizontalSizeClass.class ]
                    withAction:@selector(updateViews:previousTraitCollection:)];
+}
+
+- (BOOL)initialSetUpExecuted {
+  return self.subviews.count > 0;
 }
 
 - (void)setHidden:(BOOL)hidden {
@@ -317,7 +328,55 @@ const CGFloat kBannerPromoVerticalSpacing = 8;
   return _bannerPromo.intrinsicContentSize.height * progress;
 }
 
+- (void)setLocationBarHeight:(CGFloat)locationBarHeight {
+  /// Location bar height is only handled by this property in multiline omnibox.
+  CHECK(IsMultilineBrowserOmniboxEnabled(), base::NotFatalUntil::M200);
+  if (locationBarHeight == _locationBarHeight) {
+    return;
+  }
+  _locationBarHeight = locationBarHeight;
+  self.locationBarContainerHeight.constant = locationBarHeight;
+  [self invalidateIntrinsicContentSize];
+}
+
+- (void)setCancelButtonStyle:(ToolbarCancelButtonStyle)cancelButtonStyle {
+  if (cancelButtonStyle == _cancelButtonStyle) {
+    return;
+  }
+  _cancelButtonStyle = cancelButtonStyle;
+
+  if ([self initialSetUpExecuted]) {
+    [self setUpCancelButton];
+    [self setupCancelButtonConstraints];
+    [self setNeedsUpdateConstraints];
+  }
+}
+
+- (void)setExpanded:(BOOL)expanded {
+  _expanded = expanded;
+  [self setNeedsUpdateConstraints];
+}
+
 #pragma mark - Properties
+
+- (void)updateConstraints {
+  [NSLayoutConstraint deactivateConstraints:self.contractedConstraints];
+  [NSLayoutConstraint deactivateConstraints:self.contractedNoMarginConstraints];
+  [NSLayoutConstraint deactivateConstraints:self.expandedConstraints];
+
+  if (_expanded) {
+    [NSLayoutConstraint activateConstraints:self.expandedConstraints];
+  } else {
+    if (_splitToolbarMode) {
+      [NSLayoutConstraint
+          activateConstraints:self.contractedNoMarginConstraints];
+    } else {
+      [NSLayoutConstraint activateConstraints:self.contractedConstraints];
+    }
+  }
+
+  [super updateConstraints];
+}
 
 - (void)setMatchNTPHeight:(BOOL)matchNTPHeight {
   if (_matchNTPHeight == matchNTPHeight) {
@@ -358,10 +417,16 @@ const CGFloat kBannerPromoVerticalSpacing = 8;
 
   BOOL isTopOmnibox = self.locationBarView != nil;
   if (isTopOmnibox) {
-    height += self.matchNTPHeight
-                  ? content_suggestions::FakeToolbarHeight()
-                  : ToolbarExpandedHeight(
-                        self.traitCollection.preferredContentSizeCategory);
+    if (self.matchNTPHeight) {
+      height += content_suggestions::FakeToolbarHeight();
+    } else if (IsMultilineBrowserOmniboxEnabled()) {
+      height += self.locationBarHeight +
+                LocationBarVerticalMargins(
+                    self.traitCollection.preferredContentSizeCategory);
+    } else {
+      height += ToolbarExpandedHeight(
+          self.traitCollection.preferredContentSizeCategory);
+    }
   }
 
   if (IsDefaultBrowserBannerPromoEnabled() && _bannerPromoDisplayed) {
@@ -401,9 +466,19 @@ const CGFloat kBannerPromoVerticalSpacing = 8;
   self.contentView = self;
 }
 
+- (CGFloat)paddingForCancelButton {
+  if (self.cancelButtonStyle == ToolbarCancelButtonStyle::kXCircle) {
+    return kPaddingForXCircleCancelIcon;
+  }
+
+  return 0;
+}
+
 // Sets the cancel button to stop editing the location bar.
 - (void)setUpCancelButton {
-  self.cancelButton = [self.buttonFactory cancelButton];
+  [self.cancelButton removeFromSuperview];
+  self.cancelButton =
+      [self.buttonFactory cancelButtonWithStyle:self.cancelButtonStyle];
   self.cancelButton.translatesAutoresizingMaskIntoConstraints = NO;
   [self addSubview:self.cancelButton];
 }
@@ -520,6 +595,7 @@ const CGFloat kBannerPromoVerticalSpacing = 8;
   self.expandedConstraints = [NSMutableArray array];
   self.contractedConstraints = [NSMutableArray array];
   self.contractedNoMarginConstraints = [NSMutableArray array];
+  _cancelButtonConstraints = [NSMutableArray array];
 
   // Separator constraints.
   [NSLayoutConstraint activateConstraints:@[
@@ -579,8 +655,6 @@ const CGFloat kBannerPromoVerticalSpacing = 8;
   ]];
 
   [self.expandedConstraints addObjectsFromArray:@[
-    [self.locationBarContainer.trailingAnchor
-        constraintEqualToAnchor:self.cancelButton.leadingAnchor],
     [self.locationBarContainer.leadingAnchor
         constraintEqualToAnchor:safeArea.leadingAnchor
                        constant:kExpandedLocationBarHorizontalMargin]
@@ -653,20 +727,7 @@ const CGFloat kBannerPromoVerticalSpacing = 8;
   }
 
   // Cancel button constraints.
-  [NSLayoutConstraint activateConstraints:@[
-    [self.cancelButton.topAnchor
-        constraintEqualToAnchor:self.trailingStackView.topAnchor],
-    [self.cancelButton.bottomAnchor
-        constraintEqualToAnchor:self.trailingStackView.bottomAnchor],
-  ]];
-  NSLayoutConstraint* visibleCancel = [self.cancelButton.trailingAnchor
-      constraintEqualToAnchor:safeArea.trailingAnchor
-                     constant:-kExpandedLocationBarHorizontalMargin];
-  NSLayoutConstraint* hiddenCancel = [self.cancelButton.leadingAnchor
-      constraintEqualToAnchor:self.trailingAnchor];
-  [self.expandedConstraints addObject:visibleCancel];
-  [self.contractedConstraints addObject:hiddenCancel];
-  [self.contractedNoMarginConstraints addObject:hiddenCancel];
+  [self setupCancelButtonConstraints];
 
   // ProgressBar constraints.
   [NSLayoutConstraint activateConstraints:@[
@@ -680,6 +741,46 @@ const CGFloat kBannerPromoVerticalSpacing = 8;
 
   // CollapsedToolbarButton constraints.
   AddSameConstraints(self, self.collapsedToolbarButton);
+}
+
+- (void)setupCancelButtonConstraints {
+  // Remove all reference to outdated cancel button constraints.
+  for (NSLayoutConstraint* staleConstraint in _cancelButtonConstraints) {
+    [self.expandedConstraints removeObject:staleConstraint];
+    [self.contractedConstraints removeObject:staleConstraint];
+    [self.contractedNoMarginConstraints removeObject:staleConstraint];
+    staleConstraint.active = NO;
+  }
+  _cancelButtonConstraints = [[NSMutableArray alloc] init];
+
+  // Cancel button constraints.
+  [NSLayoutConstraint activateConstraints:@[
+    [self.cancelButton.topAnchor
+        constraintEqualToAnchor:self.trailingStackView.topAnchor],
+    [self.cancelButton.bottomAnchor
+        constraintEqualToAnchor:self.trailingStackView.bottomAnchor],
+  ]];
+
+  id<LayoutGuideProvider> safeArea = self.safeAreaLayoutGuide;
+  NSLayoutConstraint* visibleCancel = [self.cancelButton.trailingAnchor
+      constraintEqualToAnchor:safeArea.trailingAnchor
+                     constant:-kExpandedLocationBarHorizontalMargin];
+  NSLayoutConstraint* hiddenCancel = [self.cancelButton.leadingAnchor
+      constraintEqualToAnchor:self.trailingAnchor];
+  NSLayoutConstraint* lateralPaddingConstraint =
+      [self.locationBarContainer.trailingAnchor
+          constraintEqualToAnchor:self.cancelButton.leadingAnchor
+                         constant:-[self paddingForCancelButton]];
+  // As the cancel button can dinamically be replaced, all constraints that
+  // depend on it should be removed once it's no longer available.
+  [_cancelButtonConstraints addObjectsFromArray:@[
+    visibleCancel, hiddenCancel, lateralPaddingConstraint
+  ]];
+
+  [self.expandedConstraints
+      addObjectsFromArray:@[ lateralPaddingConstraint, visibleCancel ]];
+  [self.contractedConstraints addObject:hiddenCancel];
+  [self.contractedNoMarginConstraints addObject:hiddenCancel];
 }
 
 #pragma mark - AdaptiveToolbarView

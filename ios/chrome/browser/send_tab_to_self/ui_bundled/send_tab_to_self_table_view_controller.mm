@@ -21,8 +21,8 @@
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_icon_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_item.h"
+#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_multi_detail_text_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_button_item.h"
-#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_url_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/legacy_chrome_table_view_styler.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
@@ -96,8 +96,6 @@ typedef NS_ENUM(NSInteger, ItemType) {
 - (void)viewDidLoad {
   [super viewDidLoad];
   self.view.backgroundColor = [UIColor colorNamed:kPrimaryBackgroundColor];
-  self.styler.cellBackgroundColor =
-      [UIColor colorNamed:kPrimaryBackgroundColor];
   self.tableView.sectionHeaderHeight = 0;
   self.tableView.sectionFooterHeight = 0;
 
@@ -125,13 +123,11 @@ typedef NS_ENUM(NSInteger, ItemType) {
   [model addSectionWithIdentifier:kSectionIdentifierEnumZero];
 
   if (_targetDeviceList.empty()) {
-    TableViewTextItem* noTargetDeviceItem =
-        [[TableViewTextItem alloc] initWithType:ItemTypeNoTargetDevice];
-    noTargetDeviceItem.text =
+    TableViewMultiDetailTextItem* noTargetDeviceItem =
+        [[TableViewMultiDetailTextItem alloc]
+            initWithType:ItemTypeNoTargetDevice];
+    noTargetDeviceItem.leadingDetailText =
         l10n_util::GetNSString(IDS_SEND_TAB_TO_SELF_NO_TARGET_DEVICE_LABEL);
-    noTargetDeviceItem.textAlignment = NSTextAlignmentLeft;
-    noTargetDeviceItem.textFont =
-        [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
     [model addItem:noTargetDeviceItem
         toSectionWithIdentifier:kSectionIdentifierEnumZero];
   } else {
@@ -172,6 +168,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
         cellForRowAtIndexPath:(NSIndexPath*)indexPath {
   UITableViewCell* cell = [super tableView:tableView
                      cellForRowAtIndexPath:indexPath];
+  cell.backgroundColor = [UIColor colorNamed:kPrimaryBackgroundColor];
   ItemType itemType = static_cast<ItemType>(
       [self.tableViewModel itemTypeForIndexPath:indexPath]);
 

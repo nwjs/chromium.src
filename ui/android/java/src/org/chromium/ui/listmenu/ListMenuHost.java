@@ -20,8 +20,9 @@ import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.ui.R;
-import org.chromium.ui.listmenu.ListMenuFlyoutController.FlyoutHandler;
-import org.chromium.ui.listmenu.ListMenuFlyoutController.FlyoutPopupEntry;
+import org.chromium.ui.hierarchicalmenu.FlyoutController.FlyoutHandler;
+import org.chromium.ui.hierarchicalmenu.FlyoutController.FlyoutPopupEntry;
+import org.chromium.ui.hierarchicalmenu.HierarchicalMenuController;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.widget.AnchoredPopupWindow;
 import org.chromium.ui.widget.FlyoutPopupSpecCalculator;
@@ -132,6 +133,11 @@ public class ListMenuHost
         }
     }
 
+    /** Returns whether the popup menu is currently showing. */
+    public boolean isMenuShowing() {
+        return mPopupMenus.size() > 0;
+    }
+
     /** Shows a popupWindow built by ListMenuButton */
     public void showMenu() {
         if (!mView.isAttachedToWindow()) return;
@@ -182,6 +188,7 @@ public class ListMenuHost
                                 new ColorDrawable(Color.TRANSPARENT),
                                 () -> contentView,
                                 mDelegate.getRectProvider(mView))
+                        .setDismissOnScreenSizeChange(true)
                         .setVerticalOverlapAnchor(mMenuVerticalOverlapAnchor)
                         .setHorizontalOverlapAnchor(mMenuHorizontalOverlapAnchor)
                         .setMaxWidth(mMenuMaxWidth)
@@ -222,6 +229,17 @@ public class ListMenuHost
     }
 
     @Override
+    public Rect getPopupRect(AnchoredPopupWindow popupWindow) {
+        View contentView = popupWindow.getContentView();
+
+        if (contentView == null) {
+            return new Rect();
+        }
+
+        return ListMenuUtils.getViewRectRelativeToItsRootView(contentView);
+    }
+
+    @Override
     public void removeFlyoutWindows(int clearFromIndex) {
         if (clearFromIndex >= mPopupMenus.size()) {
             return;
@@ -238,6 +256,10 @@ public class ListMenuHost
         mRemovingPopups = false;
 
         mPopupMenus.subList(clearFromIndex, mPopupMenus.size()).clear();
+
+        if (mPopupMenus.size() > 0) {
+            setWindowFocusForFlyoutMenus(mPopupMenus.get(mPopupMenus.size() - 1).popupWindow, true);
+        }
     }
 
     @Override
@@ -276,8 +298,20 @@ public class ListMenuHost
                                 })
                         .build();
 
+        assert mPopupMenus.size() > 0;
+        setWindowFocusForFlyoutMenus(mPopupMenus.get(mPopupMenus.size() - 1).popupWindow, false);
+
+        setWindowFocusForFlyoutMenus(popupMenu, true);
         popupMenu.show();
+
         mPopupMenus.add(new FlyoutPopupEntry(item, popupMenu));
+    }
+
+    private void setWindowFocusForFlyoutMenus(AnchoredPopupWindow popupWindow, boolean hasFocus) {
+        ViewGroup contentView = (ViewGroup) popupWindow.getContentView();
+        if (contentView == null) return;
+
+        HierarchicalMenuController.setWindowFocusForFlyoutMenus(contentView, hasFocus);
     }
 
     public Rect calculateFlyoutAnchorRect(View itemView) {

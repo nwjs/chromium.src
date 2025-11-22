@@ -11,8 +11,9 @@ export function getHtml(this: ComposeboxDropdownElement) {
   return html`<!--_html_template_start_-->
   <div>
     ${this.result?.matches.map((item, index) => html`
-      <ntp-composebox-match
+      <cr-composebox-match
           aria-label="${this.computeAriaLabel_(item)}"
+          exportparts="match-text-container"
           tabindex="0"
           role="option"
           .match="${item}"
@@ -20,7 +21,7 @@ export function getHtml(this: ComposeboxDropdownElement) {
           ?selected="${this.isSelected_(item)}"
           ?is-last="${this.isLastMatch_(index)}"
           ?hidden="${this.hideVerbatimMatch_(index)}">
-      </ntp-composebox-match>
+      </cr-composebox-match>
     `)}
   </div>
   <!--_html_template_end_-->`;

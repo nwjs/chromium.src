@@ -24,7 +24,7 @@
 #include "third_party/perfetto/include/perfetto/tracing/traced_value.h"
 #include "ui/display/display_features.h"
 #include "ui/display/types/display_color_management.h"
-#include "ui/gfx/buffer_format_util.h"
+#include "ui/gfx/buffer_types.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/linux/drm_util_linux.h"
@@ -567,14 +567,15 @@ HardwareCapabilities HardwareDisplayPlaneManager::GetHardwareCapabilities(
 
   std::ranges::for_each(
       planes_, [crtc_id, &num_overlay_planes = hc.num_overlay_capable_planes,
-                &buffer_formats = hc.supported_buffer_formats](
+                &shared_image_formats = hc.supported_shared_image_formats](
                    const std::unique_ptr<HardwareDisplayPlane>& plane) {
         if (plane->type() != DRM_PLANE_TYPE_CURSOR &&
             plane->CanUseForCrtcId(crtc_id)) {
           num_overlay_planes++;
           for (const auto& format : plane->supported_formats()) {
             if (ui::IsValidBufferFormat(format)) {
-              buffer_formats.emplace(GetBufferFormatFromFourCCFormat(format));
+              shared_image_formats.emplace(
+                  GetSharedImageFormatFromFourCCFormat(format));
             }
           }
         }

@@ -10,6 +10,11 @@ if (is_android) {
   import("//build/config/android/rules.gni")
 }
 
+source_set("pref_names") {
+  sources = [ "pref_names.h" ]
+  public_deps = [ "//build:branding_buildflags" ]
+}
+
 static_library("ntp_tiles") {
   sources = [
     "constants.cc",
@@ -39,7 +44,6 @@ static_library("ntp_tiles") {
     "popular_sites.h",
     "popular_sites_impl.cc",
     "popular_sites_impl.h",
-    "pref_names.h",
     "section_type.h",
     "switches.cc",
     "switches.h",
@@ -60,6 +64,7 @@ static_library("ntp_tiles") {
   ]
   deps = [
     ":mojo_bindings",
+    ":pref_names",
     "//build:branding_buildflags",
     "//components/favicon/core",
     "//components/favicon_base",
@@ -127,6 +132,7 @@ source_set("unit_tests") {
 
   deps = [
     ":ntp_tiles",
+    ":pref_names",
     "//base/test:test_support",
     "//build:branding_buildflags",
     "//components/favicon/core",
@@ -174,7 +180,6 @@ if (is_android) {
   java_cpp_enum("ntp_tiles_enums_java") {
     sources = [
       "section_type.h",
-      "tile_source.h",
       "tile_title_source.h",
       "tile_visual_type.h",
     ]
@@ -182,6 +187,12 @@ if (is_android) {
 }
 
 mojom("mojo_bindings") {
-  sources = [ "tile_type.mojom" ]
-  webui_module_path = "/"
+  if (is_android) {
+    generate_java = true
+  }
+  sources = [
+    "tile_source.mojom",
+    "tile_type.mojom",
+  ]
+  webui_module_path = "chrome://resources/mojo/components/ntp_tiles/"
 }

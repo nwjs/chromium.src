@@ -7,7 +7,6 @@ import("//content/common/features.gni")
 import("//content/public/common/features.gni")
 import("//device/vr/buildflags/buildflags.gni")
 import("//media/media_options.gni")
-import("//services/video_effects/args.gni")
 import("//third_party/protobuf/proto_library.gni")
 import("//third_party/webrtc/webrtc.gni")
 
@@ -295,6 +294,7 @@ source_set("browser_sources") {
     "overlay_window.h",
     "overscroll_configuration.h",
     "page.h",
+    "page_manifest_manager.h",
     "page_navigator.cc",
     "page_navigator.h",
     "page_user_data.h",
@@ -351,6 +351,8 @@ source_set("browser_sources") {
     "process_allocation_context.h",
     "process_selection_deferring_condition.cc",
     "process_selection_deferring_condition.h",
+    "process_selection_user_data.cc",
+    "process_selection_user_data.h",
     "process_visibility_util.h",
     "provision_fetcher_factory.h",
     "provision_fetcher_impl.cc",
@@ -417,6 +419,7 @@ source_set("browser_sources") {
     "session_storage_namespace.cc",
     "session_storage_namespace.h",
     "session_storage_usage_info.h",
+    "shape_detection_service.h",
     "shared_cors_origin_access_list.h",
     "shared_worker_instance.cc",
     "shared_worker_instance.h",
@@ -478,6 +481,7 @@ source_set("browser_sources") {
     "usb_chooser.cc",
     "usb_chooser.h",
     "usb_delegate.h",
+    "user_level_memory_pressure_metrics.h",
     "video_capture_device_launcher.cc",
     "video_capture_device_launcher.h",
     "video_capture_service.h",
@@ -583,10 +587,10 @@ source_set("browser_sources") {
     "//services/on_device_model/public/mojom",
     "//services/resource_coordinator/public/cpp:resource_coordinator_cpp",
     "//services/service_manager/public/cpp",
+    "//services/shape_detection/public/mojom",
     "//services/tracing/public/cpp",
     "//services/tracing/public/mojom",
     "//services/video_capture/public/mojom",
-    "//services/video_effects/buildflags",
     "//services/viz/public/mojom",
 
     # We expose skia headers in the public API.
@@ -750,10 +754,6 @@ source_set("browser_sources") {
 
   if (use_clang_profiling_inside_sandbox) {
     sources += [ "profiling_utils.h" ]
-  }
-
-  if (enable_video_effects) {
-    public_deps += [ "//services/video_effects/public/mojom" ]
   }
 }
 

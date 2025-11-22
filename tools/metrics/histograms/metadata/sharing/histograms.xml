@@ -73,7 +73,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SharedHighlights.LinkGenerated.Error"
-    enum="LinkGenerationError" expires_after="2026-02-15">
+    enum="LinkGenerationError" expires_after="2026-04-19">
   <owner>jeffreycohen@chromium.org</owner>
   <owner>chrome-shared-highlighting@google.com</owner>
   <summary>
@@ -94,7 +94,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SharedHighlights.LinkGenerated.Error.Requested"
-    enum="LinkGenerationError" expires_after="2026-02-15">
+    enum="LinkGenerationError" expires_after="2026-04-19">
   <owner>jeffreycohen@chromium.org</owner>
   <owner>chrome-shared-highlighting@google.com</owner>
   <summary>
@@ -169,6 +169,16 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records if obtaining reshare link was successful. Otherwise, it records the
     failure reason.
+  </summary>
+</histogram>
+
+<histogram name="Sharing.Android.Origin" enum="ShareOrigin"
+    expires_after="2026-03-22">
+  <owner>jinsukkim@chromium.org</owner>
+  <owner>clank-app-team@google.com</owner>
+  <summary>
+    Records the origin of the sharing action in the Intent object. Recorded when
+    the Intent is processed in browser app for viewing. Android only.
   </summary>
 </histogram>
 
@@ -448,7 +458,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sharing.SmsFetcherTapWithChromeDestroyed" enum="Boolean"
-    expires_after="2026-02-09">
+    expires_after="2026-04-12">
   <owner>yigu@chromium.org</owner>
   <owner>src/content/browser/sms/OWNERS</owner>
   <summary>

@@ -157,6 +157,7 @@ public class SigninAndHistorySyncActivity extends FullscreenSigninAndHistorySync
                         DeviceLockActivityLauncherImpl.get(),
                         mProfileSupplier,
                         getModalDialogManagerSupplier(),
+                        /* snackbarManager= */ null,
                         config,
                         signinAccessPoint);
 
@@ -225,9 +226,9 @@ public class SigninAndHistorySyncActivity extends FullscreenSigninAndHistorySync
      * FullscreenSigninAndHistorySyncCoordinator.Delegate}.
      */
     @Override
-    public void onFlowComplete(@SigninAndHistorySyncCoordinator.Result int result) {
+    public void onFlowComplete(SigninAndHistorySyncCoordinator.Result result) {
         int resultCode =
-                result == SigninAndHistorySyncCoordinator.Result.COMPLETED
+                (result.hasSignedIn || result.hasOptedInHistorySync)
                         ? Activity.RESULT_OK
                         : Activity.RESULT_CANCELED;
         setResult(resultCode);

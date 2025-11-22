@@ -231,6 +231,18 @@ bool WebAppBrowserController::HasPendingUpdate() const {
   return app && app->pending_update_info().has_value();
 }
 
+bool WebAppBrowserController::HasPendingUpdateNotIgnoredByUser() const {
+  if (!base::FeatureList::IsEnabled(features::kWebAppPredictableAppUpdating)) {
+    return false;
+  }
+  const WebApp* app = registrar().GetAppById(app_id());
+  if (!app || !app->pending_update_info().has_value()) {
+    return false;
+  }
+  CHECK(app->pending_update_info()->has_was_ignored());
+  return !app->pending_update_info()->was_ignored();
+}
+
 void WebAppBrowserController::CreateMetadataAndTriggerAppUpdateDialog(
     base::TimeTicks start_time) const {
   provider_->scheduler().ReadAppUpdateDataFromDisk(
@@ -742,9 +754,12 @@ void WebAppBrowserController::OnMetadataObtainedTriggerUpdateDialog(
 
   // TODO(crbug.com/436868803): Pipe calling of the final update command to this
   // function.
-  web_app::ShowWebAppReviewUpdateDialog(app_id(), *identity_update, browser(),
-                                        start_time,
-                                        base::DoNothingWithBoundArgs());
+  web_app::ShowWebAppReviewUpdateDialog(
+      app_id(), *identity_update, browser(), start_time,
+      base::BindOnce([](WebAppIdentityUpdateResult result) {
+        base::UmaHistogramEnumeration("WebApp.PredictableUpdateDialog.Result",
+                                      result);
+      }));
 }
 
 std::optional<SkColor>

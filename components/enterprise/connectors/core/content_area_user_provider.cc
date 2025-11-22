@@ -62,7 +62,7 @@ std::optional<size_t> GetUserIndex(const GURL& url) {
   const re2::RE2 kUserPathRegex{"/u/(\\d+)/"};
 
   int account_id = 0;
-  if (re2::RE2::PartialMatch(url.path_piece(), kUserPathRegex, &account_id)) {
+  if (re2::RE2::PartialMatch(url.path(), kUserPathRegex, &account_id)) {
     return account_id;
   }
 
@@ -103,15 +103,6 @@ std::string GetEmailFromUrl(signin::IdentityManager* im, const GURL& url) {
 std::string GetActiveContentAreaUser(signin::IdentityManager* im,
                                      const GURL& tab_url) {
   if (!IncludeContentAreaAccountEmail(tab_url, GoogleDomains())) {
-    return "";
-  }
-
-  return GetEmailFromUrl(im, tab_url);
-}
-
-std::string GetURLFActiveContentAreaUser(signin::IdentityManager* im,
-                                         const GURL& tab_url) {
-  if (!IncludeContentAreaAccountEmail(tab_url, TabWorkspaceDomains())) {
     return "";
   }
 

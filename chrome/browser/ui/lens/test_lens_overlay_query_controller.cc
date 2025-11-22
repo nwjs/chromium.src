@@ -201,7 +201,7 @@ TestLensOverlayQueryController::CreateEndpointFetcher(
       GURL(lens::features::GetLensOverlayUploadChunkEndpointURL());
   bool is_chunk_request =
       chunk_endpoint_url.GetWithEmptyPath() == fetch_url.GetWithEmptyPath() &&
-      chunk_endpoint_url.path() == fetch_url.path();
+      chunk_endpoint_url.GetPath() == fetch_url.GetPath();
   bool is_cluster_info_request =
       fetch_url == GURL(lens::features::GetLensOverlayClusterInfoEndpointUrl());
 
@@ -361,10 +361,7 @@ void TestLensOverlayQueryController::SendLatencyGen204IfEnabled(
     std::optional<base::TimeDelta> cluster_info_latency,
     std::optional<std::string> encoded_analytics_id,
     std::optional<lens::LensOverlayRequestId> request_id) {
-  int counter = latency_gen_204_counter_.contains(latency_type)
-                    ? latency_gen_204_counter_.at(latency_type)
-                    : 0;
-  latency_gen_204_counter_[latency_type] = counter + 1;
+  ++latency_gen_204_counter_[latency_type];
   last_latency_gen204_analytics_id_ = encoded_analytics_id;
   last_latency_gen204_request_id_ = request_id;
 }

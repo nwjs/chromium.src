@@ -109,6 +109,7 @@ SyncCycleSnapshot MakeDefaultSyncCycleSnapshot() {
 class MockSyncServiceObserver : public SyncServiceObserver {
  public:
   MOCK_METHOD(void, OnStateChanged, (SyncService * sync), (override));
+  MOCK_METHOD(void, OnSyncShutdown, (SyncService * sync), (override));
 };
 
 class TestSyncServiceObserver : public SyncServiceObserver {
@@ -119,6 +120,7 @@ class TestSyncServiceObserver : public SyncServiceObserver {
     setup_in_progress_ = sync->IsSetupInProgress();
     auth_error_ = sync->GetAuthError();
   }
+  void OnSyncShutdown(SyncService* sync) override { NOTREACHED(); }
 
   bool setup_in_progress() const { return setup_in_progress_; }
   GoogleServiceAuthError auth_error() const { return auth_error_; }
@@ -1104,7 +1106,7 @@ TEST_F(SyncServiceImplTest, DashboardResetTwiceDoesNotCrash) {
   ASSERT_EQ(SyncService::TransportState::ACTIVE,
             service()->GetTransportState());
 
-  // Disable sync via dashboard (https://chrome.google.com/sync).
+  // Disable sync via dashboard (https://chrome.google.com/data).
   service()->OnActionableProtocolError(
       {.error_type = NOT_MY_BIRTHDAY, .action = DISABLE_SYNC_ON_CLIENT});
 
@@ -2888,6 +2890,34 @@ TEST_F(SyncServiceImplTest, ShouldRecordHistoryOptInStateOnSync) {
       Contains(Pair("Signin.HistoryAlreadyOptedInAccessPoint.OnSync", 1)));
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
+
+TEST_F(SyncServiceImplTest, ShouldQueueTaskUntilEngineInitialized) {
+  engine_factory()->AllowFakeEngineInitCompletion(false);
+  PopulatePrefsForInitialSyncFeatureSetupComplete();
+  SignInWithSyncConsent();
+  InitializeService();
+  base::RunLoop().RunUntilIdle();
+
+  ASSERT_EQ(SyncService::TransportState::INITIALIZING,
+            service()->GetTransportState());
+
+  base::MockCallback<base::OnceClosure> mock_task;
+  EXPECT_CALL(mock_task, Run()).Times(0);
+
+  // The task shouldn't run yet, because the engine isn't initialized.
+  service()->RunOrQueueTaskOnEngineInitializedForTest(mock_task.Get());
+  base::RunLoop().RunUntilIdle();
+
+  // Once the engine gets initialized, the task should run.
+  EXPECT_CALL(mock_task, Run()).Times(1);
+  engine()->TriggerInitializationCompletion(/*success=*/true);
+
+  // Now that the engine is initialized, another task should run immediately.
+  base::MockCallback<base::OnceClosure> mock_task2;
+  EXPECT_CALL(mock_task2, Run()).Times(1);
+  service()->RunOrQueueTaskOnEngineInitializedForTest(mock_task2.Get());
+
+}
 
 }  // namespace
 }  // namespace syncer

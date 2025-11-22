@@ -49,10 +49,7 @@ class LeakDetectionDelegate : public LeakDetectionDelegateInterface {
 
  private:
   // LeakDetectionDelegateInterface:
-  void OnLeakDetectionDone(bool is_leaked,
-                           GURL url,
-                           std::u16string username,
-                           std::u16string password) override;
+  void OnLeakDetectionDone(bool is_leaked, PasswordForm credentials) override;
   void OnError(LeakDetectionError error) override;
 
   // Initiates the showing of the leak detection notification. It is called by
@@ -63,9 +60,7 @@ class LeakDetectionDelegate : public LeakDetectionDelegateInterface {
       PasswordForm::Store in_stores,
       IsReused is_reused,
       IsSavedAsBackup is_saved_as_backup,
-      GURL url,
-      std::u16string username,
-      std::u16string password,
+      PasswordForm credentials,
       std::vector<GURL> all_urls_with_leaked_credentials);
 
   // Notifies `client_` about leaked credentials.

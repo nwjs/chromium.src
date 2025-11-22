@@ -10,6 +10,7 @@
 #include <memory>
 
 #include "base/memory/raw_ptr.h"
+#include "base/memory/ref_counted.h"
 #include "base/observer_list.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/thread_checker.h"
@@ -17,8 +18,6 @@
 #include "components/viz/common/gpu/context_provider.h"
 #include "components/viz/common/gpu/raster_context_provider.h"
 #include "gpu/config/gpu_feature_info.h"
-
-class GrDirectContext;
 
 namespace gpu {
 class GLInProcessContext;
@@ -57,7 +56,6 @@ class TestInProcessContextProvider
   gpu::gles2::GLES2Interface* ContextGL() override;
   gpu::raster::RasterInterface* RasterInterface() override;
   gpu::ContextSupport* ContextSupport() override;
-  class GrDirectContext* GrContext() override;
   gpu::SharedImageInterface* SharedImageInterface() override;
   ContextCacheController* CacheController() override;
   base::Lock* GetLock() override;
@@ -65,7 +63,6 @@ class TestInProcessContextProvider
   const gpu::GpuFeatureInfo& GetGpuFeatureInfo() const override;
   void AddObserver(ContextLostObserver* obs) override;
   void RemoveObserver(ContextLostObserver* obs) override;
-  unsigned int GetGrGLTextureFormat(SharedImageFormat format) const override;
   GpuServiceImpl* GpuService();
 
   // Calls OnContextLost() on all observers. This doesn't modify the context.

@@ -4,7 +4,10 @@
 
 #include "chrome/browser/content_settings/generated_javascript_optimizer_pref.h"
 
+#include "base/run_loop.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
+#include "chrome/browser/download/download_item_warning_data.h"
+#include "chrome/browser/extensions/api/settings_private/generated_pref.h"
 #include "chrome/common/extensions/api/settings_private.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/content_settings/core/browser/content_settings_registry.h"
@@ -20,13 +23,14 @@
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace settings_private_api = extensions::api::settings_private;
+using extensions::settings_private::GeneratedPref;
 using extensions::settings_private::SetPrefResult;
 using settings_private_api::PrefObject;
 
 namespace content_settings {
 namespace {
 
-int GetPrefInt(const PrefObject& pref_object) {
+int GetPrefValue(const PrefObject& pref_object) {
   if (pref_object.type != settings_private_api::PrefType::kNumber ||
       !pref_object.value->is_int()) {
     return -1;
@@ -34,11 +38,50 @@ int GetPrefInt(const PrefObject& pref_object) {
   return pref_object.value->GetInt();
 }
 
+int GetGeneratedPrefValue(Profile* profile) {
+  PrefObject pref_object =
+      GeneratedJavascriptOptimizerPref(profile).GetPrefObject();
+  return GetPrefValue(pref_object);
+}
+
 extensions::settings_private::SetPrefResult SetPref(
     GeneratedJavascriptOptimizerPref& pref,
     const base::Value& value) {
   return pref.SetPref(&value);
 }
+
+// GeneratedPref::Observer which exposes method for waiting till generated pref
+// has changed.
+class TestObserver : public GeneratedPref::Observer {
+ public:
+  TestObserver() {
+    base::RunLoop run_loop;
+    quit_closure_ = run_loop.QuitClosure();
+  }
+
+  ~TestObserver() override = default;
+
+  void WaitForGeneratedPrefChange() {
+    if (was_pref_changed_) {
+      return;
+    }
+
+    base::RunLoop run_loop;
+    quit_closure_ = run_loop.QuitClosure();
+    run_loop.Run();
+  }
+
+  void OnGeneratedPrefChanged(const std::string&) override {
+    was_pref_changed_ = true;
+    if (quit_closure_) {
+      std::move(quit_closure_).Run();
+    }
+  }
+
+ private:
+  bool was_pref_changed_ = false;
+  base::OnceClosure quit_closure_;
+};
 
 }  // anonymous namespace
 
@@ -66,14 +109,18 @@ class GeneratedJavascriptOptimizerPrefTest : public testing::Test {
   scoped_refptr<HostContentSettingsMap> host_content_settings_map_;
 };
 
+void EnableFeature(base::test::ScopedFeatureList* feature_list) {
+  feature_list
+      ->InitWithFeatures(/*enabled_features=*/
+                         {content_settings::features::
+                              kBlockV8OptimizerOnUnfamiliarSitesSetting,
+                          ::features::kProcessSelectionDeferringConditions},
+                         /*disabled_features=*/{});
+}
+
 TEST_F(GeneratedJavascriptOptimizerPrefTest, GetPrefObject_FeatureEnabled) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list
-      .InitWithFeatures(/*enabled_features=*/
-                        {content_settings::features::
-                             kBlockV8OptimizerOnUnfamiliarSitesSetting,
-                         ::features::kProcessSelectionDeferringConditions},
-                        /*disabled_features=*/{});
+  EnableFeature(&scoped_feature_list);
 
   const struct TestCase {
     ContentSetting content_setting;
@@ -95,10 +142,8 @@ TEST_F(GeneratedJavascriptOptimizerPrefTest, GetPrefObject_FeatureEnabled) {
         ContentSettingsType::JAVASCRIPT_OPTIMIZER, test_case.content_setting);
     prefs()->SetBoolean(prefs::kJavascriptOptimizerBlockedForUnfamiliarSites,
                         test_case.pref_blocked_for_unfamiliar_sites);
-    PrefObject pref_object =
-        GeneratedJavascriptOptimizerPref(profile()).GetPrefObject();
     EXPECT_EQ(static_cast<int>(test_case.expected_setting),
-              GetPrefInt(pref_object));
+              GetGeneratedPrefValue(profile()));
   }
 }
 
@@ -115,11 +160,78 @@ TEST_F(GeneratedJavascriptOptimizerPrefTest, GetPrefObject_FeatureDisabled) {
   for (const base::test::FeatureRef& feature : test_cases) {
     base::test::ScopedFeatureList scoped_feature_list;
     scoped_feature_list.InitAndDisableFeature(*feature);
-    PrefObject pref_object =
-        GeneratedJavascriptOptimizerPref(profile()).GetPrefObject();
     EXPECT_EQ(static_cast<int>(JavascriptOptimizerSetting::kAllowed),
-              GetPrefInt(pref_object));
+              GetGeneratedPrefValue(profile()));
   }
+}
+
+// Test potential future scenario where
+// kJavascriptOptimizerBlockedForUnfamiliarSites is updated by
+// non generated-pref code.
+TEST_F(GeneratedJavascriptOptimizerPrefTest,
+       GetPrefObject_PrefChangedExternally) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  EnableFeature(&scoped_feature_list);
+
+  prefs()->SetBoolean(prefs::kJavascriptOptimizerBlockedForUnfamiliarSites,
+                      false);
+  EXPECT_EQ(static_cast<int>(JavascriptOptimizerSetting::kAllowed),
+            GetGeneratedPrefValue(profile()));
+
+  GeneratedJavascriptOptimizerPref pref(profile());
+  TestObserver observer;
+  pref.AddObserver(&observer);
+
+  prefs()->SetBoolean(prefs::kJavascriptOptimizerBlockedForUnfamiliarSites,
+                      true);
+  observer.WaitForGeneratedPrefChange();
+  EXPECT_EQ(
+      static_cast<int>(JavascriptOptimizerSetting::kBlockedForUnfamiliarSites),
+      GetGeneratedPrefValue(profile()));
+}
+
+TEST_F(GeneratedJavascriptOptimizerPrefTest, GetPrefObject_SafeBrowsingOff) {
+  profile()->GetPrefs()->SetBoolean(prefs::kSafeBrowsingEnabled, false);
+
+  PrefObject pref_object =
+      GeneratedJavascriptOptimizerPref(profile()).GetPrefObject();
+  EXPECT_EQ(static_cast<int>(JavascriptOptimizerSetting::kAllowed),
+            GetPrefValue(pref_object));
+  EXPECT_EQ(settings_private_api::Enforcement::kEnforced,
+            pref_object.enforcement);
+  EXPECT_EQ(settings_private_api::ControlledBy::kSafeBrowsingOff,
+            pref_object.controlled_by);
+}
+
+TEST_F(GeneratedJavascriptOptimizerPrefTest,
+       GetPrefObject_DisableForUnfamiliar_ThenSafeBrowsingOff) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  EnableFeature(&scoped_feature_list);
+  prefs()->SetBoolean(prefs::kJavascriptOptimizerBlockedForUnfamiliarSites,
+                      true);
+  EXPECT_EQ(
+      static_cast<int>(JavascriptOptimizerSetting::kBlockedForUnfamiliarSites),
+      GetGeneratedPrefValue(profile()));
+
+  // Disable safe browsing after user has disabled v8-optimizers for unfamiliar
+  // sites.
+  profile()->GetPrefs()->SetBoolean(prefs::kSafeBrowsingEnabled, false);
+
+  PrefObject pref_object =
+      GeneratedJavascriptOptimizerPref(profile()).GetPrefObject();
+  EXPECT_EQ(static_cast<int>(JavascriptOptimizerSetting::kAllowed),
+            GetPrefValue(pref_object));
+  EXPECT_EQ(settings_private_api::Enforcement::kEnforced,
+            pref_object.enforcement);
+  EXPECT_EQ(settings_private_api::ControlledBy::kSafeBrowsingOff,
+            pref_object.controlled_by);
+}
+
+TEST_F(GeneratedJavascriptOptimizerPrefTest, GetPrefObject_SafeBrowsingOn) {
+  profile()->GetPrefs()->SetBoolean(prefs::kSafeBrowsingEnabled, true);
+  PrefObject pref_object =
+      GeneratedJavascriptOptimizerPref(profile()).GetPrefObject();
+  EXPECT_EQ(settings_private_api::Enforcement::kNone, pref_object.enforcement);
 }
 
 TEST_F(GeneratedJavascriptOptimizerPrefTest, GetPrefObject_Policy) {
@@ -134,6 +246,24 @@ TEST_F(GeneratedJavascriptOptimizerPrefTest, GetPrefObject_Policy) {
             pref_object.enforcement);
   EXPECT_EQ(settings_private_api::ControlledBy::kDevicePolicy,
             pref_object.controlled_by);
+}
+
+TEST_F(GeneratedJavascriptOptimizerPrefTest,
+       GetPrefObject_PolicyDisablesFeature) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  EnableFeature(&scoped_feature_list);
+  // Could be set by the user via chrome://settings prior to policy being set by
+  // administrator.
+  prefs()->SetBoolean(prefs::kJavascriptOptimizerBlockedForUnfamiliarSites,
+                      true);
+
+  ContentSettingsRegistry::GetInstance();
+  profile()->GetTestingPrefService()->SetManagedPref(
+      prefs::kManagedDefaultJavaScriptOptimizerSetting,
+      base::Value(ContentSetting::CONTENT_SETTING_ALLOW));
+
+  EXPECT_EQ(static_cast<int>(JavascriptOptimizerSetting::kAllowed),
+            GetGeneratedPrefValue(profile()));
 }
 
 TEST_F(GeneratedJavascriptOptimizerPrefTest, SetPrefResult) {

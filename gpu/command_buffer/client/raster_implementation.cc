@@ -45,9 +45,7 @@
 #include "cc/paint/skottie_serialization_history.h"
 #include "cc/paint/transfer_cache_entry.h"
 #include "cc/paint/transfer_cache_serialize_helper.h"
-#include "components/miracle_parameter/common/public/miracle_parameter.h"
 #include "gpu/command_buffer/client/gpu_control.h"
-#include "gpu/command_buffer/client/image_decode_accelerator_interface.h"
 #include "gpu/command_buffer/client/query_tracker.h"
 #include "gpu/command_buffer/client/raster_cmd_helper.h"
 #include "gpu/command_buffer/client/shared_memory_limits.h"
@@ -559,8 +557,7 @@ RasterImplementation::RasterImplementation(
     RasterCmdHelper* helper,
     TransferBufferInterface* transfer_buffer,
     bool lose_context_when_out_of_memory,
-    GpuControl* gpu_control,
-    ImageDecodeAcceleratorInterface* image_decode_accelerator)
+    GpuControl* gpu_control)
     : ImplementationBase(helper, transfer_buffer, gpu_control),
       helper_(helper),
       error_bits_(0),
@@ -571,8 +568,7 @@ RasterImplementation::RasterImplementation(
       font_manager_(this, helper->command_buffer()),
       lost_(false),
       max_inlined_entry_size_(kMaxTransferCacheEntrySizeForTransferBuffer),
-      transfer_cache_(this),
-      image_decode_accelerator_(image_decode_accelerator) {
+      transfer_cache_(this) {
   DCHECK(helper);
   DCHECK(transfer_buffer);
   DCHECK(gpu_control);
@@ -673,28 +669,9 @@ void RasterImplementation::SetAggressivelyFreeResources(
   }
 }
 
-uint64_t RasterImplementation::ShareGroupTracingGUID() const {
-  NOTREACHED();
-}
-
 void RasterImplementation::SetErrorMessageCallback(
     base::RepeatingCallback<void(const char*, int32_t)> callback) {
   error_message_callback_ = std::move(callback);
-}
-
-bool RasterImplementation::ThreadSafeShallowLockDiscardableTexture(
-    uint32_t texture_id) {
-  NOTREACHED();
-}
-
-void RasterImplementation::CompleteLockDiscardableTexureOnContextThread(
-    uint32_t texture_id) {
-  NOTREACHED();
-}
-
-bool RasterImplementation::ThreadsafeDiscardableTextureIsDeletedForTracing(
-    uint32_t texture_id) {
-  NOTREACHED();
 }
 
 base::span<uint8_t> RasterImplementation::MapTransferCacheEntry(
@@ -740,22 +717,6 @@ unsigned int RasterImplementation::GetTransferBufferFreeSize() const {
   return transfer_buffer_->GetFreeSize();
 }
 
-bool RasterImplementation::IsJpegDecodeAccelerationSupported() const {
-  return image_decode_accelerator_ &&
-         image_decode_accelerator_->IsJpegDecodeAccelerationSupported();
-}
-
-bool RasterImplementation::IsWebPDecodeAccelerationSupported() const {
-  return image_decode_accelerator_ &&
-         image_decode_accelerator_->IsWebPDecodeAccelerationSupported();
-}
-
-bool RasterImplementation::CanDecodeWithHardwareAcceleration(
-    const cc::ImageHeaderMetadata* image_metadata) const {
-  return image_decode_accelerator_ &&
-         image_decode_accelerator_->IsImageSupported(image_metadata);
-}
-
 const std::string& RasterImplementation::GetLogPrefix() const {
   const std::string& prefix(debug_marker_manager_.GetMarker());
   return prefix.empty() ? this_in_hex_ : prefix;
@@ -785,8 +746,9 @@ void RasterImplementation::IssueQueryCounter(GLuint id,
                                              uint32_t sync_data_shm_id,
                                              uint32_t sync_data_shm_offset,
                                              GLuint submit_count) {
-  helper_->QueryCounterEXT(id, target, sync_data_shm_id, sync_data_shm_offset,
-                           submit_count);
+  // This callback is invoked only by QueryTracker::QueryCounter(), which
+  // RasterImplementation never calls.
+  NOTREACHED();
 }
 
 void RasterImplementation::IssueSetDisjointValueSync(
@@ -1109,46 +1071,12 @@ void RasterImplementation::EndQueryEXT(GLenum target) {
   }
 }
 
-void RasterImplementation::QueryCounterEXT(GLuint id, GLenum target) {
-  GPU_CLIENT_SINGLE_THREAD_CHECK();
-  GPU_CLIENT_LOG("[" << GetLogPrefix() << "] QueryCounterEXT(" << id << ", "
-                     << GLES2Util::GetStringQueryTarget(target) << ")");
-
-  if (target != GL_COMMANDS_ISSUED_TIMESTAMP_CHROMIUM) {
-    SetGLError(GL_INVALID_ENUM, "glQueryCounterEXT", "unknown query target");
-    return;
-  }
-
-  if (id == 0) {
-    SetGLError(GL_INVALID_OPERATION, "glQueryCounterEXT", "id is 0");
-    return;
-  }
-
-  if (!GetIdAllocator(IdNamespaces::kQueries)->InUse(id)) {
-    SetGLError(GL_INVALID_OPERATION, "glQueryCounterEXT", "invalid id");
-    return;
-  }
-
-  if (query_tracker_->QueryCounter(id, target, this)) {
-    CheckGLError();
-  }
-}
 void RasterImplementation::GetQueryObjectuivEXT(GLuint id,
                                                 GLenum pname,
                                                 GLuint* params) {
   GLuint64 result = 0;
   if (GetQueryObjectValueHelper("glGetQueryObjectuivEXT", id, pname, &result)) {
     *params = base::saturated_cast<GLuint>(result);
-  }
-}
-
-void RasterImplementation::GetQueryObjectui64vEXT(GLuint id,
-                                                  GLenum pname,
-                                                  GLuint64* params) {
-  GLuint64 result = 0;
-  if (GetQueryObjectValueHelper("glGetQueryObjectui64vEXT", id, pname,
-                                &result)) {
-    *params = result;
   }
 }
 
@@ -1510,25 +1438,6 @@ void RasterImplementation::EndRasterCHROMIUM() {
   skottie_serialization_history_.RequestInactiveAnimationsPurge();
 }
 
-SyncToken RasterImplementation::ScheduleImageDecode(
-    base::span<const uint8_t> encoded_data,
-    const gfx::Size& output_size,
-    uint32_t transfer_cache_entry_id,
-    const gfx::ColorSpace& target_color_space,
-    bool needs_mips) {
-  // It's safe to use base::Unretained(this) here because
-  // StartTransferCacheEntry() will call the callback before returning.
-  SyncToken decode_sync_token;
-  transfer_cache_.StartTransferCacheEntry(
-      static_cast<uint32_t>(cc::TransferCacheEntryType::kImage),
-      transfer_cache_entry_id,
-      base::BindOnce(&RasterImplementation::IssueImageDecodeCacheEntryCreation,
-                     base::Unretained(this), encoded_data, output_size,
-                     transfer_cache_entry_id, target_color_space, needs_mips,
-                     &decode_sync_token));
-  return decode_sync_token;
-}
-
 bool RasterImplementation::ReadbackImagePixelsINTERNAL(
     const gpu::Mailbox& source_mailbox,
     const SkImageInfo& dst_info,
@@ -1875,29 +1784,6 @@ void RasterImplementation::OnAsyncYUVReadbackDone(
 
     yuv_request_queue_.pop();
   }
-}
-
-void RasterImplementation::IssueImageDecodeCacheEntryCreation(
-    base::span<const uint8_t> encoded_data,
-    const gfx::Size& output_size,
-    uint32_t transfer_cache_entry_id,
-    const gfx::ColorSpace& target_color_space,
-    bool needs_mips,
-    SyncToken* decode_sync_token,
-    ClientDiscardableHandle handle) {
-  DCHECK(gpu_control_);
-  DCHECK(image_decode_accelerator_);
-  DCHECK(handle.IsValid());
-
-  // Insert a sync token to signal that |handle|'s buffer has been registered.
-  SyncToken sync_token;
-  GenUnverifiedSyncTokenCHROMIUM(sync_token.GetData());
-
-  // Send the decode request to the service.
-  *decode_sync_token = image_decode_accelerator_->ScheduleImageDecode(
-      encoded_data, output_size, gpu_control_->GetCommandBufferID(),
-      transfer_cache_entry_id, handle.shm_id(), handle.byte_offset(),
-      sync_token.release_count(), target_color_space, needs_mips);
 }
 
 void RasterImplementation::TraceBeginCHROMIUM(const char* category_name,

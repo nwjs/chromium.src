@@ -19,7 +19,7 @@
 #include "base/containers/flat_map.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/shared_memory_mapping.h"
 #include "base/memory/unsafe_shared_memory_region.h"
 #include "base/memory/weak_ptr.h"
@@ -90,8 +90,7 @@ class GPU_IPC_CLIENT_EXPORT CommandBufferProxyImpl
   ~CommandBufferProxyImpl() override;
 
   // Connect to a command buffer in the GPU process.
-  ContextResult Initialize(CommandBufferProxyImpl* share_group,
-                           gpu::SchedulingPriority stream_priority,
+  ContextResult Initialize(gpu::SchedulingPriority stream_priority,
                            mojom::ContextCreationAttribsPtr attribs,
                            const GURL& active_url = GURL(),
                            const std::string_view label = "");

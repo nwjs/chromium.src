@@ -173,6 +173,18 @@ crbug.com/1327754 [ mac amd debug ] GpuCrash_InfoForDualHardwareGpus [ Skip ]
 crbug.com/1334650 [ linux ] GpuCrash_InfoForHardwareGpu [ Skip ]
 crbug.com/1334650 [ linux ] GpuCrash_SoftwareFallbackDisabled [ Skip ]
 
+# WebGpu is not enable on mac pro
+[ mac amd-0x679e ] ContextLost_WebGPUBlockedAfterJSNavigation [ Skip ]
+[ mac amd-0x679e ] ContextLost_WebGPUContextLostFromGPUProcessExit [ Skip ]
+[ mac amd-0x679e ] ContextLost_WebGPUUnblockedAfterUserInitiatedReload [ Skip ]
+[ mac amd-0x679e ] GpuNormalTermination_WebGPUNotBlocked [ Skip ]
+
+# WebGpu is not supported on x86 nvidia
+crbug.com/42240193 [ win10 nvidia target-cpu-32 ] ContextLost_WebGPUBlockedAfterJSNavigation [ Skip ]
+crbug.com/42240193 [ win10 nvidia target-cpu-32 ] ContextLost_WebGPUContextLostFromGPUProcessExit [ Skip ]
+crbug.com/42240193 [ win10 nvidia target-cpu-32 ] ContextLost_WebGPUUnblockedAfterUserInitiatedReload [ Skip ]
+crbug.com/42240193 [ win10 nvidia target-cpu-32 ] GpuNormalTermination_WebGPUNotBlocked [ Skip ]
+
 ###############################
 # Temporary Skip Expectations #
 ###############################
@@ -201,10 +213,7 @@ crbug.com/329145823 [ win release intel ] GpuCrash_InfoForHardwareGpu [ Failure 
 crbug.com/329145823 [ win release intel ] GpuCrash_SoftwareFallbackDisabled [ Failure ]
 crbug.com/329145823 [ win release nvidia ] GpuCrash_InfoForHardwareGpu [ Failure ]
 crbug.com/329145823 [ win release nvidia ] GpuCrash_SoftwareFallbackDisabled [ Failure ]
-crbug.com/329145823 [ angle-metal apple-angle-metal-renderer:-apple-m1 arch-arm64 graphite-enabled memory_ge_16gb no-asan no-clang-coverage release sequoia ] GpuCrash_InfoForHardwareGpu [ Failure ]
-crbug.com/329145823 [ angle-metal apple-angle-metal-renderer:-apple-m2 arch-arm64 graphite-enabled memory_ge_16gb no-asan no-clang-coverage release sonoma ] GpuCrash_InfoForHardwareGpu [ Failure ]
 crbug.com/329145823 [ angle-metal arch-x86_64 graphite-enabled mac memory_ge_16gb release ] GpuCrash_InfoForHardwareGpu [ Failure ]
-crbug.com/329145823 [ angle-metal apple-angle-metal-renderer:-apple-m1 arch-arm64 graphite-enabled memory_ge_16gb no-asan no-clang-coverage release sequoia ] GpuCrash_SoftwareFallbackDisabled [ Failure ]
 crbug.com/329145823 [ angle-metal arch-x86_64 graphite-enabled mac memory_ge_16gb release ] GpuCrash_SoftwareFallbackDisabled [ Failure ]
 crbug.com/329145823 [ graphite-disabled mac release ] GpuCrash_SoftwareFallbackDisabled [ Failure ]
 crbug.com/329145823 [ asan graphite-disabled intel-0x3e9b arch-x86_64 no-clang-coverage release sonoma ] GpuCrash_InfoForHardwareGpu [ Failure ]
@@ -239,6 +248,12 @@ crbug.com/338574390 [ mac intel-0x3e9b angle-metal asan graphite-disabled ] Cont
 crbug.com/338574390 [ angle-metal asan graphite-disabled intel-0x3e9b mac ] GpuNormalTermination_NewWebGLNotBlocked [ RetryOnFailure ]
 crbug.com/338574390 [ angle-metal graphite-enabled amd-0x7340 mac ] ContextLost_WebGPUBlockedAfterJSNavigation [ Slow ]
 
+
+
+# WebGPU is currently not enabled on win11 qualcomm but it will be soon
+[ win11 qualcomm ] ContextLost_WebGPU* [ Failure ]
+[ win11 qualcomm ] GpuNormalTermination_WebGPUNotBlocked [ Failure ]
+
 ###############################
 # Permanent Slow Expectations #
 ###############################
@@ -246,8 +261,6 @@ crbug.com/338574390 [ angle-metal graphite-enabled amd-0x7340 mac ] ContextLost_
 # Slow on DCHECK builds being used on fuchsia builders.
 crbug.com/425745937 [ fuchsia web-engine-shell ] ContextLost_WebGLContextLostFromQuantity [ Slow ]
 crbug.com/425745937 [ fuchsia web-engine-shell ] ContextLost_WebGLContextLostFromSelectElement [ Slow ]
-
-crbug.com/446113735 [ android android-pixel-10 ] ContextLost_WebGL2Blocked [ RetryOnFailure ]
 
 #######################################################################
 # Automated Entries After This Point - Do Not Manually Add Below Here #

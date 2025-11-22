@@ -37,6 +37,7 @@
 #include "base/task/thread_pool.h"
 #include "base/threading/sequence_local_storage_slot.h"
 #include "base/types/optional_util.h"
+#include "base/unguessable_token.h"
 #include "build/build_config.h"
 #include "components/attribution_reporting/features.h"
 #include "components/leveldb_proto/public/proto_database_provider.h"
@@ -2170,8 +2171,8 @@ void StoragePartitionImpl::OnAuthRequired(
           const GURL& last_committed_url = rfh->GetLastCommittedURL();
           if (rfh->LoadedWithCacheControlNoStoreHeader() &&
               auth_info.challenger ==
-                  url::SchemeHostPort(last_committed_url.scheme(),
-                                      last_committed_url.host(),
+                  url::SchemeHostPort(last_committed_url.GetScheme(),
+                                      last_committed_url.GetHost(),
                                       last_committed_url.IntPort())) {
             BackForwardCacheCanStoreDocumentResult flattened_reasons;
             flattened_reasons.No(BackForwardCacheMetrics::NotRestoredReason::
@@ -2227,11 +2228,6 @@ void StoragePartitionImpl::OnLocalNetworkAccessPermissionRequired(
 
   // Currently requesting the Local Network Access permission is restricted to
   // subresource requests and subframe navigation requests.
-  // TODO(crbug.com/404887285): Denying permission for a subframe navigation
-  // results in an error page with text that isn't quite true anymore: "The
-  // connection is blocked because it was initiated by a public page to connect
-  // to devices or servers on your private network. Reload this page to allow
-  // the connection." The last sentence should be removed.
 
   // Handle document (Case 1) and navigation (Case 2) contexts.
   if (context.navigation_or_document()) {
@@ -3284,8 +3280,8 @@ void StoragePartitionImpl::ClearDataForOrigin(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(initialized_);
   CookieDeletionFilterPtr deletion_filter = CookieDeletionFilter::New();
-  if (!storage_origin.host().empty()) {
-    deletion_filter->host_name = storage_origin.host();
+  if (!storage_origin.GetHost().empty()) {
+    deletion_filter->host_name = storage_origin.GetHost();
   }
   // Construct a |BrowsingDataFilterBuilder| instead of just passing a storage
   // key based on the origin directly. This is needed to be able to delete the
@@ -3454,30 +3450,6 @@ void StoragePartitionImpl::WaitForDeletionTasksForTesting() {
     base::RunLoop loop;
     on_deletion_helpers_done_callback_ = loop.QuitClosure();
     loop.Run();
-  }
-}
-
-void StoragePartitionImpl::WaitForCodeCacheShutdownForTesting() {
-  DCHECK(initialized_);
-  if (generated_code_cache_context_) {
-    // If this is still running its initialization task it may check
-    // enabled features on a sequenced worker pool which could race
-    // between ScopedFeatureList destruction.
-    base::RunLoop loop;
-    GeneratedCodeCacheContext::RunOrPostTask(
-        generated_code_cache_context_, FROM_HERE,
-        base::BindOnce(
-            [](scoped_refptr<GeneratedCodeCacheContext> context,
-               base::OnceClosure quit) {
-              context->generated_js_code_cache()->GetBackend(base::BindOnce(
-                  [](base::OnceClosure quit, disk_cache::Backend*) {
-                    std::move(quit).Run();
-                  },
-                  std::move(quit)));
-            },
-            generated_code_cache_context_, loop.QuitClosure()));
-    loop.Run();
-    generated_code_cache_context_->Shutdown();
   }
 }
 
@@ -3874,11 +3846,12 @@ StoragePartitionImpl::GetRenderFrameHostIdFromNetworkContext() {
 
 void StoragePartitionImpl::IncrementActiveDocumentCount(
     const net::NetworkIsolationKey& nik) {
-  if (active_document_per_nik_count_.contains(nik)) {
-    active_document_per_nik_count_[nik]++;
-    CHECK_GT(active_document_per_nik_count_[nik], 1);
+  if (auto it = active_document_per_nik_count_.find(nik);
+      it != active_document_per_nik_count_.end()) {
+    it->second++;
+    CHECK_GT(it->second, 1);
   } else {
-    active_document_per_nik_count_[nik] = 1;
+    active_document_per_nik_count_.emplace(nik, 1);
     if (keep_alive_url_loader_service_) {
       keep_alive_url_loader_service_->DidObserveNewlyActiveDocumentWithNIK(nik);
     }
@@ -3887,19 +3860,30 @@ void StoragePartitionImpl::IncrementActiveDocumentCount(
 
 void StoragePartitionImpl::DecrementActiveDocumentCount(
     const net::NetworkIsolationKey& nik) {
-  CHECK(active_document_per_nik_count_.contains(nik));
-  active_document_per_nik_count_[nik]--;
-  if (active_document_per_nik_count_[nik] == 0) {
+  auto it = active_document_per_nik_count_.find(nik);
+  CHECK(it != active_document_per_nik_count_.end());
+  it->second--;
+  if (it->second == 0) {
     active_document_per_nik_count_.erase(nik);
   }
 }
 
 int StoragePartitionImpl::GetActiveDocumentCount(
     const net::NetworkIsolationKey& nik) {
-  if (!active_document_per_nik_count_.contains(nik)) {
+  auto it = active_document_per_nik_count_.find(nik);
+  if (it == active_document_per_nik_count_.end()) {
     return 0;
   }
-  return active_document_per_nik_count_[nik];
+  return it->second;
+}
+
+base::UnguessableToken StoragePartitionImpl::GetPartitionUUIDPerStorageKey(
+    const blink::StorageKey& storage_key) {
+  auto uuid = partition_uuid_per_storage_key_.find(storage_key);
+  return uuid == partition_uuid_per_storage_key_.end()
+             ? partition_uuid_per_storage_key_[storage_key] =
+                   base::UnguessableToken::Create()
+             : uuid->second;
 }
 
 void StoragePartitionImpl::OnScenarioMatchChanged(

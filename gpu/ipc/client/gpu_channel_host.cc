@@ -12,6 +12,7 @@
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/task/common/task_annotator.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "build/build_config.h"
@@ -47,10 +48,6 @@ GpuChannelHost::GpuChannelHost(
           this,
           static_cast<int32_t>(GpuChannelReservedRoutes::kSharedImageInterface),
           shared_image_capabilities),
-      image_decode_accelerator_proxy_(
-          this,
-          static_cast<int32_t>(
-              GpuChannelReservedRoutes::kImageDecodeAccelerator)),
       sync_point_graph_validation_enabled_(
           features::IsSyncPointGraphValidationEnabled()) {
   mojo::PendingAssociatedRemote<mojom::GpuChannel> channel;
@@ -138,7 +135,9 @@ void GpuChannelHost::CopyToGpuMemoryBufferAsync(
       mailbox, std::move(sync_token_dependencies), release_count,
       std::move(callback));
 }
+#endif  // BUILDFLAG(IS_WIN)
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
 void GpuChannelHost::CopyNativeGmbToSharedMemoryAsync(
     gfx::GpuMemoryBufferHandle buffer_handle,
     base::UnsafeSharedMemoryRegion memory_region,
@@ -152,7 +151,7 @@ void GpuChannelHost::CopyNativeGmbToSharedMemoryAsync(
   GetGpuChannel().CopyNativeGmbToSharedMemoryAsync(
       std::move(buffer_handle), std::move(memory_region), std::move(callback));
 }
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
 
 void GpuChannelHost::DelayedEnsureFlush(uint32_t deferred_message_id) {
   AutoLock lock(deferred_message_lock_);
@@ -414,8 +413,7 @@ void GpuChannelHost::Listener::Initialize(
   DCHECK(channel_);
   bool result = channel_->Connect();
   DCHECK(result);
-  channel_->GetAssociatedInterfaceSupport()->GetRemoteAssociatedInterface(
-      std::move(receiver));
+  channel_->GetRemoteAssociatedInterface(std::move(receiver));
 }
 
 GpuChannelHost::Listener::~Listener() = default;

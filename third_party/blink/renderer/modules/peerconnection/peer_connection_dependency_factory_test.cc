@@ -9,6 +9,8 @@
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/strings/to_string.h"
+#include "base/task/current_thread.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "services/network/public/cpp/features.h"
@@ -17,7 +19,9 @@
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
 #include "third_party/blink/public/platform/web_runtime_features.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_testing.h"
+#include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/policy_container.h"
+#include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/modules/peerconnection/mock_peer_connection_dependency_factory.h"
 #include "third_party/blink/renderer/modules/peerconnection/mock_rtc_peer_connection_handler_client.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_peer_connection_handler.h"
@@ -40,7 +44,7 @@ webrtc::SocketAddress AddressForSpace(IPAddressSpace address_space) {
     case IPAddressSpace::kPublic:
       return webrtc::SocketAddress("8.8.8.8", 1234);
     case IPAddressSpace::kUnknown:
-      NOTREACHED();
+      return webrtc::SocketAddress("unresolved-hostname", 1234);
   }
 }
 
@@ -93,6 +97,7 @@ struct ShouldRequestPermissionTestCase {
   // Result of ShouldRequestPermission() when the
   // kLocalNetworkAccessChecksWebRTCLoopbackOnly feature param is true.
   bool result_when_loopback_only;
+  LocalNetworkAccessRequestType request_type;
 };
 
 class LocalNetworkAccessPeerConnectionDependencyFactoryTest
@@ -111,47 +116,88 @@ class LocalNetworkAccessPeerConnectionDependencyFactoryTest
         /*disabled_features=*/{});
   }
 
- private:
+ protected:
+  void TestUseCounters(Document& document,
+                       LocalNetworkAccessRequestType request_type) {
+    base::test::RunUntil([&]() {
+      return document.IsUseCounted(
+          mojom::blink::WebFeature::kWebRTCLocalNetworkAccessCheck);
+    });
+
+    EXPECT_EQ(
+        request_type == LocalNetworkAccessRequestType::kPublicToLocal,
+        document.IsUseCounted(
+            mojom::blink::WebFeature::kWebRTCLocalNetworkAccessPublicToLocal));
+    EXPECT_EQ(
+        request_type == LocalNetworkAccessRequestType::kPublicToLoopback,
+        document.IsUseCounted(mojom::blink::WebFeature::
+                                  kWebRTCLocalNetworkAccessPublicToLoopback));
+    EXPECT_EQ(
+        request_type == LocalNetworkAccessRequestType::kLocalToLoopback,
+        document.IsUseCounted(mojom::blink::WebFeature::
+                                  kWebRTCLocalNetworkAccessLocalToLoopback));
+  }
+
   base::test::ScopedFeatureList feature_list_;
+  base::HistogramTester histogram_tester_;
 };
 
 constexpr ShouldRequestPermissionTestCase kTestCases[] = {
     {.originator_address_space = IPAddressSpace::kLoopback,
      .candidate_address_space = IPAddressSpace::kLoopback,
      .result = false,
-     .result_when_loopback_only = false},
+     .result_when_loopback_only = false,
+     .request_type = LocalNetworkAccessRequestType::kLoopbackToLoopback},
     {.originator_address_space = IPAddressSpace::kLoopback,
      .candidate_address_space = IPAddressSpace::kLocal,
      .result = false,
-     .result_when_loopback_only = false},
+     .result_when_loopback_only = false,
+     .request_type = LocalNetworkAccessRequestType::kLoopbackToLocal},
     {.originator_address_space = IPAddressSpace::kLoopback,
      .candidate_address_space = IPAddressSpace::kPublic,
      .result = false,
-     .result_when_loopback_only = false},
+     .result_when_loopback_only = false,
+     .request_type = LocalNetworkAccessRequestType::kLoopbackToPublic},
     {.originator_address_space = IPAddressSpace::kLocal,
      .candidate_address_space = IPAddressSpace::kLoopback,
      .result = true,
-     .result_when_loopback_only = true},
+     .result_when_loopback_only = true,
+     .request_type = LocalNetworkAccessRequestType::kLocalToLoopback},
     {.originator_address_space = IPAddressSpace::kLocal,
      .candidate_address_space = IPAddressSpace::kLocal,
      .result = false,
-     .result_when_loopback_only = false},
+     .result_when_loopback_only = false,
+     .request_type = LocalNetworkAccessRequestType::kLocalToLocal},
     {.originator_address_space = IPAddressSpace::kLocal,
      .candidate_address_space = IPAddressSpace::kPublic,
      .result = false,
-     .result_when_loopback_only = false},
+     .result_when_loopback_only = false,
+     .request_type = LocalNetworkAccessRequestType::kLocalToPublic},
     {.originator_address_space = IPAddressSpace::kPublic,
      .candidate_address_space = IPAddressSpace::kLoopback,
      .result = true,
-     .result_when_loopback_only = true},
+     .result_when_loopback_only = true,
+     .request_type = LocalNetworkAccessRequestType::kPublicToLoopback},
     {.originator_address_space = IPAddressSpace::kPublic,
      .candidate_address_space = IPAddressSpace::kLocal,
      .result = true,
-     .result_when_loopback_only = false},
+     .result_when_loopback_only = false,
+     .request_type = LocalNetworkAccessRequestType::kPublicToLocal},
     {.originator_address_space = IPAddressSpace::kPublic,
      .candidate_address_space = IPAddressSpace::kPublic,
      .result = false,
-     .result_when_loopback_only = false},
+     .result_when_loopback_only = false,
+     .request_type = LocalNetworkAccessRequestType::kPublicToPublic},
+    {.originator_address_space = IPAddressSpace::kUnknown,
+     .candidate_address_space = IPAddressSpace::kPublic,
+     .result = false,
+     .result_when_loopback_only = false,
+     .request_type = LocalNetworkAccessRequestType::kUnknown},
+    {.originator_address_space = IPAddressSpace::kPublic,
+     .candidate_address_space = IPAddressSpace::kUnknown,
+     .result = false,
+     .result_when_loopback_only = false,
+     .request_type = LocalNetworkAccessRequestType::kUnknown},
 };
 
 std::string PrintTestName(
@@ -159,7 +205,7 @@ std::string PrintTestName(
         std::tuple<bool, ShouldRequestPermissionTestCase>>& info) {
   const bool loopback_only = std::get<0>(info.param);
   const auto& [originator_address_space, candidate_address_space, unused1,
-               unused2] = std::get<1>(info.param);
+               unused2, unused3] = std::get<1>(info.param);
   return base::StrCat({loopback_only ? "LoopbackOnly_" : "",
                        base::ToString(originator_address_space), "_",
                        base::ToString(candidate_address_space)});
@@ -174,7 +220,8 @@ INSTANTIATE_TEST_SUITE_P(,
 TEST_P(LocalNetworkAccessPeerConnectionDependencyFactoryTest,
        ShouldRequestPermission) {
   const auto [originator_address_space, candidate_address_space, result,
-              result_with_loopback_only] = std::get<1>(GetParam());
+              result_with_loopback_only, request_type] =
+      std::get<1>(GetParam());
 
   WebRuntimeFeatures::EnableLocalNetworkAccessWebRTC(true);
 
@@ -199,6 +246,41 @@ TEST_P(LocalNetworkAccessPeerConnectionDependencyFactoryTest,
 
   EXPECT_EQ(expected, lna_permission->ShouldRequestPermission(
                           AddressForSpace(candidate_address_space)));
+
+  histogram_tester_.ExpectUniqueSample(
+      "WebRTC.PeerConnection.LocalNetworkAccess.RequestType", request_type, 1);
+  TestUseCounters(scope.GetDocument(), request_type);
+}
+
+TEST_P(LocalNetworkAccessPeerConnectionDependencyFactoryTest,
+       ShouldRequestPermission_FeatureDisabled) {
+  const auto [originator_address_space, candidate_address_space, result,
+              result_with_loopback_only, request_type] =
+      std::get<1>(GetParam());
+
+  WebRuntimeFeatures::EnableLocalNetworkAccessWebRTC(false);
+
+  V8TestingScope scope;
+  auto& dependency_factory =
+      PeerConnectionDependencyFactory::From(*scope.GetExecutionContext());
+
+  auto policies = mojom::blink::PolicyContainerPolicies::New();
+  policies->ip_address_space = originator_address_space;
+  auto policy_container = std::make_unique<PolicyContainer>(
+      mojo::NullAssociatedRemote(), std::move(policies));
+
+  scope.GetExecutionContext()->SetPolicyContainer(std::move(policy_container));
+
+  auto lna_permission_factory =
+      dependency_factory.CreateLocalNetworkAccessPermissionFactoryForTesting();
+  auto lna_permission = lna_permission_factory->Create();
+
+  EXPECT_FALSE(lna_permission->ShouldRequestPermission(
+      AddressForSpace(candidate_address_space)));
+
+  histogram_tester_.ExpectUniqueSample(
+      "WebRTC.PeerConnection.LocalNetworkAccess.RequestType", request_type, 1);
+  TestUseCounters(scope.GetDocument(), request_type);
 }
 
 }  // namespace blink

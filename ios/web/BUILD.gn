@@ -27,7 +27,6 @@ source_set("web") {
   deps = [
     ":common_js",
     ":core",
-    ":message_js",
     ":navigation_resources",
     ":resources",
     ":threads",
@@ -468,6 +467,7 @@ source_set("ios_web_web_state_ui_unittests") {
     ":core",
     "//base",
     "//base/test:test_support",
+    "//components/test/ios",
     "//components/url_formatter",
     "//ios/net",
     "//ios/testing:ocmock_support",
@@ -635,14 +635,6 @@ optimize_js("common_js") {
 
   primary_script = "web_state/js/resources/common.js"
   sources = [ "web_state/js/resources/common.js" ]
-}
-
-optimize_ts("message_js") {
-  visibility = [ ":web" ]
-
-  sources = [ "js_messaging/resources/message.ts" ]
-
-  deps = [ "//ios/web/public/js_messaging:gcrweb" ]
 }
 
 bundle_data("navigation_resources") {

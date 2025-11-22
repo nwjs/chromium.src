@@ -57,6 +57,7 @@
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/vector_icon_types.h"
+#include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
 #include "url/gurl.h"
 
 namespace searchbox_internal {
@@ -106,6 +107,8 @@ constexpr char kDriveSlidesIconResourceName[] =
     "//resources/cr_components/searchbox/icons/drive_slides.svg";
 constexpr char kDriveVideoIconResourceName[] =
     "//resources/cr_components/searchbox/icons/drive_video.svg";
+constexpr char kEnterpriseIconResourceName[] =
+    "//resources/cr_components/searchbox/icons/enterprise.svg";
 constexpr char kExtensionAppIconResourceName[] =
     "//resources/cr_components/searchbox/icons/extension_app.svg";
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -311,7 +314,8 @@ void SearchboxHandler::SetupWebUIDataSource(content::WebUIDataSource* source,
   source->AddBoolean("enableCsbMotionTweaks", false);
 
   static constexpr webui::LocalizedString kStrings[] = {
-      {"lensSearchButtonLabel", IDS_TOOLTIP_LENS_SEARCH},
+      {"lensSearchButtonLabel",
+       IDS_TOOLTIP_LENS_REINVOKE_VISUAL_SELECTION_A11Y_LABEL},
       {"searchboxSeparator", IDS_AUTOCOMPLETE_MATCH_DESCRIPTION_SEPARATOR},
       {"removeSuggestion", IDS_OMNIBOX_REMOVE_SUGGESTION},
       {"searchBoxHint", IDS_GOOGLE_SEARCH_BOX_EMPTY_HINT_MD},
@@ -325,6 +329,7 @@ void SearchboxHandler::SetupWebUIDataSource(content::WebUIDataSource* source,
       {"addContextTitle", IDS_NTP_COMPOSE_ADD_CONTEXT_TITLE},
       {"addImage", IDS_NTP_COMPOSE_ADD_IMAGE},
       {"addTab", IDS_NTP_COMPOSE_MOST_RECENT_TABS},
+      {"dismissButton", IDS_NTP_DISMISS},
       {"searchboxComposeButtonText", IDS_NTP_COMPOSE_ENTRYPOINT},
       {"searchboxComposeButtonTitle", IDS_NTP_COMPOSE_ENTRYPOINT_A11Y_LABEL},
       {"composeboxCancelButtonTitle", IDS_NTP_COMPOSE_CANCEL_BUTTON_A11Y_LABEL},
@@ -362,6 +367,11 @@ void SearchboxHandler::SetupWebUIDataSource(content::WebUIDataSource* source,
       {"askAboutThisTab", IDS_NTP_COMPOSE_ASK_ABOUT_THIS_TAB},
       {"askAboutThisTabAriaLabel",
        IDS_NTP_COMPOSE_ASK_ABOUT_THIS_TAB_ARIA_LABEL},
+      {"removeToolChipAriaLabel", IDS_COMPOSE_REMOVE_TOOL_CHIP_A11Y_LABEL},
+      {"composeFileTypesAllowedError",
+       IDS_NTP_COMPOSE_FILE_TYPE_NOT_ALLOWED_ERROR},
+      {"listening", IDS_NEW_TAB_VOICE_LISTENING},
+      {"details", IDS_NEW_TAB_VOICE_DETAILS},
   };
   source->AddLocalizedStrings(kStrings);
   source->AddString("searchboxComposePlaceholder",
@@ -399,12 +409,20 @@ void SearchboxHandler::SetupWebUIDataSource(content::WebUIDataSource* source,
   source->AddBoolean("searchboxCr23SteadyStateShadow",
                      ntp_features::kNtpRealboxCr23SteadyStateShadow.Get());
 
-  source->AddBoolean("searchboxShowComposeAnimation",
-                     profile->GetPrefs()->GetInteger(
-                         prefs::kNtpComposeButtonShownCountPrefName) <
-                         ntp_composebox::FeatureConfig::Get()
-                             .config.entry_point()
-                             .num_page_load_animations());
+  auto composebox_config = ntp_composebox::FeatureConfig::Get().config;
+  source->AddString("composeboxDragAndDropHint",
+                    l10n_util::GetPluralStringFUTF16(
+                        IDS_NTP_COMPOSE_DRAG_AND_DROP_HINT,
+                        composebox_config.composebox().max_num_files()));
+  source->AddString("maxFilesReachedError",
+                    l10n_util::GetPluralStringFUTF16(
+                        IDS_NTP_COMPOSE_MAX_FILES_REACHED_ERROR,
+                        composebox_config.composebox().max_num_files()));
+  source->AddBoolean(
+      "searchboxShowComposeAnimation",
+      profile->GetPrefs()->GetInteger(
+          prefs::kNtpComposeButtonShownCountPrefName) <
+          composebox_config.entry_point().num_page_load_animations());
 }
 
 std::string SearchboxHandler::AutocompleteIconToResourceName(
@@ -455,9 +473,7 @@ std::string SearchboxHandler::AutocompleteIconToResourceName(
   } else if (icon.name == omnibox::kDriveVideoIcon.name) {
     return kDriveVideoIconResourceName;
   } else if (icon.name == omnibox::kEnterpriseIcon.name) {
-    // TODO(crbug.com/446953332): Add icon. Not necessary ATM because IPH
-    //   matches aren't shown in webUI.
-    NOTREACHED();
+    return kEnterpriseIconResourceName;
   } else if (icon.name == omnibox::kExtensionAppIcon.name) {
     return kExtensionAppIconResourceName;
   } else if (icon.name == omnibox::kIncognitoCr2023Icon.name) {
@@ -640,6 +656,7 @@ SearchboxHandler::CreateAutocompleteMatch(
 
   searchbox::mojom::AutocompleteMatchPtr mojom_match =
       searchbox::mojom::AutocompleteMatch::New();
+  mojom_match->is_hidden = match.ShouldHideBasedOnStarterPack(turl_service);
   mojom_match->allowed_to_be_default_match = match.allowed_to_be_default_match;
   mojom_match->contents = match.contents;
   for (const auto& contents_class : match.contents_class) {
@@ -789,6 +806,23 @@ bool SearchboxHandler::IsRemoteBound() const {
   return page_.is_bound();
 }
 
+void SearchboxHandler::AddFileContextFromBrowser(
+    base::UnguessableToken token,
+    searchbox::mojom::SelectedFileInfoPtr file_info) {
+  if (page_ && IsRemoteBound()) {
+    page_->AddFileContext(token, std::move(file_info));
+  }
+}
+
+void SearchboxHandler::OnContextualInputStatusChanged(
+    base::UnguessableToken token,
+    composebox_query::mojom::FileUploadStatus status,
+    std::optional<composebox_query::mojom::FileUploadErrorType> error_type) {
+  if (page_ && IsRemoteBound()) {
+    page_->OnContextualInputStatusChanged(token, status, error_type);
+  }
+}
+
 void SearchboxHandler::SetPage(
     mojo::PendingRemote<searchbox::mojom::Page> pending_page) {
   page_.Bind(std::move(pending_page));
@@ -844,6 +878,15 @@ void SearchboxHandler::QueryAutocomplete(const std::u16string& input,
     if (GetAimToolMode() !=
         omnibox::ChromeAimToolsAndModels::TOOL_MODE_IMAGE_GEN_UPLOAD) {
       autocomplete_input.set_lens_overlay_suggest_inputs(*suggest_inputs);
+    }
+  }
+  if (controller_->client()->GetContextualInputData().has_value()) {
+    auto context_data = controller_->client()->GetContextualInputData().value();
+    if (context_data.page_title.has_value() &&
+        context_data.page_url.has_value()) {
+      autocomplete_input.set_context_tab_title(
+          base::UTF8ToUTF16(context_data.page_title.value()));
+      autocomplete_input.set_context_tab_url(context_data.page_url.value());
     }
   }
 
@@ -922,6 +965,12 @@ void SearchboxHandler::ActivateKeyword(
   // Generic searchbox should not show keywords.
   NOTREACHED();
 }
+
+void SearchboxHandler::ShowContextMenu(const gfx::Point& point) {
+  // Generic searchbox should not have a context menu.
+  NOTREACHED();
+}
+
 void SearchboxHandler::ExecuteAction(uint8_t line,
                                      uint8_t action_index,
                                      const GURL& url,

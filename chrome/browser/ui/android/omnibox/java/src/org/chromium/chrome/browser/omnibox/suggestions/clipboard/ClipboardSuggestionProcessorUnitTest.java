@@ -30,6 +30,7 @@ import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
@@ -55,7 +56,6 @@ import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
 
 import java.io.ByteArrayOutputStream;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 /** Tests for {@link ClipboardSuggestionProcessor}. */
@@ -95,11 +95,11 @@ public class ClipboardSuggestionProcessorUnitTest {
                         mContext,
                         mSuggestionHost,
                         mTextProvider,
-                        Optional.of(mImageSupplier),
+                        mImageSupplier,
                         mBookmarkState,
                         mTabSupplier,
                         mShareDelegateSupplier,
-                        () -> ControlsPosition.TOP);
+                        new ObservableSupplierImpl<>(ControlsPosition.TOP));
         mProcessor = new ClipboardSuggestionProcessor(uiContext);
         mRootView = new LinearLayout(mContext);
         mTitleTextView = new TextView(mContext);

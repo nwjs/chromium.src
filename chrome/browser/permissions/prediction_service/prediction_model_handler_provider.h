@@ -9,7 +9,6 @@
 
 #include "base/scoped_observation.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "components/optimization_guide/core/delivery/optimization_guide_model_provider.h"
 #include "components/optimization_guide/machine_learning_tflite_buildflags.h"
 #include "components/passage_embeddings/passage_embeddings_types.h"
 #include "components/permissions/request_type.h"
@@ -19,7 +18,6 @@ class OptimizationGuideKeyedService;
 namespace permissions {
 
 class PredictionModelHandler;
-class PermissionsAiv1Handler;
 class PermissionsAiv3Handler;
 class PermissionsAiv4Handler;
 
@@ -37,11 +35,9 @@ class PredictionModelHandlerProvider
   PredictionModelHandlerProvider& operator=(
       const PredictionModelHandlerProvider&) = delete;
 
-  PermissionsAiv1Handler* GetPermissionsAiv1Handler();
-
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
 
-  static bool IsAiv4ModelAvailable();
+  static bool IsAIv4FeatureEnabled();
   PredictionModelHandler* GetPredictionModelHandler(RequestType request_type);
   PermissionsAiv3Handler* GetPermissionsAiv3Handler(RequestType request_type);
   PermissionsAiv4Handler* GetPermissionsAiv4Handler(RequestType request_type);
@@ -63,7 +59,6 @@ class PredictionModelHandlerProvider
   void EmbedderMetadataUpdated(
       passage_embeddings::EmbedderMetadata metadata) override;
 
-  std::unique_ptr<PermissionsAiv1Handler> permissions_aiv1_handler_;
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
   std::unique_ptr<PredictionModelHandler>
       notification_prediction_model_handler_;

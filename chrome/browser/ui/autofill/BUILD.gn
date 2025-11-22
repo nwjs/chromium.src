@@ -4,6 +4,7 @@
 
 import("//build/config/chrome_build.gni")
 import("//build/config/ui.gni")
+import("//components/compose/features.gni")
 import("//components/signin/features.gni")
 
 assert(is_win || is_mac || is_linux || is_chromeos || is_android)
@@ -48,6 +49,7 @@ source_set("autofill") {
     "//components/signin/public/identity_manager",
     "//components/zoom",
     "//content/public/browser",
+    "//ui/actions:actions_headers",
     "//ui/gfx",
     "//ui/gfx/geometry",
   ]
@@ -74,9 +76,9 @@ source_set("autofill") {
       "address_bubbles_controller.h",
       "address_bubbles_icon_controller.h",
       "address_editor_controller.h",
-      "autofill_ai/save_or_update_autofill_ai_data_controller.cc",
-      "autofill_ai/save_or_update_autofill_ai_data_controller.h",
-      "autofill_ai/save_or_update_autofill_ai_data_controller_impl.h",
+      "autofill_ai/autofill_ai_import_data_controller.cc",
+      "autofill_ai/autofill_ai_import_data_controller.h",
+      "autofill_ai/autofill_ai_import_data_controller_impl.h",
       "autofill_context_menu_manager.h",
       "autofill_field_promo_controller.h",
       "autofill_field_promo_controller_impl.h",
@@ -125,6 +127,8 @@ source_set("impl") {
     "autofill_suggestion_controller.cc",
     "autofill_suggestion_controller_utils.cc",
     "chrome_autofill_client.cc",
+    "chrome_otp_phish_guard_delegate.cc",
+    "chrome_otp_phish_guard_delegate.h",
     "next_idle_barrier.cc",
     "popup_controller_common.cc",
     "risk_util.cc",
@@ -167,6 +171,7 @@ source_set("impl") {
     "//components/password_manager/core/browser:password_form",
     "//components/password_manager/core/browser/form_parsing",
     "//components/profile_metrics",
+    "//components/safe_browsing/content/browser/password_protection",
     "//components/security_state/content",
     "//components/strings:components_strings_grit",
     "//components/unified_consent",
@@ -193,7 +198,7 @@ source_set("impl") {
       "address_bubbles_controller.cc",
       "address_bubbles_icon_controller.cc",
       "address_editor_controller.cc",
-      "autofill_ai/save_or_update_autofill_ai_data_controller_impl.cc",
+      "autofill_ai/autofill_ai_import_data_controller_impl.cc",
       "autofill_context_menu_manager.cc",
       "autofill_field_promo_controller_impl.cc",
       "autofill_popup_controller_impl.cc",
@@ -232,6 +237,10 @@ source_set("impl") {
 
   if (is_mac) {
     sources += [ "autofill_popup_controller_impl_mac.mm" ]
+  }
+
+  if (enable_compose) {
+    deps += [ "//chrome/browser/compose" ]
   }
 }
 
@@ -343,8 +352,8 @@ source_set("test_support") {
     sources += [ "autofill_keyboard_accessory_controller_impl_test_api.h" ]
   } else {
     sources += [
-      "autofill_ai/mock_save_or_update_ai_data_controller.cc",
-      "autofill_ai/mock_save_or_update_ai_data_controller.h",
+      "autofill_ai/mock_autofill_ai_import_data_controller.cc",
+      "autofill_ai/mock_autofill_ai_import_data_controller.h",
       "autofill_popup_controller_impl_test_api.h",
       "mock_autofill_popup_controller.cc",
       "mock_autofill_popup_controller.h",
@@ -465,7 +474,7 @@ if (!is_android) {
 
     sources = [
       "address_bubbles_controller_browsertest.cc",
-      "autofill_ai/save_or_update_autofill_ai_data_controller_impl_browsertest.cc",
+      "autofill_ai/autofill_ai_import_data_controller_impl_browsertest.cc",
       "autofill_context_menu_manager_browsertest.cc",
       "delete_address_profile_dialog_controller_impl_browsertest.cc",
       "edit_address_profile_dialog_controller_impl_browsertest.cc",

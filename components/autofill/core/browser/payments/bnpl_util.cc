@@ -11,7 +11,13 @@
 #include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
+#include "components/autofill/core/browser/foundations/autofill_client.h"
+#include "components/autofill/core/browser/integrators/optimization_guide/autofill_optimization_guide_decider.h"
+#include "components/autofill/core/browser/payments/bnpl_manager.h"
+#include "components/autofill/core/browser/payments/constants.h"
+#include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/payments/core/currency_formatter.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -36,6 +42,49 @@ BnplIssuerContext& BnplIssuerContext::operator=(BnplIssuerContext&&) = default;
 BnplIssuerContext::~BnplIssuerContext() = default;
 
 bool BnplIssuerContext::operator==(const BnplIssuerContext&) const = default;
+
+bool BnplIssuerContext::IsEligible() const {
+  switch (eligibility) {
+    case BnplIssuerEligibilityForPage::kUndefined:
+      NOTREACHED();
+    case BnplIssuerEligibilityForPage::kIsEligible:
+      return true;
+    case BnplIssuerEligibilityForPage::kNotEligibleIssuerDoesNotSupportMerchant:
+    case BnplIssuerEligibilityForPage::kNotEligibleCheckoutAmountTooLow:
+    case BnplIssuerEligibilityForPage::kNotEligibleCheckoutAmountTooHigh:
+      return false;
+  }
+  NOTREACHED();
+}
+
+BnplIssuerTosDetail::BnplIssuerTosDetail(
+    int header_icon_id,
+    int header_icon_id_dark,
+    std::u16string title,
+    std::u16string review_text,
+    std::u16string approve_text,
+    TextWithLink link_text,
+    std::vector<LegalMessageLine> legal_message_lines)
+    : header_icon_id(header_icon_id),
+      header_icon_id_dark(header_icon_id_dark),
+      title(std::move(title)),
+      review_text(std::move(review_text)),
+      approve_text(std::move(approve_text)),
+      link_text(std::move(link_text)),
+      legal_message_lines(std::move(legal_message_lines)) {}
+
+BnplIssuerTosDetail::BnplIssuerTosDetail(const BnplIssuerTosDetail& other) =
+    default;
+
+BnplIssuerTosDetail::BnplIssuerTosDetail(BnplIssuerTosDetail&&) = default;
+
+BnplIssuerTosDetail& BnplIssuerTosDetail::operator=(
+    const BnplIssuerTosDetail& other) = default;
+
+BnplIssuerTosDetail& BnplIssuerTosDetail::operator=(BnplIssuerTosDetail&&) =
+    default;
+
+BnplIssuerTosDetail::~BnplIssuerTosDetail() = default;
 
 std::u16string GetBnplIssuerSelectionOptionText(
     BnplIssuer::IssuerId issuer_id,
@@ -70,14 +119,29 @@ std::u16string GetBnplIssuerSelectionOptionText(
       switch (issuer_id) {
         case BnplIssuer::IssuerId::kBnplAffirm:
         case BnplIssuer::IssuerId::kBnplAfterpay:
+#if BUILDFLAG(IS_ANDROID)
+          return l10n_util::GetStringUTF16(
+              IDS_AUTOFILL_BNPL_ISSUER_SELECTION_TEXT_AFFIRM_BOTTOM_SHEET);
+#else
           return l10n_util::GetStringUTF16(
               IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_PAYMENT_OPTION_AFFIRM_AND_AFTERPAY);
+#endif  // BUILDFLAG(IS_ANDROID)
         case BnplIssuer::IssuerId::kBnplZip:
+#if BUILDFLAG(IS_ANDROID)
+          return l10n_util::GetStringUTF16(
+              IDS_AUTOFILL_BNPL_ISSUER_SELECTION_TEXT_ZIP_BOTTOM_SHEET);
+#else
           return l10n_util::GetStringUTF16(
               IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_PAYMENT_OPTION_ZIP);
+#endif  // BUILDFLAG(IS_ANDROID)
         case BnplIssuer::IssuerId::kBnplKlarna:
+#if BUILDFLAG(IS_ANDROID)
+          return l10n_util::GetStringUTF16(
+              IDS_AUTOFILL_BNPL_ISSUER_SELECTION_TEXT_KLARNA_BOTTOM_SHEET);
+#else
           return l10n_util::GetStringUTF16(
               IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_PAYMENT_OPTION_KLARNA);
+#endif  // BUILDFLAG(IS_ANDROID)
       }
       NOTREACHED();
     case BnplIssuerEligibilityForPage::kNotEligibleIssuerDoesNotSupportMerchant:
@@ -114,6 +178,59 @@ TextWithLink GetBnplUiFooterText() {
       gfx::Range(offset, offset + payments_settings_link_text.length());
 
   return text_with_link;
+}
+
+bool ShouldAppendBnplSuggestion(const AutofillClient& client,
+                                bool is_card_number_field_empty,
+                                FieldType trigger_field_type) {
+  // If this is called on Chrome Android, it must be called due to attempting to
+  // add BNPL to the keyboard accessory suggestions, which is not supported.
+  if constexpr (BUILDFLAG(IS_ANDROID)) {
+    return false;
+  }
+  // BNPL suggestions should not be shown for CVC fields.
+  if (kCvcFieldTypes.contains(trigger_field_type)) {
+    return false;
+  }
+  // BNPL suggestions should not be shown if the card number field is not empty
+  // after sanitizing.
+  if (!is_card_number_field_empty) {
+    return false;
+  }
+  // BNPL suggestions require that at least one BNPL issuer is present and the
+  // domain is eligible for BNPL.
+  if (!IsEligibleForBnpl(client)) {
+    return false;
+  }
+  // This feature can only be enabled by the feature flag:
+  // `kAutofillEnableAiBasedAmountExtraction`.
+  return base::FeatureList::IsEnabled(
+      features::kAutofillEnableAiBasedAmountExtraction);
+}
+
+bool IsEligibleForBnpl(const AutofillClient& client) {
+  // BNPL is not supported in off-the-record (incognito) mode.
+  if (client.IsOffTheRecord()) {
+    return false;
+  }
+
+  AutofillOptimizationGuideDecider* autofill_optimization_guide_decider =
+      client.GetAutofillOptimizationGuideDecider();
+  if (!autofill_optimization_guide_decider) {
+    return false;
+  }
+
+  const GURL& url = client.GetLastCommittedPrimaryMainFrameURL();
+
+  return std::ranges::any_of(
+      client.GetPaymentsAutofillClient()
+          ->GetPaymentsDataManager()
+          .GetBnplIssuers(),
+      [&autofill_optimization_guide_decider,
+       &url](const BnplIssuer& bnpl_issuer) {
+        return autofill_optimization_guide_decider->IsUrlEligibleForBnplIssuer(
+            bnpl_issuer.issuer_id(), url);
+      });
 }
 
 }  // namespace autofill::payments

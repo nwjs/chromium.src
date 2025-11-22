@@ -18,20 +18,22 @@
 #include "base/types/id_type.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/aggregated_journal.h"
+#include "chrome/browser/actor/site_policy.h"
 #include "chrome/browser/actor/tools/tool_controller.h"
 #include "chrome/browser/actor/tools/tool_delegate.h"
 #include "chrome/browser/password_manager/actor_login/actor_login_service.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/actor/task_id.h"
+#include "components/autofill/core/browser/integrators/glic/actor_form_filling_types.h"
 #include "components/tabs/public/tab_interface.h"
-#include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 
 class Profile;
 
-namespace tabs {
-class TabInterface;
-}  // namespace tabs
+namespace content {
+class NavigationHandle;
+}
 
 namespace url {
 class Origin;
@@ -69,6 +71,28 @@ class ExecutionEngine : public ToolDelegate {
     kComplete,
   };
 
+  // This enum represents the possible outcomes of the synchronous part of the
+  // navigation gating logic.
+  // LINT.IfChange(GatingDecision)
+  // These enum values are persisted to logs.  Do not renumber or reuse numeric
+  // values.
+  enum class GatingDecision {
+    // The source origin and navigation origin are the same and should not be
+    // gated.
+    kAllowSameOrigin = 0,
+    // The navigation is allowed by the static allow-list.
+    kAllowByStaticList = 1,
+    // The navigation is blocked by the static block-list. The user will not be
+    // prompted for confirmation.
+    kBlockByStaticList = 2,
+    // The navigation is not on any allowlist or blocklist and requires an
+    // asynchronous check to determine the final outcome.
+    kNeedsAsyncCheck = 3,
+    kMaxValue = kNeedsAsyncCheck,
+  };
+
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/actor/enums.xml:GatingDecision)
+
   class StateObserver : public base::CheckedObserver {
    public:
     ~StateObserver() override = default;
@@ -76,11 +100,6 @@ class ExecutionEngine : public ToolDelegate {
   };
 
   explicit ExecutionEngine(Profile* profile);
-
-  // Old instances of ExecutionEngine assume that all actions are scoped to a
-  // single tab. This constructor supports this use case, but this is
-  // deprecated. Do not add new consumers
-  ExecutionEngine(Profile* profile, tabs::TabInterface* tab);
   ExecutionEngine(const ExecutionEngine&) = delete;
   ExecutionEngine& operator=(const ExecutionEngine&) = delete;
   ~ExecutionEngine() override;
@@ -107,42 +126,62 @@ class ExecutionEngine : public ToolDelegate {
   // Invalidated anytime `action_sequence_` is reset.
   base::WeakPtr<ExecutionEngine> GetWeakPtr();
 
+  bool HasActionSequence() const;
+
   // ToolDelegate:
   Profile& GetProfile() override;
   AggregatedJournal& GetJournal() override;
   favicon::FaviconService* GetFaviconService() override;
   actor_login::ActorLoginService& GetActorLoginService() override;
+  autofill::ActorFormFillingService& GetActorFormFillingService() override;
   void PromptToSelectCredential(
       const std::vector<actor_login::Credential>& credentials,
       const base::flat_map<std::string, gfx::Image>& icons,
       ToolDelegate::CredentialSelectedCallback callback) override;
   void SetUserSelectedCredential(
-      const actor_login::Credential& credential) override;
-  const std::optional<actor_login::Credential> GetUserSelectedCredential(
+      const CredentialWithPermission& credential) override;
+  const std::optional<CredentialWithPermission> GetUserSelectedCredential(
       const url::Origin& request_origin) const override;
+  void RequestToShowAutofillSuggestions(
+      std::vector<autofill::ActorFormFillingRequest> requests,
+      AutofillSuggestionSelectedCallback callback) override;
+  void InterruptFromTool() override;
+  void UninterruptFromTool() override;
 
-  // Callback for when a credential is selected, in response to
-  // `ToolDelegate::PromptToSelectCredential()`.
-  void OnCredentialSelected(
-      webui::mojom::SelectCredentialDialogResponsePtr response);
+  using AllowedOriginSet = absl::flat_hash_set<url::Origin>;
+  void AddWritableMainframeOrigins(
+      const AllowedOriginSet& added_writable_mainframe_origins);
 
-  using UserConfirmationDialogCallback = base::OnceCallback<void(
-      webui::mojom::UserConfirmationDialogResponsePtr response)>;
+  // Callback invoked when ConfirmCrossOriginNavigation, which spawns an IPC to
+  // the web client, receives its response. This callback gets a boolean
+  // indicating if navigation should continue.
+  using NavigationDecisionCallback =
+      base::OnceCallback<void(bool may_continue)>;
 
-  void PromptToConfirmCrossOriginNavigation(
-      const url::Origin& navigation_origin,
-      UserConfirmationDialogCallback callback);
-  void PromptToConfirmDownload(int32_t download_id,
-                               UserConfirmationDialogCallback callback);
-
-  // Callback for when the user responds to a confirmation dialog.
-  void OnUserConfirmation(
-      webui::mojom::UserConfirmationDialogResponsePtr response);
+  // Returns a boolean indicating if ActorNavigationThrottle should defer a
+  // navigation until the decision callback is invoked. This method can only
+  // be called on the primary main frame or a prerendered main frame.
+  bool ShouldGateNavigation(content::NavigationHandle& navigation_handle,
+                            NavigationDecisionCallback callback);
 
   static std::string StateToString(State state);
 
-  bool ShouldGateNavigation(content::NavigationHandle& navigation_handle,
-                            UserConfirmationDialogCallback callback);
+  void OnMayActOnTabDecision(const url::Origin& evaluated_origin,
+                             MayActOnUrlBlockReason block_reason);
+
+  void UserTakeover(mojom::ActionResultCode takeover_response_code,
+                    base::OnceCallback<void(bool)> callback);
+
+  void RunUserTakeoverCallbackIfExists(bool should_cancel);
+
+  void set_user_take_over_result(
+      std::optional<mojom::ActionResultCode> user_takeover_result) {
+    user_takeover_result_ = user_takeover_result;
+  }
+
+  std::optional<mojom::ActionResultCode> user_take_over_result() const {
+    return user_takeover_result_;
+  }
 
   void AddObserver(StateObserver* observer);
 
@@ -186,11 +225,6 @@ class ExecutionEngine : public ToolDelegate {
   void CompleteActions(mojom::ActionResultPtr result,
                        std::optional<size_t> action_index);
 
-  void PromptUserForConfirmationInternal(
-      const std::optional<url::Origin>& navigation_origin,
-      const std::optional<int32_t> download_url,
-      UserConfirmationDialogCallback callback);
-
   // Returns the next action that will be started when ExecuteNextAction is
   // reached.
   const ToolRequest& GetNextAction() const;
@@ -200,9 +234,57 @@ class ExecutionEngine : public ToolDelegate {
   size_t InProgressActionIndex() const;
   const ToolRequest& GetInProgressAction() const;
 
-  void OnPromptToConfirmNavigationDecision(
+  // `std::nullopt` is returned when the decision to gate the navigation is done
+  // async.
+  GatingDecision ShouldGateNavigationInternal(
+      content::NavigationHandle& navigation_handle,
+      NavigationDecisionCallback callback);
+  void LogNavigationGating(const std::optional<url::Origin>& initiator_origin,
+                           const GURL& navigation_url,
+                           bool applied_gate);
+
+  // Returns the highest-priority navigation gating decision. Prioritizes
+  // blocking navigations over allowing (except on same origin navigations).
+  GatingDecision DetermineGatingDecision(const GURL& source_url,
+                                         const GURL& destination_url) const;
+
+  void CheckNavigationBlocklist(
+      const std::optional<url::Origin>& initiator_origin,
+      const GURL& navigation_url,
+      bool skip_prompt,
+      NavigationDecisionCallback callback);
+  void OnNavigationBlocklistDecision(
+      const std::optional<url::Origin> initiator_origin,
+      const GURL navigation_url,
+      bool skip_prompt,
+      NavigationDecisionCallback callback,
+      bool not_on_blocklist);
+
+  // Called when the browser detects the actor needs to confirm a
+  // client-side-initiated navigation to a novel origin.
+  void HandleNavigationToNewOrigin(
+      const url::Origin& navigation_origin,
+      ExecutionEngine::NavigationDecisionCallback callback);
+
+  void SendNavigationConfirmationRequest(const url::Origin& navigation_origin,
+                                         NavigationDecisionCallback callback);
+  void OnNavigationConfirmationDecision(
       url::Origin navigation_origin,
-      UserConfirmationDialogCallback callback,
+      NavigationDecisionCallback callback,
+      webui::mojom::NavigationConfirmationResponsePtr response);
+
+  // Called when the browser detects the actor navigating to an origin in the
+  // blocklist. The web client should confirm with the user that the actor is
+  // allowed to navigate to this origin.
+  // This may also be called when the browser detects the actor navigating to
+  // a novel origin when `kGlicPromptUserForNavigationToNewOrigins` is enabled.
+  void SendUserConfirmationDialogRequest(const url::Origin& navigation_origin,
+                                         bool for_blocklisted_origin,
+                                         NavigationDecisionCallback callback);
+  void OnPromptUserToConfirmNavigationDecision(
+      url::Origin navigation_origin,
+      bool for_blocklisted_origin,
+      NavigationDecisionCallback callback,
       webui::mojom::UserConfirmationDialogResponsePtr response);
 
   State state_ = State::kInit;
@@ -219,6 +301,8 @@ class ExecutionEngine : public ToolDelegate {
   // request.
   std::unique_ptr<ToolController> tool_controller_;
   std::unique_ptr<actor_login::ActorLoginService> actor_login_service_;
+  std::unique_ptr<autofill::ActorFormFillingService>
+      actor_form_filling_service_;
   std::unique_ptr<ui::UiEventDispatcher> ui_event_dispatcher_;
 
   std::vector<std::unique_ptr<ToolRequest>> action_sequence_;
@@ -237,19 +321,24 @@ class ExecutionEngine : public ToolDelegate {
   std::vector<ActionResultWithLatencyInfo> action_results_;
 
   // Origins which the browser is allowed to navigate to under actor control
-  // without prompting the user. This is applied to all navigations, including
-  // those initiated by the renderer with web content.
-  std::set<url::Origin> allowed_navigation_origins_;
-
-  ToolDelegate::CredentialSelectedCallback credential_selected_callback_;
-
-  UserConfirmationDialogCallback user_confirmation_callback_;
+  // without needing to confirm the navigation with the web client. This set can
+  // have origins added to it by the server actions or by confirming the new
+  // origin with the model or user. Sensitive origins that are on the
+  // optimization guide blocklist are not exempt by this list.
+  AllowedOriginSet allowed_navigation_origins_;
+  // Separate allowlist for sensitive origins on the optimization guide
+  // blocklist. We cache these origins separately to not double prompt the user
+  // when they already confirmed the actor can interact with the origin.
+  AllowedOriginSet user_confirmed_blocklisted_origins_;
 
   // For multi-step login, this is the credential that the user has chosen to
   // allow the actor to use. The key is the
   // `Credential::request_origin`.
-  base::flat_map<url::Origin, actor_login::Credential>
+  base::flat_map<url::Origin, CredentialWithPermission>
       user_selected_credentials_;
+
+  base::OnceCallback<void(bool /*should_cancel*/)> user_takeover_callback_;
+  std::optional<mojom::ActionResultCode> user_takeover_result_;
 
   base::ObserverList<StateObserver> observers_;
 

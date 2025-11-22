@@ -8,22 +8,24 @@
 #include <memory>
 #include <vector>
 
+#include "base/callback_list.h"
 #include "base/compiler_specific.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "base/types/expected.h"
+#include "chrome/browser/actor/actor_task.h"
+#include "chrome/browser/actor/actor_task_delegate.h"
 #include "chrome/browser/actor/aggregated_journal.h"
-#include "chrome/browser/page_content_annotations/multi_source_page_context_fetcher.h"
+#include "chrome/browser/profiles/profile_observer.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/actor/task_id.h"
-#include "chrome/common/actor_webui.mojom.h"
 #include "chrome/common/buildflags.h"
+#include "components/download/content/public/all_download_item_notifier.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "components/password_manager/core/browser/actor_login/actor_login_types.h"
+#include "components/sessions/core/session_id.h"
 #include "components/tabs/public/tab_interface.h"
-#include "ui/gfx/image/image.h"
-#include "url/gurl.h"
 
 class Profile;
 
@@ -31,17 +33,24 @@ namespace content {
 class BrowserContext;
 }  // namespace content
 
+namespace page_content_annotations {
+struct FetchPageContextResult;
+}  // namespace page_content_annotations
+
 namespace actor {
 namespace ui {
 class ActorUiStateManagerInterface;
 }
 
-class ActorTask;
+class ActorPolicyChecker;
+class ActorTaskMetadata;
 class ToolRequest;
 
 // This class owns all ActorTasks for a given profile. ActorTasks are kept in
 // memory until the process is destroyed.
-class ActorKeyedService : public KeyedService {
+class ActorKeyedService : public KeyedService,
+                          public ProfileObserver,
+                          public download::AllDownloadItemNotifier::Observer {
  public:
   explicit ActorKeyedService(Profile* profile);
   ActorKeyedService(const ActorKeyedService&) = delete;
@@ -63,9 +72,9 @@ class ActorKeyedService : public KeyedService {
   const std::map<TaskId, const ActorTask*> GetInactiveTasks() const;
 
   std::vector<TaskId> FindTaskIdsInActive(
-      const base::RepeatingCallback<bool(const ActorTask&)>& predicate) const;
+      base::FunctionRef<bool(const ActorTask&)> predicate) const;
   std::vector<TaskId> FindTaskIdsInInactive(
-      const base::RepeatingCallback<bool(const ActorTask&)>& predicate) const;
+      base::FunctionRef<bool(const ActorTask&)> predicate) const;
 
   // Stop and clear all active and inactive tasks for testing only.
   void ResetForTesting();
@@ -73,7 +82,9 @@ class ActorKeyedService : public KeyedService {
   // Starts a new task with an execution engine and returns the new task's id.
   // `options`, when provided, contains information used to initialize the
   // task.
-  TaskId CreateTask(webui::mojom::TaskOptionsPtr options = nullptr);
+  TaskId CreateTask();
+  TaskId CreateTaskWithOptions(webui::mojom::TaskOptionsPtr options,
+                               base::WeakPtr<ActorTaskDelegate> delegate);
 
   // Executes the given ToolRequest actions using the execution engine for the
   // given task id.
@@ -83,11 +94,12 @@ class ActorKeyedService : public KeyedService {
       std::vector<ActionResultWithLatencyInfo> /* action_results */)>;
   void PerformActions(TaskId task_id,
                       std::vector<std::unique_ptr<ToolRequest>>&& actions,
+                      ActorTaskMetadata task_metadata,
                       PerformActionsCallback callback);
 
-  // Stops a task by its ID, `success` determines if the task was finished
-  // successfully or ended early.
-  void StopTask(TaskId task_id, bool success);
+  // Stops a task by its ID, `stop_reason` determines the reason for the task
+  // stopping.
+  void StopTask(TaskId task_id, ActorTask::StoppedReason stop_reason);
 
   // Returns the task with the given ID. Returns nullptr if the task does not
   // exist.
@@ -98,6 +110,8 @@ class ActorKeyedService : public KeyedService {
 
   // The associated ActorUiStateManager for the associated profile.
   ui::ActorUiStateManagerInterface* GetActorUiStateManager();
+
+  ActorPolicyChecker& GetPolicyChecker();
 
   // Returns true if there is a task that is actively (i.e. not paused) acting
   // in the given `tab`.
@@ -125,59 +139,31 @@ class ActorKeyedService : public KeyedService {
       TaskStateChangedCallback callback);
 
   void NotifyTaskStateChanged(const ActorTask& task);
+  void OnActOnWebCapabilityChanged(bool can_act_on_web);
 
-  // Allows the subscribers to get notified when a credential selection prompt
-  // is requested.
-  using CredentialSelectedCallback = base::RepeatingCallback<void(
-      webui::mojom::SelectCredentialDialogResponsePtr)>;
-  using RequestToShowCredentialSelectionDialogSubscriberCallback =
-      base::RepeatingCallback<void(
-          TaskId,
-          const base::flat_map<std::string, gfx::Image>& icons,
-          const std::vector<actor_login::Credential>&,
-          CredentialSelectedCallback)>;
-  base::CallbackListSubscription
-  AddRequestToShowCredentialSelectionDialogSubscriberCallback(
-      RequestToShowCredentialSelectionDialogSubscriberCallback callback);
-
-  // Notifies the subscribers that a credential selection prompt is requested
-  // for the given task.
-  void NotifyRequestToShowCredentialSelectionDialog(
-      TaskId task_id,
-      const base::flat_map<std::string, gfx::Image>& icons,
-      const std::vector<actor_login::Credential>& credentials);
-
-  // Callback for when a credential is selected.
-  void OnCredentialSelected(
-      TaskId request_task_id,
-      webui::mojom::SelectCredentialDialogResponsePtr response);
-
-  using UserConfirmationDialogCallback = base::RepeatingCallback<void(
-      webui::mojom::UserConfirmationDialogResponsePtr)>;
-  using RequestToShowUserConfirmationDialogSubscriberCallback =
-      base::RepeatingCallback<void(const std::optional<url::Origin>&,
-                                   const std::optional<int32_t>,
-                                   UserConfirmationDialogCallback)>;
-
-  base::CallbackListSubscription
-  AddRequestToShowUserConfirmationDialogSubscriberCallback(
-      RequestToShowUserConfirmationDialogSubscriberCallback callback);
-
-  // Notifies the subscribers that the browser is requesting user confirmation
-  // for the actor to continue.
-  void NotifyRequestToShowUserConfirmationDialog(
-      TaskId task_id,
-      const std::optional<url::Origin>& navigation_origin,
-      const std::optional<int32_t> download_id);
-
-  void OnUserConfirmationDialogDecision(
-      TaskId request_task_id,
-      webui::mojom::UserConfirmationDialogResponsePtr response);
+  using ActOnWebCapabilityChangedCallback = base::RepeatingCallback<void(bool)>;
+  base::CallbackListSubscription AddActOnWebCapabilityChangedCallback(
+      ActOnWebCapabilityChangedCallback callback);
 
   // Returns the acting task for web_contents. Returns nullptr if acting task
   // does not exist.
   const ActorTask* GetActingActorTaskForWebContents(
       content::WebContents* web_contents);
+
+  using CreateActorTabCallback = base::OnceCallback<void(tabs::TabInterface*)>;
+  void CreateActorTab(TaskId task_id,
+                      bool open_in_background,
+                      tabs::TabHandle initiator_tab_handle,
+                      SessionID initiator_window_id,
+                      CreateActorTabCallback callback);
+
+  // download::AllDownloadItemNotifier::Observer
+  void OnDownloadCreated(content::DownloadManager* manager,
+                         download::DownloadItem* item) override;
+
+  // Once the profile is initialized, we can get the DownloadManager for the
+  // download::AllDownloadItemNotifier::Observer
+  void OnProfileInitializationComplete(Profile* profile) override;
 
   base::WeakPtr<ActorKeyedService> GetWeakPtr();
 
@@ -189,6 +175,18 @@ class ActorKeyedService : public KeyedService {
       std::optional<size_t> index_of_failed_action,
       std::vector<ActionResultWithLatencyInfo> action_results);
 
+  // Fails all the active tasks.
+  void FailAllTasks();
+
+  // The jounrnal should be last in destruction order since other things like
+  // ActorTask might be using a SafeRef to this object.
+  AggregatedJournal journal_;
+
+  // download notifier for metrics and the profile observer to help set up the
+  // download notifier.
+  std::unique_ptr<download::AllDownloadItemNotifier> download_notifier_;
+  base::ScopedObservation<Profile, ProfileObserver> profile_observation_{this};
+
   // Needs to be declared before the tasks, as they will indirectly have a
   // reference to it. This ensures the correct destruction order.
   std::unique_ptr<ui::ActorUiStateManagerInterface> actor_ui_state_manager_;
@@ -199,18 +197,13 @@ class ActorKeyedService : public KeyedService {
 
   TaskId::Generator next_task_id_;
 
-  AggregatedJournal journal_;
+  std::unique_ptr<ActorPolicyChecker> policy_checker_;
 
   base::RepeatingCallbackList<void(const ActorTask&)>
       tab_state_change_callback_list_;
 
-  base::RepeatingCallbackList<
-      RequestToShowCredentialSelectionDialogSubscriberCallback::RunType>
-      request_to_show_credential_selection_dialog_callback_list_;
-
-  base::RepeatingCallbackList<
-      RequestToShowUserConfirmationDialogSubscriberCallback::RunType>
-      request_to_show_user_confirmation_dialog_callback_list_;
+  base::RepeatingCallbackList<ActOnWebCapabilityChangedCallback::RunType>
+      act_on_web_capability_changed_callback_list_;
 
   // Owns this.
   raw_ptr<Profile> profile_;

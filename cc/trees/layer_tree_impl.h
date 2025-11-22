@@ -279,7 +279,8 @@ class CC_EXPORT LayerTreeImpl {
     kBackdropFilter = 3,
     kMaxValue = kBackdropFilter
   };
-  void ValidateEffectTreeeMapping(ElementId, PropertyMutation);
+  void ValidateEffectTreeMapping(ElementId, PropertyMutation);
+  void RequestCommitForPropertyMutationIfNeeded(PropertyMutation);
 
   void SetTransformMutated(ElementId element_id,
                            const gfx::Transform& transform);
@@ -287,6 +288,10 @@ class CC_EXPORT LayerTreeImpl {
   void SetFilterMutated(ElementId element_id, const FilterOperations& filters);
   void SetBackdropFilterMutated(ElementId element_id,
                                 const FilterOperations& backdrop_filters);
+  PropertyChangeForcesCommitCriteria property_change_forces_commit_criteria()
+      const {
+    return property_change_forces_commit_criteria_;
+  }
 
   int source_frame_number() const { return source_frame_number_; }
   void set_source_frame_number(int frame_number) {
@@ -514,10 +519,6 @@ class CC_EXPORT LayerTreeImpl {
   bool needs_surface_ranges_sync() const { return needs_surface_ranges_sync_; }
   void set_needs_surface_ranges_sync(bool needs_surface_ranges_sync) {
     needs_surface_ranges_sync_ = needs_surface_ranges_sync;
-  }
-
-  bool always_push_properties_on_picture_layers() const {
-    return always_push_properties_on_picture_layers_;
   }
 
   void ForceRedrawNextActivation() { next_activation_forces_redraw_ = true; }
@@ -947,7 +948,8 @@ class CC_EXPORT LayerTreeImpl {
   // frame.
   bool force_send_metadata_request_ : 1 = false;
 
-  bool always_push_properties_on_picture_layers_ : 1 = false;
+  PropertyChangeForcesCommitCriteria property_change_forces_commit_criteria_ =
+      PropertyChangeForcesCommitCriteria::kNone;
 
   gfx::Rect device_viewport_rect_;
 

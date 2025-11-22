@@ -85,6 +85,19 @@ std::u16string GetFormattingExpressionOverrides(
   return u"";
 }
 
+// Returns true if a standalone parsing rule is available for the country and
+// type. This is used to enable parsing rules defined for countries without
+// custom hierarchy.
+bool IsStandaloneParsingRuleAvailable(AddressCountryCode country_code,
+                                      FieldType field_type) {
+  if (field_type == ADDRESS_HOME_ZIP && country_code.value() == "JP" &&
+      base::FeatureList::IsEnabled(features::kAutofillSupportSplitZipCode)) {
+    return true;
+  }
+
+  return false;
+}
+
 // Returns an instance of the `AddressComponent` implementation that matches
 // the corresponding FieldType if exists. Otherwise, returns a default
 // `AddressComponent`.
@@ -98,8 +111,10 @@ std::unique_ptr<AddressComponent> BuildTreeNode(
       return std::make_unique<AddressNode>(std::move(children));
     case ADDRESS_HOME_ADMIN_LEVEL2:
       return std::make_unique<AdminLevel2Node>(std::move(children));
-    case ADDRESS_HOME_APT_NUM:
+    case ADDRESS_HOME_APT:
       return std::make_unique<ApartmentNode>(std::move(children));
+    case ADDRESS_HOME_APT_NUM:
+      return std::make_unique<ApartmentNumNode>(std::move(children));
     case ADDRESS_HOME_BETWEEN_STREETS:
       return std::make_unique<BetweenStreetsNode>(std::move(children));
     case ADDRESS_HOME_BETWEEN_STREETS_1:
@@ -116,6 +131,8 @@ std::unique_ptr<AddressComponent> BuildTreeNode(
       return std::make_unique<FloorNode>(std::move(children));
     case ADDRESS_HOME_HOUSE_NUMBER:
       return std::make_unique<HouseNumberNode>(std::move(children));
+    case ADDRESS_HOME_HOUSE_NUMBER_AND_APT:
+      return std::make_unique<HouseNumberAndApartmentNode>(std::move(children));
     case ADDRESS_HOME_LANDMARK:
       return std::make_unique<LandmarkNode>(std::move(children));
     case ADDRESS_HOME_SORTING_CODE:
@@ -143,9 +160,7 @@ std::unique_ptr<AddressComponent> BuildTreeNode(
     case ADDRESS_HOME_LINE1:
     case ADDRESS_HOME_LINE2:
     case ADDRESS_HOME_LINE3:
-    case ADDRESS_HOME_APT:
     case ADDRESS_HOME_APT_TYPE:
-    case ADDRESS_HOME_HOUSE_NUMBER_AND_APT:
     case ADDRESS_HOME_OTHER_SUBUNIT:
     case ADDRESS_HOME_ADDRESS_WITH_NAME:
     case ADDRESS_HOME_STREET_LOCATION_AND_LOCALITY:
@@ -250,6 +265,7 @@ std::unique_ptr<AddressComponent> BuildTreeNode(
     case FLIGHT_RESERVATION_CONFIRMATION_CODE:
     case FLIGHT_RESERVATION_ARRIVAL_AIRPORT:
     case FLIGHT_RESERVATION_DEPARTURE_AIRPORT:
+    case FLIGHT_RESERVATION_DEPARTURE_DATE:
     case MAX_VALID_FIELD_TYPE:
       return nullptr;
   }
@@ -418,7 +434,8 @@ i18n_model_definition::ValueParsingResults ParseValueByI18nRegularExpression(
   // custom parsing structure (if exist).
   // Otherwise try using a legacy parsing expression (if exist).
   AddressCountryCode country_code_for_parsing =
-      IsCustomHierarchyAvailableForCountry(country_code)
+      (IsCustomHierarchyAvailableForCountry(country_code) ||
+       IsStandaloneParsingRuleAvailable(country_code, field_type))
           ? country_code
           : kLegacyHierarchyCountryCode;
 

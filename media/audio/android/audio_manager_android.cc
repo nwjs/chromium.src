@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/android/android_info.h"
+#include "base/android/device_info.h"
 #include "base/android/jni_android.h"
 #include "base/android/jni_array.h"
 #include "base/android/jni_string.h"
@@ -81,6 +82,17 @@ constexpr char kRequestedOutputFramesPerBufferMetricsName[] =
     "Media.Audio.Android.RequestedOutputFramesPerBuffer";
 constexpr char kRequestedInputFramesPerBufferMetricsName[] =
     "Media.Audio.Android.RequestedInputFramesPerBuffer";
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+//
+// LINT.IfChange(DeviceChangeKind)
+enum class DeviceChangeKind {
+  kAdded = 0,
+  kRemoved = 1,
+  kMaxValue = kRemoved,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/media/enums.xml:DeviceChangeKind)
 
 class JniDelegateImpl : public AudioManagerAndroid::JniDelegate {
  public:
@@ -334,12 +346,18 @@ bool UseAAudioPerStreamDeviceSelection() {
 }  // namespace
 
 // Called by the Java AudioManagerAndroid on the main thread when the system
-// reports a change to the list of available audio devices.
-void JNI_AudioManagerAndroid_OnDevicesChanged(JNIEnv* env) {
+// reports a change to the list of available audio devices. `added` is `true` if
+// the invocation is caused by devices being added, and `false` if it is caused
+// by devices being removed.
+void JNI_AudioManagerAndroid_OnDevicesChanged(JNIEnv* env, jboolean added) {
   auto* system_monitor = base::SystemMonitor::Get();
   if (system_monitor) {
     // Asynchronous call
     system_monitor->ProcessDevicesChanged(base::SystemMonitor::DEVTYPE_AUDIO);
+
+    base::UmaHistogramEnumeration(
+        "Media.Audio.Android.DevicesChanged",
+        added ? DeviceChangeKind::kAdded : DeviceChangeKind::kRemoved);
   }
 }
 
@@ -1011,9 +1029,12 @@ AudioParameters AudioManagerAndroid::GetPreferredOutputStreamParameters(
   if (input_params_are_valid) {
     // AudioManager APIs for GetOptimalOutputFramesPerBuffer() don't support
     // channel layouts greater than stereo unless low latency audio is
-    // supported.
+    // supported or we support reinitializing the sink based on source
+    // audio channels on an automotive device.
     if (input_params.channels() <= 2 ||
-        GetJniDelegate().IsAudioLowLatencySupported()) {
+        GetJniDelegate().IsAudioLowLatencySupported() ||
+        (base::FeatureList::IsEnabled(media::kMatchSourceAudioChannelLayout) &&
+         base::android::device_info::is_automotive())) {
       channel_layout_config = input_params.channel_layout_config();
     }
 

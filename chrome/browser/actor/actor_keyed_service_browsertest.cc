@@ -12,6 +12,8 @@
 #include "base/test/test_future.h"
 #include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/actor/actor_policy_checker.h"
+#include "chrome/browser/actor/actor_task_metadata.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/browser_action_util.h"
 #include "chrome/browser/actor/tools/navigate_tool_request.h"
@@ -80,6 +82,8 @@ class ActorKeyedServiceBrowserTest : public InProcessBrowserTest {
         ->MaybeUpdateHintsComponent(
             {base::Version("123"),
              temp_dir_.GetPath().Append(FILE_PATH_LITERAL("dont_care"))});
+
+    actor_keyed_service()->GetPolicyChecker().SetActOnWebForTesting(true);
   }
 
  protected:
@@ -107,7 +111,8 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest, StartStopTask) {
   TaskId first_task_id = actor_keyed_service()->CreateTask();
   EXPECT_FALSE(first_task_id.is_null());
 
-  actor_keyed_service()->StopTask(first_task_id, /*success=*/true);
+  actor_keyed_service()->StopTask(first_task_id,
+                                  ActorTask::StoppedReason::kTaskComplete);
 
   TaskId second_task_id = actor_keyed_service()->CreateTask();
   EXPECT_FALSE(first_task_id.is_null());
@@ -130,15 +135,16 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
   std::unique_ptr<ToolRequest> action_request =
       std::make_unique<NavigateToolRequest>(
           browser()->GetActiveTabInterface()->GetHandle(), url);
-  actor_keyed_service()->PerformActions(first_task_id,
-                                        ToRequestList(action_request),
-                                        result_future.GetCallback());
+  actor_keyed_service()->PerformActions(
+      first_task_id, ToRequestList(action_request), ActorTaskMetadata(),
+      result_future.GetCallback());
   ExpectOkResult(result_future);
   EXPECT_FALSE(result_future.Get<1>().has_value());
   EXPECT_EQ(result_future.Get<2>().size(), 1u);
   EXPECT_EQ(web_contents()->GetURL(), url);
 
-  actor_keyed_service()->StopTask(first_task_id, /*success=*/true);
+  actor_keyed_service()->StopTask(first_task_id,
+                                  ActorTask::StoppedReason::kTaskComplete);
 
   TaskId second_task_id = actor_keyed_service()->CreateTask();
   EXPECT_FALSE(first_task_id.is_null());
@@ -180,7 +186,8 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
   EXPECT_EQ(frame_metadata.meta_tags(2).name(), "sis");
   EXPECT_EQ(frame_metadata.meta_tags(2).content(), "val");
 
-  actor_keyed_service()->StopTask(task_id, /*success=*/true);
+  actor_keyed_service()->StopTask(task_id,
+                                  ActorTask::StoppedReason::kTaskComplete);
 }
 
 IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
@@ -203,6 +210,37 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
 
   const ActorKeyedService::TabObservationResult& result = future.Get();
   ASSERT_FALSE(result.has_value());
+}
+
+IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
+                       RequestTabObservationSkipAsyncObservationInformation) {
+  TaskId task_id = actor_keyed_service()->CreateTask();
+  // Navigate the active tab to a new page.
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_https_test_server().GetURL("/actor/blank.html")));
+
+  actor::ActorTask* task = actor_keyed_service()->GetTask(task_id);
+  TestFuture<mojom::ActionResultPtr> add_tab_future;
+  task->AddTab(browser()->GetActiveTabInterface()->GetHandle(),
+               add_tab_future.GetCallback());
+  auto add_tab_result = add_tab_future.Take();
+  ASSERT_TRUE(add_tab_result);
+
+  TestFuture<std::unique_ptr<optimization_guide::proto::ActionsResult>,
+             std::unique_ptr<actor::AggregatedJournal::PendingAsyncEntry>>
+      future;
+  actor::BuildActionsResultWithObservations(
+      *browser()->profile(), base::TimeTicks::Now(),
+      mojom::ActionResultCode::kOk, std::nullopt,
+      std::vector<actor::ActionResultWithLatencyInfo>(), *task, true,
+      future.GetCallback());
+  auto [actions_result, _] = future.Take();
+  ASSERT_TRUE(actions_result);
+  EXPECT_EQ(actions_result->action_result(),
+            static_cast<int32_t>(mojom::ActionResultCode::kOk));
+  EXPECT_EQ(actions_result->tabs_size(), 1);
+  EXPECT_FALSE(actions_result->tabs()[0].has_annotated_page_content());
+  EXPECT_FALSE(actions_result->tabs()[0].has_screenshot());
 }
 
 }  // namespace

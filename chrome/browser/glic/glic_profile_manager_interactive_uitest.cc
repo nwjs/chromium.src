@@ -61,7 +61,10 @@ class GlicProfileManagerUiTest
                                 {features::kGlicWarming,
                                  {{features::kGlicWarmingDelayMs.name, "0"},
                                   {features::kGlicWarmingJitterMs.name, "0"}}}},
-          /*disabled_features=*/{});
+          /*disabled_features=*/{
+              // TODO(b/453696965): These tests need fixed to work with
+              // kGlicMultiInstance.
+              features::kGlicMultiInstance});
     } else {
       feature_list_.InitWithFeaturesAndParameters(
           /*enabled_features=*/{{features::kGlicFreWarming, {}},
@@ -70,7 +73,10 @@ class GlicProfileManagerUiTest
                                      {features::kGlicWarmingDelayMs.name, "0"},
                                      {features::kGlicWarmingJitterMs.name, "0"},
                                  }}},
-          /*disabled_features=*/{features::kGlicWarmMultiple});
+          /*disabled_features=*/{features::kGlicWarmMultiple,
+                                 // TODO(b/453696965): These tests need fixed to
+                                 // work with kGlicMultiInstance.
+                                 features::kGlicMultiInstance});
     }
   }
   ~GlicProfileManagerUiTest() override = default;
@@ -80,8 +86,7 @@ class GlicProfileManagerUiTest
     // web client before we've initialized the embedded test server and can set
     // the correct URL.
     GlicProfileManager::ForceMemoryPressureForTesting(
-        base::MemoryPressureMonitor::MemoryPressureLevel::
-            MEMORY_PRESSURE_LEVEL_CRITICAL);
+        base::MEMORY_PRESSURE_LEVEL_CRITICAL);
     GlicProfileManager::ForceConnectionTypeForTesting(
         network::mojom::ConnectionType::CONNECTION_ETHERNET);
     fre_server_.ServeFilesFromDirectory(
@@ -147,9 +152,10 @@ class GlicProfileManagerUiTest
   auto CheckWarmedAndSized(bool primary_warmed, bool secondary_warmed) {
     return Do([primary_warmed, secondary_warmed, this]() {
       auto IsWarmedAndSized = [](GlicKeyedService* service) {
-        const bool warmed = service->window_controller().IsWarmed() ||
-                            service->fre_controller().IsWarmed() ||
-                            service->IsWindowOrFreShowing();
+        const bool warmed =
+            service->GetSingleInstanceWindowController().IsWarmed() ||
+            service->fre_controller().IsWarmed() ||
+            service->IsWindowOrFreShowing();
         if (!warmed) {
           return false;
         }
@@ -169,8 +175,7 @@ class GlicProfileManagerUiTest
   auto ResetMemoryPressure() {
     return Do([]() {
       GlicProfileManager::ForceMemoryPressureForTesting(
-          base::MemoryPressureMonitor::MemoryPressureLevel::
-              MEMORY_PRESSURE_LEVEL_NONE);
+          base::MEMORY_PRESSURE_LEVEL_NONE);
     });
   }
 
@@ -180,7 +185,7 @@ class GlicProfileManagerUiTest
       if (ShouldWarmFRE()) {
         web_client_contents_ = service->fre_controller().GetWebContents();
       } else {
-        web_client_contents_ = GetHostForActiveTab()->webui_contents();
+        web_client_contents_ = GetHost()->webui_contents();
       }
     });
   }
@@ -193,9 +198,8 @@ class GlicProfileManagerUiTest
                   service->fre_controller().GetWebContents());
         EXPECT_NE(nullptr, service->fre_controller().GetWebContents());
       } else {
-        EXPECT_EQ(web_client_contents_,
-                  GetHostForActiveTab()->webui_contents());
-        EXPECT_NE(nullptr, GetHostForActiveTab()->webui_contents());
+        EXPECT_EQ(web_client_contents_, GetHost()->webui_contents());
+        EXPECT_NE(nullptr, GetHost()->webui_contents());
       }
       web_client_contents_ = nullptr;
     });
@@ -210,11 +214,9 @@ class GlicProfileManagerUiTest
   auto SendMemoryPressureSignal(bool primary_profile) {
     return Do([this, primary_profile]() {
       GlicProfileManager::ForceMemoryPressureForTesting(
-          base::MemoryPressureMonitor::MemoryPressureLevel::
-              MEMORY_PRESSURE_LEVEL_CRITICAL);
+          base::MEMORY_PRESSURE_LEVEL_CRITICAL);
       GetService(primary_profile)
-          ->OnMemoryPressure(base::MemoryPressureListener::MemoryPressureLevel::
-                                 MEMORY_PRESSURE_LEVEL_CRITICAL);
+          ->OnMemoryPressure(base::MEMORY_PRESSURE_LEVEL_CRITICAL);
     });
   }
 

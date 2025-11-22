@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/feature_list.h"
 #include "third_party/blink/renderer/core/css/properties/longhands.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
@@ -16,11 +17,14 @@
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_detector.h"
 #include "third_party/blink/renderer/core/timing/soft_navigation_context.h"
 #include "third_party/blink/renderer/core/timing/soft_navigation_heuristics.h"
-#include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
-#include "third_party/blink/renderer/platform/instrumentation/tracing/traced_value.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
+
+namespace {
+BASE_FEATURE(kTextPaintTimingFrameIndexInitializationFix,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+}  // namespace
 
 TextPaintTimingDetector::TextPaintTimingDetector(
     LocalFrameView* frame_view,
@@ -30,51 +34,16 @@ TextPaintTimingDetector::TextPaintTimingDetector(
           frame_view,
           paint_timing_detector)) {}
 
-void LargestTextPaintManager::PopulateTraceValue(
-    TracedValue& value,
-    const TextRecord& first_text_paint) {
-  first_text_paint.PopulateTraceValue(value);
-
-  value.SetInteger("candidateIndex", ++count_candidates_);
-  value.SetBoolean("isMainFrame", frame_view_->GetFrame().IsMainFrame());
-  value.SetBoolean("isOutermostMainFrame",
-                   frame_view_->GetFrame().IsOutermostMainFrame());
-  value.SetBoolean("isEmbeddedFrame",
-                   !frame_view_->GetFrame().LocalFrameRoot().IsMainFrame() ||
-                       frame_view_->GetFrame().IsInFencedFrameTree());
-}
-
-void LargestTextPaintManager::ReportCandidateToTrace(
-    const TextRecord& largest_text_record) {
-  if (!PaintTimingDetector::IsTracing() ||
-      frame_view_->GetFrame().IsDetached()) {
-    return;
-  }
-  auto value = std::make_unique<TracedValue>();
-  PopulateTraceValue(*value, largest_text_record);
-  TRACE_EVENT_MARK_WITH_TIMESTAMP2(
-      "loading", "LargestTextPaint::Candidate", largest_text_record.PaintTime(),
-      "data", std::move(value), "frame",
-      GetFrameIdForTracing(&frame_view_->GetFrame()));
-}
-
 std::pair<TextRecord*, bool> LargestTextPaintManager::UpdateMetricsCandidate() {
   if (!largest_text_) {
     return {nullptr, false};
   }
-  const base::TimeTicks time = largest_text_->PaintTime();
-  const uint64_t size = largest_text_->RecordedSize();
   CHECK(paint_timing_detector_);
   CHECK(paint_timing_detector_->GetLargestContentfulPaintCalculator());
 
-  bool changed = paint_timing_detector_->GetLargestContentfulPaintCalculator()
-                     ->NotifyMetricsIfLargestTextPaintChanged(time, size);
-  if (changed) {
-    // It is not possible for an update to happen with a candidate that has no
-    // paint time.
-    DCHECK(!time.is_null());
-    ReportCandidateToTrace(*largest_text_);
-  }
+  bool changed =
+      paint_timing_detector_->GetLargestContentfulPaintCalculator()
+          ->NotifyMetricsIfLargestTextPaintChanged(*largest_text_.Get());
   return {largest_text_.Get(), changed};
 }
 
@@ -246,6 +215,8 @@ void TextPaintTimingDetector::ReportLargestIgnoredText() {
   DCHECK(document);
   PaintTiming::From(*document).MarkFirstContentfulPaint();
 
+  // TODO(crbug.com/455791378): Move this to `QueueToMeasurePaintTime` once
+  // `kTextPaintTimingFrameIndexInitializationFix` is removed.
   record->SetFrameIndex(frame_index_);
   QueueToMeasurePaintTime(*record->GetNode()->GetLayoutObject(), record);
 }
@@ -279,11 +250,9 @@ void LargestTextPaintManager::MaybeUpdateLargestIgnoredText(
     const gfx::RectF& root_visual_rect) {
   if (size && (!largest_ignored_text_ ||
                size > largest_ignored_text_->RecordedSize())) {
-    // Create the largest ignored text with a |frame_index_| of 0. When it is
-    // queued for paint, we'll set the appropriate |frame_index_|.
     largest_ignored_text_ = MakeGarbageCollected<TextRecord>(
         object.GetNode(), size, gfx::RectF(), frame_visual_rect,
-        root_visual_rect, 0u, /*is_needed_for_timing=*/false,
+        root_visual_rect, /*is_needed_for_timing=*/false,
         /*soft_navigation_context=*/nullptr);
   }
 }
@@ -355,14 +324,21 @@ TextRecord* TextPaintTimingDetector::MaybeRecordTextRecord(
   if (visual_size == 0u) {
     record = MakeGarbageCollected<TextRecord>(
         node, visual_size, gfx::RectF(), gfx::Rect(), gfx::RectF(),
-        frame_index_, is_needed_for_element_timing, context);
+        is_needed_for_element_timing, context);
   } else {
     record = MakeGarbageCollected<TextRecord>(
         node, visual_size,
         TextElementTiming::ComputeIntersectionRect(
             object, frame_visual_rect, property_tree_state, frame_view_),
-        frame_visual_rect, root_visual_rect, frame_index_,
-        is_needed_for_element_timing, context);
+        frame_visual_rect, root_visual_rect, is_needed_for_element_timing,
+        context);
+  }
+
+  if (base::FeatureList::IsEnabled(
+          kTextPaintTimingFrameIndexInitializationFix)) {
+    // TODO(crbug.com/455791378): Move this to `QueueToMeasurePaintTime` once
+    // `kTextPaintTimingFrameIndexInitializationFix` is removed.
+    record->SetFrameIndex(frame_index_);
   }
   QueueToMeasurePaintTime(object, record);
   return record;

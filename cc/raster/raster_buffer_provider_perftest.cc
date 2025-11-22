@@ -38,7 +38,6 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/perf/perf_result_reporter.h"
 #include "third_party/khronos/GLES2/gl2.h"
-#include "third_party/skia/include/gpu/ganesh/GrDirectContext.h"
 
 namespace cc {
 namespace {
@@ -113,9 +112,6 @@ class PerfContextProvider
     return raster_context_.get();
   }
   gpu::ContextSupport* ContextSupport() override { return &support_; }
-  class GrDirectContext* GrContext() override {
-    return nullptr;
-  }
   gpu::SharedImageInterface* SharedImageInterface() override {
     if (!test_context_provider_) {
       test_context_provider_ = viz::TestContextProvider::CreateRaster();
@@ -128,12 +124,6 @@ class PerfContextProvider
   base::Lock* GetLock() override { return &context_lock_; }
   void AddObserver(viz::ContextLostObserver* obs) override {}
   void RemoveObserver(viz::ContextLostObserver* obs) override {}
-  unsigned int GetGrGLTextureFormat(
-      viz::SharedImageFormat format) const override {
-    return viz::SharedImageFormatRestrictedSinglePlaneUtils::
-        ToGLTextureStorageFormat(
-            format, ContextCapabilities().angle_rgbx_internal_format);
-  }
 
  private:
   friend class base::RefCountedThreadSafe<PerfContextProvider>;
@@ -209,8 +199,7 @@ class PerfRasterBufferProviderHelper {
   virtual std::unique_ptr<RasterBuffer> AcquireBufferForRaster(
       const ResourcePool::InUsePoolResource& resource,
       uint64_t resource_content_id,
-      uint64_t previous_content_id,
-      bool depends_on_at_raster_decodes) = 0;
+      uint64_t previous_content_id) = 0;
 };
 
 class PerfRasterTaskImpl : public PerfTileTask {
@@ -285,8 +274,7 @@ class RasterBufferProviderPerfTestBase {
       // No tile ids are given to support partial updates.
       std::unique_ptr<RasterBuffer> raster_buffer;
       if (helper)
-        raster_buffer =
-            helper->AcquireBufferForRaster(in_use_resource, 0, 0, false);
+        raster_buffer = helper->AcquireBufferForRaster(in_use_resource, 0, 0);
       TileTask::Vector dependencies = image_decode_tasks;
       raster_tasks->push_back(new PerfRasterTaskImpl(
           resource_pool_.get(), std::move(in_use_resource),
@@ -371,8 +359,8 @@ class RasterBufferProviderPerfTest
         raster_buffer_provider_ = std::make_unique<OneCopyRasterBufferProvider>(
             worker_context_provider_->SharedImageInterface(),
             task_runner_.get(), compositor_context_provider_.get(),
-            worker_context_provider_.get(), std::numeric_limits<int>::max(),
-            false, std::numeric_limits<int>::max(),
+            worker_context_provider_.get(), false,
+            std::numeric_limits<int>::max(),
             /*is_overlay_candidate=*/false);
         break;
       case RASTER_BUFFER_PROVIDER_TYPE_GPU:
@@ -411,13 +399,9 @@ class RasterBufferProviderPerfTest
   std::unique_ptr<RasterBuffer> AcquireBufferForRaster(
       const ResourcePool::InUsePoolResource& resource,
       uint64_t resource_content_id,
-      uint64_t previous_content_id,
-      bool depends_on_at_raster_decodes) override {
+      uint64_t previous_content_id) override {
     return raster_buffer_provider_->AcquireBufferForRaster(
-        resource, resource_content_id, previous_content_id,
-        depends_on_at_raster_decodes,
-        false /* depends_on_hardware_accelerated_jpeg_candidates */,
-        false /* depends_on_hardware_accelerated_webp_candidates */);
+        resource, resource_content_id, previous_content_id);
   }
 
   void RunMessageLoopUntilAllTasksHaveCompleted() {

@@ -12,6 +12,7 @@ import android.animation.Animator;
 import android.app.Activity;
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
+import android.graphics.Rect;
 import android.view.View;
 
 import androidx.annotation.DrawableRes;
@@ -100,7 +101,7 @@ public class MenuButtonCoordinator extends ToolbarChildButton {
             Supplier<Boolean> isInOverviewModeSupplier,
             ThemeColorProvider themeColorProvider,
             IncognitoStateProvider incognitoStateProvider,
-            Supplier<MenuButtonState> menuButtonStateSupplier,
+            Supplier<@Nullable MenuButtonState> menuButtonStateSupplier,
             Runnable onMenuButtonClicked,
             @IdRes int menuButtonId,
             @Nullable VisibilityDelegate visibilityDelegate) {
@@ -118,6 +119,7 @@ public class MenuButtonCoordinator extends ToolbarChildButton {
                                         themeColorProvider.getTint(),
                                         themeColorProvider.getBrandedColorScheme()))
                         .with(MenuButtonProperties.IS_VISIBLE, true)
+                        .with(MenuButtonProperties.HAS_SPACE_TO_SHOW, true)
                         .with(MenuButtonProperties.STATE_SUPPLIER, menuButtonStateSupplier)
                         .with(
                                 MenuButtonProperties.ON_KEY_LISTENER,
@@ -215,6 +217,7 @@ public class MenuButtonCoordinator extends ToolbarChildButton {
     /**
      * @return Whether the menu button is present and visible.
      */
+    @Override
     public boolean isVisible() {
         if (mVisibilityDelegate != null) {
             return mVisibilityDelegate.isMenuButtonVisible();
@@ -271,10 +274,20 @@ public class MenuButtonCoordinator extends ToolbarChildButton {
      *
      * @param visible Visibility state, true for visible and false for hidden.
      */
-    @Override
     public void setVisibility(boolean visible) {
         if (mMediator == null) return;
         mMediator.setVisibility(visible);
+    }
+
+    /**
+     * Sets whether the MenuButton has space to show.
+     *
+     * @param hasSpaceToShow Whether the button has space to show.
+     */
+    @Override
+    public void setHasSpaceToShow(boolean hasSpaceToShow) {
+        if (mMediator == null) return;
+        mMediator.setHasSpaceToShow(hasSpaceToShow);
     }
 
     /**
@@ -340,6 +353,18 @@ public class MenuButtonCoordinator extends ToolbarChildButton {
     public void updateButtonBackground(@DrawableRes int backgroundResId) {
         assumeNonNull(mMenuButton);
         mMenuButton.getImageButton().setBackgroundResource(backgroundResId);
+    }
+
+    /**
+     * Gets an area of the button that are touchable/clickable.
+     *
+     * @return a {@link Rect} that contains touchable/clickable area.
+     */
+    public Rect getHitRect() {
+        assumeNonNull(mMenuButton);
+        final var rect = new Rect();
+        mMenuButton.getHitRect(rect);
+        return rect;
     }
 
     @Override

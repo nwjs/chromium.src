@@ -12,9 +12,11 @@
 #include "ui/views/accessible_pane_view.h"
 #include "ui/views/controls/resize_area_delegate.h"
 
+class BrowserWindowInterface;
 class RootTabCollectionNode;
 class VerticalUnpinnedTabContainerView;
 class VerticalPinnedTabContainerView;
+class VerticalTabStripBottomContainer;
 class VerticalTabStripTopContainer;
 
 namespace tabs {
@@ -23,7 +25,7 @@ class VerticalTabStripStateController;
 
 namespace tabs_api {
 class TabStripService;
-}
+}  // namespace tabs_api
 
 namespace views {
 class ResizeArea;
@@ -43,7 +45,8 @@ class VerticalTabStripRegionView final : public views::AccessiblePaneView,
   explicit VerticalTabStripRegionView(
       tabs_api::TabStripService* service_register,
       tabs::VerticalTabStripStateController* state_controller,
-      actions::ActionItem* root_action_item);
+      actions::ActionItem* root_action_item,
+      BrowserWindowInterface* browser);
   VerticalTabStripRegionView(const VerticalTabStripRegionView&) = delete;
   VerticalTabStripRegionView& operator=(const VerticalTabStripRegionView&) =
       delete;
@@ -64,6 +67,10 @@ class VerticalTabStripRegionView final : public views::AccessiblePaneView,
     return top_button_container_;
   }
 
+  VerticalTabStripBottomContainer* GetBottomContainer() {
+    return bottom_button_container_;
+  }
+
   // views::View:
   void Layout(PassKey) override;
 
@@ -81,7 +88,7 @@ class VerticalTabStripRegionView final : public views::AccessiblePaneView,
   raw_ptr<VerticalTabStripTopContainer> top_button_container_ = nullptr;
   raw_ptr<views::Separator> top_button_separator_ = nullptr;
   raw_ptr<VerticalTabStripView> tab_strip_view_ = nullptr;
-  raw_ptr<views::View> segmented_button_ = nullptr;
+  raw_ptr<VerticalTabStripBottomContainer> bottom_button_container_ = nullptr;
   raw_ptr<views::View> gemini_button_ = nullptr;
   raw_ptr<views::ResizeArea> resize_area_ = nullptr;
   std::unique_ptr<RootTabCollectionNode> root_node_;

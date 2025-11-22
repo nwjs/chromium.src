@@ -84,8 +84,16 @@ StubPasswordManagerDriver::GetPasswordAutofillManager() {
   return nullptr;
 }
 
+bool StubPasswordManagerDriver::IsDirectChildOfPrimaryMainFrame() const {
+  return false;
+}
+
 bool StubPasswordManagerDriver::IsInPrimaryMainFrame() const {
   return true;
+}
+
+bool StubPasswordManagerDriver::IsNestedWithinFencedFrame() const {
+  return false;
 }
 
 bool StubPasswordManagerDriver::CanShowAutofillUi() const {
@@ -108,6 +116,10 @@ gfx::RectF StubPasswordManagerDriver::TransformToRootCoordinates(
     const gfx::RectF& bounds_in_frame_coordinates) {
   return gfx::RectF();
 }
+
+void StubPasswordManagerDriver::CheckViewAreaVisible(
+    autofill::FieldRendererId field_id,
+    base::OnceCallback<void(bool)>) {}
 
 base::WeakPtr<PasswordManagerDriver> StubPasswordManagerDriver::AsWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();

@@ -12,9 +12,7 @@
 #include "third_party/blink/renderer/platform/fonts/font_description.h"
 #include "third_party/blink/renderer/platform/fonts/font_selector.h"
 #include "third_party/blink/renderer/platform/fonts/plain_text_painter.h"
-#include "third_party/blink/renderer/platform/fonts/shaping/caching_word_shape_iterator.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/harfbuzz_shaper.h"
-#include "third_party/blink/renderer/platform/fonts/text_run_paint_info.h"
 #include "third_party/blink/renderer/platform/graphics/test/mock_paint_canvas.h"
 #include "third_party/blink/renderer/platform/language.h"
 #include "third_party/blink/renderer/platform/testing/font_test_helpers.h"
@@ -46,18 +44,12 @@ TSAN_TEST(TextRendererThreadedTest, MeasureText) {
     const SimpleFontData* font_data = font->PrimaryFont();
     ASSERT_TRUE(font_data);
 
-    TextRun text_run(text, TextDirection::kLtr,
-                     /* directional_override */ false,
-                     /* normalize_space */ true);
+    TextRun text_run(text, TextDirection::kLtr);
 
     // X direction.
-    if (RuntimeEnabledFeatures::CanvasTextNgEnabled(nullptr)) {
-      EXPECT_EQ(
-          78, MakeGarbageCollected<PlainTextPainter>(PlainTextPainter::kCanvas)
+    EXPECT_EQ(78,
+              MakeGarbageCollected<PlainTextPainter>(PlainTextPainter::kCanvas)
                   ->ComputeInlineSize(text_run, *font));
-    } else {
-      EXPECT_EQ(78, font->DeprecatedWidth(text_run));
-    }
 
     // Y direction.
     const FontMetrics& font_metrics = font_data->GetFontMetrics();
@@ -80,9 +72,7 @@ TSAN_TEST(TextRendererThreadedTest, DrawText) {
     Font* font = MakeGarbageCollected<Font>(font_description);
 
     gfx::PointF location(0, 0);
-    TextRun text_run(text, TextDirection::kLtr,
-                     /* directional_override */ false,
-                     /* normalize_space */ true);
+    TextRun text_run(text, TextDirection::kLtr);
 
     MockPaintCanvas mpc;
     cc::PaintFlags flags;
@@ -91,17 +81,10 @@ TSAN_TEST(TextRendererThreadedTest, DrawText) {
     EXPECT_CALL(mpc, drawTextBlob(_, 0, 0, _)).Times(1);
     EXPECT_CALL(mpc, restoreToCount(17)).WillOnce(Return());
 
-    if (RuntimeEnabledFeatures::CanvasTextNgEnabled(nullptr)) {
-      MakeGarbageCollected<PlainTextPainter>(PlainTextPainter::kCanvas)
-          ->DrawWithBidiReorder(text_run, 0, text_run.length(), *font,
-                                Font::kUseFallbackIfFontNotReady, mpc, location,
-                                flags, Font::DrawType::kGlyphsAndClusters);
-    } else {
-      TextRunPaintInfo text_run_paint_info(text_run);
-      font->DeprecatedDrawBidiText(&mpc, text_run_paint_info, location,
-                                   Font::kUseFallbackIfFontNotReady, flags,
-                                   Font::DrawType::kGlyphsAndClusters);
-    }
+    MakeGarbageCollected<PlainTextPainter>(PlainTextPainter::kCanvas)
+        ->DrawWithBidiReorder(text_run, 0, text_run.length(), *font,
+                              Font::kUseFallbackIfFontNotReady, mpc, location,
+                              flags, Font::DrawType::kGlyphsAndClusters);
   });
 }
 

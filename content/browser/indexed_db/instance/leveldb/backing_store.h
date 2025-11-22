@@ -19,7 +19,7 @@
 #include "base/files/file_path.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
@@ -94,6 +94,7 @@ class CONTENT_EXPORT BackingStore : public indexed_db::BackingStore,
 
     // indexed_db::BackingStore::Database:
     const blink::IndexedDBDatabaseMetadata& GetMetadata() const override;
+    const IndexedDBDataLossInfo& GetDataLossInfo() const override;
     std::string GetObjectStoreLockIdKey(int64_t object_store_id) const override;
     std::unique_ptr<Transaction> CreateTransaction(
         blink::mojom::IDBTransactionDurability durability,

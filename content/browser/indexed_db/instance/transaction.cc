@@ -212,7 +212,10 @@ void Transaction::SetCommitFlag() {
 void Transaction::ScheduleTask(blink::mojom::IDBTaskType type,
                                Operation task,
                                VerificationCallback verify) {
+  TRACE_EVENT0("IndexedDB", "Transaction::ScheduleTask");
+
   if (state_ == FINISHED) {
+    TRACE_EVENT_INSTANT("IndexedDB", "Transaction::ScheduleTask - Finished");
     return;
   }
 
@@ -227,6 +230,8 @@ void Transaction::ScheduleTask(blink::mojom::IDBTaskType type,
   }
   if (state() == STARTED) {
     bucket_context_->QueueRunTasks();
+  } else {
+    TRACE_EVENT_INSTANT("IndexedDB", "Transaction::ScheduleTask - Not started");
   }
 }
 
@@ -352,6 +357,8 @@ bool Transaction::IsTransactionBlockingOtherClients(
 }
 
 void Transaction::Start() {
+  TRACE_EVENT0("IndexedDB", "Transaction::Start");
+
   // The transaction has the potential to be aborted after the Start() task was
   // posted.
   if (state_ == FINISHED) {
@@ -1157,8 +1164,7 @@ void Transaction::TimeoutFired() {
   CHECK(!diagnostics_.mojo_receiver_disconnected, base::NotFatalUntil::M145);
   CHECK(task_queue_.empty(), base::NotFatalUntil::M145);
   CHECK(preemptive_task_queue_.empty(), base::NotFatalUntil::M145);
-  const bool has_connection = (connection_.get() != nullptr);
-  CHECK(has_connection, base::NotFatalUntil::M145);
+  CHECK(connection_.get() != nullptr);
 
   const size_t num_transactions_across_all_connections =
       database_->GetNumTransactionsAcrossAllConnections();
@@ -1174,17 +1180,11 @@ void Transaction::TimeoutFired() {
   base::UmaHistogramCounts10000(
       "IndexedDB.TransactionTimeout.NumTransactionsInDB",
       num_transactions_across_all_connections);
-
-  // Note: There is a non-fatal CHECK above the validates that `has_connection`
-  // is always true. There is a condition here to avoid a crash if the non-fatal
-  // CHECK fails.
-  if (has_connection) {
-    base::UmaHistogramBoolean("IndexedDB.TransactionTimeout.IsConnected",
-                              connection_->IsConnected());
-    base::UmaHistogramCounts10000(
-        "IndexedDB.TransactionTimeout.NumTransactionsInConnection",
-        connection_->transactions().size());
-  }
+  base::UmaHistogramBoolean("IndexedDB.TransactionTimeout.IsConnected",
+                            connection_->IsConnected());
+  base::UmaHistogramCounts10000(
+      "IndexedDB.TransactionTimeout.NumTransactionsInConnection",
+      connection_->transactions().size());
 
   // Same histograms as above, but only when there are a lot of transactions in
   // the connection.
@@ -1202,19 +1202,13 @@ void Transaction::TimeoutFired() {
     base::UmaHistogramCounts100000(
         "IndexedDB.TransactionTimeout.10kTransactions.NumTransactionsInDB",
         num_transactions_across_all_connections);
-
-    // Note: There is a non-fatal CHECK above the validates that
-    // `has_connection` is always true. There is a condition here to avoid a
-    // crash if the non-fatal CHECK fails.
-    if (has_connection) {
-      base::UmaHistogramBoolean(
-          "IndexedDB.TransactionTimeout.10kTransactions.IsConnected",
-          connection_->IsConnected());
-      base::UmaHistogramCounts100000(
-          "IndexedDB.TransactionTimeout.10kTransactions."
-          "NumTransactionsInConnection",
-          connection_->transactions().size());
-    }
+    base::UmaHistogramBoolean(
+        "IndexedDB.TransactionTimeout.10kTransactions.IsConnected",
+        connection_->IsConnected());
+    base::UmaHistogramCounts100000(
+        "IndexedDB.TransactionTimeout.10kTransactions."
+        "NumTransactionsInConnection",
+        connection_->transactions().size());
   }
 
   if (!IsTransactionBlockingOtherClients(/*consider_priority=*/true)) {

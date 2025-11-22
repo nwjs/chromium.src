@@ -190,6 +190,7 @@ const char kDisableRTCSmoothnessAlgorithm[] =
     "disable-rtc-smoothness-algorithm";
 
 // Force media player using SurfaceView instead of SurfaceTexture on Android.
+// Note: This is used by the Cast playback pipeline and must be kept.
 const char kForceVideoOverlays[] = "force-video-overlays";
 
 // Allows explicitly specifying MSE audio/video buffer sizes as megabytes.
@@ -259,15 +260,13 @@ const char kUserGestureRequiredPolicy[] = "user-gesture-required";
 
 }  // namespace autoplay
 
-#if BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
+#if BUILDFLAG(USE_V4L2_CODEC)
 // Some (Qualcomm only at the moment) V4L2 video decoders require setting the
 // framerate so that the hardware decoder can scale the clocks efficiently.
 // This provides a mechanism during testing to lock the decoder framerate
 // to a specific value.
 const char kHardwareVideoDecodeFrameRate[] = "hardware-video-decode-framerate";
-#endif
 
-#if BUILDFLAG(USE_V4L2_CODEC)
 // This is needed for V4L2 testing using VISL (virtual driver) on cros VM with
 // arm64-generic-vm. Minigbm buffer allocation is done using dumb driver with
 // vkms.
@@ -395,15 +394,10 @@ BASE_FEATURE(kWebrtcMediaCapabilitiesParameters,
 // widevine.
 BASE_FEATURE(kWidevinePersistentLicenseSupport,
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
-             // TODO(crbug.com/423458074): This will rollout slowly as an
-             // experiment eventually becoming disabled by default.
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #else
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
-
-// Display the Cast overlay button on the media controls.
-BASE_FEATURE(kMediaCastOverlayButton, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Use AndroidOverlay only if required for secure video playback. This requires
 // that |kOverlayFullscreenVideo| is true, else it is ignored.
@@ -527,12 +521,6 @@ BASE_FEATURE(kAudioFlexibleLoopbackForSystemLoopback,
 
 BASE_FEATURE(kCrOSEnforceMonoAudioCapture, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
-
-// Make MSE garbage collection algorithm more aggressive when we are under
-// moderate or critical memory pressure. This will relieve memory pressure by
-// releasing stale data from MSE buffers.
-BASE_FEATURE(kMemoryPressureBasedSourceBufferGC,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether the Mirroring Service will fetch, analyze, and store
 // information on the quality of the session using RTCP logs.
@@ -688,7 +676,7 @@ BASE_FEATURE(kAcceleratedVideoDecodeLinux,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-BASE_FEATURE(kAcceleratedVideoDecodeLinuxGL, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAcceleratedVideoDecodeLinuxGL, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAcceleratedVideoEncodeLinux,
              "AcceleratedVideoEncoder",
@@ -843,9 +831,6 @@ BASE_FEATURE(kLiveCaptionUseGreedyTextStabilizer,
 // recognition results.
 BASE_FEATURE(kLiveCaptionUseWaitK, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Live Caption can be used in multiple languages, as opposed to just English.
-BASE_FEATURE(kLiveCaptionMultiLanguage, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enable experimental Live Caption languages.
 BASE_FEATURE(kLiveCaptionExperimentalLanguages,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -871,12 +856,12 @@ BASE_FEATURE(kFailUrlProvisionFetcherForTesting,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables hardware secure decryption if supported by hardware and CDM.
-// NOTE: This feature is experimental and not officially supported. Users may
-// encounter issues; enabling is discouraged.
+// NOTE: For Windows platform, hardware secure decryption is available via
+// PlayReady SL3000.
 // TODO(xhwang): Currently this is only used for development of new features.
 // Apply this to Android and ChromeOS as well where hardware secure decryption
 // is already available.
-BASE_FEATURE(kHardwareSecureDecryption, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kHardwareSecureDecryption, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // By default, a codec is not supported for hardware secure decryption if it
 // does not support clear lead. This option forces the support for testing.
@@ -942,6 +927,9 @@ BASE_FEATURE(kHardwareMediaKeyHandling,
 
 // Enables a platform-specific resolution cutoff for prioritizing platform
 // decoders over software decoders or vice-versa.
+//
+// Note: This feature is used by ChromeOS tests and shouldn't be removed even
+// though it has long been enabled by default.
 BASE_FEATURE(kResolutionBasedDecoderPriority, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Allows the AutoPictureInPictureTabHelper to automatically enter
@@ -954,11 +942,29 @@ BASE_FEATURE(kAutoPictureInPictureForVideoPlayback,
 BASE_FEATURE(kAutoPictureInPicturePageInfoDetails,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables sending provisioning requests in the body of the POST request rather
+// than encoding it inside the URL.
+// Owner: vpasupathy@chromium.org
+// Expiry: When experimentation via Finch is finished and this behavior rolls
+// out.
+// Bug: 448700051
+BASE_FEATURE(kUsePostBodyForUrlProvisionFetcher,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Whether we should show a setting to disable autoplay policy.
 BASE_FEATURE(kAutoplayDisableSettings, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Whether we should allow color space changes to flush AcceleratedVideoDecoder.
 BASE_FEATURE(kAVDColorSpaceChanges, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Allows Chrome to reconfigure the sink to match the channel count of the
+// source audio data. This ensures opening of an audio output stream to match
+// the source audio data channels, to signal to the downstream audio
+// subsystem that the audio must be processed according to the source audio
+// channel count.
+// TODO(crbug.com/445215599): This should be replaced with a MediaClient
+// mechanism if it works as intended.
+BASE_FEATURE(kMatchSourceAudioChannelLayout, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 // Allows the enhanced picture-in-picture transition animation that depend on
@@ -980,6 +986,8 @@ BASE_FEATURE(kEnableSurfaceInputForAndroidVEA,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables block model (LinearBlock) on supported devices.
+// TODO(crbug.com/327625558): Currently block model is buggy and can't be
+// enabled, we need to test it again when Android 17 is released.
 BASE_FEATURE(kMediaCodecBlockModel, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Allow selection of low latency decoders in low delay mode.
@@ -1050,14 +1058,7 @@ BASE_FEATURE(kUseAudioManagerMaxChannelLayout,
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_HLS_DEMUXER)
-BASE_FEATURE(kBuiltInHlsPlayer,
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
-
+BASE_FEATURE(kBuiltInHlsPlayer, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(ENABLE_HLS_DEMUXER)
 
 // TODO(crbug.com/414430336): Consider restricting to IS_CHROMEOS.
@@ -1119,6 +1120,17 @@ BASE_FEATURE(kEnableArmHwdrm, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // defined(ARCH_CPU_ARM_FAMILY)
 #endif  // BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
 
+#if BUILDFLAG(ENABLE_OPENH264)
+// Run-time feature for OpenH264 software encoder.
+BASE_FEATURE(kOpenH264SoftwareEncoder,
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
+#endif  // BUILDFLAG(ENABLE_OPENH264)
+
 #if BUILDFLAG(IS_WIN)
 // Enables DirectShow GetPhotoState implementation
 // Created to act as a kill switch by disabling it, in the case of the
@@ -1148,44 +1160,12 @@ BASE_FEATURE(kMediaFoundationD3D11VideoCaptureZeroCopy,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables the use of MediaFoundationRenderer for clear content on supported
-// systems.
+// systems. This is for testing purposes, and is not intended to be enabled
+// more broadly.
 BASE_FEATURE(kMediaFoundationClearPlayback, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable VP9 kSVC decoding with HW decoder for webrtc use case on Windows.
 BASE_FEATURE(kD3D11Vp9kSVCHWDecoding, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// The Media Foundation Rendering Strategy determines which presentation mode
-// Media Foundation Renderer should use for presenting clear content. This
-// strategy has no impact for protected content, which must always use Direct
-// Composition.
-//
-// The strategy may be one of the following options:
-// 1.) Direct Composition: Media Foundation Renderer will use a Windowsless
-//     Swapchain to present directly to a Direct Composition surface.
-// 2.) Frame Server: Media Foundation Renderer will produce Video Frames that
-//     may be passed through the Chromium video frame rendering pipeline.
-// 3.) Dynamic: Media Foundation Renderer may freely switch between Direct
-//     Composition & Frame Server mode based on the current operating
-//     conditions.
-//
-// Command line invocation:
-// --enable-features=MediaFoundationClearRendering:strategy/direct-composition
-// --enable-features=MediaFoundationClearRendering:strategy/frame-server
-// --enable-features=MediaFoundationClearRendering:strategy/dynamic
-BASE_FEATURE(kMediaFoundationClearRendering, base::FEATURE_ENABLED_BY_DEFAULT);
-
-constexpr base::FeatureParam<MediaFoundationClearRenderingStrategy>::Option
-    kMediaFoundationClearRenderingStrategyOptions[] = {
-        {MediaFoundationClearRenderingStrategy::kDirectComposition,
-         "direct-composition"},
-        {MediaFoundationClearRenderingStrategy::kFrameServer, "frame-server"},
-        {MediaFoundationClearRenderingStrategy::kDynamic, "dynamic"}};
-
-const base::FeatureParam<MediaFoundationClearRenderingStrategy>
-    kMediaFoundationClearRenderingStrategyParam{
-        &kMediaFoundationClearRendering, "strategy",
-        MediaFoundationClearRenderingStrategy::kDynamic,
-        &kMediaFoundationClearRenderingStrategyOptions};
 
 BASE_FEATURE(kMediaFoundationBatchRead, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1233,6 +1213,11 @@ BASE_FEATURE(kUseOutOfProcessVideoDecoding,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
+
+// Use shared image interface to transport video frame resources.
+// TODO(crbug.com/457296322): Enable after fixing issue where SharedImages are
+// missing from the SharedImageManager.
+BASE_FEATURE(kUseSharedImageInOOPVDProcess, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
@@ -1385,12 +1370,6 @@ BASE_FEATURE(kUseFakeDeviceForMediaStream,
 BASE_FEATURE(kMediaStreamAccurateDroppedFrameCount,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
-// Enables effects for camera and mic streams.
-BASE_FEATURE(kCameraMicEffects, base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS) &&
-        // !BUILDFLAG(IS_FUCHSIA)
-
 // Controls whether mirroring negotiations will include the AV1 codec for video
 // encoding.
 //
@@ -1440,6 +1419,7 @@ BASE_FEATURE(kFuchsiaMediacodecVideoEncoder, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether to pre-dispatch more decode tasks when pending decodes is
 // smaller than maximum supported decodes as advertiszed by decoder.
+// Note: This is controlled on a per-board basis by ChromeOS and must be kept.
 BASE_FEATURE(kVideoDecodeBatching, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Safety switch to allow us to revert to the previous behavior of using the

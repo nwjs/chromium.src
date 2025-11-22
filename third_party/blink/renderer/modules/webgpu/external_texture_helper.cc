@@ -394,10 +394,11 @@ ExternalTexture CreateExternalTexture(
     resource_color_space = media_video_frame->CompatRGBColorSpace();
   }
 
-  // Use RGBA_F16 canvas resource for HDR color space to prevent potential
-  // color info loss, and N32 for non-HDR.
-  auto sk_color_type =
-      resource_color_space.IsHDR() ? kRGBA_F16_SkColorType : kN32_SkColorType;
+  // High bit depth formats should also use F16, but do not yet.
+  auto sk_color_type = kN32_SkColorType;
+  if (media_video_frame->format() == media::PIXEL_FORMAT_RGBAF16) {
+    sk_color_type = kRGBA_F16_SkColorType;
+  }
 
   std::unique_ptr<RecyclableCanvasResource> recyclable_canvas_resource =
       device->GetDawnControlClient()->GetOrCreateCanvasResource(
@@ -427,11 +428,10 @@ ExternalTexture CreateExternalTexture(
         sync_token, /*use_visible_rect=*/true);
     resource_provider->EndExternalWrite(sync_token);
   } else {
-    const gfx::Rect dest_rect = gfx::Rect(media_video_frame->natural_size());
     // Delegate video transformation to Dawn.
     if (!DrawVideoFrameIntoResourceProvider(
             std::move(media_video_frame), resource_provider,
-            raster_context_provider, dest_rect, video_renderer,
+            raster_context_provider, video_renderer,
             /* ignore_video_transformation */ true)) {
       return {};
     }

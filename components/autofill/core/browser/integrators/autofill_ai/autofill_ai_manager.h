@@ -5,8 +5,11 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_INTEGRATORS_AUTOFILL_AI_AUTOFILL_AI_MANAGER_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_INTEGRATORS_AUTOFILL_AI_AUTOFILL_AI_MANAGER_H_
 
+#include "base/containers/lru_cache.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/weak_ptr.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
+#include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_logger.h"
 #include "components/autofill/core/browser/strike_databases/autofill_ai/autofill_ai_save_strike_database_by_attribute.h"
@@ -60,10 +63,11 @@ class AutofillAiManager {
   // TODO(crbug.com/389629573): The "On*" methods below are used only for
   // logging purposes. Explore different approaches.
 
-  virtual void OnSuggestionsShown(const FormStructure& form,
-                                  const AutofillField& field,
-                                  DenseSet<EntityType> suggested_entity_types,
-                                  ukm::SourceId ukm_source_id);
+  virtual void OnSuggestionsShown(
+      const FormStructure& form,
+      const AutofillField& field,
+      base::span<const Suggestion> shown_suggestions,
+      ukm::SourceId ukm_source_id);
   virtual void OnFormSeen(const FormStructure& form);
   virtual void OnDidFillSuggestion(
       const EntityInstance& entity,
@@ -79,8 +83,22 @@ class AutofillAiManager {
 
  private:
   friend class AutofillAiManagerTestApi;
+  struct UserSuggestionInteractionDetails {
+    // Upon clicking a field, stores the different entity types used to
+    // generate the suggestions shown.
+    DenseSet<EntityType> suggested_entity_types;
+    std::optional<EntityType> entity_type_accepted;
+    // The types of the field where the suggestion was shown or accepted.
+    FieldTypeSet autofill_ai_field_types;
+  };
+  const size_t kSuggestionInteractionCacheMaxSize = 5;
 
   // Strike database related methods:
+  void AddOrClearImportPromptStrikes(
+      AutofillClient::AutofillAiImportPromptType prompt_type,
+      AutofillClient::AutofillAiBubbleClosedReason close_reason,
+      const GURL& url,
+      const EntityInstance& entity);
   void AddStrikeForSaveAttempt(const GURL& url, const EntityInstance& entity);
   void AddStrikeForUpdateAttempt(const EntityInstance::EntityId& entity_uuid);
   void ClearStrikesForSave(const GURL& url, const EntityInstance& entity);
@@ -90,40 +108,85 @@ class AutofillAiManager {
   bool IsUpdateBlockedByStrikeDatabase(
       const EntityInstance::EntityId& entity_uuid) const;
 
+  struct EntityImportPromptCandidate {
+    EntityImportPromptCandidate() = delete;
+    EntityImportPromptCandidate(
+        AutofillClient::AutofillAiImportPromptType prompt_type,
+        const EntityInstance& candidate_entity);
+    EntityImportPromptCandidate(const EntityImportPromptCandidate&);
+    EntityImportPromptCandidate(EntityImportPromptCandidate&&);
+    EntityImportPromptCandidate& operator=(const EntityImportPromptCandidate&);
+    EntityImportPromptCandidate& operator=(EntityImportPromptCandidate&&);
+    ~EntityImportPromptCandidate();
+
+    // The type of prompt that this candidate is meant for.
+    AutofillClient::AutofillAiImportPromptType prompt_type;
+    // The entity that the user would get if they accept the possibly shown
+    // save/update/migrate prompt.
+    EntityInstance candidate_entity;
+  };
+
   // Given `form` that is observed at submission, returns candidates for showing
-  // either save or update prompts. The returned list of candidates is ordered
-  // by decreasing priority.
-  //
-  // The function returns two possible type of candidates:
-  // - A single EntityInstance (and std::nullopt) if the entity qualifies for a
-  //   save prompt.
-  // - A pair of two entities if the entity qualifies for an update prompt. In
-  //   that case, the first entity in the pair would be the new entity (after
-  //   update) and the second one the old entity (before update).
-  std::vector<std::pair<EntityInstance, std::optional<EntityInstance>>>
-  GetEntitySaveAndUpdatePromptCandidates(const FormStructure& form);
+  // either save or update prompts. The function returns a map keyed by the type
+  // of prompt to be shown and where the value is a list of candidates that
+  // qualifies for showing a prompt of the corresponding type. The candidates
+  // are ordered in decreasing priority of the corresponding prompt being shown.
+  std::vector<EntityImportPromptCandidate> GetEntityPromptCandidates(
+      const FormStructure& form);
+
+  // Finds the entities for which AutofillAi should offer a save prompt.
+  // - `observed_entities` are the EntityInstances that were extracted from
+  //   `form` at form submission.
+  // - `saved_entities` are the EntityInstance's already stored for the user.
+  // - For each pair (observed_entity[i], saved_entity[j]),
+  //   `entity_mergeabilities[i][j]` contains the `EntityMergeability`
+  //   information for that pair if the two entities share the same
+  //   `EntityType`, and std::nullopt otherwise.
+  std::vector<EntityImportPromptCandidate> GetSavePromptCandidates(
+      base::span<const EntityInstance> observed_entities,
+      base::span<const EntityInstance> saved_entities,
+      const FormStructure& form,
+      const std::vector<
+          std::vector<std::optional<EntityInstance::EntityMergeability>>>&
+          entities_mergeabilities) const;
+
+  // Finds the entities for which AutofillAi should offer an update prompt. An
+  // update candidate consists of the new entity that would be stored after
+  // update, as well as the ID of the old entity to be updated.
+  // - `observed_entities` are the EntityInstances extracted at form submission.
+  // - `saved_entities` are the EntityInstances already stored for the user.
+  // - For each pair (observed_entity[i], saved_entity[j]),
+  //   `entity_mergeabilities[i][j]` contains the `EntityMergeability`
+  //   information for that pair if the two entities share the same
+  //   `EntityType`, and std::nullopt otherwise.
+  std::vector<EntityImportPromptCandidate> GetUpdatePromptCandidates(
+      base::span<const EntityInstance> observed_entities,
+      base::span<const EntityInstance> saved_entities,
+      const std::vector<
+          std::vector<std::optional<EntityInstance::EntityMergeability>>>&
+          entities_mergeabilities) const;
+
+  // Finds the entities for which AutofillAi should offer a migration prompt.
+  // A migration candidate consists of the new entity that would be stored after
+  // migration, as well as the ID of the old entity to be migrated.
+  // - `observed_entities` are the EntityInstances extracted at form submission.
+  // - `saved_entities` are the EntityInstance's already stored for the user.
+  std::vector<EntityImportPromptCandidate> GetMigratePromptCandidates(
+      base::span<const EntityInstance> observed_entities,
+      base::span<const EntityInstance> saved_entities,
+      const FormStructure& form) const;
 
   // Attempts to display an import bubble for `form` if Autofill AI is
   // interested in the form. Returns whether an import bubble will be shown.
   bool MaybeImportForm(const FormStructure& form, ukm::SourceId ukm_source_id);
 
-  // Updates the `EntityDataManager` and the save strike database depending on
-  // the prompt `result`.
-  void HandleSavePromptResult(
-      const GURL& form_url,
-      uint64_t form_session_id,
-      const std::string& domain,
+  // Handles the logic that needs to run when an import prompt is closed.
+  void HandlePromptResult(
+      const FormData& form,
+      EntityInstance entity,
       ukm::SourceId ukm_source_id,
-      const EntityInstance& entity,
-      AutofillClient::EntitySaveOrUpdatePromptResult result);
-  // Updates the `EntityDataManager` and the update strike database depending on
-  // the prompt `result`.
-  void HandleUpdatePromptResult(
-      uint64_t form_session_id,
-      const std::string& domain,
-      ukm::SourceId ukm_source_id,
-      const EntityInstance::EntityId& entity_uuid,
-      AutofillClient::EntitySaveOrUpdatePromptResult result);
+      AutofillClient::AutofillAiImportPromptType prompt_type,
+      AutofillClient::AutofillAiBubbleClosedReason close_reason);
 
   LogManager* GetCurrentLogManager();
 
@@ -145,6 +208,12 @@ class AutofillAiManager {
   // A strike database for update prompts keyed by the guid of the entity that
   // is to be updated.
   std::unique_ptr<AutofillAiUpdateStrikeDatabase> update_strike_db_;
+
+  // Keeps suggestions details about the five most recent forms the user has
+  // interacted with.
+  base::LRUCache<FormGlobalId, UserSuggestionInteractionDetails>
+      user_suggestion_interactions_per_form_{
+          kSuggestionInteractionCacheMaxSize};
 
   base::WeakPtrFactory<AutofillAiManager> weak_ptr_factory_{this};
 };

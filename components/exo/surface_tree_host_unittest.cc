@@ -334,10 +334,6 @@ class FakeRasterContextProvider
     return nullptr;
   }
   gpu::ContextSupport* ContextSupport() override { return nullptr; }
-  class GrDirectContext* GrContext() override {
-    ADD_FAILURE();
-    return nullptr;
-  }
   gpu::SharedImageInterface* SharedImageInterface() override {
     ADD_FAILURE();
     return nullptr;
@@ -354,11 +350,6 @@ class FakeRasterContextProvider
   }
   gpu::raster::RasterInterface* RasterInterface() override {
     return GetInterceptingTestRasterInterface();
-  }
-  unsigned int GetGrGLTextureFormat(
-      viz::SharedImageFormat format) const override {
-    ADD_FAILURE();
-    return 0;
   }
 
   InterceptingTestRasterInterface* GetInterceptingTestRasterInterface() {

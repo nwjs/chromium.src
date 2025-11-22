@@ -2,17 +2,22 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import '//resources/cr_components/composebox/contextual_entrypoint_and_carousel.js';
 import '//resources/cr_components/searchbox/searchbox_dropdown.js';
+import '//resources/cr_elements/icons.html.js';
 import '/strings.m.js';
 
 import {ColorChangeUpdater} from '//resources/cr_components/color_change_listener/colors_css_updater.js';
 import {SearchboxBrowserProxy} from '//resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import type {SearchboxDropdownElement} from '//resources/cr_components/searchbox/searchbox_dropdown.js';
+import {I18nMixinLit} from '//resources/cr_elements/i18n_mixin_lit.js';
 import {assert} from '//resources/js/assert.js';
 import {EventTracker} from '//resources/js/event_tracker.js';
+import {loadTimeData} from '//resources/js/load_time_data.js';
 import {MetricsReporterImpl} from '//resources/js/metrics_reporter/metrics_reporter.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
-import type {AutocompleteResult, OmniboxPopupSelection, PageCallbackRouter} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
+import type {AutocompleteResult, OmniboxPopupSelection, PageCallbackRouter, PageHandlerInterface} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
@@ -28,7 +33,8 @@ export interface OmniboxPopupAppElement {
 }
 
 // Displays the autocomplete matches in the autocomplete result.
-export class OmniboxPopupAppElement extends CrLitElement {
+export class OmniboxPopupAppElement extends I18nMixinLit
+(CrLitElement) {
   static get is() {
     return 'omnibox-popup-app';
   }
@@ -68,7 +74,20 @@ export class OmniboxPopupAppElement extends CrLitElement {
         reflect: true,
       },
 
+      /**
+       * Whether matches are visible, as some may be hidden by filtering rules
+       * (e.g., Gemini suggestions).
+       */
+      hasVisibleMatches_: {
+        type: Boolean,
+        reflect: true,
+      },
+
+      isInKeywordMode_: {type: Boolean},
+
       result_: {type: Object},
+      searchboxLayoutMode_: {type: String},
+      showContextEntrypoint_: {type: Boolean},
     };
   }
 
@@ -76,17 +95,25 @@ export class OmniboxPopupAppElement extends CrLitElement {
       canShowSecondarySideMediaQueryList.matches;
   accessor hasSecondarySide: boolean = false;
   accessor isDebug: boolean = false;
+  protected accessor isInKeywordMode_: boolean = false;
+  protected accessor hasVisibleMatches_: boolean = false;
   protected accessor result_: AutocompleteResult|null = null;
+  protected accessor searchboxLayoutMode_: string =
+      loadTimeData.getString('searchboxLayoutMode');
+  protected accessor showContextEntrypoint_: boolean = false;
 
   private callbackRouter_: PageCallbackRouter;
   private autocompleteResultChangedListenerId_: number|null = null;
+  private keywordSelectedListenerId_: number|null = null;
   private selectionChangedListenerId_: number|null = null;
   private eventTracker_ = new EventTracker();
+  private pageHandler_: PageHandlerInterface;
 
   constructor() {
     super();
     this.callbackRouter_ = SearchboxBrowserProxy.getInstance().callbackRouter;
     this.isDebug = new URLSearchParams(window.location.search).has('debug');
+    this.pageHandler_ = SearchboxBrowserProxy.getInstance().handler;
     ColorChangeUpdater.forDocument().start();
   }
 
@@ -98,6 +125,11 @@ export class OmniboxPopupAppElement extends CrLitElement {
     this.selectionChangedListenerId_ =
         this.callbackRouter_.updateSelection.addListener(
             this.onUpdateSelection_.bind(this));
+    this.keywordSelectedListenerId_ =
+        this.callbackRouter_.setKeywordSelected.addListener(
+            (isKeywordSelected: boolean) => {
+              this.isInKeywordMode_ = isKeywordSelected;
+            });
     canShowSecondarySideMediaQueryList.addEventListener(
         'change', this.onCanShowSecondarySideChanged_.bind(this));
 
@@ -117,8 +149,32 @@ export class OmniboxPopupAppElement extends CrLitElement {
         this.autocompleteResultChangedListenerId_);
     assert(this.selectionChangedListenerId_);
     this.callbackRouter_.removeListener(this.selectionChangedListenerId_);
+    assert(this.keywordSelectedListenerId_);
+    this.callbackRouter_.removeListener(this.keywordSelectedListenerId_);
     canShowSecondarySideMediaQueryList.removeEventListener(
         'change', this.onCanShowSecondarySideChanged_.bind(this));
+  }
+
+  override willUpdate(changedProperties: PropertyValues<this>) {
+    super.willUpdate(changedProperties);
+
+    const changedPrivateProperties =
+        changedProperties as Map<PropertyKey, unknown>;
+
+    if (changedPrivateProperties.has('result_')) {
+      this.hasVisibleMatches_ =
+          this.result_?.matches.some(match => !match.isHidden) ?? false;
+    }
+
+    if (changedPrivateProperties.has('searchboxLayoutMode_') ||
+        changedPrivateProperties.has('isInKeywordMode_')) {
+      this.showContextEntrypoint_ = this.computeShowContextEntrypoint_();
+    }
+  }
+
+  private computeShowContextEntrypoint_(): boolean {
+    const isTallSearchbox = this.searchboxLayoutMode_.startsWith('Tall');
+    return isTallSearchbox && !this.isInKeywordMode_;
   }
 
   private onCanShowSecondarySideChanged_(e: MediaQueryListEvent) {
@@ -159,6 +215,16 @@ export class OmniboxPopupAppElement extends CrLitElement {
 
   protected onHasSecondarySideChanged_(e: CustomEvent<{value: boolean}>) {
     this.hasSecondarySide = e.detail.value;
+  }
+
+  protected onContextualEntryPointClicked_(
+      e: CustomEvent<{x: number, y: number}>) {
+    e.preventDefault();
+    const point = {
+      x: e.detail.x,
+      y: e.detail.y,
+    };
+    this.pageHandler_.showContextMenu(point);
   }
 }
 

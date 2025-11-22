@@ -65,6 +65,7 @@
 <translation id="1779356040007214683">Para conseguir que Chromium resulte máis seguro, desactivamos algunhas extensións que non aparecen en <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> e que é posible que se engadisen sen o teu coñecemento.</translation>
 <translation id="1808667845054772817">Reinstalar Chromium</translation>
 <translation id="1820835682567584003">Chromium está tentando <ph name="AUTHENTICATION_PURPOSE" /></translation>
+<translation id="183031085822326697">A próxima vez que abras Chromium no teu dispositivo (<ph name="DEVICE_TYPE" />), verás unha solicitude para usar o xestor de contrasinais de Google.</translation>
 <translation id="1838374766361614909">Borrar busca</translation>
 <translation id="18552579716432081">Para eliminar os datos de navegación só deste dispositivo, pero non da túa Conta de Google, tes que <ph name="BEGIN_LINK" />pechar sesión en Chromium<ph name="END_LINK" />.</translation>
 <translation id="185970820835152459">Podes xestionar as Contas de Google nas que teñas a sesión iniciada. As túas Contas de Google úsanse para o navegador Chromium, Play Store, Gmail e moito máis. Se queres engadir unha conta para outra persoa, como un familiar, engade unha persoa nova ao teu dispositivo (<ph name="DEVICE_TYPE" />). <ph name="LINK_BEGIN" />Máis información<ph name="LINK_END" /></translation>
@@ -76,7 +77,6 @@
 <translation id="1900969832270057921">Servizo de Chromium Updater</translation>
 <translation id="1911666947158375684">Mentres teñas a sesión iniciada, poderás usar os teus contrasinais, ademais doutros datos da túa Conta de Google, en Chromium. Podes cambiar esta opción en calquera momento en Configuración.</translation>
 <translation id="1911763535808217981">Ao desactivar esta opción, podes iniciar sesión nos sitios de Google, como Gmail, sen iniciar sesión en Chromium</translation>
-<translation id="1916451563296275579">Quitar de Chromium os datos desta aplicación</translation>
 <translation id="1929939181775079593">Chromium non responde. Queres volver inicialo agora?</translation>
 <translation id="1933341829955786215">A túa organización, <ph name="MANAGER" />, esixe que inicies sesión en Chromium</translation>
 <translation id="193439633299369377">É necesario reiniciar Chromium OS para aplicar a actualización.</translation>
@@ -91,7 +91,9 @@
 <translation id="2039417478970545937">Configuración.</translation>
 <translation id="2049376729098081731">Escolle se queres incluír o historial de Chromium para gozar de experiencias máis personalizadas cos servizos de Google</translation>
 <translation id="2054039611381840095">Se queres recibir actualizacións de Chromium no futuro, debes instalar o sistema operativo macOS 12 ou unha versión posterior. Este ordenador ten macOS 11.</translation>
+<translation id="2064856577282482477">Fai clic no botón Personalizar Chromium, na páxina Nova pestana, para darlle un novo aspecto a Chromium</translation>
 <translation id="2086476982681781442">Chromium bloqueou esta descarga porque o ficheiro é enganoso e pode producir cambios inesperados no teu dispositivo</translation>
+<translation id="208726765006323911">A próxima vez que abras Chromium en iOS, verás unha solicitude para probar <ph name="FEATURE_NAME" />.</translation>
 <translation id="2099452623287920103">Os teus contrasinais e outros datos de Chromium que gardases na túa Conta de Google quitaranse deste dispositivo. Para usalos de novo en Chromium, volve iniciar sesión.</translation>
 <translation id="2120965832000301375">{COUNT,plural, =1{A túa organización eliminará os datos de navegación automaticamente cando Chromium leve 1 minuto sen usarse. Entre esa información, poderían incluírse o historial, os datos da función de autocompletar e as descargas. As pestanas permanecerán abertas.}other{A túa organización eliminará os datos de navegación automaticamente cando Chromium leve # minutos sen usarse. Entre esa información, poderían incluírse o historial, os datos da función de autocompletar e as descargas. As pestanas permanecerán abertas.}}</translation>
 <translation id="2126108037660393668">Produciuse un erro ao verificar o ficheiro descargado.</translation>
@@ -146,13 +148,14 @@
 <translation id="2620436844016719705">Sistema</translation>
 <translation id="2629740064077610681">A túa organización pode ver e xestionar os datos de navegación (como, por exemplo, os marcadores, o historial e os contrasinais). Non poderá ver os datos de navegación doutros perfís de Chromium</translation>
 <translation id="2635452620547538388">Verifica a túa identidade para usar e gardar os datos de Chromium na túa conta (<ph name="ACCOUNT_EMAIL" />)</translation>
-<translation id="264613044588233783">Chromium execútase máis rápido e as funcións que usen JavaScript deberían funcionar tal como se deseñaron (opción recomendada)</translation>
+<translation id="2637732208198500597">{COUNT,plural, =0{A opción Protección avanzada require que reinicies Chromium para aplicar unha actualización}=1{A opción Protección avanzada require que reinicies Chromium para aplicar unha actualización. A ventá do modo de incógnito non se volverá abrir.}other{A opción Protección avanzada require que reinicies Chromium para aplicar unha actualización. As # ventás do modo de incógnito non se volverán abrir.}}</translation>
 <translation id="2648074677641340862">Produciuse un erro no sistema operativo durante a instalación. Volve descargar Chromium.</translation>
 <translation id="2661879430930417727">Se compartes un dispositivo, as túas amizades e os membros da túa familia poden navegar cun perfil independente e configurar Chromium como prefiran</translation>
 <translation id="2711502716910134313">Pestana de Chromium</translation>
 <translation id="2718390899429598676">Para obter unha maior seguranza, Chromium encriptará os teus datos.</translation>
 <translation id="2721354645805494590">Para quitar a túa Conta de Google de Chromium, pecha a sesión</translation>
 <translation id="2722636413143664436">Para poder acceder aos teus contrasinais, marcadores e a outros datos en todos os teus dispositivos, inicia sesión en Chromium</translation>
+<translation id="2723860029395667894">Mostrar sempre o atallo do modo IA de Google</translation>
 <translation id="2738871930057338499">Non se puido establecer conexión con Internet. Erro: HTTP 403 Forbidden (acceso non permitido). Revisa a configuración do proxy.</translation>
 <translation id="2753623023919742414">Fai clic nun obxecto para buscalo</translation>
 <translation id="2768103863314748511">Define Chromium como o teu visor de PDF predeterminado</translation>
@@ -172,6 +175,7 @@
 <translation id="2933336679234709858">Os teus datos están encriptados cunha frase de acceso. Escríbea para usar e gardar os datos de Chromium na túa Conta de Google.</translation>
 <translation id="2945997411976714835">Erro de instalación: Non se puido iniciar o proceso do instalador.</translation>
 <translation id="2948852018303413228">Inicia sesión máis rápido nos sitios utilizando contrasinais gardados en Chromium para iOS</translation>
+<translation id="2966959524256557996">Engade un novo perfil de Chromium para manter separados os marcadores, os contrasinais e as opcións de configuración.</translation>
 <translation id="2970426615109535079">A túa organización xestiona Chromium</translation>
 <translation id="2977470724722393594">Chromium está actualizado</translation>
 <translation id="2977506796191543575">Se un sitio tenta roubarche o contrasinal ou se descargas un ficheiro daniño, Chromium tamén pode comprobar os enderezos URL, así como fragmentos de contido das páxinas, a través da función Navegación segura</translation>
@@ -210,6 +214,7 @@
 <translation id="3296368748942286671">Continuar executando aplicacións en segundo plano cando se peche Chromium</translation>
 <translation id="3313189106987092621">Chromium mostrarache unha advertencia antes de cargar un sitio cunha conexión pouco segura</translation>
 <translation id="3316771292331273802">Pecharase a túa sesión na maioría dos sitios cando peches todas as ventás de Chromium, excepto a túa Conta de Google se tes a sesión iniciada en Chromium. Permitir que os sitios te lembren, <ph name="SETTINGS_LINK" />.</translation>
+<translation id="3322413454779348750">O teu buscador predeterminado cambiouse desde fóra de Chromium. Para protexerte, Chromium restableceuno.</translation>
 <translation id="3352986031709923790">esquina superior dereita da área de busca: <ph name="RIGHT" /> % á dereita, <ph name="TOP" /> % arriba</translation>
 <translation id="3366305173356742781">Datos de Chromium na túa conta</translation>
 <translation id="3369405342922656244">Procurar contido nesta páxina coa busca de imaxes</translation>
@@ -237,6 +242,7 @@
 <translation id="3788675262216168505">Xestionar perfís de Chromium</translation>
 <translation id="3790262771324122253">Descubre por que Chromium bloquea algunhas descargas</translation>
 <translation id="379589255253486813">Chromium informarate se atopa algo que necesites revisar</translation>
+<translation id="3798048725356732506">Os perfís de Chromium axúdanche a separar as distintas partes da túa vida. Engade un novo perfil agora.</translation>
 <translation id="3802055581630249637">Chromium precargará as páxinas que é probable que visites para que carguen máis rapidamente cando accedas a elas</translation>
 <translation id="3810973564298564668">Xestionar</translation>
 <translation id="3846683726093018685">**Resumir:** Nunha frase de menos de 30 palabras, describe o tema e o propósito principais do contido da captura de pantalla.
@@ -385,6 +391,7 @@
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="5698481217667032250">Mostrar Chromium neste idioma</translation>
 <translation id="569897634095159764">Non se puido establecer conexión con Internet. O servidor proxy require autenticación.</translation>
+<translation id="5713518899297503106">Os perfís de Chromium permítenche separar a actividade de navegación persoal da do traballo. Engade un novo perfil agora.</translation>
 <translation id="5768371961535086509">Chromium libera memoria das pestanas inactivas. Desta forma, as pestanas activas e outras aplicacións dispoñen de máis recursos informáticos e Chromium segue funcionando rápido. As pestanas inactivas volven activarse automaticamente cando regresas a elas. <ph name="BEGIN_LINK" />Máis información sobre o aforro de memoria<ph name="END_LINK" /></translation>
 <translation id="5775198138441669627">Se esqueciches a frase de acceso ou queres cambiar esta opción de configuración, <ph name="SETTINGS_LINK" /> os datos de Chromium da túa conta</translation>
 <translation id="5800158606660203929">Personalizar e controlar Chromium. Define Chromium como navegador predeterminado.</translation>
@@ -402,6 +409,7 @@
 <translation id="5941711191222866238">Minimizar</translation>
 <translation id="5949225980829865667">Para poder acceder a este marcador, entre outras cousas, en todos os teus dispositivos, inicia sesión en Chromium</translation>
 <translation id="5953657885167112863">Configura Chromium ao teu gusto</translation>
+<translation id="5960071705175224773">Unha aplicación descoñecida cambiou a túa configuración</translation>
 <translation id="5968400720580217226">Modo IA</translation>
 <translation id="5986585015444752010">{COUNT,plural, =1{A túa organización pechará Chromium automaticamente cando leve 1 minuto sen usarse.}other{A túa organización pechará Chromium automaticamente cando leve # minutos sen usarse.}}</translation>
 <translation id="5987687638152509985">Actualiza Chromium para iniciar a sincronización</translation>
@@ -453,6 +461,7 @@
 <translation id="6390800440335263989">Para continuar, inicia sesión en Chromium como <ph name="EMAIL" />. Deste xeito, asegúraste de que se apliquen as políticas da túa organización.</translation>
 <translation id="6400112897226594999">O logotipo de Chromium dentro da pantalla dun ordenador.</translation>
 <translation id="6403826409255603130">Chromium é un navegador web que executa páxinas web e aplicacións a gran velocidade. É rápido, estable e fácil de utilizar. Chromium permíteche navegar na web de forma máis segura, xa que inclúe protección contra malware e phishing.</translation>
+<translation id="642132557830635295">Chromium executarase máis rápido e as funcións que usen JavaScript deberían funcionar tal como se deseñaron</translation>
 <translation id="6436260184216827876">A busca de imaxes non está dispoñible. Téntao de novo máis tarde.</translation>
 <translation id="6442900851116057561">Reiniciar Chromium OS</translation>
 <translation id="6443470774889161065">Chromium precargará aínda máis páxinas que é probable que visites para que carguen máis rapidamente cando accedas a elas</translation>
@@ -477,6 +486,7 @@
 <translation id="6669284030132180248">Se tamén gardas os marcadores na túa Conta de Google, poderás facer un seguimento dos prezos dos produtos en Chromium e recibir notificacións cando baixen</translation>
 <translation id="6676384891291319759">Accede a Internet</translation>
 <translation id="668175097507315160">Chromium OS non puido sincronizar os teus datos porque se produciu un erro ao iniciar sesión.</translation>
+<translation id="6691132793308828750">Quitar de Chromium os datos desta aplicación</translation>
 <translation id="6692797197837897398">Chromium ofréceche máis control sobre os anuncios que ves e limita a información que os sitios poden obter sobre ti cando che mostran anuncios personalizados</translation>
 <translation id="6709350901466051922">Chromium necesita permiso de acceso ao micrófono para este sitio</translation>
 <translation id="6712881677154121168">Produciuse un erro na descarga: <ph name="DOWNLOAD_ERROR" />.</translation>
@@ -569,6 +579,7 @@ Chromium non pode recuperar a túa configuración.</translation>
 <translation id="7810005234485217901">Podes fixar a busca de imaxes para acceder facilmente</translation>
 <translation id="7828947555739565424">Neste dispositivo xa existe un perfil de Chromium con esta conta</translation>
 <translation id="7845233973568007926">Grazas por levar a cabo a instalación. Para utilizar <ph name="BUNDLE_NAME" />, debes reiniciar o ordenador.</translation>
+<translation id="7853661403199074278">Personaliza Chromium para darlle outro aire</translation>
 <translation id="7859018312476869945">Cando escribes algo na barra de enderezos ou na caixa de busca, Chromium envíallo ao motor de busca predeterminado para obter mellores suxestións. Esta opción está desactivada no modo de incógnito.</translation>
 <translation id="7867198900892795913">Chromium non se puido actualizar á última versión, polo que non gozas das novas funcións e solucións de seguranza.</translation>
 <translation id="7872446069773932638">Descargando… Tempo restante: <ph name="SECONDS" /> s</translation>
@@ -636,10 +647,12 @@ Chromium non pode recuperar a túa configuración.</translation>
 <translation id="8601359445272098721">Novidade! Podes traducir texto e imaxes na túa pantalla co botón Traducir pantalla</translation>
 <translation id="8619360774459241877">Iniciando Chromium…</translation>
 <translation id="8648201657708811153">Google Chrome for Testing non se pode converter no teu navegador predeterminado.</translation>
+<translation id="8677922833187616101">Mostrar sempre o atallo do modo IA de Google</translation>
 <translation id="8697124171261953979">Tamén controla a páxina que se mostra ao iniciar Chromium ou ao realizar unha busca desde Omnibox.</translation>
 <translation id="8704119203788522458">Este é o teu Chromium</translation>
 <translation id="8712637175834984815">De acordo</translation>
 <translation id="8719993436687031146">Queres iniciar sesión en Chromium?</translation>
+<translation id="8745263398357414606">Garda todo en Chromium</translation>
 <translation id="8747073452963259673">esquina inferior esquerda da área de busca: <ph name="LEFT" /> % á esquerda, <ph name="BOTTOM" /> % abaixo</translation>
 <translation id="878572486461146056">Erro de instalación: A persoa que administra a rede aplicou unha política de grupo que non permite a instalación (<ph name="INSTALL_ERROR" />)</translation>
 <translation id="8796602469536043152">Chromium necesita permiso de acceso á cámara e ao micrófono neste sitio</translation>

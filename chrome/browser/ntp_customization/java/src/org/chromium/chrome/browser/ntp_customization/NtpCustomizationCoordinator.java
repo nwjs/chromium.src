@@ -15,11 +15,12 @@ import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationView
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationViewProperties.VIEW_FLIPPER_KEYS;
 
 import android.content.Context;
-import android.support.annotation.IntDef;
-import android.support.annotation.VisibleForTesting;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ViewFlipper;
+
+import androidx.annotation.IntDef;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.NullMarked;
@@ -50,7 +51,7 @@ public class NtpCustomizationCoordinator {
 
     private final Context mContext;
     private final BottomSheetController mBottomSheetController;
-    private final Supplier<Profile> mProfileSupplier;
+    private final Supplier<@Nullable Profile> mProfileSupplier;
     private final int mBottomSheetType;
     private NtpCustomizationMediator mMediator;
     private @Nullable MvtSettingsCoordinator mMvtSettingCoordinator;
@@ -116,7 +117,7 @@ public class NtpCustomizationCoordinator {
     public NtpCustomizationCoordinator(
             Context context,
             BottomSheetController bottomSheetController,
-            Supplier<Profile> profileSupplier,
+            Supplier<@Nullable Profile> profileSupplier,
             @BottomSheetType int bottomSheetType) {
         mContext = context;
         mBottomSheetController = bottomSheetController;
@@ -213,7 +214,7 @@ public class NtpCustomizationCoordinator {
 
     private void showNtpCardsBottomSheet() {
         if (mNtpCardsCoordinator == null) {
-            mNtpCardsCoordinator = new NtpCardsCoordinator(mContext, mDelegate);
+            mNtpCardsCoordinator = new NtpCardsCoordinator(mContext, mDelegate, mProfileSupplier);
         }
         mMediator.showBottomSheet(NTP_CARDS);
     }

@@ -13,9 +13,21 @@ BASE_FEATURE(kDeferredSyncStartupCustomDelay,
 
 BASE_FEATURE(kSyncAccountSettings, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kSyncAutofillLoyaltyCard, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSyncAutofillLoyaltyCard,
+#if !BUILDFLAG(IS_IOS)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
-BASE_FEATURE(kSyncMoveValuablesToProfileDb, base::FEATURE_DISABLED_BY_DEFAULT);
+// Enabled by default, intended as a kill switch.
+BASE_FEATURE(kSyncMakeAutofillValuableNonEncryptable,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSyncAutofillValuableMetadata, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSyncMoveValuablesToProfileDb, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncSharedTabGroupAccountData, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -25,9 +37,15 @@ BASE_FEATURE(kSyncAIThread, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncContextualTask, base::FEATURE_DISABLED_BY_DEFAULT);
 
+#if !BUILDFLAG(IS_CHROMEOS)
+BASE_FEATURE(kUnoPhase2FollowUp,
 #if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kUnoPhase2FollowUp, base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 BASE_FEATURE(kSyncAutofillWalletCredentialData,
 #if BUILDFLAG(IS_IOS)
@@ -35,6 +53,8 @@ BASE_FEATURE(kSyncAutofillWalletCredentialData,
 #else
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
+
+BASE_FEATURE(kSyncBookmarksLimit, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncEnableContactInfoDataTypeForCustomPassphraseUsers,
 #if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
@@ -151,5 +171,7 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    &kSyncDetermineAccountManagedStatus,
                    "account_managed_status_timeout",
                    base::Seconds(5));
+
+BASE_FEATURE(kSyncEnableNewSyncDashboardUrl, base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace syncer

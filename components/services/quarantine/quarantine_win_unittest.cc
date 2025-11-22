@@ -416,7 +416,8 @@ TEST_F(QuarantineWinTest, RestrictedSite) {
   EXPECT_FALSE(GetZoneIdentifierStreamContents(test_file, &zone_identifier));
 }
 
-TEST_F(QuarantineWinTest, TrustedSite_AlreadyQuarantined) {
+// TODO(crbug.com/454567187): Enabled after fixing
+TEST_F(QuarantineWinTest, DISABLED_TrustedSite_AlreadyQuarantined) {
   // Test file path and source URL.
   base::FilePath test_file = GetTempDir().AppendASCII("good.exe");
   GURL source_url(

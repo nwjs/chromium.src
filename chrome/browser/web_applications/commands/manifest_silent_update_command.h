@@ -12,9 +12,11 @@
 #include "base/functional/callback_forward.h"
 #include "base/location.h"
 #include "base/memory/weak_ptr.h"
+#include "base/types/pass_key.h"
 #include "chrome/browser/web_applications/commands/web_app_command.h"
 #include "chrome/browser/web_applications/jobs/manifest_to_web_app_install_info_job.h"
 #include "chrome/browser/web_applications/locks/noop_lock.h"
+#include "chrome/browser/web_applications/model/web_app_comparison.h"
 #include "chrome/browser/web_applications/web_app_icon_manager.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "components/webapps/common/web_app_id.h"
@@ -44,9 +46,13 @@ enum class ManifestSilentUpdateCommandStage {
   kComparingManifestData,
   kFinalizingSilentManifestChanges,
   kWritingPendingUpdateIconBitmapsToDisk,
+  kDeletingPendingUpdateIconsFromDisk
 };
 
-// This enum is recorded by UMA, the numeric values must not change.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+//
+// LINT.IfChange(ManifestSilentUpdateCheckResult)
 enum class ManifestSilentUpdateCheckResult {
   kAppNotInstalled = 0,
   kAppUpdateFailedDuringInstall = 1,
@@ -62,15 +68,36 @@ enum class ManifestSilentUpdateCheckResult {
   kInvalidPendingUpdateInfo = 11,
   kUserNavigated = 12,
   kManifestToWebAppInstallInfoError = 13,
-  kMaxValue = kManifestToWebAppInstallInfoError,
+  kAppHasSecurityUpdateDueToThrottle = 14,
+  kMaxValue = kAppHasSecurityUpdateDueToThrottle,
 };
+// LINT.ThenChange(//tools/metrics/histograms/metadata/webapps/enums.xml:WebAppManifestSilentUpdateCheckResult)
 
 bool IsAppUpdated(ManifestSilentUpdateCheckResult result);
 
 // Declare the logging operator before the command declaration, so the templated
 // completion method can use it to log the result.
 std::ostream& operator<<(std::ostream& os,
-                         ManifestSilentUpdateCheckResult stage);
+                         ManifestSilentUpdateCheckResult result);
+
+// Returns all the information necessary for a manifest's silent update to have
+// finished running, including the result of a silent update command and the
+// timestamp of a silent icon update if that happened.
+struct ManifestSilentUpdateCompletionInfo {
+  ManifestSilentUpdateCompletionInfo();
+  explicit ManifestSilentUpdateCompletionInfo(
+      ManifestSilentUpdateCheckResult result);
+  ~ManifestSilentUpdateCompletionInfo() = default;
+  base::Value::Dict ToDebugValue();
+
+  // Move operation only for simplicity.
+  ManifestSilentUpdateCompletionInfo(ManifestSilentUpdateCompletionInfo&&);
+  ManifestSilentUpdateCompletionInfo& operator=(
+      ManifestSilentUpdateCompletionInfo&&);
+
+  ManifestSilentUpdateCheckResult result;
+  std::optional<base::Time> time_for_icon_diff_check;
+};
 
 // Downloads a currently linked manifest in the given web contents. Non-security
 // -sensitive manifest members are updated immediately. Security sensitive
@@ -91,14 +118,16 @@ std::ostream& operator<<(std::ostream& os,
 //   image diff) or store it as a PendingUpdateInfo (>10% image diff).
 // - Finalize silent update of icon (if needed) and destroy command.
 class ManifestSilentUpdateCommand
-    : public WebAppCommand<NoopLock, ManifestSilentUpdateCheckResult>,
+    : public WebAppCommand<NoopLock, ManifestSilentUpdateCompletionInfo>,
       public content::WebContentsObserver {
  public:
   using CompletedCallback =
-      base::OnceCallback<void(ManifestSilentUpdateCheckResult check_result)>;
+      base::OnceCallback<void(ManifestSilentUpdateCompletionInfo check_result)>;
 
-  ManifestSilentUpdateCommand(content::WebContents& web_contents,
-                              CompletedCallback callback);
+  ManifestSilentUpdateCommand(
+      content::WebContents& web_contents,
+      std::optional<base::Time> previous_time_for_silent_icon_update,
+      CompletedCallback callback);
 
   ~ManifestSilentUpdateCommand() override;
 
@@ -110,21 +139,6 @@ class ManifestSilentUpdateCommand
   void StartWithLock(std::unique_ptr<NoopLock> lock) override;
 
  private:
-  struct WebAppComparison {
-    bool name_equality = false;
-    bool primary_icons_equality = false;
-    bool shortcut_menu_item_infos_equality = false;
-    bool other_fields_equality = false;
-
-    bool HasNoChanges() const;
-    bool IsNameChangeOnly() const;
-    bool IsSecuritySensitiveChangesOnly() const;
-    base::Value::Dict ToDict() const;
-  };
-  static WebAppComparison CompareWebApps(
-      const WebApp& existing_web_app,
-      const WebAppInstallInfo& new_install_info);
-
   void SetStage(ManifestSilentUpdateCommandStage stage);
 
   void OnManifestFetchedAcquireAppLock(
@@ -139,14 +153,21 @@ class ManifestSilentUpdateCommand
   void OnWebAppInfoCreatedFromManifest(
       std::unique_ptr<WebAppInstallInfo> install_info);
 
+  // Identify whether or not the app needs to be silently updated, or if a
+  // pending update needs to be stored, and starts the writes if needed.
   void FinalizeUpdateIfSilentChangesExist();
 
-  void UpdateFinalizedWritePendingInfoIfNeeded(
+  void UpdateFinalizedWritePendingInfo(
       std::optional<proto::PendingUpdateInfo> pending_update_info,
       const webapps::AppId& app_id,
       webapps::InstallResultCode code);
 
-  void WritePendingUpdateInfoThenComplete(proto::PendingUpdateInfo);
+  void WritePendingUpdateInfoThenComplete(
+      std::optional<proto::PendingUpdateInfo>,
+      ManifestSilentUpdateCheckResult result);
+
+  void WritePendingUpdateToWebAppUpdateObservers(
+      std::optional<proto::PendingUpdateInfo> pending_update);
 
   void CompleteCommandAndSelfDestruct(
       base::Location location,
@@ -177,25 +198,40 @@ class ManifestSilentUpdateCommand
   std::unique_ptr<WebAppDataRetriever> data_retriever_;
   std::unique_ptr<AppLock> app_lock_;
 
-  base::WeakPtr<content::WebContents> web_contents_;
-  std::unique_ptr<ManifestToWebAppInstallInfoJob> manifest_to_install_info_job_;
 
   // Temporary variables stored here while the update check progresses
   // asynchronously.
   std::unique_ptr<WebAppInstallInfo> new_install_info_;
-  bool is_trusted_install_ = false;
-  WebAppComparison web_app_diff_;
+  WebAppComparison web_app_comparison_;
   IconBitmaps existing_manifest_icon_bitmaps_;
   IconBitmaps existing_trusted_icon_bitmaps_;
   IconBitmaps pending_trusted_icon_bitmaps_;
   IconBitmaps pending_manifest_icon_bitmaps_;
   ShortcutsMenuIconBitmaps existing_shortcuts_menu_icon_bitmaps_;
+
+  // Stores whether a silent update can happen depending on the state of the
+  // system after the manifest update process has started and the web app's new
+  // fields have been downloaded.
   bool silent_update_required_ = false;
-  bool pending_updated_added_ = false;
+
+  // Stores whether a silent update is allowed depending on the state of the web
+  // app itself, like if the app is trusted, or if the generated icons can be
+  // fixed. For these cases, a pending update is not stored inside the web app.
+  bool silently_update_app_identity_ = false;
+
+  base::WeakPtr<content::WebContents> web_contents_;
+  // Note: This must be destroyed before `new_install_info_` since it holds a
+  // raw_ptr to it.
+  std::unique_ptr<ManifestToWebAppInstallInfoJob> manifest_to_install_info_job_;
 
   // Debug info.
   ManifestSilentUpdateCommandStage stage_ =
       ManifestSilentUpdateCommandStage::kFetchingNewManifestData;
+
+  // Stores the last time a silent icon update was triggered for `app_id_` if
+  // that happened.
+  std::optional<base::Time> previous_time_for_silent_icon_update_;
+  ManifestSilentUpdateCompletionInfo completion_info_;
 
   base::WeakPtrFactory<ManifestSilentUpdateCommand> weak_factory_{this};
 };

@@ -6,7 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CONTAINER_SELECTOR_H_
 
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/css/media_query_exp.h"
+#include "third_party/blink/renderer/core/dom/tree_scope.h"
 #include "third_party/blink/renderer/core/layout/geometry/axis.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/text/writing_mode.h"
@@ -16,6 +16,7 @@
 namespace blink {
 
 class Element;
+class MediaQueryExpNode;
 
 // Not to be confused with regular selectors. This refers to container
 // selection by e.g. a given name, or by implicit container selection
@@ -45,7 +46,7 @@ class CORE_EXPORT ContainerSelector {
         has_sticky_query_(scroll_state),
         has_snap_query_(scroll_state),
         has_scrollable_query_(scroll_state),
-        has_scroll_direction_query_(scroll_state),
+        has_scrolled_query_(scroll_state),
         has_anchored_query_(anchored_query) {}
   ContainerSelector(AtomicString name, const MediaQueryExpNode&);
 
@@ -60,7 +61,7 @@ class CORE_EXPORT ContainerSelector {
            (has_sticky_query_ == o.has_sticky_query_) &&
            (has_snap_query_ == o.has_snap_query_) &&
            (has_scrollable_query_ == o.has_scrollable_query_) &&
-           (has_scroll_direction_query_ == o.has_scroll_direction_query_) &&
+           (has_scrolled_query_ == o.has_scrolled_query_) &&
            (has_anchored_query_ == o.has_anchored_query_);
   }
 
@@ -81,12 +82,10 @@ class CORE_EXPORT ContainerSelector {
   bool SelectsStickyContainers() const { return has_sticky_query_; }
   bool SelectsSnapContainers() const { return has_snap_query_; }
   bool SelectsScrollableContainers() const { return has_scrollable_query_; }
-  bool SelectsScrollDirectionContainers() const {
-    return has_scroll_direction_query_;
-  }
+  bool SelectsScrolledContainers() const { return has_scrolled_query_; }
   bool SelectsScrollStateContainers() const {
     return SelectsStickyContainers() || SelectsSnapContainers() ||
-           SelectsScrollableContainers() || SelectsScrollDirectionContainers();
+           SelectsScrollableContainers() || SelectsScrolledContainers();
   }
   bool SelectsAnchoredContainers() const { return has_anchored_query_; }
   bool HasUnknownFeature() const { return has_unknown_feature_; }
@@ -107,7 +106,7 @@ class CORE_EXPORT ContainerSelector {
   bool has_sticky_query_{false};
   bool has_snap_query_{false};
   bool has_scrollable_query_{false};
-  bool has_scroll_direction_query_{false};
+  bool has_scrolled_query_{false};
   bool has_anchored_query_{false};
   bool has_unknown_feature_{false};
 };

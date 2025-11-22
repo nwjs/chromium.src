@@ -40,8 +40,7 @@
 #endif
 
 class LocationBarView;
-class OmniboxClient;
-class PageActionIconView;
+class IconLabelBubbleView;
 
 namespace content {
 class WebContents;
@@ -65,14 +64,25 @@ class OmniboxViewViews
       public views::TextfieldController,
       public ui::CompositorObserver,
       public TemplateURLServiceObserver {
+  // TODO(crbug.com/392015004): Remove this macro once it gets fixed.
+  //
+  // Both `OmniboxView` and `views::Textfield` (*1) have the
+  // `ADVANCED_MEMORY_SAFETY_CHECKS` macro, hence there is ambiguity about which
+  // `operator new` should be used (although the two `operator new` are
+  // eventually equivalent). Choose `OmniboxView` with no deep reason.
+  //
+  // (*1) Note that `views::Textfield` inherits from `views::View`, which has
+  // the `ADVANCED_MEMORY_SAFETY_CHECKS` macro.
+  INHERIT_MEMORY_SAFETY_CHECKS(OmniboxView);
+
   METADATA_HEADER(OmniboxViewViews, views::Textfield)
 
  public:
   // Max width of the gradient mask used to smooth ElideAnimation edges.
   static const int kSmoothingGradientMaxWidth = 15;
 
-  OmniboxViewViews(std::unique_ptr<OmniboxClient> client,
-                   bool popup_window_mode,
+  OmniboxViewViews(bool popup_window_mode,
+                   OmniboxController* controller,
                    LocationBarView* location_bar_view,
                    const gfx::FontList& font_list);
   OmniboxViewViews(const OmniboxViewViews&) = delete;
@@ -173,11 +183,13 @@ class OmniboxViewViews
   FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsTest, DoNotNavigateOnDrop);
   FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsTest, AyncDropCallback);
   FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsTest, AccessibleTextSelectBoundTest);
+  FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsAIMButtonPreferenceTest,
+                           ButtonVisibilityTogglesWithPref_OmniboxFocused);
 
   enum class UnelisionGesture {
-    HOME_KEY_PRESSED,
-    MOUSE_RELEASE,
-    OTHER,
+    kHomeKeyPressed,
+    kMouseRelease,
+    kOther,
   };
 
   // Update the field with |text| and set the selection. |ranges| should not be
@@ -335,7 +347,7 @@ class OmniboxViewViews
 
   // Returns the AI Mode page action icon view, if present, or nullptr if the
   // view doesn't exist.
-  PageActionIconView* GetAiModePageActionIconView() const;
+  IconLabelBubbleView* GetAiModePageActionIconView() const;
 
   // When true, the location bar view is read only and also is has a slightly
   // different presentation (smaller font size). This is used for popups.
@@ -404,12 +416,12 @@ class OmniboxViewViews
 
   // The state machine for logging the Omnibox.CharTypedToRepaintLatency
   // histogram.
-  enum {
-    NOT_ACTIVE,           // Not currently tracking a char typed event.
-    CHAR_TYPED,           // Character was typed.
-    ON_PAINT_CALLED,      // Character was typed and OnPaint() called.
-    COMPOSITING_COMMIT,   // Compositing was committed after OnPaint().
-    COMPOSITING_STARTED,  // Compositing was started.
+  enum class LatencyHistogramState {
+    kNotActive,           // Not currently tracking a char typed event.
+    kCharTyped,           // Character was typed.
+    kOnPaintCalled,       // Character was typed and OnPaint() called.
+    kCompositingCommit,   // Compositing was committed after OnPaint().
+    kCompositingStarted,  // Compositing was started.
   } latency_histogram_state_;
 
   // The currently selected match, if any, with additional labelling text

@@ -16,12 +16,14 @@ import com.google.android.gms.identitycredentials.CreateCredentialHandle;
 import com.google.android.gms.identitycredentials.CreateCredentialRequest;
 import com.google.android.gms.identitycredentials.IdentityCredentialClient;
 import com.google.android.gms.identitycredentials.IdentityCredentialManager;
+import com.google.android.gms.identitycredentials.SignalCredentialStateRequest;
 
 import org.jni_zero.JNINamespace;
 
 import org.chromium.blink.mojom.AuthenticatorStatus;
 import org.chromium.blink.mojom.MakeCredentialAuthenticatorResponse;
 import org.chromium.blink.mojom.PublicKeyCredentialCreationOptions;
+import org.chromium.blink.mojom.PublicKeyCredentialReportOptions;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.components.webauthn.cred_man.CredManHelper;
@@ -60,15 +62,18 @@ public class IdentityCredentialsHelper {
                             assertNonNull(mAuthenticationContextProvider.getContext()));
             client.createCredential(buildConditionalCreateRequest(options, origin, clientDataHash))
                     .addOnSuccessListener(
-                            (handle) ->
-                                    onConditionalCreateSuccess(
-                                            clientDataJson,
-                                            options,
-                                            responseCallback,
-                                            errorCallback,
-                                            handle))
+                            GmsCoreUtils.wrapSuccessCallback(
+                                    (handle) ->
+                                            onConditionalCreateSuccess(
+                                                    clientDataJson,
+                                                    options,
+                                                    responseCallback,
+                                                    errorCallback,
+                                                    handle)))
                     .addOnFailureListener(
-                            (exception) -> onConditionalCreateFailure(errorCallback, exception));
+                            GmsCoreUtils.wrapFailureCallback(
+                                    (exception) ->
+                                            onConditionalCreateFailure(errorCallback, exception)));
         } catch (Exception e) {
             logError(TAG, "CreateCredential failed ", e);
             errorCallback.onResult(
@@ -116,6 +121,48 @@ public class IdentityCredentialsHelper {
         credentialData.putByteArray(
                 CRED_MAN_PREFIX + "BUNDLE_KEY_CLIENT_DATA_HASH", clientDataHash);
         return credentialData;
+    }
+
+    // Dispatches a Report request.
+    public void handleReportRequest(PublicKeyCredentialReportOptions options, String origin) {
+        log(TAG, "handleReportRequest");
+        try {
+            IdentityCredentialClient client =
+                    IdentityCredentialManager.Companion.getClient(
+                            assertNonNull(mAuthenticationContextProvider.getContext()));
+            client.signalCredentialState(buildSignalCredentialStateRequest(options, origin))
+                    .addOnSuccessListener(
+                            GmsCoreUtils.wrapSuccessCallback(
+                                    (handle) ->
+                                            log(TAG, "Signal API request completed successfully")))
+                    .addOnFailureListener(
+                            GmsCoreUtils.wrapFailureCallback(
+                                    (e) -> logError(TAG, "Signal API Report request failed ", e)));
+        } catch (Exception e) {
+            logError(TAG, "handleReportRequest failed ", e);
+            return;
+        }
+    }
+
+    @VisibleForTesting
+    public SignalCredentialStateRequest buildSignalCredentialStateRequest(
+            PublicKeyCredentialReportOptions options, String origin) {
+        String type;
+        if (options.unknownCredentialId != null) {
+            type = CRED_MAN_PREFIX + "SIGNAL_UNKNOWN_CREDENTIAL_STATE_REQUEST_TYPE";
+        } else if (options.allAcceptedCredentials != null) {
+            type = CRED_MAN_PREFIX + "SIGNAL_ALL_ACCEPTED_CREDENTIALS_REQUEST_TYPE";
+        } else {
+            assert (options.currentUserDetails != null);
+            type = CRED_MAN_PREFIX + "SIGNAL_CURRENT_USER_DETAILS_STATE_REQUEST_TYPE";
+        }
+
+        String requestJson =
+                Fido2CredentialRequestJni.get().reportOptionsToJson(options.serialize());
+        Bundle requestDataBundle = new Bundle();
+        requestDataBundle.putCharSequence(CRED_MAN_PREFIX + "signal_request_json_key", requestJson);
+
+        return new SignalCredentialStateRequest(type, origin, requestDataBundle);
     }
 
     @VisibleForTesting

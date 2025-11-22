@@ -42,9 +42,11 @@
 #include "base/system/system_monitor.h"
 #include "base/task/current_thread.h"
 #include "base/task/deferred_sequenced_task_runner.h"
+#include "base/task/execution_fence.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool/initialization_util.h"
+#include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/threading/platform_thread_metrics.h"
 #include "base/threading/thread.h"
 #include "base/threading/thread_restrictions.h"
@@ -482,7 +484,7 @@ media::AudioManager* BrowserMainLoop::GetAudioManager() {
 
 BrowserMainLoop::BrowserMainLoop(
     MainFunctionParams parameters,
-    std::unique_ptr<base::ThreadPoolInstance::ScopedExecutionFence>
+    std::unique_ptr<base::ScopedThreadPoolExecutionFence>
         scoped_execution_fence)
     : parameters_(std::move(parameters)),
       parsed_command_line_(*parameters_.command_line),
@@ -792,7 +794,7 @@ int BrowserMainLoop::PreCreateThreads() {
 
   InitializeMemoryManagementComponent();
 #if BUILDFLAG(IS_ANDROID)
-  memory_pressure::UserLevelMemoryPressureSignalGenerator::Initialize();
+  content::UserLevelMemoryPressureSignalGenerator::Initialize();
 #endif
 
 #if BUILDFLAG(ENABLE_PLUGINS)
@@ -855,6 +857,9 @@ int BrowserMainLoop::PreCreateThreads() {
   base::UmaHistogramBoolean(
       "SiteIsolation.IsSitePerProcessOrStricter.AndroidDesktop",
       SiteIsolationPolicy::IsSitePerProcessOrStricter());
+  base::UmaHistogramEnumeration(
+      "SiteIsolation.DisabledReason.AndroidDesktop",
+      SiteIsolationPolicy::GetSiteIsolationDisabledReason());
 #endif
 
   // Generate the browser process salt. This is then accessible by calls to

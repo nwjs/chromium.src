@@ -4,21 +4,28 @@
 
 #include "chrome/browser/glic/glic_metrics.h"
 
+#include <string>
+#include <string_view>
+
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
 #include "base/time/time.h"
+#include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/fre/glic_fre_controller.h"
 #include "chrome/browser/glic/glic_pref_names.h"
+#include "chrome/browser/glic/host/context/glic_sharing_utils.h"
 #include "chrome/browser/glic/public/context/glic_sharing_manager.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/widget/browser_conditions.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list_observer.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/common/actor/task_id.h"
 #include "chrome/common/chrome_features.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/render_frame_host.h"
@@ -39,24 +46,27 @@ bool CheckFreStatus(Profile* profile, prefs::FreStatus status) {
          static_cast<int>(status);
 }
 
-class DelegateImpl : public GlicMetrics::Delegate {
+class DummyDelegateImpl : public GlicMetrics::Delegate {
  public:
-  explicit DelegateImpl(GlicWindowController* window_controller,
-                        GlicSharingManager* sharing_manager,
+  gfx::Size GetWindowSize() const override { return {}; }
+  bool IsWindowShowing() const override { return false; }
+  bool IsWindowAttached() const override { return false; }
+  content::WebContents* GetFocusedWebContents() override { return nullptr; }
+  ActiveTabSharingState GetActiveTabSharingState() override {
+    return ActiveTabSharingState::kNoTabCanBeShared;
+  }
+  int32_t GetNumPinnedTabs() const override { return 0; }
+  std::vector<content::WebContents*> GetPinnedAndSharedWebContents() override {
+    return std::vector<content::WebContents*>();
+  }
+};
+
+class BaseDelegate : public GlicMetrics::Delegate {
+ public:
+  explicit BaseDelegate(GlicSharingManager* sharing_manager,
                         PrefService* pref_service)
-      : window_controller_(window_controller),
-        sharing_manager_(sharing_manager),
-        pref_service_(pref_service) {}
-  gfx::Size GetWindowSize() const override {
-    return window_controller_->GetSize();
-  }
-  bool IsWindowShowing() const override {
-    return window_controller_->IsShowing();
-  }
-  bool IsWindowAttached() const override {
-    return window_controller_->IsAttached();
-  }
-  content::WebContents* GetContents() override {
+      : sharing_manager_(sharing_manager), pref_service_(pref_service) {}
+  content::WebContents* GetFocusedWebContents() override {
     FocusedTabData ftd = sharing_manager_->GetFocusedTabData();
     return ftd.is_focus() ? ftd.focus()->GetContents() : nullptr;
   }
@@ -75,15 +85,64 @@ class DelegateImpl : public GlicMetrics::Delegate {
   int32_t GetNumPinnedTabs() const override {
     return sharing_manager_->GetNumPinnedTabs();
   }
+  std::vector<content::WebContents*> GetPinnedAndSharedWebContents() override {
+    std::vector<content::WebContents*> pinned_and_shared;
+    for (content::WebContents* web_contents :
+         sharing_manager_->GetPinnedTabs()) {
+      if (IsTabValidForSharing(web_contents)) {
+        pinned_and_shared.push_back(web_contents);
+      }
+    }
+    return pinned_and_shared;
+  }
 
- private:
-  raw_ptr<GlicWindowController> window_controller_;
+ protected:
   raw_ptr<GlicSharingManager> sharing_manager_;
   raw_ptr<PrefService> pref_service_;
 };
 
-constexpr char kHistogramGlicPanelPresentationTime[] =
-    "Glic.PanelPresentationTime2";
+class DelegateImpl : public BaseDelegate {
+ public:
+  explicit DelegateImpl(GlicWindowControllerInterface* window_controller,
+                        GlicSharingManager* sharing_manager,
+                        PrefService* pref_service)
+      : BaseDelegate(sharing_manager, pref_service),
+        window_controller_(window_controller) {}
+  gfx::Size GetWindowSize() const override {
+    return window_controller_->GetPanelSize();
+  }
+  bool IsWindowShowing() const override {
+    return window_controller_->IsShowing();
+  }
+  bool IsWindowAttached() const override {
+    return window_controller_->IsAttached();
+  }
+
+ private:
+  raw_ptr<GlicWindowControllerInterface> window_controller_;
+};
+
+class DelegateMultiInstanceImpl : public BaseDelegate {
+ public:
+  explicit DelegateMultiInstanceImpl(GlicInstance* glic_instance,
+                                     GlicSharingManager* sharing_manager,
+                                     PrefService* pref_service)
+      : BaseDelegate(sharing_manager, pref_service),
+        glic_instance_(glic_instance) {}
+  gfx::Size GetWindowSize() const override {
+    return glic_instance_->GetPanelSize();
+  }
+  bool IsWindowShowing() const override { return glic_instance_->IsShowing(); }
+  bool IsWindowAttached() const override {
+    return glic_instance_->IsAttached();
+  }
+
+ private:
+  raw_ptr<GlicInstance> glic_instance_;
+};
+
+constexpr char kHistogramGlicPanelPresentationTimePrefix[] =
+    "Glic.PanelPresentationTime2.";
 
 constexpr static base::TimeDelta kLogSizeMetricsDelay = base::Minutes(3);
 
@@ -119,6 +178,18 @@ ResponseSegmentation GetResponseSegmentation(bool attached,
 
   return static_cast<ResponseSegmentation>(baseIndex + offset);
 }
+
+std::string_view GetInputModeString(mojom::WebClientMode input_mode) {
+  switch (input_mode) {
+    case mojom::WebClientMode::kText:
+      return "Text";
+    case mojom::WebClientMode::kAudio:
+      return "Audio";
+    case mojom::WebClientMode::kUnknown:
+      return "Unknown";
+  }
+}
+
 }  // namespace
 
 namespace internal {
@@ -156,14 +227,16 @@ class BrowserActivityObserver : public BrowserListObserver {
       return BrowserActiveState::kBrowserActive;
     }
     bool browser_hidden = true;
-    for (Browser* browser : *BrowserList::GetInstance()) {
-      if (!browser->GetWindow()->IsMinimized() &&
-          browser->capabilities()->IsVisibleOnScreen() &&
-          browser->GetWindow()->IsVisible()) {
-        browser_hidden = false;
-        break;
-      }
-    }
+    ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+        [&browser_hidden](BrowserWindowInterface* browser_window_interface) {
+          if (!browser_window_interface->GetWindow()->IsMinimized() &&
+              browser_window_interface->capabilities()->IsVisibleOnScreen() &&
+              browser_window_interface->GetWindow()->IsVisible()) {
+            browser_hidden = false;
+            return false;
+          }
+          return true;
+        });
     if (browser_hidden) {
       return BrowserActiveState::kBrowserHidden;
     }
@@ -243,6 +316,7 @@ GlicMetrics::GlicMetrics(Profile* profile, GlicEnabling* enabling)
       base::BindRepeating(&GlicMetrics::OnTabContextEnabledPrefChanged,
                           base::Unretained(this)));
 }
+
 GlicMetrics::~GlicMetrics() = default;
 
 void GlicMetrics::OnFreAccepted() {
@@ -265,10 +339,23 @@ void GlicMetrics::OnUserInputSubmitted(mojom::WebClientMode mode) {
   base::UmaHistogramEnumeration(
       "Glic.Sharing.ActiveTabSharingState.OnUserInputSubmitted",
       delegate_->GetActiveTabSharingState());
+  // Reset turn data and start populating it for the new turn being started.
+  turn_ = {};
   turn_.input_submitted_time_ = base::TimeTicks::Now();
+  // Favor using the focused tab for UKM source; otherwise use the latest
+  // extracted one if there are any pinned tabs being shared. If none of these
+  // is true, leave turn_.chosen_source_id_ as its default of NoURLSourceId.
+  content::WebContents* focused = delegate_->GetFocusedWebContents();
+  if (focused) {
+    turn_.chosen_source_id_ =
+        focused->GetPrimaryMainFrame()->GetPageUkmSourceId();
+  } else if (delegate_->GetPinnedAndSharedWebContents().size() > 0) {
+    turn_.chosen_source_id_ = last_tab_context_source_id_;
+  }
+  last_tab_context_source_id_ = ukm::NoURLSourceId();
+
   input_mode_ = mode;
   inputs_modes_used_.insert(mode);
-  last_input_mode_ = mode;
 }
 
 void GlicMetrics::OnContextUploadStarted() {
@@ -339,27 +426,18 @@ void GlicMetrics::OnResponseStarted() {
   base::TimeDelta start_time =
       base::TimeTicks::Now() - turn_.input_submitted_time_;
   base::UmaHistogramMediumTimes("Glic.Response.StartTime", start_time);
-  switch (input_mode_) {
-    case mojom::WebClientMode::kUnknown:
-      base::UmaHistogramMediumTimes("Glic.Response.StartTime.InputMode.Unknown",
-                                    start_time);
-      break;
-    case mojom::WebClientMode::kText:
-      base::UmaHistogramMediumTimes("Glic.Response.StartTime.InputMode.Text",
-                                    start_time);
-      break;
-    case mojom::WebClientMode::kAudio:
-      base::UmaHistogramMediumTimes("Glic.Response.StartTime.InputMode.Audio",
-                                    start_time);
-      break;
-  }
+  std::string_view mode_string = GetInputModeString(input_mode_);
+  base::UmaHistogramMediumTimes(
+      base::StrCat({"Glic.Response.StartTime.InputMode.", mode_string}),
+      start_time);
 
-  if (turn_.did_request_context_) {
-    base::UmaHistogramMediumTimes("Glic.Response.StartTime.WithContext",
-                                  start_time);
+  // If source ID was chosen, we assume tab context was extracted.
+  if (turn_.chosen_source_id_ != ukm::NoURLSourceId()) {
+    base::UmaHistogramMediumTimes(
+        "Glic.Response.StartTime.TabContext.LikelyWith", start_time);
   } else {
-    base::UmaHistogramMediumTimes("Glic.Response.StartTime.WithoutContext",
-                                  start_time);
+    base::UmaHistogramMediumTimes(
+        "Glic.Response.StartTime.TabContext.LikelyWithout", start_time);
   }
   base::RecordAction(base::UserMetricsAction("GlicResponse"));
   ++session_responses_;
@@ -377,7 +455,7 @@ void GlicMetrics::OnResponseStarted() {
   base::UmaHistogramCounts100("Glic.Response.TabsPinnedForSharingCount",
                               delegate_->GetNumPinnedTabs());
 
-  ukm::builders::Glic_Response(turn_.source_id_)
+  ukm::builders::Glic_Response(turn_.chosen_source_id_)
       .SetAttached(attached)
       .SetInvocationSource(static_cast<int64_t>(invocation_source_))
       .SetWebClientMode(static_cast<int64_t>(input_mode_))
@@ -448,18 +526,29 @@ void GlicMetrics::OnModelChanged(mojom::WebClientModel model) {
   current_model_ = model;
 }
 
-void GlicMetrics::OnGlicWindowOpen(bool attached,
-                                   mojom::InvocationSource source) {
+void GlicMetrics::OnRecordUseCounter(uint16_t counter) {
+  static_assert(1000u > static_cast<uint32_t>(mojom::WebUseCounter::kMaxValue));
+  // Since the front end can contain a newer version than what chrome is
+  // build against we use a sparse histogram.
+  base::UmaHistogramSparse(
+      "Glic.Api.UseCounter",
+      std::clamp(static_cast<uint32_t>(counter), 0u, 1000u));
+}
+
+void GlicMetrics::OnGlicWindowStartedOpening(bool attached,
+                                             mojom::InvocationSource source) {
   base::UmaHistogramEnumeration(
       "Glic.Session.Open.BrowserActiveState",
       browser_activity_observer_->GetBrowserActiveState());
   base::RecordAction(base::UserMetricsAction("GlicSessionBegin"));
+  show_start_time_ = base::TimeTicks::Now();
   session_start_time_ = base::TimeTicks::Now();
   invocation_source_ = source;
   base::UmaHistogramBoolean("Glic.Session.Open.Attached", attached);
   base::UmaHistogramEnumeration("Glic.Session.Open.InvocationSource", source);
 
-  ukm::builders::Glic_WindowOpen(turn_.source_id_)
+  // TODO(b/452120577): turn.chosen_source_id_ is still undefined at this point.
+  ukm::builders::Glic_WindowOpen(turn_.chosen_source_id_)
       .SetAttached(attached)
       .SetInvocationSource(static_cast<int64_t>(source))
       .Record(ukm::UkmRecorder::Get());
@@ -482,6 +571,10 @@ void GlicMetrics::OnGlicWindowOpen(bool attached,
                                 base::Time::Now());
 }
 
+void GlicMetrics::OnGlicWindowOpenInterrupted() {
+  show_start_time_ = base::TimeTicks();
+}
+
 void GlicMetrics::OnGlicWindowOpenAndReady() {
   if (show_start_time_.is_null()) {
     return;
@@ -492,23 +585,18 @@ void GlicMetrics::OnGlicWindowOpenAndReady() {
       delegate_->GetActiveTabSharingState());
 
   // Record the presentation time of showing the glic panel in an UMA histogram.
-  std::string input_mode;
-  if (starting_mode_ == mojom::WebClientMode::kText) {
-    input_mode = ".Text";
-  } else if (starting_mode_ == mojom::WebClientMode::kAudio) {
-    input_mode = ".Audio";
-  }
   base::TimeDelta presentation_time = base::TimeTicks::Now() - show_start_time_;
   base::UmaHistogramCustomTimes(
-      base::StrCat({kHistogramGlicPanelPresentationTime, ".All"}),
+      base::StrCat({kHistogramGlicPanelPresentationTimePrefix, "All"}),
       presentation_time, base::Milliseconds(1), base::Seconds(60), 50);
-  if (starting_mode_ != mojom::WebClientMode::kUnknown) {
+  if (input_mode_ != mojom::WebClientMode::kUnknown) {
+    std::string_view mode_string = GetInputModeString(input_mode_);
     base::UmaHistogramCustomTimes(
-        base::StrCat({kHistogramGlicPanelPresentationTime, input_mode}),
+        base::StrCat({kHistogramGlicPanelPresentationTimePrefix, mode_string}),
         presentation_time, base::Milliseconds(1), base::Seconds(60), 50);
   }
 
-  ResetGlicWindowPresentationTimingState();
+  OnGlicWindowOpenInterrupted();
 }
 
 void GlicMetrics::OnGlicWindowShown(
@@ -625,18 +713,10 @@ void GlicMetrics::OnGlicScrollComplete(bool success) {
   if (success && !scroll_input_submitted_time_.is_null()) {
     base::TimeDelta time_to_scroll =
         base::TimeTicks::Now() - scroll_input_submitted_time_;
-    switch (scroll_input_mode_) {
-      case mojom::WebClientMode::kAudio:
-        base::UmaHistogramMediumTimes(
-            "Glic.ScrollTo.UserPromptToScrollTime.Audio", time_to_scroll);
-        break;
-      case mojom::WebClientMode::kText:
-        base::UmaHistogramMediumTimes(
-            "Glic.ScrollTo.UserPromptToScrollTime.Text", time_to_scroll);
-        break;
-      case mojom::WebClientMode::kUnknown:
-        break;
-    }
+    std::string_view mode_string = GetInputModeString(scroll_input_mode_);
+    base::UmaHistogramMediumTimes(
+        base::StrCat({"Glic.ScrollTo.UserPromptToScrollTime.", mode_string}),
+        time_to_scroll);
   }
   scroll_input_submitted_time_ = base::TimeTicks();
   scroll_input_mode_ = mojom::WebClientMode::kUnknown;
@@ -665,44 +745,64 @@ void GlicMetrics::OnShareImageComplete(ShareImageResult result) {
 }
 
 void GlicMetrics::LogGetContextFromFocusedTabError(
-    GlicGetContextFromFocusedTabError error) {
-  std::string mode_string;
-  switch (last_input_mode_) {
-    case mojom::WebClientMode::kText:
-      mode_string = "Text";
-      break;
-    case mojom::WebClientMode::kAudio:
-      mode_string = "Audio";
-      break;
-    case mojom::WebClientMode::kUnknown:
-      mode_string = "Unknown";
-      break;
-  }
+    GlicGetContextFromTabError error) {
+  std::string_view mode_string = GetInputModeString(input_mode_);
   base::UmaHistogramEnumeration(
       base::StrCat({"Glic.Api.GetContextFromFocusedTab.Error.", mode_string}),
       error);
 }
 
-void GlicMetrics::SetControllers(GlicWindowController* window_controller,
-                                 GlicSharingManager* sharing_manager) {
+void GlicMetrics::LogGetContextFromTabError(GlicGetContextFromTabError error) {
+  std::string_view mode_string = GetInputModeString(input_mode_);
+  base::UmaHistogramEnumeration(
+      base::StrCat({"Glic.Api.GetContextFromTab.Error.", mode_string}), error);
+}
+
+void GlicMetrics::LogGetContextForActorFromTabError(
+    GlicGetContextFromTabError error) {
+  std::string_view mode_string = GetInputModeString(input_mode_);
+  base::UmaHistogramEnumeration(
+      base::StrCat({"Glic.Api.GetContextForActorFromTab.Error.", mode_string}),
+      error);
+}
+
+void GlicMetrics::OnActivateTabFromInstance(tabs::TabInterface* tab) {
+  actor::TaskId task_id =
+      actor::ActorKeyedService::Get(profile_)->GetTaskFromTab(*tab);
+  // Record user action if the tab is associated with an ActorTask.
+  if (!task_id.is_null()) {
+    base::RecordAction(
+        base::UserMetricsAction("Glic.Instance.TaskTabForegrounded"));
+  }
+}
+
+void GlicMetrics::SetControllers(
+    GlicWindowControllerInterface* window_controller,
+    GlicSharingManager* sharing_manager) {
   delegate_ = std::make_unique<DelegateImpl>(window_controller, sharing_manager,
                                              profile_->GetPrefs());
 }
 
+void GlicMetrics::SetControllersWithInstance(
+    GlicInstance* glic_instance,
+    GlicSharingManager* sharing_manager) {
+  delegate_ = std::make_unique<DelegateMultiInstanceImpl>(
+      glic_instance, sharing_manager, profile_->GetPrefs());
+}
+void GlicMetrics::ClearControllers() {
+  delegate_ = std::make_unique<DummyDelegateImpl>();
+}
 void GlicMetrics::SetDelegateForTesting(std::unique_ptr<Delegate> delegate) {
   delegate_ = std::move(delegate);
 }
 
-void GlicMetrics::DidRequestContextFromFocusedTab() {
-  turn_.did_request_context_ = true;
+void GlicMetrics::DidRequestContextFromTab(content::WebContents& web_contents) {
+  last_tab_context_source_id_ =
+      web_contents.GetPrimaryMainFrame()->GetPageUkmSourceId();
+}
 
-  content::WebContents* web_contents = delegate_->GetContents();
-  if (web_contents) {
-    turn_.source_id_ =
-        web_contents->GetPrimaryMainFrame()->GetPageUkmSourceId();
-  } else {
-    turn_.source_id_ = ukm::NoURLSourceId();
-  }
+void GlicMetrics::SetWebClientMode(mojom::WebClientMode mode) {
+  input_mode_ = mode;
 }
 
 void GlicMetrics::OnImpressionTimerFired() {
@@ -813,11 +913,6 @@ void GlicMetrics::OnTabContextEnabledPrefChanged() {
         "OnTabContextPermissionGranted",
         delegate_->GetActiveTabSharingState());
   }
-}
-
-void GlicMetrics::ResetGlicWindowPresentationTimingState() {
-  show_start_time_ = base::TimeTicks();
-  starting_mode_ = mojom::WebClientMode::kUnknown;
 }
 
 DisplayPosition GlicMetrics::GetDisplayPositionOfPoint(

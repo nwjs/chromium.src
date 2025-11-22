@@ -46,7 +46,6 @@
 #include "third_party/blink/renderer/core/events/web_input_event_conversion.h"
 #include "third_party/blink/renderer/core/frame/ad_tracker.h"
 #include "third_party/blink/renderer/core/frame/attribution_src_loader.h"
-#include "third_party/blink/renderer/core/frame/deprecation/deprecation.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
@@ -63,21 +62,19 @@
 #include "third_party/blink/renderer/core/loader/anchor_element_interaction_tracker.h"
 #include "third_party/blink/renderer/core/loader/frame_load_request.h"
 #include "third_party/blink/renderer/core/loader/navigation_policy.h"
-#include "third_party/blink/renderer/core/loader/ping_loader.h"
 #include "third_party/blink/renderer/core/loader/render_blocking_resource_manager.h"
 #include "third_party/blink/renderer/core/navigation_api/navigation_api.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/scroll/scroll_into_view_util.h"
 #include "third_party/blink/renderer/core/speculation_rules/document_speculation_rules.h"
+#include "third_party/blink/renderer/core/url/dom_origin.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
-#include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/timer.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
-#include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 #include "ui/events/event_constants.h"
 #include "ui/gfx/geometry/point_conversions.h"
 
@@ -293,7 +290,8 @@ void HTMLAnchorElementBase::ParseAttribute(
   } else if (params.name == html_names::kTitleAttr) {
     // Do nothing.
   } else if (params.name == html_names::kRelAttr) {
-    SetRel(params.new_value);
+    link_relations_ =
+        AnchorElementUtils::ParseRelAttribute(params.new_value, GetDocument());
     rel_list_->DidUpdateAttributeValue(params.old_value, params.new_value);
     if (isConnected() && IsLink() && params.old_value != params.new_value) {
       if (auto* document_rules =
@@ -378,48 +376,18 @@ void HTMLAnchorElementBase::SetURL(const KURL& url) {
   SetHref(AtomicString(url.GetString()));
 }
 
+DOMOrigin* HTMLAnchorElementBase::GetDOMOrigin(LocalDOMWindow*) const {
+  // No access check is necessary, as anchor elements are not accessible
+  // cross-origin.
+  return DOMOrigin::Create(SecurityOrigin::Create(Url()));
+}
+
 String HTMLAnchorElementBase::Input() const {
   return FastGetAttribute(html_names::kHrefAttr);
 }
 
 void HTMLAnchorElementBase::setHref(const String& value) {
   SetHref(AtomicString(value));
-}
-
-bool HTMLAnchorElementBase::HasRel(uint32_t relation) const {
-  return link_relations_ & relation;
-}
-
-void HTMLAnchorElementBase::SetRel(const AtomicString& value) {
-  link_relations_ = 0;
-  SpaceSplitString new_link_relations(value.LowerASCII());
-  // FIXME: Add link relations as they are implemented
-  if (new_link_relations.Contains(AtomicString("noreferrer"))) {
-    link_relations_ |= kRelationNoReferrer;
-  }
-  if (new_link_relations.Contains(AtomicString("noopener"))) {
-    link_relations_ |= kRelationNoOpener;
-  }
-  if (new_link_relations.Contains(AtomicString("opener"))) {
-    link_relations_ |= kRelationOpener;
-    UseCounter::Count(GetDocument(), WebFeature::kLinkRelOpener);
-  }
-
-  // These don't currently have web-facing behavior, but embedders may wish to
-  // expose their presence to users:
-  if (new_link_relations.Contains(AtomicString("privacy-policy"))) {
-    link_relations_ |= kRelationPrivacyPolicy;
-    UseCounter::Count(GetDocument(), WebFeature::kLinkRelPrivacyPolicy);
-  }
-  if (new_link_relations.Contains(AtomicString("terms-of-service"))) {
-    link_relations_ |= kRelationTermsOfService;
-    UseCounter::Count(GetDocument(), WebFeature::kLinkRelTermsOfService);
-  }
-
-  // Adding or removing a value here whose processing model is web-visible
-  // (e.g. if the value is listed as a "supported token" for `<a>`'s `rel`
-  // attribute in HTML) also requires you to update the list of tokens in
-  // RelList::SupportedTokensAnchorAndAreaAndForm().
 }
 
 const AtomicString& HTMLAnchorElementBase::GetName() const {
@@ -439,35 +407,6 @@ int HTMLAnchorElementBase::DefaultTabIndex() const {
 
 bool HTMLAnchorElementBase::IsLiveLink() const {
   return IsLink() && !IsEditable(*this);
-}
-
-void HTMLAnchorElementBase::SendPings(const KURL& destination_url) const {
-  const AtomicString& ping_value = FastGetAttribute(html_names::kPingAttr);
-  if (ping_value.IsNull() || !GetDocument().GetSettings() ||
-      !GetDocument().GetSettings()->GetHyperlinkAuditingEnabled()) {
-    return;
-  }
-
-  // Pings should not be sent if MHTML page is loaded.
-  if (GetDocument().Fetcher()->Archive())
-    return;
-
-  if ((ping_value.Contains('\n') || ping_value.Contains('\r') ||
-       ping_value.Contains('\t')) &&
-      ping_value.Contains('<')) {
-    Deprecation::CountDeprecation(
-        GetExecutionContext(), WebFeature::kCanRequestURLHTTPContainingNewline);
-    return;
-  }
-
-  UseCounter::Count(GetDocument(), WebFeature::kHTMLAnchorElementPingAttribute);
-
-  SpaceSplitString ping_urls(ping_value);
-  for (unsigned i = 0; i < ping_urls.size(); i++) {
-    PingLoader::SendLinkAuditPing(GetDocument().GetFrame(),
-                                  GetDocument().CompleteURL(ping_urls[i]),
-                                  destination_url);
-  }
 }
 
 void HTMLAnchorElementBase::NavigateToHyperlink(
@@ -501,21 +440,11 @@ void HTMLAnchorElementBase::NavigateToHyperlink(
   frame_request.SetSourceElement(this);
   const AtomicString& target =
       frame_request.CleanNavigationTarget(GetEffectiveTarget());
-  if (HasRel(kRelationNoReferrer)) {
-    frame_request.SetNoReferrer();
-    frame_request.SetNoOpener();
-  }
-  if (HasRel(kRelationNoOpener) ||
-      (EqualIgnoringASCIICase(target, "_blank") && !HasRel(kRelationOpener) &&
-       frame->GetSettings()
-           ->GetTargetBlankImpliesNoOpenerEnabledWillBeRemoved())) {
-    frame_request.SetNoOpener();
-  }
-  if (RuntimeEnabledFeatures::RelOpenerBcgDependencyHintEnabled(
-          GetExecutionContext()) &&
-      HasRel(kRelationOpener) && !frame_request.GetWindowFeatures().noopener) {
-    frame_request.SetExplicitOpener();
-  }
+
+  AnchorElementUtils::HandleRelAttribute(frame_request, frame->GetSettings(),
+                                         GetExecutionContext(), target,
+                                         link_relations_);
+
   if (completed_url.ProtocolIs("blob")) {
     auto blob_url_site =
         BlinkSchemefulSite(SecurityOrigin::Create(completed_url));
@@ -580,7 +509,8 @@ void HTMLAnchorElementBase::NavigateToHyperlink(
                       WebFeature::kHTMLAnchorElementHrefTranslateAttribute);
   }
 
-  if (target_frame == frame && HasRel(kRelationOpener)) {
+  if (target_frame == frame &&
+      AnchorElementUtils::HasRel(link_relations_, kRelationOpener)) {
     // TODO(https://crbug.com/1431495): rel=opener is currently only meaningful
     // with target=_blank. Applying it to same-frame navigations is a potential
     // opt-out for issue 1431495, but how many sites would trigger this opt-out
@@ -625,20 +555,14 @@ void HTMLAnchorElementBase::HandleClick(MouseEvent& event) {
 
   // Schedule the ping before the frame load. Prerender in Chrome may kill the
   // renderer as soon as the navigation is sent out.
-  SendPings(completed_url);
+  AnchorElementUtils::SendPings(completed_url, GetDocument(),
+                                FastGetAttribute(html_names::kPingAttr));
 
   ResourceRequest request(completed_url);
 
-  network::mojom::ReferrerPolicy policy;
-  if (FastHasAttribute(html_names::kReferrerpolicyAttr) &&
-      SecurityPolicy::ReferrerPolicyFromString(
-          FastGetAttribute(html_names::kReferrerpolicyAttr),
-          kSupportReferrerPolicyLegacyKeywords, &policy) &&
-      !HasRel(kRelationNoReferrer)) {
-    UseCounter::Count(GetDocument(),
-                      WebFeature::kHTMLAnchorElementReferrerPolicyAttribute);
-    request.SetReferrerPolicy(policy);
-  }
+  AnchorElementUtils::HandleReferrerPolicyAttribute(
+      request, FastGetAttribute(html_names::kReferrerpolicyAttr),
+      link_relations_, GetDocument());
 
   LocalFrame* frame = window->GetFrame();
   request.SetHasUserGesture(LocalFrame::HasTransientUserActivation(frame));

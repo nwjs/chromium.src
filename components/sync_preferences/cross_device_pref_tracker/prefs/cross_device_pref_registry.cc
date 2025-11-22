@@ -12,7 +12,28 @@ namespace cross_device {
 
 void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterDictionaryPref(
+      prefs::kCrossDeviceCrossPlatformPromosIOS16thActiveDay,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterDictionaryPref(
+      prefs::kCrossDeviceMagicStackHomeModuleEnabled,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterDictionaryPref(
+      prefs::kCrossDeviceMostVisitedHomeModuleEnabled,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterDictionaryPref(
       prefs::kCrossDeviceOmniboxIsInBottomPosition,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterDictionaryPref(
+      prefs::kCrossDeviceSafetyCheckHomeModuleEnabled,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterDictionaryPref(
+      prefs::kCrossDeviceTabResumptionHomeModuleEnabled,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterDictionaryPref(
+      prefs::kCrossDeviceTipsHomeModuleEnabled,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterDictionaryPref(
+      prefs::kCrossDevicePriceTrackingHomeModuleEnabled,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
 }
 

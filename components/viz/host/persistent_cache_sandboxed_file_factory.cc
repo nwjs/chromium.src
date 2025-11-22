@@ -4,28 +4,25 @@
 
 #include "components/viz/host/persistent_cache_sandboxed_file_factory.h"
 
+#include <utility>
+
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/hash/sha1.h"
 #include "base/logging.h"
 #include "base/strings/string_util.h"
-#include "base/strings/stringprintf.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "components/base32/base32.h"
-#include "components/persistent_cache/sqlite/vfs/sandboxed_file.h"
+#include "components/persistent_cache/backend.h"
+#include "components/persistent_cache/backend_storage.h"
 
 namespace viz {
 
 namespace {
 
 PersistentCacheSandboxedFileFactory* g_instance = nullptr;
-
-struct PersistentCacheFilePaths {
-  base::FilePath db_path;
-  base::FilePath journal_path;
-};
 
 std::string GetVersionSuffix(const std::string& product) {
   // The product's version string can be arbitrary long. So use SHA1 to reduce
@@ -41,18 +38,13 @@ std::string GetVersionSuffix(const std::string& product) {
                               base32::Base32EncodePolicy::OMIT_PADDING);
 }
 
-// Returns the paths to the cache database and journal files. The format is:
-// <cache_dir>/<cache_id>/<version>/cache.db
-// <cache_dir>/<cache_id>/<version>/cache.journal
-PersistentCacheFilePaths GetPersistentCacheFilePaths(
+// Returns the paths to the directory holding cache files. The format is:
+// <cache_dir>/<cache_id>/<version>.
+base::FilePath GetPersistentCacheDirectory(
     const base::FilePath& cache_root_dir,
     const base::FilePath::StringType& cache_id,
     const std::string& product) {
-  base::FilePath version_dir =
-      cache_root_dir.Append(cache_id).AppendASCII(GetVersionSuffix(product));
-
-  return {version_dir.AppendASCII("cache.db"),
-          version_dir.AppendASCII("cache.journal")};
+  return cache_root_dir.Append(cache_id).AppendASCII(GetVersionSuffix(product));
 }
 
 // Deletes all files in the cache directory that are associated with the given
@@ -82,7 +74,7 @@ void DeleteStaleFiles(const base::FilePath& cache_root_dir,
 
 bool CreateCacheDirectory(const base::FilePath& cache_dir) {
   if (!base::CreateDirectory(cache_dir)) {
-    LOG(ERROR) << "Failed to create cache directory: " << cache_dir;
+    PLOG(ERROR) << "Failed to create cache directory: " << cache_dir;
     return false;
   }
   return true;
@@ -108,72 +100,50 @@ PersistentCacheSandboxedFileFactory::GetInstance() {
   return g_instance;
 }
 
+/* static */
+void PersistentCacheSandboxedFileFactory::SetInstanceForTesting(
+    PersistentCacheSandboxedFileFactory* factory) {
+  g_instance = factory;
+}
+
 PersistentCacheSandboxedFileFactory::PersistentCacheSandboxedFileFactory(
     const base::FilePath& cache_root_dir,
     scoped_refptr<base::SequencedTaskRunner> background_task_runner)
     : cache_root_dir_(cache_root_dir),
       background_task_runner_(std::move(background_task_runner)) {
   CHECK(!cache_root_dir_.empty());
+  // TODO(crbug.com/399642827): We don't support relative path yet. The flags
+  // that are added by AddFlagsForPassingToUntrustedProcess() don't work with
+  // relative paths on Windows. See
+  // https://source.chromium.org/chromium/chromium/src/+/main:base/files/file_util_win.cc;drc=c99aa55ee638df4d6f0073c5d950acbda6ab4c6d;l=422
+  CHECK(cache_root_dir_.IsAbsolute());
 
   background_task_runner_->PostTask(
-      FROM_HERE,
-      base::BindOnce(
-          [](const base::FilePath& dir) { CreateCacheDirectory(dir); },
-          cache_root_dir_));
+      FROM_HERE, base::BindOnce(base::IgnoreResult(&CreateCacheDirectory),
+                                cache_root_dir_));
 }
 
 PersistentCacheSandboxedFileFactory::~PersistentCacheSandboxedFileFactory() =
     default;
 
-std::optional<PersistentCacheSandboxedFiles>
+std::optional<persistent_cache::BackendParams>
 PersistentCacheSandboxedFileFactory::CreateFiles(const CacheIdString& cache_id,
                                                  const std::string& product) {
   background_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(&DeleteStaleFiles, cache_root_dir_, cache_id, product));
 
-  DCHECK(!cache_root_dir_.empty());
-
-  auto paths = GetPersistentCacheFilePaths(cache_root_dir_, cache_id, product);
-  DCHECK_EQ(paths.db_path.DirName(), paths.journal_path.DirName());
-
-  if (!CreateCacheDirectory(paths.db_path.DirName())) {
+  base::FilePath cache_dir =
+      GetPersistentCacheDirectory(cache_root_dir_, cache_id, product);
+  auto backend = persistent_cache::BackendStorage(cache_dir).MakeBackend(
+      base::FilePath(FILE_PATH_LITERAL("cache")));
+  if (!backend) {
+    PLOG(ERROR) << "Failed to open persistent cache files in directory \""
+                << cache_dir << "\"";
     return std::nullopt;
   }
 
-  auto open_and_check_file = [](const base::FilePath& path) {
-    const auto flags = base::File::AddFlagsForPassingToUntrustedProcess(
-        base::File::FLAG_OPEN_ALWAYS | base::File::FLAG_READ |
-        base::File::FLAG_WRITE);
-    base::File file(path, flags);
-    if (!file.IsValid()) {
-      LOG(ERROR) << "Failed to open persistent cache file: " << path
-                 << " error: "
-                 << base::File::ErrorToString(file.error_details());
-    }
-    return file;
-  };
-
-  base::File db_file = open_and_check_file(paths.db_path);
-  if (!db_file.IsValid()) {
-    return std::nullopt;
-  }
-
-  base::File journal_file = open_and_check_file(paths.journal_path);
-  if (!journal_file.IsValid()) {
-    return std::nullopt;
-  }
-
-  base::UnsafeSharedMemoryRegion shared_lock =
-      base::UnsafeSharedMemoryRegion::Create(
-          sizeof(persistent_cache::LockState));
-  if (!shared_lock.IsValid()) {
-    LOG(ERROR) << "Failed to create shared lock";
-    return std::nullopt;
-  }
-
-  return PersistentCacheSandboxedFiles{
-      std::move(db_file), std::move(journal_file), std::move(shared_lock)};
+  return backend->ExportReadWriteParams();
 }
 
 void PersistentCacheSandboxedFileFactory::CreateFilesAsync(
@@ -191,13 +161,9 @@ void PersistentCacheSandboxedFileFactory::CreateFilesAsync(
 bool PersistentCacheSandboxedFileFactory::ClearFiles(
     const CacheIdString& cache_id,
     const std::string& product) {
-  DCHECK(!cache_root_dir_.empty());
-
-  auto paths = GetPersistentCacheFilePaths(cache_root_dir_, cache_id, product);
-
   // Delete the whole version directory.
-  DCHECK_EQ(paths.db_path.DirName(), paths.journal_path.DirName());
-  return base::DeletePathRecursively(paths.db_path.DirName());
+  return base::DeletePathRecursively(
+      GetPersistentCacheDirectory(cache_root_dir_, cache_id, product));
 }
 
 void PersistentCacheSandboxedFileFactory::ClearFilesAsync(

@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/shared/ui/table_view/content_configuration/table_view_cell_content_view.h"
 
 #import "base/apple/foundation_util.h"
+#import "ios/chrome/browser/shared/ui/table_view/content_configuration/chrome_content_configuration.h"
 #import "ios/chrome/browser/shared/ui/table_view/content_configuration/table_view_cell_content_configuration.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
@@ -71,9 +72,9 @@ constexpr CGFloat kTitleSubtitleToTrailingWidthRatio = 3;
   TableViewCellContentConfiguration* _configuration;
 
   // The leading content view.
-  UIView<UIContentView>* _leadingContentView;
+  UIView<ChromeContentView>* _leadingContentView;
   // The trailing content view.
-  UIView<UIContentView>* _trailingContentView;
+  UIView<ChromeContentView>* _trailingContentView;
   // The container for the leading content view.
   UIView* _leadingContentViewContainer;
   // The container for the trailing content view.
@@ -110,6 +111,17 @@ constexpr CGFloat kTitleSubtitleToTrailingWidthRatio = 3;
   return self;
 }
 
+- (UIView*)trailingContentViewForTesting {
+  return _trailingContentView;
+}
+
+#pragma mark - ChromeContentView
+
+- (BOOL)hasCustomAccessibilityActivationPoint {
+  return [_leadingContentView hasCustomAccessibilityActivationPoint] ||
+         [_trailingContentView hasCustomAccessibilityActivationPoint];
+}
+
 #pragma mark - UIContentView
 
 - (id<UIContentConfiguration>)configuration {
@@ -133,7 +145,7 @@ constexpr CGFloat kTitleSubtitleToTrailingWidthRatio = 3;
 
 // Updates the elements based on a new configuration.
 - (void)applyConfiguration {
-  id<UIContentConfiguration> leadingConfiguration =
+  id<ChromeContentConfiguration> leadingConfiguration =
       _configuration.leadingConfiguration;
   BOOL isLeadingImageContentViewCompatible =
       [_leadingContentView
@@ -150,14 +162,14 @@ constexpr CGFloat kTitleSubtitleToTrailingWidthRatio = 3;
     if (_leadingContentView) {
       _leadingContentView.configuration = leadingConfiguration;
     } else {
-      _leadingContentView = [leadingConfiguration makeContentView];
+      _leadingContentView = [leadingConfiguration makeChromeContentView];
       _leadingContentView.translatesAutoresizingMaskIntoConstraints = NO;
       [_leadingContentViewContainer addSubview:_leadingContentView];
       AddSameConstraints(_leadingContentView, _leadingContentViewContainer);
     }
   }
 
-  id<UIContentConfiguration> trailingConfiguration =
+  id<ChromeContentConfiguration> trailingConfiguration =
       _configuration.trailingConfiguration;
   BOOL isTrailingImageContentViewCompatible =
       [_trailingContentView
@@ -174,29 +186,40 @@ constexpr CGFloat kTitleSubtitleToTrailingWidthRatio = 3;
     if (_trailingContentView) {
       _trailingContentView.configuration = trailingConfiguration;
     } else {
-      _trailingContentView = [trailingConfiguration makeContentView];
+      _trailingContentView = [trailingConfiguration makeChromeContentView];
       _trailingContentView.translatesAutoresizingMaskIntoConstraints = NO;
       [_trailingContentViewContainer addSubview:_trailingContentView];
       AddSameConstraints(_trailingContentView, _trailingContentViewContainer);
     }
   }
 
-  _title.hidden = !_configuration.title;
   _title.text = _configuration.title;
   _title.textColor =
       _configuration.titleColor ?: [UIColor colorNamed:kTextPrimaryColor];
+  if (_configuration.attributedTitle) {
+    _title.attributedText = _configuration.attributedTitle;
+  }
+  _title.hidden = !_title.text;
   _title.enabled = !_configuration.textDisabled;
+  _title.lineBreakMode = _configuration.titleLineBreakMode;
 
-  _subtitle.hidden = !_configuration.subtitle;
   _subtitle.text = _configuration.subtitle;
   _subtitle.textColor =
       _configuration.subtitleColor ?: [UIColor colorNamed:kTextSecondaryColor];
+  if (_configuration.attributedSubtitle) {
+    _subtitle.attributedText = _configuration.attributedSubtitle;
+  }
+  _subtitle.hidden = !_subtitle.text;
   _subtitle.enabled = !_configuration.textDisabled;
+  _subtitle.lineBreakMode = _configuration.subtitleLineBreakMode;
 
-  _trailingLabel.hidden = !_configuration.trailingText;
   _trailingLabel.text = _configuration.trailingText;
   _trailingLabel.textColor = _configuration.trailingTextColor
                                  ?: [UIColor colorNamed:kTextSecondaryColor];
+  if (_configuration.attributedTrailingText) {
+    _trailingLabel.attributedText = _configuration.attributedTrailingText;
+  }
+  _trailingLabel.hidden = !_trailingLabel.text;
   _trailingLabel.enabled = !_configuration.textDisabled;
 
   [self updateNumberOfLines];
@@ -380,6 +403,18 @@ constexpr CGFloat kTitleSubtitleToTrailingWidthRatio = 3;
   stack.spacing = kTableViewHorizontalSpacing;
   stack.translatesAutoresizingMaskIntoConstraints = NO;
   return stack;
+}
+
+#pragma mark - UIAccessibility
+
+- (CGPoint)accessibilityActivationPoint {
+  if ([_trailingContentView hasCustomAccessibilityActivationPoint]) {
+    return _trailingContentView.accessibilityActivationPoint;
+  }
+  if ([_leadingContentView hasCustomAccessibilityActivationPoint]) {
+    return _leadingContentView.accessibilityActivationPoint;
+  }
+  return [super accessibilityActivationPoint];
 }
 
 @end

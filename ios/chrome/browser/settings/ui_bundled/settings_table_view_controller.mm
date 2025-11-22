@@ -67,6 +67,7 @@
 #import "ios/chrome/browser/photos/model/photos_service_factory.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_client_id.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_settings_util.h"
+#import "ios/chrome/browser/safari_data_import/model/features.h"
 #import "ios/chrome/browser/safari_data_import/public/safari_data_import_entry_point.h"
 #import "ios/chrome/browser/safari_data_import/public/safari_data_import_ui_handler.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_observer_bridge.h"
@@ -130,7 +131,6 @@
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_image_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_info_button_cell.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_info_button_item.h"
-#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_switch_cell.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_switch_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_model.h"
@@ -311,6 +311,9 @@ struct EnhancedSafeBrowsingActivePromoData
   // Whether Settings have been dismissed.
   BOOL _settingsAreDismissed;
 
+  // Whether Gemini user consented.
+  BOOL _geminiUserConsented;
+
   // Tabs settings coordinator.
   TabsSettingsCoordinator* _tabsCoordinator;
 
@@ -387,6 +390,8 @@ struct EnhancedSafeBrowsingActivePromoData
         feature_engagement::TrackerFactory::GetForProfile(_profile);
 
     PrefService* prefService = _profile->GetPrefs();
+
+    _geminiUserConsented = prefService->GetBoolean(prefs::kIOSBwgConsent);
 
     _passwordCheckManager =
         IOSChromePasswordCheckManagerFactory::GetForProfile(_profile);
@@ -470,7 +475,7 @@ struct EnhancedSafeBrowsingActivePromoData
 
   // Update the BWG new IPH badge here as it depends on the number of times it's
   // shown.
-  if (IsPageActionMenuEnabled()) {
+  if (IsPageActionMenuEnabled() && _geminiUserConsented) {
     [self updateBWGNewIPHBadge];
   }
 }
@@ -519,7 +524,8 @@ struct EnhancedSafeBrowsingActivePromoData
 
   // Advanced Section
   [model addSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
-  if (IsPageActionMenuEnabled()) {
+
+  if (IsPageActionMenuEnabled() && _geminiUserConsented) {
     [model addItem:[self BWGSettingsDetailItem]
         toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
   }
@@ -568,7 +574,7 @@ struct EnhancedSafeBrowsingActivePromoData
     [model addItem:[self downloadsSettingsDetailItem]
         toSectionWithIdentifier:SettingsSectionIdentifierInfo];
   }
-  if (ShouldShowSafariDataImportEntryPoint(_profile)) {
+  if (ShouldShowSafariDataImportEntryPoint(_profile->GetPrefs())) {
     [model addItem:[self safariDataImportSettingsDetailItem]
         toSectionWithIdentifier:SettingsSectionIdentifierInfo];
   }
@@ -753,8 +759,6 @@ struct EnhancedSafeBrowsingActivePromoData
   _defaultBrowserCellItem.iconBackgroundColor =
       [UIColor colorNamed:kPurple500Color];
   _defaultBrowserCellItem.iconTintColor = UIColor.whiteColor;
-  _defaultBrowserCellItem.iconCornerRadius =
-      kColorfulBackgroundSymbolCornerRadius;
 
   [self updateDefaultBrowserSettingsBlueDot];
 
@@ -959,6 +963,8 @@ struct EnhancedSafeBrowsingActivePromoData
               symbolBackgroundColor:[UIColor colorNamed:kOrange500Color]
             accessibilityIdentifier:kSettingsArticleSuggestionsCellId];
     _feedSettingsItem.on = _discoverFeedVisibilityBrowserAgent->IsEnabled();
+    _feedSettingsItem.target = self;
+    _feedSettingsItem.selector = @selector(articlesForYouSwitchToggled:);
   }
   return _feedSettingsItem;
 }
@@ -1023,9 +1029,12 @@ struct EnhancedSafeBrowsingActivePromoData
 }
 
 - (TableViewItem*)tabsSettingsDetailItem {
+  NSString* title = l10n_util::GetNSString(
+      IsAutoOpenRemoteTabGroupsSettingsFeatureEnabled()
+          ? IDS_IOS_TABS_AND_TAB_GROUPS_MANAGEMENT_SETTINGS
+          : IDS_IOS_TABS_MANAGEMENT_SETTINGS);
   return [self detailItemWithType:SettingsItemTypeTabs
-                             text:l10n_util::GetNSString(
-                                      IDS_IOS_TABS_MANAGEMENT_SETTINGS)
+                             text:title
                        detailText:nil
                            symbol:DefaultSettingsRootSymbol(kTabsSymbol)
             symbolBackgroundColor:[UIColor colorNamed:kOrange500Color]
@@ -1059,7 +1068,8 @@ struct EnhancedSafeBrowsingActivePromoData
             symbolBackgroundColor:[UIColor colorNamed:kGrey400Color]
           accessibilityIdentifier:nil];
   showMemoryDebugSwitchItem.on = [_showMemoryDebugToolsEnabled value];
-
+  showMemoryDebugSwitchItem.target = self;
+  showMemoryDebugSwitchItem.selector = @selector(memorySwitchToggled:);
   return showMemoryDebugSwitchItem;
 }
 
@@ -1098,6 +1108,8 @@ struct EnhancedSafeBrowsingActivePromoData
 
   NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
   viewSourceItem.on = [defaults boolForKey:kDevViewSourceKey];
+  viewSourceItem.target = self;
+  viewSourceItem.selector = @selector(viewSourceSwitchToggled:);
   return viewSourceItem;
 }
 
@@ -1142,7 +1154,6 @@ struct EnhancedSafeBrowsingActivePromoData
     detailItem.iconBackgroundColor = backgroundColor;
     detailItem.iconTintColor = UIColor.whiteColor;
   }
-  detailItem.iconCornerRadius = kColorfulBackgroundSymbolCornerRadius;
   return detailItem;
 }
 
@@ -1199,34 +1210,6 @@ struct EnhancedSafeBrowsingActivePromoData
   NSInteger itemType = [self.tableViewModel itemTypeForIndexPath:indexPath];
 
   switch (itemType) {
-    case SettingsItemTypeMemoryDebugging: {
-      TableViewSwitchCell* switchCell =
-          base::apple::ObjCCastStrict<TableViewSwitchCell>(cell);
-      [switchCell.switchView addTarget:self
-                                action:@selector(memorySwitchToggled:)
-                      forControlEvents:UIControlEventValueChanged];
-      break;
-    }
-    case SettingsItemTypeArticlesForYou: {
-      TableViewSwitchCell* switchCell =
-          base::apple::ObjCCastStrict<TableViewSwitchCell>(cell);
-      [switchCell.switchView addTarget:self
-                                action:@selector(articlesForYouSwitchToggled:)
-                      forControlEvents:UIControlEventValueChanged];
-      break;
-    }
-    case SettingsItemTypeViewSource: {
-#if BUILDFLAG(CHROMIUM_BRANDING) && !defined(NDEBUG)
-      TableViewSwitchCell* switchCell =
-          base::apple::ObjCCastStrict<TableViewSwitchCell>(cell);
-      [switchCell.switchView addTarget:self
-                                action:@selector(viewSourceSwitchToggled:)
-                      forControlEvents:UIControlEventValueChanged];
-      break;
-#else
-      NOTREACHED();
-#endif  // BUILDFLAG(CHROMIUM_BRANDING) && !defined(NDEBUG)
-    }
     case SettingsItemTypeManagedDefaultSearchEngine: {
       TableViewInfoButtonCell* managedCell =
           base::apple::ObjCCastStrict<TableViewInfoButtonCell>(cell);
@@ -1395,7 +1378,7 @@ struct EnhancedSafeBrowsingActivePromoData
       [self showTabsSettings];
       break;
     case SettingsItemTypeSafariDataImport: {
-      CHECK(ShouldShowSafariDataImportEntryPoint(_profile));
+      CHECK(ShouldShowSafariDataImportEntryPoint(_profile->GetPrefs()));
       base::RecordAction(base::UserMetricsAction("Settings.SafariImport"));
       id<ApplicationCommands> handler = HandlerForProtocol(
           _browser->GetCommandDispatcher(), ApplicationCommands);
@@ -1915,13 +1898,7 @@ struct EnhancedSafeBrowsingActivePromoData
 
 // Returns the appropriate text to update the title for the feed item.
 - (NSString*)feedItemTitle {
-  AuthenticationService* authService =
-      AuthenticationServiceFactory::GetForProfile(_browser->GetProfile());
-  BOOL isSignedIn =
-      authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin);
-  return (isSignedIn && IsWebChannelsEnabled())
-             ? l10n_util::GetNSString(IDS_IOS_DISCOVER_AND_FOLLOWING_FEED_TITLE)
-             : l10n_util::GetNSString(IDS_IOS_DISCOVER_FEED_TITLE);
+  return l10n_util::GetNSString(IDS_IOS_DISCOVER_FEED_TITLE);
 }
 
 // Decides whether the default browser blue dot promo should be active, and adds
@@ -2012,10 +1989,9 @@ struct EnhancedSafeBrowsingActivePromoData
   id<SystemIdentity> identity =
       authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
   PrefService* prefService = _profile->GetPrefs();
-  const GaiaId gaiaID(identity.gaiaID);
   push_notification_settings::ClientPermissionState permission_state =
-      push_notification_settings::GetNotificationPermissionState(gaiaID,
-                                                                 prefService);
+      push_notification_settings::GetNotificationPermissionState(
+          identity.gaiaId, prefService);
   if (permission_state ==
       push_notification_settings::ClientPermissionState::ENABLED) {
     detailText = l10n_util::GetNSString(IDS_IOS_SETTING_ON);

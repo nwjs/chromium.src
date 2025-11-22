@@ -21,6 +21,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/string_util.h"
+#include "components/viz/common/resources/shared_image_format_utils.h"
 #include "media/base/video_types.h"
 #include "media/gpu/vaapi/test_utils.h"
 #include "media/gpu/vaapi/vaapi_image_decoder.h"
@@ -34,7 +35,6 @@
 #include "third_party/skia/include/core/SkImageInfo.h"
 #include "third_party/skia/include/core/SkPixmap.h"
 #include "third_party/skia/include/encode/SkJpegEncoder.h"
-#include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/buffer_types.h"
 #include "ui/gfx/codec/jpeg_codec.h"
 #include "ui/gfx/geometry/rect.h"
@@ -535,16 +535,16 @@ TEST_P(VaapiJpegDecoderWithDmaBufsTest, DecodeSucceeds) {
   //
   // TODO(andrescj): revisit this once crrev.com/c/1573718 lands.
   gfx::NativePixmapHandle handle = exported_pixmap->pixmap->ExportHandle();
-  ASSERT_EQ(gfx::NumberOfPlanesForLinearBufferFormat(
-                exported_pixmap->pixmap->GetBufferFormat()),
-            handle.planes.size());
-  if (exported_pixmap->pixmap->GetBufferFormat() == gfx::BufferFormat::YVU_420)
-    std::swap(handle.planes[1], handle.planes[2]);
+  viz::SharedImageFormat si_format =
+      exported_pixmap->pixmap->GetSharedImageFormat();
+  ASSERT_EQ(si_format.NumberOfPlanes(), static_cast<int>(handle.planes.size()));
+  ASSERT_EQ(si_format, viz::MultiPlaneFormat::kYV12);
+  std::swap(handle.planes[1], handle.planes[2]);
 
   std::unique_ptr<vaapi_test_utils::DecodedImage> decoded_image =
       vaapi_test_utils::NativePixmapToDecodedImage(
           handle, exported_pixmap->pixmap->GetBufferSize(),
-          exported_pixmap->pixmap->GetBufferFormat());
+          gfx::BufferFormat::YVU_420);
   ASSERT_TRUE(decoded_image);
 
   // Decode the image using libyuv. Using |temp_*| for resource management.

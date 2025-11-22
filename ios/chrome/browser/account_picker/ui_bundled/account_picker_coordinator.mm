@@ -10,6 +10,7 @@
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/base/signin_switches.h"
+#import "google_apis/gaia/gaia_id.h"
 #import "ios/chrome/browser/account_picker/ui_bundled/account_picker_configuration.h"
 #import "ios/chrome/browser/account_picker/ui_bundled/account_picker_confirmation/account_picker_confirmation_screen_coordinator.h"
 #import "ios/chrome/browser/account_picker/ui_bundled/account_picker_confirmation/account_picker_confirmation_screen_coordinator_delegate.h"
@@ -108,6 +109,7 @@
   [_accountPickerConfirmationScreenCoordinator stop];
   _accountPickerConfirmationScreenCoordinator = nil;
   [self stopAddAccountSigninCoordinator];
+  [self stopReauthCoordinator];
   [super stop];
 }
 
@@ -236,7 +238,7 @@
 - (void)startReauthFlowWithIdentity:(id<SystemIdentity>)identity {
   // TODO(crbug.com/391342053): Add logging.
   CoreAccountInfo account;
-  account.gaia = GaiaId(identity.gaiaID);
+  account.gaia = identity.gaiaId;
   account.email = base::SysNSStringToUTF8(identity.userEmail);
   if (_reauthCoordinator.viewWillPersist) {
     // In case of double tap, let the first reauth proceed.
@@ -260,15 +262,15 @@
 
 #pragma mark - SigninReauthCoordinatorDelegate
 
-- (void)reauthFinishedWithResult:(ReauthResult)result gaiaID:(GaiaId*)gaiaID {
+- (void)reauthFinishedWithResult:(ReauthResult)result
+                          gaiaID:(const GaiaId*)gaiaID {
   [self stopReauthCoordinator];
   if (result == ReauthResult::kSuccess) {
     ChromeAccountManagerService* accountManagerService =
         ChromeAccountManagerServiceFactory::GetForProfile(self.profile);
     BOOL identityValid =
         accountManagerService->IsValidIdentity(self.selectedIdentity);
-    BOOL identityEqual =
-        [self.selectedIdentity.gaiaID isEqualToString:gaiaID->ToNSString()];
+    BOOL identityEqual = self.selectedIdentity.gaiaId == *gaiaID;
     if (identityValid && identityEqual) {
       [self.delegate
           accountPickerCoordinator:self

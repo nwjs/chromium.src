@@ -10,8 +10,10 @@
 #include <vector>
 
 #include "base/cancelable_callback.h"
+#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/time/time.h"
+#include "base/types/optional_ref.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/net_errors.h"
 #include "net/http/alternate_protocol_usage.h"
@@ -67,7 +69,7 @@ class HttpStreamFactory::JobController
       HttpStreamRequest::StreamType stream_type,
       RequestPriority priority);
 
-  void Preconnect(int num_streams);
+  void Preconnect(int num_streams, base::OnceClosure callback);
 
   // From HttpStreamRequest::Helper.
   // Returns the LoadState for Request.
@@ -273,6 +275,8 @@ class HttpStreamFactory::JobController
   // when the reason is unknown.
   AlternateProtocolUsage CalculateAlternateProtocolUsage(Job* job) const;
 
+  void NotifyOnStreamCreationAttempted(base::optional_ref<int> net_error);
+
   // Called when a Job encountered a network error that could be resolved by
   // trying a new proxy configuration. If there is another proxy configuration
   // to try then this method sets |next_state_| appropriately and returns either
@@ -294,10 +298,6 @@ class HttpStreamFactory::JobController
   // switch to the HttpStreamPool. `this` will be destroyed when `request_` is
   // destroyed.
   void SwitchToHttpStreamPool();
-
-  // Called when `this` asked the HttpStreamPool to handle a preconnect and
-  // the preconnect completed. Used to notify the factory of completion.
-  void OnPoolPreconnectsComplete(int rv);
 
   bool disable_cert_verification_network_fetches() const;
 
@@ -393,8 +393,13 @@ class HttpStreamFactory::JobController
   ProxyInfo proxy_info_;
   const std::vector<SSLConfig::CertAndStatus> allowed_bad_certs_;
   int num_streams_ = 0;
+  base::OnceClosure preconnect_callback_;
   HttpStreamRequest::StreamType stream_type_;
   RequestPriority priority_ = IDLE;
+
+  // Used to measure how long it takes to create a stream.
+  base::TimeTicks stream_creation_attempt_start_time_;
+
   const NetLogWithSource net_log_;
 
   base::WeakPtrFactory<JobController> ptr_factory_{this};

@@ -17,6 +17,7 @@
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/time/time_override.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
@@ -36,6 +37,7 @@
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
@@ -241,7 +243,11 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, PasteAndGoDoesNotLeavePopupOpen) {
   omnibox_view_views->ExecuteCommand(IDC_PASTE_AND_GO, ui::EF_NONE);
 
   // The popup should not be open.
-  EXPECT_FALSE(view->model()->PopupIsOpen());
+  EXPECT_FALSE(browser()
+                   ->window()
+                   ->GetLocationBar()
+                   ->GetOmniboxController()
+                   ->IsPopupOpen());
 }
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, DoNotNavigateOnDrop) {
@@ -558,7 +564,11 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, CloseOmniboxPopupOnTextDrag) {
 
   // Populate suggestions for the omnibox popup.
   AutocompleteController* autocomplete_controller =
-      omnibox_view->controller()->autocomplete_controller();
+      browser()
+          ->window()
+          ->GetLocationBar()
+          ->GetOmniboxController()
+          ->autocomplete_controller();
   AutocompleteResult& results = autocomplete_controller->internal_result_;
   ACMatches matches;
   AutocompleteMatch match(nullptr, 500, false,
@@ -579,7 +589,11 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, CloseOmniboxPopupOnTextDrag) {
 
   // The omnibox popup should open with suggestions displayed.
   autocomplete_controller->NotifyChanged();
-  EXPECT_TRUE(omnibox_view->model()->PopupIsOpen());
+  EXPECT_TRUE(browser()
+                  ->window()
+                  ->GetLocationBar()
+                  ->GetOmniboxController()
+                  ->IsPopupOpen());
 
   // The omnibox text should be selected.
   EXPECT_TRUE(omnibox_view->IsSelectAll());
@@ -590,14 +604,22 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, CloseOmniboxPopupOnTextDrag) {
                          ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
                          ui::EF_LEFT_MOUSE_BUTTON);
   omnibox_view_views->OnMousePressed(pressed);
-  EXPECT_TRUE(omnibox_view->model()->PopupIsOpen());
+  EXPECT_TRUE(browser()
+                  ->window()
+                  ->GetLocationBar()
+                  ->GetOmniboxController()
+                  ->IsPopupOpen());
 
   // Simulate a mouse drag of the omnibox text, and the omnibox should close.
   ui::MouseEvent dragged(ui::EventType::kMouseDragged, point, point,
                          ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON, 0);
   omnibox_view_views->OnMouseDragged(dragged);
 
-  EXPECT_FALSE(omnibox_view->model()->PopupIsOpen());
+  EXPECT_FALSE(browser()
+                   ->window()
+                   ->GetLocationBar()
+                   ->GetOmniboxController()
+                   ->IsPopupOpen());
 }
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, MaintainCursorAfterFocusCycle) {
@@ -606,7 +628,11 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, MaintainCursorAfterFocusCycle) {
 
   // Populate suggestions for the omnibox popup.
   AutocompleteController* autocomplete_controller =
-      omnibox_view->controller()->autocomplete_controller();
+      browser()
+          ->window()
+          ->GetLocationBar()
+          ->GetOmniboxController()
+          ->autocomplete_controller();
   AutocompleteResult& results = autocomplete_controller->internal_result_;
   ACMatches matches;
   AutocompleteMatch match(nullptr, 500, false,
@@ -629,7 +655,11 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, MaintainCursorAfterFocusCycle) {
 
   // The omnibox popup should open with suggestions displayed.
   autocomplete_controller->NotifyChanged();
-  EXPECT_TRUE(omnibox_view->model()->PopupIsOpen());
+  EXPECT_TRUE(browser()
+                  ->window()
+                  ->GetLocationBar()
+                  ->GetOmniboxController()
+                  ->IsPopupOpen());
 
   // TODO(krb): For some reason, we need to hit End twice to be registered.
   ASSERT_TRUE(ui_test_utils::SendKeyPressSync(browser(), ui::VKEY_END, false,
@@ -642,7 +672,11 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, MaintainCursorAfterFocusCycle) {
   size_t prev_start = omnibox_view->GetSelectionBounds().start();
 
   chrome::FocusAppMenu(browser());
-  EXPECT_FALSE(omnibox_view->model()->PopupIsOpen());
+  EXPECT_FALSE(browser()
+                   ->window()
+                   ->GetLocationBar()
+                   ->GetOmniboxController()
+                   ->IsPopupOpen());
 
   // Re-focus.
   chrome::FocusLocationBar(browser());
@@ -714,11 +748,20 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, FriendlyAccessibleLabel) {
   match.allowed_to_be_default_match = true;
 
   // Enter user input mode to prevent spurious unelision.
-  omnibox_view->model()->SetInputInProgress(true);
+  browser()
+      ->window()
+      ->GetLocationBar()
+      ->GetOmniboxController()
+      ->edit_model()
+      ->SetInputInProgress(true);
 
   // Populate suggestions for the omnibox popup.
   AutocompleteController* autocomplete_controller =
-      omnibox_view->controller()->autocomplete_controller();
+      browser()
+          ->window()
+          ->GetLocationBar()
+          ->GetOmniboxController()
+          ->autocomplete_controller();
   AutocompleteResult& results = autocomplete_controller->internal_result_;
   ACMatches matches;
   matches.push_back(match);
@@ -734,7 +777,11 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, FriendlyAccessibleLabel) {
   // The omnibox popup should open with suggestions displayed.
   chrome::FocusLocationBar(browser());
   autocomplete_controller->NotifyChanged();
-  EXPECT_TRUE(omnibox_view->model()->PopupIsOpen());
+  EXPECT_TRUE(browser()
+                  ->window()
+                  ->GetLocationBar()
+                  ->GetOmniboxController()
+                  ->IsPopupOpen());
   OmniboxViewViews* omnibox_view_views =
       static_cast<OmniboxViewViews*>(omnibox_view);
 
@@ -808,7 +855,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, AccessiblePopup) {
   OmniboxPopupView* popup_view =
       BrowserView::GetBrowserViewForBrowser(browser())
           ->GetLocationBarView()
-          ->GetOmniboxPopupView();
+          ->GetOmniboxPopupViewForTesting();
   ui::AXNodeData popup_node_data_1;
   popup_view->GetPopupAccessibleNodeData(&popup_node_data_1);
   EXPECT_FALSE(popup_node_data_1.HasState(ax::mojom::State::kExpanded));
@@ -823,7 +870,11 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, AccessiblePopup) {
 
   // Populate suggestions for the omnibox popup.
   AutocompleteController* autocomplete_controller =
-      omnibox_view->controller()->autocomplete_controller();
+      browser()
+          ->window()
+          ->GetLocationBar()
+          ->GetOmniboxController()
+          ->autocomplete_controller();
   AutocompleteResult& results = autocomplete_controller->internal_result_;
   ACMatches matches;
   matches.push_back(match);
@@ -838,7 +889,11 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, AccessiblePopup) {
 
   // The omnibox popup should open with suggestions displayed.
   autocomplete_controller->NotifyChanged();
-  EXPECT_TRUE(omnibox_view->model()->PopupIsOpen());
+  EXPECT_TRUE(browser()
+                  ->window()
+                  ->GetLocationBar()
+                  ->GetOmniboxController()
+                  ->IsPopupOpen());
   ui::AXNodeData popup_node_data_2;
   popup_view->GetPopupAccessibleNodeData(&popup_node_data_2);
   EXPECT_TRUE(popup_node_data_2.HasState(ax::mojom::State::kExpanded));
@@ -972,7 +1027,11 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsUIATest, AccessibleOmnibox) {
   match.description = u"Example";
   match.allowed_to_be_default_match = true;
 
-  EXPECT_FALSE(omnibox_view->model()->PopupIsOpen());
+  EXPECT_FALSE(browser()
+                   ->window()
+                   ->GetLocationBar()
+                   ->GetOmniboxController()
+                   ->IsPopupOpen());
 
   HWND window_handle =
       browser()->window()->GetNativeWindow()->GetHost()->GetAcceleratedWidget();
@@ -983,7 +1042,11 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsUIATest, AccessibleOmnibox) {
 
   // Populate suggestions for the omnibox popup.
   AutocompleteController* autocomplete_controller =
-      omnibox_view->controller()->autocomplete_controller();
+      browser()
+          ->window()
+          ->GetLocationBar()
+          ->GetOmniboxController()
+          ->autocomplete_controller();
   AutocompleteResult& results = autocomplete_controller->internal_result_;
   ACMatches matches;
   matches.push_back(match);
@@ -1002,13 +1065,21 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsUIATest, AccessibleOmnibox) {
   // Wait for ControllerFor property changed event.
   open_waiter.Wait();
 
-  EXPECT_TRUE(omnibox_view->model()->PopupIsOpen());
+  EXPECT_TRUE(browser()
+                  ->window()
+                  ->GetLocationBar()
+                  ->GetOmniboxController()
+                  ->IsPopupOpen());
 
   UiaAccessibilityEventWaiter close_waiter(info);
   // Close the popup. Another property change event is expected.
   ClickBrowserWindowCenter();
   close_waiter.Wait();
-  EXPECT_FALSE(omnibox_view->model()->PopupIsOpen());
+  EXPECT_FALSE(browser()
+                   ->window()
+                   ->GetLocationBar()
+                   ->GetOmniboxController()
+                   ->IsPopupOpen());
 }
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewViewsUIATest, GetSelectionAndBounds) {
@@ -1187,8 +1258,11 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsIMETest, TextInputTypeInitRespectsIME) {
 IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, MAYBE_HandleExternalProtocolURLs) {
   OmniboxView* omnibox_view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxViewForBrowser(browser(), &omnibox_view));
-  AutocompleteController* controller =
-      omnibox_view->controller()->autocomplete_controller();
+  AutocompleteController* controller = browser()
+                                           ->window()
+                                           ->GetLocationBar()
+                                           ->GetOmniboxController()
+                                           ->autocomplete_controller();
   ASSERT_TRUE(controller);
 
   auto set_text_and_perform_navigation = [this, omnibox_view, controller]() {
@@ -1203,7 +1277,11 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, MAYBE_HandleExternalProtocolURLs) {
       ui_test_utils::WaitForAutocompleteDone(browser());
     }
     ASSERT_TRUE(controller->done());
-    ASSERT_TRUE(omnibox_view->model()->PopupIsOpen());
+    ASSERT_TRUE(browser()
+                    ->window()
+                    ->GetLocationBar()
+                    ->GetOmniboxController()
+                    ->IsPopupOpen());
 
     EXPECT_NE(ExternalProtocolHandler::BLOCK,
               ExternalProtocolHandler::GetBlockState(fake_protocol, nullptr,
@@ -1281,7 +1359,7 @@ IN_PROC_BROWSER_TEST_F(
   // rest of the test to operate as if all URLs are using the default ports.
   content::URLLoaderInterceptor interceptor(base::BindLambdaForTesting(
       [&](content::URLLoaderInterceptor::RequestParams* params) {
-        if (params->url_request.url.host() == "site-with-good-https.com") {
+        if (params->url_request.url.GetHost() == "site-with-good-https.com") {
           std::string headers =
               "HTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\n";
           std::string body = "<html><title>Success</title>Hello world</html>";
@@ -1422,20 +1500,8 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsOnFocusZpsTest,
   location_bar->omnibox_view()->RequestFocus();
 }
 
-class OmniboxViewViewsHintTextLimitingBrowserTest
-    : public OmniboxViewViewsTest {
+class OmniboxViewViewsAIMBrowserTest : public OmniboxViewViewsTest {
  public:
-  OmniboxViewViewsHintTextLimitingBrowserTest() {
-    scoped_feature_list_.InitWithFeaturesAndParameters(
-        {
-            {omnibox::kAiModeOmniboxEntryPoint,
-             {{"AimHintImpressionLimitDaily", "2"},
-              {"AimHintImpressionLimitTotal", "5"},
-              {"EnableHintImpressionLimits", "true"}}},
-        },
-        {lens::features::kLensOverlay});
-  }
-
   void SetUpOnMainThread() override {
     ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
   }
@@ -1476,6 +1542,26 @@ class OmniboxViewViewsHintTextLimitingBrowserTest
         }));
   }
 
+  PrefService* prefs() { return browser()->profile()->GetPrefs(); }
+
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+class OmniboxViewViewsHintTextLimitingBrowserTest
+    : public OmniboxViewViewsAIMBrowserTest {
+ public:
+  OmniboxViewViewsHintTextLimitingBrowserTest() {
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        {
+            {omnibox::kAiModeOmniboxEntryPoint,
+             {{"AimHintImpressionLimitDaily", "2"},
+              {"AimHintImpressionLimitTotal", "5"},
+              {"EnableHintImpressionLimits", "true"}}},
+        },
+        {lens::features::kLensOverlay});
+  }
+
+ protected:
   void FocusAndPaint() {
     omnibox()->SetUserText(u"");
     OmniboxViewViews* view = static_cast<OmniboxViewViews*>(omnibox());
@@ -1485,10 +1571,12 @@ class OmniboxViewViewsHintTextLimitingBrowserTest
     view->OnPaint(&canvas);
   }
 
-  PrefService* prefs() { return browser()->profile()->GetPrefs(); }
+  static base::Time GetMockTime() { return fake_time_; }
+  static void SetMockTime(base::Time time) { fake_time_ = time; }
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
+  inline static base::Time fake_time_;
 };
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewViewsHintTextLimitingBrowserTest,
@@ -1499,19 +1587,25 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsHintTextLimitingBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewViewsHintTextLimitingBrowserTest,
                        HintTextPrefsIncrementOnFirstImpression) {
+  SetMockTime(base::Time::Now());
+  base::subtle::ScopedTimeClockOverrides time_override(
+      &GetMockTime, /* time_ticks_override */ nullptr,
+      /* thread_ticks_override */ nullptr);
+
   FocusAndPaint();
 
   EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintTotalImpressions), 1);
   EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintDailyImpressionsCount), 1);
-  const int today = (base::Time::Now() - base::Time::UnixEpoch()).InDays();
+  const int today = (GetMockTime() - base::Time::UnixEpoch()).InDays();
   EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintLastImpressionDay), today);
 }
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewViewsHintTextLimitingBrowserTest,
                        HintTextPrefsIncrementOnSecondImpressionSameDay) {
-  // TODO(crbug.com/452108887): Make timing deterministic.
-  const int today = (base::Time::Now() - base::Time::UnixEpoch()).InDays();
-  prefs()->SetInteger(omnibox::kAimHintLastImpressionDay, today);
+  SetMockTime(base::Time::Now());
+  base::subtle::ScopedTimeClockOverrides time_override(
+      &GetMockTime, /* time_ticks_override */ nullptr,
+      /* thread_ticks_override */ nullptr);
 
   // First impression.
   FocusAndPaint();
@@ -1521,45 +1615,68 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsHintTextLimitingBrowserTest,
   FocusAndPaint();
   EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintTotalImpressions), 2);
   EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintDailyImpressionsCount), 2);
-}
-
-IN_PROC_BROWSER_TEST_F(OmniboxViewViewsHintTextLimitingBrowserTest,
-                       HintTextPrefsResetDailyCountOnNewDay) {
-  const int today = (base::Time::Now() - base::Time::UnixEpoch()).InDays();
-
-  // Simulate a new day.
-  const int yesterday = today - 1;
-  prefs()->SetInteger(omnibox::kAimHintLastImpressionDay, yesterday);
-  // Daily count is high, but should be ignored because the day is old.
-  prefs()->SetInteger(omnibox::kAimHintDailyImpressionsCount, 5);
-
-  // First impression on a new day. Daily count should reset to 1.
-  FocusAndPaint();
-  EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintTotalImpressions), 1);
-  EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintDailyImpressionsCount), 1);
+  const int today = (GetMockTime() - base::Time::UnixEpoch()).InDays();
   EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintLastImpressionDay), today);
 }
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewViewsHintTextLimitingBrowserTest,
-                       HintTextPrefsRespectDailyLimit) {
-  const int today = (base::Time::Now() - base::Time::UnixEpoch()).InDays();
-  prefs()->SetInteger(omnibox::kAimHintLastImpressionDay, today);
+                       HintTextPrefsResetDailyCountOnNewDay) {
+  // Set the initial time and install the override.
+  SetMockTime(base::Time::Now());
+  base::subtle::ScopedTimeClockOverrides time_override(
+      &GetMockTime, /* time_ticks_override */ nullptr,
+      /* thread_ticks_override */ nullptr);
 
-  // Hit the daily limit.
-  prefs()->SetInteger(omnibox::kAimHintDailyImpressionsCount, 2);
+  // First impression on the initial day.
+  FocusAndPaint();
+  const int initial_day = (GetMockTime() - base::Time::UnixEpoch()).InDays();
+  EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintTotalImpressions), 1);
+  EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintDailyImpressionsCount), 1);
+  EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintLastImpressionDay),
+            initial_day);
+
+  // Advance time by one day to simulate a new day.
+  SetMockTime(GetMockTime() + base::Days(1));
+
+  // Blur and refocus for a second impression on the new day.
+  ClickBrowserWindowCenter();
+  FocusAndPaint();
+
+  // The daily count should reset to 1, and the total should be 2.
+  const int new_day = (GetMockTime() - base::Time::UnixEpoch()).InDays();
+  EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintTotalImpressions), 2);
+  EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintDailyImpressionsCount), 1);
+  EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintLastImpressionDay), new_day);
+  EXPECT_NE(initial_day, new_day);
+}
+
+IN_PROC_BROWSER_TEST_F(OmniboxViewViewsHintTextLimitingBrowserTest,
+                       HintTextPrefsRespectDailyLimit) {
+  SetMockTime(base::Time::Now());
+  base::subtle::ScopedTimeClockOverrides time_override(
+      &GetMockTime, /* time_ticks_override */ nullptr,
+      /* thread_ticks_override */ nullptr);
+
+  // Two impressions to hit the daily limit of 2.
+  FocusAndPaint();
+  ClickBrowserWindowCenter();
+  FocusAndPaint();
+  EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintDailyImpressionsCount), 2);
+  EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintTotalImpressions), 2);
 
   // Try to record another impression. Prefs should not change.
+  ClickBrowserWindowCenter();
   FocusAndPaint();
-  // Total impressions should not increment beyond 0 since the hint was never
-  // shown due to daily limit.
-  EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintTotalImpressions), 0);
+  EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintTotalImpressions), 2);
   EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintDailyImpressionsCount), 2);
 }
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewViewsHintTextLimitingBrowserTest,
                        HintTextPrefsRespectTotalLimit) {
-  const int today = (base::Time::Now() - base::Time::UnixEpoch()).InDays();
-  prefs()->SetInteger(omnibox::kAimHintLastImpressionDay, today);
+  SetMockTime(base::Time::Now());
+  base::subtle::ScopedTimeClockOverrides time_override(
+      &GetMockTime, /* time_ticks_override */ nullptr,
+      /* thread_ticks_override */ nullptr);
 
   // Hit the total limit.
   prefs()->SetInteger(omnibox::kAimHintTotalImpressions, 5);
@@ -1607,4 +1724,45 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsHintTextLimitingDisabledBrowserTest,
   FocusAndPaint();
   EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintTotalImpressions), 0);
   EXPECT_EQ(prefs()->GetInteger(omnibox::kAimHintDailyImpressionsCount), 0);
+}
+
+class OmniboxViewViewsAIMButtonPreferenceTest
+    : public OmniboxViewViewsAIMBrowserTest {
+ public:
+  OmniboxViewViewsAIMButtonPreferenceTest() {
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        {{omnibox::kAiModeOmniboxEntryPoint, {}}},
+        {lens::features::kLensOverlay, features::kPageActionsMigration});
+  }
+
+ protected:
+
+  void FocusOmnibox() {
+    omnibox()->SetUserText(u"");
+    OmniboxViewViews* view = static_cast<OmniboxViewViews*>(omnibox());
+    view->RequestFocus();
+    ui_test_utils::WaitForViewFocus(browser(), VIEW_ID_OMNIBOX, true);
+  }
+
+  OmniboxViewViews* omnibox_views() {
+    return static_cast<OmniboxViewViews*>(omnibox());
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(OmniboxViewViewsAIMButtonPreferenceTest,
+                       ButtonVisibilityTogglesWithPref_OmniboxFocused) {
+  FocusOmnibox();
+  IconLabelBubbleView* ai_mode_icon =
+      omnibox_views()->GetAiModePageActionIconView();
+  ASSERT_TRUE(ai_mode_icon);
+  EXPECT_TRUE(ai_mode_icon->GetVisible());
+
+  chrome::ToggleShowAiModeOmniboxButton(browser());
+  EXPECT_FALSE(ai_mode_icon->GetVisible());
+
+  chrome::ToggleShowAiModeOmniboxButton(browser());
+  EXPECT_TRUE(ai_mode_icon->GetVisible());
 }

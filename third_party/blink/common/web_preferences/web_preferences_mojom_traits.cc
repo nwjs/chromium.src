@@ -195,6 +195,8 @@ bool StructTraits<blink::mojom::WebPreferencesDataView,
   out->disable_accelerated_small_canvases =
       data.disable_accelerated_small_canvases();
   out->long_press_link_select_text = data.long_press_link_select_text();
+  out->dynamic_safe_area_insets_enabled =
+      data.dynamic_safe_area_insets_enabled();
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
@@ -233,20 +235,20 @@ bool StructTraits<blink::mojom::WebPreferencesDataView,
   out->renderer_wide_named_frame_lookup =
       data.renderer_wide_named_frame_lookup();
   out->modal_context_menu = data.modal_context_menu();
-  out->dynamic_safe_area_insets_enabled =
-      data.dynamic_safe_area_insets_enabled();
   out->subapps_apis_require_user_gesture_and_authorization =
       data.require_transient_activation_and_user_confirmation_for_subapps_api();
   out->payment_request_enabled = data.payment_request_enabled();
-  out->api_based_fingerprinting_interventions_enabled =
-      data.api_based_fingerprinting_interventions_enabled();
   out->content_based_fingerprinting_protection_enabled =
       data.content_based_fingerprinting_protection_enabled();
   out->ai_prompt_api_enabled = data.ai_prompt_api_enabled();
 
+#if BUILDFLAG(IS_MAC)
+  out->should_disable_external_popups = data.should_disable_external_popups();
+#endif  // BUILDFLAG(IS_MAC)
+
 #if BUILDFLAG(IS_ANDROID)
-  out->increment_local_surface_id_for_mainframe_same_doc_navigation =
-      data.increment_local_surface_id_for_mainframe_same_doc_navigation();
+  out->should_screenshot_on_mainframe_same_doc_navigation =
+      data.should_screenshot_on_mainframe_same_doc_navigation();
 #endif  // BUILDFLAG(IS_ANDROID)
 
   return true;

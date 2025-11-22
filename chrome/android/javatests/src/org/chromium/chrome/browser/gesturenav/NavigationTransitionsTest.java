@@ -58,7 +58,6 @@ import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.util.ChromeTabUtils;
-import org.chromium.chrome.test.util.NewTabPageTestUtils;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.back_forward_transition.AnimationStage;
@@ -69,7 +68,6 @@ import org.chromium.content_public.browser.test.util.UiUtils;
 import org.chromium.content_public.browser.test.util.WebContentsUtils;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.ui.base.BackGestureEventSwipeEdge;
-import org.chromium.ui.base.UiAndroidFeatures;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -91,8 +89,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 @UseRunnerDelegate(ChromeJUnit4RunnerDelegate.class)
 @CommandLineFlags.Add({
     ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE,
-    "enable-features=BackForwardTransitions"
-            + ":min-required-physical-ram-mb/0/screenshot-send-result-delay-ms/0",
     "force-prefers-no-reduced-motion",
     // Resampling can make scroll offsets non-deterministic so turn it off.
     "disable-features=ResamplingScrollEvents",
@@ -170,24 +166,6 @@ public class NavigationTransitionsTest {
         private CallbackHelper mCallbackHelper;
     }
 
-    private class ReleaseController {
-        private final Runnable mRelease;
-        private final String mExpectedUrl;
-
-        public ReleaseController(Runnable release, String expectedUrl) {
-            mRelease = release;
-            mExpectedUrl = expectedUrl;
-        }
-
-        public void release() {
-            mRelease.run();
-        }
-
-        public void waitForPageLoad() {
-            ChromeTabUtils.waitForTabPageLoaded(mActivityTestRule.getActivityTab(), mExpectedUrl);
-        }
-    }
-
     private ScreenshotCallback mScreenshotCallback;
 
     public NavigationTransitionsTest(int navigationModeParam) {
@@ -205,19 +183,20 @@ public class NavigationTransitionsTest {
         BackPressManager backPressManager =
                 mActivityTestRule.getActivity().getBackPressManagerForTesting();
 
-        boolean three_button_mode = mTestNavigationMode == NAVIGATION_MODE_THREE_BUTTON;
+        boolean threeButtonMode = mTestNavigationMode == NAVIGATION_MODE_THREE_BUTTON;
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     GestureNavigationTestUtils utils =
                             new GestureNavigationTestUtils(mActivityTestRule::getActivity);
-                    utils.enableGestureNavigationForTesting(three_button_mode);
+                    utils.enableGestureNavigationForTesting(threeButtonMode);
                 });
-        backPressManager.setIsGestureNavEnabledSupplier(() -> !three_button_mode);
+        backPressManager.setIsGestureNavEnabledSupplier(() -> !threeButtonMode);
 
         mScreenshotCallback = new ScreenshotCallback();
         mScreenshotCaptureTestHelper.setNavScreenshotCallbackForTesting(mScreenshotCallback);
         mViewportTestUtils = new ViewportTestUtils(mActivityTestRule);
         mViewportTestUtils.setUpForBrowserControls();
+        GestureNavigationUtils.setMinRequiredPhysicalRamMbForTesting(0);
     }
 
     @After
@@ -238,26 +217,26 @@ public class NavigationTransitionsTest {
         assertThat(edge).isAnyOf(BackEventCompat.EDGE_LEFT, BackEventCompat.EDGE_RIGHT);
 
         if (mTestNavigationMode == NAVIGATION_MODE_THREE_BUTTON) {
-            float width_px =
+            float widthPx =
                     getWebContents().getWidth()
                             * Coordinates.createFor(getWebContents()).getDeviceScaleFactor();
 
             // Drag far enough to cause the back gesture to invoke.
             float fromEdgeStart = 5.0f;
-            float dragDistance = width_px - 10.0f;
+            float dragDistance = widthPx - 10.0f;
 
             // if EDGE_LEFT
             float fromX = fromEdgeStart;
             float toX = fromEdgeStart + dragDistance;
             if (edge == BackEventCompat.EDGE_RIGHT) {
-                fromX = width_px - fromEdgeStart;
-                toX = width_px - fromEdgeStart - dragDistance;
+                fromX = widthPx - fromEdgeStart;
+                toX = widthPx - fromEdgeStart - dragDistance;
             }
 
             assertThat(fromX).isGreaterThan(0);
-            assertThat(fromX).isLessThan(width_px);
+            assertThat(fromX).isLessThan(widthPx);
             assertThat(toX).isGreaterThan(0);
-            assertThat(toX).isLessThan(width_px);
+            assertThat(toX).isLessThan(widthPx);
 
             // These are arbitrary values that drag far enough to cause the back gesture to invoke.
             //
@@ -289,28 +268,28 @@ public class NavigationTransitionsTest {
         }
     }
 
-    private ReleaseController performNavigationTransitionAndHold(
+    private Runnable performNavigationTransitionAndHold(
             String expectedUrl, @BackGestureEventSwipeEdge int edge) {
         assertThat(edge).isAnyOf(BackEventCompat.EDGE_LEFT, BackEventCompat.EDGE_RIGHT);
-        final float width_px =
+        final float widthPx =
                 getWebContents().getWidth()
                         * Coordinates.createFor(getWebContents()).getDeviceScaleFactor();
         if (mTestNavigationMode == NAVIGATION_MODE_THREE_BUTTON) {
             // Drag far enough to cause the back gesture to invoke.
             float fromEdgeStart = 5.0f;
-            float dragDistance = width_px / 2;
+            float dragDistance = widthPx / 2;
 
             final float fromX =
-                    edge == BackEventCompat.EDGE_LEFT ? fromEdgeStart : width_px - fromEdgeStart;
+                    edge == BackEventCompat.EDGE_LEFT ? fromEdgeStart : widthPx - fromEdgeStart;
             final float toX =
                     edge == BackEventCompat.EDGE_LEFT
                             ? fromEdgeStart + dragDistance
-                            : width_px - fromEdgeStart - dragDistance;
+                            : widthPx - fromEdgeStart - dragDistance;
 
             assertThat(fromX).isGreaterThan(0);
-            assertThat(fromX).isLessThan(width_px);
+            assertThat(fromX).isLessThan(widthPx);
             assertThat(toX).isGreaterThan(0);
-            assertThat(toX).isLessThan(width_px);
+            assertThat(toX).isLessThan(widthPx);
 
             long downTime = TimeUtils.currentTimeMillis();
             TouchCommon.dragStart(mActivityTestRule.getActivity(), fromX, 400.0f, downTime);
@@ -328,7 +307,7 @@ public class NavigationTransitionsTest {
                                 mActivityTestRule.getActivity().getBackPressManagerForTesting();
                         var backEvent = new BackEventCompat(0, 0, 0, edge);
                         manager.getCallback().handleOnBackStarted(backEvent);
-                        backEvent = new BackEventCompat(width_px / 2, 0, .8f, edge);
+                        backEvent = new BackEventCompat(widthPx / 2, 0, .8f, edge);
                         manager.getCallback().handleOnBackProgressed(backEvent);
                     });
             mRelease =
@@ -343,7 +322,7 @@ public class NavigationTransitionsTest {
                                 });
                     };
         }
-        return new ReleaseController(mRelease, expectedUrl);
+        return mRelease;
     }
 
     private void performNavigationTransition(
@@ -555,7 +534,6 @@ public class NavigationTransitionsTest {
     @MediumTest
     @EnableFeatures({
         ChromeFeatureList.RIGHT_EDGE_GOES_FORWARD_GESTURE_NAV,
-        UiAndroidFeatures.MIRROR_BACK_FORWARD_GESTURES_IN_RTL
     })
     @MinAndroidSdkLevel(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     public void testRightEdgeGoesForwardInGestureNavModeInRTL() throws Throwable {
@@ -657,7 +635,6 @@ public class NavigationTransitionsTest {
      */
     @Test
     @MediumTest
-    @EnableFeatures({UiAndroidFeatures.MIRROR_BACK_FORWARD_GESTURES_IN_RTL})
     public void testBackNavInRTL() throws Throwable {
         if (mTestNavigationMode == NAVIGATION_MODE_GESTURAL
                 && VERSION.SDK_INT < VERSION_CODES.UPSIDE_DOWN_CAKE) return;
@@ -1008,96 +985,6 @@ public class NavigationTransitionsTest {
 
     @Test
     @MediumTest
-    @EnableFeatures(
-            "BackForwardTransitions"
-                    + ":transition_from_native_pages/true"
-                    + "/transition_to_native_pages/false")
-    @DisabledTest(message = "crbug.com/398843362")
-    public void testSwipeBackToNTPWithoutTransition() throws TimeoutException {
-        if (mTestNavigationMode == NAVIGATION_MODE_GESTURAL
-                && VERSION.SDK_INT < VERSION_CODES.UPSIDE_DOWN_CAKE) return;
-
-        final String url = mTestServer.getURL("/chrome/test/data/android/blue.html");
-        mActivityTestRule.loadUrl(UrlConstants.NTP_URL);
-        NewTabPageTestUtils.waitForNtpLoaded(mActivityTestRule.getActivityTab());
-        mActivityTestRule.loadUrl(url);
-
-        WebContentsUtils.waitForCopyableViewInWebContents(getWebContents());
-
-        // No screenshot on gesture mode when navigating back.
-        mScreenshotCallback.expectRequested(mTestNavigationMode == NAVIGATION_MODE_THREE_BUTTON);
-        ReleaseController releaseController =
-                performNavigationTransitionAndHold(UrlConstants.NTP_URL, BackEventCompat.EDGE_LEFT);
-        CriteriaHelper.pollInstrumentationThread(
-                () ->
-                        AnimationStage.NONE
-                                == mActivityTestRule
-                                        .getWebContents()
-                                        .getCurrentBackForwardTransitionStage(),
-                "Back forward transition is not enabled for native pages");
-        releaseController.release();
-        CriteriaHelper.pollInstrumentationThread(
-                () ->
-                        AnimationStage.NONE
-                                == mActivityTestRule
-                                        .getWebContents()
-                                        .getCurrentBackForwardTransitionStage(),
-                "Back forward transition is not enabled for native pages");
-        releaseController.waitForPageLoad();
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(
-            "BackForwardTransitions"
-                    + ":transition_from_native_pages/false"
-                    + "/transition_to_native_pages/false")
-    public void testSwipeBackFromNTPWithoutTransition()
-            throws InterruptedException, TimeoutException {
-        var helper = mScreenshotCallback.expectRequested(true);
-
-        final String url = mTestServer.getURL("/chrome/test/data/android/blue.html");
-
-        final Tab tab = mActivityTestRule.getActivityTab();
-
-        mActivityTestRule.loadUrl(UrlConstants.NTP_URL);
-        UiUtils.settleDownUI(InstrumentationRegistry.getInstrumentation());
-        NewTabPageTestUtils.waitForNtpLoaded(mActivityTestRule.getActivityTab());
-        helper.waitForNext();
-
-        loadUrlAndWaitForScreenshotCallback(url, helper);
-
-        mActivityTestRule.loadUrl(UrlConstants.NTP_URL);
-        UiUtils.settleDownUI(InstrumentationRegistry.getInstrumentation());
-        helper.waitForNext();
-
-        // No screenshot on gesture mode when navigating back.
-        helper =
-                mScreenshotCallback.expectRequested(
-                        mTestNavigationMode == NAVIGATION_MODE_THREE_BUTTON);
-        ReleaseController releaseController =
-                performNavigationTransitionAndHold(url, BackEventCompat.EDGE_LEFT);
-        CriteriaHelper.pollInstrumentationThread(
-                () ->
-                        AnimationStage.NONE
-                                == tab.getWebContents().getCurrentBackForwardTransitionStage(),
-                "Back forward transition is not enabled for native pages");
-        releaseController.release();
-        CriteriaHelper.pollInstrumentationThread(
-                () ->
-                        AnimationStage.NONE
-                                == tab.getWebContents().getCurrentBackForwardTransitionStage(),
-                "Back forward transition is not enabled for native pages");
-        releaseController.waitForPageLoad();
-        helper.waitForNext();
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(
-            "BackForwardTransitions"
-                    + ":transition_from_native_pages/true"
-                    + "/transition_to_native_pages/true")
     @DisabledTest(message = "crbug.com/398140569")
     public void testSwipeBackToNativeBookmarksPageWithTransition() throws InterruptedException {
         final Tab tab = mActivityTestRule.getActivityTab();
@@ -1107,7 +994,7 @@ public class NavigationTransitionsTest {
 
         //         No screenshot on gesture mode when navigating back.
         mScreenshotCallback.expectRequested(mTestNavigationMode == NAVIGATION_MODE_THREE_BUTTON);
-        ReleaseController releaseController =
+        Runnable release =
                 performNavigationTransitionAndHold(
                         "chrome-native://bookmarks/folder/0", BackEventCompat.EDGE_LEFT);
         Assert.assertEquals(
@@ -1115,7 +1002,7 @@ public class NavigationTransitionsTest {
                 AnimationStage.OTHER,
                 tab.getWebContents().getCurrentBackForwardTransitionStage());
 
-        releaseController.release();
+        release.run();
         CriteriaHelper.pollInstrumentationThread(
                 () ->
                         AnimationStage.INVOKE_ANIMATION

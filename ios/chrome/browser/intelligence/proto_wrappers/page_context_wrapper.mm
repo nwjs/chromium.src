@@ -21,12 +21,14 @@
 #import "base/strings/utf_string_conversions.h"
 #import "base/task/bind_post_task.h"
 #import "base/task/sequenced_task_runner.h"
+#import "base/task/task_traits.h"
 #import "base/time/time.h"
 #import "base/timer/timer.h"
 #import "base/token.h"
 #import "components/optimization_guide/core/page_content_proto_serializer.h"
 #import "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
+#import "ios/chrome/browser/intelligence/proto_wrappers/page_context_extractor_java_script_feature.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_wrapper_metrics.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
 #import "ios/public/provider/chrome/browser/bwg/bwg_api.h"
@@ -80,8 +82,6 @@ constexpr const char kLinkTextDictKey[] = "linkText";
 // duplicate text from frames, but only for the current run. Early returns if
 // the PageContext should be detached, or the frame is not the top-most
 // same-origin frame.
-// TODO(crbug.com/423681226): Write this in TypeScript and create a JS Feature
-// for it.
 constexpr const char16_t* kInnerTextTreeJavaScript = uR"DELIM(
 (() => {
     // Checks whether the PageContext should be detached.
@@ -123,15 +123,18 @@ constexpr const char16_t* kInnerTextTreeJavaScript = uR"DELIM(
 
             // Try to access the iframe's body, failure is possible (cross-origin iframes).
             let iframeBody;
+            let iframeTitle;
             try {
-                iframeBody = iframe.contentDocument ? iframe.contentDocument.body : null;
+                const contentDoc = iframe.contentDocument;
+                iframeBody = contentDoc ? contentDoc.body : null;
+                iframeTitle = contentDoc ? contentDoc.title : '';
             } catch (error) {
                 return null;
             }
 
             // Recursively construct the innerText tree for the iframe's body.
-            return iframeBody ? constructSameOriginInnerTextTree(iframeBody, iframe.src, iframe.title,
-                nonceAttributeValue) : null;
+            return iframeBody ? constructSameOriginInnerTextTree(iframeBody,
+                iframe.src, iframeTitle, nonceAttributeValue) : null;
         });
 
         const result = {
@@ -172,8 +175,6 @@ result.links = linksArray;
 
 }  // namespace
 
-// TODO(crbug.com/424258248): Add a timeout for the execution of the async tasks
-// in the PageContextWrapper.
 @implementation PageContextWrapper {
   base::WeakPtr<web::WebState> _webState;
 
@@ -235,57 +236,16 @@ result.links = linksArray;
 }
 
 - (void)populatePageContextFieldsAsyncWithTimeout:(base::TimeDelta)timeout {
-  CHECK_GE(_asyncTasksToComplete, 0);
-  _pageContextMetrics = [[PageContextWrapperMetrics alloc] init];
-  __weak PageContextWrapper* weakSelf = self;
-
-  // Start the timer.
-  _timeoutTimer.Start(FROM_HERE, timeout, base::BindOnce(^{
-                        [weakSelf onTimeout];
-                      }));
-
-  if (_asyncTasksToComplete == 0) {
-    [self asyncWorkCompletedForPageContext];
+  if (_isLowPriorityExtraction) {
+    __weak PageContextWrapper* weakSelf = self;
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(^{
+          [weakSelf populateAsyncFields:timeout];
+        }));
     return;
   }
 
-  // Use a `BarrierClosure` to ensure all async tasks are completed before
-  // executing the overall completion callback. The BarrierClosure will wait
-  // until the `pageContextBarrier` callback is itself run
-  // `_asyncTasksToComplete` times, then post the completion handler to execute
-  // on the next loop of the current sequence.
-  base::RepeatingClosure pageContextBarrier = base::BarrierClosure(
-      _asyncTasksToComplete,
-      base::BindPostTask(base::SequencedTaskRunner::GetCurrentDefault(),
-                         base::BindOnce(^{
-                           [weakSelf asyncWorkCompletedForPageContext];
-                         })));
-
-  // Asynchronous work. *IMPORTANT NOTES*:
-  // When adding async tasks below, an accompanying setter should also be
-  // created to follow the disabled-by-default pattern (which
-  // increments/decrements `_asyncTasksToComplete` accordingly). Also, if a
-  // given task is enabled, every code path for that task should eventually
-  // execute the `pageContextBarrier` callback, otherwise the `BarrierClosure`
-  // will never execute its completion block.
-
-  if (_shouldGetSnapshot) {
-    [self processSnapshotWithBarrier:pageContextBarrier];
-  }
-
-  if (_shouldGetAnnotatedPageContent || _shouldGetInnerText) {
-    [self processAnnotatedPageContentWithBarrier:pageContextBarrier];
-  }
-
-  // Create full page PDF representation of the WebState, if enabled.
-  if (_shouldGetFullPagePDF) {
-    [_pageContextMetrics executionStartedForTask:PageContextTask::kPDF];
-
-    _webState->CreateFullPagePdf(base::BindOnce(^(NSData* PDFData) {
-      [weakSelf encodeAndSetFullPagePDF:PDFData];
-      pageContextBarrier.Run();
-    }));
-  }
+  [self populateAsyncFields:timeout];
 }
 
 #pragma mark - Setters
@@ -345,6 +305,61 @@ result.links = linksArray;
 }
 
 #pragma mark - Private
+
+// Populates the fields of the PageContext proto which necessitate async calls.
+- (void)populateAsyncFields:(base::TimeDelta)timeout {
+  CHECK_GE(_asyncTasksToComplete, 0);
+  _pageContextMetrics = [[PageContextWrapperMetrics alloc] init];
+  __weak PageContextWrapper* weakSelf = self;
+
+  // Start the timer.
+  _timeoutTimer.Start(FROM_HERE, timeout, base::BindOnce(^{
+                        [weakSelf onTimeout];
+                      }));
+
+  if (_asyncTasksToComplete == 0 || !_webState) {
+    [self asyncWorkCompletedForPageContext];
+    return;
+  }
+
+  // Use a `BarrierClosure` to ensure all async tasks are completed before
+  // executing the overall completion callback. The BarrierClosure will wait
+  // until the `pageContextBarrier` callback is itself run
+  // `_asyncTasksToComplete` times, then post the completion handler to execute
+  // on the next loop of the current sequence.
+  base::RepeatingClosure pageContextBarrier = base::BarrierClosure(
+      _asyncTasksToComplete,
+      base::BindPostTask(base::SequencedTaskRunner::GetCurrentDefault(),
+                         base::BindOnce(^{
+                           [weakSelf asyncWorkCompletedForPageContext];
+                         })));
+
+  // Asynchronous work. *IMPORTANT NOTES*:
+  // When adding async tasks below, an accompanying setter should also be
+  // created to follow the disabled-by-default pattern (which
+  // increments/decrements `_asyncTasksToComplete` accordingly). Also, if a
+  // given task is enabled, every code path for that task should eventually
+  // execute the `pageContextBarrier` callback, otherwise the `BarrierClosure`
+  // will never execute its completion block.
+
+  if (_shouldGetSnapshot) {
+    [self processSnapshotWithBarrier:pageContextBarrier];
+  }
+
+  if (_shouldGetAnnotatedPageContent || _shouldGetInnerText) {
+    [self processAnnotatedPageContentWithBarrier:pageContextBarrier];
+  }
+
+  // Create full page PDF representation of the WebState, if enabled.
+  if (_shouldGetFullPagePDF) {
+    [_pageContextMetrics executionStartedForTask:PageContextTask::kPDF];
+
+    _webState->CreateFullPagePdf(base::BindOnce(^(NSData* PDFData) {
+      [weakSelf encodeAndSetFullPagePDF:PDFData];
+      pageContextBarrier.Run();
+    }));
+  }
+}
 
 // Retrieve WebState snapshot. The barrier's callback will be executed for all
 // codepaths in this method.
@@ -457,61 +472,125 @@ result.links = linksArray;
         barrier.Run();
       }));
 
-  // Callback to aggregate values from the JS execution.
-  auto callback = [](PageContextWrapper* weakWrapper,
-                     base::RepeatingClosure barrier, BOOL isMainFrame,
-                     const url::Origin& securityOrigin,
-                     const base::Value* value, NSError* error) {
-    [weakWrapper aggregateJavaScriptValue:value
-                                withError:error
-                              isMainFrame:isMainFrame
-                           securityOrigin:securityOrigin];
-    barrier.Run();
-  };
+  std::string nonce = base::Token::CreateRandom().ToString();
+  bool includeAnchors = IsPageContextAnchorTagsEnabled();
 
-  // Construct the JavaScript script to be executed on each Web Frame with a
-  // random token as nonce to differentiate between runs/executions.
-  base::Token nonce = base::Token::CreateRandom();
-  std::u16string nonceString = base::UTF8ToUTF16(nonce.ToString());
-  std::u16string maybeAnchorTagsJavaScript =
-      IsPageContextAnchorTagsEnabled() ? kAnchorTagsJavaScript : u"";
-  std::u16string script = base::ReplaceStringPlaceholders(
-      kInnerTextTreeJavaScript,
-      base::span<const std::u16string>(
-          {ios::provider::GetPageContextShouldDetachScript(),
-           maybeAnchorTagsJavaScript, nonceString}),
-      nullptr);
+  if (base::FeatureList::IsEnabled(kPageContextExtractorRefactored)) {
+    // Use the new way for extracting context.
 
-  // If the page is not protected, execute the JavaScript on the main WebFrame
-  // first and pass in the callback (which executes the barrier when run).
-  if (ios::provider::IsProtectedUrl(mainFrame->GetUrl().spec())) {
-    _forceDetachPageContext = YES;
-    annotatedPageContentBarrier.Run();
-  } else {
-    mainFrame->ExecuteJavaScript(
-        script,
-        base::BindOnce(callback, weakSelf, annotatedPageContentBarrier,
-                       /*isMainFrame=*/YES, mainFrame->GetSecurityOrigin()));
-  }
+    // Callback to aggregate values from the JS execution.
+    auto callback = [](PageContextWrapper* weakWrapper,
+                       base::RepeatingClosure barrier, BOOL isMainFrame,
+                       const url::Origin& securityOrigin,
+                       const base::Value* value) {
+      // TODO(crbug.com/454261374): Remove `withError` from args once we cleanup
+      // the old code.
+      // Can't provide an error object since the javascript feature doesn't
+      // support that.
+      [weakWrapper aggregateJavaScriptValue:value
+                                  withError:nil
+                                isMainFrame:isMainFrame
+                             securityOrigin:securityOrigin];
+      barrier.Run();
+    };
 
-  // Execute the JavaScript on each other WebFrame and pass in the callback
-  // (which executes the barrier when run).
-  for (web::WebFrame* webFrame : webFrames) {
-    if (ios::provider::IsProtectedUrl(webFrame->GetUrl().spec())) {
+    PageContextExtractorJavaScriptFeature* extractor_feature =
+        PageContextExtractorJavaScriptFeature::GetInstance();
+
+    // Use a timeout for the JS call larger than the wrapper's timer timeout
+    // since this is the preferred way of timing out the dispatched jobs (which
+    // will return a PageContextWrapperError::kTimeout error instead of empty
+    // results).
+    base::TimeDelta js_timeout = _timeoutTimer.GetCurrentDelay() * 2;
+
+    if (ios::provider::IsProtectedUrl(mainFrame->GetUrl().spec())) {
       _forceDetachPageContext = YES;
-    }
-
-    // Skip if it's the main frame since it was already processed above, or if
-    // Page Context should already be force detached.
-    if (!webFrame || webFrame->IsMainFrame() || _forceDetachPageContext) {
       annotatedPageContentBarrier.Run();
-      continue;
+    } else {
+      extractor_feature->ExtractPageContext(
+          mainFrame, includeAnchors, nonce, js_timeout,
+          base::BindOnce(callback, weakSelf, annotatedPageContentBarrier,
+                         /*isMainFrame=*/YES, mainFrame->GetSecurityOrigin()));
     }
 
-    webFrame->ExecuteJavaScript(
-        script,
-        base::BindOnce(callback, weakSelf, annotatedPageContentBarrier,
-                       /*isMainFrame=*/NO, webFrame->GetSecurityOrigin()));
+    // Execute the JavaScript on each other WebFrame and pass in the callback
+    // (which executes the barrier when run).
+    for (web::WebFrame* webFrame : webFrames) {
+      if (ios::provider::IsProtectedUrl(webFrame->GetUrl().spec())) {
+        _forceDetachPageContext = YES;
+      }
+
+      // Skip if it's the main frame since it was already processed above, or if
+      // Page Context should already be force detached.
+      if (!webFrame || webFrame->IsMainFrame() || _forceDetachPageContext) {
+        annotatedPageContentBarrier.Run();
+        continue;
+      }
+
+      extractor_feature->ExtractPageContext(
+          webFrame, includeAnchors, nonce, js_timeout,
+          base::BindOnce(callback, weakSelf, annotatedPageContentBarrier,
+                         /*isMainFrame=*/NO, webFrame->GetSecurityOrigin()));
+    }
+  } else {
+    // Use the legacy way for extracting context.
+
+    // Callback to aggregate values from the JS execution.
+    auto callback = [](PageContextWrapper* weakWrapper,
+                       base::RepeatingClosure barrier, BOOL isMainFrame,
+                       const url::Origin& securityOrigin,
+                       const base::Value* value, NSError* error) {
+      [weakWrapper aggregateJavaScriptValue:value
+                                  withError:error
+                                isMainFrame:isMainFrame
+                             securityOrigin:securityOrigin];
+      barrier.Run();
+    };
+
+    // Construct the JavaScript script to be executed on each Web Frame with a
+    // random token as nonce to differentiate between runs/executions.
+    std::u16string maybeAnchorTagsJavaScript =
+        IsPageContextAnchorTagsEnabled() ? kAnchorTagsJavaScript : u"";
+    std::u16string script = base::ReplaceStringPlaceholders(
+        kInnerTextTreeJavaScript,
+        base::span<const std::u16string>(
+            {ios::provider::GetPageContextShouldDetachScript(),
+             maybeAnchorTagsJavaScript, base::UTF8ToUTF16(nonce)}),
+        nullptr);
+
+    // TODO(crbug.com/452568673): Refactor the force detach logic.
+
+    // If the page is not protected, execute the JavaScript on the main WebFrame
+    // first and pass in the callback (which executes the barrier when run).
+    if (ios::provider::IsProtectedUrl(mainFrame->GetUrl().spec())) {
+      _forceDetachPageContext = YES;
+      annotatedPageContentBarrier.Run();
+    } else {
+      mainFrame->ExecuteJavaScript(
+          script,
+          base::BindOnce(callback, weakSelf, annotatedPageContentBarrier,
+                         /*isMainFrame=*/YES, mainFrame->GetSecurityOrigin()));
+    }
+
+    // Execute the JavaScript on each other WebFrame and pass in the callback
+    // (which executes the barrier when run).
+    for (web::WebFrame* webFrame : webFrames) {
+      if (ios::provider::IsProtectedUrl(webFrame->GetUrl().spec())) {
+        _forceDetachPageContext = YES;
+      }
+
+      // Skip if it's the main frame since it was already processed above, or if
+      // Page Context should already be force detached.
+      if (!webFrame || webFrame->IsMainFrame() || _forceDetachPageContext) {
+        annotatedPageContentBarrier.Run();
+        continue;
+      }
+
+      webFrame->ExecuteJavaScript(
+          script,
+          base::BindOnce(callback, weakSelf, annotatedPageContentBarrier,
+                         /*isMainFrame=*/NO, webFrame->GetSecurityOrigin()));
+    }
   }
 }
 
@@ -531,7 +610,10 @@ result.links = linksArray;
 
   // Construct the response and completion status, either with the expected
   // value or an error.
-  if (_forceDetachPageContext) {
+  if (!_webState) {
+    response = base::unexpected(PageContextWrapperError::kGenericError);
+    completionStatus = PageContextCompletionStatus::kFailure;
+  } else if (_forceDetachPageContext) {
     response = base::unexpected(PageContextWrapperError::kForceDetachError);
     completionStatus = PageContextCompletionStatus::kProtected;
   } else if (_shouldGetAnnotatedPageContent &&
@@ -544,11 +626,9 @@ result.links = linksArray;
   } else if (_shouldGetSnapshot && !_pageContext->has_tab_screenshot()) {
     response = base::unexpected(PageContextWrapperError::kScreenshotError);
     completionStatus = PageContextCompletionStatus::kFailure;
-
   } else if (_shouldGetFullPagePDF && !_pageContext->has_pdf_data()) {
     response = base::unexpected(PageContextWrapperError::kPDFDataError);
     completionStatus = PageContextCompletionStatus::kFailure;
-
   } else {
     response = base::ok(std::move(_pageContext));
     completionStatus = PageContextCompletionStatus::kSuccess;
@@ -645,10 +725,10 @@ result.links = linksArray;
                      isMainFrame:(BOOL)isMainFrame
                   securityOrigin:(const url::Origin&)securityOrigin {
   if (error || !value || !value->is_dict()) {
-    DLOG(WARNING) << "Failed to fetch frame's innerText tree.";
     if (error) {
       // TODO(crbug.com/401282824): Log the failure rate of aggregation.
-      DLOG(WARNING) << base::SysNSStringToUTF8([error localizedDescription]);
+      DLOG(WARNING) << "Failed to fetch frame's innerText tree."
+                    << base::SysNSStringToUTF8([error localizedDescription]);
     }
     return;
   }
@@ -680,12 +760,20 @@ result.links = linksArray;
     return;
   }
 
+  // Create a special subtree for the mainframe, and then recursively populate
+  // its children iframe subtrees. Else, recursively populate cross-origin
+  // iframes.
   if (isMainFrame) {
     [self populateMainFrameSubtreeWithValue:value origin:securityOrigin];
+  } else {
+    [self populateIframeSubtreeWithValue:value
+                                  origin:securityOrigin
+                              parentNode:_rootAPCNode->mutable_root_node()];
+    return;
   }
 
-  // Recursively populate the ContentNode subtree for any of the WebFrame's
-  // iframes.
+  // Recursively populate the ContentNode subtree for any of the main WebFrame's
+  // children iframes.
   const base::Value::List* childrenFrames =
       value->GetDict().FindList(kChildrenFramesDictKey);
   if (childrenFrames && !childrenFrames->empty()) {

@@ -5,14 +5,13 @@
 #include "chrome/browser/ui/views/frame/immersive_mode_controller_chromeos.h"
 
 #include "ash/wm/window_pin_util.h"
-#include "build/buildflag.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
-#include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chromeos/ui/base/window_properties.h"
 #include "chromeos/ui/base/window_state_type.h"
 #include "chromeos/ui/frame/immersive/immersive_revealed_lock.h"
@@ -20,10 +19,10 @@
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/window_targeter.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
-#include "ui/compositor/layer.h"
 #include "ui/compositor/paint_context.h"
 #include "ui/compositor/paint_recorder.h"
 #include "ui/display/screen.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/native/native_view_host.h"
 #include "ui/views/view.h"
@@ -62,7 +61,9 @@ class ImmersiveRevealedLockChromeos : public ImmersiveRevealedLock {
 
 }  // namespace
 
-ImmersiveModeControllerChromeos::ImmersiveModeControllerChromeos() = default;
+ImmersiveModeControllerChromeos::ImmersiveModeControllerChromeos(
+    BrowserWindowInterface* browser)
+    : ImmersiveModeController(browser) {}
 
 ImmersiveModeControllerChromeos::~ImmersiveModeControllerChromeos() = default;
 
@@ -152,6 +153,7 @@ void ImmersiveModeControllerChromeos::LayoutBrowserRootView() {
 
 void ImmersiveModeControllerChromeos::OnImmersiveRevealStarted() {
   visible_fraction_ = 0;
+
   for (Observer& observer : observers_) {
     observer.OnImmersiveRevealStarted();
   }

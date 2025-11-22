@@ -148,6 +148,13 @@ class GlicAnnotationManagerUiTest : public InteractiveGlicTest {
  public:
   GlicAnnotationManagerUiTest() {
     scoped_feature_list_.InitAndEnableFeature(features::kGlicScrollTo);
+    // TODO(b/453696965): These tests need fixed to work with
+    // kGlicMultiInstance. The permission tests also rely on the pref, so
+    // disable the default setting feature.
+    no_multi_instance_feature_list_.InitWithFeatures(
+        /*enabled_features=*/{},
+        /*disabled_features=*/{features::kGlicMultiInstance,
+                               features::kGlicDefaultTabContextSetting});
   }
   ~GlicAnnotationManagerUiTest() override = default;
 
@@ -174,22 +181,22 @@ class GlicAnnotationManagerUiTest : public InteractiveGlicTest {
       if (data.focus()) {
         FetchPageContext(
             data.focus(), *options,
-            base::BindLambdaForTesting([&](base::expected<
-                                           glic::mojom::GetContextResultPtr,
-                                           page_content_annotations::
-                                               FetchPageContextErrorDetails>
-                                               result) {
-              mojo_base::ProtoWrapper& serialized_apc =
-                  *result.value()
-                       ->get_tab_context()
-                       ->annotated_page_data->annotated_page_content;
-              annotated_page_content_ = std::make_unique<
-                  optimization_guide::proto::AnnotatedPageContent>(
-                  serialized_apc
-                      .As<optimization_guide::proto::AnnotatedPageContent>()
-                      .value());
-              run_loop.Quit();
-            }));
+            base::BindLambdaForTesting(
+                [&](base::expected<
+                    glic::mojom::GetContextResultPtr,
+                    page_content_annotations::FetchPageContextErrorDetails>
+                        result) {
+                  mojo_base::ProtoWrapper& serialized_apc =
+                      *result.value()
+                           ->get_tab_context()
+                           ->annotated_page_data->annotated_page_content;
+                  annotated_page_content_ = std::make_unique<
+                      optimization_guide::proto::AnnotatedPageContent>(
+                      serialized_apc
+                          .As<optimization_guide::proto::AnnotatedPageContent>()
+                          .value());
+                  run_loop.Quit();
+                }));
 
         run_loop.Run();
       }
@@ -620,6 +627,7 @@ class GlicAnnotationManagerUiTest : public InteractiveGlicTest {
   }
 
   base::test::ScopedFeatureList scoped_feature_list_;
+  base::test::ScopedFeatureList no_multi_instance_feature_list_;
   std::unique_ptr<FakeAnnotationAgentContainer> fake_service_;
   base::CallbackListSubscription focused_tab_change_subscription_;
   std::unique_ptr<optimization_guide::proto::AnnotatedPageContent>
@@ -1141,7 +1149,8 @@ IN_PROC_BROWSER_TEST_F(GlicAnnotationManagerUiTest,
         fake_service()->NotifyAttachment(
             gfx::Rect(20, 20), blink::mojom::AttachmentResult::kSuccess);
       }),
-      Do([&]() { glic_service()->CloseUI(); }), WaitForHide(kGlicViewElementId),
+      Do([&]() { glic_service()->window_controller().Close(); }),
+      WaitForHide(kGlicViewElementId),
       Check([&]() { return !fake_service()->HighlightIsActive(); },
             "Annotations should be dropped"));
 }
@@ -1337,11 +1346,19 @@ class GlicAnnotationManagerWithScrollToDisabledUiTest
  public:
   GlicAnnotationManagerWithScrollToDisabledUiTest() {
     scoped_feature_list_.InitAndDisableFeature(features::kGlicScrollTo);
+    // TODO(b/453696965): These tests need fixed to work with
+    // kGlicMultiInstance. The permission tests also rely on the pref, so
+    // disable the default setting feature.
+    no_multi_instance_feature_list_.InitWithFeatures(
+        /*enabled_features=*/{},
+        /*disabled_features=*/{features::kGlicMultiInstance,
+                               features::kGlicDefaultTabContextSetting});
   }
   ~GlicAnnotationManagerWithScrollToDisabledUiTest() override = default;
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
+  base::test::ScopedFeatureList no_multi_instance_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(GlicAnnotationManagerWithScrollToDisabledUiTest,

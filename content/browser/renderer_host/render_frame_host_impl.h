@@ -281,6 +281,7 @@ class IdleManagerImpl;
 class NavigationEarlyHintsManager;
 class NavigationRequest;
 class PeerConnectionTrackerHost;
+class PendingNavigation;
 class PrefetchedSignedExchangeCache;
 class PrerenderCancellationReason;
 class PresentationServiceImpl;
@@ -300,7 +301,6 @@ class SiteInfo;
 class SpeechSynthesisImpl;
 class WebAuthRequestSecurityChecker;
 class WebUIImpl;
-struct PendingNavigation;
 struct ResourceTimingInfo;
 
 // To be called when a RenderFrameHostImpl receives an event.
@@ -728,7 +728,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   blink::web_pref::WebPreferences GetOrCreateWebPreferences();
 
   // IPC::Listener
-  bool OnMessageReceived(const IPC::Message& msg) override;
   void OnAssociatedInterfaceRequest(
       const std::string& interface_name,
       mojo::ScopedInterfaceEndpointHandle handle) override;
@@ -1544,6 +1543,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       // The number of observed cookie modifications.
       int64_t cookie_modification_count = 0;
       int64_t http_only_cookie_modification_count = 0;
+      int64_t non_http_only_cookie_modification_count = 0;
       // The number of observed cookie modifications that should be removed
       // since we want to adjust the count by subtracting the number of cookie
       // modification from the navigation itself.
@@ -1958,8 +1958,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // Posts a message from a frame in another process to the current renderer.
   void PostMessageEvent(
       const std::optional<blink::RemoteFrameToken>& source_token,
-      const std::u16string& source_origin,
-      const std::u16string& target_origin,
+      const url::Origin* source_origin,
+      const url::Origin* target_origin,
       blink::TransferableMessage message);
 
   // Requests to swap the current frame into the frame tree, replacing the
@@ -2402,6 +2402,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   int renderer_exit_count() const { return renderer_exit_count_; }
 
+  bool did_last_navigation_have_view_transition() const {
+    return did_last_navigation_have_view_transition_;
+  }
+
   // Re-creates loader factories and pushes them to |RenderFrame|.
   // Used in case we need to add or remove intercepting proxies to the
   // running renderer, or in case of Network Service connection errors.
@@ -2694,7 +2698,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void DraggableRegionsChanged(
       std::vector<blink::mojom::DraggableRegionPtr> regions) override;
   void NotifyDocumentInteractive() override;
-  void OnFirstContentfulPaint() override;
+  void OnFirstContentfulPaint(base::TimeDelta duration) override;
+  void NotifyFirstContentfulPaint();
   void SetStorageAccessApiStatus(net::StorageAccessApiStatus status) override;
 
   void ReportNoBinderForInterface(const std::string& error);
@@ -3036,6 +3041,11 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const std::optional<url::Origin>& remote_desktop_client_override_origin,
       base::OnceCallback<void(blink::mojom::AuthenticatorStatus, bool)>
           callback);
+  void PerformReportWebAuthSecurityChecks(
+      const std::string& relying_party_id,
+      const url::Origin& effective_origin,
+      base::OnceCallback<void(blink::mojom::AuthenticatorStatus, bool)>
+          callback);
 #endif
 
   using JavaScriptResultAndTypeCallback =
@@ -3219,14 +3229,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // and if its closest fenced frame root ancestor and all nested fenced frame
   // roots have disabled untrusted network access.
   bool CanReadFromSharedStorage();
-
-  // Returns true if this RFH's compositor should be reused by a speculative
-  // RFH with the `speculative_site_instance`.
-  // Returns false if the speculative RFH should initialize a new compositor.
-  bool ShouldReuseCompositing(
-      SiteInstanceImpl& speculative_site_instance) const;
-
-  void NotifyWillCreateRenderWidgetOnCommit();
 
   // If this RenderFrameHost is a local root (i.e., either the main frame or a
   // subframe in a different process than its parent), this returns the
@@ -4137,6 +4139,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // this frame's subtree.
   void PendingDeletionCheckCompletedOnSubtree();
 
+  // Call PendingDeletionCheckCompletedOnSubtree now or later, depending on
+  // the feature gate DelayRfhDestructionsOnUnloadAndDetach.
+  void PendingDeletionCheckCompletedOnSubtreeNowOrLater();
+
   // In this RenderFramehost, cancels every:
   // - Non-pending commit NavigationRequest owned by the FrameTreeNode that
   // intends to commit in this RFH
@@ -4414,15 +4420,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
   std::optional<mojo::UrgentMessageScope> MakeUrgentMessageScopeIfNeeded();
 
 #if BUILDFLAG(IS_ANDROID)
-  // These functions are called after a WebAuthn relying party check has
-  // completed. See `PerformMakeCredentialWebAuthSecurityChecks` and
-  // `PerformGetAssertionWebAuthSecurityChecks`.
-  void OnGetAssertionWebAuthSecurityChecksCompleted(
-      base::OnceCallback<void(blink::mojom::AuthenticatorStatus, bool)>
-          callback,
-      bool is_cross_origin,
-      blink::mojom::AuthenticatorStatus status);
-  void OnMakeCredentialWebAuthSecurityChecksCompleted(
+  // This function is called after a WebAuthn relying party check has
+  // completed. See `Perform*WebAuthSecurityChecks`.
+  void OnWebAuthSecurityChecksCompleted(
       base::OnceCallback<void(blink::mojom::AuthenticatorStatus, bool)>
           callback,
       bool is_cross_origin,
@@ -4469,6 +4469,11 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // called either when the renderer acknowledges the operation completed
   // successfully or the renderer was proactively terminated.
   void MaybeNotifyDiscardedFrame();
+
+  // Removes FrameNavigationEntries that will no longer be used from the last
+  // committed NavigationEntry. Must be called when this frame transitions to
+  // kRunningUnloadHandlers or kReadyToBeDeleted, when the frame is detaching.
+  void CleanupLastCommittedNavigationEntry();
 
   // The RenderViewHost that this RenderFrameHost is associated with.
   //
@@ -5172,6 +5177,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // Used to hear about UnloadACK calls in tests.
   UnloadACKCallbackForTesting unload_ack_callback_;
 
+  // Whether the last navigation request require view transitions.
+  bool did_last_navigation_have_view_transition_ = false;
+
   // Mask of the active features tracked by the scheduler used by this frame.
   // This is used only for metrics.
   // See blink::SchedulingPolicy::Feature for the meaning.
@@ -5531,10 +5539,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   // Listens for changes to DeviceBoundSessions on this page.
   std::unique_ptr<DeviceBoundSessionObserver> device_bound_session_observer_;
-
-  // If true, the renderer side widget is created after the navigation is
-  // committed.
-  bool waiting_for_renderer_widget_creation_after_commit_ = false;
 
   // Deferred shared storage operations to run after navigation commit in the
   // event of a race between navigation and subresource request(s).

@@ -67,6 +67,7 @@ void MandatoryReauthBubbleControllerImpl::SetupBubble(
     base::OnceClosure accept_mandatory_reauth_callback,
     base::OnceClosure cancel_mandatory_reauth_callback,
     base::RepeatingClosure close_mandatory_reauth_callback) {
+  was_bubble_shown_ = false;
   is_reshow_ = false;
   accept_mandatory_reauth_callback_ =
       std::move(accept_mandatory_reauth_callback);
@@ -140,6 +141,42 @@ std::u16string MandatoryReauthBubbleControllerImpl::GetExplanationText() const {
   }
 }
 
+void MandatoryReauthBubbleControllerImpl::OnBubbleDiscarded() {
+  if (current_bubble_type_ == MandatoryReauthBubbleType::kOptIn) {
+    LogBubbleCloseOptInMetrics(was_bubble_shown_
+                                   ? PaymentsUiClosedReason::kNotInteracted
+                                   : PaymentsUiClosedReason::kUnknown);
+  }
+}
+
+void MandatoryReauthBubbleControllerImpl::LogBubbleCloseOptInMetrics(
+    PaymentsUiClosedReason closed_reason) {
+  autofill_metrics::MandatoryReauthOptInBubbleResult metric =
+      autofill_metrics::MandatoryReauthOptInBubbleResult::kUnknown;
+  switch (closed_reason) {
+    case PaymentsUiClosedReason::kAccepted:
+      metric = autofill_metrics::MandatoryReauthOptInBubbleResult::kAccepted;
+      break;
+    case PaymentsUiClosedReason::kCancelled:
+      metric = autofill_metrics::MandatoryReauthOptInBubbleResult::kCancelled;
+      break;
+    case PaymentsUiClosedReason::kClosed:
+      metric = autofill_metrics::MandatoryReauthOptInBubbleResult::kClosed;
+      break;
+    case PaymentsUiClosedReason::kNotInteracted:
+      metric =
+          autofill_metrics::MandatoryReauthOptInBubbleResult::kNotInteracted;
+      break;
+    case PaymentsUiClosedReason::kLostFocus:
+      metric = autofill_metrics::MandatoryReauthOptInBubbleResult::kLostFocus;
+      break;
+    case PaymentsUiClosedReason::kUnknown:
+      metric = autofill_metrics::MandatoryReauthOptInBubbleResult::kUnknown;
+      break;
+  }
+  autofill_metrics::LogMandatoryReauthOptInBubbleResult(metric, is_reshow_);
+}
+
 void MandatoryReauthBubbleControllerImpl::OnBubbleClosed(
     PaymentsUiClosedReason closed_reason) {
   ResetBubbleViewAndInformBubbleManager();
@@ -151,11 +188,12 @@ void MandatoryReauthBubbleControllerImpl::OnBubbleClosed(
 #endif
 
   if (current_bubble_type_ == MandatoryReauthBubbleType::kOptIn) {
-    autofill_metrics::MandatoryReauthOptInBubbleResult metric =
-        autofill_metrics::MandatoryReauthOptInBubbleResult::kUnknown;
+    if (!bubble_hide_initiated_by_bubble_manager_) {
+      LogBubbleCloseOptInMetrics(closed_reason);
+    }
+
     switch (closed_reason) {
       case PaymentsUiClosedReason::kAccepted:
-        metric = autofill_metrics::MandatoryReauthOptInBubbleResult::kAccepted;
         // We must set the `current_bubble_type_` before running the callback,
         // as the callback is not always asynchronous (for example, in the case
         // where the user is automatically authenticated due to being within a
@@ -166,7 +204,6 @@ void MandatoryReauthBubbleControllerImpl::OnBubbleClosed(
         std::move(accept_mandatory_reauth_callback_).Run();
         break;
       case PaymentsUiClosedReason::kCancelled:
-        metric = autofill_metrics::MandatoryReauthOptInBubbleResult::kCancelled;
         // We must set the `current_bubble_type_` before running the callback,
         // as the callback is not always asynchronous (for example, in the case
         // where the user is automatically authenticated due to being within a
@@ -177,23 +214,13 @@ void MandatoryReauthBubbleControllerImpl::OnBubbleClosed(
         std::move(cancel_mandatory_reauth_callback_).Run();
         break;
       case PaymentsUiClosedReason::kClosed:
-        metric = autofill_metrics::MandatoryReauthOptInBubbleResult::kClosed;
         close_mandatory_reauth_callback_.Run();
         break;
       case PaymentsUiClosedReason::kNotInteracted:
-        metric =
-            autofill_metrics::MandatoryReauthOptInBubbleResult::kNotInteracted;
-        break;
       case PaymentsUiClosedReason::kLostFocus:
-        metric = autofill_metrics::MandatoryReauthOptInBubbleResult::kLostFocus;
-        break;
       case PaymentsUiClosedReason::kUnknown:
-        metric = autofill_metrics::MandatoryReauthOptInBubbleResult::kUnknown;
         break;
     }
-    DCHECK(metric !=
-           autofill_metrics::MandatoryReauthOptInBubbleResult::kUnknown);
-    autofill_metrics::LogMandatoryReauthOptInBubbleResult(metric, is_reshow_);
   } else {
     current_bubble_type_ = MandatoryReauthBubbleType::kInactive;
   }
@@ -221,10 +248,16 @@ MandatoryReauthBubbleControllerImpl::GetMandatoryReauthBubbleType() const {
   return current_bubble_type_;
 }
 
-std::optional<PageActionIconType>
-MandatoryReauthBubbleControllerImpl::GetPageActionIconType() {
-  return PageActionIconType::kMandatoryReauth;
+#if !BUILDFLAG(IS_ANDROID)
+std::optional<actions::ActionId>
+MandatoryReauthBubbleControllerImpl::GetActionIdForPageAction() {
+  return kActionAutofillMandatoryReauth;
 }
+
+bool MandatoryReauthBubbleControllerImpl::ShouldShowPageAction() {
+  return IsIconVisible();
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 void MandatoryReauthBubbleControllerImpl::DoShowBubble() {
 #if BUILDFLAG(IS_ANDROID)
@@ -245,6 +278,10 @@ void MandatoryReauthBubbleControllerImpl::DoShowBubble() {
   SetBubbleView(*autofill_bubble_handler->ShowMandatoryReauthBubble(
       web_contents(), this, /*is_user_gesture=*/false, current_bubble_type_));
 #endif  // BUILDFLAG(IS_ANDROID)
+}
+
+bool MandatoryReauthBubbleControllerImpl::CanBeReshown() const {
+  return current_bubble_type_ != MandatoryReauthBubbleType::kInactive;
 }
 
 BubbleType MandatoryReauthBubbleControllerImpl::GetBubbleType() const {
@@ -268,42 +305,6 @@ MandatoryReauthBubbleControllerImpl::GetJavaControllerBridge() {
   return base::android::ScopedJavaLocalRef<jobject>(java_controller_bridge_);
 }
 #endif
-
-void MandatoryReauthBubbleControllerImpl::UpdatePageActionIcon() {
-// Page action icons do not exist for Android.
-#if !BUILDFLAG(IS_ANDROID)
-  if (!IsPageActionMigrated(PageActionIconType::kMandatoryReauth)) {
-    AutofillBubbleControllerBase::UpdatePageActionIcon();
-  }
-
-  tabs::TabInterface* const tab_interface =
-      tabs::TabInterface::MaybeGetFromContents(web_contents());
-
-  if (!tab_interface) {
-    return;
-  }
-
-  tabs::TabFeatures* const tab_features = tab_interface->GetTabFeatures();
-  if (!tab_features) {
-    // This controller outlives the tab features.
-    return;
-  }
-
-  // NOTE: Consider creating a separate page action view controller file when
-  // the logic to show the page action become complex.
-  page_actions::PageActionController* page_action_controller =
-      tab_features->page_action_controller();
-  if (!page_action_controller) {
-    return;
-  }
-
-  if (IsIconVisible()) {
-    page_action_controller->Show(kActionAutofillMandatoryReauth);
-  } else {
-    page_action_controller->Hide(kActionAutofillMandatoryReauth);
-  }
-#endif  // !BUILDFLAG(IS_ANDROID)
-}
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(MandatoryReauthBubbleControllerImpl);
 

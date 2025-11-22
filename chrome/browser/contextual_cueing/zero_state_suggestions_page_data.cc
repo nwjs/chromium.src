@@ -60,7 +60,7 @@ void GetEligibilityAndRunCallback(
       content &&
       (!page_context_eligibility ||
        optimization_guide::IsPageContextEligible(
-           url.host(), url.path(),
+           url.GetHost(), url.GetPath(),
            optimization_guide::GetFrameMetadataFromPageContent(*content),
            page_context_eligibility));
   std::move(callback).Run(is_eligible ? std::make_optional(content->proto)
@@ -368,7 +368,8 @@ void ZeroStateSuggestionsPageData::InvokePageContextCallbacksIfComplete() {
   // Check if we are allowed to request suggestions for this page.
   if (!IsEligibleForContextualSuggestions(optimization_decision_,
                                           optimization_metadata_)) {
-    page_context_callbacks_.Notify(std::nullopt);
+    page_context_callbacks_.Notify(
+        base::unexpected(PageContextIneligibilityType::kOptimizationMetadata));
     return;
   }
 
@@ -382,9 +383,12 @@ void ZeroStateSuggestionsPageData::InvokePageContextCallbacksIfComplete() {
         "ContextualCueing.ZeroStateSuggestions.ContextExtractionDone", true);
   }
 
-  page_context_callbacks_.Notify(
-      has_page_context ? std::make_optional(ConstructPageContextProto())
-                       : std::nullopt);
+  if (has_page_context) {
+    page_context_callbacks_.Notify(base::ok(ConstructPageContextProto()));
+  } else {
+    page_context_callbacks_.Notify(
+        base::unexpected(PageContextIneligibilityType::kPageContext));
+  }
 }
 
 const GURL ZeroStateSuggestionsPageData::GetUrl() const {

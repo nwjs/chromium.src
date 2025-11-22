@@ -543,7 +543,7 @@ void GaiaCookieManagerService::ForceOnCookieChangeProcessing() {
   std::unique_ptr<net::CanonicalCookie> cookie =
       net::CanonicalCookie::CreateSanitizedCookie(
           google_url, GaiaConstants::kGaiaSigninCookieName, std::string(),
-          "." + google_url.host(), "/", base::Time(), base::Time(),
+          "." + google_url.GetHost(), "/", base::Time(), base::Time(),
           base::Time(), true /* secure */, false /* httponly */,
           net::CookieSameSite::NO_RESTRICTION, net::COOKIE_PRIORITY_DEFAULT,
           std::nullopt /* cookie_partition_key */, /*status=*/nullptr);
@@ -622,7 +622,7 @@ void GaiaCookieManagerService::MarkListAccountsStale() {
 void GaiaCookieManagerService::OnCookieChange(
     const net::CookieChangeInfo& change) {
   DCHECK(change.cookie.IsDomainMatch(
-      GaiaUrls::GetInstance()->google_url().host()));
+      GaiaUrls::GetInstance()->google_url().GetHost()));
 
   // This function is called for all changes in google.com cookies. It monitors
   // deletions for all cookies, and  non-deletion changes for
@@ -792,6 +792,19 @@ GaiaCookieManagerService::CreateGaiaAuthFetcherForPartition(
 network::mojom::CookieManager*
 GaiaCookieManagerService::GetCookieManagerForPartition() {
   return signin_client_->GetCookieManager();
+}
+
+bool GaiaCookieManagerService::CanBindCookiesForPartition() {
+  // `GaiaCookieManagerService` manages the cookies for the default storage
+  // partition, the default storage partition should always allow cookie
+  // binding.
+  return true;
+}
+
+std::unique_ptr<signin::BoundSessionOAuthMultiLoginDelegate>
+GaiaCookieManagerService::
+    CreateBoundSessionOAuthMultiLoginDelegateForPartition() {
+  return signin_client_->CreateBoundSessionOAuthMultiloginDelegate();
 }
 
 void GaiaCookieManagerService::InitializeListedAccountsIds() {

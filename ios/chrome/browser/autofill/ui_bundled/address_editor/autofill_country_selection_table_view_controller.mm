@@ -55,9 +55,7 @@ const CGFloat kBackButtonSize = 24;
   BOOL _settingsView;
 
   // Refers to the title of the view controller on top of which the country view
-  // controller is presented. It is set only when
-  // `kAutofillDynamicallyLoadsFieldsForAddressInput` is enabled and for
-  // non-settings view.
+  // controller is presented. It is set only for non-settings view.
   NSString* _previousViewControllerTitle;
 }
 
@@ -75,10 +73,7 @@ const CGFloat kBackButtonSize = 24;
   DCHECK(delegate);
 
   UITableViewStyle viewStyle =
-      (settingsView || base::FeatureList::IsEnabled(
-                           kAutofillDynamicallyLoadsFieldsForAddressInput))
-          ? ChromeTableViewStyle()
-          : UITableViewStylePlain;
+      settingsView ? ChromeTableViewStyle() : UITableViewStylePlain;
 
   self = [super initWithStyle:viewStyle];
   if (self) {
@@ -101,37 +96,30 @@ const CGFloat kBackButtonSize = 24;
                                            : IDS_IOS_AUTOFILL_SELECT_COUNTRY);
 
   if (!_settingsView) {
-    if (base::FeatureList::IsEnabled(
-            kAutofillDynamicallyLoadsFieldsForAddressInput)) {
-      CHECK(_previousViewControllerTitle);
-      UIImage* image =
-          DefaultSymbolWithPointSize(kChevronBackwardSymbol, kBackButtonSize);
+    CHECK(_previousViewControllerTitle);
+    UIImage* image =
+        DefaultSymbolWithPointSize(kChevronBackwardSymbol, kBackButtonSize);
 
-      UIButton* backButton = [UIButton buttonWithType:UIButtonTypeSystem];
-      [backButton setImage:image forState:UIControlStateNormal];
-      [backButton setTitle:_previousViewControllerTitle
-                  forState:UIControlStateNormal];
-      [backButton addTarget:self
-                     action:@selector(dismissViewController)
-           forControlEvents:UIControlEventTouchUpInside];
+    UIButton* backButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [backButton setImage:image forState:UIControlStateNormal];
+    [backButton setTitle:_previousViewControllerTitle
+                forState:UIControlStateNormal];
+    [backButton addTarget:self
+                   action:@selector(dismissViewController)
+         forControlEvents:UIControlEventTouchUpInside];
 
-      UIButtonConfiguration* config = backButton.configuration;
-      config.contentInsets =
-          NSDirectionalEdgeInsetsMake(0, 8, 0, 0);  // Adjust values as needed
-      backButton.configuration = config;
+    UIButtonConfiguration* config = backButton.configuration;
+    config.contentInsets =
+        NSDirectionalEdgeInsetsMake(0, 8, 0, 0);  // Adjust values as needed
+    backButton.configuration = config;
 
-      // Size the button to fit the content
-      [backButton sizeToFit];
+    // Size the button to fit the content
+    [backButton sizeToFit];
 
-      // Create a UIBarButtonItem with the custom button
-      UIBarButtonItem* customBackButton =
-          [[UIBarButtonItem alloc] initWithCustomView:backButton];
-      self.navigationItem.leftBarButtonItem = customBackButton;
-    } else {
-      self.view.backgroundColor = [UIColor colorNamed:kBackgroundColor];
-      self.tableView.sectionHeaderHeight = 0;
-      self.tableView.sectionFooterHeight = 0;
-    }
+    // Create a UIBarButtonItem with the custom button
+    UIBarButtonItem* customBackButton =
+        [[UIBarButtonItem alloc] initWithCustomView:backButton];
+    self.navigationItem.leftBarButtonItem = customBackButton;
   }
 
   [self.tableView
@@ -316,11 +304,9 @@ const CGFloat kBackButtonSize = 24;
 #pragma mark - SettingsControllerProtocol
 
 - (void)reportDismissalUserAction {
-  // TODO(crbug.com/40253248): Record for this VC.
 }
 
 - (void)reportBackUserAction {
-  // TODO(crbug.com/40253248): Record for this VC.
 }
 
 @end

@@ -12,7 +12,6 @@
 #include "gpu/command_buffer/common/command_buffer_id.h"
 #include "gpu/command_buffer/common/mailbox_holder.h"
 #include "gpu/command_buffer/common/sync_token.h"
-#include "ui/gfx/buffer_format_util.h"
 
 // Generate param traits write methods.
 #include "ipc/param_traits_write_macros.h"
@@ -94,12 +93,12 @@ bool ParamTraits<gpu::MailboxHolder>::Read(const base::Pickle* m,
   return true;
 }
 
-void ParamTraits<gpu::GpuMemoryBufferFormatSet>::Write(base::Pickle* m,
+void ParamTraits<gfx::GpuMemoryBufferFormatSet>::Write(base::Pickle* m,
                                                        const param_type& p) {
   WriteParam(m, p.ToEnumBitmask());
 }
 
-bool ParamTraits<gpu::GpuMemoryBufferFormatSet>::Read(
+bool ParamTraits<gfx::GpuMemoryBufferFormatSet>::Read(
     const base::Pickle* m,
     base::PickleIterator* iter,
     param_type* p) {
@@ -107,12 +106,12 @@ bool ParamTraits<gpu::GpuMemoryBufferFormatSet>::Read(
   if (!ReadParam(m, iter, &bitmask)) {
     return false;
   }
-  // Check deserialized bitmask contains only bits GpuMemoryBufferFormatSet
+  // Check deserialized bitmask contains only bits gfx::GpuMemoryBufferFormatSet
   // expects to be set based on largest enum it expects.
-  if (bitmask & ~gpu::GpuMemoryBufferFormatSet::All().ToEnumBitmask()) {
+  if (bitmask & ~gfx::GpuMemoryBufferFormatSet::All().ToEnumBitmask()) {
     return false;
   }
-  *p = gpu::GpuMemoryBufferFormatSet::FromEnumBitmask(bitmask);
+  *p = gfx::GpuMemoryBufferFormatSet::FromEnumBitmask(bitmask);
   return true;
 }
 

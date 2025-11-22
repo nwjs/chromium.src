@@ -20,6 +20,7 @@ import static org.chromium.chrome.browser.hub.HubColorMixer.COLOR_MIXER;
 import static org.chromium.chrome.browser.hub.HubToolbarProperties.BACK_BUTTON_ENABLED;
 import static org.chromium.chrome.browser.hub.HubToolbarProperties.BACK_BUTTON_LISTENER;
 import static org.chromium.chrome.browser.hub.HubToolbarProperties.BACK_BUTTON_VISIBLE;
+import static org.chromium.chrome.browser.hub.HubToolbarProperties.HAIRLINE_VISIBILITY;
 import static org.chromium.chrome.browser.hub.HubToolbarProperties.HUB_SEARCH_ENABLED_STATE;
 import static org.chromium.chrome.browser.hub.HubToolbarProperties.IS_INCOGNITO;
 import static org.chromium.chrome.browser.hub.HubToolbarProperties.MENU_BUTTON_VISIBLE;
@@ -30,6 +31,9 @@ import static org.chromium.chrome.browser.hub.HubToolbarProperties.SEARCH_BOX_VI
 import static org.chromium.chrome.browser.hub.HubToolbarProperties.SEARCH_LISTENER;
 import static org.chromium.chrome.browser.hub.HubToolbarProperties.SEARCH_LOUPE_VISIBLE;
 
+import android.animation.Animator;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.GradientDrawable;
@@ -39,6 +43,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 
 import androidx.core.content.ContextCompat;
@@ -61,6 +66,7 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameter;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 
 import org.chromium.base.Callback;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRule;
 import org.chromium.base.test.util.CallbackHelper;
@@ -75,7 +81,6 @@ import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
-import org.chromium.ui.util.XrUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -121,12 +126,13 @@ public class HubToolbarViewUnitTest {
     private View mSearchLoupe;
     private EditText mSearchBoxText;
     private ImageButton mBackButton;
+    private ImageView mHairline;
     private PropertyModel mPropertyModel;
     private HubColorMixer mColorMixer;
 
     @Before
     public void setUp() throws Exception {
-        XrUtils.setXrDeviceForTesting(mIsXrDevice);
+        DeviceInfo.setIsXrForTesting(mIsXrDevice);
 
         mActivityScenarioRule.getScenario().onActivity(this::onActivity);
     }
@@ -146,6 +152,7 @@ public class HubToolbarViewUnitTest {
         mSearchLoupe = mToolbarContainer.findViewById(R.id.search_loupe);
         mSearchBoxText = mToolbarContainer.findViewById(R.id.search_box_text);
         mBackButton = mToolbarContainer.findViewById(R.id.toolbar_back_button);
+        mHairline = mToolbarContainer.findViewById(R.id.toolbar_bottom_hairline);
         mActivity.setContentView(mToolbarContainer);
 
         mFocusedPaneSupplier = new ObservableSupplierImpl<>();
@@ -165,6 +172,43 @@ public class HubToolbarViewUnitTest {
                 HubToolbarViewBinder::bind);
         when(mPane.getColorScheme()).thenReturn(HubColorScheme.DEFAULT);
         mFocusedPaneSupplier.set(mPane);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_PINNED_TABS + ":search_box_squish_animation/true")
+    public void testGetHubSearchBoxTransitionAnimation_pinnedTabsEnabled_SquishAnimationEnabled() {
+        HubToolbarView hubToolbarView = mToolbarContainer.findViewById(R.id.hub_toolbar);
+        AnimatorSet animatorSet = hubToolbarView.getHubSearchBoxTransitionAnimation(true);
+        ArrayList<Animator> animators = animatorSet.getChildAnimations();
+        assertEquals(2, animators.size());
+        boolean hasScaleY = false;
+        for (Animator animator : animators) {
+            if (animator instanceof ObjectAnimator objectAnimator) {
+                if (objectAnimator.getPropertyName().equals("scaleY")) {
+                    hasScaleY = true;
+                }
+            }
+        }
+        assertTrue(hasScaleY);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_PINNED_TABS)
+    public void testGetHubSearchBoxTransitionAnimation_pinnedTabsDisabled() {
+        HubToolbarView hubToolbarView = mToolbarContainer.findViewById(R.id.hub_toolbar);
+        AnimatorSet animatorSet = hubToolbarView.getHubSearchBoxTransitionAnimation(true);
+        ArrayList<Animator> animators = animatorSet.getChildAnimations();
+        assertEquals(2, animators.size());
+        boolean hasTranslateY = false;
+        for (Animator animator : animators) {
+            if (animator instanceof ObjectAnimator) {
+                ObjectAnimator objectAnimator = (ObjectAnimator) animator;
+                if (objectAnimator.getPropertyName().equals("translationY")) {
+                    hasTranslateY = true;
+                }
+            }
+        }
+        assertTrue(hasTranslateY);
     }
 
     private FullButtonData makeTestButtonData() {
@@ -336,6 +380,17 @@ public class HubToolbarViewUnitTest {
     }
 
     @Test
+    public void testHairlineVisibility() {
+        assertEquals(View.GONE, mHairline.getVisibility());
+
+        mPropertyModel.set(HAIRLINE_VISIBILITY, true);
+        assertEquals(View.VISIBLE, mHairline.getVisibility());
+
+        mPropertyModel.set(HAIRLINE_VISIBILITY, false);
+        assertEquals(View.GONE, mHairline.getVisibility());
+    }
+
+    @Test
     @EnableFeatures({ChromeFeatureList.HUB_BACK_BUTTON})
     public void testBackButtonVisibility() {
         mPropertyModel.set(BACK_BUTTON_VISIBLE, false);
@@ -451,7 +506,7 @@ public class HubToolbarViewUnitTest {
         ChromeFeatureList.GRID_TAB_SWITCHER_UPDATE,
     })
     public void testHubColorMixer_searchBoxEnabled() {
-        verify(mColorMixer, times(9)).registerBlend(any());
+        verify(mColorMixer, times(10)).registerBlend(any());
     }
 
     /**

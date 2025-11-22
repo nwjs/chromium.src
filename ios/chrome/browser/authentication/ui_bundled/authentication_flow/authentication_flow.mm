@@ -82,15 +82,6 @@ enum class AuthenticationState {
   kDone,
 };
 
-enum class CancelationReason {
-  // Not canceled.
-  kNotCanceled,
-  // Canceled by the user.
-  kUserCanceled,
-  // Canceled, but not by the user.
-  kFailed,
-};
-
 // Used by `RecordUnsyncedDataHistogramIfNeeded()` to know which histogram to
 // record the unsynced data types.
 enum class UnsyncedDataTypeHistogram {
@@ -119,7 +110,7 @@ enum class IOSIdentityAvailableInProfile : int {
 // * there is already a profile that has been fully initialized for gaia_id, or
 // * a policy forces the browsing data to stay separated.
 bool ShouldSkipBrowsingDataMigration(signin_metrics::AccessPoint access_point,
-                                     NSString* gaia_id,
+                                     GaiaId gaia_id,
                                      PrefService* pref_service) {
   bool always_separate_browsing_data_per_policy =
       pref_service->GetInteger(
@@ -136,7 +127,7 @@ bool ShouldSkipBrowsingDataMigration(signin_metrics::AccessPoint access_point,
 // disabled by policy and not because of another reason.
 bool IsBrowsingDataMigrationDisabledByPolicy(
     signin_metrics::AccessPoint access_point,
-    NSString* gaia_id,
+    GaiaId gaia_id,
     PrefService* pref_service,
     signin::IdentityManager* identity_manager,
     policy::ProfileSeparationDataMigrationSettings
@@ -157,15 +148,15 @@ bool IsBrowsingDataMigrationDisabledByPolicy(
 // Returns if `identity` is available by AccountProfileMapper and if it is
 // available by IdentityManager.
 IOSIdentityAvailableInProfile IdentityAvailableInProfileStatus(
-    NSString* gaia_id,
+    GaiaId gaia_id,
     signin::IdentityManager* identity_manager,
     std::string_view profile_name) {
   bool is_identity_available_in_profile_mapper = false;
   AccountProfileMapper::IdentityIteratorCallback callback = base::BindRepeating(
-      [](BOOL* isIdentityAvailableInProfileMapper,
-         NSString* signinIdentityGaiaID, id<SystemIdentity> identity) {
+      [](BOOL* isIdentityAvailableInProfileMapper, GaiaId signinIdentityGaiaID,
+         id<SystemIdentity> identity) {
         *isIdentityAvailableInProfileMapper =
-            [identity.gaiaID isEqualToString:signinIdentityGaiaID];
+            identity.gaiaId == signinIdentityGaiaID;
         return *isIdentityAvailableInProfileMapper
                    ? AccountProfileMapper::IteratorResult::kInterruptIteration
                    : AccountProfileMapper::IteratorResult::kContinueIteration;
@@ -196,7 +187,7 @@ IOSIdentityAvailableInProfile IdentityAvailableInProfileStatus(
 
 // Records `Signin.IOSIdentityAvailableInProfile` histogram.
 void RecordIOSIdentityAvailableInProfile(
-    NSString* gaia_id,
+    GaiaId gaia_id,
     signin::IdentityManager* identity_manager,
     std::string_view profile_name) {
   IOSIdentityAvailableInProfile identity_available =
@@ -280,7 +271,7 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
 
   // State machine tracking.
   AuthenticationState _state;
-  CancelationReason _cancelationReason;
+  signin_ui::CancelationReason _cancelationReason;
   // YES if the personal profile should be converted to a managed (work) profile
   // as part of the signin flow. Can only be true if the to-be-signed-in account
   // is managed.
@@ -352,7 +343,7 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
     _anchorView = anchorView;
     _anchorRect = anchorRect;
     _state = AuthenticationState::kBegin;
-    _cancelationReason = CancelationReason::kNotCanceled;
+    _cancelationReason = signin_ui::CancelationReason::kNotCanceled;
     _profileSeparationDataMigrationSettings =
         policy::ProfileSeparationDataMigrationSettings::USER_OPT_IN;
 
@@ -404,7 +395,7 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
     // The performer might not have been able to continue the flow if it was
     // waiting for a callback (e.g. waiting for AccountReconcilor). In this
     // case, we force the flow to finish synchronously.
-    [self cancelFlowWithReason:CancelationReason::kFailed];
+    [self cancelFlowWithReason:signin_ui::CancelationReason::kFailed];
   }
   DCHECK_EQ(AuthenticationState::kDone, _state);
 }
@@ -586,7 +577,7 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
 // Fetches ManagedAccountsSigninRestriction policy, if needed.
 - (void)fetchProfileSeparationPoliciesIfNeededStep {
   if (!ShouldShowManagedConfirmationForHostedDomain(
-          _identityToSignInHostedDomain, _accessPoint, _identityToSignIn.gaiaID,
+          _identityToSignInHostedDomain, _accessPoint, _identityToSignIn.gaiaId,
           [self prefs])) {
     // The managed confirmation dialog can be skipped, therefore, there is no
     // need to fetch the policy.
@@ -594,7 +585,7 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
     return;
   }
   if (!AreSeparateProfilesForManagedAccountsEnabled() ||
-      ShouldSkipBrowsingDataMigration(_accessPoint, _identityToSignIn.gaiaID,
+      ShouldSkipBrowsingDataMigration(_accessPoint, _identityToSignIn.gaiaId,
                                       [self prefs])) {
     // The profile-separation policy affects whether browsing-data-migration
     // is offered, so it's only needed if the migration isn't skipped.
@@ -610,7 +601,7 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
 // Shows a confirmation dialog for signing in to an account managed.
 - (void)showManagedConfirmationIfNeededStep {
   if (!ShouldShowManagedConfirmationForHostedDomain(
-          _identityToSignInHostedDomain, _accessPoint, _identityToSignIn.gaiaID,
+          _identityToSignInHostedDomain, _accessPoint, _identityToSignIn.gaiaId,
           [self prefs])) {
     [self continueFlow];
     return;
@@ -627,7 +618,7 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
     PrefService* prefService = [self prefs];
     skipBrowsingDataMigration =
         _profileSeparationDataMigrationSettings == policy::ALWAYS_SEPARATE ||
-        ShouldSkipBrowsingDataMigration(_accessPoint, _identityToSignIn.gaiaID,
+        ShouldSkipBrowsingDataMigration(_accessPoint, _identityToSignIn.gaiaId,
                                         prefService);
 
     signin::IdentityManager* identityManager =
@@ -635,7 +626,7 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
 
     browsingDataMigrationDisabledByPolicy =
         IsBrowsingDataMigrationDisabledByPolicy(
-            _accessPoint, _identityToSignIn.gaiaID, prefService,
+            _accessPoint, _identityToSignIn.gaiaId, prefService,
             identityManager, _profileSeparationDataMigrationSettings);
 
     // Merge browsing data by default if the data migration screen is shown to
@@ -675,26 +666,25 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
   ProfileIOS* profile = [self profile];
   signin::IdentityManager* identityManager =
       IdentityManagerFactory::GetForProfile(profile);
-  RecordIOSIdentityAvailableInProfile(_identityToSignIn.gaiaID, identityManager,
+  RecordIOSIdentityAvailableInProfile(_identityToSignIn.gaiaId, identityManager,
                                       profile->GetProfileName());
   std::vector<AccountInfo> accountsOnDevice =
       identityManager->GetAccountsOnDevice();
   BOOL isValidIdentityOnDevice = base::Contains(
-      accountsOnDevice, GaiaId(_identityToSignIn.gaiaID), &AccountInfo::gaia);
+      accountsOnDevice, _identityToSignIn.gaiaId, &AccountInfo::gaia);
   std::vector<CoreAccountInfo> accountsInProfile =
       identityManager->GetAccountsWithRefreshTokens();
-  BOOL isValidIdentityInProfile =
-      base::Contains(accountsInProfile, GaiaId(_identityToSignIn.gaiaID),
-                     &CoreAccountInfo::gaia);
+  BOOL isValidIdentityInCurrentProfile = base::Contains(
+      accountsInProfile, _identityToSignIn.gaiaId, &CoreAccountInfo::gaia);
   if (!isValidIdentityOnDevice ||
-      (!isValidIdentityInProfile &&
+      (!isValidIdentityInCurrentProfile &&
        !AreSeparateProfilesForManagedAccountsEnabled())) {
     // Handle the case where the identity is no longer valid.
     NSError* error = ios::provider::CreateMissingIdentitySigninError();
     [self handleAuthenticationError:error];
     return;
   }
-  if (isValidIdentityInProfile) {
+  if (isValidIdentityInCurrentProfile) {
     // If the identity is in the current profile, the flow should continue,
     // without switching profile.
     RecordUnsyncedDataHistogramIfNeeded(
@@ -714,10 +704,13 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
     __weak id<AuthenticationFlowDelegate> delegate = [self takeDelegate];
     // Not using a call to a method on self, because self will be
     // deallocated by the time the `signinCompletion` is executed.
-    _signInInProfileCompletion = ^(SigninCoordinatorResult result) {
+    _signInInProfileCompletion = ^(
+        signin_ui::CancelationReason cancelationReason) {
       [delegate
-          authenticationFlowDidSignInInSameProfileWithResult:result
-                                                    identity:identityToSignIn];
+          authenticationFlowDidSignInInSameProfileWithCancelationReason:
+              cancelationReason
+                                                               identity:
+                                                                   identityToSignIn];
       if (Browser* browser = weakBrowser.get()) {
         CompletePostSignInActions(postSignInActions, identityToSignIn, browser,
                                   accessPoint);
@@ -726,6 +719,22 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
     [self continueFlow];
     return;
   }
+  BOOL isValidIdentityInSomeProfile =
+      GetApplicationContext()
+          ->GetAccountProfileMapper()
+          ->FindProfileNameForGaiaID(_identityToSignIn.gaiaId)
+          .has_value();
+  if (!isValidIdentityInSomeProfile) {
+    __weak __typeof(self) weakSelf = self;
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(
+                       [](__typeof(self) weakSelf) {
+                         [weakSelf didFailToSwitchToProfile];
+                       },
+                       weakSelf));
+    return;
+  }
+
   RecordUnsyncedDataHistogramIfNeeded(
       UnsyncedDataTypeHistogram::kUnsyncedDataOnProfileSwitching,
       _unsyncedDataTypes.value());
@@ -737,7 +746,7 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
   //   profile switch must be due to an account change.
   // * Otherwise, it must be due to a signin with a managed account (because a
   //   signin with a non-managed account wouldn't cause a profile switch - that
-  //   case is handled in the `isValidIdentityInProfile` check above).
+  //   case is handled in the `isValidIdentityInCurrentProfile` check above).
   ChangeProfileReason reason =
       identityManager->HasPrimaryAccount(signin::ConsentLevel::kSignin)
           ? ChangeProfileReason::kSwitchAccounts
@@ -798,19 +807,11 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
 // authenticationFlowDidSignInInSameProfile:withResult:]` synchronously when the
 // flow failed.
 - (void)completeWithFailureStep {
-  SigninCoordinatorResult result;
-  switch (_cancelationReason) {
-    case CancelationReason::kFailed:
-      result = SigninCoordinatorResult::SigninCoordinatorResultInterrupted;
-      break;
-    case CancelationReason::kUserCanceled:
-      result = SigninCoordinatorResult::SigninCoordinatorResultCanceledByUser;
-      break;
-    case CancelationReason::kNotCanceled:
-      NOTREACHED();
-  }
-  [[self takeDelegate] authenticationFlowDidSignInInSameProfileWithResult:result
-                                                                 identity:nil];
+  CHECK_NE(_cancelationReason, signin_ui::CancelationReason::kNotCanceled);
+  [[self takeDelegate]
+      authenticationFlowDidSignInInSameProfileWithCancelationReason:
+          _cancelationReason
+                                                           identity:nil];
   [self continueFlow];
 }
 
@@ -826,12 +827,12 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
 }
 
 - (BOOL)canceled {
-  return _cancelationReason != CancelationReason::kNotCanceled;
+  return _cancelationReason != signin_ui::CancelationReason::kNotCanceled;
 }
 
 // Cancels the current sign-in flow.
-- (void)cancelFlowWithReason:(CancelationReason)reason {
-  CHECK_NE(reason, CancelationReason::kNotCanceled);
+- (void)cancelFlowWithReason:(signin_ui::CancelationReason)reason {
+  CHECK_NE(reason, signin_ui::CancelationReason::kNotCanceled);
   if ([self canceled]) {
     // Avoid double handling of cancel or error.
     return;
@@ -847,7 +848,8 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
     return;
   }
   DCHECK(error);
-  _cancelationReason = CancelationReason::kFailed;
+  CHECK(_browser, base::NotFatalUntil::M150);
+  _cancelationReason = signin_ui::CancelationReason::kFailed;
   self.handlingError = YES;
   __weak AuthenticationFlow* weakSelf = self;
   [_performer showAuthenticationError:error
@@ -875,7 +877,7 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
   if (acceptToContinue) {
     [self continueFlow];
   } else {
-    [self cancelFlowWithReason:CancelationReason::kUserCanceled];
+    [self cancelFlowWithReason:signin_ui::CancelationReason::kUserCanceled];
   }
 }
 
@@ -910,7 +912,7 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
     (BOOL)browsingDataSeparate {
   // Only show the dialog once per account.
   signin::GaiaIdHash gaiaIDHash =
-      signin::GaiaIdHash::FromGaiaId(GaiaId(_identityToSignIn.gaiaID));
+      signin::GaiaIdHash::FromGaiaId(_identityToSignIn.gaiaId);
   syncer::SetAccountKeyedPrefValue([self prefs],
                                    prefs::kSigninHasAcceptedManagementDialog,
                                    gaiaIDHash, base::Value(true));
@@ -938,7 +940,7 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
 }
 
 - (void)didCancelManagedConfirmation {
-  [self cancelFlowWithReason:CancelationReason::kUserCanceled];
+  [self cancelFlowWithReason:signin_ui::CancelationReason::kUserCanceled];
 }
 
 - (void)didFailToSwitchToProfile {
@@ -963,7 +965,7 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
   _browserForAuthenticationFlowInProfile = newProfileBrowser;
   CHECK(!_signInInProfileCompletion);
   _signInInProfileCompletion = base::CallbackToBlock(
-      base::IgnoreArgs<SigninCoordinatorResult>(std::move(completion)));
+      base::IgnoreArgs<signin_ui::CancelationReason>(std::move(completion)));
 
   [self continueFlow];
 }

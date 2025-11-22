@@ -9,27 +9,41 @@
 
 #include "base/containers/span.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/notimplemented.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
 #include "base/types/pass_key.h"
 #include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_keyed_service_factory.h"
+#include "chrome/browser/actor/actor_policy_checker.h"
 #include "chrome/browser/actor/actor_tab_data.h"
 #include "chrome/browser/actor/actor_task.h"
+#include "chrome/browser/actor/actor_task_metadata.h"
 #include "chrome/browser/actor/aggregated_journal.h"
 #include "chrome/browser/actor/browser_action_util.h"
 #include "chrome/browser/actor/execution_engine.h"
-#include "chrome/browser/actor/site_policy.h"
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/browser/actor/ui/actor_ui_state_manager.h"
 #include "chrome/browser/actor/ui/event_dispatcher.h"
 #include "chrome/browser/page_content_annotations/multi_source_page_context_fetcher.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser_navigator.h"
+#include "chrome/browser/ui/browser_navigator_params.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/action_result.h"
+#include "chrome/common/actor/journal_details_builder.h"
 #include "chrome/common/actor/task_id.h"
+#include "chrome/common/chrome_features.h"
+#include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/download_item_utils.h"
+#include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
+#include "ui/base/window_open_disposition.h"
 
 namespace {
 void RunLater(base::OnceClosure task) {
@@ -58,7 +72,16 @@ using ui::ActorUiStateManagerInterface;
 
 ActorKeyedService::ActorKeyedService(Profile* profile) : profile_(profile) {
   actor_ui_state_manager_ = std::make_unique<ui::ActorUiStateManager>(*this);
-  InitActionBlocklist(profile);
+  policy_checker_ = std::make_unique<ActorPolicyChecker>(*this);
+  profile_observation_.Observe(profile_);
+}
+
+void ActorKeyedService::OnProfileInitializationComplete(Profile* profile) {
+  // `download_notifier_` is set up after profile initialization because
+  // `GetDownloadManager()` relies on other download services to be fully
+  // initialized which may not be true until the profile is initialized.
+  download_notifier_ = std::make_unique<download::AllDownloadItemNotifier>(
+      profile_->GetDownloadManager(), this);
 }
 
 ActorKeyedService::~ActorKeyedService() = default;
@@ -88,6 +111,98 @@ const ActorTask* ActorKeyedService::GetActingActorTaskForWebContents(
   return nullptr;
 }
 
+void ActorKeyedService::CreateActorTab(TaskId task_id,
+                                       bool open_in_background,
+                                       tabs::TabHandle initiator_tab_handle,
+                                       SessionID initiator_window_id,
+                                       CreateActorTabCallback callback) {
+  GetJournal().Log(
+      GURL(), task_id, "CreateActorTab",
+      JournalDetailsBuilder()
+          .Add("task_id", task_id)
+          .Add("open_in_background", open_in_background)
+          .Add("initiator_tab_id", initiator_tab_handle.raw_value())
+          .Add("initiator_window_id", initiator_window_id.id())
+          .Build());
+  ActorTask* task = GetTask(task_id);
+  if (!task) {
+    GetJournal().Log(GURL(), task_id, "CreateActorTab",
+                     JournalDetailsBuilder().AddError("Invalid Task").Build());
+  }
+
+  BrowserWindowInterface* window_for_new_tab = nullptr;
+  tabs::TabInterface* initiator_tab = initiator_tab_handle.Get();
+
+  // If the initiating tab is still live, create the new tab in the same window.
+  if (initiator_tab) {
+    if (initiator_tab->IsInNormalWindow()) {
+      window_for_new_tab = initiator_tab->GetBrowserWindowInterface();
+      GetJournal().Log(GURL(), task_id, "CreateActorTab",
+                       JournalDetailsBuilder()
+                           .Add("Using initiator_tab's window",
+                                window_for_new_tab->GetSessionID().id())
+                           .Build());
+    }
+  } else {
+    // If the tab was closed, open it in the window it was in (at the time of
+    // task initiation).
+    window_for_new_tab =
+        BrowserWindowInterface::FromSessionID(initiator_window_id);
+    GetJournal().Log(
+        GURL(), task_id, "CreateActorTab",
+        JournalDetailsBuilder()
+            .Add("Using initiator_window", initiator_window_id.id())
+            .Build());
+  }
+
+  NavigateParams params(profile_.get(), GURL(url::kAboutBlankURL),
+                        ::ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
+
+  if (window_for_new_tab) {
+    params.disposition = open_in_background
+                             ? WindowOpenDisposition::NEW_BACKGROUND_TAB
+                             : WindowOpenDisposition::NEW_FOREGROUND_TAB;
+    params.browser = window_for_new_tab;
+    params.window_action = NavigateParams::WindowAction::NO_ACTION;
+
+    if (initiator_tab) {
+      int initiator_index =
+          window_for_new_tab->GetTabStripModel()->GetIndexOfTab(initiator_tab);
+      if (initiator_index != TabStripModel::kNoTab) {
+        params.tabstrip_index = initiator_index + 1;
+      }
+    }
+  } else {
+    GetJournal().Log(
+        GURL(), task_id, "CreateActorTab",
+        JournalDetailsBuilder().Add("Creating New Window", "").Build());
+    // If window_for_new_tab is still null (e.g. the initiating window was
+    // closed) the tab will be created in a new window.
+    // TODO(b/454046200): Reconsider what should happen in this case.
+    params.disposition = WindowOpenDisposition::NEW_WINDOW;
+    params.window_action = NavigateParams::WindowAction::SHOW_WINDOW;
+  }
+
+  base::WeakPtr<content::NavigationHandle> handle = Navigate(&params);
+  if (!handle) {
+    GetJournal().Log(
+        GURL(), task_id, "CreateActorTab",
+        JournalDetailsBuilder().AddError("Failed creating navigation").Build());
+    std::move(callback).Run(nullptr);
+    return;
+  }
+
+  content::WebContents* contents = handle->GetWebContents();
+  if (!contents) {
+    std::move(callback).Run(nullptr);
+    return;
+  }
+
+  // It might be good to wait for this navigation to finish but given we're
+  // navigating to about:blank it probably doesn't matter in practice.
+  std::move(callback).Run(tabs::TabInterface::GetFromContents(contents));
+}
+
 base::WeakPtr<ActorKeyedService> ActorKeyedService::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
 }
@@ -107,7 +222,7 @@ const std::map<TaskId, const ActorTask*> ActorKeyedService::GetActiveTasks()
     const {
   std::map<TaskId, const ActorTask*> active_tasks;
   for (const auto& [id, task] : active_tasks_) {
-    CHECK_NE(task->IsStopped(), true);
+    CHECK_NE(task->IsCompleted(), true);
     active_tasks[id] = task.get();
   }
   return active_tasks;
@@ -124,19 +239,34 @@ const std::map<TaskId, const ActorTask*> ActorKeyedService::GetInactiveTasks()
 
 void ActorKeyedService::ResetForTesting() {
   for (auto it = active_tasks_.begin(); it != active_tasks_.end();) {
-    StopTask((it++)->first, /*success=*/true);
+    StopTask((it++)->first, ActorTask::StoppedReason::kTaskComplete);
   }
   active_tasks_.clear();
   inactive_tasks_.clear();
 }
 
-TaskId ActorKeyedService::CreateTask(webui::mojom::TaskOptionsPtr options) {
+TaskId ActorKeyedService::CreateTask() {
+  return CreateTaskWithOptions(nullptr, nullptr);
+}
+
+TaskId ActorKeyedService::CreateTaskWithOptions(
+    webui::mojom::TaskOptionsPtr options,
+    base::WeakPtr<ActorTaskDelegate> delegate) {
   TRACE_EVENT0("actor", "ActorKeyedService::CreateTask");
+  if (!policy_checker_->can_act_on_web()) {
+    base::UmaHistogramBoolean("Actor.Task.Created", false);
+    GetJournal().Log(GURL(), TaskId(), "ActorKeyedService::CreateTask",
+                     JournalDetailsBuilder()
+                         .AddError("Actuation capability disabled")
+                         .Build());
+    return TaskId();
+  }
   base::UmaHistogramBoolean("Actor.Task.Created", true);
   auto execution_engine = std::make_unique<ExecutionEngine>(profile_.get());
   auto actor_task = std::make_unique<ActorTask>(
       profile_.get(), std::move(execution_engine),
-      ui::NewUiEventDispatcher(GetActorUiStateManager()), std::move(options));
+      ui::NewUiEventDispatcher(GetActorUiStateManager()), std::move(options),
+      std::move(delegate));
   return AddActiveTask(std::move(actor_task));
 }
 
@@ -149,74 +279,17 @@ void ActorKeyedService::NotifyTaskStateChanged(const ActorTask& task) {
   tab_state_change_callback_list_.Notify(task);
 }
 
-base::CallbackListSubscription
-ActorKeyedService::AddRequestToShowCredentialSelectionDialogSubscriberCallback(
-    RequestToShowCredentialSelectionDialogSubscriberCallback callback) {
-  return request_to_show_credential_selection_dialog_callback_list_.Add(
-      std::move(callback));
-}
-
-void ActorKeyedService::NotifyRequestToShowCredentialSelectionDialog(
-    TaskId task_id,
-    const base::flat_map<std::string, gfx::Image>& icons,
-    const std::vector<actor_login::Credential>& credentials) {
-  request_to_show_credential_selection_dialog_callback_list_.Notify(
-      task_id, icons, credentials,
-      base::BindRepeating(&ActorKeyedService::OnCredentialSelected,
-                          weak_ptr_factory_.GetWeakPtr(), task_id));
-}
-
-void ActorKeyedService::OnCredentialSelected(
-    TaskId request_task_id,
-    webui::mojom::SelectCredentialDialogResponsePtr response) {
-  TRACE_EVENT0("actor", "ActorKeyedService::OnCredentialSelected");
-  // TODO(crbug.com/440147814): Update the `UserGrantedPermissionDuration`
-  // if the user changes the permission.
-  TaskId response_task_id(response->task_id);
-  if (response_task_id != request_task_id) {
-    // TODO(crbug.com/441500534): We should also add error handling in
-    // glic_api_host.ts.
-    VLOG(1) << "SelectCredentialDialogResponse has a different task id "
-            << response_task_id << " than requested " << request_task_id;
-    // If the task ID mismatches, generate an empty response with the correct
-    // task ID and error value.
-    response->task_id = request_task_id.value();
-    response->selected_credential_id = std::nullopt;
-    // TODO(crbug.com/427817882): Explicit error reason (kMismatchedTaskId).
-    response->error_reason = std::nullopt;
+void ActorKeyedService::OnActOnWebCapabilityChanged(bool can_act_on_web) {
+  if (!can_act_on_web) {
+    FailAllTasks();
   }
-  if (auto* task = GetTask(request_task_id)) {
-    task->GetExecutionEngine()->OnCredentialSelected(std::move(response));
-  } else {
-    VLOG(1) << "Task not found for task id: " << request_task_id;
-  }
+  act_on_web_capability_changed_callback_list_.Notify(can_act_on_web);
 }
 
 base::CallbackListSubscription
-ActorKeyedService::AddRequestToShowUserConfirmationDialogSubscriberCallback(
-    RequestToShowUserConfirmationDialogSubscriberCallback callback) {
-  return request_to_show_user_confirmation_dialog_callback_list_.Add(
-      std::move(callback));
-}
-
-void ActorKeyedService::NotifyRequestToShowUserConfirmationDialog(
-    TaskId task_id,
-    const std::optional<url::Origin>& navigation_origin,
-    const std::optional<int32_t> download_id) {
-  request_to_show_user_confirmation_dialog_callback_list_.Notify(
-      navigation_origin, download_id,
-      base::BindRepeating(&ActorKeyedService::OnUserConfirmationDialogDecision,
-                          weak_ptr_factory_.GetWeakPtr(), task_id));
-}
-
-void ActorKeyedService::OnUserConfirmationDialogDecision(
-    TaskId request_task_id,
-    webui::mojom::UserConfirmationDialogResponsePtr response) {
-  if (auto* task = GetTask(request_task_id)) {
-    task->GetExecutionEngine()->OnUserConfirmation(std::move(response));
-  } else {
-    VLOG(1) << "Task not found for task id: " << request_task_id;
-  }
+ActorKeyedService::AddActOnWebCapabilityChangedCallback(
+    ActOnWebCapabilityChangedCallback callback) {
+  return act_on_web_capability_changed_callback_list_.Add(std::move(callback));
 }
 
 void ActorKeyedService::RequestTabObservation(
@@ -226,7 +299,7 @@ void ActorKeyedService::RequestTabObservation(
   TRACE_EVENT0("actor", "ActorKeyedService::RequestTabObservation");
   const GURL& last_committed_url = tab.GetContents()->GetLastCommittedURL();
   auto journal_entry = journal_.CreatePendingAsyncEntry(
-      last_committed_url, task_id, mojom::JournalTrack::kActor,
+      last_committed_url, task_id, MakeBrowserTrackUUID(task_id),
       "RequestTabObservation", {});
   page_content_annotations::FetchPageContextOptions options;
 
@@ -290,10 +363,10 @@ void ActorKeyedService::RequestTabObservation(
             pending_journal_entry->GetJournal().LogAnnotatedPageContent(
                 last_committed_url, pending_journal_entry->GetTaskId(), buffer);
 
-            auto& data = fetch_result.screenshot_result->jpeg_data;
+            auto& data = fetch_result.screenshot_result->screenshot_data;
             pending_journal_entry->GetJournal().LogScreenshot(
                 last_committed_url, pending_journal_entry->GetTaskId(),
-                kMimeTypeJpeg, base::as_byte_span(data));
+                fetch_result.screenshot_result->mime_type, base::as_byte_span(data));
             if (tab) {
               actor::ActorTabData::From(tab.get())->DidObserveContent(
                   fetch_result.annotated_page_content_result->proto);
@@ -308,12 +381,17 @@ void ActorKeyedService::RequestTabObservation(
 void ActorKeyedService::PerformActions(
     TaskId task_id,
     std::vector<std::unique_ptr<ToolRequest>>&& actions,
+    ActorTaskMetadata task_metadata,
     PerformActionsCallback callback) {
   TRACE_EVENT0("actor", "ActorKeyedService::PerformActions");
   std::vector<ActionResultWithLatencyInfo> empty_results;
   auto* task = GetTask(task_id);
   if (!task) {
-    VLOG(1) << "PerformActions failed: Task not found.";
+    GetJournal().Log(GURL(), TaskId(), "ActorKeyedService::PerformActions",
+                     JournalDetailsBuilder()
+                         .Add("task_id", task_id)
+                         .AddError("Invalid Task")
+                         .Build());
     RunLater(base::BindOnce(std::move(callback),
                             mojom::ActionResultCode::kTaskWentAway,
                             std::nullopt, std::move(empty_results)));
@@ -321,13 +399,17 @@ void ActorKeyedService::PerformActions(
   }
 
   if (actions.empty()) {
-    VLOG(1) << "PerformActions failed: No actions provided.";
+    GetJournal().Log(
+        GURL(), TaskId(), "ActorKeyedService::PerformActions",
+        JournalDetailsBuilder().AddError("Empty Actions List").Build());
     RunLater(base::BindOnce(std::move(callback),
                             mojom::ActionResultCode::kEmptyActionSequence,
                             std::nullopt, std::move(empty_results)));
     return;
   }
 
+  task->GetExecutionEngine()->AddWritableMainframeOrigins(
+      task_metadata.added_writable_mainframe_origins());
   task->Act(
       std::move(actions),
       base::BindOnce(&ActorKeyedService::OnActionsFinished,
@@ -346,12 +428,32 @@ void ActorKeyedService::OnActionsFinished(
                           index_of_failed_action, std::move(action_results)));
 }
 
-void ActorKeyedService::StopTask(TaskId task_id, bool success) {
+void ActorKeyedService::FailAllTasks() {
+  std::vector<TaskId> tasks_to_stop =
+      FindTaskIdsInActive([](const ActorTask& task) { return true; });
+  GetJournal().Log(GURL(), TaskId(), "ActorKeyedService::FailAllTasks", {});
+  for (const auto& task_id : tasks_to_stop) {
+    StopTask(task_id, ActorTask::StoppedReason::kChromeFailure);
+  }
+}
+
+void ActorKeyedService::StopTask(TaskId task_id,
+                                 ActorTask::StoppedReason stop_reason) {
   TRACE_EVENT0("actor", "ActorKeyedService::StopTask");
+  GetJournal().Log(GURL(), TaskId(), "ActorKeyedService::StopTask",
+                   JournalDetailsBuilder()
+                       .Add("task_id", task_id)
+                       .Add("stop_reason", stop_reason)
+                       .Build());
+
   auto task = active_tasks_.extract(task_id);
   if (!task.empty()) {
-    auto ret = inactive_tasks_.insert(std::move(task));
-    ret.position->second->Stop(success);
+    if (base::FeatureList::IsEnabled(kActorDoNotStoreCompletedTasks)) {
+      task.mapped()->Stop(stop_reason);
+    } else {
+      auto ret = inactive_tasks_.insert(std::move(task));
+      ret.position->second->Stop(stop_reason);
+    }
   }
 }
 
@@ -369,6 +471,10 @@ ActorTask* ActorKeyedService::GetTask(TaskId task_id) {
 
 ActorUiStateManagerInterface* ActorKeyedService::GetActorUiStateManager() {
   return actor_ui_state_manager_.get();
+}
+
+ActorPolicyChecker& ActorKeyedService::GetPolicyChecker() {
+  return *policy_checker_;
 }
 
 bool ActorKeyedService::IsActiveOnTab(const tabs::TabInterface& tab) const {
@@ -398,10 +504,10 @@ Profile* ActorKeyedService::GetProfile() {
 }
 
 std::vector<TaskId> ActorKeyedService::FindTaskIdsInActive(
-    const base::RepeatingCallback<bool(const ActorTask&)>& predicate) const {
+    base::FunctionRef<bool(const ActorTask&)> predicate) const {
   std::vector<TaskId> result;
   for (const auto& [id, task] : active_tasks_) {
-    if (predicate.Run(*task)) {
+    if (predicate(*task)) {
       result.push_back(id);
     }
   }
@@ -409,14 +515,24 @@ std::vector<TaskId> ActorKeyedService::FindTaskIdsInActive(
 }
 
 std::vector<TaskId> ActorKeyedService::FindTaskIdsInInactive(
-    const base::RepeatingCallback<bool(const ActorTask&)>& predicate) const {
+    base::FunctionRef<bool(const ActorTask&)> predicate) const {
   std::vector<TaskId> result;
   for (const auto& [id, task] : inactive_tasks_) {
-    if (predicate.Run(*task)) {
+    if (predicate(*task)) {
       result.push_back(id);
     }
   }
   return result;
+}
+
+void ActorKeyedService::OnDownloadCreated(content::DownloadManager* manager,
+                                          download::DownloadItem* item) {
+  if (content::WebContents* web_contents =
+          content::DownloadItemUtils::GetWebContents(item)) {
+    if (GetActingActorTaskForWebContents(web_contents)) {
+      base::UmaHistogramBoolean("Actor.Download.DirectDownloadTriggered", true);
+    }
+  }
 }
 
 }  // namespace actor

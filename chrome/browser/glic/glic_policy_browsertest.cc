@@ -14,12 +14,14 @@
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/host/glic.mojom-data-view.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/public/glic_instance.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
 #include "chrome/browser/glic/test_support/interactive_glic_test.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
+#include "chrome/browser/glic/widget/glic_window_controller_impl.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/policy/policy_test_utils.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
@@ -50,6 +52,8 @@
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
 
+using glic::prefs::GlicActuationOnWebPolicyState;
+using glic::prefs::kGlicActuationOnWeb;
 using glic::prefs::SettingsPolicyState;
 using ::prefs::kGeminiSettings;
 
@@ -61,11 +65,15 @@ class GlicButton;
 
 namespace {
 
+int ToInt(GlicActuationOnWebPolicyState state) {
+  return static_cast<int>(state);
+}
+
 // An observer of the GlicWindowController's panel state. Fires the given
 // callback when the state changes to the given kind.
 class PanelStateObserver : public GlicWindowController::StateObserver {
  public:
-  PanelStateObserver(mojom::PanelState::Kind kind, base::OnceClosure callback)
+  PanelStateObserver(mojom::PanelStateKind kind, base::OnceClosure callback)
       : kind_(kind), callback_(std::move(callback)) {}
 
   void PanelStateChanged(
@@ -77,7 +85,7 @@ class PanelStateObserver : public GlicWindowController::StateObserver {
   }
 
  private:
-  mojom::PanelState::Kind kind_;
+  mojom::PanelStateKind kind_;
   base::OnceClosure callback_;
 };
 
@@ -151,6 +159,7 @@ class GlicPolicyTest : public PolicyTest {
         glic::prefs::kGlicLauncherEnabled, true);
 
     profile_1_ = browser()->profile();
+    instance_tracker_.SetProfile(profile_1_);
 
     // "policy_for_profile_1_" is provider_, setup in PolicyTest.
 
@@ -178,6 +187,7 @@ class GlicPolicyTest : public PolicyTest {
   void TearDownOnMainThread() override {
     PolicyTest::TearDownOnMainThread();
 
+    instance_tracker_.SetProfile(nullptr);
     if (GlicBackgroundModeManager* background_mode_manager =
             g_browser_process->GetFeatures()->glic_background_mode_manager()) {
       background_mode_manager->ExitBackgroundMode();
@@ -283,10 +293,9 @@ class GlicPolicyTest : public PolicyTest {
  protected:
   // Get the active tab's glic host. Must be called only after instantiating
   // glic.
-  Host* GetHost() {
-    return &GlicKeyedServiceFactory::GetGlicKeyedService(browser()->profile())
-                ->GetInstanceForActiveTab(browser())
-                ->host();
+  Host* GetHost() { return instance_tracker_.GetHost(); }
+  GlicInstance* GetGlicInstance() {
+    return instance_tracker_.GetGlicInstance();
   }
 
   // The first profile.
@@ -301,6 +310,9 @@ class GlicPolicyTest : public PolicyTest {
 
  private:
   GlicTestEnvironment glic_test_environment_;
+
+  GlicInstanceTracker instance_tracker_;
+
   testing::NiceMock<policy::MockConfigurationPolicyProvider>
       policy_for_profile_2_;
 
@@ -570,24 +582,18 @@ IN_PROC_BROWSER_TEST_F(GlicPolicyTest, DisableGlicWhenIsOpen) {
 
   GlicKeyedService* service =
       GlicKeyedServiceFactory::GetGlicKeyedService(profile_1_);
-  ASSERT_FALSE(service->window_controller().IsShowing());
 
+  GlicInstanceTracker instance_tracker(profile_1_);
   // Show the panel as if the glic button was clicked.
   {
-    base::test::TestFuture<void> wait_for_panel;
-    PanelStateObserver panel_state_observer(
-        mojom::PanelState::Kind::kDetached,
-        wait_for_panel.GetCallback());
-    service->window_controller().AddStateObserver(&panel_state_observer);
     service->ToggleUI(/*bwi=*/browser(), /*prevent_close=*/false,
                       /*source=*/mojom::InvocationSource::kOsButton);
 
-    EXPECT_TRUE(wait_for_panel.Wait());
-    service->window_controller().RemoveStateObserver(&panel_state_observer);
+    ASSERT_TRUE(instance_tracker.WaitForShow());
   }
 
-  ASSERT_TRUE(service->window_controller().IsShowing());
-
+  ASSERT_TRUE(GetGlicInstance());
+  ASSERT_TRUE(GetGlicInstance()->IsShowing());
   Host* host = GetHost();
   GlicAppStateObserver app_observer(host);
   app_observer.Wait(mojom::WebUiState::kError);
@@ -600,7 +606,9 @@ IN_PROC_BROWSER_TEST_F(GlicPolicyTest, DisableGlicWhenIsOpen) {
     return host->GetPrimaryWebUiState() == mojom::WebUiState::kDisabledByAdmin;
   })) << "Timed out waiting for unavailable state. Current state: "
       << host->GetPrimaryWebUiState();
-  ASSERT_TRUE(service->window_controller().IsShowing());
+
+  ASSERT_TRUE(GetGlicInstance());
+  ASSERT_TRUE(GetGlicInstance()->IsShowing());
 
 // Flakiness on linux.
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
@@ -610,11 +618,9 @@ IN_PROC_BROWSER_TEST_F(GlicPolicyTest, DisableGlicWhenIsOpen) {
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE, run_loop.QuitClosure(), base::Milliseconds(1000));
   run_loop.Run();
-  ClickElementWithId(
-      service->window_controller().GetGlicView()->GetWebContents(),
-      "disabledByAdminCloseButton");
+  ClickElementWithId(GetHost()->webui_contents(), "disabledByAdminCloseButton");
   ASSERT_TRUE(base::test::RunUntil([&]() {
-    return !service->window_controller().IsShowing();
+    return !GetGlicInstance()->IsShowing();
   })) << "Timed out waiting for glic to close";
 #endif
 }
@@ -643,6 +649,54 @@ IN_PROC_BROWSER_TEST_F(GlicPolicyTest,
   EXPECT_EQ(kGlicSettingsUrl,
             browser()->tab_strip_model()->GetActiveWebContents()->GetURL());
 }
+
+class GlicActuationOnWebPolicyTest : public GlicPolicyTest {
+ public:
+  GlicActuationOnWebPolicyTest() {
+    // The default pref value kForcedDisabled does not allow the policy to
+    // change the pref value.
+    scoped_feature_list_.InitAndEnableFeatureWithParameters(
+        features::kGlicActor,
+        {{features::kGlicActorEnterprisePrefDefault.name,
+          features::kGlicActorEnterprisePrefDefault.GetName(
+              features::GlicActorEnterprisePrefDefault::kEnabledByDefault)}});
+  }
+  ~GlicActuationOnWebPolicyTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(GlicActuationOnWebPolicyTest, DefaultToEnabled) {
+  PrefService* prefs = browser()->profile()->GetPrefs();
+  EXPECT_FALSE(prefs->IsManagedPreference(kGlicActuationOnWeb));
+  EXPECT_EQ(prefs->GetInteger(kGlicActuationOnWeb),
+            ToInt(GlicActuationOnWebPolicyState::kEnabled));
+}
+
+IN_PROC_BROWSER_TEST_F(GlicActuationOnWebPolicyTest, PrefControlledByPolicy) {
+  PrefService* prefs = browser()->profile()->GetPrefs();
+  ASSERT_EQ(prefs->GetInteger(kGlicActuationOnWeb),
+            ToInt(GlicActuationOnWebPolicyState::kEnabled));
+
+  // Set the policy to kDisabled. The pref value should be updated.
+  policy::PolicyMap policies;
+  policies.Set(
+      policy::key::kGeminiActOnWebSettings, policy::POLICY_LEVEL_MANDATORY,
+      policy::POLICY_SCOPE_USER, policy::POLICY_SOURCE_ENTERPRISE_DEFAULT,
+      base::Value(ToInt(GlicActuationOnWebPolicyState::kDisabled)), nullptr);
+  UpdateProviderPolicy(policies);
+  EXPECT_TRUE(prefs->IsManagedPreference(kGlicActuationOnWeb));
+  EXPECT_EQ(prefs->GetInteger(kGlicActuationOnWeb),
+            ToInt(GlicActuationOnWebPolicyState::kDisabled));
+
+  // Verify the policy value cannot be overridden.
+  prefs->SetInteger(kGlicActuationOnWeb,
+                    ToInt(GlicActuationOnWebPolicyState::kEnabled));
+  EXPECT_EQ(prefs->GetInteger(kGlicActuationOnWeb),
+            ToInt(GlicActuationOnWebPolicyState::kDisabled));
+}
+
 }  // namespace
 
 }  // namespace glic

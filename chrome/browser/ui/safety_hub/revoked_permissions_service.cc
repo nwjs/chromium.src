@@ -18,6 +18,8 @@
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/engagement/site_engagement_service_factory.h"
+#include "chrome/browser/ui/safety_hub/revoked_permissions_os_notification_display_manager.h"
+#include "chrome/browser/ui/safety_hub/revoked_permissions_os_notification_display_manager_factory.h"
 #include "chrome/browser/ui/safety_hub/safety_hub_prefs.h"
 #include "chrome/browser/ui/safety_hub/safety_hub_result.h"
 #include "chrome/browser/ui/safety_hub/safety_hub_service.h"
@@ -38,8 +40,8 @@
 #include "components/permissions/permission_util.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
-#include "components/safe_browsing/core/common/features.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
+#include "components/safety_check/safety_check.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/page.h"
@@ -51,6 +53,11 @@
 #endif
 
 namespace {
+
+// Determines the frequency at which permissions of sites are checked whether
+// they are unused.
+const base::TimeDelta kUnusedSitePermissionsRepeatedUpdateInterval =
+    base::Days(1);
 
 content_settings::ContentSettingConstraints GetConstraintFromInfo(
     const content_settings::SettingInfo& info) {
@@ -87,8 +94,7 @@ bool IsDisruptiveNotificationPermissionRevocation(
 }  // namespace
 
 base::TimeDelta RevokedPermissionsService::GetRepeatedUpdateInterval() {
-  return content_settings::features::
-      kSafetyCheckUnusedSitePermissionsRepeatedUpdateInterval.Get();
+  return kUnusedSitePermissionsRepeatedUpdateInterval;
 }
 
 RevokedPermissionsService::TabHelper::TabHelper(
@@ -156,16 +162,20 @@ RevokedPermissionsService::RevokedPermissionsService(
           base::Unretained(this)));
 #endif  // BUILDFLAG(IS_ANDROID)
 
-  abusive_notification_manager_ =
-      std::make_unique<AbusiveNotificationPermissionsManager>(
+    RevokedPermissionsOSNotificationDisplayManager*
+        notification_display_manager =
+            RevokedPermissionsOSNotificationDisplayManagerFactory::
+                GetForProfile(Profile::FromBrowserContext(browser_context_));
+    abusive_notification_manager_ =
+        std::make_unique<AbusiveNotificationPermissionsManager>(
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-          g_browser_process->safe_browsing_service()
-              ? g_browser_process->safe_browsing_service()->database_manager()
-              : nullptr,
+            g_browser_process->safe_browsing_service()
+                ? g_browser_process->safe_browsing_service()->database_manager()
+                : nullptr,
 #else
           nullptr,
 #endif
-          hcsm(), pref_change_registrar_->prefs());
+            hcsm(), pref_change_registrar_->prefs());
 
   pref_change_registrar_->Add(
       prefs::kSafeBrowsingEnabled,
@@ -179,7 +189,8 @@ RevokedPermissionsService::RevokedPermissionsService(
         std::make_unique<DisruptiveNotificationPermissionsManager>(
             hcsm(),
             site_engagement::SiteEngagementServiceFactory::GetForProfile(
-                browser_context_));
+                browser_context_),
+            notification_display_manager);
   }
 
   unused_site_permissions_manager_ =
@@ -248,13 +259,26 @@ void RevokedPermissionsService::OnContentSettingChanged(
     // There should be at most one active revocation per site: either abusive or
     // disruptive.
     if (IsAbusiveNotificationAutoRevocationEnabled()) {
-      abusive_notification_manager_
-          ->DeletePatternFromRevokedAbusiveNotificationList(primary_pattern,
-                                                            secondary_pattern);
+      abusive_notification_manager_->OnPermissionChanged(primary_pattern,
+                                                         secondary_pattern);
     }
     if (disruptive_notification_manager_) {
       disruptive_notification_manager_->OnPermissionChanged(primary_pattern,
                                                             secondary_pattern);
+    }
+  }
+
+  // Update OS notification to reflect changes in abusive or disruptive
+  // revocations.
+  if (content_type_set.Contains(
+          ContentSettingsType::REVOKED_ABUSIVE_NOTIFICATION_PERMISSIONS) ||
+      content_type_set.Contains(
+          ContentSettingsType::REVOKED_DISRUPTIVE_NOTIFICATION_PERMISSIONS)) {
+    RevokedPermissionsOSNotificationDisplayManager* manager =
+        RevokedPermissionsOSNotificationDisplayManagerFactory::GetForProfile(
+            Profile::FromBrowserContext(browser_context_));
+    if (manager) {
+      manager->UpdateNotification();
     }
   }
 }
@@ -401,8 +425,18 @@ RevokedPermissionsService::GetRevokedPermissions() {
           info.metadata.expiration()) {
         permissions_data.constraints = GetConstraintFromInfo(info);
       }
-      permissions_data.revocation_type =
-          PermissionsRevocationType::kUnusedPermissionsAndAbusiveNotifications;
+      // Suspicious content revocation is considered abusive notification
+      // permission but revocation should be displayed with it own string
+      // explanation.
+      if (AbusiveNotificationPermissionsManager::
+              IsUrlRevokedDueToSuspiciousContent(hcsm(), url)) {
+        permissions_data.revocation_type = PermissionsRevocationType::
+            kUnusedPermissionsAndSuspiciousNotifications;
+      } else {
+        permissions_data.revocation_type = PermissionsRevocationType::
+            kUnusedPermissionsAndAbusiveNotifications;
+      }
+
     } else if (DisruptiveNotificationPermissionsManager::
                    IsUrlRevokedDisruptiveNotification(hcsm(), url)) {
       // If the origin has a revoked disruptive notification, add
@@ -435,11 +469,11 @@ RevokedPermissionsService::GetRevokedPermissions() {
       safety_hub_util::GetRevokedAbusiveNotificationPermissions(hcsm());
   for (const auto& revoked_abusive_notification_permission :
        revoked_abusive_notification_settings) {
+    const GURL& abusive_url = GURL(
+        revoked_abusive_notification_permission.primary_pattern.ToString());
     // Skip origins with revoked unused site permissions, since these were
     // handled above.
-    if (safety_hub_util::IsUrlRevokedUnusedSite(
-            hcsm(), GURL(revoked_abusive_notification_permission.primary_pattern
-                             .ToString()))) {
+    if (safety_hub_util::IsUrlRevokedUnusedSite(hcsm(), abusive_url)) {
       continue;
     }
     PermissionsData permissions_data;
@@ -454,15 +488,21 @@ RevokedPermissionsService::GetRevokedPermissions() {
     permissions_data.constraints.set_lifetime(
         revoked_abusive_notification_permission.metadata.lifetime());
 
-    permissions_data.revocation_type =
-        PermissionsRevocationType::kAbusiveNotificationPermissions;
+    if (AbusiveNotificationPermissionsManager::
+            IsUrlRevokedDueToSuspiciousContent(hcsm(), abusive_url)) {
+      permissions_data.revocation_type =
+          PermissionsRevocationType::kSuspiciousNotificationPermissions;
+    } else {
+      permissions_data.revocation_type =
+          PermissionsRevocationType::kAbusiveNotificationPermissions;
+    }
 
     result->AddRevokedPermission(permissions_data);
   }
 
   if (disruptive_notification_manager_) {
     ContentSettingsForOneType revoked_disruptive_notifications =
-        disruptive_notification_manager_->GetRevokedNotifications();
+        disruptive_notification_manager_->GetRevokedNotifications(hcsm());
     for (const auto& permission : revoked_disruptive_notifications) {
       // Skip origins with revoked unused site permissions, since these were
       // handled above.
@@ -470,8 +510,14 @@ RevokedPermissionsService::GetRevokedPermissions() {
               hcsm(), GURL(permission.primary_pattern.ToString()))) {
         continue;
       }
-      CHECK(!safety_hub_util::IsUrlRevokedAbusiveNotification(
-          hcsm(), GURL(permission.primary_pattern.ToString())));
+      // Skip origins with revoked abusive site permissions as these were
+      // handled above. This is generally unlikely but it is possible if abusive
+      // notification auto-revocation outside of Safety Hub was triggered in
+      // between disruptive revocation run.
+      if (safety_hub_util::IsUrlRevokedAbusiveNotification(
+              hcsm(), GURL(permission.primary_pattern.ToString()))) {
+        continue;
+      }
       PermissionsData permissions_data;
       permissions_data.primary_pattern = permission.primary_pattern;
       permissions_data.permission_types.insert(

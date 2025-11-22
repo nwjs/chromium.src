@@ -22,6 +22,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
+#include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_control_button.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_controller.h"
 #include "chrome/common/buildflags.h"
@@ -45,6 +46,11 @@
 #include "ui/views/view_class_properties.h"
 
 namespace glic {
+
+// TODO(crbug.com/461326322): Remove this flag when crbug.com/461326322 is
+// resolved.
+BASE_FEATURE(kGlicButtonHideLabelOnTaskNudge, base::FEATURE_ENABLED_BY_DEFAULT);
+
 namespace {
 
 constexpr int kHighlightMargin = 2;
@@ -59,7 +65,17 @@ constexpr ui::ColorId kTextDisabled = ui::kColorLabelForegroundDisabled;
 constexpr ui::ColorId kForeground = kColorNewTabButtonForegroundFrameActive;
 constexpr ui::ColorId kForegroundOnAltBackground = ui::kColorSysOnSurface;
 
+// TODO(crbug.com/453739403): Update with final color IDs.
+constexpr ui::ColorId kBackgroundWhenGlicOpenActive =
+    ui::kColorSysStateHeaderHover;
+constexpr ui::ColorId kBackgroundWhenGlicOpenInactive =
+    ui::kColorSysStateDisabledContainer;
+
 constexpr int kIconSize = 16;
+// TODO(crbug.com/460400955): Move this constant to a shared location.
+// This should mirror the tween used for TabStripNudgeAnimationSession.
+constexpr gfx::Tween::Type kSlidingTextTween =
+    gfx::Tween::Type::ACCEL_20_DECEL_100;
 
 bool EntrypointVariationsEnabled() {
   return base::FeatureList::IsEnabled(features::kGlicEntrypointVariations);
@@ -210,6 +226,15 @@ GlicButton::GlicButton(TabStripController* tab_strip_controller,
 
 GlicButton::~GlicButton() = default;
 
+// Static
+GlicButton* GlicButton::FromBrowser(BrowserWindowInterface* browser) {
+  if (!browser) {
+    return nullptr;
+  }
+  return BrowserElementsViews::From(browser)->GetViewAs<glic::GlicButton>(
+      kGlicButtonElementId);
+}
+
 void GlicButton::SetNudgeLabel(std::string label) {
   if (!EntrypointVariationsEnabled()) {
     initial_width_ = GetLayoutManager()->GetPreferredSize(this).width();
@@ -220,6 +245,42 @@ void GlicButton::SetNudgeLabel(std::string label) {
   pending_text_ = base::UTF8ToUTF16(label);
 }
 
+void GlicButton::ShowDefaultLabel() {
+  if (!base::FeatureList::IsEnabled(kGlicButtonHideLabelOnTaskNudge)) {
+    return;
+  }
+
+  is_animating_text_ = true;
+  StartSlidingTextAnimation(/*show=*/true);
+
+  const base::TimeDelta kLabelFadeOutDuration = DurationMs(17);
+  const base::TimeDelta kNudgeFadeInStart = DurationMs(50);
+  const base::TimeDelta kNudgeFadeInDuration = DurationMs(50);
+  views::AnimationBuilder()
+      .OnEnded(base::BindOnce(&GlicButton::ApplyTextAndFadeIn,
+                              weak_ptr_factory_.GetWeakPtr(),
+                              std::make_optional(GetLabelText()),
+                              /*delay=*/DurationMs(0), kNudgeFadeInDuration))
+      .Once()
+      .At(kNudgeFadeInStart - kLabelFadeOutDuration)
+      .SetOpacity(label(), 0)
+      .SetDuration(kLabelFadeOutDuration);
+}
+
+void GlicButton::SuppressLabel() {
+  if (!base::FeatureList::IsEnabled(kGlicButtonHideLabelOnTaskNudge)) {
+    return;
+  }
+
+  StartSlidingTextAnimation(/*show=*/false);
+
+  label()->SetPaintToLayer();
+  label()->layer()->SetFillsBoundsOpaquely(false);
+  label()->layer()->SetOpacity(0.0f);
+  ApplyTextAndFadeIn(std::make_optional<std::u16string>(u""), DurationMs(0),
+                     DurationMs(0));
+}
+
 void GlicButton::RestoreDefaultLabel() {
   if (!EntrypointVariationsEnabled()) {
     return SetText(GetLabelText());
@@ -227,6 +288,11 @@ void GlicButton::RestoreDefaultLabel() {
   // Store the new label text until the right moment in the animation to update
   // the view.
   pending_text_ = GetLabelText();
+}
+
+void GlicButton::SetGlicPanelIsOpen(bool open) {
+  glic_panel_is_open_ = open;
+  UpdateTextAndBackgroundColors();
 }
 
 void GlicButton::SetGlicDetached(bool detached) {
@@ -291,6 +357,13 @@ gfx::Size GlicButton::CalculatePreferredSize(
           views::SizeBounds(current_preferred_width, available_size.height()))
           .height();
 
+  if (is_animating_text_) {
+    const int min_target_width = 41;
+    const int width =
+        std::lerp(min_target_width, default_label_width_, GetWidthFactor());
+    return gfx::Size(width, height);
+  }
+
   // Get collapsed and expanded widths, which are set when the show animation
   // starts.
   const int collapsed_width =
@@ -336,6 +409,7 @@ void GlicButton::AddedToWidget() {
   }
 
   TabStripNudgeButton::AddedToWidget();
+  default_label_width_ = GetLayoutManager()->GetPreferredSize(this).width();
 }
 
 void GlicButton::SetDropToAttachIndicator(bool indicate) {
@@ -413,6 +487,7 @@ void GlicButton::AnimationEnded(const gfx::Animation* animation) {
 
     expansion_animation_done_callback_.Run();
   }
+  is_animating_text_ = false;
 }
 
 void GlicButton::AnimationCanceled(const gfx::Animation* animation) {
@@ -442,12 +517,6 @@ void GlicButton::AnnounceNudgeShown() {
       IDS_GLIC_CONTEXTUAL_CUEING_ANNOUNCEMENT,
       GlicLauncherConfiguration::GetGlobalHotkey().GetShortcutText());
   GetViewAccessibility().AnnounceAlert(announcement);
-}
-
-void GlicButton::HighlightGlicButton() {
-  SetBackgroundFrameActiveColorId(kColorTabBackgroundInactiveHoverFrameActive);
-  SetBackgroundFrameInactiveColorId(
-      kColorTabBackgroundInactiveHoverFrameInactive);
 }
 
 void GlicButton::SetDefaultColors() {
@@ -480,6 +549,20 @@ void GlicButton::UpdateTextAndBackgroundColors() {
     SetBackgroundFrameActiveColorId(kColorNewTabButtonCRBackgroundFrameActive);
     SetForegroundFrameActiveColorId(kForeground);
     SetTextColor(STATE_DISABLED, kTextDisabled);
+  }
+
+  if (base::FeatureList::IsEnabled(features::kGlicButtonPressedState)) {
+    if (glic_panel_is_open_) {
+      SetBackgroundFrameActiveColorId(kBackgroundWhenGlicOpenActive);
+      SetBackgroundFrameInactiveColorId(kBackgroundWhenGlicOpenInactive);
+    } else {
+      // Active frame background color is set above depending on highlight and
+      // icon.
+      // TODO(crbug.com/453739403): When GlicButtonPressedState is cleaned up,
+      // consolidate the button background logic.
+      SetBackgroundFrameInactiveColorId(
+          kColorNewTabButtonCRBackgroundFrameInactive);
+    }
   }
 
   UpdateColors();
@@ -636,6 +719,24 @@ int GlicButton::CalculateExpandedWidth() {
   return new_width;
 }
 
+void GlicButton::StartSlidingTextAnimation(bool show) {
+  // Button width animation updates width_factor_, used in
+  // CalculatePreferredSize().
+  if (!expansion_animation_) {
+    expansion_animation_ = std::make_unique<gfx::SlideAnimation>(this);
+  }
+
+  expansion_animation_->SetTweenType(kSlidingTextTween);
+
+  if (show) {
+    expansion_animation_->SetSlideDuration(DurationMs(500));
+    expansion_animation_->Show();
+  } else {
+    expansion_animation_->SetSlideDuration(DurationMs(250));
+    expansion_animation_->Hide();
+  }
+}
+
 void GlicButton::StartExpansionAnimations(
     bool show,
     base::TimeDelta overall_duration,
@@ -729,6 +830,10 @@ void GlicButton::SetCloseButtonVisible(bool visible) {
                                           highlight_margins);
 
   PreferredSizeChanged();
+}
+
+void GlicButton::RefreshBackground() {
+  UpdateColors();
 }
 
 gfx::SlideAnimation* GlicButton::GetExpansionAnimationForTesting() {

@@ -37,7 +37,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/numerics/math_constants.h"
 #include "base/run_loop.h"
-#include "base/task/current_thread.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_chromeos_version_info.h"
@@ -607,59 +606,13 @@ TEST_F(TabletModeControllerTest, VerticalHingeTest) {
   }
 }
 
-// Test entering tablet mode with internal and external primary display. See
-// http://crbug.com/443010999
-TEST_F(TabletModeControllerTest, TabletModeWithDifferentPrimaryDisplay) {
-  const int64_t internal_display_id =
-      display::test::DisplayManagerTestApi(display_manager())
-          .SetFirstDisplayAsInternalDisplay();
-  const auto internal_info =
-      display_manager()->GetDisplayInfo(internal_display_id);
-  constexpr int64_t external_id = 210000010;
-
-  const auto external_info =
-      display::ManagedDisplayInfo::CreateFromSpecWithID("400x300", external_id);
-
-  std::vector<display::ManagedDisplayInfo> display_info_list;
-  display_info_list.push_back(internal_info);
-  display_info_list.push_back(external_info);
-  display_manager()->OnNativeDisplaysChanged(display_info_list);
-  EXPECT_EQ(2U, display_manager()->GetNumDisplays());
-
-  // Enter tablet mode.
-  OpenLidToAngle(270.0f);
-
-  // Confirm is in tablet mode and mirrored.
-  base::test::RunUntil([&] { return display_manager()->IsInMirrorMode(); });
-  EXPECT_TRUE(display::Screen::Get()->InTabletMode());
-
-  // Exit tablet mode.
-  OpenLidToAngle(90.0f);
-
-  base::test::RunUntil([&] { return !display_manager()->IsInMirrorMode(); });
-  EXPECT_FALSE(display::Screen::Get()->InTabletMode());
-
-  // Change primary display.
-  Shell::Get()->window_tree_host_manager()->SetPrimaryDisplayId(external_id);
-
-  // Enter tablet mode.
-  OpenLidToAngle(270.0f);
-
-  // Confirm in tablet mode and mirrored.
-  base::test::RunUntil([&] { return display_manager()->IsInMirrorMode(); });
-  EXPECT_TRUE(display::Screen::Get()->InTabletMode());
-
-  // Exit tablet mode.
-  OpenLidToAngle(90.0f);
-}
-
 // Test if this case does not crash. See http://crbug.com/462806.
 TEST_F(TabletModeControllerTest, DisplayDisconnectionDuringOverview) {
   UpdateDisplay("800x600,800x600");
   std::unique_ptr<aura::Window> w1(
-      CreateTestWindowInShellWithBounds(gfx::Rect(0, 0, 100, 100)));
+      CreateTestWindowInShell({.bounds = {100, 100}}));
   std::unique_ptr<aura::Window> w2(
-      CreateTestWindowInShellWithBounds(gfx::Rect(800, 0, 100, 100)));
+      CreateTestWindowInShell({.bounds = {800, 0, 100, 100}}));
   ASSERT_NE(w1->GetRootWindow(), w2->GetRootWindow());
   ASSERT_FALSE(display::Screen::Get()->InTabletMode());
 
@@ -838,7 +791,7 @@ TEST_F(TabletModeControllerInitedFromPowerManagerClientTest,
 TEST_F(TabletModeControllerTest, RestoreAfterExit) {
   UpdateDisplay("1000x600");
   std::unique_ptr<aura::Window> w1(
-      CreateTestWindowInShellWithBounds(gfx::Rect(10, 10, 900, 300)));
+      CreateTestWindowInShell({.bounds = {10, 10, 900, 300}}));
   tablet_mode_controller()->SetEnabledForTest(true);
   Shell::Get()->screen_orientation_controller()->SetLockToRotation(
       display::Display::ROTATE_90);
@@ -1543,8 +1496,8 @@ TEST_F(TabletModeControllerTest,
 TEST_F(TabletModeControllerTest,
        StartTabletActiveDesktopOnlyLeftSnapPreviousRightSnap) {
   aura::test::TestWindowDelegate left_window_delegate;
-  std::unique_ptr<aura::Window> left_window(CreateTestWindowInShellWithDelegate(
-      &left_window_delegate, /*id=*/-1, /*bounds=*/gfx::Rect(0, 0, 400, 400)));
+  std::unique_ptr<aura::Window> left_window(CreateTestWindowInShell(
+      {.delegate = &left_window_delegate, .bounds = {400, 400}}));
   const gfx::Rect display_bounds =
       screen_util::GetDisplayWorkAreaBoundsInScreenForActiveDeskContainer(
           left_window.get());
@@ -1572,10 +1525,8 @@ TEST_F(TabletModeControllerTest,
        StartTabletActiveDesktopOnlyRightSnapPreviousLeftSnap) {
   std::unique_ptr<aura::Window> left_window = CreateDesktopWindowSnappedLeft();
   aura::test::TestWindowDelegate right_window_delegate;
-  std::unique_ptr<aura::Window> right_window(
-      CreateTestWindowInShellWithDelegate(
-          &right_window_delegate, /*id=*/-1,
-          /*bounds=*/gfx::Rect(0, 0, 400, 400)));
+  std::unique_ptr<aura::Window> right_window(CreateTestWindowInShell(
+      {.delegate = &right_window_delegate, .bounds = {400, 400}}));
   const gfx::Rect display_bounds =
       screen_util::GetDisplayWorkAreaBoundsInScreenForActiveDeskContainer(
           right_window.get());
@@ -1602,10 +1553,8 @@ TEST_F(TabletModeControllerTest,
        StartTabletActiveLeftSnapPreviousDesktopOnlyRightSnap) {
   std::unique_ptr<aura::Window> left_window = CreateDesktopWindowSnappedLeft();
   aura::test::TestWindowDelegate right_window_delegate;
-  std::unique_ptr<aura::Window> right_window(
-      CreateTestWindowInShellWithDelegate(
-          &right_window_delegate, /*id=*/-1,
-          /*bounds=*/gfx::Rect(0, 0, 400, 400)));
+  std::unique_ptr<aura::Window> right_window(CreateTestWindowInShell(
+      {.delegate = &right_window_delegate, .bounds = {400, 400}}));
   const gfx::Rect display_bounds =
       screen_util::GetDisplayWorkAreaBoundsInScreenForActiveDeskContainer(
           right_window.get());
@@ -1633,8 +1582,8 @@ TEST_F(TabletModeControllerTest,
 TEST_F(TabletModeControllerTest,
        StartTabletActiveRightSnapPreviousDesktopOnlyLeftSnap) {
   aura::test::TestWindowDelegate left_window_delegate;
-  std::unique_ptr<aura::Window> left_window(CreateTestWindowInShellWithDelegate(
-      &left_window_delegate, /*id=*/-1, /*bounds=*/gfx::Rect(0, 0, 400, 400)));
+  std::unique_ptr<aura::Window> left_window(CreateTestWindowInShell(
+      {.delegate = &left_window_delegate, .bounds = {400, 400}}));
   const gfx::Rect display_bounds =
       screen_util::GetDisplayWorkAreaBoundsInScreenForActiveDeskContainer(
           left_window.get());

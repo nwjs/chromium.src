@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/memory/values_equivalent.h"
 #include "base/numerics/clamped_math.h"
 #include "third_party/blink/public/strings/grit/blink_strings.h"
 #include "third_party/blink/renderer/core/css/basic_shape_functions.h"
@@ -64,6 +65,7 @@
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
+#include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/core/style/coord_box_offset_path_operation.h"
 #include "third_party/blink/renderer/core/style/geometry_box_clip_path_operation.h"
 #include "third_party/blink/renderer/core/style/grid_area.h"
@@ -670,23 +672,23 @@ const CSSValue* AnimationTrigger::CSSValueFromComputedStyleInternal(
         for (const Member<const StyleTriggerAttachment>& attachment :
              *single_animation_attachments) {
           // Get the name.
-          Member<const CSSCustomIdentValue> trigger_name =
+          const CSSCustomIdentValue* trigger_name =
               MakeGarbageCollected<CSSCustomIdentValue>(
                   *attachment->TriggerName());
 
-          // Get the action-behavior settings.
-          HeapVector<std::pair<Member<const CSSCustomIdentValue>,
-                               Member<const CSSCustomIdentValue>>>
-              action_behavior_pairs;
-          for (const auto& pair : attachment->ActionBehaviorPairs()) {
-            action_behavior_pairs.push_back(std::make_pair(
-                MakeGarbageCollected<const CSSCustomIdentValue>(pair.first),
-                MakeGarbageCollected<const CSSCustomIdentValue>(pair.second)));
+          const CSSIdentifierValue* enter_behavior_value =
+              CSSIdentifierValue::Create(attachment->EnterBehavior());
+
+          const CSSIdentifierValue* exit_behavior_value = nullptr;
+          std::optional<EAnimationTriggerBehavior> exit_behavior =
+              attachment->ExitBehavior();
+          if (exit_behavior) {
+            exit_behavior_value = CSSIdentifierValue::Create(*exit_behavior);
           }
 
           attachment_valuelist_for_single_animation->Append(
               *MakeGarbageCollected<cssvalue::CSSTriggerAttachmentValue>(
-                  trigger_name.Get(), action_behavior_pairs));
+                  trigger_name, enter_behavior_value, exit_behavior_value));
         }
       } else {
         attachment_valuelist_for_single_animation->Append(
@@ -705,34 +707,6 @@ const CSSValue* AnimationTrigger::CSSValueFromComputedStyleInternal(
 
 const CSSValue* AnimationTrigger::InitialValue() const {
   return CSSIdentifierValue::Create(CSSValueID::kNone);
-}
-
-const CSSValue* TimelineTriggerBehavior::InitialValue() const {
-  return CSSIdentifierValue::Create(CSSValueID::kOnce);
-}
-
-const CSSValue* TimelineTriggerBehavior::CSSValueFromComputedStyleInternal(
-    const ComputedStyle& style,
-    const LayoutObject*,
-    bool allow_visited_style,
-    CSSValuePhase value_phase) const {
-  return ComputedStyleUtils::ValueForAnimationTriggerBehaviorList(
-      style.Animations()
-          ? style.Animations()->TimelineTriggerBehaviorList()
-          : Vector<EAnimationTriggerBehavior>{
-                CSSAnimationData::InitialTimelineTriggerBehavior()});
-}
-
-const CSSValue* TimelineTriggerBehavior::ParseSingleValue(
-    CSSParserTokenStream& stream,
-    const CSSParserContext&,
-    const CSSParserLocalContext&) const {
-  return css_parsing_utils::ConsumeCommaSeparatedList<CSSIdentifierValue*(
-      CSSParserTokenStream&)>(
-      css_parsing_utils::ConsumeIdent<CSSValueID::kOnce, CSSValueID::kRepeat,
-                                      CSSValueID::kAlternate,
-                                      CSSValueID::kState>,
-      stream);
 }
 
 const CSSValue* TimelineTriggerName::ParseSingleValue(
@@ -1994,6 +1968,25 @@ const CSSValue* BorderTopWidth::CSSValueFromComputedStyleInternal(
   return ZoomAdjustedPixelValue(width, style);
 }
 
+namespace {
+
+const CSSValue* ConsumeBasicShapeAndGeometryBox(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context) {
+  CSSValue* shape = css_parsing_utils::ConsumeBasicShape(stream, context);
+  if (!shape) {
+    return nullptr;
+  }
+  CSSValue* box = css_parsing_utils::ConsumeGeometryBoxForBorderShape(stream);
+  if (box) {
+    return MakeGarbageCollected<CSSValuePair>(
+        shape, box, CSSValuePair::kKeepIdenticalValues);
+  }
+  return shape;
+}
+
+}  // namespace
+
 const CSSValue* BorderShape::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
@@ -2003,17 +1996,27 @@ const CSSValue* BorderShape::ParseSingleValue(
     return css_parsing_utils::ConsumeIdent(stream);
   }
 
-  // TODO(nrosenthal) parse the <<geometry-box>>.
-  CSSValue* outer_shape = css_parsing_utils::ConsumeBasicShape(stream, context);
-  if (!outer_shape) {
+  const CSSValue* outer = ConsumeBasicShapeAndGeometryBox(stream, context);
+  if (!outer) {
     return nullptr;
   }
 
-  CSSValue* inner_shape = css_parsing_utils::ConsumeBasicShape(stream, context);
-  return inner_shape
-             ? MakeGarbageCollected<CSSValuePair>(
-                   outer_shape, inner_shape, CSSValuePair::kDropIdenticalValues)
-             : outer_shape;
+  const CSSValue* inner = ConsumeBasicShapeAndGeometryBox(stream, context);
+  // If the inner shape is not present or is identical to the outer shape,
+  // we can return the outer shape. Note that we need to check for value pair
+  // equality here because both outer and inner shapes can have an associated
+  // geometry box and when they are omitted, they aren't equal.
+  // E.g. circle() circle() is not the same as circle(), it's actually
+  // circle() border-box circle() padding-box.
+  if (!inner || (outer->IsValuePair() && inner->IsValuePair() &&
+                 base::ValuesEquivalent(inner, outer))) {
+    return outer;
+  }
+
+  CSSValueList* list = CSSValueList::CreateSpaceSeparated();
+  list->Append(*outer);
+  list->Append(*inner);
+  return list;
 }
 
 const CSSValue* BorderShape::CSSValueFromComputedStyleInternal(
@@ -2025,15 +2028,47 @@ const CSSValue* BorderShape::CSSValueFromComputedStyleInternal(
     return CSSIdentifierValue::Create(CSSValueID::kNone);
   }
   const StyleBorderShape& border_shape = *style.BorderShape();
-  const CSSValue* outer_shape =
-      ValueForBasicShape(style, &border_shape.OuterShape());
-  if (!border_shape.HasSeparateInnerShape()) {
-    return outer_shape;
+
+  const CSSValue* outer = nullptr;
+  const CSSValue* inner = nullptr;
+  bool is_single_shape = !border_shape.HasSeparateInnerShape();
+
+  // Outer shape and coord box
+  CSSValue* outer_shape = ValueForBasicShape(style, &border_shape.OuterShape());
+  GeometryBox outer_box = border_shape.OuterBox();
+  // For single-shape border-shape, half-border-box is the default and should
+  // be omitted from serialization
+  bool should_omit_outer_box =
+      (is_single_shape && outer_box == GeometryBox::kHalfBorderBox) ||
+      (!is_single_shape && outer_box == GeometryBox::kBorderBox);
+  if (!should_omit_outer_box) {
+    CSSValue* outer_box_value = CSSIdentifierValue::Create(outer_box);
+    outer = MakeGarbageCollected<CSSValuePair>(
+        outer_shape, outer_box_value, CSSValuePair::kKeepIdenticalValues);
+  } else {
+    outer = outer_shape;
   }
 
-  return MakeGarbageCollected<CSSValuePair>(
-      outer_shape, ValueForBasicShape(style, &border_shape.InnerShape()),
-      CSSValuePair::kDropIdenticalValues);
+  // Inner shape and coord box
+  if (!is_single_shape) {
+    CSSValue* inner_shape =
+        ValueForBasicShape(style, &border_shape.InnerShape());
+    GeometryBox inner_box = border_shape.InnerBox();
+    if (inner_box != GeometryBox::kPaddingBox) {
+      CSSValue* inner_box_value = CSSIdentifierValue::Create(inner_box);
+      inner = MakeGarbageCollected<CSSValuePair>(
+          inner_shape, inner_box_value, CSSValuePair::kKeepIdenticalValues);
+    } else {
+      inner = inner_shape;
+    }
+  } else {
+    return outer;
+  }
+
+  CSSValueList* list = CSSValueList::CreateSpaceSeparated();
+  list->Append(*outer);
+  list->Append(*inner);
+  return list;
 }
 
 const CSSValue* Bottom::ParseSingleValue(
@@ -5885,6 +5920,22 @@ const CSSValue* RowRuleOutset::CSSValueFromComputedStyleInternal(
       style.RowRuleOutset(), style);
 }
 
+const CSSValue* ColumnRuleVisibilityItems::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return CSSIdentifierValue::Create(style.ColumnRuleVisibilityItems());
+}
+
+const CSSValue* RowRuleVisibilityItems::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return CSSIdentifierValue::Create(style.RowRuleVisibilityItems());
+}
+
 const blink::Color InternalVisitedColumnRuleColor::ColorIncludingFallback(
     bool visited_link,
     const ComputedStyle& style,
@@ -7711,8 +7762,23 @@ const CSSValue* OverscrollArea::ParseSingleValue(
           css_parsing_utils::ConsumeIdent<CSSValueID::kNone>(stream)) {
     return value;
   }
-  return css_parsing_utils::ConsumeCommaSeparatedList(
-      css_parsing_utils::ConsumeDashedIdent, stream, context);
+  HashSet<String> parsed_values;
+  CSSValueList* list = CSSValueList::CreateCommaSeparated();
+  do {
+    CSSCustomIdentValue* value =
+        css_parsing_utils::ConsumeDashedIdent(stream, context);
+    if (!value) {
+      return nullptr;
+    }
+
+    if (!parsed_values.Contains(value->Value())) {
+      parsed_values.insert(value->Value());
+      list->Append(*value);
+    }
+  } while (css_parsing_utils::ConsumeCommaIncludingWhitespace(stream));
+
+  DCHECK(list->length());
+  return list;
 }
 
 const CSSValue* OverscrollArea::CSSValueFromComputedStyleInternal(
@@ -9957,6 +10023,14 @@ void TextIndent::ApplyValue(StyleResolverState& state,
   }
 
   state.StyleBuilder().SetTextIndent(length_or_percentage_value);
+}
+
+const CSSValue* TextJustify::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return CSSIdentifierValue::Create(style.TextJustify());
 }
 
 const CSSValue* TextOrientation::CSSValueFromComputedStyleInternal(

@@ -16,6 +16,7 @@
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
+#include "base/sequence_checker.h"
 #include "base/time/time.h"
 #include "base/version_info/channel.h"
 #include "build/build_config.h"
@@ -88,19 +89,19 @@ enum class VariationsSeedExpiry {
   kMaxValue = kExpired,
 };
 
-enum LoadPermanentConsistencyCountryResult {
-  LOAD_COUNTRY_NO_PREF_NO_SEED = 0,
-  LOAD_COUNTRY_NO_PREF_HAS_SEED,
-  LOAD_COUNTRY_INVALID_PREF_NO_SEED,
-  LOAD_COUNTRY_INVALID_PREF_HAS_SEED,
-  LOAD_COUNTRY_HAS_PREF_NO_SEED_VERSION_EQ,
-  LOAD_COUNTRY_HAS_PREF_NO_SEED_VERSION_NEQ,
-  LOAD_COUNTRY_HAS_BOTH_VERSION_EQ_COUNTRY_EQ,
-  LOAD_COUNTRY_HAS_BOTH_VERSION_EQ_COUNTRY_NEQ,
-  LOAD_COUNTRY_HAS_BOTH_VERSION_NEQ_COUNTRY_EQ,
-  LOAD_COUNTRY_HAS_BOTH_VERSION_NEQ_COUNTRY_NEQ,
-  LOAD_COUNTRY_HAS_PERMANENT_OVERRIDDEN_COUNTRY,
-  LOAD_COUNTRY_MAX,
+enum class LoadPermanentConsistencyCountryResult {
+  kNoPrefNoSeed = 0,
+  kNoPrefHasSeed,
+  kInvalidPrefNoSeed,
+  kInvalidPrefHasSeed,
+  kHasPrefNoSeedVersionEq,
+  kHasPrefNoSeedVersionNeq,
+  kHasBothVersionEqCountryEq,
+  kHasBothVersionEqCountryNeq,
+  kHasBothVersionNeqCountryEq,
+  kHasBothVersionNeqCountryNeq,
+  kHasPermanentOverriddenCountry,
+  kMaxValue = kHasPermanentOverriddenCountry,
 };
 
 class PlatformFieldTrials;

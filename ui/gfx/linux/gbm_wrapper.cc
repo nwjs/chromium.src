@@ -19,7 +19,7 @@
 #include "components/viz/common/resources/shared_image_format.h"
 #include "skia/ext/legacy_display_globals.h"
 #include "third_party/skia/include/core/SkSurface.h"
-#include "ui/gfx/buffer_format_util.h"
+#include "ui/gfx/buffer_types.h"
 #include "ui/gfx/linux/drm_util_linux.h"
 #include "ui/gfx/linux/gbm_buffer.h"
 #include "ui/gfx/linux/gbm_device.h"
@@ -171,8 +171,8 @@ class Buffer final : public ui::GbmBuffer {
   // TODO(reveman): This should not be needed once crbug.com/597932 is fixed,
   // as the size would be queried directly from the underlying bo.
   gfx::Size GetSize() const override { return size_; }
-  gfx::BufferFormat GetBufferFormat() const override {
-    return ui::GetBufferFormatFromFourCCFormat(format_);
+  viz::SharedImageFormat GetSharedImageFormat() const override {
+    return ui::GetSharedImageFormatFromFourCCFormat(format_);
   }
   bool AreFdsValid() const override {
     if (handle_.planes.empty())

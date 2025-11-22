@@ -16,6 +16,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/autofill/ui/ui_util.h"
@@ -28,6 +29,7 @@
 #include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
@@ -57,7 +59,8 @@ constexpr std::u16string_view kWorkAddressManagementUrl =
     u"https://myaccount.google.com/address/"
     u"work?utm_source=chrome&utm_campaign=manage_addresses";
 constexpr std::u16string_view kAccountNameAndEmailManagementUrl =
-    u"https://myaccount.google.com/personal-info";
+    u"https://myaccount.google.com/personal-info"
+    u"?utm_source=chrome-settings&utm_medium=autofill";
 
 std::u16string ExtractPassword(const std::u16string& label) {
   // `label` is never empty since `Suggestion::labels` must contain a password.
@@ -467,6 +470,23 @@ void AutofillKeyboardAccessoryControllerImpl::OnDeletionDialogClosed(
 
   const FillingProduct filling_product =
       GetFillingProductFromSuggestionType(GetSuggestionAt(index).type);
+
+  if (filling_product == FillingProduct::kAddress && web_contents_) {
+    PersonalDataManager* pdm = PersonalDataManagerFactory::GetForBrowserContext(
+        web_contents_->GetBrowserContext());
+
+    const auto* payload = std::get_if<Suggestion::AutofillProfilePayload>(
+        &GetSuggestionAt(index).payload);
+    if (pdm && payload) {
+      const AutofillProfile* profile =
+          pdm->address_data_manager().GetProfileByGUID(payload->guid.value());
+      if (profile) {
+        AutofillMetrics::LogDeleteAddressProfileFromKeyboardAccessory(
+            confirmed, profile->record_type());
+      }
+    }
+  }
+
   if (!confirmed) {
     return;
   }
@@ -476,7 +496,8 @@ void AutofillKeyboardAccessoryControllerImpl::OnDeletionDialogClosed(
   }
   switch (filling_product) {
     case FillingProduct::kAddress:
-      AutofillMetrics::LogDeleteAddressProfileFromKeyboardAccessory();
+      // Address metrics are recorded earlier in this function because they are
+      // recorded even if user canceled the dialog.
       break;
     case FillingProduct::kAutocomplete:
       AutofillMetrics::OnAutocompleteSuggestionDeleted(

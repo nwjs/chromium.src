@@ -13,8 +13,8 @@
 #include "base/containers/flat_set.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
-#include "components/url_formatter/spoof_checks/skeleton_generator.h"
-#include "net/extras/preload_data/decoder.h"
+#include "base/memory/raw_span.h"
+#include "components/url_formatter/spoof_checks/idn_spoof_checker_types.h"
 #include "third_party/icu/source/common/unicode/uniset.h"
 #include "third_party/icu/source/common/unicode/utypes.h"
 #include "third_party/icu/source/common/unicode/uversion.h"
@@ -27,40 +27,14 @@ class UnicodeString;
 
 }  // namespace U_ICU_NAMESPACE
 
+class SkeletonGenerator;
 struct USpoofChecker;
 
 namespace url_formatter {
+
 FORWARD_DECLARE_TEST(UrlFormatterTest, IDNToUnicode);
 
 using Skeletons = base::flat_set<std::string>;
-
-// The |SkeletonType| and |TopDomainEntry| are mirrored in trie_entry.h. These
-// are used to insert and read nodes from the Trie.
-// The type of skeleton in the trie node.
-enum SkeletonType {
-  // The skeleton represents the full domain (e.g. google.corn).
-  kFull = 0,
-  // The skeleton represents the domain with '.'s and '-'s removed (e.g.
-  // googlecorn).
-  kSeparatorsRemoved = 1,
-  // Max value used to determine the number of different types. Update this and
-  // |kSkeletonTypeBitLength| when new SkeletonTypes are added.
-  kMaxValue = kSeparatorsRemoved
-};
-
-const uint8_t kSkeletonTypeBitLength = 1;
-
-// Represents a top domain entry in the trie.
-struct TopDomainEntry {
-  // The domain in ASCII (punycode for IDN).
-  std::string domain;
-  // True if the domain is in the top bucket (i.e. in the most popular subset of
-  // top domains). These domains can have additional skeletons associated with
-  // them.
-  bool is_top_bucket = false;
-  // Type of the skeleton stored in the trie node.
-  SkeletonType skeleton_type;
-};
 
 // A helper class for IDN Spoof checking, used to ensure that no IDN input is
 // spoofable per Chromium's standard of spoofability. For a more thorough
@@ -69,39 +43,11 @@ struct TopDomainEntry {
 class IDNSpoofChecker {
  public:
   struct HuffmanTrieParams {
-    const uint8_t* huffman_tree;
-    size_t huffman_tree_size;
-    const uint8_t* trie;
+    ~HuffmanTrieParams();
+    base::raw_span<const uint8_t> huffman_tree;
+    base::raw_span<const uint8_t> trie;
     size_t trie_bits;
     size_t trie_root_position;
-  };
-
-  enum class Result {
-    // Spoof checks weren't performed because the domain wasn't IDN. Should
-    // never be returned from SafeToDisplayAsUnicode.
-    kNone,
-    // The domain passed all spoof checks.
-    kSafe,
-    // Failed ICU's standard spoof checks such as Greek mixing with Latin.
-    kICUSpoofChecks,
-    // Domain contains deviation characters.
-    kDeviationCharacters,
-    // Domain contains characters that are only allowed for certain TLDs, such
-    // as thorn (þ) used outside Icelandic.
-    kTLDSpecificCharacters,
-    // Domain has an unsafe middle dot.
-    kUnsafeMiddleDot,
-    // Domain is composed of only Latin-like characters from non Latin scripts.
-    // E.g. apple.com but apple in Cyrillic (xn--80ak6aa92e.com).
-    kWholeScriptConfusable,
-    // Domain is composed of only characters that look like digits.
-    kDigitLookalikes,
-    // Domain mixes Non-ASCII Latin with Non-Latin characters.
-    kNonAsciiLatinCharMixedWithNonLatin,
-    // Domain contains dangerous patterns that are mostly found when mixing
-    // Latin and CJK scripts. E.g. Katakana iteration mark (U+30FD) not preceded
-    // by Katakana.
-    kDangerousPattern,
   };
 
   IDNSpoofChecker();
@@ -126,9 +72,10 @@ class IDNSpoofChecker {
   // - SafeToDisplayAsUnicode(L"аррӏе", "com", "com") -> kWholeScriptConfusable
   // - SafeToDisplayAsUnicode(L"аррӏе", "xn--p1ai", "рф") -> kSafe (xn--p1ai is
   //   the punycode form of рф)
-  Result SafeToDisplayAsUnicode(std::u16string_view label,
-                                std::string_view top_level_domain,
-                                std::u16string_view top_level_domain_unicode);
+  IDNSpoofCheckerResult SafeToDisplayAsUnicode(
+      std::u16string_view label,
+      std::string_view top_level_domain,
+      std::u16string_view top_level_domain_unicode);
 
   // Returns the matching top domain if |hostname| or the last few components of
   // |hostname| looks similar to one of top domains listed in domains.list.

@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <deque>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -47,6 +48,7 @@
 #include "chrome/browser/ui/web_applications/web_app_dialogs.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_integrity_block_data.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
+#include "chrome/browser/web_applications/model/app_installed_by.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/proto/web_app.pb.h"
 #include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
@@ -1184,16 +1186,59 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
     }
 
     if (random.next_bool() || !pending_update_info.has_name()) {
-      std::vector<apps::IconInfo> icons_to_update =
+      std::vector<apps::IconInfo> trusted_icons_to_update =
+          CreateRandomIconMetadata(random, params.base_url);
+      std::vector<apps::IconInfo> manifest_icons_to_update =
           CreateRandomIconMetadata(random, params.base_url);
 
-      for (const auto& icon : icons_to_update) {
-        *pending_update_info.add_trusted_icons() = AppIconInfoToSyncProto(icon);
+      // A mapping of the icon purpose to the downloaded icon sizes.
+      std::map<sync_pb::WebAppIconInfo::Purpose, std::vector<int32_t>>
+          trusted_sizes_by_purpose;
+      std::map<sync_pb::WebAppIconInfo::Purpose, std::vector<int32_t>>
+          manifest_sizes_by_purpose;
+
+      for (const auto& trusted_icon : trusted_icons_to_update) {
+        *pending_update_info.add_trusted_icons() =
+            AppIconInfoToSyncProto(trusted_icon);
+        const auto icon_purpose =
+            IconInfoPurposeToSyncPurpose(trusted_icon.purpose);
+        const int32_t icon_size = trusted_icon.square_size_px.value();
+
+        trusted_sizes_by_purpose[icon_purpose].push_back(icon_size);
+      }
+
+      for (const auto& manifest_icon : manifest_icons_to_update) {
         *pending_update_info.add_manifest_icons() =
-            AppIconInfoToSyncProto(icon);
+            AppIconInfoToSyncProto(manifest_icon);
+        const auto icon_purpose =
+            IconInfoPurposeToSyncPurpose(manifest_icon.purpose);
+        const int32_t icon_size = manifest_icon.square_size_px.value();
+
+        manifest_sizes_by_purpose[icon_purpose].push_back(icon_size);
+      }
+
+      for (const auto& trusted_size_purpose : trusted_sizes_by_purpose) {
+        proto::DownloadedIconSizeInfo downloaded_icon_info;
+        downloaded_icon_info.set_purpose(trusted_size_purpose.first);
+        for (int32_t size : trusted_size_purpose.second) {
+          downloaded_icon_info.add_icon_sizes(size);
+        }
+        *pending_update_info.add_downloaded_trusted_icons() =
+            downloaded_icon_info;
+      }
+
+      for (const auto& manifest_size_purpose : manifest_sizes_by_purpose) {
+        proto::DownloadedIconSizeInfo downloaded_icon_info;
+        downloaded_icon_info.set_purpose(manifest_size_purpose.first);
+        for (int32_t size : manifest_size_purpose.second) {
+          downloaded_icon_info.add_icon_sizes(size);
+        }
+        *pending_update_info.add_downloaded_manifest_icons() =
+            downloaded_icon_info;
       }
     }
 
+    pending_update_info.set_was_ignored(random.next_bool());
     app->SetPendingUpdateInfo(pending_update_info);
   }
 
@@ -1208,6 +1253,20 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
   }
   if (is_iwa && random.next_bool()) {
     app->SetBorderlessUrlPatterns(CreateRandomUrlPatterns(random));
+  }
+
+  base::Time first_install_time = random.next_time();
+  if (random.next_bool()) {
+    app->AddInstalledByInfo(web_app::AppInstalledBy(
+        first_install_time,
+        params.base_url.Resolve("installed_by1_" + seed_str + "/")));
+  }
+  if (random.next_bool()) {
+    // Ensure the second timestamp is later than the first.
+    base::Time second_install_time = first_install_time + base::Milliseconds(1);
+    app->AddInstalledByInfo(web_app::AppInstalledBy(
+        second_install_time,
+        params.base_url.Resolve("installed_by2_" + seed_str + "/")));
   }
 
   return app;

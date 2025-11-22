@@ -9,6 +9,8 @@
 #include <string_view>
 
 #include "base/metrics/histogram_functions.h"
+#include "base/notreached.h"
+#include "base/strings/strcat.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
@@ -75,17 +77,18 @@ std::string_view GetHistogramSuffixForTcpBasedAttemptCancel(
 }  // namespace
 
 HttpStreamPool::TcpBasedAttempt::TcpBasedAttempt(AttemptManager* manager,
-                                                 bool using_tls,
+                                                 TcpBasedAttemptSlot* slot,
                                                  IPEndPoint ip_endpoint)
     : manager_(manager),
       track_(base::trace_event::GetNextGlobalTraceId()),
       flow_(perfetto::Flow::ProcessScoped(
-          base::trace_event::GetNextGlobalTraceId())) {
+          base::trace_event::GetNextGlobalTraceId())),
+      slot_(slot) {
   TRACE_EVENT_INSTANT("net.stream", "TcpBasedAttemptStart", manager_->track(),
                       flow_);
   TRACE_EVENT_BEGIN("net.stream", "TcpBasedAttempt::TcpBasedAttempt", track_,
                     flow_, "ip_endpoint", ip_endpoint.ToString());
-  if (using_tls) {
+  if (manager_->using_tls()) {
     attempt_ = std::make_unique<TlsStreamAttempt>(
         manager_->pool()->stream_attempt_params(), std::move(ip_endpoint),
         track_,
@@ -105,6 +108,43 @@ HttpStreamPool::TcpBasedAttempt::~TcpBasedAttempt() {
       base::StrCat({"Net.HttpStreamPool.TcpBasedAttemptTime2.",
                     GetResultHistogramSuffix(result_)}),
       elapsed);
+
+  if (result_.has_value() && *result_ == OK) {
+    std::string_view suffix = manager_->using_tls() ? ".Tls" : ".Tcp";
+
+    base::UmaHistogramMediumTimes(
+        base::StrCat({"Net.HttpStreamPool.TcpBasedAttemptSuccessTime", suffix}),
+        elapsed);
+    base::UmaHistogramMediumTimes(
+        "Net.HttpStreamPool.TcpBasedAttemptStartDelay",
+        start_time_ - manager_->created_time());
+    base::UmaHistogramTimes(
+        "Net.HttpStreamPool.TcpBasedAttemptServiceEndpointWaitTime",
+        service_endpoint_wait_end_time_ - service_endpoint_wait_start_time_);
+
+    // Record time taken by TCP/TLS handshakes. `ConnectTiming.connect_end`
+    // corresponds to `connectEnd` in ResourceTiming API and indicates:
+    //  - TCP handshake completion time for TCP attempt.
+    //  - TLS handshake completion time for TLS attempt.
+    // See https://www.w3.org/TR/resource-timing/#attribute-descriptions.
+    constexpr std::string_view kTcpHandshakeTimeHistogramName =
+        "Net.HttpStreamPool.TcpHandshakeTime";
+    const LoadTimingInfo::ConnectTiming& connect_timing =
+        attempt_->connect_timing();
+    if (manager_->using_tls()) {
+      CHECK(!tcp_handshake_complete_time_for_tls_.is_null());
+      base::UmaHistogramMediumTimes(
+          base::StrCat({kTcpHandshakeTimeHistogramName, suffix}),
+          tcp_handshake_complete_time_for_tls_ - connect_timing.connect_start);
+      base::UmaHistogramMediumTimes(
+          "Net.HttpStreamPool.TlsHandshakeTime",
+          connect_timing.connect_end - tcp_handshake_complete_time_for_tls_);
+    } else {
+      base::UmaHistogramMediumTimes(
+          base::StrCat({kTcpHandshakeTimeHistogramName, suffix}),
+          connect_timing.connect_end - connect_timing.connect_start);
+    }
+  }
 
   if (cancel_reason_.has_value()) {
     base::UmaHistogramEnumeration(
@@ -159,8 +199,9 @@ void HttpStreamPool::TcpBasedAttempt::Start() {
                       base::BindOnce(&TcpBasedAttempt::OnAttemptSlow,
                                      base::Unretained(this)));
   } else {
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(&TcpBasedAttempt::OnAttemptComplete,
+    TaskRunner(manager_->GetPriority())
+        ->PostTask(FROM_HERE,
+                   base::BindOnce(&TcpBasedAttempt::OnAttemptComplete,
                                   weak_ptr_factory_.GetWeakPtr(), rv));
   }
 }
@@ -201,9 +242,6 @@ HttpStreamPool::TcpBasedAttempt::MaybeTakeSSLConfigWaitingCallback() {
   }
 
   CHECK(!service_endpoint_wait_start_time_.is_null());
-  base::UmaHistogramMediumTimes(
-      "Net.HttpStreamPool.TcpBasedAttemptSSLConfigWaitTime2",
-      base::TimeTicks::Now() - service_endpoint_wait_start_time_);
 
   if (!is_slow_ && !slow_timer_.IsRunning()) {
     // Resume the slow timer as `attempt_` will start a TLS handshake.
@@ -215,6 +253,7 @@ HttpStreamPool::TcpBasedAttempt::MaybeTakeSSLConfigWaitingCallback() {
                                      base::Unretained(this)));
   }
 
+  service_endpoint_wait_end_time_ = base::TimeTicks::Now();
   return std::move(service_endpoint_waiting_callback_);
 }
 
@@ -245,6 +284,7 @@ base::Value::Dict HttpStreamPool::TcpBasedAttempt::GetInfoAsValue() const {
 }
 
 void HttpStreamPool::TcpBasedAttempt::OnTcpHandshakeComplete() {
+  tcp_handshake_complete_time_for_tls_ = base::TimeTicks::Now();
   // Pause the slow timer until `attempt_` starts a TLS handshake to exclude the
   // time spent waiting for SSLConfig from the time `this` is considered slow.
   slow_timer_.Stop();
@@ -253,6 +293,7 @@ void HttpStreamPool::TcpBasedAttempt::OnTcpHandshakeComplete() {
 void HttpStreamPool::TcpBasedAttempt::OnAttemptSlow() {
   CHECK(!is_slow_);
   is_slow_ = true;
+  slot()->UpdateIsSlow();
   manager_->OnTcpBasedAttemptSlow(this);
 }
 
@@ -270,6 +311,142 @@ void HttpStreamPool::TcpBasedAttempt::OnAttemptComplete(int rv) {
   result_ = rv;
   slow_timer_.Stop();
   manager_->OnTcpBasedAttemptComplete(this, rv);
+}
+
+// TcpBasedAttemptSlot
+
+HttpStreamPool::TcpBasedAttemptSlot::TcpBasedAttemptSlot() = default;
+
+HttpStreamPool::TcpBasedAttemptSlot::~TcpBasedAttemptSlot() = default;
+
+HttpStreamPool::TcpBasedAttemptSlot::TcpBasedAttemptSlot(
+    TcpBasedAttemptSlot&&) = default;
+
+HttpStreamPool::TcpBasedAttemptSlot&
+HttpStreamPool::TcpBasedAttemptSlot::operator=(TcpBasedAttemptSlot&&) = default;
+
+void HttpStreamPool::TcpBasedAttemptSlot::AllocateAttempt(
+    std::unique_ptr<TcpBasedAttempt> attempt) {
+  // New attempts should typically not be slow, so could potentially
+  // unconditionally set `is_slow_` to false, but best to be safe.
+  if (!attempt->is_slow()) {
+    is_slow_ = false;
+  }
+
+  if (attempt->ip_endpoint().address().IsIPv4()) {
+    CHECK(!ipv4_attempt_);
+    ipv4_attempt_ = std::move(attempt);
+  } else {
+    CHECK(attempt->ip_endpoint().address().IsIPv6());
+    CHECK(!ipv6_attempt_);
+    ipv6_attempt_ = std::move(attempt);
+  }
+}
+
+std::unique_ptr<HttpStreamPool::TcpBasedAttempt>
+HttpStreamPool::TcpBasedAttemptSlot::TakeAttempt(TcpBasedAttempt* raw_attempt) {
+  auto take_attempt = [&]() {
+    if (ipv4_attempt_.get() == raw_attempt) {
+      return std::move(ipv4_attempt_);
+    }
+    if (ipv6_attempt_.get() == raw_attempt) {
+      return std::move(ipv6_attempt_);
+    }
+    NOTREACHED();
+  };
+
+  UpdateIsSlow();
+
+  std::unique_ptr<TcpBasedAttempt> attempt = take_attempt();
+  // Reset slot to avoid dangling pointer.
+  attempt->ResetSlot();
+  return attempt;
+}
+
+LoadState HttpStreamPool::TcpBasedAttemptSlot::GetLoadState() const {
+  if (ipv4_attempt_ && ipv6_attempt_) {
+    CHECK(ipv4_attempt_->attempt());
+    CHECK(ipv6_attempt_->attempt());
+    return std::max(ipv4_attempt_->attempt()->GetLoadState(),
+                    ipv6_attempt_->attempt()->GetLoadState());
+  }
+  if (ipv4_attempt_) {
+    CHECK(ipv4_attempt_->attempt());
+    return ipv4_attempt_->attempt()->GetLoadState();
+  }
+  if (ipv6_attempt_) {
+    CHECK(ipv6_attempt_->attempt());
+    return ipv6_attempt_->attempt()->GetLoadState();
+  }
+  NOTREACHED();
+}
+
+void HttpStreamPool::TcpBasedAttemptSlot::MaybeTakeSSLConfigWaitingCallbacks(
+    std::vector<CompletionOnceCallback>& callbacks) {
+  auto take_callback = [&](TcpBasedAttempt* attempt) {
+    auto callback = attempt->MaybeTakeSSLConfigWaitingCallback();
+    if (callback.has_value()) {
+      callbacks.emplace_back(std::move(*callback));
+    }
+  };
+
+  if (ipv4_attempt_) {
+    take_callback(ipv4_attempt_.get());
+  }
+  if (ipv6_attempt_) {
+    take_callback(ipv6_attempt_.get());
+  }
+}
+
+bool HttpStreamPool::TcpBasedAttemptSlot::IsSlow() const {
+  DCHECK_EQ(is_slow_, CalculateIsSlow());
+  return is_slow_;
+}
+
+bool HttpStreamPool::TcpBasedAttemptSlot::HasIPEndPoint(
+    const IPEndPoint& ip_endpoint) const {
+  if (ipv4_attempt_ && ipv4_attempt_->ip_endpoint() == ip_endpoint) {
+    return true;
+  }
+  if (ipv6_attempt_ && ipv6_attempt_->ip_endpoint() == ip_endpoint) {
+    return true;
+  }
+  return false;
+}
+
+void HttpStreamPool::TcpBasedAttemptSlot::SetCancelReason(
+    StreamSocketCloseReason reason) {
+  if (ipv4_attempt_) {
+    ipv4_attempt_->SetCancelReason(reason);
+  }
+  if (ipv6_attempt_) {
+    ipv6_attempt_->SetCancelReason(reason);
+  }
+}
+
+base::Value::Dict HttpStreamPool::TcpBasedAttemptSlot::GetInfoAsValue() const {
+  base::Value::Dict dict;
+  if (ipv4_attempt_) {
+    dict.Set("ipv4_attempt", ipv4_attempt_->GetInfoAsValue());
+  }
+  if (ipv6_attempt_) {
+    dict.Set("ipv6_attempt", ipv6_attempt_->GetInfoAsValue());
+  }
+  return dict;
+}
+
+void HttpStreamPool::TcpBasedAttemptSlot::UpdateIsSlow() {
+  is_slow_ = CalculateIsSlow();
+}
+
+bool HttpStreamPool::TcpBasedAttemptSlot::CalculateIsSlow() const {
+  if (ipv4_attempt_ && !ipv4_attempt_->is_slow()) {
+    return false;
+  }
+  if (ipv6_attempt_ && !ipv6_attempt_->is_slow()) {
+    return false;
+  }
+  return true;
 }
 
 }  // namespace net

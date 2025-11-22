@@ -96,7 +96,6 @@
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/demo_mode/utils/demo_session_utils.h"
 #include "chromeos/ash/services/assistant/public/cpp/assistant_browser_delegate.h"
-#include "chromeos/ash/services/assistant/public/cpp/features.h"
 #include "components/account_id/account_id.h"
 #include "components/app_constants/constants.h"
 #include "components/browser_sync/browser_sync_switches.h"
@@ -218,6 +217,10 @@ IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest, IsPlatformAppOpen) {
 
   const extensions::Extension* app = InstallPlatformApp("minimal");
   EXPECT_FALSE(delegate->IsAppOpen(app->id()));
+
+  apps::chrome_app_deprecation::ScopedAddAppToAllowlistForTesting allowlist(
+      app->id());
+
   {
     content::CreateAndLoadWebContentsObserver app_loaded_observer;
     LaunchPlatformApp(app);
@@ -1468,7 +1471,7 @@ class AppListSurveyTriggerTest
 
     message_center::MessageCenterWaiter(
         ash::HatsNotificationController::kNotificationId)
-        .Wait();
+        .WaitUntilAdded();
   }
 
   const ash::HatsNotificationController* GetHatsNotificationController() const {

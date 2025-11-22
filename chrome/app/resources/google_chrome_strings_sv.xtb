@@ -21,6 +21,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="110877069173485804">Det här är Chrome</translation>
 <translation id="1125124144982679672">Vem ska använda Chrome?</translation>
 <translation id="1142745911746664600">Det gick inte att uppdatera Chrome</translation>
+<translation id="1148360048981192980">Nästa gång du öppnar Chrome på din <ph name="DEVICE_TYPE" /> visas en uppmaning om att använda Google Lösenordshantering.</translation>
 <translation id="1152920704813762236">Om ChromeOS</translation>
 <translation id="1154147086299354128">&amp;Öppna i Chrome</translation>
 <translation id="1157985233335035034">Nyligen använda språk</translation>
@@ -92,6 +93,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="2018528049276128029">I alla profiler sparas egen Chrome-information som bokmärken, historik, lösenord och annat</translation>
 <translation id="2018879682492276940">Installationen misslyckades. Försök igen.</translation>
 <translation id="2024959665595762054">Verifiera din identitet om du vill använda och spara Chrome-data i Google-kontot</translation>
+<translation id="2026377840141807639">Med Chrome-profiler slipper du blanda ditt privata surfande med jobbet. Lägg till en ny profil nu.</translation>
 <translation id="2034233344106846793">Chrome uppgraderar automatiskt osäkra anslutningar till HTTPS när det är möjligt</translation>
 <translation id="2039417478970545937">Inställningar.</translation>
 <translation id="2091012649849228750">Du behöver Windows 10 eller senare för att få kommande uppdateringar av Google Chrome. På den här datorn används Windows 8.</translation>
@@ -150,9 +152,11 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="2681444469812712297">Öppna <ph name="URL" /> på en ny flik i Google Chrome.</translation>
 <translation id="2699790011615497488">Öppna Gemini i Chrome Beta</translation>
 <translation id="2712141162840347885">Välj vad du vill söka efter med Google Lens eller tryck på Escape för att avsluta Google Lens</translation>
+<translation id="2723860029395667894">Visa alltid genvägen till Google AI-läget</translation>
 <translation id="2738871930057338499">Det går inte att ansluta till internet. HTTP 403 Förbjuden. Kontrollera proxykonfigurationen.</translation>
 <translation id="2742320827292110288">Varning! Google Chrome kan inte förhindra att tillägg registrerar din webbhistorik. Om du vill inaktivera det här tillägget i inkognitoläge avmarkerar du detta alternativ.</translation>
 <translation id="2753623023919742414">Klicka för att söka</translation>
+<translation id="2757826245013442432">{COUNT,plural, =0{Avancerat skydd kräver att du startar om Chrome så att en uppdatering tillämpas}=1{Avancerat skydd kräver att du startar om Chrome för att tillämpa en uppdatering. Inkognitofönstret öppnas inte igen.}other{Avancerat skydd kräver att du startar om Chrome för att tillämpa en uppdatering. De # inkognitofönstren öppnas inte igen.}}</translation>
 <translation id="2765403129283291972">Du behöver ge Chrome behörighet att använda mikrofonen på webbplatsen</translation>
 <translation id="2770231113462710648">Ändra standardwebbläsare till:</translation>
 <translation id="2775140325783767197">Chrome kan inte kontrollera dina lösenord. Testa att kontrollera internetanslutningen.</translation>
@@ -190,6 +194,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="3047590466164881923">Stäng dialogrutan för feedback</translation>
 <translation id="306179102415443347">Använd genvägen för att snabbt öppna Google Lösenordshantering. Du kan flytta genvägen till startskärmen eller startprogrammet för appar på datorn.</translation>
 <translation id="3065168410429928842">Chrome-flik</translation>
+<translation id="3073571714401714450">Aktivera/inaktivera Gemini i Chrome Dev</translation>
 <translation id="3080151273017101988">Fortsätt köra bakgrundsappar när Google Chrome avslutas</translation>
 <translation id="308397506772922478">Om du har glömt lösenfrasen eller vill ändra den här inställningen måste du <ph name="BEGIN_LINK" />radera Chrome-datan i kontot<ph name="END_LINK" />.</translation>
 <translation id="3100998948628680988">Ge Chrome-profilen ett namn</translation>
@@ -275,7 +280,6 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="409936259433005390">Uppgraderar du snart till Windows 11? Ladda ned installationsprogrammet för Chrome till OneDrive så att du är redo från dag ett.</translation>
 <translation id="4110895483821904099">Konfigurera din nya profil i Chrome</translation>
 <translation id="4111566860456076004">Chrome kan inte verifiera var tillägget kommer från. Det kan vara osäkert. Ta bort det från Chrome så att det inte längre kan se och ändra data, inklusive personliga uppgifter, på webbplatser du besöker.</translation>
-<translation id="4128488089242627000">Chrome körs snabbare och funktioner som använder JavaScript bör fungera som de ska (rekommenderas)</translation>
 <translation id="4147555960264124640">Du loggar in med ett hanterat konto och ger dess administratör kontroll över din Google Chrome-profil. Dina Chrome-uppgifter, t.ex. dina appar, bokmärken, din historik, dina lösenord och andra inställningar, knyts permanent till <ph name="USER_NAME" />. Du kommer att kunna ta bort dessa uppgifter via instrumentpanelen i Google Konton, men du kommer inte att kunna koppla dessa uppgifter till ett annat konto. <ph name="LEARN_MORE" /></translation>
 <translation id="4148957013307229264">Installerar...</translation>
 <translation id="4149882025268051530">Det gick inte att packa upp arkivet med installationsfilen. Ladda ned Google Chrome igen.</translation>
@@ -365,6 +369,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 Vissa funktioner är kanske inte tillgängliga. Ange en annan profilkatalog om du vill använda en nyare version av Chrome.</translation>
 <translation id="5174969993834422967">Du brukar blockera aviseringar. Klicka på aviseringsikonen uppe till höger om platsfältet om du vill tillåta aviseringar från webbplatsen.</translation>
 <translation id="5174983315706567306">Det finns inte tillräckligt med diskutrymme.</translation>
+<translation id="5190467473654176081">Anpassa Chrome med ett nytt utseende</translation>
 <translation id="5201744974236816379">Chrome-uppdatering</translation>
 <translation id="521447420733633466">Om du delar en enhet med vänner och familj kan de konfigurera Chrome precis som de vill och surfa separat.</translation>
 <translation id="5234764350956374838">Stäng</translation>
@@ -380,6 +385,7 @@ Vissa funktioner är kanske inte tillgängliga. Ange en annan profilkatalog om d
 <translation id="5368118228313795342">Extra kod: <ph name="EXTRA_CODE" />.</translation>
 <translation id="5386244825306882791">Det styr också vilken sida som visas när du startar Chrome eller söker i adressfältet.</translation>
 <translation id="5394833366792865639">Dela en flik i Chrome</translation>
+<translation id="5402307365844630024">Aktivera/inaktivera Gemini i Chrome Beta</translation>
 <translation id="5430073640787465221">Inställningsfilen är skadad eller ogiltig.
 
 Google Chrome kan inte återställa dina inställningar.</translation>
@@ -387,6 +393,7 @@ Google Chrome kan inte återställa dina inställningar.</translation>
 <translation id="5510398294750420479">Ladda ned Chrome på telefonen för att få ett extra skyddslager var du än är</translation>
 <translation id="5524890928877629608">övre vänstra hörnet av sökområdet: <ph name="LEFT" /> % åt vänster, <ph name="TOP" /> % uppåt</translation>
 <translation id="5530733413481476019">Gör Chrome snabbare</translation>
+<translation id="5550137307985173298">Klicka på knappen Anpassa Chrome på sidan Ny flik för att ge Chrome ett nytt utseende</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5579324208890605088">Startfel: Kör installationsprogrammet som vanlig användare, inte som administratör.</translation>
 <translation id="5596627076506792578">Fler alternativ</translation>
@@ -415,6 +422,7 @@ Google Chrome kan inte återställa dina inställningar.</translation>
 <translation id="5736850870166430177">Om du utsätts för försök att kapa ditt lösenord på en webbplats eller om du laddar ned en skadlig fil kan webbadresserna skickas från Chrome till Säker webbsökning tillsammans med delar av sidinnehållet</translation>
 <translation id="5756509061973259733">Det finns redan en Chrome-profil med detta konto på enheten</translation>
 <translation id="5759947850379142561">Välj text eller bild att söka efter med Google Lens eller tryck på Escape för att avsluta Google Lens</translation>
+<translation id="5762867845020858790">Lägg till en ny Chrome-profil för att hålla isär bokmärken, lösenord och inställningar.</translation>
 <translation id="5795887333006832406"><ph name="PAGE_TITLE" /> – Google Chrome Canary</translation>
 <translation id="5804318322022881572">Det gick inte att starta Chrome. Försök igen.</translation>
 <translation id="5809516625706423866">Det går inte att ansluta till internet. HTTP 401 Åtkomst nekad. Kontrollera proxykonfigurationen.</translation>
@@ -431,6 +439,7 @@ Google Chrome kan inte återställa dina inställningar.</translation>
 <translation id="5941711191222866238">Minimera</translation>
 <translation id="5941830788786076944">Använd Google Chrome som standardwebbläsare</translation>
 <translation id="5947104538377036631">Chrome-genväg</translation>
+<translation id="5960071705175224773">Dina inställningar har ändrats av en okänd app</translation>
 <translation id="5968400720580217226">AI-läge</translation>
 <translation id="5980111191913430208">Tillägg, appar och teman från okända källor kan skada enheten. Vi rekommenderar att du bara installerar dem från <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /></translation>
 <translation id="6003112304606738118">Laddar ned … <ph name="HOURS" /> timme/timmar kvar</translation>
@@ -481,6 +490,7 @@ Google Chrome kan inte återställa dina inställningar.</translation>
 <translation id="6412673304250309937">Kontrollera webbadresser mot en lista över osäkra webbplatser i Chrome. Om du utsätts för försök att kapa ditt lösenord på en webbplats eller om du laddar ned en skadlig fil kan webbadresserna skickas från Chrome till Säker webbsökning tillsammans med delar av sidinnehållet.</translation>
 <translation id="6417690341895039567">{COUNT,plural, =1{Organisationen avslutar Chrome automatiskt när det inte har använts på 1 minut. Webbinformation raderas. Detta kan innefatta historik, autofyll och nedladdningar.}other{Organisationen avslutar Chrome automatiskt när det inte har använts på # minuter. Webbinformation raderas. Detta kan innefatta historik, autofyll och nedladdningar.}}</translation>
 <translation id="6418662306461808273">Vill du byta till en befintlig Chrome-profil?</translation>
+<translation id="6426623519983252346">Du får en uppmaning om att testa <ph name="FEATURE_NAME" /> nästa gång du öppnar Chrome för iOS.</translation>
 <translation id="6473905796280459355">Öppna sidan Om Chrome</translation>
 <translation id="6481963882741794338">Länka Chrome och andra tjänster från Google för anpassning och andra syften</translation>
 <translation id="648319183876919572">Förbättrad säker webbsökning gör mer för att skydda dig mot farliga webbplatser och nedladdningar</translation>
@@ -513,6 +523,7 @@ Google Chrome kan inte återställa dina inställningar.</translation>
 <translation id="6800285125190089494">Logga in snabbare på webbplatser med sparade lösenord för Chrome på iOS</translation>
 <translation id="6831043979455480757">Översätt</translation>
 <translation id="683440813066116847">Regel som tillåter inkommande mDNS-trafik för Google Chrome Canary.</translation>
+<translation id="6841242485723266823">Med Chrome-profiler slipper du blanda olika delar av ditt liv. Lägg till en ny profil nu.</translation>
 <translation id="684888714667046800">Det går inte att ansluta till internet. Om du använder en brandvägg kontrollerar du att <ph name="PRODUCT_EXE_NAME" /> finns med i godkännandelistan.</translation>
 <translation id="6877155553248388166">nedre högra hörnet av sökområdet: <ph name="RIGHT" /> % åt höger, <ph name="BOTTOM" /> % nedåt</translation>
 <translation id="6881299373831449287">Chrome uppdateras</translation>
@@ -528,6 +539,7 @@ Google Chrome kan inte återställa dina inställningar.</translation>
 <translation id="6967962315388095737">Regel som tillåter inkommande mDNS-trafik för Google Chrome Beta.</translation>
 <translation id="6979589607440534284">Läs mer om varför vissa filer blockeras i Chrome (öppnas på en ny flik)</translation>
 <translation id="6991926986715044139">Visa alltid genväg till Google Lens</translation>
+<translation id="6999131147875565462">Chrome körs snabbare och funktioner som använder JavaScript bör fungera som de ska</translation>
 <translation id="7011190694940573312">Installationen misslyckades eftersom den här versionen av operativsystemet inte stöds.</translation>
 <translation id="7024536598735240744">Uppackningsfel: <ph name="UNPACK_ERROR" />.</translation>
 <translation id="7025789849649390912">Installationen avbröts.</translation>
@@ -653,6 +665,7 @@ Google Chrome kan inte återställa dina inställningar.</translation>
 <translation id="8362914115861174987">Översätt till</translation>
 <translation id="8366770919198174997">Minskar prestandan men gör Chrome mer motståndskraftig mot attacker</translation>
 <translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC. Med ensamrätt.</translation>
+<translation id="8377158135256176353">Aktivera/inaktivera Gemini i Chrome Canary</translation>
 <translation id="8387459386171870978">Fortsätt att använda Chrome</translation>
 <translation id="8394720698884623075">Kontrollera webbadresser mot en lista över osäkra webbplatser i Chrome</translation>
 <translation id="8403038600646341038">Chrome-logotyp på en datorskärm.</translation>
@@ -675,8 +688,10 @@ Google Chrome kan inte återställa dina inställningar.</translation>
 <translation id="8625237574518804553">{0,plural, =1{Om en minut startas Chrome om}other{Om # minuter startas Chrome om}}</translation>
 <translation id="8637932705841171563">För att dela fönstret tillåter du skärminspelning för Chrome i systeminställningarna</translation>
 <translation id="8641606876632989680">Chrome aviserar dig om du loggar in med ett utsatt lösenord</translation>
+<translation id="8647930742055103497">Ha allt i Chrome</translation>
 <translation id="8656634243791296665">Öppna Gemini i Chrome Dev</translation>
 <translation id="8669527147644353129">Google Chrome Helper</translation>
+<translation id="8677922833187616101">Visa alltid genvägen till Google AI-läget</translation>
 <translation id="8679801911857917785">Det styr också vilken sida som visas när du startar Chrome.</translation>
 <translation id="8712637175834984815">Uppfattat</translation>
 <translation id="8712767363896337380">Uppdateringen är snart klar! Starta om Chrome för att slutföra uppdateringen.</translation>
@@ -685,7 +700,6 @@ Google Chrome kan inte återställa dina inställningar.</translation>
 <translation id="873133009373065397">Google Chrome kan inte fastställa eller ange standardwebbläsaren</translation>
 <translation id="8747073452963259673">nedre vänstra hörnet av sökområdet: <ph name="LEFT" /> % åt vänster, <ph name="BOTTOM" /> % nedåt</translation>
 <translation id="8748735421235723888">Chrome frigör minne från inaktiva flikar. Detta förser aktiva flikar och andra appar med mer av datorns resurser, vilket gör att Chrome fortsätter att fungera snabbt. De inaktiva flikarna aktiveras automatiskt när du återvänder till dem. <ph name="BEGIN_LINK" />Läs mer om minnessparläget<ph name="END_LINK" /></translation>
-<translation id="8753189155654018347">Ta bort datan för den här appen från Chrome</translation>
 <translation id="8765470054473112089">När du skriver i adressfältet eller sökrutan skickar Chrome det du skriver till standardsökmotorn för att du ska få bättre förslag. Detta är inaktiverat i inkognitoläge.</translation>
 <translation id="8781673607513845160">Ge Chrome åtkomst i <ph name="BEGIN_LINK" />systeminställningarna<ph name="END_LINK" /> om du vill använda kameran</translation>
 <translation id="878572486461146056">Installationsfel: Nätverksadministratören har tillämpat en grupprincip som förhindrar installation: <ph name="INSTALL_ERROR" /></translation>
@@ -701,12 +715,15 @@ Google Chrome kan inte återställa dina inställningar.</translation>
 <translation id="8883862939660515976">Fråga Google Lens om den här bilden</translation>
 <translation id="8914504000324227558">Starta om Chrome</translation>
 <translation id="8922193594870374009">Logga in på Chrome på båda enheterna om du vill skicka ett nummer från <ph name="ORIGIN" /> till Android-telefonen.</translation>
+<translation id="8922998289262614701">Ta bort datan för den här appen från Chrome</translation>
+<translation id="8936233353620149764">Aktivera/inaktivera Gemini i Chrome</translation>
 <translation id="8948460679427074738">Tillägget har ingen publicerad integritetspraxis, till exempel hur det samlar in och använder data. Vi rekommenderar att du tar bort det.</translation>
 <translation id="8958307504142971576">Nu finns fler funktioner tillgängliga i Chrome</translation>
 <translation id="8991530961471831170">Öppna Gemini i Chrome</translation>
 <translation id="8992769679401294069">Din data krypteras med lösenfrasen. Ange den om du vill använda och spara Chrome-data i Google-kontot.</translation>
 <translation id="8999117580775242387">När HTTPS inte är tillgängligt använder Chrome en osäker anslutning utan att varna dig</translation>
 <translation id="8999208279178790196">{0,plural, =0{Det finns en uppdatering för Chrome}=1{Det finns en uppdatering för Chrome}other{Det finns en uppdatering för Chrome sedan # dagar}}</translation>
+<translation id="9010418943148193727">Din standardsökmotor har ändrats utanför Chrome. Chrome har återställt den för att skydda dig.</translation>
 <translation id="9014771989710951291">Flera organisationer hanterar Chrome</translation>
 <translation id="9024318700713112071">Ställ in Chrome som standardwebbläsare</translation>
 <translation id="9066987883552592250">Stäng Gemini i Chrome Canary</translation>

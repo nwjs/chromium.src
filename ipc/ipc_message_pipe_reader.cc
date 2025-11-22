@@ -17,7 +17,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
-#include "ipc/ipc_channel_mojo.h"
+#include "ipc/ipc_channel.h"
 #include "mojo/public/cpp/bindings/message.h"
 #include "mojo/public/cpp/bindings/thread_safe_proxy.h"
 
@@ -103,10 +103,6 @@ void MessagePipeReader::Close() {
   sender_.reset();
   if (receiver_.is_bound())
     receiver_.reset();
-}
-
-bool MessagePipeReader::Send(std::unique_ptr<Message> message) {
-  return false;
 }
 
 void MessagePipeReader::GetRemoteInterface(

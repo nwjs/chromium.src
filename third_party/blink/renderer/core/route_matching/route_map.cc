@@ -9,6 +9,7 @@
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/route_matching/route.h"
+#include "third_party/blink/renderer/core/url_pattern/url_pattern.h"
 #include "third_party/blink/renderer/core/url_pattern/url_pattern_utils.h"
 #include "third_party/blink/renderer/platform/json/json_parser.h"
 #include "third_party/blink/renderer/platform/json/json_values.h"
@@ -41,6 +42,7 @@ RouteMap::RouteMap() : Supplement<Document>(nullptr) {
 
 void RouteMap::Trace(Visitor* v) const {
   v->Trace(routes_);
+  v->Trace(anonymous_routes_);
   Supplement<Document>::Trace(v);
   ScriptWrappable::Trace(v);
 }
@@ -168,33 +170,72 @@ RouteMap::ParseResult RouteMap::ParseRoutes(const String& route_map_text) {
   return ParseResult(ParseResult::kSuccess);
 }
 
-bool RouteMap::MatchesRoute(const String& route) const {
-  const auto it = routes_.find(route);
+void RouteMap::AddAnonymousRoute(URLPattern* pattern) {
+  String pattern_string = pattern->ToString();
+  Member<Route>& route =
+      anonymous_routes_.insert(pattern_string, nullptr).stored_value->value;
+  if (route) {
+    return;
+  }
+  route = MakeGarbageCollected<Route>(GetDocument());
+  route->AddPattern(pattern);
+  route->UpdateMatchStatus(previous_url_, next_url_);
+}
+
+bool RouteMap::MatchesRoute(const String& route_name,
+                            RoutePreposition preposition) const {
+  const auto it = routes_.find(route_name);
   if (it == routes_.end()) {
     return false;
   }
-  return it->value->matches();
+
+  Route& route = *it->value;
+  return route.Matches(preposition);
 }
 
-bool RouteMap::UpdateActiveRoutes() {
+bool RouteMap::MatchesURLPattern(const URLPattern* pattern,
+                                 RoutePreposition preposition) const {
+  String pattern_string = pattern->ToString();
+  auto it = anonymous_routes_.find(pattern_string);
+  if (it == anonymous_routes_.end()) {
+    return false;
+  }
+
+  Route& route = *it->value;
+  return route.Matches(preposition);
+}
+
+void RouteMap::UpdateActiveRoutes() {
   bool changed = false;
   for (const auto& entry : routes_) {
-    changed = entry.value->UpdateMatchStatus() || changed;
+    Route& route = *entry.value;
+    changed = route.UpdateMatchStatus(previous_url_, next_url_) || changed;
+  }
+  for (const auto& entry : anonymous_routes_) {
+    Route& route = *entry.value;
+    changed = route.UpdateMatchStatus(previous_url_, next_url_) || changed;
   }
   if (changed) {
     GetDocument().GetStyleEngine().RoutesMayHaveChanged();
   }
-  return changed;
 }
 
-HashSet<String> RouteMap::GetActiveRoutes() const {
-  HashSet<String> active_routes;
+void RouteMap::GetActiveRoutes(
+    RoutePreposition preposition,
+    RouteMatchState::MatchCollection* collection) const {
+  collection->clear();
   for (const auto& entry : routes_) {
-    if (entry.value->matches()) {
-      active_routes.insert(entry.key);
+    Route& route = *entry.value;
+    if (route.Matches(preposition)) {
+      collection->insert(&route);
     }
   }
-  return active_routes;
+  for (const auto& entry : anonymous_routes_) {
+    Route& route = *entry.value;
+    if (route.Matches(preposition)) {
+      collection->insert(&route);
+    }
+  }
 }
 
 }  // namespace blink

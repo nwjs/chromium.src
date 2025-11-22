@@ -100,7 +100,6 @@
 #include "ui/views/layout/flex_layout_view.h"
 #include "ui/views/layout/layout_types.h"
 #include "ui/views/layout/table_layout.h"
-#include "ui/views/metadata/view_factory_internal.h"
 #include "ui/views/style/typography.h"
 #include "ui/views/view.h"
 
@@ -1427,7 +1426,7 @@ AshNotificationView::GenerateNotificationLabelButton(
   std::unique_ptr<PillButton> actions_button = std::make_unique<PillButton>(
       std::move(callback), label, PillButton::Type::kFloatingWithoutIcon,
       /*icon=*/nullptr, kNotificationPillButtonHorizontalSpacing);
-  actions_button->SetButtonTextColorId(cros_tokens::kCrosSysOnSurface);
+  actions_button->SetButtonTextColor(cros_tokens::kCrosSysOnSurface);
 
   return actions_button;
 }

@@ -9,8 +9,6 @@
 #include "base/containers/span.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
-#include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -124,9 +122,9 @@ void PasswordRequirementsSpecFetcherImpl::Fetch(GURL origin,
   }
 
   // Canonicalize away trailing periods in hostname.
-  while (!origin.host_piece().empty() && origin.host_piece().back() == '.') {
+  while (!origin.host().empty() && origin.host().back() == '.') {
     std::string_view new_host =
-        origin.host_piece().substr(0, origin.host_piece().length() - 1);
+        origin.host().substr(0, origin.host().length() - 1);
     GURL::Replacements replacements;
     replacements.SetHostStr(new_host);
     origin = origin.ReplaceComponents(replacements);
@@ -193,18 +191,6 @@ void PasswordRequirementsSpecFetcherImpl::OnFetchComplete(
   std::unique_ptr<LookupInFlight> lookup = RemoveLookupInFlight(hash_prefix);
 
   lookup->download_timer.Stop();
-  UMA_HISTOGRAM_TIMES("PasswordManager.RequirementsSpecFetcher.NetworkDuration",
-                      base::TimeTicks::Now() - lookup->start_of_request);
-  // Network error codes are negative. See: src/net/base/net_error_list.h.
-  base::UmaHistogramSparse(
-      "PasswordManager.RequirementsSpecFetcher.NetErrorCode",
-      -lookup->url_loader->NetError());
-  if (lookup->url_loader->ResponseInfo() &&
-      lookup->url_loader->ResponseInfo()->headers) {
-    base::UmaHistogramSparse(
-        "PasswordManager.RequirementsSpecFetcher.HttpResponseCode",
-        lookup->url_loader->ResponseInfo()->headers->response_code());
-  }
 
   if (!response_body || lookup->url_loader->NetError() != net::Error::OK) {
     VLOG(1) << "Fetch for " << hash_prefix << ": failed to fetch. Net Error: "
@@ -230,7 +216,7 @@ void PasswordRequirementsSpecFetcherImpl::OnFetchComplete(
     DCHECK(!origin.HostIsIPAddress());
     // |host| is a std::string instead of std::string_view as the protbuf::Map
     // implementation does not support StringPieces as parameters for find.
-    std::string host = origin.host();
+    std::string host = origin.GetHost();
     auto host_iter = shard.specs().find(host);
     if (host_iter != shard.specs().end()) {
       const PasswordRequirementsSpec& spec = host_iter->second;
@@ -277,8 +263,6 @@ void PasswordRequirementsSpecFetcherImpl::OnFetchComplete(
 void PasswordRequirementsSpecFetcherImpl::OnFetchTimeout(
     const std::string& hash_prefix) {
   std::unique_ptr<LookupInFlight> lookup = RemoveLookupInFlight(hash_prefix);
-  UMA_HISTOGRAM_TIMES("PasswordManager.RequirementsSpecFetcher.NetworkDuration",
-                      base::TimeTicks::Now() - lookup->start_of_request);
   TriggerCallbackToAll(&lookup->callbacks, ResultCode::kErrorTimeout,
                        PasswordRequirementsSpec());
 }
@@ -296,8 +280,6 @@ void PasswordRequirementsSpecFetcherImpl::TriggerCallback(
     FetchCallback callback,
     ResultCode result,
     const PasswordRequirementsSpec& spec) {
-  UMA_HISTOGRAM_ENUMERATION("PasswordManager.RequirementsSpecFetcher.Result",
-                            result);
   std::move(callback).Run(spec);
 }
 

@@ -17,12 +17,15 @@
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/core/model_execution/settings_enabled_observer.h"
 #include "components/optimization_guide/core/optimization_guide_prefs.h"
-#include "components/optimization_guide/proto/model_execution.pb.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/primary_account_change_event.h"
 
 class PrefService;
+
+namespace policy {
+class ManagementService;
+}
 
 namespace optimization_guide {
 
@@ -61,11 +64,13 @@ class ModelExecutionFeaturesController
   };
 
   // Must be created only for non-incognito browser contexts.
-  ModelExecutionFeaturesController(PrefService* browser_context_profile_service,
-                                   signin::IdentityManager* identity_manager,
-                                   PrefService* local_state,
-                                   DogfoodStatus dogfood_status,
-                                   bool is_official_build);
+  ModelExecutionFeaturesController(
+      PrefService* browser_context_profile_service,
+      signin::IdentityManager* identity_manager,
+      PrefService* local_state,
+      policy::ManagementService* management_service,
+      DogfoodStatus dogfood_status,
+      bool is_official_build);
 
   ~ModelExecutionFeaturesController() override;
 
@@ -214,6 +219,9 @@ class ModelExecutionFeaturesController
 
   // Set of features that are visible to unsigned users.
   base::flat_set<UserVisibleFeatureKey> features_allowed_for_unsigned_user_;
+
+  // To check if the user is enterprise or not.
+  raw_ptr<policy::ManagementService> management_service_;
 
   // Whether this client is a (likely) dogfood client.
   const DogfoodStatus dogfood_status_;

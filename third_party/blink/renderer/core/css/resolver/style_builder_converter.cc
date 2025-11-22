@@ -275,22 +275,61 @@ StyleSVGResource* StyleBuilderConverter::ConvertElementReference(
       url_value.ValueForSerialization());
 }
 
+namespace {
+
+struct BasicShapeAndCoordBox {
+  STACK_ALLOCATED();
+
+ public:
+  BasicShape* shape;
+  GeometryBox box;
+};
+
+template <GeometryBox default_box>
+BasicShapeAndCoordBox BasicShapeAndCoordBoxForValue(StyleResolverState& state,
+                                                    const CSSValue& value) {
+  BasicShape* shape = nullptr;
+  GeometryBox box = default_box;
+  if (const auto* pair = DynamicTo<CSSValuePair>(value)) {
+    shape = BasicShapeForValue(state, pair->First());
+    box = To<CSSIdentifierValue>(pair->Second()).ConvertTo<GeometryBox>();
+  } else {
+    shape = BasicShapeForValue(state, value);
+  }
+  return {shape, box};
+}
+
+}  // namespace
+
 StyleBorderShape* StyleBuilderConverter::ConvertBorderShape(
     StyleResolverState& state,
     const CSSValue& value) {
+  // Either:
+  // - none;
+  // - a single shape (meaning default box is half-border-box for stroking);
+  // - a pair of shape + box;
+  // - list of either: two pairs of shape + box or two shapes.
   if (value.IsIdentifierValue()) {
     CHECK_EQ(To<CSSIdentifierValue>(value).GetValueID(), CSSValueID::kNone);
     return nullptr;
   }
 
-  if (const auto* pair = DynamicTo<CSSValuePair>(value)) {
-    return MakeGarbageCollected<StyleBorderShape>(
-        *BasicShapeForValue(state, pair->First()),
-        BasicShapeForValue(state, pair->Second()));
+  if (const auto* list = DynamicTo<CSSValueList>(value)) {
+    DCHECK_EQ(list->length(), 2u);
+    auto [outer_shape, outer_box] =
+        BasicShapeAndCoordBoxForValue<GeometryBox::kBorderBox>(state,
+                                                               list->First());
+    auto [inner_shape, inner_box] =
+        BasicShapeAndCoordBoxForValue<GeometryBox::kPaddingBox>(state,
+                                                                list->Last());
+    return MakeGarbageCollected<StyleBorderShape>(*outer_shape, inner_shape,
+                                                  outer_box, inner_box);
   }
 
+  auto [outer_shape, outer_coord_box] =
+      BasicShapeAndCoordBoxForValue<GeometryBox::kHalfBorderBox>(state, value);
   return MakeGarbageCollected<StyleBorderShape>(
-      *BasicShapeForValue(state, value));
+      *outer_shape, outer_shape, outer_coord_box, outer_coord_box);
 }
 
 LengthBox StyleBuilderConverter::ConvertClip(StyleResolverState& state,
@@ -3878,19 +3917,19 @@ PositionArea StyleBuilderConverter::ConvertPositionArea(
         start = PositionAreaRegion::kCenter;
         end = PositionAreaRegion::kXEnd;
         break;
-      case CSSValueID::kXSelfStart:
-        start = end = PositionAreaRegion::kXSelfStart;
+      case CSSValueID::kSelfXStart:
+        start = end = PositionAreaRegion::kSelfXStart;
         break;
-      case CSSValueID::kXSelfEnd:
-        start = end = PositionAreaRegion::kXSelfEnd;
+      case CSSValueID::kSelfXEnd:
+        start = end = PositionAreaRegion::kSelfXEnd;
         break;
-      case CSSValueID::kSpanXSelfStart:
-        start = PositionAreaRegion::kXSelfStart;
+      case CSSValueID::kSpanSelfXStart:
+        start = PositionAreaRegion::kSelfXStart;
         end = PositionAreaRegion::kCenter;
         break;
-      case CSSValueID::kSpanXSelfEnd:
+      case CSSValueID::kSpanSelfXEnd:
         start = PositionAreaRegion::kCenter;
-        end = PositionAreaRegion::kXSelfEnd;
+        end = PositionAreaRegion::kSelfXEnd;
         break;
       case CSSValueID::kTop:
         start = end = PositionAreaRegion::kTop;
@@ -3920,19 +3959,19 @@ PositionArea StyleBuilderConverter::ConvertPositionArea(
         start = PositionAreaRegion::kCenter;
         end = PositionAreaRegion::kYEnd;
         break;
-      case CSSValueID::kYSelfStart:
-        start = end = PositionAreaRegion::kYSelfStart;
+      case CSSValueID::kSelfYStart:
+        start = end = PositionAreaRegion::kSelfYStart;
         break;
-      case CSSValueID::kYSelfEnd:
-        start = end = PositionAreaRegion::kYSelfEnd;
+      case CSSValueID::kSelfYEnd:
+        start = end = PositionAreaRegion::kSelfYEnd;
         break;
-      case CSSValueID::kSpanYSelfStart:
-        start = PositionAreaRegion::kYSelfStart;
+      case CSSValueID::kSpanSelfYStart:
+        start = PositionAreaRegion::kSelfYStart;
         end = PositionAreaRegion::kCenter;
         break;
-      case CSSValueID::kSpanYSelfEnd:
+      case CSSValueID::kSpanSelfYEnd:
         start = PositionAreaRegion::kCenter;
-        end = PositionAreaRegion::kYSelfEnd;
+        end = PositionAreaRegion::kSelfYEnd;
         break;
       case CSSValueID::kBlockStart:
         start = end = PositionAreaRegion::kBlockStart;

@@ -124,7 +124,18 @@ AcceleratedStaticBitmapImage::AcceleratedStaticBitmapImage(
 }
 
 AcceleratedStaticBitmapImage::~AcceleratedStaticBitmapImage() {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  // It's ok for the image to be destroyed on another thread. Unfortunately,
+  // this is unavoidable for images that are snapshotted from OffscreenCanvas on
+  // a worker thread and bound for destruction in a callback posted back to the
+  // thread since the worker thread can be destroyed before the callback is
+  // posted. In that case, the image bound to the callback is destroyed when the
+  // callback's bind state is destroyed immediately after the PostTask fails.
+  // This is safe because we perform no thread/sequence-affine operations here:
+  // 1) we don't dereference any weak ptrs, 2) the only way the above scenario
+  // can occur is if this image was transferred to another thread, in which case
+  // `texture_backing_` should be null and 3) the DestroySharedImage() call in
+  // the `shared_image_` destructor is thread-safe.
+  DETACH_FROM_THREAD(thread_checker_);
 }
 
 scoped_refptr<StaticBitmapImage>
@@ -250,13 +261,16 @@ void AcceleratedStaticBitmapImage::Draw(cc::PaintCanvas* canvas,
 }
 
 bool AcceleratedStaticBitmapImage::IsValid() const {
-  if (texture_backing_ && !skia_context_provider_wrapper_)
-    return false;
-
   if (mailbox_ref_->is_cross_thread()) {
     // If context is is from another thread, validity cannot be verified. Just
     // assume valid. Potential problem will be detected later.
     return true;
+  }
+
+  // Check the weak pointers after checking that the image is not cross thread
+  // as weak pointers validity cannot be checked on multiple threads.
+  if (texture_backing_ && !skia_context_provider_wrapper_) {
+    return false;
   }
 
   return !!context_provider_wrapper_;
@@ -286,17 +300,6 @@ void AcceleratedStaticBitmapImage::CreateImageFromMailboxIfNeeded() {
   gpu::raster::RasterInterface* shared_ri =
       context_provider_wrapper->ContextProvider().RasterInterface();
   shared_ri->WaitSyncTokenCHROMIUM(mailbox_ref_->sync_token().GetConstData());
-
-  const auto& capabilities =
-      context_provider_wrapper->ContextProvider().GetCapabilities();
-
-  if (!capabilities.gpu_rasterization) {
-    // As the context provider no longer has a GrDirectContext, it is
-    // impossible to obtain a texture backing without OOP-R.
-    // TODO(crbug.com/391648152): Remove this condition entirely as part of
-    // removing non-OOP-R codepaths from Blink.
-    return;
-  }
 
   skia_context_provider_wrapper_ = context_provider_wrapper;
   texture_backing_ = sk_make_sp<MailboxTextureBacking>(
@@ -356,6 +359,7 @@ void AcceleratedStaticBitmapImage::Transfer() {
   // SkImage is bound to the current thread so is no longer valid to use
   // cross-thread.
   texture_backing_.reset();
+  skia_context_provider_wrapper_.reset();
 
   DETACH_FROM_THREAD(thread_checker_);
 }

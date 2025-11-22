@@ -6,12 +6,21 @@
 #include "base/functional/callback.h"
 #include "base/location.h"
 #include "base/task/single_thread_task_runner.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/prefs/incognito_mode_prefs.h"
+#include "chrome/browser/profiles/nuke_profile_directory_utils.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 
+#if BUILDFLAG(IS_CHROMEOS)
+#include "components/session_manager/core/session_manager.h"
+#include "components/user_manager/user_manager.h"
+#endif
+
 namespace {
 
-BrowserWindowInterface* CreateAppBrowserWindow(
+Browser::CreateParams CreateAppBrowserWindow(
     BrowserWindowCreateParams create_params) {
   CHECK(create_params.type == BrowserWindowInterface::TYPE_APP ||
         create_params.type == BrowserWindowInterface::TYPE_APP_POPUP)
@@ -30,23 +39,60 @@ BrowserWindowInterface* CreateAppBrowserWindow(
 
   browser_params.initial_show_state = create_params.initial_show_state;
 
-  return Browser::Create(browser_params);
+  return browser_params;
 }
+
+#if BUILDFLAG(IS_CHROMEOS)
+bool IsOnKioskSplashScreen() {
+  session_manager::SessionManager* session_manager =
+      session_manager::SessionManager::Get();
+  if (!session_manager) {
+    return false;
+  }
+  // We have to check this way because of CHECK() in UserManager::Get().
+  if (!user_manager::UserManager::IsInitialized()) {
+    return false;
+  }
+  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
+  if (!user_manager->IsLoggedInAsAnyKioskApp()) {
+    return false;
+  }
+  if (session_manager->session_state() !=
+      session_manager::SessionState::LOGIN_PRIMARY) {
+    return false;
+  }
+  return true;
+}
+#endif
 
 }  // namespace
 
 BrowserWindowInterface* CreateBrowserWindow(
     BrowserWindowCreateParams create_params) {
-  if (!create_params.app_name.empty()) {
-    return CreateAppBrowserWindow(std::move(create_params));
-  }
+  CHECK_EQ(BrowserWindowInterface::CreationStatus::kOk,
+           GetBrowserWindowCreationStatusForProfile(*create_params.profile));
 
   Browser::CreateParams browser_params(create_params.type,
                                        &*create_params.profile,
                                        create_params.from_user_gesture);
+  if (!create_params.app_name.empty()) {
+    browser_params = CreateAppBrowserWindow(create_params);
+  }
+
   browser_params.trusted_source = create_params.is_trusted_source;
   browser_params.initial_bounds = std::move(create_params.initial_bounds);
   browser_params.initial_show_state = create_params.initial_show_state;
+  browser_params.frameless = create_params.frameless;
+  browser_params.always_on_top = create_params.always_on_top;
+  browser_params.all_visible = create_params.all_visible;
+  browser_params.resizable = create_params.resizable;
+  browser_params.show_in_taskbar = create_params.show_in_taskbar;
+  browser_params.title = create_params.title;
+  browser_params.position = create_params.position;
+  browser_params.extension_id = create_params.extension_id;
+  browser_params.windows_key = create_params.windows_key;
+  browser_params.alpha_enabled = create_params.alpha_enabled;
+  browser_params.icon = create_params.icon;
 
   return Browser::Create(browser_params);
 }
@@ -61,4 +107,25 @@ void CreateBrowserWindow(
   // caller, to maintain the asynchronous behavior across all platforms.
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(std::move(callback), browser_window));
+}
+
+BrowserWindowInterface::CreationStatus GetBrowserWindowCreationStatusForProfile(
+    Profile& profile) {
+  if (!g_browser_process || g_browser_process->IsShuttingDown()) {
+    return BrowserWindowInterface::CreationStatus::kErrorShuttingDown;
+  }
+
+  if (!IncognitoModePrefs::CanOpenBrowser(&profile) ||
+      !profile.AllowsBrowserWindows() ||
+      IsProfileDirectoryMarkedForDeletion(profile.GetPath())) {
+    return BrowserWindowInterface::CreationStatus::kErrorProfileUnsuitable;
+  }
+
+#if BUILDFLAG(IS_CHROMEOS)
+  if (IsOnKioskSplashScreen()) {
+    return BrowserWindowInterface::CreationStatus::kErrorLoadingKiosk;
+  }
+#endif
+
+  return BrowserWindowInterface::CreationStatus::kOk;
 }

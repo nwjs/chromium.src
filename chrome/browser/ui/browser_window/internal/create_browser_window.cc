@@ -16,10 +16,10 @@ BrowserWindowCreateParams::BrowserWindowCreateParams(Profile& profile,
                                 profile,
                                 from_user_gesture) {}
 
-BrowserWindowCreateParams::BrowserWindowCreateParams(
-    BrowserWindowCreateParams&&) = default;
+//BrowserWindowCreateParams::BrowserWindowCreateParams(
+//    BrowserWindowCreateParams&&) = default;
 
-BrowserWindowCreateParams& BrowserWindowCreateParams::operator=(
-    BrowserWindowCreateParams&&) = default;
+//BrowserWindowCreateParams& BrowserWindowCreateParams::operator=(
+//    BrowserWindowCreateParams&&) = default;
 
 BrowserWindowCreateParams::~BrowserWindowCreateParams() = default;

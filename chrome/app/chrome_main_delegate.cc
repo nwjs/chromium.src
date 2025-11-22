@@ -208,7 +208,7 @@
 #include "components/crash/core/app/crashpad.h"
 #endif
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "chrome/browser/extensions/startup_helper.h"  // nogncheck
 #include "extensions/common/constants.h"
 #endif
@@ -241,7 +241,7 @@ base::LazyInstance<ChromeContentRendererClient>::DestructorAtExit
     g_chrome_content_renderer_client = LAZY_INSTANCE_INITIALIZER;
 
 const char* const ChromeMainDelegate::kNonWildcardDomainNonPortSchemes[] = {
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
     extensions::kExtensionScheme,
 #endif
     chrome::kChromeSearchScheme,

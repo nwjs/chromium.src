@@ -33,6 +33,7 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.app.tab_activity_glue.ReparentingTabsTask;
 import org.chromium.chrome.browser.app.tabmodel.TabModelOrchestrator;
+import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.ConfigurationChangedObserver;
 import org.chromium.chrome.browser.lifecycle.DestroyObserver;
@@ -342,8 +343,14 @@ public class MultiInstanceManagerImpl extends MultiInstanceManager
             openNewWindow("MobileMenuNewWindow", /* incognito= */ false);
             return true;
         } else if (id == R.id.new_incognito_window_menu_id) {
-            // TODO(crbug.com/429518328): Hook up with incognito window.
-            openNewWindow("MobileMenuNewIncognitoWindow", /* incognito= */ true);
+            TabModelOrchestrator tabModelOrchestrator = mTabModelOrchestratorSupplier.get();
+            if (tabModelOrchestrator == null) return true;
+            TabModelSelector tabModelSelector = tabModelOrchestrator.getTabModelSelector();
+            if (tabModelSelector == null) return true;
+            Profile profile = tabModelSelector.getCurrentModel().getProfile();
+            if (profile != null && IncognitoUtils.isIncognitoModeEnabled(profile)) {
+                openNewWindow("MobileMenuNewIncognitoWindow", /* incognito= */ true);
+            }
             return true;
         }
 
@@ -454,13 +461,19 @@ public class MultiInstanceManagerImpl extends MultiInstanceManager
         RecordUserAction.record("MobileMenuMoveToOtherWindow");
     }
 
-    protected void openNewWindow(String umaAction, boolean incognito) {
+    @Override
+    public @Nullable Intent createNewWindowIntent(boolean isIncognito) {
+        assert !isIncognito : "Opening an incognito window isn't supported";
         assert mMultiWindowModeStateDispatcher.canEnterMultiWindowMode()
-                || mMultiWindowModeStateDispatcher.isInMultiWindowMode()
-                || mMultiWindowModeStateDispatcher.isInMultiDisplayMode();
+                        || mMultiWindowModeStateDispatcher.isInMultiWindowMode()
+                        || mMultiWindowModeStateDispatcher.isInMultiDisplayMode()
+                : "Current windowing mode doesn't support opening a new window";
 
         Intent intent = mMultiWindowModeStateDispatcher.getOpenInOtherWindowIntent();
-        if (intent == null) return;
+        if (intent == null) {
+            return null;
+        }
+
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.addFlags(Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT);
 
@@ -468,6 +481,15 @@ public class MultiInstanceManagerImpl extends MultiInstanceManager
         // is in a full screen window.
         if (!mActivity.isInMultiWindowMode() && !MultiWindowUtils.shouldOpenInAdjacentWindow()) {
             intent.setFlags(intent.getFlags() & ~Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT);
+        }
+
+        return intent;
+    }
+
+    protected void openNewWindow(String umaAction, boolean incognito) {
+        Intent intent = createNewWindowIntent(incognito);
+        if (intent == null) {
+            return;
         }
 
         onMultiInstanceModeStarted();

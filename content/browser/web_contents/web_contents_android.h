@@ -165,6 +165,9 @@ class CONTENT_EXPORT WebContentsAndroid {
 
   base::android::ScopedJavaLocalRef<jstring> GetEncoding(JNIEnv* env) const;
 
+  void Discard(JNIEnv* env,
+               const base::android::JavaParamRef<jobject>& on_discarded);
+
   void SetOverscrollRefreshHandler(
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& overscroll_refresh_handler);
@@ -262,6 +265,9 @@ class CONTENT_EXPORT WebContentsAndroid {
                                    jint top,
                                    jint right,
                                    jint bottom);
+
+  void SetSupportsDraggableRegions(JNIEnv* env,
+                                   bool supports_draggable_regions);
 
   // Adds a crash report, like DumpWithoutCrashing(), including the Java stack
   // trace from which `web_contents` was created. This is meant to help debug

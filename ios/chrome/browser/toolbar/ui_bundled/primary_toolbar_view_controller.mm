@@ -99,14 +99,6 @@ BASE_FEATURE(kPrimaryToolbarViewDidLoadUpdateViews,
 - (void)updateBackgroundColor {
   UIColor* backgroundColor =
       self.buttonFactory.toolbarConfiguration.backgroundColor;
-  if (base::FeatureList::IsEnabled(kThemeColorInTopToolbar) &&
-      !self.hasOmnibox) {
-    if (self.pageThemeColor) {
-      backgroundColor = self.pageThemeColor;
-    } else if (self.underPageBackgroundColor) {
-      backgroundColor = self.underPageBackgroundColor;
-    }
-  }
   self.view.backgroundColor = backgroundColor;
 }
 
@@ -234,12 +226,7 @@ BASE_FEATURE(kPrimaryToolbarViewDidLoadUpdateViews,
 }
 
 - (BOOL)locationBarIsExpanded {
-  for (NSLayoutConstraint* constraint in self.view.expandedConstraints) {
-    if (!constraint.isActive) {
-      return false;
-    }
-  }
-  return true;
+  return self.view.expanded;
 }
 
 #pragma mark - SharingPositioner
@@ -271,25 +258,20 @@ BASE_FEATURE(kPrimaryToolbarViewDidLoadUpdateViews,
 #pragma mark - ToolbarAnimatee
 
 - (void)expandLocationBar {
-  [self deactivateViewLocationBarConstraints];
-  [NSLayoutConstraint activateConstraints:self.view.expandedConstraints];
+  self.view.expanded = YES;
   [self.delegate locationBarExpandedInViewController:self];
   [self.view layoutIfNeeded];
 }
 
 - (void)contractLocationBar {
-  [self deactivateViewLocationBarConstraints];
-  if (IsSplitToolbarMode(self)) {
-    [NSLayoutConstraint
-        activateConstraints:self.view.contractedNoMarginConstraints];
-  } else {
-    [NSLayoutConstraint activateConstraints:self.view.contractedConstraints];
-  }
+  self.view.splitToolbarMode = IsSplitToolbarMode(self);
+  self.view.expanded = NO;
   [self.delegate locationBarContractedInViewController:self];
   [self.view layoutIfNeeded];
 }
 
 - (void)showCancelButton {
+  self.view.cancelButtonStyle = [self.delegate styleForCancelButtonInToolbar];
   self.view.cancelButton.hidden = NO;
 }
 
@@ -323,9 +305,13 @@ BASE_FEATURE(kPrimaryToolbarViewDidLoadUpdateViews,
 }
 
 - (void)setLocationBarHeightExpanded {
-  [self setLocationBarContainerHeight:LocationBarHeight(
-                                          self.traitCollection
-                                              .preferredContentSizeCategory)];
+  // Avoid resetting the location bar height to its steady state when focused
+  // with multiline enabled, since its height may have been adjusted.
+  if (!IsMultilineBrowserOmniboxEnabled() || !self.locationBarFocused) {
+    [self setLocationBarContainerHeight:LocationBarHeight(
+                                            self.traitCollection
+                                                .preferredContentSizeCategory)];
+  }
   self.view.matchNTPHeight = NO;
 }
 
@@ -417,14 +403,6 @@ BASE_FEATURE(kPrimaryToolbarViewDidLoadUpdateViews,
                                 [self clampedFontSizeMultiplier] +
                             ([self clampedFontSizeMultiplier] - 1) *
                                 kLocationBarVerticalMarginDynamicType);
-}
-
-// Deactivates the constraints on the location bar positioning.
-- (void)deactivateViewLocationBarConstraints {
-  [NSLayoutConstraint deactivateConstraints:self.view.contractedConstraints];
-  [NSLayoutConstraint
-      deactivateConstraints:self.view.contractedNoMarginConstraints];
-  [NSLayoutConstraint deactivateConstraints:self.view.expandedConstraints];
 }
 
 // Sets the height of the location bar container.

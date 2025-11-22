@@ -10,17 +10,24 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import static org.chromium.build.NullUtil.assumeNonNull;
+
+import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Rect;
 import android.os.Build;
 
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.MediumTest;
 
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.ApplicationStatus;
+import org.chromium.base.IntentUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
@@ -28,8 +35,14 @@ import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.ChromeTabbedActivity;
+import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider.CustomTabsUiType;
+import org.chromium.chrome.browser.customtabs.CustomTabActivityTestRule;
+import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
+import org.chromium.chrome.browser.customtabs.CustomTabsIntentTestUtils;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.init.AsyncInitializationActivity;
+import org.chromium.chrome.browser.webapps.WebappActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
@@ -37,6 +50,7 @@ import org.chromium.chrome.test.transit.ntp.RegularNewTabPageStation;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.util.FullscreenTestUtils;
 import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.display.DisplayUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,8 +62,13 @@ import java.util.List;
 public class ChromeAndroidTaskIntegrationTest {
 
     @Rule
+    public CustomTabActivityTestRule mCustomTabActivityTestRule = new CustomTabActivityTestRule();
+
+    @Rule
     public FreshCtaTransitTestRule mFreshCtaTransitTestRule =
             ChromeTransitTestRules.freshChromeTabbedActivityRule();
+
+    @Rule public WebappActivityTestRule mWebappActivityTestRule = new WebappActivityTestRule();
 
     @Test
     @MediumTest
@@ -65,7 +84,49 @@ public class ChromeAndroidTaskIntegrationTest {
 
     @Test
     @MediumTest
-    public void startChromeTabbedActivity_ChromeAndroidTaskAndTabModelHaveSameSessionId() {
+    public void startCustomTabActivityAsPopup_createsChromeAndroidTask() {
+        // Arrange.
+        var customTabIntent = createCustomTabIntent(CustomTabsUiType.POPUP);
+
+        // Act.
+        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(customTabIntent);
+
+        // Assert.
+        int taskId = mCustomTabActivityTestRule.getActivity().getTaskId();
+        var chromeAndroidTask = getChromeAndroidTask(taskId);
+        assertNotNull(chromeAndroidTask);
+    }
+
+    @Test
+    @MediumTest
+    public void startCustomTabActivityAsNonPopup_doesNotCreateChromeAndroidTask() {
+        // Arrange.
+        var customTabIntent = createCustomTabIntent(CustomTabsUiType.DEFAULT);
+
+        // Act.
+        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(customTabIntent);
+
+        // Assert.
+        int taskId = mCustomTabActivityTestRule.getActivity().getTaskId();
+        var chromeAndroidTask = getChromeAndroidTask(taskId);
+        assertNull(chromeAndroidTask);
+    }
+
+    @Test
+    @MediumTest
+    public void startWebappActivity_createsChromeAndroidTask() {
+        // Act.
+        mWebappActivityTestRule.startWebappActivity();
+
+        // Assert.
+        int taskId = mWebappActivityTestRule.getActivity().getTaskId();
+        var chromeAndroidTask = getChromeAndroidTask(taskId);
+        assertNotNull(chromeAndroidTask);
+    }
+
+    @Test
+    @MediumTest
+    public void startChromeTabbedActivity_chromeAndroidTaskAndTabModelHaveSameSessionId() {
         // Arrange.
         mFreshCtaTransitTestRule.startOnBlankPage();
 
@@ -76,8 +137,51 @@ public class ChromeAndroidTaskIntegrationTest {
         var tabModel = mFreshCtaTransitTestRule.getActivity().getCurrentTabModel();
 
         // Assert.
-        assertTrue(chromeAndroidTask.getSessionIdForTesting().isPresent());
-        assertTrue(tabModel.getNativeSessionIdForTesting().isPresent());
+        assertNotNull(chromeAndroidTask.getSessionIdForTesting());
+        assertNotNull(tabModel.getNativeSessionIdForTesting());
+        assertEquals(
+                chromeAndroidTask.getSessionIdForTesting(),
+                tabModel.getNativeSessionIdForTesting());
+    }
+
+    @Test
+    @MediumTest
+    public void startCustomTabActivityAsPopup_chromeAndroidTaskAndTabModelHaveSameSessionId() {
+        // Arrange.
+        var customTabIntent = createCustomTabIntent(CustomTabsUiType.POPUP);
+
+        // Act.
+        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(customTabIntent);
+
+        // Assert.
+        int taskId = mCustomTabActivityTestRule.getActivity().getTaskId();
+        var chromeAndroidTask = getChromeAndroidTask(taskId);
+        assertNotNull(chromeAndroidTask);
+
+        var tabModel = mCustomTabActivityTestRule.getActivity().getCurrentTabModel();
+
+        assertNotNull(chromeAndroidTask.getSessionIdForTesting());
+        assertNotNull(tabModel.getNativeSessionIdForTesting());
+        assertEquals(
+                chromeAndroidTask.getSessionIdForTesting(),
+                tabModel.getNativeSessionIdForTesting());
+    }
+
+    @Test
+    @MediumTest
+    public void startWebappActivity_chromeAndroidTaskAndTabModelHaveSameSessionId() {
+        // Arrange.
+        mWebappActivityTestRule.startWebappActivity();
+
+        int taskId = mWebappActivityTestRule.getActivity().getTaskId();
+        var chromeAndroidTask = getChromeAndroidTask(taskId);
+        assertNotNull(chromeAndroidTask);
+
+        var tabModel = mWebappActivityTestRule.getActivity().getCurrentTabModel();
+
+        // Assert.
+        assertNotNull(chromeAndroidTask.getSessionIdForTesting());
+        assertNotNull(tabModel.getNativeSessionIdForTesting());
         assertEquals(
                 chromeAndroidTask.getSessionIdForTesting(),
                 tabModel.getNativeSessionIdForTesting());
@@ -189,7 +293,14 @@ public class ChromeAndroidTaskIntegrationTest {
         CriteriaHelper.pollUiThread(secondChromeAndroidTask::isActive);
 
         firstChromeAndroidTask.activate();
-        CriteriaHelper.pollUiThread(firstChromeAndroidTask::isActive);
+        Assert.assertTrue(
+                "Activate should make isActive true immediately",
+                firstChromeAndroidTask.isActive());
+        CriteriaHelper.pollUiThread(
+                assumeNonNull(webPageStation.getActivity().getWindowAndroid())
+                        ::isTopResumedActivity);
+        Assert.assertTrue(
+                "Activate should make isActive true eventually", firstChromeAndroidTask.isActive());
 
         // Assert.
         assertEquals(2, testFeature.mTaskFocusChangedParams.size());
@@ -203,21 +314,29 @@ public class ChromeAndroidTaskIntegrationTest {
     @Test
     @MediumTest
     @MinAndroidSdkLevel(Build.VERSION_CODES.R)
-    public void getBounds_returnsCorrectBounds() {
+    @SuppressLint("NewApi" /* @MinAndroidSdkLevel already specifies the required SDK */)
+    public void getBoundsInDp_returnsCorrectBounds() {
         // Arrange
         mFreshCtaTransitTestRule.startOnBlankPage();
-        Activity activity = mFreshCtaTransitTestRule.getActivity();
+        ChromeTabbedActivity activity = mFreshCtaTransitTestRule.getActivity();
         int taskId = activity.getTaskId();
         var chromeAndroidTask = getChromeAndroidTask(taskId);
         assertNotNull(chromeAndroidTask);
 
+        var activityWindowAndroid = activity.getWindowAndroid();
+        assertNotNull(activityWindowAndroid);
+
         // Act
-        Rect actualBounds = chromeAndroidTask.getBounds();
+        Rect actualBoundsInDp = chromeAndroidTask.getBoundsInDp();
 
         // Assert: by default, the bounds are the maximum window bounds.
-        var expectedBounds = activity.getWindowManager().getMaximumWindowMetrics().getBounds();
-        assertFalse(actualBounds.isEmpty());
-        assertEquals(expectedBounds, actualBounds);
+        Rect expectedBoundsInPx = activity.getWindowManager().getMaximumWindowMetrics().getBounds();
+        Rect expectedBoundsInDp =
+                DisplayUtil.scaleToEnclosingRect(
+                        expectedBoundsInPx,
+                        1.0f / activityWindowAndroid.getDisplay().getDipScale());
+
+        assertEquals(expectedBoundsInDp, actualBoundsInDp);
     }
 
     @Test
@@ -268,7 +387,13 @@ public class ChromeAndroidTaskIntegrationTest {
         chromeAndroidTask.activate();
 
         // Assert
-        CriteriaHelper.pollUiThread(chromeAndroidTask::isActive);
+        Assert.assertTrue(
+                "Activate should make isActive true immediately", chromeAndroidTask.isActive());
+        CriteriaHelper.pollUiThread(
+                assumeNonNull(webPageStation.getActivity().getWindowAndroid())
+                        ::isTopResumedActivity);
+        Assert.assertTrue(
+                "Activate should make isActive true eventually", chromeAndroidTask.isActive());
         assertFalse(secondChromeAndroidTask.isActive());
         // Cleanup
         ntpStation.getActivity().finish();
@@ -297,7 +422,13 @@ public class ChromeAndroidTaskIntegrationTest {
         chromeAndroidTask.show();
 
         // Assert
-        CriteriaHelper.pollUiThread(chromeAndroidTask::isActive);
+        Assert.assertTrue(
+                "Show should make isActive true immediately", chromeAndroidTask.isActive());
+        CriteriaHelper.pollUiThread(
+                assumeNonNull(webPageStation.getActivity().getWindowAndroid())
+                        ::isTopResumedActivity);
+        Assert.assertTrue(
+                "Show should make isActive true eventually", chromeAndroidTask.isActive());
         assertFalse(secondChromeAndroidTask.isActive());
         // Cleanup
         ntpStation.getActivity().finish();
@@ -326,8 +457,14 @@ public class ChromeAndroidTaskIntegrationTest {
         secondChromeAndroidTask.showInactive();
 
         // Assert
-        CriteriaHelper.pollUiThread(chromeAndroidTask::isActive);
-        assertFalse(secondChromeAndroidTask.isActive());
+        Assert.assertTrue(
+                "showInactive should make isActive true immediately", chromeAndroidTask.isActive());
+        CriteriaHelper.pollUiThread(
+                assumeNonNull(webPageStation.getActivity().getWindowAndroid())
+                        ::isTopResumedActivity);
+        Assert.assertTrue(
+                "showInactive should make isActive true eventually", chromeAndroidTask.isActive());
+        CriteriaHelper.pollUiThread(() -> !secondChromeAndroidTask.isActive());
         // Cleanup
         ntpStation.getActivity().finish();
     }
@@ -354,8 +491,45 @@ public class ChromeAndroidTaskIntegrationTest {
         secondChromeAndroidTask.deactivate();
 
         // Assert
-        CriteriaHelper.pollUiThread(chromeAndroidTask::isActive);
+        Assert.assertTrue(
+                "Deactivate should make isActive true immediately", chromeAndroidTask.isActive());
+        CriteriaHelper.pollUiThread(
+                assumeNonNull(webPageStation.getActivity().getWindowAndroid())
+                        ::isTopResumedActivity);
+        Assert.assertTrue(
+                "Deactivate should make isActive true eventually", chromeAndroidTask.isActive());
         assertFalse(secondChromeAndroidTask.isActive());
+        // Cleanup
+        ntpStation.getActivity().finish();
+    }
+
+    @Test
+    @MediumTest
+    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP /* test needs "new window" in app menu */)
+    public void deactivate_notTriggeredIfAlreadyInactive() {
+        // Arrange
+        WebPageStation webPageStation = mFreshCtaTransitTestRule.startOnBlankPage();
+        int firstTaskId = mFreshCtaTransitTestRule.getActivity().getTaskId();
+        var firstChromeAndroidTask = getChromeAndroidTask(firstTaskId);
+        assertNotNull(firstChromeAndroidTask);
+        assertTrue(firstChromeAndroidTask.isActive());
+
+        RegularNewTabPageStation ntpStation =
+                webPageStation.openRegularTabAppMenu().openNewWindow();
+        int secondTaskId = ntpStation.getActivity().getTaskId();
+        var secondChromeAndroidTask = getChromeAndroidTask(secondTaskId);
+        assertNotNull(secondChromeAndroidTask);
+        assertTrue(secondChromeAndroidTask.isActive());
+        assertFalse("Task should be inactive", firstChromeAndroidTask.isActive());
+
+        // Act
+        firstChromeAndroidTask.deactivate();
+
+        // Assert
+        assertFalse(
+                "Deactivate should be a no-op for inactive tasks",
+                firstChromeAndroidTask.isActive());
+        assertTrue("Deactivate should be a no-op", secondChromeAndroidTask.isActive());
         // Cleanup
         ntpStation.getActivity().finish();
     }
@@ -489,6 +663,19 @@ public class ChromeAndroidTaskIntegrationTest {
         assertTrue(chromeAndroidTask.isFullscreen());
     }
 
+    private Intent createCustomTabIntent(@CustomTabsUiType int customTabsUiType) {
+        var intent =
+                CustomTabsIntentTestUtils.createMinimalCustomTabIntent(
+                        ApplicationProvider.getApplicationContext(),
+                        mCustomTabActivityTestRule
+                                .getTestServer()
+                                .getURL("/chrome/test/data/android/about.html"));
+        intent.putExtra(CustomTabIntentDataProvider.EXTRA_UI_TYPE, customTabsUiType);
+        IntentUtils.addTrustedIntentExtras(intent);
+
+        return intent;
+    }
+
     private @Nullable ChromeAndroidTask getChromeAndroidTask(int taskId) {
         var chromeAndroidTaskTracker = ChromeAndroidTaskTrackerFactory.getInstance();
         assertNotNull(chromeAndroidTaskTracker);
@@ -509,7 +696,7 @@ public class ChromeAndroidTaskIntegrationTest {
         public void onTaskRemoved() {}
 
         @Override
-        public void onTaskBoundsChanged(Rect newBounds) {
+        public void onTaskBoundsChanged(Rect newBoundsInDp) {
             mTimesOnTaskBoundsChanged++;
         }
 

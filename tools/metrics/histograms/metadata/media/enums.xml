@@ -351,6 +351,7 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="kErrorConfiguringSampleRate"/>
   <int value="8" label="kErrorConfiguringFramesPerBuffer"/>
   <int value="9" label="kErrorCreatingTapDescription"/>
+  <int value="10" label="kGetDefaultDeviceUidEmpty"/>
 </enum>
 
 <enum name="CdmCapabilityQueryStatus">
@@ -573,7 +574,20 @@ chromium-metrics-reviews@google.com.
   <int value="17" label="LegacyDesktopCaptureDeviceTypeScreen"/>
   <int value="18" label="LegacyDesktopCaptureDeviceTypeWindow"/>
   <int value="19" label="LegacyDesktopCaptureDeviceTypeWebContents"/>
+  <int value="20" label="NativeMacOSPickerCaptureDeviceTypeNone"/>
+  <int value="21" label="NativeMacOSPickerCaptureDeviceTypeScreen"/>
+  <int value="22" label="NativeMacOSPickerCaptureDeviceTypeWindow"/>
+  <int value="23" label="NativeMacOSPickerCaptureDeviceTypeWebContents"/>
 </enum>
+
+<!-- LINT.IfChange(DeviceChangeKind) -->
+
+<enum name="DeviceChangeKind">
+  <int value="0" label="Added"/>
+  <int value="1" label="Removed"/>
+</enum>
+
+<!-- LINT.ThenChange(//media/audio/android/audio_manager_android.cc:DeviceChangeKind) -->
 
 <enum name="DeviceEnumerationResult">
   <int value="0" label="Success"/>
@@ -1374,9 +1388,12 @@ chromium-metrics-reviews@google.com.
 <!-- LINT.IfChange(MediaFoundationRendererRenderedVideoFrameDetectionResult) -->
 
 <enum name="MediaFoundationRendererRenderedVideoFrameDetectionResult">
-  <int value="0" label="kUnknown"/>
+  <int value="0" label="kUnknown (deprecated)"/>
   <int value="1" label="kDetected"/>
   <int value="2" label="kNotDetected"/>
+  <int value="3" label="kUnknownByPlaybackError"/>
+  <int value="4" label="kUnknownByPlaybackEnd"/>
+  <int value="5" label="kUnknownByShutdown"/>
 </enum>
 
 <!-- LINT.ThenChange(/media/renderers/win/media_foundation_renderer.h:RenderedVideoFrameDetectionResult) -->
@@ -1405,6 +1422,17 @@ chromium-metrics-reviews@google.com.
   <int value="11" label="Enter picture in picture"/>
   <int value="12" label="Exit picture in picture"/>
 </enum>
+
+<!-- LINT.IfChange(MediaLauncherActivityEnabledReason) -->
+
+<enum name="MediaLauncherActivityEnabledReason">
+  <int value="0" label="Low end device"/>
+  <int value="1" label="Enterprise"/>
+  <int value="2" label="Both"/>
+  <int value="3" label="Neither"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/media/MediaViewerUtils.java:MediaLauncherActivityEnabledReason) -->
 
 <enum name="MediaLoadType">
   <int value="0" label="URL"/>
@@ -1448,7 +1476,20 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="User opened the combobox and chose a different device"/>
 </enum>
 
-<enum name="MediaRecorderCodec">
+<!-- LINT.IfChange(MediaRecorderVideoCodec) -->
+
+<enum name="MediaRecorderVideoCodec">
+  <int value="0" label="UnknownOrAudio"/>
+  <int value="1" label="VP8"/>
+  <int value="2" label="VP9"/>
+  <int value="3" label="H264"/>
+  <int value="4" label="AV1"/>
+  <int value="5" label="H265"/>
+</enum>
+
+<!-- LINT.ThenChange(//third_party/blink/renderer/modules/mediarecorder/video_track_recorder.h:CodecHistogram) -->
+
+<enum name="MediaRecorderVideoCodecImpl">
   <int value="0" label="Unknown"/>
   <int value="1" label="VP8_sw"/>
   <int value="2" label="VP8_hw"/>
@@ -1456,6 +1497,9 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="VP9_hw"/>
   <int value="5" label="H264_sw"/>
   <int value="6" label="H264_hw"/>
+  <int value="7" label="AV1_sw"/>
+  <int value="8" label="AV1_hw"/>
+  <int value="9" label="H265_hw"/>
 </enum>
 
 <enum name="MediaRouteProviderResult">
@@ -1848,6 +1892,20 @@ chromium-metrics-reviews@google.com.
   <int value="4"
       label="kHardwareDecoderWithMojoVideoDecoderAndThenSoftwareDecoder"/>
   <int value="5" label="kSoftwareDecoderOnly"/>
+</enum>
+
+<enum name="PictureInPictureButtonAction">
+  <int value="0" label="PreviousTrack"/>
+  <int value="1" label="NextTrack"/>
+  <int value="2" label="Play"/>
+  <int value="3" label="Pause"/>
+  <int value="4" label="Replay"/>
+  <int value="5" label="PreviousSlide"/>
+  <int value="6" label="NextSlide"/>
+  <int value="7" label="HangUp"/>
+  <int value="8" label="ToggleMicrophone"/>
+  <int value="9" label="ToggleCamera"/>
+  <int value="10" label="Hide"/>
 </enum>
 
 <!-- LINT.IfChange(PictureInPictureDisallowedTypeEnum) -->

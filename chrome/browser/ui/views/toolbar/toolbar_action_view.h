@@ -9,7 +9,9 @@
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_action_hover_card_controller.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_action_view_delegate_views.h"
+#include "extensions/common/extension_id.h"
 #include "ui/base/metadata/metadata_header_macros.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/context_menu_controller.h"
 #include "ui/views/controls/button/menu_button.h"
 #include "ui/views/controls/button/menu_button_controller.h"
@@ -17,6 +19,10 @@
 #include "ui/views/drag_controller.h"
 
 class ExtensionContextMenuController;
+
+namespace content {
+class WebContents;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // ToolbarActionView
@@ -60,6 +66,25 @@ class ToolbarActionView : public views::MenuButton,
 
   void MaybeUpdateHoverCardStatus(const ui::MouseEvent& event);
 
+  // Shows the context menu for the action as a fallback for performing another
+  // action.
+  void ShowContextMenuAsFallback();
+
+  // Called when a popup is shown. If |by_user| is true, then this was through
+  // a direct user action (as opposed to, e.g., an API call).
+  void OnPopupShown(bool by_user);
+
+  // Called when a popup is closed.
+  void OnPopupClosed();
+
+  // Returns the reference button for the extension action's popup. Rather than
+  // relying on the button being a MenuButton, the button returned should have a
+  // MenuButtonController. This is part of the ongoing work from
+  // http://crbug.com/901183 to simplify the button hierarchy by migrating
+  // controller logic into a separate class leaving MenuButton as an empty class
+  // to be deprecated.
+  views::BubbleAnchor GetReferenceButtonForPopup();
+
   // views::MenuButton:
   gfx::Rect GetAnchorBoundsInScreen() const override;
   std::unique_ptr<views::LabelButtonBorder> CreateDefaultBorder()
@@ -70,7 +95,6 @@ class ToolbarActionView : public views::MenuButton,
   void OnMouseEntered(const ui::MouseEvent& event) override;
 
   // ToolbarActionViewDelegateViews:
-  content::WebContents* GetCurrentWebContents() const override;
   void UpdateState() override;
 
   ToolbarActionViewController* view_controller() { return view_controller_; }
@@ -93,13 +117,6 @@ class ToolbarActionView : public views::MenuButton,
   void OnDragDone() override;
   void AddedToWidget() override;
   void RemovedFromWidget() override;
-
-  // ToolbarActionViewDelegateViews:
-  views::FocusManager* GetFocusManagerForAccelerator() override;
-  views::BubbleAnchor GetReferenceButtonForPopup() override;
-  void ShowContextMenuAsFallback() override;
-  void OnPopupShown(bool by_user) override;
-  void OnPopupClosed() override;
 
   // Like GetReferenceButtonForPopup but with a more precise return type.
   views::Button* GetReferenceButtonForPopupInternal();

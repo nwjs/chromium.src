@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 
+#include <deque>
 #include <iosfwd>
 #include <memory>
 #include <optional>
@@ -21,6 +22,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/web_applications/generated_icon_fix_util.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
+#include "chrome/browser/web_applications/model/app_installed_by.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom-forward.h"
 #include "chrome/browser/web_applications/proto/web_app.pb.h"
 #include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
@@ -55,6 +57,11 @@ enum class WebappInstallSource;
 namespace web_app {
 class UrlPatternWithRegexMatcher;
 class WebAppScope;
+
+class InstalledByPassKey {
+  friend std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto);
+  InstalledByPassKey() = default;
+};
 
 class WebApp {
  public:
@@ -407,6 +414,12 @@ class WebApp {
   // here.
   const SortedSizesPx& stored_trusted_icon_sizes(IconPurpose purpose) const;
 
+  // A list of up to ten most recent and unique page URLs that attempted to
+  // install this app via the Web Install API.
+  const std::deque<web_app::AppInstalledBy>& installed_by() const {
+    return installed_by_;
+  }
+
   // A Web App can be installed from multiple sources simultaneously. Installs
   // add a source to the app. Uninstalls remove a source from the app.
   void AddSource(WebAppManagement::Type source);
@@ -428,6 +441,7 @@ class WebApp {
   bool IsKioskInstalledApp() const;
   bool CanUserUninstallWebApp() const;
   bool WasInstalledByUser() const;
+  bool WasInstalledByTrustedSources() const;
   // Returns the highest priority source. AppService assumes that every app has
   // just one install source.
   WebAppManagement::Type GetHighestPrioritySource() const;
@@ -546,6 +560,12 @@ class WebApp {
       std::optional<proto::GeneratedIconFix> generated_icon_fix);
 
   void SetStoredTrustedIconSizes(IconPurpose purpose, SortedSizesPx sizes);
+
+  void SetInstalledBy(InstalledByPassKey,
+                      std::deque<AppInstalledBy> installed_by);
+
+  // CHECK-fails if GURL in |AppInstalledBy| is invalid.
+  void AddInstalledByInfo(AppInstalledBy installed_by_data);
 
   // For logging and debug purposes.
   bool operator==(const WebApp&) const;
@@ -671,6 +691,8 @@ class WebApp {
   SortedSizesPx stored_trusted_icon_sizes_any_;
   SortedSizesPx stored_trusted_icon_sizes_maskable_;
 
+  std::deque<AppInstalledBy> installed_by_;
+
   // New fields must be added to:
   //  - |operator==|
   //  - AsDebugValue()
@@ -680,10 +702,8 @@ class WebApp {
   //  - web_app.proto
   // If parsed from manifest, also add to:
   //  - GetManifestDataChanges() inside manifest_update_utils.h
-  //  - AreNonSecuritySensitiveDataChangesNeeded() inside
-  //  manifest_silent_update_command.cc, if the field is a non security
-  //  sensitive one. Please see the following link for more information:
-  //  https://www.w3.org/TR/appmanifest/#dfn-security-sensitive-members.
+  //  - ManifestSilentUpdateCommand::CompareWebApps() inside
+  //    manifest_silent_update_command.cc.
   //  - SetWebAppManifestFields()
   // If the field relates to the app icons, add revert logic for it in:
   // - ManifestUpdateCheckCommand::RevertIdentityChangesIfNeeded()

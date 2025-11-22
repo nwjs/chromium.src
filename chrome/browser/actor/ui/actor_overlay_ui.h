@@ -9,7 +9,6 @@
 #include "chrome/common/webui_url_constants.h"
 #include "content/public/browser/webui_config.h"
 #include "mojo/public/cpp/bindings/receiver.h"
-#include "mojo/public/cpp/bindings/remote.h"
 #include "ui/webui/mojo_web_ui_controller.h"
 
 namespace actor::ui {
@@ -31,6 +30,7 @@ class ActorOverlayUI : public ::ui::MojoWebUIController,
       mojo::PendingReceiver<mojom::ActorOverlayPageHandlerFactory> receiver);
 
   void SetOverlayBackground(bool is_visible);
+  void SetBorderGlowVisibility(bool is_visible);
 
   // Checks if the passed in WebContents are associated with the ActorOverlayUI
   // WebUIController.

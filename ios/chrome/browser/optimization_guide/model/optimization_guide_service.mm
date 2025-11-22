@@ -88,7 +88,7 @@ OptimizationGuideService::OptimizationGuideService(
   if (!off_the_record_) {
     model_execution_manager_ =
         std::make_unique<optimization_guide::ModelExecutionManager>(
-            url_loader_factory, identity_manager, nullptr,
+            url_loader_factory, identity_manager,
             optimization_guide_logger_.get(), nullptr);
   }
 
@@ -261,10 +261,11 @@ std::string OptimizationGuideService::ResponseForErrorCode(int error_code) {
 void OptimizationGuideService::AddObserverForOptimizationTargetModel(
     optimization_guide::proto::OptimizationTarget optimization_target,
     const std::optional<optimization_guide::proto::Any>& model_metadata,
+    scoped_refptr<base::SequencedTaskRunner> model_task_runner,
     optimization_guide::OptimizationTargetModelObserver* observer) {
   if (optimization_guide::features::IsOptimizationTargetPredictionEnabled()) {
     GetPredictionManager()->AddObserverForOptimizationTargetModel(
-        optimization_target, model_metadata, observer);
+        optimization_target, model_metadata, model_task_runner, observer);
   }
 }
 
@@ -277,18 +278,7 @@ void OptimizationGuideService::RemoveObserverForOptimizationTargetModel(
   }
 }
 
-#pragma mark - optimization_guide::OptimizationGuideModelExecutor implementation
-
-std::unique_ptr<optimization_guide::OptimizationGuideModelExecutor::Session>
-OptimizationGuideService::StartSession(
-    optimization_guide::ModelBasedCapabilityKey feature,
-    const std::optional<optimization_guide::SessionConfigParams>&
-        config_params) {
-  if (!model_execution_manager_) {
-    return nullptr;
-  }
-  return model_execution_manager_->StartSession(feature, config_params);
-}
+#pragma mark - optimization_guide::RemoteModelExecutor implementation
 
 void OptimizationGuideService::ExecuteModel(
     optimization_guide::ModelBasedCapabilityKey feature,

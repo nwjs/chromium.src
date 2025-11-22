@@ -448,6 +448,10 @@ class AvatarToolbarButtonBaseBrowserTest {
 
     signin::SetInvalidRefreshTokenForPrimaryAccount(GetIdentityManager(),
                                                     token_operation_source);
+    ASSERT_TRUE(
+        GetIdentityManager()->HasAccountWithRefreshTokenInPersistentErrorState(
+            GetIdentityManager()->GetPrimaryAccountId(
+                signin::ConsentLevel::kSignin)));
   }
 
   void ClearSigninPending() {
@@ -455,6 +459,10 @@ class AvatarToolbarButtonBaseBrowserTest {
         GetIdentityManager()->HasPrimaryAccount(signin::ConsentLevel::kSignin));
 
     signin::SetRefreshTokenForPrimaryAccount(GetIdentityManager());
+    ASSERT_FALSE(
+        GetIdentityManager()->HasAccountWithRefreshTokenInPersistentErrorState(
+            GetIdentityManager()->GetPrimaryAccountId(
+                signin::ConsentLevel::kSignin)));
   }
 
   // Enables sync for account with `email` and set the `name` to the account
@@ -496,6 +504,13 @@ class AvatarToolbarButtonBaseBrowserTest {
     // Simulates Sync Paused.
     GetTestSyncService()->SetPersistentAuthError();
     GetTestSyncService()->FireStateChanged();
+    signin::SetInvalidRefreshTokenForPrimaryAccount(
+        GetIdentityManager(), signin_metrics::SourceForRefreshTokenOperation::
+                                  kDiceResponseHandler_Signout);
+    ASSERT_TRUE(
+        GetIdentityManager()->HasAccountWithRefreshTokenInPersistentErrorState(
+            GetIdentityManager()->GetPrimaryAccountId(
+                signin::ConsentLevel::kSignin)));
   }
 
   void ClearSyncPaused() {
@@ -505,6 +520,11 @@ class AvatarToolbarButtonBaseBrowserTest {
     // Clear Sync Paused introduced in `SimulateSyncPaused()`.
     GetTestSyncService()->ClearAuthError();
     GetTestSyncService()->FireStateChanged();
+    signin::SetRefreshTokenForPrimaryAccount(GetIdentityManager());
+    ASSERT_FALSE(
+        GetIdentityManager()->HasAccountWithRefreshTokenInPersistentErrorState(
+            GetIdentityManager()->GetPrimaryAccountId(
+                signin::ConsentLevel::kSignin)));
   }
 
   void ExpectSyncPaused(AvatarToolbarButton* avatar_button) {
@@ -573,20 +593,21 @@ class AvatarToolbarButtonBaseBrowserTest {
     sync_status.sync_protocol_error.action = syncer::UPGRADE_CLIENT;
     GetTestSyncService()->SetDetailedSyncStatus(true, sync_status);
     GetTestSyncService()->FireStateChanged();
-    ASSERT_TRUE(GetTestSyncService()->RequiresClientUpgrade());
+    ASSERT_EQ(GetTestSyncService()->GetUserActionableError(),
+              syncer::SyncService::UserActionableError::kNeedsClientUpgrade);
   }
 
   void ClearUpgradeClientError() {
     syncer::SyncStatus sync_status;
     GetTestSyncService()->SetDetailedSyncStatus(true, sync_status);
     GetTestSyncService()->FireStateChanged();
-    ASSERT_FALSE(GetTestSyncService()->RequiresClientUpgrade());
+    ASSERT_NE(GetTestSyncService()->GetUserActionableError(),
+              syncer::SyncService::UserActionableError::kNeedsClientUpgrade);
   }
 
-  void SetSyncServiceInitializedState(bool initialized) {
-    GetTestSyncService()->SetMaxTransportState(
-        initialized ? syncer::SyncService::TransportState::ACTIVE
-                    : syncer::SyncService::TransportState::INITIALIZING);
+  void SetSyncServiceTransportState(
+      syncer::SyncService::TransportState transport_state) {
+    GetTestSyncService()->SetMaxTransportState(transport_state);
     GetTestSyncService()->FireStateChanged();
   }
 
@@ -938,8 +959,8 @@ IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonBrowserTest,
   AvatarToolbarButton* avatar_button = GetAvatarToolbarButton(browser());
   ASSERT_TRUE(avatar_button->GetText().empty());
 
-  AccountInfo account_info =
-      EnableSyncWithImageAndClearGreeting(avatar_button, u"test@gmail.com");
+  AccountInfo account_info = SigninWithImageAndClearGreetingAndSyncPromo(
+      avatar_button, u"test@gmail.com");
   SimulatePassphraseError();
   SimulateSigninPending(/*web_sign_out=*/false);
   EXPECT_EQ(avatar_button->GetText(),
@@ -1561,8 +1582,9 @@ TEST_WITH_SIGNED_IN_FROM_PRE(IN_PROC_BROWSER_TEST_P,
   SimulatePassphraseError();
   // The history sync opt-in entry point should be replaced by the passphrase
   // error message.
-  EXPECT_EQ(avatar->GetText(), l10n_util::GetStringUTF16(
-                                   IDS_SYNC_ERROR_USER_MENU_PASSPHRASE_BUTTON));
+  EXPECT_EQ(avatar->GetText(),
+            l10n_util::GetStringUTF16(
+                IDS_SYNC_STATUS_NEEDS_PASSWORD_BUTTON_MAYBE_TITLE_CASE));
   ClearPassphraseError();
   // After clearing the passphrase error, the history sync opt-in entry point
   // should NOT be shown.
@@ -1583,7 +1605,7 @@ TEST_WITH_SIGNED_IN_FROM_PRE(IN_PROC_BROWSER_TEST_P,
   // The history sync opt-in entry point should be replaced by the passphrase
   // error message.
   EXPECT_EQ(avatar->GetText(),
-            l10n_util::GetStringUTF16(IDS_SYNC_ERROR_USER_MENU_UPGRADE_BUTTON));
+            l10n_util::GetStringUTF16(IDS_SYNC_UPGRADE_CLIENT_BUTTON));
   ClearUpgradeClientError();
   // After clearing the passphrase error, the history sync opt-in entry point
   // should NOT be shown.
@@ -1646,8 +1668,9 @@ TEST_WITH_SIGNED_IN_FROM_PRE(
   avatar->ClearActiveStateForTesting();
   // No history sync opt-in entry point should be shown if the error is shown
   // before the greeting times out.
-  EXPECT_EQ(avatar->GetText(), l10n_util::GetStringUTF16(
-                                   IDS_SYNC_ERROR_USER_MENU_PASSPHRASE_BUTTON));
+  EXPECT_EQ(avatar->GetText(),
+            l10n_util::GetStringUTF16(
+                IDS_SYNC_STATUS_NEEDS_PASSWORD_BUTTON_MAYBE_TITLE_CASE));
   ClearPassphraseError();
   // After clearing the passphrase error, the history sync opt-in entry point
   // should NOT be shown.
@@ -2753,8 +2776,9 @@ IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonBrowserTest,
   SigninWithImageAndClearGreetingAndSyncPromo(avatar, u"test@gmail.com");
   ASSERT_EQ(avatar->GetText(), std::u16string());
   SimulatePassphraseError();
-  EXPECT_EQ(avatar->GetText(), l10n_util::GetStringUTF16(
-                                   IDS_SYNC_ERROR_USER_MENU_PASSPHRASE_BUTTON));
+  EXPECT_EQ(avatar->GetText(),
+            l10n_util::GetStringUTF16(
+                IDS_SYNC_STATUS_NEEDS_PASSWORD_BUTTON_MAYBE_TITLE_CASE));
 }
 
 // TODO(crbug.com/359995696): Flaky on Windows.
@@ -2769,8 +2793,9 @@ IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonBrowserTest,
   EnableSyncWithImageAndClearGreeting(avatar, u"test@gmail.com");
   ASSERT_EQ(avatar->GetText(), std::u16string());
   SimulatePassphraseError();
-  EXPECT_EQ(avatar->GetText(), l10n_util::GetStringUTF16(
-                                   IDS_SYNC_ERROR_USER_MENU_PASSPHRASE_BUTTON));
+  EXPECT_EQ(avatar->GetText(),
+            l10n_util::GetStringUTF16(
+                IDS_SYNC_STATUS_NEEDS_PASSWORD_BUTTON_MAYBE_TITLE_CASE));
 }
 
 // TODO(crbug.com/359995696): Flaky on Windows.
@@ -2786,7 +2811,7 @@ IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonBrowserTest,
   ASSERT_EQ(avatar->GetText(), std::u16string());
   SimulateUpgradeClientError();
   EXPECT_EQ(avatar->GetText(),
-            l10n_util::GetStringUTF16(IDS_SYNC_ERROR_USER_MENU_UPGRADE_BUTTON));
+            l10n_util::GetStringUTF16(IDS_SYNC_UPGRADE_CLIENT_BUTTON));
 }
 
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -3154,18 +3179,24 @@ TEST_WITH_SIGNED_IN_FROM_PRE(
       primary_account_gaia_id.ToString());
   batch_upload_test_helper().SetReturnDescriptions(syncer::BOOKMARKS,
                                                    /*item_count=*/5);
-  SetSyncServiceInitializedState(/*initialized=*/false);
+  SetSyncServiceTransportState(
+      syncer::SyncService::TransportState::INITIALIZING);
 
   AvatarToolbarButton* avatar = GetAvatarToolbarButton(browser());
   ASSERT_EQ(avatar->GetText(),
             l10n_util::GetStringFUTF16(IDS_AVATAR_BUTTON_GREETING,
                                        test_given_name()));
   avatar->ClearActiveStateForTesting();
-
-  // No Promo shown as long as the sync service is not ready.
+  // No Promo shown as long as the sync service is not active.
   ASSERT_EQ(avatar->GetText(), std::u16string());
-  SetSyncServiceInitializedState(/*initialized=*/true);
 
+  // Check crbug.com/454927990.
+  SetSyncServiceTransportState(
+      syncer::SyncService::TransportState::CONFIGURING);
+  // No Promo shown as long as the sync service is not active.
+  ASSERT_EQ(avatar->GetText(), std::u16string());
+
+  SetSyncServiceTransportState(syncer::SyncService::TransportState::ACTIVE);
   ASSERT_EQ(
       avatar->GetText(),
       l10n_util::GetStringUTF16(
@@ -3181,10 +3212,10 @@ TEST_WITH_SIGNED_IN_FROM_PRE(
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 class AvatarToolbarButtonSignInBenefitsIphBrowserTest
-    : public InteractiveFeaturePromoTestT<AvatarToolbarButtonBrowserTest> {
+    : public InteractiveFeaturePromoTestMixin<AvatarToolbarButtonBrowserTest> {
  public:
   AvatarToolbarButtonSignInBenefitsIphBrowserTest()
-      : InteractiveFeaturePromoTestT(UseDefaultTrackerAllowingPromos(
+      : InteractiveFeaturePromoTestMixin(UseDefaultTrackerAllowingPromos(
             {feature_engagement::kIPHSignInBenefitsFeature})) {
     // Disable the migration feature flag for PRE tests. This allows simulating
     // users signing in before the sync-to-signin migration.

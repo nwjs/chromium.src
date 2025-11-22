@@ -10,7 +10,7 @@
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/browser_container/ui_bundled/edit_menu_app_interface.h"
 #import "ios/chrome/browser/popup_menu/ui_bundled/popup_menu_constants.h"
-#import "ios/chrome/browser/settings/ui_bundled/cells/clear_browsing_data_constants.h"
+#import "ios/chrome/browser/settings/ui_bundled/clear_browsing_data/quick_delete_constants.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_constants.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/public/toolbar_constants.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -240,7 +240,7 @@ const int kMaxNumberOfAttemptsAtTypingTextInOmnibox = 3;
 }
 
 - (void)tapSettingsMenuButton:(id<GREYMatcher>)buttonMatcher {
-  ScopedDisableTimerTracking disabler;
+  ScopedSynchronizationDisabler disabler;
   id<GREYMatcher> interactableButtonMatcher =
       grey_allOf(buttonMatcher, grey_interactable(), nil);
   [[[EarlGrey selectElementWithMatcher:interactableButtonMatcher]
@@ -457,17 +457,6 @@ const int kMaxNumberOfAttemptsAtTypingTextInOmnibox = 3;
       performAction:grey_tapAtPoint(CGPointMake(0, 0))
               error:&err];
   return err == nil;
-}
-
-- (void)cleanupAfterShowingAlert {
-  // Workaround for an Earl Grey crash in iOS 15.5 on iPad when traversing the
-  // view hierarchy with accessibility. Likely due to the system alert view, the
-  // traversal will crash because some system view cannot provide the correct
-  // accessibility result. Background and Foreground the app removes the system
-  // alert view's residues from the view hierarchy.
-  if (!base::ios::IsRunningOnIOS16OrLater()) {
-    [[AppLaunchManager sharedManager] backgroundAndForegroundApp];
-  }
 }
 
 - (void)dismissByTappingOnTheWindowOfPopover:(id<GREYMatcher>)matcher {

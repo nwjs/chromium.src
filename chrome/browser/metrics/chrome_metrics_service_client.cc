@@ -62,6 +62,7 @@
 #include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/regional_capabilities/regional_capabilities_metrics_provider.h"
 #include "chrome/browser/safe_browsing/metrics/safe_browsing_metrics_provider.h"
+#include "chrome/browser/subscription_eligibility/subscription_eligibility_metrics_provider.h"
 #include "chrome/browser/sync/device_info_sync_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/tracing/chrome_background_tracing_metrics_provider.h"
@@ -166,7 +167,6 @@
 #include "chrome/browser/ash/system_web_apps/apps/personalization_app/personalization_app_theme_metrics_provider.h"
 #include "chrome/browser/ash/system_web_apps/apps/personalization_app/wallpaper_metrics_provider.h"
 #include "chrome/browser/metrics/ambient_mode_metrics_provider.h"
-#include "chrome/browser/metrics/assistant_service_metrics_provider.h"
 #include "chrome/browser/metrics/chromeos_family_link_user_metrics_provider.h"
 #include "chrome/browser/metrics/chromeos_metrics_provider.h"
 #include "chrome/browser/metrics/chromeos_system_profile_provider.h"
@@ -924,9 +924,6 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
       std::make_unique<ash::PrinterMetricsProvider>());
 
   metrics_service_->RegisterMetricsProvider(
-      std::make_unique<AssistantServiceMetricsProvider>());
-
-  metrics_service_->RegisterMetricsProvider(
       std::make_unique<AmbientModeMetricsProvider>());
 
   metrics_service_->RegisterMetricsProvider(
@@ -1024,6 +1021,10 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
         std::make_unique<
             regional_capabilities::RegionalCapabilitiesMetricsProvider>());
   }
+
+  metrics_service_->RegisterMetricsProvider(
+      std::make_unique<
+          subscription_eligibility::SubscriptionEligibilityMetricsProvider>());
 }
 
 void ChromeMetricsServiceClient::RegisterUKMProviders() {

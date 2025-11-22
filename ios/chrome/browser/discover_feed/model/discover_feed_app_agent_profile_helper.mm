@@ -108,19 +108,7 @@ bool IsGoogleDefaultSearchEngine(ProfileIOS* profile) {
   const bool isUserSignedIn =
       identityManager->HasPrimaryAccount(signin::ConsentLevel::kSignin);
 
-  if (isUserSignedIn) {
-    if (IsWebChannelsEnabled() && IsDiscoverFeedServiceCreatedEarly()) {
-      // Creates the DiscoverFeedService early if the user is signed-in as it is
-      // required to follow web channels (and thus is required to interact with
-      // any tabs, not just the NTP).
-      DiscoverFeedServiceFactory::GetForProfile(profile);
-    }
-  }
-
-  // Only start doing the content notification user eligibility check if
-  // the content notification experiment is enabled.
-  if (IsContentNotificationExperimentEnabled() &&
-      IsContentNotificationProvisionalEnabled(
+  if (IsContentNotificationProvisionalEnabled(
           isUserSignedIn, IsGoogleDefaultSearchEngine(profile),
           profile->GetPrefs())) {
     // This method does not show an UI prompt to the user as provisional

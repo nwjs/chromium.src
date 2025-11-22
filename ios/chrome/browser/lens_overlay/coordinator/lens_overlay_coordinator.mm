@@ -856,6 +856,12 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
 }
 
 - (void)lensOverlayResultsPagePresenter:
+            (id<LensOverlayResultsPagePresenting>)presenter
+    animateAttachedUIDismissWithCompletion:(ProceduralBlock)completion {
+  [self animateSelectionUIExitWithCompletion:completion];
+}
+
+- (void)lensOverlayResultsPagePresenter:
             (LensOverlayResultsPagePresenter*)presenter
                 didUpdateDimensionState:(SheetDimensionState)state {
   if (_associatedTabHelper) {
@@ -1316,8 +1322,6 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
   }
   [self showResultsPageAnimated:!isStateRestoration];
 
-  // TODO(crbug.com/355179986): Implement omnibox navigation with
-  // omnibox_delegate.
   auto omniboxClient = std::make_unique<LensOmniboxClient>(
       profile, feature_engagement::TrackerFactory::GetForProfile(profile),
       /*web_provider=*/_resultMediator,
@@ -1330,7 +1334,6 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
                    omniboxClient:std::move(omniboxClient)
              presentationContext:OmniboxPresentationContext::kLensOverlay];
 
-  // TODO(crbug.com/355179721): Add omnibox focus delegate.
   _omniboxCoordinator.presenterDelegate = _resultViewController;
   _omniboxCoordinator.searchOnlyUI = YES;
   [_omniboxCoordinator start];
@@ -1601,6 +1604,12 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
 // Displays a restoration window to preserve lens overlay's visual state during
 // tab changes.
 - (void)showRestorationWindowIfNeeded {
+  // The custom presentation does not need the restoration window as the bottom
+  // sheet is contained in the container view.
+  if (UseCustomLensOverlayBottomSheet()) {
+    return;
+  }
+
   // If there is a pending snapshot, show it in a separate fullscreen window to
   // ease the transition.
   UIWindow* sceneWindow = self.browser->GetSceneState().window;

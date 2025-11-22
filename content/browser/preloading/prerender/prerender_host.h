@@ -397,7 +397,11 @@ class CONTENT_EXPORT PrerenderHost {
   }
 
   bool should_pause_javascript_execution() const {
-    return attributes_.should_pause_javascript_execution;
+    return attributes_.prerender_action_type ==
+           blink::mojom::SpeculationAction::kPrerenderUntilScript;
+  }
+  blink::mojom::SpeculationAction speculation_action() const {
+    return attributes_.prerender_action_type;
   }
 
   bool IsInitialNavigation(const NavigationRequest& navigation_request) const;

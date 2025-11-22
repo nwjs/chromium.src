@@ -9,6 +9,7 @@
 
 #include "base/memory/safe_ref.h"
 #include "base/memory/weak_ptr.h"
+#include "base/timer/timer.h"
 #include "chrome/browser/actor/tools/tool.h"
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/common/actor.mojom-forward.h"
@@ -47,8 +48,8 @@ class PageTool : public Tool {
   GURL JournalURL() const override;
   std::string JournalEvent() const override;
   std::unique_ptr<ObservationDelayController> GetObservationDelayer(
-      std::optional<ObservationDelayController::PageStabilityConfig>
-          page_stability_config) const override;
+      ObservationDelayController::PageStabilityConfig page_stability_config)
+      override;
   void UpdateTaskBeforeInvoke(ActorTask& task,
                               InvokeCallback callback) const override;
   tabs::TabHandle GetTargetTab() const override;
@@ -61,6 +62,8 @@ class PageTool : public Tool {
   void OnRenderFrameGone();
 
   void FinishInvoke(mojom::ActionResultPtr result);
+
+  void OnTimeout();
 
   content::RenderFrameHost* GetFrame() const;
 
@@ -80,6 +83,8 @@ class PageTool : public Tool {
   // Set during TimeOfUseValidation. Contains the hit test result against
   // observed page content.
   mojom::ObservedToolTargetPtr observed_target_;
+
+  base::OneShotTimer timeout_timer_;
 
   base::WeakPtrFactory<PageTool> weak_ptr_factory_{this};
 };

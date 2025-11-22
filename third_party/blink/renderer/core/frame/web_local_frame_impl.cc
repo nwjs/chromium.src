@@ -209,6 +209,7 @@
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/frame/web_frame_widget_impl.h"
 #include "third_party/blink/renderer/core/frame/web_remote_frame_impl.h"
+#include "third_party/blink/renderer/core/html/anchor_element_utils.h"
 #include "third_party/blink/renderer/core/html/fenced_frame/html_fenced_frame_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
@@ -250,6 +251,7 @@
 #include "third_party/blink/renderer/core/script/classic_script.h"
 #include "third_party/blink/renderer/core/scroll/scroll_types.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
+#include "third_party/blink/renderer/core/svg/svg_a_element.h"
 #include "third_party/blink/renderer/core/timing/dom_window_performance.h"
 #include "third_party/blink/renderer/core/timing/window_performance.h"
 #include "third_party/blink/renderer/platform/bindings/dom_wrapper_world.h"
@@ -892,10 +894,12 @@ gfx::PointF WebLocalFrameImpl::GetScrollOffset() const {
 
 bool WebLocalFrameImpl::SetScrollOffset(const gfx::PointF& offset) {
   if (ScrollableArea* scrollable_area = LayoutViewport()) {
-    // TODO(crbug.com/414556050): Pass the correct `ScrollSourceType`.
+    // This function is only used in tests so we are using
+    // `ScrollSourceType::kAbsoluteScroll`.
     return scrollable_area->SetScrollOffset(
         scrollable_area->ScrollPositionToOffset(offset),
-        mojom::blink::ScrollType::kProgrammatic, cc::ScrollSourceType::kNone);
+        mojom::blink::ScrollType::kProgrammatic,
+        cc::ScrollSourceType::kAbsoluteScroll);
   }
   return false;
 }
@@ -2740,8 +2744,11 @@ void WebLocalFrameImpl::SendPings(const WebURL& destination_url) {
     Element* anchor = node->EnclosingLinkEventParentOrSelf();
     // TODO(crbug.com/369219144): Should this be
     // DynamicTo<HTMLAnchorElementBase>?
-    if (auto* html_anchor = DynamicTo<HTMLAnchorElement>(anchor))
-      html_anchor->SendPings(destination_url);
+    if (IsA<HTMLAnchorElement>(anchor) || IsA<SVGAElement>(anchor)) {
+      AnchorElementUtils::SendPings(
+          destination_url, anchor->GetDocument(),
+          anchor->FastGetAttribute(html_names::kPingAttr));
+    }
   }
 }
 

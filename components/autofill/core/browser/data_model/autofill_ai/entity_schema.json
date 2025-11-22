@@ -1,3 +1,14 @@
+// Copyright 2025 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// CAUTION: EntityTypes and AttributeTypes are encoded as C++ enums.
+// At least the numeric EntityType values are emitted in metrics.
+//
+// Please:
+// - Add new EntityTypes only at the bottom.
+// - Run `tools/metrics/histograms/update_autofill_enums.py` after adding
+//   a new EntityType.
 [
   {
     "name": "Passport",
@@ -94,13 +105,17 @@
   },
   {
     "name": "Flight Reservation",
-    "attributes": [ "Flight number", "Ticket number", "Confirmation code", "Passenger name", "Departure airport", "Arrival airport"],
+    "attributes": [ "Flight number", "Ticket number", "Confirmation code", "Passenger name", "Departure airport", "Arrival airport", "Departure date"],
     "obfuscated attributes": [],
-    "required fields": "any",
+    "required fields": [
+      [ "Flight number" ],
+      [ "Ticket number" ],
+      [ "Confirmation code" ]
+    ],
     "import constraints": [],
     "merge constraints": [],
     "strike keys": [],
-    "disambiguation order": [ "Departure airport", "Arrival airport" ],
+    "disambiguation order": [ "Departure airport", "Arrival airport", "Departure date", "Passenger name", "Flight number" ],
     "syncable": true,
     "experiment feature": "AutofillAiWalletFlightReservation",
     "read only": true

@@ -1195,12 +1195,15 @@ STDMETHODIMP LegacyAppCommandWebImpl::get_status(UINT* status) {
     return E_INVALIDARG;
   }
 
+  if (!app_command_runner_.has_value()) {
+    return E_UNEXPECTED;
+  }
+
   if (!process_.IsValid()) {
     *status = COMMAND_STATUS_INIT;
-  } else if (process_.IsRunning()) {
-    *status = COMMAND_STATUS_RUNNING;
   } else {
-    *status = COMMAND_STATUS_COMPLETE;
+    *status = app_command_runner_.value()->TimedWait() ? COMMAND_STATUS_COMPLETE
+                                                       : COMMAND_STATUS_RUNNING;
   }
 
   return S_OK;
@@ -1222,8 +1225,14 @@ STDMETHODIMP LegacyAppCommandWebImpl::get_exitCode(DWORD* exit_code) {
 }
 
 STDMETHODIMP LegacyAppCommandWebImpl::get_output(BSTR* output) {
-  LOG(ERROR) << "Reached unimplemented COM method: " << __func__;
-  return E_NOTIMPL;
+  if (!app_command_runner_.has_value()) {
+    return E_UNEXPECTED;
+  }
+
+  *output = base::win::ScopedBstr(
+                base::UTF8ToWide(app_command_runner_.value()->output()))
+                .Release();
+  return S_OK;
 }
 
 STDMETHODIMP LegacyAppCommandWebImpl::execute(VARIANT substitution1,
@@ -1255,7 +1264,7 @@ STDMETHODIMP LegacyAppCommandWebImpl::execute(VARIANT substitution1,
     substitutions.push_back(substitution_string.value());
   }
 
-  const HRESULT hr = app_command_runner_->Run(substitutions, process_);
+  const HRESULT hr = app_command_runner_.value()->Run(substitutions, process_);
   using LegacyAppCommandWebImplPtr =
       Microsoft::WRL::ComPtr<LegacyAppCommandWebImpl>;
   update_client::Callback callback = base::BindOnce(
@@ -1308,6 +1317,18 @@ STDMETHODIMP LegacyAppCommandWebImpl::execute(VARIANT substitution1,
   return hr;
 }
 
+IFACEMETHODIMP_(ULONG) LegacyAppCommandWebImpl::AddRef() {
+  const ULONG count = IDispatchImpl<IAppCommandWeb>::AddRef();
+  VLOG(2) << __func__ << ": " << this << ": count: " << count;
+  return count;
+}
+
+IFACEMETHODIMP_(ULONG) LegacyAppCommandWebImpl::Release() {
+  const ULONG count = IDispatchImpl<IAppCommandWeb>::Release();
+  VLOG(2) << __func__ << ": " << this << ": count: " << count;
+  return count;
+}
+
 void LegacyAppCommandWebImpl::SendPing(UpdaterScope scope,
                                        const std::string& app_id,
                                        const std::string& command_id,
@@ -1331,7 +1352,9 @@ void LegacyAppCommandWebImpl::SendPing(UpdaterScope scope,
         app_command_data.requires_network_encryption = false;
         app_command_data.version = persisted_data->GetProductVersion(app_id);
 
-        update_client::UpdateClientFactory(config)->SendPing(
+        scoped_refptr<update_client::UpdateClient> update_client =
+            update_client::UpdateClientFactory(config);
+        update_client->SendPing(
             app_command_data,
             {
                 .event_type =
@@ -1344,7 +1367,14 @@ void LegacyAppCommandWebImpl::SendPing(UpdaterScope scope,
                 .extra_code1 = error_params.extra_code1,
                 .app_command_id = command_id,
             },
-            std::move(callback));
+            base::BindOnce(
+                [](scoped_refptr<update_client::UpdateClient> update_client,
+                   update_client::Callback callback,
+                   update_client::Error error) {
+                  std::move(callback).Run(error);
+                  update_client->Stop();
+                },
+                update_client, std::move(callback)));
       },
       scope, app_id, command_id, error_params, std::move(callback));
   AppServerWin::PostRpcTask(base::BindOnce(

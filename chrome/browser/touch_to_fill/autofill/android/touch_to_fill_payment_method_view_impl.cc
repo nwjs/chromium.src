@@ -5,19 +5,25 @@
 #include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_payment_method_view_impl.h"
 
 #include <algorithm>
+#include <string>
 #include <variant>
+#include <vector>
 
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
 #include "base/android/scoped_java_ref.h"
+#include "base/containers/span.h"
 #include "base/containers/to_vector.h"
 #include "base/notimplemented.h"
 #include "base/strings/string_util.h"
 #include "chrome/browser/autofill/android/personal_data_manager_android.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_payment_method_view_controller.h"
+#include "components/autofill/android/payments/legal_message_line_android.h"
 #include "components/autofill/core/browser/data_model/valuables/android/loyalty_card_android.h"
 #include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
+#include "components/autofill/core/browser/payments/bnpl_util.h"
+#include "components/autofill/core/browser/payments/legal_message_line.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/ui/autofill_resource_utils.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -29,6 +35,87 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/android/chrome_jni_headers/TouchToFillPaymentMethodViewBridge_jni.h"
 #include "components/autofill/android/main_autofill_jni_headers/LoyaltyCard_jni.h"
+#include "components/autofill/android/payments_jni_headers/BnplIssuerContext_jni.h"
+#include "components/autofill/android/payments_jni_headers/BnplIssuerTosDetail_jni.h"
+
+using base::android::ConvertUTF16ToJavaString;
+using base::android::ConvertUTF8ToJavaString;
+
+namespace {
+
+static base::android::ScopedJavaLocalRef<jobject>
+ConvertTextWithLinkToJavaObject(
+    JNIEnv* env,
+    const jni_zero::JavaRef<jobject>& obj,
+    const autofill::payments::TextWithLink& link_text) {
+  return autofill::Java_TouchToFillPaymentMethodViewBridge_getSpannableString(
+      env, obj, ConvertUTF16ToJavaString(env, link_text.text),
+      static_cast<int>(link_text.offset.start()),
+      static_cast<int>(link_text.offset.end()),
+      ConvertUTF8ToJavaString(env, link_text.url.spec()));
+}
+
+static base::android::ScopedJavaLocalRef<jobject>
+ConvertLegalMessageLinesToJavaObject(
+    JNIEnv* env,
+    const jni_zero::JavaRef<jobject>& obj,
+    const autofill::LegalMessageLines legal_message_lines) {
+  return autofill::
+      Java_TouchToFillPaymentMethodViewBridge_convertLegalMessageLinesForBnplTos(
+          env, obj,
+          autofill::LegalMessageLineAndroid::ConvertToJavaLinkedList(
+              legal_message_lines));
+}
+
+static base::android::ScopedJavaLocalRef<jobject>
+ConvertBnplIssuerTosDetailToJavaObject(
+    JNIEnv* env,
+    const jni_zero::JavaRef<jobject>& obj,
+    const autofill::TouchToFillPaymentMethodViewController& controller,
+    const autofill::payments::BnplIssuerTosDetail& bnpl_issuer_tos_detail) {
+  return Java_BnplIssuerTosDetail_Constructor(
+      env, controller.GetJavaResourceId(bnpl_issuer_tos_detail.header_icon_id),
+      controller.GetJavaResourceId(bnpl_issuer_tos_detail.header_icon_id_dark),
+      ConvertUTF16ToJavaString(env, bnpl_issuer_tos_detail.title),
+      ConvertUTF16ToJavaString(env, bnpl_issuer_tos_detail.review_text),
+      ConvertUTF16ToJavaString(env, bnpl_issuer_tos_detail.approve_text),
+      ConvertTextWithLinkToJavaObject(env, obj,
+                                      bnpl_issuer_tos_detail.link_text),
+      ConvertLegalMessageLinesToJavaObject(
+          env, obj, bnpl_issuer_tos_detail.legal_message_lines));
+}
+
+// TODO(crbug.com/449764859): Refactor BnplIssuerContext to use JNI type
+// converters.
+static base::android::ScopedJavaLocalRef<jobject>
+CreateJavaBnplIssuerContextFromNative(
+    JNIEnv* env,
+    const autofill::TouchToFillPaymentMethodViewController& controller,
+    const autofill::payments::BnplIssuerContext& bnpl_issuer_context,
+    const std::string& app_locale) {
+  // Android uses the `LightModeImageId` for both light and dark modes.
+  const std::pair<autofill::BnplIssuer::LightModeImageId,
+                  autofill::BnplIssuer::DarkModeImageId>
+      image_ids = GetBnplIssuerIconIds(
+          bnpl_issuer_context.issuer.issuer_id(),
+          /*issuer_linked=*/bnpl_issuer_context.issuer.payment_instrument()
+              .has_value());
+
+  const std::u16string selection_text =
+      autofill::payments::GetBnplIssuerSelectionOptionText(
+          bnpl_issuer_context.issuer.issuer_id(), app_locale,
+          {bnpl_issuer_context});
+
+  return autofill::Java_BnplIssuerContext_Constructor(
+      env, controller.GetJavaResourceId(image_ids.first.value()),
+      std::string(
+          ConvertToBnplIssuerIdString(bnpl_issuer_context.issuer.issuer_id())),
+      bnpl_issuer_context.issuer.GetDisplayName(), selection_text,
+      bnpl_issuer_context.issuer.payment_instrument().has_value(),
+      bnpl_issuer_context.IsEligible());
+}
+
+}  // namespace
 
 namespace autofill {
 
@@ -190,22 +277,62 @@ bool TouchToFillPaymentMethodViewImpl::ShowProgressScreen(
 }
 
 bool TouchToFillPaymentMethodViewImpl::ShowBnplIssuers(
-    base::span<const autofill::BnplIssuer> bnpl_issuers_to_suggest) {
+    const TouchToFillPaymentMethodViewController& controller,
+    base::span<const payments::BnplIssuerContext> bnpl_issuer_contexts,
+    const std::string& app_locale) {
   if (!java_object_) {
     return false;
   }
 
   JNIEnv* env = base::android::AttachCurrentThread();
-  std::vector<base::android::ScopedJavaLocalRef<jobject>> issuers_array;
-  issuers_array.reserve(bnpl_issuers_to_suggest.size());
-  for (const autofill::BnplIssuer& issuer : bnpl_issuers_to_suggest) {
-    issuers_array.push_back(
-        PersonalDataManagerAndroid::CreateJavaBnplIssuerFromNative(env,
-                                                                   issuer));
+  std::vector<base::android::ScopedJavaLocalRef<jobject>> issuer_context_array;
+  issuer_context_array.reserve(bnpl_issuer_contexts.size());
+  for (const payments::BnplIssuerContext& issuer_context :
+       bnpl_issuer_contexts) {
+    issuer_context_array.push_back(CreateJavaBnplIssuerContextFromNative(
+        env, controller, issuer_context, app_locale));
   }
 
   Java_TouchToFillPaymentMethodViewBridge_showBnplIssuers(
-      env, java_object_, std::move(issuers_array));
+      env, java_object_, std::move(issuer_context_array));
+  return true;
+}
+
+bool TouchToFillPaymentMethodViewImpl::ShowErrorScreen(
+    TouchToFillPaymentMethodViewController* controller,
+    const std::u16string& title,
+    const std::u16string& description) {
+  JNIEnv* env = base::android::AttachCurrentThread();
+
+  // If the TTF surface isn't already showing, and a new surface is not ready to
+  // show, return that showing the error screen failed, as the error screen can
+  // not be shown.
+  if (!java_object_ && !IsReadyToShow(controller, env)) {
+    return false;
+  }
+
+  // Use either the old `java_object_` or the new one created in
+  // `IsReadyToShow()` to show the error screen.
+  Java_TouchToFillPaymentMethodViewBridge_showErrorScreen(env, java_object_,
+                                                          title, description);
+
+  return true;
+}
+
+bool TouchToFillPaymentMethodViewImpl::ShowBnplIssuerTos(
+    const TouchToFillPaymentMethodViewController& controller,
+    const payments::BnplIssuerTosDetail& bnpl_issuer_tos_detail) {
+  if (!java_object_) {
+    return false;  // View should already be shown.
+  }
+
+  JNIEnv* env = base::android::AttachCurrentThread();
+
+  Java_TouchToFillPaymentMethodViewBridge_showBnplIssuerTos(
+      env, java_object_,
+      ConvertBnplIssuerTosDetailToJavaObject(env, java_object_, controller,
+                                             bnpl_issuer_tos_detail));
+
   return true;
 }
 
@@ -213,6 +340,13 @@ void TouchToFillPaymentMethodViewImpl::Hide() {
   if (java_object_) {
     Java_TouchToFillPaymentMethodViewBridge_hideSheet(
         base::android::AttachCurrentThread(), java_object_);
+  }
+}
+
+void TouchToFillPaymentMethodViewImpl::SetVisible(bool visible) {
+  if (java_object_) {
+    Java_TouchToFillPaymentMethodViewBridge_setVisible(
+        base::android::AttachCurrentThread(), java_object_, visible);
   }
 }
 

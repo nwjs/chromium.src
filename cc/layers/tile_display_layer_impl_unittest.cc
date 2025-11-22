@@ -45,6 +45,7 @@ TEST_F(TileDisplayLayerImplTest, SettingSolidColorResultsInSolidColorQuad) {
   // For the production code to actually append a quad, the layer must have
   // non-zero size and not be completely transparent.
   raw_layer->SetBounds(kLayerBounds);
+  raw_layer->SetRecordedBounds(kLayerRect);
   raw_layer->draw_properties().visible_layer_rect = kLayerRect;
   raw_layer->draw_properties().opacity = kOpacity;
 
@@ -66,38 +67,6 @@ TEST_F(TileDisplayLayerImplTest, SettingSolidColorResultsInSolidColorQuad) {
       viz::SolidColorDrawQuad::MaterialCast(render_pass->quad_list.front())
           ->color,
       kLayerColor);
-}
-
-// Tests that AppendQuads() does not append any quads for a layer serving as
-// a backdrop filter mask.
-TEST_F(TileDisplayLayerImplTest,
-       AppendQuadsDoesNotAppendQuadsForBackdropFilterMask) {
-  constexpr gfx::Size kLayerBounds(1300, 1900);
-  constexpr gfx::Rect kLayerRect(kLayerBounds);
-  constexpr float kOpacity = 1.0;
-
-  auto layer = std::make_unique<TileDisplayLayerImpl>(
-      CHECK_DEREF(host_impl()->active_tree()), /*id=*/42);
-  auto* raw_layer = layer.get();
-  host_impl()->active_tree()->AddLayer(std::move(layer));
-
-  raw_layer->SetIsBackdropFilterMask(true);
-
-  // For the production code to actually append a quad, the layer must have
-  // non-zero size and not be completely transparent; ensure that these
-  // preconditions are satisfied to avoid this test passing trivially.
-  raw_layer->SetBounds(kLayerBounds);
-  raw_layer->draw_properties().visible_layer_rect = kLayerRect;
-  raw_layer->draw_properties().opacity = kOpacity;
-
-  SetupRootProperties(host_impl()->active_tree()->root_layer());
-
-  auto render_pass = viz::CompositorRenderPass::Create();
-  AppendQuadsData data;
-  raw_layer->AppendQuads(AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false},
-                         render_pass.get(), &data);
-
-  EXPECT_EQ(render_pass->quad_list.size(), 0u);
 }
 
 // Tests that AppendQuads() does not append any quads for a layer serving as
@@ -195,6 +164,7 @@ TEST_F(TileDisplayLayerImplTest,
   host_impl()->active_tree()->AddLayer(std::move(layer));
 
   raw_layer->SetBounds(layer_rect.size());
+  raw_layer->SetRecordedBounds(layer_rect);
   raw_layer->draw_properties().visible_layer_rect = layer_rect;
   raw_layer->draw_properties().occlusion_in_content_space =
       Occlusion(gfx::Transform(), SimpleEnclosedRegion(occluded_rect),
@@ -248,6 +218,7 @@ TEST_F(TileDisplayLayerImplTest,
   // For the production code to actually append a quad, the layer must have
   // non-zero size and not be completely transparent.
   raw_layer->SetBounds(kLayerBounds);
+  raw_layer->SetRecordedBounds(kLayerRect);
   raw_layer->draw_properties().visible_layer_rect = kLayerRect;
   raw_layer->draw_properties().opacity = kOpacity;
 
@@ -300,6 +271,7 @@ TEST_F(TileDisplayLayerImplTest,
   // For the production code to actually append a quad, the layer must have
   // non-zero size and not be completely transparent.
   raw_layer->SetBounds(kLayerBounds);
+  raw_layer->SetRecordedBounds(kLayerRect);
   raw_layer->draw_properties().visible_layer_rect = kLayerRect;
   raw_layer->draw_properties().opacity = kOpacity;
 
@@ -488,6 +460,7 @@ TEST_F(TileDisplayLayerImplWithEdgeAADisabledTest,
   host_impl()->active_tree()->AddLayer(std::move(layer));
 
   raw_layer->SetBounds(kLayerBounds);
+  raw_layer->SetRecordedBounds(kLayerRect);
   raw_layer->draw_properties().visible_layer_rect = kLayerRect;
   raw_layer->draw_properties().opacity = kOpacity;
 
@@ -531,6 +504,7 @@ TEST_F(TileDisplayLayerImplWithEdgeAADisabledTest,
   host_impl()->active_tree()->AddLayer(std::move(layer));
 
   raw_layer->SetBounds(kLayerBounds);
+  raw_layer->SetRecordedBounds(kLayerRect);
   raw_layer->draw_properties().visible_layer_rect = kLayerRect;
   raw_layer->draw_properties().opacity = kOpacity;
 
@@ -567,6 +541,7 @@ TEST_F(TileDisplayLayerImplTest, MissingTileResultsInCheckerBoardQuad) {
   // For the production code to actually append a quad, the layer must have
   // non-zero size and not be completely transparent.
   raw_layer->SetBounds(kLayerBounds);
+  raw_layer->SetRecordedBounds(kLayerRect);
   raw_layer->draw_properties().visible_layer_rect = kLayerRect;
   raw_layer->draw_properties().opacity = kOpacity;
 
@@ -611,6 +586,7 @@ TEST_F(TileDisplayLayerImplTest, AppendsQuadsFromHighestResolutionTilingByDefaul
   host_impl()->active_tree()->AddLayer(std::move(layer));
 
   raw_layer->SetBounds(kLayerBounds);
+  raw_layer->SetRecordedBounds(kLayerRect);
   raw_layer->draw_properties().visible_layer_rect = kLayerRect;
   raw_layer->draw_properties().opacity = kOpacity;
 
@@ -659,6 +635,7 @@ TEST_F(TileDisplayLayerImplTest, AppendsQuadsFromIdealResolutionTiling) {
   host_impl()->active_tree()->AddLayer(std::move(layer));
 
   raw_layer->SetBounds(kLayerBounds);
+  raw_layer->SetRecordedBounds(kLayerRect);
   raw_layer->draw_properties().visible_layer_rect = kLayerRect;
   raw_layer->draw_properties().opacity = kOpacity;
 

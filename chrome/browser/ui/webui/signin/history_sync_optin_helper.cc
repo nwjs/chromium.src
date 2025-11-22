@@ -47,97 +47,6 @@ constexpr char kHistorySyncOptIntAccessPointActionPrefix[] =
 constexpr char kOtherManagedProfileCreationHistogramName[] =
     "Signin.ManagedUserProfileCreationConflict";
 
-void CheckValidAccessPointForHistoryOptin(
-    signin_metrics::AccessPoint access_point) {
-  switch (access_point) {
-    case (signin_metrics::AccessPoint::kExtensionInstallBubble):
-    case (signin_metrics::AccessPoint::kBookmarkBubble):
-    case (signin_metrics::AccessPoint::kRecentTabs):
-    case (signin_metrics::AccessPoint::kCollaborationJoinTabGroup):
-    case (signin_metrics::AccessPoint::kCollaborationShareTabGroup):
-    case (signin_metrics::AccessPoint::kPasswordBubble):
-    case (signin_metrics::AccessPoint::kAddressBubble):
-      NOTREACHED();
-    case signin_metrics::AccessPoint::kStartPage:
-    case signin_metrics::AccessPoint::kNtpLink:
-    case signin_metrics::AccessPoint::kMenu:
-    case signin_metrics::AccessPoint::kSettings:
-    case signin_metrics::AccessPoint::kSupervisedUser:
-    case signin_metrics::AccessPoint::kExtensions:
-    case signin_metrics::AccessPoint::kBookmarkManager:
-    case signin_metrics::AccessPoint::kAvatarBubbleSignIn:
-    case signin_metrics::AccessPoint::kUserManager:
-    case signin_metrics::AccessPoint::kDevicesPage:
-    case signin_metrics::AccessPoint::kFullscreenSigninPromo:
-    case signin_metrics::AccessPoint::kUnknown:
-    case signin_metrics::AccessPoint::kAutofillDropdown:
-    case signin_metrics::AccessPoint::kResigninInfobar:
-    case signin_metrics::AccessPoint::kTabSwitcher:
-    case signin_metrics::AccessPoint::kMachineLogon:
-    case signin_metrics::AccessPoint::kGoogleServicesSettings:
-    case signin_metrics::AccessPoint::kSyncErrorCard:
-    case signin_metrics::AccessPoint::kForcedSignin:
-    case signin_metrics::AccessPoint::kAccountRenamed:
-    case signin_metrics::AccessPoint::kWebSignin:
-    case signin_metrics::AccessPoint::kSafetyCheck:
-    case signin_metrics::AccessPoint::kKaleidoscope:
-    case signin_metrics::AccessPoint::kEnterpriseSignoutCoordinator:
-    case signin_metrics::AccessPoint::kSigninInterceptFirstRunExperience:
-    case signin_metrics::AccessPoint::kSendTabToSelfPromo:
-    case signin_metrics::AccessPoint::kNtpFeedTopPromo:
-    case signin_metrics::AccessPoint::kSettingsSyncOffRow:
-    case signin_metrics::AccessPoint::kPostDeviceRestoreSigninPromo:
-    case signin_metrics::AccessPoint::kPostDeviceRestoreBackgroundSignin:
-    case signin_metrics::AccessPoint::kNtpSignedOutIcon:
-    case signin_metrics::AccessPoint::kNtpFeedCardMenuPromo:
-    case signin_metrics::AccessPoint::kNtpFeedBottomPromo:
-    case signin_metrics::AccessPoint::kDesktopSigninManager:
-    case signin_metrics::AccessPoint::kForYouFre:
-    case signin_metrics::AccessPoint::kCreatorFeedFollow:
-    case signin_metrics::AccessPoint::kReadingList:
-    case signin_metrics::AccessPoint::kReauthInfoBar:
-    case signin_metrics::AccessPoint::kAccountConsistencyService:
-    case signin_metrics::AccessPoint::kSearchCompanion:
-    case signin_metrics::AccessPoint::kSetUpList:
-    case signin_metrics::AccessPoint::kSaveToPhotosIos:
-    case signin_metrics::AccessPoint::kChromeSigninInterceptBubble:
-    case signin_metrics::AccessPoint::kRestorePrimaryAccountOnProfileLoad:
-    case signin_metrics::AccessPoint::kTabOrganization:
-    case signin_metrics::AccessPoint::kSaveToDriveIos:
-    case signin_metrics::AccessPoint::kTipsNotification:
-    case signin_metrics::AccessPoint::kNotificationsOptInScreenContentToggle:
-    case signin_metrics::AccessPoint::kSigninChoiceRemembered:
-    case signin_metrics::AccessPoint::kProfileMenuSignoutConfirmationPrompt:
-    case signin_metrics::AccessPoint::kSettingsSignoutConfirmationPrompt:
-    case signin_metrics::AccessPoint::kNtpIdentityDisc:
-    case signin_metrics::AccessPoint::kOidcRedirectionInterception:
-    case signin_metrics::AccessPoint::kWebauthnModalDialog:
-    case signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo:
-    case signin_metrics::AccessPoint::kAccountMenu:
-    case signin_metrics::AccessPoint::kProductSpecifications:
-    case signin_metrics::AccessPoint::kAccountMenuFailedSwitch:
-    case signin_metrics::AccessPoint::kCctAccountMismatchNotification:
-    case signin_metrics::AccessPoint::kDriveFilePickerIos:
-    case signin_metrics::AccessPoint::kGlicLaunchButton:
-    case signin_metrics::AccessPoint::kHistoryPage:
-    case signin_metrics::AccessPoint::kHistorySyncOptinExpansionPillOnStartup:
-    case signin_metrics::AccessPoint::kWidget:
-    case signin_metrics::AccessPoint::kCollaborationLeaveOrDeleteTabGroup:
-    case signin_metrics::AccessPoint::kHistorySyncEducationalTip:
-    case signin_metrics::AccessPoint::kManagedProfileAutoSigninIos:
-    case signin_metrics::AccessPoint::kNonModalSigninPasswordPromo:
-    case signin_metrics::AccessPoint::kNonModalSigninBookmarkPromo:
-    case signin_metrics::AccessPoint::kUserManagerWithPrefilledEmail:
-    case signin_metrics::AccessPoint::kEnterpriseManagementDisclaimerAtStartup:
-    case signin_metrics::AccessPoint::
-        kEnterpriseManagementDisclaimerAfterBrowserFocus:
-    case signin_metrics::AccessPoint::
-        kEnterpriseManagementDisclaimerAfterSignin:
-    case signin_metrics::AccessPoint::kNtpFeaturePromo:
-      break;
-  }
-}
-
 // LINT.IfChange(FlowEventToString)
 std::string_view GetHistorySyncSkipReasonMetricName(
     HistorySyncOptinHelper::HistorySyncSkipReason skip_reason) {
@@ -178,10 +87,9 @@ std::string_view UserChoiceToStringMetric(
 }
 // LINT.ThenChange(/tools/metrics/histograms/metadata/signin/histograms.xml:Signin.HistorySyncOptIn)
 
-bool AccountMayHaveCloudPolicies(Profile* profile,
-                                 const AccountInfo& account_info) {
+bool AccountMayHaveCloudPolicies(Profile* profile, const std::string& email) {
   return signin::AccountManagedStatusFinder::MayBeEnterpriseUserBasedOnEmail(
-             account_info.email) ||
+             email) ||
          policy::ManagementServiceFactory::GetForProfile(profile)
              ->HasManagementAuthority(
                  policy::EnterpriseManagementAuthority::CLOUD) ||
@@ -226,9 +134,9 @@ SyncServiceStartupStateObserver::
     MaybeCreateSyncServiceStateObserverForAccountWithClouldPolicies(
         syncer::SyncService* sync_service,
         Profile* profile,
-        const AccountInfo& account_info,
+        const CoreAccountInfo& account_info,
         base::OnceClosure callback) {
-  if (AccountMayHaveCloudPolicies(profile, account_info) &&
+  if (AccountMayHaveCloudPolicies(profile, account_info.email) &&
       SyncStartupTracker::GetServiceStartupState(sync_service) ==
           SyncStartupTracker::ServiceStartupState::kPending) {
     return std::make_unique<SyncServiceStartupStateObserver>(
@@ -252,7 +160,7 @@ void SyncServiceStartupStateObserver::OnSyncStartupStateChanged(
 
 HistorySyncOptinPolicyHelper::HistorySyncOptinPolicyHelper(
     Profile* profile,
-    const AccountInfo& account_info,
+    const CoreAccountInfo& account_info,
     base::OnceCallback<void(bool)> on_register_for_policies_callback,
     base::OnceClosure on_policies_fetched_callback)
     : profile_(profile),
@@ -372,8 +280,7 @@ void HistorySyncOptinHelper::NotifyFlowFinishedWithHistorySyncScreenAttempted(
   if (user_choice != ScreenChoiceResult::kScreenSkipped) {
     RecordMetricsForHistorySyncUserChoice(user_choice, access_point());
   }
-  // Observer notification must be the last step, as the observer
-  // may delete this helper (see HistorySyncOptinService).
+
   for (Observer& observer : observers_) {
     observer.OnHistorySyncOptinHelperFlowFinished();
   }
@@ -431,11 +338,6 @@ void HistorySyncOptinHelper::ResumeShowHistorySyncOptinScreenFlow(
 }
 
 void HistorySyncOptinHelper::AwaitSyncStartupAndShowHistorySyncScreen() {
-  if (AccountIsManaged(account_info()) == signin::Tribool::kTrue) {
-    CHECK_EQ(management_status_state_,
-             HistorySyncOptinHelper::ManagementStatusState::
-                 kManagementDisclaimerComplete);
-  }
   // For managed users the polices are fetched when the user accepts
   // management, which is done as part of
   // `DetermineManagementStatusAndShowManagementScreens`. We are ready to get
@@ -475,7 +377,7 @@ void HistorySyncOptinHelper::ShowHistorySyncOptinScreen() {
 
   // Sanity checks that we are not in an
   // access point that should not offer the history sync screen.
-  CheckValidAccessPointForHistoryOptin(access_point());
+  CHECK(signin_util::IsValidAccessPointForHistoryOptinScreen(access_point()));
 
   // Currently this class is used to for entry points meant to
   // display the history sync optin screen (i.e. enabling history
@@ -578,7 +480,6 @@ void HistorySyncOptinHelperInBrowser::OnManagementAccepted(
   // HistorySyncOptinHelperInBrowser since we only reach this method
   // if the user is managed.
   CHECK_EQ(maybe_managed_account(), signin::Tribool::kTrue);
-
   if (!chosen_profile) {
     // Note, if we need the exact reason we need to modify the disclaimer
     // service to provide this. However both valid reasons are treated the same
@@ -591,7 +492,8 @@ void HistorySyncOptinHelperInBrowser::OnManagementAccepted(
       kManagementDisclaimerComplete;
 
   if (profile() == chosen_profile) {
-    AwaitSyncStartupAndShowHistorySyncScreen();
+    ResumeShowHistorySyncOptinScreenFlowForManagedAccount(
+        account_info().account_id);
     return;
   }
 
@@ -601,7 +503,7 @@ void HistorySyncOptinHelperInBrowser::OnManagementAccepted(
   CHECK(history_sync_optin_service);
   history_sync_optin_service
       ->ResumeShowHistorySyncOptinScreenFlowForManagedUser(
-          account_info(),
+          account_info().account_id,
           std::make_unique<HistorySyncOptinServiceDefaultDelegate>(),
           access_point());
 
@@ -611,9 +513,9 @@ void HistorySyncOptinHelperInBrowser::OnManagementAccepted(
 
 void HistorySyncOptinHelperInBrowser::
     ResumeShowHistorySyncOptinScreenFlowForManagedAccount(
-        const AccountInfo& managed_account_info) {
-  CHECK_EQ(account_info().account_id, managed_account_info.account_id);
-  CHECK(AccountIsManaged(account_info()) == signin::Tribool::kTrue);
+        const CoreAccountId& managed_account_id) {
+  CHECK_EQ(account_info().account_id, managed_account_id);
+  CHECK(enterprise_util::UserAcceptedAccountManagement(profile()));
   management_status_state_ = HistorySyncOptinHelper::ManagementStatusState::
       kManagementDisclaimerComplete;
   AwaitSyncStartupAndShowHistorySyncScreen();
@@ -649,8 +551,11 @@ void HistorySyncOptinHelperInProfilePicker::
   // Register for policies to determine if the user is managed.
   // Show the management screen for managed user, before proceeding with the
   // flow.
+  auto extended_account_info =
+      IdentityManagerFactory::GetForProfile(profile())->FindExtendedAccountInfo(
+          account_info());
   policy_helper_ = std::make_unique<HistorySyncOptinPolicyHelper>(
-      profile(), account_info(),
+      profile(), extended_account_info,
       /*on_register_for_policies_callback=*/
       base::BindOnce(&HistorySyncOptinHelperInProfilePicker::
                          MaybeShowAccountManagementScreen,
@@ -716,7 +621,7 @@ void HistorySyncOptinHelperInProfilePicker::
 
 void HistorySyncOptinHelperInProfilePicker::
     ResumeShowHistorySyncOptinScreenFlowForManagedAccount(
-        const AccountInfo& managed_account_info) {
+        const CoreAccountId& managed_account_id) {
   // This method is only used for the browser case.
   NOTREACHED();
 }

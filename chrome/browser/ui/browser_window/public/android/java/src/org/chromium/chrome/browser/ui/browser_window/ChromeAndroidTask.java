@@ -8,12 +8,12 @@ import android.graphics.Rect;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.ui.base.ActivityWindowAndroid;
 
 import java.util.List;
-import java.util.OptionalInt;
 
 /**
  * Represents an Android window containing Chrome.
@@ -50,19 +50,19 @@ import java.util.OptionalInt;
 public interface ChromeAndroidTask {
 
     /**
-     * Returns an {@link OptionalInt} holding the the ID of this {@link ChromeAndroidTask}, which is
-     * the same as defined by {@link android.app.TaskInfo#taskId}, if the {@link OptionalInt} is
-     * non-empty. The {@link OptionalInt} will be empty for a {@code State.PENDING} {@link
-     * ChromeAndroidTask} that is not yet associated with a live {@code ChromeActivity}.
+     * Returns an {@link Integer} holding the the ID of this {@link ChromeAndroidTask}, which is the
+     * same as defined by {@link android.app.TaskInfo#taskId}, if the {@link Integer} is non-null.
+     * The {@link Integer} will be null for a {@code State.PENDING} {@link ChromeAndroidTask} that
+     * is not yet associated with a live {@code ChromeActivity}.
      */
-    OptionalInt getId();
+    @Nullable Integer getId();
 
     /**
-     * Returns an {@link OptionalInt} holding the the pending task ID of this {@link
-     * ChromeAndroidTask}. The {@link OptionalInt} will be empty for a {@link ChromeAndroidTask}
-     * that is not in a {@code State.PENDING} state.
+     * Returns an {@link Integer} holding the the pending task ID of this {@link ChromeAndroidTask}.
+     * The {@link Integer} will be null for a {@link ChromeAndroidTask} that is not in a {@code
+     * State.PENDING} state.
      */
-    OptionalInt getPendingId();
+    @Nullable Integer getPendingId();
 
     /**
      * Returns the browser window type of this {@link ChromeAndroidTask}.
@@ -73,7 +73,8 @@ public interface ChromeAndroidTask {
     int getBrowserWindowType();
 
     /**
-     * Sets the current {@link ActivityWindowAndroid} in this Task.
+     * Sets the current {@link ActivityWindowAndroid} and other objects associated with {@link
+     * ActivityWindowAndroid}'s {@code Activity}.
      *
      * <p>As a {@link ChromeAndroidTask} is meant to track an Android Task, but an {@link
      * ActivityWindowAndroid} is associated with a {@code ChromeActivity}, this method is needed to
@@ -83,9 +84,18 @@ public interface ChromeAndroidTask {
      * ChromeAndroidTask} at any time. If this method is called when this {@link ChromeAndroidTask}
      * already has an {@link ActivityWindowAndroid}, an {@link AssertionError} will occur.
      *
+     * @param activityWindowAndroid The {@link ActivityWindowAndroid} to be associated with this
+     *     {@link ChromeAndroidTask}.
+     * @param tabModel The {@link TabModel} associated with {@link ActivityWindowAndroid}'s {@code
+     *     Activity}.
+     * @param multiInstanceManager The {@link MultiInstanceManager} associated with {@link
+     *     ActivityWindowAndroid}'s {@code Activity}.
      * @see #clearActivityWindowAndroid()
      */
-    void setActivityWindowAndroid(ActivityWindowAndroid activityWindowAndroid, TabModel tabModel);
+    void setActivityWindowAndroid(
+            ActivityWindowAndroid activityWindowAndroid,
+            TabModel tabModel,
+            @Nullable MultiInstanceManager multiInstanceManager);
 
     /**
      * Returns the current {@link ActivityWindowAndroid} in this Task, or {@code null} if there is
@@ -94,12 +104,12 @@ public interface ChromeAndroidTask {
     @Nullable ActivityWindowAndroid getActivityWindowAndroid();
 
     /**
-     * Clears the current {@link ActivityWindowAndroid} in this Task.
+     * Clears the current {@link ActivityWindowAndroid} and all other objects associated with it..
      *
      * <p>This method should be called when the current {@link ActivityWindowAndroid} is about to be
      * destroyed.
      *
-     * @see #setActivityWindowAndroid()
+     * @see #setActivityWindowAndroid
      */
     void clearActivityWindowAndroid();
 
@@ -145,7 +155,7 @@ public interface ChromeAndroidTask {
     boolean isFullscreen();
 
     /** Non-maximized bounds of the task even when currently maximized or minimized. */
-    Rect getRestoredBounds();
+    Rect getRestoredBoundsInDp();
 
     /**
      * Returns the most recent timestamp when this {@link ChromeAndroidTask} became active, i.e.,
@@ -160,7 +170,7 @@ public interface ChromeAndroidTask {
     Profile getProfile();
 
     /** Returns current bounds of the window. */
-    Rect getBounds();
+    Rect getBoundsInDp();
 
     /** Shows this {@link ChromeAndroidTask} or activates it if it's already visible. */
     void show();
@@ -201,9 +211,9 @@ public interface ChromeAndroidTask {
     /**
      * Sets the {@link ChromeAndroidTask}'s size and position to the specified values.
      *
-     * @param bounds The new bounds of the {@link ChromeAndroidTask}.
+     * @param boundsInDp The new bounds of the {@link ChromeAndroidTask}.
      */
-    void setBounds(Rect bounds);
+    void setBoundsInDp(Rect boundsInDp);
 
     /** Returns all {@link ChromeAndroidTaskFeature}s for testing. */
     List<ChromeAndroidTaskFeature> getAllFeaturesForTesting();
@@ -211,5 +221,5 @@ public interface ChromeAndroidTask {
     /**
      * Returns the {@code SessionID} as returned by {@code BrowserWindowInterface::GetSessionID()}.
      */
-    OptionalInt getSessionIdForTesting();
+    @Nullable Integer getSessionIdForTesting();
 }

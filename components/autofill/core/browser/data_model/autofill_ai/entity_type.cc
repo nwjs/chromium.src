@@ -47,6 +47,7 @@ std::u16string AttributeType::GetNameForI18n() const {
       case AttributeTypeName::kFlightReservationPassengerName:
       case AttributeTypeName::kFlightReservationDepartureAirport:
       case AttributeTypeName::kFlightReservationArrivalAirport:
+      case AttributeTypeName::kFlightReservationDepartureDate:
         // Flight reservations are read-only and do not use attribute strings.
         return u"";
       case AttributeTypeName::kKnownTravelerNumberName:
@@ -150,7 +151,6 @@ bool EntityType::ImportOrder(const EntityType& lhs, const EntityType& rhs) {
   return rank(lhs) < rank(rhs);
 }
 
-// LINT.IfChange(EntityType)
 std::u16string EntityType::GetNameForI18n() const {
   switch (name()) {
     case EntityTypeName::kDriversLicense:
@@ -175,7 +175,6 @@ std::u16string EntityType::GetNameForI18n() const {
   }
   NOTREACHED();
 }
-// LINT.ThenChange(/tools/metrics/histograms/metadata/autofill/enums.xml:AutofillAiEntityType)
 
 std::optional<EntityTypeName> ToSafeEntityTypeName(
     std::underlying_type_t<EntityTypeName> raw_value) {

@@ -33,6 +33,8 @@
 #import "ios/chrome/browser/authentication/ui_bundled/cells/table_view_signin_promo_item.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
+#import "ios/chrome/browser/bookmarks/folder_chooser/coordinator/bookmarks_folder_chooser_coordinator.h"
+#import "ios/chrome/browser/bookmarks/folder_chooser/coordinator/bookmarks_folder_chooser_coordinator_delegate.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_model_bridge_observer.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_model_factory.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_storage_type.h"
@@ -45,8 +47,6 @@
 #import "ios/chrome/browser/bookmarks/ui_bundled/cells/bookmark_home_node_item.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/cells/bookmark_table_cell_title_edit_delegate.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/cells/table_view_bookmarks_folder_item.h"
-#import "ios/chrome/browser/bookmarks/ui_bundled/folder_chooser/bookmarks_folder_chooser_coordinator.h"
-#import "ios/chrome/browser/bookmarks/ui_bundled/folder_chooser/bookmarks_folder_chooser_coordinator_delegate.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/home/bookmarks_coordinator.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/home/bookmarks_coordinator_delegate.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/home/bookmarks_home_consumer.h"
@@ -895,7 +895,7 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
   DCHECK_GE(nodes.size(), 1u);
   base::RecordAction(base::UserMetricsAction(userAction));
   [self.snackbarCommandsHandler
-      showSnackbarMessage:bookmark_utils_ios::DeleteBookmarksWithUndoToast(
+      showSnackbarMessage:bookmark_utils_ios::DeleteBookmarksWithUndoSnackbar(
                               nodes, _bookmarkModel.get(), self.profile,
                               FROM_HERE)];
   [self setTableViewEditing:NO];
@@ -1215,7 +1215,7 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
 - (void)handleMoveNode:(const BookmarkNode*)node toPosition:(size_t)position {
   [self.snackbarCommandsHandler
       showSnackbarMessage:
-          bookmark_utils_ios::UpdateBookmarkPositionWithUndoToast(
+          bookmark_utils_ios::UpdateBookmarkPositionWithUndoSnackbar(
               node, self.displayedFolderNode, position, _bookmarkModel.get(),
               self.profile)];
 }
@@ -1280,7 +1280,7 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
   [self setTableViewEditing:NO];
   ProfileIOS* profile = self.profile;
   [self.snackbarCommandsHandler
-      showSnackbarMessage:bookmark_utils_ios::MoveBookmarksWithUndoToast(
+      showSnackbarMessage:bookmark_utils_ios::MoveBookmarksWithUndoSnackbar(
                               editedNodesVector, _bookmarkModel.get(), folder,
                               profile,
                               AuthenticationServiceFactory::GetForProfile(
@@ -2943,7 +2943,7 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
 
   [self.snackbarCommandsHandler
       showSnackbarMessage:
-          bookmark_utils_ios::CreateBookmarkAtPositionWithUndoToast(
+          bookmark_utils_ios::CreateBookmarkAtPositionWithUndoSnackbar(
               base::SysUTF8ToNSString(URL.spec()), URL,
               self.displayedFolderNode, index, _bookmarkModel.get(),
               self.profile)];

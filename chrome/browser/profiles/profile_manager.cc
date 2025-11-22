@@ -135,6 +135,8 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"  // nogncheck crbug.com/40147906
+#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "components/live_caption/live_caption_controller.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features.h"
 #else
@@ -157,6 +159,7 @@
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "chromeos/ash/experiences/arc/arc_prefs.h"
 #include "chromeos/ash/experiences/arc/session/arc_management_transition.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
 #include "components/user_manager/user_type.h"
@@ -1244,7 +1247,7 @@ void ProfileManager::RecordZombieMetrics() {
   base::UmaHistogramCounts100("Profile.ZombieProfileCount", zombie_count);
 }
 
-void ProfileManager::AddKeepAlive(Profile* profile,
+bool ProfileManager::AddKeepAlive(Profile* profile,
                                   ProfileKeepAliveOrigin origin) {
   DCHECK_NE(ProfileKeepAliveOrigin::kWaitingForFirstBrowserWindow, origin);
 
@@ -1253,14 +1256,22 @@ void ProfileManager::AddKeepAlive(Profile* profile,
 
   ProfileInfo* info = GetProfileInfoByPath(profile->GetPath());
   if (!info) {
-    // Can be null in unit tests, when the Profile was not created via
-    // ProfileManager.
+    // Can be null in the following circumstances:
+    //
+    // 1. Unit tests, when the Profile was not created via ProfileManager.
+    // 2. AddKeepAlive() called too early during Profile creation.
+    // 3. AddKeepAlive() called too late during Profile's lifecycle: after we've
+    //    handed it off to ProfileDestroyer and it's scheduled for destruction.
+    //
+    // #1 is fine. #2 is always a bug, and #3 is usually a bug. You can mitigate
+    // #3 by using ScopedKeepAlive::TryAcquire() and checking if the result is
+    // null.
     VLOG(1) << "AddKeepAlive(" << profile->GetDebugName() << ", " << origin
-            << ") called before the Profile was added to the ProfileManager. "
+            << ") too early or too late in Profile's lifecycle. "
             << "The keepalive was not added. This may cause a crash during "
             << "teardown. (except in unit tests, where Profiles may not be "
             << "registered with the ProfileManager)";
-    return;
+    return false;
   }
 
   if (base::FeatureList::IsEnabled(features::kDestroyProfileOnBrowserClose)) {
@@ -1285,6 +1296,8 @@ void ProfileManager::AddKeepAlive(Profile* profile,
        base::FeatureList::IsEnabled(features::kDestroySystemProfiles))) {
     ClearFirstBrowserWindowKeepAlive(profile);
   }
+
+  return true;
 }
 
 void ProfileManager::RemoveKeepAlive(Profile* profile,
@@ -1443,9 +1456,16 @@ void ProfileManager::DoFinalInitForServices(Profile* profile,
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   bool extensions_enabled = !go_off_the_record;
 #if BUILDFLAG(IS_CHROMEOS)
+  bool are_extensions_allowed_for_profile =
+      ash::IsSigninBrowserContext(profile);
+  if (chromeos::features::IsLockScreenBadgeAuthEnabled()) {
+    are_extensions_allowed_for_profile |=
+        ash::IsLockScreenBrowserContext(profile);
+  }
+
   if ((!base::CommandLine::ForCurrentProcess()->HasSwitch(
            switches::kDisableLoginScreenApps) &&
-       ash::ProfileHelper::IsSigninProfile(profile)) ||
+       are_extensions_allowed_for_profile) ||
       ash::IsShimlessRmaAppBrowserContext(profile)) {
     extensions_enabled = true;
   }
@@ -2082,11 +2102,19 @@ void ProfileManager::OnBrowserClosed(Browser* browser) {
       SaveActiveProfiles();
   }
 
-  Profile* original_profile = profile->GetOriginalProfile();
+  Profile* const original_profile = profile->GetOriginalProfile();
   // Do nothing if the closed window is not the last window of the same profile.
-  for (Browser* browser_iter : *BrowserList::GetInstance()) {
-    if (browser_iter->profile()->GetOriginalProfile() == original_profile)
-      return;
+  bool has_other_window = false;
+  ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+      [original_profile, &has_other_window](BrowserWindowInterface* browser) {
+        const Profile* const iter_profile = browser->GetProfile();
+        if (iter_profile->GetOriginalProfile() == original_profile) {
+          has_other_window = true;
+        }
+        return !has_other_window;
+      });
+  if (has_other_window) {
+    return;
   }
 
   if (profile->IsGuestSession()) {

@@ -10,12 +10,14 @@
 
 #include "base/command_line.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/memory/weak_ptr.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/password_manager/actor_login/actor_login_service.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "components/password_manager/core/browser/actor_login/actor_login_quality_logger_interface.h"
 #include "content/public/browser/render_frame_host.h"
 
 namespace content {
@@ -42,11 +44,15 @@ class MockActorLoginService : public actor_login::ActorLoginService {
   ~MockActorLoginService() override;
 
   // `actor_login::ActorLoginService`:
-  void GetCredentials(tabs::TabInterface* tab,
-                      actor_login::CredentialsOrErrorReply callback) override;
+  void GetCredentials(
+      tabs::TabInterface* tab,
+      base::WeakPtr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
+      actor_login::CredentialsOrErrorReply callback) override;
   void AttemptLogin(
       tabs::TabInterface* tab,
       const actor_login::Credential& credential,
+      bool should_store_permission,
+      base::WeakPtr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
       actor_login::LoginStatusResultOrErrorReply callback) override;
 
   void SetCredentials(const actor_login::CredentialsOrError& credentials);
@@ -56,11 +62,13 @@ class MockActorLoginService : public actor_login::ActorLoginService {
   void SetLoginStatus(actor_login::LoginStatusResultOrError login_status);
 
   const std::optional<actor_login::Credential>& last_credential_used() const;
+  bool last_permission_was_permanent() const;
 
  private:
   actor_login::CredentialsOrError credentials_;
   actor_login::LoginStatusResultOrError login_status_;
   std::optional<actor_login::Credential> last_credential_used_;
+  bool last_permission_was_permanent_ = false;
 };
 
 inline constexpr int32_t kNonExistentContentNodeId =
@@ -90,6 +98,12 @@ class ActorToolsTest : public InProcessBrowserTest {
   virtual std::unique_ptr<ExecutionEngine> CreateExecutionEngine(
       Profile* profile);
 
+  // Returns true if actuation should always be enabled for the test (regardless
+  // of policy / opt-in status).
+  virtual bool ShouldForceActOnWeb();
+
+  TaskId CreateNewTask();
+
   TaskId task_id_;
 
  private:
@@ -98,31 +112,8 @@ class ActorToolsTest : public InProcessBrowserTest {
   base::ScopedTempDir temp_dir_;
 };
 
-class ActorToolsGeneralPageStabilityTest
-    : public ActorToolsTest,
-      public ::testing::WithParamInterface<
-          ::features::ActorGeneralPageStabilityMode> {
- public:
-  static std::string DescribeParam(
-      const testing::TestParamInfo<ParamType>& info);
-  ActorToolsGeneralPageStabilityTest();
-  ~ActorToolsGeneralPageStabilityTest() override;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
 gfx::RectF GetBoundingClientRect(content::RenderFrameHost& rfh,
                                  std::string_view query);
-
-std::string DescribeGeneralPageStabilityMode(
-    features::ActorGeneralPageStabilityMode mode);
-
-inline constexpr features::ActorGeneralPageStabilityMode
-    kActorGeneralPageStabilityModeValues[] = {
-        features::ActorGeneralPageStabilityMode::kDisabled,
-        features::ActorGeneralPageStabilityMode::kAllEnabled,
-};
 
 std::string DescribePaintStabilityMode(features::ActorPaintStabilityMode mode);
 

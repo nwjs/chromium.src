@@ -14,6 +14,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/types/optional_ref.h"
 #include "base/values.h"
 #include "net/base/features.h"
 #include "net/base/load_flags.h"
@@ -21,6 +22,7 @@
 #include "net/base/net_errors.h"
 #include "net/base/privacy_mode.h"
 #include "net/base/proxy_chain.h"
+#include "net/base/proxy_delegate.h"
 #include "net/base/proxy_string_util.h"
 #include "net/base/session_usage.h"
 #include "net/base/task/task_runner.h"
@@ -28,6 +30,7 @@
 #include "net/http/alternate_protocol_usage.h"
 #include "net/http/alternative_service.h"
 #include "net/http/bidirectional_stream_impl.h"
+#include "net/http/http_stream_factory.h"
 #include "net/http/http_stream_key.h"
 #include "net/http/http_stream_pool.h"
 #include "net/http/http_stream_pool_request_info.h"
@@ -228,19 +231,23 @@ std::unique_ptr<HttpStreamRequest> HttpStreamFactory::JobController::Start(
       source_net_log.source());
 
   RunLoop(OK);
+  // `this` may be deleted at this point.
 
   return request;
 }
 
-void HttpStreamFactory::JobController::Preconnect(int num_streams) {
+void HttpStreamFactory::JobController::Preconnect(int num_streams,
+                                                  base::OnceClosure callback) {
   DCHECK(!main_job_);
   DCHECK(!alternative_job_);
   DCHECK(is_preconnect_);
 
   stream_type_ = HttpStreamRequest::HTTP_STREAM;
   num_streams_ = num_streams;
+  preconnect_callback_ = std::move(callback);
 
   RunLoop(OK);
+  // `this` may be deleted at this point.
 }
 
 LoadState HttpStreamFactory::JobController::GetLoadState() const {
@@ -324,6 +331,8 @@ void HttpStreamFactory::JobController::OnStreamReady(Job* job) {
     OnOrphanedJobComplete(job);
     return;
   }
+
+  NotifyOnStreamCreationAttempted(std::nullopt);
   std::unique_ptr<HttpStream> stream = job->ReleaseStream();
   DCHECK(stream);
 
@@ -462,6 +471,7 @@ void HttpStreamFactory::JobController::OnStreamFailed(Job* job, int status) {
     }
   }
 
+  NotifyOnStreamCreationAttempted(status);
   status = ReconsiderProxyAfterError(job, status);
   if (next_state_ == STATE_RESOLVE_PROXY_COMPLETE) {
     if (status == ERR_IO_PENDING) {
@@ -469,6 +479,7 @@ void HttpStreamFactory::JobController::OnStreamFailed(Job* job, int status) {
     }
     DCHECK_EQ(OK, status);
     RunLoop(status);
+    // `this` may be deleted at this point.
     return;
   }
 
@@ -574,7 +585,9 @@ void HttpStreamFactory::JobController::OnPreconnectsComplete(Job* job,
   main_job_.reset();
   preconnect_backup_job_.reset();
   ResetErrorStatusForJobs();
-  factory_->OnPreconnectsCompleteInternal();
+  if (preconnect_callback_) {
+    std::move(preconnect_callback_).Run();
+  }
   MaybeNotifyFactoryOfCompletion();
 }
 
@@ -746,6 +759,7 @@ HttpStreamFactory::JobController::websocket_handshake_stream_create_helper() {
 
 void HttpStreamFactory::JobController::OnIOComplete(int result) {
   RunLoop(result);
+  // `this` may be deleted at this point.
 }
 
 void HttpStreamFactory::JobController::RunLoop(int result) {
@@ -753,6 +767,15 @@ void HttpStreamFactory::JobController::RunLoop(int result) {
   if (rv == ERR_IO_PENDING) {
     return;
   }
+
+  if (switched_to_http_stream_pool_) {
+    // The request is handed over to the HttpStreamPool. Complete `this`.
+    DCHECK_EQ(rv, OK);
+    MaybeNotifyFactoryOfCompletion();
+    // `this` is deleted.
+    return;
+  }
+
   if (rv != OK) {
     // DoLoop can only fail during proxy resolution step which happens before
     // any jobs are created. Notify |request_| of the failure one message loop
@@ -846,6 +869,7 @@ int HttpStreamFactory::JobController::DoCreateJobs() {
   DCHECK(!alternative_job_);
   DCHECK(request_info_.url.is_valid());
   DCHECK(request_info_.url.IsStandard());
+  stream_creation_attempt_start_time_ = base::TimeTicks::Now();
 
   url::SchemeHostPort destination(request_info_.url);
   DCHECK(destination.IsValid());
@@ -876,7 +900,7 @@ int HttpStreamFactory::JobController::DoCreateJobs() {
       !session_->ShouldForceQuic(destination, proxy_info_, is_websocket_) &&
       enable_alternative_services_ &&
       session_->params().use_dns_https_svcb_alpn &&
-      base::EqualsCaseInsensitiveASCII(request_info_.url.scheme(),
+      base::EqualsCaseInsensitiveASCII(request_info_.url.GetScheme(),
                                        url::kHttpsScheme) &&
       session_->IsQuicEnabled() && proxy_info_.is_direct() &&
       !session_->http_server_properties()->IsAlternativeServiceBroken(
@@ -1177,7 +1201,7 @@ void HttpStreamFactory::JobController::MaybeReportBrokenAlternativeService(
   if (alt_job_net_error == ERR_NETWORK_CHANGED ||
       alt_job_net_error == ERR_INTERNET_DISCONNECTED ||
       (alt_job_net_error == ERR_NAME_NOT_RESOLVED &&
-       request_info_.url.host() == alt_service.host)) {
+       request_info_.url.GetHost() == alt_service.host)) {
     // No need to mark alternative service as broken.
     return;
   }
@@ -1248,14 +1272,14 @@ HttpStreamFactory::JobController::GetAdvertisedAltSvcFor(
     type = NO_ALTERNATIVE_SERVICE;
   } else if (alternative_service_info.info.protocol() ==
              NextProto::kProtoQUIC) {
-    if (request_info.url.host_piece() ==
+    if (request_info.url.host() ==
         alternative_service_info.info.alternative_service().host) {
       type = QUIC_SAME_DESTINATION;
     } else {
       type = QUIC_DIFFERENT_DESTINATION;
     }
   } else {
-    if (request_info.url.host_piece() ==
+    if (request_info.url.host() ==
         alternative_service_info.info.alternative_service().host) {
       type = NOT_QUIC_SAME_DESTINATION;
     } else {
@@ -1371,7 +1395,7 @@ HttpStreamFactory::JobController::GetAdvertisedAltSvcInternal(
 
     GURL destination = CreateAltSvcUrl(
         request_info.url, alternative_service_info.GetHostPortPair());
-    if (session_key.host() != destination.host_piece() &&
+    if (session_key.host() != destination.host() &&
         !session_->context().quic_context->params()->allow_remote_alt_svc) {
       continue;
     }
@@ -1381,7 +1405,7 @@ HttpStreamFactory::JobController::GetAdvertisedAltSvcInternal(
       return {alternative_service_info, AdvertisedAltSvcState::kQuicNotBroken};
     }
 
-    if (!IsQuicAllowedForHost(destination.host())) {
+    if (!IsQuicAllowedForHost(destination.GetHost())) {
       continue;
     }
 
@@ -1533,14 +1557,13 @@ void HttpStreamFactory::JobController::SwitchToHttpStreamPool() {
       advertised_alt_svc_.info, advertised_alt_svc_.state, allowed_alpns,
       request_info_.load_flags, proxy_info_, net_log_);
   if (is_preconnect_) {
+    auto split_callback = base::SplitOnceCallback(
+        base::IgnoreArgs<int>(std::move(preconnect_callback_)));
     int rv = session_->http_stream_pool()->Preconnect(
         std::move(pool_request_info), num_streams_,
-        base::BindOnce(&JobController::OnPoolPreconnectsComplete,
-                       ptr_factory_.GetWeakPtr()));
-    if (rv != ERR_IO_PENDING) {
-      TaskRunner(priority_)->PostTask(
-          FROM_HERE, base::BindOnce(&JobController::OnPoolPreconnectsComplete,
-                                    ptr_factory_.GetWeakPtr(), rv));
+        std::move(split_callback.first));
+    if (rv != ERR_IO_PENDING && split_callback.second) {
+      std::move(split_callback.second).Run(rv);
     }
     return;
   }
@@ -1550,17 +1573,20 @@ void HttpStreamFactory::JobController::SwitchToHttpStreamPool() {
       std::exchange(request_, nullptr), std::exchange(delegate_, nullptr),
       std::move(pool_request_info), priority_, allowed_bad_certs_,
       enable_ip_based_pooling_for_h2_, enable_alternative_services_);
-
-  // Delete `this` later as this method is called while running DoLoop().
-  TaskRunner(priority_)->PostTask(
-      FROM_HERE, base::BindOnce(&JobController::MaybeNotifyFactoryOfCompletion,
-                                ptr_factory_.GetWeakPtr()));
 }
 
-void HttpStreamFactory::JobController::OnPoolPreconnectsComplete(int rv) {
-  CHECK(switched_to_http_stream_pool_);
-  factory_->OnPreconnectsCompleteInternal();
-  MaybeNotifyFactoryOfCompletion();
+void HttpStreamFactory::JobController::NotifyOnStreamCreationAttempted(
+    base::optional_ref<int> net_error) {
+  auto* proxy_delegate = session_->context().proxy_delegate.get();
+  if (!proxy_delegate || proxy_info_.is_empty()) {
+    return;
+  }
+
+  base::TimeDelta duration =
+      base::TimeTicks::Now() - stream_creation_attempt_start_time_;
+
+  proxy_delegate->OnStreamCreationAttempted(proxy_info_.proxy_chain(), duration,
+                                            net_error);
 }
 
 }  // namespace net

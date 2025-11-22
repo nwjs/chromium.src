@@ -21,6 +21,7 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/i18n/rtl.h"
 #include "base/logging.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_functions.h"
@@ -58,6 +59,7 @@
 #include "chrome/browser/navigation_predictor/navigation_predictor_keyed_service_factory.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/platform_util.h"
+#include "chrome/browser/policy/chrome_policy_blocklist_service_factory.h"
 #include "chrome/browser/predictors/loading_predictor.h"
 #include "chrome/browser/predictors/loading_predictor_factory.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
@@ -93,6 +95,8 @@
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/keyboard_lock_controller.h"
@@ -236,6 +240,7 @@
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/base/window_open_disposition_utils.h"
+#include "ui/color/color_provider.h"
 #include "ui/gfx/favicon_size.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/point_conversions.h"
@@ -279,6 +284,7 @@
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/resources/grit/glic_browser_resources.h"
+#include "ui/base/resource/resource_bundle.h"
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
 #if BUILDFLAG(ENABLE_PDF)
@@ -798,16 +804,18 @@ bool IsFrameInPdfViewer(content::RenderFrameHost* rfh) {
          IsPdfExtensionOrigin(parent_rfh->GetLastCommittedOrigin());
 }
 
-Browser* FindNormalBrowser(const Profile* profile) {
-  const BrowserList* browser_list = BrowserList::GetInstance();
-  for (auto it = browser_list->begin_browsers_ordered_by_activation();
-       it != browser_list->end_browsers_ordered_by_activation(); ++it) {
-    Browser* browser = *it;
-    if (browser->is_type_normal() && browser->profile() == profile) {
-      return browser;
-    }
-  }
-  return nullptr;
+BrowserWindowInterface* FindNormalBrowser(const Profile* profile) {
+  BrowserWindowInterface* normal_browser = nullptr;
+  ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+      [&](BrowserWindowInterface* browser) {
+        if (browser->GetType() == BrowserWindowInterface::TYPE_NORMAL &&
+            browser->GetProfile() == profile) {
+          normal_browser = browser;
+          return false;  // stop iterating
+        }
+        return true;  // continue iterating
+      });
+  return normal_browser;
 }
 
 #if BUILDFLAG(ENABLE_PDF)
@@ -1083,6 +1091,17 @@ void RenderViewContextMenu::InitMenu() {
     if (params_.media_type != ContextMenuDataMediaType::kNone) {
       menu_model_.AddSeparator(ui::NORMAL_SEPARATOR);
     }
+  } else {
+#if BUILDFLAG(ENABLE_GLIC)
+    // Add "Copy Link Address" menu option for Glic Multi instance. Link
+    // options are not supported by default (since Glic uses WebView's context
+    // menu).
+    if (glic::GlicEnabling::IsMultiInstanceEnabled() &&
+        IsGlicWindow(this, browser_context_) && !params_.link_url.is_empty()) {
+      AppendCopyLinkLocationItem();
+      menu_model_.AddSeparator(ui::NORMAL_SEPARATOR);
+    }
+#endif  // BUILDFLAG(ENABLE_GLIC)
   }
 
   bool media_image = content_type_->SupportsGroup(
@@ -1588,9 +1607,9 @@ ChromeComposeClient* RenderViewContextMenu::GetChromeComposeClient() const {
 void RenderViewContextMenu::AppendDeveloperItems() {
   // Do not Show Inspect Element for DevTools unless DevTools runs with the
   // debugFrontend query param.
-  bool hide_developer_items =
-      IsDevToolsURL(params_.page_url) &&
-      params_.page_url.query().find("debugFrontend=true") == std::string::npos;
+  bool hide_developer_items = IsDevToolsURL(params_.page_url) &&
+                              params_.page_url.GetQuery().find(
+                                  "debugFrontend=true") == std::string::npos;
   if (hide_developer_items) {
     return;
   }
@@ -1696,7 +1715,7 @@ void RenderViewContextMenu::AppendLinkItems() {
     // little sense.
     const bool button_like_link =
         current_url_.EqualsIgnoringRef(params_.link_url) &&
-        params_.link_url.has_ref() && params_.link_url.ref().empty();
+        params_.link_url.has_ref() && params_.link_url.GetRef().empty();
     if ((system_app_ || in_system_web_dialog) && button_like_link) {
       show_open_in_new_tab = false;
       show_open_in_new_window = false;
@@ -1727,9 +1746,19 @@ void RenderViewContextMenu::AppendLinkItems() {
       Browser* const browser = GetBrowser();
       if (base::FeatureList::IsEnabled(features::kSideBySide) && browser &&
           browser->is_type_normal()) {
+        int string_id = IDS_CONTENT_CONTEXT_OPENLINKSPLITVIEW;
+        tabs::TabInterface* tab =
+            tabs::TabInterface::MaybeGetFromContents(GetWebContents());
+        if (tab && tab->IsSplit()) {
+          split_tabs::SplitTabData* split_data =
+              browser->tab_strip_model()->GetSplitData(tab->GetSplit().value());
+          string_id = split_data->ListTabs()[base::i18n::IsRTL() ? 1 : 0] == tab
+                          ? IDS_CONTENT_CONTEXT_OPENLINKRIGHTVIEW
+                          : IDS_CONTENT_CONTEXT_OPENLINKLEFTVIEW;
+        }
+
         menu_model_.AddItemWithStringIdAndIcon(
-            IDC_CONTENT_CONTEXT_OPENLINKSPLITVIEW,
-            IDS_CONTENT_CONTEXT_OPENLINKSPLITVIEW,
+            IDC_CONTENT_CONTEXT_OPENLINKSPLITVIEW, string_id,
             ui::ImageModel::FromVectorIcon(kSplitSceneIcon, ui::kColorMenuIcon,
                                            kTabMenuIconSize));
         const int command_index =
@@ -1884,17 +1913,20 @@ void RenderViewContextMenu::AppendLinkItems() {
                                     IDS_CONTENT_CONTEXT_SAVELINKAS);
   }
 
-  menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_COPYLINKLOCATION,
-                                  params_.link_url.SchemeIs(url::kMailToScheme)
-                                      ? IDS_CONTENT_CONTEXT_COPYEMAILADDRESS
-                                      : IDS_CONTENT_CONTEXT_COPYLINKLOCATION);
-
+  AppendCopyLinkLocationItem();
   if (params_.source_type == ui::mojom::MenuSourceType::kTouch &&
       params_.media_type != ContextMenuDataMediaType::kImage &&
       !params_.link_text.empty()) {
     menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_COPYLINKTEXT,
                                     IDS_CONTENT_CONTEXT_COPYLINKTEXT);
   }
+}
+
+void RenderViewContextMenu::AppendCopyLinkLocationItem() {
+  menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_COPYLINKLOCATION,
+                                  params_.link_url.SchemeIs(url::kMailToScheme)
+                                      ? IDS_CONTENT_CONTEXT_COPYEMAILADDRESS
+                                      : IDS_CONTENT_CONTEXT_COPYLINKLOCATION);
 }
 
 void RenderViewContextMenu::AppendOpenWithLinkItems() {
@@ -2453,7 +2485,7 @@ void RenderViewContextMenu::AppendSearchProvider() {
   } else {
     if ((selection_navigation_url_ != params_.link_url) &&
         ChildProcessSecurityPolicy::GetInstance()->IsWebSafeScheme(
-            selection_navigation_url_.scheme())) {
+            selection_navigation_url_.GetScheme())) {
       menu_model_.AddItem(
           IDC_CONTENT_CONTEXT_GOTOURL,
           l10n_util::GetStringFUTF16(IDS_CONTENT_CONTEXT_GOTOURL,
@@ -2639,7 +2671,7 @@ void RenderViewContextMenu::AppendProtocolHandlerSubMenu() {
   for (size_t i = 0; i < handlers.size() && i <= max; i++) {
     protocol_handler_submenu_model_.AddItem(
         IDC_CONTENT_CONTEXT_PROTOCOL_HANDLER_FIRST + i,
-        base::UTF8ToUTF16(handlers[i].url().host()));
+        base::UTF8ToUTF16(handlers[i].url().GetHost()));
   }
   protocol_handler_submenu_model_.AddSeparator(ui::NORMAL_SEPARATOR);
   protocol_handler_submenu_model_.AddItem(
@@ -2903,7 +2935,6 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
     navigation_allowed = false;
   }
 #endif
-
   switch (id) {
     case IDC_BACK:
       return embedder_web_contents_->GetController().CanGoBack();
@@ -2967,7 +2998,7 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
     case IDC_CONTENT_CONTEXT_SEARCHLENSFORIMAGE:
     case IDC_CONTENT_CONTEXT_GLICSHAREIMAGE:
       return navigation_allowed && params_.src_url.is_valid() &&
-             (params_.src_url.scheme() != content::kChromeUIScheme);
+             (params_.src_url.GetScheme() != content::kChromeUIScheme);
 
     case IDC_CONTENT_CONTEXT_COPYIMAGE:
       return params_.has_image_contents;
@@ -3249,7 +3280,7 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
     case IDC_CONTENT_CONTEXT_OPENLINKNEWTAB: {
       WindowOpenDisposition new_tab_disposition =
           WindowOpenDisposition::NEW_BACKGROUND_TAB;
-      Browser* browser = nullptr;
+      BrowserWindowInterface* browser = nullptr;
       if (IsInProgressiveWebApp()) {
         browser = FindNormalBrowser(GetProfile());
         new_tab_disposition = browser
@@ -3371,7 +3402,7 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       if (glic::GlicEnabling::IsEnabledByFlags()) {
         auto* glic_service = glic::GlicKeyedService::Get(browser_context_);
         if (glic_service) {
-          glic_service->Reload();
+          glic_service->Reload(GetRenderFrameHost());
         }
       }
 #endif  // BUILDFLAG(ENABLE_GLIC)
@@ -3382,7 +3413,14 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       if (glic::GlicEnabling::IsEnabledByFlags()) {
         auto* glic_service = glic::GlicKeyedService::Get(browser_context_);
         if (glic_service) {
-          glic_service->CloseUI();
+          // TODO(crbug.com/454112198): Clean up after multi-instance launches.
+          if (glic::GlicEnabling::IsMultiInstanceEnabled()) {
+            if (auto* rfh = GetRenderFrameHost()) {
+              glic_service->Close(rfh->GetOutermostMainFrame());
+            }
+          } else {
+            glic_service->CloseAndShutdown();
+          }
         }
       }
 #endif  // BUILDFLAG(ENABLE_GLIC)
@@ -3695,7 +3733,7 @@ void RenderViewContextMenu::RemoveObserverForTesting(
 custom_handlers::ProtocolHandlerRegistry::ProtocolHandlerList
 RenderViewContextMenu::GetHandlersForLinkUrl() {
   custom_handlers::ProtocolHandlerRegistry::ProtocolHandlerList handlers =
-      protocol_handler_registry_->GetHandlersFor(params_.link_url.scheme());
+      protocol_handler_registry_->GetHandlersFor(params_.link_url.GetScheme());
   std::sort(handlers.begin(), handlers.end());
   return handlers;
 }
@@ -3743,7 +3781,8 @@ bool RenderViewContextMenu::IsSaveAsItemAllowedByPolicy(
   }
 
   PolicyBlocklistService* service =
-      PolicyBlocklistFactory::GetForBrowserContext(browser_context_);
+      ChromePolicyBlocklistServiceFactory::GetForProfile(
+          Profile::FromBrowserContext(browser_context_));
   if (service->GetURLBlocklistState(item_url) ==
       policy::URLBlocklist::URLBlocklistState::URL_IN_BLOCKLIST) {
     return false;
@@ -3858,7 +3897,7 @@ bool RenderViewContextMenu::IsSaveLinkAsEnabled() const {
   }
 
   return params_.link_url.is_valid() &&
-         ProfileIOData::IsHandledProtocol(params_.link_url.scheme());
+         ProfileIOData::IsHandledProtocol(params_.link_url.GetScheme());
 }
 
 bool RenderViewContextMenu::IsSaveImageAsEnabled() const {
@@ -3877,7 +3916,7 @@ bool RenderViewContextMenu::IsSaveAsEnabled() const {
 
   bool can_save = (params_.media_flags & ContextMenuData::kMediaCanSave) &&
                   url.is_valid() &&
-                  ProfileIOData::IsHandledProtocol(url.scheme());
+                  ProfileIOData::IsHandledProtocol(url.GetScheme());
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
   // Do not save the preview PDF on the print preview page.
   can_save =
@@ -5017,8 +5056,8 @@ void RenderViewContextMenu::OpenLinkInSplitView() {
         params_.link_url, params_.frame_url, params_.frame_origin,
         WindowOpenDisposition::NEW_BACKGROUND_TAB, ui::PAGE_TRANSITION_LINK,
         /*extra_headers=*/std::string(), /*started_from_context_menu=*/true);
-    const WebContents* new_web_contents =
-        browser->OpenURL(params, /*navigation_handle_callback=*/{});
+    const WebContents* new_web_contents = source_web_contents_->OpenURL(
+        params, /*navigation_handle_callback=*/{});
     const int new_tab_index =
         tab_strip_model->GetIndexOfWebContents(new_web_contents);
 
@@ -5038,8 +5077,7 @@ bool RenderViewContextMenu::IsLinkToIsolatedWebApp() const {
   // Using `unfiltered_link_url`, because `link_url` is being replaced with
   // about:blank#blocked if the source is a normal site.
   return params_.unfiltered_link_url.has_scheme() &&
-         params_.unfiltered_link_url.scheme_piece() ==
-             webapps::kIsolatedAppScheme;
+         params_.unfiltered_link_url.scheme() == webapps::kIsolatedAppScheme;
 }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS)

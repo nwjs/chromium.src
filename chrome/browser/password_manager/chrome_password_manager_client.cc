@@ -58,6 +58,7 @@
 #include "components/autofill/content/browser/renderer_forms_from_browser_form.h"
 #include "components/autofill/core/browser/autofill_server_prediction.h"
 #include "components/autofill/core/browser/foundations/scoped_autofill_managers_observation.h"
+#include "components/autofill/core/browser/integrators/password_manager/password_manager_autofill_helper_delegate.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/browser/logging/log_router.h"
 #include "components/autofill/core/common/autofill_util.h"
@@ -300,6 +301,21 @@ bool ChromePasswordManagerClient::IsFillingEnabled(const GURL& url) const {
     logger.LogBoolean(Logger::STRING_SSL_ERRORS_PRESENT, ssl_errors);
   }
   return !ssl_errors && IsPasswordManagementEnabledForCurrentPage(url);
+}
+
+bool ChromePasswordManagerClient::IsFieldFilledWithOtp(
+    autofill::FormGlobalId form_id,
+    autofill::FieldGlobalId field_id) {
+  auto* autofill_client =
+      autofill::ContentAutofillClient::FromWebContents(web_contents());
+  if (!autofill_client) {
+    return false;
+  }
+  auto* helper = autofill_client->GetPasswordManagerAutofillHelper();
+  if (!helper) {
+    return false;
+  }
+  return helper->IsFieldFilledWithOtp(form_id, field_id);
 }
 
 bool ChromePasswordManagerClient::IsAutoSignInEnabled() const {
@@ -912,11 +928,27 @@ void ChromePasswordManagerClient::PasswordWasAutofilled(
 void ChromePasswordManagerClient::AutofillHttpAuth(
     const PasswordForm& preferred_match,
     const password_manager::PasswordFormManagerForUI* form_manager) {
-  httpauth_manager_.Autofill(preferred_match, form_manager);
-  DCHECK(!form_manager->GetBestMatches().empty());
-  PasswordWasAutofilled(form_manager->GetBestMatches(),
-                        url::Origin::Create(form_manager->GetURL()), {},
-                        /*was_autofilled_on_pageload=*/false);
+  if (web_contents()->GetVisibility() == content::Visibility::HIDDEN) {
+    // Do not autofill credentials if current tab is not visible.
+    return;
+  }
+
+  CHECK(!form_manager->GetBestMatches().empty());
+
+  // Make a copy of best matches as form_manager is not guaranteed to outlive
+  // authentication.
+  std::vector<PasswordForm> best_matches;
+  for (const auto& result : form_manager->GetBestMatches()) {
+    best_matches.emplace_back(result);
+  }
+
+  httpauth_manager_.Autofill(
+      preferred_match, form_manager,
+      base::BindOnce(&ChromePasswordManagerClient::PasswordWasAutofilled,
+                     weak_ptr_factory_.GetWeakPtr(), std::move(best_matches),
+                     url::Origin::Create(form_manager->GetURL()),
+                     base::span<const PasswordForm>(),
+                     /*was_autofilled_on_pageload=*/false));
 }
 
 void ChromePasswordManagerClient::NotifyUserCredentialsWereLeaked(
@@ -940,7 +972,8 @@ void ChromePasswordManagerClient::NotifyUserCredentialsWereLeaked(
           ? sync_service->GetAccountInfo().email
           : "";
   (new CredentialLeakControllerAndroid(
-       details.leak_type, details.origin, details.username, profile_,
+       details.leak_type, details.credentials.url,
+       details.credentials.username_value, profile_,
        web_contents()->GetTopLevelNativeWindow(),
        std::make_unique<PasswordCheckupLauncherHelperImpl>(),
        std::move(metrics_recorder), account))
@@ -1201,13 +1234,6 @@ void ChromePasswordManagerClient::MaybeReportEnterpriseLoginEvent(
     bool is_federated,
     const url::SchemeHostPort& federated_origin,
     const std::u16string& login_user_name) const {
-#if BUILDFLAG(IS_ANDROID)
-  if (!base::FeatureList::IsEnabled(
-          enterprise_connectors::kEnterpriseSecurityEventReportingOnAndroid)) {
-    return;
-  }
-#endif  // BUILDFLAG(IS_ANDROID)
-
   enterprise_connectors::ReportingEventRouter* router =
       enterprise_connectors::ReportingEventRouterFactory::GetForBrowserContext(
           profile_);
@@ -1222,13 +1248,6 @@ void ChromePasswordManagerClient::MaybeReportEnterpriseLoginEvent(
 
 void ChromePasswordManagerClient::MaybeReportEnterprisePasswordBreachEvent(
     const std::vector<std::pair<GURL, std::u16string>>& identities) const {
-#if BUILDFLAG(IS_ANDROID)
-  if (!base::FeatureList::IsEnabled(
-          enterprise_connectors::kEnterpriseSecurityEventReportingOnAndroid)) {
-    return;
-  }
-#endif  //  BUILDFLAG(IS_ANDROID)
-
   enterprise_connectors::ReportingEventRouter* router =
       enterprise_connectors::ReportingEventRouterFactory::GetForBrowserContext(
           profile_);
@@ -1713,7 +1732,7 @@ void ChromePasswordManagerClient::SetTestObserver(
 
 // static
 bool ChromePasswordManagerClient::CanShowBubbleOnURL(const GURL& url) {
-  std::string scheme = url.scheme();
+  std::string scheme = url.GetScheme();
   return (content::ChildProcessSecurityPolicy::GetInstance()->IsWebSafeScheme(
               scheme) &&
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -1930,18 +1949,28 @@ void ChromePasswordManagerClient::PropagatePredictionsToPasswordManager(
             manager.GetServerPredictionsForForm(form_id,
                                                 field_ids_for_renderer_form));
         break;
-      case FieldTypeSource::kHeuristicsOrAutocomplete:
+      case FieldTypeSource::kHeuristicsOrAutocomplete: {
+#if !BUILDFLAG(IS_ANDROID)
+        bool use_model_predictions_for_actor =
+            IsActorTaskActive() && base::FeatureList::IsEnabled(
+                                       password_manager::features::
+                                           kActorLoginLocalClassificationModel);
+#else
+        bool use_model_predictions_for_actor = false;
+#endif
         if (apply_client_side_prediction_override_ ||
             base::FeatureList::IsEnabled(
                 password_manager::features::
-                    kApplyClientsideModelPredictionsForPasswordTypes)) {
-          auto model_predictions = manager.GetHeursticPredictionForForm(
+                    kApplyClientsideModelPredictionsForPasswordTypes) ||
+            use_model_predictions_for_actor) {
+          auto model_predictions = manager.GetHeuristicPredictionForForm(
               autofill::HeuristicSource::kPasswordManagerMachineLearning,
               form_id, field_ids_for_renderer_form);
           password_manager_.ProcessClassificationModelPredictions(
               driver, renderer_form, model_predictions);
         }
         break;
+      }
     }
   }
 }

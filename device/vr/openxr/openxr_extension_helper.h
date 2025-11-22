@@ -77,6 +77,9 @@ struct OpenXrExtensionMethods {
   // Spatial Anchors
   OPENXR_DECLARE_FN(xrCreateSpatialAnchorEXT);
 
+  // Visibility Mask
+  OPENXR_DECLARE_FN(xrGetVisibilityMaskKHR);
+
 #if BUILDFLAG(IS_WIN)
   // Time
   OPENXR_DECLARE_FN(xrConvertWin32PerformanceCounterToTimeKHR);
@@ -121,6 +124,9 @@ class OpenXrExtensionEnumeration {
 
 class OpenXrExtensionHelper {
  public:
+  // Gets the set of extensions required to support WebXR Layers.
+  static std::vector<const char*> GetRequiredExtensionsForLayers();
+
   OpenXrExtensionHelper(
       XrInstance instance,
       const OpenXrExtensionEnumeration* const extension_enumeration);

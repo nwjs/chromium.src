@@ -204,13 +204,23 @@ void AccountsFetcher::OnAllConfigAndWellKnownFetched(
       continue;
     }
 
-    if (IsWellKnownEndpointValidationEnabled()) {
-      // Check if this IDP has a client_metadata endpoint
-      bool has_client_metadata_endpoint =
-          !fetch_result.endpoints.client_metadata.is_empty();
+    // Check if this IDP has a client_metadata endpoint
+    bool has_client_metadata_endpoint =
+        !fetch_result.endpoints.client_metadata.is_empty();
 
-      if (!ValidateWellKnownFormatForClientMetadata(
-              fetch_result.wellknown, has_client_metadata_endpoint)) {
+    if (!ValidateWellKnownFormatForClientMetadata(
+            fetch_result.wellknown, has_client_metadata_endpoint)) {
+      render_frame_host_->AddMessageToConsole(
+          blink::mojom::ConsoleMessageLevel::kWarning,
+          "The FedCM configuration uses client_metadata but the "
+          ".well-known/web-identity file is missing required endpoints. "
+          "When client_metadata is used, both 'accounts_endpoint' and "
+          "'login_url' must be explicitly included in the well-known file "
+          "for privacy reasons. This will become a hard requirement in Chrome "
+          "145. Please update your .well-known/web-identity file to include "
+          "these endpoints.");
+
+      if (IsWellKnownEndpointValidationEnabled()) {
         federated_auth_request_impl_->OnFetchDataForIdpFailed(
             std::move(idp_info),
             FederatedAuthRequestResult::kWellKnownInvalidResponse,
@@ -281,21 +291,27 @@ void AccountsFetcher::OnAllConfigAndWellKnownFetched(
     }
 
     GURL accounts_endpoint = idp_info->endpoints.accounts;
+    // Do not fetch accounts if the IDP is registered.
+    if (idp_info->provider->config->from_idp_registration_api) {
+      accounts_endpoint = GURL();
+    }
     std::string client_id = idp_info->provider->config->client_id;
     const GURL& config_url = idp_info->provider->config->config_url;
 
-    network_manager_->SendAccountsRequest(
-        url::Origin::Create(config_url), accounts_endpoint, client_id,
-        base::BindOnce(&AccountsFetcher::OnAccountsResponseReceived,
-                       weak_ptr_factory_.GetWeakPtr(), std::move(idp_info)));
-    federated_auth_request_impl_->fedcm_metrics()->RecordAccountsRequestSent(
-        config_url);
+    if (network_manager_->SendAccountsRequest(
+            url::Origin::Create(config_url), accounts_endpoint, client_id,
+            base::BindOnce(&AccountsFetcher::OnAccountsResponseReceived,
+                           weak_ptr_factory_.GetWeakPtr(),
+                           std::move(idp_info)))) {
+      federated_auth_request_impl_->fedcm_metrics()->RecordAccountsRequestSent(
+          config_url);
+    }
   }
 }
 
 void AccountsFetcher::OnAccountsResponseReceived(
     std::unique_ptr<IdentityProviderInfo> idp_info,
-    IdpNetworkRequestManager::FetchStatus status,
+    FetchStatus status,
     std::vector<IdentityRequestAccountPtr> accounts) {
   federated_auth_request_impl_->SetAccountsFetchedTime(base::TimeTicks::Now());
 
@@ -307,7 +323,7 @@ void AccountsFetcher::OnAccountsResponseReceived(
       *render_frame_host_, idp_config_url, status,
       idp_info->has_failing_idp_signin_status, permission_delegate_);
 
-  if (status.parse_status != IdpNetworkRequestManager::ParseStatus::kSuccess) {
+  if (status.parse_status != ParseStatus::kSuccess) {
     std::pair<FederatedAuthRequestResult, TokenStatus> resultAndTokenStatus =
         AccountParseStatusToRequestResultAndTokenStatus(status.parse_status);
     HandleAccountsFetchFailure(std::move(idp_info), old_idp_signin_status,
@@ -351,7 +367,7 @@ void AccountsFetcher::OnAccountsResponseReceived(
         "hint, and/or account labels provided.");
     // If there are no accounts after filtering,treat this exactly the same
     // as if we had received an empty accounts list, i.e.
-    // IdpNetworkRequestManager::ParseStatus::kEmptyListError.
+    // ParseStatus::kEmptyListError.
     HandleAccountsFetchFailure(std::move(idp_info), old_idp_signin_status,
                                FederatedAuthRequestResult::kAccountsListEmpty,
                                TokenStatus::kAccountsListEmpty, status);
@@ -367,7 +383,7 @@ void AccountsFetcher::OnAccountsResponseReceived(
 
 void AccountsFetcher::OnAccountsFetchSucceeded(
     std::unique_ptr<IdentityProviderInfo> idp_info,
-    IdpNetworkRequestManager::FetchStatus status,
+    FetchStatus status,
     std::vector<IdentityRequestAccountPtr> accounts) {
   bool need_client_metadata = false;
   if (IsIframeOriginEnabled()) {
@@ -418,7 +434,7 @@ void AccountsFetcher::OnAccountsFetchSucceeded(
 void AccountsFetcher::OnClientMetadataResponseReceived(
     std::unique_ptr<IdentityProviderInfo> idp_info,
     std::vector<IdentityRequestAccountPtr>&& accounts,
-    IdpNetworkRequestManager::FetchStatus status,
+    FetchStatus status,
     IdpNetworkRequestManager::ClientMetadata client_metadata) {
   federated_auth_request_impl_->SetClientMetadataFetchedTime(
       base::TimeTicks::Now());
@@ -590,8 +606,8 @@ void AccountsFetcher::HandleAccountsFetchFailure(
     std::optional<bool> old_idp_signin_status,
     blink::mojom::FederatedAuthRequestResult result,
     std::optional<TokenStatus> token_status,
-    const IdpNetworkRequestManager::FetchStatus& status) {
-  if (status.parse_status != IdpNetworkRequestManager::ParseStatus::kSuccess) {
+    const FetchStatus& status) {
+  if (status.parse_status != ParseStatus::kSuccess) {
     webid::MaybeAddResponseCodeToConsole(
         *render_frame_host_, "accounts endpoint", status.response_code);
   }

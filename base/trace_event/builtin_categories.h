@@ -82,6 +82,9 @@ PERFETTO_DEFINE_CATEGORIES_IN_NAMESPACE_WITH_ATTRS(
     perfetto::Category("blink.console"),
     perfetto::Category("blink.net"),
     perfetto::Category("blink.resource"),
+    perfetto::Category("blink.task_attribution").SetDescription(
+      "Traces for Task Attribution, blink's internal mechanism for propagating "
+      "task state information across tasks and microtasks"),
     perfetto::Category("blink.user_timing"),
     perfetto::Category("blink.worker"),
     perfetto::Category("blink_style"),
@@ -197,6 +200,7 @@ PERFETTO_DEFINE_CATEGORIES_IN_NAMESPACE_WITH_ATTRS(
     perfetto::Category("optimization_guide").SetDescription(
         "Includes events related to processing hints and machine learning "
         "models by the Optimization Guide component."),
+    perfetto::Category("optimization_guide.debug").SetTags("debug"),
     perfetto::Category("ozone"),
     perfetto::Category("partition_alloc"),
     perfetto::Category("passwords"),
@@ -264,6 +268,9 @@ PERFETTO_DEFINE_CATEGORIES_IN_NAMESPACE_WITH_ATTRS(
     perfetto::Category("viz").SetTags("rendering"),
     perfetto::Category("vk"),
     perfetto::Category("wakeup.flow").SetTags("scheduling"),
+    perfetto::Category("waap").SetDescription(
+      "Includes events related to WaaP (Webium-as-a-Product) UI experiments as "
+      "described in //chrome/browser/waap."),
     perfetto::Category("wayland"),
     perfetto::Category("webaudio").SetTags("audio"),
     perfetto::Category("webengine.fidl"),

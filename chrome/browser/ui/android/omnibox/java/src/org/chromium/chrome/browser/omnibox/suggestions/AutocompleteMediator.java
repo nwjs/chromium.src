@@ -18,7 +18,6 @@ import androidx.annotation.Px;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.ActivityState;
 import org.chromium.base.Callback;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
@@ -28,6 +27,7 @@ import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
 import org.chromium.chrome.browser.lifecycle.TopResumedActivityChangedObserver;
@@ -38,27 +38,24 @@ import org.chromium.chrome.browser.omnibox.OmniboxMetrics.RefineActionUsage;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
 import org.chromium.chrome.browser.omnibox.navattach.NavigationAttachmentsCoordinator;
-import org.chromium.chrome.browser.omnibox.navattach.NavigationFulfillmentType;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteController.OnSuggestionsReceivedListener;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator.OmniboxSuggestionsVisualStateObserver;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteDelegate.AutocompleteLoadCallback;
 import org.chromium.chrome.browser.omnibox.suggestions.action.OmniboxActionFactoryImpl;
+import org.chromium.chrome.browser.omnibox.suggestions.action.OmniboxActionInSuggest;
 import org.chromium.chrome.browser.omnibox.suggestions.basic.BasicSuggestionProcessor.BookmarkState;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.Tab.LoadUrlResult;
-import org.chromium.chrome.browser.tab.TabSelectionType;
-import org.chromium.chrome.browser.tabmodel.TabModel;
-import org.chromium.chrome.browser.tabmodel.TabModelUtils;
-import org.chromium.chrome.browser.tabwindow.TabWindowManager;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.PageClassification;
 import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteMatch;
+import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.AutocompleteResult;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.omnibox.OmniboxSuggestionType;
@@ -106,9 +103,7 @@ class AutocompleteMediator
     private final Supplier<@Nullable ModalDialogManager> mModalDialogManagerSupplier;
     private final DropdownItemViewInfoListBuilder mDropdownViewInfoListBuilder;
     private final DropdownItemViewInfoListManager mDropdownViewInfoListManager;
-    private final Callback<Tab> mBringTabToFrontCallback;
     private final Callback<String> mBringTabGroupToFrontCallback;
-    private final Supplier<TabWindowManager> mTabWindowManagerSupplier;
     private final OmniboxActionDelegate mOmniboxActionDelegate;
     private final ActivityLifecycleDispatcher mLifecycleDispatcher;
     private final SuggestionsListAnimationDriver mAnimationDriver;
@@ -120,6 +115,8 @@ class AutocompleteMediator
     private final boolean mForcePhoneStyleOmnibox;
     private final Callback<@ControlsPosition Integer> mToolbarPositionChangedCallback =
             this::onToolbarPositionChanged;
+    private final Callback<@AutocompleteRequestType Integer> mOnAutocompleteRequestTypeChanged =
+            this::onAutocompleteRequestTypeChanged;
 
     private @Nullable AutocompleteController mAutocomplete;
     private @Nullable AutocompleteResult mAutocompleteResult;
@@ -189,9 +186,7 @@ class AutocompleteMediator
             Supplier<@Nullable Tab> activityTabSupplier,
             @Nullable Supplier<ShareDelegate> shareDelegateSupplier,
             LocationBarDataProvider locationBarDataProvider,
-            Callback<Tab> bringTabToFrontCallback,
             Callback<String> bringTabGroupToFrontCallback,
-            Supplier<TabWindowManager> tabWindowManagerSupplier,
             BookmarkState bookmarkState,
             OmniboxActionDelegate omniboxActionDelegate,
             ActivityLifecycleDispatcher lifecycleDispatcher,
@@ -207,9 +202,7 @@ class AutocompleteMediator
         mModalDialogManagerSupplier = modalDialogManagerSupplier;
         mHandler = handler;
         mDataProvider = locationBarDataProvider;
-        mBringTabToFrontCallback = bringTabToFrontCallback;
         mBringTabGroupToFrontCallback = bringTabGroupToFrontCallback;
-        mTabWindowManagerSupplier = tabWindowManagerSupplier;
         mNavigationAttachmentsCoordinator = navigationAttachmentsCoordinator;
         mSuggestionModels = mListPropertyModel.get(SuggestionListProperties.SUGGESTION_MODELS);
         mOmniboxActionDelegate = omniboxActionDelegate;
@@ -235,6 +228,10 @@ class AutocompleteMediator
                 .setDialerAvailable(!pm.queryIntentActivities(dialIntent, 0).isEmpty());
 
         mAnimationDriver = initializeAnimationDriver();
+
+        mNavigationAttachmentsCoordinator
+                .getAutocompleteRequestTypeSupplier()
+                .addSyncObserver(mOnAutocompleteRequestTypeChanged);
 
         mDataProvider
                 .getToolbarPositionSupplier()
@@ -275,6 +272,9 @@ class AutocompleteMediator
         if (mNativeInitialized) {
             OmniboxActionFactoryImpl.get().destroyNativeFactory();
         }
+        mNavigationAttachmentsCoordinator
+                .getAutocompleteRequestTypeSupplier()
+                .removeObserver(mOnAutocompleteRequestTypeChanged);
         mHandler.removeCallbacksAndMessages(null);
         mDropdownViewInfoListBuilder.destroy();
         mLifecycleDispatcher.unregister(this);
@@ -431,7 +431,16 @@ class AutocompleteMediator
 
         if (activated) {
             initAutocompleteInput();
-            mDeferredIMEWindowInsetApplicationCallback.attach(mWindowAndroid);
+
+            // Do not attach IME observer when omnibox autofocus feature enabled and Incognito NTP
+            // visible.
+            if (!ChromeFeatureList.sOmniboxAutofocusOnIncognitoNtp.isEnabled()
+                    || !mDataProvider
+                            .getNewTabPageDelegate()
+                            .isIncognitoNewTabPageCurrentlyVisible()) {
+                mDeferredIMEWindowInsetApplicationCallback.attach(mWindowAndroid);
+            }
+
             dismissDeleteDialog(DialogDismissalCause.DISMISSED_BY_NATIVE);
             mRefineActionUsage = RefineActionUsage.NOT_USED;
             mOmniboxFocusResultedInNavigation = false;
@@ -547,12 +556,21 @@ class AutocompleteMediator
                 switchToTabGroup(suggestion);
                 return;
             } else {
-                if (maybeSwitchToTab(suggestion)) {
-                    // This bypasses the execution flow that captures histograms for all other
-                    // cases.
-                    recordMetrics(
-                            suggestion, null, matchIndex, WindowOpenDisposition.SWITCH_TO_TAB);
-                    return;
+                var actions = suggestion.getActions();
+                if (!actions.isEmpty()) {
+                    var action = actions.get(0);
+                    if (action instanceof OmniboxActionInSuggest omniboxActionInSuggest) {
+                        if (mOmniboxActionDelegate.switchToTab(omniboxActionInSuggest.tabId, url)) {
+                            // This bypasses the execution flow that captures histograms for all
+                            // other cases.
+                            recordMetrics(
+                                    suggestion,
+                                    null,
+                                    matchIndex,
+                                    WindowOpenDisposition.SWITCH_TO_TAB);
+                            return;
+                        }
+                    }
                 }
             }
         }
@@ -604,7 +622,7 @@ class AutocompleteMediator
     public void onOmniboxActionClicked(OmniboxAction action, int position) {
         var match = getSuggestionAt(position);
         if (match != null) {
-            recordMetrics(match, action, position, WindowOpenDisposition.CURRENT_TAB);
+            recordMetrics(match, action, position, action.disposition);
         }
         action.execute(mOmniboxActionDelegate);
         finishInteraction();
@@ -640,43 +658,6 @@ class AutocompleteMediator
         }
     }
 
-    @Override
-    public void onSwitchToTab(AutocompleteMatch match, int matchIndex) {
-        if (maybeSwitchToTab(match)) {
-            recordMetrics(match, null, matchIndex, WindowOpenDisposition.SWITCH_TO_TAB);
-        } else {
-            onSuggestionClicked(match, matchIndex, match.getUrl());
-        }
-    }
-
-    @VisibleForTesting
-    public boolean maybeSwitchToTab(AutocompleteMatch match) {
-        Tab tab = mAutocomplete != null ? mAutocomplete.getMatchingTabForSuggestion(match) : null;
-        TabWindowManager tabWindowManager = mTabWindowManagerSupplier.get();
-        if (tab == null || tabWindowManager == null) return false;
-
-        // When invoked directly from a browser, we want to trigger switch to tab animation.
-        // If invoked from other activities, ex. searchActivity, we do not need to trigger the
-        // animation since Android will show the animation for switching apps.
-        WindowAndroid windowAndroid = tab.getWindowAndroid();
-        if (windowAndroid == null) return false;
-        if (windowAndroid.getActivityState() == ActivityState.STOPPED
-                || windowAndroid.getActivityState() == ActivityState.DESTROYED) {
-            mBringTabToFrontCallback.onResult(tab);
-            return true;
-        }
-
-        TabModel tabModel = tabWindowManager.getTabModelForTab(tab);
-        if (tabModel == null) return false;
-
-        int tabIndex = TabModelUtils.getTabIndexById(tabModel, tab.getId());
-        // In the event the user deleted the tab as part during the interaction with the
-        // Omnibox, reject the switch to tab action.
-        if (tabIndex == TabModel.INVALID_TAB_INDEX) return false;
-        tabModel.setIndex(tabIndex, TabSelectionType.FROM_OMNIBOX);
-        return true;
-    }
-
     @VisibleForTesting
     public void switchToTabGroup(AutocompleteMatch match) {
         mBringTabGroupToFrontCallback.onResult(assumeNonNull(match.getTabGroupUuid()));
@@ -691,21 +672,33 @@ class AutocompleteMediator
     }
 
     /**
-     * Triggered when the user long presses the omnibox suggestion.
+     * Triggered when the user long presses the omnibox suggestion. A delete confirmation dialog
+     * will be shown.
      *
      * @param suggestion The suggestion selected.
      * @param titleText The title to display in the delete dialog.
      */
     @Override
-    public void onDeleteMatch(AutocompleteMatch suggestion, String titleText) {
+    public void confirmDeleteMatch(AutocompleteMatch suggestion, String titleText) {
         showDeleteDialog(
                 suggestion,
                 titleText,
                 () -> {
-                    if (mAutocomplete != null) {
-                        mAutocomplete.deleteMatch(suggestion);
-                    }
+                    RecordUserAction.record("MobileOmniboxRemoveSuggestion.LongPress");
+                    deleteMatch(suggestion);
                 });
+    }
+
+    /**
+     * Triggered when the user clicks on the remove button to delete the suggestion immediately.
+     *
+     * @param suggestion The suggestion selected.
+     */
+    @Override
+    public void deleteMatch(AutocompleteMatch suggestion) {
+        if (mAutocomplete != null) {
+            mAutocomplete.deleteMatch(suggestion);
+        }
     }
 
     /**
@@ -951,6 +944,15 @@ class AutocompleteMediator
         measureSuggestionRequestToUiModelTime(isFinal);
     }
 
+    public void onAutocompleteRequestTypeChanged(@AutocompleteRequestType int type) {
+        if (mOmniboxFocused) {
+            mAutocompleteInput.setPageClassification(mDataProvider.getPageClassification(type));
+            onTextChanged(
+                    mUrlBarEditingTextProvider.getTextWithoutAutocomplete(),
+                    /* isOnFocusContext= */ false);
+        }
+    }
+
     /**
      * Load the url corresponding to the typed omnibox text.
      *
@@ -968,9 +970,9 @@ class AutocompleteMediator
         }
 
         if (mNavigationAttachmentsCoordinator
-                .getNavigationFulfillmentTypeSupplier()
+                .getAutocompleteRequestTypeSupplier()
                 .get()
-                .equals(NavigationFulfillmentType.AI_MODE)) {
+                .equals(AutocompleteRequestType.AI_MODE)) {
             AutocompleteMatch suggestionMatch = getSuggestionMatchForUrlText(urlText);
             if (suggestionMatch == null) return;
             loadUrlForOmniboxMatch(
@@ -1196,7 +1198,11 @@ class AutocompleteMediator
      */
     @VisibleForTesting
     void initAutocompleteInput() {
-        mAutocompleteInput.setPageClassification(mDataProvider.getPageClassification(false));
+        mAutocompleteInput.setPageClassification(
+                mDataProvider.getPageClassification(
+                        mNavigationAttachmentsCoordinator
+                                .getAutocompleteRequestTypeSupplier()
+                                .get()));
         mAutocompleteInput.setPageUrl(mDataProvider.getCurrentGurl());
         mAutocompleteInput.setPageTitle(mDataProvider.getTitle());
 

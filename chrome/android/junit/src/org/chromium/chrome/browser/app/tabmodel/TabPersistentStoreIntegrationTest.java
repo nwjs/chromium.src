@@ -71,9 +71,8 @@ import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelJniBridge;
 import org.chromium.chrome.browser.tabmodel.TabModelJniBridgeJni;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tabmodel.TabPersistentStore;
 import org.chromium.chrome.browser.tabmodel.TabPersistentStore.TabPersistentStoreObserver;
-import org.chromium.chrome.browser.tabpersistence.TabMetadataFileManager.TabModelSelectorMetadata;
+import org.chromium.chrome.browser.tabmodel.TabPersistentStoreImpl;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
@@ -88,7 +87,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 @EnableFeatures({ChromeFeatureList.PROCESS_RANK_POLICY_ANDROID})
 @DisableFeatures({
     ChromeFeatureList.ANDROID_TAB_DECLUTTER_RESCUE_KILLSWITCH,
-    ChromeFeatureList.CHANGE_UNFOCUSED_PRIORITY
+    ChromeFeatureList.CHANGE_UNFOCUSED_PRIORITY,
+    // TODO(crbug.com/454298057): This test should use a mock TabModel or be changed to an
+    // instrumentation test. A unit test is not compatible with TabCollectionTabModelImpl as it
+    // requires native initialization.
+    ChromeFeatureList.TAB_COLLECTION_ANDROID
 })
 public class TabPersistentStoreIntegrationTest {
     public @Rule MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.LENIENT);
@@ -100,7 +103,7 @@ public class TabPersistentStoreIntegrationTest {
                     WebContentsState.CONTENTS_STATE_CURRENT_VERSION);
 
     private TabModelSelector mTabModelSelector;
-    private TabPersistentStore mTabPersistentStore;
+    private TabPersistentStoreImpl mTabPersistentStore;
 
     @Mock private ChromeTabbedActivity mChromeActivity;
     @Mock private ModalDialogManager mModalDialogManager;
@@ -156,7 +159,7 @@ public class TabPersistentStoreIntegrationTest {
                 mMismatchedIndicesHandler,
                 0);
         mTabModelSelector = orchestrator.getTabModelSelector();
-        mTabPersistentStore = orchestrator.getTabPersistentStore();
+        mTabPersistentStore = (TabPersistentStoreImpl) orchestrator.getTabPersistentStore();
 
         TabModelJniBridgeJni.setInstanceForTesting(mTabModelJniBridgeJni);
         RecentlyClosedBridgeJni.setInstanceForTesting(mRecentlyClosedBridgeJni);
@@ -448,8 +451,7 @@ public class TabPersistentStoreIntegrationTest {
         TabPersistentStoreObserver observer =
                 new TabPersistentStoreObserver() {
                     @Override
-                    public void onMetadataSavedAsynchronously(
-                            TabModelSelectorMetadata modelSelectorMetadata) {
+                    public void onMetadataSavedAsynchronously() {
                         timesMetadataSaved.incrementAndGet();
                     }
                 };

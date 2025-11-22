@@ -37,7 +37,6 @@
 #include "content/browser/media/forwarding_audio_stream_factory.h"
 #include "content/browser/preloading/prefetch/prefetch_handle_impl.h"
 #include "content/browser/preloading/prerender/prerender_final_status.h"
-#include "content/browser/preloading/prerender/prerender_handle_impl.h"
 #include "content/browser/renderer_host/frame_tree.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/renderer_host/navigation_controller_delegate.h"
@@ -136,16 +135,16 @@ class NativeTheme;
 }  // namespace ui
 
 namespace content {
-class JavaScriptDialogDismissNotifier;
-enum class PictureInPictureResult;
 class BeforeUnloadBlockingDelegate;  // content_browser_test_utils_internal.h
 class BrowserPluginEmbedder;
 class BrowserPluginGuest;
 class FindRequestManager;
+class JavaScriptDialogDismissNotifier;
 class MediaSession;
 class MediaWebContentsObserver;
 class NFCHost;
 class PartitionedPopinsController;
+class PreloadingAttempt;
 class RenderFrameHost;
 class RenderFrameHostImpl;
 class RenderViewHost;
@@ -166,8 +165,8 @@ class WakeLockContextHost;
 class WebContentsDelegate;
 class WebContentsImpl;
 class WebContentsView;
+enum class PictureInPictureResult;
 struct MHTMLGenerationParams;
-class PreloadingAttempt;
 
 namespace mojom {
 class CreateNewWindowParams;
@@ -456,6 +455,9 @@ class CONTENT_EXPORT WebContentsImpl
   const blink::mojom::CaptureHandleConfig& GetCaptureHandleConfig() override;
   bool IsBeingCaptured() override;
   bool IsBeingVisiblyCaptured() override;
+#if BUILDFLAG(IS_MAC) && BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
+  [[nodiscard]] base::ScopedClosureRunner ForbidExternalPopupMenus() override;
+#endif  // BUILDFLAG(IS_MAC) && BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
   bool IsAudioMuted() override;
   void SetAudioMuted(bool mute) override;
   bool IsCurrentlyAudible() override;
@@ -637,9 +639,14 @@ class CONTENT_EXPORT WebContentsImpl
 #endif
   bool HasRecentInteraction() override;
   base::TimeTicks GetLastInteractionTimeTicks() override;
+  // TODO(crbug.com/452693512): Remove this 'using' declaration when the
+  // 1-argument IgnoreInputEvents helper is removed from the base class.
+  using WebContents::IgnoreInputEvents;
   [[nodiscard]] ScopedIgnoreInputEvents IgnoreInputEvents(
-      std::optional<WebInputEventAuditCallback> audit_callback) override;
+      std::optional<WebInputEventAuditCallback> audit_callback,
+      bool should_ignore_a11y_input) override;
   bool ShouldIgnoreInputEventsForTesting() override;
+  bool ShouldIgnoreA11yInputEventsForTesting() override;
   bool HasActiveEffectivelyFullscreenVideo() override;
   void WriteIntoTrace(perfetto::TracedValue context) override;
   const base::Location& GetCreatorLocation() override;
@@ -651,6 +658,7 @@ class CONTENT_EXPORT WebContentsImpl
       bool animate,
       const std::optional<cc::BrowserControlsOffsetTagModifications>&
           offset_tag_modifications) override;
+  void SetSupportsDraggableRegions(bool supports_draggable_regions) override;
   void SetV8CompileHints(base::ReadOnlySharedMemoryRegion data) override;
   void SetTabSwitchStartTime(base::TimeTicks start_time,
                              bool destination_is_loaded) override;
@@ -678,8 +686,6 @@ class CONTENT_EXPORT WebContentsImpl
   void SetOverscrollNavigationEnabled(bool enabled) override;
 
   // RenderFrameHostDelegate ---------------------------------------------------
-  bool OnMessageReceived(RenderFrameHostImpl* render_frame_host,
-                         const IPC::Message& message) override;
   void OnDidBlockNavigation(
       const GURL& blocked_url,
       const GURL& initiator_url,
@@ -736,6 +742,7 @@ class CONTENT_EXPORT WebContentsImpl
   void SetCaptureHandleConfig(
       blink::mojom::CaptureHandleConfigPtr config) override;
   ui::AXMode GetAccessibilityMode() override;
+  bool ShouldIgnoreA11yInputEvents() override;
   // Broadcasts the mode change to all frames.
   void ResetAccessibility() override;
   void AXTreeIDForMainFrameHasChanged() override;
@@ -2153,6 +2160,14 @@ class CONTENT_EXPORT WebContentsImpl
                               bool stay_awake,
                               bool is_activity = true);
 
+#if BUILDFLAG(IS_MAC) && BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
+  // Helper for ForbidExternalPopupMenus() -- called by the ScopedClosureRunner
+  // it returns to re-enable external popups (by decrementing
+  // external_popup_menus_forbid_counter_ -- popups will be re-enabled once it's
+  // 0).
+  void DecrementForbidExternalPopupMenus();
+#endif  // BUILDFLAG(IS_MAC) && BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
+
   // Calculates the PageVisibilityState for |visibility|, taking the capturing
   // state into account.
   PageVisibilityState CalculatePageVisibilityState(Visibility visibility) const;
@@ -2352,6 +2367,12 @@ class CONTENT_EXPORT WebContentsImpl
   // presenting through tab capture APIs.
   mojo::Remote<device::mojom::WakeLock> capture_wake_lock_;
 
+#if BUILDFLAG(IS_MAC) && BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
+  // The number of nested calls to ForbidExternalPopupMenus(). External popups
+  // UI will be disabled when the counter is nonzero.
+  int external_popup_menus_forbid_counter_ = 0;
+#endif  // BUILDFLAG(IS_MAC) && BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
+
   // Remote end of the connection for sending delegated ink points to viz to
   // support the delegated ink trails feature.
   mojo::Remote<gfx::mojom::DelegatedInkPointRenderer>
@@ -2374,6 +2395,9 @@ class CONTENT_EXPORT WebContentsImpl
   // Counts the number of outstanding requests to ignore input events. They will
   // not be sent when this is greater than zero.
   int ignore_input_events_count_ = 0;
+  // Counts the number of outstanding requests to ignore a11y input events. They
+  // will not be sent when this is greater than zero.
+  int ignore_a11y_input_count_ = 0;
   uint64_t next_web_input_event_audit_callback_id_ = 0;
   base::flat_map<uint64_t, WebInputEventAuditCallback>
       web_input_event_audit_callbacks_;
@@ -2726,6 +2750,10 @@ class CONTENT_EXPORT WebContentsImpl
 
   // Whether this contents represents a window initially opened as a new popup.
   bool is_popup_{false};
+
+  // Whether this contents has enabled draggable region calculation in the
+  // primary main frame.
+  bool supports_draggable_regions_{false};
 
   // The window open disposition that was originally requested
   // when this WebContents was created.

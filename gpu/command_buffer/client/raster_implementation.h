@@ -40,7 +40,6 @@ class TransferCacheSerializeHelper;
 namespace gpu {
 
 class GpuControl;
-class ImageDecodeAcceleratorInterface;
 struct SharedMemoryLimits;
 
 namespace raster {
@@ -56,12 +55,10 @@ class RASTER_EXPORT RasterImplementation : public RasterInterface,
                                            public gles2::QueryTrackerClient,
                                            public ClientFontManager::Client {
  public:
-  RasterImplementation(
-      RasterCmdHelper* helper,
-      TransferBufferInterface* transfer_buffer,
-      bool lose_context_when_out_of_memory,
-      GpuControl* gpu_control,
-      ImageDecodeAcceleratorInterface* image_decode_accelerator);
+  RasterImplementation(RasterCmdHelper* helper,
+                       TransferBufferInterface* transfer_buffer,
+                       bool lose_context_when_out_of_memory,
+                       GpuControl* gpu_control);
 
   RasterImplementation(const RasterImplementation&) = delete;
   RasterImplementation& operator=(const RasterImplementation&) = delete;
@@ -155,11 +152,6 @@ class RASTER_EXPORT RasterImplementation : public RasterInterface,
                       bool requires_clear,
                       const ScrollOffsetMap* raster_inducing_scroll_offsets,
                       size_t* max_op_size_hint) override;
-  SyncToken ScheduleImageDecode(base::span<const uint8_t> encoded_data,
-                                const gfx::Size& output_size,
-                                uint32_t transfer_cache_entry_id,
-                                const gfx::ColorSpace& target_color_space,
-                                bool needs_mips) override;
   void ReadbackARGBPixelsAsync(
       const gpu::Mailbox& source_mailbox,
       GLenum source_target,
@@ -196,14 +188,8 @@ class RASTER_EXPORT RasterImplementation : public RasterInterface,
 
   // ContextSupport implementation.
   void SetAggressivelyFreeResources(bool aggressively_free_resources) override;
-  uint64_t ShareGroupTracingGUID() const override;
   void SetErrorMessageCallback(
       base::RepeatingCallback<void(const char*, int32_t)> callback) override;
-  bool ThreadSafeShallowLockDiscardableTexture(uint32_t texture_id) override;
-  void CompleteLockDiscardableTexureOnContextThread(
-      uint32_t texture_id) override;
-  bool ThreadsafeDiscardableTextureIsDeletedForTracing(
-      uint32_t texture_id) override;
   base::span<uint8_t> MapTransferCacheEntry(uint32_t serialized_size) override;
   void UnmapAndCreateTransferCacheEntry(uint32_t type, uint32_t id) override;
   bool ThreadsafeLockTransferCacheEntry(uint32_t type, uint32_t id) override;
@@ -211,10 +197,6 @@ class RASTER_EXPORT RasterImplementation : public RasterInterface,
       const std::vector<std::pair<uint32_t, uint32_t>>& entries) override;
   void DeleteTransferCacheEntry(uint32_t type, uint32_t id) override;
   unsigned int GetTransferBufferFreeSize() const override;
-  bool IsJpegDecodeAccelerationSupported() const override;
-  bool IsWebPDecodeAccelerationSupported() const override;
-  bool CanDecodeWithHardwareAcceleration(
-      const cc::ImageHeaderMetadata* image_metadata) const override;
 
   // InterfaceBase implementation.
   void GenSyncTokenCHROMIUM(GLbyte* sync_token) override;
@@ -311,15 +293,6 @@ class RASTER_EXPORT RasterImplementation : public RasterInterface,
 
   const std::string& GetLogPrefix() const;
 
-  void IssueImageDecodeCacheEntryCreation(
-      base::span<const uint8_t> encoded_data,
-      const gfx::Size& output_size,
-      uint32_t transfer_cache_entry_id,
-      const gfx::ColorSpace& target_color_space,
-      bool needs_mips,
-      SyncToken* decode_sync_token,
-      ClientDiscardableHandle handle);
-
   bool ReadbackImagePixelsINTERNAL(const gpu::Mailbox& source_mailbox,
                                    const SkImageInfo& dst_info,
                                    GLuint dst_row_bytes,
@@ -413,8 +386,6 @@ class RASTER_EXPORT RasterImplementation : public RasterInterface,
   std::unique_ptr<cc::ClientPaintCache> paint_cache_;
 
   cc::SkottieSerializationHistory skottie_serialization_history_;
-
-  raw_ptr<ImageDecodeAcceleratorInterface> image_decode_accelerator_;
 
   // Tracing helpers.
   int raster_chromium_id_ = 0;

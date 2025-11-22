@@ -459,6 +459,8 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
     case kPseudoLeftPage:
     case kPseudoLink:
     case kPseudoListBox:
+    case kPseudoMenulistPopoverWithMenubarAnchor:
+    case kPseudoMenulistPopoverWithMenulistAnchor:
     case kPseudoModal:
     case kPseudoMultiSelectFocus:
     case kPseudoNoButton:
@@ -566,6 +568,10 @@ constexpr static NameToPseudoStruct kPseudoTypeWithoutArgumentsMap[] = {
     {"-internal-list-box", CSSSelector::kPseudoListBox},
     {"-internal-media-controls-overlay-cast-button",
      CSSSelector::kPseudoWebKitCustomElement},
+    {"-internal-menulist-popover-with-menubar-anchor",
+     CSSSelector::kPseudoMenulistPopoverWithMenubarAnchor},
+    {"-internal-menulist-popover-with-menulist-anchor",
+     CSSSelector::kPseudoMenulistPopoverWithMenulistAnchor},
     {"-internal-multi-select-focus", CSSSelector::kPseudoMultiSelectFocus},
     {"-internal-popover-in-top-layer", CSSSelector::kPseudoPopoverInTopLayer},
     {"-internal-relative-anchor", CSSSelector::kPseudoRelativeAnchor},
@@ -834,7 +840,7 @@ CSSSelector::PseudoType CSSSelector::NameToPseudoType(
 void CSSSelector::Show(int indent) const {
   printf("%*sSelectorText(): %s\n", indent, "", SelectorText().Ascii().c_str());
   printf("%*smatch_: %d\n", indent, "", Match());
-  if (Match() != kTag && Match() != kUniversalTag) {
+  if (Match() != kTag && Match() != kUniversalTag && !IsPseudoParent()) {
     printf("%*sValue(): %s\n", indent, "", Value().Ascii().c_str());
   }
   printf("%*sGetPseudoType(): %d\n", indent, "", GetPseudoType());
@@ -1014,6 +1020,8 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
     case kPseudoLastChild:
     case kPseudoLastOfType:
     case kPseudoLink:
+    case kPseudoMenulistPopoverWithMenubarAnchor:
+    case kPseudoMenulistPopoverWithMenulistAnchor:
     case kPseudoModal:
     case kPseudoNoButton:
     case kPseudoNot:
@@ -1765,6 +1773,8 @@ bool CSSSelector::IsAllowedAfterPart() const {
     case kPseudoInvalid:
     case kPseudoLang:
     case kPseudoLink:
+    case kPseudoMenulistPopoverWithMenubarAnchor:
+    case kPseudoMenulistPopoverWithMenulistAnchor:
     case kPseudoModal:
     case kPseudoOptional:
     case kPseudoPermissionElementInvalidStyle:

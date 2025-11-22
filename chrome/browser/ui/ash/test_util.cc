@@ -85,13 +85,8 @@ void ChromeOSBrowserUITest::SetOverviewMode(bool enable) {
   }
 }
 
-bool ChromeOSBrowserUITest::IsSnapWindowSupported() {
-  return true;
-}
-
 void ChromeOSBrowserUITest::SnapWindow(aura::Window* window,
                                        ash::SnapPosition position) {
-  CHECK(IsSnapWindowSupported());
   ash::SplitViewTestApi().SnapWindow(window, position);
 }
 
@@ -99,12 +94,7 @@ void ChromeOSBrowserUITest::PinWindow(aura::Window* window, bool trusted) {
   ash::PinWindow(window, trusted);
 }
 
-bool ChromeOSBrowserUITest::IsIsShelfVisibleSupported() {
-  return true;
-}
-
 bool ChromeOSBrowserUITest::IsShelfVisible() {
-  CHECK(IsIsShelfVisibleSupported());
   return ash::ShelfTestApi().IsVisible();
 }
 
@@ -116,8 +106,8 @@ void ChromeOSBrowserUITest::EnterImmersiveFullscreenMode(Browser* browser) {
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
   ASSERT_FALSE(browser_view->IsFullscreen());
 
-  ImmersiveModeController* immersive_mode_controller =
-      browser_view->immersive_mode_controller();
+  auto* const immersive_mode_controller =
+      ImmersiveModeController::From(browser);
   ASSERT_FALSE(immersive_mode_controller->IsEnabled());
 
   ui_test_utils::ToggleFullscreenModeAndWait(browser);
@@ -131,8 +121,8 @@ void ChromeOSBrowserUITest::ExitImmersiveFullscreenMode(Browser* browser) {
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
   ASSERT_TRUE(browser_view->IsFullscreen());
 
-  ImmersiveModeController* immersive_mode_controller =
-      browser_view->immersive_mode_controller();
+  auto* const immersive_mode_controller =
+      ImmersiveModeController::From(browser);
   ASSERT_TRUE(immersive_mode_controller->IsEnabled());
 
   ui_test_utils::ToggleFullscreenModeAndWait(browser);

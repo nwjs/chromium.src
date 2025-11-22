@@ -29,6 +29,7 @@
 #include "base/trace_event/memory_usage_estimator.h"
 #include "base/trace_event/typed_macros.h"
 #include "build/build_config.h"
+#include "components/lens/lens_features.h"
 #include "components/omnibox/browser/actions/contextual_search_action.h"
 #include "components/omnibox/browser/actions/omnibox_action_concepts.h"
 #include "components/omnibox/browser/actions/omnibox_action_in_suggest.h"
@@ -437,6 +438,23 @@ void AutocompleteResult::SortAndCull(
       } else if (omnibox::IsAndroidHub(page_classification)) {
         sections.push_back(
             std::make_unique<AndroidHubZPSSection>(suggestion_groups_map_));
+      } else if (omnibox::IsComposebox(page_classification)) {
+        auto composebox_suggestion_limit_config =
+            omnibox_feature_configs::ComposeboxSuggestionLimit::Get();
+        size_t composebox_max_suggestions = 15u;
+        size_t max_aim_suggestions = 15u;
+        size_t max_contextual_suggestions = 15u;
+        if (composebox_suggestion_limit_config.enabled) {
+          composebox_max_suggestions =
+              composebox_suggestion_limit_config.max_suggestions;
+          max_aim_suggestions =
+              composebox_suggestion_limit_config.max_aim_suggestions;
+          max_contextual_suggestions =
+              composebox_suggestion_limit_config.max_contextual_suggestions;
+        }
+        sections.push_back(std::make_unique<AndroidComposeboxZpsSection>(
+            suggestion_groups_map_, composebox_max_suggestions,
+            max_aim_suggestions, max_contextual_suggestions));
       } else {
         sections.push_back(
             std::make_unique<AndroidWebZpsSection>(suggestion_groups_map_));
@@ -466,6 +484,22 @@ void AutocompleteResult::SortAndCull(
                 std::make_unique<DesktopLensMultimodalZpsSection>(
                     suggestion_groups_map_));
             break;
+          case OmniboxEventProto::LENS_SIDE_PANEL_COMPOSEBOX: {
+            size_t max_aim_suggestions =
+                lens::features::GetLensAimSuggestionsCount();
+            // Always add contextual suggestions
+            sections.push_back(std::make_unique<DesktopComposeboxZpsSection>(
+                suggestion_groups_map_, max_aim_suggestions,
+                max_aim_suggestions, max_aim_suggestions));
+            // Add multimodal suggestions if enabled.
+            if (lens::features::GetLensAimSuggestionsType() ==
+                lens::features::LensAimSuggestionsType::kMultimodal) {
+              sections.push_back(
+                  std::make_unique<DesktopLensMultimodalZpsSection>(
+                      suggestion_groups_map_, max_aim_suggestions));
+            }
+            break;
+          }
           default:
             NOTREACHED();
         }
@@ -703,7 +737,7 @@ void AutocompleteResult::SortAndCull(
         u", input=" + input.text();
 
     const std::string& in_scheme = base::UTF16ToUTF8(input.scheme());
-    const std::string& dest_scheme = default_match->destination_url.scheme();
+    const std::string& dest_scheme = default_match->destination_url.GetScheme();
     DCHECK(url_formatter::IsEquivalentScheme(in_scheme, dest_scheme))
         << debug_info;
   }
@@ -729,10 +763,8 @@ void AutocompleteResult::TrimOmniboxActions(bool is_zero_suggest) {
     std::vector<OmniboxActionId> include_pedals_and_others;
     std::vector<OmniboxActionId> exclude_pedals;
     if constexpr (is_android) {
-      if (!is_zero_suggest) {
-        include_pedals_and_others.push_back(OmniboxActionId::ACTION_IN_SUGGEST);
-        exclude_pedals.push_back(OmniboxActionId::ACTION_IN_SUGGEST);
-      }
+      include_pedals_and_others.push_back(OmniboxActionId::ACTION_IN_SUGGEST);
+      exclude_pedals.push_back(OmniboxActionId::ACTION_IN_SUGGEST);
     }
     include_pedals_and_others.push_back(OmniboxActionId::PEDAL);
 
@@ -1016,32 +1048,24 @@ void AutocompleteResult::ConvertOpenTabMatches(
           if constexpr (is_android) {
             // On Android, attach the action as ActionInSuggest that will be
             // interpreted as either action button or chip per the form factor.
-            // TODO (jianli): Remove the feature param check after Java changes
-            // land.
+            omnibox::SuggestTemplateInfo::TemplateAction template_action;
+            template_action.set_action_type(
+                omnibox::
+                    SuggestTemplateInfo_TemplateAction_ActionType_CHROME_TAB_SWITCH);
+            template_action.set_action_uri(match.destination_url.spec());
+            auto action_in_suggest =
+                base::MakeRefCounted<OmniboxActionInSuggest>(
+                    std::move(template_action), std::nullopt);
 #if BUILDFLAG(IS_ANDROID)
-            if (OmniboxFieldTrial::kOmniboxImprovementForLFFSwitchToTabChip
-                    .Get()) {
+            action_in_suggest->tab_id = tab_info->second.android_tab_id;
 #endif
-              omnibox::SuggestTemplateInfo::TemplateAction template_action;
-              template_action.set_action_type(
-                  omnibox::
-                      SuggestTemplateInfo_TemplateAction_ActionType_CHROME_TAB_SWITCH);
-              template_action.set_action_uri(match.destination_url.spec());
-              match.actions.push_back(
-                  base::MakeRefCounted<OmniboxActionInSuggest>(
-                      std::move(template_action), std::nullopt));
-#if BUILDFLAG(IS_ANDROID)
-            }
-#endif
+            match.actions.push_back(action_in_suggest);
           } else {
             match.actions.push_back(
                 base::MakeRefCounted<TabSwitchAction>(match.destination_url));
           }
         }
       }
-#if BUILDFLAG(IS_ANDROID)
-      match.UpdateMatchingJavaTab(tab_info->second.android_tab);
-#endif
     }
   }
 

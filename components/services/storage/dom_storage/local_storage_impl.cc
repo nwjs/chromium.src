@@ -35,9 +35,9 @@
 #include "base/trace_event/memory_dump_manager.h"
 #include "build/build_config.h"
 #include "components/services/storage/dom_storage/async_dom_storage_database.h"
+#include "components/services/storage/dom_storage/dom_storage_batch_operation_leveldb.h"
 #include "components/services/storage/dom_storage/dom_storage_constants.h"
 #include "components/services/storage/dom_storage/dom_storage_database.h"
-#include "components/services/storage/dom_storage/features.h"
 #include "components/services/storage/dom_storage/local_storage_database.pb.h"
 #include "components/services/storage/dom_storage/storage_area_impl.h"
 #include "components/services/storage/public/cpp/constants.h"
@@ -46,6 +46,7 @@
 #include "storage/common/database/db_status.h"
 #include "storage/common/database/leveldb_status_helper.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
+#include "url/gurl.h"
 
 namespace storage {
 
@@ -174,7 +175,7 @@ void DeleteStorageKeys(AsyncDomStorageDatabase* database,
       base::BindOnce(
           [](std::vector<blink::StorageKey> storage_keys,
              DomStorageDatabase& db) {
-            std::unique_ptr<DomStorageBatchOperation> batch =
+            std::unique_ptr<DomStorageBatchOperationLevelDB> batch =
                 db.CreateBatchOperation();
             for (const auto& storage_key : storage_keys) {
               batch->DeletePrefixed(MakeStorageKeyPrefix(storage_key));
@@ -245,7 +246,7 @@ class LocalStorageImpl::StorageAreaHolder final
     context_->database_->RunDatabaseTask(
         base::BindOnce(
             [](const blink::StorageKey& storage_key, DomStorageDatabase& db) {
-              std::unique_ptr<DomStorageBatchOperation> batch =
+              std::unique_ptr<DomStorageBatchOperationLevelDB> batch =
                   db.CreateBatchOperation();
               storage::LocalStorageAreaAccessMetaData data;
               data.set_last_accessed(base::Time::Now().ToInternalValue());
@@ -344,8 +345,7 @@ LocalStorageImpl::LocalStorageImpl(
           {base::MayBlock(), base::WithBaseSyncPrimitives(),
            base::TaskShutdownBehavior::BLOCK_SHUTDOWN})),
       memory_dump_id_(base::StringPrintf("LocalStorage/0x%" PRIXPTR,
-                                         reinterpret_cast<uintptr_t>(this))),
-      is_low_end_device_(base::SysInfo::IsLowEndDevice()) {
+                                         reinterpret_cast<uintptr_t>(this))) {
   base::trace_event::MemoryDumpManager::GetInstance()
       ->RegisterDumpProviderWithSequencedTaskRunner(
           this, "LocalStorage", task_runner, MemoryDumpProvider::Options());
@@ -522,7 +522,8 @@ void LocalStorageImpl::PurgeUnusedAreasIfNeeded() {
 
   // No purge is needed.
   if (total_cache_size <= kMaxLocalStorageCacheSize &&
-      areas_.size() <= kMaxLocalStorageAreaCount && !is_low_end_device_) {
+      areas_.size() <= kMaxLocalStorageAreaCount &&
+      !base::SysInfo::IsLowEndDevice()) {
     return;
   }
 

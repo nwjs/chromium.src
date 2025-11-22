@@ -1162,12 +1162,6 @@ IN_PROC_BROWSER_TEST_F(ContextMenuFencedFrameTestNoTestingConfig,
 
 #if BUILDFLAG(ENABLE_GLIC)
 
-// TODO(b:448604727): State observation is currently unsupported with multi-
-// instance, so we will poll.
-DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(
-    ui::test::PollingStateObserver<glic::mojom::WebUiState>,
-    kPollingWebUiState);
-
 class GlicInteractiveContextMenuTest
     : public glic::test::InteractiveGlicTest,
       public ::testing::WithParamInterface<bool> {
@@ -1218,16 +1212,18 @@ class GlicInteractiveContextMenuTest
                   InstrumentInnerWebContents(glic::test::kGlicContentsElementId,
                                              glic::test::kGlicHostElementId, 0),
                   WaitForWebContentsReady(glic::test::kGlicContentsElementId))),
-        PollState(
-            kPollingWebUiState,
-            [this]() -> glic::mojom::WebUiState {
+        // TODO(b:448604727): State observation is currently unsupported with
+        // multi- instance, so we will poll.
+        PollUntil(
+            [this]() {
               if (glic::GlicInstance* instance =
                       glic_service()->GetInstanceForActiveTab(browser())) {
-                return instance->host().GetPrimaryWebUiState();
+                return instance->host().GetPrimaryWebUiState() ==
+                       glic::mojom::WebUiState::kReady;
               }
-              return glic::mojom::WebUiState::kUnavailable;
-            }),
-        WaitForState(kPollingWebUiState, glic::mojom::WebUiState::kReady));
+              return false;
+            },
+            "polling until web client is ready"));
   }
 
   auto CheckHistograms() {
@@ -1246,7 +1242,8 @@ class GlicInteractiveContextMenuTest
   base::HistogramTester histogram_tester_;
 };
 
-IN_PROC_BROWSER_TEST_P(GlicInteractiveContextMenuTest, GlicShareImage) {
+// TODO(crbug.com/450446123): Re-enable after fixing
+IN_PROC_BROWSER_TEST_P(GlicInteractiveContextMenuTest, DISABLED_GlicShareImage) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
 
   const GURL url = embedded_test_server()->GetURL(kDocumentWithImage);
@@ -1264,8 +1261,10 @@ IN_PROC_BROWSER_TEST_P(GlicInteractiveContextMenuTest, GlicShareImage) {
           glic::test::kGlicContentsElementId,
           "() => { "
           "  let c = document.querySelector('#additionalContextResult');"
-          "  return !!c && c.children.length === 4 && "
-          "      c.children[1].innerText.startsWith('MIME Type: image/png');"
+          "  return !!c && c.children.length === 5 && "
+          "      c.children[1].innerText.startsWith('MIME Type: image/png') && "
+          "      c.children[4].innerText.startsWith("
+          "           'Tab Context: present');"
           "}"),
       CheckHistograms());
 }

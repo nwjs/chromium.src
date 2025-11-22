@@ -913,17 +913,36 @@ XrResult xrGetViewConfigurationProperties(
       view_configuration_type != XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO,
       XR_ERROR_VALIDATION_FAILURE, "viewConfigurationType must be stereo");
   RETURN_IF(
-      configuration_properties->type == XR_TYPE_VIEW_CONFIGURATION_PROPERTIES,
+      configuration_properties->type != XR_TYPE_VIEW_CONFIGURATION_PROPERTIES,
       XR_ERROR_VALIDATION_FAILURE,
       "XrViewConfigurationProperties.type must be "
       "XR_TYPE_VIEW_CONFIGURATION_PROPERTIES");
-  RETURN_IF(configuration_properties->next == nullptr,
+  RETURN_IF(configuration_properties->next != nullptr,
             XR_ERROR_VALIDATION_FAILURE,
             "XrViewConfigurationProperties.next must be nullptr");
   configuration_properties->viewConfigurationType =
       XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
   configuration_properties->fovMutable = XR_TRUE;
   return XR_SUCCESS;
+}
+
+XrResult xrGetVisibilityMaskKHR(XrSession session,
+                                XrViewConfigurationType viewConfigurationType,
+                                uint32_t viewIndex,
+                                XrVisibilityMaskTypeKHR visibilityMaskType,
+                                XrVisibilityMaskKHR* visibilityMask) {
+  DVLOG(2) << __FUNCTION__;
+  RETURN_IF_XR_FAILED(g_test_helper.ValidateSession(session));
+  RETURN_IF_XR_FAILED(
+      g_test_helper.ValidateViewConfigType(viewConfigurationType));
+  RETURN_IF(visibilityMask == nullptr, XR_ERROR_VALIDATION_FAILURE,
+            "XrVisibilityMaskKHR is nullptr");
+  RETURN_IF(visibilityMask->type != XR_TYPE_VISIBILITY_MASK_KHR,
+            XR_ERROR_VALIDATION_FAILURE,
+            "xrGetVisibilityMaskKHR visibilityMask type invalid");
+
+  return g_test_helper.GetVisibilityMask(viewConfigurationType, viewIndex,
+                                         visibilityMaskType, visibilityMask);
 }
 
 XrResult xrGetSystem(XrInstance instance,
@@ -1281,6 +1300,7 @@ XrResult XRAPI_PTR xrGetInstanceProcAddr(XrInstance instance,
 #endif
   TRY_LOAD_METHOD(xrGetReferenceSpaceBoundsRect);
   TRY_LOAD_METHOD(xrGetViewConfigurationProperties);
+  TRY_LOAD_METHOD(xrGetVisibilityMaskKHR);
   TRY_LOAD_METHOD(xrGetSystem);
   TRY_LOAD_METHOD(xrGetSystemProperties);
   TRY_LOAD_METHOD(xrLocateHandJointsEXT);

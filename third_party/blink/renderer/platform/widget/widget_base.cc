@@ -10,8 +10,8 @@
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
-#include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/task/common/task_annotator.h"
 #include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
 #include "cc/animation/animation_host.h"
@@ -1622,7 +1622,7 @@ void WidgetBase::FlushInputProcessedCallback() {
   widget_input_handler_manager_->InvokeInputProcessedCallback();
 }
 
-void WidgetBase::CancelCompositionForPepper() {
+void WidgetBase::CancelComposition() {
   if (mojom::blink::WidgetInputHandlerHost* host =
           widget_input_handler_manager_->GetWidgetInputHandlerHost()) {
     host->ImeCancelComposition();
@@ -1687,14 +1687,6 @@ void WidgetBase::RequestAnimationAfterDelayTimerFired(TimerBase*) {
 
 float WidgetBase::GetOriginalDeviceScaleFactor() const {
   return client_->GetOriginalScreenInfos().current().device_scale_factor;
-}
-
-bool WidgetBase::InsertVisualStateRequest(base::OnceClosure callback) {
-  if (!widget_compositor_) {
-    return false;
-  }
-  widget_compositor_->MainThreadVisualStateRequest(std::move(callback));
-  return true;
 }
 
 void WidgetBase::UpdateSurfaceAndScreenInfo(

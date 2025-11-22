@@ -8,24 +8,32 @@ import type {ContextMenuEntrypointElement} from './context_menu_entrypoint.js';
 
 export function getHtml(this: ContextMenuEntrypointElement) {
   // clang-format off
-  return html`<!--_html_template_start_-->
-    ${this.showContextMenuDescription ? html`
+  const entrypointButton = this.showContextMenuDescription ? html`
     <cr-button id="entrypoint"
+        class="ai-mode-button"
         @click="${this.onEntrypointClick_}"
         ?disabled="${this.inputsDisabled}"
         title="${this.i18n('addContextTitle')}">
       <cr-icon id="entrypointIcon" icon="cr:add" slot="prefix-icon"></cr-icon>
       <span id="description">${this.i18n('addContext')}</span>
-    </cr-button>
-    `: html`
-      <cr-icon-button id="entrypoint"
-          part="context-menu-entrypoint-icon"
-          iron-icon="cr:add"
-          @click="${this.onEntrypointClick_}"
-          ?disabled="${this.inputsDisabled}"
-          title="${this.i18n('addContextTitle')}">
-      </cr-icon-button>
-    `}
+    </cr-button>` : html`
+    <cr-icon-button id="entrypoint"
+        class="ai-mode-button"
+        part="context-menu-entrypoint-icon"
+        iron-icon="cr:add"
+        @click="${this.onEntrypointClick_}"
+        ?disabled="${this.inputsDisabled}"
+        title="${this.i18n('addContextTitle')}">
+    </cr-icon-button>`;
+  return html`<!--_html_template_start_-->
+    ${this.ntpNextFeaturesEnabled ? html`
+    <div id="glowWrapper" class="glow-container">
+      ${entrypointButton}
+      <div class="aim-gradient-outer-blur aim-c"></div>
+      <div class="aim-gradient-solid aim-c"></div>
+      <div class="aim-background aim-c"></div>
+    </div>
+    ` : entrypointButton}
 
   <cr-action-menu id="menu" role-description="${this.i18n('menu')}">
     ${this.tabSuggestions?.length > 0 ? html`
@@ -37,10 +45,19 @@ export function getHtml(this: ContextMenuEntrypointElement) {
               aria-label="${this.i18n('addTab')}, ${tab.title}"
               ?disabled="${this.isTabDisabled_(tab)}"
               @pointerenter="${this.onTabPointerenter_}"
-              @click="${this.addTabContext_}">
-            <composebox-tab-favicon .url="${tab.url.url}">
-            </composebox-tab-favicon>
+              @click="${this.onTabClick_}">
+            <cr-composebox-tab-favicon .url="${tab.url.url}">
+            </cr-composebox-tab-favicon>
             <span class="tab-title">${tab.title}</span>
+            ${this.enableMultiTabSelection_ ? html`
+              ${this.disabledTabIds.has(tab.tabId) ? html`
+                <cr-icon class="multi-tab-icon"
+                    icon="cr:check" id="multi-tab-check"></cr-icon>
+              ` : html`
+                <cr-icon class="multi-tab-icon"
+                    icon="cr:add" id="multi-tab-add"></cr-icon>
+              `}
+            ` : ''}
           </button>
           ${this.shouldShowTabPreview_() ? html`
             <img class="tab-preview" .src="${this.tabPreviewUrl_}">

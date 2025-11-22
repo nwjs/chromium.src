@@ -19,7 +19,8 @@
     isBiometricAuthenticationEnabled:(BOOL)isBiometricAuthenticationEnabled;
 
 - (instancetype)initWithRequest:(id<ASCredentialRequest>)credentialRequest
-    isBiometricAuthenticationEnabled:(BOOL)isBiometricAuthenticationEnabled;
+    isBiometricAuthenticationEnabled:(BOOL)isBiometricAuthenticationEnabled
+                 isConditionalCreate:(BOOL)isConditionalCreate;
 
 - (instancetype)init NS_UNAVAILABLE;
 
@@ -35,8 +36,9 @@
           securityDomainSecrets:(NSArray<NSData*>*)securityDomainSecrets
     didCompleteUserVerification:(BOOL)didCompleteUserVerification;
 
-// Returns whether the list of credentials contains a password of the same
-// domain and username as the passkey request.
+// Returns whether the list of credentials contains a password that has eTLD+1
+// matching the relying party identifier (either equal or eTLD+1 being a suffix
+// of the RP ID) and the same username as the passkey request.
 - (BOOL)hasMatchingPassword:(NSArray<id<Credential>>*)credentials;
 
 // Returns whether a passkey from the excluded passkeys list is both in the

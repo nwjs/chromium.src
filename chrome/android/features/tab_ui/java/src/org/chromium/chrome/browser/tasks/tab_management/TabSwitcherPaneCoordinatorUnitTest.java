@@ -12,9 +12,12 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -24,15 +27,16 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerP
 import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerProperties.INITIAL_SCROLL_INDEX;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerProperties.IS_CLIP_TO_PADDING;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerProperties.IS_CONTENT_SENSITIVE;
+import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerProperties.IS_TABLET_OR_LANDSCAPE;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerProperties.PAGE_KEY_LISTENER;
 import static org.chromium.ui.test.util.MockitoHelper.doCallback;
 
 import android.app.Activity;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
 
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
@@ -41,6 +45,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
@@ -79,6 +84,7 @@ import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabSwitcherCustomViewManager;
 import org.chromium.chrome.browser.tab_ui.TabThumbnailView;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
+import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tasks.tab_management.TabGridDialogMediator.DialogController;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
@@ -130,7 +136,6 @@ public class TabSwitcherPaneCoordinatorUnitTest {
     @Mock private TabSwitcherMessageManager mMessageManager;
     @Mock private TabSwitcherResetHandler mResetHandler;
     @Mock private Callback<Integer> mOnTabClickedCallback;
-    @Mock private Callback<Boolean> mHairlineVisibilityCallback;
     @Mock private FaviconHelper.Natives mFaviconHelperJniMock;
     @Mock private Tracker mTracker;
     @Mock private BottomSheetController mBottomSheetController;
@@ -147,7 +152,7 @@ public class TabSwitcherPaneCoordinatorUnitTest {
     @Mock private TabGridContextMenuCoordinator mTabGridContextMenuCoordinator;
     @Mock private TabListGroupMenuCoordinator mTabListGroupMenuCoordinator;
     @Mock private PriceWelcomeMessageController mPriceWelcomeMessageController;
-
+    @Mock private ObservableSupplierImpl<Boolean> mHubSearchBoxVisibilitySupplier;
     private final ObservableSupplierImpl<TabGroupModelFilter> mTabGroupModelFilterSupplier =
             new ObservableSupplierImpl<>();
     private final ObservableSupplierImpl<Boolean> mIsVisibleSupplier =
@@ -168,6 +173,7 @@ public class TabSwitcherPaneCoordinatorUnitTest {
     private FrameLayout mContainerView;
     private FrameLayout mCoordinatorView;
     private TabSwitcherPaneCoordinator mCoordinator;
+    private TabModelObserver mTabModelObserver;
     private boolean mDestroyed;
 
     @Before
@@ -194,7 +200,7 @@ public class TabSwitcherPaneCoordinatorUnitTest {
         PriceTrackingFeatures.setPriceAnnotationsEnabledForTesting(true);
         PriceTrackingFeatures.setIsSignedInAndSyncEnabledForTesting(true);
 
-        mTabModel = new MockTabModel(mProfile, null);
+        mTabModel = spy(new MockTabModel(mProfile, null));
         when(mTabGroupModelFilter.getTabModel()).thenReturn(mTabModel);
         when(mTabGroupModelFilter.isTabModelRestored()).thenReturn(true);
 
@@ -242,7 +248,6 @@ public class TabSwitcherPaneCoordinatorUnitTest {
                         mIsVisibleSupplier,
                         mIsAnimatingSupplier,
                         mOnTabClickedCallback,
-                        mHairlineVisibilityCallback,
                         TabListMode.GRID,
                         /* supportsEmptyState= */ true,
                         /* onTabGroupCreation= */ null,
@@ -255,7 +260,8 @@ public class TabSwitcherPaneCoordinatorUnitTest {
                         mTabBookmarkerSupplier,
                         mUndoBarThrottle,
                         mOverlayViewSupplier::set,
-                        /* tabSwitcherDragHandler= */ null);
+                        /* tabSwitcherDragHandler= */ null,
+                        mHubSearchBoxVisibilitySupplier);
         watcher.assertExpected();
         mOverlayViewManager = new SingleChildViewManager(overlayView, mOverlayViewSupplier);
 
@@ -265,6 +271,11 @@ public class TabSwitcherPaneCoordinatorUnitTest {
 
         verify(mMessageManager).registerMessageHostDelegate(any());
         verify(mMessageManager).bind(any(), any(), any(), any());
+
+        ArgumentCaptor<TabModelObserver> tabModelObserverCaptor =
+                ArgumentCaptor.forClass(TabModelObserver.class);
+        verify(mTabModel, atLeastOnce()).addObserver(tabModelObserverCaptor.capture());
+        mTabModelObserver = tabModelObserverCaptor.getValue();
     }
 
     DialogController showTabGridDialogWithTabs() {
@@ -431,7 +442,6 @@ public class TabSwitcherPaneCoordinatorUnitTest {
     }
 
     @Test
-    @EnableFeatures({ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN})
     public void testEdgeToEdgePadAdjuster() {
         int originalPadding = mCoordinator.getContainerViewModelForTesting().get(BOTTOM_PADDING);
         var padAdjuster = mCoordinator.getEdgeToEdgePadAdjusterForTesting();
@@ -561,9 +571,7 @@ public class TabSwitcherPaneCoordinatorUnitTest {
 
         // Verify that the container is a LinearLayout.
         ViewGroup container = (ViewGroup) mContainerView.getChildAt(0);
-        assertTrue(container instanceof LinearLayout);
-        assertEquals(LinearLayout.VERTICAL, ((LinearLayout) container).getOrientation());
-
+        assertTrue(container instanceof FrameLayout);
         // Verify the children of the LinearLayout.
         assertEquals(2, container.getChildCount());
         FrameLayout pinnedTabsContainer = container.findViewById(R.id.pinned_tabs_container);
@@ -581,11 +589,58 @@ public class TabSwitcherPaneCoordinatorUnitTest {
 
         // Verify that the container is a LinearLayout with the original TabListRecyclerView.
         ViewGroup container = (ViewGroup) mContainerView.getChildAt(0);
-        assertTrue(container instanceof LinearLayout);
+        assertTrue(container instanceof FrameLayout);
         FrameLayout pinnedTabsContainer = container.findViewById(R.id.pinned_tabs_container);
         FrameLayout tabListContainer = container.findViewById(R.id.tab_list_container);
         assertEquals(0, pinnedTabsContainer.getChildCount());
         assertEquals(1, tabListContainer.getChildCount());
         assertTrue(tabListContainer.getChildAt(0) instanceof TabListRecyclerView);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_PINNED_TABS)
+    public void testTabModelObserver_didChangePinState_noPinnedTabs() {
+        MockTab tab = new MockTab(1, mProfile);
+
+        doReturn(0).when(mTabModel).getPinnedTabsCount();
+        when(mHubSearchBoxVisibilitySupplier.get()).thenReturn(true);
+
+        mTabModelObserver.didChangePinState(tab);
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+        verify(mHubSearchBoxVisibilitySupplier, times(1)).set(true);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_PINNED_TABS)
+    public void testTabModelObserver_didChangePinState_withPinnedTabs_searchNotVisible() {
+        MockTab tab = new MockTab(1, mProfile);
+
+        doReturn(1).when(mTabModel).getPinnedTabsCount();
+        when(mHubSearchBoxVisibilitySupplier.get()).thenReturn(false);
+
+        mTabModelObserver.didChangePinState(tab);
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+        verify(mHubSearchBoxVisibilitySupplier, never()).set(true);
+    }
+
+    @Test
+    public void testComponentCallbacks_onConfigurationChanged() {
+        PropertyModel containerViewModel = mCoordinator.getContainerViewModelForTesting();
+
+        // Simulate landscape
+        Configuration landscapeConfig = mActivity.getResources().getConfiguration();
+        landscapeConfig.screenWidthDp = 1000; // a tablet width
+        mCoordinator.getComponentsCallbacksForTesting().onConfigurationChanged(landscapeConfig);
+
+        boolean isTabletOrLandscape = containerViewModel.get(IS_TABLET_OR_LANDSCAPE);
+        assertTrue(isTabletOrLandscape);
+
+        // Simulate portrait
+        Configuration portraitConfig = mActivity.getResources().getConfiguration();
+        portraitConfig.screenWidthDp = 400; // a phone width
+        mCoordinator.getComponentsCallbacksForTesting().onConfigurationChanged(portraitConfig);
+
+        isTabletOrLandscape = containerViewModel.get(IS_TABLET_OR_LANDSCAPE);
+        assertFalse(isTabletOrLandscape);
     }
 }

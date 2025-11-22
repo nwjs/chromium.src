@@ -177,7 +177,8 @@ TEST(PreflightControllerCreatePreflightRequestTest, ExcludeForbiddenHeaders) {
   request.mode = mojom::RequestMode::kCors;
   request.credentials_mode = mojom::CredentialsMode::kOmit;
   request.request_initiator = url::Origin();
-  request.headers.SetHeader("referer", "https://www.google.com/");
+  request.headers.SetHeader(net::HttpRequestHeaders::kReferer,
+                            "https://www.google.com/");
 
   std::unique_ptr<ResourceRequest> preflight =
       PreflightController::CreatePreflightRequestForTesting(request);
@@ -285,7 +286,7 @@ TEST(PreflightControllerOptionsTest, CheckOptions) {
             ? network::mojom::IPAddressSpace::kLocal
             : network::mojom::IPAddressSpace::kUnknown;
     preflight_controller.PerformPreflightCheck(
-        base::BindOnce([](int, std::optional<CorsErrorStatus>, bool) {}),
+        base::BindOnce([](int, std::optional<CorsErrorStatus>, bool) {}), 0,
         request, WithTrustedHeaderClient(false),
         NonWildcardRequestHeadersSupport(false),
         PrivateNetworkAccessPreflightBehavior::kWarn, /*tainted=*/false,
@@ -297,7 +298,7 @@ TEST(PreflightControllerOptionsTest, CheckOptions) {
         preflight_mode);
 
     preflight_controller.PerformPreflightCheck(
-        base::BindOnce([](int, std::optional<CorsErrorStatus>, bool) {}),
+        base::BindOnce([](int, std::optional<CorsErrorStatus>, bool) {}), 0,
         request, WithTrustedHeaderClient(true),
         NonWildcardRequestHeadersSupport(false),
         PrivateNetworkAccessPreflightBehavior::kWarn, /*tainted=*/false,
@@ -419,24 +420,6 @@ class MockDevToolsObserver : public mojom::DevToolsObserver {
     if (wait_for_completed_)
       std::move(wait_for_completed_).Run();
   }
-
-  void OnSubresourceWebBundleMetadata(const std::string& devtools_request_id,
-                                      const std::vector<GURL>& urls) override {}
-
-  void OnSubresourceWebBundleMetadataError(
-      const std::string& devtools_request_id,
-      const std::string& error_message) override {}
-
-  void OnSubresourceWebBundleInnerResponse(
-      const std::string& inner_request_devtools_id,
-      const ::GURL& url,
-      const std::optional<std::string>& bundle_request_devtools_id) override {}
-
-  void OnSubresourceWebBundleInnerResponseError(
-      const std::string& inner_request_devtools_id,
-      const ::GURL& url,
-      const std::string& error_message,
-      const std::optional<std::string>& bundle_request_devtools_id) override {}
 
   void OnSharedDictionaryError(
       const std::string& devtool_request_id,
@@ -564,7 +547,7 @@ class PreflightControllerTest : public testing::Test {
     preflight_controller_->PerformPreflightCheck(
         base::BindOnce(&PreflightControllerTest::HandleRequestCompletion,
                        base::Unretained(this)),
-        request, WithTrustedHeaderClient(false),
+        0, request, WithTrustedHeaderClient(false),
         non_wildcard_request_headers_support_, private_network_access_behavior,
         tainted, TRAFFIC_ANNOTATION_FOR_TESTS, url_loader_factory_remote_.get(),
         isolation_info, std::move(client_security_state),

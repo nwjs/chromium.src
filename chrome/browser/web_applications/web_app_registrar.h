@@ -23,6 +23,7 @@
 #include "base/observer_list.h"
 #include "base/scoped_observation.h"
 #include "base/types/strong_alias.h"
+#include "base/values.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/proto/web_app_os_integration_state.pb.h"
@@ -32,6 +33,7 @@
 #include "chrome/browser/web_applications/web_app_filter.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_management_type.h"
+#include "chrome/browser/web_applications/web_app_scope.h"
 #include "components/services/app_service/public/cpp/file_handler.h"
 #include "components/services/app_service/public/cpp/protocol_handler_info.h"
 #include "components/webapps/common/web_app_id.h"
@@ -61,11 +63,14 @@ enum InstallState : int;
 }
 
 class IsolatedWebAppUrlInfo;
-class ManifestSilentUpdateCommand;
 class WebApp;
 class WebAppProvider;
 class WebAppRegistrarObserver;
 class WebAppScope;
+class AppLock;
+class ManifestSilentUpdateCommand;
+class FetchManifestAndUpdateCommand;
+class ApplyPendingManifestUpdateCommand;
 
 using Registry = std::map<webapps::AppId, std::unique_ptr<WebApp>>;
 
@@ -171,7 +176,8 @@ class WebAppRegistrar {
   //        url, WebAppFilter::OpensInBrowserTab());
   std::optional<webapps::AppId> FindBestAppWithUrlInScope(
       const GURL& url,
-      const WebAppFilter& filter) const;
+      const WebAppFilter& filter,
+      WebAppScopeScoreOptions scope_score_options = {}) const;
 
   // Finds all apps that have scopes that are nested within the given
   // `outer_scope`, and match the specified filter.
@@ -584,10 +590,21 @@ class WebAppRegistrar {
       bool is_preferred);
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
-  void NotifyPendingUpdateInfoChanged(
-      const webapps::AppId& app_id,
-      bool pending_update_available,
-      base::PassKey<ManifestSilentUpdateCommand>);
+  // Mimic base::PassKey<T> to ensure only certain call sites have the privilege
+  // of triggering a pending update info change.
+  class PendingUpdateInfoChangePassKey {
+    friend class ManifestSilentUpdateCommand;
+    friend class FetchManifestAndUpdateCommand;
+    friend void SetWebAppPendingUpdateAsIgnored(const webapps::AppId&,
+                                                AppLock& lock,
+                                                base::Value::Dict& debug_value);
+    friend class ApplyPendingManifestUpdateCommand;
+    PendingUpdateInfoChangePassKey() = default;
+  };
+
+  void NotifyPendingUpdateInfoChanged(const webapps::AppId& app_id,
+                                      bool pending_update_available,
+                                      PendingUpdateInfoChangePassKey);
 
   // A filter must return false to skip the |web_app|.
   using Filter = bool (*)(const WebApp& web_app);

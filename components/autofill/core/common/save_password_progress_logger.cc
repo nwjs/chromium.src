@@ -524,8 +524,6 @@ std::string SavePasswordProgressLogger::GetStringFromID(
       return "Automated password change: cross-origin navigation detected";
     case STRING_AUTOMATED_PASSWORD_CHANGE_PAGE_CONTENT_RECEIVED:
       return "Automated password change: page content received";
-    case STRING_AUTOMATED_PASSWORD_CHANGE_ON_BUTTON_CLICKED:
-      return "Automated password change: on button clicked";
     case STRING_AUTOMATED_PASSWORD_CHANGE_BUTTON_CLICK_ACTION_RESULT:
       return "Automated password change: button click action result";
     case STRING_AUTOMATED_PASSWORD_CHANGE_DOM_NODE_ID_TO_CLICK:
@@ -602,6 +600,8 @@ std::string SavePasswordProgressLogger::GetStringFromID(
       return "Actor login: get credentials signin form exists";
     case STRING_ACTOR_LOGIN_GET_CREDENTIALS_NUM_CREDENTIALS:
       return "Actor login: get credentials number of credentials";
+    case STRING_ACTOR_LOGIN_PRIMARY_MAIN_FRAME_ORIGIN_CHANGED:
+      return "Actor login: primary main frame origin changed";
     case SavePasswordProgressLogger::STRING_INVALID:
       return "INVALID";
       // Intentionally no default: clause here -- all IDs need to get covered.

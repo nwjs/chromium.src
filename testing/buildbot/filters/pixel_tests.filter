@@ -76,6 +76,7 @@ IntentPickerDialogGridViewTest.*
 InteractionTestUtilBrowserTest.CompareScreenshot_*
 InteractionTestUtilBrowserUiTest.CompareScreenshot_*
 IsolatedWebAppInstallerViewUiPixelTest.*
+*LensSidePanel*PixelTest*
 LHSIndicatorsUiBrowserTest.*
 LocalCardMigrationBrowserUiTest.*
 *MemorySaverChipInteractiveTest.*
@@ -84,6 +85,7 @@ LocalCardMigrationBrowserUiTest.*
 Mv2DeprecationReEnableDialogBrowserTest.*
 NewTabPageTest.*
 NtpPromoVisualUiTest.*
+NtpRealboxUiTest.*
 OfferNotificationBubbleViewPixelBrowserTest.*
 OutdatedUpgradeBubbleTest.*
 PageActionPixelIconsHiddenTest.*

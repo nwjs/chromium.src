@@ -5,11 +5,14 @@
 #include "components/safe_browsing/content/browser/client_side_detection_host.h"
 
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include "base/check_op.h"
 #include "base/command_line.h"
+#include "base/containers/fixed_flat_set.h"
 #include "base/containers/span.h"
+#include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
@@ -17,26 +20,33 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/rand_util.h"
+#include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "base/task/sequenced_task_runner_helpers.h"
 #include "base/task/thread_pool.h"
 #include "base/time/default_tick_clock.h"
 #include "base/time/tick_clock.h"
+#include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "base/uuid.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/core/browser/foundations/scoped_autofill_managers_observation.h"
+#include "components/history/core/browser/history_service.h"
+#include "components/history/core/browser/history_types.h"
 #include "components/permissions/permission_request_manager.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/content/browser/client_side_detection_feature_cache.h"
 #include "components/safe_browsing/content/browser/client_side_detection_service.h"
 #include "components/safe_browsing/content/browser/client_side_phishing_model.h"
 #include "components/safe_browsing/content/browser/content_unsafe_resource_util.h"
+#include "components/safe_browsing/content/browser/credit_card_form_event.h"
 #include "components/safe_browsing/content/common/safe_browsing.mojom-shared.h"
 #include "components/safe_browsing/content/common/safe_browsing.mojom.h"
 #include "components/safe_browsing/content/common/visual_utils.h"
 #include "components/safe_browsing/core/browser/db/allowlist_checker_client.h"
 #include "components/safe_browsing/core/browser/db/database_manager.h"
 #include "components/safe_browsing/core/browser/sync/sync_utils.h"
+#include "components/safe_browsing/core/browser/verdict_cache_manager.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/safe_browsing/core/common/proto/csd.pb.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
@@ -87,6 +97,44 @@ const float kProbabilityForSendingSampleRequest = 0.000001;
 const float kProbabilityForAcceptingHCAllowlistTrigger = 0.9999;
 // Threshold value used to skip the on-device model inquiry.
 const int kInnerTextMinThresholdBytes = 5;
+
+// Set of suspicious tokens that could be used to construct a malicious command.
+// The explanation and rationale behind this list can be found internally at
+// go/sus-commands.
+constexpr auto kSusCommands = base::MakeFixedFlatSet<std::string_view>({
+    // go/keep-sorted start
+    "bash",
+    "bitsadmin",
+    "certutil",
+    "cmd",
+    "conhost",
+    "curl",
+    "iex",
+    "invoke-expression",
+    "invoke-restmethod",
+    "invoke-webrequest",
+    "irm",
+    "iwr",
+    "mshta",
+    "perl",
+    "php",
+    "powershell",
+    "python",
+    "python3",
+    "sftp",
+    "ssh",
+    "wget",
+    "wt",
+    // go/keep-sorted end
+});
+
+// Normalizes a potential command to account for capitalization, pathing, and
+// file extensions.
+std::string NormalizeToken(std::u16string_view token) {
+  base::FilePath path(base::FilePath::FromUTF16Unsafe(token));
+  std::string filename = path.BaseName().RemoveExtension().AsUTF8Unsafe();
+  return base::ToLowerASCII(filename);
+}
 
 void WriteFeaturesToDisk(const ClientPhishingRequest& features,
                          const base::FilePath& base_path) {
@@ -713,12 +761,14 @@ std::unique_ptr<ClientSideDetectionHost> ClientSideDetectionHost::Create(
     std::unique_ptr<Delegate> delegate,
     IntelligentScanDelegate* intelligent_scan_delegate,
     PrefService* pref_service,
+    history::HistoryService* history_service,
     std::unique_ptr<SafeBrowsingTokenFetcher> token_fetcher,
     bool is_off_the_record,
     const PrimaryAccountSignedIn& account_signed_in_callback) {
   return base::WrapUnique(new ClientSideDetectionHost(
       tab, std::move(delegate), intelligent_scan_delegate, pref_service,
-      std::move(token_fetcher), is_off_the_record, account_signed_in_callback));
+      history_service, std::move(token_fetcher), is_off_the_record,
+      account_signed_in_callback));
 }
 
 ClientSideDetectionHost::ClientSideDetectionHost(
@@ -726,6 +776,7 @@ ClientSideDetectionHost::ClientSideDetectionHost(
     std::unique_ptr<Delegate> delegate,
     IntelligentScanDelegate* intelligent_scan_delegate,
     PrefService* pref_service,
+    history::HistoryService* history_service,
     std::unique_ptr<SafeBrowsingTokenFetcher> token_fetcher,
     bool is_off_the_record,
     const PrimaryAccountSignedIn& account_signed_in_callback)
@@ -737,6 +788,7 @@ ClientSideDetectionHost::ClientSideDetectionHost(
       delegate_(std::move(delegate)),
       intelligent_scan_delegate_(intelligent_scan_delegate),
       pref_service_(pref_service),
+      history_service_(history_service),
       token_fetcher_(std::move(token_fetcher)),
       is_off_the_record_(is_off_the_record),
       account_signed_in_callback_(account_signed_in_callback),
@@ -753,6 +805,10 @@ ClientSideDetectionHost::ClientSideDetectionHost(
         ->AddClearCacheSubscription(csd_service_);
   }
 
+  if (history_service_) {
+    history_service_observer_.Observe(history_service_);
+  }
+
   // |ui_manager_| and |database_manager_| can
   // be null if safe browsing service is not available in the embedder.
   ui_manager_ = delegate_->GetSafeBrowsingUIManager();
@@ -766,6 +822,9 @@ ClientSideDetectionHost::ClientSideDetectionHost(
 ClientSideDetectionHost::~ClientSideDetectionHost() {
   if (classification_request_.get()) {
     classification_request_->Cancel();
+  }
+  if (intelligent_scan_session_id_.has_value()) {
+    intelligent_scan_delegate_->CancelSession(*intelligent_scan_session_id_);
   }
 }
 
@@ -900,12 +959,66 @@ void ClientSideDetectionHost::OnAsyncSafeBrowsingCheckTrackerDestructed() {
 // ping when the form is categorized as a credit card form.
 void ClientSideDetectionHost::OnFieldTypesDetermined(
     autofill::AutofillManager& manager,
-    autofill::FormGlobalId formId,
+    autofill::FormGlobalId form_id,
     autofill::AutofillManager::Observer::FieldTypeSource source) {
   // Early exit if ESB is not enabled.
   if (!IsEnhancedProtectionEnabled(*delegate_->GetPrefs())) {
     return;
   }
+
+  // If the form is not a credit card form, then do not trigger
+  // pre-classification.
+  if (auto it = manager.form_structures().find(form_id);
+      it != manager.form_structures().end() &&
+      !it->second.get()->GetFormTypes().contains(
+          autofill::FormType::kCreditCardForm)) {
+    return;
+  }
+
+  // Site visit count is needed as part of determining whether to send
+  // a CSD ping, so look that up via HistoryService and delegate
+  // handling the result to OnCreditCardFormEvent.
+  GURL url = tab_->GetPrimaryMainFrame()->GetLastCommittedURL();
+  std::optional<history::VisibleVisitCountToHostResult> cached_history_result;
+  if (url == last_history_url_) {
+    cached_history_result = last_history_result_;
+  }
+  if (history_service_ && !cached_history_result) {
+    last_history_url_ = url;
+    history_service_->GetVisibleVisitCountToHost(
+        url,
+        base::BindOnce(&ClientSideDetectionHost::OnCreditCardFormEvent,
+                       weak_factory_.GetWeakPtr(), "OnFieldTypesDetermined",
+                       base::TimeTicks::Now()),
+        &task_tracker_);
+  } else {
+    history::VisibleVisitCountToHostResult history_result =
+        cached_history_result.value_or(
+            history::VisibleVisitCountToHostResult{/*success=*/false});
+    OnCreditCardFormEvent("OnFieldTypesDetermined", std::nullopt,
+                          history_result);
+  }
+}
+
+void ClientSideDetectionHost::OnCreditCardFormEvent(
+    std::string event_name,
+    std::optional<base::TimeTicks> start_time,
+    history::VisibleVisitCountToHostResult history_result) {
+  last_history_result_ = history_result;
+  if (start_time.has_value()) {
+    UmaHistogramMediumTimes(
+        "SBClientPhishing.HistoryServiceDuration.GetVisibleVisitCountToHost",
+        base::TimeTicks::Now() - start_time.value());
+  }
+
+  credit_card_form::SiteVisit site_visit = credit_card_form::kUnknownSiteVisit;
+  if (history_result.success) {
+    site_visit = history_result.count >
+                         static_cast<int>(kCsdCreditCardFormMaxUserVisit.Get())
+                     ? credit_card_form::kRepeatSiteVisit
+                     : credit_card_form::kNewSiteVisit;
+  }
+  credit_card_form::LogEvent(event_name, site_visit);
 
   // Early exit if preclassification has already been done for
   // CREDIT_CARD_FORM and this URL.
@@ -914,14 +1027,12 @@ void ClientSideDetectionHost::OnFieldTypesDetermined(
     return;
   }
 
-  // If the form is a credit card form, then trigger pre-classification.
-  if (auto it = manager.form_structures().find(formId);
-      it != manager.form_structures().end()) {
-    if (it->second.get()->GetFormTypes().contains(
-            autofill::FormType::kCreditCardForm)) {
-      MaybeStartPreClassification(csd_type);
-    }
+  // Early exit if it is known that the user has visited this site before.
+  if (site_visit == credit_card_form::kRepeatSiteVisit) {
+    return;
   }
+
+  MaybeStartPreClassification(csd_type);
 }
 
 void ClientSideDetectionHost::KeyboardLockRequested() {
@@ -994,6 +1105,7 @@ void ClientSideDetectionHost::OnTextCopiedToClipboard(
     return;
   }
 
+  last_copied_text_ = copied_text;
   MaybeStartPreClassification(ClientSideDetectionType::CLIPBOARD_COPY_API);
 }
 
@@ -1018,11 +1130,14 @@ void ClientSideDetectionHost::OnPhishingPreClassificationDone(
   }
 
   if (should_classify) {
-    // Cancel any ongoing on device sessions.
-    bool did_reset_session = intelligent_scan_delegate_->ResetOnDeviceSession();
+    bool intelligent_scan_session_ongoing =
+        intelligent_scan_session_id_.has_value();
     base::UmaHistogramBoolean(
         "SBClientPhishing.OnDeviceModelSessionAliveOnNewPreclassification",
-        did_reset_session);
+        intelligent_scan_session_ongoing);
+    if (intelligent_scan_session_ongoing) {
+      intelligent_scan_delegate_->CancelSession(*intelligent_scan_session_id_);
+    }
 
     content::RenderFrameHost* rfh = web_contents()->GetPrimaryMainFrame();
 
@@ -1197,6 +1312,15 @@ void ClientSideDetectionHost::MaybeSendClientPhishingRequest(
     base::UmaHistogramBoolean("SBClientPhishing.HasVisualFeaturesImage",
                               verdict->has_visual_features() &&
                                   verdict->visual_features().has_image());
+  }
+
+  if (verdict->client_side_detection_type() ==
+      ClientSideDetectionType::CLIPBOARD_COPY_API) {
+    if (base::FeatureList::IsEnabled(kClientSideDetectionClipboardCopyApi) &&
+        kCSDClipboardCopyApiProcessPayload.Get()) {
+      *verdict->mutable_clipboard_extracted_data() =
+          ExtractClipboardData(last_copied_text_);
+    }
   }
 
   if (IsEnhancedProtectionEnabled(*delegate_->GetPrefs())) {
@@ -1478,17 +1602,19 @@ void ClientSideDetectionHost::OnInnerTextComplete(
     return;
   }
 
-  intelligent_scan_delegate_->InquireOnDeviceModel(
-      inner_text,
-      base::BindOnce(&ClientSideDetectionHost::OnInquireOnDeviceModelDone,
-                     weak_factory_.GetWeakPtr(), std::move(verdict),
-                     did_match_high_confidence_allowlist));
+  intelligent_scan_session_id_ =
+      intelligent_scan_delegate_->InquireOnDeviceModel(
+          inner_text,
+          base::BindOnce(&ClientSideDetectionHost::OnInquireOnDeviceModelDone,
+                         weak_factory_.GetWeakPtr(), std::move(verdict),
+                         did_match_high_confidence_allowlist));
 }
 
 void ClientSideDetectionHost::OnInquireOnDeviceModelDone(
     std::unique_ptr<ClientPhishingRequest> verdict,
     std::optional<bool> did_match_high_confidence_allowlist,
     IntelligentScanDelegate::IntelligentScanResult response) {
+  intelligent_scan_session_id_.reset();
   base::UmaHistogramBoolean(
       "SBClientPhishing.OnDeviceModelHasSuccessfulResponse",
       response.execution_success);
@@ -1561,11 +1687,7 @@ void ClientSideDetectionHost::MaybeShowPhishingWarning(
         ->set_network_result(response_code.value());
   }
 
-  if ((base::FeatureList::IsEnabled(
-           kClientSideDetectionBrandAndIntentForScamDetection) ||
-       base::FeatureList::IsEnabled(
-           kClientSideDetectionLlamaForcedTriggerInfoForScamDetection)) &&
-      IsEnhancedProtectionEnabled(*delegate_->GetPrefs()) &&
+  if (IsEnhancedProtectionEnabled(*delegate_->GetPrefs()) &&
       intelligent_scan_verdict.has_value()) {
     base::UmaHistogramExactLinear("SBClientPhishing.IntelligentScanVerdict",
                                   intelligent_scan_verdict.value(),
@@ -1691,6 +1813,52 @@ void ClientSideDetectionHost::set_database_manager(
   database_manager_ = database_manager;
 }
 
+ClipboardExtractedData ClientSideDetectionHost::ExtractClipboardData(
+    const std::u16string& payload) {
+  ClipboardExtractedData clipboard_data;
+  base::TimeTicks start_time = base::TimeTicks::Now();
+  std::vector<std::u16string> tokens =
+      base::SplitString(payload, u" \t\n\r;",
+                        base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+
+  base::UmaHistogramMediumTimes(
+      "SBClientPhishing.ClipboardCopyApi.PayloadExtraction.SplitStringDuration",
+      base::TimeTicks::Now() - start_time);
+  base::UmaHistogramCounts100(
+      "SBClientPhishing.ClipboardCopyApi.PayloadExtraction.TokenCount",
+      tokens.size());
+
+  if (tokens.empty()) {
+    return clipboard_data;
+  }
+
+  for (size_t i = 0; i < tokens.size(); ++i) {
+    const std::string& normalized_token = NormalizeToken(tokens[i]);
+    if (kSusCommands.contains(normalized_token)) {
+      clipboard_data.add_suspicious_tokens(normalized_token);
+      if (i == 0) {
+        clipboard_data.set_is_first_token_suspicious(true);
+      }
+      if (i == tokens.size() - 1) {
+        clipboard_data.set_is_last_token_suspicious(true);
+      }
+    }
+  }
+
+  base::UmaHistogramCounts100(
+      "SBClientPhishing.ClipboardCopyApi.PayloadExtraction."
+      "SuspiciousTokenCount",
+      clipboard_data.suspicious_tokens_size());
+
+  return clipboard_data;
+}
+
+std::vector<std::string_view>
+ClientSideDetectionHost::GetSuspiciousTokensListForTesting() {
+  return std::vector<std::string_view>(kSusCommands.begin(),
+                                       kSusCommands.end());
+}
+
 void ClientSideDetectionHost::OnGotAccessToken(
     std::unique_ptr<ClientPhishingRequest> verdict,
     std::optional<bool> did_match_high_confidence_allowlist,
@@ -1722,6 +1890,21 @@ void ClientSideDetectionHost::SendRequest(
                      did_match_high_confidence_allowlist);
   csd_service_->SendClientReportPhishingRequest(
       std::move(verdict), std::move(callback), access_token);
+}
+
+void ClientSideDetectionHost::set_history_service_for_testing(
+    history::HistoryService* history_service) {
+  history_service_ = history_service;
+  history_service_observer_.Reset();
+  if (history_service_) {
+    history_service_observer_.Observe(history_service_);
+  }
+}
+
+void ClientSideDetectionHost::HistoryServiceBeingDeleted(
+    history::HistoryService* history_service) {
+  history_service_ = nullptr;
+  history_service_observer_.Reset();
 }
 
 void ClientSideDetectionHost::

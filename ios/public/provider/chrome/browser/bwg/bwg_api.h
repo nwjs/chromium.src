@@ -14,6 +14,7 @@
 
 class AuthenticationService;
 @class BWGConfiguration;
+@class GeminiPageContext;
 @protocol BWGGatewayProtocol;
 
 using BWGEligibilityCallback = void (^)(BOOL eligible);
@@ -38,28 +39,6 @@ enum class BWGLocationPermissionState {
   kEnterpriseDisabled,
 };
 
-// TODO(crbug.com/434662294): Remove when migration is complete.
-// Enum representing the PageContext state of the BWG experience.
-// This needs to stay in sync with GCRGeminiPageState (and its SDK counterpart).
-enum class BWGPageContextState {
-  // Default state.
-  kUnknown,
-  // PageContext was successfully attached.
-  kSuccessfullyAttached,
-  // PageContext should be detached.
-  kShouldDetach,
-  // PageContext is protected.
-  kProtected,
-  // PageContext is present but likely to be blocked.
-  kBlocked,
-  // There was an error extracting the PageContext.
-  kError,
-  // PageContext should be detached due to an enterprise policy.
-  kEnterpriseDisabled,
-  // PageContext should be detached due to the user disabling it.
-  kUserDisabled,
-};
-
 // Enum representing the page context computation state of the BWG experience.
 // This needs to stay in sync with GCRGeminiPageContextComputationState (and its
 // SDK counterpart).
@@ -78,6 +57,8 @@ enum class BWGPageContextComputationState {
   // The page contains blocked content that could be used for Gemini, but will
   // likely be rejected due to its content.
   kBlocked,
+  // The page context is still being created.
+  kPending,
 };
 
 // Enum representing the page context attachment state of the BWG experience.
@@ -128,6 +109,9 @@ void UpdatePageAttachmentState(
 
 // Returns true if a URL is protected.
 bool IsProtectedUrl(std::string url);
+
+// Updates the page context of the floaty.
+void UpdatePageContext(GeminiPageContext* gemini_page_context);
 
 }  // namespace ios::provider
 

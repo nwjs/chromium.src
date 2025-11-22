@@ -5,13 +5,12 @@
 import pathlib
 import typing
 
-from compiler import Cpu
-from compiler import Os
 from graph import all_headers
 from graph import calculate_rdeps
 from graph import Header
 from graph import IncludeDir
 from graph import Target
+from platforms import Os
 
 if typing.TYPE_CHECKING:
   # To fix circular dependency.
@@ -44,6 +43,7 @@ SYSROOT_DIRS = {
 SYSROOT_PRECOMPILED_HEADERS = [
     'fcntl.h',
     'getopt.h',
+    'linux/types.h',
     'sys/ioctl.h',
     'syscall.h',
 ]
@@ -52,6 +52,10 @@ SYSROOT_PRECOMPILED_HEADERS = [
 def fix_graph(graph: dict[str, Header],
               compiler: 'Compiler') -> dict[pathlib.Path, str]:
   """Applies manual augmentation of the header graph."""
+
+  def force_textual(key: str):
+    if key in graph:
+      graph[key].textual = True
 
   def add_dep(frm, to, check=True):
     if check:
@@ -129,6 +133,9 @@ def fix_graph(graph: dict[str, Header],
     # Assert is inherently textual.
     graph['assert.h'].textual = True
 
+  force_textual('asm-generic/unistd.h')
+  force_textual('asm-generic/bitsperlong.h')
+
   if compiler.os == Os.Android:
     graph['android/legacy_stdlib_inlines.h'].textual = True
     graph['android/legacy_threads_inlines.h'].textual = True
@@ -154,6 +161,16 @@ def fix_graph(graph: dict[str, Header],
     # Thus, limits.h exports an undef.
     # if it's textual, limits.h undefs something it defined itself.
     graph['linux/limits.h'].textual = True
+
+    # This is not included on arm32
+    graph['asm-generic/types.h'].textual = True
+
+    # On chromeos, x86_64-linux-gnu/foo.h will be either moved to foo.h or to
+    # x86_64-cros-gnu.
+    # So we just mark them all as textual so they don't appear in the modulemap.
+    for hdr in graph.values():
+      if '-linux-gnu' in str(hdr.abs):
+        hdr.textual = True
 
   # Windows has multiple include directories contained with the sysroot.
   if compiler.os == Os.Win:

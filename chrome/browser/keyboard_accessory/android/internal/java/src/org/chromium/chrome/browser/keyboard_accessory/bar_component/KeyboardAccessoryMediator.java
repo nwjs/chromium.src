@@ -32,9 +32,11 @@ import org.chromium.chrome.browser.keyboard_accessory.KeyboardAccessoryVisualSta
 import org.chromium.chrome.browser.keyboard_accessory.R;
 import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryCoordinator.BarVisibilityDelegate;
 import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryCoordinator.TabSwitchingDelegate;
+import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.ActionBarItem;
 import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.AutofillBarItem;
 import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.BarItem;
 import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.DismissBarItem;
+import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.GroupBarItem;
 import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.SheetOpenerBarItem;
 import org.chromium.chrome.browser.keyboard_accessory.button_group_component.KeyboardAccessoryButtonGroupCoordinator;
 import org.chromium.chrome.browser.keyboard_accessory.data.KeyboardAccessoryData;
@@ -45,6 +47,8 @@ import org.chromium.chrome.browser.keyboard_accessory.utils.ManualFillingMetrics
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.autofill.AutofillDelegate;
 import org.chromium.components.autofill.AutofillSuggestion;
+import org.chromium.components.autofill.FillingProduct;
+import org.chromium.components.autofill.FillingProductBridge;
 import org.chromium.components.autofill.SuggestionType;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.ui.modelutil.PropertyKey;
@@ -54,7 +58,6 @@ import org.chromium.ui.modelutil.PropertyObservable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
@@ -76,7 +79,7 @@ class KeyboardAccessoryMediator
     private final Supplier<Integer> mBackgroundColorSupplier;
     private final Supplier<Boolean> mIsLargeFormFactorSupplier;
     private final Profile mProfile;
-    private Optional<Boolean> mHasFilteredTouchEvent = Optional.empty();
+    private @Nullable Boolean mHasFilteredTouchEvent;
     private final ObserverList<KeyboardAccessoryVisualStateProvider.Observer> mVisualObservers =
             new ObserverList<>();
 
@@ -161,11 +164,19 @@ class KeyboardAccessoryMediator
      *     bar.
      */
     private void setBarContents(List<BarItem> scrollableItems) {
+        // Chip width limiting works when the keyboard accessory spans the whole screen width. Thus
+        // the chip group is created only for the docked keyboard accessory. If the suggestions are
+        // not grouped initially and then grouped when the STYLE is set, it can cause a UI glitch.
+        // However, the manual filling component's STYLE property is updated when the component is
+        // shown, so it's not possible.
+        if (shouldLimitSuggestionWidth()) {
+            // Create chip group to limit chip width only when the keyboard accessory style is set
+            // to docked.
+            scrollableItems = createGroupBarItem(scrollableItems);
+        }
         // TODO(crbug.com/441006939): Show dismiss on first launch too.
         List<BarItem> fixedBarItems = new ArrayList<BarItem>();
-        if (mIsLargeFormFactorSupplier.get()
-                && ChromeFeatureList.isEnabled(
-                        ChromeFeatureList.AUTOFILL_ANDROID_DESKTOP_KEYBOARD_ACCESSORY_REVAMP)) {
+        if (showFloatingKeyboardAccessory()) {
             fixedBarItems.add(mModel.get(SHEET_OPENER_ITEM));
             fixedBarItems.add(mModel.get(DISMISS_ITEM));
         } else {
@@ -176,14 +187,58 @@ class KeyboardAccessoryMediator
         mModel.set(HAS_SUGGESTIONS, barHasSuggestions());
     }
 
+    private List<BarItem> createGroupBarItem(Iterable<BarItem> scrollableItemsIterable) {
+        List<BarItem> scrollableItems = new ArrayList<>();
+        for (BarItem item : scrollableItemsIterable) {
+            scrollableItems.add(item);
+        }
+        List<ActionBarItem> autofillBarItems = new ArrayList<>();
+        // Collect at most 3 Autofill address suggestions that are in the beginning of the list.
+        for (int i = 0; i < scrollableItems.size() && autofillBarItems.size() < 3; i++) {
+            if (scrollableItems.get(i) instanceof AutofillBarItem autofillBarItem
+                    && canLimitWidth(autofillBarItem.getSuggestion().getSuggestionType())) {
+                autofillBarItems.add(autofillBarItem);
+            } else {
+                // Stop collection Autofill suggestions when the first item of a different type is
+                // encountered.
+                break;
+            }
+        }
+        // If there are not enough Autofill suggestions in the beginning of the list, do not create
+        // a chip group for chip width adjustment.
+        if (autofillBarItems.size() < 2) {
+            return scrollableItems;
+        }
+        // Otherwise, substitute the first Autofill suggestions with a suggestion group to
+        // dynamically limit their screen width in the Keyboard Accessory.
+        scrollableItems.removeAll(autofillBarItems);
+        GroupBarItem groupBarItem = new GroupBarItem(autofillBarItems);
+        scrollableItems.add(0, groupBarItem);
+        return scrollableItems;
+    }
+
+    private List<BarItem> ungroupBarItems(Iterable<BarItem> scrollableItems) {
+        List<BarItem> barItems = new ArrayList<>();
+        for (BarItem barItem : scrollableItems) {
+            if (barItem instanceof GroupBarItem) {
+                barItems.addAll(barItem.getActionBarItems());
+            } else {
+                barItems.add(barItem);
+            }
+        }
+        return barItems;
+    }
+
     private List<BarItem> collectItemsToRetain(@AccessoryAction int actionType) {
         List<BarItem> retainedItems = new ArrayList<>();
         // Fallback sheet menu and dismiss button are never retained.
         for (BarItem item : mModel.get(BAR_ITEMS)) {
-            if (item.getAction() == null) continue;
-            if (item.getAction().getActionType() == AccessoryAction.DISMISS) continue;
-            if (item.getAction().getActionType() == actionType) continue;
-            retainedItems.add(item);
+            for (ActionBarItem actionItem : item.getActionBarItems()) {
+                if (actionItem.getAction() == null) continue;
+                if (actionItem.getAction().getActionType() == AccessoryAction.DISMISS) continue;
+                if (actionItem.getAction().getActionType() == actionType) continue;
+                retainedItems.add(actionItem);
+            }
         }
         return retainedItems;
     }
@@ -251,11 +306,11 @@ class KeyboardAccessoryMediator
         return barItems;
     }
 
-    private Collection<BarItem> toBarItems(Action[] actions) {
-        List<BarItem> barItems = new ArrayList<>(actions.length);
+    private Collection<ActionBarItem> toBarItems(Action[] actions) {
+        List<ActionBarItem> barItems = new ArrayList<>(actions.length);
         for (Action action : actions) {
             barItems.add(
-                    new BarItem(
+                    new ActionBarItem(
                             toBarItemType(action.getActionType()),
                             action,
                             getCaptionId(action.getActionType())));
@@ -303,12 +358,12 @@ class KeyboardAccessoryMediator
     void dismiss() {
         mTabSwitcher.closeActiveTab();
         mModel.set(VISIBLE, false);
-        if (!mHasFilteredTouchEvent.orElse(true)) {
+        if (!(mHasFilteredTouchEvent == null || mHasFilteredTouchEvent)) {
             // Log the metric if the accessory received touch events, but none of them were
             // filtered.
             ManualFillingMetricsRecorder.recordHasFilteredTouchEvents(false);
         }
-        mHasFilteredTouchEvent = Optional.empty();
+        mHasFilteredTouchEvent = null;
     }
 
     @Override
@@ -361,14 +416,16 @@ class KeyboardAccessoryMediator
 
     private void onTouchEvent(boolean eventFiltered) {
         if (!eventFiltered) {
-            mHasFilteredTouchEvent = Optional.of(mHasFilteredTouchEvent.orElse(false));
+            if (mHasFilteredTouchEvent == null) {
+                mHasFilteredTouchEvent = false;
+            }
             return;
         }
-        if (!mHasFilteredTouchEvent.orElse(false)) {
+        if (mHasFilteredTouchEvent == null || !mHasFilteredTouchEvent) {
             // Log the metric if none of the previous touch events were filtered.
             ManualFillingMetricsRecorder.recordHasFilteredTouchEvents(true);
         }
-        mHasFilteredTouchEvent = Optional.of(true);
+        mHasFilteredTouchEvent = true;
     }
 
     /**
@@ -387,6 +444,11 @@ class KeyboardAccessoryMediator
 
     void setStyle(KeyboardAccessoryStyle style) {
         mModel.set(STYLE, style);
+        if (style.isDocked()) {
+            mModel.get(BAR_ITEMS).set(createGroupBarItem(mModel.get(BAR_ITEMS)));
+        } else {
+            mModel.get(BAR_ITEMS).set(ungroupBarItems(mModel.get(BAR_ITEMS)));
+        }
     }
 
     void setHasStickyLastItem(boolean hasStickyLastItem) {
@@ -439,6 +501,17 @@ class KeyboardAccessoryMediator
         return suggestion.getSuggestionType() == SuggestionType.ADDRESS_ENTRY;
     }
 
+    /**
+     * Width limiting is applied only to address suggestions.
+     *
+     * @param suggestionType the type of the displayed suggestion.
+     * @return whether the width of the suggestion is allowed to be limited.
+     */
+    private static boolean canLimitWidth(@SuggestionType int suggestionType) {
+        return FillingProductBridge.getFillingProductFromSuggestionType(suggestionType)
+                == FillingProduct.ADDRESS;
+    }
+
     private @StringRes int getCaptionId(@AccessoryAction int actionType) {
         switch (actionType) {
             case AccessoryAction.GENERATE_PASSWORD_AUTOMATIC:
@@ -471,6 +544,20 @@ class KeyboardAccessoryMediator
             }
         }
         return R.string.select_passkey;
+    }
+
+    private boolean showFloatingKeyboardAccessory() {
+        return mIsLargeFormFactorSupplier.get()
+                && ChromeFeatureList.isEnabled(
+                        ChromeFeatureList.AUTOFILL_ANDROID_DESKTOP_KEYBOARD_ACCESSORY_REVAMP);
+    }
+
+    private boolean shouldLimitSuggestionWidth() {
+        return !showFloatingKeyboardAccessory()
+                && ChromeFeatureList.isEnabled(
+                        ChromeFeatureList.AUTOFILL_ENABLE_KEYBOARD_ACCESSORY_CHIP_REDESIGN)
+                && ChromeFeatureList.isEnabled(
+                        ChromeFeatureList.AUTOFILL_ENABLE_KEYBOARD_ACCESSORY_CHIP_WIDTH_ADJUSTMENT);
     }
 
     void addObserver(KeyboardAccessoryVisualStateProvider.Observer observer) {

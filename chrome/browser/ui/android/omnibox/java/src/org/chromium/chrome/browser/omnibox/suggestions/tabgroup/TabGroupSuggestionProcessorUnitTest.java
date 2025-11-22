@@ -23,6 +23,7 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.ContextUtils;
+import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
@@ -47,7 +48,6 @@ import org.chromium.components.tab_groups.TabGroupColorPickerUtils;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.url.JUnitTestGURLs;
 
-import java.util.Optional;
 import java.util.function.Supplier;
 
 /** Tests for {@link TabGroupSuggestionProcessor}. */
@@ -84,11 +84,11 @@ public class TabGroupSuggestionProcessorUnitTest {
                         mContext,
                         mSuggestionHost,
                         mTextProvider,
-                        Optional.of(mImageSupplier),
+                        mImageSupplier,
                         mBookmarkState,
                         mTabSupplier,
                         mShareDelegateSupplier,
-                        () -> ControlsPosition.TOP);
+                        new ObservableSupplierImpl<>(ControlsPosition.TOP));
         mProcessor = new TabGroupSuggestionProcessor(uiContext);
         mInput = new AutocompleteInput();
         OmniboxResourceProvider.disableCachesForTesting();

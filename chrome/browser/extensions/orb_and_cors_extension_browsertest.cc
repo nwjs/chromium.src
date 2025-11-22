@@ -35,6 +35,7 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/embedder_support/switches.h"
 #include "components/metrics/content/subprocess_metrics_provider.h"
@@ -81,6 +82,10 @@
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "url/gurl.h"
 #include "url/origin.h"
+
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/apps/app_service/chrome_app_deprecation/chrome_app_deprecation.h"
+#endif
 
 namespace extensions {
 
@@ -986,12 +991,12 @@ IN_PROC_BROWSER_TEST_F(
       extension->id(), active_web_contents()->GetBrowserContext()));
 
   // Gather the test URLs.
-  GURL page_url = ui_test_utils::GetTestUrl(
+  GURL page_url = chrome_test_utils::GetTestUrl(
       base::FilePath(), base::FilePath(FILE_PATH_LITERAL("title1.html")));
-  GURL same_dir_resource = ui_test_utils::GetTestUrl(
+  GURL same_dir_resource = chrome_test_utils::GetTestUrl(
       base::FilePath(), base::FilePath(FILE_PATH_LITERAL("title2.html")));
-  ASSERT_EQ(url::kFileScheme, page_url.scheme());
-  ASSERT_EQ(url::kFileScheme, same_dir_resource.scheme());
+  ASSERT_EQ(url::kFileScheme, page_url.GetScheme());
+  ASSERT_EQ(url::kFileScheme, same_dir_resource.GetScheme());
 
   // Navigate to a file:// test page.
   ASSERT_TRUE(NavigateToURL(active_web_contents(), page_url));
@@ -2240,6 +2245,11 @@ IN_PROC_BROWSER_TEST_F(OrbAndCorsAppBrowserTest, WebViewContentScript) {
   dir.WriteFile(FILE_PATH_LITERAL("page.html"), kPage);
   const Extension* app = LoadExtension(dir.UnpackedPath());
   ASSERT_TRUE(app);
+
+#if BUILDFLAG(IS_CHROMEOS)
+  apps::chrome_app_deprecation::ScopedAddAppToAllowlistForTesting allowlist(
+      app->id());
+#endif
 
   // Launch the test app and grab its WebContents.
   content::WebContents* app_contents = nullptr;

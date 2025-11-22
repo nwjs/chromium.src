@@ -101,7 +101,14 @@ public class EducationalTipCardProviderSignalHandler {
      * function returns 0.0f.
      */
     private static float hasDefaultBrowserPromoShownInOtherSurface(Tracker tracker) {
-        return tracker.wouldTriggerHelpUi(FeatureConstants.DEFAULT_BROWSER_PROMO_MAGIC_STACK)
+        if (tracker.isInitialized()) {
+            return tracker.wouldTriggerHelpUi(FeatureConstants.DEFAULT_BROWSER_PROMO_MAGIC_STACK)
+                    ? 0.0f
+                    : 1.0f;
+        }
+
+        return EducationalTipModuleUtils
+                        .getDefaultBrowserPromoAllowDisplayForRelaunchFromSharedPreference()
                 ? 0.0f
                 : 1.0f;
     }
@@ -170,7 +177,7 @@ public class EducationalTipCardProviderSignalHandler {
         if (assumeNonNull(IdentityServicesProvider.get().getIdentityManager(profile))
                 .hasPrimaryAccount(ConsentLevel.SIGNIN)) {
             HistorySyncHelper helper = HistorySyncHelper.getForProfile(profile);
-            return helper.shouldSuppressHistorySync() || helper.isDeclinedOften() ? 0.0f : 1.0f;
+            return !helper.shouldDisplayHistorySync() || helper.isDeclinedOften() ? 0.0f : 1.0f;
         }
 
         return 0.0f;

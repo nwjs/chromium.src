@@ -18,7 +18,7 @@ import {createAutocompleteMatch, SearchboxBrowserProxy} from './searchbox_browse
 import type {SearchboxIconElement} from './searchbox_icon.js';
 import {getCss} from './searchbox_match.css.js';
 import {getHtml} from './searchbox_match.html.js';
-import {decodeString16, mojoTimeTicks} from './utils.js';
+import {mojoTimeTicks} from './utils.js';
 
 
 
@@ -37,6 +37,13 @@ enum AcMatchClassificationStyle {
 // clang-format on
 
 const ENTITY_MATCH_TYPE: string = 'search-suggest-entity';
+
+// Represents the initial selection when a match is created or reset.
+const defaultSelection: OmniboxPopupSelection = {
+  line: -1,
+  state: SelectionLineState.kNormal,
+  actionIndex: 0,
+};
 
 type ActionEvent = CustomEvent<{
   event: PointerEvent | KeyboardEvent,
@@ -177,11 +184,7 @@ export class SearchboxMatchElement extends CrLitElement {
   accessor isEntitySuggestion: boolean = false;
   accessor isRichSuggestion: boolean = false;
   accessor match: AutocompleteMatch = createAutocompleteMatch();
-  accessor selection: OmniboxPopupSelection = {
-    line: -1,
-    state: SelectionLineState.kNormal,
-    actionIndex: 0,
-  };
+  accessor selection: OmniboxPopupSelection = defaultSelection;
   accessor matchIndex: number = -1;
   accessor sideType: SideType = SideType.kDefaultPrimary;
   accessor showThumbnail: boolean = false;
@@ -232,6 +235,7 @@ export class SearchboxMatchElement extends CrLitElement {
       this.removeButtonAriaLabel_ = this.computeRemoveButtonAriaLabel_();
       this.separatorText_ = this.computeSeparatorText_();
       this.tailSuggestPrefix_ = this.computeTailSuggestPrefix_();
+      this.selection = defaultSelection;
     }
 
     const changedPrivateProperties =
@@ -284,7 +288,13 @@ export class SearchboxMatchElement extends CrLitElement {
         /* are_matches_showing */ true, e.button || 0, e.altKey, e.ctrlKey,
         e.metaKey, e.shiftKey);
 
-    this.fire('match-click');
+    // Duplicates the logic in `ui::DispositionFromClick()`.
+    const backgroundTab = (e.metaKey || e.ctrlKey) && e.shiftKey;
+    // 'match-click' event is used to close the dropdown. Don't do so when
+    // opening a background tab so users can open multiple matches.
+    if (!backgroundTab) {
+      this.fire('match-click');
+    }
   }
 
   private onMatchFocusin_() {
@@ -322,7 +332,7 @@ export class SearchboxMatchElement extends CrLitElement {
     if (!this.match) {
       return '';
     }
-    return decodeString16(this.match.a11yLabel);
+    return this.match.a11yLabel;
   }
 
   private sanitizeInnerHtml_(html: string): TrustedHTML {
@@ -388,7 +398,7 @@ export class SearchboxMatchElement extends CrLitElement {
     if (!this.match) {
       return '';
     }
-    return decodeString16(this.match.removeButtonA11yLabel);
+    return this.match.removeButtonA11yLabel;
   }
 
   private computeSeparatorText_(): string {
@@ -401,7 +411,7 @@ export class SearchboxMatchElement extends CrLitElement {
     if (!this.match || !this.match.tailSuggestCommonPrefix) {
       return '';
     }
-    const prefix = decodeString16(this.match.tailSuggestCommonPrefix);
+    const prefix = this.match.tailSuggestCommonPrefix;
     // Replace last space with non breaking space since spans collapse
     // trailing white spaces and the prefix always ends with a white space.
     if (prefix.slice(-1) === ' ') {
@@ -477,8 +487,7 @@ export class SearchboxMatchElement extends CrLitElement {
     const matchDescription =
         match.answer ? match.answer.secondLine : match.description;
 
-    return decodeString16(
-        match.swapContentsAndDescription ? matchDescription : matchContents);
+    return match.swapContentsAndDescription ? matchDescription : matchContents;
   }
 
   private getMatchDescription_(): string {
@@ -492,8 +501,7 @@ export class SearchboxMatchElement extends CrLitElement {
     const matchDescription =
         match.answer ? match.answer.secondLine : match.description;
 
-    return decodeString16(
-        match.swapContentsAndDescription ? matchContents : matchDescription);
+    return match.swapContentsAndDescription ? matchContents : matchDescription;
   }
 
   private getMatchContentsClassifications_(): ACMatchClassification[] {

@@ -28,6 +28,8 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_metrics.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_action_context_desktop.h"
 #include "chrome/browser/ui/tabs/tab_group_deletion_dialog_controller.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
@@ -441,14 +443,18 @@ content::NavigationHandle* SavedTabGroupUtils::OpenTabInBrowser(
 // static
 Browser* SavedTabGroupUtils::GetBrowserWithTabGroupId(
     tab_groups::TabGroupId group_id) {
-  for (Browser* browser : *BrowserList::GetInstance()) {
-    const TabStripModel* const tab_strip_model = browser->tab_strip_model();
-    if (tab_strip_model && tab_strip_model->SupportsTabGroups() &&
-        tab_strip_model->group_model()->ContainsTabGroup(group_id)) {
-      return browser;
-    }
-  }
-  return nullptr;
+  Browser* result = nullptr;
+  ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+      [group_id, &result](BrowserWindowInterface* browser) {
+        const TabStripModel* const tab_strip_model =
+            browser->GetTabStripModel();
+        if (tab_strip_model && tab_strip_model->SupportsTabGroups() &&
+            tab_strip_model->group_model()->ContainsTabGroup(group_id)) {
+          result = browser->GetBrowserForMigrationOnly();
+        }
+        return !result;
+      });
+  return result;
 }
 
 // static
@@ -776,6 +782,73 @@ tabs::TabInterface* SavedTabGroupUtils::GetGroupedTab(LocalTabGroupID group_id,
   }
 
   return nullptr;
+}
+
+void SavedTabGroupUtils::PerformTabGroupMenuAction(
+    const TabGroupMenuAction& action,
+    Browser* browser,
+    TabGroupSyncService* tab_group_service) {
+  auto type = action.type;
+  if (type == TabGroupMenuAction::Type::OPEN_URL) {
+    SavedTabGroupUtils::OpenUrlInNewUngroupedTab(
+        browser, std::get<GURL>(action.element));
+    return;
+  }
+
+  auto uuid = std::get<base::Uuid>(action.element);
+  switch (type) {
+    case TabGroupMenuAction::Type::OPEN_IN_BROWSER: {
+      base::RecordAction(base::UserMetricsAction(
+          "TabGroups_SavedTabGroups_OpenedFromTabGroupsAppMenu"));
+
+      bool will_open_shared_group = false;
+      if (std::optional<tab_groups::SavedTabGroup> saved_group =
+              tab_group_service->GetGroup(uuid)) {
+        will_open_shared_group = !saved_group->local_group_id().has_value() &&
+                                 saved_group->is_shared_tab_group();
+      }
+
+      tab_group_service->OpenTabGroup(
+          uuid, std::make_unique<TabGroupActionContextDesktop>(
+                    browser, OpeningSource::kOpenedFromRevisitUi));
+
+      if (will_open_shared_group) {
+        saved_tab_groups::metrics::RecordSharedTabGroupRecallType(
+            saved_tab_groups::metrics::SharedTabGroupRecallTypeDesktop::
+                kOpenedFromSubmenu);
+      }
+      break;
+    }
+    case TabGroupMenuAction::Type::OPEN_OR_MOVE_TO_NEW_WINDOW:
+      base::RecordAction(base::UserMetricsAction(
+          "TabGroups_SavedTabGroups_MoveGroupToNewWindow"));
+      SavedTabGroupUtils::OpenOrMoveSavedGroupToNewWindow(browser, uuid);
+      break;
+    case TabGroupMenuAction::Type::PIN_OR_UNPIN_GROUP:
+
+      if (std::optional<tab_groups::SavedTabGroup> group =
+              tab_group_service->GetGroup(uuid)) {
+        if (group->is_pinned()) {
+          base::RecordAction(
+              base::UserMetricsAction("TabGroups_SavedTabGroups_Unpinned"));
+        } else {
+          base::RecordAction(
+              base::UserMetricsAction("TabGroups_SavedTabGroups_Pinned"));
+        }
+      }
+
+      SavedTabGroupUtils::ToggleGroupPinState(browser, uuid);
+      break;
+    case TabGroupMenuAction::Type::DELETE_GROUP:
+      SavedTabGroupUtils::DeleteSavedGroup(browser, uuid);
+      break;
+    case TabGroupMenuAction::Type::LEAVE_GROUP:
+      SavedTabGroupUtils::LeaveSharedGroup(browser, uuid);
+      break;
+    case TabGroupMenuAction::Type::OPEN_URL:
+    case TabGroupMenuAction::Type::DEFAULT:
+      break;
+  }
 }
 
 }  // namespace tab_groups

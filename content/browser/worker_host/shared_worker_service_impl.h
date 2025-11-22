@@ -105,6 +105,11 @@ class CONTENT_EXPORT SharedWorkerServiceImpl : public SharedWorkerService {
 
   StoragePartitionImpl* storage_partition() { return storage_partition_; }
 
+  // For all connected workers with `render_frame_host`, evicts other BFCached
+  // clients and returns true if this frame is the last active client for any of
+  // them.
+  bool EvictBFCachedClientsIfLastActive(RenderFrameHostImpl* render_frame_host);
+
  private:
   friend class SharedWorkerHostTest;
   friend class SharedWorkerServiceImplTest;

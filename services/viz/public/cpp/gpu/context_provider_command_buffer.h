@@ -14,6 +14,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/shared_memory_mapper.h"
 #include "base/observer_list.h"
+#include "base/sequence_checker.h"
 #include "base/synchronization/lock.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
@@ -126,7 +127,6 @@ class ContextProviderCommandBuffer
   gpu::gles2::GLES2Interface* ContextGL() override;
   gpu::raster::RasterInterface* RasterInterface() override;
   gpu::ContextSupport* ContextSupport() override;
-  class GrDirectContext* GrContext() override;
   gpu::SharedImageInterface* SharedImageInterface() override;
   ContextCacheController* CacheController() override;
   base::Lock* GetLock() override;
@@ -134,7 +134,6 @@ class ContextProviderCommandBuffer
   const gpu::GpuFeatureInfo& GetGpuFeatureInfo() const override;
   void AddObserver(ContextLostObserver* obs) override;
   void RemoveObserver(ContextLostObserver* obs) override;
-  unsigned int GetGrGLTextureFormat(SharedImageFormat format) const override;
 
   gpu::webgpu::WebGPUInterface* WebGPUInterface();
 

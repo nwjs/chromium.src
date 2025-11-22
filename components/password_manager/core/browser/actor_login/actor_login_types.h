@@ -12,6 +12,7 @@
 #include "base/types/expected.h"
 #include "base/types/id_type.h"
 #include "base/types/strong_alias.h"
+#include "components/optimization_guide/proto/features/actor_login.pb.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -67,6 +68,10 @@ struct Credential {
   // on the provided Tab.
   bool immediatelyAvailableToLogin = false;
 
+  // Whether the user has granted persistent permission for this credential to
+  // be used on `request_origin`.
+  bool has_persistent_permission = false;
+
 #if defined(UNIT_TEST)
   // An exact equality comparison of all the fields is only useful for tests.
   friend bool operator==(const Credential&, const Credential&) = default;
@@ -79,6 +84,8 @@ enum ActorLoginError {
   // The provided `TabInterface` was invalid (e.g. no associated `WebContents`
   // was loaded, or tab is no longer present)
   kInvalidTabInterface,
+  // Filling is disallowed (e.g. because of a policy)
+  kFillingNotAllowed,
   // There was an error of unknown type.
   kUnknown,
 };
@@ -104,14 +111,57 @@ enum class LoginStatusResult {
   kErrorInvalidCredential,
   // Neither the username, nor the password field could be filled.
   kErrorNoFillableFields,
-  // Filling is disallowed (e.g. because of a policy).
-  kErrorFillingNotAllowed,
+  // Returned if the task is in a background tab and filling requires device
+  // reauth. The user needs to focus that tab first.
+  kErrorDeviceReauthRequired,
+  // Returned if the device re-authentication fails.
+  kErrorDeviceReauthFailed,
 };
 
 using LoginStatusResultOrError =
     base::expected<LoginStatusResult, ActorLoginError>;
 using LoginStatusResultOrErrorReply =
     base::OnceCallback<void(LoginStatusResultOrError)>;
+
+// C++ enum copy of `GetCredentialsOutcome` in `actor_login.proto`.
+enum class GetCredentialsOutcomeMqls {
+  kUnspecified,
+  kNoCredentials,
+  kSignInFormExists,
+  kNoSignInForm,
+  kFillingNotAllowed,
+};
+
+optimization_guide::proto::
+    ActorLoginQuality_GetCredentialsDetails_GetCredentialsOutcome
+    OutcomeEnumToProtoType(GetCredentialsOutcomeMqls outcome);
+
+enum class PermissionDetailsMqls {
+  kUnknown,
+  kHasPermanentPermission,
+  kNoPermanentPermission,
+};
+
+optimization_guide::proto::
+    ActorLoginQuality_GetCredentialsDetails_PermissionDetails
+    PermissionEnumToProtoType(PermissionDetailsMqls permission);
+
+// C++ enum copy of `AttemptLoginOutcome` in `actor_login.proto`.
+enum class AttemptLoginOutcomeMqls {
+  kUnspecified,
+  kSuccess,
+  kNoSignInForm,
+  kInvalidCredential,
+  kNoFillableFields,
+  kDisallowedOrigin,
+  kReauthRequired,
+  kReauthFailed,
+
+};
+
+optimization_guide::proto::
+    ActorLoginQuality_AttemptLoginDetails_AttemptLoginOutcome
+    OutcomeEnumToProtoType(AttemptLoginOutcomeMqls outcome);
 
 }  // namespace actor_login
 

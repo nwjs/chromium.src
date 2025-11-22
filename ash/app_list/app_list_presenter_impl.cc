@@ -30,7 +30,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
-#include "chromeos/ash/services/assistant/public/cpp/assistant_enums.h"
 #include "ui/aura/client/focus_client.h"
 #include "ui/aura/window.h"
 #include "ui/compositor/animation_throughput_reporter.h"
@@ -230,15 +229,6 @@ void AppListPresenterImpl::Show(AppListViewState preferred_state,
 
   std::unique_ptr<AppListView::ScopedAccessibilityAnnouncementLock>
       scoped_accessibility_lock;
-
-  // App list view state accessibility alerts should be suppressed when the app
-  // list view is shown by the assistant. The assistant UI should handle its
-  // own accessibility notifications.
-  if (show_source && *show_source == AppListShowSource::kAssistantEntryPoint) {
-    scoped_accessibility_lock =
-        std::make_unique<AppListView::ScopedAccessibilityAnnouncementLock>(
-            view_);
-  }
 
   auto* layer = view_->GetWidget()->GetNativeWindow()->layer();
 

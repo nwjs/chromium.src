@@ -62,10 +62,6 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kWaitForLateScrollEvents);
 CC_BASE_EXPORT extern const base::FeatureParam<double>
     kWaitForLateScrollEventsDeadlineRatio;
 
-// When enabled we stop always pushing PictureLayerImpl properties on
-// tree Activation. See crbug.com/40335690.
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(kDontAlwaysPushPictureLayerImpls);
-
 // When enabled, image quality settings will be preserved in the discardable
 // image map.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kPreserveDiscardableImageMapQuality);
@@ -226,6 +222,9 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kSlimDirectReceiverIpc);
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(
     kOverscrollBehaviorRespectedOnAllScrollContainers);
 
+// When enabled, the overscroll effect will display on non-root scrollers.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kOverscrollEffectOnNonRootScrollers);
+
 // A kill switch in case skipping finish causes unexpected issues.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kSkipFinishDuringReleaseLayerTreeFrameSink);
 
@@ -251,6 +250,18 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kEmitPerScrollJankV4MetricAtEndOfScroll);
 // When enabled, AsyncLayerTreeFrameSink will generate its own BeginFrameArgs
 // when auto_needs_begin_frame_ is enabled.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kManualBeginFrame);
+
+// Controls when `LayerTreeHostImpl::DidNotProduceFrame()` drops saved event
+// metrics.
+//
+// When disabled, `LayerTreeHostImpl::DidNotProduceFrame()` ALWAYS drops saved
+// event metrics (regardless of the reason why the frame wasn't produced).
+//
+// When enabled, `LayerTreeHostImpl::DidNotProduceFrame()` only drops saved
+// event metrics if the frame wasn't produced due to NO DAMAGE. In all other
+// cases, it preserves the saved event metrics.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(
+    kDropMetricsFromNonProducedFramesOnlyIfTheyHadNoDamage);
 
 }  // namespace features
 

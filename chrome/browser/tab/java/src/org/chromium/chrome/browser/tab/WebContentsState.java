@@ -9,10 +9,14 @@ import androidx.annotation.VisibleForTesting;
 import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
+import org.chromium.base.lifetime.Destroyable;
+import org.chromium.base.lifetime.LifetimeAssert;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.content_public.common.Referrer;
 import org.chromium.url.Origin;
 
 import java.nio.ByteBuffer;
@@ -39,7 +43,9 @@ public class WebContentsState {
     private static @Nullable WebContentsState sEmptyWebContentsState;
 
     /** A packed (pickle) representation of the navigation entries for a {@link WebContents}. */
-    private static class PackedData {
+    private static class PackedData implements Destroyable {
+        private final @Nullable LifetimeAssert mLifetimeAssert = LifetimeAssert.create(this);
+
         /**
          * mBuffer should not be modified once it is set. Also, it is required to be a "direct"
          * buffer which is allocated outside the JVM heap, so that it can be accessed via the JNI
@@ -47,17 +53,32 @@ public class WebContentsState {
          * ByteBuffer.allocateDirect() or similar.
          */
         private final ByteBuffer mBuffer;
-
         private final int mVersion;
+        private final boolean mLastEntryWasPending;
+        private long mNativeStringPointer;
 
         /**
          * @param buffer The buffer for the WebContentsState.
          * @param version The version of the WebContentsState.
+         * @param nativeStringPointer The native string pointer for the buffer, may be 0 if the
+         *     buffer is allocated in Java.
+         * @param lastEntryWasPending Whether the last entry in the WebContentsState was for a
+         *     pending load.
          */
-        public PackedData(ByteBuffer buffer, int version) {
+        public PackedData(
+                ByteBuffer buffer,
+                int version,
+                boolean lastEntryWasPending,
+                long nativeStringPointer) {
             assert buffer.isDirect();
             mBuffer = buffer;
             mVersion = version;
+            mLastEntryWasPending = lastEntryWasPending;
+            mNativeStringPointer = nativeStringPointer;
+            // There is no need to assert here as the buffer is allocated in Java.
+            if (mNativeStringPointer == 0) {
+                LifetimeAssert.setSafeToGc(mLifetimeAssert, true);
+            }
         }
 
         /** Returns the buffer for the WebContentsState. */
@@ -69,10 +90,24 @@ public class WebContentsState {
         public int version() {
             return mVersion;
         }
+
+        /** Returns whether the last entry in the WebContentsState was a pending load. */
+        public boolean lastEntryWasPending() {
+            return mLastEntryWasPending;
+        }
+
+        /** Destroys the native string pointer. */
+        @Override
+        public void destroy() {
+            if (mNativeStringPointer != 0) {
+                WebContentsStateJni.get().freeStringPointer(mNativeStringPointer);
+                mNativeStringPointer = 0;
+                LifetimeAssert.destroy(mLifetimeAssert);
+            }
+        }
     }
 
-    // TODO(crbug.com/447345580): Allow this to swap with an unpacked representation.
-    private final PackedData mPackedData;
+    private PackedData mPackedData;
 
     private @Nullable String mFallbackUrlForRestorationFailure;
 
@@ -86,7 +121,7 @@ public class WebContentsState {
     public static @Nullable WebContentsState getWebContentsStateFromWebContents(
             WebContents webContents) {
         ByteBuffer buffer = WebContentsStateJni.get().getContentsStateAsByteBuffer(webContents);
-        return newWebContentsStateFromByteBuffer(buffer);
+        return maybeCreateNewWebContentsState(buffer);
     }
 
     /**
@@ -94,24 +129,23 @@ public class WebContentsState {
      *
      * @param profile The profile used for the tab.
      * @param title The title to display.
-     * @param url URL that is pending.
-     * @param referrerUrl URL for the referrer.
-     * @param referrerPolicy Policy for the referrer.
-     * @param initiatorOrigin Initiator of the navigation.
+     * @param loadUrlParams The load url params to use.
      * @return ByteBuffer that represents a state representing a single pending URL.
      */
     public static @Nullable WebContentsState createSingleNavigationWebContentsState(
-            Profile profile,
-            @Nullable String title,
-            String url,
-            @Nullable String referrerUrl,
-            int referrerPolicy,
-            @Nullable Origin initiatorOrigin) {
+            Profile profile, @Nullable String title, LoadUrlParams loadUrlParams) {
+        Referrer referrer = loadUrlParams.getReferrer();
+        String url = loadUrlParams.getUrl();
+        String referrerUrl = referrer != null ? referrer.getUrl() : null;
+        // Policy will be ignored for null referrer url, 0 is just a placeholder.
+        int referrerPolicy = referrer != null ? referrer.getPolicy() : 0;
+        Origin initiatorOrigin = loadUrlParams.getInitiatorOrigin();
+
         ByteBuffer buffer =
                 WebContentsStateJni.get()
                         .createSingleNavigationStateAsByteBuffer(
                                 profile, title, url, referrerUrl, referrerPolicy, initiatorOrigin);
-        return newWebContentsStateFromByteBuffer(buffer);
+        return maybeCreateNewWebContentsState(buffer);
     }
 
     /** Returns a singleton empty {@link WebContentsState}. */
@@ -128,7 +162,29 @@ public class WebContentsState {
      * @param version The version of the {@link WebContentsState}.
      */
     public WebContentsState(ByteBuffer buffer, int version) {
-        mPackedData = new PackedData(buffer, version);
+        mPackedData =
+                new PackedData(
+                        buffer,
+                        version,
+                        /* lastEntryWasPending= */ false,
+                        /* nativeStringPointer= */ 0);
+    }
+
+    /**
+     * @param buffer The buffer to use for the {@link WebContentsState}.
+     * @param version The version of the {@link WebContentsState}.
+     * @param nativeStringPointer The native string pointer for the buffer, may be 0 if the buffer
+     *     is allocated in Java.
+     */
+    public WebContentsState(ByteBuffer buffer, int version, long nativeStringPointer) {
+        mPackedData =
+                new PackedData(
+                        buffer, version, /* lastEntryWasPending= */ false, nativeStringPointer);
+    }
+
+    /** Destroys the {@link WebContentsState}. */
+    public void destroy() {
+        mPackedData.destroy();
     }
 
     /** Returns the buffer for the {@link WebContentsState}. */
@@ -194,12 +250,12 @@ public class WebContentsState {
      *
      * @param predicate Handle for a deletion predicate interpreted by native code. Only valid
      *     during this call frame.
-     * @return A new {@link WebContentsState} or null if nothing changed.
+     * @return Whether any deletions happened.
      */
-    public @Nullable WebContentsState deleteNavigationEntries(long predicate) {
+    public boolean deleteNavigationEntries(long predicate) {
         ByteBuffer newBuffer =
                 WebContentsStateJni.get().deleteNavigationEntries(buffer(), version(), predicate);
-        return newWebContentsStateFromByteBuffer(newBuffer);
+        return maybeSwapPackedData(newBuffer, mPackedData.lastEntryWasPending());
     }
 
     /**
@@ -207,37 +263,53 @@ public class WebContentsState {
      *
      * @param profile The profile used for the tab.
      * @param title The title to display.
-     * @param url URL that is pending.
-     * @param referrerUrl URL for the referrer.
-     * @param referrerPolicy Policy for the referrer.
-     * @param initiatorOrigin Initiator of the navigation.
-     * @return A new {@link WebContentsState} with the pending navigation attached.
+     * @param loadUrlParams The load url params to use.
+     * @param trackLastEntryWasPending Whether to track whether if the last entry was pending load.
+     * @return Whether the operation was successful.
      */
-    public @Nullable WebContentsState appendPendingNavigation(
+    public boolean appendPendingNavigation(
             Profile profile,
             @Nullable String title,
-            String url,
-            @Nullable String referrerUrl,
-            int referrerPolicy,
-            @Nullable Origin initiatorOrigin) {
+            LoadUrlParams loadUrlParams,
+            boolean trackLastEntryWasPending) {
+        Referrer referrer = loadUrlParams.getReferrer();
+        String url = loadUrlParams.getUrl();
+        String referrerUrl = referrer != null ? referrer.getUrl() : null;
+        // Policy will be ignored for null referrer url, 0 is just a placeholder.
+        int referrerPolicy = referrer != null ? referrer.getPolicy() : 0;
+        Origin initiatorOrigin = loadUrlParams.getInitiatorOrigin();
+
         ByteBuffer buffer =
                 WebContentsStateJni.get()
                         .appendPendingNavigation(
                                 profile,
                                 buffer(),
                                 version(),
+                                mPackedData.lastEntryWasPending() && trackLastEntryWasPending,
                                 title,
                                 url,
                                 referrerUrl,
                                 referrerPolicy,
                                 initiatorOrigin);
-        return newWebContentsStateFromByteBuffer(buffer);
+        return maybeSwapPackedData(buffer, /* lastEntryWasPending= */ trackLastEntryWasPending);
     }
 
-    private static @Nullable WebContentsState newWebContentsStateFromByteBuffer(
+    private boolean maybeSwapPackedData(@Nullable ByteBuffer buffer, boolean lastEntryWasPending) {
+        if (buffer == null) return false;
+        mPackedData.destroy();
+        mPackedData =
+                new PackedData(
+                        buffer,
+                        CONTENTS_STATE_CURRENT_VERSION,
+                        lastEntryWasPending,
+                        /* nativeStringPointer= */ 0);
+        return true;
+    }
+
+    private static @Nullable WebContentsState maybeCreateNewWebContentsState(
             @Nullable ByteBuffer buffer) {
         if (buffer == null) return null;
-        return new WebContentsState(buffer, WebContentsState.CONTENTS_STATE_CURRENT_VERSION);
+        return new WebContentsState(buffer, CONTENTS_STATE_CURRENT_VERSION);
     }
 
     @NativeMethods
@@ -267,6 +339,7 @@ public class WebContentsState {
                 @JniType("Profile*") Profile profile,
                 ByteBuffer buffer,
                 int savedStateVersion,
+                boolean clobberCurrentEntry,
                 @JniType("std::optional<std::u16string>") @Nullable String title,
                 @JniType("std::string") String url,
                 @JniType("std::optional<std::string>") @Nullable String referrerUrl,
@@ -278,5 +351,7 @@ public class WebContentsState {
 
         @JniType("std::optional<std::string>")
         @Nullable String getVirtualUrlFromByteBuffer(ByteBuffer state, int savedStateVersion);
+
+        void freeStringPointer(long stringPointer);
     }
 }

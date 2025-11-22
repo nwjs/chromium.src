@@ -571,12 +571,6 @@ void DevToolsWindow::RegisterProfilePrefs(
   registry->RegisterIntegerPref(
       prefs::kDevToolsGoogleDeveloperProgramProfileAvailability,
       /* enabled */ 0);
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN) || \
-    BUILDFLAG(IS_MAC)
-  registry->RegisterListPref(prefs::kDeveloperToolsAvailabilityAllowlist);
-  registry->RegisterListPref(prefs::kDeveloperToolsAvailabilityBlocklist);
-#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 }
 
 // static
@@ -1517,7 +1511,7 @@ void DevToolsWindow::WebContentsCreated(WebContents* source_contents,
                                         WebContents* new_contents,
                                         const std::u16string& nw_window_manifest) {
   if (target_url.SchemeIs(content::kChromeDevToolsScheme) &&
-      target_url.path().rfind("device_mode_emulation_frame.html") !=
+      target_url.GetPath().rfind("device_mode_emulation_frame.html") !=
           std::string::npos) {
     CHECK(can_dock_);
 

@@ -108,13 +108,15 @@ template("private_code_test") {
       rebase_path(get_label_info(_linker_inputs_dep, "root_out_dir"),
                   root_build_dir),
     ]
+    _globs = _default_allowed_violations
     if (defined(invoker.allowed_violations)) {
-      foreach(_glob, invoker.allowed_violations) {
-        args += [
-          "--allow-violation",
-          _glob,
-        ]
-      }
+      _globs += invoker.allowed_violations
+    }
+    foreach(_glob, _globs) {
+      args += [
+        "--allow-violation",
+        _glob,
+      ]
     }
     if (defined(invoker.expect_failure) && invoker.expect_failure) {
       args += [ "--expect-failure" ]

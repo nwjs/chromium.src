@@ -67,7 +67,6 @@ import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.PowerBookmarkUtils;
 import org.chromium.chrome.browser.commerce.ShoppingServiceFactory;
 import org.chromium.chrome.browser.device.DeviceConditions;
-import org.chromium.chrome.browser.device.ShadowDeviceConditions;
 import org.chromium.chrome.browser.enterprise.util.ManagedBrowserUtils;
 import org.chromium.chrome.browser.enterprise.util.ManagedBrowserUtilsJni;
 import org.chromium.chrome.browser.feed.FeedFeatures;
@@ -312,7 +311,6 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         FeedServiceBridgeJni.setInstanceForTesting(mFeedServiceBridgeJniMock);
         when(mSyncService.getAuthError())
                 .thenReturn(new GoogleServiceAuthError(GoogleServiceAuthErrorState.NONE));
-        when(mSyncService.hasUnrecoverableError()).thenReturn(false);
         when(mSyncService.isEngineInitialized()).thenReturn(true);
         when(mSyncService.isPassphraseRequiredForPreferredDataTypes()).thenReturn(false);
         when(mSyncService.isTrustedVaultKeyRequiredForPreferredDataTypes()).thenReturn(false);
@@ -497,6 +495,22 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                                                 .getDisplayMetrics()
                                                 .density));
         assertFalse(mTabbedAppMenuPropertiesDelegate.shouldShowIconRow());
+    }
+
+    @Test
+    @Config(qualifiers = "sw600dp")
+    @EnableFeatures(ChromeFeatureList.TOOLBAR_TABLET_RESIZE_REFACTOR)
+    public void testShouldShowIconRow_Tablet_MissingToolbarComponents() {
+        doReturn(true).when(mToolbarManager).areAnyToolbarComponentsMissingForWidth(any());
+        when(mDecorView.getWidth())
+                .thenReturn(
+                        (int)
+                                (600
+                                        * ContextUtils.getApplicationContext()
+                                                .getResources()
+                                                .getDisplayMetrics()
+                                                .density));
+        assertTrue(mTabbedAppMenuPropertiesDelegate.shouldShowIconRow());
     }
 
     @Test
@@ -696,7 +710,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         testPageMenuItems_RegularPage(/* shouldShowNewIncognitoTab= */ false);
     }
 
-    private void testPageMenuItems_IncognitoPage(boolean shouldShowNewTab) {
+    private void testPageMenuItems_IncognitoPage(boolean isIncognitoWindow) {
         setUpMocksForPageMenu();
         when(mTab.isIncognito()).thenReturn(true);
         when(mTabModelSelector.getCurrentModel()).thenReturn(mIncognitoTabModel);
@@ -711,7 +725,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         expectedItems.add(R.id.icon_row_menu_id);
         expectedTitles.add(0);
 
-        if (shouldShowNewTab) {
+        if (!isIncognitoWindow) {
             expectedItems.add(R.id.new_tab_menu_id);
             expectedTitles.add(R.string.menu_new_tab);
         }
@@ -724,8 +738,10 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         expectedTitles.add(R.string.menu_pin_tab);
         expectedItems.add(R.id.divider_line_id);
         expectedTitles.add(0);
-        expectedItems.add(R.id.open_history_menu_id);
-        expectedTitles.add(R.string.menu_history);
+        if (!isIncognitoWindow) {
+            expectedItems.add(R.id.open_history_menu_id);
+            expectedTitles.add(R.string.menu_history);
+        }
         expectedItems.add(R.id.downloads_menu_id);
         expectedTitles.add(R.string.menu_downloads);
         expectedItems.add(R.id.all_bookmarks_menu_id);
@@ -772,7 +788,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @DisableFeatures({ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW})
     @EnableFeatures(ChromeFeatureList.ANDROID_PINNED_TABS)
     public void testPageMenuItems_Phone_IncognitoPage() {
-        testPageMenuItems_IncognitoPage(/* shouldShowNewTab= */ true);
+        testPageMenuItems_IncognitoPage(/* isIncognitoWindow= */ false);
     }
 
     @Test
@@ -782,7 +798,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW
     })
     public void testPageMenuItems_Phone_IncognitoPage_incognitoWindowEnabled() {
-        testPageMenuItems_IncognitoPage(/* shouldShowNewTab= */ false);
+        testPageMenuItems_IncognitoPage(/* isIncognitoWindow= */ true);
     }
 
     @Test
@@ -1281,7 +1297,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         // Setup no wifi condition, and "only on wifi" user option.
         DeviceConditions noWifi =
                 new DeviceConditions(false, 75, ConnectionType.CONNECTION_2G, false, false, true);
-        ShadowDeviceConditions.setCurrentConditions(noWifi);
+        DeviceConditions.setForTesting(noWifi);
         when(mPrefService.getBoolean(Pref.ACCESSIBILITY_IMAGE_LABELS_ONLY_ON_WIFI))
                 .thenReturn(true);
 

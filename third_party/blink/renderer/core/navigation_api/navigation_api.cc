@@ -43,6 +43,7 @@
 #include "third_party/blink/renderer/core/navigation_api/navigation_history_entry.h"
 #include "third_party/blink/renderer/core/navigation_api/navigation_transition.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/route_matching/route_map.h"
 #include "third_party/blink/renderer/core/timing/soft_navigation_heuristics.h"
 #include "third_party/blink/renderer/platform/bindings/exception_context.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
@@ -303,6 +304,10 @@ void NavigationApi::UpdateForNavigation(HistoryItem& item,
 
   for (const auto& disposed_entry : disposed_entries) {
     disposed_entry->DispatchEvent(*Event::Create(event_type_names::kDispose));
+  }
+
+  if (auto* routemap = RouteMap::Get(window_->document())) {
+    routemap->OnNavigationStart(old_current->url(), currentEntry()->url());
   }
 }
 
@@ -978,6 +983,9 @@ void NavigationApi::DidFailOngoingNavigation(ScriptValue value) {
       ErrorEvent::Create(ToCoreStringWithNullCheck(isolate, message->Get()),
                          location, value, &DOMWrapperWorld::MainWorld(isolate));
   event->SetType(event_type_names::kNavigateerror);
+  if (auto* routemap = RouteMap::Get(window_->document())) {
+    routemap->OnNavigationDone();
+  }
   DispatchEvent(*event);
 
   if (transition_) {
@@ -992,6 +1000,9 @@ void NavigationApi::DidFinishOngoingNavigation() {
     ongoing_api_method_tracker_ = nullptr;
   }
 
+  if (auto* routemap = RouteMap::Get(window_->document())) {
+    routemap->OnNavigationDone();
+  }
   DispatchEvent(*Event::Create(event_type_names::kNavigatesuccess));
 
   if (transition_) {

@@ -46,6 +46,11 @@
 
         <!-- Shopping resources -->
         <structure type="lottie" name="IDR_SHOPPING_DISCOUNTS_AVAILABLE_LOTTIE" file="resources/shopping/discounts_available.json" compress="brotli"/>
+
+        <!-- Automated Password Change resources -->
+        <structure type="lottie" name="IDR_PASSWORD_CHANGE_SUCCESS_LOTTIE" file="resources/automated_password_change/password_change_success.json" compress="brotli"/>
+        <structure type="lottie" name="IDR_PASSWORD_CHANGE_NEUTRAL_LOTTIE" file="resources/automated_password_change/password_change_neutral.json" compress="brotli"/>
+        <structure type="lottie" name="IDR_PASSWORD_CHANGE_WARNING_LOTTIE" file="resources/automated_password_change/password_change_warning.json" compress="brotli"/>
       </if>
     </structures>
     <includes>
@@ -229,7 +234,6 @@
       </if>
       <if expr="_google_chrome">
         <include name="IDR_PREF_HASH_SEED_BIN" file="resources\settings\internal\pref_hash_seed.bin" type="BINDATA" />
-        <include name="IDR_ADDITIONAL_MODULE_IDS" file="${additional_modules_list_file}" use_base_dir="false" type="BINDATA" />
       </if>
       <if expr="not is_android or enable_extensions_core">
         <!-- Page not available for guest. -->

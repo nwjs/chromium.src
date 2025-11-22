@@ -82,7 +82,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.Android.GmsCoreGetCredentialsResult"
-    enum="GmsCoreGetCredentialsResult" expires_after="2026-02-01">
+    enum="GmsCoreGetCredentialsResult" expires_after="2026-04-05">
   <owner>derinel@google.com</owner>
   <owner>chrome-webauthn@google.com</owner>
   <summary>
@@ -150,7 +150,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.ChromeOS.StartupRecordCount" units="records"
-    expires_after="2025-12-31">
+    expires_after="2026-04-05">
   <owner>martinkr@google.com</owner>
   <owner>hcyang@google.com</owner>
   <owner>chrome-webauthn@google.com</owner>
@@ -171,7 +171,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.CredentialFetchDuration.GmsCore.{Source}"
-    units="ms" expires_after="2026-02-01">
+    units="ms" expires_after="2026-04-05">
   <owner>derinel@google.com</owner>
   <owner>chrome-webauthn@google.com</owner>
   <summary>
@@ -238,7 +238,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.EnclaveLoadDuration" units="ms"
-    expires_after="2026-02-09">
+    expires_after="2026-04-12">
   <owner>kenrb@chromium.org</owner>
   <owner>chrome-webauthn@google.com</owner>
   <summary>
@@ -338,7 +338,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="WebAuthentication.GetCredentials.Immediate.CombinedSelectorActions"
-    enum="CombinedSelectorAction" expires_after="2026-01-30">
+    enum="CombinedSelectorAction" expires_after="2026-04-12">
   <owner>derinel@google.com</owner>
   <owner>chrome-webauthn@google.com</owner>
   <summary>
@@ -372,7 +372,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="WebAuthentication.GPM.GetAssertion.LargeBlobSucceeded.{Operation}"
-    enum="Boolean" expires_after="2025-12-31">
+    enum="Boolean" expires_after="2026-03-29">
   <owner>kenrb@chromium.org</owner>
   <owner>nsatragno@chromium.org</owner>
   <summary>
@@ -394,6 +394,16 @@ chromium-metrics-reviews@google.com.
     Records start, success, and failure events for Google Password Manager (GPM)
     passkey creation attempts (MakeCredential calls). Each event is emitted
     immediately after it occurs. See GPMMakeCredentialEvents enum for details.
+  </summary>
+</histogram>
+
+<histogram name="WebAuthentication.GPM.RecoveryEvent"
+    enum="WebAuthenticationGPMRecoveryEvent" expires_after="2026-06-30">
+  <owner>ylahodiuk@google.com</owner>
+  <owner>izuzic@google.com</owner>
+  <summary>
+    Records the type of the key retrieval flow used for retrieving the passkey
+    secret.
   </summary>
 </histogram>
 
@@ -499,7 +509,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="WebAuthentication.MechanismSorter.SelectedMechanismType"
     enum="WebAuthenticationMechanismDeduplicatedType"
-    expires_after="2025-11-30">
+    expires_after="2026-03-29">
   <owner>derinel@google.com</owner>
   <owner>chrome-webauthn@google.com</owner>
   <summary>
@@ -527,7 +537,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.PinRenewalFailureCause"
-    enum="WebAuthenticationPinRenewalFailureCause" expires_after="2026-02-01">
+    enum="WebAuthenticationPinRenewalFailureCause" expires_after="2026-04-05">
   <owner>agl@google.com</owner>
   <owner>kenrb@chromium.org</owner>
   <summary>
@@ -572,7 +582,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.U2fSignOperation"
-    enum="U2fSignOperationResult" expires_after="2026-02-01">
+    enum="U2fSignOperationResult" expires_after="2026-04-05">
   <owner>nsatragno@chromium.org</owner>
   <owner>chrome-webauthn@google.com</owner>
   <summary>

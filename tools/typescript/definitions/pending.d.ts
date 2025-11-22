@@ -100,3 +100,13 @@ interface Uint8ArrayConstructor {
     lastChunkHandling?: string
   }): Uint8Array;
 }
+
+// https://developer.mozilla.org/en-US/docs/Web/API/ImageCapture/grabFrame
+interface ImageCapture {
+  grabFrame(): Promise<ImageBitmap>;
+}
+
+// https://developer.mozilla.org/en-US/docs/Web/API/PerformanceObserver/observe
+interface PerformanceObserverInit {
+  durationThreshold?: number;
+}

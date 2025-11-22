@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/page/focusgroup_controller_utils.h"
 
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
 #include "third_party/blink/renderer/core/dom/focusgroup_flags.h"
@@ -77,20 +78,6 @@ bool FocusgroupControllerUtils::WrapsInDirection(
          ((flags & FocusgroupFlags::kWrapBlock) && IsDirectionBlock(direction));
 }
 
-bool FocusgroupControllerUtils::FocusgroupExtendsInAxis(
-    FocusgroupFlags extending_focusgroup,
-    FocusgroupFlags focusgroup,
-    FocusgroupDirection direction) {
-  if (focusgroup == FocusgroupFlags::kNone ||
-      extending_focusgroup == FocusgroupFlags::kNone) {
-    return false;
-  }
-
-  return extending_focusgroup & FocusgroupFlags::kExtend &&
-         (IsAxisSupported(focusgroup, direction) ==
-          IsAxisSupported(extending_focusgroup, direction));
-}
-
 Element* FocusgroupControllerUtils::FindNearestFocusgroupAncestor(
     const Element* element,
     FocusgroupType type) {
@@ -99,8 +86,9 @@ Element* FocusgroupControllerUtils::FindNearestFocusgroupAncestor(
 
   for (Element* ancestor = FlatTreeTraversal::ParentElement(*element); ancestor;
        ancestor = FlatTreeTraversal::ParentElement(*ancestor)) {
-    FocusgroupFlags ancestor_flags = ancestor->GetFocusgroupFlags();
-    if (ancestor_flags != FocusgroupFlags::kNone) {
+    FocusgroupBehavior ancestor_behavior =
+        ancestor->GetFocusgroupData().behavior;
+    if (ancestor_behavior != FocusgroupBehavior::kNoBehavior) {
       switch (type) {
         case FocusgroupType::kGrid:
           // Respect the FocusgroupGrid feature gate.
@@ -108,14 +96,15 @@ Element* FocusgroupControllerUtils::FindNearestFocusgroupAncestor(
               element->GetExecutionContext()));
           // TODO(bebeaudr): Support grid focusgroups that aren't based on the
           // table layout objects.
-          if (ancestor_flags & FocusgroupFlags::kGrid &&
+          if (ancestor_behavior == FocusgroupBehavior::kGrid &&
               IsA<LayoutTable>(ancestor->GetLayoutObject())) {
             return ancestor;
           }
           break;
         case FocusgroupType::kLinear:
-          if (!(ancestor_flags & FocusgroupFlags::kGrid))
+          if (ancestor_behavior != FocusgroupBehavior::kGrid) {
             return ancestor;
+          }
           break;
         default:
           NOTREACHED();
@@ -131,10 +120,11 @@ Element* FocusgroupControllerUtils::NextElement(const Element* current,
                                                 bool skip_subtree) {
   DCHECK(current);
   Node* node;
-  if (skip_subtree)
+  if (skip_subtree) {
     node = FlatTreeTraversal::NextSkippingChildren(*current);
-  else
+  } else {
     node = FlatTreeTraversal::Next(*current);
+  }
 
   Element* next_element;
   // Here, we don't need to skip the subtree when getting the next element since
@@ -142,129 +132,104 @@ Element* FocusgroupControllerUtils::NextElement(const Element* current,
   // NextSkippingChildren above.
   for (; node; node = FlatTreeTraversal::Next(*node)) {
     next_element = DynamicTo<Element>(node);
-    if (next_element)
+    if (next_element) {
       return next_element;
-  }
-  return nullptr;
-}
-
-Element* FocusgroupControllerUtils::PreviousElement(const Element* current) {
-  DCHECK(current);
-  Node* node = FlatTreeTraversal::Previous(*current);
-
-  Element* previous_element;
-  for (; node; node = FlatTreeTraversal::Previous(*node)) {
-    previous_element = DynamicTo<Element>(node);
-    if (previous_element)
-      return previous_element;
-  }
-  return nullptr;
-}
-
-Element* FocusgroupControllerUtils::LastElementWithin(const Element* current) {
-  DCHECK(current);
-  Node* last_node = FlatTreeTraversal::LastWithin(*current);
-
-  // We now have the last Node, but it might not be the last Element. Find it
-  // by going to the previous element in preorder if needed.
-  Element* last_element;
-  for (; last_node && last_node != current;
-       last_node = FlatTreeTraversal::Previous(*last_node)) {
-    last_element = DynamicTo<Element>(last_node);
-    if (last_element)
-      return last_element;
-  }
-  return nullptr;
-}
-
-bool FocusgroupControllerUtils::IsFocusgroupItem(const Element* element) {
-  if (!element || !element->IsFocusable())
-    return false;
-
-  // All children of a focusgroup are considered focusgroup items if they are
-  // focusable.
-  Element* parent = FlatTreeTraversal::ParentElement(*element);
-  if (!parent)
-    return false;
-
-  FocusgroupFlags parent_flags = parent->GetFocusgroupFlags();
-  return parent_flags != FocusgroupFlags::kNone;
-}
-
-// This function is called whenever the |element| passed by parameter has fallen
-// into a subtree while navigating backward. Its objective is to prevent
-// |element| from having descended into a non-extending focusgroup. When it
-// detects its the case, it returns |element|'s first ancestor who is still part
-// of the same focusgroup as |stop_ancestor|. The returned element is
-// necessarily an element part of the previous focusgroup, but not necessarily a
-// focusgroup item.
-//
-// |stop_ancestor| might be a focusgroup root itself or be a descendant of one.
-// Regardless, given the assumption that |stop_ancestor| is always part of the
-// previous focusgroup, we can stop going up |element|'s ancestors chain as soon
-// as we reached it.
-//
-// Let's consider this example:
-//           fg1
-//      ______|_____
-//      |          |
-//      a1       a2
-//      |
-//     fg2
-//    __|__
-//    |   |
-//    b1  b2
-//
-// where |fg2| is a focusgroup that doesn't extend the focusgroup |fg1|. While
-// |fg2| is part of the focusgroup |fg1|, its subtree isn't. If the focus is on
-// |a2|, the second item of the top-most focusgroup, and we go backward using
-// the arrow keys, the focus should move to |fg2|. It shouldn't go inside of
-// |fg2|, since it's a different focusgroup that doesn't extend its parent
-// focusgroup.
-//
-// However, the previous element in preorder traversal from |a2| is |b2|, which
-// isn't part of the same focusgroup. This function aims at fixing this by
-// moving the current element to its parent, which is part of the previous
-// focusgroup we were in (when we were on |a2|), |fg1|.
-Element* FocusgroupControllerUtils::AdjustElementOutOfUnrelatedFocusgroup(
-    Element* element,
-    Element* stop_ancestor,
-    FocusgroupDirection direction) {
-  DCHECK(element);
-  DCHECK(stop_ancestor);
-
-  // Get the previous focusgroup we were part of (|stop_ancestor| was
-  // necessarily part of it: it was either the focusgroup itself or a descendant
-  // of that focusgroup).
-  FocusgroupFlags focusgroup_flags = stop_ancestor->GetFocusgroupFlags();
-  if (focusgroup_flags == FocusgroupFlags::kNone) {
-    Element* focusgroup =
-        FindNearestFocusgroupAncestor(stop_ancestor, FocusgroupType::kLinear);
-    DCHECK(focusgroup);
-    focusgroup_flags = focusgroup->GetFocusgroupFlags();
-  }
-
-  // Go over each ancestor of the |element| in order to validate that it is
-  // still part of the previous focusgroup. If it isn't, set the ancestor that
-  // broke one of the conditions as the |adjusted_element| and continue the
-  // loop from there.
-  Element* adjusted_element = element;
-  for (Element* ancestor = FlatTreeTraversal::ParentElement(*element); ancestor;
-       ancestor = FlatTreeTraversal::ParentElement(*ancestor)) {
-    if (ancestor == stop_ancestor)
-      break;
-
-    // We consider |element| as being part of a different focusgroup than the
-    // one we were previously in when one of its ancestor is a focusgroup that
-    // doesn't extend the previous one.
-    FocusgroupFlags ancestor_flags = ancestor->GetFocusgroupFlags();
-    if (ancestor_flags != FocusgroupFlags::kNone &&
-        !FocusgroupExtendsInAxis(ancestor_flags, focusgroup_flags, direction)) {
-      adjusted_element = ancestor;
     }
   }
+  return nullptr;
+}
 
-  return adjusted_element;
+Element* FocusgroupControllerUtils::PreviousElement(const Element* current,
+                                                    bool skip_subtree) {
+  DCHECK(current);
+  Node* node;
+  if (skip_subtree) {
+    node = FlatTreeTraversal::PreviousAbsoluteSibling(*current);
+  } else {
+    node = FlatTreeTraversal::Previous(*current);
+  }
+  for (; node; node = FlatTreeTraversal::Previous(*node)) {
+    if (Element* previous_element = DynamicTo<Element>(node)) {
+      return previous_element;
+    }
+  }
+  return nullptr;
+}
+
+Element* FocusgroupControllerUtils::NextElementInDirection(
+    const Element* current,
+    FocusgroupDirection direction,
+    bool skip_subtree) {
+  DCHECK_NE(IsDirectionForward(direction), IsDirectionBackward(direction));
+  mojom::blink::FocusType focus_type = IsDirectionForward(direction)
+                                           ? mojom::blink::FocusType::kForward
+                                           : mojom::blink::FocusType::kBackward;
+  return NextElementInDirection(current, focus_type, skip_subtree);
+}
+
+Element* FocusgroupControllerUtils::NextElementInDirection(
+    const Element* current,
+    mojom::blink::FocusType direction,
+    bool skip_subtree) {
+  if (!current) {
+    return nullptr;
+  }
+  switch (direction) {
+    case mojom::blink::FocusType::kForward:
+      return NextElement(current, skip_subtree);
+    case mojom::blink::FocusType::kBackward:
+      return PreviousElement(current, skip_subtree);
+    default:
+      NOTREACHED();
+  }
+}
+
+// Returns next candidate focusgroup item inside |owner| relative to
+// |current_item| in the specified direction.
+Element* FocusgroupControllerUtils::NextFocusgroupItemInDirection(
+    const Element* owner,
+    const Element* current_item,
+    FocusgroupDirection direction) {
+  if (!owner || !current_item || owner == current_item) {
+    return nullptr;
+  }
+
+  Element* next_element =
+      NextElementInDirection(current_item, direction, /*skip_subtree=*/false);
+  while (next_element &&
+         FlatTreeTraversal::IsDescendantOf(*next_element, *owner)) {
+    if (next_element != owner) {
+      if (next_element->GetFocusgroupData().behavior !=
+          FocusgroupBehavior::kNoBehavior) {
+        // We can skip the entire subtree for both nested focusgroups and
+        // opted out subtrees.
+        next_element = NextElementInDirection(next_element, direction,
+                                              /*skip_subtree=*/true);
+        continue;
+      }
+    }
+    if (IsFocusgroupItemWithOwner(next_element, owner)) {
+      return next_element;
+    }
+    next_element =
+        NextElementInDirection(next_element, direction, /*skip_subtree=*/false);
+  }
+  return nullptr;
+}
+
+Element* FocusgroupControllerUtils::GetFocusgroupOwnerOfItem(
+    const Element* element) {
+  if (!element || !element->IsFocusable()) {
+    return nullptr;
+  }
+
+  return focusgroup::FindFocusgroupOwner(element);
+}
+
+bool FocusgroupControllerUtils::IsFocusgroupItemWithOwner(
+    const Element* element,
+    const Element* focusgroup_owner) {
+  return GetFocusgroupOwnerOfItem(element) == focusgroup_owner;
 }
 
 bool FocusgroupControllerUtils::IsGridFocusgroupItem(const Element* element) {
@@ -279,17 +244,306 @@ bool FocusgroupControllerUtils::IsGridFocusgroupItem(const Element* element) {
   return IsA<LayoutTableCell>(element->GetLayoutObject());
 }
 
+bool FocusgroupControllerUtils::IsElementInOptedOutSubtree(
+    const Element* element) {
+  // Starting with this element, walk up the ancestor chain looking for an
+  // opted-out focusgroup. Stop when we reach a focusgroup root or the document
+  // root.
+  while (element) {
+    if (element->GetFocusgroupData().behavior == FocusgroupBehavior::kOptOut) {
+      return true;
+    }
+    // Stop at the first focusgroup root.
+    if (IsActualFocusgroup(element->GetFocusgroupData())) {
+      return false;
+    }
+    element = FlatTreeTraversal::ParentElement(*element);
+  }
+  return false;
+}
+
 GridFocusgroupStructureInfo*
 FocusgroupControllerUtils::CreateGridFocusgroupStructureInfoForGridRoot(
     Element* root) {
   if (IsA<LayoutTable>(root->GetLayoutObject()) &&
-      root->GetFocusgroupFlags() & FocusgroupFlags::kGrid) {
+      root->GetFocusgroupData().behavior == FocusgroupBehavior::kGrid) {
     return MakeGarbageCollected<AutomaticGridFocusgroupStructureInfo>(
         root->GetLayoutObject());
   } else {
     // TODO(bebeaudr): Handle manual-grid focusgroups.
     return nullptr;
   }
+}
+
+Element* FocusgroupControllerUtils::WrappedFocusgroupCandidate(
+    const Element* owner,
+    const Element* current,
+    FocusgroupDirection direction) {
+  DCHECK(owner && current);
+  DCHECK(IsFocusgroupItemWithOwner(current, owner));
+
+  Element* wrap_candidate = nullptr;
+  if (IsDirectionForward(direction)) {
+    wrap_candidate = FirstFocusgroupItemWithin(owner);
+  } else if (IsDirectionBackward(direction)) {
+    wrap_candidate = LastFocusgroupItemWithin(owner);
+  }
+
+  // If the wrap candidate is valid and isn't the current element, return it.
+  if (wrap_candidate && wrap_candidate != current) {
+    return wrap_candidate;
+  }
+  return nullptr;
+}
+
+Element* FocusgroupControllerUtils::FirstFocusgroupItemWithin(
+    const Element* owner) {
+  if (!owner || !IsActualFocusgroup(owner->GetFocusgroupData())) {
+    return nullptr;
+  }
+
+  for (Element* el = NextElement(owner, /*skip_subtree=*/false);
+       el && FlatTreeTraversal::IsDescendantOf(*el, *owner);
+       el = NextElement(el, /*skip_subtree=*/false)) {
+    if (el != owner) {
+      FocusgroupData data = el->GetFocusgroupData();
+      if (data.behavior != FocusgroupBehavior::kNoBehavior) {
+        // Skip nested focusgroup subtree entirely.
+        el = NextElement(el, /*skip_subtree=*/true);
+        if (!el) {
+          break;
+        }
+        el = PreviousElement(el);
+        continue;
+      }
+    }
+    if (IsFocusgroupItemWithOwner(el, owner)) {
+      return el;
+    }
+  }
+  return nullptr;
+}
+
+Element* FocusgroupControllerUtils::LastFocusgroupItemWithin(
+    const Element* owner) {
+  if (!owner || !IsActualFocusgroup(owner->GetFocusgroupData())) {
+    return nullptr;
+  }
+
+  Element* last = nullptr;
+  for (Element* el = NextElement(owner, /*skip_subtree=*/false);
+       el && FlatTreeTraversal::IsDescendantOf(*el, *owner);
+       el = NextElement(el, /*skip_subtree=*/false)) {
+    if (el != owner) {
+      FocusgroupData data = el->GetFocusgroupData();
+      if (data.behavior != FocusgroupBehavior::kNoBehavior) {
+        el = NextElement(el, /*skip_subtree=*/true);
+        if (!el) {
+          break;
+        }
+        el = PreviousElement(el);
+        continue;
+      }
+    }
+    if (IsFocusgroupItemWithOwner(el, owner)) {
+      last = el;
+    }
+  }
+  return last;
+}
+
+bool FocusgroupControllerUtils::DoesFocusgroupContainBarrier(
+    const Element& focusgroup) {
+  DCHECK(IsActualFocusgroup(focusgroup.GetFocusgroupData()));
+
+  // Walk through descendants looking for barriers.
+  Element* el = NextElement(&focusgroup, /*skip_subtree=*/false);
+  while (el && FlatTreeTraversal::IsDescendantOf(*el, focusgroup)) {
+    FocusgroupData data = el->GetFocusgroupData();
+
+    // We can't use First/LastFocusgroupItemWithin here since we need to
+    // recursively check nested focusgroups and opted-out subtrees.
+    if (el->IsFocusable()) {
+      if (IsActualFocusgroup(data)) {
+        if (DoesFocusgroupContainBarrier(*el)) {
+          return true;
+        }
+        // Since we're recursively checking this focusgroup, we can skip its
+        // children.
+        el = NextElement(el, /*skip_subtree=*/true);
+        continue;
+      }
+    }
+
+    // Check opted-out subtrees.
+    if (data.behavior == FocusgroupBehavior::kOptOut) {
+      if (DoesOptOutSubtreeContainBarrier(*el)) {
+        return true;
+      }
+      // Since we're recursively checking this subtree, we can skip its
+      // children.
+      el = NextElement(el, /*skip_subtree=*/true);
+      continue;
+    }
+    el = NextElement(el, /*skip_subtree=*/false);
+  }
+
+  return false;
+}
+
+bool FocusgroupControllerUtils::DoesOptOutSubtreeContainBarrier(
+    const Element& opted_out_root) {
+  DCHECK(opted_out_root.GetFocusgroupData().behavior ==
+         FocusgroupBehavior::kOptOut);
+
+  // Check if the opted-out root itself is keyboard focusable.
+  if (opted_out_root.IsKeyboardFocusableSlow()) {
+    return true;
+  }
+
+  // Walk through descendants looking for barriers.
+  Element* el = NextElement(&opted_out_root, /*skip_subtree=*/false);
+  while (el && FlatTreeTraversal::IsDescendantOf(*el, opted_out_root)) {
+    if (el->IsKeyboardFocusableSlow()) {
+      return true;
+    }
+
+    // Check nested focusgroups recursively.
+    FocusgroupData data = el->GetFocusgroupData();
+    if (IsActualFocusgroup(data)) {
+      if (DoesFocusgroupContainBarrier(*el)) {
+        return true;
+      }
+      // Since we're recursively checking this focusgroup, we can skip its
+      // children.
+      el = NextElement(el, /*skip_subtree=*/true);
+      continue;
+    }
+    el = NextElement(el, /*skip_subtree=*/false);
+  }
+
+  return false;
+}
+
+Element* FocusgroupControllerUtils::NextFocusgroupItemInSegmentInDirection(
+    const Element& item,
+    const Element& owner,
+    mojom::blink::FocusType direction) {
+  DCHECK(IsFocusgroupItemWithOwner(&item, &owner));
+
+  // Walk in the given direction from the item to find the next item in its
+  // segment. A segment is bounded by barriers (nested focusgroups or opted-out
+  // subtrees) or by the focusgroup scope boundaries.
+  Element* element =
+      NextElementInDirection(&item, direction, /*skip_subtree=*/false);
+  while (element && FlatTreeTraversal::IsDescendantOf(*element, owner)) {
+    const Element* opted_out_subtree_root = nullptr;
+    const Element* nested_focusgroup_owner = nullptr;
+    if (direction == mojom::blink::FocusType::kBackward) {
+      // When going backwards, we need to check the entire subtree of the
+      // current element to see if it contains a barrier.
+      opted_out_subtree_root = GetOptedOutSubtreeRoot(element);
+      nested_focusgroup_owner = focusgroup::FindFocusgroupOwner(element);
+      if (nested_focusgroup_owner == &owner) {
+        nested_focusgroup_owner = nullptr;
+      }
+    } else {
+      // When going forward, we only care if the element itself is a barrier.
+      if (element->GetFocusgroupData().behavior ==
+          FocusgroupBehavior::kOptOut) {
+        opted_out_subtree_root = element;
+      } else if (IsActualFocusgroup(element->GetFocusgroupData())) {
+        nested_focusgroup_owner = element;
+      }
+    }
+    // Check if this element contains a barrier.
+    if (nested_focusgroup_owner) {
+      if (DoesFocusgroupContainBarrier(*nested_focusgroup_owner)) {
+        return nullptr;
+      }
+      // Since we've determined this nested focusgroup is not a barrier, we can
+      // skip its children.
+      element = NextElementInDirection(nested_focusgroup_owner, direction,
+                                       /*skip_subtree=*/true);
+      continue;
+    }
+    if (opted_out_subtree_root) {
+      if (DoesOptOutSubtreeContainBarrier(*opted_out_subtree_root)) {
+        return nullptr;
+      }
+      // Since we've determined this opted-out subtree is not a barrier, we can
+      // skip its children.
+      element = NextElementInDirection(opted_out_subtree_root, direction,
+                                       /*skip_subtree=*/true);
+      continue;
+    }
+    // We already know that the item is a descendant of owner, and is not opted
+    // out nor in a nested focusgroup scope so we don't need to check that
+    // again, all that matters is that it is focusable. If so, return it.
+    if (element->IsFocusable()) {
+      return element;
+    }
+    element =
+        NextElementInDirection(element, direction, /*skip_subtree=*/false);
+  }
+  return nullptr;
+}
+
+Element* FocusgroupControllerUtils::FirstFocusgroupItemInSegment(
+    const Element& item) {
+  const Element* owner = focusgroup::FindFocusgroupOwner(&item);
+  if (!owner || !item.IsFocusable()) {
+    return nullptr;
+  }
+
+  // Walk backward from the item to find the start of its segment.
+  // A segment starts after a barrier or at the beginning of the focusgroup
+  // scope.
+  Element* result = const_cast<Element*>(&item);
+  for (Element* previous = NextFocusgroupItemInSegmentInDirection(
+           item, *owner, mojom::blink::FocusType::kBackward);
+       previous; previous = NextFocusgroupItemInSegmentInDirection(
+                     *previous, *owner, mojom::blink::FocusType::kBackward)) {
+    result = previous;
+  }
+  return result;
+}
+
+Element* FocusgroupControllerUtils::LastFocusgroupItemInSegment(
+    const Element& item) {
+  const Element* owner = focusgroup::FindFocusgroupOwner(&item);
+  if (!owner || !item.IsFocusable()) {
+    return nullptr;
+  }
+
+  // Walk forward from the item to find the end of its segment.
+  // A segment ends before a barrier or at the end of the focusgroup scope.
+  Element* result = const_cast<Element*>(&item);
+  for (Element* next = NextFocusgroupItemInSegmentInDirection(
+           item, *owner, mojom::blink::FocusType::kForward);
+       next; next = NextFocusgroupItemInSegmentInDirection(
+                 *next, *owner, mojom::blink::FocusType::kForward)) {
+    result = next;
+  }
+  return result;
+}
+
+const Element* FocusgroupControllerUtils::GetOptedOutSubtreeRoot(
+    const Element* element) {
+  // Starting with this element, walk up the ancestor chain looking for an
+  // opted-out focusgroup. Stop when we reach a focusgroup root or the document
+  // root.
+  while (element) {
+    if (element->GetFocusgroupData().behavior == FocusgroupBehavior::kOptOut) {
+      return element;
+    }
+    // Stop at the first focusgroup root.
+    if (IsActualFocusgroup(element->GetFocusgroupData())) {
+      return nullptr;
+    }
+    element = FlatTreeTraversal::ParentElement(*element);
+  }
+  return nullptr;
 }
 
 }  // namespace blink

@@ -42,11 +42,20 @@ BASE_FEATURE(kAddWarningShownTSToClientSafeBrowsingReport,
 
 BASE_FEATURE(kAutoRevokeSuspiciousNotification,
              base::FEATURE_DISABLED_BY_DEFAULT);
+constexpr base::FeatureParam<int>
+    kAutoRevokeSuspiciousNotificationLookBackPeriod{
+        &kAutoRevokeSuspiciousNotification, "LookBackPeriod",
+        /*default_value=*/1};
+constexpr base::FeatureParam<double>
+    kAutoRevokeSuspiciousNotificationEngagementScoreCutOff{
+        &kAutoRevokeSuspiciousNotification, "MaxEngagementScore",
+        /*default_value=*/50.0};
+constexpr base::FeatureParam<int>
+    kAutoRevokeSuspiciousNotificationMinNotificationCount{
+        &kAutoRevokeSuspiciousNotification, "MinNotificationCount",
+        /*default_value=*/2};
 
 BASE_FEATURE(kBundledSecuritySettings, base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kClientSideDetectionBrandAndIntentForScamDetection,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClientSideDetectionClipboardCopyApi,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -62,6 +71,9 @@ constexpr base::FeatureParam<int> kCsdClipboardCopyApiMaxLength{
 constexpr base::FeatureParam<int> kCsdClipboardCopyApiMinLength{
     &kClientSideDetectionClipboardCopyApi, "MinLength",
     /*default_value=*/0};
+const base::FeatureParam<bool> kCSDClipboardCopyApiProcessPayload{
+    &kClientSideDetectionClipboardCopyApi, "ProcessPayload",
+    /*default_value=*/false};
 
 BASE_FEATURE(kClientSideDetectionCreditCardForm,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -71,6 +83,9 @@ const base::FeatureParam<double> kCsdCreditCardFormHCAcceptanceRate{
 const base::FeatureParam<double> kCsdCreditCardFormSampleRate{
     &kClientSideDetectionCreditCardForm, "SampleRate",
     /*default_value=*/0.0};
+const base::FeatureParam<int> kCsdCreditCardFormMaxUserVisit{
+    &kClientSideDetectionCreditCardForm, "MaxUserVisit",
+    /*default_value=*/1};
 
 BASE_FEATURE(kClientSideDetectionForcedLlamaRedirectChainKillswitch,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -81,7 +96,7 @@ BASE_FEATURE(kClientSideDetectionLlamaForcedTriggerInfoForScamDetection,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClientSideDetectionOnlyExtractVisualFeatures,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClientSideDetectionRedirectChainKillswitch,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -102,9 +117,6 @@ BASE_FEATURE(kClientSideDetectionSendLlamaForcedTriggerInfo,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClientSideDetectionShowLlamaScamVerdictWarning,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kClientSideDetectionShowScamVerdictWarning,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
@@ -165,9 +177,9 @@ BASE_FEATURE(kEnterprisePasswordReuseUiRefresh,
 
 BASE_FEATURE(kEsbAsASyncedSetting,
 #if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#else
              base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
 
@@ -191,7 +203,7 @@ BASE_FEATURE(kExtensionTelemetryFileDataForCommandLineExtensions,
 
 BASE_FEATURE(kExtensionTelemetrySearchHijackingSignal,
              "SafeBrowsingExtensionTelemetrySearchHijackingSignal",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 constexpr base::FeatureParam<int>
     kExtensionTelemetrySearchHijackingSignalHeuristicCheckIntervalSeconds{
         &kExtensionTelemetrySearchHijackingSignal,
@@ -205,7 +217,7 @@ BASE_FEATURE(kExternalAppRedirectTelemetry,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlobalCacheListForGatingNotificationProtections,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGooglePlayProtectInApkTelemetry,
              "SafeBrowsingGooglePlayProtectInApkTelemetry",
@@ -258,6 +270,11 @@ constexpr base::FeatureParam<std::string>
                                                  /*default_value=*/""};
 #endif
 
+BASE_FEATURE(kModifiedESBFetchErrorHandling, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kMovePasswordLeakDetectionToggleIos,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kNotificationTelemetry, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNotificationTelemetrySwb, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -278,6 +295,9 @@ constexpr base::FeatureParam<std::string> kRedWarningSurveyReportTypeFilter{
 constexpr base::FeatureParam<std::string> kRedWarningSurveyDidProceedFilter{
     &kRedWarningSurvey, "RedWarningSurveyDidProceedFilter",
     /*default_value=*/"TRUE,FALSE"};
+
+BASE_FEATURE(kRelaunchNotificationForAdvancedProtection,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kReportNotificationContentDetectionData,
              base::FEATURE_ENABLED_BY_DEFAULT);

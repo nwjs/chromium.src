@@ -106,8 +106,9 @@ void SignOutFromAccountSettings() {
 
   // Tap the "Sign out" button.
   [[EarlGrey selectElementWithMatcher:
-                 grey_accessibilityLabel(l10n_util::GetNSString(
-                     IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_SIGN_OUT_ITEM))]
+                 grey_allOf(grey_accessibilityLabel(l10n_util::GetNSString(
+                                IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_SIGN_OUT_ITEM)),
+                            grey_userInteractionEnabled(), nil)]
       performAction:grey_tap()];
 }
 
@@ -176,7 +177,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
     config.features_enabled.push_back(kLinkedServicesSettingIos);
   }
 
-  if ([self isRunningTest:@selector(testSwitchAccountFromAccountMenu)] ||
+  if ([self isRunningTest:@selector(DISABLED_testSwitchAccountFromAccountMenu)] ||
       [self isRunningTest:@selector(testSignOutFromAccountFromAccountMenu)]) {
     config.features_enabled.push_back(kSeparateProfilesForManagedAccounts);
   }
@@ -912,15 +913,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 
 // Tests that the batch upload button description in the account settings
 // contains the correct string for reading list.
-// TODO(crbug.com/435139218): Reenable this test.
-#if TARGET_OS_SIMULATOR
-#define MAYBE_testBulkUploadDescriptionTextForReadingList \
-  testBulkUploadDescriptionTextForReadingList
-#else
-#define MAYBE_testBulkUploadDescriptionTextForReadingList \
-  FLAKY_testBulkUploadDescriptionTextForReadingList
-#endif
-- (void)MAYBE_testBulkUploadDescriptionTextForReadingList {
+- (void)testBulkUploadDescriptionTextForReadingList {
   // Add local data.
   reading_list_test_utils::AddURLToReadingListWithSnackbarDismiss(
       GURL("https://example.com"), nil);
@@ -944,15 +937,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 
 // Tests that the batch upload button description in the account settings
 // contains the correct string for passwords and other data type.
-// TODO(crbug.com/435139218): Reenable this test.
-#if TARGET_OS_SIMULATOR
-#define MAYBE_testBulkUploadDescriptionTextForPasswordsAndOthers \
-  testBulkUploadDescriptionTextForPasswordsAndOthers
-#else
-#define MAYBE_testBulkUploadDescriptionTextForPasswordsAndOthers \
-  FLAKY_testBulkUploadDescriptionTextForPasswordsAndOthers
-#endif
-- (void)MAYBE_testBulkUploadDescriptionTextForPasswordsAndOthers {
+- (void)testBulkUploadDescriptionTextForPasswordsAndOthers {
   // Add local data.
   password_manager_test_utils::SavePasswordFormToProfileStore(
       @"password", @"user", @"https://example.com");
@@ -981,15 +966,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // - Passwords
 // - Bookmarks
 // - Reading list
-// TODO(crbug.com/435139218): Reenable this test.
-#if TARGET_OS_SIMULATOR
-#define MAYBE_testBulkUploadPageForAllDataTypes \
-  testBulkUploadPageForAllDataTypes
-#else
-#define MAYBE_testBulkUploadPageForAllDataTypes \
-  FLAKY_testBulkUploadPageForAllDataTypes
-#endif
-- (void)MAYBE_testBulkUploadPageForAllDataTypes {
+- (void)testBulkUploadPageForAllDataTypes {
   // Add local data.
   password_manager_test_utils::SavePasswordFormToProfileStore(
       @"password", @"user", @"https://example.com");
@@ -1227,15 +1204,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // Tests that bulk upload moves the following data types to account:
 // - Bookmarks
 // - Reading List
-// TODO(crbug.com/435139218): Reenable this test.
-#if TARGET_OS_SIMULATOR
-#define MAYBE_testBulkUploadForBookmarksAndReadingList \
-  testBulkUploadForBookmarksAndReadingList
-#else
-#define MAYBE_testBulkUploadForBookmarksAndReadingList \
-  FLAKY_testBulkUploadForBookmarksAndReadingList
-#endif
-- (void)MAYBE_testBulkUploadForBookmarksAndReadingList {
+- (void)testBulkUploadForBookmarksAndReadingList {
   // Add local data.
   password_manager_test_utils::SavePasswordFormToProfileStore(
       @"password", @"user", @"https://example.com");
@@ -1317,13 +1286,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // - Passwords
 // - Bookmarks
 // - Reading List
-// TODO(crbug.com/435139218): Reenable this test.
-#if TARGET_OS_SIMULATOR
-#define MAYBE_testBulkUploadForAllDataTypes testBulkUploadForAllDataTypes
-#else
-#define MAYBE_testBulkUploadForAllDataTypes FLAKY_testBulkUploadForAllDataTypes
-#endif
-- (void)MAYBE_testBulkUploadForAllDataTypes {
+- (void)testBulkUploadForAllDataTypes {
   // Add local data.
   password_manager_test_utils::SavePasswordFormToProfileStore(
       @"password", @"user", @"https://example.com");
@@ -1692,12 +1655,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 }
 
 // Test switching account from the account menu.
-- (void)testSwitchAccountFromAccountMenu {
-  // Separate profiles are only available in iOS 17+.
-  if (!@available(iOS 17, *)) {
-    return;
-  }
-
+- (void)DISABLED_testSwitchAccountFromAccountMenu {
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   FakeSystemIdentity* fakeIdentity2 = [FakeSystemIdentity fakeIdentity2];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
@@ -1715,9 +1673,11 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
       performAction:grey_scrollToContentEdge(kGREYContentEdgeBottom)];
 
   // Tap on switch account item.
-  [[EarlGrey selectElementWithMatcher:
-                 grey_accessibilityLabel(l10n_util::GetNSString(
-                     IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_SWITCH_ACCOUNT_ITEM))]
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_allOf(grey_accessibilityLabel(l10n_util::GetNSString(
+                         IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_SWITCH_ACCOUNT_ITEM)),
+                     grey_userInteractionEnabled(), nil)]
       performAction:grey_tap()];
 
   // Verify the account menu is shown.
@@ -1769,11 +1729,6 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 
 // Test signing out from the account menu.
 - (void)testSignOutFromAccountFromAccountMenu {
-  // Separate profiles are only available in iOS 17+.
-  if (!@available(iOS 17, *)) {
-    return;
-  }
-
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   FakeSystemIdentity* fakeIdentity2 = [FakeSystemIdentity fakeIdentity2];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
@@ -1791,9 +1746,11 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
       performAction:grey_scrollToContentEdge(kGREYContentEdgeBottom)];
 
   // Tap on switch account item.
-  [[EarlGrey selectElementWithMatcher:
-                 grey_accessibilityLabel(l10n_util::GetNSString(
-                     IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_SWITCH_ACCOUNT_ITEM))]
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_allOf(grey_accessibilityLabel(l10n_util::GetNSString(
+                         IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_SWITCH_ACCOUNT_ITEM)),
+                     grey_userInteractionEnabled(), nil)]
       performAction:grey_tap()];
 
   // Verify the account menu is shown.

@@ -16,6 +16,9 @@
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/prefs/chrome_pref_service_factory.h"
+#include "chrome/browser/subscription_eligibility/subscription_eligibility_prefs.h"
+#include "chrome/browser/subscription_eligibility/subscription_eligibility_service.h"
+#include "chrome/browser/subscription_eligibility/subscription_eligibility_service_factory.h"
 #include "chrome/browser/sync/test/integration/preferences_helper.h"
 #include "chrome/browser/sync/test/integration/sync_service_impl_harness.h"
 #include "chrome/browser/sync/test/integration/sync_test.h"
@@ -27,7 +30,6 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/autofill/core/common/autofill_prefs.h"
-#include "components/ntp_tiles/pref_names.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
 #include "components/policy/core/common/policy_map.h"
@@ -52,6 +54,7 @@
 #if BUILDFLAG(ENABLE_GLIC)
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
 #endif
 
@@ -715,10 +718,9 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesWithAccountStorageSyncTest,
   CommitToDiskAndWait();
 
   // Verify file content, `kSyncablePrefForTesting` is present.
-  std::optional<base::Value::Dict> file_content =
-      ReadValuesFromFile(
-          GetProfile(0)->GetPath().Append(chrome::kPreferencesFilename),
-          chrome_prefs::kAccountPreferencesPrefix);
+  std::optional<base::Value::Dict> file_content = ReadValuesFromFile(
+      GetProfile(0)->GetPath().Append(chrome::kPreferencesFilename),
+      chrome_prefs::kAccountPreferencesPrefix);
   ASSERT_TRUE(file_content.has_value());
 
   std::string* value =
@@ -737,13 +739,14 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesWithAccountStorageSyncTest,
 
   CommitToDiskAndWait();
 
-  // Account prefs have been removed from the file.
-  file_content =
-      ReadValuesFromFile(
-          GetProfile(0)->GetPath().Append(chrome::kPreferencesFilename),
-          chrome_prefs::kAccountPreferencesPrefix);
+  // Account prefs have been removed from the file (but prefs with
+  // kExemptFromUserControlWhileSignedIn may still be there).
+  file_content = ReadValuesFromFile(
+      GetProfile(0)->GetPath().Append(chrome::kPreferencesFilename),
+      chrome_prefs::kAccountPreferencesPrefix);
   ASSERT_TRUE(file_content.has_value());
-  EXPECT_TRUE(file_content->empty());
+  EXPECT_FALSE(
+      file_content->FindString(sync_preferences::kSyncablePrefForTesting));
 }
 
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -775,10 +778,9 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesWithAccountStorageSyncTest,
   CommitToDiskAndWait();
 
   // Verify file content, `kSyncablePrefForTesting` is present.
-  std::optional<base::Value::Dict> file_content =
-      ReadValuesFromFile(
-          GetProfile(0)->GetPath().Append(chrome::kPreferencesFilename),
-          chrome_prefs::kAccountPreferencesPrefix);
+  std::optional<base::Value::Dict> file_content = ReadValuesFromFile(
+      GetProfile(0)->GetPath().Append(chrome::kPreferencesFilename),
+      chrome_prefs::kAccountPreferencesPrefix);
   ASSERT_TRUE(file_content.has_value());
 
   std::string* value =
@@ -796,10 +798,9 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesWithAccountStorageSyncTest,
   CommitToDiskAndWait();
 
   // Account prefs have been removed from the file.
-  file_content =
-      ReadValuesFromFile(
-          GetProfile(0)->GetPath().Append(chrome::kPreferencesFilename),
-          chrome_prefs::kAccountPreferencesPrefix);
+  file_content = ReadValuesFromFile(
+      GetProfile(0)->GetPath().Append(chrome::kPreferencesFilename),
+      chrome_prefs::kAccountPreferencesPrefix);
   ASSERT_TRUE(file_content.has_value());
   EXPECT_TRUE(file_content->empty());
 }
@@ -1260,11 +1261,13 @@ IN_PROC_BROWSER_TEST_F(
 
   CommitToDiskAndWait();
 
-  // Account prefs have been removed from the file.
+  // Account prefs have been removed from the file (but prefs with
+  // kExemptFromUserControlWhileSignedIn may still be there).
   file_content = ReadValuesFromFile(
       GetProfile(0)->GetPath().Append(chrome::kAccountPreferencesFilename));
   ASSERT_TRUE(file_content.has_value());
-  EXPECT_TRUE(file_content->empty());
+  EXPECT_FALSE(
+      file_content->FindString(sync_preferences::kSyncablePrefForTesting));
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -1457,12 +1460,14 @@ IN_PROC_BROWSER_TEST_F(
 
   CommitToDiskAndWait();
 
-  // Account prefs have been removed from the file.
+  // Account prefs have been removed from the file (but prefs with
+  // kExemptFromUserControlWhileSignedIn may still be there).
   file_content = ReadValuesFromFile(
       GetProfile(0)->GetPath().Append(chrome::kPreferencesFilename),
       chrome_prefs::kAccountPreferencesPrefix);
   ASSERT_TRUE(file_content.has_value());
-  EXPECT_TRUE(file_content->empty());
+  EXPECT_FALSE(
+      file_content->FindString(sync_preferences::kSyncablePrefForTesting));
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -1841,10 +1846,8 @@ class SingleClientPreferencesGlicTieredRolloutTest
     : public SingleClientPreferencesSyncTest {
  public:
   SingleClientPreferencesGlicTieredRolloutTest() {
-    feature_list_.InitWithFeatures(
-        {::features::kGlic, ::features::kGlicTieredRollout,
-         ::features::kTabstripComboButton},
-        {::features::kGlicRollout});
+    feature_list_.InitWithFeatures({::features::kGlicTieredRollout},
+                                   {::features::kGlicRollout});
   }
 
   void SetGlicTieredRolloutEligibility(bool is_eligible) {
@@ -1854,6 +1857,8 @@ class SingleClientPreferencesGlicTieredRolloutTest
   }
 
  private:
+  glic::GlicTestEnvironment glic_test_env_{
+      {.force_signin_and_model_execution_capability = false}};
   base::test::ScopedFeatureList feature_list_;
 };
 
@@ -1881,6 +1886,42 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesGlicTieredRolloutTest, E2E) {
 
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
+class SingleClientPreferencesSubscriptionEligibilityTest
+    : public SingleClientPreferencesSyncTest {
+ public:
+  void SetAiSubscriptionTier(int32_t subscription_tier) {
+    InjectPreferenceToFakeServer(
+        syncer::PRIORITY_PREFERENCES,
+        subscription_eligibility::prefs::kAiSubscriptionTier,
+        base::Value(subscription_tier));
+  }
+
+  subscription_eligibility::SubscriptionEligibilityService* service() {
+    return subscription_eligibility::SubscriptionEligibilityServiceFactory::
+        GetForProfile(GetProfile(0));
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(SingleClientPreferencesSubscriptionEligibilityTest,
+                       E2E) {
+  ASSERT_TRUE(SetupClients());
+
+  // Should just have 0 as the default value.
+  EXPECT_EQ(0, service()->GetAiSubscriptionTier());
+
+  // Set user eligible via server.
+  SetAiSubscriptionTier(/*subscription_tier=*/1);
+  ASSERT_TRUE(SetupSync());
+
+  // User should have priority preferences synced and rollout eligibility is
+  // true.
+  ASSERT_TRUE(GetSyncService(0)->GetActiveDataTypes().Has(
+      syncer::PRIORITY_PREFERENCES));
+  EXPECT_EQ(1, GetPrefs(0)->GetInteger(
+                   subscription_eligibility::prefs::kAiSubscriptionTier));
+  EXPECT_EQ(1, service()->GetAiSubscriptionTier());
+}
+
 class SingleClientDecouplePriorityPreferencesSyncTestWithFlagDisabled
     : public SingleClientPreferencesWithAccountStorageSyncTest {
  public:
@@ -1902,11 +1943,10 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(GetClient(0)->SignInPrimaryAccount());
   ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
   ASSERT_TRUE(GetSyncService(0)->GetUserSettings()->GetSelectedTypes().Has(
-    syncer::UserSelectableType::kPreferences));
-  ASSERT_TRUE(
-      GetSyncService(0)->GetActiveDataTypes().Has(syncer::PREFERENCES));
-  ASSERT_TRUE(
-      GetSyncService(0)->GetActiveDataTypes().Has(syncer::PRIORITY_PREFERENCES));
+      syncer::UserSelectableType::kPreferences));
+  ASSERT_TRUE(GetSyncService(0)->GetActiveDataTypes().Has(syncer::PREFERENCES));
+  ASSERT_TRUE(GetSyncService(0)->GetActiveDataTypes().Has(
+      syncer::PRIORITY_PREFERENCES));
 
   // Disable all user selectable types.
   GetSyncService(0)->GetUserSettings()->SetSelectedTypes(
@@ -1938,11 +1978,10 @@ IN_PROC_BROWSER_TEST_F(SingleClientDecouplePriorityPreferencesSyncTest,
   ASSERT_TRUE(GetClient(0)->SignInPrimaryAccount());
   ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
   ASSERT_TRUE(GetSyncService(0)->GetUserSettings()->GetSelectedTypes().Has(
-    syncer::UserSelectableType::kPreferences));
-  ASSERT_TRUE(
-      GetSyncService(0)->GetActiveDataTypes().Has(syncer::PREFERENCES));
-  ASSERT_TRUE(
-      GetSyncService(0)->GetActiveDataTypes().Has(syncer::PRIORITY_PREFERENCES));
+      syncer::UserSelectableType::kPreferences));
+  ASSERT_TRUE(GetSyncService(0)->GetActiveDataTypes().Has(syncer::PREFERENCES));
+  ASSERT_TRUE(GetSyncService(0)->GetActiveDataTypes().Has(
+      syncer::PRIORITY_PREFERENCES));
 
   // Disable all user selectable types.
   GetSyncService(0)->GetUserSettings()->SetSelectedTypes(

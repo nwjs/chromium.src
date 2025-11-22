@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "chromeos-amd64-generic-rel",
-              "project": "chromium-m142"
+              "project": "chromium-m143"
             },
             "builder_spec": {
               "builder_group": "chromium.chromiumos",
@@ -45,7 +45,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "chromeos-amd64-generic-rel-gtest",
-              "project": "chromium-m142"
+              "project": "chromium-m143"
             },
             "builder_spec": {
               "builder_group": "chromium.chromiumos",
@@ -75,7 +75,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "chromeos-amd64-generic-rel",
-                "project": "chromium-m142"
+                "project": "chromium-m143"
               }
             }
           },
@@ -83,7 +83,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "chromeos-amd64-generic-rel-tast",
-              "project": "chromium-m142"
+              "project": "chromium-m143"
             },
             "builder_spec": {
               "builder_group": "chromium.chromiumos",
@@ -113,7 +113,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "chromeos-amd64-generic-rel",
-                "project": "chromium-m142"
+                "project": "chromium-m143"
               }
             }
           }
@@ -123,19 +123,19 @@
         {
           "bucket": "ci",
           "builder": "chromeos-amd64-generic-rel",
-          "project": "chromium-m142"
+          "project": "chromium-m143"
         }
       ],
       "builder_ids_in_scope_for_testing": [
         {
           "bucket": "ci",
           "builder": "chromeos-amd64-generic-rel-gtest",
-          "project": "chromium-m142"
+          "project": "chromium-m143"
         },
         {
           "bucket": "ci",
           "builder": "chromeos-amd64-generic-rel-tast",
-          "project": "chromium-m142"
+          "project": "chromium-m143"
         }
       ],
       "mirroring_builder_group_and_names": [
@@ -153,6 +153,7 @@
         }
       ],
       "retry_failed_shards": true,
+      "retry_invalid_shards": true,
       "targets_spec_directory": "src/infra/config/generated/builders/ci/chromeos-amd64-generic-rel/targets"
     }
   },

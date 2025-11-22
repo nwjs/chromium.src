@@ -15,14 +15,12 @@
 
 #include <string_view>
 
-#include "base/callback_list.h"
-#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
-#include "build/build_config.h"
-#include "components/omnibox/browser/omnibox_popup_selection.h"
 
 class OmniboxController;
-class OmniboxEditModel;
+class OmniboxPopupViewWebUI;
+class OmniboxResultView;
+class OmniboxSuggestionButtonRowView;
 namespace ui {
 struct AXNodeData;
 }
@@ -31,12 +29,6 @@ class OmniboxPopupView {
  public:
   explicit OmniboxPopupView(OmniboxController* controller);
   virtual ~OmniboxPopupView();
-
-  virtual OmniboxEditModel* model();
-  virtual const OmniboxEditModel* model() const;
-
-  virtual OmniboxController* controller();
-  virtual const OmniboxController* controller() const;
 
   // Returns true if the popup is currently open.
   virtual bool IsOpen() const = 0;
@@ -65,22 +57,17 @@ class OmniboxPopupView {
   virtual std::u16string_view GetAccessibleButtonTextForResult(
       size_t line) const;
 
-  // Updates the result and header views based on the visibility of their group.
-  virtual void SetSuggestionGroupVisibility(size_t match_index,
-                                            bool suggestion_group_hidden) {}
-
-  // Adds a callback that will be called when the popup window becomes visible.
-  base::CallbackListSubscription AddOpenListener(
-      base::RepeatingClosure callback);
+  virtual raw_ptr<OmniboxPopupViewWebUI> GetOmniboxPopupViewWebUI() = 0;
 
  protected:
-  // Call when the popup will appear to notify listeners.
-  void NotifyOpenListeners();
+  friend class OmniboxResultView;
+  friend class OmniboxSuggestionButtonRowView;
+
+  virtual OmniboxController* controller();
+  virtual const OmniboxController* controller() const;
 
  private:
-  base::RepeatingClosureList on_popup_callbacks_;
-
-  // Owned by OmniboxView which owns this.
+  // Owned by the LocationBarView that owns this. Outlives this.
   const raw_ptr<OmniboxController> controller_;
 };
 

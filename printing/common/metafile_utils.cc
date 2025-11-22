@@ -52,9 +52,12 @@
 // clang-format on
 
 #include "third_party/skia/include/docs/SkXPSDocument.h"
+#include "third_party/skia/include/docs/SkXPSRustPngHelpers.h"
 #endif  // BUILDFLAG(IS_WIN)
 
 namespace {
+
+// TODO(crbug.com/451536362) Share these constants with PDF.
 
 // Table 364 in PDF 32000-2:2020 spec, section 14.8.4.3
 const char kPDFStructureTypeDocument[] = "Document";
@@ -84,6 +87,9 @@ const char kPDFStructureTypeTableRow[] = "TR";
 const char kPDFStructureTypeTableHeader[] = "TH";
 const char kPDFStructureTypeTableCell[] = "TD";
 
+// Table 372 in PDF 32000-2:2020 spec, section 14.8.4.8.3
+const char kPDFStructureTypeCaption[] = "Caption";
+
 // Table 373 in PDF 32000-2:2020 spec, section 14.8.4.8.5
 const char kPDFStructureTypeFigure[] = "Figure";
 
@@ -100,6 +106,13 @@ const char kPDFTableCellRowSpanAttribute[] = "RowSpan";
 const char kPDFTableHeaderScopeAttribute[] = "Scope";
 const char kPDFTableHeaderScopeColumn[] = "Column";
 const char kPDFTableHeaderScopeRow[] = "Row";
+
+// Table 333 in PDF 32000-1:2008 spec, section 14.8.4.2
+const char kPDFStructureTypeArticle[] = "Art";
+const char kPDFStructureTypeBlockQuote[] = "BlockQuote";
+
+// Table 338 in PDF 32000-1:2008 spec, section 14.8.4.4.1
+const char kPDFStructureTypeCode[] = "Code";
 
 SkString GetHeadingStructureType(int heading_level) {
   // From Table 366 in PDF 32000-2:2020 spec, section 14.8.4.5,
@@ -151,6 +164,30 @@ bool RecursiveBuildStructureTree(const ui::AXNode* ax_node,
       break;
     case ax::mojom::Role::kGenericContainer:
       tag->fTypeString = kPDFStructureTypeDiv;
+      break;
+    case ax::mojom::Role::kArticle:
+      tag->fTypeString = kPDFStructureTypeArticle;
+      break;
+    case ax::mojom::Role::kBlockquote:
+      tag->fTypeString = kPDFStructureTypeBlockQuote;
+      break;
+    case ax::mojom::Role::kCaption: {
+      ui::AXNode* parent = ax_node->GetParent();
+      if (parent->IsTable()) {
+        // PDF 32000-2:2020 Table 371 Caption must be the first or last child
+        // of Table, luckily, the AXTree always reorders caption to be the
+        // first child.
+        DCHECK_EQ(parent->GetUnignoredChildAtIndex(0), ax_node);
+        tag->fTypeString = kPDFStructureTypeCaption;
+      } else {
+        // TODO(crbug.com/448962793) Investigate in which other scenarios a
+        // node with role caption should be mapped to PDF Tag caption.
+        tag->fTypeString = kPDFStructureTypeNonStruct;
+      }
+      break;
+    }
+    case ax::mojom::Role::kCode:
+      tag->fTypeString = kPDFStructureTypeCode;
       break;
     case ax::mojom::Role::kComplementary:
       tag->fTypeString = kPDFStructureTypeAside;
@@ -268,9 +305,9 @@ bool RecursiveBuildStructureTree(const ui::AXNode* ax_node,
   return valid;
 }
 
-sk_sp<SkData> GetImageData(SkImage* img) {
+sk_sp<const SkData> GetImageData(SkImage* img) {
   // Skip the encoding step if the image is already encoded
-  if (sk_sp<SkData> data = img->refEncodedData()) {
+  if (auto data = img->refEncodedData()) {
     return data;
   }
 
@@ -328,7 +365,9 @@ sk_sp<SkDocument> MakeXpsDocument(SkWStream* stream) {
     return nullptr;
   }
 
-  return SkXPS::MakeDocument(stream, factory);
+  SkXPS::Options opts;
+  opts.pngEncoder = SkXPS::EncodePngUsingRust;
+  return SkXPS::MakeDocument(stream, factory, opts);
 }
 #endif
 
@@ -424,7 +463,7 @@ sk_sp<SkData> SerializeRasterImage(SkImage* img, void* ctx) {
     return SkData::MakeWithCopy(&img_id, sizeof(img_id));
   }
 
-  sk_sp<SkData> img_data = GetImageData(img);
+  sk_sp<const SkData> img_data = GetImageData(img);
   if (!img_data) {
     return nullptr;
   }

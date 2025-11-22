@@ -30,6 +30,8 @@
 #include "third_party/blink/renderer/core/layout/pagination_utils.h"
 #include "third_party/blink/renderer/core/layout/relative_utils.h"
 #include "third_party/blink/renderer/core/layout/table/layout_table_cell.h"
+#include "third_party/blink/renderer/core/paint/border_shape_painter.h"
+#include "third_party/blink/renderer/core/paint/border_shape_utils.h"
 #include "third_party/blink/renderer/core/paint/inline_paint_context.h"
 #include "third_party/blink/renderer/core/paint/outline_painter.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
@@ -1077,6 +1079,23 @@ PhysicalRect PhysicalBoxFragment::ComputeSelfInkOverflow() const {
 
   ink_overflow.Expand(style.BoxDecorationOutsets());
 
+  if (style.HasBorderShape()) {
+    PhysicalRect rect{LocalRect()};
+    std::optional<BorderShapeReferenceRects> border_shape_rects =
+        GetLayoutObject()
+            ? ComputeBorderShapeReferenceRects(rect, style, *GetLayoutObject())
+            : std::nullopt;
+    const PhysicalRect outer_reference_rect =
+        border_shape_rects ? border_shape_rects->outer : rect;
+    const PhysicalRect inner_reference_rect =
+        border_shape_rects ? border_shape_rects->inner : rect;
+    if (std::optional<PhysicalBoxStrut> border_shape_outsets =
+            BorderShapePainter::VisualOutsets(style, rect, outer_reference_rect,
+                                              inner_reference_rect)) {
+      ink_overflow.Expand(*border_shape_outsets);
+    }
+  }
+
   if (style.HasOutline() && IsOutlineOwner()) {
     UnionOutlineRectCollector collector;
     LayoutObject::OutlineInfo info;
@@ -1094,7 +1113,7 @@ PhysicalRect PhysicalBoxFragment::ComputeSelfInkOverflow() const {
         LayoutUnit(MaxGapDecorationsWidth(style.ColumnRuleWidth()));
     LayoutUnit block_thickness =
         LayoutUnit(MaxGapDecorationsWidth(style.RowRuleWidth()));
-    PhysicalRect rect = gap_geometry->ComputeInkOverflowForGapsOptimized(
+    PhysicalRect rect = gap_geometry->ComputeInkOverflowForGaps(
         Style().GetWritingDirection(), Size(), inline_thickness,
         block_thickness);
     ink_overflow.Unite(rect);

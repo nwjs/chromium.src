@@ -11,15 +11,14 @@ export function getHtml(this: RecentTabChipElement) {
   return this.recentTab ? html`<!--_html_template_start_-->
   <cr-button id="recentTabButton"
       @click="${this.addTabContext_}"
-      ?disabled="${this.inputsDisabled}"
       title="${this.recentTab.title}"
       aria-label="${this.i18n('askAboutThisTabAriaLabel',
           this.recentTab.title)}">
     <div class="button-content">
-      <composebox-tab-favicon
+      <cr-composebox-tab-favicon
           class="favicon"
           .url="${this.recentTab.url?.url}">
-      </composebox-tab-favicon>
+      </cr-composebox-tab-favicon>
       <span class="recent-tab-button-text">
         ${this.i18n('askAboutThisTab')}
       </span>

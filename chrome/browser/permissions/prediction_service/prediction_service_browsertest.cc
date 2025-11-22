@@ -22,7 +22,6 @@
 #include "chrome/browser/permissions/prediction_service/language_detection_observer.h"
 #include "chrome/browser/permissions/prediction_service/passage_embedder_delegate.h"
 #include "chrome/browser/permissions/prediction_service/permissions_ai_ui_selector.h"
-#include "chrome/browser/permissions/prediction_service/permissions_aiv1_handler.h"
 #include "chrome/browser/permissions/prediction_service/prediction_model_handler_provider.h"
 #include "chrome/browser/permissions/prediction_service/prediction_model_handler_provider_factory.h"
 #include "chrome/browser/permissions/prediction_service/prediction_service_factory.h"
@@ -58,10 +57,12 @@
 #include "components/permissions/test/mock_permission_request.h"
 #include "components/prefs/pref_service.h"
 #include "components/translate/core/browser/translate_manager.h"
+#include "components/ukm/test_ukm_recorder.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
@@ -117,6 +118,14 @@ constexpr OptimizationTarget kAiv4OptTargetGeolocation = OptimizationTarget::
 constexpr auto kLikelihoodUnspecified =
     PermissionUiSelector::PredictionGrantLikelihood::
         PermissionPrediction_Likelihood_DiscretizedLikelihood_DISCRETIZED_LIKELIHOOD_UNSPECIFIED;
+
+constexpr auto kLikelihoodUnlikely =
+    PermissionUiSelector::PredictionGrantLikelihood::
+        PermissionPrediction_Likelihood_DiscretizedLikelihood_UNLIKELY;
+
+constexpr auto kLikelihoodLikely =
+    PermissionUiSelector::PredictionGrantLikelihood::
+        PermissionPrediction_Likelihood_DiscretizedLikelihood_LIKELY;
 
 constexpr std::string kNoHoldbackChance = "0";
 
@@ -342,7 +351,6 @@ class PredictionServiceBrowserTestBase : public InProcessBrowserTest {
   explicit PredictionServiceBrowserTestBase(
       const std::vector<FeatureRefAndParams>& enabled_features = {},
       const std::vector<FeatureRef>& disabled_features = {
-          permissions::features::kPermissionsAIv1,
           permissions::features::kPermissionsAIv3,
           permissions::features::kPermissionsAIv4}) {
     scoped_feature_list_.InitWithFeaturesAndParameters(enabled_features,
@@ -409,10 +417,6 @@ class PredictionServiceBrowserTestBase : public InProcessBrowserTest {
 
   PredictionModelHandler* prediction_model_handler() {
     return model_handler_provider()->GetPredictionModelHandler(request_type());
-  }
-
-  PermissionsAiv1Handler* aiv1_model_handler() {
-    return model_handler_provider()->GetPermissionsAiv1Handler();
   }
 
   PermissionsAiv3Handler* aiv3_model_handler() {
@@ -500,7 +504,6 @@ class PredictionServiceBrowserTestBase : public InProcessBrowserTest {
 
 IN_PROC_BROWSER_TEST_F(PredictionServiceBrowserTestBase,
                        PredictionServiceEnabled) {
-  EXPECT_FALSE(aiv1_model_handler());
   EXPECT_FALSE(aiv3_model_handler());
   EXPECT_FALSE(aiv4_model_handler());
   EXPECT_TRUE(prediction_model_handler());
@@ -531,8 +534,6 @@ class PredictionServiceHoldbackBrowserTest
                                          },
                                          /*disabled_features=*/
                                          {permissions::features::
-                                              kPermissionsAIv1,
-                                          permissions::features::
                                               kPermissionsAIv3,
                                           permissions::features::
                                               kPermissionsAIv4,
@@ -588,6 +589,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 IN_PROC_BROWSER_TEST_P(PredictionServiceHoldbackBrowserTest,
                        TestServerSideHoldbackWorkflow) {
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
   ASSERT_TRUE(embedded_test_server()->Start());
 
   GeneratePredictionsResponse prediction_service_response =
@@ -611,8 +613,18 @@ IN_PROC_BROWSER_TEST_P(PredictionServiceHoldbackBrowserTest,
                            /*expected_relevance=*/std::nullopt,
                            GetParam().prediction_service_likelihood);
 
+  EXPECT_EQ(std::nullopt,
+            permissions_ai_ui_selector()->PermissionAiRelevanceModelForUKM());
+
   histogram_tester().ExpectUniqueSample(kPredictionServiceTimeoutHistogram,
                                         false, 1);
+
+  auto entries =
+      ukm_recorder.GetEntriesByName(ukm::builders::Permission::kEntryName);
+  ASSERT_FALSE(entries.empty());
+  const auto* entry = entries.back().get();
+  EXPECT_FALSE(ukm_recorder.EntryHasMetric(
+      entry, ukm::builders::Permission::kPermissionAiRelevanceModelName));
 }
 
 IN_PROC_BROWSER_TEST_P(PredictionServiceHoldbackBrowserTest,
@@ -669,8 +681,6 @@ class SignatureModelPredictionServiceBrowserTest
                                            {}}},
                                          /*disabled_features=*/
                                          {permissions::features::
-                                              kPermissionsAIv1,
-                                          permissions::features::
                                               kPermissionsAIv3,
                                           permissions::features::
                                               kPermissionsAIv4,
@@ -902,9 +912,6 @@ class Aiv3ModelPredictionServiceBrowserTest
                                               {
                                                   CONFIGURE_NO_HOLDBACK_CHANCE,
                                                   {permissions::features::
-                                                       kPermissionsAIv1,
-                                                   {}},
-                                                  {permissions::features::
                                                        kPermissionsAIv3,
                                                    {}},
                                               }, /*disabled_features=*/
@@ -1005,12 +1012,12 @@ INSTANTIATE_TEST_SUITE_P(
 
 IN_PROC_BROWSER_TEST_P(Aiv3ModelPredictionServiceBrowserTest,
                        Aiv3ModelHandlerDefined) {
-  EXPECT_FALSE(aiv1_model_handler());
   EXPECT_TRUE(aiv3_model_handler());
 }
 
 IN_PROC_BROWSER_TEST_P(Aiv3ModelPredictionServiceBrowserTest,
                        TestAiv3Workflow) {
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
   ASSERT_TRUE(aiv3_model_handler());
 
   const auto& test_case = std::get<0>(GetParam());
@@ -1038,6 +1045,17 @@ IN_PROC_BROWSER_TEST_P(Aiv3ModelPredictionServiceBrowserTest,
       /*test_url=*/"test.a", PermissionAction::DISMISSED,
       test_case.should_expect_quiet_ui, test_case.expected_relevance,
       test_case.prediction_service_likelihood);
+
+  EXPECT_EQ(permissions::PermissionAiRelevanceModel::kAIv3,
+            permissions_ai_ui_selector()->PermissionAiRelevanceModelForUKM());
+
+  auto entries =
+      ukm_recorder.GetEntriesByName(ukm::builders::Permission::kEntryName);
+  ASSERT_FALSE(entries.empty());
+  const auto* entry = entries.back().get();
+  ukm_recorder.ExpectEntryMetric(
+      entry, ukm::builders::Permission::kPermissionAiRelevanceModelName,
+      static_cast<int64_t>(permissions::PermissionAiRelevanceModel::kAIv3));
 
   histogram_tester().ExpectBucketCount(
       request_type() == RequestType::kNotifications
@@ -1085,9 +1103,6 @@ class Aiv4ModelPredictionServiceBrowserTestBase
       : AivXModelPredictionServiceBrowserTest(/*enabled_features=*/
                                               {
                                                   CONFIGURE_NO_HOLDBACK_CHANCE,
-                                                  {permissions::features::
-                                                       kPermissionsAIv1,
-                                                   {}},
                                                   {permissions::features::
                                                        kPermissionsAIv3,
                                                    {}},
@@ -1150,7 +1165,6 @@ class Aiv4ModelPredictionServiceBrowserTestBase
 IN_PROC_BROWSER_TEST_F(Aiv4ModelPredictionServiceBrowserTestBase,
                        Aiv4ModelHandlerDefined) {
   // If AIv4 flag is defined, no other AIvX model should get initialized.
-  EXPECT_FALSE(aiv1_model_handler());
   EXPECT_FALSE(aiv3_model_handler());
   EXPECT_TRUE(aiv4_model_handler());
 }
@@ -1606,6 +1620,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 IN_PROC_BROWSER_TEST_P(Aiv4ModelPredictionServiceBrowserTest,
                        TestAiv4Workflow) {
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
   ASSERT_TRUE(aiv4_model_handler());
 
   const auto& test_case = std::get<0>(GetParam());
@@ -1634,6 +1649,17 @@ IN_PROC_BROWSER_TEST_P(Aiv4ModelPredictionServiceBrowserTest,
       /*test_url=*/"test.a", PermissionAction::DISMISSED,
       test_case.should_expect_quiet_ui, test_case.expected_relevance,
       test_case.prediction_service_likelihood);
+
+  EXPECT_EQ(permissions::PermissionAiRelevanceModel::kAIv4,
+            permissions_ai_ui_selector()->PermissionAiRelevanceModelForUKM());
+
+  auto entries =
+      ukm_recorder.GetEntriesByName(ukm::builders::Permission::kEntryName);
+  ASSERT_FALSE(entries.empty());
+  const auto* entry = entries.back().get();
+  ukm_recorder.ExpectEntryMetric(
+      entry, ukm::builders::Permission::kPermissionAiRelevanceModelName,
+      static_cast<int64_t>(permissions::PermissionAiRelevanceModel::kAIv4));
 
   histogram_tester().ExpectBucketCount(
       request_type() == RequestType::kNotifications
@@ -1705,6 +1731,98 @@ IN_PROC_BROWSER_TEST_P(Aiv4ModelPredictionServiceBrowserTest,
           : kAiv4GeolocationRenderedTextSizeHistogram,
       /*sample=*/55,
       /*expected_bucket_count=*/1);
+
+  histogram_tester().ExpectUniqueSample(kPredictionServiceTimeoutHistogram,
+                                        false, 1);
+}
+
+// ---------------------------------------------------------------------------
+// -------------------- Prediction Service AIP92 -----------------------------
+// ---------------------------------------------------------------------------
+struct PredictionServiceAIP92TestCase {
+  std::string test_name;
+  bool feature_enabled;
+  PermissionUiSelector::PredictionGrantLikelihood prediction_service_likelihood;
+  bool should_expect_quiet_ui;
+};
+
+class PredictionServiceAIP92BrowserTest
+    : public PredictionServiceBrowserTestBase,
+      public testing::WithParamInterface<PredictionServiceAIP92TestCase> {
+ public:
+  PredictionServiceAIP92BrowserTest()
+      : PredictionServiceBrowserTestBase(
+            /*enabled_features=*/GetParam().feature_enabled
+                ? std::vector<FeatureRefAndParams>{{permissions::features::
+                                                        kPermissionsAIP92,
+                                                    {}},
+                                                   CONFIGURE_NO_HOLDBACK_CHANCE}
+                : std::vector<FeatureRefAndParams>{},
+            /*disabled_features=*/GetParam().feature_enabled
+                ? std::vector<
+                      FeatureRef>{permissions::features::kPermissionsAIv3,
+                                  permissions::features::kPermissionsAIv4}
+                : std::vector<FeatureRef>{
+                      permissions::features::kPermissionsAIv3,
+                      permissions::features::kPermissionsAIv4,
+                      permissions::features::kPermissionsAIP92}) {}
+
+  void SetUpOnMainThread() override {
+    PredictionServiceBrowserTestBase::SetUpOnMainThread();
+    browser()->profile()->GetPrefs()->SetBoolean(
+        unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled, true);
+  }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    PredictionServiceAIP92Test,
+    PredictionServiceAIP92BrowserTest,
+    ValuesIn<PredictionServiceAIP92TestCase>({
+        {/*test_name=*/"FeatureEnabledUnlikelyPrediction",
+         /*feature_enabled=*/true,
+         /*prediction_service_likelihood=*/kLikelihoodVeryUnlikely,
+         /*should_expect_quiet_ui=*/true},
+        {/*test_name=*/"FeatureEnabledVeryUnlikelyPrediction",
+         /*feature_enabled=*/true,
+         /*prediction_service_likelihood=*/kLikelihoodUnlikely,
+         /*should_expect_quiet_ui=*/true},
+        {/*test_name=*/"FeatureEnabledLikelyPrediction",
+         /*feature_enabled=*/true,
+         /*prediction_service_likelihood=*/kLikelihoodLikely,
+         /*should_expect_quiet_ui=*/false},
+        {/*test_name=*/"FeatureDisabledUnlikelyPrediction",
+         /*feature_enabled=*/false,
+         /*prediction_service_likelihood=*/kLikelihoodUnlikely,
+         /*should_expect_quiet_ui=*/false},
+    }),
+    /*name_generator=*/
+    [](const testing::TestParamInfo<
+        PredictionServiceAIP92BrowserTest::ParamType>& info) {
+      return info.param.test_name;
+    });
+
+IN_PROC_BROWSER_TEST_P(PredictionServiceAIP92BrowserTest, TestAIP92Workflow) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  GeneratePredictionsResponse prediction_service_response =
+      BuildPredictionServiceResponse(GetParam().prediction_service_likelihood);
+
+  PredictionRequestFeatures expected_features = BuildRequestFeatures(
+      RequestType::kNotifications, ExperimentId::kNoExperimentId,
+      PermissionRequestRelevance::kUnspecified);
+  EXPECT_CALL(prediction_service(),
+              StartLookup(PredictionRequestFeatureEq(expected_features), _, _))
+      .WillOnce(WithArg<2>(
+          [&](PredictionService::LookupResponseCallback response_callback) {
+            std::move(response_callback)
+                .Run(/*lookup_successful=*/true,
+                     /*response_from_cache=*/true, prediction_service_response);
+          }));
+
+  TriggerPromptAndVerifyUi(/*test_url=*/"test.a", PermissionAction::DISMISSED,
+                           GetParam().should_expect_quiet_ui,
+                           /*expected_relevance=*/std::nullopt,
+                           GetParam().prediction_service_likelihood);
 
   histogram_tester().ExpectUniqueSample(kPredictionServiceTimeoutHistogram,
                                         false, 1);

@@ -4,9 +4,11 @@
 
 #include "chrome/browser/ui/webui/actor_internals/actor_internals_ui_handler.h"
 
+#include "base/containers/flat_map.h"
 #include "base/functional/bind.h"
 #include "base/notreached.h"
 #include "base/path_service.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
@@ -16,6 +18,7 @@
 #include "chrome/common/chrome_paths.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
+#include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "ui/shell_dialogs/select_file_policy.h"
 #include "ui/shell_dialogs/selected_file_info.h"
 
@@ -31,14 +34,16 @@ std::string ToString(actor::mojom::JournalEntryType type) {
   }
   NOTREACHED();
 }
-std::string ToString(actor::mojom::JournalTrack type) {
-  switch (type) {
-    case actor::mojom::JournalTrack::kFrontEnd:
-      return "FrontEnd";
-    case actor::mojom::JournalTrack::kActor:
-      return "Actor";
+std::string ToString(uint64_t track_uuid, actor::TaskId task_id) {
+  if (actor::MakeFrontEndTrackUUID(task_id) == track_uuid) {
+    return "FrontEnd";
+  } else if (actor::MakeBrowserTrackUUID(task_id) == track_uuid) {
+    return "Browser";
+  } else if (actor::MakeRendererTrackUUID(task_id) == track_uuid) {
+    return "Renderer";
+  } else {
+    return base::NumberToString(track_uuid);
   }
-  NOTREACHED();
 }
 
 }  // namespace
@@ -69,13 +74,15 @@ ActorInternalsUIHandler::~ActorInternalsUIHandler() {
 
 void ActorInternalsUIHandler::WillAddJournalEntry(
     const actor::AggregatedJournal::Entry& entry) {
-  std::stringstream ss;
-  ss << entry.data->details;
+  base::flat_map<std::string, std::string> details;
+  for (const auto& detail : entry.data->details) {
+    details[detail->key] = detail->value;
+  }
 
   remote_->JournalEntryAdded(actor_internals::mojom::JournalEntry::New(
-      entry.url, entry.data->event, ToString(entry.data->type), ss.str(),
-      entry.data->timestamp, entry.data->task_id.value(),
-      ToString(entry.data->track), entry.jpg_screenshot));
+      entry.url, entry.data->event, ToString(entry.data->type),
+      std::move(details), entry.data->timestamp, entry.data->task_id.value(),
+      ToString(entry.data->track_uuid, entry.data->task_id), entry.screenshot));
 }
 
 void ActorInternalsUIHandler::StartLogging() {

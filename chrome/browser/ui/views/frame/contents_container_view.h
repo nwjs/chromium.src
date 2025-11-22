@@ -28,7 +28,7 @@ class Rect;
 }  // namespace gfx
 
 namespace glic {
-class GlicBorderView;
+class ContextSharingBorderView;
 }  // namespace glic
 
 namespace new_tab_footer {
@@ -44,8 +44,8 @@ namespace enterprise_watermark {
 class WatermarkView;
 }  // namespace enterprise_watermark
 
-// ContentsContainerView is owned by MultiContentsView and holds the
-// ContentsWebView and the outlines and minitoolbar when in split view.
+// ContentsContainerView holds the ContentsWebView and the outlines and
+// minitoolbar when in split view.
 class ContentsContainerView : public views::View,
                               public views::LayoutDelegate,
                               public views::ViewObserver {
@@ -81,7 +81,10 @@ class ContentsContainerView : public views::View,
   ActorOverlayWebView* actor_overlay_web_view() {
     return actor_overlay_web_view_;
   }
-  glic::GlicBorderView* glic_border_view() { return glic_border_; }
+  views::View* immersive_read_anything_overlay_view() {
+    return immersive_read_anything_overlay_view_;
+  }
+  glic::ContextSharingBorderView* glic_border_view() { return glic_border_; }
   new_tab_footer::NewTabFooterWebView* new_tab_footer_view() {
     return new_tab_footer_view_;
   }
@@ -160,6 +163,10 @@ class ContentsContainerView : public views::View,
   DevToolsDockedPlacement current_devtools_docked_placement_ =
       DevToolsDockedPlacement::kNone;
 
+  // The view that contains the Immersive Reading Mode. This view is an overlay
+  // on top of the ContentsWebView.
+  raw_ptr<views::View> immersive_read_anything_overlay_view_ = nullptr;
+
   // The view that shows a footer at the bottom of the contents
   // container on new tab pages.
   raw_ptr<new_tab_footer::NewTabFooterWebView> new_tab_footer_view_ = nullptr;
@@ -178,7 +185,7 @@ class ContentsContainerView : public views::View,
   raw_ptr<ActorOverlayWebView> actor_overlay_web_view_ = nullptr;
 
   // The glic browser view that renders around the web contents area.
-  raw_ptr<glic::GlicBorderView> glic_border_ = nullptr;
+  raw_ptr<glic::ContextSharingBorderView> glic_border_ = nullptr;
 
   raw_ptr<MultiContentsViewMiniToolbar> mini_toolbar_ = nullptr;
 

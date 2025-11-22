@@ -149,14 +149,7 @@ TEST_F(ContentIdentityCredentialDelegateTest, UnsupportedFieldType) {
         return result;
       }));
 
-  IdentityRequestAccountPtr account = CreateTestAccount();
-  // The delegated flow requires an IdP with a specific format.
-  account->identity_provider->format = blink::mojom::Format::kSdJwt;
-  account->identity_provider->disclosure_fields = {
-      content::IdentityRequestDialogDisclosureField::kEmail};
-  std::vector<IdentityRequestAccountPtr> accounts = {account};
-
-  EXPECT_CALL(mock, GetAutofillSuggestions).WillOnce(Return(accounts));
+  EXPECT_CALL(mock, GetAutofillSuggestions).Times(0);
 
   test_api(form()).SetFieldTypes({UNKNOWN_TYPE});
   std::vector<Suggestion> suggestions = delegate.GetVerifiedAutofillSuggestions(
@@ -205,7 +198,7 @@ TEST_F(ContentIdentityCredentialDelegateTest, GetVerifiedEmailRequest) {
 
   // Expect that email is previewed/filled because it was requested in the
   // conditional request.
-  EXPECT_TRUE(payload.fields.contains(EMAIL_ADDRESS));
+  ASSERT_TRUE(payload.fields.contains(EMAIL_ADDRESS));
   EXPECT_EQ(payload.fields[EMAIL_ADDRESS], u"john@email.com");
 
   // Expect that name isn't previewed/filled because it wasn't requested in the
@@ -253,12 +246,12 @@ TEST_F(ContentIdentityCredentialDelegateTest, SuggestPhoneNumbers) {
 
   // Expect that email is previewed/filled because it was requested in the
   // conditional request.
-  EXPECT_TRUE(payload.fields.contains(EMAIL_ADDRESS));
+  ASSERT_TRUE(payload.fields.contains(EMAIL_ADDRESS));
   EXPECT_EQ(payload.fields[EMAIL_ADDRESS], u"john@email.com");
 
   // Expect that email is previewed/filled because it was requested in the
   // conditional request.
-  EXPECT_TRUE(payload.fields.contains(PHONE_HOME_WHOLE_NUMBER));
+  ASSERT_TRUE(payload.fields.contains(PHONE_HOME_WHOLE_NUMBER));
   EXPECT_EQ(payload.fields[PHONE_HOME_WHOLE_NUMBER], u"+1 (234) 567-8910");
 }
 
@@ -459,7 +452,7 @@ TEST_F(ContentIdentityCredentialDelegateTest, GetProvidedNameRequest) {
 
   // Expect that email is previewed/filled because it was requested in the
   // conditional request.
-  EXPECT_TRUE(payload.fields.contains(NAME_FULL));
+  ASSERT_TRUE(payload.fields.contains(NAME_FULL));
   EXPECT_EQ(payload.fields[NAME_FULL], u"John");
 }
 

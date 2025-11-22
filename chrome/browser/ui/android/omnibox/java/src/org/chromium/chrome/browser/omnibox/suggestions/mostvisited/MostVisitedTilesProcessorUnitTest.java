@@ -38,6 +38,7 @@ import org.mockito.junit.MockitoRule;
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
@@ -64,7 +65,6 @@ import org.chromium.url.JUnitTestGURLs;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -127,11 +127,11 @@ public final class MostVisitedTilesProcessorUnitTest {
                         mContext,
                         mSuggestionHost,
                         mTextProvider,
-                        Optional.of(mImageSupplier),
+                        mImageSupplier,
                         mBookmarkState,
                         mTabSupplier,
                         mShareDelegateSupplier,
-                        () -> ControlsPosition.TOP);
+                        new ObservableSupplierImpl<>(ControlsPosition.TOP));
         mProcessor = new MostVisitedTilesProcessor(uiContext);
         OmniboxResourceProvider.disableCachesForTesting();
     }
@@ -213,11 +213,11 @@ public final class MostVisitedTilesProcessorUnitTest {
                         mContext,
                         mSuggestionHost,
                         mTextProvider,
-                        /* imageSupplier= */ Optional.empty(),
+                        /* imageSupplier= */ null,
                         mBookmarkState,
                         mTabSupplier,
                         mShareDelegateSupplier,
-                        () -> ControlsPosition.TOP);
+                        new ObservableSupplierImpl<>(ControlsPosition.TOP));
         mProcessor = new MostVisitedTilesProcessor(uiContext);
         List<ListItem> tileList =
                 populateMatchesForHorizontalRenderGroup(0, new TileData("title", NAV_URL, false));
@@ -435,13 +435,16 @@ public final class MostVisitedTilesProcessorUnitTest {
         // Note that this passes both placement of the carousel in the list as well as particular
         // element that is getting removed.
         tileList.get(1).model.get(TileViewProperties.ON_LONG_CLICK).onLongClick(null);
-        ordered.verify(mSuggestionHost, times(1)).onDeleteMatch(eq(mMatches.get(1)), eq("nav1"));
+        ordered.verify(mSuggestionHost, times(1))
+                .confirmDeleteMatch(eq(mMatches.get(1)), eq("nav1"));
 
         tileList.get(2).model.get(TileViewProperties.ON_LONG_CLICK).onLongClick(null);
-        ordered.verify(mSuggestionHost, times(1)).onDeleteMatch(eq(mMatches.get(2)), eq("nav2"));
+        ordered.verify(mSuggestionHost, times(1))
+                .confirmDeleteMatch(eq(mMatches.get(2)), eq("nav2"));
 
         tileList.get(0).model.get(TileViewProperties.ON_LONG_CLICK).onLongClick(null);
-        ordered.verify(mSuggestionHost, times(1)).onDeleteMatch(eq(mMatches.get(0)), eq("search1"));
+        ordered.verify(mSuggestionHost, times(1))
+                .confirmDeleteMatch(eq(mMatches.get(0)), eq("search1"));
 
         verifyNoMoreInteractions(mSuggestionHost);
         verifyNoMoreInteractions(mImageSupplier);
@@ -462,13 +465,13 @@ public final class MostVisitedTilesProcessorUnitTest {
         // Note that this passes both placement of the carousel in the list as well as particular
         // element that is getting removed.
         tileList.get(1).model.get(TileViewProperties.ON_LONG_CLICK).onLongClick(null);
-        ordered.verify(mSuggestionHost).onDeleteMatch(eq(mMatches.get(1)), eq("nav1"));
+        ordered.verify(mSuggestionHost).confirmDeleteMatch(eq(mMatches.get(1)), eq("nav1"));
 
         tileList.get(2).model.get(TileViewProperties.ON_LONG_CLICK).onLongClick(null);
-        ordered.verify(mSuggestionHost).onDeleteMatch(eq(mMatches.get(2)), eq("nav2"));
+        ordered.verify(mSuggestionHost).confirmDeleteMatch(eq(mMatches.get(2)), eq("nav2"));
 
         tileList.get(0).model.get(TileViewProperties.ON_LONG_CLICK).onLongClick(null);
-        ordered.verify(mSuggestionHost).onDeleteMatch(eq(mMatches.get(0)), eq("search1"));
+        ordered.verify(mSuggestionHost).confirmDeleteMatch(eq(mMatches.get(0)), eq("search1"));
 
         verifyNoMoreInteractions(mSuggestionHost);
         verifyNoMoreInteractions(mImageSupplier);

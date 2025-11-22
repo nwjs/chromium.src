@@ -7,10 +7,12 @@
 #include <memory>
 #include <ostream>
 
-#include "base/metrics/histogram_functions.h"
+#include "base/feature_list.h"
 #include "base/no_destructor.h"
 #include "base/state_transitions.h"
 #include "base/task/sequenced_task_runner.h"
+#include "build/build_config.h"
+#include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_metrics.h"
 #include "chrome/browser/actor/execution_engine.h"
@@ -19,30 +21,110 @@
 #include "chrome/common/actor.mojom-data-view.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/actor/action_result.h"
+#include "chrome/common/actor/journal_details_builder.h"
+#include "chrome/common/chrome_features.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/page.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_widget_host.h"
+#include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/buildflags.h"
 #include "ui/gfx/geometry/size.h"
 
 namespace actor {
 
-ActorTask::ActingTabState::ActingTabState() = default;
-ActorTask::ActingTabState::~ActingTabState() = default;
-ActorTask::ActingTabState::ActingTabState(ActingTabState&&) = default;
-ActorTask::ActingTabState& ActorTask::ActingTabState::operator=(
-    ActingTabState&&) = default;
+namespace {
+
+bool IsStateActorControlledAndNotWaiting(ActorTask::State state) {
+  return (state == ActorTask::State::kCreated ||
+          state == ActorTask::State::kActing ||
+          state == ActorTask::State::kReflecting);
+}
+
+bool IsStateActorControlled(ActorTask::State state) {
+  return IsStateActorControlledAndNotWaiting(state) ||
+         // Although waiting on the user, this state is used when the user can
+         // only interact with the client. i.e. The user cannot interact with
+         // the task's tabs in this state so it is still considered to be under
+         // the client's control.
+         state == ActorTask::State::kWaitingOnUser;
+}
+
+bool IsInterruptedState(ActorTask::State state) {
+  return (state == ActorTask::State::kWaitingOnUser ||
+          state == ActorTask::State::kPausedByActor ||
+          state == ActorTask::State::kPausedByUser);
+}
+
+void SetFocusState(content::WebContents* contents,
+                   std::optional<bool> focus_state) {
+  if (content::RenderWidgetHostView* view =
+          contents->GetRenderWidgetHostView()) {
+    if (content::RenderWidgetHost* host = view->GetRenderWidgetHost()) {
+      // If a new state was provided, use that. Otherwise us the state from
+      // the view.
+      bool new_state = focus_state.value_or(view->HasFocus());
+      if (new_state) {
+        host->Focus();
+      } else {
+        host->Blur();
+      }
+    }
+  }
+}
+
+}  // namespace
+
+ActorTask::ActorControlledTabState::ActorControlledTabState(ActorTask* task)
+    : task(task) {}
+ActorTask::ActorControlledTabState::~ActorControlledTabState() {
+  // Stop observing the Webcontents immediately to prevent reentrant calls to
+  // OnVisibilityChanged() when other members (e.g. `actuation_runner`) are
+  // destroyed.
+  Observe(nullptr);
+}
+
+void ActorTask::ActorControlledTabState::SetContents(
+    content::WebContents* contents) {
+  Observe(contents);
+}
+
+void ActorTask::ActorControlledTabState::PrimaryPageChanged(
+    content::Page& page) {
+  content::WebContents* contents =
+      content::WebContents::FromRenderFrameHost(&page.GetMainDocument());
+  if (task->IsUnderActorControl()) {
+    task->DidContentsEnterActorControl(this, contents);
+  } else {
+    task->DidContentsExitActorControl(this, contents);
+  }
+}
+
+void ActorTask::ActorControlledTabState::OnVisibilityChanged(
+    content::Visibility visibility) {
+  if (!task->IsUnderActorControl()) {
+    return;
+  }
+  task->UpdateVisibilityTimes();
+  task->RecomputeHasVisibleTab();
+}
 
 ActorTask::ActorTask(Profile* profile,
                      std::unique_ptr<ExecutionEngine> execution_engine,
                      std::unique_ptr<ui::UiEventDispatcher> ui_event_dispatcher,
-                     webui::mojom::TaskOptionsPtr options)
+                     webui::mojom::TaskOptionsPtr options,
+                     base::WeakPtr<ActorTaskDelegate> delegate)
     : profile_(profile),
+      create_time_(base::TimeTicks::Now()),
       execution_engine_(std::move(execution_engine)),
       ui_event_dispatcher_(std::move(ui_event_dispatcher)),
-      ui_weak_ptr_factory_(ui_event_dispatcher_.get()) {
-  if (options && options->title.has_value()) {
-    title_ = options->title.value();
-  }
-}
+      journal_(ActorKeyedService::Get(profile)->GetJournal().GetSafeRef()),
+      title_(options && options->title.has_value() ? options->title.value()
+                                                   : ""),
+      delegate_(std::move(delegate)),
+      ui_weak_ptr_factory_(ui_event_dispatcher_.get()) {}
 
 ActorTask::~ActorTask() = default;
 
@@ -62,63 +144,101 @@ ActorTask::State ActorTask::GetState() const {
   return state_;
 }
 
-void ActorTask::SetState(State state) {
+base::WeakPtr<ActorTask> ActorTask::GetWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
+}
+
+void ActorTask::SetState(State new_state) {
   using enum State;
-  VLOG(1) << "ActorTask state change: " << state_ << " -> " << state;
+  journal_->Log(GURL(), id(), "ActorTask::SetState",
+                JournalDetailsBuilder()
+                    .Add("current_state", ToString(state_))
+                    .Add("new_state", ToString(new_state))
+                    .Build());
 #if DCHECK_IS_ON()
   static const base::NoDestructor<base::StateTransitions<State>>
       allowed_transitions(base::StateTransitions<State>(
           {{kCreated,
             {kActing, kReflecting, kPausedByActor, kPausedByUser, kCancelled,
-             kFinished}},
+             kFinished, kFailed}},
            {kActing,
-            {kReflecting, kPausedByActor, kPausedByUser, kCancelled,
-             kFinished}},
+            {kReflecting, kPausedByActor, kPausedByUser, kCancelled, kFinished,
+             kWaitingOnUser, kFailed}},
            {kReflecting,
-            {kActing, kPausedByActor, kPausedByUser, kCancelled, kFinished}},
-           {kPausedByActor, {kActing, kReflecting, kCancelled, kFinished}},
-           {kPausedByUser, {kActing, kReflecting, kCancelled, kFinished}},
+            {kActing, kPausedByActor, kPausedByUser, kCancelled, kFinished,
+             kWaitingOnUser, kFailed}},
+           {kPausedByActor, {kReflecting, kCancelled, kFinished, kFailed}},
+           {kPausedByUser, {kReflecting, kCancelled, kFinished, kFailed}},
+           {kWaitingOnUser,
+            {kActing, kReflecting, kPausedByActor, kPausedByUser, kCancelled,
+             kFinished, kFailed}},
            {kCancelled, {}},
+           {kFailed, {}},
            {kFinished, {}}}));
-  if (state != state_) {
+  if (new_state != state_) {
     DCHECK_STATE_TRANSITION(allowed_transitions,
                             /*old_state=*/state_,
-                            /*new_state=*/state);
+                            /*new_state=*/new_state);
   }
 #endif  // DCHECK_IS_ON()
 
+  // Actor and user control states must be mutually exclusive.
+  CHECK(IsCompleted() || IsUnderActorControl() != IsUnderUserControl());
+
+  State old_state = state_;
   const base::TimeDelta old_state_duration = current_state_timer_.Elapsed();
 
-  // If the old state was not a paused state, add its duration to the total
-  // active time for the task.
-  if (!IsPaused()) {
-    total_active_time_ += old_state_duration;
+  // If the old state was active, add its duration to the total active time for
+  // the task.
+  if (IsStateActorControlledAndNotWaiting(old_state)) {
+    total_actor_controlled_active_time_ += old_state_duration;
   }
 
   // Record granular state transition histograms.
-  RecordActorTaskStateTransitionDuration(old_state_duration, state_);
-  RecordActorTaskStateTransitionActionCount(actions_in_current_state_, state_,
-                                            state);
+  RecordActorTaskStateTransitionDuration(old_state_duration, old_state);
+  RecordActorTaskStateTransitionActionCount(actions_in_current_state_,
+                                            old_state, new_state);
 
-  ui_event_dispatcher_->OnActorTaskSyncChange(
-      ui::UiEventDispatcher::ChangeTaskState{
-          .task_id = id_, .old_state = state_, .new_state = state});
-  state_ = state;
+  state_ = new_state;
   current_state_timer_ = base::ElapsedTimer();
   actions_in_current_state_ = 0;
+  // When transitioning into an actor-controlled state, start the timer for
+  // visibility metrics and prepare each tab for actuation.
+  if (IsStateActorControlled(new_state) && !IsStateActorControlled(old_state)) {
+    visibility_timer_ = base::ElapsedTimer();
+    for (const auto& [tab, _] : controlled_tabs_) {
+      DidTabEnterActorControl(tab);
+    }
+    // When transitioning out of an actor-controlled state, record the final
+    // visibility duration and clean up each tab.
+  } else if (!IsStateActorControlled(new_state) &&
+             IsStateActorControlled(old_state)) {
+    UpdateVisibilityTimes();
+    for (const auto& [tab, _] : controlled_tabs_) {
+      DidTabExitActorControl(tab);
+    }
+    ResetToObserveTabsSet();
+  }
+  if (IsInterruptedState(new_state)) {
+    ++total_number_of_interruptions_;
+  }
+  ui_event_dispatcher_->OnActorTaskSyncChange(
+      ui::UiEventDispatcher::ChangeTaskState{.task_id = id_,
+                                             .old_state = old_state,
+                                             .new_state = new_state,
+                                             .title = title_});
+
   actor::ActorKeyedService::Get(profile_)->NotifyTaskStateChanged(*this);
 
   // If the state is to be finished/cancelled record a histogram.
-  if (state_ == kFinished) {
-    base::UmaHistogramCounts1000("Actor.Task.Count.Completed",
-                                 total_number_of_actions_);
-    base::UmaHistogramLongTimes100("Actor.Task.Duration.Completed",
-                                   total_active_time_);
-  } else if (state_ == kCancelled) {
-    base::UmaHistogramCounts1000("Actor.Task.Count.Cancelled",
-                                 total_number_of_actions_);
-    base::UmaHistogramLongTimes100("Actor.Task.Duration.Cancelled",
-                                   total_active_time_);
+  if (state_ == kFinished || state_ == kCancelled || state_ == kFailed) {
+    CHECK(stopped_reason_.has_value());
+    RecordActorTaskVisibilityDurationHistograms(
+        total_time_visible_, total_time_not_visible_, stopped_reason_.value());
+    RecordActorTaskCompletion(
+        stopped_reason_.value(), base::TimeTicks::Now() - create_time_,
+        total_actor_controlled_active_time_, total_number_of_interruptions_,
+        total_number_of_actions_);
   }
 }
 
@@ -129,11 +249,14 @@ void ActorTask::Act(std::vector<std::unique_ptr<ToolRequest>>&& actions,
                             std::nullopt, {});
     return;
   }
-  if (IsStopped()) {
+  if (IsCompleted()) {
     std::move(callback).Run(MakeResult(mojom::ActionResultCode::kTaskWentAway),
                             std::nullopt, {});
     return;
   }
+
+  ResetToObserveTabsSet();
+
   SetState(State::kActing);
 
   actions_in_current_state_ += actions.size();
@@ -146,11 +269,33 @@ void ActorTask::Act(std::vector<std::unique_ptr<ToolRequest>>&& actions,
 }
 
 void ActorTask::OnFinishedAct(
+    base::WeakPtr<ActorTask> actor_task,
+    ActCallback callback,
+    mojom::ActionResultPtr result,
+    std::optional<size_t> index_of_failed_action,
+    std::vector<ActionResultWithLatencyInfo> action_results) {
+  // Actor task disappeared.
+  if (!actor_task) {
+    std::move(callback).Run(MakeResult(mojom::ActionResultCode::kTaskWentAway),
+                            std::nullopt, {});
+    return;
+  }
+  actor_task->OnFinishedActImpl(std::move(callback), std::move(result),
+                                index_of_failed_action,
+                                std::move(action_results));
+}
+
+void ActorTask::OnFinishedActImpl(
     ActCallback callback,
     mojom::ActionResultPtr result,
     std::optional<size_t> index_of_failed_action,
     std::vector<ActionResultWithLatencyInfo> action_results) {
   if (state_ != State::kActing) {
+    journal_->Log(GURL(), id(), "ActorTask::OnFinishedAct",
+                  JournalDetailsBuilder()
+                      .Add("result", ToDebugString(*result))
+                      .AddError("Not in kActing state")
+                      .Build());
     std::move(callback).Run(MakeErrorResult(), std::nullopt, {});
     return;
   }
@@ -159,74 +304,89 @@ void ActorTask::OnFinishedAct(
                           std::move(action_results));
 }
 
-void ActorTask::Stop(bool success) {
+void ActorTask::Stop(StoppedReason stop_reason) {
   if (execution_engine_) {
     execution_engine_->CancelOngoingActions(
         mojom::ActionResultCode::kTaskWentAway);
+    execution_engine_->RunUserTakeoverCallbackIfExists(/*should_cancel=*/true);
   }
   end_time_ = base::Time::Now();
   // Remove all the tabs from the task.
-  while (!acting_tabs_.empty()) {
-    RemoveTab(acting_tabs_.begin()->first);
+  while (!controlled_tabs_.empty()) {
+    RemoveTab(controlled_tabs_.begin()->first);
   }
-  if (success) {
-    SetState(State::kFinished);
-  } else {
-    SetState(State::kCancelled);
+  State final_state;
+  switch (stop_reason) {
+    case StoppedReason::kUserStartedNewChat:
+    case StoppedReason::kUserLoadedPreviousChat:
+    case StoppedReason::kStoppedByUser:
+    case StoppedReason::kTabDetached:
+    case StoppedReason::kShutdown:
+      final_state = State::kCancelled;
+      break;
+    case StoppedReason::kTaskComplete:
+      final_state = State::kFinished;
+      break;
+    case StoppedReason::kModelError:
+    case StoppedReason::kChromeFailure:
+      final_state = State::kFailed;
+      break;
   }
+  stopped_reason_ = stop_reason;
+  SetState(final_state);
 }
 
 void ActorTask::Pause(bool from_actor) {
-  if (GetState() == State::kFinished) {
+  if (IsCompleted()) {
     return;
   }
   if (execution_engine_) {
     execution_engine_->CancelOngoingActions(
         mojom::ActionResultCode::kTaskPaused);
+    execution_engine_->RunUserTakeoverCallbackIfExists(/*should_cancel=*/false);
   }
   if (from_actor) {
     SetState(State::kPausedByActor);
   } else {
     SetState(State::kPausedByUser);
   }
-
-  // Release all the capturer count increments. The ScopedClosureRunner's
-  // destructor will handle this as `actuation_runner` is reset.
-  for (auto& [handle, state] : acting_tabs_) {
-    state.actuation_runner = {};
-  }
 }
 
 void ActorTask::Resume() {
   // Only resume from a paused state.
-  if (!IsPaused()) {
+  if (!IsUnderUserControl()) {
     return;
-  }
-
-  // Re-create the capturer count runners for all tabs that need one.
-  for (auto& [handle, state] : acting_tabs_) {
-    if (!handle.Get()) {
-      continue;
-    }
-    if (content::WebContents* web_contents = handle.Get()->GetContents()) {
-      state.actuation_runner =
-          web_contents->IncrementCapturerCount(gfx::Size(),
-                                               /*stay_hidden=*/false,
-                                               /*stay_awake=*/true,
-                                               /*is_activity=*/true);
-    }
   }
 
   SetState(State::kReflecting);
 }
 
-bool ActorTask::IsPaused() const {
-  return (GetState() == State::kPausedByActor) ||
-         (GetState() == State::kPausedByUser);
+void ActorTask::Interrupt() {
+  if (GetState() != State::kReflecting && GetState() != State::kActing) {
+    return;
+  }
+  SetState(State::kWaitingOnUser);
 }
 
-bool ActorTask::IsStopped() const {
-  return (GetState() == State::kFinished) || (GetState() == State::kCancelled);
+void ActorTask::Uninterrupt(State resumed_state) {
+  if (GetState() != State::kWaitingOnUser) {
+    return;
+  }
+  SetState(resumed_state);
+}
+
+bool ActorTask::IsUnderUserControl() const {
+  return GetState() == State::kPausedByActor ||
+         GetState() == State::kPausedByUser;
+}
+
+bool ActorTask::IsUnderActorControl() const {
+  return IsStateActorControlled(state_);
+}
+
+bool ActorTask::IsCompleted() const {
+  return (GetState() == State::kFinished) ||
+         (GetState() == State::kCancelled) || (GetState() == State::kFailed);
 }
 
 base::Time ActorTask::GetEndTime() const {
@@ -234,61 +394,127 @@ base::Time ActorTask::GetEndTime() const {
 }
 
 void ActorTask::AddTab(tabs::TabHandle tab_handle, AddTabCallback callback) {
-  if (IsPaused() || IsStopped()) {
+  if (!IsUnderActorControl()) {
+    journal_->Log(
+        GURL(), id(), "ActorTask::AddTab",
+        JournalDetailsBuilder().AddError("Not Under Actor Control").Build());
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
         base::BindOnce(
             std::move(callback),
-            MakeResult(IsPaused() ? mojom::ActionResultCode::kTaskPaused
-                                  : mojom::ActionResultCode::kTaskWentAway)));
+            MakeResult(IsUnderUserControl()
+                           ? mojom::ActionResultCode::kTaskPaused
+                           : mojom::ActionResultCode::kTaskWentAway)));
     return;
   }
-  if (acting_tabs_.contains(tab_handle)) {
+  if (controlled_tabs_.contains(tab_handle)) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(std::move(callback), MakeOkResult()));
     return;
   }
 
-  ActingTabState state;
-  tabs::TabInterface* tab = tab_handle.Get();
-  // GetContents may be null in unit tests.
-  if (tab && tab->GetContents()) {
-    content::WebContents* web_contents = tab->GetContents();
-    state.actuation_runner =
-        web_contents->IncrementCapturerCount(gfx::Size(),
-                                             /*stay_hidden=*/false,
-                                             /*stay_awake=*/true,
-                                             /*is_activity=*/true);
+  journal_->Log(
+      GURL(), id(), "ActorTask::AddTab",
+      JournalDetailsBuilder().Add("tab_id", tab_handle.raw_value()).Build());
 
-    state.will_detach_subscription =
-        tab->RegisterWillDetach(base::BindRepeating(
-            &ActorTask::OnTabWillDetach, weak_ptr_factory_.GetWeakPtr()));
-  }
+  controlled_tabs_.emplace(tab_handle,
+                           std::make_unique<ActorControlledTabState>(this));
+  DidTabEnterActorControl(tab_handle);
 
   // Notify the UI of the new tab.
-  acting_tabs_.emplace(tab_handle, std::move(state));
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(&ui::UiEventDispatcher::OnActorTaskAsyncChange,
                                 ui_weak_ptr_factory_.GetWeakPtr(),
                                 ui::UiEventDispatcher::AddTab{
                                     .task_id = id_, .handle = tab_handle},
                                 std::move(callback)));
+
+  // Post-task this delegate call to avoid any performance issues.
+  if (delegate_) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(&ActorTaskDelegate::OnTabAddedToTask,
+                                  delegate_, id_, tab_handle));
+  }
+}
+
+// TODO(crbug.com/450524344): Add a test for this. Note that at this point the
+// tab is not yet associated with the new_contents.
+void ActorTask::HandleDiscardContents(tabs::TabInterface* tab,
+                                      content::WebContents* old_contents,
+                                      content::WebContents* new_contents) {
+  CHECK(controlled_tabs_.contains(tab->GetHandle()));
+  if (!IsUnderActorControl()) {
+    // The observer should only be attached when we're under actor control.
+    NOTREACHED(base::NotFatalUntil::M145);
+    return;
+  }
+  ActorControlledTabState* state = controlled_tabs_[tab->GetHandle()].get();
+  DidContentsEnterActorControl(state, new_contents);
 }
 
 void ActorTask::RemoveTab(tabs::TabHandle tab_handle) {
-  // Erasing the entry from the map triggers the ScopedClosureRunner's
-  // destructor (via std::optional's destructor), which automatically calls
-  // DecrementCapturerCount on the WebContents.
-  auto num_removed = acting_tabs_.erase(tab_handle);
+  if (IsActingOnTab(tab_handle)) {
+    // Record the tab visibility duration.
+    UpdateVisibilityTimes();
+    DidTabExitActorControl(tab_handle);
+  }
+  auto num_removed = controlled_tabs_.erase(tab_handle);
+  RecomputeHasVisibleTab();
 
   if (num_removed > 0) {
+    journal_->Log(
+        GURL(), id(), "ActorTask::RemoveTab",
+        JournalDetailsBuilder().Add("tab_id", tab_handle.raw_value()).Build());
+
     // Notify the UI of the tab removal.
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(&ui::UiEventDispatcher::OnActorTaskSyncChange,
-                                  ui_weak_ptr_factory_.GetWeakPtr(),
-                                  ui::UiEventDispatcher::RemoveTab{
-                                      .task_id = id_, .handle = tab_handle}));
+    if (base::FeatureList::IsEnabled(kActorDoNotStoreCompletedTasks)) {
+      // We call this synchronously since a Stop will destroy the ActorTask
+      // in the same event pump and the UIEventDispatcher will be destroyed
+      // before dispatching the event.
+      ui_event_dispatcher_->OnActorTaskSyncChange(
+          ui::UiEventDispatcher::RemoveTab{.task_id = id_,
+                                           .handle = tab_handle});
+
+    } else {
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE,
+          base::BindOnce(&ui::UiEventDispatcher::OnActorTaskSyncChange,
+                         ui_weak_ptr_factory_.GetWeakPtr(),
+                         ui::UiEventDispatcher::RemoveTab{
+                             .task_id = id_, .handle = tab_handle}));
+    }
   }
+}
+
+void ActorTask::ObserveTabOnce(tabs::TabHandle tab_handle) {
+  CHECK(IsUnderActorControl());
+
+  if (to_observe_tabs_.contains(tab_handle) ||
+      controlled_tabs_.contains(tab_handle)) {
+    return;
+  }
+
+  tabs::TabInterface* tab = tab_handle.Get();
+  if (!tab) {
+    journal_->Log(GURL(), id(), "ObserveTabOnce",
+                  JournalDetailsBuilder()
+                      .Add("tab_id", tab_handle.raw_value())
+                      .AddError("Tab is gone")
+                      .Build());
+    return;
+  }
+
+  journal_->Log(
+      GURL(), id(), "ObserveTabOnce",
+      JournalDetailsBuilder().Add("tab_id", tab_handle.raw_value()).Build());
+
+  auto itr =
+      to_observe_tabs_
+          .emplace(tab_handle, std::make_unique<ActorControlledTabState>(this))
+          .first;
+  ActorControlledTabState* state = itr->second.get();
+
+  DidContentsEnterActorControl(state, tab->GetContents());
 }
 
 void ActorTask::OnTabWillDetach(tabs::TabInterface* tab,
@@ -303,15 +529,56 @@ void ActorTask::OnTabWillDetach(tabs::TabInterface* tab,
   // TODO(mcnee): This will also stop a task that's paused. Should we leave
   // paused tasks as is?
 
-  actor::ActorKeyedService::Get(profile_)->StopTask(id(), /*success=*/false);
+  journal_->Log(GURL(), id(), "Acting Tab Deleted",
+                JournalDetailsBuilder()
+                    .Add("tab_id", tab->GetHandle().raw_value())
+                    .Build());
+
+  actor::ActorKeyedService::Get(profile_)->StopTask(
+      id(), StoppedReason::kTabDetached);
+}
+
+void ActorTask::UpdateVisibilityTimes() {
+  if (has_visible_tab_) {
+    total_time_visible_ += visibility_timer_.Elapsed();
+  } else {
+    total_time_not_visible_ += visibility_timer_.Elapsed();
+  }
+  visibility_timer_ = base::ElapsedTimer();
+}
+
+void ActorTask::RecomputeHasVisibleTab() {
+  bool has_any_visible_tab = false;
+  for (const auto& [handle, controlled_state] : controlled_tabs_) {
+    if (controlled_state->web_contents() &&
+        controlled_state->web_contents()->GetVisibility() ==
+            content::Visibility::VISIBLE) {
+      has_any_visible_tab = true;
+      break;
+    }
+  }
+
+  has_visible_tab_ = has_any_visible_tab;
+}
+
+void ActorTask::ResetToObserveTabsSet() {
+  for (const auto& [tab_handle, state] : to_observe_tabs_) {
+    tabs::TabInterface* tab = tab_handle.Get();
+    if (!tab) {
+      continue;
+    }
+
+    DidContentsExitActorControl(state.get(), tab->GetContents());
+  }
+  to_observe_tabs_.clear();
 }
 
 bool ActorTask::HasTab(tabs::TabHandle tab) const {
-  return acting_tabs_.contains(tab);
+  return controlled_tabs_.contains(tab);
 }
 
 bool ActorTask::IsActingOnTab(tabs::TabHandle tab) const {
-  if (IsPaused() || IsStopped()) {
+  if (!IsUnderActorControl()) {
     return false;
   }
 
@@ -322,15 +589,102 @@ absl::flat_hash_set<tabs::TabHandle> ActorTask::GetLastActedTabs() const {
   // TODO(crbug.com/420669167): Currently the client only acts on a single tab
   // so we can return the full set but with multi-tab this will need to be
   // smarter about which tabs are relevant to the last/current action.
-  return GetTabs();
+  absl::flat_hash_set<tabs::TabHandle> last_acted_tabs = GetTabs();
+
+  for (const auto& [handle, _] : to_observe_tabs_) {
+    last_acted_tabs.insert(handle);
+  }
+
+  return last_acted_tabs;
 }
 
 absl::flat_hash_set<tabs::TabHandle> ActorTask::GetTabs() const {
   absl::flat_hash_set<tabs::TabHandle> handles;
-  for (const auto& [handle, state] : acting_tabs_) {
+  for (const auto& [handle, _] : controlled_tabs_) {
     handles.insert(handle);
   }
   return handles;
+}
+
+void ActorTask::DidTabEnterActorControl(tabs::TabHandle handle) {
+  DCHECK(IsActingOnTab(handle));
+  tabs::TabInterface* tab = handle.Get();
+  if (!tab) {
+    // This happens in unittests.
+    return;
+  }
+  ActorControlledTabState* state = controlled_tabs_[handle].get();
+
+  // TODO(b/454107412): This is assuming the tab isn't discarded but nothing
+  // guarantees that.
+  content::WebContents* contents = tab->GetContents();
+  if (!contents) {
+    return;
+  }
+
+  state->will_detach_subscription = tab->RegisterWillDetach(base::BindRepeating(
+      &ActorTask::OnTabWillDetach, weak_ptr_factory_.GetWeakPtr()));
+  // TODO(crbug.com/450524344)): Add a test for discarded content.
+  state->content_discarded_subscription =
+      tab->RegisterWillDiscardContents(base::BindRepeating(
+          &ActorTask::HandleDiscardContents, weak_ptr_factory_.GetWeakPtr()));
+  DidContentsEnterActorControl(state, contents);
+
+  RecomputeHasVisibleTab();
+}
+
+void ActorTask::DidContentsEnterActorControl(
+    ActorTask::ActorControlledTabState* state,
+    content::WebContents* contents) {
+  SetFocusState(contents, true);
+  state->SetContents(contents);
+  state->actuation_runner =
+      contents->IncrementCapturerCount(gfx::Size(),
+                                       /*stay_hidden=*/false,
+                                       /*stay_awake=*/true,
+                                       /*is_activity=*/true);
+#if BUILDFLAG(IS_MAC) && BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
+  if (base::FeatureList::IsEnabled(features::kGlicActorInternalPopups)) {
+    state->reenable_external_popups = contents->ForbidExternalPopupMenus();
+  }
+#endif  // BUILDFLAG(IS_MAC) && BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
+}
+
+void ActorTask::DidTabExitActorControl(tabs::TabHandle handle) {
+  // Note that the state_ may still be in an actor controlled state if we are
+  // just removing this tab (e.g. close the tab).
+  DCHECK(controlled_tabs_.contains(handle));
+  tabs::TabInterface* tab = handle.Get();
+  if (!tab) {
+    // This happens in unittests.
+    return;
+  }
+  ActorControlledTabState* state = controlled_tabs_[handle].get();
+  content::WebContents* contents = tab->GetContents();
+  if (!contents) {
+    return;
+  }
+
+  // Reset focus and remove observers.
+  SetFocusState(contents, std::nullopt);
+  state->will_detach_subscription = {};
+  state->SetContents(nullptr);
+  state->content_discarded_subscription = {};
+  DidContentsExitActorControl(state, contents);
+}
+
+void ActorTask::DidContentsExitActorControl(
+    ActorTask::ActorControlledTabState* state,
+    content::WebContents* contents) {
+  SetFocusState(contents, std::nullopt);
+  state->SetContents(nullptr);
+  // Triggers the ScopedClosureRunner's destructor (via std::optional's
+  // destructor), which automatically calls DecrementCapturerCount on the
+  // WebContents.
+  state->actuation_runner = {};
+#if BUILDFLAG(IS_MAC) && BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
+  state->reenable_external_popups = {};
+#endif  // BUILDFLAG(IS_MAC) && BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
 }
 
 std::string ToString(const ActorTask::State& state) {
@@ -350,11 +704,21 @@ std::string ToString(const ActorTask::State& state) {
       return "Cancelled";
     case kFinished:
       return "Finished";
+    case kWaitingOnUser:
+      return "WaitingOnUser";
+    case kFailed:
+      return "Failed";
   }
 }
 
 std::ostream& operator<<(std::ostream& os, const ActorTask::State& state) {
   return os << ToString(state);
+}
+
+void ActorTask::SetExecutionEngineForTesting(
+    std::unique_ptr<ExecutionEngine> engine) {
+  execution_engine_.reset(std::move(engine.release()));
+  execution_engine_->SetOwner(this);
 }
 
 }  // namespace actor

@@ -6,14 +6,42 @@
 import logging
 
 LOGGER = logging.getLogger(__name__)
-
+DEVICE_SETUP_NOT_COMPLETE = 'Device setup is not yet complete'
+FAILED_TO_INSTALL_EMBEDDED_PROFILE = 'Failed to install embedded profile'
+DEVELOPER_MODE_DISABLED = 'Developer Mode disabled'
 
 class DeviceSetupNotCompleteError(Exception):
   """Device setup isn't complete"""
 
   def __init__(self):
     super(DeviceSetupNotCompleteError,
-          self).__init__('Device setup isn\'t complete')
+          self).__init__(DEVICE_SETUP_NOT_COMPLETE)
+
+
+class FailedToInstallEmbeddedProfileError(Exception):
+  """Failed to install embedded profile when attempting to install the app
+  on device. This could be because the device's UDID needs to be added to the
+  provisioning profile, but can also happen when the device's network connection
+  is flaky, since the process of verifying the provisioning profile relies on
+  the network."""
+
+  def __init__(self):
+    super(FailedToInstallEmbeddedProfileError,
+          self).__init__(FAILED_TO_INSTALL_EMBEDDED_PROFILE)
+
+
+class DeveloperModeDisabledError(Exception):
+  """Failed to launch the test on device because developer mode isn't enabled"""
+
+  def __init__(self):
+    super(DeveloperModeDisabledError, self).__init__(DEVELOPER_MODE_DISABLED)
+
+
+DEVICE_EXCEPTIONS = {
+    DEVICE_SETUP_NOT_COMPLETE: DeviceSetupNotCompleteError,
+    FAILED_TO_INSTALL_EMBEDDED_PROFILE: FailedToInstallEmbeddedProfileError,
+    DEVELOPER_MODE_DISABLED: DeveloperModeDisabledError,
+}
 
 
 class ExceptionChecker:
@@ -55,5 +83,6 @@ class DeviceExceptionChecker(ExceptionChecker):
     # Check line for exceptions from base class first.
     super().check_line(line)
 
-    if 'Device setup is not yet complete'.upper() in line.upper():
-      self.exceptions.append(DeviceSetupNotCompleteError())
+    for text, exception in DEVICE_EXCEPTIONS.items():
+      if text.upper() in line.upper():
+        self.exceptions.append(exception())

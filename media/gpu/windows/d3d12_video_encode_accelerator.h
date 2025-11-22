@@ -16,6 +16,7 @@
 #include "base/containers/circular_deque.h"
 #include "base/containers/lru_cache.h"
 #include "base/containers/queue.h"
+#include "base/sequence_checker.h"
 #include "gpu/config/gpu_driver_bug_workarounds.h"
 #include "gpu/ipc/service/command_buffer_stub.h"
 #include "media/base/bitstream_buffer.h"
@@ -31,8 +32,10 @@
 namespace media {
 
 class CommandBufferHelper;
+class VEAEncodingLatencyMetricsHelper;
+
 typedef base::OnceCallback<void(scoped_refptr<VideoFrame> frame,
-                                Microsoft::WRL::ComPtr<ID3D12Resource> resource,
+                                base::win::ScopedHandle shared_handle,
                                 HRESULT hr)>
     FrameAvailableCB;
 
@@ -72,6 +75,10 @@ class MEDIA_GPU_EXPORT D3D12VideoEncodeAccelerator
       const Bitrate& bitrate,
       uint32_t framerate,
       const std::optional<gfx::Size>& size) override;
+  void RequestEncodingParametersChange(
+      const VideoBitrateAllocation& bitrate_allocation,
+      uint32_t framerate,
+      const std::optional<gfx::Size>& size) override;
   void Destroy() override;
   void Flush(FlushCallback flush_callback) override;
   bool IsFlushSupported() override;
@@ -99,7 +106,7 @@ class MEDIA_GPU_EXPORT D3D12VideoEncodeAccelerator
   void UseOutputBitstreamBufferTask(BitstreamBuffer buffer);
 
   void RequestEncodingParametersChangeTask(
-      const Bitrate& bitrate,
+      const VideoBitrateAllocation& bitrate_allocation,
       uint32_t framerate,
       const std::optional<gfx::Size>& size);
 
@@ -115,6 +122,7 @@ class MEDIA_GPU_EXPORT D3D12VideoEncodeAccelerator
   void DoEncodeTask(scoped_refptr<VideoFrame> frame,
                     Microsoft::WRL::ComPtr<ID3D12Resource> resolved_texture,
                     const VideoEncoder::EncodeOptions& options,
+                    base::TimeTicks start_time,
                     const BitstreamBuffer& bitstream_buffer);
 
   void TryEncodeFrames();
@@ -135,7 +143,7 @@ class MEDIA_GPU_EXPORT D3D12VideoEncodeAccelerator
 
   // Invoked when a shared image backed VideoFrame is resolved.
   void OnSharedImageResolved(scoped_refptr<VideoFrame> frame,
-                             Microsoft::WRL::ComPtr<ID3D12Resource> resource,
+                             base::win::ScopedHandle shared_handle,
                              HRESULT hr);
 
   std::vector<D3D12_VIDEO_ENCODER_CODEC> codecs_;
@@ -158,6 +166,9 @@ class MEDIA_GPU_EXPORT D3D12VideoEncodeAccelerator
   scoped_refptr<CommandBufferHelper> command_buffer_helper_;
 
   VideoEncoderInfo encoder_info_;
+
+  std::unique_ptr<VEAEncodingLatencyMetricsHelper> metrics_helper_;
+  bool encoded_at_least_one_frame_ = false;
 
   Config config_;
   size_t bitstream_buffer_size_ = 0;

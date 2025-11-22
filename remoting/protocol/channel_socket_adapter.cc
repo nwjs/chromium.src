@@ -24,10 +24,14 @@ TransportChannelSocketAdapter::TransportChannelSocketAdapter(
                 const webrtc::ReceivedIpPacket& packet) {
         OnNewPacket(transport, packet);
       });
-  channel_->SignalWritableState.connect(
-      this, &TransportChannelSocketAdapter::OnWritableState);
-  channel_->SignalDestroyed.connect(
-      this, &TransportChannelSocketAdapter::OnChannelDestroyed);
+  channel_->SubscribeWritableState(
+      this, [this](webrtc::PacketTransportInternal* transport) {
+        OnWritableState(transport);
+      });
+  channel_->SubscribeDestroyed(this,
+                               [this](webrtc::IceTransportInternal* transport) {
+                                 OnChannelDestroyed(transport);
+                               });
 }
 
 TransportChannelSocketAdapter::~TransportChannelSocketAdapter() {
@@ -117,7 +121,7 @@ void TransportChannelSocketAdapter::Close(int error_code) {
   DCHECK(error_code != net::OK);
   closed_error_code_ = error_code;
   channel_->DeregisterReceivedPacketCallback(this);
-  channel_->SignalDestroyed.disconnect(this);
+  channel_->UnsubscribeDestroyed(this);
   channel_ = nullptr;
 
   if (!read_callback_.is_null()) {

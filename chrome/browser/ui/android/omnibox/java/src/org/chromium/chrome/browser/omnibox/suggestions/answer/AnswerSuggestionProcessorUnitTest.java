@@ -25,6 +25,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 
+import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -61,7 +62,6 @@ import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 /** Tests for {@link AnswerSuggestionProcessor}. */
@@ -217,11 +217,11 @@ public class AnswerSuggestionProcessorUnitTest {
                         mContext,
                         mSuggestionHost,
                         mUrlStateProvider,
-                        Optional.of(mImageSupplier),
+                        mImageSupplier,
                         mBookmarkState,
                         mTabSupplier,
                         mShareDelegateSupplier,
-                        () -> ControlsPosition.TOP);
+                        new ObservableSupplierImpl<>(ControlsPosition.TOP));
         mProcessor = new AnswerSuggestionProcessor(uiContext);
         OmniboxResourceProvider.disableCachesForTesting();
     }

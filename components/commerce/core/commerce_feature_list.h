@@ -38,7 +38,6 @@ extern const char kPriceInsightsShowFeedbackParam[];
 extern const base::FeatureParam<bool> kPriceInsightsShowFeedback;
 extern const char kPriceInsightsUseCacheParam[];
 extern const base::FeatureParam<bool> kPriceInsightsUseCache;
-BASE_DECLARE_FEATURE(kPriceTrackingPromo);
 BASE_DECLARE_FEATURE(kTabResumptionShopCard);
 BASE_DECLARE_FEATURE(kShopCardImpressionLimits);
 
@@ -58,11 +57,6 @@ BASE_DECLARE_FEATURE(kSubscriptionsApi);
 BASE_DECLARE_FEATURE(kDiscountAutofill);
 
 BASE_DECLARE_FEATURE(kShoppingAlternateServer);
-
-#if BUILDFLAG(IS_IOS)
-BASE_DECLARE_FEATURE(kPriceInsightsIos);
-BASE_DECLARE_FEATURE(kPriceInsightsHighPriceIos);
-#endif
 
 // Feature flag for Discounts on navigation.
 enum class DiscountDialogAutoPopupBehavior {

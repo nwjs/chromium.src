@@ -375,6 +375,11 @@ using base::UserMetricsAction;
       }));
 }
 
+- (BOOL)shouldUseLensForCopiedImage {
+  return ios::provider::IsLensSupported() &&
+         base::FeatureList::IsEnabled(kEnableLensInOmniboxCopiedImage);
+}
+
 - (void)lensCopiedImage {
   __weak __typeof(self) weakSelf = self;
   ClipboardRecentContent::GetInstance()->GetRecentImageFromClipboard(
@@ -528,7 +533,8 @@ using base::UserMetricsAction;
 
 // Returns the size of the favicon.
 - (CGFloat)faviconSize {
-  if (_presentationContext == OmniboxPresentationContext::kLensOverlay) {
+  if (_presentationContext == OmniboxPresentationContext::kLensOverlay ||
+      _presentationContext == OmniboxPresentationContext::kAIMPrototype) {
     return kDesiredSmallFaviconSizePt;
   } else {
     return kMinFaviconSizePt;

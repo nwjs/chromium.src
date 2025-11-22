@@ -13,9 +13,11 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/location.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/time/time.h"
 #include "base/values.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/load_flags.h"
@@ -426,12 +428,15 @@ bool HttpStreamFactory::Job::CanUseExistingSpdySession() const {
   return false;
 }
 
-void HttpStreamFactory::Job::OnStreamReadyCallback() {
+void HttpStreamFactory::Job::OnStreamReadyCallback(
+    base::TimeTicks stream_ready_time) {
   DCHECK(stream_.get());
   DCHECK_NE(job_type_, PRECONNECT);
   DCHECK_NE(job_type_, PRECONNECT_DNS_ALPN_H3);
   DCHECK(!is_websocket_ || try_websocket_over_http2_);
 
+  base::UmaHistogramTimes("Net.HttpStreamFactory.OnStreamReadyCallbackDelay",
+                          base::TimeTicks::Now() - stream_ready_time);
   MaybeCopyConnectionAttemptsFromHandle();
 
   delegate_->OnStreamReady(this);
@@ -588,8 +593,9 @@ void HttpStreamFactory::Job::RunLoop(int result) {
       } else {
         DCHECK(stream_.get());
         TaskRunner(priority_)->PostTask(
-            FROM_HERE, base::BindOnce(&Job::OnStreamReadyCallback,
-                                      ptr_factory_.GetWeakPtr()));
+            FROM_HERE,
+            base::BindOnce(&Job::OnStreamReadyCallback,
+                           ptr_factory_.GetWeakPtr(), base::TimeTicks::Now()));
       }
       return;
 
@@ -653,7 +659,7 @@ int HttpStreamFactory::Job::StartInternal() {
 int HttpStreamFactory::Job::DoStart() {
   // Don't connect to restricted ports.
   if (!IsPortAllowedForScheme(destination_.port(),
-                              request_info_.url.scheme_piece())) {
+                              request_info_.url.scheme())) {
     return ERR_UNSAFE_PORT;
   }
 
@@ -761,6 +767,12 @@ int HttpStreamFactory::Job::DoInitConnectionImpl() {
       }
     }
     if (existing_spdy_session_) {
+      // If we have a session, and we have a connection management config, add
+      // it to the session pool.
+      if (management_config_.has_value()) {
+        session_->spdy_session_pool()->AddConnectionManagementConfig(
+            spdy_session_key_, management_config_.value());
+      }
       // Stop watching for SpdySessions.
       spdy_session_request_.reset();
 
@@ -926,6 +938,22 @@ int HttpStreamFactory::Job::DoInitConnectionComplete(int result) {
   // No need to continue waiting for a session, once a connection is
   // established.
   spdy_session_request_.reset();
+
+  if (!using_quic_ && management_config_.has_value()) {
+    // If `DoInitConnection` has completed successfully, we should have a
+    // session in the pool. Note that we cannot rely on `result`, since we would
+    // always get `OK` for preconnects in this situation.
+    if (session_->spdy_session_pool()->FindAvailableSession(
+            spdy_session_key_, enable_ip_based_pooling_for_h2_, is_websocket_,
+            net_log_)) {
+      session_->spdy_session_pool()->AddConnectionManagementConfig(
+          spdy_session_key_, management_config_.value());
+    } else if (management_config_->connection_change_observer) {
+      // If we do not have a session, then we should notify the
+      // ConnectionChangeObserver that the connection establishment has failed.
+      management_config_->connection_change_observer->OnConnectionFailed();
+    }
+  }
 
   if ((job_type_ == PRECONNECT) || (job_type_ == PRECONNECT_DNS_ALPN_H3)) {
     if (using_quic_) {
@@ -1142,6 +1170,12 @@ int HttpStreamFactory::Job::DoCreateStream() {
             /* is_websocket = */ false, net_log_);
   }
   if (existing_spdy_session_) {
+    // If we have a session, and we have a connection management config, add
+    // it to the session pool.
+    if (management_config_.has_value()) {
+      session_->spdy_session_pool()->AddConnectionManagementConfig(
+          spdy_session_key_, management_config_.value());
+    }
     // We picked up an existing session, so we don't need our socket.
     if (connection_->socket()) {
       connection_->socket()->Disconnect();
@@ -1169,7 +1203,8 @@ int HttpStreamFactory::Job::DoCreateStream() {
   int rv =
       session_->spdy_session_pool()->CreateAvailableSessionFromSocketHandle(
           spdy_session_key_, std::move(connection_), net_log_, initiator,
-          &spdy_session, SpdySessionInitiator::kHttpStreamFactoryJob);
+          &spdy_session, management_config_,
+          SpdySessionInitiator::kHttpStreamFactoryJob);
 
   if (rv != OK) {
     return rv;
@@ -1238,7 +1273,7 @@ void HttpStreamFactory::Job::OnSpdySessionAvailable(
 int HttpStreamFactory::Job::ReconsiderProxyAfterError(int error) {
   // Check if the error was a proxy failure.
   if (!CanFalloverToNextProxy(proxy_info_.proxy_chain(), error, &error,
-                              proxy_info_.is_for_ip_protection())) {
+                              session_->context().proxy_delegate)) {
     return error;
   }
 

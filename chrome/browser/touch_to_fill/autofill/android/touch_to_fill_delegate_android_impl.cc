@@ -4,17 +4,21 @@
 
 #include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_delegate_android_impl.h"
 
+#include <optional>
 #include <variant>
+#include <vector>
 
 #include "base/check_deref.h"
 #include "base/containers/to_vector.h"
 #include "base/feature_list.h"
+#include "base/functional/callback.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/affiliations/core/browser/affiliation_utils.h"
 #include "components/autofill/core/browser/autofill_browser_util.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/valuables/valuables_data_manager.h"
+#include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
 #include "components/autofill/core/browser/field_types.h"
@@ -24,6 +28,7 @@
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #include "components/autofill/core/browser/integrators/fast_checkout/fast_checkout_client.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
+#include "components/autofill/core/browser/payments/bnpl_manager.h"
 #include "components/autofill/core/browser/payments/iban_access_manager.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/studies/autofill_experiments.h"
@@ -99,6 +104,14 @@ TouchToFillDelegateAndroidImpl::DryRunResult::operator=(DryRunResult&&) =
     default;
 
 TouchToFillDelegateAndroidImpl::DryRunResult::~DryRunResult() = default;
+
+TouchToFillDelegateAndroidImpl::BnplCallbacks::BnplCallbacks() = default;
+TouchToFillDelegateAndroidImpl::BnplCallbacks::BnplCallbacks(BnplCallbacks&&) =
+    default;
+TouchToFillDelegateAndroidImpl::BnplCallbacks&
+TouchToFillDelegateAndroidImpl::BnplCallbacks::operator=(BnplCallbacks&&) =
+    default;
+TouchToFillDelegateAndroidImpl::BnplCallbacks::~BnplCallbacks() = default;
 
 TouchToFillDelegateAndroidImpl::TouchToFillDelegateAndroidImpl(
     BrowserAutofillManager* manager)
@@ -361,6 +374,19 @@ void TouchToFillDelegateAndroidImpl::CreditCardSuggestionSelected(
                               AutofillTriggerSource::kTouchToFillCreditCard);
 }
 
+void TouchToFillDelegateAndroidImpl::BnplSuggestionSelected(
+    std::optional<int64_t> extracted_amount) {
+  payments::BnplManager* bnpl_manager = manager_->GetPaymentsBnplManager();
+  CHECK(bnpl_manager);
+  std::optional<uint64_t> final_extracted_amount;
+  if (extracted_amount.has_value()) {
+    final_extracted_amount = static_cast<uint64_t>(extracted_amount.value());
+  }
+  // TODO(crbug.com/430575808): Add callback when VCN fetching flow is ready.
+  bnpl_manager->OnDidAcceptBnplSuggestion(final_extracted_amount,
+                                          /*on_bnpl_vcn_fetched_callback=*/{});
+}
+
 void TouchToFillDelegateAndroidImpl::IbanSuggestionSelected(
     std::variant<Iban::Guid, Iban::InstrumentId> backend_id) {
   HideTouchToFill();
@@ -404,9 +430,41 @@ void TouchToFillDelegateAndroidImpl::LoyaltyCardSuggestionSelected(
 }
 
 void TouchToFillDelegateAndroidImpl::OnDismissed(bool dismissed_by_user) {
+  if (dismissed_by_user && bnpl_callbacks_.cancel_callback) {
+    std::move(bnpl_callbacks_.cancel_callback).Run();
+  } else {
+    bnpl_callbacks_.cancel_callback.Reset();
+  }
+
   if (IsShowingTouchToFill()) {
     ttf_payment_method_state_ = TouchToFillState::kWasShown;
     dismissed_by_user_ = dismissed_by_user;
+  }
+}
+
+void TouchToFillDelegateAndroidImpl::OnErrorOkPressed() {
+  HideTouchToFill();
+}
+
+void TouchToFillDelegateAndroidImpl::OnBnplIssuerSuggestionSelected(
+    const std::string& issuer_id) {
+  // This check is a safeguard. `selected_issuer_callback` is set in
+  // `TouchToFillPaymentMethodControllerImpl::ShowBnplIssuers()` and should
+  // always be non-null here.
+  if (!bnpl_callbacks_.selected_issuer_callback) {
+    return;
+  }
+
+  std::vector<BnplIssuer> issuers = manager_->client()
+                                        .GetPaymentsAutofillClient()
+                                        ->GetPaymentsDataManager()
+                                        .GetBnplIssuers();
+  for (BnplIssuer& issuer : issuers) {
+    if (ConvertToBnplIssuerIdString(issuer.issuer_id()) == issuer_id) {
+      std::move(bnpl_callbacks_.selected_issuer_callback)
+          .Run(std::move(issuer));
+      break;
+    }
   }
 }
 
@@ -451,6 +509,17 @@ void TouchToFillDelegateAndroidImpl::LogMetricsAfterSubmission(
           IsFillingCorrect(submitted_form));
     }
   }
+}
+
+void TouchToFillDelegateAndroidImpl::SetCancelCallback(
+    base::OnceClosure cancel_callback) {
+  bnpl_callbacks_.cancel_callback = std::move(cancel_callback);
+}
+
+void TouchToFillDelegateAndroidImpl::SetSelectedIssuerCallback(
+    base::OnceCallback<void(BnplIssuer)> selected_issuer_callback) {
+  bnpl_callbacks_.selected_issuer_callback =
+      std::move(selected_issuer_callback);
 }
 
 base::WeakPtr<TouchToFillDelegateAndroidImpl>

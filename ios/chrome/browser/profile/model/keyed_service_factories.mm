@@ -57,7 +57,7 @@
 #import "ios/chrome/browser/enterprise/connectors/connectors_service_factory.h"
 #import "ios/chrome/browser/enterprise/connectors/reporting/ios_realtime_reporting_client_factory.h"
 #import "ios/chrome/browser/enterprise/connectors/reporting/ios_reporting_event_router_factory.h"
-#import "ios/chrome/browser/enterprise/data_controls/ios_rules_service_factory.h"
+#import "ios/chrome/browser/enterprise/data_controls/model/ios_rules_service_factory.h"
 #import "ios/chrome/browser/enterprise/identifiers/profile_id_service_factory_ios.h"
 #import "ios/chrome/browser/enterprise/model/idle/idle_service_factory.h"
 #import "ios/chrome/browser/external_files/model/external_file_remover_factory.h"
@@ -66,7 +66,6 @@
 #import "ios/chrome/browser/favicon/model/ios_chrome_large_icon_cache_factory.h"
 #import "ios/chrome/browser/favicon/model/ios_chrome_large_icon_service_factory.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
-#import "ios/chrome/browser/follow/model/follow_service_factory.h"
 #import "ios/chrome/browser/gcm/model/instance_id/ios_chrome_instance_id_profile_service_factory.h"
 #import "ios/chrome/browser/gcm/model/ios_chrome_gcm_profile_service_factory.h"
 #import "ios/chrome/browser/google/model/google_logo_service_factory.h"
@@ -116,7 +115,6 @@
 #import "ios/chrome/browser/policy_url_blocking/model/policy_url_blocking_service_factory.h"
 #import "ios/chrome/browser/power_bookmarks/model/power_bookmark_service_factory.h"
 #import "ios/chrome/browser/price_insights/model/price_insights_model_factory.h"
-#import "ios/chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
 #import "ios/chrome/browser/promos_manager/model/promos_manager_factory.h"
 #import "ios/chrome/browser/push_notification/model/provisional_push_notification_service_factory.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_profile_service_factory.h"
@@ -137,7 +135,6 @@
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_service_factory.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/screen_time/model/screen_time_buildflags.h"
-#import "ios/chrome/browser/script_blocking/model/script_blocking_rule_applier_service_factory.h"
 #import "ios/chrome/browser/search_engine_choice/model/search_engine_choice_triggering_service_factory.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_choice_service_factory.h"
 #import "ios/chrome/browser/search_engines/model/template_url_fetcher_factory.h"
@@ -300,7 +297,6 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
     DownloadRecordServiceFactory::GetInstance();
   }
   ExternalFileRemoverFactory::GetInstance();
-  FollowServiceFactory::GetInstance();
   GeminiPrototypeOmniboxServiceFactory::GetInstance();
   BwgServiceFactory::GetInstance();
   GoogleGroupsManagerFactory::GetInstance();
@@ -368,7 +364,6 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   SafeBrowsingHelperFactory::GetInstance();
   SafeBrowsingMetricsCollectorFactory::GetInstance();
   SamplePanelModelFactory::GetInstance();
-  ScriptBlockingRuleApplierServiceFactory::GetInstance();
   SendTabToSelfSyncServiceFactory::GetInstance();
   SessionRestorationServiceFactory::GetInstance();
   SessionSyncServiceFactory::GetInstance();
@@ -388,7 +383,6 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   TextClassifierModelServiceFactory::GetInstance();
   TextToSpeechPlaybackControllerFactory::GetInstance();
   TipsManagerIOSFactory::GetInstance();
-  TrackingProtectionSettingsFactory::GetInstance();
   LanguageDetectionModelServiceFactory::GetInstance();
   TrustedVaultClientBackendFactory::GetInstance();
   UnifiedConsentServiceFactory::GetInstance();

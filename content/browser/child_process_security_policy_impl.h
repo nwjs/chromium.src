@@ -16,7 +16,7 @@
 #include "base/containers/flat_set.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/singleton.h"
 #include "base/synchronization/lock.h"
 #include "base/thread_annotations.h"
@@ -347,8 +347,8 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
       url::Origin* result);
 
   // Stores the v8-optimization state for the passed-in `browsing_instance_id`
-  // and `process_lock_origin`.
-  void AddV8OptimizationDisabledStateForOrigin(
+  // and `process_lock_origin` if the state isn't already cached.
+  void AddV8OptimizationDisabledStateForOriginIfNotCached(
       const BrowsingInstanceId& browsing_instance_id,
       const url::Origin& process_lock_origin,
       bool are_v8_optimizations_disabled);

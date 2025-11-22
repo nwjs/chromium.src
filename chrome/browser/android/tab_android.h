@@ -14,6 +14,7 @@
 
 #include "base/android/jni_weak_ref.h"
 #include "base/android/scoped_java_ref.h"
+#include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
@@ -157,15 +158,13 @@ class TabAndroid : public tabs::TabInterface,
 
   void SetWindowSessionID(SessionID window_id);
 
-  std::unique_ptr<content::WebContents> SwapWebContents(
-      std::unique_ptr<content::WebContents> new_contents,
-      bool did_start_load,
-      bool did_finish_load);
-
   bool IsCustomTab() const;
   bool IsHidden() const;
 
   bool IsTrustedWebActivity() const;
+
+  // Set the media state of the tab. This is called by MediaStateObserver.
+  void SetMediaState(int media_state);
 
   // Observers -----------------------------------------------------------------
 

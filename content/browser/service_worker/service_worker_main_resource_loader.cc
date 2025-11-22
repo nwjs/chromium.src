@@ -36,6 +36,7 @@
 #include "content/common/fetch/fetch_request_type_converters.h"
 #include "content/common/service_worker/race_network_request_url_loader_client.h"
 #include "content/common/service_worker/service_worker_resource_loader.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
@@ -94,11 +95,6 @@ bool HasAutoPreloadEligibleScript(scoped_refptr<ServiceWorkerVersion> version) {
           .contains(version->sha256_script_checksum());
 }
 
-bool IsStaticRouterRaceRequestFixEnabled() {
-  return base::FeatureList::IsEnabled(
-      features::kServiceWorkerStaticRouterRaceRequestFix);
-}
-
 void MaybeSetHeaderReceivedTiming(net::LoadTimingInfo& timing) {
   if (timing.receive_headers_start.is_null()) {
     timing.receive_headers_start = base::TimeTicks::Now();
@@ -113,6 +109,16 @@ void RecordSyntheticResponseEligibility(
     SyntheticResponseEligibility eligibility) {
   base::UmaHistogramEnumeration(kHistogramSyntheticResponseEligibility,
                                 eligibility);
+}
+
+void MaybeSetFetchHandlerBypassOptionForsyntheticResponse(
+    scoped_refptr<ServiceWorkerVersion> version,
+    blink::mojom::ServiceWorkerFetchHandlerBypassOption option) {
+  static const bool bypass_subresource(
+      blink::features::kServiceWorkerSyntheticResponseBypassSubresource.Get());
+  if (bypass_subresource) {
+    version->set_fetch_handler_bypass_option(option);
+  }
 }
 
 }  // namespace
@@ -500,7 +506,7 @@ bool ServiceWorkerMainResourceLoader::MaybeStartAutoPreload(
           base::GetFieldTrialParamValueByFeature(
               features::kServiceWorkerAutoPreload, "blocked_hosts"),
           ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY));
-  if (blocked_hosts->contains(resource_request_.url.host())) {
+  if (blocked_hosts->contains(resource_request_.url.GetHost())) {
     return false;
   }
 
@@ -575,7 +581,10 @@ bool ServiceWorkerMainResourceLoader::StartRaceNetworkRequest(
           context->storage_partition(), resource_request_));
   CHECK(!race_network_request_url_loader_client_);
   race_network_request_url_loader_client_.emplace(
-      resource_request_, AsWeakPtr(), std::move(forwarding_client));
+      resource_request_.url, AsWeakPtr(), std::move(forwarding_client),
+      base::BindOnce(
+          &ServiceWorkerMainResourceLoader::InvalidateAndDeleteIfNeeded,
+          weak_factory_.GetWeakPtr()));
 
   // If the initial state is not kWaitForBody, that means creating data pipes
   // failed. Do not start RaceNetworkRequest this case.
@@ -756,14 +765,11 @@ void ServiceWorkerMainResourceLoader::DidDispatchFetchEvent(
   // When kRaceNetworkRequest preload is triggered, it's possible that the
   // response is already committed without waiting for the fetch event result.
   // Invalidate and destruct if the class already detached from the request.
-  if (IsStaticRouterRaceRequestFixEnabled()) {
-    has_fetch_event_finished_ = true;
-    if (dispatched_preload_type() ==
-            DispatchedPreloadType::kRaceNetworkRequest &&
-        is_detached_ && status_ == Status::kCompleted) {
-      InvalidateAndDeleteIfNeeded();
-      return;
-    }
+  did_dispatch_event_ = true;
+  if (dispatched_preload_type() == DispatchedPreloadType::kRaceNetworkRequest &&
+      !ShouldDelayDeletion() && is_detached_ && status_ == Status::kCompleted) {
+    InvalidateAndDeleteIfNeeded();
+    return;
   }
 
   bool is_fallback =
@@ -1044,7 +1050,15 @@ bool ServiceWorkerMainResourceLoader::MaybeStartSyntheticNetworkRequest(
       // With dry-run mode, update `is_synthetic_response_used_` here. This will
       // update the actual response head through `ResponseHeadUpdateParams` and
       // pass the information to the renderer.
-      is_synthetic_response_used_ = true;
+      //
+      // TODO(crbug.com/456965135): This is experiment only restriction. Remove
+      // this after the experiment. In the OTR mode, don't set this flag since
+      // it let the renderer expects CSPs are inserted via <meta> tag, not from
+      // the header. The OTR profile doesn't send the signal of synthetic
+      // response feature to the server.
+      if (!context_wrapper->browser_context()->IsOffTheRecord()) {
+        is_synthetic_response_used_ = true;
+      }
       RecordSyntheticResponseEligibility(
           SyntheticResponseEligibility::kEligible);
     } else {
@@ -1059,6 +1073,10 @@ bool ServiceWorkerMainResourceLoader::MaybeStartSyntheticNetworkRequest(
       RecordSyntheticResponseEligibility(
           SyntheticResponseEligibility::kNotEligibleByNoHeaderStored);
     }
+    MaybeSetFetchHandlerBypassOptionForsyntheticResponse(
+        version, blink::mojom::ServiceWorkerFetchHandlerBypassOption::
+                     kSyntheticResponseDryRunMode);
+
     return false;
   }
 
@@ -1137,6 +1155,10 @@ bool ServiceWorkerMainResourceLoader::MaybeStartSyntheticNetworkRequest(
           SyntheticResponseEligibility::kEligible);
       break;
   }
+
+  MaybeSetFetchHandlerBypassOptionForsyntheticResponse(
+      version,
+      blink::mojom::ServiceWorkerFetchHandlerBypassOption::kSyntheticResponse);
 
   return true;
 }
@@ -1355,19 +1377,32 @@ void ServiceWorkerMainResourceLoader::OnConnectionClosed() {
   InvalidateAndDeleteIfNeeded();
 }
 
-void ServiceWorkerMainResourceLoader::InvalidateAndDeleteIfNeeded() {
-  // Postpone the invalidation and destruction if both conditions are satisfied:
-  // 1) RaceNetworkRequest is dispatched and the network wins the race.
-  // 2) The fetch event result is not received yet.
-  // The postponed things will be done in DidDispatchFetchEvent().
-  if (IsStaticRouterRaceRequestFixEnabled()) {
-    if (dispatched_preload_type() ==
-            DispatchedPreloadType::kRaceNetworkRequest &&
-        race_network_request_url_loader_client_.has_value() &&
-        !has_fetch_event_finished_) {
-      CHECK(fetch_dispatcher_);
-      return;
+bool ServiceWorkerMainResourceLoader::ShouldDelayDeletion() {
+  // If `race-network-and-fetch-handler` is used, postpone the invalidation and
+  // destruction until following conditions are satisfied:
+  // 1) Fetch event is completed.
+  // 2) The data pipe for the fetch handler is successfully consumed or aborted
+  //    in `race_network_request_url_loader_client_`. This is considered only
+  //    when `kServiceWorkerStaticRouterRaceRequestFix2` is enabled:
+  if (dispatched_preload_type() == DispatchedPreloadType::kRaceNetworkRequest) {
+    CHECK(race_network_request_url_loader_client_.has_value());
+    if (!did_dispatch_event_) {
+      return true;
     }
+    if (base::FeatureList::IsEnabled(
+            features::kServiceWorkerStaticRouterRaceRequestFix2) &&
+        !race_network_request_url_loader_client_
+             ->clone_response_for_fetch_handler_completed_or_connection_closed()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void ServiceWorkerMainResourceLoader::InvalidateAndDeleteIfNeeded() {
+  if (ShouldDelayDeletion()) {
+    CHECK(fetch_dispatcher_);
+    return;
   }
 
   // The fetch dispatcher or stream waiter may still be running. Don't let them
@@ -1388,8 +1423,18 @@ void ServiceWorkerMainResourceLoader::InvalidateAndDeleteIfNeeded() {
 }
 
 void ServiceWorkerMainResourceLoader::DeleteIfNeeded() {
-  if (!receiver_.is_bound() && is_detached_)
-    delete this;
+  bool can_delete = !receiver_.is_bound() && is_detached_;
+  if (!can_delete) {
+    return;
+  }
+  if (base::FeatureList::IsEnabled(
+          features::kServiceWorkerStaticRouterRaceRequestFix2) &&
+      ShouldDelayDeletion()) {
+    // Speculative fix to delay the object deletion until the fetch event
+    // completion. crbug.com/340949948 for more details.
+    return;
+  }
+  delete this;
 }
 
 network::mojom::ServiceWorkerStatus

@@ -27,6 +27,8 @@ import org.jni_zero.NativeMethods;
 
 import org.chromium.base.AconfigFlaggedApiDelegate;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.Log;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
@@ -39,6 +41,8 @@ import java.util.HashSet;
 @JNINamespace("ui")
 @NullMarked
 public class DisplayAndroidManager {
+    private static final String TAG = "DisplayManager";
+
     /**
      * DisplayListenerBackend is used to handle the actual listening of display changes. It handles
      * it via the Android DisplayListener API.
@@ -101,8 +105,13 @@ public class DisplayAndroidManager {
     private static @Nullable DisplayAndroidManager sDisplayAndroidManager;
 
     private static boolean sDisableHdrSdkRatioCallback;
+    private static @Nullable Boolean sIsDisplayTopologyAvailable;
 
     private static final long IS_NULL_DISPLAY_REMOVED_DELAY_MS = 1000;
+
+    @VisibleForTesting
+    static final String IS_DISPLAY_TOPOLOGY_AVAILABLE_HISTOGRAM_NAME =
+            "Android.Display.IsDisplayTopologyAvaialble";
 
     @VisibleForTesting
     static final String IS_NULL_DISPLAY_REMOVED_HISTOGRAM_NAME =
@@ -149,6 +158,18 @@ public class DisplayAndroidManager {
         return getDisplayForContextNoChecks(context);
     }
 
+    @CalledByNative
+    public static boolean isDisplayTopologyAvailable() {
+        if (sIsDisplayTopologyAvailable == null) {
+            sIsDisplayTopologyAvailable =
+                    UiAndroidFeatureList.sAndroidUseDisplayTopology.isEnabled()
+                            && AconfigFlaggedApiDelegate.getInstance() != null
+                            && AconfigFlaggedApiDelegate.getInstance()
+                                    .isDisplayTopologyAvailable(getDisplayManager());
+        }
+        return sIsDisplayTopologyAvailable;
+    }
+
     private static Display getGlobalDefaultDisplay() {
         return getDisplayManager().getDisplay(Display.DEFAULT_DISPLAY);
     }
@@ -174,7 +195,20 @@ public class DisplayAndroidManager {
 
     @CalledByNative
     private static void onNativeSideCreated(long nativePointer) {
-        DisplayAndroidManager singleton = getInstance();
+        final DisplayAndroidManager singleton = getInstance();
+
+        // In Browser Tests CommandLine is overridden when the Java DisplayAndroidManager has
+        // already been created and initialized, so we should update ForcedDIPScale to synchronize
+        // the two states.
+        if (PhysicalDisplayAndroid.isForcedDIPScaleChanged()) {
+            for (int i = 0; i < singleton.mIdMap.size(); ++i) {
+                final DisplayAndroid display = singleton.mIdMap.valueAt(i);
+                if (display instanceof PhysicalDisplayAndroid) {
+                    singleton.updateDisplay(display.getDisplayId());
+                }
+            }
+        }
+
         singleton.setNativePointer(nativePointer);
     }
 
@@ -193,6 +227,10 @@ public class DisplayAndroidManager {
         }
 
         mMainSdkDisplayId = defaultDisplay.getDisplayId(); // Note this display is never removed.
+
+        Log.i(TAG, "Is Display Topology available: " + isDisplayTopologyAvailable());
+        RecordHistogram.recordBooleanHistogram(
+                IS_DISPLAY_TOPOLOGY_AVAILABLE_HISTOGRAM_NAME, isDisplayTopologyAvailable());
 
         if (isDisplayTopologyAvailable()) {
             mDisplaysAbsoluteCoordinates =
@@ -220,13 +258,6 @@ public class DisplayAndroidManager {
         for (int i = 0; i < mIdMap.size(); ++i) {
             updateDisplayOnNativeSide(mIdMap.valueAt(i));
         }
-    }
-
-    private boolean isDisplayTopologyAvailable() {
-        return UiAndroidFeatureList.sAndroidUseDisplayTopology.isEnabled()
-                && AconfigFlaggedApiDelegate.getInstance() != null
-                && AconfigFlaggedApiDelegate.getInstance()
-                        .isDisplayTopologyAvailable(getDisplayManager());
     }
 
     /* package */ DisplayAndroid getDisplayAndroid(Display display) {
@@ -361,7 +392,8 @@ public class DisplayAndroidManager {
      * @return {@link DisplayAndroid} that most closely intersects the given rectangle, or {@code
      *     null} if no matching display is found.
      */
-    /* package */ @Nullable DisplayAndroid getDisplayMatching(Rect matchRect) {
+    @VisibleForTesting
+    public @Nullable DisplayAndroid getDisplayMatching(Rect matchRect) {
         if (mNativePointer == 0) {
             return null;
         }
@@ -408,10 +440,15 @@ public class DisplayAndroidManager {
 
     public static void setInstanceForTesting(DisplayAndroidManager displayAndroidManager) {
         sDisplayAndroidManager = displayAndroidManager;
+        ResettersForTesting.register(() -> resetInstanceForTesting()); // IN-TEST
     }
 
     /** Clears the object returned by {@link #getInstance()} */
     public static void resetInstanceForTesting() {
         sDisplayAndroidManager = null;
+    }
+
+    public static void resetIsDisplayTopologyAvailableForTesting() {
+        sIsDisplayTopologyAvailable = null;
     }
 }

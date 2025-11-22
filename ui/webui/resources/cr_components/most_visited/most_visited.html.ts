@@ -28,13 +28,13 @@ export function getHtml(this: MostVisitedElement) {
           title="${this.getMoreActionText_(item.title)}"
           @click="${this.onTileActionButtonClick_}" tabindex="0"
           ?hidden="${!this.customLinksEnabled_ &&
-            !this.enterpriseShortcutsEnabled_}"
+            !this.isFromEnterpriseShortcut_(item.source)}"
           data-index="${index}"></cr-icon-button>
       <cr-icon-button id="removeButton" class="icon-clear"
           title="${this.i18n('linkRemove')}"
           @click="${this.onTileRemoveButtonClick_}" tabindex="0"
           ?hidden="${this.customLinksEnabled_ ||
-            this.enterpriseShortcutsEnabled_}"
+            this.isFromEnterpriseShortcut_(item.source)}"
           data-index="${index}"></cr-icon-button>
       <div class="tile-icon">
         <img src="${this.getFaviconUrl_(item.url)}" draggable="false"
@@ -42,7 +42,7 @@ export function getHtml(this: MostVisitedElement) {
         <div class="query-tile-icon" draggable="false"
             ?hidden="${!item.isQueryTile}"></div>
         <div class="managed-tile-icon"
-          ?hidden="${!this.enterpriseShortcutsEnabled_}">
+          ?hidden="${!this.isFromEnterpriseShortcut_(item.source)}">
           <cr-policy-indicator indicator-type="userPolicy">
           </cr-policy-indicator>
         </div>
@@ -56,17 +56,41 @@ export function getHtml(this: MostVisitedElement) {
       ?hidden="${!this.showAdd_}" @keydown="${this.onAddShortcutKeyDown_}"
       aria-label="${this.i18n('addLinkTitle')}"
       title="${this.i18n('addLinkTitle')}" noink>
-    <div id="addShortcutIconContainer" class="tile-icon">
+    <div class="tile-icon tile-icon-container">
       <div id="addShortcutIcon" draggable="false"></div>
     </div>
     <div class="tile-title">
       <span>${this.i18n('addLinkTitle')}</span>
     </div>
   </cr-button>
+  <div>
+    <cr-button id="showMore" tabindex="0" @click="${this.onShowMoreClick_}"
+        ?hidden="${!this.showShowMore_}"
+        aria-label="${this.i18n('showMore')}"
+        title="${this.i18n('showMore')}" noink>
+      <div class="tile-icon tile-icon-container">
+        <div id="showMoreIcon" draggable="false"></div>
+      </div>
+      <div class="tile-title">
+        <span>${this.i18n('showMore')}</span>
+      </div>
+    </cr-button>
+    <cr-button id="showLess" tabindex="0" @click="${this.onShowLessClick_}"
+        ?hidden="${!this.showShowLess_}"
+        aria-label="${this.i18n('showLess')}"
+        title="${this.i18n('showLess')}" noink>
+      <div class="tile-icon tile-icon-container">
+        <div id="showLessIcon" draggable="false"></div>
+      </div>
+      <div class="tile-title">
+        <span>${this.i18n('showLess')}</span>
+      </div>
+    </cr-button>
+  </div>
   <cr-dialog id="dialog" @close="${this.onDialogClose_}">
     <div slot="title">${this.dialogTitle_}</div>
     <div slot="body" id="dialogContent">
-      ${this.enterpriseShortcutsEnabled_ ? html`
+      ${this.isFromEnterpriseShortcut_(this.dialogSource_) ? html`
         <div id="policySubtitleContainer">
           <cr-icon icon="cr:domain"></cr-icon>
           <span class="secondary">
@@ -86,7 +110,7 @@ export function getHtml(this: MostVisitedElement) {
           type="url" @blur="${this.onDialogTileUrlBlur_}"
           @value-changed="${this.onDialogTileUrlChange_}"
           ?readonly="${this.dialogIsReadonly_ ||
-            this.enterpriseShortcutsEnabled_}">
+            this.isFromEnterpriseShortcut_(this.dialogSource_)}">
       </cr-input>
     </div>
     <div slot="button-container">

@@ -2,18 +2,26 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/test/bind.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
+#include "base/threading/platform_thread.h"
+#include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/browser/actor/tools/tools_test_util.h"
 #include "chrome/common/actor.mojom.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/back_forward_cache_util.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
+#include "net/base/net_errors.h"
+#include "net/dns/mock_host_resolver.h"
+#include "testing/gmock/include/gmock/gmock.h"
 
 using base::test::TestFuture;
 using content::ChildFrameAt;
@@ -27,9 +35,17 @@ namespace actor {
 
 namespace {
 
-class ActorHistoryToolBrowserTest : public ActorToolsGeneralPageStabilityTest {
+// The site policy check bypasses localhost, so use a fake hostname to
+// ensure the check is exercised.
+constexpr char kDomainA[] = "a.test";
+
+class ActorHistoryToolBrowserTest : public ActorToolsTest {
  public:
-  ActorHistoryToolBrowserTest() = default;
+  ActorHistoryToolBrowserTest() {
+    scoped_feature_list_.InitWithFeatures(
+        /*enabled_features=*/{},
+        /*disabled_features=*/{kGlicCrossOriginNavigationGating});
+  }
   ~ActorHistoryToolBrowserTest() override = default;
 
   void SetUpOnMainThread() override {
@@ -37,19 +53,16 @@ class ActorHistoryToolBrowserTest : public ActorToolsGeneralPageStabilityTest {
     ASSERT_TRUE(embedded_test_server()->Start());
     ASSERT_TRUE(embedded_https_test_server().Start());
   }
-};
 
-INSTANTIATE_TEST_SUITE_P(
-    ,
-    ActorHistoryToolBrowserTest,
-    testing::ValuesIn(kActorGeneralPageStabilityModeValues),
-    ActorToolsGeneralPageStabilityTest::DescribeParam);
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
 
 // TODO(crbug.com/415385900): Add a test for navigation API canceling a
 // same-document navigation.
 
 // Basic test of the HistoryTool going back.
-IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest, HistoryTool_Back) {
+IN_PROC_BROWSER_TEST_F(ActorHistoryToolBrowserTest, HistoryTool_Back) {
   const GURL url_first =
       embedded_test_server()->GetURL("/actor/blank.html?start");
   const GURL url_second =
@@ -66,7 +79,7 @@ IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest, HistoryTool_Back) {
 }
 
 // Basic test of the HistoryTool going forward
-IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest, HistoryTool_Forward) {
+IN_PROC_BROWSER_TEST_F(ActorHistoryToolBrowserTest, HistoryTool_Forward) {
   const GURL url_first =
       embedded_test_server()->GetURL("/actor/blank.html?start");
   const GURL url_second =
@@ -88,7 +101,7 @@ IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest, HistoryTool_Forward) {
 
 // Basic test will, under normal circumstances use BFCache. Ensure coverage
 // without BFCache as well.
-IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest, HistoryTool_BackNoBFCache) {
+IN_PROC_BROWSER_TEST_F(ActorHistoryToolBrowserTest, HistoryTool_BackNoBFCache) {
   content::DisableBackForwardCacheForTesting(
       web_contents(), content::BackForwardCache::DisableForTestingReason::
                           TEST_REQUIRES_NO_CACHING);
@@ -110,7 +123,7 @@ IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest, HistoryTool_BackNoBFCache) {
 
 // Test that tool fails validation if there's no further session history in the
 // direction of travel.
-IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest,
+IN_PROC_BROWSER_TEST_F(ActorHistoryToolBrowserTest,
                        HistoryTool_FailNoSessionHistory) {
   const GURL url_first =
       embedded_test_server()->GetURL("/actor/blank.html?first");
@@ -147,7 +160,7 @@ IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest,
 }
 
 // Test history tool across same document navigations
-IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest,
+IN_PROC_BROWSER_TEST_F(ActorHistoryToolBrowserTest,
                        HistoryTool_BackSameDocument) {
   const GURL url_first = embedded_test_server()->GetURL("/actor/blank.html");
   const GURL url_second =
@@ -174,7 +187,7 @@ IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest,
 }
 
 // Test history tool across same document navigations
-IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest,
+IN_PROC_BROWSER_TEST_F(ActorHistoryToolBrowserTest,
                        HistoryTool_BasicIframeBack) {
   const GURL main_frame_url =
       embedded_test_server()->GetURL("/actor/simple_iframe.html");
@@ -206,7 +219,7 @@ IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest,
 }
 
 // Ensure the history tool doesn't return until the navigation completes.
-IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest, HistoryTool_SlowBack) {
+IN_PROC_BROWSER_TEST_F(ActorHistoryToolBrowserTest, HistoryTool_SlowBack) {
   content::DisableBackForwardCacheForTesting(
       web_contents(), content::BackForwardCache::DisableForTestingReason::
                           TEST_REQUIRES_NO_CACHING);
@@ -235,7 +248,7 @@ IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest, HistoryTool_SlowBack) {
 }
 
 // Test a case where history back causes navigation in two frames.
-IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest,
+IN_PROC_BROWSER_TEST_F(ActorHistoryToolBrowserTest,
                        HistoryTool_ConcurrentNavigations) {
   const GURL main_frame_url =
       embedded_test_server()->GetURL("/actor/concurrent_navigations.html");
@@ -296,7 +309,7 @@ IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest,
 
 // Ensure the history tool works correctly when a before unload handler is
 // present (but doesn't cause a prompt to show).
-IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest,
+IN_PROC_BROWSER_TEST_F(ActorHistoryToolBrowserTest,
                        HistoryTool_HasBeforeUnload) {
   const GURL url_first =
       embedded_test_server()->GetURL("/actor/blank.html?start");
@@ -320,9 +333,213 @@ IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest,
   EXPECT_EQ(web_contents()->GetURL(), url_first);
 }
 
+// Test that back navigation from a POST request works as expected.
+IN_PROC_BROWSER_TEST_F(ActorHistoryToolBrowserTest, HistoryTool_BackFromPOST) {
+  // Ensure BFCache isn't used so the back navigation loads a new document.
+  content::DisableBackForwardCacheForTesting(
+      web_contents(), content::BackForwardCache::DisableForTestingReason::
+                          TEST_REQUIRES_NO_CACHING);
+  const GURL url_a =
+      embedded_test_server()->GetURL(kDomainA, "/actor/history_post_form.html");
+  const GURL url_b = embedded_test_server()->GetURL(
+      kDomainA, "/actor/history_post_page_b.html");
+  const GURL url_c =
+      embedded_test_server()->GetURL(kDomainA, "/actor/blank.html?page_c");
+
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url_a));
+  ASSERT_EQ(web_contents()->GetURL(), url_a);
+
+  // Submit form to go to page B.
+  {
+    content::TestNavigationObserver nav_observer(web_contents(), 1);
+    ASSERT_TRUE(
+        ExecJs(web_contents(), "document.getElementById('submit').click();"));
+    nav_observer.Wait();
+    ASSERT_EQ(web_contents()->GetURL(), url_b);
+    ASSERT_TRUE(web_contents()
+                    ->GetController()
+                    .GetLastCommittedEntry()
+                    ->GetHasPostData());
+  }
+
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url_c));
+  ASSERT_EQ(web_contents()->GetURL(), url_c);
+
+  {
+    // Go back to page B. This should show a POST resubmission page.
+    content::TestNavigationObserver back_nav_observer(web_contents(), 1);
+    ActResultFuture fut;
+    std::unique_ptr<ToolRequest> action = MakeHistoryBackRequest(*active_tab());
+    actor_task().Act(ToRequestList(action), fut.GetCallback());
+    back_nav_observer.Wait();
+    EXPECT_EQ(back_nav_observer.last_net_error_code(), net::ERR_CACHE_MISS);
+
+    // The history tool should see the navigation to the error page as an
+    // error.
+    const mojom::ActionResultPtr& result = std::get<0>(fut.Get());
+    EXPECT_EQ(result->code, mojom::ActionResultCode::kHistoryErrorPage);
+    EXPECT_THAT(result->message, testing::HasSubstr("ERR_CACHE_MISS"));
+
+    // We should be on the error page for B. The last committed entry is the
+    // error page, which has the URL of B.
+    EXPECT_EQ(web_contents()->GetController().GetLastCommittedEntry()->GetURL(),
+              url_b);
+    EXPECT_EQ(web_contents()->GetURL(), url_b);
+    EXPECT_FALSE(web_contents()->GetController().GetPendingEntry());
+  }
+
+  // Go back again to page A.
+  ActResultFuture fut;
+  std::unique_ptr<ToolRequest> action = MakeHistoryBackRequest(*active_tab());
+  actor_task().Act(ToRequestList(action), fut.GetCallback());
+
+  // The second back navigation should complete successfully.
+  ExpectOkResult(fut);
+
+  EXPECT_EQ(web_contents()->GetURL(), url_a);
+}
+
+// Test that forward navigation from a POST request works as expected.
+IN_PROC_BROWSER_TEST_F(ActorHistoryToolBrowserTest,
+                       HistoryTool_ForwardFromPOST) {
+  // Ensure BFCache isn't used so the back navigation loads a new document.
+  content::DisableBackForwardCacheForTesting(
+      web_contents(), content::BackForwardCache::DisableForTestingReason::
+                          TEST_REQUIRES_NO_CACHING);
+  const GURL url_a =
+      embedded_test_server()->GetURL(kDomainA, "/actor/history_post_form.html");
+  const GURL url_b = embedded_test_server()->GetURL(
+      kDomainA, "/actor/history_post_page_b.html");
+  const GURL url_c =
+      embedded_test_server()->GetURL(kDomainA, "/actor/blank.html?page_c");
+
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url_a));
+  ASSERT_EQ(web_contents()->GetURL(), url_a);
+
+  // Submit form to go to page B.
+  {
+    content::TestNavigationObserver nav_observer(web_contents(), 1);
+    ASSERT_TRUE(
+        ExecJs(web_contents(), "document.getElementById('submit').click();"));
+    nav_observer.Wait();
+    ASSERT_EQ(web_contents()->GetURL(), url_b);
+    ASSERT_TRUE(web_contents()
+                    ->GetController()
+                    .GetLastCommittedEntry()
+                    ->GetHasPostData());
+  }
+
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url_c));
+  ASSERT_EQ(web_contents()->GetURL(), url_c);
+
+  {
+    // Go back to page B. This should show a POST resubmission page.
+    content::TestNavigationObserver back_nav_observer(web_contents(), 1);
+    ActResultFuture fut;
+    std::unique_ptr<ToolRequest> action = MakeHistoryBackRequest(*active_tab());
+    actor_task().Act(ToRequestList(action), fut.GetCallback());
+    back_nav_observer.Wait();
+    EXPECT_EQ(back_nav_observer.last_net_error_code(), net::ERR_CACHE_MISS);
+
+    // The history tool should see the navigation to the error page as an
+    // error.
+    const mojom::ActionResultPtr& result = std::get<0>(fut.Get());
+    EXPECT_EQ(result->code, mojom::ActionResultCode::kHistoryErrorPage);
+    EXPECT_THAT(result->message, testing::HasSubstr("ERR_CACHE_MISS"));
+
+    // We should be on the error page for B. The last committed entry is the
+    // error page, which has the URL of B.
+    EXPECT_EQ(web_contents()->GetController().GetLastCommittedEntry()->GetURL(),
+              url_b);
+    EXPECT_EQ(web_contents()->GetURL(), url_b);
+    EXPECT_FALSE(web_contents()->GetController().GetPendingEntry());
+  }
+
+  // Go forward to page C.
+  ActResultFuture fut;
+  std::unique_ptr<ToolRequest> action =
+      MakeHistoryForwardRequest(*active_tab());
+  actor_task().Act(ToRequestList(action), fut.GetCallback());
+
+  // The forward navigation should complete successfully.
+  ExpectOkResult(fut);
+
+  EXPECT_EQ(web_contents()->GetURL(), url_c);
+}
+
+// Test that direct navigation from a POST request works as expected.
+IN_PROC_BROWSER_TEST_F(ActorHistoryToolBrowserTest,
+                       HistoryTool_NavigateFromPOST) {
+  // Ensure BFCache isn't used so the back navigation loads a new document.
+  content::DisableBackForwardCacheForTesting(
+      web_contents(), content::BackForwardCache::DisableForTestingReason::
+                          TEST_REQUIRES_NO_CACHING);
+  const GURL url_a =
+      embedded_test_server()->GetURL(kDomainA, "/actor/history_post_form.html");
+  const GURL url_b = embedded_test_server()->GetURL(
+      kDomainA, "/actor/history_post_page_b.html");
+  const GURL url_c =
+      embedded_test_server()->GetURL(kDomainA, "/actor/blank.html?page_c");
+  const GURL url_d =
+      embedded_test_server()->GetURL(kDomainA, "/actor/blank.html?page_d");
+
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url_a));
+  ASSERT_EQ(web_contents()->GetURL(), url_a);
+
+  // Submit form to go to page B.
+  {
+    content::TestNavigationObserver nav_observer(web_contents(), 1);
+    ASSERT_TRUE(
+        ExecJs(web_contents(), "document.getElementById('submit').click();"));
+    nav_observer.Wait();
+    ASSERT_EQ(web_contents()->GetURL(), url_b);
+    ASSERT_TRUE(web_contents()
+                    ->GetController()
+                    .GetLastCommittedEntry()
+                    ->GetHasPostData());
+  }
+
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url_c));
+  ASSERT_EQ(web_contents()->GetURL(), url_c);
+
+  {
+    // Go back to page B. This should show a POST resubmission page.
+    content::TestNavigationObserver back_nav_observer(web_contents(), 1);
+    ActResultFuture fut;
+    std::unique_ptr<ToolRequest> action = MakeHistoryBackRequest(*active_tab());
+    actor_task().Act(ToRequestList(action), fut.GetCallback());
+    back_nav_observer.Wait();
+    EXPECT_EQ(back_nav_observer.last_net_error_code(), net::ERR_CACHE_MISS);
+
+    // The history tool should see the navigation to the error page as an
+    // error.
+    const mojom::ActionResultPtr& result = std::get<0>(fut.Get());
+    EXPECT_EQ(result->code, mojom::ActionResultCode::kHistoryErrorPage);
+    EXPECT_THAT(result->message, testing::HasSubstr("ERR_CACHE_MISS"));
+
+    // We should be on the error page for B. The last committed entry is the
+    // error page, which has the URL of B.
+    EXPECT_EQ(web_contents()->GetController().GetLastCommittedEntry()->GetURL(),
+              url_b);
+    EXPECT_EQ(web_contents()->GetURL(), url_b);
+    EXPECT_FALSE(web_contents()->GetController().GetPendingEntry());
+  }
+
+  // Navigate to page D.
+  ActResultFuture fut;
+  std::unique_ptr<ToolRequest> action =
+      MakeNavigateRequest(*active_tab(), url_d.spec());
+  actor_task().Act(ToRequestList(action), fut.GetCallback());
+
+  // The navigation should complete successfully.
+  ExpectOkResult(fut);
+
+  EXPECT_EQ(web_contents()->GetURL(), url_d);
+}
+
 // Ensure that when navigating to a new document, the history tool delays
 // completion until the new page has fired the load event.
-IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest,
+IN_PROC_BROWSER_TEST_F(ActorHistoryToolBrowserTest,
                        HistoryTool_DelaysUntilLoad) {
   // Ensure BFCache isn't used so the back navigation loads a new document.
   content::DisableBackForwardCacheForTesting(
@@ -369,7 +586,7 @@ IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest,
 
 // Test that the history tool correctly adds the acted on tab to the task's set
 // of tabs.
-IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest,
+IN_PROC_BROWSER_TEST_F(ActorHistoryToolBrowserTest,
                        HistoryTool_RecordActingOnTask) {
   ASSERT_TRUE(actor_task().GetTabs().empty());
 
@@ -383,6 +600,32 @@ IN_PROC_BROWSER_TEST_P(ActorHistoryToolBrowserTest,
   ExpectOkResult(result_success);
   EXPECT_EQ(actor_task().GetTabs().size(), 1ul);
   EXPECT_TRUE(actor_task().GetTabs().contains(active_tab()->GetHandle()));
+}
+
+// Test that the history tool fails validation if the destination URL is
+// blocked.
+IN_PROC_BROWSER_TEST_F(ActorHistoryToolBrowserTest,
+                       HistoryTool_BackToBlockedUrlFailsValidation) {
+  // Use a non-localhost hostname to ensure the site policy check is exercised.
+  const GURL url_a =
+      embedded_test_server()->GetURL(kDomainA, "/actor/blank.html?a");
+  const GURL url_blocked = embedded_test_server()->GetURL(
+      "blocked.example.com", "/actor/blank.html?blocked");
+  const GURL url_c =
+      embedded_test_server()->GetURL(kDomainA, "/actor/blank.html?c");
+
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url_a));
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url_blocked));
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url_c));
+
+  // Attempting a back navigation to the blocked URL should fail validation.
+  ActResultFuture fut;
+  std::unique_ptr<ToolRequest> action = MakeHistoryBackRequest(*active_tab());
+  actor_task().Act(ToRequestList(action), fut.GetCallback());
+  ExpectErrorResult(fut, mojom::ActionResultCode::kUrlBlocked);
+
+  // The browser should remain on the current page.
+  EXPECT_EQ(web_contents()->GetURL(), url_c);
 }
 
 }  // namespace

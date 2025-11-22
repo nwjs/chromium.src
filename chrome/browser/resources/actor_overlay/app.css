@@ -18,6 +18,59 @@
   cursor: not-allowed;
 }
 
+
+@keyframes pulse-opacity {
+  0% {
+    opacity: 0.6;
+    animation-timing-function: cubic-bezier(0.33, 0.00, 0.67, 1.00);
+  }
+
+  33.33% {
+    opacity: 0;
+    animation-timing-function: linear;
+  }
+
+  66.66% {
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.33, 0.00, 0.67, 1.00);
+  }
+
+  100% {
+    opacity: 0.6;
+  }
+}
+
+#border-stroke {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  background: #3186FF;
+  mask-image:
+    linear-gradient(white, white),
+    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'><rect width='100%' height='100%' rx='6px' ry='6px' fill='white'/></svg>");
+  mask-composite: subtract;
+  mask-size:
+    100% 100%,
+    calc(100% - 6px) calc(100% - 6px);
+  mask-position:
+    0 0,
+    center;
+  mask-repeat: no-repeat, no-repeat;
+  z-index: 15;
+  pointer-events: none;
+}
+
+#border-glow {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  box-shadow:
+    inset 0 0 35px 12px #3186FF;
+  animation: pulse-opacity 6000ms infinite;
+  pointer-events: none;
+  z-index: 10;
+}
+
 #magicCursor {
   opacity: 0;
   position: fixed;

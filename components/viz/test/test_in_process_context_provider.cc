@@ -21,8 +21,6 @@
 #include "gpu/config/skia_limits.h"
 #include "gpu/ipc/gl_in_process_context.h"
 #include "gpu/ipc/raster_in_process_context.h"
-#include "gpu/skia_bindings/grcontext_for_gles2_interface.h"
-#include "third_party/skia/include/gpu/ganesh/GrDirectContext.h"
 
 namespace viz {
 
@@ -107,10 +105,6 @@ gpu::ContextSupport* TestInProcessContextProvider::ContextSupport() {
                         : raster_context_->GetContextSupport();
 }
 
-class GrDirectContext* TestInProcessContextProvider::GrContext() {
-  return nullptr;
-}
-
 gpu::SharedImageInterface*
 TestInProcessContextProvider::SharedImageInterface() {
   return gles2_context_ ? gles2_context_->GetSharedImageInterface()
@@ -168,12 +162,6 @@ void TestInProcessContextProvider::CheckValidThreadOrLockAcquired() const {
     DCHECK(context_thread_checker_.CalledOnValidThread());
   }
 #endif
-}
-
-unsigned int TestInProcessContextProvider::GetGrGLTextureFormat(
-    SharedImageFormat format) const {
-  return SharedImageFormatRestrictedSinglePlaneUtils::ToGLTextureStorageFormat(
-      format, ContextCapabilities().angle_rgbx_internal_format);
 }
 
 GpuServiceImpl* TestInProcessContextProvider::GpuService() {

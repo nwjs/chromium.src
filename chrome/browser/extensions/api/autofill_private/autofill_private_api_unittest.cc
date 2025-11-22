@@ -187,7 +187,12 @@ class AutofillPrivateApiUnitTest : public extensions::ExtensionApiTest {
  public:
   AutofillPrivateApiUnitTest() {
     feature_list_.InitWithFeatures(
-        /*enabled_features=*/{autofill::features::kAutofillAiWithDataSchema},
+        /*enabled_features=*/
+        {
+            autofill::features::kAutofillAiWithDataSchema,
+            autofill::features::kAutofillAiWalletFlightReservation,
+            autofill::features::kAutofillAiWalletVehicleRegistration,
+        },
         /*disabled_features=*/
         {autofill::features::kAutofillAiIgnoreLocale});
   }
@@ -403,8 +408,12 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest, MAYBE_EntityInstances) {
   ASSERT_TRUE(RunAutofillSubtest("loadEmptyEntityInstancesList"));
   ASSERT_TRUE(RunAutofillSubtest("testExpectedLabelsAreGenerated"));
   //  Test that retrieving general entity type information works.
-  ASSERT_TRUE(RunAutofillSubtest("getAllEntityTypes"));
+  ASSERT_TRUE(RunAutofillSubtest("getWritableEntityTypes"));
   ASSERT_TRUE(RunAutofillSubtest("getAllAttributeTypesForEntityTypeName"));
+}
+
+IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest, TypedEntityInstances) {
+  ASSERT_TRUE(RunAutofillSubtest("testEntityTypeInEntityInstanceWithLabels"));
 }
 
 IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest,
@@ -462,6 +471,11 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest,
   // Verify that we cannot opt into Autofill AI anymore.
   ASSERT_TRUE(RunAutofillSubtest("optIntoAutofillAi"));
   EXPECT_TRUE(RunAutofillSubtest("verifyUserOptedOutOfAutofillAi"));
+}
+
+IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest,
+                       GetAllWritableEntityTypes_DoesNotIncludeReadOnlyTypes) {
+  ASSERT_TRUE(RunAutofillSubtest("getWritableEntityTypes"));
 }
 
 }  // namespace

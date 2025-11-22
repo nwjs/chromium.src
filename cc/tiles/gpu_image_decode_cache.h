@@ -22,6 +22,7 @@
 #include "base/memory/memory_pressure_listener.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ptr_exclusion.h"
+#include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/synchronization/lock.h"
 #include "base/time/time.h"
@@ -109,39 +110,10 @@ class RasterDarkModeFilter;
 //      of each other), they hold ImageDatas by scoped_refptr. The scoped_refptr
 //      keeps an ImageData alive while it is present in either the
 //      |persistent_cache_| or |in_use_cache_|.
-//
-// HARDWARE ACCELERATED DECODES:
-//
-// In Chrome OS, we have the ability to use specialized hardware to decode
-// certain images. Because this requires interacting with drivers, it must be
-// done in the GPU process. Therefore, we follow a different path than the usual
-// decode -> upload tasks:
-//   1) We decide whether to do hardware decode acceleration for an image before
-//      we create the decode/upload tasks. Under the hood, this involves parsing
-//      the image and checking if it's supported by the hardware decoder
-//      according to information advertised by the GPU process. Also, we only
-//      allow hardware decoding in OOP-R mode.
-//   2) If we do decide to do hardware decoding, we don't create a decode task.
-//      Instead, we create only an upload task and store enough state to
-//      indicate that the image will go through this hardware accelerated path.
-//      The reason that we use the upload task is that we need to hold the
-//      context lock in order to schedule the image decode.
-//   3) When the upload task runs, we send a request to the GPU process to start
-//      the image decode. This is an IPC message that does not require us to
-//      wait for the response. Instead, we get a sync token that is signalled
-//      when the decode completes. We insert a wait for this sync token right
-//      after sending the decode request.
-//
-// We also handle the more unusual case where images are decoded at raster time.
-// The process is similar: we skip the software decode and then request the
-// hardware decode in the same way as step (3) above.
-//
-// Note that the decoded data never makes it back to the renderer. It stays in
-// the GPU process. The sync token ensures that any raster work that needs the
-// image happens after the decode completes.
 class CC_EXPORT GpuImageDecodeCache
     : public ImageDecodeCache,
-      public base::trace_event::MemoryDumpProvider {
+      public base::trace_event::MemoryDumpProvider,
+      public base::MemoryPressureListener {
  public:
   explicit GpuImageDecodeCache(viz::RasterContextProvider* context,
                                SkColorType color_type,
@@ -183,8 +155,7 @@ class CC_EXPORT GpuImageDecodeCache
 
   // TODO(gyuyoung): OnMemoryPressure is deprecated. So this should be removed
   // when the memory coordinator is enabled by default.
-  void OnMemoryPressure(
-      base::MemoryPressureListener::MemoryPressureLevel level);
+  void OnMemoryPressure(base::MemoryPressureLevel level) override;
 
   // Called by Decode / Upload tasks.
   void DecodeImageInTask(const DrawImage& image, TaskType task_type);
@@ -320,9 +291,7 @@ class CC_EXPORT GpuImageDecodeCache
 
   // Stores the CPU-side decoded bits of an image and supporting fields.
   struct DecodedImageData : public ImageDataBase {
-    explicit DecodedImageData(bool is_bitmap_backed,
-                              bool can_do_hardware_accelerated_decode,
-                              bool do_hardware_accelerated_decode);
+    explicit DecodedImageData(bool is_bitmap_backed);
     ~DecodedImageData();
 
     bool Lock();
@@ -362,14 +331,6 @@ class CC_EXPORT GpuImageDecodeCache
       return aux_image_data_[AuxImageIndex(aux_image)].pixmaps;
     }
 
-    bool can_do_hardware_accelerated_decode() const {
-      return can_do_hardware_accelerated_decode_;
-    }
-
-    bool do_hardware_accelerated_decode() const {
-      return do_hardware_accelerated_decode_;
-    }
-
     // Test-only functions.
     sk_sp<SkImage> ImageForTesting() const {
       return aux_image_data_[kAuxImageIndexDefault].images[0];
@@ -396,17 +357,6 @@ class CC_EXPORT GpuImageDecodeCache
 
     const bool is_bitmap_backed_;
     std::array<DecodedAuxImageData, kAuxImageCount> aux_image_data_;
-
-    // Keeps tracks of images that could go through hardware decode acceleration
-    // though they're possibly prevented from doing so because of a disabled
-    // feature flag.
-    bool can_do_hardware_accelerated_decode_;
-
-    // |do_hardware_accelerated_decode_| keeps track of images that should go
-    // through hardware decode acceleration. Currently, this path is intended
-    // only for Chrome OS and only for some JPEG images (see
-    // https://crbug.com/868400).
-    bool do_hardware_accelerated_decode_;
   };
 
   // Stores the GPU-side image and supporting fields.
@@ -452,8 +402,6 @@ class CC_EXPORT GpuImageDecodeCache
               int upload_scale_mip_level,
               bool needs_mips,
               bool is_bitmap_backed,
-              bool can_do_hardware_accelerated_decode,
-              bool do_hardware_accelerated_decode,
               bool speculative_decode,
               base::span<ImageInfo, kAuxImageCount> image_info);
 
@@ -628,7 +576,6 @@ class CC_EXPORT GpuImageDecodeCache
 
   scoped_refptr<GpuImageDecodeCache::ImageData> CreateImageData(
       const DrawImage& image,
-      bool allow_hardware_decode,
       bool speculative_decode);
   void WillAddCacheEntry(const DrawImage& draw_image)
       EXCLUSIVE_LOCKS_REQUIRED(lock_);
@@ -673,18 +620,6 @@ class CC_EXPORT GpuImageDecodeCache
   void UploadImageIfNecessary(const DrawImage& draw_image,
                               ImageData* image_data)
       EXCLUSIVE_LOCKS_REQUIRED(lock_);
-
-  // Implementation of UploadImageIfNecessary for each sub-case.
-  void UploadImageIfNecessary_TransferCache_HardwareDecode(
-      const DrawImage& draw_image,
-      ImageData* image_data,
-      sk_sp<SkColorSpace> color_space) EXCLUSIVE_LOCKS_REQUIRED(lock_);
-  void UploadImageIfNecessary_TransferCache_SoftwareDecode(
-      const DrawImage& draw_image,
-      ImageData* image_data,
-      sk_sp<SkColorSpace> decoded_target_colorspace,
-      const std::optional<gfx::HDRMetadata>& hdr_metadata,
-      sk_sp<SkColorSpace> target_color_space) EXCLUSIVE_LOCKS_REQUIRED(lock_);
 
   // Runs pending operations that required the |context_| lock to be held, but
   // were queued up during a time when the |context_| lock was unavailable.
@@ -731,8 +666,6 @@ class CC_EXPORT GpuImageDecodeCache
   raw_ptr<viz::RasterContextProvider> context_;
   int max_texture_size_ = 0;
   const PaintImage::GeneratorClientId generator_client_id_;
-  bool allow_accelerated_jpeg_decodes_ = false;
-  bool allow_accelerated_webp_decodes_ = false;
   SkYUVAPixmapInfo::SupportedDataTypes yuva_supported_data_types_;
   const bool enable_clipped_image_scaling_;
 
@@ -785,7 +718,8 @@ class CC_EXPORT GpuImageDecodeCache
   std::vector<uint32_t> ids_pending_unlock_;
   std::vector<uint32_t> ids_pending_deletion_;
 
-  std::unique_ptr<base::AsyncMemoryPressureListener> memory_pressure_listener_;
+  std::unique_ptr<base::AsyncMemoryPressureListenerRegistration>
+      memory_pressure_listener_registration_;
   base::WeakPtrFactory<GpuImageDecodeCache> weak_ptr_factory_{this};
 };
 

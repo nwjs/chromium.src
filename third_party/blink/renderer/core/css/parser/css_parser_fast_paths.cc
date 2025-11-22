@@ -1214,6 +1214,11 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
       return value_id == CSSValueID::kNone ||
              value_id == CSSValueID::kSpanningItem ||
              value_id == CSSValueID::kIntersection;
+    case CSSPropertyID::kColumnRuleVisibilityItems:
+    case CSSPropertyID::kRowRuleVisibilityItems:
+      return value_id == CSSValueID::kNone || value_id == CSSValueID::kAll ||
+             value_id == CSSValueID::kAround ||
+             value_id == CSSValueID::kBetween;
     case CSSPropertyID::kDirection:
       return value_id == CSSValueID::kLtr || value_id == CSSValueID::kRtl;
     case CSSPropertyID::kDominantBaseline:
@@ -1420,9 +1425,13 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
              value_id == CSSValueID::kOptimizelegibility ||
              value_id == CSSValueID::kGeometricprecision;
     case CSSPropertyID::kTextTransform:
-      return (value_id >= CSSValueID::kCapitalize &&
-              value_id <= CSSValueID::kMathAuto) ||
-             value_id == CSSValueID::kNone;
+      return value_id == CSSValueID::kCapitalize ||
+             value_id == CSSValueID::kUppercase ||
+             value_id == CSSValueID::kLowercase ||
+             value_id == CSSValueID::kMathAuto ||
+             value_id == CSSValueID::kNone ||
+             (RuntimeEnabledFeatures::CSSTextTransformFullWidthEnabled() &&
+              value_id == CSSValueID::kFullWidth);
     case CSSPropertyID::kUnicodeBidi:
       return value_id == CSSValueID::kNormal ||
              value_id == CSSValueID::kEmbed ||
@@ -1458,6 +1467,8 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
               value_id == CSSValueID::kTextfield ||
               value_id == CSSValueID::kTextarea ||
               value_id == CSSValueID::kBaseSelect) ||
+             (RuntimeEnabledFeatures::AppearanceBaseEnabled() &&
+              value_id == CSSValueID::kBase) ||
              (RuntimeEnabledFeatures::
                   NonStandardAppearanceValueSliderVerticalEnabled() &&
               value_id == CSSValueID::kSliderVertical) ||
@@ -1609,6 +1620,10 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
       DCHECK(RuntimeEnabledFeatures::CSSTextAutoSpaceEnabled());
       return value_id == CSSValueID::kNormal ||
              value_id == CSSValueID::kNoAutospace;
+    case CSSPropertyID::kTextJustify:
+      return value_id == CSSValueID::kAuto || value_id == CSSValueID::kNone ||
+             value_id == CSSValueID::kInterWord ||
+             value_id == CSSValueID::kInterCharacter;
     case CSSPropertyID::kTextSpacingTrim:
       return value_id == CSSValueID::kNormal ||
              value_id == CSSValueID::kTrimStart ||
@@ -1692,7 +1707,6 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
              value_id == CSSValueID::kTrimEnd ||
              value_id == CSSValueID::kTrimBoth;
     case CSSPropertyID::kInteractivity:
-      DCHECK(RuntimeEnabledFeatures::CSSInertEnabled());
       return value_id == CSSValueID::kAuto || value_id == CSSValueID::kInert;
     case CSSPropertyID::kContinue:
       return value_id == CSSValueID::kAuto ||
@@ -1733,6 +1747,7 @@ CSSBitset CSSParserFastPaths::handled_by_keyword_fast_paths_properties_{{
     CSSPropertyID::kColorInterpolationFilters,
     CSSPropertyID::kColorRendering,
     CSSPropertyID::kColumnRuleBreak,
+    CSSPropertyID::kColumnRuleVisibilityItems,
     CSSPropertyID::kContinue,
     CSSPropertyID::kDirection,
     CSSPropertyID::kDominantBaseline,
@@ -1769,6 +1784,7 @@ CSSBitset CSSParserFastPaths::handled_by_keyword_fast_paths_properties_{{
     CSSPropertyID::kReadingFlow,
     CSSPropertyID::kResize,
     CSSPropertyID::kRowRuleBreak,
+    CSSPropertyID::kRowRuleVisibilityItems,
     CSSPropertyID::kScrollTargetGroup,
     CSSPropertyID::kScrollBehavior,
     CSSPropertyID::kOverscrollBehaviorInline,
@@ -1825,6 +1841,7 @@ CSSBitset CSSParserFastPaths::handled_by_keyword_fast_paths_properties_{{
     CSSPropertyID::kWebkitRtlOrdering,
     CSSPropertyID::kWebkitRubyPosition,
     CSSPropertyID::kWebkitTextCombine,
+    CSSPropertyID::kTextJustify,
     CSSPropertyID::kWebkitTextSecurity,
     CSSPropertyID::kTextWrapMode,
     CSSPropertyID::kTextWrapStyle,

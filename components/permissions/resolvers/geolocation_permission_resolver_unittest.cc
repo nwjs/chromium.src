@@ -49,7 +49,7 @@ TEST_F(GeolocationPermissionResolverTest,
   EXPECT_EQ(approximate_request_resolver()->DeterminePermissionStatus(setting),
             blink::mojom::PermissionStatus::GRANTED);
   EXPECT_EQ(precise_request_resolver()->DeterminePermissionStatus(setting),
-            blink::mojom::PermissionStatus::UNSATISFIED_OPTIONS);
+            blink::mojom::PermissionStatus::GRANTED);
 }
 
 TEST_F(GeolocationPermissionResolverTest,
@@ -71,7 +71,7 @@ TEST_F(GeolocationPermissionResolverTest,
   EXPECT_EQ(approximate_request_resolver()->DeterminePermissionStatus(setting),
             blink::mojom::PermissionStatus::GRANTED);
   EXPECT_EQ(precise_request_resolver()->DeterminePermissionStatus(setting),
-            blink::mojom::PermissionStatus::UNSATISFIED_OPTIONS);
+            blink::mojom::PermissionStatus::GRANTED);
 }
 
 TEST_F(GeolocationPermissionResolverTest,
@@ -243,6 +243,13 @@ TEST_F(GeolocationPermissionResolverTest,
           approximate_request_resolver()->ComputePermissionDecisionResult(
               previous_setting, PermissionDecision::kDeny, std::monostate())),
       GeolocationSetting(PermissionOption::kDenied, PermissionOption::kDenied));
+
+  EXPECT_EQ(
+      std::get<GeolocationSetting>(
+          precise_request_resolver()->ComputePermissionDecisionResult(
+              previous_setting, PermissionDecision::kAllow, std::monostate())),
+      GeolocationSetting(PermissionOption::kAllowed,
+                         PermissionOption::kDenied));
 
   EXPECT_EQ(std::get<GeolocationSetting>(
                 precise_request_resolver()->ComputePermissionDecisionResult(

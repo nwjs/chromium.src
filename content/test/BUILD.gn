@@ -1151,7 +1151,10 @@ static_library("browsertest_support") {
   if (is_android) {
     deps += [ "//content/public/app" ]
   } else {
-    deps += [ "//content/public/browser" ]
+    deps += [
+      "//components/soda:utils",
+      "//content/public/browser",
+    ]
   }
 
   if (use_aura && toolkit_views && !is_castos) {
@@ -1582,6 +1585,7 @@ test("content_browsertests") {
     "../browser/form_controls_browsertest.cc",
     "../browser/framebusting_browsertest.cc",
     "../browser/generic_sensor/generic_sensor_browsertest.cc",
+    "../browser/gpu/gpu_host_impl_persistent_cache_browsertest.cc",
     "../browser/gpu/gpu_ipc_browsertests.cc",
     "../browser/gpu/in_process_gpu_thread_browsertests.cc",
     "../browser/gpu/peak_gpu_memory_tracker_impl_browsertest.cc",
@@ -1712,7 +1716,6 @@ test("content_browsertests") {
     "../browser/renderer_host/page_lifecycle_state_manager_browsertest.cc",
     "../browser/renderer_host/panel_rotation_browsertest.cc",
     "../browser/renderer_host/policy_container_host_browsertest.cc",
-    "../browser/renderer_host/private_network_access_browsertest.cc",
     "../browser/renderer_host/proactively_swap_browsing_instances_browsertest.cc",
     "../browser/renderer_host/render_document_host_browsertest.cc",
     "../browser/renderer_host/render_frame_host_impl_browsertest.cc",
@@ -2025,6 +2028,7 @@ test("content_browsertests") {
     "//services/video_capture/public/mojom:constants",
     "//services/viz/privileged/mojom",
     "//services/viz/public/cpp/gpu",
+    "//sql:test_support",
     "//storage/browser",
     "//storage/browser:test_support",
     "//testing/gmock",
@@ -2321,6 +2325,14 @@ test("content_browsertests") {
 
   if (is_chromeos) {
     sources += [ "../browser/smart_card/smart_card_browsertest.cc" ]
+    deps += [ "//chromeos/components/firewall_hole" ]
+
+    if (is_component_build) {
+      sources += [
+        "//content/browser/direct_sockets/firewall_hole_delegate.cc",
+        "//content/browser/direct_sockets/firewall_hole_delegate.h",
+      ]
+    }
   }
 
   # HID support is not available without udev.
@@ -2743,6 +2755,7 @@ test("content_unittests") {
     "../browser/media/session/media_session_impl_unittest.cc",
     "../browser/media/session/media_session_uma_helper_unittest.cc",
     "../browser/media/system_media_controls/system_media_controls_notifier_unittest.cc",
+    "../browser/media/url_provision_fetcher_unittest.cc",
     "../browser/media/webaudio/audio_context_manager_impl_unittest.cc",
     "../browser/memory/swap_metrics_driver_impl_unittest.cc",
     "../browser/memory_coordinator/browser_memory_consumer_registry_unittest.cc",
@@ -3077,6 +3090,7 @@ test("content_unittests") {
     "../renderer/media/batching_media_log_unittest.cc",
     "../renderer/media/inspector_media_event_handler_unittest.cc",
     "../renderer/media/renderer_webaudiodevice_impl_unittest.cc",
+    "../renderer/memory_coordinator/renderer_memory_coordinator_policy_unittest.cc",
     "../renderer/render_thread_impl_unittest.cc",
     "../renderer/service_worker/service_worker_provider_context_unittest.cc",
     "../renderer/service_worker/service_worker_subresource_loader_unittest.cc",
@@ -3339,7 +3353,6 @@ test("content_unittests") {
     "//services/video_capture/public/cpp:mocks",
     "//services/video_capture/public/mojom",
     "//services/video_capture/public/mojom:constants",
-    "//services/video_effects/buildflags",
     "//services/viz/public/cpp/gpu",
     "//skia",
     "//sql",
@@ -3395,6 +3408,16 @@ test("content_unittests") {
     "//ui/webui:test_support",
     "//url",
   ]
+
+  if (is_chromeos) {
+    sources += [
+      "//content/browser/direct_sockets/firewall_hole_delegate_unittest.cc",
+    ]
+    deps += [
+      "//chromeos/components/firewall_hole",
+      "//chromeos/dbus/permission_broker",
+    ]
+  }
 
   if (enable_nocompile_tests) {
     deps += [ ":content_nocompile_tests" ]
@@ -3459,7 +3482,9 @@ test("content_unittests") {
       "../browser/media/capture/web_contents_frame_tracker_unittest.cc",
       "../browser/renderer_host/media/sub_capture_target_id_web_contents_helper_unittest.cc",
     ]
-
+    if (is_mac) {
+      sources += [ "../browser/media/capture/pip_screen_capture_coordinator_impl_unittest.cc" ]
+    }
     if (!is_android && !is_ios) {
       deps += [
         "//content/common:buildflags",
@@ -3592,6 +3617,7 @@ test("content_unittests") {
       "../browser/devtools/protocol/webauthn_handler_unittest.cc",
       "../browser/host_zoom_map_impl_unittest.cc",
       "../browser/picture_in_picture/document_picture_in_picture_navigation_throttle_unittest.cc",
+      "../browser/picture_in_picture/document_picture_in_picture_window_controller_impl_unittest.cc",
       "../browser/speech/network_speech_recognition_engine_impl_unittest.cc",
       "../browser/speech/speech_recognizer_impl_unittest.cc",
       "../browser/tracing/tracing_ui_unittest.cc",
@@ -3607,6 +3633,7 @@ test("content_unittests") {
 
     if (!is_fuchsia) {
       sources += [
+        "../browser/speech/on_device_speech_recognition_engine_unittest.cc",
         "../browser/speech/soda_speech_recognition_engine_impl_unittest.cc",
         "../browser/speech/speech_recognition_manager_impl_unittest.cc",
       ]

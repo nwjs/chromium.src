@@ -45,23 +45,14 @@ PreloadingType ConvertSpeculationActionToPreloadingType(
   }
 }
 
-bool ShouldPauseJavaScriptExecution(blink::mojom::SpeculationAction action) {
-  switch (action) {
-    case blink::mojom::SpeculationAction::kPrerender:
-      return false;
-    case blink::mojom::SpeculationAction::kPrerenderUntilScript:
-      return true;
-    case blink::mojom::SpeculationAction::kPrefetch:
-    case blink::mojom::SpeculationAction::kPrefetchWithSubresources:
-      NOTREACHED();
-  }
-}
-
 }  // namespace
 
+// TODO(crbug.com/428500219): We should allow prerender-until-script to be
+// upgraded to prerender.
 struct PrerendererImpl::PrerenderInfo {
   blink::mojom::SpeculationInjectionType injection_type;
   blink::mojom::SpeculationEagerness eagerness;
+  blink::mojom::SpeculationAction action;
   bool is_target_blank;
   FrameTreeNodeId prerender_host_id;
   GURL url;
@@ -100,6 +91,7 @@ PrerendererImpl::PrerenderInfo::PrerenderInfo(
     const blink::mojom::SpeculationCandidatePtr& candidate)
     : injection_type(candidate->injection_type),
       eagerness(candidate->eagerness),
+      action(candidate->action),
       is_target_blank(candidate->target_browsing_context_name_hint ==
                       blink::mojom::SpeculationTargetHint::kBlank),
       url(candidate->url) {}
@@ -146,12 +138,15 @@ void PrerendererImpl::PrimaryPageChanged(Page& page) {
 // about making preloading decisions and could be moved to PreloadingDecider
 // class.
 void PrerendererImpl::ProcessCandidatesForPrerender(
-    const std::vector<blink::mojom::SpeculationCandidatePtr>& candidates) {
+    const std::vector<blink::mojom::SpeculationCandidatePtr>& candidates,
+    bool enable_cross_origin_prerender_iframes) {
   if (!registry_)
     return;
 
   // Extract only the candidates which apply to prerender, and sort them by URL
   // so we can efficiently compare them to `started_prerenders_`.
+  // TODO(https://crbug.com/428500219): Add warning message if prerender and
+  // prerender-until-script are applied to the same URL.
   std::vector<std::pair<size_t, blink::mojom::SpeculationCandidatePtr>>
       prerender_candidates;
   for (const auto& candidate : candidates) {
@@ -162,6 +157,8 @@ void PrerendererImpl::ProcessCandidatesForPrerender(
                                         candidate.Clone());
     }
   }
+  enable_cross_origin_prerender_iframes_ |=
+      enable_cross_origin_prerender_iframes;
 
   std::ranges::stable_sort(
       prerender_candidates, std::less<>(),
@@ -249,11 +246,14 @@ void PrerendererImpl::ProcessCandidatesForPrerender(
     started_it = equal_prerender_end;
   }
 
-  std::vector<GURL> urls;
+  std::vector<std::pair<GURL, PreloadingType>> to_be_cancelled_prerender_list;
   for (auto ftn_id : removed_prerender_rules) {
     if (PrerenderHost* prerender_host =
             registry_->FindNonReservedHostById(ftn_id)) {
-      urls.push_back(prerender_host->GetInitialUrl());
+      to_be_cancelled_prerender_list.emplace_back(
+          prerender_host->GetInitialUrl(),
+          ConvertSpeculationActionToPreloadingType(
+              prerender_host->speculation_action()));
     }
   }
   std::set<FrameTreeNodeId> canceled_prerender_rules_set =
@@ -268,8 +268,9 @@ void PrerendererImpl::ProcessCandidatesForPrerender(
     auto* prefetch_document_manager =
         content::PrefetchDocumentManager::GetOrCreateForCurrentDocument(
             web_contents->GetPrimaryMainFrame());
-    for (const auto& url : urls) {
-      prefetch_document_manager->ResetPrefetchAheadOfPrerenderIfExist(url);
+    for (const auto& [url, preloading_type] : to_be_cancelled_prerender_list) {
+      prefetch_document_manager->ResetPrefetchAheadOfPrerenderIfExist(
+          preloading_type, url);
     }
   }
 
@@ -357,8 +358,19 @@ bool PrerendererImpl::MaybePrerender(
     return false;
   }
 
-  GetContentClient()->browser()->LogWebFeatureForCurrentPage(
-      &rfhi, blink::mojom::WebFeature::kSpeculationRulesPrerender);
+  switch (candidate->action) {
+    case blink::mojom::SpeculationAction::kPrerender:
+      GetContentClient()->browser()->LogWebFeatureForCurrentPage(
+          &rfhi, blink::mojom::WebFeature::kSpeculationRulesPrerender);
+      break;
+    case blink::mojom::SpeculationAction::kPrerenderUntilScript:
+      GetContentClient()->browser()->LogWebFeatureForCurrentPage(
+          &rfhi,
+          blink::mojom::WebFeature::kSpeculationRulesPrerenderUntilScript);
+      break;
+    default:
+      NOTREACHED();
+  }
 
   IncrementReceivedPrerendersCountForMetrics(
       PreloadingTriggerTypeFromSpeculationInjectionType(
@@ -401,14 +413,15 @@ bool PrerendererImpl::MaybePrerender(
       Referrer{*candidate->referrer}, no_vary_search_hint, &rfhi,
       web_contents->GetWeakPtr(), ui::PAGE_TRANSITION_LINK,
       should_warm_up_compositor,
-      /*should_prepare_paint_tree=*/false,
-      ShouldPauseJavaScriptExecution(candidate->action),
+      /*should_prepare_paint_tree=*/false, candidate->action,
       /*url_match_predicate=*/{},
       /*prerender_navigation_handle_callback=*/{},
       PreloadPipelineInfoImpl::Create(
           /*planned_max_preloading_type=*/
           ConvertSpeculationActionToPreloadingType(candidate->action)),
       /*allow_reuse=*/false);
+  attributes.enable_cross_origin_prerender_iframes =
+      enable_cross_origin_prerender_iframes_;
 
   PreloadingTriggerType trigger_type =
       PreloadingTriggerTypeFromSpeculationInjectionType(
@@ -505,10 +518,11 @@ void PrerendererImpl::OnCancel(FrameTreeNodeId host_frame_tree_node_id,
 
       if (erasing_prerender_it != started_prerenders_.end()) {
         auto url = erasing_prerender_it->url;
+        blink::mojom::SpeculationAction action = erasing_prerender_it->action;
         started_prerenders_.erase(erasing_prerender_it);
 
         // Notify PreloadingDecider.
-        prerender_cancellation_callback_.Run(url);
+        prerender_cancellation_callback_.Run(url, action);
       }
       break;
     }

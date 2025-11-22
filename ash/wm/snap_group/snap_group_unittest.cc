@@ -1260,9 +1260,9 @@ TEST_F(FasterSplitScreenTest, NoCrashOnDisplayRemoval) {
 
   // Snap `window` on the second display. Test its bounds are updated.
   std::unique_ptr<aura::Window> window1(
-      CreateTestWindowInShellWithBounds(gfx::Rect(900, 0, 100, 100)));
+      CreateTestWindowInShell({.bounds = {900, 0, 100, 100}}));
   std::unique_ptr<aura::Window> window2(
-      CreateTestWindowInShellWithBounds(gfx::Rect(1000, 0, 100, 100)));
+      CreateTestWindowInShell({.bounds = {1000, 0, 100, 100}}));
   SnapOneTestWindow(window1.get(), WindowStateType::kPrimarySnapped,
                     chromeos::kDefaultSnapRatio);
   ASSERT_EQ(
@@ -1288,8 +1288,8 @@ TEST_F(FasterSplitScreenTest, SnapWindowWithMinimumSize) {
   // 1 - Test min size > 1/3 scenario.
   // Set `w2` min size to be > 1/3 of the display width.
   aura::test::TestWindowDelegate delegate;
-  std::unique_ptr<aura::Window> w2(CreateTestWindowInShellWithDelegate(
-      &delegate, /*id=*/-1, gfx::Rect(800, 600)));
+  std::unique_ptr<aura::Window> w2(
+      CreateTestWindowInShell({.delegate = &delegate}));
   int min_width = 396;
   delegate.set_minimum_size(gfx::Size(min_width, 0));
 
@@ -2336,13 +2336,13 @@ TEST_F(SnapGroupTest, NoGapAfterSnapGroupCreationInLandscape) {
   const gfx::Size window_minimum_size = gfx::Size(500, 0);
 
   aura::test::TestWindowDelegate delegate1;
-  std::unique_ptr<aura::Window> w1(CreateTestWindowInShellWithDelegate(
-      &delegate1, /*id=*/-1, gfx::Rect(800, 600)));
+  std::unique_ptr<aura::Window> w1(
+      CreateTestWindowInShell({.delegate = &delegate1, .bounds = {800, 600}}));
   delegate1.set_minimum_size(window_minimum_size);
   w1->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
   aura::test::TestWindowDelegate delegate2;
-  std::unique_ptr<aura::Window> w2(CreateTestWindowInShellWithDelegate(
-      &delegate2, /*id=*/-1, gfx::Rect(500, 0, 800, 600)));
+  std::unique_ptr<aura::Window> w2(CreateTestWindowInShell(
+      {.delegate = &delegate2, .bounds = {500, 0, 800, 600}}));
   delegate2.set_minimum_size(window_minimum_size);
   w2->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
 
@@ -2374,13 +2374,13 @@ TEST_F(SnapGroupTest, NoGapAfterSnapGroupCreationInPortrait) {
   const gfx::Size window_minimum_size = gfx::Size(0, 500);
 
   aura::test::TestWindowDelegate delegate1;
-  std::unique_ptr<aura::Window> w1(CreateTestWindowInShellWithDelegate(
-      &delegate1, /*id=*/-1, gfx::Rect(800, 600)));
+  std::unique_ptr<aura::Window> w1(
+      CreateTestWindowInShell({.delegate = &delegate1, .bounds = {800, 600}}));
   w1->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
   delegate1.set_minimum_size(window_minimum_size);
   aura::test::TestWindowDelegate delegate2;
-  std::unique_ptr<aura::Window> w2(CreateTestWindowInShellWithDelegate(
-      &delegate2, /*id=*/-1, gfx::Rect(500, 0, 800, 600)));
+  std::unique_ptr<aura::Window> w2(CreateTestWindowInShell(
+      {.delegate = &delegate2, .bounds = {500, 0, 800, 600}}));
   delegate2.set_minimum_size(window_minimum_size);
   w2->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
 
@@ -2633,9 +2633,8 @@ TEST_F(SnapGroupTest, DragWindowOutToBreakSnapGroup) {
   // process of this event.
   aura::test::TestWindowDelegate test_window_delegate;
   test_window_delegate.set_window_component(HTCAPTION);
-  std::unique_ptr<aura::Window> w2(CreateTestWindowInShellWithDelegate(
-      &test_window_delegate, aura::client::WINDOW_TYPE_NORMAL,
-      gfx::Rect(400, 5, 100, 50)));
+  std::unique_ptr<aura::Window> w2(CreateTestWindowInShell(
+      {.delegate = &test_window_delegate, .bounds = {400, 5, 100, 50}}));
   w2->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
 
   auto* event_generator = GetEventGenerator();
@@ -2734,9 +2733,8 @@ TEST_F(SnapGroupTest, ToplevelWindowEventHandlerDragCrashFix) {
 
   aura::test::TestWindowDelegate test_window_delegate;
   test_window_delegate.set_window_component(HTCAPTION);
-  std::unique_ptr<aura::Window> w2(CreateTestWindowInShellWithDelegate(
-      &test_window_delegate, aura::client::WINDOW_TYPE_NORMAL,
-      gfx::Rect(400, 5, 100, 50)));
+  std::unique_ptr<aura::Window> w2(CreateTestWindowInShell(
+      {.delegate = &test_window_delegate, .bounds = {400, 5, 100, 50}}));
   w2->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
 
   auto* event_generator = GetEventGenerator();
@@ -7285,11 +7283,14 @@ class SnapGroupWindowCycleTest : public SnapGroupTest {
 // windows will be adjacent with each other with physically left/top snapped
 // window put before physically right/bottom snapped window.
 TEST_F(SnapGroupWindowCycleTest, WindowReorderInAltTabInPrimaryOrientation) {
-  std::unique_ptr<aura::Window> window0(CreateTestWindowInShellWithId(0));
+  std::unique_ptr<aura::Window> window0(
+      CreateTestWindowInShell({.window_id = 0}));
   window0->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
-  std::unique_ptr<aura::Window> window1(CreateTestWindowInShellWithId(1));
+  std::unique_ptr<aura::Window> window1(
+      CreateTestWindowInShell({.window_id = 1}));
   window1->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
-  std::unique_ptr<aura::Window> window2(CreateTestWindowInShellWithId(2));
+  std::unique_ptr<aura::Window> window2(
+      CreateTestWindowInShell({.window_id = 2}));
   SnapTwoTestWindows(window0.get(), window1.get(), /*horizontal=*/true,
                      GetEventGenerator());
 
@@ -7327,11 +7328,14 @@ TEST_F(SnapGroupWindowCycleTest, WindowReorderInAltTabInPrimaryOrientation) {
 // container view of window cycle view will be the number of free-form windows
 // plus snap groups.
 TEST_F(SnapGroupWindowCycleTest, WindowCycleViewTest) {
-  std::unique_ptr<aura::Window> window0(CreateTestWindowInShellWithId(0));
+  std::unique_ptr<aura::Window> window0(
+      CreateTestWindowInShell({.window_id = 0}));
   window0->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
-  std::unique_ptr<aura::Window> window1(CreateTestWindowInShellWithId(1));
+  std::unique_ptr<aura::Window> window1(
+      CreateTestWindowInShell({.window_id = 1}));
   window1->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
-  std::unique_ptr<aura::Window> window2(CreateTestWindowInShellWithId(2));
+  std::unique_ptr<aura::Window> window2(
+      CreateTestWindowInShell({.window_id = 2}));
   SnapTwoTestWindows(window0.get(), window1.get(), /*horizontal=*/true,
                      GetEventGenerator());
 
@@ -7353,11 +7357,14 @@ TEST_F(SnapGroupWindowCycleTest, WindowCycleViewTest) {
 // child mini view hosted by the group container view will be destroyed, the
 // group container view will host the other child mini view.
 TEST_F(SnapGroupWindowCycleTest, WindowInSnapGroupDestructionInAltTab) {
-  std::unique_ptr<aura::Window> window0(CreateTestWindowInShellWithId(0));
+  std::unique_ptr<aura::Window> window0(
+      CreateTestWindowInShell({.window_id = 0}));
   window0->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
-  std::unique_ptr<aura::Window> window1(CreateTestWindowInShellWithId(1));
+  std::unique_ptr<aura::Window> window1(
+      CreateTestWindowInShell({.window_id = 1}));
   window1->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
-  std::unique_ptr<aura::Window> window2(CreateTestWindowInShellWithId(2));
+  std::unique_ptr<aura::Window> window2(
+      CreateTestWindowInShell({.window_id = 2}));
   SnapTwoTestWindows(window0.get(), window1.get(), /*horizontal=*/true,
                      GetEventGenerator());
 
@@ -7921,9 +7928,11 @@ TEST_F(SnapGroupTabletConversionTest, NoCrashWhenRemovingGroupInTabletMode) {
 // restored.
 TEST_F(SnapGroupTabletConversionTest,
        ClamshellTabletTransitionWithOneSnapGroup) {
-  std::unique_ptr<aura::Window> window1(CreateTestWindowInShellWithId(0));
+  std::unique_ptr<aura::Window> window1(
+      CreateTestWindowInShell({.window_id = 0}));
   window1->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
-  std::unique_ptr<aura::Window> window2(CreateTestWindowInShellWithId(1));
+  std::unique_ptr<aura::Window> window2(
+      CreateTestWindowInShell({.window_id = 1}));
   window2->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
   SnapTwoTestWindows(window1.get(), window2.get(), /*horizontal=*/true,
                      GetEventGenerator());
@@ -7966,9 +7975,11 @@ TEST_F(SnapGroupTabletConversionTest,
 TEST_F(SnapGroupTabletConversionTest,
        ClamshellTabletTransitionGetClosestFixedRatio) {
   UpdateDisplay("900x600");
-  std::unique_ptr<aura::Window> window1(CreateTestWindowInShellWithId(0));
+  std::unique_ptr<aura::Window> window1(
+      CreateTestWindowInShell({.window_id = 0}));
   window1->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
-  std::unique_ptr<aura::Window> window2(CreateTestWindowInShellWithId(1));
+  std::unique_ptr<aura::Window> window2(
+      CreateTestWindowInShell({.window_id = 1}));
   window2->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
   auto* event_generator = GetEventGenerator();
   SnapTwoTestWindows(window1.get(), window2.get(), /*horizontal=*/true,
@@ -9448,13 +9459,14 @@ TEST_F(SnapGroupMultiDisplayTest, NoGapAfterSnapGroupCreation) {
     SCOPED_TRACE(base::StringPrintf("window origin = %d", window_x_origin));
 
     aura::test::TestWindowDelegate delegate1;
-    std::unique_ptr<aura::Window> w1(CreateTestWindowInShellWithDelegate(
-        &delegate1, /*id=*/-1, gfx::Rect(window_x_origin, 0, 800, 600)));
+    std::unique_ptr<aura::Window> w1(CreateTestWindowInShell(
+        {.delegate = &delegate1, .bounds = {window_x_origin, 0, 800, 600}}));
     w1->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
     delegate1.set_minimum_size(window_minimum_size);
     aura::test::TestWindowDelegate delegate2;
-    std::unique_ptr<aura::Window> w2(CreateTestWindowInShellWithDelegate(
-        &delegate2, /*id=*/-1, gfx::Rect(window_x_origin + 500, 0, 800, 600)));
+    std::unique_ptr<aura::Window> w2(CreateTestWindowInShell(
+        {.delegate = &delegate2,
+         .bounds = {window_x_origin + 500, 0, 800, 600}}));
     w2->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
     delegate2.set_minimum_size(window_minimum_size);
 
@@ -9481,9 +9493,9 @@ TEST_F(SnapGroupMultiDisplayTest, RemoveDisplayInSplitViewSetupSession) {
 
   // Snap `window` on the second display to start split view overview session.
   std::unique_ptr<aura::Window> window1(
-      CreateTestWindowInShellWithBounds(gfx::Rect(900, 0, 100, 100)));
+      CreateTestWindowInShell({.bounds = {900, 0, 100, 100}}));
   std::unique_ptr<aura::Window> window2(
-      CreateTestWindowInShellWithBounds(gfx::Rect(1000, 0, 100, 100)));
+      CreateTestWindowInShell({.bounds = {1000, 0, 100, 100}}));
   WindowState* window_state = WindowState::Get(window1.get());
   const WindowSnapWMEvent snap_type(
       WM_EVENT_SNAP_PRIMARY,
@@ -9601,10 +9613,10 @@ TEST_F(SnapGroupMultiDisplayTest, MoveSnapGroupBetweenDisplays) {
 
   // Snap `w1` and `w2` on display 1.
   std::unique_ptr<aura::Window> w1(
-      CreateTestWindowInShellWithBounds(gfx::Rect(0, 0, 100, 100)));
+      CreateTestWindowInShell({.bounds = {100, 100}}));
   w1->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
   std::unique_ptr<aura::Window> w2(
-      CreateTestWindowInShellWithBounds(gfx::Rect(0, 0, 100, 100)));
+      CreateTestWindowInShell({.bounds = {100, 100}}));
   w2->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
   SnapTwoTestWindows(w1.get(), w2.get(), /*horizontal=*/true,
                      GetEventGenerator());

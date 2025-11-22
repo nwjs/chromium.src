@@ -37,9 +37,6 @@ component("service") {
     "gpu_init.h",
     "gpu_watchdog_thread.cc",
     "gpu_watchdog_thread.h",
-    "image_decode_accelerator_stub.cc",
-    "image_decode_accelerator_stub.h",
-    "image_decode_accelerator_worker.h",
     "image_transport_surface.h",
     "raster_command_buffer_stub.cc",
     "raster_command_buffer_stub.h",
@@ -79,7 +76,7 @@ component("service") {
     # implicitly depended upon by gpu/config/gpu_crash_keys.h but deps (even
     # public ones) are not transitive for static libraries.
     "//components/crash/core/common:crash_key",
-    "//components/viz/common:shared_image_format",
+    "//components/viz/common/resources:shared_image_format",
     "//gpu/command_buffer/common",
     "//gpu/command_buffer/service",
     "//gpu/command_buffer/service:gles2",

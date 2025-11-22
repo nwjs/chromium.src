@@ -129,7 +129,6 @@ typedef NS_ENUM(NSInteger, ItemType) {
 - (void)viewDidLoad {
   [super viewDidLoad];
   self.view.backgroundColor = [UIColor colorNamed:kBackgroundColor];
-  self.styler.cellBackgroundColor = [UIColor colorNamed:kBackgroundColor];
   self.tableView.sectionHeaderHeight = 0;
   [self.tableView
       setSeparatorInset:UIEdgeInsetsMake(0, kTableViewHorizontalSpacing, 0, 0)];
@@ -292,6 +291,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
         cellForRowAtIndexPath:(NSIndexPath*)indexPath {
   UITableViewCell* cell = [super tableView:tableView
                      cellForRowAtIndexPath:indexPath];
+  cell.backgroundColor = [UIColor colorNamed:kBackgroundColor];
   ItemType itemType = static_cast<ItemType>(
       [self.tableViewModel itemTypeForIndexPath:indexPath]);
 

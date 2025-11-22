@@ -11,6 +11,7 @@
 #import <memory>
 
 class AuthenticationService;
+@class GeminiPageContext;
 @protocol SingleSignOnService;
 
 namespace ios::provider {
@@ -33,6 +34,9 @@ class PageContext;
 // The base view controller to present the UI on.
 @property(nonatomic, weak) UIViewController* baseViewController;
 
+// The page context and states necessary to include context in the floaty.
+@property(nonatomic, strong) GeminiPageContext* pageContext;
+
 // The PageContext for the current WebState. This is a unique_ptr, so subsequent
 // calls to the getter will return a nullptr.
 @property(nonatomic, assign)
@@ -42,11 +46,6 @@ class PageContext;
 // The state of the BWG location permission.
 @property(nonatomic, assign)
     ios::provider::BWGLocationPermissionState BWGLocationPermissionState;
-
-// TODO(crbug.com/434662294): Remove when migration is complete.
-// The state of the BWG PageContext.
-@property(nonatomic, assign)
-    ios::provider::BWGPageContextState BWGPageContextState;
 
 // The state of the BWG PageContext computation.
 @property(nonatomic, assign) ios::provider::BWGPageContextComputationState

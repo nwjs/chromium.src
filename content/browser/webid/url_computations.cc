@@ -48,6 +48,12 @@ std::string ComputeUrlEncodedTokenPostData(
   }
 
   if (!webid::IsNonceInParamsEnabled() && !nonce.empty()) {
+    render_frame_host.AddMessageToConsole(
+        blink::mojom::ConsoleMessageLevel::kWarning,
+        "The 'nonce' parameter should be passed within the 'params' "
+        "object instead of as a top-level parameter. Top-level nonce "
+        "support will be removed in Chrome 145.");
+
     if (!query.empty()) {
       query += "&";
     }
@@ -124,7 +130,7 @@ void MaybeAppendQueryParameters(
   if (idp_login_info.login_hint.empty() && idp_login_info.domain_hint.empty()) {
     return;
   }
-  std::string old_query = login_url->query();
+  std::string old_query = login_url->GetQuery();
   if (!old_query.empty()) {
     old_query += "&";
   }

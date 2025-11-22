@@ -23,7 +23,6 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
-#include "third_party/blink/renderer/platform/scheduler/common/features.h"
 #include "third_party/blink/renderer/platform/scheduler/common/task_priority.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/frame_scheduler_impl.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/frame_task_queue_controller.h"
@@ -423,9 +422,7 @@ TEST_F(PageSchedulerImplTest, IsLoadingTest) {
 
   // 2nd page finishes loading.
   frame_scheduler2->OnFirstContentfulPaintInMainFrame();
-  frame_scheduler2->OnFirstMeaningfulPaint(
-      base::TimeTicks::Now() -
-      GetLoadingPhaseBufferTimeAfterFirstMeaningfulPaint());
+  frame_scheduler2->OnFirstMeaningfulPaint();
 
   // Both pages are loaded.
   EXPECT_FALSE(page_scheduler_->IsLoading());
@@ -1226,6 +1223,10 @@ TEST_F(PageSchedulerImplTest, BackgroundTimerThrottling) {
 }
 
 TEST_F(PageSchedulerImplTest, OpenWebSocketExemptsFromBudgetThrottling) {
+  // Disabling StopInBackground (Android only) makes this easier to test as
+  // WebSockets are not exempt from background freezing.
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(blink::features::kStopInBackground);
   InitializeTrialParams();
   std::unique_ptr<PageSchedulerImpl> page_scheduler =
       CreatePageScheduler(nullptr, scheduler_.get(), *agent_group_scheduler_);

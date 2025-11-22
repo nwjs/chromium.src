@@ -10,7 +10,9 @@ import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -56,7 +58,9 @@ import org.chromium.chrome.browser.bookmarks.BookmarkManagerOpener;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.BookmarkOpener;
 import org.chromium.chrome.browser.bookmarks.FakeBookmarkModel;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsOffsetTagsInfo;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
@@ -265,8 +269,8 @@ public class BookmarkBarCoordinatorTest {
     @Test
     @SmallTest
     public void testOnBookmarkBarHeightChanged() {
-        // Verify initial state.
-        assertEquals("Verify initial state.", 0, mCoordinator.getTopControlHeight());
+        // Verify initial state. Height is read from minHeight and hairline's height.
+        assertEquals("Verify initial state.", 41, mCoordinator.getTopControlHeight());
 
         // NOTE: the `mHeightChangeCallback` is expected to have been registered for observation
         // during `mCoordinator` construction and notified of initial height via posted task.
@@ -282,7 +286,7 @@ public class BookmarkBarCoordinatorTest {
         mContentContainer.layout(rect.left, rect.top, rect.right, rect.bottom);
         assertEquals(
                 "Verify state after height-changing layout.",
-                rect.height(),
+                rect.height() + 1,
                 mCoordinator.getTopControlHeight());
         verify(mHeightChangeCallback).onResult(null);
 
@@ -292,7 +296,7 @@ public class BookmarkBarCoordinatorTest {
         mContentContainer.layout(rect.left, rect.top, rect.right, rect.bottom);
         assertEquals(
                 "Verify state after height-consistent layout.",
-                rect.height(),
+                rect.height() + 1,
                 mCoordinator.getTopControlHeight());
         verifyNoMoreInteractions(mHeightChangeCallback);
     }
@@ -459,21 +463,28 @@ public class BookmarkBarCoordinatorTest {
     @SmallTest
     @SuppressWarnings("DirectInvocationOnMock")
     public void testOnTopControlsHeightChanged() {
-        // Initialize browser controls manager.
-        final int topControlsHeight = 1;
+        // Initialize browser controls manager. Bookmark bar start height is 40.
+        int topControlsHeight = 41;
         when(mBrowserControlsManager.getTopControlsHeight()).thenReturn(topControlsHeight);
 
-        // Simulate top controls height changed.
-        final var obs = ArgumentCaptor.forClass(BrowserControlsStateProvider.Observer.class);
-        verify(mBrowserControlsManager).addObserver(obs.capture());
-        obs.getValue()
-                .onTopControlsHeightChanged(
-                        mBrowserControlsManager.getTopControlsHeight(),
-                        mBrowserControlsManager.getTopControlsMinHeight());
+        mCoordinator.onTopControlLayerHeightChanged(
+                mBrowserControlsManager.getTopControlsHeight(),
+                mBrowserControlsManager.getTopControlsMinHeight());
 
         assertEquals(
                 "Verify view top margin.",
-                topControlsHeight - mView.getHeight(),
+                0,
+                ((MarginLayoutParams) mView.getLayoutParams()).topMargin);
+
+        topControlsHeight = 51;
+        when(mBrowserControlsManager.getTopControlsHeight()).thenReturn(topControlsHeight);
+        mCoordinator.onTopControlLayerHeightChanged(
+                mBrowserControlsManager.getTopControlsHeight(),
+                mBrowserControlsManager.getTopControlsMinHeight());
+
+        assertEquals(
+                "Verify view top margin.",
+                10,
                 ((MarginLayoutParams) mView.getLayoutParams()).topMargin);
     }
 
@@ -591,5 +602,31 @@ public class BookmarkBarCoordinatorTest {
                 "Overflow tint should be set for regular light theme.",
                 expectedDarkTint,
                 bookmarBarModel.get(BookmarkBarProperties.OVERFLOW_BUTTON_TINT_LIST));
+    }
+
+    @Test
+    public void testOffsetTags_ControlsAtTop() {
+        doReturn(ControlsPosition.TOP).when(mBrowserControlsManager).getControlsPosition();
+        mCoordinator.updateOffsetTag(new BrowserControlsOffsetTagsInfo());
+        assertNotNull(
+                mCoordinator
+                        .getBookmarkBarSceneLayerModelForTesting()
+                        .get(BookmarkBarSceneLayerProperties.OFFSET_TAG));
+
+        mCoordinator.updateOffsetTag(null);
+        assertNull(
+                mCoordinator
+                        .getBookmarkBarSceneLayerModelForTesting()
+                        .get(BookmarkBarSceneLayerProperties.OFFSET_TAG));
+    }
+
+    @Test
+    public void testOffsetTags_ControlsAtBottom() {
+        doReturn(ControlsPosition.BOTTOM).when(mBrowserControlsManager).getControlsPosition();
+        mCoordinator.updateOffsetTag(new BrowserControlsOffsetTagsInfo());
+        assertNull(
+                mCoordinator
+                        .getBookmarkBarSceneLayerModelForTesting()
+                        .get(BookmarkBarSceneLayerProperties.OFFSET_TAG));
     }
 }

@@ -5,7 +5,9 @@
 
 #include <memory>
 
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/system/sys_info.h"
@@ -21,7 +23,7 @@
 #include "content/public/common/content_features.h"
 #include "net/disk_cache/cache_util.h"
 #include "net/http/http_cache.h"
-#include "third_party/blink/public/common/features_generated.h"
+#include "third_party/blink/public/common/features.h"
 
 namespace content {
 
@@ -51,8 +53,7 @@ GeneratedCodeCacheContext::GeneratedCodeCacheContext() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DETACH_FROM_SEQUENCE(sequence_checker_);
 
-  if (base::FeatureList::IsEnabled(
-          blink::features::kUsePersistentCacheForCodeCache)) {
+  if (blink::features::IsPersistentCacheForCodeCacheEnabled()) {
     // MayBlock() because disk operations are happening on-thread under the
     // experiment for now.
     // Dedicated because there doesn't seem to be a reason to not be
@@ -113,8 +114,9 @@ void GeneratedCodeCacheContext::InitializeOnThread(const base::FilePath& path,
     UMA_HISTOGRAM_BOOLEAN("WebUICodeCache.FeatureEnabled", true);
   }
 
+  base::FilePath generated_js_code_cache_path = path.AppendASCII("js");
   generated_js_code_cache_ = {
-      new GeneratedCodeCache(path.AppendASCII("js"), max_bytes_js,
+      new GeneratedCodeCache(generated_js_code_cache_path, max_bytes_js,
                              GeneratedCodeCache::CodeCacheType::kJavaScript),
       base::OnTaskRunnerDeleter(task_runner_)};
 
@@ -123,22 +125,31 @@ void GeneratedCodeCacheContext::InitializeOnThread(const base::FilePath& path,
                              GeneratedCodeCache::CodeCacheType::kWebAssembly),
       base::OnTaskRunnerDeleter(task_runner_)};
 
-  if (base::FeatureList::IsEnabled(
-          blink::features::kUsePersistentCacheForCodeCache)) {
+  // Use a short name for the root directory due to max path length limits.
+  base::FilePath persistent_cache_collection_path = path.AppendASCII("pc");
+  bool use_persistent_cache =
+      blink::features::IsPersistentCacheForCodeCacheEnabled();
+  if (use_persistent_cache) {
     // Target the same amount of disk space used for persistent_cache as is used
     // for disk_cache.
     int64_t disk_cache_max_size = disk_cache::PreferredCacheSize(
-        base::SysInfo::AmountOfFreeDiskSpace(path),
+        base::SysInfo::AmountOfFreeDiskSpace(path).value_or(-1),
         net::GENERATED_BYTE_CODE_CACHE);
 
     persistent_cache_collection_ = {
         new persistent_cache::PersistentCacheCollection(
-            std::make_unique<persistent_cache::BackendParamsManager>(
-                path.AppendASCII("pc")),  // Name as short as possible to avoid
-                                          // maximum path problems.
-            disk_cache_max_size),
+            persistent_cache_collection_path, disk_cache_max_size),
         base::OnTaskRunnerDeleter(task_runner_)};
   }
+
+  // Delete the js cache files that won't be used to avoid wasting space.
+  base::FilePath directory_to_delete = use_persistent_cache
+                                           ? generated_js_code_cache_path
+                                           : persistent_cache_collection_path;
+  base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()})
+      ->PostTask(FROM_HERE,
+                 base::BindOnce(base::IgnoreResult(base::DeletePathRecursively),
+                                directory_to_delete));
 }
 
 void GeneratedCodeCacheContext::Shutdown() {

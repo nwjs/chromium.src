@@ -11,6 +11,7 @@
 #include "base/sequence_checker.h"
 #include "base/types/expected.h"
 #include "components/optimization_guide/proto/model_execution.pb.h"
+#include "services/on_device_model/android/downloader_params.mojom.h"
 #include "services/on_device_model/android/sequence_checker_helper.h"
 
 namespace on_device_model {
@@ -35,29 +36,37 @@ class ModelDownloaderAndroid {
     // The backend API is not constructed. This happens if this is an upstream
     // build.
     kApiNotAvailable = 1,
-    // The backend is not able to find the feature ID. This happens if the
-    // ID is newly added and the AICore APK is on an older version.
+    // The backend is not able to find the feature ID. This can happen if AICore
+    // doesn't enable the feature as part of experiments or device filters.
     kFeatureIsNull = 2,
-    // An exception is thrown when getting the feature.
+    // An exception is thrown when getting the feature. This can happen if the
+    // AICore APK is not installed on the device.
     kGetFeatureError = 3,
     // An exception is thrown when getting the status of the feature.
     kGetFeatureStatusError = 4,
-    // The status of the feature is not available. This can happen if the
-    // feature is only enabled for certain device types or certain dogfood
-    // groups.
+    // The status of the feature is not available. This can happen if Chrome is
+    // not allowlisted to call this feature, attestation verification has
+    // failed, or the feature manifest file failed to be downloaded.
     kFeatureNotAvailable = 5,
     // A general exception is thrown when downloading the model.
     kDownloadGeneralError = 6,
     // There is no enough disk space when downloading the model.
     kDownloadNotEnoughDiskSpaceError = 7,
-    kMaxValue = kDownloadNotEnoughDiskSpaceError,
+    // The feature is gated by persistent mode, but there is an error when
+    // determining if persistent mode is enabled..
+    kGetPersistentModeError = 8,
+    // The feature is gated by persistent mode, but persistent mode is not
+    // enabled.
+    kPersistentModeNotEnabled = 9,
+    kMaxValue = kPersistentModeNotEnabled,
   };
 
   using OnDownloadCompleteCallback = base::OnceCallback<void(
       base::expected<BaseModelSpec, DownloadFailureReason>)>;
 
-  explicit ModelDownloaderAndroid(
-      optimization_guide::proto::ModelExecutionFeature feature);
+  ModelDownloaderAndroid(
+      optimization_guide::proto::ModelExecutionFeature feature,
+      mojom::DownloaderParamsPtr params);
   ~ModelDownloaderAndroid();
 
   // Starts downloading the model for this feature.

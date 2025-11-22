@@ -221,11 +221,11 @@ public class TabGridView extends SelectableItemViewBase<TabListEditorItemSelecti
         switch (mediaState) {
             case MediaState.AUDIBLE:
             case MediaState.MUTED:
+            case MediaState.RECORDING:
+            case MediaState.SHARING:
                 titleParams.endToEnd = R.id.media_indicator_icon;
                 mediaIndicatorVisibility = View.VISIBLE;
                 break;
-            case MediaState.RECORDING:
-            case MediaState.SHARING:
             case MediaState.NONE:
                 titleParams.endToEnd = R.id.card_view;
                 break;
@@ -257,6 +257,7 @@ public class TabGridView extends SelectableItemViewBase<TabListEditorItemSelecti
         }
         mActionButton.setBackgroundResource(R.drawable.small_icon_background);
         mActionButton.setImageBitmap(sCloseButtonBitmapWeakRef.get());
+        mActionButton.setFocusable(true);
     }
 
     private void setTabActionButtonPinDrawable() {
@@ -265,12 +266,14 @@ public class TabGridView extends SelectableItemViewBase<TabListEditorItemSelecti
         mActionButton.setImageDrawable(
                 ContextCompat.getDrawable(getContext(), R.drawable.ic_keep_24dp));
         mActionButton.setBackground(null);
+        mActionButton.setFocusable(false);
     }
 
     private void setTabActionButtonOverflowDrawable() {
         mActionButton.setImageDrawable(
                 ResourcesCompat.getDrawable(
                         getResources(), R.drawable.ic_more_vert_24dp, getContext().getTheme()));
+        mActionButton.setFocusable(true);
     }
 
     private void applyActionButtonTint() {
@@ -299,6 +302,7 @@ public class TabGridView extends SelectableItemViewBase<TabListEditorItemSelecti
         mActionButton.setImageDrawable(
                 AnimatedVectorDrawableCompat.create(
                         getContext(), R.drawable.ic_check_googblue_20dp_animated));
+        mActionButton.setFocusable(false);
     }
 
     private void setTabActionButtonDrawable() {

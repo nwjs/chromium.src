@@ -195,7 +195,10 @@ class ModelError {
     kContactInfoFailedToLoadAutofillWebDatabase = 185,
     kContactInfoFailedToLoadProfilesFromTable = 186,
     kGenericTestError = 187,
-    kMaxValue = kGenericTestError,
+    kAutofillValuableMetadataFailedToLoadDatabase = 188,
+    kAutofillValuableMetadataTransactionCommitFailedOnIncrementalSync = 189,
+    kAutofillValuableMetadataFailedToLoadMetadata = 190,
+    kMaxValue = kAutofillValuableMetadataFailedToLoadMetadata,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/sync/enums.xml:SyncModelError)
 

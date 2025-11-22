@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <optional>
 
+#include "base/functional/bind.h"
 #include "base/strings/to_string.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
@@ -60,8 +61,6 @@ void ClickTool::Execute(ToolFinishedCallback callback) {
     return;
   }
 
-  gfx::PointF click_point = validated_result.value();
-
   WebMouseEvent::Button button;
   switch (action_->type) {
     case mojom::ClickAction::Type::kLeft: {
@@ -85,11 +84,19 @@ void ClickTool::Execute(ToolFinishedCallback callback) {
     }
   }
 
-  journal_->Log(task_id_, "ClickTool::Execute",
-                JournalDetailsBuilder().Add("point", click_point).Build());
+  ResolvedTarget target = validated_result.value();
+  journal_->Log(
+      task_id_, "ClickTool::Execute",
+      JournalDetailsBuilder().Add("point", target.widget_point).Build());
 
-  mojom::ActionResultPtr result = CreateAndDispatchClick(
-      button, click_count, click_point, frame_->GetWebFrame()->FrameWidget());
+  CreateAndDispatchClick(
+      button, click_count, target, weak_ptr_factory_.GetWeakPtr(),
+      base::BindOnce(&ClickTool::OnActionComplete,
+                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+void ClickTool::OnActionComplete(ToolFinishedCallback callback,
+                                 mojom::ActionResultPtr result) {
   std::move(callback).Run(std::move(result));
 }
 
@@ -120,11 +127,12 @@ ClickTool::ValidatedResult ClickTool::Validate() const {
     if (!form_element.IsNull() && !form_element.IsEnabled()) {
       return base::unexpected(MakeResult(
           mojom::ActionResultCode::kElementDisabled,
+          /*requires_page_stabilization=*/false,
           absl::StrFormat("[Element %s]", base::ToString(form_element))));
     }
   }
 
-  return resolved_target->point;
+  return resolved_target;
 }
 
 }  // namespace actor

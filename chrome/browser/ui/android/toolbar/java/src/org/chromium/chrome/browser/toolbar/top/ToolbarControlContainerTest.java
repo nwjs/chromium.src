@@ -43,7 +43,6 @@ import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.cc.input.BrowserControlsState;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
-import org.chromium.chrome.browser.browser_controls.TopControlsStacker;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
@@ -52,7 +51,6 @@ import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinatorPhone;
 import org.chromium.chrome.browser.omnibox.NewTabPageDelegate;
 import org.chromium.chrome.browser.omnibox.UrlBarData;
-import org.chromium.chrome.browser.omnibox.navattach.NavigationFulfillmentType;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
@@ -73,6 +71,7 @@ import org.chromium.chrome.browser.toolbar.top.ToolbarControlContainer.ToolbarVi
 import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
 import org.chromium.components.browser_ui.widget.TouchEventObserver;
 import org.chromium.components.embedder_support.util.UrlConstants;
+import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
@@ -114,7 +113,6 @@ public class ToolbarControlContainerTest {
     @Mock private ThemeColorProvider mThemeColorProvider;
     @Mock private IncognitoStateProvider mIncognitoStateProvider;
     @Mock private NewTabPageDelegate mNewTabPageDelegate;
-    @Mock private TopControlsStacker mTopControlsStacker;
 
     private final Supplier<Tab> mTabSupplier = () -> mTab;
     private final ObservableSupplierImpl<Boolean> mCompositorInMotionSupplier =
@@ -480,10 +478,11 @@ public class ToolbarControlContainerTest {
         // This is needed for the control container to read the height of the toolbar.
         controlContainer.setToolbarForTesting(mToolbar);
 
-        // Set app header with 10px padding on left, 20px on right, and 50px height.
-        doReturn(50).when(mToolbar).getTabStripHeight();
+        // Set app header with 10px padding on left, 20px on right, and 100px height. Set tab strip
+        // height to 80px. Top inset should be 100 - 80 = 20.
+        doReturn(80).when(mToolbar).getTabStripHeight();
         var appHeaderState =
-                new AppHeaderState(new Rect(0, 0, 100, 50), new Rect(10, 0, 80, 50), true);
+                new AppHeaderState(new Rect(0, 0, 100, 100), new Rect(10, 0, 80, 100), true);
         controlContainer.onAppHeaderStateChanged(appHeaderState);
         assertNotNull(
                 "Control container background is null after app header state change.",
@@ -499,6 +498,20 @@ public class ToolbarControlContainerTest {
                 "Right padding for tab drawable is wrong.",
                 20,
                 background.getLayerInsetRight(tabDrawableIndex));
+        assertEquals(
+                "Top inset for tab drawable is wrong.",
+                20,
+                background.getLayerInsetTop(tabDrawableIndex));
+
+        // Set app header with 40px height, and tab strip with 50px height.
+        // Top inset should be max(0, 40 - 50) = 0.
+        appHeaderState = new AppHeaderState(new Rect(0, 0, 100, 40), new Rect(10, 0, 80, 40), true);
+        controlContainer.onAppHeaderStateChanged(appHeaderState);
+        background = (LayerDrawable) controlContainer.getBackground();
+        assertEquals(
+                "Top inset for tab drawable should be 0.",
+                0,
+                background.getLayerInsetTop(tabDrawableIndex));
 
         controlContainer.onAppHeaderStateChanged(new AppHeaderState());
         background = (LayerDrawable) controlContainer.getBackground();
@@ -510,6 +523,10 @@ public class ToolbarControlContainerTest {
                 "Right padding for tab drawable is wrong.",
                 0,
                 background.getLayerInsetRight(tabDrawableIndex));
+        assertEquals(
+                "Top inset for tab drawable should be 0.",
+                0,
+                background.getLayerInsetTop(tabDrawableIndex));
     }
 
     @Test
@@ -566,7 +583,7 @@ public class ToolbarControlContainerTest {
         ToolbarControlContainer controlContainer =
                 (ToolbarControlContainer)
                         mActivity.getLayoutInflater().inflate(R.layout.control_container, null);
-        controlContainer.initWithToolbar(R.layout.toolbar_phone);
+        controlContainer.initWithToolbar(R.layout.toolbar_phone, R.dimen.toolbar_height_no_shadow);
         controlContainer.setPostInitializationDependencies(
                 mToolbar,
                 mToolbarView,
@@ -577,14 +594,13 @@ public class ToolbarControlContainerTest {
                 mBrowserStateBrowserControlsVisibilityDelegate,
                 mLayoutStateProviderSupplier,
                 mFullscreenManager,
-                mTopControlsStacker,
                 mToolbarDataProvider);
 
         ToolbarPhone toolbarPhone = controlContainer.findViewById(R.id.toolbar);
         doReturn(mLocationBarCoordinatorPhone).when(mLocationBarCoordinator).getPhoneCoordinator();
-        doReturn(new ObservableSupplierImpl<>(NavigationFulfillmentType.DEFAULT))
+        doReturn(new ObservableSupplierImpl<>(AutocompleteRequestType.SEARCH))
                 .when(mLocationBarCoordinator)
-                .getNavigationFulfillmentTypeSupplier();
+                .getAutocompleteRequestTypeSupplier();
         doReturn(mNewTabPageDelegate).when(mToolbarDataProvider).getNewTabPageDelegate();
         doReturn(new GURL(UrlConstants.ABOUT_URL)).when(mToolbarDataProvider).getCurrentGurl();
         toolbarPhone.setLocationBarCoordinator(mLocationBarCoordinator);
@@ -637,7 +653,7 @@ public class ToolbarControlContainerTest {
         ToolbarControlContainer controlContainer =
                 (ToolbarControlContainer)
                         mActivity.getLayoutInflater().inflate(R.layout.control_container, null);
-        controlContainer.initWithToolbar(R.layout.toolbar_phone);
+        controlContainer.initWithToolbar(R.layout.toolbar_phone, R.dimen.toolbar_height_no_shadow);
         controlContainer.setPostInitializationDependencies(
                 mToolbar,
                 mToolbarView,
@@ -648,7 +664,6 @@ public class ToolbarControlContainerTest {
                 mBrowserStateBrowserControlsVisibilityDelegate,
                 mLayoutStateProviderSupplier,
                 mFullscreenManager,
-                mTopControlsStacker,
                 mToolbarDataProvider);
         ToolbarControlContainer.ToolbarViewResourceCoordinatorLayout toolbarContainer =
                 controlContainer.findViewById(R.id.toolbar_container);

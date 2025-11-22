@@ -213,7 +213,6 @@ bool IsFormatEnabled(media::VideoPixelFormat fmt) {
     case media::PIXEL_FORMAT_XBGR:
     case media::PIXEL_FORMAT_ARGB:
     case media::PIXEL_FORMAT_XRGB:
-      return true;
     case media::PIXEL_FORMAT_YUV420P10:
     case media::PIXEL_FORMAT_YUV420P12:
     case media::PIXEL_FORMAT_YUV420AP10:
@@ -226,7 +225,7 @@ bool IsFormatEnabled(media::VideoPixelFormat fmt) {
     case media::PIXEL_FORMAT_I444A:
     case media::PIXEL_FORMAT_YUV444AP10:
     case media::PIXEL_FORMAT_RGBAF16:
-      return RuntimeEnabledFeatures::WebCodecsHBDFormatsEnabled();
+      return true;
     default:
       return false;
   }
@@ -653,12 +652,9 @@ VideoFrame* VideoFrame::Create(ScriptState* script_state,
     return nullptr;
   }
 
-  media::VideoTransformation transformation = media::kNoTransformation;
-  bool transformed = false;
-  if (RuntimeEnabledFeatures::WebCodecsOrientationEnabled()) {
-    transformation = media::VideoTransformation(init->rotation(), init->flip());
-    transformed = transformation != media::kNoTransformation;
-  }
+  auto transformation =
+      media::VideoTransformation(init->rotation(), init->flip());
+  bool transformed = transformation != media::kNoTransformation;
 
   // Special case <video> and VideoFrame to directly use the underlying frame.
   if (source->IsVideoFrame() || source->IsHTMLVideoElement()) {
@@ -776,24 +772,24 @@ VideoFrame* VideoFrame::Create(ScriptState* script_state,
   const auto paint_image = image->PaintImageForCurrentFrame();
   const auto sk_image_info = paint_image.GetSkImageInfo();
   auto sk_color_space = sk_image_info.refColorSpace();
-  if (!sk_color_space)
+  if (!sk_color_space) {
     sk_color_space = SkColorSpace::MakeSRGB();
-
-  auto gfx_color_space = gfx::ColorSpace(*sk_color_space);
-  if (!gfx_color_space.IsValid()) {
-    exception_state.ThrowTypeError("Invalid color space");
-    return nullptr;
   }
 
+  gfx::ColorSpace gfx_color_space;
   if (sk_image_info.colorType() == kRGBA_F16_SkColorType &&
+      paint_image.GetContentColorUsage() == gfx::ContentColorUsage::kHDR &&
       SkColorSpace::Equals(sk_color_space.get(),
                            SkColorSpace::MakeSRGBLinear().get())) {
-    // TODO(crbug.com/438675262): |sk_color_type| converts to
-    // gfx::ColorSpace::TransferID::LINEAR while it should actually be
-    // gfx::ColorSpace::TransferID::LINEAR_HDR. Waiting for gfx::ColorSpace
-    // to be removed.
-    // Replace with SRGBLinear with LINEAR_HDR transfer ID.
+    // This creates a color space with the LINEAR_HDR transfer function. SDR
+    // content will convert to LINEAR in the lower branch.
     gfx_color_space = gfx::ColorSpace::CreateSRGBLinear();
+  } else {
+    gfx_color_space = gfx::ColorSpace(*sk_color_space);
+    if (!gfx_color_space.IsValid()) {
+      exception_state.ThrowTypeError("Invalid color space");
+      return nullptr;
+    }
   }
 
   const auto orientation = image->Orientation().Orientation();
@@ -821,6 +817,10 @@ VideoFrame* VideoFrame::Create(ScriptState* script_state,
       return nullptr;
 
     auto* sbi = static_cast<StaticBitmapImage*>(image.get());
+
+    // We don't know which thread the video frame might end up on, so Transfer()
+    // the image so that it doesn't hold on to any thread-affine state.
+    sbi->Transfer();
 
     // The sync token needs to be updated when |frame| is released, but
     // AcceleratedStaticBitmapImage::UpdateSyncToken() is not thread-safe.
@@ -1081,10 +1081,8 @@ VideoFrame* VideoFrame::Create(ScriptState* script_state,
     frame->metadata().frame_duration = base::Microseconds(init->duration());
   }
 
-  if (RuntimeEnabledFeatures::WebCodecsOrientationEnabled()) {
-    frame->metadata().transformation =
-        media::VideoTransformation(init->rotation(), init->flip());
-  }
+  frame->metadata().transformation =
+      media::VideoTransformation(init->rotation(), init->flip());
 
   return MakeGarbageCollected<VideoFrame>(std::move(frame),
                                           ExecutionContext::From(script_state));
@@ -1310,6 +1308,9 @@ void VideoFrame::ConvertAndCopyToRGB(scoped_refptr<media::VideoFrame> frame,
   media::PaintCanvasVideoRenderer::PaintParams paint_params;
   paint_params.dest_rect = gfx::RectF(src_rect.size());
   auto context_provider = GetRasterContextProvider();
+
+  // GetRasterContextProvider() returns the SharedGPUContext's provider, which
+  // always supports `gpu_rasterization`.
   renderer.Paint(std::move(frame), &canvas, flags, paint_params,
                  context_provider.get());
 }
@@ -1386,8 +1387,7 @@ ScriptPromise<IDLSequence<PlaneLayout>> VideoFrame::copyTo(
     return promise;
   }
 
-  if (RuntimeEnabledFeatures::WebCodecsCopyToRGBEnabled() &&
-      options->hasFormat()) {
+  if (options->hasFormat()) {
     if (!media::IsRGB(dest_layout.Format())) {
       exception_state.ThrowDOMException(
           DOMExceptionCode::kNotSupportedError,
@@ -1477,11 +1477,9 @@ scoped_refptr<Image> VideoFrame::GetSourceImageForCanvas(
   auto* resource_provider =
       provider_cache.CreateProvider(resource_provider_size);
 
-  const auto dest_rect = gfx::Rect(resource_provider_size);
-  auto image = CreateImageFromVideoFrame(local_handle->frame(),
-                                         /*allow_zero_copy_images=*/true,
-                                         resource_provider,
-                                         /*video_renderer=*/nullptr, dest_rect);
+  auto image =
+      CreateImageFromVideoFrame(local_handle->frame(), resource_provider,
+                                /*video_renderer=*/nullptr);
   if (!image) {
     *status = kInvalidSourceImageStatus;
     return nullptr;
@@ -1579,15 +1577,9 @@ ScriptPromise<ImageBitmap> VideoFrame::CreateImageBitmap(
   auto* resource_provider =
       provider_cache.CreateProvider(resource_provider_size);
 
-  // We disable zero copy images since the ImageBitmap spec says created bitmaps
-  // are copies. Many other paths can avoid doing this w/o issue, but hardware
-  // decoders may have a limited number of outputs, so not making a copy becomes
-  // an observable issues to clients.
-  const auto dest_rect = gfx::Rect(resource_provider_size);
-  auto image = CreateImageFromVideoFrame(local_handle->frame(),
-                                         /*allow_zero_copy_images=*/false,
-                                         resource_provider,
-                                         /*video_renderer=*/nullptr, dest_rect);
+  auto image =
+      CreateImageFromVideoFrame(local_handle->frame(), resource_provider,
+                                /*video_renderer=*/nullptr);
   if (!image) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kNotSupportedError,

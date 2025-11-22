@@ -19,6 +19,7 @@
 #include "media/audio/simple_sources.h"
 #include "media/base/audio_bus.h"
 #include "media/base/decoder_buffer.h"
+#include "media/base/media_util.h"
 #include "media/base/video_color_space.h"
 #include "media/base/video_frame.h"
 #include "media/formats/mp4/box_definitions.h"
@@ -205,12 +206,11 @@ class MediaRecorderHandlerFixture : public ScopedMockOverlayScrollbars {
   }
 
   bool IsVideoCodecSupported(const String codecs) {
-#if !BUILDFLAG(ENABLE_OPENH264)
-    if (codecs.Find("h264") != kNotFound || codecs.Find("avc1") != kNotFound ||
-        codecs.Find("avc3") != kNotFound) {
+    if (!media::IsOpenH264SoftwareEncoderEnabled() &&
+        (codecs.Find("h264") != kNotFound || codecs.Find("avc1") != kNotFound ||
+         codecs.Find("avc3") != kNotFound)) {
       return false;
     }
-#endif
 #if !BUILDFLAG(ENABLE_LIBAOM)
     if (codecs.Find("av1") != kNotFound || codecs.Find("av01") != kNotFound) {
       return false;
@@ -348,11 +348,16 @@ class MediaRecorderHandlerFixture : public ScopedMockOverlayScrollbars {
     };
 
     media::mp4::AVCDecoderConfigurationRecord avc_config;
-    ASSERT_TRUE(
-        avc_config.Parse(test_data.data(), static_cast<int>(test_data.size())));
+    ASSERT_TRUE(avc_config.Parse(test_data));
     ASSERT_TRUE(avc_config.Serialize(codec_description));
   }
 #endif
+
+  bool CanSupportMimeType(const String& mime_type, const String& codecs) {
+    return media_recorder_handler_->CanSupportMimeType(
+        mime_type, codecs,
+        MediaRecorderHandler::CanSupportMimeTypeCaller::kTest);
+  }
 
   test::TaskEnvironment task_environment_;
   ScopedTestingPlatformSupport<IOTaskRunnerTestingPlatformSupport> platform_;
@@ -393,13 +398,13 @@ class MediaRecorderHandlerTest : public TestWithParam<MediaRecorderTestParams>,
                                     GetParam().has_audio) {}
 
   bool IsCodecSupported() {
-#if !BUILDFLAG(ENABLE_OPENH264)
     // Test requires OpenH264 encoder. It can't use the VEA encoder.
-    if (String(GetParam().codecs).Find("avc1") != kNotFound ||
-        String(GetParam().codecs).Find("avc3") != kNotFound) {
+    if (!media::IsOpenH264SoftwareEncoderEnabled() &&
+        (String(GetParam().codecs).Find("h264") != kNotFound ||
+         String(GetParam().codecs).Find("avc1") != kNotFound ||
+         String(GetParam().codecs).Find("avc3") != kNotFound)) {
       return false;
     }
-#endif
 #if !BUILDFLAG(ENABLE_LIBAOM)
     if (std::string(GetParam().codecs) == "av01") {
       return false;
@@ -429,71 +434,55 @@ class MediaRecorderHandlerTest : public TestWithParam<MediaRecorderTestParams>,
 // combinations and unsupported ones.
 TEST_P(MediaRecorderHandlerTest, CanSupportMimeType) {
   const String unsupported_mime_type("video/mpeg");
-  EXPECT_FALSE(media_recorder_handler_->CanSupportMimeType(
-      unsupported_mime_type, String()));
+  EXPECT_FALSE(CanSupportMimeType(unsupported_mime_type, String()));
 
   const String mime_type_video("video/webm");
-  EXPECT_TRUE(
-      media_recorder_handler_->CanSupportMimeType(mime_type_video, String()));
+  EXPECT_TRUE(CanSupportMimeType(mime_type_video, String()));
   const String mime_type_video_uppercase("video/WEBM");
-  EXPECT_TRUE(media_recorder_handler_->CanSupportMimeType(
-      mime_type_video_uppercase, String()));
+  EXPECT_TRUE(CanSupportMimeType(mime_type_video_uppercase, String()));
   const String example_good_codecs_1("vp8");
-  EXPECT_TRUE(media_recorder_handler_->CanSupportMimeType(
-      mime_type_video, example_good_codecs_1));
+  EXPECT_TRUE(CanSupportMimeType(mime_type_video, example_good_codecs_1));
   const String example_good_codecs_2("vp9,opus");
-  EXPECT_TRUE(media_recorder_handler_->CanSupportMimeType(
-      mime_type_video, example_good_codecs_2));
+  EXPECT_TRUE(CanSupportMimeType(mime_type_video, example_good_codecs_2));
   const String example_good_codecs_3("VP9,opus");
-  EXPECT_TRUE(media_recorder_handler_->CanSupportMimeType(
-      mime_type_video, example_good_codecs_3));
+  EXPECT_TRUE(CanSupportMimeType(mime_type_video, example_good_codecs_3));
   const String example_good_codecs_4("H264");
-  EXPECT_EQ(media_recorder_handler_->CanSupportMimeType(mime_type_video,
-                                                        example_good_codecs_4),
-            BUILDFLAG(ENABLE_OPENH264));
+  EXPECT_EQ(CanSupportMimeType(mime_type_video, example_good_codecs_4),
+            media::IsOpenH264SoftwareEncoderEnabled());
 
   const String example_unsupported_codecs_1("daala");
-  EXPECT_FALSE(media_recorder_handler_->CanSupportMimeType(
-      mime_type_video, example_unsupported_codecs_1));
+  EXPECT_FALSE(
+      CanSupportMimeType(mime_type_video, example_unsupported_codecs_1));
 
   const String mime_type_audio("audio/webm");
-  EXPECT_TRUE(
-      media_recorder_handler_->CanSupportMimeType(mime_type_audio, String()));
+  EXPECT_TRUE(CanSupportMimeType(mime_type_audio, String()));
   const String example_good_codecs_5("opus");
-  EXPECT_TRUE(media_recorder_handler_->CanSupportMimeType(
-      mime_type_audio, example_good_codecs_5));
+  EXPECT_TRUE(CanSupportMimeType(mime_type_audio, example_good_codecs_5));
   const String example_good_codecs_6("OpUs");
-  EXPECT_TRUE(media_recorder_handler_->CanSupportMimeType(
-      mime_type_audio, example_good_codecs_6));
+  EXPECT_TRUE(CanSupportMimeType(mime_type_audio, example_good_codecs_6));
   const String example_good_codecs_7("pcm");
-  EXPECT_TRUE(media_recorder_handler_->CanSupportMimeType(
-      mime_type_audio, example_good_codecs_7));
+  EXPECT_TRUE(CanSupportMimeType(mime_type_audio, example_good_codecs_7));
 
   const String example_good_codecs_8("AV01,opus");
-  EXPECT_EQ(media_recorder_handler_->CanSupportMimeType(mime_type_video,
-                                                        example_good_codecs_8),
+  EXPECT_EQ(CanSupportMimeType(mime_type_video, example_good_codecs_8),
             BUILDFLAG(ENABLE_LIBAOM));
 
   const String example_good_codecs_9("avc1");
   const String example_good_codecs_10("avc3");
   const String example_good_codecs_11("avc1.42E01E");
   const String example_good_codecs_12("avc3.42E01E");
-  EXPECT_EQ(media_recorder_handler_->CanSupportMimeType(mime_type_video,
-                                                        example_good_codecs_9),
-            BUILDFLAG(ENABLE_OPENH264));
-  EXPECT_EQ(media_recorder_handler_->CanSupportMimeType(mime_type_video,
-                                                        example_good_codecs_10),
-            BUILDFLAG(ENABLE_OPENH264));
-  EXPECT_EQ(media_recorder_handler_->CanSupportMimeType(mime_type_video,
-                                                        example_good_codecs_11),
-            BUILDFLAG(ENABLE_OPENH264));
-  EXPECT_EQ(media_recorder_handler_->CanSupportMimeType(mime_type_video,
-                                                        example_good_codecs_12),
-            BUILDFLAG(ENABLE_OPENH264));
+  EXPECT_EQ(CanSupportMimeType(mime_type_video, example_good_codecs_9),
+            media::IsOpenH264SoftwareEncoderEnabled());
+  EXPECT_EQ(CanSupportMimeType(mime_type_video, example_good_codecs_10),
+            media::IsOpenH264SoftwareEncoderEnabled());
+  EXPECT_EQ(CanSupportMimeType(mime_type_video, example_good_codecs_11),
+            media::IsOpenH264SoftwareEncoderEnabled());
+  EXPECT_EQ(CanSupportMimeType(mime_type_video, example_good_codecs_12),
+            media::IsOpenH264SoftwareEncoderEnabled());
 
   const String example_unsupported_codecs_2("vorbis");
-  EXPECT_FALSE(media_recorder_handler_->CanSupportMimeType(
-      mime_type_audio, example_unsupported_codecs_2));
+  EXPECT_FALSE(
+      CanSupportMimeType(mime_type_audio, example_unsupported_codecs_2));
 
   // HEVC only supports hardware encoding, and whether hardware encoding is
   // supported depends on the supported profiles retrieved by the
@@ -501,12 +490,12 @@ TEST_P(MediaRecorderHandlerTest, CanSupportMimeType) {
   // unable to know if HEVC is supported or not, so it should always return
   // false here.
   const String example_good_codecs_with_supported_tag("hev1.1.6.L93.B0");
-  EXPECT_FALSE(media_recorder_handler_->CanSupportMimeType(
-      mime_type_video, example_good_codecs_with_supported_tag));
+  EXPECT_FALSE(CanSupportMimeType(mime_type_video,
+                                  example_good_codecs_with_supported_tag));
 
   const String example_good_codecs_with_supported_tag_2("hvc1.1.6.L93.B0");
-  EXPECT_FALSE(media_recorder_handler_->CanSupportMimeType(
-      mime_type_video, example_good_codecs_with_supported_tag_2));
+  EXPECT_FALSE(CanSupportMimeType(mime_type_video,
+                                  example_good_codecs_with_supported_tag_2));
 }
 
 // Checks that it uses the specified bitrate mode.
@@ -588,6 +577,14 @@ TEST_P(MediaRecorderHandlerTest, EncodeVideoFrames) {
   }
 
   if (!IsTargetAudioCodecSupported(GetParam().codecs)) {
+    return;
+  }
+
+  if (!media::IsOpenH264SoftwareEncoderEnabled() &&
+      (String(GetParam().codecs).Find("h264") != kNotFound ||
+       String(GetParam().codecs).Find("avc1") != kNotFound ||
+       String(GetParam().codecs).Find("avc3") != kNotFound)) {
+    // Return when software encoder is not enabled for H264.
     return;
   }
 
@@ -1077,14 +1074,13 @@ TEST_F(MediaRecorderHandlerIsSupportedTypeTestForMp4,
   // success cases.
   for (const auto& type : good_mp4_video_mime_types) {
     for (const auto& codec : good_mp4_video_codecs) {
-      EXPECT_EQ(media_recorder_handler_->CanSupportMimeType(type, codec),
-                IsVideoCodecSupported(codec));
+      EXPECT_EQ(CanSupportMimeType(type, codec), IsVideoCodecSupported(codec));
     }
   }
 
   for (const auto& type : good_mp4_video_mime_types) {
     for (const auto& codec : good_mp4_audio_codecs) {
-      EXPECT_EQ(media_recorder_handler_->CanSupportMimeType(type, codec),
+      EXPECT_EQ(CanSupportMimeType(type, codec),
                 IsTargetAudioCodecSupported(codec));
     }
   }
@@ -1095,12 +1091,10 @@ TEST_F(MediaRecorderHandlerIsSupportedTypeTestForMp4,
         const bool supported = IsVideoCodecSupported(video_codec) &&
                                IsTargetAudioCodecSupported(audio_codec);
         String codecs = video_codec + "," + audio_codec;
-        EXPECT_EQ(media_recorder_handler_->CanSupportMimeType(type, codecs),
-                  supported);
+        EXPECT_EQ(CanSupportMimeType(type, codecs), supported);
 
         String codecs2 = audio_codec + "," + video_codec;
-        EXPECT_EQ(media_recorder_handler_->CanSupportMimeType(type, codecs2),
-                  supported);
+        EXPECT_EQ(CanSupportMimeType(type, codecs2), supported);
       }
     }
   }
@@ -1108,27 +1102,26 @@ TEST_F(MediaRecorderHandlerIsSupportedTypeTestForMp4,
   // failure cases.
   for (const auto& type : bad_mp4_video_mime_types) {
     for (const auto& codec : good_mp4_video_codecs) {
-      EXPECT_FALSE(media_recorder_handler_->CanSupportMimeType(type, codec));
+      EXPECT_FALSE(CanSupportMimeType(type, codec));
     }
   }
 
   for (const auto& type : good_mp4_video_mime_types) {
     for (const auto& codec : bad_mp4_video_codecs) {
-      EXPECT_FALSE(media_recorder_handler_->CanSupportMimeType(type, codec));
+      EXPECT_FALSE(CanSupportMimeType(type, codec));
     }
   }
 #else
   // success cases.
   for (const auto& type : good_mp4_video_mime_types) {
     for (const auto& codec : good_mp4_video_codecs_non_proprietary) {
-      EXPECT_EQ(media_recorder_handler_->CanSupportMimeType(type, codec),
-                IsVideoCodecSupported(codec));
+      EXPECT_EQ(CanSupportMimeType(type, codec), IsVideoCodecSupported(codec));
     }
   }
 
   for (const auto& type : good_mp4_video_mime_types) {
     for (const auto& codec : good_mp4_audio_codecs_non_proprietary) {
-      EXPECT_TRUE(media_recorder_handler_->CanSupportMimeType(type, codec));
+      EXPECT_TRUE(CanSupportMimeType(type, codec));
     }
   }
 
@@ -1136,11 +1129,11 @@ TEST_F(MediaRecorderHandlerIsSupportedTypeTestForMp4,
     for (const auto& video_codec : good_mp4_video_codecs_non_proprietary) {
       for (const auto& audio_codec : good_mp4_audio_codecs_non_proprietary) {
         String codecs = video_codec + "," + audio_codec;
-        EXPECT_EQ(media_recorder_handler_->CanSupportMimeType(type, codecs),
+        EXPECT_EQ(CanSupportMimeType(type, codecs),
                   IsVideoCodecSupported(video_codec));
 
         String codecs2 = audio_codec + "," + video_codec;
-        EXPECT_EQ(media_recorder_handler_->CanSupportMimeType(type, codecs2),
+        EXPECT_EQ(CanSupportMimeType(type, codecs2),
                   IsVideoCodecSupported(video_codec));
       }
     }
@@ -1149,7 +1142,7 @@ TEST_F(MediaRecorderHandlerIsSupportedTypeTestForMp4,
   // failure cases.
   for (const auto& type : good_mp4_video_mime_types) {
     for (const auto& codec : bad_mp4_video_codecs) {
-      EXPECT_FALSE(media_recorder_handler_->CanSupportMimeType(type, codec));
+      EXPECT_FALSE(CanSupportMimeType(type, codec));
     }
   }
 #endif
@@ -1159,7 +1152,7 @@ TEST_F(MediaRecorderHandlerIsSupportedTypeTestForMp4,
   // success cases.
   for (const auto& type : good_mp4_audio_mime_types) {
     for (const auto& codec : good_mp4_audio_codecs) {
-      EXPECT_EQ(media_recorder_handler_->CanSupportMimeType(type, codec),
+      EXPECT_EQ(CanSupportMimeType(type, codec),
                 IsTargetAudioCodecSupported(codec));
     }
   }
@@ -1167,19 +1160,19 @@ TEST_F(MediaRecorderHandlerIsSupportedTypeTestForMp4,
   // failure cases.
   for (const auto& type : bad_mp4_audio_mime_types) {
     for (const auto& codec : good_mp4_audio_codecs) {
-      EXPECT_FALSE(media_recorder_handler_->CanSupportMimeType(type, codec));
+      EXPECT_FALSE(CanSupportMimeType(type, codec));
     }
   }
 
   for (const auto& type : good_mp4_audio_mime_types) {
     for (const auto& codec : bad_mp4_audio_codecs) {
-      EXPECT_FALSE(media_recorder_handler_->CanSupportMimeType(type, codec));
+      EXPECT_FALSE(CanSupportMimeType(type, codec));
     }
   }
 
   for (const auto& type : good_mp4_audio_mime_types) {
     for (const auto& codec : good_mp4_video_codecs) {
-      EXPECT_FALSE(media_recorder_handler_->CanSupportMimeType(type, codec));
+      EXPECT_FALSE(CanSupportMimeType(type, codec));
     }
   }
 
@@ -1187,11 +1180,10 @@ TEST_F(MediaRecorderHandlerIsSupportedTypeTestForMp4,
     for (const auto& video_codec : good_mp4_video_codecs) {
       for (const auto& audio_codec : good_mp4_audio_codecs) {
         String codecs = video_codec + "," + audio_codec;
-        EXPECT_FALSE(media_recorder_handler_->CanSupportMimeType(type, codecs));
+        EXPECT_FALSE(CanSupportMimeType(type, codecs));
 
         String codecs2 = audio_codec + "," + video_codec;
-        EXPECT_FALSE(
-            media_recorder_handler_->CanSupportMimeType(type, codecs2));
+        EXPECT_FALSE(CanSupportMimeType(type, codecs2));
       }
     }
   }
@@ -1199,14 +1191,14 @@ TEST_F(MediaRecorderHandlerIsSupportedTypeTestForMp4,
   // success cases.
   for (const auto& type : good_mp4_audio_mime_types) {
     for (const auto& codec : good_mp4_audio_codecs_non_proprietary) {
-      EXPECT_TRUE(media_recorder_handler_->CanSupportMimeType(type, codec));
+      EXPECT_TRUE(CanSupportMimeType(type, codec));
     }
   }
 
   // failure cases.
   for (const auto& type : good_mp4_audio_mime_types) {
     for (const auto& codec : bad_mp4_audio_codecs) {
-      EXPECT_FALSE(media_recorder_handler_->CanSupportMimeType(type, codec));
+      EXPECT_FALSE(CanSupportMimeType(type, codec));
     }
   }
 #endif
@@ -1222,15 +1214,13 @@ TEST_F(MediaRecorderHandlerIsSupportedTypeTestForMp4,
   {
     base::test::ScopedOSInfoOverride scoped_os_info_override(
         base::test::ScopedOSInfoOverride::Type::kWin11Home);
-    EXPECT_TRUE(
-        media_recorder_handler_->CanSupportMimeType("audio/mp4", "mp4a.40.2"));
+    EXPECT_TRUE(CanSupportMimeType("audio/mp4", "mp4a.40.2"));
   }
 
   {
     base::test::ScopedOSInfoOverride scoped_os_info_override(
         base::test::ScopedOSInfoOverride::Type::kWin11HomeN);
-    EXPECT_FALSE(
-        media_recorder_handler_->CanSupportMimeType("audio/mp4", "mp4a.40.2"));
+    EXPECT_FALSE(CanSupportMimeType("audio/mp4", "mp4a.40.2"));
   }
 }
 #endif  // BUILDFLAG(IS_WIN) && BUILDFLAG(USE_PROPRIETARY_CODECS)
@@ -1397,6 +1387,10 @@ TEST_F(MediaRecorderHandlerAudioVideoTest, EmitsCachedVideoDataOnStop) {
 
 #if BUILDFLAG(ENABLE_OPENH264)
 TEST_F(MediaRecorderHandlerAudioVideoTest, CorrectH264LevelOnWrite) {
+  if (!media::IsOpenH264SoftwareEncoderEnabled()) {
+    GTEST_SKIP() << "Test is skipped since OpenH264 is not enabled.";
+  }
+
   AddTracks();
   V8TestingScope scope;
   auto* recorder = MakeGarbageCollected<MockMediaRecorder>(scope);
@@ -1708,42 +1702,40 @@ struct MediaRecorderCodecProfileTestParams {
 static const MediaRecorderCodecProfileTestParams
     kMediaRecorderCodecProfileTestParams[] = {
         {"vp8,mp4a.40.2",
-         VideoTrackRecorder::CodecProfile(VideoTrackRecorder::CodecId::kVp8)},
-        {"vp9,opus",
-         VideoTrackRecorder::CodecProfile(VideoTrackRecorder::CodecId::kVp9)},
-        {"av1,opus",
-         VideoTrackRecorder::CodecProfile(VideoTrackRecorder::CodecId::kAv1)},
+         VideoTrackRecorder::CodecProfile(media::VideoCodec::kVP8)},
+        {"vp9,opus", VideoTrackRecorder::CodecProfile(media::VideoCodec::kVP9)},
+        {"av1,opus", VideoTrackRecorder::CodecProfile(media::VideoCodec::kAV1)},
         {"av01,opus",
-         VideoTrackRecorder::CodecProfile(VideoTrackRecorder::CodecId::kAv1)},
+         VideoTrackRecorder::CodecProfile(media::VideoCodec::kAV1)},
         {"av01.0.04M.08,opus",
-         VideoTrackRecorder::CodecProfile(VideoTrackRecorder::CodecId::kAv1)},
+         VideoTrackRecorder::CodecProfile(media::VideoCodec::kAV1)},
 #if BUILDFLAG(USE_PROPRIETARY_CODECS)
         {"h264,mp4a.40.2",
-         VideoTrackRecorder::CodecProfile(VideoTrackRecorder::CodecId::kH264)},
+         VideoTrackRecorder::CodecProfile(media::VideoCodec::kH264)},
         {"avc1,opus",
-         VideoTrackRecorder::CodecProfile(VideoTrackRecorder::CodecId::kH264)},
+         VideoTrackRecorder::CodecProfile(media::VideoCodec::kH264)},
         {"avc3,opus",
-         VideoTrackRecorder::CodecProfile(VideoTrackRecorder::CodecId::kH264)},
+         VideoTrackRecorder::CodecProfile(media::VideoCodec::kH264)},
         {"avc1.42E01E,opus", VideoTrackRecorder::CodecProfile(
-                                 VideoTrackRecorder::CodecId::kH264,
+                                 media::VideoCodec::kH264,
                                  media::VideoCodecProfile::H264PROFILE_BASELINE,
                                  30u)},
         {"avc3.42E01E,opus", VideoTrackRecorder::CodecProfile(
-                                 VideoTrackRecorder::CodecId::kH264,
+                                 media::VideoCodec::kH264,
                                  media::VideoCodecProfile::H264PROFILE_BASELINE,
                                  30u)},
 #endif  // BUILDFLAG(USE_PROPRIETARY_CODECS)
 #if BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
         {"hvc1,opus",
-         VideoTrackRecorder::CodecProfile(VideoTrackRecorder::CodecId::kHevc)},
+         VideoTrackRecorder::CodecProfile(media::VideoCodec::kHEVC)},
         {"hev1,opus",
-         VideoTrackRecorder::CodecProfile(VideoTrackRecorder::CodecId::kHevc)},
+         VideoTrackRecorder::CodecProfile(media::VideoCodec::kHEVC)},
         {"hvc1.1.6.L93.B0,opus", VideoTrackRecorder::CodecProfile(
-                                     VideoTrackRecorder::CodecId::kHevc,
+                                     media::VideoCodec::kHEVC,
                                      media::VideoCodecProfile::HEVCPROFILE_MAIN,
                                      93u)},
         {"hev1.1.6.L93.B0,opus", VideoTrackRecorder::CodecProfile(
-                                     VideoTrackRecorder::CodecId::kHevc,
+                                     media::VideoCodec::kHEVC,
                                      media::VideoCodecProfile::HEVCPROFILE_MAIN,
                                      93u)},
 #endif  // BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)

@@ -8,21 +8,19 @@
 
 #include "base/check.h"
 #include "base/command_line.h"
-#include "base/feature_list.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/enterprise/connectors/analysis/content_analysis_features.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
-#include "components/safe_browsing/core/common/features.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(ENTERPRISE_LOCAL_CONTENT_ANALYSIS)
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_sdk_manager.h"  // nogncheck
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #endif  // BUILDFLAG(ENTERPRISE_LOCAL_CONTENT_ANALYSIS)
 
@@ -47,11 +45,12 @@ ConnectorsManager::ConnectorsManager(PrefService* pref_service,
     : ConnectorsManagerBase(pref_service, config, observe_prefs) {
 #if BUILDFLAG(ENTERPRISE_LOCAL_CONTENT_ANALYSIS)
   // Start observing tab strip models for all browsers.
-  BrowserList* browser_list = BrowserList::GetInstance();
-  for (Browser* browser : *browser_list) {
-    OnBrowserAdded(browser);
-  }
-  browser_list->AddObserver(this);
+  ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+      [this](BrowserWindowInterface* browser_window_interface) {
+        OnBrowserAdded(browser_window_interface->GetBrowserForMigrationOnly());
+        return true;
+      });
+  BrowserList::GetInstance()->AddObserver(this);
 #endif  // BUILDFLAG(ENTERPRISE_LOCAL_CONTENT_ANALYSIS)
 
   if (observe_prefs) {
@@ -64,11 +63,13 @@ ConnectorsManager::ConnectorsManager(PrefService* pref_service,
 
 #if BUILDFLAG(ENTERPRISE_LOCAL_CONTENT_ANALYSIS)
 ConnectorsManager::~ConnectorsManager() {
-  BrowserList* browser_list = BrowserList::GetInstance();
-  browser_list->RemoveObserver(this);
-  for (Browser* browser : *browser_list) {
-    OnBrowserRemoved(browser);
-  }
+  BrowserList::GetInstance()->RemoveObserver(this);
+  ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+      [this](BrowserWindowInterface* browser_window_interface) {
+        OnBrowserRemoved(
+            browser_window_interface->GetBrowserForMigrationOnly());
+        return true;
+      });
 }
 #else
 ConnectorsManager::~ConnectorsManager() = default;

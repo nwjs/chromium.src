@@ -6,21 +6,16 @@
 
 #include "third_party/blink/renderer/platform/fonts/font.h"
 #include "third_party/blink/renderer/platform/fonts/font_description.h"
-#include "third_party/blink/renderer/platform/text/text_run.h"
 
 namespace blink {
 
-template <typename TextContainerType>
-bool ShapeResultSpacing<TextContainerType>::SetSpacing(
-    const FontDescription& font_description) {
+bool ShapeResultSpacing::SetSpacing(const FontDescription& font_description) {
   return SetSpacing(TextRunLayoutUnit(font_description.LetterSpacing()),
                     TextRunLayoutUnit(font_description.WordSpacing()));
 }
 
-template <typename TextContainerType>
-bool ShapeResultSpacing<TextContainerType>::SetSpacing(
-    TextRunLayoutUnit letter_spacing,
-    TextRunLayoutUnit word_spacing) {
+bool ShapeResultSpacing::SetSpacing(TextRunLayoutUnit letter_spacing,
+                                    TextRunLayoutUnit word_spacing) {
   if (!letter_spacing && !word_spacing) {
     has_spacing_ = false;
     return false;
@@ -34,12 +29,10 @@ bool ShapeResultSpacing<TextContainerType>::SetSpacing(
   return true;
 }
 
-template <typename TextContainerType>
-void ShapeResultSpacing<TextContainerType>::SetExpansion(
-    InlineLayoutUnit expansion,
-    TextDirection direction,
-    bool allows_leading_expansion,
-    bool allows_trailing_expansion) {
+void ShapeResultSpacing::SetExpansion(InlineLayoutUnit expansion,
+                                      TextDirection direction,
+                                      bool allows_leading_expansion,
+                                      bool allows_trailing_expansion) {
   DCHECK_GT(expansion, InlineLayoutUnit());
   expansion_ = expansion;
   ComputeExpansion(allows_leading_expansion, allows_trailing_expansion,
@@ -47,39 +40,17 @@ void ShapeResultSpacing<TextContainerType>::SetExpansion(
   has_spacing_ |= HasExpansion();
 }
 
-template <typename TextContainerType>
-void ShapeResultSpacing<TextContainerType>::SetSpacingAndExpansion(
-    const FontDescription& font_description) {
-  // Available only for TextRun since it has expansion data.
-  NOTREACHED();
+void ShapeResultSpacing::SetSpacing(const FontDescription& font_description,
+                                    bool normalize_space) {
+  if (SetSpacing(font_description)) {
+    normalize_space_ = normalize_space;
+    allow_tabs_ = false;
+  }
 }
 
-template <>
-void ShapeResultSpacing<TextRun>::SetSpacingAndExpansion(
-    const FontDescription& font_description) {
-  SetSpacingAndExpansion(font_description, text_.NormalizeSpace());
-}
-
-template <typename TextContentType>
-void ShapeResultSpacing<TextContentType>::SetSpacingAndExpansion(
-    const FontDescription& font_description,
-    bool normalize_space) {
-  letter_spacing_ = TextRunLayoutUnit(font_description.LetterSpacing());
-  word_spacing_ = TextRunLayoutUnit(font_description.WordSpacing());
-  expansion_ = InlineLayoutUnit();
-  has_spacing_ = letter_spacing_ || word_spacing_;
-  if (!has_spacing_)
-    return;
-
-  normalize_space_ = normalize_space;
-  allow_tabs_ = false;
-}
-
-template <typename TextContainerType>
-void ShapeResultSpacing<TextContainerType>::ComputeExpansion(
-    bool allows_leading_expansion,
-    bool allows_trailing_expansion,
-    TextDirection direction) {
+void ShapeResultSpacing::ComputeExpansion(bool allows_leading_expansion,
+                                          bool allows_trailing_expansion,
+                                          TextDirection direction) {
   DCHECK_GT(expansion_, InlineLayoutUnit());
 
   is_after_expansion_ = !allows_leading_expansion;
@@ -102,8 +73,7 @@ void ShapeResultSpacing<TextContainerType>::ComputeExpansion(
   }
 }
 
-template <typename TextContainerType>
-TextRunLayoutUnit ShapeResultSpacing<TextContainerType>::NextExpansion() {
+TextRunLayoutUnit ShapeResultSpacing::NextExpansion() {
   if (!expansion_opportunity_count_) {
     NOTREACHED();
   }
@@ -120,8 +90,7 @@ TextRunLayoutUnit ShapeResultSpacing<TextContainerType>::NextExpansion() {
   return expansion_per_opportunity_;
 }
 
-template <typename TextContainerType>
-TextRunLayoutUnit ShapeResultSpacing<TextContainerType>::ComputeSpacing(
+TextRunLayoutUnit ShapeResultSpacing::ComputeSpacing(
     const ComputeSpacingParameters& parameters,
     float& offset,
     bool is_cursive_script) {
@@ -191,9 +160,5 @@ TextRunLayoutUnit ShapeResultSpacing<TextContainerType>::ComputeSpacing(
 
   return spacing + NextExpansion();
 }
-
-// Instantiate the template class.
-template class ShapeResultSpacing<TextRun>;
-template class ShapeResultSpacing<String>;
 
 }  // namespace blink

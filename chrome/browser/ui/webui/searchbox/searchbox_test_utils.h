@@ -60,6 +60,7 @@ class MockSearchboxPage : public searchbox::mojom::Page {
               UpdateSelection,
               (searchbox::mojom::OmniboxPopupSelectionPtr,
                searchbox::mojom::OmniboxPopupSelectionPtr));
+  MOCK_METHOD(void, SetKeywordSelected, (bool is_keyword_selected), (override));
   MOCK_METHOD(void, SetInputText, (const std::string& input_text));
   MOCK_METHOD(void,
               SetThumbnail,
@@ -70,6 +71,10 @@ class MockSearchboxPage : public searchbox::mojom::Page {
                composebox_query::mojom::FileUploadStatus,
                std::optional<composebox_query::mojom::FileUploadErrorType>));
   MOCK_METHOD(void, OnTabStripChanged, ());
+  MOCK_METHOD(void,
+              AddFileContext,
+              (const base::UnguessableToken&,
+               searchbox::mojom::SelectedFileInfoPtr));
 };
 
 class MockAutocompleteController : public AutocompleteController {
@@ -88,8 +93,7 @@ class MockAutocompleteController : public AutocompleteController {
 
 class MockOmniboxEditModel : public OmniboxEditModel {
  public:
-  MockOmniboxEditModel(OmniboxController* omnibox_controller,
-                       OmniboxView* view);
+  explicit MockOmniboxEditModel(OmniboxController* omnibox_controller);
   ~MockOmniboxEditModel() override;
   MockOmniboxEditModel(const MockOmniboxEditModel&) = delete;
   MockOmniboxEditModel& operator=(const MockOmniboxEditModel&) = delete;

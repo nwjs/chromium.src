@@ -428,7 +428,7 @@ crbug.com/1490427 [ fuchsia fuchsia-board-qemu-x64 ] conformance/textures/misc/i
 crbug.com/1490427 [ fuchsia fuchsia-board-qemu-x64 ] conformance/textures/misc/texture-srgb-upload.html [ Failure ]
 crbug.com/1490427 [ fuchsia fuchsia-board-qemu-x64 ] conformance/textures/misc/texture-video-transparent.html [ Failure ]
 crbug.com/1490427 [ fuchsia fuchsia-board-qemu-x64 ] conformance/textures/misc/tex-video-using-tex-unit-non-zero.html [ Failure ]
-crbug.com/443182226 [ fuchsia ] conformance/misc/shader-precision-format.html [ Failure ]
+crbug.com/443182226 [ angle-vulkan arm fuchsia ] conformance/misc/shader-precision-format.html [ Failure ]
 crbug.com/443182226 [ fuchsia ] conformance/uniforms/no-over-optimization-on-uniform-array-* [ Failure ]
 
 
@@ -463,8 +463,9 @@ crbug.com/1361088 [ win amd-0x7340 angle-d3d9 passthrough ] conformance/textures
 ## D3D9 / AMD / Passthrough
 crbug.com/40864619 [ win amd angle-d3d9 passthrough ] conformance/uniforms/uniform-default-values.html [ Failure ]
 crbug.com/402989074 [ win amd-0x7480 angle-d3d9 passthrough ] conformance/uniforms/uniform-values-per-program.html [ Failure ]
-crbug.com/402989074 [ win amd-0x1900 angle-d3d9 passthrough ] conformance/uniforms/uniform-values-per-program.html [ Failure ]
-crbug.com/402989074 [ win amd-0x150e angle-d3d9 passthrough ] conformance/uniforms/uniform-values-per-program.html [ Failure ]
+# Commented out until full procurement is ready since UAT is done.
+# crbug.com/402989074 [ win amd-0x1900 angle-d3d9 passthrough ] conformance/uniforms/uniform-values-per-program.html [ Failure ]
+# crbug.com/402989074 [ win amd-0x150e angle-d3d9 passthrough ] conformance/uniforms/uniform-values-per-program.html [ Failure ]
 
 ## win10 / angle-d3d11 / Passthrough command decoder failures ##
 
@@ -478,13 +479,14 @@ crbug.com/415086850 [ win11 nvidia-0x2184 angle-vulkan passthrough ] conformance
 crbug.com/1523062 [ win11 qualcomm-0x41333430 angle-d3d11 ] conformance/rendering/bind-framebuffer-flush-bug.html [ Failure ]
 crbug.com/1523062 [ win11 qualcomm-0x41333430 angle-d3d11 ] conformance/textures/misc/mipmap-fbo.html [ Failure ]
 
+## Win / Qualcomm Snapdragon X Elite / D3D11
+crbug.com/41496016 [ win11 qualcomm-0x36334330 angle-d3d11 ] conformance/textures/misc/mipmap-fbo.html [ Failure ]
+crbug.com/452924810 [ win11 qualcomm-0x36334330 angle-vulkan ] conformance/extensions/webgl-blend-func-extended.html [ Failure ]
 
 ## Win / Intel / D3D9
 crbug.com/395934162 [ angle-d3d9 intel-0x4680 passthrough win ] conformance/uniforms/out-of-bounds-uniform-array-access.html [ RetryOnFailure ]
 
-## Test bug
-crbug.com/443182226 [ win nvidia angle-vulkan passthrough ] conformance/misc/shader-precision-format.html [ Failure ]
-crbug.com/443182226 [ win nvidia angle-vulkan passthrough ] conformance/uniforms/no-over-optimization-on-uniform-array-* [ Failure ]
+
 
 ####################
 # Mac failures     #
@@ -507,16 +509,14 @@ crbug.com/354627705 [ mac amd-0x7340 angle-metal ] conformance/extensions/webgl-
 crbug.com/354627705 [ mac amd-0x7340 angle-opengl ] conformance/rendering/color-mask-preserved-during-implicit-clears.html [ Failure ]
 crbug.com/420455918 [ amd-0x7340 angle-opengl asan mac release ] conformance/renderbuffers/stencil-renderbuffer-initialization.html [ Failure ]
 crbug.com/420455918 [ amd-0x7340 angle-opengl debug mac no-asan ] conformance/renderbuffers/stencil-renderbuffer-initialization.html [ Failure ]
-crbug.com/436522727 [ mac amd graphite-enabled ] conformance/extensions/khr-parallel-shader-compile.html [ Failure ]
+crbug.com/436522727 [ amd-0x7340 debug graphite-enabled no-clang-coverage sonoma ] conformance/extensions/khr-parallel-shader-compile.html [ Failure ]
 
 ## Apple M2 ##
 
-## Mac Intel ##
-# Canvas missing colored squares - synchronization issue.
-crbug.com/425671158 [ angle-metal graphite-enabled intel-0x3e9b no-clang-coverage release sequoia ] conformance/textures/image_bitmap_from_video/tex-2d-rgb-rgb-unsigned_byte.html [ Failure ]
 
 # WebGL: INVALID_ENUM: getShaderParameter
-crbug.com/444250724 [ mac angle-metal graphite-enabled intel-0x3e9b ] conformance/extensions/khr-parallel-shader-compile.html [ Failure ]
+crbug.com/444250724 [ angle-metal debug graphite-enabled intel-0x3e9b no-clang-coverage sonoma ] conformance/extensions/khr-parallel-shader-compile.html [ Failure ]
+crbug.com/444250724 [ angle-metal graphite-enabled intel-0x3e9b no-clang-coverage release sequoia ] conformance/extensions/khr-parallel-shader-compile.html [ Failure ]
 
 ####################
 # Linux failures   #
@@ -629,9 +629,6 @@ crbug.com/331489774 [ android android-sm-s911u1 no-passthrough ] conformance/con
 # Brya failures
 crbug.com/416483574 [ android android-brya ] conformance/extensions/webgl-compressed-texture-size-limit.html [ Failure ]
 
-## Test bug
-crbug.com/443182234 [ android android-brya ] conformance/misc/shader-precision-format.html [ Failure ]
-crbug.com/443182234 [ android android-brya ] conformance/uniforms/no-over-optimization-on-uniform-array-* [ Failure ]
 
 
 ############
@@ -677,10 +674,6 @@ crbug.com/1448573 [ android angle-disabled no-passthrough qualcomm renderer-skia
 crbug.com/332743717 conformance/uniforms/uniform-location.html [ Failure ]
 
 
-#################################################################
-# Temporary suppressions for introduction of drawingBufferStorage
-#################################################################
-crbug.com/1230619 conformance/offscreencanvas/methods-worker.html [ Failure ]
 
 
 #######################################################################

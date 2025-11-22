@@ -52,13 +52,11 @@ class TestFontServiceApp : public font_data_service::mojom::FontDataService {
     std::unique_ptr<SkStreamAsset> asset = typeface->openStream(&ttc_index);
     auto result = font_data_service::mojom::MatchFamilyNameResult::New();
     result->ttc_index = ttc_index;
-    const int axis_count = typeface->getVariationDesignPosition(nullptr, 0);
+    const int axis_count = typeface->getVariationDesignPosition({});
     if (axis_count > 0) {
       std::vector<SkFontArguments::VariationPosition::Coordinate>
-          coordinate_list;
-      coordinate_list.resize(axis_count);
-      if (typeface->getVariationDesignPosition(coordinate_list.data(),
-                                               coordinate_list.size()) > 0) {
+          coordinate_list(axis_count);
+      if (typeface->getVariationDesignPosition(coordinate_list) > 0) {
         auto variation_position =
             font_data_service::mojom::VariationPosition::New();
         for (const auto& coordinate : coordinate_list) {
@@ -89,13 +87,14 @@ class TestFontServiceApp : public font_data_service::mojom::FontDataService {
     } else {
       SkString font_path;
       typeface->getResourceName(&font_path);
+      auto file_path = base::FilePath::FromUTF8Unsafe(font_path.c_str());
       base::File font_file =
-          base::File(base::FilePath::FromUTF8Unsafe(font_path.c_str()),
-                     base::File::FLAG_OPEN | base::File::FLAG_READ |
-                         base::File::FLAG_WIN_EXCLUSIVE_WRITE);
+          base::File(file_path, base::File::FLAG_OPEN | base::File::FLAG_READ |
+                                    base::File::FLAG_WIN_EXCLUSIVE_WRITE);
       result->typeface_data =
           font_data_service::mojom::TypefaceData::NewFontFile(
-              std::move(font_file));
+              font_data_service::mojom::TypefaceFile::New(
+                  std::move(font_file), GetUniqueFileId(file_path)));
     }
     std::move(callback).Run(std::move(result));
   }
@@ -148,6 +147,12 @@ class TestFontServiceApp : public font_data_service::mojom::FontDataService {
     use_memory_fallback_ = fallback;
   }
 
+  size_t GetUniqueFileId(base::FilePath path) {
+    size_t new_id = unique_path_ids_.size() + 1;
+    auto [it, inserted] = unique_path_ids_.try_emplace(path, new_id);
+    return it->second;
+  }
+
  private:
   mojo::ReceiverSet<font_data_service::mojom::FontDataService> receivers_;
   size_t match_family_call_count_ = 0;
@@ -157,6 +162,7 @@ class TestFontServiceApp : public font_data_service::mojom::FontDataService {
   size_t legacy_make_typeface_call_count_ = 0;
   base::MappedReadOnlyRegion memory_map_region_;
   bool use_memory_fallback_ = false;
+  std::map<base::FilePath, size_t> unique_path_ids_;
 };
 
 // Wrapper class used to verify SkFontArguments in FontDataManager.
@@ -227,8 +233,12 @@ TEST_F(FontDataManagerUnitTest, MatchFamilyStyle) {
 
   // Test that the cache works.
   // Same style.
+  size_t mapped_files_count_before =
+      skia_font_manager_->GetMappedFilesCountForTesting();
   result = skia_font_manager_->matchFamilyStyle(family_name.data(), style);
   EXPECT_EQ(test_font_data_service_app_.match_family_call_count(), 1u);
+  EXPECT_EQ(skia_font_manager_->GetMappedFilesCountForTesting(),
+            mapped_files_count_before);
 
   // Test with a different style.
   SkFontStyle bold_style(600, 5, SkFontStyle::kUpright_Slant);
@@ -241,7 +251,14 @@ TEST_F(FontDataManagerUnitTest, MatchFamilyStyle) {
   result = skia_font_manager_->legacyMakeTypeface(family_name.data(), style);
   result->getFamilyName(&result_family_name);
   EXPECT_STREQ(result_family_name.c_str(), family_name.data());
-  EXPECT_EQ(test_font_data_service_app_.match_family_call_count(), 3u);
+  EXPECT_EQ(test_font_data_service_app_.legacy_make_typeface_call_count(), 1u);
+
+  // Test that the cache works.
+  // Same style.
+  result = skia_font_manager_->matchFamilyStyle(family_name.data(), style);
+  result->getFamilyName(&result_family_name);
+  EXPECT_STREQ(result_family_name.c_str(), family_name.data());
+  EXPECT_EQ(test_font_data_service_app_.legacy_make_typeface_call_count(), 1u);
 }
 
 TEST_F(FontDataManagerUnitTest, LegacyMakeTypefaceNullFamilyName) {

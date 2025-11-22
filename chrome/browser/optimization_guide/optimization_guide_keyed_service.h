@@ -21,9 +21,9 @@
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/model_broker_client.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features_controller.h"
+#include "components/optimization_guide/core/model_execution/on_device_capability.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_adaptation_loader.h"
-#include "components/optimization_guide/core/optimization_guide_model_executor.h"
-#include "components/optimization_guide/core/optimization_guide_on_device_capability_provider.h"
+#include "components/optimization_guide/core/model_execution/remote_model_executor.h"
 #include "components/optimization_guide/proto/hints.pb.h"
 #include "components/optimization_guide/proto/model_execution.pb.h"
 #include "components/optimization_guide/proto/model_quality_service.pb.h"
@@ -59,7 +59,6 @@ class ModelExecutionManager;
 class ModelInfo;
 class ModelQualityLogsUploaderService;
 class ModelValidatorKeyedService;
-class OnDeviceAssetManager;
 class OnDeviceModelAvailabilityObserver;
 class OptimizationGuideStore;
 class OptimizationGuideKeyedServiceBrowserTest;
@@ -98,8 +97,8 @@ class OptimizationGuideKeyedService
     : public KeyedService,
       public optimization_guide::OptimizationGuideDecider,
       public optimization_guide::OptimizationGuideModelProvider,
-      public optimization_guide::OptimizationGuideModelExecutor,
-      public optimization_guide::OptimizationGuideOnDeviceCapabilityProvider,
+      public optimization_guide::OnDeviceCapability,
+      public optimization_guide::RemoteModelExecutor,
       public ProfileObserver {
  public:
   explicit OptimizationGuideKeyedService(
@@ -115,9 +114,7 @@ class OptimizationGuideKeyedService
   base::android::ScopedJavaLocalRef<jobject> GetJavaObject();
 #endif
 
-  // Allow models to be subscribed via the broker.
-  void BindModelBroker(
-      mojo::PendingReceiver<optimization_guide::mojom::ModelBroker> receiver);
+  // Constructs a ModelBrokerClient with remote fallback capability.
   virtual std::unique_ptr<optimization_guide::ModelBrokerClient>
   CreateModelBrokerClient();
 
@@ -138,22 +135,28 @@ class OptimizationGuideKeyedService
   void AddObserverForOptimizationTargetModel(
       optimization_guide::proto::OptimizationTarget optimization_target,
       const std::optional<optimization_guide::proto::Any>& model_metadata,
+      scoped_refptr<base::SequencedTaskRunner> model_task_runner,
       optimization_guide::OptimizationTargetModelObserver* observer) override;
   void RemoveObserverForOptimizationTargetModel(
       optimization_guide::proto::OptimizationTarget optimization_target,
       optimization_guide::OptimizationTargetModelObserver* observer) override;
 
-  // optimization_guide::OptimizationGuideModelExecutor implementation:
-  std::unique_ptr<Session> StartSession(
-      optimization_guide::ModelBasedCapabilityKey feature,
-      const std::optional<optimization_guide::SessionConfigParams>&
-          config_params) override;
+  // optimization_guide::RemoteModelExecutor implementation:
   void ExecuteModel(
       optimization_guide::ModelBasedCapabilityKey feature,
       const google::protobuf::MessageLite& request_metadata,
       const std::optional<base::TimeDelta>& execution_timeout,
       optimization_guide::OptimizationGuideModelExecutionResultCallback
           callback) override;
+
+  // optimization_guide::OnDeviceCapability
+  // implementation:
+  void BindModelBroker(
+      mojo::PendingReceiver<optimization_guide::mojom::ModelBroker> receiver)
+      override;
+  std::unique_ptr<optimization_guide::OnDeviceSession> StartSession(
+      optimization_guide::ModelBasedCapabilityKey feature,
+      const optimization_guide::SessionConfigParams& config_params) override;
   void AddOnDeviceModelAvailabilityChangeObserver(
       optimization_guide::ModelBasedCapabilityKey feature,
       optimization_guide::OnDeviceModelAvailabilityObserver* observer) override;
@@ -161,9 +164,6 @@ class OptimizationGuideKeyedService
       optimization_guide::ModelBasedCapabilityKey feature,
       optimization_guide::OnDeviceModelAvailabilityObserver* observer) override;
   on_device_model::Capabilities GetOnDeviceCapabilities() override;
-
-  // optimization_guide::OptimizationGuideOnDeviceCapabilityProvider
-  // implementation:
   optimization_guide::OnDeviceModelEligibilityReason
   GetOnDeviceModelEligibility(
       optimization_guide::ModelBasedCapabilityKey feature) override;
@@ -222,6 +222,15 @@ class OptimizationGuideKeyedService
       const GURL& url,
       optimization_guide::proto::OptimizationType optimization_type,
       const std::optional<optimization_guide::OptimizationMetadata>& metadata);
+
+  // Adds hints for a URL for the given optimization types to the optimization
+  // guide. For testing purposes only. This will flush any callbacks for |url|
+  // that were registered via |CanApplyOptimization|. If no applicable callbacks
+  // were registered, this will just add the hint for later use.
+  void AddHintWithMultipleOptimizationsForTesting(
+      const GURL& url,
+      const std::vector<optimization_guide::proto::OptimizationType>&
+          optimization_types);
 
   // Adds hints for a URL with provided metadata to the optimization guide.
   // Hints added via this method will work for `CanApplyOptimizationOnDemand`
@@ -362,21 +371,6 @@ class OptimizationGuideKeyedService
       optimization_guide::UserVisibleFeatureKey feature,
       std::string_view feature_name);
 
-  // Ensures the performance class will be up to date and available when
-  // `complete` runs.
-  void EnsurePerformanceClassAvailable(base::OnceClosure complete);
-
-  void FinishGetOnDeviceModelEligibility(
-      optimization_guide::ModelBasedCapabilityKey feature,
-      const on_device_model::Capabilities& capabilities,
-      base::OnceCallback<
-          void(optimization_guide::OnDeviceModelEligibilityReason)> callback);
-
-  // Gets the possible capabilities that this device can support. This can be
-  // used to get all the capabilities this device supports before downloading
-  // the model. This will be a superset of GetOnDeviceCapabilities().
-  on_device_model::Capabilities GetPossibleOnDeviceCapabilities();
-
   raw_ptr<content::BrowserContext> browser_context_;
 
   // The store of hints.
@@ -404,13 +398,6 @@ class OptimizationGuideKeyedService
 
   // Manages the storing, loading, and fetching of hints.
   std::unique_ptr<optimization_guide::ChromeHintsManager> hints_manager_;
-
-  // Provides assets to optimization_guide_global_state_ from
-  // prediction_manager_. This *MUST* be destroyed before
-  // `optimization_guide_global_state_`, because it holds raw_ptrs to some of
-  // it's members.
-  std::unique_ptr<optimization_guide::OnDeviceAssetManager>
-      on_device_asset_manager_;
 
   // Manages the model execution. Not created for off the record profiles.
   std::unique_ptr<optimization_guide::ModelExecutionManager>

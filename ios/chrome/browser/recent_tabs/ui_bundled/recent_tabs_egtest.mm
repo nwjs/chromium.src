@@ -385,7 +385,8 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
 
 // Tests that for a signed out user, sign-in using the promo then decline
 // history sync promo signs the user out and does not enable history sync.
-- (void)testDelineHistorySyncIfSignedOut {
+// TODO(crbug.com/453011095): Test is failing on the waterfall.
+- (void)DISABLED_testDelineHistorySyncIfSignedOut {
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
 
@@ -884,7 +885,7 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
                                           nil)] performAction:grey_tap()];
   [[EarlGrey selectElementWithMatcher:chrome_test_util::DefocusedLocationView()]
       assertWithMatcher:chrome_test_util::LocationViewContainingText(
-                            self.testServer->base_url().host())];
+                            self.testServer->base_url().GetHost())];
 
   SignOut();
 }

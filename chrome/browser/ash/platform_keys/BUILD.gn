@@ -20,6 +20,7 @@ static_library("platform_keys") {
   deps = [
     "//ash/constants",
     "//base",
+    "//chrome/browser/ash/certificate_provider",
     "//chrome/browser/ash/kcer",
     "//chrome/browser/ash/profiles",
     "//chrome/browser/profiles:profile",

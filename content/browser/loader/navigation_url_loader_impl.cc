@@ -23,6 +23,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/task/common/task_annotator.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "components/download/public/common/download_stats.h"
@@ -636,7 +637,8 @@ std::unique_ptr<network::ResourceRequest> CreateResourceRequestForNavigation(
   new_request->enable_load_timing = true;
 
   if (base::FeatureList::IsEnabled(
-          network::features::kRendererSideContentDecoding)) {
+          network::features::kRendererSideContentDecoding) &&
+      network::features::kRendererSideContentDecodingForNavigation.Get()) {
     new_request->client_side_content_decoding_enabled = true;
   }
 
@@ -683,7 +685,7 @@ void NavigationURLLoaderImpl::Start() {
   if (!request_info_->is_pdf) {
     // Requests to WebUI scheme won't get redirected to/from other schemes
     // or be intercepted, so we just let it go here.
-    std::string scheme = request_info_->common_params->url.scheme();
+    std::string scheme = request_info_->common_params->url.GetScheme();
     if (base::Contains(URLDataManagerBackend::GetWebUISchemes(), scheme)) {
       FrameTreeNode* frame_tree_node =
           FrameTreeNode::GloballyFindByID(frame_tree_node_id_);
@@ -1224,7 +1226,7 @@ NavigationURLLoaderImpl::FallbackToNonInterceptedRequest(
 scoped_refptr<network::SharedURLLoaderFactory>
 NavigationURLLoaderImpl::GetOrCreateNonNetworkLoaderFactory() {
   scoped_refptr<network::SharedURLLoaderFactory>& cached_factory =
-      non_network_url_loader_factories_[resource_request_->url.scheme()];
+      non_network_url_loader_factories_[resource_request_->url.GetScheme()];
 
   if (cached_factory) {
     return cached_factory;
@@ -2156,11 +2158,11 @@ NavigationURLLoaderImpl::CreateTerminalNonNetworkLoaderFactory(
           GetContentClient()
               ->browser()
               ->CreateNonNetworkNavigationURLLoaderFactory(
-                  url.scheme(), frame_tree_node->frame_tree_node_id())) {
+                  url.GetScheme(), frame_tree_node->frame_tree_node_id())) {
     return factory_from_client;
   }
 
-  if (url.scheme() == url::kFileSystemScheme) {
+  if (url.GetScheme() == url::kFileSystemScheme) {
     bool is_nav_allowed =
         base::FeatureList::IsEnabled(
             blink::features::kFileSystemUrlNavigationForChromeAppsOnly) &&
@@ -2192,14 +2194,14 @@ NavigationURLLoaderImpl::CreateTerminalNonNetworkLoaderFactory(
     return {};
   }
 
-  if (url.scheme() == url::kAboutScheme) {
+  if (url.GetScheme() == url::kAboutScheme) {
     return AboutURLLoaderFactory::Create();
   }
-  if (url.scheme() == url::kDataScheme) {
+  if (url.GetScheme() == url::kDataScheme) {
     return DataURLLoaderFactory::Create();
   }
 
-  if (url.scheme() == url::kFileScheme) {
+  if (url.GetScheme() == url::kFileScheme) {
     // USER_BLOCKING because this scenario is exactly one of the examples
     // given by the doc comment for USER_BLOCKING:
     // Loading and rendering a web page after the user clicks a link.
@@ -2212,7 +2214,7 @@ NavigationURLLoaderImpl::CreateTerminalNonNetworkLoaderFactory(
   }
 
 #if BUILDFLAG(IS_ANDROID)
-  if (url.scheme() == url::kContentScheme) {
+  if (url.GetScheme() == url::kContentScheme) {
     return ContentURLLoaderFactory::Create();
   }
 #endif

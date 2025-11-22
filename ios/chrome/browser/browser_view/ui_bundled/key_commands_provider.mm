@@ -24,7 +24,6 @@
 #import "ios/chrome/browser/reader_mode/model/reader_mode_tab_helper.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/sessions/model/ios_chrome_tab_restore_service_factory.h"
-#import "ios/chrome/browser/settings/ui_bundled/clear_browsing_data/features.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -40,7 +39,6 @@
 #import "ios/chrome/browser/shared/public/commands/reading_list_add_command.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
-#import "ios/chrome/browser/shared/ui/util/keyboard_observer_helper.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
@@ -88,7 +86,10 @@ using base::UserMetricsAction;
 
 @end
 
-@implementation KeyCommandsProvider
+@implementation KeyCommandsProvider {
+  // Whether the keyboard is visible or not.
+  BOOL _keyboardVisible;
+}
 
 #pragma mark - Public
 
@@ -97,6 +98,16 @@ using base::UserMetricsAction;
   self = [super init];
   if (self) {
     _browser = browser->AsWeakPtr();
+    [[NSNotificationCenter defaultCenter]
+        addObserver:self
+           selector:@selector(keyboardDidShow)
+               name:UIKeyboardDidShowNotification
+             object:nil];
+    [[NSNotificationCenter defaultCenter]
+        addObserver:self
+           selector:@selector(keyboardDidHide)
+               name:UIKeyboardDidHideNotification
+             object:nil];
   }
   return self;
 }
@@ -558,11 +569,7 @@ using base::UserMetricsAction;
       browsing_data::DeleteBrowsingDataDialogAction::
           kKeyboardEntryPointSelected);
 
-  if (IsIosQuickDeleteEnabled()) {
-    [_quickDeleteHandler showQuickDeleteAndCanPerformTabsClosureAnimation:YES];
-  } else {
-    [_settingsHandler showClearBrowsingDataSettings];
-  }
+  [_quickDeleteHandler showQuickDeleteAndCanPerformTabsClosureAnimation:YES];
 }
 
 #pragma mark - Private
@@ -600,8 +607,7 @@ using base::UserMetricsAction;
 - (BOOL)isEditingText {
   UIResponder* firstResponder = GetFirstResponder();
   return [firstResponder isKindOfClass:[UITextField class]] ||
-         [firstResponder isKindOfClass:[UITextView class]] ||
-         [[KeyboardObserverHelper sharedKeyboardObserver] isKeyboardVisible];
+         [firstResponder isKindOfClass:[UITextView class]] || _keyboardVisible;
 }
 
 - (void)openNewRegularTab {
@@ -646,6 +652,16 @@ using base::UserMetricsAction;
   bookmarks::BookmarkModel* bookmarkModel =
       ios::BookmarkModelFactory::GetForProfile(_browser->GetProfile());
   return bookmarkModel->IsBookmarked(url);
+}
+
+// Updates keyboard visibility when the keyboard is visible.
+- (void)keyboardDidShow {
+  _keyboardVisible = YES;
+}
+
+// Updates keyboard visibility when the keyboard is hidden.
+- (void)keyboardDidHide {
+  _keyboardVisible = NO;
 }
 
 @end

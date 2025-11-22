@@ -6,14 +6,17 @@
 
 #include "base/logging.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/trace_event/trace_event.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/execution_engine.h"
 #include "chrome/browser/actor/ui/actor_ui_state_manager_prefs.h"
 #include "chrome/browser/actor/ui/actor_ui_tab_controller.h"
 #include "chrome/browser/actor/ui/actor_ui_tab_controller_interface.h"
+#include "chrome/browser/actor/ui/ui_event_debugstring.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
@@ -35,9 +38,19 @@ using enum HandoffButtonState::ControlOwnership;
 // to be shared with tab controller.
 const UiTabState& GetActorControlledUiTabState() {
   static const UiTabState kActorState = {
-      .actor_overlay = ActorOverlayState(/*is_active=*/true),
+      .actor_overlay = {.is_active = true, .border_glow_visible = true},
       .handoff_button = {.is_active = true, .controller = kActor},
-      .tab_indicator_visible = true,
+      .tab_indicator = TabIndicatorStatus::kDynamic,
+      .border_glow_visible = true,
+  };
+  return kActorState;
+}
+
+const UiTabState& GetWaitingOnUserUiTabState() {
+  static const UiTabState kActorState = {
+      .actor_overlay = {.is_active = true, .border_glow_visible = true},
+      .handoff_button = {.is_active = true, .controller = kActor},
+      .tab_indicator = TabIndicatorStatus::kStatic,
       .border_glow_visible = true,
   };
   return kActorState;
@@ -45,9 +58,11 @@ const UiTabState& GetActorControlledUiTabState() {
 
 const UiTabState& GetPausedUiTabState() {
   static const UiTabState kPausedState = {
-      .actor_overlay = ActorOverlayState(/*is_active=*/false),
-      .handoff_button = {.is_active = true, .controller = kClient},
-      .tab_indicator_visible = false,
+      .actor_overlay = {.is_active = false, .border_glow_visible = false},
+      .handoff_button = {.is_active = !base::FeatureList::IsEnabled(
+                             features::kGlicHandoffButtonHiddenClientControl),
+                         .controller = kClient},
+      .tab_indicator = TabIndicatorStatus::kNone,
       .border_glow_visible = false,
   };
   return kPausedState;
@@ -55,9 +70,9 @@ const UiTabState& GetPausedUiTabState() {
 
 const UiTabState& GetCompletedUiTabState() {
   static const UiTabState kCompletedState = {
-      .actor_overlay = ActorOverlayState(/*is_active=*/false),
+      .actor_overlay = {.is_active = false, .border_glow_visible = false},
       .handoff_button = {.is_active = false, .controller = kClient},
-      .tab_indicator_visible = false,
+      .tab_indicator = TabIndicatorStatus::kNone,
       .border_glow_visible = false,
   };
   return kCompletedState;
@@ -117,7 +132,10 @@ ActorUiStateManager::~ActorUiStateManager() = default;
 // accept a callback.
 void ActorUiStateManager::OnActorTaskStateChange(
     TaskId task_id,
-    ActorTask::State new_task_state) {
+    ActorTask::State new_task_state,
+    const std::string& title) {
+  TRACE_EVENT("actor", "UiStateManager::OnActorTaskStateChange", "new_state",
+              new_task_state);
   // TODO(crbug.com/424495020): Look into converting this switch into a
   // map/catalog.
   // Notify tab-scoped UI components.
@@ -130,10 +148,16 @@ void ActorUiStateManager::OnActorTaskStateChange(
     case ActorTask::State::kReflecting:
       ui_tab_state = GetActorControlledUiTabState();
       break;
+    case ActorTask::State::kWaitingOnUser:
+      ui_tab_state = GetWaitingOnUserUiTabState();
+      break;
     case ActorTask::State::kPausedByUser:
     case ActorTask::State::kPausedByActor:
       ui_tab_state = GetPausedUiTabState();
       break;
+    // TODO(crbug.com/453997100): Propagate failure state to nudge impl,
+    // failure states should trigger the nudge for 'Check your Tasks'.
+    case ActorTask::State::kFailed:
     case ActorTask::State::kCancelled:
       ui_tab_state = GetCompletedUiTabState();
       break;
@@ -158,6 +182,11 @@ void ActorUiStateManager::OnActorTaskStateChange(
       FROM_HERE, kProfileScopedUiUpdateDebounceDelay,
       base::BindOnce(&ActorUiStateManager::NotifyActorTaskStateChange,
                      weak_factory_.GetWeakPtr(), task_id));
+
+  if (new_task_state == ActorTask::State::kFinished ||
+      new_task_state == ActorTask::State::kCancelled) {
+    NotifyActorTaskCompleted(task_id, new_task_state, title);
+  }
 }
 
 std::vector<tabs::TabInterface*> ActorUiStateManager::GetTabs(TaskId id) {
@@ -177,6 +206,8 @@ std::vector<tabs::TabInterface*> ActorUiStateManager::GetTabs(TaskId id) {
 // scoped ui components, we can look into using BarrierClosure.
 void ActorUiStateManager::OnUiEvent(AsyncUiEvent event,
                                     UiCompleteCallback callback) {
+  TRACE_EVENT("actor", "UiStateManager::OnUiEvent_Async", "event",
+              DebugString(event));
   if (base::FeatureList::IsEnabled(features::kGlicActorUi)) {
     const TabUiUpdate update = std::visit(GetNewUiStateFn(), event);
     if (auto* tab_controller =
@@ -201,6 +232,8 @@ void ActorUiStateManager::OnUiEvent(AsyncUiEvent event,
 }
 
 void ActorUiStateManager::OnUiEvent(SyncUiEvent event) {
+  TRACE_EVENT("actor", "UiStateManager::OnUiEvent_Sync", "event",
+              DebugString(event));
   if (!base::FeatureList::IsEnabled(features::kGlicActorUi)) {
     return;
   }
@@ -213,7 +246,7 @@ void ActorUiStateManager::OnUiEvent(SyncUiEvent event) {
                                weak_factory_.GetWeakPtr(), e.task_id));
           },
           [this](const TaskStateChanged& e) {
-            this->OnActorTaskStateChange(e.task_id, e.state);
+            this->OnActorTaskStateChange(e.task_id, e.state, e.title);
           },
           [](const StoppedActingOnTab& e) {
             auto* tab = e.tab_handle.Get();
@@ -231,6 +264,10 @@ void ActorUiStateManager::MaybeShowToast(BrowserWindowInterface* bwi) {
     return;
   }
 
+  if (!bwi || bwi->capabilities()->IsAttemptingToCloseBrowser()) {
+    return;
+  }
+
   PrefService* pref_service = actor_service_->GetProfile()->GetPrefs();
   int toast_shown_count = pref_service->GetInteger(kToastShown);
 
@@ -242,11 +279,10 @@ void ActorUiStateManager::MaybeShowToast(BrowserWindowInterface* bwi) {
     return;
   }
 
-  auto ids = actor_service_->FindTaskIdsInActive(
-      base::BindRepeating([](const ActorTask& task) {
-        return task.GetState() == ActorTask::State::kActing ||
-               task.GetState() == ActorTask::State::kReflecting;
-      }));
+  auto ids = actor_service_->FindTaskIdsInActive([](const ActorTask& task) {
+    return task.GetState() == ActorTask::State::kActing ||
+           task.GetState() == ActorTask::State::kReflecting;
+  });
 
   if (!ids.empty() && MaybeShowToastViaController(bwi)) {
     pref_service->SetInteger(kToastShown, toast_shown_count + 1);
@@ -257,10 +293,21 @@ void ActorUiStateManager::NotifyActorTaskStateChange(TaskId task_id) {
   actor_task_state_change_callback_list_.Notify(task_id);
 }
 
+void ActorUiStateManager::NotifyActorTaskCompleted(TaskId task_id,
+                                                   ActorTask::State final_state,
+                                                   const std::string& title) {
+  actor_task_completed_callback_list_.Notify(task_id, final_state, title);
+}
+
 base::CallbackListSubscription
 ActorUiStateManager::RegisterActorTaskStateChange(
     ActorTaskStateChangeCallback callback) {
   return actor_task_state_change_callback_list_.Add(std::move(callback));
+}
+
+base::CallbackListSubscription ActorUiStateManager::RegisterActorTaskCompleted(
+    ActorTaskCompletedCallback callback) {
+  return actor_task_completed_callback_list_.Add(std::move(callback));
 }
 
 }  // namespace actor::ui

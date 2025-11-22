@@ -82,6 +82,9 @@ BASE_FEATURE(kNtpCalendarModule, base::FEATURE_ENABLED_BY_DEFAULT);
 // If enabled, chrome cart module will be shown.
 BASE_FEATURE(kNtpChromeCartModule, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// If enabled, customization of Chrome will be promoted on the NTP.
+BASE_FEATURE(kNtpCustomizeChromeAutoOpen, base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if !defined(OFFICIAL_BUILD)
 // If enabled, dummy modules will be shown.
 // This is a development switch. Keep indefinitely.
@@ -230,6 +233,9 @@ BASE_FEATURE(kNtpMobilePromo, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kNtpMicrosoftAuthenticationModule,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// If enabled, the features of NTP Next (AI action chips etc.) will be shown.
+BASE_FEATURE(kNtpNextFeatures, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If enabled, the OGB loader will request for the async bar parts payload type.
 BASE_FEATURE(kNtpOneGoogleBarAsyncBarParts, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -312,6 +318,26 @@ const char kNtpWallpaperSearchButtonAnimationShownThresholdParam[] =
     "NtpWallpaperSearchButtonAnimationShownThresholdParam";
 const char kWallpaperSearchHatsDelayParam[] = "WallpaperSearchHatsDelayParam";
 const char kNtpMobilePromoTargetUrlParam[] = "NtpMobilePromoTargetUrlParam";
+
+const base::FeatureParam<bool> kNtpNextShowStaticTextParam(
+    &ntp_features::kNtpNextFeatures,
+    "NtpNextShowStaticTextParam",
+    false);
+const base::FeatureParam<int> kMaxTilesBeforeShowMore{
+    &ntp_features::kNtpNextFeatures, "max_tiles_before_show_more", 5};
+const base::FeatureParam<bool> kAddTabUploadDelayOnActionChipClick(
+    &ntp_features::kNtpNextFeatures,
+    "AddTabUploadDelayOnActionChipClick",
+    true);
+
+const base::FeatureParam<int> kNtpCustomizeChromeAutoShownMaxCount(
+    &ntp_features::kNtpCustomizeChromeAutoOpen,
+    "max_customize_chrome_auto_shown_count",
+    5);
+const base::FeatureParam<int> kNtpCustomizeChromeAutoShownSessionMaxCount(
+    &ntp_features::kNtpCustomizeChromeAutoOpen,
+    "max_customize_chrome_auto_shown_session_count",
+    5);
 
 const base::FeatureParam<std::string> kNtpCalendarModuleExperimentParam(
     &ntp_features::kNtpCalendarModule,
@@ -458,6 +484,10 @@ std::string GetMobilePromoTargetURL() {
       ntp_features::kNtpMobilePromo,
       ntp_features::kNtpMobilePromoTargetUrlParam);
   return (field_trial_url.empty()) ? kMobilePromoQRCodeURL : field_trial_url;
+}
+
+int GetMaxTilesBeforeShowMore() {
+  return kMaxTilesBeforeShowMore.Get();
 }
 
 }  // namespace ntp_features

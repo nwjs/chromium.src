@@ -72,6 +72,26 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Invalid Upload URL"/>
 </enum>
 
+<enum name="ClankClientCertificatesBrowserKeySecurityLevel">
+  <summary>
+    The security level of a private key created for client certificate
+    provisioning on Android.
+  </summary>
+  <int value="0" label="OSSoftware"/>
+  <int value="1" label="Trusted Environment"/>
+  <int value="2" label="StrongBox"/>
+  <int value="3" label="Unknown"/>
+</enum>
+
+<enum name="CwsPromotionBannerEvent">
+  <summary>
+    User interaction events with the enterprise promotion banner on the Chrome
+    Web Store.
+  </summary>
+  <int value="0" label="Displayed"/>
+  <int value="1" label="Clicked"/>
+</enum>
+
 <enum name="DataProtectionURLVerdictSource">
   <int value="0" label="Page UserData"/>
   <int value="1" label="Cached lookup result"/>
@@ -109,6 +129,12 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="STORE_KEY_UNAVAILABLE_NOT_INITIALIZED"/>
   <int value="7" label="STORE_KEY_UNAVAILABLE_NOT_LOCKED"/>
   <int value="8" label="STORE_KEY_UNAVAILABLE_MANAGED"/>
+</enum>
+
+<enum name="DeviceSignalsHarmfulAppsStatus">
+  <int value="0" label="Success"/>
+  <int value="1" label="Timeout"/>
+  <int value="2" label="Failed"/>
 </enum>
 
 <enum name="DeviceSignalsParsingError">
@@ -2296,6 +2322,9 @@ chromium-metrics-reviews@google.com.
   <int value="1399" label="DeveloperToolsAvailabilityAllowlist"/>
   <int value="1400" label="DeveloperToolsAvailabilityBlocklist"/>
   <int value="1401" label="LocalNetworkAccessRestrictionsTemporaryOptOut"/>
+  <int value="1402" label="GeminiActOnWebSettings"/>
+  <int value="1403" label="LocalAuthFactorsComplexity"/>
+  <int value="1404" label="ProxyOverrideRules"/>
 </enum>
 
 <enum name="EnterprisePoliciesSources">

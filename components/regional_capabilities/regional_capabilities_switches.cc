@@ -14,7 +14,7 @@ namespace switches {
 // Mitigate overlap cases between the legacy search engine promo and the
 // device-based program eligibility determinations.
 BASE_FEATURE(kMitigateLegacySearchEnginePromoOverlap,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kRestrictLegacySearchEnginePromoOnFormFactors,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -26,7 +26,7 @@ BASE_FEATURE(kResolveRegionalCapabilitiesFromDevice,
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
 BASE_FEATURE(kUseFinchPermanentCountryForFetchCountryId,
              "UseFinchPermanentCountyForFetchCountryId",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
@@ -52,6 +52,15 @@ const base::FeatureParam<RegionalCapabilitiesChoiceScreenSurface>
         &kChoiceScreenSurfaceOptions};
 #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 
-BASE_FEATURE(kDynamicProfileCountry, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDynamicProfileCountry,
+#if BUILDFLAG(IS_IOS)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
+
+BASE_FEATURE(kCurrentDseHighlightOnChoiceScreenSupport,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace switches

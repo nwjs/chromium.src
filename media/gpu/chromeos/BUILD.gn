@@ -91,6 +91,8 @@ source_set("common") {
     "registered_frame_converter.cc",
     "registered_frame_converter.h",
     "shaders/shaders.h",
+    "simple_video_frame_converter.cc",
+    "simple_video_frame_converter.h",
     "vd_video_decode_accelerator.cc",
     "vd_video_decode_accelerator.h",
     "vda_video_frame_pool.cc",
@@ -195,7 +197,7 @@ source_set("video_frame_utils") {
   deps = [
     "//base",
     "//build/config/linux/libdrm",
-    "//components/viz/common:shared_image_format",
+    "//components/viz/common/resources:shared_image_format",
     "//gpu/ipc/common",
     "//media",
     "//media/gpu:buffer_validation",

@@ -35,6 +35,7 @@ import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 
 import org.chromium.base.ContextUtils;
+import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.UserActionTester;
@@ -68,7 +69,6 @@ import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
 
-import java.util.Optional;
 import java.util.function.Supplier;
 
 /** Unit tests for the "edit url" omnibox suggestion. */
@@ -158,11 +158,11 @@ public final class EditUrlSuggestionProcessorUnitTest {
                         mContext,
                         mSuggestionHost,
                         mTextProvider,
-                        Optional.of(mImageSupplier),
+                        mImageSupplier,
                         mBookmarkState,
                         mTabSupplier,
                         mShareDelegateSupplier,
-                        () -> ControlsPosition.TOP);
+                        new ObservableSupplierImpl<>(ControlsPosition.TOP));
         mProcessor = new EditUrlSuggestionProcessor(uiContext);
         mModel = mProcessor.createModel();
 

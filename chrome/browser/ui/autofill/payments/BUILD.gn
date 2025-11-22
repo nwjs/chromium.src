@@ -26,6 +26,7 @@ source_set("payments") {
     "//chrome/browser/ui/tabs:tabs_public",
     "//components/autofill/core/browser",
     "//content/public/browser",
+    "//ui/actions:actions_headers",
     "//ui/base",
     "//ui/gfx/geometry",
   ]
@@ -268,6 +269,7 @@ source_set("unit_tests") {
 
   if (is_android) {
     sources += [
+      "android_bnpl_ui_delegate_unittest.cc",
       "android_payments_window_manager_unittest.cc",
       "autofill_message_controller_test_api.h",
       "autofill_message_controller_unittest.cc",

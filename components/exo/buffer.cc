@@ -74,10 +74,6 @@ const gfx::BufferUsage kDefaultBufferUsage = gfx::BufferUsage::GPU_READ;
 const gpu::SharedImageUsageSet kDefaultMappableSIUsage =
     gpu::SHARED_IMAGE_USAGE_DISPLAY_READ;
 
-// Killswitch for fixing SyncToken issue.
-BASE_FEATURE(kExoAlwaysUseSyncTokenFromTexture,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Gets the color type of |format| for creating bitmap. If it returns
 // SkColorType::kUnknown_SkColorType, it means with this format, this buffer
 // contents should not be used to create bitmap.
@@ -588,10 +584,7 @@ std::optional<viz::TransferableResource> Buffer::ProduceTransferableResource(
     std::unique_ptr<gfx::GpuFence> acquire_fence,
     bool secure_output_only,
     gfx::ColorSpace color_space,
-    ProtectedNativePixmapQueryDelegate* protected_native_pixmap_query,
-    PerCommitExplicitReleaseCallback per_commit_explicit_release_callback,
-    gpu::SyncToken prev_sync_token,
-    viz::TransferableResource::SynchronizationType prev_synchronization_type) {
+    ProtectedNativePixmapQueryDelegate* protected_native_pixmap_query) {
   TRACE_EVENT1("exo", "Buffer::ProduceTransferableResource", "buffer_id",
                GetBufferId());
   DCHECK(attach_count_);
@@ -613,30 +606,17 @@ std::optional<viz::TransferableResource> Buffer::ProduceTransferableResource(
       context_factory->SharedMainThreadRasterContextProvider();
   if (!context_provider) {
     DLOG(WARNING) << "Failed to acquire a context provider";
-    if (per_commit_explicit_release_callback) {
-      std::move(per_commit_explicit_release_callback)
-          .Run(/*release_fence=*/gfx::GpuFenceHandle());
-    }
     return std::nullopt;
-  }
-
-  const bool request_release_fence =
-      !per_commit_explicit_release_callback.is_null();
-  if (per_commit_explicit_release_callback) {
-    pending_explicit_releases_.emplace(
-        next_commit_id_, std::move(per_commit_explicit_release_callback));
   }
 
   // Create a new image texture for |gpu_memory_buffer_handle_| if one doesn't
   // already exist. The contents of this buffer are copied to |texture| using a
   // call to CopyTexImage.
-  gpu::SyncToken sync_token = prev_sync_token;
   if (!contents_texture_) {
     contents_texture_ = std::make_unique<Texture>(
         context_provider, &gpu_memory_buffer_handle_, format_, size_,
         color_space, query_type_, wait_for_release_delay_,
         is_overlay_candidate_);
-    sync_token = contents_texture_->sync_token();
   }
   Texture* contents_texture = contents_texture_.get();
 
@@ -682,28 +662,15 @@ std::optional<viz::TransferableResource> Buffer::ProduceTransferableResource(
     // raster/composite when the fence already signaled at this stage.
     if (acquire_fence && !acquire_fence->GetGpuFenceHandle().is_null()) {
       contents_texture->UpdateSharedImage(std::move(acquire_fence));
-      sync_token = contents_texture->sync_token();
-    }
-
-    // TODO(crbug.com/369003507): Remove this post safe roll out and clean up
-    // `prev_sync_token` which will be not needed anymore.
-    if (base::FeatureList::IsEnabled(kExoAlwaysUseSyncTokenFromTexture)) {
-      sync_token = contents_texture->sync_token();
     }
 
     auto resource = viz::TransferableResource::Make(
         contents_texture_->shared_image(),
-        viz::TransferableResource::ResourceSource::kExoBuffer, sync_token,
+        viz::TransferableResource::ResourceSource::kExoBuffer,
+        contents_texture->sync_token(),
         {
             .is_overlay_candidate = is_overlay_candidate_,
         });
-
-    resource.synchronization_type = prev_synchronization_type;
-    if (context_provider->ContextCapabilities().chromium_gpu_fence &&
-        request_release_fence) {
-      resource.synchronization_type =
-          viz::TransferableResource::SynchronizationType::kReleaseFence;
-    }
 
     // The contents texture will be released when no longer used by the
     // compositor.
@@ -740,8 +707,6 @@ std::optional<viz::TransferableResource> Buffer::ProduceTransferableResource(
       texture->shared_image(),
       viz::TransferableResource::ResourceSource::kExoBuffer,
       texture_->sync_token());
-
-  resource.synchronization_type = prev_synchronization_type;
 
   // The mailbox texture will be released when no longer used by the
   // compositor.
@@ -853,11 +818,6 @@ void Buffer::MaybeRunPerCommitRelease(
     uint64_t commit_id,
     gfx::GpuFenceHandle release_fence,
     base::OnceClosure buffer_release_callback) {
-  auto iter = pending_explicit_releases_.find(commit_id);
-  if (iter != pending_explicit_releases_.end()) {
-    std::move(iter->second).Run(release_fence.Clone());
-    pending_explicit_releases_.erase(iter);
-  }
 
   // We are still required to send these wl_buffer.release events even if
   // the client supports explicit synchronization.
@@ -963,14 +923,7 @@ SolidColorBuffer::ProduceTransferableResource(
     std::unique_ptr<gfx::GpuFence> acquire_fence,
     bool secure_output_only,
     gfx::ColorSpace color_space,
-    ProtectedNativePixmapQueryDelegate* protected_native_pixmap_query,
-    PerCommitExplicitReleaseCallback per_commit_explicit_release_callback,
-    gpu::SyncToken prev_sync_token,
-    viz::TransferableResource::SynchronizationType prev_synchronization_type) {
-  if (per_commit_explicit_release_callback) {
-    std::move(per_commit_explicit_release_callback)
-        .Run(/*release_fence=*/gfx::GpuFenceHandle());
-  }
+    ProtectedNativePixmapQueryDelegate* protected_native_pixmap_query) {
   return std::nullopt;
 }
 

@@ -22,6 +22,22 @@ chromium-metrics-reviews@google.com.
 
 <histograms>
 
+<!-- LINT.IfChange(PinAppToTaskbarChannel) -->
+
+<variants name="PinAppToTaskbarChannel">
+  <variant name="" summary=""/>
+  <variant name=".DefaultBrowserInfoBar"
+      summary=", from the default browser infobar"/>
+  <variant name=".FirstRunExperience"
+      summary=", from the first run experience"/>
+  <variant name=".PinToTaskbarInfoBar"
+      summary=", from the pin to taskbar infobar"/>
+  <variant name=".PinWebApp" summary=", from an installed web app"/>
+  <variant name=".SettingsPage" summary=", from the settings page"/>
+</variants>
+
+<!-- LINT.ThenChange(//chrome/browser/win/taskbar_manager.h:PinAppToTaskbarChannel) -->
+
 <histogram name="Windows.AcLayersLoaded" enum="BooleanLoaded"
     expires_after="2026-05-04">
   <owner>ajgo@chromium.org</owner>
@@ -186,6 +202,17 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Windows.InstallerDownloader.FailureReason"
+    enum="InstallerDownloaderFailureReason" expires_after="2026-03-01">
+  <owner>koretadaniel@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <summary>
+    Records the reason why an installer download failed after it had already
+    started. This is recorded when the download enters a terminal state other
+    than COMPLETE.
+  </summary>
+</histogram>
+
 <histogram name="Windows.InstallerDownloader.InfobarShown" enum="Boolean"
     expires_after="2026-03-01">
   <owner>koretadaniel@chromium.org</owner>
@@ -194,6 +221,18 @@ chromium-metrics-reviews@google.com.
     Logged once per browser session when the Installer Downloader infobar is
     displayed for the first time. Always true, since the metric records how
     often the prompt surfaces.
+  </summary>
+</histogram>
+
+<histogram name="Windows.InstallerDownloader.InterruptReason"
+    enum="InterruptReason" expires_after="2026-03-01">
+  <owner>koretadaniel@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <summary>
+    Records the download interrupt reason when an installer download fails to
+    start. This is recorded when the DownloadManager returns an interrupt reason
+    other than NONE, which can happen for a wide variety of reasons including
+    network errors, file errors, or server issues.
   </summary>
 </histogram>
 
@@ -321,7 +360,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.PlatformExperienceHelper.InstallerLaunchStatus.System"
-    enum="SystemInstallerLaunchStatus" expires_after="2026-02-01">
+    enum="SystemInstallerLaunchStatus" expires_after="2026-04-05">
   <owner>alsan@chromium.org</owner>
   <owner>chrome-desktop-ui-waterloo@google.com</owner>
   <summary>
@@ -331,7 +370,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.PlatformExperienceHelper.InstallerLaunchStatus.User"
-    enum="UserInstallerLaunchStatus" expires_after="2026-02-09">
+    enum="UserInstallerLaunchStatus" expires_after="2026-04-12">
   <owner>alsan@chromium.org</owner>
   <owner>chrome-desktop-ui-waterloo@google.com</owner>
   <summary>
@@ -364,18 +403,19 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Windows.ShouldPinToTaskbarResult" enum="TaskbarPinResult"
-    expires_after="2026-02-01">
+<histogram name="Windows.ShouldPinToTaskbarResult{PinAppToTaskbarChannel}"
+    enum="TaskbarPinResult" expires_after="2026-04-05">
   <owner>davidbienvenu@chromium.org</owner>
   <owner>jessemckenna@google.com</owner>
   <summary>
-    The result of calling ShouldOfferToPin(), logged when it is called. It is
-    called when deciding whether or not to offer to pin Chrome to the taskbar.
+    The result of calling ShouldOfferToPin(), logged when it is
+    called{PinAppToTaskbarChannel}. It is called when deciding whether or not to
+    offer to pin Chrome (or an installed web app) to the taskbar.
   </summary>
 </histogram>
 
 <histogram name="Windows.TaskbarPinFromFRESucceeded" enum="Boolean"
-    expires_after="2026-02-01">
+    expires_after="2026-04-05">
   <owner>davidbienvenu@chromium.org</owner>
   <owner>jessemckenna@google.com</owner>
   <summary>
@@ -397,13 +437,14 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Windows.TaskbarPinResult" enum="TaskbarPinResult"
-    expires_after="2026-02-01">
+<histogram name="Windows.TaskbarPinResult{PinAppToTaskbarChannel}"
+    enum="TaskbarPinResult" expires_after="2026-04-05">
   <owner>davidbienvenu@chromium.org</owner>
   <owner>jessemckenna@google.com</owner>
   <summary>
-    The result of calling PinAppToTaskbar(), logged when it is called. It is
-    called when the user has agreed to pin Chrome to the taskbar.
+    The result of calling PinAppToTaskbar(), logged when it is
+    called{PinAppToTaskbarChannel}. It is called when the user has agreed to pin
+    Chrome (or an installed web app) to the taskbar.
   </summary>
 </histogram>
 
@@ -421,7 +462,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.Win11HardwareRequirements.{Type}Check"
-    enum="BooleanEnabled" expires_after="2026-02-09">
+    enum="BooleanEnabled" expires_after="2026-04-12">
   <owner>estalin@chromium.org</owner>
   <owner>davidbienvenu@chromium.org</owner>
   <summary>
@@ -438,7 +479,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.Win11UpgradeEligible" enum="BooleanEnabled"
-    expires_after="2026-02-09">
+    expires_after="2026-04-12">
   <owner>estalin@chromium.org</owner>
   <owner>davidbienvenu@chromium.org</owner>
   <summary>

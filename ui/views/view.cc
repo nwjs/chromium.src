@@ -55,6 +55,7 @@
 #include "ui/base/metadata/base_type_conversion.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_provider.h"
 #include "ui/compositor/clip_recorder.h"
 #include "ui/compositor/compositor.h"
@@ -2753,7 +2754,7 @@ void View::OnThemeChanged() {
 void View::TooltipTextChanged() {
   Widget* widget = GetWidget();
   // TooltipManager may be null if there is a problem creating it.
-  if (widget && widget->GetTooltipManager()) {
+  if (widget && !widget->IsClosed() && widget->GetTooltipManager()) {
     widget->GetTooltipManager()->TooltipTextChanged(this);
   }
 
@@ -2802,7 +2803,10 @@ int View::GetVerticalDragThreshold() {
 }
 
 PaintInfo::ScaleType View::GetPaintScaleType() const {
-  return PaintInfo::ScaleType::kScaleWithEdgeSnapping;
+  if (::features::IsPixelCanvasRecordingEnabled()) {
+    return PaintInfo::ScaleType::kScaleWithEdgeSnapping;
+  }
+  return PaintInfo::ScaleType::kUniformScaling;
 }
 
 void View::HandlePropertyChangeEffects(PropertyEffects effects) {
@@ -3877,7 +3881,9 @@ void View::UpdateTooltip() {
   // TODO(beng): The TooltipManager nullptr check can be removed when we
   //             consolidate Init() methods and make views_unittests Init() all
   //             Widgets that it uses.
-  if (widget && widget->GetTooltipManager()) {
+  // Note: do not want to update tooltips while widget is closing; see
+  // https://crbug.com/452906899 for why this is bad.
+  if (widget && !widget->IsClosed() && widget->GetTooltipManager()) {
     widget->GetTooltipManager()->UpdateTooltip();
   }
 }

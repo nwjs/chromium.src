@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env vpython3
 # Copyright 2025 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -10,12 +10,16 @@ import os
 import pathlib
 import subprocess
 import sys
-import tempfile
 
 import checkout_helpers
 import constants
+import eval_config
 import promptfoo_installation
+import results
 import workers
+
+sys.path.append(str(constants.CHROMIUM_SRC))
+from agents.common import gemini_helpers
 
 TESTCASE_EXTENSION = '.promptfoo.yaml'
 _SHARD_INDEX_ENV_VAR = 'GTEST_SHARD_INDEX'
@@ -45,26 +49,35 @@ def _check_uncommitted_changes(cwd):
             'commit or stash them before running the evaluation.')
 
 
-def _build_chromium(cwd):
-    logging.info('Running `gn gen out/Default`')
-    subprocess.check_call(['gn', 'gen', 'out/Default'], cwd=cwd)
-    logging.info('Running `autoninja -C out/Default`')
-    subprocess.check_call(['autoninja', '-C', 'out/Default'], cwd=cwd)
-    logging.info('Finished building')
+def _build_chromium(cwd: pathlib.Path, configs: list[eval_config.TestConfig]):
+    targets = set(t for c in configs for t in c.precompile_targets)
+    if targets:
+        logging.info('Precompiling: %s', ','.join(targets))
+        logging.info('Running `gn gen out/Default`')
+        subprocess.check_call(
+            ['gn', 'gen', 'out/Default', '--args=use_remoteexec=true'],
+            cwd=cwd)
+        cmd = ['autoninja', '-C', 'out/Default', *targets]
+        logging.info('Running `%s`', ' '.join(cmd))
+        subprocess.check_call(['autoninja', '-C', 'out/Default', *targets],
+                              cwd=cwd)
+        logging.info('Finished building')
+    else:
+        logging.debug('No targets to precompile')
 
 
-def _discover_testcase_files() -> list[pathlib.Path]:
+def _discover_testcase_files() -> list[eval_config.TestConfig]:
     """Discovers all testcase files that can be run by this test runner.
 
     Returns:
-        A list of Paths, each path pointing to a .yaml file containing a
+        A list of TestConfigs, each corresponding to a .yaml file containing a
         promptfoo test case. No specific ordering is guaranteed.
     """
     extensions_path = constants.CHROMIUM_SRC / 'agents' / 'extensions'
     all_tests = list(extensions_path.glob(f'*/tests/**/*{TESTCASE_EXTENSION}'))
     prompts_path = constants.CHROMIUM_SRC / 'agents' / 'prompts' / 'eval'
     all_tests.extend(list(prompts_path.glob(f'**/*{TESTCASE_EXTENSION}')))
-    return all_tests
+    return [eval_config.TestConfig.from_file(t) for t in all_tests]
 
 
 def _determine_shard_values(
@@ -135,7 +148,7 @@ def _get_tests_to_run(
     shard_index: int | None,
     total_shards: int | None,
     test_filter: str | None,
-) -> list[pathlib.Path]:
+) -> list[eval_config.TestConfig]:
     """Retrieves which tests should be run for this invocation.
 
     Automatically discovers any valid tests on disk and filters them based on
@@ -144,23 +157,28 @@ def _get_tests_to_run(
     Args:
         shard_index: The swarming shard index parsed from arguments.
         total_shards: The swarming shard total parsed from arguments.
-        test_filter: The test filter parsed from arguments.
+        test_filter: The test filter parsed from arguments. Should be a string
+            containing a ::-separated list of globs to use for filtering.
 
     Returns:
-        A potentially empty list of paths, each path pointing to a valid test
+        A potentially empty list of TestConfigs, each pointing to a valid test
         to be run.
     """
     shard_index, total_shards = _determine_shard_values(
         shard_index, total_shards)
     configs_to_run = _discover_testcase_files()
-    configs_to_run.sort()
     if test_filter:
-        configs_to_run = [c for c in configs_to_run if test_filter in str(c)]
+        filters = test_filter.split('::')
+        configs_to_run = [
+            c for c in configs_to_run if c.matches_filter(filters)
+        ]
+    configs_to_run.sort()
     configs_to_run = configs_to_run[shard_index::total_shards]
     return configs_to_run
 
 
-def _perform_chromium_setup(force: bool, build: bool) -> None:
+def _perform_chromium_setup(force: bool, build: bool,
+                            configs: list[eval_config.TestConfig]) -> None:
     """Performs setup steps related to the Chromium checkout.
 
     Args:
@@ -175,38 +193,77 @@ def _perform_chromium_setup(force: bool, build: bool) -> None:
     src_path = root_path / 'src'
     _check_uncommitted_changes(src_path)
     if build:
-        _build_chromium(src_path)
+        _build_chromium(src_path, configs)
 
 
 def _fetch_sandbox_image() -> bool:
     """Pre-fetches the sandbox image.
 
+    Args:
+        gemini_cli_bin: An optional path to the gemini-cli binary to use.
+
     Returns:
         True on success, False on failure.
     """
     logging.info('Pre-fetching sandbox image. This may take a minute...')
-    # Use a simple, non-destructive prompt to trigger the one-time
-    # sandbox image download.
-    with tempfile.TemporaryDirectory() as tmpdir:
-        try:
-            subprocess.run(
-                ['gemini', '--sandbox', 'no-op'],
-                text=True,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                cwd=tmpdir,
-            )
-            return True
-        except subprocess.CalledProcessError as e:
-            output = ''
-            if e.stdout:
-                output += f'\noutput:\n{e.stdout}'
-            logging.error(
-                'Failed to pre-fetch sandbox image: %s. This may be '
-                'because you are in an environment that does not support '
-                'sandboxing. Try running with --no-sandbox.%s', e, output)
+    image = ''
+    try:
+        version = gemini_helpers.get_gemini_version()
+        if not version:
+            logging.error('Failed to get gemini version.')
             return False
+
+        image = f'{constants.GEMINI_SANDBOX_IMAGE_URL}:{version}'
+        subprocess.run(
+            ['docker', 'pull', image],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        output = ''
+        if hasattr(e, 'stdout') and e.stdout:
+            output += f'\noutput:\n{e.stdout}'
+        logging.error(
+            'Failed to pre-fetch sandbox image from %s: %s. This may be '
+            'because you are in an environment that does not support '
+            'sandboxing. Try running with --no-sandbox.%s', image, e, output)
+        return False
+
+
+def _run_tests_with_retries(worker_pool: workers.WorkerPool,
+                            configs_to_run: list[eval_config.TestConfig],
+                            retries: int) -> list[results.TestResult]:
+    """Runs tests, retrying failed tests up to a given number of times.
+
+    Args:
+        worker_pool: The worker pool to run tests on.
+        configs_to_run: A list of test configs to run.
+        retries: The number of times to retry failed tests.
+
+    Returns:
+        A list of PassKTestResult objects.
+    """
+    assert configs_to_run, 'configs_to_run should not be empty'
+
+    configs_for_current_iteration = configs_to_run
+    failed_test_results = []
+    for iteration in range(retries + 1):
+        if iteration != 0:
+            logging.info('Retrying %d failed tests (attempt %d of %d)',
+                         len(configs_for_current_iteration), iteration,
+                         retries)
+
+        worker_pool.queue_tests(configs_for_current_iteration)
+        configs_for_current_iteration = []
+        failed_test_results = worker_pool.wait_for_all_queued_tests()
+        if not failed_test_results:
+            break
+
+        configs_for_current_iteration = [r.config for r in failed_test_results]
+
+    return failed_test_results
 
 
 def _run_prompt_eval_tests(args: argparse.Namespace) -> int:
@@ -220,16 +277,24 @@ def _run_prompt_eval_tests(args: argparse.Namespace) -> int:
     """
     configs_to_run = _get_tests_to_run(args.shard_index, args.total_shards,
                                        args.filter)
+    configs_to_run = configs_to_run * (args.isolated_script_test_repeat + 1)
     if len(configs_to_run) == 0:
         logging.info('No tests to run after filtering and sharding')
         return 1
 
-    _perform_chromium_setup(force=args.force, build=not args.no_build)
+    _perform_chromium_setup(force=args.force,
+                            build=not args.no_build,
+                            configs=configs_to_run)
 
-    promptfoo_dir = pathlib.Path(tempfile.gettempdir()) / 'promptfoo'
-    promptfoo = promptfoo_installation.setup_promptfoo(promptfoo_dir,
-                                                       args.promptfoo_revision,
-                                                       args.promptfoo_version)
+    if args.promptfoo_bin:
+        promptfoo = promptfoo_installation.PreinstalledPromptfooInstallation(
+            args.promptfoo_bin)
+    else:
+        # This should be the default case. Specifying the bin or installing
+        # from npm/src should only be done for testing purposes. The cipd
+        # version is pinned which allows us to validate it before changing it.
+        promptfoo = promptfoo_installation.FromCipdPromptfooInstallation(
+            args.verbose)
 
     if args.sandbox and not _fetch_sandbox_image():
         return 1
@@ -237,26 +302,23 @@ def _run_prompt_eval_tests(args: argparse.Namespace) -> int:
     worker_options = workers.WorkerOptions(clean=not args.no_clean,
                                            verbose=args.verbose,
                                            force=args.force,
-                                           sandbox=args.sandbox)
+                                           sandbox=args.sandbox,
+                                           gemini_cli_bin=args.gemini_cli_bin)
+    result_options = results.ResultOptions(
+        print_output_on_success=args.print_output_on_success,
+        enable_perf_uploading=args.enable_perf_uploading,
+        git_revision=args.git_revision)
 
-    worker_pool = workers.WorkerPool(args.parallel_workers, promptfoo,
-                                     worker_options,
-                                     args.print_output_on_success)
-    configs_for_current_iteration = configs_to_run
-    failed_test_results = []
-    for iteration in range(args.retries + 1):
-        if iteration != 0:
-            logging.info('Re-running %d failed tests',
-                         len(configs_for_current_iteration))
-        worker_pool.queue_tests(configs_for_current_iteration)
-        configs_for_current_iteration = []
-        failed_test_results = worker_pool.wait_for_all_queued_tests()
-        if not failed_test_results:
-            break
+    worker_pool = workers.WorkerPool(
+        args.parallel_workers
+        if args.parallel_workers != -1 else len(configs_to_run),
+        promptfoo,
+        worker_options,
+        result_options,
+    )
 
-        configs_for_current_iteration = [
-            tr.test_file for tr in failed_test_results
-        ]
+    failed_test_results = _run_tests_with_retries(worker_pool, configs_to_run,
+                                                  args.retries)
 
     worker_pool.shutdown_blocking()
     returncode = 0
@@ -269,11 +331,43 @@ def _run_prompt_eval_tests(args: argparse.Namespace) -> int:
             len(failed_test_results), args.retries)
         logging.warning('Failed tests:')
         for ftr in failed_test_results:
-            logging.warning('  %s', ftr.test_file)
+            logging.warning('  %s', ftr.config.test_file)
     else:
         logging.info('Successfully ran %d tests', len(configs_to_run))
 
     return returncode
+
+
+def _validate_args(args: argparse.Namespace,
+                   parser: argparse.ArgumentParser) -> None:
+    """Validates that all parsed args have valid values.
+
+    Args:
+        args: The parsed arguments.
+        parser: The parser that parsed |args|.
+    """
+    # Perf Arguments group.
+    if args.enable_perf_uploading and not args.git_revision:
+        parser.error(
+            '--git-revision must be passed if --enable-perf-uploading is')
+
+    # Test Selection Arguments group.
+    if args.shard_index is not None and args.shard_index < 0:
+        parser.error('--shard-index must be non-negative')
+    if args.total_shards is not None and args.total_shards < 1:
+        parser.error('--total-shards must be positive')
+    if (args.shard_index is None) != (args.total_shards is None):
+        parser.error(
+            '--shard-index and --total-shards must be set together if set at '
+            'all')
+
+    # Test Runner Arguments group.
+    if args.parallel_workers < 1 and args.parallel_workers != -1:
+        parser.error('--parallel-workers must be positive or -1')
+    if args.retries < 0:
+        parser.error('--retries must be non-negative')
+    if args.isolated_script_test_repeat < 0:
+        parser.error('--isolated-script-test-repeat must be non-negative')
 
 
 def _parse_args() -> argparse.Namespace:
@@ -283,75 +377,112 @@ def _parse_args() -> argparse.Namespace:
         An argparse.Namespace containing all parsed known arguments.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--no-clean',
-                        action='store_true',
-                        help='Do not clean up the workdir after evaluation.')
-    parser.add_argument(
+    group = parser.add_argument_group('Checkout Arguments')
+    group.add_argument('--no-clean',
+                       action='store_true',
+                       help='Do not clean up the workdir after evaluation.')
+    group.add_argument('--force',
+                       '-f',
+                       action='store_true',
+                       help='Force execution, deleting existing workdirs if '
+                       'they exist.')
+    group.add_argument('--no-build',
+                       action='store_true',
+                       help='Do not build out/Default.')
+
+    group = parser.add_argument_group('Output Arguments')
+    group.add_argument('--verbose',
+                       '-v',
+                       action='store_true',
+                       help='Print debug information.')
+    group.add_argument(
+        '--print-output-on-success',
+        action='store_true',
+        help=('Print test output even when a test succeeds. By default, '
+              'output is only surfaced when a test fails.'))
+    group.add_argument(
+        '--isolated-script-test-output',
+        help='Currently unused, parsed to handle all isolated script args.')
+    group.add_argument(
+        '--isolated-script-test-perf-output',
+        help='Currently unused, parsed to handle all isolated script args.')
+
+    group = parser.add_argument_group('Perf Arguments')
+    group.add_argument(
+        '--enable-perf-uploading',
+        action='store_true',
+        help=('Upload test metrics to the perf dashboard. This is only '
+              'expected to work on the CI builders due to permissions.'))
+    group.add_argument('--git-revision',
+                       help=('The git revision being tested. Must be set if '
+                             '--enable-perf-uploading is set.'))
+
+    group = parser.add_argument_group('Test Selection Arguments')
+    filter_group = group.add_mutually_exclusive_group()
+    filter_group.add_argument(
+        '--filter', help='A ::-separated list of globs of tests to run.')
+    filter_group.add_argument(
+        '--isolated-script-test-filter',
+        dest='filter',
+        help='Alias for --filter to conform to the isolated script standard.')
+    group.add_argument(
+        '--shard-index',
+        type=int,
+        help=(f'The index of the current shard. If set, --total-shards must '
+              f'also be set. Can also be set via {_SHARD_INDEX_ENV_VAR}.'))
+    group.add_argument(
+        '--total-shards',
+        type=int,
+        help=(f'The total number of shards used to run these tests. If set, '
+              f'--shard-index must also be set. Can also be set via '
+              f'{_TOTAL_SHARDS_ENV_VAR}.'))
+
+    group = parser.add_argument_group('Promptfoo Arguments')
+    promptfoo_install_group = group.add_mutually_exclusive_group()
+    promptfoo_install_group.add_argument(
+        '--promptfoo-bin',
+        type=pathlib.Path,
+        help='Path to a custom promptfoo binary to use.')
+
+    group = parser.add_argument_group('gemini-cli Arguments')
+    group.add_argument(
         '--sandbox',
         default=False,
         action=argparse.BooleanOptionalAction,
         help='Use a sandbox for running gemini-cli. This should only be '
         'disabled for local testing.',
     )
-    parser.add_argument('--force',
-                        '-f',
-                        action='store_true',
-                        help='Force execution, deleting existing workdirs if '
-                        'they exist.')
-    parser.add_argument('--verbose',
-                        '-v',
-                        action='store_true',
-                        help='Print debug information.')
-    parser.add_argument(
-        '--print-output-on-success',
-        action='store_true',
-        help=('Print test output even when a test succeeds. By default, '
-              'output is only surfaced when a test fails.'))
-    parser.add_argument('--filter',
-                        help='Only run configs that contain this substring.')
-    parser.add_argument(
+    group.add_argument('--gemini-cli-bin',
+                       type=pathlib.Path,
+                       help='Path to a custom gemini-cli binary to use.')
+
+    group = parser.add_argument_group('Test Runner Arguments')
+    group.add_argument(
         '--parallel-workers',
         type=int,
         default=1,
         help=('The number of parallel workers to run tests in. Changing this '
               'is not recommended if the Chromium checkout being used is not '
-              'on btrfs.'))
-    parser.add_argument(
-        '--shard-index',
-        type=int,
-        help=(f'The index of the current shard. If set, --total-shards must '
-              f'also be set. Can also be set via {_SHARD_INDEX_ENV_VAR}.'))
-    parser.add_argument(
-        '--total-shards',
-        type=int,
-        help=(f'The total number of shards used to run these tests. If set, '
-              f'--shard-index must also be set. Can also be set via '
-              f'{_TOTAL_SHARDS_ENV_VAR}.'))
-    parser.add_argument('--no-build',
-                        action='store_true',
-                        help='Do not build out/Default.')
-    parser.add_argument('--retries',
-                        type=int,
-                        default=0,
-                        help='Number of times to retry a failed test.')
-    promptfoo_install_group = parser.add_mutually_exclusive_group()
-    promptfoo_install_group.add_argument(
-        '--install-promptfoo-from-npm',
-        metavar='VERSION',
-        nargs='?',
-        dest='promptfoo_version',
-        const='latest',
-        help=('Install promptfoo through npm. If no release version is given, '
-              'latest will be used.'))
-    promptfoo_install_group.add_argument(
-        '--install-promptfoo-from-src',
-        metavar='REVISION',
-        nargs='?',
-        dest='promptfoo_revision',
-        const='main',
-        help=('Build promptfoo from the given source revision. If no revision '
-              'is specified, ToT will be used.'))
-    return parser.parse_args()
+              'on btrfs. A value of -1 will use a separate worker for each '
+              'eval.'))
+    retry_group = group.add_mutually_exclusive_group()
+    retry_group.add_argument('--retries',
+                             type=int,
+                             default=0,
+                             help='Number of times to retry a failed test.')
+    retry_group.add_argument('--isolated-script-test-launcher-retry-limit',
+                             dest='retries',
+                             type=int,
+                             help=('Alias for --retries to conform to the '
+                                   'isolated script standard.'))
+    group.add_argument('--isolated-script-test-repeat',
+                       type=int,
+                       default=0,
+                       help='The number of times to repeat each test.')
+
+    args = parser.parse_args()
+    _validate_args(args, parser)
+    return args
 
 
 def main() -> int:

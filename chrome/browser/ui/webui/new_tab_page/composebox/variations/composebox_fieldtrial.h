@@ -8,8 +8,8 @@
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "chrome/browser/profiles/profile.h"
+#include "components/contextual_search/contextual_search_context_controller.h"
 #include "components/omnibox/common/omnibox_feature_configs.h"
-#include "components/omnibox/composebox/composebox_query_controller.h"
 #include "third_party/omnibox_proto/ntp_composebox_config.pb.h"
 
 class Profile;
@@ -53,6 +53,8 @@ extern const base::FeatureParam<bool> kShowRecentTabChip;
 extern const base::FeatureParam<bool> kShowContextMenuTabPreviews;
 // The maximum number of tab suggestions to show in the composebox context menu.
 extern const base::FeatureParam<int> kContextMenuMaxTabSuggestions;
+// Whether to enable multi-tab selection in the context menu.
+extern const base::FeatureParam<bool> kContextMenuEnableMultiTabSelection;
 
 // The maximum number of file attachments to upload.
 extern const base::FeatureParam<int> kMaxNumFiles;
@@ -65,15 +67,25 @@ extern const base::FeatureParam<bool> kEnableViewportImages;
 extern const base::FeatureParam<bool> kShowToolsAndModels;
 // Whether to show the create image button in the composebox context menu.
 extern const base::FeatureParam<bool> kShowCreateImageTool;
-// Whether to show a series of cycling placeholder texts on the search input UI.
-extern const base::FeatureParam<bool> kCyclingPlaceholders;
 // Whether to force tools and models to show in the composebox context menu.
 extern const base::FeatureParam<bool> kForceToolsAndModels;
+// Whether to allow drag and drop files on composebox
+extern const base::FeatureParam<bool> kEnableContextDragAndDrop;
 
 // Whether to show the submit button in the composebox.
 extern const base::FeatureParam<bool> kShowSubmit;
 // Whether to show the smart compose in the composebox.
 extern const base::FeatureParam<bool> kShowSmartCompose;
+// Whether to show the voice search button in steady state composebox.
+extern const base::FeatureParam<bool> kShowVoiceSearchInSteadyComposebox;
+// Whether to show the voice search button in expanded composebox.
+extern const base::FeatureParam<bool> kShowVoiceSearchInExpandedComposebox;
+// Whether to exit AI mode when the user clicks Escape in the composebox.
+extern const base::FeatureParam<bool> kCloseComposeboxByEscape;
+// Whether to exit AI mode when the user clicks outside the composebox.
+extern const base::FeatureParam<bool> kCloseComposeboxByClickOutside;
+// Whether to delay an upload if tab context is added from the recent tab chip.
+extern const base::FeatureParam<bool> kAddTabUploadDelayOnRecentTabChipClick;
 
 bool IsNtpComposeboxEnabled(Profile* profile);
 
@@ -83,7 +95,8 @@ bool IsCreateImagesEnabled(Profile* profile);
 
 // Helper to create a QueryControllerConfigParams object from the feature
 // params.
-std::unique_ptr<ComposeboxQueryController::QueryControllerConfigParams>
+std::unique_ptr<
+    contextual_search::ContextualSearchContextController::ConfigParams>
 CreateQueryControllerConfigParams();
 
 class FeatureConfig : public omnibox_feature_configs::Config<FeatureConfig> {
@@ -114,8 +127,19 @@ namespace ntp_realbox {
 // the feature.
 BASE_DECLARE_FEATURE(kNtpRealboxNext);
 
+enum class PlaceholderText {
+  ASK_OR_TYPE = 0,
+  ASK = 1,
+};
+
+// The placeholder text to show on the search input.
+extern const base::FeatureParam<PlaceholderText> kSteadyPlaceholder;
+
 // Whether to show a series of cycling placeholder texts on the search input UI.
 extern const base::FeatureParam<bool> kCyclingPlaceholders;
+
+// Whether to show the voice search button in the realbox.
+extern const base::FeatureParam<bool> kShowVoiceSearchInExpandedRealbox;
 
 // Enum for `kRealboxLayoutMode`.
 enum class RealboxLayoutMode {

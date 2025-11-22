@@ -1073,11 +1073,12 @@ AutofillPrivateGetEntityInstanceByGuidFunction::Run() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// AutofillPrivateGetAllEntityTypesFunction
+// AutofillPrivateGetWritableEntityTypesFunction
 
 ExtensionFunction::ResponseAction
-AutofillPrivateGetAllEntityTypesFunction::Run() {
-  const auto all_types = autofill::DenseSet<EntityType>::all();
+AutofillPrivateGetWritableEntityTypesFunction::Run() {
+  auto all_types = autofill::DenseSet<EntityType>::all();
+
   std::vector<autofill_private::EntityType> result;
   result.reserve(all_types.size());
   for (EntityType entity_type : all_types) {
@@ -1085,19 +1086,15 @@ AutofillPrivateGetAllEntityTypesFunction::Run() {
             autofill_client()->GetVariationConfigCountryCode())) {
       continue;
     }
-    autofill_private::EntityType& api_type = result.emplace_back();
-    api_type.type_name = base::to_underlying(entity_type.name());
-    api_type.type_name_as_string =
-        base::UTF16ToUTF8(entity_type.GetNameForI18n());
-    api_type.add_entity_type_string =
-        autofill_ai_util::GetAddEntityTypeStringForI18n(entity_type);
-    api_type.edit_entity_type_string =
-        autofill_ai_util::GetEditEntityTypeStringForI18n(entity_type);
-    api_type.delete_entity_type_string =
-        autofill_ai_util::GetDeleteEntityTypeStringForI18n(entity_type);
+    if (entity_type.read_only()) {
+      continue;
+    }
+    result.push_back(autofill_ai_util::EntityTypeToPrivateApiEntityType(
+        entity_type, /*supports_wallet_storage=*/false));
   }
+
   return RespondNow(ArgumentList(
-      autofill_private::GetAllEntityTypes::Results::Create(result)));
+      autofill_private::GetWritableEntityTypes::Results::Create(result)));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

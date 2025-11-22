@@ -9,18 +9,16 @@
 #include "base/scoped_observation.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/webui/searchbox/searchbox_handler.h"
+#include "chrome/browser/ui/webui/top_chrome/top_chrome_web_ui_controller.h"
 #include "components/omnibox/browser/omnibox_popup_selection.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "mojo/public/cpp/bindings/receiver.h"
-#include "mojo/public/cpp/bindings/remote.h"
 
 class MetricsReporter;
 class OmniboxController;
-class Profile;
 
 namespace content {
-class WebContents;
+class WebUI;
 }  // namespace content
 
 // Handles bidirectional communication between NTP realbox JS and the browser.
@@ -29,15 +27,18 @@ class WebuiOmniboxHandler : public SearchboxHandler,
  public:
   WebuiOmniboxHandler(
       mojo::PendingReceiver<searchbox::mojom::PageHandler> pending_page_handler,
-      Profile* profile,
-      content::WebContents* web_contents,
       MetricsReporter* metrics_reporter,
-      OmniboxController* omnibox_controller);
+      OmniboxController* omnibox_controller,
+      content::WebUI* web_ui);
 
   WebuiOmniboxHandler(const WebuiOmniboxHandler&) = delete;
   WebuiOmniboxHandler& operator=(const WebuiOmniboxHandler&) = delete;
 
   ~WebuiOmniboxHandler() override;
+
+  void SetEmbedder(base::WeakPtr<TopChromeWebUIController::Embedder> embedder) {
+    embedder_ = embedder;
+  }
 
   // searchbox::mojom::PageHandler:
   void ActivateKeyword(uint8_t line,
@@ -45,6 +46,7 @@ class WebuiOmniboxHandler : public SearchboxHandler,
                        base::TimeTicks match_selection_timestamp,
                        bool is_mouse_event) override;
   void OnThumbnailRemoved() override {}
+  void ShowContextMenu(const gfx::Point& point) override;
 
   // SearchboxHandler:
   std::optional<searchbox::mojom::AutocompleteMatchPtr> CreateAutocompleteMatch(
@@ -63,6 +65,8 @@ class WebuiOmniboxHandler : public SearchboxHandler,
   void OnSelectionChanged(OmniboxPopupSelection old_selection,
                           OmniboxPopupSelection selection) override;
   void OnMatchIconUpdated(size_t index) override {}
+  void OnContentsChanged() override {}
+  void OnKeywordStateChanged(bool is_keyword_selected) override;
 
  private:
   // Observe `OmniboxEditModel` for updates that require updating the views.
@@ -70,6 +74,8 @@ class WebuiOmniboxHandler : public SearchboxHandler,
       edit_model_observation_{this};
 
   raw_ptr<MetricsReporter> metrics_reporter_;
+
+  base::WeakPtr<TopChromeWebUIController::Embedder> embedder_;
 
   base::WeakPtrFactory<WebuiOmniboxHandler> weak_ptr_factory_{this};
 };

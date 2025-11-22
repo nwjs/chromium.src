@@ -31,7 +31,6 @@
 #include "base/win/sid.h"
 #include "ipc/ipc_channel.h"
 #include "ipc/ipc_channel_proxy.h"
-#include "ipc/ipc_message.h"
 #include "mojo/public/cpp/platform/platform_channel.h"
 #include "mojo/public/cpp/system/invitation.h"
 #include "remoting/base/crash/breakpad_utils.h"
@@ -381,12 +380,6 @@ void UnprivilegedProcessDelegate::KillProcess() {
     TerminateProcess(worker_process_.Get(), CONTROL_C_EXIT);
     worker_process_.Close();
   }
-}
-
-bool UnprivilegedProcessDelegate::OnMessageReceived(
-    const IPC::Message& message) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  NOTREACHED() << "Received unexpected IPC type: " << message.type();
 }
 
 void UnprivilegedProcessDelegate::OnChannelConnected(int32_t peer_pid) {

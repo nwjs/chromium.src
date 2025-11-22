@@ -1,0 +1,27 @@
+import("//build/rust/rust_static_library.gni")
+
+rust_static_library("mojom_parser") {
+  sources = [
+    "ast.rs",
+    "deparse_values.rs",
+    "lib.rs",
+    "pack.rs",
+    "parse_messages.rs",
+    "parse_primitives.rs",
+    "parse_values.rs",
+  ]
+  crate_root = "lib.rs"
+  deps = [ "//third_party/rust/anyhow/v1:lib" ]
+}
+
+rust_static_library("mojom_parser_unittests") {
+  testonly = true
+  is_gtest_unittests = true
+  crate_root = "test.rs"
+  sources = [ "test.rs" ]
+  deps = [
+    ":mojom_parser",
+    "//testing/rust_gtest_interop",
+    "//third_party/rust/anyhow/v1:lib",
+  ]
+}

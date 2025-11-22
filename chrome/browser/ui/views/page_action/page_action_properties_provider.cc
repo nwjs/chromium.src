@@ -135,6 +135,21 @@ constexpr auto kPageActionProperties =
                 .element_identifier = FindBarIcon::kElementId,
             },
         },
+        {
+            kActionShowCookieControls,
+            {
+                .histogram_name = "CookieControls",
+                .type = PageActionIconType::kCookieControls,
+                .element_identifier = kCookieControlsIconElementId,
+            },
+        },
+        {
+            kActionShowAddressesBubbleOrPage,
+            {
+                .histogram_name = "AddressAutofill",
+                .type = PageActionIconType::kAutofillAddress,
+            },
+        },
     });
 
 constexpr bool CheckIgnoreFlagUsage() {

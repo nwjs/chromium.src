@@ -25,7 +25,6 @@
 #include "base/test/test_future.h"
 #include "chromeos/ash/components/dbus/shill/shill_clients.h"
 #include "chromeos/ash/components/network/network_handler.h"
-#include "chromeos/ash/services/assistant/public/cpp/features.h"
 #include "chromeos/ash/services/assistant/test_support/scoped_assistant_browser_delegate.h"
 #include "ui/aura/window.h"
 #include "ui/base/accelerators/test_accelerator_target.h"
@@ -139,9 +138,9 @@ TEST_F(AcceleratorTest, Basic) {
 TEST_F(AcceleratorTest, NonRepeatableNeedingWindowActions) {
   // Create a bunch of windows to work with.
   aura::Window* window_1 =
-      CreateTestWindowInShellWithBounds(gfx::Rect(0, 0, 100, 100));
+      CreateTestWindowInShell({.bounds = {100, 100}, .window_id = 0});
   aura::Window* window_2 =
-      CreateTestWindowInShellWithBounds(gfx::Rect(0, 0, 100, 100));
+      CreateTestWindowInShell({.bounds = {100, 100}, .window_id = 0});
   window_1->Show();
   wm::ActivateWindow(window_1);
   window_2->Show();
@@ -185,15 +184,7 @@ TEST_F(AcceleratorTest, ToggleAppList) {
   GetAppListTestHelper()->CheckVisibility(false);
 }
 
-class AcceleratorNewEntryPointTest : public AcceleratorTest {
- private:
-  // Accelerators registration happens at early stage. Test body is late to
-  // configure a flag.
-  base::test::ScopedFeatureList scoped_feature_list{
-      ash::assistant::features::kEnableNewEntryPoint};
-};
-
-TEST_F(AcceleratorNewEntryPointTest, AssistantKeyWithNewEntryPointEnabled) {
+TEST_F(AcceleratorTest, AssistantKeyWithNewEntryPointEnabled) {
   base::UserActionTester user_action_tester;
 
   base::test::TestFuture<void> open_new_entry_point_future;
@@ -210,7 +201,7 @@ TEST_F(AcceleratorNewEntryPointTest, AssistantKeyWithNewEntryPointEnabled) {
                    "Assistant.NewEntryPoint.AssistantKey"));
 }
 
-TEST_F(AcceleratorNewEntryPointTest, NoSearchPlusAWithNewEntryPointEnabled) {
+TEST_F(AcceleratorTest, NoSearchPlusAWithNewEntryPointEnabled) {
   base::UserActionTester user_action_tester;
 
   base::test::TestFuture<void> open_new_entry_point_future;

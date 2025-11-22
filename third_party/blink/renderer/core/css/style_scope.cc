@@ -17,10 +17,10 @@ StyleScope::StyleScope(StyleRule* from, CSSSelectorList* to)
     : from_(from), to_(to) {}
 
 StyleScope::StyleScope(const StyleScope& other)
-    : from_(other.from_
-                ? To<StyleRule>(other.from_->Clone(/*new_parent=*/nullptr,
-                                                   /*env_bindings=*/nullptr))
-                : nullptr),
+    : from_(other.from_ ? To<StyleRule>(other.from_->Clone(
+                              /*new_parent=*/nullptr,
+                              /*mixin_parameter_bindings=*/nullptr))
+                        : nullptr),
       to_(other.to_ ? other.to_->Renest(/*new_parent=*/nullptr) : nullptr),
       parent_(other.parent_) {}
 
@@ -31,10 +31,10 @@ StyleScope* StyleScope::CopyWithParent(const StyleScope* parent) const {
 }
 
 const StyleScope* StyleScope::Clone(StyleRule* new_parent) const {
-  StyleRule* reparented_from = from_
-                                   ? blink::To<StyleRule>(from_->Clone(
-                                         new_parent, /*env_bindings=*/nullptr))
-                                   : nullptr;
+  StyleRule* reparented_from =
+      from_ ? blink::To<StyleRule>(from_->Clone(
+                  new_parent, /*mixin_parameter_bindings=*/nullptr))
+            : nullptr;
   // Note that for the "to" selector, any '&' selectors must point
   // to the "from" selector.
   CSSSelectorList* reparented_to = to_ ? to_->Renest(reparented_from) : nullptr;
@@ -102,11 +102,21 @@ StyleScope* StyleScope::Parse(CSSParserTokenStream& stream,
     // to `ParseScopeBoundary` here.
     //
     // https://drafts.csswg.org/css-nesting-1/#nesting-at-scope
+    //
+    // Note: We are in the process of changing this behavior. The '&' pseudo-
+    // class should now behave like :where(:scope), which is what we
+    // automatically get if we pass nullptr as the parent rule.
+    // See crbug.com/445949406.
+    StyleRule* parent_rule_for_to_selector =
+        RuntimeEnabledFeatures::CSSScopeifiedParentPseudoClassEnabled()
+            ? nullptr
+            : from_rule;
     CSSParserTokenStream::BlockGuard guard(stream);
     stream.ConsumeWhitespace();
     to = CSSSelectorParser::ParseScopeBoundary(
         stream, context, CSSNestingType::kScope,
-        /* parent_rule_for_nesting */ from_rule, style_sheet, arena);
+        /*parent_rule_for_nesting=*/parent_rule_for_to_selector, style_sheet,
+        arena);
     if (to.empty()) {
       return nullptr;
     }
@@ -122,6 +132,13 @@ StyleScope* StyleScope::Parse(CSSParserTokenStream& stream,
   }
 
   return MakeGarbageCollected<StyleScope>(from_rule, to_list);
+}
+
+StyleRule* StyleScope::RuleForNesting() const {
+  if (RuntimeEnabledFeatures::CSSScopeifiedParentPseudoClassEnabled()) {
+    return nullptr;
+  }
+  return from_.Get();
 }
 
 void StyleScope::Trace(blink::Visitor* visitor) const {

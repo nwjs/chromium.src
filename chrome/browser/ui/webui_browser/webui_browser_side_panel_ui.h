@@ -7,6 +7,7 @@
 
 #include <optional>
 
+#include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_ui_base.h"
 
 class Browser;
@@ -22,17 +23,18 @@ class WebUIBrowserSidePanelUI : public SidePanelUIBase {
   ~WebUIBrowserSidePanelUI() override;
 
   // SidePanelUI:
-  void Close() override;
+  void Close(SidePanelEntry::PanelType panel_type) override;
   void Toggle(SidePanelEntryKey key,
               SidePanelOpenTrigger open_trigger) override;
-  void OpenInNewTab() override;
+  void ShowFrom(SidePanelEntryKey entry_key,
+                gfx::Rect starting_bounds) override;
   content::WebContents* GetWebContentsForTest(SidePanelEntryId id) override;
   void DisableAnimationsForTesting() override;
   void SetNoDelaysForTesting(bool no_delays_for_testing) override;
 
   content::WebContents* GetWebContentsForId(SidePanelEntryId entry_id) const;
 
-  void OnSidePanelClosed();
+  void OnSidePanelClosed(SidePanelEntry::PanelType type);
 
  private:
   // SidePanelUIBase:

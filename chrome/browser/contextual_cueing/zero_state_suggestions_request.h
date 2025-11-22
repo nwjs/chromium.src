@@ -11,6 +11,7 @@
 #include "base/callback_list.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
 #include "components/optimization_guide/proto/features/zero_state_suggestions.pb.h"
 
 class OptimizationGuideKeyedService;
@@ -26,6 +27,7 @@ struct OptimizationGuideModelExecutionResult;
 
 namespace contextual_cueing {
 
+enum class PageContextIneligibilityType;
 class ZeroStateSuggestionsPageData;
 
 // Encapsulates logic for a single zero-state suggestions request.
@@ -49,6 +51,8 @@ class ZeroStateSuggestionsRequest {
   // Returns the tabs that were requested to get suggestions for.
   std::vector<content::WebContents*> GetRequestedTabs() const;
 
+  base::WeakPtr<ZeroStateSuggestionsRequest> AsWeakPtr();
+
  private:
   friend class ContextualCueingServiceTestZeroStateSuggestions;
 
@@ -56,7 +60,8 @@ class ZeroStateSuggestionsRequest {
   // extracted.
   void OnAllPageContextExtracted(
       const std::vector<
-          std::optional<optimization_guide::proto::ZeroStatePageContext>>&
+          base::expected<optimization_guide::proto::ZeroStatePageContext,
+                         PageContextIneligibilityType>>&
           zero_state_page_contexts);
 
   // Callback invoked when model execution has completed.

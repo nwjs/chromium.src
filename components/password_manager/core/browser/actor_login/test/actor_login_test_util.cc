@@ -8,6 +8,9 @@
 #include "components/autofill/core/common/autofill_test_utils.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_field_data.h"
+#include "components/password_manager/core/browser/password_form.h"
+#include "components/password_manager/core/browser/password_manager_util.h"
+#include "url/origin.h"
 
 namespace actor_login {
 
@@ -15,14 +18,30 @@ using autofill::FormData;
 using autofill::FormFieldData;
 using autofill::test::CreateTestFormField;
 using autofill::test::MakeFormRendererId;
+using password_manager::PasswordForm;
 
 Credential CreateTestCredential(const std::u16string& username,
-                                const GURL& url) {
+                                const GURL& url,
+                                const url::Origin& request_origin) {
   Credential credential;
   credential.username = username;
   credential.source_site_or_app = base::UTF8ToUTF16(url.spec());
+  credential.request_origin = request_origin;
   credential.type = CredentialType::kPassword;
   return credential;
+}
+
+PasswordForm CreateSavedPasswordForm(const GURL& url,
+                                     const std::u16string& username,
+                                     const std::u16string& password) {
+  PasswordForm form;
+  form.url = url;
+  form.signon_realm = password_manager_util::GetSignonRealm(url);
+  form.username_value = username;
+  form.password_value = password;
+  form.match_type = PasswordForm::MatchType::kExact;
+  form.in_store = password_manager::PasswordForm::Store::kAccountStore;
+  return form;
 }
 
 FormData CreateSigninFormData(const GURL& url) {

@@ -31,6 +31,7 @@
 #include "chrome/browser/web_applications/generated_icon_fix_util.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_integrity_block_data.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
+#include "chrome/browser/web_applications/model/app_installed_by.h"
 #include "chrome/browser/web_applications/proto/web_app.pb.h"
 #include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
 #include "chrome/browser/web_applications/proto/web_app_launch_handler.pb.h"
@@ -77,6 +78,11 @@
 namespace web_app {
 
 namespace {
+
+// Records the result of parsing a WebApp protobuf object into a WebApp class.
+void RecordProtoParseResult(ProtoParseResult result) {
+  base::UmaHistogramEnumeration("WebAppProto.Parse.Result", result);
+}
 
 DisplayMode ToMojomDisplayMode(proto::WebApp::DisplayMode display_mode) {
   switch (display_mode) {
@@ -439,8 +445,11 @@ std::unique_ptr<WebApp> ParseWebAppProtoForTesting(  // IN-TEST
   return web_app;
 }
 
+// Converts a WebApp protobuf into a WebApp object. Failure and success cases
+// are measured via histograms.
 std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
   if (!proto.has_sync_data()) {
+    RecordProtoParseResult(ProtoParseResult::kNoSyncData);
     DLOG(ERROR) << "WebApp proto parse error: no sync_data field";
     return nullptr;
   }
@@ -448,12 +457,14 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
   const sync_pb::WebAppSpecifics& sync_data = proto.sync_data();
 
   if (!sync_data.has_start_url()) {
+    RecordProtoParseResult(ProtoParseResult::kNoStartUrlInSyncData);
     DLOG(ERROR) << "WebApp proto start_url parse error: no start_url field";
     return nullptr;
   }
 
   GURL start_url(sync_data.start_url());
   if (start_url.is_empty() || !start_url.is_valid()) {
+    RecordProtoParseResult(ProtoParseResult::kInvalidStartUrl);
     DLOG(ERROR) << "WebApp proto start_url parse error: "
                 << start_url.possibly_invalid_spec();
     return nullptr;
@@ -461,31 +472,37 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
 
   // Post-migration check: Scope should not be empty.
   if (!proto.has_scope() || proto.scope().empty()) {
+    RecordProtoParseResult(ProtoParseResult::kNoScope);
     DLOG(ERROR) << "WebApp proto parse error: scope is empty.";
     return nullptr;
   }
   GURL scope(proto.scope());
   if (!scope.is_valid()) {
+    RecordProtoParseResult(ProtoParseResult::kInvalidScope);
     DLOG(ERROR) << "WebApp proto scope parse error: "
                 << scope.possibly_invalid_spec();
     return nullptr;
   }
   if (scope.has_ref()) {
+    RecordProtoParseResult(ProtoParseResult::kInvalidScopeWithRef);
     DLOG(ERROR) << "WebApp proto has ref: " << scope.possibly_invalid_spec();
     return nullptr;
   }
   if (scope.has_query()) {
+    RecordProtoParseResult(ProtoParseResult::kInvalidScopeWithQuery);
     DLOG(ERROR) << "WebApp proto has query: " << scope.possibly_invalid_spec();
     return nullptr;
   }
 
   if (!sync_data.has_relative_manifest_id()) {
+    RecordProtoParseResult(ProtoParseResult::kNoRelativeManifestId);
     DLOG(ERROR) << "WebApp proto parse error: no relative_manifest_id field.";
     return nullptr;
   }
   webapps::ManifestId manifest_id =
       GenerateManifestId(sync_data.relative_manifest_id(), start_url);
   if (!manifest_id.is_valid()) {
+    RecordProtoParseResult(ProtoParseResult::kInvalidManifestId);
     DLOG(ERROR) << "WebApp proto manifest_id parse error: cannot generate "
                    "valid manifest id from relative_manifest_id: "
                 << sync_data.relative_manifest_id()
@@ -504,12 +521,15 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
 
   if (!sync_data.has_user_display_mode_cros() &&
       !sync_data.has_user_display_mode_default()) {
+    RecordProtoParseResult(ProtoParseResult::kNoUserDisplayModeInSync);
     DLOG(ERROR) << "WebApp proto parse error: no user_display_mode field";
     return nullptr;
   }
 
   // Post-migration check: Ensure current platform UDM is set.
   if (!HasCurrentPlatformUserDisplayMode(sync_data)) {
+    RecordProtoParseResult(
+        ProtoParseResult::kMissingUserDisplayModeForCurrentPlatform);
     DLOG(ERROR) << "WebApp proto parse error: missing user display mode for "
                    "current platform";
     return nullptr;
@@ -539,6 +559,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
   // Required fields:
   if (!proto.has_sources()) {
     DLOG(ERROR) << "WebApp proto parse error: no sources field";
+    RecordProtoParseResult(ProtoParseResult::kNoSources);
     return nullptr;
   }
 
@@ -566,6 +587,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
                       proto.sources().aps_default());
 
   if (sources.empty() && !proto.is_uninstalling()) {
+    RecordProtoParseResult(ProtoParseResult::kNoSourcesAndNotUninstalling);
     DLOG(ERROR) << "WebApp proto parse error: no source in sources field, "
                    "and is_uninstalling isn't true.";
     return nullptr;
@@ -573,16 +595,19 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
   web_app->sources_ = sources;
 
   if (!proto.has_name()) {
+    RecordProtoParseResult(ProtoParseResult::kNoName);
     DLOG(ERROR) << "WebApp proto parse error: no name field";
     return nullptr;
   }
   web_app->SetName(proto.name());
 
   if (!proto.has_install_state()) {
+    RecordProtoParseResult(ProtoParseResult::kNoInstallState);
     DLOG(ERROR) << "WebApp proto parse error: no install_state field";
     return nullptr;
   }
   if (!proto::InstallState_IsValid(proto.install_state())) {
+    RecordProtoParseResult(ProtoParseResult::kInvalidInstallState);
     DLOG(ERROR) << "WebApp proto parse error: invalid install_state field: "
                 << proto.install_state();
     return nullptr;
@@ -601,6 +626,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
   auto& chromeos_data_proto = proto.chromeos_data();
 
   if (IsChromeOsDataMandatory() && !proto.has_chromeos_data()) {
+    RecordProtoParseResult(ProtoParseResult::kMissingChromeOsData);
     DLOG(ERROR) << "WebApp proto parse error: no chromeos_data field. The web "
                 << "app might have been installed when running on an OS other "
                 << "than Chrome OS.";
@@ -608,6 +634,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
   }
 
   if (!IsChromeOsDataMandatory() && proto.has_chromeos_data()) {
+    RecordProtoParseResult(ProtoParseResult::kHasChromeOsDataOnNonChromeOs);
     DLOG(ERROR) << "WebApp proto parse error: has chromeos_data field. The web "
                 << "app might have been installed when running on Chrome OS.";
     return nullptr;
@@ -712,6 +739,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
   std::optional<std::vector<apps::IconInfo>> parsed_manifest_icons =
       ParseAppIconInfos("WebApp", proto.manifest_icons());
   if (!parsed_manifest_icons) {
+    RecordProtoParseResult(ProtoParseResult::kNoManifestIcons);
     // ParseWebAppIconInfos() reports any errors.
     return nullptr;
   }
@@ -744,6 +772,8 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
   for (const auto& file_handler_proto : proto.file_handlers()) {
     if (!file_handler_proto.has_action() ||
         !file_handler_proto.has_launch_type()) {
+      RecordProtoParseResult(
+          ProtoParseResult::kInvalidFileHandlerNoActionOrLaunchType);
       DLOG(ERROR) << "WebApp FileHandler proto parse error";
       return nullptr;
     }
@@ -751,6 +781,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
     file_handler.action = GURL(file_handler_proto.action());
 
     if (file_handler.action.is_empty() || !file_handler.action.is_valid()) {
+      RecordProtoParseResult(ProtoParseResult::kInvalidFileHandlerAction);
       DLOG(ERROR) << "WebApp FileHandler proto action parse error";
       return nullptr;
     }
@@ -765,6 +796,8 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
 
     for (const auto& accept_entry_proto : file_handler_proto.accept()) {
       if (!accept_entry_proto.has_mimetype()) {
+        RecordProtoParseResult(
+            ProtoParseResult::kInvalidFileHandlerAcceptEntry);
         DLOG(ERROR) << "WebApp FileHandler proto parse error for "
                     << file_handler.action;
         return nullptr;
@@ -786,6 +819,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
     std::optional<std::vector<apps::IconInfo>> file_handler_icon_infos =
         ParseAppIconInfos("WebApp", file_handler_proto.downloaded_icons());
     if (!file_handler_icon_infos) {
+      RecordProtoParseResult(ProtoParseResult::kInvalidIconsInFileHandler);
       // ParseAppIconInfos() reports any errors.
       return nullptr;
     }
@@ -799,6 +833,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
     const proto::ShareTarget& local_share_target = proto.share_target();
     if (!local_share_target.has_action() || !local_share_target.has_method() ||
         !local_share_target.has_enctype() || !local_share_target.has_params()) {
+      RecordProtoParseResult(ProtoParseResult::kInvalidShareTarget);
       DLOG(ERROR) << "WebApp proto Share Target parse error";
       return nullptr;
     }
@@ -809,6 +844,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
 
     GURL action(local_share_target.action());
     if (action.is_empty() || !action.is_valid()) {
+      RecordProtoParseResult(ProtoParseResult::kInvalidShareTargetAction);
       DLOG(ERROR) << "WebApp proto action parse error: "
                   << action.possibly_invalid_spec();
       return nullptr;
@@ -831,6 +867,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
     for (const auto& share_target_params_file :
          local_share_target_params.files()) {
       if (!share_target_params_file.has_name()) {
+        RecordProtoParseResult(ProtoParseResult::kInvalidShareTargetFile);
         DLOG(ERROR) << "WebApp proto Share Target files parse error for "
                     << share_target.action;
         return nullptr;
@@ -856,6 +893,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
   std::vector<WebAppShortcutsMenuItemInfo> shortcuts_menu_item_infos;
   for (const auto& shortcut_info_proto : proto.shortcuts_menu_item_infos()) {
     if (!shortcut_info_proto.has_name() || !shortcut_info_proto.has_url()) {
+      RecordProtoParseResult(ProtoParseResult::kInvalidShortcutsMenuItemInfo);
       DLOG(ERROR) << "WebApp proto Shortcut Menu Item Info parse error";
       return nullptr;
     }
@@ -923,6 +961,8 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
     shortcuts_menu_icons_sizes.emplace_back();
   }
   if (shortcut_menu_item_size < shortcuts_menu_icons_sizes.size()) {
+    RecordProtoParseResult(
+        ProtoParseResult::kMoreDownloadedShortcutIconsThanInfos);
     DLOG(ERROR) << "WebApp proto had more downloaded shortcut icons than infos";
     return nullptr;
   }
@@ -939,6 +979,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
   for (const std::string& additional_search_term :
        proto.additional_search_terms()) {
     if (additional_search_term.empty()) {
+      RecordProtoParseResult(ProtoParseResult::kEmptyAdditionalSearchTerm);
       DLOG(ERROR) << "WebApp AdditionalSearchTerms proto action parse error";
       return nullptr;
     }
@@ -950,6 +991,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
   for (const auto& protocol_handler_proto : proto.protocol_handlers()) {
     if (!protocol_handler_proto.has_protocol() ||
         !protocol_handler_proto.has_url()) {
+      RecordProtoParseResult(ProtoParseResult::kInvalidProtocolHandler);
       DLOG(ERROR) << "WebApp proto Protocol Handler parse error";
       return nullptr;
     }
@@ -957,6 +999,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
     protocol_handler.protocol = protocol_handler_proto.protocol();
     GURL protocol_handler_url(protocol_handler_proto.url());
     if (protocol_handler_url.is_empty() || !protocol_handler_url.is_valid()) {
+      RecordProtoParseResult(ProtoParseResult::kInvalidProtocolHandlerUrl);
       DLOG(ERROR) << "WebApp ProtocolHandler proto url parse error: "
                   << protocol_handler_url.possibly_invalid_spec();
       return nullptr;
@@ -971,6 +1014,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
   for (const std::string& allowed_launch_protocol :
        proto.allowed_launch_protocols()) {
     if (allowed_launch_protocol.empty()) {
+      RecordProtoParseResult(ProtoParseResult::kEmptyAllowedLaunchProtocol);
       DLOG(ERROR) << "WebApp AllowedLaunchProtocols proto action parse error";
       return nullptr;
     }
@@ -982,6 +1026,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
   for (const std::string& disallowed_launch_protocol :
        proto.disallowed_launch_protocols()) {
     if (disallowed_launch_protocol.empty()) {
+      RecordProtoParseResult(ProtoParseResult::kEmptyDisallowedLaunchProtocol);
       DLOG(ERROR)
           << "WebApp DisallowedLaunchProtocols proto action parse error";
       return nullptr;
@@ -994,21 +1039,25 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
   for (const auto& scope_extension_proto : proto.scope_extensions()) {
     if (!scope_extension_proto.has_origin() ||
         !scope_extension_proto.has_has_origin_wildcard()) {
+      RecordProtoParseResult(ProtoParseResult::kInvalidScopeExtension);
       DLOG(ERROR) << "WebApp Scope Extension Info proto parse error";
       return nullptr;
     }
     url::Origin origin =
         url::Origin::Create(GURL(scope_extension_proto.origin()));
     if (origin.opaque()) {
+      RecordProtoParseResult(ProtoParseResult::kOpaqueScopeExtensionOrigin);
       DLOG(ERROR) << "WebAppScopeExtensionProto's `origin` is opaque: "
                   << scope_extension_proto.origin();
       return nullptr;
     }
     if (origin == url::Origin()) {
+      RecordProtoParseResult(ProtoParseResult::kEmptyScopeExtensionOrigin);
       DLOG(ERROR) << "WebAppScopeExtensionProto's `origin` is empty";
       return nullptr;
     }
     if (!GURL(scope_extension_proto.scope()).is_valid()) {
+      RecordProtoParseResult(ProtoParseResult::kInvalidScopeExtensionScope);
       DLOG(ERROR) << "WebAppScopeExtensionProto's `scope` url is invalid: "
                   << scope_extension_proto.scope();
       return nullptr;
@@ -1026,15 +1075,19 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
     url::Origin origin =
         url::Origin::Create(GURL(scope_extension_proto.origin()));
     if (origin.opaque()) {
+      RecordProtoParseResult(ProtoParseResult::kOpaqueValidatedScopeExtension);
       DLOG(ERROR) << "WebAppScopeExtensionProto's `origin` is opaque: "
                   << scope_extension_proto.origin();
       return nullptr;
     }
     if (origin == url::Origin()) {
+      RecordProtoParseResult(
+          ProtoParseResult::kEmptyValidatedScopeExtensionOrigin);
       DLOG(ERROR) << "WebAppScopeExtensionProto's `origin` is empty";
       return nullptr;
     }
     if (!GURL(scope_extension_proto.scope()).is_valid()) {
+      RecordProtoParseResult(ProtoParseResult::kInvalidScopeExtensionValidated);
       DLOG(ERROR) << "WebAppScopeExtensionProto's `scope` url is invalid: "
                   << scope_extension_proto.scope();
       return nullptr;
@@ -1044,6 +1097,8 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
         ScopeExtensionInfo::CreateForProto(scope_extension_proto);
 
     if (!scope_extension.origin.IsSameOriginWith(scope_extension.scope)) {
+      RecordProtoParseResult(
+          ProtoParseResult::kScopeExtensionOriginMismatchWithScope);
       return nullptr;
     }
 
@@ -1067,6 +1122,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
   if (proto.has_manifest_url()) {
     GURL manifest_url(proto.manifest_url());
     if (manifest_url.is_empty() || !manifest_url.is_valid()) {
+      RecordProtoParseResult(ProtoParseResult::kInvalidManifestUrl);
       DLOG(ERROR) << "WebApp proto manifest_url parse error: "
                   << manifest_url.possibly_invalid_spec();
       return nullptr;
@@ -1130,6 +1186,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
     for (const auto& install_url_proto : management_proto.install_urls()) {
       GURL install_url(install_url_proto);
       if (install_url.is_empty() || !install_url.is_valid()) {
+        RecordProtoParseResult(ProtoParseResult::kInvalidInstallUrl);
         DLOG(ERROR) << "WebApp proto install_url parse error: "
                     << install_url.possibly_invalid_spec();
         return nullptr;
@@ -1139,6 +1196,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
     base::flat_set<std::string> additional_policy_ids;
     for (const auto& policy_id : management_proto.additional_policy_ids()) {
       if (policy_id.empty()) {
+        RecordProtoParseResult(ProtoParseResult::kEmptyPolicyId);
         DLOG(ERROR) << "WebApp proto empty policy_id";
         return nullptr;
       }
@@ -1180,6 +1238,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
     auto iwa_version = IwaVersion::Create(proto.isolation_data().version());
 
     if (!iwa_version.has_value()) {
+      RecordProtoParseResult(ProtoParseResult::kInvalidIsolationDataVersion);
       DLOG(ERROR) << "WebApp proto isolation_data.version parse error: cannot "
                      "deserialize version: "
                   << IwaVersion::GetErrorString(iwa_version.error());
@@ -1189,6 +1248,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
     base::expected<IsolatedWebAppStorageLocation, std::string> location =
         ProtoToIsolationDataLocation(proto.isolation_data());
     if (!location.has_value()) {
+      RecordProtoParseResult(ProtoParseResult::kInvalidIsolationDataLocation);
       DLOG(ERROR) << "WebApp proto isolation_data.location" << location.error();
       return nullptr;
     }
@@ -1209,12 +1269,16 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
           pending_location =
               ProtoToIsolationDataLocation(pending_update_info_proto);
       if (!pending_location.has_value()) {
+        RecordProtoParseResult(
+            ProtoParseResult::kInvalidPendingUpdateInfoLocation);
         DLOG(ERROR)
             << "WebApp proto isolation_data.pending_update_info.location"
             << pending_location.error();
         return nullptr;
       }
       if (pending_location->dev_mode() != location->dev_mode()) {
+        RecordProtoParseResult(
+            ProtoParseResult::kDevModeMismatchInIsolationData);
         DLOG(ERROR) << "WebApp proto isolation_data.pending_update_info "
                        "deserialization error: "
                        "isolation_data.pending_update_info.location and "
@@ -1227,6 +1291,8 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
           IwaVersion::Create(pending_update_info_proto.version());
 
       if (!pending_iwa_version.has_value()) {
+        RecordProtoParseResult(
+            ProtoParseResult::kInvalidPendingUpdateInfoVersion);
         DLOG(ERROR)
             << "WebApp proto isolation_data.pending_update_info.version parse "
                "error: cannot deserialize version: "
@@ -1240,6 +1306,8 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
         auto result = IsolatedWebAppIntegrityBlockData::FromProto(
             pending_update_info_proto.integrity_block_data());
         if (!result.has_value()) {
+          RecordProtoParseResult(
+              ProtoParseResult::kInvalidPendingUpdateIntegrityBlockData);
           DLOG(ERROR) << "WebApp proto "
                          "isolation_data.pending_update_info.integrity_block "
                          "data parse error: "
@@ -1259,6 +1327,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
       auto result = IsolatedWebAppIntegrityBlockData::FromProto(
           proto.isolation_data().integrity_block_data());
       if (!result.has_value()) {
+        RecordProtoParseResult(ProtoParseResult::kInvalidIntegrityBlockData);
         DLOG(ERROR)
             << "WebApp proto isolation_data.integrity_block_data parse error: "
             << result.error();
@@ -1270,6 +1339,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
     if (proto.isolation_data().has_update_manifest_url()) {
       GURL update_manifest_url(proto.isolation_data().update_manifest_url());
       if (!update_manifest_url.is_valid()) {
+        RecordProtoParseResult(ProtoParseResult::kInvalidUpdateManifestUrlIwa);
         DLOG(ERROR) << "WebApp proto isolation_data.update_manifest_url is not "
                        "a valid GURL.";
         return nullptr;
@@ -1282,6 +1352,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
       auto update_channel =
           UpdateChannel::Create(proto.isolation_data().update_channel());
       if (!update_channel.has_value()) {
+        RecordProtoParseResult(ProtoParseResult::kInvalidUpdateChannel);
         DLOG(ERROR)
             << "WebApp proto isolation_data.update_channel is not valid.";
         return nullptr;
@@ -1310,6 +1381,7 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
 
   if (proto.has_generated_icon_fix()) {
     if (!generated_icon_fix_util::IsValid(proto.generated_icon_fix())) {
+      RecordProtoParseResult(ProtoParseResult::kInvalidGeneratedIconFix);
       return nullptr;
     }
     web_app->SetGeneratedIconFix(proto.generated_icon_fix());
@@ -1351,7 +1423,11 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
     // Exit early if there is a `PendingUpdateInfo` that is completely empty.
     if (!proto.pending_update_info().has_name() &&
         proto.pending_update_info().trusted_icons().empty() &&
-        proto.pending_update_info().manifest_icons().empty()) {
+        proto.pending_update_info().manifest_icons().empty() &&
+        proto.pending_update_info().downloaded_trusted_icons().empty() &&
+        proto.pending_update_info().downloaded_manifest_icons().empty() &&
+        !proto.pending_update_info().has_was_ignored()) {
+      RecordProtoParseResult(ProtoParseResult::kEmptyPendingUpdateInfo);
       return nullptr;
     }
 
@@ -1359,6 +1435,8 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
     // vice versa.
     if (proto.pending_update_info().trusted_icons().empty() !=
         proto.pending_update_info().manifest_icons().empty()) {
+      RecordProtoParseResult(
+          ProtoParseResult::kMismatchedPendingUpdateInfoIcons);
       return nullptr;
     }
 
@@ -1366,22 +1444,67 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
     if (!proto.pending_update_info().manifest_icons().empty() &&
         !proto.pending_update_info().trusted_icons().empty()) {
       for (const auto& icon : proto.pending_update_info().manifest_icons()) {
-        if (!icon.has_url() || !icon.has_size_in_px() || !icon.has_purpose()) {
+        if (!icon.has_url() || !icon.has_purpose()) {
+          RecordProtoParseResult(
+              ProtoParseResult::kInvalidPendingUpdateManifestIcons);
           return nullptr;
         }
       }
       for (const auto& icon : proto.pending_update_info().trusted_icons()) {
-        if (!icon.has_url() || !icon.has_size_in_px() || !icon.has_purpose()) {
+        if (!icon.has_url() || !icon.has_purpose()) {
+          RecordProtoParseResult(
+              ProtoParseResult::kInvalidPendingUpdateTrustedIcons);
+          return nullptr;
+        }
+      }
+      // If manifest_icons and trusted_icons are populated, then
+      // downloaded_trusted_icon_sizes and downloaded_manifest_icon_sizes must
+      // also be populated.
+      if (proto.pending_update_info().downloaded_trusted_icons().empty() ||
+          proto.pending_update_info().downloaded_manifest_icons().empty()) {
+        RecordProtoParseResult(
+            ProtoParseResult::kMissingDownloadedIconsForPendingUpdate);
+        return nullptr;
+      }
+
+      for (const auto& icon :
+           proto.pending_update_info().downloaded_manifest_icons()) {
+        // It's fine if there are no sizes specified for a purpose, but the
+        // purpose has to exist.
+        if (!icon.has_purpose()) {
+          RecordProtoParseResult(
+              ProtoParseResult::kInvalidDownloadedManifestIconForPendingUpdate);
+          return nullptr;
+        }
+      }
+      for (const auto& icon :
+           proto.pending_update_info().downloaded_trusted_icons()) {
+        // It's fine if there are no sizes specified for a purpose, but the
+        // purpose has to exist.
+        if (!icon.has_purpose()) {
+          RecordProtoParseResult(
+              ProtoParseResult::kInvalidDownloadedTrustedIconForPendingUpdate);
           return nullptr;
         }
       }
     }
+
+    // The `was_ignored` field should always be set, and default initialized by
+    // database migration in case of proto version differences. This not being
+    // set is an error case.
+    if (!proto.pending_update_info().has_was_ignored()) {
+      RecordProtoParseResult(
+          ProtoParseResult::kMissingWasIgnoredForPendingUpdate);
+      return nullptr;
+    }
+
     web_app->SetPendingUpdateInfo(proto.pending_update_info());
   }
 
   std::optional<std::vector<apps::IconInfo>> parsed_trusted_icons =
       ParseAppIconInfos("WebApp", proto.trusted_icons());
   if (!parsed_trusted_icons) {
+    RecordProtoParseResult(ProtoParseResult::kInvalidParsedTrustedIcons);
     // ParseWebAppIconInfos() reports any errors.
     return nullptr;
   }
@@ -1404,10 +1527,25 @@ std::unique_ptr<WebApp> ParseWebAppProto(const proto::WebApp& proto) {
 
   auto borderless_url_patterns = ToUrlPatterns(proto.borderless_url_patterns());
   if (!borderless_url_patterns.has_value()) {
+    RecordProtoParseResult(ProtoParseResult::kInvalidBorderlessUrlPatterns);
     return nullptr;
   }
   web_app->SetBorderlessUrlPatterns(std::move(borderless_url_patterns.value()));
 
+  std::deque<AppInstalledBy> installed_by_data;
+  for (const auto& installed_by_proto : proto.installed_by()) {
+    std::optional<AppInstalledBy> installed_by =
+        AppInstalledBy::Parse(installed_by_proto);
+    if (!installed_by.has_value()) {
+      RecordProtoParseResult(ProtoParseResult::kInvalidInstalledBy);
+      DLOG(ERROR) << "WebApp proto Installed By field parse error";
+      return nullptr;
+    }
+    installed_by_data.push_back(std::move(installed_by.value()));
+  }
+  web_app->SetInstalledBy(InstalledByPassKey(), std::move(installed_by_data));
+
+  RecordProtoParseResult(ProtoParseResult::kSuccess);
   return web_app;
 }
 
@@ -1932,12 +2070,16 @@ std::unique_ptr<proto::WebApp> WebAppToProto(const WebApp& web_app) {
     if (!web_app.pending_update_info()->manifest_icons().empty() &&
         !web_app.pending_update_info()->trusted_icons().empty()) {
       for (const auto& icon : web_app.pending_update_info()->manifest_icons()) {
-        CHECK(icon.has_url() && icon.has_size_in_px() && icon.has_purpose());
+        CHECK(icon.has_url() && icon.has_purpose());
       }
       for (const auto& icon : web_app.pending_update_info()->trusted_icons()) {
-        CHECK(icon.has_url() && icon.has_size_in_px() && icon.has_purpose());
+        CHECK(icon.has_url() && icon.has_purpose());
       }
+      CHECK(
+          !web_app.pending_update_info()->downloaded_manifest_icons().empty() &&
+          !web_app.pending_update_info()->downloaded_trusted_icons().empty());
     }
+    CHECK(web_app.pending_update_info()->has_was_ignored());
     *local_data->mutable_pending_update_info() = *web_app.pending_update_info();
   }
 
@@ -1957,6 +2099,10 @@ std::unique_ptr<proto::WebApp> WebAppToProto(const WebApp& web_app) {
 
   for (const auto& pattern : web_app.borderless_url_patterns()) {
     *(local_data->add_borderless_url_patterns()) = ToUrlPatternProto(pattern);
+  }
+
+  for (const auto& installed_by_data : web_app.installed_by()) {
+    *(local_data->add_installed_by()) = installed_by_data.ToProto();
   }
 
   return local_data;

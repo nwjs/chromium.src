@@ -249,7 +249,8 @@ std::optional<std::pair<int, AuthenticatorTransport>> GetWindowsAPIButtonLabel(
         (transport_availability.transport_list_did_include_internal ||
          transport_availability.has_empty_allow_list) &&
         transport_availability.has_platform_authenticator_credential ==
-            device::FidoRequestHandlerBase::RecognizedCredential::kUnknown;
+            device::FidoRequestHandlerBase::RecognizedCredential::kUnknown &&
+        transport_availability.win_is_uvpaa;
     win_handles_hybrid =
         (transport_availability.transport_list_did_include_hybrid ||
          transport_availability.has_empty_allow_list) &&
@@ -258,10 +259,11 @@ std::optional<std::pair<int, AuthenticatorTransport>> GetWindowsAPIButtonLabel(
         transport_availability.transport_list_did_include_security_key ||
         transport_availability.has_empty_allow_list;
   } else {
-    win_handles_internal = transport_availability.make_credential_attachment ==
-                               device::AuthenticatorAttachment::kPlatform ||
-                           transport_availability.make_credential_attachment ==
-                               device::AuthenticatorAttachment::kAny;
+    win_handles_internal = (transport_availability.make_credential_attachment ==
+                                device::AuthenticatorAttachment::kPlatform ||
+                            transport_availability.make_credential_attachment ==
+                                device::AuthenticatorAttachment::kAny) &&
+                           transport_availability.win_is_uvpaa;
     win_handles_security_key =
         transport_availability.make_credential_attachment ==
             device::AuthenticatorAttachment::kCrossPlatform ||
@@ -371,7 +373,7 @@ const gfx::VectorIcon& GetMechanismIcon(
             // Always use the standard iCloud Keychain icon here.
             return kIcloudKeychainIcon;
           },
-          [](const Mechanism::AddPhone&) -> const gfx::VectorIcon& {
+          [](const Mechanism::Hybrid&) -> const gfx::VectorIcon& {
             return kQrcodeGeneratorIcon;
           },
           [](const Mechanism::Enclave&) -> const gfx::VectorIcon& {
@@ -392,7 +394,7 @@ bool MechanismMatchesHint(const Mechanism::Type& mech,
           [hint](const Mechanism::Transport& transport) {
             return transport.value() == hint;
           },
-          [hint](const Mechanism::AddPhone&) {
+          [hint](const Mechanism::Hybrid&) {
             return hint == AuthenticatorTransport::kHybrid;
           },
           [hint](const Mechanism::Enclave&) {
@@ -1176,7 +1178,7 @@ void AuthenticatorRequestDialogController::StartPlatformAuthenticatorFlow() {
       return;
     }
 
-    if (transport_availability_.is_off_the_record_context) {
+    if (model_->is_off_the_record) {
       // Step::kCreatePasskey incorporates an incognito warning if
       // applicable, so the OTR interstitial step only needs to show in the
       // "old" UI.
@@ -1325,7 +1327,7 @@ bool AuthenticatorRequestDialogController::OnWinUserCancelled() {
   bool phone_is_option =
       !WebAuthnApiSupportsHybrid() &&
       std::ranges::any_of(model_->mechanisms, [](const Mechanism& m) -> bool {
-        return std::holds_alternative<Mechanism::AddPhone>(m.type);
+        return std::holds_alternative<Mechanism::Hybrid>(m.type);
       });
   bool have_other_option = enclave_is_option || phone_is_option;
   bool windows_was_priority =
@@ -1814,7 +1816,7 @@ void AuthenticatorRequestDialogController::StartGuidedFlowForTransport(
   }
 }
 
-void AuthenticatorRequestDialogController::StartGuidedFlowForAddPhone() {
+void AuthenticatorRequestDialogController::StartHybridFlow() {
   EnsureBleAdapterIsPoweredAndContinue(
       base::BindOnce(&AuthenticatorRequestDialogController::SetCurrentStep,
                      weak_factory_.GetWeakPtr(), Step::kCableV2QRCode));
@@ -2170,12 +2172,12 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
         !include_usb_option;
     std::u16string label = l10n_util::GetStringUTF16(
         GetHybridButtonLabel(model_->show_security_key_on_qr_sheet));
-    Mechanism::Type mechanism_type = Mechanism::AddPhone();
+    Mechanism::Type mechanism_type = Mechanism::Hybrid();
     model_->mechanisms.emplace_back(
         mechanism_type, label,
         GetMechanismIcon(mechanism_type, ui_presentation()),
         base::BindRepeating(
-            &AuthenticatorRequestDialogController::StartGuidedFlowForAddPhone,
+            &AuthenticatorRequestDialogController::StartHybridFlow,
             base::Unretained(this)));
   }
   if (include_usb_option) {
@@ -2413,7 +2415,7 @@ AuthenticatorRequestDialogController::IndexOfMakeCredentialPriorityMechanism() {
   const bool is_passkey_request = model_->resident_key_requirement !=
                                   device::ResidentKeyRequirement::kDiscouraged;
   if (is_passkey_request) {
-    priority_list.emplace_back(Mechanism::AddPhone());
+    priority_list.emplace_back(Mechanism::Hybrid());
   } else {
     priority_list.emplace_back(Mechanism::WindowsAPI());
   }

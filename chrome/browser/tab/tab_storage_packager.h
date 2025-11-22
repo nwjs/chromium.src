@@ -8,33 +8,53 @@
 #include <memory>
 #include <string>
 
-#include "base/android/scoped_java_ref.h"
-#include "chrome/browser/tab/android_tab_package.h"
-#include "chrome/browser/tab/tab_storage_package.h"
-#include "components/tabs/public/tab_interface.h"
+#include "chrome/browser/tab/payload.h"
+#include "chrome/browser/tab/protocol/children.pb.h"
+#include "components/tabs/public/split_tab_collection.h"
+#include "components/tabs/public/tab_group_tab_collection.h"
+#include "components/tabs/public/tab_strip_collection.h"
 
 namespace tabs {
+class TabInterface;
+class TabCollection;
+class StoragePackage;
+class StorageIdMapping;
 
 // This class is used to package tab data for use in the background thread.
 class TabStoragePackager {
  public:
   TabStoragePackager();
-  ~TabStoragePackager();
+  virtual ~TabStoragePackager();
 
   TabStoragePackager(const TabStoragePackager&) = delete;
   TabStoragePackager& operator=(const TabStoragePackager&) = delete;
 
-  // Packages the tab's data for later use. After packaging a tab, its data
-  // is available via the #ReleasePackage() method.
-  virtual void Package(TabInterface* tab) = 0;
+  // Packages the tab's data for later use.
+  virtual std::unique_ptr<StoragePackage> Package(const TabInterface* tab) = 0;
 
-  // Allows the unique ownership of the underlying TabStoragePackage to be
-  // transferred out of the packager. After this call, the stored package will
-  // be null.
-  virtual std::unique_ptr<TabStoragePackage> ReleasePackage() = 0;
+  // Packages an arbitrary tab collection's state for later use. Conceptually
+  // just this collection is represented by the package, not parents or
+  // children's data. However the identity and order of children should be
+  // captured in this package.
+  std::unique_ptr<StoragePackage> Package(const TabCollection* collection,
+                                          StorageIdMapping& mapping);
+
+  // Packages only the children of a collection for storage.
+  std::unique_ptr<Payload> PackageChildren(const TabCollection* collection,
+                                           StorageIdMapping& mapping);
 
  protected:
-  std::unique_ptr<TabStoragePackage> package_;
+  virtual std::unique_ptr<Payload> PackageTabStripCollectionData(
+      const TabStripCollection* collection,
+      StorageIdMapping& mapping) = 0;
+
+ private:
+  std::unique_ptr<Payload> PackageTabGroupTabCollectionData(
+      const TabGroupTabCollection* collection,
+      StorageIdMapping& mapping);
+  std::unique_ptr<Payload> PackageSplitTabCollectionData(
+      const SplitTabCollection* collection,
+      StorageIdMapping& mapping);
 };
 
 }  // namespace tabs

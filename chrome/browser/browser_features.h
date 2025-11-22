@@ -43,7 +43,6 @@ BASE_DECLARE_FEATURE(kClearUserDataUponProfileDestruction);
 
 #if BUILDFLAG(IS_LINUX)
 BASE_DECLARE_FEATURE(kDbusSecretPortal);
-BASE_DECLARE_FEATURE(kUseFreedesktopSecretKeyProvider);
 #endif
 
 BASE_DECLARE_FEATURE(kDestroyProfileOnBrowserClose);
@@ -74,10 +73,8 @@ const base::FeatureParam<int>
         &features::kNewTabPageTriggerForPrefetch,
         "prefetch_start_delay_on_mouse_hover_ms", 300};
 
-#if BUILDFLAG(IS_ANDROID)
-BASE_DECLARE_FEATURE(kNotificationOneTapUnsubscribe);
-extern base::FeatureParam<bool>
-    kNotificationOneTapUnsubscribeUseServiceIntentParam;
+#if !BUILDFLAG(IS_ANDROID)
+BASE_DECLARE_FEATURE(kNotificationOneTapUnsubscribeOnDesktop);
 #endif
 
 BASE_DECLARE_FEATURE(kPromoBrowserCommands);
@@ -94,7 +91,6 @@ BASE_DECLARE_FEATURE(kSandboxExternalProtocolBlockedWarning);
 
 #if BUILDFLAG(IS_LINUX)
 BASE_DECLARE_FEATURE(kSecretPortalKeyProviderUseForEncryption);
-BASE_DECLARE_FEATURE(kUseFreedesktopSecretKeyProviderForEncryption);
 #endif
 
 BASE_DECLARE_FEATURE(kTriggerNetworkDataMigration);

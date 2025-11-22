@@ -173,7 +173,7 @@ luci.cq_group(
             users = [
                 "chrome-cherry-picker@chops-service-accounts.iam.gserviceaccount.com",
             ],
-            run = cq.run_limits(max_active = 3),
+            run = cq.run_limits(max_active = 6),
         ),
     ],
 )
@@ -238,7 +238,9 @@ exec("./try/tryserver.chromium.fuzz.star")
 exec("./try/tryserver.chromium.infra.star")
 exec("./try/tryserver.chromium.linux.star")
 exec("./try/tryserver.chromium.mac.star")
+exec("./try/tryserver.chromium.prompt_eval.star")
 exec("./try/tryserver.chromium.rust.star")
 exec("./try/tryserver.chromium.tricium.star")
 exec("./try/tryserver.chromium.updater.star")
 exec("./try/tryserver.chromium.win.star")
+exec("./try/tryserver.crossbench.star")

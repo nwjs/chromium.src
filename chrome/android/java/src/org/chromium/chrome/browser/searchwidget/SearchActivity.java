@@ -57,18 +57,19 @@ import org.chromium.chrome.browser.metrics.UmaActivityObserver;
 import org.chromium.chrome.browser.omnibox.BackKeyBehaviorDelegate;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
 import org.chromium.chrome.browser.omnibox.LocationBarEmbedderUiOverrides;
+import org.chromium.chrome.browser.omnibox.OmniboxActionDelegateImpl;
 import org.chromium.chrome.browser.omnibox.UrlFocusChangeListener;
 import org.chromium.chrome.browser.omnibox.suggestions.CachedZeroSuggestionsManager;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxLoadUrlParams;
-import org.chromium.chrome.browser.omnibox.suggestions.action.OmniboxActionDelegateImpl;
 import org.chromium.chrome.browser.password_manager.ManagePasswordsReferrer;
 import org.chromium.chrome.browser.password_manager.PasswordManagerLauncher;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.rlz.RevenueStats;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
-import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabFavicon;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tabwindow.TabWindowInfo;
 import org.chromium.chrome.browser.toolbar.VoiceToolbarButtonController;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager.SnackbarManageable;
@@ -79,6 +80,7 @@ import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.S
 import org.chromium.chrome.browser.ui.system.StatusBarColorController;
 import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
 import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.PageClassification;
+import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.ui.base.ActivityKeyboardVisibilityDelegate;
 import org.chromium.ui.base.ActivityWindowAndroid;
@@ -327,10 +329,8 @@ public class SearchActivity extends AsyncInitializationActivity
                         this::loadUrl,
                         /* backKeyBehavior= */ this,
                         /* pageInfoAction= */ (tab, pageInfoHighlight) -> {},
-                        this::bringTabToFront,
                         this::bringTabGroupToFront,
                         /*omniboxUma*/ (url, transition, isNtp) -> {},
-                        TabWindowManagerSingleton::getInstance,
                         /* bookmarkState= */ (url) -> false,
                         VoiceToolbarButtonController::isToolbarMicEnabled,
                         /* merchantTrustSignalsCoordinatorSupplier= */ null,
@@ -366,17 +366,21 @@ public class SearchActivity extends AsyncInitializationActivity
                                                 () -> getModalDialogManager(),
                                                 /* managePasskeys= */ false),
                                 // Open Quick Delete Dialog callback:
-                                null),
+                                null,
+                                TabWindowManagerSingleton::getInstance,
+                                this::bringTabToFront),
                         null,
                         backPressManager,
                         /* omniboxSuggestionsDropdownScrollListener= */ null,
-                        /* tabModelSelectorSupplier= */ null,
+                        /* tabModelSelectorSupplier= */ new ObservableSupplierImpl<>(),
                         mLocationBarUiOverrides,
                         findViewById(R.id.control_container),
                         /* bottomWindowPaddingSupplier */ () -> 0,
                         /* onLongClickListener= */ null,
                         /* browserControlsStateProvider= */ null,
-                        /* isToolbarPositionCustomizationEnabled= */ false);
+                        /* isToolbarPositionCustomizationEnabled= */ false,
+                        /* pageZoomManager= */ null,
+                        TabFavicon::getBitmap);
         mLocationBarCoordinator.setUrlBarFocusable(true);
         mLocationBarCoordinator.setShouldShowMicButtonWhenUnfocused(true);
         assumeNonNull(mLocationBarCoordinator.getOmniboxStub()).addUrlFocusChangeListener(this);
@@ -482,7 +486,8 @@ public class SearchActivity extends AsyncInitializationActivity
     /** Translate current intent origin and extras to a PageClassification. */
     @VisibleForTesting
     /* package */ void refinePageClassWithProfile(Profile profile) {
-        int pageClass = mSearchBoxDataProvider.getPageClassification(false);
+        int pageClass =
+                mSearchBoxDataProvider.getPageClassification(AutocompleteRequestType.SEARCH);
 
         // Verify if the PageClassification can be refined.
         var url = SearchActivityUtils.getIntentUrl(getIntent());
@@ -895,9 +900,9 @@ public class SearchActivity extends AsyncInitializationActivity
         }
     }
 
-    private void bringTabToFront(Tab tab) {
+    private void bringTabToFront(TabWindowInfo tabWindowInfo, GURL url) {
         finish(TerminationReason.BRING_TAB_TO_FRONT, /* loadUrlParams= */ null);
-        IntentHandler.bringTabToFront(tab);
+        IntentHandler.bringTabToFront(tabWindowInfo.tab);
     }
 
     private void bringTabGroupToFront(String tabGroupId) {

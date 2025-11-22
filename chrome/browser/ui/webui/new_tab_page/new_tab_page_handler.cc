@@ -42,14 +42,17 @@
 #include "chrome/browser/new_tab_page/modules/new_tab_page_modules.h"
 #include "chrome/browser/new_tab_page/new_tab_page_util.h"
 #include "chrome/browser/new_tab_page/promos/promo_service_factory.h"
+#include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/promos/promos_pref_names.h"
 #include "chrome/browser/promos/promos_utils.h"
 #include "chrome/browser/search/background/ntp_custom_background_service.h"
+#include "chrome/browser/search/background/ntp_custom_background_service_factory.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/themes/custom_theme_supplier.h"
 #include "chrome/browser/themes/theme_properties.h"
+#include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -57,6 +60,7 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
+#include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/views/new_tab_footer/footer_controller.h"
 #include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.h"
 #include "chrome/browser/ui/webui/new_tab_footer/new_tab_footer_helper.h"
@@ -86,12 +90,14 @@
 #include "components/segmentation_platform/public/prediction_options.h"
 #include "components/segmentation_platform/public/segmentation_platform_service.h"
 #include "components/sync/service/sync_service.h"
+#include "components/user_education/common/feature_promo/feature_promo_controller.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/actions/actions.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/theme_provider.h"
 #include "ui/color/color_provider.h"
@@ -123,6 +129,32 @@ std::vector<std::string> GetSurveyEligibleModuleIds() {
       ",:;", base::WhitespaceHandling::TRIM_WHITESPACE,
       base::SplitResult::SPLIT_WANT_NONEMPTY);
 }
+
+const void* const kCustomizeChromeAutoOpenedUserDataKey =
+    &kCustomizeChromeAutoOpenedUserDataKey;
+
+class CustomizeChromeAutoOpenedUserData : public base::SupportsUserData::Data {
+ public:
+  static CustomizeChromeAutoOpenedUserData* GetOrCreateForProfile(
+      Profile* profile) {
+    auto* data = static_cast<CustomizeChromeAutoOpenedUserData*>(
+        profile->GetUserData(kCustomizeChromeAutoOpenedUserDataKey));
+    if (!data) {
+      data = new CustomizeChromeAutoOpenedUserData();
+      profile->SetUserData(kCustomizeChromeAutoOpenedUserDataKey,
+                           base::WrapUnique(data));
+    }
+    return data;
+  }
+
+  int times_opened() const { return times_opened_; }
+  void IncrementTimesOpened() { times_opened_ += 1; }
+
+ private:
+  CustomizeChromeAutoOpenedUserData() = default;
+
+  int times_opened_ = 0;
+};
 
 // Returns true if we should force dark foreground colors for the Google logo
 // and the One Google Bar. This is done to fix specific GWS themes where the
@@ -480,6 +512,8 @@ NewTabPageHandler::NewTabPageHandler(
               GURL(chrome::kChromeUINewTabPageURL),
               ntp_navigation_start_time),
       promo_service_(PromoServiceFactory::GetForProfile(profile)),
+      microsoft_auth_service_(
+          MicrosoftAuthServiceFactory::GetForProfile(profile)),
       interaction_module_id_trigger_dict_(
           MakeModuleInteractionTriggerIdDictionary()),
       browser_window_changed_subscription_(
@@ -510,7 +544,6 @@ NewTabPageHandler::NewTabPageHandler(
     }
   }
 
-  microsoft_auth_service_ = MicrosoftAuthServiceFactory::GetForProfile(profile);
   if (microsoft_auth_service_) {
     microsoft_auth_service_->AddObserver(this);
   }
@@ -542,6 +575,11 @@ NewTabPageHandler::NewTabPageHandler(
       prefs::kSeedColorChangeCount,
       base::BindRepeating(&NewTabPageHandler::MaybeShowWebstoreToast,
                           base::Unretained(this)));
+
+  pref_change_registrar_.Add(
+      prefs::kNtpToolChipsVisible,
+      base::BindRepeating(&NewTabPageHandler::UpdateActionChipsVisibility,
+                          base::Unretained(this)));
 }
 
 NewTabPageHandler::~NewTabPageHandler() {
@@ -561,6 +599,7 @@ void NewTabPageHandler::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterListPref(prefs::kNtpHiddenModules);
   registry->RegisterListPref(prefs::kNtpModulesOrder);
   registry->RegisterBooleanPref(prefs::kNtpModulesVisible, true);
+  registry->RegisterBooleanPref(prefs::kNtpToolChipsVisible, true);
   registry->RegisterIntegerPref(prefs::kNtpCustomizeChromeButtonOpenCount, 0);
   registry->RegisterDictionaryPref(prefs::kNtpModulesInteractedCountDict);
   registry->RegisterDictionaryPref(prefs::kNtpModulesLoadedCountDict);
@@ -568,6 +607,11 @@ void NewTabPageHandler::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(prefs::kNtpOutlookModuleVisible, false);
   registry->RegisterBooleanPref(prefs::kNtpSharepointModuleVisible, false);
   registry->RegisterIntegerPref(prefs::kNtpComposeButtonShownCountPrefName, 0);
+  registry->RegisterIntegerPref(
+      prefs::kNtpCustomizeChromeSidePanelAutoOpeningsCount, 0);
+  registry->RegisterBooleanPref(prefs::kNtpCustomizeChromeExplicitlyClosed,
+                                false);
+  registry->RegisterBooleanPref(prefs::kNtpCustomizeChromeIPHAutoOpened, false);
 }
 
 void NewTabPageHandler::SetMostVisitedSettings(ntp_tiles::TileType type,
@@ -581,8 +625,11 @@ void NewTabPageHandler::SetMostVisitedSettings(ntp_tiles::TileType type,
 
   ntp_tiles::TileType old_type = GetTileType();
   if (old_type != type) {
-    profile_->GetPrefs()->SetInteger(ntp_prefs::kNtpShortcutsType,
-                                     static_cast<int>(type));
+    profile_->GetPrefs()->SetBoolean(ntp_prefs::kNtpCustomLinksVisible,
+                                     type == ntp_tiles::TileType::kCustomLinks);
+    profile_->GetPrefs()->SetBoolean(
+        ntp_prefs::kNtpEnterpriseShortcutsVisible,
+        type == ntp_tiles::TileType::kEnterpriseShortcuts);
     logger_.LogEvent(NTP_CUSTOMIZE_SHORTCUT_TOGGLE_TYPE,
                      base::TimeDelta() /* unused */);
   }
@@ -794,6 +841,10 @@ void NewTabPageHandler::UpdateModulesLoadable() {
   if (!microsoft_auth_service_ || SyncMicrosoftModulesWithAuth()) {
     page_->SetModulesLoadable();
   }
+}
+
+void NewTabPageHandler::UpdateActionChipsVisibility() {
+  page_->SetActionChipsVisibility(IsActionChipsVisible());
 }
 
 void NewTabPageHandler::UpdateFooterVisibility() {
@@ -1150,6 +1201,11 @@ void NewTabPageHandler::OnBrowserWindowInterfaceChanged() {
   footer_controller_observation_.Observe(footer_controller);
 }
 
+void NewTabPageHandler::MaybeTriggerAutomaticCustomizeChromePromo() {
+  feature_promo_helper_->MaybeTriggerAutomaticCustomizeChromePromo(
+      web_contents_);
+}
+
 void NewTabPageHandler::LogEvent(NTPLoggingEventType event) {
   logger_.LogEvent(event, base::TimeDelta() /* unused */);
 }
@@ -1241,8 +1297,19 @@ void NewTabPageHandler::OnLogFetchResult(OnDoodleImageRenderedCallback callback,
 }
 
 ntp_tiles::TileType NewTabPageHandler::GetTileType() const {
-  return static_cast<ntp_tiles::TileType>(
-      profile_->GetPrefs()->GetInteger(ntp_prefs::kNtpShortcutsType));
+  // TODO(crbug.com/444707872): Update logic to account for multi-select
+  // support for shortcuts.
+  if (profile_->GetPrefs()->GetBoolean(
+          ntp_prefs::kNtpEnterpriseShortcutsVisible)) {
+    return ntp_tiles::TileType::kEnterpriseShortcuts;
+  }
+  return profile_->GetPrefs()->GetBoolean(ntp_prefs::kNtpCustomLinksVisible)
+             ? ntp_tiles::TileType::kCustomLinks
+             : ntp_tiles::TileType::kTopSites;
+}
+
+bool NewTabPageHandler::IsActionChipsVisible() const {
+  return profile_->GetPrefs()->GetBoolean(prefs::kNtpToolChipsVisible);
 }
 
 bool NewTabPageHandler::IsShortcutsVisible() const {

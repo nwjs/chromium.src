@@ -7,6 +7,8 @@
 
 #include <optional>
 
+#include "base/callback_list.h"
+#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
@@ -18,6 +20,10 @@
 class CookieControlsBubbleViewImpl;
 class CookieControlsBubbleViewController;
 
+namespace actions {
+class ActionItem;
+}
+
 namespace content {
 class WebContents;
 }
@@ -28,8 +34,8 @@ class CookieControlsBubbleCoordinator : public views::ViewObserver {
 
   ~CookieControlsBubbleCoordinator() override;
 
-  explicit CookieControlsBubbleCoordinator(
-      BrowserWindowInterface* browser_window);
+  CookieControlsBubbleCoordinator(BrowserWindowInterface* browser_window,
+                                  actions::ActionItem* root_action_item);
 
   static CookieControlsBubbleCoordinator* From(BrowserWindowInterface* window);
 
@@ -41,6 +47,9 @@ class CookieControlsBubbleCoordinator : public views::ViewObserver {
       content_settings::CookieControlsController* controller);
 
   virtual CookieControlsBubbleViewImpl* GetBubble() const;
+
+  base::CallbackListSubscription RegisterBubbleClosingCallback(
+      base::RepeatingClosure callback);
 
   bool IsReloadingState() const;
 
@@ -57,9 +66,16 @@ class CookieControlsBubbleCoordinator : public views::ViewObserver {
   ui::ScopedUnownedUserData<CookieControlsBubbleCoordinator>
       scoped_unowned_user_data_;
 
+  base::RepeatingClosureList bubble_closing_callbacks_;
+
   // Testing override that's passed to CookieControlsBubbleViewController during
   // construction.
   std::optional<std::u16string> display_name_for_testing_;
+
+  // The action item associated with showing a Cookie Controls UI.
+  // The bubbles use this to appropriately configure action item's
+  // "IsBubbleShowing" property.
+  const raw_ptr<actions::ActionItem> action_item_;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_LOCATION_BAR_COOKIE_CONTROLS_COOKIE_CONTROLS_BUBBLE_COORDINATOR_H_

@@ -96,6 +96,18 @@ public class NotificationPlatformBridgeTest {
                     "SafeBrowsing.SuspiciousNotificationWarning."
                             + "ShowOriginalNotifications.SuspiciousNotificationsDroppedCount";
 
+    private static final String SAFE_BROWSING_NOTIFICATION_REVOCATION_SOURCE_HISTOGRAM_NAME =
+            "SafeBrowsing.NotificationRevocationSource";
+    // These represent the values logged in the
+    // `SAFE_BROWSING_NOTIFICATION_REVOCATION_SOURCE_HISTOGRAM_NAME` histogram. The values are
+    // defined in the safe_browsing::NotificationRevocationSource enum class.
+    // Enum value corresponding to a revocation happening when a user unsubscribes on a notification
+    // where a suspicious content warning was NOT shown.
+    private static final int STANDARD_ONE_TAP_UNSUBSCRIBE_EVENT = 2;
+    // Enum value corresponding to a revocation happening when a user unsubscribes on a notification
+    // where a suspicious content warning was shown.
+    private static final int SUSPICIOUS_WARNING_ONE_TAP_UNSUBSCRIBE_EVENT = 3;
+
     @Before
     public void setUp() {
         SiteEngagementService.setParamValuesForTesting();
@@ -748,8 +760,14 @@ public class NotificationPlatformBridgeTest {
     @Test
     @LargeTest
     @Feature({"Browser", "Notifications"})
-    @Features.EnableFeatures(ChromeFeatureList.NOTIFICATION_ONE_TAP_UNSUBSCRIBE)
     public void testNotificationProvisionalUnsubscribeAndCommit() throws Exception {
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                SAFE_BROWSING_NOTIFICATION_REVOCATION_SOURCE_HISTOGRAM_NAME,
+                                STANDARD_ONE_TAP_UNSUBSCRIBE_EVENT)
+                        .build();
+
         mNotificationTestRule.setNotificationContentSettingForOrigin(
                 ContentSetting.ALLOW, mPermissionTestRule.getOrigin());
         Assert.assertEquals("\"granted\"", runJavaScript("Notification.permission"));
@@ -782,6 +800,9 @@ public class NotificationPlatformBridgeTest {
         // This should have caused notifications permission to become reset.
         Assert.assertEquals("\"default\"", runJavaScript("Notification.permission"));
         checkThatShowNotificationIsDenied();
+
+        // Validate histogram is logged correctly.
+        histogramWatcher.assertExpected();
     }
 
     /**
@@ -797,7 +818,6 @@ public class NotificationPlatformBridgeTest {
     @Test
     @LargeTest
     @Feature({"Browser", "Notifications"})
-    @Features.EnableFeatures(ChromeFeatureList.NOTIFICATION_ONE_TAP_UNSUBSCRIBE)
     public void testNotificationProvisionalUnsubscribeAndUndo() throws Exception {
         mNotificationTestRule.setNotificationContentSettingForOrigin(
                 ContentSetting.ALLOW, mPermissionTestRule.getOrigin());
@@ -859,38 +879,6 @@ public class NotificationPlatformBridgeTest {
         Assert.assertEquals("\"granted\"", runJavaScript("Notification.permission"));
         showNotification("Notification3", "{}");
         mNotificationTestRule.waitForNotificationCount(3);
-    }
-
-    /**
-     * Verifies that activating the PendingIntent associated with the "Unsubscribe" button shows the
-     * `provisionally unsubscribed` notification and suspends all existing notifications, even when
-     * we are using service-type intents.
-     *
-     * <p>One-tap Unsubscribe is supported on Android P and later.
-     */
-    @Test
-    @LargeTest
-    @Feature({"Browser", "Notifications"})
-    @Features.EnableFeatures(
-            ChromeFeatureList.NOTIFICATION_ONE_TAP_UNSUBSCRIBE + ":use_service_intent/true")
-    public void testNotificationProvisionalUnsubscribeWithServiceIntent() throws Exception {
-        mNotificationTestRule.setNotificationContentSettingForOrigin(
-                ContentSetting.ALLOW, mPermissionTestRule.getOrigin());
-        Assert.assertEquals("\"granted\"", runJavaScript("Notification.permission"));
-
-        Notification notification1 = showAndGetNotification("Notification1", "{}");
-        showNotification("Notification2", "{}");
-        mNotificationTestRule.waitForNotificationCount(2);
-
-        // Click the "Unsubscribe" button.
-        Assert.assertEquals(1, notification1.actions.length);
-        PendingIntent unsubscribeIntent = notification1.actions[0].actionIntent;
-        Assert.assertNotNull(unsubscribeIntent);
-        unsubscribeIntent.send();
-
-        // Wait for the two notifications to be collapsed and the `provisionally unsubscribed`
-        // notification to appear.
-        mNotificationTestRule.waitForNotificationCount(1);
     }
 
     /**
@@ -998,17 +986,15 @@ public class NotificationPlatformBridgeTest {
     }
 
     /**
-     * The next two tests verify that the PendingIntent associated with the "Unsubscribe" button is
-     * either a broadcast or service type intent based on field trial configuration.
+     * The next test verify that the PendingIntent associated with the "Unsubscribe" button is
+     * a broadcast type intent based on field trial configuration.
      *
-     * <p>One-tap Unsubscribe is supported on Android P and later, but these tests rely on
-     * `isBroadcast` and `isService` that was added in API level 31.
+     * <p>One-tap Unsubscribe is supported on Android P and later, but the tests rely on
+     * `isBroadcast` that was added in API level 31.
      */
     @Test
     @MediumTest
     @Feature({"Browser", "Notifications"})
-    @Features.EnableFeatures(
-            ChromeFeatureList.NOTIFICATION_ONE_TAP_UNSUBSCRIBE + ":use_service_intent/false")
     @MinAndroidSdkLevel(Build.VERSION_CODES.S)
     @RequiresApi(Build.VERSION_CODES.S)
     public void testNotificationProvisionalUnsubscribeIsBroadcast() throws Exception {
@@ -1024,26 +1010,6 @@ public class NotificationPlatformBridgeTest {
         Assert.assertTrue(unsubscribeIntent.isBroadcast());
     }
 
-    @Test
-    @MediumTest
-    @Feature({"Browser", "Notifications"})
-    @Features.EnableFeatures(
-            ChromeFeatureList.NOTIFICATION_ONE_TAP_UNSUBSCRIBE + ":use_service_intent/true")
-    @MinAndroidSdkLevel(Build.VERSION_CODES.S)
-    @RequiresApi(Build.VERSION_CODES.S)
-    public void testNotificationProvisionalUnsubscribeIsService() throws Exception {
-        mNotificationTestRule.setNotificationContentSettingForOrigin(
-                ContentSetting.ALLOW, mPermissionTestRule.getOrigin());
-
-        Notification notification = showAndGetNotification("Notification1", "{}");
-
-        // Verify the "Unsubscribe" button's intent.
-        Assert.assertEquals(1, notification.actions.length);
-        PendingIntent unsubscribeIntent = notification.actions[0].actionIntent;
-        Assert.assertNotNull(unsubscribeIntent);
-        Assert.assertTrue(unsubscribeIntent.isService());
-    }
-
     /**
      * Verifies that when `SHOW_WARNINGS_FOR_SUSPICIOUS_NOTIFICATIONS` is enabled, suspicious
      * notifications are replaced by warning notifications. Then dismiss one notification and
@@ -1053,7 +1019,6 @@ public class NotificationPlatformBridgeTest {
     @LargeTest
     @Feature({"Browser", "Notifications"})
     @Features.EnableFeatures({
-        ChromeFeatureList.NOTIFICATION_ONE_TAP_UNSUBSCRIBE,
         ChromeFeatureList.SHOW_WARNINGS_FOR_SUSPICIOUS_NOTIFICATIONS
     })
     public void testShowWarningNotificationsThenDismissAndUnsubscribe() throws Exception {
@@ -1192,7 +1157,6 @@ public class NotificationPlatformBridgeTest {
     @LargeTest
     @Feature({"Browser", "Notifications"})
     @Features.EnableFeatures({
-        ChromeFeatureList.NOTIFICATION_ONE_TAP_UNSUBSCRIBE,
         ChromeFeatureList.SHOW_WARNINGS_FOR_SUSPICIOUS_NOTIFICATIONS
     })
     public void testNotificationShowWarningNotificationThenShowNotificationThenAlwaysAllow()
@@ -1332,7 +1296,6 @@ public class NotificationPlatformBridgeTest {
     @LargeTest
     @Feature({"Browser", "Notifications"})
     @Features.EnableFeatures({
-        ChromeFeatureList.NOTIFICATION_ONE_TAP_UNSUBSCRIBE,
         ChromeFeatureList.SHOW_WARNINGS_FOR_SUSPICIOUS_NOTIFICATIONS
     })
     public void testShowWarningFeatureDoesNotWarnForUnsuspiciousNotification() throws Exception {
@@ -1402,7 +1365,6 @@ public class NotificationPlatformBridgeTest {
     @LargeTest
     @Feature({"Browser", "Notifications"})
     @Features.EnableFeatures({
-        ChromeFeatureList.NOTIFICATION_ONE_TAP_UNSUBSCRIBE,
         ChromeFeatureList.SHOW_WARNINGS_FOR_SUSPICIOUS_NOTIFICATIONS
     })
     public void testShowWarningFeatureSwitchButtons() throws Exception {
@@ -1474,7 +1436,6 @@ public class NotificationPlatformBridgeTest {
     @LargeTest
     @Feature({"Browser", "Notifications"})
     @Features.EnableFeatures({
-        ChromeFeatureList.NOTIFICATION_ONE_TAP_UNSUBSCRIBE,
         ChromeFeatureList.REPORT_NOTIFICATION_CONTENT_DETECTION_DATA,
         ChromeFeatureList.SHOW_WARNINGS_FOR_SUSPICIOUS_NOTIFICATIONS
     })
@@ -1561,7 +1522,6 @@ public class NotificationPlatformBridgeTest {
     @LargeTest
     @Feature({"Browser", "Notifications"})
     @Features.EnableFeatures({
-        ChromeFeatureList.NOTIFICATION_ONE_TAP_UNSUBSCRIBE,
         ChromeFeatureList.REPORT_NOTIFICATION_CONTENT_DETECTION_DATA,
         ChromeFeatureList.SHOW_WARNINGS_FOR_SUSPICIOUS_NOTIFICATIONS
     })
@@ -1581,6 +1541,9 @@ public class NotificationPlatformBridgeTest {
                         .expectIntRecord(
                                 SUSPICIOUS_NOTIFICATION_COUNT_DROPPED_SHOW_ORIGINALS_HISTOGRAM_NAME,
                                 0)
+                        .expectIntRecord(
+                                SAFE_BROWSING_NOTIFICATION_REVOCATION_SOURCE_HISTOGRAM_NAME,
+                                SUSPICIOUS_WARNING_ONE_TAP_UNSUBSCRIBE_EVENT)
                         .build();
 
         mNotificationTestRule.setNotificationContentSettingForOrigin(
@@ -1656,7 +1619,6 @@ public class NotificationPlatformBridgeTest {
     @LargeTest
     @Feature({"Browser", "Notifications"})
     @Features.EnableFeatures({
-        ChromeFeatureList.NOTIFICATION_ONE_TAP_UNSUBSCRIBE,
         ChromeFeatureList.REPORT_NOTIFICATION_CONTENT_DETECTION_DATA,
         ChromeFeatureList.SHOW_WARNINGS_FOR_SUSPICIOUS_NOTIFICATIONS
     })
@@ -1668,6 +1630,9 @@ public class NotificationPlatformBridgeTest {
                                 SUSPICIOUS_NOTIFICATION_WARNING_INTERACTIONS_HISTOGRAM_NAME,
                                 SuspiciousNotificationWarningInteractions
                                         .REPORT_UNWARNED_NOTIFICATION_AS_SPAM)
+                        .expectIntRecord(
+                                SAFE_BROWSING_NOTIFICATION_REVOCATION_SOURCE_HISTOGRAM_NAME,
+                                STANDARD_ONE_TAP_UNSUBSCRIBE_EVENT)
                         .build();
 
         mNotificationTestRule.setNotificationContentSettingForOrigin(
@@ -1730,7 +1695,6 @@ public class NotificationPlatformBridgeTest {
     @LargeTest
     @Feature({"Browser", "Notifications"})
     @Features.EnableFeatures({
-        ChromeFeatureList.NOTIFICATION_ONE_TAP_UNSUBSCRIBE,
         ChromeFeatureList.REPORT_NOTIFICATION_CONTENT_DETECTION_DATA,
         ChromeFeatureList.SHOW_WARNINGS_FOR_SUSPICIOUS_NOTIFICATIONS
     })
@@ -1741,6 +1705,9 @@ public class NotificationPlatformBridgeTest {
                                 SUSPICIOUS_NOTIFICATION_WARNING_INTERACTIONS_HISTOGRAM_NAME,
                                 SuspiciousNotificationWarningInteractions.WARNING_SHOWN,
                                 SuspiciousNotificationWarningInteractions.UNSUBSCRIBE)
+                        .expectIntRecord(
+                                SAFE_BROWSING_NOTIFICATION_REVOCATION_SOURCE_HISTOGRAM_NAME,
+                                SUSPICIOUS_WARNING_ONE_TAP_UNSUBSCRIBE_EVENT)
                         .build();
 
         mNotificationTestRule.setNotificationContentSettingForOrigin(
@@ -1813,7 +1780,6 @@ public class NotificationPlatformBridgeTest {
     @LargeTest
     @Feature({"Browser", "Notifications"})
     @Features.EnableFeatures({
-        ChromeFeatureList.NOTIFICATION_ONE_TAP_UNSUBSCRIBE,
         ChromeFeatureList.REPORT_NOTIFICATION_CONTENT_DETECTION_DATA,
         ChromeFeatureList.SHOW_WARNINGS_FOR_SUSPICIOUS_NOTIFICATIONS
     })
@@ -1838,6 +1804,9 @@ public class NotificationPlatformBridgeTest {
                         .expectIntRecord(
                                 SUSPICIOUS_NOTIFICATION_COUNT_DROPPED_SHOW_ORIGINALS_HISTOGRAM_NAME,
                                 0)
+                        .expectIntRecord(
+                                SAFE_BROWSING_NOTIFICATION_REVOCATION_SOURCE_HISTOGRAM_NAME,
+                                SUSPICIOUS_WARNING_ONE_TAP_UNSUBSCRIBE_EVENT)
                         .build();
 
         mNotificationTestRule.setNotificationContentSettingForOrigin(
@@ -1902,7 +1871,6 @@ public class NotificationPlatformBridgeTest {
     @LargeTest
     @Feature({"Browser", "Notifications"})
     @Features.EnableFeatures({
-        ChromeFeatureList.NOTIFICATION_ONE_TAP_UNSUBSCRIBE,
         ChromeFeatureList.SHOW_WARNINGS_FOR_SUSPICIOUS_NOTIFICATIONS
     })
     public void testShowOriginalNotificationsAfterDeletingBackups() throws Exception {

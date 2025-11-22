@@ -8,14 +8,17 @@ import android.app.Activity;
 import android.app.ActivityOptions;
 import android.content.Context;
 import android.content.Intent;
+import android.provider.Browser;
 import android.util.ArrayMap;
 
 import androidx.annotation.GuardedBy;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.IntentUtils;
+import org.chromium.base.JniOnceCallback;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.mojom.WindowShowState;
@@ -25,7 +28,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalInt;
 
 /** Implements {@link ChromeAndroidTaskTracker} as a singleton. */
 @NullMarked
@@ -67,7 +69,8 @@ final class ChromeAndroidTaskTrackerImpl implements ChromeAndroidTaskTracker {
             @BrowserWindowType int browserWindowType,
             ActivityWindowAndroid activityWindowAndroid,
             TabModel tabModel,
-            OptionalInt pendingId) {
+            @Nullable MultiInstanceManager multiInstanceManager,
+            @Nullable Integer pendingId) {
         int taskId = getTaskId(activityWindowAndroid);
 
         synchronized (mTasksLock) {
@@ -75,20 +78,26 @@ final class ChromeAndroidTaskTrackerImpl implements ChromeAndroidTaskTracker {
             if (existingTask != null) {
                 assert existingTask.getBrowserWindowType() == browserWindowType
                         : "The browser window type of an existing task can't be changed.";
-                existingTask.setActivityWindowAndroid(activityWindowAndroid, tabModel);
+                existingTask.setActivityWindowAndroid(
+                        activityWindowAndroid, tabModel, multiInstanceManager);
                 return existingTask;
             }
 
-            if (pendingId.isPresent()) {
-                ChromeAndroidTask pendingTask = mPendingTasks.remove(pendingId.getAsInt());
+            if (pendingId != null) {
+                ChromeAndroidTask pendingTask = mPendingTasks.remove(pendingId);
                 assert pendingTask != null : "Invalid pendingId provided.";
-                pendingTask.setActivityWindowAndroid(activityWindowAndroid, tabModel);
+                pendingTask.setActivityWindowAndroid(
+                        activityWindowAndroid, tabModel, multiInstanceManager);
                 mTasks.put(taskId, pendingTask);
                 return pendingTask;
             }
 
             var newTask =
-                    new ChromeAndroidTaskImpl(browserWindowType, activityWindowAndroid, tabModel);
+                    new ChromeAndroidTaskImpl(
+                            browserWindowType,
+                            activityWindowAndroid,
+                            tabModel,
+                            multiInstanceManager);
             mTasks.put(taskId, newTask);
             mObservers.forEach((observer) -> observer.onTaskAdded(newTask));
             return newTask;
@@ -96,10 +105,12 @@ final class ChromeAndroidTaskTrackerImpl implements ChromeAndroidTaskTracker {
     }
 
     @Override
-    public ChromeAndroidTask createPendingTask(AndroidBrowserWindowCreateParams createParams) {
+    public ChromeAndroidTask createPendingTask(
+            AndroidBrowserWindowCreateParams createParams,
+            @Nullable JniOnceCallback<Long> callback) {
         synchronized (mTasksLock) {
             int pendingId = IdSequencer.next();
-            var pendingTask = new ChromeAndroidTaskImpl(pendingId, createParams);
+            var pendingTask = new ChromeAndroidTaskImpl(pendingId, createParams, callback);
             mPendingTasks.put(pendingId, pendingTask);
 
             // Apply a non-default initial show state if needed.
@@ -247,6 +258,12 @@ final class ChromeAndroidTaskTrackerImpl implements ChromeAndroidTaskTracker {
         }
     }
 
+    Map<Integer, ChromeAndroidTask> getPendingTasksForTesting() {
+        synchronized (mTasksLock) {
+            return mPendingTasks;
+        }
+    }
+
     @GuardedBy("mTasksLock")
     private void removeInternalLocked(int taskId) {
         var taskRemoved = mTasks.remove(taskId);
@@ -285,8 +302,6 @@ final class ChromeAndroidTaskTrackerImpl implements ChromeAndroidTaskTracker {
 
     private static void setInitialShowState(
             ChromeAndroidTask pendingTask, @WindowShowState.EnumType int showState) {
-        // TODO (crbug.com/444743853): Add test coverage for initiating actions MAXIMIZED and
-        // MINIMIZED on a pending Task.
         switch (showState) {
             case WindowShowState.MAXIMIZED:
                 pendingTask.maximize();
@@ -305,7 +320,7 @@ final class ChromeAndroidTaskTrackerImpl implements ChromeAndroidTaskTracker {
     }
 
     private static void launchActivityFromParams(
-            AndroidBrowserWindowCreateParams createParams, long pendingId) {
+            AndroidBrowserWindowCreateParams createParams, int pendingId) {
         String activityClassName;
         switch (createParams.getWindowType()) {
             case BrowserWindowType.NORMAL:
@@ -318,11 +333,15 @@ final class ChromeAndroidTaskTrackerImpl implements ChromeAndroidTaskTracker {
 
         Context context = ContextUtils.getApplicationContext();
         try {
+            // TODO(http://crbug.com/453777179): use MultiInstanceManager to create the Intent.
             Intent intent = new Intent(context, Class.forName(activityClassName));
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+            intent.putExtra(Browser.EXTRA_CREATE_NEW_TAB, true);
             intent.putExtra(EXTRA_PENDING_BROWSER_WINDOW_TASK_ID, pendingId);
             IntentUtils.addTrustedIntentExtras(intent);
+
+            MultiInstanceManager.onMultiInstanceModeStarted();
 
             if (!createParams.getInitialBounds().isEmpty()) {
                 // Apply non-default initial launch bounds if non-empty.

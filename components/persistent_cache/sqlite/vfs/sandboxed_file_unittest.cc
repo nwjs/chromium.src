@@ -25,10 +25,11 @@ class SandboxedFileTest : public testing::Test {
   std::unique_ptr<SandboxedFile> CreateEmptyFile(const std::string& file_name) {
     base::WritableSharedMemoryMapping mapped_shared_lock = shared_region_.Map();
 
+    base::FilePath path = temporary_directory_.GetPath().AppendASCII(file_name);
+    base::File file(path, base::File::FLAG_CREATE_ALWAYS |
+                              base::File::FLAG_READ | base::File::FLAG_WRITE);
     return std::make_unique<SandboxedFile>(
-        base::File(temporary_directory_.GetPath().AppendASCII(file_name),
-                   base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_READ |
-                       base::File::FLAG_WRITE),
+        std::move(file), std::move(path),
         SandboxedFile::AccessRights::kReadWrite, std::move(mapped_shared_lock));
   }
 
@@ -415,6 +416,30 @@ TEST_F(SandboxedFileTest, LockHotJournal) {
   // that forced an exclusive lock).
   EXPECT_EQ(file->Lock(SQLITE_LOCK_EXCLUSIVE), SQLITE_OK);
   EXPECT_EQ(file->LockModeForTesting(), SQLITE_LOCK_EXCLUSIVE);
+}
+
+TEST_F(SandboxedFileTest, GetFile) {
+  std::unique_ptr<SandboxedFile> file = CreateEmptyFile("get_file");
+  EXPECT_FALSE(file->IsValid());
+
+  // Before opening, GetFile() should return the underlying file.
+  EXPECT_EQ(file->GetFile().GetPlatformFile(),
+            file->UnderlyingFileForTesting().GetPlatformFile());
+
+  OpenFile(file.get());
+  EXPECT_TRUE(file->IsValid());
+
+  // After opening, GetFile() should return the opened file.
+  EXPECT_EQ(file->GetFile().GetPlatformFile(),
+            file->OpenedFileForTesting().GetPlatformFile());
+
+  file->Close();
+  EXPECT_FALSE(file->IsValid());
+
+  // After closing, GetFile() should return the new underlying file, which was
+  // the opened file.
+  EXPECT_EQ(file->GetFile().GetPlatformFile(),
+            file->UnderlyingFileForTesting().GetPlatformFile());
 }
 
 }  // namespace

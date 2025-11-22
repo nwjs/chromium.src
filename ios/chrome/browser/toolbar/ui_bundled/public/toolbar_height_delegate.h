@@ -15,6 +15,9 @@ enum class ToolbarType;
 /// This is NOT used for fullscreen.
 - (void)toolbarsHeightChanged;
 
+/// Layout toolbar height change.
+- (void)layoutToolbarHeightChangeWithAnimation:(BOOL)animated;
+
 /// Secondary toolbar is moving above the keyboard, adjust the constraints to
 /// allow this.
 - (void)secondaryToolbarMovedAboveKeyboard;
@@ -25,6 +28,7 @@ enum class ToolbarType;
 
 /// Adjust the secondary toolbar when the keyboard is shown.
 - (void)adjustSecondaryToolbarForKeyboardHeight:(CGFloat)keyboardHeight
+                                    isCollapsed:(BOOL)isCollapsed
                                        duration:(NSTimeInterval)duration
                                           curve:(UIViewAnimationCurve)curve;
 

@@ -8,6 +8,7 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
+#include "base/task/common/task_annotator.h"
 #include "base/trace_event/trace_event_impl.h"
 #include "components/viz/common/gpu/raster_context_provider.h"
 #include "components/viz/common/resources/shared_image_format.h"
@@ -34,14 +35,6 @@
 namespace blink {
 
 namespace {
-
-BASE_FEATURE(kUseCopyToGpuMemoryBufferAsync,
-#if BUILDFLAG(IS_WIN)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
 
 class Context : public media::RenderableGpuMemoryBufferVideoFramePool::Context {
  public:
@@ -222,6 +215,14 @@ void CopyToGpuMemoryBuffer(
   }
 }
 }  // namespace
+
+BASE_FEATURE(kUseCopyToGpuMemoryBufferAsync,
+#if BUILDFLAG(IS_WIN)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 std::optional<gpu::SyncToken>
 WebGraphicsContext3DVideoFramePool::CopyRGBATextureToVideoFrame(

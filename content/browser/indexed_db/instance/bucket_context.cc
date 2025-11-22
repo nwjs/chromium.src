@@ -171,8 +171,11 @@ DatabaseError CreateDefaultError() {
 }  // namespace
 
 // TODO(crbug.com/40253999): Move to blink when needed there.
-BASE_FEATURE(kSqliteBackingStore,
-             "IdbSqliteBackingStore",
+// This flag unconditionally enables the SQLite backing store. Used for testing.
+BASE_FEATURE(kIdbSqliteBackingStore, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// This flag enables the SQLite backing store for in-memory contexts.
+BASE_FEATURE(kIdbSqliteBackingStoreInMemoryContexts,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BucketContext::Delegate::Delegate()
@@ -206,7 +209,9 @@ BucketContext::BucketContext(
   receivers_.set_disconnect_handler(base::BindRepeating(
       &BucketContext::OnReceiverDisconnected, base::Unretained(this)));
   should_use_sqlite_ = g_should_use_sqlite_for_testing.value_or(
-      base::FeatureList::IsEnabled(kSqliteBackingStore));
+      base::FeatureList::IsEnabled(kIdbSqliteBackingStore) ||
+      (in_memory() &&
+       base::FeatureList::IsEnabled(kIdbSqliteBackingStoreInMemoryContexts)));
 }
 
 BucketContext::~BucketContext() {
@@ -428,7 +433,11 @@ void BucketContext::CreateAllExternalObjects(
 }
 
 void BucketContext::QueueRunTasks() {
+  TRACE_EVENT0("IndexedDB", "BucketContext::QueueRunTasks");
+
   if (task_run_queued_) {
+    TRACE_EVENT_INSTANT("IndexedDB",
+                        "BucketContext::QueueRunTasks - Already queued");
     return;
   }
 
@@ -457,6 +466,15 @@ void BucketContext::RunTasks() {
   }
   if (CanClose() && closing_stage_ == ClosingState::kClosed) {
     ResetBackingStore();
+  } else if (ShouldUseSqlite()) {
+    // Since a `Database` may have just been destroyed, there may no longer be
+    // a need to keep `this` around. Note that this isn't necessary in LevelDB
+    // due to differences in `CanClose()`, although it likely wouldn't be
+    // harmful for LevelDB either. To be on the safe side, don't risk changing
+    // longstanding LevelDB behavior.
+    // TODO(crbug.com/419203257): consider revisiting this logic along with
+    // `CanOpportunisticallyClose()`.
+    MaybeStartClosing();
   }
 }
 
@@ -747,7 +765,8 @@ bool BucketContext::CanClose() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK_GE(open_handles_, 0);
 
-  if (backing_store_ && !backing_store_->CanOpportunisticallyClose()) {
+  if (backing_store_ && !skip_closing_sequence_ &&
+      !backing_store_->CanOpportunisticallyClose()) {
     return false;
   }
 
@@ -889,10 +908,8 @@ void BucketContext::OnDatabaseError(Database* database,
   const std::string error_message =
       message.empty() ? status.ToString() : message;
   if (ShouldUseSqlite()) {
-    // TODO(crbug.com/419203257): for now, database errors are most likely due
-    // to unimplemented functionality; in the future, we'll need to deal with
-    // corruption. Unlike in the LevelDB case, an error in one database doesn't
-    // indicate a problem with the entire bucket.
+    // Unlike in the LevelDB case, an error in one database doesn't indicate a
+    // problem with the entire bucket.
     CHECK(database);
     database->ForceCloseAndRunTasks(error_message);
   } else {
@@ -995,6 +1012,7 @@ BucketContext::InitBackingStoreIfNeeded(bool create_if_missing) {
           level_db::BackingStore::OpenAndVerify(
               *this, data_path_, database_path, blob_path, lock_manager.get(),
               is_first_attempt, create_if_missing);
+      CHECK_EQ(status.ok(), !!backing_store);
       if (is_first_attempt) [[likely]] {
         first_try_status = status;
       }

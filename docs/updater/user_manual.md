@@ -94,23 +94,31 @@ and registration process.
 
 #### CRURegistration library
 
-An Objective-C library to perform these operations is in development. When
-available, applications will be able to initialize
 [`CRURegistration`](https://chromium.googlesource.com/chromium/src/+/main/chrome/updater/mac/client_lib)
-with their product IDs, then use `installUpdaterWithReply:` and
+is an Objective-C library that simplifies interactions with the updater. macOS
+applications can use CRURegistration by bundling an updater ZIP archive in their
+app's `Resources` folder and then using `installUpdaterWithReply:` and
 `registerVersion:existenceCheckerPath:serverURLString:reply:` to install the
-updater (if needed) and register. These methods operate asynchronously using
-[`dispatch/dispatch.h`](https://developer.apple.com/documentation/dispatch/dispatch_queue)
-mechanisms. `CRURegistration` maintains an internal task queue, so clients can
-call `register...` immediately after `install...` without waiting for a result.
+updater and register. It's normal to call `install...` and then immediately
+`register...` (before waiting for a result) every time the application starts.
+The library will use its internal mechanisms to sequence the tasks and avoid
+unnecessary work.
 
-`CRURegistration` uses the helpers and command line binaries documented above.
-To install the updater using `CRURegistration`, the updater must be embedded
-as a Helper as documented above.
+**Googlers** can find [CRURegistration here](http://go/cruregistration) and a
+ready-to-bundle [GoogleUpdater.zip here](http://go/googleupdatermacoszip).
 
-`CRURegistration` is designed to depend only on APIs published in macOS SDKs
-and compile as pure Objective-C (without requiring C++ support) so it can be
-dropped into projects without incurring Chromium dependencies.
+## Updating Applications
+
+Serving updates to your application depends on your server integration.
+Googlers should consult the [guide here](go/omaharelease-getting-started).
+
+Updates are delivered as CRX archives containing your application's installer
+executables. When run, the executables should emplace the new version of your
+software on the disk.
+
+More details are available:
+[Windows details](https://source.chromium.org/chromium/chromium/src/+/main:chrome/updater/win/installer_api.h),
+[macOS details](install_api_mac.md).
 
 ## Uninstalling Applications and the Updater
 
@@ -286,9 +294,9 @@ See [the functional spec](functional_spec.md#logging) for more details.
 Updates can be force-triggered by running the updater as follows for Windows:
 * Run the following from a medium `cmd` prompt for `user` installs, and from an
   elevated prompt with the `--system` switch for `system` installs:
-  `{%LocalAppData%|%programfiles(x86)%}\{Company}\{Company}Update\{Company}Update.exe --update-apps {--system}`.
+  `Start /w {%LocalAppData%|%programfiles(x86)%}\{Company}\{Company}Updater\{latest version}\updater.exe --update-apps {--system}`.
 * For example, using "Google" as the `Company`:
-  `{%LocalAppData%|%programfiles(x86)%}\Google\GoogleUpdate\GoogleUpdate.exe --update-apps {--system}`.
+  `Start /w {%LocalAppData%|%programfiles(x86)%}\Google\GoogleUpdater\142.0.7416.0\updater.exe --update-apps {--system}`.
 
 Similar steps apply for macOS. The example below is using "Google" as the
 `Company`:

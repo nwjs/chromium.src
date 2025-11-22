@@ -15,9 +15,9 @@
 #include "chrome/browser/ai/ai_test_utils.h"
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "components/optimization_guide/core/mock_optimization_guide_model_executor.h"
+#include "components/optimization_guide/core/model_execution/on_device_capability.h"
 #include "components/optimization_guide/core/model_execution/test/fake_model_broker.h"
-#include "components/optimization_guide/core/optimization_guide_model_executor.h"
+#include "components/optimization_guide/core/model_execution/test/mock_on_device_capability.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
@@ -105,8 +105,7 @@ class AIManagerTest : public AITestUtils::AITestBase {
     ON_CALL(*mock_optimization_guide_keyed_service_, CreateModelBrokerClient())
         .WillByDefault([&]() {
           return std::make_unique<optimization_guide::ModelBrokerClient>(
-              fake_broker_.BindAndPassRemote(),
-              optimization_guide::CreateSessionArgs(nullptr, {}));
+              fake_broker_.BindAndPassRemote());
         });
   }
 

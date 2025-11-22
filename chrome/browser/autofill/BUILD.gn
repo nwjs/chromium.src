@@ -33,6 +33,8 @@ static_library("autofill") {
     "iban_manager_factory.h",
     "merchant_promo_code_manager_factory.cc",
     "merchant_promo_code_manager_factory.h",
+    "one_time_token_service_factory.cc",
+    "one_time_token_service_factory.h",
     "personal_data_manager_factory.cc",
     "personal_data_manager_factory.h",
     "strike_database_factory.cc",
@@ -55,6 +57,7 @@ static_library("autofill") {
     "//components/autofill/core/common",
     "//components/keyed_service/content",
     "//components/keyed_service/core",
+    "//components/one_time_tokens/core/browser",
     "//components/signin/public/identity_manager",
     "//content/public/browser",
     "//services/network/public/cpp",
@@ -181,41 +184,55 @@ static_library("test_support") {
       "//chrome/browser/keyboard_accessory/test_utils/android",
     ]
   }
+
+  if (!is_android) {
+    deps += [ "//chrome/browser/autofill/glic:test_support" ]
+  }
 }
 
-if (!is_android) {
-  source_set("browser_tests") {
-    testonly = true
+source_set("browser_tests") {
+  testonly = true
 
-    sources = [
+  sources = [ "otp_manager_browsertest.cc" ]
+
+  # TODO(crbug.com/449649023) Migrate these tests to PlatformBrowserTests.
+  if (!is_android) {
+    sources += [
       "autocomplete_browsertest.cc",
       "autofill_across_iframes_browsertest.cc",
+      "autofill_annotations_provider_browsertest.cc",
       "autofill_browsertest.cc",
       "autofill_metrics_browsertest.cc",
       "autofill_server_browsertest.cc",
       "form_structure_browsertest.cc",
     ]
-
-    defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
-
-    deps = [
-      "//base/version_info",
-      "//chrome/browser/autofill",
-      "//chrome/browser/ui:browser_navigator_params_headers",
-      "//chrome/browser/ui/tabs:tab_strip",
-      "//chrome/browser/webdata_services",
-      "//chrome/test:test_support",
-      "//components/autofill/content/browser:test_support",
-      "//components/autofill/core/common:test_support",
-      "//components/password_manager/content/browser:test_support",
-      "//components/ukm:test_support",
-      "//testing/data_driven_testing",
-    ]
-
-    # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-    # enable the diagnostic by removing this line.
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
   }
+
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+  deps = [
+    "//base/version_info",
+    "//chrome/browser/autofill",
+    "//chrome/browser/ui:browser_navigator_params_headers",
+    "//chrome/browser/webdata_services",
+    "//chrome/test:test_support",
+    "//components/autofill/content/browser:test_support",
+    "//components/autofill/core/common:test_support",
+    "//components/optimization_guide/content/browser",
+    "//components/password_manager/content/browser:test_support",
+    "//components/ukm:test_support",
+    "//testing/data_driven_testing",
+  ]
+
+  if (is_android) {
+    deps += [ "//content/test:browsertest_support" ]
+  } else {
+    deps += [ "//chrome/browser/ui/tabs:tab_strip" ]
+  }
+
+  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
+  # enable the diagnostic by removing this line.
+  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 if (!is_android) {

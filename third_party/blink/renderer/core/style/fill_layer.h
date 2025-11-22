@@ -25,7 +25,6 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_STYLE_FILL_LAYER_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_STYLE_FILL_LAYER_H_
 
-#include "base/memory/scoped_refptr.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/core/style/style_image.h"
@@ -299,6 +298,18 @@ class CORE_EXPORT FillLayer {
     return Length::Percent(0.0);
   }
   static StyleImage* InitialFillImage(EFillLayerType) { return nullptr; }
+
+  template <typename Callback>
+  static void IterateFillLayersInReverseOrder(const FillLayer* start,
+                                              const FillLayer* end,
+                                              Callback callback) {
+    if (start != end) {
+      IterateFillLayersInReverseOrder(start->Next(), end, callback);
+    }
+    if (start) {
+      callback(*start);
+    }
+  }
 
  private:
   friend class ComputedStyle;

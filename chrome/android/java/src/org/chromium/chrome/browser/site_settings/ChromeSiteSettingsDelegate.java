@@ -64,6 +64,7 @@ import org.chromium.content_public.browser.ContentFeatureMap;
 import org.chromium.content_public.common.ContentFeatures;
 import org.chromium.content_public.common.ContentSwitches;
 import org.chromium.media.MediaFeatures;
+import org.chromium.ui.display.DisplayAndroidManager;
 import org.chromium.url.GURL;
 
 import java.util.List;
@@ -171,7 +172,8 @@ public class ChromeSiteSettingsDelegate implements SiteSettingsDelegate {
             case SiteSettingsCategory.Type.LOCAL_NETWORK_ACCESS:
                 return ChromeFeatureList.isEnabled(ChromeFeatureList.LOCAL_NETWORK_ACCESS);
             case SiteSettingsCategory.Type.WINDOW_MANAGEMENT:
-                return ChromeFeatureList.sAndroidWindowManagementWebApi.isEnabled();
+                return ChromeFeatureList.sAndroidWindowManagementWebApi.isEnabled()
+                        && DisplayAndroidManager.isDisplayTopologyAvailable();
             default:
                 return true;
         }
@@ -201,11 +203,6 @@ public class ChromeSiteSettingsDelegate implements SiteSettingsDelegate {
     @Override
     public boolean isPermissionSiteSettingsRadioButtonFeatureEnabled() {
         return ChromeFeatureList.isEnabled(ChromeFeatureList.PERMISSION_SITE_SETTING_RADIO_BUTTON);
-    }
-
-    @Override
-    public boolean isDisplayWildcardInContentSettingsEnabled() {
-        return ChromeFeatureList.isEnabled(ChromeFeatureList.DISPLAY_WILDCARD_CONTENT_SETTINGS);
     }
 
     @Override

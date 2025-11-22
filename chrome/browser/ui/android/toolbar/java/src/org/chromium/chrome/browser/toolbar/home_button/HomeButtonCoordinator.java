@@ -93,7 +93,7 @@ public class HomeButtonCoordinator extends ToolbarChildButton implements HomeBut
                     BrowserUiListMenuUtils.getBasicListMenu(
                             mContext,
                             mMenuList,
-                            (model) -> mOnMenuClickCallback.onResult(mContext));
+                            (model, unusedView) -> mOnMenuClickCallback.onResult(mContext));
             mListMenuDelegate =
                     new ListMenuDelegate() {
                         @Override
@@ -125,8 +125,13 @@ public class HomeButtonCoordinator extends ToolbarChildButton implements HomeBut
     }
 
     @Override
-    public void setVisibility(boolean isVisible) {
-        setVisibility(isVisible ? View.VISIBLE : View.GONE);
+    public void setHasSpaceToShow(boolean hasSpaceToShow) {
+        mHomeButton.setHasSpaceToShow(hasSpaceToShow);
+    }
+
+    @Override
+    public boolean isVisible() {
+        return getVisibility() == View.VISIBLE;
     }
 
     @Override

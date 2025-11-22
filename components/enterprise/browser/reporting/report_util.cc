@@ -6,6 +6,7 @@
 
 #include "base/files/file_path.h"
 #include "base/json/json_writer.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/values.h"
 #include "crypto/sha2.h"
 
@@ -207,8 +208,9 @@ std::string GetSecuritySignalsInReport(
                      os_report.has_potentially_harmful_apps());
     signals_dict.Set("verified_apps_enabled",
                      os_report.verified_apps_enabled());
-    signals_dict.Set("security_patch", os_report.security_patch());
-#endif  // BUILDFLAG(IS_WIN)
+    signals_dict.Set("security_patch_ms",
+                     base::NumberToString(os_report.security_patch_ms()));
+#endif
   }
 
   if (!chrome_profile_report_request.has_browser_report()) {
@@ -269,6 +271,18 @@ std::string GetSecuritySignalsInReport(
     signals_dict.Set("security_event_providers",
                      RepeatedFieldptrToList(
                          profile_signals_report.security_event_providers()));
+
+    if (chrome_profile_report_request.has_attestation_payload()) {
+      auto attestation_payload =
+          chrome_profile_report_request.attestation_payload();
+      signals_dict.Set("attestation timestamp",
+                       attestation_payload.timestamp());
+      signals_dict.Set("attestation nonce", attestation_payload.nonce());
+      // Do not print the attestation blob itself as it's too large to display
+      // in logs.
+      signals_dict.Set("attestation generation error",
+                       attestation_payload.attestation_error());
+    }
   }
 
   base::JSONWriter::WriteWithOptions(

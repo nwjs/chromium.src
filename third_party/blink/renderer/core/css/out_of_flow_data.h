@@ -51,6 +51,8 @@ class CORE_EXPORT OutOfFlowData final
 
     void Trace(Visitor* visitor) const { visitor->Trace(offsets_); }
 
+    String ToString() const;
+
    private:
     HeapHashMap<WeakMember<const Element>, PhysicalOffset> offsets_;
   };
@@ -126,6 +128,11 @@ class CORE_EXPORT OutOfFlowData final
   const RememberedScrollOffsets* GetRememberedScrollOffsets() const;
   const RememberedScrollOffsets* GetSpeculativeRememberedScrollOffsets() const;
   bool SetPendingRememberedScrollOffsets(const RememberedScrollOffsets*);
+
+  void ClearRememberedScrollOffsets() {
+    remembered_scroll_offsets_ = nullptr;
+    pending_remembered_scroll_offsets_ = nullptr;
+  }
 
   void Trace(Visitor*) const override;
 

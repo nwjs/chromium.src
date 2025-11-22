@@ -57,7 +57,7 @@ IN_PROC_BROWSER_TEST_F(GlicActorToctouUiTest,
 
     // Click in the top frame. This will extract page context after the click
     // action.
-    GetPageContextFromFocusedTab(),
+    GetPageContextForActorTab(),
     ClickAction(gfx::Point(10, 10), ClickAction::LEFT, ClickAction::SINGLE),
 
     // Remove the top frame which puts the bottom frame at its former location.
@@ -94,7 +94,7 @@ IN_PROC_BROWSER_TEST_F(GlicActorToctouUiTest,
 
     // Click in the top frame. This will extract page context after the click
     // action.
-    GetPageContextFromFocusedTab(),
+    GetPageContextForActorTab(),
     ClickAction(gfx::Point(10, 10), ClickAction::LEFT, ClickAction::SINGLE),
 
     // Remove the top frame which puts the bottom frame at its former location.
@@ -118,7 +118,7 @@ IN_PROC_BROWSER_TEST_F(GlicActorToctouUiTest, ToctouCheckFailWhenNodeRemoved) {
       // clang-format off
     InitializeWithOpenGlicWindow(),
     StartActorTaskInNewTab(task_url, kNewActorTabId),
-    GetPageContextFromFocusedTab(),
+    GetPageContextForActorTab(),
     ClickAction(kClickableButtonLabel, ClickAction::LEFT, ClickAction::SINGLE),
     ExecuteJs(kNewActorTabId,
               "()=>{document.getElementById('clickable').remove();}"),
@@ -138,7 +138,7 @@ IN_PROC_BROWSER_TEST_F(GlicActorToctouUiTest,
       // clang-format off
     InitializeWithOpenGlicWindow(),
     StartActorTaskInNewTab(task_url, kNewActorTabId),
-    GetPageContextFromFocusedTab(),
+    GetPageContextForActorTab(),
     ClickAction({15, 15}, ClickAction::LEFT, ClickAction::SINGLE),
     ExecuteJs(kNewActorTabId,
               "()=>{document.getElementById('clickable').style.cssText = "
@@ -164,7 +164,7 @@ IN_PROC_BROWSER_TEST_F(GlicActorToctouUiTest,
       // clang-format off
     InitializeWithOpenGlicWindow(),
     StartActorTaskInNewTab(task_url, kNewActorTabId),
-    GetPageContextFromFocusedTab(),
+    GetPageContextForActorTab(),
     ClickAction(
         kClickableButtonLabel,
         ClickAction::LEFT, ClickAction::SINGLE,
@@ -205,7 +205,7 @@ IN_PROC_BROWSER_TEST_F(GlicActorToctouUiTest, TimeOfUseCheckOnTextNode) {
       SetOnIncompatibleAction(OnIncompatibleAction::kSkipTest,
                               kActivateSurfaceIncompatibilityNotice),
 
-      GetPageContextFromFocusedTab(),
+      GetPageContextForActorTab(),
       GetClientRect(kNewActorTabId, "checkbox-label", checkbox_label_bounds),
       ExecuteAction(std::move(click_provider)),
 
@@ -231,12 +231,71 @@ IN_PROC_BROWSER_TEST_F(GlicActorToctouUiTest, TimeOfUseCheckOnShadowDom) {
       StartActorTaskInNewTab(task_url, kNewActorTabId),
       SetOnIncompatibleAction(OnIncompatibleAction::kSkipTest,
                               kActivateSurfaceIncompatibilityNotice),
-      GetPageContextFromFocusedTab(),
+      GetPageContextForActorTab(),
       ClickAction(kClickableButtonLabel,
                   ClickAction::LEFT, ClickAction::SINGLE),
       WaitForJsResult(kNewActorTabId, "() => button_clicked === true")
   );
   // clang-format on
+}
+
+// Ensure the time-of-use check can succeed when a click is dispatched to a
+// multi-line anchor element.
+IN_PROC_BROWSER_TEST_F(GlicActorToctouUiTest, TimeOfUseCheckOnMultilineAnchor) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kNewActorTabId);
+  constexpr std::string_view kAnchorLabel = "anchor";
+
+  // Load the new page that contains the multi-line anchor element.
+  const GURL task_url =
+      embedded_test_server()->GetURL("/actor/multi_line_anchor_element.html");
+
+  RunTestSequence(
+      // clang-format off
+      InitializeWithOpenGlicWindow(),
+      StartActorTaskInNewTab(task_url, kNewActorTabId),
+      GetPageContextForActorTab(),
+      ClickAction(kAnchorLabel,
+                  ClickAction::LEFT, ClickAction::SINGLE),
+      WaitForJsResult(kNewActorTabId, "() => clicked_fired === true")
+  );
+  // clang-format on
+}
+
+class GlicActorToctouInteractionPointDiscoveryUiTest
+    : public GlicActorToctouUiTest {
+ public:
+  GlicActorToctouInteractionPointDiscoveryUiTest() {
+    scoped_features_.InitAndEnableFeature(
+        features::kGlicActorIterativeInteractionPointDiscovery);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_features_;
+};
+
+// Ensure time-of-use check doesn't prevent us from clicking on elements
+// partially obscured by other elements.
+IN_PROC_BROWSER_TEST_F(GlicActorToctouInteractionPointDiscoveryUiTest,
+                       TimeOfUseCheckClickBehind) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kNewActorTabId);
+  constexpr std::string_view kBottomElement = "behind";
+
+  // Load the new page that contains the element with a shadow DOM.
+  const GURL task_url =
+      embedded_test_server()->GetURL("/actor/partially_obscured.html");
+
+  RunTestSequence(
+      // clang-format off
+      InitializeWithOpenGlicWindow(),
+      StartActorTaskInNewTab(task_url, kNewActorTabId),
+      GetPageContextForActorTab(),
+      CheckJsResult(kNewActorTabId,
+                    "() => !document.getElementById('behind').checked"),
+      ClickAction(kBottomElement,
+                  ClickAction::LEFT, ClickAction::SINGLE),
+      WaitForJsResult(kNewActorTabId,
+                      "() => document.getElementById('behind').checked")
+  );
 }
 
 }  //  namespace

@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <functional>
 
+#include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/logging.h"
 #include "base/strings/utf_string_conversions.h"
@@ -24,6 +25,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tab_strip_tracker.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/page.h"
@@ -33,6 +35,8 @@
 namespace glic {
 
 namespace {
+BASE_FEATURE(kGlicAutoUnpinOnTabChangedOrigin,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // An arbitrary limit.
 const int32_t kDefaultMaxPinnedTabs = 5;
@@ -405,30 +409,34 @@ void GlicPinnedTabManager::SendPinCandidatesUpdate() {
 std::vector<content::WebContents*>
 GlicPinnedTabManager::GetUnsortedPinCandidates() {
   std::vector<content::WebContents*> candidates;
-  for (Browser* browser : *BrowserList::GetInstance()) {
-    if (browser->profile() != profile_ ||
-        browser->type() != BrowserWindowInterface::Type::TYPE_NORMAL) {
-      continue;
-    }
-    TabStripModel* tab_strip_model = browser->tab_strip_model();
-    for (int i = 0; i < tab_strip_model->count(); ++i) {
-      auto* tab = tab_strip_model->GetTabAtIndex(i);
-      if (IsTabPinned(tab->GetHandle())) {
-        continue;
-      }
-      if (!IsBrowserValidForSharing(tab->GetBrowserWindowInterface())) {
-        continue;
-      }
-      auto* web_contents = tab->GetContents();
-      if (!web_contents->GetController().GetLastCommittedEntry()) {
-        continue;
-      }
-      if (!IsValidForSharing(web_contents)) {
-        continue;
-      }
-      candidates.push_back(web_contents);
-    }
-  }
+  ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+      [this, &candidates](BrowserWindowInterface* browser_window_interface) {
+        if (browser_window_interface->GetProfile() != profile_ ||
+            browser_window_interface->GetType() !=
+                BrowserWindowInterface::Type::TYPE_NORMAL) {
+          return true;
+        }
+        TabStripModel* const tab_strip_model =
+            browser_window_interface->GetTabStripModel();
+        for (int i = 0; i < tab_strip_model->count(); ++i) {
+          auto* const tab = tab_strip_model->GetTabAtIndex(i);
+          if (IsTabPinned(tab->GetHandle())) {
+            continue;
+          }
+          if (!IsBrowserValidForSharing(tab->GetBrowserWindowInterface())) {
+            continue;
+          }
+          auto* web_contents = tab->GetContents();
+          if (!web_contents->GetController().GetLastCommittedEntry()) {
+            continue;
+          }
+          if (!IsValidForSharing(web_contents)) {
+            continue;
+          }
+          candidates.push_back(web_contents);
+        }
+        return true;
+      });
   return candidates;
 }
 
@@ -476,7 +484,9 @@ void GlicPinnedTabManager::OnTabDataChanged(tabs::TabHandle tab_handle,
 
 void GlicPinnedTabManager::OnTabChangedOrigin(tabs::TabHandle tab_handle) {
   CHECK(IsTabPinned(tab_handle));
-  if (!IsGlicWindowShowing()) {
+  if ((!GlicEnabling::IsMultiInstanceEnabledByFlags() ||
+       base::FeatureList::IsEnabled(kGlicAutoUnpinOnTabChangedOrigin)) &&
+      !IsGlicWindowShowing()) {
     UnpinTabs({tab_handle});
   }
 }

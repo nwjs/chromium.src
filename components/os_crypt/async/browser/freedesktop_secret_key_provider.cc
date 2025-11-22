@@ -24,7 +24,9 @@
 #include "base/strings/string_util.h"
 #include "components/dbus/thread_linux/dbus_thread_linux.h"
 #include "components/dbus/utils/call_method.h"
+#include "components/dbus/utils/connect_to_signal.h"
 #include "components/dbus/utils/variant.h"
+#include "components/os_crypt/async/browser/posix_key_provider.h"
 #include "components/os_crypt/async/common/algorithm.mojom.h"
 #include "crypto/kdf.h"
 #include "dbus/message.h"
@@ -123,8 +125,8 @@ class FreedesktopSecretKeyProvider::Prompter
   using PromptCallback = base::OnceCallback<void(
       base::expected<T, FreedesktopSecretKeyProvider::ErrorDetail>)>;
 
-  template <dbus_utils::internal::StringLiteral ArgsSig,
-            dbus_utils::internal::StringLiteral RetsSig,
+  template <dbus_utils::SignatureLiteral ArgsSig,
+            dbus_utils::SignatureLiteral RetsSig,
             typename... Args>
   static void Prompt(scoped_refptr<dbus::Bus> bus,
                      dbus::ObjectProxy* object_proxy,
@@ -171,8 +173,9 @@ class FreedesktopSecretKeyProvider::Prompter
   void StartPrompt() {
     auto* prompt_proxy = bus_->GetObjectProxy(
         FreedesktopSecretKeyProvider::kSecretServiceName, prompt_path_);
-    prompt_proxy->ConnectToSignal(
-        FreedesktopSecretKeyProvider::kSecretPromptInterface, "Completed",
+    dbus_utils::ConnectToSignal(
+        prompt_proxy, FreedesktopSecretKeyProvider::kSecretPromptInterface,
+        "Completed",
         base::BindRepeating(&Prompter::OnPromptCompletedSignal, this),
         base::BindOnce(&Prompter::OnSignalConnected, this));
     dbus_utils::CallMethod<"s", "">(
@@ -197,23 +200,22 @@ class FreedesktopSecretKeyProvider::Prompter
     }
   }
 
-  void OnPromptCompletedSignal(dbus::Signal* signal) {
-    dbus::MessageReader reader(signal);
-    auto dismissed = dbus_utils::internal::ReadValue<bool>(reader);
-    auto variant = dbus_utils::internal::ReadValue<dbus_utils::Variant>(reader);
-    if (!dismissed.has_value() || !variant.has_value() ||
-        reader.HasMoreData()) {
+  void OnPromptCompletedSignal(
+      dbus_utils::ConnectToSignalResult<bool, dbus_utils::Variant> result) {
+    if (!result.has_value()) {
       LOG(ERROR) << "Failed to read Prompt.Completed signal args.";
       Finish(base::unexpected(ErrorDetail::kInvalidSignalFormat));
       return;
     }
 
-    if (dismissed.value()) {
+    auto& [dismissed, variant] = result.value();
+
+    if (dismissed) {
       Finish(base::unexpected(ErrorDetail::kPromptDismissed));
       return;
     }
 
-    auto value = std::move(variant.value()).Take<T>();
+    auto value = std::move(variant).Take<T>();
     if (!value) {
       LOG(ERROR) << "Failed to parse prompt result.";
       Finish(base::unexpected(ErrorDetail::kInvalidVariantFormat));
@@ -242,11 +244,9 @@ class FreedesktopSecretKeyProvider::Prompter
 
 FreedesktopSecretKeyProvider::FreedesktopSecretKeyProvider(
     const std::string& password_store,
-    bool use_for_encryption,
     const std::string& product_name,
     scoped_refptr<dbus::Bus> bus)
     : password_store_(password_store),
-      use_for_encryption_(use_for_encryption),
       product_name_(product_name),
       bus_(std::move(bus)) {
   if (!bus_) {
@@ -270,12 +270,14 @@ void FreedesktopSecretKeyProvider::GetKey(KeyCallback callback) {
 
   // Reset state in case GetKey is called multiple times.
   kwallet_proxy_ = nullptr;
+  kwallet_handle_ = kKWalletInvalidHandle;
+  kwallet_transaction_id_ = kKWalletInvalidTransactionId;
   session_opened_ = false;
   session_proxy_ = nullptr;
   default_collection_proxy_ = nullptr;
 
   if (password_store_ == "basic") {
-    // Use FallbackLinuxKeyProvider.
+    // Use PosixKeyProvider.
     FinalizeFailure(InitStatus::kDisabled, ErrorDetail::kNone);
   } else if (password_store_ == "gnome-libsecret") {
     InitializeFreedesktopSecretService();
@@ -318,7 +320,7 @@ void FreedesktopSecretKeyProvider::GetKey(KeyCallback callback) {
 }
 
 bool FreedesktopSecretKeyProvider::UseForEncryption() {
-  return use_for_encryption_;
+  return true;
 }
 
 bool FreedesktopSecretKeyProvider::IsCompatibleWithOsCryptSync() {
@@ -582,23 +584,80 @@ void FreedesktopSecretKeyProvider::OnKWalletNetworkWallet(
                     DbusErrorToErrorDetail(wallet_name.error()));
     return;
   }
-  dbus_utils::CallMethod<"sxs", "i">(
-      kwallet_proxy_, kKWalletInterface, kKWalletMethodOpen,
-      base::BindOnce(&FreedesktopSecretKeyProvider::OnKWalletOpen,
+
+  dbus_utils::ConnectToSignal(
+      kwallet_proxy_, kKWalletInterface, kKWalletSignalWalletAsyncOpened,
+      base::BindRepeating(
+          &FreedesktopSecretKeyProvider::OnKWalletWalletAsyncOpened,
+          weak_ptr_factory_.GetWeakPtr()),
+      base::BindOnce(&FreedesktopSecretKeyProvider::OnSignalConnected,
+                     weak_ptr_factory_.GetWeakPtr()));
+
+  // handleSession = true means KWallet will take care of keeping the wallet
+  // open as long as the application is running.
+  constexpr bool kHandleSession = true;
+  dbus_utils::CallMethod<"sxsb", "i">(
+      kwallet_proxy_, kKWalletInterface, kKWalletMethodOpenAsync,
+      base::BindOnce(&FreedesktopSecretKeyProvider::OnKWalletOpenAsync,
                      weak_ptr_factory_.GetWeakPtr()),
-      std::get<0>(wallet_name.value()), 0, product_name_);
+      std::get<0>(wallet_name.value()), 0, product_name_, kHandleSession);
 }
 
-void FreedesktopSecretKeyProvider::OnKWalletOpen(
-    dbus_utils::CallMethodResultSig<"i"> handle_reply) {
+void FreedesktopSecretKeyProvider::OnKWalletOpenAsync(
+    dbus_utils::CallMethodResultSig<"i"> t_id) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!handle_reply.has_value()) {
+  if (!t_id.has_value()) {
     FinalizeFailure(InitStatus::kKWalletOpenFailed,
-                    DbusErrorToErrorDetail(handle_reply.error()));
+                    DbusErrorToErrorDetail(t_id.error()));
     return;
   }
 
-  kwallet_handle_ = std::get<0>(handle_reply.value());
+  kwallet_transaction_id_ = std::get<0>(t_id.value());
+}
+
+void FreedesktopSecretKeyProvider::OnSignalConnected(
+    const std::string& interface_name,
+    const std::string& signal_name,
+    bool connected) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!connected) {
+    LOG(ERROR) << "Failed to connect to " << signal_name << " signal.";
+    FinalizeFailure(InitStatus::kKWalletOpenFailed,
+                    ErrorDetail::kPromptFailedSignalConnection);
+  }
+}
+
+void FreedesktopSecretKeyProvider::OnKWalletWalletAsyncOpened(
+    dbus_utils::ConnectToSignalResult<int32_t, int32_t> result) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  if (kwallet_transaction_id_ == kKWalletInvalidTransactionId) {
+    return;
+  }
+
+  if (!result.has_value()) {
+    LOG(ERROR) << "Failed to read walletAsyncOpened signal args.";
+    FinalizeFailure(InitStatus::kKWalletOpenFailed,
+                    ErrorDetail::kInvalidSignalFormat);
+    return;
+  }
+
+  auto& [t_id, handle] = result.value();
+
+  if (t_id != kwallet_transaction_id_) {
+    return;
+  }
+
+  // Reset transaction ID to avoid processing the signal again.
+  kwallet_transaction_id_ = kKWalletInvalidTransactionId;
+
+  OnKWalletOpen(handle);
+}
+
+void FreedesktopSecretKeyProvider::OnKWalletOpen(int32_t handle) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  kwallet_handle_ = handle;
   if (kwallet_handle_ == kKWalletInvalidHandle) {
     FinalizeFailure(InitStatus::kKWalletOpenFailed,
                     ErrorDetail::kKWalletApiReturnedError);
@@ -795,10 +854,11 @@ void FreedesktopSecretKeyProvider::FinalizeFailure(InitStatus status,
     return;
   }
   RecordInitStatus(status, detail);
-  // TODO(crbug.com/389016528): Indicate whether this is a temporary or
-  // permanent failure depending on the `status` and `detail`.
-  std::move(key_callback_)
-      .Run(kEncryptionTag, base::unexpected(KeyError::kTemporarilyUnavailable));
+  // Fallback to PosixKeyProvider.
+  PosixKeyProvider fallback_key_provider;
+  // PosixKeyProvider::GetKey runs synchronously, so `fallback_key_provider`
+  // doesn't need to outlive the callback.
+  fallback_key_provider.GetKey(std::move(key_callback_));
   CloseSession();
 }
 

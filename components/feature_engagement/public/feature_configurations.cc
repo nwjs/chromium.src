@@ -188,19 +188,6 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
-  if (kIPHSignoutWebInterceptFeature.name == feature->name) {
-    FeatureConfig config;
-    config.valid = true;
-    config.availability = Comparator(ANY, 0);
-    config.session_rate = Comparator(ANY, 0);
-    config.session_rate_impact.type = SessionRateImpact::Type::NONE;
-    config.trigger = EventConfig("iph_signout_web_intercept_triggered",
-                                 Comparator(ANY, 0), 0, 0);
-    config.used =
-        EventConfig("iph_signout_web_intercept_used", Comparator(ANY, 0), 0, 0);
-    return config;
-  }
-
   if (kIPHGMCCastStartStopFeature.name == feature->name) {
     FeatureConfig config;
     config.valid = true;
@@ -1717,18 +1704,6 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
-  if (kIPHRtlGestureNavigationFeature.name == feature->name) {
-    FeatureConfig config;
-    config.valid = true;
-    config.availability = Comparator(ANY, 0);
-    config.session_rate = Comparator(LESS_THAN, 1);
-    config.used =
-        EventConfig("rtl_gesture_iph_show", Comparator(EQUAL, 0), 365, 365);
-    config.trigger =
-        EventConfig("rtl_gesture_iph_trigger", Comparator(EQUAL, 0), 30, 365);
-    return config;
-  }
-
   if (kIPHPageZoomFeature.name == feature->name) {
     FeatureConfig config;
     config.valid = true;
@@ -2417,17 +2392,6 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     config.event_configs.insert(
         EventConfig(feature_engagement::events::kChromeOpened,
                     Comparator(GREATER_THAN_OR_EQUAL, 7), 360, 360));
-
-    // Continue checking deprecated settings badge conditions to not show blue
-    // dot at all if user would not have qualified for settings badge.
-    // TODO(crbug.com/362504599): Remove in July 2025.
-    config.event_configs.insert(
-        EventConfig("blue_dot_promo_settings_shown_new_session",
-                    Comparator(LESS_THAN_OR_EQUAL, 2), 360, 360));
-    // TODO(crbug.com/362504058): Remove in Sept 2025.
-    config.event_configs.insert(
-        EventConfig("blue_dot_promo_overflow_menu_dismissed",
-                    Comparator(LESS_THAN, 3), 360, 360));
 
     config.blocked_by.type = BlockedBy::Type::NONE;
     config.blocking.type = Blocking::Type::NONE;

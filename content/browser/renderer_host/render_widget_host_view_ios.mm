@@ -15,6 +15,7 @@
 #include "components/input/render_widget_host_input_event_router.h"
 #include "components/input/switches.h"
 #include "components/viz/common/features.h"
+#include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "components/viz/common/surfaces/frame_sink_id_allocator.h"
 #include "content/browser/renderer_host/browser_compositor_ios.h"
 #include "content/browser/renderer_host/input/motion_event_web.h"
@@ -104,7 +105,7 @@ RenderWidgetHostViewIOS::RenderWidgetHostViewIOS(RenderWidgetHost* widget)
       screen->GetScreenInfosNearestDisplay(screen->GetPrimaryDisplay().id());
 
   browser_compositor_ = std::make_unique<BrowserCompositorIOS>(
-      [ui_view_->view_ viewHandle], this, host()->is_hidden(),
+      [ui_view_->view_ viewHandle], this, host()->IsHidden(),
       host()->GetFrameSinkId());
 
   if (IsTesting()) {
@@ -157,7 +158,8 @@ bool RenderWidgetHostViewIOS::IsSurfaceAvailableForCopy() {
 void RenderWidgetHostViewIOS::CopyFromSurface(
     const gfx::Rect& src_rect,
     const gfx::Size& dst_size,
-    base::OnceCallback<void(const SkBitmap&)> callback) {
+    base::OnceCallback<void(const viz::CopyOutputBitmapWithMetadata&)>
+        callback) {
   base::WeakPtr<RenderWidgetHostImpl> popup_host;
   base::WeakPtr<DelegatedFrameHost> popup_frame_host;
   RenderWidgetHostViewBase::CopyMainAndPopupFromSurface(
@@ -309,7 +311,7 @@ void RenderWidgetHostViewIOS::Hide() {
   is_visible_ = false;
   browser_compositor_->SetViewVisible(is_visible_);
   browser_compositor_->SetRenderWidgetHostIsHidden(true);
-  if (!host() || host()->is_hidden()) {
+  if (!host() || host()->IsHidden()) {
     return;
   }
 

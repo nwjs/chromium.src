@@ -62,6 +62,8 @@ class AccountNameEmailStore : public signin::IdentityManager::Observer,
   // Called when the account's extended information (e.g. full name) is
   // updated. Used to keep the kAccountNameEmail profile up to date.
   void OnExtendedAccountInfoUpdated(const AccountInfo& info) override;
+  void OnIdentityManagerShutdown(
+      signin::IdentityManager* identity_manager) override;
 
   // syncer::SyncServiceObserver:
   void OnSyncShutdown(syncer::SyncService* sync) override;
@@ -72,12 +74,24 @@ class AccountNameEmailStore : public signin::IdentityManager::Observer,
   // This prevents premature update/create without all of the relevant data.
   void MaybeUpdateOrCreateAccountNameEmail();
 
+#if BUILDFLAG(IS_IOS)
+  // The same as MaybeUpdateOrCreateAccountNameEmail(), but creates/updates the
+  // kAccountNameEmail profile using `account_name` and `email`.
+  // TODO(crbug.com/449708427): Remove once `AccountInfo` supports full_name on
+  // IOS.
+  void MaybeUpdateOrCreateAccountNameEmail(const std::string& account_name,
+                                           const std::string& email);
+#endif
+
   // Persists the `change` in prefs, if it applies to kAccountNameEmail
   // profile.
   void ApplyChange(const AutofillProfileChange& change);
 
-  // Removes the kAccountNameEmail autofill profile if it exists.
-  void SoftRemoveAccountNameEmail();
+  // Removes the kAccountNameEmail autofill profile if it exists. If
+  // `is_soft_removal` is true then the AccountNameEmail profile will be
+  // recreated when conditions are met again, otherwise it will be recreated iff
+  // the account name changed.
+  void RemoveAccountNameEmail(bool is_soft_removal);
 
  private:
   friend class AccountNameEmailStoreTestApi;
@@ -91,11 +105,15 @@ class AccountNameEmailStore : public signin::IdentityManager::Observer,
     kDataNotLoaded = 1,
     // Signed-out.
     kUserSignedOut = 2,
+    // The user is signed-in, but sync-the-feature is disabled.
+    // TODO(crbug.com/40066949): Do not block profile creation when
+    // sync-the-feature gets removed.
+    kSyncDisabled = 3,
   };
 
   // Updates the kAccountNameEmail autofill profile with the account `info`. If
   // the kAccountNameEmail profile doesn't exist, it is created.
-  void UpdateOrCreateAccountNameEmail(const AccountInfo& info);
+  void UpdateOrCreateAccountNameEmail(AccountInfo& info);
 
   // Hashes concatenated full_name and email_address delimited by |.
   std::string HashAccountInfo(const AccountInfo& info) const;
@@ -114,9 +132,13 @@ class AccountNameEmailStore : public signin::IdentityManager::Observer,
   // profile will be removed.
   void OnCounterPrefUpdated();
 
+  // Returns true if primary account exists and there are no blocking reasons,
+  // false otherwise.
+  bool ShouldUpdateOrCreateAccountNameEmail();
+
+  // `this` is owned by `address_data_manager_`, so `address_data_manager_` will
+  // outlive this class.
   const raw_ref<AddressDataManager> address_data_manager_;
-  const raw_ref<signin::IdentityManager> identity_manager_;
-  const raw_ref<syncer::SyncService> sync_service_;
   raw_ref<PrefService> pref_service_;
 
   // Used to update the `kAccountNameEmail` profile when the account name

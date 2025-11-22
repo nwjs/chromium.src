@@ -62,13 +62,6 @@ class TabStripCollection : public TabCollection {
   // due to bad input then CHECK.
   std::unique_ptr<TabInterface> RemoveTabAtIndexRecursive(size_t index);
 
-  // Removes the tab from the collection. If `close_empty_group_collection` is
-  // true then group collection is closed when the last tab is removed from
-  // the group collection.
-  std::unique_ptr<TabInterface> RemoveTabRecursive(
-      TabInterface* tab,
-      bool close_empty_group_collection = true);
-
   // TabCollection:
   // Tabs and Collections are not allowed to be removed from TabStripCollection.
   // `MaybeRemoveTab` and `MaybeRemoveCollection` will return nullptr.
@@ -82,6 +75,9 @@ class TabStripCollection : public TabCollection {
       int pinned,
       std::optional<tab_groups::TabGroupId> parent_group);
 
+  // Remove a tab collection and send the appropriate notifications.
+  std::unique_ptr<TabCollection> RemoveTabCollection(TabCollection* collection);
+
   // Adds the `tab_group_collection` to `detached_group_collections_`
   // so that it can be used when inserting a tab to a group.
   void CreateTabGroup(
@@ -90,13 +86,6 @@ class TabStripCollection : public TabCollection {
   // Group operations.
   // NOTE: These operations only work for attached tab groups.
 
-  // Use AddTabGroup and RemoveGroup to add/remove groups to the collection
-  // structure while keeping track of the group ids in group_mapping_ so that
-  // they can be looked up with GetTabGroupCollection.
-  TabGroupTabCollection* AddTabGroup(
-      std::unique_ptr<TabGroupTabCollection> group,
-      int index);
-  std::unique_ptr<TabCollection> RemoveGroup(TabGroupTabCollection* group);
   TabGroupTabCollection* GetTabGroupCollection(tab_groups::TabGroupId group_id);
   // Returns a list of all tab group IDs, the order of the IDs is not
   // guaranteed.
@@ -119,7 +108,6 @@ class TabStripCollection : public TabCollection {
                    const std::vector<TabInterface*>& tabs,
                    split_tabs::SplitTabVisualData visual_data);
   void Unsplit(split_tabs::SplitTabId split_id);
-  std::unique_ptr<TabCollection> RemoveSplit(SplitTabCollection* split);
   void ValidateData() const;
 
   std::optional<const tab_groups::TabGroupId> FindGroupIdFor(
@@ -133,14 +121,12 @@ class TabStripCollection : public TabCollection {
                            std::optional<tab_groups::TabGroupId> new_group_id,
                            bool new_pinned_state);
 
-  // If the group specified by new_group is detached, pop it from the detached
-  // groups vector and add it to the collections structure at the specified
-  // `index`.
-  TabGroupTabCollection* MaybeAttachDetachedGroupCollection(
-      int index,
-      const tab_groups::TabGroupId& new_group);
-
-  void MaybeRemoveGroupCollection(TabGroupTabCollection* group_collection);
+  // Removes the tab from the collection. If `close_empty_group_collection` is
+  // true then group collection is closed when the last tab is removed from
+  // the group collection.
+  std::unique_ptr<TabInterface> RemoveTabRecursiveImpl(
+      TabInterface* tab,
+      bool close_empty_group_collection = true);
 
   // Removes the group collection with `group_id` from
   // `detached_group_collections_`.
@@ -161,10 +147,22 @@ class TabStripCollection : public TabCollection {
   void AddCollectionMapping(TabCollection* root_collection);
   void RemoveCollectionMapping(TabCollection* root_collection);
 
+  void AddTabImpl(std::unique_ptr<TabInterface> tab,
+                  const TabCollection::Position& position);
+  std::unique_ptr<TabInterface> RemoveTabImpl(TabInterface* tab);
+  void AddTabCollectionImpl(std::unique_ptr<TabCollection> collection,
+                            const TabCollection::Position& position);
+  std::unique_ptr<TabCollection> RemoveTabCollectionImpl(
+      TabCollection* collection);
+  void MoveTabImpl(TabInterface* tab_ptr,
+                   const TabCollection::Position& position);
+  void MoveCollectionImpl(TabCollection* collection_ptr,
+                          const TabCollection::Position& position);
+
   // Helper to compute the parent collection and direct index in the collection
   // to insert a tab or collection based on insertion properties like the
   // recursive index, pinned state and group to insert.
-  std::pair<tabs::TabCollection*, int> GetInsertionDetails(
+  TabCollection::Position GetInsertionDetails(
       int index,
       int pinned,
       std::optional<tab_groups::TabGroupId> group);

@@ -111,6 +111,10 @@ namespace ui {
 enum class DomCode : uint32_t;
 }
 
+namespace viz {
+struct CopyOutputBitmapWithMetadata;
+}  // namespace viz
+
 namespace content {
 class FrameTree;
 class MockRenderWidgetHost;
@@ -490,10 +494,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   void RemoveImeInputEventObserver(
       RenderWidgetHost::InputEventObserver* observer) override;
 #endif
-
-  // Returns true if the RenderWidget is hidden.
-  // TODO(mustaq@chromium.org): Use `IsHidden()` instead!
-  bool is_hidden() const { return is_hidden_; }
 
   // Called to notify the RenderWidget that its associated native window
   // got/lost focused.
@@ -1177,9 +1177,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   void WindowSnapshotReachedScreen(int snapshot_id);
 
-  void OnSnapshotFromSurfaceReceived(int snapshot_id,
-                                     int retry_count,
-                                     const SkBitmap& bitmap);
+  void OnSnapshotFromSurfaceReceived(
+      int snapshot_id,
+      int retry_count,
+      const viz::CopyOutputBitmapWithMetadata& result);
 
   void OnSnapshotReceived(int snapshot_id, gfx::Image image);
 

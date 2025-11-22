@@ -31,6 +31,7 @@
 
 #include "base/dcheck_is_on.h"
 #include "base/notreached.h"
+#include "base/types/pass_key.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-blink.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -404,7 +405,6 @@ class CORE_EXPORT Node : public EventTarget {
   }
   virtual PseudoId GetPseudoId() const { return kPseudoIdNone; }
   virtual PseudoId GetPseudoIdForStyling() const { return kPseudoIdNone; }
-  virtual const AtomicString& GetPseudoArgument() const { return g_null_atom; }
 
   CustomElementState GetCustomElementState() const {
     return static_cast<CustomElementState>(node_flags_ &
@@ -760,6 +760,7 @@ class CORE_EXPORT Node : public EventTarget {
   // https://dom.spec.whatwg.org/#concept-shadow-including-ancestor
   bool IsShadowIncludingAncestorOf(const Node&) const;
   bool ContainsIncludingHostElements(const Node&) const;
+  bool ContainsViaFlatTree(const Node&) const;
   Node* CommonAncestor(const Node&,
                        ContainerNode* (*parent)(const Node&)) const;
 
@@ -1035,10 +1036,12 @@ class CORE_EXPORT Node : public EventTarget {
     return data_ ? data_->GetDOMParts() : nullptr;
   }
 
-  DOMNodeId NodeID() const {
+  DOMNodeId NodeID(base::PassKey<DOMNodeIds>) const {
     return data_ ? data_->NodeId() : kInvalidDOMNodeId;
   }
-  DOMNodeId& EnsureNodeID() { return EnsureRareData().NodeId(); }
+  DOMNodeId& EnsureNodeID(base::PassKey<DOMNodeIds>) {
+    return EnsureRareData().NodeId();
+  }
 
   // For the imperative slot distribution API.
   void SetManuallyAssignedSlot(HTMLSlotElement* slot);

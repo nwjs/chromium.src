@@ -10,6 +10,7 @@
 
 #include "base/callback_list.h"
 #include "base/functional/callback_forward.h"
+#include "base/memory/memory_pressure_listener.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
@@ -18,7 +19,9 @@
 #include "chrome/browser/glic/host/glic_web_client_access.h"
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/glic/service/glic_instance_coordinator_metrics.h"
 #include "chrome/browser/glic/service/glic_instance_impl.h"
+#include "chrome/browser/glic/service/glic_tab_creation_observer.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -35,123 +38,167 @@ class TabInterface;
 }
 
 namespace gfx {
-class Size;
 class Point;
 }  // namespace gfx
 
+namespace contextual_cueing {
+class ContextualCueingService;
+}
 namespace glic {
+
+// An interface to GlicInstanceCoordinatorImpl. Should be used instead of direct
+// access to GlicInstanceCoordinatorImpl to allow for test fakes.
+class GlicInstanceCoordinator : public GlicWindowController {};
+
 class GlicInstanceCoordinatorImpl
-    : public GlicWindowController,
-      public GlicInstanceImpl::AttachmentDelegate {
+    : public GlicInstanceCoordinator,
+      public GlicInstanceImpl::InstanceCoordinatorDelegate,
+      public base::MemoryPressureListener,
+      public GlicInstanceCoordinatorMetrics::DataProvider {
  public:
   GlicInstanceCoordinatorImpl(const GlicInstanceCoordinatorImpl&) = delete;
   GlicInstanceCoordinatorImpl& operator=(const GlicInstanceCoordinatorImpl&) =
       delete;
 
-  GlicInstanceCoordinatorImpl(Profile* profile,
-                              signin::IdentityManager* identity_manager,
-                              GlicKeyedService* service,
-                              GlicEnabling* enabling);
+  GlicInstanceCoordinatorImpl(
+      Profile* profile,
+      signin::IdentityManager* identity_manager,
+      GlicKeyedService* service,
+      GlicEnabling* enabling,
+      contextual_cueing::ContextualCueingService* contextual_cueing_service);
   ~GlicInstanceCoordinatorImpl() override;
 
-  // GlicInstanceImpl::AttachmentDelegate implementation
-  void AttachInstance(GlicInstance* instance) override;
-  void DetachInstance(GlicInstance* instance) override;
-  void OnInstanceOrphaned(GlicInstance* instance) override;
+  // GlicInstanceImpl::InstanceCoordinatorDelegate implementation
+  void OnInstanceVisibilityChanged(GlicInstanceImpl* instance,
+                                   bool is_showing) override;
+  void OnInstanceActivationChanged(GlicInstanceImpl* instance,
+                                   bool is_active) override;
   void SwitchConversation(
-      tabs::TabInterface* tab,
+      GlicInstanceImpl& source_instance,
+      const ShowOptions& options,
       glic::mojom::ConversationInfoPtr info,
       mojom::WebClientHandler::SwitchConversationCallback callback) override;
+  // Closes any existing GlicFloatingUi. This enforces at most one floating ui
+  // per profile.
+  void OnWillCreateFloaty() override;
+  void UnbindTabFromAnyInstance(tabs::TabInterface* tab) override;
+  std::vector<glic::mojom::ConversationInfoPtr> GetRecentlyActiveConversations()
+      override;
+  void ContextAccessIndicatorChanged(GlicInstanceImpl& instance,
+                                     bool enabled) override;
 
+  // GlicWindowController and GlicInstanceCoordinatorMetrics::DataProvider implementation
+  std::vector<GlicInstance*> GetInstances() override;
   // GlicWindowController implementation
   HostManager& host_manager() override;
-  std::vector<GlicInstance*> GetInstances() override;
-  GlicInstance* GetInstanceForTab(tabs::TabInterface* tab) override;
+  GlicInstance* GetInstanceForTab(const tabs::TabInterface* tab) const override;
 
+  // Toggles the side panel for the active tab if `browser` is provided,
+  // otherwise toggles the floating window for the instance. Focus is given
+  // to the new panel when opening through toggle since it is assumed all toggle
+  // sources are user initiated.
   void Toggle(BrowserWindowInterface* browser,
               bool prevent_close,
-              mojom::InvocationSource source) override;
-  bool ActivateBrowser() override;
+              mojom::InvocationSource source,
+              std::optional<std::string> prompt_suggestion) override;
   void ShowAfterSignIn(base::WeakPtr<Browser> browser) override;
-  void ToggleWhenNotAlwaysDetached(Browser* new_attached_browser,
-                                   bool prevent_close,
-                                   mojom::InvocationSource source) override;
-  void FocusIfOpen() override;
+  // Shuts down all hosts. Only call it before destruction of the instance
+  // coordinator.
   void Shutdown() override;
-  void MaybeSetWidgetCanResize() override;
-  gfx::Size GetSize() override;
   void Close() override;
-  void CloseWithReason(views::Widget::ClosedReason reason) override;
-  void ShowTitleBarContextMenuAt(gfx::Point event_loc) override;
-  bool ShouldStartDrag(const gfx::Point& initial_press_loc,
-                       const gfx::Point& mouse_location) override;
 
-  void AddStateObserver(StateObserver* observer) override;
-  void RemoveStateObserver(StateObserver* observer) override;
+  void AddGlobalStateObserver(StateObserver* observer) override;
+  void RemoveGlobalStateObserver(StateObserver* observer) override;
 
-  const mojom::PanelState& GetPanelState() const override;
-  bool IsShowing() const override;
-
-  bool IsActive() override;
-  bool IsAttached() const override;
   bool IsDetached() const override;
+  bool IsPanelShowingForBrowser(
+      const BrowserWindowInterface& bwi) const override;
   base::CallbackListSubscription AddWindowActivationChangedCallback(
       WindowActivationChangedCallback callback) override;
+  base::CallbackListSubscription AddGlobalShowHideCallback(
+      base::RepeatingClosure callback) override;
   void Preload() override;
-  void Reload() override;
-  bool IsWarmed() const override;
-  base::WeakPtr<GlicWindowController> GetWeakPtr() override;
+  void Reload(content::RenderFrameHost* render_frame_host) override;
+  base::WeakPtr<GlicInstanceCoordinatorImpl> GetWeakPtr();
 
-  GlicView* GetGlicView() const override;
-  base::WeakPtr<views::View> GetGlicViewAsView() override;
   GlicWidget* GetGlicWidget() const override;
-  gfx::NativeWindow GetHostNativeWindow() override;
 
   Browser* attached_browser() override;
   State state() const override;
-  GlicWindowAnimator* window_animator() override;
   Profile* profile() override;
   gfx::Rect GetInitialBounds(Browser* browser) override;
   void ShowDetachedForTesting() override;
   void SetPreviousPositionForTesting(gfx::Point position) override;
-  std::unique_ptr<views::View> CreateViewForSidePanel(
-      tabs::TabInterface& tab) override;
-  void SidePanelShown(BrowserWindowInterface* browser) override;
 
-  base::CallbackListSubscription RegisterStateChange(
-      StateChangeCallback callback) override;
+  base::CallbackListSubscription
+  AddActiveInstanceChangedCallbackAndNotifyImmediately(
+      ActiveInstanceChangedCallback callback) override;
+  GlicInstance* GetActiveInstance() override;
 
-  void FindInstanceFromGlicContentsAndBindToTab(
-      content::WebContents* source_glic_web_contents,
-      tabs::TabInterface* tab_to_bind) override;
+  // Returns a pointer to an instance with a Floaty embedder or nullptr.
+  GlicInstanceImpl* GetInstanceWithFloaty() const;
+
+  // Testing support.
+  void SetWarmingEnabledForTesting(bool warming_enabled);
+  bool HasWarmedInstanceForTesting() const {
+    return warmed_instance_ != nullptr;
+  }
+  GlicInstanceImpl* GetWarmedInstanceForTesting() {
+    return warmed_instance_.get();
+  }
+  std::string DescribeForTesting();
 
  private:
+  void OnTabCreated(tabs::TabInterface& old_tab, tabs::TabInterface& new_tab);
   GlicInstanceImpl* GetOrCreateGlicInstanceImplForTab(tabs::TabInterface* tab);
-  GlicInstanceImpl* GetInstanceImplFor(const InstanceId& id);
-  GlicInstanceImpl* GetInstanceImplForTab(tabs::TabInterface* tab);
+  GlicInstanceImpl* GetInstanceImplFor(const InstanceId& id) const;
+  GlicInstanceImpl* GetInstanceImplForTab(const tabs::TabInterface* tab) const;
+  GlicInstanceImpl* GetOrCreateInstanceImplForFloaty();
   GlicInstanceImpl* CreateGlicInstance();
   void CreateWarmedInstance();
 
-  void ToggleFloaty(bool prevent_close);
-  void ToggleSidePanel(BrowserWindowInterface* browser, bool prevent_close);
+  void ToggleFloaty(bool prevent_close, glic::mojom::InvocationSource source);
+  void ToggleSidePanel(BrowserWindowInterface* browser,
+                       bool prevent_close,
+                       glic::mojom::InvocationSource source);
 
-  void RemoveInstance(GlicInstance* instance);
-  bool HasAttachedInstance(GlicInstance* instance);
+  void CloseFloaty();
+
+  void OnMemoryPressure(base::MemoryPressureLevel level) override;
+
+  void RemoveInstance(GlicInstanceImpl* instance) override;
+
+  void NotifyActiveInstanceChanged();
+  void ComputeContentAccessIndicator();
 
   // List of callbacks to be notified when window activation has changed.
   base::RepeatingCallbackList<void(bool)> window_activation_callback_list_;
 
-  mojom::PanelState panel_state_;
   const raw_ptr<Profile> profile_;
+  raw_ptr<GlicKeyedService> service_;
+  raw_ptr<contextual_cueing::ContextualCueingService>
+      contextual_cueing_service_;
 
   std::map<InstanceId, std::unique_ptr<GlicInstanceImpl>> instances_;
-
-  // The instance ID of the one instance that is currently floating.
-  std::optional<InstanceId> floating_instance_key_;
 
   std::unique_ptr<GlicInstanceImpl> warmed_instance_;
 
   std::unique_ptr<HostManager> host_manager_;
+
+  raw_ptr<GlicInstanceImpl> active_instance_ = nullptr;
+  raw_ptr<GlicInstanceImpl> last_active_instance_ = nullptr;
+  base::RepeatingCallbackList<void(GlicInstance*)>
+      active_instance_changed_callback_list_;
+  base::RepeatingClosureList global_show_hide_callback_list_;
+
+  base::MemoryPressureListenerRegistration
+      memory_pressure_listener_registration_;
+
+  bool warming_enabled_ = true;
+
+  GlicInstanceCoordinatorMetrics metrics_;
+
+  std::unique_ptr<GlicTabCreationObserver> tab_creation_observer_;
 
   base::WeakPtrFactory<GlicInstanceCoordinatorImpl> weak_ptr_factory_{this};
 };

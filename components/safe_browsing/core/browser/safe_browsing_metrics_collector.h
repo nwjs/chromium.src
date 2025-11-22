@@ -26,8 +26,14 @@ namespace safe_browsing {
 // LINT.IfChange(NotificationRevocationSource)
 enum class NotificationRevocationSource {
   kSocialEngineeringBlocklist = 0,
-  kManualSafeBrowsingRevocation = 1,
-  kMaxValue = kManualSafeBrowsingRevocation,
+  kSafeBrowsingUnwantedRevocation = 1,
+  kStandardOneTapUnsubscribe = 2,
+  kSuspiciousWarningOneTapUnsubscribe = 3,
+  kDisruptiveAutoRevocation = 4,
+  kUserManuallyChangedSiteSetting = 5,
+  kUnknown = 6,
+  kSuspiciousContentAutoRevocation = 7,
+  kMaxValue = kSuspiciousContentAutoRevocation,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/safe_browsing/enums.xml:NotificationRevocationSource)
 
@@ -125,6 +131,11 @@ class SafeBrowsingMetricsCollector : public KeyedService {
       delete;
 
   ~SafeBrowsingMetricsCollector() override = default;
+
+  // Log the histogram that shows the revocation source when notification
+  // permissions are removed.
+  static void LogSafeBrowsingNotificationRevocationSourceHistogram(
+      NotificationRevocationSource source);
 
   // Checks the last logging time. If the time is longer than a day ago, log
   // immediately. Otherwise, schedule the next logging with delay.

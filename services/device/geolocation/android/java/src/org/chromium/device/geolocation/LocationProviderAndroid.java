@@ -23,6 +23,8 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.build.annotations.RequiresNonNull;
+import org.chromium.components.permissions.PermissionsAndroidFeatureList;
+import org.chromium.components.permissions.PermissionsAndroidFeatureMap;
 
 import java.util.List;
 
@@ -39,14 +41,33 @@ public class LocationProviderAndroid implements LocationListener, LocationProvid
 
     private @Nullable LocationManager mLocationManager;
     private boolean mIsRunning;
-    private boolean mEnableHighAccuracy;
+    private boolean mEffectiveHighAccuracy;
+    private boolean mRequestedHighAccuracy;
 
-    LocationProviderAndroid() {}
+    private final Context mContext;
+
+    public LocationProviderAndroid(Context context) {
+        mContext = context;
+    }
+
+    LocationProviderAndroid() {
+        this(ContextUtils.getApplicationContext());
+    }
 
     @Override
     public void start(boolean enableHighAccuracy) {
         ThreadUtils.assertOnUiThread();
-        mEnableHighAccuracy = enableHighAccuracy;
+        mRequestedHighAccuracy = enableHighAccuracy;
+        mEffectiveHighAccuracy = mRequestedHighAccuracy;
+
+        // Checking app-level permission here and override the `mEffectiveHighAccuracy`
+        // so we can make sure `Geolocation.AndroidLocationProvider.` is logged with
+        // correct name suffix.
+        if (mContext.checkCallingOrSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            mEffectiveHighAccuracy = false;
+        }
+
         unregisterFromLocationUpdates();
         registerForLocationUpdates();
     }
@@ -67,17 +88,21 @@ public class LocationProviderAndroid implements LocationListener, LocationProvid
     public void onLocationChanged(Location location) {
         // Callbacks from the system location service are queued to this thread, so it's
         // possible that we receive callbacks after unregistering. At this point, the
-        // native object will no longer exist.
+        // native object will no longer exist. Using `mRequestedHighAccuracy` for
+        // location update because `mEffectiveHighAccuracy` can be overridden by app-level
+        // permission check.
         if (mIsRunning) {
             if (location.hasAccuracy()) {
                 final String histogramName =
                         "Geolocation.AndroidLocationProvider"
-                                + (mEnableHighAccuracy ? ".HighAccuracyHint" : ".LowAccuracyHint")
+                                + (mEffectiveHighAccuracy
+                                        ? ".HighAccuracyHint"
+                                        : ".LowAccuracyHint")
                                 + ".Accuracy";
                 RecordHistogram.recordCount100000Histogram(
                         histogramName, (int) location.getAccuracy());
             }
-            LocationProviderAdapter.onNewLocationAvailable(location);
+            LocationProviderAdapter.onNewLocationAvailable(location, mRequestedHighAccuracy);
         }
     }
 
@@ -120,12 +145,21 @@ public class LocationProviderAndroid implements LocationListener, LocationProvid
         // bounce notifications to the Geolocation thread as they arrive in the mainLooper.
         try {
             Criteria criteria = new Criteria();
-            Context context = ContextUtils.getApplicationContext();
-            if (mEnableHighAccuracy
-                    && context.checkCallingOrSelfPermission(
-                                    Manifest.permission.ACCESS_FINE_LOCATION)
-                            == PackageManager.PERMISSION_GRANTED) {
-                criteria.setAccuracy(Criteria.ACCURACY_FINE);
+
+            // When the `APPROXIMATE_GEOLOCATION_PERMISSION` feature is enabled,
+            // `mEffectiveHighAccuracy` explicitly controls the location accuracy. Otherwise, it
+            // only acts as a hint for the location provider.
+            if (PermissionsAndroidFeatureMap.isEnabled(
+                    PermissionsAndroidFeatureList.APPROXIMATE_GEOLOCATION_PERMISSION)) {
+                if (mEffectiveHighAccuracy) {
+                    criteria.setAccuracy(Criteria.ACCURACY_FINE);
+                } else {
+                    criteria.setAccuracy(Criteria.ACCURACY_COARSE);
+                }
+            } else {
+                if (mEffectiveHighAccuracy) {
+                    criteria.setAccuracy(Criteria.ACCURACY_FINE);
+                }
             }
             mLocationManager.requestLocationUpdates(
                     0, 0, criteria, this, ThreadUtils.getUiThreadLooper());
@@ -168,7 +202,7 @@ public class LocationProviderAndroid implements LocationListener, LocationProvid
                 mLocationManager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER);
         if (location != null) {
             ThreadUtils.assertOnUiThread();
-            LocationProviderAdapter.onNewLocationAvailable(location);
+            LocationProviderAdapter.onNewLocationAvailable(location, true);
         }
         return true;
     }

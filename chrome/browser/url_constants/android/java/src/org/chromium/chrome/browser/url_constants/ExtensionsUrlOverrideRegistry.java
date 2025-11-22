@@ -43,6 +43,13 @@ public class ExtensionsUrlOverrideRegistry {
         return getPrefs().readBoolean(buildKey(EXTENSIONS_BOOKMARKS_URL_OVERRIDE_ENABLED), false);
     }
 
+    /** Returns true if an extension has overridden the bookmarks page. */
+    public static boolean isBookmarksPageOverridden(boolean isIncognito) {
+        return isIncognito
+                ? getIncognitoBookmarksPageOverrideEnabled()
+                : getBookmarksPageOverrideEnabled();
+    }
+
     /** Returns true if an extension has overridden the bookmarks page for incognito mode. */
     public static boolean getIncognitoBookmarksPageOverrideEnabled() {
         return getPrefs()
@@ -82,5 +89,14 @@ public class ExtensionsUrlOverrideRegistry {
 
     private static String buildKey(String string) {
         return ChromePreferenceKeys.EXTENSIONS_CHROME_PAGE_URL_OVERRIDE_ENABLED.createKey(string);
+    }
+
+    /** Disables all overrides. */
+    public static void resetRegistry() {
+        setNtpOverrideEnabled(false);
+        setBookmarksPageOverrideEnabled(false);
+        setHistoryPageOverrideEnabled(false);
+        setIncognitoNtpOverrideEnabled(false);
+        setIncognitoBookmarksPageOverrideEnabled(false);
     }
 }

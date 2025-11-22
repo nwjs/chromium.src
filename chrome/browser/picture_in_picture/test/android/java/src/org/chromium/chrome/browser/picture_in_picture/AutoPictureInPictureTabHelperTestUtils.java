@@ -48,10 +48,18 @@ public class AutoPictureInPictureTabHelperTestUtils {
     public static void waitForAutoPictureInPictureState(
             WebContents webContents, boolean expectedInPip, String failureMessage) {
         CriteriaHelper.pollUiThread(
-                () ->
-                        AutoPictureInPictureTabHelperTestUtilsJni.get()
-                                        .isInAutoPictureInPicture(webContents)
-                                == expectedInPip,
+                () -> {
+                    if (webContents == null || webContents.isDestroyed()) {
+                        // If WebContents is gone, it cannot be in auto-PiP.
+                        // This satisfies the condition if we expect PiP to be false.
+                        return !expectedInPip;
+                    }
+                    boolean isInAutoPip =
+                            AutoPictureInPictureTabHelperTestUtilsJni.get()
+                                    .isInAutoPictureInPicture(webContents);
+
+                    return isInAutoPip == expectedInPip;
+                },
                 failureMessage);
     }
 
@@ -99,16 +107,19 @@ public class AutoPictureInPictureTabHelperTestUtils {
     }
 
     /**
-     * Sets a mock audio focus state for the given {@link WebContents} for testing purposes.
+     * Overrides the is using camera or microphone value for the given {@link WebContents} for
+     * testing purposes.
      *
      * @param webContents The WebContents to modify.
-     * @param hasFocus The mock audio focus state to set.
+     * @param isUsingCameraOrMicrophone The mock value to set.
      */
-    public static void setHasAudioFocusForTesting(WebContents webContents, boolean hasFocus) {
+    public static void setIsUsingCameraOrMicrophone(
+            WebContents webContents, boolean isUsingCameraOrMicrophone) {
         ThreadUtils.runOnUiThreadBlocking(
                 () ->
                         AutoPictureInPictureTabHelperTestUtilsJni.get()
-                                .setHasAudioFocusForTesting(webContents, hasFocus));
+                                .setIsUsingCameraOrMicrophone(
+                                        webContents, isUsingCameraOrMicrophone));
     }
 
     /**
@@ -166,8 +177,9 @@ public class AutoPictureInPictureTabHelperTestUtils {
                 @JniType("content::WebContents*") WebContents webContents,
                 boolean hasHighEngagement);
 
-        void setHasAudioFocusForTesting(
-                @JniType("content::WebContents*") WebContents webContents, boolean hasFocus);
+        void setIsUsingCameraOrMicrophone(
+                @JniType("content::WebContents*") WebContents webContents,
+                boolean isUsingCameraOrMicrophone);
 
         int getDismissCountForTesting(
                 @JniType("content::WebContents*") WebContents webContents,

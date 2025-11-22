@@ -29,11 +29,9 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/android_info.h"
 #include "base/android/device_info.h"
-#include "build/android_buildflags.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/linux/drm_util_linux.h"  //nogncheck
 #endif
 
@@ -320,11 +318,6 @@ bool IsVulkanV3EnabledForAdreno(
   return true;
 }
 
-bool SkipVulkanBlocklist() {
-  // Expectation is for all desktop android devices to use vulkan
-  return BUILDFLAG(IS_DESKTOP_ANDROID);
-}
-
 #endif
 }  // namespace
 
@@ -488,7 +481,7 @@ bool CheckVulkanCompatibilities(
   return true;
 #endif
 #else   // BUILDFLAG(IS_ANDROID)
-   if (SkipVulkanBlocklist()) {
+   if (base::FeatureList::IsEnabled(features::kSkipVulkanBlocklist)) {
     return true;
   }
 
@@ -549,8 +542,8 @@ bool CheckVulkanCompatibilities(
   // https://crbug.com/1122650: Poor performance and untriaged crashes with
   // Imagination GPUs.
   if (device_properties.vendor_id == kVendorImagination) {
-    // Only PowerVR D series allowed in V1.
-    if (base::StartsWith(device_properties.device_name, "PowerVR D")) {
+    // Only PowerVR D series and newer allowed in V1.
+    if (base::MatchPattern(device_properties.device_name, "PowerVR ?-Series*")) {
       return true;
     }
     return IsVulkanV2EnabledForImagination(gpu_info);

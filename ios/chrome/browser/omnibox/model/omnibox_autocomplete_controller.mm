@@ -15,6 +15,7 @@
 #import "components/bookmarks/browser/bookmark_model.h"
 #import "components/omnibox/browser/autocomplete_classifier.h"
 #import "components/omnibox/browser/autocomplete_controller.h"
+#import "components/omnibox/browser/autocomplete_controller_config.h"
 #import "components/omnibox/browser/autocomplete_input.h"
 #import "components/omnibox/browser/autocomplete_match.h"
 #import "components/omnibox/browser/autocomplete_result.h"
@@ -29,6 +30,7 @@
 #import "ios/chrome/browser/omnibox/model/autocomplete_controller_observer_bridge.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_autocomplete_controller_debugger_delegate.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_autocomplete_controller_delegate.h"
+#import "ios/chrome/browser/omnibox/model/omnibox_lens_delegate.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_metrics_recorder.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_text_controller.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_text_model.h"
@@ -36,6 +38,7 @@
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_backed_boolean.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "third_party/omnibox_proto/groups.pb.h"
 #import "ui/gfx/image/image.h"
 #import "url/gurl.h"
@@ -65,18 +68,25 @@ using base::UserMetricsAction;
   PrefBackedBoolean* _bottomOmniboxEnabled;
   /// Preferred omnibox position, logged in omnibox logs.
   metrics::OmniboxEventProto::OmniboxPosition _preferredOmniboxPosition;
+  /// Where the omnibox is presented from.
+  OmniboxPresentationContext _omniboxPresentationContext;
 }
 
 - (instancetype)initWithOmniboxClient:(OmniboxClient*)omniboxClient
-                     omniboxTextModel:(OmniboxTextModel*)omniboxTextModel {
+                     omniboxTextModel:(OmniboxTextModel*)omniboxTextModel
+                  presentationContext:
+                      (OmniboxPresentationContext)presentationContext {
   self = [super init];
   if (self) {
     _omniboxClient = omniboxClient;
     _omniboxTextModel = omniboxTextModel;
+    _omniboxPresentationContext = presentationContext;
 
     _autocompleteController = std::make_unique<AutocompleteController>(
         _omniboxClient->CreateAutocompleteProviderClient(),
-        AutocompleteClassifier::DefaultOmniboxProviders());
+        AutocompleteControllerConfig{
+            .provider_types =
+                AutocompleteClassifier::DefaultOmniboxProviders()});
 
     _autocompleteControllerObserverBridge =
         std::make_unique<AutocompleteControllerObserverBridge>(self);
@@ -344,9 +354,9 @@ using base::UserMetricsAction;
     return;
   }
 
-    [self openSelection:OmniboxPopupSelection(row)
-              timestamp:matchSelectionTimestamp
-            disposition:disposition];
+  [self openSelection:OmniboxPopupSelection(row)
+            timestamp:matchSelectionTimestamp
+          disposition:disposition];
 }
 
 - (void)selectMatchForAppending:(const AutocompleteMatch&)match {
@@ -721,9 +731,17 @@ using base::UserMetricsAction;
   }
 
   if (disposition != WindowOpenDisposition::NEW_BACKGROUND_TAB) {
-    base::AutoReset<bool> tmp(&_omniboxTextModel->in_revert, true);
-    [self.omniboxTextController
-            revertAll];  // Revert the box to its unedited state.
+    // Skip the revert here to avoid changing the size of the multiline omnibox
+    // when accepting input, changes will be reverted at endEditing
+    // (crbug.com/458055336).
+    BOOL skipRevert =
+        IsMultilineBrowserOmniboxEnabled() &&
+        _omniboxPresentationContext == OmniboxPresentationContext::kLocationBar;
+    if (!skipRevert) {
+      base::AutoReset<bool> tmp(&_omniboxTextModel->in_revert, true);
+      [self.omniboxTextController
+              revertAll];  // Revert the box to its unedited state.
+    }
   }
 
   if (!action) {
@@ -837,15 +855,20 @@ using base::UserMetricsAction;
       break;
     }
     case AutocompleteMatchType::CLIPBOARD_IMAGE: {
-      clipboardRecentContent->GetRecentImageFromClipboard(base::BindOnce(
-          [](OmniboxAutocompleteController* controller,
-             WindowOpenDisposition disposition, base::TimeTicks timestamp,
-             std::optional<gfx::Image> optionalImage) {
-            [controller openClipboardImage:optionalImage
-                               disposition:disposition
-                                 timestamp:timestamp];
-          },
-          weakSelf, disposition, timestamp));
+      if ([self.lensHander shouldUseLensForCopiedImage]) {
+        [self.lensHander lensCopiedImage];
+      } else {
+        clipboardRecentContent->GetRecentImageFromClipboard(base::BindOnce(
+            [](OmniboxAutocompleteController* controller,
+               WindowOpenDisposition disposition, base::TimeTicks timestamp,
+               std::optional<gfx::Image> optionalImage) {
+              [controller openClipboardImage:optionalImage
+                                 disposition:disposition
+                                   timestamp:timestamp];
+            },
+            weakSelf, disposition, timestamp));
+      }
+
       break;
     }
     default:

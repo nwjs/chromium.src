@@ -136,7 +136,6 @@ V8PermissionState::Enum PermissionStatusV8Enum(MojoPermissionStatus status) {
     case MojoPermissionStatus::ASK:
       return V8PermissionState::Enum::kPrompt;
     case MojoPermissionStatus::DENIED:
-    case mojom::PermissionStatus::UNSATISFIED_OPTIONS:
       return V8PermissionState::Enum::kDenied;
   }
 }
@@ -321,7 +320,7 @@ class TestPermissionService : public PermissionService {
       PermissionDescriptorPtr permission,
       MojoPermissionStatus last_known_status,
       mojo::PendingRemote<PermissionObserver> observer) override {}
-  void AddCombinedPermissionObserver(
+  void AddPageEmbeddedPermissionObserver(
       PermissionDescriptorPtr permission,
       MojoPermissionStatus last_known_status,
       mojo::PendingRemote<PermissionObserver> observer) override {

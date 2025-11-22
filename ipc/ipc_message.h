@@ -12,7 +12,7 @@
 
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/pickle.h"
 #include "build/build_config.h"
 #include "ipc/ipc_message_support_export.h"
@@ -202,11 +202,10 @@ class IPC_MESSAGE_SUPPORT_EXPORT Message : public base::Pickle {
 
  protected:
   friend class Channel;
-  friend class ChannelMojo;
+  friend class Channel;
   friend class ChannelPosix;
   friend class ChannelWin;
   friend class MessageReplyDeserializer;
-  friend class SyncMessage;
 
   friend struct mojo::internal::UnmappedNativeStructSerializerImpl;
 

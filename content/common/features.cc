@@ -26,6 +26,12 @@ BASE_FEATURE(kAndroidDownloadableFontsMatching,
 // Adds OOPIF support for android drag and drop.
 BASE_FEATURE(kAndroidDragDropOopif, base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_WIN)
+// Flag guard for Windows Arabic digit substitution workaround.
+// crbug.com/440381284
+BASE_FEATURE(kArabicDigitSubstitution, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_WIN)
+
 // Synchronously continuing with navigation can lead to trying to start another
 // navigation synchronously while the first navigation is still being processed
 // on the stack. This results in re-entrancy which is unsafe and triggers a
@@ -43,8 +49,15 @@ BASE_FEATURE(kAndroidDragDropOopif, base::FEATURE_ENABLED_BY_DEFAULT);
 //
 // There are several modes that are described in the
 // AvoidUnnecessaryBeforeUnloadCheckSyncMode enum in the header file.
+//
+// The eventual state is to utilize kWithoutSendBeforeUnload mode, as it offers
+// the highest performance. However, kWithoutSendBeforeUnload mode causes a
+// metrics skew due to the current inaccurate measurement timing of navigation
+// start (refer to crbug.com/385170155). Therefore, kWithSendBeforeUnload mode
+// is the current default. We would like to update to use
+// kWithoutSendBeforeUnload mode once crbug.com/385170155 is resolved.
 BASE_FEATURE(kAvoidUnnecessaryBeforeUnloadCheckSync,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 constexpr base::FeatureParam<AvoidUnnecessaryBeforeUnloadCheckSyncMode>::Option
     kAvoidUnnecessaryBeforeUnloadCheckSyncModeOption[] = {
@@ -61,7 +74,7 @@ BASE_FEATURE_ENUM_PARAM(
     kAvoidUnnecessaryBeforeUnloadCheckSyncMode,
     &kAvoidUnnecessaryBeforeUnloadCheckSync,
     "AvoidUnnecessaryBeforeUnloadCheckSyncMode",
-    AvoidUnnecessaryBeforeUnloadCheckSyncMode::kDumpWithoutCrashing,
+    AvoidUnnecessaryBeforeUnloadCheckSyncMode::kWithSendBeforeUnload,
     &kAvoidUnnecessaryBeforeUnloadCheckSyncModeOption);
 
 // Enables controlling the time to live for pages in the BackForwardCache.
@@ -125,16 +138,30 @@ BASE_FEATURE(kCodeCacheDeletionWithoutFilter, base::FEATURE_ENABLED_BY_DEFAULT);
 // and citadel check to collect data about possible mismatches. Requires
 // CommittedOriginTracking to also be turned on to take effect. See
 // https://crbug.com/40148776.
-BASE_FEATURE(kCommittedOriginEnforcements, base::FEATURE_DISABLED_BY_DEFAULT);
+//
+// TODO(alexmos): Remove this feature flag once committed origin enforcements
+// are fully launched. For now, the feature is kept as a kill switch.
+BASE_FEATURE(kCommittedOriginEnforcements, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Turn on the tracking of origins committed in each renderer process in
 // ChildProcessSecurityPolicy. This is required for committed origin
 // enforcements, which is gated behind kCommittedOriginEnforcements.
 BASE_FEATURE(kCommittedOriginTracking, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Turn on a bug fix for crbug.com/456537756, ensuring that the callback passed
+// to RenderWidgetHostView::CopyFromSurface() is always called.
+BASE_FEATURE(kCopyFromSurfaceAlwaysCallCallback,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Enables support for the `Critical-CH` response header.
 // https://github.com/WICG/client-hints-infrastructure/blob/master/reliability.md#critical-ch
 BASE_FEATURE(kCriticalClientHint, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Delay the destructions of RenderFrameHostImpls during a navigation (on
+// Unload) or frame Detach, by delaying the call to
+// PendingDeletionCheckCompletedOnSubTree.
+BASE_FEATURE(kDelayRfhDestructionsOnUnloadAndDetach,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable document policy negotiation mechanism.
 BASE_FEATURE(kDocumentPolicyNegotiation, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -179,13 +206,7 @@ BASE_FEATURE(kFedCmUseOtherAccountAndLabelsNewSyntax,
 BASE_FEATURE(kFedCmSameSiteLax, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables NonString Tokens
-BASE_FEATURE(kFedCmNonStringToken, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Controls whether FedCM requires explicit endpoint declaration in well-known
-// files when client_metadata is used. When enabled, accounts_endpoint and
-// login_url must be present in .well-known/web-identity for privacy validation.
-BASE_FEATURE(kFedCmWellKnownEndpointValidation,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kFedCmNonStringToken, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether FedCM preserves ports in well-known URLs during testing.
 // When enabled, well-known URLs retain the original port from the provider URL
@@ -195,10 +216,6 @@ BASE_FEATURE(kFedCmWellKnownEndpointValidation,
 // Production FedCM strips ports for security reasons to ensure well-known
 // files are served from the canonical domain.
 BASE_FEATURE(kFedCmPreservePortsForTesting, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables the spec-compliant 'error' attribute in IdentityCredentialError while
-// deprecating the legacy 'code' attribute.
-BASE_FEATURE(kFedCmErrorAttribute, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables installed web app matching for getInstalledRelatedApps API.
 BASE_FEATURE(kFilterInstalledAppsWebAppMatching,
@@ -278,7 +295,7 @@ BASE_FEATURE(
 
 // Killswitch for prefetch devtools UA override (crbug.com/422193319).
 BASE_FEATURE(kPrefetchDevtoolsUserAgentOverride,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When true, duplicate navigations are ignored only if they are initiated
 // with a user gesture.
@@ -479,7 +496,6 @@ BASE_FEATURE(kPrivacySandboxAdsAPIsM1Override,
 BASE_FEATURE(kContinueGestureOnLosingFocus, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-
 // Make sendBeacon throw for a Blob with a non simple type.
 BASE_FEATURE(kSendBeaconThrowForBlobWithNonSimpleType,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -528,15 +544,13 @@ BASE_FEATURE(kReloadHiddenTabsWithCrashedSubframes,
 #endif
 );
 
-// ReloadHiddenTabsWithCrashedSubframes feature reloads the WebContents
-// regardless of the crashed frame's state. This feature restricts the reload
-// to only happen for active subframes.
-// This is a bug fix but being launched as a feature to see the impact.
-// This will be removed once this is launched.
-BASE_FEATURE(kReloadHiddenTabsWithActiveCrashedSubframes,
+BASE_FEATURE(kRendererCancellationThrottleImprovements,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kRendererCancellationThrottleImprovements,
+// When enabled, allows a navigation to resume even if the renderer process for
+// its speculative RFH is killed. This only works for navigations that have not
+// yet received the response and picked the final RFH to commit in.
+BASE_FEATURE(kResumeNavigationWithSpeculativeRFHProcessGone,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, try to reuse any same-site process that is hosting
@@ -574,12 +588,13 @@ const base::FeatureParam<std::string>
 // same service worker that controls their parent.
 BASE_FEATURE(kServiceWorkerSrcdocSupport, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// (crbug.com/340949948): Killswitch for the fix to address the ServiceWorker
-// main and subreosurce loader lifetime issue, which introduces fetch() failure
-// in the sw fetch handler.
-BASE_FEATURE(kServiceWorkerStaticRouterRaceRequestFix,
-             "kServiceWorkerStaticRouterRaceRequestFix",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// When this is enabled, it fixes the object lifetime issue when
+// `race-network-and-fetch-handler` is used, the object should be deleted after
+// the fetch event completion, regardless of the result of racing.
+//
+// crbug.com/340949948 for more details.
+BASE_FEATURE(kServiceWorkerStaticRouterRaceRequestFix2,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // (crbug.com/1371756): When enabled, the static routing API starts
 // ServiceWorker when the routing result of a main resource request was network
@@ -598,6 +613,17 @@ BASE_FEATURE(kServiceWorkerClientUrlIsCreationUrl,
 // Enables skipping the early call to CommitPending when navigating away from a
 // crashed frame.
 BASE_FEATURE(kSkipEarlyCommitPendingForCrashedFrame,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Feature to skip a redundant NotifyNavigationStateChanged call during
+// RendererDidNavigate.
+BASE_FEATURE(kSkipRedundantNavigationStateNotification,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When enabled, skips registration of RendererCancellationThrottle and instead
+// keeps navigation cancellation behavior by reusing the requester
+// NavigationClient.
+BASE_FEATURE(kSkipRendererCancellationThrottle,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)

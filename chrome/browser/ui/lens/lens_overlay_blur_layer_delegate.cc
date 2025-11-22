@@ -8,6 +8,7 @@
 #include "base/timer/timer.h"
 #include "cc/paint/render_surface_filters.h"
 #include "components/lens/lens_features.h"
+#include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "ui/compositor/paint_recorder.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/rect_f.h"
@@ -61,6 +62,22 @@ void LensOverlayBlurLayerDelegate::StopBackgroundImageCapture() {
     return;
   }
   screenshot_timer_.Stop();
+}
+
+void LensOverlayBlurLayerDelegate::Hide() {
+  render_widget_host_observer_.Reset();
+  background_view_host_ = nullptr;
+
+  StopBackgroundImageCapture();
+  background_screenshot_.reset();
+  layer()->SchedulePaint(gfx::Rect(layer()->size()));
+}
+
+void LensOverlayBlurLayerDelegate::Show(
+    content::RenderWidgetHost* background_view_host) {
+  background_view_host_ = background_view_host;
+  render_widget_host_observer_.Observe(background_view_host);
+  StartBackgroundImageCapture();
 }
 
 bool LensOverlayBlurLayerDelegate::IsLiveBlurActive() {
@@ -136,7 +153,8 @@ void LensOverlayBlurLayerDelegate::FetchBackgroundImage() {
 }
 
 void LensOverlayBlurLayerDelegate::UpdateBackgroundImage(
-    const SkBitmap& bitmap) {
+    const viz::CopyOutputBitmapWithMetadata& result) {
+  const auto& bitmap = result.bitmap;
   auto layer_size = layer()->size();
   if (bitmap.drawsNothing() || layer_size.width() * layer_size.height() <= 0 ||
       AreBitmapsEqual(background_screenshot_, bitmap)) {

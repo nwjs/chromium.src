@@ -5,6 +5,7 @@
 #include "services/webnn/ort/graph_impl_ort.h"
 
 #include "base/command_line.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/notimplemented.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/thread_pool.h"
@@ -24,7 +25,7 @@
 #include "services/webnn/resource_task.h"
 #include "services/webnn/webnn_constant_operand.h"
 #include "services/webnn/webnn_graph_impl.h"
-#include "third_party/onnxruntime_headers/src/include/onnxruntime/core/session/onnxruntime_c_api.h"
+#include "third_party/windows_app_sdk_headers/src/inc/abi/winml/winml/onnxruntime_c_api.h"
 
 namespace webnn::ort {
 
@@ -76,6 +77,8 @@ class GraphImplOrt::ComputeResources {
   void OrtRunSync(
       std::vector<std::pair<std::string, const OrtValue*>> named_input_tensors,
       std::vector<std::pair<std::string, OrtValue*>> named_output_tensors) {
+    SCOPED_UMA_HISTOGRAM_TIMER("WebNN.ORT.TimingMs.Inference");
+
     ScopedTrace scoped_trace("GraphImplOrt::ComputeResources::OrtRunSync");
     std::vector<const char*> input_names;
     std::vector<const OrtValue*> input_tensors;
@@ -138,11 +141,10 @@ void GraphImplOrt::CreateAndBuild(
       FROM_HERE,
       {base::TaskPriority::USER_BLOCKING,
        base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN, base::MayBlock()},
-      base::BindOnce(
-          &GraphImplOrt::CreateAndBuildOnBackgroundThread,
-          std::move(graph_info), context->session_options(), context->env(),
-          context->properties(), std::move(constant_operands),
-          context->is_external_data_supported(), std::move(scoped_trace)),
+      base::BindOnce(&GraphImplOrt::CreateAndBuildOnBackgroundThread,
+                     std::move(graph_info), context->session_options(),
+                     context->env(), context->properties(),
+                     std::move(constant_operands), std::move(scoped_trace)),
       base::BindOnce(&GraphImplOrt::DidCreateAndBuild, std::move(receiver),
                      context->AsWeakPtr(), std::move(compute_resource_info),
                      std::move(callback)));
@@ -157,13 +159,14 @@ GraphImplOrt::CreateAndBuildOnBackgroundThread(
     ContextProperties context_properties,
     base::flat_map<OperandId, std::unique_ptr<WebNNConstantOperand>>
         constant_operands,
-    bool is_external_data_supported,
     ScopedTrace scoped_trace) {
+  SCOPED_UMA_HISTOGRAM_TIMER("WebNN.ORT.TimingMs.Compilation");
+
   scoped_trace.AddStep("Create model info");
   std::unique_ptr<ModelEditor::ModelInfo> model_info =
-      GraphBuilderOrt::CreateAndBuild(
-          *graph_info, std::move(context_properties),
-          std::move(constant_operands), is_external_data_supported);
+      GraphBuilderOrt::CreateAndBuild(*graph_info,
+                                      std::move(context_properties),
+                                      std::move(constant_operands));
 
   scoped_trace.AddStep("Create session from model");
   ScopedOrtSession session;

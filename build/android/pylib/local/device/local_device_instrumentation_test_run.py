@@ -134,6 +134,8 @@ _DEVICE_GOLD_DIR = 'skia_gold'
 RENDER_TEST_MODEL_SDK_CONFIGS = {
     # Android x86 emulator.
     'Android SDK built for x86': [29],
+    # Android x64 emulator.
+    'Android SDK built for x64': [35],
 }
 
 _BATCH_SUFFIX = '_batch'
@@ -808,8 +810,11 @@ class LocalDeviceInstrumentationTestRun(
         else:
           raise Exception('No PackageInfo found but'
                           '--use-apk-under-test-flags-file is specified.')
-      self._flag_changers[str(device)] = flag_changer.FlagChanger(
-          device, cmdline_file)
+      changer = flag_changer.FlagChanger(device, cmdline_file)
+      # Ensure that any existing flags are cleared so that there cannot be any
+      # conflicts with added flags.
+      changer.RemoveFlags(changer.GetCurrentFlags())
+      self._flag_changers[str(device)] = changer
 
   #override
   def _CreateShardsForDevices(self, tests):

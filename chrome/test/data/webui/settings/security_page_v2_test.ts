@@ -4,7 +4,7 @@
 
 // clang-format off
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import type {SettingsSecurityPageV2Element} from 'chrome://settings/lazy_load.js';
+import type {CrExpandButtonElement, SettingsSecurityPageV2Element} from 'chrome://settings/lazy_load.js';
 import {SecuritySettingsBundleSetting} from 'chrome://settings/lazy_load.js';
 import type {SettingsPrefsElement} from 'chrome://settings/settings.js';
 import {CrSettingsPrefs} from 'chrome://settings/settings.js';
@@ -54,15 +54,21 @@ suite('Main', function() {
   test('SafeBrowsingRowClickExpandsRowAndShowsSafeBrowsingSettings', async function() {
     assertFalse(isChildVisible(page, '#safeBrowsingRadioGroup'));
 
-    // Click on the row, expands content and we can see the radio group.
-    page.$.safeBrowsingRow.click();
+    const expandButton =
+        page.$.safeBrowsingRow.shadowRoot!.querySelector<CrExpandButtonElement>(
+            '#expandButton');
+    assertTrue(!!expandButton);
+
+    // Click on the expand button, expands content and we can see the radio
+    // group.
+    expandButton.click();
     await microtasksFinished();
     assertTrue(isChildVisible(page, '#safeBrowsingRadioGroup'));
 
-    // Click on the row, collapses content and we can't see the radio group.
-    page.$.safeBrowsingRow.click();
+    // Click on the expand button, collapses content and we can't see the radio
+    // group.
+    expandButton.click();
     await microtasksFinished();
-    assertFalse(isChildVisible(page, '#safeBrowsingRadioGroup'));
+    assertFalse(isChildVisible(page, '#safeBrowsingRadioGroup', true));
   });
-
 });

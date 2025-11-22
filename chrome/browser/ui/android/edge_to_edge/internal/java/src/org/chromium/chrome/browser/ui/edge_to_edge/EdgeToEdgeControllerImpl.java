@@ -4,6 +4,9 @@
 
 package org.chromium.chrome.browser.ui.edge_to_edge;
 
+import static androidx.core.view.WindowInsetsCompat.Type.systemBars;
+import static androidx.core.view.WindowInsetsCompat.Type.tappableElement;
+
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.app.Activity;
@@ -233,15 +236,6 @@ public class EdgeToEdgeControllerImpl
         mTabObserver =
                 new EmptyTabObserver() {
                     @Override
-                    public void onWebContentsSwapped(
-                            Tab tab, boolean didStartLoad, boolean didFinishLoad) {
-                        drawToEdge(
-                                EdgeToEdgeUtils.isPageOptedIntoEdgeToEdge(mCurrentTab),
-                                /* changedWindowState= */ false);
-                        updateWebContentsObserver(tab);
-                    }
-
-                    @Override
                     public void onContentChanged(Tab tab) {
                         assert tab.getWebContents() != null
                                 : "onContentChanged called on tab w/o WebContents: "
@@ -437,8 +431,7 @@ public class EdgeToEdgeControllerImpl
 
                     @Override
                     public void safeAreaConstraintChanged(boolean hasConstraint) {
-                        if (mHasSafeAreaConstraint == hasConstraint
-                                || !EdgeToEdgeUtils.isSafeAreaConstraintEnabled()) {
+                        if (mHasSafeAreaConstraint == hasConstraint) {
                             return;
                         }
 
@@ -887,7 +880,7 @@ public class EdgeToEdgeControllerImpl
 
     private static Insets getSystemInsets(
             WindowInsetsCompat windowInsets, boolean hasSeenNonZeroNavigationBarInsets) {
-        Insets systemBarInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+        Insets systemBarInsets = windowInsets.getInsets(systemBars() + tappableElement());
 
         if (!EdgeToEdgeUtils.isUseBackupNavbarInsetsEnabled()) return systemBarInsets;
 
@@ -900,8 +893,6 @@ public class EdgeToEdgeControllerImpl
                             windowInsets,
                             BackupNavbarInsetsCallSite.EDGE_TO_EDGE_CONTROLLER,
                             EdgeToEdgeFieldTrialImpl.getBackupNavbarInsetsOverrides(),
-                            ChromeFeatureList.sEdgeToEdgeUseBackupNavbarInsetsUseTappable
-                                    .getValue(),
                             ChromeFeatureList.sEdgeToEdgeUseBackupNavbarInsetsUseGestures
                                     .getValue());
             // If applicable, apply backup navbar insets to the left, right, and bottom (not the

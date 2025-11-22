@@ -6,6 +6,7 @@
 
 #import "base/functional/callback.h"
 #import "base/functional/callback_helpers.h"
+#import "google_apis/gaia/gaia_id.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_controller.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -55,8 +56,8 @@ void SignoutAndOpenContexts(Browser* browser,
       base::CallbackToBlock(std::move(completion)));
 }
 
-// Sign in profile to open widget context.
-void SigninForContext(WidgetContext* context,
+// Sign in profile to open the context.
+void SigninForContext(URLContext* context,
                       NSSet<UIOpenURLContext*>* contexts,
                       BOOL openURL,
                       AuthenticationService* authentication_service,
@@ -70,7 +71,7 @@ void SigninForContext(WidgetContext* context,
   GetApplicationContext()->GetSystemIdentityManager()->IterateOverIdentities(
       base::BindRepeating(&IdentitiesOnDevice, identities));
   for (id<SystemIdentity> identity in identities) {
-    if ([identity.gaiaID isEqualToString:context.gaiaID]) {
+    if (identity.gaiaId == context.gaiaID) {
       newIdentity = identity;
     }
   }
@@ -89,7 +90,7 @@ void SigninForContext(WidgetContext* context,
 }
 
 // Implementation of the continuation that starts the sign-in or sign-out flow.
-void ChangeProfileAuthenticationContinuation(WidgetContext* context,
+void ChangeProfileAuthenticationContinuation(URLContext* context,
                                              NSSet<UIOpenURLContext*>* contexts,
                                              BOOL openURL,
                                              SceneState* scene_state,
@@ -118,11 +119,10 @@ void ChangeProfileAuthenticationContinuation(WidgetContext* context,
             signin::ConsentLevel::kSignin)) {
       SigninForContext(context, contexts, openURL, authentication_service,
                        scene_state, std::move(closure));
-    } else if (![context.gaiaID
-                   isEqualToString:authentication_service
-                                       ->GetPrimaryIdentity(
-                                           signin::ConsentLevel::kSignin)
-                                       .gaiaID] &&
+    } else if (context.gaiaID !=
+                   authentication_service
+                       ->GetPrimaryIdentity(signin::ConsentLevel::kSignin)
+                       .gaiaId &&
                !authentication_service->HasPrimaryIdentityManaged(
                    signin::ConsentLevel::kSignin)) {
       base::OnceClosure completion = base::BindOnce(
@@ -143,7 +143,7 @@ void ChangeProfileAuthenticationContinuation(WidgetContext* context,
 }  // namespace
 
 ChangeProfileContinuation CreateChangeProfileAuthenticationContinuation(
-    WidgetContext* context,
+    URLContext* context,
     NSSet<UIOpenURLContext*>* contexts,
     BOOL openURL) {
   return base::BindOnce(&ChangeProfileAuthenticationContinuation, context,

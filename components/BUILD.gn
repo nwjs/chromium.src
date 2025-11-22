@@ -198,6 +198,7 @@ test("components_unittests") {
     "//components/bookmarks/browser:unit_tests",
     "//components/bookmarks/managed:unit_tests",
     "//components/breadcrumbs/core:unit_tests",
+    "//components/browser_apis/tab_strip:unit_tests",
     "//components/browser_sync:unit_tests",
     "//components/browsing_data/core:unit_tests",
     "//components/captive_portal/core:unit_tests",
@@ -215,6 +216,8 @@ test("components_unittests") {
     "//components/content_capture/common:unit_tests",
     "//components/content_settings/core/browser:unit_tests",
     "//components/content_settings/core/common:unit_tests",
+    "//components/contextual_search:unit_tests",
+    "//components/contextual_search/internal:unit_tests",
     "//components/contextual_tasks:unit_tests",
     "//components/country_codes:unit_tests",
     "//components/crash/core/common:unit_tests",
@@ -270,12 +273,12 @@ test("components_unittests") {
     "//components/offline_items_collection/core:unit_tests",
     "//components/omnibox/browser:unit_tests",
     "//components/omnibox/common:unit_tests",
-    "//components/omnibox/composebox:unit_tests",
     "//components/open_from_clipboard:unit_tests",
     "//components/openscreen_platform:unittests",
     "//components/optimization_guide/core:unit_tests",
     "//components/os_crypt/async/browser:unit_tests",
     "//components/os_crypt/async/common:unit_tests",
+    "//components/os_crypt/common:unit_tests",
     "//components/os_crypt/sync:unit_tests",
     "//components/page_image_service:unit_tests",
     "//components/page_info/core:unit_tests",
@@ -387,6 +390,7 @@ test("components_unittests") {
     "//components/url_formatter/spoof_checks/common_words:unit_tests",
     "//components/url_formatter/spoof_checks/top_domains:unit_tests",
     "//components/url_matcher:unit_tests",
+    "//components/url_pattern:unit_tests",
     "//components/url_pattern_index:unit_tests",
     "//components/user_data_importer/utility:unit_tests",
     "//components/variations:unit_tests",
@@ -468,7 +472,6 @@ test("components_unittests") {
       "//components/content_extraction/content/browser:unit_tests",
       "//components/content_relationship_verification:unit_tests",
       "//components/content_settings/browser:unit_tests",
-      "//components/contextual_search/core/browser:unit_tests",
       "//components/continuous_search/browser:unit_tests",
       "//components/continuous_search/common:unit_tests",
       "//components/credential_management:unit_tests",
@@ -502,7 +505,6 @@ test("components_unittests") {
       "//components/link_header_util:unit_tests",
       "//components/media_device_salt:unit_tests",
       "//components/media_effects:unit_tests",
-      "//components/miracle_parameter/common:unit_tests",
       "//components/mirroring:mirroring_tests",
       "//components/navigation_interception:unit_tests",
       "//components/no_state_prefetch/browser:unit_tests",
@@ -542,6 +544,7 @@ test("components_unittests") {
       "//components/subresource_filter/content/browser:unit_tests",
       "//components/subresource_filter/content/renderer:unit_tests",
       "//components/subresource_filter/content/shared/browser:unit_tests",
+      "//components/touch_to_search/core/browser:unit_tests",
       "//components/tracing:unit_tests",
       "//components/translate/content/browser:unit_tests",
       "//components/translate/content/renderer:unit_tests",
@@ -551,6 +554,7 @@ test("components_unittests") {
       "//components/value_store:unit_tests",
       "//components/visited_url_ranking/public:unit_tests",
       "//components/visitedlink/test:unit_tests",
+      "//components/wallet/content/browser:unit_tests",
       "//components/web_cache/browser:unit_tests",
       "//components/web_package:unit_tests",
       "//components/web_package/test_support:unit_tests",
@@ -586,7 +590,6 @@ test("components_unittests") {
       "//components/crash/core/app:unit_tests",
       "//components/dom_distiller/ios:unit_tests",
       "//components/feed/core/v2/public/ios:feed_ios_unit_tests",
-      "//components/fingerprinting_protection_filter/ios:unit_tests",
       "//components/image_fetcher/ios:unit_tests",
       "//components/language/ios/browser:unit_tests",
       "//components/omnibox/composebox/ios:unit_tests",
@@ -674,6 +677,7 @@ test("components_unittests") {
       "//components/embedder_support/android:native_java_unittests_java",
       "//components/enterprise/client_certificates/android:browser_binding_java",
       "//components/enterprise/client_certificates/android:unit_device_javatests",
+      "//components/enterprise/device_attestation/android:device_attestation_java",
       "//components/facilitated_payments/android:unit_tests",
       "//components/facilitated_payments/android/java",
       "//components/facilitated_payments/content/browser:unit_tests",
@@ -1313,6 +1317,10 @@ if (use_blink) {
     # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
     # enable the diagnostic by removing this line.
     configs += [ "//build/config/compiler:no_exit_time_destructors" ]
+
+    if (enable_guest_contents && !is_chromeos) {
+      deps += [ "//components/guest_contents/browser:browser_tests" ]
+    }
   }
 
   test("components_perftests") {
@@ -1418,6 +1426,7 @@ if (is_android) {
       "//components/media_router/browser/android:junit",
       "//components/messages/android:junit",
       "//components/messages/android/internal:junit",
+      "//components/one_time_tokens/android/backend/common:junit",
       "//components/optimization_guide/content/browser/android:junit",
       "//components/payments/content/android:junit",
       "//components/payments/content/android/spc:junit",

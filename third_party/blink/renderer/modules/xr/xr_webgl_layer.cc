@@ -20,6 +20,7 @@
 #include "third_party/blink/renderer/modules/xr/xr_utils.h"
 #include "third_party/blink/renderer/modules/xr/xr_view.h"
 #include "third_party/blink/renderer/modules/xr/xr_viewport.h"
+#include "third_party/blink/renderer/modules/xr/xr_webgl_frame_transport_context_impl.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/size.h"
@@ -148,9 +149,11 @@ XRWebGLLayer* XRWebGLLayer::Create(XRSession* session,
     return nullptr;
   }
 
-  return MakeGarbageCollected<XRWebGLLayer>(
+  auto* result = MakeGarbageCollected<XRWebGLLayer>(
       session, webgl_context, std::move(drawing_buffer), framebuffer,
       framebuffer_scale, ignore_depth_values);
+  result->CreateLayerBackend();
+  return result;
 }
 
 XRWebGLLayer::XRWebGLLayer(XRSession* session,
@@ -164,6 +167,8 @@ XRWebGLLayer::XRWebGLLayer(XRSession* session,
       framebuffer_(framebuffer),
       framebuffer_scale_(framebuffer_scale),
       ignore_depth_values_(ignore_depth_values) {
+  transport_delegate_ = MakeGarbageCollected<XRWebGLFrameTransportDelegate>(
+      MakeGarbageCollected<XRWebGLFrameTransportContextImpl>(webgl_context));
   if (framebuffer) {
     // Must have a drawing buffer for immersive sessions.
     DCHECK(drawing_buffer);
@@ -437,8 +442,8 @@ void XRWebGLLayer::OnFrameEnd() {
       }
 
       // Need to stop accessing the camera image texture before calling
-      // `SubmitWebGLLayer` so that we stop using it before the sync token
-      // that `SubmitWebGLLayer` will generate.
+      // `SubmitLayer` so that we stop using it before the sync token
+      // that `SubmitLayer` will generate.
       if (camera_image_shared_image_texture_) {
         const XRSharedImageData& camera_image_data = CameraSharedImage();
 
@@ -466,8 +471,8 @@ void XRWebGLLayer::OnFrameEnd() {
       }
 
       // Always call submit, but notify if the contents were changed or not.
-      session()->xr()->frameProvider()->SubmitWebGLLayer(this,
-                                                         framebuffer_dirty);
+      session()->xr()->frameProvider()->SubmitLayer(layer_id(), this,
+                                                    framebuffer_dirty);
     }
   }
 }
@@ -493,12 +498,48 @@ scoped_refptr<StaticBitmapImage> XRWebGLLayer::TransferToStaticBitmapImage() {
   return nullptr;
 }
 
+XRSession* XRWebGLLayer::session() const {
+  return XRLayer::session();
+}
+
+XRFrameTransportDelegate* XRWebGLLayer::GetTransportDelegate() {
+  return transport_delegate_;
+}
+
+XrLayerClient* XRWebGLLayer::LayerClient() {
+  return this;
+}
+
+device::mojom::blink::XRCompositionLayerDataPtr XRWebGLLayer::CreateLayerData()
+    const {
+  auto layer_data = device::mojom::blink::XRCompositionLayerData::New();
+  // Readonly data.
+  layer_data->read_only_data = device::mojom::blink::XRLayerReadOnlyData::New();
+  layer_data->read_only_data->layer_id = layer_id();
+  layer_data->read_only_data->texture_width = framebufferWidth();
+  layer_data->read_only_data->texture_height = framebufferHeight();
+  // Mutable data.
+  layer_data->mutable_data = device::mojom::blink::XRLayerMutableData::New();
+  layer_data->mutable_data->blend_texture_source_alpha = false;
+  layer_data->mutable_data->opacity = 1UL;
+  layer_data->mutable_data->reference_space_type =
+      device::mojom::blink::XRReferenceSpaceType::kLocal;
+
+  // Applies an empty projection layer data.
+  layer_data->mutable_data->layer_data =
+      device::mojom::blink::XRLayerSpecificData::NewProjection(
+          device::mojom::blink::XRProjectionLayerData::New());
+
+  return layer_data;
+}
+
 void XRWebGLLayer::Trace(Visitor* visitor) const {
   visitor->Trace(left_viewport_);
   visitor->Trace(right_viewport_);
   visitor->Trace(webgl_context_);
   visitor->Trace(framebuffer_);
   visitor->Trace(camera_image_texture_);
+  visitor->Trace(transport_delegate_);
   XRLayer::Trace(visitor);
 }
 

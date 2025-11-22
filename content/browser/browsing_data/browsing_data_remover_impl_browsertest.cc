@@ -409,7 +409,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverImplBrowserTest,
   // matches the BFCached document's origin.
   filter = BrowsingDataFilterBuilder::Create(
       BrowsingDataFilterBuilder::Mode::kDelete);
-  filter->AddRegisterableDomain(ssl_server().base_url().host());
+  filter->AddRegisterableDomain(ssl_server().base_url().GetHost());
   RemoveWithFilterAndWait(BrowsingDataRemover::DATA_TYPE_CACHE,
                           std::move(filter));
 
@@ -459,7 +459,7 @@ IN_PROC_BROWSER_TEST_F(
   // matches the BFCached document's origin.
   auto filter = BrowsingDataFilterBuilder::Create(
       BrowsingDataFilterBuilder::Mode::kDelete);
-  filter->AddRegisterableDomain(ssl_server().base_url().host());
+  filter->AddRegisterableDomain(ssl_server().base_url().GetHost());
   RemoveWithFilterAndWait(BrowsingDataRemover::DATA_TYPE_COOKIES,
                           std::move(filter));
 
@@ -486,7 +486,7 @@ IN_PROC_BROWSER_TEST_F(
   // matches the BFCached document's origin.
   auto filter = BrowsingDataFilterBuilder::Create(
       BrowsingDataFilterBuilder::Mode::kDelete);
-  filter->AddRegisterableDomain(ssl_server().base_url().host());
+  filter->AddRegisterableDomain(ssl_server().base_url().GetHost());
   RemoveWithFilterAndWait(BrowsingDataRemover::DATA_TYPE_COOKIES,
                           std::move(filter));
 
@@ -1040,7 +1040,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverImplPrerenderingBrowserTest,
   // 3) Remove the browsing data with DATA_TYPE_CACHE.
   auto filter = BrowsingDataFilterBuilder::Create(
       BrowsingDataFilterBuilder::Mode::kDelete);
-  filter->AddRegisterableDomain(ssl_server().base_url().host());
+  filter->AddRegisterableDomain(ssl_server().base_url().GetHost());
   RemoveWithFilterAndWait(BrowsingDataRemover::DATA_TYPE_CACHE,
                           std::move(filter));
   host_observer.WaitForDestroyed();
@@ -1054,10 +1054,6 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverImplPrerenderingBrowserTest,
 class BrowsingDataRemoverImplPrefetchBrowserTest
     : public BrowsingDataRemoverImplBrowserTest {
  public:
-  BrowsingDataRemoverImplPrefetchBrowserTest() {
-    feature_list_.InitAndEnableFeature(features::kPrefetchBrowsingDataRemoval);
-  }
-
   void StartPrefetch(const GURL& url, Shell* shell) {
     auto* prefetch_document_manager =
         PrefetchDocumentManager::GetOrCreateForCurrentDocument(
@@ -1076,9 +1072,6 @@ class BrowsingDataRemoverImplPrefetchBrowserTest
   }
 
   ~BrowsingDataRemoverImplPrefetchBrowserTest() override = default;
-
- private:
-  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverImplPrefetchBrowserTest,
@@ -1104,7 +1097,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverImplPrefetchBrowserTest,
   // 4) Remove the browsing data with DATA_TYPE_CACHE.
   auto filter = BrowsingDataFilterBuilder::Create(
       BrowsingDataFilterBuilder::Mode::kDelete);
-  filter->AddRegisterableDomain(ssl_server().base_url().host());
+  filter->AddRegisterableDomain(ssl_server().base_url().GetHost());
   RemoveWithFilterAndWait(BrowsingDataRemover::DATA_TYPE_CACHE,
                           std::move(filter));
 
@@ -1202,7 +1195,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverImplPrefetchHoldbackBrowserTest,
   // 3) Remove the browsing data with DATA_TYPE_CACHE.
   auto filter = BrowsingDataFilterBuilder::Create(
       BrowsingDataFilterBuilder::Mode::kDelete);
-  filter->AddRegisterableDomain(ssl_server().base_url().host());
+  filter->AddRegisterableDomain(ssl_server().base_url().GetHost());
   RemoveWithFilterAndWait(BrowsingDataRemover::DATA_TYPE_CACHE,
                           std::move(filter));
 

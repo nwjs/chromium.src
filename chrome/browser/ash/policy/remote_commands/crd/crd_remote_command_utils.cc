@@ -133,6 +133,12 @@ base::TimeDelta GetDeviceIdleTime() {
   return base::TimeTicks::Now() - last_activity;
 }
 
+bool IsDeviceIdleSinceReboot() {
+  base::TimeTicks last_activity =
+      CHECK_DEREF(ui::UserActivityDetector::Get()).last_activity_time();
+  return last_activity.is_null();
+}
+
 UserSessionType GetCurrentUserSessionType() {
   const auto& user_manager = CHECK_DEREF(user_manager::UserManager::Get());
 
@@ -283,6 +289,34 @@ ConvertToStartCrdSessionJobDelegateRequestOrigin(
       return StartCrdSessionJobDelegate::RequestOrigin::kClassManagement;
     case SharedCrdSession::RequestOrigin::kEnterpriseAdmin:
       return StartCrdSessionJobDelegate::RequestOrigin::kEnterpriseAdmin;
+  }
+  NOTREACHED();
+}
+
+remoting::ChromeOsEnterpriseAudioPlayback
+ConvertToChromeOsEnterpriseAudioPlayback(
+    StartCrdSessionJobDelegate::AudioPlayback audio_playback) {
+  switch (audio_playback) {
+    case StartCrdSessionJobDelegate::AudioPlayback::kLocalOnly:
+      return remoting::ChromeOsEnterpriseAudioPlayback::kLocalOnly;
+    case StartCrdSessionJobDelegate::AudioPlayback::kRemoteAndLocal:
+      return remoting::ChromeOsEnterpriseAudioPlayback::kRemoteAndLocal;
+    case StartCrdSessionJobDelegate::AudioPlayback::kRemoteOnly:
+      return remoting::ChromeOsEnterpriseAudioPlayback::kRemoteOnly;
+  }
+  NOTREACHED();
+}
+
+StartCrdSessionJobDelegate::AudioPlayback
+ConvertToStartCrdSessionJobDelegateAudioPlayback(
+    SharedCrdSession::AudioPlayback audio_playback) {
+  switch (audio_playback) {
+    case SharedCrdSession::AudioPlayback::kLocalOnly:
+      return StartCrdSessionJobDelegate::AudioPlayback::kLocalOnly;
+    case SharedCrdSession::AudioPlayback::kRemoteAndLocal:
+      return StartCrdSessionJobDelegate::AudioPlayback::kRemoteAndLocal;
+    case SharedCrdSession::AudioPlayback::kRemoteOnly:
+      return StartCrdSessionJobDelegate::AudioPlayback::kRemoteOnly;
   }
   NOTREACHED();
 }

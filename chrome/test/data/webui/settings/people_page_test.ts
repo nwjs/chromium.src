@@ -11,6 +11,7 @@ import {loadTimeData} from 'chrome://settings/settings.js';
 import type {SettingsPeoplePageElement} from 'chrome://settings/settings.js';
 import {ProfileInfoBrowserProxyImpl, resetRouterForTesting, Router, routes, SignedInState, StatusAction, SyncBrowserProxyImpl} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {isChildVisible} from 'chrome://webui-test/test_util.js';
 
 import {simulateSyncStatus} from './sync_test_util.js';
 import {TestProfileInfoBrowserProxy} from './test_profile_info_browser_proxy.js';
@@ -22,7 +23,6 @@ import type {CrCheckboxElement} from 'chrome://settings/lazy_load.js';
 import {assertLT} from 'chrome://webui-test/chai_assert.js';
 import {flushTasks, waitBeforeNextRender} from 'chrome://webui-test/polymer_test_util.js';
 import type {StoredAccount} from 'chrome://settings/settings.js';
-import { isChildVisible } from 'chrome://webui-test/test_util.js';
 
 import {simulateStoredAccounts} from './sync_test_util.js';
 // </if>
@@ -77,7 +77,7 @@ suite('ProfileInfoTests', function() {
     assertEquals(
         profileInfoBrowserProxy.fakeProfileInfo.name,
         peoplePage.shadowRoot!.querySelector<HTMLElement>(
-                                  '#profile-name')!.textContent!.trim());
+                                  '#profile-name')!.textContent.trim());
     const bg =
         peoplePage.shadowRoot!.querySelector<HTMLElement>(
                                   '#profile-icon')!.style.backgroundImage;
@@ -92,7 +92,7 @@ suite('ProfileInfoTests', function() {
     assertEquals(
         'pushedName',
         peoplePage.shadowRoot!.querySelector<HTMLElement>(
-                                  '#profile-name')!.textContent!.trim());
+                                  '#profile-name')!.textContent.trim());
     const newBg =
         peoplePage.shadowRoot!.querySelector<HTMLElement>(
                                   '#profile-icon')!.style.backgroundImage;
@@ -331,19 +331,19 @@ suite('SyncStatusTests', function() {
     assertEquals(
         loadTimeData.getStringF(
             'deleteProfileWarningWithoutCounts', 'fakeUsername'),
-        warningMessage.textContent!.trim());
+        warningMessage.textContent.trim());
 
     webUIListenerCallback('profile-stats-count-ready', 1);
     assertEquals(
         loadTimeData.getStringF(
             'deleteProfileWarningWithCountsSingular', 'fakeUsername'),
-        warningMessage.textContent!.trim());
+        warningMessage.textContent.trim());
 
     webUIListenerCallback('profile-stats-count-ready', 2);
     assertEquals(
         loadTimeData.getStringF(
             'deleteProfileWarningWithCountsPlural', 2, 'fakeUsername'),
-        warningMessage.textContent!.trim());
+        warningMessage.textContent.trim());
 
     // Close the disconnect dialog.
     signoutDialog.$.disconnectConfirm.click();
@@ -421,9 +421,9 @@ suite('SyncSettings', function() {
   });
 
   test('ShowCorrectSyncRow', function() {
-    assertTrue(!!peoplePage.shadowRoot!.querySelector('#sync-setup'));
-    assertFalse(!!peoplePage.shadowRoot!.querySelector('#sync-status'));
-    assertFalse(!!peoplePage.shadowRoot!.querySelector('#google-services'));
+    assertTrue(isChildVisible(peoplePage, '#sync-setup'));
+    assertFalse(isChildVisible(peoplePage, '#sync-status'));
+    assertFalse(isChildVisible(peoplePage, '#google-services'));
 
     // Make sures the subpage opens even when logged out or has errors.
     simulateSyncStatus({
@@ -443,6 +443,7 @@ suite('PeoplePageAccountSettings', function() {
   setup(function() {
     loadTimeData.overrideValues({replaceSyncPromosWithSignInPromos: true});
     resetRouterForTesting();
+    Router.getInstance().navigateTo(routes.PEOPLE);
 
     syncBrowserProxy = new TestSyncBrowserProxy();
     SyncBrowserProxyImpl.setInstance(syncBrowserProxy);
@@ -596,10 +597,10 @@ suite('PeoplePageAccountSettings', function() {
 
     const accountName =
         peoplePage.shadowRoot!.querySelector(
-                                  '#account-name')!.textContent!.trim();
+                                  '#account-name')!.textContent.trim();
     const accountEmail =
         peoplePage.shadowRoot!.querySelector(
-                                  '#account-subtitle')!.textContent!.trim();
+                                  '#account-subtitle')!.textContent.trim();
 
     assertEquals(expectedAccount.fullName, accountName);
     assertEquals(expectedAccount.email, accountEmail);
@@ -617,7 +618,7 @@ suite('PeoplePageAccountSettings', function() {
     // First, it shows the user's email.
     const accountSubtitle =
         peoplePage.shadowRoot!.querySelector('#account-subtitle')!;
-    assertEquals(testEmail, accountSubtitle.textContent!.trim());
+    assertEquals(testEmail, accountSubtitle.textContent.trim());
 
     // When the passphrase needs to be entered, a message is displayed instead.
     simulateSyncStatus({
@@ -628,7 +629,35 @@ suite('PeoplePageAccountSettings', function() {
     assertEquals(
         loadTimeData.substituteString(
             peoplePage.syncStatus!.statusText!, testEmail),
-        accountSubtitle.textContent!.trim());
+        accountSubtitle.textContent.trim());
+  });
+
+  test('RecordSigninPendingOfferedMetrics', async function() {
+    syncBrowserProxy.resetResolver('recordSigninPendingOffered');
+
+    // Signin pending offered recorded.
+    await simulateSignedInState(
+        SignedInState.SIGNED_IN_PAUSED, [{email: 'foo@foo.com'}]);
+    assertEquals(
+        1, syncBrowserProxy.getCallCount('recordSigninPendingOffered'));
+
+    // Firing the same signin state again doesn't record twice.
+    await simulateSignedInState(
+        SignedInState.SIGNED_IN_PAUSED, [{email: 'foo@foo.com'}]);
+    assertEquals(
+        1, syncBrowserProxy.getCallCount('recordSigninPendingOffered'));
+
+    // Nothing recorded when signing in.
+    await simulateSignedInState(
+        SignedInState.SIGNED_IN, [{email: 'foo@foo.com'}]);
+    assertEquals(
+        1, syncBrowserProxy.getCallCount('recordSigninPendingOffered'));
+
+    // After getting in pending state again, the metric is recorded.
+    await simulateSignedInState(
+        SignedInState.SIGNED_IN_PAUSED, [{email: 'foo@foo.com'}]);
+    assertEquals(
+        2, syncBrowserProxy.getCallCount('recordSigninPendingOffered'));
   });
 });
 // </if>

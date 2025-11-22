@@ -501,6 +501,8 @@ html element body
     property onafterprint
     property onbeforeprint
     property onbeforeunload
+    property ongamepadconnected
+    property ongamepaddisconnected
     property onhashchange
     property onlanguagechange
     property onmessage
@@ -668,6 +670,8 @@ html element frameset
     property onafterprint
     property onbeforeprint
     property onbeforeunload
+    property ongamepadconnected
+    property ongamepaddisconnected
     property onhashchange
     property onlanguagechange
     property onmessage
@@ -685,6 +689,7 @@ html element frameset
     property onunload
     property rows
 html element geolocation
+    property accuracymode
     property autolocate
     property error
     property initialPermissionStatus
@@ -698,7 +703,6 @@ html element geolocation
     property onvalidationstatuschange
     property permissionStatus
     property position
-    property precise
     property type
     property watch
 html element h1
@@ -1665,14 +1669,18 @@ svg element a
     property getCTM
     property getScreenCTM
     property href
+    property hreflang
     property interestForElement
     property nearestViewportElement
+    property ping
+    property referrerPolicy
     property rel
     property relList
     property requiredExtensions
     property systemLanguage
     property target
     property transform
+    property type
 svg element animate
     property beginElement
     property beginElementAt

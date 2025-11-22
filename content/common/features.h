@@ -16,6 +16,9 @@ namespace features {
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAllowContentInitiatedDataUrlNavigations);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidDownloadableFontsMatching);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidDragDropOopif);
+#if BUILDFLAG(IS_WIN)
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kArabicDigitSubstitution);
+#endif
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAvoidUnnecessaryBeforeUnloadCheckSync);
 // Please check the code comment on
 // ContentBrowserClient::SupportsAvoidUnnecessaryBeforeUnloadCheckSync() in the
@@ -58,7 +61,9 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kCompositeClipPathAnimation);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCodeCacheDeletionWithoutFilter);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCommittedOriginEnforcements);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCommittedOriginTracking);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kCopyFromSurfaceAlwaysCallCallback);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCriticalClientHint);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kDelayRfhDestructionsOnUnloadAndDetach);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDocumentPolicyNegotiation);
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnableDevToolsJsErrorReporting);
@@ -155,7 +160,6 @@ enum class ProgressiveAccessibilityMode {
 CONTENT_EXPORT BASE_DECLARE_FEATURE_PARAM(ProgressiveAccessibilityMode,
                                           kProgressiveAccessibilityModeParam);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kReloadHiddenTabsWithCrashedSubframes);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kReloadHiddenTabsWithActiveCrashedSubframes);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kReusePrerenderingProcessForMainFrames);
 #if BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kRestrictOrientationLockToPhones);
@@ -163,6 +167,8 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kContinueGestureOnLosingFocus);
 #endif
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kRemoveRendererProcessLimit);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kRendererCancellationThrottleImprovements);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(
+    kResumeNavigationWithSpeculativeRFHProcessGone);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kPartitionAllocSchedulerLoopQuarantineTaskObserverForBrowserUIThread);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSendBeaconThrowForBlobWithNonSimpleType);
@@ -173,11 +179,13 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(
 CONTENT_EXPORT extern const base::FeatureParam<std::string>
     kServiceWorkerBypassFetchHandlerBypassedHashStrings;
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kServiceWorkerSrcdocSupport);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kServiceWorkerStaticRouterRaceRequestFix);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kServiceWorkerStaticRouterRaceRequestFix2);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kServiceWorkerStaticRouterStartServiceWorker);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kServiceWorkerClientUrlIsCreationUrl);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSkipEarlyCommitPendingForCrashedFrame);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kSkipRedundantNavigationStateNotification);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kSkipRendererCancellationThrottle);
 #if BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kStrictHighRankProcessLRU);
 #endif

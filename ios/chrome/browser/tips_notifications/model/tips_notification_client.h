@@ -10,6 +10,7 @@
 
 #import <optional>
 
+#include "base/sequence_checker.h"
 #import "components/prefs/pref_change_registrar.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_client.h"
 
@@ -104,6 +105,10 @@ class TipsNotificationClient : public PushNotificationClient {
   // Returns true if the app has provisional notification authorization and the
   // IOSReactivationNotifications feature is enabled.
   bool CanSendReactivation() const;
+
+  // Returns true if the given `type` of notification is still valid (meets the
+  // trigger criteria).
+  bool IsNotificationValid(TipsNotificationType type) const;
 
   // Updates the instance variable that stores whether provisional
   // notifications are allowed by policy.

@@ -106,7 +106,7 @@ each histogram.
 
 <histogram
     name="CPU.Experimental.EstimatedFrequencyAsPercentOfLimit.{CoreType}"
-    units="%" expires_after="2026-02-01">
+    units="%" expires_after="2026-04-05">
   <owner>anthonyvd@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -121,7 +121,7 @@ each histogram.
 </histogram>
 
 <histogram name="CPU.Experimental.EstimatedFrequencyAsPercentOfMax.{CoreType}"
-    units="%" expires_after="2026-01-25">
+    units="%" expires_after="2026-03-29">
   <owner>anthonyvd@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -297,7 +297,7 @@ each histogram.
 
 <histogram
     name="PerformanceManager.RegistryStats.FrontEndHeapDebugOptionsOutcome"
-    enum="FrontEndHeapDebugOptionsOutcome" expires_after="2026-02-01">
+    enum="FrontEndHeapDebugOptionsOutcome" expires_after="2026-04-05">
   <owner>fdoray@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -323,7 +323,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.ResourceQueryTime.{Function}"
-    units="microseconds" expires_after="M145">
+    units="microseconds" expires_after="2026-04-12">
   <owner>joenotcharles@google.com</owner>
   <owner>olivierli@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
@@ -362,6 +362,31 @@ each histogram.
   </summary>
 </histogram>
 
+<histogram name="PerformanceManager.TransientKeepAlive.Result"
+    enum="TransientKeepAliveResult" expires_after="2026-10-16">
+  <owner>aattar@google.com</owner>
+  <owner>chrome-catan@google.com</owner>
+  <summary>
+    Recorded when a renderer process's transient keep-alive is resolved. This
+    tracks the final state of the keep-alive attempt, corresponding to the
+    TransientKeepAliveResult enum (e.g., successful reuse, eviction, or
+    timeout).
+  </summary>
+</histogram>
+
+<histogram name="PerformanceManager.TransientKeepAlive.TimeToReuse" units="ms"
+    expires_after="2026-10-16">
+  <owner>aattar@google.com</owner>
+  <owner>chrome-catan@google.com</owner>
+  <summary>
+    Recorded only when a process kept alive by the TransientKeepAlivePolicy was
+    successfully reused (i.e., when TransientKeepAliveResult::kReused is
+    recorded in the .Result histogram). Measures the time delta from when the
+    process became empty (and the keep-alive timer started) to when it was
+    reused for a new navigation.
+  </summary>
+</histogram>
+
 <histogram name="PerformanceManager.UserTuning.BatterySaverModeEnabledPercent"
     units="%" expires_after="2026-02-22">
   <owner>anthonyvd@chromium.org</owner>
@@ -373,7 +398,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.UserTuning.EfficiencyMode"
-    enum="EfficiencyMode" expires_after="2026-02-01">
+    enum="EfficiencyMode" expires_after="2026-04-05">
   <owner>anthonyvd@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>

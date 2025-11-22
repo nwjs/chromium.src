@@ -167,26 +167,19 @@ config("skia_library_config") {
   }
 
   # Let Skia know whether to use `libpng`-based or Rust-based PNG decoder and
-  # encoder in internal Skia code (e.g. in implementation of Fontations).
+  # encoder in internal Skia code (e.g. for PNG based emoji decoding).
   #
   # This currently mimics what is done in `third_party/skia/BUILD.gn`'s
-  # `png_decode_libpng` and `png_encode` targets.
-  #
-  # TODO(https://crbug.com/381900683): When Rust PNG ships, then switch to
-  # using `SK_CODEC_DECODES_PNG_WITH_RUST` and `SK_CODEC_ENCODES_PNG_WITH_RUST`
-  # defines from Skia's `png_encode_rust` and `png_decode_rust` targets.
+  # `png_decode_rust` and `png_encode_rust` targets.
   defines += [
     "SK_CODEC_DECODES_PNG",
-    "SK_CODEC_DECODES_PNG_WITH_LIBPNG",
+    "SK_CODEC_DECODES_PNG_WITH_RUST",
     "SK_CODEC_ENCODES_PNG",
-    "SK_CODEC_ENCODES_PNG_WITH_LIBPNG",
+    "SK_CODEC_ENCODES_PNG_WITH_RUST",
 
     # https://crbug.com/443057959
     #"SK_DISABLE_LEGACY_INIT_DECODERS",
   ]
-  if (use_blink) {
-    defines += [ "SK_CODEC_DECODES_ICO" ]
-  }
 
   if (use_blink) {
     defines += [ "SK_TYPEFACE_FACTORY_FONTATIONS" ]
@@ -261,6 +254,7 @@ component("skia") {
     "ext/pmcolor_utils.h",
     "ext/recursive_gaussian_convolution.h",
     "ext/rgba_to_yuva.h",
+    "ext/skcms_ext.h",
     "ext/skcolorspace_primaries.h",
     "ext/skcolorspace_trfn.h",
     "ext/skia_memory_dump_provider.h",
@@ -289,6 +283,7 @@ component("skia") {
     "ext/opacity_filter_canvas.cc",
     "ext/recursive_gaussian_convolution.cc",
     "ext/rgba_to_yuva.cc",
+    "ext/skcms_ext.cc",
     "ext/skcolorspace_primaries.cc",
     "ext/skcolorspace_trfn.cc",
     "ext/skia_histogram.cc",
@@ -358,6 +353,7 @@ component("skia") {
   public += skia_encode_png_public
   public += skia_encode_rust_png_public
   public += skia_encode_webp_public
+  public += skia_xps_rust_png_public
 
   # The imported Skia gni source paths are made absolute by gn.
   defines = []
@@ -385,7 +381,6 @@ component("skia") {
     sources += skia_encode_jpeg_srcs
     public += skia_encode_jpeg_public
     sources += [
-      "//third_party/skia/src/codec/SkIcoCodec.cpp",
       "//third_party/skia/src/codec/SkJpegCodec.cpp",
       "//third_party/skia/src/codec/SkJpegDecoderMgr.cpp",
       "//third_party/skia/src/codec/SkJpegMetadataDecoderImpl.cpp",
@@ -647,6 +642,7 @@ component("skia_switches") {
 
 rust_static_library("rust_png_ffi") {
   visibility = [ ":*" ]
+  edition = "2021"
   allow_unsafe = true  # For FFI
   crate_root = skia_codec_rust_png_ffi_crate_root
   sources = skia_codec_rust_png_ffi_rs_srcs

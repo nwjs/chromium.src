@@ -34,7 +34,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SubresourceFilter.DocumentLoad.RulesetIsAvailable"
-    enum="BooleanAvailable" expires_after="2026-01-26">
+    enum="BooleanAvailable" expires_after="2026-04-19">
   <owner>alexmt@chromium.org</owner>
   <owner>chrome-ads-histograms@google.com</owner>
   <summary>
@@ -123,7 +123,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SubresourceFilter.IndexRuleset.Verify.Status"
-    enum="SubresourceFilterVerifyStatus" expires_after="2026-02-09">
+    enum="SubresourceFilterVerifyStatus" expires_after="2026-04-12">
   <owner>alexmt@chromium.org</owner>
   <owner>chrome-ads-histograms@google.com</owner>
   <summary>
@@ -222,7 +222,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SubresourceFilter.PageLoad.AdsInterventionTriggered"
-    enum="AdsViolations" expires_after="2026-01-26">
+    enum="AdsViolations" expires_after="2026-03-29">
   <owner>yaoxia@google.com</owner>
   <owner>chrome-ads-histograms@google.com</owner>
   <summary>
@@ -285,7 +285,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SubresourceFilter.PageLoad.SafeBrowsingDelay" units="ms"
-    expires_after="2026-02-09">
+    expires_after="2026-04-12">
   <owner>alexmt@chromium.org</owner>
   <owner>chrome-ads-histograms@google.com</owner>
   <summary>
@@ -335,7 +335,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SubresourceFilter.SafeBrowsing.TotalCheckTime" units="ms"
-    expires_after="2026-02-09">
+    expires_after="2026-04-12">
   <owner>alexmt@chromium.org</owner>
   <owner>chrome-ads-histograms@google.com</owner>
   <summary>

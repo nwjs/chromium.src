@@ -64,7 +64,7 @@ void EntityInstanceToPrivateApiEntityInstanceWithLabels(
   const std::vector<autofill::EntityLabel> labels_for_entities =
       autofill::GetLabelsForEntities(entity_instances,
                                      /*attribute_types_to_ignore=*/{},
-                                     /*prioritize_disambiguating_types=*/false,
+                                     /*only_disambiguating_types=*/false,
                                      app_locale);
 
   // Step 2#
@@ -84,10 +84,26 @@ void EntityInstanceToPrivateApiEntityInstanceWithLabels(
     autofill_private::EntityInstanceWithLabels& entity_instance_with_labels =
         output.emplace_back();
     entity_instance_with_labels.guid = *entity_instance.guid();
+
+    const EntityType entity_type = entity_instance.type();
+    entity_instance_with_labels.type.type_name =
+        base::to_underlying(entity_type.name());
+    entity_instance_with_labels.type.type_name_as_string =
+        base::UTF16ToUTF8(entity_type.GetNameForI18n());
+    entity_instance_with_labels.type.add_entity_type_string =
+        GetAddEntityTypeStringForI18n(entity_type);
+    entity_instance_with_labels.type.edit_entity_type_string =
+        GetEditEntityTypeStringForI18n(entity_type);
+    entity_instance_with_labels.type.delete_entity_type_string =
+        GetDeleteEntityTypeStringForI18n(entity_type);
+
     entity_instance_with_labels.entity_instance_label =
         base::UTF16ToUTF8(entity_instance.type().GetNameForI18n());
     entity_instance_with_labels.entity_instance_sub_label = base::UTF16ToUTF8(
         base::JoinString(labels_for_entities[i], autofill::kLabelSeparator));
+    entity_instance_with_labels.stored_in_wallet =
+        entity_instance.record_type() ==
+        EntityInstance::RecordType::kServerWallet;
   }
 }
 
@@ -257,7 +273,9 @@ std::optional<EntityInstance> PrivateApiEntityInstanceToEntityInstance(
   return EntityInstance(
       std::move(entity_type), attribute_instances, std::move(guid),
       private_api_entity_instance.nickname, base::Time::Now(), /*use_count=*/0,
-      /*use_date=*/base::Time::Now(), EntityInstance::RecordType::kLocal);
+      /*use_date=*/base::Time::Now(), EntityInstance::RecordType::kLocal,
+      EntityInstance::AreAttributesReadOnly(false),
+      /*frecency_override=*/"");
 }
 
 autofill_private::EntityInstance EntityInstanceToPrivateApiEntityInstance(
@@ -343,4 +361,22 @@ EntityInstancesToPrivateApiEntityInstancesWithLabels(
   }
   return response;
 }
+
+api::autofill_private::EntityType EntityTypeToPrivateApiEntityType(
+    const EntityType& entity_type,
+    bool supports_wallet_storage) {
+  autofill_private::EntityType api_type;
+  api_type.type_name = base::to_underlying(entity_type.name());
+  api_type.type_name_as_string =
+      base::UTF16ToUTF8(entity_type.GetNameForI18n());
+  api_type.add_entity_type_string =
+      autofill_ai_util::GetAddEntityTypeStringForI18n(entity_type);
+  api_type.edit_entity_type_string =
+      autofill_ai_util::GetEditEntityTypeStringForI18n(entity_type);
+  api_type.delete_entity_type_string =
+      autofill_ai_util::GetDeleteEntityTypeStringForI18n(entity_type);
+  api_type.supports_wallet_storage = supports_wallet_storage;
+  return api_type;
+}
+
 }  // namespace extensions::autofill_ai_util

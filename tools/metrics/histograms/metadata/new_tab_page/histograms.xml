@@ -22,12 +22,6 @@ chromium-metrics-reviews@google.com.
 
 <histograms>
 
-<variants name="ComposeboxFileTypes">
-  <variant name="Image"/>
-  <variant name="Other"/>
-  <variant name="Pdf"/>
-</variants>
-
 <variants name="ContentSuggestionCategory">
   <variant name=".Articles" summary="Articles for you"/>
   <variant name=".Bookmarks" summary="Bookmarks"/>
@@ -78,8 +72,11 @@ chromium-metrics-reviews@google.com.
   <variant name=".google_calendar" summary="Module ID for Google Calendar"/>
   <variant name=".history_clusters"
       summary="Module ID for History Clusters module"/>
+  <variant name=".microsoft_authentication"
+      summary="Module ID for Microsoft Authentication"/>
+  <variant name=".microsoft_files" summary="Module ID for Microsoft Files"/>
+  <variant name=".outlook_calendar" summary="Module ID for Outlook Calendar"/>
   <variant name=".shopping_tasks" summary="Module ID for Shopping Tasks"/>
-  <variant name=".tab_groups" summary="Module ID for Tab Group"/>
   <variant name=".tab_resumption" summary="Module ID for Tab Resumption"/>
 </variants>
 
@@ -107,6 +104,20 @@ chromium-metrics-reviews@google.com.
     can also happen without navigating away from the NTP (e.g. opening a content
     suggestion in a new tab).
   </summary>
+</histogram>
+
+<histogram name="NewTabPage.ActionChips.Click" enum="ChipType"
+    expires_after="2026-05-01">
+  <owner>giannich@chromium.org</owner>
+  <owner>chrome-desktop-ntp@google.com</owner>
+  <summary>Logged when any Action Chips was clicked by the user.</summary>
+</histogram>
+
+<histogram name="NewTabPage.ActionChips.Shown" enum="ChipType"
+    expires_after="2026-05-01">
+  <owner>giannich@chromium.org</owner>
+  <owner>chrome-desktop-ntp@google.com</owner>
+  <summary>Logged when any Action Chips was shown to the user.</summary>
 </histogram>
 
 <histogram name="NewTabPage.ActioniOS" enum="NewTabPageActioniOS"
@@ -300,20 +311,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="NewTabPage.Composebox.File.Size.{ComposeboxFileTypes}"
-    units="bytes" expires_after="2026-01-20">
-  <owner>jennserrano@google.com</owner>
-  <owner>chrome-desktop-ntp@google.com</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <summary>
-    The size of the file received by the browser from the WebUI. Recorded as
-    soon as the browser receives it.
-  </summary>
-  <token key="ComposeboxFileTypes" variants="ComposeboxFileTypes">
-    <variant name=""/>
-  </token>
-</histogram>
-
 <histogram name="NewTabPage.Composebox.File.WebUI.UploadAttemptFailure"
     enum="ComposeboxFileValidationError" expires_after="2026-01-20">
   <owner>jennserrano@google.com</owner>
@@ -336,204 +333,6 @@ chromium-metrics-reviews@google.com.
     Compose Plate session to start. Recorded when the user clicks on the compose
     entrypoint on desktop. This only gets recorded if the compose button leads
     to a compose session starting (i.e. the composebox opening).
-  </summary>
-</histogram>
-
-<histogram name="NewTabPage.Composebox.Query.FileCount" units="count"
-    expires_after="2026-03-22">
-  <owner>jennserrano@google.com</owner>
-  <owner>chrome-desktop-ntp@google.com</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <summary>
-    Number of files included in a completed query. May be zero in the case that
-    the input was only text. Recorded after navigation to the AIM page occurs.
-  </summary>
-</histogram>
-
-<histogram name="NewTabPage.Composebox.Query.Modality.V2"
-    enum="NtpComposeboxMultimodalState" expires_after="2026-01-20">
-  <owner>jennserrano@google.com</owner>
-  <owner>chrome-desktop-ntp@google.com</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <summary>
-    Records the combination of input types used to form the query. Recorded
-    after navigation to the AIM page occurs.
-  </summary>
-</histogram>
-
-<histogram name="NewTabPage.Composebox.Query.TextLength" units="characters"
-    expires_after="2026-03-22">
-  <owner>jennserrano@google.com</owner>
-  <owner>chrome-desktop-ntp@google.com</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <summary>
-    Number of characters in the composebox submission request. May be zero in
-    the case that only a file was uploaded. Recorded after navigation to the AIM
-    page occurs.
-  </summary>
-</histogram>
-
-<histogram name="NewTabPage.Composebox.Query.Time.ToSubmission" units="ms"
-    expires_after="2026-03-22">
-  <owner>jennserrano@google.com</owner>
-  <owner>chrome-desktop-ntp@google.com</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <summary>
-    Tracks the duration from composebox session start time to the time a query
-    was submitted. Recorded as soon as the query is submitted, but before
-    navigation. Note: A session starts when the compose button is clicked and
-    the composebox shown. There may be multiple query submission times recorded
-    per composebox shown.
-  </summary>
-</histogram>
-
-<histogram name="NewTabPage.Composebox.Session.Duration.Total" units="ms"
-    expires_after="2026-03-22">
-  <owner>jennserrano@google.com</owner>
-  <owner>chrome-desktop-ntp@google.com</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <summary>
-    Composebox session durations from when the session started to its
-    abandonment or completion. A session starts when the compose button is
-    clicked and the composebox shown. Completion is when the following happens:
-    1) user submits a query 2) user is redirected to the AIM page 3) the
-    composebox is closed. Abandonment is when a user closes the composebox or
-    closes the NTP without query submission. Recorded at the end of the session.
-  </summary>
-</histogram>
-
-<histogram name="NewTabPage.Composebox.Session.Duration.{Status}" units="ms"
-    expires_after="2026-03-22">
-  <owner>jennserrano@google.com</owner>
-  <owner>chrome-desktop-ntp@google.com</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <summary>
-    Tracks the duration of composebox sessions from start time to the end of the
-    session. Recorded at the end of the session. Note: A session starts when the
-    compose button is clicked and the composebox shown. A composebox session
-    ends 1) when it is abandoned 2) a query is submitted and the composebox is
-    closed. A session can be abandoned by the user closing the composebox or by
-    exiting out of the NTP while the composebox is open without having submitted
-    a query.
-  </summary>
-  <token key="Status">
-    <variant name="Abandoned"/>
-    <variant name="QuerySubmitted"/>
-  </token>
-</histogram>
-
-<histogram
-    name="NewTabPage.Composebox.Session.File.Browser.UploadAttemptCount.{ComposeboxFileTypes}"
-    units="count" expires_after="2026-01-20">
-  <owner>jennserrano@google.com</owner>
-  <owner>chrome-desktop-ntp@google.com</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <summary>
-    The number of times the browser attempted to process {ComposeboxFileTypes}
-    files. Recorded at the end of the session. Note: Only recorded for files
-    that the WebUI approved for file upload (e.g., they passed the file size
-    check).
-  </summary>
-  <token key="ComposeboxFileTypes" variants="ComposeboxFileTypes">
-    <variant name=""/>
-  </token>
-</histogram>
-
-<histogram
-    name="NewTabPage.Composebox.Session.File.Browser.UploadFailureCount.{ComposeboxFileTypes}"
-    units="count" expires_after="2026-01-20">
-  <owner>jennserrano@google.com</owner>
-  <owner>chrome-desktop-ntp@google.com</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <summary>
-    The number of failures for {ComposeboxFileTypes} files within the session.
-    Recorded at the end of the session. This does not include files that failed
-    browser validation. Note: Only recorded for files that the WebUI approved
-    for file upload (e.g., they passed the file size check).
-  </summary>
-  <token key="ComposeboxFileTypes" variants="ComposeboxFileTypes">
-    <variant name=""/>
-  </token>
-</histogram>
-
-<histogram
-    name="NewTabPage.Composebox.Session.File.Browser.UploadSuccessCount.{ComposeboxFileTypes}"
-    units="count" expires_after="2026-03-22">
-  <owner>jennserrano@google.com</owner>
-  <owner>chrome-desktop-ntp@google.com</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <summary>
-    The number of successful file upload attempts to the Lens server for
-    {ComposeboxFileTypes} files within the session. Recorded at the end of the
-    session. Note: Only recorded for files that the WebUI approved for file
-    upload (e.g., they passed the file size check).
-  </summary>
-  <token key="ComposeboxFileTypes" variants="ComposeboxFileTypes">
-    <variant name=""/>
-  </token>
-</histogram>
-
-<histogram
-    name="NewTabPage.Composebox.Session.File.Browser.ValidationFailureCount.{ComposeboxFileTypes}.{ErrorType}"
-    units="count" expires_after="2026-01-20">
-  <owner>jennserrano@google.com</owner>
-  <owner>chrome-desktop-ntp@google.com</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <summary>
-    The total number of {ComposeboxFileTypes} files that failed validation with
-    the error {ErrorType}. Recorded at the end of the session. Note: Only
-    recorded for files that the WebUI approved for file upload (e.g., they
-    passed the file size check).
-  </summary>
-  <token key="ComposeboxFileTypes" variants="ComposeboxFileTypes">
-    <variant name=""/>
-  </token>
-  <token key="ErrorType">
-    <variant name="AbortedError"/>
-    <variant name="BrowserProcessingError"/>
-    <variant name="ImageProcessingError"/>
-    <variant name="NetworkError"/>
-    <variant name="ServerError"/>
-    <variant name="ServerLimitExceededError"/>
-    <variant name="Unknown"/>
-  </token>
-</histogram>
-
-<histogram
-    name="NewTabPage.Composebox.Session.File.DeletedCount.{ComposeboxFileTypes}.{FileState}"
-    units="count" expires_after="2026-01-20">
-  <owner>mfacey@google.com</owner>
-  <owner>chrome-desktop-ntp@google.com</owner>
-  <summary>
-    Count the file deletions from the composebox. This is recorded when a file
-    is uploaded and then deleted from the composebox. Every deletion emits true
-    if it was successful and false if it was not.
-  </summary>
-  <token key="ComposeboxFileTypes" variants="ComposeboxFileTypes">
-    <variant name=""/>
-  </token>
-  <token key="FileState">
-    <variant name="NotUploaded" summary="File not uploaded"/>
-    <variant name="Processing" summary="File upload processing"/>
-    <variant name="ProcessingSuggestSignalsReady"
-        summary="File upload processing and suggest signals ready"/>
-    <variant name="Unknown" summary="Unknown"/>
-    <variant name="UploadFailed" summary="File upload failed"/>
-    <variant name="UploadStarted" summary="File upload started"/>
-    <variant name="UploadSuccessful" summary="File upload successful"/>
-    <variant name="ValidationFailed" summary="File validation failed"/>
-  </token>
-</histogram>
-
-<histogram name="NewTabPage.Composebox.Session.QueryCount" units="count"
-    expires_after="2026-03-22">
-  <owner>jennserrano@google.com</owner>
-  <owner>chrome-desktop-ntp@google.com</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <summary>
-    Tracks the number of queries submitted per session. Multiple queries may be
-    submitted when the AIM page is opened in a new tab or window and the
-    composebox remains open. Recorded at the end of the session.
   </summary>
 </histogram>
 
@@ -612,7 +411,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Composeplate.Impression" enum="BooleanVisible"
-    expires_after="2026-02-01">
+    expires_after="2026-04-05">
   <owner>hanxi@chromium.org</owner>
   <owner>xinyiji@chromium.org</owner>
   <summary>
@@ -781,6 +580,17 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="NewTabPage.CustomizeChromePromoEligibility"
+    enum="NTPCustomizeChromePromoEligibility" expires_after="2026-03-10">
+  <owner>kbajkiewicz@google.com</owner>
+  <owner>rsult@google.com</owner>
+  <owner>chrome-signin-desktop-team@google.com</owner>
+  <summary>
+    Captures the eligibility for Customize Chrome Promo. Recorded every time the
+    1P NTP opens.
+  </summary>
+</histogram>
+
 <histogram name="NewTabPage.CustomizeChromeSidePanelAction"
     enum="NTPCustomizeChromeSidePanelAction" expires_after="2026-02-22">
   <owner>pauladedeji@google.com</owner>
@@ -791,18 +601,6 @@ chromium-metrics-reviews@google.com.
     Captures the actions performed for customizing Chrome within the Customize
     Chrome Side Panel on the New Tab Page. Since most actions are sequential,
     this may indicate steps in the configuration process where users drop off.
-  </summary>
-</histogram>
-
-<histogram name="NewTabPage.CustomizeChromeSidePanelImpression"
-    enum="NTPCustomizeChromeSidePanelImpression" expires_after="2025-11-30">
-  <owner>howardcha@google.com</owner>
-  <owner>tiborg@chromium.org</owner>
-  <owner>webstore-eng@google.com</owner>
-  <owner>chrome-desktop-ntp@google.com</owner>
-  <summary>
-    Captures the impressions for customizing Chrome sections within the
-    Customize Chrome Side Panel on the New Tab Page.
   </summary>
 </histogram>
 
@@ -853,7 +651,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Drive.FileClick" units="index"
-    expires_after="2026-01-25">
+    expires_after="2026-03-29">
   <owner>rtatum@google.com</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -900,19 +698,19 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="NewTabPage.FakeSearchBox.ComposeplateButton.Impression"
-    units="count" expires_after="2026-02-01">
+<histogram name="NewTabPage.FakeSearchBox.ComposeplateButton.Impression2"
+    enum="BooleanVisible" expires_after="2026-04-05">
   <owner>hanxi@chromium.org</owner>
   <owner>xinyiji@chromium.org</owner>
   <summary>
     Record the total number of impressions of the fake search box composeplate
-    button on the New Tab Page. The histogram is logged on New tab page and is
+    view on the New Tab Page. The histogram is logged on New tab page and is
     Android-only.
   </summary>
 </histogram>
 
-<histogram name="NewTabPage.FakeSearchBox.Impression" units="count"
-    expires_after="2026-02-01">
+<histogram name="NewTabPage.FakeSearchBox.Impression2" enum="BooleanVisible"
+    expires_after="2026-04-05">
   <owner>hanxi@chromium.org</owner>
   <owner>xinyiji@chromium.org</owner>
   <summary>
@@ -924,7 +722,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Footer.Click" enum="FooterElement"
-    expires_after="2026-01-25">
+    expires_after="2026-03-29">
   <owner>temao@chromium.org</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -940,7 +738,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Footer.CustomizeChromeOpened"
-    enum="FooterCustomizeChromeEntryPoint" expires_after="2026-01-25">
+    enum="FooterCustomizeChromeEntryPoint" expires_after="2026-03-29">
   <owner>temao@chromium.org</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -965,7 +763,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Footer.ShownTime" units="ms"
-    expires_after="2026-02-01">
+    expires_after="2026-04-05">
   <owner>pauladedeji@google.com</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -976,7 +774,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Footer.ToggledVisibility{FooterToggleSource}"
-    enum="BooleanVisible" expires_after="2026-02-01">
+    enum="BooleanVisible" expires_after="2026-04-05">
   <owner>pauladedeji@google.com</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -993,7 +791,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Footer.VisibleOnLoad" enum="BooleanVisible"
-    expires_after="2026-02-01">
+    expires_after="2026-04-05">
   <owner>pauladedeji@google.com</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1003,7 +801,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Footer.WebUI.LoadCompletedTime" units="ms"
-    expires_after="2026-02-01">
+    expires_after="2026-04-05">
   <owner>pauladedeji@google.com</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1015,7 +813,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Footer.WebUI.LoadDocumentTime" units="ms"
-    expires_after="2026-02-01">
+    expires_after="2026-04-05">
   <owner>pauladedeji@google.com</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1122,6 +920,85 @@ chromium-metrics-reviews@google.com.
         summary="collection preview image in Customize Chrome"/>
     <variant name=".ThemePreviewImage"
         summary="theme preview image in Customize Chrome"/>
+  </token>
+</histogram>
+
+<histogram
+    name="NewTabPage.Incognito.OmniboxAutofocus.OnFocus.KeyboardHeightPercentage"
+    units="Percents" expires_after="2026-05-01">
+  <owner>kalinino@google.com</owner>
+  <owner>polonium@google.com</owner>
+  <summary>
+    The software keyboard height as a percentage of the tab height. Emitted when
+    the omnibox was focused for any reason, including autofocus.
+  </summary>
+</histogram>
+
+<histogram
+    name="NewTabPage.Incognito.OmniboxAutofocus.OnFocus.NtpTextContentNoPaddingsHeightPercentage"
+    units="Percents" expires_after="2026-05-01">
+  <owner>kalinino@google.com</owner>
+  <owner>polonium@google.com</owner>
+  <summary>
+    The height of the Incognito New Tab Page's text content, expressed as a
+    percentage of the tab height. This value can exceed 100%. This measurement
+    excludes the padding above the topmost text element and below the bottommost
+    text element. Emitted when the omnibox was focused for any reason, including
+    autofocus.
+  </summary>
+</histogram>
+
+<histogram
+    name="NewTabPage.Incognito.OmniboxAutofocus.OnFocus.NtpTextContentWithTopPaddingHeightPercentage"
+    units="Percents" expires_after="2026-05-01">
+  <owner>kalinino@google.com</owner>
+  <owner>polonium@google.com</owner>
+  <summary>
+    The height of the Incognito New Tab Page's text content, expressed as a
+    percentage of the tab height. This value can exceed 100%. This measurement
+    includes the padding above the topmost text element but excludes the padding
+    below the bottommost one. Emitted when the omnibox was focused for any
+    reason, including autofocus.
+  </summary>
+</histogram>
+
+<histogram
+    name="NewTabPage.Incognito.OmniboxAutofocus.{FocusEvent}.NtpTextContentNoPaddingsBehindKeyboardHeightPercentage"
+    units="Percents" expires_after="2026-05-01">
+  <owner>kalinino@google.com</owner>
+  <owner>polonium@google.com</owner>
+  <summary>
+    The percentage of the Incognito New Tab Page's text content that is hidden
+    by the software keyboard. This calculation is based on the text content's
+    height, which excludes the padding above the topmost and below the
+    bottommost text elements. {FocusEvent}
+  </summary>
+  <token key="FocusEvent">
+    <variant name="OnAutofocus"
+        summary="Emitted when the omnibox was autofocused."/>
+    <variant name="OnFocus"
+        summary="Emitted when the omnibox was focused for any reason,
+                 including autofocus."/>
+  </token>
+</histogram>
+
+<histogram
+    name="NewTabPage.Incognito.OmniboxAutofocus.{FocusEvent}.NtpTextContentWithTopPaddingBehindKeyboardHeightPercentage"
+    units="Percents" expires_after="2026-05-01">
+  <owner>kalinino@google.com</owner>
+  <owner>polonium@google.com</owner>
+  <summary>
+    The percentage of the Incognito New Tab Page's text content that is hidden
+    by the software keyboard. This calculation is based on the text content's
+    height, which includes the padding above the topmost text element but
+    excludes the padding below the bottommost one. {FocusEvent}
+  </summary>
+  <token key="FocusEvent">
+    <variant name="OnAutofocus"
+        summary="Emitted when the omnibox was autofocused."/>
+    <variant name="OnFocus"
+        summary="Emitted when the omnibox was focused for any reason,
+                 including autofocus."/>
   </token>
 </histogram>
 
@@ -1242,7 +1119,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.LogoShown{NewTabPageLogoShownFromCache}"
-    enum="NewTabPageLogoShown" expires_after="2026-02-01">
+    enum="NewTabPageLogoShown" expires_after="2026-04-05">
   <owner>romanarora@chromium.org</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1272,7 +1149,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.MicrosoftAuth.AuthError"
-    enum="NTPMicrosoftAuthError" expires_after="2026-02-06">
+    enum="NTPMicrosoftAuthError" expires_after="2026-04-12">
   <owner>rtatum@google.com</owner>
   <owner>pauladedeji@google.com</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1285,7 +1162,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.MicrosoftAuth.AuthStarted"
-    enum="NTPMicrosoftAuthType" expires_after="2026-02-06">
+    enum="NTPMicrosoftAuthType" expires_after="2026-04-12">
   <owner>rtatum@google.com</owner>
   <owner>pauladedeji@google.com</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1404,7 +1281,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Module.Click" enum="ModuleTypeOnStartAndNTP"
-    expires_after="2026-02-01">
+    expires_after="2026-04-05">
   <owner>hanxi@chromium.org</owner>
   <owner>xinyiji@chromium.org</owner>
   <summary>
@@ -1549,7 +1426,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Modules.ImpressionRatio{NewTabPageModules}"
-    units="perdecage" expires_after="2026-02-09">
+    units="perdecage" expires_after="2026-04-12">
   <owner>romanarora@chromium.org</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1830,7 +1707,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.MostVisited.NumberOfCustomTilesOnFirstNtp"
-    units="units" expires_after="2026-01-25">
+    units="units" expires_after="2026-03-29">
   <owner>fredmello@chromium.org</owner>
   <owner>huangs@chromium.org</owner>
   <summary>
@@ -1943,7 +1820,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.NumberOfTiles" units="units"
-    expires_after="2026-02-01">
+    expires_after="2026-04-05">
   <owner>romanarora@chromium.org</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1961,7 +1838,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="NewTabPage.OneGoogleBar.RequestLatency{NewTabPage_OneGoogleBar_RequestLatency}"
-    units="ms" expires_after="2026-02-09">
+    units="ms" expires_after="2026-04-12">
   <owner>romanarora@chromium.org</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1978,7 +1855,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.OneGoogleBar.ShownTime" units="ms"
-    expires_after="2026-02-09">
+    expires_after="2026-04-12">
   <owner>romanarora@chromium.org</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -2016,7 +1893,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.OutlookCalendar.RequestResult"
-    enum="OutlookCalendarRequestResult" expires_after="2026-01-20">
+    enum="OutlookCalendarRequestResult" expires_after="2026-04-05">
   <owner>jennserrano@google.com</owner>
   <owner>rtatum@google.com</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -2029,7 +1906,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.OutlookCalendar.ResponseResult" units="count"
-    expires_after="2026-01-20">
+    expires_after="2026-04-05">
   <owner>jennserrano@google.com</owner>
   <owner>rtatum@google.com</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -2314,7 +2191,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.TabResumption.ResultStatus"
-    enum="NtpTabResumeResultStatus" expires_after="2026-02-01">
+    enum="NtpTabResumeResultStatus" expires_after="2026-04-05">
   <owner>mfacey@google.com</owner>
   <owner>romanarora@google.com</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -2359,7 +2236,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.TabResumption.URLVisitAggregateDataTypeDisplayed"
-    enum="NtpURLVisitAggregateTypes" expires_after="2026-02-01">
+    enum="NtpURLVisitAggregateTypes" expires_after="2026-04-05">
   <owner>mfacey@google.com</owner>
   <owner>romanarora@google.com</owner>
   <owner>chrome-desktop-ntp@google.com</owner>

@@ -16,12 +16,14 @@
 #include "components/ntp_tiles/most_visited_sites.h"
 #include "components/ntp_tiles/ntp_tile.h"
 #include "components/ntp_tiles/section_type.h"
+#include "components/ntp_tiles/tile_source.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "ui/webui/resources/cr_components/most_visited/most_visited.mojom.h"
 
 class GURL;
 class Profile;
+class NewTabPagePreloadPipelineManager;
 
 namespace content {
 class WebContents;
@@ -54,12 +56,14 @@ class MostVisitedHandler : public most_visited::mojom::MostVisitedPageHandler,
   void AddMostVisitedTile(const GURL& url,
                           const std::string& title,
                           AddMostVisitedTileCallback callback) override;
-  void DeleteMostVisitedTile(const GURL& url) override;
-  void RestoreMostVisitedDefaults() override;
-  void ReorderMostVisitedTile(const GURL& url, uint8_t new_pos) override;
-  void UndoMostVisitedTileAction() override;
+  void DeleteMostVisitedTile(
+      most_visited::mojom::MostVisitedTilePtr tile) override;
+  void RestoreMostVisitedDefaults(ntp_tiles::TileSource source) override;
+  void ReorderMostVisitedTile(most_visited::mojom::MostVisitedTilePtr tile,
+                              uint8_t new_pos) override;
+  void UndoMostVisitedTileAction(ntp_tiles::TileSource source) override;
   void UpdateMostVisitedInfo() override;
-  void UpdateMostVisitedTile(const GURL& url,
+  void UpdateMostVisitedTile(most_visited::mojom::MostVisitedTilePtr tile,
                              const GURL& new_url,
                              const std::string& new_title,
                              UpdateMostVisitedTileCallback callback) override;
@@ -80,6 +84,9 @@ class MostVisitedHandler : public most_visited::mojom::MostVisitedPageHandler,
                                    bool ctrl_key,
                                    bool meta_key,
                                    bool shift_key) override;
+  void GetMostVisitedExpandedState(
+      GetMostVisitedExpandedStateCallback callback) override;
+  void SetMostVisitedExpandedState(bool is_expanded) override;
 
  private:
   // ntp_tiles::MostVisitedSites::Observer:
@@ -88,6 +95,8 @@ class MostVisitedHandler : public most_visited::mojom::MostVisitedPageHandler,
       const std::map<ntp_tiles::SectionType, ntp_tiles::NTPTilesVector>&
           sections) override;
   void OnIconMadeAvailable(const GURL& site_url) override;
+
+  NewTabPagePreloadPipelineManager* GetNewTabPagePreloadPipelineManager();
 
   raw_ptr<Profile> profile_;
   // web_app::PreinstalledWebAppManager::Observer

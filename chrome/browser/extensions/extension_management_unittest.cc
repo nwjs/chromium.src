@@ -32,6 +32,7 @@
 #include "extensions/browser/blocklist_extension_prefs.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/pref_names.h"
+#include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension_features.h"
 #include "extensions/common/extension_urls.h"
 #include "extensions/common/manifest.h"
@@ -42,6 +43,8 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
+
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
 using extensions::mojom::APIPermissionID;
 using extensions::mojom::ManifestLocation;
@@ -306,7 +309,7 @@ class ExtensionManagementServiceTest : public testing::Test {
     manifest_dict.Set(manifest_keys::kVersion, version);
     manifest_dict.Set(manifest_keys::kManifestVersion, 2);
     manifest_dict.Set(manifest_keys::kUpdateURL, update_url);
-    std::string error;
+    std::u16string error;
     scoped_refptr<const Extension> extension =
         Extension::Create(base::FilePath(), location, std::move(manifest_dict),
                           flags, id, &error);
@@ -431,7 +434,7 @@ class ExtensionAdminPolicyTest : public ExtensionManagementServiceTest {
     values->Set(manifest_keys::kName, "test");
     values->Set(manifest_keys::kVersion, "0.1");
     values->Set(manifest_keys::kManifestVersion, 2);
-    std::string error;
+    std::u16string error;
     extension_ = Extension::Create(base::FilePath(), location, *values,
                                    Extension::NO_FLAGS, &error);
     ASSERT_TRUE(extension_.get());
@@ -1897,5 +1900,59 @@ TEST_F(ExtensionAdminPolicyTest, MustRemainEnabled) {
   EXPECT_FALSE(MustRemainEnabled(extension_.get(), &error));
   EXPECT_TRUE(error.empty());
 }
+
+#if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
+class ExtensionManagementDesktopAndroidTest : public testing::Test {
+ public:
+  ExtensionManagementDesktopAndroidTest() = default;
+  ExtensionManagementDesktopAndroidTest(
+      const ExtensionManagementDesktopAndroidTest&) = delete;
+  ExtensionManagementDesktopAndroidTest& operator=(
+      const ExtensionManagementDesktopAndroidTest&) = delete;
+  ~ExtensionManagementDesktopAndroidTest() override = default;
+
+ private:
+  content::BrowserTaskEnvironment task_environment_;
+};
+
+// Tests that kEnableExtensionsForCorpDesktopAndroid enables extensions for corp
+// accounts.
+TEST_F(ExtensionManagementDesktopAndroidTest, FeatureFlagOn) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      extensions_features::kEnableExtensionsForCorpDesktopAndroid);
+
+  // Build a profile for a corp dogfood user.
+  TestingProfile::Builder builder;
+  builder.SetProfileName("sundar@google.com");
+  std::unique_ptr<TestingProfile> profile = builder.Build();
+
+  // Use that profile to initialize an ExtensionManagement instance.
+  ExtensionManagement management(profile.get());
+
+  // Extensions should be allowed because of the feature flag.
+  EXPECT_TRUE(management.ExtensionsEnabledForDesktopAndroid());
+}
+
+// Tests that with kEnableExtensionsForCorpDesktopAndroid off, extensions are
+// still disabled for corp accounts.
+TEST_F(ExtensionManagementDesktopAndroidTest, FeatureFlagOff) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      extensions_features::kEnableExtensionsForCorpDesktopAndroid);
+
+  // Build a profile for a corp dogfood user.
+  TestingProfile::Builder builder;
+  builder.SetProfileName("sundar@google.com");
+  std::unique_ptr<TestingProfile> profile = builder.Build();
+
+  // Use that profile to initialize an ExtensionManagement instance.
+  ExtensionManagement management(profile.get());
+
+  // Extensions are blocked because this is a corp dogfood user.
+  EXPECT_FALSE(management.ExtensionsEnabledForDesktopAndroid());
+}
+
+#endif  // BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
 
 }  // namespace extensions

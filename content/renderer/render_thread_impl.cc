@@ -115,7 +115,7 @@
 #include "gpu/ipc/client/gpu_channel_host.h"
 #include "ipc/ipc_channel.h"
 #include "ipc/ipc_channel_factory.h"
-#include "ipc/ipc_platform_file.h"
+#include "ipc/platform_file_for_transit.h"
 #include "media/base/decoder_factory.h"
 #include "media/base/media.h"
 #include "media/base/media_switches.h"
@@ -133,6 +133,7 @@
 #include "net/base/port_util.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/base/url_util.h"
+#include "partition_alloc/memory_reclaimer.h"
 #include "services/network/public/cpp/network_switches.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "services/viz/public/cpp/gpu/context_provider_command_buffer.h"
@@ -242,21 +243,19 @@ constinit thread_local RenderThreadImpl* render_thread = nullptr;
 base::LazyInstance<scoped_refptr<base::SingleThreadTaskRunner>>::
     DestructorAtExit g_main_task_runner = LAZY_INSTANCE_INITIALIZER;
 
-// v8::MemoryPressureLevel should correspond to base::MemoryPressureListener.
+// v8::MemoryPressureLevel should correspond to base::MemoryPressureLevel.
+static_assert(
+    static_cast<v8::MemoryPressureLevel>(base::MEMORY_PRESSURE_LEVEL_NONE) ==
+        v8::MemoryPressureLevel::kNone,
+    "none level not align");
 static_assert(static_cast<v8::MemoryPressureLevel>(
-                  base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_NONE) ==
-                  v8::MemoryPressureLevel::kNone,
-              "none level not align");
-static_assert(
-    static_cast<v8::MemoryPressureLevel>(
-        base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_MODERATE) ==
-        v8::MemoryPressureLevel::kModerate,
-    "moderate level not align");
-static_assert(
-    static_cast<v8::MemoryPressureLevel>(
-        base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL) ==
-        v8::MemoryPressureLevel::kCritical,
-    "critical level not align");
+                  base::MEMORY_PRESSURE_LEVEL_MODERATE) ==
+                  v8::MemoryPressureLevel::kModerate,
+              "moderate level not align");
+static_assert(static_cast<v8::MemoryPressureLevel>(
+                  base::MEMORY_PRESSURE_LEVEL_CRITICAL) ==
+                  v8::MemoryPressureLevel::kCritical,
+              "critical level not align");
 
 // Feature to migrate the Media thread to a SequencedTaskRunner backed from
 // the base::ThreadPool. Does not currently work on Fuchsia due to FIDL
@@ -594,20 +593,13 @@ void RenderThreadImpl::Init() {
   // been initialized by the Zygote before this instance became a Renderer.
   media::InitializeMediaLibrary();
 
-  memory_pressure_listener_ =
-      std::make_unique<base::AsyncMemoryPressureListener>(
-          FROM_HERE, base::MemoryPressureListenerTag::kRenderThreadImpl,
-          base::BindRepeating(&RenderThreadImpl::OnMemoryPressure,
-                              base::Unretained(this)));
   // In tests or in single-process mode, the render thread does not live on the
   // main thread of the process, so we can't register a sync listener.
   if (base::SingleThreadTaskRunner::GetMainThreadDefault()
           ->BelongsToCurrentThread()) {
-    sync_memory_pressure_listener_ =
-        std::make_unique<base::SyncMemoryPressureListener>(
-            base::MemoryPressureListenerTag::kRenderThreadImpl,
-            base::BindRepeating(&RenderThreadImpl::OnSyncMemoryPressure,
-                                base::Unretained(this)));
+    memory_pressure_listener_registration_ =
+        std::make_unique<base::SyncMemoryPressureListenerRegistration>(
+            base::MemoryPressureListenerTag::kRenderThreadImpl, this);
   }
 
   discardable_memory_allocator_ = CreateDiscardableMemoryAllocator();
@@ -1562,31 +1554,6 @@ void RenderThreadImpl::PurgeResourceCache(PurgeResourceCacheCallback callback) {
   std::move(callback).Run();
 }
 
-void RenderThreadImpl::OnMemoryPressure(
-    base::MemoryPressureListener::MemoryPressureLevel memory_pressure_level) {
-  TRACE_EVENT(
-      "memory", "RenderThreadImpl::OnMemoryPressure",
-      [&](perfetto::EventContext ctx) {
-        auto* event = ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
-        auto* data = event->set_chrome_memory_pressure_notification();
-        data->set_level(base::trace_event::MemoryPressureLevelToTraceEnum(
-            memory_pressure_level));
-      });
-  if (blink_platform_impl_)
-    blink::WebMemoryPressureListener::OnMemoryPressure(memory_pressure_level);
-  if (memory_pressure_level ==
-      base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL) {
-    discardable_memory_allocator_->ReleaseFreeMemory();
-
-    // Do not call into blink if it is not initialized.
-    if (blink_platform_impl_) {
-      // Purge Skia font cache, resource cache, and image filter.
-      SkGraphics::PurgeAllCaches();
-      blink::WebMemoryPressureListener::OnPurgeMemory();
-    }
-  }
-}
-
 scoped_refptr<base::SequencedTaskRunner>
 RenderThreadImpl::GetMediaSequencedTaskRunner() {
   DCHECK(main_thread_runner()->BelongsToCurrentThread());
@@ -1717,8 +1684,17 @@ void RenderThreadImpl::OnRendererForegrounded() {
   process_foregrounded_count_++;
 }
 
-void RenderThreadImpl::OnSyncMemoryPressure(
-    base::MemoryPressureListener::MemoryPressureLevel memory_pressure_level) {
+void RenderThreadImpl::OnMemoryPressure(
+    base::MemoryPressureLevel memory_pressure_level) {
+  TRACE_EVENT(
+      "memory", "RenderThreadImpl::OnMemoryPressure",
+      [&](perfetto::EventContext ctx) {
+        auto* event = ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
+        auto* data = event->set_chrome_memory_pressure_notification();
+        data->set_level(base::trace_event::MemoryPressureLevelToTraceEnum(
+            memory_pressure_level));
+      });
+
   v8::MemoryPressureLevel v8_memory_pressure_level =
       static_cast<v8::MemoryPressureLevel>(memory_pressure_level);
 
@@ -1734,6 +1710,20 @@ void RenderThreadImpl::OnSyncMemoryPressure(
           features::kForwardMemoryPressureToBlinkIsolates)) {
     blink::MemoryPressureNotificationToAllIsolates(v8_memory_pressure_level);
   }
+
+  if (blink_platform_impl_) {
+    blink::WebMemoryPressureListener::OnMemoryPressure(memory_pressure_level);
+  }
+  if (memory_pressure_level == base::MEMORY_PRESSURE_LEVEL_CRITICAL) {
+    discardable_memory_allocator_->ReleaseFreeMemory();
+
+    // Do not call into blink if it is not initialized.
+    if (blink_platform_impl_) {
+      // Purge Skia font cache, resource cache, and image filter.
+      SkGraphics::PurgeAllCaches();
+    }
+  }
+  ::partition_alloc::MemoryReclaimer::Instance()->ReclaimAll();
 }
 
 void RenderThreadImpl::OnRendererInterfaceReceiver(
@@ -1809,7 +1799,7 @@ void RenderThreadImpl::SetPrivateMemoryFootprint(
 }
 
 void RenderThreadImpl::OnMemoryPressureFromBrowserReceived(
-    base::MemoryPressureListener::MemoryPressureLevel level) {
+    base::MemoryPressureLevel level) {
   // To avoid that the browser process requests a signal while a renderer
   // is creating and blink has not been initialized yet, check
   // |blink_platform_impl_| here.

@@ -252,7 +252,7 @@ IN_PROC_BROWSER_TEST_F(SSLPolicyTest, DevicePostQuantumEnabledPolicy) {
 
 IN_PROC_BROWSER_TEST_F(SSLPolicyTest, PreferSlowKexAlgorithmsPolicy) {
   net::SSLServerConfig ssl_config;
-  ssl_config.curves_for_testing = {NID_MLKEM1024};
+  ssl_config.curves_for_testing = {NID_ML_KEM_1024};
   ASSERT_TRUE(StartTestServer(ssl_config));
 
   // Should fail to load a page from the test server because, by default, we
@@ -293,7 +293,7 @@ IN_PROC_BROWSER_TEST_F(SSLPolicyTest, PreferSlowKexAlgorithmsPolicy) {
 IN_PROC_BROWSER_TEST_F(SSLPolicyTest,
                        PostQuantumDisabledOverridesPreferSlowKexAlgorithms) {
   net::SSLServerConfig ssl_config;
-  ssl_config.curves_for_testing = {NID_MLKEM1024};
+  ssl_config.curves_for_testing = {NID_ML_KEM_1024};
   ASSERT_TRUE(StartTestServer(ssl_config));
 
   PolicyMap policies;
@@ -550,7 +550,7 @@ class TLS13EarlyDataPolicyTest : public SSLPolicyTest,
       const net::test_server::HttpRequest& request) {
     auto response = std::make_unique<net::test_server::BasicHttpResponse>();
     response->AddCustomHeader("Connection", "close");
-    if (request.GetURL().path() == kEarlyDataCheckPath) {
+    if (request.GetURL().GetPath() == kEarlyDataCheckPath) {
       response->set_content_type("text/plain; charset=utf-8");
       if (request.ssl_info->early_data_accepted) {
         response->set_content(kEarlyDataAcceptedTitle);

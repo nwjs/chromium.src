@@ -18,6 +18,7 @@
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "components/omnibox/browser/omnibox_triggered_feature_service.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "ui/native_theme/mock_os_settings_provider.h"
 #include "ui/views/widget/widget.h"
@@ -56,11 +57,13 @@ class OmniboxPopupViewViewsTest : public InProcessBrowserTest {
     return browser_view->toolbar()->location_bar();
   }
   OmniboxViewViews* omnibox_view() { return location_bar()->omnibox_view(); }
-  OmniboxController* controller() { return omnibox_view()->controller(); }
-  OmniboxEditModel* edit_model() { return omnibox_view()->model(); }
+  OmniboxController* controller() {
+    return location_bar()->GetOmniboxController();
+  }
+  OmniboxEditModel* edit_model() { return controller()->edit_model(); }
   OmniboxPopupViewViews* popup_view() {
     return static_cast<OmniboxPopupViewViews*>(
-        location_bar()->GetOmniboxPopupView());
+        location_bar()->GetOmniboxPopupViewForTesting());
   }
 
   SkColor GetSelectedColor(Browser* browser) {

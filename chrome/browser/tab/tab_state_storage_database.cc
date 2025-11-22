@@ -4,9 +4,13 @@
 
 #include "chrome/browser/tab/tab_state_storage_database.h"
 
+#include <memory>
+#include <utility>
+
 #include "base/check.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
+#include "base/memory/ptr_util.h"
 #include "sql/database.h"
 #include "sql/meta_table.h"
 #include "sql/statement.h"
@@ -14,6 +18,8 @@
 
 namespace tabs {
 namespace {
+
+using OpenTransaction = TabStateStorageDatabase::OpenTransaction;
 
 const int kCurrentVersionNumber = 1;
 const int kCompatibleVersionNumber = 1;
@@ -71,6 +77,29 @@ bool InitSchema(sql::Database* db, sql::MetaTable* meta_table) {
 
 }  // namespace
 
+OpenTransaction::OpenTransaction(std::unique_ptr<sql::Transaction> transaction)
+    : transaction_(std::move(transaction)) {}
+
+OpenTransaction::~OpenTransaction() = default;
+
+bool OpenTransaction::HasFailed() {
+  return mark_failed_;
+}
+
+void OpenTransaction::MarkFailed() {
+  mark_failed_ = true;
+}
+
+sql::Transaction* OpenTransaction::GetTransaction() {
+  return transaction_.get();
+}
+
+// static
+bool TabStateStorageDatabase::OpenTransaction::IsValid(
+    OpenTransaction* transaction) {
+  return transaction && !transaction->HasFailed();
+}
+
 TabStateStorageDatabase::TabStateStorageDatabase(
     const base::FilePath& profile_path)
     : profile_path_(profile_path),
@@ -108,16 +137,13 @@ bool TabStateStorageDatabase::Initialize() {
   return true;
 }
 
-bool TabStateStorageDatabase::SaveNode(int id,
-                                       int type,
+bool TabStateStorageDatabase::SaveNode(OpenTransaction* transaction,
+                                       int id,
+                                       TabStorageType type,
                                        std::string payload,
                                        std::string children) {
   CHECK(db_);
-
-  sql::Transaction transaction(db_.get());
-  if (!transaction.Begin()) {
-    return false;
-  }
+  DCHECK(OpenTransaction::IsValid(transaction));
 
   static constexpr char kInsertTabSql[] =
       "INSERT OR REPLACE INTO nodes"
@@ -130,15 +156,90 @@ bool TabStateStorageDatabase::SaveNode(int id,
       db_->GetCachedStatement(SQL_FROM_HERE, kInsertTabSql));
 
   write_statement.BindInt(0, id);
-  write_statement.BindInt(1, type);
+  write_statement.BindInt(1, static_cast<int>(type));
   write_statement.BindBlob(2, std::move(payload));
   write_statement.BindBlob(3, std::move(children));
 
-  if (!write_statement.Run()) {
-    DLOG(ERROR) << "Could not write to tabs table.";
-    return false;
+  return write_statement.Run();
+}
+
+bool TabStateStorageDatabase::SaveNodeChildren(OpenTransaction* transaction,
+                                               int id,
+                                               std::string children) {
+  CHECK(db_);
+  DCHECK(OpenTransaction::IsValid(transaction));
+
+  static constexpr char kUpdateChildrenSql[] =
+      "UPDATE nodes"
+      "SET children = ?"
+      "WHERE id = ?";
+
+  DCHECK(db_->IsSQLValid(kUpdateChildrenSql));
+
+  sql::Statement write_statement(
+      db_->GetCachedStatement(SQL_FROM_HERE, kUpdateChildrenSql));
+
+  write_statement.BindInt(0, id);
+  write_statement.BindBlob(1, std::move(children));
+
+  return write_statement.Run();
+}
+
+bool TabStateStorageDatabase::RemoveNode(OpenTransaction* transaction, int id) {
+  CHECK(db_);
+  DCHECK(OpenTransaction::IsValid(transaction));
+
+  static constexpr char kDeleteChildrenSql[] =
+      "DELETE FROM nodes"
+      "WHERE id = ?";
+
+  DCHECK(db_->IsSQLValid(kDeleteChildrenSql));
+
+  sql::Statement write_statement(
+      db_->GetCachedStatement(SQL_FROM_HERE, kDeleteChildrenSql));
+
+  write_statement.BindInt(0, id);
+  return write_statement.Run();
+}
+
+OpenTransaction* TabStateStorageDatabase::CreateTransaction() {
+  DCHECK(!open_transaction_) << "An open transaction already exists.";
+
+  std::unique_ptr<sql::Transaction> transaction =
+      std::make_unique<sql::Transaction>(db_.get());
+  OpenTransaction* open_transaction =
+      new OpenTransaction(std::move(transaction));
+  sql::Transaction* transaction_ptr = open_transaction->GetTransaction();
+
+  if (!transaction_ptr->Begin()) {
+    DLOG(ERROR) << "Failed to begin transaction.";
+    open_transaction->MarkFailed();
   }
-  return transaction.Commit();
+
+  open_transaction_ = base::WrapUnique(open_transaction);
+  return open_transaction_.get();
+}
+
+bool TabStateStorageDatabase::CloseTransaction(
+    OpenTransaction* open_transaction) {
+  DCHECK(open_transaction_) << "There is no open transaction.";
+  sql::Transaction* transaction = open_transaction->GetTransaction();
+
+  bool success = false;
+  if (open_transaction->HasFailed()) {
+    transaction->Rollback();
+    DLOG(ERROR) << "Transaction rolled back.";
+  } else {
+    success = transaction->Commit();
+    if (!success) {
+      DLOG(ERROR) << "Failed to commit transaction.";
+      // TODO(crbug.com/454005648): If possible, record the reason for commit
+      // failure here.
+    }
+  }
+
+  open_transaction_.reset();
+  return success;
 }
 
 std::vector<NodeState> TabStateStorageDatabase::LoadAllNodes() {
@@ -150,12 +251,19 @@ std::vector<NodeState> TabStateStorageDatabase::LoadAllNodes() {
   while (select_statement.Step()) {
     NodeState entry;
     entry.id = select_statement.ColumnInt(0);
-    entry.type = select_statement.ColumnInt(1);
-    select_statement.ColumnBlobAsString(2, &entry.payload);
-    select_statement.ColumnBlobAsString(3, &entry.children);
+    entry.type = static_cast<TabStorageType>(select_statement.ColumnInt(1));
+    entry.payload = select_statement.ColumnBlobAsString(2);
+    entry.children = select_statement.ColumnBlobAsString(3);
     entries.emplace_back(std::move(entry));
   }
   return entries;
+}
+
+void TabStateStorageDatabase::ClearAllNodes() {
+  static constexpr char kDeleteAllTabsSql[] = "DELETE FROM nodes";
+  sql::Statement delete_statement(
+      db_->GetCachedStatement(SQL_FROM_HERE, kDeleteAllTabsSql));
+  delete_statement.Run();
 }
 
 }  // namespace tabs

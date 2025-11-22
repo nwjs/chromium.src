@@ -8,7 +8,6 @@
 #include "chrome/browser/ui/autofill/bubble_manager.h"
 #include "chrome/browser/ui/wallet/walletable_pass_bubble_view_base.h"
 #include "components/autofill/core/common/autofill_features.h"
-#include "components/tabs/public/tab_interface.h"
 
 namespace wallet {
 namespace {
@@ -41,11 +40,16 @@ WalletablePassBubbleControllerBase::WalletablePassBubbleControllerBase(
 WalletablePassBubbleControllerBase::~WalletablePassBubbleControllerBase() =
     default;
 
+bool WalletablePassBubbleControllerBase::CanBeReshown() const {
+  return true;
+}
+
 bool WalletablePassBubbleControllerBase::IsShowingBubble() const {
   return bubble_view_ != nullptr;
 }
 
-void WalletablePassBubbleControllerBase::HideBubble() {
+void WalletablePassBubbleControllerBase::HideBubble(
+    bool initiated_by_bubble_manager) {
   if (IsShowingBubble()) {
     bubble_view_->CloseBubble();
     ResetBubbleViewAndInformBubbleManager();
@@ -58,6 +62,8 @@ bool WalletablePassBubbleControllerBase::IsMouseHovered() const {
 
 void WalletablePassBubbleControllerBase::OnBubbleClosed(
     WalletablePassBubbleClosedReason reason) {
+  // TODO(crbug.com/432429605): BubbleManager can show and hide the bubble
+  // multiple times. The callback should run only on user action.
   if (callback_) {
     std::move(callback_).Run(GetResult(reason));
   }
@@ -77,7 +83,8 @@ void WalletablePassBubbleControllerBase::SetCallback(
 void WalletablePassBubbleControllerBase::QueueOrShowBubble(bool force_show) {
   if (base::FeatureList::IsEnabled(
           autofill::features::kAutofillShowBubblesBasedOnPriorities)) {
-    if (auto* manager = autofill::BubbleManager::GetForTab(&tab())) {
+    if (autofill::BubbleManager* manager =
+            autofill::BubbleManager::GetForTab(&tab())) {
       manager->RequestShowController(*this, force_show);
     }
     return;
@@ -91,8 +98,9 @@ void WalletablePassBubbleControllerBase::
   if (IsShowingBubble() &&
       base::FeatureList::IsEnabled(
           autofill::features::kAutofillShowBubblesBasedOnPriorities)) {
-    if (auto* manager = autofill::BubbleManager::GetForTab(&tab())) {
-      manager->OnBubbleHiddenByController(*this);
+    if (autofill::BubbleManager* manager =
+            autofill::BubbleManager::GetForTab(&tab())) {
+      manager->OnBubbleHiddenByController(*this, /*show_next_bubble=*/true);
     }
   }
   bubble_view_ = nullptr;

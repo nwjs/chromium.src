@@ -313,9 +313,6 @@ class PDFiumEngine : public DocumentLoader::Client,
   // Returns whether the page at `page_index` is visible or not.
   virtual bool IsPageVisible(int page_index) const;
 
-  // Gets the current layout orientation.
-  PageOrientation GetCurrentOrientation() const;
-
   // Gets the rectangle of the page excluding any additional areas.
   virtual gfx::Rect GetPageContentsRect(int page_index);
 
@@ -378,6 +375,10 @@ class PDFiumEngine : public DocumentLoader::Client,
   // the document, e.g. into sections and headings, and describe special
   // elements, e.g. headings and table cells.
   virtual bool IsPDFDocTagged() const;
+
+  // Returns a copy of the structure tree which describes the logical
+  // organization of the PDF, if present.
+  std::unique_ptr<AccessibilityStructureElement> GetStructureTree() const;
 
   virtual uint32_t GetLoadedByteSize();
 
@@ -510,12 +511,16 @@ class PDFiumEngine : public DocumentLoader::Client,
   void ExtendAndInvalidateSelectionByChar(
       const PageCharacterIndex& index) override;
   uint32_t GetCharCount(uint32_t page_index) const override;
+  PageOrientation GetCurrentOrientation() const override;
   std::vector<gfx::Rect> GetScreenRectsForCaret(
+      const PageCharacterIndex& index) const override;
+  std::optional<AccessibilityTextRunInfo> GetTextRunInfoAt(
       const PageCharacterIndex& index) const override;
   void InvalidateRect(const gfx::Rect& rect) override;
   bool IsSelecting() const override;
   bool IsSynthesizedNewline(const PageCharacterIndex& index) const override;
   bool PageIndexInBounds(int index) const override;
+  void ScrollToChar(const PageCharacterIndex& index) override;
   void StartSelection(const PageCharacterIndex& index) override;
 
   // `PdfAnnotationAgent::Container`:
@@ -1330,7 +1335,9 @@ class PDFiumEngine : public DocumentLoader::Client,
 
   PDFiumPrint print_;
 
-  // The text caret on the PDF, excluding AcroForms.
+  // The text caret on the PDF, excluding AcroForms. Once initialized, it will
+  // not be destroyed until the destructor is called. The caret needs to store
+  // state, such as its position, blink interval, etc.
   std::unique_ptr<PdfCaret> caret_;
 
   // The list of text fragments to highlight on the PDF.

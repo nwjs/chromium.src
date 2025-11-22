@@ -297,6 +297,8 @@ NSMenuItem* BuildViewMenu(NSApplication* nsapp,
                   .command_id(IDC_SHOW_FULL_URLS),
               Item(IDS_CONTEXT_MENU_SHOW_GOOGLE_LENS_SHORTCUT)
                   .command_id(IDC_SHOW_GOOGLE_LENS_SHORTCUT),
+              Item(IDS_CONTEXT_MENU_SHOW_AI_MODE_OMNIBOX_BUTTON)
+                  .command_id(IDC_SHOW_AI_MODE_OMNIBOX_BUTTON),
               Item(IDS_CONTEXT_MENU_SHOW_SEARCH_TOOLS)
                   .command_id(IDC_SHOW_SEARCH_TOOLS),
               Item(IDS_CUSTOMIZE_TOUCH_BAR)
@@ -417,6 +419,31 @@ NSMenuItem* BuildBookmarksMenu(NSApplication* nsapp,
                   .command_id(IDC_BOOKMARK_ALL_TABS),
               Item().is_separator()
                   .tag(IDC_BOOKMARK_THIS_TAB),
+          })
+          .Build();
+  // clang-format on
+  return item;
+}
+
+NSMenuItem* BuildGroupsMenu(NSApplication* nsapp,
+                            id app_delegate,
+                            const std::u16string& product_name,
+                            bool is_pwa) {
+  if (!base::FeatureList::IsEnabled(features::kShowTabGroupsMacSystemMenu)) {
+    return nil;
+  }
+
+  if (is_pwa) {
+    return nil;
+  }
+
+  // clang-format off
+  NSMenuItem* item =
+      Item(IDS_SAVED_TAB_GROUPS_MENU)
+          .tag(IDC_SAVED_TAB_GROUPS_MENU)
+          .submenu({
+              Item(IDS_CREATE_NEW_TAB_GROUP)
+                  .command_id(IDC_CREATE_NEW_TAB_GROUP),
           })
           .Build();
   // clang-format on

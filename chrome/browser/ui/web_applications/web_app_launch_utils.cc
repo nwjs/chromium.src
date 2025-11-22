@@ -135,7 +135,7 @@ BrowserWindowInterface* ReparentWebContentsIntoAppBrowser(
   // Avoid causing an existing non-app browser window to close if this is the
   // last tab remaining.
   if (source_browser->tab_strip_model()->count() == 1) {
-    chrome::NewTab(source_browser);
+    chrome::NewTab(source_browser, NewTabTypes::NO_USER_ACTION);
   }
 
   ReparentWebContentsIntoBrowserImpl(
@@ -457,7 +457,7 @@ bool MaybeHandleIntentPickerFocusExistingOrNavigateExisting(
   // Picker was clicked) goes away without its containing browser closing.
   Browser* foreground_browser = chrome::FindBrowserWithTab(contents);
   if (foreground_browser->tab_strip_model()->count() == 1) {
-    chrome::NewTab(foreground_browser);
+    chrome::NewTab(foreground_browser, NewTabTypes::NEW_TAB_COMMAND);
   }
 
   contents->Close();
@@ -713,14 +713,19 @@ Browser* CreateWebAppWindowFromNavigationParams(
 
 content::WebContents* NavigateWebAppUsingParams(NavigateParams& nav_params) {
   nav_params.pwa_navigation_capturing_force_off = true;
-  if (nav_params.browser->app_controller() &&
-      nav_params.browser->app_controller()->IsUrlInHomeTabScope(
-          nav_params.url)) {
+  if (nav_params.browser->GetBrowserForMigrationOnly()->app_controller() &&
+      nav_params.browser->GetBrowserForMigrationOnly()
+          ->app_controller()
+          ->IsUrlInHomeTabScope(nav_params.url)) {
     // Navigations to the home tab URL in tabbed apps should happen in the home
     // tab.
-    nav_params.browser->tab_strip_model()->ActivateTabAt(0);
+    nav_params.browser->GetBrowserForMigrationOnly()
+        ->tab_strip_model()
+        ->ActivateTabAt(0);
     content::WebContents* home_tab_web_contents =
-        nav_params.browser->tab_strip_model()->GetWebContentsAt(0);
+        nav_params.browser->GetBrowserForMigrationOnly()
+            ->tab_strip_model()
+            ->GetWebContentsAt(0);
     GURL previous_home_tab_url = home_tab_web_contents->GetLastCommittedURL();
     if (previous_home_tab_url == nav_params.url) {
       // URL is identical so no need for the navigation.
@@ -730,7 +735,7 @@ content::WebContents* NavigateWebAppUsingParams(NavigateParams& nav_params) {
   }
 
 #if BUILDFLAG(IS_CHROMEOS)
-  Browser* browser = nav_params.browser;
+  Browser* browser = nav_params.browser->GetBrowserForMigrationOnly();
   const std::optional<ash::SystemWebAppType> capturing_system_app_type =
       ash::GetCapturingSystemAppForURL(browser->profile(), nav_params.url);
   if (capturing_system_app_type &&

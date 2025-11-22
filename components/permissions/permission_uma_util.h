@@ -20,6 +20,7 @@
 #include "components/permissions/permission_request_enums.h"
 #include "components/permissions/prediction_service/permission_ui_selector.h"
 #include "components/permissions/request_type.h"
+#include "components/permissions/resolvers/permission_prompt_options.h"
 #include "content/public/browser/permission_result.h"
 #include "url/gurl.h"
 
@@ -405,6 +406,14 @@ enum class ElementAnchoredBubbleVariant {
 };
 // LINT.ThenChange(//tools/metrics/histograms/enums.xml:ElementAnchoredBubbleVariant)
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class GeolocationAccuracy {
+  kPrecise = 0,
+  kApproximate = 1,
+  kMaxValue = kApproximate,
+};
+
 enum class PermissionAutoRevocationHistory {
   // Permission has not been automatically revoked.
   NONE = 0,
@@ -683,6 +692,8 @@ class PermissionUmaUtil {
       std::optional<PermissionUiSelector::PredictionGrantLikelihood>
           predicted_grant_likelihood,
       std::optional<PermissionRequestRelevance> permission_request_relevance,
+      std::optional<permissions::PermissionAiRelevanceModel>
+          permission_ai_relevance_model,
       std::optional<bool> prediction_decision_held_back,
       std::optional<permissions::PermissionIgnoredReason> ignored_reason,
       bool did_show_prompt,
@@ -935,6 +946,12 @@ class PermissionUmaUtil {
   static void RecordPermissionAutoRejectForActor(ContentSettingsType permission,
                                                  bool is_actor_operating);
 
+  // Records the duration of the browsing session after a permission prompt has
+  // been displayed.
+  static void RecordPostPromptSessionDuration(
+      ContentSettingsType permission,
+      base::TimeTicks request_first_display_time);
+
   // A scoped class that will check the current resolved content setting on
   // construction and report a revocation metric accordingly if the revocation
   // condition is met (from ALLOW to something else).
@@ -990,7 +1007,10 @@ class PermissionUmaUtil {
       std::optional<PermissionUiSelector::PredictionGrantLikelihood>
           predicted_grant_likelihood,
       std::optional<PermissionRequestRelevance> permission_request_relevance,
-      std::optional<bool> prediction_decision_held_back);
+      std::optional<permissions::PermissionAiRelevanceModel>
+          permission_ai_relevance_model,
+      std::optional<bool> prediction_decision_held_back,
+      const PromptOptions& prompt_options);
 
   // Records |count| total prior actions for a prompt of type |permission|
   // for a single origin using |prefix| for the metric.

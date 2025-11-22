@@ -39,7 +39,6 @@ constexpr auto kSchemaAndIndexQueries = base::MakeFixedFlatSet<Query>({
     Query::kInitSchema_CreateTableBlobs,
     Query::kIndex_ResourcesCacheKeyHashDoomed,
     Query::kIndex_LiveResourcesLastUsed,
-    Query::kIndex_DoomedResourcesResId,
     Query::kIndex_BlobsResIdStart,
 });
 
@@ -58,9 +57,10 @@ class SqlPersistentStoreQueriesTest : public testing::Test {
         base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()});
 
     // Create and initialize a store to create the DB file with schema.
-    auto store = disk_cache::SqlPersistentStore::Create(
+    auto store = std::make_unique<disk_cache::SqlPersistentStore>(
         path, kDefaultMaxBytes, net::CacheType::DISK_CACHE,
-        background_task_runner);
+        std::vector<scoped_refptr<base::SequencedTaskRunner>>(
+            {background_task_runner}));
 
     base::test::TestFuture<disk_cache::SqlPersistentStore::Error> future;
     store->Initialize(future.GetCallback());
@@ -80,8 +80,8 @@ class SqlPersistentStoreQueriesTest : public testing::Test {
   // using the expected indexes, which is critical for performance.
   std::string GetQueryPlan(base::cstring_view query) {
     base::CommandLine command_line(GetExecSqlShellPath());
-    command_line.AppendArgPath(
-        temp_dir_.GetPath().Append(disk_cache::kSqlBackendDatabaseFileName));
+    command_line.AppendArgPath(temp_dir_.GetPath().Append(
+        disk_cache::kSqlBackendDatabaseShard0FileName));
 
     std::string explain_query = base::StrCat({"EXPLAIN QUERY PLAN ", query});
     command_line.AppendArg(explain_query);
@@ -137,9 +137,6 @@ TEST_F(SqlPersistentStoreQueriesTest, AllQueriesHaveValidPlan) {
            {Query::kDeleteDoomedEntry_DeleteFromResources,
             "`--SEARCH resources USING "
             "INTEGER PRIMARY KEY (rowid=?)"},
-           {Query::kDeleteDoomedEntries_SelectDoomedResources,
-            "`--SCAN resources USING "
-            "COVERING INDEX index_doomed_resources_res_id"},
            {Query::kDeleteLiveEntry_DeleteFromResources,
             "`--SEARCH resources USING "
             "INDEX index_resources_cache_key_hash_doomed "
@@ -148,15 +145,18 @@ TEST_F(SqlPersistentStoreQueriesTest, AllQueriesHaveValidPlan) {
            {Query::kDeleteAllEntries_DeleteFromBlobs, ""},
            {Query::kDeleteLiveEntriesBetween_SelectLiveResources,
             "`--SEARCH resources USING "
-            "INDEX index_live_resources_last_used "
+            "COVERING INDEX index_live_resources_last_used_bytes_usage "
             "(last_used>? AND last_used<?)"},
-           {Query::kDeleteResourcesByResIds_DeleteFromResources,
+           {Query::kDeleteResourceByResIds_DeleteFromResources,
             "`--SEARCH resources USING "
             "INTEGER PRIMARY KEY (rowid=?)"},
-           {Query::kUpdateEntryLastUsed_UpdateResourceLastUsed,
+           {Query::kUpdateEntryLastUsedByKey_UpdateResourceLastUsed,
             "`--SEARCH resources USING "
             "INDEX index_resources_cache_key_hash_doomed "
             "(cache_key_hash=? AND doomed=?)"},
+           {Query::kUpdateEntryLastUsedByResId_UpdateResourceLastUsed,
+            "`--SEARCH resources USING "
+            "INTEGER PRIMARY KEY (rowid=?)"},
            {Query::kUpdateEntryHeaderAndLastUsed_UpdateResource,
             "`--SEARCH resources USING "
             "INTEGER PRIMARY KEY (rowid=?)"},
@@ -193,22 +193,20 @@ TEST_F(SqlPersistentStoreQueriesTest, AllQueriesHaveValidPlan) {
             "(res_id=? AND start<?)"},
            {Query::kCalculateSizeOfEntriesBetween_SelectLiveResources,
             "`--SEARCH resources USING "
-            "INDEX index_live_resources_last_used "
+            "COVERING INDEX index_live_resources_last_used_bytes_usage "
             "(last_used>? AND last_used<?)"},
-           {Query::kOpenLatestEntryBeforeResId_SelectLiveResources,
+           {Query::kOpenNextEntry_SelectLiveResources,
             "`--SEARCH resources USING "
             "INTEGER PRIMARY KEY (rowid<?)"},
-           {Query::kRunEviction_SelectLiveResources,
-            "`--SCAN resources USING INDEX index_live_resources_last_used"},
-           {Query::kRunEviction_DeleteFromResources,
-            "`--SEARCH resources USING "
-            "INTEGER PRIMARY KEY (rowid=?)"},
+           {Query::kStartEviction_SelectLiveResources,
+            "`--SCAN resources USING "
+            "COVERING INDEX index_live_resources_last_used_bytes_usage"},
            {Query::kCalculateResourceEntryCount_SelectCountFromLiveResources,
             "`--SCAN resources USING "
-            "COVERING INDEX index_live_resources_last_used"},
+            "COVERING INDEX index_live_resources_last_used_bytes_usage"},
            {Query::kCalculateTotalSize_SelectTotalSizeFromLiveResources,
             "`--SCAN resources USING "
-            "INDEX index_live_resources_last_used"},
+            "COVERING INDEX index_live_resources_last_used_bytes_usage"},
            {Query::kGetCacheKeyHashes_SelectCacheKeyHashFromLiveResources,
             "`--SCAN resources USING COVERING INDEX "
             "index_resources_cache_key_hash_doomed"}});

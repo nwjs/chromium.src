@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.ntp_customization.edge_to_edge;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.view.View;
 
@@ -62,8 +63,8 @@ public class TopInsetCoordinator implements InsetObserver.WindowInsetsConsumer {
     // If true, there is an attempt to add a LayoutStateObserver when the LayoutStateProvider hasn't
     // been initialized yet.
     private boolean mAddLayoutStateObserverPending;
-    // A flag to indicate whether a Tab to track has been set before.
-    private boolean mHasTrackingTab;
+    // A flag to indicate whether the Tab switcher is showing.
+    private boolean mIsTabSwitcherShowing;
 
     private @Nullable TabSupplierObserver mTabSupplierObserver;
     private @Nullable Tab mTrackingTab;
@@ -72,12 +73,14 @@ public class TopInsetCoordinator implements InsetObserver.WindowInsetsConsumer {
     /**
      * Instantiate the coordinator to handle drawing page into the Status bar area.
      *
+     * @param context The Activity context.
      * @param tabSupplier The supplier of current Tab instance.
      * @param insetObserver The {@link InsetObserver} that manages insets changes on the
      *     CoordinatorView.
      * @param layoutStateProviderSupplier The supplier of {@link LayoutStateProvider}.
      */
     public TopInsetCoordinator(
+            Context context,
             ObservableSupplier<@Nullable Tab> tabSupplier,
             InsetObserver insetObserver,
             OneshotSupplier<LayoutStateProvider> layoutStateProviderSupplier) {
@@ -111,6 +114,14 @@ public class TopInsetCoordinator implements InsetObserver.WindowInsetsConsumer {
                 new LayoutStateProvider.LayoutStateObserver() {
                     @Override
                     public void onFinishedShowing(int layoutType) {
+                        // The mIsTabSwitcherShowing will be used to check if a transition between
+                        // Tab switcher and NTP happens.
+                        if (layoutType == LayoutType.TAB_SWITCHER) {
+                            mIsTabSwitcherShowing = true;
+                        } else {
+                            mIsTabSwitcherShowing = false;
+                        }
+
                         // When GTS is hiding, ToolbarPositionController updates the position of
                         // toolbar in #onFinishedShowing() of the next layout. Therefore, calling
                         // retriggerOnApplyWindowInsets() to apply the top insets if the transition
@@ -130,7 +141,7 @@ public class TopInsetCoordinator implements InsetObserver.WindowInsetsConsumer {
         mHomepageStateListener =
                 new NtpCustomizationConfigManager.HomepageStateListener() {
                     @Override
-                    public void onBackgroundChanged(
+                    public void onBackgroundImageChanged(
                             Bitmap originalBitmap,
                             @Nullable BackgroundImageInfo backgroundImageInfo,
                             boolean fromInitialization,
@@ -153,7 +164,7 @@ public class TopInsetCoordinator implements InsetObserver.WindowInsetsConsumer {
                         TopInsetCoordinator.this.refreshWindowInsets(consumeTopInset);
                     }
                 };
-        NtpCustomizationConfigManager.getInstance().addListener(mHomepageStateListener);
+        NtpCustomizationConfigManager.getInstance().addListener(mHomepageStateListener, context);
 
         mWindowInsetsConsumer = this::onApplyWindowInsets;
         mInsetObserver.addInsetsConsumer(
@@ -215,9 +226,10 @@ public class TopInsetCoordinator implements InsetObserver.WindowInsetsConsumer {
     void onTabSwitched(@Nullable Tab tab) {
         // NTP is the only NativePage to support edge to edge on top so far. To reduce the times to
         // call retriggerOnApplyWindowInsets(), adds specific check of NTP URLs.
-        boolean isNtp = tab != null && UrlUtilities.isNtpUrl(tab.getUrl());
+        boolean isRegularNtp =
+                tab != null && !tab.isIncognito() && UrlUtilities.isNtpUrl(tab.getUrl());
 
-        if (mHasTrackingTab && (mTrackingTab == null) && isNtp) {
+        if (mIsTabSwitcherShowing && isRegularNtp) {
             mInTabSwitcherToNtpTransition = true;
         }
 
@@ -226,7 +238,6 @@ public class TopInsetCoordinator implements InsetObserver.WindowInsetsConsumer {
         }
 
         mTrackingTab = tab;
-        mHasTrackingTab = true;
 
         if (mTrackingTab != null) {
             mTrackingTab.addObserver(mTabObserver);
@@ -240,7 +251,7 @@ public class TopInsetCoordinator implements InsetObserver.WindowInsetsConsumer {
         if (mInTabSwitcherToNtpTransition) return;
 
         boolean shouldReTriggerOnApplyWindowInsets = false;
-        if (isNtp) {
+        if (isRegularNtp) {
             // In case the NewTabPage hasn't be created when onObservingDifferentTab() is called,
             // don't call retriggerOnApplyWindowInsets(). It will be called in
             // mTabObserver#onContentChanged().
@@ -293,6 +304,11 @@ public class TopInsetCoordinator implements InsetObserver.WindowInsetsConsumer {
         refreshWindowInsets(newType != NtpBackgroundImageType.DEFAULT);
     }
 
+    /** Returns the system's top inset. */
+    public int getSystemTopInset() {
+        return mSystemInsets.top;
+    }
+
     // Adds observers which track Tab and Layout transitions and are only needed when the customized
     // background is selected for NTPs.
     private void addObservers() {
@@ -309,7 +325,6 @@ public class TopInsetCoordinator implements InsetObserver.WindowInsetsConsumer {
 
         if (mTrackingTab == null) {
             mTrackingTab = mTabSupplier.get();
-            mHasTrackingTab = true;
             if (mTrackingTab != null) {
                 mTrackingTab.addObserver(mTabObserver);
             }
@@ -384,5 +399,13 @@ public class TopInsetCoordinator implements InsetObserver.WindowInsetsConsumer {
 
     public boolean getAddLayoutStateObserverPendingForTesting() {
         return mAddLayoutStateObserverPending;
+    }
+
+    public boolean getIsTabSwitcherShowingForTesting() {
+        return mIsTabSwitcherShowing;
+    }
+
+    public boolean getInTabSwitcherToNtpTransitionForTesting() {
+        return mInTabSwitcherToNtpTransition;
     }
 }

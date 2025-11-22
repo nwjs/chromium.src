@@ -1,7 +1,7 @@
 Name: kotlinx-serialization-json
 Short Name: kotlinx-serialization-json-jvm
-URL: https://github.com/Kotlin/kotlinx.serialization
-Version: 1.7.2
+URL: https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-json-jvm/1.7.3/kotlinx-serialization-json-jvm-1.7.3.jar
+Version: 1.7.3
 Update Mechanism: Autoroll
 License: Apache-2.0
 License File: LICENSE
@@ -11,6 +11,9 @@ Shipped: yes
 
 Description:
 Kotlin multiplatform serialization runtime library
+
+See also: https://github.com/Kotlin/kotlinx.serialization
+
 
 Local Modifications:
 No modifications.

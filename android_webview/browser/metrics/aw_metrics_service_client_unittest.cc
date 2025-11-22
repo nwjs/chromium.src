@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "android_webview/common/aw_features.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/memory/scoped_refptr.h"
@@ -42,6 +43,7 @@ class AwMetricsServiceClientTestDelegate
 // For client ID format, see:
 // https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_4_(random)
 const char kTestClientId[] = "01234567-89ab-40cd-80ef-0123456789ab";
+const char kTestFilename[] = "test_metric_file";
 
 class TestClient : public AwMetricsServiceClient {
  public:
@@ -117,6 +119,7 @@ std::unique_ptr<TestingPrefServiceSimple> CreateTestPrefs() {
 std::unique_ptr<TestClient> CreateAndInitTestClient(PrefService* prefs) {
   auto client = std::make_unique<TestClient>();
   client->Initialize(prefs);
+  client->SetUpMetricsDir();
   return client;
 }
 
@@ -131,6 +134,14 @@ class AwMetricsServiceClientTest : public testing::Test {
     base::SetRecordActionTaskRunner(task_runner_);
     // Needed because RegisterMetricsProvidersAndInitState() checks for this.
     metrics::SubprocessMetricsProvider::CreateInstance();
+
+    base::PathService::Get(base::DIR_ANDROID_APP_DATA, &old_metrics_dir_);
+    new_metrics_dir_ = AwMetricsServiceClient::GetNoBackupFilesDir();
+    base::CreateDirectory(new_metrics_dir_);
+    old_spare_file_ = GetPersistentHistogramsSpareFilePath(old_metrics_dir_);
+    new_spare_file_ = GetPersistentHistogramsSpareFilePath(new_metrics_dir_);
+    old_upload_dir_ = old_metrics_dir_.AppendASCII(kBrowserMetricsName);
+    new_upload_dir_ = new_metrics_dir_.AppendASCII(kBrowserMetricsName);
   }
 
   AwMetricsServiceClientTest(const AwMetricsServiceClientTest&) = delete;
@@ -138,6 +149,14 @@ class AwMetricsServiceClientTest : public testing::Test {
       delete;
 
   const int64_t test_begin_time_;
+
+  // Used for metrics migration tests.
+  base::FilePath old_metrics_dir_;
+  base::FilePath new_metrics_dir_;
+  base::FilePath old_spare_file_;
+  base::FilePath new_spare_file_;
+  base::FilePath old_upload_dir_;
+  base::FilePath new_upload_dir_;
 
   content::BrowserTaskEnvironment* task_environment() {
     return &task_environment_;
@@ -169,8 +188,7 @@ class AwMetricsServiceClientTest : public testing::Test {
 // MetricsService::OnAppEnterForeground().
 TEST_F(AwMetricsServiceClientTest, DoNotWatchForCrashesBeforeFieldTrialSetUp) {
   auto prefs = CreateTestPrefs();
-  auto client = std::make_unique<TestClient>();
-  client->Initialize(prefs.get());
+  auto client = CreateAndInitTestClient(prefs.get());
   EXPECT_TRUE(client->metrics_state_manager()
                   ->clean_exit_beacon()
                   ->GetUserDataDirForTesting()
@@ -186,6 +204,7 @@ TEST_F(AwMetricsServiceClientTest, TestSetConsentTrueBeforeInit) {
   auto client = std::make_unique<TestClient>();
   client->SetHaveMetricsConsent(true, true);
   client->Initialize(prefs.get());
+  client->SetUpMetricsDir();
   EXPECT_TRUE(client->IsRecordingActive());
   EXPECT_TRUE(prefs->HasPrefPath(metrics::prefs::kMetricsClientID));
   EXPECT_TRUE(
@@ -197,6 +216,7 @@ TEST_F(AwMetricsServiceClientTest, TestSetConsentFalseBeforeInit) {
   auto client = std::make_unique<TestClient>();
   client->SetHaveMetricsConsent(false, false);
   client->Initialize(prefs.get());
+  client->SetUpMetricsDir();
   EXPECT_FALSE(client->IsRecordingActive());
   EXPECT_FALSE(prefs->HasPrefPath(metrics::prefs::kMetricsClientID));
   EXPECT_FALSE(
@@ -283,13 +303,12 @@ TEST_F(AwMetricsServiceClientTest, TestCanForceEnableMetrics) {
   metrics::ForceEnableMetricsReportingForTesting();
 
   auto prefs = CreateTestPrefs();
-  auto client = std::make_unique<TestClient>();
+  auto client = CreateAndInitTestClient(prefs.get());
 
   // Flag should have higher precedence than sampling or user consent (but not
   // app consent, so we set that to 'true' for this case).
-  client->SetHaveMetricsConsent(false, /* app_consent */ true);
   client->SetInUnfilteredSample(false);
-  client->Initialize(prefs.get());
+  client->SetHaveMetricsConsent(false, /* app_consent */ true);
 
   EXPECT_TRUE(client->IsReportingEnabled());
   EXPECT_TRUE(client->IsRecordingActive());
@@ -300,13 +319,12 @@ TEST_F(AwMetricsServiceClientTest, TestCanForceEnableMetricsIfAlreadyEnabled) {
   metrics::ForceEnableMetricsReportingForTesting();
 
   auto prefs = CreateTestPrefs();
-  auto client = std::make_unique<TestClient>();
+  auto client = CreateAndInitTestClient(prefs.get());
 
   // This is a sanity check: flip consent and sampling to true, just to make
   // sure the flag continues to work.
-  client->SetHaveMetricsConsent(true, true);
   client->SetInUnfilteredSample(true);
-  client->Initialize(prefs.get());
+  client->SetHaveMetricsConsent(true, true);
 
   EXPECT_TRUE(client->IsReportingEnabled());
   EXPECT_TRUE(client->IsRecordingActive());
@@ -317,11 +335,10 @@ TEST_F(AwMetricsServiceClientTest, TestCannotForceEnableMetricsIfAppOptsOut) {
   metrics::ForceEnableMetricsReportingForTesting();
 
   auto prefs = CreateTestPrefs();
-  auto client = std::make_unique<TestClient>();
+  auto client = CreateAndInitTestClient(prefs.get());
 
   // Even with the flag, app consent should be respected.
   client->SetHaveMetricsConsent(true, /* app_consent */ false);
-  client->Initialize(prefs.get());
 
   EXPECT_FALSE(client->IsReportingEnabled());
   EXPECT_FALSE(client->IsRecordingActive());
@@ -339,13 +356,12 @@ TEST_F(AwMetricsServiceClientTest, TestBrowserMetricsDirClearedIfNoConsent) {
   ASSERT_TRUE(base::PathExists(upload_dir));
 
   auto prefs = CreateTestPrefs();
-  auto client = std::make_unique<TestClient>();
+  auto client = CreateAndInitTestClient(prefs.get());
 
   // No consent should delete data regardless of sampling.
+  client->SetInUnfilteredSample(true);
   client->SetHaveMetricsConsent(/* user_consent= */ false,
                                 /* app_consent= */ false);
-  client->SetInUnfilteredSample(true);
-  client->Initialize(prefs.get());
   task_environment()->RunUntilIdle();
 
   EXPECT_FALSE(base::PathExists(upload_dir));
@@ -364,13 +380,12 @@ TEST_F(AwMetricsServiceClientTest,
   ASSERT_TRUE(base::PathExists(upload_dir));
 
   auto prefs = CreateTestPrefs();
-  auto client = std::make_unique<TestClient>();
+  auto client = CreateAndInitTestClient(prefs.get());
 
   // We should still set up the data even if the client is filtered.
+  client->SetInUnfilteredSample(false);
   client->SetHaveMetricsConsent(/* user_consent= */ true,
                                 /* app_consent= */ true);
-  client->SetInUnfilteredSample(false);
-  client->Initialize(prefs.get());
   task_environment()->RunUntilIdle();
 
   EXPECT_TRUE(base::PathExists(upload_dir));
@@ -379,16 +394,14 @@ TEST_F(AwMetricsServiceClientTest,
 TEST_F(AwMetricsServiceClientTest,
        MetricsServiceCreatedFromInitializeWithNoConsent) {
   auto prefs = CreateTestPrefs();
-  auto client = std::make_unique<TestClient>();
-  client->Initialize(prefs.get());
+  auto client = CreateAndInitTestClient(prefs.get());
   EXPECT_FALSE(client->IsReportingEnabled());
   EXPECT_TRUE(client->GetMetricsService());
 }
 
 TEST_F(AwMetricsServiceClientTest, GetMetricsServiceIfStarted) {
   auto prefs = CreateTestPrefs();
-  auto client = std::make_unique<TestClient>();
-  client->Initialize(prefs.get());
+  auto client = CreateAndInitTestClient(prefs.get());
   EXPECT_EQ(nullptr, client->GetMetricsServiceIfStarted());
   client->SetHaveMetricsConsent(/* user_consent= */ true,
                                 /* app_consent= */ true);
@@ -413,6 +426,7 @@ TEST_F(AwMetricsServiceClientTest, ShouldComputeCorrectSampleBucketValues) {
     auto client = std::make_unique<SampleBucketValueTestClient>();
     client->SetHaveMetricsConsent(/*user_consent=*/true, /*app_consent=*/true);
     client->Initialize(prefs.get());
+    client->SetUpMetricsDir();
 
     EXPECT_EQ(client->GetSampleBucketValue(),
               test.expected_sample_bucket_value);
@@ -422,12 +436,12 @@ TEST_F(AwMetricsServiceClientTest, ShouldComputeCorrectSampleBucketValues) {
 TEST_F(AwMetricsServiceClientTest,
        TestShouldApplyMetricsFilteringFeatureOn_AllMetrics) {
   auto prefs = CreateTestPrefs();
-  auto client = std::make_unique<TestClient>();
-  // Both metrics consent and app consent true;
-  client->SetHaveMetricsConsent(true, true);
+  auto client = CreateAndInitTestClient(prefs.get());
+
   client->SetUnfilteredSampleRatePerMille(20);
   client->SetSampleBucketValue(19);
-  client->Initialize(prefs.get());
+  // Both metrics consent and app consent true;
+  client->SetHaveMetricsConsent(true, true);
 
   EXPECT_TRUE(client->IsReportingEnabled());
   EXPECT_TRUE(client->IsRecordingActive());
@@ -437,17 +451,167 @@ TEST_F(AwMetricsServiceClientTest,
 TEST_F(AwMetricsServiceClientTest,
        TestShouldApplyMetricsFilteringFeatureOn_OnlyCriticalMetrics) {
   auto prefs = CreateTestPrefs();
-  auto client = std::make_unique<TestClient>();
-  // Both metrics consent and app consent true;
-  client->SetHaveMetricsConsent(true, true);
+  auto client = CreateAndInitTestClient(prefs.get());
+
   client->SetUnfilteredSampleRatePerMille(20);
   client->SetSampleBucketValue(20);
-
-  client->Initialize(prefs.get());
+  // Both metrics consent and app consent true;
+  client->SetHaveMetricsConsent(true, true);
 
   EXPECT_TRUE(client->IsReportingEnabled());
   EXPECT_TRUE(client->IsRecordingActive());
   EXPECT_TRUE(client->ShouldApplyMetricsFiltering());
+}
+
+TEST_F(AwMetricsServiceClientTest, TestMetricsDirMigration_NoSpareFile) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kWebViewPersistentMetricsInNoBackupDir);
+
+  ASSERT_TRUE(base::DeleteFile(old_spare_file_));
+  ASSERT_TRUE(base::DeleteFile(new_spare_file_));
+
+  auto prefs = CreateTestPrefs();
+  auto client = CreateAndInitTestClient(prefs.get());
+
+  EXPECT_FALSE(base::PathExists(old_spare_file_));
+  EXPECT_FALSE(base::PathExists(new_spare_file_));
+}
+
+TEST_F(AwMetricsServiceClientTest, TestMetricsDirMigration_OldSpareFile) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kWebViewPersistentMetricsInNoBackupDir);
+
+  ASSERT_TRUE(base::WriteFile(old_spare_file_, ""));
+  ASSERT_TRUE(base::DeleteFile(new_spare_file_));
+
+  auto prefs = CreateTestPrefs();
+  auto client = CreateAndInitTestClient(prefs.get());
+
+  EXPECT_FALSE(base::PathExists(old_spare_file_));
+  EXPECT_TRUE(base::PathExists(new_spare_file_));
+}
+
+TEST_F(AwMetricsServiceClientTest, TestMetricsDirMigration_NewSpareFile) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kWebViewPersistentMetricsInNoBackupDir);
+
+  ASSERT_TRUE(base::DeleteFile(old_spare_file_));
+  ASSERT_TRUE(base::WriteFile(new_spare_file_, ""));
+
+  auto prefs = CreateTestPrefs();
+  auto client = CreateAndInitTestClient(prefs.get());
+
+  EXPECT_FALSE(base::PathExists(old_spare_file_));
+  EXPECT_TRUE(base::PathExists(new_spare_file_));
+}
+
+TEST_F(AwMetricsServiceClientTest, TestMetricsDirMigration_BothSpareFiles) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kWebViewPersistentMetricsInNoBackupDir);
+
+  ASSERT_TRUE(base::WriteFile(old_spare_file_, ""));
+  ASSERT_TRUE(base::WriteFile(new_spare_file_, ""));
+
+  auto prefs = CreateTestPrefs();
+  auto client = CreateAndInitTestClient(prefs.get());
+
+  EXPECT_FALSE(base::PathExists(old_spare_file_));
+  EXPECT_TRUE(base::PathExists(new_spare_file_));
+}
+
+TEST_F(AwMetricsServiceClientTest, TestMetricsDirMigration_NoUploadDir) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kWebViewPersistentMetricsInNoBackupDir);
+
+  ASSERT_TRUE(base::DeletePathRecursively(old_upload_dir_));
+  ASSERT_TRUE(base::DeletePathRecursively(new_upload_dir_));
+
+  auto prefs = CreateTestPrefs();
+  auto client = CreateAndInitTestClient(prefs.get());
+
+  EXPECT_FALSE(base::PathExists(new_upload_dir_));
+  EXPECT_EQ(new_metrics_dir_, client->GetMetricsDir());
+  EXPECT_FALSE(base::PathExists(old_upload_dir_));
+  EXPECT_TRUE(client->GetOldMetricsDirForTesting().empty());
+}
+
+TEST_F(AwMetricsServiceClientTest,
+       TestMetricsDirMigration_OldUploadDirNonEmpty) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kWebViewPersistentMetricsInNoBackupDir);
+
+  ASSERT_TRUE(base::CreateDirectory(old_upload_dir_));
+  ASSERT_TRUE(base::WriteFile(old_upload_dir_.AppendASCII(kTestFilename), ""));
+  ASSERT_TRUE(base::DeletePathRecursively(new_upload_dir_));
+
+  auto prefs = CreateTestPrefs();
+  auto client = CreateAndInitTestClient(prefs.get());
+
+  EXPECT_FALSE(base::PathExists(new_upload_dir_));
+  EXPECT_EQ(new_metrics_dir_, client->GetMetricsDir());
+  EXPECT_TRUE(base::PathExists(old_upload_dir_));
+  EXPECT_EQ(old_metrics_dir_, client->GetOldMetricsDirForTesting());
+}
+
+TEST_F(AwMetricsServiceClientTest, TestMetricsDirMigration_OldUploadDirEmpty) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kWebViewPersistentMetricsInNoBackupDir);
+
+  ASSERT_TRUE(base::DeletePathRecursively(old_upload_dir_));
+  ASSERT_TRUE(base::CreateDirectory(old_upload_dir_));
+  ASSERT_TRUE(base::DeletePathRecursively(new_upload_dir_));
+
+  auto prefs = CreateTestPrefs();
+  auto client = CreateAndInitTestClient(prefs.get());
+
+  EXPECT_FALSE(base::PathExists(new_upload_dir_));
+  EXPECT_EQ(new_metrics_dir_, client->GetMetricsDir());
+  EXPECT_FALSE(base::PathExists(old_upload_dir_));
+  EXPECT_TRUE(client->GetOldMetricsDirForTesting().empty());
+}
+
+TEST_F(AwMetricsServiceClientTest, TestMetricsDirMigration_NewUploadDir) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kWebViewPersistentMetricsInNoBackupDir);
+
+  ASSERT_TRUE(base::DeletePathRecursively(old_upload_dir_));
+  ASSERT_TRUE(base::CreateDirectory(new_upload_dir_));
+  ASSERT_TRUE(base::WriteFile(new_upload_dir_.AppendASCII(kTestFilename), ""));
+
+  auto prefs = CreateTestPrefs();
+  auto client = CreateAndInitTestClient(prefs.get());
+
+  EXPECT_TRUE(base::PathExists(new_upload_dir_));
+  EXPECT_EQ(new_metrics_dir_, client->GetMetricsDir());
+  EXPECT_FALSE(base::PathExists(old_upload_dir_));
+  EXPECT_TRUE(client->GetOldMetricsDirForTesting().empty());
+}
+
+TEST_F(AwMetricsServiceClientTest, TestMetricsDirMigration_BothUploadDirs) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kWebViewPersistentMetricsInNoBackupDir);
+
+  ASSERT_TRUE(base::CreateDirectory(old_upload_dir_));
+  ASSERT_TRUE(base::WriteFile(old_upload_dir_.AppendASCII(kTestFilename), ""));
+  ASSERT_TRUE(base::CreateDirectory(new_upload_dir_));
+  ASSERT_TRUE(base::WriteFile(new_upload_dir_.AppendASCII(kTestFilename), ""));
+
+  auto prefs = CreateTestPrefs();
+  auto client = CreateAndInitTestClient(prefs.get());
+
+  EXPECT_TRUE(base::PathExists(new_upload_dir_));
+  EXPECT_EQ(new_metrics_dir_, client->GetMetricsDir());
+  EXPECT_TRUE(base::PathExists(old_upload_dir_));
+  EXPECT_EQ(old_metrics_dir_, client->GetOldMetricsDirForTesting());
 }
 
 }  // namespace android_webview

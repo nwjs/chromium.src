@@ -349,6 +349,23 @@ public class Features {
     public static final String WEB_VIEW_NAVIGATION_CLIENT_BASIC_USAGE =
             "WEB_VIEW_NAVIGATION_CLIENT_BASIC_USAGE";
 
+    // WebView.addWebViewNavigationListener
+    // WebView.removeWebViewNavigationListener
+    //
+    // WebViewNavigationListener.onNavigationStarted()
+    // WebViewNavigationListener.onNavigationRedirected()
+    // WebViewNavigationListener.onNavigationCompleted()
+    // WebViewNavigationListener.onPageDeleted()
+    // WebViewNavigationListener.onPageLoadEventFired()
+    // WebViewNavigationListener.onPageDOMContentLoadedEventFired()
+    // WebViewNavigationListener.onFirstContentfulPaint()
+    public static final String WEB_VIEW_NAVIGATION_LISTENER_V1 = "WEB_VIEW_NAVIGATION_LISTENER_V1";
+
+    // WebViewNavigationListener.onNavigationCompleted() firing on non-committed
+    // navigations
+    public static final String ON_NAVIGATION_COMPLETED_NON_COMMITTED =
+            "ON_NAVIGATION_COMPLETED_NON_COMMITTED";
+
     // SupportLibWebViewChromium weakly reference WebView
     public static final String PROVIDER_WEAKLY_REF_WEBVIEW = "PROVIDER_WEAKLY_REF_WEBVIEW";
 
@@ -384,6 +401,13 @@ public class Features {
     // WebSettingsCompat.getBackForwardCacheSettings
     public static final String BACK_FORWARD_CACHE_SETTINGS = "BACK_FORWARD_CACHE_SETTINGS";
 
+    // WebSettingsCompat.getBackForwardCacheSettings
+    // BackForwardCacheSettings.setTimeoutInSec
+    // BackForwardCacheSettings.setMaxPagesInCache
+    // BackForwardCacheSettings.getTimeoutInSec
+    // BackForwardCacheSettings.getMaxPagesInCache
+    public static final String BACK_FORWARD_CACHE_SETTINGS_V2 = "BACK_FORWARD_CACHE_SETTINGS_V2";
+
     // Profile.preconnect
     public static final String PRECONNECT = "PRECONNECT";
 
@@ -400,4 +424,10 @@ public class Features {
     // Profile.hasCustomHeader
     public static final String CUSTOM_REQUEST_HEADERS = "CUSTOM_REQUEST_HEADERS";
 
+    // WebViewCompat#setRendererLibraryPrefetchMode
+    // WebViewCompat#getRendererLibraryPrefetchMode
+    public static final String RENDERER_LIBRARY_PREFETCH_MODE = "RENDERER_LIBRARY_PREFETCH_MODE";
+
+    // Profile.addQuicHints
+    public static final String ADD_QUIC_HINTS_V1 = "ADD_QUIC_HINTS_V1";
 }

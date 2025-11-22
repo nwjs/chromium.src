@@ -304,9 +304,9 @@ void TabletModeWindowState::OnWMEvent(WindowState* window_state,
       // window is in tablet mode. PIP window uses DefaultState instead, not
       // TabletModeWindowState.
       NOTREACHED();
-    case WM_EVENT_TRUSTED_PIN:
+    case WM_EVENT_LOCKED_FULLSCREEN:
       if (!Shell::Get()->screen_pinning_controller()->IsPinned()) {
-        UpdateWindow(window_state, WindowStateType::kTrustedPinned,
+        UpdateWindow(window_state, WindowStateType::kLockedFullscreen,
                      /*animate=*/true);
       }
       break;
@@ -381,7 +381,7 @@ void TabletModeWindowState::OnWMEvent(WindowState* window_state,
       } else if (current_state_type_ != WindowStateType::kMinimized &&
                  current_state_type_ != WindowStateType::kFullscreen &&
                  current_state_type_ != WindowStateType::kPinned &&
-                 current_state_type_ != WindowStateType::kTrustedPinned &&
+                 current_state_type_ != WindowStateType::kLockedFullscreen &&
                  current_state_type_ != WindowStateType::kPrimarySnapped &&
                  current_state_type_ != WindowStateType::kSecondarySnapped &&
                  current_state_type_ != WindowStateType::kFloated) {
@@ -404,8 +404,7 @@ void TabletModeWindowState::OnWMEvent(WindowState* window_state,
       // If an already snapped window or floated or pinned window gets added to
       // the workspace, the window should not be forced maximized, rather retain
       // its previous state.
-      UpdateWindow(window_state,
-                   AdjustStateForTabletMode(window_state, current_state_type_),
+      UpdateWindow(window_state, AdjustStateForTabletMode(window_state),
                    /*animate=*/true);
       break;
     case WM_EVENT_DISPLAY_METRICS_CHANGED:
@@ -450,7 +449,7 @@ void TabletModeWindowState::AttachState(WindowState* window_state,
       // It will get updated later in `FloatController::OnTabletModeStarted`.
       current_state_type_ != WindowStateType::kFloated &&
       current_state_type_ != WindowStateType::kPinned &&
-      current_state_type_ != WindowStateType::kTrustedPinned) {
+      current_state_type_ != WindowStateType::kLockedFullscreen) {
     UpdateWindow(window_state, state_type_on_attach_,
                  animate_bounds_on_attach_);
   }
@@ -470,7 +469,7 @@ void TabletModeWindowState::UpdateWindow(WindowState* window_state,
   DCHECK(target_state == WindowStateType::kMinimized ||
          target_state == WindowStateType::kMaximized ||
          target_state == WindowStateType::kPinned ||
-         target_state == WindowStateType::kTrustedPinned ||
+         target_state == WindowStateType::kLockedFullscreen ||
          (target_state == WindowStateType::kNormal &&
           (!window_state->CanMaximize() || !!wm::GetTransientParent(window))) ||
          target_state == WindowStateType::kFullscreen ||
@@ -528,12 +527,13 @@ void TabletModeWindowState::UpdateWindow(WindowState* window_state,
 }
 
 WindowStateType TabletModeWindowState::AdjustStateForTabletMode(
-    WindowState* window_state,
-    WindowStateType current_state_type) {
+    WindowState* window_state) {
+  auto current_state_type = window_state->GetStateType();
   if (chromeos::IsSnappedWindowStateType(current_state_type) ||
       chromeos::IsPinnedWindowStateType(current_state_type) ||
-      current_state_type == chromeos::WindowStateType::kFloated) {
-    return window_state->GetStateType();
+      current_state_type == chromeos::WindowStateType::kFloated ||
+      current_state_type == chromeos::WindowStateType::kFullscreen) {
+    return current_state_type;
   }
 
   return window_state->GetWindowTypeOnMaximizable();

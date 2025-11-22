@@ -4,7 +4,10 @@
 
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
 
+#include "ash/public/cpp/app_list/internal_app_id_constants.h"
 #include "ash/public/cpp/resources/grit/ash_public_unscaled_resources.h"
+#include "ash/public/cpp/shelf_item.h"
+#include "ash/public/cpp/window_properties.h"
 #include "ash/webui/system_apps/public/system_web_app_type.h"
 #include "ash/wm/window_properties.h"
 #include "base/strings/strcat.h"
@@ -20,16 +23,19 @@
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
-#include "chrome/browser/ui/settings_window_manager_observer_chromeos.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/webui_url_constants.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ui/base/app_types.h"
 #include "chromeos/ui/base/window_properties.h"
 #include "components/services/app_service/public/cpp/app_launch_util.h"
+#include "components/strings/grit/components_strings.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/aura/window.h"
+#include "ui/aura/window_tracker.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 
 namespace chrome {
@@ -37,21 +43,40 @@ namespace chrome {
 namespace {
 
 bool g_force_deprecated_settings_window_for_testing = false;
-SettingsWindowManager* g_settings_window_manager_for_testing = nullptr;
+SettingsWindowManager* g_instance = nullptr;
+
+class LegacySettingsTitleUpdater : public aura::WindowTracker {
+ public:
+  LegacySettingsTitleUpdater() = default;
+  LegacySettingsTitleUpdater(const LegacySettingsTitleUpdater&) = delete;
+  LegacySettingsTitleUpdater& operator=(const LegacySettingsTitleUpdater&) =
+      delete;
+  ~LegacySettingsTitleUpdater() override = default;
+
+  // aura::WindowTracker:
+  void OnWindowTitleChanged(aura::Window* window) override {
+    // Name the window "Settings" instead of "Google Chrome - Settings".
+    window->SetTitle(l10n_util::GetStringUTF16(IDS_SETTINGS_TITLE));
+  }
+};
 
 }  // namespace
 
-// static
-SettingsWindowManager* SettingsWindowManager::GetInstance() {
-  return g_settings_window_manager_for_testing
-             ? g_settings_window_manager_for_testing
-             : base::Singleton<SettingsWindowManager>::get();
+SettingsWindowManager::SettingsWindowManager()
+    : legacy_settings_title_updater_(
+          std::make_unique<LegacySettingsTitleUpdater>()) {
+  CHECK(!g_instance);
+  g_instance = this;
+}
+
+SettingsWindowManager::~SettingsWindowManager() {
+  CHECK_EQ(g_instance, this);
+  g_instance = nullptr;
 }
 
 // static
-void SettingsWindowManager::SetInstanceForTesting(
-    SettingsWindowManager* manager) {
-  g_settings_window_manager_for_testing = manager;
+SettingsWindowManager* SettingsWindowManager::GetInstance() {
+  return g_instance;
 }
 
 // static
@@ -73,14 +98,19 @@ bool SettingsWindowManager::UseDeprecatedSettingsWindow(Profile* profile) {
   return !web_app::AreWebAppsEnabled(profile);
 }
 
-void SettingsWindowManager::AddObserver(
-    SettingsWindowManagerObserver* observer) {
-  observers_.AddObserver(observer);
-}
+void SettingsWindowManager::Open(const user_manager::User& user,
+                                 OpenParams params) {
+  Profile* profile = Profile::FromBrowserContext(
+      ash::BrowserContextHelper::Get()->GetBrowserContextByUser(&user));
 
-void SettingsWindowManager::RemoveObserver(
-    SettingsWindowManagerObserver* observer) {
-  observers_.RemoveObserver(observer);
+  // TODO(crbug.com/47287122): unify SettingsWindowManager::ShowOSSettings,
+  // after callers are updated.
+  if (params.setting_id.has_value()) {
+    ShowOSSettings(profile, params.sub_page, *params.setting_id,
+                   params.display_id);
+  } else {
+    ShowOSSettings(profile, params.sub_page, params.display_id);
+  }
 }
 
 void SettingsWindowManager::ShowChromePageForProfile(
@@ -152,22 +182,25 @@ void SettingsWindowManager::ShowChromePageForProfile(
   params.user_gesture = true;
   params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
   Navigate(&params);
-  browser = params.browser;
-  CHECK(browser);  // See https://crbug.com/1174525
+  CHECK(params.browser);  // See https://crbug.com/1174525
+  browser = params.browser->GetBrowserForMigrationOnly();
 
   // operator[] not used because SessionID has no default constructor.
   settings_session_map_.emplace(profile, SessionID::InvalidValue())
       .first->second = browser->session_id();
   DCHECK(browser->is_trusted_source());
 
+  // Configure the created window property.
   auto* window = browser->window()->GetNativeWindow();
   window->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::CHROME_APP);
   window->SetProperty(ash::kOverrideWindowIconResourceIdKey,
                       IDR_SETTINGS_LOGO_192);
-
-  for (SettingsWindowManagerObserver& observer : observers_) {
-    observer.OnNewSettingsWindow(browser);
-  }
+  window->SetTitle(l10n_util::GetStringUTF16(IDS_SETTINGS_TITLE));
+  const ash::ShelfID shelf_id(ash::kInternalAppIdSettings);
+  window->SetProperty(ash::kShelfIDKey, shelf_id.Serialize());
+  window->SetProperty(ash::kAppIDKey, shelf_id.app_id);
+  window->SetProperty<int>(ash::kShelfItemTypeKey, ash::TYPE_APP);
+  legacy_settings_title_updater_->Add(window);
 
   if (callback) {
     std::move(callback).Run(apps::LaunchResult(apps::State::kSuccess));
@@ -233,9 +266,5 @@ bool SettingsWindowManager::IsSettingsBrowser(Browser* browser) const {
            iter->second == browser->session_id();
   }
 }
-
-SettingsWindowManager::SettingsWindowManager() = default;
-
-SettingsWindowManager::~SettingsWindowManager() = default;
 
 }  // namespace chrome

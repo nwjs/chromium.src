@@ -52,6 +52,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_view_delegate.h"
 #include "content/public/browser/web_drag_dest_delegate.h"
+#include "content/public/common/buildflags.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
 #include "ipc/constants.mojom.h"
@@ -274,8 +275,10 @@ void PrepareDragData(const DropData& drop_data,
   if (drop_data.text) {
     provider->SetString(*drop_data.text);
   }
-  if (drop_data.url.is_valid())
-    provider->SetURL(drop_data.url, drop_data.url_title);
+  if (!drop_data.url_infos.empty()) {
+    provider->SetURL(drop_data.url_infos.front().url,
+                     drop_data.url_infos.front().title);
+  }
   if (drop_data.html && !drop_data.html->empty())
     provider->SetHtml(*drop_data.html, drop_data.html_base_url);
   if (!drop_data.filenames.empty())
@@ -322,7 +325,7 @@ void PrepareDragData(const DropData& drop_data,
 // TODO(crbug.com/41459545): Drag and drop: Should support both virtual
 // file and url data on drop.
 bool ShouldIncludeVirtualFiles(const DropData& drop_data) {
-  return !drop_data.did_originate_from_renderer && drop_data.url.is_empty();
+  return !drop_data.did_originate_from_renderer && drop_data.url_infos.empty();
 }
 #endif
 
@@ -718,8 +721,8 @@ void WebContentsViewAura::PrepareDropData(
   if (std::optional<ui::OSExchangeData::UrlInfo> url = data.GetURLAndTitle(
           ui::FilenameToURLPolicy::DO_NOT_CONVERT_FILENAMES);
       url.has_value() && url->url.is_valid()) {
-    drop_data->url = std::move(url->url);
-    drop_data->url_title = std::move(url->title);
+    drop_data->url_infos.emplace_back(std::move(url->url),
+                                      std::move(url->title));
   }
 
   if (std::optional<ui::OSExchangeData::HtmlInfo> html = data.GetHtml();
@@ -1023,8 +1026,9 @@ RenderWidgetHostViewBase* WebContentsViewAura::CreateViewForWidget(
   RenderWidgetHostImpl* host_impl =
       RenderWidgetHostImpl::From(render_widget_host);
 
-  if (!host_impl->is_hidden())
+  if (!host_impl->IsHidden()) {
     view->Show();
+  }
 
   // We listen to drag drop events in the newly created view's window.
   aura::client::SetDragDropDelegate(view->GetNativeView(), this);
@@ -1161,6 +1165,20 @@ void WebContentsViewAura::StartDragging(
   DragOperation result_op;
   {
     gfx::NativeView content_native_view = GetContentNativeView();
+    // Make sure event is within the web contents, and the web contents are
+    // visible.
+    if (
+#if !BUILDFLAG(IS_CHROMEOS)
+        // TODO(https://crbug.com/454552204): Remove #if when either ChromeOS
+        // fixes split screen mode web ui tab strip drag, or web ui tab strip is
+        // fully deprecated.
+        !content_native_view->GetBoundsInScreen().Contains(
+            event_info.location) ||
+#endif  // !BUILDFLAG(IS_CHROMEOS)
+        !content_native_view->IsVisible()) {
+      web_contents_->SystemDragEnded(source_rwh);
+      return;
+    }
     base::CurrentThread::ScopedAllowApplicationTasksInNativeNestedLoop allow;
     result_op =
         aura::client::GetDragDropClient(root_window)

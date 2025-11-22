@@ -30,6 +30,7 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
@@ -568,9 +569,11 @@ bool DownloadToolbarUIController::IsFullscreenWithParentViewHidden() const {
 #endif
 
   // If immersive fullscreen, check if top chrome is visible.
+  auto* const controller =
+      ImmersiveModeController::From(browser_view_->browser());
   if (browser_view_ && browser_view_->GetLocationBarView() &&
-      browser_view_->IsImmersiveModeEnabled()) {
-    return !browser_view_->immersive_mode_controller()->IsRevealed();
+      controller->IsEnabled()) {
+    return !controller->IsRevealed();
   }
 
   // Handle the remaining fullscreen case.
@@ -593,8 +596,9 @@ bool DownloadToolbarUIController::ShouldShowExclusiveAccessBubble() const {
     return true;
   }
 #endif
-  return !browser_view_->IsImmersiveModeEnabled() &&
-         browser_view_->CanUserExitFullscreen();
+  return !ImmersiveModeController::From(browser_view_->browser())
+              ->IsEnabled() &&
+         browser_view_->GetExclusiveAccessContext()->CanUserExitFullscreen();
 }
 
 void DownloadToolbarUIController::OpenSecuritySubpage(
@@ -865,9 +869,10 @@ DownloadToolbarUIController::BubbleCloser::BubbleCloser(
     : download_display_(download_display) {
   CHECK(toolbar_button);
   if (toolbar_button->GetWidget() &&
-      toolbar_button->GetWidget()->GetNativeWindow()) {
+      toolbar_button->GetWidget()->GetTopLevelWidget()->GetNativeWindow()) {
     event_monitor_ = views::EventMonitor::CreateWindowMonitor(
-        this, toolbar_button->GetWidget()->GetNativeWindow(),
+        this,
+        toolbar_button->GetWidget()->GetTopLevelWidget()->GetNativeWindow(),
         {ui::EventType::kMousePressed, ui::EventType::kKeyPressed,
          ui::EventType::kTouchPressed});
   }
@@ -903,10 +908,13 @@ void DownloadToolbarUIController::CreateBubbleDialogDelegate() {
   }
 
   // If we are in immersive fullscreen, reveal the toolbar to show the bubble.
-  if (browser_view_ && browser_view_->immersive_mode_controller()) {
-    immersive_revealed_lock_ =
-        browser_view_->immersive_mode_controller()->GetRevealedLock(
-            ImmersiveModeController::ANIMATE_REVEAL_YES);
+  if (browser_view_) {
+    auto* const controller =
+        ImmersiveModeController::From(browser_view_->browser());
+    if (controller) {
+      immersive_revealed_lock_ = controller->GetRevealedLock(
+          ImmersiveModeController::ANIMATE_REVEAL_YES);
+    }
   }
   auto bubble_delegate = std::make_unique<views::BubbleDialogDelegate>(
       button, views::BubbleBorder::TOP_RIGHT,

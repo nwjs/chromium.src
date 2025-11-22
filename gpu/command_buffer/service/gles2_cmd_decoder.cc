@@ -79,7 +79,6 @@
 #include "gpu/command_buffer/service/program_manager.h"
 #include "gpu/command_buffer/service/renderbuffer_manager.h"
 #include "gpu/command_buffer/service/sampler_manager.h"
-#include "gpu/command_buffer/service/service_discardable_manager.h"
 #include "gpu/command_buffer/service/shader_manager.h"
 #include "gpu/command_buffer/service/shader_translator.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_factory.h"
@@ -2985,7 +2984,7 @@ gpu::ContextResult GLES2DecoderImpl::Initialize(
     return gpu::ContextResult::kFatalFailure;
   }
 
-  auto result = group_->Initialize(this, context_type, DisallowedFeatures());
+  auto result = group_->Initialize(this, context_type);
   if (result != gpu::ContextResult::kSuccess) {
     // Must not destroy ContextGroup if it is not initialized.
     group_ = nullptr;
@@ -3318,24 +3317,15 @@ Capabilities GLES2DecoderImpl::GetCapabilities() {
   caps.image_ab30 = feature_info_->feature_flags().chromium_image_ab30;
   caps.image_ycbcr_p010 =
       feature_info_->feature_flags().chromium_image_ycbcr_p010;
-  caps.max_copy_texture_chromium_size =
-      workarounds().max_copy_texture_chromium_size;
   caps.render_buffer_format_bgra8888 =
       feature_info_->feature_flags().ext_render_buffer_format_bgra8888;
   caps.gpu_rasterization = false;
-  if (workarounds().broken_egl_image_ref_counting &&
-      group_->gpu_preferences().enable_threaded_texture_mailboxes) {
-    caps.disable_2d_canvas_copy_on_write = true;
-  }
   caps.chromium_gpu_fence = feature_info_->feature_flags().chromium_gpu_fence;
   caps.mesa_framebuffer_flip_y =
       feature_info_->feature_flags().mesa_framebuffer_flip_y;
 
   caps.gpu_memory_buffer_formats =
       feature_info_->feature_flags().gpu_memory_buffer_formats;
-
-  caps.angle_rgbx_internal_format =
-      feature_info_->feature_flags().angle_rgbx_internal_format;
 
   // Technically, YUV readback is handled on the client side, but enable it here
   // so that clients can use this to detect support.
@@ -15239,8 +15229,6 @@ error::Error GLES2DecoderImpl::HandleQueryCounterEXT(
   uint32_t submit_count = static_cast<GLuint>(c.submit_count);
 
   switch (target) {
-    case GL_COMMANDS_ISSUED_TIMESTAMP_CHROMIUM:
-      break;
     case GL_TIMESTAMP_EXT:
       if (!query_manager_->GPUTimingAvailable()) {
         LOCAL_SET_GL_ERROR(
@@ -16913,75 +16901,6 @@ void GLES2DecoderImpl::DoContextVisibilityHintCHROMIUM(GLboolean visibility) {
   if (feature_info_->IsWebGLContext())
     context_->SetVisibility(visibility == GL_TRUE);
 }
-
-error::Error GLES2DecoderImpl::HandleInitializeDiscardableTextureCHROMIUM(
-    uint32_t immediate_data_size,
-    const volatile void* cmd_data) {
-  const volatile gles2::cmds::InitializeDiscardableTextureCHROMIUM& c =
-      *static_cast<
-          const volatile gles2::cmds::InitializeDiscardableTextureCHROMIUM*>(
-          cmd_data);
-  GLuint texture_id = c.texture_id;
-  uint32_t shm_id = c.shm_id;
-  uint32_t shm_offset = c.shm_offset;
-
-  TextureRef* texture = texture_manager()->GetTexture(texture_id);
-  if (!texture) {
-    LOCAL_SET_GL_ERROR(GL_INVALID_VALUE,
-                       "glInitializeDiscardableTextureCHROMIUM",
-                       "Invalid texture ID");
-    return error::kNoError;
-  }
-  scoped_refptr<gpu::Buffer> buffer = GetSharedMemoryBuffer(shm_id);
-  if (!DiscardableHandleBase::ValidateParameters(buffer.get(), shm_offset))
-    return error::kInvalidArguments;
-
-  size_t size = texture->texture()->estimated_size();
-  ServiceDiscardableHandle handle(std::move(buffer), shm_offset, shm_id);
-  GetContextGroup()->discardable_manager()->InsertLockedTexture(
-      texture_id, size, group_->texture_manager(), std::move(handle));
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderImpl::HandleUnlockDiscardableTextureCHROMIUM(
-    uint32_t immediate_data_size,
-    const volatile void* cmd_data) {
-  const volatile gles2::cmds::UnlockDiscardableTextureCHROMIUM& c =
-      *static_cast<
-          const volatile gles2::cmds::UnlockDiscardableTextureCHROMIUM*>(
-          cmd_data);
-  GLuint texture_id = c.texture_id;
-  ServiceDiscardableManager* discardable_manager =
-      GetContextGroup()->discardable_manager();
-  TextureRef* texture_to_unbind;
-  if (!discardable_manager->UnlockTexture(texture_id, group_->texture_manager(),
-                                          &texture_to_unbind)) {
-    LOCAL_SET_GL_ERROR(GL_INVALID_VALUE, "glUnlockDiscardableTextureCHROMIUM",
-                       "Texture ID not initialized");
-  }
-  if (texture_to_unbind)
-    UnbindTexture(texture_to_unbind, SupportsSeparateFramebufferBinds());
-
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderImpl::HandleLockDiscardableTextureCHROMIUM(
-    uint32_t immediate_data_size,
-    const volatile void* cmd_data) {
-  const volatile gles2::cmds::LockDiscardableTextureCHROMIUM& c =
-      *static_cast<const volatile gles2::cmds::LockDiscardableTextureCHROMIUM*>(
-          cmd_data);
-  GLuint texture_id = c.texture_id;
-  if (!GetContextGroup()->discardable_manager()->LockTexture(
-          texture_id, group_->texture_manager())) {
-    // Temporarily log a crash dump for debugging crbug.com/870317.
-    base::debug::DumpWithoutCrashing();
-    LOCAL_SET_GL_ERROR(GL_INVALID_VALUE, "glLockDiscardableTextureCHROMIUM",
-                       "Texture ID not initialized");
-  }
-  return error::kNoError;
-}
-
 
 scoped_refptr<gpu::Buffer> GLES2DecoderImpl::GetShmBuffer(uint32_t shm_id) {
   return GetSharedMemoryBuffer(shm_id);

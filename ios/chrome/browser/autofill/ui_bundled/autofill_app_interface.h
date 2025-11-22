@@ -59,6 +59,9 @@ enum CreditCardSaveManagerObserverEvent : int {
 // manager.
 + (void)saveExampleHomeAndWorkAccountProfile;
 
+// Saves a sample account name and email profile in the data manager.
++ (void)saveExampleAccountNameEmailProfile;
+
 // Returns the name of the sample profile.
 + (NSString*)exampleProfileName;
 
@@ -156,9 +159,6 @@ enum CreditCardSaveManagerObserverEvent : int {
 
 // Sets the CVC storage preference.
 + (void)setPaymentCvcStorageEnabled:(BOOL)enabled;
-
-// Returns true if the dynamically loading fields on input feature is enabled.
-+ (BOOL)isDynamicallyLoadFieldsOnInputEnabled;
 
 @end
 

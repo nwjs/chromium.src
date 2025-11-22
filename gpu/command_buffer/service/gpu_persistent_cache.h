@@ -7,13 +7,14 @@
 
 #include <dawn/platform/DawnPlatform.h>
 
+#include <atomic>
 #include <memory>
+#include <string_view>
 
-#include "base/files/file.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/unsafe_shared_memory_region.h"
-#include "base/synchronization/lock.h"
-#include "base/thread_annotations.h"
+#include "base/synchronization/atomic_flag.h"
+#include "base/task/sequenced_task_runner.h"
+#include "components/persistent_cache/backend_params.h"
 #include "gpu/gpu_gles2_export.h"
 
 namespace persistent_cache {
@@ -27,15 +28,34 @@ namespace gpu {
 class GPU_GLES2_EXPORT GpuPersistentCache
     : public dawn::platform::CachingInterface {
  public:
-  GpuPersistentCache();
+  struct GPU_GLES2_EXPORT AsyncDiskWriteOpts {
+    AsyncDiskWriteOpts();
+    AsyncDiskWriteOpts(const AsyncDiskWriteOpts&);
+    AsyncDiskWriteOpts(AsyncDiskWriteOpts&&);
+    ~AsyncDiskWriteOpts();
+    AsyncDiskWriteOpts& operator=(const AsyncDiskWriteOpts&);
+    AsyncDiskWriteOpts& operator=(AsyncDiskWriteOpts&&);
+
+    // The task runner to use for asynchronous writes. If null, writes will be
+    // synchronous.
+    scoped_refptr<base::SequencedTaskRunner> task_runner;
+    // The maximum number of bytes that can be pending for an asynchronous
+    // write. If the pending bytes exceed this limit, the write will be
+    // performed after the initial delay and will not be rescheduled even if the
+    // cache is not idle.
+    size_t max_pending_bytes_to_write = std::numeric_limits<size_t>::max();
+  };
+
+  // If `async_write_options.task_runner` is null, then writes are synchronous.
+  explicit GpuPersistentCache(std::string_view cache_prefix,
+                              AsyncDiskWriteOpts async_write_options = {});
   ~GpuPersistentCache() override;
 
   GpuPersistentCache(const GpuPersistentCache&) = delete;
   GpuPersistentCache& operator=(const GpuPersistentCache&) = delete;
 
-  void InitializeCache(base::File db,
-                       base::File journal_file,
-                       base::UnsafeSharedMemoryRegion shared_lock);
+  // This can only be called once but is thread safe w.r.t loads and stores.
+  void InitializeCache(persistent_cache::BackendParams backend_params);
 
   // dawn::platform::CachingInterface implementation.
   size_t LoadData(const void* key,
@@ -50,9 +70,17 @@ class GPU_GLES2_EXPORT GpuPersistentCache
   std::unique_ptr<persistent_cache::Entry> LoadEntry(std::string_view key);
 
  private:
-  base::Lock lock_;
-  std::unique_ptr<persistent_cache::PersistentCache> persistent_cache_
-      GUARDED_BY(lock_);
+  struct DiskCache;
+
+  // Prefix to prepend to UMA histogram's name. e.g GraphiteDawn, WebGPU
+  const std::string cache_prefix_;
+
+  std::atomic<size_t> load_count_ = 0;
+  std::atomic<size_t> store_count_ = 0;
+
+  base::AtomicFlag initialized_;
+  scoped_refptr<DiskCache> disk_cache_;
+  const AsyncDiskWriteOpts async_write_options_;
 };
 
 }  // namespace gpu

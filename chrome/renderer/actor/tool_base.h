@@ -6,6 +6,7 @@
 #define CHROME_RENDERER_ACTOR_TOOL_BASE_H_
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 #include "base/functional/callback_forward.h"
@@ -16,12 +17,38 @@
 #include "chrome/common/actor/task_id.h"
 #include "chrome/renderer/actor/journal.h"
 #include "third_party/blink/public/web/web_node.h"
+#include "third_party/blink/public/web/web_page_popup.h"
+#include "third_party/blink/public/web/web_widget.h"
 
 namespace content {
 class RenderFrame;
 }
 
 namespace actor {
+
+class ToolBase;
+
+// Struct to return the resolved information about a tool target.
+struct ResolvedTarget {
+  // The node identified by the target. May be null if the node has been
+  // removed from DOM.
+  blink::WebNode node;
+
+  // The interaction point of node in Blink (physical) pixels, relative to the
+  // resolved widget's origin.
+  gfx::PointF widget_point;
+
+  // Set if the target hits a popup. If a popup is hit this handle identifies
+  // the popup and is used to confirm the popup widget is the one that was
+  // originally hit.
+  std::optional<blink::WebPagePopup::Handle> popup_handle;
+
+  // The widget this target resolved to. This can be either the frame's widget
+  // or the popup widget. Since a widget can be destroyed by script or during
+  // async yields, callers should always access via this getter, rather than
+  // holding onto the pointer.
+  blink::WebWidget* GetWidget(const ToolBase& tool) const;
+};
 
 class ToolBase {
  public:
@@ -35,22 +62,6 @@ class ToolBase {
 
   // Executes the tool. `callback` is invoked with the tool result.
   virtual void Execute(ToolFinishedCallback callback) = 0;
-
-  // Struct to hold the resolved target information.
-  struct ResolvedTarget {
-    // The node identified by the target. May be null if the node has been
-    // removed from DOM.
-    blink::WebNode node;
-    // The interaction point of node in viewport coordinates. Currently defaults
-    // to center point of node's bounding rect.
-    gfx::PointF point;
-  };
-
-  // Validate that target passes tool-agnostic validation (e.g. within
-  // viewport, no change between observation and time of use) and resolve the
-  // mojom target to Node and Point, ready for tool use.
-  base::expected<ResolvedTarget, mojom::ActionResultPtr>
-  ValidateAndResolveTarget() const;
 
   // Returns a human readable string representing this tool and its parameters.
   // Used primarily for logging and debugging.
@@ -72,7 +83,20 @@ class ToolBase {
   // interactions.
   virtual bool SupportsPaintStability() const;
 
+  content::RenderFrame* frame() const { return &frame_.get(); }
+
  protected:
+  using ResolveResult = base::expected<ResolvedTarget, mojom::ActionResultPtr>;
+
+  // Resolves the given target into the ResolvedTarget struct which includes
+  // both a point to inject input events to and a DOM node to validate against.
+  ResolveResult ResolveTarget(const mojom::ToolTarget& target) const;
+
+  // Validate that target_ passes tool-agnostic validation (e.g. within
+  // viewport, no change between observation and time of use) and resolve the
+  // mojom target to Node and Point, ready for tool use.
+  ResolveResult ValidateAndResolveTarget() const;
+
   // Raw ref since this is owned by ToolExecutor whose lifetime is tied to
   // RenderFrame.
   base::raw_ref<content::RenderFrame> frame_;
@@ -84,7 +108,7 @@ class ToolBase {
  private:
   // Validate that resolved target matches the observed target from last
   // observation.
-  base::expected<ResolvedTarget, mojom::ActionResultPtr> ValidateTimeOfUse(
+  mojom::ActionResultPtr ValidateTimeOfUse(
       const ResolvedTarget& resolved_target) const;
 };
 }  // namespace actor

@@ -89,7 +89,7 @@ try_.presubmit_builder(
     name = "reclient-config-deployment-verifier",
     executable = "recipe:reclient_config_deploy_check/tester",
     properties = {
-        "fetch_script": "buildtools/reclient_cfgs/fetch_reclient_cfgs.py",
+        "fetch_script": "buildtools/reclient_cfgs/configure_reclient_cfgs.py",
         "rbe_project": [
             {
                 "name": "rbe-chromium-trusted",
@@ -173,9 +173,11 @@ try_.presubmit_builder(
 )
 
 try_.presubmit_builder(
-    name = "chromium_presubmit",
+    name = "linux-presubmit",
     branch_selector = branches.selector.ALL_BRANCHES,
+    description_html = "Runs basic presubmit checks on Linux machines",
     executable = "recipe:presubmit",
+    contact_team_email = "chrome-browser-infra-team@google.com",
     execution_timeout = 40 * time.minute,
     properties = {
         "$depot_tools/presubmit": {

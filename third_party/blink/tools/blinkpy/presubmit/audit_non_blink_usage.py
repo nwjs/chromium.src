@@ -101,6 +101,11 @@ _CONFIG = [
             'base::i18n::TextDirection',
             'base::i18n::ToChar16Ptr',
             'base::i18n::ToUCharPtr',
+            'base::IdType',
+            'base::IdType32',
+            'base::IdType64',
+            'base::IdTypeU32',
+            'base::IdTypeU64',
             'base::JobDelegate',
             'base::JobHandle',
             'base::KiB',
@@ -231,6 +236,7 @@ _CONFIG = [
 
             # //base/metrics/histogram_functions.h
             'base::UmaHistogram.+',
+            'base::ScopedUmaHistogramTimer',
 
             # //base/metrics/histogram.h
             'base::Histogram',
@@ -651,6 +657,7 @@ _CONFIG = [
             'cc::VERTICAL',
 
             # Animation
+            "cc::PropertyChangeForcesCommitCriteria",
             "cc::AnimationHost",
             "cc::AnimationIdProvider",
             "cc::AnimationTimeline",
@@ -1321,6 +1328,7 @@ _CONFIG = [
     {
         'paths': ['third_party/blink/renderer/core/page'],
         'allowed': [
+            'cc::SkiaPaintCanvas',
             'touch_adjustment::.+',
             'viz::FrameSinkId',
         ],
@@ -1461,6 +1469,7 @@ _CONFIG = [
             'third_party/blink/public/platform/web_policy_container.h',
         ],
         'allowed': [
+            'network::ConnectionAllowlists',
             'network::IntegrityPolicy',
         ],
     },
@@ -1578,6 +1587,7 @@ _CONFIG = [
             'third_party/blink/renderer/controller/dev_tools_frontend_impl.cc',
             'third_party/blink/renderer/modules/credentialmanagement/authentication_credentials_container.cc',
             'third_party/blink/renderer/modules/credentialmanagement/digital_identity_credential.cc',
+            'third_party/blink/renderer/modules/credentialmanagement/identity_provider.cc',
             'third_party/blink/renderer/modules/filesystem/dev_tools_host_file_system.cc'
         ],
         'allowed': [
@@ -1605,7 +1615,8 @@ _CONFIG = [
     },
     {
         'paths': [
-            'third_party/blink/renderer/core/inspector/inspector_network_agent.cc'
+            'third_party/blink/renderer/core/inspector/inspector_network_agent.cc',
+            'third_party/blink/renderer/core/inspector/inspector_network_agent.h',
         ],
         'allowed': [
             'base::flat_set',
@@ -1614,6 +1625,7 @@ _CONFIG = [
             'net::IPAddress',
             'net::SourceStreamType',
             'net::SSL.+',
+            'url_pattern::SimpleUrlPatternMatcher',
         ],
     },
     {
@@ -1960,6 +1972,7 @@ _CONFIG = [
             'cc::SkiaPaintCanvas',
             'cc::YUVIndex',
             'cc::YUVSubsampling',
+            'gfx::ContentColorUsage',
             'gpu::kNullSurfaceHandle',
             'gpu::Mailbox',
             'gpu::MailboxHolder',
@@ -1997,6 +2010,7 @@ _CONFIG = [
             'gpu::webgpu::WEBGPU_MAILBOX_NONE',
             'gpu::webgpu::WebGPUInterface',
             'media::PIXEL_FORMAT_NV12',
+            'media::PIXEL_FORMAT_RGBAF16',
             'switches::kEnableUnsafeWebGPU',
         ],
     },
@@ -2714,6 +2728,7 @@ _CONFIG = [
             'third_party/blink/common/features.cc',
         ],
         'allowed': [
+            'net::HttpCache',
             'network::features::kBrowsingTopics',
             'network::features::kInterestGroupStorage',
             'network::features::kSharedStorageAPI',
@@ -2746,6 +2761,14 @@ _CONFIG = [
         ],
         'allowed': [
             'viz::TestRasterInterface',
+        ]
+    },
+    {
+        'paths': [
+            'third_party/blink/renderer/core/inspector/thread_debugger_common_impl.cc',
+        ],
+        'allowed': [
+            'gin::kThreadDebuggerCommonImplTag',
         ]
     }
 ]

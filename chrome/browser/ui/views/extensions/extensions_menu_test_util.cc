@@ -19,7 +19,7 @@
 #include "chrome/browser/ui/views/extensions/extensions_menu_item_view.h"
 #include "chrome/browser/ui/views/extensions/extensions_menu_main_page_view.h"
 #include "chrome/browser/ui/views/extensions/extensions_menu_view.h"
-#include "chrome/browser/ui/views/extensions/extensions_menu_view_controller.h"
+#include "chrome/browser/ui/views/extensions/extensions_menu_view_platform_delegate_views.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_button.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_container.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_coordinator.h"
@@ -142,12 +142,8 @@ gfx::Size ExtensionsMenuTestUtil::GetMaxAvailableSizeToFitBubbleOnScreen(
     return ExtensionPopup::kMaxSize;
   }
 #endif
-  auto* view_delegate = static_cast<ToolbarActionViewDelegateViews*>(
-      static_cast<ExtensionActionViewController*>(
-          extensions_container_->GetActionForId(id))
-          ->view_delegate());
   return views::BubbleDialogDelegate::GetMaxAvailableScreenSpaceToPlaceBubble(
-      view_delegate->GetReferenceButtonForPopup(),
+      extensions_container_->GetReferenceButtonForPopup(id),
       views::BubbleBorder::TOP_RIGHT,
       views::PlatformStyle::kAdjustBubbleIfOffscreen,
       views::BubbleFrameView::PreferredArrowAdjustment::kMirror);
@@ -194,7 +190,7 @@ ExtensionMenuItemView* ExtensionsMenuTestUtil::GetMenuItemViewForId(
           extensions_features::kExtensionsMenuAccessControl)) {
     ExtensionsMenuMainPageView* main_page =
         extensions_container_->GetExtensionsMenuCoordinatorForTesting()
-            ->GetControllerForTesting()
+            ->GetDelegateForTesting()
             ->GetMainPageViewForTesting();
     DCHECK(main_page);
     auto items = main_page->GetMenuItems();

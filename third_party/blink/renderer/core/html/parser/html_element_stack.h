@@ -27,7 +27,6 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_HTML_PARSER_HTML_ELEMENT_STACK_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_HTML_PARSER_HTML_ELEMENT_STACK_H_
 
-#include "base/memory/scoped_refptr.h"
 #include "third_party/blink/renderer/core/html/parser/html_stack_item.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
@@ -139,6 +138,7 @@ class HTMLElementStack {
   bool HasOnlyOneElement() const;
   bool SecondElementIsHTMLBodyElement() const;
   bool HasTemplateInHTMLScope() const;
+  bool HasOutgoingPatchInHTMLScope() const;
   Element* HtmlElement() const;
   Element* HeadElement() const;
   Element* BodyElement() const;

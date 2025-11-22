@@ -107,7 +107,7 @@ BASE_FEATURE(kAutozoomNudgeSessionReset, base::FEATURE_DISABLED_BY_DEFAULT);
 // Enables a settings option to set an explicit charge limit for Chromebooks.
 BASE_FEATURE(kBatteryChargeLimit,
              "CrosBatteryChargeLimit",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Make Battery Saver available.
 BASE_FEATURE(kBatterySaver,
@@ -173,9 +173,6 @@ constexpr base::FeatureParam<base::TimeDelta>
 
 // Enables or disables locked quiz migration to leverage the OnTask SWA.
 BASE_FEATURE(kBocaOnTaskLockedQuizMigration, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables or disables Boca OnTask mute ARC audio requests on ChromeOS.
-BASE_FEATURE(kBocaOnTaskMuteArcAudio, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables or disables the Boca OnTask pod on ChromeOS.
 BASE_FEATURE(kBocaOnTaskPod, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -278,6 +275,12 @@ BASE_FEATURE(kBocaScreenSharingTeacher, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables or disables sharing student's screen in the Boca app.
 BASE_FEATURE(kBocaScreenSharingStudent, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables or disables sharing host audio in the Boca app.
+BASE_FEATURE(kBocaHostAudio, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables or disables using audio for the Kiosk client in the Boca app.
+BASE_FEATURE(kBocaAudioForKiosk, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kCrosSwitcher, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -596,9 +599,6 @@ BASE_FEATURE(kEnableExternalKeyboardsInDiagnostics,
 // Enables setting the device hostname.
 BASE_FEATURE(kEnableHostnameSetting, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enable keyboard rewriter fix.
-BASE_FEATURE(kEnableKeyboardRewriterFix, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables OAuth support when printing via the IPP protocol.
 BASE_FEATURE(kEnableOAuthIpp, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -874,9 +874,6 @@ BASE_FEATURE(kForceOnDeviceAppControlsForAllRegions,
 // For more info, see go/crosforest.
 BASE_FEATURE(kForestFeature, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Controls whether to allow keeping full screen mode after unlock.
-BASE_FEATURE(kFullscreenAfterUnlockAllowed, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, there will be an alert bubble showing up when the device
 // returns from low brightness (e.g., sleep, closed cover) without a lock screen
 // and the active window is in fullscreen.
@@ -1088,7 +1085,7 @@ BASE_FEATURE(kHelpAppHomePageAppArticles, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kHelpAppLauncherSearch, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables a new onboarding experience in the Help App.
-BASE_FEATURE(kHelpAppOnboardingRevamp, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kHelpAppOnboardingRevamp, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables opening the Help App's What's New page immediately instead of showing
 // a notification to open the help app.
@@ -1121,7 +1118,7 @@ BASE_FEATURE(kHomeButtonQuickAppAccess, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kHomeButtonWithText, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Helpful notifications for devices with Hybrid Chargers.
-BASE_FEATURE(kHybridChargerNotifications, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kHybridChargerNotifications, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, allows the user to cycle between windows of an app using Alt + `.
 BASE_FEATURE(kSameAppWindowCycle, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1239,15 +1236,9 @@ BASE_FEATURE(kInternalServerSideSpeechRecognitionByFinch,
 BASE_FEATURE(kInternalServerSideSpeechRecognitionUSMModelFinch,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables sending `client-info` values to IPP printers on ChromeOS.
-BASE_FEATURE(kIppClientInfo, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables new experimental IPP-first setup path for USB printers on ChromeOS.
 // Used in finch experiment.
 BASE_FEATURE(kIppFirstSetupForUsbPrinters, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables OS Settings page for japanese.
-BASE_FEATURE(kJapaneseOSSettings, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables Romaji/Kana mode switch for Japanese VK.
 BASE_FEATURE(kJapaneseInputModeSwitchInVK, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1300,9 +1291,6 @@ BASE_FEATURE(kLauncherNudgeShortInterval, base::FEATURE_DISABLED_BY_DEFAULT);
 // If enabled, the launcher nudge prefs will be reset at the start of each new
 // user session.
 BASE_FEATURE(kLauncherNudgeSessionReset, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If enabled, the launcher will only provide results based on the user control.
-BASE_FEATURE(kLauncherSearchControl, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Segmentation flag for local image search.
 BASE_FEATURE(kFeatureManagementLocalImageSearch,
@@ -1382,9 +1370,12 @@ BASE_FEATURE(kLockScreenNotifications, base::FEATURE_DISABLED_BY_DEFAULT);
 // Feature to allow MAC address randomization to be enabled for WiFi networks.
 BASE_FEATURE(kMacAddressRandomization, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enabling this flag allows the managed local pin and password related changes to be
-// applied.
+// Enabling this flag allows the managed local pin and password related changes
+// to be applied.
 BASE_FEATURE(kManagedLocalPinAndPassword, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables policy management for USB printers.
+BASE_FEATURE(kManagedUsbPrinters, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables Mahi on PDF contents in the Media App.
 BASE_FEATURE(kMediaAppPdfMahi, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1515,6 +1506,22 @@ BASE_FEATURE(kOnDeviceGrammarCheck, base::FEATURE_ENABLED_BY_DEFAULT);
 // Whether the device supports on-device speech recognition.
 // Forwarded to LaCrOS as BrowserInitParams::is_ondevice_speech_supported.
 BASE_FEATURE(kOnDeviceSpeechRecognition, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Gates syncing of the first batch of visual accessibility settings so the
+// rollout can be staged and rolled back independently if issues surface.
+BASE_FEATURE(kOsSyncAccessibilitySettingsBatch1,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Gates syncing of the second batch of accessibility settings (reduced
+// animations and caption styling) so the rollout can proceed in small,
+// reversible stages.
+BASE_FEATURE(kOsSyncAccessibilitySettingsBatch2,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Gates syncing of the third batch of accessibility settings (screen + docked
+// magnifiers and select-to-speak toggles) so rollout can proceed incrementally.
+BASE_FEATURE(kOsSyncAccessibilitySettingsBatch3,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Whether the OneDrive upload flow should immediately prompt the user to
 // re-authenticate without first showing a notification.
@@ -2088,11 +2095,6 @@ BASE_FEATURE(kTerminalDev, base::FEATURE_DISABLED_BY_DEFAULT);
 // Enables experimental feature for resizing tiling windows.
 BASE_FEATURE(kTilingWindowResize, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enable or disable listening to prefs for virtual keyboard policy in login
-// screen.
-BASE_FEATURE(kTouchVirtualKeyboardPolicyListenPrefsAtLogin,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables the TrafficCountersHandler class to auto-reset traffic counters
 // and shows Data Usage in the Celluar Settings UI.
 BASE_FEATURE(kTrafficCountersEnabled, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -2156,10 +2158,6 @@ BASE_FEATURE(kLiveCaptionUserMicrophone, base::FEATURE_DISABLED_BY_DEFAULT);
 // Remap search+click to right click instead of the legacy alt+click on
 // ChromeOS.
 BASE_FEATURE(kUseSearchClickForRightClick, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables using ICU library to get sunrise/sunset time.
-// TODO(crbug.com/419726206): Remove this before m142 branch cut.
-BASE_FEATURE(kUseICUForGetSunRiseSet, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Use the Stork production SM-DS server when fetching pending eSIM profiles.
 BASE_FEATURE(kUseStorkSmdsServerAddress, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -2483,10 +2481,6 @@ bool IsBocaOnTaskLockedQuizMigrationEnabled() {
   return base::FeatureList::IsEnabled(kBocaOnTaskLockedQuizMigration);
 }
 
-bool IsBocaOnTaskMuteArcAudioEnabled() {
-  return base::FeatureList::IsEnabled(kBocaOnTaskMuteArcAudio);
-}
-
 bool IsBocaOnTaskPodEnabled() {
   return base::FeatureList::IsEnabled(kBocaOnTaskPod);
 }
@@ -2577,6 +2571,14 @@ bool IsBocaScreenSharingTeacherEnabled() {
 
 bool IsBocaScreenSharingStudentEnabled() {
   return base::FeatureList::IsEnabled(kBocaScreenSharingStudent);
+}
+
+bool IsBocaHostAudioEnabled() {
+  return base::FeatureList::IsEnabled(kBocaHostAudio);
+}
+
+bool IsBocaAudioForKioskEnabled() {
+  return base::FeatureList::IsEnabled(kBocaAudioForKiosk);
 }
 
 bool IsBrightnessControlInSettingsEnabled() {
@@ -2857,10 +2859,6 @@ bool ShouldForceEnableServerSideSpeechRecognition() {
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING);
 }
 
-bool IsFullscreenAfterUnlockAllowed() {
-  return base::FeatureList::IsEnabled(kFullscreenAfterUnlockAllowed);
-}
-
 bool IsFullscreenAlertBubbleEnabled() {
   return base::FeatureList::IsEnabled(kFullscreenAlertBubble);
 }
@@ -3055,10 +3053,6 @@ bool IsInternalServerSideSpeechRecognitionEnabledByFinch() {
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 }
 
-bool IsIppClientInfoEnabled() {
-  return base::FeatureList::IsEnabled(kIppClientInfo);
-}
-
 bool IsJupiterScreensaverEnabled() {
   return base::FeatureList::IsEnabled(kJupiterScreensaver) &&
          IsTimeOfDayScreenSaverEnabled();
@@ -3066,10 +3060,6 @@ bool IsJupiterScreensaverEnabled() {
 
 bool IsKerberosRememberPasswordByDefaultEnabled() {
   return base::FeatureList::IsEnabled(kKerberosRememberPasswordByDefault);
-}
-
-bool IsKeyboardRewriterFixEnabled() {
-  return base::FeatureList::IsEnabled(kEnableKeyboardRewriterFix);
 }
 
 bool IsLanguagePacksInOobeEnabled() {
@@ -3099,10 +3089,6 @@ bool IsLauncherNudgeShortIntervalEnabled() {
 
 bool IsLauncherNudgeSessionResetEnabled() {
   return base::FeatureList::IsEnabled(kLauncherNudgeSessionReset);
-}
-
-bool IsLauncherSearchControlEnabled() {
-  return base::FeatureList::IsEnabled(kLauncherSearchControl);
 }
 
 bool IsLinkCrossDeviceDogfoodFeedbackEnabled() {

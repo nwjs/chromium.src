@@ -20,6 +20,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
+#include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/thread_pool.h"
 #include "base/types/expected.h"
@@ -447,8 +448,7 @@ void IsolatedWebAppInstallCommandHelper::OnLoadInstallUrl(
     webapps::WebAppUrlLoaderResult result) {
   if (!IsUrlLoadingResultSuccess(result)) {
     std::move(callback).Run(base::unexpected(
-        base::StrCat({"Error during URL loading: ",
-                      ConvertUrlLoaderResultToString(result)})));
+        base::StrCat({"Error during URL loading: ", base::ToString(result)})));
     return;
   }
 
@@ -541,7 +541,7 @@ IsolatedWebAppInstallCommandHelper::ValidateManifestAndGetVersion(
         iwa_version.GetString() + ")");
   }
 
-  std::string encoded_id = manifest.id.path();
+  std::string encoded_id = manifest.id.GetPath();
 
   if (encoded_id != "/") {
     // Recommend to use "/" for manifest id and not empty manifest id because

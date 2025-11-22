@@ -209,13 +209,31 @@ struct pthreadpool* pthreadpool_create(size_t threads_count) {
     return nullptr;
   }
 
-  threadpool->threads_count = fxdiv_init_size_t(threads_count);
+  threadpool->threads_count = threads_count;
   for (size_t tid = 0; tid < threads_count; tid++) {
     threadpool->threads[tid].thread_number = tid;
     threadpool->threads[tid].threadpool = threadpool;
   }
 
   return threadpool;
+}
+
+// The following *executor* functions are all no-ops since the Jobs API manages
+// its own threads.
+void pthreadpool_release_executor_threads(struct pthreadpool* threadpool) {
+  return;
+}
+
+bool pthreadpool_update_executor(pthreadpool_t threadpool,
+                                 struct pthreadpool_executor* executor,
+                                 void* executor_context) {
+  return false;
+}
+
+struct pthreadpool* pthreadpool_create_v2(struct pthreadpool_executor* executor,
+                                    void* executor_context,
+                                    size_t max_num_threads) {
+  return pthreadpool_create(max_num_threads);
 }
 
 // The `threadpool` struct is accessed by this method without holding a lock.
@@ -242,7 +260,7 @@ PTHREADPOOL_INTERNAL void pthreadpool_parallelize(
   pthreadpool_store_relaxed_void_p(&threadpool->argument, context);
   pthreadpool_store_relaxed_uint32_t(&threadpool->flags, flags);
 
-  const struct fxdiv_divisor_size_t threads_count = threadpool->threads_count;
+  const struct fxdiv_divisor_size_t threads_count = fxdiv_init_size_t(threadpool->threads_count);
 
   if (params_size != 0) {
     memcpy(&threadpool->params, params, params_size);

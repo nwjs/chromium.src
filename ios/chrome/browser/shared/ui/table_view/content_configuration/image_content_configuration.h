@@ -7,15 +7,18 @@
 
 #import <UIKit/UIKit.h>
 
+#import "ios/chrome/browser/shared/ui/table_view/content_configuration/chrome_content_configuration.h"
+
 // A content configuration for an image view.
-@interface ImageContentConfiguration : NSObject <UIContentConfiguration>
+@interface ImageContentConfiguration : NSObject <ChromeContentConfiguration>
 
 // LINT.IfChange(Copy)
 
 // The image to be displayed.
 @property(nonatomic, strong) UIImage* image;
 
-// The size of the image.
+// The size of the image. Use CGSizeZero (the default) to have the image use its
+// own size.
 @property(nonatomic, assign) CGSize imageSize;
 
 // The content mode of the image. Default is UIViewContentModeScaleAspectFit.

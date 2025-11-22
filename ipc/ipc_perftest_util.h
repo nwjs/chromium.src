@@ -7,24 +7,15 @@
 
 #include <string>
 
-#include "base/memory/raw_ptr.h"
-#include "base/task/single_thread_task_runner.h"
-#include "build/build_config.h"
-
-#if BUILDFLAG(IS_WIN)
-#include <windows.h>
-#endif
-
 #include "base/functional/callback.h"
-#include "base/memory/ref_counted.h"
+#include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/process/process_metrics.h"
 #include "base/task/single_thread_task_executor.h"
 #include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
 #include "ipc/ipc_channel_proxy.h"
 #include "ipc/ipc_listener.h"
-#include "ipc/ipc_message.h"
-#include "ipc/ipc_sender.h"
 #include "ipc/ipc_test.test-mojom.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/system/message_pipe.h"

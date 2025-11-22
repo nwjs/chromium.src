@@ -79,6 +79,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/browser/ui/views/page_action/page_action_container_view.h"
@@ -87,7 +88,9 @@
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry_id.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_header.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_util.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/webui/feedback/feedback_dialog.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/api/pdf_viewer_private.h"
@@ -148,9 +151,11 @@
 #include "ui/compositor/compositor_switches.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event_constants.h"
+#include "ui/events/test/test_event.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/interaction/element_tracker_views.h"
+#include "ui/views/test/button_test_api.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/any_widget_observer.h"
@@ -423,10 +428,12 @@ lens::LensOverlayObjectsResponse CreateTestObjectsResponse(
 
 class LensOverlayPageFake : public lens::mojom::LensPage {
  public:
-  void ScreenshotDataReceived(const SkBitmap& screenshot) override {
+  void ScreenshotDataReceived(const SkBitmap& screenshot,
+                              bool is_side_panel_open) override {
     last_received_screenshot_ = screenshot;
+    last_received_is_side_panel_open_ = is_side_panel_open;
     // Do the real call on the open WebUI we intercepted.
-    overlay_page_->ScreenshotDataReceived(screenshot);
+    overlay_page_->ScreenshotDataReceived(screenshot, is_side_panel_open);
   }
 
   void ObjectsReceived(
@@ -492,6 +499,11 @@ class LensOverlayPageFake : public lens::mojom::LensPage {
   void PageContentTypeChanged(
       lens::mojom::PageContentType new_page_content_type) override {}
 
+  void OnOverlayReshown(const SkBitmap& screenshot) override {
+    last_received_screenshot_ = screenshot;
+    overlay_page_->OnOverlayReshown(screenshot);
+  }
+
   void Reset() {
     last_received_screenshot_.reset();
     last_received_theme_->reset();
@@ -506,6 +518,7 @@ class LensOverlayPageFake : public lens::mojom::LensPage {
     did_clear_region_selection_ = false;
     did_clear_text_selection_ = false;
     did_trigger_copy = false;
+    last_received_is_side_panel_open_.reset();
   }
 
   // The real side panel page that was opened by the lens overlay. Needed to
@@ -513,6 +526,7 @@ class LensOverlayPageFake : public lens::mojom::LensPage {
   mojo::Remote<lens::mojom::LensPage> overlay_page_;
 
   SkBitmap last_received_screenshot_;
+  std::optional<bool> last_received_is_side_panel_open_;
   std::optional<lens::mojom::OverlayThemePtr> last_received_theme_;
   std::vector<lens::mojom::OverlayObjectPtr> last_received_objects_;
   bool last_received_should_show_contextual_searchbox_ = false;
@@ -551,6 +565,9 @@ class LensOverlayControllerFake : public lens::TestLensOverlayController {
     // Reset the receiver to close any existing connection.
     fake_overlay_page_receiver_.reset();
     fake_overlay_page_.overlay_page_.reset();
+    if (!should_bind_overlay_) {
+      return;
+    }
 
     // Set up the fake overlay page to intercept the mojo call.
     fake_overlay_page_.overlay_page_.Bind(std::move(page));
@@ -566,6 +583,7 @@ class LensOverlayControllerFake : public lens::TestLensOverlayController {
   void FlushForTesting() { fake_overlay_page_receiver_.FlushForTesting(); }
 
   LensOverlayPageFake fake_overlay_page_;
+  bool should_bind_overlay_ = true;
   bool is_screenshot_possible_ = true;
   mojo::Receiver<lens::mojom::LensPage> fake_overlay_page_receiver_{
       &fake_overlay_page_};
@@ -725,6 +743,11 @@ class LensOverlayControllerBrowserTest : public InProcessBrowserTest {
     mock_hats_service_ = nullptr;
   }
 
+  views::WebView* GetWebView() {
+    return BrowserElementsViews::From(browser())->RetrieveView(
+        kActiveContentsWebViewRetrievalId);
+  }
+
   virtual void SetupFeatureList() {
     feature_list_.InitWithFeaturesAndParameters(
         {{lens::features::kLensOverlay,
@@ -762,6 +785,15 @@ class LensOverlayControllerBrowserTest : public InProcessBrowserTest {
     return GetLensSearchController()->lens_overlay_side_panel_coordinator();
   }
 
+  bool IsSidePanelOpen() {
+    return browser()->GetFeatures().side_panel_ui()->IsSidePanelShowing(
+        GetLensOverlaySidePanelCoordinator()->GetPanelType());
+  }
+
+  bool IsLensResultsSidePanelShowing() {
+    return GetLensOverlaySidePanelCoordinator()->IsEntryShowing();
+  }
+
   LensOverlayController* GetLensOverlayController() {
     return browser()
         ->tab_strip_model()
@@ -781,8 +813,7 @@ class LensOverlayControllerBrowserTest : public InProcessBrowserTest {
   }
 
   const std::vector<lens::SearchQuery>& GetSearchQueryHistory() {
-    auto* controller = GetLensOverlayController();
-    return controller->results_side_panel_coordinator()
+    return GetLensOverlaySidePanelCoordinator()
         ->get_search_query_history_for_testing();
   }
 
@@ -796,6 +827,17 @@ class LensOverlayControllerBrowserTest : public InProcessBrowserTest {
       const SkBitmap& region_bitmap) {
     GetLensSearchController()->OpenLensOverlayWithPendingRegion(
         invocation_source, std::move(region), region_bitmap);
+  }
+
+  void SimulateOpenInNewTabButtonClick() {
+    views::Button* open_in_new_tab_button =
+        browser()
+            ->GetBrowserView()
+            .contents_height_side_panel()
+            ->GetHeaderView<SidePanelHeader>()
+            ->header_open_in_new_tab_button();
+    views::test::ButtonTestApi(open_in_new_tab_button)
+        .NotifyClick(ui::test::TestEvent());
   }
 
   void SimulateLeftClickDrag(gfx::Point from, gfx::Point to) {
@@ -1229,10 +1271,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, ShowSidePanel) {
   // Prevent flakiness by flushing the tasks.
   fake_controller->FlushForTesting();
 
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(IsLensResultsSidePanelShowing());
   EXPECT_TRUE(fake_controller->fake_overlay_page_.did_notify_results_opened_);
 }
 
@@ -1303,7 +1342,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, SidePanelModalDialog) {
 
   // Open a web modal dialog.
   views::Widget* modal_widget = ShowTestWebModalDialog(
-      controller->results_side_panel_coordinator()->GetSidePanelWebContents());
+      GetLensOverlaySidePanelCoordinator()->GetSidePanelWebContents());
   views::test::WidgetDestroyedWaiter modal_widget_destroy_waiter(modal_widget);
 
   // Close the lens overlay.
@@ -1330,13 +1369,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   OpenLensOverlayWithPendingRegion(LensOverlayInvocationSource::kAppMenu,
                                    kTestRegion->Clone(), initial_bitmap);
   ASSERT_EQ(controller->state(), State::kScreenshot);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  // Expect the Lens Overlay results panel to open.
-  ASSERT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
 
   // Verify region was passed to WebUI.
   auto* fake_controller = static_cast<LensOverlayControllerFake*>(controller);
@@ -1365,7 +1399,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, CloseSidePanel) {
   auto* controller = GetLensOverlayController();
   ASSERT_EQ(controller->state(), State::kOff);
   // Tab contents web view should be enabled.
-  ASSERT_TRUE(browser()->GetWebView()->GetEnabled());
+  ASSERT_TRUE(GetWebView()->GetEnabled());
 
   // Showing UI should change the state to screenshot and eventually to overlay.
   OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
@@ -1373,7 +1407,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, CloseSidePanel) {
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
   // Tab contents web view should be disabled.
-  ASSERT_FALSE(browser()->GetWebView()->GetEnabled());
+  ASSERT_FALSE(GetWebView()->GetEnabled());
 
   // Grab fake controller to test if notify the overlay of being closed.
   auto* fake_controller = static_cast<LensOverlayControllerFake*>(controller);
@@ -1384,19 +1418,19 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, CloseSidePanel) {
   controller->OpenSidePanelForTesting();
 
   // Ensure the side panel is showing.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelShowing());
+  EXPECT_TRUE(IsLensResultsSidePanelShowing());
   // Tab contents web view should be disabled.
-  ASSERT_FALSE(browser()->GetWebView()->GetEnabled());
+  ASSERT_FALSE(GetWebView()->GetEnabled());
 
   // Close the side panel.
-  coordinator->Close();
+  browser()->GetFeatures().side_panel_ui()->Close(
+      GetLensOverlaySidePanelCoordinator()->GetPanelType());
 
   // Ensure the overlay closes too.
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOff; }));
   // Tab contents web view should be enabled.
-  ASSERT_TRUE(browser()->GetWebView()->GetEnabled());
+  ASSERT_TRUE(GetWebView()->GetEnabled());
 
   // The overlay should have been notified of the closing.
   EXPECT_TRUE(fake_controller->fake_overlay_page_.did_notify_overlay_closing_);
@@ -1483,13 +1517,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   off_center.Offset(100, 100);
   SimulateLeftClickDrag(center, off_center);
 
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  // Expect the Lens Overlay results panel to open.
-  ASSERT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
 
   // Verify that the side panel searchbox displays a thumbnail and that the
   // controller has a copy.
@@ -1573,13 +1602,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   off_center.Offset(100, 100);
   SimulateLeftClickDrag(center, off_center);
 
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  // Expect the Lens Overlay results panel to open.
-  ASSERT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
 
   // Verify that the side panel searchbox displays a thumbnail and that the
   // controller has a copy.
@@ -1644,13 +1668,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   controller->IssueTextSelectionRequestForTesting(text_query,
                                                   /*selection_start_index=*/0,
                                                   /*selection_end_index=*/0);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
-
-  // Expect the Lens Overlay results panel to open.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntry::Id::kLensOverlayResults)));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
 
@@ -1695,13 +1714,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
                                                   /*selection_start_index=*/0,
                                                   /*selection_end_index=*/0,
                                                   /*is_translate=*/true);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
-
-  // Expect the Lens Overlay results panel to open.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntry::Id::kLensOverlayResults)));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
 
@@ -1750,13 +1764,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       text_query, content_language,
       /*selection_start_index=*/0,
       /*selection_end_index=*/0);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
-
-  // Expect the Lens Overlay results panel to open.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntry::Id::kLensOverlayResults)));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
 
@@ -1813,13 +1822,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   controller->IssueMathSelectionRequestForTesting(query, formula,
                                                   /*selection_start_index=*/0,
                                                   /*selection_end_index=*/0);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
-
-  // Expect the Lens Overlay results panel to open.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntry::Id::kLensOverlayResults)));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
 
@@ -1890,9 +1894,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   }));
 
   // Expect the Lens Overlay results panel to remain closed.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_FALSE(coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntry::Id::kLensOverlayResults)));
+  EXPECT_FALSE(IsLensResultsSidePanelShowing());
 
   // After flushing the mojo calls, the data should be present.
   EXPECT_FALSE(
@@ -2054,7 +2056,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Side panel is not showing at first.
   auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_FALSE(coordinator->IsSidePanelShowing());
+  EXPECT_FALSE(coordinator->IsSidePanelShowing(
+      GetLensOverlaySidePanelCoordinator()->GetPanelType()));
   EXPECT_FALSE(controller->GetSidePanelWebContentsForTesting());
 
   // Issuing a request should show the side panel even if navigation is expected
@@ -2066,9 +2069,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       controller->GetSidePanelWebContentsForTesting()));
 
   // Expect the Lens Overlay results panel to open.
-  ASSERT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  ASSERT_TRUE(IsLensResultsSidePanelShowing());
 
   // The recorded histogram should be the start query error.
   histogram_tester.ExpectTotalCount("Lens.Overlay.SidePanelResultStatus",
@@ -2119,7 +2120,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Side panel is not showing at first.
   auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_FALSE(coordinator->IsSidePanelShowing());
+  EXPECT_FALSE(coordinator->IsSidePanelShowing(
+      GetLensOverlaySidePanelCoordinator()->GetPanelType()));
   EXPECT_FALSE(controller->GetSidePanelWebContentsForTesting());
 
   // Issuing a request should show the side panel even if navigation is expected
@@ -2131,9 +2133,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       controller->GetSidePanelWebContentsForTesting()));
 
   // Expect the Lens Overlay results panel to open.
-  ASSERT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  ASSERT_TRUE(IsLensResultsSidePanelShowing());
 
   // The recorded histogram should still be the start query error rather than
   // the network being offline.
@@ -2197,7 +2197,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   auto* controller = GetLensOverlayController();
   ASSERT_EQ(controller->state(), State::kOff);
   // Tab contents web view should be enabled.
-  ASSERT_TRUE(browser()->GetWebView()->GetEnabled());
+  ASSERT_TRUE(GetWebView()->GetEnabled());
 
   // Grab the index of the currently active tab so we can return to it later.
   int active_controller_tab_index =
@@ -2214,21 +2214,15 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   EXPECT_TRUE(controller->GetOverlayViewForTesting()->Contains(
       controller->GetOverlayWebViewForTesting()));
   // Tab contents web view should be disabled.
-  ASSERT_FALSE(browser()->GetWebView()->GetEnabled());
+  ASSERT_FALSE(GetWebView()->GetEnabled());
 
   // Open a side panel to test that the side panel persists between tab
   // switches.
   controller->IssueTextSelectionRequestForTesting("test query",
                                                   /*selection_start_index=*/0,
                                                   /*selection_end_index=*/0);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
-
-  // Verify the side panel is showing.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
 
   // Opening a new tab should background the overlay UI.
   WaitForPaint(kDocumentWithNamedElement,
@@ -2240,26 +2234,24 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Overlay view should never be invisible since it is used across tabs.
   EXPECT_FALSE(controller->GetOverlayViewForTesting()->GetVisible());
   EXPECT_FALSE(controller->GetOverlayWebViewForTesting()->GetVisible());
-  EXPECT_TRUE(base::test::RunUntil(
-      [&]() { return !coordinator->IsSidePanelShowing(); }));
+  EXPECT_TRUE(
+      base::test::RunUntil([&]() { return !IsLensResultsSidePanelShowing(); }));
   // Tab contents web view should be enabled.
-  ASSERT_TRUE(browser()->GetWebView()->GetEnabled());
+  ASSERT_TRUE(GetWebView()->GetEnabled());
 
   // Returning back to the previous tab should show the overlay UI again.
   browser()->tab_strip_model()->ActivateTabAt(active_controller_tab_index);
-  EXPECT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
+  EXPECT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
   EXPECT_TRUE(controller->GetOverlayViewForTesting()->GetVisible());
   EXPECT_TRUE(controller->GetOverlayWebViewForTesting()->GetVisible());
   EXPECT_TRUE(controller->GetOverlayViewForTesting()->Contains(
       controller->GetOverlayWebViewForTesting()));
   // Side panel should come back when returning to previous tab.
-  EXPECT_TRUE(base::test::RunUntil(
-      [&]() { return coordinator->IsSidePanelShowing(); }));
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
   // Tab contents web view should be disabled.
-  ASSERT_FALSE(browser()->GetWebView()->GetEnabled());
+  ASSERT_FALSE(GetWebView()->GetEnabled());
 }
 
 IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
@@ -2272,7 +2264,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       static_cast<LensSearchControllerFake*>(GetLensSearchController());
   ASSERT_EQ(controller->state(), State::kOff);
   // Tab contents web view should be enabled.
-  ASSERT_TRUE(browser()->GetWebView()->GetEnabled());
+  ASSERT_TRUE(GetWebView()->GetEnabled());
 
   // Grab the index of the currently active tab so we can return to it later.
   int active_controller_tab_index =
@@ -2286,16 +2278,13 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       /*suppress_contextualization=*/false);
 
   // Wait for the side panel to be visible.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return coordinator->IsSidePanelShowing(); }));
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
 
   // The lens overlay controller should be off.
   ASSERT_EQ(controller->state(), State::kOff);
   // Tab contents web view should be enabled.
-  ASSERT_TRUE(browser()->GetWebView()->GetEnabled());
+  ASSERT_TRUE(GetWebView()->GetEnabled());
 
   // Opening a new tab should background the lens session.
   WaitForPaint(kDocumentWithNamedElement,
@@ -2306,10 +2295,11 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Side panel should not be showing
-  EXPECT_TRUE(base::test::RunUntil(
-      [&]() { return !coordinator->IsSidePanelShowing(); }));
+  EXPECT_TRUE(
+      base::test::RunUntil([&]() { return !IsLensResultsSidePanelShowing(); }));
+
   // Tab contents web view should be enabled.
-  ASSERT_TRUE(browser()->GetWebView()->GetEnabled());
+  ASSERT_TRUE(GetWebView()->GetEnabled());
 
   // Returning back to the previous tab should restore the side panel.
   browser()->tab_strip_model()->ActivateTabAt(active_controller_tab_index);
@@ -2317,12 +2307,10 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Overlay should still be off.
   ASSERT_EQ(controller->state(), State::kOff);
   // Side panel should come back when returning to previous tab.
-  EXPECT_TRUE(base::test::RunUntil(
-      [&]() { return coordinator->IsSidePanelShowing(); }));
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
   // Tab contents web view should be enabled.
-  ASSERT_TRUE(browser()->GetWebView()->GetEnabled());
+  ASSERT_TRUE(GetWebView()->GetEnabled());
 }
 
 // TODO(crbug.com/413042395): This test is not testing overlay logic, but
@@ -2346,20 +2334,19 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Side panel is not showing at first.
   auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_FALSE(coordinator->IsSidePanelShowing());
+  EXPECT_FALSE(coordinator->IsSidePanelShowing(
+      GetLensOverlaySidePanelCoordinator()->GetPanelType()));
 
   // Open the side panel.
   controller->OpenSidePanelForTesting();
 
   // Loading a url in the side panel should show the results page.
   const GURL search_url("https://www.google.com/search");
-  controller->results_side_panel_coordinator()->LoadURLInResultsFrameForTesting(
+  GetLensOverlaySidePanelCoordinator()->LoadURLInResultsFrameForTesting(
       search_url);
 
   // Expect the Lens Overlay results panel to open.
-  ASSERT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  ASSERT_TRUE(IsLensResultsSidePanelShowing());
 }
 
 // TODO(crbug.com/413042395): This test is not testing overlay logic, but
@@ -2388,7 +2375,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Side panel is not showing at first.
   auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_FALSE(coordinator->IsSidePanelShowing());
+  EXPECT_FALSE(coordinator->IsSidePanelShowing(
+      GetLensOverlaySidePanelCoordinator()->GetPanelType()));
   EXPECT_FALSE(controller->GetSidePanelWebContentsForTesting());
 
   // Open the side panel.
@@ -2397,15 +2385,13 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Loading a url in the side panel should show the side panel even if we
   // expect the navigation to fail.
   const GURL search_url("https://www.google.com/search");
-  controller->results_side_panel_coordinator()->LoadURLInResultsFrameForTesting(
+  GetLensOverlaySidePanelCoordinator()->LoadURLInResultsFrameForTesting(
       search_url);
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
 
   // Expect the Lens Overlay results panel to open.
-  ASSERT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  ASSERT_TRUE(IsLensResultsSidePanelShowing());
 
   // Verify the histogram was set correctly to `kResultShown`.
   histogram_tester.ExpectTotalCount("Lens.Overlay.SidePanelResultStatus",
@@ -2447,7 +2433,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Side panel is not showing at first.
   auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_FALSE(coordinator->IsSidePanelShowing());
+  EXPECT_FALSE(coordinator->IsSidePanelShowing(
+      GetLensOverlaySidePanelCoordinator()->GetPanelType()));
   EXPECT_FALSE(controller->GetSidePanelWebContentsForTesting());
 
   // Issuing a request should show the side panel even if navigation is expected
@@ -2459,9 +2446,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       controller->GetSidePanelWebContentsForTesting()));
 
   // Expect the Lens Overlay results panel to open.
-  ASSERT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  ASSERT_TRUE(IsLensResultsSidePanelShowing());
 
   // Verify the error page was set correctly.
   histogram_tester.ExpectTotalCount("Lens.Overlay.SidePanelResultStatus",
@@ -2518,14 +2503,11 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Loading a url in the side panel should show the results page. This needs to
   // be done to set up the WebContentsObserver.
   const GURL search_url("https://www.google.com/search");
-  controller->results_side_panel_coordinator()->LoadURLInResultsFrameForTesting(
+  GetLensOverlaySidePanelCoordinator()->LoadURLInResultsFrameForTesting(
       search_url);
 
   // Expect the Lens Overlay results panel to open.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(IsLensResultsSidePanelShowing());
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
   int tabs = browser()->tab_strip_model()->count();
@@ -2534,7 +2516,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // before as part of setup.
   auto* test_side_panel_coordinator =
       static_cast<lens::TestLensOverlaySidePanelCoordinator*>(
-          controller->results_side_panel_coordinator());
+          GetLensOverlaySidePanelCoordinator());
   ASSERT_TRUE(test_side_panel_coordinator);
   test_side_panel_coordinator->ResetSidePanelTracking();
 
@@ -2604,14 +2586,11 @@ IN_PROC_BROWSER_TEST_F(
   // Loading a url in the side panel should show the results page. This needs to
   // be done to set up the WebContentsObserver.
   const GURL search_url("https://www.google.com/search");
-  controller->results_side_panel_coordinator()->LoadURLInResultsFrameForTesting(
+  GetLensOverlaySidePanelCoordinator()->LoadURLInResultsFrameForTesting(
       search_url);
 
   // Expect the Lens Overlay results panel to open.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(IsLensResultsSidePanelShowing());
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
   int tabs = browser()->tab_strip_model()->count();
@@ -2620,7 +2599,7 @@ IN_PROC_BROWSER_TEST_F(
   // before as part of setup.
   auto* test_side_panel_coordinator =
       static_cast<lens::TestLensOverlaySidePanelCoordinator*>(
-          controller->results_side_panel_coordinator());
+          GetLensOverlaySidePanelCoordinator());
   ASSERT_TRUE(test_side_panel_coordinator);
   test_side_panel_coordinator->ResetSidePanelTracking();
 
@@ -2677,14 +2656,11 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Loading a url in the side panel should show the results page. This needs to
   // be done to set up the WebContentsObserver.
   const GURL search_url("https://www.google.com/search");
-  controller->results_side_panel_coordinator()->LoadURLInResultsFrameForTesting(
+  GetLensOverlaySidePanelCoordinator()->LoadURLInResultsFrameForTesting(
       search_url);
 
   // Expect the Lens Overlay results panel to open.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(IsLensResultsSidePanelShowing());
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
 
@@ -2699,7 +2675,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // before as part of setup.
   auto* test_side_panel_coordinator =
       static_cast<lens::TestLensOverlaySidePanelCoordinator*>(
-          controller->results_side_panel_coordinator());
+          GetLensOverlaySidePanelCoordinator());
   ASSERT_TRUE(test_side_panel_coordinator);
   test_side_panel_coordinator->ResetSidePanelTracking();
 
@@ -2754,10 +2730,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
             metrics::OmniboxEventProto::CONTEXTUAL_SEARCHBOX);
 
   // Expect the Lens Overlay results panel to open.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(IsLensResultsSidePanelShowing());
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
 
@@ -2772,7 +2745,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // before as part of setup.
   auto* test_side_panel_coordinator =
       static_cast<lens::TestLensOverlaySidePanelCoordinator*>(
-          controller->results_side_panel_coordinator());
+          GetLensOverlaySidePanelCoordinator());
   ASSERT_TRUE(test_side_panel_coordinator);
   test_side_panel_coordinator->ResetSidePanelTracking();
 
@@ -2834,10 +2807,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
             metrics::OmniboxEventProto::CONTEXTUAL_SEARCHBOX);
 
   // Expect the Lens Overlay results panel to open.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(IsLensResultsSidePanelShowing());
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
 
@@ -2852,7 +2822,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // before as part of setup.
   auto* test_side_panel_coordinator =
       static_cast<lens::TestLensOverlaySidePanelCoordinator*>(
-          controller->results_side_panel_coordinator());
+          GetLensOverlaySidePanelCoordinator());
   ASSERT_TRUE(test_side_panel_coordinator);
   test_side_panel_coordinator->ResetSidePanelTracking();
 
@@ -2948,10 +2918,7 @@ IN_PROC_BROWSER_TEST_F(
             metrics::OmniboxEventProto::CONTEXTUAL_SEARCHBOX);
 
   // Expect the Lens Overlay results panel to open.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(IsLensResultsSidePanelShowing());
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
 
@@ -2966,7 +2933,7 @@ IN_PROC_BROWSER_TEST_F(
   // before as part of setup.
   auto* test_side_panel_coordinator =
       static_cast<lens::TestLensOverlaySidePanelCoordinator*>(
-          controller->results_side_panel_coordinator());
+          GetLensOverlaySidePanelCoordinator());
   ASSERT_TRUE(test_side_panel_coordinator);
   test_side_panel_coordinator->ResetSidePanelTracking();
 
@@ -3049,10 +3016,7 @@ IN_PROC_BROWSER_TEST_F(
             metrics::OmniboxEventProto::CONTEXTUAL_SEARCHBOX);
 
   // Expect the Lens Overlay results panel to open.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(IsLensResultsSidePanelShowing());
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
 
@@ -3067,7 +3031,7 @@ IN_PROC_BROWSER_TEST_F(
   // before as part of setup.
   auto* test_side_panel_coordinator =
       static_cast<lens::TestLensOverlaySidePanelCoordinator*>(
-          controller->results_side_panel_coordinator());
+          GetLensOverlaySidePanelCoordinator());
   ASSERT_TRUE(test_side_panel_coordinator);
   test_side_panel_coordinator->ResetSidePanelTracking();
 
@@ -3132,14 +3096,11 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Loading a url in the side panel should show the results page. This needs to
   // be done to set up the WebContentsObserver.
   const GURL search_url("https://www.google.com/search");
-  controller->results_side_panel_coordinator()->LoadURLInResultsFrameForTesting(
+  GetLensOverlaySidePanelCoordinator()->LoadURLInResultsFrameForTesting(
       search_url);
 
   // Expect the Lens Overlay results panel to open.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(IsLensResultsSidePanelShowing());
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
   int tabs = browser()->tab_strip_model()->count();
@@ -3158,7 +3119,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // before as part of setup.
   auto* test_side_panel_coordinator =
       static_cast<lens::TestLensOverlaySidePanelCoordinator*>(
-          controller->results_side_panel_coordinator());
+          GetLensOverlaySidePanelCoordinator());
   ASSERT_TRUE(test_side_panel_coordinator);
   test_side_panel_coordinator->ResetSidePanelTracking();
 
@@ -3215,14 +3176,11 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Loading a url in the side panel should show the results page. This needs to
   // be done to set up the WebContentsObserver.
   const GURL search_url("https://www.google.com/search");
-  controller->results_side_panel_coordinator()->LoadURLInResultsFrameForTesting(
+  GetLensOverlaySidePanelCoordinator()->LoadURLInResultsFrameForTesting(
       search_url);
 
   // Expect the Lens Overlay results panel to open.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(IsLensResultsSidePanelShowing());
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
 
@@ -3240,7 +3198,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // before as part of setup.
   auto* test_side_panel_coordinator =
       static_cast<lens::TestLensOverlaySidePanelCoordinator*>(
-          controller->results_side_panel_coordinator());
+          GetLensOverlaySidePanelCoordinator());
   ASSERT_TRUE(test_side_panel_coordinator);
   test_side_panel_coordinator->ResetSidePanelTracking();
 
@@ -3283,14 +3241,11 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Loading a url in the side panel should show the results page. This needs to
   // be done to set up the WebContentsObserver.
   const GURL search_url("https://www.google.com/search");
-  controller->results_side_panel_coordinator()->LoadURLInResultsFrameForTesting(
+  GetLensOverlaySidePanelCoordinator()->LoadURLInResultsFrameForTesting(
       search_url);
 
   // Expect the Lens Overlay results panel to open.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(IsLensResultsSidePanelShowing());
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
   int tabs = browser()->tab_strip_model()->count();
@@ -3309,7 +3264,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // before as part of setup.
   auto* test_side_panel_coordinator =
       static_cast<lens::TestLensOverlaySidePanelCoordinator*>(
-          controller->results_side_panel_coordinator());
+          GetLensOverlaySidePanelCoordinator());
   ASSERT_TRUE(test_side_panel_coordinator);
   test_side_panel_coordinator->ResetSidePanelTracking();
 
@@ -3383,14 +3338,11 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Loading a url in the side panel should show the results page. This needs to
   // be done to set up the WebContentsObserver.
   const GURL search_url("https://www.google.com/search?gsc=2&vsrid=12345");
-  controller->results_side_panel_coordinator()->LoadURLInResultsFrameForTesting(
+  GetLensOverlaySidePanelCoordinator()->LoadURLInResultsFrameForTesting(
       search_url);
 
   // Expect the Lens Overlay results panel to open.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(IsLensResultsSidePanelShowing());
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
 
@@ -3398,20 +3350,20 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // before as part of setup.
   auto* test_side_panel_coordinator =
       static_cast<lens::TestLensOverlaySidePanelCoordinator*>(
-          controller->results_side_panel_coordinator());
+          GetLensOverlaySidePanelCoordinator());
   ASSERT_TRUE(test_side_panel_coordinator);
   test_side_panel_coordinator->ResetSidePanelTracking();
 
   ui_test_utils::AllBrowserTabAddedWaiter add_tab;
 
   // Simulate clicking the open in new tab option.
-  coordinator->OpenInNewTab();
+  SimulateOpenInNewTabButtonClick();
 
   // Verify the new tab opens to a URL with the same path, no gsc param, and a
   // different vsrid. Other params may be changed or unchanged.
   content::WebContents* new_tab = add_tab.Wait();
   content::WaitForLoadStop(new_tab);
-  EXPECT_EQ(new_tab->GetLastCommittedURL().path(), search_url.path());
+  EXPECT_EQ(new_tab->GetLastCommittedURL().GetPath(), search_url.GetPath());
   std::string gsc_value;
   EXPECT_FALSE(net::GetValueForKeyInQuery(new_tab->GetLastCommittedURL(),
                                           kChromeSidePanelParameterKey,
@@ -3483,13 +3435,12 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // before as part of setup.
   auto* test_side_panel_coordinator =
       static_cast<lens::TestLensOverlaySidePanelCoordinator*>(
-          controller->results_side_panel_coordinator());
+          GetLensOverlaySidePanelCoordinator());
   ASSERT_TRUE(test_side_panel_coordinator);
   test_side_panel_coordinator->ResetSidePanelTracking();
 
   // Should do nothing.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  coordinator->OpenInNewTab();
+  SimulateOpenInNewTabButtonClick();
 
   // Verify no action recorded.
   EXPECT_EQ(0, user_action_tester.GetActionCount(
@@ -3594,7 +3545,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       "https://www.google.com/"
       "search?source=chrome.cr.menu&q=oranges&lns_fp=1&lns_mode=text"
       "&gsc=2&hl=en-US&cs=0");
-  controller->results_side_panel_coordinator()->LoadURLInResultsFrameForTesting(
+  GetLensOverlaySidePanelCoordinator()->LoadURLInResultsFrameForTesting(
       first_search_url);
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
@@ -3623,7 +3574,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // successful.
   content::TestNavigationObserver observer(
       controller->GetSidePanelWebContentsForTesting());
-  controller->results_side_panel_coordinator()->LoadURLInResultsFrameForTesting(
+  GetLensOverlaySidePanelCoordinator()->LoadURLInResultsFrameForTesting(
       second_search_url);
   observer.Wait();
 
@@ -3646,7 +3597,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Popping the query should load the previous query into the results frame.
   content::TestNavigationObserver pop_observer(
       controller->GetSidePanelWebContentsForTesting());
-  controller->results_side_panel_coordinator()->PopAndLoadQueryFromHistory();
+  GetLensOverlaySidePanelCoordinator()->PopAndLoadQueryFromHistory();
   pop_observer.Wait();
 
   // The search query history stack should be empty and the currently loaded
@@ -3774,7 +3725,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       static_cast<lens::TestLensOverlayQueryController*>(
           controller->get_lens_overlay_query_controller_for_testing());
   fake_query_controller->ResetTestingState();
-  controller->results_side_panel_coordinator()->PopAndLoadQueryFromHistory();
+  GetLensOverlaySidePanelCoordinator()->PopAndLoadQueryFromHistory();
 
   // Verify the new interaction request was sent.
   EXPECT_EQ(controller->get_selected_region_for_testing(), kTestRegion);
@@ -3802,7 +3753,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // frame.
   content::TestNavigationObserver second_pop_observer(
       controller->GetSidePanelWebContentsForTesting());
-  controller->results_side_panel_coordinator()->PopAndLoadQueryFromHistory();
+  GetLensOverlaySidePanelCoordinator()->PopAndLoadQueryFromHistory();
   second_pop_observer.WaitForNavigationFinished();
 
   // The search query history stack should be empty and the currently loaded
@@ -3850,8 +3801,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       LensOverlayInvocationSource::kContentAreaContextMenuImage,
       kTestRegion->Clone(), CreateNonEmptyBitmap(100, 100));
   ASSERT_EQ(controller->state(), State::kScreenshot);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
   EXPECT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
@@ -3921,7 +3872,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   content::TestNavigationObserver third_observer(
       controller->GetSidePanelWebContentsForTesting());
-  controller->results_side_panel_coordinator()->PopAndLoadQueryFromHistory();
+  GetLensOverlaySidePanelCoordinator()->PopAndLoadQueryFromHistory();
   third_observer.Wait();
 
   // Verify the new interaction request was sent.
@@ -3972,8 +3923,8 @@ IN_PROC_BROWSER_TEST_F(
       LensOverlayInvocationSource::kContentAreaContextMenuImage,
       kTestRegion->Clone(), initial_bitmap);
   ASSERT_EQ(controller->state(), State::kScreenshot);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
   EXPECT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
@@ -4072,7 +4023,7 @@ IN_PROC_BROWSER_TEST_F(
 
   content::TestNavigationObserver pop_observer(
       controller->GetSidePanelWebContentsForTesting());
-  controller->results_side_panel_coordinator()->PopAndLoadQueryFromHistory();
+  GetLensOverlaySidePanelCoordinator()->PopAndLoadQueryFromHistory();
 
   // Verify the new interaction request was sent.
   EXPECT_EQ(controller->get_selected_region_for_testing(), kTestRegion);
@@ -4093,7 +4044,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // Popping the query stack again should show the initial query.
   fake_query_controller->ResetTestingState();
-  controller->results_side_panel_coordinator()->PopAndLoadQueryFromHistory();
+  GetLensOverlaySidePanelCoordinator()->PopAndLoadQueryFromHistory();
 
   // Verify that the last queried data did not contain any query text.
   EXPECT_EQ(controller->get_selected_region_for_testing(), kTestRegion);
@@ -4135,7 +4086,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Loading a url in the side panel should show the results page.
   const GURL first_search_url(
       "https://www.google.com/search?q=oranges&gsc=2&hl=en-US");
-  controller->results_side_panel_coordinator()->LoadURLInResultsFrameForTesting(
+  GetLensOverlaySidePanelCoordinator()->LoadURLInResultsFrameForTesting(
       first_search_url);
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
@@ -4147,7 +4098,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // successful.
   content::TestNavigationObserver observer(
       controller->GetSidePanelWebContentsForTesting());
-  controller->results_side_panel_coordinator()->LoadURLInResultsFrameForTesting(
+  GetLensOverlaySidePanelCoordinator()->LoadURLInResultsFrameForTesting(
       second_search_url);
   observer.WaitForNavigationFinished();
 
@@ -4159,7 +4110,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Popping the query should load the previous query into the results frame.
   content::TestNavigationObserver pop_observer(
       controller->GetSidePanelWebContentsForTesting());
-  controller->results_side_panel_coordinator()->PopAndLoadQueryFromHistory();
+  GetLensOverlaySidePanelCoordinator()->PopAndLoadQueryFromHistory();
   pop_observer.WaitForNavigationFinished();
   // The search query history stack should be empty and the currently loaded
   // query should be set to the previous query.
@@ -4514,8 +4465,10 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   auto* side_panel_coordinator =
       browser()->GetFeatures().side_panel_coordinator();
   side_panel_coordinator->Show(SidePanelEntry::Id::kBookmarks);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return side_panel_coordinator->IsSidePanelShowing(); }));
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return side_panel_coordinator->IsSidePanelEntryShowing(
+        SidePanelEntryKey(SidePanelEntryId::kBookmarks));
+  }));
 
   // Showing UI should eventually result in overlay state. When the overlay is
   // bound, it should start the query flow which returns a response for the
@@ -4525,7 +4478,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       [&]() { return controller->state() == State::kOverlay; }));
 
   // Side panel should now be closed.
-  EXPECT_FALSE(side_panel_coordinator->IsSidePanelShowing());
+  EXPECT_FALSE(side_panel_coordinator->IsSidePanelShowing(
+      GetLensOverlaySidePanelCoordinator()->GetPanelType()));
 }
 
 IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
@@ -4552,8 +4506,10 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   auto* side_panel_coordinator =
       browser()->GetFeatures().side_panel_coordinator();
   side_panel_coordinator->Show(SidePanelEntry::Id::kBookmarks);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return side_panel_coordinator->IsSidePanelShowing(); }));
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return side_panel_coordinator->IsSidePanelEntryShowing(
+        SidePanelEntryKey(SidePanelEntryId::kBookmarks));
+  }));
 
   // Overlay should close.
   ASSERT_TRUE(base::test::RunUntil(
@@ -4584,16 +4540,22 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   controller->IssueTextSelectionRequestForTesting("test query",
                                                   /*selection_start_index=*/0,
                                                   /*selection_end_index=*/0);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
+
+  // Verify the side panel is open
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
 
   // Open a different side panel
   auto* side_panel_coordinator =
       browser()->GetFeatures().side_panel_coordinator();
 
   // Verify the side panel is open
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return side_panel_coordinator->IsSidePanelShowing(); }));
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return side_panel_coordinator->IsSidePanelEntryShowing(
+        SidePanelEntryKey(SidePanelEntryId::kLensOverlayResults));
+  }));
 
   side_panel_coordinator->Show(SidePanelEntry::Id::kBookmarks);
 
@@ -4851,8 +4813,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   controller->IssueTextSelectionRequestForTesting("test query",
                                                   /*selection_start_index=*/0,
                                                   /*selection_end_index=*/0);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
 
   // Send CTRL+C to side panel
   SimulateCtrlCKeyPress(controller->GetSidePanelWebContentsForTesting());
@@ -4889,7 +4851,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOff; }));
   // Tab contents web view should be enabled.
-  ASSERT_TRUE(browser()->GetWebView()->GetEnabled());
+  ASSERT_TRUE(GetWebView()->GetEnabled());
 }
 
 IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
@@ -5205,10 +5167,10 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   std::vector<std::string> text_fragments = {"text1", "text2"};
   uint32_t page_number = 3;
   int tabs = browser()->tab_strip_model()->count();
-  controller->results_side_panel_coordinator()->SetLatestPageUrlWithResponse(
+  GetLensOverlaySidePanelCoordinator()->SetLatestPageUrlWithResponse(
       GURL("file:///test.pdf"));
-  controller->results_side_panel_coordinator()->OnScrollToMessage(
-      text_fragments, page_number);
+  GetLensOverlaySidePanelCoordinator()->OnScrollToMessage(text_fragments,
+                                                          page_number);
 
   // Expect a new tab to be opened.
   EXPECT_EQ(tabs + 1, browser()->tab_strip_model()->count());
@@ -5236,7 +5198,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       controller->GetSidePanelWebContentsForTesting()));
 
   // Get the coordinator.
-  auto* coordinator = controller->results_side_panel_coordinator();
+  auto* coordinator = GetLensOverlaySidePanelCoordinator();
   ASSERT_TRUE(coordinator);
 
   base::HistogramTester histogram_tester;
@@ -5376,6 +5338,10 @@ class LensOverlayControllerBrowserPDFTest
 
   LensSearchController* GetLensSearchController() {
     return LensSearchController::From(browser()->GetActiveTabInterface());
+  }
+
+  lens::LensOverlaySidePanelCoordinator* GetLensOverlaySidePanelCoordinator() {
+    return GetLensSearchController()->lens_overlay_side_panel_coordinator();
   }
 
   LensOverlayController* GetLensOverlayController() {
@@ -5540,11 +5506,11 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFTest,
   std::vector<std::string> text_fragments = {"text1", "text2"};
   uint32_t page_number = 3;
   int tabs = browser()->tab_strip_model()->count();
-  controller->results_side_panel_coordinator()->SetLatestPageUrlWithResponse(
+  GetLensOverlaySidePanelCoordinator()->SetLatestPageUrlWithResponse(
       expected_file_url);
   ui_test_utils::AllBrowserTabAddedWaiter add_tab;
-  controller->results_side_panel_coordinator()->OnScrollToMessage(
-      text_fragments, page_number);
+  GetLensOverlaySidePanelCoordinator()->OnScrollToMessage(text_fragments,
+                                                          page_number);
 
   // Verify the new tab has the URL.
   content::WebContents* new_tab = add_tab.Wait();
@@ -6212,9 +6178,8 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
 
   // Expect the Lens Overlay results panel to open.
   auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(coordinator->IsSidePanelEntryShowing(
+      SidePanelEntryKey(SidePanelEntryId::kLensOverlayResults)));
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
 
@@ -6612,8 +6577,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       LensOverlayInvocationSource::kContentAreaContextMenuImage,
       kTestRegion->Clone(), CreateNonEmptyBitmap(100, 100));
   ASSERT_EQ(controller->state(), State::kScreenshot);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
   EXPECT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
   EXPECT_TRUE(controller->GetOverlayViewForTesting()->GetVisible());
 
@@ -7379,7 +7344,7 @@ IN_PROC_BROWSER_TEST_F(
   // Issue a follow up after ZPS is shown.
   auto* test_side_panel_coordinator =
       static_cast<lens::TestLensOverlaySidePanelCoordinator*>(
-          controller->results_side_panel_coordinator());
+          GetLensOverlaySidePanelCoordinator());
   int follow_up_query_issued_count =
       test_side_panel_coordinator->side_panel_loading_set_to_true_;
 
@@ -7442,7 +7407,7 @@ IN_PROC_BROWSER_TEST_F(
   // the overlay was turned off.
   test_side_panel_coordinator =
       static_cast<lens::TestLensOverlaySidePanelCoordinator*>(
-          controller->results_side_panel_coordinator());
+          GetLensOverlaySidePanelCoordinator());
 
   // Issue a follow up before ZPS is shown.
   follow_up_query_issued_count =
@@ -7523,7 +7488,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   fake_query_controller->ResetTestingState();
 
   // Issue a new searchbox query.
-  controller->results_side_panel_coordinator()->PopAndLoadQueryFromHistory();
+  GetLensOverlaySidePanelCoordinator()->PopAndLoadQueryFromHistory();
 
   // Verify we entered the contextual searchbox flow.
   ASSERT_TRUE(base::test::RunUntil([&]() {
@@ -7575,7 +7540,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   observer.WaitForNavigationFinished();
 
   // Pop last query from history.
-  controller->results_side_panel_coordinator()->PopAndLoadQueryFromHistory();
+  GetLensOverlaySidePanelCoordinator()->PopAndLoadQueryFromHistory();
   observer.WaitForNavigationFinished();
 
   // An interaction request should have been sent for each contextualized query.
@@ -7638,7 +7603,7 @@ IN_PROC_BROWSER_TEST_F(
   observer.WaitForNavigationFinished();
 
   // Pop last query from history.
-  controller->results_side_panel_coordinator()->PopAndLoadQueryFromHistory();
+  GetLensOverlaySidePanelCoordinator()->PopAndLoadQueryFromHistory();
   observer.WaitForNavigationFinished();
 
   // No interaction requests should have been sent as contextualization was
@@ -7747,8 +7712,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
                                                   /*selection_end_index=*/16);
 
   // Verify transitions to live page.
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
 
   // Reset mock query controller so we can verify the new request.
   auto* fake_query_controller =
@@ -7805,7 +7770,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, ProtectedPageShows) {
 
   // Side panel is not showing at first.
   auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_FALSE(coordinator->IsSidePanelShowing());
+  EXPECT_FALSE(coordinator->IsSidePanelShowing(
+      GetLensOverlaySidePanelCoordinator()->GetPanelType()));
   EXPECT_FALSE(controller->GetSidePanelWebContentsForTesting());
 
   // Issuing a request should show the side panel even if navigation is expected
@@ -7817,9 +7783,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, ProtectedPageShows) {
       controller->GetSidePanelWebContentsForTesting()));
 
   // Expect the Lens Overlay results panel to open.
-  ASSERT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(IsLensResultsSidePanelShowing());
 
   // The recorded histogram should be a normal result shown.
   histogram_tester.ExpectTotalCount("Lens.Overlay.SidePanelResultStatus",
@@ -7894,8 +7858,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerIframeBrowserTest,
   GURL url(embedded_test_server()->GetURL(kDocumentWithNamedElement));
   content::TestNavigationObserver navigation_observer(
       controller->GetSidePanelWebContentsForTesting());
-  controller->results_side_panel_coordinator()->LoadURLInResultsFrameForTesting(
-      url);
+  GetLensOverlaySidePanelCoordinator()->LoadURLInResultsFrameForTesting(url);
   navigation_observer.WaitForNavigationFinished();
 
   // Check histogram. The enum is defined in the .cc file so we can't reference
@@ -7933,8 +7896,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerIframeBrowserTest,
   // Navigate the iframe to the connection refused URL.
   content::TestNavigationObserver navigation_observer(
       controller->GetSidePanelWebContentsForTesting());
-  controller->results_side_panel_coordinator()->LoadURLInResultsFrameForTesting(
-      url);
+  GetLensOverlaySidePanelCoordinator()->LoadURLInResultsFrameForTesting(url);
   navigation_observer.WaitForNavigationFinished();
 
   // Check histogram.
@@ -7971,8 +7933,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerIframeBrowserTest,
       /*value=*/"invalid-headers");
   content::TestNavigationObserver navigation_observer(
       controller->GetSidePanelWebContentsForTesting());
-  controller->results_side_panel_coordinator()->LoadURLInResultsFrameForTesting(
-      url);
+  GetLensOverlaySidePanelCoordinator()->LoadURLInResultsFrameForTesting(url);
   navigation_observer.WaitForNavigationFinished();
 
   // Check histogram. The enum is defined in the .cc file so we can't reference
@@ -8433,7 +8394,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerInnerTextAndApc,
 
   // Side panel is not showing at first.
   auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  EXPECT_FALSE(coordinator->IsSidePanelShowing());
+  EXPECT_FALSE(coordinator->IsSidePanelShowing(
+      GetLensOverlaySidePanelCoordinator()->GetPanelType()));
   EXPECT_FALSE(controller->GetSidePanelWebContentsForTesting());
 
   // Issuing a request should show the side panel even if navigation is expected
@@ -8445,9 +8407,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerInnerTextAndApc,
       controller->GetSidePanelWebContentsForTesting()));
 
   // Expect the Lens Overlay results panel to open.
-  ASSERT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(IsLensResultsSidePanelShowing());
 
   // No page data or screenshot should have been sent.
   auto* fake_query_controller =
@@ -8533,8 +8493,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerContextualFeaturesDisabledTest,
   off_center.Offset(100, 100);
   SimulateLeftClickDrag(center, off_center);
 
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
   // Must explicitly get preselection bubble from controller.
   ASSERT_EQ(controller->get_preselection_widget_for_testing(), nullptr);
 }
@@ -8980,50 +8940,6 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerSideBySideBrowserTest,
                    ->IsCapturingBackgroundImageForTesting());
 }
 
-// Regression test for crbug.com/6893132.
-IN_PROC_BROWSER_TEST_F(LensOverlayControllerSideBySideBrowserTest,
-                       BackgroundBlurWhenSwitchTabs) {
-  // Load the initial page and ensure it has finished painting.
-  WaitForPaint();
-
-  // State should start in off.
-  auto* controller = GetLensOverlayController();
-  ASSERT_EQ(controller->state(), State::kOff);
-
-  // Grab the index of the currently active tab so we can return to it later.
-  int active_controller_tab_index =
-      browser()->tab_strip_model()->active_index();
-
-  // Showing UI should change the state to screenshot and eventually to overlay.
-  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
-
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kStartingWebUI; }));
-
-  // Quickly switch to a new tab.
-  WaitForPaint(kDocumentWithNamedElement,
-               WindowOpenDisposition::NEW_FOREGROUND_TAB,
-               ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB |
-                   ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
-
-  // The original tab is now in the background, which should cause the
-  // overlay to transition to kBackground.
-  // Wait for this transition to complete.
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kBackground; }));
-
-  // Switch back to the original tab.
-  browser()->tab_strip_model()->ActivateTabAt(active_controller_tab_index);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlay; }));
-
-  // The blur layer delegate should exist now, but it should not be actively
-  // capturing since the blur is applied to a static screenshot in a normal tab.
-  ASSERT_TRUE(controller->GetLensOverlayBlurLayerDelegateForTesting());
-  EXPECT_FALSE(controller->GetLensOverlayBlurLayerDelegateForTesting()
-                   ->IsCapturingBackgroundImageForTesting());
-}
-
 // TODO(crbug.com/422479353): Flaky on Linux MSan.
 #if BUILDFLAG(IS_LINUX) && defined(MEMORY_SANITIZER)
 #define MAYBE_BackgroundBlurLiveInitiallyInSplitTab \
@@ -9078,8 +8994,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerSideBySideBrowserTest,
   controller->IssueTextSelectionRequestForTesting(/*text_query=*/"Apples",
                                                   /*selection_start_index=*/0,
                                                   /*selection_end_index=*/0);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
 
   // Expect the side panel rounded corner to exist.
   ASSERT_TRUE(controller->GetOverlayViewForTesting()->layer());
@@ -9107,6 +9023,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerSideBySideBrowserTest,
 
   // State should start in off.
   auto* controller_1 = GetLensOverlayController();
+  auto* side_panel_coordinator_1 = GetLensOverlaySidePanelCoordinator();
   ASSERT_EQ(controller_1->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
@@ -9121,7 +9038,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerSideBySideBrowserTest,
                                                     /*selection_start_index=*/0,
                                                     /*selection_end_index=*/0);
   ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller_1->state() == State::kOverlayAndResults; }));
+      [&]() { return side_panel_coordinator_1->IsEntryShowing(); }));
 
   // Expect overlay view's corners to be rounded.
   EXPECT_TRUE(controller_1->GetOverlayViewForTesting()->layer() &&
@@ -9138,6 +9055,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerSideBySideBrowserTest,
 
   // State should start in off.
   auto* controller_0 = GetLensOverlayController();
+  auto* side_panel_coordinator_0 = GetLensOverlaySidePanelCoordinator();
   ASSERT_EQ(controller_0->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
@@ -9160,7 +9078,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerSideBySideBrowserTest,
 
   // Wait for backgrounded state to be restored.
   ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller_1->state() == State::kOverlayAndResults; }));
+      [&]() { return side_panel_coordinator_0->IsEntryShowing(); }));
 
   // Expect overlay view's corners to be rounded.
   EXPECT_TRUE(controller_1->GetOverlayViewForTesting()->layer() &&
@@ -9193,8 +9111,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerSideBySideBrowserTest,
   controller->IssueTextSelectionRequestForTesting(/*text_query=*/"Apples",
                                                   /*selection_start_index=*/0,
                                                   /*selection_end_index=*/0);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
 
   // Expect overlay view's top right corner to be rounded.
   gfx::RoundedCornersF rounded_corners = controller->GetOverlayViewForTesting()
@@ -9232,8 +9150,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Wait for the overlay and side panel to fully load.
   ASSERT_EQ(controller->state(), State::kScreenshot);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
   EXPECT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
   ASSERT_TRUE(controller->GetSidePanelWebContentsForTesting());
   EXPECT_TRUE(content::WaitForLoadStop(
@@ -9269,10 +9187,10 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // 3. Add Empty Text Query (Should revert to Image-Only)
   // Issue an empty text search request from the search box.
   const std::string empty_test_text = std::string();
-  controller->results_side_panel_coordinator()->OnImageQueryWithEmptyText();
+  GetLensOverlaySidePanelCoordinator()->OnImageQueryWithEmptyText();
   content::TestNavigationObserver empty_observer(
       controller->GetSidePanelWebContentsForTesting());
-  controller->results_side_panel_coordinator()->OnImageQueryWithEmptyText();
+  GetLensOverlaySidePanelCoordinator()->OnImageQueryWithEmptyText();
   empty_observer.Wait();
 
   // Check that the loaded query state reverted to image-only.
@@ -9302,18 +9220,15 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Wait for the overlay and side panel to fully load.
   ASSERT_EQ(controller->state(), State::kScreenshot);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
   EXPECT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
   ASSERT_TRUE(controller->GetSidePanelWebContentsForTesting());
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
 
   // Verify the side panel is showing Lens results.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  ASSERT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
+  EXPECT_TRUE(IsLensResultsSidePanelShowing());
 
   // Check that the loaded query is image-only.
   auto image_only_query = GetLoadedSearchQuery();
@@ -9325,10 +9240,10 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // 2. Send the textless image query again
   const std::string empty_test_text = std::string();
-  controller->results_side_panel_coordinator()->OnImageQueryWithEmptyText();
+  GetLensOverlaySidePanelCoordinator()->OnImageQueryWithEmptyText();
   content::TestNavigationObserver empty_observer(
       controller->GetSidePanelWebContentsForTesting());
-  controller->results_side_panel_coordinator()->OnImageQueryWithEmptyText();
+  GetLensOverlaySidePanelCoordinator()->OnImageQueryWithEmptyText();
   empty_observer.Wait();
 
   // Check that the loaded query state reverted to image-only.
@@ -9361,8 +9276,10 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   auto* side_panel_coordinator =
       browser()->GetFeatures().side_panel_coordinator();
   side_panel_coordinator->Show(SidePanelEntry::Id::kBookmarks);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return side_panel_coordinator->IsSidePanelShowing(); }));
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return side_panel_coordinator->IsSidePanelEntryShowing(
+        SidePanelEntryKey(SidePanelEntryId::kBookmarks));
+  }));
 
   // Showing UI should change the state to screenshot and eventually to overlay.
   OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
@@ -9421,7 +9338,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, ReshowOverlay) {
   // Opening the overlay in the current session should reshow the overlay.
   GetLensSearchController()->OpenLensOverlayInCurrentSession();
   ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
+      [&]() { return controller->state() == State::kOverlay; }));
   EXPECT_TRUE(controller->GetOverlayViewForTesting()->GetVisible());
 
   // Verify a new screenshot was sent.
@@ -9451,11 +9368,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerZeroStateCsbTest,
   OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
 
   // Expect the Lens Overlay results panel to open.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
-  ASSERT_TRUE(base::test::RunUntil([&]() {
-    return coordinator->IsSidePanelEntryShowing(
-        SidePanelEntryKey(SidePanelEntry::Id::kLensOverlayResults));
-  }));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
   EXPECT_TRUE(content::WaitForLoadStop(
       GetLensOverlaySidePanelCoordinator()->GetSidePanelWebContents()));
   // Overlay should stay in off state.
@@ -9498,18 +9412,14 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
   OpenLensOverlayWithPendingRegion(LensOverlayInvocationSource::kAppMenu,
                                    kTestRegion->Clone(), initial_bitmap);
   ASSERT_EQ(controller->state(), State::kScreenshot);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
 
   // Expect the Lens Overlay results panel to open.
-  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
   auto* test_side_panel_coordinator =
       static_cast<lens::TestLensOverlaySidePanelCoordinator*>(
-          controller->results_side_panel_coordinator());
+          GetLensOverlaySidePanelCoordinator());
   ASSERT_TRUE(test_side_panel_coordinator);
-  ASSERT_TRUE(coordinator->IsSidePanelShowing());
-  EXPECT_EQ(coordinator->GetCurrentEntryId(),
-            SidePanelEntry::Id::kLensOverlayResults);
 
   // Verify overlay showing is sent on initial showing.
   ASSERT_TRUE(base::test::RunUntil([&]() {
@@ -9537,8 +9447,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
 
   // Returning back to the previous tab should show the overlay UI again.
   browser()->tab_strip_model()->ActivateTabAt(active_controller_tab_index);
-  EXPECT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
+  EXPECT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
 
   // Verify overlay showing is sent on foreground.
   ASSERT_TRUE(base::test::RunUntil([&]() {
@@ -9560,12 +9470,375 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
 
   // Opening the overlay in the current session should reshow the overlay.
   GetLensSearchController()->OpenLensOverlayInCurrentSession();
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->state() == State::kOverlayAndResults; }));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
 
   // Verify overlay showing is sent on reshowing.
   ASSERT_TRUE(base::test::RunUntil([&]() {
     return test_side_panel_coordinator->last_is_showing_ &&
            test_side_panel_coordinator->last_is_showing_.value();
   }));
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
+                       ScreenshotDataReceivedWithSidePanelOpen) {
+  WaitForPaint();
+
+  // State should start in off.
+  auto* controller = GetLensOverlayController();
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Issue a text search request to open the side panel without the overlay.
+  GetLensSearchController()->IssueTextSearchRequest(
+      LensOverlayInvocationSource::kContentAreaContextMenuText, "query", {},
+      AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      /*is_zero_prefix_suggestion=*/false,
+      /*suppress_contextualization=*/true);
+
+  // Wait for side panel to be visible.
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
+  ASSERT_TRUE(GetLensOverlaySidePanelCoordinator()->IsEntryShowing());
+
+  // Reset the query controller to verify a new request was sent with the
+  // screenshot.
+  auto* fake_query_controller =
+      static_cast<lens::TestLensOverlayQueryController*>(
+          controller->get_lens_overlay_query_controller_for_testing());
+  fake_query_controller->ResetTestingState();
+
+  auto* fake_controller = static_cast<LensOverlayControllerFake*>(controller);
+  ASSERT_TRUE(fake_controller);
+
+  // Showing UI should change the state to overlay and results eventually.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  // Flush for testing to make sure the mojo call has been processed.
+  fake_controller->FlushForTesting();
+  EXPECT_FALSE(
+      fake_controller->fake_overlay_page_.last_received_screenshot_.empty());
+  ASSERT_TRUE(fake_controller->fake_overlay_page_
+                  .last_received_is_side_panel_open_.has_value());
+  EXPECT_TRUE(fake_controller->fake_overlay_page_
+                  .last_received_is_side_panel_open_.value());
+
+  // Verify the content bytes were included in a followup request.
+  auto page_content_request_payload =
+      fake_query_controller->last_sent_page_content_payload();
+  EXPECT_EQ(fake_query_controller->num_page_content_update_requests_sent(), 1);
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
+                       FollowUpRegionSearchDoesNotLoadInSidePanel) {
+  WaitForPaint();
+  auto* controller = GetLensOverlayController();
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Open the overlay.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  // Issue a search box request with a vsqid to simulate being in an AIM query.
+  // This will set the side_panel_new_tab_url_ in the coordinator after the
+  // navigation in the side panel finishes.
+  controller->IssueSearchBoxRequestForTesting(
+      base::Time::Now(), "first query",
+      AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      /*is_zero_prefix_suggestion=*/false, {{"vsqid", "fake_vsqid"}});
+
+  // Wait for the side panel to open and load.
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kHidden; }));
+  auto* side_panel_web_contents =
+      controller->GetSidePanelWebContentsForTesting();
+  ASSERT_TRUE(side_panel_web_contents);
+  EXPECT_TRUE(content::WaitForLoadStop(side_panel_web_contents));
+  GURL url_before_region_search =
+      side_panel_web_contents->GetLastCommittedURL();
+
+  auto* query_controller = static_cast<lens::TestLensOverlayQueryController*>(
+      controller->get_lens_overlay_query_controller_for_testing());
+  std::optional<lens::LensOverlayVisualSearchInteractionData> vsint_before;
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    vsint_before = query_controller->GetVisualSearchInteractionData();
+    return vsint_before.has_value();
+  }));
+  const std::string vsint_before_string = vsint_before->SerializeAsString();
+  query_controller->ResetTestingState();
+
+  // Reshow the overlay to perform a region search.
+  GetLensSearchController()->OpenLensOverlayInCurrentSession();
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
+  ASSERT_TRUE(base::test::RunUntil([&]() { return controller->state() == State::kOverlay; }));
+
+  // We need to flush the mojo receiver calls to make sure the screenshot was
+  // passed back to the WebUI or else the region selection UI will not render.
+  auto* fake_controller = static_cast<LensOverlayControllerFake*>(controller);
+  ASSERT_TRUE(fake_controller);
+  fake_controller->FlushForTesting();
+  ASSERT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
+
+  // Simulate a region search.
+  controller->IssueLensRegionRequestForTesting(kTestRegion->Clone(),
+                                               /*is_click=*/false);
+
+  // Wait for the region search to be processed.
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return !query_controller->last_queried_region().is_null(); }));
+
+  // Verify that the side panel web contents has focus.
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return side_panel_web_contents->GetRenderWidgetHostView()->HasFocus();
+  }));
+
+  // Verify that no navigation occurred and the URL is unchanged.
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    auto vsint_after = query_controller->GetVisualSearchInteractionData();
+    return url_before_region_search ==
+               side_panel_web_contents->GetLastCommittedURL() &&
+           vsint_after.has_value() &&
+           vsint_before_string != vsint_after->SerializeAsString();
+  }));
+  EXPECT_EQ(url_before_region_search,
+            side_panel_web_contents->GetLastCommittedURL());
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
+                       RecordsShownAndInvoked) {
+  base::HistogramTester histogram_tester;
+  WaitForPaint();
+  auto* controller = GetLensOverlayController();
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Showing UI should change the state to screenshot and eventually to overlay.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_EQ(controller->state(), State::kScreenshot);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  // Verify histograms were recorded correctly.
+  histogram_tester.ExpectTotalCount("Lens.Overlay.Invoked", 1);
+  histogram_tester.ExpectTotalCount("Lens.Overlay.Shown", 1);
+
+  // Issue a region search to open the side panel.
+  controller->IssueLensRegionRequestForTesting(kTestRegion->Clone(),
+                                               /*is_click=*/false);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
+
+  // Expect the Lens Overlay results panel to open.
+  auto* test_side_panel_coordinator =
+      static_cast<lens::TestLensOverlaySidePanelCoordinator*>(
+          GetLensOverlaySidePanelCoordinator());
+  ASSERT_TRUE(test_side_panel_coordinator);
+  EXPECT_TRUE(IsLensResultsSidePanelShowing());
+
+  // Request a close via the close button on the overlay UI.
+  GetLensSearchController()->HideOverlay(
+      lens::LensOverlayDismissalSource::kOverlayCloseButton);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kHidden; }));
+
+  // Opening the overlay in the current session should reshow the overlay.
+  GetLensSearchController()->OpenLensOverlayInCurrentSession();
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  // Verify histograms were recorded correctly.
+  histogram_tester.ExpectTotalCount("Lens.Overlay.Invoked", 1);
+  histogram_tester.ExpectTotalCount("Lens.Overlay.Shown", 2);
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
+                       RecordsShownAndInvoked_OverlayIniitiallyHidden) {
+  base::HistogramTester histogram_tester;
+  WaitForPaint();
+  auto* controller = GetLensOverlayController();
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Issue a text search request to open the side panel without the overlay.
+  GetLensSearchController()->IssueTextSearchRequest(
+      LensOverlayInvocationSource::kContentAreaContextMenuText, "query", {},
+      AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      /*is_zero_prefix_suggestion=*/false,
+      /*suppress_contextualization=*/true);
+
+  // Wait for side panel to be visible.
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
+  ASSERT_TRUE(GetLensOverlaySidePanelCoordinator()->IsEntryShowing());
+
+  // Expect the Lens Overlay results panel to open.
+  auto* test_side_panel_coordinator =
+      static_cast<lens::TestLensOverlaySidePanelCoordinator*>(
+          GetLensOverlaySidePanelCoordinator());
+  ASSERT_TRUE(test_side_panel_coordinator);
+
+  // Verify histograms were not recorded as the overlay has not been shown yet.
+  histogram_tester.ExpectTotalCount("Lens.Overlay.Invoked", 0);
+  histogram_tester.ExpectTotalCount("Lens.Overlay.Shown", 0);
+
+  // Opening the overlay in the current session should reshow the overlay.
+  GetLensSearchController()->OpenLensOverlayInCurrentSession();
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  // Verify histograms were recorded correctly.
+  histogram_tester.ExpectTotalCount("Lens.Overlay.Invoked", 1);
+  histogram_tester.ExpectTotalCount("Lens.Overlay.Shown", 1);
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
+                       BackgroundOverlayDuringReshow) {
+  WaitForPaint();
+  auto* controller = GetLensOverlayController();
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Showing UI should change the state to screenshot and eventually to overlay.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  // Issue a region search to open the side panel.
+  controller->IssueLensRegionRequestForTesting(kTestRegion->Clone(),
+                                               /*is_click=*/false);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
+
+  // Request a close via the close button on the overlay UI.
+  GetLensSearchController()->HideOverlay(
+      lens::LensOverlayDismissalSource::kOverlayCloseButton);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kHidden; }));
+
+  // Opening the overlay in the current session should start reshowing the
+  // overlay.
+  GetLensSearchController()->OpenLensOverlayInCurrentSession();
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kIsReshowing; }));
+
+  // Grab the index of the currently active tab so we can return to it later.
+  int active_controller_tab_index =
+      browser()->tab_strip_model()->active_index();
+
+  // Opening a new tab should background the overlay UI.
+  WaitForPaint(kDocumentWithNamedElement,
+               WindowOpenDisposition::NEW_FOREGROUND_TAB,
+               ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB |
+                   ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kBackground; }));
+  EXPECT_EQ(controller->backgrounded_state_for_testing(), State::kHidden);
+
+  // Returning back to the previous tab should show the side panel, but not the
+  // overlay.
+  browser()->tab_strip_model()->ActivateTabAt(active_controller_tab_index);
+  EXPECT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
+  EXPECT_EQ(controller->state(), State::kHidden);
+
+  // Opening the overlay in the current session should reshow the overlay again.
+  GetLensSearchController()->OpenLensOverlayInCurrentSession();
+  ASSERT_TRUE(controller->state() == State::kIsReshowing);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+  EXPECT_TRUE(controller->GetOverlayViewForTesting()->GetVisible());
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
+                       BackgroundOverlayDuringInitialization) {
+  WaitForPaint();
+  auto* search_controller = GetLensSearchController();
+  auto* controller = GetLensOverlayController();
+  ASSERT_TRUE(search_controller->IsOff());
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Issue a text search request to open the side panel without the overlay.
+  search_controller->IssueTextSearchRequest(
+      LensOverlayInvocationSource::kContentAreaContextMenuText, "query", {},
+      AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      /*is_zero_prefix_suggestion=*/false,
+      /*suppress_contextualization=*/true);
+
+  // Wait for side panel to be visible.
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
+  ASSERT_TRUE(GetLensOverlaySidePanelCoordinator()->IsEntryShowing());
+  ASSERT_FALSE(search_controller->IsOff());
+
+  // Opening the overlay in the current session should start showing the
+  // overlay. Block binding the overlay to test the initialization path.
+  auto* fake_controller =
+      static_cast<LensOverlayControllerFake*>(GetLensOverlayController());
+  ASSERT_TRUE(fake_controller);
+  fake_controller->should_bind_overlay_ = false;
+  search_controller->OpenLensOverlayInCurrentSession();
+  ASSERT_EQ(controller->state(), State::kScreenshot);
+
+  // Grab the index of the currently active tab so we can return to it later.
+  int active_controller_tab_index =
+      browser()->tab_strip_model()->active_index();
+
+  // Opening a new tab should background the overlay UI.
+  WaitForPaint(kDocumentWithNamedElement,
+               WindowOpenDisposition::NEW_FOREGROUND_TAB,
+               ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB |
+                   ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+
+  // The overlay controller should go to kOff state.
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOff; }));
+
+  // Returning back to the previous tab should not show the overlay or side
+  // panel UI.
+  browser()->tab_strip_model()->ActivateTabAt(active_controller_tab_index);
+  EXPECT_FALSE(IsLensResultsSidePanelShowing());
+  // Overlay controller state should be kOff.
+  EXPECT_EQ(controller->state(), State::kOff);
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
+                       RegionSearchLoadsInSidePanel) {
+  WaitForPaint();
+  // State should start in off.
+  auto* controller = GetLensOverlayController();
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Showing UI should change the state to screenshot and eventually to overlay.
+  // Open the overlay.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  // Issue a region search. This should trigger a navigation in the side panel.
+  controller->IssueLensRegionRequestForTesting(kTestRegion->Clone(),
+                                               /*is_click=*/false);
+  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
+  // Expect the Lens Overlay results panel to open.
+  ASSERT_TRUE(coordinator->IsSidePanelEntryShowing(
+      SidePanelEntryKey(SidePanelEntryId::kLensOverlayResults)));
+  EXPECT_TRUE(content::WaitForLoadStop(
+      controller->GetSidePanelWebContentsForTesting()));
+  EXPECT_EQ(controller->get_selected_region_for_testing(), kTestRegion);
+
+  // The selection type should be REGION_SEARCH at this point.
+  auto* query_controller = static_cast<lens::TestLensOverlayQueryController*>(
+      controller->get_lens_overlay_query_controller_for_testing());
+  EXPECT_EQ(query_controller->last_lens_selection_type(), lens::REGION_SEARCH);
+  query_controller->ResetTestingState();
+
+  // Simulate a region search. This should trigger a navigation in the side
+  // panel.
+  content::TestNavigationObserver search_observer(
+      controller->GetSidePanelWebContentsForTesting());
+  controller->IssueLensRegionRequestForTesting(kTestRegion->Clone(),
+                                               /*is_click=*/false);
+
+  // Verify that the navigation occurred.
+  search_observer.WaitForNavigationFinished();
+  EXPECT_EQ(query_controller->last_lens_selection_type(), lens::REGION_SEARCH);
 }

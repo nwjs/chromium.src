@@ -73,9 +73,11 @@ class PLATFORM_EXPORT Color {
     kSRGB,
     kSRGBLinear,
     kDisplayP3,
+    kDisplayP3Linear,
     kA98RGB,
     kProPhotoRGB,
     kRec2020,
+    kRec2100Linear,
     kXYZD50,
     kXYZD65,
 
@@ -121,9 +123,11 @@ class PLATFORM_EXPORT Color {
     return color_space == ColorSpace::kSRGB ||
            color_space == ColorSpace::kSRGBLinear ||
            color_space == ColorSpace::kDisplayP3 ||
+           color_space == ColorSpace::kDisplayP3Linear ||
            color_space == ColorSpace::kA98RGB ||
            color_space == ColorSpace::kProPhotoRGB ||
            color_space == ColorSpace::kRec2020 ||
+           color_space == ColorSpace::kRec2100Linear ||
            color_space == ColorSpace::kXYZD50 ||
            color_space == ColorSpace::kXYZD65;
   }
@@ -427,10 +431,15 @@ class PLATFORM_EXPORT Color {
     return x < 0 ? 0 : (x > 255 ? 255 : x);
   }
 
-  std::tuple<float, float, float> ExportAsXYZD50Floats() const;
+  // Convert to XYZD50. Apply experimental gamut mapping to oklch and oklab if
+  // `gamut_map` is true.
+  std::tuple<float, float, float> ToXYZD50(bool gamut_map = false) const;
 
-  // Common helper function to toSkColor4f and ToGradientStopSkColor4f.
-  SkColor4f ToSkColor4fInternal(bool gamut_map_oklab_oklch) const;
+  // Convert to sRGB. This will call into ToXYZD50 for most spaces, but has some
+  // optimized conversions.
+  std::tuple<float, float, float> ToSRGB(bool gamut_map = false) const;
+
+  std::tuple<float, float, float> ExportAsXYZD50Floats() const;
 
   float PremultiplyColor();
   void UnpremultiplyColor();

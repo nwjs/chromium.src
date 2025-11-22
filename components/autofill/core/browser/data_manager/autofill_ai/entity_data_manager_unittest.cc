@@ -87,11 +87,14 @@ class EntityDataManagerTest : public testing::Test {
 TEST_F(EntityDataManagerTest, InitialPopulation) {
   EntityInstance pp = test::GetPassportEntityInstance();
   EntityInstance dl = test::GetDriversLicenseEntityInstance();
+  EntityInstance fr = test::GetFlightReservationEntityInstance();
 
   helper().autofill_webdata_service()->AddOrUpdateEntityInstance(
       pp, base::DoNothing());
   helper().autofill_webdata_service()->AddOrUpdateEntityInstance(
       dl, base::DoNothing());
+  helper().autofill_webdata_service()->AddOrUpdateEntityInstance(
+      fr, base::DoNothing());
   helper().WaitUntilIdle();
 
   EntityDataManager entity_data_manager(client().GetPrefs(),
@@ -104,7 +107,48 @@ TEST_F(EntityDataManagerTest, InitialPopulation) {
 
   helper().WaitUntilIdle();
   EXPECT_THAT(entity_data_manager.GetEntityInstances(),
-              UnorderedElementsAre(pp, dl));
+              UnorderedElementsAre(pp, dl, fr));
+}
+
+// Tests that the constructor of EntityDataManager queries the database.
+TEST_F(EntityDataManagerTest, StorageMetrics) {
+  EntityInstance passport = test::GetPassportEntityInstance(
+      {.record_type = EntityInstance::RecordType::kLocal});
+  EntityInstance vehicle = test::GetVehicleEntityInstance(
+      {.record_type = EntityInstance::RecordType::kServerWallet});
+
+  helper().autofill_webdata_service()->AddOrUpdateEntityInstance(
+      passport, base::DoNothing());
+  helper().autofill_webdata_service()->AddOrUpdateEntityInstance(
+      vehicle, base::DoNothing());
+  helper().WaitUntilIdle();
+
+  base::HistogramTester histogram_tester;
+  EntityDataManager entity_data_manager(client().GetPrefs(),
+                                        /*identity_manager=*/nullptr,
+                                        &sync_service(),
+                                        helper().autofill_webdata_service(),
+                                        /*history_service=*/nullptr,
+                                        /*strike_database=*/nullptr);
+  helper().WaitUntilIdle();
+  EXPECT_THAT(entity_data_manager.GetEntityInstances(),
+              UnorderedElementsAre(passport, vehicle));
+
+  // Metrics should correctly reflect that the user has one local passport and
+  // one Wallet vehicle stored.
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.StoredEntitiesCount.Passport", 1, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.StoredEntitiesCount.Passport.Local", 1, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.StoredEntitiesCount.Passport.ServerWallet", 0, 1);
+
+  histogram_tester.ExpectUniqueSample("Autofill.Ai.StoredEntitiesCount.Vehicle",
+                                      1, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.StoredEntitiesCount.Vehicle.Local", 0, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.StoredEntitiesCount.Vehicle.ServerWallet", 1, 1);
 }
 
 // Tests the emission of opt-in metrics that are emitted on EDM creation, i.e.
@@ -173,10 +217,28 @@ TEST_F(EntityDataManagerTest_InitiallyEmpty, AddEntityInstance) {
 
   EntityInstance pp = test::GetPassportEntityInstance();
   EntityInstance dl = test::GetDriversLicenseEntityInstance();
-  EXPECT_CALL(observer, OnEntityInstancesChanged).Times(AtLeast(2));
+  EntityInstance fr = test::GetFlightReservationEntityInstance();
+  EXPECT_CALL(observer, OnEntityInstancesChanged).Times(AtLeast(3));
   entity_data_manager().AddOrUpdateEntityInstance(pp);
   entity_data_manager().AddOrUpdateEntityInstance(dl);
-  EXPECT_THAT(GetEntityInstances(), UnorderedElementsAre(pp, dl));
+  entity_data_manager().AddOrUpdateEntityInstance(fr);
+  EXPECT_THAT(GetEntityInstances(), UnorderedElementsAre(pp, dl, fr));
+}
+
+// Tests that AddOrUpdateEntityInstance() correctly adds entities with an id
+// that's not formatted as GUID.
+TEST_F(EntityDataManagerTest_InitiallyEmpty, AddEntityInstanceNonGuidFormatId) {
+  MockEntityDataManagerObserver observer;
+  base::ScopedObservation<EntityDataManager, MockEntityDataManagerObserver>
+      observation{&observer};
+  observation.Observe(&entity_data_manager());
+
+  EntityInstance vr = test::GetVehicleEntityInstanceWithRandomGuid(
+      {.guid = "non-guid-format",
+       .record_type = EntityInstance::RecordType::kServerWallet});
+  EXPECT_CALL(observer, OnEntityInstancesChanged).Times(AtLeast(1));
+  entity_data_manager().AddOrUpdateEntityInstance(vr);
+  EXPECT_THAT(GetEntityInstances(), UnorderedElementsAre(vr));
 }
 
 // Tests that recording an entity being used calls for a database entity update.
@@ -184,7 +246,8 @@ TEST_F(EntityDataManagerTest_InitiallyEmpty, RecordEntityUsed) {
   // TODO(crbug.com/402616006): This test should re-read the entity from the db
   // and make sure the persisted information is the expected one. Update once db
   // columns are updated.
-  EntityInstance pp = test::GetPassportEntityInstance();
+  EntityInstance pp =
+      test::GetPassportEntityInstance({.use_date = base::Time::FromTimeT(0)});
   entity_data_manager().AddOrUpdateEntityInstance(pp);
   EXPECT_EQ(pp.use_count(), 0u);
   EXPECT_EQ(pp.use_date(), base::Time::FromTimeT(0));
@@ -345,6 +408,37 @@ TEST_F(EntityDataManagerTest_InitiallyEmpty, OnOtherDataTypeChangedBySync) {
   helper().WaitUntilIdle();
   // 3. Verify that the cache is NOT reloaded.
   EXPECT_THAT(GetEntityInstances(), IsEmpty());
+}
+
+// Tests that a change notification for AUTOFILL_VALUABLE_METADATA from sync
+// triggers a reload of entities.
+TEST_F(EntityDataManagerTest_InitiallyEmpty,
+       OnAutofillValuableMetadataChangedBySync) {
+  base::test::ScopedFeatureList feature_list{
+      syncer::kSyncAutofillValuableMetadata};
+  MockEntityDataManagerObserver observer;
+  base::ScopedObservation<EntityDataManager, MockEntityDataManagerObserver>
+      observation{&observer};
+  observation.Observe(&entity_data_manager());
+
+  // 1. Add an entity directly to the DB to simulate a sync change.
+  EntityInstance vh = test::GetVehicleEntityInstance();
+  helper().autofill_webdata_service()->AddOrUpdateEntityInstance(
+      vh, base::DoNothing());
+
+  // The EDM's cache is not updated yet.
+  EXPECT_THAT(GetEntityInstances(), IsEmpty());
+
+  // 2. Trigger the sync notification.
+  EXPECT_CALL(observer, OnEntityInstancesChanged);
+  helper().autofill_webdata_service()->GetAutofillBackend(
+      base::BindOnce([](AutofillWebDataBackend* backend) {
+        backend->NotifyOnAutofillChangedBySync(
+            syncer::DataType::AUTOFILL_VALUABLE_METADATA);
+      }));
+  helper().WaitUntilIdle();
+  // 3. Verify that the cache is reloaded.
+  EXPECT_THAT(GetEntityInstances(), UnorderedElementsAre(vh));
 }
 
 }  // namespace

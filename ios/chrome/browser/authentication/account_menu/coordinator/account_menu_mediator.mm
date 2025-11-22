@@ -14,6 +14,7 @@
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
+#import "google_apis/gaia/gaia_id.h"
 #import "ios/chrome/browser/authentication/account_menu/coordinator/account_menu_mediator_delegate.h"
 #import "ios/chrome/browser/authentication/account_menu/public/account_menu_constants.h"
 #import "ios/chrome/browser/authentication/account_menu/ui/account_menu_consumer.h"
@@ -144,28 +145,28 @@
 
 #pragma mark - AccountMenuDataSource
 
-- (NSArray<NSString*>*)secondaryAccountsGaiaIDs {
-  NSMutableArray<NSString*>* gaiaIDs = [NSMutableArray array];
+- (const std::vector<GaiaId>)secondaryAccountsGaiaIDs {
+  std::vector<GaiaId> gaiaIDs;
   for (id<SystemIdentity> identity : _identities) {
-    [gaiaIDs addObject:identity.gaiaID];
+    gaiaIDs.push_back(identity.gaiaId);
   }
   return gaiaIDs;
 }
 
-- (NSString*)nameForGaiaID:(NSString*)gaiaID {
+- (NSString*)nameForGaiaID:(const GaiaId&)gaiaID {
   return [self identityForGaiaID:gaiaID].userFullName;
 }
 
-- (NSString*)emailForGaiaID:(NSString*)gaiaID {
+- (NSString*)emailForGaiaID:(const GaiaId&)gaiaID {
   return [self identityForGaiaID:gaiaID].userEmail;
 }
 
-- (UIImage*)imageForGaiaID:(NSString*)gaiaID {
+- (UIImage*)imageForGaiaID:(const GaiaId&)gaiaID {
   return _accountManagerService->GetIdentityAvatarWithIdentity(
       [self identityForGaiaID:gaiaID], IdentityAvatarSize::TableViewIcon);
 }
 
-- (BOOL)isGaiaIDManaged:(NSString*)gaiaID {
+- (BOOL)isGaiaIDManaged:(const GaiaId&)gaiaID {
   id<SystemIdentity> identity = [self identityForGaiaID:gaiaID];
   CHECK(identity, base::NotFatalUntil::M147);
   if (std::optional<BOOL> managed = IsIdentityManaged(identity);
@@ -222,10 +223,11 @@
   // shutdown.
   _blockUpdates = YES;
   self.userInteractionsBlocked = YES;
-  [self.delegate mediatorWantsToBeDismissed:self
-                                 withResult:SigninCoordinatorResultInterrupted
-                             signedIdentity:nil
-                            userTappedClose:NO];
+  [self.delegate
+      mediatorWantsToBeDismissed:self
+           withCancelationReason:signin_ui::CancelationReason::kFailed
+                  signedIdentity:nil
+                 userTappedClose:NO];
 }
 
 - (void)onExtendedAccountInfoUpdated:(const AccountInfo&)info {
@@ -258,10 +260,11 @@
     (AccountMenuViewController*)viewController {
   CHECK_EQ(viewController, _consumer);
   self.userInteractionsBlocked = YES;
-  [_delegate mediatorWantsToBeDismissed:self
-                             withResult:SigninCoordinatorResultCanceledByUser
-                         signedIdentity:nil
-                        userTappedClose:YES];
+  [_delegate
+      mediatorWantsToBeDismissed:self
+           withCancelationReason:signin_ui::CancelationReason::kUserCanceled
+                  signedIdentity:nil
+                 userTappedClose:YES];
 }
 
 - (void)signOutFromTargetRect:(CGRect)targetRect {
@@ -278,7 +281,7 @@
                  }];
 }
 
-- (void)accountTappedWithGaiaID:(NSString*)gaiaID
+- (void)accountTappedWithGaiaID:(const GaiaId*)gaiaID
                      targetRect:(CGRect)targetRect {
   if (self.userInteractionsBlocked) {
     return;
@@ -286,7 +289,7 @@
 
   id<SystemIdentity> identityToSignin = nil;
   for (id<SystemIdentity> identity : _identities) {
-    if (identity.gaiaID == gaiaID) {
+    if (identity.gaiaId == *gaiaID) {
       identityToSignin = identity;
       break;
     }
@@ -405,10 +408,11 @@
     // By signing-out the user cancelled the option to signin in this menu.
     // TODO(crbug.com/400715119): Should consider add a signout result in
     // SigninCoordinatorResult.
-    [_delegate mediatorWantsToBeDismissed:self
-                               withResult:SigninCoordinatorResultCanceledByUser
-                           signedIdentity:nil
-                          userTappedClose:NO];
+    [_delegate
+        mediatorWantsToBeDismissed:self
+             withCancelationReason:signin_ui::CancelationReason::kUserCanceled
+                    signedIdentity:nil
+                   userTappedClose:NO];
   } else {
     // User had not signed-out. Allow to interact with the UI.
     self.userInteractionsBlocked = NO;
@@ -418,13 +422,16 @@
 
 #pragma mark - AuthenticationFlowDelegate
 
-- (void)authenticationFlowDidSignInInSameProfileWithResult:
-            (SigninCoordinatorResult)result
-                                                  identity:(id<SystemIdentity>)
-                                                               identity {
+- (void)
+    authenticationFlowDidSignInInSameProfileWithCancelationReason:
+        (signin_ui::CancelationReason)cancelationReason
+                                                         identity:
+                                                             (id<SystemIdentity>)
+                                                                 identity {
+  BOOL success =
+      cancelationReason == signin_ui::CancelationReason::kNotCanceled;
   [_delegate signinFinished];
-  if (_accessPoint == AccountMenuAccessPoint::kWeb &&
-      result == SigninCoordinatorResultSuccess) {
+  if (_accessPoint == AccountMenuAccessPoint::kWeb && success) {
     GetApplicationContext()->GetLocalState()->SetBoolean(
         prefs::kHasSwitchedAccountsViaWebFlow, true);
   }
@@ -434,12 +441,10 @@
   }
   CHECK(_primaryIdentityBeforeSignin, base::NotFatalUntil::M140);
   _authenticationFlow = nil;
-  BOOL success =
-      result == SigninCoordinatorResult::SigninCoordinatorResultSuccess;
   if (success) {
     CHECK(identity, base::NotFatalUntil::M145);
     [_delegate mediatorWantsToBeDismissed:self
-                               withResult:result
+                    withCancelationReason:cancelationReason
                            signedIdentity:identity
                           userTappedClose:NO];
   } else if (_accountManagerService->IsValidIdentity(
@@ -453,7 +458,7 @@
     [self restartUpdates];
   } else {
     [_delegate mediatorWantsToBeDismissed:self
-                               withResult:result
+                    withCancelationReason:cancelationReason
                            signedIdentity:nil
                           userTappedClose:NO];
   }
@@ -502,21 +507,21 @@
   NSMutableArray<NSString*>* gaiaIDsToAdd = [NSMutableArray array];
   NSMutableArray<NSString*>* gaiaIDsToKeep = [NSMutableArray array];
   for (id<SystemIdentity> secondaryIdentity : identitiesOnDevice) {
-    NSString* gaiaID = secondaryIdentity.gaiaID;
+    GaiaId gaiaID = secondaryIdentity.gaiaId;
     if (secondaryIdentity == _primaryIdentityBeforeSignin) {
       continue;
     }
     BOOL mustAdd = YES;
     for (id<SystemIdentity> displayedIdentity : _identities) {
-      if (gaiaID == displayedIdentity.gaiaID) {
-        [gaiaIDsToKeep addObject:gaiaID];
+      if (gaiaID == displayedIdentity.gaiaId) {
+        [gaiaIDsToKeep addObject:gaiaID.ToNSString()];
         mustAdd = NO;
         break;
       }
     }
     if (mustAdd) {
       [_identities addObject:secondaryIdentity];
-      [gaiaIDsToAdd addObject:gaiaID];
+      [gaiaIDsToAdd addObject:gaiaID.ToNSString()];
     }
   }
 
@@ -524,7 +529,7 @@
     id<SystemIdentity> identity = _identities[i];
     if (![identitiesOnDevice containsObject:identity] ||
         identity == _primaryIdentityBeforeSignin) {
-      [gaiaIDsToRemove addObject:identity.gaiaID];
+      [gaiaIDsToRemove addObject:identity.gaiaId.ToNSString()];
       [_identities removeObjectAtIndex:i--];
       // There will be a new object at place `i`. So we must decrease `i`.
     }
@@ -558,9 +563,9 @@
   [self.consumer setUserInteractionsEnabled:!blocked];
 }
 
-- (id<SystemIdentity>)identityForGaiaID:(NSString*)gaiaID {
+- (id<SystemIdentity>)identityForGaiaID:(const GaiaId&)gaiaID {
   for (id<SystemIdentity> identity : _identities) {
-    if (gaiaID == identity.gaiaID) {
+    if (gaiaID == identity.gaiaId) {
       return identity;
     }
   }

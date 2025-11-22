@@ -5,10 +5,12 @@
 #ifndef CHROME_BROWSER_TOUCH_TO_FILL_AUTOFILL_ANDROID_TOUCH_TO_FILL_PAYMENT_METHOD_VIEW_IMPL_H_
 #define CHROME_BROWSER_TOUCH_TO_FILL_AUTOFILL_ANDROID_TOUCH_TO_FILL_PAYMENT_METHOD_VIEW_IMPL_H_
 
+#include <string>
+
 #include "base/android/scoped_java_ref.h"
+#include "base/containers/span.h"
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_payment_method_view.h"
-#include "components/autofill/core/browser/payments/payments_autofill_client.h"
 
 namespace content {
 class WebContents;
@@ -16,7 +18,11 @@ class WebContents;
 
 namespace autofill {
 
-class BnplIssuer;
+namespace payments {
+struct BnplIssuerContext;
+struct BnplIssuerTosDetail;
+}  // namespace payments
+
 class Iban;
 class LoyaltyCard;
 struct Suggestion;
@@ -52,8 +58,17 @@ class TouchToFillPaymentMethodViewImpl : public TouchToFillPaymentMethodView {
   bool ShowProgressScreen(
       TouchToFillPaymentMethodViewController* controller) override;
   bool ShowBnplIssuers(
-      base::span<const BnplIssuer> bnpl_issuers_to_suggest) override;
+      const TouchToFillPaymentMethodViewController& controller,
+      base::span<const payments::BnplIssuerContext> bnpl_issuer_contexts,
+      const std::string& app_locale) override;
+  bool ShowErrorScreen(TouchToFillPaymentMethodViewController* controller,
+                       const std::u16string& title,
+                       const std::u16string& description) override;
+  bool ShowBnplIssuerTos(
+      const TouchToFillPaymentMethodViewController& controller,
+      const payments::BnplIssuerTosDetail& bnpl_issuer_tos_detail) override;
   void Hide() override;
+  void SetVisible(bool visible) override;
 
   // The corresponding Java TouchToFillPaymentMethodViewBridge.
   base::android::ScopedJavaGlobalRef<jobject> java_object_;

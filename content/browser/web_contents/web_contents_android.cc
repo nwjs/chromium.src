@@ -768,6 +768,14 @@ ScopedJavaLocalRef<jstring> WebContentsAndroid::GetEncoding(JNIEnv* env) const {
                                                 web_contents_->GetEncoding());
 }
 
+void WebContentsAndroid::Discard(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& on_discarded) {
+  web_contents_->Discard(base::BindOnce(
+      &base::android::RunRunnableAndroid,
+      base::android::ScopedJavaGlobalRef<jobject>(on_discarded)));
+}
+
 void WebContentsAndroid::SetOverscrollRefreshHandler(
     JNIEnv* env,
     const base::android::JavaParamRef<jobject>& overscroll_refresh_handler) {
@@ -988,6 +996,12 @@ void WebContentsAndroid::UpdateWindowControlsOverlay(JNIEnv* env,
 
   web_contents_->UpdateWindowControlsOverlay(
       gfx::Rect(left, top, right - left, bottom - top));
+}
+
+void WebContentsAndroid::SetSupportsDraggableRegions(
+    JNIEnv* env,
+    bool supports_draggable_regions) {
+  web_contents_->SetSupportsDraggableRegions(supports_draggable_regions);
 }
 
 void WebContentsAndroid::UpdateOffsetTagDefinitions(

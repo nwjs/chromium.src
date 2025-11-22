@@ -48,7 +48,6 @@
 #import "ios/chrome/browser/drive/model/drive_tab_helper.h"
 #import "ios/chrome/browser/favicon/model/favicon_service_factory.h"
 #import "ios/chrome/browser/find_in_page/model/find_tab_helper.h"
-#import "ios/chrome/browser/follow/model/follow_tab_helper.h"
 #import "ios/chrome/browser/history/model/history_service_factory.h"
 #import "ios/chrome/browser/history/model/history_tab_helper.h"
 #import "ios/chrome/browser/history/model/top_sites_factory.h"
@@ -107,6 +106,7 @@
 #import "ios/chrome/browser/voice/model/voice_search_navigations_tab_helper.h"
 #import "ios/chrome/browser/web/model/annotations/annotations_tab_helper.h"
 #import "ios/chrome/browser/web/model/blocked_popup_tab_helper.h"
+#import "ios/chrome/browser/web/model/choose_file/choose_file_tab_helper.h"
 #import "ios/chrome/browser/web/model/font_size/font_size_tab_helper.h"
 #import "ios/chrome/browser/web/model/image_fetch/image_fetch_tab_helper.h"
 #import "ios/chrome/browser/web/model/invalid_url_tab_helper.h"
@@ -299,15 +299,17 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
     AutofillTabHelper::CreateForWebState(web_state);
   }
 
-  if (!for_lens_overlay && !for_prerender) {
-    ChromeIOSTranslateClient::CreateForWebState(web_state);
+  if (!for_lens_overlay && !for_prerender && !for_reader_mode) {
+    ChromeIOSTranslateClient::CreateForWebState(
+        web_state, InfoBarManagerImpl::FromWebState(web_state));
   }
 
   if (!for_lens_overlay && !for_reader_mode) {
     InfobarBadgeTabHelper::GetOrCreateForWebState(web_state);
     if (base::FeatureList::IsEnabled(kIOSPasskeyShim)) {
       PasskeyTabHelper::CreateForWebState(
-          web_state, IOSPasskeyModelFactory::GetForProfile(profile));
+          web_state, IOSPasskeyModelFactory::GetForProfile(profile),
+          base::FeatureList::IsEnabled(kIOSPasskeyModalLoginWithShim));
     }
   }
 
@@ -334,10 +336,6 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
       base::FeatureList::IsEnabled(omnibox::kDefaultTypedNavigationsToHttps)) {
     TypedNavigationUpgradeTabHelper::CreateForWebState(
         web_state, HttpsUpgradeServiceFactory::GetForProfile(profile));
-  }
-
-  if (!is_off_the_record) {
-    FollowTabHelper::CreateForWebState(web_state);
   }
 
   if (!for_lens_overlay && !for_reader_mode && !is_off_the_record) {
@@ -384,4 +382,10 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
   }
 
   WebViewProxyTabHelper::CreateForWebState(web_state);
+
+  if (!for_prerender && !for_reader_mode && !for_lens_overlay &&
+      (base::FeatureList::IsEnabled(kIOSChooseFromDrive) ||
+       base::FeatureList::IsEnabled(kIOSCustomFileUploadMenu))) {
+    ChooseFileTabHelper::CreateForWebState(web_state);
+  }
 }

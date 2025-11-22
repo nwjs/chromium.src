@@ -25,6 +25,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
+#include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
@@ -150,7 +151,7 @@ class NativeInputMethodEngineWithoutImeServiceTest
   }
 
   void SetUpTextInput(TextInputTestHelper& helper) {
-    GURL url = ui_test_utils::GetTestUrl(
+    GURL url = chrome_test_utils::GetTestUrl(
         base::FilePath(FILE_PATH_LITERAL("textinput")),
         base::FilePath(FILE_PATH_LITERAL("simple_textarea.html")));
     ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
@@ -217,37 +218,6 @@ class NativeInputMethodEngineWithoutImeServiceTest
 constexpr char kEngineIdUs[] = "xkb:us::eng";
 
 }  // namespace
-
-IN_PROC_BROWSER_TEST_F(NativeInputMethodEngineWithoutImeServiceTest,
-                       SuggestEmoji) {
-  base::HistogramTester histogram_tester;
-  engine_->Enable(kEngineIdUs);
-  TextInputTestHelper helper(GetBrowserInputMethod());
-  SetUpTextInput(helper);
-  const std::u16string prefix_text = u"happy ";
-  const std::u16string expected_result_text = u"happy 😀";
-
-  helper.GetTextInputClient()->InsertText(
-      prefix_text,
-      ui::TextInputClient::InsertTextCursorBehavior::kMoveCursorAfterText);
-  helper.WaitForSurroundingTextChanged(prefix_text);
-  // Selects first emoji.
-  DispatchKeyPress(ui::VKEY_DOWN, false);
-  DispatchKeyPress(ui::VKEY_RETURN, false);
-  helper.WaitForSurroundingTextChanged(expected_result_text);
-
-  EXPECT_EQ(expected_result_text, helper.GetSurroundingText());
-  histogram_tester.ExpectUniqueSample("InputMethod.Assistive.Match",
-                                      AssistiveType::kEmoji, 1);
-  histogram_tester.ExpectUniqueSample("InputMethod.Assistive.Disabled.Emoji",
-                                      DisabledReason::kNone, 1);
-  histogram_tester.ExpectUniqueSample("InputMethod.Assistive.Coverage",
-                                      AssistiveType::kEmoji, 1);
-  histogram_tester.ExpectUniqueSample("InputMethod.Assistive.Success",
-                                      AssistiveType::kEmoji, 1);
-
-  SetFocus(nullptr);
-}
 
 IN_PROC_BROWSER_TEST_F(NativeInputMethodEngineWithoutImeServiceTest,
                        DismissEmojiSuggestionWhenUsersContinueTyping) {

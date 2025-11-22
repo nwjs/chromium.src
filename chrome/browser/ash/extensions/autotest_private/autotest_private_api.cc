@@ -228,6 +228,7 @@
 #include "ui/aura/env.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
+#include "ui/aura/window_tracker.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
@@ -681,7 +682,9 @@ api::autotest_private::WindowStateType ToWindowStateType(
       return api::autotest_private::WindowStateType::kSecondarySnapped;
     case chromeos::WindowStateType::kPinned:
       return api::autotest_private::WindowStateType::kPinned;
-    case chromeos::WindowStateType::kTrustedPinned:
+    case chromeos::WindowStateType::kLockedFullscreen:
+      // TODO(crbug.com/429215055): Rename to 'LockedFullscreen'. Update the IDL
+      // as well.
       return api::autotest_private::WindowStateType::kTrustedPinned;
     case chromeos::WindowStateType::kPip:
       return api::autotest_private::WindowStateType::kPip;

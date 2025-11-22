@@ -209,7 +209,7 @@ class DuplicateRequestLogger final {
         base::UmaHistogramTimes(
             base::JoinString({kBaseHistogramName, "MainFrame"}, "."), elapsed);
       }
-      if (IsGoogleHostWithAlpnH3(url.host_piece())) {
+      if (IsGoogleHostWithAlpnH3(url.host())) {
         base::UmaHistogramTimes(
             base::JoinString({kBaseHistogramName, "GoogleHost"}, "."), elapsed);
         if (is_main_frame_navigation) {
@@ -935,7 +935,6 @@ void HttpNetworkTransaction::OnNeedsProxyAuth(
   establishing_tunnel_ = true;
   response_.headers = proxy_response.headers;
   response_.auth_challenge = proxy_response.auth_challenge;
-  response_.did_use_http_auth = proxy_response.did_use_http_auth;
   SetProxyInfoInResponse(used_proxy_info, &response_);
 
   if (!ContentEncodingsValid()) {
@@ -1128,6 +1127,11 @@ int HttpNetworkTransaction::DoCreateStream() {
             enable_ip_based_pooling_for_h2_, enable_alternative_services_,
             net_log_);
   } else {
+    // TODO(crbug.com/414173943): Remove this histogram timer once we confirm
+    // that time consumed by this method is different or the same for the HEv3
+    // and non-HEv3 paths.
+    base::ScopedUmaHistogramTimer histogram_timer(
+        "Net.NetworkTransaction.RequestStreamCpuTime");
     stream_request_ = session_->http_stream_factory()->RequestStream(
         *request_, priority_, /*allowed_bad_certs=*/observed_bad_certs_, this,
         enable_ip_based_pooling_for_h2_, enable_alternative_services_,
@@ -1241,6 +1245,10 @@ int HttpNetworkTransaction::DoInitStream() {
   next_state_ = STATE_INIT_STREAM_COMPLETE;
 
   initialize_stream_start_time_ = base::TimeTicks::Now();
+  // Reset `initialize_stream_end_time_` to prevent an inconsistent state in
+  // case that `DoInitStream()` is called multiple times.
+  initialize_stream_end_time_ = base::TimeTicks();
+
   int rv = stream_->InitializeStream(can_send_early_data_, priority_, net_log_,
                                      io_callback_);
 
@@ -1251,10 +1259,9 @@ int HttpNetworkTransaction::DoInitStream() {
     blocked_initialize_stream_start_time_ = initialize_stream_start_time_;
   }
   base::UmaHistogramBoolean(
-      base::StrCat(
-          {"Net.NetworkTransaction.InitializeStreamBlocked",
-           IsGoogleHostWithAlpnH3(url_.host_piece()) ? "GoogleHost." : ".",
-           NegotiatedProtocolToHistogramSuffix(negotiated_protocol_)}),
+      base::StrCat({"Net.NetworkTransaction.InitializeStreamBlocked",
+                    IsGoogleHostWithAlpnH3(url_.host()) ? "GoogleHost." : ".",
+                    NegotiatedProtocolToHistogramSuffix(negotiated_protocol_)}),
       blocked);
   return rv;
 }
@@ -1270,7 +1277,7 @@ int HttpNetworkTransaction::DoInitStreamComplete(int result) {
     base::UmaHistogramTimes(
         base::StrCat(
             {"Net.NetworkTransaction.InitializeStreamBlockTime",
-             IsGoogleHostWithAlpnH3(url_.host_piece()) ? "GoogleHost." : ".",
+             IsGoogleHostWithAlpnH3(url_.host()) ? "GoogleHost." : ".",
              NegotiatedProtocolToHistogramSuffix(negotiated_protocol_)}),
         initialize_stream_end_time_ - blocked_initialize_stream_start_time_);
   }
@@ -1313,10 +1320,9 @@ int HttpNetworkTransaction::DoGenerateProxyAuthToken() {
     blocked_generate_proxy_auth_token_start_time_ = base::TimeTicks::Now();
   }
   base::UmaHistogramBoolean(
-      base::StrCat(
-          {"Net.NetworkTransaction.GenerateProxyAuthTokenBlocked",
-           IsGoogleHostWithAlpnH3(url_.host_piece()) ? "GoogleHost." : ".",
-           NegotiatedProtocolToHistogramSuffix(negotiated_protocol_)}),
+      base::StrCat({"Net.NetworkTransaction.GenerateProxyAuthTokenBlocked",
+                    IsGoogleHostWithAlpnH3(url_.host()) ? "GoogleHost." : ".",
+                    NegotiatedProtocolToHistogramSuffix(negotiated_protocol_)}),
       blocked);
   return rv;
 }
@@ -1329,7 +1335,7 @@ int HttpNetworkTransaction::DoGenerateProxyAuthTokenComplete(int rv) {
     base::UmaHistogramTimes(
         base::StrCat(
             {"Net.NetworkTransaction.GenerateProxyAuthTokenBlockTime",
-             IsGoogleHostWithAlpnH3(url_.host_piece()) ? "GoogleHost." : ".",
+             IsGoogleHostWithAlpnH3(url_.host()) ? "GoogleHost." : ".",
              NegotiatedProtocolToHistogramSuffix(negotiated_protocol_)}),
         base::TimeTicks::Now() - blocked_generate_proxy_auth_token_start_time_);
   }
@@ -1360,10 +1366,9 @@ int HttpNetworkTransaction::DoGenerateServerAuthToken() {
     blocked_generate_server_auth_token_start_time_ = base::TimeTicks::Now();
   }
   base::UmaHistogramBoolean(
-      base::StrCat(
-          {"Net.NetworkTransaction.GenerateServerAuthTokenBlocked",
-           IsGoogleHostWithAlpnH3(url_.host_piece()) ? "GoogleHost." : ".",
-           NegotiatedProtocolToHistogramSuffix(negotiated_protocol_)}),
+      base::StrCat({"Net.NetworkTransaction.GenerateServerAuthTokenBlocked",
+                    IsGoogleHostWithAlpnH3(url_.host()) ? "GoogleHost." : ".",
+                    NegotiatedProtocolToHistogramSuffix(negotiated_protocol_)}),
       blocked);
   return rv;
 }
@@ -1376,7 +1381,7 @@ int HttpNetworkTransaction::DoGenerateServerAuthTokenComplete(int rv) {
     base::UmaHistogramTimes(
         base::StrCat(
             {"Net.NetworkTransaction.GenerateServerAuthTokenBlockTime",
-             IsGoogleHostWithAlpnH3(url_.host_piece()) ? "GoogleHost." : ".",
+             IsGoogleHostWithAlpnH3(url_.host()) ? "GoogleHost." : ".",
              NegotiatedProtocolToHistogramSuffix(negotiated_protocol_)}),
         base::TimeTicks::Now() -
             blocked_generate_server_auth_token_start_time_);
@@ -1461,9 +1466,8 @@ int HttpNetworkTransaction::BuildRequestHeaders(
     modify_headers_callbacks_.Run(&request_headers_);
   }
 
-  response_.did_use_http_auth =
-      request_headers_.HasHeader(HttpRequestHeaders::kAuthorization) ||
-      request_headers_.HasHeader(HttpRequestHeaders::kProxyAuthorization);
+  response_.did_use_server_http_auth =
+      request_headers_.HasHeader(HttpRequestHeaders::kAuthorization);
   return OK;
 }
 
@@ -2283,7 +2287,7 @@ void HttpNetworkTransaction::ResetConnectionAndRequestForResend(
   // TODO:(crbug.com/1495705): Remove this CHECK after fixing the bug.
   CHECK(request_);
   base::UmaHistogramEnumeration(
-      IsGoogleHostWithAlpnH3(url_.host_piece())
+      IsGoogleHostWithAlpnH3(url_.host())
           ? "Net.NetworkTransactionH3SupportedGoogleHost.RetryReason"
           : "Net.NetworkTransaction.RetryReason",
       retry_reason);
@@ -2448,18 +2452,18 @@ void HttpNetworkTransaction::RecordStreamRequestResult(int result) {
   if (num_restarts_ == 0) {
     base::TimeDelta elapsed = base::TimeTicks::Now() - start_timeticks_;
     base::UmaHistogramTimes(
-        base::StrCat(
-            {"Net.NetworkTransaction.StreamRequestCompleteTime2.",
-             IsGoogleHostWithAlpnH3(url_.host_piece()) ? "GoogleHost." : "",
-             result == OK ? "Success" : "Failure"}),
+        base::StrCat({"Net.NetworkTransaction.StreamRequestCompleteTime2.",
+                      IsGoogleHostWithAlpnH3(url_.host()) ? "GoogleHost." : "",
+                      result == OK ? "Success" : "Failure"}),
         elapsed);
   }
 
   if (result == OK) {
+    CHECK(stream_);
     base::UmaHistogramEnumeration(
         base::StrCat({
             "Net.NetworkTransaction.NegotiatedProtocol",
-            IsGoogleHostWithAlpnH3(url_.host_piece()) ? ".GoogleHost" : "",
+            IsGoogleHostWithAlpnH3(url_.host()) ? ".GoogleHost" : "",
         }),
         negotiated_protocol_);
 
@@ -2477,12 +2481,12 @@ void HttpNetworkTransaction::RecordStreamRequestResult(int result) {
         create_stream_end_time_ - create_stream_start_time_;
 
     const std::string_view histogram_base_name =
-        ForWebSocketHandshake() ? "CreateWebSocketStreamTime"
-                                : "CreateHttpStreamTime";
+        ForWebSocketHandshake() ? "CreateWebSocketStreamTime2"
+                                : "CreateHttpStreamTime2";
     const std::string_view host_suffix =
-        IsGoogleHostWithAlpnH3(url_.host_piece()) ? ".GoogleHost" : "";
+        IsGoogleHostWithAlpnH3(url_.host()) ? ".GoogleHost" : "";
     const std::string_view protocol_suffix =
-        NegotiatedProtocolToHistogramSuffix(negotiated_protocol_);
+        NegotiatedProtocolToHistogramSuffixCoalesced(negotiated_protocol_);
     std::string histogram_name =
         base::StrCat({"Net.NetworkTransaction.", histogram_base_name,
                       host_suffix, ".", protocol_suffix});
@@ -2504,8 +2508,30 @@ void HttpNetworkTransaction::RecordStreamRequestResult(int result) {
     if (stream_request_completion_details_->session_source.has_value()) {
       base::UmaHistogramEnumeration(
           base::StrCat(
-              {"Net.NetworkTransaction.SessionSource.", protocol_suffix}),
+              {"Net.NetworkTransaction.SessionSource2.", protocol_suffix}),
           *stream_request_completion_details_->session_source);
+    }
+
+    // Record HttpStream creation time per new/existing stream/session.
+    // TODO(crbug.com/414173943): Remove these histograms after we confirm
+    // there is no difference between the HEv3 and the non-HEv3 paths.
+    if (!ForWebSocketHandshake()) {
+      auto is_existing = [&]() {
+        if (negotiated_protocol_ == NextProto::kProtoUnknown ||
+            negotiated_protocol_ == NextProto::kProtoHTTP11) {
+          // For HTTP/1.1 streams, `IsConnectionReused()` actually means whether
+          // the underlying socket is idle (existing) or fresh (new).
+          return stream_->IsConnectionReused();
+        }
+        CHECK(stream_request_completion_details_->session_source.has_value());
+        return *stream_request_completion_details_->session_source ==
+               SessionSource::kExisting;
+      };
+      base::UmaHistogramTimes(
+          base::StrCat({"Net.NetworkTransaction.", protocol_suffix,
+                        "StreamCreationTime.",
+                        is_existing() ? "Existing" : "New"}),
+          create_time);
     }
   } else {
     base::UmaHistogramSparse("Net.NetworkTransaction.StreamRequestErrorCode2",

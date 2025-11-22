@@ -9,7 +9,6 @@
 #include <string>
 
 #include "chrome/browser/actor/tools/tool_request.h"
-#include "chrome/common/actor.mojom-forward.h"
 #include "url/gurl.h"
 
 namespace actor {
@@ -27,12 +26,9 @@ class NavigateToolRequest : public TabToolRequest {
   // ToolRequest
   CreateToolResult CreateTool(TaskId task_id,
                               ToolDelegate& tool_delegate) const override;
-  std::string JournalEvent() const override;
+  std::string Name() const override;
 
   std::optional<url::Origin> AssociatedOriginGrant() const override;
-
-  std::optional<ObservationDelayController::PageStabilityConfig>
-  GetObservationPageStabilityConfig() const override;
 
  private:
   GURL url_;

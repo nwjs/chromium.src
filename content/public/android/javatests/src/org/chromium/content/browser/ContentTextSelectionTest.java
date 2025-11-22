@@ -30,6 +30,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.IntentUtils;
+import org.chromium.base.SelectionActionMenuClientWrapper.MenuType;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
@@ -39,15 +40,14 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UrlUtils;
+import org.chromium.content.R;
 import org.chromium.content.browser.input.ChromiumBaseInputConnection;
 import org.chromium.content.browser.input.ImeTestUtils;
-import org.chromium.content.browser.selection.SelectActionMenuHelper.DefaultItemOrder;
-import org.chromium.content.browser.selection.SelectActionMenuHelper.GroupItemOrder;
 import org.chromium.content.browser.selection.SelectionPopupControllerImpl;
 import org.chromium.content_public.browser.ActionModeCallbackHelper;
+import org.chromium.content_public.browser.PendingSelectionMenu;
 import org.chromium.content_public.browser.SelectAroundCaretResult;
 import org.chromium.content_public.browser.SelectionClient;
-import org.chromium.content_public.browser.SelectionMenuGroup;
 import org.chromium.content_public.browser.SelectionMenuItem;
 import org.chromium.content_public.browser.Visibility;
 import org.chromium.content_public.browser.WebContents;
@@ -60,7 +60,6 @@ import org.chromium.content_shell_apk.ContentShellActivityTestRule;
 import org.chromium.ui.test.util.DeviceRestriction;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -131,16 +130,24 @@ public class ContentTextSelectionTest {
 
     private static class TestSelectionActionMenuDelegate implements SelectionActionMenuDelegate {
         @Override
-        public void modifyDefaultMenuItems(
-                List<SelectionMenuItem.Builder> menuItemBuilders,
+        public List<SelectionMenuItem> getAdditionalMenuItems(
+                @MenuType int menuType,
                 boolean isSelectionPassword,
                 boolean isSelectionReadOnly,
                 String selectedText) {
-            // No-op because we are testing default menu item ordering with no modifications.
+            if (selectedText.isEmpty()) {
+                return List.of(
+                        new SelectionMenuItem.Builder("testNonSelectionItem")
+                                .setOrderAndCategory(
+                                        0, SelectionMenuItem.ItemGroupOffset.SECONDARY_ASSIST_ITEMS)
+                                .build());
+            }
+            return new ArrayList<>();
         }
 
         @Override
-        public List<ResolveInfo> filterTextProcessingActivities(List<ResolveInfo> activities) {
+        public List<ResolveInfo> filterTextProcessingActivities(
+                @MenuType int menuType, List<ResolveInfo> activities) {
             List<ResolveInfo> resolveInfos = new ArrayList<>();
             ResolveInfo resolveInfo =
                     createResolveInfoWithActivityInfo("ProcessTextActivity", true);
@@ -149,17 +156,7 @@ public class ContentTextSelectionTest {
         }
 
         @Override
-        public List<SelectionMenuItem> getAdditionalNonSelectionItems() {
-            return Arrays.asList(new SelectionMenuItem.Builder("testNonSelectionItem").build());
-        }
-
-        @Override
-        public List<SelectionMenuItem> getAdditionalTextProcessingItems() {
-            return new ArrayList<>();
-        }
-
-        @Override
-        public boolean canReuseCachedSelectionMenu() {
+        public boolean canReuseCachedSelectionMenu(@MenuType int menuType) {
             return true;
         }
 
@@ -372,27 +369,31 @@ public class ContentTextSelectionTest {
         DOMUtils.longPressNode(mWebContents, "whitespace_input_text");
         waitForPastePopupStatus(true);
         waitForSelectActionBarVisible(false);
-        SelectionMenuGroup[] menuGroups =
-                mSelectionPopupController.getMenuItems().toArray(new SelectionMenuGroup[0]);
-        // Default and secondary assist item groups are added to the menu.
-        Assert.assertEquals(GroupItemOrder.DEFAULT_ITEMS, menuGroups[0].order);
-        Assert.assertEquals(GroupItemOrder.SECONDARY_ASSIST_ITEMS, menuGroups[1].order);
-        // Default items. Subtracting 1 to adjust the 1-based indices of the DefaultItemOrder
-        // constants to the 0-based indices of arrays.
-        SelectionMenuItem[] defaultItems = menuGroups[0].items.toArray(new SelectionMenuItem[0]);
-        Assert.assertTrue(defaultItems[DefaultItemOrder.PASTE - 1].isEnabled);
-        Assert.assertTrue(defaultItems[DefaultItemOrder.SELECT_ALL - 1].isEnabled);
-        Assert.assertFalse(defaultItems[DefaultItemOrder.CUT - 1].isEnabled);
-        Assert.assertFalse(defaultItems[DefaultItemOrder.COPY - 1].isEnabled);
-        Assert.assertFalse(defaultItems[DefaultItemOrder.PASTE_AS_PLAIN_TEXT - 1].isEnabled);
-        Assert.assertFalse(defaultItems[DefaultItemOrder.SHARE - 1].isEnabled);
-        Assert.assertFalse(defaultItems[DefaultItemOrder.WEB_SEARCH - 1].isEnabled);
+        PendingSelectionMenu menu =
+                mSelectionPopupController.getPendingSelectionMenu(MenuType.FLOATING);
+        ArrayList<ArrayList<SelectionMenuItem>> menuGroups =
+                getMenuItemsFromPendingSelectionMenu(menu);
+
+        Assert.assertTrue(menuGroups.get(0).isEmpty()); // Primary assist should be empty.
+        Assert.assertFalse(menuGroups.get(1).isEmpty()); // Default should have items.
+        Assert.assertFalse(menuGroups.get(2).isEmpty()); // Secondary assist should have items.
+        Assert.assertTrue(menuGroups.get(3).isEmpty()); // Text processing should be empty.
+
+        // Default items.
+        ArrayList<SelectionMenuItem> defaultItems = menuGroups.get(1);
+
+        // We should only see paste and select all in the default items group. Paste should appear
+        // first.
+        Assert.assertEquals(2, defaultItems.size());
+        Assert.assertEquals(R.id.select_action_menu_paste, defaultItems.get(0).id);
+        Assert.assertEquals(R.id.select_action_menu_select_all, defaultItems.get(1).id);
+
         // The additional non selection (secondary assist) menu item we created is
         // added to the menu.
         Assert.assertEquals(
                 "testNonSelectionItem",
-                menuGroups[1].items.first().getTitle(mActivityTestRule.getActivity()));
-        Assert.assertTrue(menuGroups[1].items.first().isEnabled);
+                menuGroups.get(2).get(0).getTitle(mActivityTestRule.getActivity()));
+        Assert.assertTrue(menuGroups.get(2).get(0).isEnabled);
     }
 
     @Test
@@ -414,36 +415,38 @@ public class ContentTextSelectionTest {
         DOMUtils.longPressNode(mWebContents, "phone_number");
         waitForSelectActionBarVisible(true);
         waitForPastePopupStatus(false);
-        SelectionMenuGroup[] menuGroups =
-                mSelectionPopupController.getMenuItems().toArray(new SelectionMenuGroup[0]);
+        PendingSelectionMenu menu =
+                mSelectionPopupController.getPendingSelectionMenu(MenuType.FLOATING);
+        ArrayList<ArrayList<SelectionMenuItem>> menuGroups =
+                getMenuItemsFromPendingSelectionMenu(menu);
         // Default, primary assist, and text processing item groups are added to the menu.
-        Assert.assertEquals(GroupItemOrder.ASSIST_ITEMS, menuGroups[0].order);
-        Assert.assertEquals(GroupItemOrder.DEFAULT_ITEMS, menuGroups[1].order);
-        Assert.assertEquals(GroupItemOrder.TEXT_PROCESSING_ITEMS, menuGroups[2].order);
+        Assert.assertFalse(menuGroups.get(0).isEmpty()); // Primary assist should have items.
+        Assert.assertFalse(menuGroups.get(1).isEmpty()); // Default should have items.
+        Assert.assertTrue(menuGroups.get(2).isEmpty()); // Secondary assist should be empty.
+        Assert.assertFalse(menuGroups.get(3).isEmpty()); // Text processing should have items.
 
         // Primary assist item we created is added to menu.
         Assert.assertEquals(
-                "Phone", menuGroups[0].items.first().getTitle(mActivityTestRule.getActivity()));
-        Assert.assertTrue(menuGroups[0].items.first().isEnabled);
+                "Phone", menuGroups.get(0).get(0).getTitle(mActivityTestRule.getActivity()));
+        Assert.assertTrue(menuGroups.get(0).get(0).isEnabled);
         // Default items.
-        SelectionMenuItem[] defaultItems = menuGroups[1].items.toArray(new SelectionMenuItem[0]);
-        Assert.assertTrue(defaultItems[DefaultItemOrder.CUT - 1].isEnabled);
-        Assert.assertTrue(defaultItems[DefaultItemOrder.COPY - 1].isEnabled);
-        Assert.assertTrue(defaultItems[DefaultItemOrder.SELECT_ALL - 1].isEnabled);
-        Assert.assertTrue(defaultItems[DefaultItemOrder.PASTE - 1].isEnabled);
-        Assert.assertFalse(defaultItems[DefaultItemOrder.PASTE_AS_PLAIN_TEXT - 1].isEnabled);
-        Assert.assertFalse(defaultItems[DefaultItemOrder.SHARE - 1].isEnabled);
-        Assert.assertFalse(defaultItems[DefaultItemOrder.WEB_SEARCH - 1].isEnabled);
+        ArrayList<SelectionMenuItem> defaultItems = menuGroups.get(1);
+        Assert.assertEquals(4, defaultItems.size());
+        Assert.assertEquals(R.id.select_action_menu_cut, defaultItems.get(0).id);
+        Assert.assertEquals(R.id.select_action_menu_copy, defaultItems.get(1).id);
+        Assert.assertEquals(R.id.select_action_menu_paste, defaultItems.get(2).id);
+        Assert.assertEquals(R.id.select_action_menu_select_all, defaultItems.get(3).id);
+
         // The text processing menu item we created is added to the menu.
         Assert.assertEquals(
                 "testTextProcessingItem",
-                menuGroups[2].items.first().getTitle(mActivityTestRule.getActivity()));
-        Assert.assertTrue(menuGroups[2].items.first().isEnabled);
+                menuGroups.get(3).get(0).getTitle(mActivityTestRule.getActivity()));
+        Assert.assertTrue(menuGroups.get(3).get(0).isEnabled);
         // Check correct processText intent state is sent to 3rd party apps.
         Assert.assertFalse(
-                menuGroups[2]
-                        .items
-                        .first()
+                menuGroups
+                        .get(3)
+                        .get(0)
                         .intent
                         .getBooleanExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, false));
     }
@@ -469,48 +472,54 @@ public class ContentTextSelectionTest {
         DOMUtils.longPressNode(mWebContents, "smart_selection");
         waitForSelectActionBarVisible(true);
         waitForPastePopupStatus(false);
-        SelectionMenuGroup[] menuGroups =
-                mSelectionPopupController.getMenuItems().toArray(new SelectionMenuGroup[0]);
+        PendingSelectionMenu menu =
+                mSelectionPopupController.getPendingSelectionMenu(MenuType.FLOATING);
+        ArrayList<ArrayList<SelectionMenuItem>> menuGroups =
+                getMenuItemsFromPendingSelectionMenu(menu);
 
         // Default, primary assist, and text processing item groups are added to the menu.
-        Assert.assertEquals(GroupItemOrder.ASSIST_ITEMS, menuGroups[0].order);
-        Assert.assertEquals(GroupItemOrder.DEFAULT_ITEMS, menuGroups[1].order);
-        Assert.assertEquals(GroupItemOrder.TEXT_PROCESSING_ITEMS, menuGroups[2].order);
+        Assert.assertFalse(menuGroups.get(0).isEmpty()); // Primary assist should have items.
+        Assert.assertFalse(menuGroups.get(1).isEmpty()); // Default should have items.
+        Assert.assertTrue(menuGroups.get(2).isEmpty()); // Secondary assist should be empty.
+        Assert.assertFalse(menuGroups.get(3).isEmpty()); // Text processing should have items.
         // Primary assist item we created is added to menu.
         Assert.assertEquals(
-                "Map", menuGroups[0].items.first().getTitle(mActivityTestRule.getActivity()));
-        Assert.assertTrue(menuGroups[0].items.first().isEnabled);
+                "Map", menuGroups.get(0).get(0).getTitle(mActivityTestRule.getActivity()));
+        Assert.assertTrue(menuGroups.get(0).get(0).isEnabled);
 
         // Default items.
-        SelectionMenuItem[] defaultItems = menuGroups[1].items.toArray(new SelectionMenuItem[0]);
+        ArrayList<SelectionMenuItem> defaultItems = menuGroups.get(1);
 
         // MENU_ITEM_SHARE and MENU_ITEM_WEB_SEARCH are added to the menu by default but can
         // be removed if there are no activities that can resolve their intents on the system.
-        // So check if they're present first.
+        // If they are allowed, increase how many items we expect in the menu.
+        int nextIndex = 0;
+        Assert.assertEquals(R.id.select_action_menu_copy, defaultItems.get(nextIndex).id);
+        nextIndex++;
         if (mSelectionPopupController.isSelectActionModeAllowed(
                 ActionModeCallbackHelper.MENU_ITEM_SHARE)) {
-            Assert.assertTrue(defaultItems[DefaultItemOrder.SHARE - 1].isEnabled);
+            Assert.assertEquals(R.id.select_action_menu_share, defaultItems.get(nextIndex).id);
+            nextIndex++;
         }
+        Assert.assertEquals(R.id.select_action_menu_select_all, defaultItems.get(nextIndex).id);
+        nextIndex++;
         if (mSelectionPopupController.isSelectActionModeAllowed(
                 ActionModeCallbackHelper.MENU_ITEM_WEB_SEARCH)) {
-            Assert.assertTrue(defaultItems[DefaultItemOrder.WEB_SEARCH - 1].isEnabled);
+            Assert.assertEquals(R.id.select_action_menu_web_search, defaultItems.get(nextIndex).id);
+            nextIndex++;
         }
-        Assert.assertTrue(defaultItems[DefaultItemOrder.COPY - 1].isEnabled);
-        Assert.assertTrue(defaultItems[DefaultItemOrder.SELECT_ALL - 1].isEnabled);
-        Assert.assertFalse(defaultItems[DefaultItemOrder.CUT - 1].isEnabled);
-        Assert.assertFalse(defaultItems[DefaultItemOrder.PASTE - 1].isEnabled);
-        Assert.assertFalse(defaultItems[DefaultItemOrder.PASTE_AS_PLAIN_TEXT - 1].isEnabled);
+        Assert.assertEquals(nextIndex, defaultItems.size());
 
         // The text processing menu item we created is added to the menu.
         Assert.assertEquals(
                 "testTextProcessingItem",
-                menuGroups[2].items.first().getTitle(mActivityTestRule.getActivity()));
-        Assert.assertTrue(menuGroups[2].items.first().isEnabled);
+                menuGroups.get(3).get(0).getTitle(mActivityTestRule.getActivity()));
+        Assert.assertTrue(menuGroups.get(3).get(0).isEnabled);
         // Check correct processText intent state is sent to 3rd party apps.
         Assert.assertTrue(
-                menuGroups[2]
-                        .items
-                        .first()
+                menuGroups
+                        .get(3)
+                        .get(0)
                         .intent
                         .getBooleanExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, false));
     }
@@ -1100,6 +1109,21 @@ public class ContentTextSelectionTest {
         selectActionBarShare();
         i = mActivityTestRule.getActivity().getLastSentIntent();
         Assert.assertEquals(i.getFlags() & new_task_flag, new_task_flag);
+    }
+
+    // This is to work with existing tests that used to use SelectionMenuGroup.
+    // TODO(crbug.com/452918681): Clean this up so it integrates better with the tests.
+    private ArrayList<ArrayList<SelectionMenuItem>> getMenuItemsFromPendingSelectionMenu(
+            PendingSelectionMenu menu) {
+        ArrayList<SelectionMenuItem> allItems = menu.getMenuItemsForTesting();
+
+        ArrayList<ArrayList<SelectionMenuItem>> groupedItems = new ArrayList<>();
+        for (int i = 0; i < 4; i++) groupedItems.add(new ArrayList<>());
+        for (SelectionMenuItem item : allItems) {
+            // Add the item to the corresponding group.
+            groupedItems.get(menu.determineGroup(item)).add(item);
+        }
+        return groupedItems;
     }
 
     private TextClassification createSingleActionTextClassification(String title) {

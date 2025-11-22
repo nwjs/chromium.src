@@ -30,6 +30,9 @@ ci.defaults.set(
     tree_closing_notifiers = ci_constants.DEFAULT_TREE_CLOSING_NOTIFIERS,
     main_console_view = "main",
     execution_timeout = ci_constants.DEFAULT_EXECUTION_TIMEOUT,
+    experiments = {
+        "chromium_tests.resultdb_module": 100,
+    },
     health_spec = health_spec.default(),
     service_account = ci_constants.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci_constants.DEFAULT_SHADOW_SERVICE_ACCOUNT,
@@ -219,6 +222,8 @@ ci.builder(
 
 ci.builder(
     name = "mac-arm64-dbg",
+    branch_selector = branches.selector.MAC_BRANCHES,
+    description_html = "compiles chrome with debug builds on ARM MacOS",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -608,7 +613,7 @@ ci.thin_tester(
                 mixins = "mac_15_arm64",
                 remove_mixins = "mac_15_vm_optional",
             ),
-            # TODO(crbug.com/436628295): test fails on VM
+            # TODO(crbug.com/436628295): tests are <3x slower on VM
             "content_browsertests": targets.per_test_modification(
                 mixins = "mac_15_arm64",
                 remove_mixins = "mac_15_vm_optional",
@@ -826,7 +831,7 @@ ci.thin_tester(
     name = "mac15-tests-dbg",
     branch_selector = branches.selector.MAC_BRANCHES,
     description_html = "Runs Mac 15 tests with debug config.",
-    parent = "ci/Mac Builder (dbg)",
+    parent = "ci/mac-arm64-dbg",
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
         gclient_config = builder_config.gclient_config(
@@ -838,7 +843,7 @@ ci.thin_tester(
                 "mb",
             ],
             build_config = builder_config.build_config.DEBUG,
-            target_arch = builder_config.target_arch.INTEL,
+            target_arch = builder_config.target_arch.ARM,
             target_bits = 64,
             target_platform = builder_config.target_platform.MAC,
         ),
@@ -849,7 +854,7 @@ ci.thin_tester(
             "chromium_dbg_isolated_scripts",
         ],
         mixins = [
-            "mac_15_x64",
+            "mac_15_arm64",
         ],
         per_test_modifications = {
             "blink_web_tests": targets.mixin(

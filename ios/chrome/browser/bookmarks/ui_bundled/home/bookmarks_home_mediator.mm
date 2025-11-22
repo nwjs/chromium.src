@@ -337,7 +337,6 @@ bool IsABookmarkNodeSectionForIdentifier(
   // Add "no result" item.
   TableViewTextItem* item =
       [[TableViewTextItem alloc] initWithType:BookmarksHomeItemTypeMessage];
-  item.textAlignment = NSTextAlignmentLeft;
   item.textColor = [UIColor colorNamed:kTextPrimaryColor];
   item.text = noResults;
   [self.consumer.tableViewModel addItem:item
@@ -674,6 +673,12 @@ bool IsABookmarkNodeSectionForIdentifier(
     // TODO(crbug.com/40064261): This `if` is a workaround until this bug is
     // fixed. This if should be remove when the bug will be closed.
     [self disconnect];
+    return;
+  }
+  if (self.addingNewFolder) {
+    // Adding new folder will trigger a sync update and this callback. Avoid
+    // refreshing content which doesn't add much value and will stop the
+    // editting of the folder name.
     return;
   }
   // If user starts or stops syncing bookmarks, we may have to remove or add the

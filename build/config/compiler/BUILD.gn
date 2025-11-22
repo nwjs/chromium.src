@@ -142,9 +142,14 @@ declare_args() {
   # needs to be evaluated before enabling it there as well.
   init_stack_vars = !(is_android && is_official_build)
 
-  # Zero init has favorable performance/size tradeoffs for Chrome OS
-  # but was not evaluated for other platforms.
-  init_stack_vars_zero = is_chromeos
+  # Specialization of `init_stack_vars` where locals are initialized with
+  # zeroes instead of patterns. Zero init is generally faster and can lead to
+  # better binary size due to being able to use instructions taking
+  # immediates. Patterns potentially have better signaling behavior though. We
+  # thus enable zero-init for all official builds that don't also enable
+  # DCHECKs explicitly or implicitly. Note that this intentionally also keeps
+  # the patterns for DCHECK Canary releases.
+  init_stack_vars_zero = is_official_build && !dcheck_always_on
 
   # This argument is to control whether enabling text section splitting in the
   # final binary. When enabled, the separated text sections with prefix
@@ -261,8 +266,15 @@ declare_args() {
        (clang_use_default_sample_profile || clang_sample_profile_path != ""))
 }
 
-assert(!(llvm_force_head_revision && use_remoteexec && host_os != "linux"),
-       "rbe with locally built clang only works on linux")
+is_bot = false
+if (getenv("SWARMING_HEADLESS") != "" || getenv("SWARMING_BOT_ID") != "" ||
+    getenv("SWARMING_TASK_ID") != "") {
+  is_bot = true
+}
+
+assert(is_bot ||
+           !(llvm_force_head_revision && use_remoteexec && host_os != "linux"),
+       "rbe with locally built clang only works on linux")  # Or on CI bots
 
 # Whether or not we should pass the warning_suppression.txt file to clang
 # compilations. This file allows us to suppress warnings that originate from
@@ -754,7 +766,7 @@ config("compiler") {
       assert(!use_cxx23)
       cflags_cc += [ "/std:c++17" ]
     } else if (use_cxx23) {
-      cflags_cc += [ "/std:c++23" ]
+      cflags_cc += [ "/std:c++23preview" ]
     } else {
       cflags_cc += [ "/std:c++20" ]
     }
@@ -1208,36 +1220,6 @@ config("compiler") {
 # additional command line flags.
 config("disallow_unstable_features") {
   rustflags = [ "-Zallow-features=" ]
-}
-
-config("libcxx_hardening") {
-  # Normally, this would be defined in the `runtime_library` config but NaCl
-  # saigo libc++ does not use the custom hermetic libc++. Unfortunately, there
-  # isn't really a better config to add this define for the define to
-  # consistently apply in both Chromium and non-Chromium code *and* non-NaCl and
-  # NaCl code.
-  #
-  # TODO(crbug.com/40511454): Move this back to the `runtime_library` config
-  # when NaCl is removed.
-  if (use_safe_libcxx) {
-    defines = [ "_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_EXTENSIVE" ]
-  } else {
-    defines = [ "_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_NONE" ]
-  }
-
-  # Enable libstdc++ hardening lightweight assertions. Those have a low
-  # performance penalty but are considered a bare minimum for security.
-  if (use_safe_libstdcxx) {
-    defines += [ "_GLIBCXX_ASSERTIONS=1" ]
-  }
-
-  # Propagate all definitions for hardening to the swift compiler.
-  if (is_ios) {
-    swiftflags = []
-    foreach(_define, defines) {
-      swiftflags += [ "-Xcc=-D$_define" ]
-    }
-  }
 }
 
 # The BUILDCONFIG file sets this config on targets by default, which means when
@@ -1744,6 +1726,12 @@ config("compiler_deterministic") {
       # This removes absolute paths from .pcm files.
       "-Xclang",
       "-fmodule-file-home-is-cwd",
+
+      # Set a fixed dummy path to get deterministic module files even if the
+      # build happens in a different directory. See https://crbug.com/448270644
+      # for more context.
+      "-Xclang",
+      "-fmodules-cache-path=/not_exist_dummy_dir",
     ]
   }
 }
@@ -1870,6 +1858,11 @@ config("sanitize_c_array_bounds") {
       "-fsanitize=array-bounds",
       "-fsanitize-trap=array-bounds",
     ]
+
+    if (defined(ubsan_array_bounds_ignorelist_path)) {
+      rebased = rebase_path(ubsan_array_bounds_ignorelist_path, root_build_dir)
+      cflags += [ "-fsanitize-ignorelist=$rebased" ]
+    }
   }
 }
 
@@ -1946,6 +1939,7 @@ config("libcxx_module") {
 
 config("runtime_library") {
   configs = []
+  defines = []
 
   # The order of this config is important: it must appear before
   # android:runtime_library.  This is to ensure libc++ appears before
@@ -1996,7 +1990,27 @@ config("runtime_library") {
   }
 
   if (is_component_build) {
-    defines = [ "COMPONENT_BUILD" ]
+    defines += [ "COMPONENT_BUILD" ]
+  }
+
+  if (use_safe_libcxx) {
+    defines += [ "_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_EXTENSIVE" ]
+  } else {
+    defines += [ "_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_NONE" ]
+  }
+
+  # Enable libstdc++ hardening lightweight assertions. Those have a low
+  # performance penalty but are considered a bare minimum for security.
+  if (use_safe_libstdcxx) {
+    defines += [ "_GLIBCXX_ASSERTIONS=1" ]
+  }
+
+  # Propagate all definitions for hardening to the swift compiler.
+  if (is_ios) {
+    swiftflags = []
+    foreach(_define, defines) {
+      swiftflags += [ "-Xcc=-D$_define" ]
+    }
   }
 }
 

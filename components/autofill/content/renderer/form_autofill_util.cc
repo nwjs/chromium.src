@@ -222,8 +222,7 @@ bool IsAdmissibleUrl(const blink::WebURL& url) {
   if (url.ProtocolIs("about") && GURL(url).IsAboutSrcdoc()) {
     return true;
   }
-  return !base::FeatureList::IsEnabled(
-      features::kAutofillExtractOnlyOnAdmissibleUrls);
+  return false;
 }
 
 // Returns the form's |name| attribute if non-empty; otherwise the form's |id|
@@ -1126,7 +1125,8 @@ void RemoveDuplicatesAndLimitTotalLength(ButtonTitleList* result) {
   std::set<ButtonTitleInfo> already_added;
   ButtonTitleList unique_titles;
   int total_length = 0;
-  for (auto title : *result) {
+  for (const auto& immutable_title : *result) {
+    auto title = immutable_title;
     if (already_added.find(title) != already_added.end())
       continue;
     already_added.insert(title);
@@ -1952,9 +1952,6 @@ void WebFormControlElementToFormField(
     field->set_nonce(GetAttribute<kNonce>(element).Utf16());
   }
 
-  const bool kAutofillDetectFieldVisibilityEnabled =
-      base::FeatureList::IsEnabled(features::kAutofillDetectFieldVisibility);
-
   // Traverse up through shadow hosts to see if we can gather missing
   // attributes.
   // TODO(crbug.com/40204601): Make sure this works for all shadow DOM cases,
@@ -2006,9 +2003,7 @@ void WebFormControlElementToFormField(
   field->set_is_autofilled(element.IsAutofilled());
   field->set_is_user_edited(element.UserHasEditedTheField());
   field->set_is_focusable(element.IsFocusable());
-  field->set_is_visible(kAutofillDetectFieldVisibilityEnabled
-                            ? IsWebElementVisible(element)
-                            : field->is_focusable());
+  field->set_is_visible(IsWebElementVisible(element));
   field->set_should_autocomplete(
       element.AutoComplete() &&
       !(field->parsed_autocomplete().has_value() &&

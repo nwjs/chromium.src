@@ -2,8 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//chromeos/ash/components/assistant/assistant.gni")
-
 assert(is_chromeos)
 
 static_library("assistant") {
@@ -19,7 +17,6 @@ static_library("assistant") {
     "//ash/public/cpp",
     "//base",
     "//chrome/browser/apps/app_service",
-    "//chrome/browser/ash/assistant",
     "//chrome/browser/ash/browser_delegate",
     "//chrome/browser/ash/profiles",
     "//chrome/browser/profiles",
@@ -27,7 +24,6 @@ static_library("assistant") {
     "//chrome/browser/web_applications",
     "//chrome/common",
     "//chromeos/ash/services/assistant/public/cpp",
-    "//chromeos/ash/services/assistant/public/proto",
     "//components/session_manager/core",
     "//content/public/browser",
     "//content/public/common",

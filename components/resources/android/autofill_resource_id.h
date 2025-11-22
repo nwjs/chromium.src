@@ -56,6 +56,19 @@ LINK_RESOURCE_ID(IDR_AUTOFILL_CC_VERVE, R.drawable.verve_card)
 LINK_RESOURCE_ID(IDR_AUTOFILL_CC_VISA_OLD, R.drawable.visa_card)
 LINK_RESOURCE_ID(IDR_AUTOFILL_CC_VISA, R.drawable.visa_card)
 LINK_RESOURCE_ID(IDR_AUTOFILL_GOOGLE_PAY, R.drawable.google_pay)
+// TODO(crbug.com/438784697): update the resource id once the internal assets
+// access is added.
+LINK_RESOURCE_ID(IDR_AUTOFILL_GOOGLE_PAY_AFFIRM, R.drawable.bnpl_icon_generic)
+LINK_RESOURCE_ID(IDR_AUTOFILL_GOOGLE_PAY_AFFIRM_DARK,
+                 R.drawable.bnpl_icon_generic)
+LINK_RESOURCE_ID(IDR_AUTOFILL_GOOGLE_PAY_AFTERPAY, R.drawable.bnpl_icon_generic)
+LINK_RESOURCE_ID(IDR_AUTOFILL_GOOGLE_PAY_AFTERPAY_DARK,
+                 R.drawable.bnpl_icon_generic)
+LINK_RESOURCE_ID(IDR_AUTOFILL_GOOGLE_PAY_KLARNA, R.drawable.bnpl_icon_generic)
+LINK_RESOURCE_ID(IDR_AUTOFILL_GOOGLE_PAY_KLARNA_DARK,
+                 R.drawable.bnpl_icon_generic)
+LINK_RESOURCE_ID(IDR_AUTOFILL_GOOGLE_PAY_ZIP, R.drawable.bnpl_icon_generic)
+LINK_RESOURCE_ID(IDR_AUTOFILL_GOOGLE_PAY_ZIP_DARK, R.drawable.bnpl_icon_generic)
 LINK_RESOURCE_ID(IDR_AUTOFILL_KLARNA_LINKED, R.drawable.klarna_linked)
 LINK_RESOURCE_ID(IDR_AUTOFILL_KLARNA_UNLINKED, R.drawable.klarna_unlinked)
 LINK_RESOURCE_ID(IDR_AUTOFILL_METADATA_BNPL_GENERIC,
@@ -109,7 +122,7 @@ LINK_RESOURCE_ID(IDR_AUTOFILL_ZIP_UNLINKED, R.drawable.zip_unlinked)
 
 // Use DECLARE_RESOURCE_ID here as these resources are used for android only.
 DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_CC_SCAN_NEW,
-                    R.drawable.ic_photo_camera_black)
+                    R.drawable.ic_photo_camera_20dp)
 DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_HTTP_WARNING,
                     R.drawable.ic_info_outline_grey_16dp)
 DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_HTTPS_INVALID_WARNING,

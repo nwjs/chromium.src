@@ -23,11 +23,13 @@
 #include "cc/slim/layer.h"
 #include "chrome/browser/android/background_tab_manager.h"
 #include "chrome/browser/android/compositor/tab_content_manager.h"
+#include "chrome/browser/android/media_state_observer.h"
 #include "chrome/browser/android/selection/chrome_selection_dropdown_menu_delegate.h"
 #include "chrome/browser/android/tab_features.h"
 #include "chrome/browser/android/tab_web_contents_delegate_android.h"
 #include "chrome/browser/browser_about_handler.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/notifications/notification_permission_context.h"
 #include "chrome/browser/profiles/profile.h"
@@ -42,6 +44,7 @@
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/startup/bad_flags_prompt.h"
 #include "chrome/browser/ui/tab_helpers.h"
+#include "chrome/common/chrome_features.h"
 #include "components/android_autofill/browser/android_autofill_client.h"
 #include "components/android_autofill/browser/android_autofill_manager.h"
 #include "components/android_autofill/browser/android_autofill_provider.h"
@@ -338,20 +341,6 @@ void TabAndroid::SetWindowSessionID(SessionID window_id) {
   session_tab_helper->SetWindowID(session_window_id_);
 }
 
-std::unique_ptr<content::WebContents> TabAndroid::SwapWebContents(
-    std::unique_ptr<content::WebContents> new_contents,
-    bool did_start_load,
-    bool did_finish_load) {
-  content::WebContents* old_contents = web_contents_.get();
-  JNIEnv* env = base::android::AttachCurrentThread();
-  Java_TabImpl_swapWebContents(env, weak_java_tab_.get(env),
-                               new_contents->GetJavaWebContents(),
-                               did_start_load, did_finish_load);
-  DCHECK_EQ(web_contents_, new_contents);
-  new_contents.release();
-  return base::WrapUnique(old_contents);
-}
-
 bool TabAndroid::IsCustomTab() const {
   JNIEnv* env = base::android::AttachCurrentThread();
   return Java_TabImpl_isCustomTab(env, weak_java_tab_.get(env));
@@ -360,6 +349,11 @@ bool TabAndroid::IsCustomTab() const {
 bool TabAndroid::IsHidden() const {
   JNIEnv* env = base::android::AttachCurrentThread();
   return Java_TabImpl_isHidden(env, weak_java_tab_.get(env));
+}
+
+void TabAndroid::SetMediaState(int media_state) {
+  JNIEnv* env = AttachCurrentThread();
+  Java_TabImpl_setMediaState(env, weak_java_tab_.get(env), media_state);
 }
 
 void TabAndroid::AddObserver(Observer* observer) {
@@ -433,6 +427,10 @@ void TabAndroid::InitWebContents(
 
   // Shows a warning notification for dangerous flags in about:flags.
   ShowBadFlagsPrompt(web_contents());
+
+  if (base::FeatureList::IsEnabled(chrome::android::kMediaIndicatorsAndroid)) {
+    MediaStateObserver::CreateForWebContents(web_contents_.get());
+  }
 
   for (Observer& observer : observers_) {
     observer.OnInitWebContents(this);

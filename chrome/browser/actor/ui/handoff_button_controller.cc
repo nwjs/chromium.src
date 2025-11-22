@@ -8,17 +8,22 @@
 #include "cc/paint/paint_flags.h"
 #include "cc/paint/paint_shader.h"
 #include "chrome/app/vector_icons/vector_icons.h"
+#include "chrome/browser/actor/resources/grit/actor_browser_resources.h"
 #include "chrome/browser/actor/ui/actor_ui_metrics.h"
 #include "chrome/browser/actor/ui/actor_ui_tab_controller.h"
+#include "chrome/browser/actor/ui/actor_ui_window_controller.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/public/tab_dialog_manager.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/vector_icons/vector_icons.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkRRect.h"
 #include "third_party/skia/include/effects/SkGradientShader.h"
 #include "third_party/skia/include/effects/SkImageFilters.h"
+#include "ui/base/cursor/cursor.h"
+#include "ui/base/cursor/mojom/cursor_type.mojom-shared.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -28,21 +33,49 @@
 #include "ui/events/types/event_type.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/skia_conversions.h"
+#include "ui/views/border.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/button/label_button.h"
+#include "ui/views/controls/button/label_button_border.h"
 #include "ui/views/controls/webview/webview.h"
+#include "ui/views/style/typography.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/widget/widget_delegate.h"
+#if BUILDFLAG(ENABLE_GLIC)
+#include "chrome/browser/glic/public/glic_keyed_service.h"
+#include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#endif
 
 namespace {
 
 // A fixed vertical offset from the top of the window, used when the tab
 // strip is not visible.
 constexpr int kHandoffButtonTopOffset = 8;
-constexpr int kHandoffButtonPreferredHeight = 70;
+constexpr int kHandoffButtonPreferredHeight = 44;
 constexpr float kHandoffButtonShadowMargin = 15.0f;
+constexpr float kBackgroundInset = 2.0f;
 constexpr float kHandoffButtonCornerRadius = 48.0f;
+constexpr int kHandoffButtonIconSize = 20;
+constexpr gfx::Insets kHandoffButtonContentPadding =
+    gfx::Insets::TLBR(10, 10, 10, 14);
+
+// A customized LabelButton that shows a hand cursor on hover.
+class HandoffLabelButton : public views::LabelButton {
+  METADATA_HEADER(HandoffLabelButton, views::LabelButton)
+
+ public:
+  using views::LabelButton::LabelButton;
+  ~HandoffLabelButton() override = default;
+
+  // views::View:
+  ui::Cursor GetCursor(const ui::MouseEvent& event) override {
+    return ui::mojom::CursorType::kHand;
+  }
+};
+
+BEGIN_METADATA(HandoffLabelButton)
+END_METADATA
 
 // A custom BubbleFrameView that paints a gradient border.
 class GradientBubbleFrameView : public views::BubbleFrameView {
@@ -67,7 +100,6 @@ class GradientBubbleFrameView : public views::BubbleFrameView {
     constexpr float kShadowBlurSigma = 5.0f;
     constexpr float kShadowOffsetX = 0.0f;
     constexpr float kShadowOffsetY = 3.0f;
-    constexpr float kBackgroundInset = 2.0f;
 
     gfx::RectF button_bounds_f(GetLocalBounds());
     button_bounds_f.Inset(kHandoffButtonShadowMargin);
@@ -87,8 +119,8 @@ class GradientBubbleFrameView : public views::BubbleFrameView {
       SkPoint center = SkPoint::Make(button_bounds_f.CenterPoint().x(),
                                      button_bounds_f.CenterPoint().y());
       const SkColor colors[] = {
-          SkColorSetARGB(255, 117, 93, 252), SkColorSetARGB(255, 93, 93, 252),
-          SkColorSetARGB(255, 68, 137, 255), SkColorSetARGB(255, 68, 137, 255)};
+          SkColorSetARGB(255, 79, 161, 255), SkColorSetARGB(255, 79, 161, 255),
+          SkColorSetARGB(255, 52, 107, 241), SkColorSetARGB(255, 52, 107, 241)};
       const SkScalar pos[] = {0.0f, 0.4f, 0.6f, 1.0f};
       std::vector<SkColor4f> color4fs;
       for (const auto& color : colors) {
@@ -132,9 +164,8 @@ END_METADATA
 
 std::unique_ptr<views::FrameView> CreateHandoffButtonFrameView(
     views::Widget* widget) {
-  const gfx::Insets content_padding = gfx::Insets::VH(12, 20);
   const gfx::Insets total_insets =
-      content_padding + gfx::Insets(kHandoffButtonShadowMargin);
+      gfx::Insets(kHandoffButtonShadowMargin) + gfx::Insets(kBackgroundInset);
   const gfx::RoundedCornersF corners(kHandoffButtonCornerRadius);
   auto frame_view = std::make_unique<GradientBubbleFrameView>(
       total_insets, views::BubbleBorder::Arrow::NONE, corners);
@@ -181,9 +212,11 @@ HandoffButtonController::HandoffButtonController(
 HandoffButtonController::~HandoffButtonController() = default;
 
 void HandoffButtonController::UpdateState(const HandoffButtonState& state,
-                                          bool is_visible) {
+                                          bool is_visible,
+                                          base::OnceClosure callback) {
   if (!state.is_active) {
     CloseButton(views::Widget::ClosedReason::kUnspecified);
+    std::move(callback).Run();
     return;
   }
   is_visible_ = is_visible;
@@ -191,25 +224,27 @@ void HandoffButtonController::UpdateState(const HandoffButtonState& state,
 
   std::u16string text;
   ImageModel icon;
+  // TODO(crbug.com/454932877): Clean up kClient state changes if button removal
+  // for kClient state is finalized.
   switch (state.controller) {
     case kActor:
-      text = TAKE_OVER_TASK_TEXT;
-      // TODO(crbug.com/422541242): Update icon to select_window_2.
-      icon = ImageModel::FromVectorIcon(
-          vector_icons::kSelectWindowChromeRefreshIcon,
-          ::ui::kColorLabelForeground);
+      text = l10n_util::GetStringUTF16(IDS_TAKE_OVER_TASK_LABEL);
+      icon = ImageModel::FromVectorIcon(vector_icons::kPauseIcon,
+                                        ::ui::kColorLabelForeground,
+                                        kHandoffButtonIconSize);
       break;
     case kClient:
-      text = GIVE_TASK_BACK_TEXT;
-      icon = ImageModel::FromVectorIcon(kScreensaverAutoIcon,
-                                        ::ui::kColorLabelForeground);
+      text = l10n_util::GetStringUTF16(IDS_GIVE_TASK_BACK_LABEL);
+      icon = ImageModel::FromVectorIcon(vector_icons::kPlayArrowIcon,
+                                        ::ui::kColorLabelForeground,
+                                        kHandoffButtonIconSize);
       break;
   }
 
   // If the widget doesn't exist, create it with the correct initial state.
   if (!widget_) {
     CreateAndShowButton(text, icon);
-  } else {
+  } else if (button_view_) {
     // If it already exists, update its content.
     button_view_->SetText(text);
     button_view_->SetImageModel(views::Button::STATE_NORMAL, icon);
@@ -217,6 +252,7 @@ void HandoffButtonController::UpdateState(const HandoffButtonState& state,
   }
 
   UpdateVisibility();
+  std::move(callback).Run();
 }
 
 void HandoffButtonController::CreateAndShowButton(const std::u16string& text,
@@ -226,7 +262,7 @@ void HandoffButtonController::CreateAndShowButton(const std::u16string& text,
   auto* tab_dialog_manager = GetTabDialogManager();
 
   // Create the button view.
-  auto button_view = std::make_unique<views::LabelButton>(
+  auto button_view = std::make_unique<HandoffLabelButton>(
       base::BindRepeating(&HandoffButtonController::OnButtonPressed,
                           weak_ptr_factory_.GetWeakPtr()),
       text);
@@ -235,6 +271,10 @@ void HandoffButtonController::CreateAndShowButton(const std::u16string& text,
   button_view_->SetImageModel(views::Button::STATE_NORMAL, icon);
   button_view_->SetProperty(views::kElementIdentifierKey,
                             kHandoffButtonElementId);
+  button_view_->SetLabelStyle(views::style::STYLE_BODY_3_MEDIUM);
+  button_view_->SetBorder(views::CreatePaddedBorder(
+      button_view_->CreateDefaultBorder(),
+      kHandoffButtonContentPadding - gfx::Insets(kBackgroundInset)));
 
   auto widget_delegate = std::make_unique<views::WidgetDelegate>();
   widget_delegate->SetContentsView(std::move(button_view));
@@ -269,15 +309,14 @@ void HandoffButtonController::CreateAndShowButton(const std::u16string& text,
   tab_dialog_params->get_dialog_bounds =
       base::BindRepeating(&HandoffButtonController::GetHandoffButtonBounds,
                           base::Unretained(this), widget.get());
-
-  tab_dialog_manager->ShowDialog(widget.get(), std::move(tab_dialog_params));
   widget_ = std::move(widget);
   widget_->SetHoveredCallback(
       base::BindRepeating(&HandoffButtonController::UpdateButtonHoverStatus,
                           weak_ptr_factory_.GetWeakPtr()));
-
-  widget_->MakeCloseSynchronous(base::BindOnce(
-      &HandoffButtonController::CloseButton, weak_ptr_factory_.GetWeakPtr()));
+  widget_->MakeCloseSynchronous(
+      base::BindOnce(&HandoffButtonController::OnWidgetDestroying,
+                     weak_ptr_factory_.GetWeakPtr()));
+  tab_dialog_manager->ShowDialog(widget_.get(), std::move(tab_dialog_params));
 }
 
 void HandoffButtonController::ShouldShowButton(bool& show) {
@@ -289,7 +328,20 @@ gfx::Rect HandoffButtonController::GetHandoffButtonBounds(
   gfx::Size preferred_size = widget->GetContentsView()->GetPreferredSize();
   preferred_size.set_height(kHandoffButtonPreferredHeight);
 
-  auto* anchor_view = tab_interface_->GetBrowserWindowInterface()->GetWebView();
+  // TODO(crbug.com/447624564): After migrating the Handoff button off the TDM,
+  // explore parenting the bounds of the widget on the contents webview bounds
+  // instead.
+  auto* anchor_view =
+      BrowserElementsViews::From(tab_interface_->GetBrowserWindowInterface())
+          ->RetrieveView(kActiveContentsWebViewRetrievalId);
+  if (auto* window_controller = ActorUiWindowController::From(
+          tab_interface_->GetBrowserWindowInterface())) {
+    if (auto* contents_controller =
+            window_controller->GetControllerForWebContents(
+                tab_interface_->GetContents())) {
+      anchor_view = contents_controller->contents_container_view();
+    }
+  }
   if (!anchor_view) {
     return gfx::Rect(preferred_size);
   }
@@ -305,34 +357,51 @@ gfx::Rect HandoffButtonController::GetHandoffButtonBounds(
   const int y =
       is_tab_strip_visible
           // Vertically center the button on the top edge of the anchor.
-          ? anchor_bounds.y() - preferred_size.height() / 2
+          ? anchor_bounds.y() - preferred_size.height()
           // Position with a fixed offset from the top of the anchor.
           : anchor_bounds.y() - kHandoffButtonTopOffset;
 
   return gfx::Rect({x, y}, preferred_size);
 }
 
-void HandoffButtonController::CloseButton(views::Widget::ClosedReason reason) {
+void HandoffButtonController::OnWidgetDestroying(
+    views::Widget::ClosedReason reason) {
   button_view_ = nullptr;
-  if (widget_) {
-    widget_->CloseNow();
-    widget_.reset();
-    delegate_.reset();
+  widget_.reset();
+  delegate_.reset();
+}
+
+void HandoffButtonController::CloseButton(views::Widget::ClosedReason reason) {
+  if (widget_ && !widget_->IsClosed()) {
+    widget_->CloseWithReason(reason);
   }
 }
 
 void HandoffButtonController::UpdateButtonHoverStatus(bool is_hovered) {
   is_hovering_ = is_hovered;
-  GetTabController()->OnHandoffButtonHoverStatusChanged();
+  if (auto* tab_controller = GetTabController()) {
+    tab_controller->OnHandoffButtonHoverStatusChanged();
+  }
 }
 
 void HandoffButtonController::OnButtonPressed() {
   // If the Actor is currently in control, pressing the button
   // flips the state and pauses the task.
-  if (ownership_ == kActor) {
-    GetTabController()->SetActorTaskPaused();
-  } else {
-    GetTabController()->SetActorTaskResume();
+  if (auto* tab_controller = GetTabController()) {
+    if (ownership_ == kActor) {
+      tab_controller->SetActorTaskPaused();
+#if BUILDFLAG(ENABLE_GLIC)
+      BrowserWindowInterface* bwi = tab_interface_->GetBrowserWindowInterface();
+      auto* glic_service =
+          glic::GlicKeyedServiceFactory::GetGlicKeyedService(bwi->GetProfile());
+      if (glic_service) {
+        glic_service->ToggleUI(bwi, /*prevent_close=*/true,
+                               glic::mojom::InvocationSource::kHandoffButton);
+      }
+#endif
+    } else {
+      tab_controller->SetActorTaskResume();
+    }
   }
   actor::ui::LogHandoffButtonClick(ownership_);
 }

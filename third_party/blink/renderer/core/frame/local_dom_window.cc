@@ -363,11 +363,6 @@ TrustedTypePolicyFactory* LocalDOMWindow::GetTrustedTypesForWorld(
       .stored_value->value;
 }
 
-TrustedTypePolicyFactory* LocalDOMWindow::trustedTypes(
-    ScriptState* script_state) const {
-  return GetTrustedTypesForWorld(script_state->World());
-}
-
 bool LocalDOMWindow::IsCrossSiteSubframe() const {
   if (!GetFrame())
     return false;
@@ -724,7 +719,8 @@ void LocalDOMWindow::ReportPotentialPermissionsPolicyViolation(
     ReportingContext::From(this)->QueueReport(report);
   }
 
-  if (disposition == mojom::blink::PolicyDisposition::kEnforce) {
+  if (disposition == mojom::blink::PolicyDisposition::kEnforce &&
+      !reporting_endpoint.empty()) {
     GetFrame()->Console().AddMessage(MakeGarbageCollected<ConsoleMessage>(
         mojom::blink::ConsoleMessageSource::kViolation,
         mojom::blink::ConsoleMessageLevel::kError, body->message()));
@@ -1265,7 +1261,7 @@ void LocalDOMWindow::SchedulePostMessage(PostedMessage* posted_message) {
   // local dispatch.
   MessageEvent* event = MessageEvent::Create(
       std::move(posted_message->channels), std::move(posted_message->data),
-      posted_message->source_origin->ToString(), message_origin_kind, String(),
+      std::move(posted_message->source_origin), message_origin_kind, String(),
       posted_message->source, posted_message->user_activation,
       posted_message->delegated_capability);
 
@@ -1357,19 +1353,11 @@ void LocalDOMWindow::DispatchMessageEventWithOriginCheck(
     }
   }
 
-  KURL sender(event->origin());
-  if (!GetContentSecurityPolicy()->AllowConnectToSource(
-          sender, sender, RedirectStatus::kNoRedirect,
-          ReportingDisposition::kSuppressReporting)) {
-    UseCounter::Count(
-        this, WebFeature::kPostMessageIncomingWouldBeBlockedByConnectSrc);
-  }
-
+  scoped_refptr<const SecurityOrigin> sender_origin =
+      event->GetSecurityOrigin();
   if (event->IsOriginCheckRequiredToAccessData()) {
-    scoped_refptr<SecurityOrigin> sender_security_origin =
-        SecurityOrigin::Create(sender);
-    if (!sender_security_origin->IsSameOriginWith(GetSecurityOrigin())) {
-      event = MessageEvent::CreateError(event->origin(), event->source());
+    if (!sender_origin->IsSameOriginWith(GetSecurityOrigin())) {
+      event = MessageEvent::CreateError(event);
     }
   }
   if (event->IsLockedToAgentCluster()) {
@@ -1377,10 +1365,8 @@ void LocalDOMWindow::DispatchMessageEventWithOriginCheck(
       UseCounter::Count(
           this,
           WebFeature::kMessageEventSharedArrayBufferDifferentAgentCluster);
-      event = MessageEvent::CreateError(event->origin(), event->source());
+      event = MessageEvent::CreateError(event);
     } else {
-      scoped_refptr<SecurityOrigin> sender_origin =
-          SecurityOrigin::Create(sender);
       if (!sender_origin->IsSameOriginWith(GetSecurityOrigin())) {
         UseCounter::Count(
             this, WebFeature::kMessageEventSharedArrayBufferSameAgentCluster);
@@ -1392,7 +1378,7 @@ void LocalDOMWindow::DispatchMessageEventWithOriginCheck(
   }
 
   if (!event->CanDeserializeIn(this)) {
-    event = MessageEvent::CreateError(event->origin(), event->source());
+    event = MessageEvent::CreateError(event);
   }
 
   if (event->delegatedCapability() ==
@@ -1715,10 +1701,6 @@ int LocalDOMWindow::screenX() const {
   if (!page)
     return 0;
 
-  if (RuntimeEnabledFeatures::ReduceScreenSizeEnabled()) {
-    return 0;
-  }
-
   ChromeClient& chrome_client = page->GetChromeClient();
   if (page->GetSettings().GetReportScreenSizeInPhysicalPixelsQuirk()) {
     return static_cast<int>(
@@ -1736,10 +1718,6 @@ int LocalDOMWindow::screenY() const {
   Page* page = frame->GetPage();
   if (!page)
     return 0;
-
-  if (RuntimeEnabledFeatures::ReduceScreenSizeEnabled()) {
-    return 0;
-  }
 
   ChromeClient& chrome_client = page->GetChromeClient();
   if (page->GetSettings().GetReportScreenSizeInPhysicalPixelsQuirk()) {
@@ -2231,7 +2209,6 @@ void LocalDOMWindow::DispatchLoadEvent() {
       DEVTOOLS_TIMELINE_TRACE_EVENT_INSTANT(
           "MarkLoad", inspector_mark_load_event::Data, frame);
       probe::LoadEventFired(frame);
-      frame->GetFrameScheduler()->OnDispatchLoadEvent();
     }
   }
 }
@@ -2775,4 +2752,12 @@ void LocalDOMWindow::UpdateEventListenerCountsToDocumentForReuseIfNeeded() {
   }
   is_dom_window_reused_ = false;
 }
+
+void LocalDOMWindow::requestResize(ExceptionState& state) {
+  DCHECK(RuntimeEnabledFeatures::ResponsiveIframesEnabled());
+  if (document_) {
+    document_->RequestResizeResponsiveIframe(&state);
+  }
+}
+
 }  // namespace blink

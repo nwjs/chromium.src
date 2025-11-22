@@ -22,6 +22,7 @@
 #include "components/signin/public/identity_manager/accounts_in_cookie_jar_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "google_apis/gaia/google_service_auth_error.h"
+#include "net/base/network_change_notifier.h"
 #include "third_party/omnibox_proto/aim_eligibility_response.pb.h"
 
 class PrefRegistrySimple;
@@ -38,8 +39,10 @@ class SharedURLLoaderFactory;
 }  // namespace network
 
 // Utility service to check if the profile is eligible for AI mode features.
-class AimEligibilityService : public KeyedService,
-                              public signin::IdentityManager::Observer {
+class AimEligibilityService
+    : public KeyedService,
+      public net::NetworkChangeNotifier::NetworkChangeObserver,
+      public signin::IdentityManager::Observer {
  public:
   // Helper that individual AIM features can use to check if they should be
   // enabled. Unlike most chrome features, which simply check if the
@@ -109,7 +112,8 @@ class AimEligibilityService : public KeyedService,
     kStartup = 0,
     kCookieChange = 1,
     kPrimaryAccountChange = 2,
-    kMaxValue = kPrimaryAccountChange,
+    kNetworkChange = 3,
+    kMaxValue = kNetworkChange,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/histograms.xml:AimEligibilityRequestSource)
 
@@ -150,6 +154,10 @@ class AimEligibilityService : public KeyedService,
       const signin::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
       const GoogleServiceAuthError& error) override;
 
+  // net::NetworkChangeNotifier::NetworkChangeObserver:
+  void OnNetworkChanged(
+      net::NetworkChangeNotifier::ConnectionType type) override;
+
   // Callback for when the eligibility response changes. Notifies observers.
   void OnEligibilityResponseChanged();
 
@@ -158,6 +166,12 @@ class AimEligibilityService : public KeyedService,
       const omnibox::AimEligibilityResponse& response_proto);
   // Loads `most_recent_response_` from the prefs, if valid.
   void LoadMostRecentResponse();
+
+  // Returns the request URL or an empty GURL if a valid URL cannot be created;
+  // e.g., Google is not the default search provider.
+  GURL GetRequestUrl(RequestSource request_source,
+                     const TemplateURLService* template_url_service,
+                     signin::IdentityManager* identity_manager);
 
   // Fetch eligibility from the server.
   void StartServerEligibilityRequest(RequestSource request_source);
@@ -169,6 +183,20 @@ class AimEligibilityService : public KeyedService,
   // Returns the given histogram name sliced by the given request source.
   std::string GetHistogramNameSlicedByRequestSource(
       const std::string& name,
+      RequestSource request_source) const;
+  // Records total and sliced histograms for whether the primary account exists.
+  void LogEligibilityRequestPrimaryAccountExists(
+      bool exists,
+      RequestSource request_source) const;
+  // Records total and sliced histograms for whether the primary account was
+  // found in the cookie jar.
+  void LogEligibilityRequestPrimaryAccountInCookieJar(
+      bool in_cookie_jar,
+      RequestSource request_source) const;
+  // Records total and sliced histograms for the index of the primary account
+  // in the cookie jar, if found.
+  void LogEligibilityRequestPrimaryAccountIndex(
+      size_t session_index,
       RequestSource request_source) const;
   // Records total and sliced histograms for eligibility request status.
   void LogEligibilityRequestStatus(EligibilityRequestStatus status,
@@ -203,6 +231,9 @@ class AimEligibilityService : public KeyedService,
 
   // Tracks whether the service has been initialized.
   bool initialized_ = false;
+
+  // Tracks whether the startup request has been sent.
+  bool startup_request_sent_ = false;
 
   // For binding the `OnServerEligibilityResponse()` callback.
   base::WeakPtrFactory<AimEligibilityService> weak_factory_{this};

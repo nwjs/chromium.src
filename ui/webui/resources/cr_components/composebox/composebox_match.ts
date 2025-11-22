@@ -5,7 +5,6 @@
 import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 
 import {loadTimeData} from '//resources/js/load_time_data.js';
-import {mojoString16ToString} from '//resources/js/mojo_type_util.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {AutocompleteMatch, PageHandlerRemote as SearchboxPageHandlerRemote} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 
@@ -22,7 +21,7 @@ export interface ComposeboxMatchElement {
 // Displays an autocomplete match
 export class ComposeboxMatchElement extends CrLitElement {
   static get is() {
-    return 'ntp-composebox-match';
+    return 'cr-composebox-match';
   }
 
   static override get styles() {
@@ -65,16 +64,17 @@ export class ComposeboxMatchElement extends CrLitElement {
 
   override connectedCallback() {
     super.connectedCallback();
-    this.addEventListener('click', (event) => this.onMatchClick_(event));
+    // Use mousedown to avoid clicks being swallowed by focusin.
+    this.addEventListener('mousedown', (event) => this.onMouseDown_(event));
     this.addEventListener('focusin', () => this.onMatchFocusin_());
   }
 
   protected computeContents_(): string {
-    return mojoString16ToString(this.match.contents);
+    return this.match.contents;
   }
 
   protected computeRemoveButtonAriaLabel_(): string {
-    return mojoString16ToString(this.match.removeButtonA11yLabel);
+    return this.match.removeButtonA11yLabel;
   }
 
   protected iconPath_(): string {
@@ -87,7 +87,7 @@ export class ComposeboxMatchElement extends CrLitElement {
     });
   }
 
-  private onMatchClick_(e: MouseEvent) {
+  private onMouseDown_(e: MouseEvent) {
     if (e.button > 1) {
       // Only handle main (generally left) and middle button presses.
       return;
@@ -123,7 +123,7 @@ export class ComposeboxMatchElement extends CrLitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'ntp-composebox-match': ComposeboxMatchElement;
+    'cr-composebox-match': ComposeboxMatchElement;
   }
 }
 

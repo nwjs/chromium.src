@@ -53,6 +53,7 @@ import org.chromium.chrome.browser.tabmodel.TabClosingSource;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabClosureParamsUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
+import org.chromium.chrome.browser.tabmodel.TabGroupTitleUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupUtils.TabGroupCreationCallback;
 import org.chromium.chrome.browser.tabmodel.TabList;
@@ -64,11 +65,12 @@ import org.chromium.chrome.browser.tabwindow.WindowId;
 import org.chromium.chrome.browser.tasks.tab_management.GroupWindowChecker;
 import org.chromium.chrome.browser.tasks.tab_management.GroupWindowState;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupListBottomSheetCoordinator;
-import org.chromium.chrome.browser.tasks.tab_management.TabOverflowMenuCoordinator;
 import org.chromium.chrome.browser.tasks.tab_management.TabShareUtils;
+import org.chromium.chrome.browser.tasks.tab_management.TabStripReorderingHelper;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.widget.ListItemBuilder;
 import org.chromium.components.collaboration.CollaborationService;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.components.tab_groups.TabGroupColorId;
@@ -80,6 +82,7 @@ import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.widget.AnchoredPopupWindow.HorizontalOrientation;
 import org.chromium.ui.widget.RectProvider;
+import org.chromium.url.GURL;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -87,6 +90,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 /**
@@ -95,7 +99,7 @@ import java.util.function.Supplier;
  * the menu, and displaying the menu.
  */
 @NullMarked
-public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<Integer>> {
+public class TabContextMenuCoordinator extends TabStripReorderingHelper<List<Integer>> {
     @SuppressWarnings("HidingField")
     private final Supplier<TabModel> mTabModelSupplier;
 
@@ -114,7 +118,8 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
             WindowAndroid windowAndroid,
             Context context,
             @Nullable TabGroupSyncService tabGroupSyncService,
-            CollaborationService collaborationService) {
+            CollaborationService collaborationService,
+            BiConsumer<List<Integer>, Boolean> reorderFunction) {
         super(
                 R.layout.tab_switcher_action_menu_layout,
                 getMenuItemClickedCallback(
@@ -127,7 +132,8 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
                 multiInstanceManager,
                 tabGroupSyncService,
                 collaborationService,
-                context);
+                context,
+                reorderFunction);
         mTabModelSupplier = tabModelSupplier;
         mTabGroupModelFilter = tabGroupModelFilter;
         mTabGroupCreationCallback = tabGroupCreationCallback;
@@ -158,7 +164,8 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
             MultiInstanceManager multiInstanceManager,
             Supplier<ShareDelegate> shareDelegateSupplier,
             WindowAndroid windowAndroid,
-            Context context) {
+            Context context,
+            BiConsumer<List<Integer>, Boolean> reorderFunction) {
         Profile profile = assumeNonNull(tabModelSupplier.get().getProfile());
 
         @Nullable TabGroupSyncService tabGroupSyncService =
@@ -177,7 +184,8 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
                 windowAndroid,
                 context,
                 tabGroupSyncService,
-                collaborationService);
+                collaborationService,
+                reorderFunction);
     }
 
     @VisibleForTesting
@@ -211,7 +219,7 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
                         .share(tabs.get(0), /* shareDirectly= */ false, TAB_STRIP_CONTEXT_MENU);
             } else if (menuId == R.id.pin_tab_menu_id) {
                 for (Tab tab : tabs) {
-                    tabModel.pinTab(tab.getId());
+                    tabModel.pinTab(tab.getId(), /* showUngroupDialog= */ tabs.size() == 1);
                 }
             } else if (menuId == R.id.unpin_tab_menu_id) {
                 // Unpinning in reverse to maintain the order of the tabs.
@@ -233,6 +241,27 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
                                 /* allowDialog= */ true);
             }
         };
+    }
+
+    @VisibleForTesting
+    boolean areAllTabsMuted(List<Tab> tabs) {
+        TabModel tabModel = mTabModelSupplier.get();
+        for (Tab tab : tabs) {
+            GURL url = tab.getUrl();
+            if (url.isEmpty()) continue;
+
+            String scheme = url.getScheme();
+            boolean isChromeScheme =
+                    UrlConstants.CHROME_SCHEME.equals(scheme)
+                            || UrlConstants.CHROME_NATIVE_SCHEME.equals(scheme);
+
+            if (isChromeScheme && tab.getWebContents() == null) continue;
+
+            if (!tabModel.isMuted(tab)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -268,6 +297,26 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
         }
     }
 
+    @Override
+    protected boolean canItemMoveTowardStart(List<Integer> tabs) {
+        TabModel tabModel = mTabModelSupplier.get();
+        @Nullable Tab tab = tabModel.getTabById(tabs.get(0));
+        if (tab == null) return false;
+        int idx = tabModel.indexOf(tab);
+        return tab.getIsPinned() ? idx > 0 : idx > tabModel.findFirstNonPinnedTabIndex();
+    }
+
+    @Override
+    protected boolean canItemMoveTowardEnd(List<Integer> tabs) {
+        TabModel tabModel = mTabModelSupplier.get();
+        @Nullable Tab tab = tabModel.getTabById(tabs.get(tabs.size() - 1));
+        if (tab == null) return false;
+        int idx = tabModel.indexOf(tab);
+        return tab.getIsPinned()
+                ? idx < tabModel.findFirstNonPinnedTabIndex() - 1
+                : idx < tabModel.getCount() - 1;
+    }
+
     private void buildMenuActionItemsForSingleTab(
             ModelList itemList, List<Tab> tabs, boolean isIncognito) {
         itemList.add(createMoveToTabGroupItem(tabs, isIncognito));
@@ -277,6 +326,13 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
         if (shouldShowMoveToWindowItem(tabs)) {
             itemList.add(createMoveToWindowItem(TabModelUtils.getTabIds(tabs), isIncognito));
         }
+        List<ListItem> reorderItems =
+                createReorderItems(
+                        List.of(tabs.get(0).getId()),
+                        R.string.move_tab_left,
+                        R.string.move_tab_right);
+        // Need to check list is non-empty before calling addAll; otherwise we get assertion error.
+        if (!reorderItems.isEmpty()) itemList.addAll(reorderItems);
         itemList.add(buildMenuDivider(isIncognito));
         if (ShareUtils.shouldEnableShare(tabs.get(0))) {
             // Share is only available for single tab selection.
@@ -425,14 +481,7 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
     }
 
     private ListItem createMuteUnmuteSiteItem(List<Tab> tabs, boolean isIncognito) {
-        boolean showUnmute = true;
-        TabModel tabModel = mTabModelSupplier.get();
-        for (Tab tab : tabs) {
-            if (!tabModel.isMuted(tab)) {
-                showUnmute = false;
-                break;
-            }
-        }
+        boolean showUnmute = areAllTabsMuted(tabs);
         String title =
                 showUnmute
                         ? mContext.getResources()
@@ -586,7 +635,10 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
                     new ListItem(
                             MENU_ITEM,
                             new PropertyModel.Builder(ListMenuItemProperties.ALL_KEYS)
-                                    .with(TITLE, mTabGroupModelFilter.getTabGroupTitle(groupId))
+                                    .with(
+                                            TITLE,
+                                            TabGroupTitleUtils.getDisplayableTitle(
+                                                    mContext, mTabGroupModelFilter, groupId))
                                     .with(ENABLED, true)
                                     .with(CLICK_LISTENER, clickListener)
                                     .with(

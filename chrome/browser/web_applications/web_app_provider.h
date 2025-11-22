@@ -7,6 +7,7 @@
 
 #include <memory>
 
+#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
@@ -14,6 +15,7 @@
 #include "base/types/pass_key.h"
 #include "build/build_config.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "components/webapps/common/web_app_id.h"
 
 class Profile;
 
@@ -56,6 +58,7 @@ class WebAppTranslationManager;
 class WebAppUiManager;
 class WebContentsManager;
 class WebAppProfileDeletionManager;
+enum class FetchManifestAndUpdateResult;
 
 #if BUILDFLAG(IS_CHROMEOS)
 class WebAppRunOnOsLoginManager;
@@ -252,9 +255,12 @@ class WebAppProvider : public KeyedService {
   // Returns a nullptr in the default implementation
   virtual FakeWebAppProvider* AsFakeWebAppProviderForTesting();
 
-#if BUILDFLAG(IS_MAC)
-  void DoDelayedPostStartupWork();
-#endif
+  // Calling this will prevent the delayed post-startup work (e.g. the
+  // `DoDelayedPostStartupWork` method) from being scheduled as a delayed task.
+  // This will CHECK-fail if the system has already started.
+  // Returns a callback that, when called, calls `DoDelayedPostStartupWork`. It
+  // is repeating so tests can test the throttle logic.
+  base::RepeatingClosure DisableDelayedPostStartupWorkForTesting();
 
  protected:
   virtual void StartImpl();
@@ -269,6 +275,11 @@ class WebAppProvider : public KeyedService {
   void OnSyncBridgeReady();
 
   void CheckIsConnected() const;
+
+  void DoDelayedPostStartupWork();
+
+  void OnDefaultAppUpdateComplete(const webapps::AppId& app_id,
+                                  FetchManifestAndUpdateResult result);
 
   std::unique_ptr<AbstractWebAppDatabaseFactory> database_factory_;
   std::unique_ptr<WebAppRegistrarMutable> registrar_;
@@ -313,6 +324,7 @@ class WebAppProvider : public KeyedService {
   bool started_ = false;
   bool connected_ = false;
   bool is_registry_ready_ = false;
+  bool prevent_delayed_startup_tasks_for_testing_ = false;
 
   base::WeakPtrFactory<WebAppProvider> weak_ptr_factory_{this};
 };

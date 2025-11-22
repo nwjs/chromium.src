@@ -30,6 +30,7 @@ namespace tabs {
 
 class TabInterface;
 class TabCollectionObserver;
+class DirectChildWalker;
 
 DECLARE_HANDLE_FACTORY(TabCollection);
 
@@ -226,12 +227,33 @@ class TabCollection : public SupportsHandles<TabCollectionHandleFactory> {
     return GetChildren();
   }
 
-  void NotifyOnChildrenAdded(
-      base::PassKey<TabCollection> pass_key,
-      const std::vector<std::variant<TabCollection::Handle, tabs::TabHandle>>&
-          handles,
-      const std::pair<tabs::TabCollection*, int>& insertion_details,
-      TabCollection* notification_root);
+  virtual const ChildrenVector& GetChildren(
+      base::PassKey<DirectChildWalker> pass_key) const;
+
+  using NodeHandle = std::variant<Handle, TabHandle>;
+  using NodeHandles = std::vector<NodeHandle>;
+
+  // The parent collection and direct index within the parent collection for a
+  // child node. This uniquely determines the position of a node in the tree.
+  struct Position {
+    TabCollection::Handle parent_handle;
+    size_t index;
+  };
+
+  void NotifyOnChildrenAdded(base::PassKey<TabCollection> pass_key,
+                             const NodeHandles& handles,
+                             const Position& insertion_position,
+                             TabCollection* notification_root);
+
+  void NotifyOnChildrenRemoved(base::PassKey<TabCollection> pass_key,
+                               const NodeHandles& handles,
+                               TabCollection* notification_root);
+
+  void NotifyOnChildMoved(base::PassKey<TabCollection> pass_key,
+                          const NodeHandle& handle,
+                          const Position& src_position,
+                          const Position& dst_position,
+                          TabCollection* notification_root);
 
  protected:
   explicit TabCollection(Type type,
@@ -262,9 +284,8 @@ class TabCollection : public SupportsHandles<TabCollectionHandleFactory> {
 };
 
 using TabCollectionHandle = TabCollection::Handle;
-using TabCollectionNodeHandle =
-    std::variant<tabs::TabCollectionHandle, tabs::TabHandle>;
-using TabCollectionNodes = std::vector<TabCollectionNodeHandle>;
+using TabCollectionNodeHandle = TabCollection::NodeHandle;
+using TabCollectionNodes = TabCollection::NodeHandles;
 
 }  // namespace tabs
 

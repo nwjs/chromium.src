@@ -9,6 +9,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
@@ -245,7 +246,7 @@ class FirmwareUpdateManagerTest : public testing::Test {
     network_handler_test_helper_ = std::make_unique<NetworkHandlerTestHelper>();
     dbus::Bus::Options options;
     options.bus_type = dbus::Bus::SYSTEM;
-    bus_ = base::MakeRefCounted<dbus::MockBus>(options);
+    bus_ = base::MakeRefCounted<dbus::MockBus>(std::move(options));
 
     dbus::ObjectPath fwupd_service_path(kFwupdServicePath);
     proxy_ = base::MakeRefCounted<NiceMock<dbus::MockObjectProxy>>(
@@ -255,7 +256,7 @@ class FirmwareUpdateManagerTest : public testing::Test {
                 GetObjectProxy(kFwupdServiceName, fwupd_service_path))
         .WillRepeatedly(testing::Return(proxy_.get()));
 
-    EXPECT_CALL(*proxy_, DoCallMethodWithErrorResponse(_, _, _))
+    EXPECT_CALL(*proxy_, CallMethodWithErrorResponse(_, _, _))
         .WillRepeatedly(
             Invoke(this, &FirmwareUpdateManagerTest::OnMethodCalled));
 
@@ -292,11 +293,11 @@ class FirmwareUpdateManagerTest : public testing::Test {
 
   void OnMethodCalled(dbus::MethodCall* method_call,
                       int timeout_ms,
-                      dbus::ObjectProxy::ResponseOrErrorCallback* callback) {
+                      dbus::ObjectProxy::ResponseOrErrorCallback callback) {
     ASSERT_FALSE(dbus_responses_.empty());
     auto response = std::move(dbus_responses_.front());
     task_environment_.GetMainThreadTaskRunner()->PostTask(
-        FROM_HERE, base::BindOnce(&RunResponseCallback, std::move(*callback),
+        FROM_HERE, base::BindOnce(&RunResponseCallback, std::move(callback),
                                   std::move(response)));
     dbus_responses_.pop_front();
   }

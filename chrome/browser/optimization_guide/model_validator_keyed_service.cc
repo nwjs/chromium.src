@@ -18,9 +18,9 @@
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_component.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_execution_proto_descriptors.h"
+#include "components/optimization_guide/core/model_execution/remote_model_executor.h"
 #include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
-#include "components/optimization_guide/core/optimization_guide_model_executor.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/machine_learning_tflite_buildflags.h"
@@ -194,11 +194,8 @@ void ModelValidatorKeyedService::PerformOnDeviceModelExecutionValidation(
   }
 
   using optimization_guide::SessionConfigParams;
-  on_device_validation_session_ = opt_guide_service->StartSession(
-      capability_key,
-      SessionConfigParams{
-          .execution_mode = SessionConfigParams::ExecutionMode::kOnDeviceOnly,
-      });
+  on_device_validation_session_ =
+      opt_guide_service->StartSession(capability_key, SessionConfigParams{});
   auto metadata = GetProtoFromAny(request.request_metadata());
   on_device_validation_session_->AddContext(*metadata);
   base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(

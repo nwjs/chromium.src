@@ -1580,52 +1580,40 @@ static bool ScrollableMediaFeatureEval(const MediaQueryExpValue& value,
   }
 }
 
-static bool DirectionMediaFeatureEval(const MediaQueryExpValue& value,
-                                      MediaQueryOperator op,
-                                      const MediaValues& media_values) {
+static bool ScrolledMediaFeatureEval(const MediaQueryExpValue& value,
+                                     MediaQueryOperator op,
+                                     const MediaValues& media_values) {
   if (!value.IsValid()) {
-    return media_values.ScrollDirection();
+    return media_values.Scrolled();
   }
 
   switch (value.Id()) {
     case CSSValueID::kNone:
-      return !media_values.ScrollDirection();
+      return !media_values.Scrolled();
     case CSSValueID::kTop:
-      return media_values.ScrollDirectionVertical() ==
-             ContainerScrollDirection::kStart;
+      return media_values.ScrolledVertical() == ContainerScrolled::kStart;
     case CSSValueID::kLeft:
-      return media_values.ScrollDirectionHorizontal() ==
-             ContainerScrollDirection::kStart;
+      return media_values.ScrolledHorizontal() == ContainerScrolled::kStart;
     case CSSValueID::kBottom:
-      return media_values.ScrollDirectionVertical() ==
-             ContainerScrollDirection::kEnd;
+      return media_values.ScrolledVertical() == ContainerScrolled::kEnd;
     case CSSValueID::kRight:
-      return media_values.ScrollDirectionHorizontal() ==
-             ContainerScrollDirection::kEnd;
+      return media_values.ScrolledHorizontal() == ContainerScrolled::kEnd;
     case CSSValueID::kBlockStart:
-      return media_values.ScrollDirectionBlock() ==
-             ContainerScrollDirection::kStart;
+      return media_values.ScrolledBlock() == ContainerScrolled::kStart;
     case CSSValueID::kBlockEnd:
-      return media_values.ScrollDirectionBlock() ==
-             ContainerScrollDirection::kEnd;
+      return media_values.ScrolledBlock() == ContainerScrolled::kEnd;
     case CSSValueID::kInlineStart:
-      return media_values.ScrollDirectionInline() ==
-             ContainerScrollDirection::kStart;
+      return media_values.ScrolledInline() == ContainerScrolled::kStart;
     case CSSValueID::kInlineEnd:
-      return media_values.ScrollDirectionInline() ==
-             ContainerScrollDirection::kEnd;
+      return media_values.ScrolledInline() == ContainerScrolled::kEnd;
     case CSSValueID::kX:
-      return media_values.ScrollDirectionHorizontal() !=
-             ContainerScrollDirection::kNone;
+      return media_values.ScrolledHorizontal() != ContainerScrolled::kNone;
     case CSSValueID::kY:
-      return media_values.ScrollDirectionVertical() !=
-             ContainerScrollDirection::kNone;
+      return media_values.ScrolledVertical() != ContainerScrolled::kNone;
     case CSSValueID::kBlock:
-      return media_values.ScrollDirectionBlock() !=
-             ContainerScrollDirection::kNone;
+      return media_values.ScrolledBlock() != ContainerScrolled::kNone;
     case CSSValueID::kInline:
-      return media_values.ScrollDirectionInline() !=
-             ContainerScrollDirection::kNone;
+      return media_values.ScrolledInline() != ContainerScrolled::kNone;
     default:
       NOTREACHED();
   }
@@ -1773,6 +1761,13 @@ KleeneValue MediaQueryEvaluator::EvalFeature(
     return KleeneValue::kUnknown;
   }
 
+  if (RuntimeEnabledFeatures::CSSCustomMediaEnabled() &&
+      feature.IsCustomMedia() &&
+      CSSVariableParser::IsValidVariableName(feature.Name())) {
+    // TODO(crbug.com/40781325): Support evaluation of custom-media queries.
+    return KleeneValue::kUnknown;
+  }
+
   if (feature.HasStyleRange() ||
       CSSVariableParser::IsValidVariableName(feature.Name())) {
     return EvalStyleFeature(feature, result_flags);
@@ -1870,7 +1865,7 @@ KleeneValue MediaQueryEvaluator::EvalStyleFeature(
     Document* document = media_values_->GetDocument();
 
     StyleResolverState state(*document, *container);
-    state.SetStyle(container->ComputedStyleRef());
+    state.CreateNewClonedStyle(container->ComputedStyleRef());
     const auto* context = MakeGarbageCollected<CSSParserContext>(*document);
 
     const CSSValue* reference = StyleCascade::CoerceIntoNumericValue(

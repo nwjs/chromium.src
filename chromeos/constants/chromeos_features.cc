@@ -12,9 +12,6 @@
 
 namespace chromeos::features {
 
-// Adds Managed APN Policies support.
-BASE_FEATURE(kApnPolicies, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables smaller battery badge icons to improve legibility of the battery
 // percentage.
 BASE_FEATURE(kBatteryBadgeIcon, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -296,9 +293,8 @@ BASE_FEATURE(kNotebookLmAppShelfPinReset, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kWebAppManifestProtocolHandlerSupport,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-bool IsApnPoliciesEnabled() {
-  return base::FeatureList::IsEnabled(kApnPolicies);
-}
+// Controls whether Vids is preinstalled.
+BASE_FEATURE(kVidsAppPreinstall, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsBatteryBadgeIconEnabled() {
   return base::FeatureList::IsEnabled(kBatteryBadgeIcon);

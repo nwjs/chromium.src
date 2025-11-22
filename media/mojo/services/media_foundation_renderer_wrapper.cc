@@ -41,12 +41,10 @@ MediaFoundationRendererWrapper::MediaFoundationRendererWrapper(
     scoped_refptr<base::SequencedTaskRunner> task_runner,
     mojom::FrameInterfaceFactory* frame_interfaces,
     mojo::PendingRemote<mojom::MediaLog> media_log_remote,
-    mojo::PendingReceiver<RendererExtension> renderer_extension_receiver,
-    mojo::PendingRemote<ClientExtension> client_extension_remote)
+    mojo::PendingReceiver<RendererExtension> renderer_extension_receiver)
     : frame_interfaces_(frame_interfaces),
       renderer_extension_receiver_(this,
                                    std::move(renderer_extension_receiver)),
-      client_extension_remote_(std::move(client_extension_remote), task_runner),
       site_mute_observer_(this) {
   DVLOG_FUNC(1);
   DCHECK(frame_interfaces_);
@@ -77,14 +75,6 @@ void MediaFoundationRendererWrapper::Initialize(
     frame_interfaces_->RegisterMuteStateObserver(
         site_mute_observer_.BindNewPipeAndPassRemote());
   }
-
-  renderer_->SetFrameReturnCallbacks(
-      base::BindRepeating(
-          &MediaFoundationRendererWrapper::OnFrameGeneratedByMediaFoundation,
-          weak_factory_.GetWeakPtr()),
-      base::BindRepeating(
-          &MediaFoundationRendererWrapper::OnFramePoolInitialized,
-          weak_factory_.GetWeakPtr()));
 
   renderer_->Initialize(media_resource, client, std::move(init_cb));
 }
@@ -199,45 +189,5 @@ void MediaFoundationRendererWrapper::OnDCOMPSurfaceHandleRegistered(
   }
 
   std::move(callback).Run(token, error);
-}
-
-void MediaFoundationRendererWrapper::OnFramePoolInitialized(
-    std::vector<MediaFoundationFrameInfo> frame_textures,
-    const gfx::Size& texture_size) {
-  auto pool_params = media::mojom::FramePoolInitializationParameters::New();
-  for (auto& texture : frame_textures) {
-    auto frame_info = media::mojom::FrameTextureInfo::New();
-    gfx::GpuMemoryBufferHandle gpu_handle(
-        gfx::DXGIHandle(std::move(texture.dxgi_handle)));
-
-    frame_info->token = texture.token;
-    frame_info->texture_handle = std::move(gpu_handle);
-    pool_params->frame_textures.emplace_back(std::move(frame_info));
-  }
-
-  pool_params->texture_size = texture_size;
-  client_extension_remote_->InitializeFramePool(std::move(pool_params));
-}
-
-void MediaFoundationRendererWrapper::OnFrameGeneratedByMediaFoundation(
-    const base::UnguessableToken& frame_token,
-    const gfx::Size& frame_size,
-    base::TimeDelta frame_timestamp) {
-  client_extension_remote_->OnFrameAvailable(frame_token, frame_size,
-                                             frame_timestamp);
-}
-
-void MediaFoundationRendererWrapper::NotifyFrameReleased(
-    const base::UnguessableToken& frame_token) {
-  renderer_->NotifyFrameReleased(frame_token);
-}
-
-void MediaFoundationRendererWrapper::RequestNextFrame() {
-  renderer_->RequestNextFrame();
-}
-
-void MediaFoundationRendererWrapper::SetMediaFoundationRenderingMode(
-    MediaFoundationRenderingMode mode) {
-  renderer_->SetMediaFoundationRenderingMode(mode);
 }
 }  // namespace media

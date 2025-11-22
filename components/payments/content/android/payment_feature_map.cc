@@ -30,6 +30,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &::features::kWebPayments,
     &features::kAppStoreBilling,
     &features::kAppStoreBillingDebug,
+    &features::kCanMakePaymentTrueWhenPrivate,
     &features::kEnforceFullDelegation,
     &features::kGPayAppDynamicUpdate,
     &features::kWebPaymentsExperimentalFeatures,
@@ -63,7 +64,7 @@ BASE_FEATURE(kAndroidPaymentIntentsOmitDeprecatedParameters,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kGooglePayViaAndroidIntents, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kOmitParametersInReadyToPay, base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kAllowShowWithoutReadyToPay, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAllowShowWithoutReadyToPay, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kReconnectOnLostConnectionToUpdatePaymentDetailsService,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kShowReadyToPayDebugInfo, base::FEATURE_DISABLED_BY_DEFAULT);

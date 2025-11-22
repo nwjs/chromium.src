@@ -1349,8 +1349,16 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarContainerFeatureUITest,
 
 // Tests that the container hides its visible children in the correct order when
 // the window shrinks. Regression test for crbug.com/40887037.
+// TODO(crbug.com/450523412): Flaky on Linux Tests (dbg)(1) builder.
+#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
+#define MAYBE_HidesInCorrectOrderAfterWindowShrinks \
+  DISABLED_HidesInCorrectOrderAfterWindowShrinks
+#else
+#define MAYBE_HidesInCorrectOrderAfterWindowShrinks \
+  HidesInCorrectOrderAfterWindowShrinks
+#endif
 IN_PROC_BROWSER_TEST_F(ExtensionsToolbarContainerFeatureUITest,
-                       HidesInCorrectOrderAfterWindowShrinks) {
+                       MAYBE_HidesInCorrectOrderAfterWindowShrinks) {
   // Install extension A and pin it.
   scoped_refptr<const extensions::Extension> extensionA =
       LoadTestExtension("extensions/ui/browser_action_popup");
@@ -1453,7 +1461,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarContainerFeatureUITest,
 // feature is being rolled out.
 // TODO(crbug.com/40857680): Remove once feature is fully enabled.
 class ExtensionsToolbarContainerFeatureRolloutInteractiveTest
-    : public InteractiveBrowserTestT<extensions::ExtensionBrowserTest>,
+    : public InteractiveBrowserTestMixin<extensions::ExtensionBrowserTest>,
       public testing::WithParamInterface<bool> {
  public:
   ExtensionsToolbarContainerFeatureRolloutInteractiveTest() {

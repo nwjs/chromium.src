@@ -68,10 +68,6 @@ using FederatedApiPermissionStatus =
 using DisconnectStatusForMetrics = content::webid::DisconnectStatus;
 using TokenStatus = content::webid::RequestIdTokenStatus;
 using SignInStateMatchStatus = content::webid::SignInStateMatchStatus;
-using TokenResponseType =
-    content::IdpNetworkRequestManager::FedCmTokenResponseType;
-using ErrorDialogType = content::IdpNetworkRequestManager::FedCmErrorDialogType;
-using ErrorUrlType = content::IdpNetworkRequestManager::FedCmErrorUrlType;
 using LoginState = content::IdentityRequestAccount::LoginState;
 using SignInMode = content::IdentityRequestAccount::SignInMode;
 using ErrorDialogResult = content::webid::ErrorDialogResult;
@@ -81,6 +77,10 @@ using CompleteRequestWithErrorCallback =
                             bool)>;
 
 namespace content::webid {
+
+using TokenResponseType = IdpNetworkRequestManager::FedCmTokenResponseType;
+using ErrorDialogType = IdpNetworkRequestManager::FedCmErrorDialogType;
+using ErrorUrlType = IdpNetworkRequestManager::FedCmErrorUrlType;
 
 namespace {
 static constexpr base::TimeDelta kTokenRequestDelay = base::Seconds(3);
@@ -606,7 +606,7 @@ void RequestService::CancelTokenRequest() {
 
 void RequestService::ResolveTokenRequest(
     const std::optional<std::string>& account_id,
-    const std::string& token,
+    base::Value token,
     ResolveTokenRequestCallback callback) {
   if (!identity_registry_ && !SetupIdentityRegistryFromPopup()) {
     std::move(callback).Run(false);
@@ -1007,6 +1007,11 @@ void RequestService::MaybeShowAccountsDialog() {
                                       : DialogType::kSelectAccount;
   bool is_auto_reauthn_setting_enabled = false;
   bool is_auto_reauthn_embargoed = false;
+  bool is_auto_reauthn_blocked_by_embedder =
+      IsFedCmEmbedderCheckEnabled() &&
+      auto_reauthn_permission_delegate_->IsAutoReauthnDisabledByEmbedder(
+          WebContents::FromRenderFrameHost(&render_frame_host()));
+
   std::optional<base::TimeDelta> time_from_embargo;
   bool requires_user_mediation = false;
   IdentityProviderDataPtr auto_reauthn_idp = nullptr;
@@ -1037,7 +1042,8 @@ void RequestService::MaybeShowAccountsDialog() {
         GetAccountForAutoReauthn(&auto_reauthn_idp, &auto_reauthn_account);
     if (dialog_type_ == DialogType::kAutoReauth &&
         (requires_user_mediation || !is_auto_reauthn_setting_enabled ||
-         is_auto_reauthn_embargoed || !has_single_returning_account)) {
+         is_auto_reauthn_embargoed || !has_single_returning_account ||
+         is_auto_reauthn_blocked_by_embedder)) {
       dialog_type_ = DialogType::kSelectAccount;
     }
     if (!has_single_returning_account &&
@@ -1046,7 +1052,8 @@ void RequestService::MaybeShowAccountsDialog() {
           has_single_returning_account, auto_reauthn_account.get(),
           dialog_type_ == DialogType::kAutoReauth,
           !is_auto_reauthn_setting_enabled, is_auto_reauthn_embargoed,
-          time_from_embargo, requires_user_mediation);
+          is_auto_reauthn_blocked_by_embedder, time_from_embargo,
+          requires_user_mediation);
 
       // By this moment we know that the user has granted permission in the past
       // for the RP/IdP. Because otherwise we have returned already in
@@ -1084,7 +1091,8 @@ void RequestService::MaybeShowAccountsDialog() {
         has_single_returning_account, auto_reauthn_account.get(),
         dialog_type_ == DialogType::kAutoReauth,
         !is_auto_reauthn_setting_enabled, is_auto_reauthn_embargoed,
-        time_from_embargo, requires_user_mediation);
+        is_auto_reauthn_blocked_by_embedder, time_from_embargo,
+        requires_user_mediation);
   }
 
   // The RenderFrameHost may be alive but not visible in the following
@@ -1206,7 +1214,8 @@ void RequestService::AfterAccountsDialogShown(
   // small percentage of the samples recorded.
   fedcm_metrics_->RecordAccountsDialogShown(idp_data_for_display_);
   fedcm_metrics_->RecordRpUrlHasPath(
-      render_frame_host().GetMainFrame()->GetLastCommittedURL().path() != "/");
+      render_frame_host().GetMainFrame()->GetLastCommittedURL().GetPath() !=
+      "/");
 }
 
 void RequestService::NotifyAutofillSuggestionAccepted(
@@ -1508,7 +1517,7 @@ void RequestService::OnDismissFailureDialog(
 
 void RequestService::OnDismissErrorDialog(
     const GURL& idp_config_url,
-    IdpNetworkRequestManager::FetchStatus status,
+    FetchStatus status,
     IdentityRequestDialogController::DismissReason dismiss_reason) {
   bool has_url = token_error_ && !token_error_->url.is_empty();
   ErrorDialogResult result =
@@ -1618,7 +1627,7 @@ void RequestService::ShowModalDialog(DialogType dialog_type,
 
 void RequestService::OnContinueOnResponseReceived(
     IdentityProviderRequestOptionsPtr idp,
-    IdpNetworkRequestManager::FetchStatus status,
+    FetchStatus status,
     const GURL& continue_on) {
   id_assertion_response_time_ = base::TimeTicks::Now();
 
@@ -1661,10 +1670,9 @@ void RequestService::OnContinueOnResponseReceived(
                   continue_on);
 }
 
-void RequestService::ShowErrorDialog(
-    const GURL& idp_config_url,
-    IdpNetworkRequestManager::FetchStatus status,
-    std::optional<TokenError> token_error) {
+void RequestService::ShowErrorDialog(const GURL& idp_config_url,
+                                     FetchStatus status,
+                                     std::optional<TokenError> token_error) {
   CHECK(idp_infos_.find(idp_config_url) != idp_infos_.end());
 
   dialog_type_ = DialogType::kError;
@@ -1694,7 +1702,7 @@ void RequestService::ShowErrorDialog(
 
 void RequestService::OnTokenResponseReceived(
     IdentityProviderRequestOptionsPtr idp,
-    IdpNetworkRequestManager::FetchStatus status,
+    FetchStatus status,
     IdpNetworkRequestManager::TokenResult&& result) {
   CHECK(result.token.has_value() || result.error.has_value());
 
@@ -1703,8 +1711,7 @@ void RequestService::OnTokenResponseReceived(
                                  : VerifyingDialogResult::kSuccessAutoReauthn;
 
   bool should_show_error_ui =
-      result.error ||
-      status.parse_status != IdpNetworkRequestManager::ParseStatus::kSuccess;
+      result.error || status.parse_status != ParseStatus::kSuccess;
   auto complete_request_callback =
       should_show_error_ui
           ? base::BindOnce(&RequestService::ShowErrorDialog,
@@ -1756,15 +1763,14 @@ void RequestService::MarkUserAsSignedIn(const GURL& idp_config_url,
   SetRequiresUserMediation(false, base::DoNothing());
 }
 
-void RequestService::CompleteTokenRequest(
-    const GURL& idp_config_url,
-    IdpNetworkRequestManager::FetchStatus status,
-    std::optional<base::Value> token,
-    std::optional<TokenError> token_error,
-    bool should_delay_callback) {
+void RequestService::CompleteTokenRequest(const GURL& idp_config_url,
+                                          FetchStatus status,
+                                          std::optional<base::Value> token,
+                                          std::optional<TokenError> token_error,
+                                          bool should_delay_callback) {
   DCHECK(!start_time_.is_null());
   constexpr char kIdAssertionUrl[] = "id assertion endpoint";
-  if (status.parse_status != IdpNetworkRequestManager::ParseStatus::kSuccess) {
+  if (status.parse_status != ParseStatus::kSuccess) {
     MaybeAddResponseCodeToConsole(render_frame_host(), kIdAssertionUrl,
                                   status.response_code);
     std::pair<FederatedAuthRequestResult, TokenStatus> resultAndTokenStatus =
@@ -2149,7 +2155,7 @@ void RequestService::OnClose() {
 
 bool RequestService::OnResolve(GURL idp_config_url,
                                const std::optional<std::string>& account_id,
-                               const std::string& token) {
+                               const base::Value& token) {
   // Close the pop-up window post user permission.
   if (!request_dialog_controller_) {
     return false;
@@ -2177,14 +2183,21 @@ bool RequestService::OnResolve(GURL idp_config_url,
   DCHECK(provider);
 
   if (provider->format && *provider->format == blink::mojom::Format::kSdJwt) {
-    federated_sdjwt_handler_->ProcessSdJwt(token);
-    return true;
+    if (token.is_string()) {
+      federated_sdjwt_handler_->ProcessSdJwt(token.GetString());
+      return true;
+    } else {
+      CompleteRequestWithError(FederatedAuthRequestResult::kError,
+                               TokenStatus::kIdTokenInvalidResponse,
+                               /*should_delay_callback=*/false);
+      return false;
+    }
   }
 
   CompleteRequest(FederatedAuthRequestResult::kSuccess,
                   TokenStatus::kSuccessUsingIdentityProviderResolve,
-                  /*token_error=*/std::nullopt, idp_config_url,
-                  base::Value(token), /*should_delay_callback=*/false);
+                  /*token_error=*/std::nullopt, idp_config_url, token.Clone(),
+                  /*should_delay_callback=*/false);
   // TODO(crbug.com/40262526): handle the corner cases where CompleteRequest
   // can't actually fulfill the request.
   return true;
@@ -2375,6 +2388,16 @@ bool RequestService::ShouldFailBeforeFetchingAccounts(const GURL& config_url) {
     return false;
   }
 
+  bool is_auto_reauthn_blocked_by_embedder =
+      IsFedCmEmbedderCheckEnabled() &&
+      auto_reauthn_permission_delegate_->IsAutoReauthnDisabledByEmbedder(
+          WebContents::FromRenderFrameHost(&render_frame_host()));
+  if (is_auto_reauthn_blocked_by_embedder) {
+    render_frame_host().AddMessageToConsole(
+        blink::mojom::ConsoleMessageLevel::kError,
+        "Silent mediation issue: ongoing actor task in the tab.");
+  }
+
   bool is_auto_reauthn_setting_enabled =
       auto_reauthn_permission_delegate_->IsAutoReauthnSettingEnabled();
   if (!is_auto_reauthn_setting_enabled) {
@@ -2420,13 +2443,15 @@ bool RequestService::ShouldFailBeforeFetchingAccounts(const GURL& config_url) {
   }
 
   if (requires_user_mediation || !is_auto_reauthn_setting_enabled ||
-      is_auto_reauthn_embargoed || !has_sharing_permission_for_any_account) {
+      is_auto_reauthn_embargoed || !has_sharing_permission_for_any_account ||
+      is_auto_reauthn_blocked_by_embedder) {
     // Record the relevant auto reauthn metrics before aborting the FedCM flow.
     fedcm_metrics_->RecordAutoReauthnMetrics(
         /*has_single_returning_account=*/std::nullopt,
         /*auto_signin_account=*/nullptr,
         /*auto_reauthn_success=*/false, !is_auto_reauthn_setting_enabled,
-        is_auto_reauthn_embargoed, time_from_embargo, requires_user_mediation);
+        is_auto_reauthn_embargoed, is_auto_reauthn_blocked_by_embedder,
+        time_from_embargo, requires_user_mediation);
     return true;
   }
   return false;

@@ -412,7 +412,7 @@ CreateSupervisedUserVerificationPageForYouTube(
   const GURL kRequestUrl("https://supervised-user-verification.example.net");
   return std::make_unique<SupervisedUserVerificationPageForYouTube>(
       web_contents, "first.last@gmail.com", kRequestUrl,
-      /*child_account_service*/ nullptr, ukm::kInvalidSourceId,
+      /*child_account_service*/ nullptr,
       std::make_unique<SupervisedUserVerificationControllerClient>(
           web_contents,
           Profile::FromBrowserContext(web_contents->GetBrowserContext())
@@ -600,7 +600,7 @@ void InterstitialHTMLSource::StartDataRequest(
   // query (everything after the ? character).
   GURL url =
       GURL(chrome::kChromeUIInterstitialURL).GetWithEmptyPath().Resolve(path);
-  std::string path_without_query = url.path();
+  std::string path_without_query = url.GetPath();
   if (path_without_query == "/ssl") {
     interstitial_delegate = CreateSslBlockingPage(web_contents);
   } else if (path_without_query == "/mitm-software-ssl") {

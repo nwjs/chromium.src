@@ -13,8 +13,10 @@
 #include "components/lens/lens_features.h"
 #include "net/base/url_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/lens_server_proto/lens_overlay_cluster_info.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_knowledge_intent_query.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_knowledge_query.pb.h"
+#include "third_party/lens_server_proto/lens_overlay_request_id.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_selection_type.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_stickiness_signals.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_translate_stickiness_signals.pb.h"
@@ -857,28 +859,8 @@ TEST_F(LensOverlayUrlBuilderTest, ShouldOpenSearchURLInNewTab) {
       results_url_shopping_mode, /*is_aim_feature_enabled=*/false));
   EXPECT_TRUE(lens::ShouldOpenSearchURLInNewTab(
       results_url_aim_mode, /*is_aim_feature_enabled=*/false));
-  EXPECT_TRUE(lens::ShouldOpenSearchURLInNewTab(
-      results_url_aim_mode, /*is_aim_feature_enabled=*/true));
-}
-
-TEST_F(LensOverlayUrlBuilderTest,
-       ShouldOpenSearchURLInNewTabWithAimInSidePanelFlag) {
-  feature_list_.Reset();
-  feature_list_.InitWithFeaturesAndParameters(
-      {{lens::features::kLensOverlay,
-        {
-            {"results-search-url", kResultsSearchBaseUrl},
-        }},
-       {lens::features::kLensSearchAimM3,
-        {{"open-aim-in-side-panel", "true"}}}},
-      /*disabled_features=*/{});
-  const GURL base_results_url = GURL(kResultsSearchBaseUrl);
-  const GURL results_url_mgt_mode =
-      GURL(std::string(kResultsSearchBaseUrl) + "?udm=50");
   EXPECT_FALSE(lens::ShouldOpenSearchURLInNewTab(
-      results_url_mgt_mode, /*is_aim_feature_enabled=*/true));
-  EXPECT_TRUE(lens::ShouldOpenSearchURLInNewTab(
-      results_url_mgt_mode, /*is_aim_feature_enabled=*/false));
+      results_url_aim_mode, /*is_aim_feature_enabled=*/true));
 }
 
 TEST_F(LensOverlayUrlBuilderTest, URLsMatchWithoutTextFragment) {
@@ -933,7 +915,7 @@ TEST_F(LensOverlayUrlBuilderTest, AddPDFScrollToParametersToUrl) {
   const GURL actual_url = AddPDFScrollToParametersToUrl(
       base_url, expected_text_fragments, expected_pdf_page_number);
   EXPECT_TRUE(base_url.EqualsIgnoringRef(actual_url));
-  EXPECT_EQ(actual_url.ref(),
+  EXPECT_EQ(actual_url.GetRef(),
             base::StringPrintf("page=%d:~:text=%s&text=%s&text=%s",
                                expected_pdf_page_number, "apples", "oranges",
                                "pineapples"));
@@ -942,14 +924,14 @@ TEST_F(LensOverlayUrlBuilderTest, AddPDFScrollToParametersToUrl) {
   const GURL actual_url_one_fragment = AddPDFScrollToParametersToUrl(
       base_url, expected_one_fragment, expected_pdf_page_number);
   EXPECT_TRUE(base_url.EqualsIgnoringRef(actual_url_one_fragment));
-  EXPECT_EQ(actual_url_one_fragment.ref(),
+  EXPECT_EQ(actual_url_one_fragment.GetRef(),
             base::StringPrintf("page=%d:~:text=%s", expected_pdf_page_number,
                                "apples"));
 
   const GURL actual_url_no_fragments =
       AddPDFScrollToParametersToUrl(base_url, {}, expected_pdf_page_number);
   EXPECT_TRUE(base_url.EqualsIgnoringRef(actual_url_no_fragments));
-  EXPECT_EQ(actual_url_no_fragments.ref(),
+  EXPECT_EQ(actual_url_no_fragments.GetRef(),
             base::StringPrintf("page=%d", expected_pdf_page_number));
 }
 

@@ -21,6 +21,7 @@
 #include "chrome/browser/performance_manager/mechanisms/page_loader.h"
 #include "chrome/browser/performance_manager/policies/background_tab_loading_policy_helpers.h"
 #include "chrome/browser/performance_manager/public/background_tab_loading_policy.h"
+#include "components/favicon/content/content_favicon_driver.h"
 #include "components/performance_manager/graph/page_node_impl.h"
 #include "components/performance_manager/public/decorators/site_data_recorder.h"
 #include "components/performance_manager/public/features.h"
@@ -95,6 +96,15 @@ void ScheduleLoadForRestoredTabs(
   std::vector<BackgroundTabLoadingPolicy::PageNodeData> page_node_data_vector;
   page_node_data_vector.reserve(web_contents_vector.size());
   for (content::WebContents* content : web_contents_vector) {
+    // Restore the favicon for deferred tabs to have some visual indication of
+    // its contents.
+    if (favicon::ContentFaviconDriver* favicon_driver =
+            favicon::ContentFaviconDriver::FromWebContents(content);
+        favicon_driver) {
+      favicon_driver->FetchFavicon(favicon_driver->GetActiveURL(),
+                                   /*is_same_document=*/false);
+    }
+
     content::PermissionController* permission_controller =
         content->GetBrowserContext()->GetPermissionController();
 
@@ -149,11 +159,10 @@ BackgroundTabLoadingPolicy::BackgroundTabLoadingPolicy(
     : all_restored_tabs_loaded_callback_(
           std::move(all_restored_tabs_loaded_callback)),
       page_loader_(std::make_unique<mechanism::PageLoader>()),
-      memory_pressure_listener_(
+      memory_pressure_listener_registration_(
           FROM_HERE,
           base::MemoryPressureListenerTag::kBackgroundTabLoadingPolicy,
-          base::BindRepeating(&BackgroundTabLoadingPolicy::OnMemoryPressure,
-                              base::Unretained(this))) {
+          this) {
   DCHECK(!g_background_tab_loading_policy);
   g_background_tab_loading_policy = this;
   max_simultaneous_tab_loads_ = CalculateMaxSimultaneousTabLoads(
@@ -453,7 +462,7 @@ void BackgroundTabLoadingPolicy::StopLoadingTabs() {
 }
 
 void BackgroundTabLoadingPolicy::OnMemoryPressure(
-    base::MemoryPressureListener::MemoryPressureLevel new_level) {
+    base::MemoryPressureLevel new_level) {
   TRACE_EVENT_INSTANT(
       "browser", "BackgroundTabLoadingPolicy::OnMemoryPressure",
       [&](perfetto::EventContext ctx) {
@@ -463,10 +472,10 @@ void BackgroundTabLoadingPolicy::OnMemoryPressure(
             base::trace_event::MemoryPressureLevelToTraceEnum(new_level));
       });
   switch (new_level) {
-    case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_NONE:
+    case base::MEMORY_PRESSURE_LEVEL_NONE:
       break;
-    case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_MODERATE:
-    case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL:
+    case base::MEMORY_PRESSURE_LEVEL_MODERATE:
+    case base::MEMORY_PRESSURE_LEVEL_CRITICAL:
       StopLoadingTabs();
       break;
   }

@@ -14,10 +14,12 @@
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
+#include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
@@ -57,6 +59,7 @@ class MockGlicButtonControllerDelegate
  public:
   void SetGlicShowState(bool show) override { show_state_ = show; }
   void SetGlicDetached(bool detached) override { detached_ = detached; }
+  void SetGlicPanelIsOpen(bool open) override {}
 
   bool show_state() const { return show_state_; }
   bool detached() const { return detached_; }
@@ -91,12 +94,18 @@ class GlicButtonControllerTest : public testing::Test {
         testing_profile_manager_->profile_manager(), &glic_profile_manager_,
         /*contextual_cueing_service=*/nullptr, actor_keyed_service_.get());
 
+    mock_browser_window_interface_ =
+        std::make_unique<MockBrowserWindowInterface>();
+
     glic_button_controller_ = std::make_unique<GlicButtonController>(
-        profile_, &mock_glic_controller_delegate_, mock_glic_service_.get());
-    ForceSigninAndModelExecutionCapability(profile_);
+        profile_, *mock_browser_window_interface_,
+        &mock_glic_controller_delegate_, mock_glic_service_.get());
+
+    glic_test_env_.SetupProfile(profile());
   }
 
   void TearDown() override {
+    glic_button_controller_.reset();
     TestingBrowserProcess::GetGlobal()->GetFeatures()->Shutdown();
     scoped_feature_list_.Reset();
   }
@@ -112,6 +121,7 @@ class GlicButtonControllerTest : public testing::Test {
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
 
+  GlicUnitTestEnvironment glic_test_env_;
   content::BrowserTaskEnvironment task_environment;
   std::unique_ptr<TestingProfileManager> testing_profile_manager_;
   raw_ptr<Profile> profile_ = nullptr;
@@ -122,6 +132,7 @@ class GlicButtonControllerTest : public testing::Test {
   std::unique_ptr<actor::ActorKeyedServiceFake> actor_keyed_service_;
   std::unique_ptr<MockGlicKeyedService> mock_glic_service_;
   std::unique_ptr<GlicButtonController> glic_button_controller_;
+  std::unique_ptr<MockBrowserWindowInterface> mock_browser_window_interface_;
 };
 
 // Test that settings changes are reflected in the show state of the controller

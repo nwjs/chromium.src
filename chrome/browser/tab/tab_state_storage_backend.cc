@@ -4,17 +4,27 @@
 
 #include "chrome/browser/tab/tab_state_storage_backend.h"
 
+#include <utility>
+#include <vector>
+
 #include "base/functional/bind.h"
+#include "base/functional/callback_forward.h"
+#include "base/logging.h"
 #include "base/task/thread_pool.h"
+#include "chrome/browser/tab/storage_package.h"
 #include "chrome/browser/tab/tab_state_storage_database.h"
+#include "chrome/browser/tab/tab_state_storage_updater.h"
 
 namespace tabs {
+
+using OpenTransaction = TabStateStorageDatabase::OpenTransaction;
+using TransactionCallback = base::OnceCallback<bool(OpenTransaction*)>;
 
 namespace {
 constexpr base::TaskTraits kDBTaskTraits = {
     base::MayBlock(), base::TaskPriority::BEST_EFFORT,
     base::TaskShutdownBehavior::BLOCK_SHUTDOWN};
-}  // namespace
+} // namespace
 
 TabStateStorageBackend::TabStateStorageBackend(
     const base::FilePath& profile_path)
@@ -38,15 +48,12 @@ void TabStateStorageBackend::Initialize() {
                      weak_ptr_factory_.GetWeakPtr()));
 }
 
-void TabStateStorageBackend::SaveNode(int id,
-                                      int type,
-                                      std::string payload,
-                                      std::string children) {
+void TabStateStorageBackend::Update(
+    std::unique_ptr<TabStateStorageUpdater> updater) {
   db_task_runner_->PostTaskAndReplyWithResult(
       FROM_HERE,
-      base::BindOnce(&TabStateStorageDatabase::SaveNode,
-                     base::Unretained(database_.get()), id, type,
-                     std::move(payload), std::move(children)),
+      base::BindOnce(&TabStateStorageUpdater::Execute, std::move(updater),
+                     base::Unretained(database_.get())),
       base::BindOnce(&TabStateStorageBackend::OnWrite,
                      weak_ptr_factory_.GetWeakPtr()));
 }
@@ -59,6 +66,12 @@ void TabStateStorageBackend::LoadAllNodes(
                      base::Unretained(database_.get())),
       base::BindOnce(&TabStateStorageBackend::OnAllTabsRead,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+void TabStateStorageBackend::ClearAllNodes() {
+  db_task_runner_->PostTask(
+      FROM_HERE, base::BindOnce(&TabStateStorageDatabase::ClearAllNodes,
+                                base::Unretained(database_.get())));
 }
 
 void TabStateStorageBackend::OnDBReady(bool success) {}

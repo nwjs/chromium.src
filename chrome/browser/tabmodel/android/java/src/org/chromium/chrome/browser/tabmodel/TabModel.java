@@ -14,11 +14,11 @@ import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
+import org.chromium.components.tabs.TabStripCollection;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalInt;
 import java.util.Set;
 
 /**
@@ -117,7 +117,7 @@ public interface TabModel extends SupportsTabModelObserver, TabList {
      * @param i The index of the tab to select.
      * @param type The type of selection.
      */
-    void setIndex(int i, final @TabSelectionType int type);
+    void setIndex(int i, @TabSelectionType int type);
 
     /**
      * @return Whether this tab model is currently selected in the correspond {@link
@@ -137,8 +137,26 @@ public interface TabModel extends SupportsTabModelObserver, TabList {
      * Pins a tab to the model.
      *
      * @param tabId The id of the tab to pin.
+     * @param showUngroupDialog Whether to possibly show a dialog to the user when pinning the last
+     *     tab in a group.
      */
-    void pinTab(int tabId);
+    default void pinTab(int tabId, boolean showUngroupDialog) {
+        pinTab(tabId, showUngroupDialog, /* tabModelActionListener= */ null);
+    }
+
+    /**
+     * Pins a tab to the model.
+     *
+     * @param tabId The id of the tab to pin.
+     * @param showUngroupDialog Whether to possibly show a dialog to the user when pinning the last
+     *     tab in a group.
+     * @param tabModelActionListener A listener that is notified in response to the user actions
+     *     taken in the ungroup dialog (if shown).
+     */
+    void pinTab(
+            int tabId,
+            boolean showUngroupDialog,
+            @Nullable TabModelActionListener tabModelActionListener);
 
     /**
      * Unpins a tab from the model.
@@ -217,7 +235,7 @@ public interface TabModel extends SupportsTabModelObserver, TabList {
     int getPinnedTabsCount();
 
     /** Returns the native {@code SessionID} as returned by {@code tab_model.h:GetSessionId()}. */
-    OptionalInt getNativeSessionIdForTesting();
+    @Nullable Integer getNativeSessionIdForTesting();
 
     /**
      * Sets the mute setting for the sites of the provided tabs.
@@ -262,5 +280,17 @@ public interface TabModel extends SupportsTabModelObserver, TabList {
             RecordHistogram.recordLongTimesHistogram100("Tab.PinnedDuration", duration);
             sTabPinTimestampMap.remove(tab.getId());
         }
+    }
+
+    /**
+     * Returns the {@link TabStripCollection} associated with this {@link TabModel} if tab
+     * collections are enabled. Otherwise, returns null.
+     */
+    @Nullable TabStripCollection getTabStripCollection();
+
+    /** Returns {@link ActivityType} of the this tab model. */
+    default int getActivityTypeForTesting() {
+        // Return an invalid type for the implementation to fail tests by default.
+        return -1;
     }
 }

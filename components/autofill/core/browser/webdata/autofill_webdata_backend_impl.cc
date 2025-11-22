@@ -13,6 +13,7 @@
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/notreached.h"
 #include "base/observer_list.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/sequenced_task_runner.h"
@@ -65,9 +66,11 @@ enum class Result {
   kRemoveFormValueForElementName_Failure = 22,
   kAddAutofillProfile_Success = 30,
   kAddAutofillProfile_Failure = 31,
+  kAddAutofillProfile_GetFailure = 32,
   kUpdateAutofillProfile_Success = 40,
   kUpdateAutofillProfile_ReadFailure = 41,
   kUpdateAutofillProfile_WriteFailure = 42,
+  kUpdateAutofillProfile_GetFailure = 43,
   kRemoveAutofillProfile_Success = 50,
   kRemoveAutofillProfile_ReadFailure = 51,
   kRemoveAutofillProfile_WriteFailure = 52,
@@ -284,6 +287,48 @@ void AutofillWebDataBackendImpl::NotifyOnServerCvcChanged(
   }
 }
 
+void AutofillWebDataBackendImpl::NotifyOnEntityInstanceChanged(
+    const EntityInstanceChange& change) {
+  CHECK(owning_task_runner()->RunsTasksInCurrentSequence());
+
+  // DB sequence notification.
+  for (AutofillWebDataServiceObserverOnDBSequence& db_observer :
+       db_observer_list_) {
+    db_observer.EntityInstanceChanged(change);
+  }
+
+  // Notify about potential server metadata changes.
+  if (change.data_model().IsServerInstance()) {
+    EntityInstanceMetadataChange::Type metadata_change_type = [&] {
+      switch (change.type()) {
+        case EntityInstanceChange::ADD:
+          return EntityInstanceMetadataChange::ADD;
+        case EntityInstanceChange::UPDATE:
+          return EntityInstanceMetadataChange::UPDATE;
+        case EntityInstanceChange::REMOVE:
+          return EntityInstanceMetadataChange::REMOVE;
+        case EntityInstanceChange::HIDE_IN_AUTOFILL:
+          return EntityInstanceMetadataChange::HIDE_IN_AUTOFILL;
+      }
+      NOTREACHED();
+    }();
+
+    NotifyOnServerEntityMetadataChanged(EntityInstanceMetadataChange(
+        metadata_change_type, change.key(), change.data_model().metadata()));
+  }
+}
+
+void AutofillWebDataBackendImpl::NotifyOnServerEntityMetadataChanged(
+    const EntityInstanceMetadataChange& change) {
+  CHECK(owning_task_runner()->RunsTasksInCurrentSequence());
+
+  // DB sequence notification.
+  for (AutofillWebDataServiceObserverOnDBSequence& db_observer :
+       db_observer_list_) {
+    db_observer.ServerEntityInstanceMetadataChanged(change);
+  }
+}
+
 base::SupportsUserData* AutofillWebDataBackendImpl::GetDBUserData() {
   DCHECK(owning_task_runner()->RunsTasksInCurrentSequence());
   if (!user_data_)
@@ -385,13 +430,18 @@ WebDatabase::State AutofillWebDataBackendImpl::AddAutofillProfile(
     return WebDatabase::COMMIT_NOT_NEEDED;
   }
 
+  std::optional<AutofillProfile> db_profile =
+      table->GetAutofillProfile(profile.guid());
+  if (!db_profile) {
+    ReportResult(Result::kAddAutofillProfile_GetFailure);
+    return WebDatabase::COMMIT_NOT_NEEDED;
+  }
   // Notify observers.
   // The `db_profile` is not guaranteed to be equivalent to `profile`, since the
   // database might perform operations like `FinalizeAfterImport()`. Notify
   // observers with `db_profile`.
-  AutofillProfile db_profile = *table->GetAutofillProfile(profile.guid());
   AutofillProfileChange change(AutofillProfileChange::ADD, profile.guid(),
-                               std::move(db_profile));
+                               std::move(*db_profile));
   for (auto& db_observer : db_observer_list_)
     db_observer.AutofillProfileChanged(change);
 
@@ -422,13 +472,18 @@ WebDatabase::State AutofillWebDataBackendImpl::UpdateAutofillProfile(
     return WebDatabase::COMMIT_NOT_NEEDED;
   }
 
+  std::optional<AutofillProfile> db_profile =
+      table->GetAutofillProfile(profile.guid());
+  if (!db_profile) {
+    ReportResult(Result::kUpdateAutofillProfile_GetFailure);
+    return WebDatabase::COMMIT_NOT_NEEDED;
+  }
   // Notify observers.
   // The `db_profile` is not guaranteed to be equivalent to `profile`, since the
   // database might perform operations like `FinalizeAfterImport()`. Notify
   // observers with `db_profile`.
-  AutofillProfile db_profile = *table->GetAutofillProfile(profile.guid());
   AutofillProfileChange change(AutofillProfileChange::UPDATE, profile.guid(),
-                               std::move(db_profile));
+                               std::move(*db_profile));
   for (auto& db_observer : db_observer_list_)
     db_observer.AutofillProfileChanged(change);
 
@@ -489,38 +544,40 @@ WebDatabase::State AutofillWebDataBackendImpl::AddOrUpdateEntityInstance(
     WebDatabase* db) {
   DCHECK(owning_task_runner()->RunsTasksInCurrentSequence());
   EntityTable* table = EntityTable::FromWebDatabase(db);
+  EntityInstance::EntityId guid = entity.guid();
+  EntityInstanceChange::Type change_type = table->EntityInstanceExists(guid)
+                                               ? EntityInstanceChange::UPDATE
+                                               : EntityInstanceChange::ADD;
+
   if (!table->AddOrUpdateEntityInstance(entity)) {
     ReportResult(Result::kAddOrUpdateEntityInstance_Failure);
     return WebDatabase::COMMIT_NOT_NEEDED;
   }
-  // TODO(crbug.com/441736370): Notify web_data observers of ADD and UPDATE
-  // events.
-  EntityInstance::EntityId guid = entity.guid();
+
+  EntityInstanceChange change(change_type, std::move(guid), std::move(entity));
+  NotifyOnEntityInstanceChanged(change);
+
   ui_task_runner_->PostTask(
-      FROM_HERE,
-      base::BindOnce(std::move(on_success),
-                     EntityInstanceChange(EntityInstanceChange::UPDATE,
-                                          std::move(guid), std::move(entity))));
+      FROM_HERE, base::BindOnce(std::move(on_success), std::move(change)));
   ReportResult(Result::kAddOrUpdateEntityInstance_Success);
   return WebDatabase::COMMIT_NEEDED;
 }
 
 WebDatabase::State AutofillWebDataBackendImpl::RemoveEntityInstance(
-    EntityInstance::EntityId guid,
+    EntityInstance entity,
     base::OnceCallback<void(EntityInstanceChange)> on_success,
     WebDatabase* db) {
   DCHECK(owning_task_runner()->RunsTasksInCurrentSequence());
   EntityTable* table = EntityTable::FromWebDatabase(db);
-  if (!table->RemoveEntityInstance(guid)) {
+  if (!table->RemoveEntityInstance(entity.guid())) {
     ReportResult(Result::kRemoveEntityInstance_Failure);
     return WebDatabase::COMMIT_NOT_NEEDED;
   }
+  EntityInstance::EntityId guid = entity.guid();
+  // Notify observers.
   EntityInstanceChange change(EntityInstanceChange::REMOVE, std::move(guid),
-                              std::nullopt);
-  for (AutofillWebDataServiceObserverOnDBSequence& db_observer :
-       db_observer_list_) {
-    db_observer.EntityInstanceChanged(change);
-  }
+                              std::move(entity));
+  NotifyOnEntityInstanceChanged(change);
   ui_task_runner_->PostTask(
       FROM_HERE, base::BindOnce(std::move(on_success), std::move(change)));
   ReportResult(Result::kRemoveEntityInstance_Success);

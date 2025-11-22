@@ -45,6 +45,7 @@
 #include "third_party/blink/renderer/core/frame/universal_global_scope.h"
 #include "third_party/blink/renderer/core/frame/window_or_worker_global_scope.h"
 #include "third_party/blink/renderer/core/script/script.h"
+#include "third_party/blink/renderer/core/url/dom_origin_utils.h"
 #include "third_party/blink/renderer/core/workers/custom_event_message.h"
 #include "third_party/blink/renderer/core/workers/worker_or_worklet_global_scope.h"
 #include "third_party/blink/renderer/core/workers/worker_settings.h"
@@ -83,11 +84,15 @@ class CORE_EXPORT WorkerGlobalScope
       public WindowOrWorkerGlobalScope,
       public UniversalGlobalScope,
       public ActiveScriptWrappable<WorkerGlobalScope>,
-      public Supplementable<WorkerGlobalScope> {
+      public Supplementable<WorkerGlobalScope>,
+      public DOMOriginUtils {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
   ~WorkerGlobalScope() override;
+
+  // DOMOriginUtils overrides:
+  DOMOrigin* GetDOMOrigin(LocalDOMWindow*) const override;
 
   // Returns null if caching is not supported.
   // TODO(crbug/964467): Currently workers do fetch cached code but they don't
@@ -141,9 +146,7 @@ class CORE_EXPORT WorkerGlobalScope
   bool IsContextThread() const final;
   const KURL& BaseURL() const final;
   String UserAgent() const final { return user_agent_; }
-  UserAgentMetadata GetUserAgentMetadata() const override {
-    return ua_metadata_;
-  }
+  UserAgentMetadata GetUserAgentMetadata() const override;
   HttpsState GetHttpsState() const override { return https_state_; }
   scheduler::WorkerScheduler* GetScheduler() final;
   ukm::UkmRecorder* UkmRecorder() final;
@@ -241,8 +244,9 @@ class CORE_EXPORT WorkerGlobalScope
 
   FontFaceSet* fonts();
 
+  // TODO(crbug.com/451479061): Consider moving the following function
+  // under trustedTypes/
   TrustedTypePolicyFactory* GetTrustedTypes() const override;
-  TrustedTypePolicyFactory* trustedTypes() const { return GetTrustedTypes(); }
 
   // TODO(https://crbug.com/835717): Remove this function after dedicated
   // workers support off-the-main-thread script fetch by default.

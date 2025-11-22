@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.omnibox.suggestions;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
+import static org.chromium.ui.base.KeyNavigationUtil.isTabNavigation;
 
 import android.content.Context;
 import android.os.Handler;
@@ -18,6 +19,7 @@ import androidx.core.view.ViewCompat;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ObserverList;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
@@ -37,7 +39,6 @@ import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tabwindow.TabWindowManager;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.omnibox.AutocompleteMatch;
 import org.chromium.components.omnibox.OmniboxFeatures;
@@ -92,9 +93,7 @@ public class AutocompleteCoordinator
             @Nullable Supplier<ShareDelegate> shareDelegateSupplier,
             LocationBarDataProvider locationBarDataProvider,
             ObservableSupplier<Profile> profileObservableSupplier,
-            Callback<Tab> bringToForegroundCallback,
             Callback<String> bringTabGroupToForegroundCallback,
-            Supplier<TabWindowManager> tabWindowManagerSupplier,
             BookmarkState bookmarkState,
             OmniboxActionDelegate omniboxActionDelegate,
             @Nullable OmniboxSuggestionsDropdownScrollListener scrollListener,
@@ -131,9 +130,7 @@ public class AutocompleteCoordinator
                         activityTabSupplier,
                         shareDelegateSupplier,
                         locationBarDataProvider,
-                        bringToForegroundCallback,
                         bringTabGroupToForegroundCallback,
-                        tabWindowManagerSupplier,
                         bookmarkState,
                         omniboxActionDelegate,
                         lifecycleDispatcher,
@@ -389,7 +386,7 @@ public class AutocompleteCoordinator
         // Suggestion, simulating press/long press of the UI element.
         if ((keyCode == KeyEvent.KEYCODE_DPAD_UP)
                 || (keyCode == KeyEvent.KEYCODE_DPAD_DOWN)
-                || (keyCode == KeyEvent.KEYCODE_TAB)) {
+                || isTabNavigation(event)) {
             mMediator.allowPendingItemSelection();
             assumeNonNull(mContainer).onKeyDown(keyCode, event);
             return true;
@@ -455,6 +452,12 @@ public class AutocompleteCoordinator
      */
     public @Nullable OmniboxSuggestionsContainer getSuggestionsContainerForTest() {
         return mContainer;
+    }
+
+    public void setSuggestionsContainerForTest(OmniboxSuggestionsContainer container) {
+        OmniboxSuggestionsContainer oldValue = mContainer;
+        mContainer = container;
+        ResettersForTesting.register(() -> mContainer = oldValue);
     }
 
     /**

@@ -36,7 +36,7 @@ void CreateTabToolRequest::Apply(ToolRequestVisitorFunctor& f) const {
   f.Apply(*this);
 }
 
-std::string CreateTabToolRequest::JournalEvent() const {
+std::string CreateTabToolRequest::Name() const {
   return "CreateTab";
 }
 
@@ -51,6 +51,7 @@ ToolRequest::CreateToolResult ActivateTabToolRequest::CreateTool(
   TabInterface* tab = GetTabHandle().Get();
   if (!tab) {
     return {/*tool=*/nullptr, MakeResult(mojom::ActionResultCode::kTabWentAway,
+                                         /*requires_page_stabilization=*/false,
                                          "The tab is no longer present.")};
   }
   return {
@@ -63,7 +64,7 @@ void ActivateTabToolRequest::Apply(ToolRequestVisitorFunctor& f) const {
   f.Apply(*this);
 }
 
-std::string ActivateTabToolRequest::JournalEvent() const {
+std::string ActivateTabToolRequest::Name() const {
   return "ActivateTab";
 }
 
@@ -78,6 +79,7 @@ ToolRequest::CreateToolResult CloseTabToolRequest::CreateTool(
   TabInterface* tab = GetTabHandle().Get();
   if (!tab) {
     return {/*tool=*/nullptr, MakeResult(mojom::ActionResultCode::kTabWentAway,
+                                         /*requires_page_stabilization=*/false,
                                          "The tab is no longer present.")};
   }
   return {
@@ -90,7 +92,7 @@ void CloseTabToolRequest::Apply(ToolRequestVisitorFunctor& f) const {
   f.Apply(*this);
 }
 
-std::string CloseTabToolRequest::JournalEvent() const {
+std::string CloseTabToolRequest::Name() const {
   return "CloseTab";
 }
 

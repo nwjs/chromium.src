@@ -1481,7 +1481,7 @@ const Display& DisplayManager::GetFakePrimaryDisplay() {
   static Display* fake_display = nullptr;
   if (!fake_display) {
     fake_display = new Display(Display::GetDefaultDisplay());
-    // Note that if an inappropriate gfx::BufferFormat is specified in the
+    // Note that if an inappropriate format is specified in the
     // gfx::DisplayColorSpaces of the fake display, this can sometimes
     // propagate to allocation code and cause errors.
     // https://crbug.com/1057501
@@ -1511,15 +1511,6 @@ size_t DisplayManager::GetNumExternalDisplays() const {
 
 bool DisplayManager::IsActiveDisplayId(int64_t display_id) const {
   return ContainsDisplayWithId(active_display_list_, display_id);
-}
-
-bool DisplayManager::IsConnectedDisplayId(int64_t display_id) const {
-  for (int64_t id : connected_display_id_list_) {
-    if (id == display_id) {
-      return true;
-    }
-  }
-  return false;
 }
 
 bool DisplayManager::IsInMirrorMode() const {

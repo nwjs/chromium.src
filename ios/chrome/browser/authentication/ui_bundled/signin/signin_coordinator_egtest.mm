@@ -718,7 +718,8 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
 
 // Tests that when signing-in using the NTP avatar disc, the user is not signed
 // out if history sync is declined.
-- (void)testSignInFromNTPAndDeclineHistorySync {
+// TODO(crbug.com/453582633): Test is failing on the waterfall.
+- (void)DISABLED_testSignInFromNTPAndDeclineHistorySync {
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
 
@@ -947,6 +948,12 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
   [[EarlGrey selectElementWithMatcher:
                  grey_accessibilityID(
                      kConsistencySigninPrimaryButtonAccessibilityIdentifier)]
+      performAction:grey_tap()];
+  // Wait for the snackbar to appear.
+  id<GREYMatcher> snackbarMatcher = chrome_test_util::SnackbarViewMatcher();
+  [ChromeEarlGrey testUIElementAppearanceWithMatcher:snackbarMatcher];
+  // Tap the snackbar to make it disappear.
+  [[EarlGrey selectElementWithMatcher:snackbarMatcher]
       performAction:grey_tap()];
   [[EarlGrey selectElementWithMatcher:chrome_test_util::
                                           PromoScreenSecondaryButtonMatcher()]

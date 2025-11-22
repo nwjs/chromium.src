@@ -700,6 +700,13 @@ chromium-metrics-reviews@google.com.
   <int value="161" label="Page.isPrerendering"/>
   <int value="162" label="Profile.addCustomHeader"/>
   <int value="163" label="Profile.getCustomHeaders"/>
+  <int value="164" label="WebSettingsCompat.setRendererLibraryPrefetchMode"/>
+  <int value="165" label="WebSettingsCompat.getRendererLibraryPrefetchMode"/>
+  <int value="166" label="BackForwardCacheSettings.setTimeoutInSec"/>
+  <int value="167" label="BackForwardCacheSettings.setMaxPagesInCache"/>
+  <int value="168" label="WebSettingsCompat.addWebNavigationListener"/>
+  <int value="169" label="WebSettingsCompat.removeWebNavigationListener"/>
+  <int value="170" label="Profile.addQuicHints"/>
 <!-- LINT.ThenChange(/android_webview/support_library/java/src/org/chromium/support_lib_glue/SupportLibWebViewChromiumFactory.java:ApiCall) -->
 
 </enum>
@@ -774,6 +781,8 @@ chromium-metrics-reviews@google.com.
   <int value="30" label="Download auto-resumption any network task"/>
   <int value="31" label="Notification pre-unsubscribe action"/>
   <int value="32" label="Safety Hub fetch task"/>
+  <int value="33" label="Auxiliary search donate task"/>
+  <int value="34" label="Chrome signals reporting task"/>
 </enum>
 
 <enum name="BackPressConsumer">
@@ -823,7 +832,7 @@ chromium-metrics-reviews@google.com.
 
 <enum name="BackupNavbarInsetsSource">
   <int value="0" label="None"/>
-  <int value="1" label="Tappable Element"/>
+  <int value="1" label="Tappable Element (Deprecated)"/>
   <int value="2" label="Mandatory system gestures"/>
   <int value="3" label="Filtered explicitly disabled"/>
   <int value="4" label="Filtered weaker signals"/>
@@ -931,6 +940,22 @@ chromium-metrics-reviews@google.com.
   <int value="23" label="Icons, Names, Emails, and Telephone numbers"/>
   <int value="31"
       label="Icons, Addresses, Names, Emails, and Telephone numbers"/>
+</enum>
+
+<enum name="CookieManagerThreadingCondition">
+  <int value="0" label="Not called before UI thread is set"/>
+  <int value="1" label="Called on a non-looper thread"/>
+  <int value="2"
+      label="Called from background looper and UI thread is main looper"/>
+  <int value="3"
+      label="Called from background looper and UI thread is the same
+             background looper"/>
+  <int value="4"
+      label="Called from background looper and UI thread is a different
+             background looper"/>
+  <int value="5" label="Called from main looper and UI thread is main looper"/>
+  <int value="6"
+      label="Called from main looper and UI thread is a background looper"/>
 </enum>
 
 <enum name="CpuAbiBitnessSupport">
@@ -1056,6 +1081,16 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="LINK_TO_NEW_INSTANCE"/>
   <int value="4" label="UNKNOWN_TO_NEW_INSTANCE"/>
 </enum>
+
+<!-- LINT.IfChange(DroppedSequenceEventAndDownTimeDelta) -->
+
+<enum name="DroppedSequenceEventAndDownTimeDelta">
+  <int value="0" label="EventTimeLessThanDownTime"/>
+  <int value="1" label="EventTimeEqualsDownTime"/>
+  <int value="2" label="EventTimeGreaterThanDownTime"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/viz/service/input/android_state_transfer_handler.cc:DroppedSequenceEventAndDownTimeDelta) -->
 
 <enum name="EdgeToEdgeConfigurationSwitchOutcome">
   <summary>
@@ -1365,6 +1400,11 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="Haip"/>
 </enum>
 
+<enum name="NewWindowAppSource">
+  <int value="0" label="Undefined app source."/>
+  <int value="1" label="Menu option (eg. app menu, context menu, etc.)"/>
+</enum>
+
 <enum name="NightMode">
   <int value="0" label="undefined"/>
   <int value="1" label="on"/>
@@ -1519,6 +1559,12 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Instant app"/>
   <int value="3" label="WebApk owned by the caller"/>
   <int value="4" label="Other WebApk"/>
+</enum>
+
+<enum name="RendererLibraryPrefetchMode">
+  <int value="0" label="Default"/>
+  <int value="1" label="Disabled"/>
+  <int value="2" label="Enabled"/>
 </enum>
 
 <enum name="RestoreTabsOnFREDeviceRestoredFrom">
@@ -1899,6 +1945,8 @@ chromium-metrics-reviews@google.com.
   <int value="12" label="SequenceTransferredBackFromViz"/>
   <int value="13" label="WebContentsIgnoringInputEvents"/>
   <int value="14" label="RIRDelegateConnectionNotSetup"/>
+  <int value="15" label="SharedMemoryUnavailable"/>
+  <int value="16" label="PositiveEventAndDownTimeDelta"/>
 </enum>
 
 <!-- LINT.ThenChange(//content/public/browser/android/transfer_input_to_viz_result.h:TransferInputToVizResult)-->
@@ -1981,40 +2029,40 @@ chromium-metrics-reviews@google.com.
 
 <enum name="WebPageContentProviderEvent">
   <int value="0" label="GET_CONTENT_URI_FAILED">
-    WebPageContentProvider failed to generate a URI for the current web page,
-    nothing will be attached to AssistContent
+    WebPageContentProvider failed to generate a JSON string with URIs for the
+    current web page, nothing will be attached to AssistContent
   </int>
-  <int value="1" label="QUERY">
+  <int value="1" label="REQUEST_STARTED">
     WebPageContentProvider received a query by an external app
   </int>
-  <int value="2" label="QUERY_FAILED_CURRENT_TAB_CHANGED">
+  <int value="2" label="REQUEST_FAILED_CURRENT_TAB_CHANGED">
     WebPageContentProvider returned an empty cursor while processing a query
     because the current tab no longer matches
   </int>
-  <int value="3" label="QUERY_FAILED_INVALID_URI">
+  <int value="3" label="REQUEST_FAILED_INVALID_URI">
     WebPageContentProvider threw an error while processing a query because it
     had an invalid URI
   </int>
-  <int value="4" label="QUERY_FAILED_INVALID_ID">
+  <int value="4" label="REQUEST_FAILED_INVALID_ID">
     WebPageContentProvider returned an empty cursor while processing a query
     because the URI had an invalid id (e.g. non existing or no longer valid).
   </int>
-  <int value="5" label="QUERY_FAILED_TO_GET_CURRENT_TAB">
+  <int value="5" label="REQUEST_FAILED_TO_GET_CURRENT_TAB">
     WebPageContentProvider returned an empty cursor while processing a query
     because we failed to get the current tab from the browser process
   </int>
-  <int value="6" label="QUERY_SUCCEEDED_ALREADY_EXTRACTING (Deprecated)">
+  <int value="6" label="REQUEST_SUCCEEDED_ALREADY_EXTRACTING (Deprecated)">
     WebPageContentProvider returned a cursor with a pending result for a page
     extraction task that was already running
   </int>
-  <int value="7" label="QUERY_SUCCEEDED_RETURNED_EXTRACTED">
+  <int value="7" label="REQUEST_SUCCEEDED_RETURNED_EXTRACTED">
     WebPageContentProvider returned a cursor with page contents successfully
   </int>
-  <int value="8" label="QUERY_SUCCEEDED_STARTED_EXTRACTION (Deprecated)">
+  <int value="8" label="REQUEST_SUCCEEDED_STARTED_EXTRACTION (Deprecated)">
     WebPageContentProvider successfully started a page extraction task and
     returned a cursor with a pending result
   </int>
-  <int value="9" label="TEXT_EXTRACTION_FAILED_EMPTY_RESULT">
+  <int value="9" label="REQUEST_FAILED_EMPTY_RESULT">
     WebPageContentProvider's page extraction task failed to execute
   </int>
   <int value="10" label="TEXT_EXTRACTION_FAILED_TAB_CHANGED (Deprecated)">
@@ -2025,17 +2073,24 @@ chromium-metrics-reviews@google.com.
     WebPageContentProvider's page extraction task completed successfully and
     observers were notified
   </int>
-  <int value="12" label="TIMEOUT">
+  <int value="12" label="URI_INVALIDATED_TIMEOUT">
     The last URI generated by WebPageContentProvider was not queried on time and
     it's no longer valid.
   </int>
-  <int value="13" label="QUERY_FAILED_INTERRUPTED">
+  <int value="13" label="REQUEST_FAILED_INTERRUPTED">
     Asynchronous text extraction task was interrupted, query call failed.
   </int>
-  <int value="14" label="QUERY_FAILED_TIMED_OUT">
+  <int value="14" label="REQUEST_FAILED_TIMED_OUT">
     Asynchronous text extraction task timed out, query call failed.
   </int>
-  <int value="15" label="QUERY_FAILED_EXCEPTION">
+  <int value="15" label="REQUEST_FAILED_EXCEPTION">
+    An exception was thrown while extracting text, query call failed.
+  </int>
+  <int value="16" label="GET_CONTENT_URI_SUCCESS">
+    PageContentProvider generated a JSON string with URIs for the current web
+    page to be attached to AssistContent.
+  </int>
+  <int value="17" label="URI_INVALIDATED_NEW_REQUEST">
     An exception was thrown while extracting text, query call failed.
   </int>
 </enum>
@@ -2301,6 +2356,8 @@ chromium-metrics-reviews@google.com.
   <int value="11" label="GeoLocationPermissions.getInstance"/>
   <int value="12" label="WebView.setDefaultTrafficStatsTag"/>
   <int value="13" label="WebView.setDefaultTrafficStatsUid"/>
+  <int value="14" label="WebViewCompat.setRendererLibraryPrefetchMode"/>
+  <int value="15" label="WebViewCompat.getRendererLibraryPrefetchMode"/>
 <!-- LINT.ThenChange(/android_webview/glue/java/src/com/android/webview/chromium/SharedStatics.java:ApiCall) -->
 
 </enum>
@@ -2668,6 +2725,9 @@ chromium-metrics-reviews@google.com.
   <int value="102" label="staticGetVariationsHeader"/>
   <int value="103" label="staticSetDefaultTrafficStatsTag"/>
   <int value="104" label="staticSetDefaultTrafficStatsUid"/>
+  <int value="105" label="staticSetRendererLibraryPrefetchMode"/>
+  <int value="106" label="staticGetRendererLibraryPrefetchMode"/>
+  <int value="107" label="getDefaultCookieManager"/>
 </enum>
 
 <!-- LINT.ThenChange(//base/tracing/protos/chrome_track_event.proto:WebViewStartup) -->

@@ -144,8 +144,7 @@ public class AwWebContentsObserver extends WebContentsObserver
 
         AwContents awContents = mAwContents.get();
         if (awContents != null) {
-            AwNavigationClient client = awContents.getNavigationClient();
-            if (client != null) {
+            for (AwNavigationListener client : awContents.getNavigationClients()) {
                 client.onPageLoadEventFired(getAwPageFor(page));
             }
         }
@@ -156,20 +155,18 @@ public class AwWebContentsObserver extends WebContentsObserver
             Page page, GlobalRenderFrameHostId rfhId, @LifecycleState int rfhLifecycleState) {
         AwContents awContents = mAwContents.get();
         if (awContents != null) {
-            AwNavigationClient client = awContents.getNavigationClient();
-            if (client != null) {
+            for (AwNavigationListener client : awContents.getNavigationClients()) {
                 client.onPageDOMContentLoadedEventFired(getAwPageFor(page));
             }
         }
     }
 
     @Override
-    public void firstContentfulPaintInPrimaryMainFrame(Page page) {
+    public void firstContentfulPaintInPrimaryMainFrame(Page page, long durationUs) {
         AwContents awContents = mAwContents.get();
         if (awContents != null) {
-            AwNavigationClient client = awContents.getNavigationClient();
-            if (client != null) {
-                client.onFirstContentfulPaint(getAwPageFor(page));
+            for (AwNavigationListener client : awContents.getNavigationClients()) {
+                client.onFirstContentfulPaint(getAwPageFor(page), durationUs);
             }
         }
     }
@@ -244,8 +241,7 @@ public class AwWebContentsObserver extends WebContentsObserver
     public void didStartNavigationInPrimaryMainFrame(NavigationHandle navigation) {
         AwContents awContents = mAwContents.get();
         if (awContents != null) {
-            AwNavigationClient client = awContents.getNavigationClient();
-            if (client != null) {
+            for (AwNavigationListener client : awContents.getNavigationClients()) {
                 client.onNavigationStarted(getOrUpdateAwNavigationFor(navigation));
             }
         }
@@ -255,9 +251,10 @@ public class AwWebContentsObserver extends WebContentsObserver
     public void didRedirectNavigation(NavigationHandle navigation) {
         AwContents awContents = mAwContents.get();
         if (awContents != null) {
-            AwNavigationClient client = awContents.getNavigationClient();
-            if (client != null && navigation.isInPrimaryMainFrame()) {
-                client.onNavigationRedirected(getOrUpdateAwNavigationFor(navigation));
+            if (navigation.isInPrimaryMainFrame()) {
+                for (AwNavigationListener client : awContents.getNavigationClients()) {
+                    client.onNavigationRedirected(getOrUpdateAwNavigationFor(navigation));
+                }
             }
         }
     }
@@ -267,6 +264,15 @@ public class AwWebContentsObserver extends WebContentsObserver
         String url = navigation.getUrl().getPossiblyInvalidSpec();
         if (navigation.errorCode() != NetError.OK && !navigation.isDownload()) {
             processFailedLoad(true, navigation.errorCode(), navigation.getUrl());
+        }
+
+        AwContents awContents = mAwContents.get();
+        if (awContents != null) {
+            if (navigation.isInPrimaryMainFrame()) {
+                for (AwNavigationListener navClient : awContents.getNavigationClients()) {
+                    navClient.onNavigationCompleted(getOrUpdateAwNavigationFor(navigation));
+                }
+            }
         }
 
         if (!navigation.hasCommitted()) return;
@@ -289,14 +295,6 @@ public class AwWebContentsObserver extends WebContentsObserver
                     (navigation.pageTransition() & PageTransition.CORE_MASK)
                             == PageTransition.RELOAD;
             client.getCallbackHelper().postDoUpdateVisitedHistory(url, isReload);
-        }
-
-        AwContents awContents = mAwContents.get();
-        if (awContents != null) {
-            AwNavigationClient navClient = awContents.getNavigationClient();
-            if (navClient != null && navigation.isInPrimaryMainFrame()) {
-                navClient.onNavigationCompleted(getOrUpdateAwNavigationFor(navigation));
-            }
         }
 
         // Only invoke the onPageCommitVisible callback when navigating to a different document,
@@ -340,9 +338,10 @@ public class AwWebContentsObserver extends WebContentsObserver
     public void onWillDeletePage(Page page) {
         AwContents awContents = mAwContents.get();
         if (awContents != null) {
-            AwNavigationClient navClient = awContents.getNavigationClient();
-            if (navClient != null && !page.isPrerendering()) {
-                navClient.onPageDeleted(getAwPageFor(page));
+            if (!page.isPrerendering()) {
+                for (AwNavigationListener navClient : awContents.getNavigationClients()) {
+                    navClient.onPageDeleted(getAwPageFor(page));
+                }
             }
         }
     }

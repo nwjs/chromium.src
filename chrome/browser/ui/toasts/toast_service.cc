@@ -261,13 +261,11 @@ void ToastService::RegisterToasts(
             .Build());
   }
 
-  if (toast_features::IsEnabled(toast_features::kPinnedTabToastOnClose)) {
-    toast_registry_->RegisterToast(
-        ToastId::kClosePinnedTab,
-        ToastSpecification::Builder(kKeepIcon, IDS_CLOSE_PINNED_TAB_TOAST_BODY)
-            .SetToastAsActionable()
-            .Build());
-  }
+  toast_registry_->RegisterToast(
+      ToastId::kClosePinnedTab,
+      ToastSpecification::Builder(kKeepIcon, IDS_CLOSE_PINNED_TAB_TOAST_BODY)
+          .SetToastAsActionable()
+          .Build());
 
   if (features::kGlicActorUiToast.Get()) {
     toast_registry_->RegisterToast(
@@ -305,5 +303,10 @@ void ToastService::RegisterToasts(
       ToastSpecification::Builder(vector_icons::kInfoRefreshIcon,
                                   IDS_GLIC_SHARE_IMAGE_FAILED_TOAST_BODY)
           .AddCloseButton()
+          .Build());
+
+  toast_registry_->RegisterToast(
+      ToastId::kCopiedToClipboard,
+      ToastSpecification::Builder(kInfoIcon, IDS_COPIED_TO_CLIPBOARD_TOAST_BODY)
           .Build());
 }  // RegisterToasts() end.

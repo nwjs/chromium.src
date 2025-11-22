@@ -62,6 +62,10 @@
 #include "gpu/command_buffer/client/internal/mappable_buffer_dxgi.h"
 #endif
 
+#if BUILDFLAG(IS_ANDROID)
+#include "gpu/command_buffer/client/internal/mappable_buffer_ahb.h"
+#endif
+
 namespace gpu {
 
 template <typename MappableBufferType>
@@ -104,6 +108,11 @@ class MappableBufferTest : public testing::Test {
       case gfx::DXGI_SHARED_HANDLE:
         return MappableBufferDXGI::CreateFromHandleForTesting(std::move(handle),
                                                               size, format);
+#endif
+#if BUILDFLAG(IS_ANDROID)
+      case gfx::ANDROID_HARDWARE_BUFFER:
+        return MappableBufferAHB::CreateFromHandleForTesting(std::move(handle),
+                                                             size, format);
 #endif
       default:
         NOTREACHED();
@@ -187,7 +196,7 @@ TYPED_TEST_SUITE_P(MappableBufferTest);
 TYPED_TEST_P(MappableBufferTest, CreateFromHandle) {
   const gfx::Size kBufferSize(8, 8);
 
-  for (auto buffer_format : gfx::GetBufferFormatsForTesting()) {
+  for (auto format : viz::GetMappableSharedImageFormatForTesting()) {
     gfx::BufferUsage usages[] = {
         gfx::BufferUsage::GPU_READ,
         gfx::BufferUsage::SCANOUT,
@@ -201,12 +210,15 @@ TYPED_TEST_P(MappableBufferTest, CreateFromHandle) {
         gfx::BufferUsage::SCANOUT_VEA_CPU_READ,
         gfx::BufferUsage::VEA_READ_CAMERA_AND_CPU_READ_WRITE,
     };
-    viz::SharedImageFormat format = viz::GetSharedImageFormat(buffer_format);
     for (auto usage : usages) {
       if (TypeParam::kBufferType != gfx::SHARED_MEMORY_BUFFER &&
+#if BUILDFLAG(IS_ANDROID)
+          format != viz::MultiPlaneFormat::kNV12) {
+#else
           !TestFixture::gpu_memory_buffer_support()
                ->IsNativeGpuMemoryBufferConfigurationSupportedForTesting(
-                   buffer_format, usage)) {
+                   format, usage)) {
+#endif
         continue;
       }
 
@@ -225,10 +237,11 @@ TYPED_TEST_P(MappableBufferTest, CreateFromHandle) {
   }
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 TYPED_TEST_P(MappableBufferTest, CreateFromHandleSmallBuffer) {
   const gfx::Size kBufferSize(8, 8);
 
-  for (auto buffer_format : gfx::GetBufferFormatsForTesting()) {
+  for (auto format : viz::GetMappableSharedImageFormatForTesting()) {
     gfx::BufferUsage usages[] = {
         gfx::BufferUsage::GPU_READ,
         gfx::BufferUsage::SCANOUT,
@@ -242,12 +255,11 @@ TYPED_TEST_P(MappableBufferTest, CreateFromHandleSmallBuffer) {
         gfx::BufferUsage::SCANOUT_VEA_CPU_READ,
         gfx::BufferUsage::VEA_READ_CAMERA_AND_CPU_READ_WRITE,
     };
-    viz::SharedImageFormat format = viz::GetSharedImageFormat(buffer_format);
     for (auto usage : usages) {
       if (TypeParam::kBufferType != gfx::SHARED_MEMORY_BUFFER &&
           !TestFixture::gpu_memory_buffer_support()
                ->IsNativeGpuMemoryBufferConfigurationSupportedForTesting(
-                   buffer_format, usage)) {
+                   format, usage)) {
         continue;
       }
 
@@ -279,12 +291,11 @@ TYPED_TEST_P(MappableBufferTest, Map) {
   // Use a multiple of 4 for both dimensions to support compressed formats.
   const gfx::Size kBufferSize(4, 4);
 
-  for (auto buffer_format : gfx::GetBufferFormatsForTesting()) {
-    viz::SharedImageFormat format = viz::GetSharedImageFormat(buffer_format);
+  for (auto format : viz::GetMappableSharedImageFormatForTesting()) {
     if (TypeParam::kBufferType != gfx::SHARED_MEMORY_BUFFER &&
         !TestFixture::gpu_memory_buffer_support()
              ->IsNativeGpuMemoryBufferConfigurationSupportedForTesting(
-                 buffer_format, gfx::BufferUsage::GPU_READ_CPU_READ_WRITE)) {
+                 format, gfx::BufferUsage::GPU_READ_CPU_READ_WRITE)) {
       continue;
     }
 
@@ -341,12 +352,11 @@ TYPED_TEST_P(MappableBufferTest, PersistentMap) {
   // Use a multiple of 4 for both dimensions to support compressed formats.
   const gfx::Size kBufferSize(4, 4);
 
-  for (auto buffer_format : gfx::GetBufferFormatsForTesting()) {
-    viz::SharedImageFormat format = viz::GetSharedImageFormat(buffer_format);
+  for (auto format : viz::GetMappableSharedImageFormatForTesting()) {
     if (TypeParam::kBufferType != gfx::SHARED_MEMORY_BUFFER &&
         !TestFixture::gpu_memory_buffer_support()
              ->IsNativeGpuMemoryBufferConfigurationSupportedForTesting(
-                 buffer_format, gfx::BufferUsage::GPU_READ_CPU_READ_WRITE)) {
+                 format, gfx::BufferUsage::GPU_READ_CPU_READ_WRITE)) {
       continue;
     }
 
@@ -416,12 +426,13 @@ TYPED_TEST_P(MappableBufferTest, PersistentMap) {
     buffer->Unmap();
   }
 }
+#endif
 
 TYPED_TEST_P(MappableBufferTest, SerializeAndDeserialize) {
   const gfx::Size kBufferSize(8, 8);
   const gfx::GpuMemoryBufferType kBufferType = TypeParam::kBufferType;
 
-  for (auto buffer_format : gfx::GetBufferFormatsForTesting()) {
+  for (auto format : viz::GetMappableSharedImageFormatForTesting()) {
     gfx::BufferUsage usages[] = {
         gfx::BufferUsage::GPU_READ,
         gfx::BufferUsage::SCANOUT,
@@ -435,12 +446,15 @@ TYPED_TEST_P(MappableBufferTest, SerializeAndDeserialize) {
         gfx::BufferUsage::SCANOUT_VEA_CPU_READ,
         gfx::BufferUsage::VEA_READ_CAMERA_AND_CPU_READ_WRITE,
     };
-    viz::SharedImageFormat format = viz::GetSharedImageFormat(buffer_format);
     for (auto usage : usages) {
       if (TypeParam::kBufferType != gfx::SHARED_MEMORY_BUFFER &&
+#if BUILDFLAG(IS_ANDROID)
+          format != viz::MultiPlaneFormat::kNV12) {
+#else
           !TestFixture::gpu_memory_buffer_support()
                ->IsNativeGpuMemoryBufferConfigurationSupportedForTesting(
-                   buffer_format, usage)) {
+                   format, usage)) {
+#endif
         continue;
       }
 
@@ -467,11 +481,12 @@ TYPED_TEST_P(MappableBufferTest, SerializeAndDeserialize) {
 // from a GpuMemoryBuffer implementation in order to be conformant.
 REGISTER_TYPED_TEST_SUITE_P(MappableBufferTest,
                             CreateFromHandle,
+#if !BUILDFLAG(IS_ANDROID)
                             CreateFromHandleSmallBuffer,
                             Map,
                             PersistentMap,
+#endif
                             SerializeAndDeserialize);
-
 }  // namespace gpu
 
 #endif  // GPU_COMMAND_BUFFER_CLIENT_INTERNAL_MAPPABLE_BUFFER_TEST_TEMPLATE_H_

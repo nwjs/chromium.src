@@ -49,7 +49,8 @@ class ActorUiStateManagerTest : public testing::Test {
   // testing::Test:
   void SetUp() override {
     scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kGlicActorUi},
+        /*enabled_features=*/{features::kGlicActorUi,
+                              features::kGlicHandoffButtonHiddenClientControl},
         /*disabled_features=*/{});
     profile_ = TestingProfile::Builder()
                    .AddTestingFactory(
@@ -124,30 +125,19 @@ class ActorUiStateManagerTest : public testing::Test {
   void PauseActorTask(TaskId task_id, bool from_actor) {
     actor_keyed_service()->GetTask(task_id)->Pause(from_actor);
     if (from_actor) {
-      actor_ui_state_manager()->OnUiEvent(
-          TaskStateChanged(task_id, ActorTask::State::kPausedByActor));
+      actor_ui_state_manager()->OnUiEvent(TaskStateChanged(
+          task_id, ActorTask::State::kPausedByActor, /*title=*/""));
     } else {
-      actor_ui_state_manager()->OnUiEvent(
-          TaskStateChanged(task_id, ActorTask::State::kPausedByUser));
+      actor_ui_state_manager()->OnUiEvent(TaskStateChanged(
+          task_id, ActorTask::State::kPausedByUser, /*title=*/""));
     }
   }
 
   void ResumeActorTask(TaskId task_id) {
     actor_keyed_service()->GetTask(task_id)->Resume();
-    TaskStateChanged reflecting_task_event(task_id,
-                                           ActorTask::State::kReflecting);
+    TaskStateChanged reflecting_task_event(
+        task_id, ActorTask::State::kReflecting, /*title=*/"");
     actor_ui_state_manager()->OnUiEvent(reflecting_task_event);
-  }
-
-  void StopActorTask(TaskId task_id, bool success) {
-    actor_keyed_service()->StopTask(task_id, success);
-    if (success) {
-      actor_ui_state_manager()->OnUiEvent(
-          TaskStateChanged(task_id, ActorTask::State::kFinished));
-    } else {
-      actor_ui_state_manager()->OnUiEvent(
-          TaskStateChanged(task_id, ActorTask::State::kCancelled));
-    }
   }
 
  private:
@@ -188,8 +178,8 @@ TEST_F(ActorUiStateManagerTest, SingleTask_RapidTaskStateChanges_Debounced) {
 }
 
 TEST_F(ActorUiStateManagerTest, OnActorTaskState_kCreatedNewStateCrashes) {
-  EXPECT_DEATH(actor_ui_state_manager()->OnUiEvent(
-                   TaskStateChanged(TaskId(123), ActorTask::State::kCreated)),
+  EXPECT_DEATH(actor_ui_state_manager()->OnUiEvent(TaskStateChanged(
+                   TaskId(123), ActorTask::State::kCreated, /*title=*/"")),
                "");
 }
 
@@ -216,52 +206,66 @@ TEST_P(ActorUiStateManagerActorTaskUiTabScopedTest,
 
   auto [task_state, expected_ui_tab_state] = GetParam();
   ExpectUiTabStateChange(expected_ui_tab_state);
-  actor_ui_state_manager()->OnUiEvent(TaskStateChanged(task_id, task_state));
+  actor_ui_state_manager()->OnUiEvent(
+      TaskStateChanged(task_id, task_state, /*title=*/""));
 }
 
-const auto kActorTaskTestValues =
-    std::vector<std::tuple<ActorTask::State, UiTabState>>{
-        {ActorTask::State::kActing,
-         UiTabState{
-             .actor_overlay = ActorOverlayState(/*is_active=*/true),
-             .handoff_button = {.is_active = true, .controller = kActor},
-             .tab_indicator_visible = true,
-             .border_glow_visible = true,
-         }},
-        {ActorTask::State::kReflecting,
-         UiTabState{
-             .actor_overlay = ActorOverlayState(/*is_active=*/true),
-             .handoff_button = {.is_active = true, .controller = kActor},
-             .tab_indicator_visible = true,
-             .border_glow_visible = true,
-         }},
-        {ActorTask::State::kPausedByActor,
-         UiTabState{
-             .actor_overlay = ActorOverlayState(/*is_active=*/false),
-             .handoff_button = {.is_active = true, .controller = kClient},
-             .tab_indicator_visible = false,
-             .border_glow_visible = false,
-         }},
-        {ActorTask::State::kPausedByUser,
-         UiTabState{
-             .actor_overlay = ActorOverlayState(/*is_active=*/false),
-             .handoff_button = {.is_active = true, .controller = kClient},
-             .tab_indicator_visible = false,
-             .border_glow_visible = false,
-         }},
-        {ActorTask::State::kCancelled,
-         UiTabState{
-             .actor_overlay = ActorOverlayState(/*is_active=*/false),
-             .handoff_button = {.is_active = false},
-             .tab_indicator_visible = false,
-         }},
-        {ActorTask::State::kFinished,
-         UiTabState{
-             .actor_overlay = ActorOverlayState(/*is_active=*/false),
-             .handoff_button = {.is_active = false},
-             .tab_indicator_visible = false,
-             .border_glow_visible = false,
-         }}};
+const auto kActorTaskTestValues = std::vector<
+    std::tuple<ActorTask::State, UiTabState>>{
+    {ActorTask::State::kActing,
+     UiTabState{
+         .actor_overlay = {.is_active = true, .border_glow_visible = true},
+         .handoff_button = {.is_active = true, .controller = kActor},
+         .tab_indicator = TabIndicatorStatus::kDynamic,
+         .border_glow_visible = true,
+     }},
+    {ActorTask::State::kReflecting,
+     UiTabState{
+         .actor_overlay = {.is_active = true, .border_glow_visible = true},
+         .handoff_button = {.is_active = true, .controller = kActor},
+         .tab_indicator = TabIndicatorStatus::kDynamic,
+         .border_glow_visible = true,
+     }},
+    {ActorTask::State::kWaitingOnUser,
+     UiTabState{
+         .actor_overlay = {.is_active = true, .border_glow_visible = true},
+         .handoff_button = {.is_active = true, .controller = kActor},
+         .tab_indicator = TabIndicatorStatus::kStatic,
+         .border_glow_visible = true,
+     }},
+    {ActorTask::State::kPausedByActor,
+     UiTabState{
+         .actor_overlay = {.is_active = false, .border_glow_visible = false},
+         .handoff_button = {.is_active = false, .controller = kClient},
+         .tab_indicator = TabIndicatorStatus::kNone,
+         .border_glow_visible = false,
+     }},
+    {ActorTask::State::kPausedByUser,
+     UiTabState{
+         .actor_overlay = {.is_active = false, .border_glow_visible = false},
+         .handoff_button = {.is_active = false, .controller = kClient},
+         .tab_indicator = TabIndicatorStatus::kNone,
+         .border_glow_visible = false,
+     }},
+    {ActorTask::State::kCancelled,
+     UiTabState{
+         .actor_overlay = {.is_active = false, .border_glow_visible = false},
+         .handoff_button = {.is_active = false},
+         .tab_indicator = TabIndicatorStatus::kNone,
+     }},
+    {ActorTask::State::kFailed,
+     UiTabState{
+         .actor_overlay = {.is_active = false, .border_glow_visible = false},
+         .handoff_button = {.is_active = false},
+         .tab_indicator = TabIndicatorStatus::kNone,
+     }},
+    {ActorTask::State::kFinished,
+     UiTabState{
+         .actor_overlay = {.is_active = false, .border_glow_visible = false},
+         .handoff_button = {.is_active = false},
+         .tab_indicator = TabIndicatorStatus::kNone,
+         .border_glow_visible = false,
+     }}};
 
 INSTANTIATE_TEST_SUITE_P(ActorUiStateManagerActorTaskUiTabScopedTest,
                          ActorUiStateManagerActorTaskUiTabScopedTest,
@@ -286,9 +290,9 @@ class ActorUiStateManagerUiEventUiTabScopedTest
 TEST_F(ActorUiStateManagerUiEventUiTabScopedTest,
        OnStartingToActOnTab_UpdatesUiCorrectly) {
   UiTabState expected_ui_tab_state{
-      .actor_overlay = ActorOverlayState(/*is_active=*/true),
+      .actor_overlay = {.is_active = true, .border_glow_visible = true},
       .handoff_button = {.is_active = true, .controller = kActor},
-      .tab_indicator_visible = true,
+      .tab_indicator = TabIndicatorStatus::kDynamic,
       .border_glow_visible = true,
   };
   VerifyUiEvent(StartingToActOnTab{mock_tab().GetHandle(), TaskId(123)},
@@ -298,9 +302,9 @@ TEST_F(ActorUiStateManagerUiEventUiTabScopedTest,
 TEST_F(ActorUiStateManagerUiEventUiTabScopedTest,
        OnStoppedActingOnTab_UpdatesUiCorrectly) {
   UiTabState expected_ui_tab_state{
-      .actor_overlay = ActorOverlayState(/*is_active=*/false),
+      .actor_overlay = {.is_active = false},
       .handoff_button = {.is_active = false},
-      .tab_indicator_visible = false,
+      .tab_indicator = TabIndicatorStatus::kNone,
       .border_glow_visible = false,
   };
   VerifyUiEvent(StoppedActingOnTab{mock_tab().GetHandle()},
@@ -310,11 +314,12 @@ TEST_F(ActorUiStateManagerUiEventUiTabScopedTest,
 TEST_F(ActorUiStateManagerUiEventUiTabScopedTest,
        OnMouseMove_UpdatesUiCorrectly) {
   UiTabState expected_ui_tab_state{
-      .actor_overlay = ActorOverlayState(
-          /*is_active=*/true, /*mouse_down=*/false,
-          /*mouse_target=*/gfx::Point(100, 200)),
+      .actor_overlay = {.is_active = true,
+                        .border_glow_visible = true,
+                        .mouse_down = false,
+                        .mouse_target = gfx::Point(100, 200)},
       .handoff_button = {.is_active = true, .controller = kActor},
-      .tab_indicator_visible = true,
+      .tab_indicator = TabIndicatorStatus::kDynamic,
       .border_glow_visible = true,
   };
   VerifyUiEvent(MouseMove{mock_tab().GetHandle(), gfx::Point(100, 200),
@@ -325,10 +330,11 @@ TEST_F(ActorUiStateManagerUiEventUiTabScopedTest,
 TEST_F(ActorUiStateManagerUiEventUiTabScopedTest,
        OnMouseClick_UpdatesUiCorrectly) {
   UiTabState expected_ui_tab_state{
-      .actor_overlay =
-          ActorOverlayState(/*is_active=*/true, /*mouse_down=*/true),
+      .actor_overlay = {.is_active = true,
+                        .border_glow_visible = true,
+                        .mouse_down = true},
       .handoff_button = {.is_active = true, .controller = kActor},
-      .tab_indicator_visible = true,
+      .tab_indicator = TabIndicatorStatus::kDynamic,
       .border_glow_visible = true,
   };
   VerifyUiEvent(MouseClick{mock_tab().GetHandle(), MouseClickType::kLeft,

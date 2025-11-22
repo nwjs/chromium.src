@@ -247,6 +247,14 @@ BASE_FEATURE_PARAM(bool,
 BASE_FEATURE(kLocalNetworkAccessChecksWebSockets,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables Local Network Access checks for WebTransport.
+// Blocks local network requests without user permission to prevent exploitation
+// of vulnerable local devices.
+//
+// Spec: https://wicg.github.io/local-network-access/
+BASE_FEATURE(kLocalNetworkAccessChecksWebTransport,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If enabled, then the network service will parse the Cookie-Indices header.
 // This does not currently control changing cache behavior according to the
 // value of this header.
@@ -298,6 +306,14 @@ BASE_FEATURE_PARAM(int,
                    &kRendererSideContentDecoding,
                    /*name=*/"RendererSideContentDecodingPipeSize",
                    /*default_value=*/0);
+// Enables renderer-side content decoding for navigations. This is a sub-feature
+// of `kRendererSideContentDecoding` and has no effect if that feature is
+// disabled.
+BASE_FEATURE_PARAM(bool,
+                   kRendererSideContentDecodingForNavigation,
+                   &kRendererSideContentDecoding,
+                   /*name=*/"RendererSideContentDecodingForNavigation",
+                   /*default_value=*/true);
 // For testing purposes only. If set to true, the creation of the Mojo data pipe
 // for the RendererSideContentDecoding feature will be forced to fail,
 // simulating an insufficient resources error (net::ERR_INSUFFICIENT_RESOURCES).
@@ -351,6 +367,8 @@ BASE_FEATURE(kDocumentIsolationPolicy,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
+
+BASE_FEATURE(kConnectionAllowlists, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // This feature enables the Prefetch() method on the NetworkContext, and makes
 // the PrefetchMatchingURLLoaderFactory check the match quality.
@@ -586,5 +604,11 @@ BASE_FEATURE_PARAM(bool,
                    &kNetworkServiceTaskScheduler,
                    "url_loader",
                    true);
+
+BASE_FEATURE(kNetworkServicePerPriorityTaskQueues,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kUseUnexportableKeyServiceInBrowserProcess,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace network::features

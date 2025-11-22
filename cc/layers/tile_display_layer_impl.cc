@@ -134,7 +134,7 @@ TileDisplayLayerImpl::Tiling::Cover(const gfx::Rect& coverage_rect,
 }
 
 TileDisplayLayerImpl::TileDisplayLayerImpl(LayerTreeImpl& tree, int id)
-    : LayerImpl(&tree, id) {}
+    : TileBasedLayerImpl(&tree, id) {}
 
 TileDisplayLayerImpl::~TileDisplayLayerImpl() = default;
 
@@ -186,15 +186,10 @@ void TileDisplayLayerImpl::PushPropertiesTo(LayerImpl* layer) {
   NOTREACHED();
 }
 
-void TileDisplayLayerImpl::AppendQuads(const AppendQuadsContext& context,
-                                       viz::CompositorRenderPass* render_pass,
-                                       AppendQuadsData* append_quads_data) {
-  // If this layer is used as a backdrop filter, don't create and append a quad
-  // as that will be done in RenderSurfaceImpl::AppendQuads.
-  if (is_backdrop_filter_mask_) {
-    return;
-  }
-
+void TileDisplayLayerImpl::AppendQuadsSpecialization(
+    const AppendQuadsContext& context,
+    viz::CompositorRenderPass* render_pass,
+    AppendQuadsData* append_quads_data) {
   if (solid_color_) {
     CHECK(tilings_.empty());
     AppendSolidQuad(render_pass, append_quads_data, *solid_color_);
@@ -272,6 +267,8 @@ void TileDisplayLayerImpl::AppendQuads(const AppendQuadsContext& context,
 
   const auto ideal_scale = GetIdealContentsScale();
   const float ideal_scale_key = std::max(ideal_scale.x(), ideal_scale.y());
+  const gfx::Rect scaled_recorded_bounds =
+      gfx::ScaleToEnclosingRect(recorded_bounds_, max_contents_scale);
 
   // Append quads for the tiles in this layer.
   for (auto iter = TilingSetCoverageIterator<Tiling>(
@@ -279,6 +276,17 @@ void TileDisplayLayerImpl::AppendQuads(const AppendQuadsContext& context,
            max_contents_scale, ideal_scale_key);
        iter; ++iter) {
     const gfx::Rect geometry_rect = iter.geometry_rect();
+    if (!scaled_recorded_bounds.Intersects(geometry_rect)) {
+      // This happens when the tiling rect is snapped to be bigger than the
+      // recorded bounds, and CoverageIterator returns a "missing" tile
+      // to cover some of the empty area. The tile should be ignored, otherwise
+      // it would be mistakenly treated as checkerboarded and drawn with the
+      // safe background color.
+      // TODO(crbug.com/328677988): Ideally we should check intersection with
+      // visible_geometry_rect and remove the visible_geometry_rect.IsEmpty()
+      // condition below.
+      continue;
+    }
     const gfx::Rect visible_geometry_rect =
         scaled_occlusion.GetUnoccludedContentRect(geometry_rect);
     if (visible_geometry_rect.IsEmpty()) {
@@ -340,7 +348,7 @@ void TileDisplayLayerImpl::GetContentsResourceId(
   *resource_id = viz::kInvalidResourceId;
 
   // We need contents resource for backdrop filter masks only.
-  if (!is_backdrop_filter_mask_) {
+  if (!is_backdrop_filter_mask()) {
     return;
   }
 

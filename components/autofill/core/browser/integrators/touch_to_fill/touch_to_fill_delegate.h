@@ -5,6 +5,8 @@
 #include <string>
 #include <variant>
 
+#include "base/functional/callback.h"
+#include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/data_model/payments/iban.h"
 #include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
@@ -49,6 +51,9 @@ class TouchToFillDelegate {
   virtual void ShowPaymentMethodSettings() = 0;
   virtual void CreditCardSuggestionSelected(std::string unique_id,
                                             bool is_virtual) = 0;
+  // Called when a BNPL suggestion was selected.
+  virtual void BnplSuggestionSelected(
+      std::optional<int64_t> extracted_amount) = 0;
   // Called when an IBAN suggestion was selected.
   // An Iban::Guid is passed in case of a locally stored IBAN and an
   // Iban::InstrumentId for server IBANs.
@@ -59,9 +64,15 @@ class TouchToFillDelegate {
   virtual void LoyaltyCardSuggestionSelected(
       const LoyaltyCard& loyalty_card) = 0;
   virtual void OnDismissed(bool dismissed_by_user) = 0;
+  virtual void OnErrorOkPressed() = 0;
+  virtual void OnBnplIssuerSuggestionSelected(const std::string& issuer_id) = 0;
 
   virtual void LogMetricsAfterSubmission(
       const FormStructure& submitted_form) = 0;
+
+  virtual void SetCancelCallback(base::OnceClosure cancel_callback) = 0;
+  virtual void SetSelectedIssuerCallback(
+      base::OnceCallback<void(BnplIssuer)> selected_issuer_callback) = 0;
 };
 
 }  // namespace autofill

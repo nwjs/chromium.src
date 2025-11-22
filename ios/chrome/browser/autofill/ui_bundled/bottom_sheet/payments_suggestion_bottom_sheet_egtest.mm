@@ -125,15 +125,6 @@ id<GREYMatcher> KeyboardAccessoryCreditCardSuggestionChip() {
                  isRunningTest:@selector
                  (testAttemptToOpenPaymentsBottomSheetWithoutCreditCardOnV3)]) {
     config.features_enabled.push_back(kAutofillPaymentsSheetV3Ios);
-    config.features_enabled.push_back(kStatelessFormSuggestionController);
-  } else if ([self
-                 isRunningTest:@selector(testFillingFromKeyboardOnAutofocus)]) {
-    config.features_enabled.push_back(
-        autofill::features::kAutofillEnableFpanRiskBasedAuthentication);
-  } else if ([self isRunningTest:@selector
-                   (DISABLED_testUpdateBottomSheetOnAddServerCreditCard)]) {
-    config.features_enabled.push_back(
-        autofill::features::kAutofillEnableFpanRiskBasedAuthentication);
   }
 
   if ([self shouldUseNewBlur]) {
@@ -503,8 +494,7 @@ void CheckAutofillSuggestionAcceptedIndexMetricsCount(
 
 // Tests that the Payments Bottom Sheet updates its contents when a new credit
 // card becomes available in the personal data manager.
-// TODO(crbug.com/444042991): Test is flaky.
-- (void)DISABLED_testUpdateBottomSheetOnAddServerCreditCard {
+- (void)testUpdateBottomSheetOnAddServerCreditCard {
   [self loadPaymentsPage];
 
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]

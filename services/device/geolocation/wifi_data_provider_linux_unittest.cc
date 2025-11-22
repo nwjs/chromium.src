@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <utility>
 
 #include "base/memory/ref_counted.h"
 #include "base/task/single_thread_task_runner.h"
@@ -48,7 +49,7 @@ class GeolocationWifiDataProviderLinuxTest : public testing::Test {
     // Create a mock bus.
     dbus::Bus::Options options;
     options.bus_type = dbus::Bus::SYSTEM;
-    mock_bus_ = base::MakeRefCounted<dbus::MockBus>(options);
+    mock_bus_ = base::MakeRefCounted<dbus::MockBus>(std::move(options));
     EXPECT_CALL(*mock_bus_, Connect()).WillRepeatedly(Return(true));
 
     EXPECT_CALL(*mock_bus_, GetOriginTaskRunner())
@@ -59,7 +60,7 @@ class GeolocationWifiDataProviderLinuxTest : public testing::Test {
     mock_network_manager_proxy_ = base::MakeRefCounted<dbus::MockObjectProxy>(
         mock_bus_.get(), kNetworkManagerServiceName,
         dbus::ObjectPath(kNetworkManagerPath));
-    EXPECT_CALL(*mock_network_manager_proxy_, DoCallMethod(_, _, _))
+    EXPECT_CALL(*mock_network_manager_proxy_, CallMethod(_, _, _))
         .WillRepeatedly(Invoke(
             this, &GeolocationWifiDataProviderLinuxTest::OnNetworkManagerCall));
 
@@ -67,13 +68,13 @@ class GeolocationWifiDataProviderLinuxTest : public testing::Test {
     mock_device_proxy_ = base::MakeRefCounted<dbus::MockObjectProxy>(
         mock_bus_.get(), kNetworkManagerServiceName,
         dbus::ObjectPath(kDevicePath));
-    EXPECT_CALL(*mock_device_proxy_, DoCallMethod(_, _, _))
+    EXPECT_CALL(*mock_device_proxy_, CallMethod(_, _, _))
         .WillRepeatedly(
             Invoke(this, &GeolocationWifiDataProviderLinuxTest::OnDeviceCall));
     mock_device_proxy2_ = base::MakeRefCounted<dbus::MockObjectProxy>(
         mock_bus_.get(), kNetworkManagerServiceName,
         dbus::ObjectPath(kDevicePath2));
-    EXPECT_CALL(*mock_device_proxy2_, DoCallMethod(_, _, _))
+    EXPECT_CALL(*mock_device_proxy2_, CallMethod(_, _, _))
         .WillRepeatedly(
             Invoke(this, &GeolocationWifiDataProviderLinuxTest::OnDeviceCall2));
 
@@ -81,19 +82,19 @@ class GeolocationWifiDataProviderLinuxTest : public testing::Test {
     mock_access_point_proxy_ = base::MakeRefCounted<dbus::MockObjectProxy>(
         mock_bus_.get(), kNetworkManagerServiceName,
         dbus::ObjectPath(kAccessPointPath));
-    EXPECT_CALL(*mock_access_point_proxy_, DoCallMethod(_, _, _))
+    EXPECT_CALL(*mock_access_point_proxy_, CallMethod(_, _, _))
         .WillRepeatedly(Invoke(
             this, &GeolocationWifiDataProviderLinuxTest::OnAccessPointCall));
     mock_access_point_proxy2_ = base::MakeRefCounted<dbus::MockObjectProxy>(
         mock_bus_.get(), kNetworkManagerServiceName,
         dbus::ObjectPath(kAccessPointPath2));
-    EXPECT_CALL(*mock_access_point_proxy2_, DoCallMethod(_, _, _))
+    EXPECT_CALL(*mock_access_point_proxy2_, CallMethod(_, _, _))
         .WillRepeatedly(Invoke(
             this, &GeolocationWifiDataProviderLinuxTest::OnAccessPointCall2));
     mock_access_point_proxy3_ = base::MakeRefCounted<dbus::MockObjectProxy>(
         mock_bus_.get(), kNetworkManagerServiceName,
         dbus::ObjectPath(kAccessPointPath3));
-    EXPECT_CALL(*mock_access_point_proxy3_, DoCallMethod(_, _, _))
+    EXPECT_CALL(*mock_access_point_proxy3_, CallMethod(_, _, _))
         .WillRepeatedly(Invoke(
             this, &GeolocationWifiDataProviderLinuxTest::OnAccessPointCall3));
 
@@ -136,7 +137,7 @@ class GeolocationWifiDataProviderLinuxTest : public testing::Test {
  protected:
   void OnNetworkManagerCall(dbus::MethodCall* method_call,
                             int timeout_ms,
-                            dbus::ObjectProxy::ResponseCallback* callback) {
+                            dbus::ObjectProxy::ResponseCallback callback) {
     if (method_call->GetInterface() == "org.freedesktop.NetworkManager" &&
         method_call->GetMember() == "GetDevices") {
       std::vector<dbus::ObjectPath> object_paths;
@@ -146,8 +147,8 @@ class GeolocationWifiDataProviderLinuxTest : public testing::Test {
       dbus::MessageWriter writer(response.get());
       writer.AppendArrayOfObjectPaths(object_paths);
       base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-          FROM_HERE, base::BindOnce(std::move(*callback),
-                                    base::Owned(response.release())));
+          FROM_HERE,
+          base::BindOnce(std::move(callback), base::Owned(response.release())));
       return;
     }
 
@@ -156,7 +157,7 @@ class GeolocationWifiDataProviderLinuxTest : public testing::Test {
 
   void OnDeviceCall(dbus::MethodCall* method_call,
                     int timeout_ms,
-                    dbus::ObjectProxy::ResponseCallback* callback) {
+                    dbus::ObjectProxy::ResponseCallback callback) {
     std::unique_ptr<dbus::Response> response;
     if (method_call->GetInterface() == DBUS_INTERFACE_PROPERTIES &&
         method_call->GetMember() == "Get") {
@@ -183,8 +184,8 @@ class GeolocationWifiDataProviderLinuxTest : public testing::Test {
 
     if (response) {
       base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-          FROM_HERE, base::BindOnce(std::move(*callback),
-                                    base::Owned(response.release())));
+          FROM_HERE,
+          base::BindOnce(std::move(callback), base::Owned(response.release())));
     } else {
       FAIL() << "Unexpected method call: " << method_call->ToString();
     }
@@ -192,7 +193,7 @@ class GeolocationWifiDataProviderLinuxTest : public testing::Test {
 
   void OnDeviceCall2(dbus::MethodCall* method_call,
                      int timeout_ms,
-                     dbus::ObjectProxy::ResponseCallback* callback) {
+                     dbus::ObjectProxy::ResponseCallback callback) {
     std::unique_ptr<dbus::Response> response;
     if (method_call->GetInterface() == DBUS_INTERFACE_PROPERTIES &&
         method_call->GetMember() == "Get") {
@@ -220,8 +221,8 @@ class GeolocationWifiDataProviderLinuxTest : public testing::Test {
 
     if (response) {
       base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-          FROM_HERE, base::BindOnce(std::move(*callback),
-                                    base::Owned(response.release())));
+          FROM_HERE,
+          base::BindOnce(std::move(callback), base::Owned(response.release())));
     } else {
       FAIL() << "Unexpected method call: " << method_call->ToString();
     }
@@ -229,23 +230,23 @@ class GeolocationWifiDataProviderLinuxTest : public testing::Test {
 
   void OnAccessPointCall(dbus::MethodCall* method_call,
                          int timeout_ms,
-                         dbus::ObjectProxy::ResponseCallback* callback) {
-    OnAccessPointCallImpl(method_call, std::move(*callback),
-                          "00-11-22-33-44-55", 100, 2427);
+                         dbus::ObjectProxy::ResponseCallback callback) {
+    OnAccessPointCallImpl(method_call, std::move(callback), "00-11-22-33-44-55",
+                          100, 2427);
   }
 
   void OnAccessPointCall2(dbus::MethodCall* method_call,
                           int timeout_ms,
-                          dbus::ObjectProxy::ResponseCallback* callback) {
-    OnAccessPointCallImpl(method_call, std::move(*callback),
-                          "00-11-22-33-44-56", 80, 2428);
+                          dbus::ObjectProxy::ResponseCallback callback) {
+    OnAccessPointCallImpl(method_call, std::move(callback), "00-11-22-33-44-56",
+                          80, 2428);
   }
 
   void OnAccessPointCall3(dbus::MethodCall* method_call,
                           int timeout_ms,
-                          dbus::ObjectProxy::ResponseCallback* callback) {
-    OnAccessPointCallImpl(method_call, std::move(*callback),
-                          "00-11-22-33-44-57", 60, 2429);
+                          dbus::ObjectProxy::ResponseCallback callback) {
+    OnAccessPointCallImpl(method_call, std::move(callback), "00-11-22-33-44-57",
+                          60, 2429);
   }
 
   void OnAccessPointCallImpl(dbus::MethodCall* method_call,
@@ -311,10 +312,10 @@ TEST_F(GeolocationWifiDataProviderLinuxTest, GetAccessPointData) {
 }
 
 TEST_F(GeolocationWifiDataProviderLinuxTest, GetAccessPointDataFailure) {
-  EXPECT_CALL(*mock_network_manager_proxy_, DoCallMethod(_, _, _))
+  EXPECT_CALL(*mock_network_manager_proxy_, CallMethod(_, _, _))
       .WillRepeatedly([](dbus::MethodCall* method_call, int timeout_ms,
-                         dbus::ObjectProxy::ResponseCallback* callback) {
-        std::move(*callback).Run(nullptr);
+                         dbus::ObjectProxy::ResponseCallback callback) {
+        std::move(callback).Run(nullptr);
       });
 
   base::test::TestFuture<std::unique_ptr<WifiData::AccessPointDataSet>> future;
@@ -324,9 +325,9 @@ TEST_F(GeolocationWifiDataProviderLinuxTest, GetAccessPointDataFailure) {
 
 TEST_F(GeolocationWifiDataProviderLinuxTest, MultipleAdaptersAndAPs) {
   // Override the default OnNetworkManagerCall to return multiple devices.
-  EXPECT_CALL(*mock_network_manager_proxy_, DoCallMethod(_, _, _))
+  EXPECT_CALL(*mock_network_manager_proxy_, CallMethod(_, _, _))
       .WillRepeatedly([](dbus::MethodCall* method_call, int timeout_ms,
-                         dbus::ObjectProxy::ResponseCallback* callback) {
+                         dbus::ObjectProxy::ResponseCallback callback) {
         if (method_call->GetInterface() == "org.freedesktop.NetworkManager" &&
             method_call->GetMember() == "GetDevices") {
           std::vector<dbus::ObjectPath> object_paths;
@@ -338,7 +339,7 @@ TEST_F(GeolocationWifiDataProviderLinuxTest, MultipleAdaptersAndAPs) {
           dbus::MessageWriter writer(response.get());
           writer.AppendArrayOfObjectPaths(object_paths);
           base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-              FROM_HERE, base::BindOnce(std::move(*callback),
+              FROM_HERE, base::BindOnce(std::move(callback),
                                         base::Owned(response.release())));
           return;
         }

@@ -11,13 +11,6 @@ import("//ios/public/provider/chrome/browser/build_config.gni")
 import("//testing/test.gni")
 import("//third_party/protobuf/proto_library.gni")
 
-declare_args() {
-  # Controls whether to build the Swift - C++ interop tests.
-  # TODO(crbug.com/40911785): the Swift - C++ interop miscompiles when using
-  # a custom libc++. Re-enable those tests when the interop is fixed.
-  ios_enable_swift_interop_tests = !use_custom_libcxx
-}
-
 # All tests needs to be listed in that target to be built as part of
 # "gn_all" target (i.e. by the bots).
 group("all_tests") {
@@ -25,13 +18,11 @@ group("all_tests") {
   deps = [
     ":all_fuzzer_tests",
     ":ios_chrome_unittests",
+    "//ios/chrome/test/extensions:all_tests",
+    "//ios/chrome/test/swift_interop:ios_swift_interop_xcuitests",
     "//ios/chrome/test/xcuitest:ios_chrome_device_check_xcuitests_module",
     "//ios/chrome/test/xcuitest:ios_chrome_xcuitests",
   ]
-
-  if (ios_enable_swift_interop_tests) {
-    deps += [ "//ios/chrome/test/swift_interop:ios_swift_interop_xcuitests" ]
-  }
 }
 
 group("all_fuzzer_tests") {
@@ -227,11 +218,11 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/autofill/ui_bundled/progress_dialog:unit_tests",
     "//ios/chrome/browser/badges/ui_bundled:unit_tests",
     "//ios/chrome/browser/banner_promo/model:unit_tests",
+    "//ios/chrome/browser/bookmarks/editor/ui:unit_tests",
+    "//ios/chrome/browser/bookmarks/folder_chooser/test:unit_tests",
     "//ios/chrome/browser/bookmarks/model:unit_tests",
     "//ios/chrome/browser/bookmarks/ui_bundled:unit_tests",
     "//ios/chrome/browser/bookmarks/ui_bundled/cells:unit_tests",
-    "//ios/chrome/browser/bookmarks/ui_bundled/editor:unit_tests",
-    "//ios/chrome/browser/bookmarks/ui_bundled/folder_chooser:unit_tests",
     "//ios/chrome/browser/bookmarks/ui_bundled/home:unit_tests",
     "//ios/chrome/browser/bring_android_tabs/model:unit_tests",
     "//ios/chrome/browser/bring_android_tabs/ui_bundled:unit_tests",
@@ -283,6 +274,7 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/download/model:unit_tests",
     "//ios/chrome/browser/download/model/auto_deletion:unit_tests",
     "//ios/chrome/browser/download/model/background_service:unit_tests",
+    "//ios/chrome/browser/download/ui/download_list:unit_tests",
     "//ios/chrome/browser/drive/model:unit_tests",
     "//ios/chrome/browser/drive_file_picker/coordinator:unit_tests",
     "//ios/chrome/browser/enterprise/connectors:unit_tests",
@@ -292,10 +284,9 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/external_files/model:unit_tests",
     "//ios/chrome/browser/favicon/model:unit_tests",
     "//ios/chrome/browser/feature_engagement/model:unit_tests",
+    "//ios/chrome/browser/file_upload_panel/coordinator:unit_tests",
     "//ios/chrome/browser/first_run/ui_bundled/tos:unit_tests",
-    "//ios/chrome/browser/first_run/ui_bundled/welcome_back/coordinator:unit_tests",
     "//ios/chrome/browser/flags:unit_tests",
-    "//ios/chrome/browser/follow/model:unit_tests",
     "//ios/chrome/browser/fullscreen/ui_bundled:unit_tests",
     "//ios/chrome/browser/geolocation/model:unit_tests",
     "//ios/chrome/browser/history/model:unit_tests",
@@ -316,6 +307,8 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/intelligence/bwg/coordinator:unit_tests",
     "//ios/chrome/browser/intelligence/bwg/model:unit_tests",
     "//ios/chrome/browser/intelligence/bwg/ui:unit_tests",
+    "//ios/chrome/browser/intelligence/persist_tab_context/model:unit_tests",
+    "//ios/chrome/browser/intelligence/proto_wrappers:unit_tests",
     "//ios/chrome/browser/intents/model:unit_tests",
     "//ios/chrome/browser/itunes_urls/model:unit_tests",
     "//ios/chrome/browser/keyboard/ui_bundled:unit_tests",
@@ -429,9 +422,9 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/saved_tab_groups/coordinator:unit_tests",
     "//ios/chrome/browser/saved_tab_groups/model:unit_tests",
     "//ios/chrome/browser/screenshot/model:unit_tests",
-    "//ios/chrome/browser/script_blocking/model:unit_tests",
     "//ios/chrome/browser/search_engine_choice/coordinator:unit_tests",
     "//ios/chrome/browser/search_engine_choice/model:unit_tests",
+    "//ios/chrome/browser/search_engine_choice/ui:unit_tests",
     "//ios/chrome/browser/search_engines/model:unit_tests",
     "//ios/chrome/browser/segmentation_platform/model:unit_tests",
     "//ios/chrome/browser/send_tab_to_self/model:unit_tests",
@@ -465,7 +458,6 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/settings/ui_bundled/privacy/incognito:unit_tests",
     "//ios/chrome/browser/settings/ui_bundled/privacy/lockdown_mode:unit_tests",
     "//ios/chrome/browser/settings/ui_bundled/privacy/privacy_guide:unit_tests",
-    "//ios/chrome/browser/settings/ui_bundled/privacy/tracking_protections:unit_tests",
     "//ios/chrome/browser/settings/ui_bundled/safety_check:unit_tests",
     "//ios/chrome/browser/settings/ui_bundled/sync:unit_tests",
     "//ios/chrome/browser/settings/ui_bundled/utils:unit_tests",
@@ -505,6 +497,9 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/sync/model:unit_tests",
     "//ios/chrome/browser/sync/model/prefs:unit_tests",
     "//ios/chrome/browser/synced_sessions/model:unit_tests",
+    "//ios/chrome/browser/synced_set_up/coordinator:unit_tests",
+    "//ios/chrome/browser/synced_set_up/ui:unit_tests",
+    "//ios/chrome/browser/synced_set_up/utils:unit_tests",
     "//ios/chrome/browser/tab_insertion/model:unit_tests",
     "//ios/chrome/browser/tab_switcher/tab_grid/base_grid/coordinator:unit_tests",
     "//ios/chrome/browser/tab_switcher/tab_grid/base_grid/suggested_actions:unit_tests",
@@ -547,12 +542,15 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/web_state_list/model:unit_tests",
     "//ios/chrome/browser/web_state_list/model/web_usage_enabler:unit_tests",
     "//ios/chrome/browser/webui/model:unit_tests",
+    "//ios/chrome/browser/welcome_back/coordinator:unit_tests",
     "//ios/chrome/browser/whats_new/coordinator/promo:unit_tests",
     "//ios/chrome/browser/whats_new/ui/cells:unit_tests",
     "//ios/chrome/browser/whats_new/ui/data_source:unit_tests",
     "//ios/chrome/common:unit_tests",
     "//ios/chrome/common/app_group:unit_tests",
     "//ios/chrome/common/credential_provider:unit_tests",
+    "//ios/chrome/common/credential_provider/ui:unit_tests",
+    "//ios/chrome/common/ui/button_stack:unit_tests",
     "//ios/chrome/common/ui/reauthentication:unit_tests",
     "//ios/chrome/common/ui/util:unit_tests",
     "//ios/chrome/test/providers/signin:trusted_vault_provider",
@@ -567,7 +565,11 @@ test("ios_chrome_unittests") {
   }
 
   if (enterprise_data_controls) {
-    deps += [ "//ios/chrome/browser/enterprise/data_controls:unit_tests" ]
+    deps += [
+      "//ios/chrome/browser/enterprise/data_controls/coordinator:unit_tests",
+      "//ios/chrome/browser/enterprise/data_controls/model:unit_tests",
+      "//ios/chrome/browser/enterprise/data_controls/utils:unit_tests",
+    ]
   }
 
   if (ios_enable_widget_kit_extension) {
@@ -575,11 +577,7 @@ test("ios_chrome_unittests") {
   }
 
   if (ios_enable_credential_provider_extension) {
-    deps += [
-      "//ios/chrome/browser/credential_provider/model:unit_tests",
-      "//ios/chrome/credential_provider_extension:unit_tests",
-      "//ios/chrome/credential_provider_extension/ui:unit_tests",
-    ]
+    deps += [ "//ios/chrome/browser/credential_provider/model:unit_tests" ]
   }
 
   assert_no_deps = ios_assert_no_deps

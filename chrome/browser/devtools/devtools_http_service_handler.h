@@ -16,7 +16,6 @@
 #include "components/signin/public/identity_manager/scope_set.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
-#include "services/data_decoder/public/cpp/data_decoder.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 
 class GURL;
@@ -61,12 +60,12 @@ class DevToolsHttpServiceHandler {
                const DevToolsDispatchHttpRequestParams& params,
                Callback callback);
 
- private:
+ protected:
   // Performs service-specific pre-request validation. Can be asynchronous.
-  virtual void CanMakeRequest(
-      Profile* profile,
-      base::OnceCallback<void(bool success)> callback) = 0;
+  virtual void CanMakeRequest(Profile* profile,
+                              base::OnceCallback<void(bool success)> callback);
 
+ private:
   // Returns the base URL for the service's API.
   virtual GURL BaseURL() const = 0;
 

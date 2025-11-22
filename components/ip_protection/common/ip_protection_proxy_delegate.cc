@@ -73,7 +73,7 @@ ProxyResolutionResult IpProtectionProxyDelegate::ClassifyRequest(
     if (top_frame_site.has_value()) {
       for (const auto& domain : domain_list) {
         // SchemefulSite normalizes to eTLD+1 using the Public Suffix List.
-        std::string registrable_domain = top_frame_site->GetURL().host();
+        std::string registrable_domain = top_frame_site->GetURL().GetHost();
         if (registrable_domain == domain) {
           vlog("unconditional proxy domain matched");
           is_unconditional_match = true;
@@ -213,7 +213,8 @@ void IpProtectionProxyDelegate::OnResolveProxy(
   }
 
   if (!net::features::kIpPrivacyDirectOnly.Get()) {
-    proxy_list.DeprioritizeBadProxyChains(proxy_retry_info);
+    proxy_list.DeprioritizeBadProxyChains(proxy_retry_info,
+                                          /*remove_bad_proxy_chains=*/true);
     if (proxy_list.IsEmpty()) {
       return;
     }
@@ -450,6 +451,18 @@ std::optional<std::string> IpProtectionProxyDelegate::GetPRTHeaderValue(
       std::move(prt).value(),
       net::structured_headers::Item::ItemType::kByteSequenceType);
   return net::structured_headers::SerializeItem(item);
+}
+
+void IpProtectionProxyDelegate::OnStreamCreationAttempted(
+    const net::ProxyChain& proxy_chain,
+    base::TimeDelta duration,
+    base::optional_ref<int> net_error) {
+  if (!proxy_chain.is_for_ip_protection()) {
+    return;
+  }
+
+  Telemetry().RecordStreamCreationAttemptedMetrics(proxy_chain, duration,
+                                                   net_error);
 }
 
 }  // namespace ip_protection

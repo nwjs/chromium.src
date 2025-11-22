@@ -39,6 +39,9 @@ const std::string GetCrdCrashKeyValue(CrdSessionType crd_session_type,
 // reboot.
 base::TimeDelta GetDeviceIdleTime();
 
+// Returns true if the device has been idle since the last reboot.
+bool IsDeviceIdleSinceReboot();
+
 // Returns the type of the currently active user session.
 UserSessionType GetCurrentUserSessionType();
 
@@ -85,6 +88,18 @@ ConvertToChromeOsEnterpriseRequestOrigin(
 StartCrdSessionJobDelegate::RequestOrigin
 ConvertToStartCrdSessionJobDelegateRequestOrigin(
     SharedCrdSession::RequestOrigin request_origin);
+
+// Convert from `StartCrdSessionJobDelegate::AudioPlayback` to
+// `remoting::ChromeOsEnterpriseAudioPlayback`.
+remoting::ChromeOsEnterpriseAudioPlayback
+ConvertToChromeOsEnterpriseAudioPlayback(
+    StartCrdSessionJobDelegate::AudioPlayback audio_playback);
+
+// Convert from `SharedCrdSession::AudioPlayback` to
+// `StartCrdSessionJobDelegate::AudioPlayback`.
+StartCrdSessionJobDelegate::AudioPlayback
+ConvertToStartCrdSessionJobDelegateAudioPlayback(
+    SharedCrdSession::AudioPlayback audio_playback);
 
 }  // namespace policy
 

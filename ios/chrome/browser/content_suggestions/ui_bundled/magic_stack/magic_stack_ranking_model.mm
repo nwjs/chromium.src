@@ -17,6 +17,7 @@
 #import "components/commerce/core/commerce_feature_list.h"
 #import "components/commerce/core/price_tracking_utils.h"
 #import "components/commerce/core/shopping_service.h"
+#import "components/ntp_tiles/pref_names.h"
 #import "components/password_manager/core/common/password_manager_pref_names.h"
 #import "components/power_bookmarks/core/power_bookmark_utils.h"
 #import "components/power_bookmarks/core/proto/power_bookmark_meta.pb.h"
@@ -72,7 +73,6 @@
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/tab_resumption_item.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/tab_resumption_mediator.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tips/coordinator/tips_magic_stack_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/tips/model/tips_prefs.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tips/ui/tips_module_state.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_availability.h"
@@ -462,22 +462,15 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
   options.on_demand_execution = true;
   auto inputContext =
       base::MakeRefCounted<segmentation_platform::InputContext>();
-  // This check has to match check in HomeModulesCardRegistry::CreateAllCards()
-  // so that expected inputs match passed inputs.
-  if (base::FeatureList::IsEnabled(commerce::kPriceTrackingPromo) ||
-      (IsTipsMagicStackEnabled() && _tipsManager)) {
-    inputContext->metadata_args.emplace(
-        segmentation_platform::kIsNewUser,
-        segmentation_platform::processing::ProcessedValue::FromFloat(
-            IsFirstRunRecent(set_up_list::SetUpListDurationPastFirstRun())));
-  }
+  inputContext->metadata_args.emplace(
+      segmentation_platform::kIsNewUser,
+      segmentation_platform::processing::ProcessedValue::FromFloat(
+          IsFirstRunRecent(set_up_list::SetUpListDurationPastFirstRun())));
 
-  if (base::FeatureList::IsEnabled(commerce::kPriceTrackingPromo)) {
-    inputContext->metadata_args.emplace(
-        segmentation_platform::kIsSynced,
-        segmentation_platform::processing::ProcessedValue::FromFloat(
-            _shoppingService->IsShoppingListEligible()));
-  }
+  inputContext->metadata_args.emplace(
+      segmentation_platform::kIsSynced,
+      segmentation_platform::processing::ProcessedValue::FromFloat(
+          _shoppingService->IsShoppingListEligible()));
 
   if (send_tab_to_self::
           IsSendTabIOSPushNotificationsEnabledWithMagicStackCard()) {
@@ -567,8 +560,8 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
         segmentation_platform::processing::ProcessedValue::FromFloat(
             [self isLensEnabled]));
 
-    if (base::FeatureList::IsEnabled(
-            segmentation_platform::features::kAppBundlePromoEphemeralCard)) {
+    if (segmentation_platform::features::
+            IsAppBundlePromoEphemeralCardEnabled()) {
       CHECK(_appStoreBundleService);
       inputContext->metadata_args.emplace(
           segmentation_platform::kAppBundleAppsInstalledCount,
@@ -576,8 +569,7 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
               static_cast<float>(
                   _appStoreBundleService->GetInstalledAppCount())));
     }
-    if (base::FeatureList::IsEnabled(
-            segmentation_platform::features::kDefaultBrowserMagicStackIos)) {
+    if (segmentation_platform::features::IsDefaultBrowserMagicStackEnabled()) {
       inputContext->metadata_args.emplace(
           segmentation_platform::kIsDefaultBrowserChromeIos,
           segmentation_platform::processing::ProcessedValue::FromFloat(
@@ -613,6 +605,9 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
 
   MagicStackModule* card;
 
+  BOOL areTipsCardsEnabled =
+      _prefService->GetBoolean(ntp_tiles::prefs::kTipsHomeModuleEnabled);
+
   for (const std::string& label : result.ordered_labels) {
     if (label == segmentation_platform::kPriceTrackingNotificationPromo) {
       if (IsPriceTrackingPromoCardEnabled(_shoppingService, _authService,
@@ -624,8 +619,7 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
       }
     } else if (segmentation_platform::home_modules::HomeModulesCardRegistry::
                    IsEphemeralTipsModuleLabel(label) &&
-               IsTipsMagicStackEnabled() &&
-               !tips_prefs::IsTipsInMagicStackDisabled(_prefService)) {
+               IsTipsMagicStackEnabled() && areTipsCardsEnabled) {
       TipIdentifier tipIdentifier = TipIdentifierForOutputLabel(label);
 
       if (tipIdentifier != TipIdentifier::kUnknown) {
@@ -654,16 +648,18 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
         break;
       }
     } else if (label == segmentation_platform::kAppBundlePromoEphemeralModule) {
-      if (base::FeatureList::IsEnabled(
-              segmentation_platform::features::kAppBundlePromoEphemeralCard)) {
+      if (segmentation_platform::features::
+              IsAppBundlePromoEphemeralCardEnabled() &&
+          areTipsCardsEnabled) {
         _ephemeralCardToShow = ContentSuggestionsModuleType::kAppBundlePromo;
         card = _appBundlePromoMediator.config;
         break;
       }
     } else if (label ==
                segmentation_platform::kDefaultBrowserPromoEphemeralModule) {
-      if (base::FeatureList::IsEnabled(
-              segmentation_platform::features::kDefaultBrowserMagicStackIos)) {
+      if (segmentation_platform::features::
+              IsDefaultBrowserMagicStackEnabled() &&
+          areTipsCardsEnabled) {
         _ephemeralCardToShow = ContentSuggestionsModuleType::kDefaultBrowser;
         card = _defaultBrowserMediator.config;
         break;
@@ -939,15 +935,15 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
         break;
       }
       case ContentSuggestionsModuleType::kAppBundlePromo:
-        if (base::FeatureList::IsEnabled(segmentation_platform::features::
-                                             kAppBundlePromoEphemeralCard) &&
+        if (segmentation_platform::features::
+                IsAppBundlePromoEphemeralCardEnabled() &&
             _appBundlePromoMediator && _appBundlePromoMediator.config) {
           [magicStackOrder addObject:_appBundlePromoMediator.config];
         }
         break;
       case ContentSuggestionsModuleType::kDefaultBrowser:
-        if (base::FeatureList::IsEnabled(segmentation_platform::features::
-                                             kDefaultBrowserMagicStackIos) &&
+        if (segmentation_platform::features::
+                IsDefaultBrowserMagicStackEnabled() &&
             _defaultBrowserMediator) {
           [magicStackOrder addObject:_defaultBrowserMediator.config];
         }

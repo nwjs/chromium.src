@@ -304,9 +304,12 @@ class CompositorFrameReportingControllerTest : public testing::Test {
     const base::TimeTicks event_time = AdvanceNowByMs(10);
     const base::TimeTicks arrived_in_browser_main_timestamp = AdvanceNowByMs(3);
     AdvanceNowByMs(10);
-    return SetupEventMetrics(ScrollEventMetrics::CreateForTesting(
-        ui::EventType::kGestureScrollEnd, input_type, is_inertial, event_time,
-        arrived_in_browser_main_timestamp, &test_tick_clock_));
+    std::unique_ptr<EventMetrics> metrics =
+        SetupEventMetrics(ScrollEventMetrics::CreateForTesting(
+            ui::EventType::kGestureScrollEnd, input_type, is_inertial,
+            event_time, arrived_in_browser_main_timestamp, &test_tick_clock_));
+    metrics->set_caused_frame_update(false);
+    return metrics;
   }
 
   std::unique_ptr<EventMetrics> CreateScrollUpdateEventMetrics(
@@ -1011,6 +1014,11 @@ TEST_F(CompositorFrameReportingControllerTest, BlinkBreakdown) {
 }
 
 TEST_F(CompositorFrameReportingControllerTest, VizBreakdown) {
+  // Test is mutually-exclusive with ValidateTreesInVizBreakdown,
+  // so it does not apply to TreesInViz mode.
+  if (base::FeatureList::IsEnabled(features::kTreesInViz)) {
+    return;
+  }
   base::HistogramTester histogram_tester;
 
   SimulateSubmitCompositorFrame({});
@@ -1138,12 +1146,12 @@ TEST_F(TreesInVizClientCompositorFrameReportingControllerTest,
   // CC -> Viz RPC
   histogram_tester.ExpectUniqueSample(
       "CompositorLatency2.SubmitUpdateDisplayTreeToPresentationCompositorFrame."
-      "SendUpdateDisplayTreeToRecieveUpdateDisplayTree",
+      "SendUpdateDisplayTreeToReceiveUpdateDisplayTree",
       35, 1);
   // Viz-only stages
   histogram_tester.ExpectUniqueSample(
       "CompositorLatency2.SubmitUpdateDisplayTreeToPresentationCompositorFrame."
-      "RecieveUpdateDisplayTreeToStartPrepareToDraw",
+      "ReceiveUpdateDisplayTreeToStartPrepareToDraw",
       2, 1);
   histogram_tester.ExpectUniqueSample(
       "CompositorLatency2.SubmitUpdateDisplayTreeToPresentationCompositorFrame."
@@ -1182,6 +1190,22 @@ TEST_F(TreesInVizClientCompositorFrameReportingControllerTest,
   histogram_tester.ExpectUniqueSample(
       "CompositorLatency2.SubmitUpdateDisplayTreeToPresentationCompositorFrame",
       35 + 2 + 3 + 5 + 6 + 7 + 8 + 9 + 10, 1);
+}
+
+TEST_F(TreesInVizClientCompositorFrameReportingControllerTest,
+       EmitBothBranchesOfHistograms) {
+  base::HistogramTester histogram_tester;
+
+  // This function will simulate stepping through the entire CFRC flow,
+  // with timestamps added to the stages relevant for TreesInViz.
+  // This emits the TreesInViz branch of histograms.
+  SimulatePresentCompositorFrameWithTreesInVizTimingDetails();
+
+  // This emits the normal-path histograms.
+  reporting_controller_.trees_in_viz_client(false);
+  SimulatePresentCompositorFrame();
+
+  // Test should not crash.
 }
 
 // If the presentation of the frame happens before deadline.

@@ -12,12 +12,15 @@
 #include <string_view>
 #include <vector>
 
+#include "base/callback_list.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
+#include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_state_manager.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/views/location_bar/content_setting_image_view.h"
 #include "chrome/browser/ui/views/location_bar/location_icon_view.h"
@@ -52,8 +55,11 @@
 class CommandUpdater;
 class ContentSettingBubbleModelDelegate;
 class IntentChipButton;
-class LocationIconView;
+class OmniboxController;
+class OmniboxContextMenu;
 enum class OmniboxPart;
+class OmniboxPopupAimPresenter;
+class OmniboxPopupFileSelector;
 class OmniboxPopupView;
 class OmniboxViewViews;
 class OmniboxChipButton;
@@ -136,9 +142,6 @@ class LocationBarView
   // be called when the receiving instance is attached to a view container.
   bool IsInitialized() const;
 
-  // Called when the popup view becomes visible.
-  void OnPopupOpened();
-
   // Returns a background that paints an (optionally stroked) rounded rect with
   // the given color.
   std::unique_ptr<views::Background> CreateRoundRectBackground(
@@ -186,6 +189,8 @@ class LocationBarView
 
   OmniboxViewViews* omnibox_view() { return omnibox_view_; }
 
+  const OmniboxController* GetOmniboxController() const;
+
   // Returns true if the location bar's current security state does not match
   // the currently visible state.
   bool HasSecurityStateChanged();
@@ -211,6 +216,7 @@ class LocationBarView
   void FocusLocation(bool is_user_initiated) override;
   void Revert() override;
   OmniboxView* GetOmniboxView() override;
+  OmniboxController* GetOmniboxController() override;
   void UpdateWithoutTabRestore() override;
   LocationBarModel* GetLocationBarModel() override;
   content::WebContents* GetWebContents() override;
@@ -292,8 +298,17 @@ class LocationBarView
 
   SkColor GetBackgroundColorForTesting() const { return background_color_; }
 
-  OmniboxPopupView* GetOmniboxPopupView();
-  const OmniboxPopupView* GetOmniboxPopupView() const;
+  OmniboxPopupView* GetOmniboxPopupViewForTesting() {
+    return omnibox_popup_view_.get();
+  }
+
+  OmniboxPopupFileSelector* GetOmniboxPopupFileSelector() const {
+    return omnibox_popup_file_selector_.get();
+  }
+
+  OmniboxPopupAimPresenter* GetOmniboxPopupAimPresenter() const {
+    return omnibox_popup_aim_presenter_.get();
+  }
 
  private:
   FRIEND_TEST_ALL_PREFIXES(SecurityIndicatorTest, CheckIndicatorText);
@@ -301,8 +316,15 @@ class LocationBarView
                            OmniboxViewViewsSize);
   FRIEND_TEST_ALL_PREFIXES(TouchLocationBarViewBrowserTest,
                            IMEInlineAutocompletePosition);
+  FRIEND_TEST_ALL_PREFIXES(LocationBarViewAddContextButtonBrowserTest,
+                           AddContextButtonVisibilityAndClick);
   using ContentSettingViews =
       std::vector<raw_ptr<ContentSettingImageView, VectorExperimental>>;
+
+  void SetRunOmniboxContextMenuForTesting(
+      base::RepeatingCallback<void(OmniboxContextMenu*, gfx::Point)> callback) {
+    run_omnibox_context_menu_callback_ = std::move(callback);
+  }
 
   // Returns the amount of space required to the left of the omnibox text.
   int GetMinimumLeadingWidth() const;
@@ -350,13 +372,27 @@ class LocationBarView
   // `ime_inline_autocomplete_view_`, and `omnibox_additional_text_view_`.
   void SetOmniboxAdjacentText(views::Label* label, std::u16string_view text);
 
+  // Called when the popup state changes (classic, AIM, or none).
+  void OnPopupStateChanged(OmniboxPopupState old_state,
+                           OmniboxPopupState new_state);
+
+  // Callback to validate omnibox popup state is in sync with widget visibility.
+  // TODO(crbug.com/40251974): Remove this once state manager is proven
+  //  reliable.
+  void ValidatePopupState(OmniboxPopupState state);
+
+  // Clears the transition flag used to skip popup state validation during
+  // asynchronous widget hide/show transitions.
+  // TODO(crbug.com/40251974): Remove this once state manager is proven
+  //  reliable.
+  void ClearInPopupStateTransition();
+
   // LocationBar:
   void FocusSearch() override;
   void UpdateContentSettingsIcons() override;
   void SaveStateToContents(content::WebContents* contents) override;
   LocationBarTesting* GetLocationBarForTesting() override;
   void OnChanged() override;
-  void OnPopupVisibilityChanged() override;
 
   // LocationBarTesting:
   bool TestContentSettingImagePressed(size_t index) override;
@@ -395,6 +431,9 @@ class LocationBarView
 
   bool ShouldHidePageActionIconsForContext(
       metrics::OmniboxEventProto::PageClassification page_context) const;
+
+  // Returns true if the AIM page action is the right-most visible page action.
+  bool IsAimLastVisiblePageAction() const;
 
   // views::AnimationDelegateViews:
   void AnimationProgressed(const gfx::Animation* animation) override;
@@ -457,13 +496,19 @@ class LocationBarView
   // May be nullptr in tests.
   const raw_ptr<Profile> profile_;
 
+  // The omnibox controller.
+  std::unique_ptr<OmniboxController> omnibox_controller_;
+
   // The omnibox view where the user types and the current page URL is displayed
   // when user input is not in progress.
   raw_ptr<OmniboxViewViews> omnibox_view_ = nullptr;
 
-  // Owns either an OmniboxPopupViewViews or an OmniboxPopupViewWebUI.
+  // The view holding the regular results popup.
   std::unique_ptr<OmniboxPopupView> omnibox_popup_view_;
-  base::CallbackListSubscription popup_view_opened_subscription_;
+  // The presenter controlling the showing of the AI mode popup.
+  std::unique_ptr<OmniboxPopupAimPresenter> omnibox_popup_aim_presenter_;
+
+  base::CallbackListSubscription popup_state_changed_subscription_;
 
   // Our delegate.
   raw_ptr<Delegate> delegate_;
@@ -539,10 +584,22 @@ class LocationBarView
   // to outlive this view.
   raw_ptr<views::FocusManager> focus_manager_ = nullptr;
 
+  std::unique_ptr<OmniboxContextMenu> omnibox_context_menu_;
+  std::unique_ptr<OmniboxPopupFileSelector> omnibox_popup_file_selector_;
+
+  base::RepeatingCallback<void(OmniboxContextMenu*, gfx::Point)>
+      run_omnibox_context_menu_callback_;
+
   base::CallbackListSubscription subscription_ =
       ui::TouchUiController::Get()->RegisterCallback(
           base::BindRepeating(&LocationBarView::OnTouchUiChanged,
                               base::Unretained(this)));
+
+  // Used to skip popup state validation during asynchronous widget hide/show
+  // transitions.
+  // TODO(crbug.com/40251974): Remove this once state manager is proven
+  //  reliable.
+  bool in_popup_state_transition_ = false;
 
   base::WeakPtrFactory<LocationBarView> weak_factory_{this};
 };

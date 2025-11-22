@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import eslintPluginLit from '../../third_party/node/node_modules/eslint-plugin-lit/lib/index.js';
 import stylistic from '../../third_party/node/node_modules/@stylistic/eslint-plugin/dist/index.js';
 import typescriptEslint from '../../third_party/node/node_modules/@typescript-eslint/eslint-plugin/dist/index.js';
 import tsParser from '../../third_party/node/node_modules/@typescript-eslint/parser/dist/index.js';
@@ -418,9 +419,20 @@ export default [
       // https://google.github.io/styleguide/tsguide.html#ts-ignore
       '@typescript-eslint/ban-ts-comment': [
         'error', {
+          'ts-expect-error': true,
           'ts-ignore': true,
+          'ts-nocheck': true,
         }
       ],
+    },
+  },
+  {
+    'files': ['**/*.html.ts'],
+    'plugins': {
+      'eslint-plugin-lit': eslintPluginLit,
+    },
+    'rules': {
+      'eslint-plugin-lit/quoted-expressions': ['error', 'always'],
     },
   },
   {
@@ -468,5 +480,20 @@ export default [
         },
       ]
     }
+  },
+  {
+    // See b/266455078. Don't add new files to this list.
+    files: [
+      'chrome/browser/resources/ash/settings/internet_page/internet_subpage.ts',
+      'chrome/browser/resources/ash/settings/multidevice_page/multidevice_permissions_setup_dialog.ts',
+    ],
+    rules: {
+      '@typescript-eslint/ban-ts-comment': [
+        'error', {
+          'ts-ignore': true,
+          'ts-nocheck': true,
+        }
+      ],
+    },
   },
 ];

@@ -25,7 +25,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/preloading/bookmarkbar_preload/bookmarkbar_preload_pipeline_manager.h"
-#include "chrome/browser/privacy_sandbox/incognito/privacy_sandbox_incognito_tab_observer.h"
+#include "chrome/browser/preloading/new_tab_page_preload/new_tab_page_preload_pipeline_manager.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_tab_observer.h"
 #include "chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -68,6 +68,7 @@
 #include "chrome/browser/ui/views/commerce/price_insights_page_action_view_controller.h"
 #include "chrome/browser/ui/views/file_system_access/file_system_access_page_action_controller.h"
 #include "chrome/browser/ui/views/intent_picker/intent_picker_view_page_action_controller.h"
+#include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_page_action_controller.h"
 #include "chrome/browser/ui/views/page_action/action_ids.h"
 #include "chrome/browser/ui/views/page_action/page_action_controller.h"
 #include "chrome/browser/ui/views/page_action/page_action_properties_provider.h"
@@ -75,6 +76,7 @@
 #include "chrome/browser/ui/views/side_panel/customize_chrome/side_panel_controller_views.h"
 #include "chrome/browser/ui/views/side_panel/extensions/extension_side_panel_manager.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_side_panel_controller.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/views/translate/translate_page_action_controller.h"
 #include "chrome/browser/ui/views/zoom/zoom_view_controller.h"
 #include "chrome/browser/ui/web_applications/pwa_install_page_action.h"
@@ -90,7 +92,7 @@
 #include "components/browsing_topics/browsing_topics_service.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/fingerprinting_protection_filter/common/fingerprinting_protection_filter_features.h"
-#include "components/fingerprinting_protection_filter/interventions/browser/interventions_web_contents_helper.h"
+#include "components/fingerprinting_protection_filter/interventions/browser/canvas_interventions_web_contents_helper.h"
 #include "components/fingerprinting_protection_filter/interventions/common/interventions_features.h"
 #include "components/image_fetcher/core/image_fetcher_service.h"
 #include "components/ip_protection/common/ip_protection_status.h"
@@ -112,6 +114,12 @@
 #include "chrome/browser/ui/views/side_panel/glic/glic_side_panel_coordinator.h"
 
 #endif
+
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/apps/app_service/app_service_proxy_factory.h"  // nogncheck
+#include "chrome/browser/ui/views/web_apps/protocol_handler_picker_coordinator.h"
+#endif
+
 namespace tabs {
 
 TabFeatures::TabFeatures() = default;
@@ -210,6 +218,14 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
           std::make_unique<ManagePasswordsPageActionController>(
               *page_action_controller_);
     }
+
+    if (IsPageActionMigrated(PageActionIconType::kCookieControls)) {
+      cookie_controls_page_action_controller_ =
+          GetUserDataFactory()
+              .CreateInstance<CookieControlsPageActionController>(
+                  tab, tab, *profile, *page_action_controller_);
+      cookie_controls_page_action_controller_->Init();
+    }
   }
 
   // Features that are only enabled for normal browser windows. By default most
@@ -264,10 +280,6 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
         std::make_unique<privacy_sandbox::PrivacySandboxTabObserver>(
             tab.GetContents());
 
-    privacy_sandbox_incognito_tab_observer_ =
-        std::make_unique<privacy_sandbox::PrivacySandboxIncognitoTabObserver>(
-            tab.GetContents());
-
     if (tab_groups::TabGroupSyncService* tab_group_sync_service =
             tab_groups::TabGroupSyncServiceFactory::GetForProfile(profile)) {
       saved_tab_group_web_contents_listener_ =
@@ -300,7 +312,7 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
           GetUserDataFactory().CreateInstance<glic::GlicTabIndicatorHelper>(
               tab, &tab);
     }
-    if (base::FeatureList::IsEnabled(features::kGlicMultiInstance) &&
+    if (glic::GlicEnabling::IsMultiInstanceEnabled() &&
         glic::GlicKeyedService::Get(profile)) {
       glic_side_panel_coordinator_ =
           GetUserDataFactory().CreateInstance<glic::GlicSidePanelCoordinator>(
@@ -365,9 +377,15 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
 
   if (fingerprinting_protection_interventions::features::
           ShouldBlockCanvasReadbackForIncognitoState(
+              profile->IsIncognitoProfile()) ||
+      fingerprinting_protection_interventions::features::
+          IsCanvasInterventionsEnabledForIncognitoState(
               profile->IsIncognitoProfile())) {
-    fingerprinting_protection_interventions::InterventionsWebContentsHelper::
-        CreateForWebContents(tab.GetContents(), profile->IsIncognitoProfile());
+    fingerprinting_protection_interventions::
+        CanvasInterventionsWebContentsHelper::CreateForWebContents(
+            tab.GetContents(),
+            TrackingProtectionSettingsFactory::GetForProfile(profile),
+            profile->IsIncognitoProfile());
   }
 
   // Only create the IpProtectionStatus if the User Bypass feature is enabled.
@@ -428,12 +446,24 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
   bookmarkbar_preload_pipeline_manager_ =
       std::make_unique<BookmarkBarPreloadPipelineManager>(tab.GetContents());
 
+  new_tab_page_preload_pipeline_manager_ =
+      std::make_unique<NewTabPagePreloadPipelineManager>(tab.GetContents());
+
   tab_alert_controller_ =
       GetUserDataFactory().CreateInstance<TabAlertController>(tab, tab);
 
   tab_contextualization_controller_ =
       GetUserDataFactory().CreateInstance<lens::TabContextualizationController>(
           tab, &tab);
+
+#if BUILDFLAG(IS_CHROMEOS)
+  if (apps::AppServiceProxyFactory::IsAppServiceAvailableForProfile(profile)) {
+    protocol_handler_picker_coordinator_ =
+        GetUserDataFactory()
+            .CreateInstance<web_app::ProtocolHandlerPickerCoordinator>(
+                tab, tab, apps::AppServiceProxyFactory::GetForProfile(profile));
+  }
+#endif
 }
 
 TabUIHelper* TabFeatures::SetTabUIHelperForTesting(
@@ -478,13 +508,6 @@ void TabFeatures::WillDiscardContents(tabs::TabInterface* tab,
             new_contents);
   }
 
-  if (privacy_sandbox_incognito_tab_observer_) {
-    privacy_sandbox_incognito_tab_observer_.reset();
-    privacy_sandbox_incognito_tab_observer_ =
-        std::make_unique<privacy_sandbox::PrivacySandboxIncognitoTabObserver>(
-            new_contents);
-  }
-
   if (web_app::AreWebAppsEnabled(
           tab->GetBrowserWindowInterface()->GetProfile())) {
     web_app::WebAppTabHelper::Create(tab, new_contents);
@@ -515,6 +538,12 @@ void TabFeatures::WillDiscardContents(tabs::TabInterface* tab,
     bookmarkbar_preload_pipeline_manager_.reset();
     bookmarkbar_preload_pipeline_manager_ =
         std::make_unique<BookmarkBarPreloadPipelineManager>(new_contents);
+  }
+
+  if (new_tab_page_preload_pipeline_manager_) {
+    new_tab_page_preload_pipeline_manager_.reset();
+    new_tab_page_preload_pipeline_manager_ =
+        std::make_unique<NewTabPagePreloadPipelineManager>(new_contents);
   }
 }
 

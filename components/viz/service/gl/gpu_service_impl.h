@@ -60,7 +60,6 @@
 namespace gpu {
 class DawnContextProvider;
 class GpuWatchdogThread;
-class ImageDecodeAcceleratorWorker;
 class Scheduler;
 class SharedContextState;
 class SharedImageManager;
@@ -165,18 +164,17 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
   void EstablishGpuChannel(int32_t client_id,
                            uint64_t client_tracing_id,
                            bool is_gpu_host,
+                           bool enable_extra_handles_validation,
                            EstablishGpuChannelCallback callback) override;
   void SetChannelClientPid(int32_t client_id,
                            base::ProcessId client_pid) override;
   void SetChannelDiskCacheHandle(
       int32_t client_id,
       const gpu::GpuDiskCacheHandle& handle) override;
-  void SetChannelPersistentCacheFile(
+  void SetChannelPersistentCacheParams(
       int32_t client_id,
       const gpu::GpuDiskCacheHandle& handle,
-      base::File db_file,
-      base::File journal_file,
-      base::UnsafeSharedMemoryRegion shared_lock) override;
+      persistent_cache::BackendParams backend_params) override;
   void OnDiskCacheHandleDestoyed(
       const gpu::GpuDiskCacheHandle& handle) override;
   void CloseChannel(int32_t client_id) override;
@@ -230,8 +228,7 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
   void OnBackgrounded() override;
   void OnForegrounded() override;
 #if !BUILDFLAG(IS_ANDROID)
-  void OnMemoryPressure(
-      base::MemoryPressureListener::MemoryPressureLevel level) override;
+  void OnMemoryPressure(base::MemoryPressureLevel level) override;
 #endif
 #if BUILDFLAG(IS_APPLE)
   void BeginCATransaction() override;
@@ -405,9 +402,6 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
   gpu::Scheduler* CreateScheduler(gpu::SyncPointManager* sync_point_manager);
   base::WaitableEvent* CreateShutdownEvent();
 
-  bool IsNativeBufferSupported(gfx::BufferFormat format,
-                               gfx::BufferUsage usage);
-
 #if BUILDFLAG(IS_WIN)
   void RequestDXGIInfoOnMainThread(RequestDXGIInfoCallback callback);
 #endif
@@ -539,20 +533,12 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
 
   base::AtomicFlag is_exiting_;
 
-  // Used for performing hardware decode acceleration of images. This is shared
-  // by all the GPU channels.
-  std::unique_ptr<gpu::ImageDecodeAcceleratorWorker>
-      image_decode_accelerator_worker_;
-
   base::TimeTicks start_time_;
 
   // Used to track the task to bind |receiver_| on the IO thread.
   base::CancelableTaskTracker bind_task_tracker_;
   // Should only be accessed on the IO thread after creation.
   mojo::Receiver<mojom::GpuService> receiver_{this};
-
-  gpu::GpuMemoryBufferConfigurationSet supported_gmb_configurations_;
-  bool supported_gmb_configurations_inited_ = false;
 
   VisibilityChangedCallback visibility_changed_callback_;
 

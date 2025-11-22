@@ -6,8 +6,7 @@
 """Unit tests for install.py."""
 
 import io
-import pathlib
-import subprocess
+from pathlib import Path
 import unittest
 import unittest.mock
 
@@ -22,7 +21,7 @@ class InstallTest(fake_filesystem_unittest.TestCase):
         """Sets up the test environment."""
         self.setUpPyfakefs(additional_skip_names=['subprocess'])
         self.tmpdir = '/tmp/test'
-        self.project_root = pathlib.Path(self.tmpdir) / 'src'
+        self.project_root = Path(self.tmpdir) / 'src'
         self.fs.create_dir(self.project_root)
 
         self.source_extensions_dir = self.project_root / 'agents' / 'extensions'
@@ -121,9 +120,10 @@ class InstallTest(fake_filesystem_unittest.TestCase):
                                  ['install.py', 'add', '--copy', 'sample_1']):
             install.main()
         self.mock_run_command.assert_called_once_with([
-            'gemini', 'extensions', 'install', '--path',
+            'gemini', 'extensions', 'install',
             str(self.source_extensions_dir / 'sample_1')
-        ])
+        ],
+                                                      skip_prompt=False)
 
     @unittest.mock.patch('install.get_project_root')
     @unittest.mock.patch('install.find_extensions_dir_for_extension')
@@ -134,10 +134,12 @@ class InstallTest(fake_filesystem_unittest.TestCase):
         with unittest.mock.patch('sys.argv',
                                  ['install.py', 'add', 'sample_1']):
             install.main()
-        self.mock_run_command.assert_called_once_with([
-            'gemini', 'extensions', 'link',
-            str(self.source_extensions_dir / 'sample_1')
-        ])
+        self.mock_run_command.assert_called_once_with(
+            [
+                'gemini', 'extensions', 'link',
+                str(self.source_extensions_dir / 'sample_1')
+            ],
+            skip_prompt=False)
 
     @unittest.mock.patch('install.get_project_root')
     @unittest.mock.patch('install.find_extensions_dir_for_extension')
@@ -150,10 +152,12 @@ class InstallTest(fake_filesystem_unittest.TestCase):
                 'sys.argv',
             ['install.py', 'add', '--skip-prompt', 'sample_1']):
             install.main()
-        self.mock_run_command.assert_called_once_with([
-            'gemini', 'extensions', 'link',
-            str(self.source_extensions_dir / 'sample_1')
-        ])
+        self.mock_run_command.assert_called_once_with(
+            [
+                'gemini', 'extensions', 'link',
+                str(self.source_extensions_dir / 'sample_1')
+            ],
+            skip_prompt=True)
 
     @unittest.mock.patch('install.get_project_root')
     def test_add_test_extension(self, mock_get_project_root):
@@ -164,10 +168,12 @@ class InstallTest(fake_filesystem_unittest.TestCase):
                 str(self.testing_extensions_dir), 'add', 'test_sample'
         ]):
             install.main()
-        self.mock_run_command.assert_called_once_with([
-            'gemini', 'extensions', 'link',
-            str(self.testing_extensions_dir / 'test_sample')
-        ])
+        self.mock_run_command.assert_called_once_with(
+            [
+                'gemini', 'extensions', 'link',
+                str(self.testing_extensions_dir / 'test_sample')
+            ],
+            skip_prompt=False)
 
     @unittest.mock.patch('install.get_project_root')
     def test_add_test_extension_without_flag_fails(self,
@@ -203,7 +209,7 @@ class InstallTest(fake_filesystem_unittest.TestCase):
                                  ['install.py', 'update', 'sample_1']):
             install.main()
         self.mock_run_command.assert_called_once_with(
-            ['gemini', 'extensions', 'update', 'sample_1'])
+            ['gemini', 'extensions', 'update', 'sample_1'], skip_prompt=False)
 
     @unittest.mock.patch('install.get_project_root')
     def test_update_all_extensions(self, mock_get_project_root):
@@ -219,10 +225,31 @@ class InstallTest(fake_filesystem_unittest.TestCase):
         """Tests remove command."""
         mock_get_project_root.return_value = self.project_root
         with unittest.mock.patch('sys.argv',
-                                 ['install.py', 'remove', 'sample_1']):
+                                 ['install.py', 'remove', 'sample-1']):
             install.main()
         self.mock_run_command.assert_called_once_with(
-            ['gemini', 'extensions', 'uninstall', 'sample_1'])
+            ['gemini', 'extensions', 'uninstall', 'sample-1'])
+
+    @unittest.mock.patch('pathlib.Path.home')
+    @unittest.mock.patch('install.get_project_root')
+    def test_remove_legacy_extension(self, mock_get_project_root, mock_home):
+        """Tests remove command for legacy extensions with underscores."""
+        mock_get_project_root.return_value = self.project_root
+        fake_home = Path(self.tmpdir) / 'home'
+        mock_home.return_value = fake_home
+
+        # Set up a legacy extension
+        legacy_extension_dir = (install.get_global_extension_dir() /
+                                'my_legacy_ext')
+        self.fs.create_dir(legacy_extension_dir)
+        self.assertTrue(legacy_extension_dir.exists())
+
+        with unittest.mock.patch('sys.argv',
+                                 ['install.py', 'remove', 'my_legacy_ext']):
+            install.main()
+
+        self.mock_run_command.assert_not_called()
+        self.assertFalse(legacy_extension_dir.exists())
 
     @unittest.mock.patch('install.get_project_root')
     def test_list_extensions(self, mock_get_project_root):
@@ -310,7 +337,7 @@ class InstallTest(fake_filesystem_unittest.TestCase):
                                                mock_home):
         """Tests that fix skips extensions that already exist for the user."""
         mock_get_project_root.return_value = self.project_root
-        fake_home = pathlib.Path(self.tmpdir) / 'home'
+        fake_home = Path(self.tmpdir) / 'home'
         mock_home.return_value = fake_home
 
         # Set up a user-level extension
@@ -351,37 +378,9 @@ class InstallTest(fake_filesystem_unittest.TestCase):
 
     def test_get_project_root(self):
         """Tests the get_project_root function."""
-        with unittest.mock.patch('install.__file__', self.install_script_path):
+        with unittest.mock.patch('install._PROJECT_ROOT', self.project_root):
             project_root = install.get_project_root()
             self.assertEqual(project_root, self.project_root)
-
-    def test_get_project_root_error(self):
-        """Tests the get_project_root function when an error occurs."""
-        with unittest.mock.patch('install.__file__',
-                                 pathlib.Path('invalid/path')):
-            with unittest.mock.patch('sys.stderr',
-                                     new_callable=io.StringIO) as mock_stderr:
-                project_root = install.get_project_root()
-                self.assertIsNone(project_root)
-                self.assertIn('Could not determine project root',
-                              mock_stderr.getvalue())
-
-    @unittest.mock.patch('subprocess.run')
-    def test_get_gemini_version_success(self, mock_run):
-        """Test that we can successfully get the gemini version."""
-        mock_run.return_value.stdout = '0.5.1'
-        self.assertEqual(install.get_gemini_version(), '0.5.1')
-
-    @unittest.mock.patch('subprocess.run', side_effect=FileNotFoundError)
-    def test_get_gemini_version_file_not_found(self, _mock_run):
-        """Test that we return none when gemini is not found."""
-        self.assertIsNone(install.get_gemini_version())
-
-    @unittest.mock.patch('subprocess.run',
-                         side_effect=subprocess.CalledProcessError(1, 'cmd'))
-    def test_get_gemini_version_called_process_error(self, _mock_run):
-        """Test that we return none when there is a process error."""
-        self.assertIsNone(install.get_gemini_version())
 
 
 if __name__ == '__main__':

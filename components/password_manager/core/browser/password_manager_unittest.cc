@@ -91,10 +91,6 @@
 #include "components/webauthn/android/webauthn_cred_man_delegate.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-#include "components/os_crypt/sync/os_crypt_mocker.h"
-#endif
-
 using ::autofill::FieldGlobalId;
 using ::autofill::FieldRendererId;
 using ::autofill::FieldType;
@@ -115,6 +111,7 @@ using ::testing::AllOf;
 using ::testing::AnyNumber;
 using ::testing::ByMove;
 using ::testing::ElementsAre;
+using ::testing::Eq;
 using ::testing::Field;
 using ::testing::IsEmpty;
 using ::testing::IsNull;
@@ -170,11 +167,10 @@ class FakeNetworkContext : public network::TestNetworkContext {
 
 class MockLeakDetectionCheck : public LeakDetectionCheck {
  public:
-  MOCK_METHOD(
-      void,
-      Start,
-      (LeakDetectionInitiator, const GURL&, std::u16string, std::u16string),
-      (override));
+  MOCK_METHOD(void,
+              Start,
+              (LeakDetectionInitiator, const PasswordForm&),
+              (override));
 };
 
 class MockStoreResultFilter : public StubCredentialsFilter {
@@ -318,6 +314,7 @@ class MockPasswordManagerClient : public StubPasswordManagerClient {
               GetPasswordChangeService,
               (),
               (const, override));
+  MOCK_METHOD(bool, IsPasswordChangeOngoing, (), (override));
   MOCK_METHOD(WebAuthnCredentialsDelegate*,
               GetWebAuthnCredentialsDelegateForDriver,
               (PasswordManagerDriver*),
@@ -505,7 +502,6 @@ class PasswordManagerTestBase : public testing::Test {
         password_manager::prefs::kBiometricAuthenticationBeforeFilling, true);
 #endif
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-    OSCryptMocker::SetUp();
     prefs_->registry()->RegisterIntegerPref(
         password_manager::prefs::kRelaunchChromeBubbleDismissedCounter, 0);
 #endif
@@ -1774,7 +1770,7 @@ TEST_P(PasswordManagerTest,
   manager()->OnPasswordFormsParsed(&driver_, {observed_form});
   manager()->OnPasswordFormsRendered(&driver_, {observed_form});
   task_environment_.RunUntilIdle();
-
+  EXPECT_CALL(client_, IsPasswordChangeOngoing).WillRepeatedly(Return(false));
   EXPECT_CALL(client_.GetPasswordChangeService(),
               RecordLoginAttemptQuality(
                   LogInWithChangedPasswordOutcome::kPrimaryPasswordFailed, _));
@@ -1811,7 +1807,7 @@ TEST_P(PasswordManagerTest,
   manager()->OnPasswordFormsParsed(&driver_, observed);
   manager()->OnPasswordFormsRendered(&driver_, observed);
   task_environment_.RunUntilIdle();
-
+  EXPECT_CALL(client_, IsPasswordChangeOngoing).WillRepeatedly(Return(false));
   EXPECT_CALL(
       client_.GetPasswordChangeService(),
       RecordLoginAttemptQuality(
@@ -1851,7 +1847,7 @@ TEST_P(PasswordManagerTest,
   form.type = PasswordForm::Type::kChangeSubmission;
   store_->AddLogin(form);
   FormData observed_form = form.form_data;
-
+  EXPECT_CALL(client_, IsPasswordChangeOngoing).WillRepeatedly(Return(false));
   EXPECT_CALL(client_.GetPasswordChangeService(),
               RecordLoginAttemptQuality(
                   LogInWithChangedPasswordOutcome::kBackupPasswordFailed, _));
@@ -1895,7 +1891,7 @@ TEST_P(PasswordManagerTest,
   manager()->OnPasswordFormsParsed(&driver_, observed);
   manager()->OnPasswordFormsRendered(&driver_, observed);
   task_environment_.RunUntilIdle();
-
+  EXPECT_CALL(client_, IsPasswordChangeOngoing).WillRepeatedly(Return(false));
   EXPECT_CALL(
       client_.GetPasswordChangeService(),
       RecordLoginAttemptQuality(
@@ -1935,7 +1931,7 @@ TEST_P(PasswordManagerTest,
   form.type = PasswordForm::Type::kChangeSubmission;
   store_->AddLogin(form);
   FormData observed_form = form.form_data;
-
+  EXPECT_CALL(client_, IsPasswordChangeOngoing).WillRepeatedly(Return(false));
   EXPECT_CALL(client_.GetPasswordChangeService(),
               RecordLoginAttemptQuality(
                   LogInWithChangedPasswordOutcome::kUnknownPasswordFailed, _));
@@ -1980,7 +1976,7 @@ TEST_P(PasswordManagerTest,
   manager()->OnPasswordFormsParsed(&driver_, observed);
   manager()->OnPasswordFormsRendered(&driver_, observed);
   task_environment_.RunUntilIdle();
-
+  EXPECT_CALL(client_, IsPasswordChangeOngoing).WillRepeatedly(Return(false));
   EXPECT_CALL(
       client_.GetPasswordChangeService(),
       RecordLoginAttemptQuality(
@@ -2019,6 +2015,7 @@ TEST_P(PasswordManagerTest, SecondLogin_MqslNotReported) {
   manager()->OnPasswordFormsParsed(&driver_, observed);
   manager()->OnPasswordFormsRendered(&driver_, observed);
   task_environment_.RunUntilIdle();
+  EXPECT_CALL(client_, IsPasswordChangeOngoing).WillRepeatedly(Return(false));
 
   EXPECT_CALL(client_.GetPasswordChangeService(), RecordLoginAttemptQuality)
       .Times(0);
@@ -2040,6 +2037,32 @@ TEST_P(PasswordManagerTest, SecondLogin_MqslNotReported) {
           kLogInWithPasswordChangeSubmissionName,
       static_cast<int>(
           LogInWithChangedPasswordOutcome::kPrimaryPasswordSucceeded));
+}
+
+TEST_P(PasswordManagerTest,
+       NoMetricsReportedAboutLoginOutcomeDuringPasswordChange) {
+  ukm::TestAutoSetUkmRecorder test_ukm_recorder;
+  base::HistogramTester histogram_tester;
+  PasswordForm form(MakeSimpleForm());
+  form.type = PasswordForm::Type::kChangeSubmission;
+  // Since date_last_used is within the acceptable delta of the backup creation
+  // time, this is the first login with the backup password.
+  form.date_last_used = base::Time::Now() + base::Seconds(1);
+  form.SetPasswordBackupNote(u"backup_password");
+  store_->AddLogin(form);
+  FormData observed_form = form.form_data;
+  manager()->OnPasswordFormsParsed(&driver_, {observed_form});
+  manager()->OnPasswordFormsRendered(&driver_, {observed_form});
+  task_environment_.RunUntilIdle();
+  EXPECT_CALL(client_, IsPasswordChangeOngoing).WillRepeatedly(Return(true));
+  EXPECT_CALL(client_, GetPasswordChangeService).Times(0);
+
+  manager()->OnPasswordFormSubmitted(&driver_, observed_form);
+  manager()->OnPasswordFormsRendered(&driver_, {MakeSimpleFormData()});
+  manager()->DidNavigateMainFrame(true);
+  manager()->OnPasswordFormsParsed(&driver_, {MakeSimpleFormData()});
+  histogram_tester.ExpectTotalCount(
+      "PasswordManager.LogInWithPasswordChangeSubmission", 0);
 }
 
 // Checks that credentials on the submitted form are not checked for leak when
@@ -4587,10 +4610,13 @@ TEST_P(PasswordManagerTest, StartLeakDetection) {
   EXPECT_CALL(client_, PromptUserToSaveOrUpdatePassword)
       .WillOnce(MoveArgAndReturn<0>(&form_manager_to_save, true));
   auto check_instance = std::make_unique<MockLeakDetectionCheck>();
-  EXPECT_CALL(
-      *check_instance,
-      Start(LeakDetectionInitiator::kSignInCheck, form_data.url(),
-            form_data.fields()[0].value(), form_data.fields()[1].value()));
+  EXPECT_CALL(*check_instance,
+              Start(Eq(LeakDetectionInitiator::kSignInCheck),
+                    AllOf(Field(&PasswordForm::url, Eq(form_data.url())),
+                          Field(&PasswordForm::username_value,
+                                Eq(form_data.fields()[0].value())),
+                          Field(&PasswordForm::password_value,
+                                Eq(form_data.fields()[1].value())))));
   EXPECT_CALL(*weak_factory, TryCreateLeakCheck)
       .WillOnce(Return(ByMove(std::move(check_instance))));
 

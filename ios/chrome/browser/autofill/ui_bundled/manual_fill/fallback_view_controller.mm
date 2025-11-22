@@ -56,7 +56,7 @@ constexpr base::TimeDelta kMinimumLoadingTime = base::Milliseconds(500);
 constexpr CGFloat kSectionHeaderHeight = 6;
 
 // Height of the section footer.
-constexpr CGFloat kSectionFooterHeight = 8;
+constexpr CGFloat kSectionFooterHeight = 6;
 
 // Left inset of the table view's section separators.
 constexpr CGFloat kSectionSepatatorLeftInset = 16;
@@ -74,15 +74,6 @@ bool ShouldResizeViewForPopover(
     UIModalPresentationStyle modal_presentation_style) {
   return ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET &&
          modal_presentation_style == UIModalPresentationPopover;
-}
-
-// Returns the color to use for the table view's background.
-UIColor* GetBackgroundColor() {
-  if (@available(iOS 26, *)) {
-    return UIColor.clearColor;
-  }
-
-  return [UIColor colorNamed:kGroupedPrimaryBackgroundColor];
 }
 
 }  // namespace
@@ -126,11 +117,11 @@ UIColor* GetBackgroundColor() {
 }
 
 - (void)viewDidLoad {
-  // Super's `viewDidLoad` uses `styler.tableViewBackgroundColor` so it needs to
-  // be set before.
-  self.styler.tableViewBackgroundColor = GetBackgroundColor();
-
   [super viewDidLoad];
+
+  if (@available(iOS 26, *)) {
+    self.tableView.backgroundColor = UIColor.clearColor;
+  }
 
   // Remove extra spacing on top of sections.
   self.tableView.sectionHeaderTopPadding = 0;

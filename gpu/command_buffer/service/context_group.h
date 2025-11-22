@@ -33,8 +33,6 @@ namespace gpu {
 struct GpuPreferences;
 class SharedImageManager;
 class SharedImageRepresentationFactory;
-class ServiceDiscardableManager;
-class PassthroughDiscardableManager;
 class DecoderContext;
 class MemoryTracker;
 
@@ -65,8 +63,6 @@ class GPU_GLES2_EXPORT ContextGroup : public base::RefCounted<ContextGroup> {
                const scoped_refptr<FeatureInfo>& feature_info,
                gl::ProgressReporter* progress_reporter,
                const GpuFeatureInfo& gpu_feature_info,
-               ServiceDiscardableManager* discardable_manager,
-               PassthroughDiscardableManager* passthrough_discardable_manager,
                SharedImageManager* shared_image_manager);
 
   ContextGroup(const ContextGroup&) = delete;
@@ -75,8 +71,7 @@ class GPU_GLES2_EXPORT ContextGroup : public base::RefCounted<ContextGroup> {
   // This should only be called by a DecoderContext. This must be paired with a
   // call to destroy if it succeeds.
   gpu::ContextResult Initialize(DecoderContext* decoder,
-                                ContextType context_type,
-                                const DisallowedFeatures& disallowed_features);
+                                ContextType context_type);
 
   // Destroys all the resources when called for the last context in the group.
   // It should only be called by DecoderContext.
@@ -188,10 +183,6 @@ class GPU_GLES2_EXPORT ContextGroup : public base::RefCounted<ContextGroup> {
     return sampler_manager_.get();
   }
 
-  ServiceDiscardableManager* discardable_manager() const {
-    return discardable_manager_;
-  }
-
   SharedImageRepresentationFactory* shared_image_representation_factory()
       const {
     return shared_image_representation_factory_.get();
@@ -228,10 +219,6 @@ class GPU_GLES2_EXPORT ContextGroup : public base::RefCounted<ContextGroup> {
 
   PassthroughResources* passthrough_resources() const {
     return passthrough_resources_.get();
-  }
-
-  PassthroughDiscardableManager* passthrough_discardable_manager() const {
-    return passthrough_discardable_manager_;
   }
 
   const GpuFeatureInfo& gpu_feature_info() const { return gpu_feature_info_; }
@@ -300,7 +287,6 @@ class GPU_GLES2_EXPORT ContextGroup : public base::RefCounted<ContextGroup> {
 
   bool use_passthrough_cmd_decoder_;
   std::unique_ptr<PassthroughResources> passthrough_resources_;
-  raw_ptr<PassthroughDiscardableManager> passthrough_discardable_manager_;
 
   // Used to notify the watchdog thread of progress during destruction,
   // preventing time-outs when destruction takes a long time. May be null when
@@ -308,8 +294,6 @@ class GPU_GLES2_EXPORT ContextGroup : public base::RefCounted<ContextGroup> {
   raw_ptr<gl::ProgressReporter> progress_reporter_;
 
   GpuFeatureInfo gpu_feature_info_;
-
-  raw_ptr<ServiceDiscardableManager> discardable_manager_;
 
   std::unique_ptr<SharedImageRepresentationFactory>
       shared_image_representation_factory_;

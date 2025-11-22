@@ -32,7 +32,6 @@
 #include "chrome/browser/extensions/api/webstore_private/extension_install_status.h"
 #include "chrome/browser/extensions/extension_allowlist.h"
 #include "chrome/browser/extensions/extension_management.h"
-#include "chrome/browser/extensions/install_approval.h"
 #include "chrome/browser/extensions/install_tracker_factory.h"
 #include "chrome/browser/extensions/manifest_v2_experiment_manager.h"
 #include "chrome/browser/extensions/mv2_experiment_stage.h"
@@ -63,6 +62,7 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_util.h"
 #include "extensions/browser/extensions_browser_client.h"
+#include "extensions/browser/install_approval.h"
 #include "extensions/browser/install_tracker.h"
 #include "extensions/browser/scoped_active_install.h"
 #include "extensions/buildflags/buildflags.h"
@@ -496,7 +496,7 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnWebstoreParseSuccess(
   std::string localized_name =
       details().localized_name ? *details().localized_name : std::string();
 
-  std::string error;
+  std::u16string error;
   dummy_extension_ = ExtensionInstallPrompt::GetLocalizedExtensionForDisplay(
       *parsed_manifest_, Extension::FROM_WEBSTORE, id, localized_name,
       std::string(), &error);
@@ -1339,7 +1339,7 @@ void WebstorePrivateGetExtensionStatusFunction::OnManifestParsed(
     return;
   }
 
-  std::string error;
+  std::u16string error;
   auto dummy_extension = Extension::Create(
       base::FilePath(), mojom::ManifestLocation::kInternal, result->GetDict(),
       Extension::FROM_WEBSTORE, extension_id, &error);

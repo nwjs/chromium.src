@@ -59,10 +59,6 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
 // The last progress of fullscreen registered. The progress range is between 0
 // and 1.
 @property(nonatomic, assign) CGFloat previousFullscreenProgress;
-// The page's theme color.
-@property(nonatomic, strong) UIColor* pageThemeColor;
-// The under page background color.
-@property(nonatomic, strong) UIColor* underPageBackgroundColor;
 
 @end
 
@@ -246,6 +242,10 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
   [self updateProgressBarVisibility];
 }
 
+- (void)setLocationBarHeight:(CGFloat)height {
+  [self.view setLocationBarHeight:height];
+}
+
 #pragma mark - ToolbarConsumer
 
 - (void)setCanGoForward:(BOOL)canGoForward {
@@ -341,22 +341,6 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
   _isNTP = isNTP;
 }
 
-- (void)setPageThemeColor:(UIColor*)pageThemeColor {
-  if ([_pageThemeColor isEqual:pageThemeColor]) {
-    return;
-  }
-  _pageThemeColor = pageThemeColor;
-  [self updateBackgroundColor];
-}
-
-- (void)setUnderPageBackgroundColor:(UIColor*)underPageBackgroundColor {
-  if ([_underPageBackgroundColor isEqual:underPageBackgroundColor]) {
-    return;
-  }
-  _underPageBackgroundColor = underPageBackgroundColor;
-  [self updateBackgroundColor];
-}
-
 - (void)updateTabGroupState:(ToolbarTabGroupState)tabGroupState {
   [self.view updateTabGroupState:tabGroupState];
 }
@@ -448,6 +432,13 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
 // Updates `locationBarContainer` height and adjusts its corner radius for the
 // fullscreen `progress`
 - (void)updateLocationBarHeightForFullscreenProgress:(CGFloat)progress {
+  /// When multiline omnibox is enabled and focused, refrain from updating the
+  /// location bar container height, this is already handled by the toolbar
+  /// height delegate.
+  if (IsMultilineBrowserOmniboxEnabled() && _locationBarFocused) {
+    return;
+  }
+
   if (IsDiamondPrototypeEnabled()) {
     const CGFloat height = kDiamondLocationBarHeight * progress +
                            kDiamondCollapsedToolbarHeight * (1 - progress);

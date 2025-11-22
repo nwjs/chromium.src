@@ -146,6 +146,7 @@ public class TabGridContextMenuCoordinator extends TabOverflowMenuCoordinator<@T
     public void showMenu(RectProvider anchorViewRectProvider, int tabId, boolean focusable) {
         mIsMenuFocusableUponCreation = focusable;
         boolean isIncognito = mTabGroupModelFilter.getTabModel().isIncognitoBranded();
+        dismiss();
         createAndShowMenu(
                 anchorViewRectProvider,
                 tabId,
@@ -204,7 +205,7 @@ public class TabGridContextMenuCoordinator extends TabOverflowMenuCoordinator<@T
                 showTabListEditor.show(tab.getId());
                 recordUserActionWithPrefix("SelectTabs");
             } else if (menuId == R.id.pin_tab) {
-                tabModel.pinTab(tab.getId());
+                tabModel.pinTab(tab.getId(), /* showUngroupDialog= */ true);
                 recordUserActionWithPrefix("PinTab");
             } else if (menuId == R.id.unpin_tab) {
                 tabModel.unpinTab(tab.getId());
@@ -331,11 +332,12 @@ public class TabGridContextMenuCoordinator extends TabOverflowMenuCoordinator<@T
         boolean isTabPinned = tab.getIsPinned();
         @StringRes int titleRes = isTabPinned ? R.string.unpin_tab : R.string.pin_tab;
         @IdRes int menuId = isTabPinned ? R.id.unpin_tab : R.id.pin_tab;
+        int iconRes = isTabPinned ? R.drawable.ic_keep_off_24dp : R.drawable.ic_keep_24dp;
 
         return new ListItemBuilder()
                 .withTitleRes(titleRes)
                 .withMenuId(menuId)
-                .withStartIconRes(R.drawable.ic_keep_24dp)
+                .withStartIconRes(iconRes)
                 .withIsIncognito(tab.isIncognitoBranded())
                 .build();
     }

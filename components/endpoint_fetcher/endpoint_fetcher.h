@@ -154,8 +154,7 @@ class EndpointFetcher {
     std::optional<UploadProgressCallback> upload_progress_callback;
 
     // Authentication-specific parameters
-    std::optional<std::string> oauth_consumer_name;
-    signin::ScopeSet oauth_scopes;
+    std::optional<signin::OAuthConsumerId> oauth_consumer_id;
     std::optional<signin::ConsentLevel> consent_level;
     std::optional<version_info::Channel> channel;
 
@@ -260,20 +259,8 @@ class EndpointFetcher {
       }
 
       // Authentication-specific builder methods
-      Builder& SetOauthConsumerName(const std::string& name) {
-        request_params_->oauth_consumer_name = name;
-        return *this;
-      }
-
-      Builder& SetOauthScopes(const signin::ScopeSet& scopes) {
-        request_params_->oauth_scopes = scopes;
-        return *this;
-      }
-
-      Builder& SetOauthScopes(const std::vector<std::string>& scopes_vector) {
-        for (const auto& scope : scopes_vector) {
-          request_params_->oauth_scopes.insert(scope);
-        }
+      Builder& SetOAuthConsumerId(signin::OAuthConsumerId id) {
+        request_params_->oauth_consumer_id = id;
         return *this;
       }
 

@@ -69,7 +69,6 @@ class VideoFrame;
 
 namespace blink {
 
-class CanvasResourceProvider;
 class CanvasElementHitTestRegion;
 class ComputedStyle;
 class Document;
@@ -169,6 +168,11 @@ class CORE_EXPORT CanvasRenderingContext
 
   // This is only used in WebGL
   void RecordUKMCanvasDrawnToRenderingAPI();
+
+  static CanvasRenderingContext* GetEnclosingContextForDrawElement(
+      Element* element,
+      const String& func_name,
+      ExceptionState& exception_state);
 
   static CanvasRenderingAPI RenderingAPIFromId(const String& id);
 
@@ -280,15 +284,8 @@ class CORE_EXPORT CanvasRenderingContext
   virtual void LangAttributeChanged() {}
   virtual String GetIdFromControl(const Element* element) { return String(); }
   virtual int LayerCount() const { return 0; }
-  virtual bool IsCanvas2DResourceProviderValid() { NOTREACHED(); }
-  virtual CanvasResourceProvider* GetOrCreateCanvas2DResourceProvider() {
-    NOTREACHED();
-  }
-  // If the ResourceProvider currently exists, replaces it with a newly-created
-  // CanvasResourceProvider.
-  virtual void DropAndRecreateExistingCanvas2DResourceProvider() {
-    NOTREACHED();
-  }
+  virtual void DisableAccelerationForCanvas2D() { NOTREACHED(); }
+
   virtual const std::optional<cc::PaintRecord>& GetLastRecordingForCanvas2D() {
     return empty_recording_;
   }
@@ -306,6 +303,9 @@ class CORE_EXPORT CanvasRenderingContext
   // WebGL & WebGPU-specific interface
   virtual void SetHdrMetadata(const gfx::HDRMetadata& hdr_metadata) {}
   virtual void Reshape(int width, int height) {}
+  scoped_refptr<StaticBitmapImage> GetElementImage(Element*,
+                                                   const String& func_name,
+                                                   ExceptionState&);
 
   intptr_t AllocatedBufferSize() const;
   virtual int AllocatedBufferCountPerPixel() const { return 1; }
@@ -365,6 +365,10 @@ class CORE_EXPORT CanvasRenderingContext
   bool IsDrawElementImageEligible(Element* element,
                                   const String& func_name,
                                   ExceptionState& exception_state);
+
+  std::optional<cc::PaintRecord> GetElementPaintRecord(Element*,
+                                                       const String& func_name,
+                                                       ExceptionState&);
 
   bool ConvertHitTestRegionsToHTMLCanvasRegions(
       const HeapVector<Member<CanvasElementHitTestRegion>>& hit_test_regions,

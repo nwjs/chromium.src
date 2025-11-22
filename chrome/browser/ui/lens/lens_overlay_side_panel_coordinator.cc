@@ -25,6 +25,7 @@
 #include "chrome/browser/ui/lens/page_content_type_conversions.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_content_proxy.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_registry.h"
@@ -185,6 +186,11 @@ void LensOverlaySidePanelCoordinator::RegisterEntryAndShow() {
   CHECK(side_panel_coordinator_);
 }
 
+SidePanelEntry::PanelType LensOverlaySidePanelCoordinator::GetPanelType()
+    const {
+  return SidePanelEntry::PanelType::kContent;
+}
+
 void LensOverlaySidePanelCoordinator::RecordAndShowSidePanelErrorPage() {
   CHECK(side_panel_page_);
   side_panel_page_->SetShowErrorPage(side_panel_should_show_error_page_,
@@ -195,7 +201,6 @@ void LensOverlaySidePanelCoordinator::RecordAndShowSidePanelErrorPage() {
 
 void LensOverlaySidePanelCoordinator::SetSidePanelNewTabUrl(const GURL& url) {
   side_panel_new_tab_url_ = lens::RemoveSidePanelURLParameters(url);
-  side_panel_coordinator_->UpdateNewTabButtonState();
 }
 
 void LensOverlaySidePanelCoordinator::OnEntryWillHide(
@@ -245,8 +250,8 @@ bool LensOverlaySidePanelCoordinator::MaybeHandleTextDirectives(
     if (lens::IsValidSearchResultsUrl(nav_url)) {
       auto page_url_text_query = lens::ExtractTextQueryParameterValue(page_url);
       auto nav_url_text_query = lens::ExtractTextQueryParameterValue(nav_url);
-      if (page_url.host() != nav_url.host() ||
-          page_url.path() != nav_url.path() ||
+      if (page_url.GetHost() != nav_url.GetHost() ||
+          page_url.GetPath() != nav_url.GetPath() ||
           page_url_text_query != nav_url_text_query) {
         lens::RecordHandleTextDirectiveResult(
             lens::LensOverlayTextDirectiveResult::kOpenedInNewTab);
@@ -259,7 +264,7 @@ bool LensOverlaySidePanelCoordinator::MaybeHandleTextDirectives(
 
     // Nav url should have a text fragment.
     auto text_fragments =
-        shared_highlighting::ExtractTextFragments(nav_url.ref());
+        shared_highlighting::ExtractTextFragments(nav_url.GetRef());
 
     // Create and attach a `TextFinderManager` to the primary page.
     content::Page& page = lens_search_controller_->GetTabInterface()
@@ -764,6 +769,14 @@ void LensOverlaySidePanelCoordinator::FocusResultsFrame() {
   }
 }
 
+void LensOverlaySidePanelCoordinator::FocusSearchbox() {
+  auto* web_contents = GetSidePanelWebContents();
+  if (web_contents && side_panel_page_) {
+    web_contents->Focus();
+    side_panel_page_->FocusSearchbox();
+  }
+}
+
 void LensOverlaySidePanelCoordinator::SuppressGhostLoader() {
   if (side_panel_page_) {
     side_panel_page_->SuppressGhostLoader();
@@ -1013,14 +1026,14 @@ bool LensOverlaySidePanelCoordinator::ShouldHandleTextDirectives(
   // search URL with a text fragment then it needs custom handling to open in a
   // new tab rather than in the side panel. This ignores the ref and query
   // attributes.
-  if ((page_url.host() != nav_url.host() ||
-       page_url.path() != nav_url.path()) &&
+  if ((page_url.GetHost() != nav_url.GetHost() ||
+       page_url.GetPath() != nav_url.GetPath()) &&
       !lens::IsValidSearchResultsUrl(nav_url)) {
     return false;
   }
 
   auto text_fragments =
-      shared_highlighting::ExtractTextFragments(nav_url.ref());
+      shared_highlighting::ExtractTextFragments(nav_url.GetRef());
   // If the url that is being navigated to does not have a text directive, then
   // it cannot be handled.
   return !text_fragments.empty();
@@ -1041,9 +1054,9 @@ bool LensOverlaySidePanelCoordinator::ShouldHandlePDFViewportChange(
   // Handle the PDF hash change if the URL being navigated to is the same as the
   // URL loaded in the main tab. The URL being navigated to should also contain
   // a fragment with viewport parameters that will be parsed in the extension.
-  return !nav_url.ref().empty() && page_url.host() == nav_url.host() &&
-         page_url.path() == nav_url.path() &&
-         page_url.query() == nav_url.query();
+  return !nav_url.GetRef().empty() && page_url.GetHost() == nav_url.GetHost() &&
+         page_url.GetPath() == nav_url.GetPath() &&
+         page_url.GetQuery() == nav_url.GetQuery();
 }
 
 void LensOverlaySidePanelCoordinator::OnTextFinderLookupComplete(

@@ -82,10 +82,6 @@ BASE_FEATURE(kMostVisitedTilesNewScoring,
              is_android ? base::FEATURE_ENABLED_BY_DEFAULT
                         : base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If enabled, heuristically remove possible visual duplicates from top sites.
-BASE_FEATURE(kMostVisitedTilesVisualDeduplication,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 constexpr char kMvtScoringParamRecencyFactor_Classic[] = "default";
 constexpr char kMvtScoringParamRecencyFactor_Decay[] = "decay";
 constexpr char kMvtScoringParamRecencyFactor_DecayStaircase[] =
@@ -117,5 +113,13 @@ constexpr base::FeatureParam<int> kMvtScoringParamDailyVisitCountCap{
 // If enabled, very old history databases that cannot be migrated are deleted.
 BASE_FEATURE(kRazeOldHistoryDatabase,
              base::FeatureState::FEATURE_DISABLED_BY_DEFAULT);
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+// Enables Milestone 2 of History-Actor integration, this includes hiding
+// actor-initiated visits from non-primary sources (Omnibox, MVT) and updating
+// the deduplication logic of actor visits.
+BASE_FEATURE(kBrowsingHistoryActorIntegrationM2,
+             base::FeatureState::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 }  // namespace history

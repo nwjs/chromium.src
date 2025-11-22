@@ -1035,7 +1035,7 @@ DOMWindow* ChromeClientImpl::PagePopupWindowForTesting() const {
   return web_view_->PagePopupWindow();
 }
 
-void ChromeClientImpl::SetUseExternalPopupMenusForTesting(bool value) {
+void ChromeClientImpl::SetUseExternalPopupMenus(bool value) {
   use_external_popup_menus_ = value;
 }
 
@@ -1207,6 +1207,16 @@ void ChromeClientImpl::SetShouldThrottleFrameRate(bool flag,
   }
 
   widget->SetShouldThrottleFrameRate(flag);
+}
+
+void ChromeClientImpl::RequestMainFrameOnCompositorAnimation(
+    LocalFrame& frame,
+    cc::PropertyChangeForcesCommitCriteria
+        property_change_forces_commit_criteria) {
+  WebFrameWidgetImpl* widget =
+      WebLocalFrameImpl::FromFrame(frame)->LocalRootFrameWidget();
+  widget->RequestMainFrameOnCompositorAnimation(
+      property_change_forces_commit_criteria);
 }
 
 void ChromeClientImpl::SetHasScrollEventHandlers(LocalFrame* frame,
@@ -1551,8 +1561,8 @@ gfx::Rect ChromeClientImpl::AdjustWindowRectForDisplay(
   return window;
 }
 
-void ChromeClientImpl::OnFirstContentfulPaint() {
-  web_view_->OnFirstContentfulPaint();
+void ChromeClientImpl::OnFirstContentfulPaint(const base::TimeDelta& duration) {
+  web_view_->OnFirstContentfulPaint(duration);
 }
 
 }  // namespace blink

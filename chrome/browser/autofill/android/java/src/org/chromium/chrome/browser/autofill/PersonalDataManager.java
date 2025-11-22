@@ -690,47 +690,6 @@ public class PersonalDataManager implements Destroyable {
         }
     }
 
-    /** Autofill BNPL issuer information. */
-    public static class BnplIssuer {
-        private final String mDisplayName;
-        private final int mIconId;
-        private final boolean mIsLinked;
-
-        /**
-         * Constructs a new BnplIssuer.
-         *
-         * @param displayName The name of the issuer to be displayed.
-         * @param iconId The resource ID of the issuer's icon.
-         * @param isLinked Whether the issuer is linked or not.
-         */
-        public BnplIssuer(String displayName, int iconId, boolean isLinked) {
-            mDisplayName = displayName;
-            mIconId = iconId;
-            mIsLinked = isLinked;
-        }
-
-        /** Returns the name of the issuer to be displayed. */
-        public String getDisplayName() {
-            return mDisplayName;
-        }
-
-        /** Returns the resource ID of the issuer's icon. */
-        public int getIconId() {
-            return mIconId;
-        }
-
-        /** Returns {@code true} if the issuer is linked. */
-        public boolean isLinked() {
-            return mIsLinked;
-        }
-
-        @CalledByNative("BnplIssuer")
-        private static BnplIssuer createBnplIssuer(
-                @JniType("std::u16string") String displayName, int iconId, boolean isLinked) {
-            return new BnplIssuer(displayName, iconId, isLinked);
-        }
-    }
-
     private final PrefService mPrefService;
     private final List<PersonalDataManagerObserver> mDataObservers = new ArrayList<>();
 
@@ -1181,6 +1140,31 @@ public class PersonalDataManager implements Destroyable {
         return mPrefService.getBoolean(Pref.FACILITATED_PAYMENTS_A2A_TRIGGERED_ONCE);
     }
 
+    /** Returns whether the BNPL preference should be shown on the settings page. */
+    public boolean shouldShowBnplSettings() {
+        ThreadUtils.assertOnUiThread();
+        return PersonalDataManagerJni.get().shouldShowBnplSettings(mPersonalDataManagerAndroid);
+    }
+
+    /**
+     * @return Whether the buy now pay later feature {@code kAutofillEnableBuyNowPayLater}, which is
+     *     defined in {@code components/autofill/core/common/autofill_payments_features.cc}, is
+     *     enabled.
+     */
+    public boolean isBuyNowPayLaterEnabled() {
+        return mPrefService.getBoolean(Pref.AUTOFILL_BNPL_ENABLED);
+    }
+
+    /**
+     * Enables or disables the buy now pay later feature {@code kAutofillEnableBuyNowPayLater},
+     * which is defined in {@code components/autofill/core/common/autofill_payments_features.cc}.
+     *
+     * @param enable True to enable buy now pay later, false otherwise.
+     */
+    public void setBuyNowPayLater(boolean enable) {
+        mPrefService.setBoolean(Pref.AUTOFILL_BNPL_ENABLED, enable);
+    }
+
     @NativeMethods
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
     public interface Natives {
@@ -1291,5 +1275,7 @@ public class PersonalDataManager implements Destroyable {
 
         boolean isCardEligibleForBenefits(
                 long nativePersonalDataManagerAndroid, @JniType("std::string") String guid);
+
+        boolean shouldShowBnplSettings(long nativePersonalDataManagerAndroid);
     }
 }

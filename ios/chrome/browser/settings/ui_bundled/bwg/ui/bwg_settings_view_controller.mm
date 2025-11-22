@@ -2,11 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#import "ios/chrome/browser/settings/ui_bundled/bwg//ui/bwg_settings_view_controller.h"
+#import "ios/chrome/browser/settings/ui_bundled/bwg/ui/bwg_settings_view_controller.h"
 
 #import "base/apple/foundation_util.h"
-#import "base/metrics/user_metrics.h"
-#import "base/metrics/user_metrics_action.h"
+#import "ios/chrome/browser/intelligence/bwg/metrics/bwg_metrics.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/settings/ui_bundled/bwg/coordinator/bwg_settings_mutator.h"
@@ -15,7 +14,6 @@
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_text_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_link_header_footer_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_multi_detail_text_item.h"
-#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_switch_cell.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_switch_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
@@ -32,12 +30,14 @@ typedef NS_ENUM(NSInteger, SectionIdentifier) {
   SectionIdentifierLocation = kSectionIdentifierEnumZero,
   SectionIdentifierPageContent,
   SectionIdentifierActivity,
+  SectionIdentifierExtensions,
 };
 
 typedef NS_ENUM(NSInteger, ItemType) {
   ItemTypeLocation = kItemTypeEnumZero,
   ItemTypePageContentSharing,
   ItemTypeAppActivity,
+  ItemTypeExtensions,
   ItemTypeLocationFooter,
   ItemTypePageContentSharingFooter,
   ItemTypeAppActivityFooter,
@@ -65,8 +65,6 @@ NSString* const kPageContentSharingAction = @"PageContentSharingAction";
   TableViewMultiDetailTextItem* _preciseLocationItem;
   // Switch item for toggling page content sharing.
   TableViewSwitchItem* _pageContentSharingItem;
-  // BWG Apps activity item. Uses `accessoryView` to create a tappable icon.
-  TableViewDetailTextItem* _BWGAppsActivityItem;
   // Location view controller shown when precise location row is tapped.
   BWGLocationViewController* _locationViewController;
   // Precise location preference value.
@@ -81,6 +79,7 @@ NSString* const kPageContentSharingAction = @"PageContentSharingAction";
   [super viewDidLoad];
   self.tableView.accessibilityIdentifier = kBWGSettingsViewTableIdentifier;
   self.title = l10n_util::GetNSString(IDS_IOS_BWG_SETTINGS_TITLE);
+  RecordBWGSettingsOpened();
   [self loadModel];
 }
 
@@ -101,6 +100,8 @@ NSString* const kPageContentSharingAction = @"PageContentSharingAction";
                                  IDS_IOS_BWG_SETTINGS_PAGE_CONTENT_SHARING_TITLE)
                   switchValue:_pageContentSharingEnabled
       accessibilityIdentifier:kPageContentSharingCellId];
+  _pageContentSharingItem.target = self;
+  _pageContentSharingItem.selector = @selector(pageContentSharingSwitchTapped:);
 
   TableViewLinkHeaderFooterItem* locationFooterItem = [self
       headerFooterItemWithType:ItemTypeLocationFooter
@@ -140,16 +141,20 @@ NSString* const kPageContentSharingAction = @"PageContentSharingAction";
       toSectionWithIdentifier:SectionIdentifierActivity];
   [model setFooter:BWGAppActivityFooterItem
       forSectionWithIdentifier:SectionIdentifierActivity];
+
+  [model addSectionWithIdentifier:SectionIdentifierExtensions];
+  [model addItem:[self BWGExtensionsItem]
+      toSectionWithIdentifier:SectionIdentifierExtensions];
 }
 
 #pragma mark - SettingsControllerProtocol
 
 - (void)reportDismissalUserAction {
-  base::RecordAction(base::UserMetricsAction("MobileGeminiSettingsClose"));
+  RecordBWGSettingsClose();
 }
 
 - (void)reportBackUserAction {
-  base::RecordAction(base::UserMetricsAction("MobileGeminiSettingsBack"));
+  RecordBWGSettingsBack();
 }
 
 #pragma mark - Private
@@ -212,6 +217,18 @@ NSString* const kPageContentSharingAction = @"PageContentSharingAction";
   return BWGAppActivityItem;
 }
 
+// Creates the BWG extensions item.
+- (TableViewDetailTextItem*)BWGExtensionsItem {
+  TableViewDetailTextItem* BWGExtensionsItem =
+      [[TableViewDetailTextItem alloc] initWithType:ItemTypeExtensions];
+  BWGExtensionsItem.text =
+      l10n_util::GetNSString(IDS_IOS_BWG_SETTINGS_EXTENSIONS_TITLE);
+  BWGExtensionsItem.accessorySymbol =
+      TableViewDetailTextCellAccessorySymbolExternalLink;
+  BWGExtensionsItem.accessibilityTraits = UIAccessibilityTraitLink;
+  return BWGExtensionsItem;
+}
+
 // Called from the PageContentSharing setting's UIControlEventTouchUpInside.
 // Updates underlying page content sharing pref.
 - (void)pageContentSharingSwitchTapped:(UISwitch*)switchView {
@@ -246,9 +263,14 @@ NSString* const kPageContentSharingAction = @"PageContentSharingAction";
 
   if ([self.tableViewModel itemTypeForIndexPath:indexPath] ==
       ItemTypeAppActivity) {
-    base::RecordAction(
-        base::UserMetricsAction("Settings.BWGSettings.BWGAppActivity"));
+    RecordBWGSettingsAppActivity();
     [self.mutator openNewTabWithURL:GURL(kBWGAppActivityURL)];
+  }
+
+  if ([self.tableViewModel itemTypeForIndexPath:indexPath] ==
+      ItemTypeExtensions) {
+    RecordBWGSettingsExtensions();
+    [self.mutator openNewTabWithURL:GURL(kBWGExtensionsURL)];
   }
 
   [self.tableView deselectRowAtIndexPath:indexPath animated:YES];
@@ -262,26 +284,6 @@ NSString* const kPageContentSharingAction = @"PageContentSharingAction";
       base::apple::ObjCCast<TableViewLinkHeaderFooterView>(footerView);
   footer.delegate = self;
   return footerView;
-}
-
-#pragma mark - UITableViewDataSource
-
-- (UITableViewCell*)tableView:(UITableView*)tableView
-        cellForRowAtIndexPath:(NSIndexPath*)indexPath {
-  UITableViewCell* cell = [super tableView:tableView
-                     cellForRowAtIndexPath:indexPath];
-
-  ItemType itemType = static_cast<ItemType>(
-      [self.tableViewModel itemTypeForIndexPath:indexPath]);
-
-  if (itemType == ItemTypePageContentSharing) {
-    TableViewSwitchCell* switchCell =
-        base::apple::ObjCCastStrict<TableViewSwitchCell>(cell);
-    [switchCell.switchView addTarget:self
-                              action:@selector(pageContentSharingSwitchTapped:)
-                    forControlEvents:UIControlEventTouchUpInside];
-  }
-  return cell;
 }
 
 #pragma mark - TableViewLinkHeaderFooterItemDelegate

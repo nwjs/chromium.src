@@ -19,10 +19,11 @@ import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationView
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationViewProperties.MAIN_BOTTOM_SHEET_MVT_SECTION_SUBTITLE;
 
 import android.content.Context;
-import android.support.annotation.StringRes;
-import android.support.annotation.VisibleForTesting;
 import android.view.View;
 import android.widget.ViewFlipper;
+
+import androidx.annotation.StringRes;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
@@ -71,7 +72,7 @@ public class NtpCustomizationMediator {
     private final BottomSheetObserver mBottomSheetObserver;
     private final PropertyModel mViewFlipperPropertyModel;
     private final List<Integer> mListContent;
-    private final Supplier<Profile> mProfileSupplier;
+    private final Supplier<@Nullable Profile> mProfileSupplier;
     private final @Nullable PropertyModel mContainerPropertyModel;
     private final boolean mNtpCustomizationForMvtFeatureEnabled;
     private @Nullable Profile mProfile;
@@ -85,7 +86,7 @@ public class NtpCustomizationMediator {
             NtpCustomizationBottomSheetContent bottomSheetContent,
             PropertyModel viewFlipperPropertyModel,
             @Nullable PropertyModel containerPropertyModel,
-            Supplier<Profile> profileSupplier) {
+            Supplier<@Nullable Profile> profileSupplier) {
         mBottomSheetController = bottomSheetController;
         mBottomSheetContent = bottomSheetContent;
         mViewFlipperPropertyModel = viewFlipperPropertyModel;

@@ -23,7 +23,8 @@ Thread::Thread(ThreadType type,
 Thread::Thread(const Thread& other) = default;
 Thread::~Thread() = default;
 
-ContextualTask::ContextualTask(const base::Uuid& task_id) : task_id_(task_id) {}
+ContextualTask::ContextualTask(const base::Uuid& task_id, bool is_ephemeral)
+    : task_id_(task_id), is_ephemeral_(is_ephemeral) {}
 ContextualTask::~ContextualTask() = default;
 
 ContextualTask::ContextualTask(const ContextualTask& other) = default;
@@ -33,6 +34,14 @@ ContextualTask& ContextualTask::operator=(const ContextualTask& other) =
 
 const base::Uuid& ContextualTask::GetTaskId() const {
   return task_id_;
+}
+
+void ContextualTask::SetTitle(const std::string& title) {
+  title_ = title;
+}
+
+std::string ContextualTask::GetTitle() const {
+  return title_;
 }
 
 void ContextualTask::AddThread(const Thread& thread) {
@@ -50,35 +59,58 @@ std::optional<Thread> ContextualTask::GetThread() const {
   return thread_;
 }
 
-void ContextualTask::AddUrl(const GURL& url) {
-  if (std::find(urls_.begin(), urls_.end(), url) == urls_.end()) {
-    urls_.push_back(url);
+UrlResource::UrlResource(const base::Uuid& url_id, const GURL& url)
+    : url_id(url_id), url(url) {}
+UrlResource::UrlResource(const UrlResource& other) = default;
+UrlResource::~UrlResource() = default;
+
+bool ContextualTask::AddUrlResource(const UrlResource& url_resource) {
+  auto it = std::find_if(url_resources_.begin(), url_resources_.end(),
+                         [&](const auto& existing_resource) {
+                           return existing_resource.url == url_resource.url;
+                         });
+  if (it == url_resources_.end()) {
+    url_resources_.push_back(url_resource);
+    return true;
+  }
+  return false;
+}
+
+std::vector<UrlResource> ContextualTask::GetUrlResources() const {
+  return url_resources_;
+}
+
+std::optional<base::Uuid> ContextualTask::RemoveUrl(const GURL& url) {
+  auto it =
+      std::find_if(url_resources_.begin(), url_resources_.end(),
+                   [&](const auto& resource) { return resource.url == url; });
+
+  if (it != url_resources_.end()) {
+    base::Uuid removed_id = it->url_id;
+    url_resources_.erase(it);
+    return removed_id;
+  }
+
+  return std::nullopt;
+}
+
+std::vector<SessionID> ContextualTask::GetTabIds() const {
+  return tab_ids_;
+}
+
+void ContextualTask::AddTabId(SessionID tab_id) {
+  if (std::find(tab_ids_.begin(), tab_ids_.end(), tab_id) == tab_ids_.end()) {
+    tab_ids_.push_back(tab_id);
   }
 }
 
-std::vector<GURL> ContextualTask::GetUrls() const {
-  return urls_;
+void ContextualTask::RemoveTabId(SessionID tab_id) {
+  tab_ids_.erase(std::remove(tab_ids_.begin(), tab_ids_.end(), tab_id),
+                 tab_ids_.end());
 }
 
-void ContextualTask::RemoveUrl(const GURL& url) {
-  urls_.erase(std::remove(urls_.begin(), urls_.end(), url), urls_.end());
-}
-
-std::vector<SessionID> ContextualTask::GetSessionIds() const {
-  return session_ids_;
-}
-
-void ContextualTask::AddSessionId(SessionID session_id) {
-  if (std::find(session_ids_.begin(), session_ids_.end(), session_id) ==
-      session_ids_.end()) {
-    session_ids_.push_back(session_id);
-  }
-}
-
-void ContextualTask::RemoveSessionId(SessionID session_id) {
-  session_ids_.erase(
-      std::remove(session_ids_.begin(), session_ids_.end(), session_id),
-      session_ids_.end());
+void ContextualTask::ClearTabIds() {
+  tab_ids_.clear();
 }
 
 }  // namespace contextual_tasks

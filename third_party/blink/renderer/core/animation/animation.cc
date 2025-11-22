@@ -78,6 +78,7 @@
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
+#include "third_party/blink/renderer/core/svg/svg_element.h"
 #include "third_party/blink/renderer/platform/animation/compositor_animation.h"
 #include "third_party/blink/renderer/platform/bindings/script_forbidden_scope.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -222,6 +223,59 @@ void RecordCompositorAnimationFailureReasons(
       UMA_HISTOGRAM_ENUMERATION(
           "Blink.Animation.CompositedAnimationFailureReason", i + 1,
           kFailureReasonEnumMax);
+    }
+  }
+}
+
+// Helper function to record both UMA histogram and UseCounter for animation
+// types
+void RecordAnimationTypeAndUseCounter(BlinkAnimationType animation_type,
+                                      WebFeature web_feature,
+                                      ExecutionContext* execution_context) {
+  UMA_HISTOGRAM_ENUMERATION("Blink.Animation.AnimationType", animation_type,
+                            BlinkAnimationType::kAnimationTypeEnumMax);
+  UseCounter::Count(execution_context, web_feature);
+}
+
+void RecordAnimationTypeMetrics(
+    bool is_svg_animation,
+    CompositorAnimations::FailureReasons failure_reasons,
+    ExecutionContext* execution_context) {
+  RecordAnimationTypeAndUseCounter(BlinkAnimationType::kAllAnimations,
+                                   WebFeature::kAnimationAllTypes,
+                                   execution_context);
+
+  if (is_svg_animation) {
+    RecordAnimationTypeAndUseCounter(BlinkAnimationType::kSvgAnimations,
+                                     WebFeature::kAnimationSvgTypes,
+                                     execution_context);
+  }
+
+  if (failure_reasons == CompositorAnimations::kNoFailure) {
+    // Record all composited animations in the general metric.
+    RecordAnimationTypeAndUseCounter(BlinkAnimationType::kCompositedAnimations,
+                                     WebFeature::kAnimationCompositedTypes,
+                                     execution_context);
+    if (is_svg_animation) {
+      // SVG animations are recorded in both metrics: the general composited
+      // animations metric (above) for overall statistics, and the SVG-specific
+      // metric (below) for tracking SVG animation behavior separately.
+      RecordAnimationTypeAndUseCounter(
+          BlinkAnimationType::kSvgCompositedAnimations,
+          WebFeature::kAnimationSvgCompositedTypes, execution_context);
+    }
+  } else {
+    // Record all non-composited animations in the general metric.
+    RecordAnimationTypeAndUseCounter(
+        BlinkAnimationType::kNonCompositedAnimations,
+        WebFeature::kAnimationNonCompositedTypes, execution_context);
+    // SVG animations are recorded in both metrics: the general non-composited
+    // animations metric (above) for overall statistics, and the SVG-specific
+    // metric (below) for tracking SVG animation behavior separately.
+    if (is_svg_animation) {
+      RecordAnimationTypeAndUseCounter(
+          BlinkAnimationType::kSvgNonCompositedAnimations,
+          WebFeature::kAnimationSvgNonCompositedTypes, execution_context);
     }
   }
 }
@@ -768,6 +822,13 @@ bool Animation::PreCommit(
               base::OptionalToPtr(unsupported_properties_for_tracing));
       RecordCompositorAnimationFailureReasons(failure_reasons);
 
+      // Record animation type metrics
+      auto* keyframe_effect = DynamicTo<KeyframeEffect>(content_.Get());
+      const bool is_svg_animation =
+          keyframe_effect && IsA<SVGElement>(keyframe_effect->EffectTarget());
+      RecordAnimationTypeMetrics(is_svg_animation, failure_reasons,
+                                 GetExecutionContext());
+
       if (failure_reasons == CompositorAnimations::kNoFailure) {
         // We could still have a stale compositor keyframe model ID if
         // a previous cancel failed due to not having a layout object at the
@@ -1061,8 +1122,10 @@ void Animation::setTimeline(AnimationTimeline* timeline) {
   // the old timeline and the new one. We do this by storing the progress using
   // the old current time and the effect end based on the old timeline. Pending
   // spec issue: https://github.com/w3c/csswg-drafts/issues/6452
-  double progress = 0;
-  if (old_current_time && !EffectEnd().is_zero()) {
+  // crbug.com/440368332: safeguard against 0 / infinity, or
+  // +/-infinity / infinity, which are undefined.
+  std::optional<double> progress;
+  if (old_current_time && !EffectEnd().is_zero() && !EffectEnd().is_inf()) {
     progress = old_current_time.value() / EffectEnd();
   }
 
@@ -1097,17 +1160,17 @@ void Animation::setTimeline(AnimationTimeline* timeline) {
 
       case V8AnimationPlayState::Enum::kRunning:
       case V8AnimationPlayState::Enum::kFinished:
-        if (old_current_time) {
+        if (progress) {
           start_time_ = std::nullopt;
-          hold_time_ = progress * EffectEnd();
+          hold_time_ = progress.value() * EffectEnd();
         }
         PlayInternal(AutoRewind::kEnabled, ASSERT_NO_EXCEPTION);
         return;
 
       case V8AnimationPlayState::Enum::kPaused:
-        if (old_current_time) {
+        if (progress) {
           start_time_ = std::nullopt;
-          hold_time_ = progress * EffectEnd();
+          hold_time_ = progress.value() * EffectEnd();
         }
         break;
 
@@ -1116,7 +1179,11 @@ void Animation::setTimeline(AnimationTimeline* timeline) {
     }
   } else if (old_current_time && old_timeline &&
              !old_timeline->IsMonotonicallyIncreasing()) {
-    SetCurrentTimeInternal(progress * EffectEnd());
+    // crbug.com/440368332: avoid undefined if progress is 0 and EffectEnd is
+    // infinite.
+    if (progress) {
+      SetCurrentTimeInternal(progress.value() * EffectEnd());
+    }
   }
 
   // 4. If the start time of animation is resolved, make the animation’s hold

@@ -37,6 +37,7 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_promo.h"
 #include "chrome/browser/signin/signin_ui_util.h"
+#include "chrome/browser/sync/sync_ui_util.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/bookmarks/bookmark_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
@@ -752,6 +753,14 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
     case IDC_SHOW_SYNC_SETTINGS:
       chrome::ShowSettingsSubPage(browser_, chrome::kSyncSetupSubPage);
       break;
+#if !BUILDFLAG(IS_CHROMEOS)
+    case IDC_SHOW_SYNC_PASSPHRASE_DIALOG:
+      ShowSyncPassphraseDialogAndDecryptData(*browser_);
+      break;
+#endif  // !BUILDFLAG(IS_CHROMEOS)
+    case IDC_SHOW_CONTEXTUAL_TASKS_SIDE_PANEL:
+      ShowContextualTasksSidePanel(browser_);
+      break;
     case IDC_TURN_ON_SYNC:
       signin_ui_util::EnableSyncFromSingleAccountPromo(
           browser_->profile(), GetAccountInfoFromProfile(browser_->profile()),
@@ -965,6 +974,9 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
     case IDC_SHOW_GOOGLE_LENS_SHORTCUT:
       ToggleShowGoogleLensShortcut(browser_);
       break;
+    case IDC_SHOW_AI_MODE_OMNIBOX_BUTTON:
+      ToggleShowAiModeOmniboxButton(browser_);
+      break;
     case IDC_SHOW_SEARCH_TOOLS:
       ToggleShowSearchTools(browser_);
       break;
@@ -1124,10 +1136,12 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
                                     TabGroupShortcut::kCloseTabGroup);
       break;
     case IDC_CREATE_NEW_TAB_GROUP:
-    case IDC_CREATE_NEW_TAB_GROUP_TOP_LEVEL:
       CreateNewTabGroup(browser_);
       base::UmaHistogramEnumeration("TabGroups.Shortcuts",
                                     TabGroupShortcut::kCreateNewTabGroup);
+      break;
+    case IDC_CREATE_NEW_TAB_GROUP_TOP_LEVEL:
+      CreateNewTabGroup(browser_);
       break;
     case IDC_ADD_NEW_TAB_TO_GROUP:
       AddNewTabToGroup(browser_);
@@ -1139,7 +1153,9 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       base::RecordAction(
           base::UserMetricsAction("TabGroups_GroupAllUngroupedTabs"));
       break;
-
+    case IDC_ADD_NEW_TAB_RECENT_GROUP:
+      AddNewTabToRecentGroup(browser_);
+      break;
     case IDC_WINDOW_CLOSE_TABS_TO_RIGHT:
       CloseTabsToRight(browser_);
       break;
@@ -1279,15 +1295,7 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       base::MakeRefCounted<shell_integration::DefaultBrowserWorker>()
           ->StartSetAsDefault(base::DoNothing());
 
-      // Log metrics before clearing prefs and closing prompts.
-      if (g_browser_process->local_state()->HasPrefPath(
-              prefs::kDefaultBrowserFirstShownTime)) {
-        base::UmaHistogramCounts100(
-            "DefaultBrowser.AppMenu.TimesShownBeforeAccept",
-            g_browser_process->local_state()->GetInteger(
-                prefs::kDefaultBrowserDeclinedCount) +
-                1);
-      }
+      // Clear prefs and close prompts.
       chrome::startup::default_prompt::UpdatePrefsForDismissedPrompt(
           browser_->profile());
       DefaultBrowserPromptManager::GetInstance()->CloseAllPrompts(
@@ -1428,11 +1436,13 @@ void BrowserCommandController::InitCommandState() {
   command_updater_.UpdateCommandEnabled(IDC_GROUP_UNGROUPED_TABS, true);
   command_updater_.UpdateCommandEnabled(IDC_CREATE_NEW_TAB_GROUP_TOP_LEVEL,
                                         true);
+  command_updater_.UpdateCommandEnabled(IDC_ADD_NEW_TAB_RECENT_GROUP, true);
 
   // Omnibox commands
   command_updater_.UpdateCommandEnabled(IDC_SHOW_FULL_URLS, true);
   command_updater_.UpdateCommandEnabled(IDC_SHOW_GOOGLE_LENS_SHORTCUT, true);
   command_updater_.UpdateCommandEnabled(IDC_SHOW_SEARCH_TOOLS, true);
+  command_updater_.UpdateCommandEnabled(IDC_SHOW_AI_MODE_OMNIBOX_BUTTON, true);
 
   // Window management commands
   command_updater_.UpdateCommandEnabled(IDC_CLOSE_WINDOW, true);
@@ -1533,6 +1543,7 @@ void BrowserCommandController::InitCommandState() {
   command_updater_.UpdateCommandEnabled(IDC_SHOW_PAYMENT_METHODS,
                                         !guest_session);
   command_updater_.UpdateCommandEnabled(IDC_SHOW_SYNC_SETTINGS, true);
+  command_updater_.UpdateCommandEnabled(IDC_SHOW_SYNC_PASSPHRASE_DIALOG, true);
   command_updater_.UpdateCommandEnabled(IDC_TURN_ON_SYNC, true);
   command_updater_.UpdateCommandEnabled(IDC_SHOW_SIGNIN_WHEN_PAUSED, true);
   command_updater_.UpdateCommandEnabled(IDC_SHOW_SIGNIN, true);
@@ -1640,6 +1651,9 @@ void BrowserCommandController::InitCommandState() {
                                         enable_tab_search_commands);
   command_updater_.UpdateCommandEnabled(IDC_TAB_SEARCH_CLOSE,
                                         enable_tab_search_commands);
+
+  command_updater_.UpdateCommandEnabled(IDC_SHOW_CONTEXTUAL_TASKS_SIDE_PANEL,
+                                        true);
 
   if (base::FeatureList::IsEnabled(features::kUIDebugTools)) {
     command_updater_.UpdateCommandEnabled(IDC_DEBUG_TOGGLE_TABLET_MODE, true);

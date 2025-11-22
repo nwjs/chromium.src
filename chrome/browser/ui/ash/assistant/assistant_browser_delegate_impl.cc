@@ -9,7 +9,6 @@
 
 #include "ash/constants/ash_features.h"
 #include "ash/constants/web_app_id_constants.h"
-#include "ash/public/cpp/network_config_service.h"
 #include "ash/public/cpp/new_window_delegate.h"
 #include "base/check_is_test.h"
 #include "base/containers/fixed_flat_set.h"
@@ -22,7 +21,6 @@
 #include "chrome/browser/apps/app_service/app_launch_params.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_ash.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
-#include "chrome/browser/ash/assistant/assistant_util.h"
 #include "chrome/browser/ash/browser_delegate/browser_controller.h"
 #include "chrome/browser/ash/browser_delegate/browser_delegate.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
@@ -35,8 +33,6 @@
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chromeos/ash/services/assistant/public/cpp/assistant_browser_delegate.h"
-#include "chromeos/ash/services/assistant/public/cpp/features.h"
-#include "chromeos/services/assistant/public/shared/constants.h"
 #include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/user_manager.h"
 
@@ -174,36 +170,6 @@ void AssistantBrowserDelegateImpl::InitializeNewEntryPointFor(
           weak_ptr_factory_.GetWeakPtr()));
 }
 
-void AssistantBrowserDelegateImpl::OnAssistantStatusChanged(
-    ash::assistant::AssistantStatus new_status) {}
-
-void AssistantBrowserDelegateImpl::RequestAssistantVolumeControl(
-    mojo::PendingReceiver<ash::mojom::AssistantVolumeControl> receiver) {}
-
-void AssistantBrowserDelegateImpl::RequestBatteryMonitor(
-    mojo::PendingReceiver<device::mojom::BatteryMonitor> receiver) {}
-
-void AssistantBrowserDelegateImpl::RequestWakeLockProvider(
-    mojo::PendingReceiver<device::mojom::WakeLockProvider> receiver) {}
-
-void AssistantBrowserDelegateImpl::RequestAudioStreamFactory(
-    mojo::PendingReceiver<media::mojom::AudioStreamFactory> receiver) {}
-
-void AssistantBrowserDelegateImpl::RequestAudioDecoderFactory(
-    mojo::PendingReceiver<ash::assistant::mojom::AssistantAudioDecoderFactory>
-        receiver) {}
-
-void AssistantBrowserDelegateImpl::RequestAudioFocusManager(
-    mojo::PendingReceiver<media_session::mojom::AudioFocusManager> receiver) {}
-
-void AssistantBrowserDelegateImpl::RequestMediaControllerManager(
-    mojo::PendingReceiver<media_session::mojom::MediaControllerManager>
-        receiver) {}
-
-void AssistantBrowserDelegateImpl::RequestNetworkConfig(
-    mojo::PendingReceiver<chromeos::network_config::mojom::CrosNetworkConfig>
-        receiver) {}
-
 void AssistantBrowserDelegateImpl::OpenUrl(GURL url) {
   // The new tab should be opened with a user activation since the user
   // interacted with the Assistant to open the url. |in_background| describes
@@ -225,11 +191,6 @@ AssistantBrowserDelegateImpl::GetWebAppRegistrarForNewEntryPoint() {
   if (!on_is_new_entry_point_eligible_ready_.is_signaled()) {
     return base::unexpected(
         AssistantBrowserDelegate::Error::kWebAppProviderNotReadyToRead);
-  }
-
-  if (!ash::assistant::features::IsNewEntryPointEnabled()) {
-    return base::unexpected(
-        AssistantBrowserDelegate::Error::kNewEntryPointNotEnabled);
   }
 
   web_app::WebAppProvider* provider =

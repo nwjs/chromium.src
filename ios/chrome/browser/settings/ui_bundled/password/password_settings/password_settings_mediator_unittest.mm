@@ -56,10 +56,6 @@ class MockTrustedVaultClientBackend : public TrustedVaultClientBackend {
   ~MockTrustedVaultClientBackend() override = default;
 
   MOCK_METHOD(void,
-              SetDeviceRegistrationPublicKeyVerifierForUMA,
-              (VerifierCallback verifier),
-              (override));
-  MOCK_METHOD(void,
               FetchKeys,
               (id<SystemIdentity> identity,
                trusted_vault::SecurityDomainId security_domain_id,
@@ -213,10 +209,10 @@ class PasswordSettingsMediatorTest : public PlatformTest {
   web::WebTaskEnvironment task_env_;
   SyncServiceForPasswordTests sync_service_;
   affiliations::FakeAffiliationService affiliation_service_;
-  raw_ptr<webauthn::TestPasskeyModel, DanglingUntriaged> passkey_model_;
   scoped_refptr<TestPasswordStore> profile_store_;
   std::unique_ptr<SavedPasswordsPresenter> presenter_;
   std::unique_ptr<TestProfileIOS> profile_;
+  raw_ptr<webauthn::TestPasskeyModel> passkey_model_;
   id consumer_ = OCMProtocolMock(@protocol(PasswordSettingsConsumer));
   id export_handler_ = OCMProtocolMock(@protocol(PasswordExportHandler));
   id bulk_move_passwords_to_account_handler_ =

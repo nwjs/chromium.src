@@ -35,6 +35,22 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Unsupported request from prefetch only document"/>
 </enum>
 
+<enum name="BmpCompressionType">
+<!-- LINT.IfChange(BmpCompressionType) -->
+
+  <int value="0" label="RGB"/>
+  <int value="1" label="RLE8"/>
+  <int value="2" label="RLE4"/>
+  <int value="3" label="BITFIELDS"/>
+  <int value="4" label="JPEG"/>
+  <int value="5" label="PNG"/>
+  <int value="6" label="ALPHABITFIELDS"/>
+  <int value="7" label="HUFFMAN1D"/>
+  <int value="8" label="RLE24"/>
+<!-- LINT.ThenChange(//third_party/blink/renderer/platform/image-decoders/bmp/bmp_image_reader.h:CompressionType) -->
+
+</enum>
+
 <enum name="BooleanContentChangeMode">
   <int value="0" label="Discard Content"/>
   <int value="1" label="Retain Content"/>
@@ -98,6 +114,7 @@ chromium-metrics-reviews@google.com.
   <int value="10" label="Ended with fallback to software"/>
   <int value="11" label="Ended with teardown"/>
   <int value="12" label="Aborted because there was no surface"/>
+  <int value="13" label="Ended on canvas reset"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/renderer/platform/graphics/canvas_hibernation_handler.h:CanvasHibernationEvent) -->
@@ -2278,8 +2295,10 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="1971" label="AnchorClickDispatchForNonConnectedNode"/>
   <int value="1972" label="HTMLParseErrorNestedForm"/>
   <int value="1973" label="FontShapingNotDefGlyphObserved"/>
-  <int value="1974" label="PostMessageOutgoingWouldBeBlockedByConnectSrc"/>
-  <int value="1975" label="PostMessageIncomingWouldBeBlockedByConnectSrc"/>
+  <int value="1974"
+      label="OBSOLETE_PostMessageOutgoingWouldBeBlockedByConnectSrc"/>
+  <int value="1975"
+      label="OBSOLETE_PostMessageIncomingWouldBeBlockedByConnectSrc"/>
   <int value="1977" label="CrossOriginPropertyAccess"/>
   <int value="1978" label="CrossOriginPropertyAccessFromOpener"/>
   <int value="1979" label="CredentialManagerCreate"/>
@@ -3296,7 +3315,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="2911" label="V8XRSession_End_Method"/>
   <int value="2912" label="V8XRWebGLLayer_Constructor"/>
   <int value="2913" label="FetchKeepalive"/>
-  <int value="2914" label="CSSTransitionCancelledByRemovingStyle"/>
+  <int value="2914" label="OBSOLETE_CSSTransitionCancelledByRemovingStyle"/>
   <int value="2915" label="V8RTCRtpSender_SetStreams_Method"/>
   <int value="2916" label="CookieNoSameSite"/>
   <int value="2917" label="CookieInsecureAndSameSiteNone"/>
@@ -4801,7 +4820,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="4342" label="OBSOLETE_DeferredShaping2ReshapedByInspector"/>
   <int value="4343" label="OBSOLETE_DeferredShaping2ReshapedByPrinting"/>
   <int value="4344" label="OBSOLETE_DeferredShaping2ReshapedByScrolling"/>
-  <int value="4345" label="LCPCandidateImageFromOriginDirtyStyle"/>
+  <int value="4345" label="OBSOLETE_LCPCandidateImageFromOriginDirtyStyle"/>
   <int value="4346" label="V8TurboFanOsrCompileStarted"/>
   <int value="4347" label="V8Document_HasRedemptionRecord_Method"/>
   <int value="4348" label="OBSOLETE_DeferredShaping2ReshapedByLastResort"/>
@@ -5971,7 +5990,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5373" label="InterestFor"/>
   <int value="5374" label="TextAutoSizingDisabledOnFlexbox"/>
   <int value="5375" label="AriaLabeledByAlternativeSpelling"/>
-  <int value="5376" label="CanvasTextNg"/>
+  <int value="5376" label="OBSOLETE_CanvasTextNg"/>
   <int value="5377" label="DOMWindowOpenPopup"/>
   <int value="5378" label="FencedFrameDisableUntrustedNetwork"/>
   <int value="5379" label="FencedFrameNotifyEvent"/>
@@ -6279,6 +6298,55 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5670" label="ResolvedColumnRuleWidthWithNoneOrHiddenStyle"/>
   <int value="5671" label="ResolvedOutlineWidthWithNoneOrHiddenStyle"/>
   <int value="5672" label="ContextMenuEventDefaultPrevented"/>
+  <int value="5673" label="SmartCardEstablishContext"/>
+  <int value="5674" label="SmartCardConnect"/>
+  <int value="5675" label="NavigatorCPUPerformance"/>
+  <int value="5676" label="SelectionRemoveRangeNotFoundWouldThrow"/>
+  <int value="5677" label="NestedSvgCssSizingProperties"/>
+  <int value="5678" label="CryptoAlgorithmChaCha20Poly1305"/>
+  <int value="5679" label="CryptoAlgorithmMlDsa44"/>
+  <int value="5680" label="CryptoAlgorithmMlDsa65"/>
+  <int value="5681" label="CryptoAlgorithmMlDsa87"/>
+  <int value="5682" label="CryptoAlgorithmMlKem768"/>
+  <int value="5683" label="CryptoAlgorithmMlKem1024"/>
+  <int value="5684" label="ClipboardChangedBetweenReadAndGetType"/>
+  <int value="5685" label="ClipboardChangedBetweenGetTypes"/>
+  <int value="5686"
+      label="ClipboardReadAndGetTypeTimeDiffIsBetween5SecAnd1Min"/>
+  <int value="5687"
+      label="ClipboardReadAndGetTypeTimeDiffIsBetween1MinAnd10Min"/>
+  <int value="5688" label="ClipboardReadAndGetTypeTimeDiffIsMoreThan10Min"/>
+  <int value="5689"
+      label="ClipboardGetTypeTimeDiffOfSameTypeIsBetween5SecAnd1Min"/>
+  <int value="5690"
+      label="ClipboardGetTypeTimeDiffOfSameTypeIsBetween1MinAnd10Min"/>
+  <int value="5691" label="ClipboardGetTypeTimeDiffOfSameTypeIsMoreThan10Min"/>
+  <int value="5692" label="ClipboardGetTypeWindowNotInFocus"/>
+  <int value="5693" label="ReportBodyToJSON"/>
+  <int value="5694" label="CSPViolationReportBodyToJSON"/>
+  <int value="5695" label="DeprecationReportBodyToJSON"/>
+  <int value="5696" label="InterventionReportBodyToJSON"/>
+  <int value="5697" label="DocumentPolicyViolationReportBodyToJSON"/>
+  <int value="5698" label="IntegrityViolationReportBodyToJSON"/>
+  <int value="5699" label="PermissionsPolicyViolationReportBodyToJSON"/>
+  <int value="5700" label="CoopAccessViolationReportBodyToJSON"/>
+  <int value="5701" label="TestReportBodyToJSON"/>
+  <int value="5702" label="SpeculationRulesPrerenderUntilScript"/>
+  <int value="5703" label="ClipboardChangeEventChangeIdAttribute"/>
+  <int value="5704" label="WebRTCLocalNetworkAccessCheck"/>
+  <int value="5705" label="WebRTCLocalNetworkAccessPublicToLocal"/>
+  <int value="5706" label="WebRTCLocalNetworkAccessPublicToLoopback"/>
+  <int value="5707" label="WebRTCLocalNetworkAccessLocalToLoopback"/>
+  <int value="5708" label="IdentityDigitalCredentialsCreation"/>
+  <int value="5709" label="IdentityDigitalCredentialsCreationSuccess"/>
+  <int value="5710" label="FedCmErrorCodeAttribute"/>
+  <int value="5711" label="FedCmErrorErrorAttribute"/>
+  <int value="5712" label="AnimationAllTypes"/>
+  <int value="5713" label="AnimationSvgTypes"/>
+  <int value="5714" label="AnimationNonCompositedTypes"/>
+  <int value="5715" label="AnimationCompositedTypes"/>
+  <int value="5716" label="AnimationSvgNonCompositedTypes"/>
+  <int value="5717" label="AnimationSvgCompositedTypes"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom:WebFeature) -->
@@ -8074,6 +8142,10 @@ Called by update_use_counter_css.py.-->
   <int value="884" label="overscroll-position"/>
   <int value="885" label="font-language-override"/>
   <int value="886" label="ruby-overhang"/>
+  <int value="887" label="rule-break"/>
+  <int value="888" label="rule-outset"/>
+  <int value="889" label="column-rule-visibility-items"/>
+  <int value="890" label="row-rule-visibility-items"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/css_property_id.mojom:CSSSampleId) -->
@@ -8609,6 +8681,9 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="409" label="WebxrLightingEstimation"/>
   <int value="410" label="Reporting"/>
   <int value="411" label="FontLanguageOverride"/>
+  <int value="412" label="Webnn"/>
+  <int value="413" label="TextDetect"/>
+  <int value="414" label="TextJustify"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/webdx_feature.mojom:WebDXFeature) -->

@@ -38,7 +38,9 @@
 #include "chrome/browser/web_applications/preinstalled_web_apps/google_meet.h"
 #include "chrome/browser/web_applications/preinstalled_web_apps/messages_dogfood.h"
 #include "chrome/browser/web_applications/preinstalled_web_apps/notebook_lm.h"
+#include "chrome/browser/web_applications/preinstalled_web_apps/vids.h"
 #include "chrome/common/extensions/extension_constants.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "extensions/common/constants.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -76,8 +78,7 @@ bool IsGoogleInternalAccount() {
 std::vector<ExternalInstallOptions> GetChromeBrandedApps(
     Profile& profile,
     const std::optional<DeviceInfo>& device_info) {
-  bool is_standalone_tabbed =
-      IsPreinstalledDocsSheetsSlidesDriveStandaloneTabbed(profile);
+  bool is_standalone_tabbed = IsPreinstalledWorkspaceStandaloneTabbed(profile);
   // TODO(crbug.com/40705277): Replace these C++ configs with JSON configs like
   // those seen in: chrome/test/data/web_app_default_apps/good_json
   // This requires:
@@ -104,6 +105,12 @@ std::vector<ExternalInstallOptions> GetChromeBrandedApps(
       GetConfigForGoogleMeet(),
 #endif  // BUILDFLAG(IS_CHROMEOS)
   };
+
+#if BUILDFLAG(IS_CHROMEOS)
+  if (base::FeatureList::IsEnabled(chromeos::features::kVidsAppPreinstall)) {
+    apps.push_back(GetConfigForVids(is_standalone_tabbed));
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if !BUILDFLAG(IS_CHROMEOS)
   if (base::FeatureList::IsEnabled(kChatPreinstalledWebApp)) {

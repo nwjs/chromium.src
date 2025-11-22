@@ -148,6 +148,25 @@ const char* GetProfileCategorySuffix(
   }
 }
 
+const char* GetProfileRecordTypeSuffix(
+    AutofillProfile::RecordType record_type) {
+  // LINT.IfChange(ProfileRecordTypeSuffix)
+  using RecordType = AutofillProfile::RecordType;
+  switch (record_type) {
+    case RecordType::kLocalOrSyncable:
+      return "LocalOrSyncable";
+    case RecordType::kAccount:
+      return "Account";
+    case RecordType::kAccountHome:
+      return "AccountHome";
+    case RecordType::kAccountWork:
+      return "AccountWork";
+    case RecordType::kAccountNameEmail:
+      return "AccountNameEmail";
+  }
+  // LINT.ThenChange(/tools/metrics/histograms/metadata/autofill/histograms.xml:ProfileRecordTypeSuffix)
+}
+
 SettingsVisibleFieldTypeForMetrics ConvertSettingsVisibleFieldTypeForMetrics(
     FieldType field_type) {
   switch (field_type) {
@@ -217,6 +236,19 @@ DenseSet<FormTypeNameForLogging> GetLoyaltyFormTypesForLogging(
 DenseSet<FormTypeNameForLogging> GetCreditCardFormTypesForLogging(
     const FormStructure& form) {
   return internal::GetFormTypesForLogging(form, internal::kCreditCardFormTypes);
+}
+
+bool IsPostalAddress(const AutofillProfile& profile) {
+  static constexpr FieldTypeSet kPostalAddressFieldTypes = {
+      ADDRESS_HOME_CITY, ADDRESS_HOME_STATE, ADDRESS_HOME_STREET_ADDRESS,
+      ADDRESS_HOME_ZIP};
+  int number_of_set_fields = 0;
+  for (FieldType type : kPostalAddressFieldTypes) {
+    if (!profile.GetRawInfo(type).empty()) {
+      number_of_set_fields++;
+    }
+  }
+  return number_of_set_fields >= 2;
 }
 
 bool ShouldLogAutofillSuggestionShown(

@@ -8,12 +8,12 @@
 #include "third_party/blink/renderer/platform/fonts/font.h"
 #include "third_party/blink/renderer/platform/fonts/font_selector.h"
 #include "third_party/blink/renderer/platform/heap/visitor.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
 
-UniqueFontSelector::UniqueFontSelector(FontSelector* base_selector,
-                                       bool enable_cache)
-    : base_selector_(base_selector), enable_cache_(enable_cache) {
+UniqueFontSelector::UniqueFontSelector(FontSelector* base_selector)
+    : base_selector_(base_selector) {
   if (base_selector != nullptr && IsMainThread()) {
     MemoryPressureListenerRegistry::Instance().RegisterClient(this);
   }
@@ -27,10 +27,6 @@ void UniqueFontSelector::Trace(Visitor* visitor) const {
 
 const Font* UniqueFontSelector::FindOrCreateFont(
     const FontDescription& description) {
-  if (!enable_cache_) {
-    return MakeGarbageCollected<Font>(description, base_selector_);
-  }
-
   const Font* font;
   {
     auto add_result = font_cache_.insert(description, CacheValue());
@@ -52,7 +48,11 @@ const Font* UniqueFontSelector::FindOrCreateFont(
     auto& value = lru_list_.back();
     // Allow the cache size to exceed MaxFonts() within the same frame.
     if (value.generation == frame_generation_) {
-      break;
+      // However, it should not exceed MaxFonts() * 2.
+      if (!RuntimeEnabledFeatures::CanvasTextTexImage2DFixEnabled() ||
+          lru_list_.size() <= max_size * 2) {
+        break;
+      }
     }
     font_cache_.erase(value.description);
     lru_list_.pop_back();
@@ -73,9 +73,12 @@ void UniqueFontSelector::RegisterForInvalidationCallbacks(
   }
 }
 
-void UniqueFontSelector::OnPurgeMemory() {
-  font_cache_.clear();
-  lru_list_.clear();
+void UniqueFontSelector::OnMemoryPressure(
+    base::MemoryPressureLevel memory_pressure_level) {
+  if (memory_pressure_level == base::MEMORY_PRESSURE_LEVEL_CRITICAL) {
+    font_cache_.clear();
+    lru_list_.clear();
+  }
 }
 
 void UniqueFontSelector::CacheValue::Trace(Visitor* visitor) const {

@@ -16,6 +16,7 @@
 #include "base/test/test_future.h"
 #include "chrome/browser/enterprise/signin/profile_management_disclaimer_service.h"
 #include "chrome/browser/enterprise/signin/profile_management_disclaimer_service_factory.h"
+#include "chrome/browser/enterprise/util/managed_browser_utils.h"
 #include "chrome/browser/policy/cloud/user_policy_signin_service.h"
 #include "chrome/browser/policy/cloud/user_policy_signin_service_factory.h"
 #include "chrome/browser/policy/cloud/user_policy_signin_service_test_util.h"
@@ -248,30 +249,33 @@ IN_PROC_BROWSER_TEST_P(
   switch (GetParam()) {
     case HistorySyncOptinHelper::LaunchContext::kInBrowser:
       EXPECT_CALL(*service, EnsureManagedProfileForAccount)
-          .WillOnce(testing::Invoke(
+          .WillOnce(
               [&](const CoreAccountId&, signin_metrics::AccessPoint,
                   base::OnceCallback<void(Profile*, bool)> callback) {
+                // Mark management as accepted.
+                enterprise_util::SetUserAcceptedAccountManagement(GetProfile(),
+                                                                  true);
                 // The callback is executed asynchronously, to better reflect
                 // the production implementation.
                 base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
                     FROM_HERE,
                     base::BindOnce(std::move(callback), GetProfile(), true));
-              }));
+              });
       break;
     case HistorySyncOptinHelper::LaunchContext::kInProfilePicker:
       EXPECT_CALL(delegate, ShowAccountManagementScreen)
-          .WillOnce(testing::Invoke([&](signin::SigninChoiceCallback callback) {
+          .WillOnce([&](signin::SigninChoiceCallback callback) {
             std::move(callback).Run(signin::SIGNIN_CHOICE_NEW_PROFILE);
-          }));
+          });
       break;
   }
 
   EXPECT_CALL(delegate, ShowHistorySyncOptinScreen)
-      .WillOnce(testing::Invoke(
-          [&](Profile* profile, HistorySyncOptinHelper::FlowCompletedCallback
-                                    history_optin_completed_callback) {
-            future.SetValue(profile);
-          }));
+      .WillOnce([&](Profile* profile,
+                    HistorySyncOptinHelper::FlowCompletedCallback
+                        history_optin_completed_callback) {
+        future.SetValue(profile);
+      });
 
   auto history_sync_optin_helper = HistorySyncOptinHelper::Create(
       identity_test_env()->identity_manager(), GetProfile(), account_info,
@@ -300,21 +304,19 @@ IN_PROC_BROWSER_TEST_P(
   switch (GetParam()) {
     case HistorySyncOptinHelper::LaunchContext::kInBrowser:
       EXPECT_CALL(*service, EnsureManagedProfileForAccount)
-          .WillOnce(testing::Invoke(
-              [&](const CoreAccountId&, signin_metrics::AccessPoint,
-                  base::OnceCallback<void(Profile*, bool)> callback) {
-                // The callback is executed asynchronously, to better reflect
-                // the production implementation.
-                base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-                    FROM_HERE,
-                    base::BindOnce(std::move(callback), nullptr, false));
-              }));
+          .WillOnce([&](const CoreAccountId&, signin_metrics::AccessPoint,
+                        base::OnceCallback<void(Profile*, bool)> callback) {
+            // The callback is executed asynchronously, to better reflect
+            // the production implementation.
+            base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+                FROM_HERE, base::BindOnce(std::move(callback), nullptr, false));
+          });
       break;
     case HistorySyncOptinHelper::LaunchContext::kInProfilePicker:
       EXPECT_CALL(delegate, ShowAccountManagementScreen)
-          .WillOnce(testing::Invoke([&](signin::SigninChoiceCallback callback) {
+          .WillOnce([&](signin::SigninChoiceCallback callback) {
             std::move(callback).Run(signin::SIGNIN_CHOICE_CANCEL);
-          }));
+          });
       break;
   }
   EXPECT_CALL(delegate, ShowHistorySyncOptinScreen).Times(0);

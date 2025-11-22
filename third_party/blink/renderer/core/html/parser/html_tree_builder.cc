@@ -1109,10 +1109,6 @@ void HTMLTreeBuilder::ProcessTemplateStartTag(AtomicHTMLToken* token) {
   frameset_ok_ = false;
   template_insertion_modes_.push_back(kTemplateContentsMode);
   SetInsertionMode(kTemplateContentsMode);
-  if (DynamicTo<HTMLTemplateElement>(tree_.CurrentElement())->OutgoingPatch()) {
-    DCHECK(RuntimeEnabledFeatures::DocumentPatchingEnabled());
-    parser_->tokenizer().SetState(HTMLTokenizer::kRAWTEXTState);
-  }
 }
 
 bool HTMLTreeBuilder::ProcessTemplateEndTag(AtomicHTMLToken* token) {

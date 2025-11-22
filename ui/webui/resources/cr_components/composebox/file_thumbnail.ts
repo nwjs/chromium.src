@@ -16,12 +16,13 @@ export interface ComposeboxFileThumbnailElement {
   $: {
     removeImgButton: HTMLElement,
     removePdfButton: HTMLElement,
+    removeTabButton: HTMLElement,
   };
 }
 
 export class ComposeboxFileThumbnailElement extends CrLitElement {
   static get is() {
-    return 'ntp-composebox-file-thumbnail';
+    return 'cr-composebox-file-thumbnail';
   }
 
   static override get styles() {
@@ -42,11 +43,12 @@ export class ComposeboxFileThumbnailElement extends CrLitElement {
     name: '',
     type: '',
     objectUrl: null,
+    dataUrl: null,
     uuid: '',
     status: FileUploadStatus.kNotUploaded,
     url: null,
-    file: null,
     tabId: null,
+    isDeletable: true,
   };
 
   protected deleteFile_() {
@@ -55,14 +57,22 @@ export class ComposeboxFileThumbnailElement extends CrLitElement {
     this.fire('delete-file', {uuid: this.file.uuid});
   }
 
-  get deleteFileButtonTitle(): string {
+  protected get deleteFileButtonTitle_(): string {
     return loadTimeData.getStringF('composeboxDeleteFileTitle', this.file.name);
+  }
+
+  protected get formattedUrl_(): string|null {
+    if (!this.file?.url) {
+      return null;
+    }
+    const link = new URL(this.file.url.url);
+    return (link.host + link.pathname).replace(/\/$/, '');
   }
 }
 
 declare global {
   interface HTMLElementTagNameMap {
-    'ntp-composebox-file-thumbnail': ComposeboxFileThumbnailElement;
+    'cr-composebox-file-thumbnail': ComposeboxFileThumbnailElement;
   }
 }
 

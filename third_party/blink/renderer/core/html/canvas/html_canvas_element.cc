@@ -788,31 +788,17 @@ void HTMLCanvasElement::PostFinalizeFrame(FlushReason reason) {
   // checks whether the `desynchronized` attribute is set on the context, but
   // only WebGL and Canvas2D have specific flows for low latency (for other
   // context types, setting the attribute is a no-op).
-  if (LowLatencyEnabled() && (IsWebGL() || IsRenderingContext2D())) {
-    bool resource_is_paintable =
-        IsRenderingContext2D()
-            ? RenderingContext()->IsCanvas2DResourceProviderValid()
-            : true;
-    if (frame_dispatcher_ && !dirty_rect_.IsEmpty() && resource_is_paintable) {
-      if (scoped_refptr<CanvasResource> canvas_resource =
-              context_->PaintRenderingResultsToResource(kBackBuffer, reason)) {
-        const gfx::Rect src_rect(Size());
-        dirty_rect_.Intersect(src_rect);
-        const gfx::Rect int_dirty = dirty_rect_;
-        const SkIRect damage_rect =
-            SkIRect::MakeXYWH(int_dirty.x(), int_dirty.y(), int_dirty.width(),
-                              int_dirty.height());
-        frame_dispatcher_->DispatchFrame(std::move(canvas_resource),
-                                         damage_rect, IsOpaque());
-      }
-      // WebGL clears `dirty_rect_` every frame for low-latency, but for
-      // Canvas2D it occurs only if we actually attempted to paint the
-      // resource.
-      if (IsRenderingContext2D()) {
-        dirty_rect_ = gfx::Rect();
-      }
-    }
-    if (IsWebGL()) {
+  if (LowLatencyEnabled() && (IsWebGL() || IsRenderingContext2D()) &&
+      frame_dispatcher_ && !dirty_rect_.IsEmpty()) {
+    if (scoped_refptr<CanvasResource> canvas_resource =
+            context_->PaintRenderingResultsToResource(kBackBuffer, reason)) {
+      const gfx::Rect src_rect(Size());
+      dirty_rect_.Intersect(src_rect);
+      const gfx::Rect int_dirty = dirty_rect_;
+      const SkIRect damage_rect = SkIRect::MakeXYWH(
+          int_dirty.x(), int_dirty.y(), int_dirty.width(), int_dirty.height());
+      frame_dispatcher_->DispatchFrame(std::move(canvas_resource), damage_rect,
+                                       IsOpaque());
       dirty_rect_ = gfx::Rect();
     }
   }
@@ -827,27 +813,13 @@ void HTMLCanvasElement::PostFinalizeFrame(FlushReason reason) {
     NotifyListenersCanvasChanged();
   did_notify_listeners_for_current_frame_ = false;
 
-  if (plain_text_painter_ != nullptr) {
-    plain_text_painter_->DidSwitchFrame();
-  }
-  if (unique_font_selector_) {
-    unique_font_selector_->DidSwitchFrame();
-  }
+  NotifyCachesOfSwitchingFrame();
 }
 
-void HTMLCanvasElement::DisableAccelerationForCanvas2D() {
+void HTMLCanvasElement::OnAccelerationDisabled() {
   CHECK(IsRenderingContext2D());
   DisabledAccelerationCounterSupplement::From(GetDocument())
       .IncrementDisabledCount();
-  // Create and configure an unaccelerated CanvasResourceProvider.
-  SetPreferred2DRasterMode(RasterModeHint::kPreferCPU);
-
-  RenderingContext()->DropAndRecreateExistingCanvas2DResourceProvider();
-
-  // We must force a paint invalidation on the canvas even if it's
-  // content did not change because it layer was destroyed.
-  DidDraw();
-  SetNeedsCompositingUpdate();
 }
 
 void HTMLCanvasElement::SetNeedsCompositingUpdate() {
@@ -1803,44 +1775,6 @@ void HTMLCanvasElement::RemovedFrom(ContainerNode& insertion_point) {
   ColorSchemeMayHaveChanged();
 }
 
-void HTMLCanvasElement::WillDrawImageInCanvas2D(CanvasImageSource* source,
-                                                bool image_is_texture_backed) {
-  CHECK(IsRenderingContext2D());
-
-  // For images coming from canvases, use the image itself as the source of
-  // truth for whether the canvas is accelerated, as
-  // CanvasRenderingContextHost::IsAccelerated() is canvas2d-specific.
-  bool source_is_accelerated =
-      (source->IsCanvasElement() || source->IsOffscreenCanvas())
-          ? image_is_texture_backed
-          : source->IsAccelerated();
-  // If the source is GPU-accelerated, and the canvas is not, but could be...
-  if (source_is_accelerated && ShouldAccelerate() &&
-      GetRasterModeForCanvas2D() == RasterMode::kCPU) {
-    // Recreate the canvas in GPU raster mode, and update its contents.
-    if (RecreateCanvasInGPURasterModeForCanvas2D()) {
-      SetNeedsCompositingUpdate();
-    }
-  }
-}
-
-void HTMLCanvasElement::EnableAccelerationForCanvas2D() {
-  CHECK(IsRenderingContext2D());
-  if (GetRasterModeForCanvas2D() == RasterMode::kCPU) {
-    RecreateCanvasInGPURasterModeForCanvas2D();
-  }
-}
-
-bool HTMLCanvasElement::RecreateCanvasInGPURasterModeForCanvas2D() {
-  CHECK(IsRenderingContext2D());
-  if (!SharedGpuContext::AllowSoftwareToAcceleratedCanvasUpgrade()) {
-    return false;
-  }
-  SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
-  RenderingContext()->DropAndRecreateExistingCanvas2DResourceProvider();
-  return true;
-}
-
 void HTMLCanvasElement::ChildrenChanged(const ChildrenChange& change) {
   HTMLElement::ChildrenChanged(change);
   if (hasChildren()) {
@@ -2038,9 +1972,7 @@ UniqueFontSelector* HTMLCanvasElement::GetFontSelector() {
     return unique_font_selector;
   }
   auto* unique_font_selector = MakeGarbageCollected<UniqueFontSelector>(
-      GetDocument().GetStyleEngine().GetFontSelector(),
-      RuntimeEnabledFeatures::CanvasTextNgEnabled(
-          GetDocument().GetExecutionContext()));
+      GetDocument().GetStyleEngine().GetFontSelector());
   unique_font_selector_ = unique_font_selector;
   return unique_font_selector;
 }

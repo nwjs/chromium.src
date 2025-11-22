@@ -16,6 +16,8 @@ import org.chromium.components.omnibox.SuggestTemplateInfoProto.SuggestTemplateI
 import org.chromium.components.omnibox.action.OmniboxAction;
 import org.chromium.components.omnibox.action.OmniboxActionDelegate;
 import org.chromium.components.omnibox.action.OmniboxActionId;
+import org.chromium.ui.mojom.WindowOpenDisposition;
+import org.chromium.url.GURL;
 
 import java.net.URISyntaxException;
 
@@ -28,6 +30,8 @@ public class OmniboxActionInSuggest extends OmniboxAction {
     /** The details about the underlying action. */
     public final /* SuggestTemplateInfo.TemplateAction.ActionType */ int actionType;
 
+    public final int tabId;
+
     private final String mActionUri;
 
     public OmniboxActionInSuggest(
@@ -36,6 +40,7 @@ public class OmniboxActionInSuggest extends OmniboxAction {
             String accessibilityHint,
             /* SuggestTemplateInfo.TemplateAction.ActionType */ int actionType,
             String actionUri,
+            int tabId,
             boolean showAsActionButton) {
         super(
                 OmniboxActionId.ACTION_IN_SUGGEST,
@@ -44,8 +49,12 @@ public class OmniboxActionInSuggest extends OmniboxAction {
                 accessibilityHint,
                 ICON_MAP.get(actionType, DEFAULT_ICON),
                 R.style.TextAppearance_ChipText,
-                showAsActionButton);
+                showAsActionButton,
+                actionType == SuggestTemplateInfo.TemplateAction.ActionType.CHROME_TAB_SWITCH_VALUE
+                        ? WindowOpenDisposition.SWITCH_TO_TAB
+                        : WindowOpenDisposition.CURRENT_TAB);
         this.actionType = actionType;
+        this.tabId = tabId;
         mActionUri = actionUri;
     }
 
@@ -127,6 +136,13 @@ public class OmniboxActionInSuggest extends OmniboxAction {
                 if (!isIncognito) {
                     actionStarted = delegate.startActivity(intent);
                 }
+                break;
+
+            case SuggestTemplateInfo.TemplateAction.ActionType.CHROME_TAB_SWITCH_VALUE:
+                if (!delegate.switchToTab(tabId, new GURL(mActionUri))) {
+                    delegate.loadPageInCurrentTab(assumeNonNull(intent.getDataString()));
+                }
+                actionStarted = true;
                 break;
 
                 // No `default` to capture new variants.

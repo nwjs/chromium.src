@@ -9,6 +9,7 @@
 #include <ostream>
 #include <variant>
 
+#include "base/callback_list.h"
 #include "base/containers/enum_set.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
@@ -133,9 +134,12 @@ class TabDataObserver : public content::WebContentsObserver,
 // Either a focused tab, or an error string.
 class FocusedTabData {
  public:
+  // Creates FocusedTabData for a tab that can be focused.
   explicit FocusedTabData(tabs::TabInterface* tab);
-  // `unfocused_tab` can be nullptr. If it is not nullptr, it is the tab that
-  // would be focused but for some reason cannot be.
+  // Creates FocusedTabData when a tab cannot be focused. If `unfocused_tab` is
+  // provided, it represents the tab that would be focused but for some reason
+  // cannot be. If `unfocused_tab` is null there is no tab that could be
+  // focused.
   FocusedTabData(const std::string& error, tabs::TabInterface* unfocused_tab);
   ~FocusedTabData();
   FocusedTabData(const FocusedTabData& src) = delete;
@@ -163,9 +167,6 @@ class FocusedTabData {
 
 // Helper function to extract the Tab Id from the current web contents.
 int GetTabId(content::WebContents* web_contents);
-
-// Returns the window ID of the browser window.
-int GetWindowId(BrowserWindowInterface& browser);
 
 // Helper function to extract the Tab url from the current web contents.
 const GURL& GetTabUrl(content::WebContents* web_contents);

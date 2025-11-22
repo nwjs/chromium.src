@@ -15,6 +15,8 @@
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
+#include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "content/public/test/browser_test.h"
@@ -35,7 +37,7 @@ class IOSPasswordPromoBubbleTest : public DialogBrowserTest {
             ->toolbar_button_provider();
     // Test for iOS Promo Bubble for Desktop Passwords promo.
     IOSPromoBubble::ShowPromoBubble(
-        button_provider->GetAnchorView(kActionShowPasswordsBubbleOrPage),
+        {button_provider->GetAnchorView(kActionShowPasswordsBubbleOrPage)},
         button_provider->GetPageActionView(kActionShowPasswordsBubbleOrPage),
         browser()->profile(), IOSPromoType::kPassword,
         IOSPromoBubbleType::kQRCode);
@@ -59,9 +61,8 @@ class IOSAddressPromoBubbleTest : public DialogBrowserTest {
 
     // Test for iOS Promo Bubble for Desktop Address promo.
     IOSPromoBubble::ShowPromoBubble(
-        button_provider->GetAnchorView(kActionShowAddressesBubbleOrPage),
-        button_provider->GetPageActionIconView(
-            PageActionIconType::kAutofillAddress),
+        {button_provider->GetAnchorView(kActionShowAddressesBubbleOrPage)},
+        button_provider->GetPageActionView(kActionShowAddressesBubbleOrPage),
         browser()->profile(), IOSPromoType::kAddress,
         IOSPromoBubbleType::kQRCode);
   }
@@ -83,10 +84,52 @@ class IOSPaymentPromoBubbleTest : public DialogBrowserTest {
             ->toolbar_button_provider();
     // Test for iOS Promo Bubble for Desktop Payment promo.
     IOSPromoBubble::ShowPromoBubble(
-        button_provider->GetAnchorView(kActionShowPaymentsBubbleOrPage),
+        {button_provider->GetAnchorView(kActionShowPaymentsBubbleOrPage)},
         button_provider->GetPageActionIconView(PageActionIconType::kSaveCard),
         browser()->profile(), IOSPromoType::kPayment,
         IOSPromoBubbleType::kQRCode);
+  }
+};
+
+class IOSEnhancedBrowsingPromoBubbleTest : public DialogBrowserTest {
+ public:
+  IOSEnhancedBrowsingPromoBubbleTest() = default;
+
+  IOSEnhancedBrowsingPromoBubbleTest(
+      const IOSEnhancedBrowsingPromoBubbleTest&) = delete;
+
+  IOSEnhancedBrowsingPromoBubbleTest& operator=(
+      const IOSEnhancedBrowsingPromoBubbleTest&) = delete;
+
+  // DialogBrowserTest
+  void ShowUi(const std::string& name) override {
+    BrowserView* browser_view =
+        BrowserView::GetBrowserViewForBrowser(browser());
+    // Test for iOS Promo Bubble for Enhanced Browsing promo.
+    IOSPromoBubble::ShowPromoBubble(
+        {browser_view->toolbar()->app_menu_button()},
+        /*highlighted_button=*/nullptr, browser()->profile(),
+        IOSPromoType::kEnhancedBrowsing, IOSPromoBubbleType::kReminder);
+  }
+};
+
+class IOSLensPromoBubbleTest : public DialogBrowserTest {
+ public:
+  IOSLensPromoBubbleTest() = default;
+
+  IOSLensPromoBubbleTest(const IOSLensPromoBubbleTest&) = delete;
+
+  IOSLensPromoBubbleTest& operator=(const IOSLensPromoBubbleTest&) = delete;
+
+  // DialogBrowserTest
+  void ShowUi(const std::string& name) override {
+    BrowserView* browser_view =
+        BrowserView::GetBrowserViewForBrowser(browser());
+    // Test for iOS Promo Bubble for Lens promo.
+    IOSPromoBubble::ShowPromoBubble(
+        {browser_view->toolbar()->app_menu_button()},
+        /*highlighted_button=*/nullptr, browser()->profile(),
+        IOSPromoType::kLens, IOSPromoBubbleType::kReminder);
   }
 };
 
@@ -95,26 +138,17 @@ IN_PROC_BROWSER_TEST_F(IOSPasswordPromoBubbleTest, InvokeUi_default) {
 }
 
 IN_PROC_BROWSER_TEST_F(IOSAddressPromoBubbleTest, InvokeUi_default) {
-  if (IsPageActionMigrated(PageActionIconType::kAutofillAddress)) {
-    GTEST_SKIP()
-        << "This test should be merged with InvokeUi_with_no_page_action after "
-           "page action migration (See: https://crbug.com/424188577).\n";
-  }
-
-  ShowAndVerifyUi();
-}
-
-IN_PROC_BROWSER_TEST_F(IOSAddressPromoBubbleTest,
-                       InvokeUi_with_no_page_action) {
-  if (!IsPageActionMigrated(PageActionIconType::kAutofillAddress)) {
-    GTEST_SKIP()
-        << "This test should be merged with InvokeUi_default after "
-           "page action migration (See: https://crbug.com/424188577).\n";
-  }
-
   ShowAndVerifyUi();
 }
 
 IN_PROC_BROWSER_TEST_F(IOSPaymentPromoBubbleTest, InvokeUi_default) {
+  ShowAndVerifyUi();
+}
+
+IN_PROC_BROWSER_TEST_F(IOSEnhancedBrowsingPromoBubbleTest, InvokeUi_default) {
+  ShowAndVerifyUi();
+}
+
+IN_PROC_BROWSER_TEST_F(IOSLensPromoBubbleTest, InvokeUi_default) {
   ShowAndVerifyUi();
 }

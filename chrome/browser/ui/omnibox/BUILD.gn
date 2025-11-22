@@ -17,12 +17,16 @@ source_set("omnibox") {
   ]
   if (!is_android) {
     public += [
+      "ai_mode_page_action_controller.h",
       "alternate_nav_infobar_delegate.h",
       "chrome_omnibox_client.h",
       "chrome_omnibox_navigation_observer.h",
       "clipboard_utils.h",
+      "omnibox_context_menu_controller.h",
       "omnibox_controller.h",
       "omnibox_edit_model.h",
+      "omnibox_next_features.h",
+      "omnibox_popup_state_manager.h",
       "omnibox_popup_view.h",
       "omnibox_tab_helper.h",
       "omnibox_theme.h",
@@ -34,6 +38,7 @@ source_set("omnibox") {
       "//chrome/browser/page_content_annotations:extraction_service",
       "//chrome/browser/ui/color:color_headers",
       "//chrome/common",
+      "//components/contextual_search:public",
       "//components/infobars/core",
       "//components/omnibox/browser",
       "//components/omnibox/browser:mojo_bindings_shared",
@@ -44,8 +49,10 @@ source_set("omnibox") {
       "//services/network/public/mojom:url_loader_base",
       "//skia",
       "//ui/base",
+      "//ui/base/unowned_user_data",
       "//ui/gfx",
       "//ui/gfx/geometry",
+      "//ui/menus",
     ]
   }
 }
@@ -79,21 +86,27 @@ source_set("impl") {
   ]
   if (!is_android) {
     sources += [
+      "ai_mode_page_action_controller.cc",
       "alternate_nav_infobar_delegate.cc",
       "chrome_omnibox_client.cc",
       "chrome_omnibox_navigation_observer.cc",
       "clipboard_utils.cc",
+      "omnibox_context_menu_controller.cc",
       "omnibox_controller.cc",
       "omnibox_edit_model.cc",
+      "omnibox_next_features.cc",
+      "omnibox_popup_state_manager.cc",
       "omnibox_popup_view.cc",
       "omnibox_tab_helper.cc",
       "omnibox_view.cc",
     ]
     deps += [
       "//chrome/app:command_ids",
+      "//chrome/app/vector_icons",
       "//chrome/browser:browser_process",
       "//chrome/browser:primitives",
       "//chrome/browser/autocomplete",
+      "//chrome/browser/autocomplete:aim_eligibility_service",
       "//chrome/browser/bitmap_fetcher",
       "//chrome/browser/extensions/api/omnibox",
       "//chrome/browser/favicon",
@@ -101,17 +114,22 @@ source_set("impl") {
       "//chrome/browser/omnibox",
       "//chrome/browser/preloading/search_preload",
       "//chrome/browser/profiles:profile",
+      "//chrome/browser/resources/omnibox_popup:resources_grit",
       "//chrome/browser/safe_browsing",
       "//chrome/browser/search_engines",
       "//chrome/browser/ui:browser_list",
       "//chrome/browser/ui:layout_constants",
       "//chrome/browser/ui/bookmarks",
+      "//chrome/browser/ui/contextual_search",
       "//chrome/browser/ui/extensions/",
       "//chrome/browser/ui/hats",
       "//chrome/browser/ui/lens",
       "//chrome/browser/ui/location_bar",
       "//chrome/browser/ui/omnibox",
+      "//chrome/browser/ui/search",
+      "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/views/location_bar",
+      "//chrome/browser/ui/webui:webui_util",
       "//chrome/common",
       "//components/bookmarks/browser",
       "//components/dom_distiller/core",
@@ -140,6 +158,7 @@ source_set("impl") {
       "//ui/base/clipboard",
       "//ui/base/data_transfer_policy",
       "//ui/gfx",
+      "//ui/menus",
       "//url",
     ]
   }
@@ -180,6 +199,7 @@ if (!is_android) {
       "clipboard_utils_unittest.cc",
       "omnibox_controller_unittest.cc",
       "omnibox_edit_model_unittest.cc",
+      "omnibox_next_features_unittest.cc",
       "omnibox_pedal_implementations_unittest.cc",
       "omnibox_pedals_unittest.cc",
       "omnibox_view_unittest.cc",
@@ -188,6 +208,7 @@ if (!is_android) {
       ":omnibox",
       ":test_support",
       "//base/test:test_support",
+      "//chrome/browser/autocomplete:aim_eligibility_service",
       "//chrome/browser/search_engines",
       "//chrome/test:test_support",
       "//components/bookmarks/test",
@@ -226,6 +247,7 @@ if (!is_android) {
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
     sources = [
       "alternate_nav_infobar_delegate_browsertest.cc",
+      "omnibox_context_menu_controller_browsertest.cc",
       "omnibox_search_aggregator_browsertest.cc",
     ]
     deps = [
@@ -234,10 +256,13 @@ if (!is_android) {
       "//chrome/browser/autocomplete",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/search_engines",
+      "//chrome/browser/ui/contextual_search",
       "//chrome/browser/ui/location_bar",
       "//chrome/browser/ui/search",
+      "//chrome/browser/ui/webui:webui_util",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
+      "//components/contextual_search/internal:test_support",
       "//components/infobars/core",
       "//components/omnibox/browser",
       "//components/omnibox/browser:location_bar",
@@ -265,18 +290,24 @@ if (!is_android) {
     source_set("interactive_ui_tests") {
       testonly = true
       defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
-      sources = [ "omnibox_metrics_browsertest.cc" ]
+      sources = [
+        "ai_mode_page_action_controller_interactive_uitest.cc",
+        "omnibox_metrics_browsertest.cc",
+      ]
       deps = [
         "//base/test:test_support",
         "//chrome/browser/autocomplete",
+        "//chrome/browser/autocomplete:aim_eligibility_service",
         "//chrome/browser/profiles:profile",
         "//chrome/browser/search_engines",
+        "//chrome/browser/ui:ui_features",
         "//chrome/browser/ui/location_bar",
         "//chrome/browser/ui/search",
         "//chrome/test:test_support",
         "//chrome/test:test_support_ui",
         "//components/omnibox/browser",
         "//components/omnibox/browser:location_bar",
+        "//components/omnibox/browser:test_support",
         "//components/search_engines",
         "//components/search_engines:search_engine_type",
         "//content/test:test_support",

@@ -11,11 +11,13 @@
 #include "chrome/browser/search_engine_choice/search_engine_choice_dialog_service_factory.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
+#include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
-#include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
@@ -110,9 +112,9 @@ OmniboxNotOpenPrecondition::~OmniboxNotOpenPrecondition() = default;
 user_education::FeaturePromoResult
 OmniboxNotOpenPrecondition::CheckPrecondition(
     ui::UnownedTypedDataCollection&) const {
-  const OmniboxPopupView* const popup =
-      browser_view_->GetLocationBarView()->GetOmniboxPopupView();
-  return popup && popup->IsOpen()
+  return browser_view_->GetLocationBarView()
+                 ->GetOmniboxController()
+                 ->IsPopupOpen()
              ? user_education::FeaturePromoResult::kBlockedByUi
              : user_education::FeaturePromoResult::Success();
 }
@@ -146,7 +148,7 @@ BrowserNotClosingPrecondition::~BrowserNotClosingPrecondition() = default;
 user_education::FeaturePromoResult
 BrowserNotClosingPrecondition::CheckPrecondition(
     ui::UnownedTypedDataCollection&) const {
-  if (browser_view_->browser()->IsBrowserClosing() ||
+  if (browser_view_->browser()->capabilities()->IsAttemptingToCloseBrowser() ||
       browser_view_->GetWidget()->IsClosed()) {
     return user_education::FeaturePromoResult::kBlockedByContext;
   }

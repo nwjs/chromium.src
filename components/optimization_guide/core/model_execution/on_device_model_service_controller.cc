@@ -9,6 +9,7 @@
 #include <memory>
 #include <optional>
 
+#include "base/containers/contains.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -20,11 +21,11 @@
 #include "base/strings/strcat.h"
 #include "base/task/thread_pool.h"
 #include "base/types/expected.h"
-#include "base/containers/contains.h"
 #include "components/optimization_guide/core/delivery/model_util.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features.h"
 #include "components/optimization_guide/core/model_execution/model_execution_util.h"
+#include "components/optimization_guide/core/model_execution/on_device_capability.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_access_controller.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_adaptation_controller.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_adaptation_loader.h"
@@ -39,7 +40,6 @@
 #include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
-#include "components/optimization_guide/core/optimization_guide_model_executor.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/model_execution.pb.h"
@@ -134,12 +134,6 @@ void RecordOnDeviceLoadModelResult(
       "OptimizationGuide.ModelExecution.OnDeviceBaseModelLoadResult", result);
 }
 
-void RecordRankUpdateEviction(bool evicted) {
-  base::UmaHistogramBoolean(
-      "OptimizationGuide.ModelExecution.DidEvictBaseModelForRankUpdate",
-      evicted);
-}
-
 }  // namespace
 
 OnDeviceModelServiceController::OnDeviceModelServiceController(
@@ -183,12 +177,9 @@ OnDeviceModelEligibilityReason OnDeviceModelServiceController::CanCreateSession(
       OnDeviceModelEligibilityReason::kSuccess);
 }
 
-std::unique_ptr<OptimizationGuideModelExecutor::Session>
-OnDeviceModelServiceController::CreateSession(
+std::unique_ptr<OnDeviceSession> OnDeviceModelServiceController::CreateSession(
     ModelBasedCapabilityKey feature,
-    ExecuteRemoteFn execute_remote_fn,
-    base::WeakPtr<OptimizationGuideLogger> optimization_guide_logger,
-    const std::optional<SessionConfigParams>& config_params) {
+    const SessionConfigParams& config_params) {
   // Ensure an initial solution is computed to avoid giving kUnknown error.
   UpdateSolutionProvider(feature);
   auto& maybe_solution =
@@ -205,37 +196,10 @@ OnDeviceModelServiceController::CreateSession(
     return nullptr;
   }
 
-  auto* solution = static_cast<OnDeviceModelServiceController::Solution*>(
-      maybe_solution->get());
-
-  CHECK(base_model_controller_->model_metadata());
-  CHECK(features::internal::GetOptimizationTargetForCapability(feature));
-  MaybeAdaptationMetadata adaptation_metadata =
-      adaptation_metadata_.Get(feature);
-  CHECK(adaptation_metadata.has_value());
-
-  OnDeviceOptions opts;
-  opts.model_client = std::make_unique<OnDeviceModelClient>(
-      feature, weak_ptr_factory_.GetWeakPtr(), solution->model_controller());
-  opts.model_versions =
-      GetModelVersions(*base_model_controller_->model_metadata(),
-                       safety_client_, adaptation_metadata->version());
-  opts.safety_checker =
-      std::make_unique<SafetyChecker>(solution->safety_checker());
-  opts.token_limits = solution->adapter()->GetTokenLimits();
-  opts.adapter = solution->adapter();
-
-  opts.logger = optimization_guide_logger;
-  if (config_params) {
-    opts.capabilities = config_params->capabilities;
-    // TODO: can this be required?
-    if (config_params->sampling_params) {
-      opts.sampling_params = *config_params->sampling_params;
-    }
-  }
-
-  return std::make_unique<SessionImpl>(
-      feature, std::move(opts), std::move(execute_remote_fn), config_params);
+  return model_broker_impl_.GetSolutionProvider(feature)
+      .local_subscriber()
+      .client()
+      ->CreateSession(config_params);
 }
 
 void OnDeviceModelServiceController::SetLanguageDetectionModel(
@@ -288,43 +252,6 @@ void OnDeviceModelServiceController::OnServiceDisconnected(
     case on_device_model::ServiceDisconnectReason::kFailedToLoadLibrary:
     case on_device_model::ServiceDisconnectReason::kUnspecified:
       break;
-  }
-}
-
-OnDeviceModelServiceController::OnDeviceModelClient::OnDeviceModelClient(
-    ModelBasedCapabilityKey feature,
-    base::WeakPtr<OnDeviceModelServiceController> controller,
-    base::WeakPtr<ModelController> model_controller)
-    : feature_(feature),
-      controller_(std::move(controller)),
-      model_controller_(std::move(model_controller)) {}
-
-OnDeviceModelServiceController::OnDeviceModelClient::~OnDeviceModelClient() =
-    default;
-
-std::unique_ptr<OnDeviceOptions::Client>
-OnDeviceModelServiceController::OnDeviceModelClient::Clone() const {
-  return std::make_unique<OnDeviceModelServiceController::OnDeviceModelClient>(
-      feature_, controller_, model_controller_);
-}
-
-bool OnDeviceModelServiceController::OnDeviceModelClient::ShouldUse() {
-  return controller_ && model_controller_ &&
-         controller_->access_controller_->ShouldStartNewSession() ==
-             OnDeviceModelEligibilityReason::kSuccess;
-}
-
-void OnDeviceModelServiceController::OnDeviceModelClient::StartSession(
-    mojo::PendingReceiver<on_device_model::mojom::Session> pending,
-    on_device_model::mojom::SessionParamsPtr params) {
-  model_controller_->GetOrCreateRemote()->StartSession(std::move(pending),
-                                                       std::move(params));
-}
-
-void OnDeviceModelServiceController::OnDeviceModelClient::
-    OnResponseCompleted() {
-  if (controller_) {
-    controller_->access_controller_->OnResponseCompleted();
   }
 }
 
@@ -463,7 +390,6 @@ void OnDeviceModelServiceController::BaseModelController::RequireAdaptationRank(
   }
   // Add the rank and reset all remotes to force a reload.
   supported_adaptation_ranks_.push_back(required_rank);
-  RecordRankUpdateEviction(remote_.is_bound());
   remote_.reset();
   for (auto& kv : model_adaptation_controllers_) {
     kv.second.ResetRemote();
@@ -562,8 +488,7 @@ void OnDeviceModelServiceController::BaseModelController::OnModelAssetsLoaded(
   auto params = on_device_model::mojom::LoadModelParams::New();
   params->backend_type = ml::ModelBackendType::kGpuBackend;
   params->assets = std::move(assets);
-  // TODO(crbug.com/302402959): Choose max_tokens based on device.
-  params->max_tokens = features::GetOnDeviceModelMaxTokens();
+  params->max_tokens = kOnDeviceModelMaxTokens;
   params->adaptation_ranks = supported_adaptation_ranks_;
 
   proto::OnDeviceModelPerformanceHint hint =

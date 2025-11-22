@@ -25,7 +25,7 @@ const base::FeatureParam<std::string> kGpuBlockList{
     "on_device_model_gpu_block_list",
     // These devices are nearly always crashing or have very low performance.
 #if BUILDFLAG(IS_LINUX)
-    "8086:64a0|"  // TODO(b/456603738): Remove when fixed.
+    "8086:64a0|8086:e20b|"  // TODO(b/456603738): Remove when fixed.
 #endif  // BUILDFLAG(IS_LINUX)
     "8086:412|8086:a16|8086:41e|8086:416|8086:402|8086:166|8086:1616|8086:22b1|"
     "8086:22b0|8086:1916|8086:5a84|8086:5a85|8086:416|1414:8c|"
@@ -39,13 +39,6 @@ void LogGpuBlocked(GpuBlockedReason reason) {
 
 DISABLE_CFI_DLSYM
 DeviceInfo QueryDeviceInfoInternal(const ChromeMLAPI& api) {
-  DeviceInfo query_device_info;
-  if (base::FeatureList::IsEnabled(kOnDeviceModelAllowGpuForTesting)) {
-    query_device_info.gpu_blocked_reason = GpuBlockedReason::kNotBlocked;
-    query_device_info.supports_fp16 = true;
-    return query_device_info;
-  }
-
   static crash_reporter::CrashKeyString<256> blocklist_key(
       "ChromeML-blocklist");
   blocklist_key.Set(kGpuBlockList.Get());
@@ -53,7 +46,7 @@ DeviceInfo QueryDeviceInfoInternal(const ChromeMLAPI& api) {
   constexpr WebGPUBlocklistReason kIgnoreReasons =
       WebGPUBlocklistReason::IndirectComputeRootConstants |
       WebGPUBlocklistReason::Consteval22ndBit |
-      WebGPUBlocklistReason::WindowsARM;
+      WebGPUBlocklistReason::QualcommWindows;
 
   // Take a first pass at checking the blocklist. Creating a wgpu::Adapter can
   // crash in some situations, so use gpu::GPUInfo to avoid this. Using
@@ -65,6 +58,7 @@ DeviceInfo QueryDeviceInfoInternal(const ChromeMLAPI& api) {
   if (!device) {
     device = &gpu_info.active_gpu();
   }
+  DeviceInfo query_device_info;
   if (device->IsSoftwareRenderer()) {
     query_device_info.gpu_blocked_reason = GpuBlockedReason::kBlocklisted;
     return query_device_info;
@@ -134,6 +128,14 @@ BASE_FEATURE(kOnDeviceModelAllowGpuForTesting,
 
 COMPONENT_EXPORT(ON_DEVICE_MODEL_ML)
 DeviceInfo QueryDeviceInfo(const ChromeMLAPI& api, bool log_histogram) {
+  if (base::FeatureList::IsEnabled(kOnDeviceModelAllowGpuForTesting)) {
+    // Each test can use its own override. Don't use cache.
+    DeviceInfo query_device_info;
+    query_device_info.gpu_blocked_reason = GpuBlockedReason::kNotBlocked;
+    query_device_info.supports_fp16 = true;
+    return query_device_info;
+  }
+
   static base::NoDestructor<DeviceInfo> cache;
   if (cache->gpu_blocked_reason == GpuBlockedReason::kGpuConfigError) {
     *cache = QueryDeviceInfoInternal(api);

@@ -49,6 +49,7 @@
 #include "chrome/browser/signin/dice_web_signin_interceptor.h"
 #include "chrome/browser/signin/dice_web_signin_interceptor_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/sync/user_event_service_factory.h"
@@ -57,6 +58,8 @@
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/simple_message_box_internal.h"
 #include "chrome/browser/ui/views/profiles/dice_web_signin_interception_bubble_view.h"
+#include "chrome/browser/ui/webui/signin/history_sync_optin_service.h"
+#include "chrome/browser/ui/webui/signin/history_sync_optin_service_factory.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/browser/ui/webui/signin/login_ui_test_utils.h"
@@ -308,7 +311,7 @@ std::unique_ptr<HttpResponse> HandleSignoutURL(const std::string& main_email,
 
   // Build signout header.
   int query_value;
-  EXPECT_TRUE(base::StringToInt(request.GetURL().query(), &query_value));
+  EXPECT_TRUE(base::StringToInt(request.GetURL().GetQuery(), &query_value));
   SignoutType signout_type = static_cast<SignoutType>(query_value);
   EXPECT_GE(signout_type, kSignoutTypeFirst);
   EXPECT_LT(signout_type, kSignoutTypeLast);
@@ -1225,11 +1228,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, EnableSyncAfterToken) {
   histogram_tester.ExpectBucketCount(
       "Signin.SigninManager.SetPrimaryAccountSigninInStage",
       PrimaryAccountSettingGaiaIntegrationState::kOnSyncHeaderReceived,
-      /*expected_count=*/
-      base::FeatureList::IsEnabled(
-          switches::kBrowserSigninInSyncHeaderOnGaiaIntegration)
-          ? 1
-          : 0);
+      /*expected_count=*/1);
   // The interception bubble should not have been shown.
   histogram_tester.ExpectBucketCount(
       "Signin.Intercept.HeuristicOutcome",
@@ -1369,7 +1368,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithoutReplaceSyncPromosWithSignInPromos,
 }
 
 class DiceBrowserSiginInInterceptionInteractiveTest
-    : public InteractiveBrowserTestT<DiceBrowserTest> {
+    : public InteractiveBrowserTestMixin<DiceBrowserTest> {
  public:
   void WaitForHistogramSample(std::string_view histogram_name,
                               base::HistogramBase::Sample32 sample,
@@ -1401,11 +1400,6 @@ class DiceBrowserSiginInInterceptionInteractiveTest
 // has not arrived within a timeout window.
 IN_PROC_BROWSER_TEST_F(DiceBrowserSiginInInterceptionInteractiveTest,
                        ShowsUnoBubbleWhenSyncHeaderArrivalExceedsTimeout) {
-  if (!base::FeatureList::IsEnabled(
-          switches::kBrowserSigninInSyncHeaderOnGaiaIntegration)) {
-    GTEST_SKIP();
-  }
-
   base::HistogramTester histogram_tester;
   EXPECT_EQ(0, reconcilor_started_count_);
   auto uno_bubble_retry_delay = base::Milliseconds(500);
@@ -1460,22 +1454,9 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserSiginInInterceptionInteractiveTest,
       "Signin.SigninManager.SyncHeaderArrivalTimeWindowAfterLst", 0);
 }
 
-class DiceAddAccountTabBrowserTest : public DiceBrowserTest,
-                                     public base::test::WithFeatureOverride {
- public:
-  DiceAddAccountTabBrowserTest()
-      : base::test::WithFeatureOverride(
-            switches::kBrowserSigninInSyncHeaderOnGaiaIntegration) {}
-
-  bool IsFixGaiaIntegrationEnabled() const { return IsParamFeatureEnabled(); }
-};
-
-INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(DiceAddAccountTabBrowserTest);
-
 // Tests that user is signed in to the browser when the Dice "add account" tab
 // is used.
-IN_PROC_BROWSER_TEST_P(DiceAddAccountTabBrowserTest,
-                       BrowserSignInFromAddAccountTab) {
+IN_PROC_BROWSER_TEST_F(DiceBrowserTest, BrowserSignInFromAddAccountTab) {
   base::HistogramTester histogram_tester;
   // Signin using the Add account endpoint.
   browser()->GetFeatures().signin_view_controller()->ShowDiceAddAccountTab(
@@ -1489,10 +1470,8 @@ IN_PROC_BROWSER_TEST_P(DiceAddAccountTabBrowserTest,
   EXPECT_TRUE(
       GetIdentityManager()->HasAccountWithRefreshToken(GetMainAccountID()));
 
-  if (IsFixGaiaIntegrationEnabled()) {
-    // Receive ENABLE_SYNC.
-    SendEnableSyncResponse();
-  }
+  // Receive ENABLE_SYNC.
+  SendEnableSyncResponse();
 
   WaitForSigninSucceeded();
   EXPECT_TRUE(
@@ -1504,7 +1483,7 @@ IN_PROC_BROWSER_TEST_P(DiceAddAccountTabBrowserTest,
   histogram_tester.ExpectBucketCount(
       "Signin.SigninManager.SetPrimaryAccountSigninInStage",
       PrimaryAccountSettingGaiaIntegrationState::kOnSyncHeaderReceived,
-      /*expected_count=*/IsFixGaiaIntegrationEnabled() ? 1 : 0);
+      /*expected_count=*/1);
 }
 
 class DiceBrowserTestWithSyncOptinScreen : public DiceBrowserTest {
@@ -1571,6 +1550,56 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithSyncOptinScreen,
 
   // Dismiss the History Sync Optin UI.
   EXPECT_TRUE(login_ui_test_utils::ConfirmHistorySyncOptinDialog(browser()));
+  EXPECT_TRUE(sync_service->GetUserSettings()->GetSelectedTypes().Has(
+      syncer::UserSelectableType::kHistory));
+  EXPECT_TRUE(sync_service->GetUserSettings()->GetSelectedTypes().Has(
+      syncer::UserSelectableType::kTabs));
+  EXPECT_TRUE(sync_service->GetUserSettings()->GetSelectedTypes().Has(
+      syncer::UserSelectableType::kSavedTabGroups));
+}
+
+// Regression test for crbug.com/454921096.
+// Tests that if the entry point for a sign in tab is updated to a value
+// that should not offer the history sync optin flow, then the initialized
+// history sync optin flow is aborted.
+IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithSyncOptinScreen,
+                       SkipsHistorySyncScreenOnUnexpectedEntryPoint) {
+  EXPECT_EQ(0, reconcilor_started_count_);
+
+  // Open the sign-in tab from the settings page but do not complete the signin.
+  signin_metrics::AccessPoint access_point =
+      signin_metrics::AccessPoint::kSettings;
+  browser()->GetFeatures().signin_view_controller()->ShowDiceEnableSyncTab(
+      access_point,
+      signin_metrics::PromoAction::PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT,
+      /*email_hint=*/std::string());
+
+  // Open the signin tab from the tabs history page (reuses the previous sign
+  // in tab with an updated entry point).
+  access_point = signin_metrics::AccessPoint::kRecentTabs;
+  signin_ui_util::TriggerSignInForHistorySyncOptIn(
+      browser(), browser()->profile(), access_point);
+  // Receive token.
+  SendRefreshTokenResponse();
+
+  // Receive ENABLE_SYNC.
+  SendEnableSyncResponse();
+  WaitForSigninSucceeded();
+
+  EXPECT_EQ(GetMainAccountID(), GetIdentityManager()->GetPrimaryAccountId(
+                                    signin::ConsentLevel::kSignin));
+
+  EXPECT_EQ(1, reconcilor_blocked_count_);
+  WaitForReconcilorUnblockedCount(1);
+  EXPECT_EQ(1, reconcilor_started_count_);
+  auto* sync_service = SyncServiceFactory::GetForProfile(browser()->profile());
+
+  // The history sync screen should not be shown, the history and tabs syncing
+  // is auto-enabled post-signin.
+  base::test::RunUntil([&] {
+    return HistorySyncOptinServiceFactory::GetForProfile(browser()->profile())
+               ->GetHistorySyncOptinHelperForTesting() == nullptr;
+  });
   EXPECT_TRUE(sync_service->GetUserSettings()->GetSelectedTypes().Has(
       syncer::UserSelectableType::kHistory));
   EXPECT_TRUE(sync_service->GetUserSettings()->GetSelectedTypes().Has(
@@ -1878,53 +1907,6 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithExplicitSignin,
   EXPECT_TRUE(prefs->GetBoolean(prefs::kExplicitBrowserSignin));
 }
 
-class DiceBrowserTestWithLegacyGaiaAndReplaceSyncPromosWithSignInPromos
-    : public DiceBrowserTestWithExplicitSignin {
- public:
-  DiceBrowserTestWithLegacyGaiaAndReplaceSyncPromosWithSignInPromos() {
-    scoped_feature_list_with_set_disabled.InitWithFeatures(
-        /*enabled_features=*/{syncer::kReplaceSyncPromosWithSignInPromos},
-        /*disabled_features=*/{switches::kBrowserSigninInSyncHeaderOnGaiaIntegration});
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_with_set_disabled;
-};
-
-IN_PROC_BROWSER_TEST_F(
-    DiceBrowserTestWithLegacyGaiaAndReplaceSyncPromosWithSignInPromos,
-    SigninWhenAccountAllowedByPattern) {
-  g_browser_process->local_state()->SetString(
-      prefs::kGoogleServicesUsernamePattern, ".*@gmail.com");
-
-  SetChromeSigninChoice(ChromeSigninUserChoice::kSignin);
-  SimulateWebSigninMainAccount();
-
-  EXPECT_EQ(
-      GetIdentityManager()->HasPrimaryAccount(signin::ConsentLevel::kSignin),
-      true);
-  EXPECT_EQ(
-      browser()->GetFeatures().signin_view_controller()->ShowsModalDialog(),
-      false);
-}
-
-IN_PROC_BROWSER_TEST_F(
-    DiceBrowserTestWithLegacyGaiaAndReplaceSyncPromosWithSignInPromos,
-    SigninDisallowedWhenAccountNotAllowedByPattern) {
-  g_browser_process->local_state()->SetString(
-      prefs::kGoogleServicesUsernamePattern, ".*@restricted.com");
-
-  SetChromeSigninChoice(ChromeSigninUserChoice::kSignin);
-  SimulateWebSigninMainAccount();
-
-  EXPECT_EQ(
-      GetIdentityManager()->HasPrimaryAccount(signin::ConsentLevel::kSignin),
-      false);
-  EXPECT_EQ(
-      browser()->GetFeatures().signin_view_controller()->ShowsModalDialog(),
-      true);
-}
-
 class DiceBrowserTestWithExplicitSigninReplaceSyncPromosWithSignInPromos
     : public DiceBrowserTestWithExplicitSignin {
  private:
@@ -2058,10 +2040,11 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithAutoAcceptFlag, AutoSignin) {
 }
 
 class DiceBrowserTestWithChromeSigninIPH
-    : public InteractiveFeaturePromoTestT<DiceBrowserTestWithExplicitSignin> {
+    : public InteractiveFeaturePromoTestMixin<
+          DiceBrowserTestWithExplicitSignin> {
  public:
   DiceBrowserTestWithChromeSigninIPH()
-      : InteractiveFeaturePromoTestT(UseDefaultTrackerAllowingPromos(
+      : InteractiveFeaturePromoTestMixin(UseDefaultTrackerAllowingPromos(
             {feature_engagement::
                  kIPHExplicitBrowserSigninPreferenceRememberedFeature})) {}
 

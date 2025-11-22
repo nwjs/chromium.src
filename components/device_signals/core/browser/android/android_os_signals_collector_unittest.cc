@@ -7,9 +7,14 @@
 #include <array>
 #include <utility>
 
+#include "base/android/android_info.h"
+#include "base/android/device_info.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
+#include "base/system/sys_info.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/values.h"
+#include "components/device_signals/core/browser/browser_utils.h"
 #include "components/device_signals/core/browser/signals_types.h"
 #include "components/device_signals/core/browser/user_permission_service.h"
 #include "components/policy/core/common/cloud/cloud_policy_util.h"
@@ -18,6 +23,7 @@
 #include "components/policy/proto/device_management_backend.pb.h"
 #include "components/safe_browsing/android/safe_browsing_api_handler_bridge.h"
 #include "components/safe_browsing/android/safe_browsing_api_handler_util.h"
+#include "components/version_info/version_info.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -29,9 +35,16 @@ using testing::StrictMock;
 
 namespace {
 
+using safe_browsing::HasHarmfulAppsResultStatus;
 using safe_browsing::VerifyAppsEnabledResult;
 
 constexpr char kFakeBrowserEnrollmentDomain[] = "fake.domain.google.com";
+constexpr char kHarmfulAppsResultHistogramName[] =
+    "Enterprise.DeviceSignals.HarmfulApps.Result";
+constexpr char kHarmfulAppsCountHistogramName[] =
+    "Enterprise.DeviceSignals.HarmfulApps.Count";
+
+constexpr int kSampleHarmfulAppsErrorCode = 123;
 
 }  // namespace
 
@@ -53,6 +66,7 @@ class AndroidOsSignalsCollectorTest : public testing::Test {
         mock_browser_cloud_policy_manager_.get());
 
     SetVerifyAppsResult(VerifyAppsEnabledResult::SUCCESS_NOT_ENABLED);
+    SetHarmfulAppsResult(HasHarmfulAppsResultStatus::SUCCESS, 2);
   }
 
   void TearDown() override { mock_browser_cloud_policy_store_ = nullptr; }
@@ -68,9 +82,38 @@ class AndroidOsSignalsCollectorTest : public testing::Test {
   // collected based on permission.
   void CheckSignalsCollected(OsSignalsResponse& response,
                              bool can_collect_pii) {
-    // `can_collect_pii` will be used when we add the remaining signals, so
-    // leaving it unused here for now.
+    if (can_collect_pii) {
+      EXPECT_EQ(response.display_name,
+                base::android::device_info::device_name());
+    } else {
+      EXPECT_EQ(response.display_name, std::nullopt);
+    }
+    EXPECT_EQ(response.operating_system, policy::GetOSPlatform());
+    EXPECT_EQ(response.os_version, base::SysInfo::OperatingSystemVersion());
+    EXPECT_EQ(response.browser_version, version_info::GetVersionNumber());
+    EXPECT_EQ(response.device_model, base::android::android_info::model());
+    EXPECT_EQ(response.device_manufacturer,
+              base::android::android_info::manufacturer());
+    EXPECT_EQ(response.device_enrollment_domain, kFakeBrowserEnrollmentDomain);
+    EXPECT_EQ(response.security_patch_ms,
+              device_signals::GetSecurityPatchLevelEpoch());
     EXPECT_EQ(response.verified_apps_enabled, expected_verify_app_result_);
+    EXPECT_EQ(response.has_potentially_harmful_apps,
+              GetExpectedHarmfulAppsSignal());
+
+    CheckUmaHistograms();
+  }
+
+  void CheckUmaHistograms() {
+    histogram_tester_.ExpectUniqueSample(kHarmfulAppsResultHistogramName,
+                                         expected_harmful_app_result_, 1);
+
+    if (expected_harmful_app_result_ == HasHarmfulAppsResultStatus::SUCCESS) {
+      histogram_tester_.ExpectUniqueSample(kHarmfulAppsCountHistogramName,
+                                           expected_harmful_app_count_, 1);
+    } else {
+      histogram_tester_.ExpectTotalCount(kHarmfulAppsCountHistogramName, 0);
+    }
   }
 
   void SetVerifyAppsResult(VerifyAppsEnabledResult result) {
@@ -81,12 +124,33 @@ class AndroidOsSignalsCollectorTest : public testing::Test {
          result == VerifyAppsEnabledResult::SUCCESS_ALREADY_ENABLED);
   }
 
+  void SetHarmfulAppsResult(HasHarmfulAppsResultStatus result,
+                            int num_of_apps) {
+    safe_browsing::SafeBrowsingApiHandlerBridge::GetInstance()
+        .SetHarmfulAppsResultForTesting(
+            result, num_of_apps,
+            result == HasHarmfulAppsResultStatus::SUCCESS
+                ? 0
+                : kSampleHarmfulAppsErrorCode);
+    expected_harmful_app_result_ = result;
+    expected_harmful_app_count_ = num_of_apps;
+  }
+
+  bool GetExpectedHarmfulAppsSignal() {
+    return (expected_harmful_app_result_ ==
+                HasHarmfulAppsResultStatus::SUCCESS &&
+            expected_harmful_app_count_ != 0);
+  }
+
   content::BrowserTaskEnvironment task_environment_;
   std::unique_ptr<policy::MockCloudPolicyManager>
       mock_browser_cloud_policy_manager_;
   raw_ptr<policy::MockCloudPolicyStore> mock_browser_cloud_policy_store_;
   std::unique_ptr<AndroidOsSignalsCollector> signal_collector_;
   bool expected_verify_app_result_;
+  HasHarmfulAppsResultStatus expected_harmful_app_result_;
+  int expected_harmful_app_count_;
+  base::HistogramTester histogram_tester_;
 };
 
 // Test that runs a sanity check on the set of signals supported by this
@@ -107,6 +171,8 @@ TEST_F(AndroidOsSignalsCollectorTest, GetSignal_Success) {
   SetFakeBrowserPolicyData();
   // Test when verify apps is enabled.
   SetVerifyAppsResult(VerifyAppsEnabledResult::SUCCESS_ENABLED);
+  // Test when harmful apps detection fails.
+  SetHarmfulAppsResult(HasHarmfulAppsResultStatus::LOCAL_FAILURE, 0);
 
   SignalName signal_name = SignalName::kOsSignals;
   SignalsAggregationRequest empty_request;

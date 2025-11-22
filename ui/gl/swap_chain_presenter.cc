@@ -1692,9 +1692,6 @@ bool SwapChainPresenter::SetupPresentToSwapChain(
       ReleaseSwapChainResources();
       return false;
     }
-    content_ = swap_chain_.Get();
-    swap_chain_size_ = swap_chain_size;
-    content_size_ = swap_chain_size;
   }
 
   if (input_texture) {
@@ -2281,8 +2278,6 @@ bool SwapChainPresenter::VideoProcessorBlt(
                            video_context.Get(), video_processor.Get(),
                            use_vp_auto_hdr);
       if (FAILED(hr)) {
-        enable_vp_auto_hdr_ = false;
-
         if (use_vp_auto_hdr) {
           if (!RevertSwapChainToSDR(video_device, video_processor,
                                     video_processor_enumerator, swap_chain3,
@@ -2292,6 +2287,7 @@ bool SwapChainPresenter::VideoProcessorBlt(
 
           use_vp_auto_hdr = false;
         }
+        enable_vp_auto_hdr_ = false;
       }
     }
 
@@ -2542,6 +2538,9 @@ bool SwapChainPresenter::ReallocateSwapChain(
 
   LabelSwapChainAndBuffers(swap_chain_.Get(), "SwapChainPresenter");
 
+  content_ = swap_chain_.Get();
+  content_size_ = swap_chain_size;
+  swap_chain_size_ = swap_chain_size;
   swap_chain_format_ = swap_chain_format;
   SetSwapChainPresentDuration();
 
@@ -2622,7 +2621,6 @@ bool SwapChainPresenter::RevertSwapChainToSDR(
     ReleaseSwapChainResources();
     return false;
   }
-  content_ = swap_chain_.Get();
 
   Microsoft::WRL::ComPtr<ID3D11Texture2D> swap_chain_buffer;
   swap_chain_->GetBuffer(0, IID_PPV_ARGS(&swap_chain_buffer));

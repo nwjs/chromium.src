@@ -692,7 +692,8 @@ def _make_blink_api_call(code_node,
 
     code_generator_info = cg_context.member_like.code_generator_info
     is_partial = code_generator_info.defined_in_partial
-    if (is_partial and
+    is_across_component = code_generator_info.defined_across_component
+    if ((is_partial or is_across_component) and
             not (cg_context.constructor or cg_context.member_like.is_static)):
         arguments.append("*${blink_receiver}")
 
@@ -726,7 +727,7 @@ def _make_blink_api_call(code_node,
         func_name = _make_reflect_accessor_func_name(cg_context)
 
     if (cg_context.constructor or cg_context.member_like.is_static
-            or is_partial):
+            or is_partial or is_across_component):
         class_like = cg_context.member_like.owner_mixin or cg_context.class_like
         class_name = (code_generator_info.receiver_implemented_as
                       or name_style.class_(class_like.identifier))
@@ -927,8 +928,9 @@ def make_check_constructor_call(cg_context):
     if not cg_context.is_legacy_factory_function:
         node.append(
             CxxLikelyIfNode(
-                cond=("ConstructorMode::Current(${isolate}) == "
-                      "ConstructorMode::kWrapExistingObject"),
+                cond=(
+                    "V8PerIsolateData::From(${isolate})->InWrapperConstructor()"
+                ),
                 attribute=None,
                 body=T("bindings::V8SetReturnValue(${info}, ${v8_receiver});\n"
                        "return;")))

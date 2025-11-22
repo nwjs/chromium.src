@@ -9,6 +9,7 @@ import static android.content.Context.UI_MODE_SERVICE;
 import android.app.UiModeManager;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.FeatureInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -44,10 +45,11 @@ public final class DeviceInfo {
     private static @Nullable String sGmsVersionCodeForTesting;
     private static @Nullable Boolean sIsAutomotiveForTesting;
     private static boolean sInitialized;
-    private static boolean sIsXrForTesting;
+    private static @Nullable Boolean sIsXrForTesting;
     private static @Nullable Boolean sIsRetailDemoModeForTesting;
     private final IDeviceInfo mIDeviceInfo;
     private @Nullable Boolean mIsRetailDemoMode;
+    private @Nullable ApplicationInfo mGmsAppInfo;
 
     // This is the minimum width in DP that defines a large display device
     public static final int LARGE_DISPLAY_MIN_SCREEN_WIDTH_600_DP = 600;
@@ -76,7 +78,7 @@ public final class DeviceInfo {
                         /* isFoldable= */ info.isFoldable,
                         /* isDesktop= */ info.isDesktop,
                         /* vulkanDeqpLevel= */ info.vulkanDeqpLevel,
-                        /* isXr= */ sIsXrForTesting ? true : info.isXr,
+                        /* isXr= */ (sIsXrForTesting != null) ? sIsXrForTesting : info.isXr,
                         /* wasLaunchedOnLargeDisplay= */ info.wasLaunchedOnLargeDisplay);
     }
 
@@ -86,6 +88,10 @@ public final class DeviceInfo {
 
     public static String getGmsVersionCode() {
         return getInstance().mIDeviceInfo.gmsVersionCode;
+    }
+
+    public static @Nullable ApplicationInfo getGmsAppInfo() {
+        return getInstance().mGmsAppInfo;
     }
 
     @CalledByNativeForTesting
@@ -122,7 +128,7 @@ public final class DeviceInfo {
     }
 
     public static boolean isXr() {
-        return getInstance().mIDeviceInfo.isXr;
+        return (sIsXrForTesting != null) ? sIsXrForTesting : getInstance().mIDeviceInfo.isXr;
     }
 
     public static boolean isRetailDemoMode() {
@@ -146,18 +152,25 @@ public final class DeviceInfo {
         return ret;
     }
 
+    @CalledByNative
+    public static String getDeviceName() {
+        return Settings.Global.getString(
+                ContextUtils.getApplicationContext().getContentResolver(), "device_name");
+    }
+
     public static boolean isInitializedForTesting() {
         return sInitialized;
     }
 
     @CalledByNativeForTesting
-    public static void setIsXrForTesting() {
-        sIsXrForTesting = true;
+    public static void setIsXrForTesting(boolean value) {
+        sIsXrForTesting = value;
+        ResettersForTesting.register(() -> sIsXrForTesting = null);
     }
 
     @CalledByNativeForTesting
     public static void resetIsXrForTesting() {
-        sIsXrForTesting = false;
+        sIsXrForTesting = null;
     }
 
     public static void setIsRetailDemoModeForTesting(boolean value) {
@@ -219,13 +232,17 @@ public final class DeviceInfo {
         mIDeviceInfo = new IDeviceInfo();
         sInitialized = true;
         PackageInfo gmsPackageInfo = PackageUtils.getPackageInfo("com.google.android.gms", 0);
-        mIDeviceInfo.gmsVersionCode =
-                gmsPackageInfo != null
-                        ? String.valueOf(packageVersionCode(gmsPackageInfo))
-                        : "gms versionCode not available.";
-        if (sGmsVersionCodeForTesting != null) {
-            mIDeviceInfo.gmsVersionCode = sGmsVersionCodeForTesting;
+        String gmsVersionCode;
+        if (gmsPackageInfo != null) {
+            mGmsAppInfo = gmsPackageInfo.applicationInfo;
+            gmsVersionCode = String.valueOf(packageVersionCode(gmsPackageInfo));
+        } else {
+            gmsVersionCode = "gms versionCode not available.";
         }
+        if (sGmsVersionCodeForTesting != null) {
+            gmsVersionCode = sGmsVersionCodeForTesting;
+        }
+        mIDeviceInfo.gmsVersionCode = gmsVersionCode;
 
         Context appContext = ContextUtils.getApplicationContext();
         PackageManager pm = appContext.getPackageManager();

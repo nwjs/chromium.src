@@ -419,7 +419,17 @@ AutofillFormatString::AutofillFormatString() = default;
 AutofillFormatString::AutofillFormatString(std::u16string v,
                                            FormatString_Type type)
     : value(std::move(v)), type(type) {
-  // TODO(crbug.com/446883719): Add a DCHECK that the format is valid.
+  DCHECK([&]() {
+    switch (type) {
+      case FormatString_Type_DATE:
+        return data_util::IsValidDateFormat(value);
+      case FormatString_Type_AFFIX:
+        return data_util::IsValidAffixFormat(value);
+      case FormatString_Type_FLIGHT_NUMBER:
+        return data_util::IsValidFlightNumberFormat(value);
+    }
+    return false;
+  }());
 }
 
 AutofillFormatString::AutofillFormatString(const AutofillFormatString&) =
@@ -619,9 +629,7 @@ AutofillType AutofillField::MakeAutofillType(FieldType primary_field_type,
   // Indicates whether `ft` may be part of the union type.
   auto is_union_type_candidate = [](FieldType ft) {
     return GroupTypeOfFieldType(ft) == FieldTypeGroup::kAutofillAi &&
-           base::FeatureList::IsEnabled(features::kAutofillAiWithDataSchema) &&
-           base::FeatureList::IsEnabled(
-               features::kAutofillUnionTypesForAutofillAi);
+           base::FeatureList::IsEnabled(features::kAutofillAiWithDataSchema);
   };
 
   // Returns the union of

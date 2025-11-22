@@ -59,6 +59,7 @@ import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.UserActionTester;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.content.WebContentsFactory;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
@@ -86,6 +87,7 @@ import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.R
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.SearchType;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.PageClassification;
+import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.content_public.browser.WebContents;
@@ -93,7 +95,6 @@ import org.chromium.ui.base.PageTransition;
 import org.chromium.url.GURL;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 @RunWith(BaseRobolectricTestRunner.class)
@@ -101,9 +102,7 @@ import java.util.Set;
         manifest = Config.NONE,
         shadows = {
             SearchActivityUnitTest.ShadowSearchActivityUtils.class,
-            SearchActivityUnitTest.ShadowWebContentsFactory.class,
             SearchActivityUnitTest.ShadowProfileManager.class,
-            SearchActivityUnitTest.ShadowRevenueStats.class,
             SearchActivityUnitTest.ShadowTabBuilder.class,
         })
 @EnableFeatures({
@@ -138,17 +137,6 @@ public class SearchActivityUnitTest {
         }
     }
 
-    @Implements(WebContentsFactory.class)
-    public static class ShadowWebContentsFactory {
-        static WebContents sMockWebContents;
-
-        @Implementation
-        public static WebContents createWebContents(
-                Profile p, boolean initiallyHidden, boolean initRenderer) {
-            return sMockWebContents;
-        }
-    }
-
     @Implements(TabBuilder.class)
     public static class ShadowTabBuilder {
         static Tab sMockTab;
@@ -180,16 +168,6 @@ public class SearchActivityUnitTest {
         }
     }
 
-    @Implements(RevenueStats.class)
-    public static class ShadowRevenueStats {
-        static Callback<String> sSetCustomTabSearchClient;
-
-        @Implementation
-        public static void setCustomTabSearchClient(String client) {
-            sSetCustomTabSearchClient.onResult(client);
-        }
-    }
-
     public @Rule MockitoRule mMockitoRule = MockitoJUnit.rule();
     private @Mock TestSearchActivityUtils mUtils;
     private @Mock TemplateUrlService mTemplateUrlSvc;
@@ -200,7 +178,7 @@ public class SearchActivityUnitTest {
     private @Mock SearchActivity.SearchActivityDelegate mDelegate;
     private @Mock SearchActivityLocationBarLayout mLocationBar;
     private @Mock UmaActivityObserver mUmaObserver;
-    private @Mock Callback<String> mSetCustomTabSearchClient;
+    private @Mock Callback<@Nullable String> mSetCustomTabSearchClient;
     private @Mock LocationBarBackgroundDrawable mSearchBoxBackground;
     private ObservableSupplier<Profile> mProfileSupplier;
     private OneshotSupplier<ProfileProvider> mProfileProviderSupplier;
@@ -242,9 +220,9 @@ public class SearchActivityUnitTest {
         when(mLocationBar.getBackground()).thenReturn(mSearchBoxBackground);
 
         ShadowSearchActivityUtils.sMockUtils = mUtils;
-        ShadowWebContentsFactory.sMockWebContents = mWebContents;
+        WebContentsFactory.setWebContentsForTesting(mWebContents);
         ShadowTabBuilder.sMockTab = mTab;
-        ShadowRevenueStats.sSetCustomTabSearchClient = mSetCustomTabSearchClient;
+        RevenueStats.setCustomTabSearchClientHookForTesting(mSetCustomTabSearchClient);
     }
 
     @After
@@ -453,9 +431,11 @@ public class SearchActivityUnitTest {
         mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.HUB), false);
 
         assertEquals(
-                PageClassification.ANDROID_HUB_VALUE, mDataProvider.getPageClassification(true));
+                PageClassification.ANDROID_HUB_VALUE,
+                mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH_PREFETCH));
         assertEquals(
-                PageClassification.ANDROID_HUB_VALUE, mDataProvider.getPageClassification(false));
+                PageClassification.ANDROID_HUB_VALUE,
+                mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH));
         assertFalse(mActivity.getEmbedderUiOverridesForTesting().isLensEntrypointAllowed());
         assertFalse(mActivity.getEmbedderUiOverridesForTesting().isVoiceEntrypointAllowed());
 
@@ -520,8 +500,9 @@ public class SearchActivityUnitTest {
 
         mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.LAUNCHER), false);
 
-        assertEquals(123, mDataProvider.getPageClassification(true));
-        assertEquals(123, mDataProvider.getPageClassification(false));
+        assertEquals(
+                123, mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH_PREFETCH));
+        assertEquals(123, mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH));
         assertEquals(jumpStartUrl, mDataProvider.getCurrentGurl().getSpec());
     }
 
@@ -535,10 +516,10 @@ public class SearchActivityUnitTest {
 
         assertEquals(
                 PageClassification.ANDROID_SEARCH_WIDGET_VALUE,
-                mDataProvider.getPageClassification(true));
+                mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH_PREFETCH));
         assertEquals(
                 PageClassification.ANDROID_SEARCH_WIDGET_VALUE,
-                mDataProvider.getPageClassification(false));
+                mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH));
         assertFalse(mActivity.getEmbedderUiOverridesForTesting().isLensEntrypointAllowed());
         assertTrue(mActivity.getEmbedderUiOverridesForTesting().isVoiceEntrypointAllowed());
     }
@@ -555,10 +536,10 @@ public class SearchActivityUnitTest {
 
         assertEquals(
                 PageClassification.ANDROID_SHORTCUTS_WIDGET_VALUE,
-                mDataProvider.getPageClassification(true));
+                mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH_PREFETCH));
         assertEquals(
                 PageClassification.ANDROID_SHORTCUTS_WIDGET_VALUE,
-                mDataProvider.getPageClassification(false));
+                mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH));
         assertTrue(mActivity.getEmbedderUiOverridesForTesting().isLensEntrypointAllowed());
         assertTrue(mActivity.getEmbedderUiOverridesForTesting().isVoiceEntrypointAllowed());
     }
@@ -572,9 +553,11 @@ public class SearchActivityUnitTest {
         }
 
         assertEquals(
-                PageClassification.OTHER_ON_CCT_VALUE, mDataProvider.getPageClassification(true));
+                PageClassification.OTHER_ON_CCT_VALUE,
+                mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH_PREFETCH));
         assertEquals(
-                PageClassification.OTHER_ON_CCT_VALUE, mDataProvider.getPageClassification(false));
+                PageClassification.OTHER_ON_CCT_VALUE,
+                mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH));
         assertFalse(mActivity.getEmbedderUiOverridesForTesting().isLensEntrypointAllowed());
         assertFalse(mActivity.getEmbedderUiOverridesForTesting().isVoiceEntrypointAllowed());
 
@@ -627,14 +610,14 @@ public class SearchActivityUnitTest {
         var searchTypes =
                 Map.of(
                         SearchType.TEXT,
-                        Optional.of(SearchActivity.USED_TEXT_FROM_SHORTCUTS_WIDGET),
+                        SearchActivity.USED_TEXT_FROM_SHORTCUTS_WIDGET,
                         SearchType.VOICE,
-                        Optional.of(SearchActivity.USED_VOICE_FROM_SHORTCUTS_WIDGET),
+                        SearchActivity.USED_VOICE_FROM_SHORTCUTS_WIDGET,
                         SearchType.LENS,
-                        Optional.of(SearchActivity.USED_LENS_FROM_SHORTCUTS_WIDGET),
+                        SearchActivity.USED_LENS_FROM_SHORTCUTS_WIDGET,
                         // Invalid search type.
                         ~0,
-                        Optional.empty());
+                        "");
 
         for (var searchType : searchTypes.entrySet()) {
             var tester = new UserActionTester();
@@ -647,7 +630,7 @@ public class SearchActivityUnitTest {
                 assertEquals(0, actions.size());
             } else {
                 assertEquals(1, actions.size());
-                assertEquals(value.get(), actions.get(0));
+                assertEquals(value, actions.get(0));
             }
 
             tester.tearDown();
@@ -685,7 +668,7 @@ public class SearchActivityUnitTest {
 
         assertEquals(
                 PageClassification.ANDROID_SEARCH_WIDGET_VALUE,
-                mDataProvider.getPageClassification(false));
+                mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH));
         verifyNoMoreInteractions(mTemplateUrlSvc);
     }
 
@@ -697,7 +680,7 @@ public class SearchActivityUnitTest {
 
         assertEquals(
                 PageClassification.ANDROID_SHORTCUTS_WIDGET_VALUE,
-                mDataProvider.getPageClassification(false));
+                mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH));
         verifyNoMoreInteractions(mTemplateUrlSvc);
     }
 
@@ -713,10 +696,10 @@ public class SearchActivityUnitTest {
             mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.CUSTOM_TAB), false);
             assertEquals(
                     PageClassification.SEARCH_RESULT_PAGE_ON_CCT_VALUE,
-                    mDataProvider.getPageClassification(false));
+                    mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH));
             assertEquals(
                     PageClassification.SEARCH_RESULT_PAGE_ON_CCT_VALUE,
-                    mDataProvider.getPageClassification(true));
+                    mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH_PREFETCH));
         }
 
         {
@@ -727,10 +710,10 @@ public class SearchActivityUnitTest {
             mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.CUSTOM_TAB), false);
             assertEquals(
                     PageClassification.OTHER_ON_CCT_VALUE,
-                    mDataProvider.getPageClassification(false));
+                    mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH));
             assertEquals(
                     PageClassification.OTHER_ON_CCT_VALUE,
-                    mDataProvider.getPageClassification(true));
+                    mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH_PREFETCH));
         }
     }
 
@@ -744,7 +727,8 @@ public class SearchActivityUnitTest {
                 false);
 
         assertEquals(
-                PageClassification.OTHER_ON_CCT_VALUE, mDataProvider.getPageClassification(false));
+                PageClassification.OTHER_ON_CCT_VALUE,
+                mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH));
         verifyNoMoreInteractions(mTemplateUrlSvc);
     }
 
@@ -758,7 +742,8 @@ public class SearchActivityUnitTest {
                 false);
 
         assertEquals(
-                PageClassification.OTHER_ON_CCT_VALUE, mDataProvider.getPageClassification(false));
+                PageClassification.OTHER_ON_CCT_VALUE,
+                mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH));
         verifyNoMoreInteractions(mTemplateUrlSvc);
     }
 
@@ -772,7 +757,8 @@ public class SearchActivityUnitTest {
                 false);
 
         assertEquals(
-                PageClassification.OTHER_ON_CCT_VALUE, mDataProvider.getPageClassification(false));
+                PageClassification.OTHER_ON_CCT_VALUE,
+                mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH));
         verifyNoMoreInteractions(mTemplateUrlSvc);
     }
 
@@ -783,7 +769,8 @@ public class SearchActivityUnitTest {
         mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.CUSTOM_TAB), false);
 
         assertEquals(
-                PageClassification.OTHER_ON_CCT_VALUE, mDataProvider.getPageClassification(false));
+                PageClassification.OTHER_ON_CCT_VALUE,
+                mDataProvider.getPageClassification(AutocompleteRequestType.SEARCH));
     }
 
     @Test

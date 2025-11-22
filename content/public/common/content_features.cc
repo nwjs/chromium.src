@@ -32,12 +32,23 @@ BASE_FEATURE(kAdditionalOpaqueOriginEnforcements,
 // IME sends composition texts.
 BASE_FEATURE(kAndroidCaptureKeyEvents, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables the caret browsing a11y feature - can use arrow keys to navigate
+// through web pages.
+BASE_FEATURE(kAndroidCaretBrowsing, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // DevTools frontend for Android.
 BASE_FEATURE(kAndroidDevToolsFrontend, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables media to continue playing in the background.
+BASE_FEATURE(kAndroidEnableBackgroundMediaLargeFormFactors,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Fallback to next named service slot if launching a privileged service process
 // hangs. In practice, this means if GPU launch hanges, then retry it once.
 BASE_FEATURE(kAndroidFallbackToNextSlot, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables IMEs to insert media content such as images, gifs and stickers.
+BASE_FEATURE(kAndroidMediaInsertion, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Warm up a spare renderer after each navigation on Android.
 BASE_FEATURE(kAndroidWarmUpSpareRendererWithTimeout,
@@ -229,7 +240,7 @@ const char kCookieDeprecationTestingDisableAdsAPIsName[] = "disable_ads_apis";
 // Kill switch for Cookie Deprecation labels, also gated on
 // kCookieDeprecationFacilitatedTesting.
 BASE_FEATURE(kCookieDeprecationFacilitatedTestingLabels,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Adiitional FeatureParams for CookieDeprecationFacilitatedTesting are defined
 // in chrome/browser/tpcd/experiment/tpcd_experiment_features.cc.
@@ -364,7 +375,7 @@ BASE_FEATURE(kDisablePartialStorageCleanupForGPUDiskCache,
 BASE_FEATURE(kDrawCutoutEdgeToEdge, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable establishing the GPU channel early in renderer startup.
-BASE_FEATURE(kEarlyEstablishGpuChannel, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kEarlyEstablishGpuChannel, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables canvas 2d methods BeginLayer and EndLayer.
 BASE_FEATURE(kEnableCanvas2DLayers, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -393,6 +404,10 @@ BASE_FEATURE(kEnsureExistingRendererAlive, base::FEATURE_DISABLED_BY_DEFAULT);
 // We enable it here by default to support use in origin trials.
 BASE_FEATURE(kFedCm, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Kill switch for checking if there is an ongoing embedder task in the auto
+// re-authn flow.
+BASE_FEATURE(kFedCmEmbedderCheck, base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Support usernames and phone numbers to identify users, instead of
 // (or in addition to) names and emails.
 BASE_FEATURE(kFedCmAlternativeIdentifiers, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -404,28 +419,36 @@ BASE_FEATURE(kFedCmAutofill, base::FEATURE_DISABLED_BY_DEFAULT);
 // Enables usage of the FedCM Delegation API.
 BASE_FEATURE(kFedCmDelegation, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables the spec-compliant 'error' attribute in IdentityCredentialError while
+// deprecating the legacy 'code' attribute.
+BASE_FEATURE(kFedCmErrorAttribute, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables usage of the FedCM IdP Registration API.
-BASE_FEATURE(kFedCmIdPRegistration,
-             "FedCmIdPregistration",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kFedCmIdPRegistration, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // For cross-site iframes, sends the top-level origin to the IDP and parses
 // an optional returned boolean indicating whether it is part of the same
 // client to allow for UI decisions based on the boolean.
 BASE_FEATURE(kFedCmIframeOrigin, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables Lightweight FedCM Mode
+BASE_FEATURE(kFedCmLightweightMode, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables usage of the FedCM API with metrics endpoint at the same time.
 BASE_FEATURE(kFedCmMetricsEndpoint, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables Nonce usage in Params
+BASE_FEATURE(kFedCmNonceInParams, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Controls whether FedCM requires explicit endpoint declaration in well-known
+// files when client_metadata is used. When enabled, accounts_endpoint and
+// login_url must be present in .well-known/web-identity for privacy validation.
+BASE_FEATURE(kFedCmWellKnownEndpointValidation,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables bypassing the well-known file enforcement.
 BASE_FEATURE(kFedCmWithoutWellKnownEnforcement,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables Lightweight FedCM Mode
-BASE_FEATURE(kFedCmLightweightMode, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables Nonce usage in Params
-BASE_FEATURE(kFedCmNonceInParams, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables browser-side focus verification when crossing fenced boundaries.
 BASE_FEATURE(kFencedFramesEnforceFocus, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -453,7 +476,7 @@ BASE_FEATURE(kWebIdentityDigitalCredentials, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the Digital Credentials Creation API.
 BASE_FEATURE(kWebIdentityDigitalCredentialsCreation,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables scrollers inside Blink to store scroll offsets in fractional
 // floating-point numbers rather than truncating to integers.
@@ -481,6 +504,18 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    &kIgnoreDuplicateNavs,
                    "duplicate_nav_threshold",
                    base::Milliseconds(2000));
+BASE_FEATURE_PARAM(bool,
+                   kSkipIgnoreRendererInitiatedNavs,
+                   &kIgnoreDuplicateNavs,
+                   "skip_ignore_renderer_initiated_navs",
+                   false);
+// Comma-separated list of origins for which we ignore duplicate navigations.
+// An empty list means all origins are affected.
+BASE_FEATURE_PARAM(std::string,
+                   kIgnoreDuplicateNavsOrigins,
+                   &kIgnoreDuplicateNavs,
+                   "ignore_duplicate_navs_origins",
+                   "");
 
 // Kill switch for the GetInstalledRelatedApps API.
 BASE_FEATURE(kInstalledApp, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -535,9 +570,6 @@ BASE_FEATURE(kIsolateFencedFrames, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIsolateOrigins, base::FEATURE_DISABLED_BY_DEFAULT);
 const char kIsolateOriginsFieldTrialParamName[] = "OriginsList";
 
-// Enable lazy initialization of the media controls.
-BASE_FEATURE(kLazyInitializeMediaControls, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // If this is enabled, LoadingPredictor restricts the number of preconnects for
 // the same destination to one.
 BASE_FEATURE(kLoadingPredictorLimitPreconnectSocketCount,
@@ -569,17 +601,16 @@ const base::FeatureParam<MBIMode>::Option mbi_mode_types[] = {
     {MBIMode::kLegacy, "legacy"},
     {MBIMode::kEnabledPerRenderProcessHost, "per_render_process_host"},
     {MBIMode::kEnabledPerSiteInstance, "per_site_instance"}};
-const base::FeatureParam<MBIMode> kMBIModeParam {
-  &kMBIMode, "mode",
+const base::FeatureParam<MBIMode> kMBIModeParam{
+    &kMBIMode, "mode",
 #if BUILDFLAG(MBI_MODE_PER_RENDER_PROCESS_HOST)
-      MBIMode::kEnabledPerRenderProcessHost,
+    MBIMode::kEnabledPerRenderProcessHost,
 #elif BUILDFLAG(MBI_MODE_PER_SITE_INSTANCE)
-      MBIMode::kEnabledPerSiteInstance,
+    MBIMode::kEnabledPerSiteInstance,
 #else
       MBIMode::kLegacy,
 #endif
-      &mbi_mode_types
-};
+    &mbi_mode_types};
 
 // Controls the configurablity of the navigation confidence noise level.
 // If the feature is not enabled, then the epsilon value will be 1.1.
@@ -677,8 +708,6 @@ BASE_FEATURE(kPrivacySandboxAdsAPIsOverride, base::FEATURE_DISABLED_BY_DEFAULT);
 // depend on the state of other Private Network Access feature flags:
 //
 //  - `kBlockInsecurePrivateNetworkRequests`
-//  - `kPrivateNetworkAccessSendPreflights`
-//  - `kPrivateNetworkAccessRespectPreflightResults`
 //
 BASE_FEATURE(kPrivateNetworkAccessForWorkers, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -698,8 +727,6 @@ BASE_FEATURE(kPrivateNetworkAccessForWorkersWarningOnly,
 // The exact checks run are the same as for document subresources, and depend on
 // the state of other Private Network Access feature flags:
 //  - `kBlockInsecurePrivateNetworkRequests`
-//  - `kPrivateNetworkAccessSendPreflights`
-//  - `kPrivateNetworkAccessRespectPreflightResults`
 BASE_FEATURE(kPrivateNetworkAccessForNavigations,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -711,17 +738,6 @@ BASE_FEATURE(kPrivateNetworkAccessForNavigations,
 // preflight requests for navigations are not required to succeed. If
 // one fails, a warning is simply displayed in DevTools.
 BASE_FEATURE(kPrivateNetworkAccessForNavigationsWarningOnly,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Requires that CORS preflight requests succeed before sending private network
-// requests. This flag implies `kPrivateNetworkAccessSendPreflights`.
-// See: https://wicg.github.io/private-network-access/#cors-preflight
-BASE_FEATURE(kPrivateNetworkAccessRespectPreflightResults,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables sending CORS preflight requests ahead of private network requests.
-// See: https://wicg.github.io/private-network-access/#cors-preflight
-BASE_FEATURE(kPrivateNetworkAccessSendPreflights,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, ProcessSelectionDeferringConditions will be run. This allows
@@ -805,9 +821,6 @@ BASE_FEATURE(kSetHistoryInfoOnViewCreation, base::FEATURE_ENABLED_BY_DEFAULT);
 // The target priority of a spare renderer in Android is decided by the feature
 // parameters in ContentFeatureList.java.
 BASE_FEATURE(kSpareRendererProcessPriority, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Reuse compositor instances with RenderDocument
-BASE_FEATURE(kRenderDocumentCompositorReuse, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, set a soft limit on the number of renderer processes on
 // Android, after which Chrome will reuse existing processes when possible.
@@ -1267,6 +1280,10 @@ BASE_FEATURE(kAccessibilityUnifiedSnapshots, base::FEATURE_DISABLED_BY_DEFAULT);
 // background thread.
 BASE_FEATURE(kAccessibilityManageBroadcastReceiverOnBackground,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables the ability to specify a platform-specific zoom scaling that will
+// apply transparently to all pages.
+BASE_FEATURE(kAndroidDesktopZoomScaling, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable open PDF inline on Android.
 BASE_FEATURE(kAndroidOpenPdfInline, base::FEATURE_ENABLED_BY_DEFAULT);

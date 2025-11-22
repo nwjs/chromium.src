@@ -123,7 +123,6 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
     @Mock private ModalDialogManager mModalDialogManager;
     @Mock private TabSwitcherResetHandler mResetHandler;
     @Mock private Callback<Integer> mOnTabClickedCallback;
-    @Mock private Callback<Boolean> mHairlineVisibilityCallback;
     @Mock private Callback<View> mSetOverlayViewCallback;
     @Mock private BottomSheetController mBottomSheetController;
     @Mock private DataSharingTabManager mDataSharingTabManager;
@@ -138,6 +137,7 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
     @Mock private BookmarkModel mBookmarkModel;
     @Mock private UndoBarThrottle mUndoBarThrottle;
     @Mock private Supplier<PaneManager> mPaneManagerSupplier;
+    @Mock private ObservableSupplierImpl<Boolean> mHubSearchBoxVisibilitySupplier;
     @Mock private Supplier<TabGroupUiActionHandler> mTabGroupUiActionHandlerSupplier;
     @Mock private Supplier<LayoutStateProvider> mLayoutStateProviderSupplier;
 
@@ -231,11 +231,11 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
                         mIsVisibleSupplier,
                         mIsAnimatingSupplier,
                         mOnTabClickedCallback,
-                        mHairlineVisibilityCallback,
                         /* isIncognito= */ false,
                         /* onTabGroupCreation= */ null,
                         mEdgeToEdgeSupplier,
-                        mSetOverlayViewCallback);
+                        mSetOverlayViewCallback,
+                        mHubSearchBoxVisibilitySupplier);
         assertNotNull(coordinator);
 
         TabSwitcherMessageManager messageManager = mFactory.getMessageManagerForTesting();
@@ -257,11 +257,11 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
                         mIsVisibleSupplier,
                         mIsAnimatingSupplier,
                         mOnTabClickedCallback,
-                        mHairlineVisibilityCallback,
                         /* isIncognito= */ false,
                         /* onTabGroupCreation= */ null,
                         mEdgeToEdgeSupplier,
-                        mSetOverlayViewCallback);
+                        mSetOverlayViewCallback,
+                        mHubSearchBoxVisibilitySupplier);
         assertNotNull(coordinator1);
 
         TabSwitcherMessageManager messageManager = mFactory.getMessageManagerForTesting();
@@ -275,11 +275,11 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
                         mIsVisibleSupplier,
                         mIsAnimatingSupplier,
                         mOnTabClickedCallback,
-                        mHairlineVisibilityCallback,
                         /* isIncognito= */ false,
                         /* onTabGroupCreation= */ null,
                         mEdgeToEdgeSupplier,
-                        mSetOverlayViewCallback);
+                        mSetOverlayViewCallback,
+                        mHubSearchBoxVisibilitySupplier);
         assertNotNull(coordinator2);
         assertEquals(messageManager, mFactory.getMessageManagerForTesting());
 
@@ -300,11 +300,11 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
                         mIsVisibleSupplier,
                         mIsAnimatingSupplier,
                         mOnTabClickedCallback,
-                        mHairlineVisibilityCallback,
                         /* isIncognito= */ false,
                         /* onTabGroupCreation= */ null,
                         mEdgeToEdgeSupplier,
-                        mSetOverlayViewCallback);
+                        mSetOverlayViewCallback,
+                        mHubSearchBoxVisibilitySupplier);
         assertNotNull(coordinator);
 
         TabSwitcherMessageManager messageManager = mFactory.getMessageManagerForTesting();

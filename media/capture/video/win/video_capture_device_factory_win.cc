@@ -58,6 +58,7 @@
 #include "media/capture/video/win/metrics.h"
 #include "media/capture/video/win/video_capture_device_mf_win.h"
 #include "media/capture/video/win/video_capture_device_win.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 
 using DevicesInfo = std::vector<media::VideoCaptureDeviceInfo>;
 using base::win::GetActivationFactory;
@@ -380,7 +381,7 @@ class VideoCaptureDeviceFactoryWin::ComThreadData
   friend class base::RefCountedThreadSafe<ComThreadData>;
   ~ComThreadData() = default;
 
-  std::unordered_set<
+  absl::flat_hash_set<
       raw_ptr<IAsyncOperation<DeviceInformationCollection*>, CtnExperimental>>
       async_ops_;
   base::WeakPtr<VideoCaptureDeviceFactoryWin> device_factory_;
@@ -511,9 +512,9 @@ class VideoCaptureDeviceFactoryWin::UsageReportHandler
   void UpdateDevicesInfoAvailability(
       std::vector<VideoCaptureDeviceInfo>* devices_info) {
     base::AutoLock lock(cache_lock_);
-    std::set<std::string> device_ids;
+    std::set<std::string_view> device_ids;
     for (auto& info : *devices_info) {
-      device_ids.insert(info.descriptor.device_id);
+      device_ids.emplace(info.descriptor.device_id);
       auto it = availability_cache_.find(info.descriptor.device_id);
       if (it != availability_cache_.end()) {
         info.descriptor.availability = it->second;

@@ -1,5 +1,3 @@
-import("//build/config/features.gni")
-
 static_library("page_info") {
   sources = [
     "page_info.cc",
@@ -26,6 +24,7 @@ static_library("page_info") {
     "//components/privacy_sandbox",
     "//components/safe_browsing:buildflags",
     "//components/safe_browsing/content/browser/password_protection",
+    "//components/safe_browsing/core/browser:safe_browsing_metrics_collector",
     "//components/safe_browsing/core/browser/password_protection:password_protection_metrics_util",
     "//components/safe_browsing/core/common",
     "//components/safe_browsing/core/common/proto:csd_proto",

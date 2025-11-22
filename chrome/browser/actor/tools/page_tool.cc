@@ -12,11 +12,13 @@
 #include "chrome/browser/actor/aggregated_journal.h"
 #include "chrome/browser/actor/execution_engine.h"
 #include "chrome/browser/actor/tools/observation_delay_controller.h"
+#include "chrome/browser/actor/tools/page_target_util.h"
 #include "chrome/browser/actor/tools/page_tool_request.h"
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/actor/journal_details_builder.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/content/browser/page_content_proto_util.h"
@@ -31,6 +33,7 @@
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
+#include "ui/display/screen.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/point_conversions.h"
 
@@ -49,116 +52,6 @@ using ::tabs::TabInterface;
 
 namespace {
 
-// Finds the local root of a given RenderFrameHost. The local root is the
-// highest ancestor in the frame tree that shares the same RenderWidgetHost.
-RenderFrameHost* GetLocalRoot(RenderFrameHost* rfh) {
-  RenderFrameHost* local_root = rfh;
-  while (local_root && local_root->GetParent()) {
-    if (local_root->GetRenderWidgetHost() !=
-        local_root->GetParent()->GetRenderWidgetHost()) {
-      break;
-    }
-    local_root = local_root->GetParent();
-  }
-  return local_root;
-}
-
-RenderFrameHost* GetRenderFrameForDocumentIdentifier(
-    content::WebContents& web_contents,
-    std::string_view target_document_token) {
-  RenderFrameHost* render_frame = nullptr;
-  web_contents.ForEachRenderFrameHostWithAction([&target_document_token,
-                                                 &render_frame](
-                                                    RenderFrameHost* rfh) {
-    // Skip inactive frame and its children.
-    if (!rfh->IsActive()) {
-      return RenderFrameHost::FrameIterationAction::kSkipChildren;
-    }
-    auto* user_data = DocumentIdentifierUserData::GetForCurrentDocument(rfh);
-    if (user_data && user_data->serialized_token() == target_document_token) {
-      render_frame = rfh;
-      return RenderFrameHost::FrameIterationAction::kStop;
-    }
-    return RenderFrameHost::FrameIterationAction::kContinue;
-  });
-  return render_frame;
-}
-
-RenderFrameHost* GetRootFrameForWidget(content::WebContents& web_contents,
-                                       RenderWidgetHost* rwh) {
-  RenderFrameHost* root_frame = nullptr;
-  web_contents.ForEachRenderFrameHostWithAction([rwh, &root_frame](
-                                                    RenderFrameHost* rfh) {
-    if (!rfh->IsActive()) {
-      return RenderFrameHost::FrameIterationAction::kSkipChildren;
-    }
-    // A frame is a local root if it has no parent or if its parent belongs
-    // to a different widget. We are looking for the local root frame
-    // associated with the target widget.
-    if (rfh->GetRenderWidgetHost() == rwh &&
-        (!rfh->GetParent() || rfh->GetParent()->GetRenderWidgetHost() != rwh)) {
-      root_frame = rfh;
-      return RenderFrameHost::FrameIterationAction::kStop;
-    }
-    return RenderFrameHost::FrameIterationAction::kContinue;
-  });
-  return root_frame;
-}
-
-RenderFrameHost* FindTargetLocalRootFrame(TabHandle tab_handle,
-                                          PageTarget target) {
-  TabInterface* tab = tab_handle.Get();
-  if (!tab) {
-    return nullptr;
-  }
-
-  WebContents& contents = *tab->GetContents();
-
-  if (std::holds_alternative<gfx::Point>(target)) {
-    RenderWidgetHost* target_rwh =
-        contents.FindWidgetAtPoint(gfx::PointF(std::get<gfx::Point>(target)));
-    if (!target_rwh) {
-      return nullptr;
-    }
-    return GetRootFrameForWidget(contents, target_rwh);
-  }
-
-  CHECK(std::holds_alternative<DomNode>(target));
-
-  RenderFrameHost* target_frame = GetRenderFrameForDocumentIdentifier(
-      *tab->GetContents(), std::get<DomNode>(target).document_identifier);
-
-  // After finding the target frame, walk up to its local root.
-  return GetLocalRoot(target_frame);
-}
-
-// Return TargetNodeInfo from hit test against last observed APC. Returns
-// std::nullopt if Target does not hit any node.
-std::optional<TargetNodeInfo> FindLastObservedNodeForActionTarget(
-    const AnnotatedPageContent* apc,
-    const PageTarget& target) {
-  if (!apc) {
-    return std::nullopt;
-  }
-  // TODO(rodneyding): Refactor FindNode* API to include optional target frame
-  // document identifier to reduce search space.
-  if (std::holds_alternative<gfx::Point>(target)) {
-    return optimization_guide::FindNodeAtPoint(*apc,
-                                               std::get<gfx::Point>(target));
-  }
-  CHECK(std::holds_alternative<DomNode>(target));
-  std::optional<TargetNodeInfo> result = optimization_guide::FindNodeWithID(
-      *apc, std::get<DomNode>(target).document_identifier,
-      std::get<DomNode>(target).node_id);
-  // If such a node isn't found or the node is found under a different
-  // document it's an error.
-  if (!result || result->document_identifier.serialized_token() !=
-                     std::get<DomNode>(target).document_identifier) {
-    return std::nullopt;
-  }
-  return result;
-}
-
 // Perform validation based on APC hit test for coordinate based target to
 // compare the candidate frame with the target frame identified in last
 // observation.
@@ -174,8 +67,10 @@ bool ValidateTargetFrameCandidate(
     return false;
   }
 
-  RenderFrameHost* apc_target_frame = GetRenderFrameForDocumentIdentifier(
-      web_contents, target_node_info->document_identifier.serialized_token());
+  RenderFrameHost* apc_target_frame =
+      optimization_guide::GetRenderFrameForDocumentIdentifier(
+          web_contents,
+          target_node_info->document_identifier.serialized_token());
 
   // Only return the candidate if its RenderWidgetHost matches the target
   // and it's also a local root frame(i.e. has no parent or parent has
@@ -295,8 +190,7 @@ mojom::ActionResultPtr PageTool::TimeOfUseValidation(
   }
 
   journal().Log(
-      JournalURL(), task_id(), mojom::JournalTrack::kActor,
-      "TimeOfUseValidation",
+      JournalURL(), task_id(), "TimeOfUseValidation",
       JournalDetailsBuilder().Add("tab_handle", tab->GetHandle()).Build());
 
   RenderFrameHost* frame =
@@ -313,16 +207,37 @@ mojom::ActionResultPtr PageTool::TimeOfUseValidation(
     }
   }
 
-  // TODO(crbug.com/426021822): FindNodeAtPoint does not handle corner cases
-  // like clip paths. Need more checks to ensure we don't drop actions
-  // unnecessarily.
-  std::optional<TargetNodeInfo> observed_target_node_info =
-      FindLastObservedNodeForActionTarget(last_observation,
-                                          request_->GetTarget());
+  std::optional<TargetNodeInfo> observed_target_node_info;
+  if (std::holds_alternative<gfx::Point>(request_->GetTarget())) {
+    gfx::Point hit_test_target;
+    if (base::FeatureList::IsEnabled(
+            features::kGlicActorTransformCoordinates)) {
+      // Convert target coordinate from DIPs to screen pixels.
+      display::Screen* screen = display::Screen::Get();
+      float scale_factor =
+          screen
+              ->GetPreferredScaleFactorForWindow(
+                  tab->GetContents()->GetTopLevelNativeWindow())
+              .value();
+      hit_test_target = gfx::ScaleToRoundedPoint(
+          std::get<gfx::Point>(request_->GetTarget()), scale_factor);
+    } else {
+      hit_test_target = std::get<gfx::Point>(request_->GetTarget());
+    }
+
+    // TODO(crbug.com/426021822): FindNodeAtPoint does not handle corner cases
+    // like clip paths. Need more checks to ensure we don't drop actions
+    // unnecessarily.
+    observed_target_node_info = FindLastObservedNodeForActionTargetPoint(
+        last_observation, hit_test_target);
+  } else {
+    CHECK(std::holds_alternative<DomNode>(request_->GetTarget()));
+    observed_target_node_info = FindLastObservedNodeForActionTargetId(
+        last_observation, std::get<DomNode>(request_->GetTarget()));
+  }
 
   if (!observed_target_node_info) {
-    journal().Log(JournalURL(), task_id(), mojom::JournalTrack::kActor,
-                  "TimeOfUseValidation",
+    journal().Log(JournalURL(), task_id(), "TimeOfUseValidation",
                   JournalDetailsBuilder()
                       .Add("details", "No observed target found in APC.")
                       .Build());
@@ -379,10 +294,6 @@ void PageTool::Invoke(InvokeCallback callback) {
   // ToolRequest params are checked for validity at creation.
   CHECK(invocation->action);
 
-  // Ensure the renderer believes it has focus. This ensures a realistic state
-  // needed for e.g. firing 'focus' events.
-  frame.GetRenderWidgetHost()->Focus();
-
   frame.GetRemoteAssociatedInterfaces()->GetInterface(&chrome_render_frame_);
 
   // Watch for the RenderFrameHost being swapped out by a navigation (e.g. after
@@ -406,8 +317,11 @@ void PageTool::Invoke(InvokeCallback callback) {
       frame,
       base::BindOnce(&PageTool::OnRenderFrameHostChanged,
                      base::Unretained(this)),
-      base::BindOnce(&PageTool::OnRenderFrameGone,
-                     base::Unretained(this)));
+      base::BindOnce(&PageTool::OnRenderFrameGone, base::Unretained(this)));
+
+  timeout_timer_.Start(
+      FROM_HERE, features::kGlicActorPageToolTimeout.Get(),
+      base::BindOnce(&PageTool::OnTimeout, weak_ptr_factory_.GetWeakPtr()));
 
   chrome_render_frame_->InvokeTool(
       std::move(invocation),
@@ -435,8 +349,7 @@ std::string PageTool::JournalEvent() const {
 }
 
 std::unique_ptr<ObservationDelayController> PageTool::GetObservationDelayer(
-    std::optional<ObservationDelayController::PageStabilityConfig>
-        page_stability_config) const {
+    ObservationDelayController::PageStabilityConfig page_stability_config) {
   CHECK(has_completed_time_of_use_);
 
   RenderFrameHost* frame = GetFrame();
@@ -445,8 +358,8 @@ std::unique_ptr<ObservationDelayController> PageTool::GetObservationDelayer(
   // this method.
   CHECK(frame);
 
-  return std::make_unique<ObservationDelayController>(*frame, task_id(),
-                                                      page_stability_config);
+  return std::make_unique<ObservationDelayController>(
+      *frame, task_id(), journal(), page_stability_config);
 }
 
 void PageTool::UpdateTaskBeforeInvoke(ActorTask& task,
@@ -477,18 +390,16 @@ void PageTool::OnRenderFrameGone() {
   FinishInvoke(MakeResult(mojom::ActionResultCode::kFrameWentAway));
 }
 
+void PageTool::OnTimeout() {
+  FinishInvoke(MakeResult(mojom::ActionResultCode::kToolTimeout));
+}
+
 void PageTool::FinishInvoke(mojom::ActionResultPtr result) {
   if (!invoke_callback_) {
     return;
   }
 
-  // Blink state was set to focused as part of invocation. Reset Blink focus
-  // back to match the Views focus state.
-  if (GetFrame() && GetFrame()->GetRenderWidgetHost()->GetView() &&
-      !GetFrame()->GetRenderWidgetHost()->GetView()->HasFocus()) {
-    GetFrame()->GetRenderWidgetHost()->Blur();
-  }
-
+  timeout_timer_.Stop();
   frame_change_observer_.reset();
 
   std::move(invoke_callback_).Run(std::move(result));

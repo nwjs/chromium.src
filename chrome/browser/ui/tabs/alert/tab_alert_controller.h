@@ -23,6 +23,10 @@ enum class WebContentsCapabilityType;
 class WebContents;
 }  // namespace content
 
+namespace actor::ui {
+enum class TabIndicatorStatus;
+}  // namespace actor::ui
+
 namespace tabs {
 class TabInterface;
 
@@ -97,7 +101,8 @@ class TabAlertController : public tabs::ContentsObservingTabFeature,
   void OnGlicAccessingStateChange(bool is_accessing);
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
-  void OnActorTabIndicatorStateChanged(bool is_accessing);
+  void OnActorTabIndicatorStateChanged(
+      actor::ui::TabIndicatorStatus tab_indicator_state);
   void OnRecentlyAudibleStateChanged(bool was_audible);
 
   // Adds `alert` to the set of already active alerts for this tab if it isn't
@@ -130,6 +135,7 @@ class TabAlertController : public tabs::ContentsObservingTabFeature,
   // Subscriptions to be notified when an alert status has changed.
   base::CallbackListSubscription recently_audible_subscription_;
   std::vector<base::CallbackListSubscription> callback_subscriptions_;
+  base::ScopedClosureRunner actor_tab_indicator_callback_runner_;
 
   ui::ScopedUnownedUserData<TabAlertController> scoped_unowned_user_data_;
 };

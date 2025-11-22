@@ -22,6 +22,7 @@
 #include "ui/views/controls/label.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/window/caption_button_layout_constants.h"
+#include "ui/views/window/frame_buttons.h"
 #include "ui/views/window/frame_caption_button.h"
 
 namespace {
@@ -73,6 +74,20 @@ void OpaqueBrowserFrameViewLayout::SetButtonOrdering(
   trailing_buttons_ = trailing_buttons;
 }
 
+const views::Button* OpaqueBrowserFrameViewLayout::GetFrameButton(
+    views::FrameButton which) const {
+  switch (which) {
+    case views::FrameButton::kClose:
+      return close_button_;
+    case views::FrameButton::kMinimize:
+      return minimize_button_;
+    case views::FrameButton::kMaximize:
+      return delegate_->IsMaximized() || delegate_->IsMinimized()
+                 ? restore_button_
+                 : maximize_button_;
+  }
+}
+
 gfx::Rect OpaqueBrowserFrameViewLayout::GetBoundsForTabStripRegion(
     const gfx::Size& tabstrip_minimum_size,
     int total_width) const {
@@ -84,10 +99,6 @@ gfx::Rect OpaqueBrowserFrameViewLayout::GetBoundsForTabStripRegion(
 
 gfx::Rect OpaqueBrowserFrameViewLayout::GetBoundsForWebAppFrameToolbar(
     const gfx::Size& toolbar_preferred_size) const {
-  if (delegate_->IsFullscreen()) {
-    return gfx::Rect();
-  }
-
   // Adding 2px of vertical padding puts at least 1 px of space on the top and
   // bottom of the element.
   constexpr int kVerticalPadding = 2;

@@ -76,7 +76,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="Mobile.AppMenu.TimeToTakeAction.Abandoned" units="ms"
-    expires_after="2026-02-10">
+    expires_after="2026-04-12">
   <owner>gangwu@chromium.org</owner>
   <owner>twellington@chromium.org</owner>
   <summary>
@@ -91,7 +91,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Mobile.AppMenu.TimeToTakeAction.SelectedItem" units="ms"
-    expires_after="2026-02-10">
+    expires_after="2026-04-12">
   <owner>gangwu@chromium.org</owner>
   <owner>twellington@chromium.org</owner>
   <summary>
@@ -125,7 +125,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Mobile.ContextMenu.EntryPoints" enum="IOSMenuScenario"
-    expires_after="2026-01-31">
+    expires_after="2026-04-05">
   <owner>gambard@chromium.org</owner>
   <owner>bling-team@chromium.org</owner>
   <summary>
@@ -236,6 +236,8 @@ chromium-metrics-reviews@google.com.
     <variant name="TabGroupIndicatorEntry" summary="Tab Group Indicator Entry"/>
     <variant name="TabGroupIndicatorNTPEntry"
         summary="Tab Group Indicator on NTP Entry"/>
+    <variant name="TabGroupOverflowMenu"
+        summary="Tab Group button in the Overflow Menu"/>
     <variant name="TabGroupsPanelEntry" summary="Tab group panel entry"/>
     <variant name="TabGroupViewEntry"
         summary="Tab group view entry in tab grid"/>
@@ -799,38 +801,47 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Mobile.SystemNotification.Permission.OSPromptResult"
-    enum="BooleanEnabled" expires_after="2024-07-07">
+    enum="BooleanEnabled" expires_after="2026-10-26">
   <owner>salg@google.com</owner>
   <owner>shaktisahu@chromium.org</owner>
   <summary>
     Records the action taken by the user after being shown the OS prompt to
     grant notification permissions. Only recorded on Android T+.
+
+    Warning: This histogram was expired from M130 and re-enabled in M143; data
+    may be missing in between.
   </summary>
 </histogram>
 
 <histogram name="Mobile.SystemNotification.Permission.RationaleResult"
-    enum="NotificationRationaleResult" expires_after="2024-07-07">
+    enum="NotificationRationaleResult" expires_after="2026-10-26">
   <owner>salg@google.com</owner>
   <owner>shaktisahu@chromium.org</owner>
   <summary>
     Records the action taken by the user after being shown the notification
     rationale prompt. Only recorded on Android T+.
+
+    Warning: This histogram was expired from M130 and re-enabled in M143; data
+    may be missing in between.
   </summary>
 </histogram>
 
 <histogram name="Mobile.SystemNotification.Permission.StartupRequestCount"
-    units="attempts" expires_after="2024-07-07">
+    units="attempts" expires_after="2026-10-26">
   <owner>salg@google.com</owner>
   <owner>shaktisahu@chromium.org</owner>
   <summary>
     Records how many times we've shown the user any notification permission UI
     (either rationale and/or OS prompt) on startup. Recorded every time we are
     about to show any UI. Only recorded on Android T+.
+
+    Warning: This histogram was expired from M130 and re-enabled in M143; data
+    may be missing in between.
   </summary>
 </histogram>
 
 <histogram name="Mobile.SystemNotification.Permission.StartupState"
-    enum="NotificationPermissionState" expires_after="2023-12-31">
+    enum="NotificationPermissionState" expires_after="2026-12-31">
   <owner>salg@google.com</owner>
   <owner>shaktisahu@chromium.org</owner>
   <summary>
@@ -994,7 +1005,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="MobileFre.ChildAccountStatusDuration" units="ms"
-    expires_after="2023-11-12">
+    expires_after="2026-11-12">
   <owner>skym@chromium.org</owner>
   <owner>wenyufu@chromium.org</owner>
   <summary>
@@ -1069,9 +1080,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="MobileFre.SlowestLoadPoint" enum="LoadPoint"
-    expires_after="2025-03-01">
+    expires_after="2026-11-12">
   <owner>triploblastic@chromium.org</owner>
-  <owner>chrome-signin-team@google.org</owner>
+  <owner>chrome-signin-mobile-team@google.org</owner>
   <summary>
     Slowest loading point among native, policy and child account status in the
     signin mobile FRE. Not emitted for the light-weight FRE. Android chrome

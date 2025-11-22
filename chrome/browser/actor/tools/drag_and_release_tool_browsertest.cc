@@ -31,8 +31,7 @@ int GetRangeValue(content::RenderFrameHost& rfh, std::string_view query) {
       .ExtractInt();
 }
 
-class ActorDragAndReleaseToolBrowserTest
-    : public ActorToolsGeneralPageStabilityTest {
+class ActorDragAndReleaseToolBrowserTest : public ActorToolsTest {
  public:
   ActorDragAndReleaseToolBrowserTest() = default;
   ~ActorDragAndReleaseToolBrowserTest() override = default;
@@ -44,14 +43,8 @@ class ActorDragAndReleaseToolBrowserTest
   }
 };
 
-INSTANTIATE_TEST_SUITE_P(
-    ,
-    ActorDragAndReleaseToolBrowserTest,
-    testing::ValuesIn(kActorGeneralPageStabilityModeValues),
-    ActorToolsGeneralPageStabilityTest::DescribeParam);
-
 // Test the drag and release tool by moving the thumb on a range slider control.
-IN_PROC_BROWSER_TEST_P(ActorDragAndReleaseToolBrowserTest,
+IN_PROC_BROWSER_TEST_F(ActorDragAndReleaseToolBrowserTest,
                        DragAndReleaseTool_Range) {
   const GURL url = embedded_test_server()->GetURL("/actor/drag.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
@@ -78,7 +71,7 @@ IN_PROC_BROWSER_TEST_P(ActorDragAndReleaseToolBrowserTest,
 }
 
 // Ensure the drag tool sends the expected mouse down, move and up events.
-IN_PROC_BROWSER_TEST_P(ActorDragAndReleaseToolBrowserTest,
+IN_PROC_BROWSER_TEST_F(ActorDragAndReleaseToolBrowserTest,
                        DragAndReleaseTool_Events) {
   const GURL url = embedded_test_server()->GetURL("/actor/drag.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
@@ -107,14 +100,59 @@ IN_PROC_BROWSER_TEST_P(ActorDragAndReleaseToolBrowserTest,
   actor_task().Act(ToRequestList(action), result_success.GetCallback());
   ExpectOkResult(result_success);
 
-  EXPECT_EQ(base::StrCat({"mousemove[", start.ToString(), "],", "mousedown[",
-                          start.ToString(), "],", "mousemove[", end.ToString(),
-                          "],", "mouseup[", end.ToString(), "]"}),
-            EvalJs(web_contents(), "event_log.join(',')"));
+  EXPECT_THAT(
+      EvalJs(web_contents(), "event_log.join(',')").ExtractString(),
+      testing::AllOf(
+          testing::StartsWith(
+              base::StrCat({"mousemove[", start.ToString(), "],", "mousedown[",
+                            start.ToString(), "],"})),
+          testing::EndsWith(base::StrCat({"mousemove[", end.ToString(), "],",
+                                          "mouseup[", end.ToString(), "]"}))));
+}
+
+// Ensure the drag tool sends the expected pointer down, move and up events and
+// responds appropriately to setPointerCapture
+IN_PROC_BROWSER_TEST_F(ActorDragAndReleaseToolBrowserTest,
+                       DragAndReleaseTool_PointerEvents) {
+  const GURL url = embedded_test_server()->GetURL("/actor/drag.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  // Log starts off empty.
+  ASSERT_EQ("", EvalJs(web_contents(), "pointer_log.join(',')"));
+
+  gfx::RectF target_rect =
+      GetBoundingClientRect(*main_frame(), "#pointerLogger");
+
+  // Arbitrary pad to hit a few pixels inside the logger element.
+  const int kPadding = 10;
+  gfx::Vector2d delta(100, 150);
+  gfx::Point start(target_rect.x() + kPadding, target_rect.y() + kPadding);
+  gfx::Point end = start + delta;
+
+  std::unique_ptr<ToolRequest> action =
+      MakeDragAndReleaseRequest(*active_tab(), start, end);
+
+  ActResultFuture result_success;
+  actor_task().Act(ToRequestList(action), result_success.GetCallback());
+  ExpectOkResult(result_success);
+
+  EXPECT_THAT(EvalJs(web_contents(), "pointer_log.join(',')").ExtractString(),
+              testing::AllOf(testing::StartsWith(base::StrCat({
+                                 "pointermove[",
+                                 start.ToString(),
+                                 "]: 0,",
+                                 "pointerdown[",
+                                 start.ToString(),
+                                 "]: 1,",
+                                 "gotpointercapture[",
+                             })),
+                             testing::EndsWith(base::StrCat(
+                                 {"pointermove[", end.ToString(), "]: 1,",
+                                  "pointerup[", end.ToString(), "]: 0"}))));
 }
 
 // Ensure coordinates outside of the viewport are rejected.
-IN_PROC_BROWSER_TEST_P(ActorDragAndReleaseToolBrowserTest,
+IN_PROC_BROWSER_TEST_F(ActorDragAndReleaseToolBrowserTest,
                        DragAndReleaseTool_Offscreen) {
   const GURL url = embedded_test_server()->GetURL("/actor/drag.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
@@ -167,16 +205,8 @@ IN_PROC_BROWSER_TEST_P(ActorDragAndReleaseToolBrowserTest,
   EXPECT_EQ(50, GetRangeValue(*main_frame(), "#offscreenRange"));
 }
 
-// TODO(crbug.com/447000769): Flaky on Windows.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_DragAndReleaseTool_CrossOriginSubframe \
-  DISABLED_DragAndReleaseTool_CrossOriginSubframe
-#else
-#define MAYBE_DragAndReleaseTool_CrossOriginSubframe \
-  DragAndReleaseTool_CrossOriginSubframe
-#endif
-IN_PROC_BROWSER_TEST_P(ActorDragAndReleaseToolBrowserTest,
-                       MAYBE_DragAndReleaseTool_CrossOriginSubframe) {
+IN_PROC_BROWSER_TEST_F(ActorDragAndReleaseToolBrowserTest,
+                       DragAndReleaseTool_CrossOriginSubframe) {
   const GURL url = embedded_https_test_server().GetURL(
       "/actor/positioned_iframe_no_scroll.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
@@ -213,7 +243,13 @@ IN_PROC_BROWSER_TEST_P(ActorDragAndReleaseToolBrowserTest,
   actor_task().Act(ToRequestList(action), result_success.GetCallback());
   ExpectOkResult(result_success);
 
+#if BUILDFLAG(IS_WIN)
+  // TODO(crbug.com/447000769): Allow 1 pixel of slop - probably due to
+  // different display densities and the ToFlooredPoint above.
+  EXPECT_NEAR(50, GetRangeValue(*subframe, "#range"), 1);
+#else
   EXPECT_EQ(50, GetRangeValue(*subframe, "#range"));
+#endif
 }
 
 }  // namespace

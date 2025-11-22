@@ -8,6 +8,8 @@ import android.content.Context;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.os.Bundle;
 
+import androidx.preference.Preference;
+
 import org.chromium.base.ContextUtils;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.supplier.ObservableSupplier;
@@ -24,6 +26,7 @@ import org.chromium.chrome.browser.night_mode.settings.ThemeSettingsFragment;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceUtil;
 import org.chromium.chrome.browser.settings.ChromeBaseSettingsFragment;
+import org.chromium.chrome.browser.settings.ChromeManagedPreferenceDelegate;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarStatePredictor;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.browser_ui.settings.CustomDividerFragment;
@@ -106,10 +109,38 @@ public class AppearanceSettingsFragment extends ChromeBaseSettingsFragment
     // Private methods.
 
     private void initBookmarkBarPref() {
+        // isDeviceBookmarkBarCompatible already checks the flag sAndroidBookmarkBar.
         if (!BookmarkBarUtils.isDeviceBookmarkBarCompatible(getContext())) {
             removePreference(PREF_BOOKMARK_BAR);
             return;
         }
+
+        // Find the switch preference and attach our policy logic to it.
+        ChromeSwitchPreference bookmarkBarSwitch = findPreference(PREF_BOOKMARK_BAR);
+        assert bookmarkBarSwitch != null;
+        bookmarkBarSwitch.setManagedPreferenceDelegate(
+                new ChromeManagedPreferenceDelegate(getProfile()) {
+                    // If true, the helper methods in ManagedPreferencesUtils will disable the
+                    // switch and show the "managed by your organization"
+                    // text with the business icon.
+                    @Override
+                    public boolean isPreferenceControlledByPolicy(Preference preference) {
+                        return BookmarkBarUtils.isBookmarkBarManagedByPolicy(getProfile());
+                    }
+
+                    @Override
+                    public @Nullable Boolean isPreferenceRecommendation(Preference preference) {
+                        if (!BookmarkBarUtils.isBookmarkBarRecommended(getProfile())) {
+                            // No recommendation exists.
+                            return null;
+                        }
+
+                        // Return true if the user's setting matches the recommendation, which
+                        // shows the icon & text. Return false if it doesn't match, which hides
+                        // the icon & text.
+                        return BookmarkBarUtils.isFollowingBookmarkBarRecommendation(getProfile());
+                    }
+                });
 
         if (mUseProfileUserPrefs) {
             initBookmarkBarPrefForUserPrefs();
@@ -121,10 +152,21 @@ public class AppearanceSettingsFragment extends ChromeBaseSettingsFragment
     private void initBookmarkBarPrefForUserPrefs() {
         mPrefChangeRegistrar = PrefServiceUtil.createFor(getProfile());
         mPrefObserver =
-                new PrefObserver() {
-                    @Override
-                    public void onPreferenceChange() {
-                        updateBookmarkBarPref();
+                () -> {
+                    updateBookmarkBarPref();
+                    Preference bookmarkBarSwitch = findPreference(PREF_BOOKMARK_BAR);
+                    if (bookmarkBarSwitch != null) {
+                        // This is the trigger to showing/hiding the
+                        // "recommended" icon & text.
+                        // Flow: switch is toggled ->
+                        // OnPreferenceChangeListener fired ->
+                        // #setDevicePrefShowBookmarksBar ->
+                        // pref updated in pref service & shared pref ->
+                        // OnSharedPreferenceChangeListener fired ->
+                        // this #onPreferenceChange is called ->
+                        // ManagedPreferencesUtils#onBindViewPreference
+                        // -> methods in our setManagedPreferenceDelegate are called.
+                        bookmarkBarSwitch.setSummary(bookmarkBarSwitch.getSummary());
                     }
                 };
 
@@ -151,16 +193,26 @@ public class AppearanceSettingsFragment extends ChromeBaseSettingsFragment
                     if (key != null
                             && key.equals(BookmarkBarConstants.BOOKMARK_BAR_SHOW_BOOKMARK_BAR)) {
                         updateBookmarkBarPref();
+                        Preference bookmarkBarSwitch = findPreference(PREF_BOOKMARK_BAR);
+                        if (bookmarkBarSwitch != null) {
+                            // Forces a redraw, and methods in our setManagedPreferenceDelegate are
+                            // called.
+                            bookmarkBarSwitch.setSummary(bookmarkBarSwitch.getSummary());
+                        }
                     }
                 };
         ContextUtils.getAppSharedPreferences()
                 .registerOnSharedPreferenceChangeListener(mDevicePrefsListener);
 
+        // setOnPreferenceChangeListener is the listener for the preference widget itself. It fires
+        // immediately when the user taps the toggle.
         ((ChromeSwitchPreference) findPreference(PREF_BOOKMARK_BAR))
                 .setOnPreferenceChangeListener(
                         (pref, newValue) -> {
                             BookmarkBarUtils.setDevicePrefShowBookmarksBar(
-                                    (boolean) newValue, /* fromKeyboardShortcut= */ false);
+                                    getProfile(),
+                                    (boolean) newValue,
+                                    /* fromKeyboardShortcut= */ false);
                             return true;
                         });
     }
@@ -195,6 +247,7 @@ public class AppearanceSettingsFragment extends ChromeBaseSettingsFragment
     }
 
     private void updateBookmarkBarPref() {
+        // isDeviceBookmarkBarCompatible already checks the flag sAndroidBookmarkBar.
         if (!BookmarkBarUtils.isDeviceBookmarkBarCompatible(getContext())) {
             return;
         }
@@ -204,7 +257,7 @@ public class AppearanceSettingsFragment extends ChromeBaseSettingsFragment
                     .setChecked(BookmarkBarUtils.isUserPrefsShowBookmarksBarEnabled(getProfile()));
         } else {
             ((ChromeSwitchPreference) findPreference(PREF_BOOKMARK_BAR))
-                    .setChecked(BookmarkBarUtils.isDevicePrefShowBookmarksBarEnabled());
+                    .setChecked(BookmarkBarUtils.isDevicePrefShowBookmarksBarEnabled(getProfile()));
         }
     }
 

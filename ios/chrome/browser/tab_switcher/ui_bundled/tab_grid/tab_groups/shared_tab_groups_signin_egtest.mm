@@ -5,6 +5,7 @@
 #import <Foundation/Foundation.h>
 
 #import "base/feature_list.h"
+#import "base/ios/ios_util.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
 #import "components/collaboration/public/features.h"
@@ -344,9 +345,9 @@ AppLaunchConfiguration SharedTabGroupAppLaunchConfiguration(
   [ChromeEarlGrey loadURL:joinGroupURL waitForCompletion:NO];
 
   // Check that a sign in disabled alert is presented.
-  [[EarlGrey selectElementWithMatcher:grey_text(l10n_util::GetNSString(
-                                          IDS_COLLABORATION_SIGNED_OUT_HEADER))]
-      assertWithMatcher:grey_sufficientlyVisible()];
+  [ChromeEarlGrey waitForSufficientlyVisibleElementWithMatcher:
+                      grey_text(l10n_util::GetNSString(
+                          IDS_COLLABORATION_SIGNED_OUT_HEADER))];
   [[EarlGrey selectElementWithMatcher:grey_text(l10n_util::GetNSString(
                                           IDS_COLLABORATION_SIGNED_OUT_BODY))]
       assertWithMatcher:grey_sufficientlyVisible()];

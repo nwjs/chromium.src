@@ -84,6 +84,10 @@ TrackingProtectionSettings::TrackingProtectionSettings(
 #if !BUILDFLAG(IS_IOS)
   // It's possible enterprise status changed while profile was shut down.
   OnEnterpriseControlForPrefsChanged();
+  // Set Mode B pref to force rollback flow.
+  if (privacy_sandbox::kRollBackModeBForced.Get()) {
+    pref_service_->SetBoolean(prefs::kTrackingProtection3pcdEnabled, true);
+  }
 #endif
 }
 
@@ -102,7 +106,8 @@ void TrackingProtectionSettings::OnContentSettingChanged(
     const ContentSettingsPattern& secondary_pattern,
     ContentSettingsTypeSet content_type_set) {
   if (content_type_set.Contains(ContentSettingsType::TRACKING_PROTECTION)) {
-    OnTrackingProtectionExceptionsChanged();
+    OnTrackingProtectionExceptionsChanged(
+        secondary_pattern.ToRepresentativeUrl());
   }
 }
 
@@ -239,9 +244,10 @@ void TrackingProtectionSettings::OnTrackingProtection3pcdPrefChanged() {
   }
 }
 
-void TrackingProtectionSettings::OnTrackingProtectionExceptionsChanged() {
+void TrackingProtectionSettings::OnTrackingProtectionExceptionsChanged(
+    const GURL& first_party_url) {
   for (auto& observer : observers_) {
-    observer.OnTrackingProtectionExceptionsChanged();
+    observer.OnTrackingProtectionExceptionsChanged(first_party_url);
   }
 }
 

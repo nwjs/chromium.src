@@ -81,15 +81,12 @@ void LeakDetectionDelegate::StartLeakCheck(LeakDetectionInitiator initiator,
   helper_.reset();
   if (leak_check_) {
     is_leaked_timer_ = std::make_unique<base::ElapsedTimer>();
-    leak_check_->Start(initiator, credentials.url, credentials.username_value,
-                       credentials.password_value);
+    leak_check_->Start(initiator, credentials);
   }
 }
 
 void LeakDetectionDelegate::OnLeakDetectionDone(bool is_leaked,
-                                                GURL url,
-                                                std::u16string username,
-                                                std::u16string password) {
+                                                PasswordForm credentials) {
   leak_check_.reset();
   if (password_manager_util::IsLoggingActive(client_)) {
     BrowserSavePasswordProgressLogger logger(client_->GetCurrentLogManager());
@@ -115,16 +112,17 @@ void LeakDetectionDelegate::OnLeakDetectionDone(bool is_leaked,
       base::FeatureList::IsEnabled(
           features::kFetchChangePasswordUrlForPasswordChange)) {
     affiliation_service->PrefetchChangePasswordURL(
-        url, base::BindOnce(barrier_callback, std::nullopt));
+        credentials.url, base::BindOnce(barrier_callback, std::nullopt));
   } else {
     barrier_callback.Run(std::nullopt);
   }
 
   if (base::FeatureList::IsEnabled(features::kMarkAllCredentialsAsLeaked)) {
-    auto leak_details = PrepareLeakDetails(
-        PasswordForm::Store::kNotSet, IsReused(false), IsSavedAsBackup(false),
-        url, std::move(username), std::move(password),
-        /*all_urls_with_leaked_credentials=*/{url});
+    GURL url = credentials.url;
+    auto leak_details =
+        PrepareLeakDetails(PasswordForm::Store::kNotSet, IsReused(false),
+                           IsSavedAsBackup(false), std::move(credentials),
+                           /*all_urls_with_leaked_credentials=*/{url});
     barrier_callback.Run(std::move(leak_details));
   } else {
     // Query the helper to asynchronously determine the `CredentialLeakType`.
@@ -133,8 +131,7 @@ void LeakDetectionDelegate::OnLeakDetectionDone(bool is_leaked,
         base::BindOnce(&LeakDetectionDelegate::PrepareLeakDetails,
                        base::Unretained(this))
             .Then(barrier_callback));
-    helper_->ProcessLeakedPassword(std::move(url), std::move(username),
-                                   std::move(password));
+    helper_->ProcessLeakedPassword(std::move(credentials));
   }
 }
 
@@ -142,13 +139,11 @@ LeakedPasswordDetails LeakDetectionDelegate::PrepareLeakDetails(
     PasswordForm::Store in_stores,
     IsReused is_reused,
     IsSavedAsBackup is_saved_as_backup,
-    GURL url,
-    std::u16string username,
-    std::u16string password,
+    PasswordForm credentials,
     std::vector<GURL> all_urls_with_leaked_credentials) {
   std::vector<std::pair<GURL, std::u16string>> identities;
   for (const auto& u : all_urls_with_leaked_credentials) {
-    identities.emplace_back(u, username);
+    identities.emplace_back(u, credentials.username_value);
   }
   client_->MaybeReportEnterprisePasswordBreachEvent(identities);
 
@@ -178,8 +173,8 @@ LeakedPasswordDetails LeakDetectionDelegate::PrepareLeakDetails(
   CredentialLeakType leak_type = CreateLeakType(
       IsSaved(in_stores != PasswordForm::Store::kNotSet), is_reused, is_syncing,
       HasChangePasswordUrl(false), is_saved_as_backup);
-  return LeakedPasswordDetails(leak_type, std::move(url), std::move(username),
-                               std::move(password), in_account_store);
+  return LeakedPasswordDetails(leak_type, std::move(credentials),
+                               in_account_store);
 }
 
 void LeakDetectionDelegate::NotifyUserCredentialsWereLeaked(
@@ -191,7 +186,7 @@ void LeakDetectionDelegate::NotifyUserCredentialsWereLeaked(
   HasChangePasswordUrl has_change_url(
       client_->GetPasswordChangeService() &&
       client_->GetPasswordChangeService()->IsPasswordChangeSupported(
-          details.origin, client_->GetPageLanguage()));
+          details.credentials.url, client_->GetPageLanguage()));
   if (has_change_url) {
     details.leak_type |= CredentialLeakFlags::kHasChangePasswordUrl;
   }

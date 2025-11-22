@@ -6,6 +6,7 @@
 
 #include "base/functional/callback.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
+#include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -155,11 +156,12 @@ void CommentsSidePanelCoordinator::UpdateCommentsSidePanelVisibility(
   SidePanelCoordinator* side_panel_coordinator =
       browser_->GetFeatures().side_panel_coordinator();
 
+  SidePanelEntry::Key side_panel_entry_key(SidePanelEntry::Id::kComments);
+
   // TODO(crbug.com/430352059): This should also handle when a different side
   // panel is open.
   const bool side_panel_showing =
-      side_panel_coordinator->IsSidePanelEntryShowing(
-          SidePanelEntry::Key(SidePanelEntry::Id::kComments));
+      side_panel_coordinator->IsSidePanelEntryShowing(side_panel_entry_key);
 
   if (should_show_comments_action == side_panel_showing) {
     // Do nothing if the side panel is in the correct state.
@@ -167,9 +169,12 @@ void CommentsSidePanelCoordinator::UpdateCommentsSidePanelVisibility(
   }
 
   if (side_panel_showing) {
+    SidePanelEntry* const side_panel_entry =
+        side_panel_coordinator->GetWindowRegistry()->GetEntryForKey(
+            side_panel_entry_key);
     // Close the side panel, setting the flag to recall the state when the
     // comments action is shown again.
-    side_panel_coordinator->Close();
+    side_panel_coordinator->Close(side_panel_entry->type());
     side_panel_should_be_resumed_ = true;
     return;
   }
@@ -212,10 +217,8 @@ void CommentsSidePanelCoordinator::UpdateSidePanelTitle(
           : l10n_util::GetStringUTF16(
                 IDS_COLLABORATION_SHARED_TAB_GROUPS_COMMENTS_TITLE);
 
-  SidePanelCoordinator* side_panel =
-      browser_->GetFeatures().side_panel_coordinator();
-  actions::ActionItem* action_item = side_panel->GetActionItem(
-      SidePanelEntry::Key(SidePanelEntry::Id::kComments));
+  actions::ActionItem* action_item = actions::ActionManager::Get().FindAction(
+      kActionSidePanelShowComments, browser_->GetActions()->root_action_item());
 
   if (title != action_item->GetText()) {
     action_item->SetText(title);

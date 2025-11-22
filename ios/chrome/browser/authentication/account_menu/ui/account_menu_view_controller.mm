@@ -12,6 +12,7 @@
 #import "base/metrics/user_metrics_action.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/strings/grit/components_strings.h"
+#import "google_apis/gaia/gaia_id.h"
 #import "ios/chrome/browser/authentication/account_menu/public/account_menu_constants.h"
 #import "ios/chrome/browser/authentication/account_menu/ui/account_menu_data_source.h"
 #import "ios/chrome/browser/authentication/account_menu/ui/account_menu_mutator.h"
@@ -24,6 +25,7 @@
 #import "ios/chrome/browser/shared/ui/list_model/list_model.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_item.h"
+#import "ios/chrome/browser/shared/ui/table_view/content_configuration/table_view_cell_content_configuration.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/browser/signin/model/constants.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
@@ -35,6 +37,8 @@ namespace {
 
 // The margin between the cell and the sheet.
 constexpr CGFloat kSideMargins = 16.;
+
+const CGFloat kButtonImageSize = 18;
 
 // Size of the symbols.
 constexpr CGFloat kErrorSymbolSize = 22.;
@@ -53,9 +57,6 @@ constexpr CGFloat kLastSecondaryAccountLeftSeparatorInset = 60.;
 
 // Per Apple guidelines, touch targets should be at least 44x44.
 constexpr CGFloat kMinimumTouchTargetSize = 44.0;
-
-// The corner radius of the half sheet.
-constexpr CGFloat kHalfSheetCornerRadius = 10.0;
 
 // Sections used in the account menu.
 typedef NS_ENUM(NSUInteger, SectionIdentifier) {
@@ -95,8 +96,8 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 
 @implementation AccountMenuViewController {
   UITableViewDiffableDataSource* _accountMenuDataSource;
-  UIButton* _closeButton;
-  UIButton* _ellipsisButton;
+  UIBarButtonItem* _closeButton;
+  UIBarButtonItem* _ellipsisButton;
   CentralAccountView* _identityAccountView;
   // The index path of the cell on which the user tapped while account switching
   // is in progress. It should be reset to nil before any table content occurs.
@@ -131,28 +132,26 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   self.tableView =
       [[UITableView alloc] initWithFrame:CGRectZero
                                    style:UITableViewStyleInsetGrouped];
-  self.tableView.translatesAutoresizingMaskIntoConstraints = NO;
-  [self.view addSubview:self.tableView];
+  UITableView* tableView = self.tableView;
+  tableView.translatesAutoresizingMaskIntoConstraints = NO;
+  [self.view addSubview:tableView];
   [NSLayoutConstraint activateConstraints:@[
-    [self.view.topAnchor constraintEqualToAnchor:self.tableView.topAnchor],
-    [self.view.bottomAnchor
-        constraintEqualToAnchor:self.tableView.bottomAnchor],
-    [self.view.trailingAnchor
-        constraintEqualToAnchor:self.tableView.trailingAnchor],
-    [self.view.leadingAnchor
-        constraintEqualToAnchor:self.tableView.leadingAnchor],
+    [self.view.topAnchor constraintEqualToAnchor:tableView.topAnchor],
+    [self.view.bottomAnchor constraintEqualToAnchor:tableView.bottomAnchor],
+    [self.view.trailingAnchor constraintEqualToAnchor:tableView.trailingAnchor],
+    [self.view.leadingAnchor constraintEqualToAnchor:tableView.leadingAnchor],
   ]];
-  self.tableView.delegate = self;
-  self.tableView.accessibilityIdentifier = kAccountMenuTableViewId;
-  self.tableView.backgroundColor =
+  tableView.delegate = self;
+  tableView.accessibilityIdentifier = kAccountMenuTableViewId;
+  tableView.backgroundColor =
       [UIColor colorNamed:kGroupedPrimaryBackgroundColor];
-  RegisterTableViewCell<TableViewAccountCell>(self.tableView);
-  RegisterTableViewCell<SettingsImageDetailTextCell>(self.tableView);
-  RegisterTableViewCell<TableViewTextCell>(self.tableView);
+  RegisterTableViewCell<TableViewAccountCell>(tableView);
+  RegisterTableViewCell<SettingsImageDetailTextCell>(tableView);
+  [TableViewCellContentConfiguration registerCellForTableView:tableView];
   [self setUpTopButtons];
   [self setUpTableContent];
   [self updatePrimaryAccount];
-  self.tableView.tableFooterView = [[UIView alloc]
+  tableView.tableFooterView = [[UIView alloc]
       initWithFrame:CGRectMake(0, 0, CGFLOAT_EPSILON, CGFLOAT_EPSILON)];
 }
 
@@ -296,15 +295,15 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   ellipsisMenu = [UIMenu
       menuWithChildren:@[ manageYourAccountAction, editAccountListAction ]];
 
-  _ellipsisButton =
-      [self addTopButtonWithSymbolName:kEllipsisCircleFillSymbol
-                   symbolConfiguration:symbolConfiguration
-                             isLeading:YES
-               accessibilityIdentifier:kAccountMenuSecondaryActionMenuButtonId];
-  _ellipsisButton.menu = ellipsisMenu;
-  _ellipsisButton.showsMenuAsPrimaryAction = true;
+  _ellipsisButton = [[UIBarButtonItem alloc]
+      initWithImage:DefaultSymbolWithPointSize(kMenuSymbol, kButtonImageSize)
+               menu:ellipsisMenu];
   _ellipsisButton.accessibilityLabel =
       l10n_util::GetNSString(IDS_IOS_ICON_OPTION_MENU);
+  _ellipsisButton.accessibilityIdentifier =
+      kAccountMenuSecondaryActionMenuButtonId;
+
+  self.navigationItem.leftBarButtonItem = _ellipsisButton;
 }
 
 // Decides if the Close button should be shown.
@@ -324,21 +323,17 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   }
   if (shouldShowCloseButton) {
     // Add the Close button.
-    UIImageSymbolConfiguration* symbolConfiguration =
-        [UIImageSymbolConfiguration
-            configurationWithPointSize:kButtonSize
-                                weight:UIImageSymbolWeightRegular
-                                 scale:UIImageSymbolScaleMedium];
-    _closeButton = [self addTopButtonWithSymbolName:kXMarkCircleFillSymbol
-                                symbolConfiguration:symbolConfiguration
-                                          isLeading:NO
-                            accessibilityIdentifier:kAccountMenuCloseButtonId];
-    [_closeButton addTarget:self
-                     action:@selector(userTappedOnClose)
-           forControlEvents:UIControlEventTouchUpInside];
+    _closeButton = [[UIBarButtonItem alloc]
+        initWithBarButtonSystemItem:UIBarButtonSystemItemCancel
+                             target:self
+                             action:@selector(userTappedOnClose)];
+    _closeButton.accessibilityIdentifier = kAccountMenuCloseButtonId;
+
+    self.navigationItem.rightBarButtonItem = _closeButton;
+
   } else {
     // Remove the Close button.
-    [_closeButton removeFromSuperview];
+    self.navigationItem.rightBarButtonItem = nil;
     _closeButton = nil;
   }
 }
@@ -349,7 +344,9 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
                       itemIdentifier:(id)itemIdentifier {
   NSString* gaiaID = base::apple::ObjCCast<NSString>(itemIdentifier);
   if (gaiaID) {
-    return [self cellForTableView:tableView gaiaID:gaiaID indexPath:indexPath];
+    return [self cellForTableView:tableView
+                           gaiaID:GaiaId(gaiaID)
+                        indexPath:indexPath];
   }
 
   // Otherwise `itemIdentifier` is a `RowIdentifier`.
@@ -388,13 +385,18 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   }
   // If the function has not returned yet. This cell contains only text.
 
-  TableViewTextCell* cell = DequeueTableViewCell<TableViewTextCell>(tableView);
+  TableViewCellContentConfiguration* configuration =
+      [[TableViewCellContentConfiguration alloc] init];
+  configuration.title = label;
+  configuration.titleColor = [UIColor colorNamed:kBlueColor];
+
+  UITableViewCell* cell =
+      [TableViewCellContentConfiguration dequeueTableViewCell:tableView];
+
+  cell.contentConfiguration = configuration;
   cell.accessibilityTraits = UIAccessibilityTraitButton;
   cell.isAccessibilityElement = YES;
-  cell.textLabel.text = label;
   cell.accessibilityLabel = accessibilityLabel ? accessibilityLabel : label;
-  cell.textLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
-  cell.textLabel.textColor = [UIColor colorNamed:kBlueColor];
   cell.userInteractionEnabled = YES;
   cell.accessibilityIdentifier = accessibilityIdentifier;
 
@@ -403,7 +405,7 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 
 // Returns a cell for signing-in with the account with `gaiaID`.
 - (UITableViewCell*)cellForTableView:(UITableView*)tableView
-                              gaiaID:(NSString*)gaiaID
+                              gaiaID:(const GaiaId&)gaiaID
                            indexPath:(NSIndexPath*)indexPath {
   // `itemIdentifier` is a gaia id.
   TableViewAccountCell* cell =
@@ -476,7 +478,6 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
       self.sheetPresentationController;
   presentationController.prefersEdgeAttachedInCompactHeight = YES;
   presentationController.widthFollowsPreferredContentSizeWhenEdgeAttached = YES;
-  presentationController.preferredCornerRadius = kHalfSheetCornerRadius;
 
   // In case of compact width only, adjust detents.
   if (self.traitCollection.horizontalSizeClass ==
@@ -534,9 +535,9 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 
   [snapshot appendSectionsWithIdentifiers:@[ @(AccountsSectionIdentifier) ]];
   NSMutableArray* accountsIdentifiers = [[NSMutableArray alloc] init];
-  NSArray<NSString*>* gaiaIDs = self.dataSource.secondaryAccountsGaiaIDs;
-  for (NSString* gaiaID in gaiaIDs) {
-    [accountsIdentifiers addObject:gaiaID];
+  const std::vector<GaiaId> gaiaIDs = self.dataSource.secondaryAccountsGaiaIDs;
+  for (const GaiaId& gaiaID : gaiaIDs) {
+    [accountsIdentifiers addObject:gaiaID.ToNSString()];
   }
   [accountsIdentifiers addObject:@(RowIdentifierAddAccount)];
   [snapshot appendItemsWithIdentifiers:accountsIdentifiers
@@ -590,7 +591,8 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
         base::UserMetricsAction("Signin_AccountMenu_SelectAccount"));
     CGRect cellRect = [tableView rectForRowAtIndexPath:indexPath];
     _selectedIndexPath = indexPath;
-    [self.mutator accountTappedWithGaiaID:gaiaID targetRect:cellRect];
+    GaiaId gaiaId(gaiaID);
+    [self.mutator accountTappedWithGaiaID:&gaiaId targetRect:cellRect];
   } else {
     // Otherwise `itemIdentifier` is a `RowIdentifier`.
     RowIdentifier rowIdentifier = static_cast<RowIdentifier>(

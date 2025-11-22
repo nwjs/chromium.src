@@ -85,11 +85,12 @@ class MultiContentsDropTargetView : public views::View,
   int GetPreferredWidth(int web_contents_width) const;
   // Returns the maximum width that a view should be for the given web
   // contents width.
-  static int GetMaxWidth(int web_contents_width, DropTargetState state);
+  static int GetMaxWidth(int web_contents_width,
+                         DropTargetState state,
+                         DragType drag_type);
 
   // views::View
   void SetVisible(bool visible) override;
-  void OnThemeChanged() override;
   bool GetDropFormats(int* formats,
                       std::set<ui::ClipboardFormatType>* format_types) override;
   bool CanDrop(const ui::OSExchangeData& data) override;
@@ -115,8 +116,6 @@ class MultiContentsDropTargetView : public views::View,
   gfx::SlideAnimation& animation_for_testing() { return animation_; }
 
   bool ShouldShowAnimation() const;
-
-  void DisableAnimationsForTesting();
 
  private:
   void UpdateVisibility(bool should_be_open);
@@ -152,8 +151,6 @@ class MultiContentsDropTargetView : public views::View,
 
   raw_ptr<views::ImageView> icon_view_ = nullptr;
   raw_ptr<views::Label> label_ = nullptr;
-
-  bool should_show_animations_for_testing_ = true;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_FRAME_MULTI_CONTENTS_DROP_TARGET_VIEW_H_

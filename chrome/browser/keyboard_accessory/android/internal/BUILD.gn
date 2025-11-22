@@ -30,6 +30,7 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/keyboard_accessory/all_passwords_bottom_sheet/AllPasswordsBottomSheetViewHolder.java",
     "java/src/org/chromium/chrome/browser/keyboard_accessory/all_passwords_bottom_sheet/Credential.java",
     "java/src/org/chromium/chrome/browser/keyboard_accessory/all_passwords_bottom_sheet/CredentialFillRequest.java",
+    "java/src/org/chromium/chrome/browser/keyboard_accessory/bar_component/KeyboardAccessoryChipGroup.java",
     "java/src/org/chromium/chrome/browser/keyboard_accessory/bar_component/KeyboardAccessoryCoordinator.java",
     "java/src/org/chromium/chrome/browser/keyboard_accessory/bar_component/KeyboardAccessoryIphUtils.java",
     "java/src/org/chromium/chrome/browser/keyboard_accessory/bar_component/KeyboardAccessoryMediator.java",
@@ -104,9 +105,7 @@ android_resources("java_resources") {
     "java/res/layout/all_passwords_bottom_sheet.xml",
     "java/res/layout/credit_card_accessory_sheet.xml",
     "java/res/layout/keyboard_accessory.xml",
-    "java/res/layout/keyboard_accessory_action.xml",
     "java/res/layout/keyboard_accessory_buttons.xml",
-    "java/res/layout/keyboard_accessory_dismiss.xml",
     "java/res/layout/keyboard_accessory_image_button.xml",
     "java/res/layout/keyboard_accessory_sheet.xml",
     "java/res/layout/keyboard_accessory_sheet_tab_address_info.xml",
@@ -191,7 +190,7 @@ android_library("test_java") {
 }
 
 # TODO(crbug.com): Make this the `robolectric_binary` instead.
-android_library("junit_tests") {
+robolectric_library("junit_tests") {
   testonly = true
 
   sources = [ "java/src/org/chromium/chrome/browser/keyboard_accessory/all_passwords_bottom_sheet/AllPasswordsBottomSheetControllerTest.java" ]

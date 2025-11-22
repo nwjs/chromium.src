@@ -35,10 +35,8 @@ std::string EncodeMessage(const std::string& message) {
   CHECK_LE(length, 0xffffu);
   std::string result;
   result.reserve(4);
-  base::AppendHexEncodedByte(
-      UNSAFE_TODO(reinterpret_cast<const uint8_t*>(&length)[1]), result);
-  base::AppendHexEncodedByte(reinterpret_cast<const uint8_t*>(&length)[0],
-                             result);
+  base::AppendHexEncodedByte(static_cast<uint8_t>(length >> 8), result);
+  base::AppendHexEncodedByte(static_cast<uint8_t>(length & 0xff), result);
   return result + message;
 }
 
@@ -132,7 +130,7 @@ class AdbQuerySocket : AdbClientSocket {
 
   void OnResponse(int result, const std::string& response) {
     if (++current_query_ < queries_.size()) {
-      SendNextQuery(net::OK);
+      SendNextQuery(result);
     } else {
       std::move(callback_).Run(result, response);
       delete this;

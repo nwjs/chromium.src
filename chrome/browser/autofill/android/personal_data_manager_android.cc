@@ -845,21 +845,8 @@ jboolean PersonalDataManagerAndroid::IsCardEligibleForBenefits(
   return false;
 }
 
-// static
-ScopedJavaLocalRef<jobject>
-PersonalDataManagerAndroid::CreateJavaBnplIssuerFromNative(
-    JNIEnv* env,
-    const BnplIssuer& bnpl_issuer) {
-  // For now, Android only uses the `LightModeImageId`.
-  const std::pair<BnplIssuer::LightModeImageId, BnplIssuer::DarkModeImageId>
-      image_ids = GetBnplIssuerIconIds(
-          bnpl_issuer.issuer_id(),
-          /*issuer_linked=*/bnpl_issuer.payment_instrument().has_value());
-  // TOOD(crbug.com/430575808): Provide the selection text to the Java
-  // BnplIssuer object.
-  return Java_BnplIssuer_createBnplIssuer(
-      env, bnpl_issuer.GetDisplayName(), image_ids.first.value(),
-      bnpl_issuer.payment_instrument().has_value());
+jboolean PersonalDataManagerAndroid::ShouldShowBnplSettings(JNIEnv* env) {
+  return payments_data_manager().ShouldShowBnplSettings();
 }
 
 }  // namespace autofill

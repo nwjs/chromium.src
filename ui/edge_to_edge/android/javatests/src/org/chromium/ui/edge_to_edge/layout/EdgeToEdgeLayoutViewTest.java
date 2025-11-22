@@ -99,7 +99,6 @@ public class EdgeToEdgeLayoutViewTest {
                                     null,
                                     /* useBackupNavbarInsetsEnabled= */ true,
                                     /* useBackupNavbarInsetsFieldTrial= */ mUseBackupNavbarInsetsFieldTrial,
-                                    /* canUseTappableElementInsets= */ true,
                                     /* canUseMandatoryGesturesInsets= */ true);
 
                     mContentView = new FrameLayout(sActivity, null);
@@ -242,5 +241,33 @@ public class EdgeToEdgeLayoutViewTest {
 
         CriteriaHelper.pollUiThread(() -> !mEdgeToEdgeLayout.isDirty());
         mRenderTestRule.render(mEdgeToEdgeLayout, "top_bottom_ime");
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"RenderTest"})
+    public void renderFullscreenWhenTappableNavigation() throws IOException {
+        WindowInsetsCompat fullscreenWhenTappableNavInsets =
+                new WindowInsetsCompat.Builder()
+                        .setInsets(WindowInsetsCompat.Type.statusBars(), Insets.of(0, 0, 0, 0))
+                        .setInsetsIgnoringVisibility(
+                                WindowInsetsCompat.Type.statusBars(),
+                                Insets.of(0, STATUS_BAR_SIZE, 0, 0))
+                        .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, 0))
+                        .setInsetsIgnoringVisibility(
+                                WindowInsetsCompat.Type.navigationBars(),
+                                Insets.of(0, 0, 0, NAV_BAR_SIZE))
+                        .setInsets(
+                                WindowInsetsCompat.Type.tappableElement(),
+                                Insets.of(0, 0, 0, NAV_BAR_SIZE))
+                        .build();
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mEdgeToEdgeLayoutCoordinator.onApplyWindowInsets(
+                            mContentView, fullscreenWhenTappableNavInsets);
+                });
+
+        CriteriaHelper.pollUiThread(() -> !mEdgeToEdgeLayout.isDirty());
+        mRenderTestRule.render(mEdgeToEdgeLayout, "fullscreen_when_tappable");
     }
 }

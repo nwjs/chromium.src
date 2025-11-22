@@ -17,7 +17,9 @@ declare_args() {
   # off will enable proguard.
   is_java_debug = is_debug || incremental_install
 
-  enable_javaless_renderers = false
+  # Component build breaks javaless renderers - see
+  # go/javaless-renderers-component-build
+  enable_javaless_renderers = !is_component_build
 }
 
 # These two combinations could theoretically be made to work, but they are
@@ -35,6 +37,7 @@ robolectric_toolchain = "//build/toolchain/android:robolectric_$host_cpu"
 
 if (is_android) {
   import("//build/config/android/channel.gni")
+  import("//build/config/chrome_build.gni")
   import("//build/config/clang/clang.gni")
   import("//build/config/cronet/config.gni")
   import("//build/config/dcheck_always_on.gni")
@@ -68,7 +71,7 @@ if (is_android) {
     # is set from gclient vars, with target_os needed for chromeos.
     # Can be set to false to disable all internal android things.
     enable_chrome_android_internal =
-        build_with_chromium && checkout_src_internal && target_os == "android"
+        build_with_chromium && enable_src_internal && target_os == "android"
 
     # The default to use for android:minSdkVersion for targets that do
     # not explicitly set it.
@@ -94,12 +97,7 @@ if (is_android) {
     # "off"
     #     Disables static analysis. Many bots set this so as to not duplicate
     #     the same analysis steps as other bots.
-    android_static_analysis = "build_server"
-    if (is_official_build) {
-      # Speed up official builds by disabling. Any failures should have already
-      # been caught by other bots.
-      android_static_analysis = "off"
-    }
+    android_static_analysis = "default"
 
     # Embed a wrap.sh file within apks to set custom environment variables.
     # Use a comma space-separated list.
@@ -107,6 +105,24 @@ if (is_android) {
     android_custom_env = ""
   }
   enable_wrap_sh = is_hwasan || is_asan || android_custom_env != ""
+
+  # Make it such that is_official_build sets android_static_analysis="off", but
+  # leaves enable_r8_tracerefs=true.
+  declare_args() {
+    # Controls whether TraceReferences checks are done (for targets with
+    # proguard_enabled=true).
+    enable_r8_tracerefs = android_static_analysis != "off"
+  }
+
+  if (android_static_analysis == "default") {
+    if (is_official_build) {
+      # Speed up official builds by disabling. Any failures should have already
+      # been caught by other bots.
+      android_static_analysis = "off"
+    } else {
+      android_static_analysis = "build_server"
+    }
+  }
 
   if (android_static_analysis == "build_server" && enable_java_templates &&
       getenv("SWARMING_TASK_ID") != "") {
@@ -155,13 +171,13 @@ if (is_android) {
   }
 
   public_android_sdk_root = "//third_party/android_sdk/public"
-  public_android_sdk_build_tools =
-      "${public_android_sdk_root}/build-tools/36.0.0"
   public_android_sdk_platform_version = "36"
+  public_android_sdk_build_tools_version = "36.0.0"
   if (android_sdk_release == "b") {
     default_android_sdk_root = public_android_sdk_root
     default_android_sdk_platform_version = public_android_sdk_platform_version
-    default_android_sdk_build_tools_version = "36.0.0"
+    default_android_sdk_build_tools_version =
+        public_android_sdk_build_tools_version
     public_android_sdk = true
   }
 
@@ -305,11 +321,22 @@ if (is_android) {
 
     # Where to write failed expectations for bots to read.
     expectations_failure_dir = "$root_build_dir/failed_expectations"
+
+    # Enables rewriting of certain method invocations with overloads that take an
+    # additional argument of type org.chromium.base.task.Location (see
+    # //build/android/location_rewriter)
+    enable_java_location_rewrite = false
   }
 
   if (is_asan) {
     # Disable lint since increasing min_sdk_version can cause ObsoleteSdkInt warnings.
     disable_android_lint = true
+  }
+
+  if (is_cronet_build) {
+    # Disable Java bytecode rewriting for cronet to prevent pulling in bytecode
+    # rewriter's dependencies
+    enable_java_location_rewrite = false
   }
 
   assert(
@@ -376,13 +403,16 @@ if (is_android) {
   # than just the current one) since these are needed by the Android toolchain
   # file to define toolchains for all possible targets in one pass.
 
-  android_sdk =
+  android_sdk_platform_root =
       "${android_sdk_root}/platforms/android-${android_sdk_platform_version}"
+  public_android_sdk_platform_root = "${public_android_sdk_root}/platforms/android-${public_android_sdk_platform_version}"
   android_sdk_build_tools =
       "${android_sdk_root}/build-tools/$android_sdk_build_tools_version"
+  public_android_sdk_build_tools = "${public_android_sdk_root}/build-tools/$public_android_sdk_build_tools_version"
 
   # Path to the SDK's android.jar
-  android_sdk_jar = "$android_sdk/android.jar"
+  android_sdk_jar = "$android_sdk_platform_root/android.jar"
+  public_android_sdk_jar = "$public_android_sdk_platform_root/android.jar"
 
   # Location of libgcc. This is only needed for the current GN toolchain, so we
   # only need to define the current one, rather than one for every platform

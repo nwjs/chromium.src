@@ -124,7 +124,7 @@ GURL GetBoundSessionScope(const BoundSessionParams& bound_session_params) {
     // components (like scheme and port) from `site`.
     GURL credential_scope = site.ReplaceComponents(replacements);
     if (!credential_scope.is_valid() ||
-        !credential_scope.DomainIs(site.host_piece())) {
+        !credential_scope.DomainIs(site.host())) {
       return GURL();
     }
 
@@ -162,8 +162,7 @@ BoundSessionParams CreateBoundSessionsParamsFromRegistrationPayload(
     const RegisterBoundSessionPayload& payload,
     const GURL& request_url,
     const GURL& site,
-    std::string_view wrapped_key,
-    bool is_wsbeta) {
+    std::string_view wrapped_key) {
   BoundSessionParams params;
   if (!site.is_valid()) {
     return BoundSessionParams();
@@ -183,7 +182,6 @@ BoundSessionParams CreateBoundSessionsParamsFromRegistrationPayload(
         credential.name, credential.scope.domain, credential.scope.path);
   }
   *params.mutable_creation_time() = TimeToTimestamp(base::Time::Now());
-  params.set_is_wsbeta(is_wsbeta);
   return params;
 }
 

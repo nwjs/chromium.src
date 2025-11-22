@@ -162,7 +162,7 @@ class ResourceBundleFileLoader : public network::mojom::URLLoader {
                        base::Unretained(read_mime_type)),
         base::BindOnce(&ResourceBundleFileLoader::OnMimeTypeRead,
                        weak_factory_.GetWeakPtr(), resource_id,
-                       request.url.host(), base::Owned(read_mime_type)));
+                       request.url.GetHost(), base::Owned(read_mime_type)));
   }
 
   void OnMimeTypeRead(int resource_id,
@@ -294,7 +294,7 @@ base::FilePath GetBundleResourcePath(
   *resource_id = 0;
   // |chrome_resources_path| corresponds to src/chrome/browser/resources in
   // source tree.
-  std::string path = request.url.path();
+  std::string path(request.url.path());
   if (path.size() > 1 &&
       (path.substr(1) == extensions::kNWJSDefaultAppJS ||
        path.substr(1) == "nwjs/newwin.js")) {

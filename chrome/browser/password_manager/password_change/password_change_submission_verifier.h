@@ -13,7 +13,7 @@
 #include "base/timer/timer.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
-#include "components/optimization_guide/core/optimization_guide_model_executor.h"
+#include "components/optimization_guide/core/model_execution/remote_model_executor.h"
 #include "components/password_manager/core/browser/password_form.h"
 
 class AnnotatedPageContentCapturer;
@@ -66,7 +66,6 @@ class PasswordChangeSubmissionVerifier {
   void CheckSubmissionSuccessful(
       std::optional<optimization_guide::AIPageContentResult> page_content);
   void OnExecutionResponseCallback(
-      base::Time request_time,
       optimization_guide::OptimizationGuideModelExecutionResult
           execution_result,
       std::unique_ptr<
@@ -74,6 +73,7 @@ class PasswordChangeSubmissionVerifier {
           logging_data);
   void OnPageLoadCompleted();
 
+  const base::Time creation_time_;
   const raw_ptr<content::WebContents> web_contents_;
   std::unique_ptr<AnnotatedPageContentCapturer> capturer_;
   FormSubmissionResultCallback callback_;

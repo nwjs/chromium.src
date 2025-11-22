@@ -149,6 +149,7 @@ import org.chromium.chrome.browser.customtabs.features.partialcustomtab.PartialC
 import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabToolbar;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
+import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.history.BrowsingHistoryBridge;
@@ -1349,7 +1350,6 @@ public class CustomTabActivityTest {
      */
     @Test
     @SmallTest
-    @EnableFeatures({ChromeFeatureList.CCT_EARLY_NAV})
     public void testPrecreatedRenderer() throws Exception {
         var histograms =
                 HistogramWatcher.newBuilder()
@@ -1391,7 +1391,6 @@ public class CustomTabActivityTest {
     /** Tests that we don't leak the tab when finishing early. */
     @Test
     @SmallTest
-    @EnableFeatures({ChromeFeatureList.CCT_EARLY_NAV})
     public void testEarlyFinish() throws Exception {
         CallbackHelper helper = new CallbackHelper();
         ThreadUtils.runOnUiThreadBlocking(
@@ -2266,6 +2265,16 @@ public class CustomTabActivityTest {
 
     @Test
     @SmallTest
+    public void testActivityTypeForWarmupSession() throws Exception {
+        var session = warmUpAndLaunchUrlWithSession();
+        assertEquals(getActivity().getIntentDataProvider().getSession(), session);
+        assertEquals(
+                ActivityType.CUSTOM_TAB,
+                getActivity().getCurrentTabModel().getActivityTypeForTesting());
+    }
+
+    @Test
+    @SmallTest
     public void testCanHideBrowserControls_notPartial() throws Exception {
         var session = warmUpAndLaunchUrlWithSession();
         assertEquals(getActivity().getIntentDataProvider().getSession(), session);
@@ -2997,7 +3006,6 @@ public class CustomTabActivityTest {
 
     @Test
     @SmallTest
-    @Features.EnableFeatures({ChromeFeatureList.CCT_PREDICTIVE_BACK_GESTURE})
     public void
             testBackPressManagerAddsSystemNavigationObserver_WhenPredictiveBackGestureIsSupported() {
         CustomTabActivityNavigationController.enablePredictiveBackGestureForTesting();

@@ -248,10 +248,8 @@ bool AddTransportsFromCertificate(
 base::TimeDelta AdjustTimeout(std::optional<base::TimeDelta> timeout,
                               RenderFrameHost* render_frame_host) {
   // Time to wait for an authenticator to successfully complete an operation.
-  base::TimeDelta adjusted_timeout_lower = base::Minutes(3);
-  base::TimeDelta adjusted_timeout_upper = base::Hours(20);
   if (!timeout) {
-    return adjusted_timeout_upper;
+    return device::kMaxRequestTimeout;
   }
   const bool testing_api_enabled =
       AuthenticatorEnvironment::GetInstance()->IsVirtualAuthenticatorEnabledFor(
@@ -262,8 +260,8 @@ base::TimeDelta AdjustTimeout(std::optional<base::TimeDelta> timeout,
   if (testing_api_enabled) {
     return *timeout;
   }
-  return std::max(adjusted_timeout_lower,
-                  std::min(adjusted_timeout_upper, *timeout));
+  return std::max(device::kMinRequestTimeout,
+                  std::min(device::kMaxRequestTimeout, *timeout));
 }
 
 bool UsesDiscoverableCreds(const device::MakeCredentialOptions& options) {
@@ -502,31 +500,35 @@ blink::mojom::PRFValuesPtr PRFResultsToValues(
   return prf_values;
 }
 
-void SetHints(AuthenticatorRequestClientDelegate* request_delegate,
-              const base::flat_set<blink::mojom::Hint>& hints) {
-  // The first recognised transport takes priority.
-  std::optional<device::FidoTransportProtocol> transport;
-  for (const auto hint : hints) {
-    switch (hint) {
-      case blink::mojom::Hint::SECURITY_KEY:
-        transport = transport.value_or(
-            device::FidoTransportProtocol::kUsbHumanInterfaceDevice);
-        break;
-      case blink::mojom::Hint::CLIENT_DEVICE:
-        transport =
-            transport.value_or(device::FidoTransportProtocol::kInternal);
-        break;
-      case blink::mojom::Hint::HYBRID:
-        transport = transport.value_or(device::FidoTransportProtocol::kHybrid);
-        break;
-    }
+device::FidoTransportProtocol HintToTransport(blink::mojom::Hint hint) {
+  switch (hint) {
+    case blink::mojom::Hint::SECURITY_KEY:
+      return device::FidoTransportProtocol::kUsbHumanInterfaceDevice;
+    case blink::mojom::Hint::CLIENT_DEVICE:
+      return device::FidoTransportProtocol::kInternal;
+    case blink::mojom::Hint::HYBRID:
+      return device::FidoTransportProtocol::kHybrid;
   }
+}
 
-  if (transport) {
-    AuthenticatorRequestClientDelegate::Hints delegate_hints;
-    delegate_hints.transport = transport;
-    request_delegate->SetHints(delegate_hints);
+std::vector<device::FidoTransportProtocol> HintsToTransports(
+    base::span<blink::mojom::Hint> hints) {
+  std::vector<device::FidoTransportProtocol> ret;
+  ret.reserve(hints.size());
+  for (const auto hint : hints) {
+    ret.push_back(HintToTransport(hint));
   }
+  return ret;
+}
+
+void SetHints(AuthenticatorRequestClientDelegate* request_delegate,
+              base::span<const blink::mojom::Hint> hints) {
+  if (hints.empty()) {
+    return;
+  }
+  AuthenticatorRequestClientDelegate::Hints delegate_hints;
+  delegate_hints.transport = HintToTransport(hints.at(0u));
+  request_delegate->SetHints(delegate_hints);
 }
 
 bool IsPlatformAuthenticatorForInvalidStateError(
@@ -839,7 +841,7 @@ struct AuthenticatorCommonImpl::RequestState {
   // conditional UI WebAuthn call, or a payment-related request.
   std::optional<AuthenticationRequestMode> mode;
   // The hints set by the request, if any.
-  base::flat_set<blink::mojom::Hint> hints;
+  std::vector<blink::mojom::Hint> hints;
   std::optional<CredentialRequestResult> request_result;
   std::variant<std::monostate, MakeCredentialOutcome, GetAssertionOutcome>
       request_outcome;
@@ -1085,7 +1087,7 @@ void AuthenticatorCommonImpl::MakeCredential(
   req_state_->request_key = RequestKey(next_request_key_);
 
   req_state_->response_callback = std::move(callback);
-  req_state_->hints.insert(options->hints.begin(), options->hints.end());
+  req_state_->hints = options->hints;
 
   if (options->is_payment_credential_creation) {
     req_state_->mode = AuthenticationRequestMode::kPayment;
@@ -1120,6 +1122,15 @@ void AuthenticatorCommonImpl::MakeCredential(
           &options->exclude_credentials)) {
     mojo::ReportBadMessage("invalid exclude_credentials length");
     req_state_->request_outcome = MakeCredentialOutcome::kOtherFailure;
+    CompleteMakeCredentialRequest(
+        blink::mojom::AuthenticatorStatus::NOT_ALLOWED_ERROR);
+    return;
+  }
+
+  if (base::FeatureList::IsEnabled(device::kWebAuthnActorCheck) &&
+      GetContentClient()->browser()->ShouldDisallowCredentialRequest(
+          WebContents::FromRenderFrameHost(GetRenderFrameHost()))) {
+    req_state_->request_outcome = MakeCredentialOutcome::kBlockedByEmbedder;
     CompleteMakeCredentialRequest(
         blink::mojom::AuthenticatorStatus::NOT_ALLOWED_ERROR);
     return;
@@ -1399,6 +1410,7 @@ void AuthenticatorCommonImpl::ContinueMakeCredentialAfterRpIdCheck(
   ctap_make_credential_request->app_id_exclude = std::move(appid_exclude);
   make_credential_options->is_off_the_record_context =
       GetBrowserContext()->IsOffTheRecord();
+  make_credential_options->hints = HintsToTransports(options->hints);
 
   // Compute the effective attestation conveyance preference.
   device::AttestationConveyancePreference attestation = options->attestation;
@@ -1487,8 +1499,7 @@ void AuthenticatorCommonImpl::GetCredential(
   } else {
     req_state_->mode = AuthenticationRequestMode::kModalWebAuthn;
   }
-  req_state_->hints.insert(public_key_options->hints.begin(),
-                           public_key_options->hints.end());
+  req_state_->hints = public_key_options->hints;
 
   if (options->mediation != Mediation::CONDITIONAL) {
     BeginRequestTimeout(public_key_options->timeout);
@@ -1564,6 +1575,15 @@ void AuthenticatorCommonImpl::GetCredential(
           &public_key_options->allow_credentials)) {
     mojo::ReportBadMessage("invalid allow_credentials length");
     req_state_->request_outcome = GetAssertionOutcome::kOtherFailure;
+    CompleteGetAssertionRequest(
+        blink::mojom::AuthenticatorStatus::NOT_ALLOWED_ERROR);
+    return;
+  }
+
+  if (base::FeatureList::IsEnabled(device::kWebAuthnActorCheck) &&
+      GetContentClient()->browser()->ShouldDisallowCredentialRequest(
+          WebContents::FromRenderFrameHost(GetRenderFrameHost()))) {
+    req_state_->request_outcome = GetAssertionOutcome::kBlockedByEmbedder;
     CompleteGetAssertionRequest(
         blink::mojom::AuthenticatorStatus::NOT_ALLOWED_ERROR);
     return;
@@ -1839,6 +1859,8 @@ void AuthenticatorCommonImpl::ContinueGetAssertionAfterRpIdCheck(
       public_key_options->extensions->large_blob_read;
   ctap_get_assertion_options->large_blob_write =
       public_key_options->extensions->large_blob_write;
+  ctap_get_assertion_options->hints =
+      HintsToTransports(public_key_options->hints);
   GetWebAuthenticationDelegate()->BrowserProvidedPasskeysAvailable(
       GetBrowserContext(),
       base::BindOnce(

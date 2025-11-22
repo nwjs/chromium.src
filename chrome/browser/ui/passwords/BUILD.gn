@@ -57,6 +57,8 @@ source_set("passwords") {
       "password_cross_domain_confirmation_popup_view.h",
     ]
   }
+
+  deps = [ "//chrome/browser/ui:browser_navigator_params_headers" ]
 }
 
 source_set("impl") {
@@ -78,6 +80,7 @@ source_set("impl") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/sync",
     "//chrome/browser/sync:factories",
+    "//chrome/browser/ui:browser_navigator_params_headers",
     "//chrome/common",
     "//components/affiliations/core/browser:affiliations",
     "//components/autofill/core/browser",
@@ -125,6 +128,7 @@ source_set("impl") {
 
     deps += [
       "//chrome/app:command_ids",
+      "//chrome/browser/actor",
       "//chrome/browser/password_manager/factories:password_factory_headers",
       "//chrome/browser/password_manager/password_change",
       "//chrome/browser/promos:utils",
@@ -173,6 +177,8 @@ source_set("test_support") {
     deps += [
       ":passwords",
       "//chrome/app:command_ids",
+      "//chrome/browser/actor",
+      "//chrome/browser/actor:test_support",
       "//chrome/browser/optimization_guide",
       "//chrome/browser/password_manager/factories:password_factory_headers",
       "//chrome/browser/profiles:profile",

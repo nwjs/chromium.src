@@ -32,11 +32,11 @@ constexpr std::string_view kTokenBindingNamespace = "TokenBinding";
 
 constexpr unexportable_keys::BackgroundTaskPriority kTokenBindingPriority =
     unexportable_keys::BackgroundTaskPriority::kBestEffort;
-constexpr size_t kMaxRetriesToSignAssertionToken = 3;
 
 base::expected<std::string, TokenBindingHelper::Error> CreateAssertionToken(
     const std::string& header_and_payload,
     crypto::SignatureVerifier::SignatureAlgorithm algorithm,
+    const std::vector<uint8_t>& pubkey,
     unexportable_keys::ServiceErrorOr<std::vector<uint8_t>> signature) {
   if (!signature.has_value()) {
     return base::unexpected(TokenBindingHelper::Error::kSignAssertionFailure);
@@ -44,7 +44,7 @@ base::expected<std::string, TokenBindingHelper::Error> CreateAssertionToken(
 
   std::optional<std::string> signed_assertion =
       signin::AppendSignatureToHeaderAndPayload(header_and_payload, algorithm,
-                                                *signature);
+                                                pubkey, *signature);
   if (!signed_assertion.has_value()) {
     return base::unexpected(TokenBindingHelper::Error::kAppendSignatureFailure);
   }
@@ -169,12 +169,13 @@ void TokenBindingHelper::SignAssertionToken(
 
   crypto::SignatureVerifier::SignatureAlgorithm algorithm =
       *unexportable_key_service_->GetAlgorithm(*binding_key);
+  std::vector<uint8_t> pubkey =
+      *unexportable_key_service_->GetSubjectPublicKeyInfo(*binding_key);
   std::optional<std::string> header_and_payload =
       signin::CreateKeyAssertionHeaderAndPayload(
-          algorithm,
-          *unexportable_key_service_->GetSubjectPublicKeyInfo(*binding_key),
-          GaiaUrls::GetInstance()->oauth2_chrome_client_id(), challenge,
-          destination_url, kTokenBindingNamespace, ephemeral_public_key);
+          algorithm, pubkey, GaiaUrls::GetInstance()->oauth2_chrome_client_id(),
+          challenge, destination_url, kTokenBindingNamespace,
+          ephemeral_public_key);
 
   if (!header_and_payload.has_value()) {
     RunCallbackAndRecordMetrics(
@@ -184,8 +185,9 @@ void TokenBindingHelper::SignAssertionToken(
 
   unexportable_key_service_->SignSlowlyAsync(
       *binding_key, base::as_byte_span(*header_and_payload),
-      kTokenBindingPriority, kMaxRetriesToSignAssertionToken,
-      base::BindOnce(&CreateAssertionToken, *header_and_payload, algorithm)
+      kTokenBindingPriority,
+      base::BindOnce(&CreateAssertionToken, *header_and_payload, algorithm,
+                     std::move(pubkey))
           .Then(base::BindOnce(&RunCallbackAndRecordMetrics,
                                std::move(callback))));
 }

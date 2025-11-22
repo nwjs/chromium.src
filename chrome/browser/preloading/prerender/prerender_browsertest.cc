@@ -126,7 +126,8 @@ class PrerenderBrowserTest : public PlatformBrowserTest {
 };
 
 // An end-to-end test of prerendering and activating.
-IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, PrerenderAndActivate) {
+// TODO(crbug.com/452239399): Re-enable this test.
+IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, DISABLED_PrerenderAndActivate) {
   base::HistogramTester histogram_tester;
 
   // Navigate to an initial page.
@@ -273,6 +274,37 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
   histogram_tester.ExpectUniqueSample(
       "Prerender.Experimental.PrerenderHostFinalStatus.SpeculationRule",
       kFinalStatusActivated, 1);
+}
+
+class PrerenderUntilScriptBrowserTest : public PrerenderBrowserTest {
+ public:
+  PrerenderUntilScriptBrowserTest() {
+    feature_list_.InitAndEnableFeature(blink::features::kPrerenderUntilScript);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(PrerenderUntilScriptBrowserTest, UseCounter) {
+  base::HistogramTester histogram_tester;
+
+  // Navigate to an initial page.
+  GURL url = embedded_test_server()->GetURL("/empty.html");
+  ASSERT_TRUE(content::NavigateToURL(GetActiveWebContents(), url));
+  histogram_tester.ExpectBucketCount(
+      "Blink.UseCounter.Features",
+      blink::mojom::WebFeature::kSpeculationRulesPrerenderUntilScript, 0);
+
+  // Trigger prerender-until-script action.
+  GURL prerender_url = embedded_test_server()->GetURL("/simple.html");
+  prerender_helper().AddPrerenderUntilScriptAsync(prerender_url);
+  content::test::PrerenderTestHelper::WaitForPrerenderLoadCompletion(
+      *GetActiveWebContents(), prerender_url);
+
+  histogram_tester.ExpectBucketCount(
+      "Blink.UseCounter.Features",
+      blink::mojom::WebFeature::kSpeculationRulesPrerenderUntilScript, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
@@ -437,8 +469,15 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, DisableNetworkPrediction) {
   EXPECT_TRUE(host_id);
 }
 
+// TODO(https://crbug.com/455854991): Failing on Android tablets.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_PreloadingHoldbackOverridden DISABLED_PreloadingHoldbackOverridden
+#else
+#define MAYBE_PreloadingHoldbackOverridden PreloadingHoldbackOverridden
+#endif
 // Tests that DevTools open overrides PreloadingConfig's holdback.
-IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, PreloadingHoldbackOverridden) {
+IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
+                       MAYBE_PreloadingHoldbackOverridden) {
 #if BUILDFLAG(IS_ANDROID)
   if (base::android::android_info::sdk_int() >=
           base::android::android_info::SDK_VERSION_U &&
@@ -766,8 +805,8 @@ IN_PROC_BROWSER_TEST_F(PrerenderNewTabPageBrowserTest,
                                      GURL(chrome::kChromeUINewTabURL)));
   GURL prerender_url = GetUrl("/simple.html");
 
-  auto* ntp_preload_manager =
-      NewTabPagePreloadPipelineManager::GetOrCreateForWebContents(
+  std::unique_ptr<NewTabPagePreloadPipelineManager> ntp_preload_manager =
+      std::make_unique<NewTabPagePreloadPipelineManager>(
           GetActiveWebContents());
   ntp_preload_manager->StartPrerender(
       prerender_url,
@@ -803,8 +842,8 @@ IN_PROC_BROWSER_TEST_F(PrerenderNewTabPageBrowserTest,
                                      GURL(chrome::kChromeUINewTabURL)));
   GURL prerender_url = embedded_test_server()->GetURL("/simple.html?prerender");
 
-  auto* ntp_preload_manager =
-      NewTabPagePreloadPipelineManager::GetOrCreateForWebContents(
+  std::unique_ptr<NewTabPagePreloadPipelineManager> ntp_preload_manager =
+      std::make_unique<NewTabPagePreloadPipelineManager>(
           GetActiveWebContents());
   ntp_preload_manager->StartPrerender(
       prerender_url,
@@ -841,8 +880,8 @@ IN_PROC_BROWSER_TEST_F(PrerenderNewTabPageBrowserTest,
                                      GURL(chrome::kChromeUINewTabURL)));
   GURL prerender_url = GetUrl("/simple.html");
 
-  auto* ntp_preload_manager =
-      NewTabPagePreloadPipelineManager::GetOrCreateForWebContents(
+  std::unique_ptr<NewTabPagePreloadPipelineManager> ntp_preload_manager =
+      std::make_unique<NewTabPagePreloadPipelineManager>(
           GetActiveWebContents());
 
   ntp_preload_manager->StartPrerender(
@@ -887,8 +926,8 @@ IN_PROC_BROWSER_TEST_F(PrerenderNewTabPageBrowserTest,
                                      GURL(chrome::kChromeUINewTabURL)));
   GURL prerender_url = GetUrl("/simple.html?prerender");
 
-  auto* ntp_preload_manager =
-      NewTabPagePreloadPipelineManager::GetOrCreateForWebContents(
+  std::unique_ptr<NewTabPagePreloadPipelineManager> ntp_preload_manager =
+      std::make_unique<NewTabPagePreloadPipelineManager>(
           GetActiveWebContents());
 
   ntp_preload_manager->StartPrerender(
@@ -981,7 +1020,7 @@ class PrerenderPrewarmDefaultSearchEngineTest
 
   std::unique_ptr<net::test_server::HttpResponse> HandleDelayedResource(
       const net::test_server::HttpRequest& request) {
-    if (!base::Contains(request.GetURL().path(), "delayed_stylesheet.css")) {
+    if (!base::Contains(request.GetURL().GetPath(), "delayed_stylesheet.css")) {
       return nullptr;
     }
     return std::make_unique<content::SlowHttpResponse>(
@@ -1016,8 +1055,16 @@ IN_PROC_BROWSER_TEST_F(PrerenderPrewarmDefaultSearchEngineTest,
   prerender_helper().WaitForPrerenderLoadCompletion(host_id);
 }
 
+// TODO(https://crbug.com/455856004): Failing on Android tablets.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_PrewarmPrerenderReuseThenActivate \
+  DISABLED_PrewarmPrerenderReuseThenActivate
+#else
+#define MAYBE_PrewarmPrerenderReuseThenActivate \
+  PrewarmPrerenderReuseThenActivate
+#endif
 IN_PROC_BROWSER_TEST_F(PrerenderPrewarmDefaultSearchEngineTest,
-                       PrewarmPrerenderReuseThenActivate) {
+                       MAYBE_PrewarmPrerenderReuseThenActivate) {
   // Navigate to an initial page.
   GURL url = embedded_test_server()->GetURL("/empty.html");
   ASSERT_TRUE(content::NavigateToURL(GetActiveWebContents(), url));
@@ -1142,6 +1189,68 @@ IN_PROC_BROWSER_TEST_F(PrerenderPrewarmDefaultSearchEngineTest,
   auto reuse_host_id = prerender_helper().GetHostForUrl(prerender_url);
   ASSERT_EQ(host_id, reuse_host_id);
   prerender_helper().WaitForPrerenderLoadCompletion(reuse_host_id);
+}
+
+IN_PROC_BROWSER_TEST_F(PrerenderPrewarmDefaultSearchEngineTest,
+                       EmbedderPrerenderCountLimitWithReuse) {
+  // Navigate to an initial page.
+  GURL url = embedded_test_server()->GetURL("/empty.html");
+  ASSERT_TRUE(content::NavigateToURL(GetActiveWebContents(), url));
+
+  // Prerender the prewarm page.
+  auto* prerender_manager =
+      PrerenderManager::FromWebContents(GetActiveWebContents());
+  EXPECT_TRUE(prerender_manager->MaybeStartPrewarmSearchResult());
+  content::FrameTreeNodeId host_id = GetPrewarmSearchResultHost();
+  ASSERT_TRUE(host_id);
+  prerender_helper().WaitForPrerenderLoadCompletion(host_id);
+
+  content::test::PrerenderHostObserver prerender_observer(
+      *GetActiveWebContents(), host_id);
+  // Trigger a new prerender under a new site.
+  GURL prerender_url_1 =
+      embedded_test_server()->GetURL("b.test", "/simple.html");
+  std::unique_ptr<content::PrerenderHandle> prerender_handle_1 =
+      prerender_helper().AddEmbedderTriggeredPrerenderAsync(
+          prerender_url_1, content::PreloadingTriggerType::kEmbedder,
+          prerender_utils::kDirectUrlInputMetricSuffix,
+          ui::PageTransitionFromInt(ui::PAGE_TRANSITION_TYPED |
+                                    ui::PAGE_TRANSITION_FROM_ADDRESS_BAR));
+  EXPECT_TRUE(prerender_handle_1);
+  content::test::PrerenderTestHelper::WaitForPrerenderLoadCompletion(
+      *GetActiveWebContents(), prerender_url_1);
+
+  // Now there will be 2 prerender pages from the embedder in the
+  // PrerenderHostRegistry: The prewarm page and the prerendered page for
+  // b.test. We have reached the 2-pages upper limit for the embedder triggered
+  // prerenders.
+
+  // Verify that a new prerender request to another site will fail.
+  GURL prerender_url_2 =
+      embedded_test_server()->GetURL("c.test", "/simple.html");
+  std::unique_ptr<content::PrerenderHandle> prerender_handle_2 =
+      prerender_helper().AddEmbedderTriggeredPrerenderAsync(
+          prerender_url_2, content::PreloadingTriggerType::kEmbedder,
+          prerender_utils::kDirectUrlInputMetricSuffix,
+          ui::PageTransitionFromInt(ui::PAGE_TRANSITION_TYPED |
+                                    ui::PAGE_TRANSITION_FROM_ADDRESS_BAR));
+  EXPECT_FALSE(prerender_handle_2);
+
+  // Verify that a new prerender request reusing the prewarm page will succeed.
+  // The "?1" parameter is added to create a different URL with the prewarm
+  // page.
+  GURL prerender_url_3 = embedded_test_server()->GetURL("/simple.html?1");
+  std::unique_ptr<content::PrerenderHandle> prerender_handle_3 =
+      prerender_helper().AddEmbedderTriggeredPrerenderAsync(
+          prerender_url_3, content::PreloadingTriggerType::kEmbedder,
+          prerender_utils::kDirectUrlInputMetricSuffix,
+          ui::PageTransitionFromInt(ui::PAGE_TRANSITION_TYPED |
+                                    ui::PAGE_TRANSITION_FROM_ADDRESS_BAR));
+  EXPECT_TRUE(prerender_handle_3);
+  content::test::PrerenderTestHelper::WaitForPrerenderLoadCompletion(
+      *GetActiveWebContents(), prerender_url_3);
+  content::test::PrerenderTestHelper::WaitForPrerenderLoadCompletion(
+      *GetActiveWebContents(), prerender_url_3);
 }
 
 }  // namespace

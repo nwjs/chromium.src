@@ -37,6 +37,7 @@
 #include <vector>
 
 #include "base/check_deref.h"
+#include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notimplemented.h"
@@ -1006,13 +1007,15 @@ void LocalFrame::OnFirstPaint(bool text_painted, bool image_painted) {
 }
 
 void LocalFrame::OnFirstContentfulPaint(
-    const base::TimeTicks& first_paint_time) {
+    const base::TimeTicks& paint_time,
+    const base::TimeTicks& navigation_time) {
   if (IsOutermostMainFrame()) {
-    GetPage()->GetChromeClient().OnFirstContentfulPaint();
+    GetPage()->GetChromeClient().OnFirstContentfulPaint(paint_time -
+                                                        navigation_time);
   }
   auto* widget = GetWidgetForLocalRoot();
   if (widget) {
-    widget->OnFirstContentfulPaint(first_paint_time);
+    widget->OnFirstContentfulPaint(paint_time);
   }
 }
 
@@ -3467,19 +3470,17 @@ void LocalFrame::SetInitialFocus(bool reverse) {
 }
 
 #if BUILDFLAG(IS_MAC)
-void LocalFrame::GetCharacterIndexAtPoint(const gfx::Point& point) {
+uint32_t LocalFrame::GetCharacterIndexAtPoint(const gfx::Point& point) {
   HitTestLocation location(View()->ViewportToFrame(gfx::Point(point)));
   HitTestResult result = GetEventHandler().HitTestResultAtLocation(
       location, HitTestRequest::kReadOnly | HitTestRequest::kActive);
-  uint32_t index =
-      Selection().CharacterIndexForPoint(result.RoundedPointInInnerNodeFrame());
-  mojo_handler_->TextInputHost().GotCharacterIndexAtPoint(index);
+  return Selection().CharacterIndexForPoint(
+      result.RoundedPointInInnerNodeFrame());
 }
 #endif
 
 void LocalFrame::UpdateWindowControlsOverlay(
     const gfx::Rect& bounding_rect_in_dips) {
-#if !BUILDFLAG(IS_ANDROID)
   // The rect passed to us from content is in DIP screen space, relative to the
   // main frame, and needs to move to CSS space. This doesn't take the page's
   // zoom factor into account so we must scale by the inverse of the page zoom
@@ -3525,7 +3526,6 @@ void LocalFrame::UpdateWindowControlsOverlay(
     window_controls_overlay_changed_delegate_->WindowControlsOverlayChanged(
         window_controls_overlay_rect_);
   }
-#endif
 }
 
 void LocalFrame::RegisterWindowControlsOverlayChangedDelegate(
@@ -3844,19 +3844,12 @@ void LocalFrame::AdvanceFocusForIME(mojom::blink::FocusType focus_type) {
 
 void LocalFrame::PostMessageEvent(
     const std::optional<RemoteFrameToken>& source_frame_token,
-    const String& source_origin,
-    const String& target_origin,
+    scoped_refptr<const SecurityOrigin> source_origin,
+    scoped_refptr<const SecurityOrigin> target_origin,
     BlinkTransferableMessage message) {
   probe::FrameRelatedTask probe(DomWindow());
   TRACE_EVENT0("blink", "LocalFrame::PostMessageEvent");
   RemoteFrame* source_frame = SourceFrameForOptionalToken(source_frame_token);
-
-  // We must pass in the target_origin to do the security check on this side,
-  // since it may have changed since the original postMessage call was made.
-  scoped_refptr<SecurityOrigin> target_security_origin;
-  if (!target_origin.empty()) {
-    target_security_origin = SecurityOrigin::CreateFromString(target_origin);
-  }
 
   // Preparation of the MessageEvent.
   MessageEvent* message_event = MessageEvent::Create();
@@ -3881,14 +3874,14 @@ void LocalFrame::PostMessageEvent(
   }
 
   const MessageEvent::MessageOriginKind message_origin_kind =
-      SecurityOrigin::CreateFromString(source_origin)
-              ->IsSameOriginWith(DomWindow()->GetSecurityOrigin())
+      (source_origin &&
+       source_origin->IsSameOriginWith(DomWindow()->GetSecurityOrigin()))
           ? MessageEvent::kMessageIsSameOrigin
           : MessageEvent::kMessageIsCrossOrigin;
   message_event->initMessageEvent(
       event_type_names::kMessage, false, false, std::move(message.message),
-      source_origin, message_origin_kind, "" /*lastEventId*/, window, ports,
-      user_activation, message.delegated_capability);
+      std::move(source_origin), message_origin_kind, "" /*lastEventId*/, window,
+      std::move(ports), user_activation, message.delegated_capability);
 
   // If the agent cluster id had a value it means this was locked when it
   // was serialized.
@@ -3897,7 +3890,7 @@ void LocalFrame::PostMessageEvent(
 
   // Finally dispatch the message to the DOM Window.
   DomWindow()->DispatchMessageEventWithOriginCheck(
-      target_security_origin.get(), message_event,
+      target_origin.get(), message_event,
       MakeGarbageCollected<SourceLocation>(String(), String(), 0, 0, nullptr),
       message.sender_agent_cluster_id);
 }
@@ -3919,16 +3912,6 @@ bool LocalFrame::ShouldThrottleDownload() {
   num_burst_download_requests_++;
   return false;
 }
-
-#if BUILDFLAG(IS_MAC)
-void LocalFrame::ResetTextInputHostForTesting() {
-  mojo_handler_->ResetTextInputHostForTesting();
-}
-
-void LocalFrame::RebindTextInputHostForTesting() {
-  mojo_handler_->RebindTextInputHostForTesting();
-}
-#endif
 
 Frame* LocalFrame::GetProvisionalOwnerFrame() {
   DCHECK(IsProvisional());

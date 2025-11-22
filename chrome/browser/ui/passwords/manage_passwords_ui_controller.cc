@@ -22,6 +22,7 @@
 #include "base/timer/timer.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/password_manager/account_password_store_factory.h"
@@ -331,8 +332,9 @@ void ManagePasswordsUIController::OnHideManualFallbackForSaving() {
           password_manager::ui::SAVE_CONFIRMATION_STATE) {
     return;
   }
-  // Don't hide the fallback if the bubble is open.
-  if (IsShowingBubble()) {
+  // Don't hide the fallback if the bubble is open or in the bubble manager
+  // queue.
+  if (IsShowingBubble() || BubbleManagerHasPasswordBubbleInQueue()) {
     return;
   }
 
@@ -510,7 +512,7 @@ void ManagePasswordsUIController::OnCredentialLeak(
 
   // Hide the manage passwords bubble if currently shown.
   if (IsShowingBubble()) {
-    HideBubble();
+    HideBubble(/*initiated_by_bubble_manager=*/false);
   } else {
     ClearPopUpFlagForBubble();
   }
@@ -526,7 +528,7 @@ void ManagePasswordsUIController::OnCredentialLeak(
     }
 
     password_change_service->OfferPasswordChangeUi(
-        details.origin, details.username, details.password, web_contents());
+        std::move(details.credentials), web_contents());
     UpdateBubbleAndIconVisibility();
     return;
   }
@@ -913,7 +915,7 @@ void ManagePasswordsUIController::OnBubbleHidden() {
           autofill::features::kAutofillShowBubblesBasedOnPriorities)) {
     if (auto* manager =
             autofill::BubbleManager::GetForWebContents(web_contents())) {
-      manager->OnBubbleHiddenByController(*this);
+      manager->OnBubbleHiddenByController(*this, /*show_next_bubble=*/true);
     }
   }
 }
@@ -1232,6 +1234,11 @@ void ManagePasswordsUIController::UpdateBubbleAndIconVisibility() {
     passwords_data_.OnInactive();
   }
 
+  // If Actor is operating on the tab, suppress all popups.
+  if (passwords_data_.client()->IsActorTaskActive()) {
+    ClearPopUpFlagForBubble();
+  }
+
   Browser* browser = chrome::FindBrowserWithTab(web_contents());
   if (!browser) {
     return;
@@ -1345,7 +1352,8 @@ void ManagePasswordsUIController::PrimaryPageChanged(content::Page& page) {
 
   // Keep the state if the bubble is currently open or the fallback for saving
   // should be still available.
-  if (IsShowingBubble() || save_fallback_timer_.IsRunning()) {
+  if (IsShowingBubble() || save_fallback_timer_.IsRunning() ||
+      BubbleManagerHasPasswordBubbleInQueue()) {
     return;
   }
 
@@ -1365,7 +1373,7 @@ void ManagePasswordsUIController::OnVisibilityChanged(
   }
 
   if (visibility == content::Visibility::HIDDEN) {
-    HideBubble();
+    HideBubble(/*initiated_by_bubble_manager=*/false);
   }
 }
 
@@ -1411,7 +1419,7 @@ void ManagePasswordsUIController::ClearPopUpFlagForBubble() {
 }
 
 void ManagePasswordsUIController::DestroyPopups() {
-  HideBubble();
+  HideBubble(/*initiated_by_bubble_manager=*/false);
   if (dialog_controller_ && dialog_controller_->IsShowingAccountChooser()) {
     dialog_controller_.reset();
     passwords_data_.TransitionToState(password_manager::ui::MANAGE_STATE);
@@ -1429,7 +1437,7 @@ void ManagePasswordsUIController::WebContentsDestroyed() {
   if (account_password_store) {
     account_password_store->RemoveObserver(this);
   }
-  HideBubble();
+  HideBubble(/*initiated_by_bubble_manager=*/false);
   web_contents()->RemoveUserData(UserDataKey());
   // `this` is now destroyed - do not add code here.
 }
@@ -1490,13 +1498,28 @@ bool ManagePasswordsUIController::IsPasswordChangeOngoing() const {
   return GetPasswordChangeDelegate();
 }
 
+bool ManagePasswordsUIController::BubbleManagerHasPasswordBubbleInQueue()
+    const {
+  if (!base::FeatureList::IsEnabled(
+          autofill::features::kAutofillShowBubblesBasedOnPriorities)) {
+    return false;
+  }
+
+  if (auto* manager =
+          autofill::BubbleManager::GetForWebContents(web_contents())) {
+    return manager->HasPendingBubbleOfSameType(GetBubbleType());
+  }
+
+  return false;
+}
+
 void ManagePasswordsUIController::ShowBubble() {
   if (TabDialogs* tab_dialogs = TabDialogs::FromWebContents(web_contents())) {
     tab_dialogs->ShowManagePasswordsBubble(user_action_);
   }
 }
 
-void ManagePasswordsUIController::HideBubble() {
+void ManagePasswordsUIController::HideBubble(bool initiated_by_bubble_manager) {
   is_mouse_hovered_ = false;
   if (TabDialogs* tab_dialogs = TabDialogs::FromWebContents(web_contents())) {
     tab_dialogs->HideManagePasswordsBubble();
@@ -1515,6 +1538,10 @@ bool ManagePasswordsUIController::IsShowingBubble() const {
 base::WeakPtr<autofill::BubbleControllerBase>
 ManagePasswordsUIController::GetBubbleControllerBaseWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
+}
+
+bool ManagePasswordsUIController::CanBeReshown() const {
+  return GetState() != password_manager::ui::AUTO_SIGNIN_STATE;
 }
 
 void ManagePasswordsUIController::OnMouseEntered() {
@@ -1540,7 +1567,7 @@ void ManagePasswordsUIController::QueueOrShowBubble(bool user_action) {
           autofill::features::kAutofillShowBubblesBasedOnPriorities)) {
     if (auto* manager =
             autofill::BubbleManager::GetForWebContents(web_contents())) {
-      CHECK(!manager->HasPendingBubbleOfSameType(GetBubbleType()));
+      CHECK(!manager->HasConflictingPendingBubble(GetBubbleType()));
       manager->RequestShowController(*this, user_action);
     }
     return;

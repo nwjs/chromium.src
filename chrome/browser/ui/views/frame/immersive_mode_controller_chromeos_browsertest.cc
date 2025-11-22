@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/views/frame/browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view_chromeos.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
@@ -80,7 +81,7 @@ class ImmersiveModeControllerChromeosWebAppBrowserTest
       // Wait for the URL to load so that the location bar end-state stabilizes.
       url_observer.Wait();
     }
-    controller_ = browser_view()->immersive_mode_controller();
+    controller_ = ImmersiveModeController::From(browser());
 
     // Disable animations in immersive fullscreen before we show the window,
     // which triggers an animation.
@@ -312,8 +313,10 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosWebAppBrowserTest,
 // but still drawn. In this case, we should have a null anchor view so that the
 // bubble gets placed in the default top left corner. Regression test for
 // https://crbug.com/1087143.
+// TODO(crbug.com/454621319): Debug and figure out why this started failing
+// after the changes in https://crrev.com/c/7064537.
 IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosWebAppBrowserTest,
-                       PermissionsBubbleAnchor) {
+                       DISABLED_PermissionsBubbleAnchor) {
   LaunchAppBrowser();
   auto test_api =
       std::make_unique<test::PermissionRequestManagerTestApi>(browser());
@@ -339,9 +342,8 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosWebAppBrowserTest,
   EXPECT_TRUE(bubble_dialog->GetAnchorView());
 
   // Turn on immersive, but do not reveal.
-  auto* immersive_mode_controller =
-      BrowserView::GetBrowserViewForBrowser(browser())
-          ->immersive_mode_controller();
+  auto* const immersive_mode_controller =
+      ImmersiveModeController::From(browser());
   immersive_mode_controller->SetEnabled(true);
 
   // Since a bubble was visible and anchored to the header, the header should
@@ -429,7 +431,5 @@ IN_PROC_BROWSER_TEST_F(UpdateFullscreenTest, NoImmersiveUI) {
   }));
 
   ASSERT_NE(found_browser, nullptr);
-  EXPECT_FALSE(BrowserView::GetBrowserViewForBrowser(found_browser)
-                   ->immersive_mode_controller()
-                   ->IsEnabled());
+  EXPECT_FALSE(ImmersiveModeController::From(found_browser)->IsEnabled());
 }

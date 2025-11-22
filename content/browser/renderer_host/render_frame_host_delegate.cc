@@ -15,7 +15,6 @@
 #include "build/build_config.h"
 #include "content/public/browser/cookie_access_details.h"
 #include "content/public/browser/trust_token_access_details.h"
-#include "ipc/ipc_message.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "third_party/blink/public/mojom/frame/fullscreen.mojom.h"
 #include "third_party/blink/public/mojom/frame/text_autosizer_page_info.mojom.h"
@@ -32,12 +31,6 @@ blink::mojom::PartitionedPopinParamsPtr
 PartitionedPopinOpenerProperties::AsMojom() const {
   return blink::mojom::PartitionedPopinParams::New(top_frame_origin,
                                                    site_for_cookies);
-}
-
-bool RenderFrameHostDelegate::OnMessageReceived(
-    RenderFrameHostImpl* render_frame_host,
-    const IPC::Message& message) {
-  return false;
 }
 
 bool RenderFrameHostDelegate::DidAddMessageToConsole(
@@ -81,6 +74,10 @@ bool RenderFrameHostDelegate::CheckMediaAccessPermission(
 
 ui::AXMode RenderFrameHostDelegate::GetAccessibilityMode() {
   return ui::AXMode();
+}
+
+bool RenderFrameHostDelegate::ShouldIgnoreA11yInputEvents() {
+  return false;
 }
 
 device::mojom::GeolocationContext*

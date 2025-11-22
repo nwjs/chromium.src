@@ -41,6 +41,7 @@ import android.app.Instrumentation;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.view.View;
 
 import androidx.test.espresso.contrib.RecyclerViewActions;
@@ -121,10 +122,12 @@ import java.util.List;
 /** Tests for various Safety Hub settings surfaces. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-@Features.EnableFeatures(ChromeFeatureList.SAFETY_HUB)
 @Features.DisableFeatures(ChromeFeatureList.EDGE_TO_EDGE_EVERYWHERE)
 @Batch(Batch.PER_CLASS)
 @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
+@DisableIf.Build(
+        sdk_equals = Build.VERSION_CODES.Q,
+        message = "crbug.com/447426928, crashing emulator with --disable-field-trial-config")
 public final class SafetyHubTest {
     // This test suite currently expects that calls to password check via PasswordManagerHelper
     // cause an exception, so the state of the UI can be controlled by setting prefs in
@@ -213,6 +216,13 @@ public final class SafetyHubTest {
                     0,
                     0,
                     PermissionsRevocationType.DISRUPTIVE_NOTIFICATION_PERMISSIONS);
+    private static final PermissionsData PERMISSIONS_DATA_5 =
+            PermissionsData.create(
+                    "http://example5.com",
+                    new int[] {ContentSettingsType.NOTIFICATIONS},
+                    0,
+                    0,
+                    PermissionsRevocationType.SUSPICIOUS_NOTIFICATION_PERMISSIONS);
     private static final NotificationPermissions NOTIFICATION_PERMISSIONS_1 =
             NotificationPermissions.create("http://example1.com", "*", 3);
     private static final NotificationPermissions NOTIFICATION_PERMISSIONS_2 =
@@ -342,7 +352,7 @@ public final class SafetyHubTest {
     @Feature({"RenderTest", "SafetyHubPermissions"})
     public void testNotificationPermissionsSubpageAppearance() throws IOException {
         mUnusedPermissionsBridge.setPermissionsDataForReview(
-                new PermissionsData[] {PERMISSIONS_DATA_3, PERMISSIONS_DATA_4});
+                new PermissionsData[] {PERMISSIONS_DATA_3, PERMISSIONS_DATA_4, PERMISSIONS_DATA_5});
         mPermissionsFragmentTestRule.startSettingsActivity();
         mRenderTestRule.render(
                 getRootViewSanitized(R.string.safety_hub_permissions_page_title),
@@ -2341,7 +2351,7 @@ public final class SafetyHubTest {
         // Open the permissions subpage.
         clickOnSecondaryButtonNextToText(permissionsTitle);
 
-        // Verify that 2 sites are displayed.
+        // Verify that the site is displayed.
         onView(withText(PERMISSIONS_DATA_3.getOrigin())).check(matches(isDisplayed()));
 
         // Click the button at the bottom of the page.
@@ -2356,6 +2366,66 @@ public final class SafetyHubTest {
         // again.
         onViewWaiting(withText(R.string.undo)).perform(click());
         onViewWaiting(withText(permissionsTitle)).check(matches(isDisplayed()));
+
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"SafetyHubPermissions"})
+    public void testDisruptiveNotificationPermissionRegrant() {
+        mUnusedPermissionsBridge.setPermissionsDataForReview(
+                new PermissionsData[] {PERMISSIONS_DATA_4});
+        mSafetyHubFragmentTestRule.startSettingsActivity();
+        mPermissionsFragmentTestRule.startSettingsActivity();
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecords(
+                                PERMISSIONS_INTERACTIONS_HISTOGRAM_NAME,
+                                PermissionsModuleInteractions.ALLOW_AGAIN,
+                                PermissionsModuleInteractions.UNDO_ALLOW_AGAIN)
+                        .expectNoRecords(
+                                ABUSIVE_NOTIFICATION_REVOCATION_INTERACTIONS_HISTOGRAM_NAME)
+                        .build();
+
+        // Regrant the permissions by clicking the corresponding action button.
+        clickOnButtonNextToText(PERMISSIONS_DATA_4.getOrigin());
+        onView(withText(PERMISSIONS_DATA_4.getOrigin())).check(doesNotExist());
+
+        // Click on the action button of the snackbar to undo the above action.
+        onViewWaiting(withText(R.string.undo)).perform(click());
+        onViewWaiting(withText(PERMISSIONS_DATA_4.getOrigin())).check(matches(isDisplayed()));
+
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"SafetyHubPermissions"})
+    public void testSuspiciousNotificationPermissionRegrant() {
+        mUnusedPermissionsBridge.setPermissionsDataForReview(
+                new PermissionsData[] {PERMISSIONS_DATA_5});
+        mSafetyHubFragmentTestRule.startSettingsActivity();
+        mPermissionsFragmentTestRule.startSettingsActivity();
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecords(
+                                ABUSIVE_NOTIFICATION_REVOCATION_INTERACTIONS_HISTOGRAM_NAME,
+                                PermissionsModuleInteractions.ALLOW_AGAIN,
+                                PermissionsModuleInteractions.UNDO_ALLOW_AGAIN)
+                        .expectIntRecords(
+                                PERMISSIONS_INTERACTIONS_HISTOGRAM_NAME,
+                                PermissionsModuleInteractions.ALLOW_AGAIN,
+                                PermissionsModuleInteractions.UNDO_ALLOW_AGAIN)
+                        .build();
+
+        // Regrant the permissions by clicking the corresponding action button.
+        clickOnButtonNextToText(PERMISSIONS_DATA_5.getOrigin());
+        onView(withText(PERMISSIONS_DATA_5.getOrigin())).check(doesNotExist());
+
+        // Click on the action button of the snackbar to undo the above action.
+        onViewWaiting(withText(R.string.undo)).perform(click());
+        onViewWaiting(withText(PERMISSIONS_DATA_5.getOrigin())).check(matches(isDisplayed()));
 
         histogramWatcher.assertExpected();
     }
@@ -2402,11 +2472,15 @@ public final class SafetyHubTest {
     }
 
     private void verifyButtonsNextToTextVisibility(String text, boolean visible) {
-        onView(
-                        allOf(
-                                withId(R.id.buttons_container),
-                                hasSibling(withChild(withChild(withText(text))))))
-                .check(matches(visible ? isDisplayed() : not(isDisplayed())));
+        Matcher<View> viewMatcher =
+                allOf(
+                        withId(R.id.buttons_container),
+                        hasSibling(withChild(withChild(withText(text)))));
+        if (visible) {
+            onViewWaiting(allOf(viewMatcher, isDisplayed())).check(matches(isDisplayed()));
+        } else {
+            onView(viewMatcher).check(matches(not(isDisplayed())));
+        }
     }
 
     private void verifySummaryNextToTextVisibility(String text, boolean visible) {

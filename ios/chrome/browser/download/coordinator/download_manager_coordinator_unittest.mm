@@ -407,10 +407,10 @@ TEST_F(DownloadManagerCoordinatorTest, Close) {
   }
 
   // Verify that child view controller is removed, download task is set to null
-  // and download task is cancelled.
+  // and download task remains in its original state (cleanup doesn't cancel).
   EXPECT_EQ(0U, base_view_controller_.childViewControllers.count);
   EXPECT_FALSE(coordinator_.downloadTask);
-  EXPECT_EQ(web::DownloadTask::State::kCancelled, task->GetState());
+  EXPECT_EQ(web::DownloadTask::State::kNotStarted, task->GetState());
   histogram_tester_.ExpectUniqueSample(
       "Download.IOSDownloadFileResult",
       static_cast<base::HistogramBase::Sample32>(
@@ -446,17 +446,16 @@ TEST_F(DownloadManagerCoordinatorTest, OpenIn) {
   task_ptr->Start(path.Append(task_ptr->GenerateFileName()));
 
   // Stub UIActivityViewController.
-  OCMStub([download_view_controller_mock presentViewController:[OCMArg any]
-                                                      animated:YES
-                                                    completion:[OCMArg any]])
-      .andDo(^(NSInvocation* invocation) {
-        __unsafe_unretained id object;
-        [invocation getArgument:&object atIndex:2];
+  OCMStub([download_view_controller_mock
+      presentViewController:[OCMArg checkWithBlock:^(id object) {
         EXPECT_EQ([UIActivityViewController class], [object class]);
         UIActivityViewController* open_in_controller =
             base::apple::ObjCCastStrict<UIActivityViewController>(object);
         EXPECT_EQ(open_in_controller.excludedActivityTypes.count, 2.0);
-      });
+        return YES;
+      }]
+                   animated:YES
+                 completion:[OCMArg any]]);
 
   ASSERT_EQ(0, user_action_tester_.GetActionCount("IOSDownloadOpenIn"));
 

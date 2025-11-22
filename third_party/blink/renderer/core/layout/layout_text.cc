@@ -626,9 +626,7 @@ void LayoutText::AbsoluteQuadsForRange(Vector<gfx::QuadF>& quads,
         // ​​are equal, it signifies a collapsed range. In this case, we
         // should skip processing `item`.
         if (start > offset.end || end < offset.start ||
-            (RuntimeEnabledFeatures::
-                 SkipLineBreakItemWhenIsCollapsedEnabled() &&
-             item.IsLineBreak() && start == end)) {
+            (item.IsLineBreak() && start == end)) {
           is_last_end_included = false;
           continue;
         }
@@ -649,7 +647,7 @@ void LayoutText::AbsoluteQuadsForRange(Vector<gfx::QuadF>& quads,
         rect = text_combine->AdjustRectForBoundingBox(rect);
       }
       gfx::QuadF quad;
-      if (const SvgFragmentData* svg_data = item.GetSvgFragmentData()) {
+      if (const TextFragmentRareData* svg_data = item.GetSvgFragmentData()) {
         gfx::RectF float_rect(rect);
         float_rect.Offset(svg_data->rect.OffsetFromOrigin());
         quad = item.BuildSvgTransformForBoundingBox().MapQuad(
@@ -674,7 +672,8 @@ void LayoutText::AbsoluteQuadsForRange(Vector<gfx::QuadF>& quads,
   }
 }
 
-gfx::RectF LayoutText::LocalBoundingBoxRectForAccessibility() const {
+gfx::RectF LayoutText::LocalBoundingBoxRectForAccessibility(
+    IncludeDescendants include_descendants) const {
   NOT_DESTROYED();
   gfx::RectF result;
   CollectLineBoxRects(

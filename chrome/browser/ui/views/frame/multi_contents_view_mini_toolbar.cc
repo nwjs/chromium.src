@@ -64,7 +64,7 @@ tabs::TabInterface* GetTabInterface(content::WebContents* web_contents) {
 
 bool IsNTP(const GURL& url) {
   return (url.SchemeIs(content::kChromeUIScheme) &&
-          url.host() == chrome::kChromeUINewTabHost) ||
+          url.GetHost() == chrome::kChromeUINewTabHost) ||
          search::IsNTPURL(url) || search::IsSplitViewNewTabPage(url);
 }
 
@@ -371,6 +371,12 @@ void MultiContentsViewMiniToolbar::CloseCurrentView() {
 
   TabStripModel* const model = browser_view_->browser()->tab_strip_model();
   const int index = model->GetIndexOfWebContents(web_contents_);
+
+  if (index == TabStripModel::kNoTab) {
+    // Only close the WebContents if it exists. crbug.com/459828484
+    return;
+  }
+
   model->CloseWebContentsAt(index,
                             TabCloseTypes::CLOSE_USER_GESTURE |
                                 TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);

@@ -235,7 +235,7 @@ public class AwSettings {
     private final boolean mAllowGeolocationOnInsecureOrigins;
     private final boolean mDoNotUpdateSelectionOnMutatingSelectionRange;
 
-    private final boolean mPasswordEchoEnabled;
+    private boolean mPasswordEchoEnabled;
 
     // Not accessed by the native side.
     private boolean mBlockSpecialFileUrls;
@@ -816,20 +816,15 @@ public class AwSettings {
         if (TRACE) Log.i(TAG, "setUserAgentString=" + ua);
         synchronized (mAwSettingsLock) {
             final String oldUserAgent = mUserAgent;
-            if (ua == null || ua.length() == 0) {
+            if (ua == null || ua.isEmpty()) {
                 mUserAgent = LazyDefaultUserAgent.sInstance;
+            } else if (!AwBrowserContext.isValidHttpHeaderValue(ua)) {
+                throw new IllegalArgumentException("Invalid HTTP header value: '" + ua + "'");
             } else {
                 mUserAgent = ua;
             }
             if (!oldUserAgent.equals(mUserAgent)) {
-                if (ua != null
-                        && ua.length() > 0
-                        && AwBrowserContext.BAD_HEADER_CHAR.matcher(ua).find()) {
-                    throw new IllegalArgumentException(
-                            AwBrowserContext.BAD_HEADER_MSG + "Invalid User-Agent '" + ua + "'");
-                }
-                mEventHandler.runOnUiThreadBlockingAndLocked(
-                        () -> updateUserAgentOnUiThreadLocked());
+                mEventHandler.runOnUiThreadBlockingAndLocked(this::updateUserAgentOnUiThreadLocked);
             }
         }
     }
@@ -1559,6 +1554,15 @@ public class AwSettings {
     private boolean getPasswordEchoEnabledLocked() {
         assert Thread.holdsLock(mAwSettingsLock);
         return mPasswordEchoEnabled;
+    }
+
+    public void setPasswordEchoEnabled(boolean enabled) {
+        synchronized (mAwSettingsLock) {
+            if (mPasswordEchoEnabled != enabled) {
+                mPasswordEchoEnabled = enabled;
+                mEventHandler.updateWebkitPreferencesLocked();
+            }
+        }
     }
 
     /** See {@link android.webkit.WebSettings#setDomStorageEnabled}. */

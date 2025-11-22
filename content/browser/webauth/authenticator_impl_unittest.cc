@@ -555,7 +555,7 @@ class AuthenticatorImplTest : public AuthenticatorTestBase {
 
     PublicKeyCredentialRequestOptionsPtr options =
         GetTestPublicKeyCredentialRequestOptions();
-    options->relying_party_id = origin_url.host();
+    options->relying_party_id = origin_url.GetHost();
     options->extensions->appid = appid;
 
     return AuthenticatorGetAssertion(std::move(options)).status;
@@ -569,7 +569,7 @@ class AuthenticatorImplTest : public AuthenticatorTestBase {
 
     PublicKeyCredentialCreationOptionsPtr options =
         GetTestPublicKeyCredentialCreationOptions();
-    options->relying_party.id = origin_url.host();
+    options->relying_party.id = origin_url.GetHost();
     options->appid_exclude = appid_exclude;
 
     return AuthenticatorMakeCredential(std::move(options)).status;
@@ -1795,6 +1795,34 @@ class AuthenticatorContentBrowserClientTest : public AuthenticatorImplTest {
 
   raw_ptr<ContentBrowserClient> old_client_ = nullptr;
 };
+
+TEST_F(AuthenticatorContentBrowserClientTest, MakeCredentialActorIsActive) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatureState(device::kWebAuthnActorCheck, true);
+
+  NavigateAndCommit(GURL(kTestOrigin1));
+  test_client_.should_disallow_credential_request = true;
+  PublicKeyCredentialCreationOptionsPtr options =
+      GetTestPublicKeyCredentialCreationOptions();
+  EXPECT_EQ(AuthenticatorMakeCredential(std::move(options)).status,
+            AuthenticatorStatus::NOT_ALLOWED_ERROR);
+  VerifyMakeCredentialOutcomeUkm(0, MakeCredentialOutcome::kBlockedByEmbedder,
+                                 AuthenticationRequestMode::kModalWebAuthn);
+}
+
+TEST_F(AuthenticatorContentBrowserClientTest, GetCredentialActorIsActive) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatureState(device::kWebAuthnActorCheck, true);
+
+  test_client_.should_disallow_credential_request = true;
+  NavigateAndCommit(GURL(kTestOrigin1));
+  PublicKeyCredentialRequestOptionsPtr options =
+      GetTestPublicKeyCredentialRequestOptions();
+  EXPECT_EQ(AuthenticatorGetAssertion(std::move(options)).status,
+            AuthenticatorStatus::NOT_ALLOWED_ERROR);
+  VerifyGetAssertionOutcomeUkm(0, GetAssertionOutcome::kBlockedByEmbedder,
+                               AuthenticationRequestMode::kModalWebAuthn);
+}
 
 TEST_F(AuthenticatorContentBrowserClientTest, MakeCredentialTLSError) {
   NavigateAndCommit(GURL(kTestOrigin1));

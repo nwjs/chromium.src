@@ -15,6 +15,7 @@
 
 class AskBeforeHttpDialogController;
 class CollaborationMessagingPageActionController;
+class CookieControlsPageActionController;
 class FileSystemAccessPageActionController;
 class FromGWSNavigationAndKeepAliveRequestObserver;
 class IntentPickerViewPageActionController;
@@ -33,6 +34,7 @@ class TranslatePageActionController;
 class QwacWebContentsObserver;
 class ManagePasswordsPageActionController;
 class BookmarkBarPreloadPipelineManager;
+class NewTabPagePreloadPipelineManager;
 
 namespace autofill {
 class BubbleManager;
@@ -94,7 +96,6 @@ class PermissionIndicatorsTabData;
 
 namespace privacy_sandbox {
 class PrivacySandboxTabObserver;
-class PrivacySandboxIncognitoTabObserver;
 }  // namespace privacy_sandbox
 
 namespace sync_sessions {
@@ -122,6 +123,12 @@ class TabContextualizationController;
 namespace wallet {
 class ChromeWalletablePassClient;
 }  // namespace wallet
+#endif
+
+#if BUILDFLAG(IS_CHROMEOS)
+namespace web_app {
+class ProtocolHandlerPickerCoordinator;
+}  // namespace web_app
 #endif
 
 namespace tabs {
@@ -180,11 +187,6 @@ class TabFeatures {
 
   privacy_sandbox::PrivacySandboxTabObserver* privacy_sandbox_tab_observer() {
     return privacy_sandbox_tab_observer_.get();
-  }
-
-  privacy_sandbox::PrivacySandboxIncognitoTabObserver*
-  privacy_sandbox_incognito_tab_observer() {
-    return privacy_sandbox_incognito_tab_observer_.get();
   }
 
   extensions::ExtensionSidePanelManager* extension_side_panel_manager() {
@@ -291,6 +293,10 @@ class TabFeatures {
     return bookmarkbar_preload_pipeline_manager_.get();
   }
 
+  NewTabPagePreloadPipelineManager* new_tab_page_preload_pipeline_manager() {
+    return new_tab_page_preload_pipeline_manager_.get();
+  }
+
   // Called exactly once to initialize features.
   void Init(TabInterface& tab, Profile* profile);
 
@@ -333,9 +339,6 @@ class TabFeatures {
   std::unique_ptr<privacy_sandbox::PrivacySandboxTabObserver>
       privacy_sandbox_tab_observer_;
 
-  std::unique_ptr<privacy_sandbox::PrivacySandboxIncognitoTabObserver>
-      privacy_sandbox_incognito_tab_observer_;
-
   // The tab-scoped extension side-panel manager. There is a separate
   // window-scoped extension side-panel manager.
   std::unique_ptr<extensions::ExtensionSidePanelManager>
@@ -349,6 +352,13 @@ class TabFeatures {
   // tab counterpart from sync.
   std::unique_ptr<tab_groups::SavedTabGroupWebContentsListener>
       saved_tab_group_web_contents_listener_;
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // Manages the protocol handler picker dialog on ChromeOS. Must be destroyed
+  // after the `tab_dialog_manager_`.
+  std::unique_ptr<web_app::ProtocolHandlerPickerCoordinator>
+      protocol_handler_picker_coordinator_;
+#endif
 
   // Manages various tab modal dialogs.
   std::unique_ptr<TabDialogManager> tab_dialog_manager_;
@@ -403,6 +413,10 @@ class TabFeatures {
   std::unique_ptr<CollaborationMessagingPageActionController>
       collaboration_messaging_page_action_controller_;
 
+  // Manages the Cookie Controls page action.
+  std::unique_ptr<CookieControlsPageActionController>
+      cookie_controls_page_action_controller_;
+
 #if BUILDFLAG(ENABLE_GLIC)
   std::unique_ptr<glic::GlicInstanceHelper> glic_instance_helper_;
   std::unique_ptr<glic::GlicTabIndicatorHelper> glic_tab_indicator_helper_;
@@ -449,6 +463,9 @@ class TabFeatures {
 
   std::unique_ptr<BookmarkBarPreloadPipelineManager>
       bookmarkbar_preload_pipeline_manager_;
+
+  std::unique_ptr<NewTabPagePreloadPipelineManager>
+      new_tab_page_preload_pipeline_manager_;
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)

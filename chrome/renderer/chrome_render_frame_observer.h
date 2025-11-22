@@ -93,7 +93,8 @@ class ChromeRenderFrameObserver : public content::RenderFrameObserver,
       mojo::ScopedInterfaceEndpointHandle* handle) override;
   void ReadyToCommitNavigation(
       blink::WebDocumentLoader* document_loader) override;
-  void DidSetPageLifecycleState(bool restoring_from_bfcache) override;
+  void DidSetPageLifecycleState(
+      blink::BFCacheStateChange bfcache_change) override;
   void DidFinishLoad() override;
   void DidCreateNewDocument() override;
   void DidCommitProvisionalLoad(ui::PageTransition transition) override;
@@ -126,7 +127,6 @@ class ChromeRenderFrameObserver : public content::RenderFrameObserver,
 #endif
   void GetMediaFeedURL(GetMediaFeedURLCallback callback) override;
   void LoadBlockedPlugins(const std::string& identifier) override;
-  void SetSupportsDraggableRegions(bool supports_draggable_regions) override;
   void SetShouldDeferMediaLoad(bool should_defer) override;
 
 #if !BUILDFLAG(IS_ANDROID)

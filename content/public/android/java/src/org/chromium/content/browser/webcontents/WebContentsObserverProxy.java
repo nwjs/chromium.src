@@ -343,11 +343,11 @@ class WebContentsObserverProxy extends WebContentsObserver {
 
     @CalledByNative
     @Override
-    public void firstContentfulPaintInPrimaryMainFrame(Page page) {
+    public void firstContentfulPaintInPrimaryMainFrame(Page page, long durationUs) {
         handleObserverCall();
         Iterator<WebContentsObserver> observersIterator = mObservers.iterator();
         for (; observersIterator.hasNext(); ) {
-            observersIterator.next().firstContentfulPaintInPrimaryMainFrame(page);
+            observersIterator.next().firstContentfulPaintInPrimaryMainFrame(page, durationUs);
         }
         finishObserverCall();
     }
@@ -564,6 +564,17 @@ class WebContentsObserverProxy extends WebContentsObserver {
         Iterator<WebContentsObserver> observersIterator = mObservers.iterator();
         for (; observersIterator.hasNext(); ) {
             observersIterator.next().didUpdateAudioMutingState(muted);
+        }
+        finishObserverCall();
+    }
+
+    @Override
+    @CalledByNative
+    public void wasDiscarded() {
+        handleObserverCall();
+        Iterator<WebContentsObserver> observersIterator = mObservers.iterator();
+        for (; observersIterator.hasNext(); ) {
+            observersIterator.next().wasDiscarded();
         }
         finishObserverCall();
     }

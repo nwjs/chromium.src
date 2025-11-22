@@ -110,6 +110,7 @@
 #define IDC_CLOSE_TAB_GROUP           34104
 #define IDC_GROUP_UNGROUPED_TABS      34105
 #define IDC_CREATE_NEW_TAB_GROUP_TOP_LEVEL 34106
+#define IDC_ADD_NEW_TAB_RECENT_GROUP 34107
 
 // Page-related commands
 #define IDC_BOOKMARK_THIS_TAB           35000
@@ -182,13 +183,14 @@
 #define IDC_CUSTOMIZE_CHROME            37350
 #define IDC_CLOSE_PROFILE               35351
 #define IDC_MANAGE_GOOGLE_ACCOUNT       35352
-#define IDC_SHOW_SYNC_SETTINGS          35353
+#define IDC_SHOW_SYNC_SETTINGS          35353  // Deprecated.
 #define IDC_TURN_ON_SYNC                35354  // Deprecated.
 #define IDC_SHOW_SIGNIN_WHEN_PAUSED     35355
 #define IDC_OPEN_GUEST_PROFILE          35356
 #define IDC_ADD_NEW_PROFILE             35357
 #define IDC_MANAGE_CHROME_PROFILES      35358
 #define IDC_SHOW_SIGNIN                 35359
+#define IDC_SHOW_SYNC_PASSPHRASE_DIALOG 35360
 
 // Zoom
 #define IDC_ZOOM_MENU                   38000
@@ -298,6 +300,7 @@
 #define IDC_SHOW_SEARCH_TOOLS  40296
 #define IDC_SHOW_COMMENTS_SIDE_PANEL  40297
 #define IDC_RECENT_TABS_SEE_DEVICE_TABS  40298
+#define IDC_SHOW_AI_MODE_OMNIBOX_BUTTON 40299
 
 // Spell-check
 // Insert any additional suggestions before _LAST; these have to be consecutive.
@@ -585,9 +588,19 @@
 #define IDC_GLIC_STATUS_ICON_MENU_SETTINGS                    53313
 #define IDC_GLIC_STATUS_ICON_MENU_EXIT                        53314
 #define IDC_GLIC_STATUS_ICON_MENU_CLOSE                       53315
+#define IDC_GLIC_STATUS_ICON_MENU_TOGGLE                      53316
 
 // Glic button context menu and tabstrip context menu
 #define IDC_GLIC_TOGGLE_PIN 53320
+
+// Show contextual tasks side panel.
+#define IDC_SHOW_CONTEXTUAL_TASKS_SIDE_PANEL                  54000
+
+// Omnibox context menu
+#define IDC_OMNIBOX_CONTEXT_ADD_IMAGE                         54010
+#define IDC_OMNIBOX_CONTEXT_ADD_FILE                          54011
+#define IDC_OMNIBOX_CONTEXT_CREATE_IMAGES                     54012
+#define IDC_OMNIBOX_CONTEXT_DEEP_RESEARCH                     54013
 
 // NOTE: The last valid command value is 57343 (0xDFFF)
 // See http://msdn.microsoft.com/en-us/library/t2zechd4(VS.71).aspx

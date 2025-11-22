@@ -30,7 +30,7 @@ using OnboardingStatus =
     privacy_sandbox::TrackingProtectionOnboarding::OnboardingStatus;
 
 bool IsSameSite(const GURL& url1, const GURL& url2) {
-  return url1.SchemeIs(url2.scheme()) &&
+  return url1.SchemeIs(url2.GetScheme()) &&
          net::registry_controlled_domains::SameDomainOrHost(
              url1, url2,
              net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
@@ -199,7 +199,6 @@ void ThirdPartyCookieDeprecationMetricsObserver::RecordCookieUseCounters(
 
   switch (allow_mechanism) {
     case ThirdPartyCookieAllowMechanism::kAllowByExplicitSetting:
-    case ThirdPartyCookieAllowMechanism::kAllowByTrackingProtectionException:
       third_party_cookie_features.push_back(
           blink::mojom::WebFeature::
               kThirdPartyCookieDeprecation_AllowByExplicitSetting);

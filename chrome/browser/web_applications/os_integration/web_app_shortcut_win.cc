@@ -46,9 +46,9 @@
 #include "crypto/obsolete/md5.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/win/shell.h"
-#include "ui/gfx/icon_util.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_family.h"
+#include "ui/gfx/win/icon_util.h"
 
 namespace web_app {
 namespace {
@@ -640,13 +640,17 @@ bool CreatePlatformShortcuts(const base::FilePath& web_app_path,
   browser_util::PinResultCallback can_pin_result_callback(base::BindOnce(
       [](const std::wstring& app_user_model_id, bool result) {
         if (result) {
-          browser_util::PinAppToTaskbar(app_user_model_id,
-                                        base::BindOnce(&PinAppResult));
+          browser_util::PinAppToTaskbar(
+              app_user_model_id,
+              browser_util::PinAppToTaskbarChannel::kPinWebApp,
+              base::BindOnce(&PinAppResult));
         }
       },
       app_id));
 
-  browser_util::ShouldOfferToPin(app_id, std::move(can_pin_result_callback));
+  browser_util::ShouldOfferToPin(
+      app_id, browser_util::PinAppToTaskbarChannel::kPinWebApp,
+      std::move(can_pin_result_callback));
   return true;
 }
 

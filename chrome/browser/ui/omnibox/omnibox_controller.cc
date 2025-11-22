@@ -5,15 +5,20 @@
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "base/functional/bind.h"
 #include "base/metrics/histogram.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_state_manager.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "components/omnibox/browser/autocomplete_classifier.h"
+#include "components/omnibox/browser/autocomplete_controller_config.h"
 #include "components/omnibox/browser/autocomplete_controller_emitter.h"
 #include "components/omnibox/browser/autocomplete_enums.h"
 #include "components/omnibox/browser/autocomplete_match.h"
@@ -22,33 +27,42 @@
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/omnibox_popup_selection.h"
 #include "components/omnibox/browser/page_classification_functions.h"
-#include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/search_engines/template_url_starter_pack_data.h"
 #include "ui/gfx/geometry/rect.h"
 
 OmniboxController::OmniboxController(
-    OmniboxView* view,
     std::unique_ptr<OmniboxClient> client,
-    base::TimeDelta autocomplete_stop_timer_duration)
+    std::optional<base::TimeDelta> autocomplete_stop_timer_duration)
     : client_(std::move(client)),
-      autocomplete_controller_(std::make_unique<AutocompleteController>(
-          client_->CreateAutocompleteProviderClient(),
-          AutocompleteClassifier::DefaultOmniboxProviders(),
-          autocomplete_stop_timer_duration)),
       edit_model_(std::make_unique<OmniboxEditModel>(
-          /*omnibox_controller=*/this,
-          view)) {
-  // Directly observe omnibox's `AutocompleteController` instance - i.e., when
-  // `view` is provided in the constructor. In the case of realbox - i.e., when
-  // `view` is not provided in the constructor - `RealboxHandler` directly
-  // observes the `AutocompleteController` instance itself.
-  if (view) {
-    autocomplete_controller_->AddObserver(this);
+          /*omnibox_controller=*/this)),
+      popup_state_manager_(std::make_unique<OmniboxPopupStateManager>()) {
+  AutocompleteControllerConfig autocomplete_controller_config{
+      .provider_types = AutocompleteClassifier::DefaultOmniboxProviders()};
+  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopup)) {
+    autocomplete_controller_config.show_iph_matches = false;
   }
+  if (autocomplete_stop_timer_duration.has_value()) {
+    autocomplete_controller_config.stop_timer_duration =
+        autocomplete_stop_timer_duration.value();
+  }
+  autocomplete_controller_ = std::make_unique<AutocompleteController>(
+      client_->CreateAutocompleteProviderClient(),
+      autocomplete_controller_config);
 
   // Register the `AutocompleteController` with `AutocompleteControllerEmitter`.
   if (auto* emitter = client_->GetAutocompleteControllerEmitter()) {
     autocomplete_controller_->AddObserver(emitter);
+  }
+}
+
+void OmniboxController::SetView(OmniboxView* view) {
+  edit_model_->set_view(view);
+  if (view) {
+    // Start observing the AutocompleteController when a View is associated with
+    // the OmniboxController. WebUI searchboxes observe the
+    // AutocompleteController directly in the WebUI page handler.
+    autocomplete_controller_->AddObserver(this);
   }
 }
 
@@ -99,8 +113,7 @@ void OmniboxController::OnResultChanged(AutocompleteController* controller,
                                         bool default_match_changed) {
   TRACE_EVENT0("omnibox", "OmniboxController::OnResultChanged");
   DCHECK(controller == autocomplete_controller_.get());
-
-  const bool popup_was_open = edit_model_->PopupIsOpen();
+  const bool popup_was_open = IsPopupOpen();
   if (default_match_changed) {
     // The default match has changed, we need to let the OmniboxEditModel know
     // about new inline autocomplete text (blue highlight).
@@ -117,7 +130,7 @@ void OmniboxController::OnResultChanged(AutocompleteController* controller,
     edit_model_->OnPopupResultChanged();
   }
 
-  const bool popup_is_open = edit_model_->PopupIsOpen();
+  const bool popup_is_open = IsPopupOpen();
   if (popup_was_open != popup_is_open) {
     client_->OnPopupVisibilityChanged(popup_is_open);
   }
@@ -148,7 +161,7 @@ void OmniboxController::OnResultChanged(AutocompleteController* controller,
 
 void OmniboxController::ClearPopupKeywordMode() const {
   TRACE_EVENT0("omnibox", "OmniboxController::ClearPopupKeywordMode");
-  if (edit_model_->PopupIsOpen()) {
+  if (IsPopupOpen()) {
     OmniboxPopupSelection selection = edit_model_->GetPopupSelection();
     if (selection.state == OmniboxPopupSelection::KEYWORD_MODE) {
       selection.state = OmniboxPopupSelection::NORMAL;
@@ -157,24 +170,22 @@ void OmniboxController::ClearPopupKeywordMode() const {
   }
 }
 
-std::u16string OmniboxController::GetHeaderForSuggestionGroup(
-    omnibox::GroupId suggestion_group_id) const {
-  return autocomplete_controller_->result().GetHeaderForSuggestionGroup(
-      suggestion_group_id);
-}
-
 bool OmniboxController::IsSuggestionHidden(
     const AutocompleteMatch& match) const {
-  if (OmniboxFieldTrial::IsStarterPackExpansionEnabled() &&
-      match.from_keyword) {
-    const TemplateURL* turl =
-        match.GetTemplateURL(client_->GetTemplateURLService());
-    if (turl &&
-        turl->starter_pack_id() == template_url_starter_pack_data::kGemini) {
-      return true;
-    }
+  return match.ShouldHideBasedOnStarterPack(client_->GetTemplateURLService());
+}
+
+bool OmniboxController::IsPopupOpen() const {
+  OmniboxPopupState state = popup_state_manager_->popup_state();
+  if (popup_state_validation_callback_) {
+    popup_state_validation_callback_.Run(state);
   }
-  return false;
+  return state != OmniboxPopupState::kNone;
+}
+
+void OmniboxController::SetPopupStateValidationCallback(
+    base::RepeatingCallback<void(OmniboxPopupState)> callback) {
+  popup_state_validation_callback_ = std::move(callback);
 }
 
 void OmniboxController::SetRichSuggestionBitmap(int result_index,

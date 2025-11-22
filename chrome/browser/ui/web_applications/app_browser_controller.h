@@ -15,7 +15,6 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
-#include "chrome/browser/web_applications/web_app_tab_helper.h"
 #include "components/url_formatter/url_formatter.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/common/web_app_id.h"
@@ -24,7 +23,6 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "ui/actions/action_id.h"
-#include "ui/color/color_provider.h"
 #include "ui/color/color_provider_key.h"
 #include "url/gurl.h"
 
@@ -40,17 +38,19 @@ class SystemWebAppDelegate;
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
+namespace base {
+class TimeTicks;
+}  // namespace base
+
 namespace gfx {
 class Rect;
 }  // namespace gfx
 
 namespace ui {
+class ColorProvider;
 class ImageModel;
+class ThemeProvider;
 }
-
-namespace base {
-class TimeTicks;
-}  // namespace base
 
 namespace web_app {
 
@@ -255,6 +255,10 @@ class AppBrowserController : public ui::ColorProviderKey::InitializerSupplier,
   // Returns true if there is a pending update available for this app.
   virtual bool HasPendingUpdate() const;
 
+  // Returns true if there is a pending update available for this app that has
+  // not been ignored by the user.
+  virtual bool HasPendingUpdateNotIgnoredByUser() const;
+
   // Constructs the metadata required for app identity updating and triggers the
   // corresponding dialog.
   virtual void CreateMetadataAndTriggerAppUpdateDialog(
@@ -347,11 +351,6 @@ class AppBrowserController : public ui::ColorProviderKey::InitializerSupplier,
  private:
   // Sets the url that the app browser controller was created with.
   void SetInitialURL(const GURL& initial_url);
-
-  // Indicates to the WebView whether it should support draggable regions via
-  // the app-region CSS property.
-  void UpdateSupportsDraggableRegions(bool supports_draggable_regions,
-                                      content::RenderFrameHost* host);
 
   const raw_ptr<Browser> browser_;
   const webapps::AppId app_id_;

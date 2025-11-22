@@ -738,10 +738,12 @@ scoped_refptr<VideoFrame> AlignedDataHelper::CreateVideoFrameFromVideoFrameData(
     }
     base::ReadOnlySharedMemoryMapping mapping = shmem_region.Map();
     uint8_t* buf = const_cast<uint8_t*>(mapping.GetMemoryAs<uint8_t>());
-    std::array<uint8_t*, 3> data = {};
-    for (size_t i = 0; i < layout_->planes().size(); i++)
-      data[i] = buf + layout_->planes()[i].offset;
-
+    std::array<base::span<uint8_t>, VideoFrame::kMaxPlanes> data = {};
+    for (size_t i = 0; i < layout_->planes().size(); i++) {
+      // TODO(crbug.com/40285824): spanify this usage.
+      data[i] = UNSAFE_TODO(base::span(buf + layout_->planes()[i].offset,
+                                       layout_->planes()[i].size));
+    }
     auto frame = media::VideoFrame::WrapExternalYuvDataWithLayout(
         *layout_, visible_rect_, natural_size_, data[0], data[1], data[2],
         frame_timestamp);
@@ -824,13 +826,16 @@ RawDataHelper::~RawDataHelper() = default;
 scoped_refptr<const VideoFrame> RawDataHelper::GetFrame(size_t index) const {
   uint32_t read_frame_index =
       GetReadFrameIndex(index, reverse_, video_->NumFrames());
-  std::array<uint8_t*, VideoFrame::kMaxPlanes> frame_data = {};
+  std::array<base::span<uint8_t>, VideoFrame::kMaxPlanes> frame_data = {};
   const size_t num_planes = VideoFrame::NumPlanes(video_->PixelFormat());
   RawVideo::FrameData src_frame = video_->GetFrame(read_frame_index);
   for (size_t i = 0; i < num_planes; ++i) {
     // The data is never modified but WrapExternalYuvDataWithLayout() only
-    // accepts non-const pointer.
-    frame_data[i] = const_cast<uint8_t*>(src_frame.plane_addrs[i]);
+    // accepts non-const span.
+    // TODO(crbug.com/40285824): spanify this usage.
+    frame_data[i] =
+        UNSAFE_TODO(base::span(const_cast<uint8_t*>(src_frame.plane_addrs[i]),
+                               video_->FrameLayout().planes()[i].size));
   }
 
   scoped_refptr<VideoFrame> video_frame =

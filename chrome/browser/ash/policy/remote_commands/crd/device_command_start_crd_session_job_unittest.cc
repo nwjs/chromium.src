@@ -275,6 +275,10 @@ class DeviceCommandStartCrdSessionJobTest : public ash::DeviceSettingsTestBase {
     StartSessionOfType(TestSessionType::kAffiliatedUserSession);
   }
 
+  void LogInAsManagedGuestSessionUser() {
+    StartSessionOfType(TestSessionType::kManagedGuestSession);
+  }
+
   void SetDeviceIdleTime(int idle_time_in_sec) {
     user_activity_detector_->set_last_activity_time_for_test(
         base::TimeTicks::Now() - base::Seconds(idle_time_in_sec));
@@ -654,6 +658,15 @@ TEST_F(DeviceCommandStartCrdSessionJobTest, ShouldPassRequestOriginToDelegate) {
             delegate().session_parameters().request_origin);
 }
 
+TEST_F(DeviceCommandStartCrdSessionJobTest, ShouldPassAudioPlaybackToDelegate) {
+  LogInAsAffiliatedUser();
+  Result result = RunJobAndWaitForResult();
+
+  EXPECT_SUCCESS(result);
+  EXPECT_EQ(StartCrdSessionJobDelegate::AudioPlayback::kLocalOnly,
+            delegate().session_parameters().audio_playback);
+}
+
 TEST_F(DeviceCommandStartCrdSessionJobTest, ShouldCheckNetworkManagedStatus) {
   LogInAsKioskUser();
 
@@ -883,6 +896,35 @@ TEST_F(DeviceCommandStartCrdSessionJobTest,
   EXPECT_SUCCESS(result);
   EXPECT_EQ(delegate().session_parameters().connection_auto_accept_timeout,
             kAutoApproveConnectionTimeout);
+}
+
+TEST_F(DeviceCommandStartCrdSessionJobTest,
+       ShouldSetAutoAcceptTimeOutIfMgsIsIdleSinceBoot) {
+  AddActiveManagedNetwork();
+  base::TimeTicks never;
+  ASSERT_TRUE(never.is_null());
+  SetLastDeviceActivityTime(never);
+
+  LogInAsManagedGuestSessionUser();
+  Result result = RunJobAndWaitForResult();
+
+  EXPECT_SUCCESS(result);
+  EXPECT_EQ(delegate().session_parameters().connection_auto_accept_timeout,
+            kAutoApproveConnectionTimeout);
+}
+
+TEST_F(DeviceCommandStartCrdSessionJobTest,
+       ShouldNotSetAutoAcceptTimeOutIfMgsIsConnectedToUnmanagedNetwork) {
+  base::TimeTicks never;
+  ASSERT_TRUE(never.is_null());
+  SetLastDeviceActivityTime(never);
+
+  LogInAsManagedGuestSessionUser();
+  Result result = RunJobAndWaitForResult();
+
+  EXPECT_SUCCESS(result);
+  EXPECT_EQ(delegate().session_parameters().connection_auto_accept_timeout,
+            std::nullopt);
 }
 
 TEST_F(DeviceCommandStartCrdSessionJobTest,

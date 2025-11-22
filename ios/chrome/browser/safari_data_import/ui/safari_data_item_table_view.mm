@@ -15,6 +15,8 @@
 #import "ios/chrome/browser/safari_data_import/ui/safari_data_import_import_stage_transition_handler.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_icon_item.h"
+#import "ios/chrome/browser/shared/ui/table_view/content_configuration/colorful_symbol_content_configuration.h"
+#import "ios/chrome/browser/shared/ui/table_view/content_configuration/table_view_cell_content_configuration.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -23,9 +25,6 @@
 #import "ui/strings/grit/ui_strings.h"
 
 namespace {
-
-/// Number of expected items in the table.
-constexpr int kExpectedItemsCount = 4;
 
 /// Size of the leading image for each item.
 constexpr NSInteger kLeadingSymbolImagePointSize = 20;
@@ -174,11 +173,14 @@ UIView* GetCheckmark() {
   /// Whether the required time for the user to be in the `importing` state has
   /// passed.
   BOOL _minimumImportingTimePassed;
+  /// Number of items in the table.
+  NSInteger _itemCount;
 }
 
-- (instancetype)init {
+- (instancetype)initWithItemCount:(NSInteger)itemCount {
   self = [super initWithFrame:CGRectZero style:ChromeTableViewStyle()];
   if (self) {
+    _itemCount = itemCount;
     self.accessibilityIdentifier =
         GetSafariDataItemTableViewAccessibilityIdentifier();
     self.translatesAutoresizingMaskIntoConstraints = NO;
@@ -192,7 +194,9 @@ UIView* GetCheckmark() {
         [[UIView alloc] initWithFrame:CGRectMake(0, 0, 0, CGFLOAT_MIN)];
     self.tableFooterView =
         [[UIView alloc] initWithFrame:CGRectMake(0, 0, 0, CGFLOAT_MIN)];
-    RegisterTableViewCell<TableViewDetailIconCell>(self);
+
+    [TableViewCellContentConfiguration registerCellForTableView:self];
+
     [self reset];
   }
   return self;
@@ -252,8 +256,8 @@ UIView* GetCheckmark() {
     case SafariDataItemImportStatus::kReady:
       _itemDictionary[itemType] = item;
       _pendingImportCount++;
-      CHECK_LE(_pendingImportCount, kExpectedItemsCount);
-      if (_pendingImportCount == kExpectedItemsCount) {
+      CHECK_LE(_pendingImportCount, _itemCount);
+      if (_pendingImportCount == _itemCount) {
         [self importPreparationDidComplete];
       }
       return;
@@ -262,7 +266,7 @@ UIView* GetCheckmark() {
           << "Transition to importing state is handled by -notifyImportStart";
     case SafariDataItemImportStatus::kImported:
       _importedCount++;
-      CHECK_LE(_importedCount, kExpectedItemsCount);
+      CHECK_LE(_importedCount, _itemCount);
       if (previousItem) {
         /// Do not update the item if this item has previously been deleted.
         _itemDictionary[itemType] = item;
@@ -301,30 +305,36 @@ UIView* GetCheckmark() {
 }
 
 /// Returns the cell with the properties of the `item` displayed.
-- (TableViewDetailIconCell*)cellForIndexPath:(NSIndexPath*)indexPath
-                              itemIdentifier:(NSNumber*)identifier {
+- (UITableViewCell*)cellForIndexPath:(NSIndexPath*)indexPath
+                      itemIdentifier:(NSNumber*)identifier {
   /// Check that cells are requested only when all items are available.
   SafariDataItem* item = _itemDictionary[identifier];
   CHECK(item);
-  TableViewDetailIconCell* cell =
-      DequeueTableViewCell<TableViewDetailIconCell>(self);
+
+  TableViewCellContentConfiguration* configuration =
+      [[TableViewCellContentConfiguration alloc] init];
+  configuration.title = GetTextForItemType(item.type);
+  configuration.subtitle = [self descriptionForItem:item];
+
+  ColorfulSymbolContentConfiguration* symbolConfiguration =
+      [[ColorfulSymbolContentConfiguration alloc] init];
+  symbolConfiguration.symbolImage = GetImageForItemType(item.type);
+  symbolConfiguration.symbolTintColor = [UIColor colorNamed:kBlueColor];
+
+  configuration.leadingConfiguration = symbolConfiguration;
+
+  UITableViewCell* cell =
+      [TableViewCellContentConfiguration dequeueTableViewCell:self];
+  cell.contentConfiguration = configuration;
   cell.backgroundColor = [UIColor colorNamed:kSecondaryBackgroundColor];
-  cell.textLabel.text = GetTextForItemType(item.type);
-  [self setupDescriptionForItem:item forCell:cell];
-  cell.textLayoutConstraintAxis = UILayoutConstraintAxisVertical;
-  [cell setIconImage:GetImageForItemType(item.type)
-            tintColor:[UIColor colorNamed:kBlueColor]
-      backgroundColor:UIColor.clearColor
-         cornerRadius:0];
   [self setupAccessoryForItem:item forCell:cell];
   cell.accessibilityIdentifier =
       GetSafariDataItemTableViewCellAccessibilityIdentifier(indexPath.item);
   return cell;
 }
 
-/// Helper method that sets up the description for `item`.
-- (void)setupDescriptionForItem:(SafariDataItem*)item
-                        forCell:(TableViewDetailIconCell*)cell {
+/// Returns the description for `item`.
+- (NSString*)descriptionForItem:(SafariDataItem*)item {
   NSString* description;
   switch (item.status) {
     case SafariDataItemImportStatus::kReady:
@@ -352,13 +362,12 @@ UIView* GetCheckmark() {
                                           base::SysNSStringToUTF16(description),
                                           invalidCountString);
   }
-  [cell setDetailText:description];
-  cell.detailTextNumberOfLines = 0;
+  return description;
 }
 
 /// Helper method that sets up the trailing accessory for `item`.
 - (void)setupAccessoryForItem:(SafariDataItem*)item
-                      forCell:(TableViewDetailIconCell*)cell {
+                      forCell:(UITableViewCell*)cell {
   switch (item.status) {
     case SafariDataItemImportStatus::kBlockedByPolicy:
     case SafariDataItemImportStatus::kReady:
@@ -416,7 +425,7 @@ UIView* GetCheckmark() {
       [_dataSource snapshot];
   [snapshot reconfigureItemsWithIdentifiers:identifiers];
   [_dataSource applySnapshot:snapshot animatingDifferences:YES];
-  if (_importedCount == kExpectedItemsCount) {
+  if (_importedCount == _itemCount) {
     [self.importStageTransitionHandler transitionToNextImportStage];
   }
 }

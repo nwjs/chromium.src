@@ -69,6 +69,7 @@
 #include "components/sync/base/features.h"
 #include "components/sync/base/passphrase_enums.h"
 #include "components/sync/base/user_selectable_type.h"
+#include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_service_utils.h"
 #include "components/sync/service/sync_user_settings.h"
 #include "components/unified_consent/unified_consent_metrics.h"
@@ -407,6 +408,10 @@ void PeopleHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback(
       "SetChromeSigninUserChoice",
       base::BindRepeating(&PeopleHandler::HandleSetChromeSigninUserChoice,
+                          base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "RecordSigninPendingOffered",
+      base::BindRepeating(&PeopleHandler::HandleRecordSigninPendingOffered,
                           base::Unretained(this)));
 #endif
 }
@@ -929,11 +934,7 @@ void PeopleHandler::HandleShowSyncPassphraseDialog(
     return;
   }
 
-  ShowSyncPassphraseDialog(
-      *browser,
-      base::BindRepeating(&SyncPassphraseDialogDecryptData,
-                          base::Unretained(SyncServiceFactory::GetForProfile(
-                              browser->profile()))));
+  ShowSyncPassphraseDialogAndDecryptData(*browser);
 }
 
 void PeopleHandler::HandleShowAccountSettingsUI(const base::Value::List& args) {
@@ -1125,6 +1126,12 @@ void PeopleHandler::OnStateChanged(syncer::SyncService* sync_service) {
   PushTrustedVaultBannerState();
 }
 
+void PeopleHandler::OnSyncShutdown(syncer::SyncService* sync_service) {
+  // Unreachable, since this class is tied to UI which gets destroyed before the
+  // Profile and its KeyedServices.
+  NOTREACHED();
+}
+
 void PeopleHandler::BeforeUnloadDialogCancelled() {
   // The before unload dialog is only shown during the first sync setup.
   DCHECK(IdentityManagerFactory::GetForProfile(profile_)->HasPrimaryAccount(
@@ -1177,20 +1184,21 @@ base::Value::Dict PeopleHandler::GetSyncStatusDictionary() const {
           !service->GetUserSettings()->IsInitialSyncFeatureSetupComplete() &&
           identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync));
 
-  SyncStatusLabels status_labels;
+  SyncStatusLabels status_labels = GetSyncStatusLabelsForSettings(
+      SyncServiceFactory::GetForProfile(profile_));
 
-  const std::optional<AvatarSyncErrorType> error =
-      GetAvatarSyncErrorType(profile_);
-  // Avoid reacting to AvatarSyncErrorType::kSyncPaused in case of no sync
-  // consent, as the signin-pending state is not considered to be an error here.
-  if (error.has_value() &&
-      (error.value() != AvatarSyncErrorType::kSyncPaused ||
-       identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync))) {
-    status_labels =
-        GetAvatarSyncErrorLabelsForSettings(profile_, error.value());
-  } else {
-    status_labels = GetSyncStatusLabelsForSettings(
-        SyncServiceFactory::GetForProfile(profile_));
+  if (service) {
+    const syncer::SyncService::UserActionableError error =
+        service->GetUserActionableError();
+    // Avoid reacting to UserActionableError::kSignInNeedsUpdate in case of no
+    // sync consent, as the signin-pending state is not considered to be an
+    // error here.
+    if (error != syncer::SyncService::UserActionableError::kNone &&
+        (error !=
+             syncer::SyncService::UserActionableError::kSignInNeedsUpdate ||
+         identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync))) {
+      status_labels = GetAvatarSyncErrorLabelsForSettings(profile_, error);
+    }
   }
 
   // TODO(crbug.com/40660240): Consider unifying some of the fields below to
@@ -1265,6 +1273,7 @@ void PeopleHandler::PushSyncPrefs() {
   //                   passphrase was set (in milliseconds since the Unix
   //                   epoch); undefined if the time is unknown or no explicit
   //                   passphrase is set.
+  //   localSyncEnabled: true if the user has local sync enabled.
   //
   base::Value::Dict args;
 
@@ -1306,6 +1315,8 @@ void PeopleHandler::PushSyncPrefs() {
     args.Set("explicitPassphraseTime",
              base::TimeFormatShortDate(passphrase_time));
   }
+
+  args.Set("localSyncEnabled", service->IsLocalSyncEnabled());
 
   FireWebUIListener("sync-prefs-changed", args);
 }
@@ -1482,6 +1493,12 @@ void PeopleHandler::HandleSetChromeSigninUserChoiceForTesting(
   args.Append(static_cast<int>(choice));
   args.Append(email);
   HandleSetChromeSigninUserChoice(args);
+}
+
+void PeopleHandler::HandleRecordSigninPendingOffered(
+    const base::Value::List& /*args*/) {
+  signin_metrics::LogSigninPendingOffered(
+      signin_metrics::AccessPoint::kSettings);
 }
 #endif
 

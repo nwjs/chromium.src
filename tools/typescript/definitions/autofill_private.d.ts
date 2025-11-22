@@ -156,6 +156,7 @@ declare global {
         FLIGHT_RESERVATION_PASSENGER_NAME,
         FLIGHT_RESERVATION_DEPARTURE_AIRPORT,
         FLIGHT_RESERVATION_ARRIVAL_AIRPORT,
+        FLIGHT_RESERVATION_DEPARTURE_DATE,
       }
 
       export enum AddressRecordType {
@@ -253,6 +254,7 @@ declare global {
         addEntityTypeString: string;
         editEntityTypeString: string;
         deleteEntityTypeString: string;
+        supportsWalletStorage: boolean;
       }
 
       export interface DateValue {
@@ -275,8 +277,10 @@ declare global {
 
       export interface EntityInstanceWithLabels {
         guid: string;
+        type: EntityType;
         entityInstanceLabel: string;
         entityInstanceSubLabel: string;
+        storedInWallet: boolean;
       }
 
       export interface PayOverTimeIssuerEntry {
@@ -319,7 +323,7 @@ declare global {
           Promise<EntityInstanceWithLabels[]>;
       export function getEntityInstanceByGuid(guid: string):
           Promise<EntityInstance>;
-      export function getAllEntityTypes(): Promise<EntityType[]>;
+      export function getWritableEntityTypes(): Promise<EntityType[]>;
       export function getAllAttributeTypesForEntityTypeName(
           entityTypeName: number): Promise<AttributeType[]>;
       export function getAutofillAiOptInStatus(): Promise<boolean>;

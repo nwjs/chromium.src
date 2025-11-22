@@ -134,6 +134,7 @@
         <if expr="_google_chrome">
             <structure type="chrome_scaled_image" name="IDR_LENS_PERMISSION_MODAL_IMAGE" file="google_chrome/lens_permission_modal_image.png" />
             <structure type="chrome_scaled_image" name="IDR_LENS_PERMISSION_MODAL_IMAGE_ALT" file="google_chrome/lens_permission_modal_image_alt.png" />
+            <structure type="chrome_scaled_image" name="IDR_LENS_ON_IOS_ICON" file="google_chrome/lens_on_ios_icon.png" />
         </if>
         <structure type="chrome_scaled_image" name="IDR_NTP_CART_DISCOUNT_CONSENT_DARK" file="common/ntp_cart_discount_consent_dark.png" />
         <structure type="chrome_scaled_image" name="IDR_NTP_CART_DISCOUNT_CONSENT_LIGHT" file="common/ntp_cart_discount_consent_light.png" />
@@ -295,12 +296,6 @@
         <structure type="chrome_scaled_image" name="IDR_SAVE_CVC_DARK" file="common/save_cvc_dark.png" />
         <structure type="chrome_scaled_image" name="IDR_MIGRATE_ADDRESS_AVATAR50_X135_Y54" file="common/migrate_address_avatar50_x135_y54.png" />
         <structure type="chrome_scaled_image" name="IDR_MIGRATE_ADDRESS_AVATAR50_X135_Y54_DARK" file="common/migrate_address_avatar50_x135_y54_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_PASSWORD_CHANGE_NEUTRAL" file="common/password_change_neutral.png" />
-        <structure type="chrome_scaled_image" name="IDR_PASSWORD_CHANGE_WARNING" file="common/password_change_failure.png" />
-        <structure type="chrome_scaled_image" name="IDR_PASSWORD_CHANGE_SUCCESS" file="common/password_change_success.png" />
-        <structure type="chrome_scaled_image" name="IDR_PASSWORD_CHANGE_NEUTRAL_DARK" file="common/password_change_neutral_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_PASSWORD_CHANGE_WARNING_DARK" file="common/password_change_failure_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_PASSWORD_CHANGE_SUCCESS_DARK" file="common/password_change_success_dark.png" />
         <structure type="chrome_scaled_image" name="IDR_PRIVACY_SANDBOX_CONFIRMATION_BANNER" file="common/privacy_sandbox_confirmation_banner.png" />
         <structure type="chrome_scaled_image" name="IDR_PRIVACY_SANDBOX_CONFIRMATION_BANNER_DARK" file="common/privacy_sandbox_confirmation_banner_dark.png" />
         <structure type="chrome_scaled_image" name="IDR_AUTOFILL_MANDATORY_REAUTH_OPT_IN" file="common/autofill_mandatory_reauth_opt_in.png" />

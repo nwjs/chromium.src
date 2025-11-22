@@ -825,6 +825,7 @@ interface GPUQueue
     attribute @@toStringTag
     getter label
     method constructor
+    method copyElementImageToTexture
     method copyExternalImageToTexture
     method onSubmittedWorkDone
     method submit
@@ -1481,6 +1482,7 @@ interface OffscreenCanvasRenderingContext2D
     setter textRendering
     setter wordSpacing
 interface Origin
+    static method from
     static method fromURL
     static method parse
     attribute @@toStringTag
@@ -1488,8 +1490,6 @@ interface Origin
     method constructor
     method isSameOrigin
     method isSameSite
-    method toJSON
-    method toString
 interface Path2D
     attribute @@toStringTag
     method addPath
@@ -1804,14 +1804,33 @@ interface RestrictionTarget
 interface RtcReceivedPacket
     attribute @@toStringTag
     getter data
+    getter receiveTime
     method constructor
 interface RtcTransport
     attribute @@toStringTag
+    getter fingerprint
+    getter fingerprintDigestAlgorithm
     getter onicecandidate
+    method addRemoteCandidate
     method constructor
     method getReceivedPackets
     method sendPackets
+    method setRemoteDtlsParameters
+    method writable
     setter onicecandidate
+interface RtcTransportIceCandidate
+    attribute @@toStringTag
+    getter address
+    getter password
+    getter port
+    getter type
+    getter usernameFragment
+    method constructor
+    method toJSON
+interface RtcTransportIceEvent : Event
+    attribute @@toStringTag
+    getter candidate
+    method constructor
 interface Scheduler
     attribute @@toStringTag
     method constructor

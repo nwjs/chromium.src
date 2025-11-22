@@ -15,13 +15,14 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/extensions/extension_action_view_controller.h"
-#include "chrome/browser/ui/extensions/extensions_container.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_controller.h"
 #include "chrome/browser/ui/views/bubble_menu_item_factory.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/controls/hover_button.h"
+#include "chrome/browser/ui/views/extensions/extension_action_platform_delegate_views.h"
+#include "chrome/browser/ui/views/extensions/extensions_container_views.h"
 #include "chrome/browser/ui/views/extensions/extensions_menu_item_view.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/vector_icons/vector_icons.h"
@@ -72,7 +73,7 @@ ExtensionMenuItemView* GetAsMenuItemView(views::View* view) {
 ExtensionsMenuView::ExtensionsMenuView(
     views::View* anchor_view,
     Browser* browser,
-    ExtensionsContainer* extensions_container)
+    ExtensionsContainerViews* extensions_container)
     : BubbleDialogDelegateView(anchor_view,
                                views::BubbleBorder::Arrow::TOP_RIGHT),
       browser_(browser),
@@ -307,8 +308,10 @@ void ExtensionsMenuView::SortMenuItemsByName() {
 void ExtensionsMenuView::CreateAndInsertNewItem(
     const ToolbarActionsModel::ActionId& id) {
   std::unique_ptr<ExtensionActionViewController> controller =
-      ExtensionActionViewController::Create(id, browser_,
-                                            extensions_container_);
+      ExtensionActionViewController::Create(
+          id, browser_, extensions_container_,
+          std::make_unique<ExtensionActionPlatformDelegateViews>(
+              browser_, extensions_container_));
 
   // The bare `new` is safe here, because InsertMenuItem is guaranteed to
   // be added to the view hierarchy, which takes ownership.
@@ -347,10 +350,6 @@ void ExtensionsMenuView::UpdateSectionVisibility() {
 }
 
 void ExtensionsMenuView::Update() {
-  for (ExtensionMenuItemView* view : extensions_menu_items_) {
-    view->view_controller()->UpdateState();
-  }
-
   content::WebContents* const web_contents =
       browser_->tab_strip_model()->GetActiveWebContents();
   auto move_children_between_sections_if_necessary =
@@ -506,7 +505,7 @@ base::AutoReset<bool> ExtensionsMenuView::AllowInstancesForTesting() {
 views::Widget* ExtensionsMenuView::ShowBubble(
     views::View* anchor_view,
     Browser* browser,
-    ExtensionsContainer* extensions_container) {
+    ExtensionsContainerViews* extensions_container) {
   DCHECK(!g_extensions_dialog);
   // Experiment `kExtensionsMenuAccessControl` is introducing a new menu. Check
   // `ExtensionsMenuView` is only constructed when the experiment is disabled.

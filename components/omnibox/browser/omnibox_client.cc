@@ -88,6 +88,11 @@ OmniboxClient::GetLensOverlaySuggestInputs() const {
   return std::nullopt;
 }
 
+std::optional<lens::ContextualInputData> OmniboxClient::GetContextualInputData()
+    const {
+  return std::nullopt;
+}
+
 void OmniboxClient::ProcessExtensionMatch(const std::u16string& text,
                                           const TemplateURL* template_url,
                                           const AutocompleteMatch& match,
@@ -113,5 +118,9 @@ gfx::Image OmniboxClient::GetFaviconForKeywordSearchProvider(
 }
 
 bool OmniboxClient::IsHistoryEmbeddingsEnabled() const {
+  return false;
+}
+
+bool OmniboxClient::IsAimPopupEnabled() const {
   return false;
 }

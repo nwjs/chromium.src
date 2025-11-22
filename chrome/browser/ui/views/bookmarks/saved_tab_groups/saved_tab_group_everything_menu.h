@@ -37,7 +37,7 @@ class STGEverythingMenu : public views::MenuDelegate,
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kTabGroup);
 
   // Enumrates the different ways the everything menu can be shown.
-  enum class MenuContext { kAppMenu, kSavedTabGroupBar };
+  enum class MenuContext { kAppMenu, kSavedTabGroupBar, kVerticalTabStrip };
 
   STGEverythingMenu(views::MenuButtonController* menu_button_controller,
                     Browser* browser,
@@ -85,11 +85,6 @@ class STGEverythingMenu : public views::MenuDelegate,
   base::Uuid GetTabGroupIdFromCommandId(int command_id);
   std::unique_ptr<ui::SimpleMenuModel> CreateMenuModel(
       TabGroupSyncService* tab_group_service);
-
-  // Returns sorted saved tab groups with the most recently created as the
-  // first, filtering out empty groups.
-  std::vector<base::Uuid> GetGroupsForDisplaySortedByCreationTime(
-      TabGroupSyncService* wrapper_service);
 
   // Because all the menu items (i.e. tab group items in the Everything menu -
   // primary menu and their submenus - secondary menu) need to be recognized and

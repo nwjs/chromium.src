@@ -44,6 +44,7 @@
 #include "net/base/features.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom.h"
+#include "url/gurl.h"
 
 using blink::IndexedDBKey;
 using blink::IndexedDBKeyPath;
@@ -65,9 +66,7 @@ int64_t GetId(indexed_db::BackingStore::Database& db) {
 
 class LevelDbBackingStoreTest : public BackingStoreTestBase {
  public:
-  LevelDbBackingStoreTest()
-      : sqlite_override_(
-            BucketContext::OverrideShouldUseSqliteForTesting(false)) {}
+  LevelDbBackingStoreTest() : BackingStoreTestBase(/*use_sqlite=*/false) {}
 
   LevelDbBackingStoreTest(const LevelDbBackingStoreTest&) = delete;
   LevelDbBackingStoreTest& operator=(const LevelDbBackingStoreTest&) = delete;
@@ -76,9 +75,6 @@ class LevelDbBackingStoreTest : public BackingStoreTestBase {
     return static_cast<level_db::BackingStore*>(
         BackingStoreTestBase::backing_store());
   }
-
- private:
-  base::AutoReset<std::optional<bool>> sqlite_override_;
 };
 
 class LevelDbBackingStoreTestForThirdPartyStoragePartitioning
@@ -111,7 +107,8 @@ enum class ExternalObjectTestType {
 class LevelDbBackingStoreWithExternalObjectsTestBase
     : public BackingStoreWithExternalObjectsTestBase {
  public:
-  LevelDbBackingStoreWithExternalObjectsTestBase() = default;
+  LevelDbBackingStoreWithExternalObjectsTestBase()
+      : BackingStoreWithExternalObjectsTestBase(/*use_sqlite=*/false) {}
 
   LevelDbBackingStoreWithExternalObjectsTestBase(
       const LevelDbBackingStoreWithExternalObjectsTestBase&) = delete;
@@ -1036,7 +1033,7 @@ TEST_F(LevelDbBackingStoreTestWithBlobs, SchemaUpgradeV4ToV5) {
   // to disk, so it's important to verify that a database with empty blobs
   // should be considered still valid.
   external_objects().push_back(
-      CreateBlobInfo(u"empty blob", u"file type", base::Time::Now(), 0u));
+      CreateFileInfo(u"empty blob", u"file type", base::Time::Now(), ""));
   // The V5 migration checks files on disk, so make sure our fake blob
   // context writes something there to check.
   blob_context_->SetWriteFilesToDisk(true);

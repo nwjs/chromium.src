@@ -21,6 +21,8 @@
 #include "chrome/browser/new_tab_page/modules/v2/calendar/outlook_calendar.mojom.h"
 #include "chrome/browser/new_tab_page/modules/v2/most_relevant_tab_resumption/most_relevant_tab_resumption.mojom.h"
 #include "chrome/browser/new_tab_page/modules/v2/tab_groups/tab_groups.mojom.h"
+#include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips.mojom.h"
+#include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips_handler.h"
 #include "chrome/browser/ui/webui/new_tab_page/ntp_promo/ntp_promo.mojom.h"
 #include "chrome/browser/ui/webui/new_tab_page/ntp_promo/ntp_promo_handler.h"
 #include "components/user_education/common/ntp_promo/ntp_promo_controller.h"
@@ -117,6 +119,7 @@ class NewTabPageUI
       public help_bubble::mojom::HelpBubbleHandlerFactory,
       public ntp_promo::mojom::NtpPromoHandlerFactory,
       public NtpCustomBackgroundServiceObserver,
+      public action_chips::mojom::ActionChipsHandlerFactory,
       content::WebContentsObserver {
  public:
   explicit NewTabPageUI(content::WebUI* web_ui);
@@ -126,13 +129,11 @@ class NewTabPageUI
 
   ~NewTabPageUI() override;
 
-  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kCustomizeChromeButtonElementId);
-  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kModulesCustomizeIPHAnchorElement);
-
   static bool IsNewTabPageOrigin(const GURL& url);
   static void RegisterProfilePrefs(PrefRegistrySimple* registry);
   static void ResetProfilePrefs(PrefService* prefs);
   static void MigrateDeprecatedUseMostVisitedTilesPref(PrefService* prefs);
+  static void MigrateDeprecatedShortcutsTypePref(PrefService* prefs);
   static bool IsManagedProfile(Profile* profile);
 
   // Instantiates the implementor of the mojom::PageHandlerFactory mojo
@@ -240,6 +241,10 @@ class NewTabPageUI
       mojo::PendingReceiver<ntp_promo::mojom::NtpPromoHandlerFactory>
           pending_receiver);
 
+  void BindInterface(
+      mojo::PendingReceiver<action_chips::mojom::ActionChipsHandlerFactory>
+          pending_receiver);
+
   void ConnectToParentDocument(
       mojo::PendingRemote<new_tab_page::mojom::MicrosoftAuthUntrustedDocument>
           child_page);
@@ -293,6 +298,11 @@ class NewTabPageUI
       mojo::PendingReceiver<ntp_promo::mojom::NtpPromoHandler> handler)
       override;
 
+  // action_chips::mojom::ActionChipsHandlerFactory:
+  void CreateActionChipsHandler(
+      mojo::PendingReceiver<action_chips::mojom::ActionChipsHandler> handler,
+      mojo::PendingRemote<action_chips::mojom::Page> page) override;
+
   // NtpCustomBackgroundServiceObserver:
   void OnCustomBackgroundImageUpdated() override;
 
@@ -301,17 +311,22 @@ class NewTabPageUI
       content::NavigationHandle* navigation_handle) override;
   void OnColorProviderChanged() override;
 
-  bool IsCustomLinksEnabled() const;
-  bool IsEnterpriseShortcutsEnabled() const;
   bool IsShortcutsVisible() const;
 
-  // Callback for when the value of the pref for determining the type of NTP
-  // tiles changes.
-  void OnShortcutsTypePrefChanged();
+  // Updates the NTP tile types based on current preferences.
+  void UpdateMostVisitedTileTypes();
+  // Callback for when the value of the prefs for determining the type of NTP
+  // tiles to show changes.
+  void OnTileTypesChanged();
   // Callback for when the value of the pref for showing the NTP tiles changes.
   void OnTilesVisibilityPrefChanged();
+  // Called when the enterprise shortcuts policy may have changed.
+  void OnEnterpriseShortcutsPolicyChanged();
   // Called when the NTP (re)loads. Sets mutable load time data.
   void OnLoad();
+
+  // Called to maybe enable enterprise shortcuts visibility by default.
+  void MaybeEnableEnterpriseShortcutsVisibility();
 
   // Based on the current profile and NTP promo controller, determine which
   // type of NTP promos can be shown, if any.
@@ -343,6 +358,9 @@ class NewTabPageUI
   std::unique_ptr<NtpPromoHandler> ntp_promo_handler_;
   mojo::Receiver<ntp_promo::mojom::NtpPromoHandlerFactory>
       ntp_promo_handler_factory_receiver_{this};
+  std::unique_ptr<ActionChipsHandler> action_chips_handler_;
+  mojo::Receiver<action_chips::mojom::ActionChipsHandlerFactory>
+      action_chips_handler_factory_receiver_{this};
 #if !defined(OFFICIAL_BUILD)
   std::unique_ptr<FooHandler> foo_handler_;
 #endif

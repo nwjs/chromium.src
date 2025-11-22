@@ -66,7 +66,7 @@ class MenuButtonMediator implements AppMenuObserver {
     private final Supplier<Boolean> mIsInOverviewModeSupplier;
     private final Resources mResources;
     private final OneshotSupplier<AppMenuCoordinator> mAppMenuCoordinatorSupplier;
-    private final Supplier<MenuButtonState> mMenuButtonStateSupplier;
+    private final Supplier<@Nullable MenuButtonState> mMenuButtonStateSupplier;
     private final Runnable mOnMenuButtonClicked;
     private final TokenHolder mHideTokenHolder;
     private final MenuButtonCoordinator.@Nullable VisibilityDelegate mVisibilityDelegate;
@@ -101,7 +101,7 @@ class MenuButtonMediator implements AppMenuObserver {
             SetFocusFunction setUrlBarFocusFunction,
             OneshotSupplier<AppMenuCoordinator> appMenuCoordinatorSupplier,
             WindowAndroid windowAndroid,
-            Supplier<MenuButtonState> menuButtonStateSupplier,
+            Supplier<@Nullable MenuButtonState> menuButtonStateSupplier,
             Runnable onMenuButtonClicked,
             MenuButtonCoordinator.@Nullable VisibilityDelegate visibilityDelegate) {
         mPropertyModel = propertyModel;
@@ -194,6 +194,15 @@ class MenuButtonMediator implements AppMenuObserver {
         } else {
             mPropertyModel.set(MenuButtonProperties.IS_VISIBLE, visible);
         }
+    }
+
+    /**
+     * Informs the button on whether there is enough space for it to be shown.
+     *
+     * @param hasSpaceToShow indicates whether the button view has space to show.
+     */
+    void setHasSpaceToShow(boolean hasSpaceToShow) {
+        mPropertyModel.set(MenuButtonProperties.HAS_SPACE_TO_SHOW, hasSpaceToShow);
     }
 
     /**

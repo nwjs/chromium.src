@@ -325,14 +325,6 @@ const char kExtensionContentVerificationEnforceStrict[] = "enforce_strict";
 // Name of the command line flag to allow the experimental actor API.
 const char kExtensionExperimentalActor[] = "enable-extension-actor-api";
 
-// Turns on extension install verification if it would not otherwise have been
-// turned on.
-const char kExtensionsInstallVerification[] = "extensions-install-verification";
-
-// Specifies a comma-separated list of extension ids that should be forced to
-// be treated as not from the webstore when doing install verification.
-const char kExtensionsNotWebstore[] = "extensions-not-webstore";
-
 // Specifies the variation of Zero State extensions toolbar recommendation to
 // show.
 // When a user with zero extensions installed clicks on the extensions puzzle
@@ -511,6 +503,9 @@ const char kOpenInNewWindow[] = "new-window";
 // Add a trailing * for prefix. app:<app-id> targets PWAs.
 // Example: --focus=https://meet.google.com/*,app:abc123
 const char kFocus[] = "focus";
+
+// Specifies a file path to write JSON focus result information.
+const char kFocusResultFile[] = "focus-result-file";
 
 // Packages an extension to a .crx installable file from a given directory.
 const char kPackExtension[] = "pack-extension";

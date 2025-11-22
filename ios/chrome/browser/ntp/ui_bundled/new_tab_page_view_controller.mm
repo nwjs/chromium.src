@@ -62,13 +62,7 @@ const CGFloat kFeedContainerExtraHeight = 500;
 // The spacing for the quick actions buttons.
 const CGFloat kQuickActionSpacingTop = 3.0;
 const CGFloat kQuickActionSpacingBottom = 19.0;
-
-// Vertical spacing between modules.
-CGFloat SpaceBetweenModules() {
-  return GetDeprecateFeedHeaderParameterValueAsDouble(
-      kDeprecateFeedHeaderParameterSpaceBetweenModules,
-      /*default_value=*/14);
-}
+const CGFloat kSpaceBetweenModules = 14.0;
 
 }  // namespace
 
@@ -268,23 +262,21 @@ CGFloat SpaceBetweenModules() {
 
   self.viewDidFinishLoading = YES;
 
-  if (@available(iOS 17, *)) {
-    NSArray<UITrait>* traits = TraitCollectionSetForTraits(@[
-      UITraitUserInterfaceStyle.class, UITraitHorizontalSizeClass.class,
-      UITraitPreferredContentSizeCategory.class
-    ]);
-    __weak __typeof(self) weakSelf = self;
-    UITraitChangeHandler handler = ^(id<UITraitEnvironment> traitEnvironment,
-                                     UITraitCollection* previousCollection) {
-      [weakSelf updateUIOnTraitChange:previousCollection];
-    };
-    [self registerForTraitChanges:traits withHandler:handler];
-    if (IsNTPBackgroundCustomizationEnabled()) {
-      [self registerForTraitChanges:
-                @[ NewTabPageTrait.class, NewTabPageImageBackgroundTrait.class ]
-                         withAction:@selector(applyBackgroundTheme)];
-      [self applyBackgroundTheme];
-    }
+  NSArray<UITrait>* traits = TraitCollectionSetForTraits(@[
+    UITraitUserInterfaceStyle.class, UITraitHorizontalSizeClass.class,
+    UITraitPreferredContentSizeCategory.class
+  ]);
+  __weak __typeof(self) weakSelf = self;
+  UITraitChangeHandler handler = ^(id<UITraitEnvironment> traitEnvironment,
+                                   UITraitCollection* previousCollection) {
+    [weakSelf updateUIOnTraitChange:previousCollection];
+  };
+  [self registerForTraitChanges:traits withHandler:handler];
+  if (IsNTPBackgroundCustomizationEnabled()) {
+    [self registerForTraitChanges:
+              @[ NewTabPageTrait.class, NewTabPageImageBackgroundTrait.class ]
+                       withAction:@selector(applyBackgroundTheme)];
+    [self applyBackgroundTheme];
   }
   [self.mutator checkNewBadgeEligibility];
 }
@@ -453,17 +445,6 @@ CGFloat SpaceBetweenModules() {
     [self.mutator notifyNtpDisplayedInLandscape];
   }
 }
-
-#if !defined(__IPHONE_17_0) || __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_17_0
-- (void)traitCollectionDidChange:(UITraitCollection*)previousTraitCollection {
-  [super traitCollectionDidChange:previousTraitCollection];
-  if (@available(iOS 17, *)) {
-    return;
-  }
-
-  [self updateUIOnTraitChange:previousTraitCollection];
-}
-#endif
 
 #pragma mark - Public
 
@@ -710,14 +691,14 @@ CGFloat SpaceBetweenModules() {
     if (viewController == self.magicStackCollectionView ||
         viewController == self.contentSuggestionsViewController ||
         viewController == self.feedHeaderViewController) {
-      heightAboveFeed += SpaceBetweenModules();
+      heightAboveFeed += kSpaceBetweenModules;
     }
 
     if (viewController == _quickActionsViewController) {
       // First, subtract off the "standard" space that was added in the
       // previous iteration of the loop because this module uses custom
       // top and bottom spacing.
-      heightAboveFeed -= SpaceBetweenModules();
+      heightAboveFeed -= kSpaceBetweenModules;
       // Then add in the custom spacing used for this module.
       heightAboveFeed += kQuickActionSpacingTop + kQuickActionSpacingBottom;
     }
@@ -1373,7 +1354,7 @@ CGFloat SpaceBetweenModules() {
           constraintEqualToAnchor:self.headerViewController.view.bottomAnchor
                          constant:self.quickActionsVisible
                                       ? kQuickActionSpacingTop
-                                      : SpaceBetweenModules()],
+                                      : kSpaceBetweenModules],
     ];
   }
   [NSLayoutConstraint activateConstraints:self.fakeOmniboxConstraints];
@@ -1629,7 +1610,7 @@ CGFloat SpaceBetweenModules() {
       UIView* viewAbove = self.viewControllersAboveFeed[index - 1].view;
 
       CGFloat spacingToUse =
-          isQuickActions ? kQuickActionSpacingBottom : SpaceBetweenModules();
+          isQuickActions ? kQuickActionSpacingBottom : kSpaceBetweenModules;
       [NSLayoutConstraint activateConstraints:@[
         [view.topAnchor constraintEqualToAnchor:viewAbove.bottomAnchor
                                        constant:spacingToUse],

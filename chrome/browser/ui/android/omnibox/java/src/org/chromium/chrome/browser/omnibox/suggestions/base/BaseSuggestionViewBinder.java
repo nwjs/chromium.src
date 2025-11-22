@@ -163,12 +163,13 @@ public final class BaseSuggestionViewBinder<T extends View>
         view.setActionButtonsCount(actionCount);
 
         // Drawable retrieved once here (expensive) and will be copied multiple times (cheap).
-        final List<ImageView> actionViews = view.getActionButtons();
+        final List<ActionButtonView> actionViews = view.getActionButtons();
         for (int index = 0; index < actionCount; index++) {
-            final ImageView actionView = actionViews.get(index);
+            final ActionButtonView actionView = actionViews.get(index);
             final Action action = actions.get(index);
             actionView.setOnClickListener(v -> action.callback.run());
             actionView.setContentDescription(action.accessibilityDescription);
+            actionView.enableShowOnlyOnFocus(action.showOnlyOnFocus);
             applySelectableBackground(model, actionView);
             updateIcon(
                     model,
@@ -213,7 +214,7 @@ public final class BaseSuggestionViewBinder<T extends View>
         // scheme will be applied then.
         if (actions == null) return;
 
-        final List<ImageView> actionViews = view.getActionButtons();
+        final List<ActionButtonView> actionViews = view.getActionButtons();
         for (int index = 0; index < actionViews.size(); index++) {
             ImageView actionView = actionViews.get(index);
 
@@ -259,6 +260,7 @@ public final class BaseSuggestionViewBinder<T extends View>
                     sds.isLarge ? sLargeIconRoundingRadius : sSmallIconRoundingRadius);
         }
 
+        rciv.setVisibility(sds == null ? View.GONE : View.VISIBLE);
         updateIcon(model, rciv, sds, ChromeColors.getSecondaryIconTintRes(isIncognito(model)));
     }
 
@@ -338,7 +340,6 @@ public final class BaseSuggestionViewBinder<T extends View>
     /** Update image view using supplied drawable state object. */
     private static void updateIcon(
             PropertyModel model, ImageView view, OmniboxDrawableState sds, @ColorRes int tintRes) {
-        view.setVisibility(sds == null ? View.GONE : View.VISIBLE);
         if (sds == null) {
             // Release any drawable that is still attached to this view to reclaim memory.
             view.setImageDrawable(null);

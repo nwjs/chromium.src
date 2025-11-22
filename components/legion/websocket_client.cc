@@ -8,11 +8,14 @@
 #include <utility>
 
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/types/expected.h"
 #include "net/http/http_request_headers.h"
 #include "net/storage_access_api/status.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/network/public/mojom/network_context.mojom.h"
+#include "third_party/oak/chromium/proto/session/session.pb.h"
 
 namespace legion {
 namespace {
@@ -54,20 +57,36 @@ constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
 }  // namespace
 
 WebSocketClient::WebSocketClient(const GURL& service_url,
-                                 NetworkContextFactory network_context_factory,
-                                 OnResponseCallback on_response)
+                                 NetworkContextFactory network_context_factory)
     : service_url_(service_url),
       network_context_factory_(std::move(network_context_factory)),
-      on_response_(std::move(on_response)),
       readable_watcher_(FROM_HERE, mojo::SimpleWatcher::ArmingPolicy::MANUAL) {}
 
 WebSocketClient::~WebSocketClient() = default;
 
-void WebSocketClient::Write(base::span<const uint8_t> data) {
+void WebSocketClient::Send(const oak::session::v1::SessionRequest& request,
+                           ResponseCallback callback) {
+  DCHECK(!response_callback_);
+  response_callback_ = std::move(callback);
+
+  std::string binary_proto;
+  if (!request.SerializeToString(&binary_proto)) {
+    LOG(ERROR) << "Failed to serialize proto request into a string. Check all "
+                  "required fields are set";
+    std::move(response_callback_)
+        .Run(base::unexpected(TransportError::kSerializationError));
+    return;
+  }
+
+  Send(Request(binary_proto.begin(), binary_proto.end()));
+}
+
+void WebSocketClient::Send(Request request) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
   if (state_ == State::kDisconnected ||
-      data.size() > std::numeric_limits<uint32_t>::max()) {
-    ClosePipe(SocketStatus::kError);
+      request.size() > std::numeric_limits<uint32_t>::max()) {
+    ClosePipe(TransportError::kError);
     return;
   }
 
@@ -76,11 +95,33 @@ void WebSocketClient::Write(base::span<const uint8_t> data) {
   }
 
   if (state_ != State::kOpen) {
-    pending_write_data_.emplace(data.begin(), data.end());
+    pending_write_data_.push(std::move(request));
     return;
   }
 
-  InternalWrite(data);
+  InternalWrite(request);
+}
+
+void WebSocketClient::OnResponse(
+    base::expected<std::vector<uint8_t>, TransportError> response) {
+  if (!response_callback_) {
+    return;
+  }
+
+  if (!response.has_value()) {
+    std::move(response_callback_).Run(base::unexpected(response.error()));
+    return;
+  }
+
+  std::string response_str = std::string(response->begin(), response->end());
+  oak::session::v1::SessionResponse session_response;
+  if (!session_response.ParseFromString(response_str)) {
+    std::move(response_callback_)
+        .Run(base::unexpected(TransportError::kDeserializationError));
+    return;
+  }
+
+  std::move(response_callback_).Run(base::ok(std::move(session_response)));
 }
 
 void WebSocketClient::Connect() {
@@ -95,7 +136,10 @@ void WebSocketClient::Connect() {
   state_ = State::kConnecting;
 
   std::vector<std::string> requested_protocols;
-  std::vector<network::mojom::HttpHeaderPtr> additional_headers;
+
+  std::vector<network::mojom::HttpHeaderPtr> additional_headers{};
+  additional_headers.push_back(network::mojom::HttpHeader::New(
+      "X-WebChannel-Content-Type", "application/x-protobuf"));
 
   network_context_factory_.Run()->CreateWebSocket(
       service_url_, requested_protocols, net::SiteForCookies(),
@@ -122,7 +166,7 @@ void WebSocketClient::InternalWrite(base::span<const uint8_t> data) {
   MojoResult result = writable_->WriteAllData(data);
   if (result != MOJO_RESULT_OK) {
     LOG(ERROR) << "Failed to write to WebSocket.";
-    ClosePipe(SocketStatus::kError);
+    ClosePipe(TransportError::kError);
   }
 }
 
@@ -138,7 +182,7 @@ void WebSocketClient::OnFailure(const std::string& message,
   LOG(ERROR) << "Legion service connection failed " << message << ", "
              << net_error << ", " << response_code;
 
-  ClosePipe(SocketStatus::kError);
+  ClosePipe(TransportError::kError);
 }
 
 void WebSocketClient::OnConnectionEstablished(
@@ -208,7 +252,7 @@ void WebSocketClient::OnDataFrame(bool finish,
       new_size > kMaxIncomingMessageSize) {
     LOG(ERROR) << "Invalid WebSocket frame (type: " << static_cast<int>(type)
                << ", len: " << data_len << ")";
-    ClosePipe(SocketStatus::kError);
+    ClosePipe(TransportError::kError);
     return;
   }
 
@@ -225,7 +269,7 @@ void WebSocketClient::OnDropChannel(bool was_clean,
   CHECK(state_ == State::kOpen || state_ == State::kConnecting);
   LOG(ERROR) << "OnDropChannel: " << code << " - " << reason;
 
-  ClosePipe(SocketStatus::kSocketClosed);
+  ClosePipe(TransportError::kSocketClosed);
 }
 
 void WebSocketClient::OnClosingHandshake() {}
@@ -256,7 +300,7 @@ void WebSocketClient::ReadFromDataPipe(MojoResult,
   } else {
     LOG(ERROR) << "Reading WebSocket frame failed: "
                << static_cast<int>(result);
-    ClosePipe(SocketStatus::kError);
+    ClosePipe(TransportError::kError);
   }
 }
 
@@ -266,14 +310,15 @@ void WebSocketClient::ProcessCompletedResponse() {
   pending_read_data_index_ = 0;
   pending_read_finished_ = false;
 
-  // Call on_response_ asynchronously since this object may be destroyed during
+  // Call OnResponse asynchronously since this object may be destroyed during
   // the callback.
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(on_response_, SocketStatus::kOk,
-                                std::move(pending_read_data)));
+      FROM_HERE, base::BindOnce(&WebSocketClient::OnResponse,
+                                weak_ptr_factory_.GetWeakPtr(),
+                                base::ok(std::move(pending_read_data))));
 }
 
-void WebSocketClient::ClosePipe(SocketStatus status) {
+void WebSocketClient::ClosePipe(TransportError status) {
   if (state_ == State::kDisconnected) {
     return;
   }
@@ -284,14 +329,16 @@ void WebSocketClient::ClosePipe(SocketStatus status) {
   pending_read_finished_ = false;
   pending_read_data_.clear();
 
-  // Call on_response_ asynchronously since this object may be destroyed during
+  // Call OnResponse asynchronously since this object may be destroyed during
   // the callback.
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(on_response_, status, std::vector<uint8_t>()));
+      FROM_HERE,
+      base::BindOnce(&WebSocketClient::OnResponse,
+                     weak_ptr_factory_.GetWeakPtr(), base::unexpected(status)));
 }
 
 void WebSocketClient::OnMojoPipeDisconnect() {
-  ClosePipe(SocketStatus::kSocketClosed);
+  ClosePipe(TransportError::kSocketClosed);
 }
 
 }  // namespace legion

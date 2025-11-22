@@ -10,6 +10,7 @@ import static org.chromium.ui.base.LocalizationUtils.isLayoutRtl;
 import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.graphics.Rect;
+import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -223,8 +224,6 @@ class KeyboardAccessoryView extends LinearLayout {
         if (ChromeFeatureList.isEnabled(
                 ChromeFeatureList.AUTOFILL_ENABLE_KEYBOARD_ACCESSORY_CHIP_REDESIGN)) {
             LinearLayout barContents = findViewById(R.id.accessory_bar_contents);
-            // TODO: crbug.com/385172647 - Figure out if the height needs to be increased even if
-            // there are no suggestions displayed.
             barContents.setMinimumHeight(
                     getResources()
                             .getDimensionPixelSize(R.dimen.keyboard_accessory_height_redesign));
@@ -340,6 +339,14 @@ class KeyboardAccessoryView extends LinearLayout {
         findViewById(R.id.accessory_shadow).setVisibility(View.GONE);
         findViewById(R.id.accessory_bar_contents).setBackground(null);
         setBackgroundResource(R.drawable.keyboard_accessory_shadow_shape);
+        if (ChromeFeatureList.isEnabled(
+                ChromeFeatureList.AUTOFILL_ENABLE_KEYBOARD_ACCESSORY_CHIP_REDESIGN)) {
+            GradientDrawable background = (GradientDrawable) getBackground();
+            background.setCornerRadius(
+                    getResources()
+                            .getDimensionPixelSize(
+                                    R.dimen.keyboard_accessory_corner_radius_redesign));
+        }
         @Px
         int elevation = getResources().getDimensionPixelSize(R.dimen.keyboard_accessory_elevation);
         setElevation(elevation);

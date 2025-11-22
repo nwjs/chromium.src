@@ -29,6 +29,7 @@
 #include "components/autofill/core/browser/metrics/autofill_settings_metrics.h"
 #include "components/autofill/core/browser/metrics/profile_token_quality_metrics.h"
 #include "components/autofill/core/browser/metrics/stored_profile_metrics.h"
+#include "components/autofill/core/browser/strike_databases/addresses/address_on_typing_suggestion_strike_database.h"
 #include "components/autofill/core/browser/webdata/addresses/contact_info_precondition_checker.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -186,9 +187,7 @@ void AddressDataManager::OnWebDataServiceRequestDone(
     // are generally caught by an identity observer. But if the account info
     // becomes available before the initial load has finished, the additional
     // call here is necessary to apply these updates.
-    // TODO(crbug.com/356845298): Clean up after launch.
-    if (base::FeatureList::IsEnabled(
-            features::kAutofillEnableSupportForNameAndEmail)) {
+    if (account_name_email_store_) {
       account_name_email_store_->MaybeUpdateOrCreateAccountNameEmail();
     } else {
       // In case the feature got disabled the profile should be cleaned up.
@@ -459,7 +458,7 @@ bool AddressDataManager::IsNewProfileImportBlockedForDomain(
     return false;
   }
 
-  return GetProfileSaveStrikeDatabase()->ShouldBlockFeature(url.host());
+  return GetProfileSaveStrikeDatabase()->ShouldBlockFeature(url.GetHost());
 }
 
 void AddressDataManager::AddStrikeToBlockNewProfileImportForDomain(
@@ -467,7 +466,7 @@ void AddressDataManager::AddStrikeToBlockNewProfileImportForDomain(
   if (!GetProfileSaveStrikeDatabase() || !url.is_valid() || !url.has_host()) {
     return;
   }
-  GetProfileSaveStrikeDatabase()->AddStrike(url.host());
+  GetProfileSaveStrikeDatabase()->AddStrike(url.GetHost());
 }
 
 void AddressDataManager::RemoveStrikesToBlockNewProfileImportForDomain(
@@ -475,7 +474,7 @@ void AddressDataManager::RemoveStrikesToBlockNewProfileImportForDomain(
   if (!GetProfileSaveStrikeDatabase() || !url.is_valid() || !url.has_host()) {
     return;
   }
-  GetProfileSaveStrikeDatabase()->ClearStrikes(url.host());
+  GetProfileSaveStrikeDatabase()->ClearStrikes(url.GetHost());
 }
 
 bool AddressDataManager::IsProfileUpdateBlocked(const std::string& guid) const {
@@ -580,6 +579,23 @@ void AddressDataManager::SetStrikeDatabase(
       std::make_unique<AutofillProfileUpdateStrikeDatabase>(strike_database);
   address_suggestion_strike_database_ =
       std::make_unique<AddressSuggestionStrikeDatabase>(strike_database);
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillAddressSuggestionsOnTypingHasStrikeDatabase)) {
+    address_on_typing_suggestion_strike_database_ =
+        std::make_unique<AddressOnTypingSuggestionStrikeDatabase>(
+            strike_database);
+  }
+}
+
+AddressOnTypingSuggestionStrikeDatabase*
+AddressDataManager::GetAddressOnTypingSuggestionStrikeDatabase() {
+  return const_cast<AddressOnTypingSuggestionStrikeDatabase*>(
+      std::as_const(*this).GetAddressOnTypingSuggestionStrikeDatabase());
+}
+
+const AddressOnTypingSuggestionStrikeDatabase*
+AddressDataManager::GetAddressOnTypingSuggestionStrikeDatabase() const {
+  return address_on_typing_suggestion_strike_database_.get();
 }
 
 AutofillProfileMigrationStrikeDatabase*
@@ -706,6 +722,19 @@ std::optional<CoreAccountInfo> AddressDataManager::GetPrimaryAccountInfo()
   }
   return std::nullopt;
 }
+
+#if BUILDFLAG(IS_IOS)
+void AddressDataManager::MaybeCreateAccountNameEmailProfile(
+    std::string account_name,
+    std::string email) {
+  if (account_name_email_store_ &&
+      base::FeatureList::IsEnabled(
+          features::kAutofillEnableSupportForNameAndEmail)) {
+    account_name_email_store_->MaybeUpdateOrCreateAccountNameEmail(account_name,
+                                                                   email);
+  }
+}
+#endif
 
 void AddressDataManager::CancelPendingQuery(
     WebDataServiceBase::Handle& handle) {

@@ -11,8 +11,10 @@
 
 class AuthenticationService;
 namespace signin {
+class CoreAccountInfo;
 class IdentityManager;
 }  // namespace signin
+class OptimizationGuideService;
 class PrefService;
 class ProfileIOS;
 namespace web {
@@ -26,7 +28,8 @@ class BwgService : public KeyedService,
   BwgService(ProfileIOS* profile,
              AuthenticationService* auth_service,
              signin::IdentityManager* identity_manager,
-             PrefService* pref_service);
+             PrefService* pref_service,
+             OptimizationGuideService* optimization_guide);
   ~BwgService() override;
   void Shutdown() override;
 
@@ -39,6 +42,8 @@ class BwgService : public KeyedService,
   // signin::IdentityManager::Observer:
   void OnPrimaryAccountChanged(
       const signin::PrimaryAccountChangeEvent& event) override;
+  void OnRefreshTokenUpdatedForAccount(
+      const CoreAccountInfo& account_info) override;
   void OnIdentityManagerShutdown(
       signin::IdentityManager* identity_manager) override;
 
@@ -55,6 +60,9 @@ class BwgService : public KeyedService,
   // The PrefService associated with the Profile.
   raw_ptr<PrefService, DanglingUntriaged> pref_service_ = nullptr;
 
+  // The optimization guide service for model execution and page metadata.
+  raw_ptr<OptimizationGuideService> optimization_guide_ = nullptr;
+
   // Whether the user is ineligible by the Gemini Enterprise policy (not Chrome
   // Enterprise).
   bool is_disabled_by_gemini_policy_ = false;
@@ -69,7 +77,10 @@ class BwgService : public KeyedService,
   // Invoked when the eligibility check is done.
   void OnGeminiEligibilityResult(bool eligible);
 
-  // Weak pointer factory.
+  // Weak pointer factory for Gemini eligibility checks.
+  base::WeakPtrFactory<BwgService> eligibility_weak_ptr_factory_{this};
+
+  // Generic weak pointer factory.
   base::WeakPtrFactory<BwgService> weak_ptr_factory_{this};
 };
 

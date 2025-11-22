@@ -9,6 +9,8 @@
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/metrics/user_action_tester.h"
 #import "base/test/scoped_feature_list.h"
+#import "components/test/ios/test_utils.h"
+#import "google_apis/gaia/gaia_id.h"
 #import "ios/chrome/browser/authentication/account_menu/ui/account_menu_data_source.h"
 #import "ios/chrome/browser/authentication/account_menu/ui/account_menu_mutator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/central_account_view.h"
@@ -21,6 +23,7 @@
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_item.h"
+#import "ios/chrome/browser/shared/ui/table_view/content_configuration/table_view_cell_content_configuration.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
@@ -56,8 +59,9 @@ UIImage* kPrimaryAccountAvatar = [[UIImage alloc] init];
 @property(nonatomic, strong) AccountErrorUIInfo* accountErrorUIInfo;
 @end
 
-@implementation FakeAccountMenuDataSource
-@synthesize secondaryAccountsGaiaIDs = _secondaryAccountsGaiaIDs;
+@implementation FakeAccountMenuDataSource {
+  std::vector<GaiaId> _secondaryAccountsGaiaIDs;
+}
 @synthesize primaryAccountEmail = _primaryAccountEmail;
 @synthesize primaryAccountAvatar = _primaryAccountAvatar;
 @synthesize primaryAccountUserFullName = _primaryAccountUserFullName;
@@ -67,7 +71,7 @@ UIImage* kPrimaryAccountAvatar = [[UIImage alloc] init];
   self = [super init];
   if (self) {
     _accountErrorUIInfo = nil;
-    _secondaryAccountsGaiaIDs = @[ kSecondaryIdentity.gaiaID ];
+    _secondaryAccountsGaiaIDs = {kSecondaryIdentity.gaiaId};
     _primaryAccountEmail = kPrimaryIdentity.userEmail;
     _primaryAccountAvatar = kPrimaryAccountAvatar;
     _primaryAccountUserFullName = kPrimaryIdentity.userFullName;
@@ -77,30 +81,36 @@ UIImage* kPrimaryAccountAvatar = [[UIImage alloc] init];
 }
 
 // The only acceptable argument is the ID of a secondary id.
-- (const FakeSystemIdentity*)identityForGaiaID:(NSString*)gaiaID {
-  if (gaiaID == kSecondaryIdentity.gaiaID) {
+- (const FakeSystemIdentity*)identityForGaiaID:(const GaiaId&)gaiaID {
+  if (gaiaID == kSecondaryIdentity.gaiaId) {
     return kSecondaryIdentity;
-  } else if (gaiaID == kSecondaryIdentity2.gaiaID) {
+  } else if (gaiaID == kSecondaryIdentity2.gaiaId) {
     return kSecondaryIdentity2;
   } else {
     NOTREACHED();
   }
 }
 
-- (NSString*)nameForGaiaID:(NSString*)gaiaID {
+#pragma mark - AccountMenuDataSource
+
+- (const std::vector<GaiaId>)secondaryAccountsGaiaIDs {
+  return _secondaryAccountsGaiaIDs;
+}
+
+- (NSString*)nameForGaiaID:(const GaiaId&)gaiaID {
   return [self identityForGaiaID:gaiaID].userFullName;
 }
 
-- (NSString*)emailForGaiaID:(NSString*)gaiaID {
+- (NSString*)emailForGaiaID:(const GaiaId&)gaiaID {
   return [self identityForGaiaID:gaiaID].userEmail;
 }
 
-- (UIImage*)imageForGaiaID:(NSString*)gaiaID {
+- (UIImage*)imageForGaiaID:(const GaiaId&)gaiaID {
   return _accountManagerService->GetIdentityAvatarWithIdentity(
       [self identityForGaiaID:gaiaID], IdentityAvatarSize::TableViewIcon);
 }
 
-- (BOOL)isGaiaIDManaged:(NSString*)gaiaID {
+- (BOOL)isGaiaIDManaged:(const GaiaId&)gaiaID {
   return NO;
 }
 
@@ -196,18 +206,18 @@ class AccountMenuViewControllerTest : public PlatformTest,
                        cellForRowAtIndexPath:path];
   }
 
-  // Expects that the cell at `path` is a `TableViewTextCell` whose label’s text
-  // is `text`.
+  // Expects that the cell at `path` has `text` as title.
   void ExpectTextAtPath(NSString* text, NSIndexPath* path) {
-    UITableViewCell* add_account_cell_ = GetCell(path);
-    EXPECT_TRUE([add_account_cell_ isKindOfClass:[TableViewTextCell class]]);
-    TableViewTextCell* add_account_cell =
-        static_cast<TableViewTextCell*>(add_account_cell_);
-    EXPECT_NSEQ(add_account_cell.textLabel.text, text);
+    UITableViewCell* add_account_cell = GetCell(path);
+    EXPECT_TRUE([add_account_cell.contentConfiguration
+        isKindOfClass:[TableViewCellContentConfiguration class]]);
+    TableViewCellContentConfiguration* content_configuration =
+        static_cast<TableViewCellContentConfiguration*>(
+            add_account_cell.contentConfiguration);
+    EXPECT_NSEQ(content_configuration.title, text);
   }
 
-  // Expects that the cell at `path` is a `TableViewTextCell` whose label’s text
-  // is `text`.
+  // Selects the cell at `path`.
   void SelectCell(NSIndexPath* path) {
     [TableView().delegate tableView:TableView() didSelectRowAtIndexPath:path];
   }
@@ -281,9 +291,11 @@ TEST_P(AccountMenuViewControllerTest, TestAccountMenuWithoutEllipsis) {
 
 // Tests tapping on the secondary account cell.
 TEST_P(AccountMenuViewControllerTest, TestTapSecondaryAccount) {
-  OCMExpect([mutator_ accountTappedWithGaiaID:kSecondaryIdentity.gaiaID
-                                   targetRect:CGRect()])
-      .ignoringNonObjectArgs();
+  OCMExpect([mutator_
+                accountTappedWithGaiaID:ios::OCM::AnyPointer<const GaiaId>()
+                             targetRect:CGRect()])
+      .ignoringNonObjectArgs()
+      .andCompareObjectAtIndex(kSecondaryIdentity.gaiaId, 0);
   SelectCell(path_for_secondary_account_);
   EXPECT_EQ(1,
             user_actions_.GetActionCount("Signin_AccountMenu_SelectAccount"));
@@ -354,10 +366,13 @@ TEST_P(AccountMenuViewControllerTest, TestSetError) {
 // section.
 TEST_P(AccountMenuViewControllerTest, TestAddAccount) {
   fake_system_identity_manager_->AddIdentity(kSecondaryIdentity2);
-  [view_controller_
-      updateAccountListWithGaiaIDsToAdd:@[ kSecondaryIdentity2.gaiaID ]
-                        gaiaIDsToRemove:@[]
-                          gaiaIDsToKeep:@[ kSecondaryIdentity.gaiaID ]];
+  [view_controller_ updateAccountListWithGaiaIDsToAdd:@[
+    kSecondaryIdentity2.gaiaId.ToNSString()
+  ]
+                                      gaiaIDsToRemove:@[]
+                                        gaiaIDsToKeep:@[
+                                          kSecondaryIdentity.gaiaId.ToNSString()
+                                        ]];
   EXPECT_EQ(2, TableView().numberOfSections);
   // The secondary account, Add Account....
   EXPECT_EQ(3, [TableView() numberOfRowsInSection:0]);
@@ -368,10 +383,11 @@ TEST_P(AccountMenuViewControllerTest, TestAddAccount) {
 // Test that removing a secondary account remove a row in the secondary account
 // section.
 TEST_P(AccountMenuViewControllerTest, TestRemoveAccount) {
-  [view_controller_
-      updateAccountListWithGaiaIDsToAdd:@[]
-                        gaiaIDsToRemove:@[ kSecondaryIdentity.gaiaID ]
-                          gaiaIDsToKeep:@[]];
+  [view_controller_ updateAccountListWithGaiaIDsToAdd:@[]
+                                      gaiaIDsToRemove:@[
+                                        kSecondaryIdentity.gaiaId.ToNSString()
+                                      ]
+                                        gaiaIDsToKeep:@[]];
   EXPECT_EQ(2, TableView().numberOfSections);
   // No Secondary account. Just Add Account....
   EXPECT_EQ(1, [TableView() numberOfRowsInSection:0]);

@@ -27,6 +27,9 @@ chromium-metrics-reviews@google.com.
 <variants name="AimEligibilityRequestSource">
   <variant name="" summary="Aggregated across all request sources"/>
   <variant name=".CookieChange" summary="Requests triggered by cookie changes"/>
+  <variant name=".NetworkChange"
+      summary="Requests triggered by network changes (expected at most once
+               after startup)"/>
   <variant name=".PrimaryAccountChange"
       summary="Requests triggered by primary account changes"/>
   <variant name=".Startup" summary="Requests triggered on browser startup"/>
@@ -158,6 +161,8 @@ chromium-metrics-reviews@google.com.
   <variant name="JOURNEYS"
       summary="Journeys landing page, side Panel or the NTP"/>
   <variant name="JUMP_START" summary="JumpStart Omnibox (Android)"/>
+  <variant name="LENS_SIDE_PANEL_COMPOSEBOX"
+      summary="Lens side panel composebox"/>
   <variant name="LENS_SIDE_PANEL_SEARCHBOX"
       summary="Lens side panel searchbox"/>
   <variant name="NTP"
@@ -378,6 +383,78 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram
+    name="Omnibox.AimEligibility.EligibilityRequestPrimaryAccountExists{RequestSource}"
+    enum="Boolean" expires_after="2026-08-05">
+  <owner>mahmadi@chromium.org</owner>
+  <owner>manukh@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    The AIM Eligibility service makes HTTP requests to determine which AIM
+    features the user is eligible for. The requests are triggered on profile
+    startup and when the primary account changes.
+
+    This metric logs whether the primary account exists when the request was
+    sent, sliced by request source.
+  </summary>
+  <token key="RequestSource" variants="AimEligibilityRequestSource"/>
+</histogram>
+
+<histogram
+    name="Omnibox.AimEligibility.EligibilityRequestPrimaryAccountInCookieJar{RequestSource}"
+    enum="Boolean" expires_after="2026-08-05">
+  <owner>mahmadi@chromium.org</owner>
+  <owner>manukh@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    The AIM Eligibility service makes HTTP requests to determine which AIM
+    features the user is eligible for. The requests are triggered on profile
+    startup and when the primary account changes.
+
+    This metric logs whether the primary account was found in the cookie jar
+    when the request was sent, sliced by request source. Logged only if the
+    primary account exists.
+  </summary>
+  <token key="RequestSource" variants="AimEligibilityRequestSource"/>
+</histogram>
+
+<histogram
+    name="Omnibox.AimEligibility.EligibilityRequestPrimaryAccountIndex{RequestSource}"
+    units="index" expires_after="2026-08-05">
+  <owner>mahmadi@chromium.org</owner>
+  <owner>manukh@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    The AIM Eligibility service makes HTTP requests to determine which AIM
+    features the user is eligible for. The requests are triggered on profile
+    startup and when the primary account changes.
+
+    This metric logs the index of the primary account in the cookie jar when the
+    request was sent, sliced by request source. Logged only if the primary
+    account exists and was found in the cookie jar.
+  </summary>
+  <token key="RequestSource" variants="AimEligibilityRequestSource"/>
+</histogram>
+
+<histogram name="Omnibox.AimEligibility.EligibilityRequestRetries.{Status}"
+    units="count" expires_after="2026-08-05">
+  <owner>mahmadi@chromium.org</owner>
+  <owner>avivkiss@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    The AIM Eligibility service makes HTTP requests to determine which AIM
+    features the user is eligible for. This metric logs the number of retries
+    for failed requests. Retries are triggered on network changes or DNS
+    resolution failures. A count of 0 indicates that the request succeeded or
+    failed on the first attempt (and wasn't within policy for a retry). This
+    metric is logged only when the request completes.
+  </summary>
+  <token key="Status">
+    <variant name="Failed" summary="failed"/>
+    <variant name="Succeeded" summary="succeeded"/>
+  </token>
+</histogram>
+
+<histogram
     name="Omnibox.AimEligibility.EligibilityRequestStatus{RequestSource}"
     enum="AimEligibilityRequestStatus" expires_after="2026-08-05">
   <owner>mahmadi@chromium.org</owner>
@@ -594,7 +671,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.AimEntrypoint.Activated.UserTextPresent.ByPageContext.{OmniboxPageContext}"
-    enum="Boolean" expires_after="2025-12-15">
+    enum="Boolean" expires_after="2026-04-05">
   <owner>khalidpeer@chromium.org</owner>
   <owner>jdonnelly@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
@@ -664,7 +741,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.AimEntrypoint.Shown.ByPageContext.{OmniboxPageContext}"
-    enum="Boolean" expires_after="2025-12-15">
+    enum="Boolean" expires_after="2026-04-05">
   <owner>khalidpeer@chromium.org</owner>
   <owner>jdonnelly@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
@@ -883,7 +960,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.AutocompletionTime.UpdateResult{Slice}"
-    units="microseconds" expires_after="2026-02-09">
+    units="microseconds" expires_after="2026-04-12">
   <owner>manukh@chromium.org</owner>
   <owner>jdonnelly@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
@@ -1406,7 +1483,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram name="Omnibox.DsePreload.Prefetch.NoVarySearchDataCacheUpdate"
     enum="SearchPreloadServiceNoVarySearchDataCacheUpdate"
-    expires_after="2026-02-01">
+    expires_after="2026-04-05">
   <owner>kenoss@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
   <summary>
@@ -1417,7 +1494,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.DsePreload.SignalResult{DsePreloadTriggerType}{PreloadType}"
-    enum="SearchPreloadSignalResult" expires_after="2026-02-09">
+    enum="SearchPreloadSignalResult" expires_after="2026-04-12">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <owner>kenoss@chromium.org</owner>
@@ -1616,7 +1693,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.FocusToOpenTimeAnyPopupState3.ByPageContext.{OmniboxPageContext}"
-    units="ms" expires_after="2026-02-09">
+    units="ms" expires_after="2026-04-12">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -1910,7 +1987,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.KeywordCount{KeywordType}" units="count"
-    expires_after="2026-01-25">
+    expires_after="2026-03-29">
   <owner>mahmadi@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -1974,7 +2051,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.LensAction.Precision" enum="Boolean"
-    expires_after="2025-10-12">
+    expires_after="2026-02-22">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -2038,7 +2115,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.LoadingPredictor.MatchType.{PreconnectableType}"
-    enum="OmniboxResultType" expires_after="2026-02-09">
+    enum="OmniboxResultType" expires_after="2026-04-12">
   <owner>nidhijaju@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -2459,7 +2536,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.OnPopupOpen.PaywallSignal" enum="PaywallSignal"
-    expires_after="2026-01-31">
+    expires_after="2026-04-05">
   <owner>juanmojica@google.com</owner>
   <owner>mercerd@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
@@ -2790,7 +2867,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.SearchEngineType{Population}"
-    enum="OmniboxSearchEngineType" expires_after="2026-02-09">
+    enum="OmniboxSearchEngineType" expires_after="2026-04-12">
   <owner>jdonnelly@chromium.org</owner>
   <owner>mpearson@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
@@ -2849,7 +2926,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.SearchPrefetch.DuplicateSearchTermsAge" units="ms"
-    expires_after="2026-01-25">
+    expires_after="2026-03-29">
   <owner>lingqi@chromium.org</owner>
   <owner>nhiroki@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
@@ -2896,7 +2973,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.SearchPrefetch.Within1sDuplicateSearchTermsAge"
-    units="ms" expires_after="2026-02-01">
+    units="ms" expires_after="2026-04-05">
   <owner>lingqi@chromium.org</owner>
   <owner>nhiroki@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
@@ -2912,7 +2989,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.SearchPrefetch.Within1sDuplicateSearchTermsRelationship"
-    enum="DuplicateNavigationServingResult" expires_after="2026-02-09">
+    enum="DuplicateNavigationServingResult" expires_after="2026-04-12">
   <owner>lingqi@chromium.org</owner>
   <owner>nhiroki@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
@@ -3515,7 +3592,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.SuggestRequestsSent.ResponseTime2.RequestState{RemoteRequestType}{RemoteRequestCompleted}"
-    units="ms" expires_after="2026-02-01">
+    units="ms" expires_after="2026-04-05">
   <owner>ananyaseelam@google.com</owner>
   <owner>manukh@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
@@ -3556,7 +3633,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.SuggestRequestsSent.ResultCount.EnterpriseSearchAggregatorSuggest{EnterpriseSuggestionType}"
-    units="count" expires_after="2026-02-01">
+    units="count" expires_after="2026-04-05">
   <owner>ananyaseelam@chromium.org</owner>
   <owner>manukh@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
@@ -4041,7 +4118,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.ZeroSuggest.AllResults" units="units"
-    expires_after="2026-02-15">
+    expires_after="2026-04-19">
   <owner>pnoland@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -4404,6 +4481,28 @@ Keep consistent with active providers. Doesn't need to include every provider in
     bytes to the navigation code.
   </summary>
   <token key="SearchPrefetch" variants="SearchPrefetch"/>
+</histogram>
+
+<histogram
+    name="Omnibox.{SearchPrefetch}.NoVarySearchHeaderLength.{PrefetchFallbackOrInitial}.{NavigationOrSuggestionPrefetch}"
+    units="length" expires_after="2026-03-22">
+  <owner>chikamune@chromium.org</owner>
+  <owner>chrome-prerendering@google.com</owner>
+  <summary>
+    {SearchPrefetch}
+
+    This histogram records the length of the No-Vary-Search HTTP response header
+    that a prefetch URL loader receives. This is only recorded when the response
+    is servable and the No-Vary-Search HTTP response header exists.
+
+    {PrefetchFallbackOrInitial}
+
+    {NavigationOrSuggestionPrefetch}
+  </summary>
+  <token key="SearchPrefetch" variants="SearchPrefetch"/>
+  <token key="PrefetchFallbackOrInitial" variants="PrefetchFallbackOrInitial"/>
+  <token key="NavigationOrSuggestionPrefetch"
+      variants="NavigationOrSuggestionPrefetch"/>
 </histogram>
 
 <histogram

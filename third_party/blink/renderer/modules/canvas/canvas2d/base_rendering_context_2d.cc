@@ -73,7 +73,6 @@
 #include "third_party/blink/renderer/platform/fonts/font_selector.h"
 #include "third_party/blink/renderer/platform/fonts/plain_text_painter.h"
 #include "third_party/blink/renderer/platform/fonts/simple_font_data.h"
-#include "third_party/blink/renderer/platform/fonts/text_run_paint_info.h"
 #include "third_party/blink/renderer/platform/geometry/path.h"
 #include "third_party/blink/renderer/platform/graphics/bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/blend_mode.h"
@@ -273,7 +272,7 @@ void BaseRenderingContext2D::TryRestoreContextEvent(TimerBase* timer) {
       (!SharedGpuContext::IsGpuCompositingEnabled() &&
        SharedGpuContext::SharedImageInterfaceProvider())) {
     RestoreGuard context_is_being_restored(*this);
-    if (GetOrCreateCanvas2DResourceProvider()) {
+    if (GetOrCreateResourceProvider()) {
       try_restore_context_event_timer_.Stop();
       DispatchContextRestoredEvent(nullptr);
       return;
@@ -593,7 +592,7 @@ void BaseRenderingContext2D::putImageData(ImageData* data,
     return;
   }
 
-  if (isContextLost() || !CanCreateCanvas2dResourceProvider()) [[unlikely]] {
+  if (isContextLost() || !CanCreateResourceProvider()) [[unlikely]] {
     return;
   }
 
@@ -807,13 +806,17 @@ scoped_refptr<StaticBitmapImage>
 BaseRenderingContext2D::PaintRenderingResultsToSnapshot(
     SourceDrawingBuffer source_buffer,
     FlushReason reason) {
-  if (!IsCanvas2DResourceProviderValid()) {
+  if (!IsResourceProviderValid()) {
     return nullptr;
   }
 
   CanvasResourceProvider* provider = GetResourceProvider();
   provider->FlushCanvas(reason);
   return provider->Snapshot(reason);
+}
+
+bool BaseRenderingContext2D::IsResourceProviderValid() {
+  return GetResourceProvider() && GetResourceProvider()->IsValid();
 }
 
 void BaseRenderingContext2D::WillUseCurrentFont() const {
@@ -1111,29 +1114,17 @@ void BaseRenderingContext2D::DrawTextInternal(
   bool bidi_override =
       computed_style ? IsOverride(computed_style->GetUnicodeBidi()) : false;
 
-  PlainTextPainter* text_painter = RuntimeEnabledFeatures::CanvasTextNgEnabled(
-                                       host->GetTopExecutionContext())
-                                       ? &host->GetPlainTextPainter()
-                                       : nullptr;
-  TextRun text_run(text, direction, bidi_override, /* normalize_space */ true);
+  PlainTextPainter& text_painter = host->GetPlainTextPainter();
+  TextRun text_run(text, direction, bidi_override);
   // Draw the item text at the correct point.
   gfx::PointF location(ClampTo<float>(x), ClampTo<float>(y));
   gfx::RectF bounds;
   double font_width = 0;
-  if (text_painter) {
-    if (run_start == 0 && run_end == text.length()) [[likely]] {
-      font_width = text_painter->ComputeInlineSize(text_run, *font, &bounds);
-    } else {
-      font_width = text_painter->ComputeSubInlineSize(text_run, run_start,
-                                                      run_end, *font, &bounds);
-    }
+  if (run_start == 0 && run_end == text.length()) [[likely]] {
+    font_width = text_painter.ComputeInlineSize(text_run, *font, &bounds);
   } else {
-    if (run_start == 0 && run_end == text.length()) [[likely]] {
-      font_width = font->DeprecatedWidth(text_run, &bounds);
-    } else {
-      font_width =
-          font->DeprecatedSubRunWidth(text_run, run_start, run_end, &bounds);
-    }
+    font_width = text_painter.ComputeSubInlineSize(text_run, run_start, run_end,
+                                                   *font, &bounds);
   }
 
   bool use_max_width = (max_width && *max_width < font_width);
@@ -1179,10 +1170,9 @@ void BaseRenderingContext2D::DrawTextInternal(
   Draw<OverdrawOp::kNone>(
       /*draw_func=*/
       [font, text = std::move(text), direction, bidi_override, location,
-       run_start, run_end, canvas, text_painter,
+       run_start, run_end, canvas, &text_painter,
        paint_type](MemoryManagedPaintCanvas* c, const cc::PaintFlags* flags) {
-        TextRun text_run(text, direction, bidi_override,
-                         /* normalize_space */ true);
+        TextRun text_run(text, direction, bidi_override);
         // Font::DrawType::kGlyphsAndClusters is required for printing to PDF,
         // otherwise the character to glyph mapping will not be reversible,
         // which prevents text data from being extracted from PDF files or
@@ -1200,18 +1190,9 @@ void BaseRenderingContext2D::DrawTextInternal(
             paint_type == CanvasRenderingContext2DState::kFillPaintType
                 ? HighEntropyCanvasOpType::kFillText
                 : HighEntropyCanvasOpType::kStrokeText);
-        if (text_painter) {
-          text_painter->DrawWithBidiReorder(text_run, run_start, run_end, *font,
-                                            Font::kUseFallbackIfFontNotReady,
-                                            *c, location, *flags, draw_type);
-        } else {
-          TextRunPaintInfo text_run_paint_info(text_run);
-          text_run_paint_info.from = run_start;
-          text_run_paint_info.to = run_end;
-          font->DeprecatedDrawBidiText(c, text_run_paint_info, location,
-                                       Font::kUseFallbackIfFontNotReady, *flags,
-                                       draw_type);
-        }
+        text_painter.DrawWithBidiReorder(text_run, run_start, run_end, *font,
+                                         Font::kUseFallbackIfFontNotReady, *c,
+                                         location, *flags, draw_type);
       },
       NoOverdraw, bounds, paint_type, CanvasRenderingContext2DState::kNoImage,
       CanvasPerformanceMonitor::DrawType::kText);
@@ -1254,11 +1235,7 @@ TextMetrics* BaseRenderingContext2D::measureText(const String& text) {
 
   return MakeGarbageCollected<TextMetrics>(
       font, direction, state.GetTextBaseline().AsEnum(),
-      state.GetTextAlign().AsEnum(), text,
-      RuntimeEnabledFeatures::CanvasTextNgEnabled(
-          host->GetTopExecutionContext())
-          ? &host->GetPlainTextPainter()
-          : nullptr);
+      state.GetTextAlign().AsEnum(), text, host->GetPlainTextPainter());
 }
 
 String BaseRenderingContext2D::lang() const {
@@ -1503,7 +1480,7 @@ GPUTexture* BaseRenderingContext2D::transferToGPUTexture(
   // accelerated SharedImage provider, we won't be able to transfer the canvas.
   // In that case, WebGPU access is not possible.
   CanvasResourceProviderSharedImage* provider =
-      GetOrCreateCanvas2DResourceProvider()->AsSharedImageProvider();
+      GetOrCreateResourceProvider()->AsSharedImageProvider();
   if (!provider || !provider->IsAccelerated()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       "Unable to transfer canvas to GPU.");
@@ -1561,7 +1538,7 @@ GPUTexture* BaseRenderingContext2D::transferToGPUTexture(
   // canvas to be treated as a brand new surface if additional draws occur.
   // It also gives us a mechanism to detect post-transfer-out draws, which is
   // used in `transferBackFromWebGPU` to raise an exception.
-  auto owned_provider = ReplaceResourceProviderForCanvas2D(nullptr);
+  auto owned_provider = ReplaceResourceProvider(nullptr);
 
   // Note: This must be a CRPSI since this method would have bailed out earlier
   // otherwise.
@@ -1626,8 +1603,7 @@ void BaseRenderingContext2D::transferBackFromGPUTexture(
   // surrendering our temporary ownership of the provider.
   CanvasResourceProviderSharedImage* resource_provider =
       resource_provider_from_webgpu_access_.get();
-  ReplaceResourceProviderForCanvas2D(
-      std::move(resource_provider_from_webgpu_access_));
+  ReplaceResourceProvider(std::move(resource_provider_from_webgpu_access_));
   resource_provider->SetDelegate(host);
 
   // Disassociate the WebGPU texture from the SharedImage to end its

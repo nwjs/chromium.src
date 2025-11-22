@@ -33,6 +33,50 @@ typedef NS_ENUM(NSUInteger, SigninCoordinatorResult) {
   SigninCoordinatorProfileSwitch,
 };
 
+namespace signin_ui {
+
+// The result of a authentiaction.
+enum class CancelationReason {
+  // Not canceled.
+  kNotCanceled,
+  // Canceled by the user.
+  kUserCanceled,
+  // Canceled, but not by the user.
+  kFailed,
+};
+
+}  // namespace signin_ui
+
+// Enum for tracking key events in the Signin Fullscreen Promo flow on iOS.
+// Used in UMA histograms.
+// LINT.IfChange(SigninFullscreenPromoEvents)
+enum class SigninFullscreenPromoEvents {
+  // Recorded when the Promo Manager selects and triggers the display
+  // of the fullscreen sign-in promo.
+  kPromoManagerTriggered = 0,
+
+  // Recorded when the promo is prevented from showing due to
+  // SigninDisabledByPolicy.
+  kPromoCanceledByPolicy = 1,
+
+  // Recorded when the promo is prevented from showing because the UI
+  // is blocked.
+  kPromoCanceledByUIBlocked = 2,
+
+  // Recorded when the UI for the fullscreen sign-in promo is started.
+  kPromoUIStarted = 3,
+
+  // Recorded when the the sign-in UI is started.
+  kSigninUIStarted = 4,
+
+  // Recorded when the history-sync UI is started.
+  kHistorySyncUIStarted = 5,
+
+  // This value should always be the last entry.
+  kMaxValue = kHistorySyncUIStarted,
+};
+// LINT.ThenChange(/tools/metrics/histograms/metadata/ios/enums.xml:IOSSigninFullscreenPromoEvents)
+
 // Called when the sign-in dialog is closed.
 // `result` is the sign-in result state.
 // `signinCompletionIdentity` the identity that was used if any.

@@ -7,8 +7,8 @@
 //   --gn_target chrome/test/data/webui/glic:build_ts
 
 import {WebClientMode} from '/glic/glic_api/glic_api.js';
-import type {GlicBrowserHost, GlicHostRegistry, GlicWebClient, Observable, OpenPanelInfo, PanelOpeningData} from '/glic/glic_api/glic_api.js';
-import {ObservableValue, type Subscriber} from '/glic/observable.js';
+import type {GlicBrowserHost, GlicHostRegistry, GlicWebClient, Observable, OpenPanelInfo, PanelOpeningData, PanelStateKind} from '/glic/glic_api/glic_api.js';
+import {ObservableValue, Subject, type Subscriber} from '/glic/observable.js';
 
 import {createGlicHostRegistryOnLoad} from '../api_boot.js';
 
@@ -26,6 +26,16 @@ export function getTestName(): string|null {
   return testName;
 }
 
+export function mapObservable<S, T>(src: Observable<S>, mapping: (s: S) => T) {
+  const result = new Subject<T>();
+  src.subscribe(
+      (v) => {
+        result.next(mapping(v));
+      },
+  );
+  return result;
+}
+
 // Creates a queue of promises from an observable.
 export class SequencedSubscriber<T> {
   private signals: Array<PromiseWithResolvers<T>> = [];
@@ -34,7 +44,7 @@ export class SequencedSubscriber<T> {
   private subscriber: Subscriber;
 
   // The last value read from `next()`, or undefined if none was read.
-  current: T|undefined;
+  current: {some: T}|undefined;
 
   // A promise that resolves when the observable is completed.
   readonly completed: Promise<void>;
@@ -50,8 +60,10 @@ export class SequencedSubscriber<T> {
   async next(): Promise<T> {
     // Wrapping the returned value with `waitFor` improves failure logs
     // on timeout.
-    this.current = await waitFor(this.getSignal(this.readIndex++).promise);
-    return this.current;
+    this.current = {
+      some: await waitFor(this.getSignal(this.readIndex++).promise),
+    };
+    return this.current.some;
   }
 
   /** Returns true if all values have been read. */
@@ -65,11 +77,31 @@ export class SequencedSubscriber<T> {
     return this.waitFor(v => v === targetValue);
   }
   async waitFor(condition: (v: T) => boolean): Promise<T> {
+    let lastValueSaw: {some: T}|undefined = undefined;
+    if (this.current !== undefined) {
+      if (condition(this.current.some)) {
+        return this.current.some;
+      }
+      lastValueSaw = {some: this.current.some};
+    }
+
     while (true) {
-      const val = await this.next();
+      let val;
+      try {
+        val = await this.next();
+      } catch (e) {
+        if (lastValueSaw !== undefined) {
+          console.warn(`waitFor() failed, last value saw was ${
+              JSON.stringify(lastValueSaw)}`);
+        } else {
+          console.warn(`waitFor() failed, saw no values emitted`);
+        }
+        throw e;
+      }
       if (condition(val)) {
         return val;
       }
+      lastValueSaw = {some: val};
       console.info(`waitFor saw and ignored ${JSON.stringify(val)}`);
     }
   }
@@ -96,15 +128,20 @@ export class WebClient implements GlicWebClient {
   initializedPromise = Promise.withResolvers<void>();
   onNotifyPanelWasClosed: () => void = () => {};
   panelOpenState = ObservableValue.withValue<boolean>(false);
+  panelOpenStateKind = ObservableValue.withNoValue<PanelStateKind>();
+  panelOpenData = ObservableValue.withNoValue<PanelOpeningData>();
 
   async initialize(glicBrowserHost: GlicBrowserHost): Promise<void> {
     this.host = glicBrowserHost;
     this.initializedPromise.resolve();
   }
 
-  async notifyPanelWillOpen(_panelOpeningData: PanelOpeningData):
+  async notifyPanelWillOpen(panelOpeningData: PanelOpeningData):
       Promise<OpenPanelInfo> {
     this.panelOpenState.assignAndSignal(true);
+    this.panelOpenStateKind.assignAndSignal(
+        checkDefined(panelOpeningData.panelState?.kind));
+    this.panelOpenData.assignAndSignal(panelOpeningData);
     this.firstOpened.resolve();
 
     const openPanelInfo: OpenPanelInfo = {

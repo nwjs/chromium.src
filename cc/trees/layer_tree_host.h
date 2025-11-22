@@ -23,7 +23,7 @@
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/read_only_shared_memory_region.h"
-#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
@@ -379,10 +379,6 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
     return defer_main_frame_update_count_;
   }
 
-  // Synchronously performs a main frame update and layer updates. Used only in
-  // single threaded mode when the compositor's internal scheduling is disabled.
-  void LayoutAndUpdateLayers();
-
   // Synchronously performs a complete main frame update, commit and compositor
   // frame. Used only in single threaded mode when the compositor's internal
   // scheduling is disabled.
@@ -397,6 +393,11 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   // frame results in a redraw for the complete viewport when producing the
   // CompositorFrame.
   void SetNeedsCommitWithForcedRedraw();
+
+  // Requests a main frame if a composited animation changes a draw property.
+  void RequestMainFrameOnCompositorAnimation(
+      PropertyChangeForcesCommitCriteria
+          property_change_forces_commit_criteria);
 
   // Input Handling ---------------------------------------------
 
@@ -1141,6 +1142,14 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   mutable std::unique_ptr<CompletionEvent> commit_completion_event_;
 
   EventsMetricsManager events_metrics_manager_;
+
+  // A map from ViewTransition tokens to whether a new LocalSurfaceId is
+  // needed for this ViewTransitionRequest.
+  base::flat_map<blink::ViewTransitionToken, bool>
+      view_transition_needs_new_lsid_;
+  // Make sure there's no unbounded growth of above map, if Animate never
+  // happens after Save.
+  const uint32_t view_transition_needs_new_lsid_max_size_ = 100;
 
   // A list of callbacks that need to be invoked when they are processed.
   base::flat_map<uint32_t, ViewTransitionRequest::ViewTransitionCaptureCallback>

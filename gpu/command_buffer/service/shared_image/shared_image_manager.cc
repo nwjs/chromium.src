@@ -36,12 +36,9 @@
 #endif
 
 #if BUILDFLAG(IS_OZONE)
+#include "components/viz/common/gpu/vulkan_context_provider.h"
 #include "gpu/config/gpu_finch_features.h"
 #include "ui/ozone/public/ozone_platform.h"
-#endif
-
-#if BUILDFLAG(IS_ANDROID)
-#include "base/android/android_hardware_buffer_compat.h"
 #endif
 
 #if DCHECK_IS_ON()
@@ -244,14 +241,21 @@ SharedImageManager::SharedImageManager(
     bool display_context_on_another_thread,
     viz::VulkanContextProvider* vulkan_context_provider,
     scoped_refptr<base::SingleThreadTaskRunner> io_runner)
-    : display_context_on_another_thread_(display_context_on_another_thread),
+    : display_context_on_another_thread_(display_context_on_another_thread)
 #if BUILDFLAG(IS_WIN)
+      ,
       dxgi_shared_handle_manager_(
-          base::MakeRefCounted<DXGISharedHandleManager>()),
+          base::MakeRefCounted<DXGISharedHandleManager>())
 #endif
-      gpu_memory_buffer_factory_(
-          gpu::GpuMemoryBufferFactory::CreateNativeType(vulkan_context_provider,
-                                                        std::move(io_runner))) {
+#if BUILDFLAG(IS_OZONE)
+      ,
+      vulkan_context_provider_(vulkan_context_provider)
+#endif
+#if BUILDFLAG(IS_WIN)
+      ,
+      io_runner_(std::move(io_runner))
+#endif
+{
   DCHECK(!display_context_on_another_thread || thread_safe);
   if (thread_safe) {
     lock_.emplace();
@@ -764,7 +768,7 @@ bool SharedImageManager::SupportsScanoutImages() {
 #if BUILDFLAG(IS_APPLE)
   return true;
 #elif BUILDFLAG(IS_ANDROID)
-  return base::AndroidHardwareBufferCompat::IsSupportAvailable();
+  return true;
 #elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
   return supports_overlays_on_ozone_;
 #elif BUILDFLAG(IS_WIN)

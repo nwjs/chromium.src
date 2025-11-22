@@ -900,8 +900,9 @@ IN_PROC_BROWSER_TEST_F(BackgroundTracingManagerBrowserTest,
       base::trace_event::kStartupTracingTriggerName));
 }
 
-// TODO(crbug.com/40267734): Re-enable this test once fixed
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
+// TODO(crbug.com/40267734): Re-enable this test once fixed.
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID) || \
+    (BUILDFLAG(IS_LINUX) && defined(THREAD_SANITIZER))
 #define MAYBE_RunStartupTracing DISABLED_RunStartupTracing
 #else
 #define MAYBE_RunStartupTracing RunStartupTracing
@@ -1024,7 +1025,13 @@ IN_PROC_BROWSER_TEST_F(ProtoBackgroundTracingTest, ProtoTraceReceived) {
   EXPECT_FALSE(checker.stats().has_interned_log_messages);
 }
 
-IN_PROC_BROWSER_TEST_F(ProtoBackgroundTracingTest, ReceiveCallback) {
+// TODO(crbug.com/452421404): Flaky on Linux TSAN bot.
+#if BUILDFLAG(IS_LINUX) && defined(THREAD_SANITIZER)
+#define MAYBE_ReceiveCallback DISABLED_ReceiveCallback
+#else
+#define MAYBE_ReceiveCallback ReceiveCallback
+#endif  // BUILDFLAG(IS_LINUX) && defined(THREAD_SANITIZER)
+IN_PROC_BROWSER_TEST_F(ProtoBackgroundTracingTest, MAYBE_ReceiveCallback) {
   TestBackgroundTracingHelper background_tracing_helper;
 
   EXPECT_TRUE(BackgroundTracingManager::GetInstance().InitializeFieldScenarios(

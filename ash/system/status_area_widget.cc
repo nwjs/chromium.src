@@ -52,7 +52,6 @@
 #include "base/containers/adapters.h"
 #include "base/i18n/time_formatting.h"
 #include "base/metrics/histogram_macros.h"
-#include "chromeos/ash/services/assistant/public/cpp/features.h"
 #include "chromeos/ui/base/window_pin_type.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
@@ -403,7 +402,7 @@ void StatusAreaWidget::OnPinnedStateChanged(aura::Window* pinned_window) {
   // Close all tray bubbles when in locked fullscreen mode to prevent users from
   // exiting this mode.
   if (GetWindowPinType(pinned_window) ==
-      chromeos::WindowPinType::kTrustedPinned) {
+      chromeos::WindowPinType::kLockedFullscreen) {
     for (ash::TrayBackgroundView* const tray_button : tray_buttons_) {
       tray_button->CloseBubble(
           TrayBackgroundView::CloseReason::kWindowActivation);

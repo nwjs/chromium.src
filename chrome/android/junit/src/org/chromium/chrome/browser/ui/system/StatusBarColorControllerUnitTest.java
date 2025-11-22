@@ -12,10 +12,10 @@ import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.graphics.Color;
-import android.support.annotation.ColorInt;
 import android.view.ContextThemeWrapper;
 import android.view.Window;
 
+import androidx.annotation.ColorInt;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
@@ -39,7 +39,10 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
-import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundImageType;
+import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorInfo;
+import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorInfo.NtpThemeColorId;
+import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorUtils;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderUtils;
@@ -216,12 +219,15 @@ public class StatusBarColorControllerUnitTest {
     public void testBackgroundColorForNtp() {
         @ColorInt
         int defaultNtpBackground = mContext.getColor(R.color.home_surface_background_color);
-        @ColorInt int currentNtpBackground = mContext.getColor(R.color.default_red);
+        NtpThemeColorInfo colorInfo =
+                NtpThemeColorUtils.createNtpThemeColorInfo(mContext, NtpThemeColorId.LIGHT_BLUE);
+        @ColorInt int currentNtpBackground = mContext.getColor(colorInfo.backgroundColorResId);
+
         NtpCustomizationConfigManager ntpCustomizationConfigManager =
                 NtpCustomizationConfigManager.getInstance();
         ntpCustomizationConfigManager.setBackgroundImageTypeForTesting(
-                NtpCustomizationUtils.NtpBackgroundImageType.CHROME_COLOR);
-        ntpCustomizationConfigManager.setBackgroundColorForTesting(currentNtpBackground);
+                NtpBackgroundImageType.CHROME_COLOR);
+        ntpCustomizationConfigManager.setNtpThemeColorInfoForTesting(colorInfo);
 
         // Verifies when customized NTP background isn't supported, the status bar color is set to
         // the default NTP background color.
@@ -264,8 +270,8 @@ public class StatusBarColorControllerUnitTest {
                         mTopUiThemeColorProvider,
                         mSystemBarColorHelper,
                         mDesktopWindowStateManager,
-                        mOverviewColorSupplier,
-                        supportEdgeToEdge);
+                        mOverviewColorSupplier);
+        mStatusBarColorController.maybeInitializeForCustomizedNtp(mContext, supportEdgeToEdge);
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
     }
 }

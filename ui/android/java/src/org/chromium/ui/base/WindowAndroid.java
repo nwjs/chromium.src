@@ -23,6 +23,7 @@ import android.graphics.Rect;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.Process;
+import android.os.SystemClock;
 import android.util.TypedValue;
 import android.view.Display;
 import android.view.Surface;
@@ -52,6 +53,7 @@ import org.chromium.base.TraceEvent;
 import org.chromium.base.UnownedUserDataHost;
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.lifetime.LifetimeAssert;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.task.PostTask;
@@ -1385,6 +1387,9 @@ public class WindowAndroid
         return aconfigFlaggedApiDelegate.setKeyboardCaptureEnabled(window, hasCapture);
     }
 
+    /**
+     * Returns bounds of this window in global dp coordinates (takes display topology into account).
+     */
     @CalledByNative
     @VisibleForTesting(otherwise = PRIVATE)
     public int @Nullable [] getBoundsInScreenCoordinates() {
@@ -1401,17 +1406,18 @@ public class WindowAndroid
         final WindowManager wm = context.getSystemService(WindowManager.class);
         final Rect boundsPx = wm.getCurrentWindowMetrics().getBounds();
         final DisplayAndroid display = getDisplay();
+        final Rect globalBoundsDp =
+                DisplayUtil.convertLocalPxToGlobalDipCoordinates(display, boundsPx);
 
         return new int[] {
-            DisplayUtil.pxToDp(display, boundsPx.left),
-            DisplayUtil.pxToDp(display, boundsPx.top),
-            DisplayUtil.pxToDp(display, boundsPx.width()),
-            DisplayUtil.pxToDp(display, boundsPx.height())
+            globalBoundsDp.left, globalBoundsDp.top, globalBoundsDp.width(), globalBoundsDp.height()
         }; // x, y, width, height
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
     private void maybeSendWindowPositionChangedEventToNative() {
+        final long startTimeMs = SystemClock.elapsedRealtime();
+
         if (mNativeWindowAndroid == 0) {
             return;
         }
@@ -1429,6 +1435,9 @@ public class WindowAndroid
         mLastWindowBounds = boundsPx;
 
         WindowAndroidJni.get().onWindowPositionChanged(mNativeWindowAndroid);
+
+        final long durationMs = SystemClock.elapsedRealtime() - startTimeMs;
+        RecordHistogram.recordTimesHistogram("Android.Window.TimeToUpdateWindowBounds", durationMs);
     }
 
     @NativeMethods

@@ -15,6 +15,7 @@
 #include "components/viz/client/frame_evictor.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
 #include "components/viz/common/frame_timing_details_map.h"
+#include "components/viz/common/resources/release_callback.h"
 #include "components/viz/common/resources/returned_resource.h"
 #include "components/viz/common/surfaces/surface_id.h"
 #include "components/viz/common/surfaces/surface_info.h"
@@ -37,6 +38,7 @@ namespace viz {
 class CopyOutputRequest;
 class HostFrameSinkManager;
 class RasterContextProvider;
+struct CopyOutputBitmapWithMetadata;
 }  // namespace viz
 
 namespace ui {
@@ -118,7 +120,8 @@ class UI_ANDROID_EXPORT DelegatedFrameHostAndroid
   void CopyFromCompositingSurface(
       const gfx::Rect& src_subrect,
       const gfx::Size& output_size,
-      base::OnceCallback<void(const SkBitmap&)> callback,
+      base::OnceCallback<void(const viz::CopyOutputBitmapWithMetadata&)>
+          callback,
       bool capture_exact_surface_id,
       base::TimeDelta ipc_delay);
   bool CanCopyFromCompositingSurface() const;
@@ -133,7 +136,8 @@ class UI_ANDROID_EXPORT DelegatedFrameHostAndroid
       scoped_refptr<viz::RasterContextProvider> context_provider,
       const gfx::Rect& src_subrect,
       const gfx::Size& output_size,
-      base::OnceCallback<void(scoped_refptr<gpu::ClientSharedImage>)> callback,
+      base::OnceCallback<void(scoped_refptr<gpu::ClientSharedImage>,
+                              viz::ReleaseCallback release_callback)> callback,
       bool capture_exact_surface_id);
 
   void CompositorFrameSinkChanged();

@@ -44,6 +44,13 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
+namespace {
+
+/// Number of expected items in the table.
+constexpr NSInteger kExpectedItemsCount = 4;
+
+}  // namespace
+
 @interface SafariDataImportImportCoordinator () <
     PromoStyleViewControllerDelegate,
     SafariDataImportImportStageTransitionHandler,
@@ -93,7 +100,8 @@
   _containerViewController =
       [[SafariDataImportImportViewController alloc] init];
   _containerViewController.delegate = self;
-  _tableView = [[SafariDataItemTableView alloc] init];
+  _tableView =
+      [[SafariDataItemTableView alloc] initWithItemCount:kExpectedItemsCount];
   _tableView.delegate = self;
   _tableView.importStageTransitionHandler = self;
   _containerViewController.itemTableView = _tableView;
@@ -167,14 +175,10 @@
     NSString* description = l10n_util::GetNSString(
         IDS_IOS_SAFARI_IMPORT_IMPORT_FAILURE_MESSAGE_DESCRIPTION);
     NSString* buttonText = l10n_util::GetNSString(IDS_OK);
-    __weak __typeof(self) weakSelf = self;
-    UIAlertAction* dismiss = [UIAlertAction
-        actionWithTitle:buttonText
-                  style:UIAlertActionStyleDefault
-                handler:^(UIAlertAction* action) {
-                  [weakSelf.errorAlert dismissViewControllerAnimated:YES
-                                                          completion:nil];
-                }];
+    UIAlertAction* dismiss =
+        [UIAlertAction actionWithTitle:buttonText
+                                 style:UIAlertActionStyleDefault
+                               handler:nil];
     _errorAlert = [UIAlertController
         alertControllerWithTitle:title
                          message:description

@@ -43,13 +43,11 @@ bool IsPriceTrackingPromoCardEnabled(commerce::ShoppingService* service,
                                      PrefService* pref_service) {
   id<SystemIdentity> identity =
       auth_service->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
-  return base::FeatureList::IsEnabled(commerce::kPriceTrackingPromo) &&
-         GetApplicationContext()->GetApplicationLocaleStorage()->Get() ==
+  return GetApplicationContext()->GetApplicationLocaleStorage()->Get() ==
              "en-US" &&
          !push_notification_settings::
              GetMobileNotificationPermissionStatusForClient(
-                 PushNotificationClientId::kCommerce,
-                 GaiaId(identity.gaiaID)) &&
+                 PushNotificationClientId::kCommerce, identity.gaiaId) &&
          !pref_service->GetBoolean(kPriceTrackingPromoDisabled) &&
          (service->IsShoppingListEligible() ||
           (base::GetFieldTrialParamByFeatureAsString(

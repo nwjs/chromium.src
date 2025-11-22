@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.ui.browser_window;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockingDetails;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
@@ -78,7 +79,8 @@ final class AndroidBaseWindowNativeUnitTestSupport {
                     new ChromeAndroidTaskImpl(
                             BrowserWindowType.NORMAL,
                             (ActivityWindowAndroid) mWindowAndroid,
-                            tabModel);
+                            tabModel,
+                            /* multiInstanceManager= */ null);
         } else {
             mWindowAndroid = mock(WindowAndroid.class);
             mChromeAndroidTask = mock(ChromeAndroidTask.class);
@@ -107,8 +109,14 @@ final class AndroidBaseWindowNativeUnitTestSupport {
     }
 
     @CalledByNative
+    private void verifyBoundsToSet(int left, int top, int right, int bottom) {
+        assert mockingDetails(mChromeAndroidTask).isMock();
+        verify(mChromeAndroidTask).setBoundsInDp(new Rect(left, top, right, bottom));
+    }
+
+    @CalledByNative
     private void setFakeBounds(int left, int top, int right, int bottom) {
         assert mockingDetails(mChromeAndroidTask).isMock();
-        when(mChromeAndroidTask.getBounds()).thenReturn(new Rect(left, top, right, bottom));
+        when(mChromeAndroidTask.getBoundsInDp()).thenReturn(new Rect(left, top, right, bottom));
     }
 }

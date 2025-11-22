@@ -91,6 +91,7 @@ export interface SyncPrefs {
   extensionsManaged: boolean;
   extensionsRegistered: boolean;
   extensionsSynced: boolean;
+  localSyncEnabled: boolean;
   passphraseRequired: boolean;
   passwordsManaged: boolean;
   passwordsRegistered: boolean;
@@ -226,6 +227,8 @@ export interface SyncBrowserProxy {
    */
   setSyncDatatype(pref: UserSelectableType, value: boolean):
       Promise<PageStatus>;
+
+  recordSigninPendingOffered(): void;
   // </if>
 
   // <if expr="is_chromeos">
@@ -361,6 +364,10 @@ export class SyncBrowserProxyImpl implements SyncBrowserProxy {
 
   setSyncDatatype(pref: UserSelectableType, value: boolean) {
     return sendWithPromise('SetDatatype', pref, value);
+  }
+
+  recordSigninPendingOffered() {
+    chrome.send('RecordSigninPendingOffered');
   }
   // </if>
 

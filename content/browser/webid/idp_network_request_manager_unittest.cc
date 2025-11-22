@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "base/memory/ref_counted_memory.h"
+#include "base/strings/escape.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
@@ -20,6 +21,7 @@
 #include "base/test/task_environment.h"
 #include "base/values.h"
 #include "content/browser/webid/metrics.h"
+#include "content/browser/webid/network_request_manager.h"
 #include "content/browser/webid/test/mock_permission_delegate.h"
 #include "content/common/features.h"
 #include "content/public/browser/manifest_icon_downloader.h"
@@ -50,22 +52,20 @@
 using ::testing::_;
 using ::testing::NiceMock;
 using ::testing::Return;
-using IdpClientMetadata = content::IdpNetworkRequestManager::ClientMetadata;
-using TokenResult = content::IdpNetworkRequestManager::TokenResult;
-using Endpoints = content::IdpNetworkRequestManager::Endpoints;
-using FetchStatus = content::IdpNetworkRequestManager::FetchStatus;
-using ParseStatus = content::IdpNetworkRequestManager::ParseStatus;
-using AccountsRequestCallback =
-    content::IdpNetworkRequestManager::AccountsRequestCallback;
 using LoginState = content::IdentityRequestAccount::LoginState;
-using AccountsResponseInvalidReason =
-    content::IdpNetworkRequestManager::AccountsResponseInvalidReason;
-using ErrorDialogType = content::IdpNetworkRequestManager::FedCmErrorDialogType;
-using ErrorUrlType = content::IdpNetworkRequestManager::FedCmErrorUrlType;
-using TokenResponseType =
-    content::IdpNetworkRequestManager::FedCmTokenResponseType;
 
-namespace content {
+namespace content::webid {
+
+using IdpClientMetadata = IdpNetworkRequestManager::ClientMetadata;
+using TokenResult = IdpNetworkRequestManager::TokenResult;
+using Endpoints = IdpNetworkRequestManager::Endpoints;
+using AccountsRequestCallback =
+    IdpNetworkRequestManager::AccountsRequestCallback;
+using AccountsResponseInvalidReason =
+    IdpNetworkRequestManager::AccountsResponseInvalidReason;
+using ErrorDialogType = IdpNetworkRequestManager::FedCmErrorDialogType;
+using ErrorUrlType = IdpNetworkRequestManager::FedCmErrorUrlType;
+using TokenResponseType = IdpNetworkRequestManager::FedCmTokenResponseType;
 
 namespace {
 
@@ -86,6 +86,7 @@ constexpr char kTestDisconnectEndpoint[] =
     "https://idp.test/revocation_endpoint";
 constexpr char kTestLocalHostTokenEndpoint[] =
     "http://localhost/token_endpoint";
+constexpr char kWellKnownPath[] = ".well-known/web-identity";
 
 constexpr char kSingleAccountEndpointValidJson[] = R"({
   "accounts" : [
@@ -330,7 +331,9 @@ class IdpNetworkRequestManagerTest : public ::testing::Test {
     std::string url_string =
         client_id_endpoint.spec() + "?client_id=" + client_id;
     if (top_level_origin) {
-      url_string += std::string("&top_frame_origin=") + top_level_origin;
+      url_string +=
+          std::string("&top_frame_origin=") +
+          base::EscapeQueryParamValue(top_level_origin, /*use_plus=*/false);
     }
     AddResponse(GURL(url_string), net::HTTP_OK, "application/json", response);
 
@@ -828,17 +831,15 @@ TEST_F(IdpNetworkRequestManagerTest, ParseAccountLabelHints) {
 
 TEST_F(IdpNetworkRequestManagerTest, ComputeWellKnownUrl) {
   EXPECT_EQ("https://localhost:8000/.well-known/web-identity",
-            IdpNetworkRequestManager::ComputeWellKnownUrl(
-                GURL("https://localhost:8000/test/"))
-                ->spec());
+            ComputeWellKnownUrl(GURL("https://localhost:8000/test/"),
+                                kWellKnownPath));
 
   EXPECT_EQ("https://google.com/.well-known/web-identity",
-            IdpNetworkRequestManager::ComputeWellKnownUrl(
-                GURL("https://www.google.com:8000/test/"))
-                ->spec());
+            ComputeWellKnownUrl(GURL("https://www.google.com:8000/test/"),
+                                kWellKnownPath));
 
-  EXPECT_EQ(std::nullopt, IdpNetworkRequestManager::ComputeWellKnownUrl(
-                              GURL("https://192.101.0.1/test/")));
+  EXPECT_EQ(std::nullopt, ComputeWellKnownUrl(GURL("https://192.101.0.1/test/"),
+                                              kWellKnownPath));
 }
 
 TEST_F(IdpNetworkRequestManagerTest, ParseUsername) {
@@ -998,8 +999,7 @@ TEST_F(IdpNetworkRequestManagerTest, FetchWellKnownIllegalDomainFails) {
       [&](FetchStatus fetch_status,
           const IdpNetworkRequestManager::WellKnown& well_known) {
         EXPECT_EQ(ParseStatus::kHttpNotFoundError, fetch_status.parse_status);
-        // We receive OK here because
-        // IdpNetworkRequestManager::ComputeWellKnownUrl() fails.
+        // We receive OK here because ComputeWellKnownUrl() fails.
         EXPECT_EQ(net::HTTP_OK, fetch_status.response_code);
         run_loop.Quit();
       });
@@ -2714,4 +2714,4 @@ TEST_F(IdpNetworkRequestManagerTest, DisconnectRequest) {
 
 }  // namespace
 
-}  // namespace content
+}  // namespace content::webid

@@ -13,6 +13,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/image/image.h"
 
 // Parameters used when creating a new browser window.
 struct BrowserWindowCreateParams {
@@ -20,11 +21,11 @@ struct BrowserWindowCreateParams {
                             Profile& profile,
                             bool from_user_gesture);
   BrowserWindowCreateParams(Profile& profile, bool from_user_gesture);
-  BrowserWindowCreateParams(BrowserWindowCreateParams&&);
-  BrowserWindowCreateParams(const BrowserWindowCreateParams&) = delete;
-  BrowserWindowCreateParams& operator=(const BrowserWindowCreateParams&) =
-      delete;
-  BrowserWindowCreateParams& operator=(BrowserWindowCreateParams&&);
+  //BrowserWindowCreateParams(BrowserWindowCreateParams&&);
+  //BrowserWindowCreateParams(const BrowserWindowCreateParams&) = delete;
+  //BrowserWindowCreateParams& operator=(const BrowserWindowCreateParams&) =
+  //   delete;
+  //BrowserWindowCreateParams& operator=(BrowserWindowCreateParams&&);
   ~BrowserWindowCreateParams();
 
   // The type of browser window to create.
@@ -33,6 +34,26 @@ struct BrowserWindowCreateParams {
 
   // Whether the browser was created by a user gesture.
   bool from_user_gesture = false;
+
+  bool frameless = false;
+
+  bool always_on_top = false;
+
+  bool all_visible = false;
+
+  bool resizable = true;
+
+  bool show_in_taskbar = true;
+
+  std::string title;
+
+  std::string position;
+
+  std::string extension_id, windows_key;
+
+  gfx::Image icon;
+
+  bool alpha_enabled = false;
 
   // The profile to be associated with the browser window.
   raw_ref<Profile> profile;
@@ -78,5 +99,12 @@ BrowserWindowInterface* CreateBrowserWindow(
 void CreateBrowserWindow(
     BrowserWindowCreateParams create_params,
     base::OnceCallback<void(BrowserWindowInterface*)> callback);
+
+// Returns whether a browser window can currently be created for the specified
+// // profile. This condition may change during runtime for a given `profile`
+// (e.g. a profile may support Browser windows but creating a Browser is
+// disallowed during shutdown).
+BrowserWindowInterface::CreationStatus GetBrowserWindowCreationStatusForProfile(
+    Profile& profile);
 
 #endif  // CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_CREATE_BROWSER_WINDOW_H_

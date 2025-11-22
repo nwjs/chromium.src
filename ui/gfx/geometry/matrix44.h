@@ -117,8 +117,8 @@ class COMPONENT_EXPORT(GEOMETRY_SKIA) Matrix44 {
     matrix_[col][row] = value;
   }
 
-  void GetColMajor(double[16]) const;
-  void GetColMajorF(float[16]) const;
+  void GetColMajor(base::span<double, 16>) const;
+  void GetColMajorF(base::span<float, 16>) const;
 
   // this = this * translation.
   void PreTranslate(double dx, double dy);

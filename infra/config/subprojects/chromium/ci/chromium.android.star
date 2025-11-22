@@ -2337,10 +2337,15 @@ ci.builder(
                 ),
             ),
             # If you change this, make similar changes in android-x86-code-coverage
+            "chrome_junit_tests": targets.mixin(
+                retry_only_failed_tests = True,
+            ),
+            # If you change this, make similar changes in android-x86-code-coverage
             "chrome_public_test_apk": targets.mixin(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_10.chrome_public_test_apk.filter",
                 ],
+                retry_only_failed_tests = True,
                 swarming = targets.swarming(
                     dimensions = {
                         # use 8-core to shorten runtime
@@ -2360,6 +2365,7 @@ ci.builder(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_10.content_browsertests.filter",
                 ],
+                retry_only_failed_tests = True,
                 swarming = targets.swarming(
                     dimensions = {
                         # use 8-core to shorten runtime
@@ -2437,9 +2443,9 @@ ci.builder(
             # If you change this, make similar changes in android-x86-code-coverage
             "webview_instrumentation_test_apk_multiple_process_mode": targets.mixin(
                 args = [
-                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_10.webview_instrumentation_test_apk.filter",
                     "--use-persistent-shell",
                 ],
+                retry_only_failed_tests = True,
                 swarming = targets.swarming(
                     shards = 18,
                 ),
@@ -2646,7 +2652,6 @@ ci.builder(
             ),
             "webview_instrumentation_test_apk_multiple_process_mode": targets.mixin(
                 args = [
-                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_10.webview_instrumentation_test_apk.filter",
                     "--use-persistent-shell",
                     "--disable-field-trial-config",
                     "--skia-gold-consider-unsupported",
@@ -2672,8 +2677,7 @@ ci.builder(
     targets_settings = targets.settings(
         os_type = targets.os_type.ANDROID,
     ),
-    # TODO(crbug.com/40268661): Enable gardening once tests are stable
-    gardener_rotations = args.ignore_default(None),
+    tree_closing = True,
     console_view_entry = consoles.console_view_entry(
         category = "builder_tester|x86",
         short_name = "10-nft",
@@ -3218,9 +3222,6 @@ ci.builder(
                 ci_only = True,
             ),
             "webview_instrumentation_test_apk_multiple_process_mode": targets.mixin(
-                args = [
-                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.14.webview_instrumentation_test_apk.filter",
-                ],
                 ci_only = True,
             ),
         },
@@ -3398,9 +3399,6 @@ ci.builder(
                 ],
             ),
             "webview_instrumentation_test_apk_multiple_process_mode": targets.mixin(
-                args = [
-                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.14.webview_instrumentation_test_apk.filter",
-                ],
                 swarming = targets.swarming(
                     shards = 12,
                 ),
@@ -3585,11 +3583,6 @@ ci.builder(
                     "--test-launcher-filter-file=../../testing/buildbot/filters/android.device_14_tablet.unit_tests.filter",
                 ],
             ),
-            "webview_instrumentation_test_apk_multiple_process_mode": targets.mixin(
-                args = [
-                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.14.webview_instrumentation_test_apk.filter",
-                ],
-            ),
         },
     ),
     targets_settings = targets.settings(
@@ -3746,9 +3739,6 @@ ci.builder(
                 ],
             ),
             "webview_instrumentation_test_apk_multiple_process_mode": targets.mixin(
-                args = [
-                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_15.webview_instrumentation_test_apk.filter",
-                ],
                 swarming = targets.swarming(
                     shards = 12,
                 ),
@@ -3819,6 +3809,7 @@ ci.builder(
             "chrome_public_test_apk": targets.mixin(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_15_tablet_landscape.chrome_public_test_apk.filter",
+                    "--skia-gold-consider-unsupported",
                 ],
             ),
         },
@@ -3904,11 +3895,18 @@ ci.builder(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_15_tablet.chrome_public_test_apk.filter",
                     "--emulator-debug-tags=all",
+                    "--skia-gold-consider-unsupported",
                 ],
             ),
             "chrome_public_unit_test_apk": targets.mixin(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_15_tablet.chrome_public_unit_test_apk.filter",
+                    "--skia-gold-consider-unsupported",
+                ],
+            ),
+            "content_shell_test_apk": targets.mixin(
+                args = [
+                    "--skia-gold-consider-unsupported",
                 ],
             ),
             "content_unittests": targets.mixin(
@@ -3935,6 +3933,11 @@ ci.builder(
             "unit_tests": targets.mixin(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_14_15_16.unit_tests.filter",
+                ],
+            ),
+            "webview_instrumentation_test_apk_multiple_process_mode": targets.mixin(
+                args = [
+                    "--skia-gold-consider-unsupported",
                 ],
             ),
         },
@@ -3989,6 +3992,16 @@ ci.builder(
             "x86-64",
         ],
         per_test_modifications = {
+            "android_browsertests": targets.mixin(
+                swarming = targets.swarming(
+                    shards = 6,
+                ),
+            ),
+            "android_browsertests_no_fieldtrial": targets.mixin(
+                swarming = targets.swarming(
+                    shards = 6,
+                ),
+            ),
             "base_unittests": targets.mixin(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_14_15_16.base_unittests.filter",

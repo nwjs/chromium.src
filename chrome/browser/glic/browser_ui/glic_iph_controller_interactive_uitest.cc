@@ -71,9 +71,6 @@ class GlicIphControllerTestBase : public TestBase {
     embedded_test_server()->ServeFilesFromSourceDirectory(
         GetChromeTestDataDir());
     TestBase::SetUpOnMainThread();
-    GURL fre_url = embedded_test_server()->GetURL("/glic/test_client/fre.html");
-    auto* command_line = base::CommandLine::ForCurrentProcess();
-    command_line->AppendSwitchASCII(switches::kGlicFreURL, fre_url.spec());
     SetFRECompletion(browser()->profile(), prefs::FreStatus::kNotStarted);
   }
 
@@ -216,11 +213,21 @@ class GlicIphControllerTestMultiInstance : public GlicIphControllerTestBase {
 
 IN_PROC_BROWSER_TEST_F(GlicIphControllerTestMultiInstance,
                        ShowPromoWithCtaEndsInGlicFre) {
+  ASSERT_TRUE(GlicEnabling::IsMultiInstanceEnabledByFlags());
   RunTestSequence(ObserveState(kFreWebUiState, std::ref(GetFreController())),
                   WaitForGlicIph({feature_engagement::kIPHGlicTryItFeature}),
                   PressDefaultPromoButton(),
                   WaitForState(kFreWebUiState, mojom::FreWebUiState::kReady),
                   StopObservingState(kFreWebUiState));
+}
+
+IN_PROC_BROWSER_TEST_F(GlicIphControllerTestMultiInstance,
+                       ShowPromoWithCtaEndsInGlic) {
+  ASSERT_TRUE(GlicEnabling::IsMultiInstanceEnabledByFlags());
+  SetFRECompletion(browser()->profile(), prefs::FreStatus::kCompleted);
+  RunTestSequence(WaitForGlicIph({feature_engagement::kIPHGlicTryItFeature}),
+                  PressDefaultPromoButton(),
+                  WaitForAndInstrumentGlic(kHostAndContents));
 }
 
 }  // namespace glic

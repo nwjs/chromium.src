@@ -12,6 +12,7 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Point;
 import android.graphics.Rect;
@@ -69,10 +70,13 @@ import org.chromium.chrome.browser.magic_stack.HomeModulesMetricsUtils;
 import org.chromium.chrome.browser.magic_stack.ModuleDelegateHost;
 import org.chromium.chrome.browser.magic_stack.ModuleRegistry;
 import org.chromium.chrome.browser.metrics.StartupMetricsTracker;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundImageType;
 import org.chromium.chrome.browser.ntp_customization.edge_to_edge.TopInsetCoordinator;
+import org.chromium.chrome.browser.ntp_customization.theme.BackgroundImageInfo;
 import org.chromium.chrome.browser.omnibox.OmniboxFocusReason;
 import org.chromium.chrome.browser.omnibox.OmniboxStub;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
@@ -212,6 +216,9 @@ public class NewTabPage
 
     private TopInsetCoordinator.@org.chromium.build.annotations.Nullable Observer
             mTopInsetChangeObserver;
+    private NtpCustomizationConfigManager.@org.chromium.build.annotations.Nullable
+            HomepageStateListener
+            mHomepageStateListener;
 
     private @Nullable SearchResumptionModuleCoordinator mSearchResumptionModuleCoordinator;
     private @Nullable NtpSmoothTransitionDelegate mSmoothTransitionDelegate;
@@ -296,7 +303,7 @@ public class NewTabPage
                     });
             mRestoringState.addObserver(mOnScrollStateChanged);
             mHandler.postDelayed(
-                    mFallback, BackPressMetrics.maxFallbackDelayOfNtpSmoothTransition());
+                    mFallback, BackPressMetrics.MAX_FALLBACK_DELAY_NTP_SMOOTH_TRANSITION);
         }
 
         @Override
@@ -338,16 +345,13 @@ public class NewTabPage
         updateMargins();
     }
 
-    /**
-     * Allows clients to listen for updates to the scroll changes of the search box on the
-     * NTP.
-     */
+    /** Allows clients to listen for updates to the scroll changes of the search box on the NTP. */
     public interface OnSearchBoxScrollListener {
         /**
          * Callback to be notified when the scroll position of the search box on the NTP has
-         * changed.  A scroll percentage of 0, means the search box has no scroll applied and
-         * is in it's natural resting position.  A value of 1 means the search box is scrolled
-         * entirely to the top of the screen viewport.
+         * changed. A scroll percentage of 0, means the search box has no scroll applied and is in
+         * it's natural resting position. A value of 1 means the search box is scrolled entirely to
+         * the top of the screen viewport.
          *
          * @param scrollPercentage The percentage the search box has been scrolled off the page.
          */
@@ -358,6 +362,7 @@ public class NewTabPage
     public interface MostVisitedTileClickObserver {
         /**
          * Called when a most visited tile is clicked.
+         *
          * @param tile The most visited tile that was clicked.
          * @param tab The tab hosting the most visited tile section.
          */
@@ -500,6 +505,8 @@ public class NewTabPage
      * @param moduleRegistrySupplier Supplier for the {@link ModuleRegistry}.
      * @param edgeToEdgeControllerSupplier Supplier for the {@link EdgeToEdgeController}.
      * @param startupMetricsTracker Used to record NTP startup metric.
+     * @param multiInstanceManager multiInstanceManager An instance of the {@link
+     *     MultiInstanceManager}.
      */
     public NewTabPage(
             Activity activity,
@@ -524,7 +531,8 @@ public class NewTabPage
             OneshotSupplier<ModuleRegistry> moduleRegistrySupplier,
             ObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier,
             ObservableSupplier<TopInsetCoordinator> topInsetCoordinatorSupplier,
-            StartupMetricsTracker startupMetricsTracker) {
+            StartupMetricsTracker startupMetricsTracker,
+            MultiInstanceManager multiInstanceManager) {
         mConstructedTimeNs = System.nanoTime();
         TraceEvent.begin(TAG);
 
@@ -548,7 +556,12 @@ public class NewTabPage
 
         SuggestionsNavigationDelegate navigationDelegate =
                 new SuggestionsNavigationDelegate(
-                        activity, profile, nativePageHost, tabModelSelector, mTab);
+                        activity,
+                        profile,
+                        nativePageHost,
+                        tabModelSelector,
+                        mTab,
+                        multiInstanceManager);
         mNewTabPageManager =
                 new NewTabPageManagerImpl(
                         navigationDelegate, profile, nativePageHost, snackbarManager);
@@ -643,6 +656,7 @@ public class NewTabPage
                         windowAndroid, mIsTablet);
         if (mCanSupportEdgeToEdgeForCustomizedTheme) {
             initTopInsetCoordinatorObserver();
+            initHomepageStateListener();
         }
 
         NewTabPageUma.recordContentSuggestionsDisplayStatus(profile);
@@ -794,6 +808,42 @@ public class NewTabPage
         mTopInsetCoordinatorSupplier.addObserver(mTopInsetCoordinatorCallback);
     }
 
+    // Called when ChromeFeatureList.sNewTabPageCustomizationV2 is enabled to add a
+    // HomepageStateListener.
+    private void initHomepageStateListener() {
+        mHomepageStateListener =
+                new NtpCustomizationConfigManager.HomepageStateListener() {
+                    @Override
+                    public void onBackgroundImageChanged(
+                            Bitmap originalBitmap,
+                            @Nullable BackgroundImageInfo backgroundImageInfo,
+                            boolean fromInitialization,
+                            int oldType,
+                            int newType) {
+                        if (NtpCustomizationUtils.shouldApplyWhiteBackgroundOnSearchBox(oldType)) {
+                            return;
+                        }
+                        mNewTabPageLayout.onCustomizedBackgroundChanged(
+                                /* applyWhiteBackgroundOnSearchBox= */ true);
+                    }
+
+                    @Override
+                    public void onBackgroundColorChanged(
+                            int backgroundColor,
+                            boolean fromInitialization,
+                            int oldType,
+                            int newType) {
+                        if (!NtpCustomizationUtils.shouldApplyWhiteBackgroundOnSearchBox(oldType)) {
+                            return;
+                        }
+                        // Resets the fake search box's background.
+                        mNewTabPageLayout.onCustomizedBackgroundChanged(
+                                /* applyWhiteBackgroundOnSearchBox= */ false);
+                    }
+                };
+        NtpCustomizationConfigManager.getInstance().addListener(mHomepageStateListener, mContext);
+    }
+
     /**
      * Called when the layout changes between edge-to-edge and standard.
      *
@@ -821,8 +871,8 @@ public class NewTabPage
     }
 
     /**
-     * Update the margins for the content when browser controls constraints or bottom control
-     *  height are changed.
+     * Update the margins for the content when browser controls constraints or bottom control height
+     * are changed.
      */
     private void updateMargins() {
         // TODO(mdjones): can this be merged with BasicNativePage's updateMargins?
@@ -876,6 +926,7 @@ public class NewTabPage
 
     /**
      * Updates whether the NewTabPage should animate on URL focus changes.
+     *
      * @param disable Whether to disable the animations.
      */
     public void setUrlFocusAnimationsDisabled(boolean disable) {
@@ -934,7 +985,7 @@ public class NewTabPage
      *
      * @param bounds The current drawing location of the search box.
      * @param translation The translation applied to the search box by the parent view hierarchy up
-     *                    to the NewTabPage view.
+     *     to the NewTabPage view.
      */
     public void getSearchBoxBounds(Rect bounds, Point translation) {
         mNewTabPageLayout.getSearchBoxBounds(bounds, translation, getView());
@@ -965,7 +1016,9 @@ public class NewTabPage
         return mNewTabPageManager.isLocationBarShownInNtp();
     }
 
-    /** @see org.chromium.chrome.browser.omnibox.NewTabPageDelegate#hasCompletedFirstLayout(). */
+    /**
+     * @see org.chromium.chrome.browser.omnibox.NewTabPageDelegate#hasCompletedFirstLayout().
+     */
     public boolean hasCompletedFirstLayout() {
         return mNewTabPageLayout.getHeight() > 0;
     }
@@ -979,9 +1032,10 @@ public class NewTabPage
 
     /**
      * Sets the listener for search box scroll changes.
+     *
      * @param listener The listener to be notified on changes.
      */
-    public void setSearchBoxScrollListener(OnSearchBoxScrollListener listener) {
+    public void setSearchBoxScrollListener(@Nullable OnSearchBoxScrollListener listener) {
         mNewTabPageLayout.setSearchBoxScrollListener(listener);
     }
 
@@ -1134,6 +1188,11 @@ public class NewTabPage
             mTopInsetChangeObserver = null;
         }
 
+        if (mHomepageStateListener != null) {
+            NtpCustomizationConfigManager.getInstance().removeListener(mHomepageStateListener);
+            mHomepageStateListener = null;
+        }
+
         if (mTopInsetCoordinatorCallback != null) {
             mTopInsetCoordinatorSupplier.removeObserver(mTopInsetCoordinatorCallback);
             mTopInsetCoordinatorCallback = null;
@@ -1172,7 +1231,7 @@ public class NewTabPage
                 && !mIsTablet
                 && isInSingleUrlBarMode()
                 && NtpCustomizationConfigManager.getInstance().getBackgroundImageType()
-                        != NtpCustomizationUtils.NtpBackgroundImageType.DEFAULT;
+                        != NtpBackgroundImageType.DEFAULT;
     }
 
     @Override
@@ -1223,6 +1282,11 @@ public class NewTabPage
     public void reload() {
         mFeedSurfaceProvider.reload();
         mNewTabPageLayout.reload();
+    }
+
+    @Override
+    public int getTopInset() {
+        return mNewTabPageLayout.getTopInset();
     }
 
     // InvalidationAwareThumbnailProvider

@@ -230,8 +230,7 @@ policy::ProfileSeparationPolicies GetFakePolicyResponseForTesting() {
       ->GetManagedAccountsSigninRestriction(
           identity_manager,
           identity_manager->PickAccountIdForAccount(
-              GaiaId(identity.gaiaID),
-              base::SysNSStringToUTF8(identity.userEmail)),
+              identity.gaiaId, base::SysNSStringToUTF8(identity.userEmail)),
           std::move(callback));
 }
 
@@ -245,17 +244,8 @@ policy::ProfileSeparationPolicies GetFakePolicyResponseForTesting() {
   std::optional<std::string> profileName =
       GetApplicationContext()
           ->GetAccountProfileMapper()
-          ->FindProfileNameForGaiaID(GaiaId(identity.gaiaID));
-  if (!profileName.has_value()) {
-    __weak __typeof(_delegate) weakDelegate = _delegate;
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(
-                       [](__typeof(_delegate) delegate) {
-                         [delegate didFailToSwitchToProfile];
-                       },
-                       weakDelegate));
-    return;
-  }
+          ->FindProfileNameForGaiaID(identity.gaiaId);
+  CHECK(profileName.has_value(), base::NotFatalUntil::M150);
 
   __weak __typeof(self) weakSelf = self;
   auto profileSwitchReadyCompletion = base::BindOnce(
@@ -281,7 +271,7 @@ policy::ProfileSeparationPolicies GetFakePolicyResponseForTesting() {
 - (void)makePersonalProfileManagedWithIdentity:(id<SystemIdentity>)identity {
   GetApplicationContext()
       ->GetAccountProfileMapper()
-      ->MakePersonalProfileManagedWithGaiaID(GaiaId(identity.gaiaID));
+      ->MakePersonalProfileManagedWithGaiaID(identity.gaiaId);
   [_delegate didMakePersonalProfileManaged];
 }
 

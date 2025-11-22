@@ -450,7 +450,6 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
     WebContentDecryptionModule* initial_cdm,
     media::RequestRoutingTokenCallback request_routing_token_cb,
     base::WeakPtr<media::MediaObserver> media_observer,
-    bool enable_instant_source_buffer_gc,
     bool embedded_media_experience_enabled,
     mojo::PendingRemote<media::mojom::blink::MediaMetricsProvider>
         metrics_provider,
@@ -479,7 +478,6 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
           this,
           media_task_runner_,
           media_log_.get(),
-          enable_instant_source_buffer_gc,
           std::move(demuxer_override))),
       tick_clock_(base::DefaultTickClock::GetInstance()),
       url_index_(url_index),
@@ -810,6 +808,10 @@ void WebMediaPlayerImpl::BecameDominantVisibleContent(bool is_dominant) {
   is_dominant_visible_content_ = is_dominant;
   if (observer_)
     observer_->OnBecameDominantVisibleContent(is_dominant);
+  if (!watch_time_reporter_) {
+    return;
+  }
+  watch_time_reporter_->OnDominantVisibleContentChanged(is_dominant);
 }
 
 void WebMediaPlayerImpl::SetIsEffectivelyFullscreen(
@@ -1536,6 +1538,11 @@ void WebMediaPlayerImpl::Paint(cc::PaintCanvas* canvas,
   paint_params.dest_rect = gfx::RectF(rect);
   paint_params.transformation =
       pipeline_metadata_.video_decoder_config.video_transformation();
+
+  // This class should only be used with raster context providers that
+  // support OOP-R.
+  CHECK(!raster_context_provider_ ||
+        raster_context_provider_->ContextCapabilities().gpu_rasterization);
   video_renderer_.Paint(video_frame, canvas, flags, paint_params,
                         raster_context_provider_.get());
 }
@@ -1662,12 +1669,17 @@ void WebMediaPlayerImpl::OnEncryptedMediaInitData(
 
 #if BUILDFLAG(ENABLE_FFMPEG) || BUILDFLAG(ENABLE_HLS_DEMUXER)
 
-void WebMediaPlayerImpl::AddMediaTrack(const media::MediaTrack& track) {
-  client_->AddMediaTrack(track);
+void WebMediaPlayerImpl::AddTrack(const media::MediaTrack& track) {
+  client_->AddTrack(track);
 }
 
-void WebMediaPlayerImpl::RemoveMediaTrack(const media::MediaTrack& track) {
-  client_->RemoveMediaTrack(track);
+void WebMediaPlayerImpl::RemoveTrack(const media::MediaTrack& track) {
+  client_->RemoveTrack(track);
+}
+
+void WebMediaPlayerImpl::SetTrackState(const media::MediaTrack& track,
+                                       media::MediaTrack::State state) {
+  client_->SetTrackState(track, state);
 }
 
 #endif  // BUILDFLAG(ENABLE_FFMPEG) || BUILDFLAG(ENABLE_HLS_DEMUXER)
@@ -2480,6 +2492,9 @@ void WebMediaPlayerImpl::OnVideoConfigChange(
       pipeline_metadata_.video_decoder_config.codec() != config.codec();
   const bool codec_profile_change =
       pipeline_metadata_.video_decoder_config.profile() != config.profile();
+  const bool hdr_change =
+      pipeline_metadata_.video_decoder_config.color_space_info().IsHDR() !=
+      config.color_space_info().IsHDR();
 
   pipeline_metadata_.video_decoder_config = config;
 
@@ -2491,8 +2506,14 @@ void WebMediaPlayerImpl::OnVideoConfigChange(
         pipeline_metadata_.video_decoder_config.codec());
   }
 
-  if (codec_change || codec_profile_change)
+  if (hdr_change) {
+    watch_time_reporter_->OnHdrChanged(
+        pipeline_metadata_.video_decoder_config.color_space_info().IsHDR());
+  }
+
+  if (codec_change || codec_profile_change) {
     UpdateSecondaryProperties();
+  }
 
   if (video_decode_stats_reporter_ && codec_profile_change)
     CreateVideoDecodeStatsReporter();
@@ -2907,6 +2928,7 @@ std::unique_ptr<media::Renderer> WebMediaPlayerImpl::CreateRenderer(
   }
 
   bool old_uses_audio_service = UsesAudioService(renderer_type_);
+  const auto old_renderer_type = renderer_type_;
   renderer_type_ = renderer_factory_selector_->GetCurrentRendererType();
 
   // TODO(crbug.com/40261162): Support codec changing for Media Foundation.
@@ -2920,6 +2942,13 @@ std::unique_ptr<media::Renderer> WebMediaPlayerImpl::CreateRenderer(
 
   media_metrics_provider_->SetRendererType(renderer_type_);
   media_log_->SetProperty<MediaLogProperty::kRendererName>(renderer_type_);
+
+  // Recreate the watch time reporter if renderer type is changed so that
+  // WatchTimeReporter constructor can take PlaybackProperties with the updated
+  // renderer type.
+  if (old_renderer_type != renderer_type_ && watch_time_reporter_) {
+    CreateWatchTimeReporter();
+  }
 
   return renderer_factory_selector_->GetCurrentFactory()->CreateRenderer(
       media_task_runner_, worker_task_runner_, audio_source_provider_.get(),
@@ -3471,6 +3500,10 @@ void WebMediaPlayerImpl::CreateWatchTimeReporter() {
       frame_->GetTaskRunner(TaskType::kInternalMedia));
   watch_time_reporter_->OnVolumeChange(volume_);
   watch_time_reporter_->OnDurationChanged(GetPipelineMediaDuration());
+  watch_time_reporter_->OnHdrChanged(
+      pipeline_metadata_.video_decoder_config.color_space_info().IsHDR());
+  watch_time_reporter_->OnDominantVisibleContentChanged(
+      is_dominant_visible_content_);
 
   if (delegate_->IsPageHidden()) {
     watch_time_reporter_->OnHidden();
@@ -4089,10 +4122,6 @@ void WebMediaPlayerImpl::ReportSessionUMAs() const {
     uma_name = "Media.EME." + key_system_name_for_uma + ".WaitingForKey";
     base::UmaHistogramBoolean(uma_name, has_waiting_for_key_);
   }
-}
-
-bool WebMediaPlayerImpl::PassedTimingAllowOriginCheck() const {
-  return demuxer_manager_->PassedDataSourceTimingAllowOriginCheck();
 }
 
 void WebMediaPlayerImpl::DidMediaMetadataChange() {

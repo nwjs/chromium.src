@@ -248,7 +248,7 @@ std::string GetUpdaterUserAgent(const base::Version& updater_version) {
 GURL AppendQueryParameter(const GURL& url,
                           const std::string& name,
                           const std::string& value) {
-  std::string query(url.query());
+  std::string query(url.GetQuery());
 
   if (!query.empty()) {
     query += "&";
@@ -388,9 +388,9 @@ void EnumerateUpdateClientTempDirectories(
 #endif  // BUILDFLAG(IS_WIN)
 
   for (const auto& matcher :
-       {FILE_PATH_LITERAL("chrome_url_fetcher_*"),
-        FILE_PATH_LITERAL("chrome_Unpacker_BeginUnzipping*"),
-        FILE_PATH_LITERAL("chrome_BITS_*")}) {
+       {FILE_PATH_LITERAL("*chrome_url_fetcher_*"),
+        FILE_PATH_LITERAL("*chrome_Unpacker_BeginUnzipping*"),
+        FILE_PATH_LITERAL("*chrome_BITS_*")}) {
     base::FileEnumerator(temp_dir,
                          /*recursive=*/false, base::FileEnumerator::DIRECTORIES,
                          matcher)

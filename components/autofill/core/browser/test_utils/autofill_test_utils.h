@@ -34,6 +34,7 @@
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/test_utils/autofill_testing_pref_service.h"
 #include "components/autofill/core/common/autofill_test_utils.h"
+#include "components/signin/public/identity_manager/account_info.h"
 #include "components/sync/protocol/autofill_specifics.pb.h"
 
 class PrefService;
@@ -237,6 +238,9 @@ CreditCardMerchantBenefit GetActiveCreditCardMerchantBenefit();
 // benefit.
 base::flat_set<url::Origin> GetOriginsForMerchantBenefit();
 
+// Prevents kAccountNameEmail profile from being created.
+void HideAccountNameEmailProfile(PrefService* pref_service, AccountInfo info);
+
 // Adds `card` with a set `issuer_id`, `benefit` and `benefit_source` to
 // `personal_data`. Also configures a category benefit with the
 // `optimization_guide`.
@@ -345,6 +349,7 @@ struct PassportEntityOptionsT {
   std::string_view guid = "00000000-0000-4000-8000-000000000000";
   std::string_view nickname = "Passie";
   base::Time date_modified = kJune2017;
+  base::Time use_date = kJune2017;
   std::string_view app_locale = "en-US";
   EntityInstance::RecordType record_type = EntityInstance::RecordType::kLocal;
   EntityInstance::AreAttributesReadOnly are_attributes_read_only =
@@ -373,6 +378,7 @@ struct DriversLicenseOptionsT {
   std::string_view guid = "00000000-0000-4000-8000-100000000000";
   std::string_view nickname = "License";
   base::Time date_modified = kJune2017;
+  base::Time use_date = kJune2017;
   std::string_view app_locale = "en-US";
   EntityInstance::RecordType record_type = EntityInstance::RecordType::kLocal;
   EntityInstance::AreAttributesReadOnly are_attributes_read_only =
@@ -399,6 +405,7 @@ struct VehicleOptionsT {
   std::string_view guid = "00000000-0000-4000-8000-200000000000";
   std::string_view nickname = "Vehicle";
   base::Time date_modified = kJune2017;
+  base::Time use_date = kJune2017;
   std::string_view app_locale = "en-US";
   EntityInstance::RecordType record_type = EntityInstance::RecordType::kLocal;
   EntityInstance::AreAttributesReadOnly are_attributes_read_only =
@@ -421,6 +428,7 @@ struct NationalIdCardOptionsT {
   std::string_view guid = "00000000-0000-4000-8000-300000000000";
   std::string_view nickname = "IdCard";
   std::string_view app_locale = "en-US";
+  base::Time use_date = kJune2017;
   EntityInstance::RecordType record_type = EntityInstance::RecordType::kLocal;
   EntityInstance::AreAttributesReadOnly are_attributes_read_only =
       EntityInstance::AreAttributesReadOnly(false);
@@ -438,6 +446,7 @@ struct KnownTravelerNumberOptionsT {
   std::string_view guid = "00000000-0000-4000-8000-400000000000";
   std::string_view nickname = "Known Traveler Number";
   std::string_view app_locale = "en-US";
+  base::Time use_date = kJune2017;
   EntityInstance::RecordType record_type = EntityInstance::RecordType::kLocal;
   EntityInstance::AreAttributesReadOnly are_attributes_read_only =
       EntityInstance::AreAttributesReadOnly(false);
@@ -454,6 +463,7 @@ struct RedressNumberOptionsT {
   std::string_view guid = "00000000-0000-4000-8000-500000000000";
   std::string_view nickname = "RedressNumber";
   std::string_view app_locale = "en-US";
+  base::Time use_date = kJune2017;
   EntityInstance::RecordType record_type = EntityInstance::RecordType::kLocal;
   EntityInstance::AreAttributesReadOnly are_attributes_read_only =
       EntityInstance::AreAttributesReadOnly(false);
@@ -472,10 +482,13 @@ struct FlightReservationOptionsT {
   const char16_t* name = u"John Doe";
   const char16_t* departure_airport = u"MUC";
   const char16_t* arrival_airport = u"BEY";
+  std::optional<base::Time> departure_time = std::nullopt;
+  base::TimeDelta departure_time_zone_offset = base::TimeDelta();
   std::string_view guid = "00000000-0000-4000-8000-500000000000";
   std::string_view nickname = "FlightReservation";
   std::string_view app_locale = "en-US";
   base::Time date_modified = kJune2017;
+  base::Time use_date = kJune2017;
   EntityInstance::RecordType record_type = EntityInstance::RecordType::kLocal;
   EntityInstance::AreAttributesReadOnly are_attributes_read_only =
       EntityInstance::AreAttributesReadOnly(false);

@@ -14,11 +14,11 @@
 #include "base/time/time.h"
 #include "components/omnibox/browser/autocomplete_controller.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
-#include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "ui/gfx/vector_icon_types.h"
+#include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
 
 class GURL;
 class OmniboxController;
@@ -65,6 +65,16 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
   // Returns true if the page remote is bound and ready to receive calls.
   bool IsRemoteBound() const;
 
+  // Adds file context to the searchbox from the browser.
+  void AddFileContextFromBrowser(base::UnguessableToken token,
+                      searchbox::mojom::SelectedFileInfoPtr file_info);
+
+  // Notifies the WebUI that the contextual input status has changed.
+  void OnContextualInputStatusChanged(
+      base::UnguessableToken token,
+      composebox_query::mojom::FileUploadStatus status,
+      std::optional<composebox_query::mojom::FileUploadErrorType> error_type);
+
   // AutocompleteController::Observer:
   void OnResultChanged(AutocompleteController* controller,
                        bool default_match_changed) override;
@@ -93,6 +103,7 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
                        const GURL& url,
                        base::TimeTicks match_selection_timestamp,
                        bool is_mouse_event) override;
+  void ShowContextMenu(const gfx::Point& point) override;
   void ExecuteAction(uint8_t line,
                      uint8_t action_index,
                      const GURL& url,
@@ -110,7 +121,9 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
   void AddFileContext(searchbox::mojom::SelectedFileInfoPtr file_info,
                       mojo_base::BigBuffer file_bytes,
                       AddFileContextCallback callback) override {}
-  void AddTabContext(int32_t tab_id, AddTabContextCallback) override {}
+  void AddTabContext(int32_t tab_id,
+                     bool delay_upload,
+                     AddTabContextCallback) override {}
   void DeleteContext(const base::UnguessableToken& file_token) override {}
   void ClearFiles() override {}
   void SubmitQuery(const std::string& query_text,

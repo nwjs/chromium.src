@@ -2333,6 +2333,32 @@ TEST_F(NetworkContextTest, MultipleClearHttpCacheCalls) {
   // If all the callbacks were invoked, we should terminate.
 }
 
+#if BUILDFLAG(IS_WIN)
+// Verifies that the simple backend is always used when encrypting the cache.
+TEST_F(NetworkContextTest, EncryptedHttpCacheForcesSimpleBackend) {
+  mojom::NetworkContextParamsPtr context_params =
+      CreateNetworkContextParamsForTesting();
+  context_params->file_paths = mojom::NetworkContextFilePaths::New();
+  context_params->http_cache_enabled = true;
+
+  // Enable the encryption flag.
+  context_params->enable_encrypted_http_cache = true;
+
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+  context_params->file_paths->http_cache_directory = temp_dir.GetPath();
+
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(std::move(context_params));
+
+  disk_cache::Backend* backend = WaitForCacheBackend(*network_context);
+  ASSERT_TRUE(backend);
+
+  EXPECT_EQ(net::URLRequestContextBuilder::HttpCacheParams::DISK_SIMPLE,
+            GetBackendType(backend));
+}
+#endif  // BUILDFLAG(IS_WIN)
+
 TEST_F(NetworkContextTest, NotifyExternalCacheHit) {
   const std::vector<GURL> kUrls = {
       GURL("http://www.google.com/"),
@@ -2392,7 +2418,8 @@ TEST_F(NetworkContextTest, NotifyExternalCacheHit) {
       EXPECT_EQ(entry->GetLastUsed(), kNow1);
 
       clock.SetNow(kNow2);
-      network_context->NotifyExternalCacheHit(url, url.scheme(), isolation_key,
+      network_context->NotifyExternalCacheHit(url, url.GetScheme(),
+                                              isolation_key,
                                               /*include_credentials=*/true);
 
       EXPECT_EQ(entry->GetLastUsed(), kNow2);
@@ -3313,9 +3340,9 @@ bool SetCookieHelper(NetworkContext* network_context,
   bool result = false;
   cookie_manager->SetCanonicalCookie(
       *net::CanonicalCookie::CreateUnsafeCookieForTesting(
-          key, value, url.host(), "/", base::Time(), base::Time(), base::Time(),
-          base::Time(), true, false, net::CookieSameSite::NO_RESTRICTION,
-          net::COOKIE_PRIORITY_LOW),
+          key, value, url.GetHost(), "/", base::Time(), base::Time(),
+          base::Time(), base::Time(), true, false,
+          net::CookieSameSite::NO_RESTRICTION, net::COOKIE_PRIORITY_LOW),
       url, net::CookieOptions::MakeAllInclusive(),
       base::BindOnce(&SetCookieCallback, &run_loop, &result));
   run_loop.Run();
@@ -4379,7 +4406,7 @@ TEST_F(NetworkContextResolveHostTest,
        SchemeHostPortRevokeNetworkWithoutNetworkAnonymizationKey) {
   const GURL url = GURL("https://sync.test");
   auto resolver = std::make_unique<net::MockHostResolver>();
-  resolver->rules()->AddRule(url.host(), "1.2.3.4");
+  resolver->rules()->AddRule(url.GetHost(), "1.2.3.4");
   resolver->set_synchronous_mode(true);
   network_service_->set_host_resolver_factory_for_testing(
       std::make_unique<HostResolverFactory>(std::move(resolver)));
@@ -4409,7 +4436,7 @@ TEST_F(NetworkContextResolveHostTest,
   // should succeed.
   network_context->ResolveHost(
       network::mojom::HostResolverHost::NewSchemeHostPort(
-          url::SchemeHostPort(url::kHttpScheme, url.host(), 160)),
+          url::SchemeHostPort(url::kHttpScheme, url.GetHost(), 160)),
       net::NetworkAnonymizationKey(), std::move(optional_parameters),
       std::move(pending_response_client));
   run_loop.Run();
@@ -4429,7 +4456,7 @@ TEST_F(NetworkContextResolveHostTest,
        SchemeHostPortRevokeNetworkWithNetworkAnonymizationKey) {
   const GURL url = GURL("https://sync.test");
   auto resolver = std::make_unique<net::MockHostResolver>();
-  resolver->rules()->AddRule(url.host(), "1.2.3.4");
+  resolver->rules()->AddRule(url.GetHost(), "1.2.3.4");
   resolver->set_synchronous_mode(true);
   network_service_->set_host_resolver_factory_for_testing(
       std::make_unique<HostResolverFactory>(std::move(resolver)));
@@ -4464,7 +4491,7 @@ TEST_F(NetworkContextResolveHostTest,
   // should be disabled.
   network_context->ResolveHost(
       network::mojom::HostResolverHost::NewSchemeHostPort(
-          url::SchemeHostPort(url::kHttpScheme, url.host(), 160)),
+          url::SchemeHostPort(url::kHttpScheme, url.GetHost(), 160)),
       network_anonymization_key, std::move(optional_parameters),
       std::move(pending_response_client));
   run_loop.RunUntilIdle();
@@ -5766,7 +5793,7 @@ TEST_F(NetworkContextTest, PreconnectHSTS) {
 
     const base::Time expiry = base::Time::Now() + base::Seconds(1000);
     network_context->url_request_context()->transport_security_state()->AddHSTS(
-        server_http_url.host(), expiry, false);
+        server_http_url.GetHost(), expiry, false);
     network_context->PreconnectSockets(
         1, server_http_url, network::mojom::CredentialsMode::kOmit,
         network_anonymization_key,
@@ -7586,8 +7613,8 @@ class NetworkContextMockHostTest : public NetworkContextTest {
                           const std::string& relative_url) {
     GURL server_base_url = server.base_url();
     GURL base_url =
-        GURL(base::StrCat({server_base_url.scheme(), "://", kMockHost, ":",
-                           server_base_url.port()}));
+        GURL(base::StrCat({server_base_url.GetScheme(), "://", kMockHost, ":",
+                           server_base_url.GetPort()}));
     EXPECT_TRUE(base_url.is_valid()) << base_url.possibly_invalid_spec();
     return base_url.Resolve(relative_url);
   }
@@ -8536,7 +8563,7 @@ TEST_P(NetworkContextSplitCacheTest,
   disk_cache::ScopedEntryPtr resource_entry(resource_result.ReleaseEntry());
 
   clock.SetNow(kNow2);
-  network_context->NotifyExternalCacheHit(kUrl, kUrl.scheme(),
+  network_context->NotifyExternalCacheHit(kUrl, kUrl.GetScheme(),
                                           kNetworkIsolationKey,
                                           /*include_credentials=*/true);
 
@@ -10561,7 +10588,8 @@ class StorageAccessHeaderNetworkContextTest : public NetworkContextTest {
 
   std::unique_ptr<net::test_server::HttpResponse> HandleRetryRequest(
       const net::test_server::HttpRequest& request) {
-    if (!base::StartsWith(request.GetURL().path(), kStorageAccessRetryPath)) {
+    if (!base::StartsWith(request.GetURL().GetPath(),
+                          kStorageAccessRetryPath)) {
       return nullptr;
     }
     auto http_response =
@@ -10587,7 +10615,7 @@ class StorageAccessHeaderNetworkContextTest : public NetworkContextTest {
       case ResponseKind::kRedirect: {
         http_response->set_code(net::HTTP_TEMPORARY_REDIRECT);
         std::string dest =
-            base::UnescapeBinaryURLComponent(request.GetURL().query_piece());
+            base::UnescapeBinaryURLComponent(request.GetURL().query());
         http_response->AddCustomHeader("Location", dest);
         break;
       }
@@ -10702,7 +10730,7 @@ class StorageAccessHeaderNetworkContextTest : public NetworkContextTest {
  private:
   std::unique_ptr<net::test_server::HttpResponse> HandleRedirectLoadRequest(
       const net::test_server::HttpRequest& request) {
-    if (!base::StartsWith(request.GetURL().path(),
+    if (!base::StartsWith(request.GetURL().GetPath(),
                           kStorageAccessRedirectLoadPath)) {
       return nullptr;
     }
@@ -11977,6 +12005,38 @@ TEST_F(NetworkContextTest, EnableDurableMessageCollector) {
   EXPECT_EQ(
       0u,
       network_context->num_devtools_durable_message_collectors_for_testing());
+}
+
+TEST_F(NetworkContextTest, AddQuicHints) {
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(CreateNetworkContextParamsForTesting());
+
+  url::SchemeHostPort google("https", "www.google.com", 443);
+  url::SchemeHostPort example("https", "www.example.com", 443);
+  std::vector<url::SchemeHostPort> origins = {google, example};
+
+  net::NetworkAnonymizationKey key = net::NetworkAnonymizationKey();
+  network_context->AddQuicHints(origins, key);
+
+  net::AlternativeServiceInfoVector google_infos =
+      network_context->url_request_context()
+          ->http_server_properties()
+          ->GetAlternativeServiceInfos(google, key);
+  EXPECT_EQ(1u, google_infos.size());
+
+  EXPECT_EQ(443, google_infos[0].GetHostPortPair().port());
+  EXPECT_EQ("www.google.com", google_infos[0].GetHostPortPair().host());
+  EXPECT_EQ(net::NextProto::kProtoQUIC, google_infos[0].protocol());
+
+  net::AlternativeServiceInfoVector example_infos =
+      network_context->url_request_context()
+          ->http_server_properties()
+          ->GetAlternativeServiceInfos(example, key);
+  EXPECT_EQ(1u, example_infos.size());
+
+  EXPECT_EQ(443, example_infos[0].GetHostPortPair().port());
+  EXPECT_EQ("www.example.com", example_infos[0].GetHostPortPair().host());
+  EXPECT_EQ(net::NextProto::kProtoQUIC, example_infos[0].protocol());
 }
 
 }  // namespace

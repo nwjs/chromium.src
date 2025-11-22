@@ -1156,7 +1156,7 @@ int HttpCache::Transaction::DoInitEntry() {
           base::Microseconds(1), base::Seconds(1), 50);
     }
     if ((effective_load_flags_ & LOAD_MAIN_FRAME_DEPRECATED) &&
-        IsGoogleHostWithAlpnH3(request_->url.host_piece())) {
+        IsGoogleHostWithAlpnH3(request_->url.host())) {
       base::UmaHistogramTimes(
           "HttpCache.NoVarySearch.NotUsableLostTime2.GoogleHost.MainFrame",
           elapsed);
@@ -3354,7 +3354,7 @@ int HttpCache::Transaction::DoConnectedCallback() {
 int HttpCache::Transaction::DoConnectedCallbackComplete(int result) {
   if (result != OK) {
     if (result ==
-        ERR_CACHED_IP_ADDRESS_SPACE_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_POLICY) {
+        ERR_CACHED_IP_ADDRESS_SPACE_BLOCKED_BY_LOCAL_NETWORK_ACCESS_POLICY) {
       DoomInconsistentEntry();
       UpdateCacheEntryStatusToOther(OtherStatusReason::kBlockedByIpSpace);
       TransitionToState(reading_ ? STATE_SEND_REQUEST
@@ -3910,7 +3910,7 @@ void HttpCache::Transaction::RecordHistograms() {
   UMA_HISTOGRAM_ENUMERATION("HttpCache.NoVarySearch.UseResult2",
                             no_vary_search_use_result_);
   if (is_html && is_main_frame &&
-      IsGoogleHostWithAlpnH3(request_->url.host_piece())) {
+      IsGoogleHostWithAlpnH3(request_->url.host())) {
     base::UmaHistogramEnumeration(
         "HttpCache.NoVarySearch.UseResult2.GoogleHost.MainFrameHTML",
         no_vary_search_use_result_);

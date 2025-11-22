@@ -369,6 +369,8 @@ class CORE_EXPORT CSSSelector {
     kPseudoHostHasNonAutoAppearance,
     kPseudoIsHtml,
     kPseudoListBox,
+    kPseudoMenulistPopoverWithMenubarAnchor,
+    kPseudoMenulistPopoverWithMenulistAnchor,
     kPseudoMultiSelectFocus,
     kPseudoOpen,
     kPseudoPastCue,
@@ -583,6 +585,9 @@ class CORE_EXPORT CSSSelector {
   bool IsLastInSelectorList() const {
     return bits_.get<IsLastInSelectorListField>();
   }
+  bool IsLastInSelectorListForOilpan() const {
+    return bits_.get_concurrently<IsLastInSelectorListField>();
+  }
   void SetLastInSelectorList(bool is_last) {
     bits_.set<IsLastInSelectorListField>(is_last);
   }
@@ -647,6 +652,10 @@ class CORE_EXPORT CSSSelector {
   // Returns true for simple selectors whose evaluation depends on DOM tree
   // position like :first-of-type and :nth-child().
   bool IsChildIndexedSelector() const;
+
+  bool IsPseudoParent() const {
+    return Match() == kPseudoClass && GetPseudoType() == kPseudoParent;
+  }
 
   void Trace(Visitor* visitor) const;
 
@@ -869,7 +878,7 @@ inline void CSSSelector::SetValue(const AtomicString& value,
                                   bool match_lower_case = false) {
   DCHECK_NE(Match(), static_cast<unsigned>(kTag));
   DCHECK_NE(Match(), static_cast<unsigned>(kUniversalTag));
-  DCHECK(!(Match() == kPseudoClass && GetPseudoType() == kPseudoParent));
+  DCHECK(!IsPseudoParent());
   if (match_lower_case && !HasRareData() && !IsASCIILower(value)) {
     CreateRareData();
   }
@@ -1004,6 +1013,7 @@ inline const StyleRule* CSSSelector::ParentRule() const {
 inline const AtomicString& CSSSelector::Value() const {
   DCHECK_NE(Match(), static_cast<unsigned>(kTag));
   DCHECK_NE(Match(), static_cast<unsigned>(kUniversalTag));
+  DCHECK(!IsPseudoParent());
   if (HasRareData()) {
     return data_.rare_data_->matching_value_;
   }

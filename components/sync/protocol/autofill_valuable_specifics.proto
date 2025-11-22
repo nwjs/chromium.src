@@ -14,6 +14,7 @@ option optimize_for = LITE_RUNTIME;
 
 package sync_pb;
 
+// LINT.IfChange(AutofillValuableSpecifics)
 // This is a copy of google.protobuf.Any.
 message Any {
   // A URL/resource name that uniquely identifies the type of the serialized
@@ -98,6 +99,18 @@ message FlightReservation {
   // The arrival date. This is a server-provided timestamp with units in
   // microseconds.
   optional int64 arrival_date_unix_epoch_micros = 8;
+
+  // The airline logo. This is a Google URI pointing to an image.
+  optional string airline_logo = 9;
+
+  // The carrier code e.g. BA for British Airways.
+  optional string carrier_code = 10;
+
+  // The UTC offset of the departure airport's time zone in seconds.
+  optional int64 departure_airport_utc_offset_seconds = 11;
+
+  // The UTC offset of the arrival airport's time zone in seconds.
+  optional int64 arrival_airport_utc_offset_seconds = 12;
 }
 
 // Valuables coming from Google Wallet.
@@ -119,3 +132,4 @@ message AutofillValuableSpecifics {
   // across clients.
   optional Any serialized_chrome_valuables_metadata = 4;
 }
+// LINT.ThenChange(//components/autofill/core/browser/webdata/valuables/valuables_sync_util.cc:TrimAutofillValuableSpecificsDataForCaching)

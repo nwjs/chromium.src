@@ -14,6 +14,7 @@
 #include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "build/build_config.h"
@@ -21,6 +22,8 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_state_manager.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_header_view.h"
@@ -130,7 +133,7 @@ class OmniboxPopupViewViews::PopupWidget final : public ThemeCopyingWidget {
 
   void SetPopupContentsView(OmniboxPopupViewViews* contents) {
     SetContentsView(std::make_unique<RoundedOmniboxResultsFrame>(
-        contents, contents->location_bar_view_));
+        contents, contents->location_bar_view_, /*forward_mouse_events=*/true));
   }
 
   void SetTargetBounds(const gfx::Rect& bounds) {
@@ -257,8 +260,8 @@ OmniboxPopupViewViews::OmniboxPopupViewViews(OmniboxViewViews* omnibox_view,
     : OmniboxPopupView(controller),
       omnibox_view_(omnibox_view),
       location_bar_view_(location_bar_view) {
-  model()->set_popup_view(this);
-  edit_model_observation_.Observe(model());
+  controller->edit_model()->set_popup_view(this);
+  edit_model_observation_.Observe(controller->edit_model());
 
   if (omnibox_view_) {
     GetViewAccessibility().SetPopupForId(
@@ -284,7 +287,7 @@ OmniboxPopupViewViews::~OmniboxPopupViewViews() {
     widget_->RemoveObserver(&widget_observer_helper_);
   }
   CHECK(!widget_observer_helper_.IsInObserverList());
-  model()->set_popup_view(nullptr);
+  controller()->edit_model()->set_popup_view(nullptr);
   UpdateAccessibleControlIds();
 }
 
@@ -295,15 +298,17 @@ gfx::Image OmniboxPopupViewViews::GetMatchIcon(
   bool dark_mode =
       color_provider && color_utils::IsDark(color_provider->GetColor(
                             kColorOmniboxResultsBackground));
-  return model()->GetMatchIcon(match, vector_icon_color, dark_mode);
+  return controller()->edit_model()->GetMatchIcon(match, vector_icon_color,
+                                                  dark_mode);
 }
 
 void OmniboxPopupViewViews::SetSelectedIndex(size_t index) {
   DCHECK(HasMatchAt(index));
-  if (index != model()->GetPopupSelection().line) {
+  if (index != controller()->edit_model()->GetPopupSelection().line) {
     OmniboxPopupSelection::LineState line_state = OmniboxPopupSelection::NORMAL;
-    model()->SetPopupSelection(OmniboxPopupSelection(index, line_state));
-    OnPropertyChanged(model(), views::kPropertyEffectsNone);
+    controller()->edit_model()->SetPopupSelection(
+        OmniboxPopupSelection(index, line_state));
+    OnPropertyChanged(controller()->edit_model(), views::kPropertyEffectsNone);
   }
 }
 
@@ -312,7 +317,7 @@ size_t OmniboxPopupViewViews::GetSelectedIndex() const {
 }
 
 OmniboxPopupSelection OmniboxPopupViewViews::GetSelection() const {
-  return model()->GetPopupSelection();
+  return controller()->edit_model()->GetPopupSelection();
 }
 
 void OmniboxPopupViewViews::UpdatePopupBounds() {
@@ -337,19 +342,35 @@ void OmniboxPopupViewViews::InvalidateLine(size_t line) {
 
 void OmniboxPopupViewViews::UpdatePopupAppearance() {
   const auto* autocomplete_controller = controller()->autocomplete_controller();
-  if (autocomplete_controller->result().empty() ||
-      omnibox_view_->IsImeShowingPopup()) {
-    // No matches or the IME is showing a popup window which may overlap
-    // the omnibox popup window.  Close any existing popup.
-    if (widget_) {
-      // Check whether omnibox should be not closed according to the UI
-      // DevTools settings.
+  const bool should_be_open =
+      controller()->popup_state_manager()->popup_state() !=
+          OmniboxPopupState::kAim &&
+      !autocomplete_controller->result().empty() &&
+      !omnibox_view_->IsImeShowingPopup();
+  const bool was_open = !!widget_;
+
+  if (!should_be_open) {
+    if (was_open) {
+      // Check whether omnibox should not close per UI DevTools settings.
       if (!widget_->ShouldHandleNativeWidgetActivationChanged(false)) {
         return;
       }
       widget_->CloseAnimated();  // This will eventually delete the popup.
       widget_->RemoveObserver(&widget_observer_helper_);
       widget_.reset();
+
+      // Update the popup state manager that the classic popup is closing.
+      // Do this AFTER widget operations. `LocationBarView` is subscribed to
+      // state changes and attempts to call `UpdatePopupAppearance()` again if
+      // the widget is open.
+      // Only update the state if it's currently `kClassic`. If it's already
+      // transitioning to another state (e.g., `kAim`), don't override it.
+      if (controller()->popup_state_manager()->popup_state() ==
+          OmniboxPopupState::kClassic) {
+        controller()->popup_state_manager()->SetPopupState(
+            OmniboxPopupState::kNone);
+      }
+
       if (contextual_group_view_) {
         contextual_group_view_->OnPopupHide();
       }
@@ -364,8 +385,7 @@ void OmniboxPopupViewViews::UpdatePopupAppearance() {
 
   // Ensure that we have an existing popup widget prior to creating the result
   // views to ensure the proper initialization of the views hierarchy.
-  bool popup_created = false;
-  if (!widget_) {
+  if (!was_open) {
     views::Widget* popup_parent = location_bar_view_->GetWidget();
 
     // If the popup is currently closed, we need to create it.
@@ -385,8 +405,6 @@ void OmniboxPopupViewViews::UpdatePopupAppearance() {
     widget_->SetVisibilityAnimationTransition(views::Widget::ANIMATE_NONE);
     widget_->SetPopupContentsView(this);
     widget_->AddObserver(&widget_observer_helper_);
-
-    popup_created = true;
   }
 
   // Update the match cached by each row, in the process of doing so make sure
@@ -441,7 +459,7 @@ void OmniboxPopupViewViews::UpdatePopupAppearance() {
   UpdateContextualSuggestionsGroup(grouped_matches_start_index);
   widget_->SetTargetBounds(GetTargetBounds());
 
-  if (popup_created) {
+  if (!was_open) {
     widget_->ShowAnimated();
 
     // Popup is now expanded and first item will be selected.
@@ -454,8 +472,11 @@ void OmniboxPopupViewViews::UpdatePopupAppearance() {
       FireAXEventsForNewActiveDescendant(result_view);
     }
 
-    NotifyOpenListeners();
+    // Update the popup state manager that the classic popup is opening.
+    controller()->popup_state_manager()->SetPopupState(
+        OmniboxPopupState::kClassic);
   }
+
   InvalidateLayout();
 }
 
@@ -495,6 +516,11 @@ std::u16string_view OmniboxPopupViewViews::GetAccessibleButtonTextForResult(
   return static_cast<const views::LabelButton*>(button)->GetText();
 }
 
+raw_ptr<OmniboxPopupViewWebUI>
+OmniboxPopupViewViews::GetOmniboxPopupViewWebUI() {
+  return nullptr;
+}
+
 bool OmniboxPopupViewViews::OnMouseDragged(const ui::MouseEvent& event) {
   const size_t index = GetIndexForPoint(event.location());
 
@@ -527,20 +553,14 @@ void OmniboxPopupViewViews::OnGestureEvent(ui::GestureEvent* event) {
     case ui::EventType::kGestureTap:
     case ui::EventType::kGestureScrollEnd: {
       DCHECK(HasMatchAt(index));
-      model()->OpenSelection(OmniboxPopupSelection(index), event->time_stamp());
+      controller()->edit_model()->OpenSelection(OmniboxPopupSelection(index),
+                                                event->time_stamp());
       break;
     }
     default:
       return;
   }
   event->SetHandled();
-}
-
-void OmniboxPopupViewViews::FireAXEventsForNewActiveDescendant(
-    View* descendant_view) {
-  // Selected children changed is fired on the popup.
-  NotifyAccessibilityEventDeprecated(ax::mojom::Event::kSelectedChildrenChanged,
-                                     true);
 }
 
 void OmniboxPopupViewViews::OnWidgetBoundsChanged(views::Widget* widget,
@@ -594,6 +614,16 @@ void OmniboxPopupViewViews::OnWidgetDestroying(views::Widget* widget) {
     widget_ = nullptr;
   }
   UpdateAccessibleStates();
+
+  // Update the popup state manager if widget was destroyed externally, e.g., by
+  // the OS. This ensures the popup state manager stays in sync. Do this AFTER
+  // widget operations. `LocationBarView` is subscribed to state changes and
+  // attempts to call `UpdatePopupAppearance()` again if the widget is open.
+  if (controller()->popup_state_manager()->popup_state() ==
+      OmniboxPopupState::kClassic) {
+    controller()->popup_state_manager()->SetPopupState(
+        OmniboxPopupState::kNone);
+  }
 }
 
 void OmniboxPopupViewViews::OnSelectionChanged(
@@ -616,6 +646,17 @@ void OmniboxPopupViewViews::OnMatchIconUpdated(size_t match_index) {
   if (OmniboxResultView* result_view = result_view_at(match_index)) {
     result_view->OnMatchIconUpdated();
   }
+}
+
+void OmniboxPopupViewViews::OnContentsChanged() {
+  UpdatePopupAppearance();
+}
+
+void OmniboxPopupViewViews::FireAXEventsForNewActiveDescendant(
+    View* descendant_view) {
+  // Selected children changed is fired on the popup.
+  NotifyAccessibilityEventDeprecated(ax::mojom::Event::kSelectedChildrenChanged,
+                                     true);
 }
 
 gfx::Rect OmniboxPopupViewViews::GetTargetBounds() const {
@@ -659,7 +700,10 @@ gfx::Rect OmniboxPopupViewViews::GetTargetBounds() const {
       -RoundedOmniboxResultsFrame::GetLocationBarAlignmentInsets());
   content_rect.set_height(popup_height);
 
-  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopupDebug) &&
+  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopup) &&
+      !base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup) &&
+      !omnibox::IsAimPopupFeatureEnabled() &&
+      base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopupDebug) &&
       omnibox::kWebUIOmniboxPopupDebugSxSParam.Get()) {
     if (auto bounds = GetDebugWidgetBounds(location_bar_view_, popup_height)) {
       content_rect = *bounds;
@@ -772,7 +816,8 @@ std::u16string OmniboxPopupViewViews::UpdateRowView(
     const AutocompleteMatch& match,
     const std::u16string& previous_row_header) {
   std::u16string current_row_header =
-      model()->GetSuggestionGroupHeaderText(match.suggestion_group_id);
+      controller()->edit_model()->GetSuggestionGroupHeaderText(
+          match.suggestion_group_id);
   // Show the header if it's distinct from the previous match's header.
   if (!current_row_header.empty() &&
       current_row_header != previous_row_header) {
@@ -787,7 +832,8 @@ std::u16string OmniboxPopupViewViews::UpdateRowView(
   result_view->SetVisible(!controller()->IsSuggestionHidden(match));
 
   const SkBitmap* bitmap =
-      model()->GetPopupRichSuggestionBitmap(row_view->line());
+      controller()->edit_model()->GetPopupRichSuggestionBitmap(
+          row_view->line());
   if (bitmap) {
     result_view->SetRichSuggestionImage(
         gfx::ImageSkia::CreateFrom1xBitmap(*bitmap));

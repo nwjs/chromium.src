@@ -246,6 +246,10 @@ class CONTENT_EXPORT RenderProcessHostImpl
   int VisibleClientCount() override;
   unsigned int GetFrameDepth() override;
   bool GetIntersectsViewport() override;
+#if !BUILDFLAG(IS_ANDROID)
+  // Returns true if this process is hosting the initial WebUI.
+  bool IsForInitialWebUI() const;
+#endif  // !BUILDFLAG(IS_ANDROID)
   bool IsForGuestsOnly() override;
   bool IsJitDisabled() override;
   bool AreV8OptimizationsDisabled() override;
@@ -374,17 +378,13 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void ResumeSocketManagerForRenderFrameHost(
       const GlobalRenderFrameHostId& render_frame_host_id) override;
 
-  // IPC::Sender via RenderProcessHost.
-  bool Send(IPC::Message* msg) override;
-
   // IPC::Listener via RenderProcessHost.
-  bool OnMessageReceived(const IPC::Message& msg) override;
   void OnAssociatedInterfaceRequest(
       const std::string& interface_name,
       mojo::ScopedInterfaceEndpointHandle handle) override;
   void OnChannelConnected(int32_t peer_pid) override;
   void OnChannelError() override;
-  void OnBadMessageReceived(const IPC::Message& message) override;
+  void OnBadMessageReceived() override;
 
   // ChildProcessLauncher::Client implementation.
   void OnProcessLaunched() override;
@@ -881,8 +881,7 @@ class CONTENT_EXPORT RenderProcessHostImpl
 
 #if BUILDFLAG(IS_ANDROID)
   // Notifies the renderer process of memory pressure level.
-  void NotifyMemoryPressureToRenderer(
-      base::MemoryPressureListener::MemoryPressureLevel level);
+  void NotifyMemoryPressureToRenderer(base::MemoryPressureLevel level);
 #endif
 
 #if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
@@ -974,6 +973,14 @@ class CONTENT_EXPORT RenderProcessHostImpl
     // Indicates whether v8 feature flag overrides are disallowed in this
     // renderer process.
     kDisallowV8FeatureFlagOverrides = 1 << 4,
+
+#if !BUILDFLAG(IS_ANDROID)
+    // Indicates that this RenderProcessHost is hosting the initial WebUI.
+    // Initial WebUI (WaaP) and WebUI (e.g. Tab Search) are hosted in the same
+    // process. This flag is only set when the initial WebUI exists.
+    // Only used on desktop.
+    kForInitialWebUI = 1 << 5,
+#endif  // !BUILDFLAG(IS_ANDROID)
   };
 
   // A RenderProcessHostImpl's IO thread implementation of the
@@ -1304,6 +1311,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
       const GlobalRenderFrameHostId& render_frame_host_id,
       bool is_prerendering);
 
+  bool ShouldPauseChannelUntilProcessLaunched();
+
   mojo::OutgoingInvitation mojo_invitation_;
 
   // These cover mutually-exclusive cases. While keep-alive is time-based,
@@ -1540,12 +1549,17 @@ class CONTENT_EXPORT RenderProcessHostImpl
 
   bool channel_connected_ = false;
   bool sent_render_process_ready_ = false;
-  bool sent_process_created_ = false;
+  bool sent_process_launched_ = false;
 
   std::unique_ptr<FileSystemManagerImpl, BrowserThread::DeleteOnIOThread>
       file_system_manager_impl_;
   std::unique_ptr<viz::GpuClient> gpu_client_;
   std::unique_ptr<PushMessagingManager> push_messaging_manager_;
+#if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
+  std::unique_ptr<viz::GpuClient, base::OnTaskRunnerDeleter>
+      oop_video_decoder_gpu_client_{nullptr,
+                                    base::OnTaskRunnerDeleter(nullptr)};
+#endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
 
   std::unique_ptr<EmbeddedFrameSinkProviderImpl> embedded_frame_sink_provider_;
 #if BUILDFLAG(ENABLE_PLUGINS)

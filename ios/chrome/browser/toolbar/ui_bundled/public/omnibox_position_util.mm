@@ -9,6 +9,7 @@
 #import "components/segmentation_platform/embedder/default_model/device_switcher_model.h"
 #import "ios/chrome/browser/shared/model/utils/first_run_util.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ui/base/device_form_factor.h"
 
 namespace {
 /// The time delta for a user to be considered as a new user.
@@ -55,7 +56,25 @@ bool IsSafariSwitcher(
 }
 
 bool ShouldFocusedOmniboxFollowSteadyStatePosition() {
-  return base::FeatureList::IsEnabled(kBottomOmniboxEvolution);
+  if (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_PHONE) {
+    return NO;
+  }
+
+  std::string feature_param = base::GetFieldTrialParamValueByFeature(
+      kBottomOmniboxEvolution, kBottomOmniboxEvolutionParam);
+  return feature_param ==
+         kBottomOmniboxEvolutionParamEditStateFollowSteadyState;
+}
+
+bool ForceBottomOmniboxInEditState() {
+  if (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_PHONE) {
+    return NO;
+  }
+
+  std::string feature_param = base::GetFieldTrialParamValueByFeature(
+      kBottomOmniboxEvolution, kBottomOmniboxEvolutionParam);
+  return feature_param ==
+         kBottomOmniboxEvolutionParamForceBottomOmniboxEditState;
 }
 
 }  // namespace omnibox

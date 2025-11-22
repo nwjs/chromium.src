@@ -29,7 +29,6 @@
 #import "components/autofill/ios/browser/credit_card_save_manager_test_observer_bridge.h"
 #import "components/autofill/ios/browser/credit_card_util.h"
 #import "components/autofill/ios/browser/ios_test_event_waiter.h"
-#import "components/autofill/ios/common/features.h"
 #import "components/keyed_service/core/service_access_type.h"
 #import "components/password_manager/core/browser/password_manager_util.h"
 #import "components/password_manager/core/browser/password_store/password_store_consumer.h"
@@ -39,8 +38,8 @@
 #import "ios/chrome/browser/passwords/model/ios_chrome_profile_password_store_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
+#import "ios/chrome/common/ui/reauthentication/mock_reauthentication_module.h"
 #import "ios/chrome/test/app/chrome_test_util.h"
-#import "ios/chrome/test/app/mock_reauthentication_module.h"
 #import "ios/chrome/test/app/tab_test_util.h"
 #import "ios/public/provider/chrome/browser/risk_data/risk_data_api.h"
 #import "ios/web/public/js_messaging/web_frames_manager.h"
@@ -455,6 +454,11 @@ static std::unique_ptr<ScopedAutofillPaymentReauthModuleOverride>
                      autofill::AutofillProfile::RecordType::kAccountHome);
 }
 
++ (void)saveExampleAccountNameEmailProfile {
+  AddAutofillProfile([self personalDataManager],
+                     autofill::AutofillProfile::RecordType::kAccountNameEmail);
+}
+
 + (NSString*)exampleProfileName {
   autofill::AutofillProfile profile = autofill::test::GetFullProfile();
   std::u16string name = profile.GetInfo(
@@ -698,11 +702,6 @@ static std::unique_ptr<ScopedAutofillPaymentReauthModuleOverride>
       [self personalDataManager];
   personalDataManager->payments_data_manager().SetPaymentsCvcStorageEnabled(
       enabled);
-}
-
-+ (BOOL)isDynamicallyLoadFieldsOnInputEnabled {
-  return base::FeatureList::IsEnabled(
-      kAutofillDynamicallyLoadsFieldsForAddressInput);
 }
 
 #pragma mark - Private

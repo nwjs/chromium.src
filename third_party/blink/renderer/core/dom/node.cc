@@ -501,7 +501,7 @@ Node* Node::PseudoAwarePreviousSibling() const {
       CHECK_EQ(parent->GetPseudoId(), kPseudoIdViewTransitionImagePair);
       return parent->GetPseudoElement(
           kPseudoIdViewTransitionOld,
-          To<PseudoElement>(this)->view_transition_name());
+          To<ViewTransitionPseudoElementBase>(this)->view_transition_name());
     case kPseudoIdViewTransitionGroup: {
       auto* pseudo = To<ViewTransitionPseudoElementBase>(this);
       auto* parent_pseudo = To<ViewTransitionPseudoElementBase>(parent);
@@ -519,7 +519,7 @@ Node* Node::PseudoAwarePreviousSibling() const {
       CHECK_EQ(parent->GetPseudoId(), kPseudoIdViewTransitionGroup);
       return parent->GetPseudoElement(
           kPseudoIdViewTransitionImagePair,
-          To<PseudoElement>(this)->view_transition_name());
+          To<ViewTransitionPseudoElementBase>(this)->view_transition_name());
     case kPseudoIdViewTransitionImagePair:
     case kPseudoIdViewTransitionOld:
       return nullptr;
@@ -628,7 +628,7 @@ Node* Node::PseudoAwareNextSibling() const {
       CHECK_EQ(parent->GetPseudoId(), kPseudoIdViewTransitionImagePair);
       return parent->GetPseudoElement(
           kPseudoIdViewTransitionNew,
-          To<PseudoElement>(this)->view_transition_name());
+          To<ViewTransitionPseudoElementBase>(this)->view_transition_name());
     case kPseudoIdViewTransitionGroup: {
       auto* pseudo = To<ViewTransitionPseudoElementBase>(this);
       auto* parent_pseudo = To<ViewTransitionPseudoElementBase>(parent);
@@ -646,7 +646,7 @@ Node* Node::PseudoAwareNextSibling() const {
       CHECK_EQ(parent->GetPseudoId(), kPseudoIdViewTransitionGroup);
       return parent->GetPseudoElement(
           kPseudoIdViewTransitionGroupChildren,
-          To<PseudoElement>(this)->view_transition_name());
+          To<ViewTransitionPseudoElementBase>(this)->view_transition_name());
     case kPseudoIdViewTransitionGroupChildren:
     case kPseudoIdViewTransitionNew:
       return nullptr;
@@ -671,11 +671,11 @@ Node* Node::PseudoAwareFirstChild() const {
     if (GetPseudoId() == kPseudoIdViewTransitionGroup) {
       return current_element->GetPseudoElement(
           kPseudoIdViewTransitionImagePair,
-          To<PseudoElement>(this)->view_transition_name());
+          To<ViewTransitionPseudoElementBase>(this)->view_transition_name());
     }
     if (GetPseudoId() == kPseudoIdViewTransitionImagePair) {
       const AtomicString& name =
-          To<PseudoElement>(this)->view_transition_name();
+          To<ViewTransitionPseudoElementBase>(this)->view_transition_name();
       if (Node* first = current_element->GetPseudoElement(
               kPseudoIdViewTransitionOld, name)) {
         return first;
@@ -772,16 +772,16 @@ Node* Node::PseudoAwareLastChild() const {
                .empty()) {
         return current_element->GetPseudoElement(
             kPseudoIdViewTransitionGroupChildren,
-            To<PseudoElement>(this)->view_transition_name());
+            To<ViewTransitionPseudoElementBase>(this)->view_transition_name());
       } else {
         return current_element->GetPseudoElement(
             kPseudoIdViewTransitionImagePair,
-            To<PseudoElement>(this)->view_transition_name());
+            To<ViewTransitionPseudoElementBase>(this)->view_transition_name());
       }
     }
     if (GetPseudoId() == kPseudoIdViewTransitionImagePair) {
       const AtomicString& name =
-          To<PseudoElement>(this)->view_transition_name();
+          To<ViewTransitionPseudoElementBase>(this)->view_transition_name();
       if (Node* last = current_element->GetPseudoElement(
               kPseudoIdViewTransitionNew, name)) {
         return last;
@@ -1781,6 +1781,17 @@ bool Node::ContainsIncludingHostElements(const Node& node) const {
   return false;
 }
 
+bool Node::ContainsViaFlatTree(const Node& node) const {
+  const Node* current = &node;
+  do {
+    if (current == this) {
+      return true;
+    }
+    current = FlatTreeTraversal::Parent(*current);
+  } while (current);
+  return false;
+}
+
 Node* Node::CommonAncestor(const Node& other,
                            ContainerNode* (*parent)(const Node&)) const {
   if (this == other)
@@ -2563,10 +2574,10 @@ void Node::RemovedFrom(ContainerNode& insertion_point) {
 String Node::DebugName() const {
   StringBuilder name;
   name.Append(nodeName());
-  if (const auto* vt_pseudo =
-          DynamicTo<ViewTransitionPseudoElementBase>(this)) {
+  if (const auto* pseudo = DynamicTo<PseudoElement>(this);
+      pseudo && !pseudo->GetPseudoArgument().IsNull()) {
     name.Append("(");
-    name.Append(vt_pseudo->view_transition_name());
+    name.Append(pseudo->GetPseudoArgument());
     name.Append(")");
   } else if (const auto* this_element = DynamicTo<Element>(this)) {
     if (this_element->HasID()) {
@@ -2578,8 +2589,9 @@ String Node::DebugName() const {
     if (this_element->HasClass()) {
       name.Append(" class=\'");
       for (wtf_size_t i = 0; i < this_element->ClassNames().size(); ++i) {
-        if (i > 0)
+        if (i > 0) {
           name.Append(' ');
+        }
         name.Append(this_element->ClassNames()[i]);
       }
       name.Append('\'');
@@ -2633,16 +2645,16 @@ String Node::ToString() const {
     builder.Append(" ");
     builder.Append(nodeValue().EncodeForDebugging());
     return builder.ReleaseString();
-  } else if (const auto* vt_pseudo =
-                 DynamicTo<ViewTransitionPseudoElementBase>(this)) {
+  } else if (const auto* pseudo = DynamicTo<PseudoElement>(this);
+             pseudo && !pseudo->GetPseudoArgument().IsNull()) {
     builder.Append("(");
-    builder.Append(vt_pseudo->view_transition_name());
+    builder.Append(pseudo->GetPseudoArgument());
     builder.Append(")");
   } else if (const auto* element = DynamicTo<Element>(this)) {
-    const AtomicString& pseudo = element->ShadowPseudoId();
-    if (!pseudo.empty()) {
+    const AtomicString& pseudo_id = element->ShadowPseudoId();
+    if (!pseudo_id.empty()) {
       builder.Append(" ::");
-      builder.Append(pseudo);
+      builder.Append(pseudo_id);
     }
     DumpAttributeDesc(*this, html_names::kIdAttr, builder);
     DumpAttributeDesc(*this, html_names::kClassAttr, builder);

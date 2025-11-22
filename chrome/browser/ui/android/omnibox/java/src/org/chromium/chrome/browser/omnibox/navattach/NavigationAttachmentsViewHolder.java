@@ -6,30 +6,40 @@ package org.chromium.chrome.browser.omnibox.navattach;
 
 import android.view.ViewGroup;
 
-import androidx.appcompat.widget.SwitchCompat;
 import androidx.constraintlayout.widget.Group;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.omnibox.R;
-import org.chromium.ui.widget.ChromeImageButton;
+import org.chromium.components.browser_ui.widget.RoundedCornerOutlineProvider;
+import org.chromium.ui.widget.ButtonCompat;
+import org.chromium.ui.widget.ChromeImageView;
 
 /** A ViewHolder for the NavigationAttachments component. */
 @NullMarked
 class NavigationAttachmentsViewHolder {
     public final RecyclerView attachmentsView;
-    public final Group navigationToolbar;
-    public final ChromeImageButton addButton;
-    public final ChromeImageButton settingsButton;
-    public final SwitchCompat navigationType;
+    public final Group attachmentsToolbar;
+    public final ChromeImageView addButton;
+    public final ChromeImageView settingsButton;
     public final NavigationAttachmentsPopup popup;
+    public final ButtonCompat requestType;
 
     NavigationAttachmentsViewHolder(ViewGroup parent, NavigationAttachmentsPopup popup) {
         attachmentsView = parent.findViewById(R.id.location_bar_attachments);
-        navigationToolbar = parent.findViewById(R.id.location_bar_navigation_toolbar);
+        attachmentsToolbar = parent.findViewById(R.id.location_bar_attachments_toolbar);
         addButton = parent.findViewById(R.id.location_bar_attachments_add);
         settingsButton = parent.findViewById(R.id.location_bar_attachments_settings);
-        navigationType = parent.findViewById(R.id.location_bar_navigation_type);
+        requestType = parent.findViewById(R.id.navigation_attachments_request_type);
         this.popup = popup;
+
+        var outline =
+                new RoundedCornerOutlineProvider(
+                        parent.getResources()
+                                .getDimensionPixelSize(
+                                        R.dimen.navigation_attachments_button_corner_radius));
+        outline.setClipPaddedArea(true);
+        addButton.setOutlineProvider(outline);
+        settingsButton.setOutlineProvider(outline);
     }
 }

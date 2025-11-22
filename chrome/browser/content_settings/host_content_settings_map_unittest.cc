@@ -88,49 +88,41 @@ class MockUserModifiableProvider
     : public content_settings::UserModifiableProvider {
  public:
   ~MockUserModifiableProvider() override = default;
-  MOCK_CONST_METHOD3(GetRuleIterator,
-                     std::unique_ptr<content_settings::RuleIterator>(
-                         ContentSettingsType,
-                         bool,
-                         const content_settings::PartitionKey&));
+  MOCK_CONST_METHOD2(
+      GetRuleIterator,
+      std::unique_ptr<content_settings::RuleIterator>(ContentSettingsType,
+                                                      bool));
 
-  MOCK_METHOD6(SetWebsiteSetting,
+  MOCK_METHOD5(SetWebsiteSetting,
                bool(const ContentSettingsPattern&,
                     const ContentSettingsPattern&,
                     ContentSettingsType,
                     base::Value&&,
-                    const content_settings::ContentSettingConstraints&,
-                    const content_settings::PartitionKey&));
+                    const content_settings::ContentSettingConstraints&));
 
-  MOCK_METHOD2(ClearAllContentSettingsRules,
-               void(ContentSettingsType,
-                    const content_settings::PartitionKey&));
+  MOCK_METHOD1(ClearAllContentSettingsRules, void(ContentSettingsType));
 
   MOCK_METHOD0(ShutdownOnUIThread, void());
 
-  MOCK_METHOD5(UpdateLastUsedTime,
+  MOCK_METHOD4(UpdateLastUsedTime,
                bool(const GURL& primary_url,
                     const GURL& secondary_url,
                     ContentSettingsType content_type,
-                    const base::Time time,
-                    const content_settings::PartitionKey& partition_key));
-  MOCK_METHOD4(UpdateLastVisitTime,
+                    const base::Time time));
+  MOCK_METHOD3(UpdateLastVisitTime,
                bool(const ContentSettingsPattern& primary_pattern,
                     const ContentSettingsPattern& secondary_pattern,
-                    ContentSettingsType content_type,
-                    const content_settings::PartitionKey& partition_key));
-  MOCK_METHOD4(ResetLastVisitTime,
+                    ContentSettingsType content_type));
+  MOCK_METHOD3(ResetLastVisitTime,
                bool(const ContentSettingsPattern& primary_pattern,
                     const ContentSettingsPattern& secondary_pattern,
-                    ContentSettingsType content_type,
-                    const content_settings::PartitionKey& partition_key));
-  MOCK_METHOD5(RenewContentSetting,
+                    ContentSettingsType content_type));
+  MOCK_METHOD4(RenewContentSetting,
                std::optional<base::TimeDelta>(
                    const GURL& primary_url,
                    const GURL& secondary_url,
                    ContentSettingsType content_type,
-                   std::optional<ContentSetting> setting_to_match,
-                   const content_settings::PartitionKey& partition_key));
+                   std::optional<ContentSetting> setting_to_match));
 
   MOCK_METHOD1(SetClockForTesting, void(const base::Clock*));
 };
@@ -1366,8 +1358,8 @@ TEST_F(HostContentSettingsMapTest, IncognitoDontInheritWebsiteSetting) {
 
 TEST_F(HostContentSettingsMapTest, IncognitoDontInheritContentSetting) {
   // Content settings marked DONT_INHERIT_IN_INCOGNITO in
-  // ContentSettingsRegistry (e.g. top-level scoped 3pcd, which is a special
-  // case) don't inherit any values from from regular to incognito.
+  // ContentSettingsRegistry (e.g. Storage Access Header origin trial, which is
+  // a special case) don't inherit any values from from regular to incognito.
   TestingProfile profile;
   Profile* otr_profile =
       profile.GetPrimaryOTRProfile(/*create_if_needed=*/true);
@@ -1378,25 +1370,29 @@ TEST_F(HostContentSettingsMapTest, IncognitoDontInheritContentSetting) {
 
   GURL host("https://example.com/");
 
-  // top-level scoped 3pcd defaults to ALLOW.
-  EXPECT_EQ(CONTENT_SETTING_ALLOW,
-            map->GetContentSetting(
-                host, host, ContentSettingsType::TOP_LEVEL_TPCD_ORIGIN_TRIAL));
-  EXPECT_EQ(CONTENT_SETTING_ALLOW,
-            otr_map->GetContentSetting(
-                host, host, ContentSettingsType::TOP_LEVEL_TPCD_ORIGIN_TRIAL));
+  // Storage Access Header origin trial content settings defaults to BLOCK.
+  EXPECT_EQ(
+      CONTENT_SETTING_BLOCK,
+      map->GetContentSetting(
+          host, host, ContentSettingsType::STORAGE_ACCESS_HEADER_ORIGIN_TRIAL));
+  EXPECT_EQ(
+      CONTENT_SETTING_BLOCK,
+      otr_map->GetContentSetting(
+          host, host, ContentSettingsType::STORAGE_ACCESS_HEADER_ORIGIN_TRIAL));
 
   map->SetContentSettingDefaultScope(
-      host, GURL(), ContentSettingsType::TOP_LEVEL_TPCD_ORIGIN_TRIAL,
-      CONTENT_SETTING_BLOCK);
+      host, host, ContentSettingsType::STORAGE_ACCESS_HEADER_ORIGIN_TRIAL,
+      CONTENT_SETTING_ALLOW);
 
   // The setting is not inherited by |otr_map|.
-  EXPECT_EQ(CONTENT_SETTING_BLOCK,
-            map->GetContentSetting(
-                host, host, ContentSettingsType::TOP_LEVEL_TPCD_ORIGIN_TRIAL));
-  EXPECT_EQ(CONTENT_SETTING_ALLOW,
-            otr_map->GetContentSetting(
-                host, host, ContentSettingsType::TOP_LEVEL_TPCD_ORIGIN_TRIAL));
+  EXPECT_EQ(
+      CONTENT_SETTING_ALLOW,
+      map->GetContentSetting(
+          host, host, ContentSettingsType::STORAGE_ACCESS_HEADER_ORIGIN_TRIAL));
+  EXPECT_EQ(
+      CONTENT_SETTING_BLOCK,
+      otr_map->GetContentSetting(
+          host, host, ContentSettingsType::STORAGE_ACCESS_HEADER_ORIGIN_TRIAL));
 }
 
 TEST_F(HostContentSettingsMapTest, PrefExceptionsOperation) {
@@ -1502,7 +1498,7 @@ TEST_F(HostContentSettingsMapTest,
         /*read_only=*/false);
     mock_provider->SetWebsiteSetting(
         ContentSettingsPattern::Wildcard(), ContentSettingsPattern::Wildcard(),
-        ContentSettingsType::COOKIES, base::Value(CONTENT_SETTING_BLOCK));
+        ContentSettingsType::COOKIES, base::Value(CONTENT_SETTING_BLOCK), {});
     map_tester.map->RegisterProvider(
         content_settings::ProviderType::kProviderForTests,
         std::move(mock_provider));

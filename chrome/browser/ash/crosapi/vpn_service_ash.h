@@ -79,24 +79,15 @@ class VpnServiceForExtensionAsh : public crosapi::mojom::VpnServiceForExtension,
                            CreateConfigurationCallback) override;
   void DestroyConfiguration(const std::string& configuration_name,
                             DestroyConfigurationCallback) override;
-  void SetParameters(base::Value::Dict parameters,
-                     SetParametersCallback) override;
-  void SendPacket(const std::vector<uint8_t>& data,
-                  SendPacketCallback) override;
-  void NotifyConnectionStateChanged(
-      bool connection_success,
-      NotifyConnectionStateChangedCallback) override;
-  void BindPepperVpnProxyObserver(
-      const std::string& configuration_name,
-      mojo::PendingRemote<crosapi::mojom::PepperVpnProxyObserver>
-          pepper_vpn_proxy_observer,
-      BindPepperVpnProxyObserverCallback) override;
 
   // ash::NetworkConfigurationObserver:
   void OnConfigurationRemoved(const std::string& service_path,
                               const std::string& guid) override;
 
-  bool OwnsActiveConfiguration() const;
+  // Returns the object path of the active configuration if it exists.
+  // Otherwise, returns std::nullopt.
+  std::optional<std::string> GetActiveConfigurationObjectPath() const;
+
   bool HasConfigurationForServicePath(const std::string& service_path) const;
 
   void DestroyAllConfigurations();
@@ -205,6 +196,10 @@ class VpnServiceAsh : public crosapi::mojom::VpnService,
   void OnVpnExtensionsChanged(
       base::flat_set<std::string> vpn_extensions) override;
 
+  // Always returns a valid pointer.
+  VpnServiceForExtensionAsh* GetVpnServiceForExtension(
+      const std::string& extension_id);
+
  private:
   friend class chromeos::VpnProviderApiTest;
   friend class VpnServiceForExtensionAsh;
@@ -217,9 +212,6 @@ class VpnServiceAsh : public crosapi::mojom::VpnService,
       const std::string& service_path,
       std::optional<base::Value::Dict> configuration_properties);
 
-  // Always returns a valid pointer.
-  VpnServiceForExtensionAsh* GetVpnServiceForExtension(
-      const std::string& extension_id);
 
   // Ids of enabled vpn extensions.
   base::flat_set<std::string> vpn_extensions_;
@@ -251,9 +243,6 @@ class VpnServiceForExtensionAsh::VpnConfiguration
 
   virtual const std::optional<std::string>& service_path() const = 0;
   virtual void set_service_path(std::string) = 0;
-
-  virtual void BindPepperVpnProxyObserver(
-      mojo::PendingRemote<crosapi::mojom::PepperVpnProxyObserver>) = 0;
 };
 
 }  // namespace crosapi

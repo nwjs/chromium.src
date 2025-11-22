@@ -83,7 +83,7 @@ PseudoId ResolvePseudoIdAlias(PseudoId pseudo_id) {
 
 PseudoElement* PseudoElement::Create(Element* parent,
                                      PseudoId pseudo_id,
-                                     const AtomicString& view_transition_name) {
+                                     const AtomicString& pseudo_argument) {
   if (pseudo_id == kPseudoIdCheckMark) {
     if (!IsA<HTMLOptionElement>(parent) && !IsA<HTMLMenuItemElement>(parent)) {
       // The `::checkmark` pseudo-element should only be created for option and
@@ -116,8 +116,7 @@ PseudoElement* PseudoElement::Create(Element* parent,
   } else if (IsTransitionPseudoElement(pseudo_id)) {
     auto* transition = ViewTransitionUtils::GetTransition(*parent);
     DCHECK(transition);
-    return transition->CreatePseudoElement(parent, pseudo_id,
-                                           view_transition_name);
+    return transition->CreatePseudoElement(parent, pseudo_id, pseudo_argument);
   } else if (ResolvePseudoIdAlias(pseudo_id) == kPseudoIdScrollMarkerGroup) {
     return MakeGarbageCollected<ScrollMarkerGroupPseudoElement>(parent,
                                                                 pseudo_id);
@@ -134,7 +133,7 @@ PseudoElement* PseudoElement::Create(Element* parent,
          pseudo_id == kPseudoIdInterestHint || pseudo_id == kPseudoIdBackdrop ||
          pseudo_id == kPseudoIdMarker || pseudo_id == kPseudoIdColumn);
   return MakeGarbageCollected<PseudoElement>(parent, pseudo_id,
-                                             view_transition_name);
+                                             pseudo_argument);
 }
 
 const QualifiedName& PseudoElementTagName(PseudoId pseudo_id) {
@@ -261,7 +260,7 @@ AtomicString PseudoElement::PseudoElementNameForEvents(Element* element) {
     case kPseudoIdViewTransitionImagePair:
     case kPseudoIdViewTransitionNew:
     case kPseudoIdViewTransitionOld: {
-      auto* pseudo = To<PseudoElement>(element);
+      auto* pseudo = To<ViewTransitionPseudoElementBase>(element);
       DCHECK(pseudo);
       StringBuilder builder;
       builder.Append(PseudoElementTagName(pseudo_id).LocalName());
@@ -297,12 +296,12 @@ bool PseudoElement::IsWebExposed(PseudoId pseudo_id, const Node* parent) {
 
 PseudoElement::PseudoElement(Element* parent,
                              PseudoId pseudo_id,
-                             const AtomicString& view_transition_name)
+                             const AtomicString& pseudo_argument)
     : Element(PseudoElementTagName(ResolvePseudoIdAlias(pseudo_id)),
               &parent->GetDocument(),
               kCreateElement),
       pseudo_id_(pseudo_id),
-      view_transition_name_(view_transition_name) {
+      pseudo_argument_(pseudo_argument) {
   DCHECK_NE(pseudo_id, kPseudoIdNone);
   parent->GetTreeScope().AdoptIfNeeded(*this);
   SetParentNode(parent);
@@ -342,17 +341,21 @@ const ComputedStyle* PseudoElement::CustomStyleForLayoutObject(
         style_recalc_context,
         StyleRequest(kPseudoIdNone, parent->GetComputedStyle(),
                      /* originating_element_style */ nullptr,
-                     view_transition_name_));
+                     pseudo_argument_));
   }
   return parent->StyleForPseudoElement(
       style_recalc_context,
       StyleRequest(GetPseudoIdForStyling(), parent->GetComputedStyle(),
-                   /* originating_element_style */ nullptr,
-                   view_transition_name_));
+                   /* originating_element_style */ nullptr, pseudo_argument_));
 }
 
 // static
-bool PseudoElement::IsLayoutSiblingOfOriginatingElement(PseudoId pseudo_id) {
+bool PseudoElement::IsLayoutSiblingOfOriginatingElement(
+    const Element& originating_element,
+    PseudoId pseudo_id) {
+  if (originating_element.IsDocumentElement()) {
+    return false;
+  }
   return pseudo_id == kPseudoIdScrollButtonBlockStart ||
          pseudo_id == kPseudoIdScrollButtonInlineStart ||
          pseudo_id == kPseudoIdScrollButtonBlockEnd ||
@@ -360,7 +363,15 @@ bool PseudoElement::IsLayoutSiblingOfOriginatingElement(PseudoId pseudo_id) {
          pseudo_id == kPseudoIdScrollButton ||
          pseudo_id == kPseudoIdScrollMarkerGroup ||
          pseudo_id == kPseudoIdScrollMarkerGroupAfter ||
-         pseudo_id == kPseudoIdScrollMarkerGroupBefore;
+         pseudo_id == kPseudoIdScrollMarkerGroupBefore ||
+         pseudo_id == kPseudoIdViewTransition;
+}
+
+bool PseudoElement::IsLayoutSiblingOfOriginatingElement() const {
+  if (Element* parent = parentElement()) {
+    return IsLayoutSiblingOfOriginatingElement(*parent, GetPseudoId());
+  }
+  return false;
 }
 
 const ComputedStyle* PseudoElement::AdjustedLayoutStyle(

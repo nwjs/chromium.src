@@ -16,8 +16,8 @@
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/time/time.h"
-#include "components/page_load_metrics/browser/page_load_metrics_observer.h"
-#include "components/page_load_metrics/common/page_load_metrics.mojom.h"
+#include "components/page_load_metrics/browser/page_load_metrics_observer_interface.h"
+#include "components/page_load_metrics/common/page_load_metrics.mojom-forward.h"
 #include "components/page_load_metrics/common/page_load_timing.h"
 #include "content/public/browser/auction_result.h"
 #include "content/public/browser/render_frame_host_receiver_set.h"
@@ -28,7 +28,7 @@
 #include "net/cookies/canonical_cookie.h"
 #include "services/network/public/mojom/fetch_api.mojom-forward.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
-#include "third_party/blink/public/mojom/loader/resource_load_info.mojom.h"
+#include "third_party/blink/public/mojom/loader/resource_load_info.mojom-forward.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-forward.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/webdx_feature.mojom.h"
 
@@ -39,11 +39,12 @@ class RenderFrameHost;
 
 namespace page_load_metrics {
 
-struct MemoryUpdate;
+class MetricsLifecycleObserver;
 class PageLoadMetricsEmbedderInterface;
 class PageLoadMetricsMemoryTracker;
+class PageLoadMetricsObserverDelegate;
 class PageLoadTracker;
-class MetricsLifecycleObserver;
+struct MemoryUpdate;
 
 // MetricsWebContentsObserver tracks page loads and loading metrics
 // related data based on IPC messages received from a
@@ -148,6 +149,18 @@ class MetricsWebContentsObserver
   // Returns the delegate for the current committed primary page load, required
   // for `MetricsLifecycleObserver`s.
   const PageLoadMetricsObserverDelegate& GetDelegateForCommittedLoad();
+
+  // Returns the delegate for the committed load if one is being tracked. This
+  // method is a safer alternative to
+  // `GetDelegateForCommittedLoad()` for callers that may be operating on a
+  // WebContents where page load metrics are not being actively tracked.
+  //
+  // Unlike `GetDelegateForCommittedLoad()`, which will CHECK-fail if called at
+  // an invalid time (e.g., before a primary navigation has committed or on a
+  // page type that is not tracked), this method will return a nullptr.
+  //
+  // Callers must check the returned pointer for null before using it.
+  const PageLoadMetricsObserverDelegate* GetDelegateForCommittedLoadOrNull();
 
   // Returns the embedder interface. Public for testing.
   PageLoadMetricsEmbedderInterface* GetEmbedderInterfaceForTesting() const {

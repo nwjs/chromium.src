@@ -19,6 +19,7 @@
 <translation id="110877069173485804">‏זה ה-Chrome שלך</translation>
 <translation id="1125124144982679672">‏מי משתמש/ת ב-Chrome?</translation>
 <translation id="1142745911746664600">‏לא ניתן לעדכן את Chrome</translation>
+<translation id="1148360048981192980">‏בפעם הבאה ש-Chrome ייפתח במכשיר <ph name="DEVICE_TYPE" />, תופיע הנחיה להשתמש במנהל הסיסמאות של Google.</translation>
 <translation id="1152920704813762236">‏מידע על ChromeOS</translation>
 <translation id="1154147086299354128">‏&amp;פתיחה ב-Chrome</translation>
 <translation id="1157985233335035034">שפות אחרונות</translation>
@@ -88,6 +89,7 @@
 <translation id="2018528049276128029">‏בכל פרופיל מאוחסנים נתוני Chrome משלו כמו סימניות, היסטוריה, סיסמאות ועוד</translation>
 <translation id="2018879682492276940">ההתקנה נכשלה. יש לנסות שוב.</translation>
 <translation id="2024959665595762054">‏כדי להשתמש בנתוני Chrome ולשמור אותם בחשבון Google, עליך לאמת את הזהות שלך</translation>
+<translation id="2026377840141807639">‏פרופילים ב-Chrome מאפשרים לך להפריד בין הגלישה האישית לבין הגלישה בעבודה. אפשר להוסיף פרופיל חדש עכשיו.</translation>
 <translation id="2034233344106846793">‏‫Chrome משדרג חיבורים לא מאובטחים ל-HTTPS באופן אוטומטי כשאפשר</translation>
 <translation id="2039417478970545937">הגדרות.</translation>
 <translation id="2091012649849228750">‏כדי לקבל עדכונים של Google Chrome בעתיד, צריך להשתמש ב-Windows מגרסה 10 ואילך. במחשב הזה פועלת מערכת Windows 8.</translation>
@@ -146,9 +148,11 @@
 <translation id="2681444469812712297">‏פתיחה של <ph name="URL" /> בכרטיסייה חדשה ב-Google Chrome.</translation>
 <translation id="2699790011615497488">‏פתיחת Gemini ב-Chrome בטא</translation>
 <translation id="2712141162840347885">‏אפשר לבחור משהו לחיפוש באמצעות Google Lens או ללחוץ על Escape כדי לצאת מ-Google Lens</translation>
+<translation id="2723860029395667894">‏להציג תמיד את קיצור הדרך למצב AI של Google</translation>
 <translation id="2738871930057338499">‏לא ניתן להתחבר לאינטרנט. HTTP 403: קוד איסור. צריך לבדוק את ההגדרה של שרת ה-proxy.</translation>
 <translation id="2742320827292110288">‏אזהרה: Google Chrome לא יכול למנוע מתוספים לתעד את היסטוריית הגלישה שלך. כדי להשבית את התוסף הזה במצב אנונימי, יש לבטל את הבחירה באפשרות הזו.</translation>
 <translation id="2753623023919742414">צריך ללחוץ כדי לחפש</translation>
+<translation id="2757826245013442432">{COUNT,plural, =0{‏כדי שהעדכון ייכנס לתוקף, צריך להפעיל מחדש את Chrome במסגרת ההגנה המתקדמת}=1{‏כדי שהעדכון ייכנס לתוקף, צריך להפעיל מחדש את Chrome במסגרת ההגנה המתקדמת. החלון הפרטי לא ייפתח מחדש.}one{‏כדי שהעדכון ייכנס לתוקף, צריך להפעיל מחדש את Chrome במסגרת ההגנה המתקדמת. # החלונות הפרטיים לא ייפתחו מחדש.}two{‏כדי שהעדכון ייכנס לתוקף, צריך להפעיל מחדש את Chrome במסגרת ההגנה המתקדמת. # החלונות הפרטיים לא ייפתחו מחדש.}other{‏כדי שהעדכון ייכנס לתוקף, צריך להפעיל מחדש את Chrome במסגרת ההגנה המתקדמת. # החלונות הפרטיים לא ייפתחו מחדש.}}</translation>
 <translation id="2765403129283291972">‏Chrome זקוק להרשאת גישה למיקרופון בשביל האתר הזה</translation>
 <translation id="2770231113462710648">שינוי דפדפן ברירת המחדל ל:</translation>
 <translation id="2775140325783767197">‏Chrome לא יכול לבדוק את הסיסמאות שלך. יש לבדוק את החיבור לאינטרנט.</translation>
@@ -186,6 +190,7 @@
 <translation id="3047590466164881923">סגירה של תיבת דו-שיח של משוב</translation>
 <translation id="306179102415443347">‏באמצעות קיצורי הדרך אפשר להגיע מהר למנהל הסיסמאות של Google. ניתן להעביר את קיצור הדרך למרכז האפליקציות או למסך הבית של המחשב.</translation>
 <translation id="3065168410429928842">‏כרטיסייה של Chrome</translation>
+<translation id="3073571714401714450">‏הפעלה או השבתה של Gemini ב-Chrome פיתוח</translation>
 <translation id="3080151273017101988">‏המשך הפעלת אפליקציות ברקע כאשר Google Chrome סגור</translation>
 <translation id="308397506772922478">‏אם שכחת את ביטוי הסיסמה או שברצונך לשנות את ההגדרה הזו, <ph name="BEGIN_LINK" />עליך למחוק את נתוני Chrome בחשבון<ph name="END_LINK" /></translation>
 <translation id="3100998948628680988">‏בחירת שם לפרופיל Chrome שלך</translation>
@@ -271,7 +276,6 @@
 <translation id="409936259433005390">‏רוצה לשדרג בקרוב ל-Windows 11? כדאי להתכונן ולהוריד את תוכנת ההתקנה של Chrome ל-OneDrive.</translation>
 <translation id="4110895483821904099">‏הגדרת הפרופיל החדש שלך ב-Chrome</translation>
 <translation id="4111566860456076004">‏‫Chrome לא יכול לאמת את מקור התוסף הזה, ויכול להיות שהוא לא בטוח. צריך להסיר אותו מ-Chrome כדי לא לאפשר לו יותר לראות ולשנות את הנתונים שלך באתרים שאליהם תתבצע כניסה, כולל הפרטים האישיים שלך.</translation>
-<translation id="4128488089242627000">‏דפדפן Chrome פועל מהר יותר ותכונות שמשתמשות ב-JavaScript אמורות לפעול כמו שצריך (מומלץ)</translation>
 <translation id="4147555960264124640">‏בחרת להיכנס לחשבון מנוהל, ומנהל המערכת שלו יקבל שליטה על הפרופיל שלך ב-Chrome. הנתונים שלך ב-Chrome, כגון אפליקציות, סימניות, היסטוריה, סיסמאות והגדרות אחרות ייקשרו באופן קבוע ל-<ph name="USER_NAME" />. ניתן למחוק את הנתונים האלה באמצעות מרכז השליטה של חשבונות Google, אבל לא ניתן יהיה לשייך את הנתונים האלה לחשבון אחר. <ph name="LEARN_MORE" /></translation>
 <translation id="4148957013307229264">מתקין...</translation>
 <translation id="4149882025268051530">‏המתקין נכשל בביצוע דחיסה לארכיון. יש להוריד שוב את Google Chrome.</translation>
@@ -359,6 +363,7 @@
 <translation id="5170938038195470297">‏לא ניתן להשתמש בפרופיל שלך משום שהוא מגרסה חדשה יותר של Google Chrome. ייתכן שחלק מהתכונות לא יהיו זמינות. ציין ספריית פרופיל אחרת או השתמש בגרסה חדשה יותר של Chrome.</translation>
 <translation id="5174969993834422967">הבחירה שלך היא בדרך כלל לחסום התראות. כדי לאפשר לאתר הזה להציג התראות, יש ללחוץ על סמל ההתראה בפינה השמאלית של סרגל המיקום.</translation>
 <translation id="5174983315706567306">אין מספיק מקום בכונן.</translation>
+<translation id="5190467473654176081">‏אפשר לשנות את המראה של Chrome</translation>
 <translation id="5201744974236816379">‏עדכון ל-Chrome</translation>
 <translation id="521447420733633466">‏כשמשתפים מכשיר, חברים ובני משפחה יכולים לגלוש בנפרד ולהגדיר את Chrome בדיוק כפי שהם רוצים</translation>
 <translation id="5234764350956374838">סגירה</translation>
@@ -374,11 +379,13 @@
 <translation id="5368118228313795342">קוד נוסף: <ph name="EXTRA_CODE" />.</translation>
 <translation id="5386244825306882791">‏הגדרה זו גם קובעת איזה דף מוצג כשמפעילים את Chrome או כשמבצעים חיפוש מסרגל הכתובות.</translation>
 <translation id="5394833366792865639">‏שיתוף כרטיסיית Chrome</translation>
+<translation id="5402307365844630024">‏הפעלה או השבתה של Gemini ב-Chrome בטא</translation>
 <translation id="5430073640787465221">‏קובץ ההעדפות שלך פגום או לא חוקי. Google Chrome לא יכול לשחזר את ההגדרות שלך.</translation>
 <translation id="5468572406162360320">‏כדי לשפר את התכונות האלו, Chrome שולח את האינטראקציות שלך איתן ל-Google. בודקים אנושיים יכולים לקרוא את הנתונים האלה, לעבד אותם ולהוסיף להם הערות.</translation>
 <translation id="5510398294750420479">‏רוצה עוד שכבת הגנה בכל מקום? כדאי להוריד את Chrome לטלפון</translation>
 <translation id="5524890928877629608">‏הפינה השמאלית העליונה של אזור החיפוש: ‎<ph name="LEFT" />%‎ משמאל, ‎<ph name="TOP" />%‎ מלמעלה</translation>
 <translation id="5530733413481476019">‏שיפור המהירות ב-Chrome</translation>
+<translation id="5550137307985173298">‏אפשר ללחוץ על הכפתור "התאמה אישית של Chrome" בדף הכרטיסייה החדשה כדי לשנות את המראה של Chrome</translation>
 <translation id="5566025111015594046">‏Google Chrome‏ (mDNS-In)</translation>
 <translation id="5579324208890605088">שגיאת הפעלה: יש להפעיל את מנהל ההתקנה כמשתמש רגיל ולא כאדמין.</translation>
 <translation id="5596627076506792578">אפשרויות נוספות</translation>
@@ -407,6 +414,7 @@
 <translation id="5736850870166430177">‏אם באתר כלשהו מתבצע ניסיון לגנוב את הסיסמה שלך, או אם המערכת מזהה הורדה של קובץ מזיק, Chrome עשוי גם לשלוח כתובות URL לבדיקה באמצעות 'גלישה בטוחה'. הנתונים שנשלחים לבדיקה כוללים ביטים מתוכן של דפים</translation>
 <translation id="5756509061973259733">‏כבר קיים במכשיר פרופיל Chrome עם החשבון הזה.</translation>
 <translation id="5759947850379142561">‏אפשר לבחור טקסט או תמונה לחיפוש באמצעות Google Lens או ללחוץ על Escape כדי לצאת מ-Google Lens</translation>
+<translation id="5762867845020858790">‏אפשר להוסיף פרופיל חדש ב-Chrome כדי להפריד בין הסימניות, הסיסמאות וההגדרות.</translation>
 <translation id="5795887333006832406">‏<ph name="PAGE_TITLE" /> - Google Chrome בגרסת Canary</translation>
 <translation id="5804318322022881572">‏לא ניתן היה להפעיל את Chrome. יש לנסות שוב.</translation>
 <translation id="5809516625706423866">‏לא ניתן להתחבר לאינטרנט. HTTP 401: אין הרשאה. צריך לבדוק את ההגדרה של שרת ה-proxy.</translation>
@@ -423,6 +431,7 @@
 <translation id="5941711191222866238">מזעור</translation>
 <translation id="5941830788786076944">‏Google Chrome יהיה דפדפן ברירת המחדל</translation>
 <translation id="5947104538377036631">‏קיצור דרך ב-Chrome</translation>
+<translation id="5960071705175224773">ההגדרות שלך שונו על ידי אפליקציה לא ידועה</translation>
 <translation id="5968400720580217226">‏מצב AI</translation>
 <translation id="5980111191913430208">‏תוספים, אפליקציות ועיצובים ממקורות לא מוכרים עלולים להזיק למכשיר. ההמלצה של Chromium היא להתקין אותם רק מ<ph name="IDS_EXTENSION_WEB_STORE_TITLE" /></translation>
 <translation id="6003112304606738118">מתבצעת הורדה… יש עוד <ph name="HOURS" /> שע'</translation>
@@ -473,6 +482,7 @@
 <translation id="6412673304250309937">‏המערכת בודקת כתובות URL ששמורות ב-Chrome ומכילות רשימות של אתרים לא בטוחים. אם אתר מסוים מנסה לגנוב סיסמה או אם המערכת מזהה הורדה של קובץ מזיק, Chrome עשוי גם לשלוח כתובות URL לבדיקה באמצעות 'גלישה בטוחה'. הנתונים שנשלחים לבדיקה כוללים ביטים מהתוכן של הדף.</translation>
 <translation id="6417690341895039567">{COUNT,plural, =1{‏לפי הגדרת הארגון, Chrome נסגר אוטומטית כשלא משתמשים בו במשך דקה. נתוני הגלישה נמחקים. בין הנתונים שיימחקו: היסטוריה, מילוי אוטומטי והורדות.}one{‏לפי הגדרת הארגון, Chrome נסגר אוטומטית כשלא משתמשים בו במשך # דקות. נתוני הגלישה נמחקים. בין הנתונים שיימחקו: היסטוריה, מילוי אוטומטי והורדות.}two{‏לפי הגדרת הארגון, Chrome נסגר אוטומטית כשלא משתמשים בו במשך # דקות. נתוני הגלישה נמחקים. בין הנתונים שיימחקו: היסטוריה, מילוי אוטומטי והורדות.}other{‏לפי הגדרת הארגון, Chrome נסגר אוטומטית כשלא משתמשים בו במשך # דקות. נתוני הגלישה נמחקים. בין הנתונים שיימחקו: היסטוריה, מילוי אוטומטי והורדות.}}</translation>
 <translation id="6418662306461808273">‏לעבור לפרופיל Chrome קיים?</translation>
+<translation id="6426623519983252346">‏בפעם הבאה ש-Chrome ייפתח ב-iOS, תופיע הנחיה לנסות את <ph name="FEATURE_NAME" />.</translation>
 <translation id="6473905796280459355">‏מעבר לדף 'מידע על Chrome'</translation>
 <translation id="6481963882741794338">‏אפשר לקשר את Chrome לשירותי Google אחרים לצורך התאמה אישית ולמטרות אחרות</translation>
 <translation id="648319183876919572">הגרסה המשופרת של הגלישה הבטוחה מגנה עליך טוב יותר מפני הורדות ואתרים מסוכנים</translation>
@@ -505,6 +515,7 @@
 <translation id="6800285125190089494">‏רוצה להיכנס מהר יותר לאתרים? כדאי להשתמש בסיסמאות שמורות ב-Chrome ב-iOS</translation>
 <translation id="6831043979455480757">תרגום</translation>
 <translation id="683440813066116847">‏כלל נכנס עבור הגרסה הניסיונית של Google Chrome על מנת לאפשר תנועת mDNS.</translation>
+<translation id="6841242485723266823">‏פרופילים ב-Chrome עוזרים להפריד בין חלקים שונים בחיים שלך. אפשר להוסיף פרופיל חדש עכשיו.</translation>
 <translation id="684888714667046800">לא ניתן להתחבר לאינטרנט. אם משתמשים בחומת אש, צריך לוודא ש-<ph name="PRODUCT_EXE_NAME" /> ברשימת ההיתרים.</translation>
 <translation id="6877155553248388166">‏הפינה הימנית התחתונה של אזור החיפוש: ‎<ph name="RIGHT" />%‎ מימין, ‎<ph name="BOTTOM" />%‎ מלמטה</translation>
 <translation id="6881299373831449287">‏מתבצע עדכון של Chrome</translation>
@@ -520,6 +531,7 @@
 <translation id="6967962315388095737">‏כלל נכנס לגרסת הבטא של Google Chrome כדי לאפשר תנועת mDNS.</translation>
 <translation id="6979589607440534284">‏מידע על חסימה של קבצים מסוימים ב-Chrome, נפתח בכרטיסייה חדשה</translation>
 <translation id="6991926986715044139">‏תמיד להציג את קיצור הדרך ל-Google Lens</translation>
+<translation id="6999131147875565462">‏דפדפן Chrome פועל מהר יותר ותכונות שמשתמשות ב-JavaScript אמורות לפעול כמו שצריך</translation>
 <translation id="7011190694940573312">ההתקנה נכשלה כי הגרסה הזו של מערכת ההפעלה לא נתמכת.</translation>
 <translation id="7024536598735240744">שגיאה בפתיחה: <ph name="UNPACK_ERROR" />.</translation>
 <translation id="7025789849649390912">ההתקנה נעצרה.</translation>
@@ -645,6 +657,7 @@
 <translation id="8362914115861174987">תרגום ל</translation>
 <translation id="8366770919198174997">‏ירידה ברמת הביצועים בתמורה להגברת העמידות של Chrome בפני מתקפות</translation>
 <translation id="8370517070665726704">‏Copyright <ph name="YEAR" /> Google LLC.‎ כל הזכויות שמורות.</translation>
+<translation id="8377158135256176353">‏הפעלה או השבתה של Gemini ב-Chrome Canary</translation>
 <translation id="8387459386171870978">‏המשך השימוש ב-Chrome</translation>
 <translation id="8394720698884623075">‏המערכת בודקת כתובות URL בעזרת רשימה של אתרים לא בטוחים ששמורה ב-Chrome</translation>
 <translation id="8403038600646341038">‏הלוגו של Chromium בתוך מסך מחשב.</translation>
@@ -667,8 +680,10 @@
 <translation id="8625237574518804553">{0,plural, =1{‏Chrome יופעל מחדש בעוד דקה}one{‏Chrome יופעל מחדש בעוד # דקות}two{‏Chrome יופעל מחדש בעוד # דקות}other{‏Chrome יופעל מחדש בעוד # דקות}}</translation>
 <translation id="8637932705841171563">‏כדי לשתף את החלון, צריך לאפשר הקלטת מסך ב-Chrome בקטע "הגדרות המערכת"</translation>
 <translation id="8641606876632989680">‏אם מערכת Chrome תזהה שנכנסת עם סיסמה שנחשפה, היא תתריע לך על כך</translation>
+<translation id="8647930742055103497">‏הכל נשאר ב-Chrome</translation>
 <translation id="8656634243791296665">‏פתיחת Gemini ב-Chrome פיתוח</translation>
 <translation id="8669527147644353129">Google Chrome Helper</translation>
+<translation id="8677922833187616101">‏להציג תמיד את קיצור הדרך למצב AI של Google</translation>
 <translation id="8679801911857917785">‏הגדרה זו גם קובעת איזה דף מוצג כשמפעילים את Chrome.</translation>
 <translation id="8712637175834984815">הבנתי</translation>
 <translation id="8712767363896337380">‏העדכון כמעט הושלם. כדי להשלים את העדכון, עליך להפעיל את Chrome מחדש.</translation>
@@ -677,7 +692,6 @@
 <translation id="873133009373065397">‏Google Chrome אינו יכול לקבוע או להגדיר את דפדפן ברירת המחדל</translation>
 <translation id="8747073452963259673">‏הפינה השמאלית התחתונה של אזור החיפוש: ‎<ph name="LEFT" />%‎ משמאל, ‎<ph name="BOTTOM" />%‎ מלמטה</translation>
 <translation id="8748735421235723888">‏‫Chrome מפנה מקום בזיכרון שמוקצה לכרטיסיות לא פעילות. כך, לכרטיסיות הפעילות ולאפליקציות אחרות יש יותר משאבים מהמחשב ו-Chrome פועל מהר. כשחוזרים לכרטיסיות הלא פעילות, הן מופעלות מחדש באופן אוטומטי. <ph name="BEGIN_LINK" />מידע נוסף על מצב חיסכון בזיכרון<ph name="END_LINK" /></translation>
-<translation id="8753189155654018347">‏הסרת הנתונים של האפליקציות האלה מ-Chrome</translation>
 <translation id="8765470054473112089">‏כשמקלידים טקסט בסרגל הכתובות או בתיבת החיפוש, Chrome שולח את הטקסט הזה למנוע החיפוש שמוגדר כברירת מחדל כדי לקבל הצעות טובות יותר. האפשרות הזו מושבתת במצב הפרטי.</translation>
 <translation id="8781673607513845160">‏כדי להשתמש במצלמה, צריך להיכנס אל <ph name="BEGIN_LINK" />הגדרות המערכת<ph name="END_LINK" /> ולתת ל-Chrome גישה</translation>
 <translation id="878572486461146056">שגיאת התקנה: מנהל הרשת החיל מדיניות קבוצתית שמונעת את ההתקנה: <ph name="INSTALL_ERROR" /></translation>
@@ -693,12 +707,15 @@
 <translation id="8883862939660515976">‏רוצה לשאול ב-Google Lens על התמונה הזו?</translation>
 <translation id="8914504000324227558">‏הפעלה מחדש של Chrome</translation>
 <translation id="8922193594870374009">‏כדי לשלוח מספר מ-<ph name="ORIGIN" /> לטלפון Android, יש להיכנס אל Chrome בשני המכשירים.</translation>
+<translation id="8922998289262614701">‏להסיר את הנתונים של האפליקציה הזאת מ-Chrome?</translation>
+<translation id="8936233353620149764">‏הפעלה או השבתה של Gemini ב-Chrome</translation>
 <translation id="8948460679427074738">‏לתוסף הזה לא פורסמו נוהלי פרטיות, למשל האופן שבו הוא אוסף נתונים ומשתמש בהם. ההמלצה של Chrome היא להסיר אותו.</translation>
 <translation id="8958307504142971576">‏עכשיו יש לך יותר תכונות זמינות ב-Chrome</translation>
 <translation id="8991530961471831170">‏פתיחת Gemini ב-Chrome</translation>
 <translation id="8992769679401294069">‏הנתונים שלך מוצפנים באמצעות ביטוי הסיסמה. כדי להשתמש בנתוני Chrome ולשמור אותם בחשבון Google, עליך להזין את ביטוי הסיסמה.</translation>
 <translation id="8999117580775242387">‏כש-HTTPS לא יהיה זמין, Chrome ישתמש בחיבור לא מאובטח בלי להציג אזהרה</translation>
 <translation id="8999208279178790196">{0,plural, =0{‏יש עדכון זמין ל-Chrome}=1{‏יש עדכון זמין ל-Chrome}one{‏עדכון ל-Chrome זמין כבר # ימים}two{‏עדכון ל-Chrome זמין כבר # ימים}other{‏עדכון ל-Chrome זמין כבר # ימים}}</translation>
+<translation id="9010418943148193727">‏מנוע החיפוש שמוגדר כברירת מחדל השתנה מחוץ ל-Chrome. כדי להגן עליך, Chrome איפס את ההגדרה.</translation>
 <translation id="9014771989710951291">‏מספר ארגונים מנהלים את Chrome</translation>
 <translation id="9024318700713112071">‏הגדרת Chrome כדפדפן ברירת המחדל</translation>
 <translation id="9066987883552592250">‏סגירת Gemini ב-Chrome Canary</translation>

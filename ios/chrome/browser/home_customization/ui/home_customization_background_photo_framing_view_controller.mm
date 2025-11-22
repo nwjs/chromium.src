@@ -4,12 +4,13 @@
 
 #import "ios/chrome/browser/home_customization/ui/home_customization_background_photo_framing_view_controller.h"
 
-#import <algorithm>
+#import <cmath>
 
 #import "base/check.h"
 #import "base/functional/bind.h"
 #import "base/functional/callback.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_collection_utils.h"
+#import "ios/chrome/browser/home_customization/ui/home_customization_accessibility_identifiers.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_background_photo_framing_mutator.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_framing_coordinates.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_search_engine_logo_mediator_provider.h"
@@ -88,6 +89,8 @@ const CGFloat kGradientSpacingAboveInstructions = 150;
   [super viewDidLoad];
 
   self.view.backgroundColor = UIColor.blackColor;
+  self.view.accessibilityIdentifier =
+      kPhotoFramingMainViewAccessibilityIdentifier;
 
   [self setupScrollView];
   [self setupImageView];
@@ -264,6 +267,8 @@ const CGFloat kGradientSpacingAboveInstructions = 150;
 
   _saveButton = [UIButton buttonWithConfiguration:saveConfig primaryAction:nil];
   _saveButton.translatesAutoresizingMaskIntoConstraints = NO;
+  _saveButton.accessibilityIdentifier =
+      kPhotoFramingViewSaveButtonAccessibilityIdentifier;
   [_saveButton addTarget:self
                   action:@selector(saveButtonTapped)
         forControlEvents:UIControlEventTouchUpInside];
@@ -406,9 +411,9 @@ const CGFloat kGradientSpacingAboveInstructions = 150;
 
 // Updates the width of the fake omnibox based on the current view width.
 - (void)updateOmniboxWidth {
-  CGFloat contentWidth = std::max<CGFloat>(
-      0, self.view.bounds.size.width - self.view.safeAreaInsets.left -
-             self.view.safeAreaInsets.right);
+  CGFloat contentWidth =
+      std::fmax(0, self.view.bounds.size.width - self.view.safeAreaInsets.left -
+                       self.view.safeAreaInsets.right);
   if (contentWidth == 0) {
     return;
   }
@@ -528,14 +533,14 @@ const CGFloat kGradientSpacingAboveInstructions = 150;
 
   // Translate the rect, keeping the same size, to make sure it's inside the
   // bounds of the original image.
-  visibleRectInOriginal.origin.x = std::clamp<CGFloat>(
-      visibleRectInOriginal.origin.x, 0,
-      std::max<CGFloat>(
-          0, _originalImage.size.width - visibleRectInOriginal.size.width));
-  visibleRectInOriginal.origin.y = std::clamp<CGFloat>(
-      visibleRectInOriginal.origin.y, 0,
-      std::max<CGFloat>(
-          0, _originalImage.size.height - visibleRectInOriginal.size.height));
+  visibleRectInOriginal.origin.x =
+      std::clamp<CGFloat>(visibleRectInOriginal.origin.x, 0,
+                          std::fmax(0, _originalImage.size.width -
+                                           visibleRectInOriginal.size.width));
+  visibleRectInOriginal.origin.y =
+      std::clamp<CGFloat>(visibleRectInOriginal.origin.y, 0,
+                          std::fmax(0, _originalImage.size.height -
+                                           visibleRectInOriginal.size.height));
 
   return [[HomeCustomizationFramingCoordinates alloc]
       initWithVisibleRect:visibleRectInOriginal];

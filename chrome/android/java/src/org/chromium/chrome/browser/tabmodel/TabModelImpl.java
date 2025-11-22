@@ -8,13 +8,12 @@ import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.app.Activity;
 
-import com.google.common.collect.ImmutableList;
-
 import org.chromium.base.MathUtils;
 import org.chromium.base.ObserverList;
 import org.chromium.base.Token;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.process_launcher.ScopedServiceBindingBatch;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.build.annotations.EnsuresNonNullIf;
@@ -35,6 +34,8 @@ import org.chromium.chrome.browser.tabmodel.NextTabPolicy.NextTabPolicySupplier;
 import org.chromium.chrome.browser.tabmodel.PendingTabClosureManager.PendingTabClosureDelegate;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter.MergeNotificationType;
 import org.chromium.chrome.browser.tasks.tab_management.MoveTabUtils;
+import org.chromium.components.tabs.TabStripCollection;
+import org.chromium.components.ukm.UkmRecorder;
 import org.chromium.content_public.browser.WebContents;
 
 import java.util.ArrayList;
@@ -49,14 +50,16 @@ import java.util.Set;
 /**
  * This is the implementation of the synchronous {@link TabModel} for the {@link
  * ChromeTabbedActivity}.
+ *
+ * @deprecated This class is replaced by {@link TabCollectionTabModelImpl}. This class will be
+ *     deleted in the coming weeks. If you make a change to this class it MUST be mirrored to {@link
+ *     TabCollectionTabModelImpl}.
  */
+@Deprecated
 @NullMarked
 public class TabModelImpl extends TabModelJniBridge {
-    /**
-     * The application ID used for tabs opened from an application that does not specify an app ID
-     * in its VIEW intent extras.
-     */
-    public static final String UNKNOWN_APP_ID = "com.google.android.apps.chrome.unknown_app";
+    /** The name of the UKM event used for tab state changes. */
+    private static final String UKM_METRICS_TAB_STATE_CHANGED = "Tab.StateChange";
 
     /**
      * The main list of tabs. Note that when this changes, all pending closures must be committed
@@ -104,6 +107,13 @@ public class TabModelImpl extends TabModelJniBridge {
         public void insertUndoneTabClosureAt(Tab tab, int insertIndex) {
             if (mIndex >= insertIndex) mIndex++;
             assert !tab.isDestroyed() : "Attempting to undo tab that is destroyed.";
+
+            // Alert observers that the tab closure will be undone. Intentionally notifies before
+            // the tabs have been re-inserted into the model.
+            for (TabModelObserver obs : mObservers) {
+                obs.willUndoTabClosure(Collections.singletonList(tab), /* isAllTabs= */ false);
+            }
+
             mTabs.add(insertIndex, tab);
             tab.onAddedToTabModel(mCurrentTabSupplier, TabModelImpl.this::isTabMultiSelected);
             mTabIdToTabs.put(tab.getId(), tab);
@@ -125,7 +135,7 @@ public class TabModelImpl extends TabModelJniBridge {
             // * UndoRefocusHelper may update the index out-of-band.
             for (TabModelObserver obs : mObservers) {
                 if (ChromeFeatureList.sTabClosureMethodRefactor.isEnabled()) {
-                    obs.onTabCloseUndone(ImmutableList.of(tab), /* isAllTabs= */ false);
+                    obs.onTabCloseUndone(Collections.singletonList(tab), /* isAllTabs= */ false);
                 } else {
                     obs.tabClosureUndone(tab);
                 }
@@ -406,20 +416,47 @@ public class TabModelImpl extends TabModelJniBridge {
     }
 
     @Override
-    public void pinTab(int tabId) {
+    public void pinTab(
+            int tabId,
+            boolean showUngroupDialog,
+            @Nullable TabModelActionListener tabModelActionListener) {
+        Tab eligibleTabToPin = getEligibleTabToPin(tabId);
+        if (eligibleTabToPin == null) return;
+
+        TabPinnerActionListener listener =
+                new TabPinnerActionListener(() -> doPin(tabId), tabModelActionListener);
+        getTabUngrouper()
+                .ungroupTabs(
+                        Collections.singletonList(eligibleTabToPin),
+                        /* trailing= */ true,
+                        showUngroupDialog,
+                        listener);
+        listener.pinIfCollaborationDialogShown();
+    }
+
+    private @Nullable Tab getEligibleTabToPin(int tabId) {
+        Tab tab = getTabById(tabId);
+        if (tab == null) return null;
+
+        if (tab.getIsPinned()) return null;
+
+        return tab;
+    }
+
+    private void doPin(int tabId) {
+        Tab tab = getEligibleTabToPin(tabId);
+        if (tab == null) return;
+
         int availableIndex = findFirstNonPinnedTabIndex();
         if (availableIndex == mTabs.size()) return;
 
-        Tab tab = getTabById(tabId);
-        if (tab == null) return;
+        WebContents webContents = tab.getWebContents();
+        if (webContents != null) {
+            new UkmRecorder(webContents, UKM_METRICS_TAB_STATE_CHANGED)
+                    .addBooleanMetric("IsPinned")
+                    .record();
+        }
 
-        if (tab.getIsPinned()) return;
-
-        // Call #notifyWillChangePinState before #moveTab. The notify step triggers
-        // TabGroupModelFilterImpl#willChangePinState to ungroup the tab prior to pinning.
-        // #moveTab typically kicks off StripLayoutHelper#rebuildStripView. If rebuild runs
-        // before the tab is removed from its group, the strip can treat the group as split,
-        // miscount groups, and hit an out-of-bounds.
         notifyWillChangeInPinState(tab);
         tab.setIsPinned(true);
         recordPinTimestamp(tab);
@@ -773,7 +810,10 @@ public class TabModelImpl extends TabModelJniBridge {
     @Override
     public void setIndex(int i, final @TabSelectionType int type) {
         if (mIsArchivedTabModel) return;
-        try {
+        // Batch service binding updates for the tabs becoming active and inactive. The activeness
+        // change usually causes visibility changes, which updates service bindings of subframes at
+        // the same time.
+        try (ScopedServiceBindingBatch scope = ScopedServiceBindingBatch.scoped()) {
             TraceEvent.begin("TabModelImpl.setIndex");
             int lastId =
                     mCurrentTabSupplier.get() != null
@@ -798,7 +838,7 @@ public class TabModelImpl extends TabModelJniBridge {
                     obs.didSelectTab(tab, type, lastId);
                     // Required, otherwise the previously active tab will have MULTISELECTED as its
                     // VisualState.
-                    obs.onTabSelectionChanged();
+                    obs.onTabsSelectionChanged();
                 }
                 boolean wasAlreadySelected = tab.getId() == lastId;
                 if (!wasAlreadySelected && type == TabSelectionType.FROM_USER) {
@@ -932,9 +972,7 @@ public class TabModelImpl extends TabModelJniBridge {
 
         // Deferred until another tab is selected. Otherwise the compositor may try to re-navigate
         // the tab.
-        if (ChromeFeatureList.sTabFreezeOnUndoableClosureKillSwitch.isEnabled()
-                && pauseMedia
-                && TabUtils.isCapturingForMedia(tab)) {
+        if (pauseMedia && TabUtils.isCapturingForMedia(tab)) {
             // If media is being captured freeze the tab to disconnect it.
             tab.freeze();
         }
@@ -1134,5 +1172,10 @@ public class TabModelImpl extends TabModelJniBridge {
         }
 
         return firstNonPinnedIndex;
+    }
+
+    @Override
+    public @Nullable TabStripCollection getTabStripCollection() {
+        return null;
     }
 }

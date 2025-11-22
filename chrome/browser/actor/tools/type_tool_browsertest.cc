@@ -35,32 +35,16 @@ namespace {
 //
 // For Glic integration coverage of these scenarios, see the interactive
 // UI tests in the chrome/browser/glic/host/ directory.
-class ActorTypeToolBrowserTest
-    : public ActorToolsTest,
-      public ::testing::WithParamInterface<
-          std::tuple<::features::ActorPaintStabilityMode,
-                     ::features::ActorGeneralPageStabilityMode>> {
+class ActorTypeToolBrowserTest : public ActorToolsTest,
+                                 public ::testing::WithParamInterface<
+                                     ::features::ActorPaintStabilityMode> {
  public:
-  static std::string DescribeParams(
-      const testing::TestParamInfo<ParamType>& info) {
-    auto [paint_stability_mode, general_page_stability_mode] = info.param;
-    std::stringstream params_description;
-    params_description << DescribePaintStabilityMode(paint_stability_mode)
-                       << "_"
-                       << DescribeGeneralPageStabilityMode(
-                              general_page_stability_mode);
-    return params_description.str();
-  }
-
   ActorTypeToolBrowserTest() {
-    auto [paint_stability_mode, general_page_stability_mode] = GetParam();
+    auto paint_stability_mode = GetParam();
     feature_list_.InitAndEnableFeatureWithParameters(
         ::features::kGlicActor,
         {{::features::kActorPaintStabilityMode.name,
-          ::features::kActorPaintStabilityMode.GetName(paint_stability_mode)},
-         {::features::kActorGeneralPageStabilityMode.name,
-          ::features::kActorGeneralPageStabilityMode.GetName(
-              general_page_stability_mode)}});
+          ::features::kActorPaintStabilityMode.GetName(paint_stability_mode)}});
   }
 
   ~ActorTypeToolBrowserTest() override = default;
@@ -70,9 +54,66 @@ class ActorTypeToolBrowserTest
     ASSERT_TRUE(embedded_test_server()->Start());
   }
 
- private:
+ protected:
   base::test::ScopedFeatureList feature_list_;
 };
+
+// Basic test of the TypeTool - ensure typed string containing composition
+// characters is entered into an input box.
+// Flaky timeouts on sanitizer builds and in certain debug builds:
+// https://crbug.com/453258855
+#if defined(ADDRESS_SANITIZER) || !defined(NDEBUG)
+#define MAYBE_TypeTool_TextInputCompositionCharacters \
+  DISABLED_TypeTool_TextInputCompositionCharacters
+#else
+#define MAYBE_TypeTool_TextInputCompositionCharacters \
+  TypeTool_TextInputCompositionCharacters
+#endif
+IN_PROC_BROWSER_TEST_P(ActorTypeToolBrowserTest,
+                       MAYBE_TypeTool_TextInputCompositionCharacters) {
+  const GURL url = embedded_test_server()->GetURL("/actor/input.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  const std::string typed_string =
+      "Acute: ÁÉÍÓÚÝáéíóúý. Grave: ÀÈÌÒÙàèìòù. Umlaut: ÄËÏÖÜŸäëïöüÿ. "
+      "Tilde: ÃÑÕãñõ. Circumflex: ÂÊÎÔÛâêîôû. Cedilla: Çç.";
+  std::optional<int> input_id = GetDOMNodeId(*main_frame(), "#input");
+  ASSERT_TRUE(input_id);
+  std::unique_ptr<ToolRequest> action =
+      MakeTypeRequest(*main_frame(), input_id.value(), typed_string,
+                      /*follow_by_enter=*/true);
+
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(action), result.GetCallback());
+  ExpectOkResult(result);
+
+  EXPECT_EQ(typed_string,
+            EvalJs(web_contents(), "document.getElementById('input').value"));
+}
+
+// Basic test of the TypeTool - ensure typed string containing composition
+// characters is entered into an input box.
+IN_PROC_BROWSER_TEST_P(ActorTypeToolBrowserTest,
+                       TypeTool_TextInputAltGrCharacter) {
+  const GURL url = embedded_test_server()->GetURL("/actor/input.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  const std::string typed_string =
+      "Symbols: ¡§©®¶. Currency: ¢£¥. Ordinals: ¹²³. "
+      "Letters: ßæåøðþÆÅØÐÞ. Micro: µ.";
+  std::optional<int> input_id = GetDOMNodeId(*main_frame(), "#input");
+  ASSERT_TRUE(input_id);
+  std::unique_ptr<ToolRequest> action =
+      MakeTypeRequest(*main_frame(), input_id.value(), typed_string,
+                      /*follow_by_enter=*/true);
+
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(action), result.GetCallback());
+  ExpectOkResult(result);
+
+  EXPECT_EQ(typed_string,
+            EvalJs(web_contents(), "document.getElementById('input').value"));
+}
 
 // Basic test of the TypeTool - ensure typed string is entered into an input
 // box.
@@ -92,6 +133,52 @@ IN_PROC_BROWSER_TEST_P(ActorTypeToolBrowserTest, TypeTool_TextInput) {
   ExpectOkResult(result);
 
   EXPECT_EQ(typed_string,
+            EvalJs(web_contents(), "document.getElementById('input').value"));
+}
+
+// Basic test of the TypeTool - ensure typed string is entered into an input
+// box.
+IN_PROC_BROWSER_TEST_P(ActorTypeToolBrowserTest,
+                       TypeTool_TextInputAnyCharacter) {
+  const GURL url = embedded_test_server()->GetURL("/actor/input.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  std::string typed_string = "你好こんにちはпривет";
+  std::optional<int> input_id = GetDOMNodeId(*main_frame(), "#input");
+  ASSERT_TRUE(input_id);
+  std::unique_ptr<ToolRequest> action =
+      MakeTypeRequest(*main_frame(), input_id.value(), typed_string,
+                      /*follow_by_enter=*/true);
+
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(action), result.GetCallback());
+  ExpectOkResult(result);
+
+  EXPECT_EQ(typed_string,
+            EvalJs(web_contents(), "document.getElementById('input').value"));
+}
+
+// Tests that it is possible to type an empty string when the existing field
+// is empty (effectively a no-op).
+IN_PROC_BROWSER_TEST_P(ActorTypeToolBrowserTest,
+                       TypeTool_TextInputEmptyString) {
+  const GURL url = embedded_test_server()->GetURL("/actor/input.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  std::string empty_string;
+  std::optional<int> input_id = GetDOMNodeId(*main_frame(), "#input");
+  ASSERT_TRUE(input_id);
+  ASSERT_EQ(empty_string,
+            EvalJs(web_contents(), "document.getElementById('input').value"));
+  std::unique_ptr<ToolRequest> action =
+      MakeTypeRequest(*main_frame(), input_id.value(), empty_string,
+                      /*follow_by_enter=*/true);
+
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(action), result.GetCallback());
+  ExpectOkResult(result);
+
+  EXPECT_EQ(empty_string,
             EvalJs(web_contents(), "document.getElementById('input').value"));
 }
 
@@ -214,20 +301,54 @@ IN_PROC_BROWSER_TEST_P(ActorTypeToolBrowserTest, TypeTool_Events) {
       // b
       "keydown,input,keyup,"
       // enter (causes submit to "click")
-      "keydown,change,click,keyup",
+      "keydown,click,keyup",
       EvalJs(web_contents(), "getStableEventLog()"));
 }
 
-// Ensure the type tool can be used without text to send an enter key in an
-// input.
-IN_PROC_BROWSER_TEST_P(ActorTypeToolBrowserTest, TypeTool_EmptyText) {
+// Tests that it is possible to type an empty string (which has the effect of
+// deleting any existing value) and the correct events are sent.
+IN_PROC_BROWSER_TEST_P(ActorTypeToolBrowserTest, TypeTool_Events_EmptyString) {
   const GURL url = embedded_test_server()->GetURL("/actor/input.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
   // The log starts empty.
   ASSERT_EQ("", EvalJs(web_contents(), "input_event_log.join(',')"));
 
-  std::string typed_string = "";
+  std::string empty_string;
+
+  std::optional<int> input_id = GetDOMNodeId(*main_frame(), "#input");
+  ASSERT_TRUE(input_id);
+  ASSERT_TRUE(
+      ExecJs(web_contents(),
+             "document.getElementById('input').value = \'pumpkin pie\'"));
+
+  std::unique_ptr<ToolRequest> action =
+      MakeTypeRequest(*main_frame(), input_id.value(), empty_string,
+                      /*follow_by_enter=*/true);
+
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(action), result.GetCallback());
+  ExpectOkResult(result);
+
+  EXPECT_EQ(empty_string,
+            EvalJs(web_contents(), "document.getElementById('input').value"));
+  EXPECT_EQ(
+      // backspace
+      "keydown,input,keyup,"
+      // enter (causes submit to "click")
+      "keydown,click,keyup",
+      EvalJs(web_contents(), "getStableEventLog()"));
+}
+
+// Ensure type tool sends the expected events to an input box.
+IN_PROC_BROWSER_TEST_P(ActorTypeToolBrowserTest, TypeTool_EventsForDeadKey) {
+  const GURL url = embedded_test_server()->GetURL("/actor/input.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  // The log starts empty.
+  ASSERT_EQ("", EvalJs(web_contents(), "input_event_log.join(',')"));
+
+  std::string typed_string = "Áñ";
 
   std::optional<int> input_id = GetDOMNodeId(*main_frame(), "#input");
   ASSERT_TRUE(input_id);
@@ -240,8 +361,13 @@ IN_PROC_BROWSER_TEST_P(ActorTypeToolBrowserTest, TypeTool_EmptyText) {
   ExpectOkResult(result);
 
   EXPECT_EQ(
+      // Á
+      "keydown,keyup,keydown,input,keyup,"
+      // ñ
+      "keydown,keyup,keydown,input,keyup,"
       // enter (causes submit to "click")
-      "keydown,click,keyup", EvalJs(web_contents(), "getStableEventLog()"));
+      "keydown,click,keyup",
+      EvalJs(web_contents(), "getStableEventLog()"));
 }
 
 // Ensure the type tool correctly sends the enter key after input if specified.
@@ -271,7 +397,7 @@ IN_PROC_BROWSER_TEST_P(ActorTypeToolBrowserTest, TypeTool_FollowByEnter) {
       // a
       "keydown,input,keyup,"
       // enter (causes submit to "click")
-      "keydown,change,click,keyup",
+      "keydown,click,keyup",
       EvalJs(web_contents(), "getStableEventLog()"));
 
   ASSERT_TRUE(ExecJs(web_contents(), "input_event_log = []"));
@@ -672,15 +798,135 @@ IN_PROC_BROWSER_TEST_P(ActorTypeToolBrowserTest, TypeTool_IncrementalTyping) {
   }
 }
 
+// Ensure the type tool functions when typing long string. It should boost the
+// typing speed but testing the speed is going to be flaky. Ensure we at least
+// have coverage that it works.
+IN_PROC_BROWSER_TEST_P(ActorTypeToolBrowserTest,
+                       TypeTool_IncrementalTypingLong) {
+  if (!base::FeatureList::IsEnabled(features::kGlicActorIncrementalTyping)) {
+    GTEST_SKIP() << "GlicActorIncrementalTyping feature is disabled";
+  }
+
+  const GURL url = embedded_test_server()->GetURL("/actor/input.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  const std::string typed_string(
+      features::kGlicActorIncrementalTypingLongTextThreshold.Get() + 1ul, 'a');
+  std::optional<int> input_id = GetDOMNodeId(*main_frame(), "#input");
+  ASSERT_TRUE(input_id);
+  std::unique_ptr<ToolRequest> action =
+      MakeTypeRequest(*main_frame(), input_id.value(), typed_string,
+                      /*follow_by_enter=*/false);
+
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(action), result.GetCallback());
+  ExpectOkResult(result);
+
+  EXPECT_EQ(typed_string,
+            EvalJs(web_contents(), "document.getElementById('input').value"));
+}
+
+class ActorTypeToolBrowserTestWithLongDelay : public ActorTypeToolBrowserTest {
+ public:
+  ActorTypeToolBrowserTestWithLongDelay() {
+    auto paint_stability_mode = GetParam();
+    feature_list_.Reset();
+    feature_list_.InitAndEnableFeatureWithParameters(
+        ::features::kGlicActor,
+        {{::features::kActorPaintStabilityMode.name,
+          ::features::kActorPaintStabilityMode.GetName(paint_stability_mode)},
+         {::features::kGlicActorKeyDownDuration.name, "10s"}});
+  }
+};
+
+// Ensure the type tool functions when typing very long string past the paste
+// threshold. The typing delay was set very long so the fact that action
+// finishes before time out indicates the usage of direct paste for long text.
+IN_PROC_BROWSER_TEST_P(ActorTypeToolBrowserTestWithLongDelay,
+                       TypeTool_IncrementalTypingLongTextPaste) {
+  if (!base::FeatureList::IsEnabled(features::kGlicActorIncrementalTyping)) {
+    GTEST_SKIP() << "GlicActorIncrementalTyping feature is disabled";
+  }
+
+  const GURL url = embedded_test_server()->GetURL("/actor/input.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  const std::string typed_string(
+      features::kGlicActorIncrementalTypingLongTextPasteThreshold.Get() + 1ul,
+      'a');
+  std::optional<int> input_id = GetDOMNodeId(*main_frame(), "#input");
+  ASSERT_TRUE(input_id);
+  std::unique_ptr<ToolRequest> action =
+      MakeTypeRequest(*main_frame(), input_id.value(), typed_string,
+                      /*follow_by_enter=*/false);
+
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(action), result.GetCallback());
+  ExpectOkResult(result);
+
+  EXPECT_EQ(typed_string,
+            EvalJs(web_contents(), "document.getElementById('input').value"));
+}
+
+// Ensure the type tool delays the final enter key by the expected amount.
+IN_PROC_BROWSER_TEST_P(ActorTypeToolBrowserTest, TypeTool_FollowByEnterDelay) {
+  const GURL url = embedded_test_server()->GetURL("/actor/input.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  // The log starts empty.
+  ASSERT_EQ("", EvalJs(web_contents(), "input_event_log.join(',')"));
+
+  const std::string_view typed_string = "x";
+  std::optional<int> input_id = GetDOMNodeId(*main_frame(), "#input");
+  ASSERT_TRUE(input_id);
+  std::unique_ptr<ToolRequest> action =
+      MakeTypeRequest(*main_frame(), input_id.value(), typed_string,
+                      /*follow_by_enter=*/true);
+
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(action), result.GetCallback());
+  ExpectOkResult(result);
+
+  // Check that the events are what we expect.
+  ASSERT_EQ(
+      "keydown,input,keyup,"  // x
+      "keydown,click,keyup",  // <enter>
+      EvalJs(web_contents(), "getStableEventLog()"));
+
+  base::Value::List timestamps =
+      EvalJs(web_contents(), "getStableEventLogTimes()").TakeValue().TakeList();
+
+  // 3 events for the 'x' char and 3 events for the <enter>.
+  ASSERT_EQ(timestamps.size(), 6ul);
+
+  const double x_key_up_ts = timestamps[2].GetDouble();
+  const double enter_key_down_ts = timestamps[3].GetDouble();
+
+  const base::TimeDelta x_up_to_enter_down_delta =
+      base::Milliseconds(enter_key_down_ts - x_key_up_ts);
+
+  // Check the delay between keydown and keyup.
+  EXPECT_GE(x_up_to_enter_down_delta,
+            features::kGlicActorTypeToolEnterDelay.Get());
+}
+
 INSTANTIATE_TEST_SUITE_P(
     ,
     ActorTypeToolBrowserTest,
-    testing::Combine(
-        testing::Values(::features::ActorPaintStabilityMode::kDisabled,
-                        ::features::ActorPaintStabilityMode::kLogOnly,
-                        ::features::ActorPaintStabilityMode::kEnabled),
-        testing::ValuesIn(kActorGeneralPageStabilityModeValues)),
-    ActorTypeToolBrowserTest::DescribeParams);
+    testing::Values(::features::ActorPaintStabilityMode::kDisabled,
+                    ::features::ActorPaintStabilityMode::kLogOnly,
+                    ::features::ActorPaintStabilityMode::kEnabled),
+    [](const testing::TestParamInfo<::features::ActorPaintStabilityMode>&
+           info) { return DescribePaintStabilityMode(info.param); });
+
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    ActorTypeToolBrowserTestWithLongDelay,
+    testing::Values(::features::ActorPaintStabilityMode::kDisabled,
+                    ::features::ActorPaintStabilityMode::kLogOnly,
+                    ::features::ActorPaintStabilityMode::kEnabled),
+    [](const testing::TestParamInfo<::features::ActorPaintStabilityMode>&
+           info) { return DescribePaintStabilityMode(info.param); });
 
 }  // namespace
 }  // namespace actor

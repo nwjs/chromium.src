@@ -139,8 +139,8 @@ bool ResourceRequestPolicy::CanRequestResource(
 
 #if BUILDFLAG(ENABLE_PDF)
   // Handle specific cases for the PDF viewer.
-  if (extension_origin.scheme() == kExtensionScheme &&
-      extension_origin.host() == extension_misc::kPdfExtensionId) {
+  if (extension_origin.GetScheme() == kExtensionScheme &&
+      extension_origin.GetHost() == extension_misc::kPdfExtensionId) {
     // For the PDF viewer, `page_origin` doesn't match the `extension_origin`,
     // but the PDF extension frame should still be able to request resources
     // from itself. The PDF content frame should also be able to request
@@ -168,7 +168,7 @@ bool ResourceRequestPolicy::CanRequestResource(
   // extension with no web accessible resources. We aren't worried about any
   // extensions with web accessible resources, since those are inherently
   // identifiable.
-  if (!IsWebAccessibleHost(extension_origin.host())) {
+  if (!IsWebAccessibleHost(extension_origin.GetHost())) {
     return false;
   }
 
@@ -182,8 +182,8 @@ bool ResourceRequestPolicy::CanRequestResource(
   // some extensions want to be able to do things like create their own
   // launchers.
   std::string_view resource_root_relative_path =
-      target_url.path_piece().empty() ? std::string_view()
-                                      : target_url.path_piece().substr(1);
+      target_url.path().empty() ? std::string_view()
+                                : target_url.path().substr(1);
   if (extension->is_hosted_app() &&
       !IconsInfo::GetIcons(extension).ContainsPath(
           resource_root_relative_path)) {
@@ -201,7 +201,7 @@ bool ResourceRequestPolicy::CanRequestResource(
       !WebviewInfo::IsResourceWebviewAccessible(
           extension,
           dispatcher_->webview_partition_id().value_or(std::string()),
-          target_url.path())) {
+          target_url.GetPath())) {
     std::string message = base::StringPrintf(
         "Denying load of %s. Resources must be listed in the "
         "web_accessible_resources manifest key in order to be loaded by "

@@ -62,6 +62,10 @@ AutofillProfileRecordTypeCategory GetCategoryOfProfile(
 const char* GetProfileCategorySuffix(
     AutofillProfileRecordTypeCategory category);
 
+// Converts the `record_type` to the histogram-suffix used for resolving some
+// metrics by record type.
+const char* GetProfileRecordTypeSuffix(AutofillProfile::RecordType record_type);
+
 // These values are persisted to UMA logs. Entries should not be renumbered
 // and numeric values should never be reused. This is the subset of field
 // types that can be changed in a profile change/store dialog or are affected
@@ -112,6 +116,11 @@ DenseSet<FormTypeNameForLogging> GetLoyaltyFormTypesForLogging(
 // `FormType::kCreditCardForm` or `FormType::kStandaloneCvcForm`.
 DenseSet<FormTypeNameForLogging> GetCreditCardFormTypesForLogging(
     const FormStructure& form);
+
+// Returns true if `profile` has at least 2 fields of the types
+// `ADDRESS_HOME_CITY`, `ADDRESS_HOME_STATE`, `ADDRESS_HOME_STREET_ADDRESS` or
+// `ADDRESS_HOME_ZIP` set.
+bool IsPostalAddress(const AutofillProfile& profile);
 
 // Returns whether the caller should log autofill suggestions shown metrics.
 // Some suggestions can be "displayed" without a direct user action (i.e. typing

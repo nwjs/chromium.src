@@ -17,6 +17,7 @@
 #include "base/version_info/channel.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_keyed_service_factory.h"
+#include "chrome/browser/actor/actor_task_metadata.h"
 #include "chrome/browser/actor/aggregated_journal_file_serializer.h"
 #include "chrome/browser/actor/browser_action_util.h"
 #include "chrome/browser/actor/tools/tab_management_tool_request.h"
@@ -143,7 +144,8 @@ ExtensionFunction::ResponseAction ExperimentalActorStopTaskFunction::Run() {
 
   auto* actor_service = actor::ActorKeyedService::Get(browser_context());
 
-  actor_service->StopTask(actor::TaskId(params->task_id), /*success=*/true);
+  actor_service->StopTask(actor::TaskId(params->task_id),
+                          actor::ActorTask::StoppedReason::kTaskComplete);
   return RespondNow(
       ArgumentList(api::experimental_actor::StopTask::Results::Create()));
 }
@@ -225,6 +227,10 @@ ExperimentalActorPerformActionsFunction::Run() {
       case optimization_guide::proto::Action::kScrollTo:
         ConvertActionTabId(action.mutable_scroll_to(), browser_context());
         break;
+      case optimization_guide::proto::Action::kAttemptFormFilling:
+        ConvertActionTabId(action.mutable_attempt_form_filling(),
+                           browser_context());
+        break;
       case optimization_guide::proto::Action::kWait:
       case optimization_guide::proto::Action::kCreateTab:
       case optimization_guide::proto::Action::kCreateWindow:
@@ -240,7 +246,6 @@ ExperimentalActorPerformActionsFunction::Run() {
 
   auto* actor_service = actor::ActorKeyedService::Get(browser_context());
   actor_service->GetJournal().Log(GURL(), actor::TaskId(actions.task_id()),
-                                  actor::mojom::JournalTrack::kActor,
                                   "ExperimentalActorExecuteAction",
                                   actor::JournalDetailsBuilder()
                                       .Add("proto", actor::ToBase64(actions))
@@ -258,23 +263,26 @@ ExperimentalActorPerformActionsFunction::Run() {
 
   actor::BuildToolRequestResult requests = actor::BuildToolRequest(actions);
 
+  bool skip_async_observation_information =
+      actions.has_skip_async_observation_collection() &&
+      actions.skip_async_observation_collection();
   if (!requests.has_value()) {
     std::vector<actor::ActionResultWithLatencyInfo> empty_results;
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
         base::BindOnce(
             &ExperimentalActorPerformActionsFunction::OnActionsFinished, this,
-            task_id, start_time,
+            task_id, start_time, skip_async_observation_information,
             actor::mojom::ActionResultCode::kArgumentsInvalid, requests.error(),
             std::move(empty_results)));
     return RespondLater();
   }
 
   actor_service->PerformActions(
-      task_id, std::move(requests.value()),
+      task_id, std::move(requests.value()), actor::ActorTaskMetadata(actions),
       base::BindOnce(
           &ExperimentalActorPerformActionsFunction::OnActionsFinished, this,
-          task_id, start_time));
+          task_id, start_time, skip_async_observation_information));
 
   return RespondLater();
 }
@@ -282,6 +290,7 @@ ExperimentalActorPerformActionsFunction::Run() {
 void ExperimentalActorPerformActionsFunction::OnActionsFinished(
     actor::TaskId task_id,
     base::TimeTicks start_time,
+    bool skip_async_observation_information,
     actor::mojom::ActionResultCode result_code,
     std::optional<size_t> index_of_failed_action,
     std::vector<actor::ActionResultWithLatencyInfo> action_results) {
@@ -295,7 +304,7 @@ void ExperimentalActorPerformActionsFunction::OnActionsFinished(
 
   actor::BuildActionsResultWithObservations(
       *browser_context(), start_time, result_code, index_of_failed_action,
-      std::move(action_results), *task,
+      std::move(action_results), *task, skip_async_observation_information,
       base::BindOnce(
           &ExperimentalActorPerformActionsFunction::OnObservationResult, this));
 }
@@ -326,9 +335,8 @@ void ExperimentalActorPerformActionsFunction::OnObservationResult(
       observation.set_tab_ids(i, session_tab_id);
     }
 
-    int32_t activated_tab_id =
-        ConvertTabHandleToSessionTabId(observation.activated_tab_id(),
-                                       browser_context());
+    int32_t activated_tab_id = ConvertTabHandleToSessionTabId(
+        observation.activated_tab_id(), browser_context());
     observation.set_activated_tab_id(activated_tab_id);
   }
 

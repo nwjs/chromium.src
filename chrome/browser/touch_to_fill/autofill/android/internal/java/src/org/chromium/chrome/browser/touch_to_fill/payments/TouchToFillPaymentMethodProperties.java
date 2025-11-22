@@ -5,12 +5,14 @@
 package org.chromium.chrome.browser.touch_to_fill.payments;
 
 import android.graphics.drawable.Drawable;
+import android.view.View;
 
 import androidx.annotation.Nullable;
 
 import org.chromium.base.Callback;
 import org.chromium.chrome.browser.touch_to_fill.common.FillableItemCollectionInfo;
 import org.chromium.components.autofill.LoyaltyCard;
+import org.chromium.components.autofill.payments.BnplIssuerTosDetail.LegalMessages;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -69,6 +71,12 @@ class TouchToFillPaymentMethodProperties {
 
         // The screen displaying all available BNPL issuers.
         int BNPL_ISSUER_SELECTION_SCREEN = 3;
+
+        // The screen displaying the error message and "OK" button.
+        int ERROR_SCREEN = 4;
+
+        // The screen displaying the legal messages for linking a new BNPL issuer.
+        int BNPL_ISSUER_TOS_SCREEN = 5;
     }
 
     @interface ItemType {
@@ -87,8 +95,7 @@ class TouchToFillPaymentMethodProperties {
         // An item which displays all user's loyalty cards upon click.
         int ALL_LOYALTY_CARDS = 4;
 
-        // A "Continue" button, which is shown when there is only one payment
-        // method available.
+        // A section containing a clickable button with filled background color.
         int FILL_BUTTON = 5;
 
         // A button that redirects the user to the Wallet settings in Chrome.
@@ -111,6 +118,21 @@ class TouchToFillPaymentMethodProperties {
 
         // A section containing the BNPL issuer data.
         int BNPL_ISSUER = 12;
+
+        // A section containing the error description.
+        int ERROR_DESCRIPTION = 13;
+
+        // A section contains texts shown on BNPL ToS screen.
+        int BNPL_TOS_TEXT = 14;
+
+        // The footer at the bottom of the BNPL selection and progress screens.
+        int BNPL_SELECTION_PROGRESS_FOOTER = 15;
+
+        // A section contains legal messages shown in the screen footer.
+        int TOS_FOOTER = 16;
+
+        // A section containing a clickable button with no background.
+        int TEXT_BUTTON = 17;
     }
 
     /** Metadata associated with a card's image. */
@@ -217,15 +239,26 @@ class TouchToFillPaymentMethodProperties {
         private AllLoyaltyCardsItemProperties() {}
     }
 
+    /** Properties for the BNPL ToS screen item in the TouchToFill sheet for payments. */
+    static class BnplIssuerTosTextItemProperties {
+        static final PropertyModel.ReadableIntPropertyKey BNPL_TOS_ICON_ID =
+                new PropertyModel.ReadableIntPropertyKey("bnpl_tos_icon_id");
+        static final PropertyModel.ReadableObjectPropertyKey<CharSequence> DESCRIPTION_TEXT =
+                new PropertyModel.ReadableObjectPropertyKey<>("description_text");
+
+        static final PropertyKey[] ALL_KEYS = {BNPL_TOS_ICON_ID, DESCRIPTION_TEXT};
+
+        private BnplIssuerTosTextItemProperties() {}
+    }
+
     /**
      * Properties defined here reflect the visible state of the terms message in the TouchToFill
      * sheet for payments.
      */
     static class TermsLabelProperties {
-        static final PropertyModel.WritableBooleanPropertyKey CARD_BENEFITS_TERMS_AVAILABLE =
-                new PropertyModel.WritableBooleanPropertyKey("card_benefits_terms_available");
-
-        static final PropertyKey[] ALL_TERMS_LABEL_KEYS = {CARD_BENEFITS_TERMS_AVAILABLE};
+        static final PropertyModel.ReadableIntPropertyKey TERMS_LABEL_TEXT_ID =
+                new PropertyModel.ReadableIntPropertyKey("terms_label_text_id");
+        static final PropertyKey[] ALL_TERMS_LABEL_KEYS = {TERMS_LABEL_TEXT_ID};
 
         private TermsLabelProperties() {}
     }
@@ -269,21 +302,30 @@ class TouchToFillPaymentMethodProperties {
     }
 
     /** Properties for a BNPL issuer entry in the TouchToFill sheet for payments. */
-    static class BnplIssuerProperties {
+    static class BnplIssuerContextProperties {
         static final PropertyModel.ReadableObjectPropertyKey<String> ISSUER_NAME =
                 new PropertyModel.ReadableObjectPropertyKey<>("issuer_name");
+        static final PropertyModel.ReadableObjectPropertyKey<String> ISSUER_SELECTION_TEXT =
+                new PropertyModel.ReadableObjectPropertyKey<>("issuer_selection_text");
         static final PropertyModel.ReadableIntPropertyKey ISSUER_ICON_ID =
                 new PropertyModel.ReadableIntPropertyKey("issuer_icon_id");
         static final PropertyModel.ReadableBooleanPropertyKey ISSUER_LINKED =
                 new PropertyModel.ReadableBooleanPropertyKey("issuer_linked");
         static final PropertyModel.ReadableObjectPropertyKey<Runnable> ON_ISSUER_CLICK_ACTION =
                 new PropertyModel.ReadableObjectPropertyKey<>("on_issuer_click_action");
+        static final PropertyModel.ReadableBooleanPropertyKey APPLY_ISSUER_DEACTIVATED_STYLE =
+                new PropertyModel.ReadableBooleanPropertyKey("apply_issuer_deactivated_style");
 
-        static final PropertyKey[] NON_TRANSFORMING_BNPL_ISSUER_SUGGESTION_KEYS = {
-            ISSUER_NAME, ISSUER_ICON_ID, ISSUER_LINKED, ON_ISSUER_CLICK_ACTION
+        static final PropertyKey[] NON_TRANSFORMING_BNPL_ISSUER_CONTEXT_KEYS = {
+            ISSUER_NAME,
+            ISSUER_SELECTION_TEXT,
+            ISSUER_ICON_ID,
+            ISSUER_LINKED,
+            ON_ISSUER_CLICK_ACTION,
+            APPLY_ISSUER_DEACTIVATED_STYLE
         };
 
-        private BnplIssuerProperties() {}
+        private BnplIssuerContextProperties() {}
     }
 
     /**
@@ -297,8 +339,12 @@ class TouchToFillPaymentMethodProperties {
                 new PropertyModel.ReadableIntPropertyKey("title_id");
         static final PropertyModel.ReadableIntPropertyKey SUBTITLE_ID =
                 new PropertyModel.ReadableIntPropertyKey("subtitle_id");
+        static final PropertyModel.ReadableObjectPropertyKey<String> TITLE_STRING =
+                new PropertyModel.ReadableObjectPropertyKey<>("title_string");
 
-        static final PropertyKey[] ALL_KEYS = {IMAGE_DRAWABLE_ID, TITLE_ID, SUBTITLE_ID};
+        static final PropertyKey[] ALL_KEYS = {
+            IMAGE_DRAWABLE_ID, TITLE_ID, SUBTITLE_ID, TITLE_STRING
+        };
 
         private HeaderProperties() {}
     }
@@ -318,6 +364,16 @@ class TouchToFillPaymentMethodProperties {
         };
 
         private BnplSelectionProgressHeaderProperties() {}
+    }
+
+    /** Properties for an error description entry in the TouchToFill sheet for payments. */
+    static class ErrorDescriptionProperties {
+        static final PropertyModel.ReadableObjectPropertyKey<String> ERROR_DESCRIPTION_STRING =
+                new PropertyModel.ReadableObjectPropertyKey<>("error_description_string");
+
+        static final PropertyKey[] ALL_KEYS = {ERROR_DESCRIPTION_STRING};
+
+        private ErrorDescriptionProperties() {}
     }
 
     /**
@@ -357,6 +413,39 @@ class TouchToFillPaymentMethodProperties {
         };
 
         private FooterProperties() {}
+    }
+
+    /**
+     * Properties defined here reflect the visible state of the BNPL footer for selection and
+     * progress screen in the TouchToFill sheet for payments.
+     */
+    static class BnplSelectionProgressFooterProperties {
+        static final PropertyModel.ReadableIntPropertyKey TERMS_TEXT_ID =
+                new PropertyModel.ReadableIntPropertyKey("terms_text_id");
+        static final PropertyModel.ReadableObjectPropertyKey<String> HIDE_OPTIONS_LINK_TEXT =
+                new PropertyModel.ReadableObjectPropertyKey<>("hide_options_link_text");
+        static final PropertyModel.ReadableObjectPropertyKey<Callback<View>>
+                ON_LINK_CLICK_CALLBACK = new ReadableObjectPropertyKey<>("on_link_click_callback");
+        static final PropertyModel.ReadableBooleanPropertyKey APPLY_LINK_DEACTIVATED_STYLE =
+                new PropertyModel.ReadableBooleanPropertyKey("apply_link_deactivated_style");
+        static final PropertyKey[] ALL_KEYS = {
+            TERMS_TEXT_ID,
+            HIDE_OPTIONS_LINK_TEXT,
+            ON_LINK_CLICK_CALLBACK,
+            APPLY_LINK_DEACTIVATED_STYLE
+        };
+
+        private BnplSelectionProgressFooterProperties() {}
+    }
+
+    /** Properties defined here reflect the visible state of the footer showing legal messages. */
+    static class TosFooterProperties {
+        static final PropertyModel.ReadableObjectPropertyKey<LegalMessages> LEGAL_MESSAGE =
+                new PropertyModel.ReadableObjectPropertyKey<>("legal_message");
+
+        static final PropertyKey[] ALL_KEYS = {LEGAL_MESSAGE};
+
+        private TosFooterProperties() {}
     }
 
     private TouchToFillPaymentMethodProperties() {}

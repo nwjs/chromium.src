@@ -4,9 +4,6 @@
 
 package org.chromium.chrome.browser.tasks.tab_management.pinned_tabs_strip;
 
-import static org.chromium.ui.interpolators.Interpolators.STANDARD_INTERPOLATOR;
-
-import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
@@ -25,24 +22,28 @@ import androidx.core.widget.ImageViewCompat;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab_ui.TabCardThemeUtil;
 import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider.TabFavicon;
 import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider.TabFaviconFetcher;
+import org.chromium.chrome.browser.tasks.tab_management.TabActionListener;
+import org.chromium.chrome.browser.tasks.tab_management.TabListModel.AnimationStatus;
+import org.chromium.chrome.browser.tasks.tab_management.pinned_tabs_strip.PinnedTabStripAnimationManager.ItemState;
 import org.chromium.ui.animation.AnimationHandler;
 
 /** View for a pinned tab strip item. */
 @NullMarked
 public class PinnedTabStripItemView extends FrameLayout {
-    private static final int WIDTH_ANIMATION_DURATION_MS = 400;
-
     private @Nullable ImageView mFavicon;
     private @Nullable TextView mTitle;
     private @Nullable ImageView mTrailingIcon;
     private final AnimationHandler mWidthAnimationHandler;
+    private final AnimationHandler mZoomAnimationHandler;
 
     public PinnedTabStripItemView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
         mWidthAnimationHandler = new AnimationHandler();
+        mZoomAnimationHandler = new AnimationHandler();
     }
 
     @Override
@@ -124,36 +125,12 @@ public class PinnedTabStripItemView extends FrameLayout {
         if (size == null) return;
 
         updateHeight(size.getHeight());
-
-        int targetWidth = size.getWidth();
-        int startWidth = getWidth();
-
-        // If the view is not laid out yet or width is the same, just set the width.
-        if (startWidth == 0 || startWidth == targetWidth) {
-            updateWidth(targetWidth);
-            return;
-        }
-
-        ValueAnimator animator = ValueAnimator.ofInt(startWidth, targetWidth);
-        animator.setDuration(WIDTH_ANIMATION_DURATION_MS);
-        animator.setInterpolator(STANDARD_INTERPOLATOR);
-        animator.addUpdateListener(
-                animation -> {
-                    updateWidth((int) animation.getAnimatedValue());
-                });
-        mWidthAnimationHandler.startAnimation(animator);
+        PinnedTabStripAnimationManager.animateItemWidth(
+                this, size.getWidth(), mWidthAnimationHandler);
     }
 
     AnimationHandler getWidthAnimationHandlerForTesting() {
         return mWidthAnimationHandler;
-    }
-
-    private void updateWidth(int width) {
-        if (width <= 0) return;
-        ViewGroup.LayoutParams layoutParams = getLayoutParams();
-        if (layoutParams.width == width) return;
-        layoutParams.width = width;
-        setLayoutParams(layoutParams);
     }
 
     private void updateHeight(int height) {
@@ -194,5 +171,34 @@ public class PinnedTabStripItemView extends FrameLayout {
                     TabCardThemeUtil.getActionButtonTintList(
                             context, isIncognito, isSelected, /* colorId= */ null));
         }
+    }
+
+    void setNullableContextClickListener(
+            @Nullable TabActionListener listener, View view, @TabId int tabId) {
+        if (listener == null) {
+            view.setContextClickable(false);
+            view.setOnContextClickListener(null);
+        } else {
+            view.setContextClickable(true);
+            view.setOnContextClickListener(
+                    v -> {
+                        listener.run(view, tabId, /* triggeringMotion= */ null);
+                        return true;
+                    });
+        }
+    }
+
+    void setCardAnimationStatus(int status) {
+        if (status == AnimationStatus.CARD_RESTORE) {
+            animateZoom(ItemState.UNSELECTED);
+        } else if (status == AnimationStatus.SELECTED_CARD_ZOOM_IN) {
+            animateZoom(ItemState.SELECTED);
+        } else if (status == AnimationStatus.SELECTED_CARD_ZOOM_OUT) {
+            animateZoom(ItemState.UNSELECTED);
+        }
+    }
+
+    private void animateZoom(@ItemState int itemState) {
+        PinnedTabStripAnimationManager.animateItemZoom(this, itemState, mZoomAnimationHandler);
     }
 }

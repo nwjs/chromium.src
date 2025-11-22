@@ -76,7 +76,7 @@
     self.clientDataHash = passkeyCredentialRequestParameters.clientDataHash;
     self.userVerificationRequired = ShouldPerformUserVerificationForPreference(
         passkeyCredentialRequestParameters.userVerificationPreference,
-        isBiometricAuthenticationEnabled);
+        isBiometricAuthenticationEnabled, /*is_conditional_create=*/NO);
     self.relyingPartyIdentifier =
         passkeyCredentialRequestParameters.relyingPartyIdentifier;
     self.allowedCredentials =
@@ -96,7 +96,8 @@
 }
 
 - (instancetype)initWithRequest:(id<ASCredentialRequest>)credentialRequest
-    isBiometricAuthenticationEnabled:(BOOL)isBiometricAuthenticationEnabled {
+    isBiometricAuthenticationEnabled:(BOOL)isBiometricAuthenticationEnabled
+                 isConditionalCreate:(BOOL)isConditionalCreate {
   CHECK(credentialRequest);
 
   self = [super init];
@@ -108,7 +109,7 @@
     self.clientDataHash = passkeyCredentialRequest.clientDataHash;
     self.userVerificationRequired = ShouldPerformUserVerificationForPreference(
         passkeyCredentialRequest.userVerificationPreference,
-        isBiometricAuthenticationEnabled);
+        isBiometricAuthenticationEnabled, isConditionalCreate);
 
     NSArray<NSNumber*>* supportedAlgorithms = [passkeyCredentialRequest
                                                    .supportedAlgorithms
@@ -229,13 +230,18 @@
     return NO;
   }
 
-  NSUInteger credentialIndex = [credentials indexOfObjectPassingTest:^BOOL(
-                                                id<Credential> credential,
-                                                NSUInteger idx, BOOL* stop) {
-    return !credential.isPasskey &&
-           [credential.username isEqualToString:self.userName] &&
-           [credential.serviceName isEqualToString:self.relyingPartyIdentifier];
-  }];
+  NSString* rpID = self.relyingPartyIdentifier;
+  NSUInteger credentialIndex =
+      [credentials indexOfObjectPassingTest:^BOOL(id<Credential> credential,
+                                                  NSUInteger idx, BOOL* stop) {
+        NSString* domainSuffix = [NSString
+            stringWithFormat:@".%@", credential.registryControlledDomain];
+        BOOL matchingDomain =
+            [rpID isEqualToString:credential.registryControlledDomain] ||
+            [rpID hasSuffix:domainSuffix];
+        return !credential.isPasskey && matchingDomain &&
+               [credential.username isEqualToString:self.userName];
+      }];
   return credentialIndex != NSNotFound;
 }
 

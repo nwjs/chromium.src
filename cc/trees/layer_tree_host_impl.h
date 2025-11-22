@@ -142,7 +142,8 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
                                     public MutatorHostClient,
                                     public ImageAnimationController::Client,
                                     public CompositorDelegateForInput,
-                                    public EventLatencyTracker {
+                                    public EventLatencyTracker,
+                                    public base::MemoryPressureListener {
  public:
   // This structure is used to build all the state required for producing a
   // single CompositorFrame. The |render_passes| list becomes the set of
@@ -866,7 +867,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
     return frame_trackers_.FrameSequenceTrackerActiveTypes();
   }
 
-  void RenewTreePriorityForTesting();
+  void RenewTreePriorityForTesting() { RenewTreePriority(); }
 
   void SetRenderFrameObserver(
       std::unique_ptr<RenderFrameMetadataObserver> observer);
@@ -993,6 +994,8 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
 
   void AnimateInternal();
 
+  void RenewTreePriority();
+
   // The function is called to update state on the sync tree after a commit
   // finishes or after the sync tree was created to invalidate content on the
   // impl thread.
@@ -1062,8 +1065,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // active tree.
   void ActivateStateForImages();
 
-  void OnMemoryPressure(
-      base::MemoryPressureListener::MemoryPressureLevel level);
+  void OnMemoryPressure(base::MemoryPressureLevel level) override;
 
   void AllocateLocalSurfaceId();
 
@@ -1130,7 +1132,6 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   std::unique_ptr<InputDelegateForCompositor> input_delegate_;
 
   const LayerTreeSettings settings_;
-  const bool use_layer_context_for_animations_;
 
   // This is set to true only if:
   //  . The compositor is running single-threaded (i.e. there is no separate
@@ -1341,7 +1342,8 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   viz::VerticalScrollDirection last_vertical_scroll_direction_ =
       viz::VerticalScrollDirection::kNull;
 
-  std::unique_ptr<base::AsyncMemoryPressureListener> memory_pressure_listener_;
+  std::unique_ptr<base::AsyncMemoryPressureListenerRegistration>
+      memory_pressure_listener_registration_;
 
   PresentationTimeCallbackBuffer presentation_time_callbacks_;
 
@@ -1439,6 +1441,12 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // GenerateCompositorFrame() in viz is skipped, therefore, we need to
   // pass it from renderer to viz.
   bool send_frame_token_to_embedder_ = false;
+
+  // Settings whether we dump generated compositor frame during DrawLayers.
+  // They are for debug purposes for TreesInViz and TreeAnimationsInViz.
+  bool dump_compositor_frame_ = false;
+  uint32_t dump_compositor_frame_begin_ = 0;
+  uint32_t dump_compositor_frame_end_ = 0;
 
   // Must be the last member to ensure this is destroyed first in the
   // destruction order and invalidates all weak pointers.

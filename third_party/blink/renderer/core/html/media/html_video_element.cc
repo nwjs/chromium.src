@@ -467,8 +467,6 @@ void HTMLVideoElement::OnFirstFrame(base::TimeTicks frame_time,
     video_timing->SetIsSufficientContentLoadedForPaint();
     video_timing->SetUrl(currentSrc());
     video_timing->SetContentSizeForEntropy(bytes_to_first_frame);
-    video_timing->SetTimingAllowPassed(
-        GetWebMediaPlayer()->PassedTimingAllowOriginCheck());
 
     PaintTimingDetector::NotifyFirstVideoFrame(
         *layout_object, videoVisibleSize(), *video_timing,
@@ -614,9 +612,7 @@ scoped_refptr<StaticBitmapImage> HTMLVideoElement::CreateStaticBitmapImage(
                                      FROM_HERE);
 
   auto image = CreateImageFromVideoFrame(
-      std::move(media_video_frame),
-      /*allow_zero_copy_images=*/true, resource_provider_.get(), video_renderer,
-      gfx::Rect(dest_size),
+      std::move(media_video_frame), resource_provider_.get(), video_renderer,
       /*prefer_tagged_orientation=*/true, reinterpret_as_srgb);
   if (image)
     image->SetOriginClean(!WouldTaintOrigin());

@@ -147,30 +147,10 @@
   // Get the feed factory from the `browser` and create the feed model.
   DiscoverFeedService* feedService =
       DiscoverFeedServiceFactory::GetForProfile(browser->GetProfile());
-  FeedModelConfiguration* discoverFeedConfiguration =
-      [FeedModelConfiguration discoverFeedModelConfiguration];
-  feedService->CreateFeedModel(discoverFeedConfiguration);
+  feedService->CreateFeedModel();
 
   // Return Discover feed VC created with `viewControllerConfiguration`.
   return feedService->NewDiscoverFeedViewControllerWithConfiguration(
-      viewControllerConfiguration);
-}
-
-- (UIViewController*)followingFeedForBrowser:(Browser*)browser
-                 viewControllerConfiguration:
-                     (DiscoverFeedViewControllerConfiguration*)
-                         viewControllerConfiguration
-                                    sortType:(FollowingFeedSortType)sortType {
-  // Get the feed factory from the `browser` and create the feed model. Content
-  // is sorted by `sortType`.
-  DiscoverFeedService* feedService =
-      DiscoverFeedServiceFactory::GetForProfile(browser->GetProfile());
-  FeedModelConfiguration* followingFeedConfiguration =
-      [FeedModelConfiguration followingModelConfigurationWithSortType:sortType];
-  feedService->CreateFeedModel(followingFeedConfiguration);
-
-  // Return Following feed VC created with `viewControllerConfiguration`.
-  return feedService->NewFollowingFeedViewControllerWithConfiguration(
       viewControllerConfiguration);
 }
 

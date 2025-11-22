@@ -150,7 +150,6 @@ class PLATFORM_EXPORT WebMediaPlayerImpl
       WebContentDecryptionModule* initial_cdm,
       media::RequestRoutingTokenCallback request_routing_token_cb,
       base::WeakPtr<media::MediaObserver> media_observer,
-      bool enable_instant_source_buffer_gc,
       bool embedded_media_experience_enabled,
       mojo::PendingRemote<media::mojom::blink::MediaMetricsProvider>
           metrics_provider,
@@ -248,8 +247,6 @@ class PLATFORM_EXPORT WebMediaPlayerImpl
   unsigned DroppedFrameCount() const override;
   uint64_t AudioDecodedByteCount() const override;
   uint64_t VideoDecodedByteCount() const override;
-
-  bool PassedTimingAllowOriginCheck() const override;
 
   void SetVolumeMultiplier(double multiplier) override;
   void SetPersistentState(bool persistent) override;
@@ -447,8 +444,10 @@ class PLATFORM_EXPORT WebMediaPlayerImpl
   void DemuxerRequestsSeek(base::TimeDelta seek_time) override;
 
 #if BUILDFLAG(ENABLE_FFMPEG) || BUILDFLAG(ENABLE_HLS_DEMUXER)
-  void AddMediaTrack(const media::MediaTrack&) override;
-  void RemoveMediaTrack(const media::MediaTrack&) override;
+  void AddTrack(const media::MediaTrack&) override;
+  void RemoveTrack(const media::MediaTrack&) override;
+  void SetTrackState(const media::MediaTrack&,
+                     media::MediaTrack::State) override;
 #endif  // BUILDFLAG(ENABLE_FFMPEG) || BUILDFLAG(ENABLE_HLS_DEMUXER)
 
 #if BUILDFLAG(ENABLE_HLS_DEMUXER)

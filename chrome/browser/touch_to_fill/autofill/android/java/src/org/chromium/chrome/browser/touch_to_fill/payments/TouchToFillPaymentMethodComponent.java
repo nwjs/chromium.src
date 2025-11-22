@@ -14,6 +14,8 @@ import org.chromium.chrome.browser.autofill.PersonalDataManager;
 import org.chromium.chrome.browser.touch_to_fill.common.BottomSheetFocusHelper;
 import org.chromium.components.autofill.AutofillSuggestion;
 import org.chromium.components.autofill.LoyaltyCard;
+import org.chromium.components.autofill.payments.BnplIssuerContext;
+import org.chromium.components.autofill.payments.BnplIssuerTosDetail;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 
 import java.util.List;
@@ -50,6 +52,16 @@ interface TouchToFillPaymentMethodComponent {
         void creditCardSuggestionSelected(String uniqueId, boolean isVirtual);
 
         /**
+         * Called when the user selects the BNPL suggestion. If the extractedAmount is available, we
+         * show the issuer selection screen. Otherwise, the progress screen is displayed until
+         * amount extraction is complete.
+         *
+         * @param extractedAmount The amount associated with the BNPL suggestion, extracted from the
+         *     page.
+         */
+        void bnplSuggestionSelected(@Nullable Long extractedAmount);
+
+        /**
          * Called when the user selects a local IBAN.
          *
          * @param guid The selected local IBAN.
@@ -72,6 +84,16 @@ interface TouchToFillPaymentMethodComponent {
 
         /** Called when the user clicks the "Manage loyalty cards" button. */
         void openPassesManagementUi();
+
+        /** Called when the user clicks the "OK" button on the error screen. */
+        void onErrorOkPressed();
+
+        /**
+         * Called when the user selects a BNPL issuer.
+         *
+         * @param issuerId The selected BNPL issuer Id.
+         */
+        void onBnplIssuerSuggestionSelected(String issuerId);
     }
 
     /**
@@ -133,18 +155,39 @@ interface TouchToFillPaymentMethodComponent {
     void updateBnplPaymentMethod(
             @Nullable Long extractedAmount, boolean isAmountSupportedByAnyIssuer);
 
-    /** Displays a progress screen bottomsheet. */
+    /** Displays a progress screen bottom sheet. */
     void showProgressScreen();
 
     /**
      * Displays a new BNPL issuers bottom sheet.
      *
-     * @param bnplIssuers A list of {@link PersonalDataManager.BnplIssuer} objects, each
-     *     representing a BNPL issuer, to be displayed on the bottom sheet for the user to select
-     *     from.
+     * @param bnplIssuerContexts A list of {@link BnplIssuerContext} objects, each representing a
+     *     BNPL issuer context, to be displayed on the bottom sheet for the user to select from.
      */
-    void showBnplIssuers(List<PersonalDataManager.BnplIssuer> bnplIssuers);
+    void showBnplIssuers(List<BnplIssuerContext> bnplIssuerContexts);
+
+    /**
+     * Displays an error screen bottom sheet.
+     *
+     * @param title The title to be displayed on the error screen.
+     * @param description The description to be displayed on the error screen.
+     */
+    void showErrorScreen(String title, String description);
+
+    /**
+     * Displays a new BNPL issuer ToS bottom sheet.
+     *
+     * @param bnplIssuerTosDetail The struct that holds info for showing the ToS screen.
+     */
+    void showBnplIssuerTos(BnplIssuerTosDetail bnplIssuerTosDetail);
 
     /** Hides the bottom sheet if shown. */
     void hideSheet();
+
+    /**
+     * Sets the bottom sheet visibility.
+     *
+     * @param visible The value to set the bottom sheet visibility to.
+     */
+    void setVisible(boolean visible);
 }

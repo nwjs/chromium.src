@@ -40,6 +40,7 @@ import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
+import org.chromium.base.ui.KeyboardUtils;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -51,6 +52,7 @@ import org.chromium.chrome.browser.composeplate.ComposeplateUtils;
 import org.chromium.chrome.browser.device.DeviceClassManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.layouts.toolbar.ToolbarWidthConsumer;
 import org.chromium.chrome.browser.lens.LensController;
 import org.chromium.chrome.browser.lens.LensEntryPoint;
 import org.chromium.chrome.browser.lens.LensIntentParams;
@@ -61,7 +63,6 @@ import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarDelegate;
 import org.chromium.chrome.browser.omnibox.UrlBarCoordinator.SelectionState;
 import org.chromium.chrome.browser.omnibox.geo.GeolocationHeader;
-import org.chromium.chrome.browser.omnibox.navattach.NavigationFulfillmentType;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
@@ -75,16 +76,18 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.Tab.LoadUrlResult;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.theme.SurfaceColorUpdateUtils;
 import org.chromium.chrome.browser.theme.ThemeUtils;
 import org.chromium.chrome.browser.ui.default_browser_promo.DefaultBrowserPromoUtils;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
+import org.chromium.components.browser_ui.accessibility.PageZoomIndicatorCoordinator;
+import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.animation.CancelAwareAnimatorListener;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.omnibox.AutocompleteMatch;
+import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.webapps.AddToHomescreenCoordinator;
@@ -92,7 +95,6 @@ import org.chromium.components.webapps.AppBannerManager;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.ResourceRequestBody;
-import org.chromium.ui.KeyboardUtils;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.KeyNavigationUtil;
 import org.chromium.ui.base.PageTransition;
@@ -102,6 +104,7 @@ import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.url.GURL;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
@@ -198,6 +201,7 @@ class LocationBarMediator
     private final Rect mRootViewBounds = new Rect();
     private final OmniboxUma mOmniboxUma;
     private final OmniboxSuggestionsDropdownEmbedderImpl mEmbedderImpl;
+    private final @Nullable PageZoomIndicatorCoordinator mPageZoomIndicatorCoordinator;
 
     private boolean mNativeInitialized;
     private boolean mUrlFocusedFromFakebox;
@@ -221,12 +225,18 @@ class LocationBarMediator
     private @BrandedColorScheme int mBrandedColorScheme = BrandedColorScheme.APP_DEFAULT;
     private final ObservableSupplierImpl<Boolean> mBackPressStateSupplier =
             new ObservableSupplierImpl<>();
-    private final @Nullable ObservableSupplier<TabModelSelector> mTabModelSelectorSupplier;
+    private final ObservableSupplier<TabModelSelector> mTabModelSelectorSupplier;
     private @Nullable SearchEngineUtils mSearchEngineUtils;
     private @Nullable AddToHomescreenCoordinator mAddToHomescreenCoordinatorForTesting;
     private final Supplier<@Nullable ModalDialogManager> mModalDialogManagerSupplier;
-    private final ObservableSupplier<@NavigationFulfillmentType Integer>
-            mNavigationFulfillmentTypeSupplier;
+    private final ObservableSupplier<@AutocompleteRequestType Integer>
+            mAutocompleteRequestTypeSupplier;
+    private final boolean mPersistEditingState;
+
+    private final ButtonToolbarWidthConsumer mBookmarkButtonToolbarWidthConsumer;
+    private final ButtonToolbarWidthConsumer mInstallButtonToolbarWidthConsumer;
+    private final ButtonToolbarWidthConsumer mMicButtonToolbarWidthConsumer;
+    private final ButtonToolbarWidthConsumer mLensButtonToolbarWidthConsumer;
 
     /*package */ LocationBarMediator(
             Context context,
@@ -244,11 +254,11 @@ class LocationBarMediator
             OmniboxUma omniboxUma,
             BooleanSupplier isToolbarMicEnabledSupplier,
             OmniboxSuggestionsDropdownEmbedderImpl dropdownEmbedder,
-            @Nullable ObservableSupplier<TabModelSelector> tabModelSelectorSupplier,
+            ObservableSupplier<TabModelSelector> tabModelSelectorSupplier,
             @Nullable BrowserControlsStateProvider browserControlsStateProvider,
             Supplier<@Nullable ModalDialogManager> modalDialogManagerSupplier,
-            ObservableSupplier<@NavigationFulfillmentType Integer>
-                    navigationFulfillmentTypeSupplier) {
+            ObservableSupplier<@AutocompleteRequestType Integer> autocompleteRequestTypeSupplier,
+            @Nullable PageZoomIndicatorCoordinator pageZoomIndicatorCoordinator) {
         mContext = context;
         mLocationBarLayout = locationBarLayout;
         mLocationBarDataProvider = locationBarDataProvider;
@@ -272,10 +282,44 @@ class LocationBarMediator
         mTabModelSelectorSupplier = tabModelSelectorSupplier;
         mBrowserControlsStateProvider = browserControlsStateProvider;
         mModalDialogManagerSupplier = modalDialogManagerSupplier;
-        mNavigationFulfillmentTypeSupplier = navigationFulfillmentTypeSupplier;
-        mNavigationFulfillmentTypeSupplier.addObserver(
-                mCallbackController.makeCancelable((v) -> updateButtonVisibility()));
+        mAutocompleteRequestTypeSupplier = autocompleteRequestTypeSupplier;
+        mAutocompleteRequestTypeSupplier.addSyncObserver(
+                mCallbackController.makeCancelable(this::onAutocompleteRequestTypeChanged));
+        mPageZoomIndicatorCoordinator = pageZoomIndicatorCoordinator;
+        if (mPageZoomIndicatorCoordinator != null) {
+            mPageZoomIndicatorCoordinator.setOnDismissCallbacks(this::updateZoomButtonVisibility);
+        }
         AppBannerManager.addObserver(this);
+
+        mBookmarkButtonToolbarWidthConsumer =
+                new ButtonToolbarWidthConsumer(
+                        mContext,
+                        mIsTablet,
+                        this::shouldShowBookmarkButton,
+                        this::updateBookmarkButtonVisibility);
+        mInstallButtonToolbarWidthConsumer =
+                new ButtonToolbarWidthConsumer(
+                        mContext,
+                        mIsTablet,
+                        this::shouldShowInstallButton,
+                        this::updateInstallButtonVisibility);
+        mMicButtonToolbarWidthConsumer =
+                new ButtonToolbarWidthConsumer(
+                        mContext,
+                        mIsTablet,
+                        this::shouldShowMicButton,
+                        this::updateMicButtonVisibility);
+        mLensButtonToolbarWidthConsumer =
+                new ButtonToolbarWidthConsumer(
+                        mContext,
+                        mIsTablet,
+                        this::shouldShowLensButton,
+                        this::updateLensButtonVisibility);
+
+        mPersistEditingState =
+                OmniboxFeatures.sOmniboxImprovementForLFF.isEnabled()
+                        && OmniboxFeatures.sOmniboxImprovementForLFFPersistEditingState.getValue()
+                        && mIsTablet;
     }
 
     /**
@@ -318,6 +362,9 @@ class LocationBarMediator
         mLocationBarDataProvider.removeObserver(this);
         mDeferredNativeRunnables.clear();
         mUrlFocusChangeListeners.clear();
+        if (mPageZoomIndicatorCoordinator != null) {
+            mPageZoomIndicatorCoordinator.setOnDismissCallbacks(null);
+        }
         AppBannerManager.removeObserver(this);
     }
 
@@ -425,13 +472,15 @@ class LocationBarMediator
                 onUrlFocusedFromNtpScrollChanged();
             }
 
-            if (fraction > 0f) {
-                mLocationBarLayout.setUrlActionContainerVisibility(View.VISIBLE);
-            } else if (fraction == 0f && !mIsUrlFocusChangeInProgress) {
-                // If a URL focus change is in progress, then it will handle setting the visibility
-                // correctly after it completes.  If done here, it would cause the URL to jump due
-                // to a badly timed layout call.
-                mLocationBarLayout.setUrlActionContainerVisibility(View.GONE);
+            if (!ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled()) {
+                if (fraction > 0f) {
+                    mLocationBarLayout.setUrlActionContainerVisibility(View.VISIBLE);
+                } else if (fraction == 0f && !mIsUrlFocusChangeInProgress) {
+                    // If a URL focus change is in progress, then it will handle setting the
+                    // visibility correctly after it completes.  If done here, it would cause the
+                    // URL to jump due to a badly timed layout call.
+                    mLocationBarLayout.setUrlActionContainerVisibility(View.GONE);
+                }
             }
 
             // Add expansion animation for the space besides status view in location bar.
@@ -682,8 +731,7 @@ class LocationBarMediator
                         ResourceRequestBody.createFromBytes(omniboxLoadUrlParams.postData));
             }
 
-            TabModelSelector tabModelSelector =
-                    mTabModelSelectorSupplier == null ? null : mTabModelSelectorSupplier.get();
+            TabModelSelector tabModelSelector = mTabModelSelectorSupplier.get();
             if (omniboxLoadUrlParams.openInNewTab && tabModelSelector != null) {
                 tabModelSelector.openNewTab(
                         loadUrlParams,
@@ -783,8 +831,7 @@ class LocationBarMediator
 
     /** package */
     void composeplateButtonClicked(View view) {
-        TabModelSelector tabModelSelector =
-                mTabModelSelectorSupplier == null ? null : mTabModelSelectorSupplier.get();
+        TabModelSelector tabModelSelector = mTabModelSelectorSupplier.get();
         if (!mNativeInitialized || mLocationBarDataProvider == null || tabModelSelector == null) {
             return;
         }
@@ -799,6 +846,13 @@ class LocationBarMediator
 
         tab.loadUrl(new LoadUrlParams(url));
         ComposeplateMetricsUtils.recordFakeSearchBoxComposeplateButtonClick();
+    }
+
+    /* package */ void zoomButtonClicked(View view) {
+        WebContents webContents = getWebContentsForCurrentTab();
+        if (mPageZoomIndicatorCoordinator == null || webContents == null) return;
+        assert ChromeFeatureList.sAndroidZoomIndicator.isEnabled();
+        mPageZoomIndicatorCoordinator.show(webContents);
     }
 
     /* package */ void setAddToHomescreenCoordinatorForTesting( // IN-TEST
@@ -842,7 +896,7 @@ class LocationBarMediator
                     && ChromeAccessibilityUtil.get().isAccessibilityEnabled()) {
                 String existingText = mUrlCoordinator.getTextWithoutAutocomplete();
                 mUrlCoordinator.clearFocus();
-                mUrlCoordinator.requestFocus();
+                requestUrlFocus();
                 // Existing text (e.g. if the user pasted via the fakebox) from the fake box
                 // should be restored after toggling the focus.
                 if (!TextUtils.isEmpty(existingText)) {
@@ -1169,9 +1223,22 @@ class LocationBarMediator
         mAutocompleteCoordinator.onTextChanged(textWithoutAutocomplete);
     }
 
+    /**
+     * Requests the URL focus.
+     *
+     * <p>Notifies listeners that the URL focus is about to be requested.
+     */
+    /* package */ void requestUrlFocus() {
+        for (UrlFocusChangeListener listener : mUrlFocusChangeListeners) {
+            listener.onUrlFocusWillBeRequested(mLocationBarDataProvider.getTab());
+        }
+        mUrlCoordinator.requestFocus();
+    }
+
     // Private methods
 
-    private void setProfile(Profile profile) {
+    @VisibleForTesting
+    void setProfile(Profile profile) {
         if (profile == null || !mNativeInitialized) return;
 
         mIsComposeplateEnabled = ComposeplateUtils.isComposeplateEnabled(mIsTablet, profile);
@@ -1229,7 +1296,7 @@ class LocationBarMediator
         // If the url bar is focused, the toolbar background color is the default color regardless
         // of whether it is branded or not.
         if (isUrlBarFocused()) {
-            return SurfaceColorUpdateUtils.getDefaultThemeColor(
+            return ChromeColors.getDefaultThemeColor(
                     mContext, mLocationBarDataProvider.isIncognitoBranded());
         } else {
             return mLocationBarDataProvider.getPrimaryColor();
@@ -1261,7 +1328,8 @@ class LocationBarMediator
     }
 
     private void setMicButtonVisibility(boolean shouldShowMicButton) {
-        mLocationBarLayout.setMicButtonVisibility(shouldShowMicButton);
+        mLocationBarLayout.setMicButtonVisibility(
+                shouldShowMicButton && mMicButtonToolbarWidthConsumer.hasSpaceToShow());
     }
 
     private void updateLensButtonVisibility() {
@@ -1271,7 +1339,8 @@ class LocationBarMediator
 
     private void setLensButtonVisibility(boolean shouldShowLensButton) {
         LensMetrics.recordShown(LensEntryPoint.OMNIBOX, shouldShowLensButton);
-        mLocationBarLayout.setLensButtonVisibility(shouldShowLensButton);
+        mLocationBarLayout.setLensButtonVisibility(
+                shouldShowLensButton && mLensButtonToolbarWidthConsumer.hasSpaceToShow());
     }
 
     /** Updates the display of the composeplate button. */
@@ -1281,6 +1350,31 @@ class LocationBarMediator
 
     private void updateDeleteButtonVisibility() {
         mLocationBarLayout.setDeleteButtonVisibility(shouldShowDeleteButton());
+    }
+
+    /* package */ void onZoomLevelChanged() {
+        updateZoomButtonVisibility();
+    }
+
+    private boolean shouldShowZoomButton() {
+        if (!ChromeFeatureList.sAndroidZoomIndicator.isEnabled()
+                || !DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext)
+                || mPageZoomIndicatorCoordinator == null
+                || getWebContentsForCurrentTab() == null
+                || mPageZoomIndicatorCoordinator.isZoomLevelDefault()) {
+            return false;
+        }
+        return !mPageZoomIndicatorCoordinator.isZoomLevelDefault();
+    }
+
+    private void updateZoomButtonVisibility() {
+        if (mPageZoomIndicatorCoordinator == null) return;
+        mLocationBarLayout.setZoomButtonVisibility(
+                shouldShowZoomButton() || mPageZoomIndicatorCoordinator.isPopupWindowShowing());
+    }
+
+    public void updateZoomButtonVisibilityForTesting() {
+        updateZoomButtonVisibility();
     }
 
     private @Nullable WebContents getWebContentsForCurrentTab() {
@@ -1305,7 +1399,8 @@ class LocationBarMediator
      * and is only shown when the omnibox is unfocused; the URL action container is hidden when the
      * omnibox is unfocused on phones.
      */
-    private boolean shouldShowInstallButton() {
+    @VisibleForTesting
+    boolean shouldShowInstallButton() {
         if (mUrlHasFocus || mIsUrlFocusChangeInProgress) return false;
 
         WebContents webContents = getWebContentsForCurrentTab();
@@ -1316,21 +1411,40 @@ class LocationBarMediator
 
     /** Updates the visibility of the install button. */
     private void updateInstallButtonVisibility() {
-        mLocationBarLayout.setInstallButtonVisibility(shouldShowInstallButton());
+        setInstallButtonVisibility(shouldShowInstallButton());
+    }
+
+    private void setInstallButtonVisibility(boolean shouldShowInstallButton) {
+        mLocationBarLayout.setInstallButtonVisibility(
+                shouldShowInstallButton && mInstallButtonToolbarWidthConsumer.hasSpaceToShow());
     }
 
     private void updateTabletButtonsVisibility() {
         assert mIsTablet;
+        updateBookmarkButtonVisibility();
+        updateZoomButtonVisibility();
+    }
+
+    private void updateBookmarkButtonVisibility() {
+        setBookmarkButtonVisibility(shouldShowBookmarkButton());
+    }
+
+    private void setBookmarkButtonVisibility(boolean shouldShowBookmarkButton) {
         LocationBarTablet locationBarTablet = (LocationBarTablet) mLocationBarLayout;
-        boolean showBookmarkButton =
-                mShouldShowButtonsWhenUnfocused && shouldShowPageActionButtons();
-        locationBarTablet.setBookmarkButtonVisibility(showBookmarkButton);
+        locationBarTablet.setBookmarkButtonVisibility(
+                shouldShowBookmarkButton && mBookmarkButtonToolbarWidthConsumer.hasSpaceToShow());
+    }
+
+    @VisibleForTesting
+    boolean shouldShowBookmarkButton() {
+        return mShouldShowButtonsWhenUnfocused && shouldShowPageActionButtons();
     }
 
     /**
      * @return Whether the delete button should be shown.
      */
-    private boolean shouldShowDeleteButton() {
+    @VisibleForTesting
+    boolean shouldShowDeleteButton() {
         // Show the delete button at the end when the bar has focus and has some text.
         boolean hasText =
                 mUrlCoordinator != null
@@ -1340,7 +1454,7 @@ class LocationBarMediator
 
     @VisibleForTesting
     boolean shouldShowMicButton() {
-        if (mNavigationFulfillmentTypeSupplier.get() != NavigationFulfillmentType.DEFAULT) {
+        if (mAutocompleteRequestTypeSupplier.get() != AutocompleteRequestType.SEARCH) {
             return false;
         }
 
@@ -1366,7 +1480,7 @@ class LocationBarMediator
 
     @VisibleForTesting
     boolean shouldShowLensButton() {
-        if (mNavigationFulfillmentTypeSupplier.get() != NavigationFulfillmentType.DEFAULT) {
+        if (mAutocompleteRequestTypeSupplier.get() != AutocompleteRequestType.SEARCH) {
             return false;
         }
 
@@ -1413,6 +1527,11 @@ class LocationBarMediator
         }
 
         return !mUrlHasFocus && mIsLocationBarFocusedFromNtpScroll;
+    }
+
+    private void onAutocompleteRequestTypeChanged(@AutocompleteRequestType int type) {
+        updateButtonVisibility();
+        onSearchBoxHintTextChanged();
     }
 
     private boolean isLensOnOmniboxEnabled() {
@@ -1507,6 +1626,10 @@ class LocationBarMediator
     /* package */ static class LocationBarState implements UserData {
         public String userText = "";
         public boolean isUrlBarFocused;
+        // On Android, we don't need to persist the cursor position since it is provided in
+        // selectionStart or selectionEnd when no text is selected.
+        public int selectionStart;
+        public int selectionEnd;
 
         static @Nullable LocationBarState from(@Nullable Tab tab) {
             if (tab == null || tab.isDestroyed()) {
@@ -1533,6 +1656,11 @@ class LocationBarMediator
             if (previousState != null) {
                 previousState.userText = mUrlCoordinator.getTextWithoutAutocomplete();
                 previousState.isUrlBarFocused = isUrlBarFocused();
+
+                if (mPersistEditingState) {
+                    previousState.selectionStart = mUrlCoordinator.getSelectionStart();
+                    previousState.selectionEnd = mUrlCoordinator.getSelectionEnd();
+                }
             }
         }
 
@@ -1544,6 +1672,10 @@ class LocationBarMediator
             clearOmniboxFocus();
             setUrlBarFocus(
                     true, currentState.userText, OmniboxFocusReason.LOCATION_BAR_STATE_RESTORATION);
+            if (mPersistEditingState) {
+                mUrlCoordinator.setSelection(
+                        currentState.selectionStart, currentState.selectionEnd);
+            }
         }
     }
 
@@ -1608,7 +1740,7 @@ class LocationBarMediator
             if (urlHasFocus && mUrlFocusedWithoutAnimations) {
                 handleUrlFocusAnimation(true);
             } else {
-                mUrlCoordinator.requestFocus();
+                requestUrlFocus();
             }
         } else {
             assert pastedText == null;
@@ -1931,13 +2063,84 @@ class LocationBarMediator
                         mContext, mWindowAndroid, mProfileSupplier.get());
     }
 
-    public ObservableSupplier<@NavigationFulfillmentType Integer>
-            getNavigationFulfillmentTypeSupplier() {
-        return mNavigationFulfillmentTypeSupplier;
+    public ObservableSupplier<@AutocompleteRequestType Integer>
+            getAutocompleteRequestTypeSupplier() {
+        return mAutocompleteRequestTypeSupplier;
     }
 
     @Override
-    public void onSearchBoxHintTextChanged(String newHintText) {
-        mUrlCoordinator.setUrlBarHintText(newHintText);
+    public void onSearchBoxHintTextChanged() {
+        mUrlCoordinator.setUrlBarHintText(
+                assertNonNull(mSearchEngineUtils)
+                        .getOmniboxHintText(mAutocompleteRequestTypeSupplier.get()));
+    }
+
+    /* package */ ToolbarWidthConsumer getBookmarkButtonToolbarWidthConsumer() {
+        return mBookmarkButtonToolbarWidthConsumer;
+    }
+
+    /* package */ ToolbarWidthConsumer getInstallButtonToolbarWidthConsumer() {
+        return mInstallButtonToolbarWidthConsumer;
+    }
+
+    /* package */ ToolbarWidthConsumer getMicButtonToolbarWidthConsumer() {
+        return mMicButtonToolbarWidthConsumer;
+    }
+
+    /* package */ ToolbarWidthConsumer getLensButtonToolbarWidthConsumer() {
+        return mLensButtonToolbarWidthConsumer;
+    }
+
+    private static class ButtonToolbarWidthConsumer implements ToolbarWidthConsumer {
+        private final int mButtonWidth;
+        private final Supplier<Boolean> mShouldShowButton;
+        private final Runnable mUpdateButtonVisibility;
+        private final boolean mIsTablet;
+        private boolean mHasSpaceToShow;
+
+        ButtonToolbarWidthConsumer(
+                Context context,
+                boolean isTablet,
+                Supplier<Boolean> shouldShowButton,
+                Runnable updateButtonVisibility) {
+            mShouldShowButton = shouldShowButton;
+            mIsTablet = isTablet;
+            mUpdateButtonVisibility = updateButtonVisibility;
+            mButtonWidth =
+                    context.getResources()
+                            .getDimensionPixelSize(R.dimen.location_bar_action_icon_width);
+        }
+
+        boolean hasSpaceToShow() {
+            if (!mIsTablet || !ChromeFeatureList.sToolbarTabletResizeRefactor.isEnabled()) {
+                return true;
+            }
+            return mHasSpaceToShow;
+        }
+
+        @Override
+        public boolean isVisible() {
+            return mHasSpaceToShow && mShouldShowButton.get();
+        }
+
+        @Override
+        public int updateVisibility(int availableWidth) {
+            assert ChromeFeatureList.sToolbarTabletResizeRefactor.isEnabled();
+
+            if (mShouldShowButton.get() && availableWidth >= mButtonWidth) {
+                mHasSpaceToShow = true;
+                mUpdateButtonVisibility.run();
+                return mButtonWidth;
+            }
+            mHasSpaceToShow = false;
+            mUpdateButtonVisibility.run();
+            return 0;
+        }
+
+        @Override
+        public int updateVisibilityWithAnimation(
+                int availableWidth, Collection<Animator> animators) {
+            return updateVisibility(availableWidth);
+        }
     }
 }

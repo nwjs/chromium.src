@@ -2,8 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {TileSource} from '//resources/mojo/components/ntp_tiles/tile_source.mojom-webui.js';
 import {MostVisitedBrowserProxy} from 'chrome://resources/cr_components/most_visited/browser_proxy.js';
-import {MostVisitedElement} from 'chrome://resources/cr_components/most_visited/most_visited.js';
+import {MAX_TILES_FOR_CUSTOM_LINKS, MostVisitedElement} from 'chrome://resources/cr_components/most_visited/most_visited.js';
 import type {MostVisitedPageRemote, MostVisitedTile} from 'chrome://resources/cr_components/most_visited/most_visited.mojom-webui.js';
 import {MostVisitedPageCallbackRouter, MostVisitedPageHandlerRemote} from 'chrome://resources/cr_components/most_visited/most_visited.mojom-webui.js';
 import {MostVisitedWindowProxy} from 'chrome://resources/cr_components/most_visited/window_proxy.js';
@@ -18,6 +19,8 @@ import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {$$, assertStyle, keydown} from './most_visited_test_support.js';
+
+const MAX_TILES_BEFORE_SHOW_MORE = 5;
 
 let mostVisited: MostVisitedElement;
 let windowProxy: TestMock<MostVisitedWindowProxy>&MostVisitedWindowProxy;
@@ -36,6 +39,14 @@ function queryTiles(): HTMLAnchorElement[] {
 
 function queryHiddenTiles(): HTMLAnchorElement[] {
   return queryAll<HTMLAnchorElement>('.tile[hidden]');
+}
+
+function getShowMoreButton(): CrButtonElement|null {
+  return $$<CrButtonElement>(mostVisited, '#showMore');
+}
+
+function getShowLessButton(): CrButtonElement|null {
+  return $$<CrButtonElement>(mostVisited, '#showLess');
 }
 
 function assertTileLength(length: number) {
@@ -93,6 +104,8 @@ function createBrowserProxy() {
   handler.setResultFor('updateMostVisitedTile', Promise.resolve({
     success: true,
   }));
+  handler.setResultFor(
+      'getMostVisitedExpandedState', Promise.resolve({isExpanded: false}));
 }
 
 class FakeMediaQueryList extends EventTarget implements MediaQueryList {
@@ -151,15 +164,30 @@ function leaveUrlInput() {
   return microtasksFinished();
 }
 
-function setUpTest(singleRow: boolean, reflowOnOverflow: boolean) {
+interface SetUpTestOptions {
+  singleRow: boolean;
+  reflowOnOverflow: boolean;
+  expandableTilesEnabled: boolean;
+}
+
+function setUpTest(providedOptions: Partial<SetUpTestOptions> = {}) {
+  const defaultOptions = {
+    singleRow: false,
+    reflowOnOverflow: false,
+    expandableTilesEnabled: false,
+  };
+  const options = {...defaultOptions, ...providedOptions};
   document.body.innerHTML = window.trustedTypes!.emptyHTML;
 
   createBrowserProxy();
   createWindowProxy();
 
   mostVisited = new MostVisitedElement();
-  mostVisited.singleRow = singleRow;
-  mostVisited.reflowOnOverflow = reflowOnOverflow;
+  mostVisited.singleRow = options.singleRow;
+  mostVisited.reflowOnOverflow = options.reflowOnOverflow;
+  if (options.expandableTilesEnabled) {
+    mostVisited.setAttribute('expandable-tiles-enabled', '');
+  }
   document.body.appendChild(mostVisited);
   assertEquals(1, handler.getCallCount('updateMostVisitedInfo'));
   return wide();
@@ -167,7 +195,7 @@ function setUpTest(singleRow: boolean, reflowOnOverflow: boolean) {
 
 suite('General', () => {
   setup(async () => {
-    await setUpTest(/*singleRow=*/ false, /*reflowOnOverflow=*/ false);
+    await setUpTest();
   });
 
   test('empty shows add shortcut only', async () => {
@@ -201,9 +229,358 @@ suite('General', () => {
   });
 });
 
+suite('ShowAddButton', () => {
+  setup(async () => {
+    await setUpTest({reflowOnOverflow: true});
+  });
+
+  test('add shortcut button shows when custom links enabled', async () => {
+    await addTiles(0, /*customLinksEnabled=*/ true);
+    assertAddShortcutShown();
+  });
+
+  test('add shortcut button hidden when custom links disabled', async () => {
+    await addTiles(0, /*customLinksEnabled=*/ false);
+    assertAddShortcutHidden();
+  });
+
+  test(
+      'add shortcut button hidden when custom links disabled and max tiles',
+      async () => {
+        const tiles = Array(MAX_TILES_FOR_CUSTOM_LINKS).fill(0).map((_x, i) => {
+          const char = String.fromCharCode(i + /* 'a' */ 97);
+          return {
+            title: char,
+            titleDirection: TextDirection.LEFT_TO_RIGHT,
+            url: {url: `https://${char}/`},
+            source: i % 2 === 0 ? TileSource.TOP_SITES :
+                                  TileSource.CUSTOM_LINKS,
+            titleSource: i,
+            isQueryTile: false,
+            allowUserEdit: true,
+            allowUserDelete: true,
+          };
+        });
+        await addTiles(tiles, /*customLinksEnabled=*/ true);
+        assertAddShortcutHidden();
+      });
+
+  test(
+      'add shortcut button shown when custom links disabled and max enterprise tiles',
+      async () => {
+        const tiles = Array(MAX_TILES_FOR_CUSTOM_LINKS).fill(0).map((_x, i) => {
+          const char = String.fromCharCode(i + /* 'a' */ 97);
+          return {
+            title: char,
+            titleDirection: TextDirection.LEFT_TO_RIGHT,
+            url: {url: `https://${char}/`},
+            source: TileSource.ENTERPRISE_SHORTCUTS,
+            titleSource: i,
+            isQueryTile: false,
+            allowUserEdit: true,
+            allowUserDelete: true,
+          };
+        });
+        await addTiles(
+            tiles, /*customLinksEnabled=*/ true, /*visible=*/ true,
+            /*enterpriseShortcutsEnabled=*/ true);
+        assertAddShortcutShown();
+      });
+});
+
+suite('ExpandableTiles', () => {
+  suiteSetup(() => {
+    loadTimeData.overrideValues({
+      maxTilesBeforeShowMore: MAX_TILES_BEFORE_SHOW_MORE,
+    });
+  });
+
+  test('initializes isExpanded to true from pref', async () => {
+    createBrowserProxy();
+    handler.setResultFor(
+        'getMostVisitedExpandedState', Promise.resolve({isExpanded: true}));
+    createWindowProxy();
+
+    mostVisited = new MostVisitedElement();
+    mostVisited.setAttribute('expandable-tiles-enabled', '');
+    document.body.appendChild(mostVisited);
+    await wide();
+
+    await handler.whenCalled('getMostVisitedExpandedState');
+    await microtasksFinished();
+    await addTiles(MAX_TILES_BEFORE_SHOW_MORE + 1);
+    assertTrue(mostVisited['showAll_']);
+    assertTrue(isVisible(getShowLessButton()));
+    assertFalse(isVisible(getShowMoreButton()));
+  });
+
+  test('Show more button is shown with 6 or more tiles', async () => {
+    await setUpTest({reflowOnOverflow: true, expandableTilesEnabled: true});
+    await addTiles(MAX_TILES_BEFORE_SHOW_MORE + 1);
+    assertTrue(isVisible(getShowMoreButton()));
+    assertAddShortcutHidden();
+    assertHiddenTileLength(0);
+  });
+
+  test(
+      'Show more and show less buttons are hidden with 5 or fewer tiles',
+      async () => {
+        await setUpTest({reflowOnOverflow: true, expandableTilesEnabled: true});
+        await addTiles(MAX_TILES_BEFORE_SHOW_MORE);
+        assertFalse(isVisible(getShowMoreButton()));
+        assertFalse(isVisible(getShowLessButton()));
+        assertAddShortcutShown();
+      });
+
+  test(
+      'When the number of tiles is 6, toggle between show more and show less',
+      async () => {
+        await setUpTest({reflowOnOverflow: true, expandableTilesEnabled: true});
+        await addTiles(MAX_TILES_BEFORE_SHOW_MORE + 1);
+        const showMoreButton = getShowMoreButton();
+        assertTrue(isVisible(showMoreButton));
+        assertAddShortcutHidden();
+        assertHiddenTileLength(0);
+
+        // Click "Show more", expect "Show less" and "Add shortcut" to be shown.
+        showMoreButton!.click();
+        const isExpanded =
+            await handler.whenCalled('setMostVisitedExpandedState');
+        assertTrue(isExpanded);
+        handler.resetResolver('setMostVisitedExpandedState');
+        await microtasksFinished();
+
+        assertFalse(isVisible(getShowMoreButton()));
+        assertTrue(isVisible(getShowLessButton()));
+        assertAddShortcutShown();
+        assertHiddenTileLength(0);
+
+        // Click "Show less", "Show more" shown and "Add shortcut" hidden
+        const ShowLessButton = getShowLessButton();
+        ShowLessButton!.click();
+        const isExpanded2 =
+            await handler.whenCalled('setMostVisitedExpandedState');
+        assertFalse(isExpanded2);
+        await microtasksFinished();
+
+        assertTrue(isVisible(getShowMoreButton()));
+        assertFalse(isVisible(getShowLessButton()));
+        assertAddShortcutHidden();
+        assertHiddenTileLength(0);
+      });
+
+  test('clicking show more shows all tiles and show less button', async () => {
+    await setUpTest({reflowOnOverflow: true, expandableTilesEnabled: true});
+    await addTiles(MAX_TILES_BEFORE_SHOW_MORE + 2);  // 7 tiles.
+    const showMoreButton = getShowMoreButton();
+    assertTrue(isVisible(showMoreButton));
+    assertAddShortcutHidden();
+    assertHiddenTileLength(1);  // 7 tiles, 6 visible, so 1 hidden.
+
+    showMoreButton!.click();
+    await microtasksFinished();
+
+    assertFalse(isVisible(getShowMoreButton()));
+    assertTrue(isVisible(getShowLessButton()));
+    assertAddShortcutShown();
+    assertHiddenTileLength(0);
+  });
+
+  test('clicking show less hides tiles and show more button', async () => {
+    await setUpTest({reflowOnOverflow: true, expandableTilesEnabled: true});
+    await addTiles(MAX_TILES_BEFORE_SHOW_MORE + 2);  // 7 tiles.
+    const showMoreButton = getShowMoreButton();
+    const showLessButton = getShowLessButton();
+
+    assertTrue(isVisible(showMoreButton));
+    assertFalse(isVisible(showLessButton));
+    assertAddShortcutHidden();
+    assertHiddenTileLength(1);
+
+    // Click "Show more".
+    showMoreButton!.click();
+    await microtasksFinished();
+
+    assertFalse(isVisible(showMoreButton));
+    assertTrue(isVisible(showLessButton));
+    assertAddShortcutShown();
+    assertHiddenTileLength(0);
+
+    // Click "Show less".
+    showLessButton!.click();
+    await microtasksFinished();
+
+    assertTrue(isVisible(showMoreButton));
+    assertFalse(isVisible(showLessButton));
+    assertAddShortcutHidden();
+    assertHiddenTileLength(1);
+  });
+
+  test('clicking show less with max tiles correctly collapses UI', async () => {
+    // This test reproduces a bug where having max tiles (10) would cause the
+    // "Show less" button to appear on a new row, and clicking it would fail
+    // to collapse the layout correctly, leaving a blank second row.
+    await setUpTest({reflowOnOverflow: true, expandableTilesEnabled: true});
+    await addTiles(MAX_TILES_FOR_CUSTOM_LINKS);  // 10 tiles.
+
+    const showMoreButton = getShowMoreButton();
+    assertTrue(isVisible(showMoreButton));
+
+    // Click "Show more" to expand.
+    showMoreButton!.click();
+    await microtasksFinished();
+
+    // Verify the expanded layout. With 10 tiles and a "Show less" button,
+    // we expect 3 rows on a wide screen (5 columns).
+    const showLessButton = getShowLessButton();
+    assertTrue(isVisible(showLessButton));
+    assertHiddenTileLength(0);
+    const expandedItems =
+        queryAll<HTMLElement>('.tile:not([hidden]), #showLess');
+    assertEquals(MAX_TILES_FOR_CUSTOM_LINKS + 1, expandedItems.length);
+    const firstRowTop = expandedItems[0]!.offsetTop;
+    const secondRowTop = expandedItems[5]!.offsetTop;
+    const thirdRowTop = expandedItems[10]!.offsetTop;
+    assertNotEquals(firstRowTop, secondRowTop);
+    assertNotEquals(secondRowTop, thirdRowTop);
+    const expandedHeight = mostVisited.$.container.offsetHeight;
+
+    // Click "Show less" to collapse.
+    showLessButton!.click();
+    await microtasksFinished();
+
+    // Verify the collapsed layout. We should have 2 rows with 6 tiles and
+    // the "Show more" button.
+    assertTrue(isVisible(getShowMoreButton()));
+    // There are 10 tiles total. When collapsed, 6 are visible. 4 are hidden.
+    assertHiddenTileLength(4);
+    const collapsedItems =
+        queryAll<HTMLElement>('.tile:not([hidden]), #showMore');
+    assertEquals(MAX_TILES_BEFORE_SHOW_MORE + 1 + 1, collapsedItems.length);
+    const collapsedHeight = mostVisited.$.container.offsetHeight;
+    assertNotEquals(
+        expandedHeight, collapsedHeight,
+        'Collapsed layout should be shorter than expanded layout');
+  });
+
+  test(
+      'show less button on first row with 8 tiles and custom links disabled',
+      async () => {
+        await setUpTest({
+          singleRow: true,
+          reflowOnOverflow: true,
+          expandableTilesEnabled: true,
+        });
+        await addTiles(8, /*customLinksEnabled=*/ false);
+
+        const showMoreButton = getShowMoreButton();
+        assertTrue(isVisible(showMoreButton));
+
+        // Click "Show more" to expand.
+        showMoreButton!.click();
+        await microtasksFinished();
+
+        // We expect 1 row with 8 tiles and a "Show less" button.
+        const showLessButton = getShowLessButton();
+        assertTrue(isVisible(showLessButton));
+        assertHiddenTileLength(0);
+        const expandedItems =
+            queryAll<HTMLElement>('.tile:not([hidden]), #showLess');
+        assertEquals(8 + 1, expandedItems.length);
+        const firstItemTop = expandedItems[0]!.offsetTop;
+        for (const item of expandedItems) {
+          assertEquals(firstItemTop, item.offsetTop);
+        }
+        assertEquals(1, rowCount());
+      });
+
+  test(
+      'show more and show less buttons do not move during drag and drop',
+      async () => {
+        await setUpTest({reflowOnOverflow: true, expandableTilesEnabled: true});
+        await addTiles(MAX_TILES_BEFORE_SHOW_MORE + 2);  // 7 tiles.
+
+        const showMoreButton = getShowMoreButton()!;
+        assertTrue(isVisible(showMoreButton));
+        const showMoreButtonRect = showMoreButton.getBoundingClientRect();
+
+        // Simulate drag and drop.
+        const tiles = queryTiles();
+        const first = tiles[0]!;
+        const second = tiles[1]!;
+        const firstRect = first.getBoundingClientRect();
+        const secondRect = second.getBoundingClientRect();
+        first.dispatchEvent(new DragEvent('dragstart', {
+          clientX: firstRect.x + firstRect.width / 2,
+          clientY: firstRect.y + firstRect.height / 2,
+        }));
+        await microtasksFinished();
+
+        // Check position of "Show more" button immediately after drag starts.
+        let newShowMoreButtonRect = showMoreButton.getBoundingClientRect();
+        assertDeepEquals(showMoreButtonRect, newShowMoreButtonRect);
+
+        const reorderCalled = handler.whenCalled('reorderMostVisitedTile');
+        document.dispatchEvent(new DragEvent('drop', {
+          clientX: secondRect.x + 1,
+          clientY: secondRect.y + 1,
+        }));
+        document.dispatchEvent(new DragEvent('dragend', {
+          clientX: secondRect.x + 1,
+          clientY: secondRect.y + 1,
+        }));
+        await mostVisited.updateComplete;
+        await reorderCalled;
+
+        // Check position of "Show more" button.
+        newShowMoreButtonRect = showMoreButton.getBoundingClientRect();
+        assertDeepEquals(showMoreButtonRect, newShowMoreButtonRect);
+
+        // Expand to show "Show less" button.
+        showMoreButton.click();
+        await microtasksFinished();
+
+        const showLessButton = getShowLessButton()!;
+        assertTrue(isVisible(showLessButton));
+        const showLessButtonRect = showLessButton.getBoundingClientRect();
+
+        // Simulate another drag and drop.
+        const newTiles = queryTiles();
+        const newFirst = newTiles[0]!;
+        const newSecond = newTiles[1]!;
+        const newFirstRect = newFirst.getBoundingClientRect();
+        const newSecondRect = newSecond.getBoundingClientRect();
+        newFirst.dispatchEvent(new DragEvent('dragstart', {
+          clientX: newFirstRect.x + newFirstRect.width / 2,
+          clientY: newFirstRect.y + newFirstRect.height / 2,
+        }));
+        await microtasksFinished();
+
+        // Check position of "Show less" button immediately after drag starts.
+        let newShowLessButtonRect = showLessButton.getBoundingClientRect();
+        assertDeepEquals(showLessButtonRect, newShowLessButtonRect);
+
+        const reorderCalledAgain = handler.whenCalled('reorderMostVisitedTile');
+        document.dispatchEvent(new DragEvent('drop', {
+          clientX: newSecondRect.x + 1,
+          clientY: newSecondRect.y + 1,
+        }));
+        document.dispatchEvent(new DragEvent('dragend', {
+          clientX: newSecondRect.x + 1,
+          clientY: newSecondRect.y + 1,
+        }));
+        await mostVisited.updateComplete;
+        await reorderCalledAgain;
+
+        // Check position of "Show less" button.
+        newShowLessButtonRect = showLessButton.getBoundingClientRect();
+        assertDeepEquals(showLessButtonRect, newShowLessButtonRect);
+      });
+});
+
 function createLayoutsSuite(singleRow: boolean, reflowOnOverflow: boolean) {
   setup(async () => {
-    await setUpTest(singleRow, reflowOnOverflow);
+    await setUpTest({singleRow, reflowOnOverflow});
   });
 
   test('four tiles fit on one line with addShortcut', async () => {
@@ -335,7 +712,7 @@ function createLayoutsSuite(singleRow: boolean, reflowOnOverflow: boolean) {
 function createLayoutsWidthsSuite(singleRow: boolean) {
   suite('test various widths', () => {
     setup(async () => {
-      await setUpTest(singleRow, false);
+      await setUpTest({singleRow});
     });
 
     test('six / three is max for narrow', async () => {
@@ -444,7 +821,7 @@ function columnCount(): number {
 function createLayoutsWidthsReflowSuite(singleRow: boolean) {
   suite('test reflow on various widths', () => {
     setup(async () => {
-      await setUpTest(singleRow, /*reflowOnOverflow=*/ true);
+      await setUpTest({singleRow, reflowOnOverflow: true});
     });
 
     test('No hidden tiles', async () => {
@@ -514,7 +891,7 @@ suite('Reflow Layouts', () => {
 
 suite('LoggingAndUpdates', () => {
   setup(async () => {
-    await setUpTest(/*singleRow=*/ false, /*reflowOnOverflow=*/ false);
+    await setUpTest();
   });
 
   test('rendering tiles logs event', async () => {
@@ -605,7 +982,7 @@ suite('Modification', () => {
   });
 
   setup(async () => {
-    await setUpTest(/*singleRow=*/ false, /*reflowOnOverflow=*/ false);
+    await setUpTest();
   });
 
   suite('add dialog', () => {
@@ -914,6 +1291,131 @@ suite('Modification', () => {
       await leaveUrlInput();
       assertFalse(inputUrl.invalid);
     });
+
+    test(
+        'shortcut already exists (enterprise and custom link with same url)',
+        async () => {
+          await addTiles(
+              [
+                {
+                  title: 'e1',
+                  titleDirection: TextDirection.LEFT_TO_RIGHT,
+                  url: {url: `https://e1/`},
+                  source: TileSource.ENTERPRISE_SHORTCUTS,
+                  titleSource: 0,
+                  isQueryTile: false,
+                  allowUserEdit: true,
+                  allowUserDelete: true,
+                },
+                {
+                  title: 'c1',
+                  titleDirection: TextDirection.LEFT_TO_RIGHT,
+                  url: {url: `https://e1/`},
+                  source: TileSource.CUSTOM_LINKS,
+                  titleSource: 1,
+                  isQueryTile: false,
+                  allowUserEdit: true,
+                  allowUserDelete: true,
+                },
+              ],
+              /*customLinksEnabled=*/ true, /*visible=*/ true,
+              /*enterpriseShortcutsEnabled=*/ true);
+
+          // Open edit dialog for the enteprise shortcut (index 0).
+          const enterpriseShortcutTile = queryTiles()[0]!;
+          enterpriseShortcutTile
+              .querySelector<HTMLElement>('#actionMenuButton')!.click();
+          $$<HTMLElement>(mostVisited, '#actionMenuViewOrEdit').click();
+          await microtasksFinished();
+
+          // Action button should be visible and clickable.
+          assertTrue(mostVisited.$.dialog.open);
+          const actionButton =
+              mostVisited.$.dialog.querySelector<CrButtonElement>(
+                  '.action-button')!;
+          assertFalse(actionButton.disabled);
+          actionButton.click();
+          await microtasksFinished();
+          assertFalse(mostVisited.$.dialog.open);
+
+          // Open edit dialog for the custom link (index 1).
+          const customLinkTile = queryTiles()[1]!;
+          customLinkTile.querySelector<HTMLElement>(
+                            '#actionMenuButton')!.click();
+          $$<HTMLElement>(mostVisited, '#actionMenuViewOrEdit').click();
+          await microtasksFinished();
+
+          // Try to set its URL to the enterprise shortcut's URL (which is the
+          // same as its own, but we're testing the logic).
+          inputUrl.value = 'https://e1/';
+          await inputUrl.updateComplete;
+          assertFalse(mostVisited['dialogShortcutAlreadyExists_']);
+          assertFalse(inputUrl.invalid);
+          await leaveUrlInput();
+          assertFalse(inputUrl.invalid);
+
+          // Save button should be visible and clickable.
+          assertTrue(mostVisited.$.dialog.open);
+          const saveButton =
+              mostVisited.$.dialog.querySelector<CrButtonElement>(
+                  '.action-button')!;
+          assertFalse(saveButton.disabled);
+          saveButton.click();
+          await microtasksFinished();
+          assertFalse(mostVisited.$.dialog.open);
+        });
+
+    test('edit custom link to duplicate enterprise shortcut url', async () => {
+      await addTiles(
+          [
+            {
+              title: 'e1',
+              titleDirection: TextDirection.LEFT_TO_RIGHT,
+              url: {url: `https://e1/`},
+              source: TileSource.ENTERPRISE_SHORTCUTS,
+              titleSource: 0,
+              isQueryTile: false,
+              allowUserEdit: true,
+              allowUserDelete: true,
+            },
+            {
+              title: 'c1',
+              titleDirection: TextDirection.LEFT_TO_RIGHT,
+              url: {url: `https://c1/`},
+              source: TileSource.CUSTOM_LINKS,
+              titleSource: 1,
+              isQueryTile: false,
+              allowUserEdit: true,
+              allowUserDelete: true,
+            },
+          ],
+          /*customLinksEnabled=*/ true, /*visible=*/ true,
+          /*enterpriseShortcutsEnabled=*/ true);
+
+      // Open edit dialog for the custom link (index 1).
+      const customLinkTile = queryTiles()[1]!;
+      customLinkTile.querySelector<HTMLElement>('#actionMenuButton')!.click();
+      $$<HTMLElement>(mostVisited, '#actionMenuViewOrEdit').click();
+      await microtasksFinished();
+
+      // Try to set its URL to the enterprise shortcut's URL.
+      // Save button should be visible and clickable.
+      inputUrl.value = 'https://e1/';
+      await inputUrl.updateComplete;
+      assertFalse(mostVisited['dialogShortcutAlreadyExists_']);
+      assertFalse(inputUrl.invalid);
+      await leaveUrlInput();
+      assertFalse(inputUrl.invalid);
+
+      const saveButton = mostVisited.$.dialog.querySelector<CrButtonElement>(
+          '.action-button')!;
+      assertFalse(saveButton.disabled);
+      const updateCalled = handler.whenCalled('updateMostVisitedTile');
+      saveButton.click();
+      const [_oldTile, newUrl, _newTitle] = await updateCalled;
+      assertEquals('https://e1/', newUrl.url);
+      assertFalse(mostVisited.$.dialog.open);
+    });
   });
 
   test('remove with action menu', async () => {
@@ -930,7 +1432,7 @@ suite('Modification', () => {
     assertFalse(mostVisited.$.toastManager.isToastOpen);
     removeButton.click();
     assertFalse(actionMenu.open);
-    assertEquals('https://b/', (await deleteCalled).url);
+    assertEquals('https://b/', (await deleteCalled).url.url);
     assertTrue(mostVisited.$.toastManager.isToastOpen);
     // Toast buttons are visible.
     assertTrue(isVisible($$(mostVisited, '#undo')));
@@ -958,7 +1460,7 @@ suite('Modification', () => {
     const deleteCalled = handler.whenCalled('deleteMostVisitedTile');
     assertFalse(mostVisited.$.toastManager.isToastOpen);
     removeButton.click();
-    assertEquals('https://search-url/', (await deleteCalled).url);
+    assertEquals('https://search-url/', (await deleteCalled).url.url);
     assertTrue(mostVisited.$.toastManager.isToastOpen);
     // Toast buttons are visible.
     assertTrue(isVisible($$(mostVisited, '#undo')));
@@ -972,7 +1474,7 @@ suite('Modification', () => {
     const deleteCalled = handler.whenCalled('deleteMostVisitedTile');
     assertFalse(mostVisited.$.toastManager.isToastOpen);
     removeButton.click();
-    assertEquals('https://a/', (await deleteCalled).url);
+    assertEquals('https://a/', (await deleteCalled).url.url);
     assertTrue(mostVisited.$.toastManager.isToastOpen);
     // Toast buttons are visible.
     assertTrue(isVisible($$(mostVisited, '#undo')));
@@ -997,7 +1499,7 @@ suite('Modification', () => {
     const deleteCalled = handler.whenCalled('deleteMostVisitedTile');
     assertFalse(mostVisited.$.toastManager.isToastOpen);
     removeButton.click();
-    assertEquals('https://search-url/', (await deleteCalled).url);
+    assertEquals('https://search-url/', (await deleteCalled).url.url);
     assertTrue(mostVisited.$.toastManager.isToastOpen);
     // Toast buttons are not visible.
     assertFalse(isVisible($$(mostVisited, '#undo')));
@@ -1016,7 +1518,7 @@ suite('Modification', () => {
     const deleteCalled = handler.whenCalled('deleteMostVisitedTile');
     assertFalse(mostVisited.$.toastManager.isToastOpen);
     keydown(tile, 'Delete');
-    assertEquals('https://a/', (await deleteCalled).url);
+    assertEquals('https://a/', (await deleteCalled).url.url);
     assertTrue(mostVisited.$.toastManager.isToastOpen);
   });
 
@@ -1110,7 +1612,7 @@ suite('Modification', () => {
 
 function createDragAndDropSuite(singleRow: boolean, reflowOnOverflow: boolean) {
   setup(async () => {
-    await setUpTest(singleRow, reflowOnOverflow);
+    await setUpTest({singleRow, reflowOnOverflow});
   });
 
   test('drag first tile to second position', async () => {
@@ -1138,8 +1640,8 @@ function createDragAndDropSuite(singleRow: boolean, reflowOnOverflow: boolean) {
       clientY: secondRect.y + 1,
     }));
     await mostVisited.updateComplete;
-    const [url, newPos] = await reorderCalled;
-    assertEquals('https://a/', url.url);
+    const [tile, newPos] = await reorderCalled;
+    assertEquals('https://a/', tile.url.url);
     assertEquals(1, newPos);
     const [newFirst, newSecond] = queryTiles();
     assertEquals('https://b/', newFirst!.querySelector('a')!.href);
@@ -1171,8 +1673,8 @@ function createDragAndDropSuite(singleRow: boolean, reflowOnOverflow: boolean) {
       clientY: firstRect.y + 1,
     }));
     await mostVisited.updateComplete;
-    const [url, newPos] = await reorderCalled;
-    assertEquals('https://b/', url.url);
+    const [tile, newPos] = await reorderCalled;
+    assertEquals('https://b/', tile.url.url);
     assertEquals(0, newPos);
     const [newFirst, newSecond] = queryTiles();
     assertEquals('https://b/', newFirst!.querySelector('a')!.href);
@@ -1181,6 +1683,188 @@ function createDragAndDropSuite(singleRow: boolean, reflowOnOverflow: boolean) {
 
   test('most visited tiles cannot be reordered', async () => {
     await addTiles(2, /* customLinksEnabled= */ false);
+    const tiles = queryTiles();
+    const first = tiles[0]!;
+    const second = tiles[1]!;
+    assertEquals('https://a/', first.querySelector('a')!.href);
+    assertTrue(first.draggable);
+    assertEquals('https://b/', second.querySelector('a')!.href);
+    assertTrue(second.draggable);
+    const firstRect = first.getBoundingClientRect();
+    const secondRect = second.getBoundingClientRect();
+    first.dispatchEvent(new DragEvent('dragstart', {
+      clientX: firstRect.x + firstRect.width / 2,
+      clientY: firstRect.y + firstRect.height / 2,
+    }));
+    document.dispatchEvent(new DragEvent('drop', {
+      clientX: secondRect.x + 1,
+      clientY: secondRect.y + 1,
+    }));
+    document.dispatchEvent(new DragEvent('dragend', {
+      clientX: secondRect.x + 1,
+      clientY: secondRect.y + 1,
+    }));
+    await mostVisited.updateComplete;
+    assertEquals(0, handler.getCallCount('reorderMostVisitedTile'));
+    const [newFirst, newSecond] = queryTiles();
+    assertEquals('https://a/', newFirst!.querySelector('a')!.href);
+    assertEquals('https://b/', newSecond!.querySelector('a')!.href);
+  });
+
+  test('new index is adjusted by enterprise shortcuts', async () => {
+    const enterpriseShortcut = {
+      title: 'e1',
+      titleDirection: TextDirection.LEFT_TO_RIGHT,
+      url: {url: `https://e1/`},
+      source: TileSource.ENTERPRISE_SHORTCUTS,
+      titleSource: 0,
+      isQueryTile: false,
+      allowUserEdit: true,
+      allowUserDelete: true,
+    };
+    const customLink1 = {
+      title: 'c1',
+      titleDirection: TextDirection.LEFT_TO_RIGHT,
+      url: {url: `https://c1/`},
+      source: TileSource.CUSTOM_LINKS,
+      titleSource: 1,
+      isQueryTile: false,
+      allowUserEdit: true,
+      allowUserDelete: true,
+    };
+    const customLink2 = {
+      title: 'c2',
+      titleDirection: TextDirection.LEFT_TO_RIGHT,
+      url: {url: `https://c2/`},
+      source: TileSource.CUSTOM_LINKS,
+      titleSource: 2,
+      isQueryTile: false,
+      allowUserEdit: true,
+      allowUserDelete: true,
+    };
+    await addTiles(
+        [enterpriseShortcut, customLink1, customLink2],
+        /*customLinksEnabled=*/ true, /*visible=*/ true,
+        /*enterpriseShortcutsEnabled=*/ true);
+
+    const tiles = queryTiles();
+    const customLink1Element = tiles[1]!;
+    const customLink2Element = tiles[2]!;
+
+    const customLink1Rect = customLink1Element.getBoundingClientRect();
+    const customLink2Rect = customLink2Element.getBoundingClientRect();
+
+    // Drag customLink1 (index 1) to customLink2's position (index 2).
+    customLink1Element.dispatchEvent(new DragEvent('dragstart', {
+      clientX: customLink1Rect.x + customLink1Rect.width / 2,
+      clientY: customLink1Rect.y + customLink1Rect.height / 2,
+    }));
+
+    const reorderCalled = handler.whenCalled('reorderMostVisitedTile');
+
+    document.dispatchEvent(new DragEvent('drop', {
+      clientX: customLink2Rect.x + 1,
+      clientY: customLink2Rect.y + 1,
+    }));
+    document.dispatchEvent(new DragEvent('dragend', {
+      clientX: customLink2Rect.x + 1,
+      clientY: customLink2Rect.y + 1,
+    }));
+    await mostVisited.updateComplete;
+
+    const [tile, newPos] = await reorderCalled;
+    assertEquals('https://c1/', tile.url.url);
+    // Expected new position: original index of c1 in custom group (0) + 1
+    // (because it moved past c2 in the custom group).
+    // The dropIndex is 2, but there is 1 enterprise shortcut, so 2 - 1 = 1.
+    assertEquals(1, newPos);
+
+    const [newEnterprise, newCustom2, newCustom1] = queryTiles();
+    assertEquals('https://e1/', newEnterprise!.querySelector('a')!.href);
+    assertEquals('https://c2/', newCustom2!.querySelector('a')!.href);
+    assertEquals('https://c1/', newCustom1!.querySelector('a')!.href);
+  });
+
+  test('cannot drag custom link to enterprise shortcut position', async () => {
+    const enterpriseShortcut = {
+      title: 'a',
+      titleDirection: TextDirection.LEFT_TO_RIGHT,
+      url: {url: `https://a/`},
+      source: TileSource.ENTERPRISE_SHORTCUTS,
+      titleSource: 0,
+      isQueryTile: false,
+      allowUserEdit: true,
+      allowUserDelete: true,
+    };
+    const customLink = {
+      title: 'b',
+      titleDirection: TextDirection.LEFT_TO_RIGHT,
+      url: {url: `https://b/`},
+      source: TileSource.CUSTOM_LINKS,
+      titleSource: 1,
+      isQueryTile: false,
+      allowUserEdit: true,
+      allowUserDelete: true,
+    };
+    await addTiles(
+        [enterpriseShortcut, customLink],
+        /*customLinksEnabled=*/ true, /*visible=*/ true,
+        /*enterpriseShortcutsEnabled=*/ true);
+
+    const tiles = queryTiles();
+    const first = tiles[0]!;
+    const second = tiles[1]!;
+    assertEquals('https://a/', first.querySelector('a')!.href);
+    assertTrue(first.draggable);
+    assertEquals('https://b/', second.querySelector('a')!.href);
+    assertTrue(second.draggable);
+    const firstRect = first.getBoundingClientRect();
+    const secondRect = second.getBoundingClientRect();
+    second.dispatchEvent(new DragEvent('dragstart', {
+      clientX: secondRect.x + secondRect.width / 2,
+      clientY: secondRect.y + secondRect.height / 2,
+    }));
+    document.dispatchEvent(new DragEvent('drop', {
+      clientX: firstRect.x + 1,
+      clientY: firstRect.y + 1,
+    }));
+    document.dispatchEvent(new DragEvent('dragend', {
+      clientX: firstRect.x + 1,
+      clientY: firstRect.y + 1,
+    }));
+    await mostVisited.updateComplete;
+    assertEquals(0, handler.getCallCount('reorderMostVisitedTile'));
+    const [newFirst, newSecond] = queryTiles();
+    assertEquals('https://a/', newFirst!.querySelector('a')!.href);
+    assertEquals('https://b/', newSecond!.querySelector('a')!.href);
+  });
+
+  test('cannot drag enterprise shortcut to custom link position', async () => {
+    const enterpriseShortcut = {
+      title: 'a',
+      titleDirection: TextDirection.LEFT_TO_RIGHT,
+      url: {url: `https://a/`},
+      source: TileSource.ENTERPRISE_SHORTCUTS,
+      titleSource: 0,
+      isQueryTile: false,
+      allowUserEdit: true,
+      allowUserDelete: true,
+    };
+    const customLink = {
+      title: 'b',
+      titleDirection: TextDirection.LEFT_TO_RIGHT,
+      url: {url: `https://b/`},
+      source: TileSource.CUSTOM_LINKS,
+      titleSource: 1,
+      isQueryTile: false,
+      allowUserEdit: true,
+      allowUserDelete: true,
+    };
+    await addTiles(
+        [enterpriseShortcut, customLink],
+        /*customLinksEnabled=*/ true, /*visible=*/ true,
+        /*enterpriseShortcutsEnabled=*/ true);
+
     const tiles = queryTiles();
     const first = tiles[0]!;
     const second = tiles[1]!;
@@ -1223,7 +1907,7 @@ suite('DragAndDrop', () => {
 
 suite('Theming', () => {
   setup(async () => {
-    await setUpTest(/*singleRow=*/ false, /*reflowOnOverflow=*/ false);
+    await setUpTest();
   });
 
   test('RIGHT_TO_LEFT tile title text direction', async () => {
@@ -1290,7 +1974,7 @@ suite('Preloading', () => {
   suiteSetup(() => {});
 
   setup(async () => {
-    await setUpTest(/*singleRow=*/ false, /*reflowOnOverflow=*/ false);
+    await setUpTest();
   });
 
   test('onMouseHover Trigger', async () => {
@@ -1337,7 +2021,7 @@ suite('EnterpriseShortcuts', () => {
   suiteSetup(() => {});
 
   setup(async () => {
-    await setUpTest(/*singleRow=*/ false, /*reflowOnOverflow=*/ false);
+    await setUpTest();
   });
 
   function createEnterpriseShortcut(
@@ -1348,7 +2032,7 @@ suite('EnterpriseShortcuts', () => {
       title: char,
       titleDirection: TextDirection.LEFT_TO_RIGHT,
       url: {url: `https://${char}/`},
-      source: i,
+      source: TileSource.ENTERPRISE_SHORTCUTS,
       titleSource: i,
       isQueryTile: false,
       allowUserEdit: allowUserEdit,
@@ -1382,7 +2066,7 @@ suite('EnterpriseShortcuts', () => {
     assertEquals(
         'Edit shortcut',
         mostVisited.$.dialog.querySelector(
-                                '[slot="title"]')!.textContent!.trim());
+                                '[slot="title"]')!.textContent.trim());
     const policySubtitleContainer =
         mostVisited.$.dialog.querySelector<HTMLElement>(
             '#policySubtitleContainer');
@@ -1419,7 +2103,7 @@ suite('EnterpriseShortcuts', () => {
     assertEquals(
         'Shortcut',
         mostVisited.$.dialog.querySelector(
-                                '[slot="title"]')!.textContent!.trim());
+                                '[slot="title"]')!.textContent.trim());
     const policySubtitleContainer =
         mostVisited.$.dialog.querySelector<HTMLElement>(
             '#policySubtitleContainer');
@@ -1439,6 +2123,62 @@ suite('EnterpriseShortcuts', () => {
     await microtasksFinished();
     assertFalse(mostVisited.$.dialog.open);
     assertEquals(0, handler.getCallCount('updateMostVisitedTile'));
+  });
+
+  test('view enterprise shortcut then add shortcut', async () => {
+    await addTiles(
+        [
+          createEnterpriseShortcut(
+              0, /*allowUserEdit=*/ false, /*allowUserDelete=*/ true),
+          {
+            title: 'c',
+            titleDirection: TextDirection.LEFT_TO_RIGHT,
+            url: {url: `https://c/`},
+            source: TileSource.CUSTOM_LINKS,
+            titleSource: 1,
+            isQueryTile: false,
+            allowUserEdit: true,
+            allowUserDelete: true,
+          },
+        ],
+        /*customLinksEnabled=*/ true, /*visible=*/ true,
+        /*enterpriseShortcutsEnabled=*/ true);
+    const enterpriseTile = queryTiles()[0]!;
+    enterpriseTile.querySelector<HTMLElement>('#actionMenuButton')!.click();
+    $$<HTMLElement>(mostVisited, '#actionMenuViewOrEdit').click();
+    await microtasksFinished();
+
+    // Verify dialog state for enterprise shortcut.
+    assertTrue(mostVisited.$.dialog.open);
+    let policySubtitleContainer =
+        mostVisited.$.dialog.querySelector<HTMLElement>(
+            '#policySubtitleContainer');
+    assertTrue(isVisible(policySubtitleContainer));
+    let urlInput = $$<CrInputElement>(mostVisited, '#dialogInputUrl');
+    assertTrue(urlInput.readonly);
+    let nameInput = $$<CrInputElement>(mostVisited, '#dialogInputName');
+    assertTrue(nameInput.readonly);
+
+    // Close the dialog.
+    const saveButton =
+        mostVisited.$.dialog.querySelector<CrButtonElement>('.action-button')!;
+    saveButton.click();
+    await microtasksFinished();
+    assertFalse(mostVisited.$.dialog.open);
+
+    // Open the add shortcut dialog.
+    mostVisited.$.addShortcut.click();
+    await microtasksFinished();
+
+    // Verify dialog state for adding a new shortcut.
+    assertTrue(mostVisited.$.dialog.open);
+    policySubtitleContainer = mostVisited.$.dialog.querySelector<HTMLElement>(
+        '#policySubtitleContainer');
+    assertFalse(isVisible(policySubtitleContainer));
+    urlInput = $$<CrInputElement>(mostVisited, '#dialogInputUrl');
+    assertFalse(urlInput.readonly);
+    nameInput = $$<CrInputElement>(mostVisited, '#dialogInputName');
+    assertFalse(nameInput.readonly);
   });
 
   test('action menu enabled/disabled based on permissions', async () => {
@@ -1467,7 +2207,7 @@ suite('EnterpriseShortcuts', () => {
     let viewOrEditButton =
         $$<HTMLButtonElement>(mostVisited, '#actionMenuViewOrEdit');
     assertFalse(viewOrEditButton.disabled);
-    assertEquals('Edit shortcut', viewOrEditButton.textContent!.trim());
+    assertEquals('Edit shortcut', viewOrEditButton.textContent.trim());
     assertFalse(
         $$<HTMLButtonElement>(mostVisited, '#actionMenuRemove').disabled);
     mostVisited.$.actionMenu.close();
@@ -1481,7 +2221,7 @@ suite('EnterpriseShortcuts', () => {
     viewOrEditButton =
         $$<HTMLButtonElement>(mostVisited, '#actionMenuViewOrEdit');
     assertFalse(viewOrEditButton.disabled);
-    assertEquals('Edit shortcut', viewOrEditButton.textContent!.trim());
+    assertEquals('Edit shortcut', viewOrEditButton.textContent.trim());
     assertTrue(
         $$<HTMLButtonElement>(mostVisited, '#actionMenuRemove').disabled);
     mostVisited.$.actionMenu.close();
@@ -1495,7 +2235,7 @@ suite('EnterpriseShortcuts', () => {
     viewOrEditButton =
         $$<HTMLButtonElement>(mostVisited, '#actionMenuViewOrEdit');
     assertFalse(viewOrEditButton.disabled);
-    assertEquals('Details', viewOrEditButton.textContent!.trim());
+    assertEquals('Details', viewOrEditButton.textContent.trim());
     assertFalse(
         $$<HTMLButtonElement>(mostVisited, '#actionMenuRemove').disabled);
     mostVisited.$.actionMenu.close();
@@ -1509,7 +2249,7 @@ suite('EnterpriseShortcuts', () => {
     viewOrEditButton =
         $$<HTMLButtonElement>(mostVisited, '#actionMenuViewOrEdit');
     assertFalse(viewOrEditButton.disabled);
-    assertEquals('Details', viewOrEditButton.textContent!.trim());
+    assertEquals('Details', viewOrEditButton.textContent.trim());
     assertTrue(
         $$<HTMLButtonElement>(mostVisited, '#actionMenuRemove').disabled);
   });

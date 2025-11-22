@@ -697,8 +697,8 @@ bool AVCDecoderConfigurationRecord::Parse(BoxReader* reader) {
   return ParseInternal(reader, reader->media_log());
 }
 
-bool AVCDecoderConfigurationRecord::Parse(const uint8_t* data, int data_size) {
-  BufferReader reader(data, data_size);
+bool AVCDecoderConfigurationRecord::Parse(base::span<const uint8_t> data) {
+  BufferReader reader(data.data(), data.size());
   NullMediaLog media_log;
   return ParseInternal(&reader, &media_log);
 }
@@ -2413,10 +2413,10 @@ MovieFragment::~MovieFragment() = default;
 FourCC MovieFragment::BoxType() const { return FOURCC_MOOF; }
 
 bool MovieFragment::Parse(BoxReader* reader) {
-  RCHECK(reader->ScanChildren() &&
-         reader->ReadChild(&header) &&
-         reader->ReadChildren(&tracks) &&
-         reader->MaybeReadChildren(&pssh));
+  RCHECK(reader->ScanChildren());
+  RCHECK(reader->ReadChild(&header));
+  RCHECK(reader->MaybeReadChildren(&tracks));
+  RCHECK(reader->MaybeReadChildren(&pssh));
   return true;
 }
 

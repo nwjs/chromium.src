@@ -35,6 +35,9 @@ class GlicActorUiTest : public test::InteractiveGlicTest {
   using ExpectedErrorResult = std::variant<std::monostate,
                                            actor::mojom::ActionResultCode,
                                            mojom::PerformActionsErrorReason>;
+  using ExpectedResumeResult =
+      std::variant<std::monostate, actor::mojom::ActionResultCode, bool>;
+
   static constexpr int32_t kNonExistentContentNodeId =
       std::numeric_limits<int32_t>::max();
   static constexpr char kActivateSurfaceIncompatibilityNotice[] =
@@ -52,6 +55,12 @@ class GlicActorUiTest : public test::InteractiveGlicTest {
 
   const actor::ActorTask* GetActorTask();
 
+  // Returns the WebContents of the Glic guest.
+  content::WebContents* GetGlicContents();
+
+  // Returns the WebContents of the Glic host (WebUI).
+  content::WebContents* GetGlicHost(actor::TaskId& task_id);
+
   // Executes a BrowserAction and verifies it succeeds. Optionally takes an
   // error reason which, when provided, causes failure if the action is
   // successful or fails with an unexpected reason.
@@ -65,6 +74,9 @@ class GlicActorUiTest : public test::InteractiveGlicTest {
   // NavigateAction, etc.
   MultiStep ExecuteAction(ActionProtoProvider proto_provider,
                           ExpectedErrorResult expected_result = {});
+
+  MultiStep ExecuteInGlic(
+      base::OnceCallback<void(content::WebContents*)> callback);
 
   MultiStep CreateTask(actor::TaskId& out_task, std::string_view title);
 
@@ -110,6 +122,18 @@ class GlicActorUiTest : public test::InteractiveGlicTest {
       optimization_guide::proto::ClickAction::ClickCount click_count,
       ExpectedErrorResult expected_result = {});
 
+  // The above functions take the coordinate as an rvalue which means the value
+  // of the parameter is used at the time the step is declared, not when its
+  // run. This function takes the coordinate by address to emphasise that the
+  // step will use the value of the coordinate when the step runs, enabling
+  // tests to click on a dynamically generated point (e.g. read an element's
+  // bounding box and click on it).
+  MultiStep ClickAction(
+      const gfx::Point* coordinate,
+      optimization_guide::proto::ClickAction::ClickType click_type,
+      optimization_guide::proto::ClickAction::ClickCount click_count,
+      ExpectedErrorResult expected_result = {});
+
   MultiStep NavigateAction(GURL url,
                            actor::TaskId& task_id,
                            tabs::TabHandle& tab_handle,
@@ -126,7 +150,7 @@ class GlicActorUiTest : public test::InteractiveGlicTest {
 
   // After invoking APIs that don't return promises, we round trip to both the
   // client and host to make sure the call has made it to the browser.
-  MultiStep RoundTrip();
+  MultiStep RoundTrip(actor::TaskId& task_id);
 
   // Stops a running task by calling the glic StopActorTask API.
   // TODO(crbug.com/431760051): This needs to use the correct task_id but the
@@ -137,7 +161,8 @@ class GlicActorUiTest : public test::InteractiveGlicTest {
   MultiStep PauseActorTask();
 
   // Resumes a paused task by calling the glic ResumeActorTask API.
-  MultiStep ResumeActorTask(base::Value::Dict context_options, bool expected);
+  MultiStep ResumeActorTask(base::Value::Dict context_options,
+                            ExpectedResumeResult expected_result);
 
   MultiStep WaitForActorTaskState(mojom::ActorTaskState expected_state);
 
@@ -148,6 +173,14 @@ class GlicActorUiTest : public test::InteractiveGlicTest {
   // Uses the state observable from PrepareForStopStateChange to await a state
   // change to stopped.
   MultiStep WaitForActorTaskStateChangeToStopped();
+
+  // Foregrounds the last acted on tab by calling the glic
+  // activateTab API.
+  MultiStep ActivateTaskTab();
+
+  // Waits for the glic getTabById for the task tab to satisfy the expected
+  // foreground value.
+  MultiStep WaitForTaskTabForeground(bool expected_foreground);
 
   // Returns a callback that returns the given string as the action proto. Meant
   // for testing error handling since this allows providing an invalid proto.
@@ -160,9 +193,9 @@ class GlicActorUiTest : public test::InteractiveGlicTest {
 
   MultiStep InitializeWithOpenGlicWindow();
 
-  // Retrieves AnnotatedPageContent for the currently focused tab (and caches
-  // it in `annotated_page_content_`).
-  MultiStep GetPageContextFromFocusedTab();
+  // Triggers a page context fetch for the actor task tab and stores the
+  // result in `annotated_page_content_`.
+  MultiStep GetPageContextForActorTab();
 
   // Ensure whether a task is actively (non-paused) acting on the given tab.
   MultiStep CheckIsActingOnTab(ui::ElementIdentifier tab, bool expected);
@@ -193,6 +226,7 @@ class GlicActorUiTest : public test::InteractiveGlicTest {
   std::unique_ptr<optimization_guide::proto::AnnotatedPageContent>
       annotated_page_content_;
 
+  // Label corresponds to the aria-label on the element in the page.
   int32_t SearchAnnotatedPageContent(std::string_view label);
 
  private:

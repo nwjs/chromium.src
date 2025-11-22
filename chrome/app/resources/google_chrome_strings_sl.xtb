@@ -21,6 +21,7 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="110877069173485804">To je vaš Chrome</translation>
 <translation id="1125124144982679672">Kdo uporablja Chrome?</translation>
 <translation id="1142745911746664600">Chroma ni mogoče posodobiti</translation>
+<translation id="1148360048981192980">Ko boste naslednjič odprli Chrome v napravi <ph name="DEVICE_TYPE" />, bo prikazan poziv za uporabo Googlovega upravitelja gesel.</translation>
 <translation id="1152920704813762236">O sistemu ChromeOS</translation>
 <translation id="1154147086299354128">&amp;Odpri v Chromu</translation>
 <translation id="1157985233335035034">Nedavni jeziki</translation>
@@ -92,6 +93,7 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="2018528049276128029">Vsak profil ima svoje podatke v Chromu, kot so zaznamki, zgodovina, gesla in drugo.</translation>
 <translation id="2018879682492276940">Namestitev ni uspela. Poskusite znova.</translation>
 <translation id="2024959665595762054">Če želite v računu Google uporabljati in shranjevati podatke iz Chroma, potrdite, da ste to vi</translation>
+<translation id="2026377840141807639">S profili v Chromu lahko osebno brskanje ločite od službenega. Dodajte nov profil.</translation>
 <translation id="2034233344106846793">Povezave, ki niso varne, Chrome samodejno nadgradi na HTTPS, ko je to mogoče</translation>
 <translation id="2039417478970545937">Nastavitve.</translation>
 <translation id="2091012649849228750">Če želite prejemati prihodnje posodobitve Google Chroma, potrebujete Windows 10 ali novejšega. V tem računalniku je nameščen Windows 8.</translation>
@@ -150,9 +152,11 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="2681444469812712297">Odprite <ph name="URL" /> na novem zavihku v Google Chromu.</translation>
 <translation id="2699790011615497488">Odpiranje Geminija v Chromu beta</translation>
 <translation id="2712141162840347885">Izberite kar koli za iskanje z Googlom Lens ali pritisnite tipko Esc, če želite zapreti Google Lens</translation>
+<translation id="2723860029395667894">Vedno pokaži bližnjico do Googlovega načina umetne inteligence</translation>
 <translation id="2738871930057338499">Internetne povezave ni mogoče vzpostaviti. Koda napake HTTP je »403 Forbidden«. Preverite konfiguracijo strežnika proxy configuration.</translation>
 <translation id="2742320827292110288">Opozorilo: Google Chrome razširitvam ne more preprečiti beleženja zgodovine brskanja. Če želite onemogočiti to razširitev v anonimnem načinu, počistite to možnost.</translation>
 <translation id="2753623023919742414">Kliknite, če želite iskati</translation>
+<translation id="2757826245013442432">{COUNT,plural, =0{Dodatna zaščita zahteva, da za uveljavitev posodobitve znova zaženete Chrome}=1{Dodatna zaščita zahteva, da za uveljavitev posodobitve znova zaženete Chrome. Anonimno okno se ne bo znova odprlo.}one{Dodatna zaščita zahteva, da za uveljavitev posodobitve znova zaženete Chrome. # anonimno okno se ne bo znova odprlo.}two{Dodatna zaščita zahteva, da za uveljavitev posodobitve znova zaženete Chrome. # anonimni okni se ne bosta znova odprli.}few{Dodatna zaščita zahteva, da za uveljavitev posodobitve znova zaženete Chrome. # anonimna okna se ne bodo znova odprla.}other{Dodatna zaščita zahteva, da za uveljavitev posodobitve znova zaženete Chrome. # anonimnih oken se ne bo znova odprlo.}}</translation>
 <translation id="2765403129283291972">Chrome potrebuje dovoljenje za dostop do mikrofona za to spletno mesto</translation>
 <translation id="2770231113462710648">Spremeni privzeti brskalnik na:</translation>
 <translation id="2775140325783767197">Chrome ne more preveriti vaših gesel. Poskusite preveriti internetno povezavo.</translation>
@@ -190,6 +194,7 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="3047590466164881923">Zapiranje pogovornega okna za povratne informacije</translation>
 <translation id="306179102415443347">Z bližnjico lahko hitro odprete Googlovega upravitelja gesel. Bližnjico lahko premaknete na začetni zaslon računalnika ali v zaganjalnik aplikacij.</translation>
 <translation id="3065168410429928842">Zavihek v Chromu</translation>
+<translation id="3073571714401714450">Preklop Geminija v Chromu Dev</translation>
 <translation id="3080151273017101988">Nadaljuj izvajanje programov v ozadju, ko je Google Chrome zaprt</translation>
 <translation id="308397506772922478">Če ste pozabili geslo ali želite to nastavitev spremeniti, <ph name="BEGIN_LINK" />izbrišite podatke iz Chroma v računu<ph name="END_LINK" />.</translation>
 <translation id="3100998948628680988">Poimenujte profil v Chromu</translation>
@@ -275,7 +280,6 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="409936259433005390">Ali boste kmalu nadgradili na Windows 11? Prenesite namestitveni program za Chrome v OneDrive, da boste pripravljeni že od začetka.</translation>
 <translation id="4110895483821904099">Nastavitev novega profila v Chromu</translation>
 <translation id="4111566860456076004">Chrome ne more preveriti, od kod je ta razširitev, in morda ni varna. Odstranite jo iz Chroma, da si ne bo mogla več ogledati vaših podatkov na obiskanih spletnih mestih, vključno z osebnimi podatki, in jih spreminjati.</translation>
-<translation id="4128488089242627000">Chrome se izvaja hitreje, funkcije, ki uporabljajo JavaScript, pa bi morale delovati, kot je predvideno (priporočeno)</translation>
 <translation id="4147555960264124640">Prijavljate se z upravljanim računom in s tem njegovemu skrbniku omogočate nadzor vašega profila v Google Chromu. Vaši podatki v Chromu, kot so aplikacije, zaznamki, zgodovina, gesla in druge nastavitve, bodo postali trajno povezani z uporabnikom <ph name="USER_NAME" />. Te podatke boste lahko izbrisali z nadzorno ploščo za Google Račune, vendar jih ne boste mogli povezati z drugim računom. <ph name="LEARN_MORE" /></translation>
 <translation id="4148957013307229264">Nameščanje ...</translation>
 <translation id="4149882025268051530">Namestitvenemu programu ni uspelo razširiti arhiva. Ponovno prenesite program Google Chrome.</translation>
@@ -365,6 +369,7 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 Nekatere funkcije morda ne bodo na voljo. Navedite drug imenik profila ali uporabite novejšo različico Google Chroma.</translation>
 <translation id="5174969993834422967">Obvestila običajno blokirate. Če želite dovoliti, da vas to spletno mesto obvešča, kliknite ikono obvestila v desnem kotu vrstice z lokacijo.</translation>
 <translation id="5174983315706567306">Premalo prostora na disku.</translation>
+<translation id="5190467473654176081">Prilagodite Chrome, da bo videti drugače</translation>
 <translation id="5201744974236816379">Posodobitev za Chrome</translation>
 <translation id="521447420733633466">Če napravo souporabljate z drugimi, lahko prijatelji in sorodniki ločeno brskajo ter nastavijo Chrome tako, kot želijo.</translation>
 <translation id="5234764350956374838">Opusti</translation>
@@ -380,6 +385,7 @@ Nekatere funkcije morda ne bodo na voljo. Navedite drug imenik profila ali upora
 <translation id="5368118228313795342">Dodatna koda: <ph name="EXTRA_CODE" />.</translation>
 <translation id="5386244825306882791">Določa tudi, katera stran je prikazana, ko zaženete Chrome ali iščete v naslovni vrstici.</translation>
 <translation id="5394833366792865639">Deljenje zavihka v Chromu</translation>
+<translation id="5402307365844630024">Preklop Geminija v Chromu beta</translation>
 <translation id="5430073640787465221">Datoteka z nastavitvami je poškodovana ali neveljavna.
 
 Google Chrome ne more obnoviti vaših nastavitev.</translation>
@@ -387,6 +393,7 @@ Google Chrome ne more obnoviti vaših nastavitev.</translation>
 <translation id="5510398294750420479">Prenesite Chrome v telefon, da si zagotovite dodatno plast zaščite, ko ste na poti</translation>
 <translation id="5524890928877629608">zgornji levi kot območja za iskanje: levo <ph name="LEFT" /> %, zgoraj <ph name="TOP" /> %</translation>
 <translation id="5530733413481476019">Pospešite Chrome</translation>
+<translation id="5550137307985173298">Kliknite gumb za prilagajanje Chroma na strani »Nov zavihek«, da bo Chrome videti drugače</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5579324208890605088">Napaka pri zagonu: Zaženite namestitveni program kot običajni uporabnik, ne kot skrbnik.</translation>
 <translation id="5596627076506792578">Več možnosti</translation>
@@ -415,6 +422,7 @@ Google Chrome ne more obnoviti vaših nastavitev.</translation>
 <translation id="5736850870166430177">Če vam spletno mesto poskusi ukrasti geslo ali ko prenašate škodljivo datoteko, lahko Chrome prav tako pošlje URL-je, vključno z delčki vsebine strani, Varnemu brskanju.</translation>
 <translation id="5756509061973259733">Profil v Chromu s tem računom že obstaja v tej napravi.</translation>
 <translation id="5759947850379142561">Izberite besedilo ali sliko za iskanje z Googlom Lens ali pritisnite tipko Esc, če želite zapreti Google Lens</translation>
+<translation id="5762867845020858790">Dodajte nov profil v Chromu, da bodo zaznamki, gesla in nastavitve ločeni.</translation>
 <translation id="5795887333006832406"><ph name="PAGE_TITLE" /> – delovna različica Google Chroma</translation>
 <translation id="5804318322022881572">Chroma ni bilo mogoče zagnati. Poskusite znova.</translation>
 <translation id="5809516625706423866">Internetne povezave ni mogoče vzpostaviti. Koda napake HTTP je »401 Unauthorized«. Preverite konfiguracijo strežnika proxy.</translation>
@@ -431,6 +439,7 @@ Google Chrome ne more obnoviti vaših nastavitev.</translation>
 <translation id="5941711191222866238">Minimiziraj</translation>
 <translation id="5941830788786076944">Nastavi Google Chrome kot privzeti brskalnik</translation>
 <translation id="5947104538377036631">Bližnjica za Chrome</translation>
+<translation id="5960071705175224773">Neznana aplikacija je spremenila vaše nastavitve</translation>
 <translation id="5968400720580217226">Način umetne inteligence</translation>
 <translation id="5980111191913430208">Razširitve, aplikacije in teme iz neznanih virov lahko škodijo napravi. Chrome priporoča, da jih namestite samo tukaj: <ph name="IDS_EXTENSION_WEB_STORE_TITLE" />.</translation>
 <translation id="6003112304606738118">Prenašanje … Še <ph name="HOURS" /> h.</translation>
@@ -481,6 +490,7 @@ Google Chrome ne more obnoviti vaših nastavitev.</translation>
 <translation id="6412673304250309937">Preveri URL-je, tako da jih primerja s seznamom spletnih mest, ki niso varna, shranjenim v Chromu. Če vam spletno mesto poskusi ukrasti geslo ali ko prenašate škodljivo datoteko, lahko Chrome prav tako pošlje URL-je, vključno z delčki vsebine strani, Varnemu brskanju.</translation>
 <translation id="6417690341895039567">{COUNT,plural, =1{Organizacija samodejno zapre Chrome, če ga ne uporabljate 1 minuto. Podatki brskanja so izbrisani. To lahko vključuje zgodovino, samodejno izpolnjevanje in prenose.}one{Organizacija samodejno zapre Chrome, če ga ne uporabljate # minuto. Podatki brskanja so izbrisani. To lahko vključuje zgodovino, samodejno izpolnjevanje in prenose.}two{Organizacija samodejno zapre Chrome, če ga ne uporabljate # minuti. Podatki brskanja so izbrisani. To lahko vključuje zgodovino, samodejno izpolnjevanje in prenose.}few{Organizacija samodejno zapre Chrome, če ga ne uporabljate # minute. Podatki brskanja so izbrisani. To lahko vključuje zgodovino, samodejno izpolnjevanje in prenose.}other{Organizacija samodejno zapre Chrome, če ga ne uporabljate # minut. Podatki brskanja so izbrisani. To lahko vključuje zgodovino, samodejno izpolnjevanje in prenose.}}</translation>
 <translation id="6418662306461808273">Želite preklopiti na obstoječi profil v Chromu?</translation>
+<translation id="6426623519983252346">Ko boste naslednjič odprli Chrome za iOS, bo prikazan poziv, da preizkusite funkcijo <ph name="FEATURE_NAME" />.</translation>
 <translation id="6473905796280459355">Odprite stran »O Chromu«</translation>
 <translation id="6481963882741794338">Povežite Chrome in druge Googlove storitve za osebno prilagajanje in druge namene</translation>
 <translation id="648319183876919572">Izboljšano varno brskanje vas še bolje varuje pred nevarnimi spletnimi mesti in prenosi</translation>
@@ -513,6 +523,7 @@ Google Chrome ne more obnoviti vaših nastavitev.</translation>
 <translation id="6800285125190089494">Hitrejša prijava na spletnih mestih z uporabo shranjenih gesel za Chrome v sistemu iOS</translation>
 <translation id="6831043979455480757">Prevedi</translation>
 <translation id="683440813066116847">Pravilo za dohodni promet za Google Chrome Canary, ki dovoli promet mDNS.</translation>
+<translation id="6841242485723266823">S profili v Chromu lahko ločite različne dele svojega življenja. Dodajte nov profil.</translation>
 <translation id="684888714667046800">Internetne povezave ni mogoče vzpostaviti. Če uporabljate požarni zid, poskrbite, da je <ph name="PRODUCT_EXE_NAME" /> na seznamu dovoljenih.</translation>
 <translation id="6877155553248388166">spodnji desni kot območja za iskanje: desno <ph name="RIGHT" /> %, spodaj <ph name="BOTTOM" /> %</translation>
 <translation id="6881299373831449287">Posodabljanje Chroma</translation>
@@ -528,6 +539,7 @@ Google Chrome ne more obnoviti vaših nastavitev.</translation>
 <translation id="6967962315388095737">Pravilo za dohodni promet za Google Chrome Beta, ki dovoli promet mDNS.</translation>
 <translation id="6979589607440534284">Preberite, zakaj Chrome blokira nekatere datoteke, odpre se na novem zavihku</translation>
 <translation id="6991926986715044139">Vedno pokaži bližnjico do Googla Lens</translation>
+<translation id="6999131147875565462">Chrome se izvaja hitreje, funkcije, ki uporabljajo JavaScript, pa bi morale delovati, kot je predvideno</translation>
 <translation id="7011190694940573312">Namestitev ni uspela, ker ta različica operacijskega sistema ni podprta.</translation>
 <translation id="7024536598735240744">Napaka pri odpakiranju: <ph name="UNPACK_ERROR" />.</translation>
 <translation id="7025789849649390912">Namestitev je prekinjena.</translation>
@@ -653,6 +665,7 @@ Google Chrome ne more obnoviti vaših nastavitev.</translation>
 <translation id="8362914115861174987">Prevedi v jezik</translation>
 <translation id="8366770919198174997">Zmanjša učinkovitost delovanja, vendar je Chrome odpornejši proti napadom</translation>
 <translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC. Vse pravice pridržane.</translation>
+<translation id="8377158135256176353">Preklop Geminija v Chromu Canary</translation>
 <translation id="8387459386171870978">Še naprej uporabljaj Chrome</translation>
 <translation id="8394720698884623075">Preveri URL-je, tako da jih primerja s seznamom spletnih mest, ki niso varna, shranjenim v Chromu.</translation>
 <translation id="8403038600646341038">Chromov logotip na zaslonu računalnika.</translation>
@@ -675,8 +688,10 @@ Google Chrome ne more obnoviti vaših nastavitev.</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome se bo znova zagnal čez eno minuto}one{Chrome se bo znova zagnal čez # minuto}two{Chrome se bo znova zagnal čez # minuti}few{Chrome se bo znova zagnal čez # minute}other{Chrome se bo znova zagnal čez # minut}}</translation>
 <translation id="8637932705841171563">Če želite deliti okno, v sistemskih nastavitvah omogočite snemanje zaslona za Chrome.</translation>
 <translation id="8641606876632989680">Chrome vas bo obvestil, če se prijavite z ogroženim geslom</translation>
+<translation id="8647930742055103497">Vse shranite v Chromu</translation>
 <translation id="8656634243791296665">Odpiranje Geminija v Chromu Dev</translation>
 <translation id="8669527147644353129">Pomočnik za Google Chrome</translation>
+<translation id="8677922833187616101">Vedno pokaži bližnjico do Googlovega načina umetne inteligence</translation>
 <translation id="8679801911857917785">Določa tudi, katera stran je prikazana, ko zaženete Chrome.</translation>
 <translation id="8712637175834984815">Razumem</translation>
 <translation id="8712767363896337380">Skoraj je posodobljen. Znova zaženite Chrome, da dokončate posodobitev.</translation>
@@ -685,7 +700,6 @@ Google Chrome ne more obnoviti vaših nastavitev.</translation>
 <translation id="873133009373065397">Google Chrome ne more določiti ali nastaviti privzetega brskalnika</translation>
 <translation id="8747073452963259673">spodnji levi kot območja za iskanje: levo <ph name="LEFT" /> %, spodaj <ph name="BOTTOM" /> %</translation>
 <translation id="8748735421235723888">Chrome sprosti pomnilnik z neaktivnih zavihkov. Tako imajo aktivni zavihki in druge aplikacije več računalniških sredstev, Chrome pa je še naprej hiter. Neaktivni zavihki znova postanejo aktivni, ko se vrnete nanje. <ph name="BEGIN_LINK" />Preberite več o varčevanju s pomnilnikom<ph name="END_LINK" /></translation>
-<translation id="8753189155654018347">Odstrani podatke te aplikacije iz Chroma</translation>
 <translation id="8765470054473112089">Ko tipkate v naslovno vrstico ali iskalno polje, Chrome vaše vnose pošlje v privzeti iskalnik zaradi boljših predlogov. V anonimnem načinu je to izklopljeno.</translation>
 <translation id="8781673607513845160">Če želite uporabljati kamero, omogočite Chromu dostop v <ph name="BEGIN_LINK" />sistemskih nastavitvah<ph name="END_LINK" />.</translation>
 <translation id="878572486461146056">Napaka pri namestitvi: Skrbnik omrežja je uveljavil pravilnik skupine, ki preprečuje namestitev: <ph name="INSTALL_ERROR" /></translation>
@@ -701,12 +715,15 @@ Google Chrome ne more obnoviti vaših nastavitev.</translation>
 <translation id="8883862939660515976">Vprašajte Google Lens o tej sliki</translation>
 <translation id="8914504000324227558">Znova zaženi Chrome</translation>
 <translation id="8922193594870374009">Če želite telefonsko številko iz <ph name="ORIGIN" /> poslati v telefon Android, se prijavite v Chrome v obeh napravah.</translation>
+<translation id="8922998289262614701">Odstrani podatke te aplikacije iz Chroma</translation>
+<translation id="8936233353620149764">Preklop Geminija v Chromu</translation>
 <translation id="8948460679427074738">Ta razširitev še ni objavila postopkov zagotavljanja zasebnosti, na primer kako zbira in uporablja podatke. Chrome priporoča, da jo odstranite.</translation>
 <translation id="8958307504142971576">V Chromu je zdaj na voljo več funkcij</translation>
 <translation id="8991530961471831170">Odpri Geminija v Chromu</translation>
 <translation id="8992769679401294069">Podatki so šifrirani z vašim geslom. Vnesite ga, če želite podatke iz Chroma uporabljati in shranjevati v računu Google.</translation>
 <translation id="8999117580775242387">Če HTTPS ni na voljo, Chrome uporabi povezavo, ki ni varna, ne da bi vas opozoril</translation>
 <translation id="8999208279178790196">{0,plural, =0{Posodobitev za Chrome je na voljo}=1{Posodobitev za Chrome je na voljo}one{Posodobitev za Chrome je na voljo že # dan}two{Posodobitev za Chrome je na voljo že # dneva}few{Posodobitev za Chrome je na voljo že # dni}other{Posodobitev za Chrome je na voljo že # dni}}</translation>
+<translation id="9010418943148193727">Privzeti iskalnik je bil spremenjen zunaj Chroma. Chrome ga je ponastavil zaradi vaše zaščite.</translation>
 <translation id="9014771989710951291">Chrome upravlja več organizacij</translation>
 <translation id="9024318700713112071">Nastavite Chrome kot privzeto možnost</translation>
 <translation id="9066987883552592250">Zapiranje Geminija v Chromu Canary</translation>

@@ -20,7 +20,9 @@
 #include "chrome/browser/ui/search/omnibox_utils.h"
 #include "chrome/browser/ui/views/location_bar/selected_keyword_view.h"
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter.h"
+#include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_ui.h"
 #include "chrome/browser/ui/webui/searchbox/searchbox_omnibox_client.h"
+#include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/grit/new_tab_page_resources.h"
 #include "components/lens/lens_features.h"
 #include "components/navigation_metrics/navigation_metrics.h"
@@ -75,13 +77,12 @@ searchbox::mojom::SelectionLineState ConvertLineState(
 
 WebuiOmniboxHandler::WebuiOmniboxHandler(
     mojo::PendingReceiver<searchbox::mojom::PageHandler> pending_page_handler,
-    Profile* profile,
-    content::WebContents* web_contents,
     MetricsReporter* metrics_reporter,
-    OmniboxController* omnibox_controller)
+    OmniboxController* omnibox_controller,
+    content::WebUI* web_ui)
     : SearchboxHandler(std::move(pending_page_handler),
-                       profile,
-                       web_contents,
+                       Profile::FromWebUI(web_ui),
+                       web_ui->GetWebContents(),
                        /*controller=*/nullptr),
       metrics_reporter_(metrics_reporter) {
   // Keep a reference to the OmniboxController instance owned by the
@@ -112,6 +113,10 @@ void WebuiOmniboxHandler::OnResultChanged(AutocompleteController* controller,
     metrics_reporter_->Mark("ResultChanged");
   }
   SearchboxHandler::OnResultChanged(controller, default_match_changed);
+}
+
+void WebuiOmniboxHandler::OnKeywordStateChanged(bool is_keyword_selected) {
+  page_->SetKeywordSelected(is_keyword_selected);
 }
 
 void WebuiOmniboxHandler::OnSelectionChanged(
@@ -163,6 +168,12 @@ void WebuiOmniboxHandler::ActivateKeyword(
                                   ? metrics::OmniboxEventProto::CLICK_HINT_VIEW
                                   : metrics::OmniboxEventProto::TAP_HINT_VIEW;
     edit_model()->AcceptKeyword(entry_method);
+  }
+}
+
+void WebuiOmniboxHandler::ShowContextMenu(const gfx::Point& point) {
+  if (embedder_) {
+    embedder_->ShowContextMenu(point, nullptr);
   }
 }
 

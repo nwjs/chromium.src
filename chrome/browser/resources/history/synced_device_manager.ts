@@ -103,6 +103,7 @@ export class HistorySyncedDeviceManagerElement extends CrLitElement {
       loadTimeData.getBoolean('isSignInAllowed');
   protected accessor replaceSyncPromosWithSignInPromos_: boolean =
       loadTimeData.getBoolean('replaceSyncPromosWithSignInPromos');
+  private signinPausedImpressionRecorded_: boolean = false;
   // <if expr="not is_chromeos">
   protected accessor accountInfo_: AccountInfo|null = null;
   private onAccountInfoDataReceivedListenerId_: number|null = null;
@@ -397,6 +398,8 @@ export class HistorySyncedDeviceManagerElement extends CrLitElement {
    * different messages are shown when there are no synced tabs.
    */
   private signInStateChanged_(previous?: HistorySignInState) {
+    this.maybeRecordSigninPendingOffered_();
+
     if (previous === undefined) {
       return;
     }
@@ -404,14 +407,44 @@ export class HistorySyncedDeviceManagerElement extends CrLitElement {
     this.dispatchEvent(new CustomEvent(
         'history-view-changed', {bubbles: true, composed: true}));
 
-    // User signed out, clear synced device list and show the sign in promo.
-    if (this.signInState === HistorySignInState.SIGNED_OUT) {
+    if (this.replaceSyncPromosWithSignInPromos_) {
+      // User signed out, syncing without tabs, or disabled sync in general =>
+      // clear synced device list.
+      if (this.signInState === HistorySignInState.SIGNED_OUT ||
+          this.signInState === HistorySignInState.SYNC_DISABLED) {
+        this.clearDisplayedSyncedDevices_();
+        return;
+      }
+    } else if (this.signInState === HistorySignInState.SIGNED_OUT) {
+      // User signed out, clear synced device list and show the sign in promo.
       this.clearDisplayedSyncedDevices_();
       return;
     }
     // User signed in, show the loading message when querying for synced
     // devices.
     this.fetchingSyncedTabs_ = true;
+  }
+
+  private maybeRecordSigninPendingOffered_() {
+    if (!this.replaceSyncPromosWithSignInPromos_) {
+      return;
+    }
+
+    // Reset the flag if the state changes away from SIGNED_IN_PAUSED.
+    if (!this.isSignInState_(
+            HistorySignInState.SIGN_IN_PENDING_NOT_SYNCING_TABS) &&
+        !this.isSignInState_(HistorySignInState.SIGN_IN_PENDING_SYNCING_TABS)) {
+      this.signinPausedImpressionRecorded_ = false;
+      return;
+    }
+
+    // Don't record twice.
+    if (this.signinPausedImpressionRecorded_) {
+      return;
+    }
+
+    BrowserServiceImpl.getInstance().recordSigninPendingOffered();
+    this.signinPausedImpressionRecorded_ = true;
   }
 
   private searchTermChanged_() {

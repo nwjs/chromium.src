@@ -63,17 +63,13 @@ class RasterMockGLES2Interface : public gles2::GLES2InterfaceStub {
 
   // Queries:
   // - GL_COMMANDS_ISSUED_CHROMIUM
-  // - GL_COMMANDS_ISSUED_TIMESTAMP_CHROMIUM
   // - GL_COMMANDS_COMPLETED_CHROMIUM
   MOCK_METHOD2(GenQueriesEXT, void(GLsizei n, GLuint* queries));
   MOCK_METHOD2(DeleteQueriesEXT, void(GLsizei n, const GLuint* queries));
   MOCK_METHOD2(BeginQueryEXT, void(GLenum target, GLuint id));
   MOCK_METHOD1(EndQueryEXT, void(GLenum target));
-  MOCK_METHOD2(QueryCounterEXT, void(GLuint id, GLenum target));
   MOCK_METHOD3(GetQueryObjectuivEXT,
                void(GLuint id, GLenum pname, GLuint* params));
-  MOCK_METHOD3(GetQueryObjectui64vEXT,
-               void(GLuint id, GLenum pname, GLuint64* params));
 
   // Texture objects.
   MOCK_METHOD2(GenTextures, void(GLsizei n, GLuint* textures));
@@ -150,18 +146,8 @@ class ContextSupportStub : public ContextSupport {
   void SetAggressivelyFreeResources(bool aggressively_free_resources) override {
   }
 
-  uint64_t ShareGroupTracingGUID() const override { return 0; }
   void SetErrorMessageCallback(
       base::RepeatingCallback<void(const char*, int32_t)> callback) override {}
-  bool ThreadSafeShallowLockDiscardableTexture(uint32_t texture_id) override {
-    return true;
-  }
-  void CompleteLockDiscardableTexureOnContextThread(
-      uint32_t texture_id) override {}
-  bool ThreadsafeDiscardableTextureIsDeletedForTracing(
-      uint32_t texture_id) override {
-    return false;
-  }
   base::span<uint8_t> MapTransferCacheEntry(uint32_t serialized_size) override {
     mapped_transfer_cache_entry_ =
         base::HeapArray<uint8_t>::Uninit(serialized_size);
@@ -177,16 +163,6 @@ class ContextSupportStub : public ContextSupport {
       const std::vector<std::pair<uint32_t, uint32_t>>& entries) override {}
   void DeleteTransferCacheEntry(uint32_t type, uint32_t id) override {}
   unsigned int GetTransferBufferFreeSize() const override { return 0; }
-  bool IsJpegDecodeAccelerationSupported() const override { return false; }
-  bool IsWebPDecodeAccelerationSupported() const override { return false; }
-  bool CanDecodeWithHardwareAcceleration(
-      const cc::ImageHeaderMetadata* image_metadata) const override {
-    return false;
-  }
-  bool HasGrContextSupport() const override { return false; }
-  void SetGrContext(GrDirectContext* gr) override {}
-  void WillCallGLFromSkia() override {}
-  void DidCallGLFromSkia() override {}
 
  private:
   base::HeapArray<uint8_t> mapped_transfer_cache_entry_;
@@ -326,14 +302,6 @@ TEST_F(RasterImplementationGLESTest, EndQueryEXT) {
   ri_->EndQueryEXT(kQueryTarget);
 }
 
-TEST_F(RasterImplementationGLESTest, QueryCounterEXT) {
-  const GLenum kQueryTarget = GL_COMMANDS_ISSUED_TIMESTAMP_CHROMIUM;
-  const GLuint kQueryId = 23;
-
-  EXPECT_CALL(*gl_, QueryCounterEXT(kQueryId, kQueryTarget)).Times(1);
-  ri_->QueryCounterEXT(kQueryId, kQueryTarget);
-}
-
 TEST_F(RasterImplementationGLESTest, GetQueryObjectuivEXT) {
   const GLuint kQueryId = 23;
   const GLsizei kQueryParam = GL_QUERY_RESULT_AVAILABLE_EXT;
@@ -342,16 +310,6 @@ TEST_F(RasterImplementationGLESTest, GetQueryObjectuivEXT) {
   EXPECT_CALL(*gl_, GetQueryObjectuivEXT(kQueryId, kQueryParam, &result))
       .Times(1);
   ri_->GetQueryObjectuivEXT(kQueryId, kQueryParam, &result);
-}
-
-TEST_F(RasterImplementationGLESTest, GetQueryObjectui64vEXT) {
-  const GLuint kQueryId = 23;
-  const GLsizei kQueryParam = GL_QUERY_RESULT_AVAILABLE_EXT;
-  GLuint64 result = 0;
-
-  EXPECT_CALL(*gl_, GetQueryObjectui64vEXT(kQueryId, kQueryParam, &result))
-      .Times(1);
-  ri_->GetQueryObjectui64vEXT(kQueryId, kQueryParam, &result);
 }
 
 }  // namespace raster

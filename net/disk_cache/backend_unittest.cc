@@ -26,6 +26,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
+#include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -850,12 +851,12 @@ TEST_F(DiskCacheBackendTest, MemoryListensToMemoryPressure) {
 
   // Signal low-memory of various sorts, and see how small it gets.
   base::MemoryPressureListener::SimulatePressureNotificationAsync(
-      base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_MODERATE);
+      base::MEMORY_PRESSURE_LEVEL_MODERATE);
   base::RunLoop().RunUntilIdle();
   EXPECT_LT(CalculateSizeOfAllEntries(), 0.5 * kLimit);
 
   base::MemoryPressureListener::SimulatePressureNotificationAsync(
-      base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL);
+      base::MEMORY_PRESSURE_LEVEL_CRITICAL);
   base::RunLoop().RunUntilIdle();
   EXPECT_LT(CalculateSizeOfAllEntries(), 0.1 * kLimit);
 }
@@ -1038,13 +1039,6 @@ void DiskCacheBackendTest::BackendShutdownWithPendingCreate(bool fast) {
     // Nothing is actually pending with memory backend.
     return;
   }
-  bool speculative_entry_creation = false;
-
-#if BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND)
-  if (backend_to_test() == BackendToTest::kSql) {
-    speculative_entry_creation = true;
-  }
-#endif  // ENABLE_DISK_CACHE_SQL_BACKEND
 
   TestEntryResultCompletionCallback cb;
 
@@ -1057,14 +1051,8 @@ void DiskCacheBackendTest::BackendShutdownWithPendingCreate(bool fast) {
 
     EntryResult result =
         cache_->CreateEntry("some key", net::HIGHEST, cb.callback());
+    ASSERT_THAT(result.net_error(), IsError(net::ERR_IO_PENDING));
 
-    if (speculative_entry_creation) {
-      ASSERT_THAT(result.net_error(), IsOk());
-      auto* entry = result.ReleaseEntry();
-      entry->Close();
-    } else {
-      ASSERT_THAT(result.net_error(), IsError(net::ERR_IO_PENDING));
-    }
     ResetCaches();
     EXPECT_FALSE(cb.have_result());
   }
@@ -4306,13 +4294,7 @@ TEST_F(DiskCacheBackendTest, SimpleCacheLateDoom) {
             simple_cache_impl_->index()->init_method());
 }
 
-// TODO(crbug.com/430656242): Flaky on Android.
-#if BUILDFLAG(IS_ANDROID)
-#define MAYBE_SimpleCacheNegMaxSize DISABLED_SimpleCacheNegMaxSize
-#else
-#define MAYBE_SimpleCacheNegMaxSize SimpleCacheNegMaxSize
-#endif
-TEST_F(DiskCacheBackendTest, MAYBE_SimpleCacheNegMaxSize) {
+TEST_F(DiskCacheBackendTest, SimpleCacheNegMaxSize) {
   SetCacheType(net::GENERATED_BYTE_CODE_CACHE);
 
   SetMaxSize(-1);
@@ -4345,6 +4327,9 @@ TEST_F(DiskCacheBackendTest, MAYBE_SimpleCacheNegMaxSize) {
         field_trial_params);
 
     InitCache();
+
+    // Wait for tasks on which the init depend to have executed.
+    base::ThreadPoolInstance::Get()->FlushForTesting();
 
     uint64_t max_size_scaled = simple_cache_impl_->index()->max_size();
     uint64_t max_file_size_scaled = simple_cache_impl_->MaxFileSize();
@@ -5326,7 +5311,13 @@ TEST_F(DiskCacheBackendTest, BlockfileEmptyIndex) {
 #endif
 
 // See https://crbug.com/1486958
-TEST_F(DiskCacheBackendTest, SimpleDoomIter) {
+// Disabled on Mac due to flakiness: crbug.com/438569911.
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_SimpleDoomIter DISABLED_SimpleDoomIter
+#else
+#define MAYBE_SimpleDoomIter SimpleDoomIter
+#endif
+TEST_F(DiskCacheBackendTest, MAYBE_SimpleDoomIter) {
   const int kEntries = 1000;
 
   SetBackendToTest(BackendToTest::kSimple);
@@ -5487,14 +5478,6 @@ TEST_P(DiskCacheGenericBackendTest, ImmediateCloseNoDangle) {
   if (backend_to_test() == BackendToTest::kMemory) {
     return;
   }
-
-#if BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND)
-  if (backend_to_test() == BackendToTest::kSql) {
-    // The SQL backend always creates entries speculatively, and CreateEntry()
-    // returns synchronously.
-    return;
-  }
-#endif  // ENABLE_DISK_CACHE_SQL_BACKEND
 
   InitCache();
   base::RunLoop run_loop;

@@ -9,6 +9,7 @@
 #include <variant>
 
 #include "base/values.h"
+#include "components/permissions/features.h"
 #include "components/permissions/permission_request_id.h"
 #include "components/permissions/request_type.h"
 #include "components/permissions/resolvers/permission_prompt_options.h"
@@ -76,6 +77,22 @@ struct PermissionRequestData {
            embedded_permission_request_descriptor->geolocation;
   }
 
+  bool IsEligibleForHeuristicAutoGrant() const {
+    return base::FeatureList::IsEnabled(
+               features::kPermissionHeuristicAutoGrant) &&
+           embedded_permission_request_descriptor &&
+           embedded_permission_request_descriptor->geolocation &&
+           !embedded_permission_request_descriptor->geolocation->autolocate;
+  }
+
+  std::optional<bool> GetGeolocationAutolocate() const {
+    if (embedded_permission_request_descriptor &&
+        embedded_permission_request_descriptor->geolocation) {
+      return embedded_permission_request_descriptor->geolocation->autolocate;
+    }
+    return std::nullopt;
+  }
+
   std::optional<gfx::Rect> GetAnchorElementPosition() const {
     if (embedded_permission_request_descriptor) {
       return embedded_permission_request_descriptor->element_position;
@@ -109,6 +126,8 @@ struct PermissionRequestData {
   std::vector<std::string> requested_audio_capture_device_ids;
   std::vector<std::string> requested_video_capture_device_ids;
 
+  // TODO(https://crbug.com/450752868): This should not be here, because it's
+  // not a property of the request but rather part of the decision.
   PromptOptions prompt_options = std::monostate();
 };
 

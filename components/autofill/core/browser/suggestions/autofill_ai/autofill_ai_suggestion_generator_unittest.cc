@@ -28,6 +28,7 @@
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #include "components/autofill/core/browser/webdata/autofill_ai/entity_table.h"
 #include "components/autofill/core/common/autofill_features.h"
+#include "components/feature_engagement/public/feature_constants.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -178,6 +179,13 @@ class AutofillAiSuggestionGeneratorTest : public testing::Test {
   std::vector<EntityInstance> entities_;
   std::optional<FormStructure> form_structure_;
 };
+
+std::u16string GetFlightReservationName(const EntityInstance& entity) {
+  return entity
+      .attribute(
+          AttributeType(AttributeTypeName::kFlightReservationPassengerName))
+      ->GetCompleteInfo(kAppLocaleUS);
+}
 
 std::u16string GetPassportName(const EntityInstance& entity) {
   return entity.attribute(AttributeType(AttributeTypeName::kPassportName))
@@ -567,6 +575,37 @@ TEST_F(AutofillAiSuggestionGeneratorTest,
                           HasMainText(GetDriversLicenseName(driversLicense2))));
 }
 
+TEST_F(AutofillAiSuggestionGeneratorTest,
+       GetFillingSuggestion_CustomOrderingForFlightReservation) {
+  EntityInstance passport1 = test::GetPassportEntityInstanceWithRandomGuid(
+      {.name = u"Bruno", .use_count = 16});
+  EntityInstance passport2 = test::GetPassportEntityInstanceWithRandomGuid(
+      {.name = u"Jon Doe", .number = u"927908CYGAS1", .use_count = 15});
+  EntityInstance flight_reservation1 =
+      test::GetFlightReservationEntityInstanceWithRandomGuid(
+          {.name = u"Peter",
+           .departure_time = base::Time::UnixEpoch(),
+           .use_count = 10});
+  EntityInstance flight_reservation2 =
+      test::GetFlightReservationEntityInstanceWithRandomGuid(
+          {.name = u"Jacob",
+           .departure_time = base::Time::UnixEpoch() + base::Days(1),
+           .use_count = 12});
+  SetEntities({passport1, passport2, flight_reservation1, flight_reservation2});
+  SetForm({NAME_FULL, PASSPORT_NUMBER, FLIGHT_RESERVATION_FLIGHT_NUMBER});
+
+  // Flight reservation entities come before Passport entities, because they
+  // have frecency_override set. `flight_reservation1` comes before
+  // `flight_reservation2` since the entities are sorted by departure date.
+  std::vector<Suggestion> res = CreateAutofillAiFillingSuggestions(field(0));
+  EXPECT_THAT(
+      res,
+      SuggestionsAre(HasMainText(GetFlightReservationName(flight_reservation1)),
+                     HasMainText(GetFlightReservationName(flight_reservation2)),
+                     HasMainText(GetPassportName(passport1)),
+                     HasMainText(GetPassportName(passport2))));
+}
+
 // Tests that an "Undo Autofill" suggestion is appended if the trigger field
 // is autofilled.
 TEST_F(AutofillAiSuggestionGeneratorTest, GetFillingSuggestions_Undo) {
@@ -729,8 +768,8 @@ TEST_F(
 }
 
 // Test that if the non-disambiguating attributes (here: the expiry dates) are
-// the only one distinguishing the suggestions, they still appear so that we
-// show at least one label.
+// the only one distinguishing the suggestions, a label is still shown, but that
+// would be an equal label from a disambiguating type.
 TEST_F(
     AutofillAiSuggestionGeneratorTest,
     LabelGeneration_TwoSuggestions_PassportsWithDifferentExpiryDates_AtLeastOneLabel) {
@@ -740,8 +779,8 @@ TEST_F(
   SetForm({PASSPORT_NUMBER, PASSPORT_ISSUING_COUNTRY, NAME_FULL,
            PASSPORT_EXPIRATION_DATE});
   EXPECT_THAT(CreateAutofillAiFillingSuggestions(field(0)),
-              SuggestionsAre(HasLabel(u"Passport · 2018-12-29"),
-                             HasLabel(u"Passport · 2019-08-30")));
+              SuggestionsAre(HasLabel(u"Passport · Pippi Långstrump"),
+                             HasLabel(u"Passport · Pippi Långstrump")));
 }
 
 // Test that in flight reservation suggestion generation. The main label is a
@@ -752,6 +791,96 @@ TEST_F(AutofillAiSuggestionGeneratorTest,
   SetForm({NAME_FULL, FLIGHT_RESERVATION_TICKET_NUMBER});
   EXPECT_THAT(CreateAutofillAiFillingSuggestions(field(0)),
               SuggestionsAre(HasLabel(u"Flight · MUC–BEY")));
+}
+
+TEST_F(AutofillAiSuggestionGeneratorTest,
+       LabelGeneration_FlightReservation_DepartureDateDisambiguation) {
+  base::Time departure_time;
+  ASSERT_TRUE(base::Time::FromUTCString("2025-01-01", &departure_time));
+  SetEntities({test::GetFlightReservationEntityInstanceWithRandomGuid(
+                   {.ticket_number = u"123", .departure_time = departure_time}),
+               test::GetFlightReservationEntityInstanceWithRandomGuid(
+                   {.ticket_number = u"234",
+                    .departure_time = departure_time + base::Days(1)})});
+  SetForm({NAME_FULL, FLIGHT_RESERVATION_TICKET_NUMBER});
+
+  std::vector<Suggestion> suggestions =
+      CreateAutofillAiFillingSuggestions(field(1));
+
+  EXPECT_THAT(suggestions, SuggestionsAre(HasLabel(u"Flight · Jan 1"),
+                                          HasLabel(u"Flight · Jan 2")));
+}
+
+// Tests that passenger name is used as a disambiguating label in flight
+// reservation suggestions.
+TEST_F(AutofillAiSuggestionGeneratorTest,
+       LabelGeneration_FlightReservation_PassengerNameDisambiguation) {
+  base::Time departure_time;
+  ASSERT_TRUE(
+      base::Time::FromUTCString("2025-02-16T15:30:15", &departure_time));
+  SetEntities(
+      {test::GetFlightReservationEntityInstanceWithRandomGuid({
+           .confirmation_code = u"ABC",
+           .name = u"John Doe",
+           // The departure time is set to 1 hour before the other
+           // entity's departure time to ensure deterministic sorting,
+           // as flight reservations suggestions are sorted by departure time.
+           .departure_time = departure_time - base::Hours(1),
+       }),
+       test::GetFlightReservationEntityInstanceWithRandomGuid({
+           .confirmation_code = u"DEF",
+           .name = u"Bob Doe",
+           .departure_time = departure_time,
+       })});
+  SetForm({NAME_FULL, FLIGHT_RESERVATION_TICKET_NUMBER});
+
+  std::vector<Suggestion> suggestions =
+      CreateAutofillAiFillingSuggestions(field(1));
+
+  EXPECT_THAT(suggestions, SuggestionsAre(HasLabel(u"Flight · John Doe"),
+                                          HasLabel(u"Flight · Bob Doe")));
+}
+
+// Tests that flight number is used as a disambiguating label in flight
+// reservation suggestions.
+TEST_F(AutofillAiSuggestionGeneratorTest,
+       LabelGeneration_FlightReservation_FlightNumberDisambiguation) {
+  base::Time departure_time;
+  ASSERT_TRUE(
+      base::Time::FromUTCString("2025-02-16T15:30:15", &departure_time));
+  SetEntities(
+      {test::GetFlightReservationEntityInstanceWithRandomGuid({
+           .flight_number = u"123",
+           .ticket_number = u"ABC",
+           // The departure time is set to 1 hour before the other
+           // entity's departure time to ensure deterministic sorting,
+           // as flight reservations suggestions are sorted by departure time.
+           .departure_time = departure_time - base::Hours(1),
+       }),
+       test::GetFlightReservationEntityInstanceWithRandomGuid({
+           .flight_number = u"234",
+           .ticket_number = u"DEF",
+           .departure_time = departure_time,
+       })});
+  SetForm({NAME_FULL, FLIGHT_RESERVATION_TICKET_NUMBER});
+
+  std::vector<Suggestion> suggestions =
+      CreateAutofillAiFillingSuggestions(field(0));
+
+  EXPECT_THAT(suggestions, SuggestionsAre(HasLabel(u"Flight · 123"),
+                                          HasLabel(u"Flight · 234")));
+}
+
+// Tests that the Wallet suggestions show the IPH.
+TEST_F(AutofillAiSuggestionGeneratorTest, WalletSuggestionsShowIPH) {
+  SetEntities({test::GetVehicleEntityInstanceWithRandomGuid(
+      {.record_type = EntityInstance::RecordType::kServerWallet})});
+  SetForm({VEHICLE_LICENSE_PLATE, VEHICLE_VIN});
+  std::vector<Suggestion> suggestions =
+      CreateAutofillAiFillingSuggestions(field(0));
+  raw_ptr<const base::Feature> kIphFeature =
+      &feature_engagement::kIPHAutofillAiValuablesFeature;
+  EXPECT_THAT(suggestions, SuggestionsAre(HasIphFeature(kIphFeature)));
 }
 
 }  // namespace

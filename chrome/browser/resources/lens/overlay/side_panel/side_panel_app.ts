@@ -16,6 +16,7 @@ import '//resources/cr_components/composebox/composebox.js';
 import {ColorChangeUpdater} from '//resources/cr_components/color_change_listener/colors_css_updater.js';
 import type {ComposeboxElement} from '//resources/cr_components/composebox/composebox.js';
 import {HelpBubbleMixin} from '//resources/cr_components/help_bubble/help_bubble_mixin.js';
+import {GlowAnimationState} from '//resources/cr_components/search/constants.js';
 import type {SearchboxElement} from '//resources/cr_components/searchbox/searchbox.js';
 import type {CrButtonElement} from '//resources/cr_elements/cr_button/cr_button.js';
 import type {CrToastElement} from '//resources/cr_elements/cr_toast/cr_toast.js';
@@ -106,6 +107,12 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
         reflectToAttribute: true,
         type: Boolean,
         value: () => loadTimeData.getBoolean('enableLensAimSuggestions'),
+      },
+      enableLensAimSuggestionsGradientBackground: {
+        reflectToAttribute: true,
+        type: Boolean,
+        value: () => loadTimeData.getBoolean(
+            'enableLensAimSuggestionsGradientBackground'),
       },
       enableCsbMotionTweaks: {
         reflectToAttribute: true,
@@ -229,9 +236,18 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
         type: Number,
         value: 0,
       },
+      composeboxDropdownHeight_: {
+        type: Number,
+        value: 0,
+      },
       isOverlayShowing: {
         type: Boolean,
         value: true,
+        reflectToAttribute: true,
+      },
+      isComposeboxFocused: {
+        type: Boolean,
+        value: false,
         reflectToAttribute: true,
       },
     };
@@ -245,6 +261,8 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
   declare isBackArrowVisible: boolean;
   // Whether the user is currently focused into the searchbox.
   declare isSearchboxFocused: boolean;
+  // Whether the composebox is currently focused.
+  declare isComposeboxFocused: boolean;
   declare private showGhostLoader: boolean;
   // Whether to purposely suppress the ghost loader. Done when escaping from
   // the searchbox when there's text or when page bytes aren't successfully
@@ -275,6 +293,9 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
   // Whether the webview results container is enabled via feature flag.
   declare private enableWebviewResults: boolean;
   declare private enableLensAimSuggestions: boolean;
+  // Whether the gradient background for AIM suggestions is enabled via feature
+  // flag.
+  declare private enableLensAimSuggestionsGradientBackground: boolean;
   declare private isErrorPageVisible: boolean;
   // Whether the results iframe is currently loading. This needs to be done via
   // browser because the iframe is cross-origin. Default true since the side
@@ -293,8 +314,6 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
   private postMessageReceiver?: PostMessageReceiver;
   // Whether the feedback toast has been explicitly dismissed by the user.
   private feedbackToastDismissed = false;
-  // Whether the composebox is currently focused.
-  private composeboxFocused = false;
   // Whether the feedback toast has been shown for the current results.
   private feedbackToastShown = false;
   // The timeout ID for reshowing the feedback toast.
@@ -315,11 +334,13 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
   // Whether the results in the iframe are currently on the AIM UI.
   declare private isOnAimResults: boolean;
   declare private composeboxHeight_: number;
+  declare private composeboxDropdownHeight_: number;
   // Whether the visual selection overlay is currently showing.
   declare private isOverlayShowing: boolean;
   private eventTracker_: EventTracker = new EventTracker();
   // Watches for changes in the height of the composebox.
   private composeboxResizeObserver_: ResizeObserver|null = null;
+  private composeboxDropdownResizeObserver_: ResizeObserver|null = null;
   private searchboxBoundingClientRectObserver: ResizeObserver =
       new ResizeObserver(this.onSearchboxBoundsChanged.bind(this));
 
@@ -369,6 +390,8 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
           this.focusResultsFrame.bind(this)),
       this.browserProxy.callbackRouter.setIsOverlayShowing.addListener(
           this.setIsOverlayShowing.bind(this)),
+      this.browserProxy.callbackRouter.focusSearchbox.addListener(
+          this.focusSearchbox.bind(this)),
     ];
     this.eventTracker_.add(this.$.searchbox, 'mousedown', () => {
       this.suppressGhostLoader = false;
@@ -386,10 +409,12 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
         () => this.feedbackToastDismissed = true);
     this.eventTracker_.add(this.$.composebox, 'composebox-focus-in', () => {
       this.$.feedbackToast.hide();
-      this.composeboxFocused = true;
+      this.$.composebox.playGlowAnimation();
+      this.isComposeboxFocused = true;
     });
     this.eventTracker_.add(this.$.composebox, 'composebox-focus-out', () => {
-      this.composeboxFocused = false;
+      this.isComposeboxFocused = false;
+      this.$.composebox.animationState = GlowAnimationState.NONE;
     });
 
     // Start listening to postMessages on the window.
@@ -403,7 +428,13 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
       this.composeboxResizeObserver_ = new ResizeObserver(() => {
         this.composeboxHeight_ = composebox.offsetHeight;
       });
+      this.composeboxDropdownResizeObserver_ = new ResizeObserver(() => {
+        this.composeboxDropdownHeight_ =
+            composebox.getMatchesElement().offsetHeight;
+      });
       this.composeboxResizeObserver_.observe(composebox);
+      this.composeboxDropdownResizeObserver_.observe(
+          composebox.getMatchesElement());
     }
   }
 
@@ -421,6 +452,11 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
     if (this.composeboxResizeObserver_) {
       this.composeboxResizeObserver_.disconnect();
       this.composeboxResizeObserver_ = null;
+    }
+
+    if (this.composeboxDropdownResizeObserver_) {
+      this.composeboxDropdownResizeObserver_.disconnect();
+      this.composeboxDropdownResizeObserver_ = null;
     }
   }
 
@@ -521,6 +557,8 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
     this.shadowRoot!.querySelector<HTMLElement>('cr-searchbox')
         ?.shadowRoot!.querySelector<HTMLElement>('input')
         ?.blur();
+
+    this.$.composebox.blur();
   }
 
   private handleEscapeSearchbox(e: CustomEvent) {
@@ -650,7 +688,7 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
 
     if (loadTimeData.getBoolean('updatedFeedbackEnabled')) {
       this.feedbackToastShowAfterDelayTimeoutId = setTimeout(() => {
-        if (this.composeboxFocused) {
+        if (this.isComposeboxFocused) {
           return;
         }
         this.feedbackToastShown = true;
@@ -699,6 +737,14 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
     this.getResults().focus();
   }
 
+  private focusSearchbox() {
+    if (this.enableAimSearchbox) {
+      this.$.composebox.focusInput();
+      return;
+    }
+    this.$.searchbox.focus();
+  }
+
   private async showToast(toast: CrToastElement, message?: string) {
     if (toast.open) {
       // If toast already open, wait after hiding so that animation is
@@ -733,6 +779,9 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
   }
 
   private hideAndReshowFeedbackToast() {
+    // Cancel the timeout to show the feedback toast if it is set.
+    clearTimeout(this.feedbackToastShowAfterDelayTimeoutId);
+
     this.$.feedbackToast.hide();
     this.feedbackToastDismissed = false;
     this.showFeedbackToast();
@@ -764,7 +813,7 @@ window.CSS.registerProperty({
   initialValue: 'white',
 });
 window.CSS.registerProperty({
-  name: '--ntp-composebox-background-color',
+  name: '--cr-composebox-background-color',
   syntax: '<color>',
   inherits: true,
   initialValue: 'white',

@@ -28,13 +28,15 @@ build_webui("build") {
     "icons.html.ts",
     "main.ts",
     "observable.ts",
+    "app_router.ts",
     "timer.ts",
     "webview.ts",
-    "glic_request_headers.ts",
   ]
 
   webui_context_type = "trusted"
   ts_deps = [
+    "//chrome/browser/resources/glic/fre:build_ts",
+    "//chrome/browser/resources/glic/shared:build_ts",
     "//ui/webui/resources/cr_elements:build_ts",
     "//ui/webui/resources/js:build_ts",
     "//ui/webui/resources/mojo:build_ts",
@@ -66,6 +68,11 @@ build_webui("build") {
     "//tools/typescript/definitions/web_request.d.ts",
     "//tools/typescript/definitions/webview_tag.d.ts",
     "url_pattern.d.ts",
+  ]
+
+  ts_path_mappings = [
+    "/shared/*|./shared/tsc/*",
+    "/fre/*|./fre/tsc/*",
   ]
 
   ts_composite = true

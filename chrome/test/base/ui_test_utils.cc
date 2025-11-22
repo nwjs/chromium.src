@@ -337,11 +337,6 @@ content::RenderFrameHost* NavigateToURLBlockUntilNavigationsComplete(
       BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 }
 
-base::FilePath GetTestFilePath(const base::FilePath& dir,
-                               const base::FilePath& file) {
-  return chrome_test_utils::GetTestFilePath(dir, file);
-}
-
 GURL GetTestUrl(const base::FilePath& dir, const base::FilePath& file) {
   return chrome_test_utils::GetTestUrl(dir, file);
 }
@@ -456,8 +451,7 @@ void WaitForAutocompleteDone(BrowserWindowInterface* browser) {
   auto* controller = browser->GetBrowserForMigrationOnly()
                          ->window()
                          ->GetLocationBar()
-                         ->GetOmniboxView()
-                         ->controller()
+                         ->GetOmniboxController()
                          ->autocomplete_controller();
   while (!controller->done())
     AutocompleteChangeObserver(browser->GetProfile()).Wait();
@@ -602,22 +596,24 @@ Browser* OpenNewEmptyWindowAndWaitUntilActivated(
   return new_browser->GetBrowserForMigrationOnly();
 }
 
-BrowserSetLastActiveWaiter::BrowserSetLastActiveWaiter(
+BrowserDidBecomeActiveWaiter::BrowserDidBecomeActiveWaiter(
     BrowserWindowInterface* browser,
     bool wait_for_set_last_active_observed)
-    : browser_(browser),
-      wait_for_set_last_active_observed_(wait_for_set_last_active_observed) {
-  browser_list_observation_.Observe(BrowserList::GetInstance());
-  if (chrome::FindLastActive() == browser_ &&
+    : wait_for_set_last_active_observed_(wait_for_set_last_active_observed) {
+  browser_did_become_active_subscription_ =
+      browser->RegisterDidBecomeActive(base::BindRepeating(
+          &BrowserDidBecomeActiveWaiter::OnBrowserDidBecomeActive,
+          base::Unretained(this)));
+  if (chrome::FindLastActive() == browser &&
       !wait_for_set_last_active_observed_) {
     satisfied_ = true;
   }
 }
 
-BrowserSetLastActiveWaiter::~BrowserSetLastActiveWaiter() = default;
+BrowserDidBecomeActiveWaiter::~BrowserDidBecomeActiveWaiter() = default;
 
 // Runs a loop until |browser_| becomes the last active browser.
-void BrowserSetLastActiveWaiter::Wait() {
+void BrowserDidBecomeActiveWaiter::Wait() {
   if (satisfied_) {
     return;
   }
@@ -625,32 +621,32 @@ void BrowserSetLastActiveWaiter::Wait() {
   run_loop_.Run();
 }
 
-// BrowserListObserver:
-void BrowserSetLastActiveWaiter::OnBrowserSetLastActive(Browser* browser) {
-  if (browser == browser_) {
-    satisfied_ = true;
-    if (run_loop_.running()) {
-      run_loop_.Quit();
-    }
+void BrowserDidBecomeActiveWaiter::OnBrowserDidBecomeActive(
+    BrowserWindowInterface* Browser) {
+  satisfied_ = true;
+  if (run_loop_.running()) {
+    run_loop_.Quit();
   }
 }
 
 void WaitForBrowserSetLastActive(BrowserWindowInterface* browser,
                                  bool wait_for_set_last_active_observed) {
-  BrowserSetLastActiveWaiter waiter(browser, wait_for_set_last_active_observed);
+  BrowserDidBecomeActiveWaiter waiter(browser,
+                                      wait_for_set_last_active_observed);
   waiter.Wait();
 }
 
 void SendToOmniboxAndSubmit(BrowserWindowInterface* browser,
-                            const std::string& input,
+                            std::string_view input,
                             base::TimeTicks match_selection_timestamp) {
-  OmniboxView* omnibox = browser->GetBrowserForMigrationOnly()
-                             ->window()
-                             ->GetLocationBar()
-                             ->GetOmniboxView();
-  omnibox->model()->OnSetFocus(/*control_down=*/false);
+  LocationBar* location_bar =
+      browser->GetBrowserForMigrationOnly()->window()->GetLocationBar();
+  OmniboxView* omnibox = location_bar->GetOmniboxView();
+  location_bar->GetOmniboxController()->edit_model()->OnSetFocus(
+      /*control_down=*/false);
   omnibox->SetUserText(base::ASCIIToUTF16(input));
-  omnibox->model()->OpenSelectionForTesting(match_selection_timestamp);
+  location_bar->GetOmniboxController()->edit_model()->OpenSelectionForTesting(
+      match_selection_timestamp);
 
   WaitForAutocompleteDone(browser);
 }
@@ -1075,7 +1071,7 @@ ViewBoundsWaiter::~ViewBoundsWaiter() {
 }
 
 void ViewBoundsWaiter::WaitForNonEmptyBounds() {
-  if (!observed_view_->bounds().IsEmpty()) {
+  if (observed_non_empty_bounds_ || !observed_view_->bounds().IsEmpty()) {
     return;
   }
   run_loop_.Run();
@@ -1083,6 +1079,10 @@ void ViewBoundsWaiter::WaitForNonEmptyBounds() {
 
 void ViewBoundsWaiter::OnViewBoundsChanged(views::View* observed_view) {
   if (!observed_view_->bounds().IsEmpty()) {
+    // Record bounds changes that may occur before the RunLoop is started.
+    // This is necessary to avoid deadlock in case a view's bounds change
+    // to nonempty and then empty before the RunLoop is started.
+    observed_non_empty_bounds_ = true;
     run_loop_.Quit();
   }
 }

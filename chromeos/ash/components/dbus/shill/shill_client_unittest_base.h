@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
-#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/test/task_environment.h"
 #include "chromeos/ash/components/dbus/shill/shill_client_helper.h"
 #include "chromeos/ash/components/dbus/shill/shill_property_changed_observer.h"
@@ -158,7 +158,7 @@ class ShillClientUnittestBase : public testing::Test {
       const std::string& interface_name,
       const std::string& signal_name,
       const dbus::ObjectProxy::SignalCallback& signal_callback,
-      dbus::ObjectProxy::OnConnectedCallback* on_connected_callback);
+      dbus::ObjectProxy::OnConnectedCallback on_connected_callback);
 
   // Checks the requested interface name and signal name.
   // Used to implement the mock proxy.
@@ -166,7 +166,7 @@ class ShillClientUnittestBase : public testing::Test {
       const std::string& interface_name,
       const std::string& signal_name,
       const dbus::ObjectProxy::SignalCallback& signal_callback,
-      dbus::ObjectProxy::OnConnectedCallback* on_connected_callback);
+      dbus::ObjectProxy::OnConnectedCallback on_connected_callback);
 
   // Checks the requested interface name and signal name.
   // Used to implement the mock proxy.
@@ -174,17 +174,17 @@ class ShillClientUnittestBase : public testing::Test {
       const std::string& interface_name,
       const std::string& signal_name,
       const dbus::ObjectProxy::SignalCallback& signal_callback,
-      dbus::ObjectProxy::OnConnectedCallback* on_connected_callback);
+      dbus::ObjectProxy::OnConnectedCallback on_connected_callback);
 
   // These check the content of the method call and returns the response.
   // Used to implement the mock proxy.
   void OnCallMethod(dbus::MethodCall* method_call,
                     int timeout_ms,
-                    dbus::ObjectProxy::ResponseCallback* response_callback);
+                    dbus::ObjectProxy::ResponseCallback response_callback);
   void OnCallMethodWithErrorResponse(
       dbus::MethodCall* method_call,
       int timeout_ms,
-      dbus::ObjectProxy::ResponseOrErrorCallback* response_callback);
+      dbus::ObjectProxy::ResponseOrErrorCallback response_callback);
 
   // The interface name.
   const std::string interface_name_;

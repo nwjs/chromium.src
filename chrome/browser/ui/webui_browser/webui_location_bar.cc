@@ -48,6 +48,11 @@ OmniboxView* WebUILocationBar::GetOmniboxView() {
   return nullptr;
 }
 
+OmniboxController* WebUILocationBar::GetOmniboxController() {
+  NOTIMPLEMENTED();
+  return nullptr;
+}
+
 content::WebContents* WebUILocationBar::GetWebContents() {
   NOTIMPLEMENTED();
   return nullptr;
@@ -68,10 +73,6 @@ WebUILocationBar::GetChipAnchor() {
 }
 
 void WebUILocationBar::OnChanged() {
-  NOTIMPLEMENTED();
-}
-
-void WebUILocationBar::OnPopupVisibilityChanged() {
   NOTIMPLEMENTED();
 }
 

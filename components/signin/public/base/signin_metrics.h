@@ -7,10 +7,13 @@
 
 #include <limits.h>
 
-#include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/signin/public/base/consent_level.h"
 #include "google_apis/gaia/google_service_auth_error.h"
+
+namespace base {
+class TimeDelta;
+}  // namespace base
 
 namespace signin_metrics {
 
@@ -578,25 +581,6 @@ enum class SyncButtonsType : int {
   kMaxValue = kHistorySyncEqualWeightedFromCapability,
 };
 
-// Tracks type of the button that was clicked by the user.
-// GENERATED_JAVA_ENUM_PACKAGE: org.chromium.components.signin.metrics
-enum class SyncButtonClicked : int {
-  // These values are persisted to logs. Entries should not be renumbered and
-  // numeric values should never be reused.
-  kSyncOptInEqualWeighted = 0,
-  kSyncCancelEqualWeighted = 1,
-  kSyncSettingsEqualWeighted = 2,
-  kSyncOptInNotEqualWeighted = 3,
-  kSyncCancelNotEqualWeighted = 4,
-  kSyncSettingsNotEqualWeighted = 5,
-  kHistorySyncOptInEqualWeighted = 6,
-  kHistorySyncCancelEqualWeighted = 7,
-  kHistorySyncOptInNotEqualWeighted = 8,
-  kHistorySyncCancelNotEqualWeighted = 9,
-  kSyncSettingsUnknownWeighted = 10,
-  kMaxValue = kSyncSettingsUnknownWeighted,
-};
-
 #if BUILDFLAG(IS_IOS)
 // The reason an alert dialog is shown when the user is about to sign out.
 enum class SignoutDataLossAlertReason : int {
@@ -672,6 +656,9 @@ void LogSignInOffered(AccessPoint access_point, PromoAction promo_action);
 // completion events are automatically logged when the primary account state
 // changes, see `signin::PrimaryAccountMutator`.
 void LogSignInStarted(AccessPoint access_point);
+
+// Logs that sign in was offered when the user is in SigninPending state.
+void LogSigninPendingOffered(AccessPoint access_point);
 
 #if BUILDFLAG(IS_IOS)
 // Records the account type when the user signs in.

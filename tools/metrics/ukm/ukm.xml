@@ -4176,6 +4176,13 @@ be describing additional metrics about the same event.
       completed.
     </summary>
   </metric>
+  <metric name="AutoReauthn.BlockedByEmbedder" enum="Boolean">
+    <summary>
+      Records whether auto-reauthn was disabled by an embedder (e.g. due to an
+      active actor task). Records at most one sample per FedCM API with auto
+      re-authn enabled: some failures could occur before this metric is recorded
+    </summary>
+  </metric>
   <metric name="AutoReauthn.BlockedByPreventSilentAccess" enum="Boolean">
     <summary>
       Records whether the FedCM auto re-authn call is blocked because
@@ -7962,11 +7969,25 @@ be describing additional metrics about the same event.
     <summary>
       True if the cookie was accessed by port which was mismatched.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="SchemeMismatch" enum="Boolean">
     <summary>
       True if the cookie was accessed by scheme which was mismatched.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
 </event>
 
@@ -9329,31 +9350,6 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
-<event name="FamilyLinkUser.ReauthenticationInterstitial">
-  <owner>chrome-kids-eng@google.com</owner>
-  <summary>
-    These metrics are logged when an unauthenticated Family Link user tries to
-    navigate to YouTube in the main frame, prompting a re-authentication
-    interstitial.
-  </summary>
-  <metric name="InterstitialShown" enum="BooleanHit">
-    <summary>
-      Recorded when the re-authentication interstitial is displayed.
-    </summary>
-  </metric>
-  <metric name="ReauthenticationCompleted" enum="BooleanHit">
-    <summary>
-      Recorded when users successfully re-authenticates and can continue
-      navigation, and vice-versa for failed reauthentication.
-    </summary>
-  </metric>
-  <metric name="ReauthenticationStarted" enum="BooleanHit">
-    <summary>
-      Recorded when users initiate re-authentication from the interstitial.
-    </summary>
-  </metric>
-</event>
-
 <event name="FastCheckout.FormStatus">
   <owner>bwolfgang@google.com</owner>
   <owner>jkeitel@google.com</owner>
@@ -9406,7 +9402,7 @@ be describing additional metrics about the same event.
 
 <event name="Feedback.HappinessTrackingSurvey">
   <owner>zhouzj@google.com</owner>
-  <owner>fjacky@google.com</owner>
+  <owner>msramek@google.com</owner>
   <summary>
     Recorded when a user completes a HaTS survey.
   </summary>
@@ -11434,6 +11430,49 @@ be describing additional metrics about the same event.
       </history>
     </aggregation>
   </metric>
+  <metric name="EndActivateToSubmitUpdateDisplayTree">
+    <summary>
+      [TreesInViz only] The time from when an activation is complete to the next
+      SubmitUpdateDisplayTree, in microseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="EndActivateToSubmitUpdateDisplayTree.DrawLayersToSubmitUpdateDisplayTree">
+    <summary>
+      [TreesInViz only] The time from when DrawLayers starts to when the
+      UpdateDisplayTree is sent to the display compositor, in microseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="EndActivateToSubmitUpdateDisplayTree.EndActivateToDrawLayers">
+    <summary>
+      [TreesInViz only] The time from when an activation is complete to the
+      start time of DrawLayers, in microseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
   <metric name="EndCommitToActivation">
     <summary>
       The time from when a commit is complete to the beginning of the next
@@ -11792,6 +11831,219 @@ be describing additional metrics about the same event.
     <summary>
       The time from when a compositor frame starts swap to when it ends swap, in
       microseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="SubmitUpdateDisplayTreeToPresentationCompositorFrame">
+    <summary>
+      [TreesInViz only] The time from when an UpdateDisplayTree is submitted to
+      the display compositor to when it is presented, in microseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="SubmitUpdateDisplayTreeToPresentationCompositorFrame.BufferAvailableToBufferReady">
+    <summary>
+      [TreesInViz] The time from when the target framebuffer is available to
+      when the GPU has finished drawing to it, in microseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="SubmitUpdateDisplayTreeToPresentationCompositorFrame.BufferReadyToLatch">
+    <summary>
+      [TreesInViz] The time from when the target framebuffer is ready to be
+      displayed to when the buffer is latched on for presentation, in
+      microseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="SubmitUpdateDisplayTreeToPresentationCompositorFrame.LatchToSwapEnd">
+    <summary>
+      [TreesInViz] The time from when the target framebuffer is latched on to
+      when the swap ends, in microseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="SubmitUpdateDisplayTreeToPresentationCompositorFrame.ReceivedCompositorFrameToStartDraw">
+    <summary>
+      [TreesInViz] The time from when a compositor frame is received to when it
+      starts to draw, in microseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="SubmitUpdateDisplayTreeToPresentationCompositorFrame.ReceiveUpdateDisplayTreeToStartPrepareToDraw">
+    <summary>
+      [TreesInViz only] The time from when the display compositor receives an
+      UpdateDisplayTree to when it starts to prepare to draw the frame, in
+      microseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="SubmitUpdateDisplayTreeToPresentationCompositorFrame.SendUpdateDisplayTreeToReceiveUpdateDisplayTree">
+    <summary>
+      [TreesInViz only] The time from when an UpdateDisplayTree is submitted to
+      the display compositor to when it is received by the display compositor,
+      in microseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="SubmitUpdateDisplayTreeToPresentationCompositorFrame.StartDrawLayersToSubmitCompositorFrame">
+    <summary>
+      [TreesInViz only] The time from when the display compositor starts to draw
+      layers to when the compositor frame is submitted, in microseconds..
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="SubmitUpdateDisplayTreeToPresentationCompositorFrame.StartDrawToSwapStart">
+    <summary>
+      [TreesInViz] The time from when a compositor frame is started to draw to
+      when it starts swap, in microseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="SubmitUpdateDisplayTreeToPresentationCompositorFrame.StartPrepareToDrawToStartDrawLayers">
+    <summary>
+      [TreesInViz only] The time from when the display compositor starts
+      preparing to draw the frame to when it starts to draw layers, in
+      microseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="SubmitUpdateDisplayTreeToPresentationCompositorFrame.SubmitToReceiveCompositorFrame">
+    <summary>
+      [TreesInViz] The time from when a compositor frame is submitted to when it
+      is received, in microseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="SubmitUpdateDisplayTreeToPresentationCompositorFrame.SwapEndToPresentationCompositorFrame">
+    <summary>
+      [TreesInViz] The time from when a compositor frame ends swap to when it is
+      presented, in microseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="SubmitUpdateDisplayTreeToPresentationCompositorFrame.SwapStartToBufferAvailable">
+    <summary>
+      [TreesInViz] The time from when the compositor frame starts to swap to
+      when the target framebuffer becomes available, in microseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="SubmitUpdateDisplayTreeToPresentationCompositorFrame.SwapStartToSwapEnd">
+    <summary>
+      [TreesInViz] The time from when a compositor frame starts swap to when it
+      ends swap, in microseconds.
     </summary>
     <aggregation>
       <history>
@@ -12748,6 +13000,28 @@ be describing additional metrics about the same event.
       kReaderModeEligible, kReaderModeNotEligibleContentOnly,
       kReaderModeNotEligibleContentLength,
       kReaderModeNotEligibleContentAndLength.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="IOS.ReaderMode.ReaderModeShown.AccessPoint" singular="true">
+  <owner>fernandex@google.com</owner>
+  <owner>qpubert@google.com</owner>
+  <summary>
+    Records when Reading Mode UI was successfully displayed to the user.
+    Recorded for iOS interactions only.
+  </summary>
+  <metric name="AccessPoint" enum="ReaderModeAccessPoint">
+    <summary>
+      The access point that triggered the Reading Mode UI that is shown for the
+      current page.
     </summary>
     <aggregation>
       <history>
@@ -13926,6 +14200,12 @@ be describing additional metrics about the same event.
   <metric name="RebuffersCount">
     <summary>
       Integer count of the number of times playback experienced rebuffering.
+    </summary>
+  </metric>
+  <metric name="RendererType" enum="MediaRendererType">
+    <summary>
+      Type of media::Renderer used for the playback. In most cases we do not
+      support dynamically changing RendererType during one playback.
     </summary>
   </metric>
   <metric name="VideoCodec" enum="VideoCodec">
@@ -18673,6 +18953,20 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="PaidContentPageLoad" singular="True">
+  <owner>gklassen@chromium.org</owner>
+  <owner>sullivan@chromium.org</owner>
+  <summary>
+    Records the paid content state of the page. This event is only recorded for
+    pages that have paid content metadata.
+  </summary>
+  <metric name="HasPaidContent" enum="PaidContentState">
+    <summary>
+      The paid content state of the page.
+    </summary>
+  </metric>
+</event>
+
 <event name="PaintPreviewCapture" singular="True">
   <owner>ckitagawa@chromium.org</owner>
   <owner>fredmello@chromium.org</owner>
@@ -20057,7 +20351,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="Permission">
-  <owner>timloh@chromium.org</owner>
+  <owner>permissions-dev@chromium.org</owner>
   <summary>
     Metrics for a user's permission actions, logged when a permission prompt is
     resolved or when a permission is revoked. Grouped (microphone+camera)
@@ -20068,12 +20362,26 @@ be describing additional metrics about the same event.
       An enum of type PermissionAction. One of GRANTED, DENIED, DISMISSED or
       IGNORED.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="Gesture">
     <summary>
       An enum of type PermissionRequestGestureType, whether the prompt was
       initiated by a user gesture.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="OsPromptScreen" enum="ElementAnchoredBubbleVariant">
     <summary>
@@ -20085,6 +20393,11 @@ be describing additional metrics about the same event.
     <summary>
       An enum of type ElementAnchoredBubbleVariant. The screen that directs the
       user to the OS Settings, if applicable.
+    </summary>
+  </metric>
+  <metric name="PermissionAiRelevanceModel" enum="PermissionAiRelevanceModel">
+    <summary>
+      Version of the AI model used for the permission relevance prediction.
     </summary>
   </metric>
   <metric name="PermissionAutoRevocationHistory"
@@ -20108,6 +20421,13 @@ be describing additional metrics about the same event.
       Beware that this is not the same as the ContentSettingsType enum (casted
       to int). An enum of type ContentSettingsType.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="PredictionsApiResponse.GrantLikelihood"
       enum="PredictionGrantLikelihood">
@@ -20146,6 +20466,18 @@ be describing additional metrics about the same event.
     <summary>
       An enum of type PermissionPromptDispositionReason. The reason why the
       particular prompt disposition was used, if any.
+    </summary>
+  </metric>
+  <metric name="PromptOptions">
+    <summary>
+      An enum of type UkmPromptOptions (see
+      https://source.chromium.org/search?q=class:%5CbPermissionAction%5Cb). This
+      is only emitted if the permission prompt supports additional prompt
+      options, which currently is the case only for geolocation permission
+      prompts when the ApproximateGeolocationPermission is enabled. In that
+      case, this is either 1 (APPROXIMATE_LOCATION) or 2 (PRECISE_LOCATION) and
+      specifies whether the prompt selection was &quot;approximate&quot; or
+      &quot;precise&quot; at the time when the action was taken.
     </summary>
   </metric>
   <metric name="SatisfiedAdaptiveTriggers">
@@ -21913,6 +22245,11 @@ be describing additional metrics about the same event.
     <summary>
       The type of action that the user has taken after being shown an abusive
       notification auto-revocation in Safety Hub.
+    </summary>
+  </metric>
+  <metric name="RevocationSource" enum="NotificationRevocationSource">
+    <summary>
+      The reason for auto-revocation.
     </summary>
   </metric>
 </event>
@@ -24345,6 +24682,21 @@ be describing additional metrics about the same event.
   <metric name="HasOccurred" enum="Boolean">
     <summary>
       A boolean signaling that the event has occurred; only records true values.
+    </summary>
+  </metric>
+</event>
+
+<event name="Tab.StateChange">
+  <owner>madhavpruthi@google.com</owner>
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>clank-tab-dev@chromium.org</owner>
+  <summary>
+    A tab's state has changed. Only recorded for loaded tabs with WebContents.
+  </summary>
+  <metric name="IsPinned" enum="Boolean">
+    <summary>
+      Whether the tab is currently pinned. This is stored only for tabs which
+      are pinned, i.e. this metric will always be true.
     </summary>
   </metric>
 </event>
@@ -27914,6 +28266,41 @@ be describing additional metrics about the same event.
         <index fields="profile.country"/>
         <index fields="profile.form_factor"/>
         <index fields="profile.system_ram"/>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="WebApp.WebInstall">
+  <owner>dmurph@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <summary>
+    Recorded when a site attempts to install another site that isn't the current
+    document via Web Install API.
+  </summary>
+  <metric name="ResultByInstalledApp" enum="WebInstallApiResult">
+    <summary>
+      Records the result of the Web Install API for the URL of the target site
+      that we attempted to install as a web app via the API.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="ResultByRequestingPage" enum="WebInstallApiResult">
+    <summary>
+      Records the result of the Web Install API for the URL of the requesting
+      page that invoked the API.
+    </summary>
+    <aggregation>
+      <history>
         <statistics>
           <enumeration/>
         </statistics>

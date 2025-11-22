@@ -83,8 +83,8 @@
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #else
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/views/file_system_access/file_system_access_page_action_controller.h"
 #include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
@@ -255,12 +255,35 @@ bool MaybeIsLocalUNCPath(const base::FilePath& path) {
     return true;
   }
 
-  // In case we missed the server name check above, we also check for shares
-  // ending with '$' as they represent pre-defined shares, including the local
-  // drives.
+  // Check *admin* shares only (drive admin like "C$" and named admin).
+  // Note: the share component is typically components[2], but we scan all
+  // components defensively in case the structure changes.
   for (size_t i = 2; i < components.size(); ++i) {
-    if (components[i].back() == L'$') {
-      return true;
+    const auto& component = components[i];
+
+    // component ends with "$"
+    if (!component.empty() && component.back() == L'$') {
+
+      // Drive admin share: "C$".."Z$" (case-insensitive on the letter).
+      if (component.size() == 2 &&
+          ((component[0] >= L'A' && component[0] <= L'Z') ||
+           (component[0] >= L'a' && component[0] <= L'z'))) {
+        return true;
+      }
+
+      // Named admin shares: "ADMIN$", "IPC$", "PRINT$", and "FAX$"
+      if (base::FilePath::CompareEqualIgnoreCase(
+              component, FILE_PATH_LITERAL("ADMIN$")) ||
+          base::FilePath::CompareEqualIgnoreCase(
+              component, FILE_PATH_LITERAL("IPC$")) ||
+          base::FilePath::CompareEqualIgnoreCase(
+              component, FILE_PATH_LITERAL("PRINT$")) ||
+          base::FilePath::CompareEqualIgnoreCase(
+              component, FILE_PATH_LITERAL("FAX$"))) {
+        return true;
+      }
+
+      // Otherwise, it is just a hidden share (e.g. "Share$")—do not block.
     }
   }
 
@@ -612,6 +635,7 @@ InterpretSafeBrowsingResult(safe_browsing::DownloadCheckResult result) {
     case Result::DANGEROUS_ACCOUNT_COMPROMISE:
     case Result::BLOCKED_SCAN_FAILED:
     case Result::SENSITIVE_CONTENT_BLOCK:
+    case Result::FORCE_SAVE_TO_GDRIVE:
       return ChromeFileSystemAccessPermissionContext::AfterWriteCheckResult::
           kBlock;
 
@@ -872,6 +896,24 @@ class ChromeFileSystemAccessPermissionContext::PermissionGrantImpl
     auto* request_manager =
         FileSystemAccessPermissionRequestManager::FromWebContents(web_contents);
     if (!request_manager) {
+      // Extension contexts (popup, side panel) may not have a permission
+      // request manager attached. Since the user already explicitly selected a
+      // file/folder via the file picker dialog (which is a strong user
+      // gesture), we can auto-grant the permission for extensions without
+      // showing an additional prompt.
+      bool is_extension =
+          rfh->GetLastCommittedOrigin().scheme() == "chrome-extension";
+      if (is_extension) {
+        PermissionRequestOutcome outcome =
+            PermissionRequestOutcome::kUserGranted;
+        RecordPermissionRequestOutcome(outcome);
+        // May destroy `this`.
+        SetStatus(PermissionStatus::GRANTED,
+                  PersistedPermissionOptions::kUpdatePersistedPermission);
+        std::move(callback).Run(outcome);
+        return;
+      }
+
       RunCallbackAndRecordPermissionRequestOutcome(
           std::move(callback), PermissionRequestOutcome::kRequestAborted);
       return;
@@ -2937,14 +2979,6 @@ void ChromeFileSystemAccessPermissionContext::MaybeCleanupPermissions(
       continue;
     }
     int tab_count = tabs->GetTabCount();
-#else
-  for (Browser* browser : *BrowserList::GetInstance()) {
-    if (browser->profile() != profile()) {
-      continue;
-    }
-    TabStripModel* tabs = browser->tab_strip_model();
-    int tab_count = tabs->count();
-#endif
     for (int i = 0; i < tab_count; ++i) {
       content::WebContents* web_contents = tabs->GetWebContentsAt(i);
       if (!web_contents) {
@@ -2959,6 +2993,37 @@ void ChromeFileSystemAccessPermissionContext::MaybeCleanupPermissions(
       }
     }
   }
+#else
+  bool found_origin = false;
+  ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+      [this, &origin,
+       &found_origin](BrowserWindowInterface* browser_window_interface) {
+        if (browser_window_interface->GetProfile() != profile()) {
+          return true;
+        }
+        TabStripModel* tabs = browser_window_interface->GetTabStripModel();
+        int tab_count = tabs->count();
+        for (int i = 0; i < tab_count; ++i) {
+          content::WebContents* web_contents = tabs->GetWebContentsAt(i);
+          if (!web_contents) {
+            continue;
+          }
+          url::Origin tab_origin = url::Origin::Create(
+              permissions::PermissionUtil::GetLastCommittedOriginAsURL(
+                  web_contents->GetPrimaryMainFrame()));
+          // Found a tab for this origin, so early exit and don't revoke grants.
+          if (tab_origin == origin) {
+            found_origin = true;
+            return false;
+          }
+        }
+        return true;
+      });
+  if (found_origin) {
+    return;
+  }
+#endif
+
   CleanupPermissions(origin);
 }
 
@@ -3557,28 +3622,31 @@ void ChromeFileSystemAccessPermissionContext::DoUsageIconUpdate() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   usage_icon_update_scheduled_ = false;
 #if !BUILDFLAG(IS_ANDROID)
-  for (Browser* browser : *BrowserList::GetInstance()) {
-    if (browser->profile() != profile()) {
-      continue;
-    }
-    if (IsPageActionMigrated(PageActionIconType::kFileSystemAccess)) {
-      tabs::TabInterface* const tab_interface =
-          browser->GetActiveTabInterface();
-      // TODO(crbug.com/411109399): DoUsageIconUpdate() can be run during
-      // browser destruction, and therefore we need to check for null here. This
-      // should be updated to never run during browser destruction.
-      if (!tab_interface) {
-        continue;
-      }
-      auto* const tab_features = tab_interface->GetTabFeatures();
-      CHECK(tab_features);
-      UpdatePageAction(
-          tab_features->file_system_access_page_action_controller());
-    } else {
-      browser->window()->UpdatePageActionIcon(
-          PageActionIconType::kFileSystemAccess);
-    }
-  }
+  ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+      [this](BrowserWindowInterface* browser_window_interface) {
+        if (browser_window_interface->GetProfile() != profile()) {
+          return true;
+        }
+        if (IsPageActionMigrated(PageActionIconType::kFileSystemAccess)) {
+          tabs::TabInterface* const tab_interface =
+              browser_window_interface->GetActiveTabInterface();
+          // TODO(crbug.com/411109399): DoUsageIconUpdate() can be run during
+          // browser destruction, and therefore we need to check for null here.
+          // This should be updated to never run during browser destruction.
+          if (!tab_interface) {
+            return true;
+          }
+          auto* const tab_features = tab_interface->GetTabFeatures();
+          CHECK(tab_features);
+          UpdatePageAction(
+              tab_features->file_system_access_page_action_controller());
+        } else {
+          browser_window_interface->GetBrowserForMigrationOnly()
+              ->window()
+              ->UpdatePageActionIcon(PageActionIconType::kFileSystemAccess);
+        }
+        return true;
+      });
 #endif
 }
 

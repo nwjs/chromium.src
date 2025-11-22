@@ -29,8 +29,7 @@ function assertNoSyncedTabsMessageShown(
     manager: HistorySyncedDeviceManagerElement, stringID: string) {
   assertFalse(manager.$['no-synced-tabs'].hidden);
   const message = loadTimeData.getString(stringID);
-  assertNotEquals(
-      -1, manager.$['no-synced-tabs'].textContent!.indexOf(message));
+  assertNotEquals(-1, manager.$['no-synced-tabs'].textContent.indexOf(message));
 }
 
 suite('<history-synced-device-manager>', function() {
@@ -76,7 +75,7 @@ suite('<history-synced-device-manager>', function() {
     assertEquals(
         'http://www.google.com',
         card.shadowRoot.querySelectorAll<HTMLElement>(
-                           '.website-title')[0]!.textContent!.trim());
+                           '.website-title')[0]!.textContent.trim());
     assertEquals(2, card.tabs.length);
   });
 
@@ -132,7 +131,7 @@ suite('<history-synced-device-manager>', function() {
     assertEquals(
         'http://crbug.com/new',
         cards[0]!.shadowRoot.querySelectorAll<HTMLElement>(
-                                '.website-title')[1]!.textContent!.trim());
+                                '.website-title')[1]!.textContent.trim());
   });
 
   test('two cards, multiple windows, search', async () => {
@@ -174,7 +173,7 @@ suite('<history-synced-device-manager>', function() {
     assertEquals(
         'http://www.google.com',
         cards[0]!.shadowRoot.querySelectorAll<HTMLElement>(
-                                '.website-title')[0]!.textContent!.trim());
+                                '.website-title')[0]!.textContent.trim());
 
     element.searchTerm = 'Sans';
     await microtasksFinished();
@@ -256,6 +255,10 @@ suite('<history-synced-device-manager>', function() {
     assertTrue(element.$.menu.getIfExists()!.open);
   });
 
+  // <if expr="is_chromeos">
+  // On ChromeOS only, the kReplaceSyncPromosWithSignInPromos flag is false and
+  // this promo may be shown. For other platforms, the flag is true so this
+  // promo is not shown (checked in other tests below).
   test('show sign in promo', async () => {
     element.configureSignInForTest({
       signInState: HistorySignInState.SIGNED_OUT,
@@ -272,6 +275,7 @@ suite('<history-synced-device-manager>', function() {
     await microtasksFinished();
     assertTrue(element.$['sign-in-guide'].hidden);
   });
+  // </if>
 
   test('no synced tabs message', async () => {
     // When user is not logged in, there is no synced tabs.
@@ -406,6 +410,27 @@ suite('<history-sync-optin>', function() {
     assertTrue(isChildVisible(element, '#profile-icon'));
   });
 
+   test('check elements in signed out state', async () => {
+    element.configureSignInForTest({
+      signInState: HistorySignInState.SIGNED_OUT,
+      signInAllowed: true,
+      guestSession: false,
+    });
+    await microtasksFinished();
+    // Should not be visible with kReplaceSyncPromosWithSignInPromos enabled.
+    assertFalse(isChildVisible(element, '#sign-in-guide'));
+    // The other states promo elements should not be visible.
+    assertFalse(isChildVisible(element, '#signed-in-sync-history-promo-desc'));
+    assertFalse(isChildVisible(element, '#verify-its-you-button'));
+    assertFalse(isChildVisible(
+        element, '#sign-in-pending-sync-history-promo-desc-sync-history-on'));
+    assertFalse(isChildVisible(element, '#sign-in-pending-avatar'));
+
+    // The history sync promo elements for SIGNED_OUT state are shown correctly.
+    assertTrue(isChildVisible(element, '#sync-history-button'));
+    assertTrue(isChildVisible(element, '#signed-out-sync-history-promo-desc'));
+  });
+
   test('check elements in pending signin without tabs sync state', async () => {
     element.configureSignInForTest({
       signInState: HistorySignInState.SIGN_IN_PENDING_NOT_SYNCING_TABS,
@@ -474,11 +499,11 @@ suite('<history-sync-optin>', function() {
     assertEquals(
         'Test User',
         element.shadowRoot.querySelector<HTMLElement>(
-                              '#account-name')!.textContent!.trim());
+                              '#account-name')!.textContent.trim());
     assertEquals(
         'test@google.com',
         element.shadowRoot.querySelector<HTMLElement>(
-                              '#account-email')!.textContent!.trim());
+                              '#account-email')!.textContent.trim());
     assertEquals(
         'http://example.com/image.png',
         element.shadowRoot.querySelector<HTMLImageElement>(
@@ -501,11 +526,11 @@ suite('<history-sync-optin>', function() {
     assertEquals(
         newAccountInfo.name,
         element.shadowRoot.querySelector<HTMLElement>(
-                              '#account-name')!.textContent!.trim());
+                              '#account-name')!.textContent.trim());
     assertEquals(
         newAccountInfo.email,
         element.shadowRoot.querySelector<HTMLElement>(
-                              '#account-email')!.textContent!.trim());
+                              '#account-email')!.textContent.trim());
     assertEquals(
         newAccountInfo.accountImageSrc.url,
         element.shadowRoot.querySelector<HTMLImageElement>(
@@ -526,6 +551,43 @@ suite('<history-sync-optin>', function() {
     button.click();
 
     await testService.handler.whenCalled('turnOnHistorySync');
+  });
+
+  test('check recorded metrics in pending signin', async () => {
+    // The signin pending offered histogram is recorded once.
+    element.configureSignInForTest({
+      signInState: HistorySignInState.SIGN_IN_PENDING_NOT_SYNCING_TABS,
+      signInAllowed: true,
+      guestSession: false,
+    });
+    await microtasksFinished();
+    assertEquals(1, testService.getCallCount('recordSigninPendingOffered'));
+
+    // Firing a sign in pending state again does not record again.
+    element.configureSignInForTest({
+      signInState: HistorySignInState.SIGN_IN_PENDING_SYNCING_TABS,
+      signInAllowed: true,
+      guestSession: false,
+    });
+    await microtasksFinished();
+    assertEquals(1, testService.getCallCount('recordSigninPendingOffered'));
+
+    // Signing in and then getting into sign in pending state again records the
+    // histogram again.
+    element.configureSignInForTest({
+      signInState: HistorySignInState.SIGNED_IN_SYNCING_TABS,
+      signInAllowed: true,
+      guestSession: false,
+    });
+    await microtasksFinished();
+    element.configureSignInForTest({
+      signInState: HistorySignInState.SIGN_IN_PENDING_SYNCING_TABS,
+      signInAllowed: true,
+      guestSession: false,
+    });
+    await microtasksFinished();
+
+    assertEquals(2, testService.getCallCount('recordSigninPendingOffered'));
   });
 });
 // </if>

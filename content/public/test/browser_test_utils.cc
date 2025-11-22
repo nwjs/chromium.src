@@ -47,6 +47,7 @@
 #include "cc/test/pixel_test_utils.h"
 #include "components/input/render_widget_host_input_event_router.h"
 #include "components/viz/client/frame_evictor.h"
+#include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "content/browser/file_system/file_system_manager_impl.h"
 #include "content/browser/file_system_access/file_system_access_manager_impl.h"
 #include "content/browser/renderer_host/cross_process_frame_connector.h"
@@ -1499,9 +1500,7 @@ void SimulateProxyHostPostMessage(RenderFrameHost* source_render_frame_host,
   proxy_host->RouteMessageEvent(
       source_render_frame_host->GetFrameToken(),
       source_render_frame_host->GetLastCommittedOrigin(),
-      base::UTF8ToUTF16(
-          target_render_frame_host->GetLastCommittedOrigin().Serialize()),
-      std::move(message));
+      target_render_frame_host->GetLastCommittedOrigin(), std::move(message));
 }
 
 ScopedSimulateModifierKeyPress::ScopedSimulateModifierKeyPress(
@@ -4465,7 +4464,9 @@ bool CompareWebContentsOutputToReference(
     base::RunLoop run_loop;
     rwh->GetView()->CopyFromSurface(
         gfx::Rect(), gfx::Size(),
-        base::BindLambdaForTesting([&](const SkBitmap& bitmap) {
+        base::BindLambdaForTesting([&](const viz::CopyOutputBitmapWithMetadata&
+                                           result) {
+          const SkBitmap& bitmap = result.bitmap;
           base::ScopedAllowBlockingForTesting allow_blocking;
           ASSERT_FALSE(bitmap.drawsNothing());
 

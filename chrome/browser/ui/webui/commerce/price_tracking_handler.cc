@@ -15,6 +15,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "components/bookmarks/browser/bookmark_node.h"
 #include "components/bookmarks/browser/bookmark_utils.h"
+#include "components/commerce/core/account_checker.h"
 #include "components/commerce/core/metrics/metrics_utils.h"
 #include "components/commerce/core/mojom/shared.mojom.h"
 #include "components/commerce/core/price_tracking_utils.h"

@@ -37,6 +37,10 @@ source_set("web_applications") {
     "commands/fetch_installability_for_chrome_management.h",
     "commands/fetch_manifest_and_install_command.cc",
     "commands/fetch_manifest_and_install_command.h",
+    "commands/fetch_manifest_and_update_command.cc",
+    "commands/fetch_manifest_and_update_command.h",
+    "commands/fetch_manifest_and_update_result.cc",
+    "commands/fetch_manifest_and_update_result.h",
     "commands/generated_icon_fix_command.cc",
     "commands/generated_icon_fix_command.h",
     "commands/install_app_locally_command.cc",
@@ -189,6 +193,8 @@ source_set("web_applications") {
     "jobs/uninstall/uninstall_job.cc",
     "jobs/uninstall/uninstall_job.h",
     "jobs/uninstall/web_app_uninstall_and_replace_job.h",
+    "jobs/update_ignore_state.cc",
+    "jobs/update_ignore_state.h",
     "locks/all_apps_lock.cc",
     "locks/all_apps_lock.h",
     "locks/app_lock.cc",
@@ -217,6 +223,10 @@ source_set("web_applications") {
     "manifest_update_manager.h",
     "manifest_update_utils.cc",
     "manifest_update_utils.h",
+    "model/app_installed_by.cc",
+    "model/app_installed_by.h",
+    "model/web_app_comparison.cc",
+    "model/web_app_comparison.h",
     "navigation_capturing_log.cc",
     "navigation_capturing_log.h",
     "navigation_capturing_metrics.cc",
@@ -507,6 +517,7 @@ source_set("web_applications") {
     "//chrome/browser/browsing_data:constants",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/favicon",
+    "//chrome/browser/metrics",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/profiles/keep_alive",
     "//chrome/browser/shortcuts",
@@ -596,6 +607,8 @@ source_set("web_applications") {
         "preinstalled_web_apps/messages_dogfood.h",
         "preinstalled_web_apps/notebook_lm.cc",
         "preinstalled_web_apps/notebook_lm.h",
+        "preinstalled_web_apps/vids.cc",
+        "preinstalled_web_apps/vids.h",
       ]
       deps += [ "//extensions/common:common_constants" ]
     }
@@ -606,7 +619,6 @@ source_set("web_applications") {
   if (is_mac) {
     deps += [
       "//chrome/browser/web_applications/mojom:web_app_shortcut_copier_mojom",
-      "//components/os_crypt/sync",
     ]
   }
 
@@ -725,6 +737,8 @@ source_set("web_applications_test_support") {
     "test/fake_data_retriever.h",
     "test/fake_environment.cc",
     "test/fake_environment.h",
+    "test/fake_extensions_manager.cc",
+    "test/fake_extensions_manager.h",
     "test/fake_os_integration_manager.cc",
     "test/fake_os_integration_manager.h",
     "test/fake_web_app_database_factory.cc",
@@ -862,6 +876,7 @@ source_set("web_applications_unit_tests") {
     "commands/fetch_install_info_from_install_url_command_unittest.cc",
     "commands/fetch_installability_for_chrome_management_unittest.cc",
     "commands/fetch_manifest_and_install_command_unittest.cc",
+    "commands/fetch_manifest_and_update_command_unittest.cc",
     "commands/install_app_locally_command_unittest.cc",
     "commands/install_from_sync_command_unittest.cc",
     "commands/manifest_silent_update_command_unittest.cc",
@@ -1109,6 +1124,7 @@ source_set("web_applications_browser_tests") {
     "commands/compute_app_size_command_browsertest.cc",
     "commands/externally_managed_install_command_browsertest.cc",
     "commands/fetch_manifest_and_install_command_browsertest.cc",
+    "commands/fetch_manifest_and_update_command_browsertest.cc",
     "commands/install_from_info_command_browsertest.cc",
     "commands/install_from_sync_command_browsertest.cc",
     "commands/launch_web_app_command_browsertest.cc",
@@ -1129,6 +1145,7 @@ source_set("web_applications_browser_tests") {
     "isolated_web_apps/isolated_web_app_uninstall_browsertest.cc",
     "isolated_web_apps/isolated_web_app_url_loader_factory_browsertest.cc",
     "isolated_web_apps/key_distribution/iwa_key_distribution_component_installer_browsertest.cc",
+    "isolated_web_apps/policy/isolated_web_app_policy_manager_browsertest.cc",
     "isolated_web_apps/update/isolated_web_app_update_manager_browsertest.cc",
     "manifest_update_manager_browsertest.cc",
     "navigation_capturing_browser_navigator_browsertest.cc",
@@ -1165,7 +1182,6 @@ source_set("web_applications_browser_tests") {
       "isolated_web_apps/isolated_web_app_device_attributes_browsertest.cc",
       "isolated_web_apps/isolated_web_app_managed_configuration_api_browsertest.cc",
       "isolated_web_apps/policy/isolated_web_app_cache_browsertest.cc",
-      "isolated_web_apps/policy/isolated_web_app_policy_manager_ash_browsertest.cc",
       "web_app_run_on_os_login_manager_browsertest.cc",
     ]
   }
@@ -1301,6 +1317,7 @@ source_set("app_service_browser_tests") {
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",
     "//components/webapps/browser",
+    "//components/webapps/isolated_web_apps:key_distribution",
     "//components/webapps/isolated_web_apps/test_support",
   ]
 

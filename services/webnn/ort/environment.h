@@ -16,9 +16,12 @@
 #include "gpu/config/gpu_info.h"
 #include "services/webnn/ort/scoped_ort_types.h"
 #include "services/webnn/public/mojom/webnn_device.mojom.h"
-#include "third_party/onnxruntime_headers/src/include/onnxruntime/core/session/onnxruntime_c_api.h"
+#include "third_party/windows_app_sdk_headers/src/inc/abi/winml/winml/onnxruntime_c_api.h"
 
 namespace webnn::ort {
+
+inline constexpr base::cstring_view kOpenVINOExecutionProvider =
+    "OpenVINOExecutionProvider";
 
 // Describes the workarounds needed for execution provider limitations.
 // TODO(crbug.com/428740146): Remove this struct once all the execution
@@ -27,14 +30,12 @@ struct EpWorkarounds {
   // TODO(crbug.com/429253567): Specify the minimum package version that
   // supports these features without requiring workarounds.
 
-  bool disable_external_data = false;
   // By default ONNX Resize op supports any axes, but some EPs may only support
   // NCHW layout. `ContextProperties.resample_2d_axes` setting will respect to
   // this limit.
   bool resample2d_limit_to_nchw = false;
 
   EpWorkarounds& operator|=(const EpWorkarounds& other) {
-    disable_external_data |= other.disable_external_data;
     resample2d_limit_to_nchw |= other.resample2d_limit_to_nchw;
     return *this;
   }
@@ -68,6 +69,16 @@ class Environment : public base::subtle::RefCountedThreadSafeBase {
   static std::vector<const OrtEpDevice*> SelectEpDevicesForDeviceType(
       base::span<const OrtEpDevice* const> available_devices,
       mojom::Device device_type);
+
+  // Returns a span of registered execution provider devices in `env`. The span
+  // is guaranteed to be valid until `env_` is released or the list of execution
+  // providers is modified.
+  //
+  // Thread safety note:
+  // The provider list is only modified during Environment initialization and is
+  // immutable for the lifetime of the Environment object. Therefore, it is safe
+  // for multiple threads to hold and use the returned span concurrently.
+  base::span<const OrtEpDevice* const> GetRegisteredEpDevices() const;
 
   // Get combined EP workarounds for the EPs that will be selected according to
   // the given device type.

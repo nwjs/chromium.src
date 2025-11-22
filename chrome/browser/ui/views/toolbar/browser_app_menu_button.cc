@@ -192,10 +192,10 @@ SkColor BrowserAppMenuButton::GetForegroundColor(ButtonState state) const {
 void BrowserAppMenuButton::UpdateTextAndHighlightColor() {
   int tooltip_message_id;
   std::u16string text;
-  if (type_and_severity_.severity == AppMenuIconController::Severity::NONE) {
+  if (type_and_severity_.severity == AppMenuIconController::Severity::kNone) {
     tooltip_message_id = IDS_APPMENU_TOOLTIP;
   } else if (type_and_severity_.type ==
-             AppMenuIconController::IconType::UPGRADE_NOTIFICATION) {
+             AppMenuIconController::IconType::kUpgradeNotification) {
     tooltip_message_id = IDS_APPMENU_TOOLTIP_UPDATE_AVAILABLE;
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING) && \
     (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX))
@@ -214,18 +214,10 @@ void BrowserAppMenuButton::UpdateTextAndHighlightColor() {
 #else
     text = l10n_util::GetStringUTF16(IDS_APP_MENU_BUTTON_UPDATE);
 #endif
-  } else if (type_and_severity_.type ==
-             AppMenuIconController::IconType::DEFAULT_BROWSER_PROMPT) {
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
-    tooltip_message_id = IDS_APP_MENU_TOOLTIP_DEFAULT_PROMPT;
-    text = l10n_util::GetStringUTF16(IDS_APP_MENU_BUTTON_DEFAULT_PROMPT);
-#else
-    tooltip_message_id = IDS_APPMENU_TOOLTIP;
-#endif
   } else {
     tooltip_message_id = IDS_APPMENU_TOOLTIP_ALERT;
     const int text_id =
-        type_and_severity_.severity == AppMenuIconController::Severity::LOW
+        type_and_severity_.severity == AppMenuIconController::Severity::kLow
             ? IDS_APP_MENU_BUTTON_ACTION_REQUIRED
             : IDS_APP_MENU_BUTTON_ERROR;
     text = l10n_util::GetStringUTF16(text_id);
@@ -260,7 +252,7 @@ std::optional<SkColor> BrowserAppMenuButton::GetHighlightTextColor() const {
 
 std::optional<SkColor> BrowserAppMenuButton::GetHighlightColor() const {
   const auto* const color_provider = GetColorProvider();
-  if (type_and_severity_.severity == AppMenuIconController::Severity::NONE) {
+  if (type_and_severity_.severity == AppMenuIconController::Severity::kNone) {
     return std::nullopt;
   } else {
     return color_provider->GetColor(type_and_severity_.use_primary_colors

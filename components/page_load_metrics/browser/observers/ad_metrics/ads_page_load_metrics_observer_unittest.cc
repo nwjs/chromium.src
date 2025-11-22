@@ -1501,15 +1501,23 @@ TEST_P(AdsPageLoadMetricsObserverTest,
   ResourceDataUpdate(ad_frame, ResourceCached::kNotCached, base::KiB(10));
   ResourceDataUpdate(child_ad_frame, ResourceCached::kNotCached, base::KiB(10));
 
-  // Just delete the child frame this time.
-  content::RenderFrameHostTester::For(child_ad_frame)->Detach();
+  {
+    content::RenderFrameDeletedObserver observer(child_ad_frame);
+    // Just delete the child frame this time.
+    content::RenderFrameHostTester::For(child_ad_frame)->Detach();
+    observer.WaitUntilDeleted();
+  }
 
   // Verify per-frame histograms not recorded.
   histogram_tester().ExpectTotalCount(
       SuffixedHistogram("Bytes.AdFrames.PerFrame.Total2"), 0);
 
-  // Delete the root ad frame.
-  content::RenderFrameHostTester::For(ad_frame)->Detach();
+  {
+    content::RenderFrameDeletedObserver observer(ad_frame);
+    // Delete the root ad frame.
+    content::RenderFrameHostTester::For(ad_frame)->Detach();
+    observer.WaitUntilDeleted();
+  }
 
   // Verify per-frame histograms are recorded.
   histogram_tester().ExpectUniqueSample(
@@ -1577,7 +1585,9 @@ TEST_P(AdsPageLoadMetricsObserverTest, NonAdFrameDestroyed_FrameDeleted) {
 
   ResourceDataUpdate(main_frame, ResourceCached::kNotCached, base::KiB(10));
 
+  content::RenderFrameDeletedObserver observer(vanilla_frame);
   content::RenderFrameHostTester::For(vanilla_frame)->Detach();
+  observer.WaitUntilDeleted();
 
   NavigateMainFrame(kNonAdUrl);
 }
@@ -2889,7 +2899,7 @@ TEST_P(AdsPageLoadMetricsObserverTest, HeavyAdBlocklistFull_NotFired) {
   // Five interventions are allowed to occur, per origin per day. Add five
   // entries to the blocklist.
   for (int i = 0; i < 5; i++)
-    blocklist()->AddEntry(GURL(kNonAdUrl).host(), true, 0);
+    blocklist()->AddEntry(GURL(kNonAdUrl).GetHost(), true, 0);
 
   RenderFrameHost* main_frame = NavigateMainFrame(kNonAdUrl);
   RenderFrameHost* ad_frame = CreateAndNavigateSubFrame(kAdUrl, main_frame);
@@ -2912,7 +2922,7 @@ TEST_P(AdsPageLoadMetricsObserverTest,
   // Fill up the blocklist to verify the blocklist logic is correctly ignored
   // when disabled.
   for (int i = 0; i < 5; i++)
-    blocklist()->AddEntry(GURL(kNonAdUrl).host(), true, 0);
+    blocklist()->AddEntry(GURL(kNonAdUrl).GetHost(), true, 0);
 
   RenderFrameHost* main_frame = NavigateMainFrame(kNonAdUrl);
   RenderFrameHost* ad_frame = CreateAndNavigateSubFrame(kAdUrl, main_frame);
@@ -2949,7 +2959,7 @@ TEST_P(AdsPageLoadMetricsObserverTest, HeavyAdBlocklist_InterventionReported) {
   // Five interventions are allowed to occur, per origin per day. Add four
   // entries to the blocklist.
   for (int i = 0; i < 4; i++)
-    blocklist()->AddEntry(GURL(kNonAdUrl).host(), true, 0);
+    blocklist()->AddEntry(GURL(kNonAdUrl).GetHost(), true, 0);
 
   RenderFrameHost* main_frame = NavigateMainFrame(kNonAdUrl);
   RenderFrameHost* ad_frame = CreateAndNavigateSubFrame(kAdUrl, main_frame);

@@ -7,48 +7,53 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_popup_webui_base_content.h"
+#include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_ui.h"
 #include "chrome/browser/ui/webui/searchbox/webui_omnibox_handler.h"
+#include "chrome/browser/ui/webui/top_chrome/webui_contents_wrapper.h"
 #include "content/public/browser/render_frame_host.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/controls/webview/webview.h"
+#include "ui/views/metadata/view_factory.h"
 #include "ui/views/view_observer.h"
 #include "ui/views/widget/widget.h"
 
 class LocationBarView;
-class OmniboxController;
-class OmniboxPopupPresenter;
+class OmniboxPopupPresenterBase;
 
 // The content WebView for the popup of a WebUI Omnibox.
-class OmniboxPopupWebUIContent : public views::WebView {
-  METADATA_HEADER(OmniboxPopupWebUIContent, views::WebView)
+class OmniboxPopupWebUIContent : public OmniboxPopupWebUIBaseContent {
+  METADATA_HEADER(OmniboxPopupWebUIContent, OmniboxPopupWebUIBaseContent)
+
  public:
   OmniboxPopupWebUIContent() = delete;
-  OmniboxPopupWebUIContent(OmniboxPopupPresenter* presenter,
+  OmniboxPopupWebUIContent(OmniboxPopupPresenterBase* presenter,
                            LocationBarView* location_bar_view,
                            OmniboxController* controller,
-                           bool include_location_bar_cutout);
+                           bool include_location_bar_cutout,
+                           bool wants_focus);
   OmniboxPopupWebUIContent(const OmniboxPopupWebUIContent&) = delete;
   OmniboxPopupWebUIContent& operator=(const OmniboxPopupWebUIContent&) = delete;
   ~OmniboxPopupWebUIContent() override;
 
-  // Tells whether the WebUI handler is loaded and ready to receive calls.
-  bool IsHandlerReady();
+  bool include_location_bar_cutout() const { return !top_rounded_corners(); }
 
-  // views::View:
-  void AddedToWidget() override;
-
-  // content::WebContentsDelegate:
-  void ResizeDueToAutoResize(content::WebContents* source,
-                             const gfx::Size& new_size) override;
+  bool wants_focus() const { return wants_focus_; }
 
  private:
-  raw_ptr<LocationBarView> location_bar_view_ = nullptr;
-  raw_ptr<OmniboxPopupPresenter> omnibox_popup_presenter_ = nullptr;
+  // Indicate whether this WebUI content wants to receive activation and focus.
+  bool wants_focus_ = false;
 
-  // Whether or not the WebUI popup includes the `location_bar_view` cutout.
-  bool include_location_bar_cutout_ = true;
+  base::WeakPtrFactory<OmniboxPopupWebUIContent> weak_factory_{this};
 };
+
+BEGIN_VIEW_BUILDER(/* no export */,
+                   OmniboxPopupWebUIContent,
+                   OmniboxPopupWebUIBaseContent)
+END_VIEW_BUILDER
+
+DEFINE_VIEW_BUILDER(/* no export */, OmniboxPopupWebUIContent)
 
 #endif  // CHROME_BROWSER_UI_VIEWS_OMNIBOX_OMNIBOX_POPUP_WEBUI_CONTENT_H_

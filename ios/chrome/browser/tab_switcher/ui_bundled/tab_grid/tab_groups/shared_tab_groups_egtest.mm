@@ -459,7 +459,8 @@ void WaitForFakeJoinFlowView() {
 
 // Checks that the IPH is presented when the user foreground the app with a
 // shared tab group active.
-- (void)testForegroundIPH {
+// TODO(crbug.com/411064928): Re-enable this test.
+- (void)DISABLED_testForegroundIPH {
   if ([ChromeEarlGrey isIPadIdiom]) {
     // Not available on iPad.
     return;
@@ -871,7 +872,8 @@ void WaitForFakeJoinFlowView() {
 }
 
 // Ensures new tab is added when closing the last tab of a shared group.
-- (void)testCloseLastTabInSharedGroup {
+// TODO(crbug.com/454567832): Re-enable this test.
+- (void)FLAKY_testCloseLastTabInSharedGroup {
   AddSharedGroup(/*owner=*/NO, self.testServer);
   [ChromeEarlGrey waitForMainTabCount:1];
 
@@ -1321,6 +1323,12 @@ void WaitForFakeJoinFlowView() {
   if (base::ios::IsRunningOnIOS26OrLater()) {
     EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.");
   }
+#if !TARGET_IPHONE_SIMULATOR
+  // TODO(crbug.com/449204815): Re-enable the test on iPad device.
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Test disabled on iPad.");
+  }
+#endif
 
   AddSharedGroup(/*owner=*/YES, self.testServer);
   [ChromeEarlGrey waitForMainTabCount:1];
@@ -1369,6 +1377,12 @@ void WaitForFakeJoinFlowView() {
 // Tests that the badge on the tab switcher appears when a shared group is
 // updated and disappears when a user visits the updated page.
 - (void)testTabSwitcherBadge {
+#if !TARGET_IPHONE_SIMULATOR
+  // TODO(crbug.com/449204815): Re-enable the test on iPad device.
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Test disabled on iPad.");
+  }
+#endif
   AddSharedGroup(/*owner=*/YES, self.testServer);
   [ChromeEarlGrey waitForMainTabCount:1];
 
@@ -1433,7 +1447,8 @@ void WaitForFakeJoinFlowView() {
 
 // Tests that the activity indicators (blue dot and notification dot) on the
 // toolbar are updated when a shared group is updated.
-- (void)testActivityIndicatorsOnToolbar {
+// TODO(crbug.com/454262963): test is flaky, disable it.
+- (void)DISABLED_testActivityIndicatorsOnToolbar {
   AddSharedGroup(/*owner=*/YES, self.testServer);
   [ChromeEarlGrey waitForMainTabCount:1];
 

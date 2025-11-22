@@ -49,7 +49,6 @@
 #include "cc/tiles/tile_priority.h"
 #include "cc/tiles/tile_task_manager.h"
 #include "cc/tiles/tiles_with_resource_iterator.h"
-#include "components/viz/common/resources/resource_sizes.h"
 #include "components/viz/common/traced_value.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "ui/gfx/geometry/axis_transform2d.h"
@@ -766,11 +765,7 @@ void TileManager::InitializeTilesWithResourcesForTesting(
         tiles[i]->desired_texture_size(), client_->GetTileFormat(),
         client_->GetTargetColorParams(gfx::ContentColorUsage::kSRGB)
             .color_space);
-    raster_buffer_provider_->AcquireBufferForRaster(
-        resource, 0, 0,
-        /*depends_on_at_raster_decodes=*/false,
-        /*depends_on_hardware_accelerated_jpeg_candidates=*/false,
-        /*depends_on_hardware_accelerated_webp_candidates=*/false);
+    raster_buffer_provider_->AcquireBufferForRaster(resource, 0, 0);
     // The raster here never really happened, cuz tests. So just add an
     // arbitrary sync token.
     if (resource.backing()) {
@@ -1511,12 +1506,8 @@ scoped_refptr<TileTask> TileManager::CreateRasterTask(
   ImageDecodeCache::TracingInfo tracing_info(
       prepare_tiles_count_, prioritized_tile.priority().priority_bin);
   bool has_at_raster_images = false;
-  bool has_hardware_accelerated_jpeg_candidates = false;
-  bool has_hardware_accelerated_webp_candidates = false;
-  image_controller_.ConvertImagesToTasks(
-      &sync_decoded_images, &decode_tasks, &has_at_raster_images,
-      &has_hardware_accelerated_jpeg_candidates,
-      &has_hardware_accelerated_webp_candidates, tracing_info);
+  image_controller_.ConvertImagesToTasks(&sync_decoded_images, &decode_tasks,
+                                         &has_at_raster_images, tracing_info);
   // Notify |decoded_image_tracker_| after |image_controller_| to ensure we've
   // taken new refs on the images before releasing the predecode API refs.
   decoded_image_tracker_.OnImagesUsedInDraw(sync_decoded_images);
@@ -1557,9 +1548,7 @@ scoped_refptr<TileTask> TileManager::CreateRasterTask(
 
   std::unique_ptr<RasterBuffer> raster_buffer =
       raster_buffer_provider_->AcquireBufferForRaster(
-          resource, resource_content_id, tile->invalidated_id(),
-          has_at_raster_images, has_hardware_accelerated_jpeg_candidates,
-          has_hardware_accelerated_webp_candidates);
+          resource, resource_content_id, tile->invalidated_id());
 
   std::optional<PlaybackImageProvider::Settings> settings;
   settings.emplace();

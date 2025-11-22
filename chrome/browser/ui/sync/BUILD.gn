@@ -43,6 +43,7 @@ source_set("impl") {
   deps = [
     ":sync",
     "//base",
+    "//chrome/browser/complex_tasks",
     "//chrome/browser/profiles:profile",
     "//components/sessions",
     "//components/sync/base:features",
@@ -154,6 +155,7 @@ if (!is_android) {
           ":sync",
           "//base",
           "//base/test:test_support",
+          "//chrome/browser/ui",
           "//chrome/common",
           "//chrome/test:test_support_ui",
           "//content/test:test_support",

@@ -1164,6 +1164,11 @@
     "type": "generated_script",
     "skip_usage_check": True,
   },
+  "ios_credential_provider_extension_unittests": {
+    "label": "//ios/chrome/test/extensions:ios_credential_provider_extension_unittests",
+    "type": "generated_script",
+    "skip_usage_check": True,
+  },
   "ios_net_unittests": {
     "label": "//ios/net:ios_net_unittests",
     "type": "generated_script",
@@ -1190,12 +1195,12 @@
     "skip_usage_check": True,
   },
   "ios_web_view_inttests": {
-    "label": "//ios/web_view:ios_web_view_inttests",
+    "label": "//ios/web_view/test:ios_web_view_inttests",
     "type": "generated_script",
     "skip_usage_check": True,
   },
   "ios_web_view_unittests": {
-    "label": "//ios/web_view:ios_web_view_unittests",
+    "label": "//ios/web_view/test:ios_web_view_unittests",
     "type": "generated_script",
     "skip_usage_check": True,
   },
@@ -1337,21 +1342,6 @@
       "../../mojo/public/tools/run_all_python_unittests.py",
     ],
   },
-  "mojo_rust": {
-    "label": "//mojo/public/rust:mojo_rust",
-    "type": "additional_compile_target",
-    "skip_usage_check": True,
-  },
-  "mojo_rust_integration_unittests": {
-    "label": "//mojo/public/rust:mojo_rust_integration_unittests",
-    "type": "console_test_launcher",
-    "skip_usage_check": True,
-  },
-  "mojo_rust_unittests": {
-    "label": "//mojo/public/rust:mojo_rust_unittests",
-    "type": "console_test_launcher",
-    "skip_usage_check": True,
-  },
   "mojo_test_apk": {
     "label": "//mojo/public/java/system:mojo_test_apk",
     "type": "console_test_launcher",
@@ -1360,42 +1350,6 @@
   "mojo_unittests": {
     "label": "//mojo:mojo_unittests",
     "type": "console_test_launcher",
-  },
-  "monochrome_public_apk_checker": {
-    "label": "//chrome/android/monochrome:monochrome_public_apk_checker",
-    "type": "script",
-    "script": "//testing/scripts/run_isolated_script_test.py",
-    "skip_usage_check": True,
-    "args": [
-      "../../chrome/android/monochrome/scripts/monochrome_python_tests.py",
-      "--chrome-apk",
-      "apks/ChromePublic.apk",
-      "--chrome-pathmap",
-      "apks/ChromePublic.apk.pathmap.txt",
-      "--system-webview-apk",
-      "apks/SystemWebView.apk",
-      "--system-webview-pathmap",
-      "apks/SystemWebView.apk.pathmap.txt",
-      "--monochrome-apk",
-      "apks/MonochromePublic.apk",
-      "--monochrome-pathmap",
-      "apks/MonochromePublic.apk.pathmap.txt",
-    ],
-  },
-  "monochrome_public_bundle_smoke_test": {
-    "label": "//chrome/android:monochrome_public_bundle_smoke_test",
-    "type": "console_test_launcher",
-    "skip_usage_check": True,
-  },
-  "monochrome_public_smoke_test": {
-    "label": "//chrome/android:monochrome_public_smoke_test",
-    "type": "console_test_launcher",
-    "skip_usage_check": True,
-  },
-  "monochrome_public_test_ar_apk": {
-    "label": "//chrome/android:monochrome_public_test_ar_apk",
-    "type": "console_test_launcher",
-    "skip_usage_check": True,
   },
   "nacl_helper": {
     "label": "//components/nacl/loader:nacl_helper",
@@ -1442,9 +1396,6 @@
   "ondevice_model_benchmark_tests": {
     "label": "//components/optimization_guide/internal/testing:ondevice_model_benchmark_tests",
     "type": "generated_script",
-    "args": [
-      "--benchmark_binary_dir=./",
-    ],
   },
   "ondevice_stability_tests": {
     "label": "//components/optimization_guide/internal/testing:ondevice_stability_tests",
@@ -1788,11 +1739,6 @@
   },
   "telemetry_perf_unittests_android_chrome": {
     "label": "//chrome/test:telemetry_perf_unittests_android_chrome",
-    "type": "generated_script",
-    "skip_usage_check": True,
-  },
-  "telemetry_perf_unittests_android_monochrome": {
-    "label": "//chrome/test:telemetry_perf_unittests_android_monochrome",
     "type": "generated_script",
     "skip_usage_check": True,
   },

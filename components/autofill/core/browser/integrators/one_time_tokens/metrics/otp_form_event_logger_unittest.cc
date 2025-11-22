@@ -9,18 +9,26 @@
 #include "components/autofill/core/browser/foundations/mock_autofill_manager_observer.h"
 #include "components/autofill/core/browser/integrators/one_time_tokens/otp_manager_impl.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics_test_base.h"
+#include "components/autofill/core/browser/metrics/ukm_metrics_test_utils.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #include "components/autofill/core/common/signatures.h"
+#include "components/one_time_tokens/core/browser/one_time_token_service_impl.h"
 #include "components/one_time_tokens/core/browser/sms_otp_backend.h"
+#include "components/password_manager/core/browser/features/password_features.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 namespace autofill {
 namespace {
 
-using test::SingleSubmissionKeyMetricExpectations;
+using UkmAutofillKeyMetricsType = ukm::builders::Autofill_KeyMetrics;
+using UkmInteractedWithFormType = ukm::builders::Autofill_InteractedWithForm;
+using UkmSuggestionFilledType = ukm::builders::Autofill_SuggestionFilled;
+using UkmFormEventType = ukm::builders::Autofill_FormEvent;
+using test::CreateTestFormField;
 using test::VerifySingleSubmissionKeyMetricExpectations;
 using ::testing::_;
-using ::testing::Invoke;
+using ::testing::Each;
 using ::testing::Return;
 
 class MockSmsOtpBackend : public one_time_tokens::SmsOtpBackend {
@@ -39,6 +47,7 @@ class OtpFormEventLoggerIntegrationTest
       public testing::Test {
  protected:
   OtpFormEventLoggerIntegrationTest() = default;
+  base::test::ScopedFeatureList feature_list_;
 
   void SetUp() override {
     SetUpHelper();
@@ -51,6 +60,9 @@ class OtpFormEventLoggerIntegrationTest
     // Inject the mocked SMS OTP backend into the TestAutofillClient.
     auto mock_sms_otp_backend = std::make_unique<MockSmsOtpBackend>();
     autofill_client().set_sms_otp_backend(std::move(mock_sms_otp_backend));
+    autofill_client().set_one_time_token_service(
+        std::make_unique<one_time_tokens::OneTimeTokenServiceImpl>(
+            autofill_client().GetSmsOtpBackend()));
   }
 
   void ResetCrowdsourcingManager() {
@@ -59,7 +71,7 @@ class OtpFormEventLoggerIntegrationTest
             &autofill_client());
     // Default action: always run the callback with a default/empty response
     ON_CALL(*mock_crowdsourcing_manager, StartQueryRequest)
-        .WillByDefault(Invoke(
+        .WillByDefault(
             [](const std::vector<
                    raw_ptr<const FormStructure, VectorExperimental>>&,
                std::optional<net::IsolationInfo>,
@@ -70,7 +82,7 @@ class OtpFormEventLoggerIntegrationTest
               std::move(callback).Run(
                   AutofillCrowdsourcingManager::QueryResponse("", {}));
               return true;
-            }));
+            });
     autofill_client().set_crowdsourcing_manager(
         std::move(mock_crowdsourcing_manager));
   }
@@ -87,7 +99,7 @@ class OtpFormEventLoggerIntegrationTest
 
     EXPECT_CALL(*mock_crowdsourcing_manager_ptr, StartQueryRequest)
         .Times(testing::AtLeast(0))
-        .WillRepeatedly(Invoke(
+        .WillRepeatedly(
             [response, form_signature](
                 const std::vector<
                     raw_ptr<const FormStructure, VectorExperimental>>&,
@@ -101,11 +113,15 @@ class OtpFormEventLoggerIntegrationTest
                   AutofillCrowdsourcingManager::QueryResponse(
                       response, {form_signature}));
               return true;
-            }));
+            });
   }
 
   FormData CreateOtpForm() {
-    return test::GetFormData({.fields = {{.role = ONE_TIME_CODE}}});
+    FormData form = test::GetFormData({.fields = {{.role = ONE_TIME_CODE}}});
+    form.set_url(GURL("https://example.test/"));
+    form.set_main_frame_origin(
+        url::Origin::Create(GURL("https://example.test/")));
+    return form;
   }
 
   static std::string CreateMockedServerResponseString(const FormData form) {
@@ -126,8 +142,14 @@ class OtpFormEventLoggerIntegrationTest
         static_cast<MockSmsOtpBackend*>(autofill_client().GetSmsOtpBackend());
     one_time_tokens::OtpFetchReply reply = CreateOtpFetchReply(returns_otp);
     EXPECT_CALL(*backend, RetrieveSmsOtp)
-        .WillRepeatedly(
-            Invoke([reply](auto callback) { std::move(callback).Run(reply); }));
+        .WillRepeatedly([this, returns_otp, reply](auto callback) {
+          if (returns_otp && autofill_manager().GetMetricState().has_value()) {
+            autofill_manager()
+                .GetMetricState()
+                ->otp_form_event_logger.OnOtpAvailable();
+          }
+          std::move(callback).Run(reply);
+        });
   }
 
   one_time_tokens::OtpFetchReply CreateOtpFetchReply(bool returns_otp) {
@@ -139,6 +161,45 @@ class OtpFormEventLoggerIntegrationTest
     }
 
     return one_time_tokens::OtpFetchReply(token, /*request_complete=*/true);
+  }
+
+  void VerifyInteractedWithFormUkmMetric(
+      const FormData& form,
+      size_t expected_local_record_type_count) {
+    using Ukm = UkmInteractedWithFormType;
+    EXPECT_THAT(
+        autofill_metrics::GetUkmEvents(test_ukm_recorder(), Ukm::kEntryName),
+        autofill_metrics::UkmEventsAre(
+            {{{Ukm::kIsForCreditCardName, false},
+              {Ukm::kLocalRecordTypeCountName,
+               expected_local_record_type_count},
+              {Ukm::kServerRecordTypeCountName, 0},
+              {Ukm::kFormSignatureName,
+               autofill_metrics::Collapse(CalculateFormSignature(form))
+                   .value()}}}));
+    EXPECT_THAT(
+        autofill_metrics::GetEventUrls(test_ukm_recorder(), Ukm::kEntryName),
+        testing::ElementsAre(form.main_frame_origin().GetURL()));
+  }
+
+  void VerifyUkmSuggestionFilledLogged(const FormData& form) {
+    EXPECT_THAT(
+        autofill_metrics::GetUkmEvents(test_ukm_recorder(),
+                                       UkmSuggestionFilledType::kEntryName),
+        autofill_metrics::UkmEventsAre(
+            {{{UkmSuggestionFilledType::kIsForCreditCardName, false},
+              {UkmSuggestionFilledType::kFormSignatureName,
+               autofill_metrics::Collapse(CalculateFormSignature(form))
+                   .value()},
+              {UkmSuggestionFilledType::kFieldSignatureName,
+               autofill_metrics::Collapse(
+                   CalculateFieldSignatureForField(form.fields().front()))
+                   .value()},
+              {UkmSuggestionFilledType::kMillisecondsSinceFormParsedName,
+               0}}}));
+    EXPECT_THAT(autofill_metrics::GetEventUrls(
+                    test_ukm_recorder(), UkmSuggestionFilledType::kEntryName),
+                Each(form.main_frame_origin().GetURL()));
   }
 };
 
@@ -152,7 +213,7 @@ TEST_F(OtpFormEventLoggerIntegrationTest, Readiness) {
   logger.OnDestroyed();
 }
 
-TEST_F(OtpFormEventLoggerIntegrationTest, DISABLED_OtpReady) {
+TEST_F(OtpFormEventLoggerIntegrationTest, OtpReady) {
   base::HistogramTester histogram_tester;
   SetupMockedOtpResponse(true);
   FormData otp_form = CreateOtpForm();
@@ -169,6 +230,8 @@ TEST_F(OtpFormEventLoggerIntegrationTest, DISABLED_OtpReady) {
   autofill_manager().OnAskForValuesToFillTest(
       otp_form, otp_form.fields().front().global_id());
 
+  FormInteractionsFlowId flow_id =
+      test_api(autofill_manager()).otp_form_interactions_flow_id();
   // Simulate the WillSubmit event.
   SubmitForm(otp_form);
   DeleteDriverToCommitMetrics();
@@ -177,9 +240,31 @@ TEST_F(OtpFormEventLoggerIntegrationTest, DISABLED_OtpReady) {
   VerifySingleSubmissionKeyMetricExpectations(
       histogram_tester, "OneTimePassword",
       {.readiness = true, .assistance = false});
+  VerifyInteractedWithFormUkmMetric(otp_form,
+                                    /*expected_local_record_type_count=*/1);
+  EXPECT_THAT(autofill_metrics::GetUkmEvents(
+                  test_ukm_recorder(), UkmSuggestionFilledType::kEntryName),
+              autofill_metrics::UkmEventsAre({}));
+  {
+    using Ukm = UkmAutofillKeyMetricsType;
+    EXPECT_THAT(
+        autofill_metrics::GetUkmEvents(test_ukm_recorder(), Ukm::kEntryName),
+        autofill_metrics::UkmEventsAre(
+            {{{Ukm::kFillingReadinessName, 1},
+              {Ukm::kFillingAssistanceName, 0},
+              {Ukm::kAutofillFillsName, 0},
+              {Ukm::kFormElementUserModificationsName, 0},
+              {Ukm::kFlowIdName, flow_id.value()},
+              {Ukm::kFormTypesName,
+               AutofillMetrics::FormTypesToBitVector(
+                   {FormTypeNameForLogging::kOneTimePasswordForm})}}}));
+    EXPECT_THAT(
+        autofill_metrics::GetEventUrls(test_ukm_recorder(), Ukm::kEntryName),
+        Each(otp_form.main_frame_origin().GetURL()));
+  }
 }
 
-TEST_F(OtpFormEventLoggerIntegrationTest, DISABLED_OtpNotReady) {
+TEST_F(OtpFormEventLoggerIntegrationTest, OtpNotReady) {
   base::HistogramTester histogram_tester;
   SetupMockedOtpResponse(false);
   FormData otp_form = CreateOtpForm();
@@ -196,6 +281,8 @@ TEST_F(OtpFormEventLoggerIntegrationTest, DISABLED_OtpNotReady) {
   autofill_manager().OnAskForValuesToFillTest(
       otp_form, otp_form.fields().front().global_id());
 
+  FormInteractionsFlowId flow_id =
+      test_api(autofill_manager()).otp_form_interactions_flow_id();
   // Simulate the WillSubmit event.
   SubmitForm(otp_form);
   DeleteDriverToCommitMetrics();
@@ -204,9 +291,35 @@ TEST_F(OtpFormEventLoggerIntegrationTest, DISABLED_OtpNotReady) {
   VerifySingleSubmissionKeyMetricExpectations(
       histogram_tester, "OneTimePassword",
       {.readiness = false, .assistance = false});
+  VerifyInteractedWithFormUkmMetric(otp_form,
+                                    /*expected_local_record_type_count=*/0);
+  EXPECT_THAT(autofill_metrics::GetUkmEvents(
+                  test_ukm_recorder(), UkmSuggestionFilledType::kEntryName),
+              autofill_metrics::UkmEventsAre({}));
+  {
+    using Ukm = UkmAutofillKeyMetricsType;
+    EXPECT_THAT(
+        autofill_metrics::GetUkmEvents(test_ukm_recorder(), Ukm::kEntryName),
+        autofill_metrics::UkmEventsAre(
+            {{{Ukm::kFillingReadinessName, 0},
+              {Ukm::kFillingAssistanceName, 0},
+              {Ukm::kAutofillFillsName, 0},
+              {Ukm::kFormElementUserModificationsName, 0},
+              {Ukm::kFlowIdName, flow_id.value()},
+              {Ukm::kFormTypesName,
+               AutofillMetrics::FormTypesToBitVector(
+                   {FormTypeNameForLogging::kOneTimePasswordForm})}}}));
+    EXPECT_THAT(
+        autofill_metrics::GetEventUrls(test_ukm_recorder(), Ukm::kEntryName),
+        Each(otp_form.main_frame_origin().GetURL()));
+  }
 }
 
-TEST_F(OtpFormEventLoggerIntegrationTest, DISABLED_OtpAccepted) {
+TEST_F(OtpFormEventLoggerIntegrationTest, OtpAccepted) {
+#if BUILDFLAG(IS_ANDROID)
+  feature_list_.InitAndEnableFeature(
+      password_manager::features::kAndroidSmsOtpFilling);
+#endif
   base::HistogramTester histogram_tester;
   SetupMockedOtpResponse(true);
   FormData otp_form = CreateOtpForm();
@@ -233,6 +346,8 @@ TEST_F(OtpFormEventLoggerIntegrationTest, DISABLED_OtpAccepted) {
       otp_form.fields().front().global_id(), &fill_data,
       AutofillTriggerSource::kPopup);
 
+  FormInteractionsFlowId flow_id =
+      test_api(autofill_manager()).otp_form_interactions_flow_id();
   SubmitForm(otp_form);
   DeleteDriverToCommitMetrics();
 
@@ -242,9 +357,63 @@ TEST_F(OtpFormEventLoggerIntegrationTest, DISABLED_OtpAccepted) {
                                                .acceptance = true,
                                                .assistance = true,
                                                .correctness = true});
+  VerifyInteractedWithFormUkmMetric(otp_form,
+                                    /*expected_local_record_type_count=*/1);
+  VerifyUkmSuggestionFilledLogged(otp_form);
+  {
+    using Ukm = UkmAutofillKeyMetricsType;
+    EXPECT_THAT(
+        autofill_metrics::GetUkmEvents(test_ukm_recorder(), Ukm::kEntryName),
+        autofill_metrics::UkmEventsAre(
+            {{{Ukm::kFillingReadinessName, 1},
+              {Ukm::kFillingAcceptanceName, 1},
+              {Ukm::kFillingCorrectnessName, 1},
+              {Ukm::kFillingAssistanceName, 1},
+              {Ukm::kAutofillFillsName, 1},
+              {Ukm::kFormElementUserModificationsName, 0},
+              {Ukm::kFlowIdName, flow_id.value()},
+              {Ukm::kFormTypesName,
+               AutofillMetrics::FormTypesToBitVector(
+                   {FormTypeNameForLogging::kOneTimePasswordForm})}}}));
+    EXPECT_THAT(
+        autofill_metrics::GetEventUrls(test_ukm_recorder(), Ukm::kEntryName),
+        Each(otp_form.main_frame_origin().GetURL()));
+  }
+
+  // Verify that the FORM_EVENT_LOCAL_SUGGESTION_FILLED and
+  // FORM_EVENT_LOCAL_SUGGESTION_FILLED_ONCE events are logged by the logger
+  // other events are logged by the base logger.
+#if BUILDFLAG(IS_ANDROID)
+  {
+    using Ukm = UkmFormEventType;
+    auto event_metrics = [](autofill_metrics::FormEvent e) {
+      return std::vector<autofill_metrics::UkmMetricNameAndValue>{
+          {Ukm::kAutofillFormEventName, e},
+          {Ukm::kFormTypesName,
+           AutofillMetrics::FormTypesToBitVector(
+               {FormTypeNameForLogging::kOneTimePasswordForm})},
+          {Ukm::kMillisecondsSinceFormParsedName, 0}};
+    };
+    EXPECT_THAT(
+        autofill_metrics::GetUkmEvents(test_ukm_recorder(), Ukm::kEntryName),
+        autofill_metrics::UkmEventsAre(
+            {event_metrics(autofill_metrics::FORM_EVENT_DID_PARSE_FORM),
+             event_metrics(autofill_metrics::FORM_EVENT_INTERACTED_ONCE),
+             event_metrics(autofill_metrics::FORM_EVENT_SUGGESTIONS_SHOWN),
+             event_metrics(autofill_metrics::FORM_EVENT_SUGGESTIONS_SHOWN_ONCE),
+             event_metrics(
+                 autofill_metrics::FORM_EVENT_LOCAL_SUGGESTION_FILLED),
+             event_metrics(
+                 autofill_metrics::FORM_EVENT_LOCAL_SUGGESTION_FILLED_ONCE),
+             event_metrics(autofill_metrics::
+                               FORM_EVENT_LOCAL_SUGGESTION_WILL_SUBMIT_ONCE),
+             event_metrics(autofill_metrics::
+                               FORM_EVENT_SUGGESTION_SHOWN_WILL_SUBMIT_ONCE)}));
+  }
+#endif
 }
 
-TEST_F(OtpFormEventLoggerIntegrationTest, DISABLED_OtpNotAccepted) {
+TEST_F(OtpFormEventLoggerIntegrationTest, OtpNotAccepted) {
   base::HistogramTester histogram_tester;
   SetupMockedOtpResponse(true);
   FormData otp_form = CreateOtpForm();
@@ -267,6 +436,8 @@ TEST_F(OtpFormEventLoggerIntegrationTest, DISABLED_OtpNotAccepted) {
   // Simulate the user NOT accepting the suggestion.
   // We don't call FillOrPreviewForm.
 
+  FormInteractionsFlowId flow_id =
+      test_api(autofill_manager()).otp_form_interactions_flow_id();
   SubmitForm(otp_form);
   DeleteDriverToCommitMetrics();
 
@@ -277,9 +448,36 @@ TEST_F(OtpFormEventLoggerIntegrationTest, DISABLED_OtpNotAccepted) {
   VerifySingleSubmissionKeyMetricExpectations(
       histogram_tester, "OneTimePassword",
       {.readiness = true, .acceptance = false, .assistance = false});
+  VerifyInteractedWithFormUkmMetric(otp_form,
+                                    /*expected_local_record_type_count=*/1);
+  EXPECT_THAT(autofill_metrics::GetUkmEvents(
+                  test_ukm_recorder(), UkmSuggestionFilledType::kEntryName),
+              autofill_metrics::UkmEventsAre({}));
+  {
+    using Ukm = UkmAutofillKeyMetricsType;
+    EXPECT_THAT(
+        autofill_metrics::GetUkmEvents(test_ukm_recorder(), Ukm::kEntryName),
+        autofill_metrics::UkmEventsAre(
+            {{{Ukm::kFillingReadinessName, 1},
+              {Ukm::kFillingAcceptanceName, 0},
+              {Ukm::kFillingAssistanceName, 0},
+              {Ukm::kAutofillFillsName, 0},
+              {Ukm::kFormElementUserModificationsName, 0},
+              {Ukm::kFlowIdName, flow_id.value()},
+              {Ukm::kFormTypesName,
+               AutofillMetrics::FormTypesToBitVector(
+                   {FormTypeNameForLogging::kOneTimePasswordForm})}}}));
+    EXPECT_THAT(
+        autofill_metrics::GetEventUrls(test_ukm_recorder(), Ukm::kEntryName),
+        Each(otp_form.main_frame_origin().GetURL()));
+  }
 }
 
-TEST_F(OtpFormEventLoggerIntegrationTest, DISABLED_OtpAcceptedAndCorrected) {
+TEST_F(OtpFormEventLoggerIntegrationTest, OtpAcceptedAndCorrected) {
+#if BUILDFLAG(IS_ANDROID)
+  feature_list_.InitAndEnableFeature(
+      password_manager::features::kAndroidSmsOtpFilling);
+#endif
   base::HistogramTester histogram_tester;
   SetupMockedOtpResponse(true);
   FormData otp_form = CreateOtpForm();
@@ -309,6 +507,8 @@ TEST_F(OtpFormEventLoggerIntegrationTest, DISABLED_OtpAcceptedAndCorrected) {
   SimulateUserChangedFieldTo(otp_form, otp_form.fields().front().global_id(),
                              u"654321");
 
+  FormInteractionsFlowId flow_id =
+      test_api(autofill_manager()).otp_form_interactions_flow_id();
   SubmitForm(otp_form);
   DeleteDriverToCommitMetrics();
 
@@ -318,6 +518,60 @@ TEST_F(OtpFormEventLoggerIntegrationTest, DISABLED_OtpAcceptedAndCorrected) {
                                                .acceptance = true,
                                                .assistance = true,
                                                .correctness = false});
+  VerifyInteractedWithFormUkmMetric(otp_form,
+                                    /*expected_local_record_type_count=*/1);
+  VerifyUkmSuggestionFilledLogged(otp_form);
+  {
+    using Ukm = UkmAutofillKeyMetricsType;
+    EXPECT_THAT(
+        autofill_metrics::GetUkmEvents(test_ukm_recorder(), Ukm::kEntryName),
+        autofill_metrics::UkmEventsAre(
+            {{{Ukm::kFillingReadinessName, 1},
+              {Ukm::kFillingAcceptanceName, 1},
+              {Ukm::kFillingCorrectnessName, 0},
+              {Ukm::kFillingAssistanceName, 1},
+              {Ukm::kAutofillFillsName, 1},
+              {Ukm::kFormElementUserModificationsName, 1},
+              {Ukm::kFlowIdName, flow_id.value()},
+              {Ukm::kFormTypesName,
+               AutofillMetrics::FormTypesToBitVector(
+                   {FormTypeNameForLogging::kOneTimePasswordForm})}}}));
+    EXPECT_THAT(
+        autofill_metrics::GetEventUrls(test_ukm_recorder(), Ukm::kEntryName),
+        Each(otp_form.main_frame_origin().GetURL()));
+  }
+
+  // Verify that the FORM_EVENT_LOCAL_SUGGESTION_FILLED and
+  // FORM_EVENT_LOCAL_SUGGESTION_FILLED_ONCE events are logged by the logger
+  // other events are logged by the base logger.
+#if BUILDFLAG(IS_ANDROID)
+  {
+    using Ukm = UkmFormEventType;
+    auto event_metrics = [](autofill_metrics::FormEvent e) {
+      return std::vector<autofill_metrics::UkmMetricNameAndValue>{
+          {Ukm::kAutofillFormEventName, e},
+          {Ukm::kFormTypesName,
+           AutofillMetrics::FormTypesToBitVector(
+               {FormTypeNameForLogging::kOneTimePasswordForm})},
+          {Ukm::kMillisecondsSinceFormParsedName, 0}};
+    };
+    EXPECT_THAT(
+        autofill_metrics::GetUkmEvents(test_ukm_recorder(), Ukm::kEntryName),
+        autofill_metrics::UkmEventsAre(
+            {event_metrics(autofill_metrics::FORM_EVENT_INTERACTED_ONCE),
+             event_metrics(autofill_metrics::FORM_EVENT_DID_PARSE_FORM),
+             event_metrics(autofill_metrics::FORM_EVENT_SUGGESTIONS_SHOWN),
+             event_metrics(autofill_metrics::FORM_EVENT_SUGGESTIONS_SHOWN_ONCE),
+             event_metrics(
+                 autofill_metrics::FORM_EVENT_LOCAL_SUGGESTION_FILLED),
+             event_metrics(
+                 autofill_metrics::FORM_EVENT_LOCAL_SUGGESTION_FILLED_ONCE),
+             event_metrics(autofill_metrics::
+                               FORM_EVENT_LOCAL_SUGGESTION_WILL_SUBMIT_ONCE),
+             event_metrics(autofill_metrics::
+                               FORM_EVENT_SUGGESTION_SHOWN_WILL_SUBMIT_ONCE)}));
+  }
+#endif
 }
 
 }  // namespace

@@ -338,7 +338,10 @@ class ManifestUpdateManagerBrowserTest : public WebAppBrowserTestBase {
  public:
   ManifestUpdateManagerBrowserTest()
       : update_dialog_scope_(SetIdentityUpdateDialogActionForTesting(
-            AppIdentityUpdate::kSkipped)) {}
+            AppIdentityUpdate::kSkipped)) {
+    scoped_feature_list_.InitAndDisableFeature(
+        features::kWebAppPredictableAppUpdating);
+  }
   ManifestUpdateManagerBrowserTest(const ManifestUpdateManagerBrowserTest&) =
       delete;
   ManifestUpdateManagerBrowserTest& operator=(
@@ -2532,7 +2535,7 @@ IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerBrowserTestWithFileHandling,
   const WebApp* web_app = GetProvider().registrar_unsafe().GetAppById(app_id);
   EXPECT_FALSE(web_app->file_handlers().empty());
   const auto& file_handler = web_app->file_handlers()[0];
-  EXPECT_EQ("plaintext", file_handler.action.query());
+  EXPECT_EQ("plaintext", file_handler.action.GetQuery());
   EXPECT_EQ(1u, file_handler.accept.size());
   EXPECT_EQ("text/plain", file_handler.accept[0].mime_type);
 }
@@ -4078,13 +4081,13 @@ IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerBrowserTest_ManifestId,
   )";
   OverrideManifest(kManifestTemplate, {"/startA", kInstallableIconList});
   webapps::AppId app_id = InstallWebApp();
-  EXPECT_EQ(GetProvider().registrar_unsafe().GetAppStartUrl(app_id).path(),
+  EXPECT_EQ(GetProvider().registrar_unsafe().GetAppStartUrl(app_id).GetPath(),
             "/startA");
 
   OverrideManifest(kManifestTemplate, {"/startB", kInstallableIconList});
   EXPECT_EQ(GetResultAfterPageLoad(GetAppURL()),
             ManifestUpdateResult::kAppUpdated);
-  EXPECT_EQ(GetProvider().registrar_unsafe().GetAppStartUrl(app_id).path(),
+  EXPECT_EQ(GetProvider().registrar_unsafe().GetAppStartUrl(app_id).GetPath(),
             "/startB");
   histogram_tester_.ExpectBucketCount(kUpdateHistogramName,
                                       ManifestUpdateResult::kAppUpdated, 1);
@@ -5596,7 +5599,8 @@ IN_PROC_BROWSER_TEST_P(
                                         ManifestUpdateResult::kAppUpdated, 0);
   }
 
-  bool manifest_icons_considered_trusted = IsDefaultApp() || IsPolicyApp();
+  bool manifest_icons_considered_trusted =
+      IsDefaultApp() || IsPolicyApp() || IsKioskApp();
 
   // If trusted icons are enabled, the largest icon will be chosen for all OSes,
   // which is 512.

@@ -8,6 +8,7 @@
 
 #include <initializer_list>
 #include <map>
+#include <optional>
 
 #include "base/android/jni_android.h"
 #include "base/android/jni_array.h"
@@ -17,6 +18,7 @@
 #include "base/notimplemented.h"
 #include "base/trace_event/trace_event.h"
 #include "components/viz/common/features.h"
+#include "components/viz/common/resources/shared_image_format.h"
 #include "components/viz/common/viz_utils.h"
 #include "skia/ext/skcolorspace_trfn.h"
 #include "ui/android/screen_android.h"
@@ -39,6 +41,10 @@ using base::android::AttachCurrentThread;
 using display::Display;
 using display::DisplayList;
 
+namespace {
+static std::optional<bool> is_display_topology_available = std::nullopt;
+}
+
 void SetScreenAndroid(bool use_display_wide_color_gamut) {
   TRACE_EVENT0("startup", "SetScreenAndroid");
   // Do not override existing Screen.
@@ -50,6 +56,21 @@ void SetScreenAndroid(bool use_display_wide_color_gamut) {
 
   JNIEnv* env = AttachCurrentThread();
   Java_DisplayAndroidManager_onNativeSideCreated(env, (jlong)manager);
+}
+
+bool DisplayAndroidManager::IsDisplayTopologyAvailable() {
+  if (!is_display_topology_available.has_value()) {
+    JNIEnv* env = AttachCurrentThread();
+    is_display_topology_available =
+        Java_DisplayAndroidManager_isDisplayTopologyAvailable(env);
+  }
+
+  return is_display_topology_available.value();
+}
+
+void DisplayAndroidManager::SetIsDisplayTopologyAvailableForTesting(
+    bool value) {
+  is_display_topology_available = value;
 }
 
 DisplayAndroidManager::DisplayAndroidManager(bool use_display_wide_color_gamut)
@@ -74,7 +95,7 @@ Display DisplayAndroidManager::GetDisplayNearestView(
 
 Display DisplayAndroidManager::GetDisplayNearestPoint(
     const gfx::Point& point) const {
-  if (base::FeatureList::IsEnabled(kAndroidUseDisplayTopology)) {
+  if (IsDisplayTopologyAvailable()) {
     return ScreenBase::GetDisplayNearestPoint(point);
   }
 
@@ -84,7 +105,7 @@ Display DisplayAndroidManager::GetDisplayNearestPoint(
 
 Display DisplayAndroidManager::GetDisplayMatching(
     const gfx::Rect& match_rect) const {
-  if (base::FeatureList::IsEnabled(kAndroidUseDisplayTopology)) {
+  if (IsDisplayTopologyAvailable()) {
     return ScreenBase::GetDisplayMatching(match_rect);
   }
 
@@ -154,22 +175,22 @@ void DisplayAndroidManager::DoUpdateDisplay(display::Display* display,
       hdr_max_luminance_ratio = 1.f;
     }
     // Propagate this into the DisplayColorSpaces.
-    gfx::DisplayColorSpaces display_color_spaces(gfx::ColorSpace::CreateSRGB(),
-                                                 gfx::BufferFormat::RGBA_8888);
+    gfx::DisplayColorSpaces display_color_spaces(
+        gfx::ColorSpace::CreateSRGB(), viz::SinglePlaneFormat::kRGBA_8888);
     display_color_spaces.SetHDRMaxLuminanceRelative(hdr_max_luminance_ratio);
     for (auto needs_alpha : {true, false}) {
-      // TODO: Low-end devices should specify RGB_565 as the buffer format for
-      // opaque content.
-      display_color_spaces.SetOutputColorSpaceAndBufferFormat(
+      // TODO: Low-end devices should specify RGB_565 as the format for opaque
+      // content.
+      display_color_spaces.SetOutputColorSpaceAndFormat(
           gfx::ContentColorUsage::kSRGB, needs_alpha, cs_for_srgb,
-          gfx::BufferFormat::RGBA_8888);
-      display_color_spaces.SetOutputColorSpaceAndBufferFormat(
+          viz::SinglePlaneFormat::kRGBA_8888);
+      display_color_spaces.SetOutputColorSpaceAndFormat(
           gfx::ContentColorUsage::kWideColorGamut, needs_alpha, cs_for_wcg,
-          gfx::BufferFormat::RGBA_8888);
+          viz::SinglePlaneFormat::kRGBA_8888);
       // TODO(crbug.com/40263227): Use 10-bit surfaces for opaque HDR.
-      display_color_spaces.SetOutputColorSpaceAndBufferFormat(
+      display_color_spaces.SetOutputColorSpaceAndFormat(
           gfx::ContentColorUsage::kHDR, needs_alpha, cs_for_hdr,
-          gfx::BufferFormat::RGBA_8888);
+          viz::SinglePlaneFormat::kRGBA_8888);
     }
     display->SetColorSpaces(display_color_spaces);
   }
@@ -204,10 +225,6 @@ void DisplayAndroidManager::UpdateDisplay(
     jboolean isHdr,
     jfloat hdrMaxLuminanceRatio,
     jboolean isInternal) {
-  if (Display::HasForceDeviceScaleFactor()) {
-    dipScale = Display::GetForcedDeviceScaleFactor();
-  }
-
   std::vector<int> bounds_array, work_area_array;
   base::android::JavaIntArrayToIntVector(env, jBounds, &bounds_array);
   base::android::JavaIntArrayToIntVector(env, jWorkArea, &work_area_array);

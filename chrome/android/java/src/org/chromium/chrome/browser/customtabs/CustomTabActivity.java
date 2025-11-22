@@ -68,6 +68,7 @@ import org.chromium.chrome.browser.page_info.ChromePageInfoHighlight;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TrustedCdn;
 import org.chromium.chrome.browser.ui.google_bottom_bar.GoogleBottomBarCoordinator;
+import org.chromium.chrome.browser.ui.web_app_header.WebAppHeaderUtils;
 import org.chromium.components.browser_ui.util.motion.MotionEventInfo;
 import org.chromium.components.page_info.PageInfoController.OpenedFromSource;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -175,8 +176,12 @@ public class CustomTabActivity extends BaseCustomTabActivity {
                 mEdgeToEdgeControllerSupplier.get() != null
                         && mEdgeToEdgeControllerSupplier.get().isDrawingToEdge()
                         && mEdgeToEdgeControllerSupplier.get().isPageOptedIntoEdgeToEdge();
+        var systemBarColorHelper =
+                getEdgeToEdgeManager() != null
+                        ? getEdgeToEdgeManager().getEdgeToEdgeSystemBarColorHelper()
+                        : null;
         CustomTabNavigationBarController.update(
-                getWindow(), getIntentDataProvider(), this, drawEdgeToEdge);
+                getWindow(), getIntentDataProvider(), this, drawEdgeToEdge, systemBarColorHelper);
 
         mTimeoutHandler.restoreInstanceState(savedInstanceState);
     }
@@ -242,7 +247,12 @@ public class CustomTabActivity extends BaseCustomTabActivity {
 
         // Window bounds adjustments are called here because we probe WebContents' width and height
         // from the native object.
+        // The condition including {@link #getSavedInstanceState} should be false iff the Activity
+        // has been recreated. If the Activity has been recreated, we should ignore the window
+        // features requested in the Intent as they should apply only for the initial launch of the
+        // Activity.
         if (getIntentDataProvider().getUiType() == CustomTabsUiType.POPUP
+                && getSavedInstanceState() == null
                 && ChromeFeatureList.isEnabled(
                         ChromeFeatureList.ANDROID_WINDOW_POPUP_RESIZE_AFTER_SPAWN)) {
             PopupCreator.adjustWindowBoundsToRequested(
@@ -370,14 +380,27 @@ public class CustomTabActivity extends BaseCustomTabActivity {
             Tab tab = getTabModelSelector().getCurrentTab();
             if (tab == null) return false;
             String publisher = TrustedCdn.getContentPublisher(tab);
-            new ChromePageInfo(
+            ChromePageInfo pageInfo =
+                    new ChromePageInfo(
                             getModalDialogManagerSupplier(),
                             publisher,
                             OpenedFromSource.MENU,
                             mRootUiCoordinator.getMerchantTrustSignalsCoordinatorSupplier()::get,
                             mRootUiCoordinator.getEphemeralTabCoordinatorSupplier(),
-                            getTabCreator(getCurrentTabModel().isIncognito()))
-                    .show(tab, ChromePageInfoHighlight.noHighlight());
+                            getTabCreator(getCurrentTabModel().isIncognito()));
+            boolean isMinimalUiVisible =
+                    WebAppHeaderUtils.isMinimalUiVisible(
+                            getIntentDataProvider(),
+                            getBaseCustomTabRootUiCoordinator().getDesktopWindowStateManager());
+            boolean isTWA = getIntentDataProvider().isTrustedWebActivity();
+            if (ChromeFeatureList.sAndroidWebAppMenuButton.isEnabled()
+                    && isTWA
+                    && isMinimalUiVisible) {
+                String packageName = getIntentDataProvider().getClientPackageName();
+                pageInfo.show(tab, ChromePageInfoHighlight.noHighlight(), packageName);
+                return true;
+            }
+            pageInfo.show(tab, ChromePageInfoHighlight.noHighlight());
             return true;
         } else if (id == R.id.price_insights_menu_id) {
             getBaseCustomTabRootUiCoordinator().runPriceInsightsAction();

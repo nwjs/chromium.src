@@ -77,9 +77,6 @@ BASE_FEATURE(kWaitForLateScrollEvents, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<double> kWaitForLateScrollEventsDeadlineRatio{
     &kWaitForLateScrollEvents, "deadline_ratio", 0.333};
 
-BASE_FEATURE(kDontAlwaysPushPictureLayerImpls,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kPreserveDiscardableImageMapQuality,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -208,6 +205,9 @@ BASE_FEATURE(kSlimDirectReceiverIpc, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kOverscrollBehaviorRespectedOnAllScrollContainers,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kOverscrollEffectOnNonRootScrollers,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kSkipFinishDuringReleaseLayerTreeFrameSink,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -243,5 +243,8 @@ BASE_FEATURE(kEmitPerScrollJankV4MetricAtEndOfScroll,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kManualBeginFrame, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDropMetricsFromNonProducedFramesOnlyIfTheyHadNoDamage,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

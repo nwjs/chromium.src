@@ -106,7 +106,7 @@ class PinnedToolbarActionsContainerBrowserTest : public InProcessBrowserTest {
 IN_PROC_BROWSER_TEST_F(PinnedToolbarActionsContainerBrowserTest,
                        CustomizeToolbarCanBeCalledFromNewTabPage) {
   auto pinned_button = std::make_unique<PinnedActionToolbarButton>(
-      browser(), actions::kActionCut, container());
+      browser(), actions::kActionCut, container()->GetWeakPtrForTesting());
   pinned_button->menu_model()->ActivatedAt(2);
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -123,7 +123,7 @@ IN_PROC_BROWSER_TEST_F(PinnedToolbarActionsContainerBrowserTest,
 IN_PROC_BROWSER_TEST_F(PinnedToolbarActionsContainerBrowserTest,
                        CustomizeToolbarCanBeCalledFromNonNewTabPage) {
   auto pinned_button = std::make_unique<PinnedActionToolbarButton>(
-      browser(), actions::kActionCut, container());
+      browser(), actions::kActionCut, container()->GetWeakPtrForTesting());
   pinned_button->menu_model()->ActivatedAt(2);
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -142,7 +142,8 @@ IN_PROC_BROWSER_TEST_F(PinnedToolbarActionsContainerBrowserTest,
       true));
   AddBlankTabAndShow(incognito_browser);
   auto pinned_button = std::make_unique<PinnedActionToolbarButton>(
-      incognito_browser, actions::kActionCut, container());
+      incognito_browser, actions::kActionCut,
+      container()->GetWeakPtrForTesting());
   EXPECT_FALSE(pinned_button->menu_model()->IsEnabledAt(2));
 }
 
@@ -202,6 +203,7 @@ IN_PROC_BROWSER_TEST_F(PinnedToolbarActionsContainerBrowserTest,
   SidePanelEntry* entry =
       side_panel_coordinator->GetWindowRegistry()->GetEntryForKey(
           SidePanelEntry::Key(SidePanelEntryId::kBookmarks));
+  SidePanelEntry::PanelType panel_type = entry->type();
   entry->set_should_show_ephemerally_in_toolbar(false);
 
   // Verify no toolbar button is shown when the bookmarks side panel is opened.
@@ -213,7 +215,7 @@ IN_PROC_BROWSER_TEST_F(PinnedToolbarActionsContainerBrowserTest,
 
   // Set the bookmarks entry back to showing the toolbar button ephemerally if
   // shown.
-  side_panel_coordinator->Close();
+  side_panel_coordinator->Close(panel_type);
   entry->set_should_show_ephemerally_in_toolbar(true);
 
   // Verify the toolbar button is now ephemerally shown if the bookmarks side
@@ -294,4 +296,40 @@ IN_PROC_BROWSER_TEST_F(PinnedToolbarActionsContainerBrowserTest,
   EXPECT_EQ(web_app_container->IsActionPinned(kActionSidePanelShowBookmarks),
             false);
   EXPECT_EQ(web_app_container->IsActionPinned(kActionPrint), false);
+}
+
+IN_PROC_BROWSER_TEST_F(PinnedToolbarActionsContainerBrowserTest,
+                       PinnedButtonPinningAndUnpinning) {
+  PinnedToolbarActionsModel* const actions_model =
+      PinnedToolbarActionsModel::Get(browser()->profile());
+
+  actions::ActionItem* action_item =
+      actions::ActionManager::Get().FindAction(kActionShowTranslate);
+
+  // Verify button is visible when pinned.
+  action_item->SetProperty(
+      actions::kActionItemPinnableKey,
+      static_cast<int>(actions::ActionPinnableState::kPinnable));
+  actions_model->UpdatePinnedState(kActionShowTranslate, true);
+  views::test::WaitForAnimatingLayoutManager(container());
+  auto* button_before = container()->GetButtonFor(kActionShowTranslate);
+  EXPECT_EQ(button_before->GetVisible(), true);
+
+  // Verify button is no longer visible after setting to not pinnable.
+  action_item->SetProperty(
+      actions::kActionItemPinnableKey,
+      static_cast<int>(actions::ActionPinnableState::kNotPinnable));
+  views::test::WaitForAnimatingLayoutManager(container());
+  auto* button_during = container()->GetButtonFor(kActionShowTranslate);
+  views::test::WaitForAnimatingLayoutManager(container());
+  EXPECT_EQ(button_during->GetVisible(), false);
+
+  // Verify button is longer visible after setting back to pinnable.
+  action_item->SetProperty(
+      actions::kActionItemPinnableKey,
+      static_cast<int>(actions::ActionPinnableState::kPinnable));
+  views::test::WaitForAnimatingLayoutManager(container());
+  auto* button_after = container()->GetButtonFor(kActionShowTranslate);
+  views::test::WaitForAnimatingLayoutManager(container());
+  EXPECT_EQ(button_after->GetVisible(), true);
 }

@@ -40,14 +40,14 @@ class GlicActorTaskIcon : public TabStripNudgeButton {
   // Sets the task icon to its highlighted state.
   void HighlightTaskIcon();
 
-  // Sets the task icon to the task needs assistance state.
-  void ShowCheckTasksLabel();
-
-  // Sets the task icon to the task complete state.
-  void ShowCompleteTasksLabel();
+  // Show the task nudge with the given text.
+  void ShowNudgeLabel(const std::u16string nudge_label);
 
   // Sets the task icon to its default colors, label, and tooltip text.
   void SetTaskIconToDefault();
+
+  // Updates the background painter to match the current border insets.
+  void RefreshBackground();
 
  private:
   // Tab strip that contains this button.

@@ -61,6 +61,7 @@ chromium-metrics-reviews@google.com.
   <variant name=".CommentsSidePanel"/>
   <variant name=".CompanionSidePanelUntrusted"/>
   <variant name=".Compose"/>
+  <variant name=".ContextualTasks"/>
   <variant name=".CustomizeChrome"/>
   <variant name=".DataSharingBubble"/>
   <variant name=".Emoji"/>
@@ -72,9 +73,11 @@ chromium-metrics-reviews@google.com.
   <variant name=".LensSidePanelUntrusted"/>
   <variant name=".MakoUntrusted"/>
   <variant name=".NewTabFooter"/>
+  <variant name=".OmniboxPopup"/>
   <variant name=".PerformanceSidePanel"/>
   <variant name=".ReadAnythingUntrusted"/>
   <variant name=".ReadingList"/>
+  <variant name=".ReloadButtonUI"/>
   <variant name=".ShoppingInsightsSidePanel"/>
   <variant name=".TabSearch"/>
   <variant name=".UserEducation"/>
@@ -262,17 +265,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="DefaultBrowser.AppMenu.TimesShownBeforeAccept" units="count"
-    expires_after="2025-11-16">
-  <owner>agale@chromium.org</owner>
-  <owner>robliao@chromium.org</owner>
-  <summary>
-    Times the default browser app menu chip has been shown before the user
-    accepted the prompt. This is emitted each time a user accepts the prompt by
-    clicking the chip and then the associated menu item.
-  </summary>
-</histogram>
-
 <histogram name="DefaultBrowser.InfoBar.TimesShownBeforeAccept" units="count"
     expires_after="2026-01-18">
   <owner>agale@chromium.org</owner>
@@ -324,6 +316,165 @@ chromium-metrics-reviews@google.com.
     that will be logged is to be decided at the time of writing this
     description.
   </summary>
+</histogram>
+
+<histogram
+    name="InitialWebUI.ReloadButton.ChangeVisibleModeToNextPaintIn{VisibleMode}"
+    units="ms" expires_after="2026-04-30">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-waap-eng@google.com</owner>
+  <summary>
+    Records the latency from the initiation of a visible mode change to the
+    first paint of the button in the new {VisibleMode} mode, i.e. the duration
+    from Reload icon to Stop icon or from Stop icon to Reload icon.
+
+    If there are multiple mode changes before the first paint, the time origin
+    starts from the last mode change.
+
+    This is only recorded for desktop platforms when the InitialWebUIMetrics is
+    enabled.
+  </summary>
+  <token key="VisibleMode">
+    <variant name="Reload" summary="Reload"/>
+    <variant name="Stop" summary="Stop"/>
+  </token>
+</histogram>
+
+<histogram name="InitialWebUI.ReloadButton.InputCount"
+    enum="ReloadButtonInputType" expires_after="2026-04-30">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-waap-eng@google.com</owner>
+  <summary>
+    Counts the number of times the ReloadButton is activated, sliced by input
+    type.
+
+    This is only recorded for desktop platforms when the InitialWebUIMetrics is
+    enabled.
+  </summary>
+</histogram>
+
+<histogram name="InitialWebUI.ReloadButton.InputToNextPaint{InputType}"
+    units="ms" expires_after="2026-04-30">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-waap-eng@google.com</owner>
+  <summary>
+    Records the latency from a {InputType} input event to the next paint of the
+    button.
+
+    This is only recorded for desktop platforms when the InitialWebUIMetrics is
+    enabled.
+  </summary>
+  <token key="InputType">
+    <variant name=".KeyPress" summary="KeyPress"/>
+    <variant name=".MouseRelease" summary="MouseRelease"/>
+  </token>
+</histogram>
+
+<histogram name="InitialWebUI.ReloadButton.InputToReload{InputType}" units="ms"
+    expires_after="2026-04-30">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-waap-eng@google.com</owner>
+  <summary>
+    Records the latency from a {InputType} input event to the completion of the
+    browser's reload command execution.
+
+    This is only recorded for desktop platforms when the InitialWebUIMetrics is
+    enabled.
+  </summary>
+  <token key="InputType">
+    <variant name=".KeyPress" summary="KeyPress"/>
+    <variant name=".MouseRelease" summary="MouseRelease"/>
+  </token>
+</histogram>
+
+<histogram name="InitialWebUI.ReloadButton.InputToStop{InputType}" units="ms"
+    expires_after="2026-04-30">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-waap-eng@google.com</owner>
+  <summary>
+    Records the latency from a {InputType} input event to the completion of the
+    browser's stop command execution.
+
+    This is only recorded for desktop platforms when the InitialWebUIMetrics is
+    enabled.
+  </summary>
+  <token key="InputType">
+    <variant name=".KeyPress" summary="KeyPress"/>
+    <variant name=".MouseRelease" summary="MouseRelease"/>
+  </token>
+</histogram>
+
+<histogram name="InitialWebUI.ReloadButton.MouseHoverToNextPaint" units="ms"
+    expires_after="2026-04-30">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-waap-eng@google.com</owner>
+  <summary>
+    Records the time from a mouseenter event on the ReloadButton to the
+    completion of its immediate visual update (e.g., painted in hovered state).
+
+    This is only recorded for desktop platforms when the InitialWebUIMetrics is
+    enabled.
+  </summary>
+</histogram>
+
+<histogram name="InitialWebUI.ReloadButton.MousePressToNextPaint" units="ms"
+    expires_after="2026-04-30">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-waap-eng@google.com</owner>
+  <summary>
+    Records the time from a mousedown event on the ReloadButton to the
+    completion of its immediate visual update (e.g., painted in pressed state).
+    If there are multiple mouse presses before the visual update, the time
+    origin starts from the last mouse press.
+
+    This is only recorded for desktop platforms when the InitialWebUIMetrics is
+    enabled.
+  </summary>
+</histogram>
+
+<histogram
+    name="InitialWebUI.Startup.ReloadButton.FirstContentfulPaint{StartupTemperature}"
+    units="ms" expires_after="2026-04-30">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-waap-eng@google.com</owner>
+  <summary>
+    Records the time spent initializing a newly constructed ReloadButton in the
+    pre/post InitialWebUI (WaaP) setup. The timer starts immediately after the
+    browser application startup{StartupTemperature}, and ends immediately after
+    a contentful paint of the view is requested. For browser process (pre-WaaP
+    setup) this is equal to the InitialWebUI.Startup.ReloadButton.FirstPaint
+    metric. For renderer process (post-WaaP setup) this might be slightly
+    different. Only recorded on desktop platforms.
+  </summary>
+  <token key="StartupTemperature">
+    <variant name="" summary=""/>
+    <variant name=".ColdStartup"
+        summary="where startup was cold (mostly hard faults)"/>
+    <variant name=".WarmStartup"
+        summary="where startup was warm (almost no hard faults)"/>
+  </token>
+</histogram>
+
+<histogram
+    name="InitialWebUI.Startup.ReloadButton.FirstPaint{StartupTemperature}"
+    units="ms" expires_after="2026-04-30">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-waap-eng@google.com</owner>
+  <summary>
+    Records the time spent initializing a newly constructed ReloadButton in the
+    pre/post InitialWebUI (WaaP) setup. The timer starts immediately after the
+    browser application startup{StartupTemperature}, and ends immediately after
+    a paint of the view is requested by either the browser process (pre-WaaP) or
+    by the WebUI renderer process (post-WaaP). Only recorded on desktop
+    platforms.
+  </summary>
+  <token key="StartupTemperature">
+    <variant name="" summary=""/>
+    <variant name=".ColdStartup"
+        summary="where startup was cold (mostly hard faults)"/>
+    <variant name=".WarmStartup"
+        summary="where startup was warm (almost no hard faults)"/>
+  </token>
 </histogram>
 
 <histogram name="ListMenuUtils.SetupCallbacksRecursively.Duration"
@@ -582,7 +733,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUI.ColorsStylesheetServingDuration" units="ms"
-    expires_after="2026-02-01">
+    expires_after="2026-04-05">
   <owner>skau@chromium.org</owner>
   <owner>tluk@chromium.org</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -618,7 +769,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUI.ShownUrl" enum="WebUIUrlHashes"
-    expires_after="2026-02-01">
+    expires_after="2026-04-05">
   <owner>kerenzhu@chromium.org</owner>
   <owner>dpapad@chromium.org</owner>
   <owner>chrome-webui@google.com</owner>
@@ -633,7 +784,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUI.TopChrome.Preload.Reason" enum="WebUIPreloadReason"
-    expires_after="2026-01-25">
+    expires_after="2026-03-29">
   <owner>kerenzhu@chromium.org</owner>
   <owner>tluk@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
@@ -643,7 +794,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUI.TopChrome.Preload.Result" enum="WebUIPreloadResult"
-    expires_after="2026-01-25">
+    expires_after="2026-03-29">
   <owner>kerenzhu@chromium.org</owner>
   <owner>dayeung@chromium.org</owner>
   <owner>elainechien@chromium.org</owner>
@@ -656,7 +807,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUI.TopChrome.RequestToFCP{WebUIName}" units="ms"
-    expires_after="2026-02-15">
+    expires_after="2026-04-19">
   <owner>kerenzhu@chromium.org</owner>
   <owner>chrome-webui-for-features@google.com</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -670,7 +821,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUI.TopChrome.RequestToLCP{WebUIName}" units="ms"
-    expires_after="2026-02-15">
+    expires_after="2026-04-19">
   <owner>kerenzhu@chromium.org</owner>
   <owner>chrome-webui-for-features@google.com</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -754,7 +905,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUITabStrip.OpenAction" enum="WebUITabStripOpenActions"
-    expires_after="2026-01-11">
+    expires_after="2026-04-19">
   <owner>robliao@chromium.org</owner>
   <owner>tluk@chromium.org</owner>
   <summary>

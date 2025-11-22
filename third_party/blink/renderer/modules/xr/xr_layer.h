@@ -7,11 +7,13 @@
 
 #include <optional>
 
+#include "device/vr/public/mojom/vr_service.mojom-blink.h"
 #include "gpu/command_buffer/common/mailbox_holder.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
 
 namespace blink {
 
+class XrLayerClient;
 class XRSession;
 struct XRSharedImageData;
 
@@ -20,7 +22,8 @@ enum class XRLayerType {
   kProjectionLayer,
   kQuadLayer,
   kCylinderLayer,
-  kEquirectLayer
+  kEquirectLayer,
+  kCubeLayer
 };
 
 class XRLayer : public EventTarget {
@@ -40,7 +43,7 @@ class XRLayer : public EventTarget {
   ExecutionContext* GetExecutionContext() const override;
   const AtomicString& InterfaceName() const override;
 
-  uint32_t layer_id() const { return layer_id_; }
+  device::LayerId layer_id() const { return layer_id_; }
   virtual XRLayerType LayerType() const = 0;
 
   const XRSharedImageData& SharedImage() const;
@@ -49,12 +52,28 @@ class XRLayer : public EventTarget {
   void SetModified(bool modified);
   bool IsModified() const;
 
+  // Mojom backend.
+  void CreateLayerBackend();
+  bool IsBackendActive() const;
+  void DestroyBackend();
+
+  virtual XrLayerClient* LayerClient() = 0;
+
   void Trace(Visitor*) const override;
 
+ protected:
+  virtual device::mojom::blink::XRCompositionLayerDataPtr CreateLayerData()
+      const = 0;
+
  private:
+  void OnBackendLayerCreated(
+      device::mojom::blink::CreateCompositionLayerResult result);
+
   const Member<XRSession> session_;
-  const uint32_t layer_id_;
+  const device::LayerId layer_id_;
   bool is_modified_{false};
+
+  bool is_backend_active_{false};
 };
 
 }  // namespace blink

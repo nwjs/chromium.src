@@ -270,6 +270,39 @@ ProfileMenuViewBase::IdentitySectionParams::operator=(IdentitySectionParams&&) =
 
 // ProfileMenuViewBase ---------------------------------------------------------
 
+// Despite ProfileMenuViewBase being a dialog, we are enforcing it to behave
+// like a menu from the accessibility POV because it fits better with a menu UX.
+// The dialog exposes the kMenuBar role, and the top-level container is kMenu.
+// This class is responsible for emitting menu accessible events when the dialog
+// is activated or deactivated.
+class ProfileMenuViewBase::AXMenuWidgetObserver : public views::WidgetObserver {
+ public:
+  AXMenuWidgetObserver(ProfileMenuViewBase* owner, views::Widget* widget)
+      : owner_(owner) {
+    observation_.Observe(widget);
+  }
+  ~AXMenuWidgetObserver() override = default;
+
+  void OnWidgetActivationChanged(views::Widget* widget, bool active) override {
+    if (active) {
+      owner_->NotifyAccessibilityEventDeprecated(ax::mojom::Event::kMenuStart,
+                                                 true);
+      owner_->NotifyAccessibilityEventDeprecated(
+          ax::mojom::Event::kMenuPopupStart, true);
+    } else {
+      owner_->NotifyAccessibilityEventDeprecated(
+          ax::mojom::Event::kMenuPopupEnd, true);
+      owner_->NotifyAccessibilityEventDeprecated(ax::mojom::Event::kMenuEnd,
+                                                 true);
+    }
+  }
+
+ private:
+  raw_ptr<ProfileMenuViewBase> owner_;
+  base::ScopedObservation<views::Widget, views::WidgetObserver> observation_{
+      this};
+};
+
 ProfileMenuViewBase::ProfileMenuViewBase(ui::TrackedElement* anchor_element,
                                          Browser* browser)
     : BubbleDialogDelegateView(anchor_element, views::BubbleBorder::TOP_RIGHT),
@@ -311,7 +344,8 @@ void ProfileMenuViewBase::SetProfileIdentityWithCallToAction(
   constexpr int kAvatarTopMargin = 24;
   constexpr int kTitleTopMargin = 8;
   constexpr int kBottomMarginWhenNoButton = 24;
-  constexpr int kSubtitleBottomMarginInfoBelow = 12;
+  constexpr int kSubtitleBottomMarginInfoBelow = 4;
+  constexpr int kSubtitleBottomMarginButtonBelow = 12;
   constexpr int kButtonBottomMargin = 28;
 
   // Vertical view structure when all elements are present. Square brackets []
@@ -326,10 +360,9 @@ void ProfileMenuViewBase::SetProfileIdentityWithCallToAction(
   // Label: Title
   // Optional:
   //     Label: Email Subtitle (optional)
-  //     [kEmailSubtitleBottomMarginWithInfoBelow] (or
-  //     [kSubtitleBottomMarginInfoBelow])
+  //     [kSubtitleBottomMarginInfoBelow] or [kSubtitleBottomMarginButtonBelow]
   //     Label: Subtitle (optional)
-  //     [kSubtitleBottomMarginWithButton] (or [kSubtitleBottomMarginInfoBelow])
+  //     [kSubtitleBottomMarginButtonBelow] or [kBottomMarginWhenNoButton]
   // Optional:
   //     Button: maybe with an image inside
   //     [kButtonBottomMargin]
@@ -441,8 +474,9 @@ void ProfileMenuViewBase::SetProfileIdentityWithCallToAction(
   const bool has_subtitle = !params.subtitle.empty();
   if (!params.email_subtitle.empty()) {
     const int email_subtitle_bottom_margin =
-        has_button || has_subtitle ? kSubtitleBottomMarginInfoBelow
-                                   : kBottomMarginWhenNoButton;
+        has_subtitle ? kSubtitleBottomMarginInfoBelow
+                     : (has_button ? kSubtitleBottomMarginButtonBelow
+                                   : kBottomMarginWhenNoButton);
     identity_info_container_->AddChildView(
         views::Builder<views::Label>()
             .SetText(params.email_subtitle)
@@ -459,8 +493,9 @@ void ProfileMenuViewBase::SetProfileIdentityWithCallToAction(
   }
 
   if (has_subtitle) {
-    const int subtitle_bottom_margin =
-        has_button ? kSubtitleBottomMarginInfoBelow : kBottomMarginWhenNoButton;
+    const int subtitle_bottom_margin = has_button
+                                           ? kSubtitleBottomMarginButtonBelow
+                                           : kBottomMarginWhenNoButton;
     identity_info_container_->AddChildView(
         views::Builder<views::Label>()
             .SetText(params.subtitle)
@@ -746,39 +781,6 @@ std::unique_ptr<HoverButton> ProfileMenuViewBase::CreateMenuRowButton(
   button->SetIconHorizontalMargins(kMenuItemLeftInternalPadding, /*right=*/0);
   return button;
 }
-
-// Despite ProfileMenuViewBase being a dialog, we are enforcing it to behave
-// like a menu from the accessibility POV because it fits better with a menu UX.
-// The dialog exposes the kMenuBar role, and the top-level container is kMenu.
-// This class is responsible for emitting menu accessible events when the dialog
-// is activated or deactivated.
-class ProfileMenuViewBase::AXMenuWidgetObserver : public views::WidgetObserver {
- public:
-  AXMenuWidgetObserver(ProfileMenuViewBase* owner, views::Widget* widget)
-      : owner_(owner) {
-    observation_.Observe(widget);
-  }
-  ~AXMenuWidgetObserver() override = default;
-
-  void OnWidgetActivationChanged(views::Widget* widget, bool active) override {
-    if (active) {
-      owner_->NotifyAccessibilityEventDeprecated(ax::mojom::Event::kMenuStart,
-                                                 true);
-      owner_->NotifyAccessibilityEventDeprecated(
-          ax::mojom::Event::kMenuPopupStart, true);
-    } else {
-      owner_->NotifyAccessibilityEventDeprecated(
-          ax::mojom::Event::kMenuPopupEnd, true);
-      owner_->NotifyAccessibilityEventDeprecated(ax::mojom::Event::kMenuEnd,
-                                                 true);
-    }
-  }
-
- private:
-  raw_ptr<ProfileMenuViewBase> owner_;
-  base::ScopedObservation<views::Widget, views::WidgetObserver> observation_{
-      this};
-};
 
 BEGIN_METADATA(ProfileMenuViewBase)
 END_METADATA

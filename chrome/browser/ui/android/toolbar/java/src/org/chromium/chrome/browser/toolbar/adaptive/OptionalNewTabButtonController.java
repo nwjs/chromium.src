@@ -12,16 +12,21 @@ import android.view.View;
 
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.Callback;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.ConfigurationChangedObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
+import org.chromium.chrome.browser.tabmodel.TabCreatorUtil;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.R;
 import org.chromium.chrome.browser.toolbar.optional_button.BaseButtonDataProvider;
+import org.chromium.chrome.browser.toolbar.top.tab_strip.StripVisibilityState;
 import org.chromium.chrome.browser.user_education.IphCommandBuilder;
 import org.chromium.components.browser_ui.widget.highlight.ViewHighlighter.HighlightParams;
 import org.chromium.components.browser_ui.widget.highlight.ViewHighlighter.HighlightShape;
@@ -83,6 +88,9 @@ public class OptionalNewTabButtonController extends BaseButtonDataProvider
 
     private boolean mIsTablet;
     private final ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
+    private final ObservableSupplier<@StripVisibilityState Integer> mTabStripVisibilitySupplier;
+    private final Callback<Integer> mOnTabStripVisibilityStateChanged =
+            this::onTabStripVisibilityStateChanged;
 
     /**
      * Creates {@code OptionalNewTabButtonController}.
@@ -94,6 +102,7 @@ public class OptionalNewTabButtonController extends BaseButtonDataProvider
      * @param tabCreatorManagerSupplier Used to open new tabs.
      * @param activeTabSupplier Used to access the current tab.
      * @param trackerSupplier Supplier for the current profile tracker.
+     * @param tabStripVisibilitySupplier Supplier for the visibility of the tab strip.
      */
     public OptionalNewTabButtonController(
             Context context,
@@ -101,7 +110,8 @@ public class OptionalNewTabButtonController extends BaseButtonDataProvider
             ActivityLifecycleDispatcher activityLifecycleDispatcher,
             Supplier<@Nullable TabCreatorManager> tabCreatorManagerSupplier,
             Supplier<@Nullable Tab> activeTabSupplier,
-            Supplier<@Nullable Tracker> trackerSupplier) {
+            Supplier<@Nullable Tracker> trackerSupplier,
+            ObservableSupplier<@StripVisibilityState Integer> tabStripVisibilitySupplier) {
         super(
                 activeTabSupplier,
                 /* modalDialogManager= */ null,
@@ -121,6 +131,10 @@ public class OptionalNewTabButtonController extends BaseButtonDataProvider
         mActivityLifecycleDispatcher.register(this);
 
         mIsTablet = DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext);
+        mTabStripVisibilitySupplier = tabStripVisibilitySupplier;
+        if (ChromeFeatureList.sToolbarTabletResizeRefactor.isEnabled()) {
+            mTabStripVisibilitySupplier.addObserver(mOnTabStripVisibilityStateChanged);
+        }
     }
 
     @Override
@@ -133,7 +147,7 @@ public class OptionalNewTabButtonController extends BaseButtonDataProvider
 
         boolean isIncognito = activeTabSupplier.get().isIncognito();
         RecordUserAction.record("MobileTopToolbarOptionalButtonNewTab");
-        tabCreatorManager.getTabCreator(isIncognito).launchNtp();
+        TabCreatorUtil.launchNtp(tabCreatorManager.getTabCreator(isIncognito));
 
         Tracker tracker = mTrackerSupplier.get();
         if (tracker != null) {
@@ -141,10 +155,15 @@ public class OptionalNewTabButtonController extends BaseButtonDataProvider
         }
     }
 
+    private void onTabStripVisibilityStateChanged(@StripVisibilityState int tabStripVisibility) {
+        mButtonData.setCanShow(shouldShowButton(mActiveTabSupplier.get()));
+        notifyObservers(true);
+    }
+
     @Override
     public void onConfigurationChanged(Configuration configuration) {
         boolean isTablet = DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext);
-        if (mIsTablet == isTablet) {
+        if (mIsTablet == isTablet && !ChromeFeatureList.sToolbarTabletResizeRefactor.isEnabled()) {
             return;
         }
         mIsTablet = isTablet;
@@ -155,8 +174,16 @@ public class OptionalNewTabButtonController extends BaseButtonDataProvider
     @Override
     protected boolean shouldShowButton(@Nullable Tab tab) {
         if (tab == null) return false;
-        if (!super.shouldShowButton(tab) || mIsTablet) return false;
-
+        if (!super.shouldShowButton(tab)) return false;
+        // On tablets, the new tab button can be shown when the tab strip is not visible, if the
+        // tablet toolbar resize refactor is enabled.
+        if (mIsTablet) {
+            if (!ChromeFeatureList.sToolbarTabletResizeRefactor.isEnabled()
+                    || mTabStripVisibilitySupplier.get() == null
+                    || mTabStripVisibilitySupplier.get() != StripVisibilityState.HIDDEN_BY_FADE) {
+                return false;
+            }
+        }
         if (UrlUtilities.isNtpUrl(tab.getUrl())) return false;
 
         return true;
@@ -182,5 +209,17 @@ public class OptionalNewTabButtonController extends BaseButtonDataProvider
                                         .adaptive_toolbar_button_new_tab_iph)
                         .setHighlightParams(params);
         return iphCommandBuilder;
+    }
+
+    @Override
+    public void destroy() {
+        if (mTabStripVisibilitySupplier != null) {
+            mTabStripVisibilitySupplier.removeObserver(mOnTabStripVisibilityStateChanged);
+        }
+        super.destroy();
+    }
+
+    void setIsTabletForTesting(boolean isTablet) {
+        mIsTablet = isTablet;
     }
 }

@@ -390,7 +390,6 @@ class CORE_EXPORT WebFrameWidgetImpl
   FrameWidgetTestHelper* GetFrameWidgetTestHelperForTesting() override;
   void PrepareForFinalLifecyclUpdateForTesting() override;
   void ApplyLocalSurfaceIdUpdate(const viz::LocalSurfaceId& id) override;
-  bool InsertVisualStateRequest(base::OnceClosure callback) override;
 
   // Called when a drag-n-drop operation should begin.
   virtual void StartDragging(LocalFrame* source_frame,
@@ -439,7 +438,7 @@ class CORE_EXPORT WebFrameWidgetImpl
   bool HasFocus() override;
   void SetFocus(bool focus) override;
   void FlushInputProcessedCallback() override;
-  void CancelCompositionForPepper() override;
+  void CancelComposition() override;
   void ApplyVisualProperties(
       const VisualProperties& visual_properties) override;
   bool PinchGestureActiveInMainFrame() override;
@@ -562,6 +561,10 @@ class CORE_EXPORT WebFrameWidgetImpl
   void StopDeferringCommits(cc::PaintHoldingCommitTrigger);
 
   void SetShouldThrottleFrameRate(bool flag);
+
+  void RequestMainFrameOnCompositorAnimation(
+      cc::PropertyChangeForcesCommitCriteria
+          property_change_forces_commit_criteria);
 
   // Pause all rendering (main and compositor thread) in the compositor.
   [[nodiscard]] std::unique_ptr<cc::ScopedPauseRendering> PauseRendering();

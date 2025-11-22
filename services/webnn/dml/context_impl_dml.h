@@ -30,8 +30,8 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) ContextImplDml final
     : public WebNNContextImpl {
  public:
   ContextImplDml(scoped_refptr<Adapter> adapter,
-                 mojo::PendingAssociatedReceiver<mojom::WebNNContext> receiver,
-                 WebNNContextProviderImpl* context_provider,
+                 mojo::PendingReceiver<mojom::WebNNContext> receiver,
+                 base::WeakPtr<WebNNContextProviderImpl> context_provider,
                  mojom::CreateContextOptionsPtr options,
                  mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
                  mojo::ScopedDataPipeProducerHandle read_tensor_producer,
@@ -39,7 +39,10 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) ContextImplDml final
                  const gpu::GpuFeatureInfo& gpu_feature_info,
                  gpu::CommandBufferId command_buffer_id,
                  std::unique_ptr<ScopedSequence> sequence,
-                 scoped_refptr<gpu::SchedulerTaskRunner> task_runner);
+                 scoped_refptr<gpu::MemoryTracker> memory_tracker,
+                 scoped_refptr<base::SingleThreadTaskRunner> owning_task_runner,
+                 gpu::SharedImageManager* shared_image_manager,
+                 scoped_refptr<base::SingleThreadTaskRunner> main_task_runner);
 
   ContextImplDml(const WebNNContextImpl&) = delete;
   ContextImplDml& operator=(const ContextImplDml&) = delete;

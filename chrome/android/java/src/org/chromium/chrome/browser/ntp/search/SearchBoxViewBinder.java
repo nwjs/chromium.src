@@ -5,7 +5,6 @@
 package org.chromium.chrome.browser.ntp.search;
 
 import android.os.Build;
-import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.MarginLayoutParams;
@@ -31,14 +30,15 @@ class SearchBoxViewBinder
         ImageView voiceSearchButton = view.findViewById(R.id.voice_search_button);
         ImageView lensButton = view.findViewById(R.id.lens_camera_button);
         LottieAnimationView composeplateButton = view.findViewById(R.id.composeplate_button);
-        View searchBoxContainer = view;
-        final TextView searchBoxTextView = searchBoxContainer.findViewById(R.id.search_box_text);
+        View searchBoxlayout = view;
+        View searchBoxContainer = searchBoxlayout.findViewById(R.id.search_box_container);
+        final TextView searchBoxTextView = searchBoxlayout.findViewById(R.id.search_box_text);
 
         if (SearchBoxProperties.VISIBILITY == propertyKey) {
-            searchBoxContainer.setVisibility(
+            searchBoxlayout.setVisibility(
                     model.get(SearchBoxProperties.VISIBILITY) ? View.VISIBLE : View.GONE);
         } else if (SearchBoxProperties.ALPHA == propertyKey) {
-            searchBoxContainer.setAlpha(model.get(SearchBoxProperties.ALPHA));
+            searchBoxlayout.setAlpha(model.get(SearchBoxProperties.ALPHA));
         } else if (SearchBoxProperties.VOICE_SEARCH_COLOR_STATE_LIST == propertyKey) {
             ImageViewCompat.setImageTintList(
                     voiceSearchButton,
@@ -96,12 +96,12 @@ class SearchBoxViewBinder
             composeplateButton.setOnClickListener(
                     model.get(SearchBoxProperties.COMPOSEPLATE_BUTTON_CLICK_CALLBACK));
         } else if (SearchBoxProperties.SEARCH_BOX_HEIGHT == propertyKey) {
-            ViewGroup.LayoutParams lp = searchBoxContainer.getLayoutParams();
+            ViewGroup.LayoutParams lp = searchBoxlayout.getLayoutParams();
             lp.height = model.get(SearchBoxProperties.SEARCH_BOX_HEIGHT);
-            searchBoxContainer.setLayoutParams(lp);
+            searchBoxlayout.setLayoutParams(lp);
         } else if (SearchBoxProperties.SEARCH_BOX_TOP_MARGIN == propertyKey) {
             MarginLayoutParams marginLayoutParams =
-                    (MarginLayoutParams) searchBoxContainer.getLayoutParams();
+                    (MarginLayoutParams) searchBoxlayout.getLayoutParams();
             marginLayoutParams.topMargin = model.get(SearchBoxProperties.SEARCH_BOX_TOP_MARGIN);
         } else if (SearchBoxProperties.SEARCH_BOX_END_PADDING == propertyKey) {
             searchBoxContainer.setPadding(
@@ -109,13 +109,24 @@ class SearchBoxViewBinder
                     searchBoxContainer.getPaddingTop(),
                     model.get(SearchBoxProperties.SEARCH_BOX_END_PADDING),
                     searchBoxContainer.getPaddingBottom());
-        } else if (SearchBoxProperties.SEARCH_TEXT_TRANSLATION_X == propertyKey) {
-            searchBoxTextView.setTranslationX(
-                    model.get(SearchBoxProperties.SEARCH_TEXT_TRANSLATION_X));
-        } else if (SearchBoxProperties.SEARCH_BOX_TEXT_SIZE == propertyKey) {
-            searchBoxTextView.setTextSize(
-                    TypedValue.COMPLEX_UNIT_SP,
-                    model.get(SearchBoxProperties.SEARCH_BOX_TEXT_SIZE));
+        } else if (SearchBoxProperties.SEARCH_BOX_START_PADDING == propertyKey) {
+            searchBoxContainer.setPadding(
+                    model.get(SearchBoxProperties.SEARCH_BOX_START_PADDING),
+                    searchBoxContainer.getPaddingTop(),
+                    searchBoxContainer.getPaddingEnd(),
+                    searchBoxContainer.getPaddingBottom());
+        } else if (SearchBoxProperties.SEARCH_BOX_TEXT_STYLE_RES_ID == propertyKey) {
+            searchBoxTextView.setTextAppearance(
+                    model.get(SearchBoxProperties.SEARCH_BOX_TEXT_STYLE_RES_ID));
+        } else if (SearchBoxProperties.ENABLE_SEARCH_BOX_EDIT_TEXT == propertyKey) {
+            searchBoxTextView.setEnabled(
+                    model.get(SearchBoxProperties.ENABLE_SEARCH_BOX_EDIT_TEXT));
+        } else if (SearchBoxProperties.SEARCH_BOX_HINT_TEXT == propertyKey) {
+            searchBoxTextView.setHint(model.get(SearchBoxProperties.SEARCH_BOX_HINT_TEXT));
+        } else if (SearchBoxProperties.APPLY_WHITE_BACKGROUND_WITH_SHADOW == propertyKey) {
+            ((SearchBoxContainerView) searchBoxlayout)
+                    .applyWhiteBackgroundWithShadow(
+                            model.get(SearchBoxProperties.APPLY_WHITE_BACKGROUND_WITH_SHADOW));
         } else if (SearchBoxProperties.COMPOSEPLATE_BUTTON_ICON_RAW_RES_ID == propertyKey) {
             composeplateButton.setAnimation(
                     model.get(SearchBoxProperties.COMPOSEPLATE_BUTTON_ICON_RAW_RES_ID));

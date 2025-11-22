@@ -25,7 +25,6 @@
 #include "gpu/command_buffer/common/command_buffer_id.h"
 #include "gpu/command_buffer/common/command_buffer_shared.h"
 #include "gpu/command_buffer/common/gpu_memory_allocation.h"
-#include "gpu/command_buffer/common/presentation_feedback_utils.h"
 #include "gpu/command_buffer/common/sync_token.h"
 #include "gpu/ipc/client/gpu_channel_host.h"
 #include "gpu/ipc/common/command_buffer_id.h"
@@ -36,7 +35,6 @@
 #include "mojo/public/cpp/system/buffer.h"
 #include "mojo/public/cpp/system/platform_handle.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
-#include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/gpu_fence.h"
 #include "ui/gl/gl_bindings.h"
@@ -68,12 +66,10 @@ CommandBufferProxyImpl::~CommandBufferProxyImpl() {
 }
 
 ContextResult CommandBufferProxyImpl::Initialize(
-    CommandBufferProxyImpl* share_group,
     gpu::SchedulingPriority stream_priority,
     mojom::ContextCreationAttribsPtr attribs,
     const GURL& active_url,
     const std::string_view label) {
-  DCHECK(!share_group || (stream_id_ == share_group->stream_id_));
   TRACE_EVENT0("gpu", "GpuChannelHost::CreateViewCommandBuffer");
 
   // Drop the |channel_| if this method does not succeed and early-outs, to
@@ -81,8 +77,6 @@ ContextResult CommandBufferProxyImpl::Initialize(
   auto channel = std::move(channel_);
 
   auto params = mojom::CreateCommandBufferParams::New();
-  params->share_group_id =
-      share_group ? share_group->route_id_ : IPC::mojom::kRoutingIdNone;
   params->stream_id = stream_id_;
   params->stream_priority = stream_priority;
   params->attribs = std::move(attribs);

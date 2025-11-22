@@ -28,6 +28,7 @@ import org.chromium.chrome.browser.compositor.overlays.strip.reorder.ReorderDele
 import org.chromium.chrome.browser.compositor.overlays.strip.reorder.ReorderDelegate.StripUpdateDelegate;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
+import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter.MergeNotificationType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.ui.base.LocalizationUtils;
@@ -273,7 +274,10 @@ public class TabReorderStrategy extends ReorderStrategyBase {
         // Do not allow reorder between pinned and unpinned tabs.
         boolean curTabPinned = curTab != null && curTab.getIsPinned();
         boolean adjTabPinned = adjTab != null && adjTab.getIsPinned();
-        if (curTabPinned != adjTabPinned) return false;
+
+        boolean crossingPinnedBound = curTabPinned != adjTabPinned;
+        boolean draggingTabOutOfGroup = isInGroup && mayDragInOrOutOfGroup;
+        if (crossingPinnedBound && !draggingTabOutOfGroup) return false;
 
         // Case A: Not interacting with tab groups.
         if (!mayDragInOrOutOfGroup) {
@@ -360,8 +364,17 @@ public class TabReorderStrategy extends ReorderStrategyBase {
             StripLayoutTab interactingTab,
             StripLayoutGroupTitle groupTitle,
             boolean towardEnd) {
-        mTabGroupModelFilter.mergeTabsToGroup(
-                interactingTab.getTabId(), destinationTabId, /* skipUpdateTabModel= */ true);
+        Tab tabToMerge = mModel.getTabByIdChecked(interactingTab.getTabId());
+        List<Tab> tabsToMarge = Collections.singletonList(tabToMerge);
+        Tab destinationTab = mModel.getTabByIdChecked(destinationTabId);
+
+        // If dragging towards the end of the strip, we should insert at the start of the group.
+        // Otherwise, we insert at the end of the group (by passing a null index).
+        Integer indexInGroup = towardEnd ? 0 : null;
+
+        // TODO(crbug.com/451697001): Investigate if we still need to suppress the notifications.
+        mTabGroupModelFilter.mergeListOfTabsToGroup(
+                tabsToMarge, destinationTab, indexInGroup, MergeNotificationType.DONT_NOTIFY);
         RecordUserAction.record("MobileToolbarReorderTab.TabAddedToGroup");
 
         // Animate the group indicator after updating the tab model.

@@ -419,7 +419,9 @@ class ViewTransitionStyleTracker::ImageWrapperPseudoElement
     // The view-transition must still be active.
     // See(crbug.com/444889294)
     ViewTransition* transition = ViewTransitionUtils::GetTransition(*this);
-    CHECK(transition && transition->IsGeneratingPseudo(*this));
+    if (!transition || !transition->IsGeneratingPseudo(*this)) {
+      return false;
+    }
 
     if (!ViewTransitionPseudoElementBase::CanGeneratePseudoElement(pseudo_id)) {
       return false;
@@ -661,24 +663,21 @@ void ViewTransitionStyleTracker::AddTransitionElementsFromCSS() {
   Vector<AtomicString> containing_group_stack;
 
   PaintLayer* paint_layer = nullptr;
-  if (RuntimeEnabledFeatures::ScopedViewTransitionsEnabled()) {
-    if (element_ && element_->parentElement()) {
-      // Element is not detached and not the root document element.
-      if (auto* layout_object = element_->GetLayoutObject()) {
-        paint_layer = layout_object->EnclosingLayer();
-      }
-    } else if (!element_ || element_ == document_->documentElement()) {
-      paint_layer = document_->GetLayoutView()->PaintingLayer();
-    }
-    if (!paint_layer) {
-      return;
-    }
-  } else {
+  TreeScope* tree_scope = nullptr;
+  if (!element_ || element_ == document_->documentElement()) {
     paint_layer = document_->GetLayoutView()->PaintingLayer();
+    tree_scope = document_.Get();
+  } else {
+    if (auto* layout_object = element_->GetLayoutObject()) {
+      paint_layer = layout_object->EnclosingLayer();
+      tree_scope = &element_->GetTreeScope();
+    }
   }
-
+  if (!paint_layer) {
+    return;
+  }
   AddTransitionElementsFromCSSRecursive(
-      paint_layer, document_.Get(), containing_group_stack,
+      paint_layer, tree_scope, containing_group_stack,
       /*nearest_group_with_contain=*/g_null_atom);
 }
 
@@ -1775,10 +1774,6 @@ gfx::Transform ViewTransitionStyleTracker::ComputeTransformForParticipant(
     // TODO(crbug.com/394052227): Should we force compositing on the scope?
     // If we do, its paint offset will always be zero.
     transform.Translate(-gfx::Vector2dF(scope_fragment.PaintOffset()));
-
-    // Adjust for the scope element's borders and scrollbars.
-    // TODO(crbug.com/394052227): Is this correct in RTL / all writing modes?
-    transform.Translate(-scope_box->ClientLeft(), -scope_box->ClientTop());
   }
 
   if (!transform.HasPerspective()) {
@@ -2193,6 +2188,25 @@ void ViewTransitionStyleTracker::InvalidateStyleAndCompositing() {
       .NotifyViewTransitionPseudoTreeChanged();
 }
 
+void ViewTransitionStyleTracker::
+    InvalidateBackdropFilterCompositingProperties() {
+  for (auto& entry : element_data_map_) {
+    // Only invalidate things that have a backdrop filter.
+    if (!entry.value || !entry.value->target_element) {
+      continue;
+    }
+
+    auto* object = entry.value->target_element->GetLayoutObject();
+    auto* style = entry.value->target_element->GetComputedStyle();
+    if (entry.value->target_element->IsDocumentElement() || !style || !object ||
+        style->BackdropFilter().IsEmpty()) {
+      continue;
+    }
+
+    object->SetNeedsPaintPropertyUpdate();
+  }
+}
+
 CSSStyleSheet& ViewTransitionStyleTracker::UAStyleSheet() {
   if (ua_style_sheet_)
     return *ua_style_sheet_;
@@ -2211,7 +2225,6 @@ CSSStyleSheet& ViewTransitionStyleTracker::UAStyleSheet() {
     builder.AddUAStyle(RuntimeEnabledFeatures::ScopedViewTransitionsEnabled()
                            ? AnimationUAStylesScoped()
                            : AnimationUAStyles());
-    builder.AddFlagGuardedDefaultAnimationStyles();
   }
 
   // If we started the animation then we always create the full dynamic style

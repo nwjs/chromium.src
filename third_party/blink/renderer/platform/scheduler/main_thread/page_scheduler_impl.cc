@@ -10,7 +10,6 @@
 
 #include "base/check_op.h"
 #include "base/containers/contains.h"
-#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/post_delayed_memory_reduction_task.h"
 #include "base/metrics/field_trial_params.h"
@@ -55,7 +54,7 @@ constexpr base::TimeDelta kThrottlingDelayAfterBackgrounding =
 // etc. after the renderer has been backgrounded. This is used only if
 // background suspension is enabled.
 constexpr base::TimeDelta kDefaultDelayForBackgroundTabFreezing =
-    base::Minutes(5);
+    base::Minutes(1);
 
 // Duration of a throttled wake up.
 constexpr base::TimeDelta kThrottledWakeUpDuration = base::Milliseconds(3);
@@ -348,11 +347,8 @@ bool PageSchedulerImpl::IsMainFrameLocal() const {
 }
 
 bool PageSchedulerImpl::IsLoading() const {
-  if (base::FeatureList::IsEnabled(
-          features::kLoadingPhaseBufferTimeAfterFirstMeaningfulPaint)) {
-    return IsMainFrameLoading();
-  }
-  return IsWaitingForMainFrameContentfulPaint();
+  return IsWaitingForMainFrameContentfulPaint() ||
+         IsWaitingForMainFrameMeaningfulPaint();
 }
 
 bool PageSchedulerImpl::IsOrdinary() const {
@@ -510,14 +506,6 @@ bool PageSchedulerImpl::IsWaitingForMainFrameMeaningfulPaint() const {
       frame_schedulers_, [](const FrameSchedulerImpl* fs) {
         return fs->IsWaitingForMeaningfulPaint() &&
                !fs->IsInEmbeddedFrameTree() &&
-               fs->GetFrameType() == FrameScheduler::FrameType::kMainFrame;
-      });
-}
-
-bool PageSchedulerImpl::IsMainFrameLoading() const {
-  return std::ranges::any_of(
-      frame_schedulers_, [](const FrameSchedulerImpl* fs) {
-        return fs->IsLoading() && !fs->IsInEmbeddedFrameTree() &&
                fs->GetFrameType() == FrameScheduler::FrameType::kMainFrame;
       });
 }

@@ -10,17 +10,19 @@
 #include <vector>
 
 #include "base/apple/foundation_util.h"
+#include "base/auto_reset.h"
 #include "base/check.h"
 #include "base/feature_list.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/fullscreen_util_mac.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view_mac.h"
-#include "chrome/browser/ui/views/frame/browser_view_layout.h"
 #include "chrome/browser/ui/views/frame/tab_strip_view_interface.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.h"
 #include "chrome/common/chrome_features.h"
 #include "components/constrained_window/constrained_window_views.h"
 #include "components/remote_cocoa/app_shim/features.h"
@@ -39,6 +41,10 @@
 
 namespace {
 
+// This FocusSearch connects BrowserView, the overlay widget and the tab
+// overlay widget to form a complete focus traversal cycle. It finds the
+// next focusable view from another widget when the FocusManager cannot
+// find the next focusable view in the currently focused widget.
 class ImmersiveModeFocusSearchMac : public views::FocusSearch {
  public:
   explicit ImmersiveModeFocusSearchMac(BrowserView* browser_view);
@@ -58,6 +64,7 @@ class ImmersiveModeFocusSearchMac : public views::FocusSearch {
       views::View** focus_traversable_view) override;
 
  private:
+  bool finding_next_focusable_view_ = false;
   raw_ptr<BrowserView> browser_view_;
 };
 
@@ -73,8 +80,11 @@ ImmersiveModeControllerMac::RevealedLock::~RevealedLock() {
   }
 }
 
-ImmersiveModeControllerMac::ImmersiveModeControllerMac(bool separate_tab_strip)
-    : separate_tab_strip_(separate_tab_strip), weak_ptr_factory_(this) {}
+ImmersiveModeControllerMac::ImmersiveModeControllerMac(
+    BrowserWindowInterface* browser,
+    bool separate_tab_strip)
+    : ImmersiveModeController(browser),
+      separate_tab_strip_(separate_tab_strip) {}
 
 ImmersiveModeControllerMac::~ImmersiveModeControllerMac() {
   CHECK(!views::WidgetObserver::IsInObserverList());
@@ -153,10 +163,6 @@ void ImmersiveModeControllerMac::SetEnabled(bool enabled) {
     // transition.
     OnImmersiveModeToolbarRevealChanged(true);
 
-    // Move top chrome to the overlay view.
-    browser_view_->OnImmersiveRevealStarted();
-    browser_view_->InvalidateLayout();
-
     for (Observer& observer : observers_) {
       observer.OnImmersiveFullscreenEntered();
     }
@@ -189,8 +195,6 @@ void ImmersiveModeControllerMac::SetEnabled(bool enabled) {
     if (separate_tab_strip_) {
       browser_view_->tab_overlay_widget()->Hide();
       browser_view_->tab_strip_view()->SetBorder(nullptr);
-      browser_view_->top_container()->AddChildViewAt(
-          static_cast<views::View*>(browser_view_->tab_strip_view()), 0);
     }
     top_container_observation_.Reset();
     overlay_widget_observation_.Reset();
@@ -342,7 +346,8 @@ void ImmersiveModeControllerMac::OnContentFullscreenChanged(
 void ImmersiveModeControllerMac::OnDidChangeFocus(views::View* focused_before,
                                                   views::View* focused_now) {
   if (browser_view_->top_container()->Contains(focused_now) ||
-      browser_view_->tab_overlay_view()->Contains(focused_now)) {
+      (browser_view_->tab_overlay_view() &&
+       browser_view_->tab_overlay_view()->Contains(focused_now))) {
     if (!focus_lock_) {
       focus_lock_ = GetRevealedLock(ANIMATE_REVEAL_NO);
     }
@@ -428,6 +433,12 @@ bool ImmersiveModeControllerMac::ShouldMoveChild(views::Widget* child) {
       || widget_identifier == glic::kGlicWidgetIdentifier
 #endif
   ) {
+    return true;
+  }
+
+  // Reparent the Omnibox popup. Popup is not a BubbleDialogDelegate, so it
+  // fails the check below.
+  if (widget_identifier == omnibox::kOmniboxWebUIPopupWidgetId) {
     return true;
   }
 
@@ -523,6 +534,14 @@ views::View* ImmersiveModeFocusSearchMac::FindNextFocusableView(
     AnchoredDialogPolicy can_go_into_anchored_dialog,
     views::FocusTraversable** focus_traversable,
     views::View** focus_traversable_view) {
+  // Re-entering ImmersiveModeFocusSearchMac. This means that the last focus
+  // search fails to find a focusable view in the widget. Early exit to
+  // prevent infinite focus search loop.
+  if (finding_next_focusable_view_) {
+    return nullptr;
+  }
+  base::AutoReset<bool> auto_reset(&finding_next_focusable_view_, true);
+
   // Search in the `starting_view` traversable tree.
   views::FocusTraversable* starting_focus_traversable =
       starting_view->GetFocusTraversable();
@@ -566,12 +585,6 @@ views::View* ImmersiveModeFocusSearchMac::FindNextFocusableView(
       traverse_order.size();
   return focus_manager->GetNextFocusableView(
       nullptr, traverse_order[next_widget_ind], reverse, true);
-}
-
-std::unique_ptr<ImmersiveModeController> CreateImmersiveModeControllerMac(
-    const BrowserView* browser_view) {
-  return std::make_unique<ImmersiveModeControllerMac>(
-      /*separate_tab_strip=*/browser_view->UsesImmersiveFullscreenTabbedMode());
 }
 
 ImmersiveModeOverlayWidgetObserver::ImmersiveModeOverlayWidgetObserver(

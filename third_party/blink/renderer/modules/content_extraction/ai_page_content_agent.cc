@@ -8,6 +8,7 @@
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/trace_id_helper.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom-blink.h"
 #include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom-forward.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
@@ -18,6 +19,7 @@
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
 #include "third_party/blink/renderer/core/editing/selection_template.h"
+#include "third_party/blink/renderer/core/exported/web_view_impl.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
@@ -50,14 +52,17 @@
 #include "third_party/blink/renderer/core/layout/table/layout_table_caption.h"
 #include "third_party/blink/renderer/core/layout/table/layout_table_row.h"
 #include "third_party/blink/renderer/core/layout/table/layout_table_section.h"
+#include "third_party/blink/renderer/core/page/chrome_client.h"
+#include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/clip_path_clipper.h"
-#include "third_party/blink/renderer/core/script_tools/automation_delegate_supplement.h"
+#include "third_party/blink/renderer/core/script_tools/model_context_supplement.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_object.h"
 #include "third_party/blink/renderer/modules/content_extraction/ai_page_content_debug_utils.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
+#include "third_party/blink/renderer/platform/widget/frame_widget.h"
 #include "ui/accessibility/ax_role_properties.h"
 #include "ui/gfx/geometry/point_conversions.h"
 #include "ui/gfx/geometry/rect_conversions.h"
@@ -107,7 +112,8 @@ gfx::Rect ComputeVisibleBoundingBox(const LayoutObject& object) {
   // Get the object's local bounding box before viewport clipping.
   gfx::RectF object_rect =
       ClipPathClipper::LocalClipPathBoundingBox(object).value_or(
-          object.LocalBoundingBoxRectForAccessibility());
+          object.LocalBoundingBoxRectForAccessibility(
+              LayoutObject::IncludeDescendants(false)));
 
   // Transform the local bounding box to viewport coordinates, applying:
   // 1. All CSS transforms (translate, scale, rotate, etc.)
@@ -148,7 +154,9 @@ gfx::Rect ComputeOuterBoundingBox(const LayoutObject& object) {
     return gfx::ToEnclosingRect(absolute_quad.BoundingBox());
   }
 
-  return object.AbsoluteBoundingBoxRect(kMapToViewportFlags);
+  gfx::Rect absolute_box = object.AbsoluteBoundingBoxRect(kMapToViewportFlags);
+  // Normalize empty boxes to make test results easier to read.
+  return absolute_box.IsEmpty() ? gfx::Rect() : absolute_box;
 }
 
 // Processes fragment bounding boxes for layout objects that can be split.
@@ -185,9 +193,6 @@ void ComputeFragmentBoundingBoxes(
           fragment_enclosing_rect_in_viewport_coords);
     }
   }
-
-  // AddFragmentRectsAfterClipping(object, geometry.visible_bounding_box,
-  //                               fragment_rects_in_viewport_coords);
 
   if (fragment_rects_in_viewport_coords.size() > 1) {
     geometry.fragment_visible_bounding_boxes =
@@ -413,6 +418,10 @@ void AddClickabilityReasons(
     interaction_info.clickability_reasons.push_back(Reason::kCursorPointer);
   }
 
+  if (style.AffectedByHover()) {
+    interaction_info.clickability_reasons.push_back(Reason::kHoverPseudoClass);
+  }
+
   if (ui::IsClickable(role)) {
     interaction_info.clickability_reasons.push_back(Reason::kAriaRole);
   }
@@ -468,11 +477,6 @@ bool ShouldSkipSubtree(const LayoutObject& object) {
   // List markers are communicated by the kOrderedList and kUnorderedList
   // annotated roles.
   if (object.IsListMarker()) {
-    return true;
-  }
-
-  // Table caption is communicated by the table name.
-  if (object.IsTableCaption()) {
     return true;
   }
 
@@ -651,6 +655,8 @@ void ProcessFormNode(const HTMLFormElement& form_element,
   if (const auto& name = form_element.GetName()) {
     form_data->form_name = name;
   }
+  form_data->action_url = KURL(form_element.action());
+
   attributes.form_data = std::move(form_data);
 }
 
@@ -702,6 +708,9 @@ void ProcessFormControlNode(const HTMLFormControlElement& form_control_element,
       auto select_option = mojom::blink::AIPageContentSelectOption::New();
       select_option->value = option_element.value();
       select_option->text = option_element.text();
+      if (select_option->text.empty()) {
+        select_option->text = option_element.DisplayLabel();
+      }
       select_option->is_selected = option_element.Selected();
       select_option->disabled = option_element.IsDisabledFormControl();
       form_control_data->select_options.push_back(std::move(select_option));
@@ -818,6 +827,25 @@ const mojom::blink::AIPageContentNode* FindContentNode(
     }
   }
   return nullptr;
+}
+
+// Recursively traverses the content node tree, applying the given `offset` to
+// all geometry fields. This is used to translate the coordinates of a subtree
+// from one coordinate space to another, for example, to adjust a popup's
+// geometry to be relative to the main frame's viewport.
+void OffsetNodeGeometry(mojom::blink::AIPageContentNode& node,
+                        const gfx::Vector2d& offset) {
+  if (node.content_attributes && node.content_attributes->geometry) {
+    node.content_attributes->geometry->outer_bounding_box.Offset(offset);
+    node.content_attributes->geometry->visible_bounding_box.Offset(offset);
+    for (gfx::Rect& rect :
+         node.content_attributes->geometry->fragment_visible_bounding_boxes) {
+      rect.Offset(offset);
+    }
+  }
+  for (mojom::blink::AIPageContentNodePtr& child : node.children_nodes) {
+    OffsetNodeGeometry(*child, offset);
+  }
 }
 
 }  // namespace
@@ -1024,16 +1052,7 @@ mojom::blink::AIPageContentPtr AIPageContentAgent::ContentBuilder::Build(
         });
   }
 
-  // Running lifecycle beyond layout is expensive and the information is only
-  // needed to compute geometry. Limit the update to layout if we don't need
-  // the geometry.
-  if (actionable_mode()) {
-    document.View()->UpdateAllLifecyclePhasesExceptPaint(
-        DocumentUpdateReason::kUnknown);
-  } else {
-    document.View()->UpdateLifecycleToLayoutClean(
-        DocumentUpdateReason::kUnknown);
-  }
+  UpdateLifecycle(document);
 
   auto* layout_view = document.GetLayoutView();
   auto* document_style = layout_view->Style();
@@ -1061,6 +1080,48 @@ mojom::blink::AIPageContentPtr AIPageContentAgent::ContentBuilder::Build(
   }
 
   return page_content;
+}
+
+void AIPageContentAgent::ContentBuilder::UpdateLifecycle(Document& document) {
+  // Running lifecycle beyond layout is expensive and the information is only
+  // needed to compute geometry. Limit the update to layout if we don't need
+  // the geometry.
+  if (actionable_mode()) {
+    document.View()->UpdateAllLifecyclePhasesExceptPaint(
+        DocumentUpdateReason::kUnknown);
+  } else {
+    document.View()->UpdateLifecycleToLayoutClean(
+        DocumentUpdateReason::kUnknown);
+  }
+
+  // If there's any popup opened, update the popup as well.
+  WebViewImpl* web_view = document.GetPage()->GetChromeClient().GetWebView();
+  WebPagePopupImpl* web_popup = web_view->GetPagePopup();
+  if (!web_popup) {
+    return;
+  }
+  LocalDOMWindow* popup_window = web_popup->Window();
+  if (!popup_window) {
+    return;
+  }
+
+  LocalFrame* popup_frame = popup_window->GetFrame();
+  if (!popup_frame) {
+    return;
+  }
+
+  Document* popup_document = popup_frame->GetDocument();
+  if (!popup_document) {
+    return;
+  }
+
+  if (actionable_mode()) {
+    popup_document->View()->UpdateAllLifecyclePhasesExceptPaint(
+        DocumentUpdateReason::kUnknown);
+  } else {
+    popup_document->View()->UpdateLifecycleToLayoutClean(
+        DocumentUpdateReason::kUnknown);
+  }
 }
 
 void AIPageContentAgent::ContentBuilder::AddMetaData(
@@ -1233,7 +1294,6 @@ void AIPageContentAgent::ContentBuilder::ProcessIframe(
 
   auto iframe_data = mojom::blink::AIPageContentIframeData::New();
   iframe_data->frame_token = frame.GetFrameToken();
-  iframe_data->likely_ad_frame = frame.IsAdFrame();
 
   content_node.content_attributes->iframe_data = std::move(iframe_data);
 
@@ -1401,6 +1461,8 @@ AIPageContentAgent::ContentBuilder::MaybeGenerateContentNode(
 
   AddNodeGeometry(object, attributes);
   AddLabel(object, attributes);
+
+  attributes.is_ad_related = element && element->IsAdRelated();
 
   return content_node;
 }
@@ -1588,8 +1650,7 @@ void AIPageContentAgent::ContentBuilder::AddNodeGeometry(
 }
 
 void AIPageContentAgent::ContentBuilder::ComputeHitTestableNodesInViewport(
-    const LocalFrame& frame,
-    mojom::blink::AIPageContentFrameData& frame_data) {
+    const LocalFrame& frame) {
   if (!actionable_mode()) {
     return;
   }
@@ -1620,6 +1681,31 @@ void AIPageContentAgent::ContentBuilder::ComputeHitTestableNodesInViewport(
       nullptr, std::move(hit_node_cb));
   HitTestResult result(request, location);
   document.GetLayoutView()->HitTest(location, result);
+
+  // TODO(averge): At this point, hit_nodes may contain duplicates due to
+  // multiple passes over the same node while hit testing. These need to
+  // be filtered out. The most correct approach is probably to keep the first
+  // occurrence of each node, because it's more likely it was added in a later
+  // paint phase, which is more representative of what the page actually looks
+  // like to the user (or actor).
+  //
+  // result.ListBasedTestResult() already returns a NodeSet with predictable
+  // iteration order based on order of insertion, which is a fancy way of saying
+  // it already handles duplicates in exactly the way we need. We should eval
+  // using the NodeSet result directly, and if we see improvement, remove
+  // hit_nodes and the associated callback entirely.
+  if (base::FeatureList::IsEnabled(
+          blink::features::kAIPageContentZOrderEarlyFiltering)) {
+    std::vector<DOMNodeId> nodes_from_result;
+    for (auto& gc_member : result.ListBasedTestResult()) {
+      Node& node = *gc_member;
+      if (node.GetLayoutObject()) {
+        nodes_from_result.push_back(DOMNodeIds::IdForNode(&node));
+      }
+    }
+
+    hit_nodes = nodes_from_result;
+  }
 
   int32_t next_z_order = 1;
   std::for_each(hit_nodes.rbegin(), hit_nodes.rend(), [&](auto node_id) {
@@ -1687,15 +1773,16 @@ void AIPageContentAgent::ContentBuilder::AddFrameData(
     }
   }
 
-  ComputeHitTestableNodesInViewport(frame, frame_data);
+  ComputeHitTestableNodesInViewport(frame);
 
-  if (auto* automation_delegate =
-          AutomationDelegateSupplement::GetIfExists(*frame.DomWindow())) {
-    automation_delegate->ForEachScriptTool(
-        [&](const mojom::blink::ScriptTool& tool) {
-          frame_data.script_tools.push_back(tool.Clone());
-        });
+  if (auto* model_context = ModelContextSupplement::GetIfExists(
+          *frame.DomWindow()->navigator())) {
+    model_context->ForEachScriptTool([&](const mojom::blink::ScriptTool& tool) {
+      frame_data.script_tools.push_back(tool.Clone());
+    });
   }
+
+  MaybeAddPopupData(frame, frame_data);
 }
 
 void AIPageContentAgent::ContentBuilder::AddFrameInteractionInfo(
@@ -1730,6 +1817,73 @@ void AIPageContentAgent::ContentBuilder::AddFrameInteractionInfo(
       selection.end_offset = end_position.ComputeOffsetInContainerNode();
     }
   }
+}
+
+void AIPageContentAgent::ContentBuilder::MaybeAddPopupData(
+    LocalFrame& frame,
+    mojom::blink::AIPageContentFrameData& frame_data) {
+  if (!base::FeatureList::IsEnabled(
+          blink::features::kAIPageContentIncludePopupWindows)) {
+    return;
+  }
+
+  // Check for an open popup window.
+  WebViewImpl* web_view = frame.GetPage()->GetChromeClient().GetWebView();
+  if (!web_view->HasOpenedPopup()) {
+    return;
+  }
+
+  // Fetch the popup window and the element that opened it.
+  WebPagePopupImpl* web_popup = web_view->GetPagePopup();
+  Element& opener = web_popup->OwnerElement();
+
+  // Only fill AIPageContentPopup if this frame owns the popup.
+  if (opener.GetDocument() != frame.GetDocument()) {
+    return;
+  }
+  LocalDOMWindow* popup_window = web_popup->Window();
+  if (!popup_window) {
+    return;
+  }
+  LocalFrame* popup_frame = popup_window->GetFrame();
+  if (!popup_frame) {
+    return;
+  }
+  LayoutView* web_popup_layout_view = popup_frame->ContentLayoutObject();
+  if (!web_popup_layout_view) {
+    return;
+  }
+
+  ComputeHitTestableNodesInViewport(*popup_frame);
+
+  auto mojom_popup = mojom::blink::AIPageContentPopup::New();
+  // Build the ContentNode tree.
+  auto web_popup_root_node = MaybeGenerateContentNode(
+      *web_popup_layout_view, *web_popup_layout_view->Style());
+  CHECK(web_popup_root_node);
+  WalkChildren(*web_popup_layout_view, *web_popup_root_node,
+               *web_popup_layout_view->Style());
+
+  // Offset the geometry relative to the main frame.
+  gfx::Rect main_frame_view_rect_dips = options_->main_frame_view_rect_in_dips;
+  gfx::Rect popup_view_rect_in_dips =
+      static_cast<WebPagePopup*>(web_popup)->ViewRect();
+  gfx::Vector2d offset_in_dips = popup_view_rect_in_dips.OffsetFromOrigin() -
+                                 main_frame_view_rect_dips.OffsetFromOrigin();
+
+  FrameWidget* local_frame_widget = frame.GetWidgetForLocalRoot();
+  CHECK(local_frame_widget);
+  gfx::Point offset_in_pixels =
+      gfx::ToFlooredPoint(local_frame_widget->DIPsToBlinkSpace(
+          gfx::PointF(gfx::Point() + offset_in_dips)));
+  OffsetNodeGeometry(*web_popup_root_node, offset_in_pixels.OffsetFromOrigin());
+
+  mojom_popup->root_node = std::move(web_popup_root_node);
+
+  // Add identifier for the node which opened the popup.
+  mojom_popup->opener_dom_node_id = opener.GetDomNodeId();
+
+  frame_data.popup = std::move(mojom_popup);
 }
 
 void AIPageContentAgent::ContentBuilder::AddInteractionInfoForHitTesting(
@@ -1795,6 +1949,9 @@ void AIPageContentAgent::ContentBuilder::AddNodeInteractionInfo(
   if (disabled) {
     if (node_interaction_info->document_scoped_z_order) {
       attributes.node_interaction_info = std::move(node_interaction_info);
+      // `is_disabled` is only set for nodes with `document_scoped_z_order`.
+      // This implies offscreen nodes will not be marked as disabled.
+      attributes.node_interaction_info->is_disabled = true;
     }
 
     return;

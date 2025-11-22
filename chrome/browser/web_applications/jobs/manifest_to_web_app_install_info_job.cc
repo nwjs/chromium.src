@@ -20,7 +20,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/functional/function_ref.h"
 #include "base/location.h"
-#include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -150,7 +149,6 @@ void PopulateWebAppShortcutsMenuItemInfos(
   int num_shortcut_icons = 0;
   for (const auto& shortcut : shortcuts) {
     if (web_app_shortcut_infos.size() >= kMaxApplicationDockMenuItems) {
-      DLOG(ERROR) << "Too many shortcuts";
       break;
     }
 
@@ -488,6 +486,11 @@ void ManifestToWebAppInstallInfoJob::FetchIcons(
   FetchIconsInternal(web_contents, icon_url_modifications, icon_url_options);
 }
 
+IconsDownloadedResult ManifestToWebAppInstallInfoJob::icon_download_result()
+    const {
+  return icon_fetch_result_;
+}
+
 ManifestToWebAppInstallInfoJob::ManifestToWebAppInstallInfoJob(
     const blink::mojom::Manifest& manifest,
     WebAppDataRetriever& data_retriever,
@@ -637,10 +640,14 @@ void ManifestToWebAppInstallInfoJob::ParseManifestAndPopulateInfo() {
   UpdateWebAppInstallInfoIconsFromManifestIfNeeded(manifest_->icons,
                                                    &install_info());
   if (base::FeatureList::IsEnabled(features::kWebAppUsePrimaryIcon)) {
-    std::optional<apps::IconInfo> primary_icon_metadata =
-        GetTrustedIconsFromManifest(manifest_->icons);
-    if (primary_icon_metadata) {
-      install_info().trusted_icons = {*primary_icon_metadata};
+    if (options_.use_manifest_icons_as_trusted) {
+      install_info().trusted_icons = install_info().manifest_icons;
+    } else {
+      std::optional<apps::IconInfo> primary_icon_metadata =
+          GetTrustedIconsFromManifest(manifest_->icons);
+      if (primary_icon_metadata) {
+        install_info().trusted_icons = {*primary_icon_metadata};
+      }
     }
   }
 
@@ -715,6 +722,7 @@ void ManifestToWebAppInstallInfoJob::OnIconsFetchedGetInstallInfo(
     IconsDownloadedResult result,
     IconsMap icons_map,
     DownloadedIconsHttpResults icons_http_results) {
+  icon_fetch_result_ = result;
   base::Value::Dict* icons_downloaded =
       debug_data_->EnsureDict("icons_retrieved");
   for (const auto& [url, bitmap_vector] : icons_map) {
@@ -735,7 +743,11 @@ void ManifestToWebAppInstallInfoJob::OnIconsFetchedGetInstallInfo(
   // been downloaded.
   PopulateProductIcons(&install_info(), &icons_map);
   if (base::FeatureList::IsEnabled(features::kWebAppUsePrimaryIcon)) {
-    PopulateTrustedIconBitmaps(install_info(), icons_map);
+    if (options_.use_manifest_icons_as_trusted) {
+      install_info().trusted_icon_bitmaps = install_info().icon_bitmaps;
+    } else {
+      PopulateTrustedIconBitmaps(install_info(), icons_map);
+    }
   }
   PopulateOtherIcons(&install_info(), icons_map);
   RecordDownloadedIconsResultAndHttpStatusCodes(result, icons_http_results);

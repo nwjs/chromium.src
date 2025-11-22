@@ -58,8 +58,6 @@ import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.RequestDesktopUtilsUnitTest.ShadowDisplayAndroid;
 import org.chromium.chrome.browser.tab.RequestDesktopUtilsUnitTest.ShadowDisplayAndroidManager;
-import org.chromium.chrome.browser.tab.RequestDesktopUtilsUnitTest.ShadowDisplayUtil;
-import org.chromium.chrome.browser.tab.RequestDesktopUtilsUnitTest.ShadowSysUtils;
 import org.chromium.chrome.browser.tab.RequestDesktopUtilsUnitTest.ShadowTabUtils;
 import org.chromium.chrome.test.OverrideContextWrapperTestRule;
 import org.chromium.components.browser_ui.site_settings.SingleCategorySettingsConstants;
@@ -91,29 +89,11 @@ import java.util.Map;
 @Config(
         manifest = Config.NONE,
         shadows = {
-            ShadowSysUtils.class,
             ShadowDisplayAndroid.class,
             ShadowDisplayAndroidManager.class,
-            ShadowTabUtils.class,
-            ShadowDisplayUtil.class
+            ShadowTabUtils.class
         })
 public class RequestDesktopUtilsUnitTest {
-
-    /** Shadows {@link SysUtils} class for testing. */
-    @Implements(SysUtils.class)
-    public static class ShadowSysUtils {
-        private static int sMemoryInMB;
-
-        public static void setMemoryInMB(int memoryInMB) {
-            sMemoryInMB = memoryInMB;
-        }
-
-        @Implementation
-        public static int amountOfPhysicalMemoryKB() {
-            return sMemoryInMB * ConversionUtils.KILOBYTES_PER_MEGABYTE;
-        }
-    }
-
     @Implements(DisplayAndroid.class)
     static class ShadowDisplayAndroid {
         private static DisplayAndroid sDisplayAndroid;
@@ -163,20 +143,6 @@ public class RequestDesktopUtilsUnitTest {
         @Implementation
         public static boolean readRequestDesktopSiteContentSettings(Profile profile, GURL url) {
             return sIsContentSettingDesktop;
-        }
-    }
-
-    @Implements(DisplayUtil.class)
-    static class ShadowDisplayUtil {
-        private static int sSmallestScreenWidthDp;
-
-        public static void setCurrentSmallestScreenWidth(int smallestScreenWidthDp) {
-            sSmallestScreenWidthDp = smallestScreenWidthDp;
-        }
-
-        @Implementation
-        public static int getCurrentSmallestScreenWidth(Context context) {
-            return sSmallestScreenWidthDp;
         }
     }
 
@@ -263,7 +229,8 @@ public class RequestDesktopUtilsUnitTest {
 
         TrackerFactory.setTrackerForTests(mTracker);
 
-        ShadowSysUtils.setMemoryInMB(7000);
+        SysUtils.setAmountOfPhysicalMemoryKbForTesting(
+                7000 * ConversionUtils.KILOBYTES_PER_MEGABYTE);
         ShadowDisplayAndroid.setDisplayAndroid(mDisplayAndroid);
         when(mDisplayAndroid.getDisplayWidth()).thenReturn(1600);
         when(mDisplayAndroid.getDisplayHeight()).thenReturn(2560);
@@ -271,7 +238,7 @@ public class RequestDesktopUtilsUnitTest {
         when(mDisplayAndroid.getYdpi()).thenReturn(276.5f);
         ShadowDisplayAndroidManager.setDisplay(mDisplay);
         when(mDisplay.getDisplayId()).thenReturn(Display.DEFAULT_DISPLAY);
-        ShadowDisplayUtil.setCurrentSmallestScreenWidth(800);
+        DisplayUtil.setCurrentSmallestScreenWidthForTesting(800);
         when(mUserPrefsJni.get(mProfile)).thenReturn(mPrefService);
         doAnswer(invocation -> mWindowSetting)
                 .when(mPrefService)
@@ -581,7 +548,8 @@ public class RequestDesktopUtilsUnitTest {
     @Test
     public void testShouldDefaultEnableGlobalSetting_IsAndroidDesktop() {
         mOverrideContextWrapperTestRule.setIsDesktop(true);
-        ShadowSysUtils.setMemoryInMB(4000);
+        SysUtils.setAmountOfPhysicalMemoryKbForTesting(
+                4000 * ConversionUtils.KILOBYTES_PER_MEGABYTE);
         boolean shouldDefaultEnable =
                 RequestDesktopUtils.shouldDefaultEnableGlobalSetting(11, mActivity);
         Assert.assertTrue(
@@ -592,7 +560,8 @@ public class RequestDesktopUtilsUnitTest {
 
     @Test
     public void testShouldDefaultEnableGlobalSetting_MemoryThreshold() {
-        ShadowSysUtils.setMemoryInMB(6000);
+        SysUtils.setAmountOfPhysicalMemoryKbForTesting(
+                6000 * ConversionUtils.KILOBYTES_PER_MEGABYTE);
         boolean shouldDefaultEnable =
                 RequestDesktopUtils.shouldDefaultEnableGlobalSetting(
                         RequestDesktopUtils
@@ -846,7 +815,7 @@ public class RequestDesktopUtilsUnitTest {
     public void testMaybeDefaultEnableWindowSetting_PhoneSizedScreen() {
         mWindowSetting = false;
         mIsDefaultValuePreference = true;
-        ShadowDisplayUtil.setCurrentSmallestScreenWidth(400);
+        DisplayUtil.setCurrentSmallestScreenWidthForTesting(400);
         RequestDesktopUtils.maybeDefaultEnableWindowSetting(mActivity, mProfile);
         Assert.assertFalse(
                 "Desktop site window setting should not be default enabled when the smallest "
@@ -974,14 +943,14 @@ public class RequestDesktopUtilsUnitTest {
 
     @Test
     @EnableFeatures(ChromeFeatureList.DESKTOP_UA_ON_CONNECTED_DISPLAY)
-    public void testShouldOverrideDesktopSite_OEMAllowlistNotSet_shouldNotOverride() {
+    public void testShouldOverrideDesktopSite_OEMAllowlistNotSet_shouldOverride() {
         when(mDisplay.getDisplayId()).thenReturn(/*non built-in display*/ 2);
         String originalManufacturer = Build.MANUFACTURER;
         try {
             ReflectionHelpers.setStaticField(Build.class, "MANUFACTURER", "samsung");
             boolean shouldOverride =
                     RequestDesktopUtils.shouldOverrideDesktopSite(mProfile, mGoogleUrl, mActivity);
-            Assert.assertFalse("Desktop site should not be overridden.", shouldOverride);
+            Assert.assertTrue("Desktop site should be overridden.", shouldOverride);
         } finally {
             ReflectionHelpers.setStaticField(Build.class, "MANUFACTURER", originalManufacturer);
             RequestDesktopUtils.sDesktopUAAllowedOnExternalDisplayForOem = null;

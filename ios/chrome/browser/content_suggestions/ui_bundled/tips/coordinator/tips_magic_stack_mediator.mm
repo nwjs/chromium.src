@@ -14,6 +14,7 @@
 #import "components/commerce/core/price_tracking_utils.h"
 #import "components/commerce/core/shopping_service.h"
 #import "components/image_fetcher/core/image_data_fetcher.h"
+#import "components/ntp_tiles/pref_names.h"
 #import "components/power_bookmarks/core/power_bookmark_utils.h"
 #import "components/power_bookmarks/core/proto/power_bookmark_meta.pb.h"
 #import "components/prefs/ios/pref_observer_bridge.h"
@@ -21,12 +22,10 @@
 #import "components/prefs/pref_service.h"
 #import "components/segmentation_platform/embedder/home_modules/tips_manager/constants.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_view_controller_audience.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/tips/model/tips_prefs.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tips/ui/tips_magic_stack_consumer.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tips/ui/tips_module_audience.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tips/ui/tips_module_consumer_source.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tips/ui/tips_module_state.h"
-#import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "net/traffic_annotation/network_traffic_annotation.h"
 #import "url/gurl.h"
@@ -91,7 +90,7 @@ using segmentation_platform::TipIdentifier;
       _profilePrefChangeRegistrar.Init(profilePrefService);
 
       _prefObserverBridge->ObserveChangesForPreference(
-          (prefs::kHomeCustomizationMagicStackTipsEnabled),
+          ntp_tiles::prefs::kTipsHomeModuleEnabled,
           &_profilePrefChangeRegistrar);
     }
   }
@@ -105,10 +104,8 @@ using segmentation_platform::TipIdentifier;
   _bookmarkModel = nullptr;
   _consumer = nil;
 
-  if (_prefObserverBridge) {
-    _profilePrefChangeRegistrar.RemoveAll();
-    _prefObserverBridge.reset();
-  }
+  _profilePrefChangeRegistrar.RemoveAll();
+  _prefObserverBridge.reset();
   _profilePrefService = nil;
 }
 
@@ -124,10 +121,6 @@ using segmentation_platform::TipIdentifier;
   }
 }
 
-- (void)disableModule {
-  tips_prefs::DisableTipsInMagicStack(_profilePrefService);
-}
-
 - (void)removeModuleWithCompletion:(ProceduralBlock)completion {
   [self.delegate removeTipsModuleWithCompletion:completion];
 }
@@ -135,7 +128,10 @@ using segmentation_platform::TipIdentifier;
 #pragma mark - PrefObserverDelegate
 
 - (void)onPreferenceChanged:(const std::string&)preferenceName {
-  if (tips_prefs::IsTipsInMagicStackDisabled(_profilePrefService)) {
+  CHECK(_profilePrefService);
+  CHECK_EQ(preferenceName, ntp_tiles::prefs::kTipsHomeModuleEnabled);
+  if (!_profilePrefService->GetBoolean(
+          ntp_tiles::prefs::kTipsHomeModuleEnabled)) {
     [self.delegate removeTipsModuleWithCompletion:nil];
   }
 }

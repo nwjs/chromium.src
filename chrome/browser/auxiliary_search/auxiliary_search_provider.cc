@@ -44,7 +44,6 @@ using visited_url_ranking::ResultStatus;
 using visited_url_ranking::URLVisitAggregate;
 using visited_url_ranking::URLVisitAggregatesTransformType;
 using visited_url_ranking::URLVisitsMetadata;
-using visited_url_ranking::URLVisitVariantHelper;
 using visited_url_ranking::VisitedURLRankingService;
 using visited_url_ranking::VisitedURLRankingServiceFactory;
 
@@ -131,7 +130,8 @@ base::WeakPtr<TabAndroid> FilterNonSensitiveSearchableTab(
 
 void OnDataReady(JNIEnv* env,
                  base::android::ScopedJavaGlobalRef<jobject> j_callback,
-                 std::vector<jni_zero::ScopedJavaLocalRef<jobject>> entries) {
+                 std::vector<jni_zero::ScopedJavaLocalRef<jobject>> entries,
+                 const visited_url_ranking::URLVisitsMetadata& metadata) {
   Java_AuxiliarySearchBridge_onDataReady(env, entries, j_callback);
 }
 
@@ -145,14 +145,10 @@ AuxiliarySearchProvider::~AuxiliarySearchProvider() = default;
 
 void AuxiliarySearchProvider::GetNonSensitiveTabs(
     JNIEnv* env,
-    const base::android::JavaParamRef<jobjectArray>& j_tabs_android,
+    std::vector<TabAndroid*> tabs,
     const base::android::JavaParamRef<jobject>& j_callback_obj) const {
-  std::vector<raw_ptr<TabAndroid, VectorExperimental>> all_tabs =
-      TabAndroid::GetAllNativeTabs(
-          env, base::android::ScopedJavaLocalRef<jobjectArray>(j_tabs_android));
-
   GetNonSensitiveTabsInternal(
-      std::move(all_tabs),
+      std::move(tabs),
       base::BindOnce(
           &CallJavaCallbackWithTabList, env,
           base::android::ScopedJavaGlobalRef<jobject>(j_callback_obj)));
@@ -192,13 +188,13 @@ void AuxiliarySearchProvider::GetCustomTabs(
 
 // static
 void AuxiliarySearchProvider::FilterTabsByScheme(
-    std::vector<raw_ptr<TabAndroid, VectorExperimental>>& tabs) {
+    std::vector<TabAndroid*>& tabs) {
   std::erase_if(
       tabs, [](const auto& tab) { return !IsSchemeAllowed(tab->GetURL()); });
 }
 
 void AuxiliarySearchProvider::GetNonSensitiveTabsInternal(
-    std::vector<raw_ptr<TabAndroid, VectorExperimental>> all_tabs,
+    std::vector<TabAndroid*> all_tabs,
     NonSensitiveTabsCallback callback) const {
   FilterTabsByScheme(all_tabs);
 

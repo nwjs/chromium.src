@@ -148,6 +148,9 @@ public class MockWebContents implements WebContents, WebContentsObserver.Observa
     }
 
     @Override
+    public void discard(Runnable onDiscarded) {}
+
+    @Override
     public boolean isLoading() {
         return false;
     }
@@ -408,6 +411,9 @@ public class MockWebContents implements WebContents, WebContentsObserver.Observa
 
     @Override
     public void updateWindowControlsOverlay(Rect rect) {}
+
+    @Override
+    public void setSupportsDraggableRegions(boolean supportsDraggableRegions) {}
 
     @Override
     public <T extends UserData> @Nullable T getOrSetUserData(

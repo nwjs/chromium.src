@@ -32,7 +32,6 @@
 namespace headless {
 
 namespace switches {
-static const char kResetResults[] = "reset-results";
 static const char kDumpDevToolsProtocol[] = "dump-devtools-protocol";
 }  // namespace switches
 
@@ -181,8 +180,7 @@ void HeadlessProtocolBrowserTest::ProcessTestResult(
   base::ScopedAllowBlockingForTesting allow_blocking;
   base::FilePath expectation_path = GetTestExpectationFilePath();
 
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kResetResults)) {
+  if (ShouldUpdateExpectations()) {
     LOG(INFO) << "Updating expectations at " << expectation_path;
     bool succcess = base::WriteFile(expectation_path, test_result);
     CHECK(succcess);
@@ -351,6 +349,8 @@ HEADLESS_PROTOCOL_TEST(WindowOuterSize, "shared/window-outer-size.js")
 HEADLESS_PROTOCOL_TEST(WindowInnerSize, "shared/window-inner-size.js")
 HEADLESS_PROTOCOL_TEST(WindowInnerSizeScaled,
                        "shared/window-inner-size-scaled.js")
+HEADLESS_PROTOCOL_TEST(WindowInnerSizeLargerThanScreen,
+                       "shared/window-inner-size-larger-than-screen.js")
 
 // This is not shared because Chrome Headless Mode window.resizeTo() only works
 // under certain conditions which are note currently satisfied by the test.
@@ -609,8 +609,7 @@ HEADLESS_PROTOCOL_TEST(RequestFullscreen, "shared/request-fullscreen.js")
 HEADLESS_PROTOCOL_TEST(RequestFullscreenOnSecondaryScreen,
                        "shared/request-fullscreen-on-secondary-screen.js")
 
-// Fails on all platforms, see https://crbug.com/429017383
-HEADLESS_PROTOCOL_TEST(DISABLED_MinimizeRestoreWindow,
+HEADLESS_PROTOCOL_TEST(MinimizeRestoreWindow,
                        "shared/minimize-restore-window.js")
 
 HEADLESS_PROTOCOL_TEST(MaximizeRestoreWindow,
@@ -632,7 +631,13 @@ HEADLESS_PROTOCOL_TEST(ScreenRotationSecondaryScreen,
 HEADLESS_PROTOCOL_TEST(MoveWindowBetweenScreens,
                        "shared/move-window-between-screens.js")
 
-HEADLESS_PROTOCOL_TEST(CreateTargetSecondaryScreen,
+// This fails on Mac with RenderDocument enabled, http://crbug.com/446689489.
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_CreateTargetSecondaryScreen DISABLED_CreateTargetSecondaryScreen
+#else
+#define MAYBE_CreateTargetSecondaryScreen CreateTargetSecondaryScreen
+#endif
+HEADLESS_PROTOCOL_TEST(MAYBE_CreateTargetSecondaryScreen,
                        "shared/create-target-secondary-screen.js")
 
 HEADLESS_PROTOCOL_TEST(CreateTargetWindowState,
@@ -640,6 +645,9 @@ HEADLESS_PROTOCOL_TEST(CreateTargetWindowState,
 
 HEADLESS_PROTOCOL_TEST(DocumentVisibilityState,
                        "shared/document-visibility-state.js")
+
+HEADLESS_PROTOCOL_TEST(DocumentVisibilityStatePopup,
+                       "shared/document-visibility-state-popup.js")
 
 // This currently results in an unexpected screen orientation type,
 // see http://crbug.com/398150465.

@@ -821,27 +821,74 @@ public class ContentSettingsResources {
     }
 
     public static int getCategorySummary(@ContentSetting int value, boolean isOneTime) {
-        return getCategorySummary(value, isOneTime, /* isApproximateGeolocation= */ false);
+        return getCategorySummary(
+                ContentSettingsType.DEFAULT,
+                value,
+                isOneTime,
+                /* isApproximateGeolocation= */ false,
+                /* isOnlyPreciseLocationBlockedInOs= */ false);
     }
 
     /**
      * Returns the string resource id for a given ContentSetting to show with a permission category.
      *
+     * @param type The ContentSettingsType for which we want the resource.
      * @param value The ContentSetting for which we want the resource.
      * @param isOneTime Whether the content setting value has a OneTime session model.
+     * @param isApproximateGeolocation Whether the geolocation is approximate.
      */
     public static int getCategorySummary(
-            @ContentSetting int value, boolean isOneTime, boolean isApproximateGeolocation) {
+            @ContentSettingsType.EnumType int type,
+            @ContentSetting int value,
+            boolean isOneTime,
+            boolean isApproximateGeolocation) {
+        return getCategorySummary(
+                type,
+                value,
+                isOneTime,
+                isApproximateGeolocation,
+                /* isOnlyPreciseLocationBlockedInOs= */ false);
+    }
+
+    /**
+     * Returns the string resource id for a given ContentSetting to show with a permission category.
+     *
+     * @param type The ContentSettingsType for which we want the resource.
+     * @param value The ContentSetting for which we want the resource.
+     * @param isOneTime Whether the content setting value has a OneTime session model.
+     * @param isApproximateGeolocation Whether the geolocation is approximate.
+     * @param isOnlyPreciseLocationBlockedInOs Whether only precise location is blocked in the OS
+     *     (but coarse is granted).
+     */
+    public static int getCategorySummary(
+            @ContentSettingsType.EnumType int type,
+            @ContentSetting int value,
+            boolean isOneTime,
+            boolean isApproximateGeolocation,
+            boolean isOnlyPreciseLocationBlockedInOs) {
         switch (value) {
             case ContentSetting.ALLOW:
-                if (isApproximateGeolocation) {
+                if (type == ContentSettingsType.GEOLOCATION_WITH_OPTIONS) {
+                    if (isApproximateGeolocation) {
+                        return isOneTime
+                                ? R.string.website_settings_category_approx_geo_allowed_this_time
+                                : R.string.website_settings_category_approx_geo_allowed;
+                    }
+                    if (isOnlyPreciseLocationBlockedInOs) {
+                        return isOneTime
+                                ? R.string
+                                        .website_settings_category_precise_geo_allowed_this_time_using_approximate
+                                : R.string
+                                        .website_settings_category_precise_geo_allowed_using_approximate;
+                    }
                     return isOneTime
-                            ? R.string.website_settings_category_approx_geo_allowed_this_time
-                            : R.string.website_settings_category_approx_geo_allowed;
+                            ? R.string.website_settings_category_precise_geo_allowed_this_time
+                            : R.string.website_settings_category_precise_geo_allowed;
                 }
                 return isOneTime
                         ? R.string.website_settings_category_allowed_this_time
                         : R.string.website_settings_category_allowed;
+
             case ContentSetting.BLOCK:
                 return R.string.website_settings_category_blocked;
             case ContentSetting.ASK:

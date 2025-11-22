@@ -150,7 +150,7 @@
   right: 8px;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 100;
+  z-index: var(--cr-searchbox-compose-button-z-index, 100);
 }
 
 :host-context([dir='rtl']) .glow-container {
@@ -171,7 +171,7 @@
   height: var(--cr-searchbox-icon-size);
 }
 
-:host-context([realbox-layout-mode^='Tall']) .glow-container {
+:host-context([searchbox-layout-mode^='Tall']) .glow-container {
   top: var(--cr-searchbox-compose-button-position-top);
   transform: none;
 }

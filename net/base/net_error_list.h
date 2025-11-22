@@ -23,6 +23,8 @@
 //   800-899 DNS resolver errors
 //   900-999 Blob errors
 
+// LINT.IfChange
+
 // An asynchronous IO operation is not yet complete.  This usually does not
 // indicate a fatal error.  Typically this error will be generated as a
 // notification to wait for some external notification that the IO operation
@@ -462,6 +464,15 @@ NET_ERROR(ECH_FALLBACK_CERTIFICATE_INVALID, -184)
 // proxy to be marked as bad.
 NET_ERROR(PROXY_UNABLE_TO_CONNECT_TO_DESTINATION, -186)
 
+// Some implementations of ProxyDelegate query a separate entity to know whether
+// it should cancel tunnel prior to:
+// - The HTTP CONNECT requests being sent out
+// - The HTTP CONNECT response being parsed by //net
+// An example is CronetProxyDelegate: Cronet allows developers to decide whether
+// the tunnel being established should be canceled.
+NET_ERROR(PROXY_DELEGATE_CANCELED_CONNECT_REQUEST, -187)
+NET_ERROR(PROXY_DELEGATE_CANCELED_CONNECT_RESPONSE, -188)
+
 // Certificate error codes
 //
 // The values of certificate error codes must be consecutive.
@@ -845,11 +856,10 @@ NET_ERROR(INCONSISTENT_IP_ADDRESS_SPACE, -383)
 
 // The IP address space of the cached remote endpoint is blocked by private
 // network access check.
-NET_ERROR(CACHED_IP_ADDRESS_SPACE_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_POLICY,
-          -384)
+NET_ERROR(CACHED_IP_ADDRESS_SPACE_BLOCKED_BY_LOCAL_NETWORK_ACCESS_POLICY, -384)
 
 // The connection is blocked by private network access checks.
-NET_ERROR(BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS, -385)
+NET_ERROR(BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS, -385)
 
 // Content decoding failed due to the zstd window size being too big (over 8MB).
 NET_ERROR(ZSTD_WINDOW_SIZE_TOO_BIG, -386)
@@ -1055,6 +1065,10 @@ NET_ERROR(DNS_NO_MATCHING_SUPPORTED_ALPN, -811)
 // requested probe record either had no answer or was invalid.
 NET_ERROR(DNS_SECURE_PROBE_RECORD_INVALID, -814)
 
+// Returned when DNS cache invalidation is in progress. This is a
+// transient error. Callers may want to retry later.
+NET_ERROR(DNS_CACHE_INVALIDATION_IN_PROGRESS, -815)
+
 // The following errors are for mapped from a subset of invalid
 // storage::BlobStatus.
 
@@ -1086,3 +1100,8 @@ NET_ERROR(BLOB_REFERENCED_FILE_UNAVAILABLE, -906)
 
 // CAUTION: Before adding errors here, please check the ranges of errors written
 // in the top of this file.
+
+// LINT.ThenChange(
+//      //tools/metrics/histograms/enums.xml:HTTPResponseAndNetErrorCodes,
+//      //tools/metrics/histograms/enums.xml:NetErrorCodes,
+// )

@@ -14,6 +14,7 @@
 #include "base/containers/span.h"
 #include "base/files/file.h"
 #include "base/rand_util.h"
+#include "base/synchronization/lock.h"
 #include "base/timer/elapsed_timer.h"
 #include "components/persistent_cache/backend_params.h"
 #include "components/persistent_cache/entry_metadata.h"
@@ -87,6 +88,14 @@ class COMPONENT_EXPORT(PERSISTENT_CACHE) PersistentCache {
               base::span<const uint8_t> content,
               EntryMetadata metadata = EntryMetadata{});
 
+  // Returns params for an independent read-only connection to the instance, or
+  // nothing if its backend is not operating or the params cannot be exported.
+  std::optional<BackendParams> ExportReadOnlyBackendParams();
+
+  // Returns params for an independent read-write connection to the instance, or
+  // nothing if its backend is not operating or the params cannot be exported.
+  std::optional<BackendParams> ExportReadWriteBackendParams();
+
   Backend* GetBackendForTesting();
 
  private:
@@ -96,7 +105,9 @@ class COMPONENT_EXPORT(PERSISTENT_CACHE) PersistentCache {
   std::unique_ptr<Backend> backend_;
 
   static constexpr double kTimingLoggingProbability = 0.01;
-  base::MetricsSubSampler metrics_subsampler_;
+  base::MetricsSubSampler metrics_subsampler_
+      GUARDED_BY(metrics_subsampler_lock_);
+  base::Lock metrics_subsampler_lock_;
 };
 
 }  // namespace persistent_cache

@@ -2,8 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/features.gni")
-
 # The code can theoretically be used on mobile too, it's just currently
 # not needed. Remove the asserts if using it on mobile and remember
 # to also modify components/BUILD.gn to start building the tests.
@@ -14,12 +12,12 @@ source_set("delegate") {
     "actor_login_credential_filler.cc",
     "actor_login_credential_filler.h",
     "actor_login_delegate.h",
+    "actor_login_form_finder.cc",
+    "actor_login_form_finder.h",
     "actor_login_get_credentials_helper.cc",
     "actor_login_get_credentials_helper.h",
     "actor_login_metrics.cc",
     "actor_login_metrics.h",
-    "actor_login_util.cc",
-    "actor_login_util.h",
   ]
 
   visibility = [
@@ -32,11 +30,13 @@ source_set("delegate") {
   deps = [
     "//base",
     "//components/device_reauth",
+    "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/password_manager/core/browser",
     "//components/password_manager/core/browser:password_form",
     "//components/password_manager/core/browser/actor_login:common",
     "//components/password_manager/core/browser/features:password_features",
     "//components/strings:components_strings",
+    "//services/metrics/public/cpp:metrics_cpp",
     "//url",
   ]
 }
@@ -51,11 +51,12 @@ source_set("unit_tests") {
   deps = [
     ":delegate",
     "//components/device_reauth",
-    "//components/os_crypt/sync:test_support",
+    "//components/optimization_guide/proto:optimization_guide_proto_gen",
     "//components/password_manager/core/browser:test_support",
     "//components/password_manager/core/browser/actor_login:common",
     "//components/password_manager/core/browser/actor_login/test:test_support",
     "//components/password_manager/core/browser/features:password_features",
+    "//components/proto_extras:proto_matchers",
     "//testing/gmock",
     "//testing/gtest",
     "//url",

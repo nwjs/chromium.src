@@ -7,6 +7,7 @@
 <translation id="1073417869336441572">Та гуравдагч талын күүкинүүдийг яагаад зөвшөөрсөн талаараа бидэнд хэлснээр Chrome-г сайжруулахад туслаарай. <ph name="BEGIN_LINK" />Санал хүсэлт илгээх<ph name="END_LINK" /></translation>
 <translation id="1074758928858737435">Та сайтын компьютерын хувилбарыг харах хүсэлт гаргах боломжтой</translation>
 <translation id="1085696779717592361">Chrome-г өгөгдмөлөөр ашиглах</translation>
+<translation id="113098737392899175">Гар залгасан үед текст курсороор хуудас хооронд шилжих</translation>
 <translation id="1178015372320901893">Миний товчлолын доод хүснэгт</translation>
 <translation id="1178581264944972037">Түр зогсоох</translation>
 <translation id="1181037720776840403">Хасах</translation>
@@ -120,6 +121,7 @@
 <translation id="2359808026110333948">Цааш</translation>
 <translation id="2379925928934107488">Боломжтой бол Chrome бараан загвар ашигласан тохиолдолд сайтуудад бараан загвар ашиглана уу</translation>
 <translation id="2390272837142897736">Томруулалтыг нэмэх</translation>
+<translation id="2397689164757137845">Зөвшөөрсөн • Нарийвчилсан</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> МБ</translation>
 <translation id="2403474027143565107">Нарийвчилсан</translation>
 <translation id="2404630663942400771">{PERMISSIONS_SUMMARY_ALLOWED,plural, =1{<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> болон бусад <ph name="NUM_MORE" />-г зөвшөөрсөн}other{<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> болон бусад <ph name="NUM_MORE" />-г зөвшөөрсөн}}</translation>
@@ -139,6 +141,7 @@
 <translation id="2498359688066513246">Тусламж болон санал хүсэлт</translation>
 <translation id="2501278716633472235">Буцаах</translation>
 <translation id="2533138527374486328">Асаалттай үед сайт таны дотоод сүлжээн дээрх дурын төхөөрөмжид холбогдохыг хүсэж болно. Унтраалттай үед сайт таны дотоод сүлжээн дээрх төхөөрөмжид холбогдох боломжгүй.</translation>
+<translation id="2536779053640817375">Энэ удаад зөвшөөрсөн • Нарийвчилсан</translation>
 <translation id="2544997614631598250">Бараан өнгөний загвар</translation>
 <translation id="2546283357679194313">Cookies болон сайтын дата</translation>
 <translation id="2570922361219980984">Энэ төхөөрөмжид байршлын хандалт мөн адил унтраалттай байна. Үүнийг <ph name="BEGIN_LINK" />Андройдын тохиргоо<ph name="END_LINK" /> хэсэгт асаана уу.</translation>
@@ -199,6 +202,7 @@
 <translation id="3123473560110926937">Зарим сайт дээр блоклосон</translation>
 <translation id="3132996321662585180">Өдөр бүр сэргээх</translation>
 <translation id="3143754809889689516">Эхнээс нь тоглуулах</translation>
+<translation id="3164169438034704658">Та нарийвчилсан байршлыг <ph name="BEGIN_LINK" />Android-н Тохиргооноос<ph name="END_LINK" /> асаах боломжтой.</translation>
 <translation id="3165022941318558018">Сайтад гуравдагч талын күүки ашиглахыг зөвшөөрнө үү</translation>
 <translation id="3167868116600277716">Discover-н хангамж</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> хадгалсан өгөгдөл</translation>
@@ -310,6 +314,7 @@
 <translation id="4336566011000459927">Chrome күүкинүүдийг өнөөдөр дахин хязгаарлана</translation>
 <translation id="4338831206024587507"><ph name="DOMAIN" />-н доорх бүх сайт</translation>
 <translation id="4340799661701629185">Сайтуудад мэдэгдэл илгээхийг бүү зөвшөөр</translation>
+<translation id="4341577178275615435">Сaret browsing-г асаах, эсвэл унтраахын тулд F7 товчлолыг ашиглана уу</translation>
 <translation id="4402755511846832236">Сайтуудыг таныг энэ төхөөрөмжийг хэзээ идэвхтэй ашиглаж буйг мэдэхийг нь блоклоно</translation>
 <translation id="4412683424767388419">Chrome өнгөний доод хүснэгтийг тал өндрөөр нээсэн</translation>
 <translation id="4412992751769744546">Гуравдагч этгээдийн cookies-г зөвшөөрөх</translation>
@@ -440,6 +445,7 @@
 <translation id="5876056640971328065">Видеог түр зогсоох</translation>
 <translation id="5877248419911025165">Бүх хүсэлтийг хураах</translation>
 <translation id="5878945009165002849">Таниулбарын үйлчилгээнүүдийн нэвтрэх сануулгыг блоклох</translation>
+<translation id="588258955323874662">Дэлгэц дүүрэн</translation>
 <translation id="5884085660368669834">Сайтын сонголт</translation>
 <translation id="5887687176710214216">Хамгийн сүүлд өчигдөр зочилсон</translation>
 <translation id="5908617755156109052">Сайтыг таны орчин тойрны 3D газрын зургийг үүсгэх, камерын байрлалыг хянахыг бүү зөвшөөр</translation>
@@ -535,9 +541,11 @@
 <translation id="6965382102122355670">OK</translation>
 <translation id="6980861169612950611">Энэ сайтын өгөгдлийг устгах уу? <ph name="SITE_NAME" /></translation>
 <translation id="6981982820502123353">Хандалт</translation>
+<translation id="6991142177939282156">Зөвшөөрсөн • Барагцаалсан байршлыг ашиглаж байна</translation>
 <translation id="6992289844737586249">Сайтууд микрофон ашиглах зөвшөөрөл авах (санал болгосон)</translation>
 <translation id="7000754031042624318">Андройдын тохиргоонд унтраасан</translation>
 <translation id="702275896380648118">Энэ сайт таны дуртай зүйлсийг тодорхойлж, дараа нь бусад сайтад зар санал болгодог. Энэ сайт мөн танд илүү хамааралтай зар харуулахын тулд таны зарын сэдвүүдийг Chrome-с авдаг.</translation>
+<translation id="7036823721811529709">Дэвсгэрт сонсох</translation>
 <translation id="7044081119134178347">Камерыг энэ удаад зөвшөөрсөн</translation>
 <translation id="7053983685419859001">Блоклох</translation>
 <translation id="7055552182600664515">Сайт зохиогчийн эрхээр хамгаалагдсан контент тоглуулахын тулд контент хамгаалах үйлчилгээг ашиглах шаардлагатай байж магадгүй. <ph name="BEGIN_LINK" />Нэмэлт мэдээлэл авах<ph name="END_LINK" /></translation>
@@ -567,6 +575,7 @@
 <translation id="7406113532070524618">Энэ тохиргоо таныг тодорхойлолгүйгээр эсвэл сайтуудад таны хөтчийн түүхийг харахыг зөвшөөрөлгүйгээр ажилладаг ч сайтууд баталгаажуулалтын нэг хэсэг байдлаар бага хэмжээний мэдээлэл хуваалцах боломжтой</translation>
 <translation id="7409735910987429903">Сайтууд зар харуулахын тулд үзэгдэх зүйл илгээх буюу эсхүл таныг зочлохыг хүсээгүй веб сайтууд руу тань хөтлөхийн тулд дахин чиглүүлэлтийг ашиглаж болзошгүй</translation>
 <translation id="7412160840120117304">Үндсэн өнгөний арванзургаатын форматтай код</translation>
+<translation id="7412223528111026033">{ZOOM_PERCENTAGE,plural, =1{Томруулалт}other{Томруулалт: <ph name="ZOOM_PERCENTAGE_NUMBER" />%%}}</translation>
 <translation id="7423098979219808738">Эхлээд асуу</translation>
 <translation id="7423538860840206698">Түр санах ойгоос уншихыг хориглосон</translation>
 <translation id="7425915948813553151">Сайтуудад зориулсан бараан загвар</translation>
@@ -643,6 +652,7 @@
 <translation id="8261506727792406068">Устгах</translation>
 <translation id="8284326494547611709">Тайлбар</translation>
 <translation id="8300705686683892304">Аппаар удирддаг</translation>
+<translation id="8301363963630676147">Энэ удаад зөвшөөрсөн • Барагцаалсан байршлыг ашиглаж байна</translation>
 <translation id="8315509175050791576">Таб хуваалцаж байна</translation>
 <translation id="8324158725704657629">Дахиж бүү асуу</translation>
 <translation id="8362795839483915693">Та зочилсон сайтаа томруулах эсвэл жижгэрүүлэх боломжтой</translation>

@@ -24,6 +24,9 @@ try_.defaults.set(
     os = os.MAC_DEFAULT,
     ssd = True,
     execution_timeout = try_constants.DEFAULT_EXECUTION_TIMEOUT,
+    experiments = {
+        "chromium_tests.resultdb_module": 100,
+    },
     orchestrator_cores = 2,
     orchestrator_siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
     service_account = try_constants.DEFAULT_SERVICE_ACCOUNT,
@@ -340,7 +343,7 @@ try_.orchestrator_builder(
         # TODO (crbug.com/415099984): change to 100,
         # then move out of experimental CQ after,
         # mac15-arm64-rel replaces mac14-arm64-rel on CQ.
-        experiment_percentage = 30,
+        experiment_percentage = 100,
     ),
 )
 
@@ -453,6 +456,32 @@ try_.builder(
     name = "mac_chromium_compile_dbg_ng",
     branch_selector = branches.selector.MAC_BRANCHES,
     mirrors = [
+        "ci/mac-arm64-dbg",
+    ],
+    builder_config_settings = builder_config.try_settings(
+        include_all_triggered_testers = True,
+        is_compile_only = True,
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "ci/mac-arm64-dbg",
+        ],
+    ),
+    cores = None,
+    cpu = cpu.ARM64,
+    experiments = {
+        # crbug.com/940930
+        "chromium.enable_cleandead": 100,
+    },
+    main_list_view = "try",
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+    tryjob = try_.job(),
+)
+
+try_.builder(
+    name = "mac-x64-compile-dbg",
+    branch_selector = branches.selector.MAC_BRANCHES,
+    mirrors = [
         "ci/Mac Builder (dbg)",
     ],
     builder_config_settings = builder_config.try_settings(
@@ -466,13 +495,13 @@ try_.builder(
     ),
     cores = None,
     cpu = cpu.ARM64,
+    contact_team_email = "bling-engprod@google.com",
     experiments = {
-        # crbug/940930
+        # crbug.com/940930
         "chromium.enable_cleandead": 100,
     },
     main_list_view = "try",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
-    tryjob = try_.job(),
 )
 
 try_.builder(
@@ -500,10 +529,10 @@ try_.builder(
 try_.builder(
     name = "mac_chromium_dbg_ng",
     mirrors = [
-        "ci/Mac Builder (dbg)",
+        "ci/mac-arm64-dbg",
         "ci/mac15-tests-dbg",
     ],
-    gn_args = "ci/Mac Builder (dbg)",
+    gn_args = "ci/mac-arm64-dbg",
     cpu = cpu.ARM64,
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
@@ -730,7 +759,7 @@ ios_builder(
     builderless = True,
     cpu = cpu.ARM64,
     contact_team_email = "cobalt-appletv@google.com",
-    xcode = xcode.x26betabots,
+    xcode = xcode.xcode_default,
 )
 
 ios_builder(
@@ -853,7 +882,7 @@ gpu.try_.optional_tests_builder(
     ),
     pool = "luci.chromium.gpu.try",
     builderless = True,
-    cpu = None,
+    cpu = "arm64",
     ssd = None,
     free_space = None,
     alerts_enabled = False,

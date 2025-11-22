@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.tasks.tab_management.pinned_tabs_strip;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -24,18 +25,23 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.browser.bookmarks.TabBookmarker;
+import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator;
 import org.chromium.chrome.browser.tasks.tab_management.TabListModel;
 import org.chromium.chrome.browser.tasks.tab_management.TabListRecyclerView;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.ui.base.TestActivity;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
+import org.chromium.ui.recyclerview.widget.ItemTouchHelper2;
 
 /** Unit tests for {@link PinnedTabStripCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -51,6 +57,12 @@ public class PinnedTabStripCoordinatorTest {
     @Mock private TabListRecyclerView mTabGridListRecyclerView;
     @Mock private GridLayoutManager mLayoutManager;
     @Mock private PinnedTabStripMediator mMediator;
+    @Mock private ObservableSupplier<TabGroupModelFilter> mTabGroupModelFilterSupplier;
+    @Mock private ItemTouchHelper2 mItemTouchHelper;
+    @Mock private ObservableSupplier<TabBookmarker> mTabBookmarkerSupplier;
+    @Mock private BottomSheetController mBottomSheetController;
+    @Mock private ModalDialogManager mModalDialogManager;
+    @Mock private Runnable mOnTabGroupCreation;
 
     private PinnedTabStripCoordinator mCoordinator;
 
@@ -69,7 +81,15 @@ public class PinnedTabStripCoordinatorTest {
     private void onActivity(TestActivity activity) {
         FrameLayout parentView = new FrameLayout(activity);
         mCoordinator =
-                new PinnedTabStripCoordinator(activity, parentView, mTabListCoordinator) {
+                new PinnedTabStripCoordinator(
+                        activity,
+                        parentView,
+                        mTabListCoordinator,
+                        mTabGroupModelFilterSupplier,
+                        mTabBookmarkerSupplier,
+                        mBottomSheetController,
+                        mModalDialogManager,
+                        mOnTabGroupCreation) {
                     @Override
                     PinnedTabStripMediator createMediator(
                             Activity activity,
@@ -77,8 +97,19 @@ public class PinnedTabStripCoordinatorTest {
                             TabListCoordinator tabListCoordinator,
                             TabListModel tabListModel,
                             TabListModel pinnedTabsModelList,
-                            PropertyModel stripPropertyModel) {
+                            PropertyModel stripPropertyModel,
+                            ObservableSupplier<TabGroupModelFilter> tabGroupModelFilterSupplier,
+                            ObservableSupplier<TabBookmarker> tabBookmarkerSupplier,
+                            BottomSheetController bottomSheetController,
+                            ModalDialogManager modalDialogManager,
+                            Runnable onTabGroupCreation) {
                         return mMediator;
+                    }
+
+                    @Override
+                    ItemTouchHelper2 createItemTouchHelper(
+                            PinnedTabStripItemTouchHelperCallback callback) {
+                        return mItemTouchHelper;
                     }
                 };
     }
@@ -98,18 +129,22 @@ public class PinnedTabStripCoordinatorTest {
     }
 
     @Test
-    public void testScrollListener_onScrolled() {
-        ArgumentCaptor<RecyclerView.OnScrollListener> scrollListenerCaptor =
-                ArgumentCaptor.forClass(RecyclerView.OnScrollListener.class);
-        verify(mTabGridListRecyclerView).addOnScrollListener(scrollListenerCaptor.capture());
-
-        scrollListenerCaptor.getValue().onScrolled(mTabGridListRecyclerView, 0, 10);
-        verify(mMediator).onScrolled();
+    public void testAttachesItemTouchHelper() {
+        verify(mItemTouchHelper).attachToRecyclerView(mCoordinator.getPinnedTabsRecyclerView());
     }
 
     @Test
     public void testDestroy() {
         mCoordinator.destroy();
         verify(mMediator).destroy();
+    }
+
+    @Test
+    public void testIsPinnedTabsBarVisible() {
+        when(mMediator.isPinnedTabsBarVisible()).thenReturn(true);
+        assertTrue(mCoordinator.isPinnedTabsBarVisible());
+
+        when(mMediator.isPinnedTabsBarVisible()).thenReturn(false);
+        assertFalse(mCoordinator.isPinnedTabsBarVisible());
     }
 }

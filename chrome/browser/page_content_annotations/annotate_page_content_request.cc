@@ -4,10 +4,13 @@
 
 #include "chrome/browser/page_content_annotations/annotate_page_content_request.h"
 
+#include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
+#include "build/build_config.h"
 #include "chrome/browser/page_content_annotations/page_content_extraction_service.h"
 #include "chrome/browser/page_content_annotations/page_content_extraction_service_factory.h"
 #include "chrome/browser/page_content_annotations/page_content_extraction_types.h"
@@ -16,14 +19,20 @@
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/content/browser/page_context_eligibility.h"
 #include "components/page_content_annotations/core/page_content_annotations_features.h"
+#include "components/page_content_annotations/core/page_content_annotations_switches.h"
 #include "components/pdf/common/constants.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/page.h"
 #include "net/http/http_response_headers.h"
 #include "pdf/buildflags.h"
 #include "services/metrics/public/cpp/metrics_utils.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/android/tab_android.h"
+#endif
 
 #if BUILDFLAG(ENABLE_PDF)
 #include "components/pdf/browser/pdf_document_helper.h"
@@ -47,6 +56,16 @@ void RecordPdfPageCountMetrics(
       .Record(ukm::UkmRecorder::Get());
 }
 #endif  // BUILDFLAG(ENABLE_PDF)
+
+std::optional<int64_t> GetTabId(content::WebContents* web_contents) {
+#if BUILDFLAG(IS_ANDROID)
+  if (TabAndroid* tab = TabAndroid::FromWebContents(web_contents)) {
+    return tab->GetAndroidId();
+  }
+#endif
+  // TODO(440643544): Implement an usable tab ID for other platforms.
+  return std::nullopt;
+}
 
 }  // namespace
 
@@ -152,7 +171,9 @@ void AnnotatedPageContentRequest::DidStopLoading() {
   }
 
   if (web_contents_->GetContentsMimeType() == pdf::kPDFMimeType ||
-      web_contents_->GetVisibility() == content::Visibility::HIDDEN) {
+      web_contents_->GetVisibility() == content::Visibility::HIDDEN ||
+      base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kPageContentAnnotationsSkipFCPWaitForTesting)) {
     // Pdfs and hidden tabs don't provide a reliable FirstContentfulPaint
     // signal, so skip waiting for it for these Documents.
     waiting_for_fcp_ = false;
@@ -176,6 +197,15 @@ void AnnotatedPageContentRequest::ResetForNewNavigation() {
 
   // Drop pending extraction request for the previous page, if any.
   weak_factory_.InvalidateWeakPtrs();
+
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents_->GetBrowserContext());
+  auto* page_content_extraction_service =
+      PageContentExtractionServiceFactory::GetForProfile(profile);
+  if (page_content_extraction_service) {
+    page_content_extraction_service->OnNewNavigation(GetTabId(web_contents_),
+                                                     web_contents_);
+  }
 }
 
 void AnnotatedPageContentRequest::MaybeScheduleExtraction() {
@@ -185,15 +215,11 @@ void AnnotatedPageContentRequest::MaybeScheduleExtraction() {
 
   lifecycle_ = Lifecycle::kScheduled;
 
-  // Ignore the delay setting if the page is hidden. This would not affect user
-  // experience since page is not shown to users.
-  base::TimeDelta delay = is_hidden_ ? base::TimeDelta() : delay_;
-
   content::GetUIThreadTaskRunner()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&AnnotatedPageContentRequest::ExtractPageContent,
                      weak_factory_.GetWeakPtr()),
-      delay);
+      delay_);
 }
 
 void AnnotatedPageContentRequest::ExtractPageContent() {
@@ -283,22 +309,25 @@ void AnnotatedPageContentRequest::OnPageContentReceived(
     return;
   }
 
+  base::Time extraction_time = base::Time::Now();
   Profile* profile =
       Profile::FromBrowserContext(web_contents_->GetBrowserContext());
   auto* page_content_extraction_service =
       PageContentExtractionServiceFactory::GetForProfile(profile);
   page_content_extraction_service->OnPageContentExtracted(
-      web_contents_->GetPrimaryPage(), page_content->proto);
+      web_contents_->GetPrimaryPage(), page_content->proto,
+      GetTabId(web_contents_));
 
   GURL url = web_contents_->GetLastCommittedURL();
   bool is_eligible_for_server_upload =
       !page_context_eligibility_ ||
       optimization_guide::IsPageContextEligible(
-          url.host(), url.path(),
+          url.GetHost(), url.GetPath(),
           optimization_guide::GetFrameMetadataFromPageContent(*page_content),
           page_context_eligibility_);
   cached_content_ = ExtractedPageContentResult{
       .page_content = std::move(page_content->proto),
+      .extraction_timestamp = extraction_time,
       .is_eligible_for_server_upload = is_eligible_for_server_upload};
 }
 
@@ -361,6 +390,15 @@ void AnnotatedPageContentRequest::OnVisibilityChanged(
   is_hidden_ = visibility == content::Visibility::HIDDEN;
   if (is_hidden_ == was_hidden) {
     return;
+  }
+
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents_->GetBrowserContext());
+  auto* page_content_extraction_service =
+      PageContentExtractionServiceFactory::GetForProfile(profile);
+  if (page_content_extraction_service) {
+    page_content_extraction_service->OnVisibilityChanged(
+        GetTabId(web_contents_), web_contents_, visibility);
   }
 
   auto triggering_mode = features::GetPageContentExtractionTriggeringMode();

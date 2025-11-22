@@ -5,6 +5,7 @@
 #include "gpu/command_buffer/service/dawn_caching_interface.h"
 
 #include <cstring>
+#include <string_view>
 #include <variant>
 
 #include "base/compiler_specific.h"
@@ -37,24 +38,21 @@ DawnCachingInterface::DawnCachingInterface(
 DawnCachingInterface::~DawnCachingInterface() = default;
 
 void DawnCachingInterface::InitializePersistentCache(
-    base::File db_file,
-    base::File journal_file,
-    base::UnsafeSharedMemoryRegion shared_lock) {
+    persistent_cache::BackendParams backend_params) {
   CHECK(persistent_cache_);
   // TODO(crbug.com/399642827): PersistentCache's sqlite backend has default
   // in-memory page cache of 2 MB.
   // See https://www.sqlite.org/pragma.html#pragma_cache_size
   // Since we have our own memory cache here, we might want to disable the
   // page cache or at least reduce its max size.
-  persistent_cache_->InitializeCache(std::move(db_file), std::move(journal_file),
-                                     std::move(shared_lock));
+  persistent_cache_->InitializeCache(std::move(backend_params));
 }
 
 size_t DawnCachingInterface::LoadData(const void* key,
                                       size_t key_size,
                                       void* value_out,
                                       size_t value_size) {
-  std::string key_str(static_cast<const char*>(key), key_size);
+  std::string_view key_str(static_cast<const char*>(key), key_size);
   if (memory_cache() != nullptr) {
     size_t bytes_read =
         memory_cache()->LoadData(key_str, value_out, value_size);
@@ -181,7 +179,7 @@ void DawnCachingInterfaceFactory::ReleaseHandle(
 }
 
 void DawnCachingInterfaceFactory::PurgeMemory(
-    base::MemoryPressureListener::MemoryPressureLevel memory_pressure_level) {
+    base::MemoryPressureLevel memory_pressure_level) {
   for (auto& [key, backend] : backends_) {
     CHECK(std::holds_alternative<GpuDiskCacheDawnGraphiteHandle>(key) ||
           std::holds_alternative<GpuDiskCacheDawnWebGPUHandle>(key));
@@ -219,14 +217,15 @@ DawnCachingInterfaceFactory::CreateDefaultInMemoryBackend() {
 
 namespace detail {
 
-DawnMemoryCache::Entry::Entry(const std::string& key,
+DawnMemoryCache::Entry::Entry(std::string key,
                               const void* value,
                               size_t value_size)
-    : key_(key), data_(static_cast<const char*>(value), value_size) {}
+    : key_(std::move(key)),
+      data_(static_cast<const char*>(value), value_size) {}
 
 DawnMemoryCache::Entry::~Entry() = default;
 
-const std::string& DawnMemoryCache::Entry::Key() const {
+std::string_view DawnMemoryCache::Entry::Key() const {
   return key_;
 }
 
@@ -248,7 +247,7 @@ size_t DawnMemoryCache::Entry::ReadData(void* value_out,
   // Otherwise, verify that the size that is being copied out is identical.
   TRACE_EVENT0("gpu", "DawnCachingInterface::CacheHit");
   DCHECK(value_size == DataSize());
-  UNSAFE_TODO(memcpy(value_out, data_.data(), value_size));
+  data_.copy(static_cast<char*>(value_out), value_size);
   return value_size;
 }
 
@@ -258,11 +257,11 @@ bool operator<(const std::unique_ptr<DawnMemoryCache::Entry>& lhs,
 }
 
 bool operator<(const std::unique_ptr<DawnMemoryCache::Entry>& lhs,
-               const std::string& rhs) {
+               std::string_view rhs) {
   return lhs->Key() < rhs;
 }
 
-bool operator<(const std::string& lhs,
+bool operator<(std::string_view lhs,
                const std::unique_ptr<DawnMemoryCache::Entry>& rhs) {
   return lhs < rhs->Key();
 }
@@ -271,7 +270,7 @@ DawnMemoryCache::DawnMemoryCache(size_t max_size) : max_size_(max_size) {}
 
 DawnMemoryCache::~DawnMemoryCache() = default;
 
-size_t DawnMemoryCache::LoadData(const std::string& key,
+size_t DawnMemoryCache::LoadData(std::string_view key,
                                  void* value_out,
                                  size_t value_size) {
   // Because we are tracking LRU, even loads modify internal state so mutex is
@@ -291,7 +290,7 @@ size_t DawnMemoryCache::LoadData(const std::string& key,
   return entry->ReadData(value_out, value_size);
 }
 
-void DawnMemoryCache::StoreData(const std::string& key,
+void DawnMemoryCache::StoreData(std::string_view key,
                                 const void* value,
                                 size_t value_size) {
   // Don't need to do anything if we are not storing anything.
@@ -316,7 +315,7 @@ void DawnMemoryCache::StoreData(const std::string& key,
   }
 
   // Evict least used entries until we have enough room to add the new entry.
-  auto entry = std::make_unique<Entry>(key, value, value_size);
+  auto entry = std::make_unique<Entry>(std::string(key), value, value_size);
   DCHECK(entry->TotalSize() == entry_size);
   while (current_size_ + entry_size > max_size_) {
     EvictEntry(lru_.head()->value());
@@ -331,7 +330,7 @@ void DawnMemoryCache::StoreData(const std::string& key,
 }
 
 void DawnMemoryCache::PurgeMemory(
-    base::MemoryPressureListener::MemoryPressureLevel memory_pressure_level) {
+    base::MemoryPressureLevel memory_pressure_level) {
   base::AutoLock lock(mutex_);
   size_t new_limit = gpu::UpdateShaderCacheSizeOnMemoryPressure(
       max_size_, memory_pressure_level);

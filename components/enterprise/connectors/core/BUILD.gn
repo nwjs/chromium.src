@@ -23,6 +23,7 @@ source_set("core") {
     "connectors_prefs.h",
     "connectors_service_base.cc",
     "connectors_service_base.h",
+    "content_analysis_delegate_base.h",
     "content_analysis_info_base.h",
     "content_area_user_provider.cc",
     "content_area_user_provider.h",
@@ -110,6 +111,8 @@ source_set("test_support") {
   testonly = true
 
   sources = [
+    "analysis_test_utils.cc",
+    "analysis_test_utils.h",
     "realtime_reporting_test_environment.cc",
     "realtime_reporting_test_environment.h",
     "realtime_reporting_test_server.cc",
@@ -141,6 +144,7 @@ source_set("unit_tests") {
   testonly = true
 
   sources = [
+    "analysis_service_settings_base_unittest.cc",
     "connectors_manager_base_unittest.cc",
     "connectors_service_base_unittest.cc",
     "enterprise_connectors_policy_handler_unittest.cc",

@@ -15,7 +15,6 @@
 
 #include "ash/constants/ash_features.h"
 #include "base/check.h"
-#include "base/command_line.h"
 #include "base/containers/contains.h"
 #include "base/dcheck_is_on.h"
 #include "base/feature_list.h"
@@ -49,7 +48,6 @@
 #include "chrome/browser/ui/webui/print_preview/print_preview_ui.h"
 #include "chrome/browser/ui/webui/print_preview/print_preview_utils.h"
 #include "chrome/browser/ui/webui/print_preview/printer_handler.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/crash_keys.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/printing/printer_capabilities.h"
@@ -1081,9 +1079,7 @@ void PrintPreviewHandler::SendInitialSettings(
       prefs->IsManagedPreference(prefs::kPrinterTypeDenyList);
   initial_settings.Set(kDestinationsManaged, destinations_managed);
 
-  base::CommandLine* cmdline = base::CommandLine::ForCurrentProcess();
-  initial_settings.Set(kIsInKioskAutoPrintMode,
-                       cmdline->HasSwitch(switches::kKioskModePrinting) || g_nw_custom_printing);
+  initial_settings.Set(kIsInKioskAutoPrintMode, SilentPrintingEnabled() || g_nw_custom_printing);
   initial_settings.Set(kIsInAppKioskMode, IsRunningInForcedAppMode());
   initial_settings.Set("nwPrintMode", g_nw_custom_printing);
   if (g_nw_custom_printing || !(*g_nw_printer_name).empty())

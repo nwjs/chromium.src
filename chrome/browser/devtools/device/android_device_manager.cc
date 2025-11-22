@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
@@ -201,7 +202,7 @@ class HttpRequest {
     std::string request = base::StrCat(pieces);
     auto base_buffer =
         base::MakeRefCounted<net::IOBufferWithSize>(request.size());
-    UNSAFE_TODO(memcpy(base_buffer->data(), request.data(), request.size()));
+    base_buffer->span().copy_from(base::as_byte_span(request));
     request_ = base::MakeRefCounted<net::DrainableIOBuffer>(
         std::move(base_buffer), request.size());
     timeout_timer_.Start(
@@ -374,13 +375,14 @@ class DevicesRequest : public base::RefCountedThreadSafe<DevicesRequest> {
         base::BindOnce(std::move(callback_), std::move(descriptors_)));
   }
 
-  using Serials = std::vector<std::string>;
+  using Serials = std::vector<std::pair<std::string, DeviceInfo::ConnectedState>>;
 
   void ProcessSerials(scoped_refptr<DeviceProvider> provider, Serials serials) {
     for (auto it = serials.begin(); it != serials.end(); ++it) {
       descriptors_->resize(descriptors_->size() + 1);
       descriptors_->back().provider = provider;
-      descriptors_->back().serial = *it;
+      descriptors_->back().serial = it->first;
+      descriptors_->back().connected_state = it->second;
     }
   }
 
@@ -406,9 +408,7 @@ AndroidDeviceManager::BrowserInfo::BrowserInfo(const BrowserInfo& other) =
 AndroidDeviceManager::BrowserInfo& AndroidDeviceManager::BrowserInfo::operator=(
     const BrowserInfo& other) = default;
 
-AndroidDeviceManager::DeviceInfo::DeviceInfo()
-    : model(kModelOffline), connected(false) {
-}
+AndroidDeviceManager::DeviceInfo::DeviceInfo() : model(kModelOffline) {}
 
 AndroidDeviceManager::DeviceInfo::DeviceInfo(const DeviceInfo& other) = default;
 
@@ -499,12 +499,13 @@ void AndroidDeviceManager::Device::HttpUpgrade(const std::string& socket_name,
 AndroidDeviceManager::Device::Device(
     scoped_refptr<base::SingleThreadTaskRunner> device_task_runner,
     scoped_refptr<DeviceProvider> provider,
-    const std::string& serial)
+    const std::string& serial, const DeviceInfo::ConnectedState connected_state)
     : RefCountedDeleteOnSequence<Device>(
           base::SingleThreadTaskRunner::GetCurrentDefault()),
       task_runner_(device_task_runner),
       provider_(provider),
-      serial_(serial) {}
+      serial_(serial),
+      connected_state_(connected_state) {}
 
 AndroidDeviceManager::Device::~Device() {
   task_runner_->PostTask(
@@ -612,9 +613,10 @@ void AndroidDeviceManager::UpdateDevices(
     if (found == devices_.end() || !found->second ||
         found->second->provider_.get() != it->provider.get()) {
       device =
-          new Device(handler_thread_->message_loop(), it->provider, it->serial);
+          new Device(handler_thread_->message_loop(), it->provider, it->serial, it->connected_state);
     } else {
       device = found->second.get();
+      device->connected_state_ = it->connected_state;
     }
     response.push_back(device);
     new_devices[it->serial] = device->weak_factory_.GetWeakPtr();

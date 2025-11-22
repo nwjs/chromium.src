@@ -22,6 +22,7 @@ static_library("cert_store") {
 
   deps = [
     "//base",
+    "//chrome/browser/ash/certificate_provider",
     "//chrome/browser/ash/platform_keys",
     "//chrome/browser/ash/platform_keys/key_permissions",
     "//chrome/browser/ash/policy/remote_commands",

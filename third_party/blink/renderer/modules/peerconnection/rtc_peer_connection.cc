@@ -201,7 +201,7 @@ bool CallErrorCallbackIfSignalingStateClosed(
 bool IsIceCandidateMissingSdpMidAndMLineIndex(
     const RTCIceCandidateInit* candidate) {
   return (candidate->sdpMid().IsNull() &&
-          !candidate->hasSdpMLineIndexNonNull());
+          !candidate->sdpMLineIndex().has_value());
 }
 
 RTCOfferOptionsPlatform* ConvertToRTCOfferOptionsPlatform(
@@ -233,17 +233,15 @@ RTCIceCandidatePlatform* ConvertToRTCIceCandidatePlatform(
     ExecutionContext* context,
     const RTCIceCandidateInit* candidate) {
   // TODO(guidou): Change default value to -1. crbug.com/614958.
-  uint16_t sdp_m_line_index = 0;
-  if (candidate->hasSdpMLineIndexNonNull()) {
-    sdp_m_line_index = candidate->sdpMLineIndexNonNull();
-  } else {
+  uint16_t sdp_m_line_index = candidate->sdpMLineIndex().value_or(0);
+  if (!candidate->sdpMLineIndex()) {
     UseCounter::Count(context,
                       WebFeature::kRTCIceCandidateDefaultSdpMLineIndex);
   }
   return MakeGarbageCollected<RTCIceCandidatePlatform>(
       candidate->candidate(), candidate->sdpMid(), sdp_m_line_index,
       candidate->usernameFragment(),
-      /*url can not be reconstruncted*/ String());
+      /*url can not be reconstructed*/ String());
 }
 
 webrtc::PeerConnectionInterface::IceTransportsType IceTransportPolicyFromEnum(
@@ -2465,7 +2463,9 @@ void RTCPeerConnection::DidModifyTransceivers(
     // stream was added containing the receiver's track.
     if (is_remote_description_or_rollback &&
         ((!previously_had_recv && transceiver->FiredDirectionHasRecv()) ||
-         add_list_prev_size != add_list.size())) {
+         add_list_prev_size != add_list.size()) &&
+        transceiver->currentDirection() !=
+            V8RTCRtpTransceiverDirection::Enum::kStopped) {
       // "Process the addition of a remote track".
       // https://w3c.github.io/webrtc-pc/#process-remote-track-addition
       track_events.push_back(transceiver);

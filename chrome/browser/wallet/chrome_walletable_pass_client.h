@@ -11,9 +11,12 @@
 
 namespace optimization_guide {
 class OptimizationGuideDecider;
-class OptimizationGuideModelExecutor;
+class RemoteModelExecutor;
 }  // namespace optimization_guide
 
+namespace strike_database {
+class StrikeDatabaseBase;
+}  // namespace strike_database
 namespace tabs {
 class TabInterface;
 }  // namespace tabs
@@ -22,6 +25,7 @@ namespace wallet {
 
 class ContentWalletablePassIngestionController;
 class WalletablePassConsentBubbleController;
+class WalletablePassSaveBubbleController;
 
 // The Chrome implementation of `wallet::WalletablePassClient`.
 //
@@ -38,9 +42,15 @@ class ChromeWalletablePassClient : public WalletablePassClient {
   // WalleablePassClient implementation.
   optimization_guide::OptimizationGuideDecider* GetOptimizationGuideDecider()
       override;
-  optimization_guide::OptimizationGuideModelExecutor*
-  GetOptimizationGuideModelExecutor() override;
+
+  optimization_guide::RemoteModelExecutor* GetRemoteModelExecutor() override;
+
+  strike_database::StrikeDatabaseBase* GetStrikeDatabase() override;
+
   void ShowWalletablePassConsentBubble(
+      WalletablePassBubbleResultCallback callback) override;
+  void ShowWalletablePassSaveBubble(
+      const optimization_guide::proto::WalletablePass& pass,
       WalletablePassBubbleResultCallback callback) override;
 
  private:
@@ -49,6 +59,7 @@ class ChromeWalletablePassClient : public WalletablePassClient {
   ContentWalletablePassIngestionController controller_;
   std::unique_ptr<WalletablePassConsentBubbleController>
       consent_bubble_controller_;
+  std::unique_ptr<WalletablePassSaveBubbleController> save_bubble_controller_;
 };
 
 }  // namespace wallet

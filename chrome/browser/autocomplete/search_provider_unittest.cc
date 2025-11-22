@@ -43,6 +43,7 @@
 #include "components/lens/lens_features.h"
 #include "components/lens/proto/server/lens_overlay_response.pb.h"
 #include "components/omnibox/browser/autocomplete_controller.h"
+#include "components/omnibox/browser/autocomplete_controller_config.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/autocomplete_provider.h"
@@ -50,6 +51,7 @@
 #include "components/omnibox/browser/base_search_provider.h"
 #include "components/omnibox/browser/history_url_provider.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
+#include "components/omnibox/browser/omnibox_triggered_feature_service.h"
 #include "components/omnibox/browser/remote_suggestions_service.h"
 #include "components/omnibox/browser/suggestion_answer.h"
 #include "components/omnibox/browser/zero_suggest_provider.h"
@@ -1113,7 +1115,8 @@ TEST_F(SearchProviderTest, KeywordOrderingAndDescriptions) {
   AutocompleteController controller(
       std::make_unique<TestAutocompleteProviderClient>(
           profile_.get(), &test_url_loader_factory_),
-      AutocompleteProvider::TYPE_SEARCH);
+      AutocompleteControllerConfig{.provider_types =
+                                       AutocompleteProvider::TYPE_SEARCH});
   AutocompleteInput input(u"k t", metrics::OmniboxEventProto::OTHER,
                           ChromeAutocompleteSchemeClassifier(profile_.get()));
   controller.Start(input);
@@ -4169,6 +4172,29 @@ TEST_F(SearchProviderRequestTest, LensContextualSearchboxSuggestRequest) {
   EXPECT_FALSE(provider_->done());
   EXPECT_TRUE(test_url_loader_factory_.IsPending(
       "https://www.google.com/suggest?q=foo&client=chrome-contextual"));
+}
+
+TEST_F(SearchProviderRequestTest, SendRequestWithAimToolMode) {
+  // Start a query.
+  AutocompleteInput input(u"foo", metrics::OmniboxEventProto::NTP_COMPOSEBOX,
+                          ChromeAutocompleteSchemeClassifier(profile_.get()));
+  input.set_aim_tool_mode(
+      omnibox::ChromeAimToolsAndModels::TOOL_MODE_DEEP_SEARCH);
+  input.set_current_url(GURL("https://www.example.com"));
+  provider_->Start(input, false);
+
+  // Make sure the default provider's suggest endpoint was queried with the
+  // expected client and Lens Suggest signals.
+  EXPECT_FALSE(provider_->done());
+  EXPECT_EQ(1, test_url_loader_factory_.NumPending());
+  EXPECT_TRUE(base::EndsWith(
+      test_url_loader_factory_.GetPendingRequest(0)->request.url.spec(),
+      "azm=1", base::CompareCase::SENSITIVE));
+
+  test_url_loader_factory_.AddResponse(
+      test_url_loader_factory_.GetPendingRequest(0)->request.url.spec(),
+      R"(["",[],[],[],{}])");
+  RunTillProviderDone();
 }
 
 TEST_F(SearchProviderRequestTest, LensContextualSearchboxNoSuggestRequest) {

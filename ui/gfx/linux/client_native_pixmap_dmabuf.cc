@@ -23,7 +23,6 @@
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "build/chromecast_buildflags.h"
-#include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/linux/dmabuf_uapi.h"
 #include "ui/gfx/switches.h"
 
@@ -186,8 +185,7 @@ bool ClientNativePixmapDmaBuf::IsConfigurationSupported(
 // static
 std::unique_ptr<gfx::ClientNativePixmap>
 ClientNativePixmapDmaBuf::ImportFromDmabuf(gfx::NativePixmapHandle handle,
-                                           const gfx::Size& size,
-                                           gfx::BufferFormat format) {
+                                           const gfx::Size& size) {
   if (handle.planes.size() > kMaxPlanes)
     return nullptr;
 

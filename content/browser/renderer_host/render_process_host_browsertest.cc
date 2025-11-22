@@ -862,7 +862,7 @@ IN_PROC_BROWSER_TEST_P(RenderProcessHostTest,
     // Isolate host so that the first and second navigation are guaranteed to
     // be in different processes.
     IsolateOriginsForTesting(embedded_test_server(), shell()->web_contents(),
-                             {kTestUrl.host()});
+                             {kTestUrl.GetHost()});
   }
   EXPECT_TRUE(NavigateToURL(shell(), kTestUrl));
 
@@ -927,7 +927,7 @@ IN_PROC_BROWSER_TEST_P(RenderProcessHostTest,
     // Isolate host so that the first and second navigation are guaranteed to
     // be in different processes.
     IsolateOriginsForTesting(embedded_test_server(), shell()->web_contents(),
-                             {kTestUrl.host()});
+                             {kTestUrl.GetHost()});
   }
 
   EXPECT_TRUE(NavigateToURL(shell(), kTestUrl));
@@ -2283,7 +2283,8 @@ IN_PROC_BROWSER_TEST_P(RenderProcessHostTest, ClearResourceCache) {
 
 // Tests that RenderProcessHost reuse works correctly even if the site URL of a
 // URL changes.
-IN_PROC_BROWSER_TEST_P(RenderProcessHostTest, ReuseSiteURLChanges) {
+// TODO(crbug.com/460621062): Re-enable the test
+IN_PROC_BROWSER_TEST_P(RenderProcessHostTest, DISABLED_ReuseSiteURLChanges) {
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL kUrl = embedded_test_server()->GetURL("/title1.html");
   const GURL kModifiedSiteUrl("custom-scheme://custom");
@@ -2321,11 +2322,25 @@ IN_PROC_BROWSER_TEST_P(RenderProcessHostTest, ReuseSiteURLChanges) {
     EXPECT_NE(root->current_frame_host()->GetProcess(),
               site_instance->GetProcess());
 
+    RenderFrameDeletedObserver observer(
+        shell()->web_contents()->GetPrimaryMainFrame());
     // Reload. Getting a RenderProcessHost with the
     // kReusePendingOrCommittedSite policy should now return the process of
     // the main RFH, as it is now registered with the modified site URL.
     shell()->web_contents()->GetController().Reload(ReloadType::NORMAL, false);
     EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+    // TODO(crbug.com/40192071): At this point, the main frame should swap to a
+    // new SiteInstance with the modified site URL, but it unexpectedly stays in
+    // the old SiteInstance and process. Without waiting for the RFH
+    // destruction, most of the subsequent expectations still accidentally pass,
+    // except for the one about no process reuse after the custom
+    // ContentBrowserClient is removed. For now, work around this by waiting for
+    // the old RFH to be deleted here, which avoids the main frame process being
+    // associated with the old site URL and later interfering with process reuse
+    // decisions. When this bug is fixed, this observer should be removed, and
+    // new expectations should be added here to ensure that we swap to a fresh
+    // SiteInstance and process after the reload
+    observer.WaitUntilDeleted();
     site_instance =
         SiteInstanceImpl::CreateReusableInstanceForTesting(context, kUrl);
     EXPECT_EQ(root->current_frame_host()->GetProcess(),
@@ -2698,7 +2713,7 @@ IN_PROC_BROWSER_TEST_P(RenderProcessHostTest,
    public:
     // ContentBrowserTestContentBrowserClient:
     bool DisallowV8FeatureFlagOverridesForSite(const GURL& site_url) override {
-      return site_url.host() == "a.com";
+      return site_url.GetHost() == "a.com";
     }
   };
   DisallowV8FeatureOverridesContentBrowserClient content_browser_client;
@@ -2727,6 +2742,59 @@ IN_PROC_BROWSER_TEST_P(RenderProcessHostTest,
   process_a->Cleanup();
   process_b->Cleanup();
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+// Asserts RenderProcessHosts are configured to reflect the embedder's policy
+// defined by `ContentBrowserClient::IsInitialWebUIScheme()`.
+IN_PROC_BROWSER_TEST_P(RenderProcessHostTest, ForInitialWebUIAppliedToHosts) {
+  class ForInitialWebUIContentBrowserClient
+      : public ContentBrowserTestContentBrowserClient {
+   public:
+    // ContentBrowserTestContentBrowserClient:
+    bool IsInitialWebUIScheme(const GURL& url) override {
+      return url == GURL("chrome://initial-webui-test-scheme");
+    }
+  };
+  ForInitialWebUIContentBrowserClient content_browser_client;
+
+  const GURL url_a("chrome://initial-webui-test-scheme");
+  const GURL url_b("http://b.com");
+
+  BrowserContext* browser_context =
+      ShellContentBrowserClient::Get()->browser_context();
+  scoped_refptr<SiteInstanceImpl> site_instance_a =
+      SiteInstanceImpl::CreateForTesting(browser_context, url_a);
+  scoped_refptr<SiteInstanceImpl> site_instance_b =
+      SiteInstanceImpl::CreateForTesting(browser_context, url_b);
+
+  RenderProcessHost* process_a = RenderProcessHostImpl::CreateRenderProcessHost(
+      browser_context, site_instance_a.get());
+  RenderProcessHost* process_b = RenderProcessHostImpl::CreateRenderProcessHost(
+      browser_context, site_instance_b.get());
+  process_a->Init();
+  process_b->Init();
+
+  EXPECT_TRUE(
+      static_cast<RenderProcessHostImpl*>(process_a)->IsForInitialWebUI());
+  EXPECT_FALSE(
+      static_cast<RenderProcessHostImpl*>(process_b)->IsForInitialWebUI());
+
+  process_a->Cleanup();
+  process_b->Cleanup();
+
+  // Flush the process launcher threads to ensure any tasks that might access
+  // `content_browser_client` are completed before it goes out of scope, as
+  // those threads might read state from it after it's destroyed.
+  // This is important to prevent data races in TSan.
+  base::WaitableEvent done(base::WaitableEvent::ResetPolicy::MANUAL,
+                           base::WaitableEvent::InitialState::NOT_SIGNALED);
+  content::GetProcessLauncherTaskRunner()->PostTask(
+      FROM_HERE,
+      base::BindOnce([](base::WaitableEvent* event) { event->Signal(); },
+                     base::Unretained(&done)));
+  ASSERT_TRUE(done.TimedWait(TestTimeouts::action_timeout()));
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 #endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
 

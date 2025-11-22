@@ -29,8 +29,10 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chromeos/ash/components/boca/boca_role_util.h"
 #include "chromeos/ash/components/boca/boca_window_observer.h"
 #include "chromeos/ash/components/boca/on_task/activity/active_tab_tracker.h"
@@ -71,6 +73,15 @@ LockedSessionWindowTracker::LockedSessionWindowTracker(
   // This will enable us to filter out unmanaged app instances.
   if (is_consumer_profile_) {
     BrowserList::GetInstance()->AddObserver(this);
+    ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+        [this](BrowserWindowInterface* browser_window_interface) {
+          browser_close_subscriptions_[browser_window_interface] =
+              browser_window_interface->RegisterBrowserDidClose(
+                  base::BindRepeating(
+                      &LockedSessionWindowTracker::OnBrowserDidClose,
+                      base::Unretained(this)));
+          return true;  // continue iteration
+        });
   }
 }
 
@@ -103,6 +114,11 @@ void LockedSessionWindowTracker::InitializeBrowserInfoForTracking(
   }
   browser_ = browser;
   browser_->tab_strip_model()->AddObserver(this);
+
+  browser_close_subscriptions_[browser] = browser->RegisterBrowserDidClose(
+      base::BindRepeating(&LockedSessionWindowTracker::OnBrowserDidClose,
+                          base::Unretained(this)));
+
   if (ash::features::IsBocaOnTaskPodEnabled()) {
     on_task_pod_controller_ =
         std::make_unique<ash::OnTaskPodControllerImpl>(browser_);
@@ -205,8 +221,7 @@ void LockedSessionWindowTracker::OnPauseModeChanged(bool paused) {
   // in certain scenarios (like switching to tablet mode), we monitor the
   // browsing instance for such anomalies.
   auto* const immersive_mode_controller =
-      BrowserView::GetBrowserViewForBrowser(browser_)
-          ->immersive_mode_controller();
+      ImmersiveModeController::From(browser_);
   if (paused) {
     immersive_mode_controller->SetEnabled(false);
     immersive_mode_controller_observation_.Reset();
@@ -246,9 +261,11 @@ void LockedSessionWindowTracker::CleanupWindowTracker() {
   }
   on_task_pod_controller_.reset();
   immersive_mode_controller_observation_.Reset();
+
   browser_ = nullptr;
   can_open_new_popup_ = true;
   oauth_in_progress_ = false;
+
   for (auto& observer : observers_) {
     observer.OnWindowTrackerCleanedup();
     RemoveObserver(&observer);
@@ -374,9 +391,11 @@ void LockedSessionWindowTracker::WillCloseAllTabs(
   browser->set_force_skip_warning_user_on_close(true);
 }
 
-// BrowserListObserver Implementation
-void LockedSessionWindowTracker::OnBrowserClosing(Browser* browser) {
-  if (browser == browser_) {
+void LockedSessionWindowTracker::OnBrowserDidClose(
+    BrowserWindowInterface* browser_window_interface) {
+  browser_close_subscriptions_.erase(browser_window_interface);
+
+  if (browser_window_interface == browser_) {
     // Notify not in workbook when boca closed.
     for (auto& observer : observers_) {
       observer.OnActiveTabChanged(
@@ -384,7 +403,8 @@ void LockedSessionWindowTracker::OnBrowserClosing(Browser* browser) {
     }
     CleanupWindowTracker();
   }
-  if (browser->type() == Browser::Type::TYPE_APP_POPUP) {
+  if (browser_window_interface->GetType() ==
+      BrowserWindowInterface::TYPE_APP_POPUP) {
     ash::Shell::Get()
         ->screen_pinning_controller()
         ->SetAllowWindowStackingWithPinnedWindow(false);
@@ -393,7 +413,12 @@ void LockedSessionWindowTracker::OnBrowserClosing(Browser* browser) {
   }
 }
 
+// BrowserListObserver Implementation
 void LockedSessionWindowTracker::OnBrowserAdded(Browser* browser) {
+  browser_close_subscriptions_[browser] = browser->RegisterBrowserDidClose(
+      base::BindRepeating(&LockedSessionWindowTracker::OnBrowserDidClose,
+                          base::Unretained(this)));
+
   if (browser->type() == Browser::Type::TYPE_APP_POPUP) {
     ash::Shell::Get()
         ->screen_pinning_controller()

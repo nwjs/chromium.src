@@ -9,18 +9,30 @@
 #import "base/time/time.h"
 #import "base/values.h"
 #import "components/google/core/common/google_util.h"
+#import "components/optimization_guide/core/hints/optimization_guide_decider.h"
+#import "components/optimization_guide/core/hints/optimization_guide_decision.h"
+#import "components/optimization_guide/core/hints/optimization_metadata.h"
+#import "components/optimization_guide/proto/contextual_cueing_metadata.pb.h"
 #import "components/prefs/pref_service.h"
 #import "components/prefs/scoped_user_pref_update.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_snapshot_utils.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/bwg_constants.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
+#import "ios/chrome/browser/intelligence/zero_state_suggestions/model/zero_state_suggestions_service_impl.h"
+#import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
+#import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/utils/first_run_util.h"
 #import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
+#import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
+#import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
+#import "ios/chrome/browser/shared/public/snackbar/snackbar_message_action.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
+#import "ios/public/provider/chrome/browser/bwg/bwg_api.h"
 #import "ios/web/public/navigation/navigation_context.h"
 #import "ios/web/public/web_state.h"
+#import "mojo/public/cpp/bindings/remote.h"
 #import "url/gurl.h"
 
 namespace {
@@ -59,13 +71,93 @@ std::optional<const base::Value::Dict*> GetSessionDictFromPrefs(
   return std::nullopt;
 }
 
-}  // namespace
-
-BwgTabHelper::BwgTabHelper(web::WebState* web_state) : web_state_(web_state) {
-  web_state_observation_.Observe(web_state);
+NSMutableArray<NSString*>* ZeroStateSuggestionsAsNSArray(
+    std::vector<std::string> suggestions) {
+  NSMutableArray<NSString*>* ns_suggestions =
+      [NSMutableArray arrayWithCapacity:suggestions.size()];
+  for (const std::string& suggestion : suggestions) {
+    [ns_suggestions addObject:base::SysUTF8ToNSString(suggestion)];
+  }
+  return ns_suggestions;
 }
 
-BwgTabHelper::~BwgTabHelper() {}
+}  // namespace
+
+struct BwgTabHelper::ZeroStateSuggestions {
+  ZeroStateSuggestions() = default;
+  ~ZeroStateSuggestions() = default;
+
+  // The zero-state suggestions service.
+  mojo::Remote<ai::mojom::ZeroStateSuggestionsService> service;
+  std::unique_ptr<ai::ZeroStateSuggestionsServiceImpl> service_impl;
+
+  // The zero-state suggestions data for the current page.
+  GURL url;
+  std::optional<std::vector<std::string>> suggestions;
+  bool can_apply = false;
+};
+
+BwgTabHelper::BwgTabHelper(web::WebState* web_state) : web_state_(web_state) {
+  ProfileIOS* profile =
+      ProfileIOS::FromBrowserState(web_state->GetBrowserState());
+  optimization_guide_decider_ =
+      OptimizationGuideServiceFactory::GetForProfile(profile);
+  web_state_observation_.Observe(web_state);
+
+  if (IsZeroStateSuggestionsEnabled()) {
+    zero_state_suggestions_ = std::make_unique<ZeroStateSuggestions>();
+    mojo::PendingReceiver<ai::mojom::ZeroStateSuggestionsService>
+        zero_state_suggestions_receiver =
+            zero_state_suggestions_->service.BindNewPipeAndPassReceiver();
+    zero_state_suggestions_->service_impl =
+        std::make_unique<ai::ZeroStateSuggestionsServiceImpl>(
+            std::move(zero_state_suggestions_receiver), web_state);
+  }
+}
+
+BwgTabHelper::~BwgTabHelper() {
+  if (web_state_) {
+    web_state_->RemoveObserver(this);
+    web_state_ = nullptr;
+  }
+  optimization_guide_decider_ = nullptr;
+}
+
+void BwgTabHelper::ExecuteZeroStateSuggestions(
+    base::OnceCallback<void(NSArray<NSString*>*)> callback) {
+  CHECK(IsZeroStateSuggestionsEnabled());
+
+  if (!zero_state_suggestions_->can_apply) {
+    std::move(callback).Run(nil);
+    return;
+  }
+
+  if (zero_state_suggestions_->suggestions.has_value()) {
+    // Ensure the cached suggestions are for the current URL.
+    if (web_state_->GetVisibleURL().GetWithoutRef() ==
+        zero_state_suggestions_->url) {
+      std::move(callback).Run(ZeroStateSuggestionsAsNSArray(
+          zero_state_suggestions_->suggestions.value()));
+    } else {
+      // The cached suggestions are stale and thus obsolete.
+      std::move(callback).Run(nil);
+    }
+    return;
+  }
+
+  if (!zero_state_suggestions_->service) {
+    std::move(callback).Run(nil);
+    return;
+  }
+
+  base::OnceCallback<void(ai::mojom::ZeroStateSuggestionsResponseResultPtr)>
+      service_callback =
+          base::BindOnce(&BwgTabHelper::ParseSuggestionsResponse,
+                         weak_ptr_factory_.GetWeakPtr(), std::move(callback));
+
+  zero_state_suggestions_->service->FetchZeroStateSuggestions(
+      std::move(service_callback));
+}
 
 void BwgTabHelper::SetBwgUiShowing(bool showing) {
   is_bwg_ui_showing_ = showing;
@@ -88,6 +180,18 @@ void BwgTabHelper::SetIsFirstRun(bool is_first_run) {
 
 bool BwgTabHelper::GetIsFirstRun() {
   return is_first_run_;
+}
+
+bool BwgTabHelper::ShouldPreventContextualPanelEntryPoint() {
+  return prevent_contextual_panel_entry_point_;
+}
+
+void BwgTabHelper::SetPreventContextualPanelEntryPoint(bool shouldPrevent) {
+  prevent_contextual_panel_entry_point_ = shouldPrevent;
+}
+
+void BwgTabHelper::SetPageLoadedCallback(base::OnceClosure callback) {
+  page_loaded_callback_ = std::move(callback);
 }
 
 bool BwgTabHelper::GetIsBwgSessionActiveInBackground() {
@@ -181,6 +285,11 @@ void BwgTabHelper::SetBwgCommandsHandler(id<BWGCommands> handler) {
   bwg_commands_handler_ = handler;
 }
 
+void BwgTabHelper::SetSnackbarCommandsHandler(id<SnackbarCommands> handler) {
+  CHECK(IsAskGeminiSnackbarEnabled());
+  snackbar_commands_handler_ = handler;
+}
+
 #pragma mark - WebStateObserver
 
 void BwgTabHelper::WasShown(web::WebState* web_state) {
@@ -202,9 +311,62 @@ void BwgTabHelper::WasHidden(web::WebState* web_state) {
   UpdateWebStateSnapshotInStorage();
 }
 
+void BwgTabHelper::DidStartNavigation(
+    web::WebState* web_state,
+    web::NavigationContext* navigation_context) {
+  // Cancel the callback that runs on page load, since we're now going to a new
+  // page.
+  page_loaded_callback_.Reset();
+
+  if (IsZeroStateSuggestionsEnabled()) {
+    const GURL& current_url = navigation_context->GetUrl().GetWithoutRef();
+    if (current_url != zero_state_suggestions_->url) {
+      weak_ptr_factory_.InvalidateWeakPtrs();
+      ClearZeroStateSuggestions();
+      zero_state_suggestions_->url = current_url;
+      optimization_guide_decider_->CanApplyOptimization(
+          current_url, optimization_guide::proto::GLIC_ZERO_STATE_SUGGESTIONS,
+          base::BindOnce(&BwgTabHelper::OnCanApplyZeroStateSuggestionsDecision,
+                         weak_ptr_factory_.GetWeakPtr()));
+    }
+  }
+}
+
+void BwgTabHelper::DidFinishNavigation(
+    web::WebState* web_state,
+    web::NavigationContext* navigation_context) {
+  if (!IsAskGeminiChipEnabled()) {
+    return;
+  }
+
+  const GURL& current_url = navigation_context->GetUrl().GetWithoutRef();
+  if (previous_main_frame_url_ == current_url ||
+      navigation_context->IsSameDocument()) {
+    return;
+  }
+
+  previous_main_frame_url_ = current_url;
+  latest_load_contextual_cueing_metadata_.reset();
+
+  if (!optimization_guide_decider_ || !current_url.SchemeIsHTTPOrHTTPS()) {
+    return;
+  }
+
+  if (IsAskGeminiChipEnabled()) {
+    optimization_guide_decider_->CanApplyOptimization(
+        current_url, optimization_guide::proto::GLIC_CONTEXTUAL_CUEING,
+        base::BindOnce(&BwgTabHelper::OnOptimizationGuideDecision,
+                       weak_ptr_factory_.GetWeakPtr(), current_url));
+  }
+}
+
 void BwgTabHelper::PageLoaded(
     web::WebState* web_state,
     web::PageLoadCompletionStatus load_completion_status) {
+  if (page_loaded_callback_) {
+    std::move(page_loaded_callback_).Run();
+  }
+
   ProfileIOS* profile =
       ProfileIOS::FromBrowserState(web_state->GetBrowserState());
   bool floaty_shown = profile->GetPrefs()->GetBoolean(prefs::kIOSBwgConsent);
@@ -224,9 +386,23 @@ void BwgTabHelper::WebStateDestroyed(web::WebState* web_state) {
     CleanupSessionFromPrefs(GetClientId());
   }
   web_state_ = nullptr;
+  if (IsAskGeminiChipEnabled()) {
+    optimization_guide_decider_ = nullptr;
+    latest_load_contextual_cueing_metadata_.reset();
+  }
 }
 
 #pragma mark - Private
+
+void BwgTabHelper::ClearZeroStateSuggestions() {
+  if (!IsZeroStateSuggestionsEnabled()) {
+    return;
+  }
+
+  zero_state_suggestions_->url = GURL();
+  zero_state_suggestions_->suggestions.reset();
+  zero_state_suggestions_->can_apply = false;
+}
 
 void BwgTabHelper::CreateOrUpdateSessionInPrefs(std::string client_id,
                                                 std::string server_id) {
@@ -307,4 +483,75 @@ void BwgTabHelper::UpdateWebStateSnapshotInStorage() {
   if (cached_snapshot_) {
     snapshot_tab_helper->UpdateSnapshotStorageWithImage(cached_snapshot_);
   }
+}
+
+void BwgTabHelper::OnOptimizationGuideDecision(
+    const GURL& main_frame_url,
+    optimization_guide::OptimizationGuideDecision decision,
+    const optimization_guide::OptimizationMetadata& metadata) {
+  CHECK(IsAskGeminiChipEnabled());
+  // The URL has changed so the metadata is obsolete.
+  if (previous_main_frame_url_ != main_frame_url) {
+    return;
+  }
+
+  if (decision != optimization_guide::OptimizationGuideDecision::kTrue) {
+    return;
+  }
+
+  latest_load_contextual_cueing_metadata_ = metadata.ParsedMetadata<
+      optimization_guide::proto::GlicContextualCueingMetadata>();
+  if (latest_load_contextual_cueing_metadata_) {
+    SnackbarMessageAction* action = [[SnackbarMessageAction alloc] init];
+    action.handler = ^{
+      [bwg_commands_handler_ startBWGFlowWithEntryPoint:bwg::EntryPoint::Promo];
+    };
+    action.title = [NSString stringWithFormat:@"✦ %@", @"Ask Gemini"];
+    SnackbarMessage* message =
+        [[SnackbarMessage alloc] initWithTitle:@"Ask about page?"];
+    message.action = action;
+
+    [snackbar_commands_handler_ showSnackbarMessage:message];
+  }
+}
+
+void BwgTabHelper::OnCanApplyZeroStateSuggestionsDecision(
+    optimization_guide::OptimizationGuideDecision decision,
+    const optimization_guide::OptimizationMetadata& metadata) {
+  // The URL has changed so the metadata is obsolete.
+  if (web_state_->GetVisibleURL().GetWithoutRef() !=
+      zero_state_suggestions_->url) {
+    return;
+  }
+
+  zero_state_suggestions_->can_apply =
+      decision == optimization_guide::OptimizationGuideDecision::kTrue;
+}
+
+void BwgTabHelper::ParseSuggestionsResponse(
+    base::OnceCallback<void(NSArray<NSString*>*)> callback,
+    ai::mojom::ZeroStateSuggestionsResponseResultPtr result) {
+  if (!result || result->is_error()) {
+    std::move(callback).Run(nil);
+    return;
+  }
+
+  std::optional<optimization_guide::proto::ZeroStateSuggestionsResponse>
+      response_proto_optional =
+          result->get_response()
+              .As<optimization_guide::proto::ZeroStateSuggestionsResponse>();
+  if (!response_proto_optional.has_value()) {
+    std::move(callback).Run(nil);
+    return;
+  }
+  optimization_guide::proto::ZeroStateSuggestionsResponse response_proto =
+      response_proto_optional.value();
+
+  zero_state_suggestions_->suggestions.emplace();
+  for (const auto& suggestion : response_proto.suggestions()) {
+    zero_state_suggestions_->suggestions->push_back(suggestion.label());
+  }
+
+  std::move(callback).Run(ZeroStateSuggestionsAsNSArray(
+      zero_state_suggestions_->suggestions.value()));
 }

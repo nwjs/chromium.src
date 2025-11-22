@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ai/ai_rewriter.h"
 
+#include "base/containers/fixed_flat_set.h"
 #include "base/functional/bind.h"
 #include "base/notimplemented.h"
 #include "base/strings/string_util.h"
@@ -72,8 +73,7 @@ optimization_guide::proto::WritingAssistanceApiOutputLength ToProtoLength(
 
 AIRewriter::AIRewriter(
     AIContextBoundObjectSet& context_bound_object_set,
-    std::unique_ptr<optimization_guide::OptimizationGuideModelExecutor::Session>
-        session,
+    std::unique_ptr<optimization_guide::OnDeviceSession> session,
     blink::mojom::AIRewriterCreateOptionsPtr options,
     mojo::PendingReceiver<blink::mojom::AIRewriter> receiver)
     : AIContextBoundObject(context_bound_object_set),

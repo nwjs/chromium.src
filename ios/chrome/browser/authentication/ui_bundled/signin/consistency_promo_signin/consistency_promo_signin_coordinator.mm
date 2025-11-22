@@ -16,6 +16,7 @@
 #import "components/signin/public/browser/web_signin_tracker.h"
 #import "components/signin/public/identity_manager/account_info.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
+#import "google_apis/gaia/gaia_id.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_ui_util.h"
 #import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
@@ -289,7 +290,7 @@
 - (void)startReauthFlowWithIdentity:(id<SystemIdentity>)identity {
   // TODO(crbug.com/391342053): Add logging.
   CoreAccountInfo account;
-  account.gaia = GaiaId(identity.gaiaID);
+  account.gaia = identity.gaiaId;
   account.email = base::SysNSStringToUTF8(identity.userEmail);
   if (self.reauthCoordinator.viewWillPersist) {
     // In case of double tap, let the first reauth proceed.
@@ -506,15 +507,16 @@
 
 #pragma mark - SigninReauthCoordinatorDelegate
 
-- (void)reauthFinishedWithResult:(ReauthResult)result gaiaID:(GaiaId*)gaiaID {
+- (void)reauthFinishedWithResult:(ReauthResult)result
+                          gaiaID:(const GaiaId*)gaiaID {
   [self stopReauthCoordinator];
   if (result == ReauthResult::kSuccess) {
     ChromeAccountManagerService* accountManagerService =
         ChromeAccountManagerServiceFactory::GetForProfile(self.profile);
     BOOL identityValid =
         accountManagerService->IsValidIdentity(self.selectedIdentity);
-    BOOL identityEqual = [self.defaultAccountCoordinator.selectedIdentity.gaiaID
-        isEqualToString:gaiaID->ToNSString()];
+    BOOL identityEqual =
+        self.defaultAccountCoordinator.selectedIdentity.gaiaId == *gaiaID;
     if (identityValid && identityEqual && result == ReauthResult::kSuccess) {
       [self startSignIn];
     }

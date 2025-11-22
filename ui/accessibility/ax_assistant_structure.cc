@@ -402,10 +402,11 @@ const char* AXRoleToAndroidClassName(ax::mojom::Role role, bool has_parent) {
       return kAXSeekBarClassname;
     case ax::mojom::Role::kColorWell:
     case ax::mojom::Role::kComboBoxMenuButton:
-    case ax::mojom::Role::kDate:
     case ax::mojom::Role::kDateTime:
     case ax::mojom::Role::kInputTime:
       return kAXSpinnerClassname;
+    case ax::mojom::Role::kDate:
+      return kAXDatePickerClassname;
     case ax::mojom::Role::kButton:
     case ax::mojom::Role::kPopUpButton:
     case ax::mojom::Role::kPdfActionableHighlight:
@@ -417,6 +418,7 @@ const char* AXRoleToAndroidClassName(ax::mojom::Role role, bool has_parent) {
     case ax::mojom::Role::kRadioGroup:
       return kAXRadioGroupClassname;
     case ax::mojom::Role::kSwitch:
+      return kAXSwitchClassname;
     case ax::mojom::Role::kToggleButton:
       return kAXToggleButtonClassname;
     case ax::mojom::Role::kCanvas:
@@ -436,8 +438,9 @@ const char* AXRoleToAndroidClassName(ax::mojom::Role role, bool has_parent) {
     case ax::mojom::Role::kListBox:
     case ax::mojom::Role::kDescriptionList:
       return kAXListViewClassname;
+    // An Android dialog is just a generic window, so both `kDialog` and
+    // `kAlertDialog` Chrome roles are mapped to Android's `kAXAlertDialog`.
     case ax::mojom::Role::kDialog:
-      return kAXDialogClassname;
     case ax::mojom::Role::kAlertDialog:
       return kAXAlertDialogClassname;
     case ax::mojom::Role::kRootWebArea:

@@ -22,6 +22,7 @@
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/with_feature_override.h"
 #include "base/threading/thread_restrictions.h"
@@ -96,6 +97,7 @@
 #include "components/policy/core/common/management/scoped_management_service_override_for_testing.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/consent_level.h"
+#include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/accounts_in_cookie_jar_info.h"
@@ -362,18 +364,18 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewBrowserTest,
   CloseBrowserSynchronously(browser());
 }
 
-class ProfileMenuViewExtensionsTest
-    : public ProfileMenuViewTestBase,
-      public InteractiveFeaturePromoTestT<extensions::ExtensionBrowserTest> {
+class ProfileMenuViewExtensionsTest : public ProfileMenuViewTestBase,
+                                      public InteractiveFeaturePromoTestMixin<
+                                          extensions::ExtensionBrowserTest> {
  public:
   ProfileMenuViewExtensionsTest()
-      : InteractiveFeaturePromoTestT(UseDefaultTrackerAllowingPromos(
+      : InteractiveFeaturePromoTestMixin(UseDefaultTrackerAllowingPromos(
             {feature_engagement::kIPHProfileSwitchFeature,
              feature_engagement::kIPHSupervisedUserProfileSigninFeature})) {}
 
-  // InteractiveFeaturePromoTestT:
+  // InteractiveFeaturePromoTestMixin:
   void SetUpOnMainThread() override {
-    InteractiveFeaturePromoTestT::SetUpOnMainThread();
+    InteractiveFeaturePromoTestMixin::SetUpOnMainThread();
     SetTargetBrowser(browser());
   }
 };
@@ -673,7 +675,7 @@ class ProfileMenuViewSignoutTestWithNetwork
       bool has_network_error,
       const net::test_server::HttpRequest& request) {
     if (!net::test_server::ShouldHandle(
-            request, GaiaUrls::GetInstance()->service_logout_url().path())) {
+            request, GaiaUrls::GetInstance()->service_logout_url().GetPath())) {
       return nullptr;
     }
 
@@ -772,7 +774,8 @@ class ProfileMenuViewSyncErrorButtonTest : public ProfileMenuViewTestBase,
     // but this is tested in ProfileMenuClickTest.
     base::HistogramTester histogram_tester;
     static_cast<ProfileMenuView*>(profile_menu_view())
-        ->OnSyncErrorButtonClicked(AvatarSyncErrorType::kSyncPaused);
+        ->OnSyncErrorButtonClicked(
+            syncer::SyncService::UserActionableError::kSignInNeedsUpdate);
     histogram_tester.ExpectUniqueSample(
         "Profile.Menu.ClickedActionableItem",
         ProfileMenuViewBase::ActionableItem::kSyncErrorButton,
@@ -996,20 +999,20 @@ class ProfileMenuViewSigninPendingTest : public ProfileMenuViewTestBase,
   }
 
   void ClickReauthButton() {
-    base::HistogramTester histogram_tester;
     OpenProfileMenu();
     static_cast<ProfileMenuView*>(profile_menu_view())
         ->OnSigninButtonClicked(
             account_info(),
             ProfileMenuViewBase::ActionableItem::kSigninReauthButton,
             signin_metrics::AccessPoint::kAvatarBubbleSignIn);
-    histogram_tester.ExpectUniqueSample(
+    histogram_tester_.ExpectUniqueSample(
         "Profile.Menu.ClickedActionableItem",
         ProfileMenuViewBase::ActionableItem::kSigninReauthButton,
         /*expected_bucket_count=*/1);
   }
 
  protected:
+  base::HistogramTester histogram_tester_;
   CoreAccountInfo account_info_;
 };
 
@@ -1029,6 +1032,9 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewSigninPendingTest, OpenReauthTab) {
   // The email is pre-filled.
   EXPECT_THAT(reauth_url, testing::HasSubstr(base::EscapeQueryParamValue(
                               account_info_.email, true)));
+  histogram_tester_.ExpectUniqueSample(
+      "Signin.SigninPending.Offered",
+      signin_metrics::AccessPoint::kAvatarBubbleSignIn, 1);
 }
 
 #endif  // !BUILDFLAG(IS_CHROMEOS)
@@ -2695,10 +2701,7 @@ class ProfileMenuSigninAccessPointTest : public SigninBrowserTestBase {
  protected:
   ProfileMenuSigninAccessPointTest()
       : delegate_auto_reset_(signin_ui_util::SetSigninUiDelegateForTesting(
-            &mock_signin_ui_delegate_)) {
-    feature_list_.InitAndDisableFeature(
-        syncer::kReplaceSyncPromosWithSignInPromos);
-  }
+            &mock_signin_ui_delegate_)) {}
 
   void OpenProfileMenuFromCoordinator(
       std::optional<signin_metrics::AccessPoint> explicit_access_point =
@@ -2706,6 +2709,8 @@ class ProfileMenuSigninAccessPointTest : public SigninBrowserTestBase {
     auto* coordinator = browser()->GetFeatures().profile_menu_coordinator();
     ASSERT_TRUE(coordinator);
     coordinator->Show(/*is_source_accelerator=*/false, explicit_access_point);
+    ASSERT_TRUE(base::test::RunUntil(
+        [coordinator]() { return coordinator->IsShowing(); }));
     ASSERT_NO_FATAL_FAILURE(
         WaitForMenuToBeActive(coordinator->GetProfileMenuViewBaseForTesting()));
   }
@@ -2716,6 +2721,7 @@ class ProfileMenuSigninAccessPointTest : public SigninBrowserTestBase {
     ProfileMenuViewBase* profile_menu_view =
         coordinator->GetProfileMenuViewBaseForTesting();
     ASSERT_TRUE(profile_menu_view);
+    profile_menu_view->GetFocusManager()->ClearFocus();
     profile_menu_view->GetFocusManager()->AdvanceFocus(/*reverse=*/false);
     views::View* focused_view =
         profile_menu_view->GetFocusManager()->GetFocusedView();
@@ -2729,8 +2735,6 @@ class ProfileMenuSigninAccessPointTest : public SigninBrowserTestBase {
 
  private:
   base::AutoReset<signin_ui_util::SigninUiDelegate*> delegate_auto_reset_;
-
-  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(ProfileMenuSigninAccessPointTest,
@@ -2739,11 +2743,6 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuSigninAccessPointTest,
   const signin_metrics::AccessPoint default_access_point =
       signin_metrics::AccessPoint::kAvatarBubbleSignIn;
   ASSERT_NO_FATAL_FAILURE(OpenProfileMenuFromCoordinator());
-  // `Signin.SyncOptIn.Offered` should be recorded if the sync opt-in is
-  // offered from the profile menu.
-  histogram_tester.ExpectUniqueSample("Signin.SyncOptIn.Offered",
-                                      default_access_point,
-                                      /*expected_bucket_count=*/1);
   // `Signin.SignIn.Offered` should NOT be recorded if the sign-in is not
   // directly offered from the profile menu.
   histogram_tester.ExpectUniqueSample("Signin.SignIn.Offered",
@@ -2751,11 +2750,34 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuSigninAccessPointTest,
                                       /*expected_bucket_count=*/0);
   if (base::FeatureList::IsEnabled(
           syncer::kReplaceSyncPromosWithSignInPromos)) {
+    // `Signin.SyncOptIn.Offered` should be not recorded if
+    // `syncer::kReplaceSyncPromosWithSignInPromos` is enabled. Instead,
+    // `Signin.HistorySyncOptIn.Offered` should be.
+    histogram_tester.ExpectTotalCount("Signin.SyncOptIn.Offered",
+                                      /*expected_count=*/0);
+    histogram_tester.ExpectUniqueSample("Signin.HistorySyncOptIn.Offered",
+                                        default_access_point,
+                                        /*expected_bucket_count=*/1);
+
     EXPECT_CALL(
         mock_signin_ui_delegate_,
         ShowHistorySyncOptinUI(browser()->profile(), account_info_.account_id,
                                default_access_point));
+    ASSERT_NO_FATAL_FAILURE(ClickSyncButton());
+    histogram_tester.ExpectUniqueSample(
+        "Profile.Menu.ClickedActionableItem",
+        ProfileMenuViewBase::ActionableItem::kHistorySyncButton,
+        /*expected_bucket_count=*/1);
   } else {
+    // `Signin.SyncOptIn.Offered` should be recorded if the sync opt-in is
+    // offered from the profile menu. `Signin.HistorySyncOptIn.Offered` should
+    // not be recorded.
+    histogram_tester.ExpectUniqueSample("Signin.SyncOptIn.Offered",
+                                        default_access_point,
+                                        /*expected_bucket_count=*/1);
+    histogram_tester.ExpectTotalCount("Signin.HistorySyncOptIn.Offered",
+                                      /*expected_count=*/0);
+
     EXPECT_CALL(
         mock_signin_ui_delegate_,
         ShowTurnSyncOnUI(browser()->profile(), default_access_point,
@@ -2764,13 +2786,12 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuSigninAccessPointTest,
                          TurnSyncOnHelper::SigninAbortedMode::KEEP_ACCOUNT,
                          /*is_sync_promo=*/false,
                          /*user_already_signed_in=*/true));
+    ASSERT_NO_FATAL_FAILURE(ClickSyncButton());
+    histogram_tester.ExpectUniqueSample(
+        "Profile.Menu.ClickedActionableItem",
+        ProfileMenuViewBase::ActionableItem::kSigninAccountButton,
+        /*expected_bucket_count=*/1);
   }
-  ASSERT_NO_FATAL_FAILURE(ClickSyncButton());
-  const ProfileMenuViewBase::ActionableItem actionable_item =
-      ProfileMenuViewBase::ActionableItem::kSigninAccountButton;
-  histogram_tester.ExpectUniqueSample("Profile.Menu.ClickedActionableItem",
-                                      actionable_item,
-                                      /*expected_bucket_count=*/1);
 }
 
 IN_PROC_BROWSER_TEST_F(ProfileMenuSigninAccessPointTest,
@@ -2788,9 +2809,11 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuSigninAccessPointTest,
 
   if (base::FeatureList::IsEnabled(
           syncer::kReplaceSyncPromosWithSignInPromos)) {
-    histogram_tester.ExpectUniqueSample("Signin.SyncOptIn.Offered",
-                                        explicit_access_point,
-                                        /*expected_bucket_count=*/0);
+    // `Signin.SyncOptIn.Offered` should be not recorded if
+    // `syncer::kReplaceSyncPromosWithSignInPromos` is enabled. Instead,
+    // `Signin.HistorySyncOptIn.Offered` should be.
+    histogram_tester.ExpectTotalCount("Signin.SyncOptIn.Offered",
+                                      /*expected_count=*/0);
     histogram_tester.ExpectUniqueSample("Signin.HistorySyncOptIn.Offered",
                                         explicit_access_point,
                                         /*expected_bucket_count=*/1);
@@ -2801,14 +2824,17 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuSigninAccessPointTest,
     ASSERT_NO_FATAL_FAILURE(ClickSyncButton());
     histogram_tester.ExpectUniqueSample(
         "Profile.Menu.ClickedActionableItem",
-        ProfileMenuViewBase::ActionableItem::kSigninAccountButton,
+        ProfileMenuViewBase::ActionableItem::kHistorySyncButton,
         /*expected_bucket_count=*/1);
   } else {
     // `Signin.SyncOptIn.Offered` should be recorded if the sync opt-in is
-    // offered from the profile menu.
+    // offered from the profile menu. `Signin.HistorySyncOptIn.Offered` should
+    // not be recorded.
     histogram_tester.ExpectUniqueSample("Signin.SyncOptIn.Offered",
                                         explicit_access_point,
                                         /*expected_bucket_count=*/1);
+    histogram_tester.ExpectTotalCount("Signin.HistorySyncOptIn.Offered",
+                                      /*expected_count=*/0);
 
     EXPECT_CALL(
         mock_signin_ui_delegate_,

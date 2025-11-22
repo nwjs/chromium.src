@@ -1119,6 +1119,7 @@ class CORE_EXPORT Document : public ContainerNode,
   void ClearFocusedElement(bool omit_blur_events = false);
   Element* FocusedElement() const { return focused_element_.Get(); }
   void ClearFocusedElementIfNeeded();
+  void UpdateFocusgroupLastFocused(Element& focused_element);
   UserActionElementSet& UserActionElements() { return user_action_elements_; }
   const UserActionElementSet& UserActionElements() const {
     return user_action_elements_;
@@ -1753,6 +1754,12 @@ class CORE_EXPORT Document : public ContainerNode,
   void DidChangeFormRelatedElementDynamically(HTMLElement*,
                                               WebFormRelatedChangeType);
 
+  // Please familiarize yourself with http://goo.gle/devtools-console-policy
+  // prior to adding new console messages, and make sure that you understand the
+  // implications on the developer experience. A good console message should be
+  // actionable and relevant to what the developer is currently doing. Using the
+  // DevTools Console panel as a means to advertise best practices or Chromium
+  // agendas has shown to be counterproductive.
   void AddConsoleMessage(ConsoleMessage* message,
                          bool discard_duplicates = false) const;
 
@@ -1969,6 +1976,8 @@ class CORE_EXPORT Document : public ContainerNode,
   // A META element with name=supports-reduced-motion was added, removed, or
   // modified. Re-collect the META values.
   void SupportsReducedMotionMetaChanged();
+
+  void RequestResizeResponsiveIframe(ExceptionState* = nullptr);
 
   // A META element with name=responsive-embedded-sizing was added, removed, or
   // modified. Re-collect the META values.
@@ -2259,6 +2268,12 @@ class CORE_EXPORT Document : public ContainerNode,
 
   // WidgetCreationObserver implementation
   void OnLocalRootWidgetCreated() override;
+
+  // https://dom.spec.whatwg.org/#effective-global-custom-element-registry
+  // A document's effective global custom element registry is its own registry
+  // if the registry is global, otherwise the effective global registry is
+  // nullptr.
+  CustomElementRegistry* EffectiveGlobalCustomElementRegistry() const;
 
  protected:
   void ClearXMLVersion() { xml_version_ = String(); }

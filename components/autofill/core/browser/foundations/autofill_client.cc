@@ -7,6 +7,7 @@
 #include <optional>
 #include <utility>
 
+#include "base/containers/flat_set.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/no_destructor.h"
@@ -20,9 +21,10 @@
 #include "components/autofill/core/browser/integrators/plus_addresses/autofill_plus_address_delegate.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #include "components/autofill/core/browser/studies/autofill_ablation_study.h"
+#include "components/autofill/core/browser/studies/autofill_experiments.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
-#include "components/optimization_guide/core/optimization_guide_model_executor.h"
+#include "components/optimization_guide/core/model_execution/remote_model_executor.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/version_info/channel.h"
 
@@ -52,31 +54,6 @@ AutofillClient::PopupOpenArgs& AutofillClient::PopupOpenArgs::operator=(
 AutofillClient::PopupOpenArgs& AutofillClient::PopupOpenArgs::operator=(
     AutofillClient::PopupOpenArgs&&) = default;
 
-AutofillClient::EntitySaveOrUpdatePromptResult::EntitySaveOrUpdatePromptResult(
-    bool did_user_decline,
-    std::optional<EntityInstance> entity)
-    : did_user_decline(did_user_decline), entity(std::move(entity)) {}
-
-AutofillClient::EntitySaveOrUpdatePromptResult::
-    EntitySaveOrUpdatePromptResult() = default;
-
-AutofillClient::EntitySaveOrUpdatePromptResult::EntitySaveOrUpdatePromptResult(
-    const AutofillClient::EntitySaveOrUpdatePromptResult&) = default;
-
-AutofillClient::EntitySaveOrUpdatePromptResult::EntitySaveOrUpdatePromptResult(
-    AutofillClient::EntitySaveOrUpdatePromptResult&&) = default;
-
-AutofillClient::EntitySaveOrUpdatePromptResult&
-AutofillClient::EntitySaveOrUpdatePromptResult::operator=(
-    const AutofillClient::EntitySaveOrUpdatePromptResult&) = default;
-
-AutofillClient::EntitySaveOrUpdatePromptResult&
-AutofillClient::EntitySaveOrUpdatePromptResult::operator=(
-    AutofillClient::EntitySaveOrUpdatePromptResult&&) = default;
-
-AutofillClient::EntitySaveOrUpdatePromptResult::
-    ~EntitySaveOrUpdatePromptResult() = default;
-
 version_info::Channel AutofillClient::GetChannel() const {
   return version_info::Channel::UNKNOWN;
 }
@@ -87,6 +64,10 @@ bool AutofillClient::IsOffTheRecord() const {
 
 const EntityDataManager* AutofillClient::GetEntityDataManager() const {
   return const_cast<AutofillClient*>(this)->GetEntityDataManager();
+}
+
+bool AutofillClient::HasPersonalDataManager() const {
+  return true;
 }
 
 const PersonalDataManager& AutofillClient::GetPersonalDataManager() const {
@@ -141,8 +122,8 @@ AutofillAiModelExecutor* AutofillClient::GetAutofillAiModelExecutor() {
   return nullptr;
 }
 
-optimization_guide::OptimizationGuideModelExecutor*
-AutofillClient::GetOptimizationGuideModelExecutor() {
+optimization_guide::RemoteModelExecutor*
+AutofillClient::GetRemoteModelExecutor() {
   return nullptr;
 }
 
@@ -227,6 +208,21 @@ void AutofillClient::TriggerDeclinedSaveAddressReasonSurvey() {
   NOTIMPLEMENTED();
 }
 
+void AutofillClient::TriggerAutofillAiFillingJourneySurvey(
+    bool suggestion_accepted,
+    EntityType entity_type,
+    const base::flat_set<EntityTypeName>& saved_entities,
+    const FieldTypeSet& triggering_field_types) {
+  NOTIMPLEMENTED();
+}
+
+void AutofillClient::TriggerAutofillAiSavePromptSurvey(
+    bool prompt_accepted,
+    EntityType entity_type,
+    const base::flat_set<EntityTypeName>& saved_entities) {
+  NOTIMPLEMENTED();
+}
+
 std::unique_ptr<device_reauth::DeviceAuthenticator>
 AutofillClient::GetDeviceAuthenticator() {
   return nullptr;
@@ -273,6 +269,18 @@ bool AutofillClient::IsCvcSavingSupported() const {
   return true;
 }
 
+bool AutofillClient::IsCreditCardUploadEnabled() const {
+  return ::autofill::IsCreditCardUploadEnabled(
+      GetSyncService(), *GetPrefs(),
+      GetPersonalDataManager()
+          .payments_data_manager()
+          .GetCountryCodeForExperimentGroup(),
+      GetPersonalDataManager()
+          .payments_data_manager()
+          .GetPaymentsSigninStateForMetrics(),
+      const_cast<AutofillClient*>(this)->GetCurrentLogManager());
+}
+
 void AutofillClient::set_test_addresses(
     std::vector<AutofillProfile> test_addresses) {}
 
@@ -300,16 +308,38 @@ AutofillClient::GetMqlsUploadService() {
   return nullptr;
 }
 
-void AutofillClient::ShowEntitySaveOrUpdateBubble(
+void AutofillClient::ShowEntityImportBubble(
     EntityInstance new_entity,
     std::optional<EntityInstance> old_entity,
-    EntitySaveOrUpdatePromptResultCallback save_prompt_acceptance_callback) {}
+    EntityImportPromptResultCallback prompt_closed_callback) {}
+
+void AutofillClient::ShowEmailVerifiedToast() {
+  NOTIMPLEMENTED();
+}
 
 OtpFieldDetector* AutofillClient::GetOtpFieldDetector() {
   return nullptr;
 }
 
-one_time_tokens::SmsOtpBackend* AutofillClient::GetSmsOtpBackend() const {
+one_time_tokens::OneTimeTokenService* AutofillClient::GetOneTimeTokenService()
+    const {
+  return nullptr;
+}
+
+bool AutofillClient::DocumentUsedWebOTP() {
+  return false;
+}
+
+PasswordManagerAutofillHelperDelegate*
+AutofillClient::GetPasswordManagerAutofillHelper() {
+  return nullptr;
+}
+
+AutofillManager* AutofillClient::GetAutofillManagerForPrimaryMainFrame() {
+  return nullptr;
+}
+
+OtpPhishGuardDelegate* AutofillClient::GetOtpPhishGuardDelegate() {
   return nullptr;
 }
 

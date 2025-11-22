@@ -16,7 +16,11 @@ import androidx.annotation.WorkerThread;
 
 import org.chromium.android_webview.AwBrowserContext;
 import org.chromium.android_webview.AwOriginMatchedHeader;
+import org.chromium.android_webview.common.AwFeatureMap;
+import org.chromium.android_webview.common.AwFeatures;
 import org.chromium.android_webview.common.Lifetime;
+import org.chromium.android_webview.common.WebViewCachedFlags;
+import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.url.GURL;
@@ -32,6 +36,7 @@ import java.util.function.Consumer;
  */
 @Lifetime.Profile
 public class Profile {
+    private static final String TAG = "Profile";
 
     @NonNull private final AwBrowserContext mBrowserContext;
 
@@ -52,7 +57,10 @@ public class Profile {
             mBrowserContext = browserContext;
             mName = browserContext.getName();
             WebViewChromiumFactoryProvider factory = WebViewChromiumFactoryProvider.getSingleton();
-            if (browserContext.isDefaultAwBrowserContext()) {
+            if (browserContext.isDefaultAwBrowserContext()
+                    && !WebViewCachedFlags.get()
+                            .isCachedFeatureEnabled(
+                                    AwFeatures.WEBVIEW_BYPASS_PROVISIONAL_COOKIE_MANAGER)) {
                 mCookieManager = CookieManager.getInstance();
             } else {
                 mCookieManager = new CookieManagerAdapter(browserContext.getCookieManager());
@@ -215,5 +223,14 @@ public class Profile {
     @UiThread
     public void clearAllOriginMatchedHeaders() {
         mBrowserContext.clearAllOriginMatchedHeaders();
+    }
+
+    @UiThread
+    public void addQuicHints(Set<String> origins) {
+        if (AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_ADD_QUIC_HINTS)) {
+            mBrowserContext.addQuicHints(origins);
+        } else {
+            Log.w(TAG, "Profile.addQuicHints has been disabled.");
+        }
     }
 }

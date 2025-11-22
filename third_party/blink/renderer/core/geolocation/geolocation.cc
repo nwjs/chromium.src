@@ -30,8 +30,8 @@
 #include <algorithm>
 #include <optional>
 
-#include "base/notreached.h"
 #include "base/task/single_thread_task_runner.h"
+#include "build/build_config.h"
 #include "services/device/public/mojom/geoposition.mojom-blink.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-blink.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
@@ -50,6 +50,7 @@
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/timing/epoch_time_stamp.h"
 #include "third_party/blink/renderer/platform/bindings/source_location.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
 namespace {
@@ -120,6 +121,21 @@ bool ValidateGeoposition(const device::mojom::blink::Geoposition& position) {
          position.longitude >= -180. && position.longitude <= 180. &&
          position.accuracy >= 0. && !position.timestamp.is_null();
 }
+
+#if BUILDFLAG(IS_ANDROID)
+// On Android, `enableHighAccuracy` previously always returned a precise
+// location. With the `ApproximateGeolocationPermissionEnabled` feature, the
+// location provider reuses the same accuracy setting but can return precise or
+// approximate locations. To ensure consistent accuracy for sites before and
+// after this feature, we override the accuracy setting here.
+PositionOptions* OverrideAccuracyHint(const PositionOptions* options) {
+  PositionOptions* copied_options = PositionOptions::Create();
+  copied_options->setTimeout(options->timeout());
+  copied_options->setMaximumAge(options->maximumAge());
+  copied_options->setEnableHighAccuracy(true);
+  return copied_options;
+}
+#endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace
 
@@ -210,9 +226,18 @@ void Geolocation::RecordOriginTypeAccess() const {
   }
 }
 
-void Geolocation::getCurrentPosition(V8PositionCallback* success_callback,
-                                     V8PositionErrorCallback* error_callback,
-                                     const PositionOptions* options) {
+void Geolocation::getCurrentPositionForBindings(
+    V8PositionCallback* success_callback,
+    V8PositionErrorCallback* error_callback,
+    const PositionOptions* v8_options) {
+  const PositionOptions* options =
+#if BUILDFLAG(IS_ANDROID)
+      RuntimeEnabledFeatures::ApproximateGeolocationPermissionEnabled()
+          ? OverrideAccuracyHint(v8_options)
+          : v8_options;
+#else
+      v8_options;
+#endif
   if (options->enableHighAccuracy()) {
     UseCounter::Count(GetExecutionContext(),
                       WebFeature::kGeolocationGetCurrentPositionHighAccuracy);
@@ -239,12 +264,34 @@ void Geolocation::getCurrentPosition(V8PositionCallback* success_callback,
   StartRequest(notifier);
 }
 
-int Geolocation::watchPosition(V8PositionCallback* success_callback,
-                               V8PositionErrorCallback* error_callback,
-                               const PositionOptions* options) {
+void Geolocation::GetCurrentPosition(
+    base::RepeatingCallback<
+        void(base::expected<Geoposition*, GeolocationPositionError*>)> callback,
+    const PositionOptions* options) {
+  if (!GetFrame()) {
+    return;
+  }
+  auto* notifier =
+      MakeGarbageCollected<GeoNotifierBlink>(this, options, callback);
+  one_shots_->insert(notifier);
+  StartRequest(notifier);
+}
+
+int Geolocation::watchPositionForBindings(
+    V8PositionCallback* success_callback,
+    V8PositionErrorCallback* error_callback,
+    const PositionOptions* v8_options) {
+  const PositionOptions* options =
+#if BUILDFLAG(IS_ANDROID)
+      RuntimeEnabledFeatures::ApproximateGeolocationPermissionEnabled()
+          ? OverrideAccuracyHint(v8_options)
+          : v8_options;
+#else
+      v8_options;
+#endif
   if (options->enableHighAccuracy()) {
     UseCounter::Count(GetExecutionContext(),
-                      WebFeature::kGeolocationGetCurrentPositionHighAccuracy);
+                      WebFeature::kGeolocationWatchPositionHighAccuracy);
   }
 
   if (!GetFrame())
@@ -260,30 +307,30 @@ int Geolocation::watchPosition(V8PositionCallback* success_callback,
     UseCounter::Count(GetExecutionContext(),
                       WebFeature::kAdScriptInStackOnWatchGeoLocation);
   }
+  return WatchPositionInternal(notifier);
+}
 
+int Geolocation::WatchPosition(
+    base::RepeatingCallback<
+        void(base::expected<Geoposition*, GeolocationPositionError*>)> callback,
+    const PositionOptions* options) {
+  if (!GetFrame()) {
+    return 0;
+  }
+  auto* notifier =
+      MakeGarbageCollected<GeoNotifierBlink>(this, options, callback);
+  return WatchPositionInternal(notifier);
+}
+
+int Geolocation::WatchPositionInternal(GeoNotifier* notifier) {
   int watch_id;
   // Keep asking for the next id until we're given one that we don't already
   // have.
   do {
     watch_id = GetExecutionContext()->CircularSequentialID();
   } while (!watchers_->Add(watch_id, notifier));
-
   StartRequest(notifier);
-
   return watch_id;
-}
-
-void Geolocation::RequestPosition(
-    base::RepeatingCallback<
-        void(base::expected<Geoposition*, GeolocationPositionError*>)> callback,
-    const PositionOptions* options) {
-  if (!GetFrame()) {
-    return;
-  }
-  auto* notifier =
-      MakeGarbageCollected<GeoNotifierBlink>(this, options, callback);
-  one_shots_->insert(notifier);
-  StartRequest(notifier);
 }
 
 void Geolocation::StartRequest(GeoNotifier* notifier) {
@@ -501,8 +548,13 @@ void Geolocation::PositionChanged() {
 
 void Geolocation::UpdateGeolocationState() {
   if (!EnsureGeolocationConnection() || permission_request_in_progress_) {
-    // Return early while waiting for asynchronous setup to complete. This
-    // function will be called again by OnGeolocationPermissionStatusUpdated.
+    // Return early while waiting for asynchronous setup to complete; this
+    // function will be recalled by `OnGeolocationPermissionStatusUpdated`. The
+    // accuracy is updated here to ensure the SetHighAccuracyHint Mojo call is
+    // handled promptly after `GeolocationImpl`'s construction. This prevents
+    // reporting positions with incorrect accuracy, as location request can
+    // occur immediately after construction.
+    UpdateAccuracyHint();
     return;
   }
 

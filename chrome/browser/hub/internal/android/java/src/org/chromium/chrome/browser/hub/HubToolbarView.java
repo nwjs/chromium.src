@@ -23,7 +23,6 @@ import android.graphics.PorterDuffColorFilter;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
-import android.support.annotation.Px;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.View;
@@ -35,6 +34,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 
 import androidx.annotation.ColorInt;
+import androidx.annotation.Px;
 import androidx.annotation.StringRes;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.widget.ImageViewCompat;
@@ -66,6 +66,7 @@ public class HubToolbarView extends LinearLayout {
     private View mSearchBoxLayout;
     private EditText mSearchBoxTextView;
     private ImageView mSearchLoupeView;
+    private ImageView mHairline;
     private ImageButton mBackButton;
     private @Nullable View mSpacer;
     private FrameLayout mPaneSwitcherCard;
@@ -106,6 +107,7 @@ public class HubToolbarView extends LinearLayout {
         mSearchLoupeView = findViewById(R.id.search_loupe);
         mBackButton = findViewById(R.id.toolbar_back_button);
         mSpacer = findViewById(R.id.margin_spacer);
+        mHairline = findViewById(R.id.toolbar_bottom_hairline);
         updateSpacerVisibility();
     }
 
@@ -307,6 +309,12 @@ public class HubToolbarView extends LinearLayout {
                         },
                         mPaneSwitcher::setSelectedTabIndicatorColor));
 
+        mixer.registerBlend(
+                new SingleHubViewColorBlend(
+                        PANE_COLOR_BLEND_ANIMATION_DURATION_MS,
+                        colorScheme -> HubColors.getHairlineColor(context, colorScheme),
+                        this::setHairlineColor));
+
         HubViewColorBlend multiColorBlend =
                 (prevColorScheme, newColorScheme) -> {
                     @ColorInt int newIconColor = HubColors.getIconColor(context, newColorScheme);
@@ -466,6 +474,14 @@ public class HubToolbarView extends LinearLayout {
         mSearchLoupeView.setEnabled(enabled);
     }
 
+    void setHairlineVisibility(boolean visible) {
+        mHairline.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+
+    void setHairlineColor(@ColorInt int hairlineColor) {
+        mHairline.setImageTintList(ColorStateList.valueOf(hairlineColor));
+    }
+
     void setApplyDelayForSearchBoxAnimation(boolean applyDelay) {
         mApplyDelayForSearchBoxAnimation = applyDelay;
     }
@@ -564,18 +580,41 @@ public class HubToolbarView extends LinearLayout {
         }
     }
 
-    private AnimatorSet getHubSearchBoxTransitionAnimation(boolean visible) {
+    AnimatorSet getHubSearchBoxTransitionAnimation(boolean visible) {
+        boolean isSquishAnimationEnabled =
+                ChromeFeatureList.sAndroidPinnedTabs.isEnabled()
+                        && ChromeFeatureList.sAndroidPinnedTabsSearchBoxSquishAnimation.getValue();
+
+        AnimatorSet transitionAnimator = new AnimatorSet();
+
         float fadeAlphaFrom = visible ? 0 : 1;
         float fadeAlphaTo = visible ? 1 : 0;
-        float slideTransitionY = visible ? 0 : -mSearchBoxLayout.getHeight();
         Animator fade =
                 ObjectAnimator.ofFloat(mSearchBoxLayout, View.ALPHA, fadeAlphaFrom, fadeAlphaTo);
-        Animator slide =
-                ObjectAnimator.ofFloat(mSearchBoxLayout, View.TRANSLATION_Y, slideTransitionY);
-        AnimatorSet slideFadeHubSearchBoxAnimator = new AnimatorSet();
-        slideFadeHubSearchBoxAnimator.play(slide).with(fade);
-        slideFadeHubSearchBoxAnimator.setDuration(PANE_FADE_ANIMATION_DURATION_MS);
-        return slideFadeHubSearchBoxAnimator;
+
+        Animator primaryAnimator;
+        if (isSquishAnimationEnabled) {
+            primaryAnimator = createSquishAnimation(visible);
+        } else {
+            primaryAnimator = createSlideAnimation(visible);
+        }
+
+        transitionAnimator.play(primaryAnimator).with(fade);
+        transitionAnimator.setDuration(PANE_FADE_ANIMATION_DURATION_MS);
+
+        return transitionAnimator;
+    }
+
+    private Animator createSquishAnimation(boolean visible) {
+        mSearchBoxLayout.setPivotY(0);
+        float scaleYFrom = visible ? 0f : 1f;
+        float scaleYTo = visible ? 1f : 0f;
+        return ObjectAnimator.ofFloat(mSearchBoxLayout, View.SCALE_Y, scaleYFrom, scaleYTo);
+    }
+
+    private Animator createSlideAnimation(boolean visible) {
+        float slideTransitionY = visible ? 0 : -mSearchBoxLayout.getHeight();
+        return ObjectAnimator.ofFloat(mSearchBoxLayout, View.TRANSLATION_Y, slideTransitionY);
     }
 
     private GradientDrawable buildBackgroundDrawableForTab() {

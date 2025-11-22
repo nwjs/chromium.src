@@ -58,8 +58,8 @@
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "ipc/ipc_channel_factory.h"
-#include "ipc/ipc_platform_file.h"
 #include "ipc/ipc_sync_channel.h"
+#include "ipc/platform_file_for_transit.h"
 #include "mojo/core/embedder/scoped_ipc_support.h"
 #include "mojo/public/cpp/bindings/binder_map.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -459,8 +459,7 @@ class ChildThreadImpl::IOThreadState
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
-  void OnMemoryPressure(
-      base::MemoryPressureListener::MemoryPressureLevel level) override {
+  void OnMemoryPressure(base::MemoryPressureLevel level) override {
     main_thread_task_runner_->PostTask(
         FROM_HERE,
         base::BindOnce(&ChildThreadImpl::OnMemoryPressureFromBrowserReceived,
@@ -756,7 +755,8 @@ void ChildThreadImpl::Init(const Options& options) {
   main_thread_runner_->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&ChildThreadImpl::EnsureConnected,
-                     channel_connected_factory_->GetWeakPtr()),
+                     channel_connected_factory_->GetWeakPtr(),
+                     connection_timeout),
       base::Seconds(connection_timeout));
 
   // In single-process mode, there is no need to synchronize trials to the
@@ -905,8 +905,9 @@ void ChildThreadImpl::OnProcessFinalRelease() {
 
 void ChildThreadImpl::SetBatterySaverMode(bool battery_saver_mode_enabled) {}
 
-void ChildThreadImpl::EnsureConnected() {
-  VLOG(0) << "ChildThreadImpl::EnsureConnected()";
+void ChildThreadImpl::EnsureConnected(int connection_timeout) {
+  VLOG(0) << "Terminating current process after " << connection_timeout
+          << " seconds with no connection.";
   base::Process::TerminateCurrentProcessImmediately(0);
 }
 
@@ -916,7 +917,7 @@ bool ChildThreadImpl::IsInBrowserProcess() const {
 
 #if BUILDFLAG(IS_ANDROID)
 void ChildThreadImpl::OnMemoryPressureFromBrowserReceived(
-    base::MemoryPressureListener::MemoryPressureLevel level) {
+    base::MemoryPressureLevel level) {
   // Generate no memory pressure signals when --single-process is specified.
   // Because we expect a signal for the browser process has been already
   // generated.

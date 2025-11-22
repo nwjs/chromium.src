@@ -191,8 +191,12 @@ source_set("core_util") {
 source_set("model_execution") {
   # TODO: crbug.com/421262905 - Should not need these without model_execution
   sources = [
+    "model_execution/on_device_capability.cc",
+    "model_execution/on_device_capability.h",
     "model_execution/optimization_guide_model_execution_error.cc",
     "model_execution/optimization_guide_model_execution_error.h",
+    "model_execution/remote_model_executor.cc",
+    "model_execution/remote_model_executor.h",
     "model_quality/model_execution_logging_wrappers.h",
     "model_quality/model_quality_log_entry.cc",
     "model_quality/model_quality_log_entry.h",
@@ -200,9 +204,6 @@ source_set("model_execution") {
     "model_quality/model_quality_logs_uploader_service.h",
     "model_quality/model_quality_util.cc",
     "model_quality/model_quality_util.h",
-    "optimization_guide_model_executor.cc",
-    "optimization_guide_model_executor.h",
-    "optimization_guide_on_device_capability_provider.h",
   ]
   deps = [
     ":core_util",
@@ -213,6 +214,7 @@ source_set("model_execution") {
     "//components/optimization_guide/optimization_guide_internals/webui:mojo_bindings",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/optimization_guide/public/mojom",
+    "//components/policy/core/common",
     "//components/prefs",
     "//components/variations/net",
     "//services/network/public/cpp",
@@ -223,8 +225,6 @@ source_set("model_execution") {
     sources += [
       "model_execution/aqa_response_parser.cc",
       "model_execution/aqa_response_parser.h",
-      "model_execution/execute_remote_fn.cc",
-      "model_execution/execute_remote_fn.h",
       "model_execution/fieldwise_response_parser.cc",
       "model_execution/fieldwise_response_parser.h",
       "model_execution/json_response_parser.cc",
@@ -332,6 +332,7 @@ source_set("model_execution") {
       deps += [
         "//services/on_device_model:on_device_model_service",
         "//services/on_device_model/android",
+        "//services/on_device_model/android:mojom",
       ]
     }
   }
@@ -378,6 +379,7 @@ static_library("prediction") {
     "delivery/model_store_metadata_entry.h",
     "delivery/model_util.cc",
     "delivery/model_util.h",
+    "delivery/optimization_guide_model_provider.cc",
     "delivery/optimization_guide_model_provider.h",
     "delivery/optimization_target_model_observer.h",
     "delivery/prediction_manager.cc",
@@ -396,12 +398,12 @@ static_library("prediction") {
     "delivery/prediction_model_store.h",
     "delivery/profile_download_service_tracker.h",
   ]
+  public_deps = [ "//components/download/public/background_service:public" ]
   deps = [
     ":core_util",
     ":features",
     "//components/component_updater",
     "//components/crx_file",
-    "//components/download/public/background_service:public",
     "//components/optimization_guide/optimization_guide_internals/webui:mojo_bindings",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/prefs",
@@ -488,8 +490,6 @@ static_library("delivery_test_support") {
 static_library("model_execution_test_support") {
   testonly = true
   sources = [
-    "mock_optimization_guide_on_device_capability_provider.cc",
-    "mock_optimization_guide_on_device_capability_provider.h",
     "model_quality/test_model_quality_logs_uploader_service.cc",
     "model_quality/test_model_quality_logs_uploader_service.h",
   ]
@@ -509,16 +509,16 @@ static_library("model_execution_test_support") {
   ]
   if (build_with_model_execution) {
     sources += [
-      "mock_optimization_guide_model_executor.cc",
-      "mock_optimization_guide_model_executor.h",
       "model_execution/test/fake_model_assets.cc",
       "model_execution/test/fake_model_assets.h",
       "model_execution/test/fake_model_broker.cc",
       "model_execution/test/fake_model_broker.h",
-      "model_execution/test/fake_remote.cc",
-      "model_execution/test/fake_remote.h",
       "model_execution/test/feature_config_builder.cc",
       "model_execution/test/feature_config_builder.h",
+      "model_execution/test/mock_on_device_capability.cc",
+      "model_execution/test/mock_on_device_capability.h",
+      "model_execution/test/mock_remote_model_executor.cc",
+      "model_execution/test/mock_remote_model_executor.h",
       "model_execution/test/request_builder.cc",
       "model_execution/test/request_builder.h",
       "model_execution/test/response_holder.cc",
@@ -679,6 +679,8 @@ source_set("model_execution_unit_tests") {
     "//base/test:test_support",
     "//components/optimization_guide:optimization_guide_buildflags",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//components/policy/core/common",
+    "//components/policy/core/common:test_support",
     "//components/prefs:test_support",
     "//components/signin/public/identity_manager",
     "//components/variations:test_support",

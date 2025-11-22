@@ -945,7 +945,7 @@ TEST_F(HarfBuzzShaperTest, NegativeLetterSpacing) {
   ShapeResult* result = shaper.Shape(font, TextDirection::kLtr);
   float width = result->Width();
 
-  ShapeResultSpacing<String> spacing(string);
+  ShapeResultSpacing spacing(string);
   FontDescription font_description;
   font_description.SetLetterSpacing(Length::Fixed(-5));
   spacing.SetSpacing(font_description);
@@ -962,7 +962,7 @@ TEST_F(HarfBuzzShaperTest, NegativeLetterSpacingTo0) {
   ShapeResult* result = shaper.Shape(font, TextDirection::kLtr);
   float char_width = result->Width() / string.length();
 
-  ShapeResultSpacing<String> spacing(string);
+  ShapeResultSpacing spacing(string);
   FontDescription font_description;
   font_description.SetLetterSpacing(Length::Fixed(-char_width));
   spacing.SetSpacing(font_description);
@@ -979,7 +979,7 @@ TEST_F(HarfBuzzShaperTest, NegativeLetterSpacingToNegative) {
   ShapeResult* result = shaper.Shape(font, TextDirection::kLtr);
   float char_width = result->Width() / string.length();
 
-  ShapeResultSpacing<String> spacing(string);
+  ShapeResultSpacing spacing(string);
   FontDescription font_description;
   font_description.SetLetterSpacing(Length::Fixed(-2 * char_width));
   spacing.SetSpacing(font_description);
@@ -2116,68 +2116,6 @@ TEST_F(HarfBuzzShaperTest, ShapeVerticalWithSubpixelPositionIsRounded) {
     EXPECT_EQ(round(position), position)
         << "Position not rounded at offset " << i;
   }
-}
-
-// Broken on Apple platforms: https://crbug.com/1194323
-#if BUILDFLAG(IS_APPLE)
-#define MAYBE_EmojiPercentage DISABLED_EmojiPercentage
-#else
-#define MAYBE_EmojiPercentage EmojiPercentage
-#endif
-TEST_F(HarfBuzzShaperTest, MAYBE_EmojiPercentage) {
-#if BUILDFLAG(IS_WIN)
-  if (base::win::OSInfo::GetInstance()->version() >=
-      base::win::Version::WIN11) {
-    GTEST_SKIP() << "Broken on WIN11 and greater: https://crbug.com/1286133";
-  }
-#endif
-  // This test relies on Noto Color Emoji from the third_party directory to not
-  // contain sequences and single codepoint emoji from Unicode 13 and 13.1 such
-  // as:
-  // * Couple with Heart: Woman, Man, Medium-Light Skin Tone, Medium-Dark Skin
-  // Tone
-  // * Disguised Face U+1F978
-  // * Anatomical Heart U+1FAC0
-  String string(
-      u"aa👩🏼‍❤️‍👨🏾😶👩🏼‍❤️‍👨🏾aa👩"
-      u"🏼"
-      u"‍"
-      u"❤"
-      u"️"
-      u"‍"
-      u"👨"
-      u"🏾"
-      u"😶"
-      u"👩🏼‍❤️‍👨🏾aa🫀🫀🥸🥸😶😶");
-
-  struct Expectation {
-    unsigned expected_clusters;
-    unsigned expected_broken_clusters;
-  };
-
-  auto expectations = std::to_array<Expectation>({{3, 2}, {3, 2}, {6, 4}});
-#if BUILDFLAG(IS_ANDROID)
-  // On Android 11, SDK level 30, fallback occurs to an emoji
-  // font that has coverage for the last segment. Adjust the expectation.
-  if (base::android::android_info::sdk_int() >=
-      base::android::android_info::SDK_VERSION_R) {
-    expectations[2].expected_broken_clusters = 0;
-  }
-#endif
-  unsigned num_calls = 0;
-  HarfBuzzShaper::EmojiMetricsCallback metrics_callback =
-      base::BindLambdaForTesting(
-          [&](unsigned num_clusters, unsigned num_broken_clusters) {
-            CHECK_EQ(num_clusters, expectations[num_calls].expected_clusters);
-            CHECK_EQ(num_broken_clusters,
-                     expectations[num_calls].expected_broken_clusters);
-
-            num_calls++;
-          });
-  HarfBuzzShaper shaper(string, metrics_callback);
-  Font* emoji_font = CreateNotoColorEmoji();
-  shaper.Shape(emoji_font, TextDirection::kLtr);
-  CHECK_EQ(num_calls, std::size(expectations));
 }
 
 // https://crbug.com/1255482

@@ -69,6 +69,7 @@
 #include "partition_alloc/partition_root.h"
 #include "partition_alloc/pointers/instance_tracer.h"
 #include "partition_alloc/pointers/raw_ptr.h"
+#include "partition_alloc/scheduler_loop_quarantine.h"
 #include "partition_alloc/shim/allocator_shim.h"
 #include "partition_alloc/shim/allocator_shim_default_dispatch_to_partition_alloc.h"
 #include "partition_alloc/shim/allocator_shim_dispatch_to_noop_on_free.h"
@@ -815,6 +816,11 @@ void ReconfigurePartitionForKnownProcess(const std::string& process_type) {
   // experiments.
 }
 
+#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+BASE_FEATURE(kPartitionAllocMakeSchedulerLoopQuarantinePurgeNoOp,
+             FEATURE_ENABLED_BY_DEFAULT);
+#endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+
 void MakeFreeNoOp() {
   // Ignoring `free()` during Shutdown would allow developers to introduce new
   // dangling pointers. So we want to avoid ignoring free when it is enabled.
@@ -826,9 +832,18 @@ void MakeFreeNoOp() {
     return;
   }
 #endif  // PA_BUILDFLAG(ENABLE_DANGLING_RAW_PTR_CHECKS)
+
 #if PA_BUILDFLAG(USE_ALLOCATOR_SHIM)
   allocator_shim::InsertNoOpOnFreeAllocatorShimOnShutDown();
 #endif  // PA_BUILDFLAG(USE_ALLOCATOR_SHIM)
+
+#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+  if (base::FeatureList::IsEnabled(
+          kPartitionAllocMakeSchedulerLoopQuarantinePurgeNoOp)) {
+    partition_alloc::internal::ThreadBoundSchedulerLoopQuarantineBranch::
+        DangerouslyDisablePurge();
+  }
+#endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 }
 
 PartitionAllocSupport* PartitionAllocSupport::Get() {
@@ -1051,10 +1066,9 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
 
   // Configure ASAN hooks to report the `MiraclePtr status`. This is enabled
   // only if BackupRefPtr is normally enabled in the current process for the
-  // current platform. Note that CastOS and iOS aren't protected by BackupRefPtr
+  // current platform. Note that CastOS is not protected by BackupRefPtr
   // a the moment, so they are excluded.
-#if PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR) && !PA_BUILDFLAG(IS_CASTOS) && \
-    !PA_BUILDFLAG(IS_IOS)
+#if PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR) && !PA_BUILDFLAG(IS_CASTOS)
   if (ShouldEnableFeatureOnProcess(
           base::features::kBackupRefPtrEnabledProcessesParam.Get(),
           process_type)) {
@@ -1070,7 +1084,7 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
                                                EnableExtractionCheck(false),
                                                EnableInstantiationCheck(false));
   }
-#endif  // PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR)
+#endif  // PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR) && !PA_BUILDFLAG(IS_CASTOS)
 
 #if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
   auto bucket_distribution = allocator_shim::BucketDistribution::kNeutral;
@@ -1285,46 +1299,23 @@ void PartitionAllocSupport::ReconfigureAfterTaskRunnerInit(
   // initialized later.
   DCHECK(process_type != switches::kZygoteProcess);
 
-  partition_alloc::ThreadCacheRegistry::Instance().SetPurgingConfiguration(
-      base::features::GetThreadCacheMinPurgeInterval(),
-      base::features::GetThreadCacheMaxPurgeInterval(),
-      base::features::GetThreadCacheDefaultPurgeInterval(),
-      size_t(base::features::GetThreadCacheMinCachedMemoryForPurgingBytes()));
-
   base::allocator::StartThreadCachePeriodicPurge();
 
-  if (base::FeatureList::IsEnabled(
-          base::features::kEnableConfigurableThreadCacheMultiplier)) {
-    // If kEnableConfigurableThreadCacheMultiplier is enabled, override the
-    // multiplier value with the corresponding feature param.
-#if BUILDFLAG(IS_ANDROID)
-    ::partition_alloc::ThreadCacheRegistry::Instance().SetThreadCacheMultiplier(
-        base::features::GetThreadCacheMultiplierForAndroid());
-#else   // BUILDFLAG(IS_ANDROID)
-    ::partition_alloc::ThreadCacheRegistry::Instance().SetThreadCacheMultiplier(
-        base::features::GetThreadCacheMultiplier());
-#endif  // BUILDFLAG(IS_ANDROID)
-  } else {
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
-    // If kEnableConfigurableThreadCacheMultiplier is not enabled, lower
-    // thread cache limits on Android low end device to avoid stranding too much
-    // memory in the caches.
-    if (SysInfo::IsLowEndDeviceOrPartialLowEndModeEnabled(
-            features::kPartialLowEndModeExcludePartitionAllocSupport)) {
-      ::partition_alloc::ThreadCacheRegistry::Instance()
-          .SetThreadCacheMultiplier(
-              ::partition_alloc::ThreadCache::kDefaultMultiplier / 2.);
-    }
-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
+  // Lower thread cache limits to avoid stranding too much memory in the caches.
+  if (SysInfo::IsLowEndDeviceOrPartialLowEndModeEnabled(
+          features::kPartialLowEndModeExcludePartitionAllocSupport)) {
+    ::partition_alloc::ThreadCacheRegistry::Instance().SetThreadCacheMultiplier(
+        ::partition_alloc::ThreadCache::kDefaultMultiplier / 2.);
   }
+#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
 
   // Renderer processes are more performance-sensitive, increase thread cache
   // limits.
   if (process_type == switches::kRendererProcess &&
       base::FeatureList::IsEnabled(
           base::features::kPartitionAllocLargeThreadCacheSize)) {
-    largest_cached_size_ =
-        size_t(base::features::GetPartitionAllocLargeThreadCacheSizeValue());
+    largest_cached_size_ = ::partition_alloc::kThreadCacheLargeSizeThreshold;
 
 #if BUILDFLAG(IS_ANDROID)
     // Use appropriately lower amount for Android devices with 3GB or less.
@@ -1332,9 +1323,7 @@ void PartitionAllocSupport::ReconfigureAfterTaskRunnerInit(
     // have, so use 3.2GB (a threshold commonly uses throughout code) to avoid
     // accidentally catching devices advertised as 4GB.
     if (base::SysInfo::AmountOfPhysicalMemory().InGiBF() < 3.2) {
-      largest_cached_size_ = size_t(
-          base::features::
-              GetPartitionAllocLargeThreadCacheSizeValueForLowRAMAndroid());
+      largest_cached_size_ = ::partition_alloc::kThreadCacheDefaultSizeThreshold;
     }
 #endif  // BUILDFLAG(IS_ANDROID)
 

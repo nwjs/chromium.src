@@ -304,10 +304,15 @@ coverage_builder(
                 ),
             ),
             # Keep this same as android-10-x86-rel
+            "chrome_junit_tests": targets.mixin(
+                retry_only_failed_tests = True,
+            ),
+            # Keep this same as android-10-x86-rel
             "chrome_public_test_apk": targets.mixin(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_10.chrome_public_test_apk.filter",
                 ],
+                retry_only_failed_tests = True,
                 swarming = targets.swarming(
                     dimensions = {
                         # use 8-core to shorten runtime
@@ -327,6 +332,7 @@ coverage_builder(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_10.content_browsertests.filter",
                 ],
+                retry_only_failed_tests = True,
                 swarming = targets.swarming(
                     dimensions = {
                         # use 8-core to shorten runtime
@@ -404,9 +410,9 @@ coverage_builder(
             # Keep this same as android-10-x86-rel
             "webview_instrumentation_test_apk_multiple_process_mode": targets.mixin(
                 args = [
-                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_10.webview_instrumentation_test_apk.filter",
                     "--use-persistent-shell",
                 ],
+                retry_only_failed_tests = True,
                 swarming = targets.swarming(
                     shards = 18,
                 ),
@@ -1220,6 +1226,9 @@ coverage_builder(
             short_name = "lnx-fuzz",
         ),
     ],
+    # TODO(crbug.com/449026537): Remove elevated timeout once performance
+    # improves.
+    execution_timeout = 32 * time.hour,
     notifies = ["chrome-fuzzing-core"],
     properties = {
         "collect_fuzz_coverage": True,
@@ -1272,6 +1281,9 @@ coverage_builder(
         ),
     ],
     contact_team_email = "chrome-fuzzing-core@google.com",
+    # TODO(crbug.com/449026537): Remove elevated timeout once performance
+    # improves.
+    execution_timeout = 24 * time.hour,
     notifies = ["chrome-fuzzing-core"],
     properties = {
         "collect_fuzz_coverage": True,

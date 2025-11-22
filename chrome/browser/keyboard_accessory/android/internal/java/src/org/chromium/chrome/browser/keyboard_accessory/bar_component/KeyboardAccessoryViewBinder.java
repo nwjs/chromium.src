@@ -23,10 +23,14 @@ import static org.chromium.chrome.browser.keyboard_accessory.bar_component.Keybo
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.VISIBLE;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewGroup.LayoutParams;
+import android.view.ViewGroup.MarginLayoutParams;
 import android.widget.TextView;
 
 import androidx.annotation.LayoutRes;
@@ -41,8 +45,10 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.keyboard_accessory.R;
+import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.ActionBarItem;
 import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.AutofillBarItem;
 import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.BarItem;
+import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.GroupBarItem;
 import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.SheetOpenerBarItem;
 import org.chromium.chrome.browser.keyboard_accessory.data.KeyboardAccessoryData;
 import org.chromium.chrome.browser.keyboard_accessory.data.KeyboardAccessoryData.Action;
@@ -52,6 +58,7 @@ import org.chromium.components.browser_ui.widget.chips.ChipView;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.widget.ButtonCompat;
 import org.chromium.ui.widget.RectProvider;
 
 import java.util.function.Function;
@@ -82,11 +89,12 @@ class KeyboardAccessoryViewBinder {
             case BarItem.Type.TAB_LAYOUT:
                 return new SheetOpenerViewHolder(parent);
             case BarItem.Type.ACTION_BUTTON:
-                return new BarItemTextViewHolder(parent, R.layout.keyboard_accessory_action);
+            case BarItem.Type.DISMISS_CHIP:
+                return new BarItemTextViewHolder(parent, viewType);
             case BarItem.Type.ACTION_CHIP:
                 return new BarItemActionChipViewHolder(parent);
-            case BarItem.Type.DISMISS_CHIP:
-                return new BarItemTextViewHolder(parent, R.layout.keyboard_accessory_dismiss);
+            case BarItem.Type.GROUP:
+                return new BarItemGroupViewHolder(keyboarAccessory, uiConfiguration, parent);
             default:
                 throw new IllegalStateException("Action type " + viewType + " was not handled!");
         }
@@ -138,6 +146,35 @@ class KeyboardAccessoryViewBinder {
         protected static boolean useLargeChips(Context context) {
             return ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_ELEGANT_TEXT_HEIGHT)
                     && context.getResources().getConfiguration().fontScale >= LARGE_FONT_THRESHOLD;
+        }
+    }
+
+    static class BarItemGroupViewHolder
+            extends BarItemViewHolder<GroupBarItem, KeyboardAccessoryChipGroup> {
+        private final KeyboardAccessoryView mKeyboardAccessory;
+        private final UiConfiguration mUiConfiguration;
+        private final ViewGroup mParent;
+
+        BarItemGroupViewHolder(
+                KeyboardAccessoryView keyboarAccessory,
+                UiConfiguration uiConfiguration,
+                ViewGroup parent) {
+            super(new KeyboardAccessoryChipGroup(parent.getContext()));
+            mKeyboardAccessory = keyboarAccessory;
+            mUiConfiguration = uiConfiguration;
+            mParent = parent;
+        }
+
+        @Override
+        protected void bind(GroupBarItem group, KeyboardAccessoryChipGroup chipGroup) {
+            chipGroup.removeAllViews();
+            for (ActionBarItem item : group.getActionBarItems()) {
+                BarItemViewHolder viewHolder =
+                        create(mKeyboardAccessory, mUiConfiguration, mParent, item.getViewType());
+
+                viewHolder.bind(item, viewHolder.itemView);
+                chipGroup.addView(viewHolder.itemView);
+            }
         }
     }
 
@@ -198,17 +235,12 @@ class KeyboardAccessoryViewBinder {
                         chipView.getContext().getResources().getDisplayMetrics().widthPixels;
                 chipView.setMaxWidth((int) (windowWidth * 0.85));
             } else {
-                // For other data types, there is no limit on width.
+                // When chips are recycled, the constraint on primary text width (that is applied on
+                // long credit card suggestions) can persist. Reset such constraints.
                 chipView.setMaxWidth(Integer.MAX_VALUE);
             }
 
-            // When chips are recycled, the constraint on primary text width (that is applied on
-            // long credit card suggestions) can persist. Reset such constraints.
-            chipView.getPrimaryTextView().setMaxWidth(Integer.MAX_VALUE);
-            chipView.getPrimaryTextView().setEllipsize(null);
-
             chipView.getPrimaryTextView().setText(item.getSuggestion().getLabel());
-            chipView.getPrimaryTextView().setContentDescription(item.getSuggestion().getLabel());
             chipView.getSecondaryTextView().setText(item.getSuggestion().getSublabel());
             chipView.getSecondaryTextView()
                     .setVisibility(
@@ -250,6 +282,11 @@ class KeyboardAccessoryViewBinder {
                 iconDrawable.setAlpha((int) (255 * iconAlpha));
             }
             chipView.setIcon(iconDrawable, /* tintWithTextColor= */ false);
+
+            @Nullable String voiceOver = item.getSuggestion().getVoiceOver();
+            if (!TextUtils.isEmpty(voiceOver)) {
+                chipView.setContentDescription(voiceOver);
+            }
 
             TraceEvent.end("BarItemChipViewHolder#bind");
         }
@@ -307,27 +344,80 @@ class KeyboardAccessoryViewBinder {
         }
     }
 
-    static class BarItemTextViewHolder extends BarItemViewHolder<BarItem, TextView> {
-        BarItemTextViewHolder(ViewGroup parent, @LayoutRes int layout) {
-            super(parent, layout);
+    static class BarItemTextViewHolder extends BarItemViewHolder<ActionBarItem, TextView> {
+        private final @BarItem.Type int mBarItemType;
+
+        BarItemTextViewHolder(ViewGroup parent, @BarItem.Type int barItemType) {
+            super(
+                    new ButtonCompat(
+                            parent.getContext(),
+                            selectStyleForSuggestion(parent.getContext(), barItemType)));
+            mBarItemType = barItemType;
         }
 
         @Override
-        public void bind(BarItem barItem, TextView textView) {
+        public void bind(ActionBarItem barItem, TextView textView) {
             KeyboardAccessoryData.Action action = barItem.getAction();
             assert action != null : "Tried to bind item without action. Chose a wrong ViewHolder?";
             textView.setText(barItem.getCaptionId());
             textView.setOnClickListener(view -> action.getCallback().onResult(action));
+            // Margins can be either set in XML layouts or programmatically, they can't be part of
+            // the KeyboardAccessory* styles.
+            applyMargins(textView);
+        }
+
+        private void applyMargins(TextView textView) {
+            MarginLayoutParams params =
+                    new MarginLayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT);
+            Resources resources = textView.getContext().getResources();
+            switch (mBarItemType) {
+                case BarItem.Type.ACTION_BUTTON:
+                    if (!ChromeFeatureList.isEnabled(
+                            ChromeFeatureList.AUTOFILL_ENABLE_KEYBOARD_ACCESSORY_CHIP_REDESIGN)) {
+                        params.setMarginEnd(
+                                resources.getDimensionPixelSize(
+                                        R.dimen.keyboard_accessory_bar_item_padding));
+                    }
+                    break;
+                case BarItem.Type.DISMISS_CHIP:
+                    params.setMarginEnd(
+                            resources.getDimensionPixelSize(
+                                    R.dimen.keyboard_accessory_dismiss_button_margin_end));
+                    break;
+                default:
+                    assert false : "Not a button item type: " + mBarItemType;
+            }
+            textView.setLayoutParams(params);
+        }
+
+        @StyleRes
+        private static int selectStyleForSuggestion(
+                Context context, @BarItem.Type int barItemType) {
+            switch (barItemType) {
+                case BarItem.Type.ACTION_BUTTON:
+                    if (ChromeFeatureList.isEnabled(
+                            ChromeFeatureList.AUTOFILL_ENABLE_KEYBOARD_ACCESSORY_CHIP_REDESIGN)) {
+                        return useLargeChips(context)
+                                ? R.style.KeyboardAccessoryLargeTwoLineActionButtonThemeOverlay
+                                : R.style.KeyboardAccessoryTwoLineActionButtonThemeOverlay;
+                    }
+                    return R.style.KeyboardAccessoryActionButtonThemeOverlay;
+                case BarItem.Type.DISMISS_CHIP:
+                    return R.style.KeyboardAccessoryDismissButtonThemeOverlay;
+                default:
+                    assert false : "Not a button item type: " + barItemType;
+                    return 0;
+            }
         }
     }
 
-    static class BarItemActionChipViewHolder extends BarItemViewHolder<BarItem, ChipView> {
+    static class BarItemActionChipViewHolder extends BarItemViewHolder<ActionBarItem, ChipView> {
         BarItemActionChipViewHolder(ViewGroup parent) {
             super(new ChipView(parent.getContext(), null, 0, selectStyle(parent.getContext())));
         }
 
         @Override
-        protected void bind(BarItem item, ChipView chipView) {
+        protected void bind(ActionBarItem item, ChipView chipView) {
             chipView.getPrimaryTextView().setText(item.getCaptionId());
             @Nullable Action action = item.getAction();
             if (action != null) {

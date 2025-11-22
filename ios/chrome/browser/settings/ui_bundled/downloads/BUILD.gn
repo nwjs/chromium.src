@@ -50,6 +50,7 @@ source_set("identity_button_cell") {
     "identity_button_item.mm",
   ]
   deps = [
+    "//google_apis",
     "//ios/chrome/browser/authentication/ui_bundled/views",
     "//ios/chrome/browser/authentication/ui_bundled/views:views_constants",
     "//ios/chrome/browser/shared/ui/table_view/cells",
@@ -68,6 +69,7 @@ source_set("unit_tests") {
     ":downloads",
     "//base/test:test_support",
     "//components/signin/public/identity_manager:test_support",
+    "//components/test/ios",
     "//ios/chrome/app/strings:ios_strings_grit",
     "//ios/chrome/browser/authentication/ui_bundled/cells",
     "//ios/chrome/browser/authentication/ui_bundled/signin:constants",
@@ -83,6 +85,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/shared/ui/table_view:test_support",
     "//ios/chrome/browser/shared/ui/table_view/cells",
+    "//ios/chrome/browser/shared/ui/table_view/content_configuration",
     "//ios/chrome/browser/signin/model",
     "//ios/chrome/browser/signin/model:fake_system_identity",
     "//ios/chrome/browser/signin/model:fake_system_identity_manager",

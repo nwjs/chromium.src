@@ -12,15 +12,11 @@ import tempfile
 from util import jj_log
 from util import run_command
 from util import run_jj
+from util import join_revsets
 from util import split_description
 
 _IMMUTABLE_PARENTS = 'parents.filter(|p| p.immutable()).map(|p| p.commit_id())'
 _MUTABLE_PARENTS = 'parents.filter(|p| !p.immutable()).map(|p| p.commit_id())'
-_NAME = '''change_id.short() ++
-if(current_working_copy, " (@)") ++
-" " ++
-description.first_line()
-'''
 
 
 def fatal(*args, **kwargs):
@@ -76,10 +72,8 @@ def main(args):
   if len(revs) == 0:
     rev = '@'
     implicit_revs = True
-  elif len(revs) == 1:
-    rev = revs[0]
   else:
-    rev = '|'.join(f'({r})' for r in revs)
+    rev = join_revsets(revs)
 
   snapshot_taken = False
 
@@ -91,7 +85,6 @@ def main(args):
   to_upload = jj_log(
       revisions=f'mutable()::({rev})',
       templates={
-          'name': _NAME,
           'commit_id': 'commit_id',
           'empty': 'empty',
           'desc': 'description',
@@ -104,10 +97,12 @@ def main(args):
     # It's in reverse topological order, so to_upload[0] is the working copy '@'
     wc = to_upload[0]
     if not split_description(wc['desc'])[0] and wc['empty'] == 'true':
+      revs = ['parents(@)']
       logging.info('No revisions provided and working copy is empty and ' +
                    'descriptionless, uploading parents(@)')
       to_upload.remove(wc)
     else:
+      revs = '@'
       logging.info('No revisions provided, uploading working copy')
 
   for change in to_upload:
@@ -119,19 +114,16 @@ def main(args):
       fatal('Attempting to upload an empty change %s', name)
     if not desc:
       fatal('Attempting to upload change with an empty description %s', name)
-    if 'Change-Id' not in trailers:
-      fatal('Attempting to upload change with no Change-Id %s', name)
     if 'Bug' not in trailers and 'Fixed' not in trailers:
       logging.warning(
           'Change %s has no associated Bug. If this change has an associated ' +
-          'bug, add Bug: [bug number] or Fixed: [bug number].', name)
+          'bug, run `jj bug add [--inherit]`', name)
 
   if not args.bypass_hooks:
     # Find the commits that `git cl presubmit` will actually run on
     got_presubmits = jj_log(
         revisions=f'mutable()::@',
         templates={
-            'name': _NAME,
             'empty': 'empty',
             'immutable_parents': _IMMUTABLE_PARENTS
         },
@@ -200,27 +192,19 @@ def main(args):
       logging.warning('git cl presubmit only supports running on the ' +
                       'revision @. `git cl presubmit` will be skipped')
 
-  # This could be simplified by another call to jj_log on heads(...),
-  # but this is more performant.
-  mutable_parents = _collect_ids(c['mutable_parents'] for c in to_upload)
-
-  if not to_upload:
-    fatal('%s resolved to the empty set', rev)
-
   refspec = get_refspec_opts(args)
   refspec_suffix = '%' + ','.join(refspec) if refspec else ''
 
-  for change in to_upload:
-    # Check if it's a head.
-    commit_id = change['commit_id']
-    if commit_id not in mutable_parents:
-      ref = f'{commit_id}:refs/for/{args.target_branch}{refspec_suffix}'
-      cmd = ['git', 'push', 'origin', ref]
-      logging.info('Uploading %s', change['name'])
-      if args.upload:
-        run_command(cmd)
-      else:
-        logging.info('no-upload: Would otherwise run `%s`', ' '.join(cmd))
+  cmd = [
+      'gerrit', 'upload', '--remote', 'origin', '--remote-branch',
+      args.target_branch + refspec_suffix
+  ]
+  for rev in revs:
+    cmd.extend(['-r', rev])
+  if args.upload:
+    run_jj(cmd)
+  else:
+    logging.info('no-upload: Would otherwise run `%s`', ' '.join(cmd))
 
 
 if __name__ == '__main__':

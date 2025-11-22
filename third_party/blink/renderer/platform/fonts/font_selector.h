@@ -26,7 +26,6 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_FONT_SELECTOR_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_FONT_SELECTOR_H_
 
-#include "base/memory/scoped_refptr.h"
 #include "third_party/blink/renderer/platform/fonts/font_cache_client.h"
 #include "third_party/blink/renderer/platform/fonts/font_fallback_priority.h"
 #include "third_party/blink/renderer/platform/fonts/font_invalidation_reason.h"
@@ -86,12 +85,6 @@ class PLATFORM_EXPORT FontSelector : public FontCacheClient {
   virtual void ReportFailedLocalFontMatch(const AtomicString& font_name) = 0;
 
   virtual void ReportNotDefGlyph() const = 0;
-
-  // Called during text shaping of emoji presentation segments and after
-  // identifying how many clusters render as a single, non-tofu glyph.
-  virtual void ReportEmojiSegmentGlyphCoverage(
-      unsigned num_clusters,
-      unsigned num_broken_clusters) = 0;
 
   virtual void RegisterForInvalidationCallbacks(FontSelectorClient*) = 0;
   virtual void UnregisterForInvalidationCallbacks(FontSelectorClient*) = 0;

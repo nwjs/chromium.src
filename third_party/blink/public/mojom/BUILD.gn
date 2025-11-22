@@ -103,6 +103,7 @@ mojom("mojom_platform") {
     "file_system_access/file_system_access_permission_mode.mojom",
     "file_system_access/file_system_access_transfer_token.mojom",
     "filesystem/file_system.mojom",
+    "fingerprinting_protection/canvas_interventions.mojom",
     "font_access/font_access.mojom",
     "forms/form_control_type.mojom",
     "geolocation/geolocation_service.mojom",
@@ -303,6 +304,7 @@ mojom("mojom_platform") {
     "//services/device/public/mojom",
     "//services/device/public/mojom:generic_sensor",
     "//services/network/public/mojom",
+    "//services/network/public/mojom:mojom_connection_allowlist",
     "//services/network/public/mojom:mojom_integrity_policy",
     "//services/network/public/mojom:mojom_ip_address",
     "//services/network/public/mojom:mojom_permissions_policy",
@@ -348,6 +350,7 @@ mojom("mojom_platform") {
       "//services/media_session/public/mojom",
       "//services/network/public/mojom:cookies_mojom",
       "//services/network/public/mojom:mojom_attribution",
+      "//services/network/public/mojom:mojom_connection_allowlist",
       "//services/network/public/mojom:mojom_content_security_policy",
       "//services/network/public/mojom:mojom_cors_origin_pattern",
       "//services/network/public/mojom:mojom_integrity_algorithm",
@@ -381,6 +384,7 @@ mojom("mojom_platform") {
       "//media/capture/mojom:video_capture",
       "//media/capture/mojom:video_capture_types",
       "//media/mojo/mojom",
+      "//media/mojo/mojom:media_types",
     ]
   }
 
@@ -1165,6 +1169,7 @@ mojom("android_mojo_bindings") {
 
     # Direct deps (instead of transitive deps) are necessary for java targets.
     public_deps += [
+      "//services/network/public/mojom:mojom_connection_allowlist",
       "//services/network/public/mojom:mojom_content_security_policy",
       "//services/network/public/mojom:mojom_cors_origin_pattern",
       "//services/network/public/mojom:mojom_integrity_algorithm",
@@ -1420,6 +1425,7 @@ mojom("mojom_core") {
       "//cc/mojom:mojom_browser_controls",
       "//services/network/public/mojom:cookies_mojom",
       "//services/network/public/mojom:mojom_attribution",
+      "//services/network/public/mojom:mojom_connection_allowlist",
       "//services/network/public/mojom:mojom_content_security_policy",
       "//services/network/public/mojom:mojom_cors_origin_pattern",
       "//services/network/public/mojom:mojom_integrity_algorithm",

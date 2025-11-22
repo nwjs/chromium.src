@@ -672,6 +672,27 @@ suite('VoiceLanguageController', () => {
         assertEquals(defaultVoice, voiceLanguageController.getCurrentVoice());
       });
 
+  test(
+      'onVoicesChanged gets default voice when current voice unavailable and' +
+          ' no voices for current language',
+      () => {
+        const voice =
+            createSpeechSynthesisVoice({lang: 'zh-CN', name: 'Google Tiger'});
+        const defaultVoice =
+            createSpeechSynthesisVoice({lang: 'en-us', name: 'Google Bear'});
+        speech.setVoices([defaultVoice]);
+        voiceLanguageController.enableLang(voice.lang);
+        voiceLanguageController.setUserPreferredVoice(voice);
+        chrome.readingMode.baseLanguageForSpeech = 'zh-CN';
+        onCurrentVoiceChange = false;
+
+        voiceLanguageController.onVoicesChanged();
+
+        assertTrue(onCurrentVoiceChange);
+        assertTrue(onAvailableVoicesChange);
+        assertEquals(defaultVoice, voiceLanguageController.getCurrentVoice());
+      });
+
   test('onVoicesChanged gets stored voice', () => {
     const voice1 =
         createSpeechSynthesisVoice({lang: 'id', name: 'Google Tiger'});
@@ -720,6 +741,24 @@ suite('VoiceLanguageController', () => {
 
     assertEquals(lang, voiceLanguageController.getCurrentLanguage());
   });
+
+  test(
+      'onPageLanguageChanged updates current language when natural voices unavailable',
+      () => {
+        chrome.readingMode.getStoredVoice = () => '';
+        const voice1 =
+            createSpeechSynthesisVoice({lang: 'en-us', name: 'Google English'});
+        const voice2 =
+            createSpeechSynthesisVoice({lang: 'de-de', name: 'Google German'});
+        speech.setVoices([voice1, voice2]);
+        voiceLanguageController.onVoicesChanged();
+        const lang = 'de';
+        chrome.readingMode.baseLanguageForSpeech = lang;
+
+        voiceLanguageController.onPageLanguageChanged();
+
+        assertEquals(voice2, voiceLanguageController.getCurrentVoice());
+      });
 
   test('onPageLanguageChanged installs lang if no status', () => {
     const lang = 'en-gb';
@@ -825,6 +864,19 @@ suite('VoiceLanguageController', () => {
 
     assertTrue(onCurrentVoiceChange);
     assertEquals(otherVoice, voiceLanguageController.getCurrentVoice());
+  });
+
+  test('onPageLanguageChanged with no Google voices, uses system voice', () => {
+    const lang = 'zh-CN';
+    const voice = createSpeechSynthesisVoice({lang, name: 'Conan'});
+    speech.setVoices([voice]);
+    voiceLanguageController.onVoicesChanged();
+    chrome.readingMode.baseLanguageForSpeech = lang;
+
+    voiceLanguageController.onPageLanguageChanged();
+
+    assertTrue(onCurrentVoiceChange);
+    assertEquals(voice, voiceLanguageController.getCurrentVoice());
   });
 
   test(

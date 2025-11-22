@@ -292,7 +292,6 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
     public PropertyModel buildModelForDivider(@IdRes int id) {
         return new PropertyModel.Builder(AppMenuItemProperties.ALL_KEYS)
                 .with(AppMenuItemProperties.MENU_ITEM_ID, id)
-                .with(AppMenuItemProperties.SUPPORT_ENTER_ANIMATION, true)
                 .build();
     }
 
@@ -320,7 +319,6 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
                 .with(AppMenuItemProperties.ENABLED, true)
                 .with(AppMenuItemProperties.ICON_COLOR_RES, getMenuItemIconColorRes(id))
                 .with(AppMenuItemProperties.ICON_SHOW_BADGE, shouldShowBadgeOnMenuItemIcon(id))
-                .with(AppMenuItemProperties.SUPPORT_ENTER_ANIMATION, true)
                 .with(AppMenuItemProperties.MENU_ICON_AT_START, isMenuIconAtStart())
                 .with(AppMenuItemProperties.TITLE_CONDENSED, getContentDescription(id))
                 .with(AppMenuItemProperties.MANAGED, isMenuItemManaged(id));
@@ -875,7 +873,8 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
 
     /** Return whether the given {@link MenuItem} is managed by policy. */
     protected boolean isMenuItemManaged(@IdRes int itemId) {
-        if (itemId == R.id.new_incognito_tab_menu_id) {
+        if (itemId == R.id.new_incognito_tab_menu_id
+                || itemId == R.id.new_incognito_window_menu_id) {
             return IncognitoUtils.isIncognitoModeManaged(
                     assumeNonNull(mTabModelSelector.getCurrentModel().getProfile()));
         }
@@ -1079,12 +1078,12 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
         }
 
         boolean showStartPriceTracking = true;
-        if (info != null && info.productClusterId.isPresent()) {
+        if (info != null && info.productClusterId != null) {
             CommerceSubscription sub =
                     new CommerceSubscription(
                             SubscriptionType.PRICE_TRACK,
                             IdentifierType.PRODUCT_CLUSTER_ID,
-                            UnsignedLongs.toString(info.productClusterId.get()),
+                            UnsignedLongs.toString(info.productClusterId),
                             ManagementType.USER_MANAGED,
                             null);
             boolean isSubscribed = service.isSubscribedFromCache(sub);

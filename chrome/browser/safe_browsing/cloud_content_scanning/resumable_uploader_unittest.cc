@@ -17,11 +17,11 @@
 #include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
-#include "chrome/browser/enterprise/connectors/analysis/content_analysis_features.h"
 #include "chrome/browser/enterprise/connectors/test/uploader_test_utils.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/connector_upload_request.h"
 #include "components/enterprise/common/proto/connectors.pb.h"
+#include "components/enterprise/connectors/core/features.h"
 #include "content/public/test/browser_task_environment.h"
 #include "net/base/net_errors.h"
 #include "net/http/http_status_code.h"
@@ -382,25 +382,16 @@ enum class UploadRequestType { kFile, kPage, kString };
 
 class ResumableUploadSendContentRequestTest
     : public ResumableUploadRequestTest,
-      public testing::WithParamInterface<std::tuple<UploadRequestType, bool>> {
+      public testing::WithParamInterface<UploadRequestType> {
  public:
   ResumableUploadSendContentRequestTest() {
-    std::vector<base::test::FeatureRef> enabled_features;
     if (GetRequestType() == UploadRequestType::kString) {
-      enabled_features.push_back(enterprise_connectors::kDlpScanPastedImages);
-    }
-    if (IsAsyncUploadEnabled()) {
-      enabled_features.push_back(
-          enterprise_connectors::kEnableAsyncUploadAfterVerdict);
-    }
-
-    if (!enabled_features.empty()) {
-      feature_list_.InitWithFeatures(enabled_features, {});
+      feature_list_.InitWithFeatures(
+          {enterprise_connectors::kDlpScanPastedImages}, {});
     }
   }
 
-  UploadRequestType GetRequestType() { return std::get<0>(GetParam()); }
-  bool IsAsyncUploadEnabled() { return std::get<1>(GetParam()); }
+  UploadRequestType GetRequestType() { return GetParam(); }
 
   std::unique_ptr<ConnectorUploadRequest> CreateTestRequest(
       BinaryUploadService::Result get_data_result,
@@ -441,13 +432,11 @@ class ResumableUploadSendContentRequestTest
   base::test::ScopedFeatureList feature_list_;
 };
 
-INSTANTIATE_TEST_SUITE_P(
-    ,
-    ResumableUploadSendContentRequestTest,
-    testing::Combine(testing::Values(UploadRequestType::kFile,
-                                     UploadRequestType::kPage,
-                                     UploadRequestType::kString),
-                     testing::Bool()));
+INSTANTIATE_TEST_SUITE_P(,
+                         ResumableUploadSendContentRequestTest,
+                         testing::Values(UploadRequestType::kFile,
+                                         UploadRequestType::kPage,
+                                         UploadRequestType::kString));
 
 TEST_P(ResumableUploadSendContentRequestTest, HandlesSuccessfulContentScan) {
   base::HistogramTester histogram_tester;
@@ -829,11 +818,7 @@ class ResumableUploadSendContentAsyncTest
     : public ResumableUploadRequestTest,
       public testing::WithParamInterface<std::tuple<bool, AsyncUploadResult>> {
  public:
-  ResumableUploadSendContentAsyncTest() {
-    feature_list_.InitWithFeatures(
-        {enterprise_connectors::kEnableAsyncUploadAfterVerdict},
-        /*disabled_features=*/{});
-  }
+  ResumableUploadSendContentAsyncTest() = default;
 
   bool is_file_request() override { return std::get<0>(GetParam()); }
 

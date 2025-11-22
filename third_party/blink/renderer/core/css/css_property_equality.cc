@@ -756,6 +756,8 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
       return a.TextGrow() == b.TextGrow();
     case CSSPropertyID::kTextIndent:
       return a.TextIndent() == b.TextIndent();
+    case CSSPropertyID::kTextJustify:
+      return a.TextJustify() == b.TextJustify();
     case CSSPropertyID::kTextOverflow:
       return a.TextOverflow() == b.TextOverflow();
     case CSSPropertyID::kTextRendering:
@@ -834,6 +836,10 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
                  b.InternalVisitedColumnRuleColor();
     case CSSPropertyID::kRowRuleColor:
       return a.RowRuleColor() == b.RowRuleColor();
+    case CSSPropertyID::kColumnRuleVisibilityItems:
+      return a.ColumnRuleVisibilityItems() == b.ColumnRuleVisibilityItems();
+    case CSSPropertyID::kRowRuleVisibilityItems:
+      return a.RowRuleVisibilityItems() == b.RowRuleVisibilityItems();
     case CSSPropertyID::kColumnRuleWidth:
       return a.ColumnRuleWidth() == b.ColumnRuleWidth();
     case CSSPropertyID::kRowRuleWidth:
@@ -987,7 +993,6 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kAnimationTrigger:
     case CSSPropertyID::kScrollTimelineAxis:
     case CSSPropertyID::kScrollTimelineName:
-    case CSSPropertyID::kTimelineTriggerBehavior:
     case CSSPropertyID::kTimelineTriggerName:
     case CSSPropertyID::kTimelineTriggerRangeStart:
     case CSSPropertyID::kTimelineTriggerRangeEnd:
@@ -1321,7 +1326,9 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kPositionTry:
     case CSSPropertyID::kRowRule:
     case CSSPropertyID::kRule:
+    case CSSPropertyID::kRuleBreak:
     case CSSPropertyID::kRuleColor:
+    case CSSPropertyID::kRuleOutset:
     case CSSPropertyID::kRuleWidth:
     case CSSPropertyID::kRuleStyle:
     case CSSPropertyID::kScrollMargin:

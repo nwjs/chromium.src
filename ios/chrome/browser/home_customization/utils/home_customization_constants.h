@@ -28,6 +28,10 @@ extern CustomizationSection* const kCustomizationSectionMagicStackToggles;
 // The identifier for the bottom sheet's initial detent.
 extern NSString* const kBottomSheetDetentIdentifier;
 
+// The identifier for the bottom sheet's expanded height detent (if one exists
+// for the current page).
+extern NSString* const kBottomSheetExpandedDetentIdentifier;
+
 // The identifier for the dismiss button on the top right of the navigation bar.
 extern NSString* const kNavigationBarDismissButtonIdentifier;
 
@@ -40,7 +44,6 @@ extern NSString* const kCustomizationToggleMagicStackIdentifier;
 extern NSString* const kCustomizationToggleDiscoverIdentifier;
 
 // The identifiers for the Magic Stack page toggle cells.
-extern NSString* const kCustomizationToggleSetUpListIdentifier;
 extern NSString* const kCustomizationToggleSafetyCheckIdentifier;
 extern NSString* const kCustomizationToggleTabResumptionIdentifier;
 extern NSString* const kCustomizationToggleShopCardPriceTrackingIdentifier;
@@ -101,7 +104,6 @@ enum class CustomizationToggleType : NSInteger {
 
   // Magic Stack page toggles.
   kTips,
-  kSetUpList,
   kSafetyCheck,
   kTapResumption,
   kShopCard,

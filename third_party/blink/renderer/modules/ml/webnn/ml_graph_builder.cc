@@ -81,6 +81,7 @@
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_deque.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "third_party/fp16/src/include/fp16.h"
 
 namespace blink {
 
@@ -1780,6 +1781,99 @@ MLOperand* MLGraphBuilder::constant(ScriptState* script_state,
   return MakeGarbageCollected<MLConstantOperand>(this, tensor);
 }
 
+MLOperand* MLGraphBuilder::constant(
+    ScriptState* script_state,
+    V8MLOperandDataType type,
+    const V8UnionBigintOrUnrestrictedDouble* value,
+    ExceptionState& exception_state) {
+  webnn::ScopedTrace scoped_trace("MLGraphBuilder::constant");
+
+  THROW_AND_RETURN_IF_ERROR(ValidateGraphBuilderState(), nullptr);
+
+  webnn::OperandDataType data_type = FromBlinkDataType(type.AsEnum());
+  ASSIGN_OR_THROW_AND_RETURN_IF_ERROR(
+      webnn::OperandDescriptor descriptor,
+      webnn::OperandDescriptor::Create(ml_context_->GetProperties(), data_type,
+                                       /*shape=*/{},
+                                       webnn::GetErrorLabelPrefix("constant")));
+
+  if (!ml_context_->GetProperties().data_type_limits.constant.Supports(
+          descriptor)) {
+    exception_state.ThrowTypeError(String(webnn::NotSupportedConstantError(
+        descriptor, ml_context_->GetProperties().data_type_limits.constant)));
+    return nullptr;
+  }
+
+  base::expected<webnn::MLNumber, String> ml_number_value =
+      ToMLNumberAsType(*value, data_type);
+  if (!ml_number_value.has_value()) {
+    exception_state.ThrowTypeError(ml_number_value.error());
+    return nullptr;
+  }
+
+  // Write value to big buffer based on data type.
+  mojo_base::BigBuffer constant_data;
+  switch (data_type) {
+    case webnn::OperandDataType::kFloat32: {
+      constant_data = mojo_base::BigBuffer(base::byte_span_from_ref(
+          base::allow_nonunique_obj, ml_number_value->AsFloat32()));
+      break;
+    }
+    case webnn::OperandDataType::kFloat16: {
+      constant_data = mojo_base::BigBuffer(base::byte_span_from_ref(
+          fp16_ieee_from_fp32_value(ml_number_value->AsFloat32())));
+      break;
+    }
+    case webnn::OperandDataType::kInt32: {
+      constant_data = mojo_base::BigBuffer(
+          base::byte_span_from_ref(ml_number_value->AsInt32()));
+      break;
+    }
+    case webnn::OperandDataType::kUint32: {
+      constant_data = mojo_base::BigBuffer(
+          base::byte_span_from_ref(ml_number_value->AsUint32()));
+      break;
+    }
+    case webnn::OperandDataType::kInt64: {
+      constant_data = mojo_base::BigBuffer(
+          base::byte_span_from_ref(ml_number_value->AsInt64()));
+      break;
+    }
+    case webnn::OperandDataType::kUint64: {
+      constant_data = mojo_base::BigBuffer(
+          base::byte_span_from_ref(ml_number_value->AsUint64()));
+      break;
+    }
+    case webnn::OperandDataType::kInt8: {
+      constant_data = mojo_base::BigBuffer(
+          base::byte_span_from_ref(ml_number_value->AsInt8()));
+      break;
+    }
+    case webnn::OperandDataType::kUint8: {
+      constant_data = mojo_base::BigBuffer(
+          base::byte_span_from_ref(ml_number_value->AsUint8()));
+      break;
+    }
+    case webnn::OperandDataType::kInt4:
+    case webnn::OperandDataType::kUint4:
+      exception_state.ThrowTypeError("Unsupported data type for constant");
+      return nullptr;
+  }
+
+  size_t byte_length = descriptor.PackedByteLength();
+  auto* constant =
+      MakeGarbageCollected<MLConstantOperand>(this, std::move(descriptor));
+
+  UMA_HISTOGRAM_MEMORY_KB("WebNN.ConstantDataSizeInKB", byte_length / 1024);
+  TRACE_EVENT_BEGIN("webnn", "create constant scalar value BigBuffer",
+                    scoped_trace.track(), "size", byte_length);
+  scoped_trace.AddStep("post mojo message: CreatePendingConstant");
+  remote_->CreatePendingConstant(constant->handle(), data_type,
+                                 std::move(constant_data));
+  TRACE_EVENT_END("webnn", scoped_trace.track());
+  return constant;
+}
+
 MLOperand* MLGraphBuilder::argMin(MLOperand* input,
                                   const uint32_t axis,
                                   MLArgMinMaxOptions* options,
@@ -2698,6 +2792,15 @@ MLOperand* MLGraphBuilder::pad(ScriptState* script_state,
           ending_padding, BlinkPaddingModeToComponent(options->mode().AsEnum()),
           label));
 
+  // Pad becomes a no-op if input is a scalar and the paddings are all empty.
+  if (input->Rank() == 0) {
+    return BuildElementWiseUnaryOperator(
+        ml_context_->GetProperties(), this, exception_state,
+        blink_mojom::ElementWiseUnary::Kind::kIdentity,
+        ml_context_->GetProperties().data_type_limits.identity_input, input,
+        options);
+  }
+
   base::expected<webnn::MLNumber, String> pad_value =
       ToMLNumberAsType(*options->value(), input->DataType());
   if (!pad_value.has_value()) {
@@ -3058,6 +3161,16 @@ MLOperand* MLGraphBuilder::slice(MLOperand* input,
       webnn::ValidateSliceAndInferOutput(ml_context_->GetProperties(),
                                          input->Descriptor(), attributes));
 
+  // Slice becomes a no-op if the input is a scalar and starts, sizes, strides
+  // are all empty.
+  if (input->Rank() == 0) {
+    return BuildElementWiseUnaryOperator(
+        ml_context_->GetProperties(), this, exception_state,
+        blink_mojom::ElementWiseUnary::Kind::kIdentity,
+        ml_context_->GetProperties().data_type_limits.identity_input, input,
+        options);
+  }
+
   auto* slice = MakeGarbageCollected<MLSliceOperator>(this, starts, sizes,
                                                       strides, options);
   MLOperand* output =
@@ -3086,20 +3199,6 @@ MLOperand* MLGraphBuilder::softmax(MLOperand* input,
 
   softmax->Connect({input}, {output});
   return output;
-}
-
-MLOperand* MLGraphBuilder::softmax(MLOperand* input,
-                                   MLOperatorOptions* options,
-                                   ExceptionState& exception_state) {
-  // This is to emulate the deprecated 2-D softmax until all Chrome channels
-  // support the latest version.
-  if (input->Rank() != 2) {
-    exception_state.ThrowTypeError(
-        String::FromUTF8(webnn::GetErrorLabelPrefix(options->label().Utf8())) +
-        "The input must be a 2-D tensor.");
-    return nullptr;
-  }
-  return softmax(input, /*axis=*/1, options, exception_state);
 }
 
 MLOperand* MLGraphBuilder::softplus(MLOperand* input,

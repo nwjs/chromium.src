@@ -7,10 +7,11 @@ import '/strings.m.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {EventTracker} from 'chrome://resources/js/event_tracker.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import {CrLitElement, html} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {Point} from 'chrome://resources/mojo/ui/gfx/geometry/mojom/geometry.mojom-webui.js';
 
 import {getCss} from './app.css.js';
+import {getHtml} from './app.html.js';
 import {ActorOverlayBrowserProxy} from './browser_proxy.js';
 
 export interface ActorOverlayAppElement {
@@ -27,14 +28,25 @@ export class ActorOverlayAppElement extends CrLitElement {
   }
 
   override render() {
-    return html`<div id="magicCursor"></div>`;
+    return getHtml.bind(this)();
   }
 
+  static override get properties() {
+    return {
+      borderGlowVisible_: {type: Boolean},
+    };
+  }
+
+  protected accessor borderGlowVisible_: boolean = false;
+
   private eventTracker_: EventTracker = new EventTracker();
-  private setScrimBackgroundListenerId_: number|null = null;
+  private setScrimBackgroundListenerId_: number | null = null;
+  private setBorderGlowVisibilityListenerId_: number | null = null;
   private shouldShowCursor_: boolean =
       loadTimeData.getBoolean('isMagicCursorEnabled');
   private isCursorInitialized_: boolean = false;
+  private isStandaloneBorderGlowEnabled_: boolean =
+      loadTimeData.getBoolean('isStandaloneBorderGlowEnabled');
 
   override connectedCallback() {
     super.connectedCallback();
@@ -46,9 +58,18 @@ export class ActorOverlayAppElement extends CrLitElement {
       proxy.handler.onHoverStatusChanged(false);
     });
     this.addEventListener('wheel', this.onWheelEvent_);
+
+    // Background scrim
     this.setScrimBackgroundListenerId_ =
-        proxy.callbackRouter.setScrimBackground.addListener(
-            this.setScrimBackground.bind(this));
+      proxy.callbackRouter.setScrimBackground.addListener(
+        this.setScrimBackground.bind(this));
+
+    // Border Glow
+    this.setBorderGlowVisibilityListenerId_ =
+      proxy.callbackRouter.setBorderGlowVisibility.addListener(
+        this.setBorderGlowVisibility.bind(this));
+    proxy.handler.getCurrentBorderGlowVisibility().then(
+        ({isVisible}) => this.setBorderGlowVisibility(isVisible));
   }
 
   override disconnectedCallback() {
@@ -57,7 +78,10 @@ export class ActorOverlayAppElement extends CrLitElement {
     this.removeEventListener('wheel', this.onWheelEvent_);
     assert(this.setScrimBackgroundListenerId_);
     ActorOverlayBrowserProxy.getInstance().callbackRouter.removeListener(
-        this.setScrimBackgroundListenerId_);
+      this.setScrimBackgroundListenerId_);
+    assert(this.setBorderGlowVisibilityListenerId_);
+    ActorOverlayBrowserProxy.getInstance().callbackRouter.removeListener(
+      this.setBorderGlowVisibilityListenerId_);
   }
 
   // Prevents user scroll gestures (mouse wheel, touchpad) from moving the
@@ -70,6 +94,10 @@ export class ActorOverlayAppElement extends CrLitElement {
   private setScrimBackground(isVisible: boolean) {
     isVisible ? this.classList.add('background-visible') :
                 this.classList.remove('background-visible');
+  }
+
+  private setBorderGlowVisibility(isVisible: boolean) {
+    this.borderGlowVisible_ = this.isStandaloneBorderGlowEnabled_ && isVisible;
   }
 
   // TODO(crbug.com/422539773): Make function private once it's called via the

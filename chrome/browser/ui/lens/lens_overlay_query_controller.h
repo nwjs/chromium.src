@@ -5,8 +5,10 @@
 #ifndef CHROME_BROWSER_UI_LENS_LENS_OVERLAY_QUERY_CONTROLLER_H_
 #define CHROME_BROWSER_UI_LENS_LENS_OVERLAY_QUERY_CONTROLLER_H_
 
+#include <map>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "base/containers/span.h"
 #include "base/functional/callback.h"
@@ -17,8 +19,6 @@
 #include "chrome/browser/lens/core/mojom/overlay_object.mojom.h"
 #include "chrome/browser/lens/core/mojom/text.mojom.h"
 #include "chrome/browser/ui/lens/lens_overlay_gen204_controller.h"
-#include "chrome/browser/ui/lens/lens_overlay_image_helper.h"
-#include "chrome/browser/ui/lens/lens_overlay_url_builder.h"
 #include "components/endpoint_fetcher/endpoint_fetcher.h"
 #include "components/lens/lens_overlay_invocation_source.h"
 #include "components/lens/lens_overlay_mime_type.h"
@@ -28,12 +28,10 @@
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "third_party/lens_server_proto/lens_overlay_client_context.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_cluster_info.pb.h"
-#include "third_party/lens_server_proto/lens_overlay_image_crop.pb.h"
-#include "third_party/lens_server_proto/lens_overlay_image_data.pb.h"
-#include "third_party/lens_server_proto/lens_overlay_interaction_request_metadata.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_selection_type.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_server.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_service_deps.pb.h"
+#include "third_party/lens_server_proto/lens_overlay_visual_search_interaction_data.pb.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "url/gurl.h"
 
@@ -49,7 +47,10 @@ class VariationsClient;
 
 namespace lens {
 
+class ImageCrop;
+class ImageData;
 class LensComposeboxController;
+struct ImageCropAndBitmap;
 
 // Data struct representing content data to be sent to the Lens server.
 struct PageContent {
@@ -225,6 +226,14 @@ class LensOverlayQueryController {
   // request id generator or analytics id.
   std::string GetVsridForNewTab();
 
+  // Returns the latest visual search interaction data sent to the server.
+  // This does not take into account whether the selection was cleared by the
+  // user.
+  std::optional<lens::LensOverlayVisualSearchInteractionData>
+  GetVisualSearchInteractionData() {
+    return visual_search_interaction_data_;
+  }
+
   base::TimeTicks partial_page_contents_request_start_time_for_testing() const {
     return partial_page_contents_request_start_time_;
   }
@@ -334,6 +343,9 @@ class LensOverlayQueryController {
     kReceivedFullImageErrorResponse = 5,
     // The cluster info has expired and a new query flow needs to be started.
     kClusterInfoExpired = 6,
+    // Permissions have not yet been granted, and a new query flow needs to be
+    // started after they are granted.
+    kWaitingForPermissions = 6,
   };
 
   // Data class for constructing a fetch request to the Lens servers.
@@ -643,11 +655,17 @@ class LensOverlayQueryController {
   std::unique_ptr<signin::PrimaryAccountAccessTokenFetcher>
   CreateOAuthHeadersAndContinue(OAuthHeadersCreatedCallback callback);
 
-  // Gets the visual search interaction log data param as a base64url
-  // encoded string.
-  std::string GetEncodedVisualSearchInteractionLogData(
+  // Builds the LensOverlayVisualSearchInteractionData proto from the given
+  // parameters.
+  lens::LensOverlayVisualSearchInteractionData
+  BuildVisualSearchInteractionLogData(
       const std::optional<std::string>& selected_text,
       lens::LensOverlaySelectionType selection_type);
+
+  // Encodes the LensOverlayVisualSearchInteractionData proto to a base64url
+  // encoded string.
+  std::string EncodeVisualSearchInteractionLogData(
+      const lens::LensOverlayVisualSearchInteractionData& interaction_data);
 
   // Creates the metadata for an interaction request using the latest
   // interaction and image crop data.
@@ -755,7 +773,7 @@ class LensOverlayQueryController {
   LensOverlayUrlResponseCallback url_callback_;
 
   // The last received cluster info.
-  std::optional<lens::LensOverlayClusterInfo> cluster_info_ = std::nullopt;
+  std::optional<lens::LensOverlayClusterInfo> cluster_info_;
 
   // The callback for issuing a pending interaction request. Will be used to
   // send the interaction request after the cluster info is available and the
@@ -874,6 +892,11 @@ class LensOverlayQueryController {
   // response is received) and the overlay controller notified via the
   // suggest inputs callback.
   lens::proto::LensOverlaySuggestInputs suggest_inputs_;
+
+  // The current visual search interaction data. This is used to send the vsint
+  // param with the interaction request.
+  std::optional<lens::LensOverlayVisualSearchInteractionData>
+      visual_search_interaction_data_;
 
   // Owned by Profile, and thus guaranteed to outlive this instance.
   const raw_ptr<variations::VariationsClient> variations_client_;

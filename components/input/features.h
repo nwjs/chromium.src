@@ -18,6 +18,8 @@ namespace input::features {
 // Design doc for InputVizard project for moving touch input to viz on Android:
 // https://docs.google.com/document/d/1mcydbkgFCO_TT9NuFE962L8PLJWT2XOfXUAPO88VuKE
 COMPONENT_EXPORT(INPUT) BASE_DECLARE_FEATURE(kInputOnViz);
+COMPONENT_EXPORT(INPUT)
+extern const base::FeatureParam<bool> kTransferSequencesWithAbnormalDownTime;
 
 // If enabled, Chrome will receive buffered/batched input from Android.
 // Specifically, Chrome will NOT call
@@ -42,8 +44,6 @@ BASE_DECLARE_FEATURE(kLogBubblingTouchscreenGesturesForDebug);
 COMPONENT_EXPORT(INPUT)
 BASE_DECLARE_FEATURE(kIgnoreBubblingCollisionIfSourceDevicesMismatch);
 COMPONENT_EXPORT(INPUT) BASE_DECLARE_FEATURE(kScrollBubblingFix);
-COMPONENT_EXPORT(INPUT)
-BASE_DECLARE_FEATURE(kUseFirstCoalescedFrameAsFlingGenerationTimestamp);
 
 COMPONENT_EXPORT(INPUT) BASE_DECLARE_FEATURE(kRendererHangWatcher);
 COMPONENT_EXPORT(INPUT)
@@ -54,6 +54,9 @@ BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kRendererHangWatcherDelay);
 //    events and "looks ahead" at the next event to improve prediction.
 // 2. It generates a synthetic scroll event if the queue is empty, keeping
 //    scrolling smooth even if input events are missed.
+// This feature depends on kRefactorCompositorThreadEventQueue being enabled
+// to function correctly, as the refactored event queue logic is necessary
+// for the new predictor input mapping and synthetic event generation.
 COMPONENT_EXPORT(INPUT)
 BASE_DECLARE_FEATURE(kUpdateScrollPredictorInputMapping);
 COMPONENT_EXPORT(INPUT)

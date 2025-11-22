@@ -79,10 +79,12 @@ TestRenderWidgetHostView::TestRenderWidgetHostView(RenderWidgetHost* rwh)
   SetIsFrameSinkIdOwner(true);
 
 #if defined(USE_AURA)
+  constexpr gfx::Rect kBounds = gfx::Rect(0, 0, 20, 20);
   window_ = std::make_unique<aura::Window>(
       aura::test::TestWindowDelegate::CreateSelfDestroyingDelegate());
   window_->set_owned_by_parent(false);
   window_->Init(ui::LayerType::LAYER_NOT_DRAWN);
+  window_->SetBounds(kBounds);
 #endif
 }
 
@@ -125,8 +127,9 @@ void TestRenderWidgetHostView::ShowWithVisibility(
 }
 
 void TestRenderWidgetHostView::Hide() {
-  if (!host()->is_hidden())
+  if (!host()->IsHidden()) {
     host()->WasHidden();
+  }
   is_showing_ = false;
 }
 
@@ -142,8 +145,9 @@ void TestRenderWidgetHostView::WasUnOccluded() {
 }
 
 void TestRenderWidgetHostView::WasOccluded() {
-  if (!host()->is_hidden())
+  if (!host()->IsHidden()) {
     host()->WasHidden();
+  }
   is_occluded_ = true;
 }
 
@@ -298,7 +302,7 @@ void TestRenderWidgetHostView::NotifyHostAndDelegateOnWasShown(
       ADD_FAILURE();
       break;
   }
-  if (host()->is_hidden()) {
+  if (host()->IsHidden()) {
     // Do not pass on `visible_time_request` because there is no compositing to
     // measure.
     host()->WasShown({});
@@ -312,7 +316,7 @@ void TestRenderWidgetHostView::
   // Should only be called if the view was already shown.
 #if !BUILDFLAG(IS_ANDROID)
   // TODO(jonross): Update the constructor to determine showing state
-  // `is_showing_ = !host()->is_hidden()` this will match production code. Also
+  // `is_showing_ = !host()->IsHidden()` this will match production code. Also
   // update various tests not prepared for this to also match production.
   //
   // In tests TestRenderViewHostFactory::CreateRenderViewHost creates all hosts
@@ -440,10 +444,6 @@ bool TestRenderViewHost::CreateRenderView(
   } else {
     proxy_host = RenderFrameProxyHost::FromID(GetProcess()->GetDeprecatedID(),
                                               proxy_route_id);
-  }
-
-  if (!GetWidget()->view_is_frame_sink_id_owner()) {
-    main_frame->NotifyWillCreateRenderWidgetOnCommit();
   }
 
   DCHECK_EQ(!!main_frame, is_active());

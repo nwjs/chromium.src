@@ -30,7 +30,7 @@
 #include "media/gpu/chromeos/platform_video_frame_utils.h"
 #include "media/gpu/macros.h"
 #include "media/media_buildflags.h"
-#include "ui/gfx/buffer_format_util.h"
+#include "ui/gfx/buffer_types.h"
 #include "ui/gfx/gpu_memory_buffer_handle.h"
 #include "ui/gl/gl_bindings.h"
 
@@ -555,8 +555,8 @@ void VdVideoDecodeAccelerator::ImportBufferForPicture(
 
   CHECK(media::VerifyGpuMemoryBufferHandle(pixel_format, layout_->coded_size(),
                                            gmb_handle));
-  auto buffer_format = VideoPixelFormatToGfxBufferFormat(pixel_format);
-  CHECK(buffer_format);
+  auto si_format = VideoPixelFormatToSharedImageFormat(pixel_format);
+  CHECK(si_format);
   // Usage is SCANOUT_CPU_READ_WRITE because we may need to map the buffer in
   // order to use the LibYUVImageProcessorBackend.
   // TODO(b/349610963): investigate whether there is a better buffer usage.
@@ -568,7 +568,7 @@ void VdVideoDecodeAccelerator::ImportBufferForPicture(
           gfx::Rect(layout_->coded_size()), layout_->coded_size(),
           base::TimeDelta(), gfx::BufferUsage::SCANOUT_CPU_READ_WRITE,
           base::MakeRefCounted<gfx::NativePixmapDmaBuf>(
-              layout_->coded_size(), *buffer_format,
+              layout_->coded_size(), *si_format,
               std::move(gmb_handle).native_pixmap_handle()));
 
   // Ensures that the tracking token is unique for frames in the frame pool.

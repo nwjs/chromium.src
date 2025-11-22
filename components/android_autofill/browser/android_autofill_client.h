@@ -92,6 +92,7 @@ class AndroidAutofillClient : public autofill::ContentAutofillClient {
   scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory() final;
   autofill::AutofillCrowdsourcingManager& GetCrowdsourcingManager() final;
   autofill::VotesUploader& GetVotesUploader() override;
+  bool HasPersonalDataManager() const final;
   autofill::PersonalDataManager& GetPersonalDataManager() final;
   autofill::ValuablesDataManager* GetValuablesDataManager() override;
   autofill::EntityDataManager* GetEntityDataManager() override;
@@ -126,6 +127,7 @@ class AndroidAutofillClient : public autofill::ContentAutofillClient {
   bool IsAutofillEnabled() const final;
   bool IsAutofillProfileEnabled() const final;
   bool IsAutofillPaymentMethodsEnabled() const final;
+  bool IsImportingToWalletEnabled() const final;
   bool IsAutocompleteEnabled() const final;
   bool IsPasswordManagerEnabled() const final;
   void DidFillForm(autofill::AutofillTriggerSource trigger_source,

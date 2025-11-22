@@ -13,6 +13,8 @@
 #include "base/auto_reset.h"
 #include "base/compiler_specific.h"
 #include "base/cpu.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_union_urlpatterninit_usvstring.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_url_pattern_init.h"
 #include "third_party/blink/renderer/core/animation/timeline_offset.h"
 #include "third_party/blink/renderer/core/core_probes_inl.h"
 #include "third_party/blink/renderer/core/css/css_custom_ident_value.h"
@@ -57,6 +59,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame_ukm_aggregator.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
+#include "third_party/blink/renderer/core/url_pattern/url_pattern.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
@@ -1898,21 +1901,101 @@ StyleRuleRoute* CSSParserImpl::ConsumeRouteRule(
     CSSNestingType nesting_type,
     StyleRule* parent_rule_for_nesting) {
   // Parse the prelude.
-  wtf_size_t prelude_offset_start = stream.LookAheadOffset();
-  const CSSParserToken& name_token = stream.Peek();
-  String name = name_token.Value().ToString();
-  stream.ConsumeIncludingWhitespace();
-  wtf_size_t prelude_offset_end = stream.LookAheadOffset();
+  if (stream.Peek().GetType() != kLeftParenthesisToken) {
+    ConsumeErroneousAtRule(stream, CSSAtRuleID::kCSSAtRuleRoute);
+    return nullptr;
+  }
+
+  wtf_size_t header_start_offset = stream.LookAheadOffset();
+
+  // TODO(crbug.com/436805487): Figure out where whitespace is allowed and not.
+  // And how about multiple routes in one rule?
+  //
+  // For now we only support this:
+  //
+  // @route <route-test-in-parens> { <rule-list> }
+  // <route-test-in-parens> =
+  //   ( <route-location> | <route-keyword> : <route-location> )
+  String route_name;
+  RoutePreposition preposition = RoutePreposition::kAt;
+  URLPattern* url_pattern = nullptr;
+
+  auto parse_url_pattern = [&] {
+    if (stream.Peek().GetType() != kFunctionToken ||
+        stream.Peek().Value() != "urlpattern") {
+      return false;
+    }
+
+    CSSParserTokenStream::BlockGuard function_guard(stream);
+    stream.ConsumeWhitespace();
+    if (stream.Peek().GetType() != kStringToken) {
+      return false;
+    }
+    const CSSParserToken& pattern = stream.ConsumeIncludingWhitespace();
+    if (pattern.GetType() == kBadStringToken || !stream.UncheckedAtEnd()) {
+      return false;
+    }
+
+    const Document& document = *context_->GetDocument();
+    V8URLPatternInput* url_pattern_input =
+        MakeGarbageCollected<V8URLPatternInput>(
+            pattern.Value().ToAtomicString());
+    url_pattern =
+        URLPattern::Create(document.GetExecutionContext()->GetIsolate(),
+                           url_pattern_input, document.Url(), IGNORE_EXCEPTION);
+    return true;
+  };
+
+  bool header_valid = [&]() {
+    CSSParserTokenStream::BlockGuard header_guard(stream);
+    if (stream.Peek().GetType() == kIdentToken) {
+      String first_string =
+          stream.ConsumeIncludingWhitespace().Value().ToString();
+      if (stream.Peek().GetType() == kColonToken) {
+        if (first_string == "at") {
+          preposition = RoutePreposition::kAt;
+        } else if (first_string == "from") {
+          preposition = RoutePreposition::kFrom;
+        } else if (first_string == "to") {
+          preposition = RoutePreposition::kTo;
+        } else {
+          return false;
+        }
+        stream.ConsumeIncludingWhitespace();
+        if (stream.Peek().GetType() == kIdentToken) {
+          route_name = stream.ConsumeIncludingWhitespace().Value().ToString();
+        } else if (!parse_url_pattern()) {
+          return false;
+        }
+        return stream.AtEnd();
+      }
+      if (stream.AtEnd()) {
+        route_name = first_string;
+        return true;
+      }
+    } else {
+      return parse_url_pattern();
+    }
+    return false;
+  }();
+
+  if (!header_valid) {
+    ConsumeErroneousAtRule(stream, CSSAtRuleID::kCSSAtRuleRoute);
+    return nullptr;
+  }
+
   if (!ConsumeEndOfPreludeForAtRuleWithBlock(stream,
                                              CSSAtRuleID::kCSSAtRuleRoute)) {
     return nullptr;
   }
 
+  wtf_size_t header_end_offset = stream.LookAheadOffset();
+
   // Parse the body.
-  CSSParserTokenStream::BlockGuard guard(stream);
+  CSSParserTokenStream::BlockGuard body_guard(stream);
   if (observer_) {
-    observer_->StartRuleHeader(StyleRule::kRoute, prelude_offset_start);
-    observer_->EndRuleHeader(prelude_offset_end);
+    observer_->StartRuleHeader(StyleRule::kRoute, header_start_offset);
+    observer_->EndRuleHeader(header_end_offset);
     observer_->StartRuleBody(stream.Offset());
   }
 
@@ -1924,7 +2007,8 @@ StyleRuleRoute* CSSParserImpl::ConsumeRouteRule(
     observer_->EndRuleBody(stream.Offset());
   }
 
-  return MakeGarbageCollected<StyleRuleRoute>(name, std::move(rules));
+  return MakeGarbageCollected<StyleRuleRoute>(route_name, url_pattern,
+                                              preposition, std::move(rules));
 }
 
 StyleRuleCounterStyle* CSSParserImpl::ConsumeCounterStyleRule(
@@ -2498,21 +2582,17 @@ StyleRuleApplyMixin* CSSParserImpl::ConsumeApplyMixinRule(
   }
 
   // Parse arguments, if any.
-  HeapVector<String> arguments;
-  bool arguments_ok = true;
+  HeapVector<Member<CSSVariableData>> arguments;
   if (stream.Peek().GetType() == kIdentToken) {
     // @apply --name ...
     stream.ConsumeIncludingWhitespace();
   } else {
     // @apply --name( ...
-    CSSParserTokenStream::BlockGuard guard(stream);
-    arguments = CSSVariableParser::ConsumeFunctionArguments(
-        stream, std::numeric_limits<unsigned>::max());
-    arguments_ok = stream.AtEnd();
-  }
-  if (!arguments_ok) {
-    ConsumeErroneousAtRule(stream, CSSAtRuleID::kCSSAtRuleApplyMixin);
-    return nullptr;
+    if (!CSSVariableParser::ConsumeMixinArguments(stream, *context_,
+                                                  arguments)) {
+      ConsumeErroneousAtRule(stream, CSSAtRuleID::kCSSAtRuleApplyMixin);
+      return nullptr;
+    }
   }
 
   stream.EnsureLookAhead();
@@ -2734,21 +2814,22 @@ StyleRuleCustomMedia* CSSParserImpl::ConsumeCustomMediaRule(
   std::optional<bool> bool_val = GetBooleanValue(stream.Peek());
   if (bool_val.has_value()) {
     stream.ConsumeIncludingWhitespace();
-    if (!stream.AtEnd()) {
+    if (!ConsumeEndOfPreludeForAtRuleWithoutBlock(
+            stream, CSSAtRuleID::kCSSAtRuleCustomMedia)) {
       return nullptr;
     }
     return MakeGarbageCollected<StyleRuleCustomMedia>(
         StyleRuleCustomMedia(AtomicString(name), *bool_val));
   }
 
-  MediaQuerySet* media_query_set = MediaQueryParser::ParseMediaQuerySet(
+  MediaQuerySet* media_query_set = MediaQueryParser::ParseCustomMediaDefinition(
       stream, context_->GetExecutionContext());
   if (!media_query_set) {
     ConsumeErroneousAtRule(stream, CSSAtRuleID::kCSSAtRuleCustomMedia);
     return nullptr;
   }
-  if (!stream.AtEnd()) {
-    ConsumeErroneousAtRule(stream, CSSAtRuleID::kCSSAtRuleCustomMedia);
+  if (!ConsumeEndOfPreludeForAtRuleWithoutBlock(
+          stream, CSSAtRuleID::kCSSAtRuleCustomMedia)) {
     return nullptr;
   }
   return MakeGarbageCollected<StyleRuleCustomMedia>(

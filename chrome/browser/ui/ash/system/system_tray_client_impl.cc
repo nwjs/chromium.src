@@ -20,6 +20,7 @@
 #include "ash/webui/settings/public/constants/routes.mojom-forward.h"
 #include "ash/webui/settings/public/constants/routes.mojom.h"
 #include "ash/webui/settings/public/constants/setting.mojom.h"
+#include "base/check_deref.h"
 #include "base/command_line.h"
 #include "base/i18n/time_formatting.h"
 #include "base/logging.h"
@@ -72,6 +73,7 @@
 #include "chromeos/ash/components/network/onc/network_onc_utils.h"
 #include "chromeos/ash/components/network/tether_constants.h"
 #include "chromeos/ash/components/phonehub/util/histogram_util.h"
+#include "chromeos/ash/experiences/settings_ui/settings_app_manager.h"
 #include "components/prefs/pref_service.h"
 #include "components/services/app_service/public/cpp/app_launch_util.h"
 #include "components/session_manager/core/session_manager.h"
@@ -379,8 +381,9 @@ void SystemTrayClientImpl::SetShowEolNotice(bool show,
 void SystemTrayClientImpl::ShowSettings(int64_t display_id) {
   // TODO(jamescook): Use different metric for OS settings.
   base::RecordAction(base::UserMetricsAction("ShowOptions"));
-  chrome::SettingsWindowManager::GetInstance()->ShowOSSettings(
-      ProfileManager::GetActiveUserProfile(), display_id);
+  ash::SettingsAppManager::Get()->Open(
+      CHECK_DEREF(user_manager::UserManager::Get()->GetActiveUser()),
+      {.display_id = display_id});
 }
 
 void SystemTrayClientImpl::ShowAccountSettings() {

@@ -58,6 +58,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tinker_tank.TinkerTankDelegate;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuItemState;
+import org.chromium.chrome.browser.toolbar.top.ToolbarUtils;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuDelegate;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuItemProperties;
@@ -94,7 +95,7 @@ import java.util.function.Supplier;
 public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateImpl {
     @IntDef({
         TabbedAppMenuItemType.UPDATE_ITEM,
-        TabbedAppMenuItemType.NEW_INCOGNITO_TAB,
+        TabbedAppMenuItemType.NEW_INCOGNITO,
         TabbedAppMenuItemType.ZOOM_ITEM
     })
     @Retention(RetentionPolicy.SOURCE)
@@ -106,7 +107,7 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
          * Menu item that has two buttons, the first one is a title and the second one is an icon.
          * It is different from the regular menu item because it contains two separate buttons.
          */
-        int NEW_INCOGNITO_TAB = AppMenuHandler.AppMenuItemType.NUM_ENTRIES + 1;
+        int NEW_INCOGNITO = AppMenuHandler.AppMenuItemType.NUM_ENTRIES + 1;
 
         /** Menu item that has a title and two buttons. */
         int ZOOM_ITEM = AppMenuHandler.AppMenuItemType.NUM_ENTRIES + 2;
@@ -182,7 +183,7 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
                 TabbedAppMenuItemType.UPDATE_ITEM, UpdateMenuItemViewBinder::getPixelHeight);
 
         modelListAdapter.registerType(
-                TabbedAppMenuItemType.NEW_INCOGNITO_TAB,
+                TabbedAppMenuItemType.NEW_INCOGNITO,
                 new LayoutViewBuilder(R.layout.custom_view_menu_item),
                 IncognitoMenuItemViewBinder::bind);
 
@@ -272,7 +273,9 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
         maybeAddDividerLine(modelList, R.id.divider_line_id);
 
         // Open History
-        modelList.add(buildHistoryItem());
+        if (!IncognitoUtils.shouldOpenIncognitoAsWindow() || !isIncognitoShowing()) {
+            modelList.add(buildHistoryItem());
+        }
 
         // Tinker Tank
         if (shouldShowTinkerTank()) modelList.add(buildTinkerTankItem());
@@ -305,6 +308,11 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
         // Disable page zoom menu item on Reading Mode pages.
         if (shouldShowPageZoomItem(currentTab) && !isReaderModeShowing(currentTab)) {
             modelList.add(buildPageZoomItem(currentTab));
+            // Divider
+            modelList.add(
+                    new MVCListAdapter.ListItem(
+                            AppMenuHandler.AppMenuItemType.DIVIDER,
+                            buildModelForDivider(R.id.divider_line_id)));
         }
 
         // Share
@@ -540,7 +548,7 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
                         R.id.new_incognito_tab_menu_id, R.string.menu_new_incognito_tab, iconRes);
         model.set(
                 AppMenuItemProperties.ENABLED, isIncognitoEnabled() && !isIncognitoReauthShowing());
-        return new MVCListAdapter.ListItem(TabbedAppMenuItemType.NEW_INCOGNITO_TAB, model);
+        return new MVCListAdapter.ListItem(TabbedAppMenuItemType.NEW_INCOGNITO, model);
     }
 
     private boolean shouldShowAddToGroup() {
@@ -576,11 +584,12 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
         boolean isPinned = currentTab.getIsPinned();
         int menuId = isPinned ? R.id.unpin_tab_menu_id : R.id.pin_tab_menu_id;
         int titleId = isPinned ? R.string.menu_unpin_tab : R.string.menu_pin_tab;
+        int iconId = isPinned ? R.drawable.ic_keep_off_24dp : R.drawable.ic_keep_24dp;
 
         return new MVCListAdapter.ListItem(
                 AppMenuHandler.AppMenuItemType.STANDARD,
                 buildModelForStandardMenuItem(
-                        menuId, titleId, shouldShowIconBeforeItem() ? R.drawable.ic_keep_24dp : 0));
+                        menuId, titleId, shouldShowIconBeforeItem() ? iconId : 0));
     }
 
     private MVCListAdapter.ListItem buildNewWindowItem() {
@@ -595,12 +604,14 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
 
     private MVCListAdapter.ListItem buildNewIncognitoWindowItem() {
         assert shouldShowNewIncognitoWindow();
-        return new MVCListAdapter.ListItem(
-                AppMenuHandler.AppMenuItemType.STANDARD,
+        PropertyModel model =
                 buildModelForStandardMenuItem(
                         R.id.new_incognito_window_menu_id,
                         R.string.menu_new_incognito_window,
-                        shouldShowIconBeforeItem() ? R.drawable.ic_incognito : 0));
+                        shouldShowIconBeforeItem() ? R.drawable.ic_incognito : 0);
+        model.set(
+                AppMenuItemProperties.ENABLED, isIncognitoEnabled() && !isIncognitoReauthShowing());
+        return new MVCListAdapter.ListItem(TabbedAppMenuItemType.NEW_INCOGNITO, model);
     }
 
     private MVCListAdapter.ListItem buildMoveToOtherWindowItem() {
@@ -959,11 +970,17 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
 
     @VisibleForTesting
     boolean shouldShowIconRow() {
-        boolean shouldShowIconRow =
-                mIsTablet
-                        ? mDecorView.getWidth()
-                                < DeviceFormFactor.getNonMultiDisplayMinimumTabletWidthPx(mContext)
-                        : true;
+        boolean shouldShowIconRow = true;
+        if (mIsTablet) {
+            boolean widthOnTabletBelowMinimum =
+                    mDecorView.getWidth()
+                            < DeviceFormFactor.getNonMultiDisplayMinimumTabletWidthPx(mContext);
+            boolean appMenuIconsHiddenForWidth =
+                    ChromeFeatureList.sToolbarTabletResizeRefactor.isEnabled()
+                            && mToolbarManager.areAnyToolbarComponentsMissingForWidth(
+                                    ToolbarUtils.APP_MENU_ICON_ROW_COMPONENTS);
+            shouldShowIconRow = widthOnTabletBelowMinimum || appMenuIconsHiddenForWidth;
+        }
 
         final boolean isMenuButtonOnTop = mToolbarManager != null;
         shouldShowIconRow &= isMenuButtonOnTop;

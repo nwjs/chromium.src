@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <string_view>
 #include <vector>
 
 #include "base/check_is_test.h"
@@ -14,7 +13,6 @@
 #include "base/containers/enum_set.h"
 #include "base/feature_list.h"
 #include "base/numerics/safe_conversions.h"
-#include "base/strings/string_split.h"
 #include "content/browser/devtools/devtools_instrumentation.h"
 #include "content/browser/devtools/devtools_preload_storage.h"
 #include "content/browser/preloading/prefetch/no_vary_search_helper.h"
@@ -41,20 +39,6 @@ namespace content {
 
 namespace {
 
-content::PreloadingDecider::EagernessSet EagernessSetFromFeatureParam(
-    std::string_view value) {
-  content::PreloadingDecider::EagernessSet set;
-  for (std::string_view piece : base::SplitStringPiece(
-           value, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY)) {
-    if (piece == "conservative") {
-      set.Put(blink::mojom::SpeculationEagerness::kConservative);
-    } else if (piece == "moderate") {
-      set.Put(blink::mojom::SpeculationEagerness::kModerate);
-    }
-  }
-  return set;
-}
-
 void OnPrefetchDestroyed(WeakDocumentPtr document, const GURL& url) {
   PreloadingDecider* preloading_decider =
       PreloadingDecider::GetForCurrentDocument(
@@ -65,13 +49,17 @@ void OnPrefetchDestroyed(WeakDocumentPtr document, const GURL& url) {
   }
 }
 
-void OnPrerenderCanceled(WeakDocumentPtr document, const GURL& url) {
+void OnPrerenderCanceled(WeakDocumentPtr document,
+                         const GURL& url,
+                         blink::mojom::SpeculationAction action) {
   PreloadingDecider* preloading_decider =
       PreloadingDecider::GetForCurrentDocument(
           document.AsRenderFrameHostIfValid());
+  // TODO(https://crbug.com/428500219): After allowing prerender-until-script to
+  // be upgraded to prerender, rewrite this logic. For now only one of them can
+  // be triggered so it should be safe.
   if (preloading_decider) {
-    preloading_decider->OnPreloadDiscarded(
-        {url, blink::mojom::SpeculationAction::kPrerender});
+    preloading_decider->OnPreloadDiscarded({url, action});
   }
 }
 
@@ -87,8 +75,7 @@ bool PredictionOccursInOtherWebContents(
 class PreloadingDecider::BehaviorConfig {
  public:
   BehaviorConfig()
-      : ml_model_eagerness_{blink::mojom::SpeculationEagerness::kModerate},
-        ml_model_enacts_candidates_(
+      : ml_model_enacts_candidates_(
             blink::features::kPreloadingModelEnactCandidates.Get()),
         ml_model_prefetch_moderate_threshold_{std::clamp(
             blink::features::kPreloadingModelPrefetchModerateThreshold.Get(),
@@ -106,18 +93,12 @@ class PreloadingDecider::BehaviorConfig {
         EagernessSet{blink::mojom::SpeculationEagerness::kModerate};
 
     if (base::FeatureList::IsEnabled(
-            blink::features::kPreloadingEagerHeuristics)) {
+            blink::features::kPreloadingEagerHoverHeuristics)) {
       pointer_down_eagerness_.Put(blink::mojom::SpeculationEagerness::kEager);
       pointer_hover_eagerness_.Put(blink::mojom::SpeculationEagerness::kEager);
     }
 
     CHECK(pointer_down_eagerness_.HasAll(pointer_hover_eagerness_));
-
-    static const base::FeatureParam<std::string> kViewportHeuristicEagerness{
-        &blink::features::kPreloadingViewportHeuristics,
-        "viewport_heuristic_eagerness", "moderate"};
-    viewport_heuristic_eagerness_ =
-        EagernessSetFromFeatureParam(kViewportHeuristicEagerness.Get());
   }
 
   EagernessSet EagernessSetForPredictor(
@@ -126,11 +107,13 @@ class PreloadingDecider::BehaviorConfig {
       return pointer_down_eagerness_;
     } else if (predictor == preloading_predictor::kUrlPointerHoverOnAnchor) {
       return pointer_hover_eagerness_;
-    } else if (predictor == preloading_predictor::kViewportHeuristic) {
-      return viewport_heuristic_eagerness_;
+    } else if (predictor == preloading_predictor::kModerateViewportHeuristic) {
+      return EagernessSet{blink::mojom::SpeculationEagerness::kModerate};
+    } else if (predictor == preloading_predictor::kEagerViewportHeuristic) {
+      return EagernessSet{blink::mojom::SpeculationEagerness::kEager};
     } else if (predictor ==
                preloading_predictor::kPreloadingHeuristicsMLModel) {
-      return ml_model_eagerness_;
+      return EagernessSet{blink::mojom::SpeculationEagerness::kModerate};
     } else {
       NOTREACHED() << "unexpected predictor " << predictor.name() << "/"
                    << predictor.ukm_value();
@@ -144,7 +127,9 @@ class PreloadingDecider::BehaviorConfig {
       return kNoThreshold;
     } else if (predictor == preloading_predictor::kUrlPointerHoverOnAnchor) {
       return kNoThreshold;
-    } else if (predictor == preloading_predictor::kViewportHeuristic) {
+    } else if (predictor == preloading_predictor::kModerateViewportHeuristic) {
+      return kNoThreshold;
+    } else if (predictor == preloading_predictor::kEagerViewportHeuristic) {
       return kNoThreshold;
     } else if (predictor ==
                preloading_predictor::kPreloadingHeuristicsMLModel) {
@@ -176,8 +161,6 @@ class PreloadingDecider::BehaviorConfig {
 
   EagernessSet pointer_down_eagerness_;
   EagernessSet pointer_hover_eagerness_;
-  EagernessSet viewport_heuristic_eagerness_;
-  const EagernessSet ml_model_eagerness_;
   const bool ml_model_enacts_candidates_ = false;
   const PreloadingConfidence ml_model_prefetch_moderate_threshold_{
       kNoThreshold};
@@ -335,7 +318,7 @@ void PreloadingDecider::OnPointerHover(
   // Filter `kModerate` for the "eager" mouse hover to prevent false preloading.
   EagernessSet eagerness_to_exclude;
   if (base::FeatureList::IsEnabled(
-          blink::features::kPreloadingEagerHeuristics)) {
+          blink::features::kPreloadingEagerHoverHeuristics)) {
     eagerness_to_exclude = EagernessSet::All();
     eagerness_to_exclude.Remove(target_eagerness);
   }
@@ -344,22 +327,33 @@ void PreloadingDecider::OnPointerHover(
                       eagerness_to_exclude);
 }
 
-void PreloadingDecider::OnViewportHeuristicTriggered(const GURL& url) {
+void PreloadingDecider::OnModerateViewportHeuristicTriggered(const GURL& url) {
   CHECK(base::FeatureList::IsEnabled(
-      blink::features::kPreloadingViewportHeuristics));
+      blink::features::kPreloadingModerateViewportHeuristics));
   static const base::FeatureParam<bool> kShouldEnactCandidates{
-      &blink::features::kPreloadingViewportHeuristics, "enact_candidates",
-      BUILDFLAG(IS_ANDROID)};
+      &blink::features::kPreloadingModerateViewportHeuristics,
+      "enact_candidates", BUILDFLAG(IS_ANDROID)};
   const bool should_enact_candidates = kShouldEnactCandidates.Get();
   if (!should_enact_candidates) {
-    AddPreloadingPrediction(url, preloading_predictor::kViewportHeuristic,
+    AddPreloadingPrediction(url,
+                            preloading_predictor::kModerateViewportHeuristic,
                             PreloadingConfidence(100));
     return;
   }
 
-  MaybeEnactCandidate(
-      url, preloading_predictor::kViewportHeuristic, PreloadingConfidence{100},
-      /*fallback_to_preconnect=*/false, /*eagerness_to_exclude=*/{});
+  MaybeEnactCandidate(url, preloading_predictor::kModerateViewportHeuristic,
+                      PreloadingConfidence{100},
+                      /*fallback_to_preconnect=*/false,
+                      /*eagerness_to_exclude=*/{});
+}
+
+void PreloadingDecider::OnEagerViewportHeuristicTriggered(const GURL& url) {
+  CHECK(base::FeatureList::IsEnabled(
+      blink::features::kPreloadingEagerViewportHeuristics));
+  MaybeEnactCandidate(url, preloading_predictor::kEagerViewportHeuristic,
+                      PreloadingConfidence{100},
+                      /*fallback_to_preconnect=*/false,
+                      /*eagerness_to_exclude=*/{});
 }
 
 void PreloadingDecider::MaybeEnactCandidate(
@@ -368,8 +362,23 @@ void PreloadingDecider::MaybeEnactCandidate(
     PreloadingConfidence confidence,
     bool fallback_to_preconnect,
     EagernessSet eagerness_to_exclude) {
-  if (const auto [found, added_prediction] = MaybePrerender(
-          url, enacting_predictor, confidence, eagerness_to_exclude);
+  if (const auto [found, added_prediction] = MaybePrerenderForAction(
+          url, blink::mojom::SpeculationAction::kPrerender, enacting_predictor,
+          confidence, eagerness_to_exclude);
+      found) {
+    // If the prediction is associated with another WebContents, don't duplicate
+    // it here.
+    if (!added_prediction) {
+      AddPreloadingPrediction(url, enacting_predictor, confidence);
+    }
+    // Here it does not trigger prerender-until-script for the same URL. It is
+    // intended because only the most aggressive attempt matters.
+    return;
+  }
+
+  if (const auto [found, added_prediction] = MaybePrerenderForAction(
+          url, blink::mojom::SpeculationAction::kPrerenderUntilScript,
+          enacting_predictor, confidence, eagerness_to_exclude);
       found) {
     // If the prediction is associated with another WebContents, don't duplicate
     // it here.
@@ -437,7 +446,8 @@ void PreloadingDecider::ClearStandbyCandidates() {
 }
 
 void PreloadingDecider::UpdateSpeculationCandidates(
-    std::vector<blink::mojom::SpeculationCandidatePtr>& candidates) {
+    std::vector<blink::mojom::SpeculationCandidatePtr>& candidates,
+    bool enable_cross_origin_prerender_iframes) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   if (observer_for_testing_) {
     observer_for_testing_->UpdateSpeculationCandidates(candidates);
@@ -468,9 +478,14 @@ void PreloadingDecider::UpdateSpeculationCandidates(
         preloading_predictor::kPreloadingHeuristicsMLModel, is_new_link_nav);
   }
   if (base::FeatureList::IsEnabled(
-          blink::features::kPreloadingViewportHeuristics)) {
+          blink::features::kPreloadingModerateViewportHeuristics)) {
     preloading_data->SetIsNavigationInDomainCallback(
-        preloading_predictor::kViewportHeuristic, is_new_link_nav);
+        preloading_predictor::kModerateViewportHeuristic, is_new_link_nav);
+  }
+  if (base::FeatureList::IsEnabled(
+          blink::features::kPreloadingEagerViewportHeuristics)) {
+    preloading_data->SetIsNavigationInDomainCallback(
+        preloading_predictor::kEagerViewportHeuristic, is_new_link_nav);
   }
 
   // Here we look for all preloading candidates that are safe to perform, but
@@ -573,7 +588,8 @@ void PreloadingDecider::UpdateSpeculationCandidates(
 
   prefetcher_.ProcessCandidatesForPrefetch(candidates);
 
-  prerenderer_->ProcessCandidatesForPrerender(candidates);
+  prerenderer_->ProcessCandidatesForPrerender(
+      candidates, enable_cross_origin_prerender_iframes);
 }
 
 void PreloadingDecider::OnLCPPredicted() {
@@ -750,13 +766,14 @@ bool PreloadingDecider::ShouldWaitForPrefetchResult(const GURL& url) {
   return !prefetcher_.IsPrefetchAttemptFailedOrDiscarded(url);
 }
 
-std::pair<bool, bool> PreloadingDecider::MaybePrerender(
+std::pair<bool, bool> PreloadingDecider::MaybePrerenderForAction(
     const GURL& url,
+    blink::mojom::SpeculationAction action,
     const PreloadingPredictor& enacting_predictor,
     PreloadingConfidence confidence,
     EagernessSet eagerness_to_exclude) {
   std::pair<bool, bool> result{false, false};
-  SpeculationCandidateKey key{url, blink::mojom::SpeculationAction::kPrerender};
+  SpeculationCandidateKey key{url, action};
   std::vector<std::optional<std::string>> merged_tags =
       GetMergedSpeculationTagsFromSuitableCandidates(
           key, enacting_predictor, confidence, eagerness_to_exclude);
@@ -788,8 +805,15 @@ std::pair<bool, bool> PreloadingDecider::MaybePrerender(
 }
 
 bool PreloadingDecider::ShouldWaitForPrerenderResult(const GURL& url) {
-  auto it = processed_candidates_.find(
-      {url, blink::mojom::SpeculationAction::kPrerender});
+  auto it = std::find_if(
+      processed_candidates_.begin(), processed_candidates_.end(),
+      [&](const auto& processed_candidate) {
+        const SpeculationCandidateKey& key = processed_candidate.first;
+        return key.first == url &&
+               (key.second == blink::mojom::SpeculationAction::kPrerender ||
+                key.second ==
+                    blink::mojom::SpeculationAction::kPrerenderUntilScript);
+      });
   if (it == processed_candidates_.end()) {
     return false;
   }

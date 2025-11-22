@@ -39,23 +39,32 @@
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
 #include "chrome/browser/component_updater/registration.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
+#include "chrome/browser/enterprise/chrome_browser_main_extra_parts_enterprise.h"
 #include "chrome/browser/first_run/bookmark_importer.h"
 #include "chrome/browser/first_run/first_run_features.h"
+#include "chrome/browser/gpu/chrome_browser_main_extra_parts_gpu.h"
 #include "chrome/browser/language/url_language_histogram_factory.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/media/router/chrome_media_router_factory.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/media/webrtc/webrtc_log_util.h"
+#include "chrome/browser/memory/chrome_browser_main_extra_parts_memory.h"
+#include "chrome/browser/metrics/chrome_browser_main_extra_parts_metrics.h"
 #include "chrome/browser/metrics/chrome_feature_list_creator.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/metrics/expired_histograms_array.h"
 #include "chrome/browser/metrics/shutdown_watcher_helper.h"
 #include "chrome/browser/net/system_network_context_manager.h"
+#include "chrome/browser/performance_manager/public/chrome_browser_main_extra_parts_performance_manager.h"
+#include "chrome/browser/performance_monitor/chrome_browser_main_extra_parts_performance_monitor.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
+#include "chrome/browser/profiles/chrome_browser_main_extra_parts_profiles.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_manager_observer.h"
 #include "chrome/browser/profiles/profiles_state.h"
+#include "chrome/browser/profiling_host/chrome_browser_main_extra_parts_profiling.h"
+#include "chrome/browser/segmentation_platform/chrome_browser_main_extra_parts_segmentation_platform.h"
 #include "chrome/browser/sessions/chrome_serialized_navigation_driver.h"
 #include "chrome/browser/shell_integration.h"
 #include "chrome/browser/startup_data.h"
@@ -145,6 +154,7 @@
 #include "base/no_destructor.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/app_service/publishers/publisher_host_factory_impl.h"
+#include "chrome/browser/headless/chrome_browser_main_extra_parts_headless.h"
 #include "chrome/browser/profiles/delete_profile_helper.h"
 #include "chrome/browser/resource_coordinator/tab_manager.h"
 #include "chrome/browser/resources_integrity.h"
@@ -177,6 +187,7 @@
 #include "chrome/browser/ash/settings/hardware_data_usage_controller.h"
 #include "chrome/browser/ash/settings/stats_reporting_controller.h"
 #include "chrome/browser/browser_process_platform_part_ash.h"
+#include "chrome/browser/ui/ash/main_extra_parts/chrome_browser_main_extra_parts_ash.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "chromeos/ash/experiences/arc/metrics/stability_metrics_manager.h"
 
@@ -189,6 +200,7 @@
 
 #if BUILDFLAG(IS_LINUX)
 #include "chrome/browser/first_run/upgrade_util_linux.h"
+#include "chrome/browser/ui/views/chrome_browser_main_extra_parts_views_linux.h"
 #endif
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
@@ -209,6 +221,7 @@
 #if BUILDFLAG(IS_MAC)
 #include <Security/Security.h>
 
+#include "chrome/browser/mac/chrome_browser_main_extra_parts_mac.h"
 #include "chrome/browser/ui/ui_features.h"
 
 #if defined(ARCH_CPU_X86_64)
@@ -223,7 +236,6 @@
 #endif
 
 #if BUILDFLAG(IS_WIN)
-#include "chrome/browser/chrome_browser_main_win.h"
 #include "chrome/browser/first_run/upgrade_util_win.h"
 #include "chrome/browser/notifications/win/notification_launch_id.h"
 #include "chrome/browser/ui/network_profile_bubble.h"
@@ -292,11 +304,38 @@
 #include "chrome/browser/updater/scheduler.h"
 #endif
 
+#if defined(TOOLKIT_VIEWS)
+#include "chrome/browser/ui/views/chrome_browser_main_extra_parts_views.h"
+#endif
+
 #if defined(USE_AURA)
 #include "ui/aura/env.h"
 #endif
 
+// Separate per-platform blocks specifically for chrome_browser_main code. Put
+// other per-platform includes in the appropriate section above.
+#if BUILDFLAG(IS_WIN)
+#include "chrome/browser/chrome_browser_main_win.h"
+#elif BUILDFLAG(IS_MAC)
+#include "chrome/browser/chrome_browser_main_mac.h"
+#elif BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/ash/main_parts/chrome_browser_main_parts_ash.h"
+#elif BUILDFLAG(IS_LINUX)
+#include "chrome/browser/chrome_browser_main_linux.h"
+#elif BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/chrome_browser_main_android.h"
+#elif BUILDFLAG(IS_POSIX)
+#include "chrome/browser/chrome_browser_main_posix.h"
+#endif
+
+#if BUILDFLAG(IS_LINUX)
+#include "chrome/browser/chrome_browser_main_extra_parts_linux.h"
+#elif BUILDFLAG(IS_OZONE)
+#include "chrome/browser/chrome_browser_main_extra_parts_ozone.h"
+#endif
+
 namespace {
+
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 constexpr base::FilePath::CharType kMediaHistoryDatabaseName[] =
@@ -470,6 +509,69 @@ void ProcessSingletonNotificationCallbackImpl(
     GoogleUpdateSettings::SetLastRunTime();
   }
 }
+
+// Handles notifications from other processes. The function receives the
+// command line and directory with which the other Chrome process was
+// launched. Return true if the command line will be handled within the
+// current browser instance or false if the remote process should handle it
+// (i.e., because the current process is shutting down).
+bool ProcessSingletonNotificationCallback(
+    base::CommandLine command_line,
+    const base::FilePath& current_directory) {
+  // Drop the request if the browser process is already shutting down.
+  // Note that we're going to post an async task below. Even if the browser
+  // process isn't shutting down right now, it could be by the time the task
+  // starts running. So, an additional check needs to happen when it starts.
+  // But regardless of any future check, there is no reason to post the task
+  // now if we know we're already shutting down.
+  if (!g_browser_process || g_browser_process->IsShuttingDown()) {
+    return false;
+  }
+
+#if 0
+  // Drop the request if this or the requesting process is running with
+  // automation enabled to avoid hard to cope with startup races.
+  auto should_drop_for_automation = [](const base::CommandLine& command_line) {
+    bool current_enables_automation =
+        base::CommandLine::ForCurrentProcess()->HasSwitch(
+            switches::kEnableAutomation);
+    bool new_enables_automation =
+        command_line.HasSwitch(switches::kEnableAutomation);
+    bool new_has_app_id = command_line.HasSwitch(switches::kAppId);
+
+    // Make an exception for the case where the new command line is used to
+    // launch an installed web app from OS artifacts like shortcuts. The command
+    // line must also explicitly include the
+    // --enable-automation switch to acknowledge the potential for startup
+    // races.
+    if (current_enables_automation && new_enables_automation &&
+        new_has_app_id) {
+      return /*should_drop=*/false;
+    }
+    return /*should_drop=*/current_enables_automation || new_enables_automation;
+  };
+  if (should_drop_for_automation(command_line)) {
+    return false;
+  }
+#endif
+  // Drop the request if headless mode is in effect or the request is from
+  // a headless Chrome process.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+  if (headless::IsHeadlessMode() ||
+      command_line.HasSwitch(switches::kHeadless)) {
+    return false;
+  }
+#endif
+
+  // In order to handle this request on Windows, there is platform specific
+  // code in browser_finder.cc that requires making outbound COM calls to
+  // cross-apartment shell objects (via IVirtualDesktopManager). That is not
+  // allowed within a SendMessage handler, which this function is a part of.
+  // So, we post a task to asynchronously finish the command line processing.
+  return base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(&ProcessSingletonNotificationCallbackImpl,
+                                std::move(command_line), current_directory));
+}
 #endif  // BUILDFLAG(ENABLE_PROCESS_SINGLETON)
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -507,6 +609,23 @@ void StartWatchingForProcessShutdownHangs() {
   std::ignore = watcher;
 }
 #endif
+
+// A small ChromeBrowserMainExtraParts that invokes a callback when threads are
+// ready. Used to initialize ChromeContentBrowserClient data that needs the UI
+// thread.
+class ChromeBrowserMainExtraPartsThreadNotifier final
+    : public ChromeBrowserMainExtraParts {
+ public:
+  explicit ChromeBrowserMainExtraPartsThreadNotifier(
+      base::OnceClosure threads_ready_closure)
+      : threads_ready_closure_(std::move(threads_ready_closure)) {}
+
+  // ChromeBrowserMainExtraParts:
+  void PostCreateThreads() final { std::move(threads_ready_closure_).Run(); }
+
+ private:
+  base::OnceClosure threads_ready_closure_;
+};
 
 }  // namespace
 
@@ -586,6 +705,107 @@ void ChromeBrowserMainParts::ProfileInitManager::OnProfileManagerDestroying() {
 }
 
 // BrowserMainParts ------------------------------------------------------------
+
+// static
+std::unique_ptr<content::BrowserMainParts> ChromeBrowserMainParts::Create(
+    bool is_integration_test,
+    StartupData* startup_data,
+    base::OnceClosure threads_ready_closure) {
+  std::unique_ptr<ChromeBrowserMainParts> main_parts;
+  // Construct the Main browser parts based on the OS type.
+#if BUILDFLAG(IS_WIN)
+  main_parts = std::make_unique<ChromeBrowserMainPartsWin>(is_integration_test,
+                                                           startup_data);
+#elif BUILDFLAG(IS_MAC)
+  main_parts = std::make_unique<ChromeBrowserMainPartsMac>(is_integration_test,
+                                                           startup_data);
+#elif BUILDFLAG(IS_CHROMEOS)
+  main_parts = std::make_unique<ash::ChromeBrowserMainPartsAsh>(
+      is_integration_test, startup_data);
+#elif BUILDFLAG(IS_LINUX)
+  main_parts = std::make_unique<ChromeBrowserMainPartsLinux>(
+      is_integration_test, startup_data);
+#elif BUILDFLAG(IS_ANDROID)
+  main_parts = std::make_unique<ChromeBrowserMainPartsAndroid>(
+      is_integration_test, startup_data);
+#elif BUILDFLAG(IS_POSIX)
+  main_parts = std::make_unique<ChromeBrowserMainPartsPosix>(
+      is_integration_test, startup_data);
+#else
+#error "Unimplemented platform"
+#endif
+
+  main_parts->AddParts(
+      std::make_unique<ChromeBrowserMainExtraPartsThreadNotifier>(
+          std::move(threads_ready_closure)));
+
+  bool add_profiles_extra_parts = true;
+#if BUILDFLAG(IS_ANDROID)
+  if (startup_data->HasBuiltProfilePrefService()) {
+    add_profiles_extra_parts = false;
+  }
+#endif
+  if (add_profiles_extra_parts) {
+    AddProfilesExtraParts(main_parts.get());
+  }
+
+  // Construct additional browser parts. Stages are called in the order in
+  // which they are added.
+#if defined(TOOLKIT_VIEWS)
+#if BUILDFLAG(IS_LINUX)
+  main_parts->AddParts(
+      std::make_unique<ChromeBrowserMainExtraPartsViewsLinux>());
+#else
+  main_parts->AddParts(std::make_unique<ChromeBrowserMainExtraPartsViews>());
+#endif
+#endif
+
+#if BUILDFLAG(IS_MAC)
+  main_parts->AddParts(std::make_unique<ChromeBrowserMainExtraPartsMac>());
+#endif
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // TODO(jamescook): Combine with `ChromeBrowserMainPartsAsh`.
+  main_parts->AddParts(std::make_unique<ChromeBrowserMainExtraPartsAsh>());
+#endif
+
+#if BUILDFLAG(IS_LINUX)
+  main_parts->AddParts(std::make_unique<ChromeBrowserMainExtraPartsLinux>());
+#elif BUILDFLAG(IS_OZONE)
+  main_parts->AddParts(std::make_unique<ChromeBrowserMainExtraPartsOzone>());
+#endif
+
+  main_parts->AddParts(
+      std::make_unique<ChromeBrowserMainExtraPartsPerformanceMonitor>());
+
+  main_parts->AddParts(
+      std::make_unique<ChromeBrowserMainExtraPartsPerformanceManager>());
+
+  main_parts->AddParts(
+      std::make_unique<ChromeBrowserMainExtraPartsProfiling>());
+
+  main_parts->AddParts(std::make_unique<ChromeBrowserMainExtraPartsMemory>());
+
+  chrome::AddMetricsExtraParts(main_parts.get());
+
+  main_parts->AddParts(
+      std::make_unique<
+          enterprise_util::ChromeBrowserMainExtraPartsEnterprise>());
+
+#if !BUILDFLAG(IS_ANDROID)
+  main_parts->AddParts(
+      std::make_unique<headless::ChromeBrowserMainExtraPartsHeadless>());
+#endif
+
+  // Always add ChromeBrowserMainExtraPartsGpu last to make sure
+  // GpuDataManager initialization could pick up about:flags settings.
+  main_parts->AddParts(std::make_unique<ChromeBrowserMainExtraPartsGpu>());
+
+  main_parts->AddParts(
+      std::make_unique<ChromeBrowserMainExtraPartsSegmentationPlatform>());
+
+  return main_parts;
+}
 
 ChromeBrowserMainParts::ChromeBrowserMainParts(bool is_integration_test,
                                                StartupData* startup_data)
@@ -804,10 +1024,6 @@ void ChromeBrowserMainParts::PostCreateMainMessageLoop() {
   // platforms (e.g. chromeos) may have already initialized this.
   if (!device_event_log::IsInitialized())
     device_event_log::Initialize(0 /* default max entries */);
-
-  // Set up and register ERP reporting client.
-  reporting_client_ =
-      reporting::ReportingClient::Create(content::GetUIThreadTaskRunner({}));
 
   for (auto& chrome_extra_part : chrome_extra_parts_)
     chrome_extra_part->PostCreateMainMessageLoop();
@@ -1272,17 +1488,6 @@ void ChromeBrowserMainParts::PostProfileInit(Profile* profile,
                        profile->GetPath()));
   }
 
-#if BUILDFLAG(USE_BROWSER_SPELLCHECKER)
-  // Create the spellcheck service. This will asynchronously retrieve the
-  // Windows platform spellcheck dictionary language tags used to populate the
-  // context menu for editable content.
-  if (spellcheck::UseBrowserSpellChecker() &&
-      profile->GetPrefs()->GetBoolean(spellcheck::prefs::kSpellCheckEnable) &&
-      !base::FeatureList::IsEnabled(
-          spellcheck::kWinDelaySpellcheckServiceInit)) {
-    SpellcheckServiceFactory::GetForContext(profile);
-  }
-#endif
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || \
@@ -1379,8 +1584,8 @@ void ChromeBrowserMainParts::PostBrowserStart() {
   // Allow ProcessSingleton to process messages.
   // This is done here instead of just relying on the main message loop's start
   // to avoid rendezvous in RunLoops that may precede MainMessageLoopRun.
-  ChromeProcessSingleton::GetInstance()->Unlock(base::BindRepeating(
-      &ChromeBrowserMainParts::ProcessSingletonNotificationCallback));
+  ChromeProcessSingleton::GetInstance()->Unlock(
+      base::BindRepeating(&ProcessSingletonNotificationCallback));
 #endif
 
   // Set up a task to delete old WebRTC log files for all profiles. Use a delay
@@ -1979,63 +2184,9 @@ std::unique_ptr<base::RunLoop> ChromeBrowserMainParts::TakeRunLoopForTest() {
 
 #if BUILDFLAG(ENABLE_PROCESS_SINGLETON)
 // static
-bool ChromeBrowserMainParts::ProcessSingletonNotificationCallback(
-    base::CommandLine command_line,
-    const base::FilePath& current_directory) {
-  // Drop the request if the browser process is already shutting down.
-  // Note that we're going to post an async task below. Even if the browser
-  // process isn't shutting down right now, it could be by the time the task
-  // starts running. So, an additional check needs to happen when it starts.
-  // But regardless of any future check, there is no reason to post the task
-  // now if we know we're already shutting down.
-  if (!g_browser_process || g_browser_process->IsShuttingDown()) {
-    return false;
-  }
-
-#if 0
-  // Drop the request if this or the requesting process is running with
-  // automation enabled to avoid hard to cope with startup races.
-  auto should_drop_for_automation = [](const base::CommandLine& command_line) {
-    bool current_enables_automation =
-        base::CommandLine::ForCurrentProcess()->HasSwitch(
-            switches::kEnableAutomation);
-    bool new_enables_automation =
-        command_line.HasSwitch(switches::kEnableAutomation);
-    bool new_has_app_id = command_line.HasSwitch(switches::kAppId);
-
-    // Make an exception for the case where the new command line is used to
-    // launch an installed web app from OS artifacts like shortcuts. The command
-    // line must also explicitly include the
-    // --enable-automation switch to acknowledge the potential for startup
-    // races.
-    if (current_enables_automation && new_enables_automation &&
-        new_has_app_id) {
-      return /*should_drop=*/false;
-    }
-    return /*should_drop=*/current_enables_automation || new_enables_automation;
-  };
-  if (should_drop_for_automation(command_line)) {
-    return false;
-  }
-
-#endif
-
-  // Drop the request if headless mode is in effect or the request is from
-  // a headless Chrome process.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-  if (headless::IsHeadlessMode() ||
-      command_line.HasSwitch(switches::kHeadless)) {
-    return false;
-  }
-#endif
-
-  // In order to handle this request on Windows, there is platform specific
-  // code in browser_finder.cc that requires making outbound COM calls to
-  // cross-apartment shell objects (via IVirtualDesktopManager). That is not
-  // allowed within a SendMessage handler, which this function is a part of.
-  // So, we post a task to asynchronously finish the command line processing.
-  return base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(&ProcessSingletonNotificationCallbackImpl,
-                                std::move(command_line), current_directory));
+bool ChromeBrowserMainParts::ProcessSingletonNotificationForTesting(
+    base::CommandLine command_line) {
+  return ProcessSingletonNotificationCallback(command_line,
+                                              /*current_directory=*/{});
 }
 #endif  // BUILDFLAG(ENABLE_PROCESS_SINGLETON)

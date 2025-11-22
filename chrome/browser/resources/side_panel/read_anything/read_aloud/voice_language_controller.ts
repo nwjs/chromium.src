@@ -150,9 +150,11 @@ export class VoiceLanguageController {
   // 3) Kicks off request GetVoicePackInfo to see if the voice is installed
   // 4) Upon response, if we see the voice is not installed and that it's in
   // the languages for downloading, then we trigger an install request
+  // Returns true if there's been an attempt to autoswitch to a voice
+  // in the new language.
   private installLanguageIfPossible_(
       langOrLocale: string, onlyInstallExactGoogleLocaleMatch: boolean,
-      retryIfPreviousInstallFailed: boolean) {
+      retryIfPreviousInstallFailed: boolean): boolean {
     const lang = langOrLocale.toLowerCase();
     // Don't attempt to install a language if it's not a Google TTS language
     // available for downloading. It's possible for other non-Google TTS
@@ -164,20 +166,23 @@ export class VoiceLanguageController {
     if (onlyInstallExactGoogleLocaleMatch &&
         !AVAILABLE_GOOGLE_TTS_LOCALES.has(lang)) {
       this.autoSwitchVoice_(lang);
-      return;
+      return true;
     }
 
     const langCodeForVoicePackManager = convertLangOrLocaleForVoicePackManager(
         lang, this.getEnabledLangs(), this.getAvailableLangs());
     if (!langCodeForVoicePackManager) {
       this.autoSwitchVoice_(lang);
-      return;
+      return true;
     }
 
     if (!this.requestInstall_(
             langCodeForVoicePackManager, retryIfPreviousInstallFailed)) {
       this.autoSwitchVoice_(langCodeForVoicePackManager);
+      return true;
     }
+
+    return false;
   }
 
   private autoSwitchVoice_(lang: string) {
@@ -207,8 +212,8 @@ export class VoiceLanguageController {
     // If there are no Google TTS locales for this language then enable the
     // first available locale for this language.
     if (!localeToEnable) {
-      localeToEnable =
-          this.getAvailableLangs().find(l => l.startsWith(availableLang));
+      localeToEnable = this.getAvailableLangs().find(
+          l => l.toLowerCase().startsWith(availableLang));
     }
 
     // Enable the locales so we can select a voice for the given language and
@@ -225,21 +230,28 @@ export class VoiceLanguageController {
   onPageLanguageChanged() {
     const lang = chrome.readingMode.baseLanguageForSpeech;
     this.model_.setCurrentLanguage(lang);
+
     // Don't check for Google locales when the language has changed.
-    this.installLanguageIfPossible_(
-        lang,
-        /* onlyInstallExactGoogleLocaleMatch=*/ false,
-        /* retryIfPreviousInstallFailed= */ false);
+    if (!this.installLanguageIfPossible_(
+            lang,
+            /* onlyInstallExactGoogleLocaleMatch=*/ false,
+            /* retryIfPreviousInstallFailed= */ false)) {
+      // installLanguageIfPossible_ will only autoSwitch to a natural language.
+      // If a system voice in the page language is available and no natural
+      // voices in that language are available, the system voice should be used.
+      this.autoSwitchVoice_(lang);
+    }
   }
 
   onLanguageToggle(toggledLanguage: string) {
     const currentlyEnabled = this.isLangEnabled(toggledLanguage);
 
     if (!currentlyEnabled) {
-      this.autoSwitchVoice_(toggledLanguage);
-      this.installLanguageIfPossible_(
-          toggledLanguage, /* onlyInstallExactGoogleLocaleMatch=*/ true,
-          /* retryIfPreviousInstallFailed= */ true);
+      if (!this.installLanguageIfPossible_(
+              toggledLanguage, /* onlyInstallExactGoogleLocaleMatch=*/ true,
+              /* retryIfPreviousInstallFailed= */ true)) {
+        this.autoSwitchVoice_(toggledLanguage);
+      }
       this.enableLang(toggledLanguage);
     } else {
       this.uninstall_(toggledLanguage);
@@ -768,8 +780,9 @@ export class VoiceLanguageController {
     if (!voicesForLanguage.length) {
       // Stay with the current voice if no voices are available for this
       // language.
-      return this.getCurrentVoice() ?
-          this.getCurrentVoice() :
+      const currentVoice = this.getCurrentVoice();
+      return currentVoice && this.isVoiceAvailable(currentVoice) ?
+          currentVoice :
           getNaturalVoiceOrDefault(allPossibleVoices);
     }
 

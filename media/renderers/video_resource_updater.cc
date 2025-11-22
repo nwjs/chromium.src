@@ -1,12 +1,6 @@
 // Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "media/renderers/video_resource_updater.h"
 
 #include <stddef.h>
@@ -42,7 +36,6 @@
 #include "components/viz/common/quads/compositor_render_pass.h"
 #include "components/viz/common/quads/texture_draw_quad.h"
 #include "components/viz/common/quads/video_hole_draw_quad.h"
-#include "components/viz/common/resources/resource_sizes.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/GLES2/gl2extchromium.h"
 #include "gpu/command_buffer/client/client_shared_image.h"
@@ -88,8 +81,8 @@ gfx::ProtectedVideoType ProtectedVideoTypeFromMetadata(
                                : gfx::ProtectedVideoType::kSoftwareProtected;
 }
 
-VideoFrameResourceType ExternalResourceTypeForHardware(const VideoFrame& frame,
-                                                       GLuint target) {
+VideoFrameResourceType ExternalResourceTypeForHardware(
+    const VideoFrame& frame) {
   bool si_prefers_external_sampler =
       frame.shared_image()->format().PrefersExternalSampler();
   if (si_prefers_external_sampler) {
@@ -103,7 +96,7 @@ VideoFrameResourceType ExternalResourceTypeForHardware(const VideoFrame& frame,
     case PIXEL_FORMAT_ABGR:
     case PIXEL_FORMAT_XBGR:
     case PIXEL_FORMAT_BGRA:
-      switch (target) {
+      switch (frame.shared_image()->GetTextureTarget()) {
         case GL_TEXTURE_EXTERNAL_OES:
 #if BUILDFLAG(IS_ANDROID)
           return VideoFrameResourceType::RGB;
@@ -652,7 +645,7 @@ bool VideoResourceUpdater::ReallocateUploadPixels(size_t needed_size,
                                                   size_t plane) {
   // Free the existing data first so that the memory can be reused, if
   // possible. Note that the new array is purposely not initialized.
-  upload_pixels_[plane].reset();
+  upload_pixels_[plane] = PlaneData();
   uint8_t* pixel_mem = nullptr;
   // Fail if we can't support the required memory to upload pixels.
   if (!base::UncheckedMalloc(needed_size,
@@ -661,8 +654,9 @@ bool VideoResourceUpdater::ReallocateUploadPixels(size_t needed_size,
                    "upload pixels";
     return false;
   }
-  upload_pixels_[plane].reset(pixel_mem);
-  upload_pixels_size_[plane] = needed_size;
+  // SAFETY: We've just allocated this memory with size `needed_size`.
+  upload_pixels_[plane] =
+      UNSAFE_BUFFERS(PlaneData::FromOwningPointer(pixel_mem, needed_size));
   return true;
 }
 
@@ -725,9 +719,11 @@ VideoResourceUpdater::FrameResource* VideoResourceUpdater::AllocateResource(
   return all_resources_.back().get();
 }
 
-void VideoResourceUpdater::CopyHardwareResource(
-    VideoFrame* video_frame,
-    VideoFrameExternalResource* external_resource) {
+VideoFrameExternalResource VideoResourceUpdater::CopyHardwareResource(
+    VideoFrame* video_frame) {
+  VideoFrameExternalResource external_resource;
+  external_resource.type = VideoFrameResourceType::RGBA_PREMULTIPLIED;
+
   const gfx::Size output_resource_size = video_frame->coded_size();
   auto shared_image = video_frame->shared_image();
   // The copy needs to be a direct transfer of pixel data, so we use an RGBA8
@@ -737,10 +733,7 @@ void VideoResourceUpdater::CopyHardwareResource(
 
   // We copy to RGBA image, so we need only RGBA portion of the color space.
   const auto copy_color_space = video_frame->ColorSpace().GetAsFullRangeRGB();
-  SkAlphaType copy_alpha_type =
-      (external_resource->type == VideoFrameResourceType::RGBA_PREMULTIPLIED)
-          ? kPremul_SkAlphaType
-          : kUnpremul_SkAlphaType;
+  const SkAlphaType copy_alpha_type = kPremul_SkAlphaType;
 
   const VideoFrame::ID no_unique_id;  // Do not recycle referenced textures.
   FrameResource* hardware_resource = RecycleOrAllocateResource(
@@ -783,10 +776,12 @@ void VideoResourceUpdater::CopyHardwareResource(
       video_frame->hdr_metadata().value_or(gfx::HDRMetadata());
   transferable_resource.needs_detiling = video_frame->metadata().needs_detiling;
 
-  external_resource->resource = std::move(transferable_resource);
-  external_resource->release_callback =
+  external_resource.resource = std::move(transferable_resource);
+  external_resource.release_callback =
       base::BindOnce(&VideoResourceUpdater::RecycleResource,
                      weak_ptr_factory_.GetWeakPtr(), hardware_resource->id());
+
+  return external_resource;
 }
 
 VideoFrameExternalResource VideoResourceUpdater::CreateForHardwareFrame(
@@ -796,17 +791,14 @@ VideoFrameExternalResource VideoResourceUpdater::CreateForHardwareFrame(
     return VideoFrameExternalResource();
   }
 
-  VideoFrameExternalResource external_resource;
-  const bool copy_required = video_frame->metadata().copy_required;
-  auto shared_image = video_frame->shared_image();
-  GLuint target = shared_image->GetTextureTarget();
-  // If |copy_required| then we will copy into a GL_TEXTURE_2D target.
-  if (copy_required) {
-    target = GL_TEXTURE_2D;
+  if (video_frame->metadata().copy_required) {
+    return CopyHardwareResource(video_frame.get());
   }
 
-  external_resource.type =
-      ExternalResourceTypeForHardware(*video_frame, target);
+  VideoFrameExternalResource external_resource;
+  auto shared_image = video_frame->shared_image();
+
+  external_resource.type = ExternalResourceTypeForHardware(*video_frame);
   if (external_resource.type == VideoFrameResourceType::NONE) {
     DLOG(ERROR) << "Unsupported Texture format"
                 << VideoPixelFormatToString(video_frame->format());
@@ -816,11 +808,6 @@ VideoFrameExternalResource VideoResourceUpdater::CreateForHardwareFrame(
   // Make a copy of the current release SyncToken so we know if it changes.
   CopyingSyncTokenClient client;
   auto original_release_token = video_frame->UpdateReleaseSyncToken(&client);
-
-  if (copy_required) {
-    CopyHardwareResource(video_frame.get(), &external_resource);
-    return external_resource;
-  }
 
   SkAlphaType alpha_type =
       (external_resource.type == VideoFrameResourceType::RGBA_PREMULTIPLIED)
@@ -937,7 +924,8 @@ void VideoResourceUpdater::TransferRGBPixelsToPaintCanvas(
   // https://crbug.com/1090435
   PaintCanvasVideoRenderer::PaintParams paint_params;
   paint_params.dest_rect = gfx::RectF(video_frame->visible_rect());
-  video_renderer_->Paint(video_frame, &canvas, flags, paint_params, nullptr);
+  video_renderer_->Paint(video_frame, &canvas, flags, paint_params,
+                         /*raster_context_provider=*/nullptr);
 }
 
 bool VideoResourceUpdater::WriteRGBPixelsToTexture(
@@ -945,8 +933,10 @@ bool VideoResourceUpdater::WriteRGBPixelsToTexture(
     FrameResource* hardware_resource) {
   CHECK(!hardware_resource->is_software());
   viz::SharedImageFormat resource_format = hardware_resource->format();
-  size_t bytes_per_row = viz::ResourceSizes::CheckedWidthInBytes<size_t>(
-      video_frame->coded_size().width(), resource_format);
+  size_t bytes_per_row =
+      viz::SharedMemoryRowSizeForSharedImageFormat(
+          resource_format, 0, video_frame->coded_size().width())
+          .value();
   const int stride = video_frame->stride(VideoFrame::Plane::kARGB);
   const bool has_compatible_stride =
       stride > 0 && static_cast<size_t>(stride) == bytes_per_row;
@@ -960,7 +950,7 @@ bool VideoResourceUpdater::WriteRGBPixelsToTexture(
     source_pixels = video_frame->data(VideoFrame::Plane::kARGB);
   } else {
     size_t needed_size = bytes_per_row * video_frame->coded_size().height();
-    if (upload_pixels_size_[0] < needed_size) {
+    if (upload_pixels_[0].size() < needed_size) {
       if (!ReallocateUploadPixels(needed_size, /*plane=*/0)) {
         // Fail here if memory reallocation fails.
         return false;
@@ -970,9 +960,11 @@ bool VideoResourceUpdater::WriteRGBPixelsToTexture(
     // PCVR writes to origin, so offset upload pixels by start since
     // we upload frames in coded size and pass on the visible rect to
     // the compositor. Note: It'd save a few bytes not to do this...
-    auto* dest_ptr = upload_pixels_[0].get() +
-                     video_frame->visible_rect().y() * bytes_per_row +
-                     video_frame->visible_rect().x() * sizeof(uint32_t);
+    auto* dest_ptr =
+        upload_pixels_[0]
+            .subspan(video_frame->visible_rect().y() * bytes_per_row +
+                     video_frame->visible_rect().x() * sizeof(uint32_t))
+            .data();
     // Alpha can be premul for videos that can be delegated/overlaid.
     bool premultiply_alpha =
         hardware_resource->shared_image()->alpha_type() == kPremul_SkAlphaType
@@ -985,7 +977,7 @@ bool VideoResourceUpdater::WriteRGBPixelsToTexture(
             ? kRGBA_F16_SkColorType
             : kN32_SkColorType,
         premultiply_alpha);
-    source_pixels = upload_pixels_[0].get();
+    source_pixels = upload_pixels_[0].data();
   }
 
   // Copy pixels into texture.
@@ -1081,7 +1073,7 @@ bool VideoResourceUpdater::WriteYUVPixelsForAllPlanesToTexture(
       // Avoid malloc for each frame/plane if possible.
       const size_t needed_size =
           upload_image_stride * resource_size_pixels.height();
-      if (upload_pixels_size_[plane_index] < needed_size) {
+      if (upload_pixels_[plane_index].size() < needed_size) {
         if (!ReallocateUploadPixels(needed_size, plane_index)) {
           // Fail here if memory reallocation fails.
           return false;
@@ -1101,7 +1093,7 @@ bool VideoResourceUpdater::WriteYUVPixelsForAllPlanesToTexture(
             reinterpret_cast<const uint16_t*>(
                 video_frame->data(frame_planes[plane_index])),
             video_stride_bytes,
-            reinterpret_cast<uint16_t*>(upload_pixels_[plane_index].get()),
+            reinterpret_cast<uint16_t*>(upload_pixels_[plane_index].data()),
             upload_image_stride, libyuv_multiplier,
             resource_size_pixels.width(), resource_size_pixels.height());
       } else if (needs_bit_downshifting) {
@@ -1111,7 +1103,7 @@ bool VideoResourceUpdater::WriteYUVPixelsForAllPlanesToTexture(
         libyuv::Convert16To8Plane(
             reinterpret_cast<const uint16_t*>(
                 video_frame->data(frame_planes[plane_index])),
-            video_stride_bytes / 2, upload_pixels_[plane_index].get(),
+            video_stride_bytes / 2, upload_pixels_[plane_index].data(),
             upload_image_stride, scale, bytes_per_row,
             resource_size_pixels.height());
       } else if (needs_bit_upshifting) {
@@ -1120,14 +1112,14 @@ bool VideoResourceUpdater::WriteYUVPixelsForAllPlanesToTexture(
             reinterpret_cast<const uint16_t*>(
                 video_frame->data(frame_planes[plane_index])),
             video_stride_bytes / 2,
-            reinterpret_cast<uint16_t*>(upload_pixels_[plane_index].get()),
+            reinterpret_cast<uint16_t*>(upload_pixels_[plane_index].data()),
             upload_image_stride / 2, resource_size_pixels.width(),
             resource_size_pixels.height(), bits_per_channel);
       } else {
         NOTREACHED();
       }
 
-      pixels = upload_pixels_[plane_index].get();
+      pixels = upload_pixels_[plane_index].data();
       pixels_stride_in_bytes = upload_image_stride;
     }
 

@@ -112,10 +112,25 @@ class CORE_EXPORT HTMLPermissionElement
   // blink::HTMLElement:
   void AttributeChanged(const AttributeModificationParams& params) override;
 
+  // blink::Node:
+  void DefaultEventHandler(Event&) override;
+
+  void HandleActivation(Event&, base::OnceClosure on_success);
+
+  bool PermissionsGranted() const {
+    return aggregated_permission_status_.has_value() &&
+           aggregated_permission_status_ ==
+               mojom::blink::PermissionStatus::GRANTED;
+  }
+
   void setType(const AtomicString& type);
   uint16_t GetTranslatedMessageID(uint16_t message_id,
                                   const AtomicString& language_string);
-  virtual void UpdateText();
+  virtual void UpdateAppearance();
+
+  void UpdateIcon(mojom::blink::PermissionName permission,
+                  HTMLPermissionIconElement::VisualState state =
+                      HTMLPermissionIconElement::VisualState::kIdle);
 
   // Update permission statuses and appearance based on the current statuses.
   virtual void UpdatePermissionStatusAndAppearance();
@@ -132,7 +147,18 @@ class CORE_EXPORT HTMLPermissionElement
     return permission_text_span_.Get();
   }
 
+  void SetPreciseLocation();
+
   bool is_precise_location() const { return is_precise_location_; }
+
+  scoped_refptr<base::SingleThreadTaskRunner> GetTaskRunner();
+
+  // LocalFrameView::LifecycleNotificationObserver
+  void DidFinishLifecycleUpdate(const LocalFrameView&) override;
+
+  bool HasPendingPermissionRequest() const {
+    return pending_request_created_.has_value();
+  }
 
  private:
   // TODO(crbug.com/1315595): remove this friend class once migration
@@ -141,15 +167,35 @@ class CORE_EXPORT HTMLPermissionElement
   friend class RegistrationWaiter;
   friend class HTMLPermissionElementIntersectionTest;
   friend class HTMLPermissionElementLayoutChangeTest;
+  friend class HTMLGeolocationElementIntersectionTest;
 
   FRIEND_TEST_ALL_PREFIXES(HTMLGeolocationElementTestBase, GetTypeAttribute);
+  FRIEND_TEST_ALL_PREFIXES(HTMLGeolocationElementTest,
+                           GeolocationUsingLocationAppearance);
+  FRIEND_TEST_ALL_PREFIXES(HTMLGeolocationElementTest,
+                           GeolocationWatchPositionAppearance);
   FRIEND_TEST_ALL_PREFIXES(HTMLGeolocationElementTest,
                            GeolocationTranslateInnerText);
   FRIEND_TEST_ALL_PREFIXES(HTMLGeolocationElementTest,
                            GeolocationSetInnerTextAfterRegistration);
+  FRIEND_TEST_ALL_PREFIXES(
+      HTMLGeolocationElementTest,
+      GeolocationPreciseLocationAttributeDoesNotChangeText);
+  FRIEND_TEST_ALL_PREFIXES(
+      HTMLGeolocationElementTest,
+      GeolocationPreciseLocationAttributeCamelCaseDoesNotChangeText);
+  FRIEND_TEST_ALL_PREFIXES(HTMLGeolocationElementTest, GeolocationAccuracyMode);
+  FRIEND_TEST_ALL_PREFIXES(HTMLGeolocationElementTest,
+                           GeolocationAccuracyModeCaseInsensitive);
   FRIEND_TEST_ALL_PREFIXES(HTMLGeolocationElementTest, GeolocationStatusChange);
   FRIEND_TEST_ALL_PREFIXES(HTMLGeolocationElementSimTest,
                            GeolocationInitializeGrantedText);
+  FRIEND_TEST_ALL_PREFIXES(HTMLGeolocationElementSimTest,
+                           InvalidDisplayStyleElement);
+  FRIEND_TEST_ALL_PREFIXES(HTMLGeolocationElementSimTest,
+                           BadContrastDisablesElement);
+  FRIEND_TEST_ALL_PREFIXES(HTMLGeolocationElementIntersectionTest,
+                           IntersectionChanged);
   FRIEND_TEST_ALL_PREFIXES(HTMLPermissionElementClickingEnabledTest,
                            UnclickableBeforeRegistered);
   FRIEND_TEST_ALL_PREFIXES(HTMLPermissionElementIntersectionTest,
@@ -362,9 +408,6 @@ class CORE_EXPORT HTMLPermissionElement
   void DidRecalcStyle(const StyleRecalcChange change) override;
   void LangAttributeChanged() override;
 
-  // blink::Node override.
-  void DefaultEventHandler(Event&) override;
-
   // Trigger permissions requesting in browser side by calling mojo
   // PermissionService's API.
   void RequestPageEmbededPermissions();
@@ -416,8 +459,6 @@ class CORE_EXPORT HTMLPermissionElement
   bool is_registered_in_browser_process() const {
     return is_registered_in_browser_process_;
   }
-
-  scoped_refptr<base::SingleThreadTaskRunner> GetTaskRunner();
 
   // Checks whether clicking is enabled at the moment. Clicking is disabled if
   // either:
@@ -495,9 +536,6 @@ class CORE_EXPORT HTMLPermissionElement
                                           float width_percent_bound,
                                           float height_percent_bound);
 
-  // LocalFrameView::LifecycleNotificationObserver
-  void DidFinishLifecycleUpdate(const LocalFrameView&) override;
-
   // Computes the intersection rect of the element with the viewport.
   gfx::Rect ComputeIntersectionRectWithViewport(const Page* page);
 
@@ -523,12 +561,6 @@ class CORE_EXPORT HTMLPermissionElement
     auto it = clicking_disabled_reasons_.find(reason);
     return it != clicking_disabled_reasons_.end() &&
            it->value == base::TimeTicks::Max();
-  }
-
-  bool PermissionsGranted() const {
-    return aggregated_permission_status_.has_value() &&
-           aggregated_permission_status_ ==
-               mojom::blink::PermissionStatus::GRANTED;
   }
 
   IntersectionVisibility IntersectionVisibilityForTesting() const {

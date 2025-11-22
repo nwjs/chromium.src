@@ -103,7 +103,8 @@ content::WebContents* AddWebContents(
   bool has_frame = true;
   bool fullscreen = false;
   if (!manifest.empty()) {
-    std::optional<base::Value> root = base::JSONReader::Read(manifest);
+    std::optional<base::Value> root = base::JSONReader::Read(
+        manifest, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
     if (root && root->is_dict()) {
       base::Value::Dict* mnfst = root->GetIfDict();
       std::optional<int> width = mnfst->FindInt("width");
@@ -171,12 +172,14 @@ void ConfigureTabGroupForNavigation(NavigateParams* nav_params) {
     return;
   }
 
-  if (!nav_params->browser || !nav_params->browser->SupportsWindowFeature(
-                                  Browser::WindowFeature::FEATURE_TABSTRIP)) {
+  if (!nav_params->browser ||
+      !nav_params->browser->GetBrowserForMigrationOnly()->SupportsWindowFeature(
+          Browser::WindowFeature::FEATURE_TABSTRIP)) {
     return;
   }
 
-  TabStripModel* model = nav_params->browser->tab_strip_model();
+  TabStripModel* model =
+      nav_params->browser->GetBrowserForMigrationOnly()->tab_strip_model();
   DCHECK(model);
 
   const int source_index =

@@ -355,9 +355,15 @@ class WebViewTest : public testing::Test {
   scoped_refptr<base::TestMockTimeTaskRunner> test_task_runner_;
 };
 
-class WebViewTestTouchDragEndContextMenu
+class WebViewTestTouchDragEndContextMenuWithPointerType
     : public WebViewTest,
-      public testing::WithParamInterface<bool> {};
+      public testing::WithParamInterface<
+          std::tuple<bool, WebPointerProperties::PointerType>> {};
+
+class WebViewTestWithPointerType
+    : public WebViewTest,
+      public ::testing::WithParamInterface<WebPointerProperties::PointerType> {
+};
 
 static bool HitTestIsContentEditable(WebView* view, int x, int y) {
   gfx::PointF hit_point(x, y);
@@ -3176,6 +3182,8 @@ TEST_F(WebViewTest, TouchDragContextMenuWithoutDrag) {
 
   web_view->SettingsImpl()->SetTouchDragDropEnabled(true);
   web_view->SettingsImpl()->SetTouchDragEndContextMenu(true);
+  web_view->GetPage()->GetFocusController().SetActive(true);
+  web_view->GetPage()->GetFocusController().SetFocused(true);
   web_view->MainFrameViewWidget()->Resize(gfx::Size(500, 300));
   UpdateAllLifecyclePhases();
   RunPendingTasks();
@@ -3217,6 +3225,8 @@ TEST_F(WebViewTest, TouchDragContextMenuAtDragEnd) {
 
   web_view->SettingsImpl()->SetTouchDragDropEnabled(true);
   web_view->SettingsImpl()->SetTouchDragEndContextMenu(true);
+  web_view->GetPage()->GetFocusController().SetActive(true);
+  web_view->GetPage()->GetFocusController().SetFocused(true);
   web_view->MainFrameViewWidget()->Resize(gfx::Size(500, 300));
   UpdateAllLifecyclePhases();
   RunPendingTasks();
@@ -3250,7 +3260,81 @@ TEST_F(WebViewTest, TouchDragContextMenuAtDragEnd) {
           web_view->MainFrameImpl()->GetFrame()));
 }
 
-TEST_P(WebViewTestTouchDragEndContextMenu, ContextMenuOnLinkAndImageLongPress) {
+// Tests the conditions that make a touch drag not open a context menu, when
+// `TouchDragEndContextMenu` is enabled. The conditions are three:
+// 1) The drop happened far away from the initial drag point.
+// 2) The drop happened in a different window than the browser's.
+// 3) The drop had an effect (move, copy).
+TEST_F(WebViewTest, TouchDragContextMenuConditions) {
+  RegisterMockedHttpURLLoad("long_press_draggable_div.html");
+
+  WebViewImpl* web_view = web_view_helper_.InitializeAndLoad(
+      base_url_ + "long_press_draggable_div.html");
+
+  web_view->SettingsImpl()->SetTouchDragDropEnabled(true);
+  web_view->SettingsImpl()->SetTouchDragEndContextMenu(true);
+  web_view->GetPage()->GetFocusController().SetActive(true);
+  web_view->GetPage()->GetFocusController().SetFocused(true);
+  web_view->MainFrameViewWidget()->Resize(gfx::Size(500, 300));
+  UpdateAllLifecyclePhases();
+  RunPendingTasks();
+
+  WebPointerEvent pointer_down(
+      WebInputEvent::Type::kPointerDown,
+      WebPointerProperties(1, WebPointerProperties::PointerType::kTouch), 5, 5);
+  const WebString target_id = WebString::FromUTF8("target");
+  Element* target_element =
+      web_view->MainFrameImpl()->GetDocument().GetElementById(target_id);
+  const gfx::PointF center = gfx::PointF(
+      web_view->MainFrameImpl()
+          ->GetFrameView()
+          ->FrameToScreen(
+              target_element->GetLayoutObject()->AbsoluteBoundingBoxRect())
+          .CenterPoint());
+  pointer_down.SetPositionInWidget(center.x(), center.y());
+  pointer_down.SetPositionInScreen(center.x(), center.y());
+  web_view->MainFrameWidget()->HandleInputEvent(
+      WebCoalescedInputEvent(pointer_down, ui::LatencyInfo()));
+  web_view->MainFrameWidget()->DispatchBufferedTouchEvents();
+
+  // 1) Initiate drag and drop it far away from the initial drag point.
+  EXPECT_TRUE(SimulateGestureAtElementById(
+      WebInputEvent::Type::kGestureLongPress, target_id));
+  EXPECT_EQ("dragstart", web_view->MainFrameImpl()->GetDocument().Title());
+  web_view->MainFrameViewWidget()->DragSourceEndedAt(
+      center + gfx::Vector2dF(30, 30), center + gfx::Vector2dF(30, 30),
+      ui::mojom::blink::DragOperation::kNone, base::DoNothing());
+  EXPECT_FALSE(
+      web_view->GetPage()->GetContextMenuController().ContextMenuNodeForFrame(
+          web_view->MainFrameImpl()->GetFrame()));
+
+  // 2) Initiate a drag and make it end with an action.
+  EXPECT_TRUE(SimulateGestureAtElementById(
+      WebInputEvent::Type::kGestureLongPress, target_id));
+  EXPECT_EQ("dragstart", web_view->MainFrameImpl()->GetDocument().Title());
+  web_view->MainFrameViewWidget()->DragSourceEndedAt(
+      center, center, ui::mojom::blink::DragOperation::kMove,
+      base::DoNothing());
+  EXPECT_FALSE(
+      web_view->GetPage()->GetContextMenuController().ContextMenuNodeForFrame(
+          web_view->MainFrameImpl()->GetFrame()));
+
+  // 3) Initiate a drag and make it end in a different window.
+  EXPECT_TRUE(SimulateGestureAtElementById(
+      WebInputEvent::Type::kGestureLongPress, target_id));
+  EXPECT_EQ("dragstart", web_view->MainFrameImpl()->GetDocument().Title());
+  web_view->GetPage()->GetFocusController().SetActive(false);
+  web_view->GetPage()->GetFocusController().SetFocused(false);
+  web_view->MainFrameViewWidget()->DragSourceEndedAt(
+      center, center, ui::mojom::blink::DragOperation::kNone,
+      base::DoNothing());
+  EXPECT_FALSE(
+      web_view->GetPage()->GetContextMenuController().ContextMenuNodeForFrame(
+          web_view->MainFrameImpl()->GetFrame()));
+}
+
+TEST_P(WebViewTestTouchDragEndContextMenuWithPointerType,
+       ContextMenuOnLinkAndImageLongPress) {
   ScopedTouchDragAndContextMenuForTest touch_drag_and_context_menu(false);
   RegisterMockedHttpURLLoad("long_press_links_and_images.html");
 
@@ -3261,18 +3345,23 @@ TEST_P(WebViewTestTouchDragEndContextMenu, ContextMenuOnLinkAndImageLongPress) {
       base_url_ + "long_press_links_and_images.html");
 
   web_view->SettingsImpl()->SetTouchDragDropEnabled(true);
-  const bool set_touch_drag_end_context_menu = GetParam();
+  const bool set_touch_drag_end_context_menu = std::get<0>(GetParam());
   web_view->SettingsImpl()->SetTouchDragEndContextMenu(
       set_touch_drag_end_context_menu);
+  web_view->GetPage()->GetFocusController().SetActive(true);
+  web_view->GetPage()->GetFocusController().SetFocused(true);
   web_view->MainFrameViewWidget()->Resize(gfx::Size(500, 300));
   UpdateAllLifecyclePhases();
   RunPendingTasks();
 
   WebString anchor_tag_id = WebString::FromUTF8("anchorTag");
   WebString image_tag_id = WebString::FromUTF8("imageTag");
+  const WebPointerProperties::PointerType primary_pointer_type(
+      std::get<1>(GetParam()));
 
-  EXPECT_TRUE(SimulateGestureAtElementById(
-      WebInputEvent::Type::kGestureLongPress, anchor_tag_id));
+  EXPECT_TRUE(
+      SimulateGestureAtElementById(WebInputEvent::Type::kGestureLongPress,
+                                   anchor_tag_id, primary_pointer_type));
   if (set_touch_drag_end_context_menu) {
     EXPECT_EQ("dragstart@a,", web_view->MainFrameImpl()->GetDocument().Title());
     const Element* element = static_cast<Element*>(
@@ -3309,7 +3398,7 @@ TEST_P(WebViewTestTouchDragEndContextMenu, ContextMenuOnLinkAndImageLongPress) {
   }
 }
 
-TEST_F(WebViewTest, ContextMenuAndDragOnImageLongPress) {
+TEST_P(WebViewTestWithPointerType, ContextMenuAndDragOnImageLongPress) {
   ScopedTouchDragOnShortPressForTest touch_drag_on_short_press(true);
   ScopedTouchDragAndDropForTest touch_drag_and_drop(true);
   RegisterMockedHttpURLLoad("long_press_links_and_images.html");
@@ -3327,18 +3416,21 @@ TEST_F(WebViewTest, ContextMenuAndDragOnImageLongPress) {
   RunPendingTasks();
 
   WebString image_tag_id = WebString::FromUTF8("imageTag");
+  const WebPointerProperties::PointerType primary_pointer_type(GetParam());
 
-  EXPECT_TRUE(SimulateGestureAtElementById(
-      WebInputEvent::Type::kGestureShortPress, image_tag_id));
+  EXPECT_TRUE(
+      SimulateGestureAtElementById(WebInputEvent::Type::kGestureShortPress,
+                                   image_tag_id, primary_pointer_type));
   EXPECT_EQ("dragstart@img,",
             web_view->MainFrameImpl()->GetDocument().Title().Ascii());
-  EXPECT_TRUE(SimulateGestureAtElementById(
-      WebInputEvent::Type::kGestureLongPress, image_tag_id));
+  EXPECT_TRUE(
+      SimulateGestureAtElementById(WebInputEvent::Type::kGestureLongPress,
+                                   image_tag_id, primary_pointer_type));
   EXPECT_EQ("dragstart@img,contextmenu@img,",
             web_view->MainFrameImpl()->GetDocument().Title().Ascii());
 }
 
-TEST_F(WebViewTest, ContextMenuAndDragOnLinkLongPress) {
+TEST_P(WebViewTestWithPointerType, ContextMenuAndDragOnLinkLongPress) {
   ScopedTouchDragAndDropForTest touch_drag_and_drop(true);
   ScopedTouchDragOnShortPressForTest touch_drag_on_short_press(true);
 
@@ -3357,13 +3449,16 @@ TEST_F(WebViewTest, ContextMenuAndDragOnLinkLongPress) {
   RunPendingTasks();
 
   WebString anchor_tag_id = WebString::FromUTF8("anchorTag");
+  const WebPointerProperties::PointerType primary_pointer_type(GetParam());
 
-  EXPECT_TRUE(SimulateGestureAtElementById(
-      WebInputEvent::Type::kGestureShortPress, anchor_tag_id));
+  EXPECT_TRUE(
+      SimulateGestureAtElementById(WebInputEvent::Type::kGestureShortPress,
+                                   anchor_tag_id, primary_pointer_type));
   EXPECT_EQ("dragstart@a,",
             web_view->MainFrameImpl()->GetDocument().Title().Ascii());
-  EXPECT_TRUE(SimulateGestureAtElementById(
-      WebInputEvent::Type::kGestureLongPress, anchor_tag_id));
+  EXPECT_TRUE(
+      SimulateGestureAtElementById(WebInputEvent::Type::kGestureLongPress,
+                                   anchor_tag_id, primary_pointer_type));
   EXPECT_EQ("dragstart@a,contextmenu@a,",
             web_view->MainFrameImpl()->GetDocument().Title().Ascii());
 }
@@ -5814,7 +5909,8 @@ TEST_F(WebViewTest, DeviceEmulationResetScrollbars) {
 
   WebLocalFrameImpl* frame = web_view->MainFrameImpl();
   auto* frame_view = frame->GetFrameView();
-  EXPECT_FALSE(frame_view->VisualViewportSuppliesScrollbars());
+  EXPECT_FALSE(
+      frame_view->LayoutViewport()->VisualViewportSuppliesScrollbars());
   EXPECT_NE(nullptr, frame_view->LayoutViewport()->VerticalScrollbar());
 
   DeviceEmulationParams params;
@@ -5825,13 +5921,14 @@ TEST_F(WebViewTest, DeviceEmulationResetScrollbars) {
   web_view->EnableDeviceEmulation(params);
 
   // The visual viewport should now proivde the scrollbars instead of the view.
-  EXPECT_TRUE(frame_view->VisualViewportSuppliesScrollbars());
+  EXPECT_TRUE(frame_view->LayoutViewport()->VisualViewportSuppliesScrollbars());
   EXPECT_EQ(nullptr, frame_view->LayoutViewport()->VerticalScrollbar());
 
   web_view->DisableDeviceEmulation();
 
   // The view should once again provide the scrollbars.
-  EXPECT_FALSE(frame_view->VisualViewportSuppliesScrollbars());
+  EXPECT_FALSE(
+      frame_view->LayoutViewport()->VisualViewportSuppliesScrollbars());
   EXPECT_NE(nullptr, frame_view->LayoutViewport()->VerticalScrollbar());
 }
 
@@ -6260,16 +6357,18 @@ TEST_F(WebViewTest, UpdateTargetURLWithInvalidURL) {
 }
 
 // Regression test for https://crbug.com/1112987
-TEST_P(WebViewTestTouchDragEndContextMenu,
+TEST_P(WebViewTestTouchDragEndContextMenuWithPointerType,
        LongPressThenLongTapLinkInIframeStartsContextMenu) {
   RegisterMockedHttpURLLoad("long_press_link_in_iframe.html");
 
   WebViewImpl* web_view = web_view_helper_.InitializeAndLoad(
       base_url_ + "long_press_link_in_iframe.html");
   web_view->SettingsImpl()->SetTouchDragDropEnabled(true);
-  const bool set_touch_drag_end_context_menu = GetParam();
+  const bool set_touch_drag_end_context_menu = std::get<0>(GetParam());
   web_view->SettingsImpl()->SetTouchDragEndContextMenu(
       set_touch_drag_end_context_menu);
+  web_view->GetPage()->GetFocusController().SetActive(true);
+  web_view->GetPage()->GetFocusController().SetFocused(true);
   web_view->MainFrameViewWidget()->Resize(gfx::Size(500, 300));
   UpdateAllLifecyclePhases();
   RunPendingTasks();
@@ -6284,12 +6383,15 @@ TEST_P(WebViewTestTouchDragEndContextMenu,
   const gfx::PointF center = GetElementCenterPointInFrame(
       anchor, To<WebLocalFrameImpl>(
                   web_view->MainFrame()->FirstChild()->ToWebLocalFrame()));
+  const WebPointerProperties::PointerType primary_pointer_type(
+      std::get<1>(GetParam()));
 
   WebGestureEvent longpress_event(WebInputEvent::Type::kGestureLongPress,
                                   WebInputEvent::kNoModifiers,
                                   WebInputEvent::GetStaticTimeStampForTests(),
                                   WebGestureDevice::kTouchscreen);
   longpress_event.SetPositionInWidget(center);
+  longpress_event.primary_pointer_type = primary_pointer_type;
   EXPECT_EQ(WebInputEventResult::kHandledSystem,
             web_view->MainFrameWidget()->HandleInputEvent(
                 WebCoalescedInputEvent(longpress_event, ui::LatencyInfo())));
@@ -6299,6 +6401,7 @@ TEST_P(WebViewTestTouchDragEndContextMenu,
                             WebInputEvent::GetStaticTimeStampForTests(),
                             WebGestureDevice::kTouchscreen);
   tap_event.SetPositionInWidget(center);
+  tap_event.primary_pointer_type = primary_pointer_type;
 
   // If touch-drag-and-context-menu is enabled, we expect an ongoing drag
   // operation at the moment a tap is dispatched.  This changes the outcome of
@@ -6595,6 +6698,8 @@ TEST_F(WebViewTest, TouchDragSetsDragPointerId) {
 
   web_view->SettingsImpl()->SetTouchDragDropEnabled(true);
   web_view->SettingsImpl()->SetTouchDragEndContextMenu(true);
+  web_view->GetPage()->GetFocusController().SetActive(true);
+  web_view->GetPage()->GetFocusController().SetFocused(true);
   web_view->MainFrameViewWidget()->Resize(gfx::Size(500, 300));
   UpdateAllLifecyclePhases();
   RunPendingTasks();
@@ -6905,8 +7010,17 @@ TEST_F(WebViewTest, DragAndDropPenButtonHistogramsTest) {
 }
 #endif  // BUILDFLAG(IS_WIN)
 
-INSTANTIATE_TEST_SUITE_P(All,
-                         WebViewTestTouchDragEndContextMenu,
-                         ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    WebViewTestTouchDragEndContextMenuWithPointerType,
+    testing::Combine(testing::Bool(),
+                     testing::Values(WebPointerProperties::PointerType::kTouch,
+                                     WebPointerProperties::PointerType::kPen)));
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    WebViewTestWithPointerType,
+    ::testing::Values(WebPointerProperties::PointerType::kTouch,
+                      WebPointerProperties::PointerType::kPen));
 
 }  // namespace blink

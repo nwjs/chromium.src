@@ -45,6 +45,8 @@ enum class WatchTimeKey : int {
   kAudioVideoDisplayFullscreen,
   kAudioVideoDisplayInline,
   kAudioVideoDisplayPictureInPicture,
+  kAudioVideoDominantVisibleContent,
+  kAudioVideoAuxiliaryVisibleContent,
   kAudioVideoEmbeddedExperience,
   kAudioVideoNativeControlsOn,
   kAudioVideoNativeControlsOff,
@@ -56,6 +58,8 @@ enum class WatchTimeKey : int {
   kAudioVideoBackgroundBattery,
   kAudioVideoBackgroundAc,
   kAudioVideoBackgroundEmbeddedExperience,
+  kAudioVideoHdrAll,
+  kAudioVideoHdrEme,
   kAudioVideoMutedAll,
   kAudioVideoMutedMse,
   kAudioVideoMutedEme,
@@ -67,10 +71,14 @@ enum class WatchTimeKey : int {
   kAudioVideoMutedDisplayFullscreen,
   kAudioVideoMutedDisplayInline,
   kAudioVideoMutedDisplayPictureInPicture,
+  kAudioVideoMutedDominantVisibleContent,
+  kAudioVideoMutedAuxiliaryVisibleContent,
   kAudioVideoMutedNativeControlsOn,
   kAudioVideoMutedNativeControlsOff,
   kAudioVideoMediaFoundationAll,
   kAudioVideoMediaFoundationEme,
+  kAudioVideoSdrAll,
+  kAudioVideoSdrEme,
   kVideoAll,
   kVideoMse,
   kVideoEme,
@@ -81,6 +89,8 @@ enum class WatchTimeKey : int {
   kVideoDisplayFullscreen,
   kVideoDisplayInline,
   kVideoDisplayPictureInPicture,
+  kVideoDominantVisibleContent,
+  kVideoAuxiliaryVisibleContent,
   kVideoEmbeddedExperience,
   kVideoNativeControlsOn,
   kVideoNativeControlsOff,
@@ -153,6 +163,12 @@ inline constexpr std::string_view kDiscardedWatchTimeAudioVideoEme =
     "Media.WatchTime.AudioVideo.Discarded.EME";
 inline constexpr std::string_view kDiscardedWatchTimeAudioVideoHls =
     "Media.WatchTime.AudioVideo.Discarded.HLS";
+
+// HDR watch time metrics.
+inline constexpr std::string_view kWatchTimeAudioVideoHdrAll =
+    "Media.WatchTime.AudioVideo.HDR.All";
+inline constexpr std::string_view kWatchTimeAudioVideoHdrEme =
+    "Media.WatchTime.AudioVideo.HDR.EME";
 
 // Returns the UMA key name associated with a given WatchTimeKey or an empty
 // string if they key should not be logged to UMA.

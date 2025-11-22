@@ -123,6 +123,10 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                 Features.ASYNC_WEBVIEW_STARTUP_ASYNC_STARTUP_LOCATIONS + Features.DEV_SUFFIX,
                 Features.PAGE_IS_PRERENDERING,
                 Features.CUSTOM_REQUEST_HEADERS,
+                Features.RENDERER_LIBRARY_PREFETCH_MODE + Features.DEV_SUFFIX,
+                Features.WEB_VIEW_NAVIGATION_LISTENER_V1,
+                Features.ADD_QUIC_HINTS_V1,
+                Features.ON_NAVIGATION_COMPLETED_NON_COMMITTED,
                 // Add new features above. New features must include `+ Features.DEV_SUFFIX`
                 // when they're initially added (this can be removed in a future CL). The final
                 // feature should have a trailing comma for cleaner diffs.
@@ -296,6 +300,13 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         ApiCall.PAGE_IS_PRERENDERING,
         ApiCall.ADD_ORIGIN_MATCHED_HEADER,
         ApiCall.GET_ORIGIN_MATCHED_HEADERS,
+        ApiCall.SET_RENDERER_LIBRARY_PREFETCH_MODE,
+        ApiCall.GET_RENDERER_LIBRARY_PREFETCH_MODE,
+        ApiCall.BACK_FORWARD_CACHE_SETTINGS_SET_TIMEOUT_IN_SECONDS,
+        ApiCall.BACK_FORWARD_CACHE_SETTINGS_SET_MAX_PAGES_IN_CACHE,
+        ApiCall.ADD_NAVIGATION_LISTENER,
+        ApiCall.REMOVE_NAVIGATION_LISTENER,
+        ApiCall.ADD_QUIC_HINTS,
         // Add new constants above. The final constant should have a trailing comma for cleaner
         // diffs.
         ApiCall.COUNT, // Added to suppress WrongConstant in #recordApiCall
@@ -423,8 +434,8 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         int WEB_STORAGE_DELETE_BROWSING_DATA_FOR_SITE = 118;
         int SET_SPECULATIVE_LOADING_CONFIG = 119;
         int SAVE_STATE = 120;
-        int GET_WEBVIEW_NAVIGATION_CLIENT = 121;
-        int SET_WEBVIEW_NAVIGATION_CLIENT = 122;
+        @Deprecated int GET_WEBVIEW_NAVIGATION_CLIENT = 121;
+        @Deprecated int SET_WEBVIEW_NAVIGATION_CLIENT = 122;
         int NAVIGATION_GET_URL = 123;
         int NAVIGATION_WAS_INITIATED_BY_PAGE = 124;
         int NAVIGATION_IS_SAME_DOCUMENT = 125;
@@ -468,9 +479,15 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         int PAGE_IS_PRERENDERING = 161;
         int ADD_ORIGIN_MATCHED_HEADER = 162;
         int GET_ORIGIN_MATCHED_HEADERS = 163;
-
+        int SET_RENDERER_LIBRARY_PREFETCH_MODE = 164;
+        int GET_RENDERER_LIBRARY_PREFETCH_MODE = 165;
+        int BACK_FORWARD_CACHE_SETTINGS_SET_TIMEOUT_IN_SECONDS = 166;
+        int BACK_FORWARD_CACHE_SETTINGS_SET_MAX_PAGES_IN_CACHE = 167;
+        int ADD_NAVIGATION_LISTENER = 168;
+        int REMOVE_NAVIGATION_LISTENER = 169;
+        int ADD_QUIC_HINTS = 170;
         // Remember to update AndroidXWebkitApiCall in enums.xml when adding new values here
-        int COUNT = 164;
+        int COUNT = 171;
     }
 
     // LINT.ThenChange(/tools/metrics/histograms/metadata/android/enums.xml:AndroidXWebkitApiCall)
@@ -611,6 +628,26 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                     TraceEvent.scoped("WebView.APICall.AndroidX.SET_DEFAULT_TRAFFICSTATS_UID")) {
                 recordApiCall(ApiCall.SET_DEFAULT_TRAFFICSTATS_UID);
                 mSharedStatics.setDefaultTrafficStatsUid(uid);
+            }
+        }
+
+        @Override
+        public void setRendererLibraryPrefetchMode(int mode) {
+            try (TraceEvent event =
+                    TraceEvent.scoped(
+                            "WebView.APICall.AndroidX.SET_RENDERER_LIBRARY_PREFETCH_MODE")) {
+                recordApiCall(ApiCall.SET_RENDERER_LIBRARY_PREFETCH_MODE);
+                mSharedStatics.setRendererLibraryPrefetchMode(mode);
+            }
+        }
+
+        @Override
+        public int getRendererLibraryPrefetchMode() {
+            try (TraceEvent event =
+                    TraceEvent.scoped(
+                            "WebView.APICall.AndroidX.GET_RENDERER_LIBRARY_PREFETCH_MODE")) {
+                recordApiCall(ApiCall.GET_RENDERER_LIBRARY_PREFETCH_MODE);
+                return mSharedStatics.getRendererLibraryPrefetchMode();
             }
         }
     }

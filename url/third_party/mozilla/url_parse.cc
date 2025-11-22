@@ -540,12 +540,11 @@ Parsed DoParseFileSystemURL(std::basic_string_view<CharT> url) {
   }
 
   Parsed inner_parsed;
-  if (CompareSchemeComponent(url.data(), inner_scheme, kFileScheme)) {
+  if (CompareSchemeComponent(url, inner_scheme, kFileScheme)) {
     // File URLs are special. The static cast is safe because we calculated the
     // size above as the difference of two ints.
     inner_parsed = ParseFileURL(inner_url);
-  } else if (CompareSchemeComponent(url.data(), inner_scheme,
-                                    kFileSystemScheme)) {
+  } else if (CompareSchemeComponent(url, inner_scheme, kFileSystemScheme)) {
     // Filesystem URLs don't nest.
     return parsed;
   } else if (IsStandard(inner_scheme.as_string_view_on(url.data()))) {
@@ -692,12 +691,12 @@ Parsed DoParseMailtoURL(std::basic_string_view<CharT> url) {
   return parsed;
 }
 
-// Converts a port number in a string to an integer. We'd like to just call
-// sscanf but our input is not NULL-terminated, which sscanf requires. Instead,
-// we copy the digits to a small stack buffer (since we know the maximum number
-// of digits in a valid port number) that we can NULL terminate.
+// Converts a port number in a string to an integer. C++ does not have a simple
+// way to convert strings to numbers that works for both `char` and `char16_t`.
+// We copy the digits to a small stack buffer (since we know the maximum number
+// of digits in a valid port number) that we can use atoi().
 template <typename CHAR>
-int DoParsePort(const CHAR* spec, const Component& component) {
+int DoParsePort(std::basic_string_view<CHAR> spec, const Component& component) {
   // Easy success case when there is no port.
   const int kMaxDigits = 5;
   if (component.is_empty())
@@ -1031,10 +1030,26 @@ void ParseAuthority(const char16_t* spec,
 }
 
 int ParsePort(const char* url, const Component& port) {
-  return DoParsePort(url, port);
+  return port.is_empty()
+             ? PORT_UNSPECIFIED
+             : DoParsePort(
+                   std::string_view(url, static_cast<size_t>(port.end())),
+                   port);
 }
 
 int ParsePort(const char16_t* url, const Component& port) {
+  return port.is_empty()
+             ? PORT_UNSPECIFIED
+             : DoParsePort(
+                   std::u16string_view(url, static_cast<size_t>(port.end())),
+                   port);
+}
+
+int ParsePort(std::string_view url, const Component& port) {
+  return DoParsePort(url, port);
+}
+
+int ParsePort(std::u16string_view url, const Component& port) {
   return DoParsePort(url, port);
 }
 
@@ -1115,32 +1130,30 @@ void ParsePathInternal(const char16_t* spec,
   ParsePath(spec, path, filepath, query, ref);
 }
 
-void ParseAfterSpecialScheme(const char* spec,
-                             int spec_len,
+void ParseAfterSpecialScheme(std::string_view spec,
                              int after_scheme,
                              Parsed* parsed) {
-  DoParseAfterSpecialScheme(spec, spec_len, after_scheme, parsed);
+  DoParseAfterSpecialScheme(spec.data(), spec.length(), after_scheme, parsed);
 }
 
-void ParseAfterSpecialScheme(const char16_t* spec,
-                             int spec_len,
+void ParseAfterSpecialScheme(std::u16string_view spec,
                              int after_scheme,
                              Parsed* parsed) {
-  DoParseAfterSpecialScheme(spec, spec_len, after_scheme, parsed);
+  DoParseAfterSpecialScheme(spec.data(), spec.length(), after_scheme, parsed);
 }
 
-void ParseAfterNonSpecialScheme(const char* spec,
-                                int spec_len,
+void ParseAfterNonSpecialScheme(std::string_view spec,
                                 int after_scheme,
                                 Parsed* parsed) {
-  DoParseAfterNonSpecialScheme(spec, spec_len, after_scheme, parsed);
+  DoParseAfterNonSpecialScheme(spec.data(), spec.length(), after_scheme,
+                               parsed);
 }
 
-void ParseAfterNonSpecialScheme(const char16_t* spec,
-                                int spec_len,
+void ParseAfterNonSpecialScheme(std::u16string_view spec,
                                 int after_scheme,
                                 Parsed* parsed) {
-  DoParseAfterNonSpecialScheme(spec, spec_len, after_scheme, parsed);
+  DoParseAfterNonSpecialScheme(spec.data(), spec.length(), after_scheme,
+                               parsed);
 }
 
 }  // namespace url

@@ -36,7 +36,7 @@ namespace {
 constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
     net::DefineNetworkTrafficAnnotation("gemini_user_status", R"(
     semantics {
-      sender: "Chrome Gemini"
+      sender: "Gemini in Chrome"
       description:
           "To decide whether an Enterprise primary account can access the "
           "Gemini feature and see the Gemini UI surfaces (e.g. tab strip "
@@ -47,7 +47,7 @@ constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
           "signed in and every 23 hours afterwards. The access token of "
           "the account is used for Oauth2 authentication."
       trigger:
-          "upon an Enterprise primary account sign-in or Chrome launch with "
+          "Upon an Enterprise primary account sign-in or Chrome launch with "
           "a signed-in Enterprise primary account and periodically "
           "afterwards"
       data:
@@ -70,6 +70,9 @@ constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
       chrome_policy {
         GeminiSettings {
             GeminiSettings: 1
+        }
+        GenAiDefaultSettings {
+          GenAiDefaultSettings: 2
         }
       }
     }
@@ -172,6 +175,10 @@ void GlicUserStatusFetcher::UpdateUserStatusIfNeeded() {
 }
 
 void GlicUserStatusFetcher::UpdateUserStatus() {
+  // Ensure that assumptions about when we do or do not update the cached user
+  // status are not broken.
+  // LINT.IfChange(GlicCachedUserStatusScope)
+
   // If the admin has disabled Gemini, we don't need to send the request.
   if (profile_->GetPrefs()->GetInteger(::prefs::kGeminiSettings) ==
       static_cast<int>(glic::prefs::SettingsPolicyState::kDisabled)) {
@@ -258,6 +265,8 @@ void GlicUserStatusFetcher::UpdateUserStatus() {
     return;
   }
 
+  // LINT.ThenChange(//chrome/browser/glic/public/glic_enabling.cc:GlicCachedUserStatusScope)
+
   // Cancel any ongoing fetch. This will do nothing if the request is already
   // finished.
   CancelUserStatusUpdateIfNeeded();
@@ -290,7 +299,8 @@ void GlicUserStatusFetcher::UpdateUserStatus() {
       /*custom_user_agent=*/std::string(), kTrafficAnnotation);
 
   auto request = std::make_unique<GlicUserStatusRequest>(
-      request_sender_.get(), endpoint_, std::move(callback));
+      request_sender_.get(), profile_->GetVariationsClient(), endpoint_,
+      std::move(callback));
   cancel_closure_ =
       request_sender_->StartRequestWithAuthRetry(std::move(request));
 }

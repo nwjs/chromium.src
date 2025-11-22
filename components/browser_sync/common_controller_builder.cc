@@ -16,6 +16,7 @@
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "components/autofill/core/browser/payments/autofill_wallet_data_type_controller.h"
+#include "components/autofill/core/browser/webdata/account_settings/account_setting_service.h"
 #include "components/autofill/core/browser/webdata/addresses/autofill_profile_sync_bridge.h"
 #include "components/autofill/core/browser/webdata/addresses/contact_info_data_type_controller.h"
 #include "components/autofill/core/browser/webdata/addresses/contact_info_local_data_batch_uploader.h"
@@ -28,6 +29,7 @@
 #include "components/autofill/core/browser/webdata/payments/autofill_wallet_sync_bridge.h"
 #include "components/autofill/core/browser/webdata/payments/autofill_wallet_usage_data_sync_bridge.h"
 #include "components/autofill/core/browser/webdata/valuables/valuable_data_type_controller.h"
+#include "components/autofill/core/browser/webdata/valuables/valuable_metadata_sync_bridge.h"
 #include "components/autofill/core/browser/webdata/valuables/valuable_sync_bridge.h"
 #include "components/collaboration/public/collaboration_service.h"
 #include "components/collaboration/public/data_type_controller/collaboration_group_data_type_controller.h"
@@ -111,9 +113,17 @@ AutocompleteDelegateFromDataService(autofill::AutofillWebDataService* service) {
 
 #if !BUILDFLAG(IS_IOS)
 base::WeakPtr<syncer::DataTypeControllerDelegate>
-AutofillLoyaltyCardDelegateFromDataService(
+AutofillValuableDelegateFromDataService(
     autofill::AutofillWebDataService* service) {
   return autofill::ValuableSyncBridge::FromWebDataService(service)
+      ->change_processor()
+      ->GetControllerDelegate();
+}
+
+base::WeakPtr<syncer::DataTypeControllerDelegate>
+AutofillValuableMetadataDelegateFromDataService(
+    autofill::AutofillWebDataService* service) {
+  return autofill::ValuableMetadataSyncBridge::FromWebDataService(service)
       ->change_processor()
       ->GetControllerDelegate();
 }
@@ -228,6 +238,11 @@ bool ArePreferencesAllowedInTransportMode() {
 CommonControllerBuilder::CommonControllerBuilder() = default;
 
 CommonControllerBuilder::~CommonControllerBuilder() = default;
+
+void CommonControllerBuilder::SetAccountSettingService(
+    autofill::AccountSettingService* account_setting_service) {
+  account_setting_service_.Set(account_setting_service);
+}
 
 void CommonControllerBuilder::SetAddressDataManagerGetter(
     base::RepeatingCallback<autofill::AddressDataManager*()>
@@ -822,26 +837,58 @@ CommonControllerBuilder::Build(syncer::DataTypeSet disabled_types,
         base::FeatureList::IsEnabled(syncer::kSyncMoveValuablesToProfileDb)
             ? profile_autofill_web_data_service_.value()
             : account_autofill_web_data_service_.value();
+    if (autofill_web_data_service) {
+      controllers.push_back(
+          std::make_unique<autofill::AutofillValuableDataTypeController>(
+              syncer::AUTOFILL_VALUABLE,
+              std::make_unique<syncer::ProxyDataTypeControllerDelegate>(
+                  autofill_web_data_service->GetDBTaskRunner(),
+                  base::BindRepeating(
+                      &AutofillValuableDelegateFromDataService,
+                      base::RetainedRef(autofill_web_data_service))),
+              std::make_unique<syncer::ProxyDataTypeControllerDelegate>(
+                  autofill_web_data_service->GetDBTaskRunner(),
+                  base::BindRepeating(
+                      &AutofillValuableDelegateFromDataService,
+                      base::RetainedRef(autofill_web_data_service)))));
+    }
+  }
+
+  if (!disabled_types.Has(syncer::AUTOFILL_VALUABLE_METADATA) &&
+      base::FeatureList::IsEnabled(syncer::kSyncAutofillValuableMetadata)) {
+    // Both `AUTOFILL_VALUABLE` and `AUTOFILL_VALUABLE_METADATA` use the same
+    // controller as they share the same behaviour.
     controllers.push_back(
         std::make_unique<autofill::AutofillValuableDataTypeController>(
-            syncer::AUTOFILL_VALUABLE,
+            syncer::AUTOFILL_VALUABLE_METADATA,
             std::make_unique<syncer::ProxyDataTypeControllerDelegate>(
-                autofill_web_data_service->GetDBTaskRunner(),
+                profile_autofill_web_data_service_.value()->GetDBTaskRunner(),
                 base::BindRepeating(
-                    &AutofillLoyaltyCardDelegateFromDataService,
-                    base::RetainedRef(autofill_web_data_service))),
+                    &AutofillValuableMetadataDelegateFromDataService,
+                    base::RetainedRef(
+                        profile_autofill_web_data_service_.value()))),
             std::make_unique<syncer::ProxyDataTypeControllerDelegate>(
-                autofill_web_data_service->GetDBTaskRunner(),
+                profile_autofill_web_data_service_.value()->GetDBTaskRunner(),
                 base::BindRepeating(
-                    &AutofillLoyaltyCardDelegateFromDataService,
-                    base::RetainedRef(autofill_web_data_service)))));
+                    &AutofillValuableMetadataDelegateFromDataService,
+                    base::RetainedRef(
+                        profile_autofill_web_data_service_.value())))));
   }
+
 #endif
 
+#if !BUILDFLAG(IS_IOS)
   if (!disabled_types.Has(syncer::ACCOUNT_SETTING) &&
+      account_setting_service_.value() &&
       base::FeatureList::IsEnabled(syncer::kSyncAccountSettings)) {
-    // TODO(crbug.com/441735283) Complete syncing of account settings.
+    controllers.push_back(std::make_unique<DataTypeController>(
+        syncer::ACCOUNT_SETTING,
+        /*delegate_for_full_sync_mode=*/
+        account_setting_service_.value()->GetSyncControllerDelegate(),
+        /*delegate_for_transport_mode=*/
+        account_setting_service_.value()->GetSyncControllerDelegate()));
   }
+#endif
 
   if (!disabled_types.Has(syncer::SHARED_TAB_GROUP_ACCOUNT_DATA) &&
       base::FeatureList::IsEnabled(syncer::kSyncSharedTabGroupAccountData) &&

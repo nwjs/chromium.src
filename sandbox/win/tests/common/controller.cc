@@ -24,10 +24,14 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
+#include "base/task/thread_pool.h"
+#include "base/test/task_environment.h"
+#include "base/test/test_future.h"
 #include "base/test/test_timeouts.h"
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
 #include "base/win/scoped_handle.h"
+#include "base/win/scoped_process_information.h"
 #include "base/win/windows_version.h"
 #include "sandbox/win/src/app_container.h"
 #include "sandbox/win/src/sandbox_factory.h"
@@ -138,15 +142,15 @@ std::wstring MakePathToSys(const wchar_t* name, bool is_obj_man_path) {
 // to use synchronous launching.
 class TestBrokerServicesDelegateImpl : public BrokerServicesDelegate {
  public:
-  bool ParallelLaunchEnabled() override { return false; }
-
   void ParallelLaunchPostTaskAndReplyWithResult(
       const base::Location& from_here,
       base::OnceCallback<CreateTargetResult()> task,
       base::OnceCallback<void(CreateTargetResult)> reply) override {
-    // This function is only used for parallel launching and should not get
-    // called.
-    NOTREACHED();
+    base::ThreadPool::PostTaskAndReplyWithResult(
+        from_here,
+        {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
+         base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
+        std::move(task), std::move(reply));
   }
 
   void BeforeTargetProcessCreateOnCreationThread(
@@ -327,8 +331,15 @@ int TestRunner::InternalRunTest(const wchar_t* command) {
       return SBOX_ERROR_GENERIC;
     }
   } else {
-    result = broker_->SpawnTarget(prog_name, arguments.c_str(),
-                                  std::move(policy_), &last_error, &target);
+    base::test::TaskEnvironment task_environment;
+    base::test::TestFuture<base::win::ScopedProcessInformation, DWORD,
+                           ResultCode>
+        test_future;
+    broker_->SpawnTargetAsync(prog_name, arguments.c_str(), std::move(policy_),
+                              test_future.GetCallback());
+    base::win::ScopedProcessInformation proc_info;
+    std::tie(proc_info, last_error, result) = test_future.Take();
+    target = proc_info.Take();
   }
 
   if (SBOX_ALL_OK != result)

@@ -7,6 +7,7 @@
 #include <string_view>
 
 #include "base/containers/contains.h"
+#include "base/containers/fixed_flat_set.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
@@ -47,6 +48,42 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
   if (out) {
     *out = std::string(message);
   }
+}
+
+// Checks whether `country_code` belongs to a country where Wallet is
+// supported.
+[[nodiscard]] bool IsWalletSupportedCountry(
+    const GeoIpCountryCode& country_code) {
+  // List of countries where Wallet is supported.
+  constexpr static auto kWalletSupportedCountries =
+      base::MakeFixedFlatSet<std::string_view>(
+          {"AD", "AE", "AF", "AG", "AI", "AL", "AM", "AO", "AQ", "AR", "AS",
+           "AT", "AU", "AW", "AX", "AZ", "BA", "BB", "BD", "BE", "BF", "BG",
+           "BH", "BI", "BJ", "BL", "BM", "BN", "BO", "BQ", "BR", "BS", "BT",
+           "BV", "BW", "BZ", "CA", "CC", "CD", "CF", "CG", "CH", "CI", "CK",
+           "CL", "CM", "CO", "CR", "CV", "CW", "CX", "CY", "CZ", "DE", "DJ",
+           "DK", "DM", "DO", "EC", "EE", "EG", "EH", "ER", "ES", "ET", "FI",
+           "FJ", "FK", "FM", "FO", "FR", "GA", "GB", "GD", "GE", "GF", "GG",
+           "GH", "GI", "GL", "GM", "GN", "GP", "GQ", "GR", "GS", "GT", "GU",
+           "GW", "GY", "HK", "HM", "HN", "HR", "HT", "HU", "ID", "IE", "IL",
+           "IM", "IO", "IQ", "IS", "IT", "JE", "JM", "JO", "JP", "KG", "KH",
+           "KI", "KM", "KN", "KW", "KY", "KZ", "LA", "LB", "LC", "LI", "LK",
+           "LR", "LS", "LT", "LU", "LV", "MA", "MC", "MD", "ME", "MF", "MG",
+           "MH", "MK", "ML", "MN", "MO", "MP", "MQ", "MR", "MS", "MT", "MU",
+           "MV", "MW", "MX", "MY", "MZ", "NA", "NC", "NE", "NF", "NG", "NI",
+           "NL", "NO", "NP", "NR", "NU", "NZ", "OM", "PA", "PE", "PF", "PG",
+           "PH", "PK", "PL", "PM", "PN", "PR", "PS", "PT", "PW", "PY", "QA",
+           "RE", "RO", "RS", "RW", "SA", "SB", "SC", "SE", "SG", "SH", "SI",
+           "SJ", "SK", "SL", "SM", "SN", "SO", "SR", "ST", "SV", "SX", "SZ",
+           "TC", "TD", "TF", "TG", "TH", "TJ", "TK", "TL", "TM", "TN", "TO",
+           "TT", "TV", "TW", "TZ", "UA", "UG", "UM", "US", "UY", "VA", "VC",
+           "VE", "VG", "VI", "VN", "VU", "WF", "WS", "XK", "YE", "YT", "ZA",
+           "ZM", "ZW"});
+  if (country_code->empty()) {
+    // Assumes a valid country if the country is not set.
+    return true;
+  }
+  return kWalletSupportedCountries.contains(country_code.value());
 }
 
 // Checks whether `country_code` belongs to a permitted GeoIp.
@@ -101,7 +138,8 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
 // the AutofillAI is disabled.
 [[nodiscard]] bool IsRelevantForDataTransparency(AutofillAiAction action) {
   switch (action) {
-    case AutofillAiAction::kAddEntityInstanceInSettings:
+    case AutofillAiAction::kAddLocalEntityInstanceInSettings:
+    case AutofillAiAction::kAddServerEntityInstanceInSettings:
     case AutofillAiAction::kCrowdsourcingVote:
     case AutofillAiAction::kFilling:
     case AutofillAiAction::kImport:
@@ -132,6 +170,9 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
   }
 
   switch (action) {
+    case AutofillAiAction::kAddServerEntityInstanceInSettings:
+      return is_enabled(features::kAutofillAiWalletVehicleRegistration) ||
+             is_enabled(features::kAutofillAiWalletFlightReservation);
     case AutofillAiAction::kIphForOptIn:
       return is_enabled(feature_engagement::kIPHAutofillAiOptInFeature);
     case AutofillAiAction::kServerClassificationModel:
@@ -141,7 +182,7 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
              features::kAutofillAiServerModelUseCacheResults.Get();
     case AutofillAiAction::kImportToWallet:
       return is_enabled(features::kAutofillAiWalletVehicleRegistration);
-    case AutofillAiAction::kAddEntityInstanceInSettings:
+    case AutofillAiAction::kAddLocalEntityInstanceInSettings:
     case AutofillAiAction::kCrowdsourcingVote:
     case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
     case AutofillAiAction::kFilling:
@@ -160,14 +201,16 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     const syncer::SyncService* sync_service,
     std::string* debug_message) {
   switch (action) {
+    case AutofillAiAction::kAddServerEntityInstanceInSettings:
     case AutofillAiAction::kImportToWallet:
       return sync_service &&
              sync_service->GetUserSettings()->GetSelectedTypes().Has(
-                 syncer::UserSelectableType::kPayments);
+                 syncer::UserSelectableType::kPayments) &&
+             sync_service->GetActiveDataTypes().Has(syncer::AUTOFILL_VALUABLE);
     case AutofillAiAction::kIphForOptIn:
     case AutofillAiAction::kServerClassificationModel:
     case AutofillAiAction::kUseCachedServerClassificationModelResults:
-    case AutofillAiAction::kAddEntityInstanceInSettings:
+    case AutofillAiAction::kAddLocalEntityInstanceInSettings:
     case AutofillAiAction::kCrowdsourcingVote:
     case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
     case AutofillAiAction::kFilling:
@@ -182,8 +225,10 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
 
 // Checks if the `entity_type` safistifes specific action requirements.
 [[nodiscard]] bool SatisfiesEntityTypeRequirements(
+    const AutofillClient& client,
     AutofillAiAction action,
-    std::optional<EntityType> entity_type) {
+    std::optional<EntityType> entity_type,
+    std::string* debug_message) {
   auto entity_type_can_be_upstreamed = [](EntityType type) {
     switch (type.name()) {
       case EntityTypeName::kVehicle:
@@ -198,19 +243,43 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     }
     NOTREACHED();
   };
+  auto entity_type_is_enabled_in_settings = [&](EntityType type) {
+    const PrefService* const prefs = client.GetPrefs();
+    if (!prefs) {
+      MaybeOutputReason(debug_message, "Prefs are not available.");
+      return false;
+    }
+    switch (type.name()) {
+      case EntityTypeName::kNationalIdCard:
+      case EntityTypeName::kPassport:
+      case EntityTypeName::kDriversLicense:
+        return prefs->GetBoolean(prefs::kAutofillAiIdentityEntitiesEnabled);
+      case EntityTypeName::kVehicle:
+      case EntityTypeName::kFlightReservation:
+      case EntityTypeName::kRedressNumber:
+      case EntityTypeName::kKnownTravelerNumber:
+        return prefs->GetBoolean(prefs::kAutofillAiTravelEntitiesEnabled);
+    }
+    NOTREACHED();
+  };
   switch (action) {
     case AutofillAiAction::kImportToWallet:
       CHECK(entity_type) << "An entity type is required to check if an entity "
                             "can be upstreamed";
       return entity_type_can_be_upstreamed(*entity_type);
-    case AutofillAiAction::kIphForOptIn:
-    case AutofillAiAction::kServerClassificationModel:
-    case AutofillAiAction::kUseCachedServerClassificationModelResults:
-    case AutofillAiAction::kAddEntityInstanceInSettings:
-    case AutofillAiAction::kCrowdsourcingVote:
-    case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
     case AutofillAiAction::kFilling:
     case AutofillAiAction::kImport:
+    case AutofillAiAction::kIphForOptIn:
+      // TODO(crbug.com/450060416): Make `entity_type.has_value()` mandatory.
+      return !entity_type || entity_type_is_enabled_in_settings(*entity_type) ||
+             !base::FeatureList::IsEnabled(
+                 features::kAutofillAiIdentityAndTravelPrefs);
+    case AutofillAiAction::kServerClassificationModel:
+    case AutofillAiAction::kUseCachedServerClassificationModelResults:
+    case AutofillAiAction::kAddLocalEntityInstanceInSettings:
+    case AutofillAiAction::kAddServerEntityInstanceInSettings:
+    case AutofillAiAction::kCrowdsourcingVote:
+    case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
     case AutofillAiAction::kListEntityInstancesInSettings:
     case AutofillAiAction::kLogToMqls:
     case AutofillAiAction::kOptIn:
@@ -261,7 +330,7 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
   const bool user_opted_in = GetAutofillAiOptInStatus(client);
   // Note that the policy can become disabled even after a user has opted in.
   switch (action) {
-    case AutofillAiAction::kAddEntityInstanceInSettings:
+    case AutofillAiAction::kAddLocalEntityInstanceInSettings:
     case AutofillAiAction::kCrowdsourcingVote:
     case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
     case AutofillAiAction::kFilling:
@@ -270,10 +339,10 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     case AutofillAiAction::kServerClassificationModel:
     case AutofillAiAction::kUseCachedServerClassificationModelResults:
       return policy_pref_enabled && user_opted_in;
+    case AutofillAiAction::kAddServerEntityInstanceInSettings:
     case AutofillAiAction::kImportToWallet:
-      // TODO(crbug.com/441742849): This should also check for the specific
-      // wallet pref.
-      return policy_pref_enabled && user_opted_in;
+      return policy_pref_enabled && user_opted_in &&
+             client.IsImportingToWalletEnabled();
     case AutofillAiAction::kIphForOptIn:
       // The IPH should only show if the user has not opted in yet.
       return policy_pref_enabled && !user_opted_in;
@@ -326,7 +395,8 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
       return true;
     }
     switch (action) {
-      case AutofillAiAction::kAddEntityInstanceInSettings:
+      case AutofillAiAction::kAddLocalEntityInstanceInSettings:
+      case AutofillAiAction::kAddServerEntityInstanceInSettings:
       case AutofillAiAction::kCrowdsourcingVote:
       case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
       case AutofillAiAction::kFilling:
@@ -367,7 +437,8 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     std::string* debug_message) {
   // Off-the-record.
   switch (action) {
-    case AutofillAiAction::kAddEntityInstanceInSettings:
+    case AutofillAiAction::kAddLocalEntityInstanceInSettings:
+    case AutofillAiAction::kAddServerEntityInstanceInSettings:
     case AutofillAiAction::kCrowdsourcingVote:
     case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
     case AutofillAiAction::kImport:
@@ -386,6 +457,28 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     case AutofillAiAction::kFilling:
     case AutofillAiAction::kUseCachedServerClassificationModelResults:
       // Filling and cache use are permitted when OTR.
+      break;
+  }
+
+  // Wallet-supported country.
+  switch (action) {
+    case AutofillAiAction::kAddServerEntityInstanceInSettings:
+    case AutofillAiAction::kImportToWallet:
+      if (!IsWalletSupportedCountry(country_code)) {
+        return false;
+      }
+      break;
+    case AutofillAiAction::kAddLocalEntityInstanceInSettings:
+    case AutofillAiAction::kCrowdsourcingVote:
+    case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
+    case AutofillAiAction::kImport:
+    case AutofillAiAction::kIphForOptIn:
+    case AutofillAiAction::kListEntityInstancesInSettings:
+    case AutofillAiAction::kLogToMqls:
+    case AutofillAiAction::kOptIn:
+    case AutofillAiAction::kServerClassificationModel:
+    case AutofillAiAction::kFilling:
+    case AutofillAiAction::kUseCachedServerClassificationModelResults:
       break;
   }
 
@@ -457,7 +550,8 @@ bool MayPerformAutofillAiAction(const AutofillClient& client,
     return false;
   }
 
-  if (!SatisfiesEntityTypeRequirements(action, entity_type)) {
+  if (!SatisfiesEntityTypeRequirements(client, action, entity_type,
+                                       debug_message)) {
     return false;
   }
 

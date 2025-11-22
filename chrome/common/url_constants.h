@@ -320,11 +320,18 @@ inline constexpr char kGoogleAccountWorkAddressURL[] =
 
 // URL of the change Google Account name page.
 inline constexpr char kGoogleAccountNameEmailAddressEditURL[] =
-    "https://myaccount.google.com/personal-info";
+    "https://myaccount.google.com/"
+    "personal-info?utm_source=chrome-settings&utm_medium=autofill";
 
 // URL of the two factor authentication setup required intersitial.
 inline constexpr char kGoogleTwoFactorIntersitialURL[] =
     "https://myaccount.google.com/interstitials/twosvrequired";
+
+// The scheme used for google-chrome:// URLs.
+// TODO(b/446672134): Use a distinct value for each brand (e.g.,
+//  Google Chrome vs. Chromium) and install mode (e.g., stable vs.
+//  side-by-side beta).
+inline constexpr char kGoogleChromeURLScheme[] = "google-chrome";
 
 // URL of the Google Password Manager.
 inline constexpr char kGooglePasswordManagerURL[] =
@@ -380,13 +387,20 @@ inline constexpr char16_t kManagedUiLearnMoreUrl[] =
 inline constexpr char kInsecureDownloadBlockingLearnMoreUrl[] =
     "https://support.google.com/chrome?p=mixed_content_downloads";
 
-// "myactivity.google.com" URL for the history checkbox in ClearBrowsingData.
+// "myactivity.google.com" URLs with their respective UTM sources.
+// - In the Clear Browsing Data footer.
+// - In the Clear Browsing Data "notice about other forms of history".
+// - On the history page.
 inline constexpr char16_t kMyActivityUrlInClearBrowsingData[] =
     u"https://myactivity.google.com/myactivity?utm_source=chrome_cbd";
+inline constexpr char16_t kMyActivityUrlInClearBrowsingDataNotice[] =
+    u"https://myactivity.google.com/myactivity/?utm_source=chrome_n";
+inline constexpr char16_t kMyActivityUrlInHistory[] =
+    u"https://myactivity.google.com/myactivity/?utm_source=chrome_h";
 
 // The URL for the Gemini Personal Context page.
 inline constexpr char16_t kGeminiPersonalContextUrl[] =
-    u"https://gemini.google.com/corp/saved-info";
+    u"https://gemini.google.com/saved-info";
 
 // The URL for "Your Gemini Apps Activity" page.inline constexpr char16_t
 // kMyActivityGeminiAppsUrl[] =
@@ -459,6 +473,9 @@ inline constexpr char kAddressesAndPaymentMethodsLearnMoreURL[] =
 // finalized.
 inline constexpr char16_t kPayOverTimeLearnMoreUrl[] =
     u"https://support.google.com/googlepay?p=bnpl_autofill_chrome";
+
+// The URL for the Wallet website.
+inline constexpr char16_t kWalletUrl[] = u"https://wallet.google.com";
 
 // Help URL for Autofill AI.
 inline constexpr char16_t kAutofillAiLearnMoreURL[] =
@@ -560,8 +577,13 @@ inline constexpr char16_t kSyncEncryptionHelpURL[] =
 inline constexpr char kSyncErrorsHelpURL[] =
     "https://support.google.com/chrome?p=settings_sync_error";
 
-inline constexpr char kSyncGoogleDashboardURL[] =
+// Legacy URL to the sync google dashboard.
+inline constexpr char kLegacySyncGoogleDashboardURL[] =
     "https://www.google.com/settings/chrome/sync";
+
+// New URL to the sync google dashboard.
+inline constexpr char kNewSyncGoogleDashboardURL[] =
+    "https://chrome.google.com/data";
 
 // The URL for the "Learn more" page for sync setup on the personal stuff page.
 inline constexpr char16_t kSyncLearnMoreURL[] =
@@ -605,6 +627,10 @@ inline constexpr char16_t kHistorySearchSettingURL[] =
 // The URL for the "Learn more" page for Wallpaper Search.
 inline constexpr char kWallpaperSearchLearnMorePageURL[] =
     "https://support.google.com/chrome?p=create_themes_with_ai";
+
+// The URL for the passed in Google Wallet.
+inline constexpr char kWalletPassesPageURL[] =
+    "https://wallet.google.com/wallet/passes";
 
 // The URL for the "Learn more" page for Tab Organization.
 inline constexpr char kTabOrganizationLearnMorePageURL[] =
@@ -1013,7 +1039,6 @@ inline constexpr char kChromeRootStoreSettingsHelpCenterURL[] =
 #endif
 
 #if BUILDFLAG(ENABLE_PDF_SAVE_TO_DRIVE)
-// TODO(crbug.com/436926181): Make sure the URL is not a dead link.
 // "Learn more" URL for how to save PDF to Google Drive from the PDF viewer.
 inline constexpr char kPdfViewerSaveToDriveHelpCenterURL[] =
     "https://support.google.com/drive?p=save_from_chrome";

@@ -29,8 +29,8 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view.h"
-#include "chrome/browser/ui/views/frame/browser_view_layout.h"
 #include "chrome/browser/ui/views/frame/browser_widget.h"
+#include "chrome/browser/ui/views/frame/layout/browser_view_layout.h"
 #include "chrome/browser/ui/views/frame/tab_strip_view_interface.h"
 #include "chrome/browser/ui/views/frame/test_with_browser_view.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
@@ -720,8 +720,7 @@ TEST_F(BrowserViewHostedAppTest, Layout) {
   // Add a tab because the browser starts out without any tabs at all.
   AddTab(browser(), GURL("about:blank"));
 
-  const int contents_container_y = browser_view()->main_container()->y() -
-                                   browser_view()->contents_container()->y();
+  const int contents_container_y = browser_view()->contents_container()->y();
 
   // The tabstrip, toolbar and bookmark bar should not be visible for hosted
   // apps.

@@ -122,6 +122,8 @@ using ::testing::AtLeast;
 using ::testing::ElementsAre;
 using ::testing::Mock;
 using ::testing::Pointee;
+using ::testing::Pointer;
+using ::testing::Pointwise;
 using ::testing::Property;
 using ::testing::Range;
 using ::testing::Return;
@@ -152,6 +154,10 @@ struct TestFrameData : public LayerTreeHostImpl::FrameData {
 void ClearMainThreadDeltasForTesting(LayerTreeHostImpl* host) {
   host->active_tree()->ApplySentScrollAndScaleDeltasFromAbortedCommit(
       /* next_bmf */ false, /* main_frame_applied_deltas */ false);
+}
+
+MATCHER(UniquePtrMatches, negation ? "do not match" : "match") {
+  return std::get<0>(arg).get() == std::get<1>(arg);
 }
 
 }  // namespace
@@ -7188,6 +7194,7 @@ struct PrepareToDrawSuccessTestCase {
   };
 
   bool high_res_required = false;
+  bool has_view_transition_save_directive = false;
   State layer_before;
   State layer_between;
   State layer_after;
@@ -7282,6 +7289,11 @@ TEST_P(LayerTreeHostImplPrepareToDrawTest, PrepareToDrawSucceedsAndFails) {
   cases.back().layer_between.has_missing_tile = true;
   cases.back().layer_before.has_missing_tile = true;
   cases.back().layer_before.is_animating = true;
+  // 17. checkerboarded animated content with a view transition save directive.
+  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
+  cases.back().has_view_transition_save_directive = true;
+  cases.back().layer_between.has_missing_tile = true;
+  cases.back().layer_between.is_animating = true;
 
   auto* root = SetupRootLayer<DidDrawCheckLayer>(host_impl_->active_tree(),
                                                  gfx::Size(10, 10));
@@ -7303,6 +7315,14 @@ TEST_P(LayerTreeHostImplPrepareToDrawTest, PrepareToDrawSucceedsAndFails) {
     CreateLayerFromState(root, timeline(), testcase.layer_between);
     CreateLayerFromState(root, timeline(), testcase.layer_after);
     UpdateDrawProperties(host_impl_->active_tree());
+
+    if (testcase.has_view_transition_save_directive) {
+      host_impl_->active_tree()->AddViewTransitionRequest(
+          ViewTransitionRequest::CreateCapture(
+              blink::ViewTransitionToken(), false, {},
+              base::DoNothingAs<void(
+                  const viz::ViewTransitionElementResourceRects&)>()));
+    }
 
     if (testcase.high_res_required)
       host_impl_->SetRequiresHighResToDraw();
@@ -13253,7 +13273,7 @@ TEST_P(LayerTreeHostImplTest, OnMemoryPressure) {
       host_impl_->resource_pool()->GetTotalMemoryUsageForTesting();
 
   base::MemoryPressureListener::SimulatePressureNotificationAsync(
-      base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL);
+      base::MEMORY_PRESSURE_LEVEL_CRITICAL);
   base::RunLoop().RunUntilIdle();
 
   size_t memory_usage_after_memory_pressure =
@@ -14493,10 +14513,9 @@ TEST_P(LayerTreeHostImplTest, SingleGSUForScrollbarThumbDragPerFrame) {
   scrollbar->SetTrackRect(gfx::Rect(0, 15, 15, 575));
 
   // Set up scrollbar arrows.
-  scrollbar->SetBackButtonRect(
-      gfx::Rect(gfx::Point(345, 0), gfx::Size(15, 15)));
+  scrollbar->SetBackButtonRect(gfx::Rect(gfx::Point(0, 0), gfx::Size(15, 15)));
   scrollbar->SetForwardButtonRect(
-      gfx::Rect(gfx::Point(345, 570), gfx::Size(15, 15)));
+      gfx::Rect(gfx::Point(0, 570), gfx::Size(15, 15)));
 
   scrollbar->SetOffsetToTransformParent(gfx::Vector2dF(345, 0));
   layer_tree_impl->UpdateAllScrollbarGeometriesForTesting();
@@ -14704,10 +14723,9 @@ TEST_P(LayerTreeHostImplTest, AutoscrollTaskAbort) {
   scrollbar->SetTrackRect(gfx::Rect(0, 15, 15, 575));
 
   // Set up scrollbar arrows.
-  scrollbar->SetBackButtonRect(
-      gfx::Rect(gfx::Point(345, 0), gfx::Size(15, 15)));
+  scrollbar->SetBackButtonRect(gfx::Rect(gfx::Point(0, 0), gfx::Size(15, 15)));
   scrollbar->SetForwardButtonRect(
-      gfx::Rect(gfx::Point(345, 570), gfx::Size(15, 15)));
+      gfx::Rect(gfx::Point(0, 570), gfx::Size(15, 15)));
   scrollbar->SetOffsetToTransformParent(gfx::Vector2dF(345, 0));
 
   TestInputHandlerClient input_handler_client;
@@ -14776,10 +14794,9 @@ TEST_P(LayerTreeHostImplTest, JumpOnScrollbarClick) {
   scrollbar->SetTrackRect(gfx::Rect(0, 15, 15, 575));
 
   // Set up scrollbar arrows.
-  scrollbar->SetBackButtonRect(
-      gfx::Rect(gfx::Point(345, 0), gfx::Size(15, 15)));
+  scrollbar->SetBackButtonRect(gfx::Rect(gfx::Point(0, 0), gfx::Size(15, 15)));
   scrollbar->SetForwardButtonRect(
-      gfx::Rect(gfx::Point(345, 570), gfx::Size(15, 15)));
+      gfx::Rect(gfx::Point(0, 570), gfx::Size(15, 15)));
 
   scrollbar->SetOffsetToTransformParent(gfx::Vector2dF(345, 0));
   layer_tree_impl->UpdateAllScrollbarGeometriesForTesting();
@@ -14851,11 +14868,11 @@ TEST_P(LayerTreeHostImplTest, JumpOnScrollbarClick) {
   host_impl_ = nullptr;
 }
 
-// Tests that a thumb drag continues to function as expected after a jump click.
-// The functionality of thumb drag itself is pretty well tested. So all that
-// this test needs to verify is that the thumb drag_state_ is correctly
-// populated.
-TEST_P(LayerTreeHostImplTest, ThumbDragAfterJumpClick) {
+// Tests that a thumb drag continues to function as expected after a jump click
+// or thumb click. The functionality of thumb drag itself is pretty well tested.
+// So all that this test needs to verify is that the thumb drag_state_ is
+// correctly populated.
+TEST_P(LayerTreeHostImplTest, ThumbDragAfterJumpClickOrThumbClick) {
   LayerTreeSettings settings = DefaultSettings();
   CreateHostImpl(settings, CreateLayerTreeFrameSink());
 
@@ -14884,10 +14901,9 @@ TEST_P(LayerTreeHostImplTest, ThumbDragAfterJumpClick) {
   scrollbar->SetTrackRect(gfx::Rect(0, 15, 15, 575));
 
   // Set up scrollbar arrows.
-  scrollbar->SetBackButtonRect(
-      gfx::Rect(gfx::Point(345, 0), gfx::Size(15, 15)));
+  scrollbar->SetBackButtonRect(gfx::Rect(gfx::Point(0, 0), gfx::Size(15, 15)));
   scrollbar->SetForwardButtonRect(
-      gfx::Rect(gfx::Point(345, 570), gfx::Size(15, 15)));
+      gfx::Rect(gfx::Point(0, 570), gfx::Size(15, 15)));
 
   scrollbar->SetOffsetToTransformParent(gfx::Vector2dF(345, 0));
   layer_tree_impl->UpdateAllScrollbarGeometriesForTesting();
@@ -14896,6 +14912,9 @@ TEST_P(LayerTreeHostImplTest, ThumbDragAfterJumpClick) {
   GetInputHandler().BindToClient(&input_handler_client);
 
   {
+    // Test thumb drag after jump click
+
+    scrollbar->SetJumpOnTrackClick(false);
     EXPECT_FALSE(GetInputHandler()
                      .scrollbar_controller_for_testing()
                      ->drag_state_.has_value());
@@ -14907,7 +14926,7 @@ TEST_P(LayerTreeHostImplTest, ThumbDragAfterJumpClick) {
 
     // This verifies that the jump click took place as expected.
     EXPECT_EQ(0, result.scroll_delta.x());
-    EXPECT_FLOAT_EQ(result.scroll_delta.y(), 243.80952f);
+    EXPECT_FLOAT_EQ(result.scroll_delta.y(), 3169.5239f);
 
     // This verifies that the drag_state_ was initialized when a jump click
     // occurred.
@@ -14922,10 +14941,83 @@ TEST_P(LayerTreeHostImplTest, ThumbDragAfterJumpClick) {
                         ->drag_state_->scroll_position_at_start_,
                     0.0f);
 
+    // Expect the drag origin to be at the center of the thumb.
     EXPECT_FLOAT_EQ(GetInputHandler()
                         .scrollbar_controller_for_testing()
                         ->drag_state_->drag_origin.y(),
                     15.0f + thumb_len / 2.0f);
+    GetInputHandler().scrollbar_controller_for_testing()->HandlePointerUp(
+        gfx::PointF(350, 560));
+  }
+
+  {
+    // Test thumb drag after click on thumb
+
+    scrollbar->SetJumpOnTrackClick(false);
+    EXPECT_FALSE(GetInputHandler()
+                     .scrollbar_controller_for_testing()
+                     ->drag_state_.has_value());
+
+    // Perform a pointerdown on the thumb part.
+    const InputHandlerPointerResult result =
+        GetInputHandler().scrollbar_controller_for_testing()->HandlePointerDown(
+            gfx::PointF(350, 60), /*jump_key_modifier*/ true);
+
+    // This verifies that the pointerdown on the thumb did not cause any jump
+    EXPECT_EQ(0, result.scroll_delta.x());
+    EXPECT_EQ(0, result.scroll_delta.y());
+
+    // This verifies that the drag_state_ was initialized when click
+    // on thumb.
+    EXPECT_TRUE(GetInputHandler()
+                    .scrollbar_controller_for_testing()
+                    ->drag_state_.has_value());
+
+    // This verifies that the start/snap-back position is the scroll position
+    // before any jump-click
+    EXPECT_FLOAT_EQ(GetInputHandler()
+                        .scrollbar_controller_for_testing()
+                        ->drag_state_->scroll_position_at_start_,
+                    0.0f);
+
+    // Expect the drag origin to be at the point of pointerdown.
+    EXPECT_FLOAT_EQ(GetInputHandler()
+                        .scrollbar_controller_for_testing()
+                        ->drag_state_->drag_origin.y(),
+                    60.0f);
+    GetInputHandler().scrollbar_controller_for_testing()->HandlePointerUp(
+        gfx::PointF(350, 60));
+  }
+
+  {
+    // This test verifies that clicking on parts other than the track(jump
+    // click) or thumb does not trigger a thumb drag.
+
+    scrollbar->SetJumpOnTrackClick(false);
+    EXPECT_FALSE(GetInputHandler()
+                     .scrollbar_controller_for_testing()
+                     ->drag_state_.has_value());
+
+    // Perform a pointerdown on the button part to induce scroll.
+    const InputHandlerPointerResult result =
+        GetInputHandler().scrollbar_controller_for_testing()->HandlePointerDown(
+            gfx::PointF(350, 580), /*jump_key_modifier*/ true);
+
+    // This verifies that the scroll took place as expected, i.e. the click was
+    // handled.
+    EXPECT_EQ(0, result.scroll_delta.x());
+    EXPECT_EQ(result.scroll_delta.y(),
+              kPixelsPerLineStep * GetInputHandler()
+                                       .scrollbar_controller_for_testing()
+                                       ->ScreenSpaceScaleFactor());
+
+    // This verifies that the drag_state_ was not initialized although the
+    // click was handled.
+    EXPECT_FALSE(GetInputHandler()
+                     .scrollbar_controller_for_testing()
+                     ->drag_state_.has_value());
+    GetInputHandler().scrollbar_controller_for_testing()->HandlePointerUp(
+        gfx::PointF(350, 580));
   }
 
   // Tear down the LayerTreeHostImpl before the InputHandlerClient.
@@ -14963,10 +15055,9 @@ TEST_P(LayerTreeHostImplTest, AbortAnimatedScrollBeforeStartingAutoscroll) {
   scrollbar->SetTrackRect(gfx::Rect(0, 15, 15, 575));
 
   // Set up scrollbar arrows.
-  scrollbar->SetBackButtonRect(
-      gfx::Rect(gfx::Point(345, 0), gfx::Size(15, 15)));
+  scrollbar->SetBackButtonRect(gfx::Rect(gfx::Point(0, 0), gfx::Size(15, 15)));
   scrollbar->SetForwardButtonRect(
-      gfx::Rect(gfx::Point(345, 570), gfx::Size(15, 15)));
+      gfx::Rect(gfx::Point(0, 570), gfx::Size(15, 15)));
   scrollbar->SetOffsetToTransformParent(gfx::Vector2dF(345, 0));
 
   TestInputHandlerClient input_handler_client;
@@ -15052,10 +15143,9 @@ TEST_P(LayerTreeHostImplTest, AnimatedScrollYielding) {
   scrollbar->SetTrackRect(gfx::Rect(0, 15, 15, 575));
 
   // Set up scrollbar arrows.
-  scrollbar->SetBackButtonRect(
-      gfx::Rect(gfx::Point(345, 0), gfx::Size(15, 15)));
+  scrollbar->SetBackButtonRect(gfx::Rect(gfx::Point(0, 0), gfx::Size(15, 15)));
   scrollbar->SetForwardButtonRect(
-      gfx::Rect(gfx::Point(345, 570), gfx::Size(15, 15)));
+      gfx::Rect(gfx::Point(0, 570), gfx::Size(15, 15)));
   scrollbar->SetOffsetToTransformParent(gfx::Vector2dF(345, 0));
 
   TestInputHandlerClient input_handler_client;
@@ -15156,10 +15246,9 @@ TEST_P(LayerTreeHostImplTest, ThumbDragScrollerLengthIncrease) {
   scrollbar->SetTrackRect(gfx::Rect(0, 15, 15, 575));
 
   // Set up scrollbar arrows.
-  scrollbar->SetBackButtonRect(
-      gfx::Rect(gfx::Point(345, 0), gfx::Size(15, 15)));
+  scrollbar->SetBackButtonRect(gfx::Rect(gfx::Point(0, 0), gfx::Size(15, 15)));
   scrollbar->SetForwardButtonRect(
-      gfx::Rect(gfx::Point(345, 570), gfx::Size(15, 15)));
+      gfx::Rect(gfx::Point(0, 570), gfx::Size(15, 15)));
 
   scrollbar->SetOffsetToTransformParent(gfx::Vector2dF(345, 0));
   layer_tree_impl->UpdateAllScrollbarGeometriesForTesting();
@@ -17278,7 +17367,7 @@ TEST_P(TreesInVizServerLayerTreeHostImplTest,
   EXPECT_EQ(DrawResult::kSuccess, host_impl_->PrepareToDraw(&frame));
 
   // This function sets the metadata timestamps from FrameData.
-  host_impl_->DrawLayers(&frame);
+  std::optional<SubmitInfo> submit_info = host_impl_->DrawLayers(&frame);
 
   auto* fake_layer_tree_frame_sink =
       static_cast<FakeLayerTreeFrameSink*>(host_impl_->layer_tree_frame_sink());
@@ -17292,7 +17381,9 @@ TEST_P(TreesInVizServerLayerTreeHostImplTest,
             metadata.trees_in_viz_timing_details.start_prepare_to_draw);
   EXPECT_EQ(frame.trees_in_viz_timing_details->start_draw_layers,
             metadata.trees_in_viz_timing_details.start_draw_layers);
-  EXPECT_EQ(frame.trees_in_viz_timing_details->submit_compositor_frame,
+  // This timestamp is set inside DrawLayers, so it should be
+  // equat to submit info submit time.
+  EXPECT_EQ(submit_info.value().time,
             metadata.trees_in_viz_timing_details.submit_compositor_frame);
 }
 
@@ -19454,10 +19545,73 @@ TEST_P(LayerTreeHostImplTest, VisbilityUpdateToLayers) {
   EXPECT_TRUE(layer->has_been_in_invisible_layer_tree());
 }
 
-TEST_P(LayerTreeHostImplTest, DidNotProduceFramePreservesMetricsForScrollEnds) {
+struct PreservationTestCase {
+  enum class Preserve {
+    kAllMetrics,
+    kScrollUpdatesAndEndsOnly,
+  };
+  std::string test_name;
+  bool enable_feature;
+  FrameSkippedReason reason;
+  Preserve should_preserve;
+  bool should_metrics_cause_frame_update;
+};
+
+class LayerTreeHostImplEventMetricPreservationTest
+    : public LayerTreeHostImplTestBase,
+      public testing::WithParamInterface<PreservationTestCase> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    LayerTreeHostImplEventMetricPreservationTest,
+    LayerTreeHostImplEventMetricPreservationTest,
+    testing::ValuesIn<PreservationTestCase>({
+        // If `features::kDropMetricsFromNonProducedFramesOnlyIfTheyHadNoDamage`
+        // is disabled, `LayerTreeHostImpl::DidNotProduceFrame()` should NEVER
+        // preserve all metrics (regardless of the reason why the frame wasn't
+        // produced). It should always preserve only GSUs/GSEs.
+        {.test_name = "FeatureDisabledWaitingOnMain",
+         .enable_feature = false,
+         .reason = FrameSkippedReason::kWaitingOnMain,
+         .should_preserve =
+             PreservationTestCase::Preserve::kScrollUpdatesAndEndsOnly,
+         .should_metrics_cause_frame_update = false},
+        {.test_name = "FeatureDisabledNoDamage",
+         .enable_feature = false,
+         .reason = FrameSkippedReason::kNoDamage,
+         .should_preserve =
+             PreservationTestCase::Preserve::kScrollUpdatesAndEndsOnly,
+         .should_metrics_cause_frame_update = false},
+        // If `features::kDropMetricsFromNonProducedFramesOnlyIfTheyHadNoDamage`
+        // is enabled, `LayerTreeHostImpl::DidNotProduceFrame()` should
+        // preserve all metrics UNLESS the frame wasn't produced because there
+        // was no damage, in which case it should preserve only GSUs/GSEs.
+        {.test_name = "FeatureEnabledWaitingOnMain",
+         .enable_feature = true,
+         .reason = FrameSkippedReason::kWaitingOnMain,
+         .should_preserve = PreservationTestCase::Preserve::kAllMetrics,
+         .should_metrics_cause_frame_update = true},
+        {.test_name = "FeatureEnabledNoDamage",
+         .enable_feature = true,
+         .reason = FrameSkippedReason::kNoDamage,
+         .should_preserve =
+             PreservationTestCase::Preserve::kScrollUpdatesAndEndsOnly,
+         .should_metrics_cause_frame_update = false},
+    }),
+    [](const testing::TestParamInfo<
+        LayerTreeHostImplEventMetricPreservationTest::ParamType>& info) {
+      return info.param.test_name;
+    });
+
+TEST_P(LayerTreeHostImplEventMetricPreservationTest, PreserveMetrics) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatureState(
+      features::kDropMetricsFromNonProducedFramesOnlyIfTheyHadNoDamage,
+      GetParam().enable_feature);
   SetupViewportLayersInnerScrolls(gfx::Size(50, 50), gfx::Size(100, 100));
 
-  // Frame 1 which emits GSU and GSE metrics but doesn't end up being produced.
+  std::vector<EventMetrics*> expected_preserved_metrics_ptrs;
+
+  // Frame 1 which emits multiple metrics but doesn't end up being produced.
   {
     TestFrameData frame;
     auto args = viz::CreateBeginFrameArgsForTesting(
@@ -19467,14 +19621,13 @@ TEST_P(LayerTreeHostImplTest, DidNotProduceFramePreservesMetricsForScrollEnds) {
 
     base::SimpleTestTickClock tick_clock;
     auto metrics_array = std::to_array<std::unique_ptr<EventMetrics>>(
-        {ScrollEventMetrics::CreateForTesting(
-             ui::EventType::kGestureScrollEnd,
-             ui::ScrollInputType::kTouchscreen,
-             /* is_inertial= */ false,
+        {EventMetrics::CreateForTesting(
+             ui::EventType::kTouchMoved,
              /* timestamp= */ base::TimeTicks() + base::Milliseconds(11),
              /* arrived_in_browser_main_timestamp= */ base::TimeTicks() +
                  base::Milliseconds(12),
-             &tick_clock),
+             &tick_clock,
+             /* trace_id= */ std::nullopt),
          ScrollUpdateEventMetrics::CreateForTesting(
              ui::EventType::kGestureScrollUpdate,
              ui::ScrollInputType::kTouchscreen, /* is_inertial= */ false,
@@ -19484,14 +19637,43 @@ TEST_P(LayerTreeHostImplTest, DidNotProduceFramePreservesMetricsForScrollEnds) {
              /* arrived_in_browser_main_timestamp= */ base::TimeTicks() +
                  base::Milliseconds(14),
              &tick_clock,
-             /* trace_id= */ std::nullopt)});
+             /* trace_id= */ std::nullopt),
+         EventMetrics::CreateForTesting(
+             ui::EventType::kTouchReleased,
+             /* timestamp= */ base::TimeTicks() + base::Milliseconds(15),
+             /* arrived_in_browser_main_timestamp= */ base::TimeTicks() +
+                 base::Milliseconds(16),
+             &tick_clock,
+             /* trace_id= */ std::nullopt),
+         ScrollEventMetrics::CreateForTesting(
+             ui::EventType::kGestureScrollEnd,
+             ui::ScrollInputType::kTouchscreen,
+             /* is_inertial= */ false,
+             /* timestamp= */ base::TimeTicks() + base::Milliseconds(17),
+             /* arrived_in_browser_main_timestamp= */ base::TimeTicks() +
+                 base::Milliseconds(18),
+             &tick_clock)});
+    switch (GetParam().should_preserve) {
+      case PreservationTestCase::Preserve::kAllMetrics:
+        std::transform(metrics_array.cbegin(), metrics_array.cend(),
+                       std::back_inserter(expected_preserved_metrics_ptrs),
+                       [](const auto& metrics) { return metrics.get(); });
+        break;
+      case PreservationTestCase::Preserve::kScrollUpdatesAndEndsOnly:
+        expected_preserved_metrics_ptrs.push_back(metrics_array[1].get());
+        expected_preserved_metrics_ptrs.push_back(metrics_array[3].get());
+    }
     for (auto& metrics : metrics_array) {
       EXPECT_NE(metrics, nullptr);
       auto scoped_monitor =
           host_impl_->GetScopedEventMetricsMonitor(base::BindOnce(
               [](std::unique_ptr<EventMetrics> metrics, bool handled) {
+                bool keep_metrics =
+                    handled ||
+                    EventMetrics::ShouldKeepEvenWithoutCausingFrameUpdate(
+                        metrics->type());
                 std::unique_ptr<EventMetrics> result =
-                    handled ? std::move(metrics) : nullptr;
+                    keep_metrics ? std::move(metrics) : nullptr;
                 return result;
               },
               std::move(metrics)));
@@ -19499,15 +19681,10 @@ TEST_P(LayerTreeHostImplTest, DidNotProduceFramePreservesMetricsForScrollEnds) {
     }
 
     host_impl_->DidFinishImplFrame(args);
-    host_impl_->DidNotProduceFrame(viz::BeginFrameAck(),
-                                   FrameSkippedReason::kNoDamage);
+    host_impl_->DidNotProduceFrame(viz::BeginFrameAck(), GetParam().reason);
   }
 
-  // Frame 2 should submit the GSE metrics from frame 1 so that Chrome would
-  // emit per-scroll jank metrics for the scroll that's just ended. However,
-  // frame 2 should NOT submit the GSU metrics from frame 1 because the GSU
-  // didn't cause any damage and thus shouldn't be associated with any frame for
-  // the purposes of measuring scroll jank.
+  // Frame 2 should submit metrics from frame 1.
   {
     TestFrameData frame;
     auto args = viz::CreateBeginFrameArgsForTesting(
@@ -19518,8 +19695,10 @@ TEST_P(LayerTreeHostImplTest, DidNotProduceFramePreservesMetricsForScrollEnds) {
     std::optional<SubmitInfo> submit_info = host_impl_->DrawLayers(&frame);
     EXPECT_THAT(
         submit_info->events_metrics.impl_event_metrics,
-        ElementsAre(Pointee(Property(
-            &EventMetrics::type, EventMetrics::EventType::kGestureScrollEnd))));
+        AllOf(Pointwise(UniquePtrMatches(), expected_preserved_metrics_ptrs),
+              Each(Pointee(
+                  Property(&EventMetrics::caused_frame_update,
+                           GetParam().should_metrics_cause_frame_update)))));
   }
 }
 
@@ -19797,5 +19976,25 @@ TEST_P(ConcurrentSnapAnimationsTest, TrackAnimatingSnapTargetIds) {
   EXPECT_FALSE(snap_state_map.contains(container1_id_));
   EXPECT_FALSE(snap_state_map.contains(container2_id_));
 }
+
+class ElasticOverscrollTest : public LayerTreeHostImplTest {
+ public:
+  LayerTreeSettings DefaultSettings() override {
+    auto settings = LayerTreeHostImplTest::DefaultSettings();
+    settings.enable_elastic_overscroll = true;
+    return settings;
+  }
+};
+
+// Verifies destroying the scroll elasticity helper without a viewport scroll
+// node does not crash.
+TEST_P(ElasticOverscrollTest, ElasticOverscrollWithoutViewport) {
+  ASSERT_NE(nullptr,
+            host_impl_->GetInputHandler().CreateScrollElasticityHelper());
+
+  // Destroying the helper without a viewport should be a safe no-op.
+  host_impl_->GetInputHandler().DestroyScrollElasticityHelper();
+}
+INSTANTIATE_COMMIT_TO_TREE_TEST_P(ElasticOverscrollTest);
 
 }  // namespace cc

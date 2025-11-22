@@ -21,6 +21,7 @@
 #import "components/image_fetcher/core/image_fetcher.h"
 #import "components/image_fetcher/core/image_fetcher_service.h"
 #import "components/image_fetcher/core/request_metadata.h"
+#import "components/ntp_tiles/pref_names.h"
 #import "components/omnibox/browser/omnibox_prefs.h"
 #import "components/omnibox/common/omnibox_features.h"
 #import "components/prefs/ios/pref_observer_bridge.h"
@@ -46,7 +47,6 @@
 #import "ios/chrome/browser/home_customization/ui/home_customization_framing_coordinates.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_constants.h"
 #import "ios/chrome/browser/metrics/model/new_tab_page_uma.h"
-#import "ios/chrome/browser/ntp/model/new_tab_page_state.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/search_engine_logo/ui/search_engine_logo_state.h"
 #import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_constants.h"
@@ -406,31 +406,15 @@ const net::NetworkTrafficAnnotationTag kTrafficAnnotation =
   base::UmaHistogramBoolean("IOS.NTP.LandscapeMode", _wasNTPInLandscape);
 }
 
-- (void)saveNTPStateForWebState:(web::WebState*)webState {
-  NewTabPageState* NTPState = [[NewTabPageState alloc]
-      initWithScrollPosition:self.scrollPositionToSave
-                selectedFeed:[self.feedControlDelegate selectedFeed]
-       followingFeedSortType:[self.feedControlDelegate followingFeedSortType]];
-  self.feedMetricsRecorder.NTPState = NTPState;
-  NewTabPageTabHelper::FromWebState(webState)->SetNTPState(NTPState);
+- (void)saveNTPScrollPositionForWebState:(web::WebState*)webState {
+  NewTabPageTabHelper::FromWebState(webState)->SetNTPScrollPosition(
+      self.scrollPositionToSave);
 }
 
-- (void)restoreNTPStateForWebState:(web::WebState*)webState {
-  NewTabPageState* NTPState =
-      NewTabPageTabHelper::FromWebState(webState)->GetNTPState();
-  self.feedMetricsRecorder.NTPState = NTPState;
-  if ([self.feedControlDelegate isFollowingFeedAvailable]) {
-    [self.NTPContentDelegate updateForSelectedFeed:NTPState.selectedFeed];
-  }
-
-  if (NTPState.shouldScrollToTopOfFeed) {
-    [self.consumer restoreScrollPositionToTopOfFeed];
-    // Prevent next NTP from being scrolled to the top of feed.
-    NTPState.shouldScrollToTopOfFeed = NO;
-    NewTabPageTabHelper::FromWebState(webState)->SetNTPState(NTPState);
-  } else {
-    [self.consumer restoreScrollPosition:NTPState.scrollPosition];
-  }
+- (void)restoreNTPScrollPositionForWebState:(web::WebState*)webState {
+  [self.consumer
+      restoreScrollPosition:NewTabPageTabHelper::FromWebState(webState)
+                                ->GetNTPScrollPosition()];
 }
 
 - (void)setPlaceholderService:(PlaceholderService*)placeholderService {
@@ -503,7 +487,7 @@ const net::NetworkTrafficAnnotationTag kTrafficAnnotation =
 }
 
 - (void)onExtendedAccountInfoUpdated:(const AccountInfo&)info {
-  if (info.gaia != GaiaId(_signedInIdentity.gaiaID)) {
+  if (info.gaia != _signedInIdentity.gaiaId) {
     return;
   }
   [self updateAccountImage];
@@ -538,9 +522,9 @@ const net::NetworkTrafficAnnotationTag kTrafficAnnotation =
 #pragma mark - PrefObserverDelegate
 
 - (void)onPreferenceChanged:(const std::string&)preferenceName {
-  // Handle customization prefs
-  if (preferenceName == prefs::kHomeCustomizationMostVisitedEnabled ||
-      preferenceName == prefs::kHomeCustomizationMagicStackEnabled) {
+  // Handle customization prefs.
+  if (preferenceName == ntp_tiles::prefs::kMostVisitedHomeModuleEnabled ||
+      preferenceName == ntp_tiles::prefs::kMagicStackHomeModuleEnabled) {
     [self updateModuleVisibilityForConsumer];
     [self.NTPContentDelegate updateModuleVisibility];
   }
@@ -594,9 +578,9 @@ const net::NetworkTrafficAnnotationTag kTrafficAnnotation =
 // Updates the consumer with the current visibility of the NTP modules.
 - (void)updateModuleVisibilityForConsumer {
   self.consumer.mostVisitedVisible =
-      _prefService->GetBoolean(prefs::kHomeCustomizationMostVisitedEnabled);
+      _prefService->GetBoolean(ntp_tiles::prefs::kMostVisitedHomeModuleEnabled);
   self.consumer.magicStackVisible =
-      _prefService->GetBoolean(prefs::kHomeCustomizationMagicStackEnabled);
+      _prefService->GetBoolean(ntp_tiles::prefs::kMagicStackHomeModuleEnabled);
 }
 
 // Starts observing some prefs.
@@ -607,9 +591,11 @@ const net::NetworkTrafficAnnotationTag kTrafficAnnotation =
 
   // Observe customization prefs.
   _prefObserverBridge->ObserveChangesForPreference(
-      prefs::kHomeCustomizationMostVisitedEnabled, _prefChangeRegistrar.get());
+      ntp_tiles::prefs::kMostVisitedHomeModuleEnabled,
+      _prefChangeRegistrar.get());
   _prefObserverBridge->ObserveChangesForPreference(
-      prefs::kHomeCustomizationMagicStackEnabled, _prefChangeRegistrar.get());
+      ntp_tiles::prefs::kMagicStackHomeModuleEnabled,
+      _prefChangeRegistrar.get());
 }
 
 - (void)updateAccountErrorBadge {

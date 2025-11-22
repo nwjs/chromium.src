@@ -194,7 +194,7 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
   RuleIndexList* PseudoCSSRulesForElement(
       Element*,
       PseudoId,
-      const AtomicString& view_transition_name,
+      const AtomicString& pseudo_argument,
       unsigned rules_to_include = kAllCSSRules);
   // Note that StyleRulesForElement will behave as if all links are
   // unvisited; the :visited pseudo-class will never match.
@@ -203,9 +203,9 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
       Element*,
       PseudoId);
 
-  Element* FindContainerForElement(Element*,
-                                   const ContainerSelector&,
-                                   const TreeScope* selector_tree_scope);
+  static Element* FindContainerForElement(Element*,
+                                          const ContainerSelector&,
+                                          const TreeScope* selector_tree_scope);
 
   Font* ComputeFont(Element&, const ComputedStyle&, const CSSPropertyValueSet&);
 
@@ -323,7 +323,7 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
   void CollectPseudoRulesForElement(const Element&,
                                     ElementRuleCollector&,
                                     PseudoId,
-                                    const AtomicString& view_transition_name,
+                                    const AtomicString& pseudo_argument,
                                     unsigned rules_to_include);
   void MatchUARules(const Element&, ElementRuleCollector&);
   void MatchUserRules(ElementRuleCollector&);
@@ -398,9 +398,8 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
 
   MatchedPropertiesCache matched_properties_cache_;
 
-  // Both these members are on a hot-path for creating ComputedStyle objects.
+  // This member is on a hot-path for creating ComputedStyle objects.
   const subtle::UncompressedMember<const ComputedStyle> initial_style_;
-  const subtle::UncompressedMember<const ComputedStyle> initial_style_for_img_;
   SelectorFilter selector_filter_;
 
   // Micro 1-element cache.

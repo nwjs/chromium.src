@@ -12,7 +12,6 @@
 #include "gpu/ipc/client/gpu_channel_host.h"
 #include "gpu/ipc/common/command_buffer_id.h"
 #include "mojo/public/cpp/bindings/sync_call_restrictions.h"
-#include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/buffer_types.h"
 #include "ui/gfx/gpu_fence.h"
 
@@ -282,7 +281,9 @@ void SharedImageInterfaceProxy::UpdateSharedImage(
                   d3d_shared_fence->GetFenceValue()))),
       std::move(dependencies), /*release_count=*/0);
 }
+#endif  // BUILDFLAG(IS_WIN)
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
 void SharedImageInterfaceProxy::CopyNativeGmbToSharedMemoryAsync(
     gfx::GpuMemoryBufferHandle buffer_handle,
     base::UnsafeSharedMemoryRegion memory_region,
@@ -290,7 +291,7 @@ void SharedImageInterfaceProxy::CopyNativeGmbToSharedMemoryAsync(
   host_->CopyNativeGmbToSharedMemoryAsync(
       std::move(buffer_handle), std::move(memory_region), std::move(callback));
 }
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
 
 void SharedImageInterfaceProxy::UpdateSharedImage(const SyncToken& sync_token,
                                                   const Mailbox& mailbox) {
@@ -388,6 +389,22 @@ void SharedImageInterfaceProxy::VerifySyncToken(SyncToken& sync_token) {
   // Force a synchronous IPC to validate sync token.
   host_->VerifyFlush(UINT32_MAX);
   sync_token.SetVerifyFlush();
+}
+
+bool SharedImageInterfaceProxy::CanVerifySyncToken(
+    const gpu::SyncToken& sync_token) {
+  // Can only wait on an unverified sync token if it is from the same channel.
+  int sync_token_channel_id =
+      ChannelIdFromCommandBufferId(sync_token.command_buffer_id());
+  if (sync_token.namespace_id() != gpu::CommandBufferNamespace::GPU_IO ||
+      sync_token_channel_id != host_->channel_id()) {
+    return false;
+  }
+  return true;
+}
+
+void SharedImageInterfaceProxy::VerifyFlush() {
+  host_->VerifyFlush(UINT32_MAX);
 }
 
 void SharedImageInterfaceProxy::WaitSyncToken(const SyncToken& sync_token) {

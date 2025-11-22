@@ -602,7 +602,7 @@ ChromeExtensionsBrowserClient::CreateUpdateClient(
   std::optional<GURL> override_url;
   GURL update_url = extension_urls::GetWebstoreUpdateUrl();
   if (update_url != extension_urls::GetDefaultWebstoreUpdateUrl()) {
-    if (update_url.path() == kCrxUrlPath) {
+    if (update_url.GetPath() == kCrxUrlPath) {
       override_url = update_url.GetWithEmptyPath().Resolve(kJsonUrlPath);
     } else {
       override_url = update_url;
@@ -885,6 +885,32 @@ bool ChromeExtensionsBrowserClient::HasControlledFrameCapability(
              ->GetContentSetting(url, url,
                                  content_settings::mojom::ContentSettingsType::
                                      CONTROLLED_FRAME) == CONTENT_SETTING_ALLOW;
+}
+
+void ChromeExtensionsBrowserClient::CheckManagementPolicy(
+    content::BrowserContext* context) {
+  ExtensionSystem::Get(context)->extension_service()->CheckManagementPolicy();
+}
+
+bool ChromeExtensionsBrowserClient::IsForceInstalledInLowTrustEnvironment(
+    content::BrowserContext* context,
+    const Extension& extension) {
+  return ExtensionManagementFactory::GetForBrowserContext(context)
+      ->IsForceInstalledInLowTrustEnvironment(extension);
+}
+
+bool ChromeExtensionsBrowserClient::IsInstallationExplicitlyAllowed(
+    content::BrowserContext* context,
+    const ExtensionId& id) {
+  return ExtensionManagementFactory::GetForBrowserContext(context)
+      ->IsInstallationExplicitlyAllowed(id);
+}
+
+bool ChromeExtensionsBrowserClient::UpdatesFromWebstore(
+    content::BrowserContext* context,
+    const Extension& extension) {
+  return ExtensionManagementFactory::GetForBrowserContext(context)
+      ->UpdatesFromWebstore(extension);
 }
 
 // static

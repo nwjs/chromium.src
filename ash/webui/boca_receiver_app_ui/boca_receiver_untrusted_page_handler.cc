@@ -10,6 +10,7 @@
 #include <string_view>
 #include <utility>
 
+#include "ash/webui/boca_receiver_app_ui/audio_packet_converter.h"
 #include "ash/webui/boca_receiver_app_ui/mojom/boca_receiver.mojom-data-view.h"
 #include "ash/webui/boca_receiver_app_ui/mojom/boca_receiver.mojom.h"
 #include "ash/webui/boca_receiver_app_ui/url_constants.h"
@@ -18,6 +19,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "chromeos/ash/components/boca/boca_request.h"
+#include "chromeos/ash/components/boca/invalidations/fcm_handler.h"
 #include "chromeos/ash/components/boca/invalidations/invalidation_service_impl.h"
 #include "chromeos/ash/components/boca/proto/receiver.pb.h"
 #include "chromeos/ash/components/boca/proto/roster.pb.h"
@@ -31,6 +33,7 @@
 #include "google_apis/common/request_sender.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
+#include "remoting/proto/audio.pb.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/webrtc/modules/desktop_capture/desktop_frame.h"
 
@@ -57,6 +60,13 @@ CreateUpdateReceiverStateRequestDelegate(
       receiver_id, connection_id, connection_state, std::move(callback));
 }
 
+std::unique_ptr<boca::BocaRequest::Delegate> CreateRegistrationRequestSender(
+    const std::string& fcm_token,
+    RegisterReceiverRequest::ResponseCallback callback) {
+  return std::make_unique<RegisterReceiverRequest>(fcm_token,
+                                                   std::move(callback));
+}
+
 }  // namespace
 
 BocaReceiverUntrustedPageHandler::BocaReceiverUntrustedPageHandler(
@@ -67,19 +77,21 @@ BocaReceiverUntrustedPageHandler::BocaReceiverUntrustedPageHandler(
     page_->OnInitReceiverError();
     return;
   }
+  fcm_handler()->AddListener(this);
+  fcm_handler()->AddTokenObserver(this);
   Init();
 }
 
 BocaReceiverUntrustedPageHandler::~BocaReceiverUntrustedPageHandler() {
-  if (invalidation_service_) {
-    invalidation_service_->ShutDown();
-  }
+  fcm_handler()->RemoveListener(this);
+  fcm_handler()->RemoveTokenObserver(this);
 }
 
-void BocaReceiverUntrustedPageHandler::UploadToken(
-    const std::string& fcm_token,
-    base::OnceCallback<void(bool)> on_token_uploaded_cb) {
-  Register(fcm_token, std::move(on_token_uploaded_cb));
+void BocaReceiverUntrustedPageHandler::OnFCMRegistrationTokenChanged() {
+  if (!fcm_handler()->GetFCMRegistrationToken().has_value()) {
+    return;
+  }
+  Register(fcm_handler()->GetFCMRegistrationToken().value());
 }
 
 void BocaReceiverUntrustedPageHandler::OnInvalidationReceived(
@@ -91,47 +103,38 @@ void BocaReceiverUntrustedPageHandler::OnInvalidationReceived(
 }
 
 void BocaReceiverUntrustedPageHandler::Init() {
-  invalidation_service_ = delegate_->CreateInvalidationService(this);
+  if (fcm_handler()->IsListening()) {
+    OnFCMRegistrationTokenChanged();
+    return;
+  }
+  fcm_handler()->StartListening();
 }
 
-std::unique_ptr<google_apis::RequestSender>
-BocaReceiverUntrustedPageHandler::SendRequest(
-    std::unique_ptr<boca::BocaRequest::Delegate> request_delegate,
-    const net::NetworkTrafficAnnotationTag& traffic_annotation) {
-  auto request_sender =
-      delegate_->CreateRequestSender(kRequesterId, traffic_annotation);
-  auto request = std::make_unique<boca::BocaRequest>(
-      request_sender.get(), std::move(request_delegate));
-  request_sender->StartRequestWithAuthRetry(std::move(request));
-  return request_sender;
-}
-
-void BocaReceiverUntrustedPageHandler::Register(
-    const std::string& fcm_token,
-    base::OnceCallback<void(bool)> on_done_cb) {
+void BocaReceiverUntrustedPageHandler::Register(const std::string& fcm_token) {
+  constexpr int kRegistrationMaxRetries = 5;
+  auto request_sender = delegate_->CreateRequestSender(
+      kRequesterId, RegisterReceiverRequest::kTrafficAnnotation);
+  registration_request_retriable_sender_ =
+      std::make_unique<RegistrationRequestSender>(std::move(request_sender),
+                                                  kRegistrationMaxRetries);
+  auto create_request_delegate_cb =
+      base::BindRepeating(&CreateRegistrationRequestSender, fcm_token);
   auto response_cb =
       base::BindOnce(&BocaReceiverUntrustedPageHandler::OnRegisterResponse,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(on_done_cb));
-  auto registration_request_delegate =
-      std::make_unique<RegisterReceiverRequest>(fcm_token,
-                                                std::move(response_cb));
-  registration_request_sender_ =
-      SendRequest(std::move(registration_request_delegate),
-                  RegisterReceiverRequest::kTrafficAnnotation);
+                     weak_ptr_factory_.GetWeakPtr());
+  registration_request_retriable_sender_->SendRequest(
+      std::move(create_request_delegate_cb), std::move(response_cb));
 }
 
 void BocaReceiverUntrustedPageHandler::OnRegisterResponse(
-    base::OnceCallback<void(bool)> on_done_cb,
     std::optional<std::string> receiver_id) {
   if (!receiver_id.has_value()) {
     page_->OnInitReceiverError();
-    std::move(on_done_cb).Run(false);
     return;
   }
   mojom::ReceiverInfoPtr receiver_info = mojom::ReceiverInfo::New();
   receiver_info->id = receiver_id.value();
   page_->OnInitReceiverInfo(std::move(receiver_info));
-  std::move(on_done_cb).Run(true);
   receiver_id_ = std::move(receiver_id.value());
   GetConnectionInfo();
 }
@@ -140,7 +143,7 @@ void BocaReceiverUntrustedPageHandler::UpdateConnection(
     const std::string& connection_id,
     ::boca::ReceiverConnectionState request_state) {
   CHECK(receiver_id_.has_value());
-  constexpr int kMaxRetries = 3;
+  constexpr int kUpdateMaxRetries = 3;
   // Use the same `update_connection_retriable_sender_` to avoid cancelling any
   // pending update requests.
   if (!update_connection_retriable_sender_) {
@@ -149,7 +152,7 @@ void BocaReceiverUntrustedPageHandler::UpdateConnection(
             kRequesterId, UpdateKioskReceiverStateRequest::kTrafficAnnotation);
     update_connection_retriable_sender_ =
         std::make_unique<UpdateReceiverStateRequestSender>(
-            std::move(request_sender), kMaxRetries);
+            std::move(request_sender), kUpdateMaxRetries);
   }
   auto create_request_delegate_cb =
       base::BindRepeating(&CreateUpdateReceiverStateRequestDelegate,
@@ -284,6 +287,9 @@ void BocaReceiverUntrustedPageHandler::MaybeStartConnection(
       base::BindRepeating(&BocaReceiverUntrustedPageHandler::OnCrdFrameReceived,
                           weak_ptr_factory_.GetWeakPtr()),
       base::BindRepeating(
+          &BocaReceiverUntrustedPageHandler::OnCrdAudioPacketReceived,
+          weak_ptr_factory_.GetWeakPtr()),
+      base::BindRepeating(
           &BocaReceiverUntrustedPageHandler::OnCrdConnectionStateUpdated,
           weak_ptr_factory_.GetWeakPtr()));
 }
@@ -329,6 +335,17 @@ void BocaReceiverUntrustedPageHandler::OnCrdFrameReceived(
                    ::boca::ReceiverConnectionState::CONNECTED);
 }
 
+void BocaReceiverUntrustedPageHandler::OnCrdAudioPacketReceived(
+    std::unique_ptr<remoting::AudioPacket> packet) {
+  boca_receiver::mojom::DecodedAudioPacketPtr mojom_packet =
+      ConvertAudioPacketToMojom(std::move(packet));
+  if (mojom_packet) {
+    page_->OnAudioPacket(std::move(mojom_packet));
+  } else {
+    LOG(ERROR) << "Dropping audio packet due to conversion failure.";
+  }
+}
+
 void BocaReceiverUntrustedPageHandler::OnCrdConnectionStateUpdated(
     boca::CrdConnectionState state) {
   switch (state) {
@@ -345,6 +362,10 @@ void BocaReceiverUntrustedPageHandler::OnCrdConnectionStateUpdated(
     case boca::CrdConnectionState::kConnected:
       break;
   }
+}
+
+boca::FCMHandler* BocaReceiverUntrustedPageHandler::fcm_handler() const {
+  return delegate_->GetFcmHandler();
 }
 
 }  // namespace ash::boca_receiver

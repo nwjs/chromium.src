@@ -38,12 +38,12 @@ import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
-import org.chromium.chrome.browser.theme.SurfaceColorUpdateUtils;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.top.TopToolbarCoordinator;
 import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderUtils;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
+import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.scrim.ScrimProperties;
 import org.chromium.ui.UiUtils;
 import org.chromium.ui.base.WindowAndroid;
@@ -151,7 +151,6 @@ public class StatusBarColorController
      * @param edgeToEdgeSystemBarColorHelper Draws status bar color for Edge to Edge.
      * @param desktopWindowStateManager Instance to retrieve desktop window information.
      * @param overviewColorSupplier Notifies when the overview color changes.
-     * @param supportEdgeToEdge Whether to support making NTPs edge-to-edge.
      */
     public StatusBarColorController(
             Window window,
@@ -164,8 +163,7 @@ public class StatusBarColorController
             TopUiThemeColorProvider topUiThemeColorProvider,
             EdgeToEdgeSystemBarColorHelper edgeToEdgeSystemBarColorHelper,
             @Nullable DesktopWindowStateManager desktopWindowStateManager,
-            ObservableSupplier<Integer> overviewColorSupplier,
-            boolean supportEdgeToEdge) {
+            ObservableSupplier<Integer> overviewColorSupplier) {
         mWindow = window;
         mIsTablet = isTablet;
         mStatusBarColorProvider = statusBarColorProvider;
@@ -173,14 +171,12 @@ public class StatusBarColorController
         mOverviewColorSupplier = overviewColorSupplier;
 
         mStandardDefaultThemeColor =
-                SurfaceColorUpdateUtils.getDefaultThemeColor(context, /* isIncognito= */ false);
+                ChromeColors.getDefaultThemeColor(context, /* isIncognito= */ false);
         mIncognitoDefaultThemeColor =
-                SurfaceColorUpdateUtils.getDefaultThemeColor(context, /* isIncognito= */ true);
-        var ntpCustomizationConfigManager = NtpCustomizationConfigManager.getInstance();
+                ChromeColors.getDefaultThemeColor(context, /* isIncognito= */ true);
+
         mBackgroundColorForNtp =
-                supportEdgeToEdge
-                        ? ntpCustomizationConfigManager.getBackgroundColor(context)
-                        : ContextCompat.getColor(context, R.color.home_surface_background_color);
+                ContextCompat.getColor(context, R.color.home_surface_background_color);
         mStatusIndicatorColor = UNDEFINED_STATUS_BAR_COLOR;
 
         // TODO(b/41494931): Share code with LocationBarCoordinator's constructor.
@@ -280,24 +276,35 @@ public class StatusBarColorController
             mIsTopResumedActivity = !mDesktopWindowStateManager.isInUnfocusedDesktopWindow();
         }
         mOverviewColorSupplier.addObserver(mOverviewColorObserver);
+    }
 
-        if (supportEdgeToEdge) {
-            mHomepageStateListener =
-                    new NtpCustomizationConfigManager.HomepageStateListener() {
-                        @Override
-                        public void onBackgroundColorChanged(
-                                int backgroundColor,
-                                boolean fromInitialization,
-                                @NtpBackgroundImageType int oldType,
-                                @NtpBackgroundImageType int newType) {
-                            if (mBackgroundColorForNtp == backgroundColor) return;
+    /**
+     * Initializes to support customized NTP's background color if supportEdgeToEdge is true.
+     *
+     * @param context The application context.
+     * @param supportEdgeToEdge Whether to support making NTPs edge-to-edge.
+     */
+    public void maybeInitializeForCustomizedNtp(Context context, boolean supportEdgeToEdge) {
+        if (!supportEdgeToEdge) return;
 
-                            mBackgroundColorForNtp = backgroundColor;
-                            updateStatusBarColor();
-                        }
-                    };
-            ntpCustomizationConfigManager.addListener(mHomepageStateListener);
-        }
+        var ntpCustomizationConfigManager = NtpCustomizationConfigManager.getInstance();
+        mBackgroundColorForNtp = ntpCustomizationConfigManager.getBackgroundColor(context);
+
+        mHomepageStateListener =
+                new NtpCustomizationConfigManager.HomepageStateListener() {
+                    @Override
+                    public void onBackgroundColorChanged(
+                            int backgroundColor,
+                            boolean fromInitialization,
+                            @NtpBackgroundImageType int oldType,
+                            @NtpBackgroundImageType int newType) {
+                        if (mBackgroundColorForNtp == backgroundColor) return;
+
+                        mBackgroundColorForNtp = backgroundColor;
+                        updateStatusBarColor();
+                    }
+                };
+        ntpCustomizationConfigManager.addListener(mHomepageStateListener, context);
     }
 
     // DestroyObserver implementation.

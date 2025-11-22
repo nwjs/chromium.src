@@ -38,6 +38,7 @@
 #include "content/public/browser/session_storage_namespace.h"
 #include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents_capability_type.h"
+#include "content/public/common/buildflags.h"
 #include "content/public/common/stop_find_action.h"
 #include "ipc/constants.mojom.h"
 #include "net/base/network_handle.h"
@@ -864,6 +865,13 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   // calls to IncrementCapturerCount().
   virtual bool IsBeingVisiblyCaptured() = 0;
 
+#if BUILDFLAG(IS_MAC) && BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
+  // Temporarily forbids this WebContents from using external popup menus for
+  // the lifetime of the returned ScopedClosureRunner. Nested calls are allowed.
+  [[nodiscard]] virtual base::ScopedClosureRunner
+  ForbidExternalPopupMenus() = 0;
+#endif  // BUILDFLAG(IS_MAC) && BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
+
   // Indicates/Sets whether all audio output from this WebContents is muted.
   // This does not affect audio capture, just local/system output.
   virtual bool IsAudioMuted() = 0;
@@ -1564,9 +1572,21 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   // alives.
   using WebInputEventAuditCallback =
       base::RepeatingCallback<bool(const blink::WebInputEvent&)>;
+  [[nodiscard]] inline ScopedIgnoreInputEvents IgnoreInputEvents(
+      std::optional<WebInputEventAuditCallback> audit_callback) {
+    return IgnoreInputEvents(std::move(audit_callback),
+                             /*should_ignore_a11y_input=*/false);
+  }
+  // If `should_ignore_a11y_input` is true, this also blocks all
+  // accessibility actions from interacting with the WebContents, other than the
+  // hit test.
+  // TODO(crbug.com/452693512): Consider ignoring a11y input events as the
+  // default behavior for ignoring input events in general.
   [[nodiscard]] virtual ScopedIgnoreInputEvents IgnoreInputEvents(
-      std::optional<WebInputEventAuditCallback> audit_callback) = 0;
+      std::optional<WebInputEventAuditCallback> audit_callback,
+      bool should_ignore_a11y_input) = 0;
   virtual bool ShouldIgnoreInputEventsForTesting() = 0;
+  virtual bool ShouldIgnoreA11yInputEventsForTesting() = 0;
 
   // Returns the group id for all audio streams that correspond to a single
   // WebContents. This can be used to determine if a AudioOutputStream was
@@ -1612,6 +1632,10 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
       bool animate,
       const std::optional<cc::BrowserControlsOffsetTagModifications>&
           offset_tag_modifications) = 0;
+
+  // Indicates that the primary main frame should collect draggable regions set
+  // using the app-region CSS property.
+  virtual void SetSupportsDraggableRegions(bool supports_draggable_regions) = 0;
 
   // Transmits data to V8CrowdsourcedCompileHintsConsumer in the renderer. The
   // data is a model describing which JavaScript functions on the page should be
@@ -1761,8 +1785,8 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
       base::OnceCallback<void(std::vector<std::string>)> callback) = 0;
 
   // Returns an animation manager that displays a preview of the history page
-  // during a session history navigation gesture. Only non-null if
-  // `features::kBackForwardTransitions` is enabled for the supported platform.
+  // during a session history navigation gesture. Only non-null if supported for
+  // the platform.
   virtual BackForwardTransitionAnimationManager*
   GetBackForwardTransitionAnimationManager() = 0;
 

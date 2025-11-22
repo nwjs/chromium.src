@@ -38,7 +38,6 @@ constexpr char kSigninAccountCapabilitiesFetchLatency[] =
 constexpr char kSigninAccountCapabilitiesImmediatelyAvailable[] =
     "Signin.AccountCapabilities.ImmediatelyAvailable";
 constexpr char kSigninSyncButtonsShown[] = "Signin.SyncButtons.Shown";
-constexpr char kSignInSyncButtonsClicked[] = "Signin.SyncButtons.Clicked";
 
 enum class ButtonType : bool { kAccept = true, kReject = false };
 
@@ -64,30 +63,6 @@ signin_metrics::SyncButtonsType GetButtonTypeMetricValue(ScreenMode mode) {
       return signin_metrics::SyncButtonsType::kSyncEqualWeightedFromDeadline;
     case ScreenMode::kUnrestricted:
       return signin_metrics::SyncButtonsType::kSyncNotEqualWeighted;
-    // Metrics are not emitted when the buttons are not visible.
-    case ScreenMode::kPending:
-      NOTREACHED();
-  }
-}
-
-// Convert ScreenMode to the metric describing Accept/Reject button types.
-signin_metrics::SyncButtonClicked GetButtonClickedMetricValue(
-    ScreenMode mode,
-    ButtonType button_type) {
-  switch (mode) {
-    case ScreenMode::kRestricted:
-    case ScreenMode::kDeadlined:
-      return button_type == ButtonType::kAccept
-                 ? signin_metrics::SyncButtonClicked::
-                       kHistorySyncOptInEqualWeighted
-                 : signin_metrics::SyncButtonClicked::
-                       kHistorySyncCancelEqualWeighted;
-    case ScreenMode::kUnrestricted:
-      return button_type == ButtonType::kAccept
-                 ? signin_metrics::SyncButtonClicked::
-                       kHistorySyncOptInNotEqualWeighted
-                 : signin_metrics::SyncButtonClicked::
-                       kHistorySyncCancelNotEqualWeighted;
     // Metrics are not emitted when the buttons are not visible.
     case ScreenMode::kPending:
       NOTREACHED();
@@ -134,16 +109,10 @@ HistorySyncOptinHandler::~HistorySyncOptinHandler() {
 
 void HistorySyncOptinHandler::Accept() {
   AddHistorySyncConsent();
-  base::UmaHistogramEnumeration(
-      kSignInSyncButtonsClicked,
-      GetButtonClickedMetricValue(screen_mode_, ButtonType::kAccept));
   FinishAndCloseDialog(HistorySyncOptinHelper::ScreenChoiceResult::kAccepted);
 }
 
 void HistorySyncOptinHandler::Reject() {
-  base::UmaHistogramEnumeration(
-      kSignInSyncButtonsClicked,
-      GetButtonClickedMetricValue(screen_mode_, ButtonType::kReject));
   FinishAndCloseDialog(HistorySyncOptinHelper::ScreenChoiceResult::kDeclined);
 }
 
@@ -157,13 +126,10 @@ void HistorySyncOptinHandler::MaybeGetAccountInfo() {
 
   if (!primary_account_info.IsEmpty()) {
     DispatchAccountInfoUpdate(primary_account_info);
-
-    // Derive the screen mode from account capabilities.
-    ScreenMode screen_mode =
-        GetHistorySyncScreenMode(primary_account_info.capabilities);
-    if (!screen_mode_changed_ && screen_mode != ScreenMode::kPending) {
-      OnScreenModeChanged(screen_mode);
-      // TODO(crbug.com/450448970): Consider short circuiting from here.
+    if (avatar_changed_ && screen_mode_changed_) {
+      // Both avatar and screen mode are immediately available.
+      identity_manager_observation_.Reset();
+      return;
     }
   }
 
@@ -245,6 +211,7 @@ void HistorySyncOptinHandler::OnScreenModeChanged(ScreenMode screen_mode) {
 
 void HistorySyncOptinHandler::OnAvatarChanged(const AccountInfo& info) {
   CHECK(info.IsValid());
+  avatar_changed_ = true;
   page_->SendAccountInfo(CreateAccountInfoDataMojo(info));
 }
 
@@ -255,22 +222,30 @@ void HistorySyncOptinHandler::DispatchAccountInfoUpdate(
     // confirmation dialog.
     return;
   }
+
   if (info.account_id !=
       identity_manager_->GetPrimaryAccountId(signin::ConsentLevel::kSignin)) {
     return;
   }
-  if (info.IsValid()) {
+
+  ScreenMode screen_mode = GetHistorySyncScreenMode(info.capabilities);
+  if (!screen_mode_changed_ && screen_mode != ScreenMode::kPending) {
+    OnScreenModeChanged(screen_mode);
+  }
+
+  if (info.IsValid() && !avatar_changed_) {
     OnAvatarChanged(info);
   }
 }
 
 void HistorySyncOptinHandler::OnExtendedAccountInfoUpdated(
     const AccountInfo& info) {
-  ScreenMode screen_mode = GetHistorySyncScreenMode(info.capabilities);
-  if (!screen_mode_changed_ && screen_mode != ScreenMode::kPending) {
-    OnScreenModeChanged(screen_mode);
-  }
   DispatchAccountInfoUpdate(info);
+
+  if (avatar_changed_ && screen_mode_changed_) {
+    // The IdentityManager emitted both avatar and screen mode information.
+    identity_manager_observation_.Reset();
+  }
 }
 
 void HistorySyncOptinHandler::OnScreenModeTimeout() {

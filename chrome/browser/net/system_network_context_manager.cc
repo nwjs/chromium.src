@@ -913,8 +913,13 @@ void SystemNetworkContextManager::DisableQuic() {
 void SystemNetworkContextManager::
     AddCookieEncryptionManagerToNetworkContextParams(
         network::mojom::NetworkContextParams* network_context_params) {
+  if (!cookie_encryption_provider_) {
+    cookie_encryption_provider_ =
+        std::make_unique<CookieEncryptionProviderImpl>(
+            g_browser_process->os_crypt_async());
+  }
   network_context_params->cookie_encryption_provider =
-      cookie_encryption_provider_.BindNewRemote();
+      cookie_encryption_provider_->BindNewRemote();
 }
 
 void SystemNetworkContextManager::AddSSLConfigToNetworkContextParams(
@@ -964,7 +969,7 @@ void SystemNetworkContextManager::ConfigureDefaultNetworkContextParams(
 
 #if BUILDFLAG(IS_WIN)
   if (command_line.HasSwitch(switches::kUseSystemProxyResolver)) {
-    network_context_params->windows_system_proxy_resolver =
+    network_context_params->system_proxy_resolver =
         ChromeMojoProxyResolverWin::CreateWithSelfOwnedReceiver();
   }
 #endif  // BUILDFLAG(IS_WIN)

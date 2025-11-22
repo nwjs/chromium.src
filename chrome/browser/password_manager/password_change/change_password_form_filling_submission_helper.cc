@@ -66,7 +66,8 @@ ChangePasswordFormFillingSubmissionHelper::
         password_manager::PasswordManagerClient* client,
         ModelQualityLogsUploader* logs_uploader,
         base::OnceCallback<void(bool)> callback)
-    : web_contents_(web_contents),
+    : creation_time_(base::Time::Now()),
+      web_contents_(web_contents),
       client_(client),
       logs_uploader_(logs_uploader),
       callback_(std::move(callback)) {
@@ -93,7 +94,14 @@ ChangePasswordFormFillingSubmissionHelper::
 }
 
 ChangePasswordFormFillingSubmissionHelper::
-    ~ChangePasswordFormFillingSubmissionHelper() = default;
+    ~ChangePasswordFormFillingSubmissionHelper() {
+  // Record duration in case the something went wrong before the helper reached
+  // Submit click.
+  if (creation_time_) {
+    logs_uploader_->SetStepDuration(kSubmitFormFlowStep,
+                                    base::Time::Now() - creation_time_.value());
+  }
+}
 
 void ChangePasswordFormFillingSubmissionHelper::FillChangePasswordForm(
     password_manager::PasswordFormManager* form_manager,
@@ -110,6 +118,8 @@ void ChangePasswordFormFillingSubmissionHelper::FillChangePasswordForm(
 
   // TODO(crbug.com/422125487): Fix metrics duplication.
   form_manager_ = form_manager->Clone();
+  logs_uploader_->SetChangePasswordFormData(
+      *form_manager->GetParsedObservedForm());
 
   const password_manager::PasswordForm* best_match =
       password_manager_util::FindFormByUsername(form_manager_->GetBestMatches(),
@@ -262,37 +272,6 @@ void ChangePasswordFormFillingSubmissionHelper::ChangePasswordFormFilled(
            generated_password_);
   form_manager_->UpdateBackupPassword(stored_password_);
 
-  if (base::FeatureList::IsEnabled(
-          password_manager::features::kSubmitWithEnterDuringPasswordChange)) {
-    driver->SubmitFormWithEnter(
-        field_id,
-        base::BindOnce(
-            &ChangePasswordFormFillingSubmissionHelper::OnSubmitWithEnterResult,
-            weak_ptr_factory_.GetWeakPtr(), driver));
-  } else {
-    std::move(capture_annotated_page_content_)
-        .Run(base::BindOnce(
-            &ChangePasswordFormFillingSubmissionHelper::OnPageContentReceived,
-            weak_ptr_factory_.GetWeakPtr()));
-  }
-}
-
-void ChangePasswordFormFillingSubmissionHelper::OnSubmitWithEnterResult(
-    base::WeakPtr<password_manager::PasswordManagerDriver> driver,
-    bool success) {
-  if (auto logger = GetLoggerIfAvailable(client_)) {
-    logger->LogBoolean(Logger::STRING_PASSWORD_CHANGE_SUBMIT_WITH_ENTER_RESULT,
-                       success);
-  }
-
-  if (success) {
-    submission_verifier_ = std::make_unique<PasswordChangeSubmissionVerifier>(
-        web_contents_, logs_uploader_);
-    logs_uploader_->MarkStepSkipped(kSubmitFormFlowStep);
-    return;
-  }
-
-  // Fallback to submission using optimization_guide.
   std::move(capture_annotated_page_content_)
       .Run(base::BindOnce(
           &ChangePasswordFormFillingSubmissionHelper::OnPageContentReceived,
@@ -309,7 +288,6 @@ void ChangePasswordFormFillingSubmissionHelper::OnPageContentReceived(
   if (!content) {
     LogPageContentCaptureFailure(password_manager::metrics_util::
                                      PasswordChangeFlowStep::kSubmitFormStep);
-    logs_uploader_->SetOpenFormUnexpectedFailure();
     std::move(callback_).Run(false);
     return;
   }
@@ -323,7 +301,7 @@ void ChangePasswordFormFillingSubmissionHelper::OnPageContentReceived(
       request, /*execution_timeout=*/std::nullopt,
       base::BindOnce(&ChangePasswordFormFillingSubmissionHelper::
                          OnExecutionResponseCallback,
-                     weak_ptr_factory_.GetWeakPtr(), base::Time::Now()));
+                     weak_ptr_factory_.GetWeakPtr()));
 }
 
 OptimizationGuideKeyedService*
@@ -333,7 +311,6 @@ ChangePasswordFormFillingSubmissionHelper::GetOptimizationService() {
 }
 
 void ChangePasswordFormFillingSubmissionHelper::OnExecutionResponseCallback(
-    base::Time request_time,
     optimization_guide::OptimizationGuideModelExecutionResult execution_result,
     std::unique_ptr<
         optimization_guide::proto::PasswordChangeSubmissionLoggingData>
@@ -346,8 +323,7 @@ void ChangePasswordFormFillingSubmissionHelper::OnExecutionResponseCallback(
         optimization_guide::proto::PasswordChangeResponse>(
         execution_result.response.value());
   }
-  logs_uploader_->SetSubmitFormQuality(response, std::move(logging_data),
-                                       request_time);
+  logs_uploader_->SetSubmitFormQuality(response, std::move(logging_data));
 
   if (!response) {
     std::move(callback_).Run(false);
@@ -362,6 +338,13 @@ void ChangePasswordFormFillingSubmissionHelper::OnExecutionResponseCallback(
     return;
   }
 
+  CHECK(creation_time_);
+  logs_uploader_->SetStepDuration(kSubmitFormFlowStep,
+                                  base::Time::Now() - creation_time_.value());
+  // Reset creation_time_ to avoid recording duration the second time in
+  // destructor.
+  creation_time_ = std::nullopt;
+
   submission_verifier_ = std::make_unique<PasswordChangeSubmissionVerifier>(
       web_contents_, logs_uploader_);
   click_helper_ = std::make_unique<ButtonClickHelper>(
@@ -371,18 +354,14 @@ void ChangePasswordFormFillingSubmissionHelper::OnExecutionResponseCallback(
           weak_ptr_factory_.GetWeakPtr()));
 }
 
-void ChangePasswordFormFillingSubmissionHelper::OnButtonClicked(bool result) {
+void ChangePasswordFormFillingSubmissionHelper::OnButtonClicked(
+    actor::mojom::ActionResultCode result) {
   CHECK(web_contents_);
   click_helper_.reset();
 
-  if (auto logger = GetLoggerIfAvailable(client_)) {
-    logger->LogBoolean(
-        Logger::STRING_AUTOMATED_PASSWORD_CHANGE_ON_BUTTON_CLICKED, result);
-  }
-
-  if (!result && !submission_detected_) {
+  if (result != actor::mojom::ActionResultCode::kOk && !submission_detected_) {
     // Fail immediately as click failed and no form submission was detected.
-    logs_uploader_->SubmitFormTargetElementNotFound();
+    logs_uploader_->RecordButtonClickFailure(kSubmitFormFlowStep, result);
     std::move(callback_).Run(false);
     return;
   }

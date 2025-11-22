@@ -36,6 +36,7 @@
 #include "components/optimization_guide/core/model_execution/on_device_model_service_controller.h"
 #include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
 #include "components/optimization_guide/core/model_execution/performance_class.h"
+#include "components/optimization_guide/core/model_execution/remote_model_executor.h"
 #include "components/optimization_guide/core/model_execution/test/fake_model_assets.h"
 #include "components/optimization_guide/core/model_execution/test/feature_config_builder.h"
 #include "components/optimization_guide/core/model_quality/model_execution_logging_wrappers.h"
@@ -43,7 +44,6 @@
 #include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_logger.h"
-#include "components/optimization_guide/core/optimization_guide_model_executor.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/model_quality_service.pb.h"
@@ -130,7 +130,7 @@ class ModelExecutionBrowserTestBase : public InProcessBrowserTest {
         net::EmbeddedTestServer::TYPE_HTTPS);
     net::EmbeddedTestServer::ServerCertificateConfig cert_config;
     cert_config.dns_names = {
-        GURL(kOptimizationGuideServiceModelExecutionDefaultURL).host(),
+        GURL(kOptimizationGuideServiceModelExecutionDefaultURL).GetHost(),
     };
     model_execution_server_->SetSSLConfig(cert_config);
     model_execution_server_->RegisterRequestHandler(base::BindRepeating(
@@ -142,7 +142,7 @@ class ModelExecutionBrowserTestBase : public InProcessBrowserTest {
     model_quality_logs_server_ = std::make_unique<net::EmbeddedTestServer>(
         net::EmbeddedTestServer::TYPE_HTTPS);
     cert_config.dns_names = {
-        GURL(kOptimizationGuideServiceModelQualtiyDefaultURL).host(),
+        GURL(kOptimizationGuideServiceModelQualtiyDefaultURL).GetHost(),
     };
     model_quality_logs_server_->SetSSLConfig(cert_config);
     model_quality_logs_server_->RegisterRequestHandler(base::BindRepeating(
@@ -159,15 +159,15 @@ class ModelExecutionBrowserTestBase : public InProcessBrowserTest {
     cmd->AppendSwitchASCII(
         switches::kOptimizationGuideServiceModelExecutionURL,
         model_execution_server_
-            ->GetURL(
-                GURL(kOptimizationGuideServiceModelExecutionDefaultURL).host(),
-                "/")
+            ->GetURL(GURL(kOptimizationGuideServiceModelExecutionDefaultURL)
+                         .GetHost(),
+                     "/")
             .spec());
     cmd->AppendSwitchASCII(
         switches::kModelQualityServiceURL,
         model_quality_logs_server_
             ->GetURL(
-                GURL(kOptimizationGuideServiceModelQualtiyDefaultURL).host(),
+                GURL(kOptimizationGuideServiceModelQualtiyDefaultURL).GetHost(),
                 "/")
             .spec());
   }

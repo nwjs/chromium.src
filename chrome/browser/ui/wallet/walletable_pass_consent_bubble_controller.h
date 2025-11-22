@@ -36,7 +36,7 @@ class WalletablePassConsentBubbleController
 
   // Shows the consent bubble. `callback` will be run when the user makes a
   // decision.
-  void ShowConsentBubble(
+  void SetUpAndShowConsentBubble(
       WalletablePassClient::WalletablePassBubbleResultCallback callback);
 
  protected:

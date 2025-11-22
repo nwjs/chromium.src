@@ -36,6 +36,7 @@
 #include "chrome/browser/privacy_sandbox/tracking_protection_onboarding_factory.h"
 #include "chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/regional_capabilities/regional_capabilities_service_factory.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -74,6 +75,7 @@
 #include "chrome/browser/ui/webui/settings/protocol_handlers_handler.h"
 #include "chrome/browser/ui/webui/settings/reset_settings_handler.h"
 #include "chrome/browser/ui/webui/settings/safety_hub_handler.h"
+#include "chrome/browser/ui/webui/settings/saved_info_handler.h"
 #include "chrome/browser/ui/webui/settings/search_engines_handler.h"
 #include "chrome/browser/ui/webui/settings/settings_clear_browsing_data_handler.h"
 #include "chrome/browser/ui/webui/settings/settings_localized_strings_provider.h"
@@ -261,6 +263,7 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   AddSettingsPageUIHandler(
       std::make_unique<SecurityKeysBioEnrollmentHandler>());
   AddSettingsPageUIHandler(std::make_unique<PasswordManagerHandler>());
+  AddSettingsPageUIHandler(std::make_unique<SavedInfoHandler>(profile));
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   AddSettingsPageUIHandler(std::make_unique<PasskeysHandler>());
 #endif
@@ -332,6 +335,10 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       (!ShouldDisplayManagedUi(profile) && !profile->IsChild());
   html_source->AddBoolean("showPrivacyGuide", show_privacy_guide);
 
+  html_source->AddBoolean(
+      "showResetProfileBannerV2",
+      base::FeatureList::IsEnabled(features::kShowResetProfileBannerV2));
+
   html_source->AddBoolean("enableHandTrackingContentSetting",
 #if BUILDFLAG(ENABLE_VR)
                           device::features::IsHandTrackingEnabled());
@@ -349,10 +356,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   html_source->AddBoolean(
       "enableKeyboardLockPrompt",
       base::FeatureList::IsEnabled(permissions::features::kKeyboardLockPrompt));
-
-  html_source->AddBoolean(
-      "enableLinkedServicesSetting",
-      base::FeatureList::IsEnabled(features::kLinkedServicesSetting));
 
 #if BUILDFLAG(ENABLE_COMPOSE)
   const bool compose_enabled = ComposeEnabling::IsEnabledForProfile(profile);
@@ -409,6 +412,11 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   html_source->AddBoolean("enableYourSavedInfoSettingsPage",
                           base::FeatureList::IsEnabled(
                               autofill::features::kYourSavedInfoSettingsPage));
+
+  html_source->AddBoolean(
+      "enableYourSavedInfoBranding",
+      base::FeatureList::IsEnabled(
+          autofill::features::kYourSavedInfoBrandingInSettings));
 
   AddSettingsPageUIHandler(std::make_unique<AboutHandler>(profile));
   AddSettingsPageUIHandler(std::make_unique<ResetSettingsHandler>(profile));
@@ -512,11 +520,11 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       performance_manager::user_tuning::IsBatterySaverModeManagedByOS());
 
   html_source->AddBoolean(
-      "autoPictureInPictureEnabled",
+      "enableAutoPictureInPicture",
       base::FeatureList::IsEnabled(
           blink::features::kMediaSessionEnterPictureInPicture));
 
-  html_source->AddBoolean("capturedSurfaceControlEnabled",
+  html_source->AddBoolean("enableCapturedSurfaceControl",
                           base::FeatureList::IsEnabled(
                               features::kCapturedSurfaceControlKillswitch));
 
@@ -615,9 +623,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
                           show_glic_section || show_ai_features_section);
   html_source->AddBoolean("showAiPageAiFeatureSection",
                           show_ai_features_section);
-  html_source->AddBoolean(
-      "enableAiSettingsInPrivacyGuide",
-      optimization_guide::features::IsPrivacyGuideAiSettingsEnabled());
 #endif //nwjs
   // Delete Browsing Data
   html_source->AddBoolean(

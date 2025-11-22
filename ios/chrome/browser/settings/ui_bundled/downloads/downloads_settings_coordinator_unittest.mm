@@ -6,6 +6,7 @@
 
 #import "base/apple/foundation_util.h"
 #import "components/signin/public/identity_manager/identity_test_environment.h"
+#import "components/test/ios/test_utils.h"
 #import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/add_account_signin/add_account_signin_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
@@ -332,10 +333,7 @@ TEST_F(DownloadsSettingsCoordinatorTest,
   __block SigninCoordinatorCompletionCallback show_signin_callback = nil;
 
   OCMExpect([signin_coordinator_mock
-      setSigninCompletion:[OCMArg checkWithBlock:^BOOL(id value) {
-        show_signin_callback = value;
-        return YES;
-      }]]);
+      setSigninCompletion:AssignValueToVariable(show_signin_callback)]);
 
   // Call the coordinator through the action delegate protocol and verify the
   // ShowSigninCommand was dispatched.
@@ -353,7 +351,8 @@ TEST_F(DownloadsSettingsCoordinatorTest,
   id<SystemIdentity> added_identity = [FakeSystemIdentity fakeIdentity1];
   ASSERT_TRUE(show_signin_callback);
   OCMExpect([mock_save_to_photos_settings_mediator_
-      setSelectedIdentityGaiaID:added_identity.gaiaID]);
+                setSelectedIdentityGaiaID:ios::OCM::AnyPointer<const GaiaId>()])
+      .andCompareObjectAtIndex(added_identity.gaiaId, 0);
   show_signin_callback(SigninCoordinatorResultSuccess, added_identity);
   EXPECT_OCMOCK_VERIFY(mock_save_to_photos_settings_mediator_);
 

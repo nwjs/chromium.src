@@ -22,7 +22,6 @@ enum class TabGroupActionType;
 @protocol TabStripConsumer;
 @protocol TabStripMediatorDelegate;
 class UrlLoadingBrowserAgent;
-class WebStateList;
 
 namespace base {
 class Uuid;
@@ -51,10 +50,6 @@ class WebStateID;
                 TabSwitcherItemSnapShotAndFaviconDataSource,
                 TabStripMutator,
                 TabStripTabGroupCellDataSource>
-
-// The WebStateList that this mediator listens for any changes on the total
-// number of Webstates.
-@property(nonatomic, assign) WebStateList* webStateList;
 
 // The ProfileIOS model for the corresponding browser.
 @property(nonatomic, assign) ProfileIOS* profile;
@@ -108,12 +103,6 @@ class WebStateID;
 
 // Closes and deletes all tabs in `tabGroupItem`.
 - (void)deleteGroup:(TabGroupItem*)tabGroupItem;
-
-// Leaves the shared group in `tabGroupItem`.
-- (void)leaveSharedGroup:(TabGroupItem*)tabGroupItem;
-
-// Deletes the shared group in `tabGroupItem`.
-- (void)deleteSharedGroup:(TabGroupItem*)tabGroupItem;
 
 // Completes the final removal of the last tab from its shared group. The last
 // tab is temporarily saved until this function is triggered upon user

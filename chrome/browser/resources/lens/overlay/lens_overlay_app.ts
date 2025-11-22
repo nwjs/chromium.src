@@ -227,6 +227,16 @@ export class LensOverlayAppElement extends LensOverlayAppElementBase {
         value: false,
         reflectToAttribute: true,
       },
+      overlayReshowInProgress: {
+        type: Boolean,
+        value: false,
+        reflectToAttribute: true,
+      },
+      isPrivacyNoticeVisible: {
+        type: Boolean,
+        reflectToAttribute: true,
+        value: () => loadTimeData.getBoolean('enablePrivacyNotice'),
+      },
     };
   }
 
@@ -279,7 +289,8 @@ export class LensOverlayAppElement extends LensOverlayAppElementBase {
   // Whether the contextual searchbox should be auto-focused when the overlay is
   // first opened.
   private autoFocusSearchbox: boolean =
-      loadTimeData.getValue('autoFocusSearchbox');
+      loadTimeData.getValue('autoFocusSearchbox') &&
+      !loadTimeData.getValue('enablePrivacyNotice');
   declare private toastMessage: string;
   declare private enableCloseButtonTweaks: boolean;
   declare private enableVisualSelectionUpdates: boolean;
@@ -300,6 +311,10 @@ export class LensOverlayAppElement extends LensOverlayAppElementBase {
   declare private placeholderText: string;
   // Whether the translate language pickers are open.
   declare private areLanguagePickersOpen: boolean;
+  // Whether the overlay is currently being reshown.
+  declare private overlayReshowInProgress: boolean;
+  // Whether to show the privacy notice.
+  declare private isPrivacyNoticeVisible: boolean;
 
   // The performance tracker used to log performance metrics for the overlay.
   private performanceTracker: PerformanceTracker = new PerformanceTracker();
@@ -308,7 +323,8 @@ export class LensOverlayAppElement extends LensOverlayAppElementBase {
   // backend has completed. The handshake is required to send suggest requests.
   private isBackendHandshakeComplete = false;
   // Whether to trigger the autocomplete request when suggest inputs are ready.
-  private triggerSuggestOnInputReady = false;
+  private triggerSuggestOnInputReady =
+      loadTimeData.getBoolean('enablePrivacyNotice');
 
   private eventTracker_: EventTracker = new EventTracker();
 
@@ -348,11 +364,12 @@ export class LensOverlayAppElement extends LensOverlayAppElementBase {
         this.isClosing = true;
         this.performanceTracker.endSession();
       }),
-      callbackRouter.screenshotDataReceived.addListener(() => {
-        // If the overlay was previously closed, then reset the state.
-        if (this.isClosing) {
-          this.isClosing = false;
-        }
+      callbackRouter.onOverlayReshown.addListener(() => {
+        this.isClosing = false;
+        this.sidePanelOpened = true;
+        this.overlayReshowInProgress = true;
+        this.performanceTracker.reset();
+        this.performanceTracker.startSession();
       }),
       callbackRouter.suppressGhostLoader.addListener(
           this.suppressGhostLoader_.bind(this)),
@@ -396,6 +413,15 @@ export class LensOverlayAppElement extends LensOverlayAppElementBase {
     this.eventTracker_.add(this.$.searchbox, 'mousedown', () => {
       this.suppressGhostLoader = false;
     });
+    this.eventTracker_.add(
+        this.$.selectionOverlay, 'on-finish-reshow-overlay', () => {
+          if (!this.overlayReshowInProgress) {
+            return;
+          }
+
+          this.overlayReshowInProgress = false;
+          this.browserProxy.handler.finishReshowOverlay();
+        });
 
     this.performanceTracker.startSession();
   }
@@ -439,6 +465,7 @@ export class LensOverlayAppElement extends LensOverlayAppElementBase {
   }
 
   private handleSearchboxFocused() {
+    this.isPrivacyNoticeVisible = false;
     this.suppressGhostLoader = false;
     this.isSearchboxFocused = true;
     this.$.translateButtonContainer.classList.remove('searchbox-unfocused');
@@ -676,8 +703,9 @@ export class LensOverlayAppElement extends LensOverlayAppElementBase {
     this.isPointerDown = false;
   }
 
-  private onScreenshotRendered() {
+  private onScreenshotRendered(e: CustomEvent<{isSidePanelOpen: boolean}>) {
     this.isImageRendered = true;
+    this.sidePanelOpened = e.detail.isSidePanelOpen;
     // Focus the searchbox simultaneously with the initial flash animation.
     if (this.enableCsbMotionTweaks && this.autoFocusSearchbox &&
         this.isLensOverlayContextualSearchboxVisible) {
@@ -802,6 +830,14 @@ export class LensOverlayAppElement extends LensOverlayAppElementBase {
 
   handleEscapeSearchboxForTesting(e: CustomEvent) {
     this.handleEscapeSearchbox(e);
+  }
+
+  getSidePanelOpenedForTesting(): boolean {
+    return this.sidePanelOpened;
+  }
+
+  getOverlayReshowInProgressForTesting(): boolean {
+    return this.overlayReshowInProgress;
   }
 }
 

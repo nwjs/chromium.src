@@ -71,7 +71,13 @@ NotificationPermissionContext::NotificationPermissionContext(
     : ContentSettingPermissionContextBase(
           browser_context,
           ContentSettingsType::NOTIFICATIONS,
-          network::mojom::PermissionsPolicyFeature::kNotFound) {}
+          network::mojom::PermissionsPolicyFeature::kNotFound) {
+#if BUILDFLAG(IS_ANDROID)
+  if (Profile::FromBrowserContext(browser_context)->AsTestingProfile()) {
+    enabled_app_level_notification_permission_for_testing_ = true;
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+}
 
 NotificationPermissionContext::~NotificationPermissionContext() = default;
 
@@ -112,7 +118,7 @@ ContentSetting NotificationPermissionContext::GetPermissionStatusForExtension(
       extensions::ExtensionRegistry::Get(
           Profile::FromBrowserContext(browser_context()))
           ->enabled_extensions()
-          .GetByID(origin.host());
+          .GetByID(origin.GetHost());
 
   if (!extension || !extension->permissions_data()->HasAPIPermission(
                         extensions::mojom::APIPermissionID::kNotifications)) {
@@ -226,12 +232,11 @@ void NotificationPermissionContext::DecidePermission(
 }
 
 void NotificationPermissionContext::UpdateTabContext(
-    const permissions::PermissionRequestID& id,
-    const GURL& requesting_frame,
+    const permissions::PermissionRequestData& request_data,
     bool allowed) {
   auto* content_settings =
       content_settings::PageSpecificContentSettings::GetForFrame(
-          id.global_render_frame_host_id());
+          request_data.id.global_render_frame_host_id());
   if (!content_settings) {
     return;
   }

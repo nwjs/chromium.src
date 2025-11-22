@@ -16,16 +16,16 @@ TEST(ContextualTaskContextTest, ConstructFromContextualTask) {
   ContextualTask task(task_id);
   GURL url1("https://google.com");
   GURL url2("https://youtube.com");
-  task.AddUrl(url1);
-  task.AddUrl(url2);
+  task.AddUrlResource(UrlResource(base::Uuid::GenerateRandomV4(), url1));
+  task.AddUrlResource(UrlResource(base::Uuid::GenerateRandomV4(), url2));
 
   ContextualTaskContext context(task);
 
   EXPECT_EQ(context.GetTaskId(), task_id);
-  const auto& attachments = context.GetUrlAttachments();
+  auto& attachments = context.GetUrlAttachments();
   ASSERT_EQ(attachments.size(), 2u);
-  EXPECT_EQ(attachments[0].url, url1);
-  EXPECT_EQ(attachments[1].url, url2);
+  EXPECT_EQ(attachments[0].GetURL(), url1);
+  EXPECT_EQ(attachments[1].GetURL(), url2);
 }
 
 }  // namespace contextual_tasks

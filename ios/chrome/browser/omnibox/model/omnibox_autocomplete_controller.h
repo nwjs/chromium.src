@@ -12,6 +12,7 @@
 #import "base/time/time.h"
 #import "components/omnibox/browser/omnibox_popup_selection.h"
 #import "ios/chrome/browser/omnibox/model/suggestions/autocomplete_result_wrapper_delegate.h"
+#import "ios/chrome/browser/omnibox/public/omnibox_presentation_context.h"
 #import "ui/base/window_open_disposition.h"
 
 @protocol AutocompleteSuggestion;
@@ -23,6 +24,7 @@ class AutocompleteResult;
 class GURL;
 @protocol OmniboxAutocompleteControllerDelegate;
 @protocol OmniboxAutocompleteControllerDebuggerDelegate;
+@protocol OmniboxLensDelegate;
 class OmniboxClient;
 @class OmniboxMetricsRecorder;
 @class OmniboxTextController;
@@ -39,6 +41,9 @@ struct OmniboxTextModel;
 /// Debugger delegate of the omnibox autocomplete controller.
 @property(nonatomic, weak) id<OmniboxAutocompleteControllerDebuggerDelegate>
     debuggerDelegate;
+
+/// Handler for Lens interactions.
+@property(nonatomic, weak) id<OmniboxLensDelegate> lensHander;
 
 /// Autcomplete result wrapper.
 @property(nonatomic, strong)
@@ -60,6 +65,8 @@ struct OmniboxTextModel;
 
 - (instancetype)initWithOmniboxClient:(OmniboxClient*)omniboxClient
                      omniboxTextModel:(OmniboxTextModel*)omniboxTextModel
+                  presentationContext:
+                      (OmniboxPresentationContext)presentationContext
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;

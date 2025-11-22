@@ -11,10 +11,12 @@
 #include <ostream>
 
 #include "base/barrier_closure.h"
+#include "base/command_line.h"
 #include "base/containers/contains.h"
 #include "base/functional/callback.h"
 #include "base/functional/concurrent_closures.h"
 #include "base/i18n/time_formatting.h"
+#include "base/location.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/to_string.h"
@@ -23,11 +25,14 @@
 #include "base/values.h"
 #include "chrome/browser/shortcuts/shortcut_icon_generator.h"
 #include "chrome/browser/web_applications/commands/web_app_command.h"
+#include "chrome/browser/web_applications/generated_icon_fix_util.h"
 #include "chrome/browser/web_applications/icons/trusted_icon_filter.h"
 #include "chrome/browser/web_applications/jobs/manifest_to_web_app_install_info_job.h"
 #include "chrome/browser/web_applications/locks/app_lock.h"
 #include "chrome/browser/web_applications/locks/noop_lock.h"
 #include "chrome/browser/web_applications/manifest_update_utils.h"
+#include "chrome/browser/web_applications/model/web_app_comparison.h"
+#include "chrome/browser/web_applications/proto/web_app.equal.h"
 #include "chrome/browser/web_applications/proto/web_app.pb.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
@@ -36,12 +41,15 @@
 #include "chrome/browser/web_applications/web_app_icon_manager.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_origin_association_manager.h"
+#include "chrome/browser/web_applications/web_app_proto_utils.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_registry_update.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
 #include "chrome/browser/web_applications/web_contents/web_contents_manager.h"
 #include "chrome/common/chrome_features.h"
+#include "components/sync/protocol/web_app_specifics.pb.h"
 #include "components/webapps/browser/image_visual_diff.h"
+#include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/browser/installable/installable_params.h"
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/page.h"
@@ -54,18 +62,6 @@
 
 namespace web_app {
 namespace {
-
-sync_pb::WebAppIconInfo_Purpose ConvertIconPurposeToSyncPurpose(
-    apps::IconInfo::Purpose purpose) {
-  switch (purpose) {
-    case apps::IconInfo::Purpose::kAny:
-      return sync_pb::WebAppIconInfo_Purpose::WebAppIconInfo_Purpose_ANY;
-    case apps::IconInfo::Purpose::kMonochrome:
-      return sync_pb::WebAppIconInfo_Purpose::WebAppIconInfo_Purpose_MONOCHROME;
-    case apps::IconInfo::Purpose::kMaskable:
-      return sync_pb::WebAppIconInfo_Purpose::WebAppIconInfo_Purpose_MASKABLE;
-  }
-}
 
 blink::mojom::ManifestImageResource_Purpose
 ConvertIconPurposeToManifestImagePurpose(apps::IconInfo::Purpose app_purpose) {
@@ -88,12 +84,72 @@ void CopyIconsToPendingUpdateInfo(
 
     pending_icon->set_url(icon_info.url.spec());
     sync_pb::WebAppIconInfo_Purpose icon_purpose =
-        ConvertIconPurposeToSyncPurpose(icon_info.purpose);
+        IconInfoPurposeToSyncPurpose(icon_info.purpose);
     pending_icon->set_purpose(icon_purpose);
     if (icon_info.square_size_px.has_value()) {
       pending_icon->set_size_in_px(icon_info.square_size_px.value());
     }
   }
+}
+
+constexpr base::TimeDelta kDelayForTenPercentIconDiffSilentUpdate =
+    base::Days(1);
+constexpr const char kBypassSmallIconDiffThrottle[] =
+    "bypass-small-icon-diff-throttle";
+
+// Returns whether the throttle for less than 10% icon diffs will be applied.
+// This returns false if:
+// 1. This is the first silent icon update that might be triggered.
+// 2. The command line flag to skip the throttle has been applied.
+// 3. If less than (or equal to) 24 hours has passed since the last update was
+// applied for an icon that was less than 10% different.
+bool ThrottleForSilentIconUpdates(
+    std::optional<base::Time> previous_time_for_silent_icon_update,
+    base::Time new_icon_check_time) {
+  if (!previous_time_for_silent_icon_update.has_value()) {
+    return false;
+  }
+
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          kBypassSmallIconDiffThrottle)) {
+    return false;
+  }
+
+  return (new_icon_check_time <= (*previous_time_for_silent_icon_update +
+                                  kDelayForTenPercentIconDiffSilentUpdate));
+}
+
+google::protobuf::RepeatedPtrField<proto::DownloadedIconSizeInfo>
+GetIconSizesPerPurposeForBitmaps(const IconBitmaps& icon_bitmaps) {
+  google::protobuf::RepeatedPtrField<proto::DownloadedIconSizeInfo>
+      purpose_size_maps;
+
+  proto::DownloadedIconSizeInfo* downloaded_icon_info_any =
+      purpose_size_maps.Add();
+  downloaded_icon_info_any->set_purpose(sync_pb::WebAppIconInfo_Purpose_ANY);
+  for (const auto& [size, _] : icon_bitmaps.any) {
+    downloaded_icon_info_any->add_icon_sizes(size);
+  }
+
+  proto::DownloadedIconSizeInfo* downloaded_icon_info_maskable =
+      purpose_size_maps.Add();
+  downloaded_icon_info_maskable->set_purpose(
+      sync_pb::WebAppIconInfo_Purpose_MASKABLE);
+  for (const auto& [size, _] : icon_bitmaps.maskable) {
+    downloaded_icon_info_maskable->add_icon_sizes(size);
+  }
+
+  proto::DownloadedIconSizeInfo* downloaded_icon_info_monochrome =
+      purpose_size_maps.Add();
+  downloaded_icon_info_monochrome->set_purpose(
+      sync_pb::WebAppIconInfo_Purpose_MONOCHROME);
+  for (const auto& [size, _] : icon_bitmaps.monochrome) {
+    downloaded_icon_info_monochrome->add_icon_sizes(size);
+  }
+
+  CHECK_EQ(static_cast<size_t>(purpose_size_maps.size()), kIconPurposes.size());
+
+  return purpose_size_maps;
 }
 
 }  // namespace
@@ -115,6 +171,7 @@ bool IsAppUpdated(ManifestSilentUpdateCheckResult result) {
     case ManifestSilentUpdateCheckResult::kAppSilentlyUpdated:
     case ManifestSilentUpdateCheckResult::kAppOnlyHasSecurityUpdate:
     case ManifestSilentUpdateCheckResult::kAppHasNonSecurityAndSecurityChanges:
+    case ManifestSilentUpdateCheckResult::kAppHasSecurityUpdateDueToThrottle:
       return true;
   }
 }
@@ -141,6 +198,9 @@ std::ostream& operator<<(std::ostream& os,
     case ManifestSilentUpdateCommandStage::
         kWritingPendingUpdateIconBitmapsToDisk:
       return os << "kWritingPendingUpdateIconBitmapsToDisk";
+    case web_app::ManifestSilentUpdateCommandStage::
+        kDeletingPendingUpdateIconsFromDisk:
+      return os << "kDeletingPendingUpdateIconsFromDisk";
   }
 }
 
@@ -175,23 +235,52 @@ std::ostream& operator<<(std::ostream& os,
       return os << "kUserNavigated";
     case ManifestSilentUpdateCheckResult::kManifestToWebAppInstallInfoError:
       return os << "kManifestToWebAppInstallInfoError";
+    case ManifestSilentUpdateCheckResult::kAppHasSecurityUpdateDueToThrottle:
+      return os << "kAppHasSecurityUpdateDueToThrottle";
   }
+}
+
+ManifestSilentUpdateCompletionInfo::ManifestSilentUpdateCompletionInfo() =
+    default;
+ManifestSilentUpdateCompletionInfo::ManifestSilentUpdateCompletionInfo(
+    ManifestSilentUpdateCheckResult result)
+    : result(result) {}
+ManifestSilentUpdateCompletionInfo::ManifestSilentUpdateCompletionInfo(
+    ManifestSilentUpdateCompletionInfo&&) = default;
+ManifestSilentUpdateCompletionInfo&
+ManifestSilentUpdateCompletionInfo::operator=(
+    ManifestSilentUpdateCompletionInfo&&) = default;
+
+base::Value::Dict ManifestSilentUpdateCompletionInfo::ToDebugValue() {
+  return base::Value::Dict()
+      .Set("result", base::ToString(result))
+      .Set("time_for_icon_diff_check",
+           time_for_icon_diff_check.has_value()
+               ? base::TimeFormatShortDateAndTime(
+                     time_for_icon_diff_check.value())
+               : base::EmptyString16());
 }
 
 ManifestSilentUpdateCommand::ManifestSilentUpdateCommand(
     content::WebContents& web_contents,
+    std::optional<base::Time> previous_time_for_silent_icon_update,
     CompletedCallback callback)
-    : WebAppCommand<NoopLock, ManifestSilentUpdateCheckResult>(
+    : WebAppCommand<NoopLock, ManifestSilentUpdateCompletionInfo>(
           "ManifestSilentUpdateCommand",
           NoopLockDescription(),
-          base::BindOnce([](ManifestSilentUpdateCheckResult result) {
+          base::BindOnce([](ManifestSilentUpdateCompletionInfo
+                                completion_info) {
             base::UmaHistogramEnumeration(
-                "Webapp.Update.ManifestSilentUpdateCheckResult", result);
-            return result;
+                "Webapp.Update.ManifestSilentUpdateCheckResult",
+                completion_info.result);
+            return completion_info;
           }).Then(std::move(callback)),
           /*args_for_shutdown=*/
-          std::make_tuple(ManifestSilentUpdateCheckResult::kSystemShutdown)),
-      web_contents_(web_contents.GetWeakPtr()) {
+          ManifestSilentUpdateCompletionInfo(
+              ManifestSilentUpdateCheckResult::kSystemShutdown)),
+      web_contents_(web_contents.GetWeakPtr()),
+      previous_time_for_silent_icon_update_(
+          previous_time_for_silent_icon_update) {
   Observe(web_contents_.get());
   SetStage(ManifestSilentUpdateCommandStage::kNotStarted);
 }
@@ -238,118 +327,6 @@ void ManifestSilentUpdateCommand::StartWithLock(
           &ManifestSilentUpdateCommand::OnManifestFetchedAcquireAppLock,
           GetWeakPtr()),
       params);
-}
-
-bool ManifestSilentUpdateCommand::WebAppComparison::HasNoChanges() const {
-  return name_equality && primary_icons_equality &&
-         shortcut_menu_item_infos_equality && other_fields_equality;
-}
-
-bool ManifestSilentUpdateCommand::WebAppComparison::IsNameChangeOnly() const {
-  return !name_equality && primary_icons_equality &&
-         shortcut_menu_item_infos_equality && other_fields_equality;
-}
-
-bool ManifestSilentUpdateCommand::WebAppComparison::
-    IsSecuritySensitiveChangesOnly() const {
-  return !name_equality && !primary_icons_equality &&
-         shortcut_menu_item_infos_equality && other_fields_equality;
-}
-
-base::Value::Dict ManifestSilentUpdateCommand::WebAppComparison::ToDict()
-    const {
-  return base::Value::Dict()
-      .Set("name_equality", name_equality)
-      .Set("primary_icons_equality", primary_icons_equality)
-      .Set("shortcut_menu_item_infos_equality",
-           shortcut_menu_item_infos_equality)
-      .Set("other_fields_equality", other_fields_equality);
-}
-
-// static
-ManifestSilentUpdateCommand::WebAppComparison
-ManifestSilentUpdateCommand::CompareWebApps(
-    const WebApp& existing_web_app,
-    const WebAppInstallInfo& new_install_info) {
-  CHECK_EQ(existing_web_app.manifest_id(), new_install_info.manifest_id());
-  WebAppComparison diff;
-
-  diff.name_equality = [&]() {
-    std::u16string new_title;
-    base::TrimWhitespace(new_install_info.title, base::TRIM_ALL, &new_title);
-    return new_title == base::UTF8ToUTF16(existing_web_app.untranslated_name());
-  }();
-  diff.primary_icons_equality =
-      existing_web_app.trusted_icons() == new_install_info.trusted_icons;
-  diff.shortcut_menu_item_infos_equality =
-      existing_web_app.shortcuts_menu_item_infos() ==
-      new_install_info.shortcuts_menu_item_infos;
-
-  diff.other_fields_equality = [&]() {
-    if (existing_web_app.start_url() != new_install_info.start_url()) {
-      return false;
-    }
-    if (existing_web_app.theme_color() != new_install_info.theme_color) {
-      return false;
-    }
-    if (existing_web_app.scope() != new_install_info.scope) {
-      return false;
-    }
-    if (existing_web_app.display_mode() != new_install_info.display_mode) {
-      return false;
-    }
-    if (existing_web_app.display_mode_override() !=
-        new_install_info.display_override) {
-      return false;
-    }
-    if (existing_web_app.share_target() != new_install_info.share_target) {
-      return false;
-    }
-    if (existing_web_app.protocol_handlers() !=
-        new_install_info.protocol_handlers) {
-      return false;
-    }
-    if (existing_web_app.note_taking_new_note_url() !=
-        new_install_info.note_taking_new_note_url) {
-      return false;
-    }
-    if (existing_web_app.background_color() !=
-        new_install_info.background_color) {
-      return false;
-    }
-    if (existing_web_app.dark_mode_theme_color() !=
-        new_install_info.dark_mode_theme_color) {
-      return false;
-    }
-    if (existing_web_app.dark_mode_background_color() !=
-        new_install_info.dark_mode_background_color) {
-      return false;
-    }
-    if (existing_web_app.launch_handler() != new_install_info.launch_handler) {
-      return false;
-    }
-    if (existing_web_app.permissions_policy() !=
-        new_install_info.permissions_policy) {
-      return false;
-    }
-    if (existing_web_app.scope_extensions() !=
-        new_install_info.scope_extensions) {
-      return false;
-    }
-    if (existing_web_app.related_applications() !=
-        new_install_info.related_applications) {
-      return false;
-    }
-    if (existing_web_app.file_handlers() != new_install_info.file_handlers) {
-      return false;
-    }
-    if (existing_web_app.tab_strip() != new_install_info.tab_strip) {
-      return false;
-    }
-    // Add new manifest properties here to be considered for update.
-    return true;
-  }();
-  return diff;
 }
 
 void ManifestSilentUpdateCommand::SetStage(
@@ -429,6 +406,8 @@ void ManifestSilentUpdateCommand::StartManifestToInstallInfoJob(
   construct_options.fail_all_if_any_fail = true;
   construct_options.defer_icon_fetching = true;
   construct_options.record_icon_results_on_update = true;
+  construct_options.use_manifest_icons_as_trusted =
+      app_lock_->registrar().AppMatches(app_id_, WebAppFilter::IsTrusted());
 
   // The `background_installation` and `install_source` fields here don't matter
   // because this is not logged anywhere.
@@ -438,7 +417,8 @@ void ManifestSilentUpdateCommand::StartManifestToInstallInfoJob(
           *opt_manifest, *data_retriever_.get(),
           /*background_installation=*/false,
           webapps::WebappInstallSource::MENU_BROWSER_TAB, web_contents_,
-          [](IconUrlSizeSet&) {}, GetMutableDebugValue(),
+          [](IconUrlSizeSet&) {},
+          *GetMutableDebugValue().EnsureDict("manifest_to_install_info_job"),
           base::BindOnce(
               &ManifestSilentUpdateCommand::OnWebAppInfoCreatedFromManifest,
               GetWeakPtr()),
@@ -449,6 +429,7 @@ void ManifestSilentUpdateCommand::OnWebAppInfoCreatedFromManifest(
     std::unique_ptr<WebAppInstallInfo> install_info) {
   CHECK_EQ(stage_, ManifestSilentUpdateCommandStage::kConstructingWebAppInfo);
   CHECK(!new_install_info_);
+  CHECK(app_lock_);
 
   if (IsWebContentsDestroyed()) {
     CompleteCommandAndSelfDestruct(
@@ -468,24 +449,77 @@ void ManifestSilentUpdateCommand::OnWebAppInfoCreatedFromManifest(
   // exit early.
   const WebApp* app = app_lock_->registrar().GetAppById(app_id_);
   CHECK(app);
-  is_trusted_install_ = app->IsPolicyInstalledApp() || app->IsPreinstalledApp();
-  web_app_diff_ = CompareWebApps(*app, *new_install_info_);
-  GetMutableDebugValue().Set("web_app_diff", web_app_diff_.ToDict());
-  if (web_app_diff_.HasNoChanges()) {
-    CompleteCommandAndSelfDestruct(
-        FROM_HERE, ManifestSilentUpdateCheckResult::kAppUpToDate);
-    return;
+
+  web_app_comparison_ =
+      WebAppComparison::CompareWebApps(*app, *new_install_info_);
+  GetMutableDebugValue().Set("web_app_diff", web_app_comparison_.ToDict());
+
+  // Store the conditions for which a silent update of the app's identity is
+  // allowed. This is usually possible if:
+  // 1. The app is a trusted one, installed via policy or default installed.
+  // 2. The app has generated icons, but was sync installed and is within the
+  // time frame in which it can be fixed, and there are no other changes in the
+  // app.
+  bool is_trusted_install =
+      base::FeatureList::IsEnabled(
+          features::kSilentPolicyAndDefaultAppUpdating) &&
+      app_lock_->registrar().AppMatches(app_id_, WebAppFilter::IsTrusted());
+  bool can_fix_generated_icons =
+      app->is_generated_icon() &&
+      app->latest_install_source() == webapps::WebappInstallSource::SYNC &&
+      generated_icon_fix_util::IsWithinFixTimeWindow(*app) &&
+      web_app_comparison_.ExistingAppWithoutPendingEqualsNewUpdate();
+  silently_update_app_identity_ =
+      (is_trusted_install || can_fix_generated_icons);
+
+  // Store the time window for generated icons being fixed in the web app.
+  if (can_fix_generated_icons) {
+    ScopedRegistryUpdate update = app_lock_->sync_bridge().BeginUpdate();
+    generated_icon_fix_util::EnsureFixTimeWindowStarted(
+        *app_lock_, update, app_id_,
+        proto::GENERATED_ICON_FIX_SOURCE_MANIFEST_UPDATE);
   }
+  GetMutableDebugValue().Set("silently_update_identity",
+                             silently_update_app_identity_);
+
+  // Silent app updates based on the generated icon fix requires the updating
+  // algorithm to proceed, so perform all functions that exit early here in case
+  // that doesn't need to happen.
+  if (!can_fix_generated_icons) {
+    // First, handle the case where the existing app (without the pending
+    // update) matches the new install, so we can clear the pending info (if
+    // there was any) and return early. The only case where this doesn't happen
+    // is if the app needs to be updated silently (like for fixing generated
+    // icons), in which case, allow the update to proceed silently.
+    if (web_app_comparison_.ExistingAppWithoutPendingEqualsNewUpdate()) {
+      WritePendingUpdateInfoThenComplete(
+          /*pending_update=*/std::nullopt,
+          ManifestSilentUpdateCheckResult::kAppUpToDate);
+      return;
+    }
+
+    // Exit early if the existing pending update info matches the seen data.
+    // Instead of writing pending update info, we simply exit directly.
+    if (web_app_comparison_.ExistingAppWithPendingEqualsNewUpdate()) {
+      CompleteCommandAndSelfDestruct(
+          FROM_HERE, ManifestSilentUpdateCheckResult::kAppUpToDate);
+      return;
+    }
+  }
+
   // After this line, we know that something in the system needs to update.
 
   // If it's only a name change, simply skip to the end to write the pending
   // update info.
-  // Skip the case where the new name is empty - we will pretend it is the same
-  // and update the rest of the information.
-  if (web_app_diff_.IsNameChangeOnly() && !is_trusted_install_) {
+  // Skip the case where the new name is empty - we will pretend it is the
+  // same and update the rest of the information.
+  if (web_app_comparison_.IsNameChangeOnly() &&
+      !silently_update_app_identity_) {
     proto::PendingUpdateInfo update;
     update.set_name(base::UTF16ToUTF8(new_install_info_->title));
-    WritePendingUpdateInfoThenComplete(std::move(update));
+    WritePendingUpdateInfoThenComplete(
+        std::move(update),
+        ManifestSilentUpdateCheckResult::kAppOnlyHasSecurityUpdate);
     return;
   }
 
@@ -497,7 +531,7 @@ void ManifestSilentUpdateCommand::OnWebAppInfoCreatedFromManifest(
       app_id_, base::BindOnce(&ManifestSilentUpdateCommand::OnAppIconsLoaded,
                               GetWeakPtr())
                    .Then(barrier.CreateClosure()));
-  if (web_app_diff_.shortcut_menu_item_infos_equality) {
+  if (web_app_comparison_.shortcut_menu_item_infos_equality()) {
     // Since the shortcut menu items did not change, load the existing icons
     // from **disk** for the silent update (which acts like a re-install).
     app_lock_->icon_manager().ReadAllShortcutsMenuIcons(
@@ -508,10 +542,13 @@ void ManifestSilentUpdateCommand::OnWebAppInfoCreatedFromManifest(
   }
   // Meanwhile, skip downloading icons from the network that we know didn't
   // change, and thus we'll just use what we have on disk.
+  // If `silently_update_app_identity_` is true, we need all of the new product
+  // icons for the update, so fetch them.
   IconUrlExtractionOptions icon_fetch_options{
-      .product_icons = !web_app_diff_.primary_icons_equality,
+      .product_icons = !web_app_comparison_.primary_icons_equality() ||
+                       silently_update_app_identity_,
       .shortcut_menu_item_icons =
-          !web_app_diff_.shortcut_menu_item_infos_equality};
+          !web_app_comparison_.shortcut_menu_item_infos_equality()};
   manifest_to_install_info_job_->FetchIcons(
       *new_install_info_, *web_contents_, barrier.CreateClosure(),
       /*icon_url_modifications=*/std::nullopt, icon_fetch_options);
@@ -530,38 +567,19 @@ void ManifestSilentUpdateCommand::FinalizeUpdateIfSilentChangesExist() {
       ManifestSilentUpdateCommandStage::kLoadingExistingAndNewManifestIcons);
   SetStage(ManifestSilentUpdateCommandStage::kComparingManifestData);
 
-  const WebApp* web_app = app_lock_->registrar().GetAppById(app_id_);
-
-  silent_update_required_ = !web_app_diff_.other_fields_equality ||
-                            !web_app_diff_.shortcut_menu_item_infos_equality;
-  GetMutableDebugValue().Set("silent_update_required",
-                             base::ToString(silent_update_required_));
-
   // Copy over any icons that did not have manifest changes, and thus we loaded
   // from disk to avoid hitting the network
+  const WebApp* web_app = app_lock_->registrar().GetAppById(app_id_);
   CHECK(new_install_info_);
-  if (web_app_diff_.shortcut_menu_item_infos_equality) {
+  if (web_app_comparison_.shortcut_menu_item_infos_equality()) {
     new_install_info_->shortcuts_menu_item_infos =
         web_app->shortcuts_menu_item_infos();
     new_install_info_->shortcuts_menu_icon_bitmaps =
         existing_shortcuts_menu_icon_bitmaps_;
   }
-  if (web_app_diff_.primary_icons_equality) {
-    new_install_info_->manifest_icons = web_app->manifest_icons();
-    new_install_info_->trusted_icons = web_app->trusted_icons();
-    new_install_info_->icon_bitmaps = existing_manifest_icon_bitmaps_;
-    new_install_info_->trusted_icon_bitmaps = existing_trusted_icon_bitmaps_;
-  }
 
-  // Changes to preinstalled or admin installed web apps are always silently
-  // applied since they are installed by trusted sources. There should be no
-  // pending update info saved for these web apps.
-  if (base::FeatureList::IsEnabled(
-          features::kSilentPolicyAndDefaultAppUpdating) &&
-      is_trusted_install_) {
-    new_install_info_->trusted_icons = new_install_info_->manifest_icons;
-    new_install_info_->trusted_icon_bitmaps = new_install_info_->icon_bitmaps;
-
+  // Update app silently and exit early if allowed.
+  if (silently_update_app_identity_) {
     app_lock_->install_finalizer().FinalizeUpdate(
         new_install_info_->Clone(),
         base::BindOnce(
@@ -581,12 +599,28 @@ void ManifestSilentUpdateCommand::FinalizeUpdateIfSilentChangesExist() {
                 GetWeakPtr(), FROM_HERE)));
     return;
   }
+
+  silent_update_required_ =
+      !web_app_comparison_.other_fields_equality() ||
+      !web_app_comparison_.shortcut_menu_item_infos_equality();
+  GetMutableDebugValue().Set("silent_update_required",
+                             base::ToString(silent_update_required_));
+
+  // If the app's icons can be silently updated, they should not be reverted.
+  if (web_app_comparison_.primary_icons_equality()) {
+    new_install_info_->manifest_icons = web_app->manifest_icons();
+    new_install_info_->trusted_icons = web_app->trusted_icons();
+    new_install_info_->icon_bitmaps = existing_manifest_icon_bitmaps_;
+    new_install_info_->trusted_icon_bitmaps = existing_trusted_icon_bitmaps_;
+    new_install_info_->is_generated_icon = web_app->is_generated_icon();
+  }
+
   // Both of these cases should have already been handled & exited early.
-  CHECK(!web_app_diff_.HasNoChanges());
-  CHECK(!web_app_diff_.IsNameChangeOnly());
+  CHECK(!web_app_comparison_.ExistingAppWithoutPendingEqualsNewUpdate());
+  CHECK(!web_app_comparison_.IsNameChangeOnly());
 
   std::optional<proto::PendingUpdateInfo> pending_update_info;
-  if (!web_app_diff_.name_equality) {
+  if (!web_app_comparison_.name_equality()) {
     pending_update_info = proto::PendingUpdateInfo();
     pending_update_info->set_name(base::UTF16ToUTF8(new_install_info_->title));
     new_install_info_->title = base::UTF8ToUTF16(web_app->untranslated_name());
@@ -594,27 +628,35 @@ void ManifestSilentUpdateCommand::FinalizeUpdateIfSilentChangesExist() {
 
   // Exit early if there are no icon url changes (and only silent update changes
   // with possible name changes).
-  if (web_app_diff_.primary_icons_equality) {
+  if (web_app_comparison_.primary_icons_equality()) {
     // The case where only the name changes and nothing else is handled before
     // fetching icons.
     CHECK(silent_update_required_);
 
     app_lock_->install_finalizer().FinalizeUpdate(
         new_install_info_->Clone(),
-        base::BindOnce(&ManifestSilentUpdateCommand::
-                           UpdateFinalizedWritePendingInfoIfNeeded,
-                       GetWeakPtr(), std::move(pending_update_info)));
+        base::BindOnce(
+            &ManifestSilentUpdateCommand::UpdateFinalizedWritePendingInfo,
+            GetWeakPtr(), std::move(pending_update_info)));
     return;
   }
   // After this line, the icon urls have changed. Those icons are either stored
-  // in PendingUpdateInfo if there is amore than 10% diff, or silently updated
+  // in PendingUpdateInfo if there is a more than 10% diff, or silently updated
   // otherwise.
 
   CHECK(!new_install_info_->trusted_icons.empty());
-  CHECK(!new_install_info_->trusted_icon_bitmaps.empty());
+
+  // Fail early if the icons didn't download correctly
+  if (manifest_to_install_info_job_->icon_download_result() !=
+          IconsDownloadedResult::kCompleted ||
+      new_install_info_->trusted_icon_bitmaps.empty()) {
+    CompleteCommandAndSelfDestruct(
+        FROM_HERE,
+        ManifestSilentUpdateCheckResult::kManifestToWebAppInstallInfoError);
+    return;
+  }
 
   static constexpr int kLogoSizeInDialog = 96;
-
   // Now, fetch the first icon at or larger than `kLogoSizeInDialog` for both
   // the old and new icon.
   // Our icon generation logic should always generate an icon at this size or
@@ -649,11 +691,24 @@ void ManifestSilentUpdateCommand::FinalizeUpdateIfSilentChangesExist() {
     return icon_it->second;
   }();
 
+  base::Time current_time = app_lock_->clock().Now();
+
   // TODO(crbug.com/437379182): HasMoreThanTenPercentImageDiff() should happen
   // in a different thread.
+  // Only update icons silently if the icons are less than ten percent in
+  // difference in a pixel by pixel comparison, and if icon updates shouldn't be
+  // throttled.
+  bool silent_icon_update_throttled = ThrottleForSilentIconUpdates(
+      previous_time_for_silent_icon_update_, current_time);
+  bool silent_icon_update =
+      !HasMoreThanTenPercentImageDiff(&old_trusted_icon, &new_trusted_icon) &&
+      !silent_icon_update_throttled;
+  if (silent_icon_update) {
+    completion_info_.time_for_icon_diff_check = current_time;
+  }
+
   // Case: The icons are being set in the PendingUpdateInfo to be updated later.
-  if (old_trusted_icon.empty() ||
-      HasMoreThanTenPercentImageDiff(&old_trusted_icon, &new_trusted_icon)) {
+  if (old_trusted_icon.empty() || !silent_icon_update) {
     if (!pending_update_info.has_value()) {
       pending_update_info = proto::PendingUpdateInfo();
     }
@@ -662,6 +717,12 @@ void ManifestSilentUpdateCommand::FinalizeUpdateIfSilentChangesExist() {
                                  pending_update_info->mutable_trusted_icons());
     CopyIconsToPendingUpdateInfo(new_install_info_->manifest_icons,
                                  pending_update_info->mutable_manifest_icons());
+
+    *pending_update_info->mutable_downloaded_trusted_icons() =
+        GetIconSizesPerPurposeForBitmaps(
+            new_install_info_->trusted_icon_bitmaps);
+    *pending_update_info->mutable_downloaded_manifest_icons() =
+        GetIconSizesPerPurposeForBitmaps(new_install_info_->icon_bitmaps);
     pending_trusted_icon_bitmaps_ = new_install_info_->trusted_icon_bitmaps;
     pending_manifest_icon_bitmaps_ = new_install_info_->icon_bitmaps;
 
@@ -670,6 +731,10 @@ void ManifestSilentUpdateCommand::FinalizeUpdateIfSilentChangesExist() {
     new_install_info_->trusted_icons = web_app->trusted_icons();
     new_install_info_->icon_bitmaps = existing_manifest_icon_bitmaps_;
     new_install_info_->trusted_icon_bitmaps = existing_trusted_icon_bitmaps_;
+
+    // We can not update generated icons if we are outside of the time window to
+    // silently update them - so we must persist this state.
+    new_install_info_->is_generated_icon = web_app->is_generated_icon();
   } else {
     // Silent updates are allowed if the icons are less than 10% diff.
     silent_update_required_ = true;
@@ -680,23 +745,29 @@ void ManifestSilentUpdateCommand::FinalizeUpdateIfSilentChangesExist() {
   if (silent_update_required_) {
     app_lock_->install_finalizer().FinalizeUpdate(
         new_install_info_->Clone(),
-        base::BindOnce(&ManifestSilentUpdateCommand::
-                           UpdateFinalizedWritePendingInfoIfNeeded,
-                       GetWeakPtr(), std::move(pending_update_info)));
+        base::BindOnce(
+            &ManifestSilentUpdateCommand::UpdateFinalizedWritePendingInfo,
+            GetWeakPtr(), std::move(pending_update_info)));
   } else {
-    // If there is no silent update, that means it MUST be pending update.
+    // If there is no silent update, that means it MUST be pending update. Also
+    // measure if the pending update is because the icon updates were throttled.
     CHECK(pending_update_info);
-    UpdateFinalizedWritePendingInfoIfNeeded(
-        std::move(pending_update_info), app_id_,
-        webapps::InstallResultCode::kSuccessAlreadyInstalled);
+    ManifestSilentUpdateCheckResult result_for_icon_changes =
+        silent_icon_update_throttled
+            ? ManifestSilentUpdateCheckResult::
+                  kAppHasSecurityUpdateDueToThrottle
+            : ManifestSilentUpdateCheckResult::kAppOnlyHasSecurityUpdate;
+    WritePendingUpdateInfoThenComplete(pending_update_info,
+                                       result_for_icon_changes);
   }
 }
 
-void ManifestSilentUpdateCommand::UpdateFinalizedWritePendingInfoIfNeeded(
+void ManifestSilentUpdateCommand::UpdateFinalizedWritePendingInfo(
     std::optional<proto::PendingUpdateInfo> pending_update_info,
     const webapps::AppId& app_id,
     webapps::InstallResultCode code) {
   CHECK_EQ(stage_, ManifestSilentUpdateCommandStage::kComparingManifestData);
+  CHECK(silent_update_required_);
   SetStage(ManifestSilentUpdateCommandStage::kFinalizingSilentManifestChanges);
   GetMutableDebugValue().Set("silent_update_install_code",
                              base::ToString(code));
@@ -709,71 +780,162 @@ void ManifestSilentUpdateCommand::UpdateFinalizedWritePendingInfoIfNeeded(
   CHECK_EQ(app_id_, app_id);
   CHECK_EQ(code, webapps::InstallResultCode::kSuccessAlreadyInstalled);
 
-  if (!pending_update_info.has_value()) {
-    CompleteCommandAndSelfDestruct(
-        FROM_HERE, ManifestSilentUpdateCheckResult::kAppSilentlyUpdated);
-    return;
-  }
-
-  // Update the web app with non-security sensitive changes and store security
-  // sensitive changes to pending update info.
-  WritePendingUpdateInfoThenComplete(std::move(*pending_update_info));
+  // Always write the pending update info so we clear it if it was already
+  // populated.
+  ManifestSilentUpdateCheckResult result =
+      pending_update_info.has_value()
+          ? ManifestSilentUpdateCheckResult::
+                kAppHasNonSecurityAndSecurityChanges
+          : ManifestSilentUpdateCheckResult::kAppSilentlyUpdated;
+  WritePendingUpdateInfoThenComplete(std::move(pending_update_info), result);
 }
 
 void ManifestSilentUpdateCommand::WritePendingUpdateInfoThenComplete(
-    proto::PendingUpdateInfo pending_update) {
+    std::optional<proto::PendingUpdateInfo> pending_update,
+    ManifestSilentUpdateCheckResult result) {
   // Evaluate before `pending_update` is std::move'd.
-  bool has_pending_icons_to_write = !pending_update.trusted_icons().empty();
+  enum class IconOperation {
+    kNone,
+    kWriteIcons,
+    kDeleteIcons
+  } icon_operation = IconOperation::kNone;
+
+  const WebApp* web_app = app_lock_->registrar().GetAppById(app_id_);
+  CHECK(web_app);
+
+  // Exit early if there is no change to the pending update info.
+  if (web_app->pending_update_info() == pending_update) {
+    CompleteCommandAndSelfDestruct(FROM_HERE, result);
+    return;
+  }
+
+  // Determine the icon operation if the pending update info is changing.
+  bool new_pending_update_has_icons =
+      pending_update.has_value() && !pending_update->trusted_icons().empty();
+  bool old_pending_update_has_icons =
+      web_app->pending_update_info().has_value() &&
+      !web_app->pending_update_info()->trusted_icons().empty();
+  if (!new_pending_update_has_icons && old_pending_update_has_icons) {
+    icon_operation = IconOperation::kDeleteIcons;
+  } else if (new_pending_update_has_icons) {
+    // This is guaranteed to be called if there is a difference in between the
+    // pending update info stored in the app vs an incoming pending update info,
+    // as without that, the command exits early above.
+    icon_operation = IconOperation::kWriteIcons;
+  }
+
+  auto write_pending_update_info_to_db = base::BindOnce(
+      &ManifestSilentUpdateCommand::WritePendingUpdateToWebAppUpdateObservers,
+      GetWeakPtr(), std::move(pending_update));
+
+  // Handle any writing or deleting the pending update icons.
+  switch (icon_operation) {
+    case IconOperation::kNone:
+      std::move(write_pending_update_info_to_db).Run();
+      CompleteCommandAndSelfDestruct(FROM_HERE, result);
+      return;
+    case IconOperation::kDeleteIcons:
+      SetStage(ManifestSilentUpdateCommandStage::
+                   kDeletingPendingUpdateIconsFromDisk);
+      // To mitigate the impact of failure conditions for deletion (system is
+      // shut down mid-command, crash mid-command, failure of the operation,
+      // etc), first update the web app protobuf to ensure that it doesn't
+      // expect images that aren't actually on disk.
+      //
+      // The failure case would be that we don't clean up the images on disk,
+      // which is acceptable.
+      std::move(write_pending_update_info_to_db).Run();
+      app_lock_->icon_manager().DeletePendingIconData(
+          app_id_, WebAppIconManager::DeletePendingPassKey(),
+          base::BindOnce(
+              [](ManifestSilentUpdateCheckResult originaL_result,
+                 bool icon_operation_success) {
+                if (!icon_operation_success) {
+                  return ManifestSilentUpdateCheckResult::
+                      kPendingIconWriteToDiskFailed;
+                }
+                return originaL_result;
+              },
+              result)
+              .Then(base::BindOnce(
+                  &ManifestSilentUpdateCommand::CompleteCommandAndSelfDestruct,
+                  GetWeakPtr(), FROM_HERE)));
+      return;
+    case IconOperation::kWriteIcons:
+      SetStage(ManifestSilentUpdateCommandStage::
+                   kWritingPendingUpdateIconBitmapsToDisk);
+      CHECK(!pending_trusted_icon_bitmaps_.empty());
+      CHECK(!pending_manifest_icon_bitmaps_.empty());
+      // To mitigate the impact of failure conditions for writing icons (system
+      // is shut down mid-command, crash mid-command, failure of the operation,
+      // etc), first write the images before updating the web app.  If the icons
+      // fail to write, then do NOT write the pending update to the database.
+      //
+      // The failure case would be that some icons on disk end up being updated,
+      // but all expected images sizes are there. This is acceptable, and is
+      // corrected the next time the new manifest is seen (as the new urls are
+      // not saved).
+      app_lock_->icon_manager().WritePendingIconData(
+          app_id_, std::move(pending_trusted_icon_bitmaps_),
+          std::move(pending_manifest_icon_bitmaps_),
+          base::BindOnce(
+              [](ManifestSilentUpdateCheckResult original_result,
+                 base::OnceClosure write_callback,
+                 bool icon_operation_success) {
+                if (!icon_operation_success) {
+                  return ManifestSilentUpdateCheckResult::
+                      kPendingIconWriteToDiskFailed;
+                }
+                std::move(write_callback).Run();
+                return original_result;
+              },
+              result, std::move(write_pending_update_info_to_db))
+              .Then(base::BindOnce(
+                  &ManifestSilentUpdateCommand::CompleteCommandAndSelfDestruct,
+                  GetWeakPtr(), FROM_HERE)));
+      return;
+  }
+}
+
+void ManifestSilentUpdateCommand::WritePendingUpdateToWebAppUpdateObservers(
+    std::optional<proto::PendingUpdateInfo> pending_update) {
+  // The tracking of time for the icon diff check should not happen if there are
+  // icons populated in the `PendingUpdateInfo`.
+  if (pending_update.has_value() && !pending_update->trusted_icons().empty()) {
+    CHECK(!completion_info_.time_for_icon_diff_check.has_value());
+  }
+  bool trigger_pending_update_observers = false;
+  // First write the pending update into the app, and store whether observers
+  // need to be updated.
   {
     web_app::ScopedRegistryUpdate update =
         app_lock_->sync_bridge().BeginUpdate();
     web_app::WebApp* app_to_update = update->UpdateApp(app_id_);
-    // Record if we are adding a pending update if there wasn't one before, so
-    // can correctly notify observers only if there was a change.
-    pending_updated_added_ = !app_to_update->pending_update_info().has_value();
     CHECK(app_to_update);
-    app_to_update->SetPendingUpdateInfo(std::move(pending_update));
-  }
-  if (!has_pending_icons_to_write) {
-    CompleteCommandAndSelfDestruct(
-        FROM_HERE,
-        silent_update_required_
-            ? ManifestSilentUpdateCheckResult::
-                  kAppHasNonSecurityAndSecurityChanges
-            : ManifestSilentUpdateCheckResult::kAppOnlyHasSecurityUpdate);
-    return;
-  }
-  CHECK(!pending_trusted_icon_bitmaps_.empty());
-  CHECK(!pending_manifest_icon_bitmaps_.empty());
+    trigger_pending_update_observers =
+        app_to_update->pending_update_info() != pending_update;
 
-  // Write the pending trusted and pending manifest icon bitmaps to disk.
-  SetStage(
-      ManifestSilentUpdateCommandStage::kWritingPendingUpdateIconBitmapsToDisk);
-  app_lock_->icon_manager().WritePendingIconData(
-      app_id_, std::move(pending_trusted_icon_bitmaps_),
-      std::move(pending_manifest_icon_bitmaps_),
-      base::BindOnce(
-          [](bool silent_update_required, bool bitmaps_write_success) {
-            if (!bitmaps_write_success) {
-              return ManifestSilentUpdateCheckResult::
-                  kPendingIconWriteToDiskFailed;
-            }
-            if (silent_update_required) {
-              return ManifestSilentUpdateCheckResult::
-                  kAppHasNonSecurityAndSecurityChanges;
-            }
-            return ManifestSilentUpdateCheckResult::kAppOnlyHasSecurityUpdate;
-          },
-          silent_update_required_)
-          .Then(base::BindOnce(
-              &ManifestSilentUpdateCommand::CompleteCommandAndSelfDestruct,
-              GetWeakPtr(), FROM_HERE)));
+    // This is used to ensure that the update is shown to the user as an
+    // expanded chip. At this point, it is guaranteed to be a pending update
+    // that the user has not seen before, and thus hasn't ignored it.
+    if (pending_update.has_value()) {
+      pending_update->set_was_ignored(false);
+    }
+    app_to_update->SetPendingUpdateInfo(pending_update);
+  }
+
+  // Only trigger observers of a pending update info change if the value
+  // previously stored in the web app has changed from that of an incoming one.
+  if (trigger_pending_update_observers) {
+    app_lock_->registrar().NotifyPendingUpdateInfoChanged(
+        app_id_, pending_update.has_value(),
+        WebAppRegistrar::PendingUpdateInfoChangePassKey());
+  }
 }
 
 void ManifestSilentUpdateCommand::CompleteCommandAndSelfDestruct(
     base::Location location,
     ManifestSilentUpdateCheckResult check_result) {
-  GetMutableDebugValue().Set("result", base::ToString(check_result));
   Observe(nullptr);
 
   bool record_update;
@@ -792,6 +954,7 @@ void ManifestSilentUpdateCommand::CompleteCommandAndSelfDestruct(
     case ManifestSilentUpdateCheckResult::kPendingIconWriteToDiskFailed:
     case ManifestSilentUpdateCheckResult::kInvalidManifest:
     case ManifestSilentUpdateCheckResult::kUserNavigated:
+    case ManifestSilentUpdateCheckResult::kAppHasSecurityUpdateDueToThrottle:
       record_update = false;
       command_result = CommandResult::kSuccess;
       break;
@@ -809,12 +972,12 @@ void ManifestSilentUpdateCommand::CompleteCommandAndSelfDestruct(
     app_lock_->sync_bridge().SetAppManifestUpdateTime(app_id_,
                                                       app_lock_->clock().Now());
   }
-  if (pending_updated_added_) {
-    app_lock_->registrar().NotifyPendingUpdateInfoChanged(
-        app_id_, /*pending_update_available=*/true,
-        base::PassKey<ManifestSilentUpdateCommand>());
-  }
-  CompleteAndSelfDestruct(command_result, check_result, location);
+
+  completion_info_.result = check_result;
+  GetMutableDebugValue().Set("completion_info",
+                             completion_info_.ToDebugValue());
+  CompleteAndSelfDestruct(command_result, std::move(completion_info_),
+                          location);
 }
 
 bool ManifestSilentUpdateCommand::IsWebContentsDestroyed() {

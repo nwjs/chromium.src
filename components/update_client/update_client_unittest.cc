@@ -174,7 +174,8 @@ class MockCrxDownloaderFactory : public CrxDownloaderFactory {
 
   // Overrides for CrxDownloaderFactory.
   scoped_refptr<CrxDownloader> MakeCrxDownloader(
-      bool /* background_download_enabled */) const override {
+      const std::string& /*prod_id*/,
+      bool /*background_download_enabled*/) const override {
     return crx_downloader_;
   }
 
@@ -1188,7 +1189,7 @@ TEST_F(UpdateClientTest, TwoCrxUpdateNoCrxComponentData) {
       DownloadMetrics download_metrics;
       base::FilePath path;
       Result result;
-      if (url.path() == "/download/jebgalgnebhfojomionfpkfelancnnkf.crx") {
+      if (url.GetPath() == "/download/jebgalgnebhfojomionfpkfelancnnkf.crx") {
         download_metrics.url = url;
         download_metrics.downloader = DownloadMetrics::kNone;
         download_metrics.error = 0;
@@ -1432,7 +1433,7 @@ TEST_F(UpdateClientTest, TwoCrxUpdateDownloadTimeout) {
       DownloadMetrics download_metrics;
       base::FilePath path;
       Result result;
-      if (url.path() == "/download/jebgalgnebhfojomionfpkfelancnnkf.crx") {
+      if (url.GetPath() == "/download/jebgalgnebhfojomionfpkfelancnnkf.crx") {
         download_metrics.url = url;
         download_metrics.downloader = DownloadMetrics::kNone;
         download_metrics.error = -118;
@@ -1442,7 +1443,7 @@ TEST_F(UpdateClientTest, TwoCrxUpdateDownloadTimeout) {
 
         // The result must not include a file path in the case of errors.
         result.error = -118;
-      } else if (url.path() ==
+      } else if (url.GetPath() ==
                  "/download/ihfokbkgjpifnbbojhneepfflplebdkc_1.crx") {
         download_metrics.url = url;
         download_metrics.downloader = DownloadMetrics::kNone;
@@ -1769,7 +1770,7 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdate) {
       DownloadMetrics download_metrics;
       base::FilePath path;
       Result result;
-      if (url.path() == "/download/ihfokbkgjpifnbbojhneepfflplebdkc_1.crx") {
+      if (url.GetPath() == "/download/ihfokbkgjpifnbbojhneepfflplebdkc_1.crx") {
         download_metrics.url = url;
         download_metrics.downloader = DownloadMetrics::kNone;
         download_metrics.error = 0;
@@ -1782,7 +1783,7 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdate) {
 
         result.error = 0;
         result.response = path;
-      } else if (url.path() ==
+      } else if (url.GetPath() ==
                  "/download/ihfokbkgjpifnbbojhneepfflplebdkc_1to2.puff") {
         download_metrics.url = url;
         download_metrics.downloader = DownloadMetrics::kNone;
@@ -1798,7 +1799,7 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdate) {
         result.error = 0;
         result.response = path;
       } else {
-        ADD_FAILURE() << url.path();
+        ADD_FAILURE() << url.GetPath();
       }
 
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -2385,7 +2386,7 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdateFailsFullUpdateSucceeds) {
       DownloadMetrics download_metrics;
       base::FilePath path;
       Result result;
-      if (url.path() == "/download/ihfokbkgjpifnbbojhneepfflplebdkc_1.crx") {
+      if (url.GetPath() == "/download/ihfokbkgjpifnbbojhneepfflplebdkc_1.crx") {
         download_metrics.url = url;
         download_metrics.downloader = DownloadMetrics::kNone;
         download_metrics.error = 0;
@@ -2398,7 +2399,7 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdateFailsFullUpdateSucceeds) {
 
         result.error = 0;
         result.response = path;
-      } else if (url.path() ==
+      } else if (url.GetPath() ==
                  "/download/ihfokbkgjpifnbbojhneepfflplebdkc_1to2.puff") {
         // A download error is injected on this execution path.
         download_metrics.url = url;
@@ -2410,7 +2411,7 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdateFailsFullUpdateSucceeds) {
 
         // The response must not include a file path in the case of errors.
         result.error = -1;
-      } else if (url.path() ==
+      } else if (url.GetPath() ==
                  "/download/ihfokbkgjpifnbbojhneepfflplebdkc_2.crx") {
         download_metrics.url = url;
         download_metrics.downloader = DownloadMetrics::kNone;
@@ -2759,7 +2760,7 @@ TEST_F(UpdateClientTest, OneCrxInstall) {
       DownloadMetrics download_metrics;
       base::FilePath path;
       Result result;
-      if (url.path() == "/download/jebgalgnebhfojomionfpkfelancnnkf.crx") {
+      if (url.GetPath() == "/download/jebgalgnebhfojomionfpkfelancnnkf.crx") {
         download_metrics.url = url;
         download_metrics.downloader = DownloadMetrics::kNone;
         download_metrics.error = 0;
@@ -3445,7 +3446,7 @@ TEST_F(UpdateClientTest, DiskFullDiff) {
       DownloadMetrics download_metrics;
       base::FilePath path;
       Result result;
-      if (url.path() == "/download/ihfokbkgjpifnbbojhneepfflplebdkc_1.crx") {
+      if (url.GetPath() == "/download/ihfokbkgjpifnbbojhneepfflplebdkc_1.crx") {
         download_metrics.url = url;
         download_metrics.downloader = DownloadMetrics::kNone;
         download_metrics.error = 0;
@@ -3924,7 +3925,7 @@ TEST_F(UpdateClientTest, TwoCrxUpdateOneUpdateDisabled) {
       DownloadMetrics download_metrics;
       base::FilePath path;
       Result result;
-      if (url.path() == "/download/ihfokbkgjpifnbbojhneepfflplebdkc_1.crx") {
+      if (url.GetPath() == "/download/ihfokbkgjpifnbbojhneepfflplebdkc_1.crx") {
         download_metrics.url = url;
         download_metrics.downloader = DownloadMetrics::kNone;
         download_metrics.error = 0;
@@ -4608,7 +4609,7 @@ TEST_F(UpdateClientTest, ActionRun_Install) {
       DownloadMetrics download_metrics;
       base::FilePath path;
       Result result;
-      if (url.path() == "/download/runaction_test_win.crx3") {
+      if (url.GetPath() == "/download/runaction_test_win.crx3") {
         download_metrics.url = url;
         download_metrics.downloader = DownloadMetrics::kNone;
         download_metrics.error = 0;
@@ -4772,7 +4773,7 @@ TEST_F(UpdateClientTest, ActionRun_NoUpdate) {
     base::OnceClosure quit_closure = runloop.QuitClosure();
 
     Unpacker::Unpack(
-        "gjpmebpgbhcamgdgjcmnjfhggjpgcimm",
+        "gjpmebpgbhcamgdgjcmnjfhggjpgcimm", "UpdateClientTest",
         std::vector<uint8_t>(std::begin(gjpm_hash), std::end(gjpm_hash)),
         GetTestFilePath("runaction_test_win.crx3"),
         base::MakeRefCounted<UnzipChromiumFactory>(
@@ -5024,7 +5025,7 @@ TEST_F(UpdateClientTest, CancelInstallBeforeTaskStart) {
       DownloadMetrics download_metrics;
       base::FilePath path;
       Result result;
-      if (url.path() == "/download/jebgalgnebhfojomionfpkfelancnnkf.crx") {
+      if (url.GetPath() == "/download/jebgalgnebhfojomionfpkfelancnnkf.crx") {
         download_metrics.url = url;
         download_metrics.downloader = DownloadMetrics::kNone;
         download_metrics.error = 0;
@@ -5124,7 +5125,7 @@ TEST_F(UpdateClientTest, CancelInstallBeforeInstall) {
       DownloadMetrics download_metrics;
       base::FilePath path;
       Result result;
-      if (url.path() == "/download/jebgalgnebhfojomionfpkfelancnnkf.crx") {
+      if (url.GetPath() == "/download/jebgalgnebhfojomionfpkfelancnnkf.crx") {
         download_metrics.url = url;
         download_metrics.downloader = DownloadMetrics::kNone;
         download_metrics.error = 0;
@@ -5264,7 +5265,7 @@ TEST_F(UpdateClientTest, CancelInstallBeforeDownload) {
       DownloadMetrics download_metrics;
       base::FilePath path;
       Result result;
-      if (url.path() == "/download/jebgalgnebhfojomionfpkfelancnnkf.crx") {
+      if (url.GetPath() == "/download/jebgalgnebhfojomionfpkfelancnnkf.crx") {
         download_metrics.url = url;
         download_metrics.downloader = DownloadMetrics::kNone;
         download_metrics.error = 0;

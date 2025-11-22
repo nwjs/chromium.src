@@ -39,8 +39,6 @@ CGFloat const kTextStackSpacing = 30.0;
 // The horizontal spacing between image preview and the URL stack.
 CGFloat const kInnerViewSpacing = 30;
 
-CGFloat const kSharedImageHeight = 181;
-
 // Custom radius for the half sheet presentation.
 CGFloat const kHalfSheetCornerRadius = 20;
 
@@ -214,7 +212,7 @@ CGFloat const kUpdatedMainViewCornerRadius = 32.0;
 }
 
 - (void)setSharedURLPreview:(UIImage*)sharedURLPreview {
-  CHECK(!_sharedImage && !_sharedText);
+  CHECK(!_sharedText);
   _sharedURLPreview = sharedURLPreview;
 }
 
@@ -411,7 +409,6 @@ CGFloat const kUpdatedMainViewCornerRadius = 32.0;
 
   innerView.translatesAutoresizingMaskIntoConstraints = NO;
   mainView.translatesAutoresizingMaskIntoConstraints = NO;
-
   [NSLayoutConstraint activateConstraints:@[
     [innerView.widthAnchor constraintEqualToAnchor:mainView.widthAnchor
                                           constant:-kInnerViewWidthPadding],
@@ -419,7 +416,6 @@ CGFloat const kUpdatedMainViewCornerRadius = 32.0;
         constraintGreaterThanOrEqualToAnchor:innerView.heightAnchor
                                     constant:kMainViewHeightPadding],
   ]];
-
   AddSameCenterConstraints(mainView, innerView);
 
   return mainView;
@@ -487,14 +483,29 @@ CGFloat const kUpdatedMainViewCornerRadius = 32.0;
   UIImageView* sharedImageView =
       [[UIImageView alloc] initWithImage:_sharedImage];
   sharedImageView.backgroundColor = [UIColor clearColor];
-
+  sharedImageView.contentMode = UIViewContentModeScaleAspectFit;
   sharedImageView.layer.cornerRadius = kMainViewCornerRadius;
-  sharedImageView.contentMode = UIViewContentModeScaleAspectFill;
-  sharedImageView.layer.masksToBounds = YES;
+  sharedImageView.clipsToBounds = YES;
   sharedImageView.translatesAutoresizingMaskIntoConstraints = NO;
-  [sharedImageView.heightAnchor constraintEqualToConstant:kSharedImageHeight]
-      .active = YES;
-  return sharedImageView;
+
+  // The container view will act as a bounding box for the image view.
+  UIView* imageContainerView = [[UIView alloc] init];
+  imageContainerView.translatesAutoresizingMaskIntoConstraints = NO;
+  [imageContainerView addSubview:sharedImageView];
+
+  // The image view MUST maintain the image's aspect ratio for the corner radius
+  // to look correct.
+  if (_sharedImage.size.height > 0) {
+    CGFloat aspectRatio = _sharedImage.size.width / _sharedImage.size.height;
+    [sharedImageView.widthAnchor
+        constraintEqualToAnchor:sharedImageView.heightAnchor
+                     multiplier:aspectRatio]
+        .active = YES;
+  }
+
+  AddSameConstraints(imageContainerView, sharedImageView);
+
+  return imageContainerView;
 }
 
 - (UIView*)configureSharedTextView {

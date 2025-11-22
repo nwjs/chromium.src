@@ -139,6 +139,25 @@ bool IsSameOrigin(const Origin& frame_origin, const GURL& credential_url) {
   return frame_origin.IsSameOriginWith(Origin::Create(credential_url));
 }
 
+#if !BUILDFLAG(IS_IOS) && !defined(ANDROID)
+bool IsEligibleForPasswordChange(PasswordManagerClient* client,
+                                 const PasswordForm* preferred_match) {
+  if (!preferred_match) {
+    return false;
+  }
+
+  if (!client->GetPasswordChangeService() ||
+      !client->GetPasswordChangeService()->IsPasswordChangeAvailable()) {
+    return false;
+  }
+
+  return preferred_match && preferred_match->change_password_url.is_valid() &&
+         preferred_match->password_issues.contains(InsecureType::kLeaked) &&
+         base::FeatureList::IsEnabled(
+             features::kDisableFillingOnPageLoadForLeakedCredentials);
+}
+#endif
+
 }  // namespace
 
 LikelyFormFilling SendFillInformationToRenderer(
@@ -258,9 +277,11 @@ LikelyFormFilling SendFillInformationToRenderer(
   } else if (observed_form.IsSingleUsername()) {
     wait_for_username_reason = WaitForUsernameReason::kSingleUsernameForm;
   } else if (client->IsActorTaskActive() &&
-             base::FeatureList::IsEnabled(features::kActorLogin)) {
+             base::FeatureList::IsEnabled(
+                 features::kActorActiveDisablesFillingOnPageLoad)) {
     wait_for_username_reason = WaitForUsernameReason::kActorTaskOngoing;
-  } else if (client->IsPasswordChangeOngoing()) {
+  } else if (client->IsPasswordChangeOngoing() ||
+             IsEligibleForPasswordChange(client, preferred_match)) {
     wait_for_username_reason = WaitForUsernameReason::kPasswordChangeOngoing;
   }
 

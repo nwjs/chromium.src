@@ -57,9 +57,8 @@ void BoxPainterBase::PaintFillLayers(
     const PhysicalRect& rect,
     const BoxBackgroundPaintContext& bg_paint_context,
     BackgroundBleedAvoidance bleed) {
-  FillLayerOcclusionOutputList reversed_paint_list;
-  bool should_draw_background_in_separate_buffer =
-      CalculateFillLayerOcclusionCulling(reversed_paint_list, fill_layer);
+  auto [should_draw_background_in_separate_buffer, last_layer] =
+      AnalyzeFillLayersForPainting(fill_layer);
 
   // TODO(trchen): We can optimize out isolation group if we have a
   // non-transparent background color and the bottom layer encloses all other
@@ -68,9 +67,12 @@ void BoxPainterBase::PaintFillLayers(
   if (should_draw_background_in_separate_buffer)
     context.BeginLayer();
 
-  for (auto* const paint : base::Reversed(reversed_paint_list)) {
-    PaintFillLayer(paint_info, c, *paint, rect, bleed, bg_paint_context);
-  }
+  FillLayer::IterateFillLayersInReverseOrder(
+      &fill_layer, last_layer,
+      [this, paint_info, c, rect, bleed,
+       bg_paint_context](const FillLayer& paint) {
+        PaintFillLayer(paint_info, c, paint, rect, bleed, bg_paint_context);
+      });
 
   if (should_draw_background_in_separate_buffer)
     context.EndLayer();
@@ -84,7 +86,7 @@ void ApplySpreadToShadowShape(ContouredRect& shadow_shape, float spread) {
   if (spread == 0)
     return;
 
-  shadow_shape.OutsetForMarginOrShadow(spread);
+  shadow_shape.OutsetWithCornerCorrection(spread);
   shadow_shape.ConstrainRadii();
 }
 
@@ -259,7 +261,7 @@ void BoxPainterBase::PaintNormalBoxShadow(const PaintInfo& info,
       style, paint_rect, sides_to_include);
 
   const std::optional<Path> border_shape_outer_path =
-      BorderShapePainter::OuterPath(paint_rect, style);
+      BorderShapePainter::OuterPath(style, paint_rect);
   bool has_border_radius = style.HasBorderRadius() && !border_shape_outer_path;
   bool has_opaque_background =
       !background_is_skipped &&
@@ -459,13 +461,11 @@ bool BoxPainterBase::ShouldForceWhiteBackgroundForPrintEconomy(
           !document.GetSettings()->GetShouldPrintBackgrounds());
 }
 
-bool BoxPainterBase::CalculateFillLayerOcclusionCulling(
-    FillLayerOcclusionOutputList& reversed_paint_list,
+std::pair<bool, const FillLayer*> BoxPainterBase::AnalyzeFillLayersForPainting(
     const FillLayer& fill_layer) {
   bool is_non_associative = false;
-  for (auto* current_layer = &fill_layer; current_layer;
-       current_layer = current_layer->Next()) {
-    reversed_paint_list.push_back(current_layer);
+  const FillLayer* current_layer = &fill_layer;
+  for (; current_layer; current_layer = current_layer->Next()) {
     // Stop traversal when an opaque layer is encountered.
     // FIXME : It would be possible for the following occlusion culling test to
     // be more aggressive on layers with no repeat by testing whether the image
@@ -488,7 +488,7 @@ bool BoxPainterBase::CalculateFillLayerOcclusionCulling(
       break;
     }
   }
-  return is_non_associative;
+  return {is_non_associative, current_layer};
 }
 
 BoxPainterBase::FillLayerInfo::FillLayerInfo(
@@ -1432,15 +1432,22 @@ void BoxPainterBase::PaintFillLayerTextFillBox(
   context.EndLayer();  // Background layer.
 }
 
-void BoxPainterBase::PaintBorder(const ImageResourceObserver& obj,
-                                 const Document& document,
-                                 Node* node,
-                                 const PaintInfo& info,
-                                 const PhysicalRect& rect,
-                                 const ComputedStyle& style,
-                                 BackgroundBleedAvoidance bleed_avoidance,
-                                 PhysicalBoxSides sides_to_include) {
-  if (BorderShapePainter::Paint(info.context, rect, style)) {
+void BoxPainterBase::PaintBorder(
+    const ImageResourceObserver& obj,
+    const Document& document,
+    Node* node,
+    const PaintInfo& info,
+    const PhysicalRect& rect,
+    const ComputedStyle& style,
+    BackgroundBleedAvoidance bleed_avoidance,
+    PhysicalBoxSides sides_to_include,
+    const BorderShapeReferenceRects* border_shape_rects) {
+  const PhysicalRect outer_reference_rect =
+      border_shape_rects ? border_shape_rects->outer : rect;
+  const PhysicalRect inner_reference_rect =
+      border_shape_rects ? border_shape_rects->inner : rect;
+  if (BorderShapePainter::Paint(info.context, style, outer_reference_rect,
+                                inner_reference_rect)) {
     return;
   }
 

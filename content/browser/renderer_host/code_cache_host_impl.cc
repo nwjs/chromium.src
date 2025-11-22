@@ -8,7 +8,6 @@
 #include <string_view>
 #include <utility>
 
-#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
@@ -31,9 +30,8 @@
 #include "mojo/public/cpp/base/big_buffer.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "net/base/io_buffer.h"
-#include "net/http/http_cache.h"
 #include "third_party/blink/public/common/cache_storage/cache_storage_utils.h"
-#include "third_party/blink/public/common/features_generated.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/scheme_registry.h"
 #include "third_party/blink/public/mojom/loader/code_cache.mojom-data-view.h"
 #include "url/gurl.h"
@@ -146,7 +144,8 @@ bool CheckSecurityForAccessingCodeCacheData(
            process_lock.MatchesScheme(content::kChromeUIUntrustedScheme);
   }
   if (resource_url.SchemeIsHTTPOrHTTPS() ||
-      blink::CommonSchemeRegistry::IsExtensionScheme(resource_url.scheme())) {
+      blink::CommonSchemeRegistry::IsExtensionScheme(
+          resource_url.GetScheme())) {
     if (process_lock.MatchesScheme(content::kChromeUIScheme) ||
         process_lock.MatchesScheme(content::kChromeUIUntrustedScheme)) {
       // It is possible for WebUI pages to include open-web content, but such
@@ -316,7 +315,15 @@ void CodeCacheHostImpl::SetCacheStorageControlForTesting(
   cache_storage_control_for_testing_ = cache_storage_control;
 }
 
-bool CodeCacheHostImpl::IsPersistentCacheForCodeCacheEnabled() {
+bool CodeCacheHostImpl::IsPersistentCacheForCodeCacheEnabled(
+    blink::mojom::CodeCacheType cache_type) {
+  // Serve non-js from existing cache implementation.
+  // TODO(crbug.com/377475540): Use another PersistentCacheCollection for
+  // WASM.
+  if (cache_type != blink::mojom::CodeCacheType::kJavascript) {
+    return false;
+  }
+
   ProcessLock process_lock =
       ChildProcessSecurityPolicyImpl::GetInstance()->GetProcessLock(
           render_process_id_);
@@ -329,10 +336,7 @@ bool CodeCacheHostImpl::IsPersistentCacheForCodeCacheEnabled() {
     return false;
   }
 
-  // The feature is only compatible with split caches.
-  return base::FeatureList::IsEnabled(
-             blink::features::kUsePersistentCacheForCodeCache) &&
-         net::HttpCache::IsSplitCacheEnabled();
+  return blink::features::IsPersistentCacheForCodeCacheEnabled();
 }
 
 void CodeCacheHostImpl::DidGenerateCacheableMetadata(
@@ -348,7 +352,7 @@ void CodeCacheHostImpl::DidGenerateCacheableMetadata(
     return;
   }
 
-  if (IsPersistentCacheForCodeCacheEnabled()) {
+  if (IsPersistentCacheForCodeCacheEnabled(cache_type)) {
     if (!generated_code_cache_context_) {
       return;
     }
@@ -393,7 +397,7 @@ void CodeCacheHostImpl::FetchCachedCode(blink::mojom::CodeCacheType cache_type,
     return;
   }
 
-  if (IsPersistentCacheForCodeCacheEnabled()) {
+  if (IsPersistentCacheForCodeCacheEnabled(cache_type)) {
     if (!generated_code_cache_context_) {
       std::move(callback).Run(base::Time(), {});
       return;
@@ -445,6 +449,20 @@ void CodeCacheHostImpl::ClearCodeCacheEntry(
     blink::mojom::CodeCacheType cache_type,
     const GURL& url) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  // Note:
+  // There is no handling under `IsPersistentCacheForCodeCacheEnabled()`
+  // here as `PersistentCache` does not expose the ability to delete specific
+  // entries. This will lead to entries that are known to be unusable by
+  // renderers remaining in the cache. This does not lead to keys being
+  // unusable forever since the entries can get overwritten by valid entries.
+  // Additionally this does not lead to invalid values being used by renderers
+  // since the fact that they are unusable was detected by the clients
+  // themselves.
+  if (IsPersistentCacheForCodeCacheEnabled(cache_type)) {
+    return;
+  }
+
   GeneratedCodeCache* code_cache = GetCodeCache(cache_type);
   if (!code_cache)
     return;
@@ -590,7 +608,7 @@ std::optional<GURL> CodeCacheHostImpl::GetSecondaryKeyForCodeCache(
       process_lock.MatchesScheme(content::kChromeUIScheme) ||
       process_lock.MatchesScheme(content::kChromeUIUntrustedScheme) ||
       blink::CommonSchemeRegistry::IsExtensionScheme(
-          process_lock.GetProcessLockURL().scheme())) {
+          process_lock.GetProcessLockURL().GetScheme())) {
     return process_lock.GetProcessLockURL();
   }
 

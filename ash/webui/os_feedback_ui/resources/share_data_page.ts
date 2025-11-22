@@ -298,7 +298,7 @@ export class ShareDataPageElement extends ShareDataPageElementBase {
         email: '',
         extraDiagnostics: '',
       },
-      description: {data: []},
+      description: '',
       attachedFile: null,
       sendBluetoothLogs: false,
       sendWifiDebugLogs: false,
@@ -340,7 +340,7 @@ export class ShareDataPageElement extends ShareDataPageElementBase {
             .checked) {
       report.feedbackContext.pageUrl = {
         url: strictQuery('#pageUrlText', this.shadowRoot, HTMLElement)
-                 .textContent!.trim(),
+                 .textContent.trim(),
       };
     }
 

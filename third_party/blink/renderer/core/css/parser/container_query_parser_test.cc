@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/core/css/parser/container_query_parser.h"
 
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/renderer/core/css/media_query_exp.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token_stream.h"
 #include "third_party/blink/renderer/core/css/parser/css_tokenizer.h"
@@ -40,6 +41,9 @@ class ContainerQueryParserTest : public PageTestBase {
     }
     bool IsAllowedWithoutValue(const AtomicString& feature,
                                const ExecutionContext*) const override {
+      return true;
+    }
+    bool IsAllowedWithValue(const AtomicString& feature) const override {
       return true;
     }
     bool IsCaseSensitive(const AtomicString& feature) const override {

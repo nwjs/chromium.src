@@ -325,12 +325,14 @@ BocaAppHandler::~BocaAppHandler() {
     GetSessionManager()->NotifySessionCaptionProducerEvents(caption_config);
   }
   GetSessionManager()->RemoveObserver(this);
-  if (!is_producer_ || BocaAppClient::Get()->HasApp()) {
+  if (!is_producer_ || (BocaAppClient::Get()->GetAppInstanceCount() > 1)) {
     // Always try end session when handler destructed, but do not proceed if
-    // there is still app instance. Find App won't return the window is already
-    // scheduled to close.
+    // there are other app instances open. The total instance count will not be
+    // decremented until all the app instance's tabs (including the one hosting
+    // this) are closed and the Browser instance is scheduled for deletion.
     return;
   }
+  GetSessionManager()->CleanupPresenters();
   // Best effort end session. Not handling response, if update failed,
   // persistent notification will stay.
   EndSession(base::BindOnce([](std::optional<mojom::UpdateSessionError>) {}));
@@ -645,11 +647,12 @@ void BocaAppHandler::EndViewScreenSession(
     EndViewScreenSessionCallback callback) {
   CHECK(spotlight_service_);
   if (student_screen_presenter() &&
-      student_screen_presenter()->IsPresenting()) {
+      student_screen_presenter()->IsPresenting(id)) {
     // Already ended and a presentation is in progress.
     std::move(callback).Run(std::nullopt);
     return;
   }
+  GetSessionManager()->EndSpotlightSession(base::DoNothing());
   EndViewScreenSessionInternal(id, std::move(callback));
 }
 
@@ -763,9 +766,31 @@ void BocaAppHandler::PresentStudentScreen(
     const std::string& receiver_id,
     PresentStudentScreenCallback callback) {
   auto* session = GetSessionManager()->GetCurrentSession();
-  if (!student_screen_presenter() || !session ||
-      !IsActiveSession(session->session_id())) {
-    LOG(ERROR) << "[Boca] unexpected call to present student screen";
+  if (!session || !IsActiveSession(session->session_id())) {
+    LOG(ERROR) << "[Boca] unexpected call to present student screen - no "
+                  "active session";
+    RecordPresentStudentScreenResult(/* failure */ false);
+    RecordPresentStudentScreenFailureReason(
+        BocaPresentStudentScreenFailureReason::kNoSession);
+    std::move(callback).Run(false);
+    return;
+  }
+  if (!student_screen_presenter()) {
+    LOG(ERROR) << "[Boca] unexpected call to present student screen - no "
+                  "student_screen_presenter";
+    RecordPresentStudentScreenResult(/* failure */ false);
+    RecordPresentStudentScreenFailureReason(
+        BocaPresentStudentScreenFailureReason::kFeatureDisabled);
+    std::move(callback).Run(false);
+    return;
+  }
+  if (teacher_screen_presenter() &&
+      teacher_screen_presenter()->IsPresenting()) {
+    LOG(ERROR) << "[Boca] Trying to present student's screen while "
+               << "presenting teacher's screen";
+    RecordPresentStudentScreenResult(/* failure */ false);
+    RecordPresentStudentScreenFailureReason(
+        BocaPresentStudentScreenFailureReason::kTeacherScreenShareActive);
     std::move(callback).Run(false);
     return;
   }
@@ -774,14 +799,17 @@ void BocaAppHandler::PresentStudentScreen(
       &BocaAppHandler::OnEndViewScreenResponseForPresentStudentScreen,
       weak_ptr_factory_.GetWeakPtr(), session->session_id(), std::move(student),
       receiver_id, std::move(callback));
-  EndViewScreenSessionInternal(student_id, std::move(end_view_screen_cb));
+  auto end_spotlight_cb =
+      base::BindOnce(&BocaAppHandler::EndViewScreenSessionInternal,
+                     weak_ptr_factory_.GetWeakPtr(), std::move(student_id),
+                     std::move(end_view_screen_cb));
+  GetSessionManager()->EndSpotlightSession(std::move(end_spotlight_cb));
 }
 
 void BocaAppHandler::StopPresentingStudentScreen(
     StopPresentingStudentScreenCallback callback) {
   if (!student_screen_presenter()) {
-    LOG(ERROR) << "[Boca] unexpected call to stop presenting student screen";
-    std::move(callback).Run(false);
+    std::move(callback).Run(true);
     return;
   }
   student_screen_presenter()->Stop(std::move(callback));
@@ -789,13 +817,29 @@ void BocaAppHandler::StopPresentingStudentScreen(
 
 void BocaAppHandler::PresentOwnScreen(const std::string& receiver_id,
                                       PresentOwnScreenCallback callback) {
+  auto* session = GetSessionManager()->GetCurrentSession();
+  bool is_session_active = session && IsActiveSession(session->session_id());
   if (!teacher_screen_presenter()) {
     LOG(ERROR) << "[Boca] unexpected call to present teacher's own screen";
+    RecordPresentOwnScreenResult(/* failure */ false, is_session_active);
+    RecordPresentOwnScreenFailureReason(
+        BocaPresentOwnScreenFailureReason::kFeatureDisabled, is_session_active);
+    std::move(callback).Run(false);
+    return;
+  }
+  if (student_screen_presenter() &&
+      student_screen_presenter()->IsPresenting(/*student_id=*/std::nullopt)) {
+    LOG(ERROR) << "[Boca] trying to present teacher's own screen while "
+               << "presenting student's screen";
+    RecordPresentOwnScreenResult(/* failure */ false, is_session_active);
+    RecordPresentOwnScreenFailureReason(
+        BocaPresentOwnScreenFailureReason::kStudentScreenShareActive,
+        is_session_active);
     std::move(callback).Run(false);
     return;
   }
   teacher_screen_presenter()->Start(
-      receiver_id, user_identity_, std::move(callback),
+      receiver_id, user_identity_, is_session_active, std::move(callback),
       base::BindOnce(&BocaAppHandler::OnPresentOwnScreenEnded,
                      weak_ptr_factory_.GetWeakPtr()));
 }
@@ -803,9 +847,7 @@ void BocaAppHandler::PresentOwnScreen(const std::string& receiver_id,
 void BocaAppHandler::StopPresentingOwnScreen(
     StopPresentingOwnScreenCallback callback) {
   if (!teacher_screen_presenter()) {
-    LOG(ERROR)
-        << "[Boca] unexpected call to stop presenting teacher's own screen";
-    std::move(callback).Run(false);
+    std::move(callback).Run(true);
     return;
   }
   teacher_screen_presenter()->Stop(std::move(callback));
@@ -881,7 +923,7 @@ void BocaAppHandler::OnSessionEnded(const std::string& session_id) {
   OnSessionConfigUpdated(
       mojom::ConfigResult::NewError(mojom::GetSessionError::kEmpty));
   if (student_screen_presenter() &&
-      student_screen_presenter()->IsPresenting()) {
+      student_screen_presenter()->IsPresenting(/*student_id=*/std::nullopt)) {
     // Ending the session should disconnect the student remoting so update the
     // UI.
     remote_->OnPresentStudentScreenEnded();
@@ -1339,10 +1381,6 @@ void BocaAppHandler::EndViewScreenSessionInternal(
     EndViewScreenSessionCallback callback) {
   CHECK(spotlight_service_);
 
-  if (ash::features::IsBocaSpotlightRobotRequesterEnabled()) {
-    GetSessionManager()->EndSpotlightSession();
-  }
-
   spotlight_service_->UpdateViewScreenState(
       id, ::boca::ViewScreenConfig::INACTIVE, base_url_,
       base::BindOnce(
@@ -1367,11 +1405,27 @@ void BocaAppHandler::PresentStudentScreenInternal(
     const std::string& receiver_id,
     PresentStudentScreenCallback callback) {
   if (!IsActiveSession(session_id)) {
+    RecordPresentStudentScreenResult(/* failure */ false);
+    RecordPresentStudentScreenFailureReason(
+        BocaPresentStudentScreenFailureReason::kNoSession);
     std::move(callback).Run(false);
     return;
   }
   if (!student_screen_presenter()) {
     LOG(ERROR) << "[Boca] unexpected call to present student screen";
+    RecordPresentStudentScreenResult(/* failure */ false);
+    RecordPresentStudentScreenFailureReason(
+        BocaPresentStudentScreenFailureReason::kFeatureDisabled);
+    std::move(callback).Run(false);
+    return;
+  }
+  if (teacher_screen_presenter() &&
+      teacher_screen_presenter()->IsPresenting()) {
+    LOG(ERROR) << "[Boca] Trying to present student's screen while "
+               << "presenting teacher's screen";
+    RecordPresentStudentScreenResult(/* failure */ false);
+    RecordPresentStudentScreenFailureReason(
+        BocaPresentStudentScreenFailureReason::kTeacherScreenShareActive);
     std::move(callback).Run(false);
     return;
   }
@@ -1382,6 +1436,9 @@ void BocaAppHandler::PresentStudentScreenInternal(
   std::optional<std::string> student_device_id =
       GetSessionManager()->GetStudentActiveDeviceId(student->id);
   if (!student_device_id.has_value()) {
+    RecordPresentStudentScreenResult(/* failure */ false);
+    RecordPresentStudentScreenFailureReason(
+        BocaPresentStudentScreenFailureReason::kNoActiveStudentDevice);
     std::move(callback).Run(false);
     return;
   }
@@ -1399,20 +1456,14 @@ void BocaAppHandler::OnEndViewScreenResponseForPresentStudentScreen(
     PresentStudentScreenCallback callback,
     std::optional<mojom::EndViewScreenSessionError> end_view_screen_error) {
   if (end_view_screen_error.has_value()) {
+    RecordPresentStudentScreenResult(/* failure */ false);
+    RecordPresentStudentScreenFailureReason(
+        BocaPresentStudentScreenFailureReason::kEndSpotlightFailed);
     std::move(callback).Run(false);
     return;
   }
-  // Delay presentation to increase the likelihood the host receives the
-  // inactive connection notification and can accept the new one.
-  // TODO(crbug.com/445259545): The race condition is still there even with the
-  // delay. Update the host side to allow new connection even if the previous
-  // one is ongoing and then remove this delay.
-  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
-      FROM_HERE,
-      base::BindOnce(&BocaAppHandler::PresentStudentScreenInternal,
-                     weak_ptr_factory_.GetWeakPtr(), session_id,
-                     std::move(student), receiver_id, std::move(callback)),
-      base::Seconds(5));
+  PresentStudentScreenInternal(session_id, std::move(student), receiver_id,
+                               std::move(callback));
 }
 
 TeacherScreenPresenter* BocaAppHandler::teacher_screen_presenter() {

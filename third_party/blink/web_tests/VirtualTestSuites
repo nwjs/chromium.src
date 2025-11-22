@@ -237,6 +237,15 @@
     "expires": "Jan 1, 2026"
   },
   {
+    "prefix": "connection-allowlist",
+    "owners": [ "mkwst@chromium.org" ],
+    "platforms": [ "Linux" ],
+    "bases": [ "external/wpt/connection-allowlist" ],
+    "exclusive_tests": "ALL",
+    "args": [ "--enable-features=ConnectionAllowlists" ],
+    "expires": "Jul 1, 2026"
+  },
+  {
     "prefix": "controls-refresh-hc",
     "owners": [
       "masonf@chromium.org",
@@ -268,7 +277,7 @@
     ],
     "exclusive_tests": "ALL",
     "args": [
-      "--enable-features=CookieDeprecationFacilitatedTesting:label/label_test"
+      "--enable-features=CookieDeprecationFacilitatedTesting:label/label_test,CookieDeprecationFacilitatedTestingLabels"
     ],
     "expires": "Dec 6, 2025",
     "owners": [
@@ -339,6 +348,25 @@
     "expires": "never"
   },
   {
+    "prefix": "cpu-performance",
+    "owners": [
+      "nikolaos@chromium.org"
+    ],
+    "platforms": [
+      "Linux",
+      "Mac",
+      "Win"
+    ],
+    "bases": [
+      "external/wpt/cpu-performance"
+    ],
+    "exclusive_tests": "ALL",
+    "args": [
+      "--enable-features=CpuPerformance"
+    ],
+    "expires": "Dec 31, 2025"
+  },
+  {
     "prefix": "cross-partition-blob-url",
     "platforms": [
       "Linux"
@@ -356,7 +384,7 @@
     "args": [
       "--disable-features=BlockCrossPartitionBlobUrlFetching,EnforceNoopenerOnBlobURLNavigation"
     ],
-    "expires": "Mar 1, 2026",
+    "expires": "Apr 1, 2026",
     "owners": [
       "awillia@chromium.org"
     ]
@@ -1148,10 +1176,12 @@
       "Win"
     ],
     "bases": [
-      "wpt_internal/fenced_frame"
+      "wpt_internal/fenced_frame",
+      "wpt_internal/shared-worker/back-forward-cache/shared-worker-with-fenced-frame-client.tentative.https.window.js"
     ],
     "exclusive_tests": [
-      "wpt_internal/fenced_frame"
+      "wpt_internal/fenced_frame",
+      "wpt_internal/shared-worker/back-forward-cache/shared-worker-with-fenced-frame-client.tentative.https.window.js"
     ],
     "args": [
       "--enable-features=PrivacySandboxAdsAPIsOverride,Fledge,AdInterestGroupAPI,FencedFramesEnforceFocus,FencedFramesLocalUnpartitionedDataAccess,ExemptUrlFromNetworkRevocationForTesting,FencedFramesCrossOriginEventReportingAllTraffic,FencedFramesReportEventHeaderChanges,FencedFramesDefaultMode"
@@ -1736,7 +1766,10 @@
       "external/wpt/webcodecs/video-frame-serialization.any.html",
       "external/wpt/workers/data-url-shared.html",
       "external/wpt/workers/data-url.html",
-      "fast/dom/domstringlist.html"
+      "fast/dom/domstringlist.html",
+      "http/tests/devtools/indexeddb/database-names.js",
+      "http/tests/devtools/indexeddb/upgrade-events.js",
+      "http/tests/inspector-protocol/storage/indexed-db-storage-key-request-database-names.js"
     ],
     "args": [
       "--enable-features=IdbSqliteBackingStore"
@@ -2588,8 +2621,8 @@
       "Win"
     ],
     "bases": [
-      "external/wpt/speculation-rules/prefetch/anonymous-client.https.html",
-      "external/wpt/speculation-rules/prefetch/cross-origin-cookies-anonymous-client-ip-duplicate.https.html"
+      "external/wpt/speculation-rules/prefetch/anonymous/anonymous-client.https.html",
+      "external/wpt/speculation-rules/prefetch/anonymous/cross-origin-cookies-anonymous-client-ip-duplicate.https.html"
     ],
     "exclusive_tests": "ALL",
     "args": [
@@ -2657,7 +2690,10 @@
   {
     "prefix": "presentation",
     "owners": [
-      "mfoltz@chromium.org"
+      "mfoltz@chromium.org",
+      "muyaoxu@google.com",
+      "jophba@chromium.org",
+      "openscreen-eng@google.com"
     ],
     "platforms": [
       "Linux",
@@ -2668,7 +2704,7 @@
     "args": [
       "--force-presentation-receiver-for-testing"
     ],
-    "expires": "Oct 1, 2025"
+    "expires": "never"
   },
   {
     "prefix": "private-aggregation",
@@ -2900,6 +2936,8 @@
       "external/wpt/element-timing",
       "external/wpt/css/filter-effects",
       "external/wpt/css/css-grid/animation",
+      "external/wpt/css/css-sizing/responsive-iframe/responsive-iframe.tentative.html",
+      "external/wpt/css/css-sizing/responsive-iframe/responsive-iframe-dom-content-loaded.tentative.html",
       "external/wpt/css/printing",
       "external/wpt/largest-contentful-paint",
       "fast/forms/file/file-appearance-no-default-width.html",
@@ -2997,90 +3035,102 @@
       "Win"
     ],
     "bases": [
-      "external/wpt/compression/compression-bad-chunks.tentative.any.shadowrealm-in-dedicatedworker.html",
-      "external/wpt/compression/compression-bad-chunks.tentative.any.shadowrealm-in-shadowrealm.html",
-      "external/wpt/compression/compression-bad-chunks.tentative.any.shadowrealm-in-sharedworker.html",
-      "external/wpt/compression/compression-bad-chunks.tentative.any.shadowrealm-in-window.html",
-      "external/wpt/compression/compression-bad-chunks.tentative.https.any.shadowrealm-in-audioworklet.html",
-      "external/wpt/compression/compression-bad-chunks.tentative.https.any.shadowrealm-in-serviceworker.html",
-      "external/wpt/compression/compression-constructor-error.tentative.any.shadowrealm-in-dedicatedworker.html",
-      "external/wpt/compression/compression-constructor-error.tentative.any.shadowrealm-in-shadowrealm.html",
-      "external/wpt/compression/compression-constructor-error.tentative.any.shadowrealm-in-sharedworker.html",
-      "external/wpt/compression/compression-constructor-error.tentative.any.shadowrealm-in-window.html",
-      "external/wpt/compression/compression-constructor-error.tentative.https.any.shadowrealm-in-audioworklet.html",
-      "external/wpt/compression/compression-constructor-error.tentative.https.any.shadowrealm-in-serviceworker.html",
-      "external/wpt/compression/compression-including-empty-chunk.tentative.any.shadowrealm-in-dedicatedworker.html",
-      "external/wpt/compression/compression-including-empty-chunk.tentative.any.shadowrealm-in-shadowrealm.html",
-      "external/wpt/compression/compression-including-empty-chunk.tentative.any.shadowrealm-in-sharedworker.html",
-      "external/wpt/compression/compression-including-empty-chunk.tentative.any.shadowrealm-in-window.html",
-      "external/wpt/compression/compression-including-empty-chunk.tentative.https.any.shadowrealm-in-audioworklet.html",
-      "external/wpt/compression/compression-including-empty-chunk.tentative.https.any.shadowrealm-in-serviceworker.html",
+      "external/wpt/compression/compression-bad-chunks.any.shadowrealm-in-dedicatedworker.html",
+      "external/wpt/compression/compression-bad-chunks.any.shadowrealm-in-shadowrealm.html",
+      "external/wpt/compression/compression-bad-chunks.any.shadowrealm-in-sharedworker.html",
+      "external/wpt/compression/compression-bad-chunks.any.shadowrealm-in-window.html",
+      "external/wpt/compression/compression-bad-chunks.https.any.shadowrealm-in-audioworklet.html",
+      "external/wpt/compression/compression-bad-chunks.https.any.shadowrealm-in-serviceworker.html",
+      "external/wpt/compression/compression-constructor-error.any.shadowrealm-in-dedicatedworker.html",
+      "external/wpt/compression/compression-constructor-error.any.shadowrealm-in-shadowrealm.html",
+      "external/wpt/compression/compression-constructor-error.any.shadowrealm-in-sharedworker.html",
+      "external/wpt/compression/compression-constructor-error.any.shadowrealm-in-window.html",
+      "external/wpt/compression/compression-constructor-error.https.any.shadowrealm-in-audioworklet.html",
+      "external/wpt/compression/compression-constructor-error.https.any.shadowrealm-in-serviceworker.html",
+      "external/wpt/compression/compression-including-empty-chunk.any.shadowrealm-in-dedicatedworker.html",
+      "external/wpt/compression/compression-including-empty-chunk.any.shadowrealm-in-shadowrealm.html",
+      "external/wpt/compression/compression-including-empty-chunk.any.shadowrealm-in-sharedworker.html",
+      "external/wpt/compression/compression-including-empty-chunk.any.shadowrealm-in-window.html",
+      "external/wpt/compression/compression-including-empty-chunk.https.any.shadowrealm-in-audioworklet.html",
+      "external/wpt/compression/compression-including-empty-chunk.https.any.shadowrealm-in-serviceworker.html",
       "external/wpt/compression/compression-large-flush-output.any.shadowrealm-in-dedicatedworker.html",
       "external/wpt/compression/compression-large-flush-output.any.shadowrealm-in-shadowrealm.html",
       "external/wpt/compression/compression-large-flush-output.any.shadowrealm-in-sharedworker.html",
       "external/wpt/compression/compression-large-flush-output.any.shadowrealm-in-window.html",
       "external/wpt/compression/compression-large-flush-output.https.any.shadowrealm-in-audioworklet.html",
       "external/wpt/compression/compression-large-flush-output.https.any.shadowrealm-in-serviceworker.html",
-      "external/wpt/compression/compression-multiple-chunks.tentative.any.shadowrealm-in-dedicatedworker.html",
-      "external/wpt/compression/compression-multiple-chunks.tentative.any.shadowrealm-in-shadowrealm.html",
-      "external/wpt/compression/compression-multiple-chunks.tentative.any.shadowrealm-in-sharedworker.html",
-      "external/wpt/compression/compression-multiple-chunks.tentative.any.shadowrealm-in-window.html",
-      "external/wpt/compression/compression-multiple-chunks.tentative.https.any.shadowrealm-in-audioworklet.html",
-      "external/wpt/compression/compression-multiple-chunks.tentative.https.any.shadowrealm-in-serviceworker.html",
-      "external/wpt/compression/compression-output-length.tentative.any.shadowrealm-in-dedicatedworker.html",
-      "external/wpt/compression/compression-output-length.tentative.any.shadowrealm-in-shadowrealm.html",
-      "external/wpt/compression/compression-output-length.tentative.any.shadowrealm-in-sharedworker.html",
-      "external/wpt/compression/compression-output-length.tentative.any.shadowrealm-in-window.html",
-      "external/wpt/compression/compression-output-length.tentative.https.any.shadowrealm-in-audioworklet.html",
-      "external/wpt/compression/compression-output-length.tentative.https.any.shadowrealm-in-serviceworker.html",
-      "external/wpt/compression/compression-stream.tentative.any.shadowrealm-in-dedicatedworker.html",
-      "external/wpt/compression/compression-stream.tentative.any.shadowrealm-in-shadowrealm.html",
-      "external/wpt/compression/compression-stream.tentative.any.shadowrealm-in-sharedworker.html",
-      "external/wpt/compression/compression-stream.tentative.any.shadowrealm-in-window.html",
-      "external/wpt/compression/compression-stream.tentative.https.any.shadowrealm-in-audioworklet.html",
-      "external/wpt/compression/compression-stream.tentative.https.any.shadowrealm-in-serviceworker.html",
-      "external/wpt/compression/decompression-bad-chunks.tentative.any.shadowrealm-in-dedicatedworker.html",
-      "external/wpt/compression/decompression-bad-chunks.tentative.any.shadowrealm-in-shadowrealm.html",
-      "external/wpt/compression/decompression-bad-chunks.tentative.any.shadowrealm-in-sharedworker.html",
-      "external/wpt/compression/decompression-bad-chunks.tentative.any.shadowrealm-in-window.html",
-      "external/wpt/compression/decompression-bad-chunks.tentative.https.any.shadowrealm-in-audioworklet.html",
-      "external/wpt/compression/decompression-bad-chunks.tentative.https.any.shadowrealm-in-serviceworker.html",
-      "external/wpt/compression/decompression-buffersource.tentative.any.shadowrealm-in-dedicatedworker.html",
-      "external/wpt/compression/decompression-buffersource.tentative.any.shadowrealm-in-shadowrealm.html",
-      "external/wpt/compression/decompression-buffersource.tentative.any.shadowrealm-in-sharedworker.html",
-      "external/wpt/compression/decompression-buffersource.tentative.any.shadowrealm-in-window.html",
-      "external/wpt/compression/decompression-buffersource.tentative.https.any.shadowrealm-in-audioworklet.html",
-      "external/wpt/compression/decompression-buffersource.tentative.https.any.shadowrealm-in-serviceworker.html",
-      "external/wpt/compression/decompression-constructor-error.tentative.any.shadowrealm-in-dedicatedworker.html",
-      "external/wpt/compression/decompression-constructor-error.tentative.any.shadowrealm-in-shadowrealm.html",
-      "external/wpt/compression/decompression-constructor-error.tentative.any.shadowrealm-in-sharedworker.html",
-      "external/wpt/compression/decompression-constructor-error.tentative.any.shadowrealm-in-window.html",
-      "external/wpt/compression/decompression-constructor-error.tentative.https.any.shadowrealm-in-audioworklet.html",
-      "external/wpt/compression/decompression-constructor-error.tentative.https.any.shadowrealm-in-serviceworker.html",
-      "external/wpt/compression/decompression-correct-input.tentative.any.shadowrealm-in-dedicatedworker.html",
-      "external/wpt/compression/decompression-correct-input.tentative.any.shadowrealm-in-shadowrealm.html",
-      "external/wpt/compression/decompression-correct-input.tentative.any.shadowrealm-in-sharedworker.html",
-      "external/wpt/compression/decompression-correct-input.tentative.any.shadowrealm-in-window.html",
-      "external/wpt/compression/decompression-correct-input.tentative.https.any.shadowrealm-in-audioworklet.html",
-      "external/wpt/compression/decompression-correct-input.tentative.https.any.shadowrealm-in-serviceworker.html",
-      "external/wpt/compression/decompression-empty-input.tentative.any.shadowrealm-in-dedicatedworker.html",
-      "external/wpt/compression/decompression-empty-input.tentative.any.shadowrealm-in-shadowrealm.html",
-      "external/wpt/compression/decompression-empty-input.tentative.any.shadowrealm-in-sharedworker.html",
-      "external/wpt/compression/decompression-empty-input.tentative.any.shadowrealm-in-window.html",
-      "external/wpt/compression/decompression-empty-input.tentative.https.any.shadowrealm-in-audioworklet.html",
-      "external/wpt/compression/decompression-empty-input.tentative.https.any.shadowrealm-in-serviceworker.html",
-      "external/wpt/compression/decompression-split-chunk.tentative.any.shadowrealm-in-dedicatedworker.html",
-      "external/wpt/compression/decompression-split-chunk.tentative.any.shadowrealm-in-shadowrealm.html",
-      "external/wpt/compression/decompression-split-chunk.tentative.any.shadowrealm-in-sharedworker.html",
-      "external/wpt/compression/decompression-split-chunk.tentative.any.shadowrealm-in-window.html",
-      "external/wpt/compression/decompression-split-chunk.tentative.https.any.shadowrealm-in-audioworklet.html",
-      "external/wpt/compression/decompression-split-chunk.tentative.https.any.shadowrealm-in-serviceworker.html",
-      "external/wpt/compression/decompression-uint8array-output.tentative.any.shadowrealm-in-dedicatedworker.html",
-      "external/wpt/compression/decompression-uint8array-output.tentative.any.shadowrealm-in-shadowrealm.html",
-      "external/wpt/compression/decompression-uint8array-output.tentative.any.shadowrealm-in-sharedworker.html",
-      "external/wpt/compression/decompression-uint8array-output.tentative.any.shadowrealm-in-window.html",
-      "external/wpt/compression/decompression-uint8array-output.tentative.https.any.shadowrealm-in-audioworklet.html",
-      "external/wpt/compression/decompression-uint8array-output.tentative.https.any.shadowrealm-in-serviceworker.html",
+      "external/wpt/compression/compression-multiple-chunks.any.shadowrealm-in-dedicatedworker.html",
+      "external/wpt/compression/compression-multiple-chunks.any.shadowrealm-in-shadowrealm.html",
+      "external/wpt/compression/compression-multiple-chunks.any.shadowrealm-in-sharedworker.html",
+      "external/wpt/compression/compression-multiple-chunks.any.shadowrealm-in-window.html",
+      "external/wpt/compression/compression-multiple-chunks.https.any.shadowrealm-in-audioworklet.html",
+      "external/wpt/compression/compression-multiple-chunks.https.any.shadowrealm-in-serviceworker.html",
+      "external/wpt/compression/compression-output-length.any.shadowrealm-in-dedicatedworker.html",
+      "external/wpt/compression/compression-output-length.any.shadowrealm-in-shadowrealm.html",
+      "external/wpt/compression/compression-output-length.any.shadowrealm-in-sharedworker.html",
+      "external/wpt/compression/compression-output-length.any.shadowrealm-in-window.html",
+      "external/wpt/compression/compression-output-length.https.any.shadowrealm-in-audioworklet.html",
+      "external/wpt/compression/compression-output-length.https.any.shadowrealm-in-serviceworker.html",
+      "external/wpt/compression/compression-stream.any.shadowrealm-in-dedicatedworker.html",
+      "external/wpt/compression/compression-stream.any.shadowrealm-in-shadowrealm.html",
+      "external/wpt/compression/compression-stream.any.shadowrealm-in-sharedworker.html",
+      "external/wpt/compression/compression-stream.any.shadowrealm-in-window.html",
+      "external/wpt/compression/compression-stream.https.any.shadowrealm-in-audioworklet.html",
+      "external/wpt/compression/compression-stream.https.any.shadowrealm-in-serviceworker.html",
+      "external/wpt/compression/decompression-bad-chunks.any.shadowrealm-in-dedicatedworker.html",
+      "external/wpt/compression/decompression-bad-chunks.any.shadowrealm-in-shadowrealm.html",
+      "external/wpt/compression/decompression-bad-chunks.any.shadowrealm-in-sharedworker.html",
+      "external/wpt/compression/decompression-bad-chunks.any.shadowrealm-in-window.html",
+      "external/wpt/compression/decompression-bad-chunks.https.any.shadowrealm-in-audioworklet.html",
+      "external/wpt/compression/decompression-bad-chunks.https.any.shadowrealm-in-serviceworker.html",
+      "external/wpt/compression/decompression-buffersource.any.shadowrealm-in-dedicatedworker.html",
+      "external/wpt/compression/decompression-buffersource.any.shadowrealm-in-shadowrealm.html",
+      "external/wpt/compression/decompression-buffersource.any.shadowrealm-in-sharedworker.html",
+      "external/wpt/compression/decompression-buffersource.any.shadowrealm-in-window.html",
+      "external/wpt/compression/decompression-buffersource.https.any.shadowrealm-in-audioworklet.html",
+      "external/wpt/compression/decompression-buffersource.https.any.shadowrealm-in-serviceworker.html",
+      "external/wpt/compression/decompression-constructor-error.any.shadowrealm-in-dedicatedworker.html",
+      "external/wpt/compression/decompression-constructor-error.any.shadowrealm-in-shadowrealm.html",
+      "external/wpt/compression/decompression-constructor-error.any.shadowrealm-in-sharedworker.html",
+      "external/wpt/compression/decompression-constructor-error.any.shadowrealm-in-window.html",
+      "external/wpt/compression/decompression-constructor-error.https.any.shadowrealm-in-audioworklet.html",
+      "external/wpt/compression/decompression-constructor-error.https.any.shadowrealm-in-serviceworker.html",
+      "external/wpt/compression/decompression-correct-input.any.shadowrealm-in-dedicatedworker.html",
+      "external/wpt/compression/decompression-correct-input.any.shadowrealm-in-shadowrealm.html",
+      "external/wpt/compression/decompression-correct-input.any.shadowrealm-in-sharedworker.html",
+      "external/wpt/compression/decompression-correct-input.any.shadowrealm-in-window.html",
+      "external/wpt/compression/decompression-correct-input.https.any.shadowrealm-in-audioworklet.html",
+      "external/wpt/compression/decompression-correct-input.https.any.shadowrealm-in-serviceworker.html",
+      "external/wpt/compression/decompression-corrupt-input.any.shadowrealm-in-dedicatedworker.html",
+      "external/wpt/compression/decompression-corrupt-input.any.shadowrealm-in-shadowrealm.html",
+      "external/wpt/compression/decompression-corrupt-input.any.shadowrealm-in-sharedworker.html",
+      "external/wpt/compression/decompression-corrupt-input.any.shadowrealm-in-window.html",
+      "external/wpt/compression/decompression-corrupt-input.https.any.shadowrealm-in-audioworklet.html",
+      "external/wpt/compression/decompression-corrupt-input.https.any.shadowrealm-in-serviceworker.html",
+      "external/wpt/compression/decompression-empty-input.any.shadowrealm-in-dedicatedworker.html",
+      "external/wpt/compression/decompression-empty-input.any.shadowrealm-in-shadowrealm.html",
+      "external/wpt/compression/decompression-empty-input.any.shadowrealm-in-sharedworker.html",
+      "external/wpt/compression/decompression-empty-input.any.shadowrealm-in-window.html",
+      "external/wpt/compression/decompression-empty-input.https.any.shadowrealm-in-audioworklet.html",
+      "external/wpt/compression/decompression-empty-input.https.any.shadowrealm-in-serviceworker.html",
+      "external/wpt/compression/decompression-extra-input.any.shadowrealm-in-dedicatedworker.html",
+      "external/wpt/compression/decompression-extra-input.any.shadowrealm-in-shadowrealm.html",
+      "external/wpt/compression/decompression-extra-input.any.shadowrealm-in-sharedworker.html",
+      "external/wpt/compression/decompression-extra-input.any.shadowrealm-in-window.html",
+      "external/wpt/compression/decompression-extra-input.https.any.shadowrealm-in-audioworklet.html",
+      "external/wpt/compression/decompression-extra-input.https.any.shadowrealm-in-serviceworker.html",
+      "external/wpt/compression/decompression-split-chunk.any.shadowrealm-in-dedicatedworker.html",
+      "external/wpt/compression/decompression-split-chunk.any.shadowrealm-in-shadowrealm.html",
+      "external/wpt/compression/decompression-split-chunk.any.shadowrealm-in-sharedworker.html",
+      "external/wpt/compression/decompression-split-chunk.any.shadowrealm-in-window.html",
+      "external/wpt/compression/decompression-split-chunk.https.any.shadowrealm-in-audioworklet.html",
+      "external/wpt/compression/decompression-split-chunk.https.any.shadowrealm-in-serviceworker.html",
+      "external/wpt/compression/decompression-uint8array-output.any.shadowrealm-in-dedicatedworker.html",
+      "external/wpt/compression/decompression-uint8array-output.any.shadowrealm-in-shadowrealm.html",
+      "external/wpt/compression/decompression-uint8array-output.any.shadowrealm-in-sharedworker.html",
+      "external/wpt/compression/decompression-uint8array-output.any.shadowrealm-in-window.html",
+      "external/wpt/compression/decompression-uint8array-output.https.any.shadowrealm-in-audioworklet.html",
+      "external/wpt/compression/decompression-uint8array-output.https.any.shadowrealm-in-serviceworker.html",
       "external/wpt/compression/idlharness.https.any.shadowrealm-in-window.html",
       "external/wpt/console/console-is-a-namespace.any.shadowrealm-in-dedicatedworker.html",
       "external/wpt/console/console-is-a-namespace.any.shadowrealm-in-shadowrealm.html",
@@ -4140,6 +4190,26 @@
     "expires": "Apr 1, 2026"
   },
   {
+    "prefix": "speculation-rules-prerender-wpt-internal",
+    "platforms": [
+      "Linux",
+      "Mac",
+      "Win"
+    ],
+    "bases": [
+      "wpt_internal/origin_trials/prerender/"
+    ],
+    "exclusive_tests": "ALL",
+    "args": [
+      "--enable-features=Prerender2AllowActivationInBackground"
+    ],
+    "owners": [
+      "nhiroki@chromium.org",
+      "yoichio@chromium.org"
+    ],
+    "expires": "Apr 1, 2026"
+  },
+  {
     "prefix": "speech-with-unified-autoplay",
     "owners": [
       "media-dev@chromium.org",
@@ -4268,7 +4338,6 @@
     "owners": ["annasato@chromium.org"],
     "platforms": ["Mac", "Win", "Linux"],
     "bases": [
-      "wpt_internal/shared-worker/back-forward-cache/shared-worker-allows-bfcache.window.js",
       "wpt_internal/shared-worker/back-forward-cache/shared-worker-client-postmessage-transferred-port.window.js",
       "wpt_internal/shared-worker/back-forward-cache/shared-worker-client-postmessage.window.js"
     ],
@@ -4369,6 +4438,26 @@
       "--text-gamma=0.0"
     ],
     "expires": "Jan 1, 2026"
+  },
+  {
+    "prefix": "text-autosizing",
+    "owners": [
+      "dgrogan@chromium.org"
+    ],
+    "platforms": [
+      "Linux"
+    ],
+    "bases": [
+      "fast/text-autosizing",
+      "http/tests/devtools/text-autosizing-override.js",
+      "http/tests/text-autosizing/narrow-iframe.html",
+      "http/tests/text-autosizing/wide-iframe.html"
+    ],
+    "args": [
+      "--disable-features=ForceOffTextAutosizing"
+    ],
+    "exclusive_tests": "ALL",
+    "expires": "June 1, 2026"
   },
   {
     "prefix": "text-contrast-gamma",
@@ -4533,6 +4622,8 @@
       "external/wpt/fetch/compression-dictionary/dictionary-fetch-with-link-header.tentative.https.html",
       "external/wpt/html/canvas/offscreen/manual/convert-to-blob",
       "external/wpt/html/semantics/embedded-content/the-img-element/decode",
+      "external/wpt/intersection-observer/animating.html",
+      "external/wpt/intersection-observer/v2/animated-opacity.html",
       "external/wpt/long-animation-frame/tentative",
       "external/wpt/permissions-policy/experimental-features",
       "external/wpt/requestidlecallback",
@@ -4765,6 +4856,8 @@
       "external/wpt/html/webappapis/scripting/events/event-handler-attributes-body-window.html",
       "external/wpt/html/webappapis/scripting/events/event-handler-attributes-frameset-window.html",
       "external/wpt/html/webappapis/scripting/events/event-handler-attributes-windowless-body.html",
+      "external/wpt/navigation-api/ordering-and-transition/back-cross-document-event-order.html",
+      "external/wpt/navigation-api/ordering-and-transition/navigate-cross-document-event-order.html",
       "external/wpt/navigation-timing/nested-unload-timing.html",
       "external/wpt/permissions-policy/experimental-features/unload-allowed-by-default.tentative.window.js",
       "external/wpt/permissions-policy/experimental-features/unload-disallowed-subframe.tentative.window.js",
@@ -5784,6 +5877,26 @@
       "reillyg@chromium.org"
     ]
   },
+  "Run selected WPTs with webui browser.",
+  {
+    "prefix": "webui-browser",
+    "owners": [
+      "lzhao@microsoft.com",
+      "kerenzhu@chromium.org",
+      "tluk@chromium.org"
+    ],
+    "platforms": [
+      "Linux",
+      "Win"
+    ],
+    "bases": [
+      "external/wpt/html/browsers/windows/nested-browsing-contexts/window-top.html"
+    ],
+    "args": [
+      "--enable-features=AttachUnownedInnerWebContents,Webium"
+    ],
+    "expires": "Sep 15, 2026"
+  },
   {
     "prefix": "wide-gamut",
     "owners": [
@@ -5822,6 +5935,26 @@
       "--enable-features=ScriptSrcHashesV1"
     ],
     "expires": "Nov 1, 2025"
+  },
+  {
+    "prefix": "unrestricted-spellcheck",
+    "owners": [
+      "arichiv@chromium.org",
+      "katabolism-finch@google.com"
+    ],
+    "platforms": [
+      "Linux",
+      "Mac",
+      "Win"
+    ],
+    "bases": [
+      "editing/spelling"
+    ],
+    "exclusive_tests": "ALL",
+    "args": [
+      "--disable-features=RestrictSpellingAndGrammarHighlights"
+    ],
+    "expires": "Oct 24, 2026"
   },
   {
     "prefix": "xslt-disabled",

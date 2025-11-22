@@ -1041,9 +1041,9 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   //
   // Returns the enclosed rect with default allowed conversion error
   // (0.00001f).
-  static gfx::Rect ConvertRectToTarget(const View* source,
-                                       const View* target,
-                                       const gfx::Rect& rect);
+  [[nodiscard]] static gfx::Rect ConvertRectToTarget(const View* source,
+                                                     const View* target,
+                                                     const gfx::Rect& rect);
 
   // Converts a point from a View's coordinate system to that of its Widget.
   static void ConvertPointToWidget(const View* src, gfx::Point* point);
@@ -1073,11 +1073,11 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
 
   // Applies transformation on the rectangle, which is in the view's coordinate
   // system, to convert it into the parent's coordinate system.
-  gfx::Rect ConvertRectToParent(const gfx::Rect& rect) const;
+  [[nodiscard]] gfx::Rect ConvertRectToParent(const gfx::Rect& rect) const;
 
   // Converts a rectangle from this views coordinate system to its widget
   // coordinate system.
-  gfx::Rect ConvertRectToWidget(const gfx::Rect& rect) const;
+  [[nodiscard]] gfx::Rect ConvertRectToWidget(const gfx::Rect& rect) const;
 
   // Painting ------------------------------------------------------------------
 
@@ -1092,6 +1092,13 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // to paint itself via the various OnPaint*() event handlers and then paints
   // the hierarchy beneath it.
   void Paint(const PaintInfo& parent_paint_info);
+
+  // Returns the type of scaling to be done for this View. Override this to
+  // change the default scaling type from |kScaleToFit|. You would want to
+  // override this for a view and return |kScaleToScaleFactor| in cases where
+  // scaling should cause no distortion. Such as in the case of an image or
+  // an icon.
+  virtual PaintInfo::ScaleType GetPaintScaleType() const;
 
   // The background object may be null.
   void SetBackground(std::unique_ptr<Background> b);
@@ -1920,13 +1927,6 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
 
   // Override to paint a border not specified by SetBorder().
   virtual void OnPaintBorder(gfx::Canvas* canvas);
-
-  // Returns the type of scaling to be done for this View. Override this to
-  // change the default scaling type from |kScaleToFit|. You would want to
-  // override this for a view and return |kScaleToScaleFactor| in cases where
-  // scaling should cause no distortion. Such as in the case of an image or
-  // an icon.
-  virtual PaintInfo::ScaleType GetPaintScaleType() const;
 
   // Accelerated painting ------------------------------------------------------
 

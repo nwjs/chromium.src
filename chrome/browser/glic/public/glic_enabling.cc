@@ -14,10 +14,13 @@
 #include "chrome/browser/glic/glic_user_status_fetcher.h"
 #include "chrome/browser/glic/host/auth_controller.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/host/glic_features.mojom-features.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/subscription_eligibility/subscription_eligibility_service.h"
+#include "chrome/browser/subscription_eligibility/subscription_eligibility_service_factory.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
@@ -27,6 +30,13 @@
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/variations/service/variations_service.h"
+
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"  // nogncheck
+#include "chromeos/ash/components/browser_context_helper/browser_context_types.h"  // nogncheck
+#include "components/user_manager/user.h"       // nogncheck
+#include "components/user_manager/user_type.h"  // nogncheck
+#endif
 
 namespace glic {
 
@@ -137,6 +147,38 @@ bool GlicEnabling::IsEnabledByFlags() {
 }
 
 bool GlicEnabling::IsProfileEligible(const Profile* profile) {
+#if BUILDFLAG(IS_CHROMEOS)
+  // Due to the tight coupling of the browser Profile and OS users in ChromeOS,
+  // we check the user session type to align with other desktop browser
+  // behavior.
+  if (!ash::IsUserBrowserContext(profile)) {
+    // We only allow regular user session profiles.
+    // E.g. disallowed on login screen.
+    return false;
+  }
+  auto* user = ash::BrowserContextHelper::Get()->GetUserByBrowserContext(
+      const_cast<Profile*>(profile));
+  if (user == nullptr) {
+    // When there is no signed in user on ChromeOS, assume that the profile is
+    // not eligible.
+    return false;
+  }
+  switch (user->GetType()) {
+    case user_manager::UserType::kRegular:
+    case user_manager::UserType::kChild:
+      // These are ok to use glic.
+      break;
+    case user_manager::UserType::kGuest:
+    case user_manager::UserType::kPublicAccount:
+    case user_manager::UserType::kKioskChromeApp:
+    case user_manager::UserType::kKioskWebApp:
+    case user_manager::UserType::kKioskIWA:
+    case user_manager::UserType::kKioskArcvmApp:
+      // Disallows guest session, and device local account sessions.
+      return false;
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
   // Glic is supported only in regular profiles, i.e. disable in incognito,
   // guest, system profile, etc.
   return IsEnabledByFlags() && profile && profile->IsRegularProfile();
@@ -208,6 +250,30 @@ void GlicEnabling::OnGlicSettingsPolicyChanged() {
   UpdateEnabledStatus();
 }
 
+bool GlicEnabling::IsUnifiedFreEnabled(Profile* profile) {
+  return base::FeatureList::IsEnabled(features::kGlicMultiInstance) &&
+         base::FeatureList::IsEnabled(features::kGlicUnifiedFreScreen);
+}
+
+bool GlicEnabling::IsMultiInstanceEnabledByFlags() {
+  const bool multi_instance_enabled =
+      base::FeatureList::IsEnabled(features::kGlicMultiInstance);
+  const bool multi_tab_enabled =
+      base::FeatureList::IsEnabled(mojom::features::kGlicMultiTab);
+  const bool tab_underlines_enabled =
+      base::FeatureList::IsEnabled(features::kGlicMultitabUnderlines);
+
+  if (multi_instance_enabled &&
+      !(multi_tab_enabled && tab_underlines_enabled)) {
+    LOG(ERROR)
+        << "GlicMultiInstance is enabled without kGlicMultiTab and/or "
+           "kGlicMultitabUnderlines. All of these features must be enabled to "
+           "ensure proper behavior.";
+  }
+
+  return multi_instance_enabled && multi_tab_enabled && tab_underlines_enabled;
+}
+
 bool GlicEnabling::IsShareImageEnabledForProfile(Profile* profile) {
   if (!IsEnabledForProfile(profile) ||
       !base::FeatureList::IsEnabled(features::kGlicShareImage)) {
@@ -230,11 +296,16 @@ bool GlicEnabling::IsShareImageEnabledForProfile(Profile* profile) {
     return false;
   }
 
-  // Should only have a cached value for enterprise accounts.
+  // LINT.IfChange(GlicCachedUserStatusScope)
+
+  // See GlicUserStatusFetcher for details on when we update the cached value
+  // and when we skip updating.
   if (base::FeatureList::IsEnabled(features::kGlicUserStatusCheck) &&
       GlicUserStatusFetcher::GetCachedUserStatus(profile).has_value()) {
     return false;
   }
+
+  // LINT.ThenChange(//chrome/browser/glic/glic_user_status_fetcher.cc:GlicCachedUserStatusScope)
 
   auto account_managed_status_finder = signin::AccountManagedStatusFinder(
       identity_manager,
@@ -253,6 +324,75 @@ bool GlicEnabling::IsShareImageEnabledForProfile(Profile* profile) {
     case signin::AccountManagedStatusFinderOutcome::kTimeout:
       return false;
   }
+}
+
+bool GlicEnabling::IsMultiInstanceEnabled() {
+  if (IsMultiInstanceEnabledByFlags()) {
+    return true;
+  }
+
+  if (!base::FeatureList::IsEnabled(
+          features::kGlicEnableMultiInstanceBasedOnTier)) {
+    return false;
+  }
+
+  // MultiTab feaure enablement should still gate multi-instance enablement when
+  // considering subscription tier.
+  if (!base::FeatureList::IsEnabled(mojom::features::kGlicMultiTab) ||
+      !base::FeatureList::IsEnabled(features::kGlicMultitabUnderlines)) {
+    LOG(ERROR) << "Multi-instance functions cannot be enabled without the "
+                  "kGlicMultiTab and kGlicMultitabUnderlines features. These "
+                  "features must be enabled to ensure proper behavior.";
+    return false;
+  }
+
+  return IsEligibleForGlicMultiInstanceTieredRolloutThisRun();
+}
+
+bool GlicEnabling::IsEligibleForGlicMultiInstanceTieredRolloutThisRun() {
+  // It is necessary that `is_eligible` does not change after the first call to
+  // this function during a run of Chrome, as multi-instance cannot be
+  // enabled/disabled dynamically.
+  static bool is_eligible =
+      GetAndUpdateEligibilityForGlicMultiInstanceTieredRollout(nullptr);
+
+  return is_eligible;
+}
+
+bool GlicEnabling::GetAndUpdateEligibilityForGlicMultiInstanceTieredRollout(
+    Profile* additional_profile) {
+  if (!g_browser_process->local_state() ||
+      !g_browser_process->profile_manager()) {
+    return false;
+  }
+
+  // If multi-instance was ever enabled by tier, ensure that it stays enabled.
+  if (g_browser_process->local_state()->GetBoolean(
+          prefs::kGlicMultiInstanceEnabledBySubscriptionTier)) {
+    return true;
+  }
+
+  // If `additional_profile` was specified, also check it.
+  std::vector<Profile*> available_profiles =
+      g_browser_process->profile_manager()->GetLoadedProfiles();
+  if (additional_profile) {
+    available_profiles.emplace_back(additional_profile);
+  }
+
+  for (Profile* profile : available_profiles) {
+    auto* subscription_eligibility_service = subscription_eligibility::
+        SubscriptionEligibilityServiceFactory::GetForProfile(profile);
+    int32_t profile_subscription_tier =
+        subscription_eligibility_service
+            ? subscription_eligibility_service->GetAiSubscriptionTier()
+            : 0;
+    if (profile_subscription_tier == 1 || profile_subscription_tier == 2) {
+      g_browser_process->local_state()->SetBoolean(
+          prefs::kGlicMultiInstanceEnabledBySubscriptionTier, true);
+      return true;
+    }
+  }
+  return false;
 }
 
 GlicEnabling::GlicEnabling(Profile* profile,
@@ -310,6 +450,11 @@ base::CallbackListSubscription GlicEnabling::RegisterOnShowSettingsPageChanged(
   return show_settings_page_changed_callback_list_.Add(std::move(callback));
 }
 
+base::CallbackListSubscription GlicEnabling::RegisterProfileReadyStateChanged(
+    ProfileReadyStateChangedCallback callback) {
+  return profile_ready_state_changed_callback_list_.Add(std::move(callback));
+}
+
 void GlicEnabling::OnPrimaryAccountChanged(
     const signin::PrimaryAccountChangeEvent& event_details) {
   UpdateEnabledStatus();
@@ -357,11 +502,13 @@ void GlicEnabling::UpdateEnabledStatus() {
   }
   enable_changed_callback_list_.Notify();
   show_settings_page_changed_callback_list_.Notify();
+  profile_ready_state_changed_callback_list_.Notify();
 }
 
 void GlicEnabling::UpdateConsentStatus() {
   consent_changed_callback_list_.Notify();
   show_settings_page_changed_callback_list_.Notify();
+  profile_ready_state_changed_callback_list_.Notify();
 }
 
 }  // namespace glic

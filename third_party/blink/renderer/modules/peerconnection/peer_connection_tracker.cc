@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -450,16 +451,38 @@ class InternalStandardStatsObserver : public webrtc::RTCStatsCollectorCallback {
     if (attribute.holds_alternative<bool>()) {
       return base::Value(attribute.get<bool>());
     }
+    if (attribute.holds_alternative<int>()) {
+      return base::Value(attribute.get<int>());
+    }
     if (attribute.holds_alternative<int32_t>()) {
       return base::Value(attribute.get<int32_t>());
     }
-    if (attribute.holds_alternative<std::string>()) {
-      return base::Value(attribute.get<std::string>());
+    if (attribute.holds_alternative<uint32_t>()) {
+      uint32_t value = attribute.get<uint32_t>();
+      return base::Value(static_cast<double>(value));
+    }
+    if (attribute.holds_alternative<int64_t>()) {
+      int64_t value = attribute.get<int64_t>();
+      return base::Value(static_cast<double>(value));
+    }
+    if (attribute.holds_alternative<uint64_t>()) {
+      uint64_t value = attribute.get<uint64_t>();
+      return base::Value(static_cast<double>(value));
     }
     if (attribute.holds_alternative<double>()) {
       return base::Value(attribute.get<double>());
     }
-    // Types not supported by `base::Value` are converted to string.
+    if (attribute.holds_alternative<std::string>()) {
+      return base::Value(attribute.get<std::string>());
+    }
+    if (attribute.holds_alternative<std::map<std::string, double>>()) {
+      base::Value::Dict dict;
+      for (auto& value : attribute.get<std::map<std::string, double>>()) {
+        dict.Set(value.first, value.second);
+      }
+      return base::Value(std::move(dict));
+    }
+    DCHECK(false) << "Unimplemented native stats type.";
     return base::Value(attribute.ToString());
   }
 
@@ -784,7 +807,7 @@ void PeerConnectionTracker::TrackAddIceCandidate(
   json->WriteJSON(&value);
   const char* event =
       (source == kSourceLocal)
-          ? "icecandidate"
+          ? "onicecandidate"
           : (succeeded ? "addIceCandidate" : "addIceCandidateFailed");
 
   SendPeerConnectionUpdate(id, event, value.ToString());
@@ -816,7 +839,7 @@ void PeerConnectionTracker::TrackIceCandidateError(
   json->SetInteger("error_code", error_code);
   StringBuilder value;
   json->WriteJSON(&value);
-  SendPeerConnectionUpdate(id, "icecandidateerror", value.ToString());
+  SendPeerConnectionUpdate(id, "onicecandidateerror", value.ToString());
 }
 
 void PeerConnectionTracker::TrackAddTransceiver(
@@ -890,7 +913,7 @@ void PeerConnectionTracker::TrackCreateDataChannel(
   StringBuilder value;
   json->WriteJSON(&value);
   SendPeerConnectionUpdate(
-      id, source == kSourceLocal ? "createDataChannel" : "datachannel",
+      id, source == kSourceLocal ? "createDataChannel" : "ondatachannel",
       value.ToString());
 }
 
@@ -910,7 +933,7 @@ void PeerConnectionTracker::TrackSignalingStateChange(
   if (id == -1)
     return;
   SendPeerConnectionUpdate(
-      id, "signalingstatechange",
+      id, "onsignalingstatechange",
       StrCat({"\"", webrtc::PeerConnectionInterface::AsString(state).data(),
               "\""}));
 }
@@ -923,7 +946,7 @@ void PeerConnectionTracker::TrackIceConnectionStateChange(
   if (id == -1)
     return;
   SendPeerConnectionUpdate(
-      id, "iceconnectionstatechange",
+      id, "oniceconnectionstatechange",
       StrCat({"\"", webrtc::PeerConnectionInterface::AsString(state).data(),
               "\""}));
 }
@@ -936,7 +959,7 @@ void PeerConnectionTracker::TrackConnectionStateChange(
   if (id == -1)
     return;
   SendPeerConnectionUpdate(
-      id, "connectionstatechange",
+      id, "onconnectionstatechange",
       StrCat({"\"", webrtc::PeerConnectionInterface::AsString(state).data(),
               "\""}));
 }
@@ -949,7 +972,7 @@ void PeerConnectionTracker::TrackIceGatheringStateChange(
   if (id == -1)
     return;
   SendPeerConnectionUpdate(
-      id, "icegatheringstatechange",
+      id, "onicegatheringstatechange",
       StrCat({"\"", webrtc::PeerConnectionInterface::AsString(state).data(),
               "\""}));
 }
@@ -1010,7 +1033,7 @@ void PeerConnectionTracker::TrackOnRenegotiationNeeded(
   int id = GetLocalIDForHandler(pc_handler);
   if (id == -1)
     return;
-  SendPeerConnectionUpdate(id, "negotiationneeded", g_empty_string);
+  SendPeerConnectionUpdate(id, "onnegotiationneeded", g_empty_string);
 }
 
 void PeerConnectionTracker::TrackGetUserMedia(

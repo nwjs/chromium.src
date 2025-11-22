@@ -37,6 +37,7 @@
 #import "ios/chrome/browser/omnibox/ui/popup/omnibox_popup_consumer.h"
 #import "ios/chrome/browser/omnibox/ui/popup/omnibox_popup_presenter.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
+#import "ios/chrome/browser/shared/public/commands/omnibox_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
@@ -104,6 +105,7 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
   [self.consumer setKeyboardAttachedBottomOmniboxHeight:
                      self.presenter.keyboardAttachedBottomOmniboxHeight];
   [self.consumer newResultsAvailable];
+  [_consumer setUseBottomOmniboxInPopup:self.presenter.useBottomOmniboxInPopup];
 
   self.open = hasSuggestions;
   [self.presenter updatePopupOnFocus:isFocusing];
@@ -144,6 +146,7 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
 
 - (void)onTraitCollectionChange {
   [self.presenter updatePopupAfterTraitCollectionChange];
+  [_consumer setUseBottomOmniboxInPopup:self.presenter.useBottomOmniboxInPopup];
 }
 
 - (void)selectSuggestion:(id<AutocompleteSuggestion>)suggestion
@@ -252,32 +255,7 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
         (AutocompleteMatchFormatter*)suggestion;
     const AutocompleteMatch& match =
         autocompleteMatchFormatter.autocompleteMatch;
-    if (suggestion.hasAimShortcut) {
-      GURL aimURL;
-      for (const auto& action : match.actions) {
-        const OmniboxActionInSuggest* action_in_suggest =
-            OmniboxActionInSuggest::FromAction(action.get());
-        if (action_in_suggest &&
-            action_in_suggest->Type() ==
-                omnibox::
-                    SuggestTemplateInfo_TemplateAction_ActionType_CHROME_AIM) {
-          aimURL = GURL(action_in_suggest->template_action.action_uri());
-          break;
-        }
-      }
-      CHECK(aimURL.is_valid());
-      AutocompleteMatch aimMatch = match;
-      UMA_HISTOGRAM_COUNTS_100("IOS.Omnibox.AimShortcutTapped",
-                               aimMatch.contents.length());
-      OmniboxActionInSuggest::RecordShownAndUsedMetrics(
-          omnibox::SuggestTemplateInfo_TemplateAction_ActionType_CHROME_AIM,
-          true /* used */);
-      [self.omniboxAutocompleteController
-             selectMatchForOpening:aimMatch
-          withCustomDestinationURL:aimURL
-                             inRow:row
-                            openIn:WindowOpenDisposition::CURRENT_TAB];
-    } else if (match.has_tab_match.value_or(false)) {
+    if (match.has_tab_match.value_or(false)) {
       [self.omniboxAutocompleteController
           selectMatchForOpening:match
                           inRow:row
@@ -311,6 +289,11 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
         << "Suggestion type " << NSStringFromClass(suggestion.class)
         << " not handled for deletion.";
   }
+}
+
+- (void)closeButtonTapped {
+  [self.omniboxCommandsHandler cancelOmniboxEdit];
+  [self.omniboxAutocompleteController closeOmniboxPopup];
 }
 
 - (void)onScroll {

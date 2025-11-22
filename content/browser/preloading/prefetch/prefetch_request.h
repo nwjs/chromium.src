@@ -16,6 +16,7 @@
 #include "content/browser/preloading/speculation_rules/speculation_rules_tags.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/global_routing_id.h"
+#include "content/public/browser/prefetch_request_status_listener.h"
 #include "content/public/browser/preloading.h"
 #include "net/http/http_no_vary_search_data.h"
 #include "net/http/http_request_headers.h"
@@ -27,7 +28,6 @@ namespace content {
 
 class BrowserContext;
 class PrefetchDocumentManager;
-class PrefetchRequestStatusListener;
 class PreloadPipelineInfo;
 class PreloadPipelineInfoImpl;
 class PreloadingAttempt;
@@ -176,7 +176,8 @@ class CONTENT_EXPORT PrefetchRequest final {
           nullptr,
       base::TimeDelta ttl = PrefetchContainerDefaultTtlInPrefetchService(),
       bool should_append_variations_header = true,
-      bool should_disable_block_until_head_timeout = false);
+      bool should_disable_block_until_head_timeout = false,
+      bool should_bypass_http_cache = false);
 
   // Use `Create*()` above instead.
   PrefetchRequest(
@@ -198,6 +199,7 @@ class CONTENT_EXPORT PrefetchRequest final {
       PreloadingHoldbackStatus holdback_status_override,
       bool should_append_variations_header,
       bool should_disable_block_until_head_timeout,
+      bool should_bypass_http_cache,
       std::variant<PrefetchRendererInitiatorInfo, PrefetchBrowserInitiatorInfo>
           info);
 
@@ -242,6 +244,8 @@ class CONTENT_EXPORT PrefetchRequest final {
   bool should_disable_block_until_head_timeout() const {
     return should_disable_block_until_head_timeout_;
   }
+  // TODO(crbug.com/455296998): Remove this code for M145.
+  bool should_bypass_http_cache() const { return should_bypass_http_cache_; }
 
   // Returns non-null if renderer-initiated/browser-initiated, respectively.
   // Exactly one of them returns non-null.
@@ -351,6 +355,11 @@ class CONTENT_EXPORT PrefetchRequest final {
   // `PrefetchBlockUntilHeadTimeout()` as a `prefetch_params`.
   // Default value is `false`.
   const bool should_disable_block_until_head_timeout_;
+
+  // Whether the prefetch request should use the HTTP cache.
+  // Default value is `false`.
+  // TODO(crbug.com/455296998): Remove this code for M145.
+  const bool should_bypass_http_cache_;
 
   const std::variant<PrefetchRendererInitiatorInfo,
                      PrefetchBrowserInitiatorInfo>

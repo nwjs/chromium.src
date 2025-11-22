@@ -99,8 +99,8 @@ MATCHER(IsThrottlerParams, "") {
 
   GURL scope_url =
       bound_session_credentials::GetBoundSessionScope(bound_session_params);
-  return throttler_params->domain == scope_url.host_piece() &&
-         throttler_params->path == scope_url.path_piece();
+  return throttler_params->domain == scope_url.host() &&
+         throttler_params->path == scope_url.path();
 }
 
 class FakeBoundSessionCookieController : public BoundSessionCookieController {
@@ -295,7 +295,7 @@ MATCHER_P2(IsBoundSessionRegistrationFetcher,
            has_started,
            "") {
   auto get_registration_path = [](const auto& fetcher) {
-    return fetcher->params().registration_endpoint().path_piece();
+    return fetcher->params().registration_endpoint().path();
   };
   auto fetcher_has_started = [](const auto& fetcher) {
     return fetcher->HasStarted();
@@ -345,7 +345,7 @@ bound_session_credentials::Credential CreateCookieCredential(
   bound_session_credentials::CookieCredential* cookie_credential =
       credential.mutable_cookie_credential();
   cookie_credential->set_name(cookie_name);
-  cookie_credential->set_domain(base::StrCat({".", domain.host_piece()}));
+  cookie_credential->set_domain(base::StrCat({".", domain.host()}));
   cookie_credential->set_path("/");
   return credential;
 }
@@ -353,8 +353,7 @@ bound_session_credentials::Credential CreateCookieCredential(
 bound_session_credentials::BoundSessionParams CreateBoundSessionParams(
     const GURL& site,
     const std::string& session_id,
-    const std::vector<std::string>& cookie_names,
-    bool is_wsbeta = false) {
+    const std::vector<std::string>& cookie_names) {
   bound_session_credentials::BoundSessionParams params;
   params.set_site(site.spec());
   params.set_session_id(session_id);
@@ -365,16 +364,13 @@ bound_session_credentials::BoundSessionParams CreateBoundSessionParams(
   for (const auto& cookie_name : cookie_names) {
     *params.add_credentials() = CreateCookieCredential(cookie_name, site);
   }
-  params.set_is_wsbeta(is_wsbeta);
   return params;
 }
 
 bound_session_credentials::BoundSessionParams CreateBoundSessionParams(
     const BoundSessionKey& key,
-    const std::vector<std::string>& cookie_names,
-    bool is_wsbeta = false) {
-  return CreateBoundSessionParams(key.site, key.session_id, cookie_names,
-                                  is_wsbeta);
+    const std::vector<std::string>& cookie_names) {
+  return CreateBoundSessionParams(key.site, key.session_id, cookie_names);
 }
 
 }  // namespace
@@ -482,12 +478,11 @@ class BoundSessionCookieRefreshServiceImplTestBase : public testing::Test {
   void RunUntilIdle() { task_environment_.RunUntilIdle(); }
 
   BoundSessionRegistrationFetcherParam CreateTestRegistrationFetcherParams(
-      std::string_view registration_path,
-      bool is_wsbeta = false) {
+      std::string_view registration_path) {
     return BoundSessionRegistrationFetcherParam::CreateInstanceForTesting(
         kTestGoogleURL.Resolve(registration_path),
         {crypto::SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256},
-        "test_challenge", is_wsbeta);
+        "test_challenge");
   }
 
   base::HistogramTester& histogram_tester() { return histogram_tester_; }
@@ -641,9 +636,9 @@ TEST_F(BoundSessionCookieRefreshServiceImplTest,
       bound_session_throttler_params =
           service->GetBoundSessionThrottlerParams();
   ASSERT_EQ(bound_session_throttler_params.size(), 1U);
-  EXPECT_EQ(bound_session_throttler_params[0]->domain, kTestGoogleURL.host());
-  EXPECT_EQ(bound_session_throttler_params[0]->path,
-            kTestGoogleURL.path_piece());
+  EXPECT_EQ(bound_session_throttler_params[0]->domain,
+            kTestGoogleURL.GetHost());
+  EXPECT_EQ(bound_session_throttler_params[0]->path, kTestGoogleURL.path());
 }
 
 TEST_F(BoundSessionCookieRefreshServiceImplTest,
@@ -1794,20 +1789,15 @@ TEST_F(BoundSessionCookieRefreshServiceImplMultiSessionTest, ReportsCountUma) {
       /*expected_bucket_count=*/1);
 }
 
-// Testing params:
-// - bool controlling `kEnableBoundSessionCredentialsWsbetaBypass` feature state
+// Testing param:
 // - bool controlling `kEnableBoundSessionCredentialsContinuity` feature state
 class BoundSessionCookieRefreshServiceImplFeatureDisabledTest
-    : public testing::WithParamInterface<std::tuple<bool, bool>>,
+    : public testing::WithParamInterface<bool>,
       public BoundSessionCookieRefreshServiceImplMultiSessionTest {
  public:
   BoundSessionCookieRefreshServiceImplFeatureDisabledTest() {
     std::vector<base::test::FeatureRef> enabled_features;
     std::vector<base::test::FeatureRef> disabled_features;
-
-    auto& wsbeta_container =
-        IsWsbetaEnabled() ? enabled_features : disabled_features;
-    wsbeta_container.push_back(kEnableBoundSessionCredentialsWsbetaBypass);
 
     auto& continuity_container =
         IsContinuityEnabled() ? enabled_features : disabled_features;
@@ -1818,9 +1808,7 @@ class BoundSessionCookieRefreshServiceImplFeatureDisabledTest
     scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
   }
 
-  bool IsWsbetaEnabled() { return std::get<0>(GetParam()); }
-
-  bool IsContinuityEnabled() { return std::get<1>(GetParam()); }
+  bool IsContinuityEnabled() { return GetParam(); }
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -1830,8 +1818,6 @@ TEST_P(BoundSessionCookieRefreshServiceImplFeatureDisabledTest,
        InitializeSession) {
   std::vector<bound_session_credentials::BoundSessionParams> all_params = {
       CreateBoundSessionParams(kGoogleSessionKeyOne, {"cookieA", "cookieB"}),
-      CreateBoundSessionParams(kGoogleSessionKeyTwo, {"cookieC"},
-                               /*is_wsbeta=*/true),
       CreateBoundSessionParams(kYoutubeSessionKeyOne, {"cookieA"})};
   for (const auto& params : all_params) {
     ASSERT_TRUE(storage()->SaveParams(params));
@@ -1841,9 +1827,6 @@ TEST_P(BoundSessionCookieRefreshServiceImplFeatureDisabledTest,
   if (IsContinuityEnabled()) {
     // All sessions are expected to run.
     expected_sessions = all_params;
-  } else if (IsWsbetaEnabled()) {
-    // Only a session with `is_wsbeta` will run.
-    expected_sessions = {all_params[1]};
   }
   VerifyBoundSessions(expected_sessions, /*verify_storage=*/false);
 }
@@ -1859,43 +1842,23 @@ TEST_P(BoundSessionCookieRefreshServiceImplFeatureDisabledTest,
 }
 
 TEST_P(BoundSessionCookieRefreshServiceImplFeatureDisabledTest,
-       CreateRegistrationRequestWithWsbeta) {
-  BoundSessionCookieRefreshServiceImpl* service =
-      GetOrCreateCookieRefreshServiceImpl();
-  service->CreateRegistrationRequest(CreateTestRegistrationFetcherParams(
-      "/RegisterSession", /*is_wsbeta=*/true));
-  if (IsWsbetaEnabled()) {
-    EXPECT_THAT(registration_fetchers(),
-                ElementsAre(IsBoundSessionRegistrationFetcher(
-                    "/RegisterSession", true)));
-  } else {
-    EXPECT_THAT(registration_fetchers(), IsEmpty());
-  }
-}
-
-TEST_P(BoundSessionCookieRefreshServiceImplFeatureDisabledTest,
        RegisterNewBoundSession) {
   BoundSessionCookieRefreshServiceImpl* service =
       GetOrCreateCookieRefreshServiceImpl();
 
   ASSERT_NE(service, nullptr);
-  service->RegisterNewBoundSession(CreateBoundSessionParams(
-      kTestGoogleURL, kTestSessionId, {k1PSIDTSCookieName, k3PSIDTSCookieName},
-      /*is_wsbeta=*/false));
+  service->RegisterNewBoundSession(
+      CreateBoundSessionParams(kTestGoogleURL, kTestSessionId,
+                               {k1PSIDTSCookieName, k3PSIDTSCookieName}));
 
-  // New sessions shouldn't be registered if `is_wsbeta` is `false`, no matter
-  // the extra feature state.
+  // New sessions shouldn't be registered no matter the extra feature state.
   VerifyBoundSessions({});
 }
 
 INSTANTIATE_TEST_SUITE_P(
     ,
     BoundSessionCookieRefreshServiceImplFeatureDisabledTest,
-    testing::Combine(testing::Bool(), testing::Bool()),
+    testing::Bool(),
     [](const auto& info) {
-      bool wsbeta_enabled = std::get<0>(info.param);
-      bool continuity_enabled = std::get<1>(info.param);
-      return base::StrCat({wsbeta_enabled ? "With" : "Without", "Wsbeta",
-                           continuity_enabled ? "With" : "Without",
-                           "Continuity"});
+      return base::StrCat({info.param ? "With" : "Without", "Continuity"});
     });

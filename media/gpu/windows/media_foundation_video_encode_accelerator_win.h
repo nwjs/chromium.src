@@ -17,6 +17,7 @@
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/sequence_checker.h"
 #include "base/synchronization/lock.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
@@ -43,6 +44,7 @@ namespace media {
 
 class VideoRateControlWrapper;
 class TemporalScalabilityIdExtractor;
+class VEAEncodingLatencyMetricsHelper;
 
 // Media Foundation implementation of the VideoEncodeAccelerator interface for
 // Windows.
@@ -132,6 +134,7 @@ class MEDIA_GPU_EXPORT MediaFoundationVideoEncodeAccelerator
     std::optional<int> qp;
     uint32_t frame_id;
     base::TimeDelta timestamp;
+    base::TimeTicks frame_encode_start_time;
   };
 
   // Encoder state.
@@ -197,9 +200,9 @@ class MEDIA_GPU_EXPORT MediaFoundationVideoEncodeAccelerator
   HRESULT PopulateInputSampleBuffer(const PendingInput& input,
                                     scoped_refptr<VideoFrame> frame);
   HRESULT PopulateInputSampleBufferGpu(scoped_refptr<VideoFrame> frame,
-                                       ComMFSample& input_sample);
+                                       const PendingInput& input);
   HRESULT CopyInputSampleBufferFromGpu(scoped_refptr<VideoFrame> frame,
-                                       ComMFSample& input_sample);
+                                       const PendingInput& input);
 
   bool IsTemporalScalabilityCoding() const { return num_temporal_layers_ > 1; }
 
@@ -327,6 +330,8 @@ class MEDIA_GPU_EXPORT MediaFoundationVideoEncodeAccelerator
   // MF video processor used for color format conversion; only
   // created if needed.
   std::unique_ptr<MediaFoundationVideoProcessorAccelerator> mf_video_processor_;
+
+  std::unique_ptr<VEAEncodingLatencyMetricsHelper> metrics_helper_;
 
   // Variables used by video processing for scaling.
   ComD3D11VideoProcessor video_processor_;

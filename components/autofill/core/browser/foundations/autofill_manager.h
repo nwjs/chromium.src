@@ -38,7 +38,6 @@
 #include "components/autofill/core/common/mojom/autofill_types.mojom.h"
 #include "components/autofill/core/common/signatures.h"
 #include "components/autofill/core/common/unique_ids.h"
-#include "components/optimization_guide/proto/models.pb.h"
 #include "components/translate/core/browser/translate_driver.h"
 
 namespace autofill {
@@ -158,6 +157,9 @@ class AutofillManager
     virtual void OnAfterFocusOnFormField(AutofillManager& manager,
                                          FormGlobalId form,
                                          FieldGlobalId field) {}
+
+    virtual void OnBeforeFocusOnNonFormField(AutofillManager& manager) {}
+    virtual void OnAfterFocusOnNonFormField(AutofillManager& manager) {}
 
     virtual void OnBeforeSelectFieldOptionsDidChange(AutofillManager& manager,
                                                      FormGlobalId form) {}
@@ -335,7 +337,7 @@ class AutofillManager
   // Returns predictions from a heuristic source for fields identified by
   // `field_ids` in a form identified by `form_id`. Returns an empty map if the
   // manager has no data about the form.
-  base::flat_map<FieldGlobalId, FieldType> GetHeursticPredictionForForm(
+  base::flat_map<FieldGlobalId, FieldType> GetHeuristicPredictionForForm(
       HeuristicSource source,
       FormGlobalId form_id,
       const std::vector<FieldGlobalId>& field_ids) const;
@@ -503,23 +505,18 @@ class AutofillManager
   std::unique_ptr<autofill_metrics::FormInteractionsUkmLogger>
   CreateFormInteractionsUkmLogger();
 
+  // If `kAutofillSynchronousAfterParsing` is disabled:
   // Returns a callback that runs `callback` on the main thread after all
   // ongoing async parsing operations have finished.
+  //
+  // If `kAutofillSynchronousAfterParsing` is enabled (default behavior):
+  // Just returns callback; enforces no asynchronicity.
+  //
+  // TODO(crbug.com/448144129): Remove once `kAutofillSynchronousAfterParsing`
+  // can be cleaned up.
   template <typename... Args>
-  base::OnceCallback<void(Args...)> AfterParsingFinishes(
-      base::OnceCallback<void(Args...)> callback) {
-    return base::BindOnce(
-        [](base::WeakPtr<AutofillManager> self,
-           base::OnceCallback<void(Args...)> callback, Args... args) {
-          if (self) {
-            self->parsing_task_runner_->PostTaskAndReply(
-                FROM_HERE, base::DoNothing(),
-                base::BindOnce(std::move(callback),
-                               std::forward<Args>(args)...));
-          }
-        },
-        GetWeakPtr(), std::move(callback));
-  }
+  base::OnceCallback<void(Args...)> AfterParsingFinishesDeprecated(
+      base::OnceCallback<void(Args...)> callback);
 
   // Provides driver-level context to the shared code of the component.
   // `*driver_` owns this object.

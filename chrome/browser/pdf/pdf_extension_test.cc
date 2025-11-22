@@ -47,8 +47,12 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/location_bar/zoom_bubble_coordinator.h"
 #include "chrome/browser/ui/zoom/chrome_zoom_level_prefs.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
@@ -92,6 +96,7 @@
 #include "content/public/test/prerender_test_util.h"
 #include "content/public/test/test_frame_navigation_observer.h"
 #include "content/public/test/test_navigation_observer.h"
+#include "content/public/test/test_utils.h"
 #include "content/public/test/text_input_test_utils.h"
 #include "content/public/test/url_loader_interceptor.h"
 #include "extensions/browser/api/file_system/file_system_api.h"
@@ -640,11 +645,6 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionBlobNavigationTest, SameTab) {
 }
 
 IN_PROC_BROWSER_TEST_P(PDFExtensionTest, LoadInPlatformApp) {
-  // TODO(crbug.com/40268279): Remove this once the test passes for OOPIF PDF.
-  if (UseOopif()) {
-    GTEST_SKIP();
-  }
-
   extensions::TestExtensionDir dir;
   dir.WriteManifest(R"(
     {
@@ -677,7 +677,8 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTest, LoadInPlatformApp) {
   }
 
   extensions::ResultCatcher result_catcher;
-  ASSERT_TRUE(LoadAndLaunchApp(dir.UnpackedPath(), /*uses_guest_view=*/true));
+  ASSERT_TRUE(
+      LoadAndLaunchApp(dir.UnpackedPath(), /*uses_guest_view=*/!UseOopif()));
   ASSERT_TRUE(result_catcher.GetNextResult()) << result_catcher.message();
 
   auto* app_registry = extensions::AppWindowRegistry::Get(browser()->profile());
@@ -1263,7 +1264,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTest, MAYBE_PdfZoomWithoutBubble) {
 
   // Zoom PDF via script.
 #if defined(TOOLKIT_VIEWS) && !BUILDFLAG(IS_MAC)
-  EXPECT_FALSE(ZoomBubbleView::GetZoomBubble());
+  EXPECT_FALSE(ZoomBubbleCoordinator::From(browser())->bubble());
 #endif
   ASSERT_TRUE(content::ExecJs(extension_host,
                               "while (viewer.viewport.getZoom() < 1) {"
@@ -1275,7 +1276,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTest, MAYBE_PdfZoomWithoutBubble) {
 
   watcher.Wait();
 #if defined(TOOLKIT_VIEWS) && !BUILDFLAG(IS_MAC)
-  EXPECT_FALSE(ZoomBubbleView::GetZoomBubble());
+  EXPECT_FALSE(ZoomBubbleCoordinator::From(browser())->bubble());
 #endif
 }
 
@@ -2004,7 +2005,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionLinkClickTest, OpenPDFWithReplaceState) {
   ASSERT_TRUE(content::ExecJs(web_contents, kPdfLinkClick));
   navigation_observer.Wait();
   const GURL& current_url = web_contents->GetLastCommittedURL();
-  ASSERT_EQ("/pdf/test-link.pdf", current_url.path());
+  ASSERT_EQ("/pdf/test-link.pdf", current_url.GetPath());
 
   ASSERT_TRUE(EnsureFullPagePDFHasLoadedWithValidFrameTree(
       web_contents, /*allow_multiple_frames=*/false));
@@ -2127,8 +2128,8 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionInternalLinkClickTest, CtrlLeft) {
   ASSERT_NE(web_contents, new_web_contents);
 
   const GURL& url = new_web_contents->GetVisibleURL();
-  EXPECT_EQ("/pdf/test-internal-link.pdf", url.path());
-  EXPECT_EQ("page=2&zoom=100,0,200", url.ref());
+  EXPECT_EQ("/pdf/test-internal-link.pdf", url.GetPath());
+  EXPECT_EQ("page=2&zoom=100,0,200", url.GetRef());
 }
 
 IN_PROC_BROWSER_TEST_P(PDFExtensionInternalLinkClickTest, Middle) {
@@ -2155,8 +2156,8 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionInternalLinkClickTest, Middle) {
   ASSERT_NE(web_contents, new_web_contents);
 
   const GURL& url = new_web_contents->GetVisibleURL();
-  EXPECT_EQ("/pdf/test-internal-link.pdf", url.path());
-  EXPECT_EQ("page=2&zoom=100,0,200", url.ref());
+  EXPECT_EQ("/pdf/test-internal-link.pdf", url.GetPath());
+  EXPECT_EQ("page=2&zoom=100,0,200", url.GetRef());
 }
 
 IN_PROC_BROWSER_TEST_P(PDFExtensionInternalLinkClickTest, ShiftLeft) {
@@ -2181,8 +2182,8 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionInternalLinkClickTest, ShiftLeft) {
   ASSERT_NE(web_contents, active_web_contents);
 
   const GURL& url = active_web_contents->GetVisibleURL();
-  EXPECT_EQ("/pdf/test-internal-link.pdf", url.path());
-  EXPECT_EQ("page=2&zoom=100,0,200", url.ref());
+  EXPECT_EQ("/pdf/test-internal-link.pdf", url.GetPath());
+  EXPECT_EQ("page=2&zoom=100,0,200", url.GetRef());
 }
 
 class PDFExtensionComboBoxTest : public PDFExtensionTest {
@@ -4177,18 +4178,24 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionOopifTest, LoadDataUrlPdfIframe) {
 // be a PDF stream.
 IN_PROC_BROWSER_TEST_F(PDFExtensionOopifTest, ReplaceDocumentBody) {
   ASSERT_TRUE(LoadPdf(embedded_test_server()->GetURL("/pdf/test.pdf")));
-  EXPECT_TRUE(
-      pdf::PdfViewerStreamManager::FromWebContents(GetActiveWebContents()));
+  WebContents* web_contents = GetActiveWebContents();
+  EXPECT_TRUE(pdf::PdfViewerStreamManager::FromWebContents(web_contents));
+
+  // Find the PDF extension frame, which is the parent of the content frame.
+  content::RenderFrameHost* pdf_extensions_frame =
+      pdf_frame_util::FindFullPagePdfExtensionHost(web_contents);
+  ASSERT_TRUE(pdf_extensions_frame);
+  content::RenderFrameDeletedObserver rfh_deleted_observer(
+      pdf_extensions_frame);
 
   // Replace the document.body. The embedder RFH will stay, but the extension
   // and content RFH will be deleted.
-  EXPECT_TRUE(
-      content::ExecJs(GetActiveWebContents(),
-                      "document.body = document.createElement('body');"));
+  EXPECT_TRUE(content::ExecJs(
+      web_contents, "document.body = document.createElement('body');"));
 
+  rfh_deleted_observer.WaitUntilDeleted();
   // The stream should no longer exist.
-  EXPECT_FALSE(
-      pdf::PdfViewerStreamManager::FromWebContents(GetActiveWebContents()));
+  EXPECT_FALSE(pdf::PdfViewerStreamManager::FromWebContents(web_contents));
 }
 
 // If the document.body of the PDF viewer is replaced, any subframes appended

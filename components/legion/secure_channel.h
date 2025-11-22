@@ -5,19 +5,12 @@
 #ifndef COMPONENTS_LEGION_SECURE_CHANNEL_H_
 #define COMPONENTS_LEGION_SECURE_CHANNEL_H_
 
-#include <cstdint>
-#include <memory>
 #include <optional>
-#include <vector>
 
 #include "base/functional/callback.h"
+#include "components/legion/legion_common.h"
 
 namespace legion {
-
-// Placeholder for the request data structure. Likely a serialized proto.
-using Request = std::vector<uint8_t>;
-// Placeholder for the response data structure. Likely a deserialized proto.
-using Response = std::vector<uint8_t>;
 
 // Represents the result of an operation.
 enum class ResultCode {
@@ -29,6 +22,14 @@ enum class ResultCode {
   kAuthenticationFailed,
   // A transient network error occurred. The client may retry the request.
   kNetworkError,
+  // Attestation failed. The client should not retry the request.
+  kAttestationFailed,
+  // Handshake or attestation failed. The client should not retry the request.
+  kHandshakeFailed,
+  // Encryption failed. The client should not retry the request.
+  kEncryptionFailed,
+  // Decryption failed. The client should not retry the request.
+  kDecryptionFailed,
 };
 
 // Interface for the Secure Channel Layer.
@@ -37,13 +38,13 @@ enum class ResultCode {
 // and using the WebSocketClient for transport.
 class SecureChannel {
  public:
-  using OnWriteCompletedCallback =
+  using OnResponseReceivedCallback =
       base::OnceCallback<void(ResultCode, std::optional<Response>)>;
 
   virtual ~SecureChannel() = default;
 
   // Asynchronously performs the operation over the secure channel.
-  virtual void Write(Request request, OnWriteCompletedCallback callback) = 0;
+  virtual void Write(Request request, OnResponseReceivedCallback callback) = 0;
 };
 
 }  // namespace legion

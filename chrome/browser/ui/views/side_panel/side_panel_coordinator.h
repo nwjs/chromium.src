@@ -7,37 +7,21 @@
 
 #include <memory>
 #include <optional>
-#include <string_view>
 
 #include "base/callback_list.h"
-#include "base/feature_list.h"
-#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
-#include "base/scoped_multi_source_observation.h"
-#include "base/scoped_observation_traits.h"
 #include "base/time/time.h"
-#include "base/timer/timer.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
-#include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
-#include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_toolbar_pinning_controller.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_ui_base.h"
-#include "ui/actions/actions.h"
-#include "ui/views/controls/image_view.h"
-#include "ui/views/controls/label.h"
-#include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/view_observer.h"
 
 class BrowserView;
-
-namespace actions {
-class ActionItem;
-}  // namespace actions
+class SidePanel;
 
 namespace views {
-class ImageButton;
-class MenuRunner;
-class ToggleImageButton;
 class View;
 }  // namespace views
 
@@ -51,9 +35,7 @@ class View;
 // visible for a given tab where the order of precedence is contextual
 // registry's active_entry() then global registry's.
 class SidePanelCoordinator final : public SidePanelUIBase,
-                                   public views::ViewObserver,
-                                   public PinnedToolbarActionsModel::Observer,
-                                   public ToolbarActionsModel::Observer {
+                                   public views::ViewObserver {
  public:
   explicit SidePanelCoordinator(BrowserView* browser_view);
   SidePanelCoordinator(const SidePanelCoordinator&) = delete;
@@ -64,34 +46,11 @@ class SidePanelCoordinator final : public SidePanelUIBase,
   void TearDownPreBrowserWindowDestruction();
 
   // SidePanelUI:
-  void Close() override;
+  void Close(SidePanelEntry::PanelType panel_type) override;
   void Toggle(SidePanelEntryKey key,
               SidePanelUtil::SidePanelOpenTrigger open_trigger) override;
-  void OpenInNewTab() override;
-
-  void SetNoDelaysForTesting(bool no_delays_for_testing) override;
-
-  // Returns the web contents in a side panel if one exists.
-  content::WebContents* GetWebContentsForTest(SidePanelEntryId id) override;
-  void DisableAnimationsForTesting() override;
-
-  // Re-runs open new tab URL check and sets button state to enabled/disabled
-  // accordingly.
-  void UpdateNewTabButtonState();
-
-  SidePanelEntry* GetCurrentSidePanelEntryForTesting();
-
-  actions::ActionItem* GetActionItem(SidePanelEntry::Key entry_key);
-
-  views::ToggleImageButton* GetHeaderPinButtonForTesting() {
-    return header_pin_button_;
-  }
-
-  views::ImageButton* GetHeaderMoreInfoButtonForTesting() {
-    return header_more_info_button_;
-  }
-
-  SidePanelEntry* GetLoadingEntryForTesting() const;
+  void ShowFrom(SidePanelEntryKey entry_key,
+                gfx::Rect starting_bounds) override;
 
   // SidePanelUIBase:
   using SidePanelUIBase::Show;
@@ -100,24 +59,15 @@ class SidePanelCoordinator final : public SidePanelUIBase,
             std::optional<SidePanelUtil::SidePanelOpenTrigger> open_trigger,
             bool suppress_animations) override;
 
-  // Register for this callback to detect when the side panel opens or changes.
-  // If the open is animated, this will be called at the beginning of the
-  // animation.
-  using ShownCallback = base::RepeatingCallback<void()>;
-  base::CallbackListSubscription RegisterSidePanelShown(ShownCallback callback);
+  void SetNoDelaysForTesting(bool no_delays_for_testing) override;
+
+  content::WebContents* GetWebContentsForTest(SidePanelEntryId id) override;
+  void DisableAnimationsForTesting() override;
+
+  SidePanelEntry* GetLoadingEntryForTesting(
+      SidePanelEntry::PanelType type) const;
 
  private:
-  friend class SidePanelCoordinatorTest;
-  FRIEND_TEST_ALL_PREFIXES(UserNoteUICoordinatorTest,
-                           ShowEmptyUserNoteSidePanel);
-  FRIEND_TEST_ALL_PREFIXES(UserNoteUICoordinatorTest,
-                           PopulateUserNoteSidePanel);
-
-  void UpdatePinState();
-  void UpdateHeaderPinButtonState();
-
-  void OnClosed();
-
   // Returns the corresponding entry for `entry_key` or a nullptr if this key is
   // not registered in the currently observed registries. This looks through the
   // active contextual registry first, then the global registry.
@@ -134,48 +84,14 @@ class SidePanelCoordinator final : public SidePanelUIBase,
       SidePanelRegistry* old_contextual_registry,
       SidePanelRegistry* new_contextual_registry) override;
 
-  // Clear cached views for registry entries for global and contextual
-  // registries.
-  void ClearCachedEntryViews();
-
-  void UpdatePanelIconAndTitle(const ui::ImageModel& icon,
-                               std::u16string_view text,
-                               const bool should_show_title_text,
-                               const bool is_extension);
+  // Clear cached views with the corresponding panel type for registry entries
+  // for global and contextual registries.
+  void ClearCachedEntryViews(SidePanelEntry::PanelType type);
 
   // views::ViewObserver:
   void OnViewVisibilityChanged(views::View* observed_view,
                                views::View* starting_from,
                                bool visible) override;
-
-  // PinnedToolbarActionsModel::Observer:
-  void OnActionsChanged() override;
-
-  // Called when the action item associated with the side panel entry changes.
-  // The key is the unique key of the action item that has changed.
-  void OnActionItemChanged(UniqueKey key);
-
-  std::unique_ptr<views::View> CreateHeader();
-
-  void NotifyPinnedContainerOfActiveStateChange(SidePanelEntryKey key,
-                                                bool show_active_in_toolbar);
-
-  void MaybeQueuePinPromo();
-  void ShowPinPromo();
-  void MaybeEndPinPromo(bool pinned);
-
-  // Opens the more info menu. This is called by the header button, when it's
-  // visible.
-  void OpenMoreInfoMenu();
-
-  // ToolbarActionsModel::Observer
-  void OnToolbarActionAdded(const ToolbarActionsModel::ActionId& id) override {}
-  void OnToolbarActionRemoved(
-      const ToolbarActionsModel::ActionId& id) override {}
-  void OnToolbarActionUpdated(
-      const ToolbarActionsModel::ActionId& id) override {}
-  void OnToolbarModelInitialized() override {}
-  void OnToolbarPinnedActionsChanged() override;
 
   // Closes `promo_feature` if showing and if actual_id == promo_id, also
   // notifies the User Education system that the feature was used.
@@ -183,56 +99,13 @@ class SidePanelCoordinator final : public SidePanelUIBase,
                                     SidePanelEntryId promo_id,
                                     SidePanelEntryId actual_id);
 
-  // Timestamp of when the side panel was opened. Updated when the side panel is
-  // triggered to be opened, not when visibility changes. These can differ due
-  // to delays for loading content. This is used for metrics.
-  base::TimeTicks opened_timestamp_;
+  // Returns the corresponding side panel for the provided panel type.
+  SidePanel* GetSidePanelFor(SidePanelEntry::PanelType type);
 
   const raw_ptr<BrowserView, AcrossTasksDanglingUntriaged> browser_view_;
 
-  // This subscription is used to update the side panel title when the action
-  // item associated with the side panel entry changes.
-  base::CallbackListSubscription action_item_controller_subscription_;
-
-  // Used to update icon in the side panel header.
-  raw_ptr<views::ImageView, AcrossTasksDanglingUntriaged> panel_icon_ = nullptr;
-
-  // Used to update the displayed title in the side panel header.
-  raw_ptr<views::Label, AcrossTasksDanglingUntriaged> panel_title_ = nullptr;
-
-  // Used to update the visibility of the 'Open in New Tab' header button.
-  raw_ptr<views::ImageButton, AcrossTasksDanglingUntriaged>
-      header_open_in_new_tab_button_ = nullptr;
-
-  // Used to update the visibility of the pin header button.
-  raw_ptr<views::ToggleImageButton, AcrossTasksDanglingUntriaged>
-      header_pin_button_ = nullptr;
-
-  // Used to update the visibility of the more info button.
-  raw_ptr<views::ImageButton, AcrossTasksDanglingUntriaged>
-      header_more_info_button_ = nullptr;
-
-  // Model for the more info menu.
-  std::unique_ptr<ui::MenuModel> more_info_menu_model_;
-
-  // Runner for the more info menu.
-  std::unique_ptr<views::MenuRunner> menu_runner_;
-
-  // Provides delay on pinning promo.
-  base::OneShotTimer pin_promo_timer_;
-
-  // Set to the appropriate pin promo for the current side panel entry, or null
-  // if none. (Not set if e.g. already pinned.)
-  raw_ptr<const base::Feature> pending_pin_promo_ = nullptr;
-
-  base::ScopedObservation<ToolbarActionsModel, ToolbarActionsModel::Observer>
-      extensions_model_observation_{this};
-
-  base::ScopedObservation<PinnedToolbarActionsModel,
-                          PinnedToolbarActionsModel::Observer>
-      pinned_model_observation_{this};
-
-  base::RepeatingCallbackList<void()> shown_callback_list_;
+  std::unique_ptr<SidePanelToolbarPinningController>
+      side_panel_toolbar_pinning_controller_;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_SIDE_PANEL_SIDE_PANEL_COORDINATOR_H_

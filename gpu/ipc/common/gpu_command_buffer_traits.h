@@ -7,8 +7,8 @@
 
 #include "gpu/ipc/common/gpu_command_buffer_traits_multi.h"
 #include "gpu/ipc/common/gpu_ipc_common_export.h"
-#include "ipc/ipc_message_utils.h"
-#include "ipc/ipc_param_traits.h"
+#include "ipc/param_traits.h"
+#include "ipc/param_traits_utils.h"
 
 namespace gpu {
 struct Mailbox;
@@ -56,8 +56,8 @@ struct GPU_IPC_COMMON_EXPORT ParamTraits<gpu::VulkanYCbCrInfo> {
 };
 
 template <>
-struct GPU_IPC_COMMON_EXPORT ParamTraits<gpu::GpuMemoryBufferFormatSet> {
-  typedef gpu::GpuMemoryBufferFormatSet param_type;
+struct GPU_IPC_COMMON_EXPORT ParamTraits<gfx::GpuMemoryBufferFormatSet> {
+  typedef gfx::GpuMemoryBufferFormatSet param_type;
   static void Write(base::Pickle* m, const param_type& p);
   static bool Read(const base::Pickle* m,
                    base::PickleIterator* iter,

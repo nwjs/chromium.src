@@ -8,6 +8,7 @@
 
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_context_controller.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/contextual_tasks/public/features.h"
 #include "content/public/test/browser_task_environment.h"
@@ -43,14 +44,23 @@ TEST_F(ContextualTasksContextControllerFactoryTest,
 }
 
 TEST_F(ContextualTasksContextControllerFactoryTest,
-       DoesNotCreateServiceForIncognito) {
+       CreatesServiceForIncognito) {
   feature_list_.InitAndEnableFeature(kContextualTasks);
   std::unique_ptr<TestingProfile> profile = TestingProfile::Builder().Build();
   Profile* otr_profile = profile->GetOffTheRecordProfile(
       Profile::OTRProfileID::PrimaryID(), /*create_if_needed=*/true);
   ContextualTasksContextController* controller =
       ContextualTasksContextControllerFactory::GetForProfile(otr_profile);
-  EXPECT_EQ(nullptr, controller);
+  EXPECT_NE(nullptr, controller);
+}
+
+TEST_F(ContextualTasksContextControllerFactoryTest, CreatesServiceForGuest) {
+  feature_list_.InitAndEnableFeature(kContextualTasks);
+  std::unique_ptr<TestingProfile> profile =
+      TestingProfile::Builder().SetGuestSession().Build();
+  ContextualTasksContextController* controller =
+      ContextualTasksContextControllerFactory::GetForProfile(profile.get());
+  EXPECT_NE(nullptr, controller);
 }
 
 }  // namespace contextual_tasks

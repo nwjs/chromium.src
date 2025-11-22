@@ -45,7 +45,6 @@
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/text/date_time_format.h"
 #include "third_party/blink/renderer/platform/text/platform_locale.h"
-#include "third_party/blink/renderer/platform/wtf/date_math.h"
 
 namespace blink {
 
@@ -151,15 +150,11 @@ bool DateTimeEditBuilder::Build(const String& format_string) {
 }
 
 bool DateTimeEditBuilder::NeedMillisecondField() const {
+  static constexpr int kMillisecondsPerSecond =
+      static_cast<int>(base::Time::kMillisecondsPerSecond);
   return date_value_.Millisecond() ||
-         !GetStepRange()
-              .Minimum()
-              .Remainder(static_cast<int>(kMsPerSecond))
-              .IsZero() ||
-         !GetStepRange()
-              .Step()
-              .Remainder(static_cast<int>(kMsPerSecond))
-              .IsZero();
+         !GetStepRange().Minimum().Remainder(kMillisecondsPerSecond).IsZero() ||
+         !GetStepRange().Step().Remainder(kMillisecondsPerSecond).IsZero();
 }
 
 void DateTimeEditBuilder::VisitField(DateTimeFormat::FieldType field_type,
@@ -176,7 +171,8 @@ void DateTimeEditBuilder::VisitField(DateTimeFormat::FieldType field_type,
               document, EditElement(), parameters_.placeholder_for_day,
               day_range_);
       EditElement().AddField(field);
-      if (ShouldDayOfMonthFieldDisabled()) {
+      if (!RuntimeEnabledFeatures::SkipDateTimeFieldDisableChecksEnabled() &&
+          ShouldDayOfMonthFieldDisabled()) {
         field->SetValueAsDate(date_value_);
         field->SetDisabled();
       }
@@ -190,7 +186,8 @@ void DateTimeEditBuilder::VisitField(DateTimeFormat::FieldType field_type,
           MakeGarbageCollected<DateTimeHour11FieldElement>(
               document, EditElement(), hour23_range_, step);
       EditElement().AddField(field);
-      if (ShouldHourFieldDisabled()) {
+      if (!RuntimeEnabledFeatures::SkipDateTimeFieldDisableChecksEnabled() &&
+          ShouldHourFieldDisabled()) {
         field->SetValueAsDate(date_value_);
         field->SetDisabled();
       }
@@ -204,7 +201,8 @@ void DateTimeEditBuilder::VisitField(DateTimeFormat::FieldType field_type,
           MakeGarbageCollected<DateTimeHour12FieldElement>(
               document, EditElement(), hour23_range_, step);
       EditElement().AddField(field);
-      if (ShouldHourFieldDisabled()) {
+      if (!RuntimeEnabledFeatures::SkipDateTimeFieldDisableChecksEnabled() &&
+          ShouldHourFieldDisabled()) {
         field->SetValueAsDate(date_value_);
         field->SetDisabled();
       }
@@ -218,7 +216,8 @@ void DateTimeEditBuilder::VisitField(DateTimeFormat::FieldType field_type,
           MakeGarbageCollected<DateTimeHour23FieldElement>(
               document, EditElement(), hour23_range_, step);
       EditElement().AddField(field);
-      if (ShouldHourFieldDisabled()) {
+      if (!RuntimeEnabledFeatures::SkipDateTimeFieldDisableChecksEnabled() &&
+          ShouldHourFieldDisabled()) {
         field->SetValueAsDate(date_value_);
         field->SetDisabled();
       }
@@ -232,7 +231,8 @@ void DateTimeEditBuilder::VisitField(DateTimeFormat::FieldType field_type,
           MakeGarbageCollected<DateTimeHour24FieldElement>(
               document, EditElement(), hour23_range_, step);
       EditElement().AddField(field);
-      if (ShouldHourFieldDisabled()) {
+      if (!RuntimeEnabledFeatures::SkipDateTimeFieldDisableChecksEnabled() &&
+          ShouldHourFieldDisabled()) {
         field->SetValueAsDate(date_value_);
         field->SetDisabled();
       }
@@ -246,7 +246,8 @@ void DateTimeEditBuilder::VisitField(DateTimeFormat::FieldType field_type,
           MakeGarbageCollected<DateTimeMinuteFieldElement>(
               document, EditElement(), minute_range_, step);
       EditElement().AddField(field);
-      if (ShouldMinuteFieldDisabled()) {
+      if (!RuntimeEnabledFeatures::SkipDateTimeFieldDisableChecksEnabled() &&
+          ShouldMinuteFieldDisabled()) {
         field->SetValueAsDate(date_value_);
         field->SetDisabled();
       }
@@ -289,7 +290,8 @@ void DateTimeEditBuilder::VisitField(DateTimeFormat::FieldType field_type,
           break;
       }
       EditElement().AddField(field);
-      if (min_month == max_month && min_month == date_value_.Month() &&
+      if (!RuntimeEnabledFeatures::SkipDateTimeFieldDisableChecksEnabled() &&
+          min_month == max_month && min_month == date_value_.Month() &&
           date_value_.GetType() != DateComponents::kMonth) {
         field->SetValueAsDate(date_value_);
         field->SetDisabled();
@@ -307,7 +309,8 @@ void DateTimeEditBuilder::VisitField(DateTimeFormat::FieldType field_type,
           MakeGarbageCollected<DateTimeAMPMFieldElement>(
               document, EditElement(), parameters_.locale.TimeAMPMLabels());
       EditElement().AddField(field);
-      if (ShouldAMPMFieldDisabled()) {
+      if (!RuntimeEnabledFeatures::SkipDateTimeFieldDisableChecksEnabled() &&
+          ShouldAMPMFieldDisabled()) {
         field->SetValueAsDate(date_value_);
         field->SetDisabled();
       }
@@ -321,7 +324,8 @@ void DateTimeEditBuilder::VisitField(DateTimeFormat::FieldType field_type,
           MakeGarbageCollected<DateTimeSecondFieldElement>(
               document, EditElement(), second_range_, step);
       EditElement().AddField(field);
-      if (ShouldSecondFieldDisabled()) {
+      if (!RuntimeEnabledFeatures::SkipDateTimeFieldDisableChecksEnabled() &&
+          ShouldSecondFieldDisabled()) {
         field->SetValueAsDate(date_value_);
         field->SetDisabled();
       }
@@ -340,7 +344,8 @@ void DateTimeEditBuilder::VisitField(DateTimeFormat::FieldType field_type,
           MakeGarbageCollected<DateTimeMillisecondFieldElement>(
               document, EditElement(), millisecond_range_, step);
       EditElement().AddField(field);
-      if (ShouldMillisecondFieldDisabled()) {
+      if (!RuntimeEnabledFeatures::SkipDateTimeFieldDisableChecksEnabled() &&
+          ShouldMillisecondFieldDisabled()) {
         field->SetValueAsDate(date_value_);
         field->SetDisabled();
       }
@@ -388,7 +393,8 @@ void DateTimeEditBuilder::VisitField(DateTimeFormat::FieldType field_type,
           MakeGarbageCollected<DateTimeYearFieldElement>(
               document, EditElement(), year_params);
       EditElement().AddField(field);
-      if (ShouldYearFieldDisabled()) {
+      if (!RuntimeEnabledFeatures::SkipDateTimeFieldDisableChecksEnabled() &&
+          ShouldYearFieldDisabled()) {
         field->SetValueAsDate(date_value_);
         field->SetDisabled();
       }
@@ -431,10 +437,11 @@ bool DateTimeEditBuilder::ShouldHourFieldDisabled() const {
     return false;
   }
 
-  const Decimal decimal_ms_per_day(static_cast<int>(kMsPerDay));
+  const Decimal decimal_ms_per_day(
+      static_cast<int>(base::Time::kMillisecondsPerDay));
   Decimal hour_part_of_minimum =
       (GetStepRange().StepBase().Abs().Remainder(decimal_ms_per_day) /
-       static_cast<int>(kMsPerHour))
+       static_cast<int>(base::Hours(1).InMilliseconds()))
           .Floor();
   return hour_part_of_minimum == date_value_.Hour() &&
          GetStepRange().Step().Remainder(decimal_ms_per_day).IsZero();
@@ -445,7 +452,8 @@ bool DateTimeEditBuilder::ShouldMillisecondFieldDisabled() const {
       millisecond_range_.minimum == date_value_.Millisecond())
     return true;
 
-  const Decimal decimal_ms_per_second(static_cast<int>(kMsPerSecond));
+  const Decimal decimal_ms_per_second(
+      static_cast<int>(base::Time::kMillisecondsPerSecond));
   return GetStepRange().StepBase().Abs().Remainder(decimal_ms_per_second) ==
              date_value_.Millisecond() &&
          GetStepRange().Step().Remainder(decimal_ms_per_second).IsZero();
@@ -456,10 +464,11 @@ bool DateTimeEditBuilder::ShouldMinuteFieldDisabled() const {
       minute_range_.minimum == date_value_.Minute())
     return true;
 
-  const Decimal decimal_ms_per_hour(static_cast<int>(kMsPerHour));
+  const Decimal decimal_ms_per_hour(
+      static_cast<int>(base::Hours(1).InMilliseconds()));
   Decimal minute_part_of_minimum =
       (GetStepRange().StepBase().Abs().Remainder(decimal_ms_per_hour) /
-       static_cast<int>(kMsPerMinute))
+       static_cast<int>(base::Minutes(1).InMilliseconds()))
           .Floor();
   return minute_part_of_minimum == date_value_.Minute() &&
          GetStepRange().Step().Remainder(decimal_ms_per_hour).IsZero();
@@ -470,10 +479,11 @@ bool DateTimeEditBuilder::ShouldSecondFieldDisabled() const {
       second_range_.minimum == date_value_.Second())
     return true;
 
-  const Decimal decimal_ms_per_minute(static_cast<int>(kMsPerMinute));
+  const Decimal decimal_ms_per_minute(
+      static_cast<int>(base::Minutes(1).InMilliseconds()));
   Decimal second_part_of_minimum =
       (GetStepRange().StepBase().Abs().Remainder(decimal_ms_per_minute) /
-       static_cast<int>(kMsPerSecond))
+       static_cast<int>(base::Time::kMillisecondsPerSecond))
           .Floor();
   return second_part_of_minimum == date_value_.Second() &&
          GetStepRange().Step().Remainder(decimal_ms_per_minute).IsZero();

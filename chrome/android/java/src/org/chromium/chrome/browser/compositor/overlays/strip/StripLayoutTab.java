@@ -37,6 +37,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.animation.CompositorAnimator;
 import org.chromium.chrome.browser.layouts.components.VirtualView;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.Tab.MediaState;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
@@ -123,7 +124,7 @@ public class StripLayoutTab extends StripLayoutView {
     private static final float FAVICON_WIDTH = 16.f;
     private static final float FAVICON_PADDING = 26.f;
     protected static final float MIN_WIDTH = FAVICON_WIDTH + (FOLIO_FOOT_LENGTH_DP * 2);
-    // TODO(crbug.com/430072416): Check media indicator constants with UX.
+    // TODO(crbug.com/454048975): Check media indicator constants with UX.
     private static final float MEDIA_INDICATOR_WIDTH = 16.f;
     private static final float WIDTH_TO_HIDE_ICON = 86.f;
     private static final float WIDTH_TO_HIDE_FAVICON_FOR_MEDIA_INDICATOR =
@@ -154,8 +155,10 @@ public class StripLayoutTab extends StripLayoutView {
     private boolean mStartDividerVisible;
     private boolean mEndDividerVisible;
     private boolean mForceHideEndDivider;
+    private boolean mSkipAsyncClosure;
     private float mBottomMargin;
     private float mContainerOpacity;
+    private @MediaState int mMediaState;
 
     // For avoiding unnecessary accessibility description updates.
     private @Nullable String mCachedA11yDescriptionTitle;
@@ -326,6 +329,14 @@ public class StripLayoutTab extends StripLayoutView {
     /** Gets whether this tab has been pinned */
     public boolean getIsPinned() {
         return mIsPinned;
+    }
+
+    /* package */ void setMediaState(@MediaState int mediaState) {
+        mMediaState = mediaState;
+    }
+
+    public @MediaState int getMediaState() {
+        return mMediaState;
     }
 
     /**
@@ -574,6 +585,23 @@ public class StripLayoutTab extends StripLayoutView {
      */
     public boolean isClosed() {
         return mIsClosed;
+    }
+
+    /**
+     * Mark that this tab is closing through the new tab closure flow, and needs to skip the async
+     * closure from the old tab closure flow. Can be removed once the migration is complete. See
+     * crbug.com/443337907.
+     */
+    public void setSkipAsyncClosure(boolean skipAsyncClosure) {
+        mSkipAsyncClosure = skipAsyncClosure;
+    }
+
+    /**
+     * Returns true if the tab should skip the async closure from the old tab closure flow. Can be
+     * removed once the migration is complete. See crbug.com/443337907.
+     */
+    public boolean shouldSkipAsyncClosure() {
+        return mSkipAsyncClosure;
     }
 
     /**

@@ -41,6 +41,7 @@
 #include "third_party/blink/renderer/modules/xr/xr_bounded_reference_space.h"
 #include "third_party/blink/renderer/modules/xr/xr_camera.h"
 #include "third_party/blink/renderer/modules/xr/xr_canvas_input_provider.h"
+#include "third_party/blink/renderer/modules/xr/xr_composition_layer.h"
 #include "third_party/blink/renderer/modules/xr/xr_cube_map.h"
 #include "third_party/blink/renderer/modules/xr/xr_dom_overlay_state.h"
 #include "third_party/blink/renderer/modules/xr/xr_frame.h"
@@ -60,6 +61,7 @@
 #include "third_party/blink/renderer/modules/xr/xr_transient_input_hit_test_source.h"
 #include "third_party/blink/renderer/modules/xr/xr_utils.h"
 #include "third_party/blink/renderer/modules/xr/xr_view.h"
+#include "third_party/blink/renderer/modules/xr/xr_visibility_mask_change_event.h"
 #include "third_party/blink/renderer/modules/xr/xr_webgl_layer.h"
 #include "third_party/blink/renderer/platform/bindings/enumeration_base.h"
 #include "third_party/blink/renderer/platform/bindings/v8_throw_exception.h"
@@ -388,6 +390,8 @@ XRSession::XRSession(
     graphics_api_ = XRGraphicsBinding::Api::kWebGL;
   }
 
+  layers_enabled_ = IsFeatureEnabled(device::mojom::XRSessionFeature::LAYERS);
+
   client_receiver_.Bind(
       std::move(client_receiver),
       xr->GetExecutionContext()->GetTaskRunner(TaskType::kMiscPlatformAPI));
@@ -680,6 +684,9 @@ void XRSession::UpdateViews(Vector<device::mojom::blink::XRViewPtr> views) {
     // the old views to the new views.
     bool create_views = false;
     bool views_resized = false;
+    // If we have *no* views yet, then we assume this is the first time we're
+    // updating our views.
+    bool initial_creation = views_.empty();
     if (views_.size() != views.size()) {
       views_.clear();
       views_.resize(views.size());
@@ -709,14 +716,45 @@ void XRSession::UpdateViews(Vector<device::mojom::blink::XRViewPtr> views) {
         views_[i]->UpdateView(std::move(views[i]), render_state_->depthNear(),
                               render_state_->depthFar());
       }
+
+      // If this is the first time we're creating the views, then we'll dispatch
+      // the visibility change event later.
+      if (!initial_creation) {
+        XRViewData* view = views_[i];
+        if (view->NeedsVisibilityMaskChangeEvent()) {
+          DispatchEvent(*XRVisibilityMaskChangeEvent::Create(
+              event_type_names::kVisibilitymaskchange, this,
+              GetV8Eye(view->Eye()), view->index(), view->visibility_mask()));
+          view->OnVisibilityMaskChangeEvent();
+        }
+      }
     }
 
-    XRLayer* base_layer = render_state_->GetFirstLayer();
-    if (views_resized && base_layer) {
-      base_layer->OnResize();
+    if (views_resized) {
+      render_state_->OnResize();
     }
   } else {  // Inline
     UpdateInlineView();
+  }
+}
+
+void XRSession::DispatchInitialEvents() {
+  if (immersive()) {
+    for (XRViewData* view : views()) {
+      // We will only send visibility mask change events for views that actually
+      // *have* a visibility mask, at least for the initial set. If the views
+      // change, we'll send empty masks; but until that time don't send an empty
+      // mask if it's the first time.
+      if (view->visibility_mask()) {
+        DispatchEvent(*XRVisibilityMaskChangeEvent::Create(
+            event_type_names::kVisibilitymaskchange, this,
+            GetV8Eye(view->Eye()), view->index(), view->visibility_mask()));
+      }
+
+      // Whether we sent the event or opted not to send the event, indicate that
+      // it was sent, so that it'll be skipped until there's an actual update.
+      view->OnVisibilityMaskChangeEvent();
+    }
   }
 }
 
@@ -1504,6 +1542,8 @@ void XRSession::ForceEnd(ShutdownPolicy shutdown_policy) {
   ended_ = true;
   pending_frame_ = false;
 
+  prev_transport_delegate_ = nullptr;
+
   for (unsigned i = 0; i < input_sources_->length(); i++) {
     auto* input_source = (*input_sources_)[i];
     input_source->OnRemoved();
@@ -1681,12 +1721,13 @@ void XRSession::UpdateVisibilityState() {
 }
 
 void XRSession::MaybeRequestFrame() {
-  bool will_have_base_layer = !!render_state_->GetFirstLayer();
+  // Request frame if current or requested render state is valid.
+  bool will_have_valid_render_state = render_state_->HasActiveLayer();
   for (const auto& init : pending_render_state_) {
     if (init->hasBaseLayer()) {
-      will_have_base_layer = !!init->baseLayer();
+      will_have_valid_render_state = !!init->baseLayer();
     } else if (init->hasLayers()) {
-      will_have_base_layer = init->layers()->size() > 0;
+      will_have_valid_render_state = init->layers()->size() > 0;
     }
   }
 
@@ -1695,7 +1736,7 @@ void XRSession::MaybeRequestFrame() {
 
   // A page is configured properly if it will have a base layer when the frame
   // callback gets resolved.
-  bool page_configured_properly = will_have_base_layer;
+  bool page_configured_properly = will_have_valid_render_state;
 
   // If we have an outstanding callback registered, then we know that the page
   // actually wants frames.
@@ -1755,9 +1796,9 @@ void XRSession::DetachOutputCanvas(HTMLCanvasElement* canvas) {
 }
 
 void XRSession::ApplyPendingRenderState() {
-  DCHECK(!prev_base_layer_);
+  DCHECK(!prev_transport_delegate_);
   if (pending_render_state_.size() > 0) {
-    prev_base_layer_ = render_state_->GetFirstLayer();
+    prev_transport_delegate_ = render_state_->GetTransportDelegate();
     HTMLCanvasElement* prev_ouput_canvas = render_state_->output_canvas();
 
     // Loop through each pending render state and apply it to the active one.
@@ -1766,11 +1807,16 @@ void XRSession::ApplyPendingRenderState() {
     }
     pending_render_state_.clear();
 
+    should_update_layers_backend_ |= render_state_->NeedLayersUpdate();
+
     // If this is an inline session and the base layer has changed, give it an
     // opportunity to update it's drawing buffer size.
-    XRLayer* base_layer = render_state_->GetFirstLayer();
-    if (!immersive() && base_layer && base_layer != prev_base_layer_) {
-      base_layer->OnResize();
+    if (!immersive() && should_update_layers_backend_) {
+      render_state_->OnResize();
+      // For non-immersive sessions, calling OnResize() is sufficient to handle
+      // active layer changes.
+      should_update_layers_backend_ = false;
+      render_state_->OnLayersUpdated();
     }
 
     // If the output canvas changed, remove listeners from the old one and add
@@ -1819,7 +1865,8 @@ void XRSession::UpdatePresentationFrameState(
 
   // If there are pending render state changes, apply them now, as they may
   // update the depthNear/Far used by the views.
-  prev_base_layer_ = nullptr;
+  // TODO(crbug.com/452595360): Apply pending frame data on frame submit.
+  prev_transport_delegate_ = nullptr;
   ApplyPendingRenderState();
 
   // Update view related data.
@@ -2076,21 +2123,28 @@ void XRSession::OnFrame(double timestamp,
 
     // Don't allow frames to be processed if there's no layers attached to the
     // session. That would allow tracking with no associated visuals.
-    if (!render_state_->GetFirstLayer()) {
-      DVLOG(2) << __func__ << ": frame_base_layer not present";
+    if (!render_state_->HasActiveLayer()) {
+      DVLOG(2) << __func__ << ": there is no active layer in a render state.";
 
       // If we previously had a frame base layer, we need to still attempt to
       // submit a frame back to the runtime, as all "GetFrameData" calls need a
       // matching submit.
-      if (prev_base_layer_) {
-        layer_shared_image_manager_.SetSharedImages(prev_base_layer_,
-                                                    std::move(shared_images));
+      if (prev_transport_delegate_) {
+        DVLOG(2)
+            << __func__
+            << ": prev_transport_delegate is valid, submitting frame with it";
 
-        DVLOG(2) << __func__
-                 << ": prev_base_layer_ is valid, submitting frame to it";
-        prev_base_layer_->OnFrameStart();
-        prev_base_layer_->OnFrameEnd();
-        prev_base_layer_ = nullptr;
+        if (should_update_layers_backend_) {
+          should_update_layers_backend_ = false;
+          // Hides all layers on the backend if the 'layers' feature is enabled.
+          render_state_->UpdateLayersBackend(LayerManager());
+          render_state_->OnLayersUpdated();
+        }
+        // Submits the current frame without running the animation frame
+        // callback.
+        xr_->frameProvider()->ClearCachedLayersData();
+        xr_->frameProvider()->SubmitFrame(prev_transport_delegate_);
+        prev_transport_delegate_ = nullptr;
       }
       return;
     }
@@ -2104,11 +2158,45 @@ void XRSession::OnFrame(double timestamp,
       return;
     }
 
-    XRLayer* frame_base_layer = render_state_->GetFirstLayer();
-    layer_shared_image_manager_.SetSharedImages(frame_base_layer,
-                                                std::move(shared_images));
+    xr_->frameProvider()->ClearCachedLayersData();
 
-    frame_base_layer->OnFrameStart();
+    // Transport delegate should be available because render state is valid.
+    auto* transport_delegate = render_state_->GetTransportDelegate();
+    CHECK(transport_delegate);
+
+    if (shared_images.empty() && layers_enabled_) {
+      DVLOG(2) << __func__ << ": there is no shared images.";
+      xr_->frameProvider()->SubmitFrame(transport_delegate);
+      return;
+    }
+
+    if (should_update_layers_backend_) {
+      should_update_layers_backend_ = false;
+      if (layers_enabled_) {
+        // This means that the page has updated the layers since it last
+        // received a new frame, but we haven't updated the backend yet, so the
+        // page won't be able to use those layers just yet as they expect. For
+        // now, drop this frame and request a new one with the updated layers,
+        // which we'll then serve to the page.
+        // TODO(crbug.com/452604976): Refactor the frame submission flow to
+        // allow the layer sequence to be updated by the backend compositor
+        // without dropping the current frame.
+        render_state_->UpdateLayersBackend(LayerManager());
+        render_state_->OnLayersUpdated();
+
+        // Submit this animation frame without changes and request a new one
+        // immediately.
+        xr_->frameProvider()->SubmitFrame(transport_delegate);
+        MaybeRequestFrame();
+        return;
+      }
+    }
+
+    // If the 'layers' feature is disabled, the shared image lacks an associated
+    // layer ID. The shared image must then be bound to the first layer.
+    layer_shared_image_manager_.SetSharedImages(
+        layers_enabled_ ? nullptr : render_state_->GetFirstLayer(),
+        std::move(shared_images));
 
     // Don't allow frames to be processed if the session's visibility state is
     // "hidden".
@@ -2118,9 +2206,12 @@ void XRSession::OnFrame(double timestamp,
                   "is \"hidden\"";
       // If the frame is skipped because of the visibility state,
       // make sure we end the frame anyway.
-      frame_base_layer->OnFrameEnd();
+      xr_->frameProvider()->SubmitFrame(transport_delegate);
       return;
     }
+
+    // Propagate OnFrameStart for all active layers.
+    render_state_->OnFrameStart();
 
     CHECK(animation_frame_ == nullptr);
     animation_frame_ = CreatePresentationFrame(true);
@@ -2143,7 +2234,11 @@ void XRSession::OnFrame(double timestamp,
     callback_collection_->ExecuteCallbacks(this, timestamp, animation_frame_);
     page_animation_frame_timer_.StopTimer();
 
-    frame_base_layer->OnFrameEnd();
+    // Calling OnFrameEnd() on the render state will trigger each layer to
+    // submit its drawing data to be cached by the frame provider.
+    render_state_->OnFrameEnd();
+    // Submit frame with cached layers data.
+    xr_->frameProvider()->SubmitFrame(transport_delegate);
 
     // Ensure the XRFrame cannot be used outside the callbacks.
     animation_frame_->Deactivate();
@@ -2263,10 +2358,7 @@ void XRSession::UpdateCanvasDimensions(Element* element) {
   output_width_ = element->OffsetWidth() * devicePixelRatio;
   output_height_ = element->OffsetHeight() * devicePixelRatio;
 
-  XRLayer* base_layer = render_state_->GetFirstLayer();
-  if (base_layer) {
-    base_layer->OnResize();
-  }
+  render_state_->OnResize();
 
   canvas_was_resized_ = true;
   UpdateInlineView();
@@ -2533,6 +2625,13 @@ bool XRSession::HasPendingActivity() const {
          !ended_;
 }
 
+device::mojom::blink::XRLayerManager* XRSession::LayerManager() {
+  if (ended_ || !immersive()) {
+    return nullptr;
+  }
+  return xr()->frameProvider()->layer_manager();
+}
+
 void XRSession::Trace(Visitor* visitor) const {
   visitor->Trace(xr_);
   visitor->Trace(render_state_);
@@ -2554,7 +2653,7 @@ void XRSession::Trace(Visitor* visitor) const {
   visitor->Trace(plane_manager_);
   visitor->Trace(anchor_ids_to_anchors_);
   visitor->Trace(anchor_ids_to_pending_anchor_promises_);
-  visitor->Trace(prev_base_layer_);
+  visitor->Trace(prev_transport_delegate_);
   visitor->Trace(hit_test_source_ids_to_hit_test_sources_);
   visitor->Trace(hit_test_source_ids_to_transient_input_hit_test_sources_);
   visitor->Trace(views_);

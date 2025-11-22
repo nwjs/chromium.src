@@ -735,7 +735,6 @@ _NAMED_TYPE_INFO = {
       'GL_ANY_SAMPLES_PASSED_EXT',
       'GL_ANY_SAMPLES_PASSED_CONSERVATIVE_EXT',
       'GL_COMMANDS_ISSUED_CHROMIUM',
-      'GL_COMMANDS_ISSUED_TIMESTAMP_CHROMIUM',
       'GL_ASYNC_PIXEL_PACK_COMPLETED_CHROMIUM',
       'GL_COMMANDS_COMPLETED_CHROMIUM',
       'GL_READBACK_SHADOW_COPIES_UPDATED_CHROMIUM',
@@ -3813,28 +3812,6 @@ _FUNCTION_INFO = {
     'unit_test': False,
     'extension': 'CHROMIUM_lose_context',
     'trace_level': 1,
-  },
-  'InitializeDiscardableTextureCHROMIUM': {
-    'type': 'Custom',
-    'cmd_args': 'GLuint texture_id, uint32_t shm_id, '
-                'uint32_t shm_offset',
-    'impl_func': False,
-    'client_test': False,
-    'extension': True,
-  },
-  'UnlockDiscardableTextureCHROMIUM': {
-    'type': 'Custom',
-    'cmd_args': 'GLuint texture_id',
-    'impl_func': False,
-    'client_test': False,
-    'extension': True,
-  },
-  'LockDiscardableTextureCHROMIUM': {
-    'type': 'Custom',
-    'cmd_args': 'GLuint texture_id',
-    'impl_func': False,
-    'client_test': False,
-    'extension': True,
   },
   'WindowRectanglesEXT': {
     'type': 'PUTn',

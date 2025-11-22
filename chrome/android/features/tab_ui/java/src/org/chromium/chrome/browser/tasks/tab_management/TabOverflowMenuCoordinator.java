@@ -15,7 +15,6 @@ import static org.chromium.ui.listmenu.ListMenuItemProperties.TITLE;
 import static org.chromium.ui.listmenu.ListMenuItemProperties.TITLE_ID;
 import static org.chromium.ui.listmenu.ListMenuSubmenuItemProperties.SUBMENU_ITEMS;
 import static org.chromium.ui.listmenu.ListMenuUtils.createAdapter;
-import static org.chromium.ui.listmenu.ListMenuUtils.setupCallbacksRecursively;
 
 import android.app.Activity;
 import android.content.ComponentCallbacks;
@@ -59,13 +58,16 @@ import org.chromium.components.collaboration.CollaborationService;
 import org.chromium.components.data_sharing.member_role.MemberRole;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.ui.UiUtils;
+import org.chromium.ui.hierarchicalmenu.HierarchicalMenuController;
+import org.chromium.ui.hierarchicalmenu.HierarchicalMenuController.AccessibilityListObserver;
 import org.chromium.ui.listmenu.ListMenuItemAdapter;
 import org.chromium.ui.listmenu.ListMenuItemProperties;
 import org.chromium.ui.listmenu.ListMenuSubmenuItemProperties;
-import org.chromium.ui.listmenu.ListMenuUtils.AccessibilityListObserver;
+import org.chromium.ui.listmenu.ListMenuUtils;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.util.AttrUtils;
 import org.chromium.ui.widget.AnchoredPopupWindow;
 import org.chromium.ui.widget.AnchoredPopupWindow.HorizontalOrientation;
 import org.chromium.ui.widget.RectProvider;
@@ -149,7 +151,7 @@ public abstract class TabOverflowMenuCoordinator<T> {
                     createAdapter(
                             modelList,
                             Set.of(),
-                            (model) -> {
+                            (model, view) -> {
                                 // Because ListMenuItemAdapter always uses the delegate if there is
                                 // one, we need to manually call click listeners.
                                 if (model.containsKey(CLICK_LISTENER)
@@ -236,7 +238,8 @@ public abstract class TabOverflowMenuCoordinator<T> {
             GradientDrawable outlineDrawable = new GradientDrawable();
             outlineDrawable.setShape(GradientDrawable.RECTANGLE);
             outlineDrawable.setCornerRadius(
-                    mContentView.getResources().getDimension(R.dimen.popup_bg_corner_radius_24dp));
+                    AttrUtils.getDimensionPixelSize(
+                            mContentView.getContext(), R.attr.popupBgCornerRadius));
             mContentView.setBackground(outlineDrawable);
             mContentView.setClipToOutline(true);
         }
@@ -251,6 +254,7 @@ public abstract class TabOverflowMenuCoordinator<T> {
     private final Context mContext;
     private final OnItemClickedCallback<T> mOnItemClickedCallback;
     private @Nullable OverflowMenuHolder<T> mMenuHolder;
+    private final HierarchicalMenuController mHierarchicalMenuController;
 
     /**
      * @param menuLayout The menu layout to use.
@@ -277,6 +281,11 @@ public abstract class TabOverflowMenuCoordinator<T> {
         assert collaborationService != null;
         mCollaborationService = collaborationService;
         mContext = context;
+
+        // TODO(crbug.com/433410990): Implement flyoutHandler.
+        mHierarchicalMenuController =
+                ListMenuUtils.createHierarchicalMenuController(
+                        context, /* flyoutHandler= */ null, /* drillDownOverrideValue= */ true);
     }
 
     /**
@@ -448,13 +457,16 @@ public abstract class TabOverflowMenuCoordinator<T> {
                         activity);
         buildCustomView(mMenuHolder.getContentView(), isIncognito);
         afterCreate();
+
         modelList.addObserver(
-                new AccessibilityListObserver(
+                mHierarchicalMenuController
+                .new AccessibilityListObserver(
                         mMenuHolder.getContentView(),
                         /* headerView= */ null,
                         mMenuHolder.getContentView().findViewById(R.id.tab_group_action_menu_list),
                         /* headerModelList= */ null,
                         modelList));
+
         mMenuHolder.show();
     }
 
@@ -514,17 +526,15 @@ public abstract class TabOverflowMenuCoordinator<T> {
             buildCollaborationMenuItems(
                     modelList, mCollaborationService.getCurrentUserRoleForGroup(collaborationId));
         }
-        // Set up callbacks for submenu navigation
-        setupCallbacksRecursively(
+        // Set up callbacks for submenu navigation.
+        mHierarchicalMenuController.setupCallbacksRecursively(
                 /* headerModelList= */ null,
                 modelList,
                 () -> {
                     if (mMenuHolder != null) {
                         mMenuHolder.dismiss();
                     }
-                },
-                /* flyoutController= */ null,
-                /* drillDownOverrideValue= */ true);
+                });
     }
 
     public void configureMenuItemsForTesting(ModelList modelList, T id) {

@@ -182,6 +182,10 @@
 #include "chrome/browser/webapps/webapps_client_android.h"
 #include "chrome/browser/webauthn/android/chrome_webauthn_client_android.h"
 #include "components/webauthn/android/webauthn_client_android.h"
+
+namespace chrome_browser_prefs {
+void OnLocalStatePrefsLoaded();
+}  // namespace chrome_browser_prefs
 #else
 #include "chrome/browser/devtools/devtools_auto_opener.h"
 #include "chrome/browser/error_reporting/chrome_js_error_report_processor.h"
@@ -257,10 +261,17 @@
 
 #if BUILDFLAG(IS_LINUX)
 #include "chrome/browser/browser_features.h"
-#include "components/os_crypt/async/browser/fallback_linux_key_provider.h"
 #include "components/os_crypt/async/browser/freedesktop_secret_key_provider.h"
 #include "components/os_crypt/async/browser/secret_portal_key_provider.h"
 #include "components/password_manager/core/browser/password_manager_switches.h"
+#endif
+
+#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC)
+#include "components/os_crypt/async/browser/posix_key_provider.h"
+#endif
+
+#if BUILDFLAG(IS_MAC)
+#include "components/os_crypt/async/browser/keychain_key_provider.h"
 #endif
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
@@ -409,6 +420,10 @@ void BrowserProcessImpl::Init() {
 
   MigrateObsoleteLocalStatePrefs(local_state());
   pref_change_registrar_.Init(local_state());
+
+#if BUILDFLAG(IS_ANDROID)
+  chrome_browser_prefs::OnLocalStatePrefsLoaded();
+#endif
 
   // Initialize the notification for the default browser setting policy.
   pref_change_registrar_.Add(
@@ -1377,36 +1392,38 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
 
 #if 0 //BUILDFLAG(IS_LINUX)
   base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
-  if (cmd_line->GetSwitchValueASCII(password_manager::kPasswordStore) !=
-      "basic") {
+  const auto password_store =
+      cmd_line->GetSwitchValueASCII(password_manager::kPasswordStore);
+  if (password_store != "basic") {
     if (base::FeatureList::IsEnabled(features::kDbusSecretPortal)) {
+      // Use a higher priority than the FreedesktopSecretKeyProvider.
       providers.emplace_back(
-          /*precedence=*/10u,
+          /*precedence=*/15u,
           std::make_unique<os_crypt_async::SecretPortalKeyProvider>(
               local_state(),
               base::FeatureList::IsEnabled(
                   features::kSecretPortalKeyProviderUseForEncryption)));
     }
-    if (base::FeatureList::IsEnabled(
-            features::kUseFreedesktopSecretKeyProvider)) {
-      const auto password_store =
-          cmd_line->GetSwitchValueASCII(password_manager::kPasswordStore);
-      // Use a higher priority than the SecretPortalKeyProvider.
-      providers.emplace_back(
-          /*precedence=*/15u,
-          std::make_unique<os_crypt_async::FreedesktopSecretKeyProvider>(
-              password_store,
-              base::FeatureList::IsEnabled(
-                  features::kUseFreedesktopSecretKeyProviderForEncryption),
-              l10n_util::GetStringUTF8(IDS_PRODUCT_NAME), nullptr));
-      providers.emplace_back(
-          /*precedence=*/5u,
-          std::make_unique<os_crypt_async::FallbackLinuxKeyProvider>(
-              base::FeatureList::IsEnabled(
-                  features::kUseFreedesktopSecretKeyProviderForEncryption)));
-    }
   }
+  providers.emplace_back(
+      /*precedence=*/10u,
+      std::make_unique<os_crypt_async::FreedesktopSecretKeyProvider>(
+          password_store, l10n_util::GetStringUTF8(IDS_PRODUCT_NAME), nullptr));
 #endif  // BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_LINUX)
+  // On other POSIX systems, this is the only key provider.
+  providers.emplace_back(
+      /*precedence=*/5u, std::make_unique<os_crypt_async::PosixKeyProvider>());
+#endif  // BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_MAC)
+  if (base::FeatureList::IsEnabled(features::kUseKeychainKeyProvider)) {
+    providers.emplace_back(std::make_pair(
+        /*precedence=*/10u,
+        std::make_unique<os_crypt_async::KeychainKeyProvider>()));
+  }
+#endif  // BUILDFLAG(IS_MAC)
 
   os_crypt_async_ =
       std::make_unique<os_crypt_async::OSCryptAsync>(std::move(providers));

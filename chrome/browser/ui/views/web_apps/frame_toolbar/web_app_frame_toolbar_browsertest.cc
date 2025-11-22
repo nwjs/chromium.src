@@ -45,7 +45,7 @@
 #include "chrome/browser/ui/views/frame/app_menu_button.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/browser_view_layout.h"
+#include "chrome/browser/ui/views/frame/layout/browser_view_layout.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
@@ -133,11 +133,6 @@
 #endif
 
 namespace {
-
-#if BUILDFLAG(IS_MAC)
-// Keep in sync with browser_frame_view_mac.mm
-constexpr double kTitlePaddingWidthFraction = 0.1;
-#endif
 
 template <typename T>
 T* GetLastVisible(const std::vector<T*>& views) {
@@ -241,7 +236,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, SpaceConstrained) {
 #if BUILDFLAG(IS_CHROMEOS)
   EXPECT_FALSE(window_title);
 #else
-  EXPECT_EQ(window_title->parent(), helper()->browser_view()->top_container());
+  EXPECT_EQ(window_title->parent(), helper()->browser_view());
 #endif
 
   WebAppToolbarButtonContainer* const toolbar_right_container =
@@ -438,7 +433,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, TitleHover) {
   WebAppToolbarButtonContainer* const toolbar_right_container =
       helper()->web_app_frame_toolbar()->get_right_container_for_testing();
 
-  EXPECT_EQ(window_title->parent(), helper()->browser_view()->top_container());
+  EXPECT_EQ(window_title->parent(), helper()->browser_view());
   window_title->SetText(std::u16string(30, 't'));
 
   // Ensure we initially have abundant space. Set the size from the root view
@@ -459,6 +454,9 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, TitleHover) {
       helper()->frame_view()->width() - original_title_gap + narrow_title_gap;
 #if BUILDFLAG(IS_MAC)
   // Increase width to allow for title padding.
+  // LINT.IfChange(mac_title_padding_width_fraction)
+  static constexpr double kTitlePaddingWidthFraction = 0.1;
+  // LINT.ThenChange(//chrome/browser/ui/views/frame/browser_frame_view_mac.mm:mac_title_padding_width_fraction)
   narrow_width = base::checked_cast<int>(
       std::ceil(narrow_width / (1 - 2 * kTitlePaddingWidthFraction)));
 #endif
@@ -498,11 +496,13 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, MenuButtonUpdatePending) {
       helper()->browser_view()->toolbar_button_provider()->GetAppMenuButton());
   EXPECT_FALSE(menu_button->IsLabelPresentAndVisible());
 
+  // Set that the `update_info` was not ignored by the user.
   {
     web_app::ScopedRegistryUpdate update =
         provider().sync_bridge_unsafe().BeginUpdate();
     web_app::proto::PendingUpdateInfo update_info;
     update_info.set_name("Updated app name");
+    update_info.set_was_ignored(false);
     update->UpdateApp(app_id)->SetPendingUpdateInfo(std::move(update_info));
   }
 
@@ -519,6 +519,23 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, MenuButtonUpdatePending) {
     update->UpdateApp(app_id)->SetPendingUpdateInfo(std::nullopt);
   }
 
+  menu_button->UpdateStateForTesting();
+  EXPECT_FALSE(menu_button->IsLabelPresentAndVisible());
+  EXPECT_EQ(menu_button->GetViewAccessibility().GetCachedName(),
+            u"Customize and control A minimal-ui app");
+  EXPECT_EQ(menu_button->GetRenderedTooltipText(gfx::Point()),
+            u"Customize and control A minimal-ui app");
+
+  // Setting a pending update info with available information but ignored by the
+  // user doesn't update the menu button.
+  {
+    web_app::ScopedRegistryUpdate update =
+        provider().sync_bridge_unsafe().BeginUpdate();
+    web_app::proto::PendingUpdateInfo update_info;
+    update_info.set_name("Updated app name");
+    update_info.set_was_ignored(true);
+    update->UpdateApp(app_id)->SetPendingUpdateInfo(std::move(update_info));
+  }
   menu_button->UpdateStateForTesting();
   EXPECT_FALSE(menu_button->IsLabelPresentAndVisible());
   EXPECT_EQ(menu_button->GetViewAccessibility().GetCachedName(),

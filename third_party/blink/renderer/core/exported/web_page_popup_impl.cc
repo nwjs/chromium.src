@@ -158,6 +158,11 @@ Page* CreatePage(ChromeClient& chrome_client, WebViewImpl& opener_web_view) {
   return page;
 }
 
+WebPagePopup::Handle NextPopupHandle() {
+  static WebPagePopup::Handle::Generator generator;
+  return generator.GenerateNextId();
+}
+
 }  // namespace
 
 class PagePopupChromeClient final : public EmptyChromeClient {
@@ -346,7 +351,8 @@ WebPagePopupImpl::WebPagePopupImpl(
           /*hidden=*/false,
           /*never_composited=*/false,
           /*is_embedded=*/false,
-          /*is_for_scalable_page=*/true)) {
+          /*is_for_scalable_page=*/true)),
+      handle_(NextPopupHandle()) {
   DCHECK(popup_client_);
   popup_widget_host_.set_disconnect_handler(blink::BindOnce(
       &WebPagePopupImpl::WidgetHostDisconnected, blink::Unretained(this)));
@@ -510,12 +516,19 @@ bool WebPagePopupImpl::HasFocus() {
   return widget_base_->has_focus();
 }
 
+WebHitTestResult WebPagePopupImpl::HitTestResultAt(const gfx::PointF& point) {
+  CHECK(page_);
+  HitTestLocation location(point);
+  return MainFrame().View()->HitTestWithThrottlingAllowed(
+      location, HitTestRequest::kReadOnly | HitTestRequest::kActive);
+}
+
 void WebPagePopupImpl::FlushInputProcessedCallback() {
   widget_base_->FlushInputProcessedCallback();
 }
 
-void WebPagePopupImpl::CancelCompositionForPepper() {
-  widget_base_->CancelCompositionForPepper();
+void WebPagePopupImpl::CancelComposition() {
+  widget_base_->CancelComposition();
 }
 
 void WebPagePopupImpl::ApplyVisualProperties(
@@ -786,11 +799,23 @@ WebInputEventResult WebPagePopupImpl::HandleGestureEvent(
     }
     ScrollOffset scroll_offset(-event.data.scroll_update.delta_x,
                                -event.data.scroll_update.delta_y);
-    // TODO(crbug.com/414556050) We might have absolute scroll event types here,
-    // like scrollbar drag or panning touch gesture scroll. Need to add a way to
-    // identify them and pass correct `ScrollSourceType` below.
+    cc::ScrollSourceType scroll_source_type =
+        cc::ScrollSourceType::kAbsoluteScroll;
+    bool vertical_scrollbar_thumb_pressed =
+        scrollable->VerticalScrollbar() &&
+        scrollable->VerticalScrollbar()->PressedPart() == kThumbPart;
+    bool horizontal_scrollbar_thumb_pressed =
+        scrollable->HorizontalScrollbar() &&
+        scrollable->HorizontalScrollbar()->PressedPart() == kThumbPart;
+    if (event.SourceDevice() == mojom::blink::GestureDevice::kTouchpad ||
+        event.SourceDevice() == mojom::blink::GestureDevice::kTouchscreen ||
+        (event.SourceDevice() == mojom::blink::GestureDevice::kScrollbar &&
+         !vertical_scrollbar_thumb_pressed &&
+         !horizontal_scrollbar_thumb_pressed)) {
+      scroll_source_type = cc::ScrollSourceType::kRelativeScroll;
+    }
     scrollable->UserScroll(event.data.scroll_update.delta_units, scroll_offset,
-                           cc::ScrollSourceType::kRelativeScroll,
+                           scroll_source_type,
                            ScrollableArea::ScrollCallback());
     return WebInputEventResult::kHandledSystem;
   }
@@ -1039,6 +1064,14 @@ WebDocument WebPagePopupImpl::GetDocument() {
   return WebDocument(MainFrame().GetDocument());
 }
 
+WebPagePopup::Handle WebPagePopupImpl::GetHandle() const {
+  if (!page_) {
+    WebPagePopup::Handle();
+  }
+
+  return handle_;
+}
+
 void WebPagePopupImpl::Cancel() {
   if (popup_client_)
     popup_client_->CancelPopup();
@@ -1091,6 +1124,11 @@ void WebPagePopupImpl::ExecuteEditCommand(const String& command,
   if (LocalFrame* frame = page_->GetFocusController().FocusedFrame()) {
     frame->GetEditor().ExecuteCommand(command, value);
   }
+}
+
+Element& WebPagePopupImpl::OwnerElement() {
+  CHECK(popup_client_);
+  return popup_client_->OwnerElement();
 }
 
 // WebPagePopup ----------------------------------------------------------------

@@ -91,6 +91,7 @@ ci/linux-chromeos-rel
 ci/linux-official
 ci/linux-wayland-mutter-rel-tests
 ci/linux-wayland-weston-rel-tests
+ci/mac-arm64-dbg
 ci/mac-arm64-rel
 ci/mac-official
 ci/mac12-arm64-rel-tests

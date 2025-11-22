@@ -146,6 +146,8 @@ chromium-metrics-reviews@google.com.
       summary="the module for Search Box Suggestions"/>
   <variant name="SideBySide" summary="the module for Split View"/>
   <variant name="SidePanelPinning" summary="the module for Side Panel Pinning"/>
+  <variant name="SyncAccountSettings"
+      summary="the module for Wallet integration in Autofill"/>
   <variant name="TabGroupsSync" summary="the module for Tab Groups that Sync"/>
   <variant name="TabOrganizer" summary="the module for Tab Organizer"/>
   <variant name="TestDefaultModule"
@@ -254,7 +256,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UserEducation.MessageNotShown.TimeInQueue" units="ms"
-    expires_after="2026-01-25">
+    expires_after="2026-03-29">
   <owner>dfried@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>

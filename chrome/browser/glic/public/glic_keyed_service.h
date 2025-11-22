@@ -14,6 +14,8 @@
 #include "base/containers/flat_set.h"
 #include "base/memory/memory_pressure_listener.h"
 #include "base/memory/raw_ptr.h"
+#include "chrome/browser/actor/actor_task_delegate.h"
+#include "chrome/browser/glic/glic_metrics.h"
 #include "chrome/browser/glic/glic_zero_state_suggestions_manager.h"
 #include "chrome/browser/glic/host/context/glic_sharing_manager_provider.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
@@ -25,16 +27,17 @@
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/actor/task_id.h"
 #include "chrome/common/actor_webui.mojom-forward.h"
+#include "components/autofill/core/browser/integrators/glic/actor_form_filling_types.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
+#include "mojo/public/cpp/bindings/remote.h"
 
 class BrowserWindowInterface;
 class Profile;
 class ProfileManager;
 
 namespace actor {
-struct ActionResultWithLatencyInfo;
 class ActorKeyedService;
 }  // namespace actor
 
@@ -54,11 +57,13 @@ class GlicFreController;
 class GlicMetrics;
 class GlicOcclusionNotifier;
 class GlicProfileManager;
+class GlicRegionCaptureController;
 class GlicScreenshotCapturer;
 class GlicShareImageHandler;
-class GlicTabSourceObserver;
+class GlicTabDataObserver;
 class GlicWindowController;
 class HostManager;
+class GlicActorTaskManager;
 
 enum class GlicPrewarmingChecksResult;
 
@@ -81,7 +86,9 @@ enum class GlicPrewarmingFreSource {
 // preference for changes and cause the UI to respond to it.
 class GlicKeyedService : public KeyedService,
                          public GlicSharingManagerProvider,
-                         public Host::InstanceDelegate {
+                         public Host::InstanceDelegate,
+                         public base::MemoryPressureListener,
+                         public actor::ActorTaskDelegate {
  public:
   explicit GlicKeyedService(
       Profile* profile,
@@ -106,7 +113,8 @@ class GlicKeyedService : public KeyedService,
   // TODO(b:448888544): remove `prevent_close` in favor of a Show method.
   void ToggleUI(BrowserWindowInterface* bwi,
                 bool prevent_close,
-                mojom::InvocationSource source);
+                mojom::InvocationSource source,
+                std::optional<std::string> prompt_suggestion = std::nullopt);
 
   void OpenFreDialogInNewTab(BrowserWindowInterface* bwi,
                              mojom::InvocationSource source);
@@ -115,13 +123,21 @@ class GlicKeyedService : public KeyedService,
   // window controller to shutdown (and clear cached state), but unlike
   // Shutdown, it doesn't unregister as the "active glic" with the profile
   // manager.
-  void CloseUI();
+  // TODO(crbug.com/454112198): Remove when multi-instance launches.
+  void CloseAndShutdown();
+
+  // Close the panel. Virtual for testing.
+  // TODO(crbug.com/448406730): Remove testing logic that relies on
+  // GKS::CloseFloatingPanel since close panel is now being handled by
+  // EmbedderDelegate.
+  virtual void CloseFloatingPanel();
 
   GlicEnabling& enabling() { return *enabling_.get(); }
 
   GlicMetrics* metrics() { return metrics_.get(); }
   GlicFreController& fre_controller();
   GlicWindowController& window_controller() const;
+  GlicWindowControllerInterface& GetSingleInstanceWindowController() const;
   GlicSharingManager& sharing_manager() override;
 
   // Called when a webview guest is created within a chrome://glic WebUI.
@@ -130,6 +146,9 @@ class GlicKeyedService : public KeyedService,
   // Virtual for testing.
   virtual bool IsWindowShowing() const;
 
+  // Returns true if `bwi` has a glic panel showing for its active tab.
+  bool IsPanelShowingForBrowser(const BrowserWindowInterface& bwi) const;
+
   // Virtual for testing.
   virtual bool IsWindowDetached() const;
 
@@ -137,7 +156,6 @@ class GlicKeyedService : public KeyedService,
 
   // Private API for the glic WebUI.
 
-  virtual void ClosePanel();
   void SetContextAccessIndicator(bool show);
 
   // Callback for changes to the context access indicator status.
@@ -165,13 +183,13 @@ class GlicKeyedService : public KeyedService,
   // URL in a new tab. The source is the RenderFrameHost of the Glic
   // instance that is requesting the navigation - this gets set as the
   // navigation handle's opener param.
-  void CreateTab(
-      content::RenderFrameHost* source,
+  tabs::TabInterface* CreateTab(
       const ::GURL& url,
       bool open_in_background,
       const std::optional<int32_t>& window_id,
       glic::mojom::WebClientHandler::CreateTabCallback callback) override;
   void CreateTask(
+      base::WeakPtr<actor::ActorTaskDelegate> delegate,
       actor::webui::mojom::TaskOptionsPtr options,
       mojom::WebClientHandler::CreateTaskCallback callback) override;
   void PerformActions(
@@ -180,7 +198,8 @@ class GlicKeyedService : public KeyedService,
   void StopActorTask(actor::TaskId task_id,
                      mojom::ActorTaskStopReason stop_reason) override;
   void PauseActorTask(actor::TaskId task_id,
-                      mojom::ActorTaskPauseReason pause_reason) override;
+                      mojom::ActorTaskPauseReason pause_reason,
+                      tabs::TabInterface::Handle tab_handle) override;
   // TODO(crbug.com/446696379) - The ResumeActorTask Glic API should, like the
   // rest of actor observations, operate in terms of TabObservation rather than
   // TabContext.
@@ -188,6 +207,14 @@ class GlicKeyedService : public KeyedService,
       actor::TaskId task_id,
       const mojom::GetTabContextOptions& context_options,
       glic::mojom::WebClientHandler::ResumeActorTaskCallback callback) override;
+  void InterruptActorTask(actor::TaskId task_id) override;
+  void UninterruptActorTask(actor::TaskId task_id) override;
+  void CreateActorTab(
+      actor::TaskId task_id,
+      bool open_in_background,
+      const std::optional<int32_t>& initiator_tab_id,
+      const std::optional<int32_t>& initiator_window_id,
+      glic::mojom::WebClientHandler::CreateActorTabCallback callback) override;
   void FetchZeroStateSuggestions(
       bool is_first_run,
       std::optional<std::vector<std::string>> supported_tools,
@@ -201,7 +228,11 @@ class GlicKeyedService : public KeyedService,
   void RegisterConversation(
       glic::mojom::ConversationInfoPtr info,
       mojom::WebClientHandler::RegisterConversationCallback callback) override;
+  void OnWebClientCleared() override;
   void PrepareForOpen() override;
+  void OnInteractionModeChange(mojom::WebClientMode new_mode) override;
+  glic::GlicInstanceMetrics* instance_metrics() override;
+  bool IsActive() override;
 
   void OnUserInputSubmitted(glic::mojom::WebClientMode mode);
 
@@ -211,8 +242,9 @@ class GlicKeyedService : public KeyedService,
   base::CallbackListSubscription AddUserInputSubmittedCallback(
       base::RepeatingClosure callback);
 
-  void CaptureScreenshot(
-      glic::mojom::WebClientHandler::CaptureScreenshotCallback callback);
+  void CaptureRegion(
+      content::WebContents* web_contents,
+      mojo::PendingRemote<mojom::CaptureRegionObserver> observer);
 
   // Fetches the image for the context menu item (if possible, and potentially
   // scaling and reencoding) and sends the result to the web client as
@@ -223,6 +255,8 @@ class GlicKeyedService : public KeyedService,
 
   AuthController& GetAuthController() { return *auth_controller_; }
 
+  GlicRegionCaptureController& region_capture_controller();
+
   bool IsActiveWebContents(content::WebContents* contents);
 
   void AddPreloadCallback(base::OnceCallback<void()> callback);
@@ -230,8 +264,10 @@ class GlicKeyedService : public KeyedService,
   virtual void TryPreload();
   void TryPreloadAfterDelay();
   virtual void TryPreloadFre(GlicPrewarmingFreSource source);
-  void Reload();
-
+  void Reload(content::RenderFrameHost* render_frame_host);
+  // Close the active embedder for an instance associated with this render frame
+  // host.
+  void Close(content::RenderFrameHost* outermost_render_frame_host);
   Profile* profile() const { return profile_; }
 
   // Used only for testing purposes.
@@ -239,13 +275,19 @@ class GlicKeyedService : public KeyedService,
 
   base::WeakPtr<GlicKeyedService> GetWeakPtr();
 
-  void OnMemoryPressure(
-      base::MemoryPressureListener::MemoryPressureLevel level);
+  void OnMemoryPressure(base::MemoryPressureLevel level) override;
+
+  // ActorTaskDelegate:
+  void OnTabAddedToTask(actor::TaskId task_id,
+                        const tabs::TabInterface::Handle& tab_handle) override;
 
   HostManager& host_manager();
-  GlicZeroStateSuggestionsManager& zero_state_suggestions_manager() {
-    return *zero_state_suggestions_manager_;
+
+  // Null in multi-instance mode.
+  GlicZeroStateSuggestionsManager* zero_state_suggestions_manager() {
+    return zero_state_suggestions_manager_.get();
   }
+
   // Returns whether this process host is either the Glic FRE WebUI or the Glic
   // main WebUI.
   bool IsProcessHostForGlic(content::RenderProcessHost* process_host);
@@ -267,6 +309,36 @@ class GlicKeyedService : public KeyedService,
   void SendAdditionalContext(tabs::TabHandle tab_handle,
                              mojom::AdditionalContextPtr context);
 
+  // Registers a callback to be invoked when the TabData for an explicitly
+  // observed tab changes. Note that currently, only tabs observed via
+  // `OnTabAddedToTask` trigger updates.
+  using TabDataChangedCallback =
+      base::RepeatingCallback<void(const TabDataChange&)>;
+  base::CallbackListSubscription AddTabDataChangedCallback(
+      TabDataChangedCallback callback);
+
+  // ActorTaskDelegate:
+  void RequestToShowCredentialSelectionDialog(
+      actor::TaskId task_id,
+      const base::flat_map<std::string, gfx::Image>& icons,
+      const std::vector<actor_login::Credential>& credentials,
+      actor::ActorTaskDelegate::CredentialSelectedCallback callback) override;
+  void RequestToShowUserConfirmationDialog(
+      actor::TaskId task_id,
+      const url::Origin& navigation_origin,
+      bool for_blocklisted_origin,
+      actor::ActorTaskDelegate::UserConfirmationDialogCallback callback)
+      override;
+  void RequestToConfirmNavigation(
+      actor::TaskId task_id,
+      const url::Origin& navigation_origin,
+      actor::ActorTaskDelegate::NavigationConfirmationCallback callback)
+      override;
+  void RequestToShowAutofillSuggestionsDialog(
+      actor::TaskId task_id,
+      std::vector<autofill::ActorFormFillingRequest> requests,
+      AutofillSuggestionSelectedCallback callback) override;
+
  private:
   // A helper function to route GetZeroStateSuggestionsForFocusedTabCallback
   // callbacks.
@@ -278,14 +350,6 @@ class GlicKeyedService : public KeyedService,
 
   void FinishPreload(GlicPrewarmingChecksResult reason);
   void FinishPreloadFre(GlicPrewarmingFreSource source, bool should_preload);
-
-  void PerformActionsFinished(
-      mojom::WebClientHandler::PerformActionsCallback callback,
-      actor::TaskId task_id,
-      base::TimeTicks start_time,
-      actor::mojom::ActionResultCode result_code,
-      std::optional<size_t> index_of_failed_action,
-      std::vector<actor::ActionResultWithLatencyInfo> action_results);
 
   // List of callbacks to be notified when the client requests a change to the
   // context access indicator status.
@@ -307,18 +371,21 @@ class GlicKeyedService : public KeyedService,
   std::unique_ptr<GlicSharingManager> sharing_manager_;
   std::unique_ptr<GlicShareImageHandler> share_image_handler_;
   std::unique_ptr<GlicScreenshotCapturer> screenshot_capturer_;
+  std::unique_ptr<GlicRegionCaptureController> region_capture_controller_;
   std::unique_ptr<AuthController> auth_controller_;
-  std::unique_ptr<base::MemoryPressureListener> memory_pressure_listener_;
+  std::unique_ptr<base::MemoryPressureListenerRegistration>
+      memory_pressure_listener_registration_;
+  // Null in multi-instance mode.
   std::unique_ptr<GlicOcclusionNotifier> occlusion_notifier_;
   std::unique_ptr<GlicZeroStateSuggestionsManager>
       zero_state_suggestions_manager_;
-  std::unique_ptr<GlicTabSourceObserver> glic_tab_source_observer_;
   base::OnceCallback<void()> preload_callback_;
+  std::unique_ptr<GlicActorTaskManager> actor_task_manager_;
+  std::unique_ptr<GlicTabDataObserver> tab_data_observer_;
 
   // Unowned
   raw_ptr<contextual_cueing::ContextualCueingService>
       contextual_cueing_service_;
-  raw_ptr<actor::ActorKeyedService> actor_keyed_service_;
 
   base::WeakPtrFactory<GlicKeyedService> weak_ptr_factory_{this};
 };

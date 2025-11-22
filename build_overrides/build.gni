@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 import("//build/config/cronet/config.gni")
-import("//build/config/features.gni")
 import("//build/config/gclient_args.gni")
 
 # Uncomment these to specify a different NDK location and version in
@@ -50,7 +49,7 @@ declare_args() {
   gtest_enable_absl_printers = true
 
   # Allow projects that wish to stay on C++17 to override Chromium's default.
-  # TODO(crbug.com/40251117): evaluate removing this end of 2023
+  # TODO(anglebug.com/330910097): evaluate removing this 2026-04-01
   use_cxx17 = false
 }
 
@@ -73,6 +72,7 @@ declare_args() {
 # ubsan_vptr_ignorelist_path = "path/to/ubsan/vptr_ignorelist.txt"
 # ubsan_security_ignorelist_path = "path/to/ubsan/security_ignorelist.txt"
 # cfi_ignorelist_path = "path/to/cfi/ignores.txt"
+ubsan_array_bounds_ignorelist_path = "//tools/ubsan/array_bounds_ignorelist.txt"
 
 if (host_os == "mac" || is_apple) {
   # Needed for is_apple when targeting macOS or iOS, independent of host.

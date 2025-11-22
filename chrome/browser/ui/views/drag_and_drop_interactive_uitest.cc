@@ -29,13 +29,16 @@
 #include "build/build_config.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -779,6 +782,8 @@ class DragAndDropBrowserTest : public InProcessBrowserTest,
     // targets have not been determined yet, and may interfere with the tests
     // below by shifting the contents around.
     // These overrides should be removed once the parameters are finalized.
+    //
+    // Ensure PreserveDropEffect is enabled for DragAndDropBrowserTest.
     feature_list_.InitWithFeaturesAndParameters(
         {{features::kSideBySide,
           {{features::kSideBySideDropTargetMinWidth.name, "0"},
@@ -787,8 +792,9 @@ class DragAndDropBrowserTest : public InProcessBrowserTest,
           {{features::kSideBySideDropTargetNudgeMinWidth.name, "0"},
            {features::kSideBySideDropTargetNudgeMaxWidth.name, "0"},
            {features::kSideBySideDropTargetNudgeToFullMinWidth.name, "0"},
-           {features::kSideBySideDropTargetNudgeToFullMaxWidth.name, "0"}}}},
-        {});
+           {features::kSideBySideDropTargetNudgeToFullMaxWidth.name, "0"}}},
+         {blink::features::kPreserveDropEffect, {}}},
+        {blink::features::kSupportOpeningDraggedLinksInSameTab});
     InProcessBrowserTest::SetUp();
   }
 
@@ -1048,6 +1054,8 @@ class DragAndDropBrowserTest : public InProcessBrowserTest,
 
   net::EmbeddedTestServer* https_test_server() { return &https_test_server_; }
 
+  DragAndDropSimulator* drag_simulator() { return drag_simulator_.get(); }
+
  private:
   // Constants with coordinates within content/test/data/drag_and_drop/page.html
   // The precise frame center is at 200,200 and 400,200 coordinates, but slight
@@ -1082,7 +1090,7 @@ class DragAndDropBrowserTest : public InProcessBrowserTest,
   }
 
   void AssertTestPageIsLoaded() {
-    ASSERT_EQ(kTestPagePath, web_contents()->GetLastCommittedURL().path());
+    ASSERT_EQ(kTestPagePath, web_contents()->GetLastCommittedURL().GetPath());
   }
 
   std::unique_ptr<DragAndDropSimulator> drag_simulator_;
@@ -1197,6 +1205,65 @@ IN_PROC_BROWSER_TEST_P(DragAndDropBrowserTest, DropValidUrlFromOutside) {
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(), VIEW_ID_TAB_CONTAINER));
 }
 
+class DragAndDropDragLinksInSameTabBrowserTest : public DragAndDropBrowserTest {
+ public:
+  void SetUp() override {
+    // TODO(crbug.com/394369035): The parameters for the width of the drop
+    // targets have not been determined yet, and may interfere with the tests
+    // below by shifting the contents around.
+    // These overrides should be removed once the parameters are finalized.
+    //
+    // Ensure PreserveDropEffect is enabled based on the setting of parent class
+    // DragAndDropBrowserTest.
+    feature_list_.InitWithFeaturesAndParameters(
+        {{features::kSideBySide,
+          {{features::kSideBySideDropTargetMinWidth.name, "0"},
+           {features::kSideBySideDropTargetMaxWidth.name, "0"}}},
+         {features::kSideBySideDropTargetNudge,
+          {{features::kSideBySideDropTargetNudgeMinWidth.name, "0"},
+           {features::kSideBySideDropTargetNudgeMaxWidth.name, "0"},
+           {features::kSideBySideDropTargetNudgeToFullMinWidth.name, "0"},
+           {features::kSideBySideDropTargetNudgeToFullMaxWidth.name, "0"}}},
+         {blink::features::kPreserveDropEffect, {}},
+         {blink::features::kSupportOpeningDraggedLinksInSameTab, {}}},
+        {});
+    InProcessBrowserTest::SetUp();
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Scenario: drag URL from outside the browser and drop to half of a Split View.
+IN_PROC_BROWSER_TEST_P(DragAndDropDragLinksInSameTabBrowserTest,
+                       DropValidUrlFromOutside) {
+  std::string frame_site = use_cross_site_subframe() ? "b.test" : "a.test";
+  ASSERT_TRUE(NavigateToTestPage(frame_site));
+
+  // Create a second tab and create split view.
+  chrome::AddTabAt(browser(), GURL(), -1, true);
+  browser()->tab_strip_model()->ActivateTabAt(1);
+  browser()->tab_strip_model()->AddToNewSplit(
+      {0}, split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource::kToolbarButton);
+  ASSERT_EQ(2, browser()->tab_strip_model()->count());
+
+  // Drag a normal URL from outside the browser into/over the left side of the
+  // Split View.
+  GURL dragged_url = https_test_server()->GetURL("d.test", "/title2.html");
+  ASSERT_TRUE(
+      drag_simulator()->SimulateDragEnter(gfx::Point(100, 100), dragged_url));
+  ASSERT_TRUE(drag_simulator()->SimulateDrop(gfx::Point(100, 100)));
+
+  // Verify that dropping |dragged_url| navigates the left tab to that URL.
+  EXPECT_EQ(2, browser()->tab_strip_model()->count());
+  content::WebContents* left_web_contents =
+      browser()->tab_strip_model()->GetWebContentsAt(0);
+  content::TestNavigationObserver(left_web_contents, 1).Wait();
+  EXPECT_EQ(dragged_url,
+            left_web_contents->GetPrimaryMainFrame()->GetLastCommittedURL());
+}
+
 #if BUILDFLAG(IS_WIN)
 // Scenario: Drag and drop a file from outside the browser and it should have
 // associated file type, fetched from it's diplay_name. Test coverage:
@@ -1207,7 +1274,7 @@ IN_PROC_BROWSER_TEST_P(DragAndDropBrowserTest, DragAndDropVirtualFiles) {
   ASSERT_TRUE(NavigateRightFrame("a.test", "drop_target.html"));
   // Prepare a test file with a known extension and temporary path.
   std::vector<std::pair<base::FilePath, std::string>> file_infos;
-  base::FilePath test_file = ui_test_utils::GetTestFilePath(
+  base::FilePath test_file = chrome_test_utils::GetTestFilePath(
       base::FilePath(), base::FilePath().AppendASCII("test_document.pdf"));
   file_infos.emplace_back(test_file, std::string("just some data"));
 
@@ -1361,7 +1428,7 @@ IN_PROC_BROWSER_TEST_P(DragAndDropBrowserTest, DropFileFromOutside) {
   EXPECT_FALSE(ui_test_utils::IsViewFocused(browser(), VIEW_ID_TAB_CONTAINER));
 
   // Drag a file from outside the browser into/over the right frame.
-  base::FilePath dragged_file = ui_test_utils::GetTestFilePath(
+  base::FilePath dragged_file = chrome_test_utils::GetTestFilePath(
       base::FilePath(), base::FilePath().AppendASCII("title3.html"));
   ASSERT_TRUE(SimulateDragEnterToRightFrame(dragged_file));
 
@@ -1398,9 +1465,9 @@ IN_PROC_BROWSER_TEST_P(DragAndDropBrowserTest, DropMultipleFilesFromOutside) {
 
   // Drag files from outside the browser into/over the right frame.
   std::vector<ui::FileInfo> file_infos;
-  base::FilePath dragged_file_1 = ui_test_utils::GetTestFilePath(
+  base::FilePath dragged_file_1 = chrome_test_utils::GetTestFilePath(
       base::FilePath(), base::FilePath().AppendASCII("title1.html"));
-  base::FilePath dragged_file_2 = ui_test_utils::GetTestFilePath(
+  base::FilePath dragged_file_2 = chrome_test_utils::GetTestFilePath(
       base::FilePath(), base::FilePath().AppendASCII("title2.html"));
   file_infos.emplace_back(dragged_file_1, dragged_file_1.BaseName());
   file_infos.emplace_back(dragged_file_2, dragged_file_2.BaseName());
@@ -2510,6 +2577,18 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(
     CrossSiteSubframe,
     DragAndDropBrowserTest,
+    ::testing::Combine(::testing::Values(true),
+                       ::testing::ValuesIn(ui_scaling_factors)));
+
+INSTANTIATE_TEST_SUITE_P(
+    SameSiteSubframe,
+    DragAndDropDragLinksInSameTabBrowserTest,
+    ::testing::Combine(::testing::Values(false),
+                       ::testing::ValuesIn(ui_scaling_factors)));
+
+INSTANTIATE_TEST_SUITE_P(
+    CrossSiteSubframe,
+    DragAndDropDragLinksInSameTabBrowserTest,
     ::testing::Combine(::testing::Values(true),
                        ::testing::ValuesIn(ui_scaling_factors)));
 

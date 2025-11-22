@@ -6,21 +6,20 @@
 #define COMPONENTS_PERMISSIONS_PERMISSION_REQUEST_MANAGER_H_
 
 #include <algorithm>
+#include <list>
+#include <map>
 #include <memory>
 #include <optional>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "base/callback_list.h"
 #include "base/check_is_test.h"
 #include "base/gtest_prod_util.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
-#include "components/content_settings/browser/page_specific_content_settings.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/permissions/features.h"
 #include "components/permissions/permission_prompt.h"
@@ -28,6 +27,7 @@
 #include "components/permissions/permission_uma_util.h"
 #include "components/permissions/prediction_service/permission_ui_selector.h"
 #include "components/permissions/request_type.h"
+#include "components/permissions/resolvers/permission_prompt_options.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/web_contents.h"
@@ -145,12 +145,19 @@ class PermissionRequestManager
   // Recreates a permission prompt.
   void RestorePrompt();
 
-  // Do NOT use this methods in production code. Use this methods in browser
+  // Do NOT use these methods in production code. Use these methods in browser
   // tests that need to accept or deny permissions when requested in
   // JavaScript. Your test needs to set this appropriately, and then the bubble
   // will proceed as desired as soon as Show() is called.
   void set_auto_response_for_test(AutoResponseType response) {
     auto_response_for_test_ = response;
+  }
+  void set_auto_response_prompt_options_for_test(PromptOptions prompt_options) {
+    CHECK_NE(auto_response_for_test_, AutoResponseType::NONE)
+        << "Call set_auto_response_for_test() before calling "
+           "set_auto_response_prompt_options_for_test, since this does not "
+           "have any effect otherwise.";
+    auto_response_prompt_options_for_test_ = std::move(prompt_options);
   }
 
   // WebContentsObserver:
@@ -484,6 +491,8 @@ class PermissionRequestManager
   void OnTabAttached(tabs::TabInterface* tab_interface);
   void OnTabActiveChanged();
 
+  void RecordPostPromptSessionDuration();
+
   // Factory to be used to create views when needed.
   PermissionPrompt::Factory view_factory_;
 
@@ -536,6 +545,7 @@ class PermissionRequestManager
 
   base::ObserverList<Observer> observer_list_;
   AutoResponseType auto_response_for_test_ = NONE;
+  PromptOptions auto_response_prompt_options_for_test_ = std::monostate();
 
   // Suppress notification permission prompts in this tab, regardless of the
   // origin requesting the permission.
@@ -560,6 +570,14 @@ class PermissionRequestManager
   // or zero if not at all.
   base::Time current_request_first_display_time_;
 
+  // When the view for the current |requests_| has been first shown to the user,
+  // or zero if not at all, specifically for a NOTIFICATIONS request.
+  base::TimeTicks notification_request_first_display_time_;
+
+  // When the view for the current |requests_| has been first shown to the user,
+  // or zero if not at all, specifically for a GEOLOCATION request.
+  base::TimeTicks geolocation_request_first_display_time_;
+
   // Whether to use the normal or quiet UI to display the current permission
   // |requests_|, and whether to show warnings. This will be nullopt if we are
   // still waiting on the result from |permission_ui_selectors_|.
@@ -573,6 +591,11 @@ class PermissionRequestManager
   // The permission request relevance returned by an on-device ML model,
   // to be recorded in UKM.
   std::optional<PermissionRequestRelevance> permission_request_relevance_;
+
+  // The AI model version used for the permission decision, to be recorded in
+  // UKM.
+  std::optional<permissions::PermissionAiRelevanceModel>
+      permission_ai_relevance_model_;
 
   // Status of the decision made by the Web Permission Prediction Service, if
   // it was held back or not.

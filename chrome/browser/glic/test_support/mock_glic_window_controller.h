@@ -13,7 +13,7 @@
 namespace glic {
 
 class MockGlicWindowController
-    : public testing::NiceMock<GlicWindowController> {
+    : public testing::NiceMock<GlicWindowControllerInterface> {
  public:
   MockGlicWindowController();
   ~MockGlicWindowController();
@@ -22,23 +22,17 @@ class MockGlicWindowController
   MOCK_METHOD(std::vector<GlicInstance*>, GetInstances, (), (override));
   MOCK_METHOD(GlicInstance*,
               GetInstanceForTab,
-              (tabs::TabInterface*),
-              (override));
-  MOCK_METHOD(void,
-              FindInstanceFromGlicContentsAndBindToTab,
-              (content::WebContents*, tabs::TabInterface*),
-              (override));
+              (const tabs::TabInterface*),
+              (const, override));
 
   MOCK_METHOD(void,
               Toggle,
-              (BrowserWindowInterface*, bool, mojom::InvocationSource),
+              (BrowserWindowInterface*,
+               bool,
+               mojom::InvocationSource,
+               std::optional<std::string>),
               (override));
   MOCK_METHOD(void, ShowAfterSignIn, (base::WeakPtr<Browser>), (override));
-  MOCK_METHOD(void,
-              ToggleWhenNotAlwaysDetached,
-              (Browser*, bool, mojom::InvocationSource),
-              (override));
-  MOCK_METHOD(void, FocusIfOpen, (), (override));
   MOCK_METHOD(void, Attach, (), ());
   MOCK_METHOD(void, Detach, (), ());
   MOCK_METHOD(void, Shutdown, (), (override));
@@ -48,38 +42,38 @@ class MockGlicWindowController
               ());
   MOCK_METHOD(void, EnableDragResize, (bool), ());
   MOCK_METHOD(void, MaybeSetWidgetCanResize, (), (override));
-  MOCK_METHOD(gfx::Size, GetSize, (), (override));
+  MOCK_METHOD(gfx::Size, GetPanelSize, (), (override));
   MOCK_METHOD(void, SetDraggableAreas, (const std::vector<gfx::Rect>&), ());
   MOCK_METHOD(void, SetMinimumWidgetSize, (const gfx::Size&), ());
   MOCK_METHOD(void, Close, (), (override));
-  MOCK_METHOD(void, CloseWithReason, (views::Widget::ClosedReason), (override));
-  MOCK_METHOD(bool, ActivateBrowser, (), (override));
-  MOCK_METHOD(void, ShowTitleBarContextMenuAt, (gfx::Point), (override));
-  MOCK_METHOD(bool,
-              ShouldStartDrag,
-              (const gfx::Point&, const gfx::Point&),
-              (override));
-  MOCK_METHOD(const mojom::PanelState&, GetPanelState, (), (const, override));
+  MOCK_METHOD(mojom::PanelState, GetPanelState, (), (override));
   MOCK_METHOD(void, AddStateObserver, (StateObserver*), (override));
   MOCK_METHOD(void, RemoveStateObserver, (StateObserver*), (override));
   MOCK_METHOD(bool, IsActive, (), (override));
   MOCK_METHOD(bool, IsShowing, (), (const));
-  MOCK_METHOD(bool, IsAttached, (), (const, override));
+  MOCK_METHOD(bool, IsAttached, (), (override));
   MOCK_METHOD(bool, IsDetached, (), (const, override));
+  MOCK_METHOD(bool,
+              IsPanelShowingForBrowser,
+              (const BrowserWindowInterface&),
+              (const, override));
   MOCK_METHOD(base::CallbackListSubscription,
               AddWindowActivationChangedCallback,
               (WindowActivationChangedCallback),
               (override));
+  MOCK_METHOD(base::CallbackListSubscription,
+              AddGlobalShowHideCallback,
+              (base::RepeatingClosure),
+              (override));
   MOCK_METHOD(void, Preload, (), (override));
-  MOCK_METHOD(void, Reload, (), (override));
+  MOCK_METHOD(void,
+              Reload,
+              (content::RenderFrameHost * render_frame_host),
+              (override));
   MOCK_METHOD(bool, IsWarmed, (), (const, override));
-  MOCK_METHOD(GlicView*, GetGlicView, (), (const, override));
-  MOCK_METHOD(base::WeakPtr<views::View>, GetGlicViewAsView, (), (override));
   MOCK_METHOD(GlicWidget*, GetGlicWidget, (), (const, override));
-  MOCK_METHOD(gfx::NativeWindow, GetHostNativeWindow, (), (override));
   MOCK_METHOD(Browser*, attached_browser, (), (override));
   MOCK_METHOD(State, state, (), (const, override));
-  MOCK_METHOD(GlicWindowAnimator*, window_animator, (), (override));
   MOCK_METHOD(Profile*, profile, (), (override));
   MOCK_METHOD(gfx::Rect, GetInitialBounds, (Browser*), (override));
   MOCK_METHOD(void, ShowDetachedForTesting, (), (override));
@@ -92,9 +86,22 @@ class MockGlicWindowController
               RegisterStateChange,
               (StateChangeCallback callback),
               (override));
+  MOCK_METHOD(base::CallbackListSubscription,
+              AddActiveInstanceChangedCallbackAndNotifyImmediately,
+              (ActiveInstanceChangedCallback callback),
+              (override));
+  MOCK_METHOD(GlicInstance*, GetActiveInstance, (), (override));
   MOCK_METHOD(void, SidePanelShown, (BrowserWindowInterface*), (override));
+  MOCK_METHOD(Host&, host, (), (override));
+  MOCK_METHOD(const InstanceId&, id, (), (const, override));
+  MOCK_METHOD(void, AddGlobalStateObserver, (PanelStateObserver*), (override));
+  MOCK_METHOD(void,
+              RemoveGlobalStateObserver,
+              (PanelStateObserver*),
+              (override));
+  MOCK_METHOD(glic::GlicInstanceMetrics*, instance_metrics, (), (override));
 
-  base::WeakPtr<GlicWindowController> GetWeakPtr() override {
+  base::WeakPtr<GlicWindowControllerInterface> GetWeakPtr() override {
     return weak_ptr_factory_.GetWeakPtr();
   }
 

@@ -23,7 +23,6 @@ class LocalFrameView;
 class PaintTimingCallbackManager;
 class PropertyTreeStateOrAlias;
 class TextElementTiming;
-class TracedValue;
 struct DOMPaintTimingInfo;
 class SoftNavigationContext;
 
@@ -46,9 +45,6 @@ class CORE_EXPORT LargestTextPaintManager final
 
   // Return the text LCP candidate and whether the candidate has changed.
   std::pair<TextRecord*, bool> UpdateMetricsCandidate();
-
-  void ReportCandidateToTrace(const TextRecord&);
-  void PopulateTraceValue(TracedValue&, const TextRecord& first_text_paint);
 
   Member<TextRecord> PopLargestIgnoredText() {
     return std::move(largest_ignored_text_);
@@ -142,6 +138,7 @@ class CORE_EXPORT TextPaintTimingDetector final
       const gfx::RectF& root_visual_rect,
       SoftNavigationContext* context,
       bool is_repaint);
+
   inline void QueueToMeasurePaintTime(const LayoutObject& object,
                                       TextRecord* record) {
     texts_queued_for_paint_time_.insert(&object, record);

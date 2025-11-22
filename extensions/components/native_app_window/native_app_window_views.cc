@@ -12,7 +12,6 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/app_window/app_window.h"
-#include "extensions/common/mojom/app_window.mojom.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/mojom/page/draggable_region.mojom.h"
 #include "third_party/skia/include/core/SkRegion.h"
@@ -39,7 +38,7 @@
 #include "base/win/windows_version.h"
 #include "ui/base/win/hidden_window.h"
 #include "ui/gfx/canvas.h"
-#include "ui/gfx/icon_util.h"
+#include "ui/gfx/win/icon_util.h"
 #include "ui/gfx/font_list.h"
 #include "ui/gfx/platform_font.h"
 #include "ui/display/win/dpi.h"
@@ -113,6 +112,10 @@ void NativeAppWindowViews::Init(
   widget_ = new views::Widget;
   widget_->AddObserver(this);
   InitializeWindow(app_window, create_params);
+
+  if (frameless_) {
+    app_window_->web_contents()->SetSupportsDraggableRegions(true);
+  }
 
   OnViewWasResized();
 }
@@ -322,13 +325,6 @@ void NativeAppWindowViews::RenderFrameCreated(
 
   if (app_window_->requested_alpha_enabled() && CanHaveAlphaEnabled()) {
     render_frame_host->GetView()->SetBackgroundColor(SK_ColorTRANSPARENT);
-  }
-
-  if (frameless_) {
-    mojo::Remote<extensions::mojom::AppWindow> app_window;
-    render_frame_host->GetRemoteInterfaces()->GetInterface(
-        app_window.BindNewPipeAndPassReceiver());
-    app_window->SetSupportsDraggableRegions(true);
   }
 }
 
