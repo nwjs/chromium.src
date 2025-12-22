@@ -160,6 +160,8 @@ export class ComposeboxElement extends I18nMixinLit
         reflect: true,
       },
       entrypointName: {type: String},
+      transcript_: {type: String},
+      receivedSpeech_: {type: Boolean},
     };
   }
 
@@ -202,12 +204,14 @@ export class ComposeboxElement extends I18nMixinLit
   protected accessor tabSuggestions_: TabInfo[] = [];
   protected accessor errorScrimVisible_: boolean = false;
   protected accessor contextFilesSize_: number = 0;
+  protected accessor transcript_: string = '';
+  protected accessor receivedSpeech_: boolean = false;
   protected lastQueriedInput_: string = '';
   protected showVoiceSearchInSteadyComposebox_: boolean =
       loadTimeData.getBoolean('steadyComposeboxShowVoiceSearch');
   protected showVoiceSearchInExpandedComposebox_: boolean =
       loadTimeData.getBoolean('expandedComposeboxShowVoiceSearch');
-  protected dragAndDropHandler: DragAndDropHandler;
+  protected dragAndDropHandler_: DragAndDropHandler;
   private showTypedSuggest_: boolean =
       loadTimeData.getBoolean('composeboxShowTypedSuggest');
   private showTypedSuggestWithContext_: boolean =
@@ -236,7 +240,7 @@ export class ComposeboxElement extends I18nMixinLit
     this.searchboxCallbackRouter_ =
         ComposeboxProxyImpl.getInstance().searchboxCallbackRouter;
     this.searchboxHandler_ = ComposeboxProxyImpl.getInstance().searchboxHandler;
-    this.dragAndDropHandler =
+    this.dragAndDropHandler_ =
         new DragAndDropHandler(this, this.dragAndDropEnabled_);
   }
 
@@ -339,7 +343,7 @@ export class ComposeboxElement extends I18nMixinLit
         // This is for cases when focus leaves the matches/input.
         // If there was already text in the input do not clear it.
         this.input_ = '';
-        this.submitEnabled_ = false;
+        this.submitEnabled_ = this.contextFilesSize_ > 0;
       } else {
         // For typed queries reset the input back to typed value when
         // focus leaves the match.
@@ -499,6 +503,16 @@ export class ComposeboxElement extends I18nMixinLit
     this.$.errorScrim.setErrorMessage(e.detail.errorMessage);
   }
 
+  protected onTranscriptUpdate_(e: CustomEvent<string>) {
+    // Update property that is sent to searchAnimatedGlow binding.
+    this.transcript_ = e.detail;
+  }
+
+  protected onSpeechReceived_() {
+    // Update property that is sent to searchAnimatedGlow binding.
+    this.receivedSpeech_ = true;
+  }
+
   protected async deleteContext_(e: CustomEvent<{uuid: UnguessableToken}>) {
     // If we're in create image mode, notify that image is gone.
     if (this.inCreateImageMode_) {
@@ -648,6 +662,7 @@ export class ComposeboxElement extends I18nMixinLit
   protected onVoiceSearchClose_() {
     this.inVoiceSearchMode_ = false;
     this.animationState = GlowAnimationState.NONE;
+    this.receivedSpeech_ = false;
   }
 
   protected onCancelClick_() {
@@ -1009,23 +1024,25 @@ export class ComposeboxElement extends I18nMixinLit
       return;
     }
 
-    // The first autcomplete response for ZPS contains no matches, since
-    // composebox doesn't support ZPS from local providers (ex. history
-    // suggestion). Similarly, since composebox doesn't support local providers,
-    // typed suggest first response returns a single verbatim match, which
-    // doesn't show in the dropdown. To prevent closing the dropdown before the
-    // actual response from the suggest server is received, ignore the first
-    // response. Only do this if the no flicker fix is enabled. This is guarded
-    // because its not confirmed that the ACController will always return two
-    // responses for a single query.
     // TODO(crbug.com/460888279): This is a temporary, merge safe fix. Ideally,
     // the ACController is not sending multiple responses for a single query,
     // especially when the matches is empty. Remove this logic once a long term
     // fix is found.
     if (this.composeboxNoFlickerSuggestionsFix_ && this.showTypedSuggest_ &&
         !this.haveReceivedAutcompleteResponse_) {
+      // The first autcomplete response for ZPS contains no matches, since
+      // composebox doesn't support ZPS from local providers (ex. history
+      // suggestion). Similarly, since composebox doesn't support local
+      // providers, typed suggest first response returns a single verbatim
+      // match, which doesn't show in the dropdown. To prevent closing the
+      // dropdown before the actual response from the suggest server is
+      // received, add the previous non-verbatim matches to this first response.
+      if (this.result_ && this.result_.matches.length > 0 &&
+          result.matches.length <= 1) {
+        result.matches.push(...this.result_.matches.filter(
+            match => match.type !== 'search-what-you-typed'));
+      }
       this.haveReceivedAutcompleteResponse_ = true;
-      return;
     }
     this.haveReceivedAutcompleteResponse_ = true;
     this.result_ = result;

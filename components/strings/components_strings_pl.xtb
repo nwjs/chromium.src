@@ -27,7 +27,7 @@
 <translation id="1044897699341250361">Co to oznacza</translation>
 <translation id="1046350918013988591">Kupony i oferty promocyjne</translation>
 <translation id="1050038467049342496">Zamknij inne aplikacje</translation>
-<translation id="1053959602163383901">W witrynach korzystających z <ph name="PROVIDER_ORIGIN" /> potwierdzasz swoją tożsamość za pomocą urządzenia uwierzytelniającego. Możliwe, że ten dostawca przechowuje dane Twojej formy płatności. Możesz <ph name="LINK_TEXT" />.</translation>
+<translation id="1053959602163383901">W witrynach korzystających z <ph name="PROVIDER_ORIGIN" /> potwierdzasz swoją tożsamość za pomocą urządzenia uwierzytelniającego. Możliwe, że ten dostawca przechowuje dane Twojej formy płatności, które możesz <ph name="LINK_TEXT" />.</translation>
 <translation id="1055184225775184556">&amp;Cofnij dodanie</translation>
 <translation id="1056898198331236512">Ostrzeżenie</translation>
 <translation id="1058344460600311577"><ph name="PLAY_CHROME_DINO_GAME_FOCUSED_FRIENDLY_MATCH_TEXT" />, aby zagrać w grę Dino Run w Chrome, naciśnij Tab, a potem Enter</translation>
@@ -938,7 +938,7 @@ Jeśli się nie zgodzisz, zostaną one zablokowane ze względu na Twoje ustawien
 <translation id="2512413427717747692">Przycisk ustawiania Chrome jako przeglądarki domyślnej. Naciśnij Enter, aby ustawić Chrome jako domyślną przeglądarkę systemową w ustawieniach iOS</translation>
 <translation id="2514548229949738417">Dom i ogród</translation>
 <translation id="2515629240566999685">Sprawdź sygnał w swojej okolicy</translation>
-<translation id="2515761554693942801">W witrynach korzystających z <ph name="PROVIDER_ORIGIN" /> potwierdzasz swoją tożsamość za pomocą Touch ID. Możliwe, że ten dostawca przechowuje dane Twojej formy płatności. Możesz <ph name="LINK_TEXT" />.</translation>
+<translation id="2515761554693942801">W witrynach korzystających z <ph name="PROVIDER_ORIGIN" /> potwierdzasz swoją tożsamość za pomocą Touch ID. Możliwe, że ten dostawca przechowuje dane Twojej formy płatności, które możesz <ph name="LINK_TEXT" />.</translation>
 <translation id="2518584823165598232">Ta karta jest niedostępna. Skontaktuj się jej z dostawcą.</translation>
 <translation id="2521385132275182522">Zszywka w prawym dolnym rogu</translation>
 <translation id="2521736961081452453">Utwórz formularz</translation>
@@ -1051,7 +1051,7 @@ Jeśli się nie zgodzisz, zostaną one zablokowane ze względu na Twoje ustawien
 <translation id="270415722347413271">Dysk optyczny (matowy)</translation>
 <translation id="2704192696317130398">Zablokować mysz?</translation>
 <translation id="2704283930420550640">Wartość nie pasuje do formatu.</translation>
-<translation id="2704606927547763573">Skopiowane</translation>
+<translation id="2704606927547763573">Skopiowano</translation>
 <translation id="2705137772291741111">Zapisana w pamięci podręcznej kopia tej strony jest uszkodzona.</translation>
 <translation id="2709516037105925701">Autouzupełnianie</translation>
 <translation id="2713444072780614174">Biały</translation>
@@ -1422,7 +1422,7 @@ Uruchamianie aplikacji może potrwać dłużej niż zwykle.</translation>
 <translation id="333839153442689579">Bardzo intensywny trening interwałowy</translation>
 <translation id="3339446062576134663">Chmura (Ash)</translation>
 <translation id="3340978935015468852">ustawienia</translation>
-<translation id="3342018947887487892">Później odwiedzana przez Ciebie witryna może prosić o te informacje (tematy reklam lub reklamy sugerowane przez odwiedzane witryny).</translation>
+<translation id="3342018947887487892">Później odwiedzana przez Ciebie witryna może prosić o te informacje – tematy lub reklamy sugerowane przez odwiedzane witryny.</translation>
 <translation id="334438173029876234">Sprzęt do jazdy na deskorolce</translation>
 <translation id="3347146863028219517">Narty i snowboard</translation>
 <translation id="3349952286488694786">SRA2</translation>
@@ -2357,7 +2357,7 @@ Uruchamianie aplikacji może potrwać dłużej niż zwykle.</translation>
 <translation id="484671803914931257">Otrzymaj rabat w sklepie <ph name="MERCHANT_NAME" /> i nie tylko</translation>
 <translation id="484988093836683706">Używaj odblokowywania urządzenia</translation>
 <translation id="4850669014075537160">Przewijanie</translation>
-<translation id="4850886885716139402">Widok</translation>
+<translation id="4850886885716139402">Wyświetl</translation>
 <translation id="4854853140771946034">Szybko utwórz nową notatkę w Google Keep</translation>
 <translation id="4855395119669662878">Administrator zacznie przesyłać Twoje pliki do usługi <ph name="CLOUD_PROVIDER" /> <ph name="DATE_TIME" />. Dopóki pliki nie zostaną przesłane, nie odłączaj urządzenia. Podczas przesyłania możliwy będzie tylko odczyt plików lokalnych.</translation>
 <translation id="485902285759009870">Weryfikuję kod...</translation>
@@ -2377,7 +2377,7 @@ Uruchamianie aplikacji może potrwać dłużej niż zwykle.</translation>
 <translation id="4877521229462766300">Zezwolić na umieszczoną treść?</translation>
 <translation id="4879491255372875719">Automatycznie (domyślnie)</translation>
 <translation id="4880328155169081699">Zaktualizować dowód tożsamości?</translation>
-<translation id="4880827082731008257">Przeszukaj historię</translation>
+<translation id="4880827082731008257">Historia wyszukiwania</translation>
 <translation id="4881695831933465202">Otwórz</translation>
 <translation id="4881808915112408168">24 x 31,5 cala</translation>
 <translation id="4882314601499260499">Nie zastosowano zasad dotyczących użytkowników. Aby można było je dodać, Twoja organizacja musi <ph name="LINK_BEGIN" />potwierdzić własność domeny<ph name="LINK_END" />.</translation>
@@ -2488,7 +2488,7 @@ Uruchamianie aplikacji może potrwać dłużej niż zwykle.</translation>
 <translation id="505757197798929356">Podaj powód otwarcia (wymagane)</translation>
 <translation id="5058282932481719070">Więcej informacji o ulepszonym autouzupełnianiu w ustawieniach</translation>
 <translation id="5060419232449737386">Ustawienia napisów</translation>
-<translation id="5060483733937416656">W witrynach korzystających z <ph name="PROVIDER_ORIGIN" /> potwierdzasz swoją tożsamość za pomocą Windows Hello. Możliwe, że ten dostawca przechowuje dane Twojej formy płatności. Możesz <ph name="LINK_TEXT" />.</translation>
+<translation id="5060483733937416656">W witrynach korzystających z <ph name="PROVIDER_ORIGIN" /> potwierdzasz swoją tożsamość za pomocą Windows Hello. Możliwe, że ten dostawca przechowuje dane Twojej formy płatności, które możesz <ph name="LINK_TEXT" />.</translation>
 <translation id="5061227663725596739">Czy chodziło Ci o <ph name="LOOKALIKE_DOMAIN" />?</translation>
 <translation id="5066056036849835175">Historia drukowania</translation>
 <translation id="5068524481479508725">A10</translation>
@@ -4006,7 +4006,7 @@ Dodatkowe informacje:
 <translation id="7543525346216957623">Poproś rodzica</translation>
 <translation id="7546409722674205727">Rozpoczyna się <ph name="APP_NAME" /></translation>
 <translation id="7548892272833184391">Naprawianie błędów połączenia</translation>
-<translation id="7549584377607005141">Do poprawnego wyświetlenia tej strony internetowej wymagane są dane wpisane przez Ciebie wcześniej. Możesz wysłać je ponownie, ale spowoduje to powtórzenie wszystkich działań wykonanych poprzednio przez stronę.</translation>
+<translation id="7549584377607005141">Do poprawnego wyświetlenia tej strony internetowej są wymagane wpisane przez Ciebie wcześniej dane. Możesz wysłać je ponownie, ale spowoduje to powtórzenie wszystkich działań wykonanych poprzednio przez stronę.</translation>
 <translation id="7550637293666041147">Twoja nazwa użytkownika na urządzeniu i w Chrome</translation>
 <translation id="7552846755917812628">Skorzystaj z tych wskazówek:</translation>
 <translation id="7554242657529665960">Od administratora: „<ph name="ADMIN_MESSAGE" />”</translation>
@@ -4210,7 +4210,7 @@ Dodatkowe informacje:
 <translation id="787226752901403048">Zaloguj się w Chrome, aby udostępniać grupy kart i do nich dołączać oraz wspólnie pracować nad pomysłami</translation>
 <translation id="7877007680666472091">identyfikatory treści chronionych</translation>
 <translation id="7878562273885520351">Ktoś mógł poznać Twoje hasło</translation>
-<translation id="7881044256965445977">Szukaj urządzeń w sieci lokalnej i łącz się z nimi</translation>
+<translation id="7881044256965445977">Szukanie urządzeń w sieci lokalnej i łączenie się z nimi</translation>
 <translation id="7885670691503039914">Otrzymasz alert e-mail, jeśli produkt stanieje w dowolnej witrynie. Ta strona zostanie zapisana w folderze zakładek <ph name="LAST_BOOKMARKS_FOLDER" />.</translation>
 <translation id="7886897188117641322">Wybierz szerokie kategorie tematów, które mogą być używane do personalizacji reklam</translation>
 <translation id="7887683347370398519">Sprawdź kod CVC i spróbuj ponownie</translation>
@@ -5018,7 +5018,7 @@ Dodatkowe informacje:
 <translation id="933712198907837967">Diners Club</translation>
 <translation id="934634059306213385">Zezwolić aplikacji <ph name="APP_NAME" /> na konfigurowanie sieci Wi-Fi?</translation>
 <translation id="936602727769022409">Możesz stracić dostęp do swojego konta Google. Chromium zaleca natychmiastową zmianę hasła. Zobaczysz prośbę, by się zalogować.</translation>
-<translation id="937804173274050966"><ph name="BEGIN_BOLD" />Jakich danych używamy:<ph name="END_BOLD" /> tematy reklam są określane na podstawie Twojej najnowszej historii przeglądania, czyli listy witryn odwiedzonych przez Ciebie w Chrome na tym urządzeniu.</translation>
+<translation id="937804173274050966"><ph name="BEGIN_BOLD" />Jakich danych używamy:<ph name="END_BOLD" /> przeglądarka Chrome określa tematy reklam na podstawie Twojej najnowszej historii przeglądania, czyli listy witryn, które w niej odwiedzasz na tym urządzeniu.</translation>
 <translation id="937885410143139026">Dane zostały wysłane do konsoli administracyjnej</translation>
 <translation id="939736085109172342">Nowy folder</translation>
 <translation id="940524522703752213">Przesyłanie plików do usługi <ph name="CLOUD_PROVIDER" /> rozpocznie się za <ph name="MINUTES" /> min</translation>

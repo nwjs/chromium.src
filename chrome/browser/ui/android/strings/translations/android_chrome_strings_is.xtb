@@ -13,7 +13,7 @@
 <translation id="1035113036584565771">Kynningarblað neðst með ábendingu, lokað</translation>
 <translation id="1036348656032585052">Slökkva</translation>
 <translation id="1045899828449635435">Hreinsa líka gögn af þessum svæðum?</translation>
-<translation id="1049743911850919806">Fara huldu höfðu</translation>
+<translation id="1049743911850919806">Fara huldu höfði</translation>
 <translation id="1052842760770519282">Sum aðgangsorðanna þinna eru ekki aðgengileg</translation>
 <translation id="1058669287135776095">Þú ert ekki á netinu. Athugaðu nettenginguna og reyndu aftur.</translation>
 <translation id="1066338698580889414">Kynningarblað neðst með ábendingu, opið til fulls</translation>
@@ -244,7 +244,6 @@ Aðeins einstaklingar sem eru með aðgangsorðið þitt geta lesið dulkóðuð
 <translation id="2063047797624276601">Fyrirtækið þitt kveikti á „Enn öruggari vefskoðun“</translation>
 <translation id="2065944887543506430">{FILE_COUNT,plural, =1{Mistókst að sækja eina skrá}one{Mistókst að sækja # skrá}other{Mistókst að sækja # skrár}}</translation>
 <translation id="2067805253194386918">texti</translation>
-<translation id="2074527029802029717">Losa flipa</translation>
 <translation id="2079545284768500474">Afturkalla</translation>
 <translation id="2082238445998314030">Niðurstaða <ph name="RESULT_NUMBER" /> af <ph name="TOTAL_RESULTS" /></translation>
 <translation id="2088833076121753253">Endurræstu Chrome núna til að ljúka við uppsetningu sjálfvirkrar útfyllingar. Fliparnir þínir munu opnast sjálfkrafa aftur.</translation>
@@ -1780,7 +1779,6 @@ Til að breyta þessari stillingu skaltu <ph name="BEGIN_LINK" />eyða Chrome-g�
 <translation id="8540136935098276800">Sláðu inn vefslóð á réttu sniði</translation>
 <translation id="854522910157234410">Opna þessa síðu</translation>
 <translation id="8547466829003330976">Fara yfir PDF-skrá með gervigreind</translation>
-<translation id="855081842937141170">Festa flipa</translation>
 <translation id="8551513938758868521">Læsa huliðsflipum um leið og þú hættir í Chrome</translation>
 <translation id="8559961053328923750">Chrome takmarkar heildarmagn gagna sem vefsvæði geta deilt í gegnum vafrann til að mæla árangur auglýsinga</translation>
 <translation id="8559990750235505898">Bjóðast til að þýða síður á önnur tungumál</translation>

@@ -178,7 +178,7 @@ Solo las personas que tengan tu frase de contraseña podrán leer tus datos cifr
 <translation id="1778457539567749232">Marcar como no leída</translation>
 <translation id="1779766957982586368">Cerrar ventana</translation>
 <translation id="1780023393214832643">Contraseñas guardadas en <ph name="USERNAME" /></translation>
-<translation id="1791662854739702043">Ubicación</translation>
+<translation id="1791662854739702043">Instaladas</translation>
 <translation id="1792959175193046959">Cambia la ubicación predeterminada de las descargas en cualquier momento</translation>
 <translation id="1796666869097395659">Minimizar la pestaña para volver a ella más tarde</translation>
 <translation id="1799920918471566157">Consejos de Chrome</translation>
@@ -244,7 +244,6 @@ Solo las personas que tengan tu frase de contraseña podrán leer tus datos cifr
 <translation id="2063047797624276601">Tu organización ha activado Navegación segura mejorada</translation>
 <translation id="2065944887543506430">{FILE_COUNT,plural, =1{No se ha podido descargar 1 archivo}other{No se han podido descargar # archivos}}</translation>
 <translation id="2067805253194386918">texto</translation>
-<translation id="2074527029802029717">No fijar pestaña</translation>
 <translation id="2079545284768500474">Deshacer</translation>
 <translation id="2082238445998314030">Resultado <ph name="RESULT_NUMBER" /> de <ph name="TOTAL_RESULTS" /></translation>
 <translation id="2088833076121753253">Para terminar de configurar Autocompletar, reinicia Chrome ahora. Tus pestañas se volverán a abrir automáticamente.</translation>
@@ -545,7 +544,7 @@ Solo las personas que tengan tu frase de contraseña podrán leer tus datos cifr
 <translation id="3435465986463792564">¿Tienes demasiadas ventanas? Puedes gestionarlas desde aquí.</translation>
 <translation id="3435575784518354875">Para seguir teniendo acceso a tus contraseñas, expórtalas ahora, actualiza Servicios de Google Play y, a continuación, vuelve a importarlas en el Gestor de contraseñas de Google. <ph name="BEGIN_LINK" />Consulta las instrucciones completas<ph name="END_LINK" />.</translation>
 <translation id="3435738964857648380">Seguridad</translation>
-<translation id="3435914367318771664">Añadir al nuevo grupo</translation>
+<translation id="3435914367318771664">Añadir pestaña a un grupo nuevo</translation>
 <translation id="3438681572027105609">Para acceder a tus contraseñas y más en todos tus dispositivos, inicia sesión en Chrome</translation>
 <translation id="3439276997620616816">Aquí verás tus pestañas recientes</translation>
 <translation id="3443221991560634068">Vuelve a cargar la página actual</translation>
@@ -809,7 +808,7 @@ Es posible que tu cuenta de Google tenga otros tipos de historial de navegación
 <translation id="4601095002996233687">Análisis exhaustivos para detectar descargas sospechosas.</translation>
 <translation id="4606559747793337066">Cuando un sitio o una aplicación te pregunta si quieres precargar de forma privada los enlaces de su página, Chrome cifra y precarga las páginas mediante los servidores de Google sin cookies. De esta manera, se oculta tu identidad en el sitio precargado.</translation>
 <translation id="4616150815774728855">Abrir <ph name="WEBAPK_NAME" /></translation>
-<translation id="4619564267100705184">Verificar mi identidad</translation>
+<translation id="4619564267100705184">Demostrar mi identidad</translation>
 <translation id="4624065194742029982">Incógnito de Chrome</translation>
 <translation id="4634124774493850572">Usar contraseña</translation>
 <translation id="463471994228293091">{PASSWORDS_COUNT,plural, =1{1 contraseña y otros elementos están guardados solo en este dispositivo. Para usarlos en tus otros dispositivos, guárdalos en tu cuenta de Google.}other{# contraseñas y otros elementos están guardados solo en este dispositivo. Para usarlos en tus otros dispositivos, guárdalos en tu cuenta de Google.}}</translation>
@@ -1185,7 +1184,7 @@ Es posible que tu cuenta de Google tenga otros tipos de historial de navegación
 <translation id="6205314730813004066">Privacidad en la publicidad</translation>
 <translation id="6210748933810148297">¿No eres <ph name="EMAIL" />?</translation>
 <translation id="6211386937064921208">Mostrando vista previa de esta página</translation>
-<translation id="6212567362666004597">Añadir pestaña a un grupo</translation>
+<translation id="6212567362666004597">Añadir pestaña al grupo</translation>
 <translation id="6225572914528673855">Barra de direcciones</translation>
 <translation id="6232535412751077445">Al habilitar la opción No hacer seguimiento, se incluirá una solicitud con el tráfico de navegación. El efecto dependerá de si algún sitio web responde a la solicitud y de cómo se interpreta.
 
@@ -1736,7 +1735,7 @@ Para cambiar este ajuste, <ph name="BEGIN_LINK" />elimina los datos de Chrome de
 <translation id="8361737703487394103">Ir a una pestaña concreta (1-8)</translation>
 <translation id="8368001212524806591">Seguir precio</translation>
 <translation id="8368772330826888223">{TAB_GROUP_COUNT,plural, =1{<ph name="TAB_GROUPS_ONE" /> grupo de pestañas}other{<ph name="TAB_GROUPS_MANY" /> grupos de pestañas}}</translation>
-<translation id="8387617938027387193">Verifica que eres tú</translation>
+<translation id="8387617938027387193">Demuestra que eres tú</translation>
 <translation id="8393700583063109961">Enviar mensaje</translation>
 <translation id="8396098434728053815">Compartir también el audio de la pestaña</translation>
 <translation id="8398389123831319859">Toca dos veces y mantén pulsado para cambiar a Incógnito</translation>
@@ -1780,7 +1779,6 @@ Para cambiar este ajuste, <ph name="BEGIN_LINK" />elimina los datos de Chrome de
 <translation id="8540136935098276800">Introduce una URL con el formato correcto</translation>
 <translation id="854522910157234410">Abrir esta página</translation>
 <translation id="8547466829003330976">Revisar PDF con IA</translation>
-<translation id="855081842937141170">Fijar pestaña</translation>
 <translation id="8551513938758868521">Ocultar las pestañas de Incógnito al cerrar Chrome</translation>
 <translation id="8559961053328923750">Chrome limita la cantidad total de datos que los sitios pueden compartir a través del navegador para medir el rendimiento de los anuncios.</translation>
 <translation id="8559990750235505898">Ofrecer la traducción de páginas en otros idiomas</translation>

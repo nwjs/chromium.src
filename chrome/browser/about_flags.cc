@@ -918,22 +918,34 @@ const FeatureEntry::FeatureVariation
 #if !BUILDFLAG(IS_ANDROID)
 const FeatureEntry::FeatureParam kWebUIOmniboxAimPopupAddContextButtonNone[] = {
     {"AddContextButtonVariant", "none"},
-    {"ForceToolsAndModels", "true"},
+    {"ShowCreateImageTool", "true"},
+    {"ShowToolsAndModels", "true"},
 };
 const FeatureEntry::FeatureParam
     kWebUIOmniboxAimPopupAddContextButtonBelowResults[] = {
         {"AddContextButtonVariant", "below_results"},
-        {"ForceToolsAndModels", "true"},
+        {"ShowCreateImageTool", "true"},
+        {"ShowToolsAndModels", "true"},
 };
 const FeatureEntry::FeatureParam
     kWebUIOmniboxAimPopupAddContextButtonAboveResults[] = {
         {"AddContextButtonVariant", "above_results"},
-        {"ForceToolsAndModels", "true"},
+        {"ShowCreateImageTool", "true"},
+        {"ShowToolsAndModels", "true"},
+
 };
 const FeatureEntry::FeatureParam kWebUIOmniboxAimPopupAddContextButtonInline[] =
     {
         {"AddContextButtonVariant", "inline"},
-        {"ForceToolsAndModels", "true"},
+        {"ShowCreateImageTool", "true"},
+        {"ShowToolsAndModels", "true"},
+};
+const FeatureEntry::FeatureParam
+    kWebUIOmniboxAimPopupAddContextButtonMultiFile[] = {
+        {"AddContextButtonVariant", "below_results"},
+        {"ShowCreateImageTool", "true"},
+        {"ShowToolsAndModels", "true"},
+        {"MaxNumFiles", "5"},
 };
 
 const FeatureEntry::FeatureVariation kWebUIOmniboxAimPopupVariations[] = {
@@ -947,7 +959,10 @@ const FeatureEntry::FeatureVariation kWebUIOmniboxAimPopupVariations[] = {
      std::size(kWebUIOmniboxAimPopupAddContextButtonAboveResults), nullptr},
     {"- \"Add Context\" Button inline (Variant 3)",
      kWebUIOmniboxAimPopupAddContextButtonInline,
-     std::size(kWebUIOmniboxAimPopupAddContextButtonInline), nullptr}};
+     std::size(kWebUIOmniboxAimPopupAddContextButtonInline), nullptr},
+    {"- \"Add Context\" Button below results, 5 File Limit",
+     kWebUIOmniboxAimPopupAddContextButtonMultiFile,
+     std::size(kWebUIOmniboxAimPopupAddContextButtonMultiFile), nullptr}};
 
 const FeatureEntry::FeatureParam kWebUIOmniboxPopupDebugSxS[] = {
     {"SxS", "true"}};
@@ -2093,6 +2108,13 @@ const FeatureEntry::FeatureParam kOmniboxAimToggleOnlyParam[] = {
 const FeatureEntry::FeatureVariation kOmniboxMultimodalInputVariants[] = {
     {"AIM Toggle Only", kOmniboxAimToggleOnlyParam,
      std::size(kOmniboxAimToggleOnlyParam), nullptr}};
+
+const FeatureEntry::FeatureParam kOmniboxMultilineEditFieldForAutocomplete[] = {
+    {"wrap_autocomplete_text", "true"}};
+
+const FeatureEntry::FeatureVariation kOmniboxMultilineEditFieldVariants[] = {
+    {"For Autocomplete", kOmniboxMultilineEditFieldForAutocomplete,
+     std::size(kOmniboxMultilineEditFieldForAutocomplete), nullptr}};
 
 const FeatureEntry::FeatureParam kOmniboxImprovementForLFFVariationsAll[] = {
     {OmniboxFieldTrial::kOmniboxImprovementForLFFSwitchToTabChip.name, "true"},
@@ -7286,7 +7308,9 @@ const FeatureEntry kFeatureEntries[] = {
     {"omnibox-multiline-edit-field",
      flag_descriptions::kOmniboxMultilineEditFieldName,
      flag_descriptions::kOmniboxMultilineEditFieldDescription, kOsAndroid,
-     FEATURE_VALUE_TYPE(omnibox::kMultilineEditField)},
+     FEATURE_WITH_PARAMS_VALUE_TYPE(omnibox::kMultilineEditField,
+                                    kOmniboxMultilineEditFieldVariants,
+                                    "BottomToolbarV2")},
 
     {"omnibox-multimodal-input", flag_descriptions::kOmniboxMultimodalInputName,
      flag_descriptions::kOmniboxMultimodalInputDescription, kOsAndroid,

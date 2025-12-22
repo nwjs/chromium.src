@@ -804,7 +804,7 @@
 <translation id="1544588554445317666">ያጠረ የፋይል ስም ለመጠቀም ወይም ወደ ሌላ አቃፊ ለማስቀመጥ ይሞክሩ</translation>
 <translation id="1545177026077493356">ራስ-ሰር የኪዮስክ ሁነታ</translation>
 <translation id="1545749641540134597">የኪውአር ኮድ ይቃኙ</translation>
-<translation id="1545775234664667895">የተጫነ ገጽታ '<ph name="THEME_NAME" />'</translation>
+<translation id="1545775234664667895">የተጫነ ገጽታ ‘<ph name="THEME_NAME" />‘</translation>
 <translation id="1546031833947068368">{COUNT,plural, =1{የእርስዎ ማንነትን የማያሳውቅ መስኮት እንደገና አይከፈትም።}one{የእርስዎ # ማንነትን የማያሳውቅ መስኮት እንደገና አይከፈትም።}other{የእርስዎ # ማንነትን የማያሳውቁ መስኮቶች እንደገና አይከፈቱም።}}</translation>
 <translation id="1546452108651444655"><ph name="CHILD_NAME" /> የሚከተሉትን ማድረግ የሚችል <ph name="EXTENSION_TYPE" /> መጫን ይፈልጋል፦</translation>
 <translation id="1547123415014299762">የሶስተኛ ወገን ኩኪዎች ይፈቀዳሉ</translation>
@@ -2036,7 +2036,7 @@
 <translation id="2367972762794486313">መተግበሪያዎችን አሳይ</translation>
 <translation id="2369058545741334020">በንባብ ሁነታ ውስጥ ይክፈቱ</translation>
 <translation id="236939127352773362">መሣሪያዎች በአቅራቢያ ሲያጋሩ</translation>
-<translation id="2371076942591664043">&amp;ሲጠናቀቅ ክፈት</translation>
+<translation id="2371076942591664043">ሲጠናቀቅ ክፈት</translation>
 <translation id="237336063998926520">አካባቢን ለመወሰን የእርስዎን የአይፒ አድራሻ ይጠቀሙ</translation>
 <translation id="2373499590298659902">የመዳፊት አዝራር ለመጫን እና ለመያዝ «0» ይጠቀሙ</translation>
 <translation id="2373666622366160481">ከወረቀት ጋር አመጣጥን</translation>
@@ -4542,7 +4542,7 @@
 <translation id="4085566053793776107">ብጁ ገፅታዎች</translation>
 <translation id="4085620044235559093">የ<ph name="FILE_TYPE" /> ፋይሎችን ለመክፈት መተግበሪያ ይምረጡ</translation>
 <translation id="4086565736678483233">የመክፈያ ዘዴዎችዎ ውስጥ ሊደርሱበት ይችላሉ</translation>
-<translation id="4087089424473531098">ቅጥያውን ፈጥሯል፦ <ph name="EXTENSION_FILE" /></translation>
+<translation id="4087089424473531098">ቅጥያውን ፈጥሯል፦<ph name="EXTENSION_FILE" /></translation>
 <translation id="4087328411748538168">በቀኝ በኩል አሳይ</translation>
 <translation id="4089235344645910861">ቅንብሮች ተቀምጠዋል። ስምረት ጀምሯል።</translation>
 <translation id="4089743381329341712">የተመረጡ መተግበሪያዎች ከውቅረት በኋላ ይጫናሉ። በኋላ መተግበሪያዎች እና ጨዋታዎች መተግበሪያ ውስጥ ተጨማሪ ምክሮችን ያግኙ።</translation>
@@ -5603,7 +5603,7 @@
 <translation id="4841741146571978176">ተፈላጊ ምናባዊ ማሽን የለም። ለመቀጠል እባክዎ <ph name="VM_TYPE" />ን ለማቀናበር ይሞክሩ</translation>
 <translation id="4842976633412754305">ይህ ገፅ ፈቃድ ከሌላቸው ምንጮች የመጡ ጽሑፎችን ለመጫን እየሞከረ ነው።</translation>
 <translation id="4844333629810439236">ሌሎች የቁልፍ ሰሌዳዎች</translation>
-<translation id="4844347226195896707">ወደ &lt;a target='_blank' href='<ph name="LINK" />'&gt;passwords.google.com&lt;/a&gt; በመለያ በመግባት Chromeን ወይም Androidን እየተጠቀሙ ሳይሆንም እንኳን የይለፍ ቃላትዎን ይመልከቱ</translation>
+<translation id="4844347226195896707">ወደ &lt;a target='_blank' href="<ph name="LINK" />"&gt;passwords.google.com&lt;/a&gt; በመለያ በመግባት Chromeን ወይም Androidን እየተጠቀሙ ሳይሆንም እንኳን የይለፍ ቃላትዎን ይመልከቱ</translation>
 <translation id="484462545196658690">ራስ-ሰር</translation>
 <translation id="4846628405149428620">ይህ ጣቢያ ለውጦችን የት ማስቀመጥ እንደሚችል ይምረጡ</translation>
 <translation id="4846680374085650406">አስተዳዳሪው ለዚህ ቅንብር የሰጠውን ምክር ነው እየተከተሉ ያሉት።</translation>
@@ -6345,7 +6345,7 @@
 <translation id="5372632722660566343">ያለመለያ ቀጥል</translation>
 <translation id="5372990315769030589">«<ph name="EXTENSION_NAME" />» ይቆይ?</translation>
 <translation id="5375318608039113175">የአቅራቢያ አጋራን ከእነዚህ እውቂያዎች ጋር ለመጠቀም፣ ከGoogle መለያቸው ጋር የተገናኘውን የኢሜይል አድራሻ ወደ የእርስዎ እውቂያዎች ያክሉ።</translation>
-<translation id="5375374982898812658">ለ«<ph name="GROUP_NAME" />» የት ቡድን ያለዎትን መዳረሻ ወዲያንውኑ ያጣሉ እና ከሁሉም መሣሪያዎችዎ ላይ ይሰረዛል</translation>
+<translation id="5375374982898812658">ለ«<ph name="GROUP_NAME" />» የትር ቡድን ያለዎትን መዳረሻ ወዲያንውኑ ያጣሉ እና ከሁሉም መሣሪያዎችዎ ላይ ይሰረዛል</translation>
 <translation id="5375577102295339548">ጣቢያዎች ቦት አለመሆንዎን ለማረጋገጥ ያግዛሉ</translation>
 <translation id="5376094717770783089">መዳረሻ ይጠይቃል</translation>
 <translation id="5376169624176189338">ወደ ኋላ ለመመለስ ጠቅ ያድርጉ፣ ታሪክ ለማየት ይያዙ</translation>
@@ -6380,7 +6380,6 @@
 <translation id="5398497406011404839">የተደበቁ እልባቶች</translation>
 <translation id="5398572795982417028">ከወሰን ውጭ ያለ ገፅ ማጣቀሻ፣ ገደቡ <ph name="MAXIMUM_PAGE" /> ነው</translation>
 <translation id="539882584649709174">እንደ ግምገማዎች ያሉ በድር ላይ ላሉት ነገሮች የአጭር ቅጽ ጽሁፍ እንዲጽፉ ያግዝዎታል</translation>
-<translation id="5400068721524309244">ትሮች ሲጋሩ የገፅ ይዘቶቻቸው እና ዩአርኤሎቻቸው ወደ Google ይላካሉ</translation>
 <translation id="5400196580536813396">ለመሣሪያዎ ተደራሽ የሆኑ አታሚዎችን መፈለግ ወይም መጠቀም አይፈቀድም</translation>
 <translation id="5400836586163650660">ግራጫ</translation>
 <translation id="5402367795255837559">ብሬይል</translation>
@@ -6710,7 +6709,7 @@
 <translation id="5621350029086078628">ይህ የሙከራ ሰው ሠራሽ አስተውሎት ባህሪ ነው።</translation>
 <translation id="5622357006621202569">ቀጣይነት ያለው ከእንግዶች ጋር የUSB መሣሪያ ማጋራትን ያንቁ።</translation>
 <translation id="562250930904332809">&amp;Disable የቀጥታ መግለጫ ጽሁፍ</translation>
-<translation id="5623282979409330487">ይህ ጥጣቢያ የእንቅስቃሴ ዳሳሾችዎን እየደረሰ ነውው።</translation>
+<translation id="5623282979409330487">ይህ ጣቢያ የእንቅስቃሴ ዳሳሾችዎን እየደረሰ ነው።</translation>
 <translation id="5623842676595125836">ምዝግብ ማስታወሻ</translation>
 <translation id="5624120631404540903">የይለፍ ቃሎችን አስተዳድር</translation>
 <translation id="5624959475330585145">ደህንነታቸው ያልተጠበቁ ግንኙነቶችን ከመጠቀምዎ በፊት ይጠይቁ</translation>
@@ -7721,7 +7720,6 @@
 <translation id="6336038146639916978"><ph name="MANAGER" /> የADB ስህተት ማረሚያን አሰናክሏል። ይህ የእርስዎን <ph name="DEVICE_TYPE" /> በ24 ሰዓታት ውስጥ ዳግም ያስጀምረዋል። ለማቆየት የሚፈልጓቸውን ማናቸውም ፋይሎች ምትኬ ያስቀምጡላቸው።</translation>
 <translation id="6336194758029258346">የመተግበሪያ ቋንቋ</translation>
 <translation id="6337543438445391085">አንዳንድ የግል መረጃ አሁንም በውሂቡ ውስጥ ሊካተት ይችላል። ወደ ውጭ የተላኩትን ፋይሎች መገምገምዎን ያረጋግጡ።</translation>
-<translation id="6338554362382763574">በማሰስ ላይ ሳሉ ስለሚያጋሯቸው ትሮች Geminiን ጥያቄዎች መጠየቅ ይችላሉ።</translation>
 <translation id="6338968693068997776">የዩኤስቢ መሣሪያ አክል</translation>
 <translation id="6339668969738228384">ለ<ph name="USER_EMAIL_ADDRESS" /> አዲስ መገለጫ ይፈጠሩ</translation>
 <translation id="6340071272923955280">የበይነመረብ ህትመት ፕሮቶኮል (አይፒፒፒኤስ)</translation>
@@ -8341,7 +8339,6 @@
     <ph name="BEGIN_PARAGRAPH2" />ይህን አገልግሎት በቅንብሮች ውስጥ ማጥፋት ይችላሉ።<ph name="END_PARAGRAPH2" /></translation>
 <translation id="6781978626986383437">የLinux ምትኬ ተሰርዟል</translation>
 <translation id="6782067259631821405">ልክ ያልሆነ ፒን</translation>
-<translation id="6782219876520622071">Geminiን ለማሻሻል ስለ የተጋሩ ትሮች የሚደረጉ ውይይቶች በሰው ገምጋሚዎች ሊታዩ ይችላሉ</translation>
 <translation id="6783036716881942511">ይህ መሣሪያ ይረሳ?</translation>
 <translation id="6783667414610055871">የMicrosoft OneDrive ቅንብሮች</translation>
 <translation id="6784523122863989144">መገለጫ ይደገፋል</translation>
@@ -11951,7 +11948,7 @@ nil</translation>
 <translation id="932327136139879170">መነሻ</translation>
 <translation id="932508678520956232">ማተም ማስጀመር አልተቻለም።</translation>
 <translation id="933427034780221291">{NUM_FILES,plural, =1{ይህ ፋይል ለደህንነት ፍተሻ በጣም ትልቅ ነው። እስከ 50 ሜባ የሚያህሉ ፋይሎችን መስቀል ይችላሉ።}one{አንዳንድ እነዚህ ፋይሎች ለደህንነት ፍተሻ በጣም ትልቅ ናቸው። እስከ 50 ሜባ የሚያህሉ ፋይሎችን መስቀል ይችላሉ።}other{አንዳንድ እነዚህ ፋይሎች ለደህንነት ፍተሻ በጣም ትልቅ ናቸው። እስከ 50 ሜባ የሚያህሉ ፋይሎችን መስቀል ይችላሉ።}}</translation>
-<translation id="93343527085570547">በሕግ ነክ ምክንያቶች የይዘት ለውጦችን ለመጠየቅ ወደ <ph name="BEGIN_LINK1" />ሕጋዊ እገዛ ገፅ<ph name="END_LINK1" /> ይሂዱ። አንዳንድ የመለያ እና የሥርዓት መረጃ ወደ Google ሊላክ ይችል ይሆናል። እርስዎ ለእኛ የሚሰጡንን መረጃ በእኛ <ph name="BEGIN_LINK2" />የግላዊነት መመሪያ<ph name="END_LINK2" /> እና <ph name="BEGIN_LINK3" />የአገልግሎት ውሎች<ph name="END_LINK3" /> መሠረት ቴክኒክ ችግሮችን መፍትሔ ለመስጠት እና የእኛን አገልግሎቶች ለማሻሻል እንዲያግዘን እንጠቀምበታለን።</translation>
+<translation id="93343527085570547">በሕግ ነክ ምክንያቶች የይዘት ለውጦችን ለመጠየቅ ወደ <ph name="BEGIN_LINK1" />ሕጋዊ የእገዛ ገጽ<ph name="END_LINK1" /> ይሂዱ። አንዳንድ የመለያ እና የሥርዓት መረጃ ወደ Google ሊላክ ይችል ይሆናል። እርስዎ ለእኛ የሚሰጡንን መረጃ በእኛ <ph name="BEGIN_LINK2" />የግላዊነት መመሪያ<ph name="END_LINK2" /> እና <ph name="BEGIN_LINK3" />የአገልግሎት ውሎች<ph name="END_LINK3" /> መሠረት ቴክኒክ ችግሮችን መፍትሔ ለመስጠት እና የእኛን አገልግሎቶች ለማሻሻል እንዲያግዘን እንጠቀምበታለን።</translation>
 <translation id="93393615658292258">የይለፍ ቃል ብቻ</translation>
 <translation id="934244546219308557">ይህን ቡድን ይሰይሙ</translation>
 <translation id="93480724622239549">ሳንካ ወይም ስህተት</translation>

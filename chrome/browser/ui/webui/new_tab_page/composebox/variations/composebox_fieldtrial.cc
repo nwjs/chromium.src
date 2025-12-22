@@ -69,7 +69,7 @@ omnibox::NTPComposeboxConfig GetNTPComposeboxConfig() {
   composebox->set_is_pdf_upload_enabled(true);
 
   auto* placeholder_config = composebox->mutable_placeholder_config();
-  placeholder_config->set_change_text_animation_interval_ms(4000);
+  placeholder_config->set_change_text_animation_interval_ms(2000);
   placeholder_config->set_fade_text_animation_duration_ms(250);
 
   placeholder_config->add_placeholders(
@@ -130,10 +130,14 @@ bool IsNtpComposeboxEnabled(Profile* profile) {
     return false;
   }
 
+  AimEligibilityService* aim_eligibility_service =
+      AimEligibilityServiceFactory::GetForProfile(profile);
+  if (!aim_eligibility_service) {
+    return false;
+  }
+
   return base::FeatureList::IsEnabled(kNtpComposebox) &&
-         AimEligibilityService::GenericKillSwitchFeatureCheck(
-             AimEligibilityServiceFactory::GetForProfile(profile),
-             kNtpComposebox);
+         aim_eligibility_service->IsAimEligible();
 }
 
 bool IsDeepSearchEnabled(Profile* profile) {
@@ -329,10 +333,14 @@ bool IsNtpRealboxNextEnabled(Profile* profile) {
     return false;
   }
 
+  AimEligibilityService* aim_eligibility_service =
+      AimEligibilityServiceFactory::GetForProfile(profile);
+  if (!aim_eligibility_service) {
+    return false;
+  }
+
   return base::FeatureList::IsEnabled(kNtpRealboxNext) &&
-         AimEligibilityService::GenericKillSwitchFeatureCheck(
-             AimEligibilityServiceFactory::GetForProfile(profile),
-             kNtpRealboxNext);
+         aim_eligibility_service->IsAimEligible();
 }
 
 BASE_FEATURE(kNtpRealboxNext, base::FEATURE_DISABLED_BY_DEFAULT);

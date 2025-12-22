@@ -704,7 +704,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="2154484045852737596">Karte bearbeiten</translation>
 <translation id="2154739667870063220">Neu starten</translation>
 <translation id="2155260325161282517">5 × 7 Zoll</translation>
-<translation id="2156467141257470387">Du kannst gespeicherte Adressen in allen Google-Produkten verwenden. Deine aktuelle Arbeitsadresse wird dadurch nicht geändert. Diese wird in deinem Google-Konto (<ph name="ACCOUNT" />) gespeichert.</translation>
+<translation id="2156467141257470387">Du kannst gespeicherte Adressen in verschiedenen Google-Produkten verwenden. Deine aktuelle Arbeitsadresse wird dadurch nicht geändert. Diese wird in deinem Google-Konto (<ph name="ACCOUNT" />) gespeichert.</translation>
 <translation id="2157640075051554492">Preisbenachrichtigungen</translation>
 <translation id="21613918653299710">Onlinebildergalerien</translation>
 <translation id="2161656808144014275">Text</translation>
@@ -2375,7 +2375,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="4877521229462766300">Eingebettete Inhalte zulassen?</translation>
 <translation id="4879491255372875719">Automatisch (Standard)</translation>
 <translation id="4880328155169081699">Amtlichen Ausweis aktualisieren?</translation>
-<translation id="4880827082731008257">Im Verlauf suchen</translation>
+<translation id="4880827082731008257">Suchverlauf</translation>
 <translation id="4881695831933465202">Öffnen</translation>
 <translation id="4881808915112408168">24 × 31,5 Zoll</translation>
 <translation id="4882314601499260499">Keine Nutzerrichtlinien angewendet. Wenn du Nutzerrichtlinien hinzufügen möchtest, muss deine Organisation <ph name="LINK_BEGIN" />deine Domain bestätigen<ph name="LINK_END" />.</translation>
@@ -2773,7 +2773,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="55293785478302737">Mehrere Heftklammern</translation>
 <translation id="553377674408670169">Lehrtätigkeiten</translation>
 <translation id="5534785731327961487">Aktuell gutes Angebot</translation>
-<translation id="5536471014287260753">{DOMAIN_COUNT,plural, =1{1 weitere Website (weitere auf synchronisierten Geräten)}other{# weitere Websites (weitere auf synchronisierten Geräten)}}</translation>
+<translation id="5536471014287260753">{DOMAIN_COUNT,plural, =1{+ 1 Website (weitere auf synchronisierten Geräten)}other{+ # Websites (weitere auf synchronisierten Geräten)}}</translation>
 <translation id="553782666181800029">Umschlag Chou 2</translation>
 <translation id="5538270463355278784">automatischer Vollbildmodus</translation>
 <translation id="5538859347764346097"><ph name="KEYWORD_SHORTCUT" />, in <ph name="KEYWORD_SUFFIX" /> suchen</translation>
@@ -2825,7 +2825,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="5605670050355397069">Ledger</translation>
 <translation id="5610142619324316209">Verbindung prüfen</translation>
 <translation id="5610807607761827392"><ph name="BEGIN_LINK" />Karten und Adressen kannst du in den Einstellungen verwalten.<ph name="END_LINK" /></translation>
-<translation id="5611398002774823980">In Konto speichern</translation>
+<translation id="5611398002774823980">Im Konto speichern</translation>
 <translation id="561165882404867731">Diese Seite mit Google Übersetzer übersetzen</translation>
 <translation id="5612720917913232150"><ph name="URL" /> möchte den Standort deines Computers nutzen</translation>
 <translation id="5614520971155863709">Kartenspiele</translation>
@@ -2943,7 +2943,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="5838732667866024867">Mit dem Links-/Rechtspfeil kannst du Preisänderungen über das Diagramm überprüfen</translation>
 <translation id="5840318881868981258">In meinem Google-Konto, <ph name="ACCOUNT" /></translation>
 <translation id="5841007907672481419">Von <ph name="TYPE_1" /></translation>
-<translation id="5841338463993781099">In Konto speichern?</translation>
+<translation id="5841338463993781099">Im Konto speichern?</translation>
 <translation id="5843987376989109187">Diese Sprache wird noch nicht unterstützt.
     <ph name="BEGIN_LINK" />Weitere Informationen<ph name="END_LINK" /></translation>
 <translation id="5847181246682413476">Stromversorgung</translation>
@@ -3028,7 +3028,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="5984570616552610254">Kammerfeuchtigkeit</translation>
 <translation id="598637245381783098">Fehler beim Öffnen der Zahlungs-App</translation>
 <translation id="5989320800837274978">Weder feste Proxyserver noch eine PAC-Script-URL sind festgelegt.</translation>
-<translation id="5989917734461988169">Du kannst gespeicherte Adressen in allen Google-Produkten verwenden. Deine aktuelle Privatadresse wird dadurch nicht geändert. Diese wird in deinem Google-Konto (<ph name="ACCOUNT" />) gespeichert.</translation>
+<translation id="5989917734461988169">Du kannst gespeicherte Adressen in verschiedenen Google-Produkten verwenden. Deine aktuelle Privatadresse wird dadurch nicht geändert. Diese wird in deinem Google-Konto (<ph name="ACCOUNT" />) gespeichert.</translation>
 <translation id="5992691462791905444">Technische Z-Faltung</translation>
 <translation id="5992805036496113940">Informationen ansehen, die zum Anzeigen von Werbung verwendet werden</translation>
 <translation id="5995727681868049093">Daten, Datenschutz- und Sicherheits­einstellungen in deinem Google-Konto verwalten</translation>
@@ -3410,7 +3410,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="6571992525120410251"><ph name="ENGINE_NAME" /> eine Frage stellen</translation>
 <translation id="6572867903637058088">Ist das hilfreich?</translation>
 <translation id="6573200754375280815">Doppelte Lochung rechts</translation>
-<translation id="6575408526598156416">In Konto speichern</translation>
+<translation id="6575408526598156416">Im Konto speichern</translation>
 <translation id="6577792494180292262">Risikokapital</translation>
 <translation id="6578434528542148658">Ungültige Erweiterungs-ID.</translation>
 <translation id="6579858392010591435">Feiertage und besondere Anlässe</translation>
@@ -4181,7 +4181,7 @@ Weitere Details:
 <translation id="7813600968533626083">Vorschlag für das Formular aus Chrome entfernen?</translation>
 <translation id="781440967107097262">Zwischenablage teilen?</translation>
 <translation id="7814857791038398352">Microsoft OneDrive</translation>
-<translation id="7815352264092918456">Papier (unbedruckt)</translation>
+<translation id="7815352264092918456">Normalpapier</translation>
 <translation id="7815407501681723534"><ph name="NUMBER_OF_RESULTS" /> <ph name="SEARCH_RESULTS" /> für "<ph name="SEARCH_STRING" />" gefunden</translation>
 <translation id="7816581410322248899">Jira-Problem</translation>
 <translation id="7819605256207059717">Von deiner Organisation blockiert</translation>
@@ -4840,7 +4840,7 @@ Weitere Details:
 <translation id="8968766641738584599">Karte speichern</translation>
 <translation id="8970887620466824814">Es gab ein Problem.</translation>
 <translation id="8971063699422889582">Das Serverzertifikat ist abgelaufen.</translation>
-<translation id="8975012916872825179">Enthält Informationen wie Telefonnummern, E-Mail-Adressen und Lieferadressen</translation>
+<translation id="8975012916872825179">Umfasst Informationen wie Telefonnummern, E-Mail-Adressen und Lieferadressen</translation>
 <translation id="8975263830901772334">Namen von Dateien, die du druckst</translation>
 <translation id="8982884016487650216">Laden des PDFs abgeschlossen</translation>
 <translation id="8983369100812962543">Du kannst die Größe der App jetzt ändern</translation>

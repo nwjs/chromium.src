@@ -8,7 +8,7 @@
 <translation id="1056775291175587022">شبکه‌ای وجود ندارد</translation>
 <translation id="1056898198331236512">اخطار</translation>
 <translation id="1060368002126861100">‏برای باز کردن فایل‌ها با <ph name="APP_NAME" />، ابتدا آن‌ها را به پوشه فایل‌های Windows منتقل کنید.</translation>
-<translation id="1062407476771304334">جایگزینی</translation>
+<translation id="1062407476771304334">جایگزین کردن</translation>
 <translation id="1119383441774809183">نمایش پیامک‌ها</translation>
 <translation id="1119447706177454957">خطای داخلی</translation>
 <translation id="1120073797882051782">هانگول روماجا</translation>
@@ -203,7 +203,7 @@
 <translation id="255937426064304553">بین‌المللی آمریکایی</translation>
 <translation id="2563185590376525700">قورباغه</translation>
 <translation id="2578394532502990878">تامیل (آوایی)</translation>
-<translation id="2579959351793446050">اوریه</translation>
+<translation id="2579959351793446050">اودیا</translation>
 <translation id="2587195714949534472">درحال آماده شدن برای همگام‌سازی <ph name="FILE_NAME" />…</translation>
 <translation id="2602810353103180630">شبکه <ph name="NETWORK_INDEX" /> از <ph name="NETWORK_COUNT" />، <ph name="NETWORK_NAME" />، <ph name="CONNECTION_STATUS" />، قدرت سیگنال <ph name="SIGNAL_STRENGTH" />٪، سرپرستتان آن را مسدود کرده است، جزئیات</translation>
 <translation id="2614589611416690597">ویدیو  <ph name="VIDEO_TYPE" /></translation>
@@ -278,7 +278,7 @@
 <translation id="3254434849914415189">برنامه پیش‌فرض را برای فایل‌های <ph name="FILE_TYPE" /> انتخاب کنید:</translation>
 <translation id="3255159654094949700">عربی</translation>
 <translation id="326396468955264502">‏<ph name="NUMBER_OF_FILES" /> فایل منتقل نشدند زیرا رمزگذاری شده‌اند.</translation>
-<translation id="3264582393905923483">زمینه</translation>
+<translation id="3264582393905923483">بافت</translation>
 <translation id="3272909651715601089">«<ph name="PATH" />» باز نشد</translation>
 <translation id="3280431534455935878"> آماده‌سازی</translation>
 <translation id="3280719573299097127">به شبکه با حجم محدود متصل هستید. همگام‌سازی فایل‌ها موقتاً متوقف شد.</translation>
@@ -509,12 +509,12 @@
 <translation id="4987699874727873250">انگلیسی (هند)</translation>
 <translation id="4988205478593450158">آیا مطمئنید می‌خواهید «<ph name="FILE_NAME" />» را حذف کنید؟</translation>
 <translation id="498902553138568924">پروانه قرمز</translation>
-<translation id="4992066212339426712">باصدا کردن</translation>
+<translation id="4992066212339426712">صدادار کردن</translation>
 <translation id="5010406651457630570">رایانه‌ها</translation>
 <translation id="5011233892417813670">Chromebook</translation>
 <translation id="5024856940085636730">اقدام بیشتر از انتظار طول می‌کشد. می‌خواهید از این کار صرف‌نظر کنید؟</translation>
 <translation id="5036159836254554629">‏مدیریت هم‌رسانی Parallels Desktop</translation>
-<translation id="5038625366300922036">مشاهده موارد بیشتر...</translation>
+<translation id="5038625366300922036">بیشتر دیدن…</translation>
 <translation id="5044852990838351217">ارمنی</translation>
 <translation id="5045550434625856497">گذرواژه نادرست</translation>
 <translation id="5059127710849015030">نویسه‌گردانی نپالی</translation>
@@ -620,7 +620,7 @@
 <translation id="5769519078756170258">میزبان یا دامنه برای استثنا</translation>
 <translation id="5775750595919327203">اردو</translation>
 <translation id="5776325638577448643">پاک کردن و قالب‌بندی</translation>
-<translation id="57838592816432529">بی‌صدا کردن</translation>
+<translation id="57838592816432529">صامت کردن</translation>
 <translation id="5788127256798019331">‏فایل‌های Play</translation>
 <translation id="5790193330357274855">قزاقی</translation>
 <translation id="5804245609861364054">نویسه‌گردانی کنادا</translation>

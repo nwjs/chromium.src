@@ -244,7 +244,6 @@ Só alguém com a sua frase de acesso pode ler os dados encriptados. A Google n�
 <translation id="2063047797624276601">A sua organização ativou a Navegação segura melhorada</translation>
 <translation id="2065944887543506430">{FILE_COUNT,plural, =1{1 transferência falhada}other{# transferências falhadas}}</translation>
 <translation id="2067805253194386918">texto</translation>
-<translation id="2074527029802029717">Desbloquear o separador</translation>
 <translation id="2079545284768500474">Anular</translation>
 <translation id="2082238445998314030">Resultado <ph name="RESULT_NUMBER" /> de <ph name="TOTAL_RESULTS" /></translation>
 <translation id="2088833076121753253">Para concluir a configuração do preenchimento automático, reinicie o Chrome agora. Os separadores são reabertos automaticamente.</translation>
@@ -944,7 +943,7 @@ A sua Conta Google pode ter outras formas do histórico de navegação, como pes
 <translation id="5123685120097942451">Separador de navegação anónima</translation>
 <translation id="5142281402488957685">Puxe para baixo para atualizar e obter novas notícias</translation>
 <translation id="5144385790872094440">Algumas das páginas que visita são pré-carregadas. As páginas podem ser pré-carregadas através dos servidores da Google quando contêm links de um site ou de uma app Google.</translation>
-<translation id="5152843274749979095">Nenhuma aplicação compatível instalada</translation>
+<translation id="5152843274749979095">Nenhuma app compatível instalada</translation>
 <translation id="5161254044473106830">Título obrigatório</translation>
 <translation id="5161262286013276579">Página de confirmação da chave de acesso aberta</translation>
 <translation id="5163361352003913350">Seleção atual: <ph name="NAME" />. Selecione uma conta.</translation>
@@ -1057,7 +1056,7 @@ A sua Conta Google pode ter outras formas do histórico de navegação, como pes
 <translation id="5683916195767086779">Grupo de separadores</translation>
 <translation id="5686790454216892815">O nome do ficheiro é demasiado longo</translation>
 <translation id="569536719314091526">Traduzir esta página para qualquer idioma a partir do botão Mais opções</translation>
-<translation id="5696597120588531049">O Chrome pode ajudar a proteger contra violações de dados, Websites inseguros e muito mais.</translation>
+<translation id="5696597120588531049">O Chrome pode ajudar a proteger contra violações de dados, Websites não seguros e muito mais.</translation>
 <translation id="5698878456427040674">Verifique se a conta selecionada é suportada.</translation>
 <translation id="5709213329446699338"><ph name="SITE" /> quer estabelecer ligação a uma porta de série</translation>
 <translation id="5715150588940290235">Eliminar os códigos de segurança guardados?</translation>
@@ -1557,7 +1556,7 @@ Para alterar esta definição, <ph name="BEGIN_LINK" />elimine os dados do Chrom
 <translation id="7612989789287281429">A iniciar sessão…</translation>
 <translation id="7619072057915878432">A transferência de <ph name="FILE_NAME" /> falhou devido a falhas de rede.</translation>
 <translation id="7620958983792650214">{NUM_REVOKED_PERMISSIONS,plural, =1{Anulou a subscrição de um site}other{Anulou a subscrição de # sites}}</translation>
-<translation id="7626032353295482388">Bem-vindo ao Chrome</translation>
+<translation id="7626032353295482388">Damos-lhe as boas-vindas ao Chrome</translation>
 <translation id="7628417132421583481">Aceder ao Gestor de Palavras-passe</translation>
 <translation id="7630202231528827509">URL do fornecedor</translation>
 <translation id="7638584964844754484">Frase de acesso incorreta</translation>
@@ -1780,7 +1779,6 @@ Para alterar esta definição, <ph name="BEGIN_LINK" />elimine os dados do Chrom
 <translation id="8540136935098276800">Introduza um URL formatado corretamente.</translation>
 <translation id="854522910157234410">Abrir esta página</translation>
 <translation id="8547466829003330976">Rever PDFs com IA</translation>
-<translation id="855081842937141170">Fixar separador</translation>
 <translation id="8551513938758868521">Bloquear os separadores anónimos quando sai do Chrome</translation>
 <translation id="8559961053328923750">O Chrome limita a quantidade total de dados que os sites podem partilhar através do navegador para medir o desempenho dos anúncios</translation>
 <translation id="8559990750235505898">Propor a tradução de páginas noutros idiomas</translation>

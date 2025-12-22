@@ -74,6 +74,12 @@
   width: 240px;
 }
 
+.action-chip:focus-visible {
+  box-shadow: none;
+  outline: 2px solid var(--color-new-tab-page-focus-ring);
+  outline-offset: 2px;
+}
+
 .action-chips-container .action-chip:nth-child(1) {
   animation:
     chips-slide var(--chip-slide-duration) 250ms

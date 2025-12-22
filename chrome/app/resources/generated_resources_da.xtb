@@ -4735,7 +4735,7 @@ Vil du starte <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4231141543165771749">Luk spilstyring</translation>
 <translation id="4231231258999726714">Konfigurerer Steam til Chromebook</translation>
 <translation id="4232375817808480934">Konfigurer Kerberos</translation>
-<translation id="4232376164796433044">Adgangskoder og Autofyld</translation>
+<translation id="4232376164796433044">Adgangskoder og autofyld</translation>
 <translation id="4232484478444192782">Din Android-telefon har styr på det. Dit Wi-Fi-netværk og din adgangskode overføres.</translation>
 <translation id="423327101839111402">Fjern gruppen <ph name="NAME" /></translation>
 <translation id="4233739489690259993">Din Chromebook modtager ikke længere sikkerheds- og softwareopdateringer. Opgrader din enhed for at få de nyeste sikkerhedsfunktioner og nye funktioner. Vilkårene for tilbuddet er gældende.</translation>
@@ -5314,7 +5314,7 @@ Vil du starte <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4635072447747973225">Afinstaller Crostini</translation>
 <translation id="4635398712689569051"><ph name="PAGE_NAME" /> er ikke tilgængelig for gæstebrugere</translation>
 <translation id="4636187126182557415">Systempræferencer</translation>
-<translation id="4636930964841734540">Oplysninger</translation>
+<translation id="4636930964841734540">Info</translation>
 <translation id="4637083375689622795">Flere handlinger, <ph name="EMAIL" /></translation>
 <translation id="4637189644956543313">Brug kamera igen</translation>
 <translation id="4637252186848840278">{COUNT,plural, =1{Tekstuddrag}one{# tekstuddrag}other{# tekstuddrag}}</translation>
@@ -6388,7 +6388,6 @@ Brug Ctrl+Alt+Lysstyrke ned for at zoome ud.</translation>
 <translation id="5398497406011404839">Skjulte bogmærker</translation>
 <translation id="5398572795982417028">Sidereferencen er ugyldig. Grænsen er <ph name="MAXIMUM_PAGE" /></translation>
 <translation id="539882584649709174">Hjælper dig med at skrive tekst i kort format til nettet, f.eks. anmeldelser</translation>
-<translation id="5400068721524309244">Når faner deles, sendes deres sideindhold og webadresser til Google</translation>
 <translation id="5400196580536813396">Har ikke tilladelse til at søge efter eller anvende printere, der er tilgængelige for din enhed</translation>
 <translation id="5400836586163650660">Grå</translation>
 <translation id="5402367795255837559">Braille</translation>
@@ -7606,7 +7605,7 @@ Flere kontakter kan tildeles denne handling.</translation>
 <translation id="6248988683584659830">Søg i indstillinger</translation>
 <translation id="6249200942125593849">Administrer a11y</translation>
 <translation id="6250186368828697007">Oplysningerne er skjulte, når du deler din skærm</translation>
-<translation id="6250887692313997958">Vælg en fane, der skal føjes til delt visning</translation>
+<translation id="6250887692313997958">Vælg en fane, der skal føjes til opdelt visning</translation>
 <translation id="6251870443722440887">GDI-navne</translation>
 <translation id="6251924700383757765">Privatlivspolitik</translation>
 <translation id="625369703868467034">Netværkets tilstand</translation>
@@ -7729,7 +7728,6 @@ Flere kontakter kan tildeles denne handling.</translation>
 <translation id="6336038146639916978"><ph name="MANAGER" /> har deaktiveret ADB-fejlretning. Dette medfører, at din <ph name="DEVICE_TYPE" /> nulstilles om 24 timer. Sikkerhedskopiér de filer, du vil beholde.</translation>
 <translation id="6336194758029258346">Appsprog</translation>
 <translation id="6337543438445391085">Visse personlige oplysninger medtages muligvis stadig i dataene. Sørg for at gennemgå de eksporterede filer.</translation>
-<translation id="6338554362382763574">Du kan nemt stille Gemini spørgsmål om de faner, du deler, mens du browser</translation>
 <translation id="6338968693068997776">Tilføj USB-enhed</translation>
 <translation id="6339668969738228384">Opret en ny profil for <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6340071272923955280">Internet Printing Protocol (IPPS)</translation>
@@ -8349,7 +8347,6 @@ Du har # andre kompromitterede adgangskoder. Google Adgangs­kode­admin­istrat
     <ph name="BEGIN_PARAGRAPH2" />Du kan deaktivere denne tjeneste i Indstillinger.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="6781978626986383437">Linux-sikkerhedskopieringen blev annulleret</translation>
 <translation id="6782067259631821405">Ugyldig pinkode</translation>
-<translation id="6782219876520622071">Samtaler om delte faner kan blive set af menneskelige kontrollanter for at forbedre Gemini</translation>
 <translation id="6783036716881942511">Skal denne enhed glemmes?</translation>
 <translation id="6783667414610055871">Microsoft OneDrive-indstillinger</translation>
 <translation id="6784523122863989144">Profilen understøttes</translation>
@@ -11278,7 +11275,7 @@ Opbevar din nøglefil på et sikkert sted. Du skal bruge den til at oprette nye 
 Dette kan omfatte oplysninger om installeret software, filer, din browser, enhedens operativsystem og IP-adresser.</translation>
 <translation id="876956356450740926">Kør udviklerværktøjer, IDE'er og redigeringsværktøjer. <ph name="LINK_BEGIN" />Få flere oplysninger<ph name="LINK_END" /></translation>
 <translation id="8770406935328356739">Udvidelsens rodmappe</translation>
-<translation id="8773535891252326047">Linket er kopieret til fremhævning</translation>
+<translation id="8773535891252326047">Linket til fremhævning er kopieret</translation>
 <translation id="8774379074441005279">Bekræft gendannelse</translation>
 <translation id="8774934320277480003">Topmargen</translation>
 <translation id="8775144690796719618">Ugyldig webadresse</translation>

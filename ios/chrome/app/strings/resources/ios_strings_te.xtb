@@ -57,7 +57,7 @@
 <translation id="1201402288615127009">తర్వాత</translation>
 <translation id="1204075260022434100">{count,plural, =1{బుక్‌మార్క్ మీ {email} ఖాతాలోని "{title}"లో సేవ్ అయ్యింది}other{{count} బుక్‌మార్క్‌లు మీ {email} ఖాతాలోని "{title}"లో సేవ్ అయ్యాయి}}</translation>
 <translation id="1207493287814084192">5:30 PM</translation>
-<translation id="1217294226280635614">విభజన వీక్షణ</translation>
+<translation id="1217294226280635614">స్ప్లిట్ వ్యూ</translation>
 <translation id="1219674500290482172">ఇంటర్నెట్‌కు కనెక్ట్ చేయడం సాధ్యపడలేదు.</translation>
 <translation id="1223498995510244364">సారాంశం అందించండి</translation>
 <translation id="1227113644794103810">ఇన్‌యాక్టివ్ ట్యాబ్‌లు</translation>
@@ -1293,7 +1293,7 @@
 <translation id="5971459446352190251">QR కోడ్ సెర్చ్</translation>
 <translation id="5971872012779224351">{count,plural, =1{1 బుక్‌మార్క్ తొలగించబడింది}other{{count} బుక్‌మార్క్‌లు తొలగించబడ్డాయి}}</translation>
 <translation id="5972844218283131174">అన్నింటి ఎంపికను తొలగించండి</translation>
-<translation id="5976160379964388480">ఇతర</translation>
+<translation id="5976160379964388480">ఇతరం</translation>
 <translation id="5977976211062815271">ఈ పరికరంలో</translation>
 <translation id="5986043348928676121">తర్వాత</translation>
 <translation id="598634819525651074">ప్రాంతం</translation>
@@ -1591,7 +1591,7 @@
 <ph name="BEGIN_LINK" />మరింత తెలుసుకోండి<ph name="END_LINK" /></translation>
 <translation id="7005768247344091502">సెట్టింగ్‌లకు వెళ్లి దానిని 'ఆటోమేటిక్ సెట్టింగ్'గా సెట్ చేయండి…</translation>
 <translation id="7007970306646738803">ఈ పరికరంలో ఇప్పటికే ఉన్న ట్యాబ్‌లు, హిస్టరీ, పాస్‌వర్డ్‌ల వంటి బ్రౌజింగ్ డేటాతో ఏమి చేయాలో ఎంచుకోండి.</translation>
-<translation id="7015418667643980944">విభజన వీక్షణ</translation>
+<translation id="7015418667643980944">స్ప్లిట్ వ్యూ</translation>
 <translation id="7016070607649558507">మీ వద్ద 1 బలహీనమైన పాస్‌వర్డ్ ఉంది. సురక్షితంగా ఉండటానికి ఇప్పుడే దాన్ని పరిష్కరించండి.</translation>
 <translation id="7016958933495968912">Discover కోసం ఆప్షన్‌లు</translation>
 <translation id="7029809446516969842">పాస్‌వర్డ్‌లు</translation>
@@ -2139,7 +2139,7 @@
 <translation id="9065203028668620118">ఎడిట్</translation>
 <translation id="9066097352053395362">'బుక్‌మార్క్‌ను ఎడిట్ చేయండి'ని దాచండి</translation>
 <translation id="9070824521421603770">మీరు సైన్ అవుట్ అవుతారు, అలాగే ట్యాబ్‌లు మూసివేయబడతాయి</translation>
-<translation id="9072837124205571418">అన్ని పరికరాల నుండి ట్యాబ్ గ్రూప్‌లు</translation>
+<translation id="9072837124205571418">అన్ని డివైజ్‌ల్లోని ట్యాబ్ గ్రూప్‌లు</translation>
 <translation id="9075970015528364598">చాట్‌లను రివ్యూ చేస్తాము, ఆపై వాటిని Googleకు చెందిన AI టెక్నాలజీలను మెరుగుపరచడానికి ఉపయోగిస్తాము. <ph name="LEARN_ABOUT_CHOICES" /> మీ యాక్టివిటీతో <ph name="INFO_ABOUT_LOCATION" /> కూడా స్టోర్ అవుతుంది.</translation>
 <translation id="9081058212938299310"><ph name="USERNAME" /> పాస్‌వర్డ్‌ని అప్‌డేట్ చేయాలా?</translation>
 <translation id="9083838294503912307">మీ అన్ని పరికరాలలోనూ సింక్‌ మరియు వ్యక్తిగతీకరణ చేయడం కోసం, సింక్‌ను ఆన్ చేయండి.</translation>

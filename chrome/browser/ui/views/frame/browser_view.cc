@@ -5283,7 +5283,9 @@ void BrowserView::SetMaximumSize(gfx::Size size) {
 gfx::Size BrowserView::GetMinimumSize() const {
   if (size_constraints_.HasMinimumSize())
     return size_constraints_.GetMinimumSize();
-  return GetBrowserViewLayout()->GetMinimumSize(this);
+
+  auto* const layout = GetBrowserViewLayout();
+  return layout ? layout->GetMinimumSize(this) : gfx::Size();
 }
 
 gfx::Size BrowserView::GetMaximumSize() const {

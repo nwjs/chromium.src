@@ -942,7 +942,7 @@
 <translation id="4691892551491778176">Lorsque vous utilisez cette fonctionnalité, le contenu des pages et les URL sont envoyés à Google, mais ne servent pas à améliorer les modèles d'IA générative. Vous pouvez désactiver cette option dans les paramètres à tout moment.</translation>
 <translation id="4697240968720007067">Obtenez les meilleures applis de Google, en un geste</translation>
 <translation id="4699172675775169585">Images et fichiers en cache</translation>
-<translation id="4709570498586527752">Les fonctionnalités les plus pertinentes pour vous à différents moments</translation>
+<translation id="4709570498586527752">Fonctionnalités les plus pertinentes pour vous selon le moment</translation>
 <translation id="4717844083556844785">La page Web actuelle est en mode navigation privée</translation>
 <translation id="4719927025381752090">Proposer de traduire</translation>
 <translation id="4720530280568305198">Votre sélection s'est ouverte dans un nouvel onglet</translation>
@@ -1329,7 +1329,7 @@ Handoff doit également être activé dans la section "Général" des paramètre
 <translation id="6100676328067737810">Vos données seront enregistrées dans votre compte Google, <ph name="USER_EMAIL" /></translation>
 <translation id="610083648014322104">Obtenez des réponses pertinentes en fonction du contenu de la page que vous consultez</translation>
 <translation id="6103540626693881831">Chiffrement sur l'appareil</translation>
-<translation id="611361228753138223">Les sites que vous avez consultés récemment sur cet appareil</translation>
+<translation id="611361228753138223">Sites consultés récemment sur cet appareil</translation>
 <translation id="611705554202268369">Appuyez de manière prolongée pour ajouter l'onglet à un groupe d'onglets</translation>
 <translation id="6122191549521593678">En ligne</translation>
 <translation id="6122831415929794347">Désactiver la navigation sécurisée ?</translation>
@@ -1355,7 +1355,7 @@ Handoff doit également être activé dans la section "Général" des paramètre
 <translation id="6181969657494915430">Rechercher sur l'écran</translation>
 <translation id="6187302354554850004">Dernière synchro : <ph name="LAST_USED_TIME" /></translation>
 <translation id="6188737759358894319">Créé le <ph name="DATE" /></translation>
-<translation id="6189413832092199491">Non lus</translation>
+<translation id="6189413832092199491">Non lu</translation>
 <translation id="6192388920090306326">Voyage à Tokyo</translation>
 <translation id="6193448654517602979">Sélectionner des onglets</translation>
 <translation id="6196207969502475924">Recherche vocale</translation>
@@ -1624,7 +1624,7 @@ Handoff doit également être activé dans la section "Général" des paramètre
 <translation id="7173114856073700355">Paramètres</translation>
 <translation id="7173721738069475737">{count,plural, =1{Favori enregistré}one{{count} favori enregistré}other{{count} favoris enregistrés}}</translation>
 <translation id="7176183551031110427">Faire un zoom arrière</translation>
-<translation id="7186568385131859684">Contrôlez la façon dont l'historique de navigation est utilisé avec vos autres données dans l'ensemble des services Google</translation>
+<translation id="7186568385131859684">Contrôler la façon dont l'historique de navigation est utilisé avec vos autres données dans l'ensemble des services Google</translation>
 <translation id="719133302483559673">Gérez vos centres d'intérêt et préférences.</translation>
 <translation id="7191382490098297347">Image de la pellicule</translation>
 <translation id="7203496777391039568">Les données de votre organisation sont privées et sécurisées</translation>
@@ -2184,7 +2184,7 @@ Handoff doit également être activé dans la section "Général" des paramètre
 <translation id="926455622548529175">Changer et supprimer</translation>
 <translation id="929748059769569925">Texte en surbrillance</translation>
 <translation id="932305336591073205">{count,plural, =1{Fermer l'onglet}one{Fermer l'onglet}other{Fermer les onglets}}</translation>
-<translation id="932327136139879170">Accueil</translation>
+<translation id="932327136139879170">Domicile</translation>
 <translation id="939472100615258482">Site actuel</translation>
 <translation id="939598580284253335">Saisir la phrase secrète</translation>
 <translation id="939736085109172342">Nouveau dossier</translation>
@@ -2196,7 +2196,7 @@ Handoff doit également être activé dans la section "Général" des paramètre
 <translation id="95332591904104970">Applis connectées</translation>
 <translation id="954667170699278022">Liste de lecture</translation>
 <translation id="956218893102219091">Utilisez votre position exacte pour obtenir les résultats Gemini les plus précis, au lieu d'une position estimée en fonction de votre adresse IP. <ph name="BEGIN_LINK" />En savoir plus<ph name="END_LINK" /></translation>
-<translation id="961856697154696964">Supprimer les données de navigation</translation>
+<translation id="961856697154696964">Suppr. données navigation</translation>
 <translation id="963102227019621224">Activité sur le Web et les applications</translation>
 <translation id="966593914872420832">Recherche vocale</translation>
 <translation id="972084300091883657">{COUNT,plural, =0{Rejoindre le groupe d'onglets avec <ph name="OWNER_NAME" />}=1{Rejoindre le groupe d'onglets avec <ph name="OWNER_NAME" /> et {COUNT} autre personne}one{Rejoindre le groupe d'onglets avec <ph name="OWNER_NAME" /> et {COUNT} autre personne}other{Rejoindre le groupe d'onglets avec <ph name="OWNER_NAME" /> et {COUNT} autres personnes}}</translation>

@@ -324,10 +324,15 @@ void BwgTabHelper::DidStartNavigation(
       weak_ptr_factory_.InvalidateWeakPtrs();
       ClearZeroStateSuggestions();
       zero_state_suggestions_->url = current_url;
-      optimization_guide_decider_->CanApplyOptimization(
-          current_url, optimization_guide::proto::GLIC_ZERO_STATE_SUGGESTIONS,
-          base::BindOnce(&BwgTabHelper::OnCanApplyZeroStateSuggestionsDecision,
-                         weak_ptr_factory_.GetWeakPtr()));
+      ProfileIOS* profile =
+          ProfileIOS::FromBrowserState(web_state_->GetBrowserState());
+      if (profile->GetPrefs()->GetBoolean(prefs::kIOSBWGPageContentSetting)) {
+        optimization_guide_decider_->CanApplyOptimization(
+            current_url, optimization_guide::proto::GLIC_ZERO_STATE_SUGGESTIONS,
+            base::BindOnce(
+                &BwgTabHelper::OnCanApplyZeroStateSuggestionsDecision,
+                weak_ptr_factory_.GetWeakPtr(), current_url));
+      }
     }
   }
 }
@@ -516,11 +521,11 @@ void BwgTabHelper::OnOptimizationGuideDecision(
 }
 
 void BwgTabHelper::OnCanApplyZeroStateSuggestionsDecision(
+    const GURL& url,
     optimization_guide::OptimizationGuideDecision decision,
     const optimization_guide::OptimizationMetadata& metadata) {
   // The URL has changed so the metadata is obsolete.
-  if (web_state_->GetVisibleURL().GetWithoutRef() !=
-      zero_state_suggestions_->url) {
+  if (url != zero_state_suggestions_->url) {
     return;
   }
 

@@ -162,7 +162,7 @@ Chỉ những người có cụm mật khẩu mới đọc được dữ liệu 
 <translation id="1702543251015153180">Bạn muốn thay đổi các chế độ cài đặt cho giao diện tối?</translation>
 <translation id="1702907158640575240">Trình duyệt được quản lý</translation>
 <translation id="170478069042229393"><ph name="TAB_TITLE" />, Thẻ ẩn danh được ghim</translation>
-<translation id="1718835860248848330">Một giờ qua</translation>
+<translation id="1718835860248848330">1 giờ qua</translation>
 <translation id="1726477445370128854">Bạn có thể duyệt và tìm kiếm nhanh hơn khi Chrome tải trước các trang mà trình duyệt cho rằng bạn có thể sẽ truy cập</translation>
 <translation id="1728803206919861584">Lưu khoá truy cập ngoài chế độ Ẩn danh?</translation>
 <translation id="1732514748744806741">Nếu mật khẩu của bạn bị lộ, chúng tôi sẽ thông báo cho bạn</translation>
@@ -244,7 +244,6 @@ Chỉ những người có cụm mật khẩu mới đọc được dữ liệu 
 <translation id="2063047797624276601">Tổ chức của bạn đã bật tính năng Duyệt web an toàn có tăng cường bảo vệ</translation>
 <translation id="2065944887543506430">{FILE_COUNT,plural, =1{1 tệp tải xuống không thành công}other{# tệp tải xuống không thành công}}</translation>
 <translation id="2067805253194386918">văn bản</translation>
-<translation id="2074527029802029717">Bỏ gắn thẻ</translation>
 <translation id="2079545284768500474">Huỷ</translation>
 <translation id="2082238445998314030">Kết quả <ph name="RESULT_NUMBER" /> trong tổng số <ph name="TOTAL_RESULTS" /></translation>
 <translation id="2088833076121753253">Để hoàn tất quy trình thiết lập tính năng tự động điền, hãy khởi động lại Chrome ngay. Các thẻ của bạn sẽ tự động mở lại.</translation>
@@ -1034,10 +1033,10 @@ Tài khoản Google của bạn có thể có các dạng nhật ký duyệt web
 <translation id="5568069709869097550">Không thể đăng nhập</translation>
 <translation id="557018954714092179">Tạo thư mục mới</translation>
 <translation id="5578795271662203820">Tìm ảnh này trên <ph name="SEARCH_ENGINE" /></translation>
-<translation id="5596627076506792578">Tùy chọn khác</translation>
+<translation id="5596627076506792578">Tuỳ chọn khác</translation>
 <translation id="5599455543593328020">Chế độ ẩn danh</translation>
 <translation id="5601180634394228718">Để xem thêm các chế độ cài đặt khác có sử dụng dữ liệu để cải thiện trải nghiệm Chrome của bạn, hãy truy cập vào <ph name="BEGIN_LINK" />Các dịch vụ của Google<ph name="END_LINK" />.</translation>
-<translation id="5611398002774823980">Lưu trong tài khoản</translation>
+<translation id="5611398002774823980">Lưu vào tài khoản</translation>
 <translation id="5614625640221885312">Đăng nhập để sử dụng dấu trang, mật khẩu và nhiều nội dung khác trên mọi thiết bị của bạn</translation>
 <translation id="5619633276517849615">Tổ chức của bạn đã bật tính năng Duyệt web an toàn</translation>
 <translation id="5620163320393916465">Bạn chưa lưu mật khẩu nào</translation>
@@ -1134,7 +1133,7 @@ Tài khoản Google của bạn có thể có các dạng nhật ký duyệt web
 <translation id="6000203700195075278">Theo dõi lại</translation>
 <translation id="6011308810877101166">Cải thiện cụm từ tìm kiếm được đề xuất</translation>
 <translation id="6013305291643746595">Sắp xếp theo thứ tự từ cũ nhất đến mới nhất</translation>
-<translation id="6022659036123304283">Tùy chỉnh Chrome theo cách của bạn</translation>
+<translation id="6022659036123304283">Tuỳ chỉnh Chrome theo cách của bạn</translation>
 <translation id="6026538407078977628">Mở chế độ toàn màn hình</translation>
 <translation id="6030719887161080597">Quản lý thông tin mà các trang web sử dụng để đo lường hiệu suất quảng cáo</translation>
 <translation id="6039379616847168523">Chuyển sang thẻ tiếp theo</translation>
@@ -1245,7 +1244,7 @@ Ví dụ: một số trang web có thể phản hồi yêu cầu này bằng cá
 <translation id="6412215853589222273"><ph name="TAB_TITLE" />, Thẻ được chọn cùng với nhiều thẻ khác</translation>
 <translation id="641643625718530986">In…</translation>
 <translation id="6433501201775827830">Chọn công cụ tìm kiếm của bạn</translation>
-<translation id="6434309073475700221">Hủy</translation>
+<translation id="6434309073475700221">Huỷ</translation>
 <translation id="6437162790453527153">Đăng nhập để sử dụng dấu trang và nhiều nội dung khác trên mọi thiết bị của bạn</translation>
 <translation id="6437478888915024427">Thông tin trang</translation>
 <translation id="6440291723980579689">Các trang chỉ tải sau khi bạn mở trang</translation>
@@ -1780,7 +1779,6 @@ Ví dụ: một số trang web có thể phản hồi yêu cầu này bằng cá
 <translation id="8540136935098276800">Nhập URL có định dạng chính xác</translation>
 <translation id="854522910157234410">Mở trang này</translation>
 <translation id="8547466829003330976">Xem xét tệp PDF bằng AI</translation>
-<translation id="855081842937141170">Ghim thẻ</translation>
 <translation id="8551513938758868521">Khóa các thẻ ẩn danh khi bạn đóng Chrome</translation>
 <translation id="8559961053328923750">Chrome giới hạn tổng lượng dữ liệu mà các trang web có thể chia sẻ thông qua trình duyệt để đo lường hiệu suất quảng cáo</translation>
 <translation id="8559990750235505898">Đề xuất dịch trang viết bằng các ngôn ngữ khác</translation>

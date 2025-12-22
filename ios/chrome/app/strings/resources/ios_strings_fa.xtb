@@ -57,7 +57,7 @@
 <translation id="1201402288615127009">بعدی</translation>
 <translation id="1204075260022434100">{count,plural, =1{نشانک در پوشه «{title}» در حسابتان ({email}) ذخیره شد}one{‫{count} نشانک در پوشه «{title}» در حسابتان ({email}) ذخیره شد}other{‫{count} نشانک در پوشه «{title}» در حسابتان ({email}) ذخیره شد}}</translation>
 <translation id="1207493287814084192">۵:۳۰ ب.ظ.</translation>
-<translation id="1217294226280635614">نمای تقسیم‌شده</translation>
+<translation id="1217294226280635614">نمای دونیمه</translation>
 <translation id="1219674500290482172">اتصال به اینترنت امکان‌پذیر نیست.</translation>
 <translation id="1223498995510244364">خلاصه کردن</translation>
 <translation id="1227113644794103810">زبانه‌های غیرفعال</translation>
@@ -297,7 +297,7 @@
 <translation id="2074599390896964828">مکان دقیق</translation>
 <translation id="2078437078822043850">برای مرور در «حالت ناشناس»، می‌توانید به راست پیمایش کنید.</translation>
 <translation id="2079545284768500474">لغو</translation>
-<translation id="2085876078937250610">ذخیره کردن…</translation>
+<translation id="2085876078937250610">ذخیره…</translation>
 <translation id="2096239473850415494">بارگیری نشد</translation>
 <translation id="2096716221239095980">حذف همه داده‌ها</translation>
 <translation id="2104436223719117661">جستجوهای پرطرفدار</translation>
@@ -547,7 +547,7 @@
 <translation id="3087734570205094154">پایین</translation>
 <translation id="309710370695886264">۱ گذرواژه دوباره‌استفاده‌شده دارید. همین‌حالا مشکل را برطرف کنید تا ایمن بمانید.</translation>
 <translation id="3099402981545350675">‏این کار نشانی‌های ذخیره‌شده در این دستگاه را حذف می‌کند. این کار همچنین اطلاعات انتخاب‌شده را از Chrome برمی‌دارد اما این اطلاعات از «حساب Google» شما حذف نمی‌شود.</translation>
-<translation id="3106258548858559536">خاموش کردن «حالت مطالعه»</translation>
+<translation id="3106258548858559536">خاموش کردن «حالت خواندن»</translation>
 <translation id="3106690631878101882">‏پنهان کردن «ترجمه Google»</translation>
 <translation id="310900540163454140">گذرواژه مربوط به <ph name="WEBSITE" /> حذف شود؟</translation>
 <translation id="3112556859945124369">علامت‌گذاری...</translation>
@@ -980,7 +980,7 @@
 <translation id="4826588772550366629">دوربین و میکروفون</translation>
 <translation id="4828431027673677473">محصولات براساس علایق شما</translation>
 <translation id="4833786495304741580">‏به‌طور خودکار آمار کاربرد و گزارش‌های خرابی را به Google ارسال می‌کند.</translation>
-<translation id="483689884442613745">ذخیره کردن…</translation>
+<translation id="483689884442613745">ذخیره…</translation>
 <translation id="4840495572919996524">‏نشانک‌ها، سابقه، گذرواژه‌ها و سایر موارد، دیگر با حساب Google شما همگام‌سازی نمی‌شود.</translation>
 <translation id="484280513275854557">از سیستم خارج شدید؛ داده‌های مرور حذف شد</translation>
 <translation id="4850886885716139402">نما</translation>
@@ -1194,7 +1194,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="5626245204502895507">فایل در حال حاضر قابل بارگیری نیست.</translation>
 <translation id="562753339521713441">«کنترل ایمنی» را اجرا کنید</translation>
 <translation id="5628388627414062173">{count,plural, =1{‫{count} صفحه در «فهرست خواندن»}one{‫{count} صفحه در «فهرست خواندن»}other{‫{count} صفحه در «فهرست خواندن»}}</translation>
-<translation id="5632194969640946913">هم‌زمان با مرور کردن صفحه‌ها و جستجوی آنچه می‌بینید، محصولات، مکان‌ها، و نوشته‌ها را کاوش کنید.</translation>
+<translation id="5632194969640946913">هم‌زمان با مرور کردن صفحه‌ها و جستجوی آنچه می‌بینید، محصولات، جا‌ها، و نوشته‌ها را کاوش کنید.</translation>
 <translation id="5632485077360054581">نمایش روش انجام کار</translation>
 <translation id="5633237939819267663">{count,plural, =1{نشانک در «{title}» ذخیره شد}one{‫{count} نشانک در «{title}» ذخیره شد}other{‫{count} نشانک در «{title}» ذخیره شد}}</translation>
 <translation id="564170563478022912">از سیستم خارج می‌شوید؟ داده‌های ذخیره‌نشده حساب حذف خواهد شد.</translation>
@@ -1377,7 +1377,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="6247557882553405851">‏مدیر گذرواژه Google</translation>
 <translation id="6251835855431997163">تکمیل خودکار <ph name="VALUE" /></translation>
 <translation id="6254066287920239840">پیوندها به‌جای مرورگر در برنامه باز شوند.</translation>
-<translation id="6259928806013786178">«حالت مطالعه» فعال نشد</translation>
+<translation id="6259928806013786178">«حالت خواندن» فعال نشد</translation>
 <translation id="6268773951964630964">جستجوی تصویر کپی‌شده</translation>
 <translation id="6271462272606946663">پنهان کردن «درخواست سایت ویژه تلفن همراه»</translation>
 <translation id="6271824294945464304">هم‌رسانی گذرواژه</translation>
@@ -1465,7 +1465,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="6550891580932862748">‏دربرابر وب‌سایت‌ها، بارگیری‌ها، و افزونه‌های خطرناک از شما محافظت نمی‌کند. تنظیمات «مرور ایمن» شما در دیگر محصولات Google تحت‌تأثیر قرار نخواهد گرفت.</translation>
 <translation id="6556866813142980365">ازنو انجام دادن</translation>
 <translation id="6559301491397835130">{count,plural, =1{نشانک در «{title}» ذخیره شد. این نشانک فقط در این دستگاه ذخیره می‌شود.}one{نشانک‌ها در «{title}» ذخیره شد. این نشانک‌ها فقط در این دستگاه ذخیره می‌شود.}other{نشانک‌ها در «{title}» ذخیره شد. این نشانک‌ها فقط در این دستگاه ذخیره می‌شود.}}</translation>
-<translation id="656065428026159829">موارد بیشتر</translation>
+<translation id="656065428026159829">بیشتر دیدن</translation>
 <translation id="6571070086367343653">ویرایش کارت اعتباری</translation>
 <translation id="6574092468346088891">اعلان‌های «بررسی ایمنی» را روشن کنید</translation>
 <translation id="6579867704846662339">می‌توانید انتخاب کنید که نشانی‌های وب ورودی از برنامه‌های دیگر در «حالت ناشناس» باز شود.</translation>
@@ -1533,7 +1533,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="6791425686608802741">روی «افزودن زبانه به گروه جدید» تک‌ضرب بزنید</translation>
 <translation id="6794476726485507147">تاریخ و ساعتی برای دریافت اعلان یادآور جهت بازدید مجدد از این صفحه انتخاب کنید.</translation>
 <translation id="6795481620482106033">داده‌های نامعتبر</translation>
-<translation id="6797543908718012274">روشن کردن «حالت مطالعه»</translation>
+<translation id="6797543908718012274">روشن کردن «حالت خواندن»</translation>
 <translation id="6806550742467879742">ابزارهای صفحه</translation>
 <translation id="6807287147325542056">گذرواژه‌ها در برنامه‌های دیگر</translation>
 <translation id="681368974849482173">مورد ایجاد شد</translation>
@@ -1729,7 +1729,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="7582666837709186351">با دوربین، نوشتار موجود در عکس‌ها یا محیط اطرافتان را ترجمه کنید.</translation>
 <translation id="7582857256643797524">این تنظیم در دستگاه شما فعال است</translation>
 <translation id="7583004045319035904">برای باز کردن قفل «برگه‌های ناشناس» از <ph name="BIOMETRIC_AUTHENITCATION_TYPE" /> استفاده کنید.</translation>
-<translation id="7588149553568293500">با انتخاب‌هایتان آشنا شوید.</translation>
+<translation id="7588149553568293500">درباره انتخاب‌هایتان بیشتر بدانید.</translation>
 <translation id="7596103009408415410">{COUNT,plural, =1{‫{COUNT} زبانه غیرفعال بسته شود؟}one{‫{COUNT} زبانه غیرفعال بسته شود؟}other{‫{COUNT} زبانه غیرفعال بسته شود؟}}</translation>
 <translation id="7598439272585186139">امنیت بیشتری داشته باشید</translation>
 <translation id="7600965453749440009">هرگز <ph name="LANGUAGE" /> ترجمه نشود</translation>
@@ -2069,7 +2069,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="8786100550345425552">ویرایش کردن اجازه‌ها</translation>
 <translation id="878871978861915380">پنهان کردن «ردگیری قیمت»</translation>
 <translation id="8792626944327216835">میکروفون</translation>
-<translation id="8796634520835503150">حالت مطالعه دردسترس است</translation>
+<translation id="8796634520835503150">«حالت خواندن» دردسترس است</translation>
 <translation id="8803526663383843427">وقتی روشن است</translation>
 <translation id="8803639129939845298">ایمن</translation>
 <translation id="8813277370772331957">بعداً به من یادآوری شود</translation>
@@ -2161,7 +2161,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="913036870884277353">پیوندها را به‌سادگی در برنامه‌های دیگر باز کنید.</translation>
 <translation id="9137013805542155359">نمایش مورد اصلی</translation>
 <translation id="9140888637198815199">A</translation>
-<translation id="9144152097013965297">روشن کردن «حالت مطالعه»</translation>
+<translation id="9144152097013965297">روشن کردن «حالت خواندن»</translation>
 <translation id="9144230693397287797">برای یادآورهایی که تنظیم کرده‌اید و برگه‌های سایر دستگاه‌ها به‌روزرسانی دریافت کنید</translation>
 <translation id="914781932147356857">علامت‌گذاری همه…</translation>
 <translation id="9148126808321036104">ورود مجدد به سیستم</translation>

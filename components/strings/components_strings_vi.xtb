@@ -2296,7 +2296,7 @@ Nếu bạn từ chối, chế độ cài đặt quyền riêng tư của bạn 
 <translation id="4751249061288707459">Lần cập nhật gần nhất về quyết định đồng ý:</translation>
 <translation id="4751476147751820511">Cảm biến chuyển động hoặc ánh sáng</translation>
 <translation id="4754461935447132332">Không được phép đối với các trang web không an toàn</translation>
-<translation id="4756388243121344051">&amp;Lịch sử</translation>
+<translation id="4756388243121344051">&amp;Nhật ký</translation>
 <translation id="4756501505996488486">PRC 16K</translation>
 <translation id="4757740693289347881">Mã không hợp lệ</translation>
 <translation id="4757993714154412917">Bạn vừa nhập mật khẩu vào một trang web lừa đảo. Để bảo mật tài khoản của mình, bạn nên kiểm tra các mật khẩu đã lưu trên Chromium.</translation>
@@ -2502,7 +2502,7 @@ Nếu bạn từ chối, chế độ cài đặt quyền riêng tư của bạn 
 <translation id="5087286274860437796">Chứng chỉ của máy chủ không hợp lệ tại thời điểm này.</translation>
 <translation id="5087580092889165836">Thêm thẻ</translation>
 <translation id="5088142053160410913">Thông báo gửi đến trình vận hành</translation>
-<translation id="5089810972385038852">Tỉnh</translation>
+<translation id="5089810972385038852">Tỉnh/Bang</translation>
 <translation id="5090647584136241764">Thêm các thẻ có sản phẩm tương tự để dễ dàng so sánh những thông tin bạn quan tâm</translation>
 <translation id="5093232627742069661">Gấp kiểu chữ Z</translation>
 <translation id="5093417502834168387">Bạn gặp sự cố khi đăng nhập? Thử cách khác</translation>
@@ -2827,7 +2827,7 @@ Nếu bạn từ chối, chế độ cài đặt quyền riêng tư của bạn 
 <translation id="5605670050355397069">Ledger</translation>
 <translation id="5610142619324316209">Kiểm tra kết nối</translation>
 <translation id="5610807607761827392">Bạn có thể quản lý thẻ và địa chỉ trong <ph name="BEGIN_LINK" />Cài đặt<ph name="END_LINK" />.</translation>
-<translation id="5611398002774823980">Lưu trong tài khoản</translation>
+<translation id="5611398002774823980">Lưu vào tài khoản</translation>
 <translation id="561165882404867731">Dịch trang này bằng Google Dịch</translation>
 <translation id="5612720917913232150"><ph name="URL" /> muốn sử dụng thông tin vị trí máy tính của bạn</translation>
 <translation id="5614520971155863709">Trò chơi thẻ bài</translation>
@@ -4773,7 +4773,7 @@ Thông tin chi tiết bổ sung:
 <translation id="8833007469711500369">Máy giặt và máy sấy</translation>
 <translation id="8834962751196791179">Cảnh báo này xuất hiện vì đây là trang web không hỗ trợ HTTPS và bạn đang ở Chế độ ẩn danh. <ph name="BEGIN_LEARN_MORE_LINK" />Tìm hiểu thêm về cảnh báo này<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="8837398923270275776">Chương trình truyền hình khoa học viễn tưởng và giả tưởng</translation>
-<translation id="883848425547221593">Dấu trang Khác</translation>
+<translation id="883848425547221593">Dấu trang khác</translation>
 <translation id="8842351563145134519">Các phương thức thanh toán có thể điền bằng thao tác chạm đã mở trên một nửa màn hình.</translation>
 <translation id="884264119367021077">Ðịa chỉ giao hàng</translation>
 <translation id="8849032795302265570">Dễ dàng quản lý cách nhân viên duyệt web</translation>

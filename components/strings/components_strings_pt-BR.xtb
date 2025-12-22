@@ -211,7 +211,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
         <ph name="BEGIN_LIST" />
           <ph name="LIST_ITEM" />Os sites que você visita
           <ph name="LIST_ITEM" />Seu empregador ou sua escola
-          <ph name="LIST_ITEM" />Seu provedor de acesso à Internet
+          <ph name="LIST_ITEM" />Seu provedor de acesso à internet
         <ph name="END_LIST" /></translation>
 <translation id="1337692097987160377">Compartilhar esta guia</translation>
 <translation id="1339601241726513588">Domínio de inscrição:</translation>
@@ -667,7 +667,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="2102495993840063010">Apps Android</translation>
 <translation id="2102519472192754194">Navegadores da Web</translation>
 <translation id="2103210856015238101">Cartões fidelidade disponíveis para preenchimento com um toque abertos no tamanho máximo.</translation>
-<translation id="2104739941682874393">O Preenchimento Automático Aprimorado entende melhor os formulários e agiliza o processo para você</translation>
+<translation id="2104739941682874393">O preenchimento automático aprimorado entende melhor os formulários e agiliza o processo para você</translation>
 <translation id="2105838220373099643">Jogos de RPG</translation>
 <translation id="2107021941795971877">Compatibilidades de impressão</translation>
 <translation id="2108755909498034140">Reiniciar seu computador</translation>
@@ -704,7 +704,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="2154484045852737596">Editar cartão</translation>
 <translation id="2154739667870063220">Reinicializar</translation>
 <translation id="2155260325161282517">5 x 7 pol.</translation>
-<translation id="2156467141257470387">Os endereços salvos podem ser usados em vários produtos do Google. Isso não vai mudar seu endereço de trabalho atual. Ele será salvo na sua Conta do Google, <ph name="ACCOUNT" />.</translation>
+<translation id="2156467141257470387">Os endereços salvos podem ser usados em vários produtos do Google. Isso não altera seu endereço de trabalho atual. Ele será salvo na sua Conta do Google, <ph name="ACCOUNT" />.</translation>
 <translation id="2157640075051554492">Notificações de monitoramento de preço</translation>
 <translation id="21613918653299710">Galerias de imagens on-line</translation>
 <translation id="2161656808144014275">Texto</translation>
@@ -796,7 +796,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="2288422996159078444">Tudo o que é digitado, as páginas que são acessadas e qualquer outra atividade na Web está sendo monitorado, e o conteúdo dos sites pode mudar sem que você saiba.</translation>
 <translation id="2289385804009217824">Cortar</translation>
 <translation id="2292556288342944218">O seu acesso à Internet está bloqueado</translation>
-<translation id="2295831393422400053">Ativar a configuração "Melhorar as pesquisas e a navegação" para usar o recurso Quero ajuda para escrever</translation>
+<translation id="2295831393422400053">Ativar a configuração "Melhorar as pesquisas e a navegação" para usar o recurso Me ajude a escrever</translation>
 <translation id="2296244067976588032">Chave de acesso • Chaves do iCloud</translation>
 <translation id="2296331629987861142">Pagar em parcelas fáceis (opção sujeita à qualificação e a taxas)</translation>
 <translation id="2300306941146563769">Não enviado</translation>
@@ -1035,7 +1035,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="26774279487328902"><ph name="GROUP_COUNT" /> grupos de guias não estão mais disponíveis</translation>
 <translation id="2677748264148917807">Sair</translation>
 <translation id="2683195745483370038">Outros resultados encontrados</translation>
-<translation id="2686919536310834199">Enviar feedback para a opção "Quero ajuda para escrever".</translation>
+<translation id="2686919536310834199">Enviar feedback para a opção "Me ajude a escrever".</translation>
 <translation id="2687555958734450033">Melhor ajuste</translation>
 <translation id="2688186765492306706">500 x 760 mm</translation>
 <translation id="2688969097326701645">Sim, continuar</translation>
@@ -1159,7 +1159,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="2922792708490674">{0,plural, =1{O download do arquivo está bloqueado}one{O download de <ph name="FILE_COUNT" /> arquivo está bloqueado}other{O download de <ph name="FILE_COUNT" /> arquivos está bloqueado}}</translation>
 <translation id="2923275635648511531">Produtos para bronzeamento e proteção solar</translation>
 <translation id="292371311537977079">Configurações do Chrome</translation>
-<translation id="2925454999967523701">Botão "Criar documento". Ative para criar rapidamente um novo arquivo do Documentos Google</translation>
+<translation id="2925454999967523701">Botão "Criar documento". Ative para criar rapidamente um novo arquivo do Google Docs</translation>
 <translation id="2925673989565098301">Método de envio</translation>
 <translation id="2928426578619531300">Afiliado do usuário</translation>
 <translation id="2928905813689894207">Endereço de cobrança</translation>
@@ -1233,7 +1233,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="3027915437837548462">Imagem SVG</translation>
 <translation id="3030331669969285614">Essas sinalizações evitam ou revertem uma mudança interruptiva e só ficam disponíveis por tempo limitado.</translation>
 <translation id="3030542417256082866">Salvar veículo?</translation>
-<translation id="3033200136993730761">Seu endereço de casa ajuda você a realizar ações nos Serviços do Google, como ver resultados da Pesquisa e rotas do Google Maps mais relevantes. É possível editar ou excluir o endereço na sua <ph name="BEGIN_LINK" />Conta do Google <ph name="ACCOUNT" /><ph name="END_LINK" />.</translation>
+<translation id="3033200136993730761">Seu endereço de casa deixa os Serviços do Google, como resultados da Pesquisa e rotas do Google Maps, mais úteis e relevantes. Ele pode ser editado ou excluído na sua <ph name="BEGIN_LINK" />Conta do Google <ph name="ACCOUNT" /><ph name="END_LINK" />.</translation>
 <translation id="3034526003882782781">Configuração de rolagem e zoom permitida</translation>
 <translation id="3036894576201005614">Materiais de limpeza doméstica</translation>
 <translation id="3037177537145227281">Monitorando preço</translation>
@@ -1301,7 +1301,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="3141093262818886744">Abrir mesmo assim</translation>
 <translation id="3141337053413339205">Mudar para esta guia.</translation>
 <translation id="3141641372357166056">Nenhuma decisão de consentimento</translation>
-<translation id="3144458715650412431">As políticas de teste foram aplicadas e podem ser revisadas ou redefinidas em chrome://policy/test. As políticas de administrador não serão aplicadas.</translation>
+<translation id="3144458715650412431">As políticas de teste foram aplicadas e podem ser revisadas ou redefinidas em chrome://policy/test. As políticas de admin não serão aplicadas.</translation>
 <translation id="3145945101586104090">Falha ao decodificar resposta</translation>
 <translation id="3147941219998826815">Viagens de baixo custo e de última hora</translation>
 <translation id="3150653042067488994">Erro temporário do servidor</translation>
@@ -1610,7 +1610,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="3632892046558972264">O compartilhamento de tela foi pausado</translation>
 <translation id="3634530185120165534">Bandeja 5</translation>
 <translation id="3634567936866541746">Você acabou de digitar sua senha em um site suspeito. Para proteger suas contas, o Chrome recomenda conferir as senhas salvas.</translation>
-<translation id="3638102297696182302">Para retomar o recurso "Quero ajuda para escrever", pressione Tab e depois Enter</translation>
+<translation id="3638102297696182302">Para retomar o recurso "Me ajude a escrever", pressione Tab e depois Enter</translation>
 <translation id="3641116835972736297">Futebol americano</translation>
 <translation id="3642196846309122856">Tente baixar os arquivos de novo</translation>
 <translation id="3642638418806704195">Aplicativo:</translation>
@@ -1754,7 +1754,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="384315386171052386">Peixes e frutos do mar</translation>
 <translation id="3843447501960446468">Gerenciar cartões fidelidade…</translation>
 <translation id="3844725157150297127">RA1</translation>
-<translation id="3848487483475744267"><ph name="CREATE_GOOGLE_DOC_FOCUSED_FRIENDLY_MATCH_TEXT" />. Pressione Tab e depois Enter para criar rapidamente um novo arquivo do Documentos Google</translation>
+<translation id="3848487483475744267"><ph name="CREATE_GOOGLE_DOC_FOCUSED_FRIENDLY_MATCH_TEXT" />. Pressione Tab e depois Enter para criar rapidamente um novo arquivo do Google Docs</translation>
 <translation id="385051799172605136">Voltar</translation>
 <translation id="3851830401766703401">Ensino de direito</translation>
 <translation id="385489333361351399">Equipamento de foto e vídeo</translation>
@@ -1885,7 +1885,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="4082333119419111506">Papel (pré-impresso)</translation>
 <translation id="4082393374666368382">Configurações: gerenciamento</translation>
 <translation id="4084219288110917128">Envelope C1</translation>
-<translation id="4085326869263783566">Pressione Tab e depois Enter para abrir o recurso "Quero ajuda para escrever"</translation>
+<translation id="4085326869263783566">Pressione Tab e depois Enter para abrir o recurso "Me ajude a escrever"</translation>
 <translation id="4085769736382018559">Comparar produtos</translation>
 <translation id="4085778582400064057">Azul 2</translation>
 <translation id="4085859451613666999">O cartão foi salvo na sua Conta do Google e vai estar disponível para preenchimento automático em compras futuras</translation>
@@ -2486,7 +2486,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="5052517576853118371">Temas ativos</translation>
 <translation id="5056425809654826431">{NUM_FILES,plural, =1{Para enviar este arquivo usando o Compartilhar por proximidade, libere espaço (<ph name="DISK_SPACE_SIZE" />) no seu dispositivo}one{Para enviar este arquivo usando o Compartilhar por proximidade, libere espaço (<ph name="DISK_SPACE_SIZE" />) no seu dispositivo}other{Para enviar estes arquivos usando o Compartilhar por proximidade, libere espaço (<ph name="DISK_SPACE_SIZE" />) no seu dispositivo}}</translation>
 <translation id="505757197798929356">Informe o motivo da abertura (obrigatório)</translation>
-<translation id="5058282932481719070">Saiba mais sobre o Preenchimento Automático Aprimorado nas configurações</translation>
+<translation id="5058282932481719070">Saiba mais sobre o preenchimento automático aprimorado nas configurações</translation>
 <translation id="5060419232449737386">Configurações de legenda</translation>
 <translation id="5060483733937416656">Você escolheu fazer a verificação com o Windows Hello em sites que usam o provedor <ph name="PROVIDER_ORIGIN" />. Esse provedor pode ter armazenado informações sobre sua forma de pagamento, mas você pode <ph name="LINK_TEXT" />.</translation>
 <translation id="5061227663725596739">Você quis dizer "<ph name="LOOKALIKE_DOMAIN" />"?</translation>
@@ -2937,7 +2937,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="5817918615728894473">Parear</translation>
 <translation id="5826507051599432481">Nome comum (CN)</translation>
 <translation id="5830698870816298009">uso e movimento da câmera</translation>
-<translation id="5831217499016131155">Google Wallet</translation>
+<translation id="5831217499016131155">Carteira do Google</translation>
 <translation id="583281660410589416">Desconhecido</translation>
 <translation id="5832976493438355584">Bloqueado</translation>
 <translation id="5837220895135257862">Libere espaço em <ph name="CLOUD_PROVIDER" /> antes de tentar de novo</translation>
@@ -3000,7 +3000,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="5925040402342933574">Disco óptico (semibrilho)</translation>
 <translation id="5926982310317673627">Academias</translation>
 <translation id="5927279462592128805">Microsoft Word</translation>
-<translation id="5930147475897662863">Ative essa configuração para usar o recurso Quero ajuda para escrever</translation>
+<translation id="5930147475897662863">Ative essa configuração para usar o recurso Me ajude a escrever</translation>
 <translation id="593102073240001326">Aprenda a fazer, faça você mesmo e conteúdo profissional</translation>
 <translation id="5932224571077948991">No site, há exibição de anúncios invasivos ou enganosos</translation>
 <translation id="5933597524153120073">Abrir todos (<ph name="ITEMS" />) em uma nova janela</translation>
@@ -3580,7 +3580,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="6874604403660855544">&amp;Refazer adicionar</translation>
 <translation id="6875894866901426843">Em <ph name="DATE_TIME" />, o administrador vai excluir seus arquivos locais, incluindo os que estão na lixeira.</translation>
 <translation id="6880941331070119097">Opção com preço alto</translation>
-<translation id="6881240511396774766">Criar um novo arquivo do Documentos Google rapidamente</translation>
+<translation id="6881240511396774766">Criar um novo arquivo do Google Docs rapidamente</translation>
 <translation id="6882210908253838664">Se um site não estiver funcionando, tente conceder uma permissão temporária para usar cookies de terceiros. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
 <translation id="6883221904761970440">A página de autenticação de credenciais para pagamento seguro está fechada</translation>
 <translation id="6883745783646124431">endereço de trabalho</translation>
@@ -3634,7 +3634,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="695140971690006676">Redefinir tudo</translation>
 <translation id="6954049078461159956">Hóquei</translation>
 <translation id="695582302419398462">Papelão (duplo)</translation>
-<translation id="6957153644870901611">Ative o Preenchimento Automático Aprimorado para preencher mais campos automaticamente</translation>
+<translation id="6957153644870901611">Ative o preenchimento automático aprimorado para preencher mais campos automaticamente</translation>
 <translation id="6957887021205513506">O certificado do servidor parece ser falsificado.</translation>
 <translation id="6958564499836457428">Gerenciar configurações de privacidade da Conta do Google</translation>
 <translation id="6961844873822989059">Pode pedir para usar as fontes instaladas no dispositivo</translation>
@@ -3925,7 +3925,7 @@ Mais detalhes:
 <translation id="7423283032694727565">Botão "Gerenciar cookies". Ative para gerenciar suas preferências de cookies nas configurações do Chrome</translation>
 <translation id="742435751935045381">Apps e extensões instalados no perfil de trabalho</translation>
 <translation id="7424421098814895617">A opção de excluir endereço foi selecionada</translation>
-<translation id="7425037327577270384">Quero ajuda para escrever</translation>
+<translation id="7425037327577270384">Me ajude a escrever</translation>
 <translation id="7425878584435172632">Artes visuais e design</translation>
 <translation id="7426745633088095666">Guias compartilhadas</translation>
 <translation id="7427079287360774240">Estudo de língua estrangeira</translation>
@@ -4120,7 +4120,7 @@ Mais detalhes:
 <translation id="7701486038694690341">Música country</translation>
 <translation id="7701544340847569275">Atualização concluída com erros</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />Ir para <ph name="SITE" /> (não seguro)<ph name="END_LINK" /></translation>
-<translation id="7705085181312584869">Quero ajuda para escrever</translation>
+<translation id="7705085181312584869">Me ajude a escrever</translation>
 <translation id="7705992072972338699">Disco óptico (alto brilho)</translation>
 <translation id="7706689436519265630">Os arquivos copiados ou movidos são enviados ao Google Cloud ou a terceiros para análise. Por exemplo, eles podem ser verificados em busca de dados sensíveis ou malware e podem ser armazenados com base nas políticas da empresa.</translation>
 <translation id="7709911732293795808">Seguro</translation>
@@ -4943,7 +4943,7 @@ incomuns e incorretas. Isso pode acontecer quando um invasor está fingindo ser 
 <translation id="9128870381267983090">Conectar à rede</translation>
 <translation id="9131119348384879525">Capturar o conteúdo confidencial?</translation>
 <translation id="9133861214150761123">Contabilidade e auditoria</translation>
-<translation id="9133985615769429248">Se você compartilha este dispositivo com outras pessoas, pode usar o bloqueio de tela para confirmar sua identidade sempre que usar uma senha salva</translation>
+<translation id="9133985615769429248">Se você compartilha este dispositivo com outras pessoas, pode usar o bloqueio de tela para confirmar sua identidade sempre que usar uma senha salva.</translation>
 <translation id="913552870853451045"><ph name="IDS_AUTOFILL_VIRTUAL_CARD_NAME_AND_LAST_FOUR_DIGITS" />, cartão virtual</translation>
 <translation id="9138037198177304356">Acesso às notificações permitido</translation>
 <translation id="9139318394846604261">Compras</translation>
@@ -4984,7 +4984,7 @@ incomuns e incorretas. Isso pode acontecer quando um invasor está fingindo ser 
 <translation id="9179703756951298733">Gerencie seus pagamentos e suas informações de cartão de crédito nas configurações do Chrome</translation>
 <translation id="9179766227052716237">Sua organização diz: "<ph name="CUSTOM_MESSAGE" />"</translation>
 <translation id="9179907736442194268">Receba alertas por e-mail se houver uma redução no preço em algum site</translation>
-<translation id="9183302530794969518">Documentos Google</translation>
+<translation id="9183302530794969518">Google Docs</translation>
 <translation id="9183425211371246419"><ph name="HOST_NAME" /> usa um protocolo incompatível.</translation>
 <translation id="918454845714257218">Confira o código na <ph name="SIDE_OF_CARD" /> e tente de novo</translation>
 <translation id="9186203289258525843">Botão "Definir o Chrome como navegador padrão". Ative para definir o Chrome como o navegador padrão do sistema</translation>

@@ -103,7 +103,7 @@ suite('AppTest', function() {
     await microtasksFinished();
 
     // Ensure dropdown shows.
-    assertTrue(isVisible(app.$.matches));
+    assertTrue(isVisible(app.getDropdown()));
 
     // Set autocomplete result with no visible matches.
     const hiddenResult: AutocompleteResult = createAutocompleteResult({
@@ -116,12 +116,12 @@ suite('AppTest', function() {
     await microtasksFinished();
 
     // Ensure dropdown hides.
-    assertFalse(isVisible(app.$.matches));
+    assertFalse(isVisible(app.getDropdown()));
 
     // Force dropdown to show again.
     testProxy.page.autocompleteResultChanged(shownResult);
     await microtasksFinished();
-    assertTrue(isVisible(app.$.matches));
+    assertTrue(isVisible(app.getDropdown()));
 
     // Set autocomplete result with no matches.
     const noResult: AutocompleteResult =
@@ -130,21 +130,43 @@ suite('AppTest', function() {
     await microtasksFinished();
 
     // Ensure dropdown hides.
-    assertFalse(isVisible(app.$.matches));
+    assertFalse(isVisible(app.getDropdown()));
   });
 
   suite('TallSearchbox', () => {
-    suiteSetup(async () => {
+    let localApp: OmniboxPopupAppElement;
+
+    setup(async () => {
+      // Use setup instead of suiteSetup to ensure a clean state for each test.
+      document.body.innerHTML = window.trustedTypes!.emptyHTML;
       loadTimeData.overrideValues({
         searchboxLayoutMode: 'TallTopContext',
+        showContextMenuEntrypoint: true,
       });
+
+      localApp = document.createElement('omnibox-popup-app');
+      document.body.appendChild(localApp);
       await microtasksFinished();
     });
 
+    test('ContextMenuEntrypointHiddenWhenDisabled', async () => {
+      loadTimeData.overrideValues({
+        searchboxLayoutMode: 'TallTopContext',
+        showContextMenuEntrypoint: false,
+      });
+      localApp.remove();
+      localApp = document.createElement('omnibox-popup-app');
+      document.body.appendChild(localApp);
+      await microtasksFinished();
+
+      const carousel = localApp.shadowRoot?.querySelector(
+          'contextual-entrypoint-and-carousel');
+      assertFalse(!!carousel);
+    });
 
     test('KeywordModeUpdatesCarouselVisibility', async () => {
-      let carousel =
-          app.shadowRoot.querySelector('contextual-entrypoint-and-carousel');
+      let carousel = localApp.shadowRoot?.querySelector(
+          'contextual-entrypoint-and-carousel');
       assertTrue(!!carousel);
       assertTrue(isVisible(carousel));
 
@@ -156,9 +178,30 @@ suite('AppTest', function() {
       // Exit keyword mode.
       testProxy.page.setKeywordSelected(false);
       await microtasksFinished();
-      carousel =
-          app.shadowRoot.querySelector('contextual-entrypoint-and-carousel');
+      carousel = localApp.shadowRoot?.querySelector(
+          'contextual-entrypoint-and-carousel');
       assertTrue(isVisible(carousel));
+    });
+
+    test('OnShowCallsBlur', async () => {
+      // Arrange: Focus the button and confirm it's focused.
+      const carousel = localApp.shadowRoot?.querySelector(
+          'contextual-entrypoint-and-carousel');
+      assertTrue(!!carousel);
+      await microtasksFinished();
+      const entrypointButton =
+          carousel.$.contextEntrypoint.shadowRoot.querySelector<HTMLElement>(
+              '#entrypoint')!;
+      entrypointButton.focus();
+      await microtasksFinished();
+      assertTrue(entrypointButton.matches(':focus-within'));
+
+      // Act: Show the popup.
+      testProxy.page.onShow();
+      await microtasksFinished();
+
+      // Assert: The button is no longer focused.
+      assertFalse(entrypointButton.matches(':focus-within'));
     });
   });
 });

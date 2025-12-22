@@ -28,7 +28,7 @@
 <translation id="1100066534610197918">Nouvel onglet dans un groupe</translation>
 <translation id="1103142993930332957">Aider à améliorer Chrome ?</translation>
 <translation id="1105960400813249514">Capture d'écran</translation>
-<translation id="1108214977745280468">Voir insights de la page</translation>
+<translation id="1108214977745280468">Voir les informations sur la page</translation>
 <translation id="1108938384783527433">Synchronisation de l'historique</translation>
 <translation id="1111673857033749125">Les favoris enregistrés sur vos autres appareils s'affichent ici.</translation>
 <translation id="1126696498560056882">Gérer les comptes sur cet appareil</translation>
@@ -244,7 +244,6 @@ Seule une personne connaissant votre phrase secrète peut lire vos données chif
 <translation id="2063047797624276601">Votre organisation a activé la navigation sécurisée avec protection renforcée</translation>
 <translation id="2065944887543506430">{FILE_COUNT,plural, =1{Échec de 1 téléchargement}one{Échec de # téléchargement}other{Échec de # téléchargements}}</translation>
 <translation id="2067805253194386918">texte</translation>
-<translation id="2074527029802029717">Retirer l'onglet</translation>
 <translation id="2079545284768500474">Annuler</translation>
 <translation id="2082238445998314030">Résultat <ph name="RESULT_NUMBER" /> sur <ph name="TOTAL_RESULTS" /></translation>
 <translation id="2088833076121753253">Pour terminer la configuration de la saisie automatique, redémarrez Chrome maintenant. Vos onglets seront rouverts automatiquement.</translation>
@@ -859,7 +858,7 @@ Votre compte Google conserve peut-être d'autres contenus d'historique de naviga
 <translation id="4769095993849849966">Nouveau nom de fichier</translation>
 <translation id="4769632191812288342">Vous bénéficiez de la protection standard</translation>
 <translation id="4773122030389014189">Partager le groupe d'onglets "<ph name="GROUP_NAME" />"</translation>
-<translation id="4775646243557794597">Suppression réussie sur la période suivante : <ph name="TIME_PERIOD" /></translation>
+<translation id="4775646243557794597">Suppression réussie pour la période : <ph name="TIME_PERIOD" /></translation>
 <translation id="4777866634702576038">Supprimer le groupe d'onglets ?</translation>
 <translation id="4778653490315793244">Rien à afficher pour le moment</translation>
 <translation id="4782929588435725897"><ph name="SEARCH_ENGINE" /> est votre moteur de recherche par défaut</translation>
@@ -1289,7 +1288,7 @@ Par exemple, certains sites Web peuvent répondre à cette demande en diffusant 
 <translation id="6583199322650523874">Marquer la page actuelle en tant que favori</translation>
 <translation id="6588043302623806746">Utiliser un DNS sécurisé</translation>
 <translation id="6590471736817333463">Économisez jusqu'à 60 % de données mobiles</translation>
-<translation id="6593061639179217415">Version pour ordinateur</translation>
+<translation id="6593061639179217415">Version ordinateur</translation>
 <translation id="6594347733515723558">Options tri et affichage</translation>
 <translation id="6595046016124923392">Les images sont envoyées à Google afin de vous proposer de meilleures descriptions.</translation>
 <translation id="661266467055912436">Renforce votre sécurité et celle de tous les utilisateurs sur le Web.</translation>
@@ -1449,7 +1448,7 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />supprimez les données Chro
 <translation id="7182051712900867547">Utiliser un autre compte</translation>
 <translation id="7182520625618447753">Déplacez la barre d'adresse vers le haut ou le bas pour une expérience de navigation personnalisée</translation>
 <translation id="7183517696921903380">La feuille de filtrage des applis est ouverte.</translation>
-<translation id="7186568385131859684">Contrôlez la façon dont l'historique de navigation est utilisé avec vos autres données dans l'ensemble des services Google</translation>
+<translation id="7186568385131859684">Contrôler la façon dont l'historique de navigation est utilisé avec vos autres données dans l'ensemble des services Google</translation>
 <translation id="7190921792980745354">Bloquer <ph name="MEMBER_FULL_NAME" /> ?</translation>
 <translation id="7191430249889272776">L'onglet a été ouvert en arrière-plan.</translation>
 <translation id="7192397795254933433">{NUM_PASSWORDS,plural, =1{Vous devriez le modifier immédiatement}one{Vous devriez le modifier immédiatement}other{Vous devriez les modifier immédiatement}}</translation>
@@ -1780,7 +1779,6 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />supprimez les données Chro
 <translation id="8540136935098276800">Saisissez une URL dont le format est correct</translation>
 <translation id="854522910157234410">Ouvrir cette page</translation>
 <translation id="8547466829003330976">Examiner un PDF avec l'IA</translation>
-<translation id="855081842937141170">Épingler l'onglet</translation>
 <translation id="8551513938758868521">Verrouiller les onglets de navigation privée quand vous fermez Chrome</translation>
 <translation id="8559961053328923750">Chrome limite la quantité totale de données que les sites peuvent partager via le navigateur pour mesurer les performances des annonces</translation>
 <translation id="8559990750235505898">Proposer de traduire les pages dans d'autres langues</translation>
@@ -1943,7 +1941,7 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />supprimez les données Chro
 <translation id="939598580284253335">Saisir la phrase secrète</translation>
 <translation id="945522503751344254">Envoyer un commentaire</translation>
 <translation id="95817756606698420">Chrome peut utiliser <ph name="BEGIN_BOLD" />Sogou<ph name="END_BOLD" /> pour les recherches effectuées en Chine. Vous pouvez modifier cette option dans les <ph name="BEGIN_LINK" />paramètres<ph name="END_LINK" />.</translation>
-<translation id="961856697154696964">Supprimer les données de navigation</translation>
+<translation id="961856697154696964">Suppr. données navigation</translation>
 <translation id="963246339335003378">Ouvrir le gestionnaire de tâches</translation>
 <translation id="966131775676567255">Suppression des données du compte…</translation>
 <translation id="970715775301869095"><ph name="MINUTES" /> minutes restantes</translation>

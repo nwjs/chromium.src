@@ -37,18 +37,22 @@ OmniboxPopupPresenterBase::~OmniboxPopupPresenterBase() {
 }
 
 void OmniboxPopupPresenterBase::Show() {
+  if (IsShown()) {
+    return;
+  }
+
   EnsureWidgetCreated();
 
-  widget_->ShowInactive();
-
   if (auto* content = GetWebUIContent()) {
-    SetWidgetContentHeight(content->GetPreferredSize().height());
+    content->ShowUI();
+
+    widget_->ShowInactive();
+
     content->GetWebContents()->WasShown();
     if (ShouldReceiveFocus()) {
       widget_->Activate();
       content->RequestFocus();
       content->GetWebContents()->Focus();
-      content->ShowUI();
     }
   }
 }
@@ -58,7 +62,7 @@ void OmniboxPopupPresenterBase::Hide() {
   if (widget_ && widget_->ShouldHandleNativeWidgetActivationChanged(false)) {
     widget_->Hide();
     if (auto* content = GetWebUIContent()) {
-      content->CloseUI();
+      content->OnWidgetClosed();
     }
   }
 }

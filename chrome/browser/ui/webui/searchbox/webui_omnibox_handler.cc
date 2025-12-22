@@ -116,6 +116,11 @@ void WebuiOmniboxHandler::OnResultChanged(AutocompleteController* controller,
 }
 
 void WebuiOmniboxHandler::OnKeywordStateChanged(bool is_keyword_selected) {
+  // Ignore the call until the page remote is bound and ready to receive calls.
+  if (!IsRemoteBound()) {
+    return;
+  }
+
   page_->SetKeywordSelected(is_keyword_selected);
 }
 
@@ -175,6 +180,14 @@ void WebuiOmniboxHandler::ShowContextMenu(const gfx::Point& point) {
   if (embedder_) {
     embedder_->ShowContextMenu(point, nullptr);
   }
+}
+
+void WebuiOmniboxHandler::OnShow() {
+  // Ignore the call until the page remote is bound and ready to receive calls.
+  if (!IsRemoteBound()) {
+    return;
+  }
+  page_->OnShow();
 }
 
 std::optional<searchbox::mojom::AutocompleteMatchPtr>

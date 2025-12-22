@@ -191,7 +191,7 @@
 <translation id="1700629756560807968">Đã chọn <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> dấu trang</translation>
 <translation id="1709916727352927457">Xoá khoá đăng nhập</translation>
 <translation id="1715515772563243997">Nếu tin tưởng <ph name="SITE" />, bạn có thể sử dụng mật khẩu đã lưu để đăng nhập.</translation>
-<translation id="1718835860248848330">Một giờ qua</translation>
+<translation id="1718835860248848330">1 giờ qua</translation>
 <translation id="1728549374069268714">Dán và truy cập</translation>
 <translation id="1732468323901456775">Bật thông báo cho <ph name="MODULE_NAME" /></translation>
 <translation id="1740468249224277719">Nhấn đúp để cài đặt.</translation>
@@ -1181,9 +1181,9 @@
 <translation id="5585019845078534178">Thẻ</translation>
 <translation id="5595485650161345191">Chỉnh sửa địa chỉ</translation>
 <translation id="559567008082979829">Thiết lập để các tệp bạn tải xuống sẽ bị xoá sau một tháng.</translation>
-<translation id="5596627076506792578">Tùy chọn khác</translation>
+<translation id="5596627076506792578">Tuỳ chọn khác</translation>
 <translation id="560322036295180549">Do tổ chức của bạn tắt</translation>
-<translation id="5611398002774823980">Lưu trong tài khoản</translation>
+<translation id="5611398002774823980">Lưu vào tài khoản</translation>
 <translation id="561269594905823128">Nhấn vào <ph name="BEGIN_BOLD" />Chọn tệp của bạn<ph name="END_BOLD" /></translation>
 <translation id="5613297089029360427">Sắp xếp theo mới nhất</translation>
 <translation id="5614553682702429503">Lưu mật khẩu?</translation>
@@ -2184,7 +2184,7 @@
 <translation id="926455622548529175">Đổi và xoá</translation>
 <translation id="929748059769569925">Văn bản được đánh dấu</translation>
 <translation id="932305336591073205">{count,plural, =1{Đóng thẻ}other{Đóng các thẻ}}</translation>
-<translation id="932327136139879170">Trang chủ</translation>
+<translation id="932327136139879170">Nhà riêng</translation>
 <translation id="939472100615258482">Trang hiện tại</translation>
 <translation id="939598580284253335">Nhập cụm mật khẩu</translation>
 <translation id="939736085109172342">Thư mục mới</translation>

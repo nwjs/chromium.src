@@ -10,6 +10,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/webui/searchbox/webui_omnibox_handler.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/view.h"
@@ -76,6 +77,9 @@ class OmniboxPopupPresenterBase {
   }
 
   views::Widget* GetWidget() const { return widget_.get(); }
+
+  // The height of the popup content. Can be 0 if not specified.
+  int content_height_ = 0;
 
  private:
   friend class OmniboxPopupViewWebUITest;

@@ -235,11 +235,13 @@ AimEligibilityService::AimEligibilityService(
     PrefService& pref_service,
     TemplateURLService* template_url_service,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-    signin::IdentityManager* identity_manager)
+    signin::IdentityManager* identity_manager,
+    bool is_off_the_record)
     : pref_service_(pref_service),
       template_url_service_(template_url_service),
       url_loader_factory_(url_loader_factory),
-      identity_manager_(identity_manager) {
+      identity_manager_(identity_manager),
+      is_off_the_record_(is_off_the_record) {
   if (base::FeatureList::IsEnabled(omnibox::kAimEnabled)) {
     Initialize();
   }
@@ -281,8 +283,7 @@ bool AimEligibilityService::IsAimLocallyEligible() const {
   }
 
   // Always check Google DSE and Policy requirements.
-  if (!search::DefaultSearchProviderIsGoogle(template_url_service_) ||
-      !IsAimAllowedByPolicy(&pref_service_.get())) {
+  if (!IsAimAllowedByPolicyAndDse()) {
     return false;
   }
 
@@ -330,6 +331,10 @@ bool AimEligibilityService::IsDeepSearchEligible() const {
 }
 
 bool AimEligibilityService::IsCreateImagesEligible() const {
+  if (is_off_the_record_) {
+    return false;
+  }
+
   if (!IsAimEligible()) {
     return false;
   }
@@ -608,6 +613,11 @@ void AimEligibilityService::OnServerEligibilityResponse(
 
   UpdateMostRecentResponse(response_proto);
   LogEligibilityResponse(request_source);
+}
+
+bool AimEligibilityService::IsAimAllowedByPolicyAndDse() const {
+  return search::DefaultSearchProviderIsGoogle(template_url_service_) &&
+         IsAimAllowedByPolicy(&pref_service_.get());
 }
 
 std::string AimEligibilityService::GetHistogramNameSlicedByRequestSource(

@@ -95,7 +95,7 @@
 <translation id="11635448457105324">Botón Administrar direcciones: actívalo para agregar y administrar direcciones en la configuración de Chrome</translation>
 <translation id="1165039591588034296">Error</translation>
 <translation id="1165174597379888365">Se visitó una página</translation>
-<translation id="1165813024716836071">{COUNT,plural, =0{Ninguno}=1{De 1 sitio (no saldrás de tu Cuenta de Google)}other{De # sitios (no saldrás de tu Cuenta de Google)}}</translation>
+<translation id="1165813024716836071">{COUNT,plural, =0{Ninguno}=1{De 1 sitio (no saldrás de tu Cuenta de Google)}other{De # sitio (no saldrás de tu Cuenta de Google)}}</translation>
 <translation id="1167877250265821930">No se pudo descargar <ph name="LANGUAGE" /></translation>
 <translation id="1173894706177603556">Cambiar nombre</translation>
 <translation id="1174644974616730562">Sobre chino n.º 1</translation>
@@ -181,7 +181,7 @@ De lo contrario, la configuración de privacidad bloqueará esta acción. Esto p
 <translation id="1292701964462482250">"Un software en tu computadora evita que Chrome se conecte de forma segura a la Web" (solo en computadoras con Windows)</translation>
 <translation id="1293556467332435079">Archivos</translation>
 <translation id="1293797321964802402">Sobre de 22.8 × 27.9 cm</translation>
-<translation id="129553762522093515">Cerrado recientemente</translation>
+<translation id="129553762522093515">Cerradas recientemente</translation>
 <translation id="1296930489679394997">Ofertas</translation>
 <translation id="1297814096526086484">¿Quieres bloquear el teclado y el mouse?</translation>
 <translation id="1297832388362139384">Verde 1</translation>
@@ -2196,7 +2196,7 @@ De lo contrario, la configuración de privacidad bloqueará esta acción. Esto p
 <translation id="457875822857220463">Entrega</translation>
 <translation id="4579699065574932398">Actividad bancaria</translation>
 <translation id="4582595824823167856">Recibir un mensaje de texto</translation>
-<translation id="4584094413232466841">¿Quieres quitar esta información de la función autocompletar de Chrome?</translation>
+<translation id="4584094413232466841">¿Quieres quitar esta información de la función Autocompletar de Chrome?</translation>
 <translation id="4586607503179159908">Se verificó la forma de pago</translation>
 <translation id="4587425331216688090">¿Confirmas que quieres quitar la dirección de Chrome?</translation>
 <translation id="459089498662672729">La política del administrador no recomienda pegar contenido de <ph name="ORIGIN_NAME" /> en esta ubicación</translation>
@@ -2314,7 +2314,7 @@ De lo contrario, la configuración de privacidad bloqueará esta acción. Esto p
 <translation id="4771249073710170730">Radiocontrol y modelismo</translation>
 <translation id="4771973620359291008">Se ha producido un error desconocido.</translation>
 <translation id="4774055414220872623">Suministros para actividades artísticas y manualidades</translation>
-<translation id="477945296921629067">{NUM_POPUPS,plural, =1{Se bloqueó una ventana emergente}other{Se bloquearon # vent. emergentes}}</translation>
+<translation id="477945296921629067">{NUM_POPUPS,plural, =1{Se bloqueó una ventana emergente}other{# pop-ups blocked}}</translation>
 <translation id="4780320432697076749">Software de fotografía</translation>
 <translation id="4780366598804516005">Buzón 1</translation>
 <translation id="4785376858512657294">Administrar la Cuenta de Google</translation>
@@ -3901,7 +3901,7 @@ Detalles adicionales:
 <translation id="7403392780200267761">Compartir esta pestaña con el vínculo, creando un código QR, transmitiendo la pestaña y más</translation>
 <translation id="7403591733719184120">Tu <ph name="DEVICE_NAME" /> está administrado</translation>
 <translation id="7405878640835614059"><ph name="ENROLLMENT_DOMAIN" /> instaló aplicaciones para funciones adicionales. Las aplicaciones tienen acceso a algunos de tus datos.</translation>
-<translation id="740691708085211707">¿Quieres quitar la dirección de trabajo de la función autocompletar de Chrome?</translation>
+<translation id="740691708085211707">¿Quieres quitar la dirección de trabajo de la función Autocompletar de Chrome?</translation>
 <translation id="7407424307057130981">&lt;p&gt;Se muestra este error si tienes el software Superfish en tu computadora con Windows.&lt;/p&gt;
       &lt;p&gt;Realiza estos pasos para inhabilitar el software de forma temporal a fin de que puedas acceder a la Web. Necesitarás privilegios de administrador.&lt;/p&gt;
       &lt;ol&gt;
@@ -4001,7 +4001,7 @@ Detalles adicionales:
 <translation id="7534987659046836932">Sobre C7</translation>
 <translation id="7535087603100972091">Valor</translation>
 <translation id="753556296624075801">Con la tecnología de Google</translation>
-<translation id="753713322968419914">¿Quieres quitar la dirección de casa de la función autocompletar de Chrome?</translation>
+<translation id="753713322968419914">¿Quieres quitar la dirección de casa de la función Autocompletar de Chrome?</translation>
 <translation id="7537536606612762813">Obligatoria</translation>
 <translation id="7541043894191476250">Tareas contextuales</translation>
 <translation id="7543525346216957623">Solicita permiso a tu madre o padre</translation>
@@ -4309,7 +4309,7 @@ Detalles adicionales:
 <translation id="8037117624646282037">Quién usó el dispositivo recientemente</translation>
 <translation id="803771048473350947">Archivo</translation>
 <translation id="8038182528865038593">Rojo 2</translation>
-<translation id="8041089156583427627">Enviar comentario</translation>
+<translation id="8041089156583427627">Enviar comentarios</translation>
 <translation id="8041940743680923270">Usar configuración global predeterminada (Preguntar)</translation>
 <translation id="8043255123207491407">Ver los términos y condiciones del vendedor</translation>
 <translation id="8044986521421349135">Tu pestaña más reciente</translation>

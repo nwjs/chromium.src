@@ -1803,7 +1803,7 @@ Chcete-li spravovat nastavení tohoto účtu, nainstalujte si do zařízení apl
 <translation id="222115440608612541">Přepnutí motivů při východu nebo západu slunce</translation>
 <translation id="2221261048068091179"><ph name="FIRST_SWITCH" />, <ph name="SECOND_SWITCH" /></translation>
 <translation id="222201875806112242">Nepojmenovaný zdroj médií</translation>
-<translation id="2224337661447660594">Nejste připojeni k internetu</translation>
+<translation id="2224337661447660594">Nemáte připojení k internetu</translation>
 <translation id="2224444042887712269">Toto nastavení patří uživateli <ph name="OWNER_EMAIL" />.</translation>
 <translation id="2224551243087462610">Upravit název složky</translation>
 <translation id="2225927550500503913">Virtuální karta je zapnutá</translation>
@@ -2735,7 +2735,7 @@ Chcete-li spravovat nastavení tohoto účtu, nainstalujte si do zařízení apl
 <translation id="2849936225196189499">Kritické</translation>
 <translation id="285033512555869047">Zavřeno</translation>
 <translation id="2850541429955027218">Přidat motiv</translation>
-<translation id="2851291081585704741">Nejste připojeni k internetu</translation>
+<translation id="2851291081585704741">Nemáte připojení k internetu</translation>
 <translation id="2852045827873867442">Je vyžadováno připojení k internetu.</translation>
 <translation id="285237063405807022">(načítání)</translation>
 <translation id="2853121255651601031">Heslo uloženo</translation>
@@ -5814,7 +5814,7 @@ Oddálení provedete stisknutím kláves Ctrl + Alt + Snížit jas.</translation
 <translation id="4994754230098574403">Nastavování</translation>
 <translation id="4995676741161760215">Zapnuto, rozšíření povoleno</translation>
 <translation id="4996851818599058005">{NUM_VMS,plural, =0{Nebyly nalezeny žádné virtuální počítače typu <ph name="VM_TYPE" />}=1{Byl nalezen 1 virtuální počítač typu <ph name="VM_TYPE" />: <ph name="VM_NAME_LIST" />}few{Byly nalezeny {NUM_VMS} virtuální počítače typu <ph name="VM_TYPE" />: <ph name="VM_NAME_LIST" />}many{Bylo nalezeno {NUM_VMS} virtuálního počítače typu <ph name="VM_TYPE" />: <ph name="VM_NAME_LIST" />}other{Bylo nalezeno {NUM_VMS} virtuálních počítačů typu <ph name="VM_TYPE" />: <ph name="VM_NAME_LIST" />}}</translation>
-<translation id="4997086284911172121">Nejste připojeni k internetu.</translation>
+<translation id="4997086284911172121">Nemáte připojení k internetu.</translation>
 <translation id="4998430619171209993">Zapnuto</translation>
 <translation id="4999804342505941663">Zapnout režim Nerušit</translation>
 <translation id="5001526427543320409">Soubory cookie třetích stran</translation>
@@ -6072,7 +6072,7 @@ Oddálení provedete stisknutím kláves Ctrl + Alt + Snížit jas.</translation
 <translation id="5184209580557088469">Lístek s tímto uživatelským jménem již existuje</translation>
 <translation id="5184662919967270437">Aktualizace zařízení</translation>
 <translation id="5185386675596372454">Nejnovější verze rozšíření <ph name="EXTENSION_NAME" /> byla zakázána, protože vyžaduje další oprávnění.</translation>
-<translation id="5185500136143151980">Nejste připojeni k internetu</translation>
+<translation id="5185500136143151980">Nemáte připojení k internetu</translation>
 <translation id="5186362203408605578">Naskenováním QR kódu použijte jiné zařízení</translation>
 <translation id="5186381005592669696">Přizpůsobte si u podporovaných aplikací jazyk zobrazení</translation>
 <translation id="5186788525428341874">Tento přístupový klíč můžete použít k rychlejšímu přihlašování na svých zařízeních. Uloží se do Správce hesel Google pro účet <ph name="ACCOUNT_NAME" />.</translation>
@@ -6370,7 +6370,6 @@ Oddálení provedete stisknutím kláves Ctrl + Alt + Snížit jas.</translation
 <translation id="5398497406011404839">Skryté záložky</translation>
 <translation id="5398572795982417028">Odkaz na stránku mimo rozsah, limit je <ph name="MAXIMUM_PAGE" /></translation>
 <translation id="539882584649709174">Pomůže vám s psaním krátkých textů pro různé věci na webu, jako jsou recenze</translation>
-<translation id="5400068721524309244">Při sdílení karet se jejich obsah a adresy URL odesílají do Googlu</translation>
 <translation id="5400196580536813396">Není povoleno vyhledávat ani používat tiskárny přístupné z vašeho zařízení</translation>
 <translation id="5400836586163650660">Šedá</translation>
 <translation id="5402367795255837559">Braillovo písmo</translation>
@@ -7708,7 +7707,6 @@ K této akci lze přiřadit několik přepínačů.</translation>
 <translation id="6336038146639916978">Web <ph name="MANAGER" /> deaktivoval ladění ADB. Zařízení <ph name="DEVICE_TYPE" /> bude do 24 hodin resetováno. Zálohujte soubory, které si chcete ponechat.</translation>
 <translation id="6336194758029258346">Jazyk aplikace</translation>
 <translation id="6337543438445391085">Některé osobní údaje mohou být v datech přesto zahrnuty. Exportované soubory si zkontrolujte.</translation>
-<translation id="6338554362382763574">Při prohlížení můžete Gemini snadno pokládat otázky týkající se sdílených karet</translation>
 <translation id="6338968693068997776">Přidat zařízení USB</translation>
 <translation id="6339668969738228384">Vytvořit nový profil pro uživatele <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6340071272923955280">Internet Printing Protocol (IPPS)</translation>
@@ -8330,7 +8328,6 @@ Máte # dalších prolomených hesel. Správce hesel Google doporučuje ihned ta
     <ph name="BEGIN_PARAGRAPH2" />Tuto službu můžete vypnout v Nastavení.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="6781978626986383437">Zálohování kontejneru systému Linux bylo zrušeno</translation>
 <translation id="6782067259631821405">Neplatný kód PIN</translation>
-<translation id="6782219876520622071">Konverzace o sdílených kartách můžou vidět kontroloři, kteří pomáhají Gemini vylepšovat</translation>
 <translation id="6783036716881942511">Zapomenout toto zařízení?</translation>
 <translation id="6783667414610055871">Nastavení Microsoft OneDrive</translation>
 <translation id="6784523122863989144">Profil je podporován</translation>

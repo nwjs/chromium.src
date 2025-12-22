@@ -193,7 +193,7 @@
 <translation id="1825772852827001597">系統不會加密保護 Google Pay 中的付款方式和地址，也不會同步處理 Chrome 中的瀏覽記錄。
 只有知道通關密語的人才能讀取你的加密資料。系統不會將通關密語傳送給 Google，Google 也不會儲存通關密語。如果忘記通關密語或想變更這項設定，請<ph name="BEGIN_LINK" />刪除帳戶中的 Chrome 資料<ph name="END_LINK" />。</translation>
 <translation id="1829244130665387512">在網頁中尋找</translation>
-<translation id="1832459821645506983">好，我同意</translation>
+<translation id="1832459821645506983">啟用同步功能</translation>
 <translation id="1845958458910716240">如果有最近未造訪的網站，可以允許 Chrome 移除權限，保護你的資料</translation>
 <translation id="1850996571200618383">{NUM_REVOKED_PERMISSIONS,plural, =1{Chrome 已停止接收這個網站的通知。你可以查看及管理。}other{Chrome 已停止接收這些網站的通知。你可以查看及管理。}}</translation>
 <translation id="1871098866036088250">在 Chrome 瀏覽器中開啟</translation>
@@ -244,7 +244,6 @@
 <translation id="2063047797624276601">貴機構已開啟安全瀏覽強化防護功能</translation>
 <translation id="2065944887543506430">{FILE_COUNT,plural, =1{無法完成 1 項下載作業}other{無法完成 # 項下載作業}}</translation>
 <translation id="2067805253194386918">文字</translation>
-<translation id="2074527029802029717">取消分頁固定</translation>
 <translation id="2079545284768500474">復原</translation>
 <translation id="2082238445998314030">第 <ph name="RESULT_NUMBER" /> 個結果，共 <ph name="TOTAL_RESULTS" /> 個</translation>
 <translation id="2088833076121753253">如要完成自動填入設定程序，請立即重新啟動 Chrome。你的分頁會自動重新開啟。</translation>
@@ -570,7 +569,7 @@
 <translation id="3519014757432845220">與 Google 分享通知內容和網站網址，協助改進垃圾內容防護功能。內容可能會送交專人審查。</translation>
 <translation id="3521388823983121502">無法繼續使用「<ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" />」</translation>
 <translation id="3522247891732774234">有可用的更新。更多選項</translation>
-<translation id="3523789730715594198">你隨時可以透過「設定」停止同步作業。Google 可能會根據你的歷史記錄，在 Google 搜尋和其他服務中提供個人化體驗。</translation>
+<translation id="3523789730715594198">你隨時可以前往「設定」停止同步。Google 可能會根據你的歷史記錄，在 Google 搜尋和其他服務中提供個人化體驗。</translation>
 <translation id="3524138585025253783">開發人員 UI</translation>
 <translation id="3524334353996115845">讓 <ph name="ORIGIN" /> 驗證你的身分</translation>
 <translation id="3527085408025491307">資料夾</translation>
@@ -707,7 +706,7 @@
 <translation id="4170011742729630528">服務無法使用，請稍後再試。</translation>
 <translation id="4177222230309051052">取得所有書籤</translation>
 <translation id="4177501066905053472">廣告主題</translation>
-<translation id="4180726336228139707">僅在這部裝置上</translation>
+<translation id="4180726336228139707">僅儲存到這部裝置</translation>
 <translation id="4181841719683918333">語言</translation>
 <translation id="4188221736490993796">按 Z 到 A 排序</translation>
 <translation id="4195643157523330669">在新分頁中開啟</translation>
@@ -1237,7 +1236,7 @@
 <translation id="6399363707848566877">現在可以透過這個選項輕鬆將分頁新增到群組</translation>
 <translation id="6401458660421980302">如要將這個分頁傳送到其他裝置，請在該裝置上登入 Chrome</translation>
 <translation id="6404511346730675251">編輯書籤</translation>
-<translation id="6406506848690869874">同步</translation>
+<translation id="6406506848690869874">同步處理</translation>
 <translation id="6408370409308816490"><ph name="TAB_TITLE" />，選取的固定無痕分頁，正在分享內容</translation>
 <translation id="6410883413783534063">開啟分頁即可同時造訪不同的網頁</translation>
 <translation id="6411009031428071896">聆聽動態消息</translation>
@@ -1304,7 +1303,7 @@
 <translation id="6649642165559792194">預覽圖片 <ph name="BEGIN_NEW" />新功能<ph name="END_NEW" /></translation>
 <translation id="666731172850799929">在「<ph name="APP_NAME" />」中開啟</translation>
 <translation id="6671495933530132209">複製圖片</translation>
-<translation id="6672697278890207089">請輸入你的複雜密碼</translation>
+<translation id="6672697278890207089">請輸入通關密語</translation>
 <translation id="6672917148207387131">新增 <ph name="DOMAIN" /></translation>
 <translation id="6674571176963658787">如要開始同步處理，請輸入通關密語</translation>
 <translation id="6676927815633975364">登入這個網站和 Chrome</translation>
@@ -1315,7 +1314,7 @@
 <translation id="6710213216561001401">返回</translation>
 <translation id="671481426037969117">「<ph name="FQDN" />」計時器已結束計時，將於明天重新開始。</translation>
 <translation id="671928215901716392">鎖定螢幕</translation>
-<translation id="6723740634201835758">在你的 Google 帳戶中</translation>
+<translation id="6723740634201835758">儲存到你的 Google 帳戶</translation>
 <translation id="6734310707649923383">系統會顯示造訪過的網頁，你也可以從歷史記錄中刪除這些網頁</translation>
 <translation id="6737429434215739253"><ph name="TAB_TITLE" />，固定的無痕分頁，正在錄製媒體</translation>
 <translation id="6738867403308150051">下載中…</translation>
@@ -1762,7 +1761,7 @@
 <translation id="8449781591250785734">{NUM_SITES,plural, =1{已移除 1 個網站的權限}other{已移除 # 個網站的權限}}</translation>
 <translation id="8453310803815879010">啟動恐龍遊戲</translation>
 <translation id="8455675988389029454">在任何裝置上存取書籤、密碼及其他設定</translation>
-<translation id="8458413889418591446">如要快速重新造訪瀏覽過的網站，可以同步歷史記錄和分頁</translation>
+<translation id="8458413889418591446">如要快速造訪先前瀏覽的網站，請同步處理歷史記錄和分頁</translation>
 <translation id="84594714173170813">請繼續使用 Google 帳戶中的 Chrome 資料</translation>
 <translation id="8460448946170646641">查看最重要的隱私權和安全性控制項</translation>
 <translation id="8473863474539038330">地址和其他資訊</translation>
@@ -1780,7 +1779,6 @@
 <translation id="8540136935098276800">請輸入正確格式的網址</translation>
 <translation id="854522910157234410">開啟以下網頁</translation>
 <translation id="8547466829003330976">使用 AI 審查 PDF</translation>
-<translation id="855081842937141170">固定分頁</translation>
 <translation id="8551513938758868521">退出 Chrome 時鎖定無痕分頁</translation>
 <translation id="8559961053328923750">對於收集用來評估廣告成效的資料，Chrome 會限制網站可透過瀏覽器分享的資料總量</translation>
 <translation id="8559990750235505898">詢問是否將網頁內容翻譯成其他語言</translation>

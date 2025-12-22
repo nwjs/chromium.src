@@ -309,7 +309,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'src_internal_revision': 'fc21730def4a4a06358353f5e73d8a308d4d93e1',
+  'src_internal_revision': '47b813be65155efd29c2259761f831e793db882f',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and whatever else without interference from each other.
@@ -317,11 +317,11 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': 'beee9f5cafde91bbd086077a11db16cb9768e62a',
+  'v8_revision': '326f5f8cad3f0e436c8ea8f82a6894936a32e860',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling ANGLE
   # and whatever else without interference from each other.
-  'angle_revision': '9b75aecb1fa769e357d1dad2614228b6a04ddee6',
+  'angle_revision': '2dfb5b7603d09c1d06f9d7a894752431d98b9a3e',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling SwiftShader
   # and whatever else without interference from each other.
@@ -401,7 +401,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling devtools-frontend
   # and whatever else without interference from each other.
-  'devtools_frontend_revision': '4190a105897e986349694cae685b51054bf2dc51',
+  'devtools_frontend_revision': 'e4dd1d1d96b706a33ae7d60237d3cdcd58294e4c',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling libprotobuf-mutator
   # and whatever else without interference from each other.
@@ -425,7 +425,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling feed
   # and whatever else without interference from each other.
-  'dawn_revision': 'e1ce227ebf75378c5f60a9d531579982bcdd93ee',
+  'dawn_revision': '479f62d2194fd6e44c37d07654ca6e41c42bd332',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling feed
   # and whatever else without interference from each other.
@@ -1208,7 +1208,7 @@ deps = {
       'packages': [
           {
               'package': 'chromium/chrome/android/orderfiles/arm64',
-              'version': '7v8HgXAKdBuqqepEHUST-b8ZMNuOMmwZj0AVZ1_glGYC',
+              'version': 'ckVzGHsO2CV2ophXRZvY-jKWSNzB4Jzd6sBf6p0oXP4C',
           },
       ],
       'condition': 'checkout_android and non_git_source',
@@ -1219,7 +1219,7 @@ deps = {
       'packages': [
           {
               'package': 'chromium/android_webview/tools/orderfiles/arm',
-              'version': '5qW62Pde3jzVfNjQGiYglphl7P-1yYhL-uHiPEnnjZIC',
+              'version': 'NoXyrSZmjQiOEJ02JJaQAqk9Pl1s9S5g2FfqHnpStYEC',
           },
       ],
       'condition': 'checkout_android and non_git_source',
@@ -1230,7 +1230,7 @@ deps = {
       'packages': [
           {
               'package': 'chromium/android_webview/tools/orderfiles/arm64',
-              'version': 'NYYrILcjRn9bPw2ImcenBWP8KsU7ohvkPHTUe7t_T2AC',
+              'version': 'uubWWMKj5otPYsGZ4hg9JA2j5ObIlJQ6aGV_Xq-oPFQC',
           },
       ],
       'condition': 'checkout_android and non_git_source',
@@ -2983,7 +2983,7 @@ deps = {
     Var('chromium_git') + '/webpagereplay.git' + '@' + Var('webpagereplay_revision'),
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + 'a5751574a386ba0ba80b8c62201977f6aab6c225',
+    Var('webrtc_git') + '/src.git' + '@' + '4e31d1a1ff41bb1b79609c83f998458a111a149c',
 
   # Wuffs' canonical repository is at github.com/google/wuffs, but we use
   # Skia's mirror of Wuffs, the same as in upstream Skia's DEPS file.
@@ -3764,7 +3764,7 @@ deps = {
 
   'src/ios_internal':  {
       'url': Var('chrome_git') + '/chrome/ios_internal.git' + '@' +
-        '6cde4cfc093ea04c33cbd37675d471a841aa5451',
+        '8dacd44b69d1ad3145e56db6f3544f0d344eeae4',
       'condition': 'checkout_ios and checkout_src_internal',
   },
 

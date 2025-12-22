@@ -438,7 +438,7 @@ Aksi halde bu işlem gizlilik ayarlarınız tarafından engellenecek. Buna izin 
 <translation id="1711234383449478798"><ph name="POLICY_NAME" />, <ph name="VALUE" /> olarak ayarlanmadığından yok sayıldı.</translation>
 <translation id="1712552549805331520"><ph name="URL" />, verileri yerel bilgisayarınızda kalıcı olarak saklamak istiyor</translation>
 <translation id="1713628304598226412">Tepsi 2</translation>
-<translation id="1713819065634160212">Google Hesabınızdaki adresler kullanılsın ve kaydedilsin</translation>
+<translation id="1713819065634160212">Google Hesabımdaki adresler kullanılsın ve kaydedilsin</translation>
 <translation id="1714807406136741351">Göz atma modu. Formlar moduna geçip sol/sağ oku kullanarak grafikteki fiyat değişikliklerini inceleyebilirsiniz</translation>
 <translation id="1717218214683051432">Hareket sensörleri</translation>
 <translation id="1717494416764505390">Posta kutusu 3</translation>
@@ -1233,7 +1233,7 @@ Aksi halde bu işlem gizlilik ayarlarınız tarafından engellenecek. Buna izin 
 <translation id="3027915437837548462">SVG Resmi</translation>
 <translation id="3030331669969285614">Zarar veren bir değişikliği önleyen ya da geri alan bu flag'ler yalnızca sınırlı bir süre boyunca kullanılabilir.</translation>
 <translation id="3030542417256082866">Araç kaydedilsin mi?</translation>
-<translation id="3033200136993730761">Ev adresiniz, Google hizmetlerinde işlerinizi halletmenize yardımcı olabilir. Örneğin, Google Haritalar'da daha alakalı arama sonuçları ve yol tarifleri alabilirsiniz. Adresinizi <ph name="BEGIN_LINK" />Google Hesabınızda (<ph name="ACCOUNT" />)<ph name="END_LINK" /> düzenleyebilir veya silebilirsiniz.</translation>
+<translation id="3033200136993730761">Ev adresiniz, Google hizmetlerinde işlerinizi halletmenize yardımcı olabilir. Örneğin, daha alakalı Arama sonuçları ve Google Haritalar'da daha doğru yol tarifleri alabilirsiniz. Adresinizi <ph name="BEGIN_LINK" />Google Hesabınızda (<ph name="ACCOUNT" />)<ph name="END_LINK" /> düzenleyebilir veya silebilirsiniz.</translation>
 <translation id="3034526003882782781">Kaydırma ve yakınlaştırmaya izin veriliyor</translation>
 <translation id="3036894576201005614">Ev Temizlik Malzemeleri</translation>
 <translation id="3037177537145227281">Fiyat takip ediliyor</translation>
@@ -2377,7 +2377,7 @@ Aksi halde bu işlem gizlilik ayarlarınız tarafından engellenecek. Buna izin 
 <translation id="4877521229462766300">Yerleştirilmiş içeriğe izin verilsin mi?</translation>
 <translation id="4879491255372875719">Otomatik (varsayılan)</translation>
 <translation id="4880328155169081699">Kimlik kartı güncellensin mi?</translation>
-<translation id="4880827082731008257">Geçmişte arayın</translation>
+<translation id="4880827082731008257">Arama geçmişi</translation>
 <translation id="4881695831933465202">Aç</translation>
 <translation id="4881808915112408168">24 x 31,5 inç</translation>
 <translation id="4882314601499260499">Hiçbir kullanıcı politikası uygulanmadı. Kullanıcı politikaları eklemek için kuruluşunuzun <ph name="LINK_BEGIN" />alanınızı doğrulaması<ph name="LINK_END" /> gerekir.</translation>
@@ -2943,7 +2943,7 @@ Aksi halde bu işlem gizlilik ayarlarınız tarafından engellenecek. Buna izin 
 <translation id="5837220895135257862">Tekrar denemeden önce <ph name="CLOUD_PROVIDER" /> depolama alanında yer açın</translation>
 <translation id="5838278095973806738">Bu sitede hiçbir hassas bilginizi (örneğin şifrelerinizi veya kredi kartı bilgilerinizi) girmemelisiniz. Aksi takdirde bu bilgiler saldırganlar tarafından çalınabilir.</translation>
 <translation id="5838732667866024867">Grafikteki fiyat değişikliklerini incelemek için sol/sağ oku kullanabilirsiniz</translation>
-<translation id="5840318881868981258">Google Hesabınızda, <ph name="ACCOUNT" /></translation>
+<translation id="5840318881868981258">Google Hesabınıza (<ph name="ACCOUNT" />)</translation>
 <translation id="5841007907672481419"><ph name="TYPE_1" /> sitesinden</translation>
 <translation id="5841338463993781099">Hesaba kaydedilsin mi?</translation>
 <translation id="5843987376989109187">Bu dil henüz desteklenmiyor.
@@ -2979,7 +2979,7 @@ Aksi halde bu işlem gizlilik ayarlarınız tarafından engellenecek. Buna izin 
 <translation id="5898767305816764989">Beğenme düğmesi, <ph name="THUMBS_UP_SUGGESTION_BUTTON_FOCUSED_FRIENDLY_MATCH_TEXT" /> önerisini beğendiğinize dair geri bildirim göndermek için Enter tuşuna basın</translation>
 <translation id="5901630391730855834">Sarı</translation>
 <translation id="5903264686717710770">Başlık:</translation>
-<translation id="5905671155741555195">İş adresiniz, Google hizmetlerinde işlerinizi halletmenize yardımcı olabilir. Örneğin, Google Haritalar'da daha alakalı arama sonuçları ve yol tarifleri alabilirsiniz. Adresinizi <ph name="BEGIN_LINK" />Google Hesabınızda (<ph name="ACCOUNT" />)<ph name="END_LINK" /> düzenleyebilir veya silebilirsiniz.</translation>
+<translation id="5905671155741555195">İş adresiniz, Google hizmetlerinde işlerinizi halletmenize yardımcı olabilir. Örneğin, daha alakalı Arama sonuçları ve Google Haritalar'da daha doğru yol tarifleri alabilirsiniz. Adresinizi <ph name="BEGIN_LINK" />Google Hesabınızda (<ph name="ACCOUNT" />)<ph name="END_LINK" /> düzenleyebilir veya silebilirsiniz.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (senkronize edildi)</translation>
 <translation id="5910140988253729859">Otomatik doldurmayı geri al</translation>
 <translation id="5911020115933784199">Etkinlikler ve Etkinlik İlanları</translation>
@@ -4942,7 +4942,7 @@ Ek ayrıntılar:
 <translation id="9128870381267983090">Ağa bağlan</translation>
 <translation id="9131119348384879525">Gizli içerik yakalansın mı?</translation>
 <translation id="9133861214150761123">Muhasebe ve Denetim</translation>
-<translation id="9133985615769429248">Bu cihazı başkalarıyla paylaşıyorsanız kayıtlı bir şifre kullandığınızda kimliğinizi doğrulamak için ekran kilidinizi kullanabilirsiniz.</translation>
+<translation id="9133985615769429248">Bu cihazı başkalarıyla paylaşıyorsanız kayıtlı bir şifre kullandığınızda kimliğinizi doğrulamak için ekran kilidinizi kullanabilirsiniz</translation>
 <translation id="913552870853451045"><ph name="IDS_AUTOFILL_VIRTUAL_CARD_NAME_AND_LAST_FOUR_DIGITS" />, sanal kart</translation>
 <translation id="9138037198177304356">Bildirimlere izin veriliyor</translation>
 <translation id="9139318394846604261">Alışveriş</translation>

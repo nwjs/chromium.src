@@ -72,7 +72,7 @@
 <translation id="1273937721055267968">Bloquear <ph name="DOMAIN" /></translation>
 <translation id="1283039547216852943">Presiona para expandir</translation>
 <translation id="1289129165308566697">Consulta tu historial en otros dispositivos</translation>
-<translation id="129553762522093515">Cerrado recientemente</translation>
+<translation id="129553762522093515">Cerradas recientemente</translation>
 <translation id="1298077576058087471">Ahorra hasta un 60% de datos y lee las noticias de hoy</translation>
 <translation id="1303507811548703290"><ph name="DOMAIN" /> - Enviado desde <ph name="DEVICE_NAME" /></translation>
 <translation id="1310482092992808703">Agrupar pestañas</translation>
@@ -205,7 +205,7 @@ Solo alguien con tu frase de contraseña puede leer los datos encriptados. Googl
 <translation id="189358972401248634">Otros idiomas</translation>
 <translation id="1899175549411605574">Hoja inferior de la información sobre precios</translation>
 <translation id="1900260903084164610">Si continúas, aceptas las <ph name="BEGIN_TOS_LINK" />Condiciones del Servicio<ph name="END_TOS_LINK" />.</translation>
-<translation id="1904580727789512086">Las URL que visitas se guardan en tu Cuenta de Google</translation>
+<translation id="1904580727789512086">Las URLs que visitas se guardan en tu Cuenta de Google</translation>
 <translation id="1910950723001426294">La lista de opciones para compartir está cerrada.</translation>
 <translation id="191726024256261717">Revisar permisos</translation>
 <translation id="1917766536967060661">Perderás de inmediato el acceso al grupo de pestañas “<ph name="GROUP_NAME" />”, y <ph name="BLOCKED_MEMBER_FULL_NAME" /> (<ph name="BLOCKED_MEMBER_EMAIL" />) ya no podrá interactuar contigo en los servicios de Google.</translation>
@@ -244,7 +244,6 @@ Solo alguien con tu frase de contraseña puede leer los datos encriptados. Googl
 <translation id="2063047797624276601">Tu organización activó la Navegación segura mejorada</translation>
 <translation id="2065944887543506430">{FILE_COUNT,plural, =1{No se pudo realizar 1 descarga}other{No se pudieron realizar # descargas}}</translation>
 <translation id="2067805253194386918">texto</translation>
-<translation id="2074527029802029717">Anular fijación de pestaña</translation>
 <translation id="2079545284768500474">Deshacer</translation>
 <translation id="2082238445998314030">Resultado <ph name="RESULT_NUMBER" /> de <ph name="TOTAL_RESULTS" /></translation>
 <translation id="2088833076121753253">Para terminar de configurar la función Autocompletar, reinicia Chrome ahora. Las pestañas se volverán a abrir automáticamente.</translation>
@@ -859,7 +858,7 @@ Es posible que tu cuenta de Google tenga otros formularios de historial de naveg
 <translation id="4769095993849849966">Nuevo nombre de archivo</translation>
 <translation id="4769632191812288342">Recibes protección estándar</translation>
 <translation id="4773122030389014189">Compartir el grupo de pestañas “<ph name="GROUP_NAME" />”</translation>
-<translation id="4775646243557794597">Se borró <ph name="TIME_PERIOD" /></translation>
+<translation id="4775646243557794597">Período borrado: <ph name="TIME_PERIOD" /></translation>
 <translation id="4777866634702576038">¿Quieres borrar el grupo de pestañas?</translation>
 <translation id="4778653490315793244">Aún no hay nada que mostrar</translation>
 <translation id="4782929588435725897"><ph name="SEARCH_ENGINE" /> es tu motor de búsqueda predeterminado</translation>
@@ -1148,7 +1147,7 @@ Es posible que tu cuenta de Google tenga otros formularios de historial de naveg
 <translation id="6085886413119427067">Determina cómo conectarse a sitios web mediante una conexión segura</translation>
 <translation id="6087286598828478206">¿Quieres bloquear a ese miembro y salir del grupo?</translation>
 <translation id="60923314841986378"><ph name="HOURS" /> horas restantes</translation>
-<translation id="6095578583683628124">Si Google también es tu motor de búsqueda predeterminado, verás mejores sugerencias, relevantes según el contexto</translation>
+<translation id="6095578583683628124">Si Google también es tu motor de búsqueda predeterminado, verás mejores sugerencias, relacionadas con el contexto</translation>
 <translation id="6104768972315313991">Código QR generado</translation>
 <translation id="610630277578876674">Abre rápidamente vínculos en mensajes y mucho más</translation>
 <translation id="6108923351542677676">Configuración en curso…</translation>
@@ -1780,7 +1779,6 @@ Para cambiar este parámetro de configuración, <ph name="BEGIN_LINK" />borra lo
 <translation id="8540136935098276800">Ingresa una URL con el formato correcto</translation>
 <translation id="854522910157234410">Abrir esta página</translation>
 <translation id="8547466829003330976">Revisar PDF con IA</translation>
-<translation id="855081842937141170">Fijar pestaña</translation>
 <translation id="8551513938758868521">Bloquear las pestañas de incógnito cuando abandonas Chrome</translation>
 <translation id="8559961053328923750">Chrome limita la cantidad total de datos que los sitios pueden compartir a través del navegador para medir el rendimiento de los anuncios.</translation>
 <translation id="8559990750235505898">Ofrecer la traducción de páginas en otros idiomas</translation>
@@ -1914,7 +1912,7 @@ Para cambiar este parámetro de configuración, <ph name="BEGIN_LINK" />borra lo
 <translation id="9131209053278896908">Los sitios que bloqueaste aparecen aquí</translation>
 <translation id="9133397713400217035">Explorar sin conexión</translation>
 <translation id="9143389653531441385">Regístrate con <ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" /></translation>
-<translation id="9148126808321036104">Accede nuevamente</translation>
+<translation id="9148126808321036104">Volver a acceder</translation>
 <translation id="9148564897242852377">Activar o desactivar la selección de pestañas</translation>
 <translation id="9153056436992761257">Elige la posición que prefieras</translation>
 <translation id="9157212632995922070">Elige una cuenta para continuar en <ph name="SITE_ETLD_PLUS_ONE" /></translation>

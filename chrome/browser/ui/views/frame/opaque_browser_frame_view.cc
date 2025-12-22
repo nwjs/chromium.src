@@ -568,7 +568,7 @@ int OpaqueBrowserFrameView::GetIconSize() const {
 }
 
 gfx::Size OpaqueBrowserFrameView::GetBrowserViewMinimumSize() const {
-  return browser_view()->GetMinimumSize();
+  return browser_view() ? browser_view()->GetMinimumSize() : gfx::Size();
 }
 
 gfx::Size OpaqueBrowserFrameView::GetBrowserViewMaximumSize() const {

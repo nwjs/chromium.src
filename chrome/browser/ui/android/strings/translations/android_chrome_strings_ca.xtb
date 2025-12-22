@@ -244,7 +244,6 @@ Només les persones que sàpiguen la teva frase de contrasenya podran llegir les
 <translation id="2063047797624276601">La teva organització ha activat Navegació segura millorada</translation>
 <translation id="2065944887543506430">{FILE_COUNT,plural, =1{Error en 1 baixada}other{Error en # baixades}}</translation>
 <translation id="2067805253194386918">text</translation>
-<translation id="2074527029802029717">No fixis la pestanya</translation>
 <translation id="2079545284768500474">Desfés</translation>
 <translation id="2082238445998314030">Resultat <ph name="RESULT_NUMBER" /> de <ph name="TOTAL_RESULTS" /></translation>
 <translation id="2088833076121753253">Per acabar de configurar l'emplenament automàtic, reinicia Chrome ara. Les pestanyes es tornaran a obrir automàticament.</translation>
@@ -745,7 +744,7 @@ Només les persones que sàpiguen la teva frase de contrasenya podran llegir les
 <translation id="4313895677475587452">{NUM_SUSPICIOUS_NOTIFICATIONS,plural, =1{Possible contingut brossa}other{Possible contingut brossa (#)}}</translation>
 <translation id="4320177379694898372">No hi ha connexió a Internet</translation>
 <translation id="4326079409704643112">Per utilitzar i desar les dades de Chrome al teu Compte de Google, verifica la teva identitat</translation>
-<translation id="433213510553688132">S'està seguint...</translation>
+<translation id="433213510553688132">Ho seguiu...</translation>
 <translation id="4335835283689002019">La funció Navegació segura està desactivada</translation>
 <translation id="4351244548802238354">Tanca el quadre de diàleg</translation>
 <translation id="4352287748243729941">Vols fer servir la contrasenya de <ph name="PROVIDER" />?</translation>
@@ -1427,7 +1426,7 @@ Per exemple, és possible que alguns llocs web responguin a aquesta sol·licitud
 <translation id="7106762743910369165">La teva organització gestiona el navegador</translation>
 <translation id="7111394291981742152">Chrome et proporciona més control sobre els anuncis que veus i limita la informació que els llocs web poden obtenir sobre tu quan et mostren anuncis personalitzats.</translation>
 <translation id="7111822978084196600">Anomena aquesta finestra</translation>
-<translation id="7115358764509798967">Valor predeterminat del sistema</translation>
+<translation id="7115358764509798967">Predeterminat del sistema</translation>
 <translation id="7117485132243600300">Gestiona el contingut que segueixes i els temes i les cerques suggerits</translation>
 <translation id="7119984597597798764">Tanca <ph name="INSTANCE_TITLE" /></translation>
 <translation id="7136902389402789299">{NUM_SITES,plural, =1{S'han revisat els permisos per a 1 lloc web}other{S'han revisat els permisos per a # llocs web}}</translation>
@@ -1780,7 +1779,6 @@ Per canviar aquesta opció de configuració, <ph name="BEGIN_LINK" />suprimeix l
 <translation id="8540136935098276800">Introdueix un URL amb el format correcte</translation>
 <translation id="854522910157234410">Obre aquesta pàgina</translation>
 <translation id="8547466829003330976">Revisa el PDF amb IA</translation>
-<translation id="855081842937141170">Fixa la pestanya</translation>
 <translation id="8551513938758868521">Bloqueja les pestanyes d'incògnit després de sortir de Chrome</translation>
 <translation id="8559961053328923750">Chrome limita la quantitat total de dades que els llocs web poden compartir a través del navegador per mesurar el rendiment dels anuncis</translation>
 <translation id="8559990750235505898">Proposa traduir les pàgines en altres idiomes</translation>

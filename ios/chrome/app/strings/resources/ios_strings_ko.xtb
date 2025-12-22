@@ -1309,7 +1309,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="6038823991892265570">Google 스토리지 관리</translation>
 <translation id="6039429417015973673"><ph name="TITLE" />, <ph name="PUBLISHER_INFORMATION" />, <ph name="PUBLICATION_DATE" /></translation>
 <translation id="6040143037577758943">닫기</translation>
-<translation id="6042308850641462728">자세히</translation>
+<translation id="6042308850641462728">더보기</translation>
 <translation id="6045460247888249350">제목 추가</translation>
 <translation id="6052269326659653305">프로필 전환</translation>
 <translation id="605721222689873409">YY</translation>
@@ -2184,7 +2184,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="926455622548529175">전환 및 삭제</translation>
 <translation id="929748059769569925">강조 표시된 텍스트</translation>
 <translation id="932305336591073205">{count,plural, =1{탭 닫기}other{탭 닫기}}</translation>
-<translation id="932327136139879170">홈</translation>
+<translation id="932327136139879170">집</translation>
 <translation id="939472100615258482">현재 사이트</translation>
 <translation id="939598580284253335">암호 입력</translation>
 <translation id="939736085109172342">새 폴더</translation>

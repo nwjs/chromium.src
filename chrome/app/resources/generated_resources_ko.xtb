@@ -685,7 +685,7 @@
 <translation id="1462850958694534228">아이콘 업데이트 검토</translation>
 <translation id="1463112138205428654">고급 보호 기능이 <ph name="FILE_NAME" />을(를) 차단했습니다.</translation>
 <translation id="1464044141348608623">사용자가 현재 기기를 사용 중인지 사이트에서 알 수 없도록 함</translation>
-<translation id="1464047267926346987">비밀번호, 북마크 등을 저장하세요.</translation>
+<translation id="1464047267926346987">비밀번호, 북마크 등을 저장하세요</translation>
 <translation id="1464258312790801189">내 계정</translation>
 <translation id="1464597059227482327">연락처에 없는 Chromebook과 공유하는 경우 Chromebook에 'Nearby 공개 상태'가 사용 설정되어 있는지 확인하세요. 'Nearby 공개 상태'를 사용 설정하려면 오른쪽 하단을 선택하고 'Nearby 공개 상태'를 사용 설정하면 됩니다. <ph name="LINK_BEGIN" />자세히 알아보기<ph name="LINK_END" /></translation>
 <translation id="1464781208867302907">기기 환경설정을 보려면 설정으로 이동하세요.</translation>
@@ -1849,7 +1849,7 @@
 <translation id="224835741840550119">기기 정리</translation>
 <translation id="2249111429176737533">탭 창으로 열기</translation>
 <translation id="2249605167705922988">예: 1-5, 8, 11-13</translation>
-<translation id="2249635629516220541">사이트에서 광고를 표시하는 데 사용하는 정보를 맞춤설정합니다.</translation>
+<translation id="2249635629516220541">사이트에서 광고를 표시하는 데 사용하는 정보를 맞춤설정함</translation>
 <translation id="2250153645770828940">사전 삭제</translation>
 <translation id="22505994009453896">숫자 키패드로 마우스 커서 제어하기</translation>
 <translation id="2250624716625396929">이 탭에서 카메라 및 마이크를 사용 중입니다.</translation>
@@ -2673,7 +2673,7 @@
 <translation id="2799162042226656283">내 Chrome</translation>
 <translation id="2799223571221894425">다시 시작</translation>
 <translation id="2800760947029405028">이미지 업로드</translation>
-<translation id="2800996978423439835">모든 기기에 북마크, 방문기록 등을 가져오세요</translation>
+<translation id="2800996978423439835">모든 기기에 북마크 등을 가져오세요</translation>
 <translation id="2801134910297796778"><ph name="EMAIL" />에 로그인</translation>
 <translation id="2801954693771979815">화면 크기</translation>
 <translation id="2802557211515765772">관리되는 프린터가 없습니다.</translation>
@@ -5672,7 +5672,7 @@ https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="4878718769565915065">보안 키에 지문을 추가할 수 없습니다.</translation>
 <translation id="4879491255372875719">자동(기본값)</translation>
 <translation id="4880315242806573837">보안 업데이트가 곧 종료됩니다. 새 Chromebook으로 업그레이드하세요.</translation>
-<translation id="4880827082731008257">기록 검색</translation>
+<translation id="4880827082731008257">검색 기록</translation>
 <translation id="4881685975363383806">다음번에 알리지 않음</translation>
 <translation id="4881695831933465202">열기</translation>
 <translation id="4882312758060467256">이 사이트의 액세스 권한이 있습니다.</translation>
@@ -6387,7 +6387,6 @@ https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="5398497406011404839">숨겨진 북마크</translation>
 <translation id="5398572795982417028">페이지가 범위를 벗어난 경우 참고하세요. 한도는 <ph name="MAXIMUM_PAGE" />페이지입니다.</translation>
 <translation id="539882584649709174">리뷰와 같이 웹상의 짧은 형식 텍스트를 작성하는 데 도움이 됩니다.</translation>
-<translation id="5400068721524309244">탭이 공유되면 탭의 페이지 콘텐츠 및 URL이 Google로 전송됩니다.</translation>
 <translation id="5400196580536813396">기기에 액세스할 수 있는 프린터를 찾거나 사용할 수 없음</translation>
 <translation id="5400836586163650660">그레이</translation>
 <translation id="5402367795255837559">점자</translation>
@@ -7297,7 +7296,7 @@ https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="6040756649917982069">{COUNT,plural, =0{인증서 없음}=1{인증서 1개}other{인증서 {COUNT}개}}</translation>
 <translation id="6041046205544295907"><ph name="BEGIN_PARAGRAPH1" />Google의 위치 서비스는 Wi-Fi, 모바일 네트워크, 센서 등의 소스를 활용하여 기기의 위치를 추정합니다.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />기기에서 기본 위치 설정을 사용 중지하여 위치 정보를 끌 수 있습니다. 또한 위치 설정에서 위치 파악에 Wi‑Fi, 모바일 네트워크, 센서의 사용을 중지할 수도 있습니다.<ph name="END_PARAGRAPH2" /></translation>
-<translation id="6042308850641462728">자세히</translation>
+<translation id="6042308850641462728">더보기</translation>
 <translation id="604233217785584041"><ph name="SHARE_STATE" /> 이름이 지정되지 않은 그룹 - <ph name="GROUP_CONTENTS" /> - <ph name="COLLAPSED_STATE" /></translation>
 <translation id="604388835206766544">설정을 파싱할 수 없습니다.</translation>
 <translation id="6043994281159824495">지금 로그아웃</translation>
@@ -7605,7 +7604,7 @@ https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="6248988683584659830">설정 검색</translation>
 <translation id="6249200942125593849">접근성 관리</translation>
 <translation id="6250186368828697007">화면을 공유하는 동안에는 세부정보가 표시되지 않습니다.</translation>
-<translation id="6250887692313997958">분할 보기에 추가할 탭을 선택하세요</translation>
+<translation id="6250887692313997958">분할 뷰에 추가할 탭을 선택하세요</translation>
 <translation id="6251870443722440887">GDI 핸들</translation>
 <translation id="6251924700383757765">개인정보처리방침</translation>
 <translation id="625369703868467034">네트워크 상태</translation>
@@ -7728,7 +7727,6 @@ https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="6336038146639916978"><ph name="MANAGER" />(으)로 인해 ADB 디버깅이 사용 중지되었습니다. 24시간 후 <ph name="DEVICE_TYPE" /> 기기가 초기화됩니다. 유지하고 싶은 파일이 있으면 백업해 주세요.</translation>
 <translation id="6336194758029258346">앱 언어</translation>
 <translation id="6337543438445391085">일부 개인 정보는 데이터에 계속 포함될 수 있습니다. 내보낸 파일을 검토하세요.</translation>
-<translation id="6338554362382763574">탭을 탐색하는 동시에 Gemini에게 지금 공유하는 탭에 관해 손쉽게 질문할 수 있습니다.</translation>
 <translation id="6338968693068997776">USB 기기 추가</translation>
 <translation id="6339668969738228384"><ph name="USER_EMAIL_ADDRESS" />의 새 프로필을 만드세요.</translation>
 <translation id="6340071272923955280">인터넷 인쇄 프로토콜(IPPS)</translation>
@@ -8346,7 +8344,6 @@ https://support.google.com/chromebook/?p=tpm</translation>
     <ph name="BEGIN_PARAGRAPH2" />이 서비스는 설정에서 사용 중지할 수 있습니다.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="6781978626986383437">Linux 백업이 취소됨</translation>
 <translation id="6782067259631821405">잘못된 PIN</translation>
-<translation id="6782219876520622071">Gemini 개선을 위해 인적 검토자가 공유된 탭에 관한 대화를 볼 수 있습니다.</translation>
 <translation id="6783036716881942511">이 기기를 삭제하시겠습니까?</translation>
 <translation id="6783667414610055871">Microsoft OneDrive 설정</translation>
 <translation id="6784523122863989144">지원되는 프로필입니다.</translation>
@@ -10468,7 +10465,7 @@ https://support.google.com/chromebook/?p=sm</translation>
 <translation id="8230134520748321204"><ph name="ORIGIN" />의 비밀번호를 저장하시겠습니까?</translation>
 <translation id="8230326817897075865"><ph name="CREDENTIAL_TYPE" /> 삭제</translation>
 <translation id="8230446983261649357">사이트의 이미지 표시 허용 안함</translation>
-<translation id="8231438895476693774">새 분할 보기에 탭 추가</translation>
+<translation id="8231438895476693774">새 분할 뷰에 탭 추가</translation>
 <translation id="823226567613548870"><ph name="BRAND" /> 데이터 삭제</translation>
 <translation id="8233028084277069927">지금 열기</translation>
 <translation id="8234795456569844941">Google 엔지니어가 이 문제를 해결하도록 도와주세요. 프로필 오류 메시지가 표시되기 직전에 무슨 일이 있었는지 알려 주시기 바랍니다.</translation>
@@ -11947,7 +11944,7 @@ https://support.google.com/chromebook/?p=sm</translation>
 <translation id="930991362911221750"><ph name="APP_NAME" />에서 이 탭을 보도록 허용하시겠습니까?</translation>
 <translation id="931273044114601262">이 사이트에서 허용됨</translation>
 <translation id="93140074055951850">Android 앱이 중지되었습니다</translation>
-<translation id="932327136139879170">홈</translation>
+<translation id="932327136139879170">집</translation>
 <translation id="932508678520956232">인쇄를 시작할 수 없습니다.</translation>
 <translation id="933427034780221291">{NUM_FILES,plural, =1{파일이 너무 커서 보안 확인을 할 수 없습니다. 최대 50MB 크기의 파일을 업로드할 수 있습니다.}other{일부 파일이 너무 커서 보안 확인을 할 수 없습니다. 최대 50MB 크기의 파일을 업로드할 수 있습니다.}}</translation>
 <translation id="93343527085570547">법적인 이유로 콘텐츠 변경을 요청하려면 <ph name="BEGIN_LINK1" />법률 도움말 페이지<ph name="END_LINK1" />로 이동하세요. 일부 계정 및 시스템 정보가 Google에 전송될 수 있습니다. Google에서는 제공해 주신 정보를 <ph name="BEGIN_LINK2" />개인정보처리방침<ph name="END_LINK2" /> 및 <ph name="BEGIN_LINK3" />서비스 약관<ph name="END_LINK3" />에 따라 사용하여 기술적인 문제를 해결하고 서비스를 개선합니다.</translation>

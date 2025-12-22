@@ -3978,7 +3978,7 @@
 <translation id="7508577201115425418">የሰነድ እና ህትመት አገልግሎቶች</translation>
 <translation id="7510225383966760306"><ph name="BEGIN_BOLD" />ጣቢያዎች እንዴት ይህን ውሂብ እንደሚጠቀሙ፦<ph name="END_BOLD" /> ጣቢያዎች እርስዎ ስለሚወዷቸው ነገሮች መረጃን በChrome ማከማቸት ይችላሉ። ለምሳሌ፣ ስለማራቶን ስልጠና የሆነ አንድ ጣቢያ ከጎበኙ ጣቢያው የሩጫ ጫማዎች ላይ ዝንባሌ እንዳለዎት ሊወስን ይችላል። በኋላ ላይ የተለየ ጣቢያ ከጎበኙ ያ ጣቢያ በመጀመሪያው ጣቢያ የተጠቆመ የሩጫ ጫማዎች ማስታወቂያ ሊያሳይዎት ይችላል።</translation>
 <translation id="7510269639068718544">ድመቶች</translation>
-<translation id="7511955381719512146">እየተጠቀሙበት ያለው Wi-Fi  <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />ን እንዲጎበኙ ሊጠይቅዎት ይችላል።</translation>
+<translation id="7511955381719512146">እየተጠቀሙበት ያለው Wi-Fi <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />ን እንዲጎበኙ ሊጠይቅዎት ይችላል።</translation>
 <translation id="7512685745044087310">ይህ መመሪያ ወደ «እውነት» መቀናበር እና አስገዳጅ መሆን አይችልም፣ በመሆኑም ወደ የሚመከር ተለውጧል።</translation>
 <translation id="7514365320538308">አውርድ</translation>
 <translation id="7515998400212163428">Android</translation>
@@ -4019,7 +4019,7 @@
 <translation id="7564049878696755256">የ<ph name="ORG_NAME" /> መለያዎን መዳረሻ ሊያጡ ወይም የማንነት ስርቆት ሊያጋጥመዎት ይችላሉ። Chrome የይለፍ ቃልዎን አሁን እንዲቀይሩ ይመክራል።</translation>
 <translation id="7564667064360547717">ሸሚዞች እና ከላይ የሚለበሱ</translation>
 <translation id="7567204685887185387">ይህ አገልጋይ <ph name="DOMAIN" /> መሆኑን ሊያረጋግጥ አልቻለም፤ የደህንነት እውቅና ማረጋገጫው በተጭበረበረ ሁኔታ ተሰጥቶ ሊሆን ይችላል። ይሄ በተሳሳተ አወቃቀር ወይም አንድ አጥቂ ግንኙነትዎን በመጥለፉ የተከሰተ ሊሆን ይችላል።</translation>
-<translation id="7568616151991626879">Google Chrome <ph name="APP_NAME" /> ላይ የይለፍ ቃልዎን ለመሙላት እየሞከረ ነው።</translation>
+<translation id="7568616151991626879">Google Chrome <ph name="APP_NAME" /> ላይ የይለፍ ቃልህን ለመሙላት እየሞከረ ነው።</translation>
 <translation id="7569072768465750771">{COUNT,plural, =0{ምንም}=1{በዚህ መሣሪያ ላይ 1 ትር}one{በዚህ መሣሪያ ላይ # ትር}other{በዚህ መሣሪያ ላይ # ትሮች}}</translation>
 <translation id="7569490014721427265">ጎልፍ</translation>
 <translation id="7569952961197462199">ክሬዲት ካርድ ከChrome ይወገድ?</translation>
