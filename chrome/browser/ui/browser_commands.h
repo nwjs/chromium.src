@@ -107,9 +107,8 @@ void Stop(Browser* browser);
 void NewWindow(BrowserWindowInterface* browser);
 void NewIncognitoWindow(Profile* profile);
 void CloseWindow(BrowserWindowInterface* browser);
-content::WebContents& NewTab(
-    Browser* browser,
-    NewTabTypes context = NewTabTypes::NEW_TAB_COMMAND);
+content::WebContents& NewTab(Browser* browser,
+                             NewTabTypes context = NewTabTypes::kNewTabCommand);
 void NewTabToRight(Browser* browser);
 void CloseTab(BrowserWindowInterface* browser);
 bool CanZoomIn(content::WebContents* contents);
@@ -259,7 +258,7 @@ void FindPrevious(Browser* browser);
 void FindInPage(Browser* browser, bool find_next, bool forward_direction);
 void ShowTabSearch(BrowserWindowInterface* bwi);
 void CloseTabSearch(Browser* browser);
-void ShowContextualTasksSidePanel(BrowserWindowInterface* browser);
+void ToggleContextualTasksSidePanel(BrowserWindowInterface* browser);
 void ToggleVerticalTabs(Browser* browser);
 void ShowTabDeclutter(Browser* browser);
 bool CanCloseFind(Browser* browser);

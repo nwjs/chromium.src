@@ -131,20 +131,6 @@ IdentityCredentialDelegate* AutofillClient::GetIdentityCredentialDelegate() {
   return nullptr;
 }
 
-void AutofillClient::OfferPlusAddressCreation(
-    const url::Origin& main_frame_origin,
-    bool is_manual_fallback,
-    PlusAddressCallback callback) {}
-
-void AutofillClient::ShowPlusAddressError(
-    PlusAddressErrorDialogType error_dialog_type,
-    base::OnceClosure on_accepted) {}
-
-void AutofillClient::ShowPlusAddressAffiliationError(
-    std::u16string affiliated_domain,
-    std::u16string affiliated_plus_address,
-    base::OnceClosure on_accepted) {}
-
 const GoogleGroupsManager* AutofillClient::GetGoogleGroupsManager() const {
   return nullptr;
 }
@@ -221,6 +207,10 @@ void AutofillClient::TriggerAutofillAiSavePromptSurvey(
     EntityType entity_type,
     const base::flat_set<EntityTypeName>& saved_entities) {
   NOTIMPLEMENTED();
+}
+
+bool AutofillClient::IsActorTaskActive() const {
+  return false;
 }
 
 std::unique_ptr<device_reauth::DeviceAuthenticator>

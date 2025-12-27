@@ -4,18 +4,16 @@
 
 #include "chrome/renderer/actor/tool_utils.h"
 
+#include <algorithm>
 #include <sstream>
+#include <vector>
 
+#include "base/check.h"
 #include "base/feature_list.h"
-#include "base/functional/bind.h"
 #include "base/strings/strcat.h"
-#include "base/task/sequenced_task_runner.h"
 #include "chrome/common/actor.mojom.h"
-#include "chrome/common/actor/action_result.h"
 #include "chrome/common/chrome_features.h"
-#include "chrome/renderer/actor/tool_base.h"
 #include "content/public/renderer/render_frame.h"
-#include "third_party/blink/public/common/input/web_coalesced_input_event.h"
 #include "third_party/blink/public/web/web_element.h"
 #include "third_party/blink/public/web/web_frame_widget.h"
 #include "third_party/blink/public/web/web_hit_test_result.h"
@@ -26,17 +24,11 @@
 #include "ui/gfx/geometry/point_conversions.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/rect.h"
-#include "ui/latency/latency_info.h"
 
 namespace actor {
 
 namespace {
 
-using ::blink::WebCoalescedInputEvent;
-using ::blink::WebFrameWidget;
-using ::blink::WebInputEvent;
-using ::blink::WebInputEventResult;
-using ::blink::WebMouseEvent;
 using ::blink::WebNode;
 using ::blink::WebWidget;
 
@@ -48,30 +40,42 @@ std::vector<gfx::Rect> getNewHitBoxesFor(gfx::Rect& rect,
   DCHECK(rect.Intersects(exclusion));
   DCHECK(!exclusion.Contains(rect));
 
-  // There are 4 possible rects. Note that these rects may overlap, but that's
-  // okay.
+  // There are 4 possible rects. We handle the top and bottom first so that we
+  // can assign the corners to them.
 
-  // Handle left of the exclusion.
-  if (rect.x() < exclusion.x()) {
-    new_rects.emplace_back(rect.x(), rect.y(), exclusion.x() - rect.x(),
-                           rect.height());
-  }
+  // The y position and height of the left and right rects. We may have to
+  // adjust the y position if the top or bottom are assigned to avoid
+  // overlapping.
+  int side_y = rect.y();
+  int side_height = rect.height();
+
   // Handle above the exclusion.
   if (rect.y() < exclusion.y()) {
+    // Left and right rects will start at the exclusion y position.
+    side_y = exclusion.y();
+    side_height -= exclusion.y() - rect.y();
+
     new_rects.emplace_back(rect.x(), rect.y(), rect.width(),
                            exclusion.y() - rect.y());
   }
-  // Handle to the right of the exclusion.
-  if (rect.x() + rect.width() > exclusion.x() + exclusion.width()) {
-    int x = exclusion.x() + exclusion.width();
-    new_rects.emplace_back(x, rect.y(), rect.x() + rect.width() - x,
-                           rect.height());
-  }
   // Handle below the exclusion.
-  if (rect.y() + rect.height() > exclusion.y() + exclusion.height()) {
-    int y = exclusion.y() + exclusion.height();
-    new_rects.emplace_back(rect.x(), y, rect.width(),
-                           rect.y() + rect.height() - y);
+  if (rect.bottom() > exclusion.bottom()) {
+    // Left and right rects end at the exclusion y position + height.
+    side_height -= rect.bottom() - exclusion.bottom();
+
+    new_rects.emplace_back(rect.x(), exclusion.bottom(), rect.width(),
+                           rect.bottom() - exclusion.bottom());
+  }
+
+  // Handle left of the exclusion.
+  if (rect.x() < exclusion.x()) {
+    new_rects.emplace_back(rect.x(), side_y, exclusion.x() - rect.x(),
+                           side_height);
+  }
+  // Handle to the right of the exclusion.
+  if (rect.right() > exclusion.right()) {
+    new_rects.emplace_back(exclusion.right(), side_y,
+                           rect.right() - exclusion.right(), side_height);
   }
   return new_rects;
 }
@@ -91,101 +95,6 @@ std::vector<gfx::Rect> getHitBoxesForElement(blink::WebElement& element) {
   // Just ignore some boxes if there are too many.
   rects.resize(std::min(rects.size(), InteractionPointRefiner::kMaxRects));
   return rects;
-}
-
-void DispatchMouseUp(
-    WebMouseEvent mouse_up,
-    const ResolvedTarget& target,
-    base::WeakPtr<ToolBase> tool,
-    base::OnceCallback<void(mojom::ActionResultPtr)> on_complete) {
-  if (!tool) {
-    std::move(on_complete)
-        .Run(MakeResult(mojom::ActionResultCode::kExecutorDestroyed,
-                        /*requires_page_stabilization=*/true,
-                        "Tool destroyed before mouse up."));
-    return;
-  }
-  WebWidget* widget = target.GetWidget(*tool);
-  if (!widget) {
-    std::move(on_complete)
-        .Run(MakeResult(mojom::ActionResultCode::kFrameWentAway,
-                        /*requires_page_stabilization=*/false,
-                        "No widget when dispatching mouse up"));
-    return;
-  }
-
-  mouse_up.SetTimeStamp(ui::EventTimeForNow());
-  WebInputEventResult result = widget->HandleInputEvent(
-      WebCoalescedInputEvent(std::move(mouse_up), ui::LatencyInfo()));
-  if (result == WebInputEventResult::kHandledSuppressed) {
-    std::move(on_complete)
-        .Run(MakeResult(mojom::ActionResultCode::kClickSuppressed,
-                        /*requires_page_stabilization=*/true));
-    return;
-  }
-  std::move(on_complete).Run(MakeOkResult());
-}
-
-void DispatchClick(
-    WebMouseEvent::Button button,
-    int count,
-    const ResolvedTarget& target,
-    base::WeakPtr<ToolBase> tool,
-    base::OnceCallback<void(mojom::ActionResultPtr)> on_complete) {
-  if (!tool) {
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE,
-        base::BindOnce(std::move(on_complete),
-                       MakeResult(mojom::ActionResultCode::kExecutorDestroyed,
-                                  /*requires_page_stabilization=*/true,
-                                  "Tool destroyed before click.")));
-    return;
-  }
-
-  WebWidget* widget = target.GetWidget(*tool);
-  if (!widget) {
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE,
-        base::BindOnce(std::move(on_complete),
-                       MakeResult(mojom::ActionResultCode::kFrameWentAway,
-                                  /*requires_page_stabilization=*/true,
-                                  "No widget when dispatching mouse down")));
-    return;
-  }
-
-  WebMouseEvent mouse_down(WebInputEvent::Type::kMouseDown,
-                           WebInputEvent::kNoModifiers, ui::EventTimeForNow());
-  mouse_down.button = button;
-  mouse_down.click_count = count;
-  mouse_down.SetPositionInWidget(target.widget_point);
-  // TODO(crbug.com/402082828): Find a way to set screen position.
-  //   const gfx::Rect offset =
-  //     render_frame_host_->GetRenderWidgetHost()->GetView()->GetViewBounds();
-  //   mouse_event_.SetPositionInScreen(point.x() + offset.x(),
-  //                                    point.y() + offset.y());
-
-  WebMouseEvent mouse_up = mouse_down;
-  WebInputEventResult result = widget->HandleInputEvent(
-      WebCoalescedInputEvent(mouse_down, ui::LatencyInfo()));
-
-  if (result == WebInputEventResult::kHandledSuppressed) {
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE,
-        base::BindOnce(std::move(on_complete),
-                       MakeResult(mojom::ActionResultCode::kClickSuppressed,
-                                  /*requires_page_stabilization=*/true)));
-    return;
-  }
-
-  mouse_up.SetType(WebInputEvent::Type::kMouseUp);
-
-  const base::TimeDelta delay = features::kGlicActorClickDelay.Get();
-
-  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
-      FROM_HERE,
-      base::BindOnce(&DispatchMouseUp, std::move(mouse_up), target,
-                     std::move(tool), std::move(on_complete)),
-      delay);
 }
 
 }  // namespace
@@ -378,58 +287,10 @@ bool IsNodeWithinViewport(const blink::WebNode& node) {
   return !rect.IsEmpty();
 }
 
-void CreateAndDispatchClick(
-    WebMouseEvent::Button button,
-    int count,
-    const ResolvedTarget& target,
-    base::WeakPtr<ToolBase> tool,
-    base::OnceCallback<void(mojom::ActionResultPtr)> on_complete) {
-  if (!tool) {
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE,
-        base::BindOnce(std::move(on_complete),
-                       MakeResult(mojom::ActionResultCode::kExecutorDestroyed,
-                                  /*requires_page_stabilization=*/true,
-                                  "Tool destroyed before click.")));
-    return;
+std::string NodeToDebugString(const blink::WebNode& node) {
+  if (node.IsNull()) {
+    return "";
   }
-
-  WebWidget* widget = target.GetWidget(*tool);
-  if (!widget) {
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE,
-        base::BindOnce(std::move(on_complete),
-                       MakeResult(mojom::ActionResultCode::kFrameWentAway,
-                                  /*requires_page_stabilization=*/true,
-                                  "No widget when dispatching mouse move")));
-    return;
-  }
-
-  if (base::FeatureList::IsEnabled(features::kGlicActorMoveBeforeClick)) {
-    blink::WebMouseEvent mouse_move(blink::WebInputEvent::Type::kMouseMove,
-                                    blink::WebInputEvent::kNoModifiers,
-                                    ui::EventTimeForNow());
-    // No button for move
-    mouse_move.button = blink::WebMouseEvent::Button::kNoButton;
-    mouse_move.SetPositionInWidget(target.widget_point);
-
-    // Mouse move is considered optional, so we don't check this result.
-    widget->HandleInputEvent(
-        blink::WebCoalescedInputEvent(mouse_move, ui::LatencyInfo()));
-
-    base::TimeDelta delay = features::kGlicActorMoveBeforeClickDelay.Get();
-    base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
-        FROM_HERE,
-        base::BindOnce(&DispatchClick, button, count, target, std::move(tool),
-                       std::move(on_complete)),
-        delay);
-  } else {
-    DispatchClick(button, count, target, std::move(tool),
-                  std::move(on_complete));
-  }
-}
-
-std::string NodeToDebugSring(const blink::WebNode& node) {
   if (node.IsTextNode()) {
     // Truncate it to 100 characters, enough for debugging.
     return base::StrCat({"text=", node.NodeValue().Substring(0u, 100u).Utf8()});

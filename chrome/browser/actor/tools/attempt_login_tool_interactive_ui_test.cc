@@ -62,6 +62,14 @@ class AttemptLoginToolInteractiveUiTest
           AttemptLoginToolInteractiveUiTestBase>,
       public testing::WithParamInterface<bool> {
  public:
+  static constexpr char kActivateSurfaceIncompatibilityNotice[] =
+      "Programmatic window activation does not work on the Weston reference "
+      "implementation of Wayland used on Linux testbots. It also doesn't work "
+      "reliably on Linux in general. For this reason, some of these tests "
+      "which "
+      "use ActivateSurface() may be skipped on machine configurations which do "
+      "not reliably support them.";
+
   AttemptLoginToolInteractiveUiTest() {
     if (multi_instance_enabled()) {
       scoped_feature_list_.InitWithFeatures(
@@ -70,8 +78,7 @@ class AttemptLoginToolInteractiveUiTest
                                     kActorLoginReauthTaskRefocus,
                                 actor::kGlicEnableAutoLoginDialogs,
                                 features::kGlicMultiInstance,
-                                glic::mojom::features::kGlicMultiTab,
-                                features::kGlicMultitabUnderlines},
+                                glic::mojom::features::kGlicMultiTab},
           /*disabled_features=*/{});
     } else {
       scoped_feature_list_.InitWithFeatures(
@@ -80,8 +87,7 @@ class AttemptLoginToolInteractiveUiTest
                                     kActorLoginReauthTaskRefocus,
                                 actor::kGlicEnableAutoLoginDialogs},
           /*disabled_features=*/{features::kGlicMultiInstance,
-                                 glic::mojom::features::kGlicMultiTab,
-                                 features::kGlicMultitabUnderlines});
+                                 glic::mojom::features::kGlicMultiTab});
     }
   }
   ~AttemptLoginToolInteractiveUiTest() override = default;
@@ -123,7 +129,7 @@ class AttemptLoginToolInteractiveUiTest
     ON_CALL(mock_execution_engine(), GetFaviconService())
         .WillByDefault(Return(&mock_favicon_service_));
 
-    ON_CALL(mock_favicon_service_, GetFaviconImageForPageURL(_, _, _))
+    ON_CALL(mock_favicon_service_, GetFaviconImageForPageURL)
         .WillByDefault([this](const GURL& page_url,
                               favicon_base::FaviconImageCallback callback,
                               base::CancelableTaskTracker* tracker) {
@@ -329,7 +335,9 @@ IN_PROC_BROWSER_TEST_P(AttemptLoginToolInteractiveUiTest, MAYBE_SmokeTest) {
 }
 
 // TODO(https://crbug.com/456675144): Flaky on asan.
-#if defined(ADDRESS_SANITIZER)
+// This test does not work on Wayland, but setting SetOnIncompatibleAction does
+// not seem to skip the test, so we just disable on linux for now.
+#if defined(ADDRESS_SANITIZER) || BUILDFLAG(IS_LINUX)
 #define MAYBE_HandleReauth DISABLED_HandleReauth
 #else
 #define MAYBE_HandleReauth HandleReauth
@@ -369,6 +377,8 @@ IN_PROC_BROWSER_TEST_P(AttemptLoginToolInteractiveUiTest, MAYBE_HandleReauth) {
   // blocked on user attention.
   RunTestSequence(
       // clang-format off
+      SetOnIncompatibleAction(OnIncompatibleAction::kSkipTest,
+                              kActivateSurfaceIncompatibilityNotice),
       InstrumentNextTab(kOtherTabId, AnyBrowser()),
       Do([&]() { chrome::NewWindow(browser()); }),
       InAnyContext(WaitForWebContentsReady(kOtherTabId)),
@@ -389,7 +399,10 @@ IN_PROC_BROWSER_TEST_P(AttemptLoginToolInteractiveUiTest, MAYBE_HandleReauth) {
       actor_login::LoginStatusResult::kSuccessUsernameAndPasswordFilled);
 
   // Foreground the target tab, which will retry the login.
-  RunTestSequence(ActivateSurface(kTargetTabId));
+  RunTestSequence(
+      SetOnIncompatibleAction(OnIncompatibleAction::kSkipTest,
+                              kActivateSurfaceIncompatibilityNotice),
+      ActivateSurface(kTargetTabId));
 
   ExpectOkResult(login_result);
 }

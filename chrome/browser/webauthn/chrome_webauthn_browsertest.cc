@@ -42,7 +42,6 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
-#include "components/network_session_configurator/common/network_switches.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/common/password_manager_ui.h"
 #include "components/sync/protocol/webauthn_credential_specifics.pb.h"
@@ -204,10 +203,10 @@ class WebAuthnBrowserTest : public CertVerifierBrowserTest {
     CertVerifierBrowserTest::SetUpCommandLine(command_line);
     command_line->AppendSwitch(
         switches::kEnableExperimentalWebPlatformFeatures);
-    command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
   }
 
   void SetUp() override {
+    https_server_.SetCertHostnames({"www.example.com"});
     ASSERT_TRUE(https_server_.InitializeAndListen());
     CertVerifierBrowserTest::SetUp();
   }
@@ -400,7 +399,8 @@ class WinWebAuthnBrowserTest
     scoped_feature_list_.InitWithFeatures(
         {device::kWebAuthnHelloSignal,
          device::kWebAuthenticationFixWindowsHelloRdp,
-         device::kWebAuthenticationWindowsHints},
+         device::kWebAuthenticationWindowsHints,
+         device::kWebAuthnSignalApiHidePasskeys},
         /*disabled_features=*/{});
   }
 
@@ -676,10 +676,13 @@ IN_PROC_BROWSER_TEST_F(WebAuthnBrowserTest,
   EXPECT_TRUE(ExecJs(browser()->tab_strip_model()->GetActiveWebContents(),
                      GetSignalUnknownCredentialScript(kCredentialID)));
 
-  // After reporting the passkey, it should be deleted from the credentials
-  // list, so the vector of passkeys matching the relying party should be empty.
-  EXPECT_TRUE(
-      passkey_model->GetPasskeysForRelyingPartyId("www.example.com").empty());
+  // After reporting the passkey, it should be marked as hidden.
+  std::optional<sync_pb::WebauthnCredentialSpecifics> credential =
+      (passkey_model->GetPasskeyByCredentialId(
+          "www.example.com",
+          std::string(reinterpret_cast<const char*>(kCredentialID), 16)));
+  ASSERT_TRUE(credential);
+  EXPECT_TRUE(credential->hidden());
 }
 
 IN_PROC_BROWSER_TEST_F(WebAuthnBrowserTest,
@@ -699,10 +702,13 @@ IN_PROC_BROWSER_TEST_F(WebAuthnBrowserTest,
                 browser()->tab_strip_model()->GetActiveWebContents(),
                 GetSignalAllAcceptedCredentials(kCredentialID, kUserId1)));
 
-  // Check that the passkey with kCredentialID was not deleted.
-  EXPECT_TRUE(passkey_model->GetPasskeyByCredentialId(
-      "www.example.com",
-      std::string(reinterpret_cast<const char*>(kCredentialID), 16)));
+  // Check that the passkey with kCredentialID was not hidden.
+  std::optional<sync_pb::WebauthnCredentialSpecifics> credential =
+      (passkey_model->GetPasskeyByCredentialId(
+          "www.example.com",
+          std::string(reinterpret_cast<const char*>(kCredentialID), 16)));
+  ASSERT_TRUE(credential);
+  EXPECT_FALSE(credential->hidden());
 
   password_manager::ui::State model_state =
       PasswordsModelDelegateFromWebContents(
@@ -725,7 +731,7 @@ IN_PROC_BROWSER_TEST_F(WebAuthnBrowserTest,
       kCredentialID2, kUserId2, kUsername2, kDisplayName2));
 
   // Reports the user ID that matches the passkey created with an empty
-  // allCurrentCredentialIds. The passkey will be deleted.
+  // allCurrentCredentialIds. The passkey will be hidden.
   EXPECT_EQ(
       "webauthn: OK",
       content::EvalJs(browser()->tab_strip_model()->GetActiveWebContents(),
@@ -737,10 +743,13 @@ IN_PROC_BROWSER_TEST_F(WebAuthnBrowserTest,
   }).then(c => 'webauthn: OK', e => 'error ' + e);
   )"));
 
-  // Check that the passkey with kCredentialID2 was deleted.
-  EXPECT_FALSE(passkey_model->GetPasskeyByCredentialId(
-      "www.example.com",
-      std::string(reinterpret_cast<const char*>(kCredentialID2), 16)));
+  // Check that the passkey with kCredentialID2 was hidden.
+  std::optional<sync_pb::WebauthnCredentialSpecifics> credential =
+      (passkey_model->GetPasskeyByCredentialId(
+          "www.example.com",
+          std::string(reinterpret_cast<const char*>(kCredentialID2), 16)));
+  ASSERT_TRUE(credential);
+  EXPECT_TRUE(credential->hidden());
 
   password_manager::ui::State model_state =
       PasswordsModelDelegateFromWebContents(

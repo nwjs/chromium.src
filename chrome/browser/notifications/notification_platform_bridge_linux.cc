@@ -25,6 +25,7 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/i18n/number_formatting.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
@@ -552,7 +553,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
                           weak_factory_.GetWeakPtr(),
                           ConnectionInitializationStatusCode::SUCCESS));
 
-    dbus_utils::ConnectToSignal(
+    dbus_utils::ConnectToSignal<"us">(
         notification_proxy_, kFreedesktopNotificationsName,
         kSignalActivationToken,
         base::BindRepeating(
@@ -561,7 +562,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
         base::BindOnce(&NotificationPlatformBridgeLinuxImpl::OnSignalConnected,
                        weak_factory_.GetWeakPtr()));
 
-    dbus_utils::ConnectToSignal(
+    dbus_utils::ConnectToSignal<"us">(
         notification_proxy_, kFreedesktopNotificationsName,
         kSignalActionInvoked,
         base::BindRepeating(
@@ -570,7 +571,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
         base::BindOnce(&NotificationPlatformBridgeLinuxImpl::OnSignalConnected,
                        weak_factory_.GetWeakPtr()));
 
-    dbus_utils::ConnectToSignal(
+    dbus_utils::ConnectToSignal<"uu">(
         notification_proxy_, kFreedesktopNotificationsName,
         kSignalNotificationClosed,
         base::BindRepeating(
@@ -579,7 +580,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
         base::BindOnce(&NotificationPlatformBridgeLinuxImpl::OnSignalConnected,
                        weak_factory_.GetWeakPtr()));
 
-    dbus_utils::ConnectToSignal(
+    dbus_utils::ConnectToSignal<"us">(
         notification_proxy_, kFreedesktopNotificationsName,
         kSignalNotificationReplied,
         base::BindRepeating(

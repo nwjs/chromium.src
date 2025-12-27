@@ -285,6 +285,8 @@ public class AnchoredPopupWindow implements OnTouchListener, RectProvider.Observ
         private boolean mTouchModal;
         private boolean mOutsideTouchable;
         private boolean mIsOutsideTouchableSet;
+        private int mWindowLayoutType;
+        private boolean mIsWindowLayoutTypeSet;
 
         /**
          * Constructs an {@link AnchoredPopupWindow} instance.
@@ -518,6 +520,15 @@ public class AnchoredPopupWindow implements OnTouchListener, RectProvider.Observ
         }
 
         /**
+         * @param layoutType The window layout type of the window.
+         */
+        public Builder setWindowLayoutType(int layoutType) {
+            mWindowLayoutType = layoutType;
+            mIsWindowLayoutTypeSet = true;
+            return this;
+        }
+
+        /**
          * @return A new {@link AnchoredPopupWindow}.
          */
         public AnchoredPopupWindow build() {
@@ -564,6 +575,9 @@ public class AnchoredPopupWindow implements OnTouchListener, RectProvider.Observ
         setTouchModal(builder.mTouchModal);
         if (builder.mIsOutsideTouchableSet) {
             setOutsideTouchable(builder.mOutsideTouchable);
+        }
+        if (builder.mIsWindowLayoutTypeSet) {
+            setWindowLayoutType(builder.mWindowLayoutType);
         }
     }
 
@@ -788,6 +802,17 @@ public class AnchoredPopupWindow implements OnTouchListener, RectProvider.Observ
     }
 
     /**
+     * Sets the layout type of this window.
+     *
+     * @param layoutType The layout type of the window.
+     * @deprecated Use the {@link Builder} to set this value during construction.
+     */
+    @Deprecated
+    private void setWindowLayoutType(int layoutType) {
+        mPopupWindow.setWindowLayoutType(layoutType);
+    }
+
+    /**
      * Sets the preferred vertical orientation of the popup with respect to the anchor Rect such as
      * above or below the anchor. This should be called before the popup is shown.
      *
@@ -1004,6 +1029,11 @@ public class AnchoredPopupWindow implements OnTouchListener, RectProvider.Observ
     @Deprecated
     public void setAllowNonTouchableSize(boolean allowNonTouchableSize) {
         mAllowNonTouchableSize = allowNonTouchableSize;
+    }
+
+    /** Changes the background at runtime. */
+    public void setBackgroundDrawable(Drawable background) {
+        mPopupWindow.setBackgroundDrawable(background);
     }
 
     // RectProvider.Observer implementation.

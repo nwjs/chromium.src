@@ -26,6 +26,7 @@
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "components/account_id/account_id.h"
+#include "components/tabs/public/tab_interface.h"
 #include "ui/aura/window.h"
 
 namespace {
@@ -131,9 +132,19 @@ void BrowserControllerImpl::ForEachBrowser(
 
 BrowserDelegate* BrowserControllerImpl::GetBrowserForWindow(
     aura::Window* window) {
-  BrowserView* browser_view =
-      BrowserView::GetBrowserViewForNativeWindow(window);
-  return GetDelegate(browser_view ? browser_view->browser() : nullptr);
+  // TODO(crbug.com/369688254): We'd like to use
+  // BrowserView::GetBrowserViewForNativeWindow followed by BrowserView::browser
+  // here but this can CHECK-fail during shutdown. Find a solution.
+  return GetDelegate(chrome::FindBrowserWithWindow(window));
+}
+
+BrowserDelegate* BrowserControllerImpl::GetBrowserForTab(
+    content::WebContents* contents) {
+  // TODO(crbug.com/369688254): We'd like to use
+  // tabs::TabInterface::MaybeGetFromContents followed by
+  // tabs::TabInterface::GetBrowserWindowInterface here but this can CHECK-fail
+  // during shutdown. Find a solution.
+  return GetDelegate(chrome::FindBrowserWithTab(contents));
 }
 
 BrowserDelegate* BrowserControllerImpl::FindWebApp(const AccountId& account_id,
@@ -178,7 +189,7 @@ BrowserDelegate* BrowserControllerImpl::NewTabWithPostData(
       ui::PageTransitionFromInt(ui::PAGE_TRANSITION_TYPED |
                                 ui::PAGE_TRANSITION_FROM_API |
                                 ui::PAGE_TRANSITION_FROM_ADDRESS_BAR));
-  navigate_params.window_action = NavigateParams::SHOW_WINDOW;
+  navigate_params.window_action = NavigateParams::WindowAction::kShowWindow;
   navigate_params.post_data =
       network::ResourceRequestBody::CreateFromCopyOfBytes(post_data);
   navigate_params.extra_headers = std::string(extra_headers);
@@ -267,9 +278,19 @@ void BrowserControllerImpl::OnBrowserAdded(Browser* browser) {
   }
 }
 
+void BrowserControllerImpl::OnBrowserSetLastActive(Browser* browser) {
+  ash::BrowserDelegate* browser_delegate = GetDelegate(browser);
+  for (auto& observer : observers_) {
+    observer.OnBrowserActivated(browser_delegate);
+  }
+}
+
 void BrowserControllerImpl::OnBrowserRemoved(Browser* browser) {
-  if (BrowserList::GetInstance()->empty()) {
-    for (auto& observer : observers_) {
+  ash::BrowserDelegate* browser_delegate = GetDelegate(browser);
+  for (auto& observer : observers_) {
+    observer.OnBrowserClosed(browser_delegate);
+
+    if (BrowserList::GetInstance()->empty()) {
       observer.OnLastBrowserClosed();
     }
   }

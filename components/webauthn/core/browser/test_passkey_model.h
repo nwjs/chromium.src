@@ -21,6 +21,8 @@ class TestPasskeyModel : public PasskeyModel {
   TestPasskeyModel();
   ~TestPasskeyModel() override;
 
+  void SetReady(bool is_ready);
+
   // PasskeyModel:
   void AddObserver(Observer* observer) override;
   void RemoveObserver(Observer* observer) override;
@@ -36,6 +38,9 @@ class TestPasskeyModel : public PasskeyModel {
   std::optional<sync_pb::WebauthnCredentialSpecifics> GetPasskeyByCredentialId(
       const std::string& rp_id,
       const std::string& credential_id) const override;
+  std::optional<sync_pb::WebauthnCredentialSpecifics> GetPasskeyByUserId(
+      const std::string& rp_id,
+      const std::string& user_id) const override;
   std::vector<sync_pb::WebauthnCredentialSpecifics>
   GetPasskeysForRelyingPartyId(const std::string& rp_id) const override;
   bool DeletePasskey(const std::string& credential_id,
@@ -69,6 +74,7 @@ class TestPasskeyModel : public PasskeyModel {
 
   std::vector<sync_pb::WebauthnCredentialSpecifics> credentials_;
   base::ObserverList<Observer> observers_;
+  bool is_ready_ = true;
 };
 
 }  // namespace webauthn

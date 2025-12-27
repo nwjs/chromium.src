@@ -229,8 +229,8 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
   _locationBarViewController = locationBarViewController;
   if (locationBarViewController) {
     [self addChildViewController:locationBarViewController];
-    [locationBarViewController didMoveToParentViewController:self];
     [self.view setLocationBarView:locationBarViewController.view];
+    [locationBarViewController didMoveToParentViewController:self];
     self.view.locationBarContainer.hidden = NO;
     // Update the constraint of the location bar view to make sure the text is
     // centered.
@@ -282,8 +282,10 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
 }
 
 - (void)setLoadingProgressFraction:(double)progress {
-  [self.view.progressBar setProgress:progress
-                            animated:!self.view.progressBar.hidden];
+  BOOL isGoingBackward = self.view.progressBar.progress > progress;
+  [self.view.progressBar
+      setProgress:progress
+         animated:!self.view.progressBar.hidden && !isGoingBackward];
 }
 
 - (void)setTabCount:(int)tabCount addedInBackground:(BOOL)inBackground {
@@ -605,6 +607,10 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
     [self updateLocationBarHeightForFullscreenProgress:
               self.previousFullscreenProgress];
   }
+}
+
+- (UIView*)locationBarContainer {
+  return self.view.locationBarContainer;
 }
 
 @end

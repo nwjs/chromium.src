@@ -23,7 +23,7 @@ chromium-metrics-reviews@google.com.
 <histograms>
 
 <histogram name="DevTools.ActionTaken" enum="DevToolsAction"
-    expires_after="2026-03-22">
+    expires_after="2026-05-24">
   <owner>yangguo@google.com</owner>
   <owner>bmeurer@google.com</owner>
   <summary>Specified DevTools action has been taken.</summary>
@@ -39,15 +39,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="DevTools.AnimationPlaybackRateChanged"
-    enum="DevToolsAnimationPlaybackRateChanged" expires_after="2025-11-30">
-  <owner>yangguo@google.com</owner>
-  <owner>changhaohan@google.com</owner>
-  <owner>ergunsh@google.com</owner>
-  <component>1559716</component>
-  <summary>Playback rate is changed in Animations panel in DevTools.</summary>
-</histogram>
-
 <histogram name="DevTools.BuiltInAiAvailability"
     enum="DevToolsBuiltInAiAvailability" expires_after="2026-10-24">
   <owner>wolfi@google.com</owner>
@@ -57,7 +48,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.CDPCommandFrom{ClientType}" enum="CDPCommands"
-    expires_after="2026-03-22">
+    expires_after="2026-05-24">
   <owner>wolfi@google.com</owner>
   <owner>danilsomsikov@google.com</owner>
   <owner>yangguo@google.com</owner>
@@ -139,7 +130,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.ExperimentDisabled" enum="DevtoolsExperiments"
-    expires_after="2026-03-22">
+    expires_after="2026-05-24">
   <owner>yangguo@google.com</owner>
   <owner>changhaohan@google.com</owner>
   <summary>
@@ -157,7 +148,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.ExperimentEnabled" enum="DevtoolsExperiments"
-    expires_after="2026-03-22">
+    expires_after="2026-05-24">
   <owner>yangguo@google.com</owner>
   <owner>changhaohan@google.com</owner>
   <summary>
@@ -166,7 +157,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.ExperimentEnabledAtLaunch" enum="DevtoolsExperiments"
-    expires_after="2026-03-22">
+    expires_after="2026-05-24">
   <owner>yangguo@google.com</owner>
   <owner>changhaohan@google.com</owner>
   <summary>
@@ -186,12 +177,22 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.Freestyler.QueryLength" units="count"
-    expires_after="2026-03-15">
+    expires_after="2026-05-17">
   <owner>ergunsh@google.com</owner>
   <owner>alexrudenko@google.com</owner>
   <component>1633102</component>
   <summary>
     The length of the query (number of characters) given to the FreestylerAgent.
+  </summary>
+</histogram>
+
+<histogram name="DevTools.Insights.TeaserFirstChunkGenerationTime" units="ms"
+    expires_after="2026-11-10">
+  <owner>wolfi@google.com</owner>
+  <owner>alexrudenko@google.com</owner>
+  <summary>
+    Measures the time it takes to generate the first chunk of a console insight
+    teaser.
   </summary>
 </histogram>
 
@@ -310,7 +311,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.Launch{DevToolsLaunchPanels}" units="ms"
-    expires_after="2026-03-01">
+    expires_after="2026-05-03">
   <owner>yangguo@google.com</owner>
   <owner>bmeurer@google.com</owner>
   <summary>
@@ -355,7 +356,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.PanelShown" enum="DevToolsPanel"
-    expires_after="2026-03-22">
+    expires_after="2026-05-24">
   <owner>yangguo@google.com</owner>
   <owner>bmeurer@google.com</owner>
   <summary>Specified DevTools panel was shown.</summary>
@@ -442,7 +443,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.RecordingReplayFinished"
-    enum="DevToolsRecordingReplayFinished" expires_after="2026-03-01">
+    enum="DevToolsRecordingReplayFinished" expires_after="2026-05-03">
   <owner>alexrudenko@google.com</owner>
   <owner>mathiasb@google.com</owner>
   <owner>yangguo@google.com</owner>
@@ -546,7 +547,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.VisualLogging.ProcessingTime" units="ms"
-    expires_after="2026-03-01">
+    expires_after="2026-05-03">
   <owner>danilsomsikov@google.com</owner>
   <owner>hablich@google.com</owner>
   <summary>

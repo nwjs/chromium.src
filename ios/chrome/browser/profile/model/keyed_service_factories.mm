@@ -13,7 +13,6 @@
 #import "ios/chrome/browser/autocomplete/model/autocomplete_scoring_model_service_factory.h"
 #import "ios/chrome/browser/autocomplete/model/in_memory_url_index_factory.h"
 #import "ios/chrome/browser/autocomplete/model/on_device_tail_model_service_factory.h"
-#import "ios/chrome/browser/autocomplete/model/prototype/gemini_prototype_omnibox_service_factory.h"
 #import "ios/chrome/browser/autocomplete/model/provider_state_service_factory.h"
 #import "ios/chrome/browser/autocomplete/model/remote_suggestions_service_factory.h"
 #import "ios/chrome/browser/autocomplete/model/shortcuts_backend_factory.h"
@@ -35,10 +34,11 @@
 #import "ios/chrome/browser/collaboration/model/messaging/messaging_backend_service_factory.h"
 #import "ios/chrome/browser/commerce/model/session_proto_db_factory.h"
 #import "ios/chrome/browser/commerce/model/shopping_service_factory.h"
+#import "ios/chrome/browser/composebox/model/ios_contextual_search_service_factory.h"
 #import "ios/chrome/browser/consent_auditor/model/consent_auditor_factory.h"
 #import "ios/chrome/browser/content_notification/model/content_notification_service_factory.h"
 #import "ios/chrome/browser/content_settings/model/host_content_settings_map_factory.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/impression_limits/impression_limit_service_factory.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/impression_limits/model/impression_limit_service_factory.h"
 #import "ios/chrome/browser/contextual_panel/model/contextual_panel_model_service_factory.h"
 #import "ios/chrome/browser/contextual_panel/sample/model/sample_panel_model_factory.h"
 #import "ios/chrome/browser/crash_report/model/breadcrumbs/breadcrumb_manager_keyed_service_factory.h"
@@ -80,6 +80,7 @@
 #import "ios/chrome/browser/https_upgrades/model/https_upgrade_service_factory.h"
 #import "ios/chrome/browser/image_fetcher/model/image_fetcher_service_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_service_factory.h"
+#import "ios/chrome/browser/intelligence/persist_tab_context/model/page_content_cache_bridge_service_factory.h"
 #import "ios/chrome/browser/invalidation/model/ios_chrome_profile_invalidation_provider_factory.h"
 #import "ios/chrome/browser/language/model/accept_languages_service_factory.h"
 #import "ios/chrome/browser/language/model/language_model_manager_factory.h"
@@ -143,8 +144,6 @@
 #import "ios/chrome/browser/segmentation_platform/model/segmentation_platform_service_factory.h"
 #import "ios/chrome/browser/sessions/model/ios_chrome_tab_restore_service_factory.h"
 #import "ios/chrome/browser/sessions/model/session_restoration_service_factory.h"
-#import "ios/chrome/browser/sessions/model/web_session_state_cache_factory.h"
-#import "ios/chrome/browser/share_extension/model/share_extension_service_factory.h"
 #import "ios/chrome/browser/share_kit/model/share_kit_service_factory.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -282,6 +281,7 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   ConsentAuditorFactory::GetInstance();
   ContentNotificationServiceFactory::GetInstance();
   ContextualPanelModelServiceFactory::GetInstance();
+  ContextualSearchServiceFactory::GetInstance();
   CredentialsCleanerRunnerFactory::GetInstance();
   CrossDevicePrefTrackerFactory::GetInstance();
   CrossPlatformPromosServiceFactory::GetInstance();
@@ -297,7 +297,6 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
     DownloadRecordServiceFactory::GetInstance();
   }
   ExternalFileRemoverFactory::GetInstance();
-  GeminiPrototypeOmniboxServiceFactory::GetInstance();
   BwgServiceFactory::GetInstance();
   GoogleGroupsManagerFactory::GetInstance();
   GoogleLogoServiceFactory::GetInstance();
@@ -347,6 +346,7 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   OptimizationGuideServiceFactory::GetInstance();
   PageContentAnnotationsServiceFactory::GetInstance();
   PageImageServiceFactory::GetInstance();
+  PageContentCacheBridgeServiceFactory::GetInstance();
   PhotosServiceFactory::GetInstance();
   PlusAddressServiceFactory::GetInstance();
   PlusAddressSettingServiceFactory::GetInstance();
@@ -367,7 +367,6 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   SendTabToSelfSyncServiceFactory::GetInstance();
   SessionRestorationServiceFactory::GetInstance();
   SessionSyncServiceFactory::GetInstance();
-  ShareExtensionServiceFactory::GetInstance();
   ShareKitServiceFactory::GetInstance();
   SigninClientFactory::GetInstance();
   SigninMetricsServiceFactory::GetInstance();
@@ -392,7 +391,6 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   VariationsClientServiceFactory::GetInstance();
   VerdictCacheManagerFactory::GetInstance();
   VisitedURLRankingServiceFactory::GetInstance();
-  WebSessionStateCacheFactory::GetInstance();
   // Keep the above list alphabetized! Don't just add new entries at the end.
 
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)

@@ -117,11 +117,7 @@ class OtpFormEventLoggerIntegrationTest
   }
 
   FormData CreateOtpForm() {
-    FormData form = test::GetFormData({.fields = {{.role = ONE_TIME_CODE}}});
-    form.set_url(GURL("https://example.test/"));
-    form.set_main_frame_origin(
-        url::Origin::Create(GURL("https://example.test/")));
-    return form;
+    return test::GetFormData({.fields = {{.role = ONE_TIME_CODE}}});
   }
 
   static std::string CreateMockedServerResponseString(const FormData form) {
@@ -143,10 +139,8 @@ class OtpFormEventLoggerIntegrationTest
     one_time_tokens::OtpFetchReply reply = CreateOtpFetchReply(returns_otp);
     EXPECT_CALL(*backend, RetrieveSmsOtp)
         .WillRepeatedly([this, returns_otp, reply](auto callback) {
-          if (returns_otp && autofill_manager().GetMetricState().has_value()) {
-            autofill_manager()
-                .GetMetricState()
-                ->otp_form_event_logger.OnOtpAvailable();
+          if (returns_otp) {
+            autofill_manager().GetOtpFormEventLogger().OnOtpAvailable();
           }
           std::move(callback).Run(reply);
         });

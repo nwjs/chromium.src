@@ -7,7 +7,6 @@
 #include "base/check_op.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_forward.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
 #include "chrome/browser/profiles/profile.h"
@@ -85,17 +84,23 @@ HistorySyncOptinHandler::HistorySyncOptinHandler(
     mojo::PendingRemote<history_sync_optin::mojom::Page> page,
     Browser* browser,
     Profile* profile,
+    std::optional<bool> should_close_modal_dialog,
     HistorySyncOptinHelper::FlowCompletedCallback
         history_optin_completed_callback)
     : receiver_(this, std::move(receiver)),
       page_(std::move(page)),
       browser_(browser ? browser->AsWeakPtr() : nullptr),
       profile_(profile),
+      should_close_modal_dialog_(should_close_modal_dialog),
       history_optin_completed_callback_(
           std::move(history_optin_completed_callback)),
       identity_manager_(IdentityManagerFactory::GetForProfile(profile_)) {
   CHECK(profile_);
   CHECK(identity_manager_);
+  CHECK(!history_optin_completed_callback_->is_null());
+  if (browser) {
+    CHECK(should_close_modal_dialog.has_value());
+  }
 }
 
 HistorySyncOptinHandler::~HistorySyncOptinHandler() {
@@ -158,26 +163,27 @@ void HistorySyncOptinHandler::UpdateDialogHeight(uint32_t height) {
 
 void HistorySyncOptinHandler::FinishAndCloseDialog(
     HistorySyncOptinHelper::ScreenChoiceResult result) {
-  if (browser_) {
+  // The callback is moved to a local variable to ensure that it can be safely
+  // executed even if `this` is destroyed by `CloseModalSignin()` (this should
+  // not happen as the dialog destruction should be asynchronous).
+  auto callback = std::move(history_optin_completed_callback_);
+
+  if (browser_ && should_close_modal_dialog_.value_or(false)) {
     browser_->GetFeatures().signin_view_controller()->CloseModalSignin();
   }
-  if (!history_optin_completed_callback_->is_null()) {
-    std::move(history_optin_completed_callback_.value()).Run(result);
+  if (!callback->is_null()) {
+    std::move(callback.value()).Run(result);
   } else {
     // The user may have double-clicked on an action, which could have
     // caused the callback to execute already.
     // TODO(crbug.com/456458942): Disabled the buttons so that this is not
-    // possible.
+    // possible. Convert back to a check after we verify we no longer hit this.
     base::debug::DumpWithoutCrashing();
   }
 }
 
 void HistorySyncOptinHandler::AddHistorySyncConsent() {
   CHECK(identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSignin));
-  // TODO(crbug.com/404806988): As we add the invocation points check if
-  // additional actions are needed to enable sync for history. The invocation
-  // below works for an already syncing user. It enables the syncing for history
-  // if it's not already turned on.
   signin_util::EnableHistorySync(SyncServiceFactory::GetForProfile(profile_));
 }
 

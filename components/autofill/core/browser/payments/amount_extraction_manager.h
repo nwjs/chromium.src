@@ -13,6 +13,7 @@
 #include "base/time/time.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
+#include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/common/dense_set.h"
 #include "components/optimization_guide/proto/features/amount_extraction.pb.h"
 
@@ -74,14 +75,14 @@ class AmountExtractionManager {
       base::Seconds(10);
 
   // This function attempts to convert a string representation of a monetary
-  // value in dollars into a uint64_t by parsing it as a double and multiplying
+  // value in dollars into a int64_t by parsing it as a double and multiplying
   // the result by 1,000,000. It assumes the input uses a decimal point ('.') as
   // the separator for fractional values (not a decimal comma). The function
   // only supports English-style monetary representations like $, USD, etc.
   // Multiplication by 1,000,000 is done to represent the monetary value in
   // micro-units (1 dollar = 1,000,000 micro-units), which is commonly used in
   // systems that require high precision for financial calculations.
-  static std::optional<uint64_t> MaybeParseAmountToMonetaryMicroUnits(
+  static std::optional<int64_t> MaybeParseAmountToMonetaryMicroUnits(
       const std::string& amount);
 
   // Validates the AmountExtractionResponse returned from the server-side AI.
@@ -100,10 +101,11 @@ class AmountExtractionManager {
   //   There is a feature that can use amount extraction on the current
   //   checkout page;
   //   Amount Extraction feature is enabled;
+  //   In the AI-based amount extraction case, if a BNPL suggestion is present;
   virtual DenseSet<EligibleFeature> GetEligibleFeatures(
       bool is_autofill_payments_enabled,
       bool should_suppress_suggestions,
-      bool has_suggestions,
+      const std::vector<Suggestion>& suggestions,
       FillingProduct filling_product,
       FieldType field_type) const;
 

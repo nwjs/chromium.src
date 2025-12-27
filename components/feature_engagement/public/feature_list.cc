@@ -199,6 +199,8 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHiOSHomepageLensNewBadge,
     &kIPHiOSHomepageCustomizationNewBadge,
     &kIPHiOSAIHubNewBadge,
+    &kIPHiOSGeminiFullscreenPromoFeature,
+    &kIPHiOSGeminiContextualCueChip,
     &kIPHiOSReaderModeOptionsFeature,
 #endif  // BUILDFLAG(IS_IOS)
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
@@ -212,7 +214,6 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHComposeMSBBSettingsFeature,
     &kIPHComposeNewBadgeFeature,
     &kIPHDesktopCustomizeChromeExperimentFeature,
-    &kIPHDesktopCustomizeChromeRefreshFeature,
     &kIPHDesktopCustomizeChromeAutoOpenFeature,
     &kIPHDiscardRingFeature,
     &kIPHDownloadEsbPromoFeature,
@@ -241,6 +242,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHPasswordsWebAppProfileSwitchFeature,
     &kIPHPasswordManagerShortcutFeature,
     &kIPHPasswordSharingFeature,
+    &kIPHPdfInkSignaturesFeature,
     &kIPHPdfSearchifyFeature,
     &kIPHPerformanceInterventionDialogFeature,
     &kIPHPlusAddressFirstSaveFeature,
@@ -252,6 +254,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHReadingListEntryPointFeature,
     &kIPHReadingListInSidePanelFeature,
     &kIPHReadingModeSidePanelFeature,
+    &kIPHReadingModePageActionLabelFeature,
     &kIPHShoppingCollectionFeature,
     &kIPHSideBySidePinnableFeature,
     &kIPHSideBySideTabSwitchFeature,

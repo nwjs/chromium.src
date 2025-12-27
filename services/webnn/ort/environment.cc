@@ -13,6 +13,7 @@
 #include "base/memory/raw_span.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/cstring_view.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split_win.h"
 #include "base/strings/utf_string_conversions.h"
 #include "services/webnn/ort/logging.h"
@@ -23,125 +24,6 @@
 namespace webnn::ort {
 
 namespace {
-
-struct EpInfo {
-  base::wcstring_view package_family_name;
-  base::wcstring_view library_name;
-  PACKAGE_VERSION package_version;
-  // Represents the vendor id of the hardware device used by the execution
-  // provider.
-  uint32_t vendor_id;
-  EpWorkarounds workarounds;
-  base::raw_span<const Environment::SessionConfigEntry> config_entries;
-};
-
-constexpr auto kKnownEPs = base::MakeFixedFlatMap<base::cstring_view, EpInfo>({
-    // Intel
-    {
-        kOpenVINOExecutionProvider,
-        {
-            .package_family_name = L"MicrosoftCorporationII.WinML.Intel."
-                                   L"OpenVINO.EP.1.8_8wekyb3d8bbwe",
-            .library_name = L"onnxruntime_providers_openvino_plugin.dll",
-            .package_version =
-                {
-                    .Major = 0,
-                    .Minor = 0,
-                    .Build = 0,
-                    .Revision = 0,
-                },
-            .vendor_id = 0x8086,
-            .workarounds =
-                {
-                    .resample2d_limit_to_nchw = true,
-                },
-            // OpenVINO EP configuration. Keys and values must align with the
-            // ORT OpenVINO EP implementation. See:
-            // https://github.com/microsoft/onnxruntime/blob/f46113d7b11af3fa0b3918029e442c3a14265522/onnxruntime/core/providers/openvino/openvino_provider_factory.cc#L459
-            // and
-            // https://onnxruntime.ai/docs/execution-providers/OpenVINO-ExecutionProvider.html#summary-of-options.
-            //
-            // To get more accurate inference results, WebNN requires the
-            // accuracy execution mode on OpenVINO GPU/NPU to avoid lowering the
-            // execution accuracy for performance reasons, maintain original
-            // model precision (f32→f32, f16→f16) and disable dynamic
-            // quantization. See:
-            // https://docs.openvino.ai/2025/openvino-workflow/running-inference/optimize-inference/precision-control.html.
-            //
-            // On OpenVINO GPU, the default `fp16` precision specified by
-            // `INFERENCE_PRECISION_HINT` can override the `ACCURACY` mode set
-            // by `EXECUTION_MODE_HINT`. To improve robustness and ensure
-            // accurate inference results, we explicitly set
-            // `INFERENCE_PRECISION_HINT`
-            //  to `dynamic`.
-            .config_entries =
-                (const Environment::SessionConfigEntry[]){
-                    {.key = "ep.openvinoexecutionprovider.load_config",
-                     .value = R"({
-                            "GPU": {
-                                "EXECUTION_MODE_HINT": "ACCURACY",
-                                "INFERENCE_PRECISION_HINT": "dynamic"
-                            },
-                            "NPU": {
-                                "EXECUTION_MODE_HINT": "ACCURACY"
-                            }
-                        })"},
-                },
-        },
-    },
-    // NVidia
-    {
-        "NvTensorRTRTXExecutionProvider",
-        {
-            .package_family_name = L"MicrosoftCorporationII.WinML.NVIDIA.TRT-"
-                                   L"RTX.EP.1.8_8wekyb3d8bbwe",
-            .library_name = L"onnxruntime_providers_nv_tensorrt_rtx.dll",
-            .package_version =
-                {
-                    .Major = 0,
-                    .Minor = 0,
-                    .Build = 0,
-                    .Revision = 0,
-                },
-            .vendor_id = 0x10de,
-        },
-    },
-    // Qualcomm
-    {
-        "QNNExecutionProvider",
-        {
-            .package_family_name = L"MicrosoftCorporationII.WinML.Qualcomm.QNN."
-                                   L"EP.1.8_8wekyb3d8bbwe",
-            .library_name = L"onnxruntime_providers_qnn.dll",
-            .package_version =
-                {
-                    .Major = 0,
-                    .Minor = 0,
-                    .Build = 0,
-                    .Revision = 0,
-                },
-            .vendor_id = 0x4d4f4351,
-        },
-    },
-});
-
-// Returns true if the `vendor_id` exists in the `gpu_info`.
-bool VendorIdExistsInGpuInfo(const gpu::GPUInfo& gpu_info, uint32_t vendor_id) {
-  if (gpu_info.active_gpu().vendor_id == vendor_id) {
-    return true;
-  }
-  for (const auto& secondary_gpu : gpu_info.secondary_gpus) {
-    if (secondary_gpu.vendor_id == vendor_id) {
-      return true;
-    }
-  }
-  for (const auto& npu : gpu_info.npus) {
-    if (npu.vendor_id == vendor_id) {
-      return true;
-    }
-  }
-  return false;
-}
 
 // Returns a span of registered execution provider devices in `env`. The span is
 // guaranteed to be valid until `env` is released or the list of execution
@@ -226,11 +108,6 @@ ParseEpLibraryPathSwitch(std::wstring_view value) {
 
   return std::make_pair(ep_name, ep_library_path);
 }
-
-constexpr base::cstring_view kCpuExecutionProvider = "CPUExecutionProvider";
-constexpr base::cstring_view kDmlExecutionProvider = "DmlExecutionProvider";
-constexpr base::cstring_view kWebGpuExecutionProvider =
-    "WebGpuExecutionProvider";
 
 bool IsDefaultCpuEpDevice(const OrtEpDevice* device) {
   const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
@@ -521,21 +398,111 @@ std::vector<const OrtEpDevice*> SortEpDevices(
   return sorted_devices;
 }
 
+// Indicates the information of an execution provider device.
+struct EpDeviceInfo {
+  std::string ep_name;
+  uint32_t hardware_vendor_id;
+  uint32_t hardware_device_id;
+};
+
+// Parses the value of --webnn-ort-ep-device switch into an EpDeviceInfo.
+// Returns an error string if the value is invalid.
+base::expected<EpDeviceInfo, std::string> ParseEpDeviceSwitch(
+    std::string_view value) {
+  std::vector<std::string> parts = base::SplitString(
+      value, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+  if (parts.size() != 3) {
+    return base::unexpected(
+        "Invalid format: Expected "
+        "<ep_name>,<hardware_vendor_id>,<hardware_device_id>, both "
+        "hardware_vendor_id and hardware_device_id are hexadecimal strings.");
+  }
+
+  EpDeviceInfo info;
+  info.ep_name = parts[0];
+
+  if (!base::HexStringToUInt(parts[1], &info.hardware_vendor_id) ||
+      !base::HexStringToUInt(parts[2], &info.hardware_device_id)) {
+    return base::unexpected(
+        "Failed to parse hardware_vendor_id or hardware_device_id as "
+        "uint32_t.");
+  }
+
+  return info;
+}
+
+// Returns true if the device matches the user-specified EpDeviceInfo.
+bool MatchSpecifiedEpDevice(const OrtEpDevice* ep_device,
+                            const EpDeviceInfo& ep_device_info,
+                            const OrtApi* ort_api) {
+  const char* ep_name = ort_api->EpDevice_EpName(ep_device);
+  base::cstring_view ep_name_view = UNSAFE_BUFFERS(base::cstring_view(ep_name));
+  uint32_t hardware_vendor_id =
+      ort_api->HardwareDevice_VendorId(ort_api->EpDevice_Device(ep_device));
+  uint32_t hardware_device_id =
+      ort_api->HardwareDevice_DeviceId(ort_api->EpDevice_Device(ep_device));
+  return ep_name_view == ep_device_info.ep_name &&
+         hardware_vendor_id == ep_device_info.hardware_vendor_id &&
+         hardware_device_id == ep_device_info.hardware_device_id;
+}
+
+// Selects the user-specified EP device from the available devices based on the
+// switch value. Returns nullptr if no matching device is found or an error
+// occurs during parsing the switch value.
+const OrtEpDevice* SelectUserSpecifiedEpDevice(
+    base::span<const OrtEpDevice* const> available_devices,
+    std::string_view switch_value) {
+  base::expected<EpDeviceInfo, std::string> ep_device_info_result =
+      ParseEpDeviceSwitch(switch_value);
+  if (!ep_device_info_result.has_value()) {
+    LOG(ERROR)
+        << "[WebNN] No EP device can be selected due to error in parsing "
+        << switches::kWebNNOrtEpDevice << ": " << ep_device_info_result.error();
+    return nullptr;
+  }
+
+  const EpDeviceInfo& specified_ep_device = ep_device_info_result.value();
+  const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
+  // Find the first matching device.
+  auto it = std::find_if(available_devices.begin(), available_devices.end(),
+                         [&](const OrtEpDevice* ep_device) {
+                           return MatchSpecifiedEpDevice(
+                               ep_device, specified_ep_device, ort_api);
+                         });
+
+  if (it == available_devices.end()) {
+    LOG(ERROR)
+        << "[WebNN] No EP device can be selected due to no matching "
+           "device for user-specified "
+        << switches::kWebNNOrtEpDevice << ": " << switch_value
+        << ". Please check the registered EP devices in the logs by setting "
+        << switches::kWebNNOrtLoggingLevel << " to VERBOSE or INFO.";
+    return nullptr;
+  }
+
+  return *it;
+}
+
 }  // namespace
 
 // static
 base::expected<scoped_refptr<Environment>, std::string>
-Environment::GetInstance(const gpu::GPUInfo& gpu_info) {
+Environment::GetInstance(
+    const gpu::GPUInfo& gpu_info,
+    const base::flat_map<std::string, mojom::EpPackageInfoPtr>&
+        ep_package_info_map) {
   base::AutoLock auto_lock(GetLock());
   if (instance_) {
     return base::WrapRefCounted(instance_);
   }
-  return Create(gpu_info);
+  return Create(gpu_info, ep_package_info_map);
 }
 
 // static
 base::expected<scoped_refptr<Environment>, std::string> Environment::Create(
-    const gpu::GPUInfo& gpu_info) {
+    const gpu::GPUInfo& gpu_info,
+    const base::flat_map<std::string, mojom::EpPackageInfoPtr>&
+        ep_package_info_map) {
   SCOPED_UMA_HISTOGRAM_TIMER("WebNN.ORT.TimingMs.CreateEnvironment");
 
   auto* platform_functions = PlatformFunctions::GetInstance();
@@ -572,32 +539,30 @@ base::expected<scoped_refptr<Environment>, std::string> Environment::Create(
     }
   }
 
-  // Register the execution provider based on the GPU/NPU vendor id if it's not
-  // registered yet. Ultimately, ignore the failure of registering the EP.
-  for (const auto& [ep_name, ep_info] : kKnownEPs) {
-    if (!VendorIdExistsInGpuInfo(gpu_info, ep_info.vendor_id)) {
-      continue;
-    }
-
+  // Register known execution providers if they are not registered yet.
+  // Failure is ignored.
+  for (const auto& [ep_name, package_info] : ep_package_info_map) {
     if (IsExecutionProviderRegistered(ort_api, env.get(), ep_name)) {
       continue;
     }
 
     // First try to load EP libraries from the specified path by
     // `kWebNNOrtEpLibraryPathForTesting` switch if the EP name matches the
-    // specified EP name. Otherwise, try to load it from the EP package path.
+    // specified EP name. Otherwise, try to load it from the EP package info.
     base::FilePath ep_library_path;
     if (specified_ep_path_info && ep_name == specified_ep_path_info->first) {
       ep_library_path = specified_ep_path_info->second;
     } else {
-      const std::optional<base::FilePath>& ep_package_path =
-          platform_functions->InitializePackageDependency(
-              ep_info.package_family_name, ep_info.package_version);
-      if (!ep_package_path) {
-        continue;
+      if (!GetDependentEpPackages().contains(package_info->family_name)) {
+        if (platform_functions
+                ->InitializePackageDependency(package_info->family_name,
+                                              package_info->version)
+                .empty()) {
+          continue;
+        }
+        GetDependentEpPackages().insert(package_info->family_name);
       }
-      ep_library_path = ep_package_path->Append(L"ExecutionProvider")
-                            .Append(ep_info.library_name);
+      ep_library_path = package_info->library_path;
     }
 
     CALL_ORT_FUNC(ort_api->RegisterExecutionProviderLibrary(
@@ -641,28 +606,40 @@ void Environment::Release() const {
 }
 
 // static
-std::vector<const OrtEpDevice*> Environment::SelectEpDevicesForDeviceType(
+std::vector<const OrtEpDevice*> Environment::SelectEpDevices(
     base::span<const OrtEpDevice* const> available_devices,
     mojom::Device device_type) {
-  // Apply WebNN's custom sorting.
-  std::vector<const OrtEpDevice*> sorted_devices =
-      SortEpDevices(available_devices);
-
-  // Select devices based on the requested device type.
+  // Try to select only one EP device by user switch first.
   std::vector<const OrtEpDevice*> selected_devices;
-  switch (device_type) {
-    case mojom::Device::kCpu:
-      selected_devices = SelectEpDevicesForCpu(sorted_devices);
-      break;
-    case mojom::Device::kGpu:
-      selected_devices = SelectEpDevicesForGpu(sorted_devices);
-      break;
-    case mojom::Device::kNpu:
-      selected_devices = SelectEpDevicesForNpu(sorted_devices);
-      break;
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kWebNNOrtEpDevice)) {
+    std::string switch_value =
+        base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+            switches::kWebNNOrtEpDevice);
+    const OrtEpDevice* specified_ep_device =
+        SelectUserSpecifiedEpDevice(available_devices, switch_value);
+    if (specified_ep_device) {
+      selected_devices.push_back(specified_ep_device);
+    }
+  } else {
+    // Apply WebNN's custom sorting.
+    std::vector<const OrtEpDevice*> sorted_devices =
+        SortEpDevices(available_devices);
+    // Select devices based on the requested device type.
+    switch (device_type) {
+      case mojom::Device::kCpu:
+        selected_devices = SelectEpDevicesForCpu(sorted_devices);
+        break;
+      case mojom::Device::kGpu:
+        selected_devices = SelectEpDevicesForGpu(sorted_devices);
+        break;
+      case mojom::Device::kNpu:
+        selected_devices = SelectEpDevicesForNpu(sorted_devices);
+        break;
+    }
+    CHECK_LE(selected_devices.size(), 3u);
   }
 
-  CHECK_LE(selected_devices.size(), 3u);
   return selected_devices;
 }
 
@@ -678,7 +655,7 @@ EpWorkarounds Environment::GetEpWorkarounds(mojom::Device device_type) const {
   base::span<const OrtEpDevice* const> registered_ep_devices =
       GetRegisteredEpDevicesImpl(ort_api, this->get());
   std::vector<const OrtEpDevice*> selected_ep_devices =
-      SelectEpDevicesForDeviceType(registered_ep_devices, device_type);
+      SelectEpDevices(registered_ep_devices, device_type);
   for (const auto* ep_device : selected_ep_devices) {
     CHECK(ep_device);
       const char* ep_name = ort_api->EpDevice_EpName(ep_device);
@@ -692,13 +669,13 @@ EpWorkarounds Environment::GetEpWorkarounds(mojom::Device device_type) const {
   return workarounds;
 }
 
-std::vector<Environment::SessionConfigEntry> Environment::GetEpConfigEntries(
+std::vector<SessionConfigEntry> Environment::GetEpConfigEntries(
     mojom::Device device_type) const {
   const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
   base::span<const OrtEpDevice* const> registered_ep_devices =
       GetRegisteredEpDevicesImpl(ort_api, this->get());
   std::vector<const OrtEpDevice*> selected_ep_devices =
-      SelectEpDevicesForDeviceType(registered_ep_devices, device_type);
+      SelectEpDevices(registered_ep_devices, device_type);
   std::vector<SessionConfigEntry> ep_config_entries;
   // Track processed EP names to avoid duplicates.
   std::set<base::cstring_view> processed_ep_names;
@@ -738,5 +715,11 @@ base::Lock& Environment::GetLock() {
 }
 
 raw_ptr<Environment> Environment::instance_ = nullptr;
+
+// static
+base::flat_set<std::wstring>& Environment::GetDependentEpPackages() {
+  static base::NoDestructor<base::flat_set<std::wstring>> packages;
+  return *packages;
+}
 
 }  // namespace webnn::ort

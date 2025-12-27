@@ -57,7 +57,7 @@ sync_pb::AutofillValuableSpecifics TestFlightReservationSpecifics(
   ChromeValuablesMetadataEntry& entry = *metadata.add_metadata_entries();
   entry.set_attribute_type("Passenger name");
   entry.set_field_type(static_cast<int>(FieldType::NAME_FULL));
-  entry.set_value("Joe Smith");
+  entry.set_value(base::UTF16ToUTF8(options.name));
   entry.set_verification_status(
       static_cast<int>(VerificationStatus::kServerParsed));
 
@@ -69,17 +69,81 @@ sync_pb::AutofillValuableSpecifics TestFlightReservationSpecifics(
   return specifics;
 }
 
-// TODO(crbug.com/40100455): Add tests for Vehicle entity.
+// Returns a `sync_pb::AutofillValuableSpecifics` message with
+// the vehicle entity type.
+sync_pb::AutofillValuableSpecifics TestVehicleSpecifics() {
+  sync_pb::AutofillValuableSpecifics specifics =
+      sync_pb::AutofillValuableSpecifics();
+  specifics.set_id("00000000-0000-4000-8000-200000000000");
+  specifics.mutable_vehicle_registration()->set_vehicle_make("Make");
+  specifics.mutable_vehicle_registration()->set_vehicle_model("Model");
+  specifics.mutable_vehicle_registration()->set_vehicle_year("2025");
+  specifics.mutable_vehicle_registration()->set_vehicle_identification_number(
+      "12345");
+  specifics.mutable_vehicle_registration()->set_vehicle_license_plate("Plate");
+  specifics.mutable_vehicle_registration()->set_license_plate_region("Region");
+  specifics.mutable_vehicle_registration()->set_license_plate_country("US");
+  specifics.mutable_vehicle_registration()->set_owner_name("Owner Name");
+
+  return specifics;
+}
+
+// Tests that the `CreateEntityInstanceFromSpecifics` function correctly
+// deserializes the vehicle entity from its proto representation.
+TEST(EntitySyncUtilTest, CreateEntityInstanceFromSpecifics_Vehicle) {
+  sync_pb::AutofillValuableSpecifics specifics = TestVehicleSpecifics();
+  std::optional<EntityInstance> vehicle =
+      CreateEntityInstanceFromSpecifics(specifics);
+  ASSERT_TRUE(vehicle.has_value());
+  EXPECT_EQ(vehicle->guid().value(), specifics.id());
+  EXPECT_EQ(GetStringValue(*vehicle, AttributeTypeName::kVehicleMake),
+            specifics.vehicle_registration().vehicle_make());
+  EXPECT_EQ(GetStringValue(*vehicle, AttributeTypeName::kVehicleModel),
+            specifics.vehicle_registration().vehicle_model());
+  EXPECT_EQ(GetStringValue(*vehicle, AttributeTypeName::kVehicleYear),
+            specifics.vehicle_registration().vehicle_year());
+  EXPECT_EQ(GetStringValue(*vehicle, AttributeTypeName::kVehicleOwner),
+            specifics.vehicle_registration().owner_name());
+  EXPECT_EQ(GetStringValue(*vehicle, AttributeTypeName::kVehiclePlateNumber),
+            specifics.vehicle_registration().vehicle_license_plate());
+  EXPECT_EQ(GetStringValue(*vehicle, AttributeTypeName::kVehiclePlateState),
+            specifics.vehicle_registration().license_plate_region());
+  EXPECT_EQ(GetStringValue(*vehicle, AttributeTypeName::kVehicleVin),
+            specifics.vehicle_registration().vehicle_identification_number());
+}
+
+// Tests that the `CreateSpecificsFromEntityInstance` function correctly
+// serializes the vehicle entity into its proto representation.
+TEST(EntitySyncUtilTest, CreateSpecificsFromEntityInstance_Vehicle) {
+  EntityInstance vehicle = test::GetVehicleEntityInstance();
+
+  sync_pb::AutofillValuableSpecifics specifics =
+      CreateSpecificsFromEntityInstance(vehicle);
+
+  EXPECT_EQ(vehicle.guid().value(), specifics.id());
+  EXPECT_EQ(GetStringValue(vehicle, AttributeTypeName::kVehicleMake),
+            specifics.vehicle_registration().vehicle_make());
+  EXPECT_EQ(GetStringValue(vehicle, AttributeTypeName::kVehicleModel),
+            specifics.vehicle_registration().vehicle_model());
+  EXPECT_EQ(GetStringValue(vehicle, AttributeTypeName::kVehicleYear),
+            specifics.vehicle_registration().vehicle_year());
+  EXPECT_EQ(GetStringValue(vehicle, AttributeTypeName::kVehicleOwner),
+            specifics.vehicle_registration().owner_name());
+  EXPECT_EQ(GetStringValue(vehicle, AttributeTypeName::kVehiclePlateNumber),
+            specifics.vehicle_registration().vehicle_license_plate());
+  EXPECT_EQ(GetStringValue(vehicle, AttributeTypeName::kVehiclePlateState),
+            specifics.vehicle_registration().license_plate_region());
+  EXPECT_EQ(GetStringValue(vehicle, AttributeTypeName::kVehicleVin),
+            specifics.vehicle_registration().vehicle_identification_number());
+}
 
 // Tests that the `CreateEntityInstanceFromSpecifics` function correctly
 // deserializes the flight reservation entity from its proto representation.
 TEST(EntitySyncUtilTest, CreateEntityInstanceFromSpecifics_FlightReservation) {
-  sync_pb::AutofillValuableSpecifics specifics =
-      TestFlightReservationSpecifics();
   base::Time departure_time;
   ASSERT_TRUE(base::Time::FromUTCString("2025-01-01", &departure_time));
-  specifics.mutable_flight_reservation()->set_departure_date_unix_epoch_micros(
-      departure_time.InMillisecondsSinceUnixEpoch() * 1000);
+  sync_pb::AutofillValuableSpecifics specifics =
+      TestFlightReservationSpecifics({.departure_time = departure_time});
   std::optional<EntityInstance> flight_reservation =
       CreateEntityInstanceFromSpecifics(specifics);
 
@@ -95,10 +159,6 @@ TEST(EntitySyncUtilTest, CreateEntityInstanceFromSpecifics_FlightReservation) {
       GetStringValue(*flight_reservation,
                      AttributeTypeName::kFlightReservationConfirmationCode),
       specifics.flight_reservation().flight_confirmation_code());
-  EXPECT_EQ(GetStringValue(*flight_reservation,
-                           AttributeTypeName::kFlightReservationPassengerName),
-            "Joe Smith");  // Name from metadata takes precedence over the
-                           // `passenger_name` field.
   EXPECT_EQ(
       GetStringValue(*flight_reservation,
                      AttributeTypeName::kFlightReservationDepartureAirport),
@@ -111,7 +171,8 @@ TEST(EntitySyncUtilTest, CreateEntityInstanceFromSpecifics_FlightReservation) {
             "2025-01-01");
   const AttributeInstance& name = *flight_reservation->attribute(
       AttributeType(AttributeTypeName::kFlightReservationPassengerName));
-  EXPECT_EQ(name.GetRawInfo(FieldType::NAME_FULL), u"Joe Smith");
+  EXPECT_EQ(name.GetRawInfo(FieldType::NAME_FULL),
+            base::UTF8ToUTF16(specifics.flight_reservation().passenger_name()));
   EXPECT_EQ(name.GetVerificationStatus(FieldType::NAME_FULL),
             VerificationStatus::kServerParsed);
   EXPECT_EQ(test_api(*flight_reservation).frecency_override(),
@@ -124,8 +185,6 @@ TEST(EntitySyncUtilTest,
      CreateEntityInstanceFromSpecifics_FlightReservation_EmptyDepartureTime) {
   sync_pb::AutofillValuableSpecifics specifics =
       TestFlightReservationSpecifics();
-  specifics.mutable_flight_reservation()
-      ->clear_departure_date_unix_epoch_micros();
 
   std::optional<EntityInstance> flight_reservation =
       CreateEntityInstanceFromSpecifics(specifics);

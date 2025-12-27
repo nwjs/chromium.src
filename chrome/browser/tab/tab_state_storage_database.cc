@@ -9,8 +9,11 @@
 
 #include "base/check.h"
 #include "base/files/file_util.h"
+#include "base/functional/callback.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
+#include "base/types/pass_key.h"
+#include "chrome/browser/tab/storage_loaded_data.h"
 #include "sql/database.h"
 #include "sql/meta_table.h"
 #include "sql/statement.h"
@@ -21,14 +24,33 @@ namespace {
 
 using OpenTransaction = TabStateStorageDatabase::OpenTransaction;
 
-const int kCurrentVersionNumber = 1;
-const int kCompatibleVersionNumber = 1;
+// Update log:
+// ??-08-2025, Version 1: Initial version of the database schema.
+// 11-11-2025, Version 2: Add window_tag and is_off_the_record columns.
+// 19-11-2025, Version 3: Change storage id type from int to blob and use token.
+const int kCurrentVersionNumber = 3;
+
+// The last version of the database schema that is compatible with the current
+// version. Any changes made to the database schema that would break
+// compatibility with the current version should increment this number to
+// trigger a raze and rebuild of the database schema. NOTE: once this database
+// become the primary database for restore this number should NEVER be
+// incremented and we should use a graceful upgrade path. We can however,
+// consider inlining the upgrade path and incrementing this number if a
+// significant enough time (O(years)) have passed that there is no longer a
+// reasonable expectation that out-of-date users would be able to restore their
+// session.
+const int kCompatibleVersionNumber = 3;
+
+static_assert(
+    kCurrentVersionNumber >= kCompatibleVersionNumber,
+    "Current version must be greater than or equal to compatible version.");
 
 constexpr char kTabsTableName[] = "nodes";
 
-bool CreateTable(sql::Database* db, base::cstring_view table_creation_script) {
-  DCHECK(db->IsSQLValid(table_creation_script));
-  return db->Execute(table_creation_script);
+bool ExecuteSql(sql::Database* db, base::cstring_view sql_command) {
+  DCHECK(db->IsSQLValid(sql_command)) << sql_command << " is not valid SQL.";
+  return db->Execute(sql_command);
 }
 
 bool CreateSchema(sql::Database* db, sql::MetaTable* meta_table) {
@@ -36,20 +58,44 @@ bool CreateSchema(sql::Database* db, sql::MetaTable* meta_table) {
 
   static constexpr char kCreateTabSchemaSql[] =
       "CREATE TABLE IF NOT EXISTS nodes("
-      "id INTEGER PRIMARY KEY NOT NULL,"
+      "id BLOB PRIMARY KEY NOT NULL,"
+      "window_tag TEXT NOT NULL,"
+      "is_off_the_record INTEGER NOT NULL,"
       "type INTEGER NOT NULL,"
       "children BLOB,"
       "payload BLOB)";
 
-  return CreateTable(db, kCreateTabSchemaSql);
+  static constexpr char kCreateIndexSql[] =
+      "CREATE INDEX IF NOT EXISTS nodes_window_index "
+      "ON nodes(window_tag, is_off_the_record)";
+
+  if (!ExecuteSql(db, kCreateTabSchemaSql)) {
+    DLOG(ERROR) << "Failed to create tab schema.";
+    return false;
+  }
+
+  if (!ExecuteSql(db, kCreateIndexSql)) {
+    DLOG(ERROR) << "Failed to create index.";
+    return false;
+  }
+  return true;
 }
 
+// TODO(crbug.com/459435876): Add histograms and enums to track database
+// initialization failures.
 bool InitSchema(sql::Database* db, sql::MetaTable* meta_table) {
   bool has_metatable = meta_table->DoesTableExist(db);
-  bool has_schema = db->DoesTableExist(kTabsTableName);
 
-  if (!has_metatable && has_schema) {
+  if (!has_metatable && db->DoesTableExist(kTabsTableName)) {
     db->Raze();
+  }
+
+  if (sql::MetaTable::RazeIfIncompatible(db, kCompatibleVersionNumber,
+                                         kCurrentVersionNumber) ==
+      sql::RazeIfIncompatibleResult::kFailed) {
+    LOG(ERROR) << "TabStateStorageDatabase failed to raze when an incompatible "
+                  "version was detected.";
+    return false;
   }
 
   sql::Transaction transaction(db);
@@ -59,16 +105,28 @@ bool InitSchema(sql::Database* db, sql::MetaTable* meta_table) {
   }
 
   if (!meta_table->Init(db, kCurrentVersionNumber, kCompatibleVersionNumber)) {
+    LOG(ERROR) << "TabStateStorageDatabase failed to initialize meta table.";
     return false;
   }
 
+  // This implies that the database was rolled back, without a downgrade path.
+  // This should never happen.
   if (meta_table->GetCompatibleVersionNumber() > kCurrentVersionNumber) {
+    LOG(ERROR)
+        << "TabStateStorageDatabase has a compatible version greater than the "
+           "current version. Did a rollback occur without a downgrade path?";
     return false;
   }
 
-  if (!has_schema && !CreateSchema(db, meta_table)) {
+  // Do not cache if the schema exists, it may have been razed earlier and needs
+  // to be recreated.
+  if (!db->DoesTableExist(kTabsTableName) && !CreateSchema(db, meta_table)) {
+    LOG(ERROR) << "TabStateStorageDatabase failed to create schema.";
     return false;
   }
+
+  // Any graceful upgrade logic when changing versions should go here in version
+  // upgrade order.
 
   return meta_table->SetVersionNumber(kCurrentVersionNumber) &&
          meta_table->SetCompatibleVersionNumber(kCompatibleVersionNumber) &&
@@ -77,8 +135,9 @@ bool InitSchema(sql::Database* db, sql::MetaTable* meta_table) {
 
 }  // namespace
 
-OpenTransaction::OpenTransaction(std::unique_ptr<sql::Transaction> transaction)
-    : transaction_(std::move(transaction)) {}
+OpenTransaction::OpenTransaction(sql::Database* db,
+                                 base::PassKey<TabStateStorageDatabase>)
+    : transaction_(db) {}
 
 OpenTransaction::~OpenTransaction() = default;
 
@@ -90,8 +149,9 @@ void OpenTransaction::MarkFailed() {
   mark_failed_ = true;
 }
 
-sql::Transaction* OpenTransaction::GetTransaction() {
-  return transaction_.get();
+sql::Transaction* OpenTransaction::GetTransaction(
+    base::PassKey<TabStateStorageDatabase>) {
+  return &transaction_;
 }
 
 // static
@@ -103,16 +163,13 @@ bool TabStateStorageDatabase::OpenTransaction::IsValid(
 TabStateStorageDatabase::TabStateStorageDatabase(
     const base::FilePath& profile_path)
     : profile_path_(profile_path),
-      db_(std::make_unique<sql::Database>(
-          sql::Database::Tag("TabStateStorage"))),
-      meta_table_(std::make_unique<sql::MetaTable>()) {}
+
+      db_(sql::DatabaseOptions().set_preload(true).set_exclusive_locking(true),
+          sql::Database::Tag("TabStateStorage")) {}
 
 TabStateStorageDatabase::~TabStateStorageDatabase() = default;
 
 bool TabStateStorageDatabase::Initialize() {
-  CHECK(db_);
-  CHECK(meta_table_);
-
   base::FilePath db_dir = profile_path_.Append(FILE_PATH_LITERAL("Tabs"));
   if (!base::CreateDirectory(db_dir)) {
     LOG(ERROR) << "Failed to create directory for tab state storage database: "
@@ -121,16 +178,16 @@ bool TabStateStorageDatabase::Initialize() {
   }
 
   const base::FilePath db_path = db_dir.Append(FILE_PATH_LITERAL("TabDB"));
-  if (!db_->Open(db_path)) {
+  if (!db_.Open(db_path)) {
     LOG(ERROR) << "Failed to open tab state storage database: "
-               << db_->GetErrorMessage();
+               << db_.GetErrorMessage();
     return false;
   }
 
-  if (!InitSchema(db_.get(), meta_table_.get())) {
+  if (!InitSchema(&db_, &meta_table_)) {
     DLOG(ERROR) << "Failed to create schema for tab state storage database: "
-                << db_->GetErrorMessage();
-    db_->Close();
+                << db_.GetErrorMessage();
+    db_.Close();
     return false;
   }
 
@@ -138,92 +195,114 @@ bool TabStateStorageDatabase::Initialize() {
 }
 
 bool TabStateStorageDatabase::SaveNode(OpenTransaction* transaction,
-                                       int id,
+                                       StorageId id,
+                                       std::string window_tag,
+                                       bool is_off_the_record,
                                        TabStorageType type,
-                                       std::string payload,
-                                       std::string children) {
-  CHECK(db_);
+                                       std::vector<uint8_t> payload,
+                                       std::vector<uint8_t> children) {
   DCHECK(OpenTransaction::IsValid(transaction));
 
-  static constexpr char kInsertTabSql[] =
+  static constexpr char kInsertNodeSql[] =
       "INSERT OR REPLACE INTO nodes"
-      "(id, type, payload, children)"
-      "VALUES (?,?,?,?)";
+      "(id, window_tag, is_off_the_record, type, payload, children)"
+      "VALUES (?,?,?,?,?,?)";
 
-  DCHECK(db_->IsSQLValid(kInsertTabSql));
+  DCHECK(db_.IsSQLValid(kInsertNodeSql));
 
   sql::Statement write_statement(
-      db_->GetCachedStatement(SQL_FROM_HERE, kInsertTabSql));
+      db_.GetCachedStatement(SQL_FROM_HERE, kInsertNodeSql));
 
-  write_statement.BindInt(0, id);
-  write_statement.BindInt(1, static_cast<int>(type));
-  write_statement.BindBlob(2, std::move(payload));
-  write_statement.BindBlob(3, std::move(children));
+  write_statement.BindBlob(0, StorageIdToBlob(id));
+  write_statement.BindString(1, window_tag);
+  write_statement.BindInt(2, static_cast<int>(is_off_the_record));
+  write_statement.BindInt(3, static_cast<int>(type));
+  write_statement.BindBlob(4, std::move(payload));
+  write_statement.BindBlob(5, std::move(children));
+
+  return write_statement.Run();
+}
+
+bool TabStateStorageDatabase::SaveNodePayload(OpenTransaction* transaction,
+                                              StorageId id,
+                                              std::vector<uint8_t> payload) {
+  DCHECK(OpenTransaction::IsValid(transaction));
+
+  static constexpr char kUpdatePayloadSql[] =
+      "UPDATE nodes "
+      "SET payload = ? "
+      "WHERE id = ?";
+
+  DCHECK(db_.IsSQLValid(kUpdatePayloadSql));
+
+  sql::Statement write_statement(
+      db_.GetCachedStatement(SQL_FROM_HERE, kUpdatePayloadSql));
+
+  write_statement.BindBlob(0, std::move(payload));
+  write_statement.BindBlob(1, StorageIdToBlob(id));
 
   return write_statement.Run();
 }
 
 bool TabStateStorageDatabase::SaveNodeChildren(OpenTransaction* transaction,
-                                               int id,
-                                               std::string children) {
-  CHECK(db_);
+                                               StorageId id,
+                                               std::vector<uint8_t> children) {
   DCHECK(OpenTransaction::IsValid(transaction));
 
   static constexpr char kUpdateChildrenSql[] =
-      "UPDATE nodes"
-      "SET children = ?"
+      "UPDATE nodes "
+      "SET children = ? "
       "WHERE id = ?";
 
-  DCHECK(db_->IsSQLValid(kUpdateChildrenSql));
+  DCHECK(db_.IsSQLValid(kUpdateChildrenSql));
 
   sql::Statement write_statement(
-      db_->GetCachedStatement(SQL_FROM_HERE, kUpdateChildrenSql));
+      db_.GetCachedStatement(SQL_FROM_HERE, kUpdateChildrenSql));
 
-  write_statement.BindInt(0, id);
-  write_statement.BindBlob(1, std::move(children));
+  write_statement.BindBlob(0, std::move(children));
+  write_statement.BindBlob(1, StorageIdToBlob(id));
 
   return write_statement.Run();
 }
 
-bool TabStateStorageDatabase::RemoveNode(OpenTransaction* transaction, int id) {
-  CHECK(db_);
+bool TabStateStorageDatabase::RemoveNode(OpenTransaction* transaction,
+                                         StorageId id) {
   DCHECK(OpenTransaction::IsValid(transaction));
 
-  static constexpr char kDeleteChildrenSql[] =
-      "DELETE FROM nodes"
+  static constexpr char kDeleteNodeSql[] =
+      "DELETE FROM nodes "
       "WHERE id = ?";
 
-  DCHECK(db_->IsSQLValid(kDeleteChildrenSql));
+  DCHECK(db_.IsSQLValid(kDeleteNodeSql));
 
   sql::Statement write_statement(
-      db_->GetCachedStatement(SQL_FROM_HERE, kDeleteChildrenSql));
+      db_.GetCachedStatement(SQL_FROM_HERE, kDeleteNodeSql));
 
-  write_statement.BindInt(0, id);
+  write_statement.BindBlob(0, StorageIdToBlob(id));
   return write_statement.Run();
 }
 
 OpenTransaction* TabStateStorageDatabase::CreateTransaction() {
   DCHECK(!open_transaction_) << "An open transaction already exists.";
 
-  std::unique_ptr<sql::Transaction> transaction =
-      std::make_unique<sql::Transaction>(db_.get());
-  OpenTransaction* open_transaction =
-      new OpenTransaction(std::move(transaction));
-  sql::Transaction* transaction_ptr = open_transaction->GetTransaction();
+  open_transaction_.emplace(&db_, base::PassKey<TabStateStorageDatabase>());
+  sql::Transaction* transaction_ptr = open_transaction_->GetTransaction(
+      base::PassKey<TabStateStorageDatabase>());
 
   if (!transaction_ptr->Begin()) {
     DLOG(ERROR) << "Failed to begin transaction.";
-    open_transaction->MarkFailed();
+    open_transaction_->MarkFailed();
   }
 
-  open_transaction_ = base::WrapUnique(open_transaction);
-  return open_transaction_.get();
+  return &*open_transaction_;
 }
 
 bool TabStateStorageDatabase::CloseTransaction(
     OpenTransaction* open_transaction) {
   DCHECK(open_transaction_) << "There is no open transaction.";
-  sql::Transaction* transaction = open_transaction->GetTransaction();
+  DCHECK_EQ(open_transaction, &*open_transaction_) << "Transaction mismatch.";
+  sql::Transaction* transaction = open_transaction->GetTransaction(
+      base::PassKey<TabStateStorageDatabase>());
 
   bool success = false;
   if (open_transaction->HasFailed()) {
@@ -242,27 +321,42 @@ bool TabStateStorageDatabase::CloseTransaction(
   return success;
 }
 
-std::vector<NodeState> TabStateStorageDatabase::LoadAllNodes() {
-  std::vector<NodeState> entries;
-  static constexpr char kSelectAllTabsSql[] =
-      "SELECT id, type, payload, children FROM nodes";
+std::unique_ptr<StorageLoadedData> TabStateStorageDatabase::LoadAllNodes(
+    const std::string& window_tag,
+    bool is_off_the_record,
+    std::unique_ptr<StorageLoadedData::Builder> builder) {
+  static constexpr char kSelectAllNodesSql[] =
+      "SELECT id, type, payload, children FROM nodes "
+      "WHERE window_tag = ? AND is_off_the_record = ?";
   sql::Statement select_statement(
-      db_->GetCachedStatement(SQL_FROM_HERE, kSelectAllTabsSql));
+      db_.GetCachedStatement(SQL_FROM_HERE, kSelectAllNodesSql));
+  select_statement.BindString(0, window_tag);
+  select_statement.BindInt(1, static_cast<int>(is_off_the_record));
   while (select_statement.Step()) {
-    NodeState entry;
-    entry.id = select_statement.ColumnInt(0);
-    entry.type = static_cast<TabStorageType>(select_statement.ColumnInt(1));
-    entry.payload = select_statement.ColumnBlobAsString(2);
-    entry.children = select_statement.ColumnBlobAsString(3);
-    entries.emplace_back(std::move(entry));
+    StorageId id = StorageIdFromBlob(select_statement.ColumnBlob(0));
+    TabStorageType type =
+        static_cast<TabStorageType>(select_statement.ColumnInt(1));
+    builder->AddNode(id, type, select_statement.ColumnBlob(2),
+                     base::PassKey<TabStateStorageDatabase>());
+    builder->AddChildren(id, type, select_statement.ColumnBlob(3),
+                         base::PassKey<TabStateStorageDatabase>());
   }
-  return entries;
+  return builder->Build();
 }
 
 void TabStateStorageDatabase::ClearAllNodes() {
-  static constexpr char kDeleteAllTabsSql[] = "DELETE FROM nodes";
+  static constexpr char kDeleteAllNodesSql[] = "DELETE FROM nodes";
   sql::Statement delete_statement(
-      db_->GetCachedStatement(SQL_FROM_HERE, kDeleteAllTabsSql));
+      db_.GetCachedStatement(SQL_FROM_HERE, kDeleteAllNodesSql));
+  delete_statement.Run();
+}
+
+void TabStateStorageDatabase::ClearWindow(const std::string& window_tag) {
+  static constexpr char kDeleteWindowSql[] =
+      "DELETE FROM nodes WHERE window_tag = ?";
+  sql::Statement delete_statement(
+      db_.GetCachedStatement(SQL_FROM_HERE, kDeleteWindowSql));
+  delete_statement.BindString(0, window_tag);
   delete_statement.Run();
 }
 

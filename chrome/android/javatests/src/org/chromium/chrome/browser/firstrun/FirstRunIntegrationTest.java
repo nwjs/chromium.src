@@ -666,6 +666,7 @@ public class FirstRunIntegrationTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "Flaky, see crbug.com/457658024")
     public void testSkipTosPage() throws TimeoutException {
         // Test case that verifies when the ToS Page was previously accepted, launching the FRE
         // should transition to the next page.
@@ -874,7 +875,7 @@ public class FirstRunIntegrationTest {
                                         SemanticColorUtils.getDefaultBgColor(firstRunActivity)));
                     });
 
-            onView(withId(R.id.fre_logo)).check(matches(isDisplayed()));
+            onView(withId(R.id.fre_icon)).check(matches(isDisplayed()));
             onView(withId(R.id.fre_native_and_policy_load_progress_spinner))
                     .check(matches(isDisplayed()));
         }

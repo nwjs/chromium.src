@@ -26,6 +26,15 @@ namespace switches {
 // letter code from ISO-639.
 const char kAcceptLang[] = "accept-lang";
 
+#if BUILDFLAG(IS_MAC)
+// Only if we're running in an unsigned build, passing this flag will allow
+// app shims whose code signature does not match what chrome is expecting to
+// still connect to chrome. This is used by some tests to allow the test to
+// pretend to be a valid app shim.
+const char kAllowAppShimSignatureMismatchForTests[] =
+    "allow-appshim-signature-mismatch-for-tests";
+#endif
+
 // Allows third-party content included on a page to prompt for a HTTP basic
 // auth username/password pair.
 const char kAllowCrossOriginAuthPrompt[] = "allow-cross-origin-auth-prompt";
@@ -246,6 +255,11 @@ const char kDiskCacheDir[] = "disk-cache-dir";
 // Forces the maximum disk space to be used by the disk cache, in bytes.
 const char kDiskCacheSize[] = "disk-cache-size";
 
+#if BUILDFLAG(IS_MAC)
+// Skips initializing the shares NSApplication instance in ChromeTestSuite.
+const char kDoNotCreateNSAppForTests[] = "do-not-create-nsapp-for-tests";
+#endif
+
 // Do not de-elevate the browser on launch. Used after de-elevating to prevent
 // infinite loops.
 const char kDoNotDeElevateOnLaunch[] = "do-not-de-elevate";
@@ -276,6 +290,9 @@ const char kEnableDevToolsPwaHandler[] = "enable-devtools-pwa-handler";
 
 // Enables Domain Reliability Monitoring.
 const char kEnableDomainReliability[] = "enable-domain-reliability";
+
+// Enables the experimental GreenDev UI in DevTools.
+const char kEnableDevToolsGreenDevUi[] = "devtools-greendev-ui";
 
 // Enables logging for extension activity.
 const char kEnableExtensionActivityLogging[] =
@@ -560,7 +577,8 @@ const char kProxyAutoDetect[] = "proxy-auto-detect";
 // Specifies a list of hosts for whom we bypass proxy settings and use direct
 // connections. Ignored if --proxy-auto-detect or --no-proxy-server are also
 // specified. This is a comma-separated list of bypass rules. See:
-// "net/proxy_resolution/proxy_bypass_rules.h" for the format of these rules.
+// "net/proxy_resolution/proxy_host_matching_rules.h" for the format of these
+// rules.
 const char kProxyBypassList[] = "proxy-bypass-list";
 
 // Uses the pac script at the given URL
@@ -964,6 +982,9 @@ const char kGlicSkipReloadAfterNavigation[] =
     "glic-skip-reload-after-navigation";
 // Whether additional logging is enabled in the glic api host.
 const char kGlicHostLogging[] = "glic-host-logging";
+// Whether to show web actuation toggle in the Chrome AI settings page.
+const char kGlicAlwaysShowWebActuationToggle[] =
+    "glic-always-show-web-actuation-toggle";
 
 // List of URL patterns in the glic webview to redirect to an admin blocked
 // panel, as a space-separated list.

@@ -17,7 +17,6 @@
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
-#include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "base/sequence_checker.h"
@@ -304,7 +303,7 @@ void IsolatedWebAppUpdatePrepareAndStoreCommand::SetPendingUpdateInfo(
 
   GetMutableDebugValue().Set(
       "actual_version", install_info.isolated_web_app_version().GetString());
-  GetMutableDebugValue().Set("app_title", install_info.title);
+  GetMutableDebugValue().Set("app_title", install_info.title.AsDebugValue());
 
   VersionChangeValidationResult validation_result =
       ValidateVersionChangeFeasibility(

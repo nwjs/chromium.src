@@ -161,6 +161,7 @@
 				<string>promos_manager::Promo::DockingPromo</string>
 				<string>promos_manager::Promo::BWGPromo</string>
 				<string>promos_manager::Promo::FullscreenSignin</string>
+				<string>promos_manager::Promo::WelcomeBack</string>
 			</array>
 			<key>Titles</key>
 			<array>
@@ -176,6 +177,7 @@
 				<string>Docking Promo</string>
 				<string>BWG Promo</string>
 				<string>Fullscreen sign-in</string>
+				<string>Welcome Back Promo</string>
 			</array>
 		</dict>
 		<dict>
@@ -627,6 +629,36 @@
 				<string>10 Seconds</string>
 				<string>30 Seconds</string>
 			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Disable Composebox AIM eligibility</string>
+			<key>Key</key>
+			<string>ForceDisableAIMEligibility</string>
+			<key>DefaultValue</key>
+			<false/>
+            </dict>
+        <dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Disable Composebox Create Images eligibility</string>
+			<key>Key</key>
+			<string>ForceDisableCreateImagesEligibility</string>
+			<key>DefaultValue</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Disable Composebox Pdf Upload eligibility</string>
+			<key>Key</key>
+			<string>ForceDisablePdfUploadEligibility</string>
+			<key>DefaultValue</key>
+			<false/>
 		</dict>
 		<dict>
 			<key>Type</key>

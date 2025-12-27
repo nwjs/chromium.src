@@ -685,8 +685,8 @@ SkiaRenderer::ScopedSkImageBuilder::ScopedSkImageBuilder(
 
   // We need the original TransferableResource.color_space for YUV => RGB
   // conversion.
-  skia_renderer->skia_output_surface_->MakePromiseSkImage(
-      image_context, resource_provider->GetColorSpace(resource_id), force_rgbx);
+  skia_renderer->skia_output_surface_->MakePromiseSkImage(image_context,
+                                                          force_rgbx);
   paint_op_buffer_ = image_context->paint_op_buffer();
   clear_color_ = image_context->clear_color();
   sk_image_ = image_context->image();
@@ -1210,7 +1210,7 @@ void SkiaRenderer::SwapBuffersComplete(
   if (!release_fence.is_null()) {
     // Set release fences to return overlay resources for last frame.
     for (auto& lock : committed_overlay_locks_) {
-      lock.SetReleaseFence(release_fence.Clone());
+      lock.MaybeCopyReleaseFence(release_fence);
     }
     // Find all locks that have a read-lock fence associated with them and move
     // them to the back of locks. If we have a release fence, it's not safe to
@@ -1393,7 +1393,7 @@ void SkiaRenderer::BeginDrawingRenderPass(
         render_pass->id, backing.size, backing.format, backing.alpha_type,
         backing.generate_mipmap ? skgpu::Mipmapped::kYes
                                 : skgpu::Mipmapped::kNo,
-        backing.scanout_dcomp_surface, RenderPassBackingSkColorSpace(backing),
+        backing.scanout_dcomp_surface, RenderPassBackingColorSpace(backing),
         /*is_overlay=*/backing.is_scanout, backing.mailbox);
   }
 
@@ -2636,9 +2636,9 @@ void SkiaRenderer::DrawTextureQuad(const TextureDrawQuad* quad,
   const SkImage* image = builder.sk_image();
   if (!image)
     return;
-  gfx::RectF uv_rect = gfx::ScaleRect(
-      gfx::BoundingRect(quad->uv_top_left, quad->uv_bottom_right),
-      image->width(), image->height());
+
+  gfx::RectF uv_rect = quad->GetUnnormalizedTexCoords(
+      gfx::Size(image->width(), image->height()));
   params->vis_tex_coords = cc::MathUtil::ScaleRectProportional(
       uv_rect, gfx::RectF(quad->rect), params->visible_rect);
 
@@ -3357,7 +3357,7 @@ void SkiaRenderer::DrawRenderPassQuad(
   sk_sp<SkImage> content_image =
       skia_output_surface_->MakePromiseSkImageFromRenderPass(
           quad->render_pass_id, backing.size, backing.format,
-          backing.generate_mipmap, RenderPassBackingSkColorSpace(backing),
+          backing.generate_mipmap, RenderPassBackingColorSpace(backing),
           backing.mailbox);
   DLOG_IF(ERROR, !content_image)
       << "MakePromiseSkImageFromRenderPass() failed for render pass";
@@ -3999,7 +3999,7 @@ void SkiaRenderer::PrepareRenderPassOverlay(
         quad->render_pass_id, dst_overlay_backing.size,
         dst_overlay_backing.format, dst_overlay_backing.alpha_type,
         skgpu::Mipmapped::kNo, dst_overlay_backing.scanout_dcomp_surface,
-        RenderPassBackingSkColorSpace(dst_overlay_backing),
+        RenderPassBackingColorSpace(dst_overlay_backing),
         /*is_overlay=*/true, overlay->mailbox);
     if (!current_canvas_) {
       DLOG(ERROR)
@@ -4034,7 +4034,7 @@ void SkiaRenderer::PrepareRenderPassOverlay(
           skia_output_surface_->MakePromiseSkImageFromRenderPass(
               quad->render_pass_id, src_quad_backing->size,
               src_quad_backing->format, src_quad_backing->generate_mipmap,
-              RenderPassBackingSkColorSpace(*src_quad_backing),
+              RenderPassBackingColorSpace(*src_quad_backing),
               src_quad_backing->mailbox);
       if (!content_image) {
         DLOG(ERROR) << "MakePromiseSkImageFromRenderPass() in "

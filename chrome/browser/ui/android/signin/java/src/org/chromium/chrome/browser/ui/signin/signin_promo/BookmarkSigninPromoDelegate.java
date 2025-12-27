@@ -78,10 +78,18 @@ public class BookmarkSigninPromoDelegate extends SigninPromoDelegate {
     }
 
     @Override
-    String getTitle(boolean hasAccountsOnDevice) {
+    String getTitle() {
+        @SigninFeatureMap.SeamlessSigninStringType
+        int seamlessSigninStringType = SigninFeatureMap.getInstance().getSeamlessSigninStringType();
         switch (mPromoState) {
             case PromoState.SIGNIN:
-                return mContext.getString(R.string.signin_promo_title_bookmarks);
+                if (seamlessSigninStringType
+                                == SigninFeatureMap.SeamlessSigninStringType.NON_SEAMLESS
+                        || seamlessSigninStringType
+                                == SigninFeatureMap.SeamlessSigninStringType.SIGNIN_BUTTON) {
+                    return mContext.getString(R.string.signin_promo_title_bookmarks);
+                }
+                return mContext.getString(R.string.signin_account_picker_bottom_sheet_title);
             case PromoState.ACCOUNT_SETTINGS:
                 return mContext.getString(R.string.sync_promo_title_bookmarks);
             case PromoState.NONE:
@@ -92,8 +100,38 @@ public class BookmarkSigninPromoDelegate extends SigninPromoDelegate {
 
     @Override
     String getDescription(@Nullable String accountEmail) {
+        @SigninFeatureMap.SeamlessSigninPromoType
+        int seamlessSigninPromoType = SigninFeatureMap.getInstance().getSeamlessSigninPromoType();
+        @SigninFeatureMap.SeamlessSigninStringType
+        int seamlessSigninStringType = SigninFeatureMap.getInstance().getSeamlessSigninStringType();
         switch (mPromoState) {
             case PromoState.SIGNIN:
+                if (accountEmail == null) {
+                    return mContext.getString(R.string.signin_promo_description_bookmarks);
+                }
+                if (seamlessSigninStringType
+                        == SigninFeatureMap.SeamlessSigninStringType.CONTINUE_BUTTON) {
+                    if (seamlessSigninPromoType
+                            == SigninFeatureMap.SeamlessSigninPromoType.TWO_BUTTONS) {
+                        return mContext.getString(
+                                R.string.signin_promo_description_bookmarks_group1, accountEmail);
+                    } else if (seamlessSigninPromoType
+                            == SigninFeatureMap.SeamlessSigninPromoType.COMPACT) {
+                        return mContext.getString(
+                                R.string.signin_promo_description_bookmarks_group2);
+                    }
+                } else if (seamlessSigninStringType
+                        == SigninFeatureMap.SeamlessSigninStringType.SIGNIN_BUTTON) {
+                    if (seamlessSigninPromoType
+                            == SigninFeatureMap.SeamlessSigninPromoType.TWO_BUTTONS) {
+                        return mContext.getString(
+                                R.string.signin_promo_description_bookmarks_group3, accountEmail);
+                    } else if (seamlessSigninPromoType
+                            == SigninFeatureMap.SeamlessSigninPromoType.COMPACT) {
+                        return mContext.getString(
+                                R.string.signin_promo_description_bookmarks_group4);
+                    }
+                }
                 return mContext.getString(R.string.signin_promo_description_bookmarks);
             case PromoState.ACCOUNT_SETTINGS:
                 return mContext.getString(R.string.account_settings_promo_description_bookmarks);
@@ -135,6 +173,11 @@ public class BookmarkSigninPromoDelegate extends SigninPromoDelegate {
     }
 
     @Override
+    boolean isSeamlessSigninAllowed() {
+        return SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN);
+    }
+
+    @Override
     boolean shouldHideSecondaryButton() {
         switch (mPromoState) {
             case PromoState.SIGNIN:
@@ -145,11 +188,6 @@ public class BookmarkSigninPromoDelegate extends SigninPromoDelegate {
             default:
                 throw new IllegalStateException("Forbidden promo type: " + mPromoState);
         }
-    }
-
-    @Override
-    boolean shouldShowSigninSnackbar() {
-        return SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN);
     }
 
     @Override
@@ -176,10 +214,10 @@ public class BookmarkSigninPromoDelegate extends SigninPromoDelegate {
     }
 
     @Override
-    void onPrimaryButtonClicked() {
+    void onPrimaryButtonClicked(@Nullable CoreAccountInfo visibleAccount) {
         switch (mPromoState) {
             case PromoState.SIGNIN:
-                super.onPrimaryButtonClicked();
+                super.onPrimaryButtonClicked(visibleAccount);
                 break;
             case PromoState.ACCOUNT_SETTINGS:
                 mOnOpenSettingsClicked.run();
@@ -230,5 +268,10 @@ public class BookmarkSigninPromoDelegate extends SigninPromoDelegate {
             }
         }
         return false;
+    }
+
+    @Override
+    boolean shouldDisplaySignedInLayout() {
+        return mPromoState == PromoState.ACCOUNT_SETTINGS;
     }
 }

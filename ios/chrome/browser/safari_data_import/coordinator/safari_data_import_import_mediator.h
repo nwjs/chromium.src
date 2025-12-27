@@ -10,7 +10,7 @@
 #import <memory>
 
 #import "components/password_manager/core/browser/ui/saved_passwords_presenter.h"
-#import "ios/chrome/browser/safari_data_import/ui/safari_data_import_password_conflict_mutator.h"
+#import "ios/chrome/browser/data_import/ui/data_import_credential_conflict_mutator.h"
 
 namespace autofill {
 class PaymentsDataManager;
@@ -28,26 +28,25 @@ class SyncService;
 @class PasswordImportItem;
 class ReadingListModel;
 class PrefService;
-@protocol SafariDataImportImportStageTransitionHandler;
-@protocol SafariDataItemConsumer;
+@protocol DataImportImportStageTransitionHandler;
+@protocol ImportDataItemConsumer;
 
 /// Mediator for the safari data import screen. Handles stages of importing a
 /// .zip file generated from Safari data to Chrome.
 @interface SafariDataImportImportMediator
-    : NSObject <SafariDataImportPasswordConflictMutator,
-                UIDocumentPickerDelegate>
+    : NSObject <DataImportCredentialConflictMutator, UIDocumentPickerDelegate>
 
 /// Email address of the user. `nil` if not logged in.
 @property(nonatomic, readonly) NSString* email;
 
 /// Transition handler for import stage. This needs to be set before selecting a
 /// file.
-@property(nonatomic, weak) id<SafariDataImportImportStageTransitionHandler>
+@property(nonatomic, weak) id<DataImportImportStageTransitionHandler>
     importStageTransitionHandler;
 
 /// Consumer object displaying Safari item import status. This needs to be set
 /// before selecting a file.
-@property(nonatomic, weak) id<SafariDataItemConsumer> itemConsumer;
+@property(nonatomic, weak) id<ImportDataItemConsumer> itemConsumer;
 
 /// Initializer.
 - (instancetype)

@@ -7,6 +7,7 @@
 
 #include <ostream>
 
+#include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size_f.h"
 
@@ -43,6 +44,11 @@ struct BrowserLayoutExclusionArea {
     return gfx::SizeF(content.width() + horizontal_padding,
                       content.height() + vertical_padding);
   }
+
+  // As ContentWithPadding(), but subtracts the insets `horizontal_inset` and
+  // `vertical_inset` from the margins, with a minimum margin of zero.
+  gfx::SizeF ContentWithPaddingAndInsets(float horizontal_inset,
+                                         float vertical_inset) const;
 
   // Returns true if there is no exclusion area.
   bool IsEmpty() const { return ContentWithPadding().IsEmpty(); }
@@ -90,8 +96,32 @@ struct BrowserLayoutParams {
 
   bool operator==(const BrowserLayoutParams&) const = default;
 
+  // Is the visual area empty?
+  bool IsEmpty() const;
+
+  // Applies `insets` to the contents area, in-place.
+  void Inset(const gfx::Insets& insets);
+
+  // Moves the top of the visual client area down to `top`.
+  void SetTop(int top);
+
+  // Insets by `amount` on either the `leading` or (if false) trailing edge, to
+  // a minimum of zero width.
+  void InsetHorizontal(int amount, bool leading);
+
+  // Returns a new set of params after applying `insets` to the
+  // `visual_client_area`; the coordinate system is not changed.
+  [[nodiscard]] BrowserLayoutParams WithInsets(const gfx::Insets& insets) const;
+
+  // Returns a new set of params after moving the `visual_client_area` to
+  // `new_client_area`, which should be smaller. The coordinate system is not
+  // changed.
+  [[nodiscard]] BrowserLayoutParams WithClientArea(
+      const gfx::Rect& new_client_area) const;
+
   // Converts this params object to local coordinates in `rect`.
-  BrowserLayoutParams InLocalCoordinates(const gfx::Rect& rect) const;
+  [[nodiscard]] BrowserLayoutParams InLocalCoordinates(
+      const gfx::Rect& rect) const;
 };
 
 std::ostream& operator<<(std::ostream& os,

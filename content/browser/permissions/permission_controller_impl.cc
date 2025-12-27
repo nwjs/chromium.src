@@ -11,7 +11,6 @@
 
 #include "base/barrier_closure.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_forward.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "content/browser/permissions/permission_service_context.h"
@@ -377,15 +376,6 @@ void PermissionControllerImpl::NotifyChangedSubscriptions(
   for (auto& callback : callbacks) {
     std::move(callback).Run();
   }
-}
-
-void PermissionControllerImpl::GrantOverridesForDevTools(
-    base::optional_ref<const url::Origin> requesting_origin,
-    base::optional_ref<const url::Origin> embedding_origin,
-    const std::vector<PermissionType>& permissions,
-    base::OnceCallback<void(OverrideStatus)> callback) {
-  GrantPermissionOverrides(requesting_origin, embedding_origin, permissions,
-                           std::move(callback));
 }
 
 void PermissionControllerImpl::SetPermissionOverride(
@@ -792,7 +782,7 @@ PermissionControllerImpl::GetPermissionResultForEmbeddedRequester(
 PermissionStatus PermissionControllerImpl::GetCombinedPermissionAndDeviceStatus(
     const blink::mojom::PermissionDescriptorPtr& permission,
     RenderFrameHost* render_frame_host) {
-  CHECK(PermissionUtil::IsDevicePermission(permission));
+  CHECK(PermissionUtil::IsDevicePermission(permission)) << permission->name;
   return GetPermissionResultForCurrentDocumentInternal(
              permission, render_frame_host,
              /*should_include_device_status=*/true)

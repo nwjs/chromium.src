@@ -14,7 +14,6 @@
 
 #include "base/auto_reset.h"
 #include "base/containers/flat_map.h"
-#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_forward.h"
@@ -156,8 +155,10 @@ class CONTENT_EXPORT BucketContext
   // Returns true if a RunTask invocation is queued. To be used by metrics.
   bool task_run_queued() const { return task_run_queued_; }
 
-  // Normally, in-memory bucket contexts never self-close. If this is called
-  // with `doom` set to true, they will self-close.
+  // Closes the bucket context, i.e. closes the backing store and closes Mojo
+  // connections to renderers. When `doom` is true, the directories containing
+  // data will also be deleted. Normally, in-memory bucket contexts never close.
+  // If this is called with `doom` set to true, they will close.
   void ForceClose(bool doom, const std::string& message);
 
   // Starts capturing state data for indexeddb-internals. The data will be
@@ -358,8 +359,8 @@ class CONTENT_EXPORT BucketContext
   // Removes all readers for this file path.
   void RemoveBoundReaders(const base::FilePath& path);
 
-  std::tuple<Status, DatabaseError, IndexedDBDataLossInfo>
-  InitBackingStoreIfNeeded(bool create_if_missing);
+  std::tuple<Status, DatabaseError, IndexedDBDataLossInfo> InitBackingStore(
+      bool create_if_missing);
 
   // Destroys `backing_store_` and all associated state. If there are no
   // receivers remaining, it will also destroy `this`.

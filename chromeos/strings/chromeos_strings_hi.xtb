@@ -74,6 +74,7 @@
 <translation id="1274654146705270731">संतरे</translation>
 <translation id="1275718070701477396">चयनित</translation>
 <translation id="1290331692326790741">कमज़ोर सिग्नल</translation>
+<translation id="1292474106138697109">क्लास टूल का डिसप्ले</translation>
 <translation id="1300115153046603471">एपीएन का टाइप डिफ़ॉल्ट और <ph name="ATTACH" /> पर सेट है.</translation>
 <translation id="1301069673413256657">GSM</translation>
 <translation id="1301340234286078471">बदलें</translation>
@@ -1046,6 +1047,7 @@
 <translation id="5596627076506792578">ज़्यादा विकल्प</translation>
 <translation id="5600027863942488546"><ph name="KEY_NAME" /> की जांच की गई</translation>
 <translation id="5606865426897221650">टैब</translation>
+<translation id="5612205513582918357">क्लास टूल, <ph name="RECEIVER_NAME" /> के साथ आपकी स्क्रीन शेयर कर रहा है</translation>
 <translation id="5613201299517339763">आपको साइन आउट कर दिया गया है</translation>
 <translation id="5620281292257375798">सिर्फ़ अंदरूनी</translation>
 <translation id="5628106863521633649">उपलब्ध भाषाएं</translation>
@@ -1472,7 +1474,6 @@
 <translation id="7425832472614771259"><ph name="LANGUAGE_NAME" /> में बोले जा रहे शब्दों को टेक्स्ट में बदलने का मॉडल <ph name="PROGRESS_PERCENTAGE" />% डाउनलोड हो गया है</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">इस एपीएन को न तो बंद किया जा सकता है और न ही हटाया जा सकता है. पक्का करें कि जिन <ph name="ATTACH" /> एपीएन को चालू किया गया था उन्हें बंद कर दिया गया है या हटा दिया गया है.</translation>
-<translation id="7458359366992324037">रिमोट डिसप्ले</translation>
 <translation id="7458970041932198923">अवतार देखने और उन्हें सेट करने के लिए, किसी नेटवर्क से कनेक्ट करें और पेज को फिर से लोड करें.</translation>
 <translation id="7469648432129124067">पोर्टल पहचाना गया</translation>
 <translation id="7481312909269577407">आगे जाएं</translation>

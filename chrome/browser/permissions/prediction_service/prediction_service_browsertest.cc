@@ -9,12 +9,12 @@
 #include "base/base_paths.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
-#include "base/files/file_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_mock_time_message_loop_task_runner.h"
 #include "chrome/browser/optimization_guide/browser_test_util.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
@@ -33,6 +33,7 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/content_settings/core/common/features.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/metrics/content/subprocess_metrics_provider.h"
 #include "components/optimization_guide/core/delivery/model_util.h"
@@ -50,6 +51,7 @@
 #include "components/permissions/prediction_service/prediction_request_features.h"
 #include "components/permissions/prediction_service/prediction_service_messages.pb.h"
 #include "components/permissions/request_type.h"
+#include "components/permissions/resolvers/permission_prompt_options.h"
 #include "components/permissions/test/aivx_modelhandler_utils.h"
 #include "components/permissions/test/enums_to_string.h"
 #include "components/permissions/test/fake_permissions_aivx_modelhandlers.h"
@@ -440,13 +442,8 @@ class PredictionServiceBrowserTestBase : public InProcessBrowserTest {
 #endif
   }
 
-  void TriggerPromptAndVerifyUi(
+  void TriggerPromptAndWaitForBubble(
       std::string test_url,
-      PermissionAction permission_action,
-      bool should_expect_quiet_ui,
-      std::optional<PermissionRequestRelevance> expected_relevance,
-      std::optional<PermissionUiSelector::PredictionGrantLikelihood>
-          expected_prediction_likelihood,
       std::string translate_source_language = "en") {
     auto* manager = permission_request_manager();
     GURL url = embedded_test_server()->GetURL(test_url, "/title1.html");
@@ -459,7 +456,19 @@ class PredictionServiceBrowserTestBase : public InProcessBrowserTest {
     WaitForModelExecutionIfNecessary();
 
     bubble_factory()->WaitForPermissionBubble();
+  }
 
+  void TriggerPromptAndVerifyUi(
+      std::string test_url,
+      PermissionAction permission_action,
+      bool should_expect_quiet_ui,
+      std::optional<PermissionRequestRelevance> expected_relevance,
+      std::optional<PermissionUiSelector::PredictionGrantLikelihood>
+          expected_prediction_likelihood,
+      std::string translate_source_language = "en") {
+    TriggerPromptAndWaitForBubble(test_url, translate_source_language);
+
+    auto* manager = permission_request_manager();
     EXPECT_EQ(should_expect_quiet_ui,
               manager->ShouldCurrentRequestUseQuietUI());
     EXPECT_EQ(expected_relevance,
@@ -1827,5 +1836,84 @@ IN_PROC_BROWSER_TEST_P(PredictionServiceAIP92BrowserTest, TestAIP92Workflow) {
   histogram_tester().ExpectUniqueSample(kPredictionServiceTimeoutHistogram,
                                         false, 1);
 }
+
+struct PredictionServiceGeolocationAccuracyTestCase {
+  PermissionPrediction::GeolocationPrediction::Accuracy response_accuracy;
+  GeolocationAccuracy expected_accuracy;
+};
+
+class PredictionServiceGeolocationAccuracyBrowserTest
+    : public PredictionServiceBrowserTestBase,
+      public testing::WithParamInterface<
+          PredictionServiceGeolocationAccuracyTestCase> {
+ public:
+  PredictionServiceGeolocationAccuracyBrowserTest()
+      : PredictionServiceBrowserTestBase(
+            /*enabled_features=*/
+            {{permissions::features::kPermissionPredictionsV2, {}},
+             {content_settings::features::kApproximateGeolocationPermission,
+              {}},
+             {features::kPermissionPredictionsGeolocationAccuracy, {}}}) {}
+
+  void SetUpOnMainThread() override {
+    PredictionServiceBrowserTestBase::SetUpOnMainThread();
+    browser()->profile()->GetPrefs()->SetBoolean(
+        unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled, true);
+  }
+
+  RequestType request_type() const override {
+    return RequestType::kGeolocation;
+  }
+};
+
+IN_PROC_BROWSER_TEST_P(PredictionServiceGeolocationAccuracyBrowserTest,
+                       UseGeolocationAccuracyFromResponse) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  GeneratePredictionsResponse prediction_service_response =
+      BuildPredictionServiceResponse(kLikelihoodLikely);
+  prediction_service_response.mutable_prediction(0)
+      ->mutable_geolocation_prediction()
+      ->set_accuracy(GetParam().response_accuracy);
+
+  PredictionRequestFeatures expected_features = BuildRequestFeatures(
+      RequestType::kGeolocation, ExperimentId::kNoExperimentId,
+      PermissionRequestRelevance::kUnspecified);
+  EXPECT_CALL(prediction_service(),
+              StartLookup(PredictionRequestFeatureEq(expected_features), _, _))
+      .WillOnce(WithArg<2>(
+          [&](PredictionService::LookupResponseCallback response_callback) {
+            std::move(response_callback)
+                .Run(/*lookup_successful=*/true,
+                     /*response_from_cache=*/true, prediction_service_response);
+          }));
+
+  TriggerPromptAndWaitForBubble(/*test_url=*/"test.a");
+  auto* manager = permission_request_manager();
+  EXPECT_FALSE(manager->ShouldCurrentRequestUseQuietUI());
+  EXPECT_EQ(GetParam().expected_accuracy,
+            manager->GetInitialGeolocationAccuracySelection());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    GeolocationAccuracy,
+    PredictionServiceGeolocationAccuracyBrowserTest,
+    ValuesIn<PredictionServiceGeolocationAccuracyTestCase>({
+        {
+            .response_accuracy = permissions::PermissionPrediction::
+                GeolocationPrediction::ACCURACY_UNSPECIFIED,
+            .expected_accuracy = GeolocationAccuracy::kPrecise,
+        },
+        {
+            .response_accuracy = permissions::PermissionPrediction::
+                GeolocationPrediction::ACCURACY_PRECISE,
+            .expected_accuracy = GeolocationAccuracy::kPrecise,
+        },
+        {
+            .response_accuracy = permissions::PermissionPrediction::
+                GeolocationPrediction::ACCURACY_APPROXIMATE,
+            .expected_accuracy = GeolocationAccuracy::kApproximate,
+        },
+    }));
 
 }  // namespace permissions

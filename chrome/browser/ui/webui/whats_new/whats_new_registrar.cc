@@ -13,8 +13,13 @@
 #include "components/performance_manager/public/features.h"
 #include "components/sync/base/features.h"
 #include "components/user_education/webui/whats_new_registry.h"
+#include "pdf/buildflags.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/webui/resources/js/browser_command/browser_command.mojom.h"
+
+#if BUILDFLAG(ENABLE_PDF)
+#include "pdf/pdf_features.h"
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 namespace whats_new {
 using BrowserCommand = browser_command::mojom::Command;
@@ -25,16 +30,6 @@ namespace features {
 
 void RegisterWhatsNewModules(whats_new::WhatsNewRegistry* registry) {
   // Register modules here.
-  // M142
-#if BUILDFLAG(ENABLE_GLIC)
-  registry->RegisterModule(WhatsNewModule(::features::kGlicIntro,
-                                          "birnie@google.com",
-                                          BrowserCommand::kOpenGlic));
-  // M142
-  registry->RegisterModule(WhatsNewModule(::features::kGlicLearnMore,
-                                          "birnie@google.com",
-                                          BrowserCommand::kOpenGlicSettings));
-#endif  // BUILDFLAG(ENABLE_GLIC)
   // 129
   registry->RegisterModule(
       WhatsNewModule("Googlepayreauth", "vinnypersky@google.com",
@@ -55,6 +50,18 @@ void RegisterWhatsNewModules(whats_new::WhatsNewRegistry* registry) {
   registry->RegisterModule(
       WhatsNewModule(::syncer::kSyncAccountSettings, "vizcay@google.com",
                      BrowserCommand::kOpenAutofillSettings));
+
+  // M144
+#if BUILDFLAG(ENABLE_PDF)
+  registry->RegisterModule(
+      WhatsNewModule(chrome_pdf::features::kPdfInk2, "andyphan@chromium.org"));
+#endif  // BUILDFLAG(ENABLE_PDF)
+
+  // M144
+#if BUILDFLAG(ENABLE_PDF_SAVE_TO_DRIVE)
+  registry->RegisterModule(WhatsNewModule(chrome_pdf::features::kPdfSaveToDrive,
+                                          "faizur@google.com"));
+#endif  // BUILDFLAG(ENABLE_PDF_SAVE_TO_DRIVE)
 }
 
 void RegisterWhatsNewEditions(whats_new::WhatsNewRegistry* registry) {

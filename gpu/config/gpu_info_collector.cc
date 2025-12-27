@@ -555,7 +555,7 @@ bool CollectBasicGraphicsInfo(const base::CommandLine* command_line,
     gpu_info->gl_renderer = "Disabled";
     gpu_info->gl_version = "Disabled";
     return true;
-  } else if (implementation == gl::GetSoftwareGLImplementation()) {
+  } else if (implementation == gl::GetSoftwareGLImplementation(command_line)) {
     // If using the software GL implementation, use fake vendor and
     // device ids to make sure it never gets blocklisted. It allows us
     // to proceed with loading the blocklist which may have non-device
@@ -823,13 +823,6 @@ bool CollectGpuExtraInfo(gfx::GpuExtraInfo* gpu_extra_info,
     }
   }
 
-#if BUILDFLAG(IS_OZONE)
-  if (const auto* const egl_utility =
-          ui::OzonePlatform::GetInstance()->GetPlatformGLEGLUtility()) {
-    egl_utility->CollectGpuExtraInfo(prefs.enable_native_gpu_memory_buffers,
-                                     *gpu_extra_info);
-  }
-#endif
   return true;
 }
 

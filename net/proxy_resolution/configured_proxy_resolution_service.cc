@@ -30,6 +30,7 @@
 #include "net/base/proxy_server.h"
 #include "net/base/proxy_string_util.h"
 #include "net/base/url_util.h"
+#include "net/dns/host_resolver.h"
 #include "net/log/net_log.h"
 #include "net/log/net_log_event_type.h"
 #include "net/log/net_log_util.h"
@@ -388,6 +389,13 @@ GURL SanitizeUrl(const GURL& url) {
   }
 
   return url.ReplaceComponents(replacements);
+}
+
+base::Value::Dict CreateDnsConditionNetLogParam(
+    const ProxyConfig::ProxyOverrideRule::DnsProbeCondition& dns_condition) {
+  base::Value::Dict dict;
+  dict.Set("dns_condition", dns_condition.ToDict());
+  return dict;
 }
 
 }  // namespace
@@ -816,11 +824,13 @@ const ConfiguredProxyResolutionService::PacPollPolicy*
 ConfiguredProxyResolutionService::ConfiguredProxyResolutionService(
     std::unique_ptr<ProxyConfigService> config_service,
     std::unique_ptr<ProxyResolverFactory> resolver_factory,
+    HostResolver* host_resolver_for_override_rules,
     NetLog* net_log,
     bool quick_check_enabled,
     bool enable_pac_runtime_backoff)
     : config_service_(std::move(config_service)),
       resolver_factory_(std::move(resolver_factory)),
+      host_resolver_for_override_rules_(host_resolver_for_override_rules),
       net_log_(net_log),
       stall_proxy_auto_config_delay_(
           base::Milliseconds(kDelayAfterNetworkChangesMs)),
@@ -835,19 +845,22 @@ ConfiguredProxyResolutionService::ConfiguredProxyResolutionService(
 std::unique_ptr<ConfiguredProxyResolutionService>
 ConfiguredProxyResolutionService::CreateUsingSystemProxyResolver(
     std::unique_ptr<ProxyConfigService> proxy_config_service,
+    HostResolver* host_resolver_for_override_rules,
     NetLog* net_log,
     bool quick_check_enabled) {
   DCHECK(proxy_config_service);
 
   if (!ProxyResolverFactoryForSystem::IsSupported()) {
     VLOG(1) << "PAC support disabled because there is no system implementation";
-    return CreateWithoutProxyResolver(std::move(proxy_config_service), net_log);
+    return CreateWithoutProxyResolver(std::move(proxy_config_service),
+                                      host_resolver_for_override_rules,
+                                      net_log);
   }
 
   return std::make_unique<ConfiguredProxyResolutionService>(
       std::move(proxy_config_service),
       std::make_unique<ProxyResolverFactoryForSystem>(kDefaultNumPacThreads),
-      net_log, quick_check_enabled,
+      host_resolver_for_override_rules, net_log, quick_check_enabled,
       /*enable_pac_runtime_backoff=*/true);
 }
 
@@ -855,10 +868,12 @@ ConfiguredProxyResolutionService::CreateUsingSystemProxyResolver(
 std::unique_ptr<ConfiguredProxyResolutionService>
 ConfiguredProxyResolutionService::CreateWithoutProxyResolver(
     std::unique_ptr<ProxyConfigService> proxy_config_service,
+    HostResolver* host_resolver_for_override_rules,
     NetLog* net_log) {
   return std::make_unique<ConfiguredProxyResolutionService>(
       std::move(proxy_config_service),
-      std::make_unique<ProxyResolverFactoryForNullResolver>(), net_log,
+      std::make_unique<ProxyResolverFactoryForNullResolver>(),
+      host_resolver_for_override_rules, net_log,
       /*quick_check_enabled=*/false);
 }
 
@@ -869,8 +884,9 @@ ConfiguredProxyResolutionService::CreateFixedForTest(
   // TODO(eroman): This isn't quite right, won't work if |pc| specifies
   //               a PAC script.
   return CreateUsingSystemProxyResolver(
-      std::make_unique<ProxyConfigServiceFixed>(pc), nullptr,
-      /*quick_check_enabled=*/true);
+      std::make_unique<ProxyConfigServiceFixed>(pc),
+      /*host_resolver_for_override_rules=*/nullptr,
+      /*net_log=*/nullptr, /*quick_check_enabled=*/true);
 }
 
 // static
@@ -890,7 +906,8 @@ ConfiguredProxyResolutionService::CreateDirect() {
   // Use direct connections.
   return std::make_unique<ConfiguredProxyResolutionService>(
       std::make_unique<ProxyConfigServiceDirect>(),
-      std::make_unique<ProxyResolverFactoryForNullResolver>(), nullptr,
+      std::make_unique<ProxyResolverFactoryForNullResolver>(),
+      /*host_resolver_for_override_rules=*/nullptr, /*net_log=*/nullptr,
       /*quick_check_enabled=*/true);
 }
 
@@ -908,7 +925,8 @@ ConfiguredProxyResolutionService::CreateFixedFromPacResultForTest(
 
   return std::make_unique<ConfiguredProxyResolutionService>(
       std::move(proxy_config_service),
-      std::make_unique<ProxyResolverFactoryForPacResult>(pac_string), nullptr,
+      std::make_unique<ProxyResolverFactoryForPacResult>(pac_string),
+      /*host_resolver_for_override_rules=*/nullptr, /*net_log=*/nullptr,
       /*quick_check_enabled=*/true);
 }
 
@@ -923,7 +941,8 @@ ConfiguredProxyResolutionService::CreateFixedFromAutoDetectedPacResultForTest(
 
   return std::make_unique<ConfiguredProxyResolutionService>(
       std::move(proxy_config_service),
-      std::make_unique<ProxyResolverFactoryForPacResult>(pac_string), nullptr,
+      std::make_unique<ProxyResolverFactoryForPacResult>(pac_string),
+      /*host_resolver_for_override_rules=*/nullptr, /*net_log=*/nullptr,
       /*quick_check_enabled=*/true);
 }
 
@@ -942,7 +961,7 @@ ConfiguredProxyResolutionService::CreateFixedFromProxyChainsForTest(
   return std::make_unique<ConfiguredProxyResolutionService>(
       std::move(proxy_config_service),
       std::make_unique<ProxyResolverFactoryForProxyChains>(proxy_chains),
-      nullptr,
+      /*host_resolver_for_override_rules=*/nullptr, /*net_log=*/nullptr,
       /*quick_check_enabled=*/true);
 }
 
@@ -953,7 +972,8 @@ int ConfiguredProxyResolutionService::ResolveProxy(
     ProxyInfo* result,
     CompletionOnceCallback callback,
     std::unique_ptr<ProxyResolutionRequest>* out_request,
-    const NetLogWithSource& net_log) {
+    const NetLogWithSource& net_log,
+    RequestPriority priority) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DCHECK(!callback.is_null());
   DCHECK(out_request);
@@ -975,9 +995,16 @@ int ConfiguredProxyResolutionService::ResolveProxy(
   // to be disclosed to the resolver.
   GURL url = SanitizeUrl(raw_url);
 
+  if (config_ && !host_resolver_for_override_rules_) {
+    // A host resolver should always be configured in services which may receive
+    // configurations with override rules.
+    CHECK(config_->value().proxy_override_rules().empty());
+  }
+
   // Check if the request can be completed right away. (This is the case when
   // using a direct connection for example).
-  int rv = TryToCompleteSynchronously(url, result);
+  int rv = TryToCompleteSynchronously(url, /*bypass_override_rules=*/false,
+                                      net_log, result);
   if (rv != ERR_IO_PENDING) {
     rv = DidFinishResolvingProxy(url, network_anonymization_key, method, result,
                                  rv, net_log);
@@ -986,9 +1013,9 @@ int ConfiguredProxyResolutionService::ResolveProxy(
 
   auto req = std::make_unique<ConfiguredProxyResolutionRequest>(
       this, url, method, network_anonymization_key, result, std::move(callback),
-      net_log);
+      net_log, priority);
 
-  if (current_state_ == STATE_READY) {
+  if (IsReady()) {
     // Start the resolve request.
     rv = req->Start();
     if (rv != ERR_IO_PENDING)
@@ -1010,13 +1037,40 @@ int ConfiguredProxyResolutionService::ResolveProxy(
 
 int ConfiguredProxyResolutionService::TryToCompleteSynchronously(
     const GURL& url,
+    bool bypass_override_rules,
+    const NetLogWithSource& net_log,
     ProxyInfo* result) {
   DCHECK_NE(STATE_NONE, current_state_);
 
-  if (current_state_ != STATE_READY)
+  if (!IsReady()) {
     return ERR_IO_PENDING;  // Still initializing.
+  }
 
   DCHECK(config_);
+
+  if (!bypass_override_rules &&
+      !config_->value().proxy_override_rules().empty()) {
+    // Override rules are prioritized in the order that they are defined.
+    for (const auto& rule : config_->value().proxy_override_rules()) {
+      if (rule.MatchesDestination(url)) {
+        if (rule.dns_conditions.empty()) {
+          net_log.AddEvent(
+              NetLogEventType::PROXY_RESOLUTION_OVERRIDE_RULE_APPLIED,
+              [&] { return rule.ToDict(); });
+
+          result->UseProxyList(rule.proxy_list);
+          result->set_traffic_annotation(MutableNetworkTrafficAnnotationTag(
+              config_->traffic_annotation()));
+          return OK;
+        }
+
+        // If the first matching rule requires any DNS resolution, go to the
+        // asynchronous path.
+        return ERR_IO_PENDING;
+      }
+    }
+  }
+
   // If it was impossible to fetch or parse the PAC script, we cannot complete
   // the request here and bail out.
   if (permanent_error_ != OK) {
@@ -1075,12 +1129,15 @@ ConfiguredProxyResolutionService::~ConfiguredProxyResolutionService() {
 void ConfiguredProxyResolutionService::SuspendAllPendingRequests() {
   for (ConfiguredProxyResolutionRequest* req : pending_requests_) {
     if (req->is_started()) {
-      req->CancelResolveJob();
+      req->Cancel();
 
       req->net_log()->BeginEvent(
           NetLogEventType::PROXY_RESOLUTION_SERVICE_WAITING_FOR_INIT_PAC);
     }
   }
+
+  // Also cancel any pending DNS resolution requests.
+  host_resolution_requests_.clear();
 }
 
 void ConfiguredProxyResolutionService::SetReady() {
@@ -1336,6 +1393,34 @@ PacFileFetcher* ConfiguredProxyResolutionService::GetPacFileFetcher() const {
   return pac_file_fetcher_.get();
 }
 
+ConfiguredProxyResolutionService::HostResolutionRequest::HostResolutionRequest(
+    std::unique_ptr<HostResolver::ResolveHostRequest> request,
+    RequestPriority initial_priority)
+    : request(std::move(request)), current_priority(initial_priority) {}
+
+ConfiguredProxyResolutionService::HostResolutionRequest::HostResolutionRequest(
+    HostResolutionRequest&&) = default;
+
+ConfiguredProxyResolutionService::HostResolutionRequest&
+ConfiguredProxyResolutionService::HostResolutionRequest::operator=(
+    HostResolutionRequest&&) = default;
+
+ConfiguredProxyResolutionService::HostResolutionRequest::
+    ~HostResolutionRequest() = default;
+
+void ConfiguredProxyResolutionService::HostResolutionRequest::AddListener(
+    base::WeakPtr<ConfiguredProxyResolutionRequest> listener,
+    RequestPriority priority) {
+  listeners.push_back(std::move(listener));
+
+  if (current_priority < priority) {
+    // If another request requiring the same DNS host resolution has a higher
+    // priority, bump the pending DNS resolution request's priority to match.
+    request->ChangeRequestPriority(priority);
+    current_priority = priority;
+  }
+}
+
 bool ConfiguredProxyResolutionService::GetLoadStateIfAvailable(
     LoadState* load_state) const {
   if (current_state_ == STATE_WAITING_FOR_INIT_PROXY_RESOLVER) {
@@ -1348,6 +1433,11 @@ bool ConfiguredProxyResolutionService::GetLoadStateIfAvailable(
 
 ProxyResolver* ConfiguredProxyResolutionService::GetProxyResolver() const {
   return resolver_.get();
+}
+
+HostResolver*
+ConfiguredProxyResolutionService::GetHostResolverForOverrideRules() const {
+  return host_resolver_for_override_rules_.get();
 }
 
 ConfiguredProxyResolutionService::State
@@ -1459,6 +1549,10 @@ void ConfiguredProxyResolutionService::ForceReloadProxyConfig() {
   ApplyProxyConfigIfAvailable();
 }
 
+bool ConfiguredProxyResolutionService::IsReady() const {
+  return current_state_ == STATE_READY;
+}
+
 base::Value::Dict ConfiguredProxyResolutionService::GetProxyNetLogValues() {
   base::Value::Dict net_info_dict;
 
@@ -1535,7 +1629,7 @@ bool ConfiguredProxyResolutionService::ApplyPacBypassRules(const GURL& url,
                                                            ProxyInfo* results) {
   DCHECK(config_);
 
-  if (ProxyBypassRules::MatchesImplicitRules(url)) {
+  if (ProxyHostMatchingRules::MatchesImplicitRules(url)) {
     results->UseDirectWithBypassedProxy();
     return true;
   }
@@ -1594,6 +1688,74 @@ void ConfiguredProxyResolutionService::InitializeUsingDecidedConfig(
 
   if (rv != ERR_IO_PENDING)
     OnInitProxyResolverComplete(rv);
+}
+
+std::optional<ResolveHostResult>
+ConfiguredProxyResolutionService::RequestHostResolution(
+    const ProxyConfig::ProxyOverrideRule::DnsProbeCondition& dns_condition,
+    base::WeakPtr<ConfiguredProxyResolutionRequest> listener,
+    const NetworkAnonymizationKey& network_anonymization_key,
+    const NetLogWithSource& net_log,
+    RequestPriority priority) {
+  CHECK(host_resolver_for_override_rules_);
+  auto key = std::make_pair(dns_condition.host, network_anonymization_key);
+  auto request_it = host_resolution_requests_.find(key);
+  if (request_it != host_resolution_requests_.end()) {
+    // A DNS resolution request is already pending for this host,
+    // subscribe to it.
+    net_log.AddEvent(
+        NetLogEventType::PROXY_OVERRIDE_BEGIN_HOST_RESOLUTION,
+        [&] { return CreateDnsConditionNetLogParam(dns_condition); });
+    request_it->second.AddListener(std::move(listener), priority);
+    return std::nullopt;
+  }
+
+  HostResolver::ResolveHostParameters parameters;
+  parameters.initial_priority = priority;
+
+  auto sub_net_log = NetLogWithSource::Make(
+      net_log.net_log(), NetLogSourceType::PROXY_OVERRIDE_HOST_RESOLUTION);
+  auto request = host_resolver_for_override_rules_->CreateRequest(
+      dns_condition.host, network_anonymization_key, sub_net_log, parameters);
+
+  // Link the two net log sources together.
+  sub_net_log.AddEventReferencingSource(
+      NetLogEventType::PROXY_OVERRIDE_HOST_RESOLUTION, net_log.source());
+  net_log.AddEvent(NetLogEventType::PROXY_OVERRIDE_BEGIN_HOST_RESOLUTION, [&] {
+    base::Value::Dict dict = CreateDnsConditionNetLogParam(dns_condition);
+    sub_net_log.source().AddToEventParameters(dict);
+    return dict;
+  });
+
+  int rv = request->Start(base::BindOnce(
+      &ConfiguredProxyResolutionService::OnHostResolved, base::Unretained(this),
+      dns_condition.host, network_anonymization_key));
+  if (rv != ERR_IO_PENDING) {
+    return ResolveHostResult(rv, *request);
+  }
+
+  auto [inserted_request_it, inserted_unused] =
+      host_resolution_requests_.emplace(
+          key, HostResolutionRequest(std::move(request), priority));
+  inserted_request_it->second.AddListener(std::move(listener), priority);
+  return std::nullopt;
+}
+
+void ConfiguredProxyResolutionService::OnHostResolved(
+    const url::SchemeHostPort& scheme_host_port,
+    const NetworkAnonymizationKey& network_anonymization_key,
+    int net_error) {
+  auto key = std::make_pair(scheme_host_port, network_anonymization_key);
+  auto request_it = host_resolution_requests_.find(key);
+  CHECK(request_it != host_resolution_requests_.end());
+
+  auto map_node = host_resolution_requests_.extract(key);
+  ResolveHostResult result(net_error, *map_node.mapped().request);
+  for (auto& listener : map_node.mapped().listeners) {
+    if (listener) {
+      listener->OnDnsHostResolved(scheme_host_port, result);
+    }
+  }
 }
 
 void ConfiguredProxyResolutionService::OnIPAddressChanged(

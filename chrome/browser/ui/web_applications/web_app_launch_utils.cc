@@ -135,7 +135,7 @@ BrowserWindowInterface* ReparentWebContentsIntoAppBrowser(
   // Avoid causing an existing non-app browser window to close if this is the
   // last tab remaining.
   if (source_browser->tab_strip_model()->count() == 1) {
-    chrome::NewTab(source_browser, NewTabTypes::NO_USER_ACTION);
+    chrome::NewTab(source_browser, NewTabTypes::kNoUserAction);
   }
 
   ReparentWebContentsIntoBrowserImpl(
@@ -230,8 +230,6 @@ base::Value::Dict ToDebugDict(const apps::AppLaunchParams& params) {
   }
   value.Set("launch_files", std::move(files_list));
   value.Set("intent", params.intent ? "<set>" : "<not set>");
-  value.Set("url_handler_launch_url",
-            params.url_handler_launch_url.value_or(GURL()).spec());
   value.Set("protocol_handler_launch_url",
             params.protocol_handler_launch_url.value_or(GURL()).spec());
   value.Set("omit_from_session_restore", params.omit_from_session_restore);
@@ -326,7 +324,7 @@ void ReparentWebContentsIntoBrowserImpl(Browser* source_browser,
           : std::optional<webapps::AppId>(std::nullopt);
   const std::optional<webapps::AppId> target_app_id =
       AppBrowserController::IsWebApp(target_browser)
-          ? target_browser->GetAppBrowserController()->app_id()
+          ? AppBrowserController::From(target_browser)->app_id()
           : std::optional<webapps::AppId>(std::nullopt);
 
   // Always reset the window controls overlay titlebar area when going to a
@@ -436,7 +434,7 @@ bool MaybeHandleIntentPickerFocusExistingOrNavigateExisting(
   }
   std::optional<AppBrowserController::BrowserAndTabIndex> existing_app_host =
       AppBrowserController::FindTopLevelBrowsingContextForWebApp(
-          *profile, app_id, Browser::TYPE_APP,
+          *profile, app_id, /*for_app_browser=*/true,
           /*for_focus_existing=*/client_mode ==
               LaunchHandler::ClientMode::kFocusExisting);
   if (!existing_app_host.has_value()) {
@@ -457,7 +455,7 @@ bool MaybeHandleIntentPickerFocusExistingOrNavigateExisting(
   // Picker was clicked) goes away without its containing browser closing.
   Browser* foreground_browser = chrome::FindBrowserWithTab(contents);
   if (foreground_browser->tab_strip_model()->count() == 1) {
-    chrome::NewTab(foreground_browser, NewTabTypes::NEW_TAB_COMMAND);
+    chrome::NewTab(foreground_browser, NewTabTypes::kNewTabCommand);
   }
 
   contents->Close();
@@ -586,12 +584,13 @@ BrowserWindowInterface* ReparentWebContentsIntoAppBrowser(
 
     // If the current url isn't in scope, then set the initial url on the
     // AppBrowserController so that the 'x' button still shows up.
-    CHECK(browser->GetAppBrowserController());
-    browser->GetAppBrowserController()->MaybeSetInitialUrlOnReparentTab();
+    auto* const app_controller = AppBrowserController::From(browser);
+    CHECK(app_controller);
+    app_controller->MaybeSetInitialUrlOnReparentTab();
   }
 
   bool as_pinned_home_tab =
-      browser->GetAppBrowserController()->IsUrlInHomeTabScope(launch_url);
+      AppBrowserController::From(browser)->IsUrlInHomeTabScope(launch_url);
 
   BrowserWindowInterface* reparented_browser =
       ReparentWebContentsIntoAppBrowser(contents, browser, app_id,
@@ -696,19 +695,6 @@ Browser* CreateWebAppWindowMaybeWithHomeTab(
     MaybeAddPinnedHomeTab(browser, app_id);
   }
   return browser;
-}
-
-Browser* CreateWebAppWindowFromNavigationParams(
-    const webapps::AppId& app_id,
-    const NavigateParams& navigate_params,
-    bool should_create_app_popup = false) {
-  Browser::CreateParams app_browser_params = CreateParamsForApp(
-      app_id, should_create_app_popup, navigate_params.trusted_source,
-      navigate_params.window_features.bounds,
-      navigate_params.initiating_profile, navigate_params.user_gesture);
-  Browser* created_browser =
-      CreateWebAppWindowMaybeWithHomeTab(app_id, app_browser_params);
-  return created_browser;
 }
 
 content::WebContents* NavigateWebAppUsingParams(NavigateParams& nav_params) {

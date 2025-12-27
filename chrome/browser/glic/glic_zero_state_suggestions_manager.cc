@@ -21,6 +21,8 @@ namespace glic {
 namespace {
 
 BASE_FEATURE(kCacheZeroStateSuggestions, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kRefreshZeroStateSuggestionsOnFocusedTabChange,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 std::vector<std::string> EmptySuggestions() {
   return {};
@@ -153,39 +155,41 @@ void GlicZeroStateSuggestionsManager::
       }
     }
 
-    // Notify host that suggestions are pending in case there were suggestions
-    // and we are posting an invalid state.
-    host().NotifyZeroStateSuggestion(
-        MakePendingSuggestionsPtr(),
-        mojom::ZeroStateSuggestionsOptions(is_first_run, supported_tools));
-
+    bool suggestions_pending = false;
     if (caching_zero_state_manager_) {
-      caching_zero_state_manager_
-          ->GetContextualGlicZeroStateSuggestionsForPinnedTabs(
-              contents_for_request, is_first_run, supported_tools,
-              active_web_contents,
-              base::BindOnce(&GlicZeroStateSuggestionsManager::
-                                 OnZeroStateSuggestionsNotify,
-                             GetWeakPtr(), is_first_run, supported_tools));
+      suggestions_pending =
+          caching_zero_state_manager_
+              ->GetContextualGlicZeroStateSuggestionsForPinnedTabs(
+                  contents_for_request, is_first_run, supported_tools,
+                  base::FeatureList::IsEnabled(
+                      kRefreshZeroStateSuggestionsOnFocusedTabChange)
+                      ? active_web_contents
+                      : nullptr,
+                  base::BindOnce(&GlicZeroStateSuggestionsManager::
+                                     OnZeroStateSuggestionsNotify,
+                                 GetWeakPtr(), is_first_run, supported_tools));
     } else {
-      bool suggestions_pending =
+      suggestions_pending =
           contextual_cueing_service_
               ->GetContextualGlicZeroStateSuggestionsForPinnedTabs(
                   contents_for_request, is_first_run, supported_tools,
-                  active_web_contents,
+                  base::FeatureList::IsEnabled(
+                      kRefreshZeroStateSuggestionsOnFocusedTabChange)
+                      ? active_web_contents
+                      : nullptr,
                   mojo::WrapCallbackWithDefaultInvokeIfNotRun(
                       base::BindOnce(&GlicZeroStateSuggestionsManager::
                                          OnZeroStateSuggestionsNotify,
                                      GetWeakPtr(), is_first_run,
                                      supported_tools),
                       EmptySuggestions()));
+    }
 
-      if (suggestions_pending && !caching_zero_state_manager_) {
-        // Notify host that suggestions are pending.
-        host().NotifyZeroStateSuggestion(
-            MakePendingSuggestionsPtr(),
-            mojom::ZeroStateSuggestionsOptions(is_first_run, supported_tools));
-      }
+    if (suggestions_pending) {
+      // Notify host that suggestions are pending.
+      host().NotifyZeroStateSuggestion(
+          MakePendingSuggestionsPtr(),
+          mojom::ZeroStateSuggestionsOptions(is_first_run, supported_tools));
     }
   }
 }
@@ -195,6 +199,20 @@ void GlicZeroStateSuggestionsManager::
         bool is_first_run,
         const std::vector<std::string>& supported_tools,
         const TabDataChange& tab_data_change) {
+  TabDataChangeCauseSet eligible_causes = {
+      TabDataChangeCause::kSameDocNavigation,
+      TabDataChangeCause::kCrossDocNavigation, TabDataChangeCause::kTabChanged};
+  if (base::FeatureList::IsEnabled(
+          kRefreshZeroStateSuggestionsOnFocusedTabChange)) {
+    // Allow for visibility to be a change to refresh suggestions on if focused
+    // tab change suggestion refresh is enabled.
+    eligible_causes.Put(TabDataChangeCause::kVisibility);
+  }
+  if (!tab_data_change.causes.HasAny(eligible_causes)) {
+    // Not an eligible change cause, do not refresh suggestions.
+    return;
+  }
+
   NotifyZeroStateSuggestionsOnPinnedTabChanged(
       is_first_run, supported_tools, sharing_manager_->GetPinnedTabs());
 }

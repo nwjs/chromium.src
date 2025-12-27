@@ -207,13 +207,13 @@ bool ValidateOpenArguments(const AtomicString& method,
   if (!IsValidHTTPToken(method)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kSyntaxError,
-        "'" + method + "' is not a valid HTTP method.");
+        StrCat({"'", method, "' is not a valid HTTP method."}));
     return false;
   }
 
   if (FetchUtils::IsForbiddenMethod(method)) {
-    exception_state.ThrowSecurityError("'" + method +
-                                       "' HTTP method is unsupported.");
+    exception_state.ThrowSecurityError(
+        StrCat({"'", method, "' HTTP method is unsupported."}));
     return false;
   }
 
@@ -1394,13 +1394,14 @@ void XMLHttpRequest::setRequestHeader(const AtomicString& name,
   if (!IsValidHTTPToken(name)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kSyntaxError,
-        "'" + name + "' is not a valid HTTP header field name.");
+        StrCat({"'", name, "' is not a valid HTTP header field name."}));
     return;
   }
   if (!IsValidHTTPHeaderValue(normalized_value)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kSyntaxError,
-        "'" + normalized_value + "' is not a valid HTTP header field value.");
+        StrCat({"'", normalized_value,
+                "' is not a valid HTTP header field value."}));
     return;
   }
 
@@ -1409,7 +1410,7 @@ void XMLHttpRequest::setRequestHeader(const AtomicString& name,
   // No script (privileged or not) can set unsafe headers.
   if (cors::IsForbiddenRequestHeader(name, value)) {
     LogConsoleError(GetExecutionContext(),
-                    "Refused to set unsafe header \"" + name + "\"");
+                    StrCat({"Refused to set unsafe header \"", name, "\""}));
     return;
   }
 
@@ -1528,7 +1529,7 @@ const AtomicString& XMLHttpRequest::getResponseHeader(
 
   if (FetchUtils::IsForbiddenResponseHeaderName(name)) {
     LogConsoleError(GetExecutionContext(),
-                    "Refused to get unsafe header \"" + name + "\"");
+                    StrCat({"Refused to get unsafe header \"", name, "\""}));
     return g_null_atom;
   }
 
@@ -1542,7 +1543,7 @@ const AtomicString& XMLHttpRequest::getResponseHeader(
       !cors::IsCorsSafelistedResponseHeader(name) &&
       !base::Contains(access_control_expose_header_set, name.Ascii())) {
     LogConsoleError(GetExecutionContext(),
-                    "Refused to get unsafe header \"" + name + "\"");
+                    StrCat({"Refused to get unsafe header \"", name, "\""}));
     return g_null_atom;
   }
   return response_.HttpHeaderField(name);

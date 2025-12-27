@@ -12,8 +12,7 @@ namespace url {
 namespace {
 
 template <typename CHAR>
-bool DoCanonicalizeNonSpecialUrl(const URLComponentSource<CHAR>& source,
-                                 const Parsed& parsed,
+bool DoCanonicalizeNonSpecialUrl(const Replacements<CHAR>& source,
                                  CharsetConverter* query_converter,
                                  CanonOutput& output,
                                  Parsed& new_parsed) {
@@ -29,12 +28,12 @@ bool DoCanonicalizeNonSpecialUrl(const URLComponentSource<CHAR>& source,
   // > url.href
   // "git:///" (this should not be "git://x@").
 
-  DCHECK(!parsed.has_opaque_path);
+  DCHECK(!source.components().has_opaque_path);
 
   // Scheme: this will append the colon.
   bool success =
-      CanonicalizeScheme(parsed.scheme.maybe_as_string_view_on(source.scheme),
-                         &output, &new_parsed.scheme);
+      CanonicalizeScheme(source.MaybeScheme(), &output, &new_parsed.scheme);
+  const Parsed parsed = source.components();
   bool have_authority =
       (parsed.username.is_valid() || parsed.password.is_valid() ||
        parsed.host.is_valid() || parsed.port.is_valid());
@@ -63,8 +62,7 @@ bool DoCanonicalizeNonSpecialUrl(const URLComponentSource<CHAR>& source,
     if (parsed.host.is_nonempty()) {
       // User info: the canonicalizer will handle the : and @.
       success &= CanonicalizeUserInfo(
-          parsed.username.maybe_as_string_view_on(source.username),
-          parsed.password.maybe_as_string_view_on(source.password), &output,
+          source.MaybeUsername(), source.MaybePassword(), &output,
           &new_parsed.username, &new_parsed.password);
     } else {
       new_parsed.username.reset();
@@ -73,10 +71,10 @@ bool DoCanonicalizeNonSpecialUrl(const URLComponentSource<CHAR>& source,
 
     // Host
     if (parsed.host.is_valid()) {
-      success &= CanonicalizeNonSpecialHost(
-          std::basic_string_view<CHAR>(
-              source.host, parsed.host.is_valid() ? parsed.host.end() : 0),
-          parsed.host, output, new_parsed.host);
+      success &=
+          CanonicalizeNonSpecialHost(source.SpecUntilHostOrEmpty(),
+
+                                     parsed.host, output, new_parsed.host);
     } else {
       new_parsed.host.reset();
       // URL is invalid if `have_authority` is true, but `parsed.host` is
@@ -90,9 +88,8 @@ bool DoCanonicalizeNonSpecialUrl(const URLComponentSource<CHAR>& source,
     // - https://url.spec.whatwg.org/#cannot-have-a-username-password-port
     // - https://url.spec.whatwg.org/#dom-url-port
     if (parsed.host.is_nonempty()) {
-      success &=
-          CanonicalizePort(parsed.port.maybe_as_string_view_on(source.port),
-                           PORT_UNSPECIFIED, &output, &new_parsed.port);
+      success &= CanonicalizePort(source.MaybePort(), PORT_UNSPECIFIED, &output,
+                                  &new_parsed.port);
     } else {
       new_parsed.port.reset();
     }
@@ -129,12 +126,11 @@ bool DoCanonicalizeNonSpecialUrl(const URLComponentSource<CHAR>& source,
       output.push_back('/');
       new_parsed.path.len = output.length() - new_parsed.path.begin;
     } else {
-      success &= CanonicalizePath(parsed.path.as_string_view_on(source.path),
-                                  CanonMode::kNonSpecialURL, &output,
-                                  &new_parsed.path);
+      success &=
+          CanonicalizePath(*source.MaybePath(), CanonMode::kNonSpecialURL,
+                           &output, &new_parsed.path);
       if (!parsed.host.is_valid() && new_parsed.path.is_valid() &&
-          new_parsed.path.as_string_view_on(output.view().data())
-              .starts_with("//")) {
+          new_parsed.path.AsViewOn(output.view()).starts_with("//")) {
         // To avoid path being treated as the host, prepend "/." to the path".
         //
         // Examples:
@@ -168,12 +164,11 @@ bool DoCanonicalizeNonSpecialUrl(const URLComponentSource<CHAR>& source,
   }
 
   // Query
-  CanonicalizeQuery(parsed.query.maybe_as_string_view_on(source.query),
-                    query_converter, &output, &new_parsed.query);
+  CanonicalizeQuery(source.MaybeQuery(), query_converter, &output,
+                    &new_parsed.query);
 
   // Ref: ignore failure for this, since the page can probably still be loaded.
-  CanonicalizeRef(parsed.ref.maybe_as_string_view_on(source.ref), &output,
-                  &new_parsed.ref);
+  CanonicalizeRef(source.MaybeRef(), &output, &new_parsed.ref);
 
   // Carry over the flag for potentially dangling markup:
   if (parsed.potentially_dangling_markup) {
@@ -194,10 +189,9 @@ bool CanonicalizeNonSpecialUrl(std::string_view spec,
   new_parsed.has_opaque_path = parsed.has_opaque_path;
 
   if (parsed.has_opaque_path) {
-    return CanonicalizePathURL(spec.data(), spec.length(), parsed, &output,
-                               &new_parsed);
+    return CanonicalizePathUrl(spec, parsed, &output, &new_parsed);
   }
-  return DoCanonicalizeNonSpecialUrl(URLComponentSource(spec.data()), parsed,
+  return DoCanonicalizeNonSpecialUrl(Replacements<char>(spec, parsed),
                                      query_converter, output, new_parsed);
 }
 
@@ -210,10 +204,9 @@ bool CanonicalizeNonSpecialUrl(std::u16string_view spec,
   new_parsed.has_opaque_path = parsed.has_opaque_path;
 
   if (parsed.has_opaque_path) {
-    return CanonicalizePathURL(spec.data(), spec.length(), parsed, &output,
-                               &new_parsed);
+    return CanonicalizePathUrl(spec, parsed, &output, &new_parsed);
   }
-  return DoCanonicalizeNonSpecialUrl(URLComponentSource(spec.data()), parsed,
+  return DoCanonicalizeNonSpecialUrl(Replacements<char16_t>(spec, parsed),
                                      query_converter, output, new_parsed);
 }
 
@@ -227,14 +220,13 @@ bool ReplaceNonSpecialUrl(std::string_view base,
   new_parsed.has_opaque_path = base_parsed.has_opaque_path;
 
   if (base_parsed.has_opaque_path) {
-    return ReplacePathURL(base.data(), base_parsed, replacements, &output,
+    return ReplacePathUrl(base, base_parsed, replacements, &output,
                           &new_parsed);
   }
 
-  URLComponentSource<char> source(base.data());
-  Parsed parsed(base_parsed);
-  SetupOverrideComponents(base.data(), replacements, &source, &parsed);
-  return DoCanonicalizeNonSpecialUrl(source, parsed, query_converter, output,
+  Replacements<char> overridden(base, base_parsed);
+  SetupOverrideComponents(replacements, overridden);
+  return DoCanonicalizeNonSpecialUrl(overridden, query_converter, output,
                                      new_parsed);
 }
 
@@ -250,16 +242,14 @@ bool ReplaceNonSpecialUrl(std::string_view base,
   new_parsed.has_opaque_path = base_parsed.has_opaque_path;
 
   if (base_parsed.has_opaque_path) {
-    return ReplacePathURL(base.data(), base_parsed, replacements, &output,
+    return ReplacePathUrl(base, base_parsed, replacements, &output,
                           &new_parsed);
   }
 
   RawCanonOutput<1024> utf8;
-  URLComponentSource<char> source(base.data());
-  Parsed parsed(base_parsed);
-  SetupUTF16OverrideComponents(base.data(), replacements, &utf8, &source,
-                               &parsed);
-  return DoCanonicalizeNonSpecialUrl(source, parsed, query_converter, output,
+  Replacements<char> overridden(base, base_parsed);
+  SetupUtf16OverrideComponents(replacements, utf8, overridden);
+  return DoCanonicalizeNonSpecialUrl(overridden, query_converter, output,
                                      new_parsed);
 }
 

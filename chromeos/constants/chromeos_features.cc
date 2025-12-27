@@ -75,7 +75,7 @@ BASE_FEATURE(kGeminiAppPreinstall, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kKioskHeartbeatsViaERP, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the Badge Authentication flow on the lock screen.
-BASE_FEATURE(kLockScreenBadgeAuth, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLockScreenBadgeAuth, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the new Magic Boost Consent Flow.
 BASE_FEATURE(kMagicBoostRevamp, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -156,6 +156,14 @@ BASE_FEATURE(kFeatureManagementOrca, base::FEATURE_DISABLED_BY_DEFAULT);
 // Whether to disable chrome compose.
 BASE_FEATURE(kFeatureManagementDisableChromeCompose,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables GLIC on ChromeOS. This flag is intended to be controlled by the
+// feature management module.
+BASE_FEATURE(kFeatureManagementGlic, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If true, it enabled GLIC on 8GB devices (or higher) bypassing the CBX device
+// requirement.
+BASE_FEATURE(kGlicEnableFor8GbDevices, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables rounded windows. This flag is intended to be controlled by the
 // feature management module.
@@ -291,7 +299,7 @@ BASE_FEATURE(kNotebookLmAppShelfPinReset, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables support for protocols handlers registered via web app manifest.
 BASE_FEATURE(kWebAppManifestProtocolHandlerSupport,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether Vids is preinstalled.
 BASE_FEATURE(kVidsAppPreinstall, base::FEATURE_ENABLED_BY_DEFAULT);

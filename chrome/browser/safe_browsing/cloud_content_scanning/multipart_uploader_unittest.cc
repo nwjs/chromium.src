@@ -17,7 +17,7 @@
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
-#include "chrome/browser/enterprise/connectors/test/uploader_test_utils.h"
+#include "components/enterprise/connectors/core/uploader_test_utils.h"
 #include "components/file_access/test/mock_scoped_file_access_delegate.h"
 #include "content/public/test/browser_task_environment.h"
 #include "net/base/net_errors.h"
@@ -64,8 +64,7 @@ class MultipartUploadRequestTest : public testing::Test {
     base::MappedReadOnlyRegion region =
         base::ReadOnlySharedMemoryRegion::Create(content.size());
     EXPECT_TRUE(region.IsValid());
-    UNSAFE_TODO(
-        std::memcpy(region.mapping.memory(), content.data(), content.size()));
+    region.mapping.GetMemoryAsSpan<char>().copy_from(content);
     return std::move(region.region);
   }
 
@@ -226,7 +225,7 @@ TEST_P(MultipartUploadDataPipeRequestTest, MAYBE_Retries) {
         .WillOnce([&mock_request, &expected_body](
                       std::unique_ptr<network::ResourceRequest> request) {
           EXPECT_EQ(expected_body,
-                    enterprise_connectors::test::GetBodyFromFileOrPageRequest(
+                    enterprise_connectors::GetBodyFromFileOrPageRequest(
                         mock_request->data_pipe_getter_for_testing()));
           mock_request->RetryOrFinish(net::OK, net::HTTP_OK, "response");
           mock_request->MarkScanAsCompleteForTesting();
@@ -260,7 +259,7 @@ TEST_P(MultipartUploadDataPipeRequestTest, MAYBE_Retries) {
           // Every call to CompleteSendRequest should be able to get the
           // same body from the request's data pipe getter.
           EXPECT_EQ(expected_body,
-                    enterprise_connectors::test::GetBodyFromFileOrPageRequest(
+                    enterprise_connectors::GetBodyFromFileOrPageRequest(
                         mock_request->data_pipe_getter_for_testing()));
 
           ++retry_count;
@@ -318,7 +317,7 @@ TEST_P(MultipartUploadDataPipeRequestTest, DataControls) {
       .WillOnce([&mock_request, &expected_body](
                     std::unique_ptr<network::ResourceRequest> request) {
         EXPECT_EQ(expected_body,
-                  enterprise_connectors::test::GetBodyFromFileOrPageRequest(
+                  enterprise_connectors::GetBodyFromFileOrPageRequest(
                       mock_request->data_pipe_getter_for_testing()));
         mock_request->RetryOrFinish(net::OK, net::HTTP_OK, "response");
         mock_request->MarkScanAsCompleteForTesting();
@@ -360,7 +359,7 @@ TEST_P(MultipartUploadDataPipeRequestTest, EquivalentToStringRequest) {
   EXPECT_EQ(expected_body,
             string_request.GenerateRequestBody("metadata", "data"));
   EXPECT_EQ(expected_body,
-            enterprise_connectors::test::GetBodyFromFileOrPageRequest(
+            enterprise_connectors::GetBodyFromFileOrPageRequest(
                 data_pipe_request->data_pipe_getter_for_testing()));
 }
 

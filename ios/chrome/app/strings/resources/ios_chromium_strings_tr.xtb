@@ -25,6 +25,7 @@
 <translation id="1502360822835740515">Chromium'u varsayılan tarayıcı yapma</translation>
 <translation id="1503199973012840174">Chromium'unuz güncel değil. Güvenliğiniz için güncelleyin.</translation>
 <translation id="1515748263297244785">iPad'de varsayılan olarak Chromium'u kullanın</translation>
+<translation id="1530961174488670696">Chromium, güncellemeleri denetleyemedi. Daha sonra tekrar deneyin.</translation>
 <translation id="1531155317299575425">Chromium'da oturum açmak için istekleri gösterir.</translation>
 <translation id="1553657876656159572">Sizin için oluşturulmuş özel feed. Haberler, spor ve hava durumuyla ilgili içerikler yer alır.</translation>
 <translation id="1561849081734670621">Chromium'da Tam Gizlilik Modu'nu devre dışı bırakmak için bu ayarı iPhone'unuzda kapatın.</translation>
@@ -145,6 +146,7 @@ Verileriniz parolanızla şifrelenir. Chromium verilerini kullanmak ve Google He
 <translation id="420541179527342563">Chromium'da Tam Gizlilik Modu'nu devre dışı bırakmak için bu ayarı iPad'inizde kapatın.</translation>
 <translation id="4272892696084633551">Chromium'un özelliklerini ve performansını iyileştirmeye yardımcı olun</translation>
 <translation id="4302397443352897529">Chromium ayarları</translation>
+<translation id="4304713468139749426">Şifre Yöneticisi</translation>
 <translation id="4408912345039114853">Chromium Güvenlik Kontrolü yürüt</translation>
 <translation id="4432744876818348753">Chromium'dan en iyi şekilde yararlanmak için oturum açın.</translation>
 <translation id="4445228361214254027">Kuruluşunuz, Chromium verilerini Google Hesabınızda kullanma ve kaydetme özelliğini devre dışı bıraktı. Yeni yer işaretleri, şifreler ve diğer öğeler yalnızca bu cihaza kaydedilecek.</translation>
@@ -236,7 +238,7 @@ Dikkate alınması gereken noktalar:
 <translation id="6154098560469640583">Mesajlardaki, dokümanlardaki ve diğer uygulamalardaki bağlantılara dokunduğunuzda Chromium'u kullanabilirsiniz</translation>
 <translation id="6157162508956739031">Chromium'daki şifrelerinizi ve geçiş anahtarlarınızı otomatik doldurarak uygulamalarda ve sitelerde hızlıca oturum açın</translation>
 <translation id="6170619162539716595">Chromium'un, algılanan adreslerle ilgili yol tarifleri ve yerel bilgiler sağlaması için Google Haritalar'ı kullanmasına izin verin.</translation>
-<translation id="6247557882553405851">Google Şifre Yöneticisi</translation>
+<translation id="6244277266078678766">Verileriniz, <ph name="USER_EMAIL" /> için Şifre Yöneticisi'ne kaydedilir.</translation>
 <translation id="6268381023930128611">Chromium oturumunu kapatıyor musunuz?</translation>
 <translation id="6301717043141881464">Kayıtlı şifrelerinizi diğer uygulamalarınızda da kolayca görmek amacıyla Otomatik Doldurma için Chromium'u kullanın</translation>
 <translation id="6324041800010509197">Chromium'daki Sekme Izgarasına Git</translation>
@@ -289,6 +291,7 @@ Sadece parolanıza sahip olan kişiler şifrelenmiş verilerinizi okuyabilir. Pa
 <translation id="7554983317097061001">Chromium ipucu: Chromium'u yuvaya taşıyın</translation>
 <translation id="7576863740961052505">Chromium ayarlarını yönet</translation>
 <translation id="7674213385180944843">Ayarlar &gt; Gizlilik &gt; Kamera &gt; Chromium'a gidin ve kamerayı açın.</translation>
+<translation id="7685160423563372998">Chromium'da Gemini ile görüntü oluşturun</translation>
 <translation id="7733418656985455268">Chromium İpucu: Lens ile Arama Yapın</translation>
 <translation id="7747820849741499258">Chromium'da ara</translation>
 <translation id="7753923083404296545">Chromium Gizli modda açıldı</translation>
@@ -314,7 +317,7 @@ Sadece parolanıza sahip olan kişiler şifrelenmiş verilerinizi okuyabilir. Pa
 <translation id="8119542592987737574">iPhone'unuzun ana ekran yuvasından Chromium'a daha hızlı erişin.</translation>
 <translation id="8164086860209325020">Chromium Ayarları'na gidin</translation>
 <translation id="8197822717502700527">Artık cihazınızda Chromium'dan en iyi şekilde yararlanabileceksiniz.</translation>
-<translation id="8240981428553046115">Chromium, güncellemeleri denetleyemedi. Daha sonra tekrar deneyin.</translation>
+<translation id="8236210361418193126">Şifre Yöneticisi'ne aktarın</translation>
 <translation id="8254729934443216898">Chromium'dan en iyi şekilde yararlanmanıza yardımcı olacak yeni özellikleri keşfedin.</translation>
 <translation id="8293572045658095405">Chromium'un Gizli modundasınız</translation>
 <translation id="830951810931292870">Girilen URL'leri Chromium'da Gizli modda açar.</translation>

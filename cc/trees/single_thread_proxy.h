@@ -137,6 +137,7 @@ class CC_EXPORT SingleThreadProxy : public Proxy,
   void SetNeedsPrepareTilesOnImplThread() override;
   void SetNeedsCommitOnImplThread(bool urgent) override;
   void SetVideoNeedsBeginFrames(bool needs_begin_frames) override;
+  void DidChangeBeginFrameSourcePaused(bool paused) override;
   void SetDeferBeginMainFrameFromImpl(bool defer_begin_main_frame) override {}
   bool IsInsideDraw() override;
   void RenewTreePriority() override;
@@ -202,7 +203,7 @@ class CC_EXPORT SingleThreadProxy : public Proxy,
   void DoPainting();
   void DoCommit(const viz::BeginFrameArgs& commit_args);
   void DoPostCommit();
-  DrawResult DoComposite(LayerTreeHostImpl::FrameData* frame);
+  DrawResult DoComposite(FrameData* frame);
   void DoSwap();
   void DidCommitAndDrawFrame(int source_frame_number);
   void CommitComplete();

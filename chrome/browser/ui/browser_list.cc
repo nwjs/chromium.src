@@ -28,6 +28,8 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "components/keep_alive_registry/keep_alive_registry.h"
+#include "components/keep_alive_registry/keep_alive_types.h"
 
 using base::UserMetricsAction;
 using content::WebContents;
@@ -86,11 +88,11 @@ void BrowserList::AddBrowser(Browser* browser) {
 
   browser->RegisterKeepAlive();
 
+  AddBrowserToActiveList(browser);
+
   for (BrowserListObserver& observer : observers_.Get()) {
     observer.OnBrowserAdded(browser);
   }
-
-  AddBrowserToActiveList(browser);
 
   if (browser->profile()->IsGuestSession()) {
     base::UmaHistogramCounts100("Browser.WindowCount.Guest",
@@ -107,7 +109,6 @@ void BrowserList::RemoveBrowser(Browser* browser) {
   // Remove |browser| from the appropriate list instance.
   BrowserList* browser_list = GetInstance();
   RemoveBrowserFrom(browser, &browser_list->browsers_ordered_by_activation_);
-  browser_list->currently_closing_browsers_.erase(browser);
 
   RemoveBrowserFrom(browser, &browser_list->browsers_);
 
@@ -119,7 +120,8 @@ void BrowserList::RemoveBrowser(Browser* browser) {
 
   // If we're exiting, send out the APP_TERMINATING notification to allow other
   // modules to shut themselves down.
-  if (chrome::GetTotalBrowserCount() == 0 &&
+  if (!KeepAliveRegistry::GetInstance()->IsOriginRegistered(
+          KeepAliveOrigin::BROWSER) &&
       (browser_shutdown::IsTryingToQuit() ||
        g_browser_process->IsShuttingDown())) {
     // Last browser has just closed, and this is a user-initiated quit or there
@@ -336,11 +338,6 @@ void BrowserList::NotifyBrowserNoLongerActive(Browser* browser) {
   for (BrowserListObserver& observer : observers_.Get()) {
     observer.OnBrowserNoLongerActive(browser);
   }
-}
-
-// static
-void BrowserList::NotifyBrowserCloseStarted(Browser* browser) {
-  GetInstance()->currently_closing_browsers_.insert(browser);
 }
 
 // static

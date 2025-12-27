@@ -300,19 +300,25 @@ impl PlainYearMonth {
         // 7. Let thisFields be ISODateToFields(calendar, yearMonth.[[ISODate]], year-month).
         // 8. Set thisFields.[[Day]] to 1.
         // 9. Let thisDate be ? CalendarDateFromFields(calendar, thisFields, constrain).
-        let mut this_iso = self.iso;
-        this_iso.day = 1;
-        this_iso.check_within_limits()?;
+        let this_fields = CalendarFields::from(YearMonthCalendarFields::try_from_year_month(self)?);
+        let this_fields = this_fields.with_day(1);
+        let this_date = self
+            .calendar()
+            .date_from_fields(this_fields, Overflow::Constrain)?;
         // 10. Let otherFields be ISODateToFields(calendar, other.[[ISODate]], year-month).
         // 11. Set otherFields.[[Day]] to 1.
         // 12. Let otherDate be ? CalendarDateFromFields(calendar, otherFields, constrain).
-        let mut other_iso = other.iso;
-        other_iso.day = 1;
-        other_iso.check_within_limits()?;
-        // 13. Let dateDifference be CalendarDateUntil(calendar, thisDate, otherDate, settings.[[LargestUnit]]).
-        let result = self
+        let other_fields =
+            CalendarFields::from(YearMonthCalendarFields::try_from_year_month(other)?);
+        let other_fields = other_fields.with_day(1);
+        let other_date = self
             .calendar()
-            .date_until(&this_iso, &other_iso, resolved.largest_unit)?;
+            .date_from_fields(other_fields, Overflow::Constrain)?;
+
+        // 13. Let dateDifference be CalendarDateUntil(calendar, thisDate, otherDate, settings.[[LargestUnit]]).
+        let result =
+            self.calendar()
+                .date_until(&this_date.iso, &other_date.iso, resolved.largest_unit)?;
         // 14. Let yearsMonthsDifference be ! AdjustDateDurationRecord(dateDifference, 0, 0).
         let result = result.date().adjust(0, Some(0), None)?;
 
@@ -322,13 +328,15 @@ impl PlainYearMonth {
         // 16. If settings.[[SmallestUnit]] is not month or settings.[[RoundingIncrement]] ≠ 1, then
         if resolved.smallest_unit != Unit::Month || resolved.increment != RoundingIncrement::ONE {
             // a. Let isoDateTime be CombineISODateAndTimeRecord(thisDate, MidnightTimeRecord()).
-            let iso_date_time = IsoDateTime::new_unchecked(this_iso, IsoTime::default());
+            let iso_date_time = IsoDateTime::new_unchecked(this_date.iso, IsoTime::default());
             // b. Let isoDateTimeOther be CombineISODateAndTimeRecord(otherDate, MidnightTimeRecord()).
-            let target_iso_date_time = IsoDateTime::new_unchecked(other_iso, IsoTime::default());
+            let target_iso_date_time =
+                IsoDateTime::new_unchecked(other_date.iso, IsoTime::default());
             // c. Let destEpochNs be GetUTCEpochNanoseconds(isoDateTimeOther).
             let dest_epoch_ns = target_iso_date_time.as_nanoseconds();
             // d. Set duration to ? RoundRelativeDuration(duration, destEpochNs, isoDateTime, unset, calendar, resolved.[[LargestUnit]], resolved.[[RoundingIncrement]], resolved.[[SmallestUnit]], resolved.[[RoundingMode]]).
             duration = duration.round_relative_duration(
+                iso_date_time.as_nanoseconds(),
                 dest_epoch_ns.as_i128(),
                 &PlainDateTime::new_unchecked(iso_date_time, self.calendar.clone()),
                 Option::<(&TimeZone, &NeverProvider)>::None,
@@ -548,7 +556,7 @@ impl PlainYearMonth {
         // 11. Return ! CreateTemporalYearMonth(isoDate, calendar).
         let overflow = overflow.unwrap_or(Overflow::Constrain);
         self.calendar.year_month_from_fields(
-            fields.with_fallback_year_month(self, self.calendar.kind(), overflow)?,
+            fields.with_fallback_year_month(self, self.calendar.kind())?,
             overflow,
         )
     }
@@ -615,7 +623,7 @@ impl PlainYearMonth {
     pub fn epoch_ns_for_with_provider(
         &self,
         time_zone: TimeZone,
-        provider: &impl TimeZoneProvider,
+        provider: &(impl TimeZoneProvider + ?Sized),
     ) -> TemporalResult<EpochNanoseconds> {
         // 2. Let isoDateTime be CombineISODateAndTimeRecord(temporalYearMonth.[[ISODate]], NoonTimeRecord()).
         let iso = IsoDateTime::new(self.iso, IsoTime::noon())?;
@@ -797,6 +805,24 @@ mod tests {
 
             assert_eq!(until.years(), 1);
             assert_eq!(since.years(), -1);
+        }
+
+        // Chinese YearMonth date diffing bug
+        {
+            let earlier = PlainYearMonth::from_str("2000-07-02[u-ca=chinese]").unwrap();
+            let later = PlainYearMonth::from_str("2000-12-26[u-ca=chinese]").unwrap();
+            assert_eq!(earlier.month(), 6);
+            assert_eq!(later.month(), 12);
+            let settings = DifferenceSettings {
+                smallest_unit: Some(Unit::Month),
+                ..Default::default()
+            };
+
+            let until = earlier.until(&later, settings).unwrap();
+            let since = earlier.since(&later, settings).unwrap();
+
+            assert_eq!(until.months(), 6);
+            assert_eq!(since.months(), -6);
         }
     }
     #[test]
@@ -1079,18 +1105,20 @@ mod tests {
 
     #[test]
     fn test_reference_day() {
+        // Note: Japanese reference days are also day 1 even at era boundaries
+        // https://github.com/tc39/proposal-temporal/issues/3150
         assert_eq!(
             PlainYearMonth::from_str("1868-10-30[u-ca=japanese]")
                 .unwrap()
                 .reference_day(),
-            23
+            1
         );
         // Still happens for dates that are in the previous era but same month
         assert_eq!(
             PlainYearMonth::from_str("1868-10-20[u-ca=japanese]")
                 .unwrap()
                 .reference_day(),
-            23
+            1
         );
         // Won't happen for dates in other months
         assert_eq!(

@@ -51,6 +51,9 @@
 
 namespace blink {
 
+// static
+int ViewTransition::next_id_ = 0;
+
 ViewTransition::ScopedPauseRendering::ScopedPauseRendering(
     const Element& element,
     bool has_document_scope) {
@@ -529,7 +532,6 @@ void ViewTransition::ProcessCurrentState() {
 
       case State::kCaptured: {
         style_tracker_->CaptureResolved();
-
         if (creation_type_ == CreationType::kForSnapshot) {
           DCHECK(transition_state_callback_);
           ViewTransitionState view_transition_state =
@@ -784,12 +786,24 @@ void ViewTransition::ContextDestroyed() {
 void ViewTransition::NotifyCaptureFinished(
     const std::unordered_map<viz::ViewTransitionElementResourceId, gfx::RectF>&
         capture_rects) {
+  if (state_ == State::kCapturing) {
+    style_tracker_->SetCaptureRectsFromCompositor(capture_rects);
+  } else {
+    DCHECK(IsTerminalState(state_));
+  }
+
+  // Inform the delegate that the transition has been captured. Once all
+  // flight transitions have been captured, processing the next step will resume
+  // in creation order ensure deterministic behavior with DOM callbacks. The
+  // onus is on the developer in the case of asynchronous callbacks.
+  delegate_->OnTransitionCaptured(this);
+}
+
+void ViewTransition::OnCapturePhaseComplete() {
   if (state_ != State::kCapturing) {
     DCHECK(IsTerminalState(state_));
     return;
   }
-
-  style_tracker_->SetCaptureRectsFromCompositor(capture_rects);
   bool process_next_state = AdvanceTo(State::kCaptured);
   DCHECK(process_next_state);
   ProcessCurrentState();
@@ -814,14 +828,16 @@ void ViewTransition::NotifyDOMCallbackFinished(bool success) {
 
 bool ViewTransition::NeedsViewTransitionEffectNode(
     const LayoutObject& object) const {
-  if (IsTerminalState(state_)) {
-    return false;
-  }
-
-  // For a document transition, the scope's effect node is associated with the
-  // LayoutView rather than the document element.
+  // The scope always needs an effect node, even if the scope element is not a
+  // participant in the transition. The reason for this is so that we can place
+  // the effect node for the ::view-transition pseudo-element as a sibling of
+  // the scope's effect. For a document transition, the scope's effect node is
+  // associated with the LayoutView rather than the document element.
   if (IsA<LayoutView>(object)) {
-    return has_document_scope_;
+    return has_document_scope_ && !IsTerminalState(state_);
+  }
+  if (!has_document_scope_ && object == scope_->GetLayoutObject()) {
+    return !IsTerminalState(state_);
   }
 
   // Otherwise check if the layout object has a transition element.

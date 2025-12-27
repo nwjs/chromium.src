@@ -16,7 +16,7 @@ import org.chromium.url.GURL;
 @JNINamespace("autofill::payments")
 @NullMarked
 class PaymentsWindowBridge {
-    private long mNativePaymentsWindowBridge;
+    private final long mNativePaymentsWindowBridge;
     private PaymentsWindowCoordinator mPaymentsWindowCoordinator;
 
     @CalledByNative
@@ -50,25 +50,35 @@ class PaymentsWindowBridge {
      * @param clickedUrl The URL that the user initiated the navigation to.
      */
     void onNavigationFinished(GURL clickedUrl) {
-        if (mNativePaymentsWindowBridge == 0) return;
         PaymentsWindowBridgeJni.get().onNavigationFinished(mNativePaymentsWindowBridge, clickedUrl);
     }
 
     /**
-     * Called when {@code WebContents} is being destroyed.
+     * Called when the observation of the WebContents has started.
      *
-     * <p>After this call, clients should assume that {@code WebContents} will be imminently
-     * destroyed and the C++ counterpart deleted.
+     * @param webContents The WebContents that is being observed.
+     */
+    public void onWebContentsObservationStarted(WebContents webContents) {
+        PaymentsWindowBridgeJni.get()
+                .onWebContentsObservationStarted(mNativePaymentsWindowBridge, webContents);
+    }
+
+    /**
+     * Called when the observed {@code WebContents} is being destroyed.
+     *
+     * <p>After this call, clients should assume that the observed {@code WebContents} will be
+     * imminently destroyed.
      */
     void onWebContentsDestroyed() {
-        if (mNativePaymentsWindowBridge == 0) return;
         PaymentsWindowBridgeJni.get().onWebContentsDestroyed(mNativePaymentsWindowBridge);
-        mNativePaymentsWindowBridge = 0;
     }
 
     @NativeMethods
     interface Natives {
         void onNavigationFinished(long nativePaymentsWindowBridge, GURL clickedUrl);
+
+        void onWebContentsObservationStarted(
+                long nativePaymentsWindowBridge, WebContents webContents);
 
         void onWebContentsDestroyed(long nativePaymentsWindowBridge);
     }

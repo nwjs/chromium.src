@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "remoting/host/it2me/it2me_native_messaging_host.h"
 
 #include <cstdint>
@@ -403,16 +398,16 @@ std::optional<base::Value::Dict>
 It2MeNativeMessagingHostTest::ReadMessageFromOutputPipe() {
   while (true) {
     uint32_t length;
-    int read_result = output_read_file_.ReadAtCurrentPos(
-        reinterpret_cast<char*>(&length), sizeof(length));
+    int read_result = UNSAFE_TODO(output_read_file_.ReadAtCurrentPos(
+        reinterpret_cast<char*>(&length), sizeof(length)));
     if (read_result != sizeof(length)) {
       // The output pipe has been closed, return an empty message.
       return std::nullopt;
     }
 
     std::string message_json(length, '\0');
-    read_result =
-        output_read_file_.ReadAtCurrentPos(std::data(message_json), length);
+    read_result = UNSAFE_TODO(
+        output_read_file_.ReadAtCurrentPos(std::data(message_json), length));
     if (read_result != static_cast<int>(length)) {
       LOG(ERROR) << "Message size (" << read_result
                  << ") doesn't match the header (" << length << ").";
@@ -713,6 +708,7 @@ TEST_F(It2MeNativeMessagingHostTest,
   params.allow_clipboard_sync = false;
   params.connection_auto_accept_timeout = base::Hours(8);
   params.request_origin = ChromeOsEnterpriseRequestOrigin::kEnterpriseAdmin;
+  params.audio_playback = ChromeOsEnterpriseAudioPlayback::kLocalOnly;
   connect_message.Merge(params.ToDict());
   WriteMessageToInputPipe(connect_message);
   VerifyConnectResponses(next_id);
@@ -728,6 +724,8 @@ TEST_F(It2MeNativeMessagingHostTest,
             base::Hours(8));
   ASSERT_EQ(get_chrome_os_enterprise_params()->request_origin,
             ChromeOsEnterpriseRequestOrigin::kEnterpriseAdmin);
+  ASSERT_EQ(get_chrome_os_enterprise_params()->audio_playback,
+            ChromeOsEnterpriseAudioPlayback::kLocalOnly);
 #else
   ASSERT_FALSE(get_chrome_os_enterprise_params().has_value());
 #endif

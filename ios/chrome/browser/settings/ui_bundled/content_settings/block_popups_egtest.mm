@@ -36,13 +36,14 @@ const char* kBlockPopupsUrl = "http://blockpopups";
 const char* kOpenedWindowUrl = "http://openedwindow";
 
 // Page with a button that opens a new window after a short delay.
-NSString* kBlockPopupsResponseTemplate =
+NSString* const kBlockPopupsResponseTemplate =
     @"<input type=\"button\" onclick=\"setTimeout(function() {"
      "window.open('%@')}, 1)\" "
      "id=\"open-window\" "
      "value=\"openWindow\">";
 // JavaScript that clicks that button.
-NSString* kOpenPopupScript = @"document.getElementById('open-window').click()";
+NSString* const kOpenPopupScript =
+    @"document.getElementById('open-window').click()";
 const std::string kOpenedWindowResponse = "Opened window";
 
 // Returns matcher for the block popups settings menu button.
@@ -174,16 +175,15 @@ class ScopedBlockPopupsException {
 
 // Tests that the "exceptions" section on the settings page is hidden and
 // revealed properly when the preference switch is toggled.
-// TODO(crbug.com/447098101): Test is flaky.
-- (void)FLAKY_testSettingsPageWithExceptions {
+- (void)testSettingsPageWithExceptions {
   std::string allowedPattern = "[*.]example.com";
   ScopedBlockPopupsPref prefSetter(CONTENT_SETTING_BLOCK);
   ScopedBlockPopupsException exceptionSetter(allowedPattern);
 
   [ChromeEarlGreyUI openSettingsMenu];
+  [ChromeEarlGreyUI tapSettingsMenuButton:ContentSettingsButton()];
   {
     ScopedDisableTimerTracking timerTrackingDisabler;
-    [ChromeEarlGreyUI tapSettingsMenuButton:ContentSettingsButton()];
     [[EarlGrey selectElementWithMatcher:BlockPopupsSettingsButton()]
         performAction:grey_tap()];
 

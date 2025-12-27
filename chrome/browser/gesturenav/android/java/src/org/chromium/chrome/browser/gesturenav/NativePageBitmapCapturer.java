@@ -14,7 +14,6 @@ import android.view.View;
 import org.chromium.base.Callback;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.UnownedUserData;
 import org.chromium.base.UnownedUserDataHost;
 import org.chromium.base.UnownedUserDataKey;
 import org.chromium.base.task.PostTask;
@@ -25,17 +24,18 @@ import org.chromium.chrome.browser.back_press.BackPressMetrics;
 import org.chromium.chrome.browser.back_press.BackPressMetrics.CaptureNativeViewResult;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
+import org.chromium.components.embedder_support.delegate.ScreenshotResult;
 import org.chromium.ui.resources.dynamics.CaptureObserver;
 import org.chromium.ui.resources.dynamics.CaptureUtils;
 import org.chromium.url.GURL;
 
 /** Capture native page as a bitmap. */
 @NullMarked
-public class NativePageBitmapCapturer implements UnownedUserData {
+public class NativePageBitmapCapturer {
     // Share SoftwareDraw in order to share a single java Bitmap across all tabs in a window
     // as the tab size won't change inside one single window.
     private static final UnownedUserDataKey<NativePageBitmapCapturer> CAPTURER_KEY =
-            new UnownedUserDataKey<>(NativePageBitmapCapturer.class);
+            new UnownedUserDataKey<>();
     private static final float SCALE = 1;
 
     private static boolean sIgnoreCurrentUrlCheck;
@@ -52,7 +52,10 @@ public class NativePageBitmapCapturer implements UnownedUserData {
      *     bitmap if capturing fails, such as out of memory error.
      * @return True if the capture is successfully triggered; otherwise false.
      */
-    public static boolean maybeCaptureNativeView(Tab tab, Callback<@Nullable Bitmap> callback) {
+    public static boolean maybeCaptureNativeView(
+            Tab tab,
+            Callback<@Nullable ScreenshotResult> callback,
+            ScreenshotResult.Destination destination) {
         if (!isCapturable(tab)) {
             return false;
         }
@@ -79,7 +82,7 @@ public class NativePageBitmapCapturer implements UnownedUserData {
             assumeNonNull(tab.getWebContents().getViewAndroidDelegate());
             assumeNonNull(tab.getWebContents().getViewAndroidDelegate().getContainerView());
             return capturer.mHardwareDraw.startBitmapCapture(
-                    tab.getView(),
+                    assumeNonNull(tab.getView()),
                     tab.getWebContents().getViewAndroidDelegate().getContainerView().getHeight(),
                     SCALE,
                     new CaptureObserver() {
@@ -94,12 +97,16 @@ public class NativePageBitmapCapturer implements UnownedUserData {
                         @Override
                         public void onCaptureEnd() {}
                     },
-                    callback);
+                    callback,
+                    destination);
         } else {
+            assert destination == ScreenshotResult.Destination.BITMAP;
             Bitmap bitmap = capture(tab, false, 0);
-            PostTask.postTask(TaskTraits.UI_USER_VISIBLE, () -> callback.onResult(bitmap));
-            return true;
+            PostTask.postTask(
+                    TaskTraits.UI_USER_VISIBLE,
+                    () -> callback.onResult(new ScreenshotResult(bitmap)));
         }
+        return true;
     }
 
     /**
@@ -210,6 +217,9 @@ public class NativePageBitmapCapturer implements UnownedUserData {
     }
 
     private static boolean enableHardwareDraw() {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S;
+        // LINT.IfChange(minSupportedVersion)
+        final var minSupportedVersion = Build.VERSION_CODES.S;
+        // LINT.ThenChange(//content/browser/renderer_host/navigation_transitions/navigation_transition_utils.cc:min_supported_version)
+        return Build.VERSION.SDK_INT >= minSupportedVersion;
     }
 }

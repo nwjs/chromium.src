@@ -122,9 +122,11 @@ public interface NavigationController {
      *
      * @param override If true, use a desktop user agent. Use a mobile one otherwise.
      * @param reloadOnChange Reload the page if the UA has changed.
-     * @param caller The caller of this method.
+     * @param skipOnInitialNavigation If true, don't override the UA for the initial navigation.
+     *     (TODO crbug.com/40063185: Remove this parameter once the bug is fixed.)
      */
-    void setUseDesktopUserAgent(boolean override, boolean reloadOnChange, int caller);
+    void setUseDesktopUserAgent(
+            boolean override, boolean reloadOnChange, boolean skipOnInitialNavigation);
 
     /**
      * Return the NavigationEntry at the given index.

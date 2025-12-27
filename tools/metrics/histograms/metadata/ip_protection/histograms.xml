@@ -23,7 +23,7 @@ chromium-metrics-reviews@google.com.
 <histograms>
 
 <histogram name="Net.HttpJob.IpProtection.AllowListMatch.BytesReceived2"
-    units="bytes" expires_after="2026-03-08">
+    units="bytes" expires_after="2026-05-10">
   <owner>aakallam@chromium.org</owner>
   <owner>ashleynewson@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
@@ -44,7 +44,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.HttpJob.IpProtection.AllowListMatch.BytesSent2"
-    units="bytes" expires_after="2026-03-08">
+    units="bytes" expires_after="2026-05-10">
   <owner>aakallam@chromium.org</owner>
   <owner>ashleynewson@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
@@ -80,7 +80,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.HttpJob.IpProtection.BytesSent" units="bytes"
-    expires_after="2026-03-08">
+    expires_after="2026-05-10">
   <owner>aakallam@chromium.org</owner>
   <owner>ashleynewson@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
@@ -181,7 +181,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.HttpJob.IpProtection.PrefilterBytesRead.Net" units="bytes"
-    expires_after="2026-03-08">
+    expires_after="2026-05-10">
   <owner>aakallam@chromium.org</owner>
   <owner>ashleynewson@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
@@ -253,7 +253,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.IpProtection.CanFalloverToNextProxy2.Error.{Chain}"
-    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2026-02-22">
+    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2026-04-26">
   <owner>rsailer@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
   <summary>
@@ -309,7 +309,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.EmptyTokenCache2"
-    enum="IpProtectionProxyLayer" expires_after="2026-03-08">
+    enum="IpProtectionProxyLayer" expires_after="2026-05-10">
   <owner>awillia@chromium.org</owner>
   <owner>ashleynewson@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
@@ -321,7 +321,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.GeoChangeTokenPresence"
-    enum="BooleanAvailable" expires_after="2026-03-08">
+    enum="BooleanAvailable" expires_after="2026-05-10">
   <owner>awillia@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
   <summary>
@@ -348,7 +348,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.GetAuthTokenResult"
-    enum="BooleanSuccess" expires_after="2026-03-08">
+    enum="BooleanSuccess" expires_after="2026-05-10">
   <owner>awillia@chromium.org</owner>
   <owner>ashleynewson@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
@@ -381,20 +381,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram
-    name="NetworkService.IpProtection.GetProbabilisticRevealTokensResult"
-    enum="ProbabilisticRevealTokensResult" expires_after="2026-03-08">
-  <owner>ryankalla@google.com</owner>
-  <owner>kiln-eng@google.com</owner>
-  <owner>src/components/ip_protection/OWNERS</owner>
-  <summary>
-    The result of a call to `IpProtectionProbabilisticRevealTokenFetcher::
-    TryGetProbabilisticRevealTokens()`.
-  </summary>
-</histogram>
-
 <histogram name="NetworkService.IpProtection.GetProxyListResult"
-    enum="IpProtectionGetProxyListResult" expires_after="2026-03-08">
+    enum="IpProtectionGetProxyListResult" expires_after="2026-05-10">
   <owner>awillia@chromium.org</owner>
   <owner>ashleynewson@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
@@ -414,44 +402,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram
-    name="NetworkService.IpProtection.IsProbabilisticRevealTokenAvailableOnInitialRequest"
-    enum="BooleanSuccess" expires_after="2026-03-08">
-  <owner>ryankalla@google.com</owner>
-  <owner>kiln-eng@google.com</owner>
-  <owner>src/components/ip_protection/OWNERS</owner>
-  <summary>
-    The result of a call to
-    `IpProtectionProbabilisticRevealTokenManager::IsTokenAvailable()` when
-    `IpProtectionProbabilisticRevealTokenManager::GetToken()` is determining if
-    the token cache contains any non-expired tokens. If this fails, the request
-    will not include a probabilistic reveal token.
-
-    This histogram is only emitted the first time `GetToken()` is called after
-    the PRT manager is constructed.
-  </summary>
-</histogram>
-
-<histogram
-    name="NetworkService.IpProtection.IsProbabilisticRevealTokenAvailableOnSubsequentRequest"
-    enum="BooleanSuccess" expires_after="2026-03-08">
-  <owner>ryankalla@google.com</owner>
-  <owner>kiln-eng@google.com</owner>
-  <owner>src/components/ip_protection/OWNERS</owner>
-  <summary>
-    The result of a call to
-    `IpProtectionProbabilisticRevealTokenManager::IsTokenAvailable()` when
-    `IpProtectionProbabilisticRevealTokenManager::GetToken()` is determining if
-    the token cache contains any non-expired tokens. If this fails, the request
-    will not include a probabilistic reveal token.
-
-    This histogram is not emitted the first time `GetToken()` is called after
-    the PRT manager is constructed, but is emitted on all subsequent calls.
-  </summary>
-</histogram>
-
 <histogram name="NetworkService.IpProtection.OAuthTokenFetchTime" units="ms"
-    expires_after="2026-03-08">
+    expires_after="2026-05-10">
   <owner>awillia@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
   <summary>
@@ -461,36 +413,8 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
-    name="NetworkService.IpProtection.ProbabilisticRevealTokenRandomizationTime"
-    units="ms" expires_after="2026-03-08">
-  <owner>ryankalla@google.com</owner>
-  <owner>kiln-eng@google.com</owner>
-  <owner>src/components/ip_protection/OWNERS</owner>
-  <summary>
-    Records the elapsed time for successfully re-randomizing a probabilistic
-    reveal token.
-  </summary>
-</histogram>
-
-<histogram
-    name="NetworkService.IpProtection.ProbabilisticRevealTokensRequestTime"
-    units="ms" expires_after="2026-03-08">
-  <owner>ryankalla@google.com</owner>
-  <owner>kiln-eng@google.com</owner>
-  <owner>src/components/ip_protection/OWNERS</owner>
-  <summary>
-    Records the elapsed time for successful requests by
-    IpProtectionProbabilisticRevealTokenFetcher for a batch of probabilistic
-    reveal tokens. This represents the total time taken from the moment we call
-    the TokenFetcher until PRTs are available in the browser. This includes the
-    IPC between the browser and the network service, the network request itself
-    (including any scheduling/queuing delay), and the token validation checks.
-  </summary>
-</histogram>
-
-<histogram
     name="NetworkService.IpProtection.ProxyAllowList.FlatbufferBuildTime"
-    units="ms" expires_after="2026-03-08">
+    units="ms" expires_after="2026-05-10">
   <owner>aakallam@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
   <summary>
@@ -501,7 +425,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.ProxyAllowList.UpdateSuccess"
-    enum="BooleanSuccess" expires_after="2026-03-08">
+    enum="BooleanSuccess" expires_after="2026-05-10">
   <owner>aakallam@chromium.org</owner>
   <owner>abhijithnair@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
@@ -671,7 +595,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.TryGetAuthTokensErrors"
-    enum="IpProtectionTokenBatchRequestError" expires_after="2026-03-08">
+    enum="IpProtectionTokenBatchRequestError" expires_after="2026-05-10">
   <owner>linxinan@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
   <summary>
@@ -683,7 +607,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.TryGetAuthTokensResult2"
-    enum="IpProtectionTokenBatchRequestResult" expires_after="2026-03-22">
+    enum="IpProtectionTokenBatchRequestResult" expires_after="2026-05-24">
   <owner>awillia@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
   <summary>
@@ -720,7 +644,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.{ProxyLayer}.TokenExpirationRate"
-    units="tokens" expires_after="2026-03-08">
+    units="tokens" expires_after="2026-05-10">
   <owner>awillia@chromium.org</owner>
   <owner>ashleynewson@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
@@ -736,7 +660,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.MaskedDomainList.DiskUsage" units="KB"
-    expires_after="2026-03-15">
+    expires_after="2026-05-17">
   <owner>djmitche@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
   <summary>
@@ -783,7 +707,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.MaskedDomainList.MatchesTime"
-    units="microseconds" expires_after="2026-03-22">
+    units="microseconds" expires_after="2026-05-24">
   <owner>djmitche@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
   <summary>
@@ -797,7 +721,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.MaskedDomainList.Size2" units="KB"
-    expires_after="2026-02-22">
+    expires_after="2026-04-26">
   <owner>aakallam@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
   <summary>

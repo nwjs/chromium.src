@@ -15,8 +15,6 @@ import androidx.annotation.VisibleForTesting;
 import androidx.core.graphics.Insets;
 import androidx.core.view.WindowInsetsCompat;
 
-import org.chromium.android_webview.common.AwFeatureMap;
-import org.chromium.android_webview.common.AwFeatures;
 import org.chromium.android_webview.common.Lifetime;
 import org.chromium.base.Log;
 import org.chromium.base.task.PostTask;
@@ -71,7 +69,7 @@ public class AwDisplayCutoutController {
      * references to the WebView or the Delegate which would prevent the WebView from being garbage
      * collected.
      */
-    private static class Listener implements ViewPositionObserver.Listener {
+    private class Listener implements ViewPositionObserver.Listener {
         // The minimum amount of time between subsequent calls to mDelegate.bottomImeInsetChanged()
         // when invoked from this listener.
         private static final long MIN_VIEWPORT_UPDATE_TIME_MILLIS = 200;
@@ -92,6 +90,7 @@ public class AwDisplayCutoutController {
                     TaskTraits.UI_DEFAULT,
                     () -> {
                         mUpdatePending = false;
+                        AwDisplayCutoutController.this.recalculateBottomImeInset();
                         delegate.bottomImeInsetChanged();
                     },
                     MIN_VIEWPORT_UPDATE_TIME_MILLIS);
@@ -102,11 +101,13 @@ public class AwDisplayCutoutController {
     private final Listener mViewMovedListener;
     private View mContainerView;
     private ViewPositionObserver mPositionObserver;
-    private final boolean mIncludeSystemBars;
+
     // The amount the IME is currently imposing into the parent Window.
     private int mBottomImeInset;
-    // The last bottom inset we calculated that should be applied to the visual viewport.
-    private int mLastBottomImeInset;
+
+    // The amount to inset the visual viewport after comparing mBottomImeInset with the WebView's
+    // position.
+    private int mVisualViewportBottomInset;
 
     /**
      * Constructor for AwDisplayCutoutController.
@@ -117,14 +118,10 @@ public class AwDisplayCutoutController {
     public AwDisplayCutoutController(Delegate delegate, View containerView) {
         mDelegate = delegate;
         mContainerView = containerView;
-        mIncludeSystemBars =
-                AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_SAFE_AREA_INCLUDES_SYSTEM_BARS);
         registerContainerView(containerView);
         mViewMovedListener = new Listener(mDelegate);
-        if (AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_USE_VIEW_POSITION_OBSERVER_FOR_INSETS)) {
-            mPositionObserver = new ViewPositionObserver(mContainerView);
-            mPositionObserver.addListener(mViewMovedListener);
-        }
+        mPositionObserver = new ViewPositionObserver(mContainerView);
+        mPositionObserver.addListener(mViewMovedListener);
     }
 
     /**
@@ -164,11 +161,9 @@ public class AwDisplayCutoutController {
     public void setCurrentContainerView(View containerView) {
         if (DEBUG) Log.i(TAG, "setCurrentContainerView: " + containerView);
         mContainerView = containerView;
-        if (AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_USE_VIEW_POSITION_OBSERVER_FOR_INSETS)) {
-            mPositionObserver.removeListener(mViewMovedListener);
-            mPositionObserver = new ViewPositionObserver(mContainerView);
-            mPositionObserver.addListener(mViewMovedListener);
-        }
+        mPositionObserver.removeListener(mViewMovedListener);
+        mPositionObserver = new ViewPositionObserver(mContainerView);
+        mPositionObserver.addListener(mViewMovedListener);
         // Ensure that we get new insets for the new container view.
         mContainerView.requestApplyInsets();
     }
@@ -183,17 +178,20 @@ public class AwDisplayCutoutController {
     public WindowInsets onApplyWindowInsets(final WindowInsets insets) {
         if (DEBUG) Log.i(TAG, "onApplyWindowInsets: " + insets.toString());
 
-        int insetTypes = WindowInsetsCompat.Type.displayCutout();
-        if (mIncludeSystemBars) {
-            insetTypes |= WindowInsetsCompat.Type.systemBars();
-        }
+        int insetTypes =
+                WindowInsetsCompat.Type.displayCutout() | WindowInsetsCompat.Type.systemBars();
 
         // TODO(crbug.com/40699457): add a throttling logic.
         Insets safeArea = WindowInsetsCompat.toWindowInsetsCompat(insets).getInsets(insetTypes);
-        onApplyWindowInsetsInternal(safeArea);
-        calculateBottomImeInsetsInternal(
+        Insets imeInsets =
                 WindowInsetsCompat.toWindowInsetsCompat(insets)
-                        .getInsets(WindowInsetsCompat.Type.ime()));
+                        .getInsets(WindowInsetsCompat.Type.ime());
+        if (imeInsets.bottom != 0) {
+            // If IME is showing, it will consume the bottom safe area (see crbug.com/457682720).
+            safeArea = Insets.of(safeArea.left, safeArea.top, safeArea.right, 0);
+        }
+        onApplyWindowInsetsInternal(safeArea);
+        calculateBottomImeInsetsInternal(imeInsets);
 
         return insets;
     }
@@ -225,13 +223,15 @@ public class AwDisplayCutoutController {
     }
 
     public int getBottomImeInset() {
-        if (!AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_REPORT_IME_INSETS)
-                || Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            return 0;
-        }
-        if (!mContainerView.isAttachedToWindow()) {
-            // View is not attached yet, no insets needed.
-            return 0;
+        return mVisualViewportBottomInset;
+    }
+
+    @VisibleForTesting
+    public void recalculateBottomImeInset() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || !mContainerView.isAttachedToWindow()) {
+            // Unsupported version or view is not attached yet, no insets needed.
+            mVisualViewportBottomInset = 0;
+            return;
         }
 
         WindowMetrics wm =
@@ -260,22 +260,13 @@ public class AwDisplayCutoutController {
         // Window's coordinates that the IME reaches. In the case where the IME is not present
         // (mBottomImeInset is 0), this ensures that the visual viewport shows only the part of the
         // WebView that is visible in the Window.
-        int result =
+        mVisualViewportBottomInset =
                 Math.max(0, (viewRectInWindow.bottom - (windowBounds.height() - mBottomImeInset)));
-        if (AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_USE_VIEW_POSITION_OBSERVER_FOR_INSETS)) {
-            return result;
-        }
-        // If not using the new listener, we still need this workaround.
-        // TODO(crbug.com/441480125): Clean this up once we're certain the new listener works.
-        if (result != mLastBottomImeInset) {
-            mLastBottomImeInset = result;
-            mDelegate.bottomImeInsetChanged();
-        }
-        return result;
     }
 
     private void calculateBottomImeInsetsInternal(Insets insets) {
         mBottomImeInset = insets.bottom;
+        recalculateBottomImeInset();
         mDelegate.bottomImeInsetChanged();
     }
 
@@ -293,18 +284,14 @@ public class AwDisplayCutoutController {
     public void onAttachedToWindow() {
         if (DEBUG) Log.i(TAG, "onAttachedToWindow");
         onUpdateWindowInsets();
-        if (AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_USE_VIEW_POSITION_OBSERVER_FOR_INSETS)) {
-            mPositionObserver.addListener(mViewMovedListener);
-        }
+        mPositionObserver.addListener(mViewMovedListener);
     }
 
     /**
      * @see View#onDetachedFromWindow()
      */
     public void onDetachedFromWindow() {
-        if (AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_USE_VIEW_POSITION_OBSERVER_FOR_INSETS)) {
-            mPositionObserver.removeListener(mViewMovedListener);
-        }
+        mPositionObserver.removeListener(mViewMovedListener);
     }
 
     private static Insets adjustInsetsForScale(Insets insets, float dipScale) {

@@ -32,6 +32,9 @@ class TabGroupSyncService;
 namespace bookmarks {
 class BookmarkNode;
 
+inline constexpr char kReplaceOrCreateGroupDialogName[] =
+    "ReplaceOrCreateGroupDialog";
+
 enum OpenAllBookmarksContext {
   kNone = 0,     // Open all bookmarks as separate tabs.
   kInGroup = 1,  // Open all bookmarks in a tab group.
@@ -51,9 +54,6 @@ class BookmarkNavigationWrapper {
   // Provide an instance for use in testing.
   static void SetInstanceForTesting(BookmarkNavigationWrapper* instance);
 };
-
-// Set whether to override connected group to skip UI for testing.
-void SetOverrideConnectedGroupForTesting(bool value);
 
 using TabGroupData =
     std::pair<std::optional<tab_groups::TabGroupId>, std::u16string>;
@@ -90,14 +90,12 @@ void OpenAllIfAllowed(
 // Returns the count of bookmarks that would be opened by OpenAll. If
 // |incognito_context| is set, the function will use it to check if the URLs
 // can be opened in incognito mode, which may affect the count.
-int OpenCount(gfx::NativeWindow parent,
-              const std::vector<raw_ptr<const bookmarks::BookmarkNode,
+int OpenCount(const std::vector<raw_ptr<const bookmarks::BookmarkNode,
                                         VectorExperimental>>& nodes,
               content::BrowserContext* incognito_context = nullptr);
 
 // Convenience for OpenCount() with a single BookmarkNode.
-int OpenCount(gfx::NativeWindow parent,
-              const bookmarks::BookmarkNode* node,
+int OpenCount(const bookmarks::BookmarkNode* node,
               content::BrowserContext* incognito_context = nullptr);
 
 // Asks the user before deleting a non-empty bookmark folder.

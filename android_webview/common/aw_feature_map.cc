@@ -43,9 +43,6 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kWebViewCacheBoundaryInterfaceMethods,
     &features::kWebViewCacheSizeLimitDerivedFromAppCacheQuota,
     &features::kWebViewConnectToComponentProviderInBackground,
-    &features::kWebViewDisableCHIPS,
-    &features::kWebViewDoNotSendAccessibilityEventsOnGSU,
-    &features::kWebViewDrainPrefetchQueueDuringInit,
     &features::kWebViewEarlyPerfettoInit,
     &features::kWebViewEarlyStartupTracing,
     &features::kWebViewEnableCrash,
@@ -56,28 +53,20 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kWebViewLazyFetchHandWritingIcon,
     &features::kWebViewMixedContentAutoupgrades,
     &features::kWebViewMoveWorkToProviderInit,
-    &features::kWebViewMuteAudio,
     &features::kWebViewOptInToGmsBindServiceOptimization,
     &features::kWebViewPrefetchNativeLibrary,
-    &features::kWebViewPreloadClasses,
-    &features::kWebViewQuicConnectionTimeout,
     &features::kWebViewRecordAppCacheHistograms,
     &features::kWebViewReduceUAAndroidVersionDeviceModel,
     &features::kWebViewReducedSeedExpiration,
     &features::kWebViewReducedSeedRequestPeriod,
-    &features::kWebViewReportImeInsets,
-    &features::kWebViewSafeAreaIncludesSystemBars,
-    &features::kWebViewShortCircuitShouldInterceptRequest,
     &features::kWebViewSkipInterceptsForPrefetch,
     &features::kWebViewStartupTasksYieldToNative,
     &features::kWebViewTestFeature,
     &features::kWebViewUseInitialNetworkStateAtStartup,
-    &features::kWebViewUseMetricsUploadService,
     &features::kWebViewUseMetricsUploadServiceOnlySdkRuntime,
     &features::kWebViewUseRenderingHeuristic,
     &features::kWebViewUseStartupTasksLogic,
     &features::kWebViewUseStartupTasksLogicP2,
-    &features::kWebViewUseViewPositionObserverForInsets,
     &features::kWebViewWebauthn,
     // keep-sorted end
 };
@@ -96,3 +85,5 @@ static jlong JNI_AwFeatureMap_GetNativeMap(JNIEnv* env) {
 }
 
 }  // namespace android_webview
+
+DEFINE_JNI(AwFeatureMap)

@@ -14,11 +14,13 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_metrics.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_action_context_desktop.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_menu_utils.h"
 #include "chrome/browser/ui/tabs/tab_group_theme.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/favicon/core/favicon_service.h"
@@ -232,23 +234,21 @@ void TabGroupMenuBridge::OnTabGroupRemoved(const base::Uuid& sync_id,
   BuildMenu();
 }
 
-void TabGroupMenuBridge::SetActiveBrowser(Browser* browser) {
-  browser_ = browser;
-}
-
 void TabGroupMenuBridge::OnMenuItem(NSMenuItem* item) {
   auto it = menu_item_map_.find(item);
   if (it == menu_item_map_.end()) {
     return;
   }
 
-  if (!browser_) {
+  Browser* browser = chrome::FindLastActive();
+  if (!browser) {
     return;
   }
 
   tab_groups::TabGroupMenuAction action = it->second;
-  tab_groups::SavedTabGroupUtils::PerformTabGroupMenuAction(action, browser_,
-                                                            tab_group_service_);
+  tab_groups::SavedTabGroupUtils::PerformTabGroupMenuAction(
+      action, tab_groups::TabGroupMenuContext::MAC_SYSTEM_MENU, browser,
+      tab_group_service_);
 }
 
 NSMenuItem* TabGroupMenuBridge::CreateStaticSubmenuItem(

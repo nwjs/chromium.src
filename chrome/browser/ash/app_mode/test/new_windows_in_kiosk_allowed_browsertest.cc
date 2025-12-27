@@ -19,6 +19,7 @@
 #include "chrome/browser/ash/app_mode/web_app/kiosk_web_app_manager.h"
 #include "chrome/browser/ash/ownership/fake_owner_settings_service.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_web_app_install_util.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -33,6 +34,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/mixin_based_in_process_browser_test.h"
+#include "chrome/test/base/ui_test_utils.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/common/cloud/test/policy_builder.h"
 #include "components/prefs/pref_service.h"
@@ -52,7 +54,7 @@ using kiosk::test::WaitKioskLaunched;
 
 namespace {
 
-const char* kTestUrlParams[] = {"", "https://www.test.com"};
+constexpr const char* kTestUrlParams[] = {"", "https://www.test.com"};
 
 bool GetPolicyValueInPrefs(Profile& profile) {
   return profile.GetPrefs()->GetBoolean(prefs::kNewWindowsInKioskAllowed);
@@ -119,10 +121,11 @@ std::string TestValueName(
 }
 
 size_t VisibleBrowserCount() {
-  auto* list = BrowserList::GetInstance();
-  return std::ranges::count_if(*list, [](Browser* browser) {
-    return browser && browser->window() && browser->window()->IsVisible();
-  });
+  auto visible_browsers =
+      ui_test_utils::FindMatchingBrowsers([](BrowserWindowInterface* browser) {
+        return browser->GetWindow() && browser->GetWindow()->IsVisible();
+      });
+  return visible_browsers.size();
 }
 
 }  // namespace
@@ -174,7 +177,7 @@ IN_PROC_BROWSER_TEST_F(NewWindowsInKioskAllowedTest, CloseBrowserIfReOpen) {
   ASSERT_FALSE(browser.window()->IsVisible());
   browser.window()->Show();
   ASSERT_TRUE(TestBrowserClosedWaiter(&browser).WaitUntilClosed());
-  EXPECT_EQ(BrowserList::GetInstance()->size(), 1u);
+  EXPECT_EQ(chrome::GetTotalBrowserCount(), 1u);
 }
 
 IN_PROC_BROWSER_TEST_P(NewWindowsInKioskAllowedTest, AllowsNewPopupWindows) {

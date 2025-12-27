@@ -117,6 +117,11 @@ bool StructTraits<blink::mojom::RendererPreferencesDataView,
   out->selection_clipboard_buffer_available =
       data.selection_clipboard_buffer_available();
 #endif
+
+#if BUILDFLAG(IS_LINUX)
+  out->middle_click_paste_allowed = data.middle_click_paste_allowed();
+#endif
+
   if (!data.ReadNwInjectJsDocStart(&out->nw_inject_js_doc_start))
     return false;
   if (!data.ReadNwInjectJsDocEnd(&out->nw_inject_js_doc_end))

@@ -82,7 +82,7 @@ NSArray* GetElementsByNameJavaScripts(
 }
 
 // clang-format off
-NSString* kHTMLForTestingElements = @"<html><body>"
+NSString* const kHTMLForTestingElements = @"<html><body>"
     "<input type=hidden name='gl' value='us'>"
     "<form name='testform'>"
     "  <input type=hidden name='hl' value='en'>"
@@ -821,13 +821,14 @@ class AutofillControllerJsTest : public web::JavascriptTest {
     JavascriptTest::SetUp();
 
     AddGCrWebScript();
+    AddCommonScript();
     AddUserScript(@"fill");
     AddUserScript(@"form");
     AddUserScript(@"autofill_form_features");
     AddUserScript(@"fill_util_test");
 
     ASSERT_TRUE(
-        web::test::LoadHtml(web_view(), @"<html></html>",
+        web::test::LoadHtml(web_view(), kHTMLForTestingElements,
                             [NSURL URLWithString:@"https://chromium.test/"]));
   }
 
@@ -865,7 +866,7 @@ class AutofillControllerJsTest : public web::JavascriptTest {
                                       NSArray* test_data,
                                       NSString* tag_name);
 
-  // Helper method that EXPECTs `__gCrWeb.fill.webFormElementToFormData` on
+  // Helper method that EXPECTs `webFormElementToFormData` on
   // a form element obtained by `get_form_element_javascripts`. The results
   // are verified with `verifying_java_scripts`.
   void TestWebFormElementToFormDataForOneForm(
@@ -899,6 +900,11 @@ class AutofillControllerJsTest : public web::JavascriptTest {
                                            NSArray* expected_results);
 
   id ExecuteJavaScript(NSString* java_script);
+
+  // Rolls up the `user_script`, and its dependencies, with `java_script` into
+  // one NSString.
+  NSString* RollupJavaScriptWithUserScript(NSString* java_script,
+                                           NSString* user_script);
 
   web::ScopedTestingWebClient web_client_;
   web::WebTaskEnvironment task_environment_;
@@ -974,7 +980,8 @@ void AutofillControllerJsTest::ExecuteJavaScriptOnElementsAndCheck(
   for (NSUInteger i = 0; i < get_element_java_scripts.count; ++i) {
     NSString* js_to_execute =
         [NSString stringWithFormat:java_script, get_element_java_scripts[i]];
-    EXPECT_NSEQ(expected_results[i], ExecuteJavaScript(js_to_execute));
+    EXPECT_NSEQ(expected_results[i],
+                web::test::ExecuteJavaScript(web_view(), js_to_execute));
   }
 }
 
@@ -982,6 +989,18 @@ id AutofillControllerJsTest::ExecuteJavaScript(NSString* java_script) {
   return web::test::ExecuteJavaScriptForFeatureAndReturnResult(
       web_state(), java_script,
       autofill::AutofillJavaScriptFeature::GetInstance());
+}
+
+NSString* AutofillControllerJsTest::RollupJavaScriptWithUserScript(
+    NSString* java_script,
+    NSString* user_script) {
+  NSArray<NSString*>* user_scripts = @[ @"gcrweb", user_script ];
+  NSMutableString* rollup_script = [NSMutableString string];
+  for (NSString* script in user_scripts) {
+    [rollup_script appendString:web::test::GetPageScript(script)];
+  }
+  [rollup_script appendString:java_script];
+  return rollup_script;
 }
 
 TEST_F(AutofillControllerJsTest, HasTagName) {
@@ -1067,105 +1086,125 @@ void AutofillControllerJsTest::TestInputElementDataEvaluation(
     NSArray* test_data,
     NSString* tag_name) {
   NSString* html_fragment = [test_data objectAtIndex:0U];
-  web::test::LoadHtml(html_fragment, web_state());
+  ASSERT_TRUE(
+      web::test::LoadHtml(web_view(), html_fragment,
+                          [NSURL URLWithString:@"https://chromium.test/"]));
 
   for (NSUInteger i = 1; i < [test_data count]; ++i) {
     NSString* get_element_javascripts = [NSString
         stringWithFormat:@"window.document.getElementsByTagName('%@')[%" PRIuNS
                           "]",
                          tag_name, i - 1];
-    id actual = ExecuteJavaScript([NSString
-        stringWithFormat:@"%@(%@).label === %@", javascripts_statement,
-                         get_element_javascripts,
-                         [[test_data objectAtIndex:i]
-                             objectForKey:attribute_name]]);
+    id actual = web::test::ExecuteJavaScript(
+        web_view(),
+        [NSString stringWithFormat:@"%@(%@).label === %@",
+                                   javascripts_statement,
+                                   get_element_javascripts,
+                                   [[test_data objectAtIndex:i]
+                                       objectForKey:attribute_name]]);
     EXPECT_NSEQ(@YES, actual);
   }
 }
 
 TEST_F(AutofillControllerJsTest, InferLabelFromPrevious) {
   TestInputElementDataEvaluation(
-      @"__gCrWeb.fill.inferLabelFromPrevious", @"label",
-      GetTestFormInputElementWithLabelFromPrevious(), @"input");
+      @"__gCrWeb.getRegisteredApi('fill_test_api').getFunction('"
+      @"inferLabelFromPrevious')",
+      @"label", GetTestFormInputElementWithLabelFromPrevious(), @"input");
 }
 
 TEST_F(AutofillControllerJsTest, InferLabelFromPreviousSpan) {
   TestInputElementDataEvaluation(
-      @"__gCrWeb.fill.inferLabelFromPrevious", @"label",
-      GetTestFormInputElementWithLabelFromPreviousSpan(), @"input");
+      @"__gCrWeb.getRegisteredApi('fill_test_api')."
+      @"getFunction('inferLabelFromPrevious')",
+      @"label", GetTestFormInputElementWithLabelFromPreviousSpan(), @"input");
 }
 
 TEST_F(AutofillControllerJsTest, InferLabelFromPreviousParagraph) {
   TestInputElementDataEvaluation(
-      @"__gCrWeb.fill.inferLabelFromPrevious", @"label",
-      GetTestFormInputElementWithLabelFromPreviousParagraph(), @"input");
+      @"__gCrWeb.getRegisteredApi('fill_test_api')."
+      @"getFunction('inferLabelFromPrevious')",
+      @"label", GetTestFormInputElementWithLabelFromPreviousParagraph(),
+      @"input");
 }
 
 TEST_F(AutofillControllerJsTest, InferLabelFromPreviousLabel) {
   TestInputElementDataEvaluation(
-      @"__gCrWeb.fill.inferLabelFromPrevious", @"label",
-      GetTestFormInputElementWithLabelFromPreviousLabel(), @"input");
+      @"__gCrWeb.getRegisteredApi('fill_test_api')."
+      @"getFunction('inferLabelFromPrevious')",
+      @"label", GetTestFormInputElementWithLabelFromPreviousLabel(), @"input");
 }
 
 TEST_F(AutofillControllerJsTest, InferLabelFromPreviousLabelOtherIgnored) {
   TestInputElementDataEvaluation(
-      @"__gCrWeb.fill.inferLabelFromPrevious", @"label",
-      GetTestFormInputElementWithLabelFromPreviousLabelOtherIgnored(),
+      @"__gCrWeb.getRegisteredApi('fill_test_api')."
+      @"getFunction('inferLabelFromPrevious')",
+      @"label", GetTestFormInputElementWithLabelFromPreviousLabelOtherIgnored(),
       @"input");
 }
 
 TEST_F(AutofillControllerJsTest, InferLabelFromEnclosingLabelBefore) {
   TestInputElementDataEvaluation(
-      @"__gCrWeb.fill.inferLabelFromEnclosingLabel", @"label",
-      GetTestFormInputElementWithLabelFromEnclosingLabelBefore(), @"input");
+      @"__gCrWeb.getRegisteredApi('fill_test_api')."
+      @"getFunction('inferLabelFromEnclosingLabel')",
+      @"label", GetTestFormInputElementWithLabelFromEnclosingLabelBefore(),
+      @"input");
 }
 
 TEST_F(AutofillControllerJsTest, InferLabelFromPreviousTextBrAndSpan) {
   TestInputElementDataEvaluation(
-      @"__gCrWeb.fill.inferLabelFromPrevious", @"label",
-      GetTestFormInputElementWithLabelFromPreviousTextBrAndSpan(), @"input");
+      @"__gCrWeb.getRegisteredApi('fill_test_api')."
+      @"getFunction('inferLabelFromPrevious')",
+      @"label", GetTestFormInputElementWithLabelFromPreviousTextBrAndSpan(),
+      @"input");
 }
 
 TEST_F(AutofillControllerJsTest, InferLabelFromListItem) {
   TestInputElementDataEvaluation(
-      @"__gCrWeb.fill.inferLabelFromListItem", @"label",
-      GetTestFormInputElementWithLabelFromListItem(), @"input");
+      @"__gCrWeb.getRegisteredApi('fill_test_api')."
+      @"getFunction('inferLabelFromListItem')",
+      @"label", GetTestFormInputElementWithLabelFromListItem(), @"input");
 }
 
 TEST_F(AutofillControllerJsTest, InferLabelFromTableColumnTD) {
   TestInputElementDataEvaluation(
-      @"__gCrWeb.fill.inferLabelFromTableColumn", @"label",
-      GetTestFormInputElementWithLabelFromTableColumnTD(), @"input");
+      @"__gCrWeb.getRegisteredApi('fill_test_api')."
+      @"getFunction('inferLabelFromTableColumn')",
+      @"label", GetTestFormInputElementWithLabelFromTableColumnTD(), @"input");
 }
 
 TEST_F(AutofillControllerJsTest, InferLabelFromTableColumnTH) {
   TestInputElementDataEvaluation(
-      @"__gCrWeb.fill.inferLabelFromTableColumn", @"label",
-      GetTestFormInputElementWithLabelFromTableColumnTH(), @"input");
+      @"__gCrWeb.getRegisteredApi('fill_test_api')."
+      @"getFunction('inferLabelFromTableColumn')",
+      @"label", GetTestFormInputElementWithLabelFromTableColumnTH(), @"input");
 }
 
 TEST_F(AutofillControllerJsTest, InferLabelFromTableColumnNested) {
   TestInputElementDataEvaluation(
-      @"__gCrWeb.fill.inferLabelFromTableColumn", @"label",
-      GetTestFormInputElementWithLabelFromTableNested(), @"input");
+      @"__gCrWeb.getRegisteredApi('fill_test_api')."
+      @"getFunction('inferLabelFromTableColumn')",
+      @"label", GetTestFormInputElementWithLabelFromTableNested(), @"input");
 }
 
 TEST_F(AutofillControllerJsTest, InferLabelFromTableRow) {
   TestInputElementDataEvaluation(
-      @"__gCrWeb.fill.inferLabelFromTableRow", @"label",
-      GetTestFormInputElementWithLabelFromTableRow(), @"input");
+      @"__gCrWeb.getRegisteredApi('fill_test_api')."
+      @"getFunction('inferLabelFromTableRow')",
+      @"label", GetTestFormInputElementWithLabelFromTableRow(), @"input");
 }
 
 TEST_F(AutofillControllerJsTest, InferLabelFromDivTable) {
   TestInputElementDataEvaluation(
-      @"__gCrWeb.fill.inferLabelFromDivTable", @"label",
-      GetTestFormInputElementWithLabelFromDivTable(), @"input");
+      @"__gCrWeb.getRegisteredApi('fill_test_api')."
+      @"getFunction('inferLabelFromDivTable')",
+      @"label", GetTestFormInputElementWithLabelFromDivTable(), @"input");
 }
 
 TEST_F(AutofillControllerJsTest, InferLabelFromDefinitionList) {
   TestInputElementDataEvaluation(
-      @"__gCrWeb.fill.inferLabelFromDefinitionList", @"label",
-      GetTestFormInputElementWithLabelFromDefinitionList(), @"input");
+      @"__gCrWeb.getRegisteredApi('fill_test_api').getFunction('inferLabelFromDefinitionList')",
+      @"label", GetTestFormInputElementWithLabelFromDefinitionList(), @"input");
 }
 
 TEST_F(AutofillControllerJsTest, InferLabelForElement) {
@@ -1188,17 +1227,20 @@ TEST_F(AutofillControllerJsTest, InferLabelForElement) {
     GetTestInputCheckbox()
   ];
   for (NSArray* testingElement in testingElements) {
-    TestInputElementDataEvaluation(@"__gCrWeb.fill.inferLabelForElement",
+    TestInputElementDataEvaluation(@"__gCrWeb.getRegisteredApi('fill_test_api')."
+                                   @"getFunction('inferLabelForElement')",
                                    @"label", testingElement, @"input");
   }
 
-  TestInputElementDataEvaluation(@"__gCrWeb.fill.inferLabelForElement",
+  TestInputElementDataEvaluation(@"__gCrWeb.getRegisteredApi('fill_test_api')."
+                                 @"getFunction('inferLabelForElement')",
                                  @"label", GetTestFormSelectElement(),
                                  @"select");
 
   TestInputElementDataEvaluation(
-      @"__gCrWeb.fill.inferLabelForElement", @"label",
-      GetTestFormSelectElementWithOptgroup(), @"select");
+      @"__gCrWeb.getRegisteredApi('fill_test_api')."
+      @"getFunction('inferLabelForElement')",
+      @"label", GetTestFormSelectElementWithOptgroup(), @"select");
 }
 
 TEST_F(AutofillControllerJsTest, IsAutofillableElement) {
@@ -1230,10 +1272,9 @@ TEST_F(AutofillControllerJsTest, GetOptionStringsFromElement) {
   constexpr auto kTestingElements = std::to_array<ElementByName>(
       {{"state", 0, -1}, {"course", 0, -1}, {"cars", 0, -1}});
 
-  web::test::LoadHtml(kHTMLForTestingElements, web_state());
   ExecuteJavaScriptOnElementsAndCheck(
       @"var field = {};"
-       "__gCrWeb.fill.getOptionStringsFromElement(%@, field);"
+       "__gCrWeb.getRegisteredApi('fill_test_api').getFunction('getOptionStringsFromElement')(%@, field);"
        "__gCrWeb.stringify(field);",
       GetElementsByNameJavaScripts(kTestingElements), @[
         @("{\"option_values\":[\"CA\",\"MA\"],"
@@ -1489,25 +1530,29 @@ void AutofillControllerJsTest::TestWebFormElementToFormDataForOneForm(
     NSString* get_form_element_javascripts,
     NSString* expected_result,
     NSString* verifying_javascripts) {
-  NSString* actual = ExecuteJavaScript(
+  NSString* java_script =
       [NSString stringWithFormat:@"var form={}; var field={};"
-                                  "(__gCrWeb.fill.webFormElementToFormData("
-                                  "window, %@, null, form, field) "
+                                 @"(__gCrWeb.getRegisteredApi('fill_test_api')."
+                                 @"getFunction('webFormElementToFormData')"
+                                 @"(window, %@, null, form, field) "
                                   "=== %@) && %@",
                                  get_form_element_javascripts, expected_result,
-                                 verifying_javascripts]);
+                                 verifying_javascripts];
+  NSString* script =
+      RollupJavaScriptWithUserScript(java_script, @"fill_util_test");
+  NSString* actual = ExecuteJavaScript(script);
 
+  java_script =
+      [NSString stringWithFormat:@"var form={};"
+                                 @"__gCrWeb.getRegisteredApi('fill_test_api')."
+                                 @"getFunction('webFormElementToFormData')"
+                                 @"(window, %@, null, form, null);"
+                                  "__gCrWeb.stringify(form);",
+                                 get_form_element_javascripts];
+  script = RollupJavaScriptWithUserScript(java_script, @"fill_util_test");
   EXPECT_NSEQ(@YES, actual) << base::SysNSStringToUTF8([NSString
-      stringWithFormat:
-          @"Actual:\n%@; expected to be verifyied by\n%@",
-          ExecuteJavaScript([NSString
-              stringWithFormat:@"var form={};"
-                                "__gCrWeb.fill."
-                                "webFormElementToFormData(window, %@, null,"
-                                "form, null);"
-                                "__gCrWeb.stringify(form);",
-                               get_form_element_javascripts]),
-          verifying_javascripts]);
+      stringWithFormat:@"Actual:\n%@; expected to be verifyied by\n%@",
+                       ExecuteJavaScript(script), verifying_javascripts]);
 }
 
 void AutofillControllerJsTest::TestWebFormElementToFormData(

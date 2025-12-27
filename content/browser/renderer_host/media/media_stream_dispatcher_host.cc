@@ -364,7 +364,8 @@ void MediaStreamDispatcherHost::GenerateStreamsChecksOnUIThread(
       RenderFrameHostImpl::FromID(render_frame_host_id);
   if (!render_frame_host || !render_frame_host->IsActive()) {
     std::move(result_callback)
-        .Run(base::unexpected(MediaStreamRequestResult::INVALID_STATE));
+        .Run(
+            base::unexpected(MediaStreamRequestResult::FAILED_DUE_TO_SHUTDOWN));
     return;
   }
 
@@ -376,8 +377,7 @@ void MediaStreamDispatcherHost::GenerateStreamsChecksOnUIThread(
   }
 
   CheckStreamsPermissionResultReceived(std::move(get_salt_and_origin_cb),
-                                       std::move(result_callback),
-                                       /*result=*/true);
+                                       std::move(result_callback));
 }
 
 void MediaStreamDispatcherHost::CheckRequestAllScreensAllowed(
@@ -390,27 +390,30 @@ void MediaStreamDispatcherHost::CheckRequestAllScreensAllowed(
 
   if (!render_frame_host || !render_frame_host->IsActive()) {
     std::move(result_callback)
-        .Run(base::unexpected(MediaStreamRequestResult::INVALID_STATE));
+        .Run(
+            base::unexpected(MediaStreamRequestResult::FAILED_DUE_TO_SHUTDOWN));
     return;
   }
 
-  CheckStreamsPermissionResultReceived(
-      std::move(get_salt_and_origin_cb), std::move(result_callback),
-      GetContentClient()->browser()->IsMultiCaptureAllowed(render_frame_host));
+  if (GetContentClient()->browser()->IsMultiCaptureAllowed(render_frame_host)) {
+    CheckStreamsPermissionResultReceived(std::move(get_salt_and_origin_cb),
+                                         std::move(result_callback));
+  } else {
+    MediaStreamRequestResult error_value;
+#if BUILDFLAG(IS_CHROMEOS)
+    error_value = MediaStreamRequestResult::CAPTURE_NOT_ALLOWED_BY_POLICY;
+#else
+    error_value = MediaStreamRequestResult::MULTI_CAPTURE_NOT_SUPPORTED;
+#endif
+    std::move(result_callback).Run(base::unexpected(error_value));
+  }
 }
 
 void MediaStreamDispatcherHost::CheckStreamsPermissionResultReceived(
     base::OnceCallback<void(MediaDeviceSaltAndOriginCallback)>
         get_salt_and_origin_cb,
     base::OnceCallback<void(GenerateStreamsUIThreadCheckResult)>
-        result_callback,
-    bool result) {
-  if (!result) {
-    std::move(result_callback)
-        .Run(base::unexpected(MediaStreamRequestResult::PERMISSION_DENIED));
-    return;
-  }
-
+        result_callback) {
   auto got_salt_and_origin = base::BindOnce(
       [](base::OnceCallback<void(GenerateStreamsUIThreadCheckResult)>
              result_callback,

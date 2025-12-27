@@ -19,7 +19,6 @@ class ProxyChain;
 namespace ip_protection {
 
 enum class TryGetAuthTokensResult;
-enum class TryGetProbabilisticRevealTokensStatus;
 enum class ProxyLayer;
 
 // An enumeration of the eligibility finding for use with
@@ -61,8 +60,8 @@ enum class ProxyResolutionResult {
   // A site exception created by User Bypass disables protections.
   kHasSiteException = 8,
   // The request bypassed the IP Protection proxies through DevTools.
-  kBypassedByDevTools = 9,
-  kMaxValue = kBypassedByDevTools,
+  kDeprecatedBypassedByDevTools = 9,
+  kMaxValue = kDeprecatedBypassedByDevTools,
 };
 
 // An enumeration of the result of an attempt to fetch a proxy list. These
@@ -211,22 +210,6 @@ class IpProtectionTelemetry {
 
   // Time taken to for a `MaskedDomainListManager::Matches` call.
   virtual void MdlMatchesTime(base::TimeDelta duration) = 0;
-
-  // Records the result of a call to GetProbabilisticRevealTokens, and the
-  // duration of the call if successful.
-  virtual void GetProbabilisticRevealTokensComplete(
-      TryGetProbabilisticRevealTokensStatus status,
-      base::TimeDelta duration) = 0;
-
-  // Records whether a probabilistic reveal token is available at request time,
-  // and whether this is the initial call to get a token.
-  virtual void IsProbabilisticRevealTokenAvailable(bool is_initial_request,
-                                                   bool is_token_available) = 0;
-
-  // Records the time taken to successfully randomize a probabilistic reveal
-  // token.
-  virtual void ProbabilisticRevealTokenRandomizationTime(
-      base::TimeDelta duration) = 0;
 
   // QUIC proxies failed and the fallback HTTPS proxies succeeded. The argument
   // is the number of requests made with QUIC proxies before this failure.

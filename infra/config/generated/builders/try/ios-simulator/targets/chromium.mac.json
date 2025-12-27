@@ -13,7 +13,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -27,6 +27,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -45,7 +46,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -69,7 +70,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -83,6 +84,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -101,7 +103,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -120,7 +122,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -134,6 +136,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -152,7 +155,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -176,7 +179,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -190,6 +193,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -208,7 +212,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -232,7 +236,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -246,6 +250,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -264,7 +269,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -283,7 +288,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -297,6 +302,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -315,7 +321,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -339,7 +345,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -353,6 +359,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -371,7 +378,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -390,7 +397,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -404,6 +411,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -422,7 +430,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -446,7 +454,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -460,6 +468,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -478,7 +487,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -497,7 +506,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -511,6 +520,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -529,7 +539,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -553,7 +563,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -567,6 +577,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -585,7 +596,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -609,7 +620,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -623,6 +634,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -641,7 +653,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -660,7 +672,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -674,6 +686,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -692,7 +705,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -716,7 +729,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -730,6 +743,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -748,7 +762,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -767,7 +781,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -781,6 +795,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -799,7 +814,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -823,7 +838,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -837,6 +852,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -855,7 +871,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -879,7 +895,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -893,6 +909,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -911,7 +928,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -930,7 +947,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -944,6 +961,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -962,7 +980,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -986,7 +1004,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1000,6 +1018,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1018,7 +1037,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1037,7 +1056,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1051,6 +1070,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1069,7 +1089,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1093,7 +1113,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1107,6 +1127,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1125,7 +1146,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1147,7 +1168,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1161,6 +1182,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1179,7 +1201,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1207,7 +1229,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1221,6 +1243,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1239,7 +1262,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1259,7 +1282,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1273,6 +1296,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1291,7 +1315,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1315,7 +1339,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1329,6 +1353,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1347,7 +1372,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1371,7 +1396,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1385,6 +1410,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1403,7 +1429,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1422,7 +1448,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1436,6 +1462,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1454,7 +1481,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1478,7 +1505,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1492,6 +1519,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1510,7 +1538,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1529,7 +1557,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1543,6 +1571,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1561,7 +1590,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1585,7 +1614,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1599,6 +1628,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1617,7 +1647,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1641,7 +1671,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1655,6 +1685,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1673,7 +1704,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1692,7 +1723,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1706,6 +1737,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1724,7 +1756,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1749,7 +1781,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1763,6 +1795,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1781,7 +1814,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1801,7 +1834,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1815,6 +1848,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1833,7 +1867,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1857,7 +1891,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1871,6 +1905,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1889,7 +1924,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1908,7 +1943,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1922,6 +1957,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1940,7 +1976,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -1964,7 +2000,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -1978,6 +2014,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -1996,7 +2033,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2020,7 +2057,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2034,6 +2071,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2052,7 +2090,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2072,7 +2110,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2086,6 +2124,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2104,7 +2143,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2129,7 +2168,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2143,6 +2182,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2161,7 +2201,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2180,7 +2220,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2194,6 +2234,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2212,7 +2253,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2236,7 +2277,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2250,6 +2291,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2268,7 +2310,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2292,7 +2334,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2306,6 +2348,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2324,7 +2367,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2343,7 +2386,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2357,6 +2400,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2375,7 +2419,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2399,7 +2443,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2413,6 +2457,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2431,7 +2476,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2455,7 +2500,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2469,6 +2514,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2487,7 +2533,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2506,7 +2552,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2520,6 +2566,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2538,7 +2585,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2562,7 +2609,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2576,6 +2623,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2594,7 +2642,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2618,7 +2666,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2632,6 +2680,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2650,7 +2699,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2669,7 +2718,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2683,6 +2732,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2701,7 +2751,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2725,7 +2775,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2739,6 +2789,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2757,7 +2808,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2776,7 +2827,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2790,6 +2841,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2808,7 +2860,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2832,7 +2884,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2846,6 +2898,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2864,7 +2917,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2883,7 +2936,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2897,6 +2950,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2915,7 +2969,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2939,7 +2993,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -2953,6 +3007,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -2971,7 +3026,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -2995,7 +3050,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -3009,6 +3064,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -3027,7 +3083,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -3046,7 +3102,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -3060,6 +3116,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -3078,7 +3135,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -3102,7 +3159,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -3116,6 +3173,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -3134,7 +3192,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -3153,7 +3211,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -3167,6 +3225,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -3185,7 +3244,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -3209,7 +3268,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -3223,6 +3282,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -3241,7 +3301,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -3265,7 +3325,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -3279,6 +3339,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -3297,7 +3358,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -3316,7 +3377,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -3330,6 +3391,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -3348,7 +3410,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],
@@ -3372,7 +3434,7 @@
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "17a324",
+          "17a400",
           "--xctest"
         ],
         "isolate_profile_data": true,
@@ -3386,6 +3448,7 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
+        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -3404,7 +3467,7 @@
               "path": "Runtime-ios-26.0"
             },
             {
-              "name": "xcode_ios_17a324",
+              "name": "xcode_ios_17a400",
               "path": "Xcode.app"
             }
           ],

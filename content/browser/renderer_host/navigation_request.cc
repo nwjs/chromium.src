@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -54,7 +55,6 @@
 #include "content/browser/devtools/network_service_devtools_observer.h"
 #include "content/browser/download/download_manager_impl.h"
 #include "content/browser/fenced_frame/fenced_frame_url_mapping.h"
-#include "content/browser/fingerprinting_protection/canvas_noise_token_data.h"
 #include "content/browser/interest_group/ad_auction_headers_util.h"
 #include "content/browser/loader/browser_initiated_resource_request.h"
 #include "content/browser/loader/cached_navigation_url_loader.h"
@@ -86,6 +86,7 @@
 #include "content/browser/renderer_host/navigation_state_keep_alive.h"
 #include "content/browser/renderer_host/navigator.h"
 #include "content/browser/renderer_host/navigator_delegate.h"
+#include "content/browser/renderer_host/network_restrictions_commit_deferring_condition.h"
 #include "content/browser/renderer_host/page_delegate.h"
 #include "content/browser/renderer_host/private_network_access_util.h"
 #include "content/browser/renderer_host/render_frame_host_csp_context.h"
@@ -97,7 +98,6 @@
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/renderer_host/scoped_view_transition_resources.h"
 #include "content/browser/renderer_host/subframe_history_navigation_throttle.h"
-#include "content/browser/renderer_host/system_entropy_utils.h"
 #include "content/browser/scoped_active_url.h"
 #include "content/browser/security/coop/cross_origin_opener_policy_reporter.h"
 #include "content/browser/service_worker/service_worker_client.h"
@@ -1451,7 +1451,6 @@ std::unique_ptr<NavigationRequest> NavigationRequest::CreateRendererInitiated(
           net::StorageAccessApiStatus::kNone,
           /*browsing_context_group_info=*/std::nullopt,
           /*lcpp_hint=*/nullptr, blink::CreateDefaultRendererContentSettings(),
-          /*cookie_deprecation_label=*/std::nullopt,
           /*visited_link_salt=*/std::nullopt,
           /*local_surface_id=*/std::nullopt,
           frame_tree_node->current_frame_host()->GetCachedPermissionStatuses(),
@@ -1459,10 +1458,6 @@ std::unique_ptr<NavigationRequest> NavigationRequest::CreateRendererInitiated(
           /*force_new_document_sequence_number=*/false,
           /*navigation_metrics_token=*/base::UnguessableToken::Create(),
           /*commit_target_frame_token=*/std::nullopt);
-
-  commit_params->navigation_timing->system_entropy_at_navigation_start =
-      SystemEntropyUtils::ComputeSystemEntropyForFrameTreeNode(
-          frame_tree_node, blink::mojom::SystemEntropy::kNormal);
 
   // CreateRendererInitiated() should only be triggered when the navigation is
   // initiated by a frame in the same process.
@@ -1609,7 +1604,6 @@ NavigationRequest::CreateForSynchronousRendererCommit(
           net::StorageAccessApiStatus::kNone,
           /*browsing_context_group_info=*/std::nullopt,
           /*lcpp_hint=*/nullptr, blink::CreateDefaultRendererContentSettings(),
-          /*cookie_deprecation_label=*/std::nullopt,
           /*visited_link_salt=*/std::nullopt,
           /*local_surface_id=*/std::nullopt,
           render_frame_host->GetCachedPermissionStatuses(),
@@ -1656,10 +1650,6 @@ NavigationRequest::CreateForSynchronousRendererCommit(
     navigation_request->commit_params_->storage_key =
         blink::StorageKey::Create(origin, top_level_site, ancestor_chain_bit);
   }
-  navigation_request->commit_params_->navigation_timing
-      ->system_entropy_at_navigation_start =
-      SystemEntropyUtils::ComputeSystemEntropyForFrameTreeNode(
-          frame_tree_node, blink::mojom::SystemEntropy::kNormal);
   navigation_request->render_frame_host_ = render_frame_host->GetSafeRef();
   navigation_request->coep_reporter_ = std::move(coep_reporter);
   navigation_request->dip_reporter_ = std::move(dip_reporter);
@@ -1757,7 +1747,8 @@ NavigationRequest::NavigationRequest(
       has_ad_auction_headers_attribute_(frame_tree_node->ad_auction_headers()),
       request_method_(common_params_->method),
       prerender_host_id_(
-          GetPrerenderHostRegistry().GetPrerenderHostIdForNavigation(this)) {
+          GetPrerenderHostRegistry().GetPrerenderHostIdForNavigation(this)),
+      network_restrictions_id_(std::nullopt) {
   TRACE_EVENT("navigation", "NavigationRequest::NavigationRequest",
               perfetto::Flow::FromPointer(this), "navigation_request", this);
   CHECK(!common_params_->initiator_base_url ||
@@ -2227,6 +2218,14 @@ NavigationRequest::~NavigationRequest() {
   TRACE_EVENT_END("navigation",
                   /* NavigationRequest */ perfetto::Track(navigation_id_));
 
+  // If navigation has started but not finished, mark it as aborted for
+  // Navigation callbacks.
+  if (base::FeatureList::IsEnabled(
+          features::kAbortNavigationsFromTabClosures) &&
+      state_ < DID_COMMIT && net_error_ == net::OK) {
+    net_error_ = net::ERR_ABORTED;
+  }
+
   // IMPORTANT NOTE: DO NOT return early from the destructor before this line.
   // Otherwise, a queued navigation might get stuck in a queueing state forever.
   // This navigation has finished. See if there is another NavigationRequest
@@ -2588,10 +2587,16 @@ bool NavigationRequest::MaybeStartPrerenderingActivationChecks() {
   // Post a task to run the conditions in case BeginNavigation() is not expected
   // to run synchronously. OnPrerenderingActivationChecksComplete() will be
   // called after all the deferring conditions finish.
+  auto commit_deferring_conditions_complete_callback = base::BindOnce(
+      &NavigationRequest::OnPrerenderingActivationChecksComplete,
+      weak_factory_.GetWeakPtr(),
+      CommitDeferringCondition::NavigationType::kPrerenderedPageActivation,
+      candidate_prerender_frame_tree_node_id);
   base::SequencedTaskRunner::GetCurrentDefault()->PostNonNestableTask(
       FROM_HERE,
       base::BindOnce(&NavigationRequest::RunCommitDeferringConditions,
-                     weak_factory_.GetWeakPtr()));
+                     weak_factory_.GetWeakPtr(),
+                     std::move(commit_deferring_conditions_complete_callback)));
   return true;
 }
 
@@ -3402,7 +3407,8 @@ const blink::DocumentToken& NavigationRequest::GetDocumentToken() const {
 
 const PolicyContainerPolicies& NavigationRequest::GetPolicyContainerPolicies()
     const {
-  DCHECK_GE(state_, READY_TO_COMMIT);
+  DCHECK(state_ >= WILL_PROCESS_RESPONSE &&
+         policy_container_builder_->HasComputedPolicies());
 
   return policy_container_builder_->FinalPolicies();
 }
@@ -5374,7 +5380,7 @@ void NavigationRequest::SelectFrameHostForOnRequestFailedInternal(
   if (skip_throttles) {
     // The NavigationHandle shouldn't be notified about renderer-debug URLs.
     // They will be handled by the renderer process.
-    CommitErrorPage(error_page_content);
+    PrepareToCommitErrorPage(error_page_content);
   } else {
     // Check if the navigation should be allowed to proceed.
     WillFailRequest();
@@ -5567,8 +5573,6 @@ void NavigationRequest::OnStartChecksComplete(
   // TODO(clamy): Avoid cloning the navigation params and create the
   // ResourceRequest directly here.
   std::vector<std::unique_ptr<NavigationLoaderInterceptor>> interceptor;
-  net::HttpRequestHeaders cors_exempt_headers;
-  std::swap(cors_exempt_headers, cors_exempt_request_headers_);
 
   auto loader_type = NavigationURLLoader::LoaderType::kRegular;
   network::mojom::URLResponseHeadPtr cached_response_head = nullptr;
@@ -5636,7 +5640,6 @@ void NavigationRequest::OnStartChecksComplete(
                                    : nullptr,
           devtools_navigation_token(),
           frame_tree_node_->current_frame_host()->devtools_frame_token(),
-          std::move(cors_exempt_headers),
           BuildClientSecurityStateForNavigationFetch(),
           devtools_accepted_stream_types, is_pdf_, GetInitiatorProcessId(),
           initiator_document_token_, GetPreviousRenderFrameHostId(),
@@ -5975,11 +5978,9 @@ void NavigationRequest::OnRedirectChecksComplete(
     }
   }
 
-  net::HttpRequestHeaders cors_exempt_headers;
-  std::swap(cors_exempt_headers, cors_exempt_request_headers_);
   loader_->FollowRedirect(std::move(removed_headers),
                           std::move(modified_headers),
-                          std::move(cors_exempt_headers));
+                          /*modified_cors_exempt_headers=*/{});
 }
 
 void NavigationRequest::OnFailureChecksComplete(
@@ -6018,9 +6019,9 @@ void NavigationRequest::OnFailureChecksComplete(
   // deferred to WillFailRequest(), which has called through to here, and
   // now we are finally ready to commit the error page. This will be committed
   // to the RenderFrameHost previously chosen in OnRequestFailedInternal().
-  CommitErrorPage(result.error_page_content());
-  // DO NOT ADD CODE after this. The previous call to CommitErrorPage()
-  // caused the destruction of the NavigationRequest.
+  PrepareToCommitErrorPage(result.error_page_content());
+  // DO NOT ADD CODE after this. The previous call may have caused the
+  // destruction of the NavigationRequest.
 }
 
 void NavigationRequest::OnWillProcessResponseChecksComplete(
@@ -6209,7 +6210,8 @@ void NavigationRequest::OnWillProcessResponseChecksComplete(
     return;
   }
 
-  RunCommitDeferringConditions();
+  RunCommitDeferringConditions(base::BindOnce(
+      &NavigationRequest::CommitNavigation, weak_factory_.GetWeakPtr()));
   // DO NOT ADD CODE after this. The previous call to
   // RunCommitDeferringConditions may have caused the destruction of the
   // NavigationRequest.
@@ -6287,7 +6289,11 @@ void NavigationRequest::InheritServiceWorkerControllerFromParentIfNeeded() {
       *parent_service_worker_client, net::SimplifyUrlForRequest(GetURL()));
 }
 
-void NavigationRequest::RunCommitDeferringConditions() {
+void NavigationRequest::RunCommitDeferringConditions(
+    base::OnceClosure on_commit_deferring_conditions_complete_callback) {
+  CHECK(!commit_deferring_conditions_complete_closure_);
+  commit_deferring_conditions_complete_closure_ =
+      std::move(on_commit_deferring_conditions_complete_callback);
   commit_deferrer_->RegisterDeferringConditions(*this);
   commit_deferrer_->ProcessChecks();
   // DO NOT ADD CODE after this. The previous call to ProcessChecks may have
@@ -6297,21 +6303,22 @@ void NavigationRequest::RunCommitDeferringConditions() {
 void NavigationRequest::OnCommitDeferringConditionChecksComplete(
     CommitDeferringCondition::NavigationType navigation_type,
     std::optional<FrameTreeNodeId> candidate_prerender_frame_tree_node_id) {
-  switch (navigation_type) {
-    case CommitDeferringCondition::NavigationType::kPrerenderedPageActivation:
-      OnPrerenderingActivationChecksComplete(
-          navigation_type, candidate_prerender_frame_tree_node_id);
-      // DO NOT ADD CODE after this. The previous call to
-      // OnPrerenderingActivationChecksComplete caused the destruction of the
-      // NavigationRequest.
-      return;
-    case CommitDeferringCondition::NavigationType::kOther:
-      DCHECK_LT(state_, READY_TO_COMMIT);
-      CommitNavigation();
-      // DO NOT ADD CODE after this. The previous call to CommitNavigation
-      // caused the destruction of the NavigationRequest.
-      return;
-  }
+  // CommitDeferringConditions could have been triggered for prerender
+  // activation, a normal navigation commit or an error page commit.
+  // Running this closure will continue the commit on the appropriate path.
+  CHECK(commit_deferring_conditions_complete_closure_);
+  std::move(commit_deferring_conditions_complete_closure_).Run();
+  // DO NOT ADD CODE after this. The previous call could cause the
+  // destruction of the NavigationRequest.
+}
+
+void NavigationRequest::PrepareToCommitErrorPage(
+    const std::optional<std::string>& error_page_content) {
+  RunCommitDeferringConditions(
+      base::BindOnce(&NavigationRequest::CommitErrorPage,
+                     weak_factory_.GetWeakPtr(), error_page_content));
+  //  DO NOT ADD CODE after this. The previous call may have caused the
+  //  destruction of the NavigationRequest.
 }
 
 void NavigationRequest::CommitErrorPage(
@@ -7774,6 +7781,11 @@ bool NavigationRequest::IsSameDocument() const {
   return NavigationTypeUtils::IsSameDocument(common_params_->navigation_type);
 }
 
+std::optional<base::UnguessableToken>
+NavigationRequest::GetSameDocumentMetricsToken() const {
+  return same_document_metrics_token_;
+}
+
 bool NavigationRequest::IsHistory() const {
   return NavigationTypeUtils::IsHistory(common_params_->navigation_type);
 }
@@ -8777,23 +8789,6 @@ void NavigationRequest::ReadyToCommitNavigation(bool is_error) {
     }
   }
 
-  // Populate the canvas noise token if this is a main frame navigation. Canvas
-  // noise tokens should be generated based on the resolved origin, which is
-  // available at |ReadyToCommit| time. Eventually, prior to commit, this value
-  // will be used to sync blink::Pages with this token value, and subsequent
-  // subframe navigations will inherit this token to populate their
-  // blink::Pages.
-  if (IsInMainFrame()) {
-    BrowserContext* browser_context =
-        frame_tree_node()->navigator().controller().GetBrowserContext();
-    canvas_noise_token_ =
-        GetContentClient()->browser()->ShouldEnableCanvasNoise(
-            browser_context, origin_to_commit->GetURL())
-            ? std::optional(CanvasNoiseTokenData::GetToken(
-                  browser_context, origin_to_commit.value()))
-            : std::nullopt;
-  }
-
   if (ready_to_commit_callback_for_testing_)
     std::move(ready_to_commit_callback_for_testing_).Run();
 }
@@ -9127,22 +9122,15 @@ void NavigationRequest::SetPrerenderActivationNavigationState(
       replication_state;
 }
 
-void NavigationRequest::RemoveRequestHeader(const std::string& header_name) {
+void NavigationRequest::RemoveRequestHeader(std::string_view header_name) {
   DCHECK(state_ == WILL_REDIRECT_REQUEST);
-  removed_request_headers_.push_back(header_name);
+  removed_request_headers_.emplace_back(header_name);
 }
 
-void NavigationRequest::SetRequestHeader(const std::string& header_name,
-                                         const std::string& header_value) {
+void NavigationRequest::SetRequestHeader(std::string_view header_name,
+                                         std::string_view header_value) {
   DCHECK(state_ == WILL_START_REQUEST || state_ == WILL_REDIRECT_REQUEST);
   modified_request_headers_.SetHeader(header_name, header_value);
-}
-
-void NavigationRequest::SetCorsExemptRequestHeader(
-    const std::string& header_name,
-    const std::string& header_value) {
-  DCHECK(state_ == WILL_START_REQUEST || state_ == WILL_REDIRECT_REQUEST);
-  cors_exempt_request_headers_.SetHeader(header_name, header_value);
 }
 
 void NavigationRequest::SetLCPPNavigationHint(

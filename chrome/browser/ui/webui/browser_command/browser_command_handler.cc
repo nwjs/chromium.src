@@ -373,9 +373,10 @@ void BrowserCommandHandler::OpenGlic() {
 
   auto* browser_window = webui::GetBrowserWindowInterface(web_contents_);
 
-  glic_service->ToggleUI(browser_window, /*prevent_close=*/false,
-                         glic::mojom::InvocationSource::kWhatsNew,
-                         /*prompt_suggestion=*/std::nullopt);
+  glic_service->window_controller().Toggle(
+      browser_window, /*prevent_close=*/false,
+      glic::mojom::InvocationSource::kWhatsNew,
+      /*prompt_suggestion=*/std::nullopt);
 #endif  // BUILDFLAG(ENABLE_GLIC)
 }
 

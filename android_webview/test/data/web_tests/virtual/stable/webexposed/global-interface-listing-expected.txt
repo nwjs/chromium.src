@@ -377,6 +377,7 @@ interface Blob
     getter size
     getter type
     method arrayBuffer
+    method bytes
     method constructor
     method slice
     method stream
@@ -1260,6 +1261,11 @@ interface CountQueuingStrategy
     getter highWaterMark
     getter size
     method constructor
+interface CreateMonitor : EventTarget
+    attribute @@toStringTag
+    getter ondownloadprogress
+    method constructor
+    setter ondownloadprogress
 interface Credential
     attribute @@toStringTag
     getter id
@@ -6013,6 +6019,7 @@ interface Navigator
     getter webdriver
     getter webkitPersistentStorage
     getter webkitTemporaryStorage
+    getter windowControlsOverlay
     method clearAppBadge
     method constructor
     method getBattery
@@ -6445,6 +6452,7 @@ interface PaymentResponse : EventTarget
 interface Performance : EventTarget
     attribute @@toStringTag
     getter eventCounts
+    getter interactionCount
     getter memory
     getter navigation
     getter onresourcetimingbufferfull
@@ -7191,15 +7199,23 @@ interface SVGAElement : SVGGraphicsElement
     attribute @@toStringTag
     getter download
     getter href
+    getter hreflang
     getter interestForElement
+    getter ping
+    getter referrerPolicy
     getter rel
     getter relList
     getter target
+    getter type
     method constructor
     setter download
+    setter hreflang
     setter interestForElement
+    setter ping
+    setter referrerPolicy
     setter rel
     setter relList
+    setter type
 interface SVGAngle
     attribute @@toStringTag
     attribute SVG_ANGLETYPE_DEG
@@ -8245,7 +8261,7 @@ interface SVGStyleElement : SVGElement
 interface SVGSwitchElement : SVGGraphicsElement
     attribute @@toStringTag
     method constructor
-interface SVGSymbolElement : SVGElement
+interface SVGSymbolElement : SVGGraphicsElement
     attribute @@toStringTag
     getter preserveAspectRatio
     getter viewBox
@@ -9219,6 +9235,7 @@ interface ViewTransition
     getter updateCallbackDone
     method constructor
     method skipTransition
+    method waitUntil
 interface ViewTransitionTypeSet
     attribute @@toStringTag
     getter size
@@ -10744,6 +10761,18 @@ interface Window : EventTarget
     attribute PERSISTENT
     attribute TEMPORARY
     method constructor
+interface WindowControlsOverlay : EventTarget
+    attribute @@toStringTag
+    getter ongeometrychange
+    getter visible
+    method constructor
+    method getTitlebarAreaRect
+    setter ongeometrychange
+interface WindowControlsOverlayGeometryChangeEvent : Event
+    attribute @@toStringTag
+    getter titlebarAreaRect
+    getter visible
+    method constructor
 interface Worker : EventTarget
     attribute @@toStringTag
     getter onerror
@@ -11177,6 +11206,17 @@ namespace GPUTextureUsage
     attribute RENDER_ATTACHMENT
     attribute STORAGE_BINDING
     attribute TEXTURE_BINDING
+namespace Temporal
+    attribute @@toStringTag
+    attribute Now
+    method Duration
+    method Instant
+    method PlainDate
+    method PlainDateTime
+    method PlainMonthDay
+    method PlainTime
+    method PlainYearMonth
+    method ZonedDateTime
 namespace console
     attribute @@toStringTag
     getter memory

@@ -37,6 +37,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/numerics/math_constants.h"
 #include "base/run_loop.h"
+#include "base/task/current_thread.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_chromeos_version_info.h"
@@ -51,7 +52,6 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animator.h"
-#include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/compositor/test/test_utils.h"
 #include "ui/display/display_switches.h"
 #include "ui/display/manager/display_manager.h"
@@ -65,6 +65,7 @@
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/vector3d_f.h"
+#include "ui/gfx/scoped_animation_duration_scale_mode.h"
 #include "ui/message_center/message_center.h"
 #include "ui/ozone/public/ozone_switches.h"
 #include "ui/views/test/native_widget_factory.h"
@@ -604,6 +605,52 @@ TEST_F(TabletModeControllerTest, VerticalHingeTest) {
     // one failure rather than potentially hundreds.
     ASSERT_TRUE(display::Screen::Get()->InTabletMode());
   }
+}
+
+// Test entering tablet mode with internal and external primary display. See
+// http://crbug.com/443010999
+TEST_F(TabletModeControllerTest, TabletModeWithDifferentPrimaryDisplay) {
+  const int64_t internal_display_id =
+      display::test::DisplayManagerTestApi(display_manager())
+          .SetFirstDisplayAsInternalDisplay();
+  const auto internal_info =
+      display_manager()->GetDisplayInfo(internal_display_id);
+  constexpr int64_t external_id = 210000010;
+
+  const auto external_info =
+      display::ManagedDisplayInfo::CreateFromSpecWithID("400x300", external_id);
+
+  std::vector<display::ManagedDisplayInfo> display_info_list;
+  display_info_list.push_back(internal_info);
+  display_info_list.push_back(external_info);
+  display_manager()->OnNativeDisplaysChanged(display_info_list);
+  EXPECT_EQ(2U, display_manager()->GetNumDisplays());
+
+  // Enter tablet mode.
+  OpenLidToAngle(270.0f);
+
+  // Confirm is in tablet mode and mirrored.
+  base::test::RunUntil([&] { return display_manager()->IsInMirrorMode(); });
+  EXPECT_TRUE(display::Screen::Get()->InTabletMode());
+
+  // Exit tablet mode.
+  OpenLidToAngle(90.0f);
+
+  base::test::RunUntil([&] { return !display_manager()->IsInMirrorMode(); });
+  EXPECT_FALSE(display::Screen::Get()->InTabletMode());
+
+  // Change primary display.
+  Shell::Get()->window_tree_host_manager()->SetPrimaryDisplayId(external_id);
+
+  // Enter tablet mode.
+  OpenLidToAngle(270.0f);
+
+  // Confirm in tablet mode and mirrored.
+  base::test::RunUntil([&] { return display_manager()->IsInMirrorMode(); });
+  EXPECT_TRUE(display::Screen::Get()->InTabletMode());
+
+  // Exit tablet mode.
+  OpenLidToAngle(90.0f);
 }
 
 // Test if this case does not crash. See http://crbug.com/462806.
@@ -1724,8 +1771,8 @@ TEST_F(TabletModeControllerTest, DoNotObserverInputDeviceChangeDuringSuspend) {
 // Tests that we get no animation smoothness histograms when entering or
 // exiting tablet mode with no windows.
 TEST_F(TabletModeControllerTest, TabletModeTransitionHistogramsNotLogged) {
-  ui::ScopedAnimationDurationScaleMode test_duration_mode(
-      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+  gfx::ScopedAnimationDurationScaleMode test_duration_mode(
+      gfx::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
   base::HistogramTester histogram_tester;
 
   SCOPED_TRACE("No window");
@@ -1741,8 +1788,8 @@ TEST_F(TabletModeControllerTest, TabletModeTransitionHistogramsNotLogged) {
 // TODO(crbug.com/40877227): Flaky on Linux Chromium OS ASan LSan Tests.
 TEST_F(TabletModeControllerTest,
        DISABLED_TabletModeTransitionHistogramsLogged) {
-  ui::ScopedAnimationDurationScaleMode test_duration_mode(
-      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+  gfx::ScopedAnimationDurationScaleMode test_duration_mode(
+      gfx::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
   base::HistogramTester histogram_tester;
   // We have two windows, which both animated into tablet mode, but we only
   // observe and record smoothness for one.
@@ -1773,8 +1820,8 @@ TEST_F(TabletModeControllerTest,
 }
 
 TEST_F(TabletModeControllerTest, TabletModeTransitionHistogramsSnappedWindows) {
-  ui::ScopedAnimationDurationScaleMode test_duration_mode(
-      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+  gfx::ScopedAnimationDurationScaleMode test_duration_mode(
+      gfx::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
   base::HistogramTester histogram_tester;
 
   // Snap a window on either side.
@@ -1797,8 +1844,8 @@ TEST_F(TabletModeControllerTest, TabletModeTransitionHistogramsSnappedWindows) {
 TEST_F(TabletModeControllerTest, CloseWindowDuringEnterAnimation) {
   std::unique_ptr<aura::Window> window = CreateAppWindow(gfx::Rect(250, 100));
 
-  ui::ScopedAnimationDurationScaleMode test_duration_mode(
-      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+  gfx::ScopedAnimationDurationScaleMode test_duration_mode(
+      gfx::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
 
   tablet_mode_controller()->SetEnabledForTest(true);
   window.reset();
@@ -1810,8 +1857,8 @@ TEST_F(TabletModeControllerTest, CloseWindowDuringExitAnimation) {
   std::unique_ptr<aura::Window> window = CreateAppWindow(gfx::Rect(250, 100));
   tablet_mode_controller()->SetEnabledForTest(true);
 
-  ui::ScopedAnimationDurationScaleMode test_duration_mode(
-      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+  gfx::ScopedAnimationDurationScaleMode test_duration_mode(
+      gfx::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
 
   tablet_mode_controller()->SetEnabledForTest(false);
   window.reset();
@@ -2013,8 +2060,8 @@ class TabletModeControllerScreenshotTest : public TabletModeControllerTest {
     // enter/exit. With a NONZERO_DURATION, occasionally they may trigger too
     // quickly in tests so use NORMAL_DURATION.
     scoped_animation_duration_scale_mode_ =
-        std::make_unique<ui::ScopedAnimationDurationScaleMode>(
-            ui::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+        std::make_unique<gfx::ScopedAnimationDurationScaleMode>(
+            gfx::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
 
     // PowerManagerClient callback is a posted task.
     base::RunLoop().RunUntilIdle();
@@ -2027,7 +2074,7 @@ class TabletModeControllerScreenshotTest : public TabletModeControllerTest {
   }
 
  private:
-  std::unique_ptr<ui::ScopedAnimationDurationScaleMode>
+  std::unique_ptr<gfx::ScopedAnimationDurationScaleMode>
       scoped_animation_duration_scale_mode_;
 };
 

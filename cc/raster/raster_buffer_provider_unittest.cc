@@ -50,7 +50,6 @@
 #include "components/viz/test/test_raster_interface.h"
 #include "gpu/GLES2/gl2extchromium.h"
 #include "gpu/command_buffer/client/gles2_interface.h"
-#include "gpu/command_buffer/client/raster_implementation_gles.h"
 #include "gpu/command_buffer/client/raster_interface.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/geometry/axis_transform2d.h"
@@ -318,7 +317,7 @@ class RasterBufferProviderTest
 
  private:
   void Create3dResourceProvider() {
-    context_provider_ = viz::TestContextProvider::Create();
+    context_provider_ = viz::TestContextProvider::CreateRaster();
     context_provider_->BindToCurrentSequence();
 
     worker_context_provider_ = viz::TestContextProvider::CreateWorker();

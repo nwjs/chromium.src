@@ -6,6 +6,7 @@
 
 #include <Audioclient.h>
 #include <mferror.h>
+#include <winuser.h>
 
 #include <memory>
 #include <optional>
@@ -49,7 +50,63 @@ using Microsoft::WRL::MakeAndInitialize;
 namespace {
 
 ATOM g_video_window_class = 0;
-constexpr uint32_t kAmdVendorId = 0x1002;
+
+// GPU vendor IDs
+constexpr uint32_t kGpuVendorIdIntel = 0x8086;
+constexpr uint32_t kGpuVendorIdNvidia = 0x10de;
+constexpr uint32_t kGpuVendorIdAmd = 0x1002;
+constexpr uint32_t kGpuVendorIdNone = 0x0000;
+constexpr int kGpuVendorIdUnknown = -1;
+
+constexpr uint32_t kGpuBitmaskIntel = 0x001;
+constexpr uint32_t kGpuBitmaskNvidia = 0x001 << 1;
+constexpr uint32_t kGpuBitmaskAmd = 0x001 << 2;
+constexpr uint32_t kGpuBitmaskOther = 0x001 << 3;
+
+constexpr uint32_t kMakeGpuNonActive = 4;
+
+// Reported to UMA. Do NOT change or reuse existing values.
+enum class GpuOrDisplayCount {
+  kUnknown = 0,
+  kOne = 1,
+  kTwoOrMore = 2,  // We don't care if more than 2 gpus are present. So single
+                   // and two or more is enough.
+  kMaxValue = kTwoOrMore
+};
+
+// Reported to UMA. Do NOT change or reuse existing values.
+enum class ActiveGpuInfo : uint32_t {
+  kNone = 0,
+  kIntel = kGpuBitmaskIntel,
+  kNvidia = kGpuBitmaskNvidia,
+  kAmd = kGpuBitmaskAmd,
+  kOther = kGpuBitmaskOther,
+  kIntelIntel = kIntel | (kIntel << kMakeGpuNonActive),
+  kNvidiaIntel = kNvidia | (kIntel << kMakeGpuNonActive),
+  kAmdIntel = kAmd | (kIntel << kMakeGpuNonActive),
+  kOtherIntel = kOther | (kIntel << kMakeGpuNonActive),
+  kIntelNvidia = kIntel | (kNvidia << kMakeGpuNonActive),
+  kNvidiaNvidia = kNvidia | (kNvidia << kMakeGpuNonActive),
+  kAmdNvidia = kAmd | (kNvidia << kMakeGpuNonActive),
+  kOtherNvidia = kOther | (kNvidia << kMakeGpuNonActive),
+  kIntelAmd = kIntel | (kAmd << kMakeGpuNonActive),
+  kNvidiaAmd = kNvidia | (kAmd << kMakeGpuNonActive),
+  kAmdAmd = kAmd | (kAmd << kMakeGpuNonActive),
+  kOtherAmd = kOther | (kAmd << kMakeGpuNonActive),
+  kIntelOther = kIntel | (kOther << kMakeGpuNonActive),
+  kNvidiaOther = kNvidia | (kOther << kMakeGpuNonActive),
+  kAmdOther = kAmd | (kOther << kMakeGpuNonActive),
+  kOtherOther = kOther | (kOther << kMakeGpuNonActive),
+  kMaxValue = kOtherOther
+};
+
+// Reported to UMA. Do NOT change or reuse existing values.
+enum class ActiveGpuDisplayInfo {
+  kUnknown = 0,
+  kLikelyBuiltIn = 1,   // Likely built-in display
+  kLikelyExternal = 2,  // Likely external display
+  kMaxValue = kLikelyExternal
+};
 
 // The |g_video_window_class| atom obtained is used as the |lpClassName|
 // parameter in CreateWindowEx().
@@ -117,28 +174,260 @@ bool IsInvalidHandle(const HANDLE& handle) {
   return handle == INVALID_HANDLE_VALUE || handle == nullptr;
 }
 
-bool GetVendorIdFromD3D11Device(ID3D11Device* d3d11_device) {
-  DCHECK(d3d11_device);
+std::tuple<uint32_t, LUID> GetVendorIdAndLUIDFromD3D11Device(
+    IMFDXGIDeviceManager* dxgi_device_manager) {
+  DCHECK(dxgi_device_manager);
+
+  DXGIDeviceScopedHandle dxgi_device_handle(dxgi_device_manager);
+  ComPtr<ID3D11Device> d3d11_device = dxgi_device_handle.GetDevice();
+  if (!d3d11_device) {
+    return {kGpuVendorIdNone, {}};
+  }
 
   ComPtr<IDXGIDevice> dxgi_device;
   HRESULT hr = d3d11_device->QueryInterface(IID_PPV_ARGS(&dxgi_device));
   if (FAILED(hr)) {
-    return 0;
+    return {kGpuVendorIdNone, {}};
   }
 
   ComPtr<IDXGIAdapter> adapter;
   hr = dxgi_device->GetAdapter(&adapter);
   if (FAILED(hr)) {
-    return 0;
+    return {kGpuVendorIdNone, {}};
   }
 
   DXGI_ADAPTER_DESC desc = {};
   hr = adapter->GetDesc(&desc);
   if (FAILED(hr)) {
-    return 0;
+    return {kGpuVendorIdNone, {}};
   }
 
-  return desc.VendorId;
+  return {desc.VendorId, desc.AdapterLuid};
+}
+
+uint32_t GpuVendorIdToBitmask(const uint32_t vendor_id) {
+  if (vendor_id == kGpuVendorIdIntel) {
+    return kGpuBitmaskIntel;
+  }
+  if (vendor_id == kGpuVendorIdNvidia) {
+    return kGpuBitmaskNvidia;
+  }
+  if (vendor_id == kGpuVendorIdAmd) {
+    return kGpuBitmaskAmd;
+  }
+  if (vendor_id == kGpuVendorIdNone) {
+    return 0;
+  }
+  return kGpuBitmaskOther;
+}
+
+// Get non-active GPU vendor IDs.
+std::vector<uint32_t> GetNonActiveGpuVendorIds(const LUID& active_gpu_luid) {
+  std::vector<uint32_t> vendor_ids;
+  Microsoft::WRL::ComPtr<IDXGIFactory1> dxgi_factory;
+  if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&dxgi_factory)))) {
+    return vendor_ids;
+  }
+
+  Microsoft::WRL::ComPtr<IDXGIAdapter> adapter;
+  for (UINT i = 0; SUCCEEDED(dxgi_factory->EnumAdapters(i, &adapter)); ++i) {
+    DXGI_ADAPTER_DESC adapter_desc;
+    if (SUCCEEDED(adapter->GetDesc(&adapter_desc))) {
+      if (adapter_desc.AdapterLuid.HighPart == active_gpu_luid.HighPart &&
+          adapter_desc.AdapterLuid.LowPart == active_gpu_luid.LowPart) {
+        continue;
+      }
+      // Ignore software renderer based GPUs. See gpu/config/gpu_info.cc
+      if (adapter_desc.VendorId == 0x0000 || adapter_desc.VendorId == 0xFFFF ||
+          adapter_desc.VendorId == 0x15ad ||
+          (adapter_desc.VendorId == 0x1414 &&
+           adapter_desc.DeviceId == 0x008c)) {
+        DVLOG(3) << __func__ << ": Adapter " << i << " Vendor ID: 0x"
+                 << std::hex << adapter_desc.VendorId << ", Device ID: 0x"
+                 << std::hex << adapter_desc.DeviceId
+                 << " is a software renderer!";
+        continue;
+      }
+      vendor_ids.push_back(adapter_desc.VendorId);
+      DVLOG(3) << __func__ << ": Adapter " << i << " Vendor ID: 0x" << std::hex
+               << adapter_desc.VendorId;
+    }
+    adapter.Reset();
+  }
+  return vendor_ids;
+}
+
+// Callback function that EnumDisplayMonitors calls for each monitor.
+BOOL CALLBACK MyMonitorEnumProc(
+    HMONITOR hMonitor,   // Handle to display monitor
+    HDC hdcMonitor,      // Handle to monitor DC
+    LPRECT lprcMonitor,  // Monitor intersection rectangle
+    LPARAM dwData        // Data passed from EnumDisplayMonitors
+) {
+  if (!dwData) {
+    return FALSE;
+  }
+  // Cast dwData back to the integer pointer we passed in.
+  int* monitorCount = reinterpret_cast<int*>(dwData);
+  // Increment the count for each monitor found.
+  (*monitorCount)++;
+  return TRUE;  // Return TRUE to continue the enumeration.
+}
+
+// Get the total number of attached displays.
+int GetTotalDisplayCount() {
+  int count = 0;
+  BOOL result = EnumDisplayMonitors(nullptr, nullptr, MyMonitorEnumProc,
+                                    reinterpret_cast<LPARAM>(&count));
+  if (!result) {
+    // This case is unlikely for standard usage but good to be aware of.
+    DVLOG(1) << "EnumDisplayMonitors failed: " << GetLastError();
+    return -1;  // Indicate an error
+  }
+  return count;
+}
+
+ActiveGpuDisplayInfo GetActiveGpuDisplayInfo(const LUID& active_gpu_luid) {
+  UINT32 num_paths = 0;
+  UINT32 num_modes = 0;
+
+  // Get required buffer sizes for active paths
+  LONG status = GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &num_paths,
+                                            &num_modes);
+
+  if (status != ERROR_SUCCESS) {
+    DVLOG(1) << __func__ << ": GetDisplayConfigBufferSizes failed: " << status;
+    return ActiveGpuDisplayInfo::kUnknown;
+  }
+
+  std::vector<DISPLAYCONFIG_PATH_INFO> paths(num_paths);
+  std::vector<DISPLAYCONFIG_MODE_INFO> modes(num_modes);
+
+  // Query the display configuration
+  status = QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, &num_paths, paths.data(),
+                              &num_modes, modes.data(), nullptr);
+
+  if (status != ERROR_SUCCESS) {
+    DVLOG(1) << __func__ << ": QueryDisplayConfig failed: " << status;
+    return ActiveGpuDisplayInfo::kUnknown;
+  }
+
+  // Iterate through paths and retrieve target device info
+  for (UINT32 i = 0; i < num_paths; ++i) {
+    DISPLAYCONFIG_PATH_INFO& current_path = paths[i];
+    DISPLAYCONFIG_TARGET_DEVICE_NAME target_name = {};
+    target_name.header.size = sizeof(target_name);
+    target_name.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME;
+    target_name.header.adapterId = current_path.targetInfo.adapterId;
+    target_name.header.id = current_path.targetInfo.id;
+
+    status = DisplayConfigGetDeviceInfo(&target_name.header);
+    if (status != ERROR_SUCCESS) {
+      continue;
+    }
+
+    if (active_gpu_luid.HighPart == target_name.header.adapterId.HighPart &&
+        active_gpu_luid.LowPart == target_name.header.adapterId.LowPart) {
+      // Check specifically for embedded types to infer "built-in"
+      if (target_name.outputTechnology ==
+              DISPLAYCONFIG_OUTPUT_TECHNOLOGY_LVDS ||
+          target_name.outputTechnology ==
+              DISPLAYCONFIG_OUTPUT_TECHNOLOGY_DISPLAYPORT_EMBEDDED ||
+          target_name.outputTechnology ==
+              DISPLAYCONFIG_OUTPUT_TECHNOLOGY_INTERNAL) {
+        DVLOG(3) << __func__ << ": This is likely a BUILT-IN display.";
+        return ActiveGpuDisplayInfo::kLikelyBuiltIn;
+      } else {
+        DVLOG(3) << __func__ << ": This is likely an EXTERNAL display.";
+        return ActiveGpuDisplayInfo::kLikelyExternal;
+      }
+    }
+  }
+  return ActiveGpuDisplayInfo::kUnknown;
+}
+
+void ReportGpuInfoUma(const std::string& uma_prefix,
+                      IMFDXGIDeviceManager* dxgi_device_manager) {
+  // For some tests, this can be nullptr.
+  if (!dxgi_device_manager) {
+    return;
+  }
+
+  const auto [active_gpu_vendor_id, active_gpu_luid] =
+      GetVendorIdAndLUIDFromD3D11Device(dxgi_device_manager);
+  if (active_gpu_vendor_id == kGpuVendorIdNone &&
+      active_gpu_luid.LowPart == 0 && active_gpu_luid.HighPart == 0) {
+    DVLOG(1) << __func__ << ": Failed to get active GPU info.";
+    base::UmaHistogramEnumeration(uma_prefix + ".GpuCount",
+                                  GpuOrDisplayCount::kUnknown);
+    base::UmaHistogramEnumeration(uma_prefix + ".ActiveGpuInfo",
+                                  ActiveGpuInfo::kNone);
+    base::UmaHistogramSparse(uma_prefix + ".ActiveGpuVendorId",
+                             kGpuVendorIdUnknown);
+    base::UmaHistogramSparse(uma_prefix + ".NonActiveGpuVendorId",
+                             kGpuVendorIdUnknown);
+  } else {
+    const auto all_nonactive_gpus = GetNonActiveGpuVendorIds(active_gpu_luid);
+    const auto nonactive_gpu_count = all_nonactive_gpus.size();
+    const auto nonactive_gpu_id =
+        nonactive_gpu_count > 0 ? all_nonactive_gpus[0] : kGpuVendorIdNone;
+    const auto active_gpu_info = static_cast<ActiveGpuInfo>(
+        GpuVendorIdToBitmask(active_gpu_vendor_id) |
+        (GpuVendorIdToBitmask(nonactive_gpu_id) << kMakeGpuNonActive));
+    const auto active_gpu_display_info =
+        GetActiveGpuDisplayInfo(active_gpu_luid);
+
+    DVLOG(3) << __func__ << ": nonactive_gpu_count=" << nonactive_gpu_count
+             << ", active_gpu_vendor_id=" << active_gpu_vendor_id
+             << ", nonactive_gpu_id=" << nonactive_gpu_id
+             << ", active_gpu_info=" << static_cast<uint32_t>(active_gpu_info)
+             << ", active_gpu_display_info="
+             << static_cast<uint32_t>(active_gpu_display_info);
+
+    base::UmaHistogramEnumeration(uma_prefix + ".GpuCount",
+                                  nonactive_gpu_count > 0
+                                      ? GpuOrDisplayCount::kTwoOrMore
+                                      : GpuOrDisplayCount::kOne);
+    base::UmaHistogramEnumeration(uma_prefix + ".ActiveGpuInfo",
+                                  active_gpu_info);
+    base::UmaHistogramEnumeration(uma_prefix + ".ActiveGpuDisplayInfo",
+                                  active_gpu_display_info);
+    base::UmaHistogramSparse(uma_prefix + ".ActiveGpuVendorId",
+                             active_gpu_vendor_id);
+    if (nonactive_gpu_id != kGpuVendorIdNone) {
+      base::UmaHistogramSparse(uma_prefix + ".NonActiveGpuVendorId",
+                               nonactive_gpu_id);
+    }
+
+    // On multi-gpu devices with NVIDIA active gpu associated with an external
+    // display
+    const auto multigpu_nvidia_active_with_external =
+        nonactive_gpu_count > 0 && active_gpu_vendor_id == kGpuVendorIdNvidia &&
+        active_gpu_display_info == ActiveGpuDisplayInfo::kLikelyExternal;
+    DVLOG(3) << __func__ << ": multigpu_nvidia_active_with_external="
+             << multigpu_nvidia_active_with_external;
+    base::UmaHistogramBoolean(
+        uma_prefix + ".MultiGpuNvidiaActiveWithExternalDisplay",
+        multigpu_nvidia_active_with_external);
+
+    // On multi-gpu devices where the active gpu associated with an external
+    // display
+    const auto multigpu_with_external =
+        nonactive_gpu_count > 0 &&
+        active_gpu_display_info == ActiveGpuDisplayInfo::kLikelyExternal;
+    DVLOG(3) << __func__
+             << ": multigpu_with_external=" << multigpu_with_external;
+    base::UmaHistogramBoolean(uma_prefix + ".MultiGpuWithExternalDisplay",
+                              multigpu_with_external);
+  }
+
+  const auto display_count = GetTotalDisplayCount();
+  DVLOG(3) << __func__ << ": display_count=" << display_count;
+  base::UmaHistogramEnumeration(
+      uma_prefix + ".DisplayCount",
+      display_count == -1 ? GpuOrDisplayCount::kUnknown
+                          : (display_count > 1 ? GpuOrDisplayCount::kTwoOrMore
+                                               : GpuOrDisplayCount::kOne));
 }
 
 std::string RenderedVideoFrameDetectionResultToString(
@@ -994,6 +1283,8 @@ void MediaFoundationRenderer::OnPlaybackError(PipelineStatus status,
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
 
   base::UmaHistogramSparse("Media.MediaFoundationRenderer.PlaybackError", hr);
+  ReportGpuInfoUma("Media.MediaFoundationRenderer.PlaybackError",
+                   dxgi_device_manager_.Get());
 
   StopSendingStatistics(StopSendingStatisticsReason::kPlaybackError);
   OnError(status, ErrorReason::kOnPlaybackError, hr);
@@ -1203,15 +1494,10 @@ void MediaFoundationRenderer::OnError(PipelineStatus status,
   // sleep mode and during hotplug, but should be treated the same as
   // DRM_E_TEE_INVALID_HWDRM_STATE.
   if (hresult == DRM_OEM_E_ASD_ACTIVE_DISPLAY_FAIL) {
-    uint32_t vendor_id{0};
     // Attempt to get the vendor_id using the dxgi device.
-    DXGIDeviceScopedHandle dxgi_device_handle(dxgi_device_manager_.Get());
-    ComPtr<ID3D11Device> d3d11_device = dxgi_device_handle.GetDevice();
-    if (d3d11_device) {
-      vendor_id = GetVendorIdFromD3D11Device(d3d11_device.Get());
-    }
-
-    if (vendor_id == kAmdVendorId) {
+    const auto [vendor_id, _] =
+        GetVendorIdAndLUIDFromD3D11Device(dxgi_device_manager_.Get());
+    if (vendor_id == kGpuVendorIdAmd) {
       hresult = DRM_E_TEE_INVALID_HWDRM_STATE;
     }
   }
@@ -1224,6 +1510,9 @@ void MediaFoundationRenderer::OnError(PipelineStatus status,
     base::UmaHistogramCounts10000(
         "Media.MediaFoundationRenderer.InvalidHwdrmState.VideoFrameDecoded",
         statistics_.video_frames_decoded);
+
+    ReportGpuInfoUma("Media.EME.MediaFoundationService.HardwareContextReset",
+                     dxgi_device_manager_.Get());
 
     new_status = PIPELINE_ERROR_HARDWARE_CONTEXT_RESET;
     if (cdm_proxy_)

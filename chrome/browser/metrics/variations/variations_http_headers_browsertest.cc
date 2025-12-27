@@ -44,7 +44,6 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/metrics/metrics_pref_names.h"
 #include "components/metrics_services_manager/metrics_services_manager.h"
-#include "components/network_session_configurator/common/network_switches.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/proto/hints.pb.h"
 #include "components/prefs/pref_service.h"
@@ -137,6 +136,7 @@ VariationsSeed CreateTestSeedWithLimitedEntropyLayer(
   slot_range->set_end(99);
 
   Study base_study;
+  base_study.set_activation_type(Study::ACTIVATE_ON_STARTUP);
   base_study.set_consistency(Study::PERMANENT);
   auto* filter = base_study.mutable_filter();
   filter->add_channel(Study::UNKNOWN);
@@ -210,6 +210,8 @@ class VariationsHttpHeadersBrowserTest
   }
 
   void SetUp() override {
+    server()->SetCertHostnames(
+        {"www.google.com", "www.example.com", "test.com"});
     ASSERT_TRUE(server()->InitializeAndListen());
     InProcessBrowserTest::SetUp();
   }
@@ -231,10 +233,6 @@ class VariationsHttpHeadersBrowserTest
                             base::Unretained(this)));
 
     server()->StartAcceptingConnections();
-  }
-
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    command_line->AppendSwitch(::switches::kIgnoreCertificateErrors);
   }
 
   const net::EmbeddedTestServer* server() const { return &https_server_; }
@@ -1147,7 +1145,7 @@ IN_PROC_BROWSER_TEST_F(
       partition->GetURLLoaderFactoryForBrowserProcess().get();
   content::SimpleURLLoaderTestHelper loader_helper;
   loader->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
-      loader_factory, loader_helper.GetCallbackDeprecated());
+      loader_factory, loader_helper.GetCallback());
 
   // Wait for the response to complete.
   loader_helper.WaitForCallback();
@@ -1179,7 +1177,7 @@ IN_PROC_BROWSER_TEST_F(
           .get();
   content::SimpleURLLoaderTestHelper loader_helper;
   loader->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
-      loader_factory, loader_helper.GetCallbackDeprecated());
+      loader_factory, loader_helper.GetCallback());
 
   // Wait for the response to complete.
   loader_helper.WaitForCallback();

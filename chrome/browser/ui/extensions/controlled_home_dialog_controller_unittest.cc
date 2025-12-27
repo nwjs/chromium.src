@@ -10,11 +10,9 @@
 #include "base/test/bind.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/extension_web_ui_override_registrar.h"
-#include "chrome/browser/extensions/permissions/permissions_updater.h"
 #include "chrome/browser/extensions/test_extension_system.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
@@ -27,6 +25,7 @@
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/permissions/permissions_updater.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_builder.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -144,15 +143,6 @@ class ControlledHomeDialogControllerTest : public BrowserWithTestWindowTest {
     ControlledHomeDialogController::ClearProfileSetForTesting();
     profile_keep_alive_.reset();
     BrowserWithTestWindowTest::TearDown();
-  }
-
-  TestingProfile::TestingFactories GetTestingFactories() override {
-    // Use SimpleProtocolHandlerRegistryFactory to prevent OS integration during
-    // the protocol registration process.
-    return TestingProfile::TestingFactories{TestingProfile::TestingFactory{
-        ProtocolHandlerRegistryFactory::GetInstance(),
-        custom_handlers::SimpleProtocolHandlerRegistryFactory::
-            GetDefaultFactory()}};
   }
 
   void WaitForStorageCleanup() {

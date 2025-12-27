@@ -75,7 +75,6 @@
 <translation id="2576431527583832481">Chrome আরও ভাল হয়েছে! একটি নতুন ভার্সন উপলব্ধ আছে৷</translation>
 <translation id="257708665678654955">আপনি কি এরপর থেকে এই সাইটের <ph name="LANGUAGE_NAME" /> পৃষ্ঠাগুলিকে অনুবাদ করে দেওয়ার জন্য Google Chrome থেকে প্রম্পট পেতে চান?</translation>
 <translation id="2668242166988961773">Chrome-এ ভয়েসের মাধ্যমে সার্চ করুন।</translation>
-<translation id="2695886661449553974">Chrome-এ আপডেট চেক করা যায়নি। পরে আবার চেষ্টা করুন।</translation>
 <translation id="2703746758996815929">Chrome সংক্রান্ত সহায়ক পরামর্শ পেতে, আপনার iOS সেটিংসে বিজ্ঞপ্তি চালু করুন।</translation>
 <translation id="2728851697704606655">Google Lens দিয়ে অনুবাদ করুন</translation>
 <translation id="2736805085127235148">আপনার ডিভাইস সেটিংসে বর্তমান Chrome বিজ্ঞপ্তিগুলি বন্ধ করা আছে।</translation>
@@ -170,9 +169,11 @@
 <translation id="5162467219239570114">Chrome-এর এই ভার্সন পুরনো হয়ে গেছে। যদি <ph name="BEGIN_LINK" />অ্যাপ স্টোরে<ph name="END_LINK" /> কোনও আপডেট উপলভ্য না থাকে, তাহলে এমন হতে পারে যে আপনার ডিভাইস Chrome-এর নতুন ভার্সনের সাথে আর কাজ করতে পারবে না।</translation>
 <translation id="5184329579814168207">Chrome এ খুলুন</translation>
 <translation id="5190139289262548459">আপনার সাইন-ইন করে থাকা অ্যাকাউন্ট এবং Chrome কীভাবে ব্যবহার করা হয় তা আপনার প্রতিষ্ঠান, <ph name="DOMAIN" />, ম্যানেজ করে।</translation>
+<translation id="5209238444239954363">Chrome-এ আপডেট চেক করা যায়নি। পরে আবার চেষ্টা করুন।</translation>
 <translation id="5305440589062022504">Chrome-এ Password Manager খোলে</translation>
 <translation id="5310957470610282541">আপনার Chrome ডেটার কিছুটা এখনও Google অ্যাকাউন্টে সেভ হয়নি।
 সাইন-আউট করার আগে কয়েক মিনিট অপেক্ষা করে দেখুন। আপনি এখনই সাইন-আউট করলে, এই ডেটা মুছে যাবে।</translation>
+<translation id="5342685492141499976"><ph name="USER_EMAIL" />-এর জন্য Google Password Manager-এ আপনার ডেটা সেভ হয়ে যাবে</translation>
 <translation id="5389212809648216794">Google Chrome আপনার ক্যামেরা ব্যবহার করতে পারছে না কারণ এটি অন্য একটি অ্যাপ্লিকেশান দ্বারা ব্যবহার করা হচ্ছে</translation>
 <translation id="5395376160638294582">আপনার Google অ্যাকাউন্টে সবসময় Chrome ডেটা ব্যবহার করতে পারবেন তা কনফার্ম করুন</translation>
 <translation id="5404252374083197467">Chrome ডিফল্ট হিসেবে সেট করতে চান?</translation>
@@ -200,6 +201,7 @@
 <translation id="5808435672482059465">আপনার Chrome ইতিহাস দেখুন</translation>
 <translation id="5833027901704861726">আপনার Chrome ডেটার কিছুটা এখনও <ph name="EMAIL" />-এ সেভ করা হয়নি।
 অ্যাকাউন্ট পাল্টানোর আগে কয়েক মিনিট অপেক্ষা করে দেখুন। আপনি এখনই অ্যাকাউন্ট পাল্টালে, এই ডেটা মুছে যাবে।</translation>
+<translation id="5853754888722423892">Google Password Manager-এ ইমপোর্ট করুন</translation>
 <translation id="5998675059699164418">Chrome ব্যবহার করতে আপনার সংস্থার প্রয়োজন অনুযায়ী আপনাকে সাইন-ইন করতে হবে।</translation>
 <translation id="6021312115739110405">আপনার জন্য Google-এর তৈরি কাস্টম ফিড। এতে খবর, খেলাধূলা ও আবহাওয়ার তথ্য আছে।</translation>
 <translation id="6022659036123304283">Chrome-কে আপনার করে নিন</translation>
@@ -302,6 +304,7 @@
 <translation id="787226752901403048">ট্যাব গ্রুপে শেয়ার করতে ও যোগ দিতে এবং আইডিয়ার উপরে একসাথে কাজ করতে, Chrome-এ সাইন-ইন করুন</translation>
 <translation id="7897703007638178753">Chrome-এর সাম্প্রতিক ট্যাব দেখুন</translation>
 <translation id="7948283758957877064">Chrome-এ নতুন কী কী রয়েছে</translation>
+<translation id="7996707498590516621">Chrome-এ Gemini ব্যবহার করে ছবি তৈরি করুন</translation>
 <translation id="8000174216052461231">Chrome সম্পর্কিত পরামর্শ: Chrome-এর সবচেয়ে শক্তিশালী সুরক্ষা পান</translation>
 <translation id="8006014511203279255">মেসেজে বা অন্যান্য অ্যাপে থাকা লিঙ্ক যখনই খুলবেন তা Chrome-এ খুলুন।</translation>
 <translation id="8014670471808569312">Chrome আপনার পাসওয়ার্ড সেভ করার সুবিধা প্রদান করবে।</translation>

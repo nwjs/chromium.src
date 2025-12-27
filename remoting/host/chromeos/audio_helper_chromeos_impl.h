@@ -24,6 +24,30 @@ struct AudioGlitchInfo;
 
 namespace remoting {
 
+// The enum below is used in histograms, do not remove/renumber entries. If
+// you're adding to these enum, update the corresponding enum listing in
+// tools/metrics/histograms/metadata/remoting/enums.xml.
+enum class AudioHelperStartStreamResult {
+  kSuccess = 0,
+  kStreamAlreadyStarted = 1,
+  kFailedToCreateStream = 2,
+  kFailedToOpenStream = 3,
+  kMaxValue = kFailedToOpenStream,
+};
+
+// The enum below maps to `OpenOutcome` in "media/audio/audio_io.h" and is used
+// in histograms, do not remove/renumber entries. If you're adding to these
+// enum, update the corresponding enum listing in
+// tools/metrics/histograms/metadata/remoting/enums.xml.
+enum class OpenOutcomeChromeOs {
+  kSuccess = 0,
+  kAlreadyOpen = 1,
+  kFailed = 2,
+  kFailedSystemPermissions = 3,
+  kFailedInUse = 4,
+  kMaxValue = kFailedInUse,
+};
+
 class AudioHelperChromeOsImpl
     : public AudioHelperChromeOs,
       public media::AudioInputStream::AudioInputCallback {
@@ -34,9 +58,9 @@ class AudioHelperChromeOsImpl
   ~AudioHelperChromeOsImpl() override;
 
   // AudioHelperChromeOs:
-  void StartAudioStream(
-      OnDataCallback on_data_callback,
-      OnErrorCallback on_error_callback) override;
+  void StartAudioStream(AudioPlaybackMode audio_playback_mode,
+                        OnDataCallback on_data_callback,
+                        OnErrorCallback on_error_callback) override;
 
  private:
   // media::AudioInputStream::AudioInputCallback:
@@ -46,8 +70,10 @@ class AudioHelperChromeOsImpl
               const media::AudioGlitchInfo& glitch_info) override;
   void OnError() override;
 
-  void StopAudioStream() override;
-  void ReportError();
+  void StopAudioStream();
+  // When a fatal error occurs this stops the stream then invokes the
+  // `on_error_callback_`.
+  void NotifyFatalStreamError();
 
   const scoped_refptr<base::SequencedTaskRunner> audio_runner_;
   OnDataCallback on_data_callback_;

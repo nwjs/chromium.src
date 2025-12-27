@@ -54,6 +54,7 @@
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/sync/base/features.h"
 #include "components/user_education/views/help_bubble_view.h"
+#include "components/variations/variations_switches.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "net/dns/mock_host_resolver.h"
@@ -316,10 +317,12 @@ class FirstRunInteractiveUiTest
     }
 
     // Controls behavior of sync buttons and supervision.
-    AccountCapabilitiesTestMutator mutator(&account_info.capabilities);
     if (with_extended_info && account_email == kTestEnterpriseEmail) {
-      account_info.hosted_domain = "chromium.org";
+      account_info = AccountInfo::Builder(account_info)
+                         .SetHostedDomain("chromium.org")
+                         .Build();
     }
+    AccountCapabilitiesTestMutator mutator(&account_info.capabilities);
     mutator.set_is_subject_to_enterprise_features(account_email ==
                                                   kTestEnterpriseEmail);
 
@@ -575,6 +578,8 @@ class FirstRunParameterizedInteractiveUiTest
     // Change the country to belgium so that the search engine choice test works
     // as intended.
     command_line->AppendSwitchASCII(switches::kSearchEngineChoiceCountry, "BE");
+    command_line->AppendSwitchASCII(
+        variations::switches::kVariationsOverrideCountry, "BE");
 
     command_line->AppendSwitch(
         switches::kIgnoreNoFirstRunForSearchEngineChoiceScreen);
@@ -808,11 +813,11 @@ IN_PROC_BROWSER_TEST_P(FirstRunParameterizedInteractiveUiTest, SignInAndSync) {
     RunTestSequenceInContext(
         views::ElementTrackerViews::GetContextForView(view()),
         // Web Contents already instrumented in the previous sequence.
-        WaitForWebContentsNavigation(kWebContentsId, history_page_url),
-
-        // TODO(crbug.com/445927205): Verify Signin.HistorySyncOptIn.Started
-        // once it is implemented.
-
+        WaitForWebContentsNavigation(kWebContentsId, history_page_url), Do([&] {
+          histogram_tester().ExpectUniqueSample(
+              "Signin.HistorySyncOptIn.Started",
+              signin_metrics::AccessPoint::kForYouFre, 1);
+        }),
         // Button is visible once capabilities are loaded or defaulted.
         WaitForButtonVisible(kWebContentsId, kOptInSyncHistoryButton),
 
@@ -860,10 +865,12 @@ IN_PROC_BROWSER_TEST_P(FirstRunParameterizedInteractiveUiTest, SignInAndSync) {
     EXPECT_TRUE(privacy_sandbox_service->IsPromptOpenForBrowser(browser()));
   }
 
-  if (!base::FeatureList::IsEnabled(
+  if (base::FeatureList::IsEnabled(
           syncer::kReplaceSyncPromosWithSignInPromos)) {
-    // TODO(crbug.com/445927205): Verify Signin.HistorySyncOptIn.Completed
-    // once it is implemented.
+    histogram_tester().ExpectUniqueSample(
+        "Signin.HistorySyncOptIn.Completed",
+        signin_metrics::AccessPoint::kForYouFre, 1);
+  } else {
     histogram_tester().ExpectUniqueSample(
         "Signin.SyncOptIn.Completed", signin_metrics::AccessPoint::kForYouFre,
         1);
@@ -892,19 +899,24 @@ IN_PROC_BROWSER_TEST_P(FirstRunParameterizedInteractiveUiTest, SignInAndSync) {
       "Signin.SignIn.Started", signin_metrics::AccessPoint::kForYouFre, 1);
   histogram_tester().ExpectUniqueSample(
       "Signin.SignIn.Completed", signin_metrics::AccessPoint::kForYouFre, 1);
-  if (!base::FeatureList::IsEnabled(
+  if (base::FeatureList::IsEnabled(
           syncer::kReplaceSyncPromosWithSignInPromos)) {
-    // TODO(crbug.com/445927205): Adapt these histograms for history optin.
+    histogram_tester().ExpectUniqueSample(
+        "Signin.HistorySyncOptIn.Started",
+        signin_metrics::AccessPoint::kForYouFre, 1);
+    histogram_tester().ExpectUniqueSample(
+        "Signin.HistorySyncOptIn.Completed",
+        signin_metrics::AccessPoint::kForYouFre, 1);
+  } else {
     histogram_tester().ExpectUniqueSample(
         "Signin.SyncOptIn.Started", signin_metrics::AccessPoint::kForYouFre, 1);
     histogram_tester().ExpectUniqueSample(
         "Signin.SyncOptIn.Completed", signin_metrics::AccessPoint::kForYouFre,
         1);
-    // TODO(crbug.com/435374353): Support equal weight buttons in history optin.
-    histogram_tester().ExpectUniqueSample(
-        "Signin.SyncButtons.Shown",
-        *ExpectedButtonShownMetric(SyncButtonsFeatureConfig()), 1);
   }
+  histogram_tester().ExpectUniqueSample(
+      "Signin.SyncButtons.Shown",
+      *ExpectedButtonShownMetric(SyncButtonsFeatureConfig()), 1);
   histogram_tester().ExpectUniqueSample(
       "ProfilePicker.FirstRun.ExitStatus",
       ProfilePicker::FirstRunExitStatus::kCompleted, 1);
@@ -1011,17 +1023,20 @@ IN_PROC_BROWSER_TEST_P(FirstRunParameterizedInteractiveUiTest, DeclineSync) {
       "Signin.SignIn.Started", signin_metrics::AccessPoint::kForYouFre, 1);
   histogram_tester().ExpectUniqueSample(
       "Signin.SignIn.Completed", signin_metrics::AccessPoint::kForYouFre, 1);
-  if (!base::FeatureList::IsEnabled(
+  if (base::FeatureList::IsEnabled(
           syncer::kReplaceSyncPromosWithSignInPromos)) {
-    // TODO(crbug.com/445927205): Adapt these histograms for history optin.
+    histogram_tester().ExpectUniqueSample(
+        "Signin.HistorySyncOptIn.Started",
+        signin_metrics::AccessPoint::kForYouFre, 1);
+    histogram_tester().ExpectTotalCount("Signin.HistorySyncOptIn.Completed", 0);
+  } else {
     histogram_tester().ExpectUniqueSample(
         "Signin.SyncOptIn.Started", signin_metrics::AccessPoint::kForYouFre, 1);
     histogram_tester().ExpectTotalCount("Signin.SyncOptIn.Completed", 0);
-    // TODO(crbug.com/435374353): Support equal weight buttons in history optin.
-    histogram_tester().ExpectUniqueSample(
-        "Signin.SyncButtons.Shown",
-        *ExpectedButtonShownMetric(SyncButtonsFeatureConfig()), 1);
   }
+  histogram_tester().ExpectUniqueSample(
+      "Signin.SyncButtons.Shown",
+      *ExpectedButtonShownMetric(SyncButtonsFeatureConfig()), 1);
   histogram_tester().ExpectUniqueSample(
       "ProfilePicker.FirstRun.ExitStatus",
       ProfilePicker::FirstRunExitStatus::kCompleted, 1);
@@ -1250,7 +1265,9 @@ IN_PROC_BROWSER_TEST_P(FirstRunParameterizedInteractiveUiTest,
       identity_manager->FindExtendedAccountInfoByAccountId(
           identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin));
   account_info = signin::WithGeneratedUserInfo(account_info, kTestGivenName);
-  account_info.hosted_domain = "chromium.org";
+  account_info = AccountInfo::Builder(account_info)
+                     .SetHostedDomain("chromium.org")
+                     .Build();
   // Pulled out of the test sequence because it waits using `RunLoop`s.
   signin::UpdateAccountInfoForAccount(identity_manager, account_info);
 
@@ -1286,9 +1303,13 @@ IN_PROC_BROWSER_TEST_P(FirstRunParameterizedInteractiveUiTest,
       "Signin.SignIn.Started", signin_metrics::AccessPoint::kForYouFre, 1);
   histogram_tester().ExpectUniqueSample(
       "Signin.SignIn.Completed", signin_metrics::AccessPoint::kForYouFre, 1);
-  if (!base::FeatureList::IsEnabled(
+  if (base::FeatureList::IsEnabled(
           syncer::kReplaceSyncPromosWithSignInPromos)) {
-    // TODO(crbug.com/445927205): Adapt these histograms for history optin.
+    histogram_tester().ExpectUniqueSample(
+        "Signin.HistorySyncOptIn.Started",
+        signin_metrics::AccessPoint::kForYouFre, 0);
+    histogram_tester().ExpectTotalCount("Signin.HistorySyncOptIn.Completed", 0);
+  } else {
     histogram_tester().ExpectUniqueSample(
         "Signin.SyncOptIn.Started", signin_metrics::AccessPoint::kForYouFre, 1);
     histogram_tester().ExpectTotalCount("Signin.SyncOptIn.Completed", 0);

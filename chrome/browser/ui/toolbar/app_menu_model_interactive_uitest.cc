@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/accelerator_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
@@ -44,6 +45,7 @@
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "chrome/test/interaction/tracked_element_webcontents.h"
 #include "chrome/test/interaction/webcontents_interaction_test_util.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/crx_file/id_util.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/performance_manager/public/features.h"
@@ -120,7 +122,7 @@ class AppMenuModelInteractiveTest : public InteractiveBrowserTest {
     return Check(base::BindLambdaForTesting([default_browser]() {
       BrowserWindowInterface* new_browser = nullptr;
       if (BrowserList::GetIncognitoBrowserCount() == 1) {
-        EXPECT_EQ(2u, BrowserList::GetInstance()->size());
+        EXPECT_EQ(2u, chrome::GetTotalBrowserCount());
         ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
             [default_browser, &new_browser](BrowserWindowInterface* browser) {
               if (browser != default_browser) {
@@ -140,7 +142,7 @@ class AppMenuModelInteractiveTest : public InteractiveBrowserTest {
     return Check(base::BindLambdaForTesting([default_browser]() {
       BrowserWindowInterface* new_browser = nullptr;
       if (BrowserList::GetGuestBrowserCount() == 1) {
-        EXPECT_EQ(2u, BrowserList::GetInstance()->size());
+        EXPECT_EQ(2u, chrome::GetTotalBrowserCount());
         ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
             [default_browser, &new_browser](BrowserWindowInterface* browser) {
               if (browser != default_browser) {
@@ -178,7 +180,7 @@ IN_PROC_BROWSER_TEST_F(AppMenuModelInteractiveTest, IncognitoMenuItem) {
 
 IN_PROC_BROWSER_TEST_F(AppMenuModelInteractiveTest, IncognitoAccelerator) {
   ui::Accelerator incognito_accelerator;
-  chrome::AcceleratorProviderForBrowser(browser())->GetAcceleratorForCommandId(
+  AcceleratorProviderForBrowser(browser())->GetAcceleratorForCommandId(
       IDC_NEW_INCOGNITO_WINDOW, &incognito_accelerator);
 
   RunTestSequence(
@@ -691,6 +693,67 @@ IN_PROC_BROWSER_TEST_F(UniversalInstallAppMenuModelInteractiveTest,
       ScrollIntoView(AppMenuModel::kSaveAndShareMenuItem),
       SelectMenuItem(AppMenuModel::kSaveAndShareMenuItem),
       EnsurePresent(AppMenuModel::kInstallAppItem));
+}
+
+class YourSavedInfoMenuItemInteractiveTest
+    : public AppMenuModelInteractiveTest {
+ public:
+  YourSavedInfoMenuItemInteractiveTest() {
+    feature_list_.InitAndEnableFeature(
+        autofill::features::kYourSavedInfoSettingsPage);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(YourSavedInfoMenuItemInteractiveTest,
+                       ContactInfoNavigation) {
+  base::HistogramTester histograms;
+  RunTestSequence(
+      InstrumentTab(kPrimaryTabPageElementId),
+      PressButton(kToolbarAppMenuButtonElementId),
+      SelectMenuItem(AppMenuModel::kPasswordAndAutofillMenuItem),
+      SelectMenuItem(AppMenuModel::kContactInfoMenuItem),
+      WaitForWebContentsNavigation(
+          kPrimaryTabPageElementId,
+          GURL(chrome::GetSettingsUrl(chrome::kContactInfoSubPage))));
+
+  histograms.ExpectTotalCount("WrenchMenu.TimeToAction.ShowContactInfo", 1);
+  histograms.ExpectBucketCount("WrenchMenu.MenuAction",
+                               MENU_ACTION_SHOW_CONTACT_INFO, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(YourSavedInfoMenuItemInteractiveTest,
+                       IdentityDocsNavigation) {
+  base::HistogramTester histograms;
+  RunTestSequence(
+      InstrumentTab(kPrimaryTabPageElementId),
+      PressButton(kToolbarAppMenuButtonElementId),
+      SelectMenuItem(AppMenuModel::kPasswordAndAutofillMenuItem),
+      SelectMenuItem(AppMenuModel::kIdentityDocsMenuItem),
+      WaitForWebContentsNavigation(
+          kPrimaryTabPageElementId,
+          GURL(chrome::GetSettingsUrl(chrome::kIdentityDocsSubPage))));
+
+  histograms.ExpectTotalCount("WrenchMenu.TimeToAction.ShowIdentityDocs", 1);
+  histograms.ExpectBucketCount("WrenchMenu.MenuAction",
+                               MENU_ACTION_SHOW_IDENTITY_DOCS, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(YourSavedInfoMenuItemInteractiveTest, TravelNavigation) {
+  base::HistogramTester histograms;
+  RunTestSequence(InstrumentTab(kPrimaryTabPageElementId),
+                  PressButton(kToolbarAppMenuButtonElementId),
+                  SelectMenuItem(AppMenuModel::kPasswordAndAutofillMenuItem),
+                  SelectMenuItem(AppMenuModel::kTravelMenuItem),
+                  WaitForWebContentsNavigation(
+                      kPrimaryTabPageElementId,
+                      GURL(chrome::GetSettingsUrl(chrome::kTravelSubPage))));
+
+  histograms.ExpectTotalCount("WrenchMenu.TimeToAction.ShowTravel", 1);
+  histograms.ExpectBucketCount("WrenchMenu.MenuAction", MENU_ACTION_SHOW_TRAVEL,
+                               1);
 }
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)

@@ -194,6 +194,9 @@
       <message name="IDS_IOS_ACCNAME_NEW_INCOGNITO_TAB" desc="The accessibility label for the new incognito tab button on the new tab page [Length: unlimited]">
         New incognito tab
       </message>
+      <message name="IDS_IOS_ACCNAME_OPEN_PAGE_ACTION_MENU" translateable="false" desc="The accessibility label for the button that opens the page action menu [Length: unlimited]">
+        Open page action menu
+      </message>
       <message name="IDS_IOS_ACCNAME_RELOAD" desc="The accessibility label for the reload button [Length: unlimited] [iOS only]">
         Reload
       </message>
@@ -308,6 +311,9 @@
       <message name="IDS_IOS_ADVANCED_SIGNIN_SETTINGS_CANCEL_SYNC_ALERT_MESSAGE" desc="Alert title to ask if the user really wants to cancel sign-in and sync.">
         Cancel sync? You can turn on sync anytime in settings.
       </message>
+      <message name="IDS_IOS_AI_HUB_ALWAYS_SHOW_POPUPS_ACCESSIBILITY_LABEL" translateable="false" desc="The accessibility label for the button to always show pop-ups on this site in the AI hub.">
+        Always show pop-ups on this site
+      </message>
       <message name="IDS_IOS_AI_HUB_CAMERA_PERMISSION_LABEL" desc="The button label for the Camera permission feature of the AI hub.">
         Camera
       </message>
@@ -325,6 +331,12 @@
       </message>
       <message name="IDS_IOS_AI_HUB_MICROPHONE_PERMISSION_LABEL" desc="The button label for the Microphone permission feature of the AI hub.">
         Microphone
+      </message>
+      <message name="IDS_IOS_AI_HUB_OPEN_PRICE_TRACKING_ACCESSIBILITY_LABEL" translateable="false" desc="The accessibility label for the button to open price tracking in the AI hub.">
+        Show price history for this product
+      </message>
+      <message name="IDS_IOS_AI_HUB_OPEN_TRANSLATE_SETTINGS_ACCESSIBILITY_LABEL" translateable="false" desc="The accessibility label for the button to open translate settings in the AI hub.">
+        Open Translate settings
       </message>
       <message name="IDS_IOS_AI_HUB_PERMISSION_SITE_EXPLANATION" desc="Explanation text for site permissions in the AI hub showing which site the permissions apply to.">
         "<ph name="SITE_DOMAIN">$1<ex>camera.com</ex></ph>" permissions will reset to off when you leave this site
@@ -359,6 +371,18 @@
       <message name="IDS_IOS_AI_HUB_TRANSLATE_SHOW_ORIGINAL_BUTTON_LABEL" desc="The button label for showing original text in the Translate feature of the AI hub.">
         Show original
       </message>
+      <message name="IDS_IOS_AI_HUB_TURN_OFF_CAMERA_ACCESSIBILITY_LABEL" translateable="false" desc="The accessibility label for the switch to turn off the camera permission in the AI hub.">
+        Turn off camera
+      </message>
+      <message name="IDS_IOS_AI_HUB_TURN_OFF_MICROPHONE_ACCESSIBILITY_LABEL" translateable="false" desc="The accessibility label for the switch to turn off the microphone permission in the AI hub.">
+        Turn off microphone
+      </message>
+      <message name="IDS_IOS_AI_HUB_TURN_ON_CAMERA_ACCESSIBILITY_LABEL" translateable="false" desc="The accessibility label for the switch to turn on the camera permission in the AI hub.">
+        Turn on camera
+      </message>
+      <message name="IDS_IOS_AI_HUB_TURN_ON_MICROPHONE_ACCESSIBILITY_LABEL" translateable="false" desc="The accessibility label for the switch to turn on the microphone permission in the AI hub.">
+        Turn on microphone
+      </message>
       <message name="IDS_IOS_AI_PROTOTYPING_CALENDAR_HEADER" translateable="false" desc="The title for the enhanced calendar page of the AI prototyping menu [Length: unlimited].">
         Enhanced Calendar
       </message>
@@ -374,6 +398,9 @@
       <message name="IDS_IOS_AI_PROTOTYPING_MODEL_PICKER" translateable="false" desc="Model picker button text for the AI prototyping menu [Length: unlimited].">
         Choose A Model (unspecified uses the default)
       </message>
+      <message name="IDS_IOS_AI_PROTOTYPING_MQLS_SWITCH" translateable="false" desc="Switch indicating whether logs is uploaded to Chrome Model Quality Logging Service (MQLS) server [Length: unlimited].">
+        Upload to MQLS
+      </message>
       <message name="IDS_IOS_AI_PROTOTYPING_ON_DEVICE_SUBMIT" translateable="false" desc="On device submit button text for AI prototyping menu [Length: unlimited].">
         On Device Submit
       </message>
@@ -388,6 +415,9 @@
       </message>
       <message name="IDS_IOS_AI_PROTOTYPING_SERVER_SIDE_SUBMIT" translateable="false" desc="Server side submit button text for AI prototyping menu [Length: unlimited].">
         Server Side Submit
+      </message>
+      <message name="IDS_IOS_AI_PROTOTYPING_STORE_PAGE_CONTEXT_SWITCH" translateable="false" desc="Switch indicating whether PageContext is stored locally [Length: unlimited].">
+        Store page context locally
       </message>
       <message name="IDS_IOS_AI_PROTOTYPING_SYSTEM_INSTRUCTIONS_PLACEHOLDER" translateable="false" desc="System instructions placeholder text for AI prototyping menu [Length: unlimited].">
         Insert system instructions... (Optional)
@@ -442,6 +472,12 @@
           =0 {{domain}}
           =1 {{domain} and 1 other}
           other {{domain} and {count} others}}
+      </message>
+      <message name="IDS_IOS_ASK_GEMINI_CHIP_CUE_LABEL" desc="The contextual cue label for the Ask Gemini Chip [iOS only]">
+        Get insights with Gemini
+      </message>
+      <message name="IDS_IOS_ASK_GEMINI_CHIP_PREFILL_PROMPT" desc="Prefill prompt passed to the floaty when the Ask Gemini Chip is tapped [iOS only]">
+        Give me a one-line summary and useful insights beyond this page. Use a concise, casual tone. Limit to 100 words.
       </message>
       <message name="IDS_IOS_AUTOFILL_ACCNAME_ALL_AUTOFILL_DATA" desc="Title of the the button in the keyboard accessory shown when filling out forms used to open the expanded view to see all autofill data when on iPad. [Length: unlimited] [iOS only]">
         All Autofill
@@ -560,6 +596,15 @@
       </message>
       <message name="IDS_IOS_AUTOFILL_INPUT_BAR_DONE" desc="The title for the button above the keyboard used to dismiss it. [6em]">
         Done
+      </message>
+      <message name="IDS_IOS_AUTOFILL_INVALID_CARDHOLDER_NAME_ACCESSIBILITY_ANNOUNCEMENT" desc="The accessibility announcement read by Voice Over when the credit card holder name is invalid. [iOS only]">
+        Invalid cardholder name
+      </message>
+      <message name="IDS_IOS_AUTOFILL_INVALID_CVC_ACCESSIBILITY_ANNOUNCEMENT" desc="The accessibility announcement read by Voice Over when the credit card security code is invalid. [iOS only]">
+        Invalid security code
+      </message>
+      <message name="IDS_IOS_AUTOFILL_INVALID_EXPIRATION_DATE_ACCESSIBILITY_ANNOUNCEMENT" desc="The accessibility announcement read by Voice Over when the credit card expiration date is invalid. [iOS only]">
+        Invalid expiration date
       </message>
       <message name="IDS_IOS_AUTOFILL_NICKNAME" desc="Title of the field representing the user defined nickname of a credit card. [Length: 15em] [iOS only]">
         Card nickname
@@ -1365,6 +1410,50 @@
       <message name="IDS_IOS_COLLAPSED_PRIMARY_TOOLBAR_BUTTON" desc="The accessibility label for the collapsed toolbar button in primary toolbar. [iOS only].">
         Collapsed primary toolbar button
       </message>
+      <message name="IDS_IOS_COMPOSEBOX_ADD_CURRENT_TAB_ACTION" desc="The contextual menu option for attaching the current tab. [iOS only].">
+        Add current tab
+      </message>
+      <message name="IDS_IOS_COMPOSEBOX_AIM_ACTION" desc="The contextual menu option for starting AI Mode. [iOS only].">
+        AI Mode
+      </message>
+      <message name="IDS_IOS_COMPOSEBOX_AIM_ENABLED_PLACEHOLDER" desc="The placeholder to show when AIM is enabled and no user text was added.">
+        Ask Google anything
+      </message>
+      <message name="IDS_IOS_COMPOSEBOX_CAMERA_ACTION" desc="The contextual menu option for opening the camera. [iOS only].">
+        Camera
+      </message>
+      <message name="IDS_IOS_COMPOSEBOX_CANNOT_RELOAD_TAB_ERROR" desc="Message displayed in a snackbar when reloading a tab fails. [iOS only].">
+        Can’t reload tabs
+      </message>
+      <message name="IDS_IOS_COMPOSEBOX_CREATE_IMAGE_ACTION" desc="The contextual menu option instructing the input plate to use the image generation tool. [iOS only].">
+        Create image
+      </message>
+      <message name="IDS_IOS_COMPOSEBOX_FILES_ACTION" desc="The contextual menu option for opening the file picker. [iOS only].">
+        Files
+      </message>
+      <message name="IDS_IOS_COMPOSEBOX_GALLERY_ACTION" desc="The contextual menu option for opening the gallery picker. [iOS only].">
+        Gallery
+      </message>
+      <message name="IDS_IOS_COMPOSEBOX_IMAGE_GEN_PLACEHOLDER" desc="The placeholder displayed in the compose box when the nano banana or image generation mode is enabled. [iOS only].">
+        Describe your image
+      </message>
+      <message name="IDS_IOS_COMPOSEBOX_MAXIMUM_ATTACHMENTS_REACHED" desc="Message displayed in a snackbar when the user tries to attach more than the maximum allowed number of attachments. [iOS only].">
+        {COUNT, plural,
+        =1 {Add up to 1 file, tab, or image}
+        other {Add up to {COUNT} files, tabs, or images}}
+      </message>
+      <message name="IDS_IOS_COMPOSEBOX_MENU_TITLE" desc="Title for the contextual menu, the menu allows the user to attach images, tabs, files to their query. [iOS only].">
+        Ask Google about tabs and more
+      </message>
+      <message name="IDS_IOS_COMPOSEBOX_SELECT_TAB_ACTION" desc="The contextual menu option for opening the tab picker for selection. [iOS only].">
+        Tabs
+      </message>
+      <message name="IDS_IOS_COMPOSEBOX_TAB_PICKER_ADD_TABS_TITLE" desc="Title for the Composebox tab picker when no tabs are selected.">
+        Add recent tabs
+      </message>
+      <message name="IDS_IOS_COMPOSEBOX_UNABLE_TO_ADD_ATTACHMENT" desc="Message displayed in a snackbar when a file upload fails. [iOS only].">
+        Unable to add attachments
+      </message>
       <message name="IDS_IOS_COMPROMISED_PASSWORD_ISSUES_DESCRIPTION" desc="Header displayed on the password manager screen displaying credentials that have been leaked or phished [iOS only]">
         Some of your saved passwords were exposed in a non-Google data breach. <ph name="BEGIN_LINK">BEGIN_LINK</ph>Learn more<ph name="END_LINK">END_LINK</ph>
       </message>
@@ -1591,8 +1680,14 @@
       <message name="IDS_IOS_CONTENT_SUGGESTIONS_ACCESSIBILITY_LABEL_SUGGESTION" desc="The accessibility label of a suggestion. Summarizes fields in the reading list entry (title, publisher informations, status and informations). Read by Text-to-Speech.">
         <ph name="TITLE"><ex>Learn about the new Chromium projects</ex>$1</ph>, <ph name="PUBLISHER_INFORMATION"><ex>The Chromium organization</ex>$2</ph>, <ph name="PUBLICATION_DATE"><ex>January 1 2017</ex>$3</ph>
       </message>
+      <message name="IDS_IOS_CONTENT_SUGGESTIONS_ADD_PINNED_SITE" desc="The title of the button to add a pinned site on the new tab page [Length: 10em]">
+        Add Site
+      </message>
       <message name="IDS_IOS_CONTENT_SUGGESTIONS_BOOKMARKS" desc="The Bookmarks title on the new tab page [Length: 10em]">
         Bookmarks
+      </message>
+      <message name="IDS_IOS_CONTENT_SUGGESTIONS_EDIT_PINNED_SITE" desc="The name of the 'Edit Site' command in the Content Suggestions articles context menu to edit a pinned site">
+        Edit Site
       </message>
       <message name="IDS_IOS_CONTENT_SUGGESTIONS_FOOTER_TITLE" desc="The title of the footer of the sections of Content Suggestions">
         More
@@ -1612,8 +1707,14 @@
       <message name="IDS_IOS_CONTENT_SUGGESTIONS_MOST_VISITED_MODULE_TITLE" desc="The Most Visited module title on the new tab page [Length: 10em]">
         Your top sites
       </message>
+      <message name="IDS_IOS_CONTENT_SUGGESTIONS_NEVER_SHOW_SITE" desc="The name of the 'Never Show this Site' command in the Content Suggestions articles context menu">
+        Never Show This Site
+      </message>
       <message name="IDS_IOS_CONTENT_SUGGESTIONS_PARCEL_TRACKING_MODULE_PACKAGE_UNDELIVERABLE_STATUS" desc="The Parcel Tracking module package delivery undeliverable status description on the Home surface [Length: 10em]">
         Your package can't be delivered
+      </message>
+      <message name="IDS_IOS_CONTENT_SUGGESTIONS_PIN_SITE" desc="The name of the 'Pin Site' command in the Content Suggestions articles context menu">
+        Pin site
       </message>
       <message name="IDS_IOS_CONTENT_SUGGESTIONS_PRICE_TRACKING_PROMO_ALLOW" desc="Label indicating user can allow price tracking notifications">
           Allow price tracking notifications…
@@ -1786,6 +1887,9 @@
       <message name="IDS_IOS_CONTENT_SUGGESTIONS_TRENDING_QUERIES_MODULE_TITLE" desc="The Trending Queries module title on the new tab page [Length: 10em]">
         Trending searches
       </message>
+      <message name="IDS_IOS_CONTENT_SUGGESTIONS_UNPIN_SITE" desc="The name of the 'Unpin Site' command in the Content Suggestions articles context menu">
+        Unpin site
+      </message>
       <message name="IDS_IOS_CONTENT_SUGGESTIONS_WHATS_NEW" desc="The What's New title on the new tab page [Length: 10em]">
         What's New
       </message>
@@ -1815,6 +1919,33 @@
       </message>
       <message name="IDS_IOS_COPY_VERSION_HINT" desc="The accessibility hint for the label showing the Chrome version. [iOS only]">
         Double tap to copy.
+      </message>
+      <message name="IDS_IOS_CREDENTIAL_BOTTOM_SHEET_CONTINUE" desc="The action button to use the selected credentials to fill the username on a username only form without password.">
+        Continue
+      </message>
+      <message name="IDS_IOS_CREDENTIAL_BOTTOM_SHEET_NO_USERNAME" desc="Text shown for an option in a list of the user's saved passwords, when the user did not save a username along with the password.">
+        No username ••••••••
+      </message>
+      <message name="IDS_IOS_CREDENTIAL_BOTTOM_SHEET_PASSWORD_MANAGER" desc="The credential bottom sheet's long press menu item to open the password manager.">
+        Password Manager
+      </message>
+      <message name="IDS_IOS_CREDENTIAL_BOTTOM_SHEET_RECOVERY_PASSWORD_LABEL" desc="Text shown for a recovery password suggestion available in the Credential Bottom Sheet. Indicates to the user that the recovery password can be used to log in if the main password doesn't work. A recovery password is a temporary backup of an old password that is kept after an automated password change occurred. It acts as a safety net in case the new password doesn't work. [iOS only]">
+        Temp recovery in case of trouble
+      </message>
+      <message name="IDS_IOS_CREDENTIAL_BOTTOM_SHEET_SELECT_PASSWORD" desc="This message is mentioned right after the title when the Credential Bottom Sheet opens. For example, in English, it would say: 'Google Password Manager. Select a password to fill.'. This is spoken by VoiceOver. [iOS only]">
+        Select a password to fill.
+      </message>
+      <message name="IDS_IOS_CREDENTIAL_BOTTOM_SHEET_SHOW_DETAILS" desc="The credential bottom sheet's long press menu item to open the password details page, which displays more information, like username, password and associated website.">
+        Show details
+      </message>
+      <message name="IDS_IOS_CREDENTIAL_BOTTOM_SHEET_SUBTITLE" desc="Shown on the credential bottom sheet to inform users that, upon accepting the prompt, their username and password will be shared with the given website. [iOS only]" meaning="A string under the title logo of the credential bottom sheet.">
+        You'll sign in to <ph name="URL">$1<ex>chromium.org</ex></ph>
+      </message>
+      <message name="IDS_IOS_CREDENTIAL_BOTTOM_SHEET_USE_KEYBOARD" desc="The action button to dismiss the credential bottom sheet and revert to using the keyboard to fill in username and password information on the webpage.">
+              Use keyboard
+            </message>
+      <message name="IDS_IOS_CREDENTIAL_BOTTOM_SHEET_USE_PASSWORD" desc="The action button to use the selected credentials to fill the username and password fields on the webpage.">
+        Use password
       </message>
       <message name="IDS_IOS_CREDENTIAL_PROVIDER_NEW_PASSWORD_SUGGEST_STRONG_PASSWORD" desc="Button allowing users to request Chrome suggest a strong password">
         Suggest strong password
@@ -2610,12 +2741,18 @@
         Your passwords will be visible to anyone who can see the exported file.
       </message>
       <message name="IDS_IOS_EXPORT_PASSWORDS_AND_PASSKEYS" desc="Button that the user can press to export passwords and passkeys. [iOS only]">
-        Export passwords and passkeys…
+        Export data
       </message>
       <message name="IDS_IOS_EXPORT_PASSWORDS_AND_PASSKEYS_COUNT" desc="Text displaying the number of items currently selected. [iOS Only]">
         {count, plural,
           =1 {1 selected}
           other {# selected}}
+      </message>
+      <message name="IDS_IOS_EXPORT_PASSWORDS_AND_PASSKEYS_DESELECT_ALL_BUTTON" desc="Title of the button in the bottom toolbar that allows the user to deselect all credentials in the export list. [iOS only]">
+        Deselect all
+      </message>
+      <message name="IDS_IOS_EXPORT_PASSWORDS_AND_PASSKEYS_SELECT_ALL_BUTTON" desc="Title of the button in the bottom toolbar that allows the user to select all credentials in the export list. [iOS only]">
+        Select all
       </message>
       <message name="IDS_IOS_EXPORT_PASSWORDS_AND_PASSKEYS_SUBTITLE" desc="Subtitle text on the credential export selection screen, instructing the user to select accounts. [iOS only]">
         Select the accounts you want to export to another app.
@@ -2632,8 +2769,8 @@
       <message name="IDS_IOS_EXPORT_PASSWORDS_PREPARING_ALERT_TITLE" desc="The title of the alert displayed to indicate that the passwords are being prepared for export. [iOS only]">
         Preparing passwords…
       </message>
-      <message name="IDS_IOS_EXPORT_PASSWORDS_UNKNOWN_ERROR_ALERT_MESSAGE" desc="The message of the alert informing the user that an error has occured while exporting passwords. [iOS only]">
-        An error occured. Try again later.
+      <message name="IDS_IOS_EXPORT_PASSWORDS_UNKNOWN_ERROR_ALERT_MESSAGE" desc="The message of the alert informing the user that an error has occurred while exporting passwords. [iOS only]">
+        An error occurred. Try again later.
       </message>
       <message name="IDS_IOS_FACETIME_BUTTON" desc="Text in the confirmation dialog button that will initiate a FaceTime call for the presented number. [Length: 10em] [iOS only]">
         FaceTime
@@ -2674,14 +2811,23 @@
       <message name="IDS_IOS_FEED_SWIPE_IPH" desc="Text for the in-product help bubble highlighting scrolling on the Feed.">
         You can swipe up to see more content tailored to you.
       </message>
+      <message name="IDS_IOS_FILE_UPLOAD_PANEL_CHOOSE_FILES_ACTION_LABEL" desc="Title for a multiple files chooser button used in HTML forms. [iOS only]">
+        Choose Files
+      </message>
       <message name="IDS_IOS_FILE_UPLOAD_PANEL_CHOOSE_FILE_ACTION_LABEL" desc="Title for a single file chooser button used in HTML forms. [iOS only]">
         Choose File
       </message>
       <message name="IDS_IOS_FILE_UPLOAD_PANEL_PHOTO_LIBRARY_ACTION_LABEL" desc="Title for a button for choosing an existing media item from the Photo Library, used in HTML forms. [iOS only]">
         Photo Library
       </message>
+      <message name="IDS_IOS_FILE_UPLOAD_PANEL_TAKE_PHOTO_ACTION_LABEL" desc="Title for a button for taking a photo, used in HTML forms. [iOS only]">
+        Take Photo
+      </message>
       <message name="IDS_IOS_FILE_UPLOAD_PANEL_TAKE_PHOTO_OR_VIDEO_ACTION_LABEL" desc="Title for a button for taking a photo or video, used in HTML forms. [iOS only]">
         Take Photo or Video
+      </message>
+      <message name="IDS_IOS_FILE_UPLOAD_PANEL_TAKE_VIDEO_ACTION_LABEL" desc="Title for a button for taking a video, used in HTML forms. [iOS only]">
+        Take Video
       </message>
       <message name="IDS_IOS_FIRSTRUN_TERMS_TITLE" desc="Title for the Terms of Service page shown to user on First Run. [Length: 20em] [iOS only]">
         Terms of service
@@ -2938,6 +3084,9 @@
       <message name="IDS_IOS_HOME_CUSTOMIZATION_BACKGROUND_COLOR_CITRON_ACCESSIBILITY_LABEL" desc="Accessibility label for the 'Citron' color theme.">
         Citron theme
       </message>
+      <message name="IDS_IOS_HOME_CUSTOMIZATION_BACKGROUND_COLOR_CUSTOM_ACCESSIBILITY_LABEL" desc="Accessibility label for a custom, user-defined background color theme.">
+        Custom color theme
+      </message>
       <message name="IDS_IOS_HOME_CUSTOMIZATION_BACKGROUND_COLOR_DEFAULT_ACCESSIBILITY_LABEL" desc="Accessibility label for the 'Default' color theme.">
         Default theme
       </message>
@@ -2967,6 +3116,12 @@
       </message>
       <message name="IDS_IOS_HOME_CUSTOMIZATION_BACKGROUND_FRAMING_VIEW_SAVE_BUTTON_LABEL" desc="Label for the save button in the framing view that saves the selected framing configuration for the image.">
         Save
+      </message>
+      <message name="IDS_IOS_HOME_CUSTOMIZATION_BACKGROUND_LOAD_FAIL" desc="Title for an alert shown when a background image fails to load. [iOS only]">
+        Couldn't load images
+      </message>
+      <message name="IDS_IOS_HOME_CUSTOMIZATION_BACKGROUND_LOAD_TRY_AGAIN" desc="Button label to try reloading a background image that failed to load. [iOS only]">
+        Try Again
       </message>
       <message name="IDS_IOS_HOME_CUSTOMIZATION_BACKGROUND_PHOTO_LIBRARY_ACCESSIBILITY_LABEL" desc="Accessibility label for a camera roll image.">
         Camera roll image
@@ -3147,6 +3302,83 @@
       </message>
       <message name="IDS_IOS_IDLE_TIMEOUT_SIGNOUT_TITLE" desc="Title of the idle timeout policy dialog when the user is about to be signed out.">
         You'll be signed out
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_BLOCKED_BY_POLICY" desc="The detailed text shown for a data type that cannot be imported because it is blocked by an enterprise policy. [iOS only]">
+        Disabled by your administrator
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_TYPE_IMPORTED_DETAILED_TEXT_BOOKMARKS" desc="The detailed text of the 'Bookmarks' row displayed on an import screen displaying the number of bookmarks imported. [iOS only]">
+        {count, plural,
+          =1 {Imported {count} bookmark}
+          other {Imported {count} bookmarks}}
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_TYPE_IMPORTED_DETAILED_TEXT_CREDIT_CARDS" desc="The detailed text of the 'Credit card' row displayed on an import screen displaying the number of credit cards imported. [iOS only]">
+        {count, plural,
+          =1 {Imported {count} card}
+          other {Imported {count} cards}}
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_TYPE_IMPORTED_DETAILED_TEXT_HISTORY" desc="The detailed text of the 'History' row displayed on an import screen displaying the number of history items imported. [iOS only]">
+        {count, plural,
+          =1 {Imported {count} history item}
+          other {Imported {count} history items}}
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_TYPE_IMPORTED_DETAILED_TEXT_INVALID_PASSWORDS" desc="The description of the 'Password' row displayed on an import screen displaying the number of passwords that has failed to be imported. Will not be displayed when all passwords are successfully imported. Do not include a period - it will be handled separately. [iOS only]">
+        {count, plural,
+          =1 {Couldn't import {count} password}
+          other {Couldn't import {count} passwords}}
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_TYPE_IMPORTED_DETAILED_TEXT_PASSKEYS" desc="The detailed text of the 'Passkey' row displayed on an import screen displaying the number of passkeys imported. [iOS only]">
+        {count, plural,
+          =1 {Imported {count} passkey}
+          other {Imported {count} passkeys}}
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_TYPE_IMPORTED_DETAILED_TEXT_PASSWORDS" desc="The description of the 'Password' row displayed on an import screen displaying the number of passwords imported. Do not include a period - it will be handled separately. [iOS only]">
+        {count, plural,
+          =0 {No password imported}
+          =1 {Imported {count} password}
+          other {Imported {count} passwords}}
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_TYPE_PENDING_DETAILED_TEXT_BOOKMARKS" desc="The detailed text of the 'Bookmarks' row displayed on an import screen displaying the number of bookmarks that will be imported. [iOS only]">
+        {count, plural,
+          =1 {{count} bookmarks}
+          other {{count} bookmarks}}
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_TYPE_PENDING_DETAILED_TEXT_CREDIT_CARDS" desc="The detailed text of the 'Credit card' row displayed on an import screen displaying the number of credit cards that will be imported. [iOS only]">
+        {count, plural,
+          =1 {{count} card}
+          other {{count} cards}}
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_TYPE_PENDING_DETAILED_TEXT_HISTORY" desc="The detailed text of the 'History' row displayed on an import screen displaying the number of history items that will be imported. [iOS only]">
+        {count, plural,
+          =1 {{count} history item}
+          other {{count} history items}}
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_TYPE_PENDING_DETAILED_TEXT_NO_DATA" desc="The detailed text of each row displayed on an import screen when there is no item of the type to be imported. [iOS only]">
+        Nothing to import
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_TYPE_PENDING_DETAILED_TEXT_PASSKEYS" desc="The detailed text of the 'Passkeys' row displayed on an import screen displaying the number of passkeys that will be imported. Refer to Glossary when translating 'passkeys'. [iOS only]">
+        {count, plural,
+          =1 {{count} passkey}
+          other {{count} passkeys}}
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_TYPE_PENDING_DETAILED_TEXT_PASSWORDS" desc="The detailed text of the 'Password' row displayed on an import screen displaying the number of passwords that will be imported. Only used when no password has failed to be imported. [iOS only]">
+        {count, plural,
+          =1 {{count} password}
+          other {{count} passwords}}
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_TYPE_TITLE_BOOKMARKS" desc="The title of the 'Bookmarks' row displayed on an import screen that handles the import process. [iOS only]">
+        Bookmarks
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_TYPE_TITLE_CREDIT_CARDS" desc="The title of the 'Credit cards' row displayed on an import screen that handles the import process. [iOS only]">
+        Credit cards
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_TYPE_TITLE_HISTORY" desc="The title of the 'History' row displayed on an import screen that handles the import process. [iOS only]">
+        History
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_TYPE_TITLE_PASSKEYS" desc="The title of the 'Passkeys' row displayed on an import screen that handles the import process. Refer to Glossary when translating 'passkeys'. [iOS only]">
+        Passkeys
+      </message>
+      <message name="IDS_IOS_IMPORT_ITEM_TYPE_TITLE_PASSWORDS" desc="The title of the 'Passwords' row displayed on an import screen that handles the import process. [iOS only]">
+        Passwords
       </message>
       <message name="IDS_IOS_IMPORT_PASSWORDS" desc="Button that the user can press to import passwords. [Length: 22em] [iOS only]">
         Import passwords…
@@ -4174,6 +4406,9 @@
       <message name="IDS_IOS_OPEN_IOS_SETTINGS" desc="Text of the primary button to open iOS settings page. [iOS only]">
         Go to Settings…
       </message>
+      <message name="IDS_IOS_OPEN_NEW_TAB" desc="Text of the primary button to open a new tab. [iOS only]">
+        Open New Tab
+      </message>
       <message name="IDS_IOS_OPEN_PASSWORD_MANAGER" desc="Text of the primary button to open chrome password manager. [iOS only]">
         Open Password Manager
       </message>
@@ -4481,33 +4716,6 @@ Handoff must also be enabled in the General section of Settings, and your device
       </message>
       <message name="IDS_IOS_PASSKEY_WELCOME_SCREEN_NEXT_BUTTON" desc="Used as a title for a 'Next' button." meaning="Go to the next step.">
         Next
-      </message>
-      <message name="IDS_IOS_PASSWORD_BOTTOM_SHEET_CONTINUE" desc="The action button to use the selected credentials to fill the username on a username only form without password.">
-        Continue
-      </message>
-      <message name="IDS_IOS_PASSWORD_BOTTOM_SHEET_NO_USERNAME" desc="Text shown for an option in a list of the user's saved passwords, when the user did not save a username along with the password.">
-        No username ••••••••
-      </message>
-      <message name="IDS_IOS_PASSWORD_BOTTOM_SHEET_PASSWORD_MANAGER" desc="The password bottom sheet's long press menu item to open the password manager.">
-        Password Manager
-      </message>
-      <message name="IDS_IOS_PASSWORD_BOTTOM_SHEET_RECOVERY_PASSWORD_LABEL" desc="Text shown for a recovery password suggestion available in the Password Bottom Sheet. Indicates to the user that the recovery password can be used to log in if the main password doesn't work. A recovery password is a temporary backup of an old password that is kept after an automated password change occurred. It acts as a safety net in case the new password doesn't work. [iOS only]">
-        Temp recovery in case of trouble
-      </message>
-      <message name="IDS_IOS_PASSWORD_BOTTOM_SHEET_SELECT_PASSWORD" desc="This message is mentioned right after the title when the Password Bottom Sheet opens. For example, in English, it would say: 'Google Password Manager. Select a password to fill.'. This is spoken by VoiceOver. [iOS only]">
-        Select a password to fill.
-      </message>
-      <message name="IDS_IOS_PASSWORD_BOTTOM_SHEET_SHOW_DETAILS" desc="The password bottom sheet's long press menu item to open the password details page, which displays more information, like username, password and associated website.">
-        Show details
-      </message>
-      <message name="IDS_IOS_PASSWORD_BOTTOM_SHEET_SUBTITLE" desc="Shown on the password bottom sheet to inform users that, upon accepting the prompt, their username and password will be shared with the given website. [iOS only]" meaning="A string under the title logo of the password bottom sheet.">
-        You'll sign in to <ph name="URL">$1<ex>chromium.org</ex></ph>
-      </message>
-      <message name="IDS_IOS_PASSWORD_BOTTOM_SHEET_USE_KEYBOARD" desc="The action button to dismiss the password bottom sheet and revert to using the keyboard to fill in username and password information on the webpage.">
-              Use keyboard
-            </message>
-      <message name="IDS_IOS_PASSWORD_BOTTOM_SHEET_USE_PASSWORD" desc="The action button to use the selected credentials to fill the username and password fields on the webpage.">
-        Use password
       </message>
       <message name="IDS_IOS_PASSWORD_CHECKUP" desc="Title for the item in Settings for Password Checkup feature." meaning="Label tells the user about status of Password Checkup [CHAR_LIMIT=25] [iOS only]">
         Password Checkup
@@ -5643,72 +5851,14 @@ Handoff must also be enabled in the General section of Settings, and your device
       <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_INSTRUCTIONS_TWO" desc="Instructions view to teach users how to import data from Safari - step 2. [iOS only]">
         Select your Safari export <ph name="BEGIN_BOLD">BEGIN_BOLD</ph>.zip<ph name="END_BOLD">END_BOLD</ph> file
       </message>
-      <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_ITEM_BLOCKED_BY_POLICY" desc="The detailed text shown for a data type that cannot be imported from Safari because it is blocked by an enterprise policy. [iOS only]">
-        Disabled by your administrator
-      </message>
-      <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_ITEM_TYPE_IMPORTED_DETAILED_TEXT_BOOKMARKS" desc="The detailed text of the 'Bookmarks' row displayed on Safari import screen displaying the number of bookmarks imported. [iOS only]">
-        {count, plural,
-          =1 {Imported {count} bookmark}
-          other {Imported {count} bookmarks}}
-      </message>
-      <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_ITEM_TYPE_IMPORTED_DETAILED_TEXT_CREDIT_CARDS" desc="The detailed text of the 'Credit card' row displayed on Safari import screen displaying the number of credit cards imported. [iOS only]">
-        {count, plural,
-          =1 {Imported {count} card}
-          other {Imported {count} cards}}
-      </message>
-      <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_ITEM_TYPE_IMPORTED_DETAILED_TEXT_HISTORY" desc="The detailed text of the 'History' row displayed on Safari import screen displaying the number of history items imported. [iOS only]">
-        {count, plural,
-          =1 {Imported {count} history item}
-          other {Imported {count} history items}}
-      </message>
-      <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_ITEM_TYPE_IMPORTED_DETAILED_TEXT_INVALID_PASSWORDS" desc="The description of the 'Password' row displayed on Safari import screen displaying the number of passwords that has failed to be imported. Will not be displayed when all passwords are successfully imported. Do not include a period - it will be handled separately. [iOS only]">
-        {count, plural,
-          =1 {Couldn't import {count} password}
-          other {Couldn't import {count} passwords}}
-      </message>
-      <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_ITEM_TYPE_IMPORTED_DETAILED_TEXT_PASSWORDS" desc="The description of the 'Password' row displayed on Safari import screen displaying the number of passwords imported. Do not include a period - it will be handled separately. [iOS only]">
-        {count, plural,
-          =0 {No password imported}
-          =1 {Imported {count} password}
-          other {Imported {count} passwords}}
-      </message>
-      <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_ITEM_TYPE_PENDING_DETAILED_TEXT_BOOKMARKS" desc="The detailed text of the 'Bookmarks' row displayed on Safari import screen displaying the number of bookmarks that will be imported. [iOS only]">
-        {count, plural,
-          =1 {{count} bookmarks}
-          other {{count} bookmarks}}
-      </message>
-      <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_ITEM_TYPE_PENDING_DETAILED_TEXT_CREDIT_CARDS" desc="The detailed text of the 'Credit card' row displayed on Safari import screen displaying the number of credit cards that will be imported. [iOS only]">
-        {count, plural,
-          =1 {{count} card}
-          other {{count} cards}}
-      </message>
-      <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_ITEM_TYPE_PENDING_DETAILED_TEXT_HISTORY" desc="The detailed text of the 'History' row displayed on Safari import screen displaying the number of history items that will be imported. [iOS only]">
-        {count, plural,
-          =1 {{count} history item}
-          other {{count} history items}}
-      </message>
-      <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_ITEM_TYPE_PENDING_DETAILED_TEXT_NO_DATA" desc="The detailed text of each row displayed on Safari import screen when there is no item of the type to be imported. [iOS only]">
-        Nothing to import
-      </message>
-      <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_ITEM_TYPE_PENDING_DETAILED_TEXT_PASSWORDS" desc="The detailed text of the 'Password' row displayed on Safari import screen displaying the number of passwords that will be imported. Only used when no password has failed to be imported. [iOS only]">
-        {count, plural,
-          =1 {{count} password}
-          other {{count} passwords}}
-      </message>
       <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_ITEM_TYPE_PENDING_DISCLAIMER" desc="The bottom text displayed on Safari import screen to declare that the data will be saved to the user's Google account. [iOS only]">
         Your data will be saved to your Google Account, <ph name="USER_EMAIL">$1<ex>elisa.g.beckett@gmail.com</ex></ph>
       </message>
-      <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_ITEM_TYPE_TITLE_BOOKMARKS" desc="The title of the 'Bookmarks' row displayed on Safari import screen that handles the import process. [iOS only]">
-        Bookmarks
+      <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_NOT_ALLOWED_MESSAGE" desc="Message body of an alert dialog explaining that the data import is blocked by an organizational policy.">
+        Importing this data is not allowed by your organization's policy.
       </message>
-      <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_ITEM_TYPE_TITLE_CREDIT_CARDS" desc="The title of the 'Credit cards' row displayed on Safari import screen that handles the import process. [iOS only]">
-        Credit cards
-      </message>
-      <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_ITEM_TYPE_TITLE_HISTORY" desc="The title of the 'History' row displayed on Safari import screen that handles the import process. [iOS only]">
-        History
-      </message>
-      <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_ITEM_TYPE_TITLE_PASSWORDS" desc="The title of the 'Passwords' row displayed on Safari import screen that handles the import process. [iOS only]">
-        Passwords
+      <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_NOT_ALLOWED_TITLE" desc="Title of an alert dialog shown when data import is not allowed by policy.">
+        Import not allowed
       </message>
       <message name="IDS_IOS_SAFARI_IMPORT_IMPORT_TITLE" desc="Safari import screen that handles the import process - Title. [iOS only]">
         Import your data
@@ -5896,6 +6046,12 @@ Handoff must also be enabled in the General section of Settings, and your device
       <message name="IDS_IOS_SAFETY_CHECK_TITLE_UPDATE_CHROME" desc="Tag label title displayed for the Safety Check module in the Magic Stack when the Update Chrome check finds an issue. [iOS only]">
         Update your Browser
       </message>
+      <message name="IDS_IOS_SAFE_BROWSING_ENHANCED_OFF_INFOBAR_TITLE" desc="The title to display in an infobar when Enhanced protection is disabled by sync.">
+        Enhanced protection is off
+      </message>
+      <message name="IDS_IOS_SAFE_BROWSING_ENHANCED_ON_INFOBAR_TITLE" desc="The title to display in an infobar when Enhanced protection is enabled by sync.">
+        Enhanced protection is on
+      </message>
       <message name="IDS_IOS_SAFE_BROWSING_ENHANCED_PROTECTION_ACCOUNT_ICON_DESCRIPTION" desc="Description for Safe Browsing enhanced protection account icon.">
         When you're signed in, this data is linked to your Google Account to protect you across Google services, for example increasing protection in Gmail after a security incident.
       </message>
@@ -5918,7 +6074,9 @@ Handoff must also be enabled in the General section of Settings, and your device
         When you're signed in, protects you across Google services.
       </message>
       <message name="IDS_IOS_SAFE_BROWSING_ENHANCED_PROTECTION_INFOBAR_BUTTON_TEXT" desc="The Enhanced Safe Browsing infobar promo button's text. When the button is clicked, the user is navigated to the Safe Browsing settings page.">Turn on…</message>
-      <message name="IDS_IOS_SAFE_BROWSING_ENHANCED_PROTECTION_INFOBAR_TITLE" desc="The Enhanced Safe Browsing infobar promo's title.">Get more security</message>
+      <message name="IDS_IOS_SAFE_BROWSING_ENHANCED_PROTECTION_INFOBAR_TITLE" desc="The Enhanced Safe Browsing infobar promo's title.">
+        Get more security
+      </message>
       <message name="IDS_IOS_SAFE_BROWSING_ENHANCED_PROTECTION_INLINE_PROMO_BUTTON_TEXT" desc="The Enhanced Safe Browsing inline promo button's text. When the button is clicked, the user isnavigated to the Safe Browsing settings page.">
         Turn on Enhanced Protection…
       </message>
@@ -7163,6 +7321,9 @@ Handoff must also be enabled in the General section of Settings, and your device
       <message name="IDS_IOS_TAB_GRID_CREATE_NEW_TAB" desc="The accessibility label for the button that creates new regular tabs (as opposed to Incognito tabs). [iOS only]">
         Create new tab
       </message>
+      <message name="IDS_IOS_TAB_GRID_CREATE_NEW_TAB_GROUP" desc="The accessibility label for the button on the Tab Group Recall surface that creates new tab groups. [iOS only]">
+        Create new tab group
+      </message>
       <message name="IDS_IOS_TAB_GRID_DESELECT_ALL_BUTTON" desc="Title of the button in the tab grid UI selection mode, when tapped it will mark all tabs deselected.">
         Deselect all
       </message>
@@ -7874,9 +8035,6 @@ Handoff must also be enabled in the General section of Settings, and your device
       <message name="IDS_IOS_WELCOME_BACK_TITLE_SIGNED_IN" desc="The title of the Welcome Back promo for users who are signed in">
         Welcome back, <ph name="USER_NAME">$1<ex>John</ex></ph>
       </message>
-      <message name="IDS_IOS_WHATS_HOW_TO_ENABLE_TITLE" desc="Title of a section in What's New that show users the instructions to enable the feature.">
-        How do I enable this feature?
-      </message>
       <message name="IDS_IOS_WHATS_NEW_CALENDAR_SCREENSHOT_TEXT_ADD_TITLE" desc="Text in image displaying a placeholder for the title of the Google calendar event. [iOS only]">
         Add title
       </message>
@@ -8030,8 +8188,8 @@ Handoff must also be enabled in the General section of Settings, and your device
       <message name="IDS_IOS_WHATS_NEW_SECTION_NEW_TITLE" desc="Title of a section in a table view to inform users about new features.">
         New
       </message>
-      <message name="IDS_IOS_WHATS_NEW_SHOW_INSTRUCTIONS_TITLE" desc="Title of a secondary button in What's New to show instructions.">
-        Show instructions
+      <message name="IDS_IOS_WHATS_NEW_SHOW_INSTRUCTIONS_TITLE" desc="Title used for both the secondary button and the section header in the What's New screen that displays instructions on how to enable the feature.">
+        Show me how
       </message>
       <message name="IDS_IOS_WHATS_NEW_TITLE" desc="Title of the What's new Feature">
         What's New

@@ -38,7 +38,6 @@
 #include "base/containers/to_vector.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/scoped_refptr.h"
-#include "net/base/features.h"
 #include "net/http/http_response_headers.h"
 #include "net/ssl/ssl_info.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
@@ -135,10 +134,6 @@ WebURLResponse WebURLResponse::Create(
     int request_id) {
   WebURLResponse response;
 
-  const bool was_cached =
-      !head.load_timing.request_start_time.is_null() &&
-      head.response_time < head.load_timing.request_start_time;
-
   response.SetCurrentRequestUrl(url);
   response.SetResponseTime(head.response_time);
   response.SetOriginalResponseTime(head.original_response_time);
@@ -149,7 +144,9 @@ WebURLResponse WebURLResponse::Create(
       net::IsCertStatusError(head.cert_status));
   response.SetHasRangeRequested(head.has_range_requested);
   response.SetTimingAllowPassed(head.timing_allow_passed);
-  response.SetWasCached(was_cached);
+  response.SetWasCached(!head.load_timing.request_start_time.is_null() &&
+                        head.response_time <
+                            head.load_timing.request_start_time);
   response.SetConnectionID(head.load_timing.socket_log_id);
   response.SetConnectionReused(head.load_timing.socket_reused);
   response.SetWasFetchedViaSPDY(head.was_fetched_via_spdy);
@@ -176,8 +173,6 @@ WebURLResponse WebURLResponse::Create(
   response.SetRemoteIPEndpoint(head.remote_endpoint);
   response.SetAddressSpace(head.response_address_space);
   response.SetClientAddressSpace(head.client_address_space);
-  response.SetPrivateNetworkAccessPreflightResult(
-      head.private_network_access_preflight_result);
 
   response.SetCorsExposedHeaderNames(
       base::ToVector(head.cors_exposed_header_names, &WebString::FromLatin1));
@@ -211,18 +206,6 @@ WebURLResponse WebURLResponse::Create(
     // Any `issues` will be taken care of in the network stack; we can simply
     // move the `digests` into the resource response:
     response.SetUnencodedDigests(std::move(head.unencoded_digests->digests));
-  }
-
-  // Check for if the response was not cached and was sent through an IP
-  // Protection proxy. Cached responses may contain proxy_chain information
-  // of the original response, including if it was sent through an
-  // IP Protection proxy. We want to only keep track of responses that
-  // actively went through IP Protection proxies. This is currently set
-  // only if kIpPrivacyEnableIppInDevTools is enabled.
-  // TODO(crbug.com/432716000): Remove this guard once IPP is fully launched.
-  if (net::features::kIpPrivacyEnableIppInDevTools.Get()) {
-    response.SetIsIpProtectionUsed(!was_cached &&
-                                    head.proxy_chain.is_for_ip_protection());
   }
 
   SetSecurityStyleAndDetails(GURL(KURL(url)), head, &response,
@@ -621,16 +604,6 @@ void WebURLResponse::SetClientAddressSpace(
   resource_response_->SetClientAddressSpace(client_address_space);
 }
 
-network::mojom::PrivateNetworkAccessPreflightResult
-WebURLResponse::PrivateNetworkAccessPreflightResult() const {
-  return resource_response_->PrivateNetworkAccessPreflightResult();
-}
-
-void WebURLResponse::SetPrivateNetworkAccessPreflightResult(
-    network::mojom::PrivateNetworkAccessPreflightResult result) {
-  resource_response_->SetPrivateNetworkAccessPreflightResult(result);
-}
-
 void WebURLResponse::SetIsValidated(bool is_validated) {
   resource_response_->SetIsValidated(is_validated);
 }
@@ -775,14 +748,6 @@ void WebURLResponse::SetDeviceBoundSessionUsage(
 network::mojom::DeviceBoundSessionUsage
 WebURLResponse::DeviceBoundSessionUsage() const {
   return resource_response_->DeviceBoundSessionUsage();
-}
-
-void WebURLResponse::SetIsIpProtectionUsed(bool is_ip_protection_used) {
-  resource_response_->SetIsIpProtectionUsed(is_ip_protection_used);
-}
-
-bool WebURLResponse::IsIpProtectionUsed() const {
-  return resource_response_->IsIpProtectionUsed();
 }
 
 void WebURLResponse::SetUnencodedDigests(

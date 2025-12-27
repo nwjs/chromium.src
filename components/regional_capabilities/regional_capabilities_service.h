@@ -30,6 +30,7 @@ namespace regional_capabilities {
 
 enum class ActiveRegionalProgram;
 class CountryIdHolder;
+class InternalsDataHolder;
 enum class Program;
 
 // Service for managing the state related to Search Engine Choice (mostly
@@ -122,6 +123,12 @@ class RegionalCapabilitiesService : public KeyedService {
   // the regional scope.
   bool IsChoiceScreenCompatibleWithCurrentLocation();
 
+  // Returns whether display state metrics can be recorded.
+  // `display_state_country_id` is passed by the caller as this may be used to
+  // check the compatibility of display states cached from previous sessions.
+  bool CanRecordDisplayStateForCountry(
+      country_codes::CountryId display_state_country_id);
+
   bool ShouldRecordSearchEngineChoicesMadeFromSettings();
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -149,6 +156,8 @@ class RegionalCapabilitiesService : public KeyedService {
   // Note: Access to the raw value is restricted, see `CountryIdHolder` for
   // more details.
   CountryIdHolder GetCountryId();
+
+  InternalsDataHolder GetInternalsData();
 
   // Returns the metrics enum for the active regional program. This is used for
   // logging only.
@@ -204,6 +213,8 @@ class RegionalCapabilitiesService : public KeyedService {
   // -- JNI Interface End ----------------------------------------------------
 
  private:
+  friend class InternalsDataHolder;
+
   // Returns how features should adjust themselves based on the active country
   // or program.
   const ProgramSettings& GetActiveProgramSettings();
@@ -211,7 +222,7 @@ class RegionalCapabilitiesService : public KeyedService {
   country_codes::CountryId GetCountryIdInternal();
 
   void EnsureRegionalScopeCacheInitialized();
-  country_codes::CountryId GetPersistedCountryId();
+  country_codes::CountryId GetPersistedCountryId() const;
   void TrySetPersistedCountryId(country_codes::CountryId country_id);
 
   const raw_ref<PrefService> profile_prefs_;

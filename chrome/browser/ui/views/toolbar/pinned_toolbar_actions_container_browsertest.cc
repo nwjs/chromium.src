@@ -16,6 +16,8 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_entry_key.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
@@ -114,10 +116,8 @@ IN_PROC_BROWSER_TEST_F(PinnedToolbarActionsContainerBrowserTest,
   ASSERT_TRUE(content::NavigateToURL(web_contents, GURL("chrome://newtab/")));
   content::WaitForLoadStop(web_contents);
   EXPECT_EQ(web_contents->GetURL().possibly_invalid_spec(), "chrome://newtab/");
-  const std::optional<SidePanelEntryId> current_entry =
-      browser()->GetFeatures().side_panel_ui()->GetCurrentEntryId();
-  EXPECT_TRUE(current_entry.has_value());
-  EXPECT_EQ(SidePanelEntryId::kCustomizeChrome, current_entry.value());
+  EXPECT_TRUE(browser()->GetFeatures().side_panel_ui()->IsSidePanelEntryShowing(
+      SidePanelEntryKey(SidePanelEntryId::kCustomizeChrome)));
 }
 
 IN_PROC_BROWSER_TEST_F(PinnedToolbarActionsContainerBrowserTest,
@@ -129,10 +129,8 @@ IN_PROC_BROWSER_TEST_F(PinnedToolbarActionsContainerBrowserTest,
       browser()->tab_strip_model()->GetActiveWebContents();
   content::WaitForLoadStop(web_contents);
   EXPECT_NE(web_contents->GetURL().possibly_invalid_spec(), "chrome://newtab/");
-  const std::optional<SidePanelEntryId> current_entry =
-      browser()->GetFeatures().side_panel_ui()->GetCurrentEntryId();
-  EXPECT_TRUE(current_entry.has_value());
-  EXPECT_EQ(SidePanelEntryId::kCustomizeChrome, current_entry.value());
+  EXPECT_TRUE(browser()->GetFeatures().side_panel_ui()->IsSidePanelEntryShowing(
+      SidePanelEntryKey(SidePanelEntryId::kCustomizeChrome)));
 }
 
 IN_PROC_BROWSER_TEST_F(PinnedToolbarActionsContainerBrowserTest,
@@ -197,31 +195,28 @@ IN_PROC_BROWSER_TEST_F(PinnedToolbarActionsContainerBrowserTest,
 IN_PROC_BROWSER_TEST_F(PinnedToolbarActionsContainerBrowserTest,
                        ButtonNotSeenWhenHiddenForSidePanelEntry) {
   // Set the bookmarks side panel entry to not show an ephemeral button.
-  SidePanelCoordinator* side_panel_coordinator =
-      browser()->GetFeatures().side_panel_coordinator();
-  side_panel_coordinator->SetNoDelaysForTesting(true);
-  SidePanelEntry* entry =
-      side_panel_coordinator->GetWindowRegistry()->GetEntryForKey(
+  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  side_panel_ui->SetNoDelaysForTesting(true);
+  SidePanelEntry* const entry =
+      SidePanelRegistry::From(browser())->GetEntryForKey(
           SidePanelEntry::Key(SidePanelEntryId::kBookmarks));
   SidePanelEntry::PanelType panel_type = entry->type();
   entry->set_should_show_ephemerally_in_toolbar(false);
 
   // Verify no toolbar button is shown when the bookmarks side panel is opened.
-  side_panel_coordinator->Show(
-      SidePanelEntry::Key(SidePanelEntryId::kBookmarks));
+  side_panel_ui->Show(SidePanelEntry::Key(SidePanelEntryId::kBookmarks));
   views::test::WaitForAnimatingLayoutManager(container());
   EXPECT_FALSE(container()->IsActionPinned(kActionSidePanelShowBookmarks));
   EXPECT_FALSE(container()->IsActionPoppedOut(kActionSidePanelShowBookmarks));
 
   // Set the bookmarks entry back to showing the toolbar button ephemerally if
   // shown.
-  side_panel_coordinator->Close(panel_type);
+  side_panel_ui->Close(panel_type);
   entry->set_should_show_ephemerally_in_toolbar(true);
 
   // Verify the toolbar button is now ephemerally shown if the bookmarks side
   // panel is opened.
-  side_panel_coordinator->Show(
-      SidePanelEntry::Key(SidePanelEntryId::kBookmarks));
+  side_panel_ui->Show(SidePanelEntry::Key(SidePanelEntryId::kBookmarks));
   views::test::WaitForAnimatingLayoutManager(container());
   EXPECT_FALSE(container()->IsActionPinned(kActionSidePanelShowBookmarks));
   EXPECT_TRUE(container()->IsActionPoppedOut(kActionSidePanelShowBookmarks));

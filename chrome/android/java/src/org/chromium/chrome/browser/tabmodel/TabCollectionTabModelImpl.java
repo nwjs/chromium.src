@@ -360,6 +360,10 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge
     @Override
     public void destroy() {
         assertOnUiThread();
+        commitAllTabClosures();
+
+        for (TabModelObserver obs : mTabModelObservers) obs.onDestroy();
+
         // Cache the list of tabs so we have them before native is destroyed.
         List<Tab> tabs = getAllTabs();
 
@@ -1817,22 +1821,24 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge
         assertOnUiThread();
         if (mNativeTabCollectionTabModelImplPtr == 0) return;
 
-        if (areAnyTabsPartOfSharedGroup(this, tabs, destinationTab.getTabGroupId())) return;
+        Token maybeDestinationTabGroupId = destinationTab.getTabGroupId();
+        if (areAnyTabsPartOfSharedGroup(this, tabs, maybeDestinationTabGroupId)) return;
 
         List<Token> candidateTabGroupIds = getCandidateTabGroupIdsForMerge(tabs);
-        boolean willCreateNewGroup =
-                candidateTabGroupIds.isEmpty() && destinationTab.getTabGroupId() == null;
-        assert tabGroupIdForNewGroup == null || willCreateNewGroup
-                : "A new tab group ID should not be provided if the merge contains a tab group.";
-
-        boolean wasDestinationTabInGroup = destinationTab.getTabGroupId() != null;
+        boolean wasDestinationTabInGroup = maybeDestinationTabGroupId != null;
+        boolean willCreateNewGroup = candidateTabGroupIds.isEmpty() && !wasDestinationTabInGroup;
+        assert tabGroupIdForNewGroup == null
+                        || willCreateNewGroup
+                        || tabGroupIdForNewGroup.equals(maybeDestinationTabGroupId)
+                : "A new tab group ID should not be provided if the merge contains a tab group"
+                      + " unless it matches the destination tab's group ID.";
 
         // Find a destination tab group ID.
         final Token destinationTabGroupId;
         final boolean adoptCandidateGroupId;
         if (wasDestinationTabInGroup) {
             // Case 1: The destination tab is already part of a group we will reuse it.
-            destinationTabGroupId = destinationTab.getTabGroupId();
+            destinationTabGroupId = maybeDestinationTabGroupId;
             adoptCandidateGroupId = false;
         } else if (willCreateNewGroup) {
             // Case 2: None of the tabs are part of a group and we will create a new group.

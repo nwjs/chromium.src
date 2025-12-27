@@ -477,7 +477,7 @@ base::expected<void, const char*> CheckRootKeyHash(
   uint8_t digest[SHA256_DIGEST_LENGTH];
   SHA256(root_key.data(), root_key.size(), digest);
   static_assert(REPORT_DATA_SIZE >= sizeof(digest));
-  if (UNSAFE_TODO(memcmp(digest, report_data.data(), sizeof(digest))) != 0) {
+  if (!std::ranges::equal(digest, report_data.first<sizeof(digest)>())) {
     return base::unexpected("root key hash incorrect");
   }
   // The rest of the report data should be zeros.
@@ -583,9 +583,7 @@ base::expected<CertificateParts, const char*> ParseVcekCertificate(
     return base::unexpected("trailing data inside VCEK certificate");
   }
 
-  return CertificateParts{
-      base::as_byte_span(tbs_certificate.AsStringView()),
-      base::as_byte_span(signature->bytes().AsStringView())};
+  return CertificateParts{tbs_certificate, signature->bytes()};
 }
 
 // Verify the signature on the VCEK certificate by the issuing certificate.
@@ -694,16 +692,14 @@ base::expected<AttestationResult, const char*> ProcessAttestation(
     return base::unexpected("expected exactly one layer in Evidence");
   }
 
-  const std::string& amd_attestation =
-      evidence.root_layer().remote_attestation_report();
+  auto amd_attestation =
+      base::as_byte_span(evidence.root_layer().remote_attestation_report());
   if (amd_attestation.size() != sizeof(AttestationReport)) {
     return base::unexpected("attestation report has incorrect size");
   }
   AttestationReport attestation_report;
-  // Use `memcpy` rather than setting a pointer as the alignment of
-  // `amd_attestation` may not be correct.
-  UNSAFE_TODO(memcpy(&attestation_report, amd_attestation.data(),
-                     sizeof(attestation_report)));
+  base::byte_span_from_ref(attestation_report)
+      .copy_from_nonoverlapping(amd_attestation);
 
   ASSIGN_OR_RETURN(auto vcek_extensions,
                    ExtractVCEKCertificateExtensions(*values.vcek_cert));
@@ -715,8 +711,7 @@ base::expected<AttestationResult, const char*> ProcessAttestation(
   // report.
   static_assert(sizeof(attestation_report.data) == 0x2a0);
   RETURN_IF_ERROR(VerifyAttestationReportSignature(
-      base::as_byte_span(amd_attestation)
-          .subspan(0u, sizeof(attestation_report.data)),
+      amd_attestation.subspan(0ul, sizeof(attestation_report.data)),
       attestation_report.signature, *values.vcek_cert));
 
   base::span<const uint8_t> root_cose_key =

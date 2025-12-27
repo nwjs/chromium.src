@@ -17,6 +17,7 @@
 #import "components/open_from_clipboard/fake_clipboard_recent_content.h"
 #import "components/search_engines/template_url_service.h"
 #import "components/supervised_user/core/common/features.h"
+#import "ios/chrome/browser/autocomplete/model/autocomplete_browser_agent.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_model_factory.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/home/bookmarks_coordinator.h"
 #import "ios/chrome/browser/browser_container/ui_bundled/browser_container_view_controller.h"
@@ -43,6 +44,7 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_coordinator.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_position/omnibox_position_browser_agent.h"
 #import "ios/chrome/browser/popup_menu/ui_bundled/popup_menu_coordinator.h"
+#import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/segmentation_platform/model/segmentation_platform_service_factory.h"
 #import "ios/chrome/browser/sessions/model/ios_chrome_tab_restore_service_factory.h"
@@ -97,6 +99,21 @@
 #import "third_party/ocmock/gtest_support.h"
 #import "ui/base/device_form_factor.h"
 
+// Scoped clipboard recent content so its destroyed after the profile. This
+// allows the autocomplete keyed service to cleanup before the clipboard
+// dependency is destroyed.
+class ScopedClipboardRecentContentInstaller {
+ public:
+  ScopedClipboardRecentContentInstaller(
+      std::unique_ptr<ClipboardRecentContent> instance) {
+    ClipboardRecentContent::SetInstance(std::move(instance));
+  }
+
+  ~ScopedClipboardRecentContentInstaller() {
+    ClipboardRecentContent::SetInstance(nullptr);
+  }
+};
+
 class BrowserViewControllerTest : public BlockCleanupTest {
  public:
  protected:
@@ -149,6 +166,9 @@ class BrowserViewControllerTest : public BlockCleanupTest {
     test_profile_builder.AddTestingFactory(
         feature_engagement::TrackerFactory::GetInstance(),
         feature_engagement::TrackerFactory::GetDefaultFactory());
+    test_profile_builder.AddTestingFactory(
+        tab_groups::TabGroupSyncServiceFactory::GetInstance(),
+        tab_groups::TabGroupSyncServiceFactory::GetDefaultFactory());
 
     profile_ =
         profile_manager_.AddProfileWithBuilder(std::move(test_profile_builder));
@@ -161,6 +181,7 @@ class BrowserViewControllerTest : public BlockCleanupTest {
     TabUsageRecorderBrowserAgent::CreateForBrowser(browser_.get());
     StartSurfaceRecentTabBrowserAgent::CreateForBrowser(browser_.get());
     OmniboxPositionBrowserAgent::CreateForBrowser(browser_.get());
+    AutocompleteBrowserAgent::CreateForBrowser(browser_.get());
     BrowserViewVisibilityNotifierBrowserAgent::CreateForBrowser(browser_.get());
     // FullscreenController depends on ToolbarsSizeBrowserAgent, so the agent
     // must be created first. Please maintain this order.
@@ -257,8 +278,9 @@ class BrowserViewControllerTest : public BlockCleanupTest {
         ios::TemplateURLServiceFactory::GetForProfile(GetProfile());
     template_url_service->Load();
 
-    ClipboardRecentContent::SetInstance(
-        std::make_unique<FakeClipboardRecentContent>());
+    clipboard_installer_ =
+        std::make_unique<ScopedClipboardRecentContentInstaller>(
+            std::make_unique<FakeClipboardRecentContent>());
 
     container_ = [[BrowserContainerViewController alloc] init];
     key_commands_provider_ =
@@ -349,7 +371,6 @@ class BrowserViewControllerTest : public BlockCleanupTest {
     [popup_menu_coordinator_ stop];
     [NTPCoordinator_ stop];
     [side_swipe_coordinator_ stop];
-    ClipboardRecentContent::SetInstance(nullptr);
 
     BlockCleanupTest::TearDown();
   }
@@ -425,6 +446,7 @@ class BrowserViewControllerTest : public BlockCleanupTest {
 
   web::WebTaskEnvironment task_environment_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
+  std::unique_ptr<ScopedClipboardRecentContentInstaller> clipboard_installer_;
   TestProfileManagerIOS profile_manager_;
   raw_ptr<TestProfileIOS> profile_;
   std::unique_ptr<Browser> browser_;
@@ -459,7 +481,8 @@ TEST_F(BrowserViewControllerTest, TestClearPresentedState) {
       clearPresentedStateWithCompletion:^{
         this->OnCompletionCalled();
       }
-                         dismissOmnibox:YES];
+                         dismissOmnibox:YES
+         dismissPresentedViewController:YES];
 }
 
 // Tests that WebState::WasShown() and WebState::WasHidden() is properly called

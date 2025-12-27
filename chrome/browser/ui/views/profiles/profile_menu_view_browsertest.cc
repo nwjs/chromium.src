@@ -11,7 +11,6 @@
 #include "base/callback_list.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
-#include "base/files/file_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/path_service.h"
@@ -45,6 +44,7 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_browser_test_base.h"
 #include "chrome/browser/signin/signin_promo.h"
+#include "chrome/browser/signin/signin_promo_util.h"
 #include "chrome/browser/signin/signin_ui_delegate.h"
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/signin/signin_util.h"
@@ -82,6 +82,8 @@
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
+#include "chrome/browser/webauthn/passkey_unlock_manager.h"
+#include "chrome/browser/webauthn/passkey_unlock_manager_factory.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -116,6 +118,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_utils.h"
+#include "device/fido/features.h"
 #include "extensions/browser/extension_registry.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/gaia_switches.h"
@@ -2255,6 +2258,122 @@ PROFILE_MENU_CLICK_TEST(kActionableItems_GuestProfile,
   RunTest();
 }
 
+class MockPasskeyUnlockManager : public webauthn::PasskeyUnlockManager {
+ public:
+  MOCK_METHOD(bool, ShouldDisplayErrorUi, (), (const, override));
+};
+
+class ProfileMenuClickTestWithPasskeyError : public ProfileMenuClickTest {
+ public:
+  void SetUpInProcessBrowserTestFixture() override {
+    ProfileMenuClickTest::SetUpInProcessBrowserTestFixture();
+    create_services_subscription_ =
+        BrowserContextDependencyManager::GetInstance()
+            ->RegisterCreateServicesCallbackForTesting(
+                base::BindRepeating(&ProfileMenuClickTestWithPasskeyError::
+                                        OnWillCreateBrowserContextServices,
+                                    base::Unretained(this)));
+  }
+
+ private:
+  void OnWillCreateBrowserContextServices(content::BrowserContext* context) {
+    webauthn::PasskeyUnlockManagerFactory::GetInstance()->SetTestingFactory(
+        context, base::BindRepeating([](content::BrowserContext* context)
+                                         -> std::unique_ptr<KeyedService> {
+          auto passkey_unlock_manager =
+              std::make_unique<MockPasskeyUnlockManager>();
+          ON_CALL(*passkey_unlock_manager, ShouldDisplayErrorUi())
+              .WillByDefault(testing::Return(true));
+          return passkey_unlock_manager;
+        }));
+  }
+
+  base::CallbackListSubscription create_services_subscription_;
+};
+
+// List of actionable items in the correct order as they appear in the menu with
+// Passkey unlock error. If a new button is added to the menu, it should also be
+// added to this list.
+constexpr std::array kActionableItems_PasskeyUnlockError = {
+    ProfileMenuViewBase::ActionableItem::kPasskeyUnlockButton,
+    ProfileMenuViewBase::ActionableItem::kAutofillSettingsButton,
+    ProfileMenuViewBase::ActionableItem::kManageGoogleAccountButton,
+    ProfileMenuViewBase::ActionableItem::kEditProfileButton,
+    ProfileMenuViewBase::ActionableItem::kAccountSettingsButton,
+    ProfileMenuViewBase::ActionableItem::kSignoutButton,
+    ProfileMenuViewBase::ActionableItem::kAddNewProfileButton,
+    ProfileMenuViewBase::ActionableItem::kGuestProfileButton,
+    ProfileMenuViewBase::ActionableItem::kManageProfilesButton,
+    // The first button is added again to finish the cycle and test that
+    // there are no other buttons at the end.
+    ProfileMenuViewBase::ActionableItem::kPasskeyUnlockButton};
+
+PROFILE_MENU_CLICK_TEST_WITH_FEATURE_STATES_F(
+    ProfileMenuClickTestWithPasskeyError,
+    kActionableItems_PasskeyUnlockError,
+    ProfileMenuClickTest_PasskeyUnlockError,
+    /*enabled_features=*/
+    std::vector<base::test::FeatureRef>(
+        {device::kPasskeyUnlockErrorUi, device::kPasskeyUnlockManager,
+         device::kWebAuthnOpportunisticRetrieval,
+         // Enabling the feature `ReplaceSyncPromosWithSignInPromos` because it
+         // will be fully rolled-out it soon.
+         syncer::kReplaceSyncPromosWithSignInPromos}),
+    /*disabled_features=*/{}) {
+  // For ensuring that the Passkey unlock card will be displayed we need to
+  // ensure that we are in signed-in state, and that the sync history is
+  // enabled.
+  signin::MakePrimaryAccountAvailable(identity_manager(), "user@example.com",
+                                      signin::ConsentLevel::kSignin);
+  signin_util::EnableHistorySync(sync_service());
+  RunTest();
+}
+
+// List of actionable items in the correct order as they appear in the menu with
+// Passkey unlock error. If a new button is added to the menu, it should also be
+// added to this list.
+constexpr std::array
+    kActionableItems_PasskeyUnlockError_WhenUnconsentedAccountSignedIn = {
+        ProfileMenuViewBase::ActionableItem::kPasskeyUnlockButton,
+        ProfileMenuViewBase::ActionableItem::kAutofillSettingsButton,
+        ProfileMenuViewBase::ActionableItem::kManageGoogleAccountButton,
+        ProfileMenuViewBase::ActionableItem::kEditProfileButton,
+        ProfileMenuViewBase::ActionableItem::kAccountSettingsButton,
+        ProfileMenuViewBase::ActionableItem::kSignoutButton,
+        ProfileMenuViewBase::ActionableItem::kAddNewProfileButton,
+        ProfileMenuViewBase::ActionableItem::kGuestProfileButton,
+        ProfileMenuViewBase::ActionableItem::kManageProfilesButton,
+        // The first button is added again to finish the cycle and test that
+        // there are no other buttons at the end.
+        ProfileMenuViewBase::ActionableItem::kPasskeyUnlockButton};
+
+PROFILE_MENU_CLICK_TEST_WITH_FEATURE_STATES_F(
+    ProfileMenuClickTestWithPasskeyError,
+    kActionableItems_PasskeyUnlockError_WhenUnconsentedAccountSignedIn,
+    ProfileMenuClickTest_PasskeyUnlockError_WhenUnconsentedAccountSignedIn,
+    /*enabled_features=*/
+    std::vector<base::test::FeatureRef>(
+        {device::kPasskeyUnlockErrorUi, device::kPasskeyUnlockManager,
+         device::kWebAuthnOpportunisticRetrieval,
+         // Enabling the feature `ReplaceSyncPromosWithSignInPromos` because it
+         // will be fully rolled-out it soon.
+         syncer::kReplaceSyncPromosWithSignInPromos}),
+    /*disabled_features=*/{}) {
+  // Ensuring that we are in the state when sync-the-transport is enabled but
+  // sync-the-feature is not enabled. In this case we can already display a
+  // passkey promo.
+  secondary_account_helper::SignInUnconsentedAccount(
+      GetProfile(), &test_url_loader_factory_, "user@example.com");
+  UnconsentedPrimaryAccountChecker(identity_manager()).Wait();
+  // Check that the setup was successful.
+  ASSERT_FALSE(
+      identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSync));
+  ASSERT_TRUE(
+      identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSignin));
+
+  RunTest();
+}
+
 #if !BUILDFLAG(IS_CHROMEOS)
 class ProfileMenuClickTestWebApp : public ProfileMenuClickTest {
  protected:
@@ -2703,12 +2822,10 @@ class ProfileMenuSigninAccessPointTest : public SigninBrowserTestBase {
       : delegate_auto_reset_(signin_ui_util::SetSigninUiDelegateForTesting(
             &mock_signin_ui_delegate_)) {}
 
-  void OpenProfileMenuFromCoordinator(
-      std::optional<signin_metrics::AccessPoint> explicit_access_point =
-          std::nullopt) {
+  void OpenProfileMenuFromCoordinator(bool from_avatar_promo = false) {
     auto* coordinator = browser()->GetFeatures().profile_menu_coordinator();
     ASSERT_TRUE(coordinator);
-    coordinator->Show(/*is_source_accelerator=*/false, explicit_access_point);
+    coordinator->Show(/*is_source_accelerator=*/false, from_avatar_promo);
     ASSERT_TRUE(base::test::RunUntil(
         [coordinator]() { return coordinator->IsShowing(); }));
     ASSERT_NO_FATAL_FAILURE(
@@ -2795,16 +2912,16 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuSigninAccessPointTest,
 }
 
 IN_PROC_BROWSER_TEST_F(ProfileMenuSigninAccessPointTest,
-                       ExplicitSigninAccessPoint) {
+                       SigninAccessPointFromAvatarPromo) {
   base::HistogramTester histogram_tester;
-  const signin_metrics::AccessPoint explicit_access_point =
-      signin_metrics::AccessPoint::kHistorySyncOptinExpansionPillOnStartup;
+  const signin_metrics::AccessPoint history_sync_avatar_promo_access_point =
+      signin::kHistoryOptinAvatarPromoAccessPoint;
   ASSERT_NO_FATAL_FAILURE(
-      OpenProfileMenuFromCoordinator(explicit_access_point));
+      OpenProfileMenuFromCoordinator(/*from_avatar_promo=*/true));
   // `Signin.SignIn.Offered` should NOT be recorded if the sign-in is not
   // directly offered from the profile menu.
   histogram_tester.ExpectUniqueSample("Signin.SignIn.Offered",
-                                      explicit_access_point,
+                                      history_sync_avatar_promo_access_point,
                                       /*expected_bucket_count=*/0);
 
   if (base::FeatureList::IsEnabled(
@@ -2815,12 +2932,12 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuSigninAccessPointTest,
     histogram_tester.ExpectTotalCount("Signin.SyncOptIn.Offered",
                                       /*expected_count=*/0);
     histogram_tester.ExpectUniqueSample("Signin.HistorySyncOptIn.Offered",
-                                        explicit_access_point,
+                                        history_sync_avatar_promo_access_point,
                                         /*expected_bucket_count=*/1);
     EXPECT_CALL(
         mock_signin_ui_delegate_,
         ShowHistorySyncOptinUI(browser()->profile(), account_info_.account_id,
-                               explicit_access_point));
+                               history_sync_avatar_promo_access_point));
     ASSERT_NO_FATAL_FAILURE(ClickSyncButton());
     histogram_tester.ExpectUniqueSample(
         "Profile.Menu.ClickedActionableItem",
@@ -2831,14 +2948,15 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuSigninAccessPointTest,
     // offered from the profile menu. `Signin.HistorySyncOptIn.Offered` should
     // not be recorded.
     histogram_tester.ExpectUniqueSample("Signin.SyncOptIn.Offered",
-                                        explicit_access_point,
+                                        history_sync_avatar_promo_access_point,
                                         /*expected_bucket_count=*/1);
     histogram_tester.ExpectTotalCount("Signin.HistorySyncOptIn.Offered",
                                       /*expected_count=*/0);
 
     EXPECT_CALL(
         mock_signin_ui_delegate_,
-        ShowTurnSyncOnUI(browser()->profile(), explicit_access_point,
+        ShowTurnSyncOnUI(browser()->profile(),
+                         history_sync_avatar_promo_access_point,
                          signin_metrics::PromoAction::PROMO_ACTION_WITH_DEFAULT,
                          account_info_.account_id,
                          TurnSyncOnHelper::SigninAbortedMode::KEEP_ACCOUNT,

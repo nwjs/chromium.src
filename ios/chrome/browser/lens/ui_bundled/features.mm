@@ -42,9 +42,6 @@ BASE_FEATURE(kLensSingleTapTextSelectionDisabled,
 BASE_FEATURE(kLensGestureTextSelectionDisabled,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensUnaryClientDataHeaderEnabled,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kLensBlockFetchObjectsInteractionRPCsOnSeparateHandshake,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -72,3 +69,8 @@ BASE_FEATURE(kLensInitialLvfZoomLevel90Percent,
 BASE_FEATURE(kLensTripleCameraEnabled, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensStrokesAPIEnabled, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensOmnientShaderV2Enabled, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensStreamServiceWebChannelTransportEnabled,
+             base::FEATURE_DISABLED_BY_DEFAULT);

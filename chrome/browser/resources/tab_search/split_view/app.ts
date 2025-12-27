@@ -5,6 +5,7 @@
 import '/strings.m.js';
 import '../tab_search_item.js';
 import '../selectable_lazy_list.js';
+import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 
 import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
@@ -144,8 +145,9 @@ export class SplitNewTabPageAppElement extends CrLitElement {
     const hostWindow =
         profileData.windows.find(({isHostWindow}) => isHostWindow)!;
     this.allEligibleTabs_ =
-        hostWindow.tabs.filter(tab => !tab.visible && !tab.split)
-            .map(tab => this.getTabData_(tab, true, TabItemType.OPEN_TAB));
+        hostWindow?.tabs?.filter(tab => !tab.visible && !tab.split)
+            .map(tab => this.getTabData_(tab, true, TabItemType.OPEN_TAB)) ||
+        [];
     this.sortTabs_();
     this.updateComplete.then(() => {
       this.updateViewportHeight_(profileData);

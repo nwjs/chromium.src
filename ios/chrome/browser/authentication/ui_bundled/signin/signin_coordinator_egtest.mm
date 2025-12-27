@@ -21,8 +21,8 @@
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/views/views_constants.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_storage_type.h"
-#import "ios/chrome/browser/bookmarks/ui_bundled/bookmark_earl_grey.h"
-#import "ios/chrome/browser/bookmarks/ui_bundled/bookmark_earl_grey_ui.h"
+#import "ios/chrome/browser/bookmarks/test/bookmark_earl_grey.h"
+#import "ios/chrome/browser/bookmarks/test/bookmark_earl_grey_ui.h"
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_constants.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
@@ -30,7 +30,7 @@
 #import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/reading_list/ui_bundled/reading_list_constants.h"
 #import "ios/chrome/browser/reading_list/ui_bundled/reading_list_egtest_utils.h"
-#import "ios/chrome/browser/recent_tabs/ui_bundled/recent_tabs_constants.h"
+#import "ios/chrome/browser/recent_tabs/public/recent_tabs_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_table_view_controller_constants.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -468,7 +468,7 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
   [[EarlGrey selectElementWithMatcher:matcher] performAction:grey_tap()];
   // Make sure the SSO view controller is fully removed before ending the test.
   // The tear down needs to remove other view controllers, and it cannot be done
-  // during the animation of the SSO view controler.
+  // during the animation of the SSO view controller.
   [ChromeEarlGreyUI waitForAppToIdle];
 }
 
@@ -752,8 +752,8 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
       assertWithMatcher:grey_notNil()];
 
   // Decline History Sync.
-  [[[EarlGrey selectElementWithMatcher:chrome_test_util::
-                                           PromoScreenSecondaryButtonMatcher()]
+  [[[EarlGrey
+      selectElementWithMatcher:chrome_test_util::ButtonStackSecondaryButton()]
          usingSearchAction:chrome_test_util::HistoryOptInScrollDown()
       onElementWithMatcher:chrome_test_util::HistoryOptInPromoMatcher()]
       performAction:grey_tap()];
@@ -800,8 +800,8 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
       assertWithMatcher:grey_sufficientlyVisible()];
 
   // Accept History Sync.
-  [[[EarlGrey selectElementWithMatcher:chrome_test_util::
-                                           PromoScreenPrimaryButtonMatcher()]
+  [[[EarlGrey
+      selectElementWithMatcher:chrome_test_util::ButtonStackPrimaryButton()]
          usingSearchAction:chrome_test_util::HistoryOptInScrollDown()
       onElementWithMatcher:chrome_test_util::HistoryOptInPromoMatcher()]
       performAction:grey_tap()];
@@ -955,8 +955,8 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
   // Tap the snackbar to make it disappear.
   [[EarlGrey selectElementWithMatcher:snackbarMatcher]
       performAction:grey_tap()];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::
-                                          PromoScreenSecondaryButtonMatcher()]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::ButtonStackSecondaryButton()]
       performAction:grey_tap()];
 
   // Give the Sync state a chance to finish UI updates.

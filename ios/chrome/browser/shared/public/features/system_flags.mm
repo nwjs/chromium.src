@@ -17,7 +17,6 @@
 #import "components/password_manager/core/common/password_manager_features.h"
 #import "components/segmentation_platform/public/constants.h"
 #import "components/variations/variations_associated_data.h"
-#import "ios/chrome/browser/browsing_data/model/browsing_data_features.h"
 #import "ios/chrome/browser/flags/chrome_switches.h"
 #import "ios/chrome/browser/memory/model/features.h"
 #import "ios/chrome/browser/safety_check/model/ios_chrome_safety_check_manager_constants.h"
@@ -66,6 +65,11 @@ NSString* const kInactiveTabsDemoMode = @"InactiveTabsDemoMode";
 NSString* const kInactiveTabsTestMode = @"InactiveTabsTestMode";
 NSString* const kAsyncStartupOverrideResponse = @"AsyncStartupOverrideResponse";
 NSString* const kLensResultPanelGwsURL = @"LensResultPanelGwsURL";
+NSString* const kForceDisableAIMEligibility = @"ForceDisableAIMEligibility";
+NSString* const kForceDisableCreateImagesEligibility =
+    @"ForceDisableCreateImagesEligibility";
+NSString* const kForceDisablePdfUploadEligibility =
+    @"ForceDisablePdfUploadEligibility";
 }  // namespace
 
 namespace experimental_flags {
@@ -342,6 +346,21 @@ bool EnableAIPrototypingMenu() {
 NSString* GetLensResultPanelGwsURL() {
   return [[NSUserDefaults standardUserDefaults]
       stringForKey:kLensResultPanelGwsURL];
+}
+
+bool ShouldForceDisableComposeboxAIM() {
+  return [[NSUserDefaults standardUserDefaults]
+      boolForKey:kForceDisableAIMEligibility];
+}
+
+bool ShouldForceDisableComposeboxCreateImages() {
+  return [[NSUserDefaults standardUserDefaults]
+      boolForKey:kForceDisableCreateImagesEligibility];
+}
+
+bool ShouldForceDisableComposeboxPdfUpload() {
+  return [[NSUserDefaults standardUserDefaults]
+      boolForKey:kForceDisablePdfUploadEligibility];
 }
 
 }  // namespace experimental_flags

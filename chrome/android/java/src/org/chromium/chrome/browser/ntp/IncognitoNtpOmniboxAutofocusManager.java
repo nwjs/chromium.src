@@ -11,6 +11,7 @@ import android.view.View;
 
 import androidx.annotation.NonNull;
 
+import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
@@ -29,6 +30,7 @@ import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.components.embedder_support.util.UrlUtilities;
+import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.ui.UiUtils;
 import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.url.GURL;
@@ -92,7 +94,7 @@ public class IncognitoNtpOmniboxAutofocusManager {
      * Overrides the result of {@link #checkAutofocusAllowedWithHardwareKeyboard()} for testing
      * purposes.
      */
-    public static @Nullable Boolean sIsHardwareKeyboardAttachedForTesting;
+    private static @Nullable Boolean sIsHardwareKeyboardAttachedForTesting;
 
     private static final int AUTOFOCUS_PREDICTION_AVERAGE_KEYBOARD_HEIGHT_PERCENT = 42;
     private static final int AUTOFOCUS_PREDICTION_MAX_NTP_TEXT_HIDDEN_PERCENT = 25;
@@ -154,7 +156,10 @@ public class IncognitoNtpOmniboxAutofocusManager {
                             @Override
                             public boolean onSingleTapConfirmed(MotionEvent e) {
                                 mOmniboxStub.setUrlBarFocus(
-                                        false, null, OmniboxFocusReason.UNFOCUS);
+                                        false,
+                                        null,
+                                        OmniboxFocusReason.UNFOCUS,
+                                        AutocompleteRequestType.SEARCH);
                                 return false;
                             }
                         });
@@ -300,6 +305,21 @@ public class IncognitoNtpOmniboxAutofocusManager {
                 };
         for (TabModel model : mTabModelSelector.getModels()) {
             if (model.isIncognitoBranded()) {
+                // Handle already existing Incognito tabs, (e.g. that were added before observers
+                // were registered).
+                for (int i = 0; i < model.getCount(); i++) {
+                    Tab tab = model.getTabAt(i);
+                    if (tab == null) continue;
+
+                    ++mTabsPreviouslyOpenedCount;
+                    tab.addObserver(mTabObserver);
+
+                    // Handle already loaded NTPs.
+                    View ntpView = mNtpViewProvider.apply(tab);
+                    if (!tab.isLoading() && ntpView != null) {
+                        handlePageLoadFinished(tab);
+                    }
+                }
                 model.addObserver(mTabModelObserver);
             }
         }
@@ -426,7 +446,8 @@ public class IncognitoNtpOmniboxAutofocusManager {
     /** Performs the actual focus action and updates the state. */
     private void autofocus(Tab tab) {
         mIsAutofocusing = true;
-        mOmniboxStub.setUrlBarFocus(true, null, OmniboxFocusReason.OMNIBOX_TAP);
+        mOmniboxStub.setUrlBarFocus(
+                true, null, OmniboxFocusReason.OMNIBOX_TAP, AutocompleteRequestType.SEARCH);
 
         // Mark the tab as processed to prevent future autofocus attempts.
         markTabAsProcessed(tab);
@@ -498,5 +519,11 @@ public class IncognitoNtpOmniboxAutofocusManager {
         if (sInstanceForTesting != null) {
             sInstanceForTesting.updateAutofocusEnabledState(enabled);
         }
+    }
+
+    public static void setIsHardwareKeyboardAttachedForTesting(Boolean isAttached) {
+        Boolean oldValue = sIsHardwareKeyboardAttachedForTesting;
+        sIsHardwareKeyboardAttachedForTesting = isAttached;
+        ResettersForTesting.register(() -> sIsHardwareKeyboardAttachedForTesting = oldValue);
     }
 }

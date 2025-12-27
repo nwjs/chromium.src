@@ -13,7 +13,6 @@
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/config/gpu_feature_info.h"
 #include "third_party/blink/public/common/features.h"
-#include "third_party/blink/public/common/privacy_budget/identifiability_study_settings.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_image_encode_options.h"
@@ -50,9 +49,9 @@ CanvasRenderingContextHost::CanvasRenderingContextHost(HostType host_type,
     : size_(size), host_type_(host_type) {}
 
 CanvasRenderingContextHost::~CanvasRenderingContextHost() {
-  if (externally_allocated_memory_ > 0) {
+  if (externally_allocated_memory_.is_positive()) {
     external_memory_accounter_.Decrease(v8::Isolate::GetCurrent(),
-                                        externally_allocated_memory_);
+                                        externally_allocated_memory_.InBytes());
   }
 }
 
@@ -90,12 +89,13 @@ void CanvasRenderingContextHost::NotifyCachesOfSwitchingFrame() {
 }
 
 void CanvasRenderingContextHost::UpdateMemoryUsage() {
-  intptr_t externally_allocated_memory =
-      RenderingContext() ? RenderingContext()->AllocatedBufferSize() : 0;
+  base::ByteCount externally_allocated_memory =
+      RenderingContext() ? RenderingContext()->AllocatedBufferSize()
+                         : base::ByteCount(0);
 
   // Subtracting two intptr_t that are known to be positive will never
   // underflow.
-  intptr_t delta_bytes =
+  base::ByteCount delta_bytes =
       externally_allocated_memory - externally_allocated_memory_;
 
   // TODO(junov): We assume that it is impossible to be inside a FastAPICall
@@ -105,8 +105,10 @@ void CanvasRenderingContextHost::UpdateMemoryUsage() {
 
   // ExternalMemoryAccounter::Update() with a positive delta can trigger a GC,
   // which is not allowed when `IsAllocationAllowed() == false`.
-  CHECK(delta_bytes <= 0 || ThreadState::Current()->IsAllocationAllowed());
-  external_memory_accounter_.Update(v8::Isolate::GetCurrent(), delta_bytes);
+  CHECK(!delta_bytes.is_positive() ||
+        ThreadState::Current()->IsAllocationAllowed());
+  external_memory_accounter_.Update(v8::Isolate::GetCurrent(),
+                                    delta_bytes.InBytes());
   externally_allocated_memory_ = externally_allocated_memory;
 }
 
@@ -232,32 +234,6 @@ ImageBitmapSourceStatus CanvasRenderingContextHost::CheckUsability() const {
                                 : ImageBitmapSourceError::kZeroHeight);
   }
   return base::ok();
-}
-
-IdentifiableToken CanvasRenderingContextHost::IdentifiabilityInputDigest(
-    const CanvasRenderingContext* const context) const {
-  const uint64_t context_digest =
-      context ? context->IdentifiableTextToken().ToUkmMetricValue() : 0;
-  const uint64_t context_type = static_cast<uint64_t>(
-      context ? context->GetRenderingAPI()
-              : CanvasRenderingContext::CanvasRenderingAPI::kUnknown);
-  const bool encountered_skipped_ops =
-      context && context->IdentifiabilityEncounteredSkippedOps();
-  const bool encountered_sensitive_ops =
-      context && context->IdentifiabilityEncounteredSensitiveOps();
-  const bool encountered_partially_digested_image =
-      context && context->IdentifiabilityEncounteredPartiallyDigestedImage();
-  // Bits [0-3] are the context type, bits [4-6] are skipped ops, sensitive
-  // ops, and partial image ops bits, respectively. The remaining bits are
-  // for the canvas digest.
-  uint64_t final_digest = (context_digest << 7) | context_type;
-  if (encountered_skipped_ops)
-    final_digest |= IdentifiableSurface::CanvasTaintBit::kSkipped;
-  if (encountered_sensitive_ops)
-    final_digest |= IdentifiableSurface::CanvasTaintBit::kSensitive;
-  if (encountered_partially_digested_image)
-    final_digest |= IdentifiableSurface::CanvasTaintBit::kPartiallyDigested;
-  return final_digest;
 }
 
 void CanvasRenderingContextHost::PageVisibilityChanged() {

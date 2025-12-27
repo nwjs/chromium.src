@@ -127,12 +127,12 @@ class FakeContentAutofillDriver : public mojom::AutofillDriver {
   void FocusOnFormField(const FormData& form,
                         FieldRendererId field_id) override {}
 
-  void DidAutofillForm(const FormData& form,
-                       base::TimeTicks timestamp) override {}
+  void DidAutofillForm(const FormData& form) override {}
 
   void DidEndTextFieldEditing() override {}
 
-  void SelectFieldOptionsDidChange(const autofill::FormData& form) override {}
+  void SelectFieldOptionsDidChange(const autofill::FormData& form,
+                                   FieldRendererId field_id) override {}
 
   std::unique_ptr<base::RunLoop> forms_seen_run_loop_ =
       std::make_unique<base::RunLoop>();

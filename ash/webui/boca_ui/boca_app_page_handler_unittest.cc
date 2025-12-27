@@ -13,6 +13,7 @@
 #include "ash/annotator/annotation_tray.h"
 #include "ash/annotator/annotator_controller.h"
 #include "ash/constants/ash_features.h"
+#include "ash/constants/ash_pref_names.h"
 #include "ash/root_window_controller.h"
 #include "ash/shell.h"
 #include "ash/test/ash_test_base.h"
@@ -26,7 +27,6 @@
 #include "ash/webui/boca_ui/webview_auth_handler.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
-#include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
@@ -139,6 +139,7 @@ constexpr char kBocaPresentStudentScreenFailureReasonUmaPath[] =
 constexpr char kStudentDeviceId[] = "student_device_id";
 constexpr char kActiveStudentId[] = "active_student_id";
 constexpr char kReceiverId[] = "receiver_id";
+constexpr char kReceiverName[] = "receiver_name";
 
 mojom::OnTaskConfigPtr GetCommonTestLockOnTaskConfig() {
   std::vector<mojom::ControlledTabPtr> tabs;
@@ -290,6 +291,7 @@ class MockBocaAppClient : public BocaAppClient {
               (override));
   MOCK_METHOD(std::string, GetSchoolToolsServerBaseUrl, (), (override));
   MOCK_METHOD(void, OpenFeedbackDialog, (), (override));
+  MOCK_METHOD(int, GetAppInstanceCount, (), (override));
 };
 
 class MockSessionManager : public BocaSessionManager {
@@ -397,6 +399,7 @@ class MockTeacherScreenPresenter : public TeacherScreenPresenter {
   MOCK_METHOD(void,
               Start,
               (std::string_view,
+               std::string_view,
                ::boca::UserIdentity,
                bool,
                base::OnceCallback<void(bool)>,
@@ -517,10 +520,13 @@ class BocaAppPageHandlerTest : public testing::Test {
          ash::features::kBocaScreenSharingTeacher},
         // TODO:crbug.com/424867979 - Re-enable feature flag after adding unit
         // tests.
-        /*disabled_features=*/{ash::features::kBocaSpotlightRobotRequester});
+        /*disabled_features=*/{ash::features::kBocaSpotlightRobotRequester,
+                               ash::features::kAnnotatorMode});
     // Set up UserManager related modules.
     user_manager::UserManagerImpl::RegisterPrefs(local_state_.registry());
     ash::boca_util::RegisterPrefs(local_state_.registry());
+    local_state_.SetDict(ash::prefs::kClassManagementToolsKioskReceiverCodes,
+                         base::Value::Dict().Set(kReceiverId, kReceiverName));
     content_settings::PolicyProvider::RegisterProfilePrefs(
         pref_service_.registry());
     fake_user_manager_.Reset(
@@ -584,14 +590,22 @@ class BocaAppPageHandlerTest : public testing::Test {
  protected:
   void CreateBocaAppHandler(bool is_producer) {
     is_producer_ = is_producer;
+    boca_app_handler_ =
+        CreateNewBocaAppHandler(is_producer, &remote_, &fake_page_);
+  }
+
+  std::unique_ptr<BocaAppHandler> CreateNewBocaAppHandler(
+      bool is_producer,
+      mojo::Remote<mojom::PageHandler>* remote,
+      std::unique_ptr<FakePage>* fake_page) {
     mojo::PendingReceiver<mojom::Page> page_pending_receiver;
-    remote_.reset();
+    remote->reset();
     // `BocaAppClient::GetSessionManager` should be called exactly once on
     // construction.
     EXPECT_CALL(*boca_app_client(), GetSessionManager)
         .WillOnce(Return(session_manager()));
-    boca_app_handler_ = std::make_unique<BocaAppHandler>(
-        remote_.BindNewPipeAndPassReceiver(),
+    auto boca_app_handler = std::make_unique<BocaAppHandler>(
+        remote->BindNewPipeAndPassReceiver(),
         // TODO(crbug.com/359929870): Setting nullptr for other dependencies for
         // now. Adding test case for classroom and tab info.
         page_pending_receiver.InitWithNewPipeAndPassRemote(), web_ui_.get(),
@@ -600,10 +614,11 @@ class BocaAppPageHandlerTest : public testing::Test {
         /*classroom_client_impl=*/nullptr,
         /*content_settings_handler=*/nullptr,
         /*system_web_app_manager=*/nullptr, &session_client_impl_, is_producer);
-    fake_page_ = std::make_unique<FakePage>(std::move(page_pending_receiver));
-    boca_app_handler_->SetSpotlightService(&spotlight_service_);
+    *fake_page = std::make_unique<FakePage>(std::move(page_pending_receiver));
+    boca_app_handler->SetSpotlightService(&spotlight_service_);
     // Explicitly set pref
-    boca_app_handler_->SetPrefForTesting(&local_state_);
+    boca_app_handler->SetPrefForTesting(&local_state_);
+    return boca_app_handler;
   }
 
   void PrepareGetSession(::boca::Session* current_session,
@@ -644,6 +659,7 @@ class BocaAppPageHandlerTest : public testing::Test {
     if (!is_producer_) {
       return;
     }
+    EXPECT_CALL(*boca_app_client(), GetAppInstanceCount).WillOnce(Return(1));
     EXPECT_CALL(*session_manager(), GetCurrentSession())
         .WillOnce(Return(&session));
     EXPECT_CALL(*session_manager(),
@@ -3133,6 +3149,16 @@ TEST_F(BocaAppPageHandlerProducerTest, PresentStudentScreenSuccess) {
       kActiveStudentId, "student name", "student@email.com", std::nullopt);
   ::boca::UserIdentity student_identity;
 
+  // Simulate existence of another `BocaAppHandler` instance to verify that it
+  // will receive the disconnected event.
+  EXPECT_CALL(*boca_app_client(), GetAppInstanceCount).WillOnce(Return(2));
+  base::test::TestFuture<void> second_disconnected_future;
+  mojo::Remote<mojom::PageHandler> second_remote;
+  std::unique_ptr<FakePage> second_fake_page;
+  std::unique_ptr<BocaAppHandler> second_boca_app_handler =
+      CreateNewBocaAppHandler(/*is_producer=*/true, &second_remote,
+                              &second_fake_page);
+
   ::boca::Session session = GetCommonActiveSessionProto();
   EXPECT_CALL(*session_manager(), GetCurrentSession())
       .WillRepeatedly(Return(&session));
@@ -3166,8 +3192,11 @@ TEST_F(BocaAppPageHandlerProducerTest, PresentStudentScreenSuccess) {
 
   fake_page()->SetPresentStudentScreenEndedInterceptorCallback(
       disconnected_future.GetCallback());
+  second_fake_page->SetPresentStudentScreenEndedInterceptorCallback(
+      second_disconnected_future.GetCallback());
   std::move(disconnected_callback).Run();
   EXPECT_TRUE(disconnected_future.Wait());
+  EXPECT_TRUE(second_disconnected_future.Wait());
 }
 
 TEST_F(BocaAppPageHandlerProducerTest, PresentStudentScreenFailure) {
@@ -3497,14 +3526,15 @@ TEST_F(BocaAppPageHandlerProducerTest, PresentOwnScreenSuccess) {
   base::OnceClosure disconnected_callback;
   base::test::TestFuture<bool> success_future;
   base::test::TestFuture<void> disconnected_future;
-  EXPECT_CALL(*teacher_screen_presenter, Start(kReceiverId, _, _, _, _))
-      .WillOnce(
-          [&disconnected_callback](std::string_view, ::boca::UserIdentity, bool,
-                                   base::OnceCallback<void(bool)> success_cb,
-                                   base::OnceClosure disconnected_cb) {
-            disconnected_callback = std::move(disconnected_cb);
-            std::move(success_cb).Run(true);
-          });
+  EXPECT_CALL(*teacher_screen_presenter,
+              Start(kReceiverId, kReceiverName, _, _, _, _))
+      .WillOnce([&disconnected_callback](
+                    std::string_view, std::string_view, ::boca::UserIdentity,
+                    bool, base::OnceCallback<void(bool)> success_cb,
+                    base::OnceClosure disconnected_cb) {
+        disconnected_callback = std::move(disconnected_cb);
+        std::move(success_cb).Run(true);
+      });
   boca_app_handler()->PresentOwnScreen(kReceiverId,
                                        success_future.GetCallback());
   EXPECT_TRUE(success_future.Get());
@@ -3521,9 +3551,10 @@ TEST_F(BocaAppPageHandlerProducerTest, PresentOwnScreenFail) {
   ON_CALL(*session_manager(), GetTeacherScreenPresenter)
       .WillByDefault(Return(teacher_screen_presenter.get()));
   base::test::TestFuture<bool> success_future;
-  EXPECT_CALL(*teacher_screen_presenter, Start(kReceiverId, _, _, _, _))
-      .WillOnce([](std::string_view, ::boca::UserIdentity, bool,
-                   base::OnceCallback<void(bool)> success_cb,
+  EXPECT_CALL(*teacher_screen_presenter,
+              Start(kReceiverId, kReceiverName, _, _, _, _))
+      .WillOnce([](std::string_view, std::string_view, ::boca::UserIdentity,
+                   bool, base::OnceCallback<void(bool)> success_cb,
                    base::OnceClosure) { std::move(success_cb).Run(false); });
   boca_app_handler()->PresentOwnScreen(kReceiverId,
                                        success_future.GetCallback());

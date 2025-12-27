@@ -11,11 +11,11 @@
 #import "ios/chrome/browser/bookmarks/model/bookmark_model_factory.h"
 #import "ios/chrome/browser/browser_view/model/browser_view_visibility_notifier_browser_agent.h"
 #import "ios/chrome/browser/commerce/model/shopping_service_factory.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/cells/content_suggestions_most_visited_action_item.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/cells/content_suggestions_most_visited_item.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_coordinator.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_mediator.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_view_controller.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/shortcuts/ui/shortcuts_action_item.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_service_factory.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_visibility_browser_agent.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_visibility_observer.h"
@@ -31,10 +31,13 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_controller_delegate.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_coordinator+Testing.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_view.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_view_controller+Testing.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_view_controller.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_mediator.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_view_controller.h"
 #import "ios/chrome/browser/safety_check/model/ios_chrome_safety_check_manager_factory.h"
+#import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/segmentation_platform/model/segmentation_platform_service_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -111,6 +114,9 @@ class NewTabPageCoordinatorTest : public PlatformTest {
     test_profile_builder.AddTestingFactory(
         TipsManagerIOSFactory::GetInstance(),
         TipsManagerIOSFactory::GetDefaultFactory());
+    test_profile_builder.AddTestingFactory(
+        tab_groups::TabGroupSyncServiceFactory::GetInstance(),
+        tab_groups::TabGroupSyncServiceFactory::GetDefaultFactory());
 
     profile_ =
         profile_manager_.AddProfileWithBuilder(std::move(test_profile_builder));
@@ -445,8 +451,7 @@ TEST_F(NewTabPageCoordinatorTest, ShortcutsStartMetricLogging) {
   histogram_tester_->ExpectTotalCount(kStartTimeSpentHistogram, 0);
   histogram_tester_->ExpectTotalCount(kStartImpressionHistogram, 1);
 
-  ContentSuggestionsMostVisitedActionItem* item =
-      [[ContentSuggestionsMostVisitedActionItem alloc] init];
+  ShortcutsActionItem* item = [[ShortcutsActionItem alloc] init];
   item.title = @"Bookmarks 0";
   [coordinator_ shortcutTileOpened];
   // Force the URL load callback to simulate the NavigationManager receiving the
@@ -578,7 +583,9 @@ TEST_F(NewTabPageCoordinatorTest, ProxiesNTPViewControllerMethods) {
                           @selector(isNTPScrolledToTop));
   ExpectMethodToProxyToVC(@selector(willUpdateSnapshot),
                           @selector(willUpdateSnapshot));
-  ExpectMethodToProxyToVC(@selector(focusFakebox), @selector(focusOmnibox));
+  if (!IsComposeboxIOSEnabled()) {
+    ExpectMethodToProxyToVC(@selector(focusFakebox), @selector(focusOmnibox));
+  }
   ExpectMethodToProxyToVC(@selector(locationBarDidResignFirstResponder),
                           @selector(omniboxDidResignFirstResponder));
 
@@ -673,4 +680,56 @@ TEST_F(NewTabPageCoordinatorTest, TestShowsAndHidesFeed) {
   EXPECT_EQ(fake_feed_view_controller_.parentViewController,
             coordinator_.feedWrapperViewController);
   [coordinator_ stop];
+}
+
+// Tests that stopping the coordinator while the customization menu is open
+// does NOT call `dismissAllSnackbars` if the SnackbarCommands dispatcher
+// is already stopped.
+TEST_F(NewTabPageCoordinatorTest,
+       StopCoordinatorDoesNotDismissSnackbarsIfDispatcherStopped) {
+  CreateCoordinator(/*off_the_record=*/false);
+  SetupCommandHandlerMocks();
+  [coordinator_ start];
+
+  // Open the customization menu by tapping on the customization button.
+  UIButton* customizationMenuButton =
+      coordinator_.headerViewController.headerView.customizationMenuButton;
+  [customizationMenuButton
+      sendActionsForControlEvents:UIControlEventTouchUpInside];
+
+  // Stop SnackbarCommands dispatching, simulating it was already stopped (e.g.,
+  // by browser shutdown).
+  [browser_.get()->GetCommandDispatcher()
+      stopDispatchingForProtocol:@protocol(SnackbarCommands)];
+
+  // Assert `dismissAllSnackbars` was never called.
+  OCMReject([snackbar_commands_handler_mock_ dismissAllSnackbars]);
+
+  // Stop the coordinator while the customization button is still opened.
+  [coordinator_ stop];
+}
+
+// Tests that stopping the coordinator while the customization menu is open
+// does call `dismissAllSnackbars` if the SnackbarCommands dispatcher
+// is started.
+TEST_F(NewTabPageCoordinatorTest,
+       StopCoordinatorDismissesSnackbarsIfDispatcherActive) {
+  CreateCoordinator(/*off_the_record=*/false);
+  SetupCommandHandlerMocks();
+  [coordinator_ start];
+
+  // Open the customization menu by tapping on the customization button.
+  UIButton* customizationMenuButton =
+      coordinator_.headerViewController.headerView.customizationMenuButton;
+  [customizationMenuButton
+      sendActionsForControlEvents:UIControlEventTouchUpInside];
+
+  // Expect dismissAllSnackbars to be called when coordinator stops.
+  OCMExpect([snackbar_commands_handler_mock_ dismissAllSnackbars]);
+
+  // Stop the coordinator while the customization button is still opened.
+  [coordinator_ stop];
+
+  // Assert `dismissAllSnackbars` was called.
+  EXPECT_OCMOCK_VERIFY(snackbar_commands_handler_mock_);
 }

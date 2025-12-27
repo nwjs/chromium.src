@@ -322,11 +322,18 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
       [weakSelf updateUIOnTraitChange:previousCollection];
     };
     [self registerForTraitChanges:traits withHandler:handler];
+    NSMutableArray<UITrait>* buttonTraits =
+        [@[ UITraitUserInterfaceStyle.class ] mutableCopy];
     if (IsNTPBackgroundCustomizationEnabled()) {
-      [self registerForTraitChanges:
-                @[ NewTabPageTrait.class, NewTabPageImageBackgroundTrait.class ]
+      NSArray<UITrait>* customizationTraits =
+          @[ NewTabPageTrait.class, NewTabPageImageBackgroundTrait.class ];
+      [buttonTraits addObjectsFromArray:customizationTraits];
+      [self registerForTraitChanges:customizationTraits
                          withAction:@selector(applyBackgroundTheme)];
     }
+    [self registerForTraitChanges:buttonTraits
+                       withAction:@selector
+                       (updateButtonsForCurrentTraitCollection)];
   }
   return self;
 }
@@ -364,7 +371,7 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
     return;
   }
   _placeholderText = placeholderText;
-  self.omnibox.textInput.placeholder = placeholderText;
+  [self.omnibox.textInput setDefaultPlaceholderText:placeholderText];
   self.searchHintLabel.text = placeholderText;
 }
 
@@ -387,7 +394,7 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
             textInputTint:color
                  iconTint:color
       presentationContext:OmniboxPresentationContext::kNTPHeader];
-  omnibox.textInput.placeholder = self.placeholderText;
+  [omnibox.textInput setDefaultPlaceholderText:self.placeholderText];
   [omnibox.textInput setText:@""];
   omnibox.translatesAutoresizingMaskIntoConstraints = NO;
   [searchField addSubview:omnibox];
@@ -512,20 +519,33 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
   _logoView.image = logo;
 }
 
-- (void)updateButtonsForUserInterfaceStyle:(UIUserInterfaceStyle)style {
+// Updates button styling for the current trait collection.
+- (void)updateButtonsForCurrentTraitCollection {
   // Variations containing MIA entry point force disable colors in the icons.
   const BOOL aimInQuickActions = GetNTPMIAEntrypointVariation() ==
                                  NTPMIAEntrypointVariation::kAIMInQuickAction;
   const BOOL forceDisableColors =
       self.shouldShowMIAEntrypoint || aimInQuickActions;
-  const BOOL darkUIStyle = style == UIUserInterfaceStyleDark;
-  const BOOL useColorIcon = !darkUIStyle && !forceDisableColors;
+  const BOOL darkUIStyle =
+      self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+  const BOOL ntpHasCustomBackground =
+      IsNTPBackgroundCustomizationEnabled() &&
+      ([self.traitCollection boolForNewTabPageImageBackgroundTrait] ||
+       [self.traitCollection objectForNewTabPageTrait]);
+  const BOOL useColorIcon =
+      !darkUIStyle && !forceDisableColors && !ntpHasCustomBackground;
 
   content_suggestions::ConfigureVoiceSearchButton(self.voiceSearchButton,
                                                   useColorIcon);
   if (self.lensButton) {
+    // Only color the badge if there's no image background.
+    UIColor* newBadgeColor =
+        [self.traitCollection boolForNewTabPageImageBackgroundTrait]
+            ? nil
+            : [self.traitCollection objectForNewTabPageTrait].tintColor;
     content_suggestions::ConfigureLensButtonAppearance(
-        self.lensButton, _useNewBadgeForLensButton, useColorIcon);
+        self.lensButton, _useNewBadgeForLensButton, useColorIcon,
+        newBadgeColor);
     if (_useNewBadgeForLensButton) {
       content_suggestions::ConfigureLensButtonWithNewBadgeAlpha(
           self.lensButton, 1 - _lastAnimationPercent);
@@ -1051,8 +1071,7 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
     }
   }
 
-  [self updateButtonsForUserInterfaceStyle:self.traitCollection
-                                               .userInterfaceStyle];
+  [self updateButtonsForCurrentTraitCollection];
 
   [self addActionsToFakeboxButtons];
   [self updateHintLabelTrailingConstraint];

@@ -18,6 +18,7 @@
 #include "chrome/browser/ui/lens/lens_searchbox_controller.h"
 #include "chrome/browser/ui/lens/lens_session_metrics_logger.h"
 #include "components/content_extraction/content/browser/inner_text.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/lens/lens_features.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
@@ -641,14 +642,14 @@ void LensSearchContextualizationController::MaybeGetAnnotatedPageContent(
 void LensSearchContextualizationController::OnAnnotatedPageContentReceived(
     std::vector<lens::PageContent> page_contents,
     PageContentRetrievedCallback callback,
-    std::optional<optimization_guide::AIPageContentResult> result) {
+    optimization_guide::AIPageContentResultOrError result) {
   // The tab URL is used to check if the page is context eligible.
   const auto& tab_url = lens_search_controller_->GetTabInterface()
                             ->GetContents()
                             ->GetLastCommittedURL();
 
   // Add the apc proto the page_contents if it exists.
-  if (result) {
+  if (result.has_value()) {
     // Convert the page metadata to a C struct defined in the optimization_guide
     // component so it can be passed to the shared library.
     std::vector<optimization_guide::FrameMetadata> frame_metadata_structs =
@@ -661,7 +662,7 @@ void LensSearchContextualizationController::OnAnnotatedPageContentReceived(
         base::BindOnce(&LensSearchContextualizationController::
                            OnPageContextEligibilityFetched,
                        weak_ptr_factory_.GetWeakPtr(), std::move(page_contents),
-                       std::move(callback), std::move(result)));
+                       std::move(callback), std::move(result.value())));
     return;
   }
 
@@ -760,7 +761,10 @@ void LensSearchContextualizationController::GetPartialPdfTextCallback(
           lens::features::GetLensOverlayPdfSuggestCharacterTarget() ||
       page_index + 1 >= total_page_count) {
     std::move(pdf_partial_page_text_retrieved_callback_).Run(pdf_pages_text_);
-    GetQueryController()->SendPartialPageContentRequest(pdf_pages_text_);
+    // When contextual tasks is enabled, partial PDF text is not sent.
+    if (!contextual_tasks::GetEnableLensInContextualTasks()) {
+      GetQueryController()->SendPartialPageContentRequest(pdf_pages_text_);
+    }
     return;
   }
 

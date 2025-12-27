@@ -247,7 +247,8 @@ CorsURLLoaderFactory::CorsURLLoaderFactory(
       is_main_frame_origin_recently_accessed_(
           params->is_main_frame_origin_recently_accessed),
       origin_access_list_(origin_access_list),
-      owner_(owner) {
+      owner_(owner),
+      network_restrictions_id_(params->network_restrictions_id) {
   TRACE_EVENT("loading", "CorsURLLoaderFactory::CorsURLLoaderFactory",
               perfetto::Flow::FromPointer(this));
   DCHECK(context_);
@@ -434,6 +435,16 @@ void CorsURLLoaderFactory::CreateLoaderAndStart(
             URLLoaderCompletionStatus(net::ERR_NETWORK_ACCESS_REVOKED));
     return;
   }
+  if (network_restrictions_id_.has_value() &&
+      !context_->IsNetworkForNonceAndUrlAllowed(*network_restrictions_id_,
+                                                resource_request.url)) {
+    // TODO(crbug.com/447954811): Perhaps change to a new error code and
+    // add console messages.
+    mojo::Remote<mojom::URLLoaderClient>(std::move(client))
+        ->OnComplete(
+            URLLoaderCompletionStatus(net::ERR_NETWORK_ACCESS_REVOKED));
+    return;
+  }
 
   if (!disable_web_security_) {
     mojo::PendingRemote<mojom::DevToolsObserver> devtools_observer;
@@ -469,10 +480,10 @@ void CorsURLLoaderFactory::CreateLoaderAndStart(
               factory_override_->ShouldSkipCorsEnabledSchemeCheck(),
           std::move(client), traffic_annotation, inner_url_loader_factory,
           factory_override_ ? nullptr : network_loader_factory_.get(),
-          origin_access_list_, GetAllowAnyCorsExemptHeaderForBrowser(),
-          *isolation_info_ptr, std::move(devtools_observer),
-          client_security_state_.get(), &url_loader_network_service_observer_,
-          cross_origin_embedder_policy_, shared_dictionary_storage,
+          origin_access_list_, *isolation_info_ptr,
+          std::move(devtools_observer), client_security_state_.get(),
+          &url_loader_network_service_observer_, cross_origin_embedder_policy_,
+          shared_dictionary_storage,
           shared_dictionary_observer_ ? shared_dictionary_observer_.get()
                                       : nullptr,
           context_, factory_cookie_setting_overrides_,
@@ -487,10 +498,10 @@ void CorsURLLoaderFactory::CreateLoaderAndStart(
               factory_override_->ShouldSkipCorsEnabledSchemeCheck(),
           std::move(client), traffic_annotation, inner_url_loader_factory,
           factory_override_ ? nullptr : network_loader_factory_.get(),
-          origin_access_list_, GetAllowAnyCorsExemptHeaderForBrowser(),
-          *isolation_info_ptr, std::move(devtools_observer),
-          client_security_state_.get(), &url_loader_network_service_observer_,
-          cross_origin_embedder_policy_, shared_dictionary_storage,
+          origin_access_list_, *isolation_info_ptr,
+          std::move(devtools_observer), client_security_state_.get(),
+          &url_loader_network_service_observer_, cross_origin_embedder_policy_,
+          shared_dictionary_storage,
           shared_dictionary_observer_ ? shared_dictionary_observer_.get()
                                       : nullptr,
           context_, factory_cookie_setting_overrides_,
@@ -764,14 +775,58 @@ bool CorsURLLoaderFactory::IsValidRequest(const ResourceRequest& request,
         break;
     }
 
-    // Only the browser process is allowed to initiate FedCM requests.
-    if (request.destination ==
-        network::mojom::RequestDestination::kWebIdentity) {
-      mojo::ReportBadMessage(
-          "CorsURLLoaderFactory: attempt to use forbidden destination from "
-          "renderer");
-      return false;
+    switch (request.destination) {
+      // Allowed destinations from unprivileged process:
+      case network::mojom::RequestDestination::kEmpty:
+      case network::mojom::RequestDestination::kAudio:
+      case network::mojom::RequestDestination::kAudioWorklet:
+      case network::mojom::RequestDestination::kDocument:
+      case network::mojom::RequestDestination::kEmbed:
+      case network::mojom::RequestDestination::kFont:
+      case network::mojom::RequestDestination::kFrame:
+      case network::mojom::RequestDestination::kIframe:
+      case network::mojom::RequestDestination::kImage:
+      case network::mojom::RequestDestination::kManifest:
+      case network::mojom::RequestDestination::kObject:
+      case network::mojom::RequestDestination::kPaintWorklet:
+      case network::mojom::RequestDestination::kReport:
+      case network::mojom::RequestDestination::kScript:
+      case network::mojom::RequestDestination::kServiceWorker:
+      case network::mojom::RequestDestination::kSharedWorker:
+      case network::mojom::RequestDestination::kStyle:
+      case network::mojom::RequestDestination::kTrack:
+      case network::mojom::RequestDestination::kVideo:
+      case network::mojom::RequestDestination::kWebBundle:
+      case network::mojom::RequestDestination::kWorker:
+      case network::mojom::RequestDestination::kXslt:
+      case network::mojom::RequestDestination::kFencedframe:
+      case network::mojom::RequestDestination::kDictionary:
+      case network::mojom::RequestDestination::kSpeculationRules:
+      case network::mojom::RequestDestination::kJson:
+      case network::mojom::RequestDestination::kSharedStorageWorklet:
+        break;
+      case network::mojom::RequestDestination::kWebIdentity:
+      case network::mojom::RequestDestination::kEmailVerification:
+        mojo::ReportBadMessage(
+            "CorsURLLoaderFactory: attempt to use forbidden destination from "
+            "renderer");
+        return false;
     }
+  }
+
+  // FedCM requests must either disable cookies or disable redirects
+  // (this simplifies reasoning around SameSite=Lax cookies).
+  // See also the DCHECK in url_loader_util::ConfigureUrlRequest.
+  if ((request.destination == mojom::RequestDestination::kWebIdentity ||
+       request.destination ==
+           network::mojom::RequestDestination::kEmailVerification) &&
+      request.redirect_mode != mojom::RedirectMode::kError &&
+      request.credentials_mode != mojom::CredentialsMode::kOmit) {
+    mojo::ReportBadMessage(
+        "CorsURLLoaderFactory: FedCM and email verification requests must "
+        "either disable redirects "
+        "or disable cookies");
+    return false;
   }
 
   // Depending on the type of request, compare either `request_initiator` or
@@ -808,8 +863,7 @@ bool CorsURLLoaderFactory::IsValidRequest(const ResourceRequest& request,
       return false;
   }
 
-  if (!GetAllowAnyCorsExemptHeaderForBrowser() &&
-      !IsValidCorsExemptHeaders(*context_->cors_exempt_header_list(),
+  if (!IsValidCorsExemptHeaders(*context_->cors_exempt_header_list(),
                                 request.cors_exempt_headers)) {
     return false;
   }
@@ -893,13 +947,6 @@ bool CorsURLLoaderFactory::IsValidRequest(const ResourceRequest& request,
           "expected.");
       return false;
     }
-
-    if (request.target_ip_address_space != mojom::IPAddressSpace::kUnknown) {
-      mojo::ReportBadMessage(
-          "CorsURLLoaderFactory: target_ip_address_space is "
-          "set.");
-      return false;
-    }
   }
 
   // The `client_side_content_decoding_enabled` flag is set only when the
@@ -915,11 +962,6 @@ bool CorsURLLoaderFactory::IsValidRequest(const ResourceRequest& request,
   // TODO(yhirano): If the request mode is "no-cors", the redirect mode should
   // be "follow".
   return true;
-}
-
-bool CorsURLLoaderFactory::GetAllowAnyCorsExemptHeaderForBrowser() const {
-  return process_id_ == mojom::kBrowserProcessId &&
-         context_->allow_any_cors_exempt_header_for_browser();
 }
 
 mojo::PendingRemote<mojom::DevToolsObserver>

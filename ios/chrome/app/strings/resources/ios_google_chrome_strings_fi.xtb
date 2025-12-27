@@ -75,7 +75,6 @@ Huomioitavaa:
 <translation id="2576431527583832481">Chromesta tuli juuri entistä parempi! Uusi versio on saatavilla.</translation>
 <translation id="257708665678654955">Haluatko Google Chromen ehdottavan sivuston kielellä <ph name="LANGUAGE_NAME" /> kirjoitettujen sivujen kääntämistä seuraavalla kerralla?</translation>
 <translation id="2668242166988961773">Hae puhumalla Chromesta.</translation>
-<translation id="2695886661449553974">Chrome ei voinut tarkistaa, onko päivityksiä saatavilla. Yritä myöhemmin uudelleen.</translation>
 <translation id="2703746758996815929">Jos haluat hyödyllisiä Chrome-vinkkejä, laita ilmoitukset päälle iOS-asetuksista.</translation>
 <translation id="2728851697704606655">Käännä Google Lensilla</translation>
 <translation id="2736805085127235148">Chromen ilmoitukset ovat tällä hetkellä poissa päältä laiteasetuksissa.</translation>
@@ -170,9 +169,11 @@ Odota muutama minuutti ennen uloskirjautumista. Jos kirjaudut ulos nyt, tämä d
 <translation id="5162467219239570114">Chrome on vanhentunut. Jos päivitystä ei ole saatavilla <ph name="BEGIN_LINK" />sovelluskaupasta<ph name="END_LINK" />, laitteesi ei välttämättä enää tue Chromen uusia versioita.</translation>
 <translation id="5184329579814168207">Avaa Chromessa</translation>
 <translation id="5190139289262548459">Organisaatiosi (<ph name="DOMAIN" />) ylläpitää tiliä, jolla olet kirjautuneena sisään ja sitä, miten Chromea käytetään.</translation>
+<translation id="5209238444239954363">Chrome ei voinut tarkistaa, onko päivityksiä saatavilla. Yritä myöhemmin uudelleen.</translation>
 <translation id="5305440589062022504">Avaa Salasanat Chromessa.</translation>
 <translation id="5310957470610282541">Osaa Chrome-datastasi ei ole vielä tallennettu Google-tilillesi.
 Odota muutama minuutti ennen uloskirjautumista. Jos kirjaudut ulos nyt, tämä data poistetaan.</translation>
+<translation id="5342685492141499976">Data tallennetaan Google Salasanoihin tälle tilille: <ph name="USER_EMAIL" /></translation>
 <translation id="5389212809648216794">Google Chrome ei voi käyttää kameraa, koska se on toisen sovelluksen käytössä.</translation>
 <translation id="5395376160638294582">Varmista, että voit aina käyttää Chrome-dataa Google-tilillä</translation>
 <translation id="5404252374083197467">Valitaanko Chrome oletukseksi?</translation>
@@ -200,6 +201,7 @@ Odota muutama minuutti ennen uloskirjautumista. Jos kirjaudut ulos nyt, tämä d
 <translation id="5808435672482059465">Tarkista Chrome-historiasi</translation>
 <translation id="5833027901704861726">Osaa Chrome-datastasi ei ole vielä tallennettu tälle tilille: <ph name="EMAIL" />.
 Odota muutama minuutti ennen tilin vaihtamista. Jos vaihdat tiliä nyt, tämä data poistetaan.</translation>
+<translation id="5853754888722423892">Tuo Google Salasanoihin</translation>
 <translation id="5998675059699164418">Organisaatiosi edellyttää sisäänkirjautumista, jotta voit käyttää Chromea.</translation>
 <translation id="6021312115739110405">Googlen sinulle luoma fiidi. Sisältää uutiset, urheilun ja sään.</translation>
 <translation id="6022659036123304283">Tee Chromesta näköisesi</translation>
@@ -302,6 +304,7 @@ Siirry <ph name="BEGIN_LINK" />Googlen palveluihin<ph name="END_LINK" />, jos ha
 <translation id="787226752901403048">Kirjaudu Chromeen, niin voit jakaa välilehtiryhmiä, liittyä niihin ja ideoida yhdessä</translation>
 <translation id="7897703007638178753">Näytä Chromen viimeaikaiset välilehdet</translation>
 <translation id="7948283758957877064">Uutta Chromessa</translation>
+<translation id="7996707498590516621">Luo kuva Gemini in Chromella</translation>
 <translation id="8000174216052461231">Chrome-vinkki: Ota Chromen tehokkain suojaus käyttöön</translation>
 <translation id="8006014511203279255">Käytä Chromea, kun napautat linkkejä viesteissä tai muissa sovelluksissa.</translation>
 <translation id="8014670471808569312">Chrome tarjoutuu tallentamaan salasanasi.</translation>

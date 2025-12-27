@@ -46,7 +46,6 @@ include_rules = [
   "+chrome/browser/ash/policy/core",
   "+chrome/browser/ash/printing",
   "+chrome/browser/ash/remote_apps",
-  "+chrome/browser/ash/scalable_iph",
   "+chrome/browser/ash/scanning",
   "+chrome/browser/ash/secure_channel",
   "+chrome/browser/ash/smb_client",
@@ -63,4 +62,5 @@ include_rules = [
   "+chrome/browser/ui/ash/holding_space",
   "+chrome/browser/ui/webui/ash/settings/services/hats",
   "+chrome/browser/ui/webui/ash/settings/services/settings_manager",
+  "+chromeos/ash/components/policy/policy_blocklist_service",
 ]

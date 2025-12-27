@@ -199,6 +199,10 @@ class LensSearchContextualizationController {
   // Returns the most recent viewport screenshot.
   const SkBitmap& viewport_screenshot() { return viewport_screenshot_; }
 
+  void set_viewport_screenshot_for_testing(const SkBitmap& bitmap) {
+    viewport_screenshot_ = bitmap;
+  }
+
  protected:
   // The page context eligibility API if it has been fetched. Can be nullptr.
   // This is marked protected so that it can be accessed by the test
@@ -271,7 +275,7 @@ class LensSearchContextualizationController {
   void OnAnnotatedPageContentReceived(
       std::vector<lens::PageContent> page_contents,
       PageContentRetrievedCallback callback,
-      std::optional<optimization_guide::AIPageContentResult> apc);
+      optimization_guide::AIPageContentResultOrError apc);
 
   // Callback for when the page context eligibility is fetched. This should only
   // be used after the APC has been received. For the initial check before the

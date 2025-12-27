@@ -39,7 +39,6 @@
 #include "services/network/public/mojom/referrer_policy.mojom-blink.h"
 #include "third_party/blink/public/mojom/browser_interface_broker.mojom-blink.h"
 #include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom-blink.h"
-#include "third_party/blink/public/mojom/fingerprinting_protection/canvas_interventions.mojom-blink.h"
 #include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-blink.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_installed_scripts_manager.mojom-blink.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_network_provider.h"
@@ -136,9 +135,7 @@ void WebEmbeddedWorkerImpl::StartWorkerContext(
     CrossVariantMojoReceiver<mojom::blink::ReportingObserverInterfaceBase>
         coep_reporting_observer,
     CrossVariantMojoReceiver<mojom::blink::ReportingObserverInterfaceBase>
-        dip_reporting_observer,
-    CrossVariantMojoReceiver<mojom::blink::CanvasNoiseTokenUpdaterInterfaceBase>
-        canvas_noise_token_observer) {
+        dip_reporting_observer) {
   DCHECK(!asked_to_terminate_);
 
   std::unique_ptr<ServiceWorkerInstalledScriptsManager>
@@ -156,8 +153,7 @@ void WebEmbeddedWorkerImpl::StartWorkerContext(
           std::move(content_settings)),
       std::move(cache_storage), std::move(browser_interface_broker),
       interface_registry, std::move(initiator_thread_task_runner),
-      std::move(coep_reporting_observer), std::move(dip_reporting_observer),
-      std::move(canvas_noise_token_observer));
+      std::move(coep_reporting_observer), std::move(dip_reporting_observer));
 }
 
 void WebEmbeddedWorkerImpl::TerminateWorkerContext() {
@@ -182,9 +178,7 @@ void WebEmbeddedWorkerImpl::StartWorkerThread(
     mojo::PendingReceiver<mojom::blink::ReportingObserver>
         coep_reporting_observer,
     mojo::PendingReceiver<mojom::blink::ReportingObserver>
-        dip_reporting_observer,
-    mojo::PendingReceiver<mojom::blink::CanvasNoiseTokenUpdater>
-        canvas_noise_token_observer) {
+        dip_reporting_observer) {
   DCHECK(!asked_to_terminate_);
 
   //Document* document = shadow_page_->GetDocument();
@@ -262,8 +256,7 @@ void WebEmbeddedWorkerImpl::StartWorkerThread(
       net::StorageAccessApiStatus::kNone,
       false /* require_cross_site_request_for_cookies */,
       nullptr /* origin_to_use */, std::move(coep_reporting_observer),
-      std::move(dip_reporting_observer), worker_start_data->canvas_noise_token,
-      std::move(canvas_noise_token_observer));
+      std::move(dip_reporting_observer));
 
   worker_thread_ = std::make_unique<ServiceWorkerThread>(
       std::make_unique<ServiceWorkerGlobalScopeProxy>(

@@ -110,6 +110,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Shows a list of sites in a particular Site Settings category. For example, this could show all
@@ -535,6 +536,9 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
 
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
+        String title = getArguments().getString(EXTRA_TITLE);
+        if (title != null) mPageTitle.set(title);
+
         // Handled in onActivityCreated. Moving the addPreferencesFromResource call up to here
         // causes animation jank (crbug.com/985734).
     }
@@ -542,9 +546,6 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
     @Override
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
         SettingsUtils.addPreferencesFromResource(this, R.xml.website_preferences);
-
-        String title = getArguments().getString(EXTRA_TITLE);
-        if (title != null) mPageTitle.set(title);
 
         mSelectedDomains =
                 getArguments().containsKey(EXTRA_SELECTED_DOMAINS)
@@ -1865,6 +1866,29 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
             }
             RadioButtonWithDescription selectedButton = contentView.findViewById(selectedPrecision);
             selectedButton.setChecked(true);
+
+            final RadioButtonWithDescriptionLayout locationAccessGroup =
+                    contentView.findViewById(R.id.location_access_group);
+            final TextView locationAccessMessage =
+                    contentView.findViewById(R.id.location_access_message);
+            final RadioButtonWithDescription preciseButton = contentView.findViewById(R.id.precise);
+            final RadioButtonWithDescription approximateButton =
+                    contentView.findViewById(R.id.approximate);
+
+            final Consumer<Boolean> setLocationAccessEnabled =
+                    (enabled) -> {
+                        locationAccessGroup.setEnabled(enabled);
+                        locationAccessMessage.setEnabled(enabled);
+                        preciseButton.setEnabled(enabled);
+                        approximateButton.setEnabled(enabled);
+                    };
+
+            radioGroup.setOnCheckedChangeListener(
+                    (group, checkedId) -> {
+                        setLocationAccessEnabled.accept(checkedId == R.id.allow);
+                    });
+
+            setLocationAccessEnabled.accept(allowButton.isChecked());
         }
 
         AlertDialog alertDialog =

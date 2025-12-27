@@ -4,10 +4,12 @@
 
 #include "chrome/renderer/actor/drag_and_release_tool.h"
 
+#include "base/notimplemented.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/actor/actor_logging.h"
+#include "chrome/common/actor/journal_details_builder.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/renderer/actor/tool_utils.h"
 #include "content/public/renderer/render_frame.h"
@@ -71,6 +73,12 @@ void DragAndReleaseTool::Execute(ToolFinishedCallback callback) {
   ResolvedTarget from_target = validated_result->from;
   ResolvedTarget to_target = validated_result->to;
 
+  journal_->Log(task_id_, "DragAndReleaseTool::Execute",
+                JournalDetailsBuilder()
+                    .Add("from", from_target.widget_point)
+                    .Add("to", to_target.widget_point)
+                    .Build());
+
   WebWidget* widget = from_target.GetWidget(*this);
   CHECK(widget);
 
@@ -102,43 +110,6 @@ void DragAndReleaseTool::Execute(ToolFinishedCallback callback) {
     return;
   }
 
-  if (!base::FeatureList::IsEnabled(features::kGlicActorSplitDragAndRelease)) {
-    // Use the old code.
-    widget = from_target.GetWidget(*this);
-    if (!widget) {
-      std::move(callback).Run(
-          MakeResult(mojom::ActionResultCode::kFrameWentAway));
-      return;
-    }
-
-    // Move and release the mouse on the to_point.
-    if (!InjectMouseEvent(*widget, to_target.widget_point,
-                          EventType::kMouseMove,
-                          WebMouseEvent::Button::kLeft)) {
-      std::move(callback).Run(
-          MakeResult(mojom::ActionResultCode::kDragAndReleaseToMoveSuppressed,
-                     /*requires_page_stabilization=*/true));
-      return;
-    }
-
-    widget = from_target.GetWidget(*this);
-    if (!widget) {
-      std::move(callback).Run(
-          MakeResult(mojom::ActionResultCode::kFrameWentAway));
-      return;
-    }
-
-    if (!InjectMouseEvent(*widget, to_target.widget_point, EventType::kMouseUp,
-                          WebMouseEvent::Button::kLeft)) {
-      std::move(callback).Run(
-          MakeResult(mojom::ActionResultCode::kDragAndReleaseUpSuppressed,
-                     /*requires_page_stabilization=*/true));
-      return;
-    }
-
-    std::move(callback).Run(MakeOkResult());
-    return;
-  }
   // We need a time delay between the click and first move for some pages.
   task_runner_ = base::SequencedTaskRunner::GetCurrentDefault();
   task_runner_->PostDelayedTask(
@@ -256,7 +227,12 @@ DragAndReleaseTool::ValidatedResult DragAndReleaseTool::Validate() const {
   if (resolved_from->GetWidget(*this) != resolved_to->GetWidget(*this)) {
     // Drag across widgets (i.e. between frame and popup) isn't currently
     // supported.
-    return base::unexpected(MakeErrorResult());
+    static constexpr std::string_view kErrorMessage =
+        "Drag across widgets is not supported.";
+    NOTIMPLEMENTED() << kErrorMessage;
+    return base::unexpected(MakeResult(mojom::ActionResultCode::kNotImplemented,
+                                       /*requires_page_stabilization=*/false,
+                                       kErrorMessage));
   }
 
   // TODO(b/450018073): This should be checking the targets for time-of-use
@@ -279,18 +255,16 @@ bool DragAndReleaseTool::InjectMouseEvent(WebWidget& widget,
     mouse_event.click_count = 1;
   }
 
-  if (base::FeatureList::IsEnabled(features::kGlicActorUseDragModifiers)) {
-    mouse_event.UpdateEventModifiersToMatchButton();
-    if (type == WebInputEvent::Type::kMouseMove) {
-      switch (button) {
-        case blink::WebMouseEvent::Button::kNoButton:
-          break;
-        case blink::WebMouseEvent::Button::kLeft:
-          mouse_event.SetModifiers(WebInputEvent::Modifiers::kLeftButtonDown);
-          break;
-        default:
-          NOTREACHED();
-      }
+  mouse_event.UpdateEventModifiersToMatchButton();
+  if (type == WebInputEvent::Type::kMouseMove) {
+    switch (button) {
+      case blink::WebMouseEvent::Button::kNoButton:
+        break;
+      case blink::WebMouseEvent::Button::kLeft:
+        mouse_event.SetModifiers(WebInputEvent::Modifiers::kLeftButtonDown);
+        break;
+      default:
+        NOTREACHED();
     }
   }
 

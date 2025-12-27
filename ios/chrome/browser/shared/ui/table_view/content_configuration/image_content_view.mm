@@ -32,7 +32,7 @@
     [self setContentHuggingPriority:UILayoutPriorityRequired - 1
                             forAxis:UILayoutConstraintAxisHorizontal];
 
-    _configuration = configuration;
+    _configuration = [configuration copy];
 
     [self applyConfiguration];
   }
@@ -53,7 +53,8 @@
 
 - (void)setConfiguration:(id<UIContentConfiguration>)configuration {
   _configuration =
-      base::apple::ObjCCastStrict<ImageContentConfiguration>(configuration);
+      [base::apple::ObjCCastStrict<ImageContentConfiguration>(configuration)
+          copy];
   [self applyConfiguration];
 }
 
@@ -66,6 +67,8 @@
 - (void)applyConfiguration {
   self.image = _configuration.image;
   self.contentMode = _configuration.imageContentMode;
+  self.tintColor = _configuration.imageTintColor;
+  self.accessibilityIdentifier = _configuration.accessibilityID;
   _widthConstraint.constant = _configuration.imageSize.width;
   _heightConstraint.constant = _configuration.imageSize.height;
 

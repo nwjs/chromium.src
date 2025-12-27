@@ -28,7 +28,7 @@ chromium-metrics-reviews@google.com.
   <owner>deviceapi-team@google.com</owner>
   <summary>
     Records which client requested geolocation from the
-    `SimpleGeolocationProvider`. This helps track the usage of the geolocation
+    `SystemLocationProvider`. This helps track the usage of the geolocation
     provider across different parts of the system.
   </summary>
 </histogram>
@@ -57,7 +57,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SimpleGeolocation.Provider.WizardControllerRequestInterval"
-    units="hours" expires_after="2026-03-22">
+    units="hours" expires_after="2026-05-24">
   <owner>alvinji@chromium.org</owner>
   <owner>deviceapi-team@google.com</owner>
   <summary>

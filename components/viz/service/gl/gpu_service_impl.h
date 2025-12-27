@@ -31,7 +31,6 @@
 #include "gpu/config/gpu_info.h"
 #include "gpu/config/gpu_preferences.h"
 #include "gpu/ipc/common/gpu_disk_cache_type.h"
-#include "gpu/ipc/common/gpu_memory_buffer_support.h"
 #include "gpu/ipc/common/surface_handle.h"
 #include "gpu/ipc/service/gpu_channel.h"
 #include "gpu/ipc/service/gpu_channel_manager.h"
@@ -42,7 +41,6 @@
 #include "media/media_buildflags.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
-#include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/shared_remote.h"
 #include "services/viz/privileged/mojom/gl/gpu_host.mojom.h"
 #include "services/viz/privileged/mojom/gl/gpu_service.mojom.h"
@@ -171,10 +169,10 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
   void SetChannelDiskCacheHandle(
       int32_t client_id,
       const gpu::GpuDiskCacheHandle& handle) override;
-  void SetChannelPersistentCacheParams(
+  void SetChannelPersistentCachePendingBackend(
       int32_t client_id,
       const gpu::GpuDiskCacheHandle& handle,
-      persistent_cache::BackendParams backend_params) override;
+      persistent_cache::PendingBackend pending_backend) override;
   void OnDiskCacheHandleDestoyed(
       const gpu::GpuDiskCacheHandle& handle) override;
   void CloseChannel(int32_t client_id) override;
@@ -481,7 +479,7 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
   // Information about the GPU process populated on creation.
   gfx::GpuExtraInfo gpu_extra_info_;
 
-  gpu::GpuProcessShmCount use_shader_cache_shm_count_;
+  scoped_refptr<gpu::RefCountedGpuProcessShmCount> use_shader_cache_shm_count_;
 
   mojo::SharedRemote<mojom::GpuHost> gpu_host_;
   std::unique_ptr<gpu::GpuChannelManager> gpu_channel_manager_;

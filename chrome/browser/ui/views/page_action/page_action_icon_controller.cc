@@ -16,7 +16,6 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sharing/click_to_call/click_to_call_ui_controller.h"
-#include "chrome/browser/sharing/sms/sms_remote_fetcher_ui_controller.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -234,19 +233,6 @@ void PageActionIconController::Init(const PageActionIconParams& params,
                       params.command_updater, params.icon_label_bubble_delegate,
                       params.page_action_icon_delegate));
         break;
-      case PageActionIconType::kSmsRemoteFetcher:
-        add_page_action_icon(
-            type,
-            std::make_unique<SharingIconView>(
-                params.icon_label_bubble_delegate,
-                params.page_action_icon_delegate,
-                base::BindRepeating([](content::WebContents* contents) {
-                  return static_cast<SharingUiController*>(
-                      SmsRemoteFetcherUiController::GetOrCreateFromWebContents(
-                          contents));
-                }),
-                base::BindRepeating(SharingDialogView::GetAsBubble)));
-        break;
       case PageActionIconType::kTranslate:
 #if 0
         DCHECK(params.command_updater);
@@ -302,6 +288,11 @@ void PageActionIconController::Init(const PageActionIconParams& params,
             type, std::make_unique<CollaborationMessagingPageActionIconView>(
                       params.browser, params.icon_label_bubble_delegate,
                       params.page_action_icon_delegate));
+        break;
+      case PageActionIconType::kReadingMode:
+      case PageActionIconType::kContextualSidePanel:
+      case PageActionIconType::kJsOptimizations:
+        // Do nothing as these actions were added after the migration.
         break;
     }
   }

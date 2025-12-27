@@ -43,7 +43,7 @@ public class ChromeChannelDefinitions extends ChannelDefinitions {
      * set of channels returned by {@link #getStartupChannelIds()} or {@link #getLegacyChannelIds()}
      * changes.
      */
-    static final int CHANNELS_VERSION = 5;
+    static final int CHANNELS_VERSION = 6;
 
     private static class LazyHolder {
         private static final ChromeChannelDefinitions sInstance = new ChromeChannelDefinitions();
@@ -68,6 +68,7 @@ public class ChromeChannelDefinitions extends ChannelDefinitions {
      * and add the ID to the LEGACY_CHANNELS_ID array below. See the README in this directory for
      * more detailed instructions.
      */
+    // LINT.IfChange(ChannelId)
     @StringDef({
         ChannelId.BROWSER,
         ChannelId.COLLABORATION,
@@ -132,6 +133,9 @@ public class ChromeChannelDefinitions extends ChannelDefinitions {
         String TIPS = "tips";
     }
 
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/mobile/histograms.xml:NotificationChannelId)
+    // LINT.ThenChange(//chrome/browser/notifications/android/java/src/org/chromium/chrome/browser/notifications/NotificationUmaTracker.java:NotificationChannelId)
+
     @StringDef({ChannelGroupId.GENERAL, ChannelGroupId.SITES})
     @Retention(RetentionPolicy.SOURCE)
     public @interface ChannelGroupId {
@@ -168,14 +172,6 @@ public class ChromeChannelDefinitions extends ChannelDefinitions {
                             NotificationManager.IMPORTANCE_LOW,
                             ChannelGroupId.GENERAL));
             startup.add(ChannelId.BROWSER);
-
-            map.put(
-                    ChannelId.TIPS,
-                    PredefinedChannel.create(
-                            ChannelId.TIPS,
-                            R.string.notification_category_tips,
-                            NotificationManager.IMPORTANCE_HIGH,
-                            ChannelGroupId.GENERAL));
 
             map.put(
                     ChannelId.COLLABORATION,
@@ -370,6 +366,17 @@ public class ChromeChannelDefinitions extends ChannelDefinitions {
                             R.string.notification_category_serial,
                             NotificationManager.IMPORTANCE_LOW,
                             ChannelGroupId.GENERAL));
+
+            // The tips notification channel will appear for all users but will be defaulted off and
+            // include an opt in promo that directs users to turning it on.
+            map.put(
+                    ChannelId.TIPS,
+                    PredefinedChannel.create(
+                            ChannelId.TIPS,
+                            R.string.notification_category_tips,
+                            NotificationManager.IMPORTANCE_NONE,
+                            ChannelGroupId.GENERAL));
+            startup.add(ChannelId.TIPS);
 
             MAP = Collections.unmodifiableMap(map);
             STARTUP = Collections.unmodifiableSet(startup);

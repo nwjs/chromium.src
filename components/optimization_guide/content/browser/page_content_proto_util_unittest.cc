@@ -93,8 +93,11 @@ content::GlobalRenderFrameHostToken CreateFrameToken() {
 base::expected<void, std::string> ConvertAIPageContentToProto(
     blink::mojom::AIPageContentPtr& root_content,
     AIPageContentResult& page_content,
-    const std::optional<GURL>& main_frame_url = {}) {
-  auto main_frame_token = CreateFrameToken();
+    const std::optional<GURL>& main_frame_url = {},
+    std::optional<content::GlobalRenderFrameHostToken>
+        main_frame_token_override = std::nullopt) {
+  auto main_frame_token =
+      main_frame_token_override.value_or(CreateFrameToken());
   AIPageContentMap page_content_map;
   page_content_map[main_frame_token] = std::move(root_content);
 
@@ -183,7 +186,26 @@ TEST_F(PageContentProtoUtilTest, IframeNodeWithNoData) {
               base::test::ErrorIs("iframe missing iframe_data"));
 }
 
-TEST_F(PageContentProtoUtilTest, IframeDestroyed) {
+class PageContentProtoUtilTestIframeSilentFail
+    : public PageContentProtoUtilTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  PageContentProtoUtilTestIframeSilentFail() {
+    if (GetParam()) {
+      feature_list_.InitAndEnableFeature(
+          blink::features::kAIPageContentMissingSubframesFailSilently);
+    } else {
+      feature_list_.InitAndDisableFeature(
+          blink::features::kAIPageContentMissingSubframesFailSilently);
+    }
+  }
+  virtual ~PageContentProtoUtilTestIframeSilentFail() = default;
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_P(PageContentProtoUtilTestIframeSilentFail, IframeDestroyed) {
   auto main_frame_token = CreateFrameToken();
   auto root_content = CreatePageContent();
   root_content->root_node->children_nodes.emplace_back(
@@ -218,15 +240,22 @@ TEST_F(PageContentProtoUtilTest, IframeDestroyed) {
 
   AIPageContentResult page_content;
   FrameTokenSet frame_token_set;
-  EXPECT_THAT(
-      ConvertAIPageContentToProto(blink::mojom::AIPageContentOptions::New(),
-                                  main_frame_token, page_content_map,
-                                  get_render_frame_info, frame_token_set,
-                                  page_content),
-      base::test::ErrorIs("could not find render_frame_info for iframe"));
+  base::expected<void, std::string> returned = ConvertAIPageContentToProto(
+      blink::mojom::AIPageContentOptions::New(), main_frame_token,
+      page_content_map, get_render_frame_info, frame_token_set, page_content);
+  if (GetParam()) {
+    EXPECT_TRUE(returned.has_value());
+  } else {
+    EXPECT_THAT(returned, base::test::ErrorIs(
+                              "could not find render_frame_info for iframe"));
+  }
   ASSERT_TRUE(query_token.has_value());
   EXPECT_EQ(iframe_token.frame_token, *query_token);
 }
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         PageContentProtoUtilTestIframeSilentFail,
+                         testing::Bool());
 
 TEST_F(PageContentProtoUtilTest, Basic) {
   auto root_content = CreatePageContent();
@@ -741,7 +770,6 @@ TEST_F(PageContentProtoUtilTest, ConvertGeometry) {
       gfx::Rect(10, 20, 30, 40);
   text_node->content_attributes->geometry->visible_bounding_box =
       gfx::Rect(11, 21, 31, 41);
-  text_node->content_attributes->geometry->is_fixed_or_sticky_position = true;
   root_content->root_node->children_nodes.emplace_back(std::move(text_node));
 
   AIPageContentResult page_content;
@@ -768,7 +796,6 @@ TEST_F(PageContentProtoUtilTest, ConvertGeometry) {
   EXPECT_EQ(geometry.visible_bounding_box().y(), 21);
   EXPECT_EQ(geometry.visible_bounding_box().width(), 31);
   EXPECT_EQ(geometry.visible_bounding_box().height(), 41);
-  EXPECT_TRUE(geometry.is_fixed_or_sticky_position());
 }
 
 TEST_F(PageContentProtoUtilTest, ConvertPageInteractionInfo) {
@@ -1588,7 +1615,8 @@ TEST_F(PageContentProtoUtilTest, VisitContentNodes) {
   EXPECT_EQ(visited_mutable_nodes.size(), 4u);
 }
 
-TEST_F(PageContentProtoUtilTest, ConvertFormControlDataWithAutofill) {
+TEST_F(PageContentProtoUtilTest,
+       ConvertFormControlDataWithAutofillAnnotations) {
   content::RenderViewHostTestEnabler rvh_test_enabler;
 
   std::unique_ptr<content::TestBrowserContext> browser_context =
@@ -1659,6 +1687,154 @@ TEST_F(PageContentProtoUtilTest, ConvertFormControlDataWithAutofill) {
   EXPECT_EQ(form_control_data_proto.coarse_autofill_field_type(0),
             proto::COARSE_AUTOFILL_FIELD_TYPE_CREDIT_CARD);
 }
+
+class PageContentProtoUtilCreditCardRedactionTest
+    : public PageContentProtoUtilTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  PageContentProtoUtilCreditCardRedactionTest() {
+    if (ShouldEnableCreditCardRedaction()) {
+      feature_list_.InitAndEnableFeature(
+          features::kAnnotatedPageContentAutofillCreditCardRedactions);
+    } else {
+      feature_list_.InitAndDisableFeature(
+          features::kAnnotatedPageContentAutofillCreditCardRedactions);
+    }
+  }
+
+  bool ShouldEnableCreditCardRedaction() const { return GetParam(); }
+
+ protected:
+  AIPageContentResult ConvertFormControlDataWithAutofillRedaction(
+      blink::mojom::AIPageContentNodePtr form_control_node) {
+    content::RenderViewHostTestEnabler rvh_test_enabler;
+
+    auto browser_context = std::make_unique<content::TestBrowserContext>();
+    content::WebContents::CreateParams create_params(browser_context.get());
+    std::unique_ptr<content::TestWebContents> web_contents(
+        content::TestWebContents::Create(create_params));
+    web_contents->NavigateAndCommit(GURL("https://example.com"));
+    content::RenderFrameHost* rfh = web_contents->GetPrimaryMainFrame();
+    CHECK(rfh);
+    content::GlobalRenderFrameHostToken main_frame_token =
+        rfh->GetGlobalFrameToken();
+
+    auto provider =
+        std::make_unique<testing::NiceMock<MockAutofillAnnotationsProvider>>();
+    AutofillFieldMetadata metadata;
+    metadata.redaction_reason =
+        AutofillFieldRedactionReason::kShouldRedactForPayments;
+    EXPECT_CALL(*provider, GetAutofillFieldData)
+        .WillOnce(testing::Return(metadata));
+    AutofillAnnotationsProvider::SetFor(web_contents.get(),
+                                        std::move(provider));
+
+    auto root_content = CreatePageContent();
+    root_content->root_node->children_nodes.emplace_back(
+        std::move(form_control_node));
+
+    AIPageContentResult page_content;
+    EXPECT_TRUE(ConvertAIPageContentToProto(root_content, page_content,
+                                            GURL("https://example.com"),
+                                            main_frame_token)
+                    .has_value());
+    return page_content;
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_P(PageContentProtoUtilCreditCardRedactionTest,
+       ConvertFormControlDataWithAutofill_RedactsPaymentFields) {
+  auto form_control_node =
+      CreateContentNode(blink::mojom::AIPageContentAttributeType::kFormControl);
+  form_control_node->content_attributes->form_control_data =
+      blink::mojom::AIPageContentFormControlData::New();
+  form_control_node->content_attributes->form_control_data->form_control_type =
+      blink::mojom::FormControlType::kInputText;
+  form_control_node->content_attributes->form_control_data->field_value =
+      "4111111111111111";
+
+  AIPageContentResult page_content =
+      ConvertFormControlDataWithAutofillRedaction(std::move(form_control_node));
+
+  ASSERT_EQ(page_content.proto.root_node().children_nodes_size(), 1);
+  const auto& form_control_data_proto = page_content.proto.root_node()
+                                            .children_nodes(0)
+                                            .content_attributes()
+                                            .form_control_data();
+  if (ShouldEnableCreditCardRedaction()) {
+    EXPECT_EQ(form_control_data_proto.redaction_decision(),
+              proto::REDACTION_DECISION_REDACTED_IS_SENSITIVE_PAYMENT_FIELD);
+    EXPECT_TRUE(form_control_data_proto.field_value().empty());
+  } else {
+    EXPECT_EQ(form_control_data_proto.redaction_decision(),
+              proto::REDACTION_DECISION_NO_REDACTION_NECESSARY);
+    EXPECT_EQ(form_control_data_proto.field_value(), "4111111111111111");
+  }
+}
+
+TEST_P(PageContentProtoUtilCreditCardRedactionTest,
+       ConvertFormControlDataWithAutofill_DoesNotRedactEmptyPaymentFields) {
+  auto form_control_node =
+      CreateContentNode(blink::mojom::AIPageContentAttributeType::kFormControl);
+  form_control_node->content_attributes->form_control_data =
+      blink::mojom::AIPageContentFormControlData::New();
+  form_control_node->content_attributes->form_control_data->form_control_type =
+      blink::mojom::FormControlType::kInputText;
+  form_control_node->content_attributes->form_control_data->field_value = "";
+
+  AIPageContentResult page_content =
+      ConvertFormControlDataWithAutofillRedaction(std::move(form_control_node));
+
+  ASSERT_EQ(page_content.proto.root_node().children_nodes_size(), 1);
+  const auto& form_control_data_proto = page_content.proto.root_node()
+                                            .children_nodes(0)
+                                            .content_attributes()
+                                            .form_control_data();
+  if (ShouldEnableCreditCardRedaction()) {
+    EXPECT_EQ(form_control_data_proto.redaction_decision(),
+              proto::REDACTION_DECISION_UNREDACTED_EMPTY_PAYMENT_FIELD);
+  } else {
+    EXPECT_EQ(form_control_data_proto.redaction_decision(),
+              proto::REDACTION_DECISION_NO_REDACTION_NECESSARY);
+  }
+  EXPECT_TRUE(form_control_data_proto.field_value().empty());
+}
+
+TEST_P(PageContentProtoUtilCreditCardRedactionTest,
+       ConvertFormControlDataWithAutofill_RedactsChildren) {
+  auto form_control_node =
+      CreateContentNode(blink::mojom::AIPageContentAttributeType::kFormControl);
+  form_control_node->content_attributes->form_control_data =
+      blink::mojom::AIPageContentFormControlData::New();
+  form_control_node->content_attributes->form_control_data->form_control_type =
+      blink::mojom::FormControlType::kInputText;
+  form_control_node->content_attributes->form_control_data->field_value =
+      "some value";
+  form_control_node->content_attributes->dom_node_id = 1;
+  form_control_node->children_nodes.emplace_back(
+      CreateTextNode("child text", blink::mojom::AIPageContentTextSize::kM,
+                     /*has_emphasis=*/false, MakeRgbColor(0, 0, 0)));
+
+  AIPageContentResult page_content =
+      ConvertFormControlDataWithAutofillRedaction(std::move(form_control_node));
+
+  ASSERT_EQ(page_content.proto.root_node().children_nodes_size(), 1);
+  const auto& form_control_node_proto =
+      page_content.proto.root_node().children_nodes(0);
+
+  if (ShouldEnableCreditCardRedaction()) {
+    EXPECT_EQ(form_control_node_proto.children_nodes_size(), 0);
+  } else {
+    EXPECT_EQ(form_control_node_proto.children_nodes_size(), 1);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         PageContentProtoUtilCreditCardRedactionTest,
+                         testing::Bool());
 
 }  // namespace
 }  // namespace optimization_guide

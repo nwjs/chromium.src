@@ -94,7 +94,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="Notifications.Actions" enum="NotificationActionType"
-    expires_after="2026-03-08">
+    expires_after="2026-05-10">
   <owner>dewittj@chromium.org</owner>
   <owner>newcomer@chromium.org</owner>
   <owner>cros-status-area-eng@google.com</owner>
@@ -197,7 +197,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Android.JobNativeStartupDuration{IntentAction}"
-    units="ms" expires_after="2026-03-01">
+    units="ms" expires_after="2026-05-03">
   <owner>peter@chromium.org</owner>
   <owner>engedy@chromium.org</owner>
   <summary>
@@ -246,7 +246,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Android.JobStage{IntentAction}"
-    enum="NotificationJobStage" expires_after="2026-03-08">
+    enum="NotificationJobStage" expires_after="2026-05-10">
   <owner>peter@chromium.org</owner>
   <owner>engedy@chromium.org</owner>
   <summary>
@@ -449,7 +449,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Cros.Actions.{NotificationAction}"
-    enum="NotificationTypeDetailed" expires_after="2025-12-28">
+    enum="NotificationTypeDetailed" expires_after="2026-05-10">
   <owner>newcomer@chromium.org</owner>
   <owner>cros-status-area-eng@google.com</owner>
   <summary>
@@ -722,7 +722,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.NonPersistentNotificationThirdPartyCount"
-    enum="Boolean" expires_after="2026-03-01">
+    enum="Boolean" expires_after="2026-05-03">
   <owner>awillia@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -747,7 +747,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="Notifications.NotificationHelper.NotificationActivatorPrimaryStatus"
     enum="NotificationHelperNotificationActivatorPrimaryStatus"
-    expires_after="2026-03-22">
+    expires_after="2026-05-24">
   <owner>finnur@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -873,7 +873,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.PersistentNotificationDisplayResult"
-    enum="PersistentNotificationDisplayResult" expires_after="2026-02-22">
+    enum="PersistentNotificationDisplayResult" expires_after="2026-04-26">
   <owner>knollr@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -887,7 +887,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.PersistentNotificationThirdPartyCount"
-    enum="Boolean" expires_after="2026-03-01">
+    enum="Boolean" expires_after="2026-05-03">
   <owner>awillia@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -930,13 +930,16 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="Notifications.Scheduler.NotificationLifeCycleEvent{NotificationSchedulerClientType}"
     enum="NotificationSchedulerNotificationLifeCycleEvent"
-    expires_after="2023-03-05">
+    expires_after="2026-03-05">
   <owner>shaktisahu@chromium.org</owner>
   <owner>nyquist@chromium.org</owner>
   <summary>
     Records life cycle events for a scheduled notification, when notification is
     scheduled, shown or encountering any error.
     {NotificationSchedulerClientType}
+
+    This metric was expired between March 2023 and November 2025, so data may be
+    missing.
   </summary>
   <token key="NotificationSchedulerClientType">
     <variant name=""/>
@@ -945,9 +948,72 @@ chromium-metrics-reviews@google.com.
     <variant name=".FeatureGuide" summary="Deprecated"/>
     <variant name=".Prefetch" summary=""/>
     <variant name=".ReadingList" summary=""/>
+    <variant name=".Tips" summary=""/>
     <variant name=".Unknown" summary=""/>
     <variant name=".WebUI" summary=""/>
   </token>
+</histogram>
+
+<histogram
+    name="Notifications.Scheduler.Tips.FeatureTypeAction{NotificationTipsFeatureType}"
+    enum="NotificationSchedulerUserActionType" expires_after="2026-03-05">
+  <owner>wylieb@google.com</owner>
+  <owner>bjfong@google.com</owner>
+  <summary>
+    Records user actions for a shown tips notification, when the notification is
+    clicked through the body or button, or dismissed. This is for Android only.
+    {NotificationTipsFeatureType}
+  </summary>
+  <token key="NotificationTipsFeatureType">
+    <variant name=""/>
+    <variant name=".BottomOmnibox"/>
+    <variant name=".EnhancedBrowsing"/>
+    <variant name=".GoogleLens"/>
+    <variant name=".QuickDelete"/>
+  </token>
+</histogram>
+
+<histogram name="Notifications.Scheduler.Tips.FeatureTypeShown"
+    enum="TipsNotificationsFeatureType" expires_after="2026-03-05">
+  <owner>wylieb@google.com</owner>
+  <owner>bjfong@google.com</owner>
+  <summary>
+    Records the number of shown tips notifications broken down by feature type,
+    recorded just before the notification is expected to be shown. This is for
+    Android only.
+  </summary>
+</histogram>
+
+<histogram
+    name="Notifications.Tips.FeatureTipPromo.EventType{NotificationTipsFeatureType}"
+    enum="NotificationSchedulerUserActionType" expires_after="2026-03-05">
+  <owner>wylieb@google.com</owner>
+  <owner>bjfong@google.com</owner>
+  <summary>
+    Records user actions for a shown feature tip promo, when the promo is shown,
+    interacted with through dismissal, accepted on both the main and detail
+    pages, and backpressed on the detail page. This is for Android only.
+    {NotificationTipsFeatureType}
+  </summary>
+  <token key="NotificationTipsFeatureType">
+    <variant name=""/>
+    <variant name=".BottomOmnibox"/>
+    <variant name=".EnhancedBrowsing"/>
+    <variant name=".GoogleLens"/>
+    <variant name=".QuickDelete"/>
+  </token>
+</histogram>
+
+<histogram name="Notifications.Tips.OptInPromo.EventType"
+    enum="TipsNotificationsOptInPromoEventType" expires_after="2026-03-05">
+  <owner>wylieb@google.com</owner>
+  <owner>bjfong@google.com</owner>
+  <summary>
+    Records the event type for user actions on the Tips Opt In Promo. This is
+    recorded on show, on promo acceptance, and on promo ignore. Ignoring the
+    promo includes dismissal by scrim touch, backpress and swipe away and
+    includes the close button on the promo. This is for Android only.
+  </summary>
 </histogram>
 
 <histogram name="Notifications.UsingSystemNotificationCenter"

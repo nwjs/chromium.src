@@ -364,13 +364,6 @@ void LogPasswordAcceptedSaveUpdateSubmissionIndicatorEvent(
       "PasswordManager.AcceptedSaveUpdateSubmissionIndicatorEvent", event);
 }
 
-void LogDownloadedPasswordsCountFromAccountStoreAfterUnlock(
-    int account_store_passwords_count) {
-  base::UmaHistogramCounts100(
-      "PasswordManager.AccountStoreCredentialsAfterOptIn",
-      account_store_passwords_count);
-}
-
 void LogPasswordSettingsReauthResult(device_reauth::ReauthResult result) {
   base::UmaHistogramEnumeration(
       "PasswordManager.ReauthToAccessPasswordInSettings", result);
@@ -664,6 +657,11 @@ void LogPrimaryPasswordUpdatedWithBackup(ukm::SourceId ukm_source_id) {
       .SetPasswordChangeRecoveryFlow(static_cast<int>(
           PasswordChangeRecoveryFlowState::kPrimaryPasswordUpdated))
       .Record(ukm::UkmRecorder::Get());
+}
+
+void RecordBrowserAssistedLogin(BrowserAssistedLoginType login_type) {
+  base::UmaHistogramEnumeration("PasswordManager.BrowserAssistedLogin.Type",
+                                login_type);
 }
 
 }  // namespace password_manager::metrics_util

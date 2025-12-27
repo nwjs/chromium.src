@@ -218,7 +218,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesSyncTest,
 
   base::HistogramTester histogram_tester;
   ASSERT_TRUE(SetupClients());
-  ASSERT_TRUE(GetClient(0)->AwaitSyncSetupCompletion());
+  ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
 
   // After restart, the last sync cycle snapshot should be empty.
   // Once a sync request happened (e.g. by a poll), that snapshot is populated.
@@ -374,7 +374,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesWithAccountStorageSyncTest,
             "account value");
 
   // Disable syncing preferences.
-  ASSERT_TRUE(GetClient(0)->DisableSyncForType(
+  ASSERT_TRUE(GetClient(0)->DisableSelectableType(
       syncer::UserSelectableType::kPreferences));
   ASSERT_FALSE(
       GetSyncService(0)->GetActiveDataTypes().Has(syncer::PREFERENCES));
@@ -420,7 +420,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesWithAccountStorageSyncTest,
                   .Wait());
 
   // Disable syncing preferences.
-  ASSERT_TRUE(GetClient(0)->DisableSyncForType(
+  ASSERT_TRUE(GetClient(0)->DisableSelectableType(
       syncer::UserSelectableType::kPreferences));
   ASSERT_FALSE(
       GetSyncService(0)->GetActiveDataTypes().Has(syncer::PREFERENCES));
@@ -636,7 +636,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesWithAccountStorageSyncTest,
 
   // Enable history sync.
   ASSERT_TRUE(
-      GetClient(0)->EnableSyncForType(syncer::UserSelectableType::kHistory));
+      GetClient(0)->EnableSelectableType(syncer::UserSelectableType::kHistory));
 
   // Account value is now returned.
   ASSERT_EQ(GetPrefs(0)->GetList(
@@ -644,8 +644,8 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesWithAccountStorageSyncTest,
             account_value);
 
   // Disable history sync.
-  ASSERT_TRUE(
-      GetClient(0)->DisableSyncForType(syncer::UserSelectableType::kHistory));
+  ASSERT_TRUE(GetClient(0)->DisableSelectableType(
+      syncer::UserSelectableType::kHistory));
 
   // Account value is not returned.
   ASSERT_EQ(GetPrefs(0)->GetList(
@@ -730,7 +730,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesWithAccountStorageSyncTest,
 
   // Disable syncing preferences. This should lead to clearing of account prefs
   // file.
-  ASSERT_TRUE(GetClient(0)->DisableSyncForType(
+  ASSERT_TRUE(GetClient(0)->DisableSelectableType(
       syncer::UserSelectableType::kPreferences));
   ASSERT_FALSE(
       GetSyncService(0)->GetActiveDataTypes().Has(syncer::PREFERENCES));
@@ -906,7 +906,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesWithAccountStorageSyncTest,
 
   // Wait for sync to start. This would read sync data but should not result in
   // any changes to effective pref value, and thus not cause any observer calls.
-  ASSERT_TRUE(GetClient(0)->AwaitSyncSetupCompletion());
+  ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
   ASSERT_TRUE(GetSyncService(0)->GetActiveDataTypes().Has(syncer::PREFERENCES));
   ASSERT_TRUE(
       GetPrefs(0)->GetBoolean(sync_preferences::kSyncablePrefForTesting));
@@ -959,7 +959,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesWithAccountStorageMergeSyncTest,
             merged_value);
 
   // Disable syncing preferences.
-  ASSERT_TRUE(GetClient(0)->DisableSyncForType(
+  ASSERT_TRUE(GetClient(0)->DisableSelectableType(
       syncer::UserSelectableType::kPreferences));
   ASSERT_FALSE(
       GetSyncService(0)->GetActiveDataTypes().Has(syncer::PREFERENCES));
@@ -1040,7 +1040,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesWithAccountStorageMergeSyncTest,
                   .Wait());
 
   // Disable syncing preferences.
-  ASSERT_TRUE(GetClient(0)->DisableSyncForType(
+  ASSERT_TRUE(GetClient(0)->DisableSelectableType(
       syncer::UserSelectableType::kPreferences));
   ASSERT_FALSE(
       GetSyncService(0)->GetActiveDataTypes().Has(syncer::PREFERENCES));
@@ -1092,7 +1092,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesWithAccountStorageMergeSyncTest,
             merged_value);
 
   // Disable syncing preferences.
-  ASSERT_TRUE(GetClient(0)->DisableSyncForType(
+  ASSERT_TRUE(GetClient(0)->DisableSelectableType(
       syncer::UserSelectableType::kPreferences));
   ASSERT_FALSE(
       GetSyncService(0)->GetActiveDataTypes().Has(syncer::PREFERENCES));
@@ -1158,7 +1158,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesWithAccountStorageMergeSyncTest,
                   .Wait());
 
   // Disable syncing preferences.
-  ASSERT_TRUE(GetClient(0)->DisableSyncForType(
+  ASSERT_TRUE(GetClient(0)->DisableSelectableType(
       syncer::UserSelectableType::kPreferences));
   ASSERT_FALSE(
       GetSyncService(0)->GetActiveDataTypes().Has(syncer::PREFERENCES));
@@ -1252,7 +1252,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // Disable syncing preferences. This should lead to clearing of account prefs
   // file.
-  ASSERT_TRUE(GetClient(0)->DisableSyncForType(
+  ASSERT_TRUE(GetClient(0)->DisableSelectableType(
       syncer::UserSelectableType::kPreferences));
   ASSERT_FALSE(
       GetSyncService(0)->GetActiveDataTypes().Has(syncer::PREFERENCES));
@@ -1451,7 +1451,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // Disable syncing preferences. This should lead to clearing of account prefs
   // file.
-  ASSERT_TRUE(GetClient(0)->DisableSyncForType(
+  ASSERT_TRUE(GetClient(0)->DisableSelectableType(
       syncer::UserSelectableType::kPreferences));
   ASSERT_FALSE(
       GetSyncService(0)->GetActiveDataTypes().Has(syncer::PREFERENCES));
@@ -2236,7 +2236,7 @@ IN_PROC_BROWSER_TEST_F(
   GetSyncService(0)->ReportDataTypeErrorForTest(syncer::PREFERENCES);
 #if BUILDFLAG(IS_CHROMEOS)
   // Disable sync.
-  ASSERT_TRUE(GetClient(0)->DisableSyncForType(
+  ASSERT_TRUE(GetClient(0)->DisableSelectableType(
       syncer::UserSelectableType::kPreferences));
 #else
   // Sign out. Account value should stay because of the data type error.

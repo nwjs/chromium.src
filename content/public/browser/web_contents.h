@@ -56,7 +56,6 @@
 #include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/platform/inspect/ax_api_type.h"
 #include "ui/color/color_provider_key.h"
-#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/native_ui_types.h"
 #include "url/gurl.h"
@@ -66,8 +65,6 @@
 #include "content/public/browser/android/selection_popup_delegate.h"
 #include "third_party/jni_zero/jni_zero.h"
 #endif
-
-class StorageAccessGrantPermissionContext;
 
 namespace base {
 class FilePath;
@@ -114,6 +111,7 @@ class ColorProviderSource;
 
 namespace gfx {
 class PointF;
+class Rect;
 }  // namespace gfx
 
 namespace content {
@@ -738,6 +736,22 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
 
   // Returns whether this WebContents is loading a resource.
   virtual bool IsLoading() = 0;
+
+  // Returns whether this WebContents is loading a resource but excluding
+  // loadings in ad subframes.
+  //
+  // Note: For top-level navigation, this returns true until the top-level
+  // document, all of its subresources, all subframes, and their subresources
+  // have completed loading.
+  //
+  // In other words, for top-level navigation, even if only ad subframes remain
+  // loading, the main frame is still considered loading by this function.
+  //
+  // This function is useful in determining whether an already loaded page
+  // becomes loading due to ad subframes loading.
+  // TODO(crbug.com/461821799): Expand this to work with top-level navigation
+  // like the scenario described in the note.
+  virtual bool IsLoadingExcludingAdSubframes() const = 0;
 
   // Returns the current load progress.
   virtual double GetLoadProgress() = 0;
@@ -1794,19 +1808,6 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   // `kInvalidNetworkHandle` indicates that the current default network will
   // be bound.
   virtual net::handles::NetworkHandle GetTargetNetwork() = 0;
-
-  // Returns true if `this` is a partitioned popin. If you are calling this to
-  // check if a `RenderFrameHost` should be partitioned due to being in a popin,
-  // check `ShouldPartitionAsPopin` on that host instead.
-  // See https://explainers-by-googlers.github.io/partitioned-popins/
-  virtual bool IsPartitionedPopin() const = 0;
-
-  // Returns the origin of the popin's opener if this is a partitioned popin.
-  // CHECKS if this is not a partitioned popin, as it should never be called
-  // in that case. This is used in permissions checks.
-  // See https://explainers-by-googlers.github.io/partitioned-popins/
-  virtual GURL GetPartitionedPopinEmbedderOrigin(
-      base::PassKey<StorageAccessGrantPermissionContext>) const = 0;
 
   // Returns the window open disposition that was originally requested
   // when this WebContents was created.

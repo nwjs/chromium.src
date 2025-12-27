@@ -27,21 +27,17 @@ namespace blink {
 using mojom::blink::PermissionService;
 
 // static
-const char WakeLock::kSupplementName[] = "WakeLock";
-
-// static
 WakeLock* WakeLock::wakeLock(NavigatorBase& navigator) {
-  WakeLock* supplement = Supplement<NavigatorBase>::From<WakeLock>(navigator);
+  WakeLock* supplement = navigator.GetWakeLock();
   if (!supplement && navigator.GetExecutionContext()) {
     supplement = MakeGarbageCollected<WakeLock>(navigator);
-    ProvideTo(navigator, supplement);
+    navigator.SetWakeLock(supplement);
   }
   return supplement;
 }
 
 WakeLock::WakeLock(NavigatorBase& navigator)
-    : Supplement<NavigatorBase>(navigator),
-      ExecutionContextLifecycleObserver(navigator.GetExecutionContext()),
+    : ExecutionContextLifecycleObserver(navigator.GetExecutionContext()),
       PageVisibilityObserver(navigator.DomWindow()
                                  ? navigator.DomWindow()->GetFrame()->GetPage()
                                  : nullptr),
@@ -220,7 +216,7 @@ void WakeLock::DidReceivePermissionResponse(
   }
   // Steps 8.3.2 to 8.3.5 are described in AcquireWakeLock() and related
   // functions.
-  WakeLockManager* manager = UNSAFE_TODO(managers_[static_cast<size_t>(type)]);
+  WakeLockManager* manager = managers_[static_cast<size_t>(type)];
   DCHECK(manager);
   manager->AcquireWakeLock(resolver);
 }
@@ -265,7 +261,6 @@ void WakeLock::Trace(Visitor* visitor) const {
   for (const Member<WakeLockManager>& manager : managers_)
     visitor->Trace(manager);
   visitor->Trace(permission_service_);
-  Supplement<NavigatorBase>::Trace(visitor);
   PageVisibilityObserver::Trace(visitor);
   ExecutionContextLifecycleObserver::Trace(visitor);
   ScriptWrappable::Trace(visitor);

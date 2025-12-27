@@ -25,8 +25,6 @@ class AutofillClient;
 enum class AutofillAiAction {
   // Add new locally stored AutofillAI data in settings.
   kAddLocalEntityInstanceInSettings,
-  // Add new server stored AutofillAI data in settings.
-  kAddServerEntityInstanceInSettings,
   // Emit AutofillAI-related crowdsourcing votes.
   kCrowdsourcingVote,
   // Edit and delete existing AutofillAI data in settings.
@@ -70,8 +68,8 @@ enum class AutofillAiOptInStatus {
 //   prefs.)
 // - Account state (sign-in status, model execution capabilities).
 // - Whether the `action` can be performed for the `entity_type`.
-//   `entity_type` is only considered to kImportToWallet and must be non-empty
-//   in that case.
+//   `entity_type` is only considered to kFilling, kIphForOptIn, kImport,
+//   kImportToWallet and must be non-empty in these cases.
 // - Miscellaneous state (OTR, locale, GeoIP).
 //
 // See go/forms-ai:permissions for more detail.
@@ -87,7 +85,14 @@ bool MayPerformAutofillAiAction(
 // account.
 [[nodiscard]] bool GetAutofillAiOptInStatus(const AutofillClient& client);
 [[nodiscard]] bool GetAutofillAiOptInStatus(
-    const PrefService* pref_service,
+    const PrefService* prefs,
+    const signin::IdentityManager* identity_manager);
+// Similar to `GetAutofillAiOptInStatus()` but always uses the pref that is
+// currently being deprecated (`prefs::kAutofillAiOptInStatus`). This method
+// should only be used at start-up time to migrate the old pref value to the new
+// one.
+[[nodiscard]] bool GetAutofillAiOptInStatusFromNonSyncingPref(
+    const PrefService* prefs,
     const signin::IdentityManager* identity_manager);
 
 // Sets the AutofillAI opt-in status for the profile and account tied to
@@ -95,6 +100,13 @@ bool MayPerformAutofillAiAction(
 // otherwise.
 bool SetAutofillAiOptInStatus(AutofillClient& client,
                               AutofillAiOptInStatus opt_in_status);
+
+// Returns whether the user has ever explicitly opted in or out of Autofill AI.
+//
+// This is only intended to be used during migration from local to synced prefs.
+[[nodiscard]] bool HasSetLocalAutofillAiOptInStatus(
+    const PrefService* prefs,
+    const signin::IdentityManager* identity_manager);
 
 }  // namespace autofill
 

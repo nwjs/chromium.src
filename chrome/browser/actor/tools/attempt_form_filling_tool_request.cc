@@ -4,8 +4,10 @@
 
 #include "chrome/browser/actor/tools/attempt_form_filling_tool_request.h"
 
+#include <ostream>
 #include <variant>
 
+#include "chrome/browser/actor/tools/attempt_form_filling_tool.h"
 #include "chrome/browser/actor/tools/tool.h"
 #include "chrome/browser/actor/tools/tool_request_visitor_functor.h"
 #include "chrome/common/actor/action_result.h"
@@ -13,29 +15,6 @@
 #include "ui/gfx/geometry/point.h"
 
 namespace actor {
-
-namespace {
-
-// TODO(crbug.com/452065032): Implement the tool and move this logging to the
-// tool. Additionally, use the JournalDetailsBuilder instead of looging strings.
-void LogAttemptFormFillingRequest(
-    base::span<const AttemptFormFillingToolRequest::FormFillingRequest>
-        requests) {
-  VLOG(3) << "Attempting form fill with";
-  for (const auto& request : requests) {
-    VLOG(3) << " Request(" << static_cast<int>(request.requested_data);
-    for (const auto& field : request.trigger_fields) {
-      if (std::holds_alternative<gfx::Point>(field)) {
-        VLOG(3) << ", Point(" << DebugString(field) << ")";
-      } else {
-        VLOG(3) << ", " << DebugString(field);
-      }
-    }
-    VLOG(3) << ")";
-  }
-}
-
-}  // namespace
 
 AttemptFormFillingToolRequest::FormFillingRequest::FormFillingRequest() =
     default;
@@ -74,22 +53,40 @@ ToolRequest::CreateToolResult AttemptFormFillingToolRequest::CreateTool(
                                          "The tab is no longer present.")};
   }
 
-  // TODO(crbug.com/452065032): Implement, then construct the tool here, and
-  // move logging to the Tool::Invoke method.
-  LogAttemptFormFillingRequest(requests_);
-  return {nullptr, MakeErrorResult()};
+  return {std::make_unique<AttemptFormFillingTool>(task_id, tool_delegate, *tab,
+                                                   std::move(requests_)),
+          MakeOkResult()};
 }
 
-std::string AttemptFormFillingToolRequest::Name() const {
-  return "AttemptFormFilling";
+std::string_view AttemptFormFillingToolRequest::Name() const {
+  return kName;
 }
 
 void AttemptFormFillingToolRequest::Apply(ToolRequestVisitorFunctor& f) const {
   f.Apply(*this);
 }
 
-std::string AttemptFormFillingToolRequest::JournalEvent() const {
-  return "Attempt form filling";
+std::ostream& operator<<(
+    std::ostream& out,
+    const AttemptFormFillingToolRequest::FormFillingRequest& request) {
+  out << "Request(" << static_cast<int>(request.requested_data);
+  for (const auto& field : request.trigger_fields) {
+    if (std::holds_alternative<gfx::Point>(field)) {
+      out << ", Point(" << field << ")";
+    } else {
+      out << ", " << field;
+    }
+  }
+  out << ")";
+  return out;
+}
+
+std::ostream& operator<<(
+    std::ostream& out,
+    const std::vector<AttemptFormFillingToolRequest::FormFillingRequest>&
+        requests) {
+  // base::ToString() provides a formatter for base::span()
+  return out << base::ToString(base::span(requests));
 }
 
 }  // namespace actor

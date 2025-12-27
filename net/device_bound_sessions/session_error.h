@@ -56,7 +56,7 @@ struct NET_EXPORT SessionError {
     kBoundCookieSetForbidden = 37,
     kNetError = 38,
     kProxyError = 39,
-    kInvalidConfigJson = 40,
+    // Deprecated: kInvalidConfigJson = 40,
     kEmptySessionConfig = 41,
     kInvalidCredentialsConfig = 42,
     kInvalidCredentialsType = 43,
@@ -94,9 +94,12 @@ struct NET_EXPORT SessionError {
     kScopeRuleOriginScopedHostPatternMismatch = 75,
     kScopeRuleSiteScopedHostPatternMismatch = 76,
     kSigningQuotaExceeded = 77,
-    kMaxValue = kSigningQuotaExceeded,
+    kInvalidConfigJson = 78,
+    kInvalidFederatedSessionProviderFailedToRestoreKey = 79,
+    kFailedToUnwrapKey = 80,
+    kMaxValue = kFailedToUnwrapKey,
   };
-  // LINT.ThenChange(//tools/metrics/histograms/metadata/net/enums.xml:DeviceBoundSessionError)
+  // LINT.ThenChange(//tools/metrics/histograms/enums.xml:DeviceBoundSessionError,//services/network/public/mojom/device_bound_sessions.mojom:DeviceBoundSessionError)
 
   using enum ErrorType;
 

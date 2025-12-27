@@ -26,6 +26,7 @@
 #include "base/time/time.h"
 #include "base/types/expected.h"
 #include "net/base/cache_type.h"
+#include "net/base/features.h"
 #include "net/base/io_buffer.h"
 #include "net/disk_cache/sql/cache_entry_key.h"
 #include "net/disk_cache/sql/eviction_candidate_aggregator.h"
@@ -173,11 +174,12 @@ void SqlPersistentStore::UpdateEntryHeaderAndLastUsed(
     const CacheEntryKey& key,
     ResId res_id,
     base::Time last_used,
+    const std::optional<MemoryEntryDataHints>& new_hints,
     scoped_refptr<net::IOBuffer> buffer,
     int64_t header_size_delta,
     ErrorCallback callback) {
   GetShard(key).UpdateEntryHeaderAndLastUsed(
-      key, res_id, last_used, std::move(buffer), header_size_delta,
+      key, res_id, last_used, new_hints, std::move(buffer), header_size_delta,
       std::move(callback));
 }
 
@@ -390,10 +392,13 @@ int64_t SqlPersistentStore::GetSizeOfAllEntries() const {
 }
 
 bool SqlPersistentStore::MaybeLoadInMemoryIndex(ErrorCallback callback) {
-  if (in_memory_load_trigered_) {
+  if (in_memory_load_triggered_) {
     return false;
   }
-  in_memory_load_trigered_ = true;
+  if (net::features::kSqlDiskCacheLoadIndexOnInit.Get()) {
+    return false;
+  }
+  in_memory_load_triggered_ = true;
   auto barrier_callback = CreateBarrierErrorCallback(std::move(callback));
   for (const auto& backend_shard : backend_shards_) {
     backend_shard->LoadInMemoryIndex(barrier_callback);
@@ -463,6 +468,24 @@ void SqlPersistentStore::RazeAndPoisonForTesting() {
 SqlPersistentStore::IndexState SqlPersistentStore::GetIndexStateForHash(
     CacheEntryKey::Hash key_hash) const {
   return GetShard(key_hash).GetIndexStateForHash(key_hash);
+}
+
+void SqlPersistentStore::SetInMemoryEntryDataHints(CacheEntryKey::Hash key_hash,
+                                                   ResId res_id,
+                                                   MemoryEntryDataHints hints) {
+  return GetShard(key_hash).SetInMemoryEntryDataHints(res_id, hints);
+}
+
+std::optional<MemoryEntryDataHints>
+SqlPersistentStore::GetInMemoryEntryDataHints(
+    CacheEntryKey::Hash key_hash) const {
+  return GetShard(key_hash).GetInMemoryEntryDataHints(key_hash);
+}
+
+std::optional<SqlPersistentStore::ResId>
+SqlPersistentStore::TryGetSingleResIdFromInMemoryIndex(
+    CacheEntryKey::Hash key_hash) const {
+  return GetShard(key_hash).TryGetSingleResIdFromInMemoryIndex(key_hash);
 }
 
 SqlPersistentStore::ShardId SqlPersistentStore::GetShardIdForHash(
@@ -583,5 +606,32 @@ int64_t SqlPersistentStore::StoreStatus::GetEstimatedDiskUsage() const {
   result += total_size;
   return result;
 }
+
+SqlPersistentStore::InMemoryIndexAndDoomedResIds::InMemoryIndexAndDoomedResIds(
+    SqlPersistentStoreInMemoryIndex&& index,
+    std::vector<SqlPersistentStore::ResId> doomed_entry_res_ids)
+    : index(std::move(index)),
+      doomed_entry_res_ids(std::move(doomed_entry_res_ids)) {}
+SqlPersistentStore::InMemoryIndexAndDoomedResIds::
+    ~InMemoryIndexAndDoomedResIds() = default;
+SqlPersistentStore::InMemoryIndexAndDoomedResIds::InMemoryIndexAndDoomedResIds(
+    InMemoryIndexAndDoomedResIds&& other) = default;
+SqlPersistentStore::InMemoryIndexAndDoomedResIds&
+SqlPersistentStore::InMemoryIndexAndDoomedResIds::operator=(
+    InMemoryIndexAndDoomedResIds&& other) = default;
+
+SqlPersistentStore::InitResult::InitResult(
+    std::optional<int64_t> max_bytes,
+    const StoreStatus& store_status,
+    int64_t database_size,
+    std::optional<InMemoryIndexAndDoomedResIds> in_memory_data)
+    : max_bytes(max_bytes),
+      store_status(store_status),
+      database_size(database_size),
+      in_memory_data(std::move(in_memory_data)) {}
+SqlPersistentStore::InitResult::~InitResult() = default;
+SqlPersistentStore::InitResult::InitResult(InitResult&& other) = default;
+SqlPersistentStore::InitResult& SqlPersistentStore::InitResult::operator=(
+    InitResult&& other) = default;
 
 }  // namespace disk_cache

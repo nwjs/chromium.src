@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_context_menu_controller.h"
 
 #include "base/test/scoped_feature_list.h"
+#include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
@@ -38,6 +39,7 @@
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "ui/gfx/native_ui_types.h"
 #include "ui/menus/simple_menu_model.h"
 
 class MockQueryController
@@ -100,13 +102,13 @@ class MockContextualSearchMetricsRecorder
 // Override `OpenFileUploadDialog` to track calls.
 class TestOmniboxPopupFileSelector : public OmniboxPopupFileSelector {
  public:
-  TestOmniboxPopupFileSelector() = default;
+  explicit TestOmniboxPopupFileSelector(gfx::NativeWindow owning_window)
+      : OmniboxPopupFileSelector(owning_window) {}
   ~TestOmniboxPopupFileSelector() override = default;
 
   void OpenFileUploadDialog(
       content::WebContents* web_contents,
       bool is_image,
-      contextual_search::ContextualSearchContextController* query_controller,
       OmniboxEditModel* edit_model,
       std::optional<lens::ImageEncodingOptions> image_encoding_options)
       override {
@@ -225,8 +227,9 @@ IN_PROC_BROWSER_TEST_F(OmniboxContextMenuControllerBrowserTest,
   auto* web_contents = GetWebContents();
   // TODO(crbug.com/458463536): Use proper web contents for the
   // aim popup.
-  auto omnibox_popup_file_selector =
-      std::make_unique<OmniboxPopupFileSelector>();
+  auto owning_window = gfx::NativeWindow();
+  auto omnibox_popup_file_selector = std::make_unique<OmniboxPopupFileSelector>(
+      owning_window);
   OmniboxContextMenuController base_controller(
       omnibox_popup_file_selector.get(), web_contents);
   ui::SimpleMenuModel* model = base_controller.menu_model();
@@ -250,10 +253,18 @@ IN_PROC_BROWSER_TEST_F(OmniboxContextMenuControllerBrowserTest,
   EXPECT_EQ(9u, model->GetItemCount());
 }
 
+// TODO(crbug.com/460910010): Flaky, especially on CrOS ASAN LSAN and Win ASAN.
+#if defined(ADDRESS_SANITIZER) && \
+    ((BUILDFLAG(IS_CHROMEOS) && defined(LEAK_SANITIZER)) || BUILDFLAG(IS_WIN))
+#define MAYBE_ExecuteCommand DISABLED_ExecuteCommand
+#else
+#define MAYBE_ExecuteCommand ExecuteCommand
+#endif
 IN_PROC_BROWSER_TEST_F(OmniboxContextMenuControllerBrowserTest,
-                       ExecuteCommand) {
+                       MAYBE_ExecuteCommand) {
   TestingPrefServiceSimple pref_service;
-  TestOmniboxPopupFileSelector file_selector;
+  auto owning_window = gfx::NativeWindow();
+  TestOmniboxPopupFileSelector file_selector(owning_window);
   OmniboxContextMenuController controller(&file_selector, GetWebContents());
 
   BrowserWindowInterface* browser_window_interface =

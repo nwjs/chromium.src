@@ -424,6 +424,11 @@ public class SelectableListLayout<E> extends FrameLayout
         mIgnoredTypesForEmptyState.add(type);
     }
 
+    /** Hides the loading UI. */
+    public void hideLoadingUi() {
+        mLoadingView.hideLoadingUi();
+    }
+
     /** Called when the view that owns the SelectableListLayout is destroyed. */
     public void onDestroyed() {
         mAdapter.unregisterAdapterDataObserver(mAdapterObserver);
@@ -580,13 +585,13 @@ public class SelectableListLayout<E> extends FrameLayout
             return true;
         }
 
-        if (mToolbar.isSearching()) {
-            if (mToolbar.isLargeScreenWithKeyboard()) {
-                if (mToolbar.hasSearchText()) {
-                    mToolbar.clearSearch();
-                    return true;
-                }
-            } else {
+        if (mToolbar.isLargeScreenWithKeyboard()) {
+            if (mToolbar.hasSearchText()) {
+                mToolbar.clearSearch();
+                return true;
+            }
+        } else {
+            if (mToolbar.isSearching()) {
                 mToolbar.hideSearchView();
                 return true;
             }
@@ -614,14 +619,11 @@ public class SelectableListLayout<E> extends FrameLayout
         }
 
         boolean canHandleSearch = false;
-        if (mToolbar.isSearching()) {
-            if (mToolbar.isLargeScreenWithKeyboard()) {
-                canHandleSearch = mToolbar.hasSearchText();
-            } else {
-                canHandleSearch = true;
-            }
+        if (mToolbar.isLargeScreenWithKeyboard()) {
+            canHandleSearch = mToolbar.hasSearchText();
+        } else if (mToolbar.isSearching()) {
+            canHandleSearch = true;
         }
-
         mBackPressStateSupplier.set(
                 mToolbar.getSelectionDelegate().isSelectionEnabled() || canHandleSearch);
     }

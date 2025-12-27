@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/contextual_panel/entrypoint/coordinator/contextual_panel_entrypoint_mediator.h"
 
+#import "base/functional/callback_helpers.h"
 #import "base/test/metrics/histogram_tester.h"
 #import "components/feature_engagement/public/feature_constants.h"
 #import "components/feature_engagement/public/tracker.h"
@@ -74,10 +75,15 @@
 }
 
 - (void)setInfobarBadgesCurrentlyShown:(BOOL)infobarBadgesCurrentlyShown {
+  // No-op.
 }
 
 - (void)setEntrypointColored:(BOOL)colored {
   self.entrypointIsColored = colored;
+}
+
+- (void)updateAccessibilityStatus {
+  // No-op.
 }
 
 @end

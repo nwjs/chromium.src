@@ -126,7 +126,7 @@ class _VersionTest(unittest.TestCase):
                                   arch='arm64')
     arch_chrome_version_code = output['CHROME_VERSION_CODE']
 
-    self.assertEqual(arch_chrome_version_code, '484400005')
+    self.assertEqual(arch_chrome_version_code, '484400004')
 
   def testGenerateVersionCodesAndroidArchArm64Variants(self):
     """Assert it handles 64-bit-specific additional version codes correctly.
@@ -159,6 +159,8 @@ class _VersionTest(unittest.TestCase):
         'TRICHROME_DESKTOP_64_VERSION_CODE']
     arch_chrome_desktop_version_code = output[
         'CHROME_DESKTOP_VERSION_CODE']
+    arch_chrome_desktop_beta_version_code = output[
+        'CHROME_DESKTOP_BETA_VERSION_CODE']
 
     self.assertEqual(arch_monochrome_32_version_code, '484400020')
     self.assertEqual(arch_monochrome_32_64_version_code, '484400023')
@@ -178,6 +180,7 @@ class _VersionTest(unittest.TestCase):
     self.assertEqual(arch_trichrome_auto_64_32_version_code, '484400054')
     self.assertEqual(arch_trichrome_desktop_64_version_code, '484400065')
     self.assertEqual(arch_chrome_desktop_version_code, '484400075')
+    self.assertEqual(arch_chrome_desktop_beta_version_code, '484400085')
 
   def testGenerateVersionCodesAndroidArchX64(self):
     """Assert it handles different architectures correctly.
@@ -191,7 +194,7 @@ class _VersionTest(unittest.TestCase):
                                   arch='x64')
     arch_chrome_version_code = output['CHROME_VERSION_CODE']
 
-    self.assertEqual(arch_chrome_version_code, '484400008')
+    self.assertEqual(arch_chrome_version_code, '484400007')
 
   def testGenerateVersionCodesAndroidArchX64Variants(self):
     """Assert it handles 64-bit-specific additional version codes correctly.
@@ -461,7 +464,7 @@ class _VersionGroupedTest(unittest.TestCase):
                                   arch='arm64')
     arch_chrome_version_code = output['CHROME_VERSION_CODE']
 
-    self.assertEqual(arch_chrome_version_code, '575000004')
+    self.assertEqual(arch_chrome_version_code, '575000002')
 
   def testGenerateVersionCodesAndroidArchArm64Variants(self):
     """Assert it handles 64-bit-specific additional version codes correctly.
@@ -526,7 +529,7 @@ class _VersionGroupedTest(unittest.TestCase):
                                   arch='x64')
     arch_chrome_version_code = output['CHROME_VERSION_CODE']
 
-    self.assertEqual(arch_chrome_version_code, '575000009')
+    self.assertEqual(arch_chrome_version_code, '575000008')
 
   def testGenerateVersionCodesAndroidArchX64Variants(self):
     """Assert it handles 64-bit-specific additional version codes correctly.

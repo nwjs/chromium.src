@@ -135,6 +135,14 @@ const InterpolationTypes* InterpolationTypesMap::Get(
       case CSSPropertyID::kBorderRightWidth:
       case CSSPropertyID::kBorderTopWidth:
       case CSSPropertyID::kBottom:
+      case CSSPropertyID::kColumnRuleEdgeEndInset:
+      case CSSPropertyID::kRowRuleEdgeEndInset:
+      case CSSPropertyID::kColumnRuleEdgeStartInset:
+      case CSSPropertyID::kRowRuleEdgeStartInset:
+      case CSSPropertyID::kColumnRuleInteriorEndInset:
+      case CSSPropertyID::kRowRuleInteriorEndInset:
+      case CSSPropertyID::kColumnRuleInteriorStartInset:
+      case CSSPropertyID::kRowRuleInteriorStartInset:
       case CSSPropertyID::kCx:
       case CSSPropertyID::kCy:
       case CSSPropertyID::kFlexBasis:
@@ -152,8 +160,6 @@ const InterpolationTypes* InterpolationTypesMap::Get(
       case CSSPropertyID::kOffsetDistance:
       case CSSPropertyID::kOutlineOffset:
       case CSSPropertyID::kOutlineWidth:
-      case CSSPropertyID::kColumnRuleOutset:
-      case CSSPropertyID::kRowRuleOutset:
       case CSSPropertyID::kPaddingBottom:
       case CSSPropertyID::kPaddingLeft:
       case CSSPropertyID::kPaddingRight:

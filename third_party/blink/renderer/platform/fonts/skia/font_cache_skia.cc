@@ -46,6 +46,7 @@
 #include "third_party/blink/renderer/platform/fonts/font_cache.h"
 #include "third_party/blink/renderer/platform/fonts/font_description.h"
 #include "third_party/blink/renderer/platform/fonts/font_face_creation_params.h"
+#include "third_party/blink/renderer/platform/fonts/font_fallback_priority.h"
 #include "third_party/blink/renderer/platform/fonts/font_global_context.h"
 #include "third_party/blink/renderer/platform/fonts/simple_font_data.h"
 #include "third_party/blink/renderer/platform/fonts/skia/sktypeface_factory.h"
@@ -66,24 +67,10 @@ AtomicString ToAtomicString(const SkString& str) {
   return AtomicString::FromUTF8(std::string_view(str.begin(), str.end()));
 }
 
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-// This function is called on android or when we are emulating android fonts on
-// linux and the embedder has overriden the default fontManager with
-// WebFontRendering::setSkiaFontMgr.
-// static
-const FontPlatformData* FontCache::CreateFontPlatformDataForCharacter(
-    SkFontMgr* fm,
-    UChar32 c,
-    const FontDescription& font_description,
-    const char* family_name,
-    FontFallbackPriority fallback_priority) {
-  DCHECK(fm);
-
-  Bcp47Vector locales =
-      GetBcp47LocaleForRequest(font_description, fallback_priority);
-  sk_sp<SkTypeface> typeface(fm->matchFamilyStyleCharacter(
-      family_name, font_description.SkiaFontStyle(), locales.data(),
-      locales.size(), c));
+namespace {
+const FontPlatformData* CreateFontPlatformDataForTypeface(
+    sk_sp<SkTypeface> typeface,
+    const FontDescription& font_description) {
   if (!typeface) {
     return nullptr;
   }
@@ -104,8 +91,28 @@ const FontPlatformData* FontCache::CreateFontPlatformDataForCharacter(
       font_description.TextRendering(), ResolvedFontFeatures(),
       font_description.Orientation());
 }
-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_CHROMEOS)
+}  // namespace
+
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN)
+// static
+const FontPlatformData* FontCache::CreateFontPlatformDataForCharacter(
+    SkFontMgr* fm,
+    UChar32 c,
+    const FontDescription& font_description,
+    const char* family_name,
+    FontFallbackPriority fallback_priority) {
+  DCHECK(fm);
+
+  Bcp47Vector locales =
+      GetBcp47LocaleForRequest(font_description, fallback_priority);
+  sk_sp<SkTypeface> typeface(fm->matchFamilyStyleCharacter(
+      family_name, font_description.SkiaFontStyle(), locales.data(),
+      locales.size(), c));
+
+  return CreateFontPlatformDataForTypeface(std::move(typeface),
+                                           font_description);
+}
+#endif
 
 void FontCache::PlatformInit() {}
 
@@ -219,14 +226,33 @@ const SimpleFontData* FontCache::GetLastResortFallbackFont(
   }
 #endif
 
-  // 0 <= last_resort_fallback_attempt <= 8, so set the max to 9 and put failed
-  // attempts in that bucket.
-  static const int kMaxAttempts = 9;
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN)
+  if (!font_platform_data) {
+    // At least try to match locale.
+    font_platform_data = FontCache::CreateFontPlatformDataForCharacter(
+        skia::DefaultFontMgr().get(), ' ', description, nullptr,
+        FontFallbackPriority::kText);
+    ++last_resort_fallback_attempt;
+  }
+#endif
+
+  if (!font_platform_data) {
+    // Match anything.
+    font_platform_data = CreateFontPlatformDataForTypeface(
+        skia::DefaultFontMgr()->legacyMakeTypeface(nullptr,
+                                                   description.SkiaFontStyle()),
+        description);
+    ++last_resort_fallback_attempt;
+  }
+
+  // 0 <= last_resort_fallback_attempt <= 10 (9 on linux), so set the max to 11
+  // and put failed attempts in that bucket.
+  static const int kMaxAttempts = 11;
   if (!font_platform_data) {
     last_resort_fallback_attempt = kMaxAttempts;
   }
   base::UmaHistogramExactLinear(
-      "Blink.Fonts.LastResortAttemptsUntilStaticMatch",
+      "Blink.Fonts.LastResortAttemptsUntilStaticMatch2",
       last_resort_fallback_attempt, kMaxAttempts);
   base::UmaHistogramBoolean("Blink.Fonts.LastResortFallbackFound",
                             font_platform_data != nullptr);
@@ -265,7 +291,7 @@ sk_sp<SkTypeface> FontCache::CreateTypeface(
       return typeface;
   }
 #endif  // BUILDFLAG(IS_ANDROID)
-  return sk_sp<SkTypeface>(font_manager_->matchFamilyStyle(
+  return sk_sp<SkTypeface>(skia::DefaultFontMgr()->matchFamilyStyle(
       name.empty() ? nullptr : name.c_str(), font_description.SkiaFontStyle()));
 }
 

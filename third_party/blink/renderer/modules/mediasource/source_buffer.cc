@@ -786,19 +786,10 @@ void SourceBuffer::abort(ExceptionState& exception_state) {
   //    InvalidStateError exception and abort these steps.
   if (pending_remove_start_ != -1) {
     DCHECK(updating_);
-    // Throwing the exception and aborting these steps is new behavior that
-    // is implemented behind the MediaSourceNewAbortAndDuration
-    // RuntimeEnabledFeature.
-    if (RuntimeEnabledFeatures::MediaSourceNewAbortAndDurationEnabled()) {
-      MediaSource::LogAndThrowDOMException(
-          exception_state, DOMExceptionCode::kInvalidStateError,
-          "Aborting asynchronous remove() operation is disallowed.");
-      return;
-    }
-
-    Deprecation::CountDeprecation(GetExecutionContext(),
-                                  WebFeature::kMediaSourceAbortRemove);
-    CancelRemove();
+    MediaSource::LogAndThrowDOMException(
+        exception_state, DOMExceptionCode::kInvalidStateError,
+        "Aborting asynchronous remove() operation is disallowed.");
+    return;
   }
 
   // 4. If the sourceBuffer.updating attribute equals true, then run the
@@ -902,9 +893,9 @@ void SourceBuffer::Remove_Locked(
   if (end <= start || std::isnan(end)) {
     MediaSource::LogAndThrowTypeError(
         *exception_state,
-        "The end value provided (" + String::Number(end) +
-            ") must be greater than the start value provided (" +
-            String::Number(start) + ").");
+        StrCat({"The end value provided (", String::Number(end),
+                ") must be greater than the start value provided (",
+                String::Number(start), ")."}));
     return;
   }
 
@@ -1038,7 +1029,8 @@ void SourceBuffer::ChangeType_Locked(
       !web_source_buffer_->CanChangeType(content_type.GetType(), codecs)) {
     MediaSource::LogAndThrowDOMException(
         *exception_state, DOMExceptionCode::kNotSupportedError,
-        "Changing to the type provided ('" + type + "') is not supported.");
+        StrCat({"Changing to the type provided ('", type,
+                "') is not supported."}));
     return;
   }
 
@@ -1096,11 +1088,6 @@ void SourceBuffer::CancelRemove() {
   pending_remove_start_ = -1;
   pending_remove_end_ = -1;
   updating_ = false;
-
-  if (!RuntimeEnabledFeatures::MediaSourceNewAbortAndDurationEnabled()) {
-    ScheduleEvent(event_type_names::kAbort);
-    ScheduleEvent(event_type_names::kUpdateend);
-  }
 
   TRACE_EVENT_END("media", /*SourceBuffer::remove*/
                   perfetto::Track::FromPointer(this));

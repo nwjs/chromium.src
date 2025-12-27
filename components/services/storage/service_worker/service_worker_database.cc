@@ -8,7 +8,6 @@
 
 #include "base/command_line.h"
 #include "base/debug/crash_logging.h"
-#include "base/files/file_util.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
@@ -675,6 +674,11 @@ bool WriteToBlinkCondition(
                 network::mojom::RequestDestination::kWebIdentity;
             break;
           case ServiceWorkerRegistrationData::RouterRules::RuleV1::Condition::
+              Request::kEmailVerificationDestination:
+            request.destination =
+                network::mojom::RequestDestination::kEmailVerification;
+            break;
+          case ServiceWorkerRegistrationData::RouterRules::RuleV1::Condition::
               Request::kDictionaryDestination:
             request.destination =
                 network::mojom::RequestDestination::kDictionary;
@@ -1031,6 +1035,11 @@ void WriteConditionToProtoWithHelper(
           mutable_request->set_destination(
               ServiceWorkerRegistrationData::RouterRules::RuleV1::Condition::
                   Request::kWebIdentityDestination);
+          break;
+        case network::mojom::RequestDestination::kEmailVerification:
+          mutable_request->set_destination(
+              ServiceWorkerRegistrationData::RouterRules::RuleV1::Condition::
+                  Request::kEmailVerificationDestination);
           break;
         case network::mojom::RequestDestination::kDictionary:
           mutable_request->set_destination(

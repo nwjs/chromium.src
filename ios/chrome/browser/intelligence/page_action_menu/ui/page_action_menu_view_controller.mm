@@ -22,7 +22,6 @@
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
-#import "ios/chrome/common/ui/util/button_util.h"
 #import "ios/chrome/common/ui/util/chrome_button.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -35,7 +34,7 @@ const CGFloat kMenuCornerRadiusIOS26 = 28;
 const CGFloat kMenuCornerRadius = 20;
 
 // The spacing between elements in the menu.
-const CGFloat kStackViewMargins = 16;
+const CGFloat kStackViewMargins = 20;
 
 // The padding surrounding the menu's content.
 const CGFloat kMenuSidePadding = 16;
@@ -72,7 +71,7 @@ const CGFloat kReaderModeIconCornerRadius = 6;
 const CGFloat kReaderModeContentStackSpacing = 12;
 
 // The size of the reader mode icon container.
-const CGFloat kReaderModeIconContainerSize = 32;
+const CGFloat kIconContainerSize = 32;
 
 // The horizontal padding for the reader mode content stack.
 const CGFloat kReaderModeContentStackHorizontalPadding = 16;
@@ -83,9 +82,6 @@ const CGFloat kReaderModeContentStackVerticalPadding = 10;
 // The minimum height for feature rows in the Page Action Menu.
 const CGFloat kFeatureRowHeight = 56;
 
-// The size of icons displayed in feature rows.
-const CGFloat kFeatureRowIconSize = 20;
-
 // The spacing between icon and content in feature rows.
 const CGFloat kFeatureRowContentSpacing = 12;
 
@@ -94,9 +90,6 @@ const CGFloat kFeatureRowHorizontalPadding = 16;
 
 // The vertical padding within feature rows.
 const CGFloat kFeatureRowVerticalPadding = 12;
-
-// The animation duration for permissions feature row change.
-const CGFloat kPermissionsFeatureAnimationDuration = 0.3;
 
 // The width for the veritical feature row divider.
 const CGFloat kDividerWidth = 1.0;
@@ -207,19 +200,6 @@ const CGFloat kDividerWidth = 1.0;
   [self updateButton:_BWGButton enabled:[self.mutator isGeminiAvailable]];
 }
 
-- (void)updateFeatureRowsAvailability {
-  CHECK(IsProactiveSuggestionsFrameworkEnabled());
-  [self rebuildFeatureRows];
-
-  // Animate the layout change.
-  [self.view setNeedsLayout];
-  __weak __typeof(self) weakSelf = self;
-  [UIView animateWithDuration:kPermissionsFeatureAnimationDuration
-                   animations:^{
-                     [weakSelf.view layoutIfNeeded];
-                   }];
-}
-
 #pragma mark - Private
 
 // Dismisses the page action menu.
@@ -296,16 +276,9 @@ const CGFloat kDividerWidth = 1.0;
   buttonContentStack.userInteractionEnabled = NO;
 
   // Add leading icon.
-  UIView* leadingIconContainer = [[UIView alloc] init];
-  leadingIconContainer.translatesAutoresizingMaskIntoConstraints = NO;
-  leadingIconContainer.backgroundColor = [UIColor colorNamed:kBlueHaloColor];
-  leadingIconContainer.layer.cornerRadius = kReaderModeIconCornerRadius;
-  UIImageView* leadingIcon = [[UIImageView alloc]
-      initWithImage:DefaultSymbolWithPointSize(GetReaderModeSymbolName(),
-                                               kSmallButtonIconSize)];
-  leadingIcon.translatesAutoresizingMaskIntoConstraints = NO;
-  leadingIcon.tintColor = [UIColor colorNamed:kBlue600Color];
-  [leadingIconContainer addSubview:leadingIcon];
+  UIView* leadingIconContainer = [self
+      createIconWithImage:DefaultSymbolWithPointSize(GetReaderModeSymbolName(),
+                                                     kSmallButtonIconSize)];
   [buttonContentStack addArrangedSubview:leadingIconContainer];
 
   // Add stack with title and subtitle.
@@ -342,8 +315,6 @@ const CGFloat kDividerWidth = 1.0;
   [button addSubview:buttonContentStack];
 
   // Add constraints.
-  AddSquareConstraints(leadingIconContainer, kReaderModeIconContainerSize);
-  AddSameCenterConstraints(leadingIcon, leadingIconContainer);
   AddSameConstraintsWithInsets(
       buttonContentStack, button,
       NSDirectionalEdgeInsetsMake(kReaderModeContentStackVerticalPadding,
@@ -466,7 +437,8 @@ const CGFloat kDividerWidth = 1.0;
 
 // Creates a large button for the BWG entry point.
 - (UIButton*)createBWGButton {
-  ChromeButton* button = PrimaryActionButton();
+  ChromeButton* button =
+      [[ChromeButton alloc] initWithStyle:ChromeButtonStylePrimary];
 
   // Create the background config.
   UIBackgroundConfiguration* backgroundConfig = button.configuration.background;
@@ -766,7 +738,7 @@ const CGFloat kDividerWidth = 1.0;
   for (PageActionMenuFeature* feature in activeFeatures) {
     UIView* featureRow = [self createFeatureRowWithData:feature];
     [_featureRowsStackView addArrangedSubview:featureRow];
-    [_featureRowsStackView setCustomSpacing:kStackViewMargins
+    [_featureRowsStackView setCustomSpacing:kFeatureRowVerticalPadding
                                   afterView:featureRow];
     lastView = featureRow;
   }
@@ -817,13 +789,7 @@ const CGFloat kDividerWidth = 1.0;
       initWithImage:DefaultSymbolWithPointSize(kChevronRightSymbol,
                                                kSmallButtonIconSize)];
   chevronIcon.translatesAutoresizingMaskIntoConstraints = NO;
-  chevronIcon.tintColor = [UIColor colorNamed:kTextSecondaryColor];
-
-  [NSLayoutConstraint activateConstraints:@[
-    [chevronIcon.widthAnchor constraintEqualToConstant:kSmallButtonIconSize],
-    [chevronIcon.heightAnchor constraintEqualToConstant:kSmallButtonIconSize],
-  ]];
-
+  chevronIcon.tintColor = [UIColor colorNamed:kTextQuaternaryColor];
   return chevronIcon;
 }
 
@@ -861,9 +827,7 @@ const CGFloat kDividerWidth = 1.0;
   stackView.translatesAutoresizingMaskIntoConstraints = NO;
   [containerView addSubview:stackView];
 
-  UIImageView* iconView = [[UIImageView alloc] initWithImage:feature.icon];
-  iconView.translatesAutoresizingMaskIntoConstraints = NO;
-  iconView.tintColor = [UIColor colorNamed:kBlue600Color];
+  UIView* iconView = [self createIconWithImage:feature.icon];
   [stackView addArrangedSubview:iconView];
 
   UIStackView* labelsStack = [[UIStackView alloc] init];
@@ -896,6 +860,13 @@ const CGFloat kDividerWidth = 1.0;
       [toggleSwitch addTarget:self
                        action:@selector(handleFeatureToggle:)
              forControlEvents:UIControlEventValueChanged];
+
+      if (feature.featureType == PageActionMenuCameraPermission ||
+          feature.featureType == PageActionMenuMicrophonePermission) {
+        [self updateAccessibilityLabelForSwitch:toggleSwitch
+                                    featureType:feature.featureType];
+      }
+
       [stackView addArrangedSubview:toggleSwitch];
       break;
     }
@@ -913,6 +884,17 @@ const CGFloat kDividerWidth = 1.0;
                          action:@selector(handleFeatureButton:)
                forControlEvents:UIControlEventTouchUpInside];
         [stackView addArrangedSubview:actionButton];
+
+        // Add chevron for price tracking.
+        if (feature.featureType == PageActionMenuPriceTracking) {
+          UIImageView* chevronIcon = [self createNavigationChevron];
+          [stackView addArrangedSubview:chevronIcon];
+          actionButton.accessibilityLabel = l10n_util::GetNSString(
+              IDS_IOS_AI_HUB_OPEN_PRICE_TRACKING_ACCESSIBILITY_LABEL);
+        } else if (feature.featureType == PageActionMenuPopupBlocker) {
+          actionButton.accessibilityLabel = l10n_util::GetNSString(
+              IDS_IOS_AI_HUB_ALWAYS_SHOW_POPUPS_ACCESSIBILITY_LABEL);
+        }
       }
       break;
     }
@@ -921,11 +903,13 @@ const CGFloat kDividerWidth = 1.0;
       break;
   }
 
+  BOOL hasNavigation = (feature.actionType == PageActionMenuSettingsAction ||
+                        feature.featureType == PageActionMenuPriceTracking);
+  CGFloat rowHeight = hasNavigation ? kSmallButtonHeight : kFeatureRowHeight;
+
   [NSLayoutConstraint activateConstraints:@[
-    [iconView.widthAnchor constraintEqualToConstant:kFeatureRowIconSize],
-    [iconView.heightAnchor constraintEqualToConstant:kFeatureRowIconSize],
     [containerView.heightAnchor
-        constraintGreaterThanOrEqualToConstant:kFeatureRowHeight],
+        constraintGreaterThanOrEqualToConstant:rowHeight],
 
     [stackView.leadingAnchor
         constraintEqualToAnchor:containerView.leadingAnchor
@@ -958,7 +942,7 @@ const CGFloat kDividerWidth = 1.0;
       PreferredFontForTextStyle(UIFontTextStyleFootnote, UIFontWeightRegular);
   label.textColor = [UIColor colorNamed:kTextSecondaryColor];
   label.numberOfLines = 0;
-  label.textAlignment = NSTextAlignmentCenter;
+  label.textAlignment = NSTextAlignmentLeft;
   return label;
 }
 
@@ -973,6 +957,26 @@ const CGFloat kDividerWidth = 1.0;
   return NO;
 }
 
+// Updates the accessibility label for a permission toggle switch.
+- (void)updateAccessibilityLabelForSwitch:(UISwitch*)toggleSwitch
+                              featureType:
+                                  (PageActionMenuFeatureType)featureType {
+  if (featureType == PageActionMenuCameraPermission) {
+    toggleSwitch.accessibilityLabel =
+        toggleSwitch.isOn
+            ? l10n_util::GetNSString(
+                  IDS_IOS_AI_HUB_TURN_OFF_CAMERA_ACCESSIBILITY_LABEL)
+            : l10n_util::GetNSString(
+                  IDS_IOS_AI_HUB_TURN_ON_CAMERA_ACCESSIBILITY_LABEL);
+  } else if (featureType == PageActionMenuMicrophonePermission) {
+    toggleSwitch.accessibilityLabel =
+        toggleSwitch.isOn
+            ? l10n_util::GetNSString(
+                  IDS_IOS_AI_HUB_TURN_OFF_MICROPHONE_ACCESSIBILITY_LABEL)
+            : l10n_util::GetNSString(
+                  IDS_IOS_AI_HUB_TURN_ON_MICROPHONE_ACCESSIBILITY_LABEL);
+  }
+}
 
 // Handles toggle switch changes for permission-based features.
 - (void)handleFeatureToggle:(UISwitch*)toggleSwitch {
@@ -980,7 +984,8 @@ const CGFloat kDividerWidth = 1.0;
   PageActionMenuFeatureType featureType =
       (PageActionMenuFeatureType)toggleSwitch.tag;
 
-  [self.mutator revokePermission:featureType];
+  [self.mutator updatePermission:toggleSwitch.isOn forFeature:featureType];
+  [self updateAccessibilityLabelForSwitch:toggleSwitch featureType:featureType];
 }
 
 // Handles button taps for action-based features like translate and popup
@@ -992,14 +997,16 @@ const CGFloat kDividerWidth = 1.0;
   switch (featureType) {
     case PageActionMenuTranslate:
       [self.mutator revertTranslation];
+      [self.pageActionMenuHandler dismissPageActionMenuWithCompletion:nil];
       break;
     case PageActionMenuPopupBlocker:
       [self.mutator allowBlockedPopups];
       break;
     case PageActionMenuPriceTracking: {
-      __weak PageActionMenuViewController* weakSelf = self;
+      // Capture the mutator before dismissal.
+      id<PageActionMenuMutator> mutator = self.mutator;
       [self.pageActionMenuHandler dismissPageActionMenuWithCompletion:^{
-        [weakSelf.mutator openPriceInsightsPanel];
+        [mutator openPriceInsightsPanel];
       }];
       break;
     }
@@ -1035,13 +1042,7 @@ const CGFloat kDividerWidth = 1.0;
   contentStack.spacing = kFeatureRowContentSpacing;
   contentStack.userInteractionEnabled = NO;
 
-  UIImageView* iconView = [[UIImageView alloc] initWithImage:feature.icon];
-  iconView.translatesAutoresizingMaskIntoConstraints = NO;
-  iconView.tintColor = [UIColor colorNamed:kBlue600Color];
-  [NSLayoutConstraint activateConstraints:@[
-    [iconView.widthAnchor constraintEqualToConstant:kFeatureRowIconSize],
-    [iconView.heightAnchor constraintEqualToConstant:kFeatureRowIconSize],
-  ]];
+  UIView* iconView = [self createIconWithImage:feature.icon];
 
   [contentStack addArrangedSubview:iconView];
 
@@ -1143,6 +1144,11 @@ const CGFloat kDividerWidth = 1.0;
                     action:@selector(handleFeatureRowTap:)
           forControlEvents:UIControlEventTouchUpInside];
 
+  if (feature.featureType == PageActionMenuTranslate) {
+    leadingButton.accessibilityLabel = l10n_util::GetNSString(
+        IDS_IOS_AI_HUB_OPEN_TRANSLATE_SETTINGS_ACCESSIBILITY_LABEL);
+  }
+
   UIStackView* buttonContentStack =
       [self createFeatureRowContentStackWithFeature:feature];
   [leadingButton addSubview:buttonContentStack];
@@ -1197,12 +1203,34 @@ const CGFloat kDividerWidth = 1.0;
         constraintEqualToAnchor:containerView.bottomAnchor],
 
     [containerView.heightAnchor
-        constraintGreaterThanOrEqualToConstant:kFeatureRowHeight],
+        constraintGreaterThanOrEqualToConstant:kSmallButtonHeight],
   ]];
 
   UIStackView* labelsStack = buttonContentStack.arrangedSubviews[1];
   [labelsStack setContentHuggingPriority:UILayoutPriorityDefaultLow
                                  forAxis:UILayoutConstraintAxisHorizontal];
+}
+
+// Creates an icon with background container and rounded corners.
+- (UIView*)createIconWithImage:(UIImage*)image {
+  UIView* iconContainer = [[UIView alloc] init];
+  iconContainer.translatesAutoresizingMaskIntoConstraints = NO;
+  iconContainer.backgroundColor = [UIColor colorNamed:kBlueHaloColor];
+  iconContainer.layer.cornerRadius = kReaderModeIconCornerRadius;
+
+  UIImageView* icon = [[UIImageView alloc] initWithImage:image];
+  icon.translatesAutoresizingMaskIntoConstraints = NO;
+  icon.tintColor = [UIColor colorNamed:kBlue600Color];
+  [iconContainer addSubview:icon];
+
+  [NSLayoutConstraint activateConstraints:@[
+    [iconContainer.widthAnchor constraintEqualToConstant:kIconContainerSize],
+    [iconContainer.heightAnchor constraintEqualToConstant:kIconContainerSize],
+    [icon.centerXAnchor constraintEqualToAnchor:iconContainer.centerXAnchor],
+    [icon.centerYAnchor constraintEqualToAnchor:iconContainer.centerYAnchor],
+  ]];
+
+  return iconContainer;
 }
 
 @end

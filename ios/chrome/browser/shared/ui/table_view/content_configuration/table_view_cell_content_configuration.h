@@ -7,23 +7,26 @@
 
 #import <UIKit/UIKit.h>
 
+#import "ios/chrome/browser/shared/ui/table_view/content_configuration/chrome_main_content_configuration.h"
+
 @protocol ChromeContentConfiguration;
 @class TableViewCell;
 @class LegacyTableViewCell;
 
 // Configuration object for a TableView cell.
 // It is using a TableViewCellContentView as content view.
-// +------------------------------------------------------------------+
-// |                     TableViewCellContentView                     |
-// |                                                                  |
-// | +-----------+                                   +-----------+    |
-// | | Leading   |  Title                            | Trailing  |    |
-// | | View      |                    Trailing Label | View      |    |
-// | |(Optional) |  Subtitle                         |(Optional) |    |
-// | +-----------+                                   +-----------+    |
-// |                                                                  |
-// +------------------------------------------------------------------+
-@interface TableViewCellContentConfiguration : NSObject <UIContentConfiguration>
+// +---------------------------------------------------------------+
+// |                     TableViewCellContentView                  |
+// |                                                               |
+// | +-----------+  Title                            +-----------+ |
+// | | Leading   |                                   | Trailing  | |
+// | | View      |  Subtitle          Trailing Label | View      | |
+// | |(Optional) |                                   |(Optional) | |
+// | +-----------+  Second Subtitle                  +-----------+ |
+// |                                                               |
+// +---------------------------------------------------------------+
+@interface TableViewCellContentConfiguration
+    : NSObject <ChromeMainContentConfiguration>
 
 // The updates to properties must be reflected in the copy method.
 // LINT.IfChange(Copy)
@@ -57,6 +60,11 @@
 // Defaults to NSLineBreakByWordWrapping.
 @property(nonatomic, assign) NSLineBreakMode subtitleLineBreakMode;
 
+// A row of text below the subtitle.
+@property(nonatomic, copy) NSString* secondSubtitle;
+// Defaults to 0 (unlimited).
+@property(nonatomic, assign) NSInteger secondSubtitleNumberOfLines;
+
 // The trailing details of the cell. `attributedTrailingText` takes precedence
 // over `trailingText`.
 @property(nonatomic, copy) NSString* trailingText;
@@ -67,6 +75,11 @@
 
 // Custom accessibility label, overriding the default one.
 @property(nonatomic, copy) NSString* customAccessibilityLabel;
+
+// Whether this Content Configuration is displayed besides an accessory view.
+// Used to modifying the trailing constants. Its setter is part of the
+// ChromeMainContentConfiguration protocol.
+@property(nonatomic, assign) BOOL hasAccessoryView;
 
 // LINT.ThenChange(table_view_cell_content_configuration.mm:Copy)
 
@@ -83,6 +96,10 @@
 // table view**.
 + (void)legacyRegisterCellForTableView:(UITableView*)tableView;
 + (LegacyTableViewCell*)legacyDequeueTableViewCell:(UITableView*)tableView;
+
+// Returns the same view as `makeContentView`, but with its accessibility
+// configured.
+- (UIView*)makeAccessibilityConfiguredContentView;
 
 @end
 

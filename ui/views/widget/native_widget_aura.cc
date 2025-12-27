@@ -246,7 +246,10 @@ void NativeWidgetAura::InitNativeWidget(Widget::InitParams params) {
     window_->SetProperty(aura::client::kWindowRoundedCornersKey,
                          params.rounded_corners.value());
   }
+
   window_->SetProperty(aura::client::kShowStateKey, params.show_state);
+  window_->SetProperty(aura::client::kRemoveStandardFrame,
+                       params.remove_standard_frame);
 
   int desk_index;
   // Set workspace property of this window created with a specified workspace
@@ -1255,12 +1258,14 @@ void NativeWidgetAura::OnWindowPropertyChanged(aura::Window* window,
 void NativeWidgetAura::OnResizeLoopStarted(aura::Window* window) {
   if (delegate_) {
     delegate_->OnNativeWidgetBeginUserBoundsChange();
+    delegate_->OnNativeWidgetUserResizeStarted();
   }
 }
 
 void NativeWidgetAura::OnResizeLoopEnded(aura::Window* window) {
   if (delegate_) {
     delegate_->OnNativeWidgetEndUserBoundsChange();
+    delegate_->OnNativeWidgetUserResizeEnded();
   }
 }
 

@@ -35,9 +35,15 @@ class Rect;
 
 namespace autofill {
 
+class AddressDataManager;
 class AutofillDriver;
 class BrowserAutofillManager;
 class CreditCard;
+
+// Retrieves a copy of the profile that the `payload` refers to.
+std::optional<AutofillProfile> GetProfileFromPayload(
+    const AddressDataManager& adm,
+    const Suggestion::AutofillProfilePayload& payload);
 
 // Delegate for in-browser Autocomplete and Autofill display and selection.
 class AutofillExternalDelegate : public AutofillSuggestionDelegate {
@@ -128,6 +134,12 @@ class AutofillExternalDelegate : public AutofillSuggestionDelegate {
   }
 
  private:
+  // Returns the `AutofillProfile` that an address suggestion contains as
+  // payload or `std::nullopt` if the profile cannot be found. Assumes that
+  // `suggestion` has an `AutofillProfilePayload`.
+  std::optional<AutofillProfile> GetProfileFromAddressSuggestion(
+      const Suggestion& suggestion) const;
+
   // Tries to display `suggestions` in the suggestions UI. If `is_update` is
   // true, then `AutofillClient::UpdateAutofillSuggestions` is called, which
   // means that suggestions will only be shown if there is currently suggestion
@@ -168,20 +180,6 @@ class AutofillExternalDelegate : public AutofillSuggestionDelegate {
   // Private handler for DidAcceptSuggestions for payments related suggestions.
   void DidAcceptPaymentsSuggestion(const Suggestion& suggestion,
                                    const SuggestionMetadata& metadata);
-
-  // Creates a specialized version of a single field fill callback that converts
-  // the argument from UTF8 to UTF16 and set `EMAIL_ADDRESS` as the filled type.
-  PlusAddressCallback CreatePlusAddressCallback(SuggestionType suggestion_type);
-
-  // Creates a plus address callback (see `CreatePlusAddressCallback`) which
-  // triggers a plus address was created using the manual fallback.
-  PlusAddressCallback CreateInlinePlusAddressCallback(
-      SuggestionType suggestion_type);
-
-  // Informs the `AutofillPlusAddress` delegate and passes callbacks for
-  // hiding/updating suggestions UI and filling.
-  void DidAcceptCreateNewPlusAddressInlineSuggestion(
-      const Suggestion& suggestion);
 
   // Called when a credit card is scanned using device camera.
   void OnCreditCardScanned(const CreditCard& card);

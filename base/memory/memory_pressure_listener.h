@@ -14,8 +14,6 @@
 #include <variant>
 
 #include "base/base_export.h"
-// TODO(pmonette): Fix IWYU issues, and remove this include.
-#include "base/functional/callback.h"
 #include "base/location.h"
 #include "base/memory/memory_pressure_level.h"
 #include "base/memory/scoped_refptr.h"
@@ -80,7 +78,16 @@ enum class MemoryPressureListenerTag {
   kLruRendererCache = 47,
   kCastMemoryPressureControllerImpl = 48,
   kFontGlobalContext = 49,
-  kMax,
+  kClientDiscardableSharedMemoryManager = 50,
+  kMemoryReclaimerPressureListener = 51,
+  kSkiaGraphicsPressureListener = 52,
+  kBlinkIsolatesPressureListener = 53,
+  kUniqueFontSelector = 54,
+  kParkableStringManager = 55,
+  kPlainTextPainter = 56,
+  kMemoryCache = 57,
+  kResource = 58,
+  kResourceFetcher = 59,
 };
 
 // To start listening, derive from MemoryPressureListener, and use

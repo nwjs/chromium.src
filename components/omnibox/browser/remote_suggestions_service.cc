@@ -11,8 +11,10 @@
 #include <utility>
 
 #include "base/functional/bind.h"
+#include "base/i18n/char_iterator.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "components/lens/lens_features.h"
@@ -35,6 +37,27 @@
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 
 namespace {
+
+// Maximum length of page title sent to Suggest via `pageTitle` CGI param,
+// expressed as number of Unicode characters (codepoints).
+const size_t kMaxPageTitleLength = 128;
+
+// TODO(crbug.com/842922363): Combine with the similar function in
+// zero_suggest_provider.cc.
+std::u16string TruncateUTF16(const std::u16string& input, size_t max_length) {
+  if (input.empty()) {
+    return u"";
+  }
+
+  size_t num_chars = 0;
+  base::i18n::UTF16CharIterator it(input);
+  while (!it.end() && (num_chars < max_length)) {
+    it.Advance();
+    num_chars++;
+  }
+
+  return input.substr(0, it.array_pos());
+}
 
 std::string RequestTypeToString(RemoteRequestType request_type) {
   switch (request_type) {
@@ -182,6 +205,21 @@ GURL AddLensOverlaySuggestInputsDataToEndpointUrl(
     send_vit = true;
     modified_url =
         net::AppendOrReplaceQueryParameter(modified_url, "gs_ps", "1");
+
+    if (lens_overlay_suggest_inputs->send_page_title_and_url()) {
+      if (lens_overlay_suggest_inputs->has_page_title()) {
+        std::u16string title_16 =
+            base::UTF8ToUTF16(lens_overlay_suggest_inputs->page_title());
+        std::u16string truncated_16 =
+            TruncateUTF16(title_16, kMaxPageTitleLength);
+        modified_url = net::AppendOrReplaceQueryParameter(
+            modified_url, "pageTitle", base::UTF16ToUTF8(truncated_16));
+      }
+      if (lens_overlay_suggest_inputs->has_page_url()) {
+        modified_url = net::AppendOrReplaceQueryParameter(
+            modified_url, "url", lens_overlay_suggest_inputs->page_url());
+      }
+    }
   } else if (search_terms_args.page_classification ==
                  metrics::OmniboxEventProto::LENS_SIDE_PANEL_SEARCHBOX ||
              search_terms_args.page_classification ==
@@ -318,6 +356,10 @@ GURL RemoteSuggestionsService::EndpointUrl(
     }
     case metrics::OmniboxEventProto::NTP_REALBOX:
     case metrics::OmniboxEventProto::NTP_COMPOSEBOX:
+    case metrics::OmniboxEventProto::CO_BROWSING_COMPOSEBOX:
+    case metrics::OmniboxEventProto::NTP_OMNIBOX_COMPOSEBOX:
+    case metrics::OmniboxEventProto::SRP_OMNIBOX_COMPOSEBOX:
+    case metrics::OmniboxEventProto::OTHER_OMNIBOX_COMPOSEBOX:
       if (search_terms_args.lens_overlay_suggest_inputs.has_value()) {
         url = net::AppendOrReplaceQueryParameter(url, "client",
                                                  "chrome-contextual");
@@ -725,7 +767,7 @@ void RemoteSuggestionsService::OnRequestCompleted(
     metrics::OmniboxEventProto::PageClassification page_classification,
     CompletionCallback completion_callback,
     const network::SimpleURLLoader* source,
-    std::unique_ptr<std::string> response_body) {
+    std::optional<std::string> response_body) {
   const int response_code =
       source->ResponseInfo() && source->ResponseInfo()->headers
           ? source->ResponseInfo()->headers->response_code()
@@ -733,7 +775,7 @@ void RemoteSuggestionsService::OnRequestCompleted(
 
   // Notify the observers that the transfer is done.
   observers_.Notify(&Observer::OnRequestCompleted, request_id, response_code,
-                    response_body);
+                    base::optional_ref(response_body));
   LogResponseCode(request_type, response_code, page_classification);
   LogResponseTimeAndCode(page_classification, request_type,
                          request_timer.Elapsed(), response_code);
@@ -757,14 +799,14 @@ void RemoteSuggestionsService::OnIndexedRequestCompleted(
     IndexedCompletionCallback completion_callback,
     const network::SimpleURLLoader* source,
     int request_index,
-    std::unique_ptr<std::string> response_body) {
+    std::optional<std::string> response_body) {
   const int response_code =
       source->ResponseInfo() && source->ResponseInfo()->headers
           ? source->ResponseInfo()->headers->response_code()
           : 0;
   // Notify the observers that the transfer is done.
   observers_.Notify(&Observer::OnRequestCompleted, request_id, response_code,
-                    response_body);
+                    base::optional_ref(response_body));
   LogResponseCode(request_type, response_code, page_classification);
   LogResponseTimeAndCode(page_classification, request_type,
                          base::TimeTicks::Now() - start_time, response_code);

@@ -9,7 +9,6 @@
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
-#include "base/files/file_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/path_service.h"
@@ -200,7 +199,7 @@ class ComponentCloudPolicyTest : public extensions::ExtensionBrowserTest {
     // the account id to the UserCloudPolicyValidator.
     signin::SetPrimaryAccount(
         IdentityManagerFactory::GetForProfile(browser()->profile()),
-        PolicyBuilder::kFakeUsername, signin::ConsentLevel::kSync);
+        PolicyBuilder::kFakeUsername, signin::ConsentLevel::kSignin);
 
     UserCloudPolicyManager* policy_manager =
         browser()->profile()->GetUserCloudPolicyManager();

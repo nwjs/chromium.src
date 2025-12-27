@@ -5,6 +5,8 @@
 #include "chrome/browser/ui/views/side_panel/glic/glic_side_panel_coordinator.h"
 
 #include "base/functional/callback.h"
+#include "base/strings/stringprintf.h"
+#include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
@@ -17,15 +19,18 @@
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry_scope.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_web_ui_view.h"
+#include "chrome/common/chrome_features.h"
 #include "components/tabs/public/tab_interface.h"
 #include "glic_side_panel_coordinator.h"
 #include "ui/actions/actions.h"
+#include "ui/compositor/layer.h"
 #include "ui/views/layout/fill_layout.h"
 
 namespace glic {
@@ -45,15 +50,21 @@ GlicSidePanelCoordinator::GlicSidePanelCoordinator(
   if (glic_service->enabling().IsAllowed()) {
     CreateAndRegisterEntry();
   }
-  tab_deactivated_subscription_ =
-      tab_->RegisterWillDeactivate(base::BindRepeating(
-          &GlicSidePanelCoordinator::OnTabDeactivated, base::Unretained(this)));
 }
 
 GlicSidePanelCoordinator::~GlicSidePanelCoordinator() {
   if (entry_) {
     entry_->RemoveObserver(this);
   }
+}
+
+// static
+GlicSidePanelCoordinator* GlicSidePanelCoordinator::GetForTab(
+    tabs::TabInterface* tab) {
+  if (!tab || !tab->GetTabFeatures()) {
+    return nullptr;
+  }
+  return tab->GetTabFeatures()->glic_side_panel_coordinator();
 }
 
 void GlicSidePanelCoordinator::CreateAndRegisterEntry() {
@@ -63,6 +74,9 @@ void GlicSidePanelCoordinator::CreateAndRegisterEntry() {
   }
 
   auto entry = std::make_unique<SidePanelEntry>(
+      base::FeatureList::IsEnabled(features::kGlicUseToolbarHeightSidePanel)
+          ? SidePanelEntry::PanelType::kToolbar
+          : SidePanelEntry::PanelType::kContent,
       SidePanelEntry::Key(SidePanelEntry::Id::kGlic),
       base::BindRepeating(&GlicSidePanelCoordinator::CreateView,
                           base::Unretained(this)),
@@ -113,13 +127,23 @@ void GlicSidePanelCoordinator::OnEntryWillHide(
     SidePanelEntry* entry,
     SidePanelEntryHideReason reason) {
   CHECK_EQ(entry->key().id(), SidePanelEntry::Id::kGlic);
-  state_ = State::kClosed;
-  NotifyStateChanged();
+  pending_hide_reason_ = reason;
 }
 
 void GlicSidePanelCoordinator::OnEntryHideCancelled(SidePanelEntry* entry) {
   CHECK_EQ(entry->key().id(), SidePanelEntry::Id::kGlic);
-  state_ = State::kShown;
+  pending_hide_reason_.reset();
+}
+
+void GlicSidePanelCoordinator::OnEntryHidden(SidePanelEntry* entry) {
+  CHECK_EQ(entry->key().id(), SidePanelEntry::Id::kGlic);
+  CHECK(pending_hide_reason_.has_value());
+  if (pending_hide_reason_ == SidePanelEntryHideReason::kBackgrounded) {
+    state_ = State::kBackgrounded;
+  } else {
+    state_ = State::kClosed;
+  }
+
   NotifyStateChanged();
 }
 
@@ -127,13 +151,6 @@ void GlicSidePanelCoordinator::OnEntryShown(SidePanelEntry* entry) {
   CHECK_EQ(entry->key().id(), SidePanelEntry::Id::kGlic);
   state_ = State::kShown;
   NotifyStateChanged();
-}
-
-void GlicSidePanelCoordinator::OnTabDeactivated(tabs::TabInterface* tab) {
-  if (IsShowing()) {
-    state_ = State::kHidden;
-    NotifyStateChanged();
-  }
 }
 
 void GlicSidePanelCoordinator::OnGlicEnabledChanged() {
@@ -154,6 +171,10 @@ std::unique_ptr<views::View> GlicSidePanelCoordinator::CreateView(
   // Provide the side panel with an empty container View so that different
   // `GlicUiEmbedder`s can update its contents as needed.
   auto glic_container = std::make_unique<views::View>();
+  if (base::FeatureList::IsEnabled(features::kGlicUseToolbarHeightSidePanel)) {
+    glic_container->SetPaintToLayer();
+    glic_container->layer()->SetFillsBoundsOpaquely(false);
+  }
   glic_container->SetLayoutManager(std::make_unique<views::FillLayout>());
   glic_container_tracker_.SetView(glic_container.get());
 

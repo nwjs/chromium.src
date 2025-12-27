@@ -9,6 +9,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/time/time.h"
 #include "extensions/buildflags/buildflags.h"
 
 namespace chrome::android {
@@ -42,9 +43,12 @@ BASE_DECLARE_FEATURE(kAndroidDesktopDensity);
 BASE_DECLARE_FEATURE(kAndroidElegantTextHeight);
 BASE_DECLARE_FEATURE(kAndroidFirstRunLaunchBounds);
 BASE_DECLARE_FEATURE(kAndroidLogoViewRefactor);
+BASE_DECLARE_FEATURE(kAndroidNewMediaPicker);
 BASE_DECLARE_FEATURE(kAndroidNoVisibleHintForDifferentTLD);
 BASE_DECLARE_FEATURE(kAndroidOmniboxFocusedNewTabPage);
 BASE_DECLARE_FEATURE(kAndroidOpenPdfInlineBackport);
+BASE_DECLARE_FEATURE(kAndroidPbDisablePulseAnimation);
+BASE_DECLARE_FEATURE(kAndroidPbDisableSmoothAnimation);
 BASE_DECLARE_FEATURE(kAndroidPdfAssistContent);
 BASE_DECLARE_FEATURE(kAndroidPinnedTabs);
 BASE_DECLARE_FEATURE(kAndroidPinnedTabsTabletTabStrip);
@@ -55,8 +59,6 @@ BASE_DECLARE_FEATURE(kAndroidShowRestoreTabsPromoOnFREBypassedKillSwitch);
 BASE_DECLARE_FEATURE(kAndroidSurfaceColorUpdate);
 BASE_DECLARE_FEATURE(kAndroidTabDeclutterArchiveAllButActiveTab);
 BASE_DECLARE_FEATURE(kAndroidTabDeclutterArchiveTabGroups);
-BASE_DECLARE_FEATURE(kAndroidTabDeclutterAutoDelete);
-BASE_DECLARE_FEATURE(kAndroidTabDeclutterAutoDeleteKillSwitch);
 BASE_DECLARE_FEATURE(kAndroidTabDeclutterDedupeTabIdsKillSwitch);
 BASE_DECLARE_FEATURE(kAndroidTabDeclutterPerformanceImprovements);
 BASE_DECLARE_FEATURE(kAndroidTabDeclutterRescueKillswitch);
@@ -67,11 +69,11 @@ BASE_DECLARE_FEATURE(kAndroidThemeModule);
 BASE_DECLARE_FEATURE(kAndroidThemeResourceProvider);
 BASE_DECLARE_FEATURE(kAndroidToolbarScrollAblation);
 BASE_DECLARE_FEATURE(kAndroidUseAdminsForEnterpriseInfo);
+BASE_DECLARE_FEATURE(kAndroidWindowPopupCustomTabUi);
 BASE_DECLARE_FEATURE(kAndroidWindowPopupLargeScreen);
 BASE_DECLARE_FEATURE(kAndroidWindowPopupPredictFinalBounds);
 BASE_DECLARE_FEATURE(kAndroidWindowPopupResizeAfterSpawn);
 BASE_DECLARE_FEATURE(kAndroidXRUsesSurfaceControl);
-BASE_DECLARE_FEATURE(kAndroidZoomIndicator);
 BASE_DECLARE_FEATURE(kAnimatedGifRefactor);
 BASE_DECLARE_FEATURE(kAnimatedImageDragShadow);
 BASE_DECLARE_FEATURE(kAnnotatedPageContentsVirtualStructure);
@@ -106,6 +108,7 @@ BASE_DECLARE_FEATURE(kCCTGoogleBottomBarVariantLayouts);
 BASE_DECLARE_FEATURE(kCCTIncognitoAvailableToThirdParty);
 BASE_DECLARE_FEATURE(kCCTMinimized);
 BASE_DECLARE_FEATURE(kCCTMinimizedEnabledByDefault);
+BASE_DECLARE_FEATURE(kCCTMultipleParallelRequests);
 BASE_DECLARE_FEATURE(kCCTNavigationMetrics);
 BASE_DECLARE_FEATURE(kCCTNavigationalPrefetch);
 BASE_DECLARE_FEATURE(kCCTNestedSecurityIcon);
@@ -133,9 +136,8 @@ BASE_DECLARE_FEATURE(kChromeSurveyNextAndroid);
 BASE_DECLARE_FEATURE(kClampAutomotiveScaling);
 BASE_DECLARE_FEATURE(kClankStartupLatencyInjection);
 BASE_DECLARE_FEATURE(kClankWhatsNew);
-BASE_DECLARE_FEATURE(kCleanupLegacyTabState);
-BASE_DECLARE_FEATURE(kClearBrowsingDataAndroidSurvey);
 BASE_DECLARE_FEATURE(kClearInstanceInfoWhenClosedIntentionally);
+BASE_DECLARE_FEATURE(kClearIntentWhenRecreated);
 BASE_DECLARE_FEATURE(kCommandLineOnNonRooted);
 BASE_DECLARE_FEATURE(kContextMenuTranslateWithGoogleLens);
 BASE_DECLARE_FEATURE(kContextualSearchDisableOnlineDetection);
@@ -181,8 +183,8 @@ BASE_DECLARE_FEATURE(kIncognitoThemeOverlayTesting);
 BASE_DECLARE_FEATURE(kInstanceSwitcherV2);
 BASE_DECLARE_FEATURE(kKeyboardEscBackNavigation);
 BASE_DECLARE_FEATURE(kLanguagesPreference);
-BASE_DECLARE_FEATURE(kLegacyTabStateDeprecation);
 BASE_DECLARE_FEATURE(kLensOnQuickActionSearchWidget);
+BASE_DECLARE_FEATURE(kLinkHoverStatusBar);
 BASE_DECLARE_FEATURE(kLoadAllTabsAtStartup);
 BASE_DECLARE_FEATURE(kLoadNativeEarly);
 BASE_DECLARE_FEATURE(kLocationBarModelOptimizations);
@@ -206,7 +208,6 @@ BASE_DECLARE_FEATURE(kNotificationPermissionBottomSheet);
 BASE_DECLARE_FEATURE(kNotificationPermissionVariant);
 BASE_DECLARE_FEATURE(kNotificationTrampoline);
 BASE_DECLARE_FEATURE(kOmahaMinSdkVersionAndroid);
-BASE_DECLARE_FEATURE(kOmniboxAutofocusOnIncognitoNtp);
 BASE_DECLARE_FEATURE(kOptimizeGeolocationHeaderGeneration);
 BASE_DECLARE_FEATURE(kPCCTMinimumHeight);
 BASE_DECLARE_FEATURE(kPageAnnotationsService);
@@ -219,7 +220,6 @@ BASE_DECLARE_FEATURE(kProcessRankPolicyAndroid);
 BASE_DECLARE_FEATURE(kProtectedTabsAndroid);
 BASE_DECLARE_FEATURE(kPwaRestoreUi);
 BASE_DECLARE_FEATURE(kPwaRestoreUiAtStartup);
-BASE_DECLARE_FEATURE(kQuickDeleteAndroidSurvey);
 BASE_DECLARE_FEATURE(kReadAloud);
 BASE_DECLARE_FEATURE(kReadAloudAudioOverviews);
 BASE_DECLARE_FEATURE(kReadAloudAudioOverviewsFeedback);
@@ -231,6 +231,7 @@ BASE_DECLARE_FEATURE(kReadAloudInOverflowMenuInCCT);
 BASE_DECLARE_FEATURE(kReadAloudPlayback);
 BASE_DECLARE_FEATURE(kReadAloudServerExperiments);
 BASE_DECLARE_FEATURE(kReadAloudTapToSeek);
+BASE_DECLARE_FEATURE(kRecentlyClosedTabsAndWindows);
 BASE_DECLARE_FEATURE(kRecordSuppressionMetrics);
 BASE_DECLARE_FEATURE(kReengagementNotification);
 BASE_DECLARE_FEATURE(kRelatedSearchesAllLanguage);
@@ -272,7 +273,6 @@ BASE_DECLARE_FEATURE(kTabStripAutoSelectOnCloseChange);
 BASE_DECLARE_FEATURE(kTabStripDensityChangeAndroid);
 BASE_DECLARE_FEATURE(kTabStripGroupDragDropAndroid);
 BASE_DECLARE_FEATURE(kTabStripIncognitoMigration);
-BASE_DECLARE_FEATURE(kTabStripLayoutOptimization);
 BASE_DECLARE_FEATURE(kTabStripMouseCloseResizeDelay);
 BASE_DECLARE_FEATURE(kTabSwitcherDragDropAndroid);
 BASE_DECLARE_FEATURE(kTabSwitcherGroupSuggestionsAndroid);
@@ -298,33 +298,41 @@ BASE_DECLARE_FEATURE(kUseActivityManagerForTabActivation);
 BASE_DECLARE_FEATURE(kUseInitialNetworkStateAtStartup);
 BASE_DECLARE_FEATURE(kUseLibunwindstackNativeUnwinderAndroid);
 BASE_DECLARE_FEATURE(kWebOtpCrossDeviceSimpleString);
+BASE_DECLARE_FEATURE(kXplatSyncedSetup);
 // go/keep-sorted end
 // BASE_DECLARE_FEATURE_END
 
 // clang-format on
 
 // For FeatureParam, Alphabetical:
-constexpr base::FeatureParam<int> kAppIntegrationMaxDonationCountParam(
+inline constexpr base::FeatureParam<int> kAppIntegrationMaxDonationCountParam(
     &kAndroidAppIntegrationMultiDataSource,
     "max_donation_count",
     100);
 
-constexpr base::FeatureParam<int> kAppIntegrationCCTVisitDurationLimitSecParam(
-    &kAndroidAppIntegrationMultiDataSource,
-    "cct_visit_duration_limit_sec",
-    3);
+inline constexpr base::FeatureParam<int>
+    kAppIntegrationCCTVisitDurationLimitSecParam(
+        &kAndroidAppIntegrationMultiDataSource,
+        "cct_visit_duration_limit_sec",
+        3);
 
-constexpr base::FeatureParam<int> kAuxiliarySearchMaxBookmarksCountParam(
+inline constexpr base::FeatureParam<int>
+    kAuxiliarySearchHistoryDonationDelayInSeconds{
+        &kAuxiliarySearchHistoryDonation,
+        /*name=*/"auxiliary_search_history_donation_delay",
+        /*default_value=*/base::Minutes(5).InSeconds()};
+
+inline constexpr base::FeatureParam<int> kAuxiliarySearchMaxBookmarksCountParam(
     &kAuxiliarySearchDonation,
     "auxiliary_search_max_donation_bookmark",
     100);
 
-constexpr base::FeatureParam<size_t> kAuxiliarySearchMaxTabsCountParam(
+inline constexpr base::FeatureParam<size_t> kAuxiliarySearchMaxTabsCountParam(
     &kAuxiliarySearchDonation,
     "auxiliary_search_max_donation_tab",
     100);
 
-constexpr base::FeatureParam<bool> kCCTNavigationalPrefetchHoldback(
+inline constexpr base::FeatureParam<bool> kCCTNavigationalPrefetchHoldback(
     &kCCTNavigationalPrefetch,
     "holdback",
     false);
@@ -332,43 +340,39 @@ constexpr base::FeatureParam<bool> kCCTNavigationalPrefetchHoldback(
 // If it does not support PERCEPTIBLE importance (e.g. Android Q- does not
 // support not-perceptible binding), protected tabs have MODERATE importance as
 // fallback.
-constexpr base::FeatureParam<bool> kFallbackToModerateParam(
+inline constexpr base::FeatureParam<bool> kFallbackToModerateParam(
     &kProtectedTabsAndroid,
     "fallback_to_moderate",
     /*default_value=*/false);
 
-constexpr base::FeatureParam<int>
+inline constexpr base::FeatureParam<int>
     kReadAloudAudioOverviewsSpeedAdditionPercentage(
         &kReadAloudAudioOverviews,
         "read_aloud_audio_overviews_speed_addition_percentage",
         /* default_value=*/20);
 
-constexpr base::FeatureParam<bool> kShouldConsiderLanguageInOverviewReadability(
-    &kReadAloudAudioOverviews,
-    "read_aloud_audio_overviews_should_consider_language_in_overview_"
-    "readability",
-    /* default_value=*/false);
+inline constexpr base::FeatureParam<bool>
+    kShouldConsiderLanguageInOverviewReadability(
+        &kReadAloudAudioOverviews,
+        "read_aloud_audio_overviews_should_consider_language_in_overview_"
+        "readability",
+        /* default_value=*/false);
 
-constexpr base::FeatureParam<int>
+inline constexpr base::FeatureParam<int>
     kReadAloudAudioReadabilityDelayMsAfterPageLoad(
         &kReadAloud,
         "read_aloud_readability_delay_ms_after_page_load",
-        /* default_value=*/3000);
+        /* default_value=*/1500);
 
-constexpr base::FeatureParam<std::string> kQuickDeleteAndroidSurveyTriggerId(
-    &kQuickDeleteAndroidSurvey,
-    "trigger_id",
-    /*default_value=*/"");
-
-constexpr base::FeatureParam<bool> kTouchToSearchCalloutIph(
+inline constexpr base::FeatureParam<bool> kTouchToSearchCalloutIph(
     &kTouchToSearchCallout,
     "iph",
     /*default_value=*/false);
 
-constexpr base::FeatureParam<bool> kTouchToSearchCalloutSnippetAsSubtitle(
-    &kTouchToSearchCallout,
-    "snippet_as_subtitle",
-    /*default_value=*/false);
+inline constexpr base::FeatureParam<bool>
+    kTouchToSearchCalloutSnippetAsSubtitle(&kTouchToSearchCallout,
+                                           "snippet_as_subtitle",
+                                           /*default_value=*/false);
 
 }  // namespace chrome::android
 

@@ -50,8 +50,8 @@
 #include "chrome/browser/ui/views/frame/tab_strip_view_interface.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/views/tabs/glic_button.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_action_container.h"
 #include "chrome/browser/ui/views/tabs/window_finder.h"
@@ -61,6 +61,7 @@
 #include "components/tabs/public/tab_interface.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "content/public/browser/web_contents.h"
+#include "third_party/skia/include/core/SkRegion.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/display/display.h"
@@ -248,7 +249,8 @@ void GlicWindowControllerImpl::OnWidgetUserResizeEnded() {
     client->ManualResizeChanged(false);
   }
 
-  if (GetGlicView()) {
+  if (GetGlicView() &&
+      !base::FeatureList::IsEnabled(features::kGlicWindowDragRegions)) {
     GetGlicView()->UpdatePrimaryDraggableAreaOnResize();
   }
 
@@ -534,7 +536,8 @@ void GlicWindowControllerImpl::AfterViewShown() {
     // This indicates that we've warmed the web client and it has hit a login
     // page. See LoginPageCommitted.
     GlicLoadedAndReadyToDisplay();
-  } else if (IsDetached()) {
+  } else if (IsDetached() && !base::FeatureList::IsEnabled(
+                                 features::kGlicHandleDraggingNatively)) {
     // This adds dragging functionality to special case panels (e.g. error,
     // offline, loading).
     window_event_observer_->SetDraggingAreasAndWatchForMouseEvents();
@@ -742,7 +745,10 @@ void GlicWindowControllerImpl::GlicLoadedAndReadyToDisplay() {
   // TODO(crbug.com/390637019): Fully fix and remove this comment.
   GetGlicView()->GetWebContents()->Focus();
 
-  window_event_observer_->SetDraggingAreasAndWatchForMouseEvents();
+  if (!base::FeatureList::IsEnabled(features::kGlicHandleDraggingNatively)) {
+    window_event_observer_->SetDraggingAreasAndWatchForMouseEvents();
+  }
+
   NotifyIfPanelStateChanged();
 }
 
@@ -808,7 +814,10 @@ void GlicWindowControllerImpl::Detach() {
 
   // Open the panel detached.
   SetupAndShowGlicWidget(current_browser);
-  window_event_observer_->SetDraggingAreasAndWatchForMouseEvents();
+  if (!base::FeatureList::IsEnabled(features::kGlicHandleDraggingNatively)) {
+    window_event_observer_->SetDraggingAreasAndWatchForMouseEvents();
+  }
+
   SetWindowState(State::kOpen);
   NotifyIfPanelStateChanged();
 }
@@ -832,9 +841,7 @@ void GlicWindowControllerImpl::AttachToBrowserAndShow(
     AttachChangeReason reason) {
   AttachToBrowser(browser, reason);
   SetWindowState(GlicWindowController::State::kWaitingForSidePanelToShow);
-
-  auto* side_panel_coordinator = browser.GetFeatures().side_panel_coordinator();
-  side_panel_coordinator->Show(SidePanelEntry::Id::kGlic);
+  browser.GetFeatures().side_panel_ui()->Show(SidePanelEntry::Id::kGlic);
 }
 
 void GlicWindowControllerImpl::SidePanelShown(BrowserWindowInterface* browser) {
@@ -977,6 +984,11 @@ bool GlicWindowControllerImpl::ActivateBrowser() {
   return false;
 }
 
+void GlicWindowControllerImpl::CloseInstanceWithFrame(
+    content::RenderFrameHost* render_frame_host) {
+  NOTREACHED();
+}
+
 void GlicWindowControllerImpl::Close() {
   if (state_ == State::kClosed || state_ == State::kDetaching) {
     return;
@@ -1012,6 +1024,11 @@ void GlicWindowControllerImpl::Close() {
   }
 }
 
+void GlicWindowControllerImpl::CloseAndShutdownInstanceWithFrame(
+    content::RenderFrameHost* render_frame_host) {
+  NOTREACHED();
+}
+
 void GlicWindowControllerImpl::ClosePanel() {
   Close();
   if (screenshot_capturer_) {
@@ -1036,7 +1053,8 @@ void GlicWindowControllerImpl::ResetAndHidePanel() {
     if (glic_view_) {
       glic_view_->SetWebContents(nullptr);
     }
-    attached_browser_->GetFeatures().side_panel_coordinator()->Close(
+
+    attached_browser_->GetFeatures().side_panel_ui()->Close(
         SidePanelEntry::PanelType::kContent);
   }
 
@@ -1209,6 +1227,13 @@ void GlicWindowControllerImpl::RemoveGlobalStateObserver(
   RemoveStateObserver(observer);
 }
 
+void GlicWindowControllerImpl::SetDraggableRegion(
+    const SkRegion& draggable_region) {
+  if (auto* glic_view = GetGlicView(); glic_view) {
+    glic_view->SetDraggableRegion(draggable_region);
+  }
+}
+
 void GlicWindowControllerImpl::NotifyIfPanelStateChanged() {
   auto new_state = ComputePanelState();
   if (new_state != panel_state_) {
@@ -1299,7 +1324,9 @@ void GlicWindowControllerImpl::Preload() {
 
 void GlicWindowControllerImpl::Reload(
     content::RenderFrameHost* render_frame_host) {
-  host().Reload(render_frame_host);
+  if (host().IsWebContentPresentAndMatches(render_frame_host)) {
+    host().Reload();
+  }
 }
 
 bool GlicWindowControllerImpl::IsWarmed() const {
@@ -1343,6 +1370,14 @@ void GlicWindowControllerImpl::MaybeAdjustSizeForDisplay(bool animate) {
         target_size, animate ? kAnimationDuration : base::Milliseconds(0),
         base::DoNothing());
   }
+}
+
+std::optional<std::string> GlicWindowControllerImpl::conversation_id() const {
+  return std::nullopt;
+}
+
+base::TimeTicks GlicWindowControllerImpl::GetLastActiveTime() const {
+  return base::TimeTicks();
 }
 
 base::CallbackListSubscription GlicWindowControllerImpl::RegisterStateChange(

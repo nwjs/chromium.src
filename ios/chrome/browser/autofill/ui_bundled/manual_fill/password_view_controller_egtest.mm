@@ -282,6 +282,8 @@ void CheckKeyboardIsUpAndNotCovered() {
   chrome_test_util::GREYAssertErrorNil(
       [MetricsAppInterface setupHistogramTester]);
   [MetricsAppInterface overrideMetricsAndCrashReportingForTesting];
+  chrome_test_util::GREYAssertErrorNil(
+      [MetricsAppInterface setupUserActionTester]);
 }
 
 - (void)tearDownHelper {
@@ -290,6 +292,8 @@ void CheckKeyboardIsUpAndNotCovered() {
 
   // Clean up histogram tester.
   [MetricsAppInterface stopOverridingMetricsAndCrashReportingForTesting];
+  chrome_test_util::GREYAssertErrorNil(
+      [MetricsAppInterface releaseUserActionTester]);
   chrome_test_util::GREYAssertErrorNil(
       [MetricsAppInterface releaseHistogramTester]);
   [super tearDownHelper];
@@ -304,7 +308,7 @@ void CheckKeyboardIsUpAndNotCovered() {
         password_manager::features::kIOSFillRecoveryPassword);
   }
 
-  // The proactive password suggestion bottom sheet isn't tested here, it
+  // The proactive password generation bottom sheet isn't tested here, it
   // is tested in its own suite in password_suggestion_egtest.mm.
   config.features_disabled.push_back(
       password_manager::features::kIOSProactivePasswordGenerationBottomSheet);
@@ -791,8 +795,8 @@ void CheckKeyboardIsUpAndNotCovered() {
   // Open the password manual fill view.
   OpenPasswordManualFillView(/*has_suggestions=*/false);
 
-  [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationLandscapeLeft
-                                error:nil];
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationLandscapeLeft
+                                   error:nil];
 
   // Verify the password controller table view is still visible.
   [[EarlGrey selectElementWithMatcher:manual_fill::PasswordTableViewMatcher()]
@@ -929,6 +933,20 @@ void CheckKeyboardIsUpAndNotCovered() {
       [NSString stringWithFormat:@"document.getElementById('%s').value !== ''",
                                  kFormElementPassword];
   [ChromeEarlGrey waitForJavaScriptCondition:javaScriptCondition];
+
+  // Verify actions.
+  GREYAssertNil(
+      [MetricsAppInterface
+            expectCount:1
+          forUserAction:@"IOS.PasswordManager.PasswordGenerationSheet."
+                        @"Present"],
+      @"Incorrect user action count for Present");
+  GREYAssertNil(
+      [MetricsAppInterface
+            expectCount:1
+          forUserAction:@"IOS.PasswordManager.PasswordGenerationSheet."
+                        @"Accept"],
+      @"Incorrect user action count for Accept");
 }
 
 // Tests password generation on manual fallback not showing for signed in users
@@ -979,6 +997,11 @@ void CheckKeyboardIsUpAndNotCovered() {
   DISABLED_testPasswordGenerationFallbackSignedInEncryptionError
 #endif
 - (void)MAYBE_testPasswordGenerationFallbackSignedInEncryptionError {
+  // TODO(crbug.com/455768802): Re-enable the test.
+  if (@available(iOS 26.1, *)) {
+    EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.1.");
+  }
+
   // Encrypt synced data with a passphrase to enable passphrase encryption for
   // the signed in account.
   [ChromeEarlGrey addSyncPassphrase:kPassphrase];

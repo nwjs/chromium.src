@@ -279,7 +279,6 @@ std::unique_ptr<network::ResourceRequest> CreateResourceRequest(
   new_request->is_outermost_main_frame = request_info.is_outermost_main_frame;
   new_request->request_initiator = request_info.common_params->initiator_origin;
   new_request->headers.AddHeadersFromString(request_info.begin_params->headers);
-  new_request->cors_exempt_headers = request_info.cors_exempt_headers;
   new_request->devtools_accepted_stream_types =
       request_info.devtools_accepted_stream_types;
   // For ResourceType purposes, fenced frames are considered a kSubFrame.
@@ -1510,10 +1509,8 @@ void NavigationURLLoaderImpl::OnReceiveResponse(
   if (!head->intercepted_by_plugin && !must_download && !known_mime_type) {
     // No plugin throttles intercepted the response. Ask if the plugin
     // registered to PluginService wants to handle the request.
-    CheckPluginAndContinueOnReceiveResponse(
-        std::move(head), std::move(url_loader_client_endpoints),
-        /*is_download_if_not_handled_by_plugin=*/true,
-        std::vector<WebPluginInfo>());
+    CheckPluginAndCallOnReceiveResponse(std::move(head),
+                                        std::move(url_loader_client_endpoints));
     return;
   }
 #endif
@@ -1527,28 +1524,15 @@ void NavigationURLLoaderImpl::OnReceiveResponse(
 }
 
 #if BUILDFLAG(ENABLE_PLUGINS)
-void NavigationURLLoaderImpl::CheckPluginAndContinueOnReceiveResponse(
+void NavigationURLLoaderImpl::CheckPluginAndCallOnReceiveResponse(
     network::mojom::URLResponseHeadPtr head,
-    network::mojom::URLLoaderClientEndpointsPtr url_loader_client_endpoints,
-    bool is_download_if_not_handled_by_plugin,
-    const std::vector<WebPluginInfo>& plugins) {
-  bool stale;
-  WebPluginInfo plugin;
-  bool has_plugin = PluginService::GetInstance()->GetPluginInfo(
-      browser_context_, resource_request_->url, head->mime_type,
-      /*allow_wildcard=*/false, &stale, &plugin, nullptr);
+    network::mojom::URLLoaderClientEndpointsPtr url_loader_client_endpoints) {
+  // Refresh the plugins.
+  PluginService::GetInstance()->GetPlugins();
+  bool has_plugin = PluginService::GetInstance()->HasPlugin(
+      browser_context_, resource_request_->url, head->mime_type);
 
-  if (stale) {
-    // Refresh the plugins asynchronously.
-    PluginService::GetInstance()->GetPlugins(base::BindOnce(
-        &NavigationURLLoaderImpl::CheckPluginAndContinueOnReceiveResponse,
-        weak_factory_.GetWeakPtr(), std::move(head),
-        std::move(url_loader_client_endpoints),
-        is_download_if_not_handled_by_plugin));
-    return;
-  }
-
-  bool is_download = !has_plugin && is_download_if_not_handled_by_plugin;
+  bool is_download = !has_plugin;
   CallOnReceivedResponse(std::move(head),
                          std::move(url_loader_client_endpoints), is_download);
 }
@@ -1715,9 +1699,16 @@ enum class OnAcceptCHFrameReceivedReturnLocation {
 // LINT.ThenChange(//tools/metrics/histograms/metadata/navigation/enums.xml:OnAcceptCHFrameReceivedReturnLocation)
 
 void RecordOnAcceptCHFrameReceivedReturnLocation(
-    OnAcceptCHFrameReceivedReturnLocation location) {
+    OnAcceptCHFrameReceivedReturnLocation location,
+    bool is_off_the_record) {
   base::UmaHistogramEnumeration(
       "Navigation.URLLoader.OnAcceptCHFrameReceived.ReturnLocation", location);
+  if (is_off_the_record) {
+    base::UmaHistogramEnumeration(
+        "Navigation.URLLoader.OnAcceptCHFrameReceived.ReturnLocation."
+        "OffTheRecord",
+        location);
+  }
 }
 
 void RecordCriticalHintsMissingStatus(CriticalHintsMissingStatus status) {
@@ -1739,10 +1730,11 @@ void NavigationURLLoaderImpl::OnAcceptCHFrameReceived(
       base::ScopedUmaHistogramTimer::ScopedHistogramTiming::kMicrosecondTimes);
   TRACE_EVENT("navigation", "NavigationURLLoaderImpl::OnAcceptCHFrameReceived");
   received_accept_ch_frame_ = true;
+  const bool is_off_the_record = browser_context_->IsOffTheRecord();
   if (!base::FeatureList::IsEnabled(network::features::kAcceptCHFrame)) {
     std::move(callback).Run(net::OK);
     RecordOnAcceptCHFrameReceivedReturnLocation(
-        OnAcceptCHFrameReceivedReturnLocation::kNotEnabled);
+        OnAcceptCHFrameReceivedReturnLocation::kNotEnabled, is_off_the_record);
     return;
   }
 
@@ -1768,7 +1760,8 @@ void NavigationURLLoaderImpl::OnAcceptCHFrameReceived(
   if (!client_hint_delegate) {
     std::move(callback).Run(net::OK);
     RecordOnAcceptCHFrameReceivedReturnLocation(
-        OnAcceptCHFrameReceivedReturnLocation::kNoClientHintDelegate);
+        OnAcceptCHFrameReceivedReturnLocation::kNoClientHintDelegate,
+        is_off_the_record);
     return;
   }
 
@@ -1800,7 +1793,8 @@ void NavigationURLLoaderImpl::OnAcceptCHFrameReceived(
     // hints are not missing, meaning either all critical hints were already
     // present, or some were not allowed by the permissions policy.
     RecordOnAcceptCHFrameReceivedReturnLocation(
-        OnAcceptCHFrameReceivedReturnLocation::kNoCriticalHintsMissing);
+        OnAcceptCHFrameReceivedReturnLocation::kNoCriticalHintsMissing,
+        is_off_the_record);
     return;
   }
 
@@ -1833,7 +1827,7 @@ void NavigationURLLoaderImpl::OnAcceptCHFrameReceived(
   if (!restart) {
     std::move(callback).Run(net::OK);
     RecordOnAcceptCHFrameReceivedReturnLocation(
-        OnAcceptCHFrameReceivedReturnLocation::kNoRestart);
+        OnAcceptCHFrameReceivedReturnLocation::kNoRestart, is_off_the_record);
     return;
   }
 
@@ -1846,7 +1840,8 @@ void NavigationURLLoaderImpl::OnAcceptCHFrameReceived(
         net::ERR_TOO_MANY_ACCEPT_CH_RESTARTS));
     std::move(callback).Run(net::ERR_TOO_MANY_ACCEPT_CH_RESTARTS);
     RecordOnAcceptCHFrameReceivedReturnLocation(
-        OnAcceptCHFrameReceivedReturnLocation::kTooManyRestart);
+        OnAcceptCHFrameReceivedReturnLocation::kTooManyRestart,
+        is_off_the_record);
     return;
   }
 
@@ -1858,13 +1853,15 @@ void NavigationURLLoaderImpl::OnAcceptCHFrameReceived(
     OnComplete(network::URLLoaderCompletionStatus(net::ERR_ABORTED));
     std::move(callback).Run(net::ERR_ABORTED);
     RecordOnAcceptCHFrameReceivedReturnLocation(
-        OnAcceptCHFrameReceivedReturnLocation::kDuringExclusiveTask);
+        OnAcceptCHFrameReceivedReturnLocation::kDuringExclusiveTask,
+        is_off_the_record);
     return;
   }
 
   std::move(callback).Run(net::ERR_ABORTED);
   RecordOnAcceptCHFrameReceivedReturnLocation(
-      OnAcceptCHFrameReceivedReturnLocation::kSendingErrorAborted);
+      OnAcceptCHFrameReceivedReturnLocation::kSendingErrorAborted,
+      is_off_the_record);
 
   // If the request is restarted, all of the client hints should be replaced
   // the "original"/non-edited values.

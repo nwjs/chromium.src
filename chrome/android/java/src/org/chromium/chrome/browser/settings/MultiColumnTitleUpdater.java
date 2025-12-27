@@ -4,13 +4,16 @@
 
 package org.chromium.chrome.browser.settings;
 
+import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+
 import android.content.Context;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 
+import androidx.appcompat.widget.AppCompatTextView;
 import androidx.fragment.app.FragmentManager;
 
 import org.chromium.base.Callback;
@@ -18,6 +21,7 @@ import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.ui.base.LocalizationUtils;
 
 /**
@@ -27,8 +31,15 @@ import org.chromium.ui.base.LocalizationUtils;
 @NullMarked
 class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
 
+    private static final LinearLayout.LayoutParams LAYOUT_CENTER_VERTICAL;
+
+    static {
+        LAYOUT_CENTER_VERTICAL = new LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
+        LAYOUT_CENTER_VERTICAL.gravity = Gravity.CENTER_VERTICAL;
+    }
+
     /** Displays one component of the detailed pane fragment stack. */
-    private static class DetailedTitle extends TextView {
+    private static class DetailedTitle extends AppCompatTextView {
         private final Callback<String> mSetter =
                 (title) -> {
                     if (title == null) {
@@ -71,6 +82,22 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
     /** Delegates the title settings to the callback. */
     private final Callback<String> mMainTitleSetter;
 
+    /** Callback invoked when a title text is tapped. */
+    private final Callback<@Nullable String> mTitleTapCallback;
+
+    private boolean mMainMenuShown;
+
+    /**
+     * The index of the first title to show. Used to skip displaying the titles preceding {@code
+     * Search results} when search is going on.
+     *
+     * <p>Example: if search starts with the title text {@code Payment methods > Payment apps >
+     * Search results}, |mFirstVisibleTitleIndex| is set to 2 so that the displayed text will be
+     * just {@code Search results > ..} from that point on. Once search is over, the variable is set
+     * back to 0 and the displayed text becomes {@code Payment method > Payment apps} again.
+     */
+    private int mFirstVisibleTitleIndex;
+
     /**
      * Keeps tracking the current main page title supplier. Null if not tracking, e.g. in two pane
      * mode.
@@ -81,17 +108,30 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
             MultiColumnSettings multiColumnSettings,
             Context context,
             LinearLayout container,
-            Callback<String> mainTitleSetter) {
+            Callback<String> mainTitleSetter,
+            Callback<@Nullable String> titleTapCallback) {
         mMultiColumnSettings = multiColumnSettings;
         mContext = context;
         mContainer = container;
         mMainTitleSetter = mainTitleSetter;
+        mTitleTapCallback = titleTapCallback;
     }
 
     @Override
     public void onTitleUpdated() {
         updateMainTitle();
         updateDetailedPageTitle();
+    }
+
+    @Override
+    public void onSlideStateUpdated(int newState) {
+        boolean prevMainMenuShown = mMainMenuShown;
+        mMainMenuShown =
+                newState == MultiColumnSettings.SlideState.CLOSING
+                        || newState == MultiColumnSettings.SlideState.CLOSED;
+        if (prevMainMenuShown != mMainMenuShown) {
+            updateMainTitle();
+        }
     }
 
     private void updateMainTitle() {
@@ -101,7 +141,7 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
         }
 
         var titles = mMultiColumnSettings.getTitles();
-        if (mMultiColumnSettings.isTwoPane() || titles.isEmpty()) {
+        if (mMultiColumnSettings.isTwoColumn() || titles.isEmpty() || mMainMenuShown) {
             // In the two pane mode, the main title is always "Settings".
             mMainTitleSetter.onResult(mContext.getString(R.string.settings));
             mCurrentPageTitle = null;
@@ -110,6 +150,11 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
             mCurrentPageTitle = titles.get(titles.size() - 1).titleSupplier;
             mCurrentPageTitle.addSyncObserverAndCallIfNonNull(mMainTitleSetter);
         }
+    }
+
+    /** Set the index of the first title to show. Non-zero when search is on. */
+    public void setFirstVisibleTitleIndex(int i) {
+        mFirstVisibleTitleIndex = i;
     }
 
     private void updateDetailedPageTitle() {
@@ -129,18 +174,24 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
 
         float scaleX = LocalizationUtils.isLayoutRtl() ? -1f : 1f;
         var titles = mMultiColumnSettings.getTitles();
+
         for (int i = 0; i < titles.size(); ++i) {
-            if (i != 0) {
+            if (i < mFirstVisibleTitleIndex) continue;
+
+            if (i != mFirstVisibleTitleIndex) {
                 // '>' separator.
                 var view = new ImageView(mContext);
                 view.setPadding(paddingPx, 0, paddingPx, 0);
                 view.setImageResource(R.drawable.chevron_right);
                 view.setScaleX(scaleX);
+                view.setLayoutParams(LAYOUT_CENTER_VERTICAL);
                 mContainer.addView(view);
             }
             var view = new DetailedTitle(mContext);
             var title = titles.get(i);
             view.setSupplier(title.titleSupplier);
+            view.setGravity(Gravity.CENTER_VERTICAL);
+            view.setLayoutParams(LAYOUT_CENTER_VERTICAL);
 
             final int backStackCount = title.backStackCount;
             view.setOnClickListener(
@@ -160,6 +211,7 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
                                     .popBackStack(
                                             entry.getId(),
                                             FragmentManager.POP_BACK_STACK_INCLUSIVE);
+                            mTitleTapCallback.onResult(entry.getName());
                         }
                     });
             mContainer.addView(view);
@@ -170,7 +222,7 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
     public void onHeaderLayoutUpdated() {
         updateMainTitle();
 
-        if (!mMultiColumnSettings.isTwoPane()) {
+        if (!mMultiColumnSettings.isTwoColumn()) {
             // In the single pane mode, do not show the detailed title.
             mContainer.setVisibility(View.GONE);
             return;
@@ -179,7 +231,13 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
         // Enable detailed page title.
         mContainer.setVisibility(View.VISIBLE);
 
-        // Set left margin to align with the detailed pane.
+        maybeUpdateStartMargin();
+    }
+
+    // Set left margin to align with the detailed pane when displayed in the toolbar.
+    private void maybeUpdateStartMargin() {
+        if (ChromeFeatureList.sSearchInSettings.isEnabled()) return;
+
         View view = mMultiColumnSettings.getHeaderView();
         int headerViewWidth = view.getLayoutParams().width;
         int dividerWidth =
@@ -188,8 +246,7 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
         int contentOffset =
                 view.getResources().getDimensionPixelSize(R.dimen.settings_detailed_title_offset);
 
-        ViewGroup.MarginLayoutParams params =
-                (ViewGroup.MarginLayoutParams) mContainer.getLayoutParams();
+        var params = (ViewGroup.MarginLayoutParams) mContainer.getLayoutParams();
         params.setMarginStart(headerViewWidth + dividerWidth + contentOffset);
         mContainer.setLayoutParams(params);
         mContainer.invalidate();

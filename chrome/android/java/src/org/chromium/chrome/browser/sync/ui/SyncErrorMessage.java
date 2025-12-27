@@ -19,7 +19,6 @@ import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.UnownedUserData;
 import org.chromium.base.UnownedUserDataHost;
 import org.chromium.base.UnownedUserDataKey;
 import org.chromium.base.metrics.RecordHistogram;
@@ -47,8 +46,8 @@ import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.sync.SyncService;
-import org.chromium.components.sync.TrustedVaultUserActionTriggerForUMA;
 import org.chromium.components.sync.UserActionableError;
+import org.chromium.components.trusted_vault.TrustedVaultUserActionTriggerForUMA;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -60,7 +59,7 @@ import org.chromium.ui.modelutil.PropertyModel;
  * in the whole application will exist at a time.
  */
 @NullMarked
-public class SyncErrorMessage implements SyncService.SyncStateChangedListener, UnownedUserData {
+public class SyncErrorMessage implements SyncService.SyncStateChangedListener {
     // Note: Not all SyncErrors have a corresponding SyncErrorMessage, see getError().
     private final @UserActionableError int mError;
     private final Activity mActivity;
@@ -72,7 +71,7 @@ public class SyncErrorMessage implements SyncService.SyncStateChangedListener, U
     private static @Nullable MessageDispatcher sMessageDispatcherForTesting;
 
     private static final UnownedUserDataKey<SyncErrorMessage> SYNC_ERROR_MESSAGE_KEY =
-            new UnownedUserDataKey<>(SyncErrorMessage.class);
+            new UnownedUserDataKey<>();
     private static final String PASSWORDS_SYNC_ERROR_MESSAGE_VERSION_PARAM_NAME = "version";
     private static final String TAG = "SyncErrorMessage";
 
@@ -200,6 +199,9 @@ public class SyncErrorMessage implements SyncService.SyncStateChangedListener, U
             case UserActionableError.TRUSTED_VAULT_RECOVERABILITY_DEGRADED_FOR_PASSWORDS:
                 openTrustedVaultRecoverabilityDegradedActivity();
                 break;
+            case UserActionableError.BOOKMARKS_LIMIT_EXCEEDED:
+                openBookmarkLimitHelpPage();
+                break;
         }
 
         recordHistogram(ErrorUiAction.BUTTON_CLICKED);
@@ -247,6 +249,8 @@ public class SyncErrorMessage implements SyncService.SyncStateChangedListener, U
                 case UserActionableError.TRUSTED_VAULT_RECOVERABILITY_DEGRADED_FOR_EVERYTHING:
                 case UserActionableError.TRUSTED_VAULT_RECOVERABILITY_DEGRADED_FOR_PASSWORDS:
                     return context.getString(R.string.trusted_vault_error_card_button);
+                case UserActionableError.BOOKMARKS_LIMIT_EXCEEDED:
+                    return context.getString(R.string.learn_more);
                 default:
                     return context.getString(R.string.open_settings_button);
             }
@@ -267,6 +271,8 @@ public class SyncErrorMessage implements SyncService.SyncStateChangedListener, U
             case UserActionableError.TRUSTED_VAULT_RECOVERABILITY_DEGRADED_FOR_EVERYTHING:
             case UserActionableError.TRUSTED_VAULT_RECOVERABILITY_DEGRADED_FOR_PASSWORDS:
                 return context.getString(R.string.identity_error_message_button_verify);
+            case UserActionableError.BOOKMARKS_LIMIT_EXCEEDED:
+                return context.getString(R.string.learn_more);
             case UserActionableError.NEEDS_SETTINGS_CONFIRMATION:
             case UserActionableError.UNRECOVERABLE_ERROR:
             default:
@@ -318,6 +324,8 @@ public class SyncErrorMessage implements SyncService.SyncStateChangedListener, U
             case UserActionableError.TRUSTED_VAULT_RECOVERABILITY_DEGRADED_FOR_PASSWORDS:
                 // Reuse the same string as that for the identity error card button.
                 return context.getString(R.string.identity_error_card_button_verify);
+            case UserActionableError.BOOKMARKS_LIMIT_EXCEEDED:
+                return context.getString(R.string.bookmark_sync_limit_error_title);
             case UserActionableError.NEEDS_SETTINGS_CONFIRMATION:
             case UserActionableError.UNRECOVERABLE_ERROR:
             default:
@@ -360,6 +368,8 @@ public class SyncErrorMessage implements SyncService.SyncStateChangedListener, U
             case UserActionableError.SIGN_IN_NEEDS_UPDATE:
             case UserActionableError.NEEDS_TRUSTED_VAULT_KEY_FOR_EVERYTHING:
                 return context.getString(R.string.identity_error_message_body);
+            case UserActionableError.BOOKMARKS_LIMIT_EXCEEDED:
+                return context.getString(R.string.bookmark_sync_limit_error_description);
             case UserActionableError.NEEDS_SETTINGS_CONFIRMATION:
             case UserActionableError.UNRECOVERABLE_ERROR:
             default:
@@ -381,6 +391,10 @@ public class SyncErrorMessage implements SyncService.SyncStateChangedListener, U
                 ChromeFeatureList.SYNC_ENABLE_PASSWORDS_SYNC_ERROR_MESSAGE_ALTERNATIVE,
                 PASSWORDS_SYNC_ERROR_MESSAGE_VERSION_PARAM_NAME,
                 /* defaultValue= */ 0);
+    }
+
+    private void openBookmarkLimitHelpPage() {
+        SyncSettingsUtils.openBookmarkLimitHelpPage(mActivity, mSyncService);
     }
 
     private void openTrustedVaultKeyRetrievalActivity() {

@@ -9,6 +9,7 @@
 
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/logging.h"
 #include "base/path_service.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
@@ -33,6 +34,7 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/test/base/save_desktop_snapshot.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/signin/public/identity_manager/test_accounts.h"
 #include "components/sync/base/features.h"
@@ -42,7 +44,7 @@
 #include "services/network/public/cpp/network_switches.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/interaction/interactive_test.h"
-#include "ui/compositor/scoped_animation_duration_scale_mode.h"
+#include "ui/gfx/scoped_animation_duration_scale_mode.h"
 
 #if ENABLE_GLIC_INTERNAL_TESTS
 #include "chrome/browser/glic/e2e_test/internal/constants.h"
@@ -121,8 +123,8 @@ void GlicE2ETest::SetUp() {
   }
 
   // Always disable animation for stability.
-  ui::ScopedAnimationDurationScaleMode disable_animation(
-      ui::ScopedAnimationDurationScaleMode::ZERO_DURATION);
+  gfx::ScopedAnimationDurationScaleMode disable_animation(
+      gfx::ScopedAnimationDurationScaleMode::ZERO_DURATION);
   LiveTest::SetUp();
 }
 
@@ -190,6 +192,12 @@ void GlicE2ETest::SetUpInProcessBrowserTestFixture() {
 }
 
 void GlicE2ETest::TearDownOnMainThread() {
+  if (HasFailure()) {
+    base::FilePath snapshot_path = SaveDesktopSnapshot();
+    if (!snapshot_path.empty()) {
+      LOG(WARNING) << "Saved desktop snapshot to: " << snapshot_path;
+    }
+  }
   for (auto& client : devtools_clients_) {
     client.second->DetachProtocolClient();
   }

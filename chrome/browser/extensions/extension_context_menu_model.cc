@@ -15,14 +15,16 @@
 #include "base/notimplemented.h"
 #include "base/notreached.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/types/pass_key.h"
 #include "chrome/browser/extensions/context_menu_matcher.h"
 #include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/extension_uninstall_dialog.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/menu_manager.h"
-#include "chrome/browser/extensions/permissions/site_permissions_helper.h"
 #include "chrome/browser/extensions/permissions_url_constants.h"
+#include "chrome/browser/policy/developer_tools_policy_checker.h"
+#include "chrome/browser/policy/developer_tools_policy_checker_factory.h"
 #include "chrome/browser/policy/developer_tools_policy_handler.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
@@ -47,6 +49,7 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/management_policy.h"
+#include "extensions/browser/permissions/site_permissions_helper.h"
 #include "extensions/browser/permissions_manager.h"
 #include "extensions/browser/uninstall_reason.h"
 #include "extensions/buildflags/buildflags.h"
@@ -56,6 +59,8 @@
 #include "extensions/common/manifest_url_handlers.h"
 #include "extensions/common/permissions/api_permission.h"
 #include "extensions/common/permissions/permissions_data.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
+#include "services/metrics/public/cpp/ukm_recorder.h"
 #include "ui/base/base_window.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
@@ -116,7 +121,16 @@ bool IsExtensionForcePinned(const Extension& extension, Profile* profile) {
 // Returns true if the given |extension| is allowed to be inspected based on
 // the Developer Tools Availability in the policy.
 bool IsExtensionInspectionAllowed(const Extension& extension,
-                                  Profile* profile) {
+                                  Profile* profile,
+                                  content::WebContents* web_contents) {
+  policy::DeveloperToolsPolicyChecker* checker =
+      policy::DeveloperToolsPolicyCheckerFactory::GetForBrowserContext(profile);
+  if (checker) {
+    if (auto url_check =
+            checker->CheckDevToolsAvailabilityForUrl(extension.url())) {
+      return *url_check;
+    }
+  }
   using Availability = policy::DeveloperToolsPolicyHandler::Availability;
   Availability availability =
       policy::DeveloperToolsPolicyHandler::GetEffectiveAvailability(profile);
@@ -325,7 +339,6 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(ExtensionContextMenuModel,
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(ExtensionContextMenuModel,
                                       kPageAccessRunOnAllSitesSubmenuItem);
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
 ExtensionContextMenuModel::ExtensionContextMenuModel(
     const Extension* extension,
     BrowserWindowInterface* browser,
@@ -343,24 +356,6 @@ ExtensionContextMenuModel::ExtensionContextMenuModel(
       source_(source) {
   Init(extension, can_show_icon_in_toolbar);
 }
-#else
-ExtensionContextMenuModel::ExtensionContextMenuModel(
-    const Extension* extension,
-    Profile* profile,
-    content::WebContents* web_contents,
-    bool is_pinned,
-    bool can_show_icon_in_toolbar,
-    ContextMenuSource source)
-    : SimpleMenuModel(this),
-      extension_id_(extension->id()),
-      is_component_(Manifest::IsComponentLocation(extension->location())),
-      web_contents_(web_contents),
-      profile_(profile),
-      is_pinned_(is_pinned),
-      source_(source) {
-  Init(extension, can_show_icon_in_toolbar);
-}
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 void ExtensionContextMenuModel::Init(const Extension* extension,
                                      bool can_show_icon_in_toolbar) {
@@ -375,6 +370,9 @@ void ExtensionContextMenuModel::Init(const Extension* extension,
   } else {
     InitMenu(extension, can_show_icon_in_toolbar);
   }
+
+  RecordUkmForExtension(extension->url(),
+                        ExtensionUsageAction::kContextMenuInit);
 }
 
 bool ExtensionContextMenuModel::IsCommandIdChecked(int command_id) const {
@@ -435,7 +433,7 @@ bool ExtensionContextMenuModel::IsCommandIdEnabled(int command_id) const {
       return web_contents && extension_action_ &&
              extension_action_->HasPopup(
                  sessions::SessionTabHelper::IdForTab(web_contents).id()) &&
-             IsExtensionInspectionAllowed(*extension, profile_);
+             IsExtensionInspectionAllowed(*extension, profile_, web_contents);
     }
     case UNINSTALL:
       // Uninstall is always enabled since it will only be visible when the
@@ -478,6 +476,16 @@ bool ExtensionContextMenuModel::IsCommandIdEnabled(int command_id) const {
   }
 }
 
+void ExtensionContextMenuModel::RecordUkmForExtension(
+    const GURL& extension_url,
+    ExtensionUsageAction action) {
+  ukm::builders::Extensions_ExtensionUsage(
+      ukm::UkmRecorder::GetSourceIdForExtensionUrl(
+          base::PassKey<ExtensionContextMenuModel>(), extension_url))
+      .SetAction(static_cast<int64_t>(action))
+      .Record(ukm::UkmRecorder::Get());
+}
+
 void ExtensionContextMenuModel::ExecuteCommand(int command_id,
                                                int event_flags) {
   const Extension* extension = GetExtension();
@@ -509,6 +517,9 @@ void ExtensionContextMenuModel::ExecuteCommand(int command_id,
       ToolbarActionsModel::Get(profile_)->SetActionVisibility(extension->id(),
                                                               visible);
       LogToggleVisibility(visible);
+      RecordUkmForExtension(extension->url(),
+                            visible ? ExtensionUsageAction::kPinned
+                                    : ExtensionUsageAction::kUnpinned);
       break;
     }
     case UNINSTALL: {
@@ -846,7 +857,8 @@ void ExtensionContextMenuModel::InitMenuWithFeature(
   if (delegate_ && !is_component_ && action_info && !action_info->synthesized &&
       profile_->GetPrefs()->GetBoolean(prefs::kExtensionsUIDeveloperMode)) {
     AddSeparator(ui::NORMAL_SEPARATOR);
-    if (IsExtensionInspectionAllowed(*extension, profile_)) {
+    if (IsExtensionInspectionAllowed(*extension, profile_,
+                                     GetActiveWebContents())) {
       AddItemWithStringId(INSPECT_POPUP, IDS_EXTENSION_ACTION_INSPECT_POPUP);
     } else {
       AddItemWithStringIdAndIcon(
@@ -1035,13 +1047,7 @@ void ExtensionContextMenuModel::CreatePageAccessItems(
 }
 
 content::WebContents* ExtensionContextMenuModel::GetActiveWebContents() const {
-#if BUILDFLAG(ENABLE_EXTENSIONS)
   return TabListInterface::From(browser_)->GetActiveTab()->GetContents();
-#else
-  // TODO(crbug.com/448879321): Use the web contents from the browser window
-  // interface for Android.
-  return web_contents_;
-#endif
 }
 
 #if !BUILDFLAG(IS_ANDROID)

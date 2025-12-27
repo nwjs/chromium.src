@@ -23,6 +23,7 @@ class OpenXrCompositionLayer {
     kQuad = 1,
     kCylinder = 2,
     kEquirect = 3,
+    kCube = 4,
   };
 
   // Base class for graphics binding specific layer data.
@@ -41,7 +42,6 @@ class OpenXrCompositionLayer {
   static Type GetTypeFromMojomData(const mojom::XRLayerSpecificData&);
 
   OpenXrCompositionLayer(
-      XrSpace space,
       mojom::XRCompositionLayerDataPtr layer_data,
       OpenXrGraphicsBinding* graphics_binding,
       std::unique_ptr<GraphicsBindingData> graphics_binding_data);
@@ -106,12 +106,21 @@ class OpenXrCompositionLayer {
   bool IsUsingSharedImages() const;
 
   // Update the layer's size and transform.
-  void UpdateMutableLayerData(XrSpace space, mojom::XRLayerMutableDataPtr);
+  void UpdateMutableLayerData(mojom::XRLayerMutableDataPtr);
 
   // Mark the layer rendered.
-  void SetIsRendered() { is_rendered_ = true; }
+  void SetIsRendered() {
+    is_rendered_ = true;
+    needs_redraw_ = false;
+  }
 
   LayerId GetLayerId() const;
+
+  // Returns the eye configuration specific to this layer and layout,
+  // which should be used for the OpenXR composition.
+  std::vector<XrEyeVisibility> GetXrEyesForComposition() const;
+  // Returns a viewport for the specified eye.
+  const gfx::Rect GetSubImageViewport(XrEyeVisibility eye) const;
 
   // A group of simple getters.
   XrSwapchain color_swapchain() const { return color_swapchain_; }
@@ -122,8 +131,12 @@ class OpenXrCompositionLayer {
     return graphics_binding_data_.get();
   }
   Type type() const { return type_; }
-  XrSpace space() const { return space_; }
+  const mojom::XRNativeOriginInformation& native_origin_information() const {
+    DCHECK(creation_data_);
+    return *creation_data_->mutable_data->native_origin_information;
+  }
   bool is_rendered() const { return is_rendered_; }
+  bool needs_redraw() const { return needs_redraw_; }
   const mojom::XRLayerReadOnlyData& read_only_data() const {
     DCHECK(creation_data_);
     return *creation_data_->read_only_data;
@@ -135,7 +148,6 @@ class OpenXrCompositionLayer {
 
  private:
   Type type_ = Type::kProjection;
-  XrSpace space_ = XR_NULL_HANDLE;
   raw_ptr<OpenXrGraphicsBinding> graphics_binding_;
   std::vector<OpenXrSwapchainInfo> color_swapchain_images_;
   gfx::Size swapchain_image_size_{0, 0};
@@ -154,6 +166,9 @@ class OpenXrCompositionLayer {
 
   // Indicates whether the layer has been rendered at least once, in other
   // words, if it contains some contents.
+  bool needs_redraw_ = false;
+
+  // True if an active swapchain image was rendered in the frame request cycle.
   bool is_rendered_ = false;
 
   // The swapchain is initializd when a session begins and is re-created when

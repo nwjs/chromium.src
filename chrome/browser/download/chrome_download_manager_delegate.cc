@@ -70,7 +70,7 @@
 #include "components/offline_pages/buildflags/buildflags.h"
 #include "components/pdf/common/constants.h"
 #include "components/pdf/common/pdf_util.h"
-#include "components/policy/content/policy_blocklist_service.h"
+#include "components/policy/core/browser/url_list/policy_blocklist_service.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_member.h"
@@ -503,8 +503,8 @@ download::DownloadDangerType SavePackageDangerType(
       return download::DOWNLOAD_DANGER_TYPE_BLOCKED_PASSWORD_PROTECTED;
     case safe_browsing::DownloadCheckResult::BLOCKED_TOO_LARGE:
       return download::DOWNLOAD_DANGER_TYPE_BLOCKED_TOO_LARGE;
-    // TODO(alshawwa): add DownloadDangerType value for force save to gdrive
     case safe_browsing::DownloadCheckResult::FORCE_SAVE_TO_GDRIVE:
+      return download::DOWNLOAD_DANGER_TYPE_FORCE_SAVE_TO_GDRIVE;
     case safe_browsing::DownloadCheckResult::SENSITIVE_CONTENT_BLOCK:
       return download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_BLOCK;
     case safe_browsing::DownloadCheckResult::BLOCKED_SCAN_FAILED:
@@ -748,7 +748,7 @@ bool ChromeDownloadManagerDelegate::DetermineDownloadTarget(
 
   if (download->IsTransient()) {
     if (download_path.empty() && download->GetMimeType() == pdf::kPDFMimeType &&
-        !download->IsMustDownload()) {
+        download->AllowAutoOpenAfterCompletion()) {
       if (profile_->IsOffTheRecord() && download->GetDownloadFile() &&
           download->GetDownloadFile()->IsMemoryFile()) {
         download_path = download->GetDownloadFile()->FullPath();
@@ -850,7 +850,8 @@ bool ChromeDownloadManagerDelegate::IsDangerTypeBlocked(
              download::DOWNLOAD_DANGER_TYPE_BLOCKED_PASSWORD_PROTECTED ||
          danger_type ==
              download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_BLOCK ||
-         danger_type == download::DOWNLOAD_DANGER_TYPE_BLOCKED_SCAN_FAILED;
+         danger_type == download::DOWNLOAD_DANGER_TYPE_BLOCKED_SCAN_FAILED ||
+         danger_type == download::DOWNLOAD_DANGER_TYPE_FORCE_SAVE_TO_GDRIVE;
 }
 
 bool ChromeDownloadManagerDelegate::IsDownloadReadyForCompletion(
@@ -1261,7 +1262,8 @@ void ChromeDownloadManagerDelegate::OpenDownload(DownloadItem* download) {
   }
 
   Browser* browser = chrome::ScopedTabbedBrowserDisplayer(profile_).browser();
-  CHECK(browser && browser->CanSupportWindowFeature(Browser::FEATURE_TABSTRIP));
+  CHECK(browser && browser->CanSupportWindowFeature(
+                       Browser::WindowFeature::kFeatureTabStrip));
   content::OpenURLParams params(
       net::FilePathToFileURL(download->GetTargetFilePath()),
       content::Referrer(), WindowOpenDisposition::NEW_FOREGROUND_TAB,
@@ -1348,7 +1350,7 @@ void ChromeDownloadManagerDelegate::GetInsecureDownloadStatus(
 #if BUILDFLAG(IS_ANDROID)
   // Allow insecure PDF download to go through if it is displayed inline.
   if (download->IsTransient() && download->GetMimeType() == pdf::kPDFMimeType &&
-      !download->IsMustDownload()) {
+      download->AllowAutoOpenAfterCompletion()) {
     if (ShouldOpenPdfInline() &&
         base::FeatureList::IsEnabled(
             download::features::kAllowedMixedContentInlinePdf)) {
@@ -1769,10 +1771,10 @@ void ChromeDownloadManagerDelegate::CheckClientDownloadDone(
         danger_type = download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_WARNING;
         break;
       case safe_browsing::DownloadCheckResult::SENSITIVE_CONTENT_BLOCK:
-      // TODO(alshawwa): add a new download::DownloadDangerType corresponding to
-      // FORCE_SAVE_TO_GDRIVE.
-      case safe_browsing::DownloadCheckResult::FORCE_SAVE_TO_GDRIVE:
         danger_type = download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_BLOCK;
+        break;
+      case safe_browsing::DownloadCheckResult::FORCE_SAVE_TO_GDRIVE:
+        danger_type = download::DOWNLOAD_DANGER_TYPE_FORCE_SAVE_TO_GDRIVE;
         break;
       case safe_browsing::DownloadCheckResult::DEEP_SCANNED_SAFE:
         danger_type = download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_SAFE;
@@ -1929,6 +1931,7 @@ void ChromeDownloadManagerDelegate::CheckSavePackageScanningDone(
     case safe_browsing::DownloadCheckResult::BLOCKED_TOO_LARGE:
     case safe_browsing::DownloadCheckResult::SENSITIVE_CONTENT_BLOCK:
     case safe_browsing::DownloadCheckResult::BLOCKED_SCAN_FAILED:
+    case safe_browsing::DownloadCheckResult::FORCE_SAVE_TO_GDRIVE:
       enterprise_connectors::RunSavePackageScanningCallback(item,
                                                             /*allowed*/ false);
       break;
@@ -2427,4 +2430,8 @@ void ChromeDownloadManagerDelegate::RequestIncognitoSavePackageConfirmationDone(
       url, suggested_path,
       base::BindOnce(&OnDetermineSavePackagePathDone, std::move(callback)));
 }
+#endif
+
+#if BUILDFLAG(IS_ANDROID)
+DEFINE_JNI(PdfUtils)
 #endif

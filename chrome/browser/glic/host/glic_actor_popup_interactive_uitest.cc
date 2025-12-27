@@ -28,7 +28,6 @@ class GlicActorPopupUiTest : public GlicActorUiTest,
         {
             features::kGlicActorInternalPopups,
             blink::features::kAIPageContentIncludePopupWindows,
-            features::kGlicActorTransformCoordinates,
         },
         /*disabled_features=*/{});
     if (GetParam()) {
@@ -249,6 +248,7 @@ IN_PROC_BROWSER_TEST_P(GlicActorPopupUiTest, ActOnPopupWidgetWithSelectTool) {
       // Click on a new option.
       ExecuteAction(std::move(select_provider)),
       WaitForJsResult(kNewActorTabId, kGetValueScript, "beta"));
+  // clang-format on
 }
 
 INSTANTIATE_TEST_SUITE_P(,

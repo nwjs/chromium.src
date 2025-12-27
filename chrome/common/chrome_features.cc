@@ -102,13 +102,6 @@ BASE_FEATURE(kAutofillCardSurvey, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kAutofillPasswordSurvey, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-// Enables the Restart background mode optimization. When all Chrome UI is
-// closed and it goes in the background, allows to restart the browser to
-// discard memory.
-BASE_FEATURE(kBackgroundModeAllowRestart, base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-
 #if BUILDFLAG(IS_ANDROID)
 // Enable boarding pass detector on Chrome Android.
 BASE_FEATURE(kBoardingPassDetector, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -305,14 +298,28 @@ BASE_FEATURE(kGlicActorUi, base::FEATURE_ENABLED_BY_DEFAULT);
 // Controls whether the new Nudge UI is enabled. No-op if `kGlicActorUiTaskIcon`
 // is false.
 BASE_FEATURE(kGlicActorUiNudgeRedesign, base::FEATURE_ENABLED_BY_DEFAULT);
+// Controls whether the new icon UI is enabled.
+BASE_FEATURE(kGlicActorUiTaskIconV2, base::FEATURE_ENABLED_BY_DEFAULT);
 // Controls whether we ignore users preference of reduced motion enabled and
 // still show the tab indicator spinner. No-op if kGlicActorUiTabIndicator is
 // disabled.
 BASE_FEATURE(kGlicActorUiTabIndicatorSpinnerIgnoreReducedMotion,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Controls theming updates for Actor UI, including the tab indicator spinner
+// and other elements.
+BASE_FEATURE(kActorUiThemed, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If enabled, hides handoff button when the client is in control.
 BASE_FEATURE(kGlicHandoffButtonHiddenClientControl,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// If enabled, shows handoff button in immersive mode.
+BASE_FEATURE(kGlicHandoffButtonShowInImmersiveMode,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// If enabled, reset handoff button focus and hover state on button close.
+BASE_FEATURE(kGlicHandoffButtonResetFocusAndHoverStatus,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 const char kGlicActorUiTaskIconName[] = "glic-actor-ui-task-icon";
@@ -325,8 +332,6 @@ const char kGlicActorUiTabIndicatorName[] = "glic-actor-ui-tab-indicator";
 const char kGlicActorUiBorderGlowName[] = "glic-actor-ui-border-glow";
 const char kGlicActorUiStandaloneBorderGlowName[] =
     "glic-actor-ui-standalone-border-glow";
-const char kGlicActorUiCompletedTaskExpiryDelaySecondsName[] =
-    "glic-actor-completed-task-expiry-delay-seconds";
 const char kGlicActorUiDebounceTimerName[] = "glic-actor-ui-debounce-timer";
 
 // Controls whether the task icon in the actor ui is enabled.
@@ -354,31 +359,15 @@ const base::FeatureParam<bool> kGlicActorUiBorderGlow{
 // shared implementation with context sharing glow.
 const base::FeatureParam<bool> kGlicActorUiStandaloneBorderGlow{
     &kGlicActorUi, kGlicActorUiStandaloneBorderGlowName, true};
-// Controls the expiry delay for completed tasks in the actor ui.
-const base::FeatureParam<int> kGlicActorUiCompletedTaskExpiryDelaySeconds{
-    &kGlicActorUi, kGlicActorUiCompletedTaskExpiryDelaySecondsName, 10};
 // Controls the debounce timer for the Glic Actor UI Tab Controller, in
 // milliseconds. This is used to debounce hover events on the actor overlay and
 // handoff button.
 const base::FeatureParam<base::TimeDelta> kGlicActorUiDebounceTimer{
     &kGlicActorUi, kGlicActorUiDebounceTimerName, base::Milliseconds(25)};
 
-// Controls renderer tool observation timeout when waiting on local
-// (non-network) work. This has no effect when kGlicActorPageStabilityMinWait is
-// enabled.
-const base::FeatureParam<base::TimeDelta> kGlicActorPageStabilityLocalTimeout{
-    &kGlicActor, "glic-actor-page-stability-local-timeout", base::Seconds(3)};
-
 // The overall observation timeout when waiting on a renderer tool to complete.
 const base::FeatureParam<base::TimeDelta> kGlicActorPageStabilityTimeout{
     &kGlicActor, "glic-actor-page-stability-timeout", base::Seconds(4)};
-
-// An artificial delay before signalling the tools that the page has become
-// stable. This has no effect when kGlicActorPageStabilityMinWait is enabled.
-const base::FeatureParam<base::TimeDelta>
-    kGlicActorPageStabilityInvokeCallbackDelay{
-        &kGlicActor, "glic-actor-page-stability-invoke-callback-delay",
-        base::Milliseconds(200)};
 
 // The minimum amount of time to wait for page stability before invoking the
 // callback.
@@ -395,6 +384,10 @@ const base::FeatureParam<base::TimeDelta> kActorObservationDelayTimeout{
 // loading.
 const base::FeatureParam<base::TimeDelta> kActorObservationDelayLcp{
     &kGlicActor, "actor-observation-delay-lcp", base::Seconds(1)};
+
+// If enabled, observation for page load excludes load in ad frames.
+BASE_FEATURE(kGlicActorObservationDelayExcludeAdFrameLoading,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether typing happens incrementally.
 BASE_FEATURE(kGlicActorIncrementalTyping, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -431,9 +424,6 @@ const base::FeatureParam<size_t>
 const base::FeatureParam<base::TimeDelta> kGlicActorTypeToolEnterDelay{
     &kGlicActor, "glic-actor-type-tool-enter-delay", base::Milliseconds(600)};
 
-const base::FeatureParam<bool> kGlicActorScrollTargetIntoView{
-    &kGlicActor, "scroll-target-into-view", true};
-
 constexpr base::FeatureParam<GlicActorEnterprisePrefDefault>::Option
     kGlicActorEnterprisePrefDefaultOptions[] = {
         {GlicActorEnterprisePrefDefault::kEnabledByDefault,
@@ -459,12 +449,6 @@ BASE_FEATURE(kGlicActorToctouValidation, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicActorInternalPopups, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kGlicActorCoordinateScrollTool, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Controls whether the browser interprets scroll distances from the server as
-// DIPs (enavled) or physical pixels (disabled).
-BASE_FEATURE(kGlicActorScrollToolDIP, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Controls whether the actor framework searches for an interaction point when
 // when the center of the target element is obscured.
 BASE_FEATURE(kGlicActorIterativeInteractionPointDiscovery,
@@ -476,20 +460,6 @@ const base::FeatureParam<size_t>
         &kGlicActorIterativeInteractionPointDiscovery,
         "interaction-discovery-max-iterations", 0};
 
-// Whether to use modifiers to mouse actions during the drag and release tool.
-BASE_FEATURE(kGlicActorUseDragModifiers, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Whether to project the actuation target from display independent coordinates
-// to pixel coordinates when performing browser-side TOCTOU checks.
-BASE_FEATURE(kGlicActorTransformCoordinates, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Call CancelPagePopup to dismiss the page popup instead of calling blur.
-BASE_FEATURE(kGlicActorSelectCancelsPopup, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Whether to add a small delay between mouse actions during the drag and
-// release tool
-BASE_FEATURE(kGlicActorSplitDragAndRelease, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Whether to trigger mouse move events with each click.
 BASE_FEATURE(kGlicActorMoveBeforeClick, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -497,9 +467,6 @@ BASE_FEATURE(kGlicActorMoveBeforeClick, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<base::TimeDelta> kGlicActorMoveBeforeClickDelay{
     &kGlicActorMoveBeforeClick, "glic-actor-move-before-click-delay",
     base::Milliseconds(5)};
-
-// Kill switch for fix to UninterruptActorTask.
-BASE_FEATURE(kGlicActorUninterruptDuringAct, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether the Glic's act-on-web capability is checked for managed
 // trial clients.
@@ -593,6 +560,10 @@ const base::FeatureParam<std::string> kGlicDefaultHotkey{
 BASE_FEATURE(kGlicURLConfig, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<std::string> kGlicGuestURL{
     &kGlicURLConfig, "glic-guest-url", "https://gemini.google.com/glic"};
+
+#if BUILDFLAG(IS_CHROMEOS)
+BASE_FEATURE(kGlicShowStatusTrayIcon, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 BASE_FEATURE_PARAM(std::string,
                    kGlicUserStatusUrl,
@@ -772,6 +743,8 @@ BASE_FEATURE(kGlicScrollTo, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicCaptureRegion, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kGlicUseNonClient, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Controls whether we enforce that documentId (an optional parameter) is set
 // when trying to scroll all documents except PDFs (and fail the request if
 // it's not set).
@@ -863,6 +836,9 @@ extern const base::FeatureParam<std::string>
         "glic-record-actor-journal-feedback-category-tag",
         "gemini_in_chrome_actor_tt_df"};
 
+BASE_FEATURE(kGlicRecordMemoryFootprintMetrics,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kGlicWebClientUnresponsiveMetrics,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -893,13 +869,15 @@ BASE_FEATURE(kGlicFaviconDataUrls, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Whether Glic should ignore the offline network status, and assume it is
 // online.
-BASE_FEATURE(kGlicIgnoreOfflineState, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicIgnoreOfflineState, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicExtensions, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kGlicMultitabUnderlines, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicMultitabUnderlines, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicWindowDragRegions, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicHandleDraggingNatively, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, the X-Glic headers will be attached to requests as specified by
 // the kGlicHeaderRequestTypes param.
@@ -931,19 +909,18 @@ const base::FeatureParam<bool> kGlicEntrypointVariationsHighlightNudge{
     &kGlicEntrypointVariations, "glic-entrypoint-variations-highlight-nudge",
     false};
 
+BASE_FEATURE(kGlicButtonAltLabel, base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<int> kGlicButtonAltLabelVariant{
+    &kGlicButtonAltLabel, "glic-button-alt-label-variant", 0};
+
 BASE_FEATURE(kGlicDaisyChainNewTabs, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicUseToolbarHeightSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicButtonPressedState, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicShareImage, base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kGlicActorAutofill, base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kActorFormFillingServiceEnableAddress,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kActorFormFillingServiceEnableCreditCard,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicShareImageEnterprise, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicWebActuationSetting, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -972,6 +949,30 @@ const base::FeatureParam<base::TimeDelta> kGlicMetricsSessionStartTimeout{
     base::Seconds(5)};
 
 #endif  // BUILDFLAG(ENABLE_GLIC)
+
+BASE_FEATURE(kGlicActorAutofill, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// The amount of time to wait for a fill to happen if no credit card fetch is
+// ongoing.
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kGlicActorAutofillFillingTimeout,
+                   &kGlicActorAutofill,
+                   "glic-actor-autofill-filling-timeout",
+                   base::Seconds(2));
+
+// The maximum amount of time to wait for a fill to happen (including credit
+// card fetches)
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kGlicActorAutofillMaximumTimeout,
+                   &kGlicActorAutofill,
+                   "glic-actor-autofill-maximum-timeout",
+                   base::Minutes(1));
+
+BASE_FEATURE(kActorFormFillingServiceEnableAddress,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kActorFormFillingServiceEnableCreditCard,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the `google-chrome://` URI scheme.
 BASE_FEATURE(kGoogleChromeScheme, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1050,6 +1051,11 @@ const base::FeatureParam<base::TimeDelta>
 BASE_FEATURE(kHappinessTrackingSurveysForDesktopNtpModules,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables or disables the Happiness Tracking System for Desktop Chrome
+// Next Panel.
+BASE_FEATURE(kHappinessTrackingSurveysForDesktopNextPanel,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables or disables the Happiness Tracking System for History Embeddings.
 BASE_FEATURE(kHappinessTrackingSurveysForHistoryEmbeddings,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1086,10 +1092,6 @@ const base::FeatureParam<std::string>
     kHappinessTrackingSurveysForSecurityPageTriggerId{
         &kHappinessTrackingSurveysForSecurityPage, "security-page-trigger-id",
         ""};
-const base::FeatureParam<bool>
-    kHappinessTrackingSurveysForSecurityPageRequireInteraction{
-        &kHappinessTrackingSurveysForSecurityPage,
-        "security-page-require-interaction", false};
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -1252,7 +1254,7 @@ BASE_FEATURE(kIsolatedWebAppBundleCache, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 // When enabled, allows other features to use the k-Anonymity Service.
-BASE_FEATURE(kKAnonymityService, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kKAnonymityService, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Origin to use for requests to the k-Anonymity Auth server to get trust
 // tokens.
@@ -1312,12 +1314,6 @@ constexpr base::FeatureParam<int> kLinuxLowMemoryMonitorCriticalLevel{
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 BASE_FEATURE(kListWebAppsSwitch, base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS)
-// Whether to show the Hidden toggle in Settings, allowing users to toggle
-// whether to treat a WiFi network as having a hidden ssid.
-BASE_FEATURE(kShowHiddenNetworkToggle, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 // Enables the use of system notification centers instead of using the Message
@@ -1497,29 +1493,6 @@ constexpr base::FeatureParam<int>
         /*name=*/"waiting_for_metrics_days", /*default_value=*/1};
 
 #if BUILDFLAG(IS_ANDROID)
-// Enables Safety Hub card in magic stack.
-BASE_FEATURE(kSafetyHubMagicStack, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables Safety Hub organic HaTS survey on Android.
-BASE_FEATURE(kSafetyHubAndroidOrganicSurvey, base::FEATURE_DISABLED_BY_DEFAULT);
-
-constexpr base::FeatureParam<std::string> kSafetyHubAndroidOrganicTriggerId(
-    &kSafetyHubAndroidOrganicSurvey,
-    "trigger_id",
-    /*default_value=*/
-    "");
-
-// Enables Safety Hub HaTS survey on Android.
-BASE_FEATURE(kSafetyHubAndroidSurvey, base::FEATURE_DISABLED_BY_DEFAULT);
-
-constexpr base::FeatureParam<std::string> kSafetyHubAndroidTriggerId(
-    &kSafetyHubAndroidSurvey,
-    "trigger_id",
-    /*default_value=*/"");
-
-// Enables new triggers for the Safety Hub HaTS survey on Android.
-BASE_FEATURE(kSafetyHubAndroidSurveyV2, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables Weak and Reused passwords in Safety Hub.
 BASE_FEATURE(kSafetyHubWeakAndReusedPasswords,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1582,7 +1555,7 @@ const base::FeatureParam<base::TimeDelta> kSCTLogMaxIngestionRandomDelay{
 // TODO(alexmos): Move this and the other site isolation features below to
 // browser_features, as they are only used on the browser side.
 BASE_FEATURE(kSitePerProcess,
-#if BUILDFLAG(IS_ANDROID) && !BUILDFLAG(ENABLE_ANDROID_SITE_ISOLATION)
+#if BUILDFLAG(IS_ANDROID)
              base::FEATURE_DISABLED_BY_DEFAULT
 #else
       base::FEATURE_DISABLED_BY_DEFAULT
@@ -1611,6 +1584,10 @@ BASE_FEATURE(kProcessPerSiteForDSE, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kConsiderDSEWarmUpPageAsSRP, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_CHROMEOS)
+// Enables Camera Cloud Storage for saving photos and videos on Google Drive
+// or OneDrive, controlled by CameraSaveLocation policy.
+BASE_FEATURE(kCameraCloudStorage, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables the SkyVault (cloud-first) changes, some of which are also controlled
 // by policies: removing local storage, saving downloads and screen captures to
 // the cloud, and related UX changes, primarily in the Files App.

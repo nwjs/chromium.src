@@ -119,15 +119,22 @@ class CONTENT_EXPORT Transaction : public blink::mojom::IDBTransaction {
   // detected at the point of running the operation. For example, a Mojo message
   // that specifies an object store ID may arrive before the task that created
   // that object store actually runs.
+  // If `operation_name_for_metrics` is non-empty, the result of the operation
+  // (if run) is logged to the histogram
+  // "IndexedDB.BackingStore.`operation_name_for_metrics`".
   using Operation = base::OnceCallback<Status(Transaction*)>;
   using VerificationCallback = base::OnceCallback<Status(Transaction&)>;
 
-  void ScheduleTask(Operation task, VerificationCallback verify = {}) {
-    ScheduleTask(blink::mojom::IDBTaskType::Normal, std::move(task),
+  void ScheduleTask(std::string operation_name_for_metrics,
+                    Operation operation,
+                    VerificationCallback verify = {}) {
+    ScheduleTask(blink::mojom::IDBTaskType::Normal,
+                 std::move(operation_name_for_metrics), std::move(operation),
                  std::move(verify));
   }
-  void ScheduleTask(blink::mojom::IDBTaskType,
-                    Operation task,
+  void ScheduleTask(blink::mojom::IDBTaskType type,
+                    std::string operation_name_for_metrics,
+                    Operation operation,
                     VerificationCallback verify = {});
   void RegisterOpenCursor(Cursor* cursor);
   void UnregisterOpenCursor(Cursor* cursor);
@@ -151,8 +158,11 @@ class CONTENT_EXPORT Transaction : public blink::mojom::IDBTransaction {
   // appropriate helper functions.
   blink::mojom::IDBValuePtr BuildMojoValue(IndexedDBValue value);
 
-  enum class RunTasksResult { kNotFinished, kCommitted, kAborted };
-  StatusOr<RunTasksResult> RunTasks();
+  // Should not be called if `state()` is `FINISHED`. After calling, consult
+  // updated `state()` for what to do next. If `FINISHED`, the transaction can
+  // be deleted. Will return an error if something went wrong when interacting
+  // with backing store.
+  Status RunTasks();
 
   // Returns metadata relevant to idb-internals.
   storage::mojom::IdbTransactionMetadataPtr GetIdbInternalsMetadata() const;
@@ -232,10 +242,13 @@ class CONTENT_EXPORT Transaction : public blink::mojom::IDBTransaction {
   void OnQuotaCheckDone(bool allowed);
 
   // Turns an IDBValue into a set of IndexedDBExternalObjects in
-  // |external_objects|.
-  uint64_t CreateExternalObjects(
+  // |external_objects|. Note that `value` is untrusted input from the renderer,
+  // and deserialization can fail: in this case, false is returned and the
+  // renderer should be killed.
+  bool CreateExternalObjects(
       blink::mojom::IDBValuePtr& value,
-      std::vector<IndexedDBExternalObject>* external_objects);
+      std::vector<IndexedDBExternalObject>* external_objects,
+      uint64_t* total_size);
 
   Status DoPendingCommit();
 
@@ -260,8 +273,7 @@ class CONTENT_EXPORT Transaction : public blink::mojom::IDBTransaction {
   bool IsTaskQueueEmpty() const;
   bool HasPendingTasks() const;
 
-  Status BlobWriteComplete(BlobWriteResult result,
-                           storage::mojom::WriteBlobToFileResult error);
+  Status BlobWriteComplete(StatusOr<BlobWriteResult> result);
   void CloseOpenCursors();
   Status CommitPhaseTwo();
   void TimeoutFired();
@@ -298,27 +310,22 @@ class CONTENT_EXPORT Transaction : public blink::mojom::IDBTransaction {
 
   base::CheckedNumeric<size_t> in_flight_memory_ = 0;
 
-  class TaskQueue {
-   public:
-    typedef std::tuple<Operation, VerificationCallback> Task;
+  struct Task {
+    Task(std::string operation_name_for_metrics,
+         Operation operation,
+         VerificationCallback verify);
+    Task(const Task&) = delete;
+    Task& operator=(const Task&) = delete;
+    Task(Task&&);
+    Task& operator=(Task&&);
 
-    TaskQueue();
+    ~Task();
 
-    TaskQueue(const TaskQueue&) = delete;
-    TaskQueue& operator=(const TaskQueue&) = delete;
-
-    ~TaskQueue();
-    bool empty() const { return queue_.empty(); }
-    void push(Operation task, VerificationCallback verify) {
-      queue_.push(std::make_tuple(std::move(task), std::move(verify)));
-    }
-    Task pop();
-    void clear();
-    size_t size() const { return queue_.size(); }
-
-   private:
-    base::queue<Task> queue_;
+    std::string operation_name_for_metrics;
+    Operation operation;
+    VerificationCallback verify;
   };
+  typedef base::queue<Task> TaskQueue;
 
   TaskQueue task_queue_;
   TaskQueue preemptive_task_queue_;

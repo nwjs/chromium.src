@@ -26,7 +26,7 @@
 // follow an app into its fullscreen presentation mode.
 // TODO(crbug.com/409475502): Remove this feature once it has been rolled out to
 // stable for a few milestones.
-BASE_FEATURE(kAllowChangingSelectedContent, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAllowChangingSelectedContent, base::FEATURE_ENABLED_BY_DEFAULT);
 
 using Source = webrtc::DesktopCapturer::Source;
 
@@ -395,7 +395,8 @@ NativeScreenCapturePickerMac::CreateDevice(const DesktopMediaID& source) {
       base::BindPostTask(
           device_task_runner_,
           base::BindOnce(&NativeScreenCapturePickerMac::UpdateStreamMap,
-                         weak_ptr_factory_.GetWeakPtr())));
+                         weak_ptr_factory_.GetWeakPtr())),
+      /*pip_screen_capture_coordinator_proxy=*/nullptr);
 }
 
 void NativeScreenCapturePickerMac::ScheduleCleanup(DesktopMediaID::Id id) {

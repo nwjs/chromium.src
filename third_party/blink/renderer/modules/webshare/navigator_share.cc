@@ -177,11 +177,10 @@ void NavigatorShare::ShareClientImpl::OnConnectionError() {
 }
 
 NavigatorShare& NavigatorShare::From(Navigator& navigator) {
-  NavigatorShare* supplement =
-      Supplement<Navigator>::From<NavigatorShare>(navigator);
+  NavigatorShare* supplement = navigator.GetNavigatorShare();
   if (!supplement) {
     supplement = MakeGarbageCollected<NavigatorShare>(navigator);
-    ProvideTo(navigator, supplement);
+    navigator.SetNavigatorShare(supplement);
   }
   return *supplement;
 }
@@ -189,10 +188,8 @@ NavigatorShare& NavigatorShare::From(Navigator& navigator) {
 void NavigatorShare::Trace(Visitor* visitor) const {
   visitor->Trace(service_remote_);
   visitor->Trace(clients_);
-  Supplement<Navigator>::Trace(visitor);
+  visitor->Trace(navigator_);
 }
-
-const char NavigatorShare::kSupplementName[] = "NavigatorShare";
 
 bool NavigatorShare::canShare(ScriptState* script_state,
                               const ShareData* data) {
@@ -247,8 +244,9 @@ ScriptPromise<IDLUndefined> NavigatorShare::share(
 // the Web Share spec. https://www.w3.org/TR/web-share/#share-method
 #if !BUILDFLAG(IS_ANDROID)
   if (!clients_.empty()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
-                                      "An earlier share has not yet completed.");
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidStateError,
+        "An earlier share has not yet completed.");
     return EmptyPromise();
   }
 #endif

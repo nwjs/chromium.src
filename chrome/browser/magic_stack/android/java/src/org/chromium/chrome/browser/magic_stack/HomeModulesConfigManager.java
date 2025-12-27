@@ -12,7 +12,9 @@ import org.chromium.base.ObserverList;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 
@@ -32,9 +34,12 @@ import java.util.Set;
 @NullMarked
 public class HomeModulesConfigManager {
     /** An interface to use for getting home modules related updates. */
-    interface HomeModulesStateListener {
+    public interface HomeModulesStateListener {
         /** Called when the home modules' specific module type is disabled or enabled. */
-        void onModuleConfigChanged(@ModuleType int moduleType, boolean isEnabled);
+        default void onModuleConfigChanged(@ModuleType int moduleType, boolean isEnabled) {}
+
+        /** Called when the "all cards" switch is disabled or enabled. */
+        default void allCardsConfigChanged(boolean isEnabled) {}
     }
 
     private final SharedPreferencesManager mSharedPreferencesManager;
@@ -68,7 +73,7 @@ public class HomeModulesConfigManager {
      * Adds a {@link HomeModulesStateListener} to receive updates when the home modules state
      * changes.
      */
-    void addListener(HomeModulesStateListener listener) {
+    public void addListener(HomeModulesStateListener listener) {
         mHomepageStateListeners.addObserver(listener);
     }
 
@@ -77,7 +82,7 @@ public class HomeModulesConfigManager {
      *
      * @param listener The listener to remove.
      */
-    void removeListener(HomeModulesStateListener listener) {
+    public void removeListener(HomeModulesStateListener listener) {
         mHomepageStateListeners.removeObserver(listener);
     }
 
@@ -123,6 +128,25 @@ public class HomeModulesConfigManager {
         notifyModuleTypeUpdated(moduleType, enabled);
     }
 
+    /** Returns the user preference for whether all cards in the magic stack are enabled. */
+    public boolean getPrefAllCardsEnabled() {
+        return mSharedPreferencesManager.readBoolean(
+                ChromePreferenceKeys.HOME_MODULE_CARDS_ENABLED, true);
+    }
+
+    /**
+     * Sets the user preference for whether all cards in the magic stack are enabled.
+     *
+     * @param enabled True is all cards are enabled.
+     */
+    public void setPrefAllCardsEnabled(boolean enabled) {
+        mSharedPreferencesManager.writeBoolean(
+                ChromePreferenceKeys.HOME_MODULE_CARDS_ENABLED, enabled);
+        for (HomeModulesStateListener listener : mHomepageStateListeners) {
+            listener.allCardsConfigChanged(enabled);
+        }
+    }
+
     /**
      * Returns the set which contains all the module types that are registered and enabled according
      * to user preference. Note: this function should be called after profile is ready.
@@ -130,6 +154,12 @@ public class HomeModulesConfigManager {
     @ModuleType
     public Set<Integer> getEnabledModuleSet() {
         @ModuleType Set<Integer> enabledModuleList = new HashSet<>();
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.HOME_MODULE_PREF_REFACTOR)
+                && !mSharedPreferencesManager.readBoolean(
+                        ChromePreferenceKeys.HOME_MODULE_CARDS_ENABLED, true)) {
+            return enabledModuleList;
+        }
+
         for (Entry<Integer, ModuleConfigChecker> entry : mModuleConfigCheckerMap.entrySet()) {
             ModuleConfigChecker configChecker = entry.getValue();
             if (configChecker.isEligible() && getPrefModuleTypeEnabled(entry.getKey())) {

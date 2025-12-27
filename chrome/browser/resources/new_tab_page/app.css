@@ -11,6 +11,8 @@
  * #css_wrapper_metadata_end */
 
 :host {
+  --cr-composebox-input-placeholder-color:
+      var(--color-new-tab-page-common-input-placeholder);
   --cr-focus-outline-color: var(--color-new-tab-page-focus-ring);
   --cr-searchbox-height: 48px;
   --cr-searchbox-shadow: 0 1px 6px 0 var(--color-searchbox-shadow);
@@ -160,6 +162,7 @@ cr-most-visited {
 }
 
 #searchboxContainer {
+  --cr-focus-outline-color: var(--color-searchbox-results-icon-focused-outline);
   display: inherit;
   margin-bottom: 16px;
   position: relative;
@@ -328,5 +331,27 @@ ntp-lens-upload-dialog {
   user interaction. It does not need to be visible.
 */
 #microsoftAuth {
+  display: none;
+}
+
+#dialogAnchor {
+  anchor-name: --dialog-anchor;
+  left: 0;
+  position: absolute;
+  top: 0;
+}
+
+#composeboxDialog {
+  background: transparent;
+  border: none;
+  left: anchor(left);
+  margin: 0;
+  overflow: visible;
+  position: absolute;
+  position-anchor: --dialog-anchor;
+  top: anchor(top);
+}
+
+#composeboxDialog::backdrop {
   display: none;
 }

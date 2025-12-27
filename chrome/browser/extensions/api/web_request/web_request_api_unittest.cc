@@ -135,8 +135,7 @@ bool GenerateInfoSpec(content::BrowserContext* browser_context,
            values, ",", base::KEEP_WHITESPACE, base::SPLIT_WANT_NONEMPTY)) {
     list.Append(cur);
   }
-  return ExtraInfoSpec::InitFromValue(browser_context,
-                                      base::Value(std::move(list)), result);
+  return ExtraInfoSpec::InitFromValue(base::Value(std::move(list)), result);
 }
 
 }  // namespace
@@ -285,6 +284,15 @@ TEST_F(ExtensionWebRequestTest, InitFromValue) {
                     ExtraInfoSpec::ASYNC_BLOCKING);
   TestInitFromValue(&profile_, "requestBody", true,
                     ExtraInfoSpec::REQUEST_BODY);
+
+  TestInitFromValue(&profile_, "securityInfo", true,
+                    ExtraInfoSpec::SECURITY_INFO);
+  TestInitFromValue(
+      &profile_, "securityInfo,securityInfoRawDer", true,
+      ExtraInfoSpec::SECURITY_INFO | ExtraInfoSpec::SECURITY_INFO_RAW_DER);
+  TestInitFromValue(
+      &profile_, "securityInfoRawDer", true,
+      ExtraInfoSpec::SECURITY_INFO | ExtraInfoSpec::SECURITY_INFO_RAW_DER);
 
   // Multiple valid values are bitwise-or'ed.
   TestInitFromValue(&profile_, "requestHeaders,blocking", true,

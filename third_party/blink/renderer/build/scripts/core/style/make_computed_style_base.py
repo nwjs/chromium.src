@@ -48,7 +48,6 @@ ALIGNMENT_ORDER = [
     'Vector<TimelineInset>',
     'HeapVector<Member<StyleTriggerAttachmentVector>>',
     'GridPosition',
-    'ScrollStartData',
     'AtomicString',
     'scoped_refptr',
     'std::unique_ptr',
@@ -66,12 +65,14 @@ ALIGNMENT_ORDER = [
     'StyleIntrinsicLength',
     'StyleInheritedVariables',
     'StyleNonInheritedVariables',
+    'StylePositionAnchor',
     'std::optional<StyleOverflowClipMargin>',
     'std::optional<blink::PositionAreaOffsets>',
     'std::optional<PhysicalOffset>',
     'GapDataList<StyleColor>',
     'GapDataList<int>',
     'GapDataList<EBorderStyle>',
+    'gfx::Size',
     # Compressed builds a Member can be 32 bits, vs. a pointer will be 64.
     'Member',
     # Aligns like float
@@ -382,7 +383,11 @@ def _reorder_bit_fields(bit_fields):
     field_buckets = []
     # Consider fields in descending order of size to reduce fragmentation
     # when they are selected. Ties broken in alphabetical order by name.
-    for field in sorted(bit_fields, key=lambda f: (-f.size, f.name)):
+    # We also try to group together inherited and non-inherited fields
+    # if possible, so that the compiler can generate cleaner bit masks
+    # when dealing with them as a group.
+    for field in sorted(bit_fields,
+                        key=lambda f: (f.is_inherited, -f.size, f.name)):
         added_to_bucket = False
         # Go through each bucket and add this field if it will not increase
         # the bucket's size to larger than 32 bits. Otherwise, make a new

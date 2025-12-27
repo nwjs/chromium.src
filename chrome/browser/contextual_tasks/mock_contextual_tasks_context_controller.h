@@ -11,6 +11,7 @@
 
 #include "base/uuid.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_context_controller.h"
+#include "components/contextual_tasks/public/context_decoration_params.h"
 #include "components/contextual_tasks/public/contextual_task.h"
 #include "components/contextual_tasks/public/contextual_task_context.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -67,9 +68,15 @@ class MockContextualTasksContextController
               (const base::Uuid& task_id, const GURL& url),
               (override));
   MOCK_METHOD(void,
+              SetUrlResourcesFromServer,
+              (const base::Uuid& task_id,
+               std::vector<UrlResource> url_resources),
+              (override));
+  MOCK_METHOD(void,
               GetContextForTask,
               (const base::Uuid& task_id,
                const std::set<ContextualTaskContextSource>& sources,
+               std::unique_ptr<ContextDecorationParams> params,
                base::OnceCallback<void(std::unique_ptr<ContextualTaskContext>)>
                    context_callback),
               (override));
@@ -81,6 +88,10 @@ class MockContextualTasksContextController
               DisassociateTabFromTask,
               (const base::Uuid& task_id, SessionID tab_id),
               (override));
+  MOCK_METHOD(std::vector<SessionID>,
+              GetTabsAssociatedWithTask,
+              (const base::Uuid& task_id),
+              (const, override));
   MOCK_METHOD(std::optional<ContextualTask>,
               GetContextualTaskForTab,
               (SessionID tab_id),

@@ -66,12 +66,12 @@ import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TimeUtils;
-import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
+import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.HistogramWatcher;
@@ -122,12 +122,15 @@ import java.util.List;
 /** Tests for various Safety Hub settings surfaces. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-@Features.DisableFeatures(ChromeFeatureList.EDGE_TO_EDGE_EVERYWHERE)
-@Batch(Batch.PER_CLASS)
+@Features.DisableFeatures({
+    ChromeFeatureList.EDGE_TO_EDGE_EVERYWHERE,
+    ChromeFeatureList.SETTINGS_MULTI_COLUMN
+})
 @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
 @DisableIf.Build(
         sdk_equals = Build.VERSION_CODES.Q,
         message = "crbug.com/447426928, crashing emulator with --disable-field-trial-config")
+@DoNotBatch(reason = "Manages sign-in state, which is global.")
 public final class SafetyHubTest {
     // This test suite currently expects that calls to password check via PasswordManagerHelper
     // cause an exception, so the state of the UI can be controlled by setting prefs in
@@ -229,6 +232,7 @@ public final class SafetyHubTest {
             NotificationPermissions.create("http://example2.com", "*", 8);
 
     private static final String PREF_NOTIFICATIONS_REVIEW = "notifications_review";
+    private static final int RENDER_TEST_REVISION = 3;
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -248,7 +252,7 @@ public final class SafetyHubTest {
     public ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
                     .setBugComponent(RenderTestRule.Component.UI_SETTINGS_PRIVACY)
-                    .setRevision(1)
+                    .setRevision(RENDER_TEST_REVISION)
                     .build();
 
     @Rule
@@ -338,6 +342,7 @@ public final class SafetyHubTest {
     @Test
     @LargeTest
     @Feature({"RenderTest", "SafetyHubPermissions"})
+    @Features.DisableFeatures(ChromeFeatureList.SETTINGS_MULTI_COLUMN)
     public void testPermissionsSubpageAppearance() throws IOException {
         mUnusedPermissionsBridge.setPermissionsDataForReview(
                 new PermissionsData[] {PERMISSIONS_DATA_1, PERMISSIONS_DATA_2});
@@ -350,6 +355,7 @@ public final class SafetyHubTest {
     @Test
     @LargeTest
     @Feature({"RenderTest", "SafetyHubPermissions"})
+    @Features.DisableFeatures(ChromeFeatureList.SETTINGS_MULTI_COLUMN)
     public void testNotificationPermissionsSubpageAppearance() throws IOException {
         mUnusedPermissionsBridge.setPermissionsDataForReview(
                 new PermissionsData[] {PERMISSIONS_DATA_3, PERMISSIONS_DATA_4, PERMISSIONS_DATA_5});
@@ -362,6 +368,7 @@ public final class SafetyHubTest {
     @Test
     @LargeTest
     @Feature({"RenderTest", "SafetyHubNotifications"})
+    @Features.DisableFeatures(ChromeFeatureList.SETTINGS_MULTI_COLUMN)
     public void testNotificationsSubpageAppearance() throws IOException {
         mNotificationPermissionReviewBridge.setNotificationPermissionsForReview(
                 new NotificationPermissions[] {

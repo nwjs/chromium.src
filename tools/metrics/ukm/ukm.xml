@@ -2588,9 +2588,10 @@ be describing additional metrics about the same event.
   </metric>
   <metric name="SharedAutofill" enum="Boolean">
     <summary>
-      Missing shared-autofill feature prevented a cross-origin credit-card field
-      from being filled. Shared-autofill is a policy-controlled feature by which
-      a frame can allow a child-frame to be autofilled across origin.
+      Disabled policy-controlled feature &quot;autofill&quot; prevented a
+      cross-origin credit-card field from being filled. With
+      &quot;autofill&quot;, a frame can allow a child-frame to be autofilled
+      across origin.
     </summary>
   </metric>
 </event>
@@ -3901,6 +3902,13 @@ be describing additional metrics about the same event.
       A single user loading the same form in two different tabs would have two
       different values. This is used to link the fields to a form in
       AutofillAi.KeyMetrics.
+    </summary>
+  </metric>
+  <metric name="FormSignature">
+    <summary>
+      The signature of the form (mod 1021). This is the hash identifier used to
+      denote this form. See components/autofill/core/common/signatures.cc for
+      more details.
     </summary>
   </metric>
   <metric name="PromptType">
@@ -8982,6 +8990,28 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="Extensions.ExtensionUsage">
+  <owner>howardcha@google.com</owner>
+  <owner>webstore-eng@google.com</owner>
+  <summary>
+    Records user actions related to an extension, providing usage metrics for
+    the Chrome Web Store. Tracked actions include pinning, unpinning, enabling,
+    disabling, context menu access, and toolbar icon clicks.
+  </summary>
+  <metric name="Action" enum="ExtensionUsageAction">
+    <summary>
+      The action the user took on the extension.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
 <event name="Extensions.MV2ExtensionHandledInSoftDisable">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>emiliapaz@chromium.org</owner>
@@ -9798,121 +9828,6 @@ be describing additional metrics about the same event.
     <summary>
       Whether FileSystemObserver usage change caused quota to be exceeded.
     </summary>
-  </metric>
-</event>
-
-<event name="FingerprintingProtection" singular="True">
-  <owner>rizvis@google.com</owner>
-  <owner>theslasa@google.com</owner>
-  <owner>trishalfonso@google.com</owner>
-  <summary>
-    Recorded for page loads where fingerprinting protection filtering policy was
-    evaluated.
-  </summary>
-  <metric name="ActivationDecision">
-    <summary>
-      Enum that records the policy decision to activate subresource filtering
-      for a page load. 0 = Unknown, 1 = Activated, 2 = Disabled, 3 = Deprecated
-      value, 4 = URL allowlisted, 5 = Activation conditions not met. 'Activated'
-      indicates that subresource filtering was activated. All other reasons
-      indicate that subresource filtering was not activated.
-    </summary>
-    <aggregation>
-      <history>
-        <statistics>
-          <enumeration/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="AllowlistSource">
-    <summary>
-      Enum that records the source of the fingerprinting protection filtering
-      allowlist entry. 0 = Unknown, 1 = UserBypass, 2 = Enterprise. Recorded
-      only when `ActivationDecision` is &quot;URL allowlisted&quot;
-    </summary>
-    <aggregation>
-      <history>
-        <statistics>
-          <enumeration/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="DryRun">
-    <summary>
-      Records `1` if the fingerprinting protection filtering was activated in
-      dry-run mode. In dry-run mode, fingerprinting protection filtering policy
-      is evaluated against resources loaded on the page, but subresource
-      blocking is not actually applied.
-    </summary>
-    <aggregation>
-      <history>
-        <statistics>
-          <enumeration/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-</event>
-
-<event name="FingerprintingProtectionException" singular="True">
-  <owner>trishalfonso@google.com</owner>
-  <owner>rizvis@google.com</owner>
-  <owner>thesalsa@google.com</owner>
-  <owner>tanub@google.com</owner>
-  <summary>
-    Recorded per navigation where the Fingerprinting Protection Filter (FPF) is
-    enabled and an exception mechanism allows the current first-party site to
-    bypass filtering.
-  </summary>
-  <metric name="Source" enum="FingerprintingProtectionExceptionSource">
-    <summary>
-      Indicates the source from which the exception originates. Exceptions are
-      only emitted when `ActivationDecision` is &quot;URL allowlisted&quot; -
-      never in dry_run mode.
-    </summary>
-    <aggregation>
-      <history>
-        <statistics>
-          <enumeration/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-</event>
-
-<event name="FingerprintingProtectionUsage" singular="True">
-  <owner>rizvis@google.com</owner>
-  <owner>thesalsa@google.com</owner>
-  <summary>
-    Recorded to track heuristics for refreshes where Fingerprinting Protection
-    was enabled.
-  </summary>
-  <metric name="RefreshCount">
-    <summary>
-      The number of times the user refreshed the current page (without
-      navigating elsewhere).
-    </summary>
-    <aggregation>
-      <history>
-        <statistics>
-          <enumeration/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="SiteEngagementLevel" enum="SiteEngagementLevel">
-    <summary>
-      The site engagement level of the page where this event was triggered.
-    </summary>
-    <aggregation>
-      <history>
-        <statistics>
-          <enumeration/>
-        </statistics>
-      </history>
-    </aggregation>
   </metric>
 </event>
 
@@ -12211,14 +12126,13 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
-<event name="HistoryApi.AdvanceMethod">
+<event name="HistoryApi.PushState">
   <owner>yaoxia@chromium.org</owner>
   <owner>shivanisha@chromium.org</owner>
   <summary>
-    Records usage of `window.history` methods that advance the history position
-    (`pushState()`, `forward()`, and `go()` with positive values), capturing
-    details about user activation and ad-related information. Recorded when
-    these specific methods are invoked.
+    Records usage of `window.history.pushState` method, capturing details about
+    user activation and ad-related information. Recorded when this method is
+    invoked.
   </summary>
   <metric name="FromAd" enum="Boolean">
     <summary>
@@ -12534,55 +12448,6 @@ be describing additional metrics about the same event.
       An enum value representing the decision the user made when shown an
       interstitial (proceed, don't proceed, etc.). The enum is defined in
       |HttpsOnlyModeBlockingPage|.
-    </summary>
-  </metric>
-</event>
-
-<event name="Identifiability">
-  <owner>antoniosartori@chromium.org</owner>
-  <owner>caraitto@chromium.org</owner>
-  <owner>mkwst@chromium.org</owner>
-  <owner>pauljensen@chromium.org</owner>
-  <summary>
-    Identifiability metrics are used to measure the diversity of web clients as
-    observed by individual web sites.
-
-    Browser or device fingerprinting uses differences in behaviors of web APIs
-    as identifiers. The values collected under this event indicate the level of
-    identifiability of these differences.
-
-    Metrics recorded under this event are keyed based on parameters determined
-    at runtime. Hence the metrics described in this file are not exhaustive.
-
-    See
-    //third_party/blink/public/common/privacy_budget/identifiability/identifiability_metric_builder.h
-    for details on how the metrics hash is determined.
-  </summary>
-  <metric name="GeneratorVersion.926">
-    <summary>
-      An integer identifying the &quot;generator&quot; version for this record.
-      Some identifiability study samples are derived from multiple factors which
-      are run though a digest function to derive the int64_t value. If the set
-      of factors change or the method of combining them changes, then the
-      resulting statistics cannot be aggregated with those from a prior version.
-
-      The name suffix (.926) was chosen so that the resulting metric hash as
-      determined by base::HashMetricName() has all 8 LSBs set to 0. Such a
-      metric hash does not collide with any other metric hash generated by
-      blink::IdentifiabilityMetricBuilder().
-    </summary>
-  </metric>
-  <metric name="StudyGeneration.626">
-    <summary>
-      An integer identifying the study &quot;generation.&quot; In case the study
-      parameters need to be tweaked to the point where results cannot be
-      aggregated across study parameter sets, this value can be changed to
-      partition the results.
-
-      The name suffix (.626) was chosen so that the resulting metric hash as
-      determined by base::HashMetricName() has all 8 LSBs set to 0. Such a
-      metric hash does not collide with any other metric hash generated by
-      blink::IdentifiabilityMetricBuilder().
     </summary>
   </metric>
 </event>
@@ -17852,6 +17717,29 @@ be describing additional metrics about the same event.
         <index fields="profile.country"/>
         <statistics>
           <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="PageLifecycleMetricsOnNewPageCommit" singular="True">
+  <owner>chikamune@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Metrics for the previous page's PageLifecycle events on the new page's
+    commit. This event is saved on the new page that is about to commit.
+  </summary>
+  <metric name="PageLifecycleEventsTotalProcessingTime">
+    <summary>
+      Measures the total duration in milliseconds to run event handlers for the
+      previous page's lifecycle events (e.g., pagehide, visibilitychange) upon
+      the new page's commit.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
         </statistics>
       </history>
     </aggregation>
@@ -28481,29 +28369,6 @@ be describing additional metrics about the same event.
       Records the similarities and differences between the storage key of the
       frame accessing the window proxy and the frame referenced by the window
       proxy.
-    </summary>
-  </metric>
-</event>
-
-<event name="Worker.ClientAdded">
-  <owner>cfredric@google.com</owner>
-  <summary>
-    Recorded when a client connects to an existing SharedWorker or
-    ServiceWorker; records the source IDs of the client (which may be a document
-    or another worker), and the type of the worker being connected to. In the
-    case of a ServiceWorker, this is recorded for each worker-client pair that
-    could communicate (whether or not they actually do) and this is only
-    recorded once the client is execution ready. Note also that emission can be
-    caused by the creation of a new ServiceWorker or a new ServiceWorker client.
-  </summary>
-  <metric name="ClientSourceId">
-    <summary>
-      The UKM source ID of the connecting client, as an integer.
-    </summary>
-  </metric>
-  <metric name="WorkerType" enum="WorkerType">
-    <summary>
-      The type of the worker that was connected to.
     </summary>
   </metric>
 </event>

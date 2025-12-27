@@ -8,20 +8,29 @@
 #import "base/run_loop.h"
 #import "base/strings/utf_string_conversions.h"
 #import "base/test/bind.h"
+#import "base/test/metrics/histogram_tester.h"
 #import "base/test/run_until.h"
 #import "base/test/scoped_feature_list.h"
 #import "base/test/test_future.h"
+#import "components/enterprise/connectors/core/reporting_event_router.h"
 #import "components/enterprise/data_controls/core/browser/prefs.h"
 #import "components/enterprise/data_controls/core/browser/test_utils.h"
+#import "components/keyed_service/core/keyed_service.h"
 #import "components/signin/public/identity_manager/identity_test_utils.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/sync_preferences/testing_pref_service_syncable.h"
+#import "ios/chrome/browser/enterprise/common/test/mock_reporting_event_router.h"
+#import "ios/chrome/browser/enterprise/connectors/reporting/ios_realtime_reporting_client.h"
+#import "ios/chrome/browser/enterprise/connectors/reporting/ios_realtime_reporting_client_factory.h"
+#import "ios/chrome/browser/enterprise/connectors/reporting/ios_reporting_event_router_factory.h"
+#import "ios/chrome/browser/enterprise/data_controls/model/data_controls_metrics.h"
 #import "ios/chrome/browser/enterprise/data_controls/model/data_controls_pasteboard_manager.h"
 #import "ios/chrome/browser/enterprise/data_controls/model/data_controls_test_utils.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/shared/public/commands/data_controls_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
+#import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/signin/model/identity_test_environment_browser_state_adaptor.h"
 #import "ios/chrome/test/fakes/fake_data_controls_commands_handler.h"
@@ -36,15 +45,18 @@
 #import "third_party/ocmock/gtest_support.h"
 #import "ui/base/l10n/l10n_util.h"
 
+using ::testing::_;
+
 namespace data_controls {
 
 namespace {
 // Test URLs used to set up rules.
-const char kBlockedUrl[] = "https://block.com";
+const char kDataControlsBlockedUrl[] = "https://block.com";
 const char kAllowedUrl[] = "https://allow.com";
 const char kWarnUrl[] = "https://warn.com";
 const char kOtherUrl[] = "https://other.com";
 inline constexpr std::u16string_view kOrganizationDomain = u"google.com";
+
 }  // namespace
 
 // Unit tests for DataControlsTabHelper.
@@ -57,7 +69,14 @@ class DataControlsTabHelperTest : public PlatformTest {
         IdentityManagerFactory::GetInstance(),
         base::BindRepeating(IdentityTestEnvironmentBrowserStateAdaptor::
                                 BuildIdentityManagerForTests));
+    builder.AddTestingFactory(
+        enterprise_connectors::IOSReportingEventRouterFactory::GetInstance(),
+        base::BindOnce(
+            &MockReportingEventRouter::BuildMockReportingEventRouter));
     profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
+    reporting_router_ = static_cast<MockReportingEventRouter*>(
+        enterprise_connectors::IOSReportingEventRouterFactory::GetForProfile(
+            profile_.get()));
     web_state_ = std::make_unique<web::FakeWebState>();
     web_state_->SetBrowserState(profile_);
     feature_list_.InitAndEnableFeature(kEnableClipboardDataControlsIOS);
@@ -92,18 +111,6 @@ class DataControlsTabHelperTest : public PlatformTest {
     }));
     run_loop.Run();
     return result;
-  }
-
-  void SetCopyBlockRule() {
-    SetDataControls(profile_->GetTestingPrefService(), {R"({
-                        "sources": {
-                          "urls": ["block.com"]
-                        },
-                        "restrictions": [
-                          {"class": "CLIPBOARD", "level": "BLOCK"}
-                        ]
-                      })"},
-                    /*machine_scope=*/false);
   }
 
   void SetCopyFromOsClipboardBlockRule() {
@@ -320,9 +327,11 @@ class DataControlsTabHelperTest : public PlatformTest {
 
   web::WebTaskEnvironment task_environment_;
   base::test::ScopedFeatureList feature_list_;
+  base::HistogramTester histogram_tester_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   TestProfileManagerIOS profile_manager_;
   raw_ptr<TestProfileIOS> profile_;
+  raw_ptr<MockReportingEventRouter> reporting_router_;
   std::unique_ptr<web::FakeWebState> web_state_;
 };
 
@@ -331,6 +340,9 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowCopy_Default) {
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowCopy(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_TRUE(allowed);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardCopyVerdictHistogram,
+        Rule::Level::kNotSet, 1);
     run_loop.Quit();
   }));
   run_loop.Run();
@@ -338,19 +350,25 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowCopy_Default) {
 
 // Tests that copy is blocked when a "BLOCK" rule matches the page URL.
 TEST_F(DataControlsTabHelperTest, ShouldAllowCopy_Blocked) {
-  SetCopyBlockRule();
-  web_state_->SetCurrentURL(GURL(kBlockedUrl));
+  SetCopyBlockRule(profile_->GetPrefs());
+  web_state_->SetCurrentURL(GURL(kDataControlsBlockedUrl));
   id snackbar_handler = OCMStrictProtocolMock(@protocol(SnackbarCommands));
   OCMExpect([snackbar_handler
-      showSnackbarWithMessage:l10n_util::GetNSString(
-                                  IDS_POLICY_ACTION_BLOCKED_BY_ORGANIZATION)
-                   buttonText:nil
-                messageAction:nil
-             completionAction:OCMOCK_ANY]);
+      showSnackbarMessageAfterDismissingKeyboard:[OCMArg checkWithBlock:^BOOL(
+                                                             SnackbarMessage*
+                                                                 obj) {
+        return [obj.title
+            isEqualToString:l10n_util::GetNSString(
+                                IDS_POLICY_ACTION_BLOCKED_BY_ORGANIZATION)];
+      }]]);
   tab_helper()->SetSnackbarHandler(snackbar_handler);
+  EXPECT_CALL(*reporting_router_, ReportCopy(_, _)).Times(1);
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowCopy(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_FALSE(allowed);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardCopyVerdictHistogram,
+        Rule::Level::kBlock, 1);
     run_loop.Quit();
   }));
   run_loop.Run();
@@ -364,20 +382,26 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowCopy_Blocked_WithDomain) {
       IdentityManagerFactory::GetForProfile(profile_),
       "user@" + base::UTF16ToUTF8(kOrganizationDomain),
       signin::ConsentLevel::kSignin);
-  SetCopyBlockRule();
-  web_state_->SetCurrentURL(GURL(kBlockedUrl));
+  SetCopyBlockRule(profile_->GetPrefs());
+  web_state_->SetCurrentURL(GURL(kDataControlsBlockedUrl));
   id snackbar_handler = OCMStrictProtocolMock(@protocol(SnackbarCommands));
   OCMExpect([snackbar_handler
-      showSnackbarWithMessage:l10n_util::GetNSStringF(
-                                  IDS_DATA_CONTROLS_BLOCKED_LABEL_WITH_DOMAIN,
-                                  std::u16string(kOrganizationDomain))
-                   buttonText:nil
-                messageAction:nil
-             completionAction:OCMOCK_ANY]);
+      showSnackbarMessageAfterDismissingKeyboard:[OCMArg checkWithBlock:^BOOL(
+                                                             SnackbarMessage*
+                                                                 obj) {
+        return [obj.title
+            isEqualToString:l10n_util::GetNSStringF(
+                                IDS_DATA_CONTROLS_BLOCKED_LABEL_WITH_DOMAIN,
+                                std::u16string(kOrganizationDomain))];
+      }]]);
   tab_helper()->SetSnackbarHandler(snackbar_handler);
+  EXPECT_CALL(*reporting_router_, ReportCopy(_, _)).Times(1);
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowCopy(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_FALSE(allowed);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardCopyVerdictHistogram,
+        Rule::Level::kBlock, 1);
     run_loop.Quit();
   }));
   run_loop.Run();
@@ -388,9 +412,13 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowCopy_Blocked_WithDomain) {
 TEST_F(DataControlsTabHelperTest, ShouldAllowCopy_Allowed) {
   SetCopyAllowRule();
   web_state_->SetCurrentURL(GURL(kAllowedUrl));
+  EXPECT_CALL(*reporting_router_, ReportCopy(_, _)).Times(1);
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowCopy(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_TRUE(allowed);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardCopyVerdictHistogram,
+        Rule::Level::kAllow, 1);
     run_loop.Quit();
   }));
   run_loop.Run();
@@ -403,9 +431,16 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowCopy_Warn_NotBypassed) {
   web_state_->SetCurrentURL(GURL(kWarnUrl));
   auto* handler = [[FakeDataControlsCommandsHandler alloc] init];
   tab_helper()->SetDataControlsCommandsHandler(handler);
+  EXPECT_CALL(*reporting_router_, ReportCopy(_, _)).Times(1);
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowCopy(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_FALSE(allowed);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardCopyVerdictHistogram,
+        Rule::Level::kWarn, 1);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardCopyClipboardWarningBypassedHistogram,
+        FALSE, 1);
     run_loop.Quit();
   }));
   EXPECT_TRUE(
@@ -435,9 +470,16 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowCopy_Warn_Bypassed) {
   web_state_->SetCurrentURL(GURL(kWarnUrl));
   auto* handler = [[FakeDataControlsCommandsHandler alloc] init];
   tab_helper()->SetDataControlsCommandsHandler(handler);
+  EXPECT_CALL(*reporting_router_, ReportCopyWarningBypassed(_, _)).Times(1);
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowCopy(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_TRUE(allowed);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardCopyVerdictHistogram,
+        Rule::Level::kWarn, 1);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardCopyClipboardWarningBypassedHistogram,
+        TRUE, 1);
     run_loop.Quit();
   }));
   EXPECT_TRUE(
@@ -472,9 +514,16 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowCopy_Warn_Bypassed_WithDomain) {
   web_state_->SetCurrentURL(GURL(kWarnUrl));
   auto* handler = [[FakeDataControlsCommandsHandler alloc] init];
   tab_helper()->SetDataControlsCommandsHandler(handler);
+  EXPECT_CALL(*reporting_router_, ReportCopyWarningBypassed(_, _)).Times(1);
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowCopy(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_TRUE(allowed);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardCopyVerdictHistogram,
+        Rule::Level::kWarn, 1);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardCopyClipboardWarningBypassedHistogram,
+        TRUE, 1);
     run_loop.Quit();
   }));
   EXPECT_TRUE(
@@ -501,13 +550,16 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowCopy_Warn_Bypassed_WithDomain) {
 
 // Tests that copy is allowed from a URL that doesn't match any rules.
 TEST_F(DataControlsTabHelperTest, ShouldAllowCopy_OtherUrl) {
-  SetCopyBlockRule();
-  // The blocking rule is set for `kBlockedUrl`, so it shouldn't apply to
-  // `kOtherUrl`.
+  SetCopyBlockRule(profile_->GetPrefs());
+  // The blocking rule is set for `kDataControlsBlockedUrl`, so it shouldn't
+  // apply to `kOtherUrl`.
   web_state_->SetCurrentURL(GURL(kOtherUrl));
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowCopy(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_TRUE(allowed);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardCopyVerdictHistogram,
+        Rule::Level::kNotSet, 1);
     run_loop.Quit();
   }));
   run_loop.Run();
@@ -518,11 +570,13 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowCopy_OtherUrl) {
 TEST_F(DataControlsTabHelperTest, ShouldAllowCopy_FeatureDisabled) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndDisableFeature(kEnableClipboardDataControlsIOS);
-  SetCopyBlockRule();
-  web_state_->SetCurrentURL(GURL(kBlockedUrl));
+  SetCopyBlockRule(profile_->GetPrefs());
+  web_state_->SetCurrentURL(GURL(kDataControlsBlockedUrl));
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowCopy(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_TRUE(allowed);
+    histogram_tester_.ExpectTotalCount(
+        kIOSWebStateDataControlsClipboardCopyVerdictHistogram, 0);
     run_loop.Quit();
   }));
   run_loop.Run();
@@ -533,6 +587,9 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_Default) {
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowPaste(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_TRUE(allowed);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardPasteVerdictHistogram,
+        Rule::Level::kNotSet, 1);
     run_loop.Quit();
   }));
   run_loop.Run();
@@ -541,18 +598,24 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_Default) {
 // Tests that paste is blocked when a "BLOCK" rule matches the page URL.
 TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_Blocked) {
   SetPasteBlockRule();
-  web_state_->SetCurrentURL(GURL(kBlockedUrl));
+  web_state_->SetCurrentURL(GURL(kDataControlsBlockedUrl));
   id snackbar_handler = OCMStrictProtocolMock(@protocol(SnackbarCommands));
   OCMExpect([snackbar_handler
-      showSnackbarWithMessage:l10n_util::GetNSString(
-                                  IDS_POLICY_ACTION_BLOCKED_BY_ORGANIZATION)
-                   buttonText:nil
-                messageAction:nil
-             completionAction:OCMOCK_ANY]);
+      showSnackbarMessageAfterDismissingKeyboard:[OCMArg checkWithBlock:^BOOL(
+                                                             SnackbarMessage*
+                                                                 obj) {
+        return [obj.title
+            isEqualToString:l10n_util::GetNSString(
+                                IDS_POLICY_ACTION_BLOCKED_BY_ORGANIZATION)];
+      }]]);
   tab_helper()->SetSnackbarHandler(snackbar_handler);
+  EXPECT_CALL(*reporting_router_, ReportPaste(_, _)).Times(1);
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowPaste(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_FALSE(allowed);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardPasteVerdictHistogram,
+        Rule::Level::kBlock, 1);
     run_loop.Quit();
   }));
   run_loop.Run();
@@ -563,9 +626,13 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_Blocked) {
 TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_Allowed) {
   SetPasteAllowRule();
   web_state_->SetCurrentURL(GURL(kAllowedUrl));
+  EXPECT_CALL(*reporting_router_, ReportPaste(_, _)).Times(1);
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowPaste(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_TRUE(allowed);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardPasteVerdictHistogram,
+        Rule::Level::kAllow, 1);
     run_loop.Quit();
   }));
   run_loop.Run();
@@ -579,19 +646,25 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_Blocked_WithDomain) {
       "user@" + base::UTF16ToUTF8(kOrganizationDomain),
       signin::ConsentLevel::kSignin);
   SetPasteBlockRule();
-  web_state_->SetCurrentURL(GURL(kBlockedUrl));
+  web_state_->SetCurrentURL(GURL(kDataControlsBlockedUrl));
   id snackbar_handler = OCMStrictProtocolMock(@protocol(SnackbarCommands));
   OCMExpect([snackbar_handler
-      showSnackbarWithMessage:l10n_util::GetNSStringF(
-                                  IDS_DATA_CONTROLS_BLOCKED_LABEL_WITH_DOMAIN,
-                                  std::u16string(kOrganizationDomain))
-                   buttonText:nil
-                messageAction:nil
-             completionAction:OCMOCK_ANY]);
+      showSnackbarMessageAfterDismissingKeyboard:[OCMArg checkWithBlock:^BOOL(
+                                                             SnackbarMessage*
+                                                                 obj) {
+        return [obj.title
+            isEqualToString:l10n_util::GetNSStringF(
+                                IDS_DATA_CONTROLS_BLOCKED_LABEL_WITH_DOMAIN,
+                                std::u16string(kOrganizationDomain))];
+      }]]);
+  EXPECT_CALL(*reporting_router_, ReportPaste(_, _)).Times(1);
   tab_helper()->SetSnackbarHandler(snackbar_handler);
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowPaste(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_FALSE(allowed);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardPasteVerdictHistogram,
+        Rule::Level::kBlock, 1);
     run_loop.Quit();
   }));
   run_loop.Run();
@@ -605,9 +678,16 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_Warn_NotBypassed) {
   web_state_->SetCurrentURL(GURL(kWarnUrl));
   auto* handler = [[FakeDataControlsCommandsHandler alloc] init];
   tab_helper()->SetDataControlsCommandsHandler(handler);
+  EXPECT_CALL(*reporting_router_, ReportPaste(_, _)).Times(1);
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowPaste(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_FALSE(allowed);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardPasteVerdictHistogram,
+        Rule::Level::kWarn, 1);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardPasteClipboardWarningBypassedHistogram,
+        FALSE, 1);
     run_loop.Quit();
   }));
   EXPECT_TRUE(
@@ -637,9 +717,16 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_Warn_Bypassed) {
   web_state_->SetCurrentURL(GURL(kWarnUrl));
   auto* handler = [[FakeDataControlsCommandsHandler alloc] init];
   tab_helper()->SetDataControlsCommandsHandler(handler);
+  EXPECT_CALL(*reporting_router_, ReportPasteWarningBypassed(_, _)).Times(1);
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowPaste(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_TRUE(allowed);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardPasteVerdictHistogram,
+        Rule::Level::kWarn, 1);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardPasteClipboardWarningBypassedHistogram,
+        TRUE, 1);
     run_loop.Quit();
   }));
   EXPECT_TRUE(
@@ -674,9 +761,16 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_Warn_Bypassed_WithDomain) {
   web_state_->SetCurrentURL(GURL(kWarnUrl));
   auto* handler = [[FakeDataControlsCommandsHandler alloc] init];
   tab_helper()->SetDataControlsCommandsHandler(handler);
+  EXPECT_CALL(*reporting_router_, ReportPasteWarningBypassed(_, _)).Times(1);
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowPaste(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_TRUE(allowed);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardPasteVerdictHistogram,
+        Rule::Level::kWarn, 1);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardPasteClipboardWarningBypassedHistogram,
+        TRUE, 1);
     run_loop.Quit();
   }));
   EXPECT_TRUE(
@@ -708,6 +802,9 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_OtherUrl) {
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowPaste(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_TRUE(allowed);
+    histogram_tester_.ExpectUniqueSample(
+        kIOSWebStateDataControlsClipboardPasteVerdictHistogram,
+        Rule::Level::kNotSet, 1);
     run_loop.Quit();
   }));
   run_loop.Run();
@@ -722,6 +819,9 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_BlockedForSource) {
   // Simulate copying from other.com.
   web_state_->SetCurrentURL(GURL(kOtherUrl));
   EXPECT_TRUE(ShouldAllowCopy(tab_helper()));
+  histogram_tester_.ExpectUniqueSample(
+      kIOSWebStateDataControlsClipboardCopyVerdictHistogram,
+      Rule::Level::kNotSet, 1);
 
   UIPasteboard.generalPasteboard.string = @"copied content";
 
@@ -729,7 +829,11 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_BlockedForSource) {
 
   // Simulate pasting to allow.com
   web_state_->SetCurrentURL(GURL(kAllowedUrl));
+  EXPECT_CALL(*reporting_router_, ReportPaste(_, _)).Times(1);
   EXPECT_FALSE(ShouldAllowPaste(tab_helper()));
+  histogram_tester_.ExpectUniqueSample(
+      kIOSWebStateDataControlsClipboardPasteVerdictHistogram,
+      Rule::Level::kBlock, 1);
 }
 
 // Tests that paste is blocked when a rule is set to block pasting from an
@@ -747,14 +851,21 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_BlockedFromIncognito) {
   // Simulate copying from the incognito profile.
   incognito_web_state->SetCurrentURL(GURL(kOtherUrl));
   EXPECT_TRUE(ShouldAllowCopy(incognito_tab_helper));
+  histogram_tester_.ExpectUniqueSample(
+      kIOSWebStateDataControlsClipboardCopyVerdictHistogram,
+      Rule::Level::kNotSet, 1);
 
   UIPasteboard.generalPasteboard.string = @"copied content";
 
   EXPECT_TRUE(WaitForKnownPasteboardSource());
 
-  // Simulate pasting to kBlockedUrl in the non-incognito profile.
-  web_state_->SetCurrentURL(GURL(kBlockedUrl));
+  // Simulate pasting to kDataControlsBlockedUrl in the non-incognito profile.
+  web_state_->SetCurrentURL(GURL(kDataControlsBlockedUrl));
+  EXPECT_CALL(*reporting_router_, ReportPaste(_, _)).Times(1);
   EXPECT_FALSE(ShouldAllowPaste(tab_helper()));
+  histogram_tester_.ExpectUniqueSample(
+      kIOSWebStateDataControlsClipboardPasteVerdictHistogram,
+      Rule::Level::kBlock, 1);
 }
 
 // Tests that paste is blocked when a rule is set to block pasting from another
@@ -773,14 +884,21 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_BlockedFromOtherProfile) {
   // Simulate copying from the second profile.
   source_web_state->SetCurrentURL(GURL(kOtherUrl));
   EXPECT_TRUE(ShouldAllowCopy(source_tab_helper));
+  histogram_tester_.ExpectUniqueSample(
+      kIOSWebStateDataControlsClipboardCopyVerdictHistogram,
+      Rule::Level::kNotSet, 1);
 
   UIPasteboard.generalPasteboard.string = @"copied content";
 
   EXPECT_TRUE(WaitForKnownPasteboardSource());
 
-  // Simulate pasting to kBlockedUrl in the primary profile.
-  web_state_->SetCurrentURL(GURL(kBlockedUrl));
+  // Simulate pasting to kDataControlsBlockedUrl in the primary profile.
+  web_state_->SetCurrentURL(GURL(kDataControlsBlockedUrl));
+  EXPECT_CALL(*reporting_router_, ReportPaste(_, _)).Times(1);
   EXPECT_FALSE(ShouldAllowPaste(tab_helper()));
+  histogram_tester_.ExpectUniqueSample(
+      kIOSWebStateDataControlsClipboardPasteVerdictHistogram,
+      Rule::Level::kBlock, 1);
 }
 
 // Tests that paste is blocked when a rule is set to block pasting from the OS
@@ -788,9 +906,13 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_BlockedFromOtherProfile) {
 TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_BlockedFromOSClipboard) {
   SetPasteBlockFromOSClipboardRule();
 
-  // Simulate pasting to kBlockedUrl.
-  web_state_->SetCurrentURL(GURL(kBlockedUrl));
+  // Simulate pasting to kDataControlsBlockedUrl.
+  web_state_->SetCurrentURL(GURL(kDataControlsBlockedUrl));
+  EXPECT_CALL(*reporting_router_, ReportPaste(_, _)).Times(1);
   EXPECT_FALSE(ShouldAllowPaste(tab_helper()));
+  histogram_tester_.ExpectUniqueSample(
+      kIOSWebStateDataControlsClipboardPasteVerdictHistogram,
+      Rule::Level::kBlock, 1);
 }
 
 // Tests that, for content that is not allowed on the OS clipboard, the content
@@ -801,8 +923,11 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_BlockedToOSClipboard) {
   SetPasteBlockToOSClipboardRule();
 
   // Simulate copying from block.com.
-  web_state_->SetCurrentURL(GURL(kBlockedUrl));
+  web_state_->SetCurrentURL(GURL(kDataControlsBlockedUrl));
   ASSERT_TRUE(ShouldAllowCopy(tab_helper()));
+  histogram_tester_.ExpectUniqueSample(
+      kIOSWebStateDataControlsClipboardCopyVerdictHistogram,
+      Rule::Level::kNotSet, 1);
 
   NSString* copied_content = @"copied content";
   UIPasteboard.generalPasteboard.string = copied_content;
@@ -819,6 +944,10 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_BlockedToOSClipboard) {
   // Simulate pasting to allow.com
   web_state_->SetCurrentURL(GURL(kAllowedUrl));
   ASSERT_TRUE(ShouldAllowPaste(tab_helper()));
+
+  histogram_tester_.ExpectUniqueSample(
+      kIOSWebStateDataControlsClipboardPasteVerdictHistogram,
+      Rule::Level::kNotSet, 1);
 
   ASSERT_TRUE(WaitForKnownPasteboardSource());
 
@@ -837,10 +966,12 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_FeatureDisabled) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndDisableFeature(kEnableClipboardDataControlsIOS);
   SetPasteBlockRule();
-  web_state_->SetCurrentURL(GURL(kBlockedUrl));
+  web_state_->SetCurrentURL(GURL(kDataControlsBlockedUrl));
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowPaste(base::BindLambdaForTesting([&](bool allowed) {
     EXPECT_TRUE(allowed);
+    histogram_tester_.ExpectTotalCount(
+        kIOSWebStateDataControlsClipboardPasteVerdictHistogram, 0);
     run_loop.Quit();
   }));
   run_loop.Run();
@@ -848,15 +979,17 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowPaste_FeatureDisabled) {
 
 // Tests that cut is blocked when a "BLOCK" rule matches the page URL.
 TEST_F(DataControlsTabHelperTest, ShouldAllowCut) {
-  SetCopyBlockRule();
-  web_state_->SetCurrentURL(GURL(kBlockedUrl));
+  SetCopyBlockRule(profile_->GetPrefs());
+  web_state_->SetCurrentURL(GURL(kDataControlsBlockedUrl));
   id snackbar_handler = OCMStrictProtocolMock(@protocol(SnackbarCommands));
   OCMExpect([snackbar_handler
-      showSnackbarWithMessage:l10n_util::GetNSString(
-                                  IDS_POLICY_ACTION_BLOCKED_BY_ORGANIZATION)
-                   buttonText:nil
-                messageAction:nil
-             completionAction:OCMOCK_ANY]);
+      showSnackbarMessageAfterDismissingKeyboard:[OCMArg checkWithBlock:^BOOL(
+                                                             SnackbarMessage*
+                                                                 obj) {
+        return [obj.title
+            isEqualToString:l10n_util::GetNSString(
+                                IDS_POLICY_ACTION_BLOCKED_BY_ORGANIZATION)];
+      }]]);
   tab_helper()->SetSnackbarHandler(snackbar_handler);
   base::RunLoop run_loop;
   tab_helper()->ShouldAllowCut(base::BindLambdaForTesting([&](bool allowed) {
@@ -867,183 +1000,23 @@ TEST_F(DataControlsTabHelperTest, ShouldAllowCut) {
   [(OCMockObject*)snackbar_handler verify];
 }
 
-// Tests that share is allowed when no rules are set
-TEST_F(DataControlsTabHelperTest, ShouldAllowShare_Default) {
-  base::test::TestFuture<bool> test_future;
-  tab_helper()->ShouldAllowShare(test_future.GetCallback());
-  EXPECT_TRUE(test_future.Get());
-}
-
-// Tests that share is allowed when a "BLOCK" rule is set but the feature is
-// disabled.
-TEST_F(DataControlsTabHelperTest, ShouldAllowShare_FeatureDisabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(kEnableClipboardDataControlsIOS);
-  SetCopyBlockRule();
-  web_state_->SetCurrentURL(GURL(kBlockedUrl));
-
-  base::test::TestFuture<bool> test_future;
-  tab_helper()->ShouldAllowShare(test_future.GetCallback());
-  EXPECT_TRUE(test_future.Get());
+// Tests that share is allowed by default.
+TEST_F(DataControlsTabHelperTest, ShouldAllowShareSync_Default) {
+  EXPECT_TRUE(tab_helper()->ShouldAllowShare());
 }
 
 // Tests that share is blocked when a "BLOCK" rule matches the page URL.
-TEST_F(DataControlsTabHelperTest, ShouldAllowShare_Blocked) {
-  SetCopyBlockRule();
-  web_state_->SetCurrentURL(GURL(kBlockedUrl));
-  id snackbar_handler = OCMStrictProtocolMock(@protocol(SnackbarCommands));
-  OCMExpect([snackbar_handler
-      showSnackbarWithMessage:l10n_util::GetNSString(
-                                  IDS_POLICY_ACTION_BLOCKED_BY_ORGANIZATION)
-                   buttonText:nil
-                messageAction:nil
-             completionAction:OCMOCK_ANY]);
-  tab_helper()->SetSnackbarHandler(snackbar_handler);
-  base::test::TestFuture<bool> test_future;
-  tab_helper()->ShouldAllowShare(test_future.GetCallback());
-  EXPECT_FALSE(test_future.Get());
-
-  EXPECT_OCMOCK_VERIFY(snackbar_handler);
-}
-
-// Tests that share is blocked when a "BLOCK" rule matches the page URL and
-// the snackbar message is correct when the organization domain is not empty.
-TEST_F(DataControlsTabHelperTest, ShouldAllowShare_Blocked_WithDomain) {
-  signin::MakePrimaryAccountAvailable(
-      IdentityManagerFactory::GetForProfile(profile_),
-      "user@" + base::UTF16ToUTF8(kOrganizationDomain),
-      signin::ConsentLevel::kSignin);
-
-  SetCopyBlockRule();
-  web_state_->SetCurrentURL(GURL(kBlockedUrl));
-
-  id snackbar_handler = OCMStrictProtocolMock(@protocol(SnackbarCommands));
-  OCMExpect([snackbar_handler
-      showSnackbarWithMessage:l10n_util::GetNSStringF(
-                                  IDS_DATA_CONTROLS_BLOCKED_LABEL_WITH_DOMAIN,
-                                  std::u16string(kOrganizationDomain))
-                   buttonText:nil
-                messageAction:nil
-             completionAction:OCMOCK_ANY]);
-  tab_helper()->SetSnackbarHandler(snackbar_handler);
-
-  base::test::TestFuture<bool> test_future;
-  tab_helper()->ShouldAllowShare(test_future.GetCallback());
-  EXPECT_FALSE(test_future.Get());
-
-  EXPECT_OCMOCK_VERIFY(snackbar_handler);
-}
-
-// Tests that share is blocked when a "BLOCK" rule forbids to copy content to
-// the OS clipboard.
-TEST_F(DataControlsTabHelperTest, ShouldAllowShare_OS_Clipboard_Blocked) {
-  SetPasteBlockToOSClipboardRule();
-  web_state_->SetCurrentURL(GURL(kBlockedUrl));
-  id snackbar_handler = OCMStrictProtocolMock(@protocol(SnackbarCommands));
-  OCMExpect([snackbar_handler
-      showSnackbarWithMessage:l10n_util::GetNSString(
-                                  IDS_POLICY_ACTION_BLOCKED_BY_ORGANIZATION)
-                   buttonText:nil
-                messageAction:nil
-             completionAction:OCMOCK_ANY]);
-  tab_helper()->SetSnackbarHandler(snackbar_handler);
-  base::test::TestFuture<bool> test_future;
-  tab_helper()->ShouldAllowShare(test_future.GetCallback());
-  EXPECT_FALSE(test_future.Get());
-
-  EXPECT_OCMOCK_VERIFY(snackbar_handler);
+TEST_F(DataControlsTabHelperTest, ShouldAllowShareSync_Blocked) {
+  SetCopyBlockRule(profile_->GetPrefs());
+  web_state_->SetCurrentURL(GURL(kDataControlsBlockedUrl));
+  EXPECT_FALSE(tab_helper()->ShouldAllowShare());
 }
 
 // Tests that share is allowed when an "ALLOW" rule matches the page URL.
-TEST_F(DataControlsTabHelperTest, ShouldAllowShare_Allowed) {
+TEST_F(DataControlsTabHelperTest, ShouldAllowShareSync_Allowed) {
   SetCopyAllowRule();
   web_state_->SetCurrentURL(GURL(kAllowedUrl));
-  base::test::TestFuture<bool> test_future;
-  tab_helper()->ShouldAllowShare(test_future.GetCallback());
-  EXPECT_TRUE(test_future.Get());
-}
-
-// Tests that share is blocked when a "WARN" rule matches the page URL and the
-// user does not bypass the warning.
-TEST_F(DataControlsTabHelperTest, ShouldAllowShare_Warn_NotBypassed) {
-  SetCopyWarnRule();
-  web_state_->SetCurrentURL(GURL(kWarnUrl));
-
-  auto* handler = [[FakeDataControlsCommandsHandler alloc] init];
-  tab_helper()->SetDataControlsCommandsHandler(handler);
-
-  base::test::TestFuture<bool> test_future;
-  tab_helper()->ShouldAllowShare(test_future.GetCallback());
-
-  ASSERT_TRUE(
-      base::test::RunUntil([&] { return !handler->_callback.is_null(); }));
-  EXPECT_EQ(handler.dialogType, DataControlsDialog::Type::kClipboardShareWarn);
-
-  std::move(handler->_callback).Run(false);
-
-  EXPECT_FALSE(test_future.Get());
-}
-
-// Tests that share is allowed when a "WARN" rule matches the page URL and the
-// user bypasses the warning.
-TEST_F(DataControlsTabHelperTest, ShouldAllowShare_Warn_Bypassed) {
-  SetCopyWarnRule();
-  web_state_->SetCurrentURL(GURL(kWarnUrl));
-
-  auto* handler = [[FakeDataControlsCommandsHandler alloc] init];
-  tab_helper()->SetDataControlsCommandsHandler(handler);
-
-  base::test::TestFuture<bool> test_future;
-  tab_helper()->ShouldAllowShare(test_future.GetCallback());
-
-  ASSERT_TRUE(
-      base::test::RunUntil([&] { return !handler->_callback.is_null(); }));
-  EXPECT_EQ(handler.dialogType, DataControlsDialog::Type::kClipboardShareWarn);
-  EXPECT_TRUE(handler.organizationDomain.empty());
-
-  std::move(handler->_callback).Run(true);
-
-  EXPECT_TRUE(test_future.Get());
-}
-
-// Tests that share is allowed when a "WARN" rule matches the page URL, the
-// user bypasses the warning, and the warning dialog is correct when the
-// organization domain is not empty.
-TEST_F(DataControlsTabHelperTest, ShouldAllowShare_Warn_Bypassed_WithDomain) {
-  signin::MakePrimaryAccountAvailable(
-      IdentityManagerFactory::GetForProfile(profile_),
-      "user@" + base::UTF16ToUTF8(kOrganizationDomain),
-      signin::ConsentLevel::kSignin);
-
-  SetCopyWarnRule();
-  web_state_->SetCurrentURL(GURL(kWarnUrl));
-
-  auto* handler = [[FakeDataControlsCommandsHandler alloc] init];
-  tab_helper()->SetDataControlsCommandsHandler(handler);
-
-  base::test::TestFuture<bool> test_future;
-  tab_helper()->ShouldAllowShare(test_future.GetCallback());
-
-  ASSERT_TRUE(
-      base::test::RunUntil([&] { return !handler->_callback.is_null(); }));
-  EXPECT_EQ(handler.dialogType, DataControlsDialog::Type::kClipboardShareWarn);
-  EXPECT_EQ(handler.organizationDomain, base::UTF16ToUTF8(kOrganizationDomain));
-
-  std::move(handler->_callback).Run(true);
-
-  EXPECT_TRUE(test_future.Get());
-}
-
-// Tests that share is allowed from a URL that doesn't match any rules.
-TEST_F(DataControlsTabHelperTest, ShouldAllowShare_OtherUrl) {
-  SetCopyBlockRule();
-  // The blocking rule is set for `kBlockedUrl`, so it shouldn't apply to
-  // `kOtherUrl`.
-  web_state_->SetCurrentURL(GURL(kOtherUrl));
-
-  base::test::TestFuture<bool> test_future;
-  tab_helper()->ShouldAllowShare(test_future.GetCallback());
-  EXPECT_TRUE(test_future.Get());
+  EXPECT_TRUE(tab_helper()->ShouldAllowShare());
 }
 
 }  // namespace data_controls

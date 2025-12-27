@@ -59,7 +59,7 @@ constexpr net::BackoffEntry::Policy kBackoffPolicy = {
     // Don't use initial delay unless the last request was an error.
     false,
 };
-}
+}  // namespace
 
 Session::Session(Id id, SessionInclusionRules inclusion_rules, GURL refresh)
     : id_(id),
@@ -106,8 +106,7 @@ base::expected<std::unique_ptr<Session>, SessionError> Session::CreateIfValid(
   }
 
   // If there is an origin in the scope, verify it has no path (including '/').
-  if (features::kDeviceBoundSessionsOriginTrialFeedback.Get() &&
-      !params.scope.origin.empty()) {
+  if (!params.scope.origin.empty()) {
     std::string_view origin_view =
         base::TrimWhitespaceASCII(params.scope.origin, base::TRIM_ALL);
     if ((scope_origin_as_url.has_path() && scope_origin_as_url.path() != "/") ||
@@ -294,8 +293,7 @@ bool Session::IsInScope(URLRequest* request) {
         return dict;
       });
 
-  if (features::kDeviceBoundSessionsOriginTrialFeedback.Get() &&
-      !AllowedToInitiateRefresh(request->initiator())) {
+  if (!AllowedToInitiateRefresh(request->initiator())) {
     request->net_log().AddEvent(
         net::NetLogEventType::CHECK_DBSC_REFRESH_REQUIRED,
         [&](NetLogCaptureMode capture_mode) {
@@ -332,7 +330,8 @@ base::TimeDelta Session::MinimumBoundCookieLifetime(
       net::cookie_util::ComputeSameSiteContextForRequest(
           request->method(), request->url_chain(), request->site_for_cookies(),
           request->initiator(), is_main_frame_navigation,
-          force_ignore_site_for_cookies);
+          force_ignore_site_for_cookies,
+          request->ignore_unsafe_method_for_same_site_lax());
 
   CookieOptions options;
   options.set_same_site_cookie_context(same_site_context);
@@ -553,6 +552,8 @@ void Session::InformOfRefreshResult(bool was_proactive,
     case kTooManyRelyingOriginLabels:
     case kEmptySessionConfig:
     case kRegistrationAttemptedChallenge:
+    case kInvalidFederatedSessionProviderFailedToRestoreKey:
+    case kFailedToUnwrapKey:
       NOTREACHED();
   }
 

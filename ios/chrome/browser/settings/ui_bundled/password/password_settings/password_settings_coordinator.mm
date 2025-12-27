@@ -17,6 +17,7 @@
 #import "components/password_manager/core/browser/ui/saved_passwords_presenter.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/affiliations/model/ios_chrome_affiliation_service_factory.h"
+#import "ios/chrome/browser/credential_exchange/coordinator/credential_export_coordinator.h"
 #import "ios/chrome/browser/credential_provider/model/features.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_account_password_store_factory.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_profile_password_store_factory.h"
@@ -53,7 +54,6 @@
 #import "ios/chrome/browser/signin/model/trusted_vault_client_backend.h"
 #import "ios/chrome/browser/signin/model/trusted_vault_client_backend_factory.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
-#import "ios/chrome/browser/webauthn/coordinator/credential_export_coordinator.h"
 #import "ios/chrome/browser/webauthn/model/ios_passkey_model_factory.h"
 #import "ios/chrome/common/ui/elements/branded_navigation_item_title_view.h"
 #import "ios/chrome/common/ui/reauthentication/reauthentication_module.h"
@@ -183,7 +183,8 @@ const NSInteger kErrorUserDismissedUpdateGPMPinFlow = -105;
   AlertCoordinator* _updateGPMPinErrorCoordinator;
 
   // Coordinator for handling the credential export flow.
-  CredentialExportCoordinator* _credentialExportCoordinator;
+  CredentialExportCoordinator* _credentialExportCoordinator
+      API_AVAILABLE(ios(26.0));
 }
 
 #pragma mark - ChromeCoordinator
@@ -268,6 +269,11 @@ const NSInteger kErrorUserDismissedUpdateGPMPinFlow = -105;
   [_passwordsInOtherAppsCoordinator stop];
   _passwordsInOtherAppsCoordinator.delegate = nil;
   _passwordsInOtherAppsCoordinator = nil;
+
+  if (@available(iOS 26, *)) {
+    [_credentialExportCoordinator stop];
+    _credentialExportCoordinator = nil;
+  }
 
   _passwordSettingsViewController.presentationDelegate = nil;
   _passwordSettingsViewController.delegate = nil;
@@ -394,10 +400,7 @@ const NSInteger kErrorUserDismissedUpdateGPMPinFlow = -105;
 
   __weak __typeof(self) weakSelf = self;
   UIAlertAction* exportAction = [UIAlertAction
-      actionWithTitle:(CredentialExchangeEnabled()
-                           ? l10n_util::GetNSString(
-                                 IDS_IOS_EXPORT_PASSWORDS_AND_PASSKEYS)
-                           : l10n_util::GetNSString(IDS_IOS_EXPORT_PASSWORDS))
+      actionWithTitle:l10n_util::GetNSString(IDS_IOS_EXPORT_PASSWORDS)
                 style:UIAlertActionStyleDefault
               handler:^(UIAlertAction* action) {
                 [weakSelf onStartExportFlowConfirmed];

@@ -74,6 +74,7 @@
 <translation id="1274654146705270731">buah oren</translation>
 <translation id="1275718070701477396">Dipilih</translation>
 <translation id="1290331692326790741">Isyarat lemah</translation>
+<translation id="1292474106138697109">Paparan Alatan Pembelajaran</translation>
 <translation id="1300115153046603471">APN merupakan jenis lalai dan <ph name="ATTACH" />.</translation>
 <translation id="1301069673413256657">GSM</translation>
 <translation id="1301340234286078471">Tukar</translation>
@@ -1046,6 +1047,7 @@
 <translation id="5596627076506792578">Lagi pilihan</translation>
 <translation id="5600027863942488546">Kekunci <ph name="KEY_NAME" /> diuji</translation>
 <translation id="5606865426897221650">Tab</translation>
+<translation id="5612205513582918357">Alatan Pembelajaran berkongsi skrin anda dengan <ph name="RECEIVER_NAME" /></translation>
 <translation id="5613201299517339763">Anda telah dilog keluar</translation>
 <translation id="5620281292257375798">Dalaman sahaja</translation>
 <translation id="5628106863521633649">Bahasa yang tersedia</translation>
@@ -1473,7 +1475,6 @@ Muat turun model transkripsi (hingga 100MB) untuk mendapatkan transkripsi ini.</
 <translation id="7425832472614771259">Model transkripsi <ph name="LANGUAGE_NAME" /> telah <ph name="PROGRESS_PERCENTAGE" />% dimuat turun</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">Tidak boleh melumpuhkan atau mengalih keluar APN ini. Pastikan APN <ph name="ATTACH" /> didayakan ini dilumpuhkan atau dialih keluar.</translation>
-<translation id="7458359366992324037">Paparan kawalan jauh</translation>
 <translation id="7458970041932198923">Sila sambung kepada rangkaian dan muatkan semula halaman itu untuk melihat dan menetapkan avatar.</translation>
 <translation id="7469648432129124067">Portal dikesan</translation>
 <translation id="7481312909269577407">Majukan</translation>

@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "components/enterprise/buildflags/buildflags.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/common.h"
 #include "components/enterprise/connectors/core/reporting_constants.h"
 #include "components/policy/core/common/cloud/mock_cloud_policy_client.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
@@ -156,7 +157,7 @@ class TestPagePrintRequestHandler
       override {
     ASSERT_EQ(request->printer_name(), kPrinterName);
     OnContentAnalysisResponse(
-        safe_browsing::BinaryUploadService::Result::SUCCESS,
+        enterprise_connectors::ScanRequestUploadResult::SUCCESS,
         CreateResponse(action_));
   }
 
@@ -191,7 +192,7 @@ class PrintContentAnalysisUtilsTest
     RealtimeReportingClientFactory::GetForProfile(profile())
         ->SetBrowserCloudPolicyClientForTesting(client_.get());
     identity_test_environment_.MakePrimaryAccountAvailable(
-        kUserName, signin::ConsentLevel::kSync);
+        kUserName, signin::ConsentLevel::kSignin);
     RealtimeReportingClientFactory::GetForProfile(profile())
         ->SetIdentityManagerForTesting(
             identity_test_environment_.identity_manager());

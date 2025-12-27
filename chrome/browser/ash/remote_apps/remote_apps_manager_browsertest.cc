@@ -21,7 +21,6 @@
 #include "ash/test/ash_test_base.h"
 #include "base/barrier_closure.h"
 #include "base/functional/callback.h"
-#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
@@ -135,11 +134,7 @@ class MockRemoteAppLaunchObserver
 class RemoteAppsManagerBrowsertest
     : public policy::DevicePolicyCrosBrowserTest {
  public:
-  RemoteAppsManagerBrowsertest() {
-    // Quick App is used for the current implementation of app pinning.
-    scoped_feature_list_.InitAndEnableFeature(
-        features::kHomeButtonQuickAppAccess);
-  }
+  RemoteAppsManagerBrowsertest() = default;
 
   // DevicePolicyCrosBrowserTest:
   void SetUp() override {

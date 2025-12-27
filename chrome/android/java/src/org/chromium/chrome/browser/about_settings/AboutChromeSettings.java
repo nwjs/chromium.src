@@ -21,10 +21,12 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.settings.ChromeBaseSettingsFragment;
+import org.chromium.chrome.browser.settings.search.BaseSearchIndexProvider;
 import org.chromium.chrome.browser.tracing.settings.DeveloperSettings;
 import org.chromium.components.browser_ui.settings.EmbeddableSettingsPage;
 import org.chromium.components.browser_ui.settings.SettingsFragment;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
+import org.chromium.components.browser_ui.util.date.CalendarFactory;
 import org.chromium.ui.widget.Toast;
 
 import java.util.Calendar;
@@ -33,6 +35,10 @@ import java.util.Calendar;
 @NullMarked
 public class AboutChromeSettings extends ChromeBaseSettingsFragment
         implements EmbeddableSettingsPage, Preference.OnPreferenceClickListener {
+    static {
+        CalendarFactory.warmUp();
+    }
+
     private static final int TAPS_FOR_DEVELOPER_SETTINGS = 7;
 
     private static final String PREF_APPLICATION_VERSION = "application_version";
@@ -70,7 +76,7 @@ public class AboutChromeSettings extends ChromeBaseSettingsFragment
         p.setSummary(AboutSettingsBridge.getOSVersion());
         p = findPreference(PREF_LEGAL_INFORMATION);
         assumeNonNull(p);
-        int currentYear = Calendar.getInstance().get(Calendar.YEAR);
+        int currentYear = CalendarFactory.get().get(Calendar.YEAR);
         p.setSummary(getString(R.string.legal_information_summary, currentYear));
     }
 
@@ -146,4 +152,13 @@ public class AboutChromeSettings extends ChromeBaseSettingsFragment
     public @SettingsFragment.AnimationType int getAnimationType() {
         return SettingsFragment.AnimationType.PROPERTY;
     }
+
+    @Override
+    public @Nullable String getMainMenuKey() {
+        return "about_chrome";
+    }
+
+    public static final BaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new BaseSearchIndexProvider(
+                    AboutChromeSettings.class.getName(), R.xml.about_chrome_preferences);
 }

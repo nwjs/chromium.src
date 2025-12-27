@@ -8,10 +8,12 @@ import './feedback_toast.js';
 import '/strings.m.js';
 import '/lens/shared/searchbox_ghost_loader.js';
 import '/lens/shared/searchbox_shared_style.css.js';
+import '//resources/cr_components/composebox/composebox.js';
 import '//resources/cr_components/searchbox/searchbox.js';
+import '//resources/cr_elements/cr_button/cr_button.js';
+import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import '//resources/cr_elements/cr_icons.css.js';
 import '//resources/cr_elements/cr_toast/cr_toast.js';
-import '//resources/cr_components/composebox/composebox.js';
 
 import {ColorChangeUpdater} from '//resources/cr_components/color_change_listener/colors_css_updater.js';
 import type {ComposeboxElement} from '//resources/cr_components/composebox/composebox.js';
@@ -240,6 +242,10 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
         type: Number,
         value: 0,
       },
+      maxSuggestions: {
+        type: Number,
+        value: 0,
+      },
       isOverlayShowing: {
         type: Boolean,
         value: true,
@@ -335,6 +341,7 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
   declare private isOnAimResults: boolean;
   declare private composeboxHeight_: number;
   declare private composeboxDropdownHeight_: number;
+  declare private maxSuggestions: number;
   // Whether the visual selection overlay is currently showing.
   declare private isOverlayShowing: boolean;
   private eventTracker_: EventTracker = new EventTracker();
@@ -416,6 +423,10 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
       this.isComposeboxFocused = false;
       this.$.composebox.animationState = GlowAnimationState.NONE;
     });
+    this.eventTracker_.add(window, 'resize', () => {
+      this.updateMaxSuggestions();
+    });
+
 
     // Start listening to postMessages on the window.
     this.postMessageReceiver = new PostMessageReceiver(
@@ -427,6 +438,7 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
       const composebox = this.$.composebox;
       this.composeboxResizeObserver_ = new ResizeObserver(() => {
         this.composeboxHeight_ = composebox.offsetHeight;
+        this.updateMaxSuggestions();
       });
       this.composeboxDropdownResizeObserver_ = new ResizeObserver(() => {
         this.composeboxDropdownHeight_ =
@@ -792,6 +804,27 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
     this.suppressGhostLoader = false;
     this.isSearchboxFocused = true;
     this.autocompleteRequestStarted = true;
+  }
+
+  private updateMaxSuggestions() {
+    // 66px is the height of the AIM header.
+    const headerHeight = this.enableClientSideAimHeader ? 66 : 0;
+    // 24px for the gradient that is under the header
+    const headerGradientHeight = this.enableClientSideAimHeader ? 24 : 0;
+    // 30px is the margin bottom of the composebox.
+    const marginBottom = 30;
+    // 136px is the height of the expanded composebox. Since suggestions are
+    // only shown when the composebox is expanded, take the max value of the
+    // soon to be coposebox height, or the current height to account for
+    // transitions.
+    const adjustedComposeboxHeight = Math.max(this.composeboxHeight_, 136);
+    // 54px is the height of a suggestion match.
+    const matchHeight = 54;
+
+    const availableHeight = window.innerHeight - adjustedComposeboxHeight -
+        marginBottom - headerHeight - headerGradientHeight;
+    this.maxSuggestions =
+        Math.max(0, Math.floor(availableHeight / matchHeight));
   }
 }
 

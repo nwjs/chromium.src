@@ -28,7 +28,6 @@
 #import "components/signin/public/identity_manager/account_info.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/sync/service/sync_service.h"
-#import "ios/chrome/browser/browsing_data/model/browsing_data_features.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/incognito_interstitial/ui_bundled/incognito_interstitial_constants.h"
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/features.h"
@@ -55,7 +54,6 @@
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/list_model/list_model.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_icon_item.h"
-#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_info_button_cell.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_info_button_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_link_header_footer_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_switch_item.h"
@@ -457,6 +455,9 @@ const char kSyncSettingsURL[] = "settings://open_sync";
       kSettingsIncognitoInterstitialDisabledId;
   itemDisabled.iconTintColor = [UIColor colorNamed:kGrey300Color];
   itemDisabled.textColor = [UIColor colorNamed:kTextSecondaryColor];
+  itemDisabled.target = self;
+  itemDisabled.selector =
+      @selector(didTapIncognitoInterstitialDisabledInfoButton:);
   return itemDisabled;
 }
 
@@ -552,6 +553,8 @@ const char kSyncSettingsURL[] = "settings://open_sync";
   itemDisabled.statusText = l10n_util::GetNSString(IDS_IOS_SETTING_OFF);
   itemDisabled.iconTintColor = [UIColor colorNamed:kGrey300Color];
   itemDisabled.textColor = [UIColor colorNamed:kTextSecondaryColor];
+  itemDisabled.target = self;
+  itemDisabled.selector = @selector(didTapIncognitoLockDisabledInfoButton:);
   return itemDisabled;
 }
 
@@ -598,6 +601,8 @@ const char kSyncSettingsURL[] = "settings://open_sync";
   itemDisabled.statusText = l10n_util::GetNSString(IDS_IOS_SETTING_OFF);
   itemDisabled.iconTintColor = [UIColor colorNamed:kGrey300Color];
   itemDisabled.textColor = [UIColor colorNamed:kTextSecondaryColor];
+  itemDisabled.target = self;
+  itemDisabled.selector = @selector(didTapIncognitoReauthDisabledInfoButton:);
   return itemDisabled;
 }
 
@@ -678,42 +683,6 @@ const char kSyncSettingsURL[] = "settings://open_sync";
       break;
   }
   [tableView deselectRowAtIndexPath:indexPath animated:YES];
-}
-
-#pragma mark - UITableViewDataSource
-
-- (UITableViewCell*)tableView:(UITableView*)tableView
-        cellForRowAtIndexPath:(NSIndexPath*)indexPath {
-  UITableViewCell* cell = [super tableView:tableView
-                     cellForRowAtIndexPath:indexPath];
-
-  ItemType itemType = static_cast<ItemType>(
-      [self.tableViewModel itemTypeForIndexPath:indexPath]);
-
-  if (itemType == ItemTypeIncognitoReauthDisabled) {
-    TableViewInfoButtonCell* managedCell =
-        base::apple::ObjCCastStrict<TableViewInfoButtonCell>(cell);
-    [managedCell.trailingButton
-               addTarget:self
-                  action:@selector(didTapIncognitoReauthDisabledInfoButton:)
-        forControlEvents:UIControlEventTouchUpInside];
-  } else if (itemType == ItemTypeIncognitoInterstitialDisabled) {
-    TableViewInfoButtonCell* managedCell =
-        base::apple::ObjCCastStrict<TableViewInfoButtonCell>(cell);
-    [managedCell.trailingButton
-               addTarget:self
-                  action:@selector
-                  (didTapIncognitoInterstitialDisabledInfoButton:)
-        forControlEvents:UIControlEventTouchUpInside];
-  } else if (itemType == ItemTypeIncognitoLockDisabled) {
-    TableViewInfoButtonCell* managedCell =
-        base::apple::ObjCCastStrict<TableViewInfoButtonCell>(cell);
-    [managedCell.trailingButton
-               addTarget:self
-                  action:@selector(didTapIncognitoLockDisabledInfoButton:)
-        forControlEvents:UIControlEventTouchUpInside];
-  }
-  return cell;
 }
 
 #pragma mark - PrefObserverDelegate

@@ -10,7 +10,6 @@
 
 #include <memory>
 
-#include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ptr_exclusion.h"
 #include "base/memory/ref_counted.h"
@@ -206,7 +205,6 @@ class SharedImageRepresentationFactoryRef : public SharedImageRepresentation {
     handle = backing()->GetGpuMemoryBufferHandle();
     buffer_usage = backing()->buffer_usage();
   }
-  bool PresentSwapChain() { return backing()->PresentSwapChain(); }
   void SetSharedImagePoolId(SharedImagePoolId pool_id) {
     backing()->SetSharedImagePoolId(std::move(pool_id));
   }

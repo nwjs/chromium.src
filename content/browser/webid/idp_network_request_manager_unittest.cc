@@ -977,6 +977,119 @@ TEST_F(IdpNetworkRequestManagerTest, DownloadAndDecodeCachedImage) {
   EXPECT_TRUE(expected_isolation_info.IsEqualForTesting(
       resource_request.trusted_params->isolation_info));
 }
+
+// Test that the request destination is set to kWebIdentity.
+TEST_F(IdpNetworkRequestManagerTest, FetchWellKnownRequestDestination) {
+  bool called = false;
+  auto interceptor =
+      base::BindLambdaForTesting([&](const network::ResourceRequest& request) {
+        called = true;
+        EXPECT_EQ(network::mojom::RequestDestination::kWebIdentity,
+                  request.destination);
+      });
+  test_url_loader_factory().SetInterceptor(interceptor);
+
+  SendWellKnownRequestAndWaitForResponse(R"({
+  "provider_urls": ["https://idp.test/fedcm.json"]
+  })");
+  EXPECT_TRUE(called);
+}
+
+TEST_F(IdpNetworkRequestManagerTest, FetchConfigRequestDestination) {
+  bool called = false;
+  auto interceptor =
+      base::BindLambdaForTesting([&](const network::ResourceRequest& request) {
+        called = true;
+        EXPECT_EQ(network::mojom::RequestDestination::kWebIdentity,
+                  request.destination);
+      });
+  test_url_loader_factory().SetInterceptor(interceptor);
+
+  SendConfigRequestAndWaitForResponse(R"({})");
+  EXPECT_TRUE(called);
+}
+
+TEST_F(IdpNetworkRequestManagerTest, AccountsRequestDestination) {
+  bool called = false;
+  auto interceptor =
+      base::BindLambdaForTesting([&](const network::ResourceRequest& request) {
+        called = true;
+        EXPECT_EQ(network::mojom::RequestDestination::kWebIdentity,
+                  request.destination);
+      });
+  test_url_loader_factory().SetInterceptor(interceptor);
+
+  SendAccountsRequestAndWaitForResponse(kSingleAccountEndpointValidJson);
+  EXPECT_TRUE(called);
+}
+
+TEST_F(IdpNetworkRequestManagerTest, TokenRequestDestination) {
+  bool called = false;
+  auto interceptor =
+      base::BindLambdaForTesting([&](const network::ResourceRequest& request) {
+        called = true;
+        EXPECT_EQ(network::mojom::RequestDestination::kWebIdentity,
+                  request.destination);
+      });
+  test_url_loader_factory().SetInterceptor(interceptor);
+
+  SendTokenRequestAndWaitForResponse("account", "request");
+  EXPECT_TRUE(called);
+}
+
+TEST_F(IdpNetworkRequestManagerTest, ClientMetadataRequestDestination) {
+  bool called = false;
+  auto interceptor =
+      base::BindLambdaForTesting([&](const network::ResourceRequest& request) {
+        called = true;
+        EXPECT_EQ(network::mojom::RequestDestination::kWebIdentity,
+                  request.destination);
+      });
+  test_url_loader_factory().SetInterceptor(interceptor);
+
+  SendClientMetadataRequestAndWaitForResponse("xxx");
+  EXPECT_TRUE(called);
+}
+
+TEST_F(IdpNetworkRequestManagerTest, ImageRequestDestination) {
+  base::RunLoop run_loop;
+  bool called = false;
+  auto interceptor =
+      base::BindLambdaForTesting([&](const network::ResourceRequest& request) {
+        called = true;
+        EXPECT_EQ(network::mojom::RequestDestination::kWebIdentity,
+                  request.destination);
+        run_loop.Quit();
+      });
+  test_url_loader_factory().SetInterceptor(interceptor);
+
+  std::unique_ptr<IdpNetworkRequestManager> manager = CreateTestManager();
+  manager->DownloadAndDecodeImage(GURL("https://idp.test/image.png"),
+                                  base::DoNothing());
+  run_loop.Run();
+  EXPECT_TRUE(called);
+}
+
+TEST_F(IdpNetworkRequestManagerTest, CachedImageRequestDestination) {
+  base::RunLoop run_loop;
+  bool called = false;
+  auto interceptor =
+      base::BindLambdaForTesting([&](const network::ResourceRequest& request) {
+        called = true;
+        EXPECT_EQ(network::mojom::RequestDestination::kWebIdentity,
+                  request.destination);
+        run_loop.Quit();
+      });
+  test_url_loader_factory().SetInterceptor(interceptor);
+
+  std::unique_ptr<IdpNetworkRequestManager> manager = CreateTestManager();
+  url::Origin idp_origin = url::Origin::Create(GURL(kTestIdpUrl));
+  GURL picture_url("https://idp.cdn.test/profile/1234");
+  manager->DownloadAndDecodeCachedImage(
+      idp_origin, picture_url, base::DoNothingAs<void(const gfx::Image&)>());
+  run_loop.Run();
+  EXPECT_TRUE(called);
+}
 // Test that IdpNetworkRequestManager::FetchWellKnown() fails when the
 // identity provider domain is empty.
 TEST_F(IdpNetworkRequestManagerTest, FetchWellKnownIllegalDomainFails) {
@@ -2374,7 +2487,7 @@ TEST_F(IdpNetworkRequestManagerTest, IdAssertionRequestErrorWithProperField) {
   std::tie(fetch_status, token_result) = SendTokenRequestAndWaitForResponse(
       "account", "request", net::HTTP_OK, "application/json", R"({
         "error": {
-          "code": "invalid_request",
+          "error": "invalid_request",
           "url": "https://idp.test/error"
         }
       })");
@@ -2397,7 +2510,7 @@ TEST_F(IdpNetworkRequestManagerTest, IdAssertionRequestErrorWithRelativePath) {
   std::tie(fetch_status, token_result) = SendTokenRequestAndWaitForResponse(
       "account", "request", net::HTTP_OK, "application/json", R"({
         "error": {
-          "code": "invalid_request",
+          "error": "invalid_request",
           "url": "/error"
         }
       })");
@@ -2420,7 +2533,7 @@ TEST_F(IdpNetworkRequestManagerTest, IdAssertionRequestErrorWithCrossSiteUrl) {
   std::tie(fetch_status, token_result) = SendTokenRequestAndWaitForResponse(
       "account", "request", net::HTTP_OK, "application/json", R"({
         "error": {
-          "code": "invalid_request",
+          "error": "invalid_request",
           "url": "https://cross-site-idp.test/error"
         }
       })");
@@ -2444,7 +2557,7 @@ TEST_F(IdpNetworkRequestManagerTest,
   std::tie(fetch_status, token_result) = SendTokenRequestAndWaitForResponse(
       "account", "request", net::HTTP_OK, "application/json", R"({
         "error": {
-          "code": "invalid_request",
+          "error": "invalid_request",
           "url": "https://cross-origin.idp.test/error"
         }
       })");
@@ -2468,7 +2581,7 @@ TEST_F(IdpNetworkRequestManagerTest,
   std::tie(fetch_status, token_result) = SendTokenRequestAndWaitForResponse(
       "account", "request", net::HTTP_OK, "application/json", R"({
         "error": {
-          "code": "invalid_request",
+          "error": "invalid_request",
           "url": "http://idp.test/error"
         }
       })");
@@ -2491,7 +2604,7 @@ TEST_F(IdpNetworkRequestManagerTest, IdAssertionRequestErrorWithEmptyUrl) {
   std::tie(fetch_status, token_result) = SendTokenRequestAndWaitForResponse(
       "account", "request", net::HTTP_OK, "application/json", R"({
         "error": {
-          "code": "invalid_request",
+          "error": "invalid_request",
           "url": ""
         }
       })");
@@ -2538,7 +2651,7 @@ TEST_F(IdpNetworkRequestManagerTest, IdAssertionRequestErrorWithLocalHostUrl) {
     std::tie(fetch_status, token_result) = SendTokenRequestAndWaitForResponse(
         "account", "request", net::HTTP_OK, "application/json", R"({
         "error": {
-          "code": "invalid_request",
+          "error": "invalid_request",
           "url": "http://localhost/error"
         }
       })",
@@ -2618,7 +2731,7 @@ TEST_F(IdpNetworkRequestManagerTest, IdAssertionResponseWithErrorAndHttpError) {
       "account", "request", net::HTTP_SERVICE_UNAVAILABLE, "application/json",
       R"({
         "error": {
-          "code": "temporarily_unavailable",
+          "error": "temporarily_unavailable",
           "url": "https://idp.test/error"
         }
       })");

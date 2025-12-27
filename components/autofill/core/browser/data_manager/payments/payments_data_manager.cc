@@ -12,8 +12,8 @@
 #include "base/containers/contains.h"
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_forward.h"
 #include "base/i18n/timezone.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
@@ -269,7 +269,7 @@ PaymentsDataManager::PaymentsDataManager(
 #if !BUILDFLAG(IS_IOS)
     // Clean up for crbug.com/411681430.
     if (!IsPaymentCvcStorageEnabled()) {
-      CleanupForCrbug411681430();
+      ClearLocalCvcsUpToMay2025();
     }
 #endif
   }
@@ -1589,12 +1589,12 @@ void PaymentsDataManager::ClearLocalCvcs() {
   Refresh();
 }
 
-void PaymentsDataManager::CleanupForCrbug411681430() {
+void PaymentsDataManager::ClearLocalCvcsUpToMay2025() {
   if (!GetLocalDatabase()) {
     return;
   }
 
-  GetLocalDatabase()->CleanupForCrbug411681430();
+  GetLocalDatabase()->ClearLocalCvcsUpToMay2025();
 
   // Refresh our local cache and send notifications to observers.
   Refresh();
@@ -2123,8 +2123,7 @@ bool PaymentsDataManager::HasPendingPaymentQueries() const {
 
 bool PaymentsDataManager::AreBankAccountsSupported() const {
 #if BUILDFLAG(IS_ANDROID)
-  return base::FeatureList::IsEnabled(
-      features::kAutofillEnableSyncingOfPixBankAccounts);
+  return true;
 #else
   return false;
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -2141,9 +2140,10 @@ bool PaymentsDataManager::AreEwalletAccountsSupported() const {
 bool PaymentsDataManager::AreBnplIssuersSupported() const {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
-  return (app_locale_ == "en-US" || app_locale_ == "en-GB" ||
-          app_locale_ == "en-CA") &&
-         GetCountryCodeForExperimentGroup() == "US" &&
+  return app_locale_ == "en-US" &&
+         (GetCountryCodeForExperimentGroup() == "US" ||
+          base::FeatureList::IsEnabled(
+              features::kAutofillDisableBnplCountryCheckForTesting)) &&
          base::FeatureList::IsEnabled(
              features::kAutofillEnableBuyNowPayLaterSyncing);
 #else

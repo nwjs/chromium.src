@@ -11,7 +11,6 @@
 
 #include "base/check.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_forward.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
@@ -130,7 +129,7 @@ class KioskWebAppData::IconFetcher {
 
  private:
   void OnDownloadCompleted(ResultCallback callback,
-                           std::unique_ptr<std::string> response_body) {
+                           std::optional<std::string> response_body) {
     // Now simple_loader_ can be released safely.
     simple_loader_.reset();
 
@@ -272,7 +271,7 @@ GURL KioskWebAppData::GetLaunchableUrl() const {
 
 void KioskWebAppData::UpdateFromWebAppInfo(
     const web_app::WebAppInstallInfo& app_info) {
-  UpdateAppInfo(base::UTF16ToUTF8(app_info.title), app_info.start_url(),
+  UpdateAppInfo(base::UTF16ToUTF8(app_info.title.value()), app_info.start_url(),
                 app_info.GetIconBitmapsForSecureSurfaces().bitmaps);
 }
 

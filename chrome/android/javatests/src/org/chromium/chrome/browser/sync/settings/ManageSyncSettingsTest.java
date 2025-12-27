@@ -63,9 +63,11 @@ import org.chromium.base.ServiceLoaderUtil;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.device_reauth.BiometricStatus;
@@ -133,8 +135,9 @@ import java.util.Set;
 // Avoids UserActionableError.NEEDS_UPM_BACKEND_UPGRADE for most tests. Specific tests can still
 // trigger the error by overriding getUserActionableError()
 @Restriction(GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_24W15)
+@DisableFeatures(ChromeFeatureList.SETTINGS_MULTI_COLUMN)
 public class ManageSyncSettingsTest {
-    private static final int RENDER_TEST_REVISION = 7;
+    private static final int RENDER_TEST_REVISION = 9;
 
     /** Maps selected types to their Account UI element IDs. */
     private static final Map<Integer, String> ACCOUNT_UI_DATATYPES =
@@ -324,6 +327,10 @@ public class ManageSyncSettingsTest {
     @Policies.Add({
         @Policies.Item(key = "SyncTypesListDisabled", string = "[\"bookmarks\", \"passwords\"]")
     })
+    @DisableIf.Build(
+            sdk_equals = 29,
+            supported_abis_includes = "x86_64",
+            message = "crbug.com/444011887")
     public void testSignInWithManagedDataTypes() {
         mSyncTestRule.setUpAccountAndSignInForTesting();
         ManageSyncSettings fragment = startManageSyncPreferences();
@@ -360,6 +367,8 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"Sync"})
+    // TODO(crbug.com/433576895): Re-enable containment feature once the test is fixed.
+    @DisableFeatures(ChromeFeatureList.ANDROID_SETTINGS_CONTAINMENT)
     public void testPressingSignOut() {
         mSyncTestRule.setUpAccountAndSignInForTesting();
 
@@ -369,7 +378,7 @@ public class ManageSyncSettingsTest {
         startManageSyncPreferences();
 
         onView(withId(R.id.recycler_view)).perform(RecyclerViewActions.scrollToLastPosition());
-        onView(withText(R.string.sign_out)).perform(click());
+        onView(withId(R.id.sign_out_button)).perform(click());
         Assert.assertNull(mSyncTestRule.getSigninTestRule().getPrimaryAccount(ConsentLevel.SIGNIN));
     }
 
@@ -828,6 +837,8 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"Sync", "RenderTest"})
+    // TODO(crbug.com/433576895): Re-enable containment feature once the test is fixed.
+    @DisableFeatures(ChromeFeatureList.ANDROID_SETTINGS_CONTAINMENT)
     public void testSignoutButton() throws Exception {
         mSyncTestRule.setUpAccountAndSignInForTesting();
         final ManageSyncSettings fragment = startManageSyncPreferences();
@@ -1155,6 +1166,8 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"PersonalizedGoogleServices"})
+    // TODO(crbug.com/433576895): Re-enable containment feature once the test is fixed.
+    @DisableFeatures(ChromeFeatureList.ANDROID_SETTINGS_CONTAINMENT)
     public void testClickPersonalizeGoogleServicesNonEEA() {
         mSyncTestRule.setUpAccountAndSignInForTesting();
         final ManageSyncSettings fragment = startManageSyncPreferences();
@@ -1171,6 +1184,8 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"PersonalizedGoogleServices"})
+    // TODO(crbug.com/433576895): Re-enable containment feature once the test is fixed.
+    @DisableFeatures(ChromeFeatureList.ANDROID_SETTINGS_CONTAINMENT)
     public void testClickPersonalizeGoogleServicesEEA() {
         when(mRegionalCapabilities.isInEeaCountry()).thenReturn(true);
         mSyncTestRule.setUpAccountAndSignInForTesting();

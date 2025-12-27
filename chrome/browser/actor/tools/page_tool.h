@@ -11,6 +11,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/actor/tools/tool.h"
+#include "chrome/browser/actor/tools/tool_callbacks.h"
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
@@ -39,11 +40,12 @@ class PageTool : public Tool {
   ~PageTool() override;
 
   // actor::Tool
-  void Validate(ValidateCallback callback) override;
+  void Validate(ToolCallback callback) override;
   mojom::ActionResultPtr TimeOfUseValidation(
       const optimization_guide::proto::AnnotatedPageContent* last_observation)
       override;
-  void Invoke(InvokeCallback callback) override;
+  void Invoke(ToolCallback callback) override;
+  void Cancel() override;
   std::string DebugString() const override;
   GURL JournalURL() const override;
   std::string JournalEvent() const override;
@@ -51,7 +53,7 @@ class PageTool : public Tool {
       ObservationDelayController::PageStabilityConfig page_stability_config)
       override;
   void UpdateTaskBeforeInvoke(ActorTask& task,
-                              InvokeCallback callback) const override;
+                              ToolCallback callback) const override;
   tabs::TabHandle GetTargetTab() const override;
 
  private:
@@ -61,13 +63,13 @@ class PageTool : public Tool {
   // Callback when the renderer process is gone.
   void OnRenderFrameGone();
 
-  void FinishInvoke(mojom::ActionResultPtr result);
-
   void OnTimeout();
+
+  void FinishInvoke(mojom::ActionResultPtr result);
 
   content::RenderFrameHost* GetFrame() const;
 
-  InvokeCallback invoke_callback_;
+  ToolCallback invoke_callback_;
   std::unique_ptr<PageToolRequest> request_;
 
   std::unique_ptr<RenderFrameChangeObserver> frame_change_observer_;

@@ -6,10 +6,12 @@
 
 #include "base/files/scoped_temp_dir.h"
 #include "base/run_loop.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "components/os_crypt/async/browser/os_crypt_async.h"
 #include "components/os_crypt/async/browser/test_utils.h"
 #include "components/os_crypt/async/common/encryptor.h"
+#include "components/page_content_annotations/core/page_content_annotations_features.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace optimization_guide {
@@ -197,6 +199,41 @@ TEST_F(PageContentStoreTest, DeletePageContentOlderThan) {
   ASSERT_FALSE(got_apc.has_value());
 }
 
+TEST_F(PageContentStoreTest, DeletePageContentOlderThan_RespectsMaxLimit) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      page_content_annotations::features::kPageContentCache,
+      {{page_content_annotations::features::kPageContentCacheMaxTabs.name,
+        "2"}});
+
+  const base::Time now = base::Time::Now();
+  const base::Time extraction_timestamp = now;
+
+  // Add 3 entries.
+  EXPECT_TRUE(store_->AddPageContent(
+      GURL("https://example.com/1"), TestContent("title 1"),
+      now - base::Days(3), extraction_timestamp, 1));
+  EXPECT_TRUE(store_->AddPageContent(
+      GURL("https://example.com/2"), TestContent("title 2"),
+      now - base::Days(2), extraction_timestamp, 2));
+  EXPECT_TRUE(store_->AddPageContent(
+      GURL("https://example.com/3"), TestContent("title 3"),
+      now - base::Days(1), extraction_timestamp, 3));
+
+  // Everything is newer than 4 days ago, but we should only keep 2.
+  EXPECT_TRUE(store_->DeletePageContentOlderThan(now - base::Days(4)));
+
+  // The oldest one should be gone.
+  std::optional<proto::PageContext> got_apc = store_->GetPageContentForTab(1);
+  ASSERT_FALSE(got_apc.has_value());
+
+  // The two newest should still be there.
+  got_apc = store_->GetPageContentForTab(2);
+  ASSERT_TRUE(got_apc.has_value());
+  got_apc = store_->GetPageContentForTab(3);
+  ASSERT_TRUE(got_apc.has_value());
+}
+
 TEST_F(PageContentStoreTest, DeletePageContentForTab) {
   const GURL url(kUrl);
   const auto apc = TestContent("test title");
@@ -211,6 +248,35 @@ TEST_F(PageContentStoreTest, DeletePageContentForTab) {
 
   std::optional<proto::PageContext> got_apc = store_->GetPageContent(url);
   ASSERT_FALSE(got_apc.has_value());
+}
+
+TEST_F(PageContentStoreTest, DeletePageContentForTabs) {
+  const base::Time visit_timestamp = base::Time::Now();
+  const base::Time extraction_timestamp = base::Time::Now();
+
+  EXPECT_TRUE(store_->AddPageContent(GURL("https://example.com/1"),
+                                     TestContent("test title 1"),
+                                     visit_timestamp, extraction_timestamp, 1));
+  EXPECT_TRUE(store_->AddPageContent(GURL("https://example.com/2"),
+                                     TestContent("test title 2"),
+                                     visit_timestamp, extraction_timestamp, 2));
+  EXPECT_TRUE(store_->AddPageContent(GURL("https://example.com/3"),
+                                     TestContent("test title 3"),
+                                     visit_timestamp, extraction_timestamp, 3));
+
+  EXPECT_TRUE(store_->DeletePageContentForTabs({1, 3}));
+
+  EXPECT_FALSE(store_->GetPageContentForTab(1).has_value());
+  EXPECT_TRUE(store_->GetPageContentForTab(2).has_value());
+  EXPECT_FALSE(store_->GetPageContentForTab(3).has_value());
+
+  // Deleting a non-existent tab ID should not fail.
+  EXPECT_TRUE(store_->DeletePageContentForTabs({4}));
+  EXPECT_TRUE(store_->GetPageContentForTab(2).has_value());
+
+  // Deleting with an empty set should not fail.
+  EXPECT_TRUE(store_->DeletePageContentForTabs({}));
+  EXPECT_TRUE(store_->GetPageContentForTab(2).has_value());
 }
 
 TEST_F(PageContentStoreTest, GetPageContentForTab) {

@@ -294,6 +294,8 @@ TopControlsSlideControllerChromeOS::TopControlsSlideControllerChromeOS(
 
   browser_view_->browser()->tab_strip_model()->AddObserver(this);
 
+  browser_view->browser_widget()->GetLayer()->EnableLayerDestructionCheck();
+
   auto* accessibility_manager = ash::AccessibilityManager::Get();
   if (accessibility_manager) {
     accessibility_status_subscription_ =
@@ -778,8 +780,9 @@ void TopControlsSlideControllerChromeOS::OnBeginSliding() {
   // deal with layout being performed during the slide.
   root_view->GetWidget()->LayoutRootViewIfNecessary();
 
-  // We don't want anything to show outside the browser window's bounds.
-  widget_layer->SetMasksToBounds(true);
+  // We don't want anything to show outside the browser window's bounds.  Get
+  // the layer again as the layer may be recreated. (crbug.com/443811562)
+  browser_widget->GetLayer()->SetMasksToBounds(true);
 }
 
 void TopControlsSlideControllerChromeOS::OnEndSliding() {

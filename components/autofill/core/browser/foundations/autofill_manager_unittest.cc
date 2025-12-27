@@ -481,7 +481,7 @@ TEST_F(AutofillManagerTest, ObserverReceiveCalls) {
     EXPECT_CALL(observer, OnBeforeSelectFieldOptionsDidChange(m, f));
     EXPECT_CALL(observer, OnAfterSelectFieldOptionsDidChange(m, f))
         .WillOnce(RunClosure(run_loop.QuitClosure()));
-    autofill_manager().OnSelectFieldOptionsDidChange(form);
+    autofill_manager().OnSelectFieldOptionsDidChange(form, field.global_id());
     std::move(run_loop).Run();
   }
 
@@ -490,7 +490,7 @@ TEST_F(AutofillManagerTest, ObserverReceiveCalls) {
     EXPECT_CALL(observer, OnBeforeDidAutofillForm(m, f));
     EXPECT_CALL(observer, OnAfterDidAutofillForm(m, f))
         .WillOnce(RunClosure(run_loop.QuitClosure()));
-    autofill_manager().OnDidAutofillForm(form, {});
+    autofill_manager().OnDidAutofillForm(form);
     std::move(run_loop).Run();
   }
 

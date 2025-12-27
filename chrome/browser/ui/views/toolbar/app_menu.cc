@@ -132,7 +132,7 @@ using views::View;
 namespace {
 
 // Horizontal padding on the edges of the in-menu buttons.
-const int kHorizontalPadding = 15;
+constexpr int kHorizontalPadding = 15;
 
 constexpr int kBookmarksCommandIdOffset =
     AppMenuModel::kMinBookmarksCommandId - IDC_FIRST_UNBOUNDED_MENU;
@@ -143,12 +143,12 @@ constexpr int kTabGroupsCommandIdOffset =
 
 #if BUILDFLAG(IS_CHROMEOS)
 // Extra horizontal space to reserve for the fullscreen button.
-const int kFullscreenPadding = 74;
+constexpr int kFullscreenPadding = 74;
 // Padding to left and right of the XX% label.
-const int kZoomLabelHorizontalPadding = kHorizontalPadding;
+constexpr int kZoomLabelHorizontalPadding = kHorizontalPadding;
 #else
-const int kFullscreenPadding = 38;
-const int kZoomLabelHorizontalPadding = 2;
+constexpr int kFullscreenPadding = 38;
+constexpr int kZoomLabelHorizontalPadding = 2;
 #endif
 
 // Returns true if |command_id| identifies a bookmark menu item.
@@ -247,7 +247,7 @@ class InMenuButtonBackground : public views::Background {
     ui::NativeTheme::MenuItemExtraParams menu_item;
     if (type_ == ButtonType::kRoundedButton) {
       // Consistent with a hover corner radius (kInkDropSmallCornerRadius).
-      const int kBackgroundCornerRadius = 2;
+      constexpr int kBackgroundCornerRadius = 2;
       menu_item.corner_radius = kBackgroundCornerRadius;
     } else if (shape_ == ButtonShape::kCircular) {
       constexpr int kCircularButtonSize = 28;
@@ -374,8 +374,7 @@ std::u16string GetSigninStatusChipString(Profile* profile) {
 
   if (signin_util::IsSigninPending(
           IdentityManagerFactory::GetForProfile(profile))) {
-    // TODO(b/347011002): Use a non sync related string.
-    return l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SYNC_PAUSED);
+    return l10n_util::GetStringUTF16(IDS_PROFILE_ROW_VERIFY_MESSAGE);
   }
 
   return l10n_util::GetStringUTF16(IDS_PROFILE_ROW_SIGNED_IN_MESSAGE);

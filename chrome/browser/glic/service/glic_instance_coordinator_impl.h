@@ -19,9 +19,9 @@
 #include "chrome/browser/glic/host/glic_web_client_access.h"
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
-#include "chrome/browser/glic/service/glic_instance_coordinator_metrics.h"
 #include "chrome/browser/glic/service/glic_instance_impl.h"
 #include "chrome/browser/glic/service/glic_tab_creation_observer.h"
+#include "chrome/browser/glic/service/metrics/glic_instance_coordinator_metrics.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -32,6 +32,7 @@
 #include "ui/views/widget/widget_observer.h"
 
 class Browser;
+class SkRegion;
 
 namespace tabs {
 class TabInterface;
@@ -106,9 +107,14 @@ class GlicInstanceCoordinatorImpl
   // coordinator.
   void Shutdown() override;
   void Close() override;
+  void CloseInstanceWithFrame(
+      content::RenderFrameHost* render_frame_host) override;
+  void CloseAndShutdownInstanceWithFrame(
+      content::RenderFrameHost* render_frame_host) override;
 
   void AddGlobalStateObserver(StateObserver* observer) override;
   void RemoveGlobalStateObserver(StateObserver* observer) override;
+  void SetDraggableRegion(const SkRegion& draggable_region) override;
 
   bool IsDetached() const override;
   bool IsPanelShowingForBrowser(

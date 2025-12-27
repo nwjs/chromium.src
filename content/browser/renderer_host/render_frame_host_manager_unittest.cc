@@ -255,11 +255,13 @@ class PluginFaviconMessageObserver : public WebContentsObserver {
 // This provides all the arguments that aren't tested in this file.
 void DidNavigateFrame(RenderFrameHostManager* rfh_manager,
                       RenderFrameHostImpl* rfh) {
-  rfh_manager->DidNavigateFrame(rfh, true /* was_caused_by_user_gesture */,
-                                false /* is_same_document_navigation */,
-                                false /* clear_proxies_on_commit */,
-                                blink::FramePolicy(),
-                                true /* allow_paint_holding */);
+  const RenderFrameHostManager::ViewTransitionCommitInfo
+      view_transition_commit_info{.has_view_transition_resources = false};
+  rfh_manager->DidNavigateFrame(
+      rfh, true /* was_caused_by_user_gesture */,
+      false /* is_same_document_navigation */,
+      false /* clear_proxies_on_commit */, blink::FramePolicy(),
+      true /* allow_paint_holding */, view_transition_commit_info);
 }
 
 class TestDevToolsClientHost : public DevToolsAgentHostClient {
@@ -532,7 +534,6 @@ class RenderFrameHostManagerTest
             controller.GetLastCommittedEntryIndex(), controller.GetEntryCount(),
             frame_tree_node->current_replication_state().frame_policy,
             frame_tree_node->AncestorOrSelfHasCSPEE(),
-            blink::mojom::SystemEntropy::kNormal,
             /*soft_navigation_heuristics_task_id=*/std::nullopt);
     commit_params->post_content_type = post_content_type;
 
@@ -3449,7 +3450,6 @@ TEST_P(RenderFrameHostManagerTest, NavigateFromDeadRendererToWebUI) {
           controller().GetEntryCount(),
           frame_tree_node->current_replication_state().frame_policy,
           frame_tree_node->AncestorOrSelfHasCSPEE(),
-          blink::mojom::SystemEntropy::kNormal,
           /*soft_navigation_heuristics_task_id=*/std::nullopt);
 
   std::unique_ptr<NavigationRequest> navigation_request =
@@ -4081,6 +4081,7 @@ TEST_P(RenderFrameHostManagerAdTaggingSignalTest,
       subframe_node->render_manager()->GetProxyToParent());
 
   EXPECT_TRUE(subframe_node->current_replication_state().is_ad_frame);
+  EXPECT_TRUE(subframe_node->current_frame_host()->IsAdFrame());
 }
 
 // A page with top frame A that has subframes B and A1. A1 is an ad iframe that

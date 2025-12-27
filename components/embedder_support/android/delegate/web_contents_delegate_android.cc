@@ -10,12 +10,16 @@
 #include "base/android/jni_array.h"
 #include "base/android/jni_callback.h"
 #include "base/android/jni_string.h"
+#include "base/android/scoped_hardware_buffer_handle.h"
+#include "base/android/scoped_java_ref.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notimplemented.h"
 #include "base/trace_event/trace_event.h"
 #include "components/embedder_support/android/delegate/color_picker_bridge.h"
+#include "components/embedder_support/android/delegate/screenshot_result.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "content/public/browser/color_chooser.h"
 #include "content/public/browser/global_request_id.h"
@@ -36,7 +40,6 @@
 #include "ui/android/view_android.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/android/java_bitmap.h"
-#include "ui/gfx/geometry/rect.h"
 #include "url/android/gurl_android.h"
 #include "url/gurl.h"
 
@@ -46,21 +49,15 @@
 using base::android::AttachCurrentThread;
 using base::android::ConvertUTF16ToJavaString;
 using base::android::ConvertUTF8ToJavaString;
+using base::android::JavaParamRef;
 using base::android::JavaRef;
+using base::android::ScopedHardwareBufferHandle;
+using base::android::ScopedJavaGlobalRef;
 using base::android::ScopedJavaLocalRef;
 using content::ColorChooser;
 using content::RenderWidgetHostView;
 using content::WebContents;
 using content::WebContentsDelegate;
-
-namespace {
-
-// The amount of time to disallow repeated pointer lock calls after the user
-// successfully escapes from one lock request.
-constexpr base::TimeDelta kEffectiveUserEscapeDuration =
-    base::Milliseconds(1250);
-
-}  // namespace
 
 namespace web_contents_delegate_android {
 
@@ -268,52 +265,17 @@ bool WebContentsDelegateAndroid::DidAddMessageToConsole(
       env, obj, jlevel, jmessage, line_no, jsource_id);
 }
 
-// This is either called from TabContents::DidNavigateMainFramePostCommit() with
-// an empty GURL or responding to RenderViewHost::OnMsgUpateTargetURL(). In
-// Chrome, the latter is not always called, especially not during history
-// navigation. So we only handle the first case and pass the source TabContents'
-// url to Java to update the UI.
+// Called when the target URL under the cursor changes. For example, when
+// the user hovers over a link. Passes the URL to the Java side.
 void WebContentsDelegateAndroid::UpdateTargetURL(WebContents* source,
                                                  const GURL& url) {
-  if (!url.is_empty()) {
-    return;
-  }
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
   if (obj.is_null()) {
     return;
   }
-  Java_WebContentsDelegateAndroid_onUpdateUrl(
-      env, obj, url::GURLAndroid::FromNativeGURL(env, source->GetVisibleURL()));
-}
-
-content::KeyboardEventProcessingResult
-WebContentsDelegateAndroid::PreHandleKeyboardEvent(
-    WebContents* source,
-    const input::NativeWebKeyboardEvent& event) {
-  if (event.native_key_code == AKEYCODE_ESCAPE) {
-    JNIEnv* env = AttachCurrentThread();
-    ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
-
-    if (!obj.is_null() &&
-        Java_WebContentsDelegateAndroid_preHandleKeyboardEvent(
-            env, obj, reinterpret_cast<intptr_t>(&event))) {
-      return content::KeyboardEventProcessingResult::HANDLED;
-    }
-
-    // ExclusiveAccessManager handles the pointer lock escape.
-    if (!base::FeatureList::IsEnabled(
-            features::kEnableExclusiveAccessManager)) {
-      auto* rwhva = source->GetTopLevelRenderWidgetHostView();
-      if (rwhva && rwhva->IsPointerLocked()) {
-        rwhva->UnlockPointer();
-        pointer_lock_last_user_escape_time_ = base::TimeTicks::Now();
-        return content::KeyboardEventProcessingResult::HANDLED;
-      }
-    }
-  }
-
-  return content::KeyboardEventProcessingResult::NOT_HANDLED;
+  Java_WebContentsDelegateAndroid_onUpdateTargetUrl(
+      env, obj, url::GURLAndroid::FromNativeGURL(env, url));
 }
 
 bool WebContentsDelegateAndroid::HandleKeyboardEvent(
@@ -371,7 +333,7 @@ void WebContentsDelegateAndroid::EnterFullscreenModeForTab(
     return;
   }
   Java_WebContentsDelegateAndroid_enterFullscreenModeForTab(
-      env, obj, reinterpret_cast<jlong>(requesting_frame),
+      env, obj, requesting_frame->GetJavaRenderFrameHost(),
       options.prefers_navigation_bar, options.prefers_status_bar,
       options.display_id);
 }
@@ -385,7 +347,7 @@ void WebContentsDelegateAndroid::FullscreenStateChangedForTab(
     return;
   }
   Java_WebContentsDelegateAndroid_fullscreenStateChangedForTab(
-      env, obj, reinterpret_cast<jlong>(requesting_frame),
+      env, obj, requesting_frame->GetJavaRenderFrameHost(),
       options.prefers_navigation_bar, options.prefers_status_bar,
       options.display_id);
 }
@@ -398,38 +360,6 @@ void WebContentsDelegateAndroid::ExitFullscreenModeForTab(
     return;
   }
   Java_WebContentsDelegateAndroid_exitFullscreenModeForTab(env, obj);
-}
-
-void WebContentsDelegateAndroid::RequestPointerLock(
-    WebContents* web_contents,
-    bool user_gesture,
-    bool last_unlocked_by_target) {
-  if (!base::FeatureList::IsEnabled(blink::features::kPointerLockOnAndroid)) {
-    // WebContentsDelegate call would reject the lock request with a
-    // kUnknownError
-    return WebContentsDelegate::RequestPointerLock(web_contents, user_gesture,
-                                                   last_unlocked_by_target);
-  }
-
-  // TODO(https://crbug.com/415732870): reuse the ExclusiveAccessManager
-  // This part is taken from PointerLockController, See
-  // `PointerLockController::RequestToLockPointer()` for more info.
-  if (!last_unlocked_by_target && !web_contents->IsFullscreen()) {
-    if (!user_gesture) {
-      web_contents->GotResponseToPointerLockRequest(
-          blink::mojom::PointerLockResult::kRequiresUserGesture);
-      return;
-    }
-    if (base::TimeTicks::Now() <
-        pointer_lock_last_user_escape_time_ + kEffectiveUserEscapeDuration) {
-      web_contents->GotResponseToPointerLockRequest(
-          blink::mojom::PointerLockResult::kUserRejected);
-      return;
-    }
-  }
-
-  web_contents->GotResponseToPointerLockRequest(
-      blink::mojom::PointerLockResult::kSuccess);
 }
 
 void WebContentsDelegateAndroid::RequestKeyboardLock(WebContents* web_contents,
@@ -584,18 +514,16 @@ bool WebContentsDelegateAndroid::MaybeCopyContentAreaAsBitmap(
   // Convert the C++ callback to a JNI callback using ToJniCallback.
   auto wrapped_callback = base::BindOnce(
       [](base::OnceCallback<void(const SkBitmap&)> callback,
-         const base::android::JavaParamRef<jobject>& bitmap) {
+         const ScreenshotResult& result) {
         TRACE_EVENT("content",
                     "WebContentsDelegateAndroid::MaybeCopyContentAreaAsBitmap::"
                     "Callback");
-        if (bitmap.is_null()) {
+        if (!result) {
           // Failed because of Out of Memory Error.
           // Pass in an empty bitmap, rather than null in this case.
           std::move(callback).Run(SkBitmap());
         } else {
-          gfx::JavaBitmap java_bitmap_lock(bitmap);
-          SkBitmap skbitmap =
-              gfx::CreateSkBitmapFromJavaBitmap(java_bitmap_lock);
+          SkBitmap skbitmap = result.GetBitmap();
           skbitmap.setImmutable();
           CHECK(!skbitmap.drawsNothing());
           std::move(callback).Run(skbitmap);
@@ -607,6 +535,39 @@ bool WebContentsDelegateAndroid::MaybeCopyContentAreaAsBitmap(
           base::android::ToJniCallback(env, std::move(wrapped_callback)))) {
     base::UmaHistogramTimes("Android.MaybeCopyContentAreaAsBitmap.Time",
                             base::TimeTicks::Now() - start_time);
+    return true;
+  }
+  return false;
+}
+
+bool WebContentsDelegateAndroid::MaybeCopyContentAreaAsHardwareBuffer(
+    content::HardwareBufferResultCallback output_callback) {
+  TRACE_EVENT(
+      "content",
+      "WebContentsDelegateAndroid::MaybeCopyContentAreaAsHardwareBuffer");
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> java_delegate = GetJavaDelegate(env);
+  if (java_delegate.is_null()) {
+    return false;
+  }
+  // Wrap the result C++ callback as a JNI callback and convert the types.
+  auto wrapped_output_callback = base::BindOnce(
+      [](content::HardwareBufferResultCallback output_callback,
+         const ScreenshotResult& result) {
+        if (!result) {
+          std::move(output_callback)
+              .Run(base::android::ScopedHardwareBufferHandle(),
+                   base::ScopedClosureRunner());
+          return;
+        }
+        std::move(output_callback)
+            .Run(result.GetHardwareBuffer(), result.GetReleaseCallback());
+      },
+      std::move(output_callback));
+  if (Java_WebContentsDelegateAndroid_maybeCopyContentAreaAsHardwareBuffer(
+          env, java_delegate,
+          base::android::ToJniCallback(env,
+                                       std::move(wrapped_output_callback)))) {
     return true;
   }
   return false;
@@ -724,3 +685,5 @@ WebContentsDelegateAndroid::ShouldOverrideUserAgentForPreloading(
 }
 
 }  // namespace web_contents_delegate_android
+
+DEFINE_JNI(WebContentsDelegateAndroid)

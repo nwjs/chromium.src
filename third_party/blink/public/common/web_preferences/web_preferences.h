@@ -65,6 +65,7 @@ struct BLINK_COMMON_EXPORT WebPreferences {
   bool shrinks_standalone_images_to_fit = true;
   bool text_areas_are_resizable = true;
   bool allow_scripts_to_close_windows = false;
+  bool allow_window_focus_without_user_gesture = false;
   bool remote_fonts_enabled = true;
   bool javascript_can_access_clipboard = false;
   // We don't use dns_prefetching_enabled to disable DNS prefetching.  Instead,
@@ -112,7 +113,8 @@ struct BLINK_COMMON_EXPORT WebPreferences {
   // Disallow user opt-in for blockable mixed content.
   bool strictly_block_blockable_mixed_content = false;
   bool block_mixed_plugin_content = false;
-  bool password_echo_enabled = false;
+  bool password_echo_enabled_physical = false;
+  bool password_echo_enabled_touch = false;
   bool should_print_backgrounds = false;
   bool should_clear_document_background = true;
   bool enable_scroll_animator = false;
@@ -251,6 +253,7 @@ struct BLINK_COMMON_EXPORT WebPreferences {
   int text_size_contrast_factor = 0;
   float device_scale_adjustment = 1.0f;
   bool force_enable_zoom = false;
+  bool enable_touchpad_overscroll_history_navigation = true;
   GURL default_video_poster_url;
   bool support_deprecated_target_density_dpi = false;
   bool wide_viewport_quirk = false;
@@ -447,9 +450,6 @@ struct BLINK_COMMON_EXPORT WebPreferences {
   // Whether PaymentRequest is enabled. Controlled by WebView settings on
   // WebView and by `kWebPayments` feature flag everywhere.
   bool payment_request_enabled = false;
-
-  // Whether fingerprinting protection based on page content is enabled.
-  bool content_based_fingerprinting_protection_enabled = false;
 
   bool ai_prompt_api_enabled = false;
 

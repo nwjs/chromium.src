@@ -6,6 +6,7 @@
 
 #import <WebKit/WebKit.h>
 
+#import "base/functional/callback_helpers.h"
 #import "base/i18n/rtl.h"
 #import "base/test/bind.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_test.h"
@@ -18,6 +19,7 @@
 #import "ios/chrome/browser/side_swipe/ui_bundled/side_swipe_mediator+Testing.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_source_tab_helper.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
+#import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/chrome/test/scoped_key_window.h"
 #import "ios/web/common/crw_obscured_insets_controller.h"
 #import "ios/web/common/crw_web_view_content_view.h"

@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/webui/signin/history_sync_optin_helper.h"
+#include "chrome/browser/ui/webui/signin/history_sync_optin_service_factory.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_metrics.h"
@@ -48,7 +49,8 @@ void HistorySyncOptinServiceDefaultDelegate::ShowHistorySyncOptinScreen(
   }
   browser->GetFeatures()
       .signin_view_controller()
-      ->ShowModalHistorySyncOptInDialog(std::move(callback));
+      ->ShowModalHistorySyncOptInDialog(/*should_close_modal_dialog=*/true,
+                                        std::move(callback));
 }
 
 void HistorySyncOptinServiceDefaultDelegate::ShowAccountManagementScreen(
@@ -208,6 +210,7 @@ void HistorySyncOptinService::OnPrimaryAccountChanged(
     case signin_metrics::AccessPoint::kNtpLink:
     case signin_metrics::AccessPoint::kMenu:
     case signin_metrics::AccessPoint::kSettings:
+    case signin_metrics::AccessPoint::kSettingsYourSavedInfo:
     case signin_metrics::AccessPoint::kSupervisedUser:
     case signin_metrics::AccessPoint::kExtensionInstallBubble:
     case signin_metrics::AccessPoint::kExtensions:
@@ -260,9 +263,9 @@ void HistorySyncOptinService::OnPrimaryAccountChanged(
     case signin_metrics::AccessPoint::kNtpIdentityDisc:
     case signin_metrics::AccessPoint::kOidcRedirectionInterception:
     case signin_metrics::AccessPoint::kWebauthnModalDialog:
-    case signin_metrics::AccessPoint::kAccountMenu:
+    case signin_metrics::AccessPoint::kAccountMenuSwitchAccount:
     case signin_metrics::AccessPoint::kProductSpecifications:
-    case signin_metrics::AccessPoint::kAccountMenuFailedSwitch:
+    case signin_metrics::AccessPoint::kAccountMenuSwitchAccountFailed:
     case signin_metrics::AccessPoint::kCctAccountMismatchNotification:
     case signin_metrics::AccessPoint::kDriveFilePickerIos:
     case signin_metrics::AccessPoint::kGlicLaunchButton:
@@ -281,6 +284,7 @@ void HistorySyncOptinService::OnPrimaryAccountChanged(
     case signin_metrics::AccessPoint::
         kEnterpriseManagementDisclaimerAfterSignin:
     case signin_metrics::AccessPoint::kNtpFeaturePromo:
+    case signin_metrics::AccessPoint::kEnterpriseDialogAfterSigninInterception:
       return;
   }
 
@@ -312,8 +316,11 @@ void HistorySyncOptinService::OnPrimaryAccountChanged(
         // If the required data types cannot be enabled, show an error.
         if (!signin_util::IsSyncingUserSelectableTypesAllowedByPolicy(
                 sync_service, required_types)) {
-          signin_util::ShowErrorDialogWithMessage(
-              chrome::FindLastActiveWithProfile(profile), error_message_id);
+          HistorySyncOptinService* history_sync_optin_service =
+              HistorySyncOptinServiceFactory::GetForProfile(profile);
+          CHECK(history_sync_optin_service);
+          history_sync_optin_service->ShowErrorDialogWithMessage(
+              error_message_id);
         }
       },
       required_types, error_message_id);
@@ -335,4 +342,9 @@ void HistorySyncOptinService::OnPrimaryAccountChanged(
   profile_management_disclaimer_service->EnsureManagedProfileForAccount(
       primary_account_id, access_point.value(),
       std::move(management_accepted_callback));
+}
+
+void HistorySyncOptinService::ShowErrorDialogWithMessage(int error_message_id) {
+  signin_util::ShowErrorDialogWithMessage(
+      chrome::FindLastActiveWithProfile(profile_), error_message_id);
 }

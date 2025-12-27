@@ -5,11 +5,13 @@
 #ifndef NET_DISK_CACHE_SQL_SQL_PERSISTENT_STORE_IN_MEMORY_INDEX_H_
 #define NET_DISK_CACHE_SQL_SQL_PERSISTENT_STORE_IN_MEMORY_INDEX_H_
 
+#include <optional>
+
 #include "base/check.h"
 #include "base/types/strong_alias.h"
 #include "net/base/net_export.h"
 #include "net/disk_cache/sql/indexed_pair_set.h"
-#include "net/disk_cache/sql/sql_persistent_store.h"
+#include "net/disk_cache/sql/sql_backend_aliases.h"
 
 namespace disk_cache {
 
@@ -43,11 +45,25 @@ class NET_EXPORT_PRIVATE SqlPersistentStoreInMemoryIndex {
   SqlPersistentStoreInMemoryIndex& operator=(
       SqlPersistentStoreInMemoryIndex&& other) noexcept;
 
-  bool Insert(CacheEntryKey::Hash hash, SqlPersistentStore::ResId res_id);
-  bool Contains(CacheEntryKey::Hash hash) const;
-  bool Remove(SqlPersistentStore::ResId res_id);
-  bool Remove(CacheEntryKey::Hash hash, SqlPersistentStore::ResId res_id);
+  bool Insert(CacheEntryKeyHash hash, SqlPersistentStoreResId res_id);
+  bool Contains(CacheEntryKeyHash hash) const;
+  bool Remove(SqlPersistentStoreResId res_id);
+  bool Remove(CacheEntryKeyHash hash, SqlPersistentStoreResId res_id);
   void Clear();
+
+  // Tries to retrieve a single resource ID for the given hash.
+  // Returns std::nullopt if the entry is not found or if there are collisions.
+  std::optional<SqlPersistentStoreResId> TryGetSingleResId(
+      CacheEntryKeyHash hash) const;
+
+  // Updates the in-memory hints for the entry identified by `res_id`.
+  void SetEntryDataHints(SqlPersistentStoreResId res_id,
+                         MemoryEntryDataHints hints);
+
+  // Retrieves the in-memory hints for the entry identified by `hash`, if
+  // available and unique.
+  std::optional<MemoryEntryDataHints> GetEntryDataHints(
+      CacheEntryKeyHash hash) const;
 
   size_t size() const;
 
@@ -57,7 +73,9 @@ class NET_EXPORT_PRIVATE SqlPersistentStoreInMemoryIndex {
   template <class ResIdType>
   class Impl {
    public:
-    using ResIdToHashMap = absl::flat_hash_map<ResIdType, CacheEntryKey::Hash>;
+    using ResIdToHashMap = absl::flat_hash_map<ResIdType, CacheEntryKeyHash>;
+    using ResIdToEntryDataHintsMap =
+        absl::flat_hash_map<ResIdType, MemoryEntryDataHints>;
 
     Impl() = default;
     ~Impl() = default;
@@ -66,7 +84,7 @@ class NET_EXPORT_PRIVATE SqlPersistentStoreInMemoryIndex {
     Impl(Impl&& other) noexcept = default;
     Impl& operator=(Impl&& other) noexcept = default;
 
-    bool Insert(CacheEntryKey::Hash hash, ResIdType res_id) {
+    bool Insert(CacheEntryKeyHash hash, ResIdType res_id) {
       if (res_id_to_hash_map_.contains(res_id)) {
         return false;
       }
@@ -77,7 +95,7 @@ class NET_EXPORT_PRIVATE SqlPersistentStoreInMemoryIndex {
       return false;
     }
 
-    bool Contains(CacheEntryKey::Hash hash) const {
+    bool Contains(CacheEntryKeyHash hash) const {
       return hash_res_id_set_.Contains(hash);
     }
 
@@ -90,7 +108,7 @@ class NET_EXPORT_PRIVATE SqlPersistentStoreInMemoryIndex {
       return true;
     }
 
-    bool Remove(CacheEntryKey::Hash hash, ResIdType res_id) {
+    bool Remove(CacheEntryKeyHash hash, ResIdType res_id) {
       auto it = res_id_to_hash_map_.find(res_id);
       if (it == res_id_to_hash_map_.end()) {
         return false;
@@ -105,6 +123,30 @@ class NET_EXPORT_PRIVATE SqlPersistentStoreInMemoryIndex {
     void Clear() {
       hash_res_id_set_.Clear();
       res_id_to_hash_map_.clear();
+      res_id_to_hash_map_.clear();
+    }
+
+    // Tries to retrieve a single resource ID for the given hash.
+    std::optional<ResIdType> TryGetSingleResId(CacheEntryKeyHash hash) const {
+      return hash_res_id_set_.TryGetSingleValue(hash);
+    }
+
+    // Updates the in-memory hints for the entry identified by `res_id`.
+    void SetEntryDataHints(ResIdType res_id, MemoryEntryDataHints hints) {
+      if (res_id_to_hash_map_.contains(res_id)) {
+        res_id_to_hints_map_[res_id] = hints;
+      }
+    }
+
+    // Retrieves the in-memory hints for the entry identified by `res_id`, if
+    // available.
+    std::optional<MemoryEntryDataHints> GetEntryDataHints(
+        ResIdType res_id) const {
+      if (const auto it = res_id_to_hints_map_.find(res_id);
+          it != res_id_to_hints_map_.end()) {
+        return it->second;
+      }
+      return std::nullopt;
     }
 
     size_t size() const { return hash_res_id_set_.size(); }
@@ -114,22 +156,24 @@ class NET_EXPORT_PRIVATE SqlPersistentStoreInMemoryIndex {
     }
 
    private:
-    using HashResIdSet = IndexedPairSet<CacheEntryKey::Hash, ResIdType>;
+    using HashResIdSet = IndexedPairSet<CacheEntryKeyHash, ResIdType>;
 
     void RemoveInternal(ResIdToHashMap::iterator it) {
       DCHECK(it != res_id_to_hash_map_.end());
       CHECK(hash_res_id_set_.Remove(it->second, it->first));
+      res_id_to_hints_map_.erase(it->first);
       res_id_to_hash_map_.erase(it);
     }
 
     HashResIdSet hash_res_id_set_;
     ResIdToHashMap res_id_to_hash_map_;
+    ResIdToEntryDataHintsMap res_id_to_hints_map_;
   };
 
-  static std::optional<ResId32> ToResId32(SqlPersistentStore::ResId res_id);
+  static std::optional<ResId32> ToResId32(SqlPersistentStoreResId res_id);
 
   Impl<ResId32> impl32_;
-  std::optional<Impl<SqlPersistentStore::ResId>> impl64_;
+  std::optional<Impl<SqlPersistentStoreResId>> impl64_;
 };
 
 }  // namespace disk_cache

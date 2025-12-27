@@ -326,7 +326,6 @@ after discussions on the right group.
       <annotation id="iwa_web_app_internals_update_manifest"/>
       <annotation id="iwa_web_app_internals_web_bundle"/>
       <annotation id="iwa_dev_tools_installation_web_bundle"/>
-      <annotation id="digital_asset_links_include"/>
       <annotation id="remoting_cloud_send_heartbeat"/>
       <annotation id="remoting_cloud_update_remote_access_host"/>
       <annotation id="remoting_directory_legacy_heartbeat"/>
@@ -359,7 +358,6 @@ after discussions on the right group.
       <annotation id="omnibox_search_aggregator_suggest"/>
       <annotation id="microsoft_files_page_handler"/>
       <annotation id="outlook_calendar_event_attachment"/>
-      <annotation id="ip_protection_service_get_probabilistic_reveal_token"/>
       <annotation id="remoting_compute_engine_instance_identity_token"/>
       <annotation id="remoting_compute_engine_instance_access_token"/>
       <annotation id="remoting_compute_engine_instance_access_token_scopes"/>
@@ -392,6 +390,9 @@ after discussions on the right group.
       <annotation id="legion_client"/>
       <annotation id="webrtc_rtc_transport"/>
       <annotation id="email_verification"/>
+      <annotation id="amount_extraction_model_execution"/>
+      <annotation id="legion_service_get_token"/>
+      <annotation id="metrics_report_private_metrics"/>
     </sender>
   </group>
   <group name="Admin Features" hidden="true">

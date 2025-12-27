@@ -14,7 +14,6 @@
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/containers/contains.h"
-#include "base/debug/dump_without_crashing.h"
 #include "base/environment.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
@@ -105,7 +104,6 @@
 #include "chrome/browser/startup_data.h"
 #include "chrome/browser/storage/storage_notification_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
-#include "chrome/browser/tpcd/support/tpcd_support_service_factory.h"
 #include "chrome/browser/transition_manager/full_browser_transition_manager.h"
 #include "chrome/browser/ui/signin/dice_migration_service.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
@@ -514,7 +512,8 @@ ProfileImpl::ProfileImpl(
     // tests.
     // Note: |ash::InitializeAccountManager| is idempotent and safe to call
     // multiple times.
-    // TODO(crbug.com/40635309): Remove this call.
+    // Consider removing this initialization and fixing failing tests.
+    // See https://crbug.com/40635309 for reference.
     ash::InitializeAccountManager(
         std::move(shared_url_loader_factory), path_,
         base::DoNothing() /* initialization_callback */);
@@ -863,11 +862,9 @@ void ProfileImpl::DoFinalInit(CreateMode create_mode) {
   // as it depends on the default StoragePartition being initialized.
   GetOriginTrialsControllerDelegate();
 
-  // The TpcdTrialService for
   // third-party cookie deprecation must be created with the profile, but after
   // the initialization of the OriginTrialsControllerDelegate, as it depends on
   // it.
-  tpcd::trial::TpcdTrialServiceFactory::GetForProfile(this);
 }
 
 base::FilePath ProfileImpl::last_selected_directory() {
@@ -1118,38 +1115,17 @@ void ProfileImpl::OnLocaleReady(CreateMode create_mode) {
   }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
-  if (!base::FeatureList::IsEnabled(
-          features::kDelayOnProfileCreatedForFullBrowserTransition)) {
-    FullBrowserTransitionManager::Get()->OnProfileCreated(this);
-  }
-
   SimpleDependencyManager::GetInstance()->CreateServices(GetProfileKey());
 
-#if !BUILDFLAG(IS_ANDROID)
   // Check that the IdentityManager was not created before the browser context
   // services were created. This ensures that browser tests can override the
   // IdentityManager with a fake.
-  CHECK(!IdentityManagerFactory::GetForProfileIfExists(this),
-        base::NotFatalUntil::M160);
-#else
-  if (base::FeatureList::IsEnabled(
-          features::kDelayOnProfileCreatedForFullBrowserTransition)) {
-    // TODO(msarda): This invariant is violated on Android, but may be fixed by
-    // enabling the kDelayOnProfileCreatedForFullBrowserTransition feature.
-    // Remove this check once the IdentityManager is no longer created too early
-    // on Android.
-    CHECK(!IdentityManagerFactory::GetForProfileIfExists(this),
-          base::NotFatalUntil::M160);
-  }
-#endif
+  CHECK(!IdentityManagerFactory::GetForProfileIfExists(this));
 
   BrowserContextDependencyManager::GetInstance()->CreateBrowserContextServices(
       this);
 
-  if (base::FeatureList::IsEnabled(
-          features::kDelayOnProfileCreatedForFullBrowserTransition)) {
-    FullBrowserTransitionManager::Get()->OnProfileCreated(this);
-  }
+  FullBrowserTransitionManager::Get()->OnProfileCreated(this);
 
   ChromeVersionService::OnProfileLoaded(prefs_.get(), IsNewProfile());
   DoFinalInit(create_mode);

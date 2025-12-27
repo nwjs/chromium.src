@@ -135,7 +135,7 @@ class MockVideoFrameResourceProvider
 
   MOCK_METHOD2(Initialize,
                void(viz::RasterContextProvider*,
-                    scoped_refptr<gpu::ClientSharedImageInterface>));
+                    scoped_refptr<gpu::SharedImageInterface>));
   MOCK_METHOD4(AppendQuads,
                void(viz::CompositorRenderPass*,
                     scoped_refptr<media::VideoFrame>,
@@ -183,7 +183,7 @@ class VideoFrameSubmitterTest : public testing::Test {
       : now_src_(new base::SimpleTestTickClock()),
         begin_frame_source_(new viz::FakeExternalBeginFrameSource(0.f, false)),
         video_frame_provider_(new StrictMock<MockVideoFrameProvider>()),
-        context_provider_(viz::TestContextProvider::Create()),
+        context_provider_(viz::TestContextProvider::CreateRaster()),
         client_shared_image_interface_(
             base::MakeRefCounted<TestClientSharedImageInterface>()) {
     context_provider_->BindToCurrentSequence();

@@ -52,6 +52,7 @@
 #include "pdf/loader/url_loader.h"
 #include "pdf/loader/url_loader_wrapper_impl.h"
 #include "pdf/page_character_index.h"
+#include "pdf/pdf_accessibility_constants.h"
 #include "pdf/pdf_caret.h"
 #include "pdf/pdf_features.h"
 #include "pdf/pdf_transform.h"
@@ -93,6 +94,7 @@
 #include "ui/gfx/geometry/point_conversions.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/geometry/vector2d.h"
@@ -1217,7 +1219,7 @@ void PDFiumEngine::SetCaretBrowsingEnabled(bool enabled) {
   CHECK(features::kPdfInk2TextHighlighting.Get());
   CHECK(!client_->IsPrintPreview());
 
-  if (pages_.empty()) {
+  if (pages_.empty() || (caret_ && caret_->enabled() == enabled)) {
     return;
   }
 
@@ -1225,12 +1227,30 @@ void PDFiumEngine::SetCaretBrowsingEnabled(bool enabled) {
     if (!enabled) {
       return;
     }
-    // TODO(crbug.com/427242881): Determine the starting position of the caret.
-    caret_ = std::make_unique<PdfCaret>(this, PageCharacterIndex(0, 0));
+    caret_ = std::make_unique<PdfCaret>(this);
+    caret_->SetVisible(has_focus_);
   }
 
-  // TODO(crbug.com/427778119): Set caret blink interval.
   caret_->SetEnabled(enabled);
+
+  if (enabled) {
+    // Move the caret to the first visible text run. If there is no visible
+    // text, leave the caret at its original position.
+    for (auto page_index : visible_pages_) {
+      std::optional<AccessibilityTextRunInfo> text_run =
+          GetFirstVisibleTextRun(page_index);
+      if (text_run.has_value()) {
+        caret_->SetCharAndDraw({page_index, text_run->start_index});
+        break;
+      }
+    }
+  }
+}
+
+void PDFiumEngine::SetCaretBlinkInterval(base::TimeDelta interval) {
+  if (caret_) {
+    caret_->SetBlinkInterval(interval);
+  }
 }
 
 void PDFiumEngine::ContinueFind(bool case_sensitive) {
@@ -1365,6 +1385,7 @@ void PDFiumEngine::KillFormFocus() {
 }
 
 void PDFiumEngine::UpdateFocus(bool has_focus) {
+  has_focus_ = has_focus;
   bool can_focus = !IsReadOnly();
 #if BUILDFLAG(ENABLE_PDF_INK2)
   can_focus = can_focus && !client_->IsInAnnotationMode();
@@ -1626,10 +1647,13 @@ void PDFiumEngine::OnTextOrLinkAreaClickInternal(const PointData& point_data,
     if (caret_) {
       caret_->SetCharAndDraw(
           PageCharacterIndex(point_data.page_index, char_index));
-      caret_->SetVisible(true);
     }
   } else if (click_count >= 2) {
     OnMultipleClick(click_count, point_data.page_index, point_data.char_index);
+  }
+
+  if (caret_) {
+    caret_->SetVisible(click_count == 1);
   }
 }
 
@@ -4928,6 +4952,28 @@ void PDFiumEngine::MaybeRequestPendingThumbnail(int page_index) {
   pending_thumbnails_.erase(it);
 }
 
+std::optional<AccessibilityTextRunInfo> PDFiumEngine::GetFirstVisibleTextRun(
+    uint32_t page_index) const {
+  gfx::Rect visible_rect = GetVisibleRect();
+  if (visible_rect.IsEmpty()) {
+    // PDF has not finished loading yet.
+    return std::nullopt;
+  }
+
+  CHECK(PageIndexInBounds(page_index));
+  PDFiumPage* page = pages_[page_index].get();
+  for (const AccessibilityTextRunInfo& text_run : page->GetTextRunInfo()) {
+    PDFiumRange range(page, text_run.start_index, /*char_count=*/1);
+    // Use zoom of 1.0 since `visible_rect` is without zoom.
+    const std::vector<gfx::Rect>& rects =
+        range.GetScreenRects(gfx::Point(), 1.0, GetCurrentOrientation());
+    if (visible_rect.Contains(gfx::UnionRects(rects))) {
+      return text_run;
+    }
+  }
+  return std::nullopt;
+}
+
 #if BUILDFLAG(ENABLE_PDF_INK2)
 gfx::Size PDFiumEngine::GetThumbnailSize(int page_index,
                                          float device_pixel_ratio) {
@@ -5002,7 +5048,7 @@ void PDFiumEngine::DiscardStroke(int page_index, InkStrokeId id) {
 }
 
 PDFLoadedWithV2InkAnnotations PDFiumEngine::ContainsV2InkPath(
-    const base::TimeDelta& timeout) const {
+    base::TimeDelta timeout) const {
   base::TimeTicks start_time = base::TimeTicks::Now();
   for (const auto& page : pages_) {
     if (base::TimeTicks::Now() - start_time >= timeout) {
@@ -5099,10 +5145,13 @@ gfx::Transform PDFiumEngine::GetCanonicalToPdfTransform(int page_index) {
 std::map<int, std::vector<PdfRect>> PDFiumEngine::GetSelectionRectMap() {
   std::map<int, std::vector<PdfRect>> results;
   for (auto& selection : selection_) {
-    auto& page_results = results[selection.page_index()];
     std::vector<PdfRect> pdf_rects = selection.GetRectsWithTightness(
         PDFiumRange::PdfBoundsTightness::kTightVertical);
-    page_results.insert(page_results.end(), pdf_rects.begin(), pdf_rects.end());
+    if (!pdf_rects.empty()) {
+      auto& page_results = results[selection.page_index()];
+      page_results.insert(page_results.end(), pdf_rects.begin(),
+                          pdf_rects.end());
+    }
   }
   return results;
 }

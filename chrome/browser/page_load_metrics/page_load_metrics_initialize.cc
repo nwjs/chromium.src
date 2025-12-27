@@ -44,7 +44,6 @@
 #include "chrome/browser/page_load_metrics/observers/third_party_cookie_deprecation_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/translate_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/webui_page_load_metrics_observer.h"
-#include "chrome/browser/page_load_metrics/page_load_metrics_memory_tracker_factory.h"
 #include "chrome/browser/preloading/prefetch/no_state_prefetch/chrome_no_state_prefetch_contents_delegate.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/search.h"
@@ -56,7 +55,6 @@
 #include "components/page_load_metrics/browser/observers/third_party_metrics_observer.h"
 #include "components/page_load_metrics/browser/observers/zstd_page_load_metrics_observer.h"
 #include "components/page_load_metrics/browser/page_load_metrics_embedder_base.h"
-#include "components/page_load_metrics/browser/page_load_metrics_memory_tracker.h"
 #include "components/page_load_metrics/browser/page_load_tracker.h"
 #include "components/page_load_metrics/google/browser/from_gws_abandoned_page_load_metrics_observer.h"
 #include "components/page_load_metrics/google/browser/gws_abandoned_page_load_metrics_observer.h"
@@ -134,11 +132,6 @@ class PageLoadMetricsEmbedder
   bool IsNonTabWebUI(const GURL& url) override;
   bool IsInternalWebUI(const GURL& url) override;
   bool ShouldObserveScheme(std::string_view scheme) override;
-  bool IsIncognito(content::WebContents* web_contents) override;
-  page_load_metrics::PageLoadMetricsMemoryTracker*
-  GetMemoryTrackerForBrowserContext(
-      content::BrowserContext* browser_context) override;
-
  protected:
   // page_load_metrics::PageLoadMetricsEmbedderBase:
   void RegisterObservers(page_load_metrics::PageLoadTracker* tracker,
@@ -169,8 +162,8 @@ void PageLoadMetricsEmbedder::RegisterObservers(
 
 #if !BUILDFLAG(IS_ANDROID)
   if (HasWebUIConfig(navigation_handle->GetURL()) &&
-      IsForInitialWebUI(navigation_handle->GetURL()) &&
-      IsInitialWebUIMetricsLoggingEnabled()) {
+      waap::IsForInitialWebUI(navigation_handle->GetURL()) &&
+      waap::IsInitialWebUIMetricsLoggingEnabled()) {
     tracker->AddObserver(
         std::make_unique<InitialWebUIPageLoadMetricsObserver>());
   }
@@ -228,7 +221,6 @@ void PageLoadMetricsEmbedder::RegisterObservers(
 
     bool is_in_foreground =
         tracker->GetVisibilityTracker().currently_in_foreground();
-    bool is_incognito = IsIncognito(tracker->GetWebContents());
     std::unique_ptr<page_load_metrics::AdsPageLoadMetricsObserver>
         ads_observer =
             page_load_metrics::AdsPageLoadMetricsObserver::CreateIfNeeded(
@@ -239,8 +231,7 @@ void PageLoadMetricsEmbedder::RegisterObservers(
                     Profile::FromBrowserContext(
                         web_contents()->GetBrowserContext()),
                     ServiceAccessType::EXPLICIT_ACCESS),
-                base::BindRepeating(&GetApplicationLocale), is_in_foreground,
-                is_incognito);
+                base::BindRepeating(&GetApplicationLocale), is_in_foreground);
     if (ads_observer) {
       tracker->AddObserver(std::move(ads_observer));
     }
@@ -250,7 +241,7 @@ void PageLoadMetricsEmbedder::RegisterObservers(
         std::make_unique<PaidContentPageLoadMetricsObserver>());
 
     std::unique_ptr<page_load_metrics::PageLoadMetricsObserver> ukm_observer =
-        UkmPageLoadMetricsObserver::CreateIfNeeded(is_incognito);
+        UkmPageLoadMetricsObserver::CreateIfNeeded();
     if (ukm_observer) {
       tracker->AddObserver(std::move(ukm_observer));
     }
@@ -361,26 +352,6 @@ bool PageLoadMetricsEmbedder::ShouldObserveScheme(std::string_view scheme) {
   return false;
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS)
-}
-
-bool PageLoadMetricsEmbedder::IsIncognito(content::WebContents* web_contents) {
-  if (Profile* profile =
-          Profile::FromBrowserContext(web_contents->GetBrowserContext())) {
-    return profile->IsIncognitoProfile();
-  }
-  return false;
-}
-
-page_load_metrics::PageLoadMetricsMemoryTracker*
-PageLoadMetricsEmbedder::GetMemoryTrackerForBrowserContext(
-    content::BrowserContext* browser_context) {
-  if (!base::FeatureList::IsEnabled(
-          page_load_metrics::features::kV8PerFrameMemoryMonitoring)) {
-    return nullptr;
-  }
-
-  return page_load_metrics::PageLoadMetricsMemoryTrackerFactory::
-      GetForBrowserContext(browser_context);
 }
 
 }  // namespace

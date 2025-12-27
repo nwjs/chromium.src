@@ -126,7 +126,7 @@ class GlicInstanceTracker {
   }
 
  private:
-  Browser* GetBrowser();
+  BrowserWindowInterface* GetBrowser();
   void Clear();
 
   raw_ptr<Profile> profile_;

@@ -21,6 +21,12 @@ class MockAimEligibilityService : public AimEligibilityService {
   MOCK_METHOD(bool, IsServerEligibilityEnabled, (), (const, override));
   MOCK_METHOD(bool, IsAimLocallyEligible, (), (const, override));
   MOCK_METHOD(bool, IsAimEligible, (), (const, override));
+  MOCK_METHOD(bool, IsDeepSearchEligible, (), (const, override));
+  MOCK_METHOD(bool, IsCreateImagesEligible, (), (const, override));
+  MOCK_METHOD(base::CallbackListSubscription,
+              RegisterEligibilityChangedCallback,
+              (base::RepeatingClosure),
+              (override));
   MOCK_METHOD(std::string, GetCountryCode, (), (const, override));
   MOCK_METHOD(std::string, GetLocale, (), (const, override));
 };

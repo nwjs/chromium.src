@@ -8,7 +8,6 @@
 #include <set>
 
 #include "base/feature_list.h"
-#include "base/functional/callback.h"
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
 #include "base/types/pass_key.h"
@@ -48,8 +47,9 @@ class RenderFrameHostImpl;
 }  // namespace content
 
 namespace extensions {
-class ExtensionMessagePort;
 class ManifestV2ExperimentManager;
+class ExtensionContextMenuModel;
+class MetricsPrivateRecordExtensionUsageUkmFunction;
 }
 
 namespace safe_browsing {
@@ -141,13 +141,16 @@ class METRICS_EXPORT UkmRecorder {
       const GURL& redirect_url);
 
   // Gets a new SourceId of EXTENSION_ID type and updates the source URL
-  // from the extension message port. This method should only be called by
-  // approved cases, indicated by the PassKeys.
-  static SourceId GetSourceIdForExtensionUrl(
-      base::PassKey<extensions::ExtensionMessagePort>,
-      const GURL& extension_url);
+  // from the manifest v2 experiment manager. This method should only be called
+  // by approved cases, indicated by the PassKeys.
   static SourceId GetSourceIdForExtensionUrl(
       base::PassKey<extensions::ManifestV2ExperimentManager>,
+      const GURL& extension_url);
+  static SourceId GetSourceIdForExtensionUrl(
+      base::PassKey<extensions::ExtensionContextMenuModel>,
+      const GURL& extension_url);
+  static SourceId GetSourceIdForExtensionUrl(
+      base::PassKey<extensions::MetricsPrivateRecordExtensionUsageUkmFunction>,
       const GURL& extension_url);
 
   // Gets a new SourceId of REDIRECT_ID type and updates the source URL to the

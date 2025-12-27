@@ -48,6 +48,8 @@ struct OnDeviceOptions final {
   TokenLimits token_limits;
   SessionConfigParams session_params;
 
+  base::WeakPtr<OptimizationGuideLogger> logger;
+
   // Returns true if the on-device model may be used.
   bool ShouldUse() const;
 };
@@ -58,7 +60,7 @@ struct OnDeviceOptions final {
 // CloneSession() call is made.
 class OnDeviceContext : public on_device_model::mojom::ContextClient {
  public:
-  OnDeviceContext(OnDeviceOptions opts, ModelBasedCapabilityKey feature);
+  OnDeviceContext(OnDeviceOptions opts, mojom::OnDeviceFeature feature);
   ~OnDeviceContext() override;
 
   // Constructs the input context and begins processing it.
@@ -96,7 +98,7 @@ class OnDeviceContext : public on_device_model::mojom::ContextClient {
   void OnComplete(uint32_t tokens_processed) override;
 
   OnDeviceOptions opts_;
-  ModelBasedCapabilityKey feature_;
+  mojom::OnDeviceFeature feature_;
   mojo::Remote<on_device_model::mojom::Session> session_;
   on_device_model::mojom::InputPtr input_ =
       on_device_model::mojom::Input::New();

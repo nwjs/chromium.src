@@ -92,6 +92,7 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/memory/memory_pressure_listener.h"
+#include "content/browser/renderer_host/android_spare_renderer_navigation_throttle.h"
 #include "content/public/browser/android/child_process_importance.h"
 #endif
 
@@ -247,8 +248,7 @@ class CONTENT_EXPORT RenderProcessHostImpl
   unsigned int GetFrameDepth() override;
   bool GetIntersectsViewport() override;
 #if !BUILDFLAG(IS_ANDROID)
-  // Returns true if this process is hosting the initial WebUI.
-  bool IsForInitialWebUI() const;
+  bool IsForInitialWebUI() const override;
 #endif  // !BUILDFLAG(IS_ANDROID)
   bool IsForGuestsOnly() override;
   bool IsJitDisabled() override;
@@ -289,8 +289,9 @@ class CONTENT_EXPORT RenderProcessHostImpl
   bool HasPriorityOverride() override;
   void ClearPriorityOverride() override;
 #endif
-  void GraduateSpareToNormalRendererPriority() override;
 #if BUILDFLAG(IS_ANDROID)
+  void GraduateSpareToNormalRendererPriority() override;
+  bool ShouldThrottleNavigationForSpareRendererGraduation() override;
   ChildProcessImportance GetEffectiveImportance() override;
   base::android::ChildBindingState GetEffectiveChildBindingState() override;
   void DumpProcessStack() override;
@@ -392,6 +393,7 @@ class CONTENT_EXPORT RenderProcessHostImpl
 #if BUILDFLAG(IS_ANDROID)
   bool CanUseWarmUpConnection() override;
   bool HasSpareRendererPriority() override;
+  void OnSpareRendererPriorityGraduated(bool is_alive) override;
 #endif
 
   const std::string& GetUnresponsiveDocumentJavascriptCallStack() const;
@@ -589,7 +591,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
     kRefusedForJitMismatch = 7,
     kRefusedForV8OptimizationMismatch = 8,
     kRefusedNonNavigation = 9,
-    kMaxValue = kRefusedNonNavigation
+    kCannotAddThrottle = 10,
+    kMaxValue = kCannotAddThrottle
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/browser/histograms.xml:SpareProcessMaybeTakeAction)
 
@@ -982,6 +985,14 @@ class CONTENT_EXPORT RenderProcessHostImpl
     kForInitialWebUI = 1 << 5,
 #endif  // !BUILDFLAG(IS_ANDROID)
   };
+
+#if BUILDFLAG(IS_ANDROID)
+  enum class SpareRendererPriorityStatus {
+    kNormal = 0,
+    kSpare = 1,
+    kGraduating = 2,
+  };
+#endif  // BUILDFLAG(IS_ANDROID)
 
   // A RenderProcessHostImpl's IO thread implementation of the
   // |mojom::ChildProcessHost| interface. This exists to allow the process host
@@ -1420,11 +1431,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // vibe with raw_ptr<T>.
   RAW_PTR_EXCLUSION BrowserContext* browser_context_ = nullptr;
 
-  // Owned by |browser_context_|.
-  //
-  // TODO(crbug.com/40061679): Change back to `raw_ptr` after the ad-hoc
-  // debugging is no longer needed to investigate the bug.
-  base::WeakPtr<StoragePartitionImpl> storage_partition_impl_;
+  // Owned by `browser_context_`.
+  raw_ptr<StoragePartitionImpl> storage_partition_impl_;
 
   // Owns the singular DomStorageProvider binding established by this renderer.
   mojo::Receiver<blink::mojom::DomStorageProvider>
@@ -1651,15 +1659,16 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // Maximum number of outermost main frames this process hosted concurrently.
   size_t max_outermost_main_frames_ = 0;
 
-  // Whether to consider the process as a spare renderer when
-  // calculating the priority.
-  // The attribute starts out as false and is set to true if this renderer
-  // process is launched as a spare process.  When the process is taken for
-  // navigation, the value will stay true until the priority is set in
-  // RenderWidgetHostImpl. For other renderer process allocations, the value
-  // will be set to false when the process is taken from the
-  // SpareRenderProcessHostManager.
-  bool has_spare_renderer_priority_;
+#if BUILDFLAG(IS_ANDROID)
+  // The spare renderer priority status of the process.
+  // The attribute starts out as kNormal and is set to kSpare if this renderer
+  // process is launched as a spare process. When the process is taken for
+  // navigation, the value be set to kGraduating when
+  // GraduateSpareToNormalRendererPriority is called. The value will be further
+  // updated to kNormal when we receive the OnSpareRendererPriorityGraduated
+  // callback.
+  SpareRendererPriorityStatus spare_renderer_priority_status_;
+#endif  // BUILDFLAG(IS_ANDROID)
 
   // Tracing track used to emit async event related to lifecycle.
   perfetto::NamedTrack tracing_track_;

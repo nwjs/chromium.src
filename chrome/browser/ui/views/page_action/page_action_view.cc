@@ -10,7 +10,7 @@
 #include "base/callback_list.h"
 #include "base/check.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_forward.h"
+#include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_controller.h"
@@ -228,11 +228,14 @@ void PageActionView::UpdateIconImage() {
     return;
   }
   const auto& icon_image = observation_.GetSource()->GetImage();
+  const SkColor icon_color = observation_.GetSource()->GetColorSource() ==
+                                     PageActionColorSource::kForeground
+                                 ? GetForegroundColor()
+                                 : views::GetCascadingAccentColor(this);
   // If image does not have a vector icon, set it directly.
   if (icon_image.IsVectorIcon()) {
-    const gfx::ImageSkia image =
-        gfx::CreateVectorIcon(*icon_image.GetVectorIcon().vector_icon(),
-                              icon_size_, GetForegroundColor());
+    const gfx::ImageSkia image = gfx::CreateVectorIcon(
+        *icon_image.GetVectorIcon().vector_icon(), icon_size_, icon_color);
 
     if (!image.isNull()) {
       SetImageModel(ui::ImageModel::FromImageSkia(image));
@@ -254,10 +257,14 @@ const gfx::Insets PageActionView::GetInsetsForNonVectorIcon() const {
   const int vertical_padding =
       (icon_size_ + icon_insets_.height() - image_size.height()) / 2;
 
-  // TODO(crbug.com/437929704): Remove the DUMP_WILL_BE_CHECK with CHECK once
-  // sure about codepaths that might lead to negative paddings.
-  DUMP_WILL_BE_CHECK(horizontal_padding >= 0);
-  DUMP_WILL_BE_CHECK(vertical_padding >= 0);
+  CHECK(horizontal_padding >= 0)
+      << "Horizontal size of image exceeds maximum.\nIcon Size: " << icon_size_
+      << "\nInsets: " << icon_insets_.width()
+      << "\nImage Size: " << image_size.width();
+  CHECK(vertical_padding >= 0)
+      << "Vertical size of image exceeds maximum.\nIcon Size: " << icon_size_
+      << "\nInsets: " << icon_insets_.height()
+      << "\nImage Size: " << image_size.height();
 
   return gfx::Insets::VH(std::max(vertical_padding, 0),
                          std::max(horizontal_padding, 0));

@@ -83,6 +83,7 @@ import org.chromium.components.sync.SyncFirstSetupCompleteSource;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.sync.UserActionableError;
 import org.chromium.components.sync.UserSelectableType;
+import org.chromium.components.trusted_vault.TrustedVaultUserActionTriggerForUMA;
 import org.chromium.ui.modaldialog.DialogDismissalCause;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManagerHolder;
@@ -722,6 +723,7 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
 
         updateDataTypeState();
         updateEncryptionState();
+        notifyPreferencesUpdated();
     }
 
     /** Gets the state from data type checkboxes and saves this state into {@link SyncService}. */
@@ -1095,7 +1097,8 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
         // done even if the user cancelled the flow (i.e. resultCode != RESULT_OK) because it's
         // harmless to issue a redundant notifyKeysChanged().
         if (requestCode == REQUEST_CODE_TRUSTED_VAULT_KEY_RETRIEVAL) {
-            TrustedVaultClient.get().notifyKeysChanged();
+            TrustedVaultClient.get()
+                    .notifyKeysChanged(TrustedVaultUserActionTriggerForUMA.SETTINGS);
         }
         if (requestCode == REQUEST_CODE_TRUSTED_VAULT_RECOVERABILITY_DEGRADED) {
             TrustedVaultClient.get().notifyRecoverabilityChanged();
@@ -1196,6 +1199,9 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
             case UserActionableError.NEEDS_UPM_BACKEND_UPGRADE:
                 GmsUpdateLauncher.launch(getContext());
                 return;
+            case UserActionableError.BOOKMARKS_LIMIT_EXCEEDED:
+                SyncSettingsUtils.openBookmarkLimitHelpPage(getActivity(), mSyncService);
+                return;
             case UserActionableError.NONE:
             default:
         }
@@ -1248,6 +1254,11 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
     @Override
     public @AnimationType int getAnimationType() {
         return AnimationType.PROPERTY;
+    }
+
+    @Override
+    public @Nullable String getMainMenuKey() {
+        return "manage_sync";
     }
 
     /** Returns whether the extensions sync item should be shown. */

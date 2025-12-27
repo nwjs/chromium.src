@@ -10,12 +10,9 @@ source_set("model") {
   public_deps =
       [ "//components/user_data_importer/utility:safari_data_importer" ]
   deps = [
-    "//base",
     "//components/password_manager/core/browser/import:importer",
-    "//components/url_formatter",
+    "//ios/chrome/browser/data_import/public",
     "//ios/chrome/browser/safari_data_import/public",
-    "//ios/chrome/browser/shared/ui/util:url_with_title",
-    "//url",
   ]
 }
 
@@ -42,6 +39,7 @@ source_set("unit_tests") {
   deps = [
     ":model",
     "//components/password_manager/core/browser/import:importer",
+    "//ios/chrome/browser/data_import/public",
     "//ios/chrome/browser/safari_data_import/public",
     "//ios/chrome/browser/shared/ui/util:url_with_title",
     "//testing/gtest",

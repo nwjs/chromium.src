@@ -19,7 +19,7 @@ class ExclusiveAccessContextAndroid : public ExclusiveAccessContext {
  public:
   ExclusiveAccessContextAndroid(
       JNIEnv* env,
-      const jni_zero::JavaRef<jobject>& j_activity,
+      const jni_zero::JavaRef<jobject>& j_context,
       const jni_zero::JavaRef<jobject>& j_fullscreen_manager,
       const jni_zero::JavaRef<jobject>& j_activity_tab_provider);
   ~ExclusiveAccessContextAndroid() override;
@@ -65,6 +65,8 @@ class ExclusiveAccessContextAndroid : public ExclusiveAccessContext {
   // There are special modes where the user isn't allowed to exit fullscreen on
   // their own, and this function allows us to check for that.
   bool CanUserExitFullscreen() const override;
+
+  void ForceActiveTab(JNIEnv* env, const jni_zero::JavaRef<jobject>& j_tab);
 
   base::WeakPtr<ExclusiveAccessContextAndroid> GetAsWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();

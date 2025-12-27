@@ -36,15 +36,7 @@ class FakePlusAddressService : public PlusAddressService {
       const url::Origin& origin,
       base::OnceCallback<void(std::vector<std::string>)> callback) override;
   std::vector<autofill::Suggestion> GetSuggestionsFromPlusAddresses(
-      const std::vector<std::string>& plus_addresses,
-      const url::Origin& origin,
-      bool is_off_the_record,
-      const autofill::FormData& focused_form,
-      const autofill::FormFieldData& focused_field,
-      const base::flat_map<autofill::FieldGlobalId,
-                           autofill::FieldTypeGroupSet>& form_field_type_groups,
-      const autofill::PasswordFormClassification& focused_form_classification,
-      bool is_plus_address_manually_triggered) override;
+      const std::vector<std::string>& plus_addresses) override;
   autofill::Suggestion GetManagePlusAddressSuggestion() const override;
   void RecordAutofillSuggestionEvent(SuggestionEvent suggestion_event) override;
   void OnPlusAddressSuggestionShown(
@@ -56,32 +48,11 @@ class FakePlusAddressService : public PlusAddressService {
       autofill::SuggestionType suggestion_type) override;
   void DidFillPlusAddress() override;
   size_t GetPlusAddressesCount() override;
-  void OnClickedRefreshInlineSuggestion(
-      const url::Origin& last_committed_primary_main_frame_origin,
-      base::span<const autofill::Suggestion> current_suggestions,
-      size_t current_suggestion_index,
-      UpdateSuggestionsCallback update_suggestions_callback) override;
-  void OnShowedInlineSuggestion(
-      const url::Origin& primary_main_frame_origin,
-      base::span<const autofill::Suggestion> current_suggestions,
-      UpdateSuggestionsCallback update_suggestions_callback) override;
-  void OnAcceptedInlineSuggestion(
-      const url::Origin& primary_main_frame_origin,
-      base::span<const autofill::Suggestion> current_suggestions,
-      size_t current_suggestion_index,
-      UpdateSuggestionsCallback update_suggestions_callback,
-      HideSuggestionsCallback hide_suggestions_callback,
-      PlusAddressCallback fill_field_callback,
-      ShowAffiliationErrorDialogCallback show_affiliation_error_dialog,
-      ShowErrorDialogCallback show_error_dialog,
-      base::OnceClosure reshow_suggestions) override;
   std::map<std::string, std::string> GetPlusAddressHatsData() const override;
 
   // PlusAddressService:
   void AddObserver(PlusAddressService::Observer* o) override;
   void RemoveObserver(PlusAddressService::Observer* o) override;
-  bool IsPlusAddressCreationEnabled(const url::Origin& origin,
-                                    bool is_off_the_record) const override;
   void GetAffiliatedPlusProfiles(const url::Origin& origin,
                                  GetPlusProfilesCallback callback) override;
   base::span<const PlusProfile> GetPlusProfiles() const override;
@@ -139,10 +110,6 @@ class FakePlusAddressService : public PlusAddressService {
     is_plus_address_filling_enabled_ = enabled;
   }
 
-  void set_should_offer_plus_address_creation(bool should_offer_creation) {
-    should_offer_creation_ = should_offer_creation;
-  }
-
   void set_should_return_no_affiliated_plus_profiles(
       bool should_return_no_affiliated_plus_profiles) {
     should_return_no_affiliated_plus_profiles_ =
@@ -181,7 +148,6 @@ class FakePlusAddressService : public PlusAddressService {
   bool should_fail_to_reserve_ = false;
   bool should_fail_to_refresh_ = false;
   bool is_plus_address_filling_enabled_ = false;
-  bool should_offer_creation_ = false;
   bool should_return_no_affiliated_plus_profiles_ = false;
   bool should_return_affiliated_plus_profile_on_confirm_ = false;
   bool should_return_quota_error_ = false;

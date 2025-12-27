@@ -55,10 +55,12 @@ template("define_override_androidx_targets") {
       ":*",
       "//third_party/androidx:*",
     ]
-    sources = [
-      "local_modifications/core/java/androidx/core/content/res/TypedArrayUtils.java",
-      "local_modifications/core/java/androidx/core/view/accessibility/AccessibilityNodeInfoCompat.java",
-    ]
+    sources = [ "local_modifications/core/java/androidx/core/content/res/TypedArrayUtils.java" ]
+
+    if (enable_chrome_android_internal) {
+      sources += [ "local_modifications/core/java/androidx/core/view/accessibility/AccessibilityNodeInfoCompat.java" ]
+    }
+
     deps = [
       ":androidx_annotation_annotation_experimental_java",
       ":androidx_annotation_annotation_jvm_java",

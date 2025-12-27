@@ -10,6 +10,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -30,7 +31,6 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
-#include "base/hash/sha1.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
@@ -146,7 +146,6 @@
 #include "chromeos/ash/components/login/auth/public/user_context.h"
 #include "chromeos/ash/components/login/auth/stub_authenticator_builder.h"
 #include "chromeos/ash/components/login/session/session_termination_manager.h"
-#include "chromeos/ash/components/network/portal_detector/network_portal_detector.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
 #include "chromeos/ash/components/tpm/prepare_tpm.h"
@@ -194,6 +193,7 @@
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/common/content_switches.h"
+#include "crypto/obsolete/sha1.h"
 #include "google_apis/gaia/gaia_id.h"
 #include "rlz/buildflags/buildflags.h"
 #include "third_party/cros_system_api/switches/chrome_switches.h"
@@ -208,6 +208,15 @@
 #define ENABLED_VLOG_LEVEL 1
 
 namespace ash {
+
+namespace login {
+// Returns a Base16 encoded SHA1 digest of `data`.
+std::string Sha1AsHexForRefreshToken(
+    const std::string_view data) {
+  return base::HexEncode(
+      crypto::obsolete::Sha1::Hash(base::as_byte_span(data)));
+}
+}  // namespace login
 
 namespace {
 
@@ -480,7 +489,8 @@ void SaveSyncTrustedVaultKeysToProfile(
     trusted_vault_service
         ->GetTrustedVaultClient(trusted_vault::SecurityDomainId::kChromeSync)
         ->StoreKeys(gaia_id, trusted_vault_keys.encryption_keys(),
-                    trusted_vault_keys.last_encryption_key_version());
+                    trusted_vault_keys.last_encryption_key_version(),
+                    std::nullopt);
   }
 
   for (const SyncTrustedVaultKeys::TrustedRecoveryMethod& method :
@@ -535,7 +545,6 @@ bool MaybeShowNewTermsAfterUpdateToFlex(Profile* profile) {
   // mark it here.
   if (ash::InstallAttributes::Get()->IsEnterpriseManaged()) {
     StartupUtils::MarkEulaAccepted();
-    network_portal_detector::GetInstance()->Enable();
     return false;
   }
   if (!IsRevenUpdatedToFlex()) {
@@ -598,11 +607,6 @@ void MaybeSaveSessionStartedTimeBeforeRestart(Profile* profile) {
   if (user_manager->IsCurrentUserNew()) {
     prefs->SetBoolean(ash::prefs::kAshLoginSessionStartedIsFirstSession, true);
   }
-}
-
-// Returns a Base16 encoded SHA1 digest of `data`.
-std::string Sha1Digest(const std::string& data) {
-  return base::HexEncode(base::SHA1Hash(base::as_byte_span(data)));
 }
 
 }  // namespace
@@ -2158,7 +2162,7 @@ void UserSessionManager::FetchTokenHandleLegacy(
           profile, token_handle_store_.get(), user_context_.GetAccountId());
       token_handle_fetcher_->FillForNewUser(
           user_context_.GetAccessToken(),
-          Sha1Digest(user_context_.GetRefreshToken()),
+          login::Sha1AsHexForRefreshToken(user_context_.GetRefreshToken()),
           base::BindOnce(&UserSessionManager::OnTokenHandleObtained,
                          GetUserSessionManagerAsWeakPtr()));
     } else {
@@ -2186,7 +2190,7 @@ void UserSessionManager::FetchTokenHandle(Profile* profile,
     // New user.
     token_handle_service->MaybeFetchForNewUser(
         user_context_.GetAccountId(), user_context_.GetAccessToken(),
-        Sha1Digest(user_context_.GetRefreshToken()));
+        login::Sha1AsHexForRefreshToken(user_context_.GetRefreshToken()));
   } else {
     VLOG(1) << "UserSessionManager::OnUserProfileLoaded: existing user";
     // Existing user.

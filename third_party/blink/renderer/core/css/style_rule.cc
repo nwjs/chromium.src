@@ -22,7 +22,6 @@
 #include "third_party/blink/renderer/core/css/style_rule.h"
 
 #include "base/compiler_specific.h"
-#include "third_party/blink/renderer/core/css/cascade_layer.h"
 #include "third_party/blink/renderer/core/css/css_apply_mixin_rule.h"
 #include "third_party/blink/renderer/core/css/css_container_rule.h"
 #include "third_party/blink/renderer/core/css/css_contents_mixin_rule.h"
@@ -64,6 +63,7 @@
 #include "third_party/blink/renderer/core/css/parser/css_parser_token_stream.h"
 #include "third_party/blink/renderer/core/css/parser/css_supports_parser.h"
 #include "third_party/blink/renderer/core/css/parser/css_tokenizer.h"
+#include "third_party/blink/renderer/core/css/route_query.h"
 #include "third_party/blink/renderer/core/css/style_rule_counter_style.h"
 #include "third_party/blink/renderer/core/css/style_rule_font_feature_values.h"
 #include "third_party/blink/renderer/core/css/style_rule_font_palette_values.h"
@@ -802,7 +802,6 @@ bool StyleRuleProperty::SetNameText(const ExecutionContext* execution_context,
 
 void StyleRuleProperty::TraceAfterDispatch(blink::Visitor* visitor) const {
   visitor->Trace(properties_);
-  visitor->Trace(layer_);
   StyleRuleBase::TraceAfterDispatch(visitor);
 }
 
@@ -822,7 +821,6 @@ MutableCSSPropertyValueSet& StyleRuleFontFace::MutableProperties() {
 
 void StyleRuleFontFace::TraceAfterDispatch(blink::Visitor* visitor) const {
   visitor->Trace(properties_);
-  visitor->Trace(layer_);
   StyleRuleBase::TraceAfterDispatch(visitor);
 }
 
@@ -927,7 +925,6 @@ MutableCSSPropertyValueSet& StyleRulePage::MutableProperties() {
 
 void StyleRulePage::TraceAfterDispatch(blink::Visitor* visitor) const {
   visitor->Trace(properties_);
-  visitor->Trace(layer_);
   visitor->Trace(selector_list_);
   StyleRuleGroup::TraceAfterDispatch(visitor);
 }
@@ -1019,7 +1016,7 @@ void StyleRuleContainer::SetConditionText(
   auto* context = MakeGarbageCollected<CSSParserContext>(*execution_context);
   ContainerQueryParser parser(*context);
 
-  if (const MediaQueryExpNode* exp_node = parser.ParseCondition(value)) {
+  if (const ConditionalExpNode* exp_node = parser.ParseCondition(value)) {
     condition_text_ = exp_node->Serialize();
 
     ContainerSelector selector(container_query_->Selector().Name(), *exp_node);
@@ -1037,30 +1034,17 @@ void StyleRuleContainer::TraceAfterDispatch(blink::Visitor* visitor) const {
   StyleRuleCondition::TraceAfterDispatch(visitor);
 }
 
-StyleRuleRoute::StyleRuleRoute(const String& name,
-                               URLPattern* url_pattern,
-                               RoutePreposition preposition,
+StyleRuleRoute::StyleRuleRoute(RouteQuery* query,
                                HeapVector<Member<StyleRuleBase>> child_rules)
-    : StyleRuleCondition(kRoute, std::move(child_rules)),
-      name_(name),
-      url_pattern_(url_pattern),
-      preposition_(preposition) {
-  // TODO(crbug.com/436805487): If we end up allowing both route names AND
-  // URLPattern in the end, we need to refactor. Maybe use std::variant and
-  // different constructors, as both cannot be set for one and the same route.
-  // It should also be possible to combine multiple routes in a single selector
-  // (with "and"/"or"), that needs to be handled somehow.
-  DCHECK(!name != !url_pattern);
-}
+    : StyleRuleCondition(kRoute, std::move(child_rules)), route_query_(query) {}
 
 StyleRuleRoute::StyleRuleRoute(const StyleRuleRoute& other,
                                HeapVector<Member<StyleRuleBase>> child_rules)
     : StyleRuleCondition(kRoute, std::move(child_rules)),
-      name_(other.name_),
-      preposition_(other.preposition_) {}
+      route_query_(other.route_query_) {}
 
 void StyleRuleRoute::TraceAfterDispatch(Visitor* v) const {
-  v->Trace(url_pattern_);
+  v->Trace(route_query_);
   StyleRuleCondition::TraceAfterDispatch(v);
 }
 
@@ -1085,7 +1069,6 @@ StyleRuleFunction::StyleRuleFunction(
 void StyleRuleFunction::TraceAfterDispatch(blink::Visitor* visitor) const {
   StyleRuleGroup::TraceAfterDispatch(visitor);
   visitor->Trace(parameters_);
-  visitor->Trace(layer_);
 }
 
 StyleRuleMixin::StyleRuleMixin(

@@ -10,7 +10,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "build/build_config.h"
 #include "components/optimization_guide/core/delivery/test_model_info_builder.h"
-#include "components/optimization_guide/core/model_execution/feature_keys.h"
+#include "components/optimization_guide/core/model_execution/on_device_features.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_adaptation_loader.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_component.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_feature_adapter.h"
@@ -18,13 +18,14 @@
 #include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/optimization_guide/proto/on_device_model_execution_config.pb.h"
+#include "components/optimization_guide/public/mojom/model_broker.mojom-data-view.h"
 #include "services/on_device_model/public/cpp/test_support/fake_service.h"
 
 namespace optimization_guide {
 
 FakeBaseModelAsset::FakeBaseModelAsset()
     : FakeBaseModelAsset(FakeBaseModelAsset::Content{}) {}
-FakeBaseModelAsset::FakeBaseModelAsset(Content&& content) {
+FakeBaseModelAsset::FakeBaseModelAsset(Content content) {
   CHECK(temp_dir_.CreateUniqueTempDir());
   // Support all performance hints by default.
   supported_performance_hints_ =
@@ -83,8 +84,21 @@ void FakeBaseModelAsset::SetReadyIn(
   manager.SetReady(base::Version(version()), path(), Manifest());
 }
 
+proto::OnDeviceBaseModelMetadata FakeBaseModelAsset::DefaultSpec() {
+  proto::OnDeviceBaseModelMetadata result;
+  result.set_base_model_version("0.0.1");
+  result.set_base_model_name("Test");
+  result.add_supported_performance_hints(
+      proto::ON_DEVICE_MODEL_PERFORMANCE_HINT_HIGHEST_QUALITY);
+  result.add_supported_performance_hints(
+      proto::ON_DEVICE_MODEL_PERFORMANCE_HINT_FASTEST_INFERENCE);
+  result.add_supported_performance_hints(
+      proto::ON_DEVICE_MODEL_PERFORMANCE_HINT_CPU);
+  return result;
+}
+
 FakeAdaptationAsset::FakeAdaptationAsset(FakeAdaptationAsset::Content&& content)
-    : feature_(ToModelBasedCapabilityKey(content.config.feature())) {
+    : feature_(*ToOnDeviceFeature(content.config.feature())) {
   CHECK(temp_dir_.CreateUniqueTempDir());
   base::FilePath config_path =
       temp_dir_.GetPath().Append(kOnDeviceModelExecutionConfigFile);

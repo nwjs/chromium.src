@@ -44,12 +44,11 @@
 
 namespace blink {
 
-class CascadeLayer;
 class CSSRule;
 class CSSStyleSheet;
 class MixinParameterBindings;
 class ExecutionContext;
-class URLPattern;
+class RouteQuery;
 
 class CORE_EXPORT StyleRuleBase : public GarbageCollected<StyleRuleBase> {
  public:
@@ -407,14 +406,10 @@ class CORE_EXPORT StyleRuleFontFace : public StyleRuleBase {
   const CSSPropertyValueSet& Properties() const { return *properties_; }
   MutableCSSPropertyValueSet& MutableProperties();
 
-  void SetCascadeLayer(const CascadeLayer* layer) { layer_ = layer; }
-  const CascadeLayer* GetCascadeLayer() const { return layer_.Get(); }
-
   void TraceAfterDispatch(blink::Visitor*) const;
 
  private:
   Member<CSSPropertyValueSet> properties_;  // Cannot be null.
-  Member<const CascadeLayer> layer_;
 };
 
 class CORE_EXPORT StyleRuleProperty : public StyleRuleBase {
@@ -432,15 +427,11 @@ class CORE_EXPORT StyleRuleProperty : public StyleRuleBase {
   bool SetNameText(const ExecutionContext* execution_context,
                    const String& name_text);
 
-  void SetCascadeLayer(const CascadeLayer* layer) { layer_ = layer; }
-  const CascadeLayer* GetCascadeLayer() const { return layer_.Get(); }
-
   void TraceAfterDispatch(blink::Visitor*) const;
 
  private:
   String name_;
   Member<CSSPropertyValueSet> properties_;
-  Member<const CascadeLayer> layer_;
 };
 
 class CORE_EXPORT StyleRuleGroup : public StyleRuleBase {
@@ -524,14 +515,10 @@ class StyleRulePage : public StyleRuleGroup {
     selector_list_ = selectors;
   }
 
-  void SetCascadeLayer(const CascadeLayer* layer) { layer_ = layer; }
-  const CascadeLayer* GetCascadeLayer() const { return layer_.Get(); }
-
   void TraceAfterDispatch(blink::Visitor*) const;
 
  private:
   Member<CSSPropertyValueSet> properties_;  // Cannot be null.
-  Member<const CascadeLayer> layer_;
   Member<const CSSSelectorList> selector_list_;
 };
 
@@ -630,23 +617,16 @@ class CORE_EXPORT StyleRuleContainer : public StyleRuleCondition {
 
 class StyleRuleRoute : public StyleRuleCondition {
  public:
-  StyleRuleRoute(const String& name,
-                 URLPattern* url_pattern,
-                 RoutePreposition,
-                 HeapVector<Member<StyleRuleBase>> child_rules);
+  StyleRuleRoute(RouteQuery*, HeapVector<Member<StyleRuleBase>> child_rules);
   StyleRuleRoute(const StyleRuleRoute&) = delete;
   StyleRuleRoute(const StyleRuleRoute&, HeapVector<Member<StyleRuleBase>>);
 
-  const String& GetName() const { return name_; }
-  URLPattern* GetURLPattern() const { return url_pattern_; }
-  RoutePreposition GetPreposition() const { return preposition_; }
-
   void TraceAfterDispatch(Visitor*) const;
 
+  const RouteQuery& GetRouteQuery() const { return *route_query_; }
+
  private:
-  String name_;
-  Member<URLPattern> url_pattern_;
-  RoutePreposition preposition_;
+  Member<RouteQuery> route_query_;
 };
 
 class StyleRuleStartingStyle : public StyleRuleGroup {
@@ -718,16 +698,12 @@ class CORE_EXPORT StyleRuleFunction : public StyleRuleGroup {
   const HeapVector<Parameter>& GetParameters() const { return parameters_; }
   const CSSSyntaxDefinition& GetReturnType() const { return return_type_; }
 
-  void SetCascadeLayer(const CascadeLayer* layer) { layer_ = layer; }
-  const CascadeLayer* GetCascadeLayer() const { return layer_.Get(); }
-
   void TraceAfterDispatch(blink::Visitor*) const;
 
  private:
   AtomicString name_;
   HeapVector<Parameter> parameters_;
   CSSSyntaxDefinition return_type_;
-  Member<const CascadeLayer> layer_;
 };
 
 // An @mixin rule, representing a CSS mixin. We store all of the rules

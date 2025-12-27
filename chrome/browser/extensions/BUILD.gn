@@ -24,6 +24,19 @@ assert(enable_extensions_core)
 assert(enable_supervised_users)
 assert(!is_fuchsia, "Fuchsia shouldn't use anything in //chrome")
 
+source_set("external_loader") {
+  sources = [
+    "external_loader.cc",
+    "external_loader.h",
+  ]
+  deps = [
+    "//base",
+    "//content/public/browser",
+    "//extensions/browser",
+    "//extensions/buildflags",
+  ]
+}
+
 source_set("extensions") {
   # TODO(https://crbug.com/356905053): When files support being built on
   # desktop android, move them here, outside the if (enable_extensions) block.
@@ -166,6 +179,8 @@ source_set("extensions") {
     "api/storage/sync_value_store_cache.h",
     "api/storage/syncable_settings_storage.cc",
     "api/storage/syncable_settings_storage.h",
+    "api/tab_capture/tab_capture_registry.cc",
+    "api/tab_capture/tab_capture_registry.h",
     "api/tabs/tabs_api.cc",
     "api/tabs/tabs_api.h",
     "api/tabs/tabs_constants.h",
@@ -181,14 +196,8 @@ source_set("extensions") {
     "api/webstore_private/extension_install_status.h",
     "api/webstore_private/webstore_private_api.cc",
     "api/webstore_private/webstore_private_api.h",
-    "blocklist.cc",
-    "blocklist.h",
-    "blocklist_check.cc",
-    "blocklist_check.h",
     "blocklist_factory.cc",
     "blocklist_factory.h",
-    "blocklist_state_fetcher.cc",
-    "blocklist_state_fetcher.h",
     "bookmarks/bookmarks_error_constants.cc",
     "bookmarks/bookmarks_error_constants.h",
     "bookmarks/bookmarks_features.cc",
@@ -347,8 +356,6 @@ source_set("extensions") {
     "extension_web_ui.h",
     "extension_web_ui_override_registrar.cc",
     "extension_web_ui_override_registrar.h",
-    "extension_webkit_preferences.cc",
-    "extension_webkit_preferences.h",
     "external_component_loader.cc",
     "external_component_loader.h",
     "external_install_error.h",
@@ -356,8 +363,6 @@ source_set("extensions") {
     "external_install_manager.h",
     "external_install_manager_factory.cc",
     "external_install_manager_factory.h",
-    "external_loader.cc",
-    "external_loader.h",
     "external_policy_loader.cc",
     "external_policy_loader.h",
     "external_pref_loader.cc",
@@ -380,8 +385,6 @@ source_set("extensions") {
     "forced_extensions/install_stage_tracker.h",
     "forced_extensions/install_stage_tracker_factory.cc",
     "forced_extensions/install_stage_tracker_factory.h",
-    "install_prompt_permissions.cc",
-    "install_prompt_permissions.h",
     "install_tracker_factory.cc",
     "install_tracker_factory.h",
     "install_verifier_factory.cc",
@@ -409,14 +412,6 @@ source_set("extensions") {
     "omaha_attributes_handler.h",
     "pack_extension_job.cc",
     "pack_extension_job.h",
-    "permissions/active_tab_permission_granter.cc",
-    "permissions/active_tab_permission_granter.h",
-    "permissions/permissions_updater.cc",
-    "permissions/permissions_updater.h",
-    "permissions/scripting_permissions_modifier.cc",
-    "permissions/scripting_permissions_modifier.h",
-    "permissions/site_permissions_helper.cc",
-    "permissions/site_permissions_helper.h",
     "permissions_based_management_policy_provider.cc",
     "permissions_based_management_policy_provider.h",
     "permissions_url_constants.cc",
@@ -500,6 +495,10 @@ source_set("extensions") {
   allow_circular_includes_from = [
     # TODO(crbug.com/40161499): Remove this circular dependency.
     "//chrome/browser/devtools",
+
+    # TODO(crbug.com/353284909): Remove this circular dependency.
+    "//chrome/browser/media/webrtc",
+    "//chrome/browser/ui/extensions",
     "//chrome/browser/ui/safety_hub",
     "//chrome/browser/ui/toolbar",
     "//chrome/browser/supervised_user",
@@ -517,6 +516,7 @@ source_set("extensions") {
     "//chrome/browser/devtools",
     "//chrome/browser/download",
     "//chrome/browser/extensions:cws_item_service_proto",
+    "//chrome/browser/extensions:external_loader",
     "//chrome/browser/extensions/api:api_registration",
     "//chrome/browser/favicon",
     "//chrome/browser/google",
@@ -547,7 +547,6 @@ source_set("extensions") {
     "//chrome/browser/ui/tabs:tab_list_interface",
     "//chrome/browser/ui/toolbar",
     "//chrome/common",
-    "//chrome/common/safe_browsing:proto",
     "//components/bookmarks/browser",
     "//components/bookmarks/managed",
     "//components/content_settings/core/browser",
@@ -576,6 +575,7 @@ source_set("extensions") {
     "//components/safe_browsing/core/browser/db:database_manager",
     "//components/safe_browsing/core/common",
     "//components/safe_browsing/core/common:safe_browsing_prefs",
+    "//components/safe_browsing/core/common/proto:crx_info_proto",
     "//components/saved_tab_groups/public",
     "//components/services/patch/content",
     "//components/services/unzip/content",
@@ -608,6 +608,7 @@ source_set("extensions") {
     "//ui/shell_dialogs",
   ]
   public_deps = [
+    "//chrome/browser/media/webrtc",
     "//chrome/browser/supervised_user",
     "//chrome/browser/upgrade_detector",
     "//components/safe_browsing/core/browser/db:util",
@@ -628,6 +629,8 @@ source_set("extensions") {
       "api/identity/identity_unimplemented_functions_android.cc",
       "api/identity/identity_unimplemented_functions_android.h",
       "api/management/chrome_management_api_delegate_android.cc",
+      "api/messaging/native_message_android_host.cc",
+      "api/messaging/native_message_android_host.h",
       "api/tabs/tabs_api_android.cc",
       "api/tabs/tabs_event_router_android.cc",
       "api/tabs/tabs_event_router_android.h",
@@ -645,7 +648,10 @@ source_set("extensions") {
       "api/tabs/tabs_api_non_android.cc",
       "chrome_extension_host_delegate_non_android.cc",
     ]
-    public_deps += [ "//components/app_icon_loader" ]
+    public_deps += [
+      "//chrome/browser/ui/tabs:utils",
+      "//components/app_icon_loader",
+    ]
     deps += [
       "//chrome/browser/ui/user_education",
       "//chrome/browser/ui/web_applications:launch_utils",
@@ -653,17 +659,19 @@ source_set("extensions") {
   }
 
   if (!is_chromeos) {
-    sources += [
-      "api/messaging/launch_context.cc",
-      "api/messaging/launch_context.h",
-      "api/messaging/native_message_process_host.cc",
-      "api/messaging/native_message_process_host.h",
-      "api/messaging/native_messaging_launch_from_native.cc",
-      "api/messaging/native_messaging_launch_from_native.h",
-      "api/messaging/native_process_launcher.cc",
-      "api/messaging/native_process_launcher.h",
-      "chrome_kiosk_delegate_non_chromeos.cc",
-    ]
+    sources += [ "chrome_kiosk_delegate_non_chromeos.cc" ]
+    if (!is_android) {
+      sources += [
+        "api/messaging/launch_context.cc",
+        "api/messaging/launch_context.h",
+        "api/messaging/native_message_process_host.cc",
+        "api/messaging/native_message_process_host.h",
+        "api/messaging/native_messaging_launch_from_native.cc",
+        "api/messaging/native_messaging_launch_from_native.h",
+        "api/messaging/native_process_launcher.cc",
+        "api/messaging/native_process_launcher.h",
+      ]
+    }
     if (is_posix) {
       sources += [ "api/messaging/launch_context_posix.cc" ]
     }
@@ -778,8 +786,6 @@ source_set("extensions") {
       "api/streams_private/streams_private_api.h",
       "api/system_private/system_private_api.cc",
       "api/system_private/system_private_api.h",
-      "api/tab_capture/tab_capture_registry.cc",
-      "api/tab_capture/tab_capture_registry.h",
       "api/tabs/tabs_event_router.cc",
       "api/tabs/tabs_event_router.h",
       "app_tab_helper.cc",
@@ -855,11 +861,7 @@ source_set("extensions") {
       # TODO(crbug.com/345487716): Remove this circular dependency.
       "//chrome/browser/ui/views/side_panel",
 
-      # TODO(crbug.com/353284909): Remove this circular dependency.
-      "//chrome/browser/media/webrtc",
-
       "//chrome/browser/feedback",
-      "//chrome/browser/ui/extensions",
       "//chrome/browser/ui/views/toolbar",
     ]
 
@@ -871,7 +873,6 @@ source_set("extensions") {
     public_deps += [
       "//chrome/browser:browser_public_dependencies",
       "//chrome/browser/extensions/api:api_registration",
-      "//chrome/browser/media/webrtc",
       "//chrome/browser/task_manager",
       "//chrome/browser/ui:browser_list",
       "//chrome/browser/ui:browser_tab_strip",
@@ -910,6 +911,7 @@ source_set("extensions") {
       "//chrome/browser/apps:user_type_filter",
       "//chrome/browser/apps/app_service:constants",
       "//chrome/browser/chooser_controller",
+      "//chrome/browser/device_identity",
       "//chrome/browser/feedback",
       "//chrome/browser/importer",
       "//chrome/browser/lifetime:termination_notification",
@@ -1131,6 +1133,7 @@ source_set("extensions") {
 
       deps += [
         "//chrome/browser/ash/certificate_provider",
+        "//chrome/browser/ash/policy/core",
         "//chrome/browser/chromeos/extensions/desk_api",
         "//chrome/browser/chromeos/extensions/external_loader",
         "//chrome/browser/chromeos/extensions/login_screen/login_state",
@@ -1165,6 +1168,7 @@ source_set("extensions") {
         ]
 
         deps += [
+          "//chrome/browser/ash/printing",
           "//chrome/browser/chromeos/extensions/printing_metrics",
           "//chrome/browser/chromeos/printing",
           "//chrome/browser/pdf:pdf_pref_names",
@@ -1207,7 +1211,6 @@ source_set("extensions") {
         "//chrome/browser/chromeos/extensions/contact_center_insights",
         "//chrome/browser/chromeos/extensions/component_extension_content_settings",
         "//chrome/browser/chromeos/extensions/desk_api",
-        "//chrome/browser/chromeos/extensions/external_loader",
         "//chrome/browser/chromeos/extensions/file_system_provider",
         "//chrome/browser/chromeos/extensions/login_screen/login/cleanup",
       ]
@@ -1596,14 +1599,10 @@ static_library("test_support") {
     "mock_extension_special_storage_policy.h",
     "mock_window_controller_list_observer.cc",
     "mock_window_controller_list_observer.h",
-    "scoped_database_manager_for_test.cc",
-    "scoped_database_manager_for_test.h",
     "scoped_test_mv2_enabler.cc",
     "scoped_test_mv2_enabler.h",
     "signin_test_util.cc",
     "signin_test_util.h",
-    "test_blocklist.cc",
-    "test_blocklist.h",
     "test_extension_system.cc",
     "test_extension_system.h",
   ]
@@ -1613,6 +1612,7 @@ static_library("test_support") {
     "//chrome/browser",
     "//chrome/browser:test_support",
     "//chrome/browser/extensions",
+    "//chrome/browser/extensions:external_loader",
     "//chrome/browser/tab_group_sync:factories",
     "//chrome/browser/ui/toolbar",
     "//components/crx_file",
@@ -1622,6 +1622,7 @@ static_library("test_support") {
     "//components/services/unzip/content",
     "//components/sessions",
     "//components/signin/public/identity_manager:test_support",
+    "//components/sync:test_support",
     "//components/value_store:test_support",
     "//content/test:test_support",
     "//extensions:test_support",
@@ -1639,8 +1640,6 @@ static_library("test_support") {
       "menu_manager_test_observer.h",
       "mock_crx_installer.cc",
       "mock_crx_installer.h",
-      "test_blocklist_state_fetcher.cc",
-      "test_blocklist_state_fetcher.h",
       "test_extension_service.cc",
       "test_extension_service.h",
     ]
@@ -1653,7 +1652,6 @@ static_library("test_support") {
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui",
       "//chrome/browser/ui/tabs:tab_strip",
-      "//chrome/common/safe_browsing:proto",
       "//components/crx_file",
       "//components/safe_browsing/core/browser/db:v4_test_util",
       "//content/public/browser",
@@ -1708,6 +1706,7 @@ source_set("chrome_extensions_browser_client") {
     "//chrome/browser/media/webrtc",
     "//chrome/browser/prefetch",
     "//chrome/browser/profiles/keep_alive",
+    "//chrome/browser/safe_browsing",
     "//chrome/browser/task_manager",
     "//chrome/browser/ui",
     "//chrome/browser/usb",
@@ -1744,6 +1743,7 @@ source_set("chrome_extensions_browser_client") {
 
     deps += [
       "//chrome/browser:browser_process",
+      "//chrome/browser/custom_handlers",
       "//chrome/browser/extensions",
       "//chrome/browser/extensions/api/runtime",
       "//chrome/browser/web_applications",

@@ -21,12 +21,11 @@
 #include "components/safe_browsing/core/browser/password_protection/metrics_util.h"
 #include "components/safe_browsing/core/browser/password_protection/password_protection_request.h"
 #include "components/safe_browsing/core/common/proto/csd.pb.h"
-#include "mojo/public/cpp/bindings/associated_remote.h"
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 #include "components/safe_browsing/content/common/safe_browsing.mojom.h"
 #include "mojo/public/cpp/base/proto_wrapper_passkeys.h"
-#include "mojo/public/cpp/bindings/remote.h"
+#include "mojo/public/cpp/bindings/associated_remote.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
@@ -67,7 +66,8 @@ class PasswordProtectionRequestContent final
       LoginReputationClientRequest::TriggerType type,
       bool password_field_exists,
       PasswordProtectionServiceBase* pps,
-      int request_timeout_in_ms);
+      int request_timeout_in_ms,
+      std::optional<OtpPhishingVerdictCallback> otp_phishing_verdict_callback);
 
   PasswordProtectionRequestContent(
       content::WebContents* web_contents,
@@ -82,7 +82,8 @@ class PasswordProtectionRequestContent final
       LoginReputationClientRequest::TriggerType type,
       bool password_field_exists,
       PasswordProtectionServiceBase* pps,
-      int request_timeout_in_ms);
+      int request_timeout_in_ms,
+      std::optional<OtpPhishingVerdictCallback> otp_phishing_verdict_callback);
 
   // CancelableRequest implementation
   void Cancel(bool timed_out) override;

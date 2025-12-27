@@ -222,6 +222,7 @@ class MockCreditCardFormEventLogger
       OnMetadataLoggingContextReceived,
       (autofill_metrics::CardMetadataLoggingContext metadata_logging_context),
       (override));
+  MOCK_METHOD(void, OnBnplSuggestionShown, (), (override));
 };
 
 // TODO(crbug.com/40176273): Move GetSuggestionsForCreditCard tests and
@@ -238,7 +239,7 @@ class PaymentsSuggestionGeneratorTest
     autofill_client().SetPrefs(test::PrefServiceForTesting());
     payments_data().SetPrefService(autofill_client().GetPrefs());
     payments_data().SetSyncServiceForTest(&sync_service_);
-    autofill_client().GetPaymentsAutofillClient()->set_autofill_offer_manager(
+    payments_autofill_client().set_autofill_offer_manager(
         std::make_unique<AutofillOfferManager>(&autofill_client()
                                                     .GetPersonalDataManager()
                                                     .payments_data_manager()));
@@ -1595,7 +1596,7 @@ class PaymentsSuggestionGeneratorBnplTest
             features::kAutofillEnableAiBasedAmountExtraction});
   }
 
- private:
+ protected:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
@@ -1640,7 +1641,7 @@ TEST_F(PaymentsSuggestionGeneratorBnplTest,
       /*should_show_scan_credit_card=*/false, summary,
       /*is_card_number_field_empty=*/false);
 
-  uint64_t extracted_amount_in_micros = 50'000'000;
+  int64_t extracted_amount_in_micros = 50'000'000;
 
   BnplSuggestionUpdateResult update_suggestions_result =
       MaybeUpdateDesktopSuggestionsWithBnpl(suggestions,
@@ -1729,7 +1730,7 @@ TEST_F(PaymentsSuggestionGeneratorBnplTest,
       /*should_show_scan_credit_card=*/false, summary,
       /*is_card_number_field_empty=*/false);
 
-  uint64_t extracted_amount_in_micros = 50'000'000;
+  int64_t extracted_amount_in_micros = 50'000'000;
 
   BnplSuggestionUpdateResult update_suggestions_result =
       MaybeUpdateDesktopSuggestionsWithBnpl(suggestions,
@@ -2338,6 +2339,65 @@ TEST_F(
   ASSERT_EQ(suggestions.size(), 1U);
   EXPECT_EQ(suggestions[0].type, SuggestionType::kCreditCardEntry);
 }
+
+// Verifies that OnBnplSuggestionShown is called when a BNPL suggestion is added
+// to Touch to Fill suggestions.
+TEST_F(PaymentsSuggestionGeneratorBnplTest,
+       GetCreditCardSuggestionsForTouchToFill_OnBnplSuggestionShownCalled) {
+  payments_data().AddBnplIssuer(test::GetTestUnlinkedBnplIssuer());
+  ON_CALL(*static_cast<MockAutofillOptimizationGuideDecider*>(
+              autofill_client().GetAutofillOptimizationGuideDecider()),
+          IsUrlEligibleForBnplIssuer)
+      .WillByDefault(testing::Return(true));
+
+  EXPECT_CALL(credit_card_form_event_logger(), OnBnplSuggestionShown())
+      .Times(1);
+
+  GetCreditCardSuggestionsForTouchToFill(/*credit_cards=*/{CreateServerCard()},
+                                         autofill_manager());
+}
+
+// Verifies that OnBnplSuggestionShown is not called when a BNPL suggestion is
+// not added to Touch to Fill suggestions.
+TEST_F(
+    PaymentsSuggestionGeneratorBnplTest,
+    GetCreditCardSuggestionsForTouchToFill_BnplSuggestionNotShown_NotLogged) {
+  payments_data().AddBnplIssuer(test::GetTestUnlinkedBnplIssuer());
+  ON_CALL(*static_cast<MockAutofillOptimizationGuideDecider*>(
+              autofill_client().GetAutofillOptimizationGuideDecider()),
+          IsUrlEligibleForBnplIssuer)
+      .WillByDefault(testing::Return(false));
+
+  EXPECT_CALL(credit_card_form_event_logger(), OnBnplSuggestionShown())
+      .Times(0);
+
+  GetCreditCardSuggestionsForTouchToFill(/*credit_cards=*/{CreateServerCard()},
+                                         autofill_manager());
+}
+
+// Verifies that OnBnplSuggestionShown is not called when a BNPL suggestion is
+// not added to Touch to Fill suggestions because the
+// `kAutofillEnableBuyNowPayLater` feature flag is disabled.
+TEST_F(
+    PaymentsSuggestionGeneratorBnplTest,
+    GetCreditCardSuggestionsForTouchToFill_BnplSuggestionNotShown_NotLogged_FlagDisabled) {
+  scoped_feature_list_.Reset();
+  scoped_feature_list_.InitWithFeatures(
+      /*enabled_features=*/{},
+      /*disabled_features=*/{features::kAutofillEnableBuyNowPayLater});
+
+  payments_data().AddBnplIssuer(test::GetTestUnlinkedBnplIssuer());
+  ON_CALL(*static_cast<MockAutofillOptimizationGuideDecider*>(
+              autofill_client().GetAutofillOptimizationGuideDecider()),
+          IsUrlEligibleForBnplIssuer)
+      .WillByDefault(testing::Return(true));
+
+  EXPECT_CALL(credit_card_form_event_logger(), OnBnplSuggestionShown())
+      .Times(0);
+
+  GetCreditCardSuggestionsForTouchToFill(/*credit_cards=*/{CreateServerCard()},
+                                         autofill_manager());
+}
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 
@@ -2604,9 +2664,8 @@ TEST_F(PaymentsSuggestionGeneratorTest,
   SetCreditCardUploadEnabledForTest(/*credit_card_upload_enabled=*/false);
 
   MockSaveAndFillManager& mock_save_and_fill_manager =
-      static_cast<MockSaveAndFillManager&>(*autofill_client()
-                                                .GetPaymentsAutofillClient()
-                                                ->GetSaveAndFillManager());
+      static_cast<MockSaveAndFillManager&>(
+          *payments_autofill_client().GetSaveAndFillManager());
 
   EXPECT_CALL(mock_save_and_fill_manager, ShouldBlockFeature())
       .WillOnce(testing::Return(false));
@@ -2643,9 +2702,8 @@ TEST_F(PaymentsSuggestionGeneratorTest,
   SetCreditCardUploadEnabledForTest(/*credit_card_upload_enabled=*/true);
 
   MockSaveAndFillManager& mock_save_and_fill_manager =
-      static_cast<MockSaveAndFillManager&>(*autofill_client()
-                                                .GetPaymentsAutofillClient()
-                                                ->GetSaveAndFillManager());
+      static_cast<MockSaveAndFillManager&>(
+          *payments_autofill_client().GetSaveAndFillManager());
 
   EXPECT_CALL(mock_save_and_fill_manager, ShouldBlockFeature())
       .WillOnce(testing::Return(false));
@@ -2699,9 +2757,8 @@ TEST_F(PaymentsSuggestionGeneratorTest,
       features::kAutofillEnableSaveAndFill);
 
   MockSaveAndFillManager& mock_save_and_fill_manager =
-      static_cast<MockSaveAndFillManager&>(*autofill_client()
-                                                .GetPaymentsAutofillClient()
-                                                ->GetSaveAndFillManager());
+      static_cast<MockSaveAndFillManager&>(
+          *payments_autofill_client().GetSaveAndFillManager());
 
   EXPECT_CALL(mock_save_and_fill_manager,
               MaybeLogSaveAndFillSuggestionNotShownReason(
@@ -2730,9 +2787,8 @@ TEST_F(PaymentsSuggestionGeneratorTest,
       features::kAutofillEnableSaveAndFill);
 
   MockSaveAndFillManager& mock_save_and_fill_manager =
-      static_cast<MockSaveAndFillManager&>(*autofill_client()
-                                                .GetPaymentsAutofillClient()
-                                                ->GetSaveAndFillManager());
+      static_cast<MockSaveAndFillManager&>(
+          *payments_autofill_client().GetSaveAndFillManager());
 
   EXPECT_CALL(mock_save_and_fill_manager,
               MaybeLogSaveAndFillSuggestionNotShownReason(
@@ -2759,9 +2815,8 @@ TEST_F(PaymentsSuggestionGeneratorTest,
   autofill_client().set_is_off_the_record(true);
 
   MockSaveAndFillManager& mock_save_and_fill_manager =
-      static_cast<MockSaveAndFillManager&>(*autofill_client()
-                                                .GetPaymentsAutofillClient()
-                                                ->GetSaveAndFillManager());
+      static_cast<MockSaveAndFillManager&>(
+          *payments_autofill_client().GetSaveAndFillManager());
 
   EXPECT_CALL(mock_save_and_fill_manager,
               MaybeLogSaveAndFillSuggestionNotShownReason(
@@ -2807,9 +2862,8 @@ TEST_F(PaymentsSuggestionGeneratorTest,
   SetCreditCardUploadEnabledForTest(/*credit_card_upload_enabled=*/true);
 
   MockSaveAndFillManager& mock_save_and_fill_manager =
-      static_cast<MockSaveAndFillManager&>(*autofill_client()
-                                                .GetPaymentsAutofillClient()
-                                                ->GetSaveAndFillManager());
+      static_cast<MockSaveAndFillManager&>(
+          *payments_autofill_client().GetSaveAndFillManager());
 
   EXPECT_CALL(mock_save_and_fill_manager, ShouldBlockFeature())
       .WillOnce(testing::Return(true));
@@ -2845,9 +2899,8 @@ TEST_F(PaymentsSuggestionGeneratorTest,
   SetCreditCardUploadEnabledForTest(/*credit_card_upload_enabled=*/true);
 
   MockSaveAndFillManager& mock_save_and_fill_manager =
-      static_cast<MockSaveAndFillManager&>(*autofill_client()
-                                                .GetPaymentsAutofillClient()
-                                                ->GetSaveAndFillManager());
+      static_cast<MockSaveAndFillManager&>(
+          *payments_autofill_client().GetSaveAndFillManager());
 
   EXPECT_CALL(mock_save_and_fill_manager, ShouldBlockFeature())
       .WillOnce(testing::Return(false));
@@ -4145,8 +4198,12 @@ TEST_P(PaymentsSuggestionGeneratorTestForOffer,
   // suggestion label when the virtual card metadata flag is enabled on Android
   // OS.
   expected_labels_size = 0;
-#else
+#elif BUILDFLAG(IS_IOS)
+  // For iOS, the expiration date is shown as a suggestion label.
   expected_labels_size = 1;
+#else
+  // For virtual cards, expiration date is not shown as a suggestion label.
+  expected_labels_size = 0;
 #endif
   EXPECT_EQ(virtual_card_suggestion.labels.size(), expected_labels_size);
 
@@ -4166,10 +4223,17 @@ TEST_P(PaymentsSuggestionGeneratorTestForOffer,
               &feature_engagement::kIPHKeyboardAccessoryPaymentOfferFeature);
 #endif
   } else {
+#if BUILDFLAG(IS_IOS)
     ASSERT_EQ(real_card_suggestion.labels.size(), 2U);
     ASSERT_EQ(real_card_suggestion.labels[1].size(), 1U);
     EXPECT_EQ(real_card_suggestion.labels[1][0].value,
               l10n_util::GetStringUTF16(IDS_AUTOFILL_OFFERS_CASHBACK));
+#elif !BUILDFLAG(IS_ANDROID)
+    ASSERT_EQ(real_card_suggestion.labels.size(), 1U);
+    ASSERT_EQ(real_card_suggestion.labels[0].size(), 1U);
+    EXPECT_EQ(real_card_suggestion.labels[0][0].value,
+              l10n_util::GetStringUTF16(IDS_AUTOFILL_OFFERS_CASHBACK));
+#endif
   }
 }
 

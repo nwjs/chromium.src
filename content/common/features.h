@@ -55,6 +55,9 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kBackForwardCacheTimeToLiveControl);
 BASE_DECLARE_FEATURE(kBeforeUnloadBrowserResponseQueue);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kBlockInsecurePrivateNetworkRequestsFromUnknown);
+#if BUILDFLAG(IS_MAC)
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kCancelCompositionWhenWindowLosesFocus);
+#endif  // BUILDFLAG(IS_MAC)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCanvas2DImageChromium);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCDPScreenshotNewSurface);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCompositeClipPathAnimation);
@@ -63,7 +66,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kCommittedOriginEnforcements);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCommittedOriginTracking);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCopyFromSurfaceAlwaysCallCallback);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCriticalClientHint);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kDelayRfhDestructionsOnUnloadAndDetach);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDocumentPolicyNegotiation);
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnableDevToolsJsErrorReporting);
@@ -72,7 +74,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnforceSameDocumentOriginInvariants);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEmbeddingRequiresOptIn);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kExperimentalContentSecurityPolicyFeatures);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmUseOtherAccountAndLabelsNewSyntax);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmSameSiteLax);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmNonStringToken);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmWellKnownEndpointValidation);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmPreservePortsForTesting);
@@ -93,6 +94,30 @@ CONTENT_EXPORT extern const base::FeatureParam<double>
     kFledgeBidderWorkletThreadPoolSizeLogarithmicScalingFactor;
 #if BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeAndroidWorkletOffMainThread);
+#endif
+
+#if BUILDFLAG(IS_WIN)
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kFontDataServiceAllWebContents);
+enum class FontDataServiceTypefaceType {
+  kDwrite,
+  kFreetype,
+  kFontations,
+};
+CONTENT_EXPORT BASE_DECLARE_FEATURE_PARAM(FontDataServiceTypefaceType,
+                                          kFontDataServiceTypefaceType);
+#endif  // BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_LINUX)
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kFontDataServiceLinux);
+enum class FontDataServiceTypefaceType {
+  kFreetype,
+  kFontations,
+};
+CONTENT_EXPORT BASE_DECLARE_FEATURE_PARAM(FontDataServiceTypefaceType,
+                                          kFontDataServiceTypefaceType);
+#endif  // BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+bool IsFontDataServiceEnabled();
 #endif
 
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFontSrcLocalMatching);
@@ -183,6 +208,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kServiceWorkerStaticRouterRaceRequestFix2);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kServiceWorkerStaticRouterStartServiceWorker);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kServiceWorkerClientUrlIsCreationUrl);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kSideBySideFilePickerCancelling);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSkipEarlyCommitPendingForCrashedFrame);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSkipRedundantNavigationStateNotification);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSkipRendererCancellationThrottle);

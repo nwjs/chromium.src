@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "gpu/command_buffer/service/webgpu_decoder_impl.h"
 
 #include <memory>
@@ -16,6 +11,7 @@
 
 #include "base/auto_reset.h"
 #include "base/bits.h"
+#include "base/compiler_specific.h"
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
@@ -386,7 +382,8 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
 
   wgpu::Adapter CreatePreferredAdapter(wgpu::PowerPreference power_preference,
                                        bool force_fallback,
-                                       wgpu::FeatureLevel feature_level) const;
+                                       wgpu::FeatureLevel feature_level,
+                                       bool webgpu_on_vk_gl_interop) const;
 
   // Decide if a device feature is exposed to render process.
   bool IsFeatureExposed(wgpu::FeatureName feature) const;
@@ -455,6 +452,7 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
   WebGPUPowerPreference use_webgpu_power_preference_ =
       WebGPUPowerPreference::kNone;
   bool force_fallback_adapter_ = false;
+  bool webgpu_on_vk_gl_interop_ = false;
   bool force_webgpu_compat_ = false;
   std::vector<std::string> require_enabled_toggles_;
   std::vector<std::string> require_disabled_toggles_;
@@ -647,7 +645,7 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
       DCHECK(buffer_size);
 
       base::CheckedNumeric<uint32_t> checked_bytes_per_row(
-          format.BitsPerPixel() / 8);
+          format.BytesPerPixel());
       checked_bytes_per_row *= size.width();
 
       uint32_t packed_bytes_per_row;
@@ -1150,6 +1148,7 @@ WebGPUDecoderImpl::WebGPUDecoderImpl(
 
   use_webgpu_adapter_ = gpu_preferences.use_webgpu_adapter;
   use_webgpu_power_preference_ = gpu_preferences.use_webgpu_power_preference;
+  webgpu_on_vk_gl_interop_ = gpu_preferences.enable_webgpu_on_vk_via_gl_interop;
   force_webgpu_compat_ = gpu_preferences.force_webgpu_compat;
   require_enabled_toggles_ = gpu_preferences.enabled_dawn_features_list;
   require_disabled_toggles_ = gpu_preferences.disabled_dawn_features_list;
@@ -1366,7 +1365,8 @@ WGPUFuture WebGPUDecoderImpl::RequestAdapterImpl(
 
   wgpu::Adapter adapter = CreatePreferredAdapter(
       static_cast<wgpu::PowerPreference>(options->powerPreference),
-      options->forceFallbackAdapter || force_fallback_adapter, feature_level);
+      options->forceFallbackAdapter || force_fallback_adapter, feature_level,
+      webgpu_on_vk_gl_interop_);
 
   if (adapter == nullptr) {
     // There are no adapters to return since webgpu is not supported here
@@ -1428,7 +1428,7 @@ void WebGPUDecoderImpl::AdapterGetFeaturesImpl(
 
   std::vector<wgpu::FeatureName> exposed_features;
   for (uint32_t i = 0; i < supported_features.featureCount; ++i) {
-    wgpu::FeatureName feature = supported_features.features[i];
+    wgpu::FeatureName feature = UNSAFE_TODO(supported_features.features[i]);
     if (IsFeatureExposed(feature)) {
       exposed_features.push_back(feature);
     };
@@ -1437,7 +1437,7 @@ void WebGPUDecoderImpl::AdapterGetFeaturesImpl(
   WGPUFeatureName* features = new WGPUFeatureName[count];
   uint32_t index = 0;
   for (wgpu::FeatureName feature : exposed_features) {
-    features[index++] = static_cast<WGPUFeatureName>(feature);
+    UNSAFE_TODO(features[index++]) = static_cast<WGPUFeatureName>(feature);
   }
   features_out->featureCount = count;
   features_out->features = features;
@@ -1477,7 +1477,7 @@ WGPUFuture WebGPUDecoderImpl::RequestDeviceImpl(
     size_t requiredFeatureCount = desc.requiredFeatureCount;
     required_features = {
         desc.requiredFeatures,
-        desc.requiredFeatures + requiredFeatureCount,
+        UNSAFE_TODO(desc.requiredFeatures + requiredFeatureCount),
     };
 
     // Check that no disallowed features were requested. They should be hidden
@@ -1635,7 +1635,8 @@ bool WebGPUDecoderImpl::use_blocklist() const {
 wgpu::Adapter WebGPUDecoderImpl::CreatePreferredAdapter(
     wgpu::PowerPreference power_preference,
     bool force_fallback,
-    wgpu::FeatureLevel feature_level) const {
+    wgpu::FeatureLevel feature_level,
+    bool webgpu_on_vk_gl_interop) const {
   // Update power_preference based on command-line flag
   // use_webgpu_power_preference_.
   switch (use_webgpu_power_preference_) {
@@ -1760,10 +1761,12 @@ wgpu::Adapter WebGPUDecoderImpl::CreatePreferredAdapter(
       backend_types = {wgpu::BackendType::Metal};
 #elif BUILDFLAG(IS_LINUX)
       if (shared_context_state_->GrContextIsVulkan() ||
+          webgpu_on_vk_gl_interop_ ||
           shared_context_state_->IsGraphiteDawnVulkan()) {
         backend_types = {wgpu::BackendType::Vulkan};
       } else {
-        backend_types = {wgpu::BackendType::OpenGLES};
+        // Deliberately disable compat on linux.
+        backend_types = {wgpu::BackendType::Null};
       }
 #else
       backend_types = {wgpu::BackendType::Vulkan, wgpu::BackendType::OpenGLES};
@@ -1910,7 +1913,7 @@ error::Error WebGPUDecoderImpl::DoCommands(unsigned int num_commands,
         result = error::kLostContext;
         break;
       }
-      const CommandInfo& info = command_info[command_index];
+      const CommandInfo& info = UNSAFE_TODO(command_info[command_index]);
       unsigned int info_arg_count = static_cast<unsigned int>(info.arg_count);
       if ((info.arg_flags == cmd::kFixed && arg_count == info_arg_count) ||
           (info.arg_flags == cmd::kAtLeastN && arg_count >= info_arg_count)) {
@@ -1932,7 +1935,7 @@ error::Error WebGPUDecoderImpl::DoCommands(unsigned int num_commands,
 
     if (result != error::kDeferCommandUntilLater) {
       process_pos += size;
-      cmd_data += size;
+      UNSAFE_TODO(cmd_data += size);
     }
   }
 
@@ -2188,15 +2191,16 @@ error::Error WebGPUDecoderImpl::HandleAssociateMailboxImmediate(
   // Unpack the mailbox
   Mailbox mailbox = Mailbox::FromVolatile(
       *reinterpret_cast<const volatile Mailbox*>(packed_data));
-  packed_data += kMailboxNumEntries;
+  UNSAFE_TODO(packed_data += kMailboxNumEntries);
   DLOG_IF(ERROR, !mailbox.Verify())
       << "AssociateMailbox was passed an invalid mailbox";
 
   // Copy the view formats into a vector.
   static_assert(sizeof(wgpu::TextureFormat) == sizeof(uint32_t));
   std::vector<wgpu::TextureFormat> view_formats(view_format_count);
-  memcpy(view_formats.data(), const_cast<const uint32_t*>(packed_data),
-         view_format_count * sizeof(wgpu::TextureFormat));
+  UNSAFE_TODO(memcpy(view_formats.data(),
+                     const_cast<const uint32_t*>(packed_data),
+                     view_format_count * sizeof(wgpu::TextureFormat)));
 
   if (usage & ~kAllowedMailboxTextureUsages) {
     DLOG(ERROR) << "AssociateMailbox: Invalid usage";

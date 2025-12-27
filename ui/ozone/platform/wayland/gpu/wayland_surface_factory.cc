@@ -57,15 +57,6 @@ class GLOzoneEGLWayland : public GLOzoneEGL {
 
   bool CanImportNativePixmap(viz::SharedImageFormat format) override;
 
-  std::unique_ptr<NativePixmapGLBinding> ImportNativePixmap(
-      scoped_refptr<gfx::NativePixmap> pixmap,
-      gfx::BufferFormat plane_format,
-      gfx::BufferPlane plane,
-      gfx::Size plane_size,
-      const gfx::ColorSpace& color_space,
-      GLenum target,
-      GLuint texture_id) override;
-
   scoped_refptr<gl::GLSurface> CreateViewGLSurface(
       gl::GLDisplay* display,
       gfx::AcceleratedWidget widget) override;
@@ -83,6 +74,15 @@ class GLOzoneEGLWayland : public GLOzoneEGL {
   bool LoadGLES2Bindings(const gl::GLImplementationParts& impl) override;
 
  private:
+  std::unique_ptr<NativePixmapGLBinding> ImportNativePixmap(
+      scoped_refptr<gfx::NativePixmap> pixmap,
+      viz::SharedImageFormat plane_format,
+      gfx::BufferPlane plane,
+      gfx::Size plane_size,
+      const gfx::ColorSpace& color_space,
+      GLenum target,
+      GLuint texture_id) override;
+
   const raw_ptr<WaylandConnection> connection_;
   const raw_ptr<WaylandBufferManagerGpu> buffer_manager_;
   gl::EGLDisplayPlatform native_display_;
@@ -99,7 +99,7 @@ bool GLOzoneEGLWayland::CanImportNativePixmap(viz::SharedImageFormat format) {
 
 std::unique_ptr<NativePixmapGLBinding> GLOzoneEGLWayland::ImportNativePixmap(
     scoped_refptr<gfx::NativePixmap> pixmap,
-    gfx::BufferFormat plane_format,
+    viz::SharedImageFormat plane_format,
     gfx::BufferPlane plane,
     gfx::Size plane_size,
     const gfx::ColorSpace& color_space,
@@ -259,7 +259,7 @@ scoped_refptr<gfx::NativePixmap> WaylandSurfaceFactory::CreateNativePixmap(
     gfx::AcceleratedWidget widget,
     gpu::VulkanDeviceQueue* device_queue,
     gfx::Size size,
-    gfx::BufferFormat format,
+    viz::SharedImageFormat format,
     gfx::BufferUsage usage,
     std::optional<gfx::Size> framebuffer_size) {
   if (framebuffer_size &&
@@ -269,7 +269,7 @@ scoped_refptr<gfx::NativePixmap> WaylandSurfaceFactory::CreateNativePixmap(
 #if defined(WAYLAND_GBM)
   auto* gbm_device = buffer_manager_->GetGbmDevice();
   if (gbm_device && gbm_device->CanCreateBufferForFormat(
-                        GetFourCCFormatFromBufferFormat(format))) {
+                        GetFourCCFormatFromSharedImageFormat(format))) {
     scoped_refptr<GbmPixmapWayland> pixmap =
         base::MakeRefCounted<GbmPixmapWayland>(buffer_manager_);
 
@@ -296,9 +296,8 @@ WaylandSurfaceFactory::CreateNativePixmapFromHandle(
                         GetFourCCFormatFromSharedImageFormat(format))) {
     scoped_refptr<GbmPixmapWayland> pixmap =
         base::MakeRefCounted<GbmPixmapWayland>(buffer_manager_);
-    if (pixmap->InitializeBufferFromHandle(
-            widget, size, viz::SharedImageFormatToBufferFormat(format),
-            std::move(handle))) {
+    if (pixmap->InitializeBufferFromHandle(widget, size, format,
+                                           std::move(handle))) {
       return pixmap;
     }
   } else {
@@ -325,12 +324,12 @@ bool WaylandSurfaceFactory::SupportsNativePixmaps() const {
   return supports_native_pixmaps;
 }
 
-std::optional<gfx::BufferFormat>
+std::optional<viz::SharedImageFormat>
 WaylandSurfaceFactory::GetPreferredFormatForSolidColor() const {
   if (!buffer_manager_->SupportsFormat(gfx::BufferFormat::RGBA_8888)) {
-    return gfx::BufferFormat::BGRA_8888;
+    return viz::SinglePlaneFormat::kBGRA_8888;
   }
-  return gfx::BufferFormat::RGBA_8888;
+  return viz::SinglePlaneFormat::kRGBA_8888;
 }
 
 bool WaylandSurfaceFactory::SupportsDrmModifiersFilter() const {

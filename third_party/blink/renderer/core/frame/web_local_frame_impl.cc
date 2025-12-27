@@ -288,6 +288,7 @@
 #if BUILDFLAG(IS_WIN)
 #include "third_party/blink/public/web/win/web_font_family_names.h"
 #include "third_party/blink/renderer/core/layout/layout_font_accessor_win.h"
+#include "third_party/blink/renderer/platform/wtf/text/line_ending.h"
 #endif
 
 #if BUILDFLAG(IS_IOS)
@@ -1488,7 +1489,7 @@ WebString WebLocalFrameImpl::SelectionAsText() const {
         TextIteratorBehavior::EmitsObjectReplacementCharacterBehavior());
   }
 #if BUILDFLAG(IS_WIN)
-  ReplaceNewlinesWithWindowsStyleNewlines(text);
+  text = NormalizeLineEndingsToCRLF(text);
 #endif
   ReplaceNBSPWithSpace(text);
   return text;
@@ -2290,7 +2291,6 @@ WebLocalFrameImpl::WebLocalFrameImpl(
     : WebNavigationControl(scope, frame_token),
       client_(client),
       local_frame_client_(MakeGarbageCollected<LocalFrameClientImpl>(this)),
-      autofill_client_(nullptr),
       find_in_page_(
           MakeGarbageCollected<FindInPage>(*this, interface_registry)),
       interface_registry_(interface_registry),
@@ -3268,6 +3268,9 @@ WebDevToolsAgentImpl* WebLocalFrameImpl::DevToolsAgentImpl(
 void WebLocalFrameImpl::OnDevToolsSessionConnectionChanged(bool attached) {
   if (frame_widget_) {
     frame_widget_->OnDevToolsSessionConnectionChanged(attached);
+  }
+  if (autofill_client_) {
+    autofill_client_->OnDevToolsSessionConnectionChanged(attached);
   }
 }
 

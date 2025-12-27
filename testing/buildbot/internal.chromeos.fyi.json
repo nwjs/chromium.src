@@ -13,6 +13,8 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
+        "module_name": "//chrome/test/variations:variations_desktop_smoke_tests",
+        "module_scheme": "flat",
         "name": "variations_desktop_smoke_tests",
         "precommit_args": [
           "--gerrit-issue=${patch_issue}",
@@ -61,6 +63,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//ui/aura:aura_unittests",
+        "module_scheme": "gtest",
         "name": "aura_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -75,6 +79,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//base:base_unittests",
+        "module_scheme": "gtest",
         "name": "base_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -93,6 +99,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//media/capture:capture_unittests",
+        "module_scheme": "gtest",
         "name": "capture_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -107,6 +115,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//cc:cc_unittests",
+        "module_scheme": "gtest",
         "name": "cc_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -133,6 +143,8 @@
           "informational",
           "dep:no_chrome_dcheck"
         ],
+        "module_name": "//chromeos:chrome_all_tast_tests",
+        "module_scheme": "tast",
         "name": "chrome_all_tast_tests RELEASE_LKGM",
         "resultdb": {
           "result_format": "tast"
@@ -163,6 +175,8 @@
           "dep:no_chrome_dcheck"
         ],
         "experiment_percentage": 100,
+        "module_name": "//chromeos:chrome_criticalstaging_tast_tests",
+        "module_scheme": "tast",
         "name": "chrome_criticalstaging_tast_tests RELEASE_LKGM",
         "resultdb": {
           "result_format": "tast"
@@ -182,6 +196,8 @@
           "chromeos/tast_control_disabled_tests.txt"
         ],
         "experiment_percentage": 100,
+        "module_name": "//chromeos:chrome_disabled_tast_tests",
+        "module_scheme": "tast",
         "name": "chrome_disabled_tast_tests RELEASE_LKGM",
         "resultdb": {
           "result_format": "tast"
@@ -196,6 +212,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//chrome/test:chromeos_integration_tests",
+        "module_scheme": "gtest",
         "name": "chromeos_integration_tests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -210,6 +228,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//crypto:crypto_unittests",
+        "module_scheme": "gtest",
         "name": "crypto_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -224,6 +244,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//ui/display:display_unittests",
+        "module_scheme": "gtest",
         "name": "display_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -247,6 +269,8 @@
         "cros_board": "brya",
         "cros_model": "kano",
         "experiment_percentage": 100,
+        "module_name": "//media/gpu/vaapi/test/fake_libva_driver:fake_libva_driver_unittest",
+        "module_scheme": "gtest",
         "name": "fake_libva_driver_unittest RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -260,6 +284,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//google_apis:google_apis_unittests",
+        "module_scheme": "gtest",
         "name": "google_apis_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -274,6 +300,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//ipc:ipc_tests",
+        "module_scheme": "gtest",
         "name": "ipc_tests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -288,6 +316,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//ui/latency:latency_unittests",
+        "module_scheme": "gtest",
         "name": "latency_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -305,6 +335,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//media:media_unittests",
+        "module_scheme": "gtest",
         "name": "media_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -319,6 +351,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//media/midi:midi_unittests",
+        "module_scheme": "gtest",
         "name": "midi_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -333,6 +367,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//mojo:mojo_unittests",
+        "module_scheme": "gtest",
         "name": "mojo_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -350,6 +386,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//ui/ozone/gl:ozone_gl_unittests",
+        "module_scheme": "gtest",
         "name": "ozone_gl_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -364,6 +402,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//ui/ozone:ozone_unittests",
+        "module_scheme": "gtest",
         "name": "ozone_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -378,6 +418,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//pdf:pdf_unittests",
+        "module_scheme": "gtest",
         "name": "pdf_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -392,6 +434,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//printing:printing_unittests",
+        "module_scheme": "gtest",
         "name": "printing_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -410,6 +454,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//chrome/browser/metrics/perf:profile_provider_unittest",
+        "module_scheme": "gtest",
         "name": "profile_provider_unittest RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -424,6 +470,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//testing/rust_gtest_interop:rust_gtest_interop_unittests",
+        "module_scheme": "gtest",
         "name": "rust_gtest_interop_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -438,6 +486,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//sql:sql_unittests",
+        "module_scheme": "gtest",
         "name": "sql_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -452,6 +502,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//url:url_unittests",
+        "module_scheme": "gtest",
         "name": "url_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -470,6 +522,8 @@
         "autotest_name": "chromium",
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//media/gpu/vaapi:vaapi_unittest",
+        "module_scheme": "gtest",
         "name": "vaapi_unittest RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -496,6 +550,8 @@
         "cros_board": "brya",
         "cros_model": "kano",
         "experiment_percentage": 100,
+        "module_name": "//media/gpu/test:video_decode_accelerator_tests",
+        "module_scheme": "gtest",
         "name": "video_decode_accelerator_tests_fake_vaapi_av1 RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -521,6 +577,8 @@
         "cros_board": "brya",
         "cros_model": "kano",
         "experiment_percentage": 100,
+        "module_name": "//media/gpu/test:video_decode_accelerator_tests",
+        "module_scheme": "gtest",
         "name": "video_decode_accelerator_tests_fake_vaapi_vp8 RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -545,6 +603,8 @@
         "ci_only": true,
         "cros_board": "brya",
         "cros_model": "kano",
+        "module_name": "//media/gpu/test:video_decode_accelerator_tests",
+        "module_scheme": "gtest",
         "name": "video_decode_accelerator_tests_fake_vaapi_vp9 RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -570,6 +630,8 @@
       {
         "autotest_name": "chromium",
         "cros_board": "jacuzzi",
+        "module_name": "//base:base_unittests",
+        "module_scheme": "gtest",
         "name": "base_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -595,6 +657,8 @@
           "informational",
           "dep:no_chrome_dcheck"
         ],
+        "module_name": "//chromeos:chrome_all_tast_tests",
+        "module_scheme": "tast",
         "name": "chrome_all_tast_tests RELEASE_LKGM",
         "resultdb": {
           "result_format": "tast"
@@ -624,6 +688,8 @@
           "dep:no_chrome_dcheck"
         ],
         "experiment_percentage": 100,
+        "module_name": "//chromeos:chrome_criticalstaging_tast_tests",
+        "module_scheme": "tast",
         "name": "chrome_criticalstaging_tast_tests RELEASE_LKGM",
         "resultdb": {
           "result_format": "tast"
@@ -642,6 +708,8 @@
           "chromeos/tast_control_disabled_tests.txt"
         ],
         "experiment_percentage": 100,
+        "module_name": "//chromeos:chrome_disabled_tast_tests",
+        "module_scheme": "tast",
         "name": "chrome_disabled_tast_tests RELEASE_LKGM",
         "resultdb": {
           "result_format": "tast"
@@ -655,6 +723,8 @@
       {
         "autotest_name": "chromium",
         "cros_board": "jacuzzi",
+        "module_name": "//chrome/test:chromeos_integration_tests",
+        "module_scheme": "gtest",
         "name": "chromeos_integration_tests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -677,6 +747,8 @@
       {
         "autotest_name": "chromium",
         "cros_board": "trogdor",
+        "module_name": "//base:base_unittests",
+        "module_scheme": "gtest",
         "name": "base_unittests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"
@@ -702,6 +774,8 @@
           "informational",
           "dep:no_chrome_dcheck"
         ],
+        "module_name": "//chromeos:chrome_all_tast_tests",
+        "module_scheme": "tast",
         "name": "chrome_all_tast_tests RELEASE_LKGM",
         "resultdb": {
           "result_format": "tast"
@@ -731,6 +805,8 @@
           "dep:no_chrome_dcheck"
         ],
         "experiment_percentage": 100,
+        "module_name": "//chromeos:chrome_criticalstaging_tast_tests",
+        "module_scheme": "tast",
         "name": "chrome_criticalstaging_tast_tests RELEASE_LKGM",
         "resultdb": {
           "result_format": "tast"
@@ -749,6 +825,8 @@
           "chromeos/tast_control_disabled_tests.txt"
         ],
         "experiment_percentage": 100,
+        "module_name": "//chromeos:chrome_disabled_tast_tests",
+        "module_scheme": "tast",
         "name": "chrome_disabled_tast_tests RELEASE_LKGM",
         "resultdb": {
           "result_format": "tast"
@@ -762,6 +840,8 @@
       {
         "autotest_name": "chromium",
         "cros_board": "trogdor",
+        "module_name": "//chrome/test:chromeos_integration_tests",
+        "module_scheme": "gtest",
         "name": "chromeos_integration_tests RELEASE_LKGM",
         "resultdb": {
           "result_format": "gtest"

@@ -173,6 +173,11 @@ void ProfilePicker::Show(Params&& params) {
   if (g_profile_picker_view) {
     g_profile_picker_view->UpdateParams(std::move(params));
   } else {
+    if (g_browser_process->IsShuttingDown()) {
+      // The profile picker takes a KeepAlive, which is not possible during
+      // shutdown.
+      return;
+    }
     g_profile_picker_view = new ProfilePickerView(std::move(params));
   }
   g_profile_picker_view->Display();
@@ -222,9 +227,9 @@ void ProfilePicker::PickProfile(
 }
 
 // static
-void ProfilePicker::CancelSignedInFlow() {
+void ProfilePicker::CancelSignInFlow() {
   if (g_profile_picker_view) {
-    g_profile_picker_view->flow_controller_.get()->CancelPostSignInFlow();
+    g_profile_picker_view->flow_controller_.get()->CancelSigninFlow();
   }
 }
 

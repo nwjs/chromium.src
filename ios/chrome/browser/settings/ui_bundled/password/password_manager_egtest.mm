@@ -39,7 +39,6 @@
 #import "ios/chrome/browser/settings/ui_bundled/password/widget_promo_instructions/widget_promo_instructions_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_root_table_constants.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
-#import "ios/chrome/common/ui/confirmation_alert/constants.h"
 #import "ios/chrome/common/ui/reauthentication/reauthentication_event.h"
 #import "ios/chrome/common/ui/reauthentication/reauthentication_protocol.h"
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
@@ -360,10 +359,8 @@ id<GREYMatcher> PasswordManagerWidgetPromoInstructions() {
 // Returns matcher for the close button of the Password Manager widget promo
 // instruction screen.
 id<GREYMatcher> PasswordManagerWidgetPromoInstructionsCloseButton() {
-  return grey_allOf(
-      grey_accessibilityID(
-          kConfirmationAlertSecondaryActionAccessibilityIdentifier),
-      grey_interactable(), nullptr);
+  return grey_allOf(chrome_test_util::ButtonStackSecondaryButton(),
+                    grey_interactable(), nullptr);
 }
 
 // Returns matcher for the Password Details move to account button.
@@ -1874,6 +1871,14 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 
 // Test export flow
 - (void)testExportFlow {
+#if BUILDFLAG(IOS_CREDENTIAL_EXCHANGE_ENABLED)
+  if (@available(iOS 26, *)) {
+    // TODO(crbug.com/463313017): Move this test to credential_export_egtest.mm.
+    EARL_GREY_TEST_SKIPPED(
+        @"This feature is moved elsewhere with credential exchange enabled");
+  }
+#endif
+
   // Saving a form is needed for exporting passwords.
   SavePasswordFormToProfileStore();
 
@@ -1885,9 +1890,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
   [[EarlGrey selectElementWithMatcher:ToolbarSettingsSubmenuButton()]
       performAction:grey_tap()];
 
-  const int exportButtonAccessibilityId =
-      CredentialExchangeEnabled() ? IDS_IOS_EXPORT_PASSWORDS_AND_PASSKEYS
-                                  : IDS_IOS_EXPORT_PASSWORDS;
+  const int exportButtonAccessibilityId = IDS_IOS_EXPORT_PASSWORDS;
 
   [[[EarlGrey
       selectElementWithMatcher:grey_allOf(ButtonWithAccessibilityLabelId(
@@ -2664,7 +2667,8 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 // Tests that when a new credential is saved or an existing one is updated via
 // the add credential flow, the VC auto scrolls to the newly created or the
 // updated entry.
-- (void)testAutoScroll {
+// TODO(crbug.com/460743577): Test is flaky.
+- (void)FLAKY_testAutoScroll {
   for (int i = 0; i < 20; i++) {
     NSString* username = [NSString stringWithFormat:@"username %d", i];
     NSString* password = [NSString stringWithFormat:@"password %d", i];
@@ -3926,8 +3930,8 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 
   // The Password Manager widget promo's elements should be visible in landscape
   // mode.
-  [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationLandscapeRight
-                                error:nil];
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationLandscapeRight
+                                   error:nil];
   CheckPasswordManagerWidgetPromoVisible();
 
   // The promo's close button should still be tappable in landscape mode.
@@ -4007,14 +4011,15 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 
   // The Password Manager widget promo's instructions should be visible with no
   // image in landscape mode.
-  [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationLandscapeRight
-                                error:nil];
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationLandscapeRight
+                                   error:nil];
   CheckPasswordManagerWidgetPromoInstructionScreenVisible(
       /*image_hidden=*/true);
 
   // When going back to portrait mode, the Password Manager widget promo's
   // instructions should be visible with its image.
-  [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationPortrait error:nil];
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationPortrait
+                                   error:nil];
   CheckPasswordManagerWidgetPromoInstructionScreenVisible();
 }
 

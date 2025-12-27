@@ -39,6 +39,7 @@
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
+#import "ios/chrome/browser/signin/model/avatar_provider.h"
 #import "ios/chrome/browser/sync/model/sync_observer_bridge.h"
 
 @interface AccountMenuMediator () <AuthenticationFlowDelegate,
@@ -145,7 +146,7 @@
 
 #pragma mark - AccountMenuDataSource
 
-- (const std::vector<GaiaId>)secondaryAccountsGaiaIDs {
+- (std::vector<GaiaId>)secondaryAccountsGaiaIDs {
   std::vector<GaiaId> gaiaIDs;
   for (id<SystemIdentity> identity : _identities) {
     gaiaIDs.push_back(identity.gaiaId);
@@ -162,8 +163,10 @@
 }
 
 - (UIImage*)imageForGaiaID:(const GaiaId&)gaiaID {
-  return _accountManagerService->GetIdentityAvatarWithIdentity(
-      [self identityForGaiaID:gaiaID], IdentityAvatarSize::TableViewIcon);
+  return GetApplicationContext()
+      ->GetIdentityAvatarProvider()
+      ->GetIdentityAvatar([self identityForGaiaID:gaiaID],
+                          IdentityAvatarSize::TableViewIcon);
 }
 
 - (BOOL)isGaiaIDManaged:(const GaiaId&)gaiaID {
@@ -192,8 +195,10 @@
 }
 
 - (UIImage*)primaryAccountAvatar {
-  return _accountManagerService->GetIdentityAvatarWithIdentity(
-      _primaryIdentityBeforeSignin, IdentityAvatarSize::Large);
+  return GetApplicationContext()
+      ->GetIdentityAvatarProvider()
+      ->GetIdentityAvatar(_primaryIdentityBeforeSignin,
+                          IdentityAvatarSize::Large);
 }
 
 - (NSString*)managementDescription {
@@ -357,6 +362,10 @@
       [self.syncErrorSettingsCommandHandler
               openTrustedVaultReauthForDegradedRecoverability];
       break;
+    case syncer::SyncService::UserActionableError::kBookmarksLimitExceeded:
+      // TODO(crbug.com/452968646): Navigate to the concrete help center
+      // article.
+      break;
     case syncer::SyncService::UserActionableError::kNone:
     // TODO(crbug.com/370026230): Update this case once GetAccountErrorUIInfo()
     // returns a non-nil value for it.
@@ -453,7 +462,7 @@
     // restart using the account menu.
     _authenticationService->SignIn(
         _primaryIdentityBeforeSignin,
-        signin_metrics::AccessPoint::kAccountMenuFailedSwitch);
+        signin_metrics::AccessPoint::kAccountMenuSwitchAccountFailed);
     self.userInteractionsBlocked = NO;
     [self restartUpdates];
   } else {

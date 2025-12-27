@@ -42,13 +42,13 @@ const char kFormElementCardNumber[] = "CCNo";
 const char kFormElementCardExpirationMonth[] = "CCExpiresMonth";
 const char kFormElementCardExpirationYear[] = "CCExpiresYear";
 
-NSString* kLocalCardNumber = @"4111111111111111";
-NSString* kLocalCardHolder = @"Test User";
+NSString* const kLocalCardNumber = @"4111111111111111";
+NSString* const kLocalCardHolder = @"Test User";
 // The local card's expiration month and year (only the last two digits) are set
 // with next month and next year.
-NSString* kLocalCardExpirationMonth =
+NSString* const kLocalCardExpirationMonth =
     base::SysUTF8ToNSString(autofill::test::NextMonth());
-NSString* kLocalCardExpirationYear =
+NSString* const kLocalCardExpirationYear =
     base::SysUTF8ToNSString(autofill::test::NextYear().substr(2, 2));
 
 // Unicode characters used in card number:
@@ -58,16 +58,16 @@ constexpr char16_t separator[] = {0x2060, 0x0020, 0};
 constexpr char16_t kMidlineEllipsis[] = {
     0x2022, 0x2060, 0x2006, 0x2060, 0x2022, 0x2060, 0x2006, 0x2060, 0x2022,
     0x2060, 0x2006, 0x2060, 0x2022, 0x2060, 0x2006, 0x2060, 0};
-NSString* kObfuscatedNumberPrefix = base::SysUTF16ToNSString(
+NSString* const kObfuscatedNumberPrefix = base::SysUTF16ToNSString(
     kMidlineEllipsis + std::u16string(separator) + kMidlineEllipsis +
     std::u16string(separator) + kMidlineEllipsis + std::u16string(separator));
 
-NSString* kLocalNumberObfuscated =
+NSString* const kLocalNumberObfuscated =
     [NSString stringWithFormat:@"%@1111", kObfuscatedNumberPrefix];
 
-NSString* kServerNumberObfuscated =
+NSString* const kServerNumberObfuscated =
     [NSString stringWithFormat:@"%@2109", kObfuscatedNumberPrefix];
-NSString* kCvcObfuscated =
+NSString* const kCvcObfuscated =
     base::SysUTF16ToNSString(autofill::CreditCard::GetMidlineEllipsisDots(3));
 
 const char kFormHTMLFile[] = "/credit_card.html";
@@ -226,6 +226,15 @@ void CheckChipButtonsOfLocalCard() {
   autofill::CreditCard card = autofill::test::GetCreditCard();
   std::string locale = l10n_util::GetLocaleOverride();
 
+  if (base::ios::IsRunningOnIOS18OrLater()) {
+  } else {
+    // On iOS 17.5, a rendering issue in tests prevents some cells from
+    // displaying correctly. This scroll action ensures their proper visibility.
+    [[EarlGrey
+        selectElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
+        performAction:grey_scrollInDirection(kGREYDirectionDown, 10)];
+  }
+
   [[EarlGrey selectElementWithMatcher:LocalCardNumberChipButton()]
       assertWithMatcher:grey_sufficientlyVisible()];
   [[EarlGrey
@@ -294,7 +303,8 @@ void DismissPaymentBottomSheet() {
 - (void)tearDownHelper {
   [AutofillAppInterface clearCreditCardStore];
   [AutofillAppInterface clearAllServerDataForTesting];
-  [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationPortrait error:nil];
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationPortrait
+                                   error:nil];
 
   // Clean up histogram tester.
   [MetricsAppInterface stopOverridingMetricsAndCrashReportingForTesting];
@@ -336,9 +346,17 @@ void DismissPaymentBottomSheet() {
       @"Unexpected histogram error for number of visible suggestions.");
 }
 
+// TODO(crbug.com/460721951): Test is failing on ios-simulator.
+#if TARGET_OS_SIMULATOR
+#define MAYBE_testCardChipButtonsAreAllVisible \
+  DISABLED_testCardChipButtonsAreAllVisible
+#else
+#define MAYBE_testCardChipButtonsAreAllVisible testCardChipButtonsAreAllVisible
+#endif
+
 // Tests that the saved card chip buttons are all visible in the card
 // table view controller, and that they have the right accessibility label.
-- (void)testCardChipButtonsAreAllVisible {
+- (void)MAYBE_testCardChipButtonsAreAllVisible {
   [AutofillAppInterface saveLocalCreditCard];
 
   // Bring up the keyboard.
@@ -629,7 +647,8 @@ void DismissPaymentBottomSheet() {
 }
 
 // Tests that the "Add Payment Method..." action works on OTR.
-- (void)testOTRAddPaymentMethodActionOpensAddPaymentMethodSettings {
+// TODO(crbug.com/462093327): Re-enable flaky test.
+- (void)FLAKY_testOTRAddPaymentMethodActionOpensAddPaymentMethodSettings {
   // Open a tab in incognito.
   [ChromeEarlGrey openNewIncognitoTab];
   [self loadURL];
@@ -754,8 +773,8 @@ void DismissPaymentBottomSheet() {
   // Open the payment method manual fill view.
   OpenPaymentMethodManualFillView();
 
-  [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationLandscapeLeft
-                                error:nil];
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationLandscapeLeft
+                                   error:nil];
 
   // Verify the credit card controller table view is still visible.
   [[EarlGrey selectElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
@@ -1052,7 +1071,7 @@ void DismissPaymentBottomSheet() {
 
   // Scroll down to show the server card.
   [[EarlGrey selectElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
-      performAction:grey_scrollInDirection(kGREYDirectionDown, 10)];
+      performAction:grey_scrollInDirection(kGREYDirectionDown, 40)];
 
   // Check that the GPay icon is visible in the masked card cell.
   [[EarlGrey selectElementWithMatcher:GPayIcon(masked_card_last_digits)]

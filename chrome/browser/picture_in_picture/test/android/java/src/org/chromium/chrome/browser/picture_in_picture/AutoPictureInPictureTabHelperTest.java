@@ -37,8 +37,8 @@ import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
-import org.chromium.blink_public.common.BlinkFeatures;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.media.PictureInPictureActivity;
@@ -72,7 +72,6 @@ import java.util.concurrent.TimeoutException;
     MediaSwitches.AUTOPLAY_NO_GESTURE_REQUIRED_POLICY,
 })
 @EnableFeatures({
-    BlinkFeatures.MEDIA_SESSION_ENTER_PICTURE_IN_PICTURE,
     MediaFeatures.AUTO_PICTURE_IN_PICTURE_ANDROID,
     MediaFeatures.AUTO_PICTURE_IN_PICTURE_FOR_VIDEO_PLAYBACK
 })
@@ -550,6 +549,28 @@ public class AutoPictureInPictureTabHelperTest {
                 webContents, url, 1, "Dismiss count should be 1 after hide button dismissal.");
     }
 
+    @Test
+    @MediumTest
+    public void testBackToTabPostHideTimeRecorded() throws TimeoutException {
+        WebContents webContents = loadUrlAndInitializeForTest(AUTO_PIP_VIDEO_PAGE);
+        Tab originalTab = mPage.getTab();
+
+        // Start watching for the histogram.
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectAnyRecord("Media.AutoPictureInPicture.BackToTabPostHideTime")
+                        .build();
+
+        // Enter auto-PiP and hide the window.
+        enterAutoPipAndHide(webContents, originalTab);
+
+        // Switch back to the original tab.
+        switchToTab(originalTab);
+
+        // Verify the histogram was recorded.
+        histogramWatcher.assertExpected();
+    }
+
     /**
      * Fulfills the video playback conditions required for auto-PiP to trigger.
      *
@@ -583,19 +604,34 @@ public class AutoPictureInPictureTabHelperTest {
     /**
      * Creates a new tab in the background.
      *
+     * <p>A precondition for this function to work correctly is that there are no other tabs that
+     * have been requested to open but are not yet fully open. If there are, the tab count check in
+     * this function could erroneously count a pending tab as the newly created tab.
+     *
      * @param parentTab The parent tab for the new tab.
      * @return The newly created {@link Tab}.
      */
     private Tab createNewTabInBackground(Tab parentTab) {
-        return ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    return mActivity
-                            .getCurrentTabCreator()
-                            .createNewTab(
-                                    new LoadUrlParams("about:blank"),
-                                    TabLaunchType.FROM_LONGPRESS_BACKGROUND,
-                                    parentTab);
-                });
+        final int existingTabCount =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> mActivity.getTabModelSelector().getTotalTabCount());
+        final Tab newTab =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> {
+                            return mActivity
+                                    .getCurrentTabCreator()
+                                    .createNewTab(
+                                            new LoadUrlParams("about:blank"),
+                                            TabLaunchType.FROM_LONGPRESS_BACKGROUND,
+                                            parentTab);
+                        });
+        CriteriaHelper.pollUiThread(
+                () -> mActivity.getTabModelSelector().getTotalTabCount() == existingTabCount + 1,
+                "New tab wasn't successfully created.");
+        CriteriaHelper.pollUiThread(
+                () -> newTab != null && newTab.getWebContents() != null,
+                "New tab WebContents wasn't initialized.");
+        return newTab;
     }
 
     /**

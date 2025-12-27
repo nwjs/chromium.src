@@ -88,11 +88,13 @@ class AutofillDriverIOS final : public AutofillDriver,
   LocalFrameToken GetFrameToken() const override;
   std::optional<LocalFrameToken> Resolve(FrameToken query) override;
   AutofillDriverIOS* GetParent() override;
+  bool IsActive() const override;
+  bool IsEmbedded() const override;
   AutofillClient& GetAutofillClient() override;
   BrowserAutofillManager& GetAutofillManager() override;
   ukm::SourceId GetPageUkmSourceId() const override;
-  bool IsActive() const override;
-  bool HasSharedAutofillPermission() const override;
+  bool IsPolicyControlledFeatureAutofillEnabled() const override;
+  bool IsPolicyControlledFeatureManualTextEnabled() const override;
   bool CanShowAutofillUi() const override;
   base::flat_set<FieldGlobalId> ApplyFormAction(
       mojom::FormActionType action_type,
@@ -105,8 +107,8 @@ class AutofillDriverIOS final : public AutofillDriver,
                         mojom::ActionPersistence action_persistence,
                         const FieldGlobalId& field_id,
                         const std::u16string& value) override;
-  void ExtractForm(
-      FormGlobalId form,
+  void ExtractFormWithField(
+      FieldGlobalId field_id,
       base::OnceCallback<void(AutofillDriver*, const std::optional<FormData>&)>
           response_callback) override;
   void ExposeDomNodeIdsInAllFrames() override;
@@ -155,7 +157,7 @@ class AutofillDriverIOS final : public AutofillDriver,
   // components/autofill/content/common/mojom/autofill_driver.mojom
   // for further documentation of each method.
   void AskForValuesToFill(const FormData& form, const FieldGlobalId& field_id);
-  void DidAutofillForm(const FormData& form, base::TimeTicks timestamp);
+  void DidAutofillForm(const FormData& form);
   void FormsSeen(const std::vector<FormData>& updated_forms,
                  const std::vector<FormGlobalId>& removed_forms);
   void FormSubmitted(const FormData& form,

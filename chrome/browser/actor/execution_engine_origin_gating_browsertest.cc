@@ -7,6 +7,7 @@
 #include "base/test/test_future.h"
 #include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_policy_checker.h"
+#include "chrome/browser/actor/actor_switches.h"
 #include "chrome/browser/actor/actor_task_metadata.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/execution_engine.h"
@@ -238,15 +239,13 @@ class ExecutionEngineOriginGatingBrowserTest
     if (multi_instance_enabled()) {
       scoped_feature_list_.InitWithFeatures(
           /*enabled_features=*/{features::kGlicMultiInstance,
-                                glic::mojom::features::kGlicMultiTab,
-                                features::kGlicMultitabUnderlines},
+                                glic::mojom::features::kGlicMultiTab},
           /*disabled_features=*/{});
     } else {
       scoped_feature_list_.InitWithFeatures(
           /*enabled_features=*/{},
           /*disabled_features=*/{features::kGlicMultiInstance,
-                                 glic::mojom::features::kGlicMultiTab,
-                                 features::kGlicMultitabUnderlines});
+                                 glic::mojom::features::kGlicMultiTab});
     }
   }
   ~ExecutionEngineOriginGatingBrowserTest() override = default;
@@ -1132,6 +1131,40 @@ INSTANTIATE_TEST_SUITE_P(All,
                            }
                            NOTREACHED();
                          });
+
+class ExecutionEngineOriginGatingSafetyDisabledBrowserTest
+    : public ExecutionEngineOriginGatingBrowserTestBase {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    ExecutionEngineOriginGatingBrowserTestBase::SetUpCommandLine(command_line);
+    command_line->AppendSwitch(actor::switches::kDisableActorSafetyChecks);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingSafetyDisabledBrowserTest,
+                       IgnoreBlocklist) {
+  const GURL start_url =
+      embedded_https_test_server().GetURL("example.com", "/actor/link.html");
+  const GURL blocked_url = embedded_https_test_server().GetURL(
+      "blocked.example.com", "/actor/blank.html");
+
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), start_url));
+  OpenGlicAndCreateTask();
+
+  // Create a navigation request to the blocked URL.
+  std::unique_ptr<ToolRequest> navigate_to_blocked =
+      MakeNavigateRequest(*active_tab(), blocked_url.spec());
+
+  // Execute the navigation action.
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(navigate_to_blocked), result.GetCallback());
+
+  // The navigation should succeed because the safety checks are disabled.
+  ExpectOkResult(result);
+
+  // Verify that the browser navigated to the blocked URL.
+  EXPECT_EQ(web_contents()->GetLastCommittedURL(), blocked_url);
+}
 
 class ExecutionEngineSiteGatingBrowserTest
     : public ExecutionEngineOriginGatingBrowserTestBase,

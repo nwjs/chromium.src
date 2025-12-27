@@ -6,6 +6,7 @@ package org.chromium.content.browser;
 
 import static org.chromium.content_public.browser.HostZoomMap.TEXT_SIZE_MULTIPLIER_RATIO;
 import static org.chromium.content_public.browser.HostZoomMap.getSystemFontScale;
+import static org.chromium.content_public.browser.HostZoomMap.getTransparentZoomAdjustment;
 import static org.chromium.content_public.browser.HostZoomMap.setSystemFontScale;
 
 import org.jni_zero.CalledByNative;
@@ -19,9 +20,11 @@ import org.chromium.base.MathUtils;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.content_public.browser.BrowserContextHandle;
+import org.chromium.content_public.browser.ContentFeatureMap;
 import org.chromium.content_public.browser.HostZoomMap;
 import org.chromium.content_public.browser.SiteZoomInfo;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.content_public.common.ContentFeatures;
 
 import java.util.HashMap;
 
@@ -106,7 +109,8 @@ public class HostZoomMapImpl {
         if (!shouldAdjustForOSLevel()) {
             systemFontScale = 1;
         }
-        return adjustZoomLevel(zoomLevel, systemFontScale);
+
+        return adjustZoomLevel(zoomLevel, systemFontScale, getTransparentZoomAdjustment());
     }
 
     @CalledByNative
@@ -137,16 +141,24 @@ public class HostZoomMapImpl {
      *
      * @param zoomLevel The zoom level to adjust.
      * @param systemFontScale User selected font scale value.
+     * @param platformAdjustment Platform/hardware-specific additional scaling factor.
      * @return double The adjusted zoom level.
      */
-    public static double adjustZoomLevel(double zoomLevel, float systemFontScale) {
+    public static double adjustZoomLevel(
+            double zoomLevel, float systemFontScale, float platformAdjustment) {
         // If we are not supposed to adjust for OS-level font scale, set the effective scale to 1.
         float effectiveSystemFontScale = systemFontScale;
         if (!shouldAdjustForOSLevel()) {
             effectiveSystemFontScale = 1.0f;
         }
 
-        float scaleAdjustment = effectiveSystemFontScale;
+        // When the Desktop zoom scaling flag is not enabled, set the effective adjustment to 1.
+        float effectivePlatformAdjustment = platformAdjustment;
+        if (!ContentFeatureMap.isEnabled(ContentFeatures.ANDROID_DESKTOP_ZOOM_SCALING)) {
+            effectivePlatformAdjustment = 1.0f;
+        }
+
+        float scaleAdjustment = effectiveSystemFontScale * effectivePlatformAdjustment;
 
         // No calculation to do if the |scaleAdjustment| is 1.0 (default).
         if (MathUtils.areFloatsEqual(scaleAdjustment, 1.0f)) {

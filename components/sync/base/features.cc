@@ -56,6 +56,14 @@ BASE_FEATURE(kSyncAutofillWalletCredentialData,
 
 BASE_FEATURE(kSyncBookmarksLimit, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// If enabled, shows a user-actionable error when the bookmarks count limit is
+// exceeded.
+BASE_FEATURE(kSyncShowBookmarksLimitExceededError,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSyncResetBookmarksInitialMergeLimitExceededError,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kSyncEnableContactInfoDataTypeForCustomPassphraseUsers,
 #if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT
@@ -66,8 +74,6 @@ BASE_FEATURE(kSyncEnableContactInfoDataTypeForCustomPassphraseUsers,
 
 BASE_FEATURE(kSyncEnableContactInfoDataTypeForDasherUsers,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kTabGroupsSaveNudgeDelay, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSeparateLocalAndAccountSearchEngines,
 #if BUILDFLAG(IS_CHROMEOS)

@@ -206,11 +206,9 @@ bool ParseHostAndPort(std::string_view input, std::string* host, int* port) {
   url::Component hostname_component;
   url::Component port_component;
 
-  // `input` is not NUL-terminated, so `input.data()` must be accompanied by a
-  // length. In these calls, `url::Component` provides an offset and length.
-  url::ParseAuthority(input.data(), auth_component, &username_component,
-                      &password_component, &hostname_component,
-                      &port_component);
+  url::ParseAuthority(input, auth_component, url::ParserMode::kSpecialURL,
+                      &username_component, &password_component,
+                      &hostname_component, &port_component);
 
   // There shouldn't be a username/password.
   if (username_component.is_valid() || password_component.is_valid())
@@ -238,9 +236,8 @@ bool ParseHostAndPort(std::string_view input, std::string* host, int* port) {
   // invalid. If it is an IPv6 literal then strip the brackets.
   if (hostname_component.len > 0 && input[hostname_component.begin] == '[') {
     if (input[hostname_component.end() - 1] == ']' &&
-        url::IPv6AddressToNumber(
-            hostname_component.as_string_view_on(input.data()),
-            tmp_ipv6_addr)) {
+        url::IPv6AddressToNumber(hostname_component.AsViewOn(input),
+                                 tmp_ipv6_addr)) {
       // Strip the brackets.
       hostname_component.begin++;
       hostname_component.len -= 2;

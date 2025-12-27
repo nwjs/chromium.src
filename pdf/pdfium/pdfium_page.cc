@@ -28,6 +28,7 @@
 #include "pdf/accessibility_structs.h"
 #include "pdf/buildflags.h"
 #include "pdf/page_rotation.h"
+#include "pdf/pdf_accessibility_constants_helper.h"
 #include "pdf/pdf_features.h"
 #include "pdf/pdf_rect.h"
 #include "pdf/pdfium/pdfium_api_string_buffer_adapter.h"
@@ -128,10 +129,10 @@ gfx::RectF GetFloatCharRectInPixels(FPDF_PAGE page,
   return FloatPageRectToPixelRect(page, char_box.value().AsGfxRectF());
 }
 
-int GetFirstNonUnicodeWhiteSpaceCharIndex(FPDF_TEXTPAGE text_page,
-                                          int start_char_index,
-                                          int chars_count) {
-  int i = start_char_index;
+uint32_t GetFirstNonUnicodeWhiteSpaceCharIndex(FPDF_TEXTPAGE text_page,
+                                               uint32_t start_char_index,
+                                               uint32_t chars_count) {
+  uint32_t i = start_char_index;
   while (i < chars_count &&
          base::IsUnicodeWhitespace(FPDFText_GetUnicode(text_page, i))) {
     i++;
@@ -580,6 +581,9 @@ std::unique_ptr<AccessibilityStructureElement> PDFiumPage::GetStructureTree() {
     return nullptr;
   }
 
+  CalculateTextRuns();
+  CalculateImages();
+
   auto tree_root = std::make_unique<AccessibilityStructureElement>();
   tree_root->type = PdfTagType::kPart;
   std::set<FPDF_STRUCTELEMENT> visited_elements;
@@ -639,9 +643,22 @@ std::unique_ptr<AccessibilityStructureElement> PDFiumPage::GetStructureSubtree(
         }
       }
 
-      // TODO(crbug.com/40707542): Add `associated_image_if_available` field to
-      // `AccessibilityStructureElement` and populate it here by looking up
-      // `marked_content_id` in `marked_content_id_to_images_map_`.
+      auto image_iter =
+          marked_content_id_to_images_map_.find(marked_content_id);
+      if (image_iter != marked_content_id_to_images_map_.end()) {
+        const Image& img = images_[image_iter->second];
+
+        auto accessibility_image = std::make_unique<AccessibilityImageInfo>();
+        accessibility_image->alt_text = img.alt_text;
+        // text_run_index is unused in structure tree mode (image positioning
+        // is determined by structure tree location, not text run proximity).
+        accessibility_image->text_run_index = 0;
+        accessibility_image->bounds = gfx::RectF(img.bounding_rect);
+        accessibility_image->page_object_index = img.page_object_index;
+
+        tree_node->associated_image_if_available =
+            std::move(accessibility_image);
+      }
     }
   }
 
@@ -1213,8 +1230,8 @@ void PDFiumPage::CalculateTextRuns() {
 }
 
 AccessibilityTextRunInfo PDFiumPage::CalculateTextRunInfoAt(
-    int start_char_index,
-    int chars_count) {
+    uint32_t start_char_index,
+    uint32_t chars_count) {
   AccessibilityTextRunInfo info;
   info.start_index = start_char_index;
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
@@ -1224,7 +1241,7 @@ AccessibilityTextRunInfo PDFiumPage::CalculateTextRunInfoAt(
 #endif
 
   FPDF_TEXTPAGE text_page = GetTextPage();
-  int actual_start_char_index = GetFirstNonUnicodeWhiteSpaceCharIndex(
+  uint32_t actual_start_char_index = GetFirstNonUnicodeWhiteSpaceCharIndex(
       text_page, start_char_index, chars_count);
   // Check to see if GetFirstNonUnicodeWhiteSpaceCharIndex() iterated through
   // all the characters.
@@ -1245,7 +1262,7 @@ AccessibilityTextRunInfo PDFiumPage::CalculateTextRunInfoAt(
           ? GetFloatCharRectInPixels(page, text_page, start_char_index)
           : gfx::RectF();
 
-  int char_index = actual_start_char_index;
+  uint32_t char_index = actual_start_char_index;
 
   // Set text run's style info from the first character of the text run.
   FPDF_PAGEOBJECT text_object = FPDFText_GetTextObject(text_page, char_index);
@@ -1305,7 +1322,8 @@ AccessibilityTextRunInfo PDFiumPage::CalculateTextRunInfoAt(
   // run.
   while (char_index < chars_count) {
     // Split a text run when it encounters a page object like links or images.
-    if (char_index == breakpoint_index) {
+    if (breakpoint_index >= 0 &&
+        char_index == static_cast<uint32_t>(breakpoint_index)) {
       break;
     }
 

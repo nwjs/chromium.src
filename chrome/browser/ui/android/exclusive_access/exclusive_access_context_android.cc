@@ -14,11 +14,11 @@
 
 ExclusiveAccessContextAndroid::ExclusiveAccessContextAndroid(
     JNIEnv* env,
-    const jni_zero::JavaRef<jobject>& j_activity,
+    const jni_zero::JavaRef<jobject>& j_context,
     const jni_zero::JavaRef<jobject>& j_fullscreen_manager,
     const jni_zero::JavaRef<jobject>& j_activity_tab_provider) {
   java_context_.Reset(Java_ExclusiveAccessContext_create(
-      env, j_activity, j_fullscreen_manager, j_activity_tab_provider));
+      env, j_context, j_fullscreen_manager, j_activity_tab_provider));
 }
 
 ExclusiveAccessContextAndroid::~ExclusiveAccessContextAndroid() = default;
@@ -143,3 +143,11 @@ bool ExclusiveAccessContextAndroid::CanUserEnterFullscreen() const {
 bool ExclusiveAccessContextAndroid::CanUserExitFullscreen() const {
   return true;
 }
+
+void ExclusiveAccessContextAndroid::ForceActiveTab(
+    JNIEnv* env,
+    const jni_zero::JavaRef<jobject>& j_tab) {
+  Java_ExclusiveAccessContext_forceActiveTab(env, java_context_, j_tab);
+}
+
+DEFINE_JNI(ExclusiveAccessContext)

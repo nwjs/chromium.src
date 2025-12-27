@@ -102,11 +102,11 @@ BASE_DECLARE_FEATURE(kGlicActorPermissionsAutoReject);
 
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(PERMISSIONS_COMMON)
-BASE_DECLARE_FEATURE(kOsAdditionalSecurityPermissionKillSwitch);
-
-COMPONENT_EXPORT(PERMISSIONS_COMMON)
 BASE_DECLARE_FEATURE(kReturnDeniedForNotificationsWhenNoAppLevelSettings);
 #endif
+
+COMPONENT_EXPORT(PERMISSIONS_COMMON)
+BASE_DECLARE_FEATURE(kPermissionPredictionsGeolocationAccuracy);
 
 }  // namespace features
 

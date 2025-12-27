@@ -175,19 +175,6 @@ struct PDFExtensionIsolatedContentTestPassToString {
   }
 };
 
-// Calling PluginService::GetPlugins ensures that LoadPlugins is called
-// internally. This is an asynchronous task and this method uses a run loop to
-// wait for the loading task to complete.
-void WaitForPluginServiceToLoad() {
-  base::RunLoop run_loop;
-  content::PluginService::GetPluginsCallback callback = base::BindOnce(
-      [](base::RepeatingClosure quit,
-         const std::vector<content::WebPluginInfo>& unused) { quit.Run(); },
-      run_loop.QuitClosure());
-  content::PluginService::GetInstance()->GetPlugins(std::move(callback));
-  run_loop.Run();
-}
-
 }  // namespace
 
 class PDFExtensionTest : public base::test::WithFeatureOverride,
@@ -1646,9 +1633,6 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTest, SelectAllShortcut) {
   EXPECT_EQ(base::UTF16ToUTF8(view->GetSelectedText()), kExpectedText);
 }
 
-// TODO(crbug.com/40793934): Add tests for using space and shift+space shortcuts
-// for scrolling PDFs.
-
 // Test that even if a different tab is selected when a navigation occurs,
 // the correct tab still gets navigated (see crbug.com/672563).
 IN_PROC_BROWSER_TEST_P(PDFExtensionTest, NavigationOnCorrectTab) {
@@ -2905,7 +2889,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionTest, BackgroundColor) {
   // is intercepted, at which point not all the plugins have loaded. This line
   // ensures that the PDF plugin has loaded and the right background color is
   // beign used.
-  WaitForPluginServiceToLoad();
+  content::PluginService::GetInstance()->GetPlugins();
   content::RenderFrameHost* extension_host =
       LoadPdfGetExtensionHost(embedded_test_server()->GetURL("/pdf/test.pdf"));
   ASSERT_TRUE(extension_host);

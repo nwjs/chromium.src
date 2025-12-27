@@ -30,11 +30,15 @@ class IpcMouseCursorMonitor : public protocol::MouseCursorMonitor {
   ~IpcMouseCursorMonitor() override;
 
   // MouseCursorMonitor interface.
-  void Init(Callback* callback, Mode mode) override;
+  void Init(Callback* callback) override;
   void SetPreferredCaptureInterval(base::TimeDelta interval) override;
 
   // Called when the cursor shape has changed.
   void OnMouseCursor(std::unique_ptr<webrtc::MouseCursor> cursor);
+
+  // Called when the fractional position of the mouse cursor has changed.
+  void OnMouseCursorFractionalPosition(
+      const protocol::FractionalCoordinate& position);
 
  private:
   // The callback passed to |MouseCursorMonitor::Init()|.

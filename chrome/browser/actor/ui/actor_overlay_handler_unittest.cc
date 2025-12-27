@@ -7,7 +7,6 @@
 #include "base/test/test_future.h"
 #include "chrome/browser/actor/ui/actor_ui_tab_controller.h"
 #include "chrome/browser/actor/ui/mocks/mock_actor_ui_tab_controller.h"
-#include "chrome/browser/actor/ui/mocks/mock_actor_ui_tab_controller_factory.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/test/base/testing_profile.h"
@@ -97,8 +96,7 @@ class ActorOverlayHandlerTest : public testing::Test {
 };
 
 TEST_F(ActorOverlayHandlerTest, OnHoverStatusChanged) {
-  EXPECT_CALL(*mock_actor_ui_tab_controller(),
-              OnOverlayHoverStatusChanged(testing::_))
+  EXPECT_CALL(*mock_actor_ui_tab_controller(), OnOverlayHoverStatusChanged)
       .Times(2);
   handler_->OnHoverStatusChanged(true);
   handler_->OnHoverStatusChanged(false);
@@ -156,7 +154,7 @@ TEST_F(ActorOverlayHandlerTest, HandlesNullTab) {
   // Verify that when the tab controller is null, we don't send the hover status
   // change.
   webui::SetTabInterface(web_contents_.get(), nullptr);
-  EXPECT_CALL(*mock_actor_ui_tab_controller(), OnOverlayHoverStatusChanged(_))
+  EXPECT_CALL(*mock_actor_ui_tab_controller(), OnOverlayHoverStatusChanged)
       .Times(0);
   handler_->OnHoverStatusChanged(true);
 

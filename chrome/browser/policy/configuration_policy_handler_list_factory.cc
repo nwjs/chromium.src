@@ -67,6 +67,7 @@
 #include "components/component_updater/pref_names.h"
 #include "components/content_settings/core/browser/cookie_settings_policy_handler.h"
 #include "components/content_settings/core/common/pref_names.h"
+#include "components/contextual_search/pref_names.h"
 #include "components/custom_handlers/pref_names.h"
 #include "components/domain_reliability/domain_reliability_prefs.h"
 #include "components/embedder_support/pref_names.h"
@@ -104,8 +105,8 @@
 #include "components/policy/core/browser/configuration_policy_handler_list.h"
 #include "components/policy/core/browser/configuration_policy_handler_parameters.h"
 #include "components/policy/core/browser/gen_ai_default_settings_policy_handler.h"
-#include "components/policy/core/browser/url_blocklist_policy_handler.h"
-#include "components/policy/core/browser/url_scheme_list_policy_handler.h"
+#include "components/policy/core/browser/url_list/url_blocklist_policy_handler.h"
+#include "components/policy/core/browser/url_list/url_scheme_list_policy_handler.h"
 #include "components/policy/core/common/policy_details.h"
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/core/common/policy_pref_names.h"
@@ -190,6 +191,7 @@
 #include "chrome/browser/ash/platform_keys/key_permissions/key_permissions_policy_handler.h"
 #include "chrome/browser/ash/plugin_vm/plugin_vm_pref_names.h"
 #include "chrome/browser/ash/policy/handlers/app_launch_automation_policy_handler.h"
+#include "chrome/browser/ash/policy/handlers/camera_save_location_policy_handler.h"
 #include "chrome/browser/ash/policy/handlers/configuration_policy_handler_ash.h"
 #include "chrome/browser/ash/policy/handlers/contextual_google_integrations_policies_handler.h"
 #include "chrome/browser/ash/policy/handlers/multi_screen_capture_policy_handler.h"
@@ -254,6 +256,7 @@
 #include "chrome/browser/enterprise/signin/enterprise_signin_prefs.h"
 #include "chrome/browser/external_protocol/auto_launch_protocols_policy_handler.h"
 #include "components/device_signals/core/browser/pref_names.h"  // nogncheck due to crbug.com/1125897
+#include "components/proxy_config/proxy_config_pref_names.h"
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(ENTERPRISE_CLIENT_CERTIFICATES)
@@ -477,6 +480,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kIncognitoModeAllowlist,
     policy_prefs::kIncognitoModeAllowlist,
     base::Value::Type::LIST },
+  { key::kStaticStorageQuotaEnabled,
+    prefs::kStaticStorageQuotaEnabled,
+    base::Value::Type::BOOLEAN },
 // Policies for all platforms - End
 #if BUILDFLAG(IS_ANDROID)
   { key::kAccessibilityPerformanceFilteringAllowed,
@@ -593,6 +599,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     prefs::kOriginKeyedProcessesEnabled,
     base::Value::Type::BOOLEAN },
 #endif // !BUILDFLAG(IS_ANDROID)
+  { key::kDefaultIdleDetectionSetting,
+    prefs::kManagedDefaultIdleDetectionSetting,
+    base::Value::Type::INTEGER },
   { key::kDefaultImagesSetting,
     prefs::kManagedDefaultImagesSetting,
     base::Value::Type::INTEGER },
@@ -768,6 +777,11 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kPdfViewerOutOfProcessIframeEnabled,
     prefs::kPdfViewerOutOfProcessIframeEnabled,
     base::Value::Type::BOOLEAN },
+#if BUILDFLAG(IS_CHROMEOS)
+  { key::kPdfXfaFormsEnabled,
+    prefs::kPdfXfaFormsEnabled,
+    base::Value::Type::BOOLEAN },
+#endif  // BUILDFLAG(IS_CHROMEOS)
 #endif  // BUILDFLAG(ENABLE_PDF)
   { key::kPolicyRefreshRate,
     policy_prefs::kUserPolicyRefreshRate,
@@ -967,6 +981,12 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kDefaultGeolocationSetting,
     prefs::kManagedDefaultGeolocationSetting,
     base::Value::Type::INTEGER },
+  { key::kPreciseGeolocationAllowedForUrls,
+    prefs::kManagedPreciseGeolocationAllowedForUrls,
+    base::Value::Type::LIST },
+  { key::kGeolocationBlockedForUrls,
+    prefs::kManagedGeolocationBlockedForUrls,
+    base::Value::Type::LIST },
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   { key::kMandatoryExtensionsForIncognitoNavigation,
     prefs::kMandatoryExtensionsForIncognitoNavigation,
@@ -981,7 +1001,7 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     prefs::kSafeBrowsingSurveysEnabled,
     base::Value::Type::BOOLEAN },
   { key::kPasswordManagerBlocklist,
-    policy_prefs::kPasswordManagerBlocklist,
+    password_manager::prefs::kPasswordManagerBlocklist,
     base::Value::Type::LIST },
 #endif  // #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
         // || BUILDFLAG(IS_WIN)  || BUILDFLAG(IS_MAC)
@@ -1099,6 +1119,12 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kSafeSitesFilterBehavior,
     policy_prefs::kSafeSitesFilterBehavior,
     base::Value::Type::INTEGER },
+  { key::kIdleDetectionAllowedForUrls,
+    prefs::kManagedIdleDetectionAllowedForUrls,
+    base::Value::Type::LIST },
+  { key::kIdleDetectionBlockedForUrls,
+    prefs::kManagedIdleDetectionBlockedForUrls,
+    base::Value::Type::LIST },
 
 #if !BUILDFLAG(IS_CHROMEOS)
   { key::kChromeVariations,
@@ -1342,6 +1368,12 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kDeviceLoginScreenShowOptionsInSystemTrayMenu,
     nullptr,
     base::Value::Type::BOOLEAN },
+  { key::kDeviceLoginScreenPreferSlowCiphers,
+    nullptr,
+    base::Value::Type::STRING },
+  { key::kDeviceLoginScreenPreferSlowKexAlgorithms,
+    nullptr,
+    base::Value::Type::STRING },
   { key::kDeviceLoginScreenPrimaryMouseButtonSwitch,
     ash::prefs::kOwnerPrimaryMouseButtonRight,
     base::Value::Type::BOOLEAN },
@@ -2452,11 +2484,19 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kAIModeSettings,
     omnibox::kAIModeSettings,
     base::Value::Type::INTEGER },
+  { key::kSearchContentSharingSettings,
+    contextual_search::kSearchContentSharingSettings,
+    base::Value::Type::INTEGER },
 #if BUILDFLAG(ENABLE_GLIC)
   { key::kGeminiActOnWebSettings,
     glic::prefs::kGlicActuationOnWeb,
     base::Value::Type::INTEGER },
 #endif  // BUILDFLAG(ENABLE_GLIC)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+  { key::kEnableProxyOverrideRulesForAllUsers,
+    proxy_config::prefs::kEnableProxyOverrideRulesForAllUsers,
+    base::Value::Type::INTEGER },
+#endif // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 };
 // clang-format on
 
@@ -2473,6 +2513,16 @@ const SchemaValidatingPolicyToPreferenceMapEntry kSchemaValidatingPolicyMap[] =
 #if BUILDFLAG(IS_CHROMEOS)
   { key::kExternalStorageAllowlist,
     disks::prefs::kExternalStorageAllowlist,
+    SCHEMA_ALLOW_UNKNOWN,
+    SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
+    SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED },
+  { key::kLocalAuthFactorsComplexity,
+    ash::prefs::kLocalAuthFactorsComplexity,
+    SCHEMA_ALLOW_UNKNOWN,
+    SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
+    SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED },
+  { key::kLocalAuthFactors,
+    ash::prefs::kLocalAuthFactors,
     SCHEMA_ALLOW_UNKNOWN,
     SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
     SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED },
@@ -3245,6 +3295,7 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
           chrome_schema));
   handlers->AddHandler(std::make_unique<DriveFileSyncAvailablePolicyHandler>());
   handlers->AddHandler(std::make_unique<ScreenCaptureLocationPolicyHandler>());
+  handlers->AddHandler(std::make_unique<CameraSaveLocationPolicyHandler>());
   handlers->AddHandler(
       std::make_unique<ContextualGoogleIntegrationsPoliciesHandler>(
           chrome_schema));
@@ -3462,6 +3513,13 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
 #endif
   gen_ai_default_policies.emplace_back(
       key::kAIModeSettings, omnibox::kAIModeSettings,
+      GenAiDefaultSettingsPolicyHandler::PolicyValueToPrefMap(
+          {{0, 0}, {1, 0}, {2, 1}}));
+  // Default value for SearchContentSharingSettings is 0 if
+  // GenAiDefaultSettings value is 0 or 1, or 1 if the latter is 2.
+  gen_ai_default_policies.emplace_back(
+      key::kSearchContentSharingSettings,
+      contextual_search::kSearchContentSharingSettings,
       GenAiDefaultSettingsPolicyHandler::PolicyValueToPrefMap(
           {{0, 0}, {1, 0}, {2, 1}}));
   handlers->AddHandler(std::make_unique<GenAiDefaultSettingsPolicyHandler>(

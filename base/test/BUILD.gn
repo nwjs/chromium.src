@@ -96,8 +96,6 @@ static_library("test_support") {
     "launcher/unit_test_launcher.h",
     "manual_hang_watcher.cc",
     "manual_hang_watcher.h",
-    "metrics/action_suffix_reader.cc",
-    "metrics/action_suffix_reader.h",
     "metrics/action_variants_reader.cc",
     "metrics/action_variants_reader.h",
     "metrics/histogram_enum_reader.cc",
@@ -270,6 +268,13 @@ static_library("test_support") {
   if (is_linux || is_chromeos) {
     sources += [ "test_file_util_linux.cc" ]
     public_deps += [ "//third_party/test_fonts/fontconfig:test_support" ]
+  }
+
+  if (is_posix && !is_android && !is_apple) {
+    sources += [
+      "nix/scoped_chrome_version_extra_override.cc",
+      "nix/scoped_chrome_version_extra_override.h",
+    ]
   }
 
   if (is_mac) {
@@ -708,6 +713,7 @@ if (is_android) {
       "android/javatests/src/org/chromium/base/test/transit/InstrumentationThreadCondition.java",
       "android/javatests/src/org/chromium/base/test/transit/LogicalElement.java",
       "android/javatests/src/org/chromium/base/test/transit/MoreViewConditions.java",
+      "android/javatests/src/org/chromium/base/test/transit/OptionalViewElement.java",
       "android/javatests/src/org/chromium/base/test/transit/PayloadCallbackCondition.java",
       "android/javatests/src/org/chromium/base/test/transit/PublicTransitConfig.java",
       "android/javatests/src/org/chromium/base/test/transit/ScrollableFacility.java",
@@ -722,9 +728,13 @@ if (is_android) {
       "android/javatests/src/org/chromium/base/test/transit/Trip.java",
       "android/javatests/src/org/chromium/base/test/transit/TripBuilder.java",
       "android/javatests/src/org/chromium/base/test/transit/UiThreadCondition.java",
+      "android/javatests/src/org/chromium/base/test/transit/ViewAndRoot.java",
+      "android/javatests/src/org/chromium/base/test/transit/ViewCarryOn.java",
       "android/javatests/src/org/chromium/base/test/transit/ViewConditions.java",
       "android/javatests/src/org/chromium/base/test/transit/ViewElement.java",
       "android/javatests/src/org/chromium/base/test/transit/ViewElementMatchesCondition.java",
+      "android/javatests/src/org/chromium/base/test/transit/ViewFinder.java",
+      "android/javatests/src/org/chromium/base/test/transit/ViewSettledCarryOn.java",
       "android/javatests/src/org/chromium/base/test/transit/ViewSpec.java",
     ]
   }

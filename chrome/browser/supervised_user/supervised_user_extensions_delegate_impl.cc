@@ -24,6 +24,10 @@
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/native_ui_types.h"
 
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/supervised_user/android/extension_parent_approval.h"
+#endif  // BUILDFLAG(IS_ANDROID)
+
 namespace {
 
 void OnParentPermissionDialogComplete(
@@ -33,18 +37,15 @@ void OnParentPermissionDialogComplete(
   switch (result) {
     case ParentPermissionDialog::Result::kParentPermissionReceived:
       std::move(delegate_done_callback)
-          .Run(extensions::SupervisedUserExtensionsDelegate::
-                   ExtensionApprovalResult::kApproved);
+          .Run(extensions::SupervisedExtensionApprovalResult::kApproved);
       break;
     case ParentPermissionDialog::Result::kParentPermissionCanceled:
       std::move(delegate_done_callback)
-          .Run(extensions::SupervisedUserExtensionsDelegate::
-                   ExtensionApprovalResult::kCanceled);
+          .Run(extensions::SupervisedExtensionApprovalResult::kCanceled);
       break;
     case ParentPermissionDialog::Result::kParentPermissionFailed:
       std::move(delegate_done_callback)
-          .Run(extensions::SupervisedUserExtensionsDelegate::
-                   ExtensionApprovalResult::kFailed);
+          .Run(extensions::SupervisedExtensionApprovalResult::kFailed);
       break;
   }
 }
@@ -162,8 +163,7 @@ void SupervisedUserExtensionsDelegateImpl::
         content::WebContents* contents,
         ExtensionInstalledBlockedByParentDialogAction blocked_action) {
   auto block_dialog_callback = base::BindOnce(
-      std::move(done_callback_),
-      SupervisedUserExtensionsDelegate::ExtensionApprovalResult::kBlocked);
+      std::move(done_callback_), SupervisedExtensionApprovalResult::kBlocked);
   SupervisedUserExtensionsMetricsRecorder::RecordEnablementUmaMetrics(
       SupervisedUserExtensionsMetricsRecorder::EnablementState::
           kFailedToEnable);
@@ -189,8 +189,7 @@ void SupervisedUserExtensionsDelegateImpl::RequestExtensionApproval(
     base::WeakPtr<content::WebContents> contents_weak_ptr = contents.value();
     if (!contents_weak_ptr) {
       std::move(done_callback_)
-          .Run(extensions::SupervisedUserExtensionsDelegate::
-                   ExtensionApprovalResult::kCanceled);
+          .Run(SupervisedExtensionApprovalResult::kCanceled);
       return;
     }
   }
@@ -213,6 +212,10 @@ void SupervisedUserExtensionsDelegateImpl::RequestExtensionApproval(
                              : ParentAccessExtensionApprovalsManager::
                                    ExtensionInstallMode::kInstallationDenied,
       std::move(done_callback_));
+#elif BUILDFLAG(IS_ANDROID)
+  CHECK(contents.value());
+  ExtensionParentApproval::RequestExtensionApproval(contents.value().get(),
+                                                    std::move(done_callback_));
 #endif
 }
 

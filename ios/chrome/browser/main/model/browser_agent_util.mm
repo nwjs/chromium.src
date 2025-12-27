@@ -9,6 +9,7 @@
 #import "components/breadcrumbs/core/breadcrumbs_status.h"
 #import "components/data_sharing/public/features.h"
 #import "ios/chrome/browser/app_launcher/model/app_launcher_browser_agent.h"
+#import "ios/chrome/browser/autocomplete/model/autocomplete_browser_agent.h"
 #import "ios/chrome/browser/browser_view/model/browser_view_visibility_notifier_browser_agent.h"
 #import "ios/chrome/browser/bubble/model/tab_based_iph_browser_agent.h"
 #import "ios/chrome/browser/collaboration/model/collaboration_service_factory.h"
@@ -16,6 +17,7 @@
 #import "ios/chrome/browser/crash_report/model/breadcrumbs/breadcrumb_manager_browser_agent.h"
 #import "ios/chrome/browser/credential_provider/model/credential_provider_buildflags.h"
 #import "ios/chrome/browser/device_sharing/model/device_sharing_browser_agent.h"
+#import "ios/chrome/browser/device_sharing/model/device_sharing_manager_factory.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_visibility_browser_agent.h"
 #import "ios/chrome/browser/favicon/model/favicon_browser_agent.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
@@ -46,6 +48,7 @@
 #import "ios/chrome/browser/sync/model/sync_error_browser_agent.h"
 #import "ios/chrome/browser/tab_insertion/model/tab_insertion_browser_agent.h"
 #import "ios/chrome/browser/tabs/model/synced_window_delegate_browser_agent.h"
+#import "ios/chrome/browser/tabs/model/tabs_dependency_installer_manager.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/fullscreen/toolbars_size_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_notifier_browser_agent.h"
@@ -78,6 +81,10 @@ void AttachBrowserAgentsForInactiveBrowser(Browser* browser) {
   //
   // Add new agents to AttachBrowserAgentsForActiveBrowser(...) instead.
 
+  // The tabs dependency installation management must be created before all
+  // browser agents to correctly monitor the registration of web state changes.
+  TabsDependencyInstallerManager::CreateForBrowser(browser);
+
   SnapshotBrowserAgent::CreateForBrowser(browser);
   SyncedWindowDelegateBrowserAgent::CreateForBrowser(browser);
   WebUsageEnablerBrowserAgent::CreateForBrowser(browser);
@@ -109,10 +116,12 @@ void AttachBrowserAgentsForActiveBrowser(Browser* browser) {
   LiveTabContextBrowserAgent::CreateForBrowser(browser);
   TabInsertionBrowserAgent::CreateForBrowser(browser);
   AttachInfobarOverlayBrowserAgent(browser);
-  DeviceSharingBrowserAgent::CreateForBrowser(browser);
+  DeviceSharingBrowserAgent::CreateForBrowser(
+      browser, DeviceSharingManagerFactory::GetForProfile(profile));
   UrlLoadingNotifierBrowserAgent::CreateForBrowser(browser);
   AppLauncherBrowserAgent::CreateForBrowser(browser);
   OmniboxPositionBrowserAgent::CreateForBrowser(browser);
+  AutocompleteBrowserAgent::CreateForBrowser(browser);
   ToolbarsSizeBrowserAgent::CreateForBrowser(browser);
 
   // Only create the FullscreenBrowserAgent and ReaderModeBrowserAgent for

@@ -104,10 +104,6 @@ RtcTransportProcessWideDeps& ProcessWideDeps() {
 }
 
 // static
-const char RtcTransportDependencies::kSupplementName[] =
-    "RtcTransportDependencies";
-
-// static
 scoped_refptr<base::SingleThreadTaskRunner>
 RtcTransportDependencies::NetworkTaskRunner() {
   return ProcessWideDeps().GetNetworkThread().task_runner();
@@ -118,12 +114,11 @@ void RtcTransportDependencies::GetInitialized(
     ExecutionContext& context,
     base::OnceCallback<void(RtcTransportDependencies*)> callback) {
   CHECK(!context.IsContextDestroyed());
-  RtcTransportDependencies* supplement =
-      Supplement<ExecutionContext>::From<RtcTransportDependencies>(context);
+  RtcTransportDependencies* supplement = context.GetRtcTransportDependencies();
   if (!supplement) {
     supplement =
         MakeGarbageCollected<RtcTransportDependencies>(context, PassKey());
-    ProvideTo(context, supplement);
+    context.SetRtcTransportDependencies(supplement);
   }
   supplement->RunOnceInitialized(
       base::BindOnce(std::move(callback), WrapPersistent(supplement)));
@@ -131,8 +126,7 @@ void RtcTransportDependencies::GetInitialized(
 
 RtcTransportDependencies::RtcTransportDependencies(ExecutionContext& context,
                                                    PassKey)
-    : Supplement(context),
-      ExecutionContextLifecycleObserver(&context),
+    : ExecutionContextLifecycleObserver(&context),
       p2p_socket_dispatcher_(P2PSocketDispatcher::From(context)),
       webrtc_environment_(webrtc::EnvironmentFactory().Create()) {
   // Start initialization on the network thread.
@@ -156,7 +150,7 @@ RtcTransportDependencies::RtcTransportDependencies(ExecutionContext& context,
                 std::make_unique<IpcPacketSocketFactory>(
                     CrossThreadBindRepeating(devtools_token_getter),
                     p2p_socket_dispatcher, kRtcTransportTrafficAnnotation,
-                    /*batch_udp_packets=*/false);
+                    /*batch_udp_packets=*/true);
 
             PostCrossThreadTask(
                 *task_runner, FROM_HERE,
@@ -235,7 +229,6 @@ void RtcTransportDependencies::ContextDestroyed() {
 }
 
 void RtcTransportDependencies::Trace(Visitor* visitor) const {
-  Supplement<ExecutionContext>::Trace(visitor);
   ExecutionContextLifecycleObserver::Trace(visitor);
   visitor->Trace(p2p_socket_dispatcher_);
 }

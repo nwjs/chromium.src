@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/functional/callback.h"
@@ -31,14 +32,13 @@
 #include "net/base/net_errors.h"
 #include "net/dns/public/resolve_error_info.h"
 #include "net/http/http_connection_info.h"
-#include "net/ssl/ssl_info.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-forward.h"
 #include "third_party/blink/public/common/navigation/impression.h"
 #include "third_party/blink/public/common/runtime_feature_state/runtime_feature_state_context.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
-#include "third_party/blink/public/mojom/lcp_critical_path_predictor/lcp_critical_path_predictor.mojom.h"
-#include "third_party/blink/public/mojom/loader/referrer.mojom.h"
+#include "third_party/blink/public/mojom/lcp_critical_path_predictor/lcp_critical_path_predictor.mojom-forward.h"
+#include "third_party/blink/public/mojom/loader/referrer.mojom-forward.h"
 #include "third_party/blink/public/mojom/loader/transferrable_url_loader.mojom-forward.h"
 #include "third_party/blink/public/mojom/navigation/navigation_initiator_activation_and_ad_status.mojom.h"
 #include "third_party/blink/public/mojom/navigation/renderer_content_settings.mojom-forward.h"
@@ -54,6 +54,7 @@ class GURL;
 namespace net {
 class HttpRequestHeaders;
 class HttpResponseHeaders;
+class SSLInfo;
 }  // namespace net
 
 namespace perfetto::protos::pbzero {
@@ -303,8 +304,9 @@ class CONTENT_EXPORT NavigationHandle : public base::SupportsUserData {
 
   // Navigation control flow --------------------------------------------------
 
-  // The net error code if an error happened prior to commit. Otherwise it will
-  // be net::OK.
+  // The net error code if an error happened prior to commit, or the navigation
+  // was aborted by the embedder (eg. tab closure, killed renderer). Otherwise
+  // it will be net::OK.
   virtual net::Error GetNetErrorCode() = 0;
 
   // The details why `net::Error` was emitted.
@@ -362,6 +364,18 @@ class CONTENT_EXPORT NavigationHandle : public base::SupportsUserData {
   // * pushState/replaceState
   // * same page history navigation
   virtual bool IsSameDocument() const = 0;
+
+  // Uniquely identifies a committed same-document navigation.  This is used for
+  // attributing soft navigation metrics to the correct UKM Source ID. Note:
+  // * The value is set by the renderer process, and thus not trustworthy for
+  //   security critical uses. It's OK only for the metrics use case.
+  // * The value is set at "did commit" time. This means any browser-initiated
+  //   same-document navigations will not have this value set for most of the
+  //   life of the NavigationHandle.
+  // * This is different from the "item sequence number" in the session history
+  //   item, because it must be unique for each visit and not per history item.
+  virtual std::optional<base::UnguessableToken> GetSameDocumentMetricsToken()
+      const = 0;
 
   // Whether the navigation is a history traversal navigation, which navigates
   // to a pre-existing NavigationEntry. Note that this will return false for
@@ -431,23 +445,14 @@ class CONTENT_EXPORT NavigationHandle : public base::SupportsUserData {
 
   // Remove a request's header. If the header is not present, it has no effect.
   // Must be called during a redirect.
-  virtual void RemoveRequestHeader(const std::string& header_name) = 0;
+  virtual void RemoveRequestHeader(std::string_view header_name) = 0;
 
   // Set a request's header. If the header is already present, its value is
   // overwritten. When modified during a navigation start, the headers will be
   // applied to the initial network request. When modified during a redirect,
   // the headers will be applied to the redirected request.
-  virtual void SetRequestHeader(const std::string& header_name,
-                                const std::string& header_value) = 0;
-
-  // Set a request's header that is exempt from CORS checks. This is only
-  // honored if the NetworkContext was configured to allow any cors exempt
-  // header (see
-  // |NetworkContext::mojom::allow_any_cors_exempt_header_for_browser|) or
-  // if |header_name| is specified in
-  // |NetworkContextParams::cors_exempt_header_list|.
-  virtual void SetCorsExemptRequestHeader(const std::string& header_name,
-                                          const std::string& header_value) = 0;
+  virtual void SetRequestHeader(std::string_view header_name,
+                                std::string_view header_value) = 0;
 
   // Set LCP Critical Path Predictor hint data to be passed along to the
   // renderer process on the navigation commit.

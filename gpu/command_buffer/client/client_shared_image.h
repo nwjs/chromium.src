@@ -7,6 +7,7 @@
 
 #include <optional>
 
+#include "base/byte_count.h"
 #include "base/containers/span.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
@@ -163,6 +164,9 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
 
   const Mailbox& mailbox() const { return mailbox_; }
   viz::SharedImageFormat format() const { return metadata_.format; }
+  base::ByteCount EstimatedSizeInBytes() const {
+    return base::ByteCount(format().EstimatedSizeInBytes(size()));
+  }
   gfx::Size size() const { return metadata_.size; }
   const gfx::ColorSpace& color_space() const { return metadata_.color_space; }
   GrSurfaceOrigin surface_origin() const { return metadata_.surface_origin; }
@@ -247,13 +251,12 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
       uint32_t texture_target);
 
   using AsyncMapCompletionCallback = base::OnceCallback<void(bool)>;
-
   static scoped_refptr<ClientSharedImage> CreateForTesting(
       const Mailbox& mailbox,
       const SharedImageMetadata& metadata,
       const SyncToken& sync_token,
-      gfx::BufferUsage buffer_usage,
-      scoped_refptr<SharedImageInterfaceHolder> sii_holder);
+      uint32_t texture_target,
+      bool is_software = false);
 
   // Used to control execution of `MapAsync()` completion callbacks. On a
   // `MapAsync()` invocation the completion callback will be passed to this
@@ -424,10 +427,10 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
   scoped_refptr<base::SingleThreadTaskRunner>
       copy_native_buffer_to_shmem_task_runner_;
 
-  bool is_software_ = false;
-
   // The texture target returned by `GetTextureTarget()`.
   uint32_t texture_target_ = 0;
+
+  bool is_software_ = false;
 
   AsyncMapInvokedCallback async_map_invoked_callback_for_testing_;
   bool premapped_for_testing_;
@@ -468,7 +471,8 @@ struct GPU_COMMAND_BUFFER_CLIENT_EXPORT ExportedSharedImage {
                       std::string debug_label,
                       std::optional<gfx::GpuMemoryBufferHandle> buffer_handle,
                       std::optional<gfx::BufferUsage> buffer_usage,
-                      uint32_t texture_target);
+                      uint32_t texture_target,
+                      bool is_software);
 
   Mailbox mailbox_;
   SharedImageMetadata metadata_;
@@ -477,6 +481,7 @@ struct GPU_COMMAND_BUFFER_CLIENT_EXPORT ExportedSharedImage {
   std::optional<gfx::GpuMemoryBufferHandle> buffer_handle_;
   std::optional<gfx::BufferUsage> buffer_usage_;
   uint32_t texture_target_ = 0;
+  bool is_software_ = false;
 };
 
 class GPU_COMMAND_BUFFER_CLIENT_EXPORT SharedImageTexture {
@@ -571,6 +576,11 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT WebGPUTextureScopedAccess {
   void SetNeedsPresent(bool needs_present);
   const wgpu::dawn::wire::client::Texture& texture();
 
+  // This method is used to clear the context before the object is destroyed.
+  // This is necessary to avoid a dangling pointer crash when the context is
+  // lost.
+  void ClearContext();
+
  private:
   friend class ClientSharedImage;
   WebGPUTextureScopedAccess(
@@ -582,7 +592,7 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT WebGPUTextureScopedAccess {
       uint64_t usage,
       webgpu::MailboxFlags mailbox_flags);
 
-  const raw_ptr<webgpu::WebGPUInterface> webgpu_;
+  raw_ptr<webgpu::WebGPUInterface> webgpu_;
   std::unique_ptr<wgpu::dawn::wire::client::Texture> texture_;
   raw_ptr<gpu::ClientSharedImage> shared_image_;
   uint32_t device_id_ = 0;

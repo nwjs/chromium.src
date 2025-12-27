@@ -5,7 +5,6 @@
 #ifndef CHROME_BROWSER_SAFE_BROWSING_CLOUD_CONTENT_SCANNING_FILE_ANALYSIS_REQUEST_H_
 #define CHROME_BROWSER_SAFE_BROWSING_CLOUD_CONTENT_SCANNING_FILE_ANALYSIS_REQUEST_H_
 
-#include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "chrome/common/safe_browsing/archive_analyzer_results.h"
@@ -46,8 +45,8 @@ class FileAnalysisRequest : public BinaryUploadService::Request {
   void OpenFile();
 
  private:
-  void OnGotFileData(
-      std::pair<BinaryUploadService::Result, Data> result_and_data);
+  void OnGotFileData(std::pair<enterprise_connectors::ScanRequestUploadResult,
+                               Data> result_and_data);
 
   void OnCheckedForEncryption(Data data,
                               const ArchiveAnalyzerResults& analyzer_result);
@@ -55,7 +54,8 @@ class FileAnalysisRequest : public BinaryUploadService::Request {
   // Helper functions to access the request proto.
   bool HasMalwareRequest() const;
 
-  void CacheResultAndData(BinaryUploadService::Result result, Data data);
+  void CacheResultAndData(enterprise_connectors::ScanRequestUploadResult result,
+                          Data data);
 
   // Runs |data_callback_|.
   void RunCallback();
@@ -63,7 +63,7 @@ class FileAnalysisRequest : public BinaryUploadService::Request {
   void GetData(file_access::ScopedFileAccess file_access);
 
   bool has_cached_result_;
-  BinaryUploadService::Result cached_result_;
+  enterprise_connectors::ScanRequestUploadResult cached_result_;
   Data cached_data_;
 
   // Analysis settings relevant to file analysis requests, copied from the

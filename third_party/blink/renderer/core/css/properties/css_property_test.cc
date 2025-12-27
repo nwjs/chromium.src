@@ -43,20 +43,23 @@ class ModeCheckingAnchorEvaluator : public AnchorEvaluator {
 
   std::optional<LayoutUnit> Evaluate(
       const AnchorQuery&,
-      const ScopedCSSName* position_anchor,
+      const StylePositionAnchor& position_anchor,
       const std::optional<PositionAreaOffsets>&) override {
     return (required_mode_ == GetMode()) ? std::optional<LayoutUnit>(1)
                                          : std::optional<LayoutUnit>();
   }
 
   std::optional<PositionAreaOffsets> ComputePositionAreaOffsetsForLayout(
-      const ScopedCSSName*,
+      const StylePositionAnchor&,
       PositionArea) override {
     return std::nullopt;
   }
   std::optional<PhysicalOffset> ComputeAnchorCenterOffsets(
       const ComputedStyleBuilder& builder) override {
     return std::nullopt;
+  }
+  WritingDirectionMode GetContainerWritingDirection() const override {
+    return {WritingMode::kHorizontalTb, TextDirection::kLtr};
   }
 
  private:

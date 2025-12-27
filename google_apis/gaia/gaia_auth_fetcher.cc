@@ -483,7 +483,7 @@ void GaiaAuthFetcher::StartOAuthMultilogin(
     const std::vector<gaia::MultiloginAccountAuthCredentials>& accounts,
     const std::string& external_cc_result,
     OAuthMultiloginResult::CookieDecryptor cookie_decryptor,
-    gaia::MultiloginCookieBindingMode cookie_binding_mode) {
+    gaia::MultiloginCookieBindingParams cookie_binding_params) {
   DCHECK(!fetch_pending_) << "Tried to fetch two things at once!";
 
   UMA_HISTOGRAM_COUNTS_100("Signin.Multilogin.NumberOfAccounts",
@@ -522,18 +522,20 @@ void GaiaAuthFetcher::StartOAuthMultilogin(
   }
 
   constexpr std::string_view kCookieBindingModeParameter = "cookie_binding";
-  switch (cookie_binding_mode) {
-    case gaia::MultiloginCookieBindingMode::kDisabled:
+  switch (cookie_binding_params.mode) {
+    case gaia::MultiloginCookieBindingParams::Mode::kDisabled:
       break;
-    case gaia::MultiloginCookieBindingMode::kEnabledUnenforced:
+    case gaia::MultiloginCookieBindingParams::Mode::kEnabledUnenforced:
       url = net::AppendQueryParameter(url, kCookieBindingModeParameter, "1");
       break;
-    case gaia::MultiloginCookieBindingMode::kEnabledEnforced:
+    case gaia::MultiloginCookieBindingParams::Mode::kEnabledEnforced:
       url = net::AppendQueryParameter(url, kCookieBindingModeParameter, "2");
       break;
   }
 
   oauth_multilogin_cookie_decryptor_ = std::move(cookie_decryptor);
+  standard_device_bound_session_credentials_ =
+      cookie_binding_params.standard_device_bound_session_credentials;
 
   net::NetworkTrafficAnnotationTag traffic_annotation =
       net::DefineNetworkTrafficAnnotation("gaia_auth_multilogin", R"(
@@ -845,22 +847,23 @@ void GaiaAuthFetcher::OnOAuthMultiloginFetched(const std::string& data,
   OAuthMultiloginResult result =
       (net_error == net::Error::OK)
           ? OAuthMultiloginResult(data, response_code,
-                                  oauth_multilogin_cookie_decryptor_)
+                                  oauth_multilogin_cookie_decryptor_,
+                                  standard_device_bound_session_credentials_)
           : OAuthMultiloginResult(OAuthMultiloginResponseStatus::kRetry);
   consumer_->OnOAuthMultiloginFinished(result);
 }
 
 void GaiaAuthFetcher::OnURLLoadComplete(
-    std::unique_ptr<std::string> response_body) {
+    std::optional<std::string> response_body) {
   net::Error net_error = static_cast<net::Error>(url_loader_->NetError());
-  std::string data = response_body ? std::move(*response_body) : "";
 
   int response_code = 0;
   if (url_loader_->ResponseInfo()) {
     if (url_loader_->ResponseInfo()->headers)
       response_code = url_loader_->ResponseInfo()->headers->response_code();
   }
-  OnURLLoadCompleteInternal(net_error, response_code, data);
+  OnURLLoadCompleteInternal(net_error, response_code,
+                            std::move(response_body).value_or(""));
 }
 
 void GaiaAuthFetcher::OnURLLoadCompleteInternal(net::Error net_error,

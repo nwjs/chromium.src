@@ -25,6 +25,7 @@
 #include "content/browser/indexed_db/instance/sqlite/blob_writer.h"
 #include "content/browser/indexed_db/status.h"
 #include "content/common/content_export.h"
+#include "mojo/public/cpp/base/big_buffer.h"
 #include "sql/streaming_blob_handle.h"
 #include "third_party/blink/public/common/indexeddb/indexeddb_key_path.h"
 #include "third_party/blink/public/common/indexeddb/indexeddb_key_range.h"
@@ -246,10 +247,17 @@ class CONTENT_EXPORT DatabaseConnection {
       IndexedDBValue value,
       int64_t record_row_id);
 
+  // Decompresses bytes found in the database. Will return an error and mark the
+  // database as corrupt on failure.
+  StatusOr<mojo_base::BigBuffer> Decompress(
+      base::span<const uint8_t> compressed,
+      int compression_type);
+
   // Changes the size at which blobs are chunked.
   static void OverrideMaxBlobSizeForTesting(base::ByteCount size);
 
  private:
+  friend class BackingStoreSqliteTest;
   FRIEND_TEST_ALL_PREFIXES(DatabaseConnectionTest, TooNew);
 
   DatabaseConnection(base::FilePath path, BackingStoreImpl& backing_store);
@@ -340,8 +348,9 @@ class CONTENT_EXPORT DatabaseConnection {
     kBlobTypeUnknown = 14,
     kV8FormatTooNewOrMissing = 15,
     kUtf16StringUnreadable = 16,
+    kDecompressionFailure = 17,
 
-    kMaxValue = kUtf16StringUnreadable,
+    kMaxValue = kDecompressionFailure,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/storage/enums.xml:IndexedDbSqliteSpecificEvent)
 
@@ -403,8 +412,10 @@ class CONTENT_EXPORT DatabaseConnection {
   // database. The contents of the blobs are not written until commit time. The
   // objects in this map are also used to vend bytes (via their connected mojo
   // remote) if the client reads a value after writing but before committing.
-  // ("Pending" blobs.)
-  std::map<int64_t, IndexedDBExternalObject> blobs_to_write_;
+  // ("Pending" blobs.) Note that some of these blobs may be associated with
+  // records that were added and later deleted (or replaced) in the same commit.
+  // A check to verify the blobs are still needed is performed at commit time.
+  std::map<int64_t, IndexedDBExternalObject> blobs_staged_for_commit_;
 
   // This map will be empty until `CommitTransactionPhaseOne()` is called, at
   // which point it will be populated with helper objects that feed the blob

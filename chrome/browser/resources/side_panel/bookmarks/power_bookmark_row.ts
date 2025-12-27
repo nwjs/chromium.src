@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import '//bookmarks-side-panel.top-chrome/shared/sp_list_item_badge.js';
 import 'chrome://resources/cr_elements/cr_checkbox/cr_checkbox.js';
 import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import 'chrome://resources/cr_elements/cr_expand_button/cr_expand_button.js';
@@ -72,8 +73,11 @@ export class PowerBookmarkRowElement extends CrLitElement {
       isSelected: {type: Boolean},
       updatedElementIds: {type: Array},
       canDrag: {type: Boolean},
+      hasActiveDrag: {type: Boolean},
       activeFolderPath: {type: Array},
       hasFolders: {type: Boolean, reflect: true},
+      sortedChildren: {type: Array},
+      activeSortIndex: {type: Number},
     };
   }
 
@@ -106,8 +110,11 @@ export class PowerBookmarkRowElement extends CrLitElement {
   accessor updatedElementIds: string[] = [];
   accessor isPriceTracked: boolean = false;
   accessor canDrag: boolean = true;
+  accessor hasActiveDrag: boolean = false;
   accessor activeFolderPath: BookmarksTreeNode[] = [];
   accessor hasFolders: boolean = false;
+  accessor sortedChildren: BookmarksTreeNode[] = [];
+  accessor activeSortIndex: number = 0;
 
   accessor listItemSize: CrUrlListItemSize = CrUrlListItemSize.COMPACT;
 
@@ -161,6 +168,10 @@ export class PowerBookmarkRowElement extends CrLitElement {
     if (changedProperties.has('bookmark') &&
         this.bookmark.id !== changedProperties.get('bookmark')?.id) {
       this.toggleExpand = false;
+      this.sortedChildren =
+          this.bookmark.children ? [...this.bookmark.children] : [];
+      this.bookmarksService_.sortBookmarks(
+          this.sortedChildren, this.activeSortIndex);
     }
 
     if (changedProperties.has('activeFolderPath')) {
@@ -179,6 +190,11 @@ export class PowerBookmarkRowElement extends CrLitElement {
         this.style.setProperty(
             '--margin-per-depth', `${NESTED_BOOKMARKS_MARGIN_PER_DEPTH}px`);
       }
+    }
+
+    if (changedProperties.has('activeSortIndex')) {
+      this.bookmarksService_.sortBookmarks(
+          this.sortedChildren, this.activeSortIndex);
     }
   }
 
@@ -356,7 +372,8 @@ export class PowerBookmarkRowElement extends CrLitElement {
     // Ignore clicks on the row when it has an input, to ensure the row doesn't
     // eat input clicks. Also ignore clicks if the row has no associated
     // bookmark, or if the event is a right-click.
-    if (this.isRenamingItem_() || !this.bookmark || event.button === 2) {
+    if (this.isRenamingItem_() || !this.bookmark || event.button === 2 ||
+        this.hasActiveDrag) {
       return;
     }
     event.preventDefault();

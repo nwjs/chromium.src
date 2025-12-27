@@ -54,8 +54,6 @@ chromium-metrics-reviews@google.com.
   <variant name="IndexedDBEphemeral" summary="IndexedDB, in-memory DB"/>
   <variant name="InterestGroups" summary="InterestGroups"/>
   <variant name="InterestGroupStorage" summary="InterestGroupStorage"/>
-  <variant name="IpProtectionProbabilisticRevealTokens"
-      summary="IpProtectionProbabilisticRevealTokens"/>
   <variant name="KAnonymityService" summary="KAnonymityService"/>
   <variant name="LocalTraces" summary="LocalTraces"/>
   <variant name="MediaDeviceSalts" summary="MediaDeviceSalts"/>
@@ -135,6 +133,17 @@ chromium-metrics-reviews@google.com.
   <token key="DatabaseTag" variants="DatabaseTag"/>
 </histogram>
 
+<histogram name="Sql.Database.Raze.UnhandledErrorCode.{DatabaseTag}"
+    enum="SqliteResultCode" expires_after="2026-06-01">
+  <owner>etienneb@chromium.org</owner>
+  <owner>jpgravel@chromium.org</owner>
+  <summary>
+    Reports sqlite errors that triggered when
+    Sql.Database.Raze.FailureReason.{DatabaseTag} is kUnknownError.
+  </summary>
+  <token key="DatabaseTag" variants="DatabaseTag"/>
+</histogram>
+
 <histogram name="Sql.Database.RazeTime.{DatabaseTag}" units="microseconds"
     expires_after="2026-06-01">
   <owner>etienneb@chromium.org</owner>
@@ -160,7 +169,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Database.Success.OpenInternalTime.{DatabaseTag}"
-    units="microseconds" expires_after="2026-03-22">
+    units="microseconds" expires_after="2026-05-24">
   <owner>anthonyvd@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <summary>
@@ -173,7 +182,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Database.Success.SqliteOpenTime.{DatabaseTag}"
-    units="microseconds" expires_after="2026-03-22">
+    units="microseconds" expires_after="2026-05-24">
   <owner>anthonyvd@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <summary>
@@ -233,7 +242,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Statement.ExecutionTime.{DatabaseTag}"
-    units="microseconds" expires_after="2026-03-22">
+    units="microseconds" expires_after="2026-05-24">
   <owner>anthonyvd@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <summary>
@@ -248,7 +257,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Statement.StepTime.{DatabaseTag}" units="microseconds"
-    expires_after="2026-03-22">
+    expires_after="2026-05-24">
   <owner>anthonyvd@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <summary>
@@ -261,7 +270,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Statement.{DatabaseTag}.VMSteps" units="count"
-    expires_after="2026-03-01">
+    expires_after="2026-05-03">
   <owner>etienneb@chromium.org</owner>
   <owner>estade@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
@@ -273,7 +282,7 @@ chromium-metrics-reviews@google.com.
   <token key="DatabaseTag" variants="DatabaseTag"/>
 </histogram>
 
-<histogram name="Sql.vfs.SyncTime" units="ms" expires_after="2026-03-01">
+<histogram name="Sql.vfs.SyncTime" units="ms" expires_after="2026-05-10">
   <owner>etienneb@chromium.org</owner>
   <owner>estade@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>

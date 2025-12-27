@@ -122,24 +122,6 @@
 
 namespace blink {
 
-template <>
-struct CrossThreadCopier<viz::SurfaceId>
-    : public CrossThreadCopierPassThrough<viz::SurfaceId> {
-  STATIC_ONLY(CrossThreadCopier);
-};
-
-template <>
-struct CrossThreadCopier<media::VideoTransformation>
-    : public CrossThreadCopierPassThrough<media::VideoTransformation> {
-  STATIC_ONLY(CrossThreadCopier);
-};
-
-template <>
-struct CrossThreadCopier<media::MediaPlayerLoggingID>
-    : public CrossThreadCopierPassThrough<media::MediaPlayerLoggingID> {
-  STATIC_ONLY(CrossThreadCopier);
-};
-
 namespace {
 
 enum SplitHistogramTypes {
@@ -401,6 +383,7 @@ WebMediaPlayer::NetworkState PipelineErrorToNetworkState(
     case media::DEMUXER_ERROR_COULD_NOT_PARSE:
     case media::DEMUXER_ERROR_NO_SUPPORTED_STREAMS:
     case media::DEMUXER_ERROR_DETECTED_HLS:
+    case media::DEMUXER_ERROR_PROGRESSIVE_DISABLED:
     case media::DECODER_ERROR_NOT_SUPPORTED:
     case media::DEMUXER_ERROR_BITSTREAM_CONVERSION_FAILED:
       return WebMediaPlayer::kNetworkStateFormatError;
@@ -909,13 +892,6 @@ void WebMediaPlayerImpl::DoLoad(LoadType load_type,
   load_type_ = load_type;
 
   ReportMetrics(load_type, url, media_log_.get());
-
-  // Set subresource URL for crash reporting; will be truncated to 256 bytes.
-  static base::debug::CrashKeyString* subresource_url =
-      base::debug::AllocateCrashKeyString("subresource_url",
-                                          base::debug::CrashKeySize::Size256);
-  base::debug::SetCrashKeyString(subresource_url,
-                                 demuxer_manager_->LoadedUrl().spec());
 
   SetNetworkState(WebMediaPlayer::kNetworkStateLoading);
   SetReadyState(WebMediaPlayer::kReadyStateHaveNothing);

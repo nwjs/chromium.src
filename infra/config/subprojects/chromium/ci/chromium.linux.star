@@ -488,6 +488,7 @@ ci.thin_tester(
         mixins = [
             "isolate_profile_data",
             "linux-jammy",
+            "retry_only_failed_tests",
         ],
         per_test_modifications = {
             "blink_web_tests": targets.mixin(
@@ -504,19 +505,9 @@ ci.thin_tester(
                 ],
             ),
             "browser_tests": targets.mixin(
-                # Only retry the individual failed tests instead of rerunning
-                # entire shards.
-                # crbug.com/1473501
-                retry_only_failed_tests = True,
                 swarming = targets.swarming(
                     shards = 20,
                 ),
-            ),
-            "content_browsertests": targets.mixin(
-                # Only retry the individual failed tests instead of rerunning
-                # entire shards.
-                # crbug.com/1473501
-                retry_only_failed_tests = True,
             ),
             "not_site_per_process_blink_web_tests": targets.mixin(
                 args = [
@@ -528,12 +519,6 @@ ci.thin_tester(
                     "--xvfb",
                     "--jobs=1",
                 ],
-            ),
-            "unit_tests": targets.mixin(
-                # Only retry the individual failed tests instead of rerunning
-                # entire shards.
-                # crbug.com/1473501
-                retry_only_failed_tests = True,
             ),
             "webdriver_wpt_tests": targets.mixin(
                 ci_only = True,
@@ -596,7 +581,7 @@ ci.thin_tester(
                 # crbug.com/1508286
                 # crbug.com/404871436
                 swarming = targets.swarming(
-                    shards = 48,
+                    shards = 60,
                 ),
             ),
             "content_browsertests": targets.mixin(
@@ -604,6 +589,11 @@ ci.thin_tester(
                 # crbug.com/404871436
                 swarming = targets.swarming(
                     shards = 12,
+                ),
+            ),
+            "content_unittests": targets.mixin(
+                swarming = targets.swarming(
+                    shards = 4,
                 ),
             ),
             "interactive_ui_tests": targets.mixin(
@@ -645,6 +635,9 @@ ci.thin_tester(
                 args = [
                     "--debug",
                 ],
+                swarming = targets.swarming(
+                    shards = 4,
+                ),
             ),
         },
     ),

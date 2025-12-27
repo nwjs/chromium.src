@@ -33,6 +33,15 @@ constexpr auto kPageActionProperties =
             },
         },
         {
+            kActionLensOverlayHomework,
+            {
+                .histogram_name = "LensOverlayHomework",
+                .type = PageActionIconType::kLensOverlayHomework,
+                .element_identifier =
+                    kLensOverlayHomeworkPageActionIconElementId,
+            },
+        },
+        {
             kActionShowTranslate,
             {
                 .histogram_name = "Translate",
@@ -48,6 +57,14 @@ constexpr auto kPageActionProperties =
             },
         },
         {
+            kActionShowJsOptimizationsIcon,
+            {
+                .histogram_name = "JsOptimizations",
+                .type = PageActionIconType::kJsOptimizations,
+                .element_identifier = kJsOptimizationsIconElementId,
+            },
+        },
+        {
             kActionShowIntentPicker,
             {
                 .histogram_name = "IntentPicker",
@@ -60,6 +77,13 @@ constexpr auto kPageActionProperties =
                 .histogram_name = "Zoom",
                 .type = PageActionIconType::kZoom,
                 .element_identifier = kActionItemZoomElementId,
+            },
+        },
+        {
+            kActionSidePanelShowReadAnything,
+            {
+                .histogram_name = "ReadingMode",
+                .type = PageActionIconType::kReadingMode,
             },
         },
         {
@@ -148,6 +172,57 @@ constexpr auto kPageActionProperties =
             {
                 .histogram_name = "AddressAutofill",
                 .type = PageActionIconType::kAutofillAddress,
+            },
+        },
+        {
+            kActionVirtualCardEnroll,
+            {
+                .histogram_name = "VirtualCardEnroll",
+                .type = PageActionIconType::kVirtualCardEnroll,
+            },
+        },
+        {
+            kActionFilledCardInformation,
+            {
+                .histogram_name = "FilledCardInformation",
+                .type = PageActionIconType::kFilledCardInformation,
+            },
+        },
+        {
+            kActionShowPaymentsBubbleOrPage,
+            {
+                .histogram_name = "SavePayments",
+                // This action id corresponds to both `kSaveCard` and
+                // `kSaveIban` page action icon types. Since the framework only
+                // supports 1:1 mapping of `ActionId`<->`PageActionIconType`,
+                // and since `PageActionIconType` will be removed as an
+                // identifier for page actions post migration, we choose to only
+                // represent `kSaveCard` as the corresponding
+                // `PageActionIconType` for `kActionShowPaymentsBubbleOrPage`.
+                //
+                // This peculiarity is handled well in all flows that rely on
+                // `ActionId`<->`PageActionIconType` conversions, except in
+                // framework level metrics for individual page action icons.
+                // Therefore, we should rely on feature level metrics for this
+                // particular page action.
+                .type = PageActionIconType::kSaveCard,
+            },
+        },
+        {
+            kActionSidePanelShowContextualTasks,
+            {
+                .histogram_name = "ContextualSidePanel",
+                .type = PageActionIconType::kContextualSidePanel,
+                .element_identifier = kContextualTasksPageActionElementId,
+            },
+        },
+        {
+            kActionBookmarkThisTab,
+            {
+                .histogram_name = "BookmarksStar",
+                .is_ephemeral = false,
+                .type = PageActionIconType::kBookmarkStar,
+                .element_identifier = kBookmarkStarViewElementId,
             },
         },
     });

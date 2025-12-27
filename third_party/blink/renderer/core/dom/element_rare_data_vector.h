@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/core/dom/focusgroup_flags.h"
 #include "third_party/blink/renderer/core/dom/has_invalidation_flags.h"
 #include "third_party/blink/renderer/core/dom/node_rare_data.h"
+#include "third_party/blink/renderer/core/dom/overscroll_pseudo_element_data.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element_data.h"
 #include "third_party/blink/renderer/platform/heap/trace_traits.h"
@@ -30,6 +31,7 @@ class ShadowRoot;
 class NamedNodeMap;
 class DOMTokenList;
 class DatasetDOMStringMap;
+class DisplayAdElementMonitor;
 class ElementAnimations;
 class Attr;
 typedef HeapVector<Member<Attr>> AttrNodeList;
@@ -51,6 +53,7 @@ class InterestInvokerTargetData;
 class OutOfFlowData;
 class HTMLElement;
 class Element;
+class OverscrollAreaTracker;
 
 enum class ElementFlags;
 
@@ -98,8 +101,10 @@ class CORE_EXPORT ElementRareDataVector final : public NodeRareData {
     kCustomElementRegistry = 37,
     kAnimationTriggerData = 38,
     kFocusgroupLastFocused = 39,
+    kDisplayAdElementMonitor = 40,
+    kOverscrollAreaTracker = 41,
 
-    kNumFields = 40,
+    kNumFields = 42,
   };
 
   ElementRareDataField* GetField(FieldId field_id) const;
@@ -175,10 +180,15 @@ class CORE_EXPORT ElementRareDataVector final : public NodeRareData {
       const AtomicString& document_transition_tag = g_null_atom) const;
   bool HasScrollButtonOrMarkerGroupPseudos() const;
   PseudoElementData::PseudoElementVector GetPseudoElements() const;
+
   void AddColumnPseudoElement(ColumnPseudoElement&);
   const ColumnPseudoElementsVector* GetColumnPseudoElements() const;
   ColumnPseudoElement* GetColumnPseudoElement(wtf_size_t idx) const;
   void ClearColumnPseudoElements(wtf_size_t to_keep);
+
+  void AddOverscrollPseudoElement(PseudoElement&);
+  const OverscrollPseudoElementData* GetOverscrollPseudoElementData() const;
+  void ClearOverscrollPseudoElements();
 
   CSSStyleDeclaration& EnsureInlineCSSStyleDeclaration(Element* owner_element);
 
@@ -335,6 +345,9 @@ class CORE_EXPORT ElementRareDataVector final : public NodeRareData {
   ElementAnimationTriggerData* AnimationTriggerData();
   ElementAnimationTriggerData& EnsureAnimationTriggerData();
 
+  DisplayAdElementMonitor* GetDisplayAdElementMonitor() const;
+  DisplayAdElementMonitor& EnsureDisplayAdElementMonitor(Element*);
+
   void SetDidAttachInternals() { fields_.did_attach_internals = true; }
   bool DidAttachInternals() const { return fields_.did_attach_internals; }
   bool HasUndoStack() const { return fields_.has_undo_stack; }
@@ -463,6 +476,9 @@ class CORE_EXPORT ElementRareDataVector final : public NodeRareData {
   void SetAffectedByMultipleHas() {
     fields_.has_invalidation_flags.affected_by_multiple_has = true;
   }
+
+  OverscrollAreaTracker& EnsureOverscrollAreaTracker(Element*);
+  OverscrollAreaTracker* OverscrollAreaTracker() const;
 
   void Trace(blink::Visitor*) const override;
 

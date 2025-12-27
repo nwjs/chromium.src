@@ -13,6 +13,7 @@
 #include "base/check_op.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/span.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
 #include "pdf/accessibility_structs.h"
 #include "pdf/page_character_index.h"
@@ -21,7 +22,7 @@
 #include "pdf/region_data.h"
 #include "third_party/blink/public/common/input/web_keyboard_event.h"
 #include "third_party/skia/include/core/SkColor.h"
-#include "ui/events/keycodes/keyboard_codes_win.h"
+#include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/vector2d.h"
 
@@ -63,12 +64,30 @@ void TransformCaretScreenRectWithRotatedTextDirection(
   }
 }
 
+// Helper for `PdfCaret::GetLogicalKeyAfterTextDirection()` to return the
+// converted key.
+ui::KeyboardCode GetLogicalKey(int key,
+                               ui::KeyboardCode left_key,
+                               ui::KeyboardCode right_key,
+                               ui::KeyboardCode up_key,
+                               ui::KeyboardCode down_key) {
+  switch (key) {
+    case ui::KeyboardCode::VKEY_LEFT:
+      return left_key;
+    case ui::KeyboardCode::VKEY_RIGHT:
+      return right_key;
+    case ui::KeyboardCode::VKEY_UP:
+      return up_key;
+    case ui::KeyboardCode::VKEY_DOWN:
+      return down_key;
+    default:
+      NOTREACHED();
+  }
+}
+
 }  // namespace
 
-PdfCaret::PdfCaret(PdfCaretClient* client, const PageCharacterIndex& index)
-    : client_(client) {
-  SetChar(index);
-}
+PdfCaret::PdfCaret(PdfCaretClient* client) : client_(client) {}
 
 PdfCaret::~PdfCaret() = default;
 
@@ -97,7 +116,7 @@ void PdfCaret::SetVisible(bool visible) {
 }
 
 void PdfCaret::SetBlinkInterval(base::TimeDelta interval) {
-  if (interval.is_negative()) {
+  if (interval.is_negative() || blink_interval_ == interval) {
     return;
   }
 
@@ -153,16 +172,25 @@ void PdfCaret::OnGeometryChanged() {
   }
 }
 
-bool PdfCaret::OnKeyDown(const blink::WebKeyboardEvent& event) {
+bool PdfCaret::WillHandleKeyDownEvent(const blink::WebKeyboardEvent& event) {
   // The caret is not visible during text selection, so key events should still
   // be handled when not visible.
-  if (!enabled_) {
+  return enabled_ && (event.windows_key_code == ui::KeyboardCode::VKEY_LEFT ||
+                      event.windows_key_code == ui::KeyboardCode::VKEY_RIGHT ||
+                      event.windows_key_code == ui::KeyboardCode::VKEY_UP ||
+                      event.windows_key_code == ui::KeyboardCode::VKEY_DOWN);
+}
+
+bool PdfCaret::OnKeyDown(const blink::WebKeyboardEvent& event) {
+  if (!WillHandleKeyDownEvent(event)) {
     return false;
   }
 
+  ui::KeyboardCode key = GetLogicalKeyAfterTextDirection(
+      static_cast<ui::KeyboardCode>(event.windows_key_code));
   bool should_select =
       !!(event.GetModifiers() & blink::WebInputEvent::Modifiers::kShiftKey);
-  switch (event.windows_key_code) {
+  switch (key) {
     case ui::KeyboardCode::VKEY_LEFT:
       MoveHorizontallyToNextChar(/*move_right=*/false, should_select);
       return true;
@@ -176,7 +204,7 @@ bool PdfCaret::OnKeyDown(const blink::WebKeyboardEvent& event) {
       MoveVerticallyToNextChar(/*move_down=*/true, should_select);
       return true;
     default:
-      return false;
+      NOTREACHED();
   }
 }
 
@@ -252,18 +280,23 @@ gfx::Rect PdfCaret::GetScreenRectForChar(
   return !screen_rects.empty() ? screen_rects[0] : gfx::Rect();
 }
 
-AccessibilityTextDirection PdfCaret::GetTextDirectionAfterRotationAt(
+AccessibilityTextDirection PdfCaret::GetTextDirectionAt(
     const PageCharacterIndex& index) const {
   std::optional<AccessibilityTextRunInfo> text_run =
       client_->GetTextRunInfoAt(index);
   auto direction = AccessibilityTextDirection::kLeftToRight;
   if (text_run.has_value()) {
     direction = text_run.value().direction;
-    // Default to LTR.
-    if (direction == AccessibilityTextDirection::kNone) {
-      direction = AccessibilityTextDirection::kLeftToRight;
-    }
   }
+  // Default to LTR.
+  return direction == AccessibilityTextDirection::kNone
+             ? AccessibilityTextDirection::kLeftToRight
+             : direction;
+}
+
+AccessibilityTextDirection PdfCaret::GetTextDirectionAfterRotationAt(
+    const PageCharacterIndex& index) const {
+  AccessibilityTextDirection direction = GetTextDirectionAt(index);
 
   int rotation_steps =
       GetClockwiseRotationSteps(client_->GetCurrentOrientation());
@@ -308,6 +341,11 @@ void PdfCaret::Draw(const RegionData& region, const gfx::Rect& rect) const {
       }
     }
   }
+
+  if (!first_visible_) {
+    base::UmaHistogramBoolean("PDF.Caret.FirstVisible", true);
+    first_visible_ = true;
+  }
 }
 
 void PdfCaret::MoveToChar(const PageCharacterIndex& new_index,
@@ -331,6 +369,38 @@ void PdfCaret::MoveToChar(const PageCharacterIndex& new_index,
 
   if (!caret_screen_rect_.IsEmpty()) {
     client_->ScrollToChar(cached_screen_rect_index_);
+  }
+}
+
+ui::KeyboardCode PdfCaret::GetLogicalKeyAfterTextDirection(
+    ui::KeyboardCode key) const {
+  switch (GetTextDirectionAt(index_)) {
+    case AccessibilityTextDirection::kLeftToRight:
+      return GetLogicalKey(key,
+                           /*left_key=*/ui::KeyboardCode::VKEY_LEFT,
+                           /*right_key=*/ui::KeyboardCode::VKEY_RIGHT,
+                           /*up_key=*/ui::KeyboardCode::VKEY_UP,
+                           /*down_key=*/ui::KeyboardCode::VKEY_DOWN);
+    case AccessibilityTextDirection::kRightToLeft:
+      return GetLogicalKey(key,
+                           /*left_key=*/ui::KeyboardCode::VKEY_RIGHT,
+                           /*right_key=*/ui::KeyboardCode::VKEY_LEFT,
+                           /*up_key=*/ui::KeyboardCode::VKEY_UP,
+                           /*down_key=*/ui::KeyboardCode::VKEY_DOWN);
+    case AccessibilityTextDirection::kTopToBottom:
+      return GetLogicalKey(key,
+                           /*left_key=*/ui::KeyboardCode::VKEY_DOWN,
+                           /*right_key=*/ui::KeyboardCode::VKEY_UP,
+                           /*up_key=*/ui::KeyboardCode::VKEY_LEFT,
+                           /*down_key=*/ui::KeyboardCode::VKEY_RIGHT);
+    case AccessibilityTextDirection::kBottomToTop:
+      return GetLogicalKey(key,
+                           /*left_key=*/ui::KeyboardCode::VKEY_DOWN,
+                           /*right_key=*/ui::KeyboardCode::VKEY_UP,
+                           /*up_key=*/ui::KeyboardCode::VKEY_RIGHT,
+                           /*down_key=*/ui::KeyboardCode::VKEY_LEFT);
+    default:
+      NOTREACHED();
   }
 }
 

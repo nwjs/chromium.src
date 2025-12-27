@@ -38,18 +38,14 @@ void RecordInvalidRequestingContextUkmMetrics(Document& document) {
 }  // namespace
 
 // static
-const char BrowsingTopicsDocumentSupplement::kSupplementName[] =
-    "BrowsingTopicsDocumentSupplement";
-
-// static
 BrowsingTopicsDocumentSupplement* BrowsingTopicsDocumentSupplement::From(
     Document& document) {
-  auto* supplement =
-      Supplement<Document>::From<BrowsingTopicsDocumentSupplement>(document);
+  BrowsingTopicsDocumentSupplement* supplement =
+      document.GetBrowsingTopicsDocumentSupplement();
   if (!supplement) {
     supplement =
         MakeGarbageCollected<BrowsingTopicsDocumentSupplement>(document);
-    Supplement<Document>::ProvideTo(document, supplement);
+    document.SetBrowsingTopicsDocumentSupplement(supplement);
   }
   return supplement;
 }
@@ -79,8 +75,7 @@ BrowsingTopicsDocumentSupplement::browsingTopics(
 
 BrowsingTopicsDocumentSupplement::BrowsingTopicsDocumentSupplement(
     Document& document)
-    : Supplement<Document>(document),
-      document_host_(document.GetExecutionContext()) {}
+    : document_host_(document.GetExecutionContext()) {}
 
 ScriptPromise<IDLSequence<BrowsingTopic>>
 BrowsingTopicsDocumentSupplement::GetBrowsingTopics(
@@ -97,7 +92,6 @@ BrowsingTopicsDocumentSupplement::GetBrowsingTopics(
   }
 
   UseCounter::Count(document, mojom::blink::WebFeature::kPrivacySandboxAdsAPIs);
-  UseCounter::Count(document, mojom::blink::WebFeature::kTopicsAPIAll);
 
   auto* resolver =
       MakeGarbageCollected<ScriptPromiseResolver<IDLSequence<BrowsingTopic>>>(
@@ -215,8 +209,6 @@ BrowsingTopicsDocumentSupplement::GetBrowsingTopics(
 
 void BrowsingTopicsDocumentSupplement::Trace(Visitor* visitor) const {
   visitor->Trace(document_host_);
-
-  Supplement<Document>::Trace(visitor);
 }
 
 }  // namespace blink

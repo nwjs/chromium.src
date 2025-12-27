@@ -6,7 +6,6 @@
 
 #include "base/android/jni_android.h"
 #include "base/android/scoped_java_ref.h"
-#include "base/functional/callback_forward.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/account_reconcilor_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -62,3 +61,5 @@ static jlong JNI_WebSigninBridge_Create(
 static void JNI_WebSigninBridge_Destroy(JNIEnv* env, jlong web_signin_bridge) {
   delete reinterpret_cast<WebSigninBridge*>(web_signin_bridge);
 }
+
+DEFINE_JNI(WebSigninBridge)

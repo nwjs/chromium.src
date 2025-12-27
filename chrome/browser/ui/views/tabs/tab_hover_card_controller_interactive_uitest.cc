@@ -15,7 +15,7 @@
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
@@ -87,7 +87,7 @@ TabRendererData MakeTabRendererData() {
   TabRendererData new_tab_data = TabRendererData();
   new_tab_data.title = kTabTitle;
   new_tab_data.last_committed_url = GURL(kTabUrl);
-  new_tab_data.alert_state = {tabs::TabAlert::AUDIO_PLAYING};
+  new_tab_data.alert_state = {tabs::TabAlert::kAudioPlaying};
   return new_tab_data;
 }
 
@@ -294,13 +294,12 @@ IN_PROC_BROWSER_TEST_F(TabHoverCardInteractiveUiTest,
                        InactiveWindowStaysInactiveOnHover) {
   resource_coordinator::GetTabLifecycleUnitSource()
       ->SetFocusedTabStripModelForTesting(nullptr);
-  const BrowserList* active_browser_list = BrowserList::GetInstance();
 
   // Open a second browser window.
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL(url::kAboutBlankURL), WindowOpenDisposition::NEW_WINDOW,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_BROWSER);
-  ASSERT_EQ(2u, active_browser_list->size());
+  ASSERT_EQ(2u, chrome::GetTotalBrowserCount());
 
   // Choose one browser to be active; the other to be inactive.
   BrowserWindowInterface* const active_window =
@@ -758,7 +757,7 @@ IN_PROC_BROWSER_TEST_F(TabHoverCardFadeFooterInteractiveUiTest,
   browser()->tab_strip_model()->ActivateTabAt(0);
   Tab* const tab = tab_strip->tab_at(1);
   TabRendererData data = tab->data();
-  data.alert_state = {tabs::TabAlert::AUDIO_PLAYING};
+  data.alert_state = {tabs::TabAlert::kAudioPlaying};
   tab->SetData(data);
   tab_strip->GetFocusManager()->SetFocusedView(tab);
   WaitForHoverCardVisible(tab_strip);

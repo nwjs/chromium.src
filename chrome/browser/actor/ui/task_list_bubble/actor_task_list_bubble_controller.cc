@@ -43,6 +43,10 @@ ActorTaskListBubbleController::~ActorTaskListBubbleController() = default;
 
 #if BUILDFLAG(ENABLE_GLIC)
 void ActorTaskListBubbleController::ShowBubble(views::View* anchor_view) {
+  if (!browser_->IsActive()) {
+    // Only show the bubble in the active window.
+    return;
+  }
   auto task_id_to_state = tabs::GlicActorTaskIconManagerFactory::GetForProfile(
                               browser_->GetProfile())
                               ->GetActorTaskListBubbleRows();
@@ -120,7 +124,9 @@ void ActorTaskListBubbleController::GetOnTaskRowClickCallback(
   // Regardless of tab navigation, remove the row and close the bubble when
   // done.
   icon_manager->RemoveRowFromTaskListBubble(task_id);
-  bubble_widget_->Close();
+  if (bubble_widget_) {
+    bubble_widget_->Close();
+  }
 #endif
 }
 

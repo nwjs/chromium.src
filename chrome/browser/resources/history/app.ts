@@ -5,14 +5,20 @@
 import 'chrome://resources/cr_components/history_clusters/clusters.js';
 import 'chrome://resources/cr_components/history_embeddings/filter_chips.js';
 import 'chrome://resources/cr_components/history_embeddings/history_embeddings.js';
+import 'chrome://resources/cr_elements/cr_drawer/cr_drawer.js';
 import 'chrome://resources/cr_elements/cr_lazy_render/cr_lazy_render_lit.js';
-import 'chrome://resources/cr_elements/cr_tabs/cr_tabs.js';
 import 'chrome://resources/cr_elements/cr_page_selector/cr_page_selector.js';
+import 'chrome://resources/cr_elements/cr_tabs/cr_tabs.js';
 import './history_embeddings_promo.js';
+// <if expr="not is_chromeos">
+import './history_sync_promo.js';
+// </if>
 import './history_list.js';
 import './history_toolbar.js';
 import './query_manager.js';
+import './router.js';
 import './side_bar.js';
+import './synced_device_manager.js';
 import '/strings.m.js';
 
 import {HelpBubbleMixinLit} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin_lit.js';
@@ -30,7 +36,6 @@ import {WebUiListenerMixinLit} from 'chrome://resources/cr_elements/web_ui_liste
 import {assert} from 'chrome://resources/js/assert.js';
 import {EventTracker} from 'chrome://resources/js/event_tracker.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import {getTrustedScriptURL} from 'chrome://resources/js/static_types.js';
 import {hasKeyModifiers} from 'chrome://resources/js/util.js';
 import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
@@ -39,36 +44,14 @@ import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
 import type {BrowserService} from './browser_service.js';
 import {BrowserServiceImpl} from './browser_service.js';
-import {HistoryPageViewHistogram, HistorySignInState} from './constants.js';
-import type {ForeignSession} from './externs.js';
+import {HistoryPageViewHistogram, HistorySignInState, SyncState} from './constants.js';
+import type {ForeignSession, HistoryIdentityState} from './externs.js';
 import type {HistoryListElement} from './history_list.js';
 import type {HistoryToolbarElement} from './history_toolbar.js';
 import {convertDateToQueryValue} from './query_manager.js';
 import {Page, TABBED_PAGES} from './router.js';
 import type {HistoryRouterElement} from './router.js';
 import type {FooterInfo, HistorySideBarElement} from './side_bar.js';
-
-let lazyLoadPromise: Promise<void>|null = null;
-export function ensureLazyLoaded(): Promise<void> {
-  if (!lazyLoadPromise) {
-    const script = document.createElement('script');
-    script.type = 'module';
-    script.src = getTrustedScriptURL`./lazy_load.js` as unknown as string;
-    document.body.appendChild(script);
-
-    lazyLoadPromise = Promise.all([
-      customElements.whenDefined('history-synced-device-manager'),
-      customElements.whenDefined('cr-action-menu'),
-      customElements.whenDefined('cr-button'),
-      customElements.whenDefined('cr-checkbox'),
-      customElements.whenDefined('cr-dialog'),
-      customElements.whenDefined('cr-drawer'),
-      customElements.whenDefined('cr-icon-button'),
-      customElements.whenDefined('cr-toolbar-selection-overlay'),
-    ]) as unknown as Promise<void>;
-  }
-  return lazyLoadPromise;
-}
 
 // Click/auxclick listeners to intercept any link clicks. If the link points
 // to a chrome: or file: url, then calls into the browser to do the
@@ -150,6 +133,10 @@ export class HistoryAppElement extends HistoryAppElementBase {
         type: Boolean,
         reflect: true,
       },
+      // <if expr="not is_chromeos">
+      unoPhase2FollowUpEnabled_: {type: Boolean},
+      shouldShowHistorySyncPromo_: {type: Boolean},
+      // </if>
       contentPage_: {type: String},
       tabsContentPage_: {type: String},
       // The id of the currently selected page.
@@ -158,10 +145,7 @@ export class HistoryAppElement extends HistoryAppElementBase {
       sessionList_: {type: Array},
       // Updated on synced-device-manager attach by chrome.sending
       // 'otherDevicesInitialized'.
-      signInState_: {
-        type: Number,
-        value: () => loadTimeData.getInteger('signInState'),
-      },
+      identityState_: {type: Object},
       pendingDelete_: {type: Boolean},
       queryState_: {type: Object},
       // True if the window is narrow enough for the page to have a drawer.
@@ -200,12 +184,21 @@ export class HistoryAppElement extends HistoryAppElementBase {
   };
   protected accessor enableHistoryEmbeddings_: boolean =
       loadTimeData.getBoolean('enableHistoryEmbeddings');
+  // <if expr="not is_chromeos">
+  protected accessor unoPhase2FollowUpEnabled_: boolean =
+      loadTimeData.getBoolean('unoPhase2FollowUp');
+  protected accessor shouldShowHistorySyncPromo_: boolean = false;
+  // </if>
   protected accessor hasDrawer_: boolean;
   protected accessor historyClustersEnabled_: boolean =
       loadTimeData.getBoolean('isHistoryClustersEnabled');
   protected accessor historyClustersVisible_: boolean =
       loadTimeData.getBoolean('isHistoryClustersVisible');
-  protected accessor signInState_: HistorySignInState;
+  protected accessor identityState_: HistoryIdentityState = {
+    signIn: HistorySignInState.SIGNED_OUT,
+    tabsSync: SyncState.TURNED_OFF,
+    historySync: SyncState.TURNED_OFF,
+  };
   protected accessor lastSelectedTab_: number =
       loadTimeData.getInteger('lastSelectedTab');
   protected accessor contentPage_: string = Page.HISTORY;
@@ -266,9 +259,9 @@ export class HistoryAppElement extends HistoryAppElementBase {
         document, 'record-history-link-click',
         this.onRecordHistoryLinkClick_.bind(this));
     this.addWebUiListener(
-        'sign-in-state-changed',
-        (signInState: HistorySignInState) =>
-            this.onSignInStateChanged_(signInState));
+        'history-identity-state-changed',
+        (identityState: HistoryIdentityState) =>
+            this.onIdentityStateChanged_(identityState));
     this.addWebUiListener(
         'foreign-sessions-changed',
         (sessionList: ForeignSession[]) =>
@@ -276,6 +269,9 @@ export class HistoryAppElement extends HistoryAppElementBase {
     this.shadowRoot.querySelector('history-query-manager')!.initialize();
     this.browserService_.getForeignSessions().then(
         sessionList => this.setForeignSessions_(sessionList));
+    this.browserService_.getInitialIdentityState().then(
+        (identityState: HistoryIdentityState) =>
+            this.onIdentityStateChanged_(identityState));
 
     const mediaQuery = window.matchMedia('(max-width: 1023px)');
     this.hasDrawer_ = mediaQuery.matches;
@@ -287,6 +283,14 @@ export class HistoryAppElement extends HistoryAppElementBase {
         this.callbackRouter_.onHasOtherFormsChanged.addListener(
             (hasOtherForms: boolean) =>
                 this.onHasOtherFormsChanged_(hasOtherForms));
+    // <if expr="not is_chromeos">
+    BrowserServiceImpl.getInstance()
+        .handler.shouldShowHistoryPageHistorySyncPromo()
+        .then(
+            ({shouldShow}) =>
+                this.handleShouldShowHistoryPageHistorySyncPromoChanged_(
+                    shouldShow));
+    // </if>
   }
 
   override firstUpdated(changedProperties: PropertyValues<this>) {
@@ -427,12 +431,9 @@ export class HistoryAppElement extends HistoryAppElementBase {
       searchField.getSearchInput().focus();
     }
 
-    // Lazily load the remainder of the UI.
-    ensureLazyLoaded().then(function() {
-      requestIdleCallback(function() {
-        // https://github.com/microsoft/TypeScript/issues/13569
-        (document as any).fonts.load('bold 12px Roboto');
-      });
+    requestIdleCallback(function() {
+      // https://github.com/microsoft/TypeScript/issues/13569
+      (document as any).fonts.load('bold 12px Roboto');
     });
   }
 
@@ -594,8 +595,8 @@ export class HistoryAppElement extends HistoryAppElementBase {
   /**
    * Updates the sign-in state.
    */
-  private onSignInStateChanged_(signInState: HistorySignInState) {
-    this.signInState_ = signInState;
+  private onIdentityStateChanged_(identityState: HistoryIdentityState) {
+    this.identityState_ = identityState;
   }
 
   private onHasOtherFormsChanged_(hasOtherForms: boolean) {
@@ -711,8 +712,9 @@ export class HistoryAppElement extends HistoryAppElementBase {
         histogramValue = HistoryPageViewHistogram.JOURNEYS;
         break;
       case Page.SYNCED_TABS:
-        histogramValue = this.signInState_ ===
-                HistorySignInState.SIGNED_IN_SYNCING_TABS ?
+        histogramValue =
+            this.identityState_.signIn === HistorySignInState.SIGNED_IN &&
+                this.identityState_.tabsSync === SyncState.TURNED_ON ?
             HistoryPageViewHistogram.SYNCED_TABS :
             HistoryPageViewHistogram.SIGNIN_PROMO;
         break;
@@ -749,6 +751,25 @@ export class HistoryAppElement extends HistoryAppElementBase {
   setHasDrawerForTesting(enabled: boolean) {
     this.hasDrawer_ = enabled;
   }
+
+  // <if expr="not is_chromeos">
+  // History sync promo is shown based on the following conditions:
+  // 1. UNO phase 2 follow up feature flag is enabled.
+  // 2. Should be shown based on user prefs (the promo was closed < 5 times)
+  // 3. History sync is not disabled.
+  // 4. User is not already signed in and syncing history.
+  protected shouldShowHistoryPageHistorySyncPromo_(): boolean {
+    return this.unoPhase2FollowUpEnabled_ && this.shouldShowHistorySyncPromo_ &&
+        this.identityState_.historySync !== SyncState.DISABLED &&
+        !(this.identityState_.signIn === HistorySignInState.SIGNED_IN &&
+          this.identityState_.historySync === SyncState.TURNED_ON);
+  }
+
+  private handleShouldShowHistoryPageHistorySyncPromoChanged_(
+      shouldShowHistorySyncPromo: boolean) {
+    this.shouldShowHistorySyncPromo_ = shouldShowHistorySyncPromo;
+  }
+  // </if>
 
   protected shouldShowHistoryEmbeddings_(): boolean {
     if (!loadTimeData.getBoolean('enableHistoryEmbeddings')) {

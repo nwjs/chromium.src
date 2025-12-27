@@ -47,7 +47,9 @@ class OmniboxPopupPresenterBase {
   // Tells whether the popup widget exists.
   bool IsShown() const;
 
-  void SetWidgetContentHeight(int content_height);
+  // Caches the height of the WebUI content, which is then used to compute the
+  // popup widget bounds.
+  void OnContentHeightChanged(int content_height);
 
   // Returns the currently "active" Popup content, whichever one is visible or
   // going to be visible within the popup.
@@ -84,6 +86,9 @@ class OmniboxPopupPresenterBase {
  private:
   friend class OmniboxPopupViewWebUITest;
   friend class OmniboxWebUiInteractiveTest;
+
+  // Synchronize the popup widget's bounds to its anchor (location bar view).
+  void SynchronizePopupBounds();
 
   void OnWidgetClosed(views::Widget::ClosedReason closed_reason);
 

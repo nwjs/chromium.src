@@ -36,6 +36,16 @@ source_set("tab_enums") {
   sources = [ "tab_enums.h" ]
 }
 
+# Shared tab utilities for both desktop and android.
+source_set("utils") {
+  sources = [
+    "tab_muted_utils.cc",
+    "tab_muted_utils.h",
+  ]
+  public_deps = [ ":tab_enums" ]
+  deps = [ "//content/public/browser" ]
+}
+
 # A common interface for operating on tabs for use by both desktop and android.
 # This is temporary until the tabstrip api is implemented on both platforms.
 source_set("tab_list_interface") {
@@ -367,6 +377,8 @@ if (!is_android) {
         "//chrome/browser/glic",
         "//chrome/browser/glic:mojo_bindings",
       ]
+
+      deps = [ "//chrome/browser/actor" ]
     }
   }
 
@@ -437,6 +449,7 @@ if (!is_android) {
       ":tabs_public",
       "//base",
       "//chrome/browser/profiles:profile",
+      "//chrome/browser/sessions",
       "//chrome/browser/ui:browser_list",
       "//chrome/browser/ui:layout_constants",
       "//chrome/browser/ui/color:color_headers",
@@ -495,6 +508,7 @@ if (!is_android) {
       ":tab_model",
       ":tab_strip",
       ":tabs",
+      ":utils",
       "//chrome/app:command_ids",
       "//chrome/app/vector_icons",
       "//chrome/browser/actor",
@@ -503,7 +517,6 @@ if (!is_android) {
       "//chrome/browser/content_settings:content_settings_factory",
       "//chrome/browser/contextual_cueing",
       "//chrome/browser/favicon",
-      "//chrome/browser/fingerprinting_protection",
       "//chrome/browser/image_fetcher",
       "//chrome/browser/media/webrtc",
       "//chrome/browser/profiles",
@@ -526,12 +539,14 @@ if (!is_android) {
       "//chrome/browser/ui/interaction",
       "//chrome/browser/ui/lens",
       "//chrome/browser/ui/performance_controls",
+      "//chrome/browser/ui/read_anything",
       "//chrome/browser/ui/tabs/alert:tab_alert",
       "//chrome/browser/ui/tabs/saved_tab_groups",
       "//chrome/browser/ui/thumbnails",
       "//chrome/browser/ui/toolbar",
       "//chrome/browser/ui/toolbar/pinned_toolbar",
       "//chrome/browser/ui/user_education",
+      "//chrome/browser/ui/views/contextual_tasks",
       "//chrome/browser/ui/views/intent_picker:intent_picker_page_action",
       "//chrome/browser/ui/views/interaction",
       "//chrome/browser/ui/views/location_bar",
@@ -546,13 +561,10 @@ if (!is_android) {
       "//chrome/browser/web_applications",
       "//components/browsing_topics",
       "//components/content_settings/core/browser",
+      "//components/contextual_tasks/public",
       "//components/favicon/content",
       "//components/favicon/core",
-      "//components/fingerprinting_protection_filter/common:features",
-      "//components/fingerprinting_protection_filter/interventions/browser",
-      "//components/fingerprinting_protection_filter/interventions/common:features",
       "//components/image_fetcher/core",
-      "//components/ip_protection/common:ip_protection_status",
       "//components/lens",
       "//components/metrics:content",
       "//components/passage_embeddings",
@@ -580,7 +592,10 @@ if (!is_android) {
     }
 
     if (!is_android) {
-      deps += [ "//chrome/browser/ui/views/zoom" ]
+      deps += [
+        "//chrome/browser/ui/views/js_optimization:impl",
+        "//chrome/browser/ui/views/zoom",
+      ]
     }
 
     if (is_win || is_mac || is_linux || is_chromeos) {

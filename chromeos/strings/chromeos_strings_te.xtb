@@ -74,6 +74,7 @@
 <translation id="1274654146705270731">నారింజలు</translation>
 <translation id="1275718070701477396">ఎంచుకోబడింది</translation>
 <translation id="1290331692326790741">సిగ్నల్ బలహీనంగా ఉంది</translation>
+<translation id="1292474106138697109">క్లాస్ టూల్స్ డిస్‌ప్లే</translation>
 <translation id="1300115153046603471">APN అనేది ఆటోమేటిక్ సెట్టింగ్ రకం, <ph name="ATTACH" />.</translation>
 <translation id="1301069673413256657">GSM</translation>
 <translation id="1301340234286078471">మార్చండి</translation>
@@ -1046,6 +1047,7 @@
 <translation id="5596627076506792578">మరిన్ని ఆప్షన్‌లు</translation>
 <translation id="5600027863942488546"><ph name="KEY_NAME" /> కీని పరీక్షించారు</translation>
 <translation id="5606865426897221650">Tab</translation>
+<translation id="5612205513582918357">క్లాస్ టూల్స్ మీ స్క్రీన్‌ను <ph name="RECEIVER_NAME" />‌కు షేర్ చేస్తోంది</translation>
 <translation id="5613201299517339763">మీరు సైన్ అవుట్ అయ్యారు</translation>
 <translation id="5620281292257375798">అంతర్గతం మాత్రమే</translation>
 <translation id="5628106863521633649">అందుబాటులో ఉన్న భాషలు</translation>
@@ -1473,7 +1475,6 @@
 <translation id="7425832472614771259"><ph name="LANGUAGE_NAME" /> మాటల టైపింగ్ మోడల్ <ph name="PROGRESS_PERCENTAGE" />% డౌన్‌లోడ్ అయింది</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">ఈ APNను డిజేబుల్ చేయడం లేదా తీసివేయడం సాధ్యపడదు. ఎనేబుల్ చేసి ఉన్న <ph name="ATTACH" /> APNలు డిసేబుల్ చేయబడ్డాయని లేదా తీసివేయబడ్డాయని నిర్ధారించుకోండి.</translation>
-<translation id="7458359366992324037">రిమోట్ డిస్‌ప్లే</translation>
 <translation id="7458970041932198923">అవతార్‌లను చూసి, వాటిని సెట్ చేయడానికి దయచేసి నెట్‌వర్క్‌కు కనెక్ట్ చేసి, పేజీని రీలోడ్ చేయండి.</translation>
 <translation id="7469648432129124067">పోర్టల్ గుర్తించబడింది</translation>
 <translation id="7481312909269577407">ఫార్వర్డ్</translation>

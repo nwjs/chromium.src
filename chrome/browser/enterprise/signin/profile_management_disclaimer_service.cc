@@ -31,6 +31,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/profiles/profile_colors_util.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/webui/signin/signin_utils.h"
@@ -84,7 +85,8 @@ ProfileManagementDisclaimerService::ProfileManagementDisclaimerService(
       state_(std::make_unique<ResetableState>()),
       signin_prefs_(*profile->GetPrefs()) {
   scoped_identity_manager_observation_.Observe(GetIdentityManager());
-  scoped_browser_list_observation_.Observe(BrowserList::GetInstance());
+  scoped_browser_collection_observation_.Observe(
+      ProfileBrowserCollection::GetForProfile(profile));
 
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(&ProfileManagementDisclaimerService::
@@ -108,6 +110,24 @@ ProfileManagementDisclaimerService::DisableManagementDisclaimerUntilReset() {
       base::BindOnce(&ProfileManagementDisclaimerService::
                          SetEnableManagementDisclaimerOnPrimaryAccountChange,
                      weak_ptr_factory_.GetWeakPtr(), true));
+}
+
+base::ScopedClosureRunner
+ProfileManagementDisclaimerService::AutoAcceptManagementDisclaimerUntilReset() {
+  active_auto_accept_count_++;
+  auto_accept_management_ = true;
+  return base::ScopedClosureRunner(base::BindOnce(
+      &ProfileManagementDisclaimerService::MaybeResetAcceptManagementDisclaimer,
+      weak_ptr_factory_.GetWeakPtr(), /*auto_accept_management=*/false));
+}
+
+void ProfileManagementDisclaimerService::MaybeResetAcceptManagementDisclaimer(
+    bool auto_accept_management) {
+  active_auto_accept_count_--;
+  CHECK_GE(active_auto_accept_count_, 0);
+  if (active_auto_accept_count_ == 0) {
+    auto_accept_management_ = auto_accept_management;
+  }
 }
 
 ProfileManagementDisclaimerService::ResetableState::ResetableState() = default;
@@ -238,7 +258,8 @@ void ProfileManagementDisclaimerService::
 
   Browser* browser = chrome::FindLastActiveWithProfile(&profile_.get());
   bool has_browser_with_tab =
-      browser && browser->SupportsWindowFeature(Browser::FEATURE_TABSTRIP);
+      browser &&
+      browser->SupportsWindowFeature(Browser::WindowFeature::kFeatureTabStrip);
   // If there is no browser and we are not in tests, abort.
   if (!has_browser_with_tab && !profile_separation_policies_for_testing_ &&
       !user_choice_for_testing_) {
@@ -307,6 +328,14 @@ void ProfileManagementDisclaimerService::OnRegisteredForPolicy(
     return;
   }
   signin_prefs_.ClearPolicyDisclaimerLastRegistrationFailureTime(gaia_id);
+
+  if (auto_accept_management_) {
+    enterprise_util::SetUserAcceptedAccountManagement(&profile_.get(), true);
+    OnManagedProfileCreationResult(
+        base::ok<Profile*>(&profile_.get()),
+        /*profile_creation_required_by_policy=*/false);
+    return;
+  }
 
   if (profile_separation_policies_for_testing_.has_value() ||
       user_choice_for_testing_.has_value()) {
@@ -422,11 +451,8 @@ void ProfileManagementDisclaimerService::OnRefreshTokenUpdatedForAccount(
   state_->refresh_token_wait_timeout.Stop();
 }
 
-void ProfileManagementDisclaimerService::OnBrowserSetLastActive(
-    Browser* browser) {
-  if (browser->profile() != &profile_.get()) {
-    return;
-  }
+void ProfileManagementDisclaimerService::OnBrowserActivated(
+    BrowserWindowInterface* browser) {
   CoreAccountId account_id = state_->account_id.empty()
                                  ? GetPrimaryAccountInfo().account_id
                                  : state_->account_id;

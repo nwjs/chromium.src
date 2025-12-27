@@ -24,8 +24,8 @@
 #import "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_storage_type.h"
-#import "ios/chrome/browser/bookmarks/ui_bundled/bookmark_earl_grey.h"
-#import "ios/chrome/browser/bookmarks/ui_bundled/bookmark_earl_grey_ui.h"
+#import "ios/chrome/browser/bookmarks/test/bookmark_earl_grey.h"
+#import "ios/chrome/browser/bookmarks/test/bookmark_earl_grey_ui.h"
 #import "ios/chrome/browser/infobars/ui_bundled/banners/infobar_banner_constants.h"
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/settings/ui_bundled/privacy/privacy_constants.h"
@@ -82,10 +82,10 @@ const char kEnterpriseBlockPage[] =
 
 // Error message logged when the wrong number of Enterprise Reports were
 // received.
-NSString* kWrongNumberOfReportsErrorMessage = @"Wrong number of reports.";
+NSString* const kWrongNumberOfReportsErrorMessage = @"Wrong number of reports.";
 
 // Id of the primary button in the security interstitial pages.
-NSString* kPrimaryButtonID = @"primary-button";
+NSString* const kPrimaryButtonID = @"primary-button";
 
 // Duration to wait for an enterprise security event report.
 constexpr base::TimeDelta kReportUploadTimeout = base::Seconds(15);

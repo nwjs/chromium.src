@@ -10,7 +10,6 @@
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/webui/cr_components/history_clusters/history_clusters_util.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
-#include "chrome/browser/ui/webui/history/history_sign_in_state_watcher.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/history_resources.h"
@@ -86,15 +85,7 @@ content::WebUIDataSource* HistoryUtil::PopulateCommonSourceForHistory(
 
   source->AddBoolean(
       "enableBrowsingHistoryActorIntegrationM1",
-      base::FeatureList::IsEnabled(
-          browsing_data::features::kBrowsingHistoryActorIntegrationM1));
-
-  signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(profile);
-  syncer::SyncService* sync_service =
-      SyncServiceFactory::GetForProfile(profile);
-  source->AddInteger(kSignInStateKey, static_cast<int>(GetHistorySignInState(
-                                          identity_manager, sync_service)));
+      browsing_data::features::IsBrowsingHistoryActorIntegrationM1Enabled());
 
   source->AddInteger(
       "lastSelectedTab",

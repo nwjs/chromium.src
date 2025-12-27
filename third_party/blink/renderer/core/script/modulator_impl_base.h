@@ -86,6 +86,7 @@ class ModulatorImplBase : public Modulator {
   void ResolveDynamically(const ModuleRequest& module_request,
                           const ReferrerScriptInfo&,
                           ScriptPromiseResolver<IDLAny>*) override;
+  void AddEntryToModuleMap(const KURL&, ModuleType, ModuleScript*) override;
 
   ModuleImportMeta HostGetImportMetaProperties(
       v8::Local<v8::Module>) const override;

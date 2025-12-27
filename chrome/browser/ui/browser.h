@@ -147,17 +147,17 @@ class Browser : public TabStripModelObserver,
   void OnDidFinishFirstNavigation();
 
   // Possible elements of the Browser window.
-  enum WindowFeature {
-    FEATURE_NONE = 0,
-    FEATURE_TITLEBAR = 1 << 0,
-    FEATURE_TABSTRIP = 1 << 1,
-    FEATURE_TOOLBAR = 1 << 2,
-    FEATURE_LOCATIONBAR = 1 << 3,
-    FEATURE_BOOKMARKBAR = 1 << 4,
-    FEATURE_NW_FRAMELESS = 1 << 5
-    // TODO(crbug.com/40639933): Add FEATURE_PAGECONTROLS to describe the
+  enum class WindowFeature {
+    kFeatureNone,
+    kFeatureTitleBar,
+    kFeatureTabStrip,
+    kFeatureToolbar,
+    kFeatureLocationBar,
+    kFeatureBookmarkBar,
+    kFeatureNwFrameless,
+    // TODO(crbug.com/40639933): Add kFeaturePageControls to describe the
     // presence of per-page controls such as Content Settings Icons, which
-    // should be decoupled from FEATURE_LOCATIONBAR as they have independent
+    // should be decoupled from kFeatureLocationBar as they have independent
     // presence in Web App browsers.
   };
 
@@ -343,6 +343,12 @@ class Browser : public TabStripModelObserver,
     // Document Picture in Picture options, specific to TYPE_PICTURE_IN_PICTURE.
     std::optional<blink::mojom::PictureInPictureWindowOptions> pip_options;
 
+    // Specifies the collapsed state for the Vertical Tab Strip. True if the
+    // browser is collapsed.
+    std::optional<bool> vertical_tab_strip_collapsed;
+    // Specifies the width for the uncollapsed Vertical Tab Strip.
+    std::optional<int> vertical_tab_strip_uncollapsed_width;
+
    private:
     friend class Browser;
     friend class WindowSizerChromeOSTest;
@@ -459,6 +465,12 @@ class Browser : public TabStripModelObserver,
   Type type() const { return type_; }
   const std::string& app_name() const { return app_name_; }
   const std::string& user_title() const { return user_title_; }
+  std::optional<bool> is_vertical_tabs_initially_collapsed() const {
+    return initial_vertical_tab_strip_collapsed_;
+  }
+  std::optional<int> get_vertical_tabs_initial_uncollapsed_width() const {
+    return initial_vertical_tab_strip_uncollapsed_width_;
+  }
   const std::string& windows_key() const { return windows_key_; }
   bool is_trusted_source() const { return is_trusted_source_; }
   bool is_frameless() const { return frameless_; }
@@ -513,12 +525,11 @@ class Browser : public TabStripModelObserver,
   bool should_trigger_session_restore() const {
     return should_trigger_session_restore_;
   }
-  const web_app::AppBrowserController* app_controller() const {
-    return GetAppBrowserController();
-  }
-  web_app::AppBrowserController* app_controller() {
-    return GetAppBrowserController();
-  }
+
+  // Remove these functions and migrate to using
+  // AppBrowserController::IsWebApp()` and `AppBrowserController::From()`.
+  const web_app::AppBrowserController* app_controller() const;
+  web_app::AppBrowserController* app_controller();
   BrowserWindowFeatures* browser_window_features() const {
     return features_.get();
   }
@@ -631,15 +642,13 @@ class Browser : public TabStripModelObserver,
   // 2. The Browser window is hidden, and a task is posted that results in
   //    deleting the Browser (Views is responsible for posting the task). This
   //    phase can not be stopped. During this phase is_delete_scheduled()
-  //    returns true. IsBrowserClosing() is nearly identical to
-  //    is_delete_scheduled(), it's set just before removing the tabs.
+  //    returns true.
   //
   // Note that there are other cases that may delay closing, such as downloads,
   // but that is done before any of these steps.
-  // TODO(crbug.com/40064092): See about unifying IsBrowserClosing() and
-  // is_delete_scheduled().
+  // TODO(crbug.com/40064092): See about unifying IsAttemptingToCloseBrowser()
+  // and is_delete_scheduled().
   bool IsAttemptingToCloseBrowser() const override;
-  bool IsBrowserClosing() const;
   bool is_delete_scheduled() const { return is_delete_scheduled_; }
 
   // Invoked when the window containing us is closing. Performs the necessary
@@ -864,8 +873,6 @@ class Browser : public TabStripModelObserver,
   ExclusiveAccessManager* GetExclusiveAccessManager() override;
   BrowserActions* GetActions() override;
   Type GetType() const override;
-  web_app::AppBrowserController* GetAppBrowserController() override;
-  const web_app::AppBrowserController* GetAppBrowserController() const override;
   std::vector<tabs::TabInterface*> GetAllTabInterfaces() override;
   Browser* GetBrowserForMigrationOnly() override;
   const Browser* GetBrowserForMigrationOnly() const override;
@@ -1027,13 +1034,15 @@ class Browser : public TabStripModelObserver,
   void EnumerateDirectory(content::WebContents* web_contents,
                           scoped_refptr<content::FileSelectListener> listener,
                           const base::FilePath& path) override;
-  bool CanUseWindowingControls(
-      content::RenderFrameHost* requesting_frame) override;
   void OnWebApiWindowResizableChanged() override;
   bool GetCanResize() override;
+#if !BUILDFLAG(IS_ANDROID)
+  bool CanUseWindowingControls(
+      content::RenderFrameHost* requesting_frame) override;
   void MinimizeFromWebAPI() override;
   void MaximizeFromWebAPI() override;
   void RestoreFromWebAPI() override;
+#endif
   ui::mojom::WindowShowState GetWindowShowState() const override;
   bool CanEnterFullscreenModeForTab(
       content::RenderFrameHost* requesting_frame) override;
@@ -1076,16 +1085,18 @@ class Browser : public TabStripModelObserver,
       content::WebContents* web_contents,
       const content::MediaStreamRequest& request,
       content::MediaResponseCallback callback) override;
-
   void ProcessSelectAudioOutput(
       const content::SelectAudioOutputRequest& request,
       content::SelectAudioOutputCallback callback) override;
-
   bool CheckMediaAccessPermission(content::RenderFrameHost* render_frame_host,
                                   const url::Origin& security_origin,
                                   blink::mojom::MediaStreamType type) override;
   std::string GetTitleForMediaControls(
       content::WebContents* web_contents) override;
+  void GetAIPageContent(
+      content::WebContents* web_contents,
+      bool include_actionable_elements,
+      base::OnceCallback<void(const std::string&)> callback) override;
 
 #if BUILDFLAG(ENABLE_PRINTING)
   void PrintCrossProcessSubframe(
@@ -1414,6 +1425,9 @@ class Browser : public TabStripModelObserver,
   bool window_has_shown_;
 
   std::string user_title_;
+
+  std::optional<bool> initial_vertical_tab_strip_collapsed_;
+  std::optional<int> initial_vertical_tab_strip_uncollapsed_width_;
 
   std::unique_ptr<ScopedKeepAlive> keep_alive_;
 

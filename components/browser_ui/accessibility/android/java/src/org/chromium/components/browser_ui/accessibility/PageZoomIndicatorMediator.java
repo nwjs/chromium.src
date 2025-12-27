@@ -95,7 +95,9 @@ class PageZoomIndicatorMediator {
                         view,
                         ViewGroup.LayoutParams.WRAP_CONTENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT);
-        popupWindow.setFocusable(false);
+        popupWindow.setElevation(
+                view.getContext().getResources().getDimension(R.dimen.dropdown_elevation));
+        popupWindow.setFocusable(true);
         popupWindow.setOutsideTouchable(true);
         popupWindow.setOnDismissListener(onDismissListener);
 
@@ -110,8 +112,12 @@ class PageZoomIndicatorMediator {
                         .getResources()
                         .getDimensionPixelSize(R.dimen.page_zoom_indicator_popup_width);
 
-        // Show the popup with an offset to align the top-right corner.
-        popupWindow.showAsDropDown(anchorView, -popupWidth, 0);
+        int offset =
+                anchorView
+                        .getContext()
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.page_zoom_indicator_popup_dropdown_offset);
+        popupWindow.showAsDropDown(anchorView, anchorView.getWidth() - popupWidth + offset, 0);
     }
 
     private void handleIndexChanged(int index) {

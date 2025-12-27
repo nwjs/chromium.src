@@ -20,7 +20,6 @@
 #include "build/build_config.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/bookmarks/managed_bookmark_service_factory.h"
-#include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
 #include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/extension_garbage_collector_factory.h"
@@ -44,7 +43,6 @@
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/crx_file/crx_verifier.h"
-#include "components/custom_handlers/simple_protocol_handler_registry_factory.h"
 #include "components/policy/core/common/policy_service_impl.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
@@ -209,13 +207,6 @@ std::unique_ptr<TestingProfile> BuildTestingProfile(
       ExtensionGarbageCollectorFactory::GetInstance(),
       base::BindRepeating(&ExtensionGarbageCollectorFactory::BuildInstanceFor));
 
-  // Use SimpleProtocolHandlerRegistryFactory to prevent OS integration during
-  // the protocol registration process.
-  profile_builder.AddTestingFactory(
-      ProtocolHandlerRegistryFactory::GetInstance(),
-      custom_handlers::SimpleProtocolHandlerRegistryFactory::
-          GetDefaultFactory());
-
   profile_builder.AddTestingFactories(std::move(params.testing_factories));
 
   profile_builder.SetPath(profile_dir);
@@ -261,8 +252,6 @@ ExtensionServiceTestBase::ExtensionServiceTestBase()
 ExtensionServiceTestBase::ExtensionServiceTestBase(
     std::unique_ptr<content::BrowserTaskEnvironment> task_environment)
     : task_environment_(std::move(task_environment)),
-      service_(nullptr),
-      registry_(nullptr),
 #if BUILDFLAG(IS_CHROMEOS)
       user_manager_(std::make_unique<user_manager::UserManagerImpl>(
           std::make_unique<user_manager::FakeUserManagerDelegate>(),
@@ -285,13 +274,7 @@ ExtensionServiceTestBase::ExtensionServiceTestBase(
       extensions_features::kExtensionDisableUnsupportedDeveloper);
 }
 
-ExtensionServiceTestBase::~ExtensionServiceTestBase() {
-  // Why? Because |profile_| has to be destroyed before |at_exit_manager_|, but
-  // is declared above it in the class definition since it's protected.
-  // TODO(crbug.com/40205142): Since we're getting rid of at_exit_manager_,
-  // perhaps we don't need this call?
-  profile_.reset();
-}
+ExtensionServiceTestBase::~ExtensionServiceTestBase() = default;
 
 void ExtensionServiceTestBase::InitializeExtensionService(
     ExtensionServiceTestBase::ExtensionServiceInitParams params) {
@@ -483,6 +466,19 @@ content::BrowserContext* ExtensionServiceTestBase::browser_context() {
 
 Profile* ExtensionServiceTestBase::profile() {
   return profile_.get();
+}
+
+TestingProfile* ExtensionServiceTestBase::testing_profile() {
+  return profile_.get();
+}
+
+void ExtensionServiceTestBase::DeleteProfile() {
+  registrar_ = nullptr;
+  registry_ = nullptr;
+  service_ = nullptr;
+  extensions_install_dir_ = base::FilePath();
+  unpacked_install_dir_ = base::FilePath();
+  profile_.reset();
 }
 
 void ExtensionServiceTestBase::SetGuestSessionOnProfile(bool guest_session) {

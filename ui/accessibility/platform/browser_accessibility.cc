@@ -1413,6 +1413,9 @@ bool BrowserAccessibility::AccessibilityPerformAction(
     case ax::mojom::Action::kScrollRight:
       manager_->Scroll(*this, data.action);
       return true;
+    case ax::mojom::Action::kRequestLayoutBasedAction:
+      manager_->RequestLayoutBasedAction(*this);
+      return true;
     default:
       return false;
   }
@@ -1676,7 +1679,6 @@ std::u16string BrowserAccessibility::GetLocalizedStringForRoleDescription()
     case ax::mojom::Role::kArticle:
       return GetLocalizedString(IDS_AX_ROLE_ARTICLE);
     case ax::mojom::Role::kAudio:
-      // Android returns IDS_AX_MEDIA_AUDIO_ELEMENT, but the string is the same.
       return GetLocalizedString(IDS_AX_ROLE_AUDIO);
     case ax::mojom::Role::kBanner:
       return GetLocalizedString(IDS_AX_ROLE_BANNER);

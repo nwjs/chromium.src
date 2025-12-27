@@ -18,19 +18,21 @@ mojom::ActionResultPtr Tool::TimeOfUseValidation(
   return MakeOkResult();
 }
 
+void Tool::Cancel() {}
+
 GURL Tool::JournalURL() const {
   return GURL::EmptyGURL();
 }
 
 void Tool::UpdateTaskBeforeInvoke(ActorTask& task,
-                                  InvokeCallback callback) const {
+                                  ToolCallback callback) const {
   // Do nothing by default, just trigger the callback.
   std::move(callback).Run(MakeOkResult());
 }
 
 void Tool::UpdateTaskAfterInvoke(ActorTask& task,
                                  mojom::ActionResultPtr result,
-                                 InvokeCallback callback) const {
+                                 ToolCallback callback) const {
   // Do nothing by default, just trigger the callback.
   std::move(callback).Run(std::move(result));
 }

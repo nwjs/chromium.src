@@ -37,10 +37,6 @@ namespace affiliations {
 class AffiliationService;
 }
 
-namespace autofill {
-class FormData;
-}  // namespace autofill
-
 namespace signin {
 class IdentityManager;
 }  // namespace signin
@@ -80,15 +76,7 @@ class PlusAddressServiceImpl : public PlusAddressService,
       const url::Origin& origin,
       base::OnceCallback<void(std::vector<std::string>)> callback) override;
   std::vector<autofill::Suggestion> GetSuggestionsFromPlusAddresses(
-      const std::vector<std::string>& plus_addresses,
-      const url::Origin& origin,
-      bool is_off_the_record,
-      const autofill::FormData& focused_form,
-      const autofill::FormFieldData& focused_field,
-      const base::flat_map<autofill::FieldGlobalId,
-                           autofill::FieldTypeGroupSet>& form_field_type_groups,
-      const autofill::PasswordFormClassification& focused_form_classification,
-      bool is_plus_address_manually_triggered) override;
+      const std::vector<std::string>& plus_addresses) override;
   autofill::Suggestion GetManagePlusAddressSuggestion() const override;
   void RecordAutofillSuggestionEvent(SuggestionEvent suggestion_event) override;
   void OnPlusAddressSuggestionShown(
@@ -100,25 +88,6 @@ class PlusAddressServiceImpl : public PlusAddressService,
       autofill::SuggestionType suggestion_type) override;
   void DidFillPlusAddress() override;
   size_t GetPlusAddressesCount() override;
-  void OnClickedRefreshInlineSuggestion(
-      const url::Origin& last_committed_primary_main_frame_origin,
-      base::span<const autofill::Suggestion> current_suggestions,
-      size_t current_suggestion_index,
-      UpdateSuggestionsCallback update_suggestions_callback) override;
-  void OnShowedInlineSuggestion(
-      const url::Origin& primary_main_frame_origin,
-      base::span<const autofill::Suggestion> current_suggestions,
-      UpdateSuggestionsCallback update_suggestions_callback) override;
-  void OnAcceptedInlineSuggestion(
-      const url::Origin& primary_main_frame_origin,
-      base::span<const autofill::Suggestion> current_suggestions,
-      size_t current_suggestion_index,
-      UpdateSuggestionsCallback update_suggestions_callback,
-      HideSuggestionsCallback hide_suggestions_callback,
-      PlusAddressCallback fill_field_callback,
-      ShowAffiliationErrorDialogCallback show_affiliation_error_dialog,
-      ShowErrorDialogCallback show_error_dialog,
-      base::OnceClosure reshow_suggestions) override;
   std::map<std::string, std::string> GetPlusAddressHatsData() const override;
 
   // PlusAddressWebDataService::Observer:
@@ -131,8 +100,6 @@ class PlusAddressServiceImpl : public PlusAddressService,
   // PlusAddressService:
   void AddObserver(PlusAddressService::Observer* o) override;
   void RemoveObserver(PlusAddressService::Observer* o) override;
-  bool IsPlusAddressCreationEnabled(const url::Origin& origin,
-                                    bool is_off_the_record) const override;
   void GetAffiliatedPlusProfiles(const url::Origin& origin,
                                  GetPlusProfilesCallback callback) override;
   base::span<const PlusProfile> GetPlusProfiles() const override;
@@ -180,23 +147,6 @@ class PlusAddressServiceImpl : public PlusAddressService,
   // Returns `true` when origin is not opaque, not excluded, and scheme is
   // http or https.
   bool IsSupportedOrigin(const url::Origin& origin) const;
-
-  // Reacts to the server response for confirming a plus address from an inline
-  // suggestion.
-  // - In all cases, it hides the showing suggestions.
-  // - In the success case, it then fills the confirmed plus address.
-  // - In the error case, it shows a modal dialog to either
-  //   * fill an affiliated plus address, or
-  //   * oinform the user that their quota is exhausted, or
-  //   * retry by reshowing the suggestions(e.g. on timeout).
-  void OnConfirmInlineCreation(
-      HideSuggestionsCallback hide_callback,
-      PlusAddressCallback fill_callback,
-      ShowAffiliationErrorDialogCallback show_affiliation_error,
-      ShowErrorDialogCallback show_error,
-      base::OnceClosure reshow_suggestions,
-      const PlusAddress& requested_address,
-      const PlusProfileOrError& profile_or_error);
 
   const raw_ref<PrefService> pref_service_;
 

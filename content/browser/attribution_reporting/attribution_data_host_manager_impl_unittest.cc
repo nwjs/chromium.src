@@ -132,9 +132,6 @@ constexpr char kNavigationDataHostStatusHistogram[] =
 constexpr char kRegisterDataHostOutcomeHistogram[] =
     "Conversions.RegisterDataHostOutcome";
 
-constexpr char kProcessRegisterDataHostDelayHistogram[] =
-    "Conversions.ProcessRegisterDataHostDelay";
-
 constexpr char kNavigationUnexpectedRegistrationHistogram[] =
     "Conversions.NavigationUnexpectedRegistration";
 
@@ -864,10 +861,6 @@ TEST_F(AttributionDataHostManagerImplTest,
 
   // kProcessed = 3.
   histograms.ExpectBucketCount(kNavigationDataHostStatusHistogram, 3, 2);
-
-  histograms.ExpectBucketCount(
-      "Conversions.NavigationSourceRegistrationsPerReportingOriginPerBatch", 2,
-      1);
 }
 
 TEST_F(AttributionDataHostManagerImplTest,
@@ -996,17 +989,10 @@ TEST_F(AttributionDataHostManagerImplTest,
       reporting_origin, std::move(source_data), kViaServiceWorker);
 
   data_host_remote.FlushForTesting();
-
-  EXPECT_THAT(histograms.GetAllSamples(
-                  "Conversions.NavigationSourceScopesLimitOutcome"),
-              UnorderedElementsAre(base::Bucket(0, 3), base::Bucket(2, 1),
-                                   base::Bucket(3, 2)));
 }
 
 TEST_F(AttributionDataHostManagerImplTest,
        NavigationSourceUniqueScopesSet_WithScopes) {
-  base::HistogramTester histograms;
-
   const auto page_origin = *SuitableOrigin::Deserialize("https://page.example");
   const auto reporting_url = GURL("https://report.test");
   const auto reporting_origin = *SuitableOrigin::Create(reporting_url);
@@ -1181,11 +1167,6 @@ TEST_F(AttributionDataHostManagerImplTest,
                                         kViaServiceWorker);
 
   data_host_remote.FlushForTesting();
-
-  EXPECT_THAT(histograms.GetAllSamples(
-                  "Conversions.NavigationSourceScopesLimitOutcome"),
-              UnorderedElementsAre(base::Bucket(0, 1), base::Bucket(1, 2),
-                                   base::Bucket(2, 4), base::Bucket(3, 2)));
 }
 
 // Ensures correct behavior in
@@ -1652,8 +1633,6 @@ TEST_F(AttributionDataHostManagerImplTest,
   // kProcessedImmediately = 0, kDeferred = 1
   histograms.ExpectBucketCount(kRegisterDataHostOutcomeHistogram, 0, 1);
   histograms.ExpectBucketCount(kRegisterDataHostOutcomeHistogram, 1, 2);
-  histograms.ExpectTimeBucketCount(kProcessRegisterDataHostDelayHistogram,
-                                   base::Seconds(20), 2);
 }
 
 TEST_F(AttributionDataHostManagerImplTest,
@@ -1922,8 +1901,6 @@ TEST_F(AttributionDataHostManagerImplTest,
 
 TEST_F(AttributionDataHostManagerImplTest,
        FencedFrame_NavigationTiedOsRegistrationsAreBuffered) {
-  base::HistogramTester histograms;
-
   AttributionOsLevelManager::ScopedApiStateForTesting scoped_api_state_setting(
       AttributionOsLevelManager::ApiState::kEnabled);
 
@@ -1988,10 +1965,6 @@ TEST_F(AttributionDataHostManagerImplTest,
       kBeaconId, reporting_url, headers_3.get(),
       /*is_final_response=*/true);
   task_environment_.FastForwardBy(base::TimeDelta());
-
-  // kNavigationDone = 0
-  histograms.ExpectUniqueSample("Conversions.OsRegistrationsBufferFlushReason",
-                                0, 1);
 }
 
 TEST_F(
@@ -2064,9 +2037,6 @@ TEST_F(
   task_environment_.FastForwardBy(base::Seconds(20));
   task_environment_.FastForwardBy(base::TimeDelta());
 
-  // kTimeout = 2
-  histograms.ExpectUniqueSample("Conversions.OsRegistrationsBufferFlushReason",
-                                2, 1);
   checkpoint.Call(2);
 
   // If any additional registrations are received past a timeout, they should
@@ -2900,8 +2870,6 @@ TEST_F(AttributionDataHostManagerImplTest,
 
   // kDeferred = 1
   histograms.ExpectUniqueSample(kRegisterDataHostOutcomeHistogram, 1, 1);
-  histograms.ExpectTimeBucketCount(kProcessRegisterDataHostDelayHistogram,
-                                   base::Seconds(2), 1);
 }
 
 TEST_F(AttributionDataHostManagerImplTest,
@@ -2980,8 +2948,6 @@ TEST_F(AttributionDataHostManagerImplTest,
 
   // kDeferred = 1
   histograms.ExpectUniqueSample(kRegisterDataHostOutcomeHistogram, 1, 1);
-  histograms.ExpectTimeBucketCount(kProcessRegisterDataHostDelayHistogram,
-                                   base::Microseconds(0), 1);
 }
 
 TEST_F(AttributionDataHostManagerImplTest,
@@ -3134,9 +3100,6 @@ TEST_F(AttributionDataHostManagerImplTest,
 
   histograms.ExpectUniqueSample(
       "Conversions.DeferredDataHostProcessedAfterTimeout", true, 1);
-
-  histograms.ExpectTimeBucketCount(kProcessRegisterDataHostDelayHistogram,
-                                   base::Seconds(20), 1);
 }
 
 TEST_F(AttributionDataHostManagerImplTest,
@@ -3581,8 +3544,6 @@ TEST_F(AttributionDataHostManagerImplWithInBrowserMigrationAndAppToWebTest,
 
 TEST_F(AttributionDataHostManagerImplWithInBrowserMigrationAndAppToWebTest,
        BufferedNavigationTiedOsRegistrations_FlushedUponReachingLimit) {
-  base::HistogramTester histograms;
-
   const blink::AttributionSrcToken attribution_src_token;
 
   const GURL reporting_url("https://report.test");
@@ -3674,9 +3635,6 @@ TEST_F(AttributionDataHostManagerImplWithInBrowserMigrationAndAppToWebTest,
   register_n_os_registrations(20);
   // First buffer is full, it should have processed a first batch of 80.
   checkpoint.Call(1);
-  // kBufferFull = 1
-  histograms.ExpectBucketCount("Conversions.OsRegistrationsBufferFlushReason",
-                               /*sample=*/1, /*expected_count=*/1);
 
   register_n_os_registrations(39);
   // It should have filled the buffer twice and have processed two more batch.
@@ -3689,17 +3647,6 @@ TEST_F(AttributionDataHostManagerImplWithInBrowserMigrationAndAppToWebTest,
   // Fifth and last background registration received. It should process the
   // remaining items.
   register_n_os_registrations(2);
-
-  // kNavigationDone = 0, kBufferFull = 1
-  histograms.ExpectBucketCount("Conversions.OsRegistrationsBufferFlushReason",
-                               /*sample=*/0, /*expected_count=*/1);
-  histograms.ExpectBucketCount("Conversions.OsRegistrationsBufferFlushReason",
-                               /*sample=*/1, /*expected_count=*/4);
-
-  histograms.ExpectBucketCount("Conversions.OsRegistrationItemsPerBatch", 20,
-                               /*expected_count=*/4);
-  histograms.ExpectBucketCount("Conversions.OsRegistrationItemsPerBatch",
-                               /*sample=*/2, /*expected_count=*/1);
 }
 
 TEST_F(AttributionDataHostManagerImplWithInBrowserMigrationAndAppToWebTest,
@@ -4269,14 +4216,6 @@ TEST_F(AttributionDataHostManagerImplWithInBrowserMigrationTest,
     // kTiedWithDelay=1, kNeverTiedIneligible=3
     if (navigation_eventually_starts) {
       histograms.ExpectBucketCount(kBackgroundNavigationOutcome, 1, 2);
-      // reporting_url1
-      histograms.ExpectBucketCount(
-          "Conversions.NavigationSourceRegistrationsPerReportingOriginPerBatch",
-          2, 1);
-      // reporting_url2
-      histograms.ExpectBucketCount(
-          "Conversions.NavigationSourceRegistrationsPerReportingOriginPerBatch",
-          1, 1);
     } else {
       histograms.ExpectBucketCount(kBackgroundNavigationOutcome, 3, 2);
     }

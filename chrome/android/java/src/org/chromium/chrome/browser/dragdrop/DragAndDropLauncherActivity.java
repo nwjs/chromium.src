@@ -24,6 +24,9 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.IntentHandler;
+import org.chromium.chrome.browser.incognito.IncognitoUtils;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.SupportedProfileType;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.MultiTabMetadata;
@@ -93,7 +96,7 @@ public class DragAndDropLauncherActivity extends Activity {
      *
      * @param chromeDropDataAndroid The drop data containing either a single tab or tab group
      *     metadata.
-     * @param context The context used to retrieve the package name.
+     * @param sourceActivity The activity from which the tab or group is coming from.
      * @param sourceWindowId The window ID of the Chrome window where the tab drag starts.
      * @param destWindowId The window ID of the Chrome window in which the tab or group will be
      *     moved, |TabWindowManager.INVALID_WINDOW_ID| if the tab should be moved to a new window.
@@ -102,11 +105,11 @@ public class DragAndDropLauncherActivity extends Activity {
      */
     public static @Nullable Intent buildTabOrGroupIntent(
             ChromeDropDataAndroid chromeDropDataAndroid,
-            Context context,
+            Activity sourceActivity,
             int sourceWindowId,
             int destWindowId) {
         if (!MultiWindowUtils.isMultiInstanceApi31Enabled()) return null;
-        Intent intent = setupIntent(context, destWindowId);
+        Intent intent = setupIntent(sourceActivity, destWindowId);
         if (chromeDropDataAndroid instanceof ChromeTabDropDataAndroid tabDropData) {
             intent = getTabIntent(intent, tabDropData.tab);
         } else if (chromeDropDataAndroid instanceof ChromeTabGroupDropDataAndroid groupDropData) {
@@ -117,6 +120,13 @@ public class DragAndDropLauncherActivity extends Activity {
             intent = getMultiTabIntent(intent, multiTabDropData.tabs);
         }
         intent.putExtra(IntentHandler.EXTRA_DRAGDROP_TAB_WINDOW_ID, sourceWindowId);
+        if (IncognitoUtils.shouldOpenIncognitoAsWindow()
+                && sourceActivity instanceof ChromeTabbedActivity) {
+            intent.putExtra(
+                    IntentHandler.EXTRA_OPEN_NEW_INCOGNITO_TAB,
+                    /* value= */ ((ChromeTabbedActivity) sourceActivity).getSupportedProfileType()
+                            == SupportedProfileType.OFF_THE_RECORD);
+        }
         DragAndDropLauncherActivity.setIntentCreationTimestampMs(SystemClock.elapsedRealtime());
         return intent;
     }
@@ -192,7 +202,8 @@ public class DragAndDropLauncherActivity extends Activity {
                         destWindowId,
                         /* preferNew= */ true,
                         /* openAdjacently= */ false,
-                        /* addTrustedIntentExtras= */ false);
+                        /* addTrustedIntentExtras= */ false,
+                        NewWindowAppSource.OTHER);
         intent.setClass(context, DragAndDropLauncherActivity.class);
         intent.setAction(DragAndDropLauncherActivity.ACTION_DRAG_DROP_VIEW);
         intent.addCategory(Intent.CATEGORY_BROWSABLE);

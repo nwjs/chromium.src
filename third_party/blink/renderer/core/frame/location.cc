@@ -288,14 +288,14 @@ void Location::SetLocation(const String& url,
       exception_state->ThrowSecurityError(
           StrCat({"The current window does not have permission to navigate the "
                   "target frame to '",
-                  url, "'."}));
+                  completed_url.GetString(), "'."}));
     }
     return;
   }
   if (exception_state && !completed_url.IsValid()) {
     exception_state->ThrowDOMException(
         DOMExceptionCode::kSyntaxError,
-        StrCat({"'", url, "' is not a valid URL."}));
+        StrCat({"'", completed_url.GetString(), "' is not a valid URL."}));
     return;
   }
 
@@ -324,12 +324,6 @@ void Location::SetLocation(const String& url,
     frame_load_type = WebFrameLoadType::kReplaceCurrentItem;
 
   dom_window_->GetFrame()->Navigate(request, frame_load_type);
-}
-
-DOMOrigin* Location::GetDOMOrigin(LocalDOMWindow* accessing_window) const {
-  return BindingSecurity::ShouldAllowAccessTo(accessing_window, this)
-             ? DOMOrigin::Create(SecurityOrigin::Create(Url()))
-             : nullptr;
 }
 
 Document* Location::GetDocument() const {

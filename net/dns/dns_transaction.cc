@@ -63,6 +63,7 @@
 #include "net/dns/dns_util.h"
 #include "net/dns/host_cache.h"
 #include "net/dns/host_resolver_internal_result.h"
+#include "net/dns/opt_record_rdata.h"
 #include "net/dns/public/dns_over_https_config.h"
 #include "net/dns/public/dns_over_https_server_config.h"
 #include "net/dns/public/dns_protocol.h"
@@ -489,7 +490,7 @@ class DnsHTTPAttempt : public DnsAttempt, public URLRequest::Delegate {
     request_->SetSecureDnsPolicy(SecureDnsPolicy::kBootstrap);
     request_->SetLoadFlags(request_->load_flags() | LOAD_DISABLE_CACHE |
                            LOAD_BYPASS_PROXY);
-    request_->set_allow_credentials(false);
+    request_->set_disallow_credentials();
     request_->set_isolation_info(isolation_info);
   }
 
@@ -1834,6 +1835,8 @@ class DnsTransactionFactoryImpl : public DnsTransactionFactory {
   SecureDnsMode GetSecureDnsModeForTest() override {
     return session_->config().secure_dns_mode;
   }
+
+  OptRecordRdata* GetOptRdataForTest() override { return opt_rdata_.get(); }
 
  private:
   scoped_refptr<DnsSession> session_;

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "partition_alloc/slot_start.h"
 #ifdef UNSAFE_BUFFERS_BUILD
 // TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
 #pragma allow_unsafe_buffers
@@ -85,6 +86,8 @@ struct SchedulerLoopQuarantineConfig {
   char branch_name[32] = "";
 };
 
+struct BucketSizeDetails;
+
 class PA_COMPONENT_EXPORT(PARTITION_ALLOC) SchedulerLoopQuarantineRoot {
  public:
   explicit SchedulerLoopQuarantineRoot(PartitionRoot& allocator_root)
@@ -157,9 +160,15 @@ class SchedulerLoopQuarantineBranch {
   // requirement.
   void SetCapacityInBytes(size_t capacity_in_bytes);
 
-  void Quarantine(void* object,
-                  SlotSpanMetadata* slot_span,
-                  uintptr_t slot_start) PA_LOCKS_EXCLUDED(lock_);
+  // TODO(ayumiohno): Remove this once FreeAfterBRPQuarantine creates
+  // `size_details` and uses QuarantineWithSize.
+  void Quarantine(SlotStart slot_start, SlotSpanMetadata* slot_span)
+      PA_LOCKS_EXCLUDED(lock_);
+
+  void QuarantineWithSize(SlotStart slot_start,
+                          SlotSpanMetadata* slot_span,
+                          const internal::BucketSizeDetails& size_details)
+      PA_LOCKS_EXCLUDED(lock_);
 
   void AllowScanlessPurge();
   void DisallowScanlessPurge();
@@ -227,7 +236,7 @@ class SchedulerLoopQuarantineBranch {
 
   // `slots_` hold quarantined entries.
   struct QuarantineSlot {
-    uintptr_t slot_start = 0;
+    SlotStart slot_start;
     // Record bucket index instead of slot size because look-up from bucket
     // index to slot size is more lightweight compared to its reverse look-up.
     size_t bucket_index = 0;

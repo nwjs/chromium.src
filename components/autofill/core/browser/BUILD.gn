@@ -38,12 +38,27 @@ grit("autofill_address_rewriter_resources") {
   output_dir = "$root_gen_dir/components/autofill/core/browser/geo"
 }
 
+grit("autofill_alternative_state_name_map_resources") {
+  if (is_chrome_branded) {
+    source = "geo/chrome_alternative_state_name_maps/alternative_state_name_map_resources.grd"
+  } else {
+    source = "geo/autofill_alternative_state_name_map_resources.grd"
+  }
+  outputs = [
+    "grit/autofill_alternative_state_name_map_resources.h",
+    "grit/test_autofill_address_rewriter_resources_map.h",
+    "grit/test_autofill_address_rewriter_resources_map.cc",
+    "autofill_alternative_state_name_map_resources.pak",
+  ]
+  output_dir = "$root_gen_dir/components/autofill/core/browser/geo"
+}
+
 declare_args() {
   # Normally, only branded builds use Google-internal sets of parsing patterns.
   #
   # Setting the variable 'use_internal_autofill_patterns' in args.gn overrides
   # this default.
-  use_internal_autofill_patterns = is_chrome_branded
+  use_internal_autofill_patterns = enable_src_internal
 }
 
 buildflag_header("buildflags") {
@@ -364,12 +379,15 @@ static_library("browser") {
     "foundations/form_forest_util_inl.h",
     "foundations/scoped_autofill_managers_observation.cc",
     "foundations/scoped_autofill_managers_observation.h",
+    "foundations/scoped_credit_card_access_managers_observation.cc",
+    "foundations/scoped_credit_card_access_managers_observation.h",
     "geo/address_i18n.cc",
     "geo/address_i18n.h",
     "geo/address_rewriter.cc",
     "geo/address_rewriter.h",
     "geo/alternative_state_name_map.cc",
     "geo/alternative_state_name_map.h",
+    "geo/alternative_state_name_map_constants.h",
     "geo/alternative_state_name_map_updater.cc",
     "geo/alternative_state_name_map_updater.h",
     "geo/autofill_country.cc",
@@ -682,14 +700,16 @@ static_library("browser") {
     "studies/autofill_ablation_study.h",
     "studies/autofill_experiments.cc",
     "studies/autofill_experiments.h",
+    "suggestions/addresses/address_on_typing_suggestion_data.h",
     "suggestions/addresses/address_suggestion_generator.cc",
     "suggestions/addresses/address_suggestion_generator.h",
     "suggestions/autocomplete_suggestion_generator.cc",
     "suggestions/autocomplete_suggestion_generator.h",
     "suggestions/autofill_ai/autofill_ai_suggestion_generator.cc",
     "suggestions/autofill_ai/autofill_ai_suggestion_generator.h",
-    "suggestions/compose_suggestion_generator.cc",
-    "suggestions/compose_suggestion_generator.h",
+    "suggestions/compose/compose_availability.h",
+    "suggestions/compose/compose_suggestion_generator.cc",
+    "suggestions/compose/compose_suggestion_generator.h",
     "suggestions/identity_credential_suggestion_utils.cc",
     "suggestions/identity_credential_suggestion_utils.h",
     "suggestions/one_time_passwords/one_time_password_suggestion_data.h",
@@ -707,7 +727,7 @@ static_library("browser") {
     "suggestions/payments/payments_suggestion_generator.cc",
     "suggestions/payments/payments_suggestion_generator.h",
     "suggestions/payments/save_and_fill_suggestion.h",
-    "suggestions/plus_addresses/create_plus_address_suggestion.h",
+    "suggestions/payments/virtual_card_suggestion_data.h",
     "suggestions/plus_addresses/plus_address.h",
     "suggestions/plus_addresses/plus_address_for_address_suggestion.h",
     "suggestions/plus_addresses/plus_address_suggestion_generator.cc",
@@ -999,6 +1019,7 @@ static_library("browser") {
 
   deps = [
     ":autofill_address_rewriter_resources",
+    ":autofill_alternative_state_name_map_resources",
     ":buildflags",
     ":entity_schema_enums_and_functions",
     ":generate_country_native_names",
@@ -1124,6 +1145,7 @@ source_set("payments_sync_utils") {
 static_library("test_support") {
   testonly = true
   sources = [
+    "autofill_field_test_api.h",
     "crowdsourcing/autofill_crowdsourcing_manager_test_api.h",
     "crowdsourcing/mock_autofill_crowdsourcing_manager.cc",
     "crowdsourcing/mock_autofill_crowdsourcing_manager.h",
@@ -1205,6 +1227,7 @@ static_library("test_support") {
     "geo/mock_alternative_state_name_map_updater.h",
     "geo/test_region_data_loader.cc",
     "geo/test_region_data_loader.h",
+    "integrators/address_on_typing/address_on_typing_manager_test_api.h",
     "integrators/autofill_ai/autofill_ai_manager_test_api.h",
     "integrators/autofill_ai/mock_autofill_ai_manager.cc",
     "integrators/autofill_ai/mock_autofill_ai_manager.h",
@@ -1239,6 +1262,8 @@ static_library("test_support") {
     "payments/credit_card_access_manager_test_base.cc",
     "payments/credit_card_access_manager_test_base.h",
     "payments/iban_manager_test_api.h",
+    "payments/mock_credit_card_access_manager_observer.cc",
+    "payments/mock_credit_card_access_manager_observer.h",
     "payments/mock_iban_access_manager.cc",
     "payments/mock_iban_access_manager.h",
     "payments/mock_test_payments_network_interface.cc",
@@ -1291,6 +1316,7 @@ static_library("test_support") {
     "strike_databases/payments/test_credit_card_save_strike_database.h",
     "strike_databases/payments/test_strike_database.cc",
     "strike_databases/payments/test_strike_database.h",
+    "suggestions/payments/credit_card_suggestion_generator_test_api.h",
     "suggestions/suggestion_test_helpers.cc",
     "suggestions/suggestion_test_helpers.h",
     "test_utils/autofill_form_test_utils.cc",
@@ -1341,6 +1367,7 @@ static_library("test_support") {
 
   deps = [
     ":autofill_address_rewriter_resources",
+    ":autofill_alternative_state_name_map_resources",
     ":payments_sync_utils",
     "//base",
     "//base/test:test_support",
@@ -1455,8 +1482,9 @@ source_set("unit_tests") {
     "crowdsourcing/determine_possible_field_types_unittest.cc",
     "crowdsourcing/disambiguate_possible_field_types_unittest.cc",
     "crowdsourcing/randomized_encoder_unittest.cc",
+    "crowdsourcing/votes_uploader_unittest.cc",
     "data_manager/addresses/account_name_email_store_unittest.cc",
-    "data_manager/addresses/account_name_email_strike_manager_unittests.cc",
+    "data_manager/addresses/account_name_email_strike_manager_unittest.cc",
     "data_manager/addresses/address_data_cleaner_unittest.cc",
     "data_manager/addresses/address_data_manager_unittest.cc",
     "data_manager/addresses/home_and_work_metadata_store_unittest.cc",
@@ -1545,6 +1573,7 @@ source_set("unit_tests") {
     "foundations/browser_autofill_manager_unittest.cc",
     "foundations/form_forest_unittest.cc",
     "foundations/scoped_autofill_managers_observation_unittest.cc",
+    "foundations/scoped_credit_card_access_managers_observation_unittest.cc",
     "geo/address_i18n_unittest.cc",
     "geo/address_rewriter_unittest.cc",
     "geo/alternative_state_name_map_unittest.cc",
@@ -1649,19 +1678,19 @@ source_set("unit_tests") {
     "suggestions/addresses/address_suggestion_generator_unittest.cc",
     "suggestions/autocomplete_suggestion_generator_unittest.cc",
     "suggestions/autofill_ai/autofill_ai_suggestion_generator_unittest.cc",
-    "suggestions/compose_suggestion_generator_unittest.cc",
+    "suggestions/compose/compose_suggestion_generator_unittest.cc",
     "suggestions/one_time_passwords/otp_suggestion_generator_unittest.cc",
     "suggestions/passkeys/passkey_suggestion_generator_unittest.cc",
     "suggestions/payments/iban_suggestion_generator_unittest.cc",
     "suggestions/payments/merchant_promo_code_suggestion_generator_unittest.cc",
     "suggestions/payments/payments_suggestion_generator_unittest.cc",
+    "suggestions/plus_addresses/plus_address_suggestion_generator_unittest.cc",
     "suggestions/valuables/valuable_suggestion_generator_unittest.cc",
     "ui/addresses/autofill_address_util_unittest.cc",
     "ui/autofill_external_delegate_unittest.cc",
     "ui/country_combobox_model_unittest.cc",
     "ui/payments/autofill_error_dialog_controller_impl_unittest.cc",
     "ui/payments/autofill_progress_dialog_controller_impl_unittest.cc",
-    "ui/payments/bnpl_tos_controller_impl_unittest.cc",
     "ui/payments/bubble_show_options_unittest.cc",
     "ui/payments/card_unmask_otp_input_dialog_controller_impl_unittest.cc",
     "ui/payments/card_unmask_prompt_controller_impl_unittest.cc",
@@ -1730,7 +1759,10 @@ source_set("unit_tests") {
   }
 
   if (!is_android) {
-    sources += [ "ui/autofill_image_fetcher_unittest.cc" ]
+    sources += [
+      "ui/autofill_image_fetcher_unittest.cc",
+      "ui/payments/bnpl_tos_controller_impl_unittest.cc",
+    ]
   }
 
   if (is_win || is_mac || is_android) {
@@ -1776,6 +1808,7 @@ source_set("unit_tests") {
 
   deps = [
     ":autofill_address_rewriter_resources",
+    ":autofill_alternative_state_name_map_resources",
     ":browser",
     ":buildflags",
     ":entity_schema_enums_and_functions",

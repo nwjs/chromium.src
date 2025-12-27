@@ -266,15 +266,10 @@ public final class AwBrowserProcess {
                 AwContentsLifecycleNotifier.initialize();
             }
 
-            try (DualTraceEvent ignored =
-                    DualTraceEvent.scoped(
-                            "AwBrowserProcess.finishBrowserProcessStart"
-                                    + ".setupSupervisedUrlClassifier")) {
-                AwSupervisedUserUrlClassifier classifier =
-                        AwSupervisedUserUrlClassifier.getInstance();
-                if (classifier != null && AwSupervisedUserSafeModeAction.isSupervisionEnabled()) {
-                    classifier.checkIfNeedRestrictedContentBlocking();
-                }
+            if (!WebViewCachedFlags.get()
+                    .isCachedFeatureEnabled(
+                            AwFeatures.WEBVIEW_OPT_IN_TO_GMS_BIND_SERVICE_OPTIMIZATION)) {
+                setupSupervisedUser();
             }
 
             if (AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_CACHE_BOUNDARY_INTERFACE_METHODS)) {
@@ -347,6 +342,28 @@ public final class AwBrowserProcess {
                     DualTraceEvent.scoped("AwBrowserProcess.maybeEnableSafeBrowsingFromManifest")) {
                 AwSafeBrowsingConfigHelper.maybeEnableSafeBrowsingFromManifest();
             }
+            if (!WebViewCachedFlags.get()
+                    .isCachedFeatureEnabled(
+                            AwFeatures.WEBVIEW_OPT_IN_TO_GMS_BIND_SERVICE_OPTIMIZATION)) {
+                maybeEnableSafeBrowsingFromGms();
+            }
+        }
+    }
+
+    public static void setupSupervisedUser() {
+        try (DualTraceEvent ignored =
+                DualTraceEvent.scoped("AwBrowserProcess.setupSupervisedUser")) {
+            AwSupervisedUserUrlClassifier classifier = AwSupervisedUserUrlClassifier.getInstance();
+            if (classifier != null && AwSupervisedUserSafeModeAction.isSupervisionEnabled()) {
+                classifier.checkIfNeedRestrictedContentBlocking();
+            }
+        }
+    }
+
+    public static void maybeEnableSafeBrowsingFromGms() {
+        try (DualTraceEvent e2 =
+                DualTraceEvent.scoped("AwBrowserProcess.maybeEnableSafeBrowsingFromGms")) {
+            AwSafeBrowsingConfigHelper.maybeEnableSafeBrowsingFromGms();
         }
     }
 
@@ -763,8 +780,7 @@ public final class AwBrowserProcess {
                             && AwFeatureMap.isEnabled(
                                     AwFeatures.WEBVIEW_USE_METRICS_UPLOAD_SERVICE_ONLY_SDK_RUNTIME);
 
-            if (metricServiceEnabledOnlySdkRuntime
-                    || AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_USE_METRICS_UPLOAD_SERVICE)) {
+            if (metricServiceEnabledOnlySdkRuntime) {
                 boolean isAsync =
                         AwFeatureMap.isEnabled(AwFeatures.ANDROID_METRICS_ASYNC_METRIC_LOGGING);
                 AwMetricsLogUploader uploader = new AwMetricsLogUploader(isAsync);

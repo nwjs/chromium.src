@@ -1296,10 +1296,9 @@ std::vector<PaintImage> test_images = {
 };
 
 #if BUILDFLAG(SKIA_SUPPORT_SKOTTIE)
-
-bool kIsSkottieSupported = true;
+constexpr bool kIsSkottieSupported = true;
 #else
-bool kIsSkottieSupported = false;
+constexpr bool kIsSkottieSupported = false;
 #endif
 
 // Writes as many ops in |buffer| as can fit in |output_size| to |output|.
@@ -4472,7 +4471,7 @@ TEST(PaintOpBufferTest, ShrinkToFit) {
 
   buffer.push<DrawColorOp>(SkColors::kRed, SkBlendMode::kSrc);
   EXPECT_GT(buffer.bytes_used(), sizeof(PaintOpBuffer) + sizeof(DrawColorOp));
-  const char* data_buffer = buffer.DataBufferForTesting();
+  const uint8_t* data_buffer = buffer.DataBufferForTesting();
   ASSERT_TRUE(data_buffer);
   buffer.ShrinkToFit();
   EXPECT_EQ(sizeof(PaintOpBuffer) + sizeof(DrawColorOp), buffer.bytes_used());
@@ -4496,7 +4495,7 @@ TEST(PaintOpBufferTest, ReleaseAsRecord) {
   buffer.push<DrawColorOp>(SkColors::kRed, SkBlendMode::kSrc);
   size_t old_bytes_used = buffer.bytes_used();
   EXPECT_GT(old_bytes_used, sizeof(PaintOpBuffer) + sizeof(DrawColorOp));
-  const char* data_buffer = buffer.DataBufferForTesting();
+  const uint8_t* data_buffer = buffer.DataBufferForTesting();
   ASSERT_TRUE(data_buffer);
   EXPECT_EQ(1u, buffer.size());
 

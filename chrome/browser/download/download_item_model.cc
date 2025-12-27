@@ -363,6 +363,7 @@ bool DownloadItemModel::IsMalicious() const {
     case download::DOWNLOAD_DANGER_TYPE_PROMPT_FOR_SCANNING:
     case download::DOWNLOAD_DANGER_TYPE_PROMPT_FOR_LOCAL_PASSWORD_SCANNING:
     case download::DOWNLOAD_DANGER_TYPE_BLOCKED_SCAN_FAILED:
+    case download::DOWNLOAD_DANGER_TYPE_FORCE_SAVE_TO_GDRIVE:
       return false;
   }
   NOTREACHED();
@@ -451,9 +452,8 @@ bool DownloadItemModel::ShouldPreferOpeningInBrowser() {
     base::FilePath path = GetTargetFilePath();
     std::string mime_type = GetMimeType();
     DetermineAndSetShouldPreferOpeningInBrowser(
-        path,
-        DownloadTargetDeterminer::DetermineIfHandledSafelyHelperSynchronous(
-            download_, path, mime_type));
+        path, DownloadTargetDeterminer::DetermineIfHandledSafelyHelper(
+                  download_, path, mime_type));
   }
 #endif  // !BUILDFLAG(IS_ANDROID)
   return data->should_prefer_opening_in_browser_.value_or(false);
@@ -962,6 +962,7 @@ DangerUiPattern DownloadItemModel::GetDangerUiPattern() const {
     case download::DOWNLOAD_DANGER_TYPE_ASYNC_LOCAL_PASSWORD_SCANNING:
     case download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_FAILED:
       return DangerUiPattern::kSuspicious;
+    case download::DOWNLOAD_DANGER_TYPE_FORCE_SAVE_TO_GDRIVE:
     case download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_WARNING:
     case download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_BLOCK:
     case download::DOWNLOAD_DANGER_TYPE_BLOCKED_PASSWORD_PROTECTED:
@@ -1063,6 +1064,7 @@ bool DownloadItemModel::IsEphemeralWarning() const {
     case download::DOWNLOAD_DANGER_TYPE_PROMPT_FOR_SCANNING:
     case download::DOWNLOAD_DANGER_TYPE_PROMPT_FOR_LOCAL_PASSWORD_SCANNING:
       return true;
+    case download::DOWNLOAD_DANGER_TYPE_FORCE_SAVE_TO_GDRIVE:
     case download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_OPENED_DANGEROUS:
     case download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS:
     case download::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT:

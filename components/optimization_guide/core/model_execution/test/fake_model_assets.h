@@ -13,11 +13,11 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/values.h"
 #include "components/optimization_guide/core/delivery/model_info.h"
-#include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_adaptation_loader.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_service_controller.h"
 #include "components/optimization_guide/proto/on_device_model_execution_config.pb.h"
 #include "components/optimization_guide/proto/text_safety_model_metadata.pb.h"
+#include "components/optimization_guide/public/mojom/model_broker.mojom-data-view.h"
 #include "services/on_device_model/public/cpp/model_assets.h"
 
 namespace optimization_guide {
@@ -35,7 +35,7 @@ class FakeBaseModelAsset {
     uint32_t adapter_cache_weight = 0;
   };
   FakeBaseModelAsset();
-  explicit FakeBaseModelAsset(Content&& content);
+  explicit FakeBaseModelAsset(Content content);
   explicit FakeBaseModelAsset(
       const std::vector<proto::OnDeviceModelPerformanceHint>& hints);
   explicit FakeBaseModelAsset(
@@ -56,6 +56,9 @@ class FakeBaseModelAsset {
   // Pass this asset to manager->SetReady.
   void SetReadyIn(OnDeviceModelComponentStateManager& manager) const;
 
+  // Constructs metadata compatible with the default constructed asset.
+  static proto::OnDeviceBaseModelMetadata DefaultSpec();
+
  private:
   std::string version_ = "0.0.1";
   base::Value::List supported_performance_hints_;
@@ -68,16 +71,17 @@ class FakeAdaptationAsset {
   struct Content {
     proto::OnDeviceModelExecutionFeatureConfig config;
     std::optional<uint32_t> weight;
-    proto::OnDeviceBaseModelMetadata metadata;
+    proto::OnDeviceBaseModelMetadata metadata =
+        FakeBaseModelAsset::DefaultSpec();
   };
   explicit FakeAdaptationAsset(Content&& content);
   ~FakeAdaptationAsset();
 
   int64_t version() const { return 12345; }
-  ModelBasedCapabilityKey feature() const { return feature_; }
+  mojom::OnDeviceFeature feature() const { return feature_; }
   OnDeviceModelAdaptationMetadata metadata() const { return *metadata_; }
 
-  const ModelInfo& model_info() { return *model_info_; }
+  const ModelInfo& model_info() const { return *model_info_; }
 
   void SendTo(OnDeviceModelServiceController& controller) const;
 
@@ -85,7 +89,7 @@ class FakeAdaptationAsset {
 
  private:
   base::ScopedTempDir temp_dir_;
-  ModelBasedCapabilityKey feature_;
+  mojom::OnDeviceFeature feature_;
   std::unique_ptr<ModelInfo> model_info_;
   std::unique_ptr<on_device_model::AdaptationAssetPaths> paths_;
   std::unique_ptr<OnDeviceModelAdaptationMetadata> metadata_;
@@ -97,7 +101,7 @@ class FakeLanguageModelAsset {
   FakeLanguageModelAsset();
   ~FakeLanguageModelAsset();
 
-  const ModelInfo& model_info() { return *model_info_; }
+  const ModelInfo& model_info() const { return *model_info_; }
   base::FilePath model_path() const;
 
  private:
@@ -120,9 +124,9 @@ class FakeSafetyModelAsset {
 
   ~FakeSafetyModelAsset();
 
-  const ModelInfo& model_info() { return *model_info_; }
+  const ModelInfo& model_info() const { return *model_info_; }
 
-  base::flat_set<base::FilePath> AdditionalFiles() {
+  base::flat_set<base::FilePath> AdditionalFiles() const {
     return model_info_->GetAdditionalFiles();
   }
 

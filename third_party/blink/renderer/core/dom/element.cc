@@ -36,8 +36,6 @@
 #include "base/feature_list.h"
 #include "cc/input/snap_selection_strategy.h"
 #include "third_party/blink/public/common/features.h"
-#include "third_party/blink/public/common/privacy_budget/identifiability_metric_builder.h"
-#include "third_party/blink/public/common/privacy_budget/identifiability_study_settings.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
 #include "third_party/blink/public/web/web_autofill_state.h"
 #include "third_party/blink/renderer/bindings/core/v8/dictionary.h"
@@ -113,6 +111,7 @@
 #include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/dom/node_cloning_data.h"
 #include "third_party/blink/renderer/core/dom/node_traversal.h"
+#include "third_party/blink/renderer/core/dom/overscroll_pseudo_element_data.h"
 #include "third_party/blink/renderer/core/dom/popover_data.h"
 #include "third_party/blink/renderer/core/dom/presentation_attribute_style.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
@@ -157,6 +156,7 @@
 #include "third_party/blink/renderer/core/html/custom/custom_element.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element_registry.h"
 #include "third_party/blink/renderer/core/html/custom/element_internals.h"
+#include "third_party/blink/renderer/core/html/display_ad_element_monitor.h"
 #include "third_party/blink/renderer/core/html/forms/html_button_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_data_list_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_field_set_element.h"
@@ -206,6 +206,7 @@
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_root.h"
 #include "third_party/blink/renderer/core/loader/render_blocking_resource_manager.h"
+#include "third_party/blink/renderer/core/overscroll/overscroll_area_tracker.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
@@ -222,6 +223,7 @@
 #include "third_party/blink/renderer/core/resize_observer/resize_observer_size.h"
 #include "third_party/blink/renderer/core/sanitizer/sanitizer_api.h"
 #include "third_party/blink/renderer/core/scroll/scroll_into_view_util.h"
+#include "third_party/blink/renderer/core/scroll/scroll_types.h"
 #include "third_party/blink/renderer/core/scroll/scrollable_area.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
 #include "third_party/blink/renderer/core/speculation_rules/document_speculation_rules.h"
@@ -256,6 +258,7 @@
 #include "third_party/blink/renderer/platform/restriction_target_id.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/bidi_paragraph.h"
+#include "third_party/blink/renderer/platform/text/writing_mode_utils.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "third_party/blink/renderer/platform/wtf/hash_functions.h"
@@ -332,6 +335,38 @@ class DisplayLockStyleScope {
   Element* element_;
   bool did_update_children_ = false;
 };
+
+ScrollDirectionPhysical GetPhysicalDirectionForCommand(
+    CommandEventType command,
+    const ComputedStyle& style) {
+  if (command == CommandEventType::kPageUp) {
+    return kScrollUp;
+  } else if (command == CommandEventType::kPageDown) {
+    return kScrollDown;
+  } else if (command == CommandEventType::kPageLeft) {
+    return kScrollLeft;
+  } else if (command == CommandEventType::kPageRight) {
+    return kScrollRight;
+  } else {
+    LogicalToPhysical<bool> mapping(
+        style.GetWritingDirection(),
+        command == CommandEventType::kPageInlineStart,
+        command == CommandEventType::kPageInlineEnd,
+        command == CommandEventType::kPageBlockStart,
+        command == CommandEventType::kPageBlockEnd);
+
+    if (mapping.Top()) {
+      return kScrollUp;
+    } else if (mapping.Bottom()) {
+      return kScrollDown;
+    } else if (mapping.Left()) {
+      return kScrollLeft;
+    } else if (mapping.Right()) {
+      return kScrollRight;
+    }
+  }
+  NOTREACHED();
+}
 
 bool IsRootEditableElementWithCounting(const Element& element) {
   bool is_editable = IsRootEditableElement(element);
@@ -2995,6 +3030,33 @@ bool Element::ScrollFrameTo(const ScrollToOptions* scroll_to_options) {
       cc::ScrollSourceType::kAbsoluteScroll, scroll_behavior);
 }
 
+bool Element::HandleScrollCommand(CommandEventType command) {
+  DCHECK(RuntimeEnabledFeatures::HTMLCommandForScrollCommandsEnabled());
+
+  if (!InActiveDocument()) {
+    return false;
+  }
+
+  GetDocument().UpdateStyleAndLayoutForNode(this,
+                                            DocumentUpdateReason::kJavaScript);
+
+  LayoutBox* box = GetLayoutBoxForScrolling();
+  if (!box) {
+    return false;
+  }
+
+  // TODO(457939344): Support root scroller.
+  PaintLayerScrollableArea* scrollable_area = box->GetScrollableArea();
+  if (!scrollable_area) {
+    return false;
+  }
+
+  ScrollDirectionPhysical physical_direction =
+      GetPhysicalDirectionForCommand(command, *box->Style());
+
+  return scrollable_area->ScrollByPageWithSnap(physical_direction);
+}
+
 gfx::Rect Element::BoundsInWidget() const {
   GetDocument().EnsurePaintLocationDataValidForNode(
       this, DocumentUpdateReason::kUnknown);
@@ -3319,7 +3381,7 @@ bool Element::toggleAttribute(const AtomicString& qualified_name,
   if (!is_valid) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidCharacterError,
-        "'" + qualified_name + "' is not a valid attribute name.");
+        StrCat({"'", qualified_name, "' is not a valid attribute name."}));
     return false;
   }
   // 2. If the context object is in the HTML namespace and its node document is
@@ -3362,7 +3424,7 @@ bool Element::toggleAttribute(const AtomicString& qualified_name,
   if (!is_valid) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidCharacterError,
-        "'" + qualified_name + "' is not a valid attribute name.");
+        StrCat({"'", qualified_name, "' is not a valid attribute name."}));
     return false;
   }
   // 2. If the context object is in the HTML namespace and its node document is
@@ -3591,11 +3653,6 @@ void Element::AttributeChanged(const AttributeModificationParams& params) {
         blur();
       }
     }
-  } else if (params.name == html_names::kAnchorAttr) {
-    if (RuntimeEnabledFeatures::HTMLAnchorAttributeEnabled()) {
-      EnsureAnchorElementObserver().Notify();
-      return;
-    }
   } else if (name == html_names::kSlotAttr) {
     if (params.old_value != params.new_value) {
       if (ShadowRoot* root = ShadowRootOfParent()) {
@@ -3610,15 +3667,13 @@ void Element::AttributeChanged(const AttributeModificationParams& params) {
     if (parentNode()) {
       UpdateFocusgroup(params.new_value);
     }
-  } else if (IsElementReflectionAttribute(name)) {
-    SynchronizeContentAttributeAndElementReference(name);
-    if (name == html_names::kInterestforAttr &&
-        RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled()) {
-      UseCounter::Count(GetDocument(), WebFeature::kInterestFor);
-      if (!params.old_value.IsNull()) {
-        // We are changing the value of the `interestfor` attribute, so
-        // ensure it doesn't have interest.
-        ChangeInterestState(InterestForElement(), InterestState::kNoInterest);
+  } else if (RuntimeEnabledFeatures::CSSOverscrollGesturesEnabled() &&
+             name == html_names::kOverscrollcontainerAttr) {
+    if (params.old_value.IsNull() && !params.new_value.IsNull()) {
+      EnsureOverscrollAreaTracker().TakeOverscrollFromAncestor();
+    } else if (!params.old_value.IsNull() && params.new_value.IsNull()) {
+      if (auto* area_tracker = OverscrollAreaTracker()) {
+        area_tracker->PropagateOverscrollToAncestor();
       }
     }
   } else if (IsStyledElement()) {
@@ -3628,7 +3683,11 @@ void Element::AttributeChanged(const AttributeModificationParams& params) {
       }
       StyleAttributeChanged(params.new_value, params.reason);
     } else if (IsPresentationAttribute(name)) {
-      if (name == html_names::kHiddenAttr) {
+      if (name == html_names::kAnchorAttr) {
+        if (RuntimeEnabledFeatures::HTMLAnchorAttributeEnabled()) {
+          EnsureAnchorElementObserver().Notify();
+        }
+      } else if (name == html_names::kHiddenAttr) {
         if (params.new_value == keywords::kUntilFound) {
           EnsureDisplayLockContext().SetIsHiddenUntilFoundElement(true);
         } else if (DisplayLockContext* context = GetDisplayLockContext()) {
@@ -3644,6 +3703,19 @@ void Element::AttributeChanged(const AttributeModificationParams& params) {
       GetElementData()->SetPresentationAttributeStyleIsDirty(true);
       SetNeedsStyleRecalc(kLocalStyleChange,
                           StyleChangeReasonForTracing::FromAttribute(name));
+    }
+  }
+
+  if (IsElementReflectionAttribute(name)) {
+    SynchronizeContentAttributeAndElementReference(name);
+    if (name == html_names::kInterestforAttr &&
+        RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled()) {
+      UseCounter::Count(GetDocument(), WebFeature::kInterestFor);
+      if (!params.old_value.IsNull()) {
+        // We are changing the value of the `interestfor` attribute, so
+        // ensure it doesn't have interest.
+        ChangeInterestState(InterestForElement(), InterestState::kNoInterest);
+      }
     }
   }
 
@@ -3967,6 +4039,11 @@ Node::InsertionNotificationRequest Element::InsertedInto(
       if (auto* context = rare_data->GetDisplayLockContext()) {
         context->ElementConnected();
       }
+
+      if (DisplayAdElementMonitor* ad_monitor =
+              rare_data->GetDisplayAdElementMonitor()) {
+        ad_monitor->EnsureStarted();
+      }
     }
 
     ProcessElementRenderBlocking(GetIdAttribute());
@@ -4147,6 +4224,11 @@ void Element::RemovedFrom(ContainerNode& insertion_point) {
         invoker->ChangeInterestState(this, InterestState::kNoInterest);
       }
     }
+
+    if (DisplayAdElementMonitor* ad_monitor =
+            data->GetDisplayAdElementMonitor()) {
+      ad_monitor->OnElementRemovedOrUntagged();
+    }
   }
 
   ContainerNode::RemovedFrom(insertion_point);
@@ -4309,6 +4391,8 @@ void Element::AttachLayoutTree(AttachContext& context) {
   if (!IsPseudoElement() && layout_object) {
     context.counters_context.EnterObject(*layout_object);
   }
+
+  AttachOverscrollPseudoElements(children_context);
 
   AttachColumnPseudoElements(children_context);
   AttachPrecedingPseudoElements(children_context);
@@ -4631,10 +4715,8 @@ bool Element::SkipStyleRecalcForContainer(
   // originating element's box and cannot be skipped if the originating element
   // is a size container because the pseudo-element and its box need to be
   // created before layout.
-  // The same applies to scoped view-transitions.
   if (!style.ScrollMarkerGroupNone() ||
       CanGeneratePseudoElement(kPseudoIdScrollButton) ||
-      CanGeneratePseudoElement(kPseudoIdViewTransition) ||
       HasSiblingBoxPseudoElements()) {
     return false;
   }
@@ -4937,6 +5019,7 @@ void Element::RecalcStyle(const StyleRecalcChange change,
                                      child_recalc_context);
     }
 
+    UpdateOverscrollPseudoElements(child_change, child_recalc_context);
     UpdateTransitionPseudoElements(child_change, child_recalc_context);
   }
 
@@ -5281,6 +5364,17 @@ StyleRecalcChange Element::RecalcOwnStyle(
         child_change =
             child_change.EnsureAtLeast(StyleRecalcChange::kRecalcDescendants);
       }
+
+      if (new_style &&
+          GetDocument().GetLayoutView()->SetScrollbarSizesForViewportUnits(
+              new_style->UnconditionalScrollbarSize())) {
+        GetDocument().GetStyleEngine().UpdateViewportSize();
+        GetDocument()
+            .GetStyleResolver()
+            .InvalidateMatchedPropertiesCacheForViewportUnits();
+        child_change =
+            child_change.EnsureAtLeast(StyleRecalcChange::kRecalcDescendants);
+      }
     }
     child_change = ApplyComputedStyleDiff(child_change, diff);
     UpdateCallbackSelectors(old_style, new_style);
@@ -5606,26 +5700,48 @@ void Element::RebuildTransitionLayoutTree(
       *this, rebuild_pseudo_tree, ViewTransitionUtils::Filter::kDirectChildren);
 }
 
-void Element::AttachTransitionPseudoElements(AttachContext& context) {
-  ViewTransition* transition = ViewTransitionUtils::GetTransition(*this);
-  if (!transition) {
+void Element::AttachOverscrollPseudoElements(AttachContext& context) {
+  const ComputedStyle* computed_style = GetComputedStyle();
+  if (!computed_style) {
     return;
   }
+  const ScopedCSSNameList* overscroll_areas = computed_style->OverscrollArea();
+  if (!overscroll_areas || overscroll_areas->GetNames().empty()) {
+    return;
+  }
+  for (const auto& name : overscroll_areas->GetNames()) {
+    PseudoElement* pseudo_element =
+        GetPseudoElement(kPseudoIdOverscrollAreaParent, name->GetName());
+    CHECK(pseudo_element);
+    pseudo_element->AttachLayoutTree(context);
+    CHECK(pseudo_element->GetLayoutObject());
+    context.previous_in_flow = nullptr;
+    context.parent = pseudo_element->GetLayoutObject();
+    context.next_sibling = nullptr;
+    context.next_sibling_valid = true;
+  }
+  PseudoElement* pseudo_element =
+      GetPseudoElement(kPseudoIdOverscrollClientArea);
+  CHECK(pseudo_element);
+  pseudo_element->AttachLayoutTree(context);
+  CHECK(pseudo_element->GetLayoutObject());
+  context.previous_in_flow = nullptr;
+  context.parent = pseudo_element->GetLayoutObject();
+  context.next_sibling = nullptr;
+  context.next_sibling_valid = true;
+}
 
+void Element::AttachTransitionPseudoElements(AttachContext& context) {
+  // For a document transition, the LayoutObject for the ::view-transition
+  // pseudo-element is wrapped by the anonymous LayoutViewTransitionRoot,
+  // which represents the snapshot containing block.
+  //
+  // The LayoutViewTransitionRoot is a child of the LayoutView, and will be
+  // injected by LayoutView::AddChild.
   // See LayoutTreeBuilderTraversal::ParentLayoutObject.
   AttachContext children_context(context);
   if (context.parent && context.parent->IsDocumentElement()) {
-    // For a document transition, the LayoutObject for the ::view-transition
-    // pseudo-element is wrapped by the anonymous LayoutViewTransitionRoot,
-    // which represents the snapshot containing block.
-    //
-    // The LayoutViewTransitionRoot is a child of the LayoutView, and will be
-    // injected by LayoutView::AddChild.
     children_context.parent = GetDocument().GetLayoutView();
-  } else if (GetLayoutObject() && transition->Scope() == this) {
-    // The layout object for the ::view-transition() pseudo is a sibling
-    // of the scoped elements layout object.
-    children_context.parent = GetLayoutObject()->Parent();
   }
 
   auto attach_pseudo = [&](PseudoElement* pseudo_element) {
@@ -7328,7 +7444,8 @@ std::optional<QualifiedName> Element::ParseAttributeName(
   if (!Document::HasValidNamespaceForAttributes(q_name)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kNamespaceError,
-        "'" + namespace_uri + "' is an invalid namespace for attributes.");
+        StrCat(
+            {"'", namespace_uri, "' is an invalid namespace for attributes."}));
     return std::nullopt;
   }
   return q_name;
@@ -7411,13 +7528,12 @@ void Element::RemoveAttributeInternal(wtf_size_t index,
 void Element::AppendAttributeInternal(const QualifiedName& name,
                                       const AtomicString& value,
                                       AttributeModificationReason reason) {
-  attribute_or_class_bloom_ |= FilterForAttribute(name);
-  UpdateSubtreeBloomFilterAfterInsert();
-
   if (reason !=
       AttributeModificationReason::kBySynchronizationOfLazyAttribute) {
     WillModifyAttribute(name, g_null_atom, value);
   }
+  attribute_or_class_bloom_ |= FilterForAttribute(name);
+  UpdateSubtreeBloomFilterAfterInsert();
   EnsureUniqueElementData().Attributes().Append(name, value);
   if (reason !=
       AttributeModificationReason::kBySynchronizationOfLazyAttribute) {
@@ -8293,6 +8409,29 @@ bool Element::ActivateDisplayLockIfNeeded(DisplayLockActivationReason reason) {
     }
   }
   return activated;
+}
+
+void Element::SetIsAdRelated() {
+  DCHECK(!IsA<HTMLFrameOwnerElement>(this));
+
+  EnsureElementRareData().EnsureDisplayAdElementMonitor(this);
+}
+
+bool Element::IsAdRelated() const {
+  if (const ElementRareDataVector* data = GetElementRareData()) {
+    return data->GetDisplayAdElementMonitor();
+  }
+  return false;
+}
+
+bool Element::ShouldHighlightAd() const {
+  if (const ElementRareDataVector* data = GetElementRareData()) {
+    if (const DisplayAdElementMonitor* monitor =
+            data->GetDisplayAdElementMonitor()) {
+      return monitor->ShouldHighlight();
+    }
+  }
+  return false;
 }
 
 bool Element::HasUndoStack() const {
@@ -9757,8 +9896,13 @@ PseudoElement* Element::CreatePseudoElementIfNeeded(
 
   PseudoElement* pseudo_element =
       PseudoElement::Create(this, pseudo_id, pseudo_argument);
-  CHECK(pseudo_element);
-
+  if (RuntimeEnabledFeatures::ScopedViewTransitionsEnabled()) {
+    if (!pseudo_element) {
+      // TODO(crbug.com/405117185): Replace with DCHECK(pseudo_element) once we
+      // properly track per-scope view transition names.
+      return nullptr;
+    }
+  }
   EnsureElementRareData().SetPseudoElement(pseudo_id, pseudo_element,
                                            pseudo_argument);
   pseudo_element->InsertedInto(*this);
@@ -10243,8 +10387,7 @@ bool Element::HasSiblingBoxPseudoElements() const {
   for (PseudoId pseudo_id :
        {kPseudoIdScrollButtonBlockStart, kPseudoIdScrollButtonInlineStart,
         kPseudoIdScrollButtonInlineEnd, kPseudoIdScrollButtonBlockEnd,
-        kPseudoIdScrollMarkerGroupAfter, kPseudoIdScrollMarkerGroupBefore,
-        kPseudoIdViewTransition}) {
+        kPseudoIdScrollMarkerGroupAfter, kPseudoIdScrollMarkerGroupBefore}) {
     if (rare_data->GetPseudoElement(pseudo_id)) {
       return true;
     }
@@ -11030,10 +11173,10 @@ void Element::CloneAttributesFrom(const Element& other) {
     // to try to reset the filter fully.
   }
   for (const Attribute& attr : element_data_->Attributes()) {
+    attribute_or_class_bloom_ |= FilterForAttribute(attr.GetName());
     AttributeChanged(
         AttributeModificationParams(attr.GetName(), g_null_atom, attr.Value(),
                                     AttributeModificationReason::kByCloning));
-    attribute_or_class_bloom_ |= FilterForAttribute(attr.GetName());
   }
   UpdateSubtreeBloomFilterAfterInsert();
 
@@ -11885,6 +12028,60 @@ void Element::InvalidateStyleAttribute(
       html_names::kStyleAttr, *this);
 }
 
+void Element::UpdateOverscrollPseudoElements(
+    const StyleRecalcChange style_recalc_change,
+    const StyleRecalcContext& style_recalc_context) {
+  size_t overscroll_area_count = 0;
+  if (const ComputedStyle* computed_style = GetComputedStyle()) {
+    if (const ScopedCSSNameList* overscroll_area =
+            computed_style->OverscrollArea()) {
+      overscroll_area_count = overscroll_area->GetNames().size();
+    }
+  }
+
+  ElementRareDataVector* data = GetElementRareData();
+  const OverscrollPseudoElementData* pseudo_data =
+      data ? data->GetOverscrollPseudoElementData() : nullptr;
+
+  // Detect if the declared overscroll areas have changed.
+  size_t current_overscroll_area_count = pseudo_data ? pseudo_data->size() : 0;
+  bool overscroll_areas_changed =
+      overscroll_area_count != current_overscroll_area_count;
+  if (!overscroll_areas_changed && overscroll_area_count > 0) {
+    const HeapVector<Member<const ScopedCSSName>>& overscroll_area_css =
+        GetComputedStyle()->OverscrollArea()->GetNames();
+    const HeapVector<Member<PseudoElement>>& current_overscroll_parent =
+        pseudo_data->GetOverscrollParents();
+    for (size_t i = 0; i < overscroll_area_count; ++i) {
+      if (overscroll_area_css.at(i)->GetName() !=
+          current_overscroll_parent.at(i)->GetPseudoArgument()) {
+        overscroll_areas_changed = true;
+        break;
+      }
+    }
+  }
+  if (!overscroll_areas_changed) {
+    return;
+  }
+
+  if (data) {
+    data->ClearOverscrollPseudoElements();
+  }
+  if (overscroll_area_count == 0) {
+    return;
+  }
+
+  const ScopedCSSNameList* overscroll_area =
+      GetComputedStyle()->OverscrollArea();
+  data = &EnsureElementRareData();
+  UpdatePseudoElement(kPseudoIdOverscrollClientArea, style_recalc_change,
+                      style_recalc_context);
+  for (const ScopedCSSName* name : overscroll_area->GetNames()) {
+    UpdatePseudoElement(kPseudoIdOverscrollAreaParent, style_recalc_change,
+                        style_recalc_context, name->GetName());
+  }
+}
+
 void Element::UpdateTransitionPseudoElements(
     const StyleRecalcChange style_recalc_change,
     const StyleRecalcContext& style_recalc_context) {
@@ -11908,7 +12105,6 @@ void Element::UpdateTransitionPseudoElements(
     }
 
     bool had_transition_pseudo = !!GetPseudoElement(kPseudoIdViewTransition);
-
     PseudoElement* transition_pseudo =
         UpdatePseudoElement(kPseudoIdViewTransition, style_recalc_change,
                             style_recalc_context, g_null_atom);
@@ -12358,7 +12554,7 @@ void Element::SetAttributeHinted(AtomicString local_name,
   if (!is_valid) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidCharacterError,
-        "'" + local_name + "' is not a valid attribute name.");
+        StrCat({"'", local_name, "' is not a valid attribute name."}));
     return;
   }
   SynchronizeAttributeHinted(local_name, hint);
@@ -12401,7 +12597,7 @@ void Element::SetAttributeHinted(AtomicString local_name,
   if (!Document::IsValidName(local_name)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidCharacterError,
-        "'" + local_name + "' is not a valid attribute name.");
+        StrCat({"'", local_name, "' is not a valid attribute name."}));
     return;
   }
   SynchronizeAttributeHinted(local_name, hint);
@@ -12638,10 +12834,10 @@ void Element::SetMayBeImplicitAnchor() {
   bool was_implicit_anchor = MayBeImplicitAnchor();
   EnsureElementRareData().SetMayBeImplicitAnchor();
   if (!was_implicit_anchor && GetLayoutObject()) {
-    // Invalidate layout to populate itself into Physical/LogicalAnchorQuery.
+    // Invalidate layout to populate itself into AnchorMap.
     GetLayoutObject()->SetNeedsLayoutAndFullPaintInvalidation(
         layout_invalidation_reason::kAnchorPositioning);
-    GetLayoutObject()->MarkMayHaveAnchorQuery();
+    GetLayoutObject()->MarkMayContainAnchor();
   }
 }
 
@@ -12689,21 +12885,14 @@ Element* Element::ImplicitAnchorElement() const {
       case kPseudoIdScrollButtonInlineStart:
       case kPseudoIdScrollButtonInlineEnd:
       case kPseudoIdScrollButtonBlockEnd:
+      case kPseudoIdOverscrollAreaParent:
+      case kPseudoIdOverscrollClientArea:
         if (RuntimeEnabledFeatures::
                 OriginatingElementIsImplicitAnchorEnabled()) {
           return parentElement();
         }
         return pseudo_element->UltimateOriginatingElement()
             .ImplicitAnchorElement();
-
-      case kPseudoIdViewTransition: {
-        Element* parent = parentElement();
-        if (!parent->IsDocumentElement()) {
-          return parent;
-        }
-        break;
-      }
-
       default:
         return nullptr;
     }
@@ -12878,6 +13067,13 @@ void Element::VerifyBloomFilterTreeConsistencyIncludingChildren() const {
 }
 #endif
 
+bool Element::IsAppearanceBase() const {
+  if (const ComputedStyle* style = GetComputedStyle()) {
+    return SupportsBaseAppearance(style->EffectiveAppearance());
+  }
+  return false;
+}
+
 namespace {
 std::optional<Element::BaseAppearanceValue> ToBaseAppearanceValue(
     AppearanceValue appearance_value) {
@@ -12897,6 +13093,17 @@ bool Element::SupportsBaseAppearance(AppearanceValue appearance_value) const {
     return SupportsBaseAppearanceInternal(*base_appearance_value);
   }
   return false;
+}
+
+OverscrollAreaTracker& Element::EnsureOverscrollAreaTracker() {
+  return EnsureElementRareData().EnsureOverscrollAreaTracker(this);
+}
+
+OverscrollAreaTracker* Element::OverscrollAreaTracker() const {
+  if (const ElementRareDataVector* data = GetElementRareData()) {
+    return data->OverscrollAreaTracker();
+  }
+  return nullptr;
 }
 
 }  // namespace blink

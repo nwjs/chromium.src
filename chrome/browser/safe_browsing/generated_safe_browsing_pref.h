@@ -9,21 +9,11 @@
 #include "chrome/browser/extensions/api/settings_private/generated_pref.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/prefs/pref_change_registrar.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 
 namespace safe_browsing {
 
 extern const char kGeneratedSafeBrowsingPref[];
-
-// Must be kept in sync with the SafeBrowsing enum located in
-// chrome/browser/resources/settings/privacy_page/security_page_v2.js.
-// and chrome/browser/resources/settings/privacy_page/security_page.js
-// LINT.IfChange(SafeBrowsingSetting)
-enum class SafeBrowsingSetting {
-  ENHANCED,
-  STANDARD,
-  DISABLED,
-};
-// LINT.ThenChange(/chrome/browser/resources/settings/privacy_page/security_page_v2.ts:SafeBrowsingSetting,/chrome/browser/resources/settings/privacy_page/security_page.ts:SafeBrowsingSetting)
 
 // A generated preference which represents the effective Safe Browsing setting
 // state (including non-user management) based on the underlying Safe Browsing
@@ -33,6 +23,10 @@ enum class SafeBrowsingSetting {
 class GeneratedSafeBrowsingPref
     : public extensions::settings_private::GeneratedPref {
  public:
+  // Returns the default Safe Browsing setting for the given `bundle_setting`.
+  static SafeBrowsingState GetDefault(
+      SecuritySettingsBundleSetting bundle_setting);
+
   explicit GeneratedSafeBrowsingPref(Profile* profile);
 
   // Generated Preference Interface.

@@ -9,6 +9,7 @@ import '/strings.m.js';
 import 'chrome://new-tab-page/shared/customize_buttons/customize_buttons.js';
 import 'chrome://resources/cr_components/searchbox/searchbox.js';
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
+import 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
 import 'chrome://resources/cr_components/composebox/composebox.js';
 
 import {GlifAnimationState} from '//resources/cr_components/composebox/context_menu_entrypoint.js';
@@ -47,7 +48,7 @@ import type {LogoElement} from './logo.js';
 import {recordBoolean, recordDuration, recordEnumeration, recordLinearValue, recordLoadDuration, recordSparseValueWithPersistentHash} from './metrics_utils.js';
 import {ParentTrustedDocumentProxy} from './modules/microsoft_auth_frame_connector.js';
 import type {PageCallbackRouter, PageHandlerRemote, Theme} from './new_tab_page.mojom-webui.js';
-import {IphFeature, NtpBackgroundImageSource} from './new_tab_page.mojom-webui.js';
+import {NtpBackgroundImageSource} from './new_tab_page.mojom-webui.js';
 import {NewTabPageProxy} from './new_tab_page_proxy.js';
 import type {MicrosoftAuthUntrustedDocumentRemote} from './ntp_microsoft_auth_shared_ui.mojom-webui.js';
 import {ShowNtpPromosResult} from './ntp_promo.mojom-webui.js';
@@ -400,6 +401,8 @@ export class AppElement extends AppElementBase {
       this.ntpNextFeaturesEnabled_ && this.isActionChipsVisible_ ?
       GlifAnimationState.SPINNER_ONLY :
       GlifAnimationState.INELIGIBLE;
+  protected enableModalComposebox_: boolean =
+      loadTimeData.getBoolean('enableModalComposebox');
 
   private callbackRouter_: PageCallbackRouter;
   private pageHandler_: PageHandlerRemote;
@@ -721,6 +724,14 @@ export class AppElement extends AppElementBase {
       this.onPromoAndModulesLoadedChange_();
     }
 
+    if (changedPrivateProperties.has('showComposebox_') &&
+        this.showComposebox_ && this.enableModalComposebox_) {
+      const composeboxDialog =
+          this.shadowRoot.querySelector<HTMLDialogElement>('#composeboxDialog');
+      assert(composeboxDialog);
+      composeboxDialog.showModal();
+    }
+
     if (changedPrivateProperties.has('oneGoogleBarLoaded_') ||
         changedPrivateProperties.has('theme_') ||
         changedPrivateProperties.has('showComposebox_')) {
@@ -801,7 +812,6 @@ export class AppElement extends AppElementBase {
       this.registerHelpBubble(
           CUSTOMIZE_CHROME_BUTTON_ELEMENT_ID,
           ['ntp-customize-buttons', '#customizeButton'], {fixed: true});
-      this.pageHandler_.maybeShowFeaturePromo(IphFeature.kCustomizeChrome);
       return true;
     }
     return false;
@@ -858,6 +868,13 @@ export class AppElement extends AppElementBase {
   }
 
   protected closeComposebox_(e: CustomEvent) {
+    if (this.enableModalComposebox_) {
+      const composeboxDialog =
+          this.shadowRoot.querySelector<HTMLDialogElement>('#composeboxDialog');
+      assert(composeboxDialog);
+      composeboxDialog.close();
+    }
+
     const composeboxText = e.detail.composeboxText;
 
     if (composeboxText && composeboxText.trim()) {

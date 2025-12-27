@@ -95,20 +95,12 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasRenderingContext,
 
   void ResetInternal() override;
 
-  int AllocatedBufferCountPerPixel() const override {
-    int buffer_count = 0;
+  base::ByteCount AllocatedBufferSize() const override {
     auto* provider = GetResourceProvider();
     if (provider) {
-      buffer_count = 1;
-      if (provider->IsAccelerated()) {
-        // The number of internal GPU buffers vary between one (stable
-        // non-displayed state) and three (triple-buffered animations).
-        // Adding 2 is a pessimistic but relevant estimate.
-        // Note: These buffers might be allocated in GPU memory.
-        buffer_count += 2;
-      }
+      return provider->EstimatedSizeInBytes();
     }
-    return buffer_count;
+    return base::ByteCount();
   }
 
   CanvasRenderingContext2DSettings* getContextAttributes() const;
@@ -244,8 +236,7 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasRenderingContext,
   void RestoreCanvasMatrixClipStack(cc::PaintCanvas* c) const final;
   void Reset() override;
   scoped_refptr<StaticBitmapImage> PaintRenderingResultsToSnapshot(
-      SourceDrawingBuffer source_buffer,
-      FlushReason reason) final;
+      SourceDrawingBuffer source_buffer) final;
 
   void SetRestoreFailedCallbackForTesting(base::RepeatingClosure callback) {
     on_restore_failed_callback_for_testing_ = std::move(callback);
@@ -313,8 +304,8 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasRenderingContext,
                         double x,
                         double y,
                         CanvasRenderingContext2DState::PaintType paint_type,
-                        V8CanvasTextAlign align,
-                        V8CanvasTextBaseline baseline,
+                        V8CanvasTextAlign::Enum align,
+                        V8CanvasTextBaseline::Enum baseline,
                         unsigned run_start,
                         unsigned run_end,
                         double* max_width = nullptr,

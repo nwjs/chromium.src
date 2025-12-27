@@ -54,6 +54,7 @@
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "components/strings/grit/components_strings.h"
+#include "ui/base/interaction/element_identifier.h"
 #include "ui/base/models/dialog_model.h"
 #endif  // BUILDFLAG(IS_LINUX) ||  BUILDFLAG(IS_MAC) ||  BUILDFLAG(IS_WIN)
 
@@ -72,6 +73,9 @@ void SetForceSigninPolicy(bool enable) {
 }
 
 }  // namespace
+
+DEFINE_ELEMENT_IDENTIFIER_VALUE(kSigninErrorDialogId);
+DEFINE_ELEMENT_IDENTIFIER_VALUE(kSigninErrorDialogOkButtonId);
 
 ScopedForceSigninSetterForTesting::ScopedForceSigninSetterForTesting(
     bool enable) {
@@ -400,14 +404,22 @@ bool IsSyncingUserSelectableTypesAllowedByPolicy(
 }
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-bool HasExplicitlyDisabledHistorySync(Profile& profile) {
-  // If the user is signed out, we cannot know if the toggles were interacted
-  // with or not.
-  CHECK(GetSignedInState(IdentityManagerFactory::GetForProfile(&profile)) ==
-        signin_util::SignedInState::kSignedIn);
+bool HasExplicitlyDisabledHistorySync(
+    const syncer::SyncService* sync_service,
+    const signin::IdentityManager* identity_manager) {
+  switch (GetSignedInState(identity_manager)) {
+    case SignedInState::kSignedOut:
+    case SignedInState::kWebOnlySignedIn:
+      // If the user is signed out, we cannot know if the toggles were
+      // interacted with or not.
+      NOTREACHED();
+    case SignedInState::kSignedIn:
+    case SignedInState::kSyncing:
+    case SignedInState::kSignInPending:
+    case SignedInState::kSyncPaused:
+      break;
+  }
 
-  syncer::SyncService* sync_service =
-      SyncServiceFactory::GetForProfile(&profile);
   if (!sync_service) {
     return false;
   }
@@ -481,6 +493,7 @@ bool IsValidAccessPointForHistoryOptinScreen(
     case signin_metrics::AccessPoint::kNtpLink:
     case signin_metrics::AccessPoint::kMenu:
     case signin_metrics::AccessPoint::kSettings:
+    case signin_metrics::AccessPoint::kSettingsYourSavedInfo:
     case signin_metrics::AccessPoint::kSupervisedUser:
     case signin_metrics::AccessPoint::kExtensions:
     case signin_metrics::AccessPoint::kBookmarkManager:
@@ -532,9 +545,9 @@ bool IsValidAccessPointForHistoryOptinScreen(
     case signin_metrics::AccessPoint::kOidcRedirectionInterception:
     case signin_metrics::AccessPoint::kWebauthnModalDialog:
     case signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo:
-    case signin_metrics::AccessPoint::kAccountMenu:
+    case signin_metrics::AccessPoint::kAccountMenuSwitchAccount:
     case signin_metrics::AccessPoint::kProductSpecifications:
-    case signin_metrics::AccessPoint::kAccountMenuFailedSwitch:
+    case signin_metrics::AccessPoint::kAccountMenuSwitchAccountFailed:
     case signin_metrics::AccessPoint::kCctAccountMismatchNotification:
     case signin_metrics::AccessPoint::kDriveFilePickerIos:
     case signin_metrics::AccessPoint::kGlicLaunchButton:
@@ -553,6 +566,7 @@ bool IsValidAccessPointForHistoryOptinScreen(
     case signin_metrics::AccessPoint::
         kEnterpriseManagementDisclaimerAfterSignin:
     case signin_metrics::AccessPoint::kNtpFeaturePromo:
+    case signin_metrics::AccessPoint::kEnterpriseDialogAfterSigninInterception:
       return true;
   }
 }
@@ -620,10 +634,12 @@ void ShowErrorDialogWithMessage(Browser* browser, int error_message_id) {
 
   auto dialog_model =
       ui::DialogModel::Builder()
-          .AddParagraph(ui::DialogModelLabel(error_message_id))
+          .AddParagraph(ui::DialogModelLabel(error_message_id),
+                        /*header=*/std::u16string(), kSigninErrorDialogId)
           .AddOkButton(base::DoNothing(),
-                       ui::DialogModel::Button::Params().SetLabel(
-                           l10n_util::GetStringUTF16(IDS_OK)))
+                       ui::DialogModel::Button::Params()
+                           .SetLabel(l10n_util::GetStringUTF16(IDS_OK))
+                           .SetId(kSigninErrorDialogOkButtonId))
           .Build();
 
   chrome::ShowBrowserModal(browser, std::move(dialog_model));

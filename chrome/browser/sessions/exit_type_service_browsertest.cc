@@ -5,7 +5,6 @@
 #include "chrome/browser/sessions/exit_type_service.h"
 
 #include "base/files/file_path.h"
-#include "base/files/file_util.h"
 #include "base/json/json_string_value_serializer.h"
 #include "base/path_service.h"
 #include "base/values.h"
@@ -17,6 +16,7 @@
 #include "chrome/browser/sessions/session_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -25,6 +25,7 @@
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -57,19 +58,19 @@ void ClickButton(views::BubbleDialogDelegate* crash_bubble_delegate,
 
 // Urls used for testing.
 GURL GetUrl1() {
-  return ui_test_utils::GetTestUrl(
+  return chrome_test_utils::GetTestUrl(
       base::FilePath().AppendASCII("session_history"),
       base::FilePath().AppendASCII("bot1.html"));
 }
 
 GURL GetUrl2() {
-  return ui_test_utils::GetTestUrl(
+  return chrome_test_utils::GetTestUrl(
       base::FilePath().AppendASCII("session_history"),
       base::FilePath().AppendASCII("bot2.html"));
 }
 
 GURL GetUrl3() {
-  return ui_test_utils::GetTestUrl(
+  return chrome_test_utils::GetTestUrl(
       base::FilePath().AppendASCII("session_history"),
       base::FilePath().AppendASCII("bot3.html"));
 }
@@ -124,7 +125,7 @@ IN_PROC_BROWSER_TEST_F(ExitTypeServiceTest, PRE_PRE_CrashCrashNewBrowser) {
 // As the user didn't ack the crash, last session exit type should still be
 // crashed.
 IN_PROC_BROWSER_TEST_F(ExitTypeServiceTest, PRE_CrashCrashNewBrowser) {
-  EXPECT_EQ(1u, BrowserList::GetInstance()->size());
+  EXPECT_EQ(1u, chrome::GetTotalBrowserCount());
   ASSERT_EQ(ExitType::kCrashed, GetLastSessionExitType());
   EXPECT_FALSE(IsSessionServiceSavingEnabled());
   // As the crashed bubble is still open, creating a tab in the existing
@@ -141,7 +142,7 @@ IN_PROC_BROWSER_TEST_F(ExitTypeServiceTest, PRE_CrashCrashNewBrowser) {
 IN_PROC_BROWSER_TEST_F(ExitTypeServiceTest, CrashCrashNewBrowser) {
   ASSERT_EQ(ExitType::kClean, GetLastSessionExitType());
   EXPECT_TRUE(IsSessionServiceSavingEnabled());
-  EXPECT_EQ(2u, BrowserList::GetInstance()->size());
+  EXPECT_EQ(2u, chrome::GetTotalBrowserCount());
 }
 
 // Creates two browsers navigating to a couple of urls and sets it so on next
@@ -183,7 +184,7 @@ IN_PROC_BROWSER_TEST_F(ExitTypeServiceTest, RestoreFromCrashBubble) {
   const bool restores_to_initial_browser = true;
 #endif
   ASSERT_EQ(2u + (restores_to_initial_browser ? 0u : 1u),
-            BrowserList::GetInstance()->size());
+            chrome::GetTotalBrowserCount());
   BrowserWindowInterface* const browser1 = FindBrowserWithUrl(GetUrl1());
   BrowserWindowInterface* const browser2 = FindBrowserWithUrl(GetUrl2());
 

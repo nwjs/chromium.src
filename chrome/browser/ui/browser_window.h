@@ -12,9 +12,7 @@
 
 #include "third_party/blink/public/mojom/page/draggable_region.mojom-forward.h"
 
-#include "base/feature_list.h"
 #include "base/functional/callback_forward.h"
-#include "base/functional/callback_helpers.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/apps/link_capturing/intent_picker_info.h"
@@ -100,15 +98,15 @@ class WebContentsModalDialogHost;
 
 enum class ShowTranslateBubbleResult {
   // The Full Page Translate bubble was successfully shown.
-  SUCCESS,
+  kSuccess,
 
   // The various reasons for which the Full Page Translate bubble could fail to
   // be shown.
-  BROWSER_WINDOW_NOT_VALID,
-  BROWSER_WINDOW_MINIMIZED,
-  BROWSER_WINDOW_NOT_ACTIVE,
-  WEB_CONTENTS_NOT_ACTIVE,
-  EDITABLE_FIELD_IS_ACTIVE,
+  kBrowserWindowNotValid,
+  kBrowserWindowMinimized,
+  kBrowserWindowNotActive,
+  kWebContentsNotActive,
+  kEditableFieldIsActive,
 };
 
 enum class BrowserThemeChangeType {
@@ -302,15 +300,22 @@ class BrowserWindow : public ui::BaseWindow {
 
   // True when we do not want to allow exiting fullscreen, e.g. in Chrome OS
   // Kiosk session.
+  // TODO(crbug.com/462003245): Remove these methods from here. It's exclusively
+  // set by ChromeOS in kiosk mode and never changes for the life of the
+  // Browser.
   virtual bool IsForceFullscreen() const = 0;
   virtual void SetForceFullscreen(bool force_fullscreen) = 0;
 
-  // Returns the size of WebContents in the browser. This may be called before
-  // the TabStripModel has an active tab.
+  // Returns the size of `WebContents` in the browser. This may be called before
+  // the `TabStripModel` has an active tab.
+  // Returns the size of the active `WebContents` if in a split view.
   virtual gfx::Size GetContentsSize() const = 0;
 
-  // Resizes the window to fit a WebContents of a certain size. This should only
-  // be called after the TabStripModel has an active tab.
+  // Resizes the window to fit `WebContents` of a certain size. This should only
+  // be called after the `TabStripModel` has an active tab.
+  // If in a split view, this will resize the active `WebContents` to the
+  // specified size, while preserving the size ratio of the other
+  // `WebContents`.
   virtual void SetContentsSize(const gfx::Size& size) = 0;
 
 #if defined(OS_WIN)

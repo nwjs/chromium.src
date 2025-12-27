@@ -56,7 +56,7 @@ if (target_cpu == "") {
     # build for ARM by default, not the host_cpu (which is likely x64).
     # This allows us to not have to specify both target_os and target_cpu
     # on the command line.
-    target_cpu = "arm"
+    target_cpu = "arm64"
   } else {
     target_cpu = host_cpu
   }
@@ -139,9 +139,7 @@ declare_args() {
 
   # Set to true when compiling with the Clang compiler.
   is_clang = current_os != "linux" ||
-             (current_cpu != "s390x" && current_cpu != "s390" &&
-              current_cpu != "ppc64" && current_cpu != "ppc" &&
-              current_cpu != "mips" && current_cpu != "mips64")
+             (current_cpu != "mips" && current_cpu != "mips64")
 
   # Allows the path to a custom target toolchain to be injected as a single
   # argument, and set as the default toolchain.

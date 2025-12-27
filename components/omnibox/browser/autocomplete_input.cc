@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 #include "components/omnibox/browser/autocomplete_input.h"
 
 #include <string_view>
@@ -338,8 +337,8 @@ metrics::OmniboxInputType AutocompleteInput::Parse(
         http_parts.username.is_nonempty() &&
         http_parts.password.is_nonempty()) {
       // Recognize and re-classify queries like: `site:web.com @query`
-      auto tentative_password_sv = http_parts.password.as_string_view_on(
-          tentative_url_candidate.c_str());
+      auto tentative_password_sv =
+          http_parts.password.AsViewOn(tentative_url_candidate);
       if (tentative_password_sv.find(u' ') != tentative_password_sv.npos) {
         *canonicalized_url = GURL::EmptyGURL();
         return metrics::OmniboxInputType::QUERY;
@@ -748,30 +747,6 @@ AutocompleteInput::GetFeaturedKeywordMode(std::u16string_view text) {
 }
 
 // static
-const TemplateURL* AutocompleteInput::AdjustInputForStarterPackEngines(
-    TemplateURLService* model,
-    AutocompleteInput* input) {
-  DCHECK(model);
-
-  // If not in keyword mode, then `input` is definitely not in a starter pack
-  // scope, so early exit.
-  if (!input->prefer_keyword()) {
-    return nullptr;
-  }
-
-  // If in a starter pack scope, should run the provider with only
-  // the user text AFTER the keyword.  E.g. if the input is "@history text",
-  // set the autocomplete input to just "text".
-  const TemplateURL* template_url =
-      AutocompleteInput::GetSubstitutingTemplateURLForInput(model, input);
-  if (template_url && template_url->starter_pack_id() > 0) {
-    return template_url;
-  }
-
-  return nullptr;
-}
-
-// static
 const TemplateURL* AutocompleteInput::GetSubstitutingTemplateURLForInput(
     const TemplateURLService* model,
     AutocompleteInput* input) {
@@ -865,8 +840,7 @@ std::u16string AutocompleteInput::CleanUserInputKeyword(
 
   // If keyword is not found, try removing a "http" or "https" scheme if any.
   url::Component scheme_component;
-  if (url::ExtractScheme(result.c_str(), static_cast<int>(result.length()),
-                         &scheme_component)) {
+  if (url::ExtractScheme(result, &scheme_component)) {
     const std::u16string_view scheme = std::u16string_view(result).substr(
         scheme_component.begin, scheme_component.len);
     if (scheme == url::kHttpScheme16 || scheme == url::kHttpsScheme16) {

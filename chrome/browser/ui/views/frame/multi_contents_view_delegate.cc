@@ -19,6 +19,7 @@
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/common/url_constants.h"
+#include "ui/base/dragdrop/os_exchange_data.h"
 #include "url/url_constants.h"
 
 MultiContentsViewDelegateImpl::MultiContentsViewDelegateImpl(Browser& browser)
@@ -72,17 +73,17 @@ void MultiContentsViewDelegateImpl::HandleLinkDrop(
     MultiContentsDropTargetView::DropSide side,
     const ui::DropTargetEvent& event) {
   auto urls = event.data().GetURLs(ui::FilenameToURLPolicy::CONVERT_FILENAMES);
-  CHECK(urls.has_value() && !urls.value().empty());
+  CHECK(!urls.empty());
   tabs::TabInterface* active_tab = tab_strip_model_->GetActiveTab();
   CHECK(!active_tab->IsSplit());
 
   // Disallow javascript: URLs to prevent self-XSS.
   std::vector<GURL> filtered_urls;
-  for (const GURL& url : urls.value()) {
-    if (url.SchemeIs(url::kJavaScriptScheme)) {
+  for (const auto& url_info : urls) {
+    if (url_info.url.SchemeIs(url::kJavaScriptScheme)) {
       filtered_urls.emplace_back(content::kBlockedURL);
     } else {
-      filtered_urls.push_back(url);
+      filtered_urls.push_back(url_info.url);
     }
   }
 

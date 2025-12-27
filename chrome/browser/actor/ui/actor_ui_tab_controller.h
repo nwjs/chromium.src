@@ -10,7 +10,6 @@
 #include "chrome/browser/actor/ui/actor_ui_tab_controller_interface.h"
 #include "chrome/browser/actor/ui/handoff_button_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
-#include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "components/tabs/public/tab_interface.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 
@@ -20,14 +19,9 @@ class ActorKeyedService;
 namespace actor::ui {
 
 class ActorUiTabControllerFactory
-    : public ActorUiTabControllerFactoryInterface {
- public:
-  std::unique_ptr<HandoffButtonController> CreateHandoffButtonController(
-      tabs::TabInterface& tab) override;
-};
+    : public ActorUiTabControllerFactoryInterface {};
 
 class ActorUiTabController : public ActorUiTabControllerInterface,
-                             public ImmersiveModeController::Observer,
                              public OmniboxTabHelper::Observer {
  public:
   ActorUiTabController(
@@ -46,12 +40,10 @@ class ActorUiTabController : public ActorUiTabControllerInterface,
   void SetActorTaskResume() override;
   void OnOverlayHoverStatusChanged(bool is_hovering) override;
   void OnHandoffButtonHoverStatusChanged() override;
+  void OnHandoffButtonFocusStatusChanged() override;
+  [[nodiscard]] base::ScopedClosureRunner RegisterHandoffButtonController(
+      HandoffButtonController* controller) override;
   UiTabState GetCurrentUiTabState() const override;
-
-  // ImmersiveModeController::Observer
-  void OnImmersiveFullscreenEntered() override;
-  void OnImmersiveFullscreenExited() override;
-  void OnImmersiveModeControllerDestroyed() override;
 
   // OmniboxTabHelper::Observer:
   void OnOmniboxInputStateChanged() override {}
@@ -59,6 +51,8 @@ class ActorUiTabController : public ActorUiTabControllerInterface,
   void OnOmniboxFocusChanged(OmniboxFocusState state,
                              OmniboxFocusChangeReason reason) override;
   void OnOmniboxPopupVisibilityChanged(bool popup_is_open) override {}
+
+  void OnImmersiveModeChanged() override;
 
   base::WeakPtr<ActorUiTabControllerInterface> GetWeakPtr() override;
 
@@ -115,6 +109,7 @@ class ActorUiTabController : public ActorUiTabControllerInterface,
   void UnregisterActorOverlayStateChange();
   void UnregisterActorOverlayBackgroundChange();
   void UnregisterActorTabIndicatorStateChange();
+  void UnregisterHandoffButtonController();
 
   // The current UiTabState.
   UiTabState current_ui_tab_state_ = {
@@ -144,20 +139,13 @@ class ActorUiTabController : public ActorUiTabControllerInterface,
   // The Actor Keyed Service for the associated profile.
   raw_ptr<ActorKeyedService> actor_keyed_service_ = nullptr;
 
-  // Owned controllers:
   // The Handoff Button controller for this tab.
-  std::unique_ptr<HandoffButtonController> handoff_button_controller_;
-  std::unique_ptr<ActorUiTabControllerFactoryInterface> controller_factory_;
+  raw_ptr<HandoffButtonController> handoff_button_controller_ = nullptr;
 
   TabIndicatorStatus tab_indicator_ = TabIndicatorStatus::kNone;
   base::RetainingOneShotTimer update_scrim_background_debounce_timer_;
 
   ::ui::ScopedUnownedUserData<ActorUiTabController> scoped_unowned_user_data_;
-
-  // Observer to get notifications when the immersive mode reveal state changes.
-  base::ScopedObservation<ImmersiveModeController,
-                          ImmersiveModeController::Observer>
-      immersive_mode_observer_{this};
 
   // Observer to get notifications when the omnibox is focused.
   base::ScopedObservation<OmniboxTabHelper, OmniboxTabHelper::Observer>

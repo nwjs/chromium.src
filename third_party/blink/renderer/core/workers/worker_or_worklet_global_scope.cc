@@ -11,7 +11,6 @@
 #include "base/threading/thread_checker.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-blink.h"
 #include "third_party/blink/public/common/features.h"
-#include "third_party/blink/public/common/privacy_budget/identifiability_sample_collector.h"
 #include "third_party/blink/public/mojom/devtools/inspector_issue.mojom-blink.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/public/mojom/loader/content_security_notifier.mojom-blink.h"
@@ -224,8 +223,7 @@ WorkerOrWorkletGlobalScope::WorkerOrWorkletGlobalScope(
     scoped_refptr<WebWorkerFetchContext> web_worker_fetch_context,
     WorkerReportingProxy& reporting_proxy,
     bool is_worker_loaded_from_data_url,
-    bool is_default_world_of_isolate,
-    std::optional<NoiseToken> canvas_noise_token)
+    bool is_default_world_of_isolate)
     : ExecutionContext(isolate, agent),
       is_creator_secure_context_(is_creator_secure_context),
       name_(name),
@@ -244,9 +242,6 @@ WorkerOrWorkletGlobalScope::WorkerOrWorkletGlobalScope(
   GetSecurityContext().SetSecurityOrigin(std::move(origin));
 
   SetPolicyContainer(PolicyContainer::CreateEmpty());
-  SetCanvasNoiseToken(std::move(canvas_noise_token));
-  if (worker_clients_)
-    worker_clients_->ReattachThread();
 }
 
 WorkerOrWorkletGlobalScope::~WorkerOrWorkletGlobalScope() = default;
@@ -519,8 +514,6 @@ void WorkerOrWorkletGlobalScope::Dispose() {
     resource_fetcher->StopFetching();
     resource_fetcher->ClearContext();
   }
-  IdentifiabilitySampleCollector::Get()->FlushSource(UkmRecorder(),
-                                                     UkmSourceID());
 }
 
 scoped_refptr<base::SingleThreadTaskRunner>
@@ -594,11 +587,11 @@ void WorkerOrWorkletGlobalScope::FetchModuleScript(
   // credentials mode is credentials mode, and referrer policy is the empty
   // string.
   // Module worker scripts are fetched with fetchpriority kAuto.
-  ScriptFetchOptions options(
-      nonce, IntegrityMetadataSet(), integrity_attribute, parser_state,
-      credentials_mode, network::mojom::ReferrerPolicy::kDefault,
-      mojom::blink::FetchPriorityHint::kAuto,
-      RenderBlockingBehavior::kNonBlocking);
+  ScriptFetchOptions options(nonce, IntegrityMetadataSet(), integrity_attribute,
+                             parser_state, credentials_mode,
+                             network::mojom::ReferrerPolicy::kDefault,
+                             mojom::blink::FetchPriorityHint::kAuto,
+                             RenderBlockingBehavior::kNonBlocking);
 
   Modulator* modulator = Modulator::From(ScriptController()->GetScriptState());
   // Step 3. "Perform the internal module script graph fetching procedure ..."

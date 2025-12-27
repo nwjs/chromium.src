@@ -13,6 +13,7 @@
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/i18n/case_conversion.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/path_service.h"
@@ -149,12 +150,20 @@ std::optional<LaunchMode> GetLaunchModeSlow(
   std::optional<StartupInfo> startup_info = GetStartupInfo(command_line);
   bool is_app_launch = command_line.HasSwitch(switches::kApp) ||
                        command_line.HasSwitch(switches::kAppId);
-  if (!startup_info.has_value()) {
+  if (!startup_info.has_value() ||
+      !startup_info.value().launched_from_shortcut()) {
     // Not launched from a shortcut. Check if we're launched as a registered
-    // file or protocol handler.
+    // file or protocol handler, or with an AppId.
     std::vector<base::CommandLine::StringType> args = command_line.GetArgs();
     if (args.size() < 1) {
-      return is_app_launch ? LaunchMode::kWebAppOther : LaunchMode::kOther;
+      if (is_app_launch) {
+        return LaunchMode::kWebAppOther;
+      }
+      // If no command line arguments, and not launched from a shortcut,
+      // and startup_info isn't null, then must have been launched with an
+      // AppId. Otherwise, launched some other way.
+      return startup_info.has_value() ? LaunchMode::kWithAppId
+                                      : LaunchMode::kOther;
     }
     auto arg_type = GetArgType(args[0]);
     bool single_argument_switch = command_line.HasSingleArgumentSwitch();
@@ -180,9 +189,6 @@ std::optional<LaunchMode> GetLaunchModeSlow(
       }
     }
   } else {
-    if (!startup_info.value().launched_from_shortcut()) {
-      return LaunchMode::kWithAppId;
-    }
     if (startup_info.value().shortcut_path.value().empty()) {
       return LaunchMode::kShortcutNoName;
     }

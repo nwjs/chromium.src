@@ -4,15 +4,13 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
-import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
@@ -28,6 +26,7 @@ import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import androidx.test.InstrumentationRegistry;
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.MediumTest;
 import androidx.test.filters.SmallTest;
@@ -133,9 +132,8 @@ public class TabGridDialogViewTest {
 
         mTabGridDialogView.updateDialogWithOrientation(Configuration.ORIENTATION_PORTRAIT);
 
-        assertThat(
-                mContainerParams.topMargin,
-                allOf(greaterThanOrEqualTo(mMinMargin), lessThanOrEqualTo(mMaxMargin)));
+        assertThat(mContainerParams.topMargin).isAtLeast(mMinMargin);
+        assertThat(mContainerParams.topMargin).isAtMost(mMaxMargin);
         assertEquals(mContainerParams.leftMargin, mMinMargin);
         assertEquals(View.GONE, mTabGridDialogView.getVisibility());
 
@@ -143,9 +141,8 @@ public class TabGridDialogViewTest {
 
         mTabGridDialogView.updateDialogWithOrientation(Configuration.ORIENTATION_LANDSCAPE);
 
-        assertThat(
-                mContainerParams.leftMargin,
-                allOf(greaterThanOrEqualTo(mMinMargin), lessThanOrEqualTo(mMaxMargin)));
+        assertThat(mContainerParams.leftMargin).isAtLeast(mMinMargin);
+        assertThat(mContainerParams.leftMargin).isAtMost(mMaxMargin);
         assertEquals(mContainerParams.topMargin, mMinMargin + appHeaderHeight);
         assertEquals(View.GONE, mTabGridDialogView.getVisibility());
 
@@ -153,9 +150,8 @@ public class TabGridDialogViewTest {
 
         mTabGridDialogView.updateDialogWithOrientation(Configuration.ORIENTATION_PORTRAIT);
 
-        assertThat(
-                mContainerParams.topMargin,
-                allOf(greaterThanOrEqualTo(mMinMargin), lessThanOrEqualTo(mMaxMargin)));
+        assertThat(mContainerParams.topMargin).isAtLeast(mMinMargin);
+        assertThat(mContainerParams.topMargin).isAtMost(mMaxMargin);
         assertEquals(mContainerParams.leftMargin, mMinMargin);
         assertEquals(View.VISIBLE, mTabGridDialogView.getVisibility());
 
@@ -163,9 +159,8 @@ public class TabGridDialogViewTest {
 
         mTabGridDialogView.updateDialogWithOrientation(Configuration.ORIENTATION_LANDSCAPE);
 
-        assertThat(
-                mContainerParams.leftMargin,
-                allOf(greaterThanOrEqualTo(mMinMargin), lessThanOrEqualTo(mMaxMargin)));
+        assertThat(mContainerParams.leftMargin).isAtLeast(mMinMargin);
+        assertThat(mContainerParams.leftMargin).isAtMost(mMaxMargin);
         assertEquals(mContainerParams.topMargin, mMinMargin + appHeaderHeight);
         assertEquals(View.VISIBLE, mTabGridDialogView.getVisibility());
     }
@@ -183,18 +178,16 @@ public class TabGridDialogViewTest {
         sActivity.getResources().getConfiguration().orientation =
                 Configuration.ORIENTATION_PORTRAIT;
         mTabGridDialogView.updateDialogWithOrientation(Configuration.ORIENTATION_PORTRAIT);
-        assertThat(
-                mContainerParams.topMargin,
-                allOf(greaterThanOrEqualTo(mMinMargin), lessThanOrEqualTo(mMaxMargin)));
+        assertThat(mContainerParams.topMargin).isAtLeast(mMinMargin);
+        assertThat(mContainerParams.topMargin).isAtMost(mMaxMargin);
         assertEquals(mContainerParams.leftMargin, mMinMargin);
 
         // Update the orientation and assert the margins are updated.
         sActivity.getResources().getConfiguration().orientation =
                 Configuration.ORIENTATION_LANDSCAPE;
         mTabGridDialogView.updateDialogWithOrientation(Configuration.ORIENTATION_LANDSCAPE);
-        assertThat(
-                mContainerParams.leftMargin,
-                allOf(greaterThanOrEqualTo(mMinMargin), lessThanOrEqualTo(mMaxMargin)));
+        assertThat(mContainerParams.leftMargin).isAtLeast(mMinMargin);
+        assertThat(mContainerParams.leftMargin).isAtMost(mMaxMargin);
         assertEquals(mContainerParams.topMargin, mMinMargin + appHeaderHeight);
     }
 
@@ -366,6 +359,7 @@ public class TabGridDialogViewTest {
                     mSourceView = new View(sActivity);
                     mTestParent.addView(mSourceView, 0, new FrameLayout.LayoutParams(100, 100));
                 });
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTabGridDialogView.setupDialogAnimation(mSourceView);
@@ -452,6 +446,7 @@ public class TabGridDialogViewTest {
                     mSourceView = new View(sActivity);
                     mTestParent.addView(mSourceView, 0, new FrameLayout.LayoutParams(100, 100));
                 });
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTabGridDialogView.setupDialogAnimation(mSourceView);

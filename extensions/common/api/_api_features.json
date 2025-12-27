@@ -404,6 +404,7 @@
       "chrome://history/*",
       "chrome://new-tab-page/*",
       "chrome://newtab-footer/*",
+      "chrome://omnibox-popup.top-chrome/*",
       "chrome://oobe/*",
       "chrome://os-settings/*",
       "chrome://password-manager/*",
@@ -430,7 +431,8 @@
       "chrome-untrusted://mako/*",
       "chrome-untrusted://projector/*",
       "chrome-untrusted://read-anything-side-panel.top-chrome/*",
-      "chrome-untrusted://data-sharing/*"
+      "chrome-untrusted://data-sharing/*",
+      "chrome-untrusted://class-tools-remote-display/*"
     ]
   }],
   "metricsPrivateIndividualApis": {

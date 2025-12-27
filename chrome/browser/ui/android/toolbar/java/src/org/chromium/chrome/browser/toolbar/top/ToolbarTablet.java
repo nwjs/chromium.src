@@ -68,6 +68,7 @@ import org.chromium.ui.base.DeviceFormFactor;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Supplier;
 
 /** The Toolbar object for Tablet screens. */
 @SuppressLint("Instantiatable")
@@ -143,6 +144,8 @@ public class ToolbarTablet extends ToolbarLayout {
 
         mToolbarWidthConsumers[ToolbarComponentId.OMNIBOX_BOOKMARK] =
                 mLocationBar.getBookmarkButtonToolbarWidthConsumer();
+        mToolbarWidthConsumers[ToolbarComponentId.OMNIBOX_ZOOM] =
+                mLocationBar.getZoomButtonToolbarWidthConsumer();
         mToolbarWidthConsumers[ToolbarComponentId.OMNIBOX_INSTALL] =
                 mLocationBar.getInstallButtonToolbarWidthConsumer();
         mToolbarWidthConsumers[ToolbarComponentId.OMNIBOX_MIC] =
@@ -370,7 +373,8 @@ public class ToolbarTablet extends ToolbarLayout {
             @Nullable HomeButtonDisplay homeButtonDisplay,
             @Nullable ExtensionToolbarCoordinator extensionToolbarCoordinator,
             ThemeColorProvider themeColorProvider,
-            IncognitoStateProvider incognitoStateProvider) {
+            IncognitoStateProvider incognitoStateProvider,
+            @Nullable Supplier<Integer> incognitoWindowCountSupplier) {
         assert tabSwitcherButtonCoordinator != null;
         super.initialize(
                 toolbarDataProvider,
@@ -387,18 +391,21 @@ public class ToolbarTablet extends ToolbarLayout {
                 homeButtonDisplay,
                 extensionToolbarCoordinator,
                 themeColorProvider,
-                incognitoStateProvider);
+                incognitoStateProvider,
+                incognitoWindowCountSupplier);
         mReloadButtonCoordinator = assertNonNull(reloadButtonCoordinator);
         mBackButtonCoordinator = assertNonNull(backButtonCoordinator);
         mForwardButtonCoordinator = assertNonNull(forwardButtonCoordinator);
         menuButtonCoordinator.setVisibility(true);
         mExtensionToolbarCoordinator = extensionToolbarCoordinator;
 
+        assert incognitoWindowCountSupplier != null;
         mIncognitoIndicatorCoordinator =
                 new IncognitoIndicatorCoordinator(
                         /* parentToolbar= */ this,
                         themeColorProvider,
                         incognitoStateProvider,
+                        incognitoWindowCountSupplier,
                         mToolbarButtonsVisible);
 
         if (homeButtonDisplay instanceof ToolbarWidthConsumer) {
@@ -487,6 +494,18 @@ public class ToolbarTablet extends ToolbarLayout {
         }
     }
 
+    @Override
+    public void onWidthConsumerVisibilityChanged() {
+        // Re-allocate width to account for a change in a width consumer's visibility.
+        allocateAvailableToolbarWidth(mToolbarWidthConsumers, getWidth());
+    }
+
+    /**
+     * Allocates available width to toolbar width consumers.
+     *
+     * @param toolbarWidthConsumer The array of all toolbar width consumers.
+     * @param availableWidthDp The available width in dp.
+     */
     @VisibleForTesting
     static void allocateAvailableToolbarWidth(
             @Nullable ToolbarWidthConsumer[] toolbarWidthConsumer, int availableWidthDp) {

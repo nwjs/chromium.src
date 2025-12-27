@@ -56,6 +56,13 @@ class CC_EXPORT Tile {
     return id_;
   }
 
+  TileDrawInfo::Mode draw_mode() {
+    CHECK(IsReadyToDraw());
+    return draw_info().mode();
+  }
+
+  bool IsReadyToDraw() { return draw_info().IsReadyToDraw(); }
+
   // TODO(vmpstr): Move this to the iterators.
   bool required_for_activation() const { return required_for_activation_; }
   void set_required_for_activation(bool is_required) {

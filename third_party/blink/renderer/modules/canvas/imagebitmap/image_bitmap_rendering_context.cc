@@ -53,15 +53,26 @@ void ImageBitmapRenderingContext::Reset() {
   Host()->DiscardResources();
 }
 
+base::ByteCount ImageBitmapRenderingContext::AllocatedBufferSize() const {
+  if (!IsPaintable()) {
+    return base::ByteCount();
+  }
+  base::ByteCount result =
+      image_layer_bridge_->GetImage()->EstimatedSizeInBytes();
+  if (resource_provider_for_offscreen_canvas_) {
+    result += resource_provider_for_offscreen_canvas_->EstimatedSizeInBytes();
+  }
+  return result;
+}
+
 void ImageBitmapRenderingContext::Stop() {
   image_layer_bridge_->Dispose();
 }
 
 scoped_refptr<StaticBitmapImage>
 ImageBitmapRenderingContext::PaintRenderingResultsToSnapshot(
-    SourceDrawingBuffer source_buffer,
-    FlushReason reason) {
-  return GetImage(reason);
+    SourceDrawingBuffer source_buffer) {
+  return GetImage();
 }
 
 void ImageBitmapRenderingContext::Dispose() {
@@ -100,10 +111,10 @@ void ImageBitmapRenderingContext::SetImage(ImageBitmap* image_bitmap) {
   if (image_bitmap) {
     image_bitmap->close();
   }
+  Host()->UpdateMemoryUsage();
 }
 
-scoped_refptr<StaticBitmapImage> ImageBitmapRenderingContext::GetImage(
-    FlushReason) {
+scoped_refptr<StaticBitmapImage> ImageBitmapRenderingContext::GetImage() {
   return image_layer_bridge_->GetImage();
 }
 
@@ -227,7 +238,7 @@ bool ImageBitmapRenderingContext::PushFrame() {
       &paint_flags);
   scoped_refptr<CanvasResource> resource =
       resource_provider_for_offscreen_canvas_->ProduceCanvasResource(
-          FlushReason::kNon2DCanvas);
+          FlushReason::kOther);
   Host()->PushFrame(
       std::move(resource),
       SkIRect::MakeWH(image_layer_bridge_->GetImage()->Size().width(),

@@ -53,6 +53,7 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/navigation_details.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/site_isolation_policy.h"
@@ -455,8 +456,9 @@ IN_PROC_BROWSER_TEST_P(LoadDataWithBaseURLWithPossiblyEmptyURLsBrowserTest,
   //
   // TODO(crbug.com/40627228): Consider enabling this test once Android
   // Webview or WebView guests support OOPIFs and/or origin locks.
-  if (AreAllSitesIsolatedForTesting())
+  if (AreAllSitesIsolatedForTesting()) {
     return;
+  }
 
   const std::string data_header = "data:text/html;charset=utf-8,";
   const std::string title = "foo";
@@ -575,8 +577,9 @@ IN_PROC_BROWSER_TEST_P(
     HistoryNavigationWhenLoadDataWithBaseURLWithSameDocumentNavigation) {
 #if !BUILDFLAG(IS_ANDROID)
   // LoadDataAsStringWithBaseURL is only supported on Android.
-  if (use_load_data_as_string_with_base_url())
+  if (use_load_data_as_string_with_base_url()) {
     return;
+  }
 #endif
   // LoadDataWithBaseURL is never subject to --site-per-process policy today
   // (this API is only used by Android WebView [where OOPIFs have not shipped
@@ -587,15 +590,17 @@ IN_PROC_BROWSER_TEST_P(
   //
   // TODO(crbug.com/40627228): Consider enabling this test once Android
   // Webview or WebView guests support OOPIFs and/or origin locks.
-  if (AreAllSitesIsolatedForTesting())
+  if (AreAllSitesIsolatedForTesting()) {
     return;
+  }
   // Renderer-initiated navigations to data: URL on a main frame will be
   // blocked. If the base URL is empty, the renderer will use the data: URL as
   // the base & document URL, and same-document navigations initiated by the
   // renderer will try to do a main frame navigation to a data: URL, which will
   // be blocked. So, return early instead.
-  if (base_url_empty())
+  if (base_url_empty()) {
     return;
+  }
 
   const std::string data_header = "data:text/html;charset=utf-8,";
   const std::string title = "foo";
@@ -710,8 +715,9 @@ IN_PROC_BROWSER_TEST_P(LoadDataWithBaseURLWithPossiblyEmptyURLsBrowserTest,
                        LoadDataWithBaseURLThenRendererInitiatedSameDocument) {
 #if !BUILDFLAG(IS_ANDROID)
   // LoadDataAsStringWithBaseURL is only supported on Android.
-  if (use_load_data_as_string_with_base_url())
+  if (use_load_data_as_string_with_base_url()) {
     return;
+  }
 #endif
   // LoadDataWithBaseURL is never subject to --site-per-process policy today
   // (this API is only used by Android WebView [where OOPIFs have not shipped
@@ -722,15 +728,17 @@ IN_PROC_BROWSER_TEST_P(LoadDataWithBaseURLWithPossiblyEmptyURLsBrowserTest,
   //
   // TODO(crbug.com/40627228): Consider enabling this test once Android
   // Webview or WebView guests support OOPIFs and/or origin locks.
-  if (AreAllSitesIsolatedForTesting())
+  if (AreAllSitesIsolatedForTesting()) {
     return;
+  }
   // Renderer-initiated navigations to data: URL on a main frame will be
   // blocked. If the base URL is empty, the renderer will use the data: URL as
   // the base & document URL, and same-document navigations initiated by the
   // renderer will try to do a main frame navigation to a data: URL, which will
   // be blocked. So, return early instead.
-  if (base_url_empty())
+  if (base_url_empty()) {
     return;
+  }
 
   const std::string data_header = "data:text/html;charset=utf-8,";
   const std::string title = "foo";
@@ -805,8 +813,9 @@ IN_PROC_BROWSER_TEST_P(LoadDataWithBaseURLWithPossiblyEmptyURLsBrowserTest,
                        LoadDataWithBaseURLThenBrowserInitiatedSameDocument) {
 #if !BUILDFLAG(IS_ANDROID)
   // LoadDataAsStringWithBaseURL is only supported on Android.
-  if (use_load_data_as_string_with_base_url())
+  if (use_load_data_as_string_with_base_url()) {
     return;
+  }
 #endif
   // LoadDataWithBaseURL is never subject to --site-per-process policy today
   // (this API is only used by Android WebView [where OOPIFs have not shipped
@@ -817,8 +826,9 @@ IN_PROC_BROWSER_TEST_P(LoadDataWithBaseURLWithPossiblyEmptyURLsBrowserTest,
   //
   // TODO(crbug.com/40627228): Consider enabling this test once Android
   // Webview or WebView guests support OOPIFs and/or origin locks.
-  if (AreAllSitesIsolatedForTesting())
+  if (AreAllSitesIsolatedForTesting()) {
     return;
+  }
 
   const std::string data_header = "data:text/html;charset=utf-8,";
   const std::string title = "foo";
@@ -951,8 +961,9 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   //
   // TODO(crbug.com/40627228): Consider enabling this test once Android
   // Webview or WebView guests support OOPIFs and/or origin locks.
-  if (AreAllSitesIsolatedForTesting())
+  if (AreAllSitesIsolatedForTesting()) {
     return;
+  }
 
   GURL subframe_url_1(embedded_test_server()->GetURL(
       "a.com", "/navigation_controller/simple_page.html"));
@@ -1070,8 +1081,9 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   //
   // TODO(crbug.com/40627228): Consider enabling this test once Android
   // Webview or WebView guests support OOPIFs and/or origin locks.
-  if (AreAllSitesIsolatedForTesting())
+  if (AreAllSitesIsolatedForTesting()) {
     return;
+  }
 
   const GURL base_url("http://baseurl");
   const GURL history_url(
@@ -1219,8 +1231,9 @@ IN_PROC_BROWSER_TEST_P(LoadDataWithBaseURLBrowserTest,
                        LoadDataWithInvalidBaseURL) {
 #if !BUILDFLAG(IS_ANDROID)
   // LoadDataAsStringWithBaseURL is only supported on Android.
-  if (use_load_data_as_string_with_base_url())
+  if (use_load_data_as_string_with_base_url()) {
     return;
+  }
 #endif
   // LoadDataWithBaseURL is never subject to --site-per-process policy today
   // (this API is only used by Android WebView [where OOPIFs have not shipped
@@ -1231,8 +1244,9 @@ IN_PROC_BROWSER_TEST_P(LoadDataWithBaseURLBrowserTest,
   //
   // TODO(crbug.com/40627228): Consider enabling this test once Android
   // Webview or WebView guests support OOPIFs and/or origin locks.
-  if (AreAllSitesIsolatedForTesting())
+  if (AreAllSitesIsolatedForTesting()) {
     return;
+  }
 
   const GURL base_url("http://");  // Invalid.
   const GURL history_url("http://historyurl");
@@ -1298,8 +1312,9 @@ IN_PROC_BROWSER_TEST_P(LoadDataWithBaseURLBrowserTest,
                        LoadDataWithBlockedDataURL) {
 #if !BUILDFLAG(IS_ANDROID)
   // LoadDataAsStringWithBaseURL is only supported on Android.
-  if (use_load_data_as_string_with_base_url())
+  if (use_load_data_as_string_with_base_url()) {
     return;
+  }
 #endif
   // LoadDataWithBaseURL is never subject to --site-per-process policy today
   // (this API is only used by Android WebView [where OOPIFs have not shipped
@@ -1310,8 +1325,9 @@ IN_PROC_BROWSER_TEST_P(LoadDataWithBaseURLBrowserTest,
   //
   // TODO(crbug.com/40627228): Consider enabling this test once Android
   // Webview or WebView guests support OOPIFs and/or origin locks.
-  if (AreAllSitesIsolatedForTesting())
+  if (AreAllSitesIsolatedForTesting()) {
     return;
+  }
 
   BlockAllCommitContentBrowserClient content_browser_client;
   const GURL base_url = embedded_test_server()->GetURL("/title1.html");
@@ -1462,8 +1478,9 @@ IN_PROC_BROWSER_TEST_P(LoadDataWithBaseURLBrowserTest,
                        LoadDataWithBlockedDataURLAndInvalidBaseURL) {
 #if !BUILDFLAG(IS_ANDROID)
   // LoadDataAsStringWithBaseURL is only supported on Android.
-  if (use_load_data_as_string_with_base_url())
+  if (use_load_data_as_string_with_base_url()) {
     return;
+  }
 #endif
   // LoadDataWithBaseURL is never subject to --site-per-process policy today
   // (this API is only used by Android WebView [where OOPIFs have not shipped
@@ -1474,8 +1491,9 @@ IN_PROC_BROWSER_TEST_P(LoadDataWithBaseURLBrowserTest,
   //
   // TODO(crbug.com/40627228): Consider enabling this test once Android
   // Webview or WebView guests support OOPIFs and/or origin locks.
-  if (AreAllSitesIsolatedForTesting())
+  if (AreAllSitesIsolatedForTesting()) {
     return;
+  }
 
   const GURL base_url("http://");  // Invalid.
   EXPECT_TRUE(!base_url.is_valid());
@@ -1511,8 +1529,9 @@ IN_PROC_BROWSER_TEST_P(
     LoadDataWithBaseURLThenJavaScriptURLThenSameDocumentNavigation) {
 #if !BUILDFLAG(IS_ANDROID)
   // LoadDataAsStringWithBaseURL is only supported on Android.
-  if (use_load_data_as_string_with_base_url())
+  if (use_load_data_as_string_with_base_url()) {
     return;
+  }
 #endif
   // LoadDataWithBaseURL is never subject to --site-per-process policy today
   // (this API is only used by Android WebView [where OOPIFs have not shipped
@@ -1523,8 +1542,9 @@ IN_PROC_BROWSER_TEST_P(
   //
   // TODO(crbug.com/40627228): Consider enabling this test once Android
   // Webview or WebView guests support OOPIFs and/or origin locks.
-  if (AreAllSitesIsolatedForTesting())
+  if (AreAllSitesIsolatedForTesting()) {
     return;
+  }
 
   const GURL base_url("http://baseurl");
   const GURL history_url("http://history");
@@ -1626,8 +1646,9 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   //
   // TODO(crbug.com/40627228): Consider enabling this test once Android
   // WebView or WebView guests support OOPIFs and/or origin locks.
-  if (AreAllSitesIsolatedForTesting())
+  if (AreAllSitesIsolatedForTesting()) {
     return;
+  }
 
   const GURL base_url("http://baseurl");
   const GURL history_url("http://historyurl");
@@ -1679,8 +1700,9 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   //
   // TODO(crbug.com/40627228): Consider enabling this test once Android
   // Webview or WebView guests support OOPIFs and/or origin locks.
-  if (AreAllSitesIsolatedForTesting())
+  if (AreAllSitesIsolatedForTesting()) {
     return;
+  }
 
   const GURL base_url("http://baseurl");
   const GURL history_url("http://historyurl");
@@ -1733,8 +1755,9 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   //
   // TODO(crbug.com/40627228): Consider enabling this test once Android
   // Webview or WebView guests support OOPIFs and/or origin locks.
-  if (AreAllSitesIsolatedForTesting())
+  if (AreAllSitesIsolatedForTesting()) {
     return;
+  }
 
   const GURL base_url("http://baseurl");
   const GURL history_url("http://historyurl");
@@ -1961,8 +1984,9 @@ bool RendererLocationReplace(Shell* shell, const GURL& url) {
             .should_replace_current_entry);
   }
   EXPECT_TRUE(navigation_manager.WaitForNavigationFinished());
-  if (!IsLastCommittedEntryOfPageType(web_contents, PAGE_TYPE_NORMAL))
+  if (!IsLastCommittedEntryOfPageType(web_contents, PAGE_TYPE_NORMAL)) {
     return false;
+  }
   return web_contents->GetLastCommittedURL() == url;
 }
 
@@ -2064,8 +2088,9 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   //
   // TODO(crbug.com/40627228): Consider enabling this test once Android
   // Webview or WebView guests support OOPIFs and/or origin locks.
-  if (AreAllSitesIsolatedForTesting())
+  if (AreAllSitesIsolatedForTesting()) {
     return;
+  }
 
   GURL iframe_url(embedded_test_server()->GetURL(
       "/navigation_controller/page_with_links.html"));
@@ -2156,8 +2181,9 @@ class LoadCommittedCapturer : public WebContentsObserver {
   }
 
   void DidFinishNavigation(NavigationHandle* navigation_handle) override {
-    if (!navigation_handle->HasCommitted())
+    if (!navigation_handle->HasCommitted()) {
       return;
+    }
 
     DCHECK(frame_tree_node_id_);
     if (navigation_handle->GetRenderFrameHost()->GetFrameTreeNodeId() !=
@@ -6988,8 +7014,9 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
     EXPECT_TRUE(
         NavigateToURLFromRenderer(root->child_at(1)->child_at(0), bar_url));
     // Wait for the RenderFrame to go away, if this will be cross-process.
-    if (AreAllSitesIsolatedForTesting())
+    if (AreAllSitesIsolatedForTesting()) {
       deleted_observer.WaitUntilDeleted();
+    }
     capturer.Wait();
     EXPECT_TRUE(ui::PageTransitionTypeIncludingQualifiersIs(
         capturer.transition(), ui::PAGE_TRANSITION_MANUAL_SUBFRAME));
@@ -7033,8 +7060,9 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
         baz_url.spec() + "';";
     EXPECT_TRUE(ExecJs(root, script));
     // Wait for the RenderFrame to go away, if this will be cross-process.
-    if (AreAllSitesIsolatedForTesting())
+    if (AreAllSitesIsolatedForTesting()) {
       deleted_observer.WaitUntilDeleted();
+    }
     capturer.Wait();
     EXPECT_TRUE(ui::PageTransitionTypeIncludingQualifiersIs(
         capturer.transition(), ui::PAGE_TRANSITION_MANUAL_SUBFRAME));
@@ -11504,6 +11532,42 @@ IN_PROC_BROWSER_TEST_P(
   }
 }
 
+IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
+                       FrameNavigationEntry_PushStateIframe) {
+  GURL main_url(embedded_test_server()->GetURL(
+      "/navigation_controller/page_with_iframe_simple.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), main_url));
+
+  NavigationControllerImpl& controller =
+      static_cast<NavigationControllerImpl&>(contents()->GetController());
+  NavigationEntryImpl* entry = controller.GetLastCommittedEntry();
+  ASSERT_EQ(1u, entry->root_node()->children.size());
+
+  // Remove the iframe and then do a pushState.
+  EXPECT_TRUE(ExecJs(shell(), kRemoveFrameScript));
+  {
+    TestNavigationObserver observer(shell()->web_contents());
+    EXPECT_TRUE(ExecJs(shell(), "history.pushState({}, '', 'foo')"));
+    observer.Wait();
+  }
+
+  // The new entry should not have any children for the iframe.
+  entry = controller.GetLastCommittedEntry();
+  EXPECT_TRUE(entry->root_node()->children.empty());
+  EXPECT_EQ(2, controller.GetEntryCount());
+
+  // But going back should restore it.
+  {
+    TestNavigationObserver back_load_observer(shell()->web_contents());
+    controller.GoBack();
+    back_load_observer.Wait();
+  }
+  entry = controller.GetLastCommittedEntry();
+  EXPECT_EQ(1u, entry->root_node()->children.size());
+  EXPECT_EQ(0, controller.GetCurrentEntryIndex());
+  EXPECT_EQ(2, controller.GetEntryCount());
+}
+
 // Verify that restoring a NavigationEntry with cross-site subframes does not
 // create out-of-process iframes unless the current SiteIsolationPolicy says to.
 IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
@@ -13079,8 +13143,9 @@ class FailureWatcher : public WebContentsObserver {
                    int error_code) override {
     RenderFrameHostImpl* rfh =
         static_cast<RenderFrameHostImpl*>(render_frame_host);
-    if (rfh->frame_tree_node()->frame_tree_node_id() != frame_tree_node_id_)
+    if (rfh->frame_tree_node()->frame_tree_node_id() != frame_tree_node_id_) {
       return;
+    }
 
     loop_.Quit();
   }
@@ -15316,8 +15381,9 @@ class RequestMonitoringNavigationBrowserTest
 
     auto it = std::ranges::find(accumulated_requests_, url_to_find,
                                 &net::test_server::HttpRequest::GetURL);
-    if (it == accumulated_requests_.end())
+    if (it == accumulated_requests_.end()) {
       return nullptr;
+    }
     return &*it;
   }
 
@@ -16651,8 +16717,9 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   std::vector<std::string> messages;
   std::string message;
   EXPECT_TRUE(NavigateToURL(shell(), hash_url));
-  while (message_queue.PopMessage(&message))
+  while (message_queue.PopMessage(&message)) {
     messages.push_back(message);
+  }
 
   // Verify that none of "beforeunload", "unload" events fired.
   EXPECT_THAT(messages, testing::IsEmpty());
@@ -16694,10 +16761,18 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   // do not retain history entries for the 5 frames removed by the test).
   EXPECT_EQ(0U, entry->root_node()->children.size());
 
-  // Sanity check - there are no children in the frame tree.
+  // Sanity check - Any remaining children is eventually deleted.
   FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
                             ->GetPrimaryFrameTree()
                             .root();
+  std::vector<std::unique_ptr<RenderFrameDeletedObserver>> observers;
+  for (size_t i = 0; i < root->child_count(); i++) {
+    observers.push_back(std::make_unique<RenderFrameDeletedObserver>(
+        root->child_at(i)->current_frame_host()));
+  }
+  for (auto& observer : observers) {
+    observer->WaitUntilDeleted();
+  }
   ASSERT_EQ(0U, root->child_count());
 }
 
@@ -18132,8 +18207,9 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   EXPECT_EQ(PAGE_TYPE_ERROR, controller.GetLastCommittedEntry()->GetPageType());
   EXPECT_EQ(error_html, EvalJs(shell(), "document.body.innerHTML"));
 
-  if (!SiteIsolationPolicy::IsErrorPageIsolationEnabled(true))
+  if (!SiteIsolationPolicy::IsErrorPageIsolationEnabled(true)) {
     return;
+  }
 
   // Verify the error page committed to the error page process.
   EXPECT_NE(success_site_instance, error_site_instance);
@@ -18941,13 +19017,15 @@ class NavigationControllerMainDocumentSequenceNumberBrowserTest
     std::map<int64_t, int64_t> compressor;
     int current_id = 0;
     for (int64_t value : ids) {
-      if (compressor.find(value) == compressor.end())
+      if (compressor.find(value) == compressor.end()) {
         compressor[value] = ++current_id;
+      }
     }
 
     std::vector<int64_t> result;
-    for (int64_t value : main_frame_document_sequence_numbers_)
+    for (int64_t value : main_frame_document_sequence_numbers_) {
       result.push_back(compressor[value]);
+    }
 
     return result;
   }
@@ -19086,8 +19164,9 @@ class DidCommitNavigationCanceller : public DidCommitNavigationInterceptor {
 IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
                        CrossProcessIframeToInvalidURLCancelsRedirectSpoof) {
   // This tests something that can only happened with out of process iframes.
-  if (!AreAllSitesIsolatedForTesting())
+  if (!AreAllSitesIsolatedForTesting()) {
     return;
+  }
 
   if (ShouldQueueNavigationsWhenPendingCommitRFHExists()) {
     // If navigation queueing is enabled, the first navigation will be stuck at
@@ -19143,8 +19222,9 @@ IN_PROC_BROWSER_TEST_P(
   // This test relies on the main frame and the iframe to live in different
   // processes. This allows one renderer process to cancel a navigation while
   // the other renderer process is busy executing its beforeunload handler.
-  if (!AreAllSitesIsolatedForTesting())
+  if (!AreAllSitesIsolatedForTesting()) {
     return;
+  }
 
   const GURL main_url(embedded_test_server()->GetURL(
       "a.com", "/cross_site_iframe_factory.html?a(b)"));
@@ -19190,8 +19270,9 @@ namespace {
 std::unique_ptr<net::test_server::HttpResponse> HandleMethodOnly(
     net::test_server::HttpMethod method,
     const net::test_server::HttpRequest& request) {
-  if (request.relative_url != "/handle-method-only")
+  if (request.relative_url != "/handle-method-only") {
     return nullptr;
+  }
 
   if (request.method != method) {
     return std::make_unique<net::test_server::RawHttpResponse>("", "");
@@ -20373,8 +20454,9 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   //
   // TODO(crbug.com/40627228): Consider enabling this test once Android
   // Webview or WebView guests support OOPIFs and/or origin locks.
-  if (AreAllSitesIsolatedForTesting())
+  if (AreAllSitesIsolatedForTesting()) {
     return;
+  }
 
   const GURL base_url("http://baseurl");
   const GURL history_url("http://history");
@@ -20441,8 +20523,9 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   //
   // TODO(crbug.com/40627228): Consider enabling this test once Android
   // Webview or WebView guests support OOPIFs and/or origin locks.
-  if (AreAllSitesIsolatedForTesting())
+  if (AreAllSitesIsolatedForTesting()) {
     return;
+  }
 
   const GURL base_url("http://baseurl");
   const GURL history_url("http://history");
@@ -20966,8 +21049,9 @@ class AllNavigationStateChangedDelegate : public WebContentsDelegate {
 
   void NavigationStateChanged(WebContents* source,
                               InvalidateTypes changed_flags) override {
-    if (changed_flags == INVALIDATE_TYPE_ALL)
+    if (changed_flags == INVALIDATE_TYPE_ALL) {
       call_count_++;
+    }
   }
 
   int call_count() { return call_count_; }
@@ -22022,8 +22106,9 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTestNoServer,
   // If the process is not shared with the main frame, the current URL of the
   // child frame is empty after the process crashed. If the process is shared,
   // the child frame will be gone because the main frame's process crashed.
-  if (AreAllSitesIsolatedForTesting())
+  if (AreAllSitesIsolatedForTesting()) {
     EXPECT_EQ(GURL(), child->current_url());
+  }
 
   if (!base::FeatureList::IsEnabled(
           features::kSkipRendererCancellationThrottle)) {
@@ -24456,4 +24541,49 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Combine(testing::ValuesIn(RenderDocumentFeatureLevelValues()),
                      testing::Bool()),
     NavigationControllerBrowserTest::DescribeParams);
+
+using ViewSourceNavigation = NavigationControllerBrowserTestBase;
+
+IN_PROC_BROWSER_TEST_F(ViewSourceNavigation, WithErrorInChain) {
+  GURL first_visited(embedded_test_server()->GetURL("/title1.html"));
+  ASSERT_TRUE(NavigateToURL(shell(), first_visited));
+
+  GURL view_source_url(content::kViewSourceScheme + std::string(":") +
+                       embedded_test_server()->GetURL("/title2.html").spec());
+
+  NavigationControllerImpl& controller =
+      static_cast<NavigationControllerImpl&>(contents()->GetController());
+
+  {
+    // Intercept all requests and fail them.
+    auto url_loader_interceptor = std::make_unique<URLLoaderInterceptor>(
+        base::BindRepeating([](URLLoaderInterceptor::RequestParams* params) {
+          network::URLLoaderCompletionStatus status;
+          status.error_code = net::ERR_NOT_IMPLEMENTED;
+          params->client->OnComplete(status);
+          return true;
+        }));
+
+    // Navigate to a view-source URL that will fail to load.
+    EXPECT_FALSE(NavigateToURL(shell(), view_source_url));
+
+    // Check that the virtual URL in the committed entry still has the
+    // view-source prefix.
+    NavigationEntryImpl* entry = controller.GetLastCommittedEntry();
+    EXPECT_TRUE(entry->IsViewSourceMode());
+    EXPECT_EQ(view_source_url, entry->GetVirtualURL());
+  }
+
+  // Remove the error condition and then reload the page.
+  TestNavigationObserver reload_observer(shell()->web_contents());
+  controller.Reload(ReloadType::NORMAL, false);
+  reload_observer.Wait();
+  EXPECT_TRUE(reload_observer.last_navigation_succeeded());
+
+  // Make sure the reload kept the navigation in view-source mode.
+  EXPECT_EQ(view_source_url, shell()->web_contents()->GetLastCommittedURL());
+  NavigationEntryImpl* entry = controller.GetLastCommittedEntry();
+  EXPECT_TRUE(entry->IsViewSourceMode());
+}
+
 }  // namespace content

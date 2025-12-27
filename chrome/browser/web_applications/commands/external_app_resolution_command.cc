@@ -12,7 +12,6 @@
 #include "base/containers/extend.h"
 #include "base/containers/flat_set.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/notreached.h"
 #include "base/strings/to_string.h"
@@ -563,7 +562,7 @@ void ExternalAppResolutionCommand::
 
   if (is_placeholder_running) {
     provider().ui_manager().NotifyAppRelaunchState(
-        *installed_placeholder_app_id_, app_id_, web_app_info_->title,
+        *installed_placeholder_app_id_, app_id_, web_app_info_->title.value(),
         profile_->GetWeakPtr(), AppRelaunchState::kAppClosingForRelaunch);
   }
 
@@ -574,18 +573,15 @@ void ExternalAppResolutionCommand::
   GetMutableDebugValue().Set("relaunch_app_after_placeholder_uninstall",
                              relaunch_app_after_placeholder_uninstall_);
 
-  // Note: This practice of releasing the app lock and requesting a whole new
-  // lock is highly discouraged & very selectively OK for this one case.
   all_apps_lock_description_ = std::make_unique<AllAppsLockDescription>();
   all_apps_lock_ = std::make_unique<AllAppsLock>();
-  command_manager()->lock_manager().AcquireLock(
-      *all_apps_lock_description_, *all_apps_lock_,
+  command_manager()->lock_manager().UpgradeAndAcquireLock(
+      std::move(apps_lock_), *all_apps_lock_,
       base::BindOnce(
           &ExternalAppResolutionCommand::OnAllAppsLockGrantedRemovePlaceholder,
           weak_ptr_factory_.GetWeakPtr()),
       FROM_HERE);
   web_contents_ = nullptr;
-  apps_lock_.reset();
 }
 
 void ExternalAppResolutionCommand::OnAllAppsLockGrantedRemovePlaceholder() {
@@ -621,13 +617,12 @@ void ExternalAppResolutionCommand::OnPlaceholderUninstalledMaybeRelaunch(
   }
 
   provider().ui_manager().NotifyAppRelaunchState(
-      *installed_placeholder_app_id_, app_id_, web_app_info_->title,
+      *installed_placeholder_app_id_, app_id_, web_app_info_->title.value(),
       profile_->GetWeakPtr(), AppRelaunchState::kAppAboutToRelaunch);
   provider().ui_manager().LaunchWebApp(
       WebAppUiManager::CreateAppLaunchParamsWithoutWindowConfig(
           app_id_, *base::CommandLine::ForCurrentProcess(),
           /*current_directory=*/base::FilePath(),
-          /*url_handler_launch_url=*/std::nullopt,
           /*protocol_handler_launch_url=*/std::nullopt,
           /*file_launch_url=*/std::nullopt, /*launch_files=*/{}),
       LaunchWebAppWindowSetting::kOverrideWithWebAppConfig, *profile_,
@@ -642,7 +637,7 @@ void ExternalAppResolutionCommand::OnLaunch(base::WeakPtr<Browser>,
                                             base::Value debug_value) {
   GetMutableDebugValue().Set("launch", std::move(debug_value));
   provider().ui_manager().NotifyAppRelaunchState(
-      *installed_placeholder_app_id_, app_id_, web_app_info_->title,
+      *installed_placeholder_app_id_, app_id_, web_app_info_->title.value(),
       profile_->GetWeakPtr(), AppRelaunchState::kAppRelaunched);
   CompleteAndSelfDestruct(
       CommandResult::kSuccess,

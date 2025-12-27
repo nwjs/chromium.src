@@ -123,8 +123,7 @@ class AutofillDataModelChange {
 using AutofillProfileChange =
     AutofillDataModelChange<AutofillProfile, std::string>;
 
-// Identified by `EntityInstance::guid()`. The EntityInstance is present for
-// `ADD` and `UPDATE` operations but absent for `REMOVE` operations.
+// Identified by `EntityInstance::guid()`.
 using EntityInstanceChange =
     AutofillDataModelChange<EntityInstance, EntityInstance::EntityId>;
 

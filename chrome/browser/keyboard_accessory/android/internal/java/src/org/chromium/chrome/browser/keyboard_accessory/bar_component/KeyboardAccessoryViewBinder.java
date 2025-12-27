@@ -81,6 +81,7 @@ class KeyboardAccessoryViewBinder {
             case BarItem.Type.SUGGESTION:
             case BarItem.Type.LOYALTY_CARD_SUGGESTION:
             case BarItem.Type.HOME_AND_WORK_SUGGESTION:
+            case BarItem.Type.PAYMENTS_SUGGESTION:
                 return new BarItemChipViewHolder(
                         parent,
                         keyboarAccessory,
@@ -272,7 +273,7 @@ class KeyboardAccessoryViewBinder {
                 // required UI.
                 chipView.setBorder(
                         chipView.getResources().getDimensionPixelSize(R.dimen.chip_border_width),
-                        chipView.getContext().getColor(R.color.black_alpha_12));
+                        chipView.getContext().getColorStateList(R.color.black_alpha_12));
             } else {
                 chipView.setEnabled(true);
                 iconAlpha = COMPLETE_OPACITY_ALPHA;
@@ -281,7 +282,7 @@ class KeyboardAccessoryViewBinder {
             if (iconDrawable != null) {
                 iconDrawable.setAlpha((int) (255 * iconAlpha));
             }
-            chipView.setIcon(iconDrawable, /* tintWithTextColor= */ false);
+            chipView.setIconWithTint(iconDrawable, /* tintWithTextColor= */ false);
 
             @Nullable String voiceOver = item.getSuggestion().getVoiceOver();
             if (!TextUtils.isEmpty(voiceOver)) {
@@ -306,6 +307,10 @@ class KeyboardAccessoryViewBinder {
                         return useLargeChips(context)
                                 ? R.style.KeyboardAccessoryHomeAndWorkLargeTwoLineChip
                                 : R.style.KeyboardAccessoryHomeAndWorkTwoLineChip;
+                    case BarItem.Type.PAYMENTS_SUGGESTION:
+                        return useLargeChips(context)
+                                ? R.style.KeyboardAccessoryPaymentsLargeTwoLineChip
+                                : R.style.KeyboardAccessoryPaymentsTwoLineChip;
                     case BarItem.Type.SUGGESTION:
                         return useLargeChips(context)
                                 ? R.style.KeyboardAccessoryLargeTwoLineChip
@@ -330,6 +335,7 @@ class KeyboardAccessoryViewBinder {
                             ? R.style.KeyboardAccessoryHomeAndWorkLargeChip
                             : R.style.KeyboardAccessoryHomeAndWorkChip;
                 case BarItem.Type.SUGGESTION:
+                case BarItem.Type.PAYMENTS_SUGGESTION:
                     return useLargeChips(context)
                             ? R.style.KeyboardAccessoryLargeChip
                             : R.style.KeyboardAccessoryChip;

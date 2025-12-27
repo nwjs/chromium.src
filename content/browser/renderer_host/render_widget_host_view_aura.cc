@@ -92,6 +92,7 @@
 #include "ui/events/event_observer.h"
 #include "ui/events/event_utils.h"
 #include "ui/events/gesture_detection/gesture_configuration.h"
+#include "ui/events/gestures/gesture_provider_aura.h"
 #include "ui/events/gestures/gesture_recognizer.h"
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/gfx/canvas.h"
@@ -1098,6 +1099,14 @@ void RenderWidgetHostViewAura::CopyFromSurface(
       std::move(callback));
 }
 
+ui::FilteredGestureProvider*
+RenderWidgetHostViewAura::GetFilteredGestureProviderForTesting() {
+  if (!window_ || !window_->provider()) {
+    return nullptr;
+  }
+  return &(window_->provider()->filtered_gesture_provider());
+}
+
 #if BUILDFLAG(IS_WIN)
 void RenderWidgetHostViewAura::UpdateMouseLockRegion() {
   RECT window_rect =
@@ -1140,6 +1149,13 @@ void RenderWidgetHostViewAura::ResetFallbackToFirstNavigationSurface() {
   delegated_frame_host_->ResetFallbackToFirstNavigationSurface();
 }
 
+void RenderWidgetHostViewAura::OnUnconfirmedTapConvertedToTap() {
+  if (!window_ || !window_->provider()) {
+    return;
+  }
+  window_->provider()->OnUnconfirmedTapConvertedToTap();
+}
+
 bool RenderWidgetHostViewAura::RequestRepaintOnNewSurface() {
   return SynchronizeVisualProperties(cc::DeadlinePolicy::UseDefaultDeadline(),
                                      std::nullopt);
@@ -1171,10 +1187,13 @@ gfx::Rect RenderWidgetHostViewAura::GetBoundsInRootWindow() {
 
     // If this is a headless window return the headless window bounds stored in
     // Aura window properties instead of the actual platform window bounds which
-    // may be different.
+    // may be different. Note that headless window bounds are in screen
+    // coordinates, so they need to be converted back to DIPs just like the
+    // regular ones below.
     if (gfx::Rect* headless_bounds =
             host->window()->GetProperty(aura::client::kHeadlessBoundsKey)) {
-      return *headless_bounds;
+      return display::Screen::Get()->ScreenToDIPRectInWindow(top_level,
+                                                             *headless_bounds);
     }
 
     RECT window_rect = {0};
@@ -2536,6 +2555,18 @@ void RenderWidgetHostViewAura::OnTouchEvent(ui::TouchEvent* event) {
         last_stylus_handwriting_properties_.has_value()
             ? last_stylus_handwriting_properties_->handwriting_stroke_id
             : 0);
+    // If initialization was successful, get the "handwriting tolerance" (i.e a
+    // value in DIPs that surrounds an editable region where handwriting should
+    // still be possible) and notify the renderer about it.
+    if (StylusHandwritingControllerWin::GetInstance()) {
+      const int handwriting_radius =
+          StylusHandwritingControllerWin::GetInstance()
+              ->GetStylusHandwritingToleranceInDips(*window_->GetRootWindow());
+      if (handwriting_radius_ != handwriting_radius) {
+        handwriting_radius_ = handwriting_radius;
+        UpdateScreenInfo();
+      }
+    }
     // TODO(crbug.com/355578906): Add telemetry.
   }
 #endif  // BUILDFLAG(IS_WIN)
@@ -3197,6 +3228,7 @@ void RenderWidgetHostViewAura::DidEnterBackForwardCache() {
   //
   // Called after to prevent prematurely evict the BFCached surface.
   host()->ForceFirstFrameAfterNavigationTimeout();
+  GetMouseWheelPhaseHandler()->DidEnterBackForwardCache();
 }
 
 void RenderWidgetHostViewAura::ActivatedOrEvictedFromBackForwardCache() {

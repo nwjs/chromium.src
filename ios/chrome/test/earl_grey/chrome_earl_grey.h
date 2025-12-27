@@ -101,6 +101,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Returns whether the Enhanced Safe Browsing Infobar Promo feature is enabled.
 - (BOOL)isEnhancedSafeBrowsingInfobarEnabled;
 
+// Returns whether the Ask Gemini Chip feature is enabled.
+- (BOOL)isAskGeminiChipEnabled;
+
 // Returns the interface orientation of the scene.
 - (UIInterfaceOrientation)interfaceOrientation;
 
@@ -552,6 +555,12 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // GREYAssert is induced.
 - (void)waitForIncognitoTabCount:(NSUInteger)count
               inWindowWithNumber:(int)windowNumber;
+
+// Opens the settings menu directly (not via the UI) in the window with the
+// given number. EarlGrey + Multiwindow + SwiftUI (the tools menu) do not
+// play well together, so EG often fails to interact with the tools menu in
+// secondary windows.
+- (void)openSettingsInWindowWithNumber:(int)windowNumber;
 
 #pragma mark - SignIn Utilities (EG2)
 

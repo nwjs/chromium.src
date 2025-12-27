@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "ui/display/manager/managed_display_info.h"
 
 #include <stdio.h>
@@ -16,6 +11,7 @@
 #include <string_view>
 #include <vector>
 
+#include "base/compiler_specific.h"
 #include "base/logging.h"
 #include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
@@ -60,10 +56,10 @@ void GetDisplayBounds(const std::string& spec,
   int height = 0;
   int x = 0;
   int y = 0;
-  if (sscanf(spec.c_str(), "%dx%d*%f", &width, &height, device_scale_factor) >=
-          2 ||
-      sscanf(spec.c_str(), "%d+%d-%dx%d*%f", &x, &y, &width, &height,
-             device_scale_factor) >= 4) {
+  if (UNSAFE_TODO(sscanf(spec.c_str(), "%dx%d*%f", &width, &height,
+                         device_scale_factor)) >= 2 ||
+      UNSAFE_TODO(sscanf(spec.c_str(), "%d+%d-%dx%d*%f", &x, &y, &width,
+                         &height, device_scale_factor)) >= 4) {
     bounds->SetRect(x, y, width, height);
 
     auto equals_within_epsilon = [device_scale_factor](float dsf) {
@@ -211,7 +207,7 @@ ManagedDisplayInfo ManagedDisplayInfo::CreateFromSpecWithID(
       std::string_view radius = radii_part[idx];
       bool conversion_success = base::StringToInt(radius, &radius_in_int);
       DCHECK(conversion_success);
-      radii[idx] = static_cast<float>(radius_in_int);
+      UNSAFE_TODO(radii[idx]) = static_cast<float>(radius_in_int);
     }
 
     panel_corners_radii =
@@ -619,7 +615,7 @@ std::string ManagedDisplayInfo::ToString() const {
 
   std::string result = base::StringPrintf(
       "ManagedDisplayInfo[%lld] port_display_id=%lld, edid_display_id=%lld, "
-      "native bounds=%s, size=%s, device-scale=%g, "
+      "native bounds=%s, size=%s, refresh-rate=%f, device-scale=%g, "
       "display-zoom=%g, overscan=%s, rotation=%d, touchscreen=%s, "
       "panel_corners_radii=%s, panel_orientation=%s, detected=%s, "
       "color_space=%s",
@@ -627,7 +623,7 @@ std::string ManagedDisplayInfo::ToString() const {
       static_cast<long long int>(port_display_id_),
       static_cast<long long int>(edid_display_id_),
       bounds_in_native_.ToString().c_str(), size_in_pixel_.ToString().c_str(),
-      device_scale_factor_, zoom_factor_,
+      refresh_rate_, device_scale_factor_, zoom_factor_,
       overscan_insets_in_dip_.ToString().c_str(), rotation_degree,
       touch_support_ == Display::TouchSupport::AVAILABLE     ? "yes"
       : touch_support_ == Display::TouchSupport::UNAVAILABLE ? "no"

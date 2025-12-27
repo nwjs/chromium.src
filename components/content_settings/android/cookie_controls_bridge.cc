@@ -106,10 +106,6 @@ void CookieControlsBridge::SetThirdPartyCookieBlockingEnabledForSite(
   controller_->OnCookieBlockingEnabledForSite(block_cookies);
 }
 
-void CookieControlsBridge::OnTrackingProtectionsChangedForSite(JNIEnv* env) {
-  controller_->OnTrackingProtectionsChangedForSite();
-}
-
 void CookieControlsBridge::OnUiClosing(JNIEnv* env) {
   controller_->OnUiClosing();
 }
@@ -124,7 +120,7 @@ void CookieControlsBridge::Destroy(JNIEnv* env) {
   delete this;
 }
 
-jboolean JNI_CookieControlsBridge_IsCookieControlsEnabled(
+static jboolean JNI_CookieControlsBridge_IsCookieControlsEnabled(
     JNIEnv* env,
     const JavaParamRef<jobject>& jbrowser_context_handle) {
   content::BrowserContext* context =
@@ -146,3 +142,5 @@ static jlong JNI_CookieControlsBridge_Init(
 }
 
 }  // namespace content_settings
+
+DEFINE_JNI(CookieControlsBridge)

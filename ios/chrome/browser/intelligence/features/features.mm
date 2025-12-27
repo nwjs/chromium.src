@@ -6,6 +6,8 @@
 
 #import "base/check.h"
 #import "base/time/time.h"
+#import "components/feature_engagement/public/feature_constants.h"
+#import "components/page_content_annotations/core/page_content_annotations_features.h"
 #import "components/prefs/pref_service.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/tabs/model/inactive_tabs/features.h"
@@ -31,20 +33,35 @@ bool IsPageActionMenuEnabled() {
 BASE_FEATURE(kProactiveSuggestionsFramework, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsProactiveSuggestionsFrameworkEnabled() {
-  return base::FeatureList::IsEnabled(kProactiveSuggestionsFramework);
+  return IsPageActionMenuEnabled() &&
+         base::FeatureList::IsEnabled(kProactiveSuggestionsFramework);
 }
 
 BASE_FEATURE(kAskGeminiChip, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const char kAskGeminiChipUseSnackbar[] = "AskGeminiChipUseSnackbar";
 
+const char kAskGeminiChipIgnoreCriteria[] = "AskGeminiChipIgnoreCriteria";
+
+const char kAskGeminiChipPrepopulateFloaty[] = "AskGeminiChipPrepopulateFloaty";
+
 bool IsAskGeminiChipEnabled() {
   return base::FeatureList::IsEnabled(kAskGeminiChip);
+}
+
+bool IsAskGeminiChipIgnoreCriteria() {
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kAskGeminiChip, kAskGeminiChipIgnoreCriteria, false);
 }
 
 bool IsAskGeminiSnackbarEnabled() {
   return base::GetFieldTrialParamByFeatureAsBool(
       kAskGeminiChip, kAskGeminiChipUseSnackbar, false);
+}
+
+bool IsAskGeminiChipPrepopulateFloatyEnabled() {
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kAskGeminiChip, kAskGeminiChipPrepopulateFloaty, false);
 }
 
 BASE_FEATURE(kGeminiCrossTab, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -130,7 +147,7 @@ bool IsBWGPreciseLocationEnabled() {
   return base::FeatureList::IsEnabled(kBWGPreciseLocation);
 }
 
-BASE_FEATURE(kPageContextAnchorTags, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kPageContextAnchorTags, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsPageContextAnchorTagsEnabled() {
   return base::FeatureList::IsEnabled(kPageContextAnchorTags);
@@ -161,11 +178,48 @@ bool IsSmartTabGroupingEnabled() {
 
 BASE_FEATURE(kPersistTabContext, base::FEATURE_DISABLED_BY_DEFAULT);
 
+const char kPersistTabContextStorageParam[] = "storage_implementation";
+const char kPersistTabContextExtractionTimingParam[] = "extraction_timing";
+const char kPersistTabContextDataParam[] = "data_extracted";
+
 bool IsPersistTabContextEnabled() {
   if (IsSmartTabGroupingEnabled()) {
     return true;
   }
   return base::FeatureList::IsEnabled(kPersistTabContext);
+}
+
+PersistTabStorageType GetPersistTabContextStorageType() {
+  int param = base::GetFieldTrialParamByFeatureAsInt(
+      kPersistTabContext, kPersistTabContextStorageParam,
+      static_cast<int>(PersistTabStorageType::kFileSystem));
+  if (param == static_cast<int>(PersistTabStorageType::kSQLite) &&
+      base::FeatureList::IsEnabled(
+          page_content_annotations::features::kPageContentCache)) {
+    return PersistTabStorageType::kSQLite;
+  }
+  return PersistTabStorageType::kFileSystem;
+}
+
+PersistTabExtractionTiming GetPersistTabContextExtractionTiming() {
+  int param = base::GetFieldTrialParamByFeatureAsInt(
+      kPersistTabContext, kPersistTabContextExtractionTimingParam,
+      static_cast<int>(PersistTabExtractionTiming::kOnWasHidden));
+  if (param ==
+      static_cast<int>(PersistTabExtractionTiming::kOnWasHiddenAndPageLoad)) {
+    return PersistTabExtractionTiming::kOnWasHiddenAndPageLoad;
+  }
+  return PersistTabExtractionTiming::kOnWasHidden;
+}
+
+PersistTabDataExtracted GetPersistTabContextDataExtracted() {
+  int param = base::GetFieldTrialParamByFeatureAsInt(
+      kPersistTabContext, kPersistTabContextDataParam,
+      static_cast<int>(PersistTabDataExtracted::kApcAndInnerText));
+  if (param == static_cast<int>(PersistTabDataExtracted::kInnerTextOnly)) {
+    return PersistTabDataExtracted::kInnerTextOnly;
+  }
+  return PersistTabDataExtracted::kApcAndInnerText;
 }
 
 BASE_FEATURE(kCleanupPersistedTabContexts, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -253,8 +307,33 @@ bool IsGeminiOnboardingCardsEnabled() {
 
 BASE_FEATURE(kPageContextExtractorRefactored, base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kWebPageReportedImagesSheet, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsWebPageReportedImagesSheetEnabled() {
+  return base::FeatureList::IsEnabled(kWebPageReportedImagesSheet);
+}
+
+BASE_FEATURE(kImageContextMenuGeminiEntryPoint,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsImageContextMenuGeminiEntryPointEnabled() {
+  return base::FeatureList::IsEnabled(kImageContextMenuGeminiEntryPoint);
+}
+
 BASE_FEATURE(kGeminiEligibilityAblation, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGeminiEligibilityAblationEnabled() {
   return base::FeatureList::IsEnabled(kGeminiEligibilityAblation);
+}
+
+BASE_FEATURE(kGeminiLive, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsGeminiLiveEnabled() {
+  return base::FeatureList::IsEnabled(kGeminiLive);
+}
+
+BASE_FEATURE(kGeminiPersonalization, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsGeminiPersonalizationEnabled() {
+  return base::FeatureList::IsEnabled(kGeminiPersonalization);
 }

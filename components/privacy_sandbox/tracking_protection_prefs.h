@@ -76,10 +76,6 @@ inline constexpr char kBlockAll3pcToggleEnabled[] =
 inline constexpr char kAllowAll3pcToggleEnabled[] =
     "tracking_protection.allow_all_3pc_toggle_enabled";
 
-// Unsynced boolean that controls showing the Mode B rollback UI.
-inline constexpr char kShowRollbackUiModeB[] =
-    "tracking_protection.show_rollback_ui_mode_b";
-
 // Synced enum that indicates the level of tracking protection the user has
 // selected on the tracking protection page.
 inline constexpr char kTrackingProtectionLevel[] =
@@ -104,9 +100,6 @@ inline constexpr char kIpProtectionInitializedByDogfood[] =
 // fingerprinting protection setting.
 inline constexpr char kFingerprintingProtectionEnabled[] =
     "tracking_protection.fingerprinting_protection_enabled";
-
-// Whether to send the DNT header.
-inline constexpr char kEnableDoNotTrack[] = "enable_do_not_track";
 
 // Whether User Bypass 3PC exceptions have been migrated to Tracking Protection
 // exceptions.

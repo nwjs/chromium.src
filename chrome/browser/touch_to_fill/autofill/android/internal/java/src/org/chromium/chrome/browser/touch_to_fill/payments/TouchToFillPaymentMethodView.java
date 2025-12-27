@@ -29,7 +29,10 @@ import org.chromium.chrome.browser.touch_to_fill.common.ItemDividerBase;
 import org.chromium.chrome.browser.touch_to_fill.common.TouchToFillViewBase;
 import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ItemType;
 import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ScreenId;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
+import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 
 import java.util.Set;
 
@@ -45,6 +48,20 @@ class TouchToFillPaymentMethodView extends TouchToFillViewBase {
     private @StringRes int mSheetFullHeightDescriptionId;
     private @StringRes int mSheetHalfHeightDescriptionId;
     private @StringRes int mSheetClosedDescriptionId;
+    private @ScreenId int mCurrentScreenId;
+    private final BottomSheetObserver mBottomSheetFullStateObserver =
+            new EmptyBottomSheetObserver() {
+                @Override
+                public void onSheetStateChanged(
+                        @BottomSheetController.SheetState int newState,
+                        @BottomSheetController.StateChangeReason int reason) {
+                    if (newState == BottomSheetController.SheetState.FULL
+                            && shouldAlwaysShowFullSheetForScreenId(mCurrentScreenId)
+                            && !isFullyExtended()) {
+                        updateScreenHeight();
+                    }
+                }
+            };
 
     private static class HorizontalDividerItemDecoration extends ItemDividerBase {
         HorizontalDividerItemDecoration(Context context) {
@@ -62,7 +79,7 @@ class TouchToFillPaymentMethodView extends TouchToFillViewBase {
                 case ItemType.PROGRESS_ICON:
                 case ItemType.BNPL_SELECTION_PROGRESS_HEADER:
                 case ItemType.ERROR_DESCRIPTION:
-                case ItemType.BNPL_SELECTION_PROGRESS_FOOTER:
+                case ItemType.BNPL_SELECTION_PROGRESS_TERMS:
                 case ItemType.TOS_FOOTER:
                 case ItemType.TEXT_BUTTON:
                 case ItemType.BNPL_TOS_TEXT:
@@ -93,9 +110,17 @@ class TouchToFillPaymentMethodView extends TouchToFillViewBase {
                         LayoutInflater.from(context)
                                 .inflate(R.layout.touch_to_fill_payment_method_sheet, null),
                 true);
+        bottomSheetController.addObserver(mBottomSheetFullStateObserver);
+    }
+
+    @Override
+    public void destroy() {
+        removeObserver(mBottomSheetFullStateObserver);
+        super.destroy();
     }
 
     void setCurrentScreen(@ScreenId int screenId) {
+        mCurrentScreenId = screenId;
         ViewFlipper viewFlipper =
                 getContentView().findViewById(R.id.touch_to_fill_payment_method_view_flipper);
         viewFlipper.setDisplayedChild(getDisplayedChildForScreenId(screenId));
@@ -191,10 +216,12 @@ class TouchToFillPaymentMethodView extends TouchToFillViewBase {
     @Override
     protected Set<Integer> listedItemTypes() {
         return Set.of(
+                TouchToFillPaymentMethodProperties.ItemType.BNPL,
+                TouchToFillPaymentMethodProperties.ItemType.BNPL_ISSUER,
+                TouchToFillPaymentMethodProperties.ItemType.BNPL_TOS_TEXT,
                 TouchToFillPaymentMethodProperties.ItemType.CREDIT_CARD,
                 TouchToFillPaymentMethodProperties.ItemType.IBAN,
-                TouchToFillPaymentMethodProperties.ItemType.LOYALTY_CARD,
-                TouchToFillPaymentMethodProperties.ItemType.BNPL_TOS_TEXT);
+                TouchToFillPaymentMethodProperties.ItemType.LOYALTY_CARD);
     }
 
     @Override
@@ -240,5 +267,28 @@ class TouchToFillPaymentMethodView extends TouchToFillViewBase {
         }
         assert false : "Undefined ScreenId: " + screenId;
         return 0;
+    }
+
+    private boolean shouldAlwaysShowFullSheetForScreenId(@ScreenId int screenId) {
+        switch (screenId) {
+            case PROGRESS_SCREEN:
+            case BNPL_ISSUER_TOS_SCREEN:
+            case ERROR_SCREEN:
+                return true;
+            case HOME_SCREEN:
+            case ALL_LOYALTY_CARDS_SCREEN:
+            case BNPL_ISSUER_SELECTION_SCREEN:
+                return false;
+        }
+        assert false : "Undefined ScreenId: " + screenId;
+        return false;
+    }
+
+    @Override
+    public float getHalfHeightRatio() {
+        if (shouldAlwaysShowFullSheetForScreenId(mCurrentScreenId)) {
+            return BottomSheetContent.HeightMode.DISABLED;
+        }
+        return super.getHalfHeightRatio();
     }
 }

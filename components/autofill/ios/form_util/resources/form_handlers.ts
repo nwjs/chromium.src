@@ -11,8 +11,10 @@
 // Requires functions from fill.ts, form.ts, autofill_form_features.ts and
 // child_frame_registration_lib.ts.
 
+import {processChildFrameMessage} from '//components/autofill/ios/form_util/resources/child_frame_registration_lib.js';
 import {isAutofillableElement} from '//components/autofill/ios/form_util/resources/fill_element_inference_util.js';
 import * as fillUtil from '//components/autofill/ios/form_util/resources/fill_util.js';
+import {getFieldIdentifier, getFormIdentifier} from '//components/autofill/ios/form_util/resources/form_utils.js';
 import {gCrWeb, gCrWebLegacy} from '//ios/web/public/js_messaging/resources/gcrweb.js';
 import {sendWebKitMessage} from '//ios/web/public/js_messaging/resources/utils.js';
 
@@ -177,9 +179,9 @@ function formActivity(evt: Event): void {
   const msg = {
     'command': 'form.activity',
     'frameID': gCrWeb.getFrameId(),
-    'formName': gCrWebLegacy.form.getFormIdentifier(form),
+    'formName': getFormIdentifier(form),
     'formRendererID': formRendererID,
-    'fieldIdentifier': gCrWebLegacy.form.getFieldIdentifier(field),
+    'fieldIdentifier': getFieldIdentifier(field),
     'fieldRendererID': fieldRendererID,
     'fieldType': fieldType,
     'type': evt.type,
@@ -284,7 +286,7 @@ function sendFormMutationMessagesAfterDelay(
  */
 function processInboundMessage(event: MessageEvent<any>): void {
   if (autofillFormFeaturesApi.getFunction('isAutofillAcrossIframesEnabled')()) {
-    gCrWebLegacy.remoteFrameRegistration.processChildFrameMessage(event);
+    processChildFrameMessage(event);
   }
 }
 

@@ -71,12 +71,17 @@
 #include "content/browser/indexed_db/instance/pending_connection.h"
 #include "content/browser/indexed_db/instance/sqlite/backing_store_impl.h"
 #include "content/browser/indexed_db/status.h"
+#include "content/public/common/content_features.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "storage/browser/quota/quota_manager_proxy.h"
 #include "url/origin.h"
+
+#if BUILDFLAG(IS_WIN)
+#include "base/win/windows_types.h"
+#endif
 
 namespace content::indexed_db {
 namespace {
@@ -170,10 +175,6 @@ DatabaseError CreateDefaultError() {
 
 }  // namespace
 
-// TODO(crbug.com/40253999): Move to blink when needed there.
-// This flag unconditionally enables the SQLite backing store. Used for testing.
-BASE_FEATURE(kIdbSqliteBackingStore, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // This flag enables the SQLite backing store for in-memory contexts.
 BASE_FEATURE(kIdbSqliteBackingStoreInMemoryContexts,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -209,7 +210,7 @@ BucketContext::BucketContext(
   receivers_.set_disconnect_handler(base::BindRepeating(
       &BucketContext::OnReceiverDisconnected, base::Unretained(this)));
   should_use_sqlite_ = g_should_use_sqlite_for_testing.value_or(
-      base::FeatureList::IsEnabled(kIdbSqliteBackingStore) ||
+      base::FeatureList::IsEnabled(features::kIdbSqliteBackingStore) ||
       (in_memory() &&
        base::FeatureList::IsEnabled(kIdbSqliteBackingStoreInMemoryContexts)));
 }
@@ -231,12 +232,13 @@ void BucketContext::ForceClose(bool doom, const std::string& message) {
   {
     // This handle keeps `this` from closing until it goes out of scope.
     BucketContextHandle handle(*this);
-    for (const auto& [name, database] : databases_) {
-      // Note: We purposefully ignore the result here as force close needs to
-      // continue tearing things down anyways.
-      database->ForceCloseAndRunTasks(SanitizeErrorMessage(message));
+    for (auto iter = databases_.begin(); iter != databases_.end();
+         iter = databases_.erase(iter)) {
+      // The result is irrelevant as the database and backing store are already
+      // closing.
+      std::move(*iter->second).ForceClose(SanitizeErrorMessage(message));
     }
-    databases_.clear();
+    CHECK(databases_.empty());
     has_blobs_outstanding_ = false;
     close_timer_.Stop();
     if (backing_store()) {
@@ -498,27 +500,31 @@ void BucketContext::AddReceiver(
 }
 
 void BucketContext::GetDatabaseInfo(GetDatabaseInfoCallback callback) {
-  Status s;
-  DatabaseError error;
-  std::tie(s, error, std::ignore) =
-      InitBackingStoreIfNeeded(/*create_if_missing=*/false);
-  DCHECK_EQ(s.ok(), !!backing_store_);
-  if (!s.ok()) {
-    // Since `create_if_missing` is false, "not found" is a valid, non-error
-    // status.
-    CHECK_EQ(s.IsNotFound(),
-             error.code() == blink::mojom::IDBException::kNoError)
-        << error.code();
-    std::move(callback).Run(
-        {}, blink::mojom::IDBError::New(error.code(), error.message()));
+  base::ElapsedTimer timer;
+  if (!backing_store_) {
+    Status s;
+    DatabaseError error;
+    std::tie(s, error, std::ignore) =
+        InitBackingStore(/*create_if_missing=*/false);
+    if (!s.ok()) {
+      // Since `create_if_missing` is false, "not found" is a valid, non-error
+      // status.
+      CHECK_EQ(s.IsNotFound(),
+               error.code() == blink::mojom::IDBException::kNoError)
+          << error.code();
+      std::move(callback).Run(
+          {}, blink::mojom::IDBError::New(error.code(), error.message()));
 
-    if (s.IsCorruption()) {
-      HandleBackingStoreCorruption(base::UTF16ToUTF8(error.message()));
+      if (s.IsCorruption()) {
+        HandleBackingStoreCorruption(base::UTF16ToUTF8(error.message()));
+      }
+      return;
     }
-    return;
   }
 
-  auto names_and_versions = backing_store_->GetDatabaseNamesAndVersions();
+  auto names_and_versions = LOG_RESULT(
+      backing_store_->GetDatabaseNamesAndVersions(),
+      "IndexedDB.BackingStore.GetDatabaseNamesAndVersions", in_memory());
   if (!names_and_versions.has_value()) {
     std::move(callback).Run({}, blink::mojom::IDBError::New(
                                     blink::mojom::IDBException::kUnknownError,
@@ -526,6 +532,8 @@ void BucketContext::GetDatabaseInfo(GetDatabaseInfoCallback callback) {
                                     "indexedDB.databases()."));
     return;
   }
+  LogDuration(timer.Elapsed(), "IndexedDB.IDBFactory.GetDatabaseInfo",
+              in_memory());
   std::move(callback).Run(
       std::move(*names_and_versions),
       blink::mojom::IDBError::New(blink::mojom::IDBException::kNoError,
@@ -534,7 +542,7 @@ void BucketContext::GetDatabaseInfo(GetDatabaseInfoCallback callback) {
 
 void BucketContext::Open(
     mojo::PendingAssociatedRemote<blink::mojom::IDBFactoryClient>
-        factory_client,
+        pending_factory_client,
     mojo::PendingAssociatedRemote<blink::mojom::IDBDatabaseCallbacks>
         database_callbacks_remote,
     const std::u16string& name,
@@ -545,25 +553,36 @@ void BucketContext::Open(
     int scheduling_priority) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   TRACE_EVENT0("IndexedDB", "BucketContext::Open");
-  // TODO(dgrogan): Don't let a non-existing database be opened (and therefore
-  // created) if this origin is already over quota.
 
-  bool was_cold_open = !backing_store_;
-  Status s;
-  DatabaseError error;
-  IndexedDBDataLossInfo data_loss_info;
-  std::tie(s, error, data_loss_info) =
-      InitBackingStoreIfNeeded(/*create_if_missing=*/true);
-  if (!backing_store_) {
-    FactoryClient(std::move(factory_client)).OnError(error);
-    if (s.IsCorruption()) {
-      HandleBackingStoreCorruption(base::UTF16ToUTF8(error.message()));
-    }
+  if (version < 1 && version != blink::IndexedDBDatabaseMetadata::NO_VERSION) {
+    mojo::ReportBadMessage("Invalid version");
     return;
   }
 
+  // TODO(dgrogan): Don't let a non-existing database be opened (and therefore
+  // created) if this origin is already over quota.
+  mojo::AssociatedRemote<blink::mojom::IDBFactoryClient> factory_client(
+      std::move(pending_factory_client));
+
+  bool was_cold_open = !backing_store_;
+  IndexedDBDataLossInfo data_loss_info;
+  if (!backing_store_) {
+    Status s;
+    DatabaseError error;
+    std::tie(s, error, data_loss_info) =
+        InitBackingStore(/*create_if_missing=*/true);
+    LogStatus(s, "IndexedDB.BackingStore.CreateIfMissing", in_memory());
+    if (!s.ok()) {
+      std::move(factory_client)->Error(error.code(), error.message());
+      if (s.IsCorruption()) {
+        HandleBackingStoreCorruption(base::UTF16ToUTF8(error.message()));
+      }
+      return;
+    }
+  }
+
   auto connection = std::make_unique<PendingConnection>(
-      std::make_unique<FactoryClient>(std::move(factory_client)),
+      std::move(factory_client),
       std::make_unique<DatabaseCallbacks>(std::move(database_callbacks_remote)),
       transaction_id, version, std::move(transaction_receiver));
   connection->was_cold_open = was_cold_open;
@@ -592,21 +611,6 @@ void BucketContext::Open(
     database_ptr = CreateAndAddDatabase(name);
   } else {
     database_ptr = it->second.get();
-
-    // The `Database` might have been forced closed by dev tools, in which case
-    // no new connections should be added. The `Database` should be deleted
-    // *soon* in this case, but the request can arrive while `RunTasks()` is
-    // still queued. We could try to reschedule this open() request, but if the
-    // open request had already made it to ConnectionCoordinator, it would be
-    // pruned and errors reported: see `ShouldPruneForForceClose()`. So do that
-    // here too.
-    if (!database_ptr->IsAcceptingConnections()) {
-      connection->factory_client->OnError(
-          DatabaseError(blink::mojom::IDBException::kAbortError,
-                        "The connection was closed."));
-      connection->database_callbacks->OnForcedClose();
-      return;
-    }
   }
 
   database_ptr->ScheduleOpenConnection(std::move(connection));
@@ -614,84 +618,52 @@ void BucketContext::Open(
 
 void BucketContext::DeleteDatabase(
     mojo::PendingAssociatedRemote<blink::mojom::IDBFactoryClient>
-        factory_client,
+        pending_factory_client,
     const std::u16string& name,
     bool force_close) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   TRACE_EVENT0("IndexedDB", "BucketContext::DeleteDatabase");
-  std::string force_close_message = "The database is deleted.";
+  mojo::AssociatedRemote<blink::mojom::IDBFactoryClient> factory_client(
+      std::move(pending_factory_client));
 
-  {
+  if (!backing_store_) {
     Status s;
     DatabaseError error;
     // Note: Any data loss information here is not piped up to the renderer, and
     // will be lost.
-    std::tie(s, error, std::ignore) = InitBackingStoreIfNeeded(
+    std::tie(s, error, std::ignore) = InitBackingStore(
         /*create_if_missing=*/false);
-    if (!backing_store_) {
+    if (!s.ok()) {
       if (s.IsNotFound()) {
-        FactoryClient(std::move(factory_client)).OnDeleteSuccess(/*version=*/0);
+        // The spec requires oldVersion to be 0 if the database does not exist:
+        // https://w3c.github.io/IndexedDB/#delete-a-database.
+        std::move(factory_client)->DeleteSuccess(/*old_version=*/0);
         return;
       }
 
-      FactoryClient(std::move(factory_client)).OnError(error);
+      std::move(factory_client)->Error(error.code(), error.message());
       if (s.IsCorruption()) {
         HandleBackingStoreCorruption(base::UTF16ToUTF8(error.message()));
       }
       return;
     }
   }
-  auto on_deletion_complete =
-      base::BindOnce(delegate().on_files_written, /*flushed=*/true);
 
-  // First, check the databases that are already represented by
-  // `Database` objects. If one exists, schedule it to be deleted and
-  // we're done.
+  if (!base::Contains(databases_, name)) {
+    // This adds `Database` in an uninitialized state.
+    CreateAndAddDatabase(name);
+  }
   auto it = databases_.find(name);
-  if (it != databases_.end()) {
-    base::WeakPtr<Database> database = it->second->AsWeakPtr();
-    database->ScheduleDeleteDatabase(
-        std::make_unique<FactoryClient>(std::move(factory_client)),
-        std::move(on_deletion_complete));
-    if (force_close) {
-      Status status = database->ForceCloseAndRunTasks(force_close_message);
-      if (!status.ok()) {
-        OnDatabaseError(database.get(), status, "Error aborting transactions.");
-      }
-    }
-    return;
-  }
-
-  // Otherwise, verify that a database with the given name exists in the backing
-  // store. If not, report success.
-  StatusOr<bool> exists = backing_store()->DatabaseExists(name);
-  if (!exists.has_value()) {
-    std::string error_message =
-        "Internal error opening backing store for indexedDB.deleteDatabase.";
-    DatabaseError error(blink::mojom::IDBException::kUnknownError,
-                        error_message);
-    FactoryClient(std::move(factory_client)).OnError(error);
-    if (exists.error().IsCorruption()) {
-      HandleBackingStoreCorruption(error_message);
-    }
-    return;
-  }
-
-  if (!*exists) {
-    FactoryClient(std::move(factory_client)).OnDeleteSuccess(/*old_version=*/0);
-    return;
-  }
-
-  // If it exists but does not already have an `Database` object,
-  // create it and initiate deletion.
-  Database* database_ptr = CreateAndAddDatabase(name);
-  database_ptr->ScheduleDeleteDatabase(
-      std::make_unique<FactoryClient>(std::move(factory_client)),
-      std::move(on_deletion_complete));
+  it->second->ScheduleDeleteDatabase(
+      std::move(factory_client),
+      /*on_deletion_complete=*/base::BindOnce(delegate().on_files_written,
+                                              /*flushed=*/true));
   if (force_close) {
-    Status status = database_ptr->ForceCloseAndRunTasks(force_close_message);
-    if (!status.ok()) {
-      OnDatabaseError(database_ptr, status, "Error aborting transactions.");
+    std::unique_ptr<Database> database = std::move(it->second);
+    databases_.erase(it);
+    Status status = std::move(*database).ForceClose("The database is deleted.");
+    if (!status.ok() && !ShouldUseSqlite()) {
+      OnDatabaseError(nullptr, status, "Error aborting transactions.");
     }
   }
 }
@@ -736,7 +708,7 @@ void BucketContext::BindMockFailureSingletonForTesting(
 
 Database* BucketContext::CreateAndAddDatabase(const std::u16string& name) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(!base::Contains(databases_, name));
+  CHECK(!base::Contains(databases_, name));
   auto database =
       std::make_unique<Database>(next_database_id_for_locks_++, name, *this);
   return databases_.emplace(name, std::move(database)).first->second.get();
@@ -909,9 +881,17 @@ void BucketContext::OnDatabaseError(Database* database,
       message.empty() ? status.ToString() : message;
   if (ShouldUseSqlite()) {
     // Unlike in the LevelDB case, an error in one database doesn't indicate a
-    // problem with the entire bucket.
+    // problem with the entire bucket, so we just `ForceClose` the one
+    // `Database`.
     CHECK(database);
-    database->ForceCloseAndRunTasks(error_message);
+    // Error during force close; `database` was already removed.
+    if (database->force_closing()) {
+      return;
+    }
+    auto iter = databases_.find(database->name());
+    CHECK(iter != databases_.end());
+    std::move(*iter->second).ForceClose(error_message);
+    databases_.erase(iter);
   } else {
     if (status.IsCorruption()) {
       HandleBackingStoreCorruption(error_message);
@@ -947,10 +927,8 @@ bool BucketContext::OnMemoryDump(const base::trace_event::MemoryDumpArgs& args,
 }
 
 std::tuple<Status, DatabaseError, IndexedDBDataLossInfo>
-BucketContext::InitBackingStoreIfNeeded(bool create_if_missing) {
-  if (backing_store_) {
-    return {};
-  }
+BucketContext::InitBackingStore(bool create_if_missing) {
+  CHECK(!backing_store_);
 
   // Construct paths and create required directories.
   base::FilePath blob_path;
@@ -972,6 +950,32 @@ BucketContext::InitBackingStoreIfNeeded(bool create_if_missing) {
     } else {
       database_path = data_path_.Append(GetLevelDBFileName(bucket_locator()));
       blob_path = data_path_.Append(GetBlobStoreFileName(bucket_locator()));
+
+#if BUILDFLAG(IS_WIN)
+      int max_ldb_file_path_length =
+          // The longest file path LevelDB uses.
+          database_path.AppendASCII("MANIFEST-000001").value().size();
+
+      // Underflow (i.e. file path length <= MAX_PATH) intentionally emits to
+      // the 0 bucket.
+      base::UmaHistogramCounts100("IndexedDB.FilePathLengthOverflow.LevelDB",
+                                  max_ldb_file_path_length - MAX_PATH);
+
+      int max_sqlite_file_path_length =
+          data_path_
+              .Append(GetSqliteDbDirectory(bucket_locator()))
+              // All database names hash to the same length file name.
+              .Append(DatabaseNameToFileName(u"any_string"))
+              // The WAL file will use the path with "-wal" appended. This appends ".wal".
+              .AddExtensionASCII("wal")
+              .value()
+              .size();
+
+      // Underflow (i.e. file path length <= MAX_PATH) intentionally emits to
+      // the 0 bucket.
+      base::UmaHistogramCounts100("IndexedDB.FilePathLengthOverflow.SQLite",
+                                  max_sqlite_file_path_length - MAX_PATH);
+#endif
     }
 
     if (IsPathTooLong(database_path)) {
@@ -1034,7 +1038,8 @@ BucketContext::InitBackingStoreIfNeeded(bool create_if_missing) {
     base::UmaHistogramEnumeration(kBackingStoreActionUmaName,
                                   IndexedDBAction::kBackingStoreOpenAttempt);
 
-    first_try_status.Log("WebCore.IndexedDB.BackingStore.OpenFirstTryResult");
+    first_try_status.LogLevelDbStatus(
+        "WebCore.IndexedDB.BackingStore.OpenFirstTryResult");
 
     if (first_try_status.ok()) [[likely]] {
       UMA_HISTOGRAM_TIMES(
@@ -1087,6 +1092,22 @@ void BucketContext::ResetBackingStore() {
     leveldb_destruct_event.Wait();
     base::UmaHistogramTimes("IndexedDB.BackingStoreCloseDuration",
                             base::TimeTicks::Now() - start);
+  }
+
+  if (is_doomed_) {
+    if (ShouldUseLegacyFilePath(bucket_locator())) {
+      if (ShouldUseSqlite()) {
+        base::DeletePathRecursively(
+            data_path_.Append(GetSqliteDbDirectory(bucket_locator())));
+      } else {
+        base::DeletePathRecursively(
+            data_path_.Append(GetLevelDBFileName(bucket_locator())));
+        base::DeletePathRecursively(
+            data_path_.Append(GetBlobStoreFileName(bucket_locator())));
+      }
+    } else {
+      base::DeletePathRecursively(data_path_);
+    }
   }
 
   task_run_queued_ = false;

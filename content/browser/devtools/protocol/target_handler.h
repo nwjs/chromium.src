@@ -135,7 +135,11 @@ class TargetHandler : public DevToolsDomainHandler,
       override;
 
   Response OpenDevTools(const std::string& target_id,
+                        std::optional<std::string> panel_id,
                         std::string* out_target_id) override;
+  Response GetDevToolsTarget(
+      const std::string& target_id,
+      std::optional<std::string>* out_target_id) override;
 
   void ApplyNetworkContextParamsOverrides(
       BrowserContext* browser_context,

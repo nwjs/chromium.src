@@ -2400,8 +2400,12 @@ void LineBreaker::HandleTrailingSpaces(const InlineItem& item,
 
     // Skipping one whitespace removes all collapsible spaces because
     // collapsible spaces are collapsed to single space in InlineItemBuilder.
+    // If these collapsible spaces follow preserved whitespace, we keep the
+    // trailing whitespace status as preserved.
     current_.text_offset++;
-    trailing_whitespace_ = WhitespaceState::kCollapsed;
+    if (trailing_whitespace_ != WhitespaceState::kPreserved) {
+      trailing_whitespace_ = WhitespaceState::kCollapsed;
+    }
 
     // Make the last item breakable after, even if it was nowrap.
     InlineItemResults* item_results = line_info->MutableResults();
@@ -2437,12 +2441,13 @@ void LineBreaker::HandleTrailingSpaces(const InlineItem& item,
     if (item_result->StartOffset() == item.StartOffset() &&
         item_result->EndOffset() == item.EndOffset()) {
       item_result->inline_size =
-          item_result->shape_result && mode_ != LineBreakerMode::kMinContent
+          item_result->shape_result && mode_ != LineBreakerMode::kMinContent &&
+                  !line_clamp_ellipsis_width_
               ? item_result->shape_result->SnappedWidth()
               : LayoutUnit();
     } else {
       UpdateShapeResult(*line_info, item_result);
-      if (mode_ == LineBreakerMode::kMinContent) {
+      if (mode_ == LineBreakerMode::kMinContent || line_clamp_ellipsis_width_) {
         item_result->inline_size = LayoutUnit();
       }
     }
@@ -3025,10 +3030,8 @@ void LineBreaker::HandleAtomicInline(const InlineItem& item,
   }
 
   const LineBreaker* root_breaker = this;
-  if (RuntimeEnabledFeatures::NestedRubyMinMaxFixEnabled()) {
-    while (root_breaker->parent_breaker_) {
-      root_breaker = root_breaker->parent_breaker_;
-    }
+  while (root_breaker->parent_breaker_) {
+    root_breaker = root_breaker->parent_breaker_;
   }
   const LineBreakerMode mode = root_breaker->mode_;
   const bool is_initial_letter_box =
@@ -3133,21 +3136,11 @@ void LineBreaker::ComputeMinMaxContentSizeForBlockChild(
   CHECK(!node_.GetLayoutBox()->NeedsCollectInlines());
   const LayoutUnit inline_margins = item_result->margins.InlineSum();
   const LineBreaker* main_breaker = root_breaker;
-  if (!RuntimeEnabledFeatures::NestedRubyMinMaxFixEnabled()) {
-    main_breaker = parent_breaker_ ? parent_breaker_ : this;
-  }
   if (main_breaker->mode_ == LineBreakerMode::kMinContent) {
     item_result->inline_size = result.sizes.min_size + inline_margins;
-    if (RuntimeEnabledFeatures::NestedRubyMinMaxFixEnabled()) {
-      if (root_breaker->depends_on_block_constraints_out_) {
-        *root_breaker->depends_on_block_constraints_out_ |=
-            result.depends_on_block_constraints;
-      }
-    } else {
-      if (depends_on_block_constraints_out_) {
-        *depends_on_block_constraints_out_ |=
-            result.depends_on_block_constraints;
-      }
+    if (root_breaker->depends_on_block_constraints_out_) {
+      *root_breaker->depends_on_block_constraints_out_ |=
+          result.depends_on_block_constraints;
     }
     if ((size_cache = main_breaker->max_size_cache_)) {
       if (size_cache->empty()) {

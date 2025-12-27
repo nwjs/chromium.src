@@ -21,43 +21,43 @@ namespace url {
 
 namespace {
 
-bool IsLocalhost(const char* spec, int begin, int end) {
-  if (begin > end)
-    return false;
-  return std::string_view(&spec[begin], end - begin) == "localhost";
+bool IsLocalhost(std::optional<std::string_view> host) {
+  return host.has_value() && *host == "localhost";
 }
 
-bool IsLocalhost(const char16_t* spec, int begin, int end) {
-  if (begin > end)
-    return false;
-  return std::u16string_view(&spec[begin], end - begin) == u"localhost";
+bool IsLocalhost(std::optional<std::u16string_view> host) {
+  return host.has_value() && *host == u"localhost";
 }
 
 template <typename CHAR>
-int DoFindWindowsDriveLetter(const CHAR* spec, int begin, int end) {
-  if (begin > end)
-    return -1;
+size_t DoFindWindowsDriveLetter(
+    std::optional<std::basic_string_view<CHAR>> path) {
+  using string_view = std::basic_string_view<CHAR>;
+  if (!path.has_value()) {
+    return string_view::npos;
+  }
 
   // First guess the beginning of the drive letter.
   // If there is something that looks like a drive letter in the spec between
   // begin and end, store its position in drive_letter_pos.
-  int drive_letter_pos =
-      DoesContainWindowsDriveSpecUntil(spec, begin, end, end);
-  if (drive_letter_pos < begin)
-    return -1;
+  int drive_letter_pos = DoesContainWindowsDriveSpecUntil(
+      path->data(), 0, path->length(), path->length());
+  if (drive_letter_pos < 0) {
+    return string_view::npos;
+  }
 
   // Check if the path up to the drive letter candidate can be canonicalized as
   // "/".
-  Component sub_path = MakeRange(begin, drive_letter_pos);
+  Component sub_path = MakeRange(0, drive_letter_pos);
   RawCanonOutput<1024> output;
   Component output_path;
-  bool success = CanonicalizePath(sub_path.maybe_as_string_view_on(spec),
-                                  &output, &output_path);
+  bool success =
+      CanonicalizePath(sub_path.MaybeAsViewOn(*path), &output, &output_path);
   if (!success || output_path.len != 1 || output.at(output_path.begin) != '/') {
-    return -1;
+    return string_view::npos;
   }
 
-  return drive_letter_pos;
+  return static_cast<size_t>(drive_letter_pos);
 }
 
 #ifdef WIN32
@@ -69,9 +69,8 @@ int DoFindWindowsDriveLetter(const CHAR* spec, int begin, int end) {
 // not).
 template <typename CHAR>
 size_t FileDoDriveSpec(std::basic_string_view<CHAR> path, CanonOutput* output) {
-  int drive_letter_pos = FindWindowsDriveLetter(
-      path.data(), 0, base::checked_cast<int>(path.length()));
-  if (drive_letter_pos < 0) {
+  size_t drive_letter_pos = FindWindowsDriveLetter(path);
+  if (drive_letter_pos == std::basic_string_view<CHAR>::npos) {
     return 0;
   }
 
@@ -86,7 +85,7 @@ size_t FileDoDriveSpec(std::basic_string_view<CHAR> path, CanonOutput* output) {
 
   // Normalize the character following it to a colon rather than pipe.
   output->push_back(':');
-  return static_cast<size_t>(drive_letter_pos + 2);
+  return drive_letter_pos + 2;
 }
 
 #endif  // WIN32
@@ -128,12 +127,11 @@ bool DoFileCanonicalizePath(std::optional<std::basic_string_view<CHAR>> path,
 }
 
 template <typename CHAR, typename UCHAR>
-bool DoCanonicalizeFileUrl(const URLComponentSource<CHAR>& source,
-                           const Parsed& parsed,
+bool DoCanonicalizeFileUrl(const Replacements<CHAR>& source,
                            CharsetConverter* query_converter,
                            CanonOutput* output,
                            Parsed* new_parsed) {
-  DCHECK(!parsed.has_opaque_path);
+  DCHECK(!source.components().has_opaque_path);
 
   // Things we don't set in file: URLs.
   new_parsed->username = Component();
@@ -154,10 +152,10 @@ bool DoCanonicalizeFileUrl(const URLComponentSource<CHAR>& source,
   //
   // TODO(crbug.com/41299821): According to the latest URL spec, this
   // transformation should be done regardless of the path.
-  Component host_range = parsed.host;
-  if (IsLocalhost(source.host, host_range.begin, host_range.end()) &&
-      FindWindowsDriveLetter(source.path, parsed.path.begin,
-                             parsed.path.end()) >= parsed.path.begin) {
+  Component host_range = source.components().host;
+  using string_view = std::basic_string_view<CHAR>;
+  if (IsLocalhost(source.MaybeHost()) &&
+      FindWindowsDriveLetter(source.MaybePath()) != string_view::npos) {
     host_range.reset();
   }
 
@@ -166,30 +164,26 @@ bool DoCanonicalizeFileUrl(const URLComponentSource<CHAR>& source,
   // TODO(brettw) This doesn't do any checking for host name validity. We
   // should probably handle validity checking of UNC hosts differently than
   // for regular IP hosts.
-  bool success = CanonicalizeFileHost(
-      std::basic_string_view<CHAR>(
-          source.host, host_range.is_valid() ? host_range.end() : 0),
-      host_range, *output, new_parsed->host);
-  success &= DoFileCanonicalizePath<CHAR, UCHAR>(
-      parsed.path.maybe_as_string_view_on(source.path), output,
-      &new_parsed->path);
+  bool success = CanonicalizeFileHost(source.SpecUntilHostOrEmpty(), host_range,
+                                      *output, new_parsed->host);
+  success &= DoFileCanonicalizePath<CHAR, UCHAR>(source.MaybePath(), output,
+                                                 &new_parsed->path);
 
-  CanonicalizeQuery(parsed.query.maybe_as_string_view_on(source.query),
-                    query_converter, output, &new_parsed->query);
-  CanonicalizeRef(parsed.ref.maybe_as_string_view_on(source.ref), output,
-                  &new_parsed->ref);
+  CanonicalizeQuery(source.MaybeQuery(), query_converter, output,
+                    &new_parsed->query);
+  CanonicalizeRef(source.MaybeRef(), output, &new_parsed->ref);
 
   return success;
 }
 
 } // namespace
 
-int FindWindowsDriveLetter(const char* spec, int begin, int end) {
-  return DoFindWindowsDriveLetter(spec, begin, end);
+size_t FindWindowsDriveLetter(std::optional<std::string_view> path) {
+  return DoFindWindowsDriveLetter(path);
 }
 
-int FindWindowsDriveLetter(const char16_t* spec, int begin, int end) {
-  return DoFindWindowsDriveLetter(spec, begin, end);
+size_t FindWindowsDriveLetter(std::optional<std::u16string_view> path) {
+  return DoFindWindowsDriveLetter(path);
 }
 
 bool CanonicalizeFileUrl(std::string_view spec,
@@ -198,8 +192,7 @@ bool CanonicalizeFileUrl(std::string_view spec,
                          CanonOutput* output,
                          Parsed* new_parsed) {
   return DoCanonicalizeFileUrl<char, unsigned char>(
-      URLComponentSource<char>(spec.data()), parsed, query_converter, output,
-      new_parsed);
+      Replacements<char>(spec, parsed), query_converter, output, new_parsed);
 }
 
 bool CanonicalizeFileUrl(std::u16string_view spec,
@@ -208,8 +201,8 @@ bool CanonicalizeFileUrl(std::u16string_view spec,
                          CanonOutput* output,
                          Parsed* new_parsed) {
   return DoCanonicalizeFileUrl<char16_t, char16_t>(
-      URLComponentSource<char16_t>(spec.data()), parsed, query_converter,
-      output, new_parsed);
+      Replacements<char16_t>(spec, parsed), query_converter, output,
+      new_parsed);
 }
 
 bool FileCanonicalizePath(std::optional<std::string_view> path,
@@ -230,11 +223,10 @@ bool ReplaceFileUrl(std::string_view base,
                     CharsetConverter* query_converter,
                     CanonOutput* output,
                     Parsed* new_parsed) {
-  URLComponentSource<char> source(base.data());
-  Parsed parsed(base_parsed);
-  SetupOverrideComponents(base.data(), replacements, &source, &parsed);
-  return DoCanonicalizeFileUrl<char, unsigned char>(
-      source, parsed, query_converter, output, new_parsed);
+  Replacements overridden(base, base_parsed);
+  SetupOverrideComponents(replacements, overridden);
+  return DoCanonicalizeFileUrl<char, unsigned char>(overridden, query_converter,
+                                                    output, new_parsed);
 }
 
 bool ReplaceFileUrl(std::string_view base,
@@ -244,12 +236,10 @@ bool ReplaceFileUrl(std::string_view base,
                     CanonOutput* output,
                     Parsed* new_parsed) {
   RawCanonOutput<1024> utf8;
-  URLComponentSource<char> source(base.data());
-  Parsed parsed(base_parsed);
-  SetupUTF16OverrideComponents(base.data(), replacements, &utf8, &source,
-                               &parsed);
-  return DoCanonicalizeFileUrl<char, unsigned char>(
-      source, parsed, query_converter, output, new_parsed);
+  Replacements overridden(base, base_parsed);
+  SetupUtf16OverrideComponents(replacements, utf8, overridden);
+  return DoCanonicalizeFileUrl<char, unsigned char>(overridden, query_converter,
+                                                    output, new_parsed);
 }
 
 }  // namespace url

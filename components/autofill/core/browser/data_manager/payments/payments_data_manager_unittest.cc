@@ -268,7 +268,7 @@ class PaymentsDataManagerHelper : public PaymentsDataManagerTestBase {
 class PaymentsDataManagerTest : public PaymentsDataManagerHelper,
                                 public testing::Test {
  public:
-  long kCleanupForCrbug411681430LongTimestamp = 1747828800;
+  long kClearTimestampForLocalCvcs = 1747828800;  // May 21, 2025.
 
   PaymentsDataManagerTest() {
     scoped_feature_list_.InitWithFeatures(
@@ -739,8 +739,8 @@ TEST_F(PaymentsDataManagerTest, UpdateLocalCvc) {
 }
 
 #if !BUILDFLAG(IS_IOS)
-// Test that clean up for crbug.com/411681430 is working as expected.
-TEST_F(PaymentsDataManagerTest, CleanupForCrbug411681430Test) {
+// Test that cleanup for crbug.com/411681430 is working as expected.
+TEST_F(PaymentsDataManagerTest, ClearLocalCvcsUpToMay2025) {
   base::test::ScopedFeatureList features(
       features::kAutofillEnableCvcStorageAndFilling);
 
@@ -754,11 +754,11 @@ TEST_F(PaymentsDataManagerTest, CleanupForCrbug411681430Test) {
   payments_data_manager().AddCreditCard(credit_card_1);
   WaitForOnPaymentsDataChanged();
 
-  AdvanceClock((base::Time::FromSecondsSinceUnixEpoch(
-                   kCleanupForCrbug411681430LongTimestamp + 1)) -
-               base::Time::Now());
+  AdvanceClock(
+      (base::Time::FromSecondsSinceUnixEpoch(kClearTimestampForLocalCvcs + 1)) -
+      base::Time::Now());
   // Add another credit card with timestamp later than
-  // `kCleanupForCrbug411681430` timestamp to the database.
+  // `kClearTimestampForLocalCvcs` timestamp to the database.
   CreditCard credit_card_2(base::Uuid::GenerateRandomV4().AsLowercaseString(),
                            test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card_2, "John Doe",
@@ -1970,27 +1970,7 @@ TEST_F(PaymentsDataManagerTest, GetExpiredCreditCardBenefits) {
 }
 
 #if BUILDFLAG(IS_ANDROID)
-TEST_F(PaymentsDataManagerTest, HasMaskedBankAccounts_ExpOff) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      features::kAutofillEnableSyncingOfPixBankAccounts);
-  BankAccount bank_account1 = test::CreatePixBankAccount(1234L);
-  BankAccount bank_account2 = test::CreatePixBankAccount(5678L);
-  ASSERT_TRUE(GetServerDataTable()->SetMaskedBankAccounts(
-      {bank_account1, bank_account2}));
-  // Refresh the PaymentsDataManager. Under normal circumstances with the flag
-  // on, this step would load the bank accounts from the WebDatabase.
-  payments_data_manager().Refresh();
-  WaitForOnPaymentsDataChanged();
-
-  // Verify that no bank accounts are loaded into PaymentsDataManager because
-  // the experiment is turned off.
-  EXPECT_FALSE(payments_data_manager().HasMaskedBankAccounts());
-}
-
 TEST_F(PaymentsDataManagerTest, HasMaskedBankAccounts_PaymentMethodsDisabled) {
-  base::test::ScopedFeatureList scoped_feature_list(
-      features::kAutofillEnableSyncingOfPixBankAccounts);
   BankAccount bank_account1 = test::CreatePixBankAccount(1234L);
   BankAccount bank_account2 = test::CreatePixBankAccount(5678L);
   ASSERT_TRUE(GetServerDataTable()->SetMaskedBankAccounts(
@@ -2009,9 +1989,6 @@ TEST_F(PaymentsDataManagerTest, HasMaskedBankAccounts_PaymentMethodsDisabled) {
 }
 
 TEST_F(PaymentsDataManagerTest, HasMaskedBankAccounts_NoMaskedBankAccounts) {
-  base::test::ScopedFeatureList scoped_feature_list(
-      features::kAutofillEnableSyncingOfPixBankAccounts);
-
   // If the user doesn't have any masked bank accounts, or if the masked bank
   // accounts are not synced to PaymentsDatamanager, HasMaskedBankAccounts
   // should return false.
@@ -2019,8 +1996,6 @@ TEST_F(PaymentsDataManagerTest, HasMaskedBankAccounts_NoMaskedBankAccounts) {
 }
 
 TEST_F(PaymentsDataManagerTest, HasMaskedBankAccounts_MaskedBankAccountsExist) {
-  base::test::ScopedFeatureList scoped_feature_list(
-      features::kAutofillEnableSyncingOfPixBankAccounts);
   BankAccount bank_account1 = test::CreatePixBankAccount(1234L);
   BankAccount bank_account2 = test::CreatePixBankAccount(5678L);
   ASSERT_TRUE(GetServerDataTable()->SetMaskedBankAccounts(
@@ -2034,35 +2009,7 @@ TEST_F(PaymentsDataManagerTest, HasMaskedBankAccounts_MaskedBankAccountsExist) {
   EXPECT_TRUE(payments_data_manager().HasMaskedBankAccounts());
 }
 
-TEST_F(PaymentsDataManagerTest, GetMaskedBankAccounts_ExpOff) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      features::kAutofillEnableSyncingOfPixBankAccounts);
-  BankAccount bank_account1 = test::CreatePixBankAccount(1234L);
-  BankAccount bank_account2 = test::CreatePixBankAccount(5678L);
-  ASSERT_TRUE(GetServerDataTable()->SetMaskedBankAccounts(
-      {bank_account1, bank_account2}));
-  base::span<const BankAccount> bank_accounts =
-      payments_data_manager().GetMaskedBankAccounts();
-  // Since the PaymentsDataManager was initialized before adding the masked
-  // bank accounts to the WebDatabase, we expect GetMaskedBankAccounts to return
-  // an empty list.
-  EXPECT_EQ(0u, bank_accounts.size());
-
-  // Refresh the PaymentsDataManager. Under normal circumstances with the flag
-  // on, this step would load the bank accounts from the WebDatabase.
-  payments_data_manager().Refresh();
-  WaitForOnPaymentsDataChanged();
-
-  // Verify that no bank accounts are loaded into PaymentsDataManager because
-  // the experiment is turned off.
-  bank_accounts = payments_data_manager().GetMaskedBankAccounts();
-  EXPECT_EQ(0u, bank_accounts.size());
-}
-
 TEST_F(PaymentsDataManagerTest, GetMaskedBankAccounts_PaymentMethodsDisabled) {
-  base::test::ScopedFeatureList scoped_feature_list(
-      features::kAutofillEnableSyncingOfPixBankAccounts);
   BankAccount bank_account1 = test::CreatePixBankAccount(1234L);
   BankAccount bank_account2 = test::CreatePixBankAccount(5678L);
   ASSERT_TRUE(GetServerDataTable()->SetMaskedBankAccounts(
@@ -2082,8 +2029,6 @@ TEST_F(PaymentsDataManagerTest, GetMaskedBankAccounts_PaymentMethodsDisabled) {
 }
 
 TEST_F(PaymentsDataManagerTest, GetMaskedBankAccounts_DatabaseUpdated) {
-  base::test::ScopedFeatureList scoped_feature_list(
-      features::kAutofillEnableSyncingOfPixBankAccounts);
   BankAccount bank_account1 = test::CreatePixBankAccount(1234L);
   BankAccount bank_account2 = test::CreatePixBankAccount(5678L);
   ASSERT_TRUE(GetServerDataTable()->SetMaskedBankAccounts(
@@ -2107,8 +2052,6 @@ TEST_F(PaymentsDataManagerTest, GetMaskedBankAccounts_DatabaseUpdated) {
 
 TEST_F(PaymentsDataManagerTest,
        MaskedBankAccountsIconsFetched_DatabaseUpdated) {
-  base::test::ScopedFeatureList scoped_feature_list(
-      features::kAutofillEnableSyncingOfPixBankAccounts);
   MockAutofillImageFetcher mock_image_fetcher;
   test_api(payments_data_manager()).SetImageFetcher(&mock_image_fetcher);
 
@@ -4093,18 +4036,6 @@ TEST_F(PaymentsDataManagerTest, AreBnplIssuersSupported_LocaleIsEnUS) {
   EXPECT_TRUE(test_api(payments_data_manager()).AreBnplIssuersSupported());
 }
 
-// Tests that BNPL issuers are supported for "en-GB" app locales.
-TEST_F(PaymentsDataManagerTest, AreBnplIssuersSupported_LocaleIsEnGB) {
-  ResetPaymentsDataManager(false, "en-GB", "US");
-  EXPECT_TRUE(test_api(payments_data_manager()).AreBnplIssuersSupported());
-}
-
-// Tests that BNPL issuers are supported for "en-CA" app locales.
-TEST_F(PaymentsDataManagerTest, AreBnplIssuersSupported_LocaleIsEnCA) {
-  ResetPaymentsDataManager(false, "en-CA", "US");
-  EXPECT_TRUE(test_api(payments_data_manager()).AreBnplIssuersSupported());
-}
-
 // Tests that BNPL issuers are not supported for "es-US" app locales.
 TEST_F(PaymentsDataManagerTest, AreBnplIssuersSupported_LocaleIsEsUS) {
   ResetPaymentsDataManager(false, "es-US", "US");
@@ -4134,6 +4065,27 @@ TEST_F(PaymentsDataManagerTest,
   EXPECT_TRUE(payments_data_manager().GetBnplIssuers().empty());
   EXPECT_TRUE(payments_data_manager().GetUnlinkedBnplIssuers().empty());
   EXPECT_TRUE(payments_data_manager().GetLinkedBnplIssuers().empty());
+}
+
+// Tests that Buy-now-pay-later issuer getters returns issuers if
+// `experiment_country_code` is not "US", and the disable country check flag is
+// enabled.
+TEST_F(
+    PaymentsDataManagerTest,
+    BnplIssuerGetters_AutofillBnplCountryNotSupported_DisableCountryCheckFlagTurnedOn) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      features::kAutofillDisableBnplCountryCheckForTesting};
+
+  ResetPaymentsDataManager(false, "en-US", "CA");
+
+  test_api(payments_data_manager())
+      .AddBnplIssuer(test::GetTestLinkedBnplIssuer());
+  test_api(payments_data_manager())
+      .AddBnplIssuer(test::GetTestUnlinkedBnplIssuer());
+
+  EXPECT_FALSE(payments_data_manager().GetBnplIssuers().empty());
+  EXPECT_FALSE(payments_data_manager().GetUnlinkedBnplIssuers().empty());
+  EXPECT_FALSE(payments_data_manager().GetLinkedBnplIssuers().empty());
 }
 
 // Tests that `SetAutofillHasSeenBnpl()` sets the pref to `true` regardless of

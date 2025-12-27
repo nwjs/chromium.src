@@ -14,10 +14,6 @@ namespace android_webview::features {
 // Kill switch for Profile.addQuicHints.
 BASE_FEATURE(kWebViewAddQuicHints, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enable auto granting storage access API requests. This will be done
-// if a relationship is detected between the app and the website.
-BASE_FEATURE(kWebViewAutoSAA, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enable back/forward cache support in WebView. Note that this will only take
 // effect iff both this feature flag and the content/public kBackForwardCache
 // flag is enabled.
@@ -32,21 +28,6 @@ BASE_FEATURE(kWebViewBypassHttpCacheForPrefetchFromHeader,
 
 // Allow apps to configure the renderer library prefetching behaviour.
 BASE_FEATURE(kWebViewConfigurableLibraryPrefetch,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enable loading include statements when checking digital asset links
-BASE_FEATURE(kWebViewDigitalAssetLinksLoadIncludes,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Disables partitioned cookies by default on WebView. This can still be
-// overridden by our `setPartitionedCookiesEnabled` Android X API.
-BASE_FEATURE(kWebViewDisableCHIPS, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables draining the WebView prefetch queue (for prefetches triggered from
-// background thread) during WebView instance initialization and before
-// WebView#loadUrl().
-// TODO(crbug.com/419251646): remove for M139.
-BASE_FEATURE(kWebViewDrainPrefetchQueueDuringInit,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable JS FileSystemAccess API.
@@ -75,18 +56,10 @@ BASE_FEATURE(kWebViewLazyFetchHandWritingIcon,
 BASE_FEATURE(kWebViewMixedContentAutoupgrades,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// This enables WebView audio to be muted using an API.
-BASE_FEATURE(kWebViewMuteAudio, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // A Feature used for WebView variations tests. Not used in production. Please
 // do not clean up this stale feature: we intentionally keep this feature flag
 // around for testing purposes.
 BASE_FEATURE(kWebViewTestFeature, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Use WebView's nonembedded MetricsUploadService to upload UMA metrics instead
-// of sending it directly to GMS-core.
-BASE_FEATURE(kWebViewUseMetricsUploadService,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Use WebView's nonembedded MetricsUploadService to upload UMA metrics instead
 // of sending it directly to GMS-core when running within the SDK Runtime.
@@ -130,29 +103,12 @@ BASE_FEATURE(kWebViewReduceUAAndroidVersionDeviceModel,
 // This enables WebView crashes.
 BASE_FEATURE(kWebViewEnableCrash, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Preloads expensive classes during WebView startup.
-BASE_FEATURE(kWebViewPreloadClasses, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Prefetches the native WebView code to memory during startup.
 BASE_FEATURE(kWebViewPrefetchNativeLibrary, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // A parameter to trigger the prefetch from the renderer instead of the browser.
 const base::FeatureParam<bool> kWebViewPrefetchFromRenderer{
     &kWebViewPrefetchNativeLibrary, "WebViewPrefetchFromRenderer", true};
-
-// Include system bars in safe-area-inset CSS environment values for WebViews
-// that take up the entire screen
-BASE_FEATURE(kWebViewSafeAreaIncludesSystemBars,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// If enabled TYPE_SCROLLED accessibility events are sent every 100ms when user
-// is scrolling irrespective of GestureScrollUpdate being consumed or not.
-// If disabled events are sent on GSU consumed ack.
-// Planning to keep it as kill switch in case we need to revert back to old
-// default behavior.
-// TODO(b/328601354): Cleanup after the change has been in stable for some time.
-BASE_FEATURE(kWebViewDoNotSendAccessibilityEventsOnGSU,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // This enables WebView's hyperlink context menu.
 BASE_FEATURE(kWebViewHyperlinkContextMenu, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -169,22 +125,10 @@ BASE_FEATURE(kWebViewWebauthn, base::FEATURE_ENABLED_BY_DEFAULT);
 // enabled.
 BASE_FEATURE(kWebViewRenderDocument, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// This enables getViewportInsetBottom which is used to resize the visual
-// viewport according to both the visible area of the WebView and any IME
-// overlap.
-BASE_FEATURE(kWebViewReportImeInsets, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// When enabled, if the developer hasn't overridden shouldInterceptRequest
-// (or provided the async version), we short circuit (return no response)
-// on the IO thread instead of calling the (empty) method on a background
-// thread.
-BASE_FEATURE(kWebViewShortCircuitShouldInterceptRequest,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // When enabled, WebView disables MSAA and doesn't auto sharpen mip-mapped
 // textures on very large screen devices (such as TVs). The exact criteria for
 // what qualifies for this can be found in AwGrContextOptionsProvider.java.
-BASE_FEATURE(kWebViewUseRenderingHeuristic, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebViewUseRenderingHeuristic, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, webview chromium initialization uses the startup tasks logic
 // where it runs the startup tasks asynchronously if startup is triggered from a
@@ -195,23 +139,10 @@ BASE_FEATURE(kWebViewUseRenderingHeuristic, base::FEATURE_DISABLED_BY_DEFAULT);
 // also enable the same behaviour as this flag.
 BASE_FEATURE(kWebViewUseStartupTasksLogic, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, observe WebView movements with a PreDrawListener and use those
-// events to re-calculate the visual viewport of the web contents.
-BASE_FEATURE(kWebViewUseViewPositionObserverForInsets,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, records histograms relating to app's cache size.
 BASE_FEATURE(kWebViewRecordAppCacheHistograms,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, WebView changes the default value of the QUIC connection
-// timeout, it uses the value in `WebViewUpdateQuicConnectionTimeoutSeconds`
-BASE_FEATURE(kWebViewQuicConnectionTimeout, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// A parameter to change the quic connection timeout value, this value is in
-// seconds.
-const base::FeatureParam<int> kWebViewQuicConnectionTimeoutSeconds{
-    &kWebViewQuicConnectionTimeout, "WebViewQuicConnectionTimeoutSeconds", 300};
 // When enabled, instead of using the 20MiB as the HTTP cache
 // limit, derive the value from the cache quota allocated to the app by the
 // Android framework.

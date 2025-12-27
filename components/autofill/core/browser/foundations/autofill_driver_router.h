@@ -147,7 +147,7 @@ class AutofillDriverRouter {
   // be destructed. Typically, the driver dies on cross-origin navigations but
   // survives same-origin navigations (but more precisely this depends on the
   // lifecycle of the content::RenderFrameHost). If the driver survives, the
-  // router may keep the meta data is collected about the frame (in particular,
+  // router may keep the metadata it collected about the frame (in particular,
   // the parent frame).
   void UnregisterDriver(AutofillDriver& driver, bool driver_is_dying);
 
@@ -175,11 +175,9 @@ class AutofillDriverRouter {
   // This event is broadcast to all drivers.
   void DidEndTextFieldEditing(RoutedCallback<> callback,
                               AutofillDriver& source);
-  void DidAutofillForm(
-      RoutedCallback<const FormData&, base::TimeTicks> callback,
-      AutofillDriver& source,
-      FormData form,
-      base::TimeTicks timestamp);
+  void DidAutofillForm(RoutedCallback<const FormData&> callback,
+                       AutofillDriver& source,
+                       FormData form);
   void FocusOnFormField(
       RoutedCallback<const FormData&, const FieldGlobalId&> callback,
       AutofillDriver& source,
@@ -225,9 +223,11 @@ class AutofillDriverRouter {
       AutofillDriver& source,
       FormData form,
       const FieldGlobalId& field_id);
-  void SelectFieldOptionsDidChange(RoutedCallback<const FormData&> callback,
-                                   AutofillDriver& source,
-                                   FormData form);
+  void SelectFieldOptionsDidChange(
+      RoutedCallback<const FormData&, const FieldGlobalId&> callback,
+      AutofillDriver& source,
+      FormData form,
+      const FieldGlobalId& field_id);
 
   // Events called by the browser, passed to the renderer:
   // Keep in alphabetic order.
@@ -279,9 +279,10 @@ class AutofillDriverRouter {
   //
   // If routing the request fails, ExtractForm() calls `browser_form_handler`
   // right away with nullptr and std::nullopt.
-  void ExtractForm(RoutedCallback<FormRendererId, RendererFormHandler> callback,
-                   FormGlobalId form_id,
-                   BrowserFormHandler browser_form_handler);
+  void ExtractFormWithField(
+      RoutedCallback<FieldRendererId, RendererFormHandler> callback,
+      FieldGlobalId field_id,
+      BrowserFormHandler browser_form_handler);
   void RendererShouldAcceptDataListSuggestion(
       RoutedCallback<FieldRendererId, const std::u16string&> callback,
       const FieldGlobalId& field_id,

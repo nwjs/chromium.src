@@ -75,19 +75,6 @@
 
 using page_load_metrics::PageVisitFinalStatus;
 
-namespace internal {
-
-const char
-    kHistogramLayoutInstabilityMaxCumulativeShiftScoreSessionWindowGap1000msMax5000ms2
-        [] = "PageLoad.LayoutInstability.MaxCumulativeShiftScore.SessionWindow."
-             "Gap1000ms.Max5000ms2";
-const char
-    kHistogramLayoutInstabilityMaxCumulativeShiftScoreSessionWindowGap1000msMax5000ms2Incognito
-        [] = "PageLoad.LayoutInstability.MaxCumulativeShiftScore.SessionWindow."
-             "Gap1000ms.Max5000ms2.Incognito";
-
-}  // namespace internal
-
 namespace {
 
 const char kOfflinePreviewsMimeType[] = "multipart/related";
@@ -206,19 +193,17 @@ int64_t CalculateLCPEntropyBucket(double bpp) {
 
 // static
 std::unique_ptr<page_load_metrics::PageLoadMetricsObserver>
-UkmPageLoadMetricsObserver::CreateIfNeeded(bool is_incognito) {
+UkmPageLoadMetricsObserver::CreateIfNeeded() {
   if (!ukm::UkmRecorder::Get()) {
     return nullptr;
   }
   return std::make_unique<UkmPageLoadMetricsObserver>(
-      g_browser_process->network_quality_tracker(), is_incognito);
+      g_browser_process->network_quality_tracker());
 }
 
 UkmPageLoadMetricsObserver::UkmPageLoadMetricsObserver(
-    network::NetworkQualityTracker* network_quality_tracker,
-    bool is_incognito)
-    : network_quality_tracker_(network_quality_tracker),
-      is_incognito_(is_incognito) {
+    network::NetworkQualityTracker* network_quality_tracker)
+    : network_quality_tracker_(network_quality_tracker) {
   DCHECK(network_quality_tracker_);
 }
 
@@ -423,6 +408,7 @@ UkmPageLoadMetricsObserver::FlushMetricsOnAppEnterBackground(
   }
   if (GetDelegate().StartedInForeground())
     RecordTimingMetrics(timing);
+  RecordLastSoftNavigation();
   ReportLayoutStability();
   RecordDroppedFramesMetrics();
   RecordResponsivenessMetrics();
@@ -502,6 +488,7 @@ void UkmPageLoadMetricsObserver::OnComplete(
   }
   if (GetDelegate().StartedInForeground())
     RecordTimingMetrics(timing);
+  RecordLastSoftNavigation();
   ReportLayoutStability();
   RecordDroppedFramesMetrics();
   RecordResponsivenessMetrics();
@@ -654,7 +641,11 @@ void UkmPageLoadMetricsObserver::RecordSiteEngagement() const {
 
 void UkmPageLoadMetricsObserver::RecordSoftNavigationMetrics(
     ukm::SourceId ukm_source_id,
-    page_load_metrics::mojom::SoftNavigationMetrics& soft_navigation_metrics) {
+    const page_load_metrics::mojom::SoftNavigationMetrics&
+        soft_navigation_metrics) {
+  if (ukm_source_id == ukm::kInvalidSourceId) {
+    return;
+  }
   ukm::builders::SoftNavigation builder(ukm_source_id);
   builder.SetNavigationId(soft_navigation_metrics.navigation_id);
 
@@ -779,7 +770,7 @@ void UkmPageLoadMetricsObserver::
     builder
         .SetPaintTimingBeforeSoftNavigation_NavigationToLargestContentfulPaint2(
             largest_contentful_paint.Time().value().InMilliseconds());
-        PAGE_LOAD_HISTOGRAM("PageLoad.BeforeSoftNavigation.LargestContentfulPaint2",
+    PAGE_LOAD_HISTOGRAM("PageLoad.BeforeSoftNavigation.LargestContentfulPaint2",
                         largest_contentful_paint.Time().value());
   }
   builder.Record(ukm::UkmRecorder::Get());
@@ -866,7 +857,8 @@ void UkmPageLoadMetricsObserver::OnSoftNavigationUpdated(
     // metrics are recorded in `RecordTimingMetrics` at the end of the page
     // load.
     RecordSoftNavigationMetrics(
-        GetDelegate().GetPreviousUkmSourceIdForSoftNavigation(),
+        GetDelegate().GetUkmSourceIdForSameDocumentNavigation(
+            *current_soft_navigation_metrics->same_document_metrics_token),
         *current_soft_navigation_metrics);
   }
 }
@@ -1054,25 +1046,32 @@ void UkmPageLoadMetricsObserver::RecordTimingMetrics(
   builder.SetNet_MediaBytes2(
       ukm::GetExponentialBucketMinForBytes(media_bytes_.InBytes()));
 
-  builder.SetSoftNavigationCount(
-      GetDelegate().GetSoftNavigationMetrics().count);
-
-  if (main_frame_timing_)
+  if (main_frame_timing_) {
     ReportMainResourceTimingMetrics(builder);
-
+  }
   builder.Record(ukm::UkmRecorder::Get());
+}
+
+void UkmPageLoadMetricsObserver::RecordLastSoftNavigation() {
+  ukm::builders::PageLoad builder(GetDelegate().GetPageUkmSourceId());
+
+  const auto& soft_navigation_metrics =
+      GetDelegate().GetSoftNavigationMetrics();
+  builder.SetSoftNavigationCount(soft_navigation_metrics.count);
 
   // Record last soft navigation metrics; note that 0 is the absent navigation
   // id, see third_party/blink/renderer/core/timing/navigation_id_generator.h.
-  if (GetDelegate().GetSoftNavigationMetrics().count &&
-      GetDelegate().GetSoftNavigationMetrics().navigation_id) {
-    RecordSoftNavigationMetrics(GetDelegate().GetUkmSourceIdForSoftNavigation(),
-                                GetDelegate().GetSoftNavigationMetrics());
+  if (soft_navigation_metrics.count && soft_navigation_metrics.navigation_id) {
+    RecordSoftNavigationMetrics(
+        GetDelegate().GetUkmSourceIdForSameDocumentNavigation(
+            *soft_navigation_metrics.same_document_metrics_token),
+        soft_navigation_metrics);
   }
+  builder.Record(ukm::UkmRecorder::Get());
 
   // Record soft navigation count histogram to UMA.
   base::UmaHistogramCounts100(kHistogramSoftNavigationCount,
-                              GetDelegate().GetSoftNavigationMetrics().count);
+                              soft_navigation_metrics.count);
 }
 
 void UkmPageLoadMetricsObserver::RecordInternalTimingMetrics(
@@ -1340,19 +1339,11 @@ void UkmPageLoadMetricsObserver::ReportLayoutStability() {
     builder
         .SetLayoutInstability_MaxCumulativeShiftScore_SessionWindow_Gap1000ms_Max5000ms(
             page_load_metrics::LayoutShiftUkmValue(*cwv_cls_value));
-    auto sample = page_load_metrics::LayoutShiftUmaValue10000(*cwv_cls_value);
     base::UmaHistogramCustomCounts(
-        internal::
-            kHistogramLayoutInstabilityMaxCumulativeShiftScoreSessionWindowGap1000msMax5000ms2,
-        sample, 1, 24000, 50);
-
-    if (is_incognito_) {
-      base::UmaHistogramCustomCounts(
-          internal::
-              kHistogramLayoutInstabilityMaxCumulativeShiftScoreSessionWindowGap1000msMax5000ms2Incognito,
-          sample, 1, 24000, 50);
-    }
-
+        "PageLoad.LayoutInstability.MaxCumulativeShiftScore.SessionWindow."
+        "Gap1000ms.Max5000ms2",
+        page_load_metrics::LayoutShiftUmaValue10000(*cwv_cls_value), 1, 24000,
+        50);
     // The pseudo metric of PageLoad.LayoutInstability.MaxCumulativeShiftScore.
     // SessionWindow.Gap1000ms.Max5000ms2.
     // Only used to assess field trial data quality.
@@ -1386,11 +1377,6 @@ void UkmPageLoadMetricsObserver::ReportLayoutStability() {
                            GetDelegate()
                                .GetPageRenderData()
                                .layout_shift_score_before_input_or_scroll));
-
-  base::UmaHistogramCounts100(
-      "PageLoad.LayoutInstability.CumulativeShiftScore.MainFrame",
-      page_load_metrics::LayoutShiftUmaValue(
-          GetDelegate().GetMainFrameRenderData().layout_shift_score));
 }
 
 void UkmPageLoadMetricsObserver::ReportLayoutInstabilityAfterFirstForeground() {

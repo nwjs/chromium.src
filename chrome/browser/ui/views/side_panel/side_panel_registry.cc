@@ -12,22 +12,31 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_enums.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/common/extension_id.h"
+#include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
+
+DEFINE_USER_DATA(SidePanelRegistry);
 
 SidePanelRegistry::SidePanelRegistry(tabs::TabInterface* tab_interface)
     : SidePanelEntryScope(SidePanelEntryScope::ScopeType::kTab),
-      owner_(tab_interface) {
+      owner_(tab_interface),
+      scoped_unowned_user_data_(tab_interface->GetUnownedUserDataHost(),
+                                *this) {
   CHECK(tab_interface);
 }
 
 SidePanelRegistry::SidePanelRegistry(
     BrowserWindowInterface* browser_window_interface)
     : SidePanelEntryScope(SidePanelEntryScope::ScopeType::kBrowser),
-      owner_(browser_window_interface) {
+      owner_(browser_window_interface),
+      scoped_unowned_user_data_(
+          browser_window_interface->GetUnownedUserDataHost(),
+          *this) {
   CHECK(browser_window_interface);
 }
 
@@ -38,6 +47,12 @@ SidePanelRegistry* SidePanelRegistry::GetDeprecated(
     content::WebContents* web_contents) {
   tabs::TabInterface* tab = tabs::TabInterface::GetFromContents(web_contents);
   return tab->GetTabFeatures()->side_panel_registry();
+}
+
+// static
+SidePanelRegistry* SidePanelRegistry::From(
+    BrowserWindowInterface* browser_window_interface) {
+  return Get(browser_window_interface->GetUnownedUserDataHost());
 }
 
 SidePanelEntry* SidePanelRegistry::GetEntryForKey(
@@ -83,25 +98,30 @@ bool SidePanelRegistry::Deregister(const SidePanelEntry::Key& key) {
                  deregistering_entry_key_.value() == key)) {
     return false;
   }
+  SidePanelEntry::PanelType panel_type = entry->type();
 
   base::AutoReset<std::optional<SidePanelEntryKey>> deregistering_entry_key(
       &deregistering_entry_key_, key);
 
   entry->RemoveObserver(this);
   entry->set_scope(nullptr);
-  if (active_entries_[entry->type()].has_value() &&
-      entry->key() == active_entries_[entry->type()].value()->key()) {
-    active_entries_[entry->type()].reset();
+  if (active_entries_[panel_type].has_value() &&
+      entry->key() == active_entries_[panel_type].value()->key()) {
+    active_entries_[panel_type].reset();
   }
 
   // TODO(https://crbug.com/360163254): This is nullptr in
   // BrowserWithTestWindowTest. When the test suite goes away the nullptr check
   // can be removed.
-  if (auto* coordinator = GetCoordinator()) {
-    bool for_tab = get_scope_type() == SidePanelEntryScope::ScopeType::kTab;
+  if (auto* const side_panel_ui =
+          GetBrowserWindowInterface().GetFeatures().side_panel_ui()) {
+    const bool for_tab =
+        get_scope_type() == SidePanelEntryScope::ScopeType::kTab;
     // If the entry with the same key and scope is showing, synchronously close.
-    if (coordinator->IsSidePanelEntryShowing(key, for_tab)) {
-      coordinator->Close(/*suppress_animations=*/true);
+    if (side_panel_ui->IsSidePanelEntryShowing(key, for_tab)) {
+      side_panel_ui->Close(panel_type,
+                           SidePanelEntryHideReason::kSidePanelClosed,
+                           /*suppress_animations=*/true);
     }
   }
 
@@ -137,8 +157,4 @@ const BrowserWindowInterface& SidePanelRegistry::GetBrowserWindowInterface()
              ? *std::get<tabs::TabInterface*>(owner_)
                     ->GetBrowserWindowInterface()
              : *std::get<BrowserWindowInterface*>(owner_);
-}
-
-SidePanelCoordinator* SidePanelRegistry::GetCoordinator() {
-  return GetBrowserWindowInterface().GetFeatures().side_panel_coordinator();
 }

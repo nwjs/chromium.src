@@ -24,6 +24,9 @@ ci.defaults.set(
     gardener_rotations = gardener_rotations.CHROMIUM_GPU,
     contact_team_email = "chrome-gpu-infra@google.com",
     execution_timeout = 6 * time.hour,
+    experiments = {
+        "chromium_tests.resultdb_module": 100,
+    },
     health_spec = health_spec.default(),
     properties = {
         "perf_dashboard_machine_group": "ChromiumGPUFYI",
@@ -643,6 +646,7 @@ ci.thin_tester(
             "has_native_resultdb_integration",
             "gpu_samsung_s23_stable",
             "limited_capacity_bot",
+            "no_tombstones",
         ],
     ),
     targets_settings = targets.settings(
@@ -1304,6 +1308,60 @@ ci.thin_tester(
 )
 
 ci.thin_tester(
+    name = "Linux FYI Experimental Release (Intel Arc B570)",
+    description_html = "GPU tests on exp Linux Intel Arc B570 configs",
+    parent = "GPU FYI Linux Builder",
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
+        ),
+        run_tests_serially = True,
+    ),
+    targets = targets.bundle(
+        targets = [
+            # If the experimental configuration is the same as stable, this should
+            # only be running 'gpu_noop_sleep_telemetry_test'. Otherwise, this
+            # should be running the same tests as 'Linux FYI Release (Intel Arc B570)'.
+            "gpu_fyi_linux_release_gtests",
+            "gpu_fyi_linux_release_telemetry_tests",
+        ],
+        mixins = [
+            "very_limited_capacity_bot",
+            "linux_intel_arc_b570_experimental",
+        ],
+        per_test_modifications = {
+            "gl_tests_passthrough": targets.mixin(
+                args = [
+                    "--test-launcher-filter-file=../../testing/buildbot/filters/linux.intel.arc_b570.gl_tests_passthrough.filter",
+                ],
+            ),
+        },
+    ),
+    targets_settings = targets.settings(
+        browser_config = targets.browser_config.RELEASE,
+        os_type = targets.os_type.LINUX,
+    ),
+    gardener_rotations = args.ignore_default(None),
+    # Uncomment this entry when this experimental tester is actually in use.
+    console_view_entry = consoles.console_view_entry(
+        category = "Linux|Intel",
+        short_name = "exp",
+    ),
+    list_view = "chromium.gpu.experimental",
+    execution_timeout = 12 * time.hour,
+)
+
+ci.thin_tester(
     name = "Linux FYI Experimental Release (Intel UHD 630)",
     description_html = "Runs release GPU tests on experimental Linux/Intel UHD 630 configs",
     parent = "GPU FYI Linux Builder",
@@ -1379,8 +1437,7 @@ ci.thin_tester(
         # only be running 'gpu_noop_sleep_telemetry_test'. Otherwise, this
         # should be running the same tests as 'Linux FYI Release (NVIDIA)'.
         targets = [
-            "gpu_fyi_linux_release_gtests",
-            "gpu_fyi_linux_release_vulkan_telemetry_tests",
+            "gpu_noop_sleep_telemetry_test",
         ],
         mixins = [
             "limited_capacity_bot",
@@ -1392,10 +1449,10 @@ ci.thin_tester(
         os_type = targets.os_type.LINUX,
     ),
     # Uncomment this entry when this experimental tester is actually in use.
-    console_view_entry = consoles.console_view_entry(
-        category = "Linux|Nvidia",
-        short_name = "exp",
-    ),
+    # console_view_entry = consoles.console_view_entry(
+    #     category = "Linux|Nvidia",
+    #     short_name = "exp",
+    # ),
     list_view = "chromium.gpu.experimental",
 )
 
@@ -1439,7 +1496,46 @@ ci.thin_tester(
     ),
     console_view_entry = consoles.console_view_entry(
         category = "Linux|Nvidia",
-        short_name = "rel",
+        short_name = "1660",
+    ),
+)
+
+ci.thin_tester(
+    name = "Linux FYI Release (NVIDIA RTX 4070 Super)",
+    description_html = "Runs release GPU tests on stable Linux/NVIDIA RTX 4070 Super configs",
+    parent = "GPU FYI Linux Builder",
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
+        ),
+        run_tests_serially = True,
+    ),
+    targets = targets.bundle(
+        targets = [
+            "gpu_fyi_linux_release_gtests",
+            "gpu_fyi_linux_release_vulkan_telemetry_tests",
+        ],
+        mixins = [
+            "linux_nvidia_rtx_4070_super_stable",
+        ],
+    ),
+    targets_settings = targets.settings(
+        browser_config = targets.browser_config.RELEASE,
+        os_type = targets.os_type.LINUX,
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Linux|Nvidia",
+        short_name = "4070",
     ),
 )
 
@@ -1862,8 +1958,7 @@ ci.thin_tester(
         # should have the combination of test_suites as 'Mac FYI Retina Release (AMD)'
         # and 'Mac Retina Release (AMD)'.
         targets = [
-            "gpu_fyi_mac_release_gtests",
-            "gpu_fyi_only_mac_release_telemetry_tests",
+            "gpu_noop_sleep_telemetry_test",
         ],
         mixins = [
             "limited_capacity_bot",
@@ -1875,10 +1970,10 @@ ci.thin_tester(
         os_type = targets.os_type.MAC,
     ),
     # Uncomment this entry when this experimental tester is actually in use.
-    console_view_entry = consoles.console_view_entry(
-        category = "Mac|AMD|Retina",
-        short_name = "exp",
-    ),
+    # console_view_entry = consoles.console_view_entry(
+    #     category = "Mac|AMD|Retina",
+    #     short_name = "exp",
+    # ),
     list_view = "chromium.gpu.experimental",
 )
 
@@ -1965,6 +2060,48 @@ ci.thin_tester(
     console_view_entry = consoles.console_view_entry(
         category = "Mac|Apple",
         short_name = "m1",
+    ),
+)
+
+ci.thin_tester(
+    name = "Mac FYI Retina Release (AMD Radeon Pro 555X)",
+    description_html = "Runs release GPU tests on 15\" 2019 Macbook Pros w/ AMD Radeon Pro 555X GPUs",
+    parent = "GPU FYI Mac Builder",
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.MAC,
+        ),
+        run_tests_serially = True,
+    ),
+    targets = targets.bundle(
+        # Different targets than 'Mac FYI Retina Release (AMD)' since there is
+        # no tester on chromium.gpu running a subset of tests.
+        targets = [
+            "gpu_fyi_mac_release_gtests",
+            "gpu_fyi_only_mac_release_telemetry_tests",
+        ],
+        mixins = [
+            "limited_capacity_bot",
+            "mac_retina_amd_555x_gpu_stable",
+        ],
+    ),
+    targets_settings = targets.settings(
+        browser_config = targets.browser_config.RELEASE,
+        os_type = targets.os_type.MAC,
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "Mac|AMD|Retina",
+        short_name = "555x",
     ),
 )
 
@@ -3034,6 +3171,62 @@ ci.thin_tester(
     #     category = "Windows|11|x64|Intel",
     #     short_name = "exp",
     # ),
+    list_view = "chromium.gpu.experimental",
+    execution_timeout = 12 * time.hour,
+)
+
+ci.thin_tester(
+    name = "Win11 FYI x64 Experimental Release (Intel Arc B570)",
+    description_html = "GPU tests on exp Windows 11 Intel Arc B570 configs",
+    parent = "GPU FYI Win x64 Builder",
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.WIN,
+        ),
+        run_tests_serially = True,
+    ),
+    targets = targets.bundle(
+        targets = [
+            # When the experimental OS version is identical to the stable
+            # version, the gpu_noop_sleep_telemetry_test test should be used.
+            # Otherwise, this should have the same test suites as "Win11 FYI x64
+            # Release (Intel Arc B570)".
+            "gpu_fyi_win_gtests",
+            "gpu_fyi_win_release_telemetry_tests",
+            "gpu_fyi_win_optional_isolated_scripts",
+        ],
+        mixins = [
+            "very_limited_capacity_bot",
+            "gpu_win11_intel_arc_b570_experimental",
+        ],
+        per_test_modifications = {
+            "gl_tests_passthrough": targets.mixin(
+                args = [
+                    "--test-launcher-filter-file=../../testing/buildbot/filters/win.intel.arc_b570.gl_tests_passthrough.filter",
+                ],
+            ),
+        },
+    ),
+    targets_settings = targets.settings(
+        browser_config = targets.browser_config.RELEASE_X64,
+        os_type = targets.os_type.WINDOWS,
+    ),
+    gardener_rotations = args.ignore_default(None),
+    # Uncomment this entry when this experimental tester is actually in use.
+    console_view_entry = consoles.console_view_entry(
+        category = "Windows|11|x64|Intel",
+        short_name = "exp",
+    ),
     list_view = "chromium.gpu.experimental",
     execution_timeout = 12 * time.hour,
 )

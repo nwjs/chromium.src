@@ -23,11 +23,12 @@ using proto::SegmentId;
 // Default parameters for TipsNotificationsRanker model.
 constexpr SegmentId kSegmentId =
     SegmentId::OPTIMIZATION_TARGET_SEGMENTATION_TIPS_NOTIFICATIONS_RANKER;
-constexpr int64_t kModelVersion = 2;
+// Update the model to include a 1-time max show for each feature tip.
+constexpr int64_t kModelVersion = 4;
 // Store 28 buckets of input data (28 days).
 constexpr int64_t kSignalStorageLength = 28;
-// Wait until we have 7 days of data.
-constexpr int64_t kMinSignalCollectionLength = 7;
+// Wait until we have 0 days of data.
+constexpr int64_t kMinSignalCollectionLength = 0;
 
 // Labels for the classification output.
 constexpr LabelPair<TipsNotificationsRanker::Label> kTipsNotificationsLabels[] =
@@ -40,6 +41,9 @@ constexpr LabelPair<TipsNotificationsRanker::Label> kTipsNotificationsLabels[] =
 // Enum values for histograms.
 constexpr std::array<int32_t, 1> kEnumValueForQuickDeleteMagicStackImpression{
     /*QuickDelete=*/9};
+
+constexpr std::array<int32_t, 1> kEnumValueForAllTipsNotificationsShownCount{
+    /*Shown=*/3};
 
 constexpr FeaturePair<TipsNotificationsRanker::Feature>
     kTipsNotificationsRankerFeatures[] = {
@@ -56,6 +60,8 @@ constexpr FeaturePair<TipsNotificationsRanker::Feature>
          features::UserAction("MobileOmniboxLens", 28)},
         {TipsNotificationsRanker::kGoogleLensTasksSurfaceUseCountIdx,
          features::UserAction("TasksSurface.FakeBox.Lens", 28)},
+        {TipsNotificationsRanker::kGoogleLensTipsNotificationsUseCountIdx,
+         features::UserAction("Notifications.Tips.Lens", 28)},
         {TipsNotificationsRanker::kEnhancedSafeBrowsingIsEnabledIdx,
          features::InputContext(kEnhancedSafeBrowsingStatus)},
         {TipsNotificationsRanker::kQuickDeleteWasEverUsedIdx,
@@ -63,7 +69,20 @@ constexpr FeaturePair<TipsNotificationsRanker::Feature>
         {TipsNotificationsRanker::kBottomOmniboxIsEnabledIdx,
          features::InputContext(kBottomOmniboxStatus)},
         {TipsNotificationsRanker::kBottomOmniboxWasEverUsedIdx,
-         features::InputContext(kBottomOmniboxUsage)}};
+         features::InputContext(kBottomOmniboxUsage)},
+        {TipsNotificationsRanker::kAllFeatureTipsShownCountIdx,
+         features::UMAEnum(
+             "Notifications.Scheduler.NotificationLifeCycleEvent.Tips",
+             7,
+             kEnumValueForAllTipsNotificationsShownCount)},
+        {TipsNotificationsRanker::kEnhancedSafeBrowsingTipShownIdx,
+         features::InputContext(kEnhancedSafeBrowsingTipShown)},
+        {TipsNotificationsRanker::kQuickDeleteTipShownIdx,
+         features::InputContext(kQuickDeleteTipShown)},
+        {TipsNotificationsRanker::kGoogleLensTipShownIdx,
+         features::InputContext(kGoogleLensTipShown)},
+        {TipsNotificationsRanker::kBottomOmniboxTipShownIdx,
+         features::InputContext(kBottomOmniboxTipShown)}};
 
 std::vector<int> GetTipsPriorityRankingList() {
   std::vector<int> tips_list;
@@ -91,24 +110,32 @@ std::vector<int> GetTipsPriorityRankingList() {
   return tips_list;
 }
 
-bool IsEnhancedSafeBrowsingTipEligible(float is_enabled, float use_count) {
-  return is_enabled == 0 && use_count == 0;
+bool IsEnhancedSafeBrowsingTipEligible(float is_enabled,
+                                       float use_count,
+                                       float tip_shown) {
+  return is_enabled == 0 && use_count == 0 && tip_shown == 0;
 }
 
 bool IsQuickDeleteTipEligible(float was_ever_used,
-                              float magic_stack_shown_count) {
-  return was_ever_used == 0 && magic_stack_shown_count == 0;
+                              float magic_stack_shown_count,
+                              float tip_shown) {
+  return was_ever_used == 0 && magic_stack_shown_count == 0 && tip_shown == 0;
 }
 
 bool IsGoogleLensTipEligible(float ntp_use_count,
                              float omnibox_use_count,
-                             float tasks_surface_use_count) {
+                             float tasks_surface_use_count,
+                             float tips_notifications_use_count,
+                             float tip_shown) {
   return ntp_use_count == 0 && omnibox_use_count == 0 &&
-         tasks_surface_use_count == 0;
+         tasks_surface_use_count == 0 && tips_notifications_use_count == 0 &&
+         tip_shown == 0;
 }
 
-bool IsBottomOmniboxTipEligible(float is_enabled, float was_ever_used) {
-  return is_enabled == 0 && was_ever_used == 0;
+bool IsBottomOmniboxTipEligible(float is_enabled,
+                                float was_ever_used,
+                                float tip_shown) {
+  return is_enabled == 0 && was_ever_used == 0 && tip_shown == 0;
 }
 
 }  // namespace
@@ -170,52 +197,66 @@ void TipsNotificationsRanker::ExecuteModelWithInput(
   float lens_omnibox_use_count = inputs[kGoogleLensMobileOmniboxUseCountIdx];
   float lens_tasks_surface_use_count =
       inputs[kGoogleLensTasksSurfaceUseCountIdx];
+  float lens_tips_notifications_use_count =
+      inputs[kGoogleLensTipsNotificationsUseCountIdx];
   float bottom_omnibox_is_enabled = inputs[kBottomOmniboxIsEnabledIdx];
   float bottom_omnibox_was_ever_used = inputs[kBottomOmniboxWasEverUsedIdx];
+  float all_feature_tips_shown_count = inputs[kAllFeatureTipsShownCountIdx];
+  float esb_tip_shown = inputs[kEnhancedSafeBrowsingTipShownIdx];
+  float qd_tip_shown = inputs[kQuickDeleteTipShownIdx];
+  float lens_tip_shown = inputs[kGoogleLensTipShownIdx];
+  float bottom_omnibox_tip_shown = inputs[kBottomOmniboxTipShownIdx];
 
-  // Cycle through the priority list and mark the highest ranked eligible tip to
-  // show if it exists and then early exit.
-  std::vector<int> tips_priority_list = GetTipsPriorityRankingList();
-  if (!tips_priority_list.empty()) {
-    bool has_eligible_tip = false;
-    for (auto tip_idx : tips_priority_list) {
-      switch (tip_idx) {
-        case kEnhancedSafeBrowsingTipIdx:
-          if (IsEnhancedSafeBrowsingTipEligible(esb_is_enabled,
-                                                esb_use_count)) {
-            response[kEnhancedSafeBrowsingTipIdx] = 1;
-            has_eligible_tip = true;
-          }
-          break;
-        case kQuickDeleteTipIdx:
-          if (IsQuickDeleteTipEligible(qd_ever_used,
-                                       qd_magic_stack_shown_count)) {
-            response[kQuickDeleteTipIdx] = 1;
-            has_eligible_tip = true;
-          }
-          break;
-        case kGoogleLensTipIdx:
-          if (IsGoogleLensTipEligible(lens_ntp_use_count,
-                                      lens_omnibox_use_count,
-                                      lens_tasks_surface_use_count)) {
-            response[kGoogleLensTipIdx] = 1;
-            has_eligible_tip = true;
-          }
-          break;
-        case kBottomOmniboxTipIdx:
-          if (IsBottomOmniboxTipEligible(bottom_omnibox_is_enabled,
-                                         bottom_omnibox_was_ever_used)) {
-            response[kBottomOmniboxTipIdx] = 1;
-            has_eligible_tip = true;
-          }
-          break;
-        default:
-          NOTREACHED();
-      }
+  // Only choose an eligible tip if none have been shown for the last 7 days or
+  // if the testing flags to instantly schedule a notification are active.
+  if (all_feature_tips_shown_count == 0 ||
+      features::kStartTimeMinutes.Get() < 5) {
+    // Cycle through the priority list and mark the highest ranked eligible tip
+    // to show if it exists and then early exit.
+    std::vector<int> tips_priority_list = GetTipsPriorityRankingList();
+    if (!tips_priority_list.empty()) {
+      bool has_eligible_tip = false;
+      for (auto tip_idx : tips_priority_list) {
+        switch (tip_idx) {
+          case kEnhancedSafeBrowsingTipIdx:
+            if (IsEnhancedSafeBrowsingTipEligible(esb_is_enabled, esb_use_count,
+                                                  esb_tip_shown)) {
+              response[kEnhancedSafeBrowsingTipIdx] = 1;
+              has_eligible_tip = true;
+            }
+            break;
+          case kQuickDeleteTipIdx:
+            if (IsQuickDeleteTipEligible(
+                    qd_ever_used, qd_magic_stack_shown_count, qd_tip_shown)) {
+              response[kQuickDeleteTipIdx] = 1;
+              has_eligible_tip = true;
+            }
+            break;
+          case kGoogleLensTipIdx:
+            if (IsGoogleLensTipEligible(
+                    lens_ntp_use_count, lens_omnibox_use_count,
+                    lens_tasks_surface_use_count,
+                    lens_tips_notifications_use_count, lens_tip_shown)) {
+              response[kGoogleLensTipIdx] = 1;
+              has_eligible_tip = true;
+            }
+            break;
+          case kBottomOmniboxTipIdx:
+            if (IsBottomOmniboxTipEligible(bottom_omnibox_is_enabled,
+                                           bottom_omnibox_was_ever_used,
+                                           bottom_omnibox_tip_shown)) {
+              response[kBottomOmniboxTipIdx] = 1;
+              has_eligible_tip = true;
+            }
+            break;
+          default:
+            NOTREACHED();
+        }
 
-      // Early exit if an eligible tip has been found.
-      if (has_eligible_tip) {
-        break;
+        // Early exit if an eligible tip has been found.
+        if (has_eligible_tip) {
+          break;
+        }
       }
     }
   }

@@ -679,7 +679,8 @@ void TapTabGridEditButton() {
   [self testMovingBetweenGroupsUsingGridContextMenuInGrid:/*incognito*/ NO];
 }
 
-- (void)testMovingBetweenGroupsUsingGridContextMenuInIncognitoGrid {
+// TODO(crbug.com/460748104): Test is flaky.
+- (void)FLAKY_testMovingBetweenGroupsUsingGridContextMenuInIncognitoGrid {
   [self testMovingBetweenGroupsUsingGridContextMenuInGrid:/*incognito*/ YES];
 }
 
@@ -1328,7 +1329,13 @@ void TapTabGridEditButton() {
 
 // Tests that the TabGrid is correctly updated when it was presenting a group
 // before being backgrounded while incognito reauth is enabled.
-- (void)testIncognitoReauth {
+// TODO(crbug.com/459852252): Test fails on iPad simulator.
+#if TARGET_IPHONE_SIMULATOR
+#define MAYBE_testIncognitoReauth DISABLED_testIncognitoReauth
+#else
+#define MAYBE_testIncognitoReauth testIncognitoReauth
+#endif
+- (void)MAYBE_testIncognitoReauth {
   [ChromeEarlGrey openNewIncognitoTab];
   [ChromeEarlGreyUI openTabGrid];
 
@@ -1593,6 +1600,13 @@ void TapTabGridEditButton() {
   if (![ChromeEarlGrey areMultipleWindowsSupported]) {
     EARL_GREY_TEST_DISABLED(@"Multiple windows can't be opened.");
   }
+
+  // TODO(crbug.com/456744844): Re-enable the test on iOS26 simulator.
+#if TARGET_OS_SIMULATOR
+  if (base::ios::IsRunningOnIOS26OrLater()) {
+    EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26 simulator.");
+  }
+#endif
 
   [ChromeEarlGrey loadURL:GetQueryTitleURL(self.testServer, kTab2Title)];
 

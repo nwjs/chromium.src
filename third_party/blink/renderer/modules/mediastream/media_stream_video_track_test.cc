@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
@@ -1340,7 +1341,7 @@ class MediaStreamVideoTrackCaptureVersionTest
 
  protected:
   static base::OnceClosure AsClosure(CaptureVersionCb& cb) {
-    return base::BindOnce(&CaptureVersionCb::Call, base::Unretained(&cb));
+    return blink::BindOnce(&CaptureVersionCb::Call, base::Unretained(&cb));
   }
 
   static scoped_refptr<media::VideoFrame> MakeFrame(

@@ -302,7 +302,6 @@ struct Suggestion {
     kAccount,
     // TODO(crbug.com/40266549): Rename to Undo.
     kClear,
-    kCreate,
     kCode,
     kDelete,
     kDevice,
@@ -318,8 +317,6 @@ struct Suggestion {
     kGoogleWallet,
     kGoogleWalletMonochrome,
     kHome,
-    kHttpWarning,
-    kHttpsInvalid,
     kIdCard,
     kKey,
     kLocation,
@@ -333,7 +330,6 @@ struct Suggestion {
     kRecoveryPassword,
     kScanCreditCard,
     kSettings,
-    kSettingsAndroid,
     kUndo,
     kVehicle,
     kWork,
@@ -426,9 +422,6 @@ struct Suggestion {
 #if DCHECK_IS_ON()
   bool Invariant() const {
     switch (type) {
-      case SuggestionType::kCreateNewPlusAddressInline:
-      case SuggestionType::kPlusAddressError:
-        return std::holds_alternative<PlusAddressPayload>(payload);
       case SuggestionType::kIdentityCredential:
         return std::holds_alternative<IdentityCredentialPayload>(payload);
       case SuggestionType::kPasswordEntry:
@@ -552,8 +545,9 @@ struct Suggestion {
   std::optional<std::u16string> acceptance_a11y_announcement;
 
   // When `type` is
-  // `SuggestionType::k(Address|CreditCard)FieldByFieldFilling`, specifies the
-  // `FieldType` used to build the suggestion's `main_text`.
+  // `SuggestionType::k(Address|CreditCard)FieldByFieldFilling` or
+  // `SuggestionType::kAddressEntryOnTyping`, specifies the `FieldType` used to
+  // build the suggestion's `main_text`.
   std::optional<FieldType> field_by_field_filling_type_used;
 
   // How the suggestion should be handled by the filtration logic, see the enum

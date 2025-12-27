@@ -15,6 +15,8 @@
 #include "base/types/expected.h"
 #include "build/android_buildflags.h"
 #include "build/buildflag.h"
+#include "chrome/browser/media/webrtc/capture_policy_utils.h"
+#include "chrome/browser/media/webrtc/desktop_media_list.h"
 #include "content/public/browser/desktop_media_id.h"
 #include "content/public/browser/media_stream_request.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -115,7 +117,17 @@ class DesktopMediaPicker {
     // picker.
     blink::mojom::PreferredDisplaySurface preferred_display_surface =
         blink::mojom::PreferredDisplaySurface::NO_PREFERENCE;
-    // Indicates the source of the request. This is useful for UMA that
+#if BUILDFLAG(IS_ANDROID)
+    // On Android, this indicates that this is a request to share the current
+    // tab.
+    bool capture_this_tab = false;
+    // On Android, this indicates that the current tab should be excluded.
+    bool exclude_self_browser_surface = false;
+    // On Android, this indicates that screen sharing should be excluded.
+    bool exclude_monitor_type_surfaces = false;
+    // On Android, this filter is used to filter the tabs that can be captured.
+    DesktopMediaList::WebContentsFilter includable_web_contents_filter;
+#endif
     // track the result of the picker, because the behavior with the
     // Extension API is different, and could therefore lead to mismeasurement.
     RequestSource request_source = RequestSource::kUnknown;

@@ -16,6 +16,7 @@
 
 #include "base/check.h"
 #include "base/command_line.h"
+#include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
@@ -39,6 +40,7 @@
 #include "components/autofill/core/browser/ui/autofill_external_delegate.h"
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/autofill_constants.h"
+#include "components/autofill/core/common/autofill_debug_features.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_switches.h"
 #include "components/autofill/core/common/form_data_predictions.h"
@@ -73,6 +75,7 @@ namespace {
 
 using ::autofill::test::LazyRef;
 using ::autofill::test::SaveArgPtr;
+using ::base::test::RunOnceCallback;
 using ::testing::_;
 using ::testing::AllOf;
 using ::testing::ElementsAre;
@@ -86,7 +89,6 @@ using ::testing::Pointwise;
 using ::testing::Property;
 using ::testing::SaveArg;
 using ::testing::SizeIs;
-using ::testing::WithArg;
 
 MATCHER(EqualsFillData, "") {
   FormFieldData lhs_field = std::get<0>(arg);
@@ -184,8 +186,8 @@ class FakeAutofillAgent : public mojom::AutofillAgent {
               (base::OnceCallback<void(bool)>),
               (override));
   MOCK_METHOD(void,
-              ExtractForm,
-              (FormRendererId,
+              ExtractFormWithField,
+              (FieldRendererId,
                base::OnceCallback<void(const std::optional<FormData>&)>),
               (override));
   MOCK_METHOD(void,
@@ -729,11 +731,13 @@ TEST_F(ContentAutofillDriverTestWithAddressForm,
 
 TEST_F(ContentAutofillDriverTest, TypePredictionsSentToRendererWhenEnabled) {
   base::test::ScopedFeatureList features;
-  features.InitAndEnableFeature(features::test::kAutofillShowTypePredictions);
+  features.InitAndEnableFeature(features::debug::kAutofillShowTypePredictions);
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
       switches::kShowAutofillTypePredictions);
 
   FormData form = test::CreateTestAddressFormData();
+  form.set_is_action_empty(false);
+  form.set_submission_event(mojom::SubmissionIndicatorEvent::NONE);
   std::vector<FormData> augmented_forms;
   EXPECT_CALL(manager(), OnFormsSeen).WillOnce(SaveArg<0>(&augmented_forms));
   driver().renderer_events().FormsSeen(/*updated_forms=*/{form},
@@ -741,7 +745,8 @@ TEST_F(ContentAutofillDriverTest, TypePredictionsSentToRendererWhenEnabled) {
 
   test_api(driver()).LiftForTest(form);
   ASSERT_EQ(augmented_forms.size(), 1u);
-  EXPECT_TRUE(FormData::DeepEqual(augmented_forms.front(), form));
+  EXPECT_EQ(test::WithoutUnserializedData(augmented_forms.front()),
+            test::WithoutUnserializedData(form));
 
   FormStructure form_structure(form);
 
@@ -838,27 +843,29 @@ TEST_F(ContentAutofillDriverTest, TriggerFormExtractionInAllFrames) {
 }
 
 TEST_F(ContentAutofillDriverWithMultiFrameCreditCardForm,
-       ExtractForm_NotFound) {
+       ExtractFormWithField_NotFound) {
   using RendererResponseHandler =
       base::OnceCallback<void(const std::optional<FormData>&)>;
   using BrowserResponseHandler = AutofillDriver::BrowserFormHandler;
-  EXPECT_CALL(agent(), ExtractForm)
+  EXPECT_CALL(agent(), ExtractFormWithField)
       .WillRepeatedly(
-          [](FormRendererId form_id, RendererResponseHandler callback) {
+          [](FieldRendererId field_id, RendererResponseHandler callback) {
             std::move(callback).Run(std::nullopt);
           });
   base::MockCallback<BrowserResponseHandler> cb;
   EXPECT_CALL(cb, Run(IsNull(), Eq(std::nullopt)));
-  driver().browser_events().ExtractForm(test::MakeFormGlobalId(), cb.Get());
+  driver().browser_events().ExtractFormWithField(test::MakeFieldGlobalId(),
+                                                 cb.Get());
 }
 
-TEST_F(ContentAutofillDriverWithMultiFrameCreditCardForm, ExtractForm_Found) {
+TEST_F(ContentAutofillDriverWithMultiFrameCreditCardForm,
+       ExtractFormWithField_Found) {
   using RendererResponseHandler =
       base::OnceCallback<void(const std::optional<FormData>&)>;
   using BrowserResponseHandler = AutofillDriver::BrowserFormHandler;
-  EXPECT_CALL(agent(rfh(kNumber)), ExtractForm)
+  EXPECT_CALL(agent(rfh(kNumber)), ExtractFormWithField)
       .WillRepeatedly(
-          [this](FormRendererId form_id, RendererResponseHandler callback) {
+          [this](FieldRendererId field_id, RendererResponseHandler callback) {
             std::move(callback).Run(form(kNumber));
           });
   base::MockCallback<BrowserResponseHandler> cb;
@@ -875,19 +882,17 @@ TEST_F(ContentAutofillDriverWithMultiFrameCreditCardForm, ExtractForm_Found) {
                                &FormFieldData::global_id, field_id(kExp)),
                       Property("FormFieldData::global_id",
                                &FormFieldData::global_id, field_id(kCvc)))))));
-  driver(main_frame()).browser_events().ExtractForm(form_id(kNumber), cb.Get());
+  driver(main_frame())
+      .browser_events()
+      .ExtractFormWithField(field_id(kNumber), cb.Get());
   task_environment()->RunUntilIdle();
 }
 
 TEST_F(ContentAutofillDriverTest, GetFourDigitCombinationsFromDom_NoMatches) {
   base::RunLoop run_loop;
-  auto cb =
-      [](base::OnceCallback<void(const std::vector<std::string>&)> callback) {
-        std::vector<std::string> matches;
-        std::move(callback).Run(matches);
-      };
+  std::vector<std::string> empty_matches;
   EXPECT_CALL(agent(), GetPotentialLastFourCombinationsForStandaloneCvc)
-      .WillOnce(WithArg<0>(cb));
+      .WillOnce(RunOnceCallback<0>(empty_matches));
 
   std::vector<std::string> matches = {"dummy data"};
   driver().browser_events().GetFourDigitCombinationsFromDom(
@@ -896,27 +901,23 @@ TEST_F(ContentAutofillDriverTest, GetFourDigitCombinationsFromDom_NoMatches) {
         run_loop.Quit();
       }));
   run_loop.Run();
-  EXPECT_TRUE(matches.empty());
+  EXPECT_THAT(matches, IsEmpty());
 }
 
 TEST_F(ContentAutofillDriverTest,
        GetFourDigitCombinationsFromDom_SuccessfulMatches) {
   base::RunLoop run_loop;
-  auto cb =
-      [](base::OnceCallback<void(const std::vector<std::string>&)> callback) {
-        std::vector<std::string> matches = {"1234"};
-        std::move(callback).Run(matches);
-      };
+  std::vector<std::string> expected_matches = {"1234"};
   EXPECT_CALL(agent(), GetPotentialLastFourCombinationsForStandaloneCvc)
-      .WillOnce(WithArg<0>(cb));
-  std::vector<std::string> matches;
+      .WillOnce(RunOnceCallback<0>(expected_matches));
+  std::vector<std::string> actual_matches;
   driver().browser_events().GetFourDigitCombinationsFromDom(
       base::BindLambdaForTesting([&](const std::vector<std::string>& result) {
-        matches = result;
+        actual_matches = result;
         run_loop.Quit();
       }));
   run_loop.Run();
-  EXPECT_THAT(matches, ElementsAre("1234"));
+  EXPECT_EQ(expected_matches, actual_matches);
 }
 
 // Tests that calls from the renderer with trigger source

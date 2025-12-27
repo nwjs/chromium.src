@@ -32,7 +32,6 @@ source_set("startup") {
   sources = [
     "bad_flags_prompt.h",
     "bidding_and_auction_consented_debugging_infobar_delegate.h",
-    "test_third_party_cookie_phaseout_infobar_delegate.h",
   ]
   public_deps = [
     "//components/infobars/core",
@@ -102,7 +101,6 @@ source_set("impl") {
   sources = [
     "bad_flags_prompt.cc",
     "bidding_and_auction_consented_debugging_infobar_delegate.cc",
-    "test_third_party_cookie_phaseout_infobar_delegate.cc",
   ]
   deps = [
     ":startup",
@@ -176,6 +174,7 @@ source_set("impl") {
       "//chrome/browser/app_mode",
       "//chrome/browser/apps/app_service",
       "//chrome/browser/apps/platform_apps",
+      "//chrome/browser/custom_handlers",
       "//chrome/browser/extensions",
       "//chrome/browser/headless",
       "//chrome/browser/headless:command_processor",
@@ -183,6 +182,7 @@ source_set("impl") {
       "//chrome/browser/prefs:util",
       "//chrome/browser/privacy_sandbox:headers",
       "//chrome/browser/privacy_sandbox/notice:desktop_entrypoint_handlers_helper",
+      "//chrome/browser/profiles:profile_io_data",
       "//chrome/browser/profiles/keep_alive",
       "//chrome/browser/search",
       "//chrome/browser/search_engines",
@@ -355,6 +355,7 @@ source_set("unit_tests") {
       ":startup",
       "//base",
       "//base/test:test_support",
+      "//chrome/browser:shell_integration",
       "//chrome/browser/prefs:util",
       "//chrome/browser/search_engines",
       "//chrome/browser/ui/startup/focus:unit_tests",

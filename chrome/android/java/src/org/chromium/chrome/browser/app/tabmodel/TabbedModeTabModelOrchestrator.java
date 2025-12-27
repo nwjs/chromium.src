@@ -19,7 +19,8 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.SupplierUtils;
-import org.chromium.build.annotations.Initializer;
+import org.chromium.build.annotations.EnsuresNonNull;
+import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
@@ -29,6 +30,7 @@ import org.chromium.chrome.browser.crypto.CipherFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
@@ -52,6 +54,7 @@ import org.chromium.chrome.browser.tabmodel.TabPersistentStore;
 import org.chromium.chrome.browser.tabmodel.TabPersistentStore.TabPersistentStoreObserver;
 import org.chromium.chrome.browser.tabmodel.TabPersistentStoreImpl;
 import org.chromium.chrome.browser.tabmodel.TabbedModeTabPersistencePolicy;
+import org.chromium.chrome.browser.tabwindow.TabWindowManager;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.widget.Toast;
 
@@ -88,12 +91,14 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
     private final boolean mTabMergingEnabled;
     private final ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
     private final CipherFactory mCipherFactory;
+    // Effectively final after createTabModels().
+    private @MonotonicNonNull String mWindowTag;
 
-    private OneshotSupplier<ProfileProvider> mProfileProviderSupplier;
+    private @MonotonicNonNull OneshotSupplier<ProfileProvider> mProfileProviderSupplier;
 
     // This class is driven by TabbedModeTabModelOrchestrator to prevent duplicate glue code in
     // ChromeTabbedActivity.
-    private @Nullable ArchivedTabModelOrchestrator mArchivedTabModelOrchestrator;
+    private @MonotonicNonNull ArchivedTabModelOrchestrator mArchivedTabModelOrchestrator;
     private @Nullable Supplier<TabModel> mArchivedHistoricalObserverSupplier;
 
     // Currently used to perform shadow operations for an alternative storage. Not always enabled.
@@ -133,6 +138,21 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
         super.destroy();
     }
 
+    @EnsuresNonNull({
+        "mTabPersistentStore",
+        "mTabPersistencePolicy",
+        "mWindowTag",
+        "mTabModelSelector",
+        "mProfileProviderSupplier",
+    })
+    private void assertCreated() {
+        assert mTabPersistentStore != null;
+        assert mTabPersistencePolicy != null;
+        assert mWindowTag != null;
+        assert mTabModelSelector != null;
+        assert mProfileProviderSupplier != null;
+    }
+
     /**
      * Creates the TabModelSelector and the TabPersistentStore.
      *
@@ -146,7 +166,6 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
      * @return Whether the creation was successful. It may fail is we reached the limit of number of
      *     windows.
      */
-    @Initializer
     public boolean createTabModels(
             Activity activity,
             ModalDialogManager modalDialogManager,
@@ -188,10 +207,13 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
                             activity.getString(R.string.unsupported_number_of_windows),
                             Toast.LENGTH_LONG)
                     .show();
+            mWindowTag = "";
             return false;
         }
 
         int assignedIndex = assumeNonNull(selectorAssignment).first;
+        assert assignedIndex != TabWindowManager.INVALID_WINDOW_ID;
+        mWindowTag = Integer.toString(assignedIndex);
 
         // Instantiate TabPersistentStore
         mTabPersistencePolicy =
@@ -216,7 +238,7 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
             // For multi-instance on Android S, this is a restart after the upgrade or fresh
             // installation. Allow merging tabs from CTA/CTA2 used by the previous version
             // if present.
-            return MultiWindowUtils.getInstanceCount() == 0;
+            return MultiWindowUtils.getInstanceCountWithFallback(PersistedInstanceType.ANY) == 0;
         }
 
         // Merge tabs if this TabModelSelector is for a ChromeTabbedActivity created in
@@ -247,6 +269,7 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
 
     @Override
     public void cleanupInstance(int instanceId) {
+        assertCreated();
         mTabPersistentStore.cleanupStateFile(instanceId);
     }
 
@@ -257,6 +280,7 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
         if (!ChromeFeatureList.sAndroidTabDeclutterRescueKillSwitch.isEnabled()) {
             return;
         }
+        assertCreated();
 
         if (ChromeFeatureList.sAndroidTabDeclutterPerformanceImprovements.isEnabled()) {
             TabModelUtils.runOnTabStateInitialized(
@@ -280,10 +304,12 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
 
             TabCreatorManager shadowTabCreatorManager =
                     incognito -> incognito ? mIncognitoShadowTabCreator : mRegularShadowTabCreator;
+            assert !mWindowTag.isEmpty();
             mShadowTabPersistentStore =
                     new TabStateStore(
                             TabStateStorageServiceFactory.getForProfile(profile),
                             mTabModelSelector,
+                            mWindowTag,
                             shadowTabCreatorManager);
 
             SupplierUtils.waitForAll(
@@ -294,6 +320,7 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
     }
 
     private void onBothStateLoaded() {
+        assertCreated();
         // Unless mTabStateStoreIsAuthoritative is true, createNewTabArgumentsList should be empty.
         assert Boolean.FALSE.equals(mTabStateStoreIsAuthoritative)
                 || mRegularShadowTabCreator.createNewTabArgumentsList.isEmpty();
@@ -365,9 +392,18 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
         }
     }
 
+    @Override
+    public void restoreTabs(boolean setActiveTab) {
+        super.restoreTabs(setActiveTab);
+        if (mShadowTabPersistentStore != null) {
+            mShadowTabPersistentStore.restoreTabs(setActiveTab);
+        }
+    }
+
     private void createAndInitArchivedTabModelOrchestrator(TabContentManager tabContentManager) {
         if (mActivityLifecycleDispatcher.isActivityFinishingOrDestroyed()) return;
         ThreadUtils.assertOnUiThread();
+        assertCreated();
         // The profile will be available because native is initialized.
         assert mProfileProviderSupplier.get() != null;
         assert tabContentManager != null;
@@ -379,7 +415,7 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
         mArchivedTabModelOrchestrator.maybeCreateAndInitTabModels(
                 tabContentManager, mCipherFactory);
         mArchivedHistoricalObserverSupplier =
-                () -> getTabModelSelector().getModel(/* incognito= */ false);
+                () -> mTabModelSelector.getModel(/* incognito= */ false);
         mArchivedTabModelOrchestrator.initializeHistoricalTabModelObserver(
                 mArchivedHistoricalObserverSupplier);
         // Registering will automatically do an archive pass, and schedule recrurring passes for
@@ -388,6 +424,7 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
     }
 
     public TabPersistentStoreImpl getTabPersistentStoreForTesting() {
+        assertCreated();
         return (TabPersistentStoreImpl) mTabPersistentStore;
     }
 }

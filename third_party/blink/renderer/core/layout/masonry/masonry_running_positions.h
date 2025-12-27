@@ -17,6 +17,11 @@ namespace blink {
 struct GridSpan;
 class GridLayoutTrackCollection;
 
+// TODO(celestepan): Based on how
+// https://github.com/w3c/csswg-drafts/issues/12803 resolves, we may want to
+// change the keyword that triggers reversed placement. Currently
+// column/row-reverse triggers reversed placement.
+//
 // This class holds a list of running positions for each track. This will be
 // used to calculate the next position that an item should be placed.
 class CORE_EXPORT MasonryRunningPositions {
@@ -27,8 +32,12 @@ class CORE_EXPORT MasonryRunningPositions {
                           const Vector<wtf_size_t>& collapsed_track_indexes)
       : running_positions_(/*size=*/track_collection.EndLineOfImplicitGrid(),
                            LayoutUnit()),
+        auto_placement_cursor_(style.IsReverseGridLanesDirection()
+                                   ? track_collection.EndLineOfImplicitGrid()
+                                   : 0),
         tie_threshold_(tie_threshold),
-        is_dense_packing_(style.IsGridAutoFlowAlgorithmDense()) {
+        is_dense_packing_(style.IsGridAutoFlowAlgorithmDense()),
+        is_reverse_direction_(style.IsReverseGridLanesDirection()) {
     // To avoid placing items in collapsed tracks, set such tracks to the max
     // size.
     for (wtf_size_t index : collapsed_track_indexes) {
@@ -102,9 +111,9 @@ class CORE_EXPORT MasonryRunningPositions {
   // Returns the max-position for a given span.
   LayoutUnit GetMaxPositionForSpan(const GridSpan& span) const;
 
-  void UpdateAutoPlacementCursor(wtf_size_t line) {
-    auto_placement_cursor_ = line;
-  }
+  void UpdateAutoPlacementCursor(
+      const GridArea& resolved_position,
+      const GridTrackSizingDirection grid_axis_direction);
 
   // If we can find an eligible track opening to fit the item, set
   // `masonry_item` to have the updated span location, adjust the track opening
@@ -215,10 +224,11 @@ class CORE_EXPORT MasonryRunningPositions {
   // each element represents the size of the track at that index.
   Vector<LayoutUnit> track_collection_sizes_;
 
-  wtf_size_t auto_placement_cursor_{0};
+  wtf_size_t auto_placement_cursor_;
   LayoutUnit tie_threshold_;
 
   bool is_dense_packing_{false};
+  bool is_reverse_direction_{false};
 };
 
 }  // namespace blink

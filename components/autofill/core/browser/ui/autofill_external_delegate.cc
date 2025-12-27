@@ -19,7 +19,6 @@
 #include "base/containers/fixed_flat_set.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_forward.h"
 #include "base/i18n/case_conversion.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
@@ -178,31 +177,6 @@ void PossiblyRemoveAutofillWarnings(std::vector<Suggestion>& suggestions) {
   std::erase_if(suggestions, is_warning);
 }
 
-// Loads the AutofillProfile from the personal data manager and returns a copy
-// to it if exists or `std::nullopt` otherwise. In case the payload contains a
-// non-empty email override, it applies it on the profile before returning it.
-std::optional<AutofillProfile> GetProfileFromPayload(
-    const PersonalDataManager& pdm,
-    const Suggestion::Payload& payload) {
-  auto GetProfileFromPersonalDataManager =
-      [&pdm](const std::string& guid) -> std::optional<AutofillProfile> {
-    if (const AutofillProfile* profile =
-            pdm.address_data_manager().GetProfileByGUID(guid)) {
-      return *profile;
-    }
-    return std::nullopt;
-  };
-
-  const Suggestion::AutofillProfilePayload& details =
-      std::get<Suggestion::AutofillProfilePayload>(payload);
-  std::optional<AutofillProfile> profile =
-      GetProfileFromPersonalDataManager(details.guid.value());
-  if (profile && !details.email_override.empty()) {
-    profile->SetRawInfo(EMAIL_ADDRESS, details.email_override);
-  }
-  return profile;
-}
-
 // Used to determine autofill availability for a11y. Presence of a suggestion
 // for which this method returns `true` makes screen readers change
 // the field announcement to notify users about available autofill options,
@@ -223,6 +197,28 @@ bool HasAutofillSugestionsForA11y(SuggestionType item_id) {
 }  // namespace
 
 int AutofillExternalDelegate::shortcut_test_suggestion_index_ = -1;
+
+// Loads the AutofillProfile from the address data manager and returns a copy
+// of it if exists or `std::nullopt` otherwise. In case the payload contains a
+// non-empty email override, it applies it to the profile before returning it.
+std::optional<AutofillProfile> GetProfileFromPayload(
+    const AddressDataManager& adm,
+    const Suggestion::AutofillProfilePayload& payload) {
+  auto GetProfileFromAddressDataManager =
+      [&adm](const std::string& guid) -> std::optional<AutofillProfile> {
+    if (const AutofillProfile* profile = adm.GetProfileByGUID(guid)) {
+      return *profile;
+    }
+    return std::nullopt;
+  };
+
+  std::optional<AutofillProfile> profile =
+      GetProfileFromAddressDataManager(payload.guid.value());
+  if (profile && !payload.email_override.empty()) {
+    profile->SetRawInfo(EMAIL_ADDRESS, payload.email_override);
+  }
+  return profile;
+}
 
 AutofillExternalDelegate::AutofillExternalDelegate(
     BrowserAutofillManager* manager)
@@ -258,8 +254,6 @@ bool AutofillExternalDelegate::IsAutofillAndFirstLayerSuggestionId(
     case SuggestionType::kComposeProactiveNudge:
     case SuggestionType::kComposeResumeNudge:
     case SuggestionType::kComposeSavedStateNotification:
-    case SuggestionType::kCreateNewPlusAddress:
-    case SuggestionType::kCreateNewPlusAddressInline:
     case SuggestionType::kDatalistEntry:
     case SuggestionType::kDevtoolsTestAddressByCountry:
     case SuggestionType::kDevtoolsTestAddressEntry:
@@ -282,7 +276,6 @@ bool AutofillExternalDelegate::IsAutofillAndFirstLayerSuggestionId(
     case SuggestionType::kTroubleSigningInEntry:
     case SuggestionType::kFreeformFooter:
     case SuggestionType::kPasswordFieldByFieldFilling:
-    case SuggestionType::kPlusAddressError:
     case SuggestionType::kScanCreditCard:
     case SuggestionType::kSeePromoCodeDetails:
     case SuggestionType::kSeparator:
@@ -332,6 +325,14 @@ void AutofillExternalDelegate::OnSuggestionsReturned(
 #endif
   AttemptToDisplayAutofillSuggestions(input_suggestions, trigger_source_,
                                       /*is_update=*/false);
+}
+
+std::optional<AutofillProfile>
+AutofillExternalDelegate::GetProfileFromAddressSuggestion(
+    const Suggestion& suggestion) const {
+  return GetProfileFromPayload(
+      manager_->client().GetPersonalDataManager().address_data_manager(),
+      std::get<Suggestion::AutofillProfilePayload>(suggestion.payload));
 }
 
 void AutofillExternalDelegate::AttemptToDisplayAutofillSuggestions(
@@ -588,20 +589,10 @@ void AutofillExternalDelegate::DidSelectSuggestion(
           mojom::FieldActionType::kReplaceAll, query_form_, query_field_,
           suggestion.main_text.value, suggestion.type, EMAIL_ADDRESS);
       break;
-    case SuggestionType::kCreateNewPlusAddressInline:
-      if (std::optional<std::u16string> plus_address =
-              suggestion.GetPayload<Suggestion::PlusAddressPayload>().address) {
-        manager_->FillOrPreviewField(mojom::ActionPersistence::kPreview,
-                                     mojom::FieldActionType::kReplaceAll,
-                                     query_form_, query_field_, *plus_address,
-                                     suggestion.type, EMAIL_ADDRESS);
-      }
-      break;
     case SuggestionType::kAddressFieldByFieldFilling:
       CHECK(suggestion.field_by_field_filling_type_used);
       if (std::optional<AutofillProfile> profile =
-              GetProfileFromPayload(manager_->client().GetPersonalDataManager(),
-                                    suggestion.payload)) {
+              GetProfileFromAddressSuggestion(suggestion)) {
         PreviewAddressFieldByFieldFillingSuggestion(*profile, suggestion);
       }
       break;
@@ -627,8 +618,7 @@ void AutofillExternalDelegate::DidSelectSuggestion(
     case SuggestionType::kAddressEntryOnTyping:
       CHECK(suggestion.field_by_field_filling_type_used);
       if (std::optional<AutofillProfile> profile =
-              GetProfileFromPayload(manager_->client().GetPersonalDataManager(),
-                                    suggestion.payload)) {
+              GetProfileFromAddressSuggestion(suggestion)) {
         PreviewAddressFieldByFieldFillingSuggestion(*profile, suggestion);
       }
       break;
@@ -658,7 +648,6 @@ void AutofillExternalDelegate::DidSelectSuggestion(
     case SuggestionType::kComposeProactiveNudge:
     case SuggestionType::kComposeResumeNudge:
     case SuggestionType::kComposeSavedStateNotification:
-    case SuggestionType::kCreateNewPlusAddress:
     case SuggestionType::kDatalistEntry:
     case SuggestionType::kDevtoolsTestAddressByCountry:
     case SuggestionType::kDevtoolsTestAddresses:
@@ -670,7 +659,6 @@ void AutofillExternalDelegate::DidSelectSuggestion(
     case SuggestionType::kManageLoyaltyCard:
     case SuggestionType::kManagePlusAddress:
     case SuggestionType::kMixedFormMessage:
-    case SuggestionType::kPlusAddressError:
     case SuggestionType::kSaveAndFillCreditCardEntry:
     case SuggestionType::kScanCreditCard:
     case SuggestionType::kSeePromoCodeDetails:
@@ -775,34 +763,13 @@ void AutofillExternalDelegate::DidAcceptSuggestion(
           query_form_, query_field_, suggestion.main_text.value,
           SuggestionType::kFillExistingPlusAddress, EMAIL_ADDRESS);
       break;
-    case SuggestionType::kCreateNewPlusAddress: {
-      if (AutofillPlusAddressDelegate* plus_address_delegate =
-              manager_->client().GetPlusAddressDelegate()) {
-        plus_address_delegate->RecordAutofillSuggestionEvent(
-            AutofillPlusAddressDelegate::SuggestionEvent::
-                kCreateNewPlusAddressChosen);
-      }
-      manager_->client().OfferPlusAddressCreation(
-          manager_->client().GetLastCommittedPrimaryMainFrameOrigin(),
-          trigger_source_ ==
-              AutofillSuggestionTriggerSource::kManualFallbackPlusAddresses,
-          CreatePlusAddressCallback(SuggestionType::kCreateNewPlusAddress));
-      break;
-    }
-    case SuggestionType::kCreateNewPlusAddressInline:
-      DidAcceptCreateNewPlusAddressInlineSuggestion(suggestion);
-      // The delegate handles hiding the popup.
-      return;
-    case SuggestionType::kPlusAddressError:
-      break;
     case SuggestionType::kComposeResumeNudge:
     case SuggestionType::kComposeProactiveNudge:
     case SuggestionType::kComposeSavedStateNotification:
       if (AutofillComposeDelegate* delegate =
               manager_->client().GetComposeDelegate()) {
         delegate->OpenCompose(
-            manager_->driver(), query_field_.renderer_form_id(),
-            query_field_.global_id(),
+            manager_->driver(), query_field_.global_id(),
             AutofillComposeDelegate::UiEntryPoint::kAutofillPopup);
       }
       break;
@@ -845,8 +812,7 @@ void AutofillExternalDelegate::DidAcceptSuggestion(
     case SuggestionType::kAddressEntryOnTyping:
       CHECK(suggestion.field_by_field_filling_type_used);
       if (std::optional<AutofillProfile> profile =
-              GetProfileFromPayload(manager_->client().GetPersonalDataManager(),
-                                    suggestion.payload)) {
+              GetProfileFromAddressSuggestion(suggestion)) {
         FillAddressFieldByFieldFillingSuggestion(*profile, suggestion,
                                                  metadata);
         autofill_metrics::LogAddressAutofillOnTypingSuggestionAccepted(
@@ -947,25 +913,6 @@ void AutofillExternalDelegate::DidPerformButtonActionForSuggestion(
     case SuggestionType::kComposeResumeNudge:
       NOTIMPLEMENTED();
       return;
-    case SuggestionType::kCreateNewPlusAddressInline:
-    case SuggestionType::kPlusAddressError:
-      if (AutofillPlusAddressDelegate* plus_address_delegate =
-              manager_->client().GetPlusAddressDelegate()) {
-        ClearPreviewedForm();
-        base::span<const Suggestion> suggestions =
-            manager_->client().GetAutofillSuggestions();
-        // TODO(crbug.com/362445807): Change the signature of
-        // DidPerformButtonActionForSuggestion to pass all suggestions and an
-        // index of the currently focused one.
-        auto it = std::ranges::find(suggestions, suggestion);
-        CHECK(it != suggestions.end());
-        plus_address_delegate->OnClickedRefreshInlineSuggestion(
-            manager_->client().GetLastCommittedPrimaryMainFrameOrigin(),
-            manager_->client().GetAutofillSuggestions(),
-            /*current_suggestion_index=*/it - suggestions.begin(),
-            CreateUpdateSuggestionsCallback());
-      }
-      return;
     default:
       NOTREACHED();
   }
@@ -1017,10 +964,7 @@ bool AutofillExternalDelegate::RemoveSuggestion(const Suggestion& suggestion) {
     case SuggestionType::kManageIban:
     case SuggestionType::kManageLoyaltyCard:
     case SuggestionType::kManagePlusAddress:
-    case SuggestionType::kCreateNewPlusAddress:
-    case SuggestionType::kCreateNewPlusAddressInline:
     case SuggestionType::kFillExistingPlusAddress:
-    case SuggestionType::kPlusAddressError:
     case SuggestionType::kInsecureContextPaymentDisabledMessage:
     case SuggestionType::kSaveAndFillCreditCardEntry:
     case SuggestionType::kScanCreditCard:
@@ -1162,7 +1106,8 @@ void AutofillExternalDelegate::AutofillForm(
         type == SuggestionType::kDevtoolsTestAddressEntry
             ? GetTestAddressByGUID(manager_->client().GetTestAddresses(),
                                    profile_payload->guid.value())
-            : GetProfileFromPayload(pdm, payload);
+            : GetProfileFromPayload(pdm.address_data_manager(),
+                                    *profile_payload);
     if (profile) {
       manager_->FillOrPreviewForm(action_persistence, query_form_,
                                   query_field_.global_id(), &*profile,
@@ -1269,8 +1214,7 @@ void AutofillExternalDelegate::DidAcceptAddressSuggestion(
     case SuggestionType::kAddressFieldByFieldFilling:
       CHECK(suggestion.field_by_field_filling_type_used);
       if (std::optional<AutofillProfile> profile =
-              GetProfileFromPayload(manager_->client().GetPersonalDataManager(),
-                                    suggestion.payload)) {
+              GetProfileFromAddressSuggestion(suggestion)) {
         FillAddressFieldByFieldFillingSuggestion(*profile, suggestion,
                                                  metadata);
       }
@@ -1431,102 +1375,6 @@ void AutofillExternalDelegate::DidAcceptPaymentsSuggestion(
             ? AutofillMetrics::SCAN_CARD_ITEM_SELECTED
             : AutofillMetrics::SCAN_CARD_OTHER_ITEM_SELECTED);
   }
-}
-
-PlusAddressCallback AutofillExternalDelegate::CreatePlusAddressCallback(
-    SuggestionType suggestion_type) {
-  return base::BindRepeating(
-             [](const std::string& s) { return base::UTF8ToUTF16(s); })
-      .Then(CreateSingleFieldFillCallback(suggestion_type, EMAIL_ADDRESS));
-}
-
-PlusAddressCallback AutofillExternalDelegate::CreateInlinePlusAddressCallback(
-    SuggestionType suggestion_type) {
-  return CreatePlusAddressCallback(suggestion_type)
-      .Then(base::BindRepeating(
-          [](base::WeakPtr<AutofillClient> client, bool is_manual_fallback) {
-            if (is_manual_fallback) {
-              client->TriggerPlusAddressUserPerceptionSurvey(
-                  plus_addresses::hats::SurveyType::
-                      kCreatedPlusAddressViaManualFallback);
-            } else if (client->GetPlusAddressDelegate()
-                           ->GetPlusAddressesCount() > 2) {
-              client->TriggerPlusAddressUserPerceptionSurvey(
-                  plus_addresses::hats::SurveyType::
-                      kCreatedMultiplePlusAddresses);
-            }
-          },
-          manager_->client().GetWeakPtr(),
-          trigger_source_ ==
-              AutofillSuggestionTriggerSource::kManualFallbackPlusAddresses));
-}
-
-void AutofillExternalDelegate::DidAcceptCreateNewPlusAddressInlineSuggestion(
-    const Suggestion& suggestion) {
-  AutofillPlusAddressDelegate* delegate =
-      manager_->client().GetPlusAddressDelegate();
-  if (!delegate) {
-    return;
-  }
-
-  base::span<const Suggestion> suggestions =
-      manager_->client().GetAutofillSuggestions();
-  // TODO(crbug.com/362445807): Change the signature of DidAcceptSuggestion to
-  // pass all suggestions and an index of the currently focused one.
-  auto it = std::ranges::find(suggestions, suggestion);
-  CHECK(it != suggestions.end());
-
-  auto show_affiliation_error = base::BindOnce(
-      [](base::WeakPtr<AutofillExternalDelegate> self,
-         base::OnceCallback<void(const std::u16string&)> fill_callback,
-         std::u16string affiliated_domain,
-         std::u16string affiliated_plus_address) {
-        if (!self) {
-          return;
-        }
-        base::OnceClosure bound_fill_callback =
-            base::BindOnce(std::move(fill_callback), affiliated_plus_address);
-        self->manager_->client().ShowPlusAddressAffiliationError(
-            std::move(affiliated_domain), std::move(affiliated_plus_address),
-            std::move(bound_fill_callback));
-      },
-      GetWeakPtr(),
-      CreateSingleFieldFillCallback(SuggestionType::kCreateNewPlusAddressInline,
-                                    /*field_type_used=*/EMAIL_ADDRESS));
-
-  auto show_error = base::BindOnce(
-      [](base::WeakPtr<AutofillExternalDelegate> self,
-         AutofillClient::PlusAddressErrorDialogType error_dialog_type,
-         base::OnceClosure on_accepted) {
-        if (!self) {
-          return;
-        }
-        self->manager_->client().ShowPlusAddressError(error_dialog_type,
-                                                      std::move(on_accepted));
-      },
-      GetWeakPtr());
-
-  base::OnceClosure reshow_suggestions = base::BindOnce(
-      [](base::WeakPtr<AutofillExternalDelegate> self, FieldGlobalId field) {
-        if (!self) {
-          return;
-        }
-        // Manual fallbacks are used as a trigger source to guarantee that a
-        // plus address suggestion will show.
-        self->manager_->driver().RendererShouldTriggerSuggestions(
-            field,
-            AutofillSuggestionTriggerSource::kManualFallbackPlusAddresses);
-      },
-      GetWeakPtr(), query_field_.global_id());
-
-  delegate->OnAcceptedInlineSuggestion(
-      manager_->client().GetLastCommittedPrimaryMainFrameOrigin(), suggestions,
-      /*current_suggestion_index=*/it - suggestions.begin(),
-      CreateUpdateSuggestionsCallback(), CreateHideSuggestionsCallback(),
-      CreateInlinePlusAddressCallback(
-          SuggestionType::kCreateNewPlusAddressInline),
-      std::move(show_affiliation_error), std::move(show_error),
-      std::move(reshow_suggestions));
 }
 
 }  // namespace autofill

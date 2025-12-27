@@ -130,7 +130,7 @@ base::expected<String, String> CanonicalizeProtocolInternal(
     return base::ok(input);
   }
 
-  KURL dummy_url(input + kDummyUrlWithoutSchemeName);
+  KURL dummy_url(StrCat({input, kDummyUrlWithoutSchemeName}));
   if (dummy_url.IsValid()) {
     if (input.length() == 1 && dummy_url.ProtocolIs("file")) {
       // If we do this with a single letter it looks to KURL like a Windows
@@ -280,7 +280,7 @@ base::expected<String, String> CanonicalizePathnameInternal(
     // canonicalization result. See the following for more information:
     // https://urlpattern.spec.whatwg.org/#canonicalize-a-pathname
     if (!leading_slash) {
-      maybe_preprended_input = "/-" + maybe_preprended_input;
+      maybe_preprended_input = StrCat({"/-", maybe_preprended_input});
     }
 
     dummy_url.SetPath(maybe_preprended_input);
@@ -305,7 +305,7 @@ base::expected<String, String> CanonicalizePathnameInternal(
   } else {
     url::RawCanonOutputT<char> canon_output;
     url::Component component;
-    url::CanonicalizePathURLPath(StringUtf8Adaptor(input).AsStringView(),
+    url::CanonicalizePathUrlPath(StringUtf8Adaptor(input).AsStringView(),
                                  &canon_output, &component);
     return base::ok(StringFromCanonOutput(canon_output, component));
   }

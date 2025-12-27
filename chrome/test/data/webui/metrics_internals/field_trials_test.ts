@@ -5,8 +5,9 @@
 import 'chrome://metrics-internals/app.js';
 
 import {MetricsInternalsBrowserProxyImpl} from 'chrome://metrics-internals/browser_proxy.js';
-import type {FieldTrialState, HashNameMap, KeyValue, MetricsInternalsBrowserProxy, Trial} from 'chrome://metrics-internals/browser_proxy.js';
+import type {FieldTrialState, HashNameMap, KeyValue, MetricsInternalsBrowserProxy, SeedType, Trial} from 'chrome://metrics-internals/browser_proxy.js';
 import type {FieldTrialsAppElement} from 'chrome://metrics-internals/field_trials.js';
+import type {CwtKeyInfo} from 'chrome://metrics-internals/private_metrics.js';
 import {assertDeepEquals, assertEquals, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 
@@ -30,11 +31,13 @@ class FakeBrowser extends TestBrowserProxy implements
     super([
       'getUmaLogData',
       'fetchVariationsSummary',
+      'fetchStoredSeedInfo',
       'fetchUmaSummary',
       'isUsingMetricsServiceObserver',
       'setTrialEnrollState',
       'fetchTrialState',
       'lookupTrialOrGroupName',
+      'fetchEncryptionPublicKey',
       'restart',
     ]);
   }
@@ -51,6 +54,12 @@ class FakeBrowser extends TestBrowserProxy implements
 
   async fetchVariationsSummary(): Promise<KeyValue[]> {
     this.methodCalled('fetchVariationsSummary');
+    await wait();
+    return [];
+  }
+
+  async fetchStoredSeedInfo(seedType: SeedType): Promise<KeyValue[]> {
+    this.methodCalled(`fetchStored${seedType}SeedInfo`);
     await wait();
     return [];
   }
@@ -85,6 +94,12 @@ class FakeBrowser extends TestBrowserProxy implements
     this.methodCalled('lookupTrialOrGroupName', name);
     await wait();
     return this.lookupTrialOrGroupNameResult;
+  }
+
+  async fetchEncryptionPublicKey(): Promise<CwtKeyInfo> {
+    this.methodCalled('fetchEncryptionPublicKey');
+    await wait();
+    return {};
   }
 
   async restart(): Promise<void> {

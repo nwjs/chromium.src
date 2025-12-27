@@ -29,8 +29,7 @@ import org.chromium.chrome.browser.omnibox.DeferredIMEWindowInsetApplicationCall
 import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
-import org.chromium.chrome.browser.omnibox.UrlFocusChangeListener;
-import org.chromium.chrome.browser.omnibox.navattach.NavigationAttachmentsCoordinator;
+import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteController.OnSuggestionsReceivedListener;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionListViewBinder.SuggestionListViewHolder;
 import org.chromium.chrome.browser.omnibox.suggestions.base.BaseSuggestionViewBinder;
@@ -60,8 +59,7 @@ import java.util.function.Supplier;
 
 /** Coordinator that handles the interactions with the autocomplete system. */
 @NullMarked
-public class AutocompleteCoordinator
-        implements UrlFocusChangeListener, OmniboxSuggestionsVisualState {
+public class AutocompleteCoordinator implements OmniboxSuggestionsVisualState {
     private final ViewGroup mParent;
     private final ObservableSupplier<Profile> mProfileSupplier;
     private final Callback<Profile> mProfileChangeCallback;
@@ -101,7 +99,7 @@ public class AutocompleteCoordinator
             boolean forcePhoneStyleOmnibox,
             WindowAndroid windowAndroid,
             DeferredIMEWindowInsetApplicationCallback deferredIMEWindowInsetApplicationCallback,
-            NavigationAttachmentsCoordinator navigationAttachmentsCoordinator) {
+            FuseboxCoordinator fuseboxCoordinator) {
         mParent = parent;
         mModalDialogManagerSupplier = modalDialogManagerSupplier;
         Context context = parent.getContext();
@@ -137,7 +135,7 @@ public class AutocompleteCoordinator
                         dropdownEmbedder,
                         windowAndroid,
                         deferredIMEWindowInsetApplicationCallback,
-                        navigationAttachmentsCoordinator,
+                        fuseboxCoordinator,
                         forcePhoneStyleOmnibox);
         mMediator.initDefaultProcessors();
 
@@ -253,12 +251,10 @@ public class AutocompleteCoordinator
         };
     }
 
-    @Override
     public void onUrlFocusChange(boolean hasFocus) {
         mMediator.onOmniboxSessionStateChange(hasFocus);
     }
 
-    @Override
     public void onUrlAnimationFinished(boolean hasFocus) {
         mMediator.onUrlAnimationFinished(hasFocus);
     }
@@ -367,9 +363,10 @@ public class AutocompleteCoordinator
                 return true;
             }
 
+            boolean openInNewTab = event.isAltPressed();
+            boolean openInNewWindow = !openInNewTab && event.isShiftPressed();
             if (mParent.getVisibility() == View.VISIBLE) {
-                mMediator.loadTypedOmniboxText(
-                        event.getEventTime(), /* openInNewTab= */ event.isAltPressed());
+                mMediator.loadTypedOmniboxText(event.getEventTime(), openInNewTab, openInNewWindow);
                 return true;
             }
 

@@ -802,7 +802,10 @@ void ContinueAfterConnect(
 
 }  // namespace
 
-using HttpCacheTest = TestWithTaskEnvironment;
+class HttpCacheTest : public TestWithTaskEnvironment {
+ public:
+  void CacheControlNoCacheNormalLoad(bool skip_feature_enabled);
+};
 
 class HttpCacheIOCallbackTest : public HttpCacheTest {
  public:
@@ -1236,30 +1239,16 @@ TEST_F(HttpCacheSimpleGetTest, DelayedCacheLock) {
 enum class SplitCacheTestCase {
   kDisabled,
   kEnabledTripleKeyed,
-  kEnabledTriplePlusCrossSiteMainFrameNavBool,
 };
 
-const struct {
-  const SplitCacheTestCase test_case;
-  base::test::FeatureRef feature;
-} kTestCaseToFeatureMapping[] = {
-    {SplitCacheTestCase::kEnabledTriplePlusCrossSiteMainFrameNavBool,
-     net::features::kSplitCacheByCrossSiteMainFrameNavigationBoolean}};
 
 class HttpCacheTestSplitCacheFeature
     : public HttpCacheTest,
       public ::testing::WithParamInterface<SplitCacheTestCase> {
  public:
-  HttpCacheTestSplitCacheFeature()
-      : split_cache_experiment_feature_list_(GetParam(),
-                                             kTestCaseToFeatureMapping) {
-    if (IsSplitCacheEnabled()) {
-      split_cache_enabled_feature_list_.InitAndEnableFeature(
-          net::features::kSplitCacheByNetworkIsolationKey);
-    } else {
-      split_cache_enabled_feature_list_.InitAndDisableFeature(
-          net::features::kSplitCacheByNetworkIsolationKey);
-    }
+  HttpCacheTestSplitCacheFeature() {
+    split_cache_feature_list_.InitWithFeatureState(
+        features::kSplitCacheByNetworkIsolationKey, IsSplitCacheEnabled());
   }
 
   bool IsSplitCacheEnabled() const {
@@ -1267,9 +1256,7 @@ class HttpCacheTestSplitCacheFeature
   }
 
  private:
-  net::test::ScopedMutuallyExclusiveFeatureList
-      split_cache_experiment_feature_list_;
-  base::test::ScopedFeatureList split_cache_enabled_feature_list_;
+  base::test::ScopedFeatureList split_cache_feature_list_;
 };
 
 TEST_P(HttpCacheTestSplitCacheFeature, SimpleGetVerifyGoogleFontMetrics) {
@@ -1296,29 +1283,26 @@ TEST_P(HttpCacheTestSplitCacheFeature, SimpleGetVerifyGoogleFontMetrics) {
 INSTANTIATE_TEST_SUITE_P(
     All,
     HttpCacheTestSplitCacheFeature,
-    testing::ValuesIn(
-        {SplitCacheTestCase::kDisabled, SplitCacheTestCase::kEnabledTripleKeyed,
-         SplitCacheTestCase::kEnabledTriplePlusCrossSiteMainFrameNavBool}),
+    testing::ValuesIn({SplitCacheTestCase::kDisabled,
+                       SplitCacheTestCase::kEnabledTripleKeyed}),
     [](const testing::TestParamInfo<SplitCacheTestCase>& info) {
       switch (info.param) {
         case SplitCacheTestCase::kDisabled:
           return "SplitCacheDisabled";
         case SplitCacheTestCase::kEnabledTripleKeyed:
           return "SplitCacheNikFrameSiteEnabled";
-        case SplitCacheTestCase::kEnabledTriplePlusCrossSiteMainFrameNavBool:
-          return "SplitCacheEnabledTriplePlusCrossSiteMainFrameNavigationBool";
       }
     });
 
 class HttpCacheTestSplitCacheFeatureEnabled : public HttpCacheTest {
  public:
   HttpCacheTestSplitCacheFeatureEnabled() {
-    split_cache_always_enabled_feature_list_.InitAndEnableFeature(
+    split_cache_enabled_feature_list_.InitAndEnableFeature(
         features::kSplitCacheByNetworkIsolationKey);
   }
 
  private:
-  base::test::ScopedFeatureList split_cache_always_enabled_feature_list_;
+  base::test::ScopedFeatureList split_cache_enabled_feature_list_;
 };
 
 TEST_F(HttpCacheSimpleGetTest, NoDiskCache) {
@@ -11053,7 +11037,14 @@ TEST_F(HttpCacheTest, CachedRedirect) {
 
 // Verify that no-cache resources are stored in cache, but are not fetched from
 // cache during normal loads.
-TEST_F(HttpCacheTest, CacheControlNoCacheNormalLoad) {
+void HttpCacheTest::CacheControlNoCacheNormalLoad(bool skip_feature_enabled) {
+  base::test::ScopedFeatureList feature_list;
+  if (skip_feature_enabled) {
+    feature_list.InitAndEnableFeature(features::kHttpCacheSkipUnusableEntry);
+  } else {
+    feature_list.InitAndDisableFeature(features::kHttpCacheSkipUnusableEntry);
+  }
+
   for (bool use_memory_entry_data : {false, true}) {
     MockHttpCache cache;
     cache.disk_cache()->set_support_in_memory_entry_data(use_memory_entry_data);
@@ -11072,7 +11063,7 @@ TEST_F(HttpCacheTest, CacheControlNoCacheNormalLoad) {
     RunTransactionTest(cache.http_cache(), transaction);
 
     EXPECT_EQ(2, cache.network_layer()->transaction_count());
-    if (use_memory_entry_data) {
+    if (skip_feature_enabled && use_memory_entry_data) {
       EXPECT_EQ(0, cache.disk_cache()->open_count());
       EXPECT_EQ(2, cache.disk_cache()->create_count());
     } else {
@@ -11085,6 +11076,60 @@ TEST_F(HttpCacheTest, CacheControlNoCacheNormalLoad) {
     EXPECT_TRUE(cache.OpenBackendEntry(request.CacheKey(), &entry));
     entry->Close();
   }
+}
+
+TEST_F(HttpCacheTest, CacheControlNoCacheNormalLoadSkipUnusable) {
+  CacheControlNoCacheNormalLoad(true);
+}
+
+TEST_F(HttpCacheTest, CacheControlNoCacheNormalLoadDontSkipUnusable) {
+  CacheControlNoCacheNormalLoad(false);
+}
+
+TEST_F(HttpCacheTest, ConcurrentUnusable) {
+  MockHttpCache cache;
+  cache.disk_cache()->set_support_in_memory_entry_data(true);
+
+  ScopedMockTransaction transaction(kSimpleGET_Transaction);
+  transaction.response_headers = "cache-control: no-cache\n";
+
+  // Initial load.
+  RunTransactionTest(cache.http_cache(), transaction);
+
+  EXPECT_EQ(1, cache.network_layer()->transaction_count());
+  EXPECT_EQ(0, cache.disk_cache()->open_count());
+  EXPECT_EQ(1, cache.disk_cache()->create_count());
+
+  // Two concurrent requests, one read-only.
+  MockHttpRequest request1(transaction);
+  request1.load_flags = LOAD_SKIP_CACHE_VALIDATION | LOAD_ONLY_FROM_CACHE;
+  TestCompletionCallback callback1;
+
+  MockHttpRequest request2(transaction);
+  TestCompletionCallback callback2;
+
+  auto transact1 = cache.http_cache()->CreateTransaction(DEFAULT_PRIORITY);
+  ASSERT_TRUE(transact1);
+  int rv1 =
+      transact1->Start(&request1, callback1.callback(), NetLogWithSource());
+  ASSERT_EQ(rv1, ERR_IO_PENDING);
+
+  auto transact2 = cache.http_cache()->CreateTransaction(DEFAULT_PRIORITY);
+  ASSERT_TRUE(transact2);
+  int rv2 =
+      transact2->Start(&request2, callback2.callback(), NetLogWithSource());
+  ASSERT_EQ(rv2, ERR_IO_PENDING);
+
+  EXPECT_EQ(OK, callback1.WaitForResult());
+  EXPECT_EQ(OK, callback2.WaitForResult());
+
+  ReadAndVerifyTransaction(transact1.get(), transaction);
+  ReadAndVerifyTransaction(transact2.get(), transaction);
+
+  // `transact1` reused, `transact2` didn't.
+  EXPECT_EQ(2, cache.network_layer()->transaction_count());
+  EXPECT_EQ(1, cache.disk_cache()->open_count());
+  EXPECT_EQ(2, cache.disk_cache()->create_count());
 }
 
 // Verify that no-cache resources are stored in cache and fetched from cache
@@ -11592,7 +11637,6 @@ TEST_P(HttpCacheTestSplitCacheFeature, SplitCache) {
     case SplitCacheTestCase::kDisabled:
       NOTREACHED();
     case SplitCacheTestCase::kEnabledTripleKeyed:
-    case SplitCacheTestCase::kEnabledTriplePlusCrossSiteMainFrameNavBool:
       // The `is_subframe_document_resource` being true is enough to cause a
       // different cache partition to be used.
       break;
@@ -11691,7 +11735,6 @@ TEST_P(HttpCacheTestSplitCacheFeature, GenerateCacheKeyForRequestFailures) {
       is_request_cacheable = true;
       break;
     case SplitCacheTestCase::kEnabledTripleKeyed:
-    case SplitCacheTestCase::kEnabledTriplePlusCrossSiteMainFrameNavBool:
       is_request_cacheable = false;
       break;
   }
@@ -14119,7 +14162,6 @@ TEST_F(HttpCacheTest, PrioritizeCachingFlagSetForMainFrameNavigationRequest) {
 
 enum class SplitCacheByCredentials { kDisabled, kEnabled };
 enum class SplitCacheByNIK { kDisabled, kEnabled };
-enum class SplitCacheByCrossSiteNav { kDisabled, kEnabled };
 enum class IsSubframeDocumentResource { kNo, kYes };  // Corresponds to bool.
 enum class IsMainFrameNavigation { kNo, kYes };       // Corresponds to bool.
 enum class IsSharedResource { kNo, kYes };            // Corresponds to bool.
@@ -14143,8 +14185,6 @@ struct GenerateCacheKeyTestParams {
   SplitCacheByCredentials split_cache_by_credentials =
       SplitCacheByCredentials::kDisabled;
   SplitCacheByNIK split_cache_by_nik = SplitCacheByNIK::kDisabled;
-  SplitCacheByCrossSiteNav split_cache_by_cross_site_nav =
-      SplitCacheByCrossSiteNav::kDisabled;
 
   // Expected cache key.
   std::optional<std::string> expected_key;
@@ -14173,10 +14213,6 @@ class HttpCacheGenerateCacheKeyTest
     enable_or_disable_feature(
         features::kSplitCacheByNetworkIsolationKey,
         param.split_cache_by_nik == SplitCacheByNIK::kEnabled);
-    enable_or_disable_feature(
-        features::kSplitCacheByCrossSiteMainFrameNavigationBoolean,
-        param.split_cache_by_cross_site_nav ==
-            SplitCacheByCrossSiteNav::kEnabled);
 
     feature_list_.InitWithFeatures(enabled_features, disabled_features);
   }
@@ -14239,30 +14275,26 @@ const GenerateCacheKeyTestParams kGenerateCacheKeyTestParams[] = {
     {"NoSplitting", "http://a.com/", LOAD_NORMAL,
      IsSubframeDocumentResource::kNo, IsMainFrameNavigation::kNo, std::nullopt,
      IsSharedResource::kNo, std::nullopt, 0, SplitCacheByCredentials::kDisabled,
-     SplitCacheByNIK::kDisabled, SplitCacheByCrossSiteNav::kDisabled,
-     "1/0/http://a.com/", "1/0/"},
+     SplitCacheByNIK::kDisabled, "1/0/http://a.com/", "1/0/"},
     {"NoSplittingWithUploadData", "http://a.com/", LOAD_NORMAL,
      IsSubframeDocumentResource::kNo, IsMainFrameNavigation::kNo, std::nullopt,
      IsSharedResource::kNo, std::nullopt, 123,
      SplitCacheByCredentials::kDisabled, SplitCacheByNIK::kDisabled,
-     SplitCacheByCrossSiteNav::kDisabled, "1/123/http://a.com/", "1/123/"},
+     "1/123/http://a.com/", "1/123/"},
     {"SplitByCredentials_NoCookies", "http://a.com/", LOAD_DO_NOT_SAVE_COOKIES,
      IsSubframeDocumentResource::kNo, IsMainFrameNavigation::kNo, std::nullopt,
      IsSharedResource::kNo, std::nullopt, 0, SplitCacheByCredentials::kEnabled,
-     SplitCacheByNIK::kDisabled, SplitCacheByCrossSiteNav::kDisabled,
-     "0/0/http://a.com/", "0/0/"},
+     SplitCacheByNIK::kDisabled, "0/0/http://a.com/", "0/0/"},
     {"SplitByCredentials_WithCookies", "http://a.com/", LOAD_NORMAL,
      IsSubframeDocumentResource::kNo, IsMainFrameNavigation::kNo, std::nullopt,
      IsSharedResource::kNo, std::nullopt, 0, SplitCacheByCredentials::kEnabled,
-     SplitCacheByNIK::kDisabled, SplitCacheByCrossSiteNav::kDisabled,
-     "1/0/http://a.com/", "1/0/"},
+     SplitCacheByNIK::kDisabled, "1/0/http://a.com/", "1/0/"},
     {"SplitByNIK_Basic", "http://a.com/", LOAD_NORMAL,
      IsSubframeDocumentResource::kNo, IsMainFrameNavigation::kNo, std::nullopt,
      IsSharedResource::kNo,
      NetworkIsolationKey(SchemefulSite(GURL("http://b.com")),
                          SchemefulSite(GURL("http://c.com"))),
      0, SplitCacheByCredentials::kDisabled, SplitCacheByNIK::kEnabled,
-     SplitCacheByCrossSiteNav::kDisabled,
      "1/0/_dk_http://b.com http://c.com http://a.com/",
      "1/0/_dk_http://b.com http://c.com"},
     {"SplitByNIK_SharedResource", "http://a.com/", LOAD_NORMAL,
@@ -14271,19 +14303,18 @@ const GenerateCacheKeyTestParams kGenerateCacheKeyTestParams[] = {
      NetworkIsolationKey(SchemefulSite(GURL("http://b.com")),
                          SchemefulSite(GURL("http://c.com"))),
      0, SplitCacheByCredentials::kDisabled, SplitCacheByNIK::kEnabled,
-     SplitCacheByCrossSiteNav::kDisabled, "1/0/http://a.com/", "1/0/"},
+     "1/0/http://a.com/", "1/0/"},
     {"SplitByNIK_TransientNIK", "http://a.com/", LOAD_NORMAL,
      IsSubframeDocumentResource::kNo, IsMainFrameNavigation::kNo, std::nullopt,
      IsSharedResource::kNo, NetworkIsolationKey::CreateTransientForTesting(), 0,
      SplitCacheByCredentials::kDisabled, SplitCacheByNIK::kEnabled,
-     SplitCacheByCrossSiteNav::kDisabled, std::nullopt, std::nullopt},
+     std::nullopt, std::nullopt},
     {"SplitByNIK_SubframeDocument", "http://a.com/", LOAD_NORMAL,
      IsSubframeDocumentResource::kYes, IsMainFrameNavigation::kNo, std::nullopt,
      IsSharedResource::kNo,
      NetworkIsolationKey(SchemefulSite(GURL("http://b.com")),
                          SchemefulSite(GURL("http://c.com"))),
      0, SplitCacheByCredentials::kDisabled, SplitCacheByNIK::kEnabled,
-     SplitCacheByCrossSiteNav::kDisabled,
      "1/0/_dk_s_http://b.com http://c.com http://a.com/",
      "1/0/_dk_s_http://b.com http://c.com"},
     {"SplitByCrossSiteNav_SameSite", "http://a.com/", LOAD_NORMAL,
@@ -14292,7 +14323,6 @@ const GenerateCacheKeyTestParams kGenerateCacheKeyTestParams[] = {
      NetworkIsolationKey(SchemefulSite(GURL("http://c.com")),
                          SchemefulSite(GURL("http://d.com"))),
      0, SplitCacheByCredentials::kDisabled, SplitCacheByNIK::kEnabled,
-     SplitCacheByCrossSiteNav::kEnabled,
      "1/0/_dk_http://c.com http://d.com http://a.com/",
      "1/0/_dk_http://c.com http://d.com"},
     {"SplitByCrossSiteNav_CrossSite", "http://a.com/", LOAD_NORMAL,
@@ -14301,7 +14331,6 @@ const GenerateCacheKeyTestParams kGenerateCacheKeyTestParams[] = {
      NetworkIsolationKey(SchemefulSite(GURL("http://c.com")),
                          SchemefulSite(GURL("http://d.com"))),
      0, SplitCacheByCredentials::kDisabled, SplitCacheByNIK::kEnabled,
-     SplitCacheByCrossSiteNav::kEnabled,
      "1/0/_dk_cn_http://c.com http://d.com http://a.com/",
      "1/0/_dk_cn_http://c.com http://d.com"},
 };

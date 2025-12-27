@@ -115,7 +115,7 @@ ScopedJavaLocalRef<jobject> ExtensionActionsBridge::GetAction(
 
 // TODO(crbug.com/441274093): This is a temporary solution for Android builds.
 // The ultimate goal is to remove browser dependencies from
-// ExtensionActionViewController so it can be shared across platforms.
+// ExtensionActionViewModel so it can be shared across platforms.
 ScopedJavaLocalRef<jobject> ExtensionActionsBridge::GetActionIcon(
     JNIEnv* env,
     const ToolbarActionsModel::ActionId& action_id,
@@ -201,12 +201,6 @@ ExtensionAction::ShowAction ExtensionActionsBridge::RunAction(
   }
 
   return runner->RunAction(extension, /*grant_tab_permissions=*/true);
-}
-
-bool ExtensionActionsBridge::ExtensionsEnabled(JNIEnv* env) {
-  ExtensionManagement* extension_management =
-      ExtensionManagementFactory::GetForBrowserContext(profile_);
-  return extension_management->ExtensionsEnabledForDesktopAndroid();
 }
 
 jni_zero::ScopedJavaLocalRef<jobject>
@@ -302,4 +296,14 @@ static ScopedJavaLocalRef<jobject> JNI_ExtensionActionsBridge_Get(
   return bridge->GetJavaObject();
 }
 
+static jboolean JNI_ExtensionActionsBridge_ExtensionsEnabled(JNIEnv* env,
+                                                             Profile* profile) {
+  ExtensionManagement* extension_management =
+      ExtensionManagementFactory::GetForBrowserContext(profile);
+  return extension_management->ExtensionsEnabledForDesktopAndroid();
+}
+
 }  // namespace extensions
+
+DEFINE_JNI(ExtensionAction)
+DEFINE_JNI(ExtensionActionsBridge)

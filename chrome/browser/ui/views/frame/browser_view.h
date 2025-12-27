@@ -14,6 +14,7 @@
 #include "extensions/browser/app_window/size_constraints.h"
 
 #include "base/callback_list.h"
+#include "base/containers/enum_set.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
@@ -32,15 +33,16 @@
 #include "chrome/browser/ui/views/frame/contents_container_view.h"
 #include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
+#include "chrome/browser/ui/views/frame/shadow_overlay_view.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 #include "chrome/browser/ui/views/intent_picker_bubble_view.h"
-#include "chrome/browser/ui/views/omnibox/omnibox_popup_closer.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search.mojom.h"
 #include "chrome/common/buildflags.h"
 #include "components/enterprise/buildflags/buildflags.h"
 #include "components/infobars/core/infobar_container.h"
 #include "components/user_education/common/feature_promo/feature_promo_handle.h"
+#include "components/viz/common/frame_timing_details.h"
 #include "components/webapps/browser/banners/app_banner_manager.h"
 #include "content/public/browser/page_user_data.h"
 #include "content/public/browser/permission_controller.h"
@@ -202,6 +204,14 @@ class BrowserView : public BrowserWindow,
   // Returns an empty size if this browser is not for a web app.
   gfx::Size GetWebAppFrameToolbarPreferredSize() const;
 
+  // Adds provided |content| as a child of BrowserView so that layout can be
+  // handled by BrowserViewLayout. Used when opening the side panel using
+  // SidePanelUI::ShowFrom which animates the side panel content from provided
+  // bounds.
+  void SetSidePanelAnimationContent(views::View* content);
+  // Returns side panel content if it is currently parented to the BrowserView.
+  views::View* GetSidePanelAnimationContent();
+
   // Returns all the ContentsContainerViews that belong to this browser.
   std::vector<ContentsContainerView*> GetContentsContainerViews();
 
@@ -251,7 +261,7 @@ class BrowserView : public BrowserWindow,
   // Container for the web contents.
   views::View* contents_container() { return contents_container_; }
 
-  views::View* main_container() { return main_container_; }
+  views::View* main_shadow_overlay() { return main_shadow_overlay_; }
 
   SidePanel* toolbar_height_side_panel() { return toolbar_height_side_panel_; }
 
@@ -453,11 +463,6 @@ class BrowserView : public BrowserWindow,
   bool window_management_permission_granted_for_testing() const {
     return window_management_permission_granted_;
   }
-
-  // Update the side panel's horizontal alignment when
-  // prefs::kSidePanelHorizontalAlignment is changed from the appearance
-  // settings page.
-  void UpdateSidePanelHorizontalAlignment();
 
   void UpdateWebAppStatusIconsVisiblity();
 
@@ -805,6 +810,9 @@ class BrowserView : public BrowserWindow,
   views::View* GetSidePanelRoundedCornerForTesting() {
     return side_panel_rounded_corner_;
   }
+  BrowserViewLayout* GetBrowserViewLayoutForTesting() {
+    return GetBrowserViewLayout();
+  }
 
   // Returns all the NativeViewHosts attached to this BrowserView which should
   // be transformed as part of the TopControlsSlide behavior with touch scroll
@@ -885,6 +893,17 @@ class BrowserView : public BrowserWindow,
   FRIEND_TEST_ALL_PREFIXES(PermissionChipUnitTest, AccessibleName);
 
   class AccessibilityModeObserver;
+
+  // Modes that require reparenting of views. For example, tab strip and web app
+  // views must be reparented to top_container in certain modes. This state is
+  // track which combination of states the browser is in so we only reparent in
+  // the appropriate situations.
+  enum class TabStripAndWebAppViewsReparentedState {
+    kImmersiveMode = 0,
+    kMinValue = kImmersiveMode,
+    kTouchMode = 1,
+    kMaxValue = kTouchMode,
+  };
 
   // Sets or clears the flags to force showing bookmark bar.
   void SetForceShowBookmarkBarFlag(BookmarkBarController::ForceShowFlag flag);
@@ -1054,6 +1073,17 @@ private:
   // Reparents |top_container_| to |main_container_|.
   void ReparentTopContainerForEndOfImmersive();
 
+  // In certain situations, such as immersive mode and touch ui mode on
+  // ChromeOS, the tab strip and PWA views must be parented to the top container
+  // in order for layout and animations to work properly.
+  void ReparentTabStripAndWebAppViewsToTopContainer(
+      TabStripAndWebAppViewsReparentedState mode);
+
+  // Reparent the tab strip and PWA views back to browser_view at the same index
+  // in the tree as they was before leaving browser_view.
+  void ReparentTabStripAndWebAppViewsToBrowserView(
+      TabStripAndWebAppViewsReparentedState mode);
+
   // Ensures that the correct focus order is set for child views, regardless of
   // the actual child order.
   void EnsureFocusOrder();
@@ -1120,6 +1150,14 @@ private:
   // when it should not be able to.
   void UpdateFullscreenAllowedFromPolicy(bool allowed_without_policy);
 
+  // Called when the a viz frame that contains the first paint of this browser
+  // view is successfully painted onto the screen for the first time.
+  // `frame_timing_details` contains the paint timing information of the frame.
+  void OnFirstPresentation(const viz::FrameTimingDetails& frame_timing_details);
+
+  // TODO(crbug.com/461955649): Move ExclusiveAccessContextImpl out of
+  // BrowserView and make it shared so BrowserWindowFeatures can own it
+  // directly.
   class ExclusiveAccessContextImpl;
   std::unique_ptr<ExclusiveAccessContextImpl> exclusive_access_context_;
 
@@ -1137,39 +1175,36 @@ private:
   // |------------------------------------------------------------------------|
   // | Web App toolbar and title (web_app_frame_toolbar_)(no immersive)       |
   // |------------------------------------------------------------------------|
-  // | MainContainer (main_container_)                                        |
+  // | TopContainerView (top_container)                                       |
+  // |  -------------------------------------------------------------------|  |
+  // |  | Tabs (tab_strip_region_view)(immersive)                          |  |
+  // |  |------------------------------------------------------------------|  |
+  // |  | Web app toolbar and title (web_app_frame_toolbar_)(immersive)    |  |
+  // |  |------------------------------------------------------------------|  |
+  // |  | Navigation buttons, address bar, menu (toolbar_)                 |  |
+  // |  |------------------------------------------------------------------|  |
+  // |  | Bookmarks (bookmark_bar_view_)                                   |  |
+  // |  -------------------------------------------------------------------|  |
   // |------------------------------------------------------------------------|
-  // |  | TopContainerView (top_container)                                    |
-  // |  |  ----------------------------------------------------------------|  |
-  // |  |  | Tabs (tab_strip_region_view)(immersive)                       |  |
-  // |  |  |---------------------------------------------------------------|  |
-  // |  |  | Web app toolbar and title (web_app_frame_toolbar_)(immersive) |  |
-  // |  |  |---------------------------------------------------------------|  |
-  // |  |  | Navigation buttons, address bar, menu (toolbar_)              |  |
-  // |  |  |---------------------------------------------------------------|  |
-  // |  |  | Bookmarks (bookmark_bar_view_)                                |  |
-  // |  |  ----------------------------------------------------------------|  |
-  // |  |---------------------------------------------------------------------|
-  // |  | All infobars (infobar_container_)                                   |
-  // |  |---------------------------------------------------------------------|
-  // |  | Contents container (contents_container_)                            |
-  // |  |  -----------------------------------------------------------------  |
-  // |  |  |  contents_web_view_ (or multi_contents_view_ if defined       |  |
-  // |  |  -----------------------------------------------------------------  |
-  // |  |---------------------------------------------------------------------|
-  // |  | ContentHeightSidePanel (contents_height_side_panel_)                |
-  // |  |---------------------------------------------------------------------|
+  // | All infobars (infobar_container_)                                      |
   // |------------------------------------------------------------------------|
-  // | ToolbarHeightSidePanel ()                                              |
-  // --------------------------------------------------------------------------
+  // | Contents container (contents_container_)                               |
+  // |  --------------------------------------------------------------------  |
+  // |  |  contents_web_view_ or multi_contents_view_ if defined           |  |
+  // |  --------------------------------------------------------------------  |
+  // |------------------------------------------------------------------------|
+  // | ContentHeightSidePanel (contents_height_side_panel_)                   |
+  // |------------------------------------------------------------------------|
+  // | ToolbarHeightSidePanel (toolbar_height_side_panel_)                    |
+  // |------------------------------------------------------------------------|
 
   // The view that draws the background the main_container and
   // toolbar_height_side_panel are displayed on.
-  raw_ptr<views::View> main_region_ = nullptr;
+  raw_ptr<views::View> main_background_region_ = nullptr;
 
   // The view that contains the primary UI (Toolbar, BookmarksBar, InfoBar,
   // WebContents, and Side panel).
-  raw_ptr<views::View> main_container_ = nullptr;
+  raw_ptr<ShadowOverlayView> main_shadow_overlay_ = nullptr;
 
   // The view that manages the tab strip, toolbar, and sometimes the bookmark
   // bar. Stacked top in the view hiearachy so it can be used to slide out
@@ -1178,6 +1213,10 @@ private:
   // in immersive fullscreen mode. In all other cases, they live directly in
   // BrowserView.
   raw_ptr<TopContainerView> top_container_ = nullptr;
+  // The insertion index of the top container in the BrowserView view tree.
+  // This is used to correctly reparent the top container when exiting
+  // fullscreen mode. See BrowserView::ReparentTopContainerForEndOfImmersive.
+  std::optional<size_t> top_container_insertion_index_;
 
   // Menu button and page status icons. Only used by web-app windows.
   raw_ptr<WebAppFrameToolbarView> web_app_frame_toolbar_ = nullptr;
@@ -1193,7 +1232,7 @@ private:
   // The insertion index of the TabStripRegionView in the BrowserView view tree.
   // This is used to correctly reparent the tabstrip when exiting fullscreen
   // mode. See BrowserView::ReparentTopContainerForEndOfImmersive.
-  std::optional<size_t> tab_strip_region_insertion_index_ = std::nullopt;
+  std::optional<size_t> tab_strip_region_insertion_index_;
 
   // The webui based tabstrip, when applicable. see https://crbug.com/989131.
   raw_ptr<WebUITabStripContainerView> webui_tab_strip_ = nullptr;
@@ -1308,6 +1347,9 @@ private:
   // True if we have already been initialized.
   bool initialized_ = false;
 
+  // True if layout should be suppressed (used during teardown).
+  bool suppress_layout_for_teardown_ = false;
+
   // True if (as of the last time it was checked) the frame type is native.
   bool using_native_frame_ = true;
 
@@ -1407,9 +1449,14 @@ private:
 
   PrefChangeRegistrar registrar_;
 
-  ui::OmniboxPopupCloser omnibox_popup_closer_{this};
-
   base::CallbackListSubscription vertical_tab_subscription_;
+
+  // Bitmask of current combination of reparenting states, e.g. immersive and
+  // ChromeOS tablet modes.
+  base::EnumSet<TabStripAndWebAppViewsReparentedState,
+                TabStripAndWebAppViewsReparentedState::kMinValue,
+                TabStripAndWebAppViewsReparentedState::kMaxValue>
+      tab_strip_web_apps_reparented_state_;
 
   mutable base::WeakPtrFactory<BrowserView> weak_ptr_factory_{this};
 };

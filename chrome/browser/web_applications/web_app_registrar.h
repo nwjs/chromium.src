@@ -299,7 +299,6 @@ class WebAppRegistrar {
   const apps::FileHandlers* GetAppFileHandlers(
       const webapps::AppId& app_id) const;
   bool IsAppFileHandlerPermissionBlocked(const webapps::AppId& app_id) const;
-  bool IsIsolated(const webapps::AppId& app_id) const;
 
   // Returns approval state for File Handling API including
   // DefaultHandlersForFileExtensions policy check.
@@ -526,8 +525,11 @@ class WebAppRegistrar {
 
   // Returns information about apps that controls the input url, i.e. the app's
   // scope is a substring of the url passed to the API.
+  // TODO(https://crbug.com/463757344): Add a WebAppFilter param, and maybe
+  // rename to GetAllAppsWithUrlInScope.
   base::flat_map<webapps::AppId, std::string> GetAllAppsControllingUrl(
-      const GURL& url) const;
+      const GURL& url,
+      WebAppScopeScoreOptions scope_score_options = {}) const;
 
   bool IsDiyApp(const webapps::AppId& app_id) const;
 
@@ -699,6 +701,7 @@ class WebAppRegistrar {
   std::vector<webapps::AppId> GetAppIdsForAppSet(const AppSet& app_set) const;
 
  private:
+  bool IsIsolated(const webapps::AppId& app_id) const;
   // Returns if the given app_id is the most recently installed application of
   // the set of other apps with matching scopes, AND no other app has user link
   // capturing explicitly turned on. Note that this doesn't consider the link

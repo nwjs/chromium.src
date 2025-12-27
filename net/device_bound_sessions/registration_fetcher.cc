@@ -32,17 +32,8 @@ namespace net::device_bound_sessions {
 
 namespace {
 
-const char* GetSessionIdHeaderName() {
-  return net::features::kDeviceBoundSessionsOriginTrialFeedback.Get()
-             ? "Sec-Secure-Session-Id"
-             : "Sec-Session-Id";
-}
-
-const char* GetJwtSessionHeaderName() {
-  return net::features::kDeviceBoundSessionsOriginTrialFeedback.Get()
-             ? "Secure-Session-Response"
-             : "Sec-Session-Response";
-}
+constexpr char kSessionIdHeaderName[] = "Sec-Secure-Session-Id";
+constexpr char kJwtSessionHeaderName[] = "Secure-Session-Response";
 
 // New session registration doesn't block the user and can be done with a delay.
 constexpr unexportable_keys::BackgroundTaskPriority kTaskPriority =
@@ -80,7 +71,7 @@ void OnDataSigned(
 void SignChallengeWithKey(
     bool is_for_refresh,
     unexportable_keys::UnexportableKeyService& unexportable_key_service,
-    unexportable_keys::UnexportableKeyId& key_id,
+    unexportable_keys::UnexportableKeyId key_id,
     const GURL& registration_url,
     std::string_view challenge,
     std::optional<std::string> authorization,
@@ -101,12 +92,7 @@ void SignChallengeWithKey(
   }
 
   std::optional<std::string> header_and_payload;
-  if (!features::kDeviceBoundSessionsOriginTrialFeedback.Get()) {
-    header_and_payload = CreateLegacyKeyRegistrationHeaderAndPayload(
-        challenge, registration_url, expected_algorithm.value(),
-        expected_public_key.value(), base::Time::Now(),
-        std::move(authorization), std::move(session_identifier));
-  } else if (is_for_refresh) {
+  if (is_for_refresh) {
     header_and_payload =
         CreateKeyRefreshHeaderAndPayload(challenge, expected_algorithm.value());
   } else {
@@ -304,7 +290,7 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
     url_fetcher_ =
         std::make_unique<URLFetcher>(context_, well_known_url, net_log_source_);
     url_fetcher_->request().set_method("GET");
-    url_fetcher_->request().set_allow_credentials(false);
+    url_fetcher_->request().set_disallow_credentials();
     url_fetcher_->request().set_site_for_cookies(
         isolation_info_.site_for_cookies());
     url_fetcher_->request().set_initiator(original_request_initiator_);
@@ -354,7 +340,7 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
     url_fetcher_ =
         std::make_unique<URLFetcher>(context_, well_known_url, net_log_source_);
     url_fetcher_->request().set_method("GET");
-    url_fetcher_->request().set_allow_credentials(false);
+    url_fetcher_->request().set_disallow_credentials();
     url_fetcher_->request().set_site_for_cookies(
         isolation_info_.site_for_cookies());
     url_fetcher_->request().set_initiator(original_request_initiator_);
@@ -462,8 +448,7 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
             base::BindOnce(&RegistrationFetcherImpl::OnRegistrationTokenCreated,
                            GetWeakPtr(), *current_challenge_, *key_id_);
 
-    if (features::kDeviceBoundSessionsOriginTrialFeedback.Get() &&
-        base::FeatureList::IsEnabled(
+    if (base::FeatureList::IsEnabled(
             features::kDeviceBoundSessionSigningQuotaAndCaching)) {
       SchemefulSite site = SchemefulSite(fetcher_endpoint_);
       if (IsForRefreshRequest()) {
@@ -517,13 +502,12 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
                                                 net_log_source_);
     ConfigureRequest(url_fetcher_->request());
     url_fetcher_->request().SetExtraRequestHeaderByName(
-        GetJwtSessionHeaderName(), registration_token.value(),
+        kJwtSessionHeaderName, registration_token.value(),
         /*overwrite*/ true);
 
     // Cache the signed refresh challenge in case the same challenge is
     // attempted next time (e.g. if refresh transiently fails).
-    if (features::kDeviceBoundSessionsOriginTrialFeedback.Get() &&
-        base::FeatureList::IsEnabled(
+    if (base::FeatureList::IsEnabled(
             features::kDeviceBoundSessionSigningQuotaAndCaching) &&
         IsForRefreshRequest()) {
       SessionKey session_key{SchemefulSite(fetcher_endpoint_),
@@ -547,7 +531,6 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
     CHECK(IsSecure(fetcher_endpoint_));
     request.set_method("POST");
     request.SetLoadFlags(LOAD_DISABLE_CACHE);
-    request.set_allow_credentials(true);
 
     request.set_site_for_cookies(isolation_info_.site_for_cookies());
     request.set_initiator(original_request_initiator_);
@@ -555,46 +538,28 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
 
     if (IsForRefreshRequest()) {
       request.SetExtraRequestHeaderByName(
-          GetSessionIdHeaderName(), *session_identifier_, /*overwrite*/ true);
+          kSessionIdHeaderName, *session_identifier_, /*overwrite*/ true);
     }
   }
 
   void OnChallengeNeeded() {
-    if (features::kDeviceBoundSessionsOriginTrialFeedback.Get()) {
-      if (!session_identifier_.has_value()) {
-        RunCallback(RegistrationResult(
-            SessionError{SessionError::kRegistrationAttemptedChallenge}));
-        // `this` may be deleted.
-        return;
-      }
-      const Session* session = session_service_->GetSession(SessionKey{
-          SchemefulSite(fetcher_endpoint_), Session::Id(*session_identifier_)});
-      if (!session || !session->cached_challenge().has_value()) {
-        RunCallback(
-            RegistrationResult(SessionError{SessionError::kInvalidChallenge}));
-        // `this` may be deleted.
-        return;
-      }
-
-      StartFetch(*session->cached_challenge(), std::nullopt);
+    if (!session_identifier_.has_value()) {
+      RunCallback(RegistrationResult(
+          SessionError{SessionError::kRegistrationAttemptedChallenge}));
       // `this` may be deleted.
-    } else {
-      auto challenge_params =
-          device_bound_sessions::SessionChallengeParam::CreateIfValid(
-              fetcher_endpoint_, url_fetcher_->request().response_headers());
-      if (challenge_params.empty()) {
-        RunCallback(
-            RegistrationResult(SessionError{SessionError::kInvalidChallenge}));
-        // `this` may be deleted.
-        return;
-      }
-
-      // TODO(crbug.com/438783634): Log if there is more than one challenge
-      // TODO(crbug.com/438783634): Handle if session identifiers don't match
-      const std::string& challenge = challenge_params[0].challenge();
-      StartFetch(challenge, std::nullopt);
-      // `this` may be deleted.
+      return;
     }
+    const Session* session = session_service_->GetSession(SessionKey{
+        SchemefulSite(fetcher_endpoint_), Session::Id(*session_identifier_)});
+    if (!session || !session->cached_challenge().has_value()) {
+      RunCallback(
+          RegistrationResult(SessionError{SessionError::kInvalidChallenge}));
+      // `this` may be deleted.
+      return;
+    }
+
+    StartFetch(*session->cached_challenge(), std::nullopt);
+    // `this` may be deleted.
   }
 
   void OnRequestComplete() {
@@ -613,10 +578,7 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
       return;
     }
 
-    if ((features::kDeviceBoundSessionsOriginTrialFeedback.Get() &&
-         response_code == 403) ||
-        (!features::kDeviceBoundSessionsOriginTrialFeedback.Get() &&
-         response_code == 401)) {
+    if (response_code == 403) {
       OnChallengeNeeded();
       // `this` may be deleted.
       return;
@@ -645,11 +607,19 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
     }
 
     if (url_fetcher_->data_received().empty()) {
-      RunCallback(
-          RegistrationResult(RegistrationResult::NoSessionConfigChange(),
-                             url_fetcher_->maybe_stored_cookies()));
-      // `this` may be deleted.
-      return;
+      if (IsForRefreshRequest()) {
+        RunCallback(
+            RegistrationResult(RegistrationResult::NoSessionConfigChange(),
+                               url_fetcher_->maybe_stored_cookies()));
+        // `this` may be deleted.
+        return;
+      } else {
+        // No config changes is not allowed at registration.
+        RunCallback(RegistrationResult(
+            SessionError{SessionError::kEmptySessionConfig}));
+        // `this` may be deleted.
+        return;
+      }
     }
 
     base::expected<SessionParams, SessionError> params_or_error =
@@ -683,8 +653,7 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
 
     // The registration endpoint is required to be same-site with the
     // session. Therefore we don't need any FirstPartySetMetadata.
-    if (features::kDeviceBoundSessionsOriginTrialFeedback.Get() &&
-        !(*session_or_error)
+    if (!(*session_or_error)
              ->CanSetBoundCookie(url_fetcher_->request(),
                                  FirstPartySetMetadata())) {
       RunCallback(RegistrationResult{
@@ -698,7 +667,6 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
     // that this subdomain is allowed to register a session for the
     // whole site.
     if (features::kDeviceBoundSessionsCheckSubdomainRegistration.Get() &&
-        features::kDeviceBoundSessionsOriginTrialFeedback.Get() &&
         !IsForRefreshRequest() && params_or_error->scope.include_site &&
         // Skip all validations if the fetcher endpoint is not a subdomain but
         // rather the top-level site (which matches the origin when including
@@ -712,7 +680,7 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
       url_fetcher_ = std::make_unique<URLFetcher>(context_, well_known_url,
                                                   net_log_source_);
       url_fetcher_->request().set_method("GET");
-      url_fetcher_->request().set_allow_credentials(false);
+      url_fetcher_->request().set_disallow_credentials();
       url_fetcher_->request().set_site_for_cookies(
           isolation_info_.site_for_cookies());
       url_fetcher_->request().set_initiator(original_request_initiator_);
@@ -790,14 +758,16 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
                               : NetLogEventType::DBSC_REGISTRATION_RESULT;
     url_fetcher_->request().net_log().AddEvent(result_event_type, [&]() {
       std::string result;
-      if (registration_result.is_session()) {
+      if (registration_result.is_session() ||
+          registration_result.is_no_session_config_change()) {
         result = IsForRefreshRequest() ? "refreshed" : "registered";
       } else {
         const SessionError& error = registration_result.error();
-        if (error.GetDeletionReason().has_value()) {
-          result = "session_ended";
+        if (IsForRefreshRequest()) {
+          result = error.GetDeletionReason().has_value() ? "session_ended"
+                                                         : "failed_continue";
         } else {
-          result = "failed_continue";
+          result = "registration_failed";
         }
       }
 

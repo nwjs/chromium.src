@@ -18,6 +18,7 @@
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_task_delegate.h"
 #include "chrome/browser/actor/aggregated_journal.h"
+#include "chrome/browser/page_content_annotations/multi_source_page_context_fetcher.h"
 #include "chrome/browser/profiles/profile_observer.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/actor/task_id.h"
@@ -32,10 +33,6 @@ class Profile;
 namespace content {
 class BrowserContext;
 }  // namespace content
-
-namespace page_content_annotations {
-struct FetchPageContextResult;
-}  // namespace page_content_annotations
 
 namespace actor {
 namespace ui {
@@ -57,6 +54,8 @@ class ActorKeyedService : public KeyedService,
   ActorKeyedService& operator=(const ActorKeyedService&) = delete;
   ~ActorKeyedService() override;
 
+  void Shutdown() override;
+
   // Convenience method, may return nullptr.
   static ActorKeyedService* Get(content::BrowserContext* context);
 
@@ -69,14 +68,11 @@ class ActorKeyedService : public KeyedService,
   TaskId AddActiveTask(std::unique_ptr<ActorTask> task);
 
   const std::map<TaskId, const ActorTask*> GetActiveTasks() const;
-  const std::map<TaskId, const ActorTask*> GetInactiveTasks() const;
 
   std::vector<TaskId> FindTaskIdsInActive(
       base::FunctionRef<bool(const ActorTask&)> predicate) const;
-  std::vector<TaskId> FindTaskIdsInInactive(
-      base::FunctionRef<bool(const ActorTask&)> predicate) const;
 
-  // Stop and clear all active and inactive tasks for testing only.
+  // Stop and clear all active tasks for testing only.
   void ResetForTesting();
 
   // Starts a new task with an execution engine and returns the new task's id.
@@ -123,22 +119,27 @@ class ActorKeyedService : public KeyedService,
 
   Profile* GetProfile();
 
-  using TabObservationResult = base::expected<
-      std::unique_ptr<page_content_annotations::FetchPageContextResult>,
-      std::string>;
-
+  using TabObservationResult =
+      page_content_annotations::FetchPageContextResultCallbackArg;
   // Request a TabObservation be generated from the given tab.
   void RequestTabObservation(
       tabs::TabInterface& tab,
       TaskId task_id,
       base::OnceCallback<void(TabObservationResult)> callback);
 
+  // A TabObservationResult may return the successful side of the base::expected
+  // but the partial errors in the FetchPageContextResult may be considered a
+  // failing result for actor. Returns a failing string in any case the result
+  // isn't usable for actor. Returns nullopt if the result is fully successful.
+  static std::optional<std::string> ExtractErrorMessageIfFailed(
+      const TabObservationResult& result);
+
   using TaskStateChangedCallback =
-      base::RepeatingCallback<void(const ActorTask&)>;
+      base::RepeatingCallback<void(TaskId, ActorTask::State)>;
   base::CallbackListSubscription AddTaskStateChangedCallback(
       TaskStateChangedCallback callback);
 
-  void NotifyTaskStateChanged(const ActorTask& task);
+  void NotifyTaskStateChanged(TaskId task_id, ActorTask::State state);
   void OnActOnWebCapabilityChanged(bool can_act_on_web);
 
   using ActOnWebCapabilityChangedCallback = base::RepeatingCallback<void(bool)>;
@@ -175,8 +176,8 @@ class ActorKeyedService : public KeyedService,
       std::optional<size_t> index_of_failed_action,
       std::vector<ActionResultWithLatencyInfo> action_results);
 
-  // Fails all the active tasks.
-  void FailAllTasks();
+  // Stops all the active tasks.
+  void StopAllTasks(ActorTask::StoppedReason stop_reason);
 
   // The jounrnal should be last in destruction order since other things like
   // ActorTask might be using a SafeRef to this object.
@@ -192,14 +193,12 @@ class ActorKeyedService : public KeyedService,
   std::unique_ptr<ui::ActorUiStateManagerInterface> actor_ui_state_manager_;
 
   std::map<TaskId, std::unique_ptr<ActorTask>> active_tasks_;
-  // Stores completed tasks. May want to add cancelled tasks in the future.
-  std::map<TaskId, std::unique_ptr<ActorTask>> inactive_tasks_;
 
   TaskId::Generator next_task_id_;
 
   std::unique_ptr<ActorPolicyChecker> policy_checker_;
 
-  base::RepeatingCallbackList<void(const ActorTask&)>
+  base::RepeatingCallbackList<void(TaskId, ActorTask::State)>
       tab_state_change_callback_list_;
 
   base::RepeatingCallbackList<ActOnWebCapabilityChangedCallback::RunType>

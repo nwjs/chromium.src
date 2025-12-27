@@ -6,7 +6,10 @@
 #define CHROME_BROWSER_UI_TABS_GLIC_ACTOR_TASK_ICON_MANAGER_H_
 
 #include <string>
+#include <string_view>
 
+#include "chrome/browser/actor/actor_task.h"
+#include "chrome/browser/actor/ui/states/actor_task_nudge_state.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/common/actor/task_id.h"
@@ -40,24 +43,6 @@ struct ActorTaskIconState {
   }
 };
 
-struct ActorTaskNudgeState {
-  enum class Text {
-    // Default/no text.
-    kDefault,
-    // `Needs attention` text.
-    kNeedsAttention,
-    // `Multiple tasks need attention` text.
-    kMultipleTasksNeedAttention,
-    // `Complete Tasks` text.
-    kCompleteTasks,
-  };
-  Text text = Text::kDefault;
-
-  bool operator==(const ActorTaskNudgeState& other) const {
-    return text == other.text;
-  }
-};
-
 struct ActorTaskListBubbleRowState {
   actor::TaskId task_id;
   std::string title;
@@ -78,7 +63,9 @@ class GlicActorTaskIconManager : public KeyedService {
   void OnActorTaskStateUpdate(actor::TaskId task_id);
 
   // Called whenever an actor task is completed.
-  void OnActorTaskCompleted(actor::TaskId task_id, bool success);
+  void OnActorTaskStopped(actor::TaskId task_id,
+                          actor::ActorTask::State final_state,
+                          std::string task_title);
 
   // TODO(crbug.com/431015299): Clean up after redesign is launched.
   // Determines the state the task icon should be in.
@@ -100,8 +87,8 @@ class GlicActorTaskIconManager : public KeyedService {
       TaskIconStateChangeCallback callback);
 
   // Register for this callback to get task nudge state change notifications.
-  using TaskNudgeChangeCallback =
-      base::RepeatingCallback<void(ActorTaskNudgeState actor_task_nudge_state)>;
+  using TaskNudgeChangeCallback = base::RepeatingCallback<void(
+      actor::ui::ActorTaskNudgeState actor_task_nudge_state)>;
   base::CallbackListSubscription RegisterTaskNudgeStateChange(
       TaskNudgeChangeCallback callback);
 
@@ -113,12 +100,12 @@ class GlicActorTaskIconManager : public KeyedService {
       TaskListBubbleChangeCallback callback);
 
   ActorTaskIconState GetCurrentActorTaskIconState() const;
-  ActorTaskNudgeState GetCurrentActorTaskNudgeState() const;
+  actor::ui::ActorTaskNudgeState GetCurrentActorTaskNudgeState() const;
 
   raw_ptr<tabs::TabInterface> GetLastUpdatedTab();
   raw_ptr<tabs::TabInterface> GetLastUpdatedTabForTaskId(actor::TaskId task_id);
 
-  void ClearCompletedTasks();
+  void ClearStoppedTasks();
 
   std::map<actor::TaskId, ActorTaskListBubbleRowState>
   GetActorTaskListBubbleRows() const {
@@ -147,7 +134,7 @@ class GlicActorTaskIconManager : public KeyedService {
   TaskIconStateChangeCallbackList task_icon_state_change_callback_list_;
 
   using TaskNudgeChangeCallbackList = base::RepeatingCallbackList<void(
-      ActorTaskNudgeState actor_task_nudge_text)>;
+      actor::ui::ActorTaskNudgeState actor_task_nudge_text)>;
   TaskNudgeChangeCallbackList task_nudge_state_change_callback_list_;
 
   using TaskListBubbleChangeCallbackList =
@@ -155,7 +142,7 @@ class GlicActorTaskIconManager : public KeyedService {
   TaskListBubbleChangeCallbackList task_list_bubble_change_callback_list_;
 
   ActorTaskIconState current_actor_task_icon_state_;
-  ActorTaskNudgeState current_actor_task_nudge_state_;
+  actor::ui::ActorTaskNudgeState current_actor_task_nudge_state_;
 
   raw_ptr<Profile> profile_;
   raw_ptr<actor::ActorKeyedService> actor_service_;
@@ -164,8 +151,12 @@ class GlicActorTaskIconManager : public KeyedService {
   // TODO(mjenn): Update implementation for multi-tab actuation.
   actor::TaskId current_task_id_;
 
-  // Whether there is an unprocessed completed task.
+  // TODO(b/440770955): Replace complete task lists (complete + fail) with a
+  // snapshot (task title, state and tab handle) of the completed or failed
+  // tasks for the pop-over.
   bool has_unprocessed_completed_tasks_ = false;
+  // Whether there is an unprocessed failed task.
+  bool has_unprocessed_failed_tasks_ = false;
 
   // Map of tasks needing notifications.
   std::map<actor::TaskId, ActorTaskListBubbleRowState>

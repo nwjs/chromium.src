@@ -78,7 +78,7 @@ class MockNetworkManager : public webrtc::NetworkManagerBase {
   // StartUpdating() will trigger another one.
   void StartUpdating() override {
     if (sent_first_update_)
-      SignalNetworksChanged();
+      NotifyNetworksChanged();
   }
   void StopUpdating() override {}
 
@@ -88,15 +88,15 @@ class MockNetworkManager : public webrtc::NetworkManagerBase {
 
   void SendNetworksChanged() {
     sent_first_update_ = true;
-    SignalNetworksChanged();
+    NotifyNetworksChanged();
   }
 
   webrtc::MdnsResponderInterface* GetMdnsResponder() const override {
     return mdns_responder_.get();
   }
 
-  void CopyAndSetNetwork(const webrtc::Network& network) {
-    network_ = std::make_unique<webrtc::Network>(network);
+  void CopyAndSetNetwork(const webrtc::Network* network) {
+    network_ = network->Clone();
     network_->AddIP(network_->GetBestIP());
   }
 
@@ -165,21 +165,20 @@ class MockMediaPermission : public media::MediaPermission {
 
 namespace blink {
 
-class FilteringNetworkManagerTest : public testing::Test,
-                                    public sigslot::has_slots<> {
+class FilteringNetworkManagerTest : public testing::Test {
  public:
   FilteringNetworkManagerTest()
       : media_permission_(new MockMediaPermission()),
         task_runner_(new base::TestSimpleTaskRunner()),
         task_runner_current_default_handle_(task_runner_) {
-    networks_.emplace_back("test_eth0", "Test Network Adapter 1",
-                           webrtc::IPAddress(0x12345600U), 24,
-                           webrtc::ADAPTER_TYPE_ETHERNET),
-        networks_.back().AddIP(webrtc::IPAddress(0x12345678));
-    networks_.emplace_back("test_eth1", "Test Network Adapter 2",
-                           webrtc::IPAddress(0x87654300U), 24,
-                           webrtc::ADAPTER_TYPE_ETHERNET),
-        networks_.back().AddIP(webrtc::IPAddress(0x87654321));
+    networks_.push_back(std::make_unique<webrtc::Network>(
+        "test_eth0", "Test Network Adapter 1", webrtc::IPAddress(0x12345600U),
+        24, webrtc::ADAPTER_TYPE_ETHERNET));
+    networks_.back()->AddIP(webrtc::IPAddress(0x12345678));
+    networks_.push_back(std::make_unique<webrtc::Network>(
+        "test_eth1", "Test Network Adapter 2", webrtc::IPAddress(0x87654300U),
+        24, webrtc::ADAPTER_TYPE_ETHERNET));
+    networks_.back()->AddIP(webrtc::IPAddress(0x87654321));
   }
 
   void SetupNetworkManager(bool multiple_routes_requested) {
@@ -194,8 +193,7 @@ class FilteringNetworkManagerTest : public testing::Test,
       network_manager_.reset(new EmptyNetworkManager(
           base_network_manager_.get(), base_network_manager_->AsWeakPtr()));
     }
-    network_manager_->SignalNetworksChanged.connect(
-        this, &FilteringNetworkManagerTest::OnNetworksChanged);
+    network_manager_->SubscribeNetworksChanged([this] { OnNetworksChanged(); });
   }
 
   void RunTests(base::span<TestEntry> tests) {
@@ -206,7 +204,8 @@ class FilteringNetworkManagerTest : public testing::Test,
   }
 
   void SetNewNetworkForBaseNetworkManager() {
-    base_network_manager_->CopyAndSetNetwork(networks_[next_new_network_id_]);
+    base_network_manager_->CopyAndSetNetwork(
+        networks_[next_new_network_id_].get());
     next_new_network_id_ = (next_new_network_id_ + 1) % networks_.size();
   }
 
@@ -267,7 +266,7 @@ class FilteringNetworkManagerTest : public testing::Test,
   std::unique_ptr<MockMediaPermission> media_permission_;
   bool allow_mdns_obfuscation_ = true;
 
-  std::vector<webrtc::Network> networks_;
+  std::vector<std::unique_ptr<webrtc::Network>> networks_;
   int next_new_network_id_ = 0;
 
   // This field is not vector<raw_ptr<...>> due to interaction with third_party

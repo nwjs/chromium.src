@@ -9,6 +9,7 @@
 #include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/skia/include/core/SkRegion.h"
 
 namespace glic {
 
@@ -44,8 +45,17 @@ class MockGlicWindowController
   MOCK_METHOD(void, MaybeSetWidgetCanResize, (), (override));
   MOCK_METHOD(gfx::Size, GetPanelSize, (), (override));
   MOCK_METHOD(void, SetDraggableAreas, (const std::vector<gfx::Rect>&), ());
+  MOCK_METHOD(void, SetDraggableRegion, (const SkRegion&), ());
   MOCK_METHOD(void, SetMinimumWidgetSize, (const gfx::Size&), ());
   MOCK_METHOD(void, Close, (), (override));
+  MOCK_METHOD(void,
+              CloseInstanceWithFrame,
+              (content::RenderFrameHost * render_frame_host),
+              (override));
+  MOCK_METHOD(void,
+              CloseAndShutdownInstanceWithFrame,
+              (content::RenderFrameHost * render_frame_host),
+              (override));
   MOCK_METHOD(mojom::PanelState, GetPanelState, (), (override));
   MOCK_METHOD(void, AddStateObserver, (StateObserver*), (override));
   MOCK_METHOD(void, RemoveStateObserver, (StateObserver*), (override));
@@ -94,6 +104,11 @@ class MockGlicWindowController
   MOCK_METHOD(void, SidePanelShown, (BrowserWindowInterface*), (override));
   MOCK_METHOD(Host&, host, (), (override));
   MOCK_METHOD(const InstanceId&, id, (), (const, override));
+  MOCK_METHOD(std::optional<std::string>,
+              conversation_id,
+              (),
+              (const, override));
+  MOCK_METHOD(base::TimeTicks, GetLastActiveTime, (), (const, override));
   MOCK_METHOD(void, AddGlobalStateObserver, (PanelStateObserver*), (override));
   MOCK_METHOD(void,
               RemoveGlobalStateObserver,

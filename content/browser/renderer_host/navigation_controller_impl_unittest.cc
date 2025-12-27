@@ -14,7 +14,6 @@
 #include <utility>
 
 #include "base/compiler_specific.h"
-#include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/strings/string_util.h"
@@ -34,6 +33,7 @@
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/content_navigation_policy.h"
 #include "content/common/frame.mojom.h"
+#include "content/public/browser/navigation_details.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -161,11 +161,6 @@ class MockPageBroadcast : public blink::mojom::PageBroadcast {
   MOCK_METHOD(void,
               SetPageAttributionSupport,
               (network::mojom::AttributionSupport support),
-              (override));
-
-  MOCK_METHOD(void,
-              UpdateCanvasNoiseToken,
-              (std::optional<blink::NoiseToken> canvas_noise_token),
               (override));
 
   MOCK_METHOD(void,

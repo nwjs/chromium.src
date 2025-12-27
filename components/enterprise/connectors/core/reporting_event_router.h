@@ -187,19 +187,22 @@ class ReportingEventRouter : public KeyedService {
       const enterprise_connectors::ContentMetaData::CopiedTextSource& source);
 
   // Helper functions to simplify calling `OnDataControlsSensitiveDataEvent`.
-  void ReportCopy(const data_controls::ClipboardContext& context,
-                  const data_controls::Verdict& verdict);
-  void ReportCopyWarningBypassed(const data_controls::ClipboardContext& context,
-                                 const data_controls::Verdict& verdict);
-  void ReportPaste(const data_controls::ClipboardContext& context,
-                   const data_controls::Verdict& verdict);
-  void ReportPasteWarningBypassed(
+  virtual void ReportCopy(const data_controls::ClipboardContext& context,
+                          const data_controls::Verdict& verdict);
+  virtual void ReportCopyWarningBypassed(
+      const data_controls::ClipboardContext& context,
+      const data_controls::Verdict& verdict);
+  virtual void ReportPaste(const data_controls::ClipboardContext& context,
+                           const data_controls::Verdict& verdict);
+  virtual void ReportPasteWarningBypassed(
       const data_controls::ClipboardContext& context,
       const data_controls::Verdict& verdict);
 #endif  // BUILDFLAG(ENTERPRISE_DATA_CONTROLS)
 
  private:
   FRIEND_TEST_ALL_PREFIXES(ReportingEventRouterTest,
+                           TestOnDataControlsSensitiveDataEvent);
+  FRIEND_TEST_ALL_PREFIXES(IOSReportingEventRouterTest,
                            TestOnDataControlsSensitiveDataEvent);
 
 #if BUILDFLAG(ENTERPRISE_DATA_CONTROLS)

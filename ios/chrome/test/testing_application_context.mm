@@ -11,6 +11,7 @@
 #import "base/time/default_clock.h"
 #import "base/time/default_tick_clock.h"
 #import "components/application_locale_storage/application_locale_storage.h"
+#import "components/metrics_services_manager/metrics_services_manager.h"
 #import "components/network_time/network_time_tracker.h"
 #import "components/os_crypt/async/browser/test_utils.h"
 #import "components/variations/service/variations_service.h"
@@ -22,6 +23,7 @@
 #import "ios/chrome/browser/promos_manager/model/features.h"
 #import "ios/chrome/browser/promos_manager/model/mock_promos_manager.h"
 #import "ios/chrome/browser/signin/model/account_profile_mapper.h"
+#import "ios/chrome/browser/signin/model/avatar_provider.h"
 #import "ios/components/security_interstitials/safe_browsing/fake_safe_browsing_service.h"
 #import "ios/public/provider/chrome/browser/additional_features/additional_features_api.h"
 #import "ios/public/provider/chrome/browser/push_notification/push_notification_api.h"
@@ -40,6 +42,7 @@ TestingApplicationContext::TestingApplicationContext()
       test_network_connection_tracker_(
           network::TestNetworkConnectionTracker::CreateInstance()),
       variations_service_(nullptr),
+      metrics_services_manager_(nullptr),
       application_locale_storage_(
           std::make_unique<ApplicationLocaleStorage>()) {
   DCHECK(!GetApplicationContext());
@@ -96,6 +99,12 @@ void TestingApplicationContext::SetVariationsService(
     variations::VariationsService* variations_service) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   variations_service_ = variations_service;
+}
+
+void TestingApplicationContext::SetMetricsServicesManager(
+    metrics_services_manager::MetricsServicesManager* manager) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  metrics_services_manager_ = manager;
 }
 
 void TestingApplicationContext::SetSystemIdentityManager(
@@ -183,7 +192,7 @@ ProfileManagerIOS* TestingApplicationContext::GetProfileManager() {
 metrics_services_manager::MetricsServicesManager*
 TestingApplicationContext::GetMetricsServicesManager() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return nullptr;
+  return metrics_services_manager_;
 }
 
 metrics::MetricsService* TestingApplicationContext::GetMetricsService() {
@@ -282,6 +291,14 @@ id<SingleSignOnService> TestingApplicationContext::GetSingleSignOnService() {
     DCHECK(single_sign_on_service_);
   }
   return single_sign_on_service_;
+}
+
+signin::AvatarProvider* TestingApplicationContext::GetIdentityAvatarProvider() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!resized_avatar_caches_) {
+    resized_avatar_caches_ = std::make_unique<signin::AvatarProvider>();
+  }
+  return resized_avatar_caches_.get();
 }
 
 SystemIdentityManager* TestingApplicationContext::GetSystemIdentityManager() {

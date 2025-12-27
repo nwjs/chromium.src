@@ -7,10 +7,13 @@
 
 #include <string_view>
 
+#include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
+#include "chrome/browser/actor/ui/actor_ui_window_controller.h"
 #include "chrome/browser/actor/ui/states/handoff_button_state.h"
 #include "ui/base/interaction/element_identifier.h"
+#include "ui/views/view_observer.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
 
@@ -22,7 +25,6 @@ class WidgetDelegate;
 
 namespace tabs {
 class TabInterface;
-class TabDialogManager;
 }  // namespace tabs
 
 namespace ui {
@@ -52,27 +54,40 @@ class HandoffButtonWidget : public views::Widget {
   HoverCallback hover_callback_;
 };
 
-class HandoffButtonController {
+class HandoffButtonController : public views::ViewObserver {
  public:
-  explicit HandoffButtonController(tabs::TabInterface& tab_interface);
-  virtual ~HandoffButtonController();
+  explicit HandoffButtonController(views::View* anchor_view,
+                                   ActorUiWindowController* window_controller);
+  ~HandoffButtonController() override;
 
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kHandoffButtonElementId);
 
   HandoffButtonController(const HandoffButtonController&) = delete;
   HandoffButtonController& operator=(const HandoffButtonController&) = delete;
 
-  virtual void UpdateState(const HandoffButtonState& state,
+  virtual void UpdateState(HandoffButtonState state,
                            bool is_visible,
                            base::OnceClosure callback);
   // Returns true if the mouse is currently hovering over the handoff button.
   virtual bool IsHovering();
+  // Returns true if the Handoff Button View is focused.
+  virtual bool IsFocused();
+
+  base::WeakPtr<HandoffButtonController> GetWeakPtr();
+
+  // Registers the current tab interface.
+  [[nodiscard]] base::ScopedClosureRunner RegisterTabInterface(
+      tabs::TabInterface* tab_interface);
 
  protected:
+  void UnregisterTabInterface();
   void OnButtonPressed();
-  void ShouldShowButton(bool& show);
-  gfx::Rect GetHandoffButtonBounds(views::Widget* widget);
+  gfx::Rect GetHandoffButtonBounds();
   void UpdateButtonHoverStatus(bool is_hovered);
+  void UpdateButtonFocusStatus(bool is_focused);
+  // views::ViewObserver:
+  void OnViewFocused(views::View* observed_view) override;
+  void OnViewBlurred(views::View* observed_view) override;
 
   std::unique_ptr<views::WidgetDelegate> delegate_ = nullptr;
   std::unique_ptr<HandoffButtonWidget> widget_ = nullptr;
@@ -80,20 +95,28 @@ class HandoffButtonController {
 
  private:
   void CreateAndShowButton(const std::u16string& text,
+                           const std::u16string& a11y_text,
                            const ::ui::ImageModel& icon);
   virtual void CloseButton(views::Widget::ClosedReason reason);
   virtual ActorUiTabControllerInterface* GetTabController();
   virtual void UpdateBounds();
-  virtual void UpdateVisibility();
-  void OnWidgetDestroying(views::Widget::ClosedReason reason);
 
-  tabs::TabDialogManager* GetTabDialogManager();
+  void OnWidgetDestroying(views::Widget::ClosedReason reason);
 
   bool is_visible_ = false;
   bool is_hovering_ = false;
+  bool is_focused_ = false;
+  bool was_immersive_ = false;
+  bool was_toolbar_pinned_ = false;
+
+  base::ScopedObservation<views::View, views::ViewObserver> view_observer_{
+      this};
   HandoffButtonState::ControlOwnership ownership_ =
       HandoffButtonState::ControlOwnership::kActor;
-  const raw_ref<tabs::TabInterface> tab_interface_;
+
+  raw_ptr<views::View> anchor_view_ = nullptr;
+  raw_ptr<ActorUiWindowController> window_controller_ = nullptr;
+  raw_ptr<tabs::TabInterface> tab_interface_ = nullptr;
 
   base::WeakPtrFactory<HandoffButtonController> weak_ptr_factory_{this};
 };

@@ -195,10 +195,8 @@ void ParseVpxKeyFrame(const media::DecoderBuffer& buffer,
 
 void ParseH264KeyFrame(const media::DecoderBuffer& buffer, bool* is_key_frame) {
 #if BUILDFLAG(USE_PROPRIETARY_CODECS)
-  auto buffer_span = base::span(buffer);
-  auto result =
-      media::mp4::AVC::AnalyzeAnnexB(buffer_span.data(), buffer_span.size(),
-                                     std::vector<media::SubsampleEntry>());
+  auto result = media::mp4::AVC::AnalyzeAnnexB(
+      buffer, std::vector<media::SubsampleEntry>());
   *is_key_frame = result.is_keyframe.value_or(false);
 #endif
 }
@@ -206,10 +204,8 @@ void ParseH264KeyFrame(const media::DecoderBuffer& buffer, bool* is_key_frame) {
 void ParseH265KeyFrame(const media::DecoderBuffer& buffer, bool* is_key_frame) {
 #if BUILDFLAG(USE_PROPRIETARY_CODECS)
 #if BUILDFLAG(ENABLE_PLATFORM_HEVC)
-  auto buffer_span = base::span(buffer);
-  auto result =
-      media::mp4::HEVC::AnalyzeAnnexB(buffer_span.data(), buffer_span.size(),
-                                      std::vector<media::SubsampleEntry>());
+  auto result = media::mp4::HEVC::AnalyzeAnnexB(
+      buffer, std::vector<media::SubsampleEntry>());
   *is_key_frame = result.is_keyframe.value_or(false);
 #endif  // BUILDFLAG(ENABLE_PLATFORM_HEVC)
 #endif  // BUILDFLAG(USE_PROPRIETARY_CODECS)
@@ -339,7 +335,15 @@ ScriptPromise<VideoDecoderSupport> VideoDecoder::isConfigSupported(
 
 HardwarePreference VideoDecoder::GetHardwarePreference(
     const ConfigType& config) {
-  return GetHardwareAccelerationPreference(config);
+  auto config_pref = GetHardwareAccelerationPreference(config);
+  if (decoder_specific_data_.decoder_helper &&
+      decoder_specific_data_.decoder_helper->RequiresSoftwareDecoder()) {
+    // This should have already been verified by isConfigSupported().
+    DCHECK(config_pref == HardwarePreference::kNoPreference ||
+           config_pref == HardwarePreference::kPreferSoftware);
+    return HardwarePreference::kPreferSoftware;
+  }
+  return config_pref;
 }
 
 bool VideoDecoder::GetLowDelayPreference(const ConfigType& config) {
@@ -498,6 +502,15 @@ VideoDecoder::MakeMediaVideoDecoderConfigInternal(
             /*callback_private_data=*/nullptr);
   }
 
+  if (decoder_specific_data.decoder_helper &&
+      decoder_specific_data.decoder_helper->RequiresSoftwareDecoder() &&
+      GetHardwareAccelerationPreference(config) ==
+          HardwarePreference::kPreferHardware) {
+    *js_error_message =
+        "This configuration is only supported by the software decoder.";
+    return std::nullopt;
+  }
+
   // Guess 720p if no coded size hint is provided. This choice should result in
   // a preference for hardware decode.
   gfx::Size coded_size = gfx::Size(1280, 720);
@@ -613,8 +626,14 @@ VideoDecoder::MakeInput(const InputType& chunk, bool verify_key_frame) {
     decoder_buffer->set_duration(chunk.buffer()->duration());
   }
 
-  bool is_key_frame = chunk.type() == V8EncodedVideoChunkType::Enum::kKey;
   if (verify_key_frame) {
+    if (chunk.type() != V8EncodedVideoChunkType::Enum::kKey) {
+      return media::DecoderStatus(
+          media::DecoderStatus::Codes::kKeyFrameRequired,
+          "A key frame is required after configure() or flush().");
+    }
+
+    bool is_key_frame = true;
     if (pending_codec_ == media::VideoCodec::kVP9 ||
         pending_codec_ == media::VideoCodec::kVP8) {
       ParseVpxKeyFrame(*decoder_buffer, pending_codec_, &is_key_frame);
@@ -657,7 +676,8 @@ VideoDecoder::MakeInput(const InputType& chunk, bool verify_key_frame) {
     if (!is_key_frame) {
       return media::DecoderStatus(
           media::DecoderStatus::Codes::kKeyFrameRequired,
-          "A key frame is required after configure() or flush().");
+          "An EncodedVideoChunk was marked as type `key` but wasn't a key frame"
+          ". A key frame is required after configure() or flush().");
     }
   }
 

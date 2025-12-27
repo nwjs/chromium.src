@@ -45,6 +45,7 @@ import android.view.ContextThemeWrapper;
 import android.view.WindowManager;
 
 import androidx.annotation.Nullable;
+import androidx.browser.auth.AuthTabIntent;
 import androidx.browser.customtabs.CustomContentAction;
 import androidx.browser.customtabs.CustomTabColorSchemeParams;
 import androidx.browser.customtabs.CustomTabsIntent;
@@ -82,6 +83,7 @@ import org.chromium.chrome.browser.browserservices.intents.CustomButtonParams;
 import org.chromium.chrome.browser.browserservices.intents.CustomButtonParams.ButtonType;
 import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider.BackgroundInteractBehavior;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
+import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ui.google_bottom_bar.proto.IntentParams.GoogleBottomBarIntentParams;
 import org.chromium.chrome.browser.ui.google_bottom_bar.proto.IntentParams.GoogleBottomBarIntentParams.VariantLayoutType;
@@ -101,11 +103,13 @@ import java.util.List;
 public class CustomTabIntentDataProviderTest {
 
     private static final String BUTTON_DESCRIPTION = "buttonDescription";
+    private static final String PACKAGE = "com.example.package.app";
 
     private Context mContext;
 
     @Before
     public void setUp() {
+        FirstRunStatus.setFirstRunFlowComplete(true);
         mContext =
                 new ContextThemeWrapper(
                         ApplicationProvider.getApplicationContext(),
@@ -1923,6 +1927,34 @@ public class CustomTabIntentDataProviderTest {
     }
 
     @Test
+    public void uiTypePopup_hasNoToolbarButtons_incognitoCct() {
+        final Intent intent =
+                new Intent()
+                        .putExtra(
+                                CustomTabsIntent.EXTRA_SHARE_STATE, CustomTabsIntent.SHARE_STATE_ON)
+                        .putExtra(CustomTabsIntent.EXTRA_CLOSE_BUTTON_ENABLED, true)
+                        .putExtra(
+                                CustomTabIntentDataProvider.EXTRA_UI_TYPE, CustomTabsUiType.POPUP);
+        IntentUtils.setForceIsTrustedIntentForTesting(true);
+
+        final IncognitoCustomTabIntentDataProvider dataProvider =
+                new IncognitoCustomTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
+
+        // If there are no custom buttons defined, then the share button is added to the set of
+        // custom toolbar buttons. Otherwise it gets punted to menu.
+        // The open in browser button can be presented only by being added to the set of custom
+        // toolbar buttons.
+        assertEquals(
+                "There should be no buttons on toolbar",
+                0,
+                dataProvider.getCustomButtonsOnToolbar().size());
+
+        assertFalse("The close button should be disabled", dataProvider.isCloseButtonEnabled());
+
+        IntentUtils.setForceIsTrustedIntentForTesting(false);
+    }
+
+    @Test
     @Config(sdk = Build.VERSION_CODES.VANILLA_ICE_CREAM)
     @EnableFeatures(ChromeFeatureList.ANDROID_WEB_APP_MENU_BUTTON)
     public void uiTypeTwa_withExperimentFlag_returnsWebAppMenu() {
@@ -2404,6 +2436,29 @@ public class CustomTabIntentDataProviderTest {
     }
 
     @Test
+    public void uiTypePopup_returnsRequestedWindowFeatures_incognitoCct() {
+        final WindowFeatures windowFeatures = new WindowFeatures(12, 34, 56, null);
+        final Intent intent =
+                new Intent()
+                        .putExtra(
+                                PopupCreator.EXTRA_REQUESTED_WINDOW_FEATURES,
+                                windowFeatures.toBundle())
+                        .putExtra(
+                                CustomTabIntentDataProvider.EXTRA_UI_TYPE, CustomTabsUiType.POPUP);
+        IntentUtils.setForceIsTrustedIntentForTesting(true);
+
+        final IncognitoCustomTabIntentDataProvider dataProvider =
+                new IncognitoCustomTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
+
+        assertEquals(
+                "The data provider has not returned the window features specified in the intent",
+                windowFeatures,
+                dataProvider.getRequestedWindowFeatures());
+
+        IntentUtils.setForceIsTrustedIntentForTesting(false);
+    }
+
+    @Test
     public void uiTypePopup_returnsEmptyWindowFeaturesWhenNotSpecifiedInIntent() {
         Intent intent =
                 new Intent()
@@ -2413,6 +2468,25 @@ public class CustomTabIntentDataProviderTest {
 
         CustomTabIntentDataProvider dataProvider =
                 new CustomTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
+
+        assertEquals(
+                "The data provider has not returned empty window features",
+                new WindowFeatures(),
+                dataProvider.getRequestedWindowFeatures());
+
+        IntentUtils.setForceIsTrustedIntentForTesting(false);
+    }
+
+    @Test
+    public void uiTypePopup_returnsEmptyWindowFeaturesWhenNotSpecifiedInIntent_incognitoCct() {
+        final Intent intent =
+                new Intent()
+                        .putExtra(
+                                CustomTabIntentDataProvider.EXTRA_UI_TYPE, CustomTabsUiType.POPUP);
+        IntentUtils.setForceIsTrustedIntentForTesting(true);
+
+        final IncognitoCustomTabIntentDataProvider dataProvider =
+                new IncognitoCustomTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
 
         assertEquals(
                 "The data provider has not returned empty window features",
@@ -2444,5 +2518,93 @@ public class CustomTabIntentDataProviderTest {
                 dataProvider.getRequestedWindowFeatures());
 
         IntentUtils.setForceIsTrustedIntentForTesting(false);
+    }
+
+    @Test
+    public void uiTypeDefault_returnsNullRequestedWindowFeatures_incognitoCct() {
+        final WindowFeatures windowFeatures = new WindowFeatures(12, 34, 56, null);
+        final Intent intent =
+                new Intent()
+                        .putExtra(
+                                PopupCreator.EXTRA_REQUESTED_WINDOW_FEATURES,
+                                windowFeatures.toBundle())
+                        .putExtra(
+                                CustomTabIntentDataProvider.EXTRA_UI_TYPE,
+                                CustomTabsUiType.DEFAULT);
+        IntentUtils.setForceIsTrustedIntentForTesting(true);
+
+        final IncognitoCustomTabIntentDataProvider dataProvider =
+                new IncognitoCustomTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
+
+        assertNull(
+                "The data provider has returned the window features specified in the intent even if"
+                        + " the UI type is not popup",
+                dataProvider.getRequestedWindowFeatures());
+
+        IntentUtils.setForceIsTrustedIntentForTesting(false);
+    }
+
+    @Test
+    public void uiTypes_openInBrowserButtonState() {
+        final int stateDefault = CustomTabsIntent.OPEN_IN_BROWSER_STATE_DEFAULT;
+        final int stateOff = CustomTabsIntent.OPEN_IN_BROWSER_STATE_OFF;
+
+        assertEquals(stateDefault, getOibStateForType(CustomTabsUiType.DEFAULT));
+
+        assertEquals(stateOff, getOibStateForType(CustomTabsUiType.NETWORK_BOUND_TAB));
+        assertEquals(stateOff, getOibStateForType(CustomTabsUiType.AUTH_TAB));
+        assertEquals(stateOff, getOibStateForType(CustomTabsUiType.MEDIA_VIEWER));
+        assertEquals(stateOff, getOibStateForType(CustomTabsUiType.POPUP));
+        assertEquals(stateOff, getOibStateForType(CustomTabsUiType.READER_MODE));
+        assertEquals(stateOff, getOibStateForType(CustomTabsUiType.OFFLINE_PAGE));
+    }
+
+    @Test
+    public void uiTypes_openInBrowserButtonState_firstRunStatus() {
+        FirstRunStatus.setFirstRunFlowComplete(false);
+        final int stateOff = CustomTabsIntent.OPEN_IN_BROWSER_STATE_OFF;
+
+        // Without completing first run, OIB won't be shown.
+        assertEquals(stateOff, getOibStateForType(CustomTabsUiType.DEFAULT));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_WEB_APP_MENU_BUTTON)
+    public void uiTypes_openInBrowserButtonState_twa() {
+        final int stateOff = CustomTabsIntent.OPEN_IN_BROWSER_STATE_OFF;
+        assertEquals(stateOff, getOibStateForType(CustomTabsUiType.TRUSTED_WEB_ACTIVITY));
+    }
+
+    private int getOibStateForType(int type) {
+        if (type == CustomTabsUiType.AUTH_TAB) {
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setData(Uri.parse("https://www.google.com"));
+            intent.putExtra(AuthTabIntent.EXTRA_LAUNCH_AUTH_TAB, true);
+            intent.putExtra(IntentHandler.EXTRA_CALLING_ACTIVITY_PACKAGE, PACKAGE);
+            Bundle bundle = new Bundle();
+            bundle.putBinder(CustomTabsIntent.EXTRA_SESSION, null);
+            intent.putExtras(bundle);
+
+            var provider = new AuthTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
+            return provider.getOpenInBrowserButtonState();
+
+        } else {
+            Intent intent = new Intent().putExtra(CustomTabIntentDataProvider.EXTRA_UI_TYPE, type);
+            if (type == CustomTabsUiType.NETWORK_BOUND_TAB) {
+                Network network = Mockito.mock(Network.class);
+                intent.putExtra(CustomTabsIntent.EXTRA_NETWORK, network);
+            }
+            setIsTrustedCustomTab(intent);
+            var provider = new CustomTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
+            return provider.getOpenInBrowserButtonState();
+        }
+    }
+
+    private static void setIsTrustedCustomTab(Intent intent) {
+        CustomTabsConnection connection = Mockito.mock(CustomTabsConnection.class);
+        when(connection.getClientPackageNameForSession(any())).thenReturn(null);
+        when(connection.isFirstParty(eq(PACKAGE))).thenReturn(true);
+        CustomTabsConnection.setInstanceForTesting(connection);
+        intent.putExtra(IntentHandler.EXTRA_CALLING_ACTIVITY_PACKAGE, PACKAGE);
     }
 }

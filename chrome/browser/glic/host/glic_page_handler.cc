@@ -8,7 +8,6 @@
 #include "base/feature_list.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -56,7 +55,7 @@
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
-#include "chrome/browser/glic/service/glic_instance_metrics.h"
+#include "chrome/browser/glic/service/metrics/glic_instance_metrics.h"
 #include "chrome/browser/glic/widget/browser_conditions.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/global_features.h"
@@ -544,6 +543,9 @@ class JournalHandler {
 // events through GlicKeyedService to other components, relies on the assumption
 // that there is exactly 1 WebUI instance. If this assumption is ever violated
 // then many classes will break.
+//
+// TODO(crbug.com/458761731): Once `loadAndExtractContent` is defined in the
+// handler mojom interface, override and implement its mojom declaration.
 class GlicWebClientHandler : public glic::mojom::WebClientHandler,
                              public GlicWindowController::StateObserver,
                              public GlicWebClientAccess,
@@ -1030,7 +1032,8 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     for (auto tab_id : tab_ids) {
       tab_handles.push_back(tabs::TabHandle(tab_id));
     }
-    std::move(callback).Run(sharing_manager().PinTabs(tab_handles));
+    std::move(callback).Run(sharing_manager().PinTabs(
+        tab_handles, GlicPinTrigger::kWebClientUnknown));
   }
 
   void UnpinTabs(const std::vector<int32_t>& tab_ids,
@@ -1039,10 +1042,13 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     for (auto tab_id : tab_ids) {
       tab_handles.push_back(tabs::TabHandle(tab_id));
     }
-    std::move(callback).Run(sharing_manager().UnpinTabs(tab_handles));
+    std::move(callback).Run(sharing_manager().UnpinTabs(
+        tab_handles, GlicUnpinTrigger::kWebClientUnknown));
   }
 
-  void UnpinAllTabs() override { sharing_manager().UnpinAllTabs(); }
+  void UnpinAllTabs() override {
+    sharing_manager().UnpinAllTabs(GlicUnpinTrigger::kWebClientUnknown);
+  }
 
   void CreateTask(actor::webui::mojom::TaskOptionsPtr options,
                   CreateTaskCallback callback) override {
@@ -1360,6 +1366,9 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     if (auto* instance_metrics = host().instance_metrics()) {
       instance_metrics->OnUserInputSubmitted(mode);
     }
+
+    // TODO(crbug.com/462769104): move this to a non-metrics API.
+    sharing_manager().OnConversationTurnSubmitted();
   }
 
   void OnContextUploadStarted() override {
@@ -1776,9 +1785,10 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     web_client_->NotifyFocusedTabChanged(std::move(data));
   }
 
-  void NotifyActorTaskStateChanged(const actor::ActorTask& task) {
+  void NotifyActorTaskStateChanged(actor::TaskId task_id,
+                                   actor::ActorTask::State task_state) {
     const mojom::ActorTaskState state = [&]() {
-      switch (task.GetState()) {
+      switch (task_state) {
         case actor::ActorTask::State::kCreated:
         case actor::ActorTask::State::kReflecting:
         case actor::ActorTask::State::kWaitingOnUser:
@@ -1794,7 +1804,7 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
           return mojom::ActorTaskState::kStopped;
       }
     }();
-    web_client_->NotifyActorTaskStateChanged(task.id().value(), state);
+    web_client_->NotifyActorTaskStateChanged(task_id.value(), state);
   }
 
   void RequestToShowCredentialSelectionDialog(

@@ -81,8 +81,10 @@ interface AutofillDriver {
   SelectControlSelectionChanged(FormData form,
                                 FieldRendererId field_id);
 
-  // Notification that a select element's options were modified.
-  SelectFieldOptionsDidChange(FormData form);
+  // Notification that a select element's options were modified. `field_id` is
+  // the renderer ID of the select field that belongs to `form` and whose
+  // option values did change.
+  SelectFieldOptionsDidChange(FormData form, FieldRendererId field_id);
 
   // `FocusOnFormField()` xor `FocusOnNonFormField()` is fired when the focused
   // element changes (https://html.spec.whatwg.org/#focused):
@@ -118,7 +120,7 @@ interface AutofillDriver {
   HidePopup();
 
   // Sent when a form is filled with Autofill suggestions.
-  DidAutofillForm(FormData form, mojo_base.mojom.TimeTicks timestamp);
+  DidAutofillForm(FormData form);
 
   // Sent when a field was in autofilled state but JavaScript modified the
   // value.

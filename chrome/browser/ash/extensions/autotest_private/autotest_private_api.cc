@@ -2180,7 +2180,8 @@ void AutotestPrivateGetRegisteredSystemWebAppsFunction::
     system_web_app.internal_name = delegate->GetInternalName();
     system_web_app.url =
         delegate->GetInstallUrl().DeprecatedGetOriginAsURL().spec();
-    system_web_app.name = base::UTF16ToUTF8(delegate->GetWebAppInfo()->title);
+    system_web_app.name =
+        base::UTF16ToUTF8(delegate->GetWebAppInfo()->title.value());
 
     std::optional<webapps::AppId> app_id =
         swa_manager->GetAppIdForSystemApp(type_and_info.first);
@@ -2570,13 +2571,26 @@ ExtensionFunction::ResponseAction AutotestPrivateExportCrostiniFunction::Run() {
     return RespondNow(Error("Invalid export path must not reference parent"));
   }
 
-  crostini::CrostiniExportImportFactory::GetForProfile(profile)
-      ->ExportContainer(
-          crostini::DefaultContainerId(),
-          file_manager::util::GetDownloadsFolderForProfile(profile).Append(
-              path),
-          base::BindOnce(
-              &AutotestPrivateExportCrostiniFunction::CrostiniExported, this));
+  auto termina_flavor = crostini::CrostiniManager::GetTerminaFlavor(profile);
+  if (termina_flavor == crostini::CrostiniManager::TerminaFlavor::BAGUETTE) {
+    crostini::CrostiniExportImportFactory::GetForProfile(profile)
+        ->ExportDiskImageWithCallback(
+            crostini::DefaultBaguetteContainerId(),
+            file_manager::util::GetDownloadsFolderForProfile(profile).Append(
+                path),
+            base::BindOnce(
+                &AutotestPrivateExportCrostiniFunction::CrostiniExported,
+                this));
+  } else {
+    crostini::CrostiniExportImportFactory::GetForProfile(profile)
+        ->ExportContainer(
+            crostini::DefaultContainerId(),
+            file_manager::util::GetDownloadsFolderForProfile(profile).Append(
+                path),
+            base::BindOnce(
+                &AutotestPrivateExportCrostiniFunction::CrostiniExported,
+                this));
+  }
 
   return RespondLater();
 }
@@ -2613,13 +2627,27 @@ ExtensionFunction::ResponseAction AutotestPrivateImportCrostiniFunction::Run() {
   if (path.ReferencesParent()) {
     return RespondNow(Error("Invalid import path must not reference parent"));
   }
-  crostini::CrostiniExportImportFactory::GetForProfile(profile)
-      ->ImportContainer(
-          crostini::DefaultContainerId(),
-          file_manager::util::GetDownloadsFolderForProfile(profile).Append(
-              path),
-          base::BindOnce(
-              &AutotestPrivateImportCrostiniFunction::CrostiniImported, this));
+
+  auto termina_flavor = crostini::CrostiniManager::GetTerminaFlavor(profile);
+  if (termina_flavor == crostini::CrostiniManager::TerminaFlavor::BAGUETTE) {
+    crostini::CrostiniExportImportFactory::GetForProfile(profile)
+        ->ImportDiskImageWithCallback(
+            crostini::DefaultBaguetteContainerId(),
+            file_manager::util::GetDownloadsFolderForProfile(profile).Append(
+                path),
+            base::BindOnce(
+                &AutotestPrivateImportCrostiniFunction::CrostiniImported,
+                this));
+  } else {
+    crostini::CrostiniExportImportFactory::GetForProfile(profile)
+        ->ImportContainer(
+            crostini::DefaultContainerId(),
+            file_manager::util::GetDownloadsFolderForProfile(profile).Append(
+                path),
+            base::BindOnce(
+                &AutotestPrivateImportCrostiniFunction::CrostiniImported,
+                this));
+  }
 
   return RespondLater();
 }

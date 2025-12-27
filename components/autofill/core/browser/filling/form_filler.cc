@@ -13,6 +13,7 @@
 #include "base/check_op.h"
 #include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
+#include "base/feature_list.h"
 #include "base/hash/hash.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
@@ -587,12 +588,14 @@ void FormFiller::Reset() {
   form_autofill_history_.Reset();
 }
 
+// static
 base::flat_map<FieldGlobalId, DenseSet<FieldFillingSkipReason>>
 FormFiller::GetFieldFillingSkipReasons(base::span<const FormFieldData> fields,
                                        const FormStructure& form_structure,
                                        const AutofillField& trigger_field,
                                        const RefillOptions& refill_options,
-                                       FillingProduct filling_product) const {
+                                       FillingProduct filling_product,
+                                       const AutofillClient& client) {
   // Counts the number of times a type was seen in the section to be filled.
   // This is used to limit the maximum number of fills per value.
   base::flat_map<FieldType, size_t> type_count;
@@ -600,8 +603,7 @@ FormFiller::GetFieldFillingSkipReasons(base::span<const FormFieldData> fields,
 
   base::flat_set<FieldGlobalId> blocked_fields;
   if (filling_product == FillingProduct::kAddress) {
-    blocked_fields =
-        GetFieldsFillableByAutofillAi(form_structure, manager_->client());
+    blocked_fields = GetFieldsFillableByAutofillAi(form_structure, client);
   }
 
   CHECK_EQ(fields.size(), form_structure.field_count());
@@ -830,9 +832,9 @@ void FormFiller::FillOrPreviewForm(
   // `FormFiller::GetFieldFillingSkipReasons` returns for each field a generic
   // list of reason for skipping each field.
   base::flat_map<FieldGlobalId, DenseSet<FieldFillingSkipReason>> skip_reasons =
-      GetFieldFillingSkipReasons(result_fields, form_structure,
-                                 autofill_trigger_field, refill_options,
-                                 augmented_filling_payload.filling_product());
+      GetFieldFillingSkipReasons(
+          result_fields, form_structure, autofill_trigger_field, refill_options,
+          augmented_filling_payload.filling_product(), manager_->client());
 
   // This loop sets the values to fill in the `result_fields`. The
   // `result_fields` are sent to the renderer, whereas the very similar
@@ -861,10 +863,6 @@ void FormFiller::FillOrPreviewForm(
       continue;
     }
 
-    if (could_attempt_refill) {
-      refill_context->type_groups_originally_filled.insert_all(
-          autofill_field.Type().GetGroups());
-    }
     std::string failure_to_fill;  // Reason for failing to fill.
     const std::map<FieldGlobalId, ValueAndType>& forced_fill_values =
         refill_context ? refill_context->forced_fill_values
@@ -894,6 +892,9 @@ void FormFiller::FillOrPreviewForm(
     } else if (!is_newly_autofilled_or_emptied) {
       skip_reasons[form.fields()[i].global_id()].insert(
           FieldFillingSkipReason::kNoValueToFill);
+    } else if (could_attempt_refill) {
+      refill_context->type_groups_originally_filled.insert_all(
+          autofill_field.Type().GetGroups());
     }
 
     if (filled_field_type) {
@@ -1000,7 +1001,7 @@ void FormFiller::MaybeTriggerRefill(
     const FormStructure& form_structure,
     RefillTriggerReason refill_trigger_reason,
     AutofillTriggerSource trigger_source,
-    base::optional_ref<const FormFieldData> field,
+    base::optional_ref<const AutofillField> field,
     base::optional_ref<const std::u16string> old_value) {
   // Should not refill if a form with the same FormGlobalId has not been filled
   // before or if it has been refilled before.
@@ -1021,15 +1022,31 @@ void FormFiller::MaybeTriggerRefill(
 
   switch (refill_trigger_reason) {
     case RefillTriggerReason::kFormChanged:
-      // Confirm that the form actually changed between filling time and
-      // parsing after filling time, and otherwise do not refill.
+      // Only refill if the form actually changed since it was filled.
+      // Since we won't schedule another refill, we should be cautious not to
+      // prematurely schedule refills.
       if (refill_context->filled_form &&
-          FormData::DeepEqual(form_structure.ToFormData(),
-                              *refill_context->filled_form)) {
+          std::ranges::equal(
+              refill_context->filled_form->fields(), form_structure.fields(),
+              [](const FormFieldData& f,
+                 const std::unique_ptr<AutofillField>& g) {
+                return FormFieldData::IdenticalAndEquivalentDomElements(
+                    f, *g, {FormFieldData::Exclusion::kValue});
+              })) {
         return;
       }
       break;
     case RefillTriggerReason::kSelectOptionsChanged:
+      if (const bool allow_refill =
+              field && field->IsSelectElement() &&
+              field->Type().GetGroups().contains_any(
+                  refill_context->type_groups_originally_filled);
+          !allow_refill && base::FeatureList::IsEnabled(
+                               features::kAutofillFewerTrivialRefills)) {
+        // The element in question is not fillable as a result of this signal.
+        // Do not trigger a refill as it would most likely be a trivial one.
+        return;
+      }
       break;
     case RefillTriggerReason::kExpirationDateFormatted:
       CHECK(field && old_value);

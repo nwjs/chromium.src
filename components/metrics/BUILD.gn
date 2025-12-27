@@ -267,8 +267,10 @@ if (!is_cronet_build || is_ios) {
 
     public_deps = [
       ":metrics_component",
+      "//components/country_codes",
       "//components/metrics:client_info",
       "//components/metrics:metrics_pref_names",
+      "//components/regional_capabilities:country_id",
       "//components/variations",
       "//third_party/metrics_proto",
       "//third_party/zlib/google:compression_utils",
@@ -279,6 +281,7 @@ if (!is_cronet_build || is_ios) {
       ":server_urls_grd",
       "//base",
       "//base:base_static",
+      "//base:build_time",
       "//base:i18n",
       "//build:branding_buildflags",
       "//components/metrics/public/mojom:call_stack_mojo_bindings",
@@ -736,7 +739,7 @@ if (!is_cronet_build) {
 }
 
 grit("server_urls_grd") {
-  if (is_chrome_branded) {
+  if (is_internal_chrome_branded) {
     source = "internal/server_urls.grd"
   } else {
     source = "server_urls.grd"

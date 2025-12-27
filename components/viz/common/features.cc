@@ -60,6 +60,11 @@ BASE_FEATURE(kAndroidDumpForBadCompositedUiState,
 
 #endif  // BUILDFLAG(IS_ANDROID)
 
+// When there is a screenshot request against a surface, issue the copy request
+// into a shared image.
+BASE_FEATURE(kBackForwardTransitionsSameDocSharedImage,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kBackdropFilterMirrorEdgeMode, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUseDrmBlackFullscreenOptimization,
@@ -97,7 +102,7 @@ const char kDrawQuadSplit[] = "num_of_splits";
 // can be split into during occlusion culling.
 BASE_FEATURE(kDrawQuadSplitLimit, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kEnableBackdropFiltersCullingOptimization,
+BASE_FEATURE(kEnableRenderPassDrawQuadCullingOptimization,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 constexpr base::FeatureParam<DelegatedCompositingMode>::Option
@@ -397,10 +402,15 @@ int DrawQuadSplitLimit() {
                     kMaxDrawQuadSplitLimit);
 }
 
-bool IsBackdropFiltersCullingOptimizationEnabled() {
-  static bool is_enabled =
-      base::FeatureList::IsEnabled(kEnableBackdropFiltersCullingOptimization);
+bool IsRenderPassDrawQuadCullingOptimizationEnabled() {
+  static bool is_enabled = base::FeatureList::IsEnabled(
+      kEnableRenderPassDrawQuadCullingOptimization);
   return is_enabled;
+}
+
+bool IsBackForwardTransitionsSameDocSharedImageEnabled() {
+  return base::FeatureList::IsEnabled(
+      kBackForwardTransitionsSameDocSharedImage);
 }
 
 bool IsDelegatedCompositingEnabled() {

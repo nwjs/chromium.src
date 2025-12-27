@@ -260,6 +260,11 @@ const base::TimeDelta kCloseLensViewTimeout = base::Seconds(10);
     DCHECK(featureTracker);
     featureTracker->NotifyEvent(
         feature_engagement::events::kLensButtonKeyboardUsed);
+  } else if (entrypoint == LensEntrypoint::Composebox) {
+    feature_engagement::Tracker* featureTracker = self.tracker;
+    DCHECK(featureTracker);
+    featureTracker->NotifyEvent(
+        feature_engagement::events::kIOSLensButtonComposeboxUsed);
   }
 
   if (!isIncognito) {
@@ -323,6 +328,9 @@ const base::TimeDelta kCloseLensViewTimeout = base::Seconds(10);
     case LensEntrypoint::Keyboard:
       RecordCameraOpen(CameraOpenEntryPoint::KEYBOARD);
       break;
+    case LensEntrypoint::Composebox:
+      RecordCameraOpen(CameraOpenEntryPoint::COMPOSE_BOX);
+      break;
     case LensEntrypoint::Spotlight:
       RecordCameraOpen(CameraOpenEntryPoint::SPOTLIGHT);
       break;
@@ -338,7 +346,7 @@ const base::TimeDelta kCloseLensViewTimeout = base::Seconds(10);
   }
 
   // Notify Welcome Back to remove Lens from the eligible features.
-  if (IsWelcomeBackInFirstRunEnabled()) {
+  if (IsWelcomeBackEnabled()) {
     MarkWelcomeBackFeatureUsed(BestFeaturesItemType::kLensSearch);
   }
 }

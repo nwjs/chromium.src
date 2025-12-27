@@ -15,12 +15,14 @@
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/tab_grid_commands.h"
+#import "ios/chrome/browser/shared/public/commands/tab_groups_commands.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/disabled_grid_view_controller.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/grid_container_view_controller.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/grid_toolbars_mutator.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_groups_panel_mediator.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_groups_panel_view_controller.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/toolbars/tab_grid_toolbars_main_tab_grid_delegate.h"
+#import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
@@ -103,6 +105,11 @@ class TabGroupsPanelCoordinatorTest : public PlatformTest {
         startDispatchingToTarget:application_handler_mock_
                      forProtocol:@protocol(ApplicationCommands)];
 
+    tab_groups_handler_mock_ = OCMProtocolMock(@protocol(TabGroupsCommands));
+    [browser_->GetCommandDispatcher()
+        startDispatchingToTarget:tab_groups_handler_mock_
+                     forProtocol:@protocol(TabGroupsCommands)];
+
     base_view_controller_ = [[UIViewController alloc] init];
     toolbars_mutator_ = [[TestToolbarsMutator alloc] init];
     disabled_grid_view_controller_delegate_ =
@@ -116,6 +123,7 @@ class TabGroupsPanelCoordinatorTest : public PlatformTest {
 
   // Needed for test profile created by TestBrowser().
   web::WebTaskEnvironment task_environment_;
+  IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   std::unique_ptr<TestProfileIOS> profile_;
   std::unique_ptr<TestBrowser> browser_;
   UIViewController* base_view_controller_;
@@ -125,6 +133,7 @@ class TabGroupsPanelCoordinatorTest : public PlatformTest {
       disabled_grid_view_controller_delegate_;
   id tab_grid_handler_mock_;
   id application_handler_mock_;
+  id tab_groups_handler_mock_;
 };
 
 // Tests that the mediator and view controllers are nil before `start`.

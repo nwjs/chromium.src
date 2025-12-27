@@ -12,7 +12,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.graphics.Rect;
-import android.net.Uri;
 import android.text.TextUtils;
 
 import androidx.annotation.VisibleForTesting;
@@ -69,7 +68,6 @@ import org.chromium.components.external_intents.ExternalNavigationHandler;
 import org.chromium.components.external_intents.ExternalNavigationParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.modaldialog.ModalDialogManager;
-import org.chromium.ui.mojom.WindowOpenDisposition;
 import org.chromium.url.GURL;
 
 import java.util.List;
@@ -141,11 +139,10 @@ public class CustomTabDelegateFactory implements TabDelegateFactory {
             WebContents webContents = getWebContents();
             if (ChromeFeatureList.sAndroidWebAppLaunchHandler.isEnabled()
                     && webContents != null
-                    && params.getOriginalWindowOpenDisposition()
-                            == WindowOpenDisposition.NEW_FOREGROUND_TAB
                     && !webContents.hasOpener()
                     && params.isTabInPWA()
                     && params.isInitialNavigationInFrame()
+                    && wasTabLaunchedFromLinkCreatingNewForegroundTab()
                     && shouldIgnore) {
                 intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
                 return false;
@@ -183,10 +180,9 @@ public class CustomTabDelegateFactory implements TabDelegateFactory {
             if (assumeNonNull(mIntentDataProvider).isAuthTab()) return;
 
             // Only record for Custom Tabs that we think are launched for auth purposes.
-            Uri urlToLoad = Uri.parse(mIntentDataProvider.getUrlToLoad());
-            if (!urlToLoad.isHierarchical()) return;
+            GURL urlToLoad = new GURL(mIntentDataProvider.getUrlToLoad());
+            String redirectUri = UrlUtilities.getValueForKeyInQuery(urlToLoad, "redirect_uri");
 
-            String redirectUri = urlToLoad.getQueryParameter("redirect_uri");
             if (TextUtils.isEmpty(redirectUri)) return;
 
             int schemeEnum = CustomTabAuthUrlHeuristics.getAuthSchemeEnum(url.getScheme());

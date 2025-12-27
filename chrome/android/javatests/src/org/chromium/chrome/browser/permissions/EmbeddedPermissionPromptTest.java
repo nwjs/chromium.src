@@ -183,7 +183,7 @@ public class EmbeddedPermissionPromptTest {
                 expectedPositiveEphemeralButtonText,
                 expectedNegativeButtonText,
                 /*expectedPermission*/ "",
-                "dismiss");
+                "promptdismiss");
     }
 
     /**
@@ -314,7 +314,9 @@ public class EmbeddedPermissionPromptTest {
                 new TestAndroidPermissionDelegate(
                         requestablePermission, RuntimePromptResponse.GRANT);
         final String expectedTitle =
-                (response == EmbeddedPermissiontResponse.NEGATIVE) ? "dismiss" : "resolve";
+                (response == EmbeddedPermissiontResponse.NEGATIVE)
+                        ? "promptdismiss"
+                        : "promptaction";
         final String expectedPermission =
                 (response == EmbeddedPermissiontResponse.NEGATIVE) ? "prompt" : "granted";
         runTest(
@@ -344,7 +346,9 @@ public class EmbeddedPermissionPromptTest {
                 new TestAndroidPermissionDelegate(
                         requestablePermission, RuntimePromptResponse.GRANT);
         final String expectedTitle =
-                (response == EmbeddedPermissiontResponse.NEGATIVE) ? "resolve" : "dismiss";
+                (response == EmbeddedPermissiontResponse.NEGATIVE)
+                        ? "promptaction"
+                        : "promptdismiss";
         final String expectedPermission =
                 (response == EmbeddedPermissiontResponse.NEGATIVE) ? "granted" : "denied";
         runTest(
@@ -374,7 +378,9 @@ public class EmbeddedPermissionPromptTest {
                 new TestAndroidPermissionDelegate(
                         requestablePermission, RuntimePromptResponse.GRANT);
         final String expectedTitle =
-                (response == EmbeddedPermissiontResponse.NEGATIVE) ? "resolve" : "dismiss";
+                (response == EmbeddedPermissiontResponse.NEGATIVE)
+                        ? "promptaction"
+                        : "promptdismiss";
         final String expectedPermission =
                 (response == EmbeddedPermissiontResponse.NEGATIVE) ? "denied" : "granted";
         runTest(

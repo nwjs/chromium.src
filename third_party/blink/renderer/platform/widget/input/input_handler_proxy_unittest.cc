@@ -65,6 +65,7 @@ using testing::NiceMock;
 using testing::Property;
 using testing::Return;
 using testing::SetArgPointee;
+using testing::SizeIs;
 using testing::StrictMock;
 
 namespace blink {
@@ -1377,9 +1378,87 @@ TEST_P(InputHandlerProxyEventQueueTest, AckTouchActionNonBlockingForFling) {
   }
 }
 
+// Tests that correct values for the
+// Event.ScrollJank.EmptyGestureScrollUpdateFrame histogram are recorded.
+TEST_P(InputHandlerProxyEventQueueTest, EmptyGestureScrollUpdateHistogram) {
+  cc::InputHandlerScrollResult scroll_result_did_scroll_;
+  scroll_result_did_scroll_.did_scroll = true;
+
+  cc::InputHandlerScrollResult scroll_result_did_not_scroll_;
+  scroll_result_did_not_scroll_.did_scroll = false;
+
+  base::HistogramTester histogram_tester;
+  base::SimpleTestTickClock tick_clock;
+  tick_clock.SetNowTicks(base::TimeTicks::Now());
+  SetInputHandlerProxyTickClockForTesting(&tick_clock);
+
+  input_handler_proxy_->SetScrollEventDispatchMode(
+      cc::InputHandlerClient::ScrollEventDispatchMode::
+          kDispatchScrollEventsUntilDeadline,
+      0.333);
+
+  EXPECT_CALL(mock_input_handler_, ScrollBegin(_, _))
+      .WillOnce(testing::Return(kImplThreadScrollState));
+  EXPECT_CALL(
+      mock_input_handler_,
+      RecordScrollBegin(_, cc::ScrollBeginThreadState::kScrollingOnCompositor))
+      .Times(1);
+
+  // If input mapping and queue refactoring are disabled, the first update is
+  // dispatched and the following ones are enqueued and then dispatched. The
+  // mock will return 'did not scroll' for the first two and 'did scroll' for
+  // the third one.
+  if (!IsRefactorCompositorThreadEventQueueEnabled() ||
+      !IsUpdateScrollPredictorInputMappingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, ScrollUpdate(_, _))
+        .WillOnce(testing::Return(scroll_result_did_not_scroll_))
+        .WillOnce(testing::Return(scroll_result_did_not_scroll_))
+        .WillOnce(testing::Return(scroll_result_did_scroll_));
+  }
+
+  // If input mapping and queue refactoring are enabled, all updates are
+  // enqueued and then dispatched. The mock will return 'did not scroll' for the
+  // first one and 'did scroll' for the second one.
+  if (IsRefactorCompositorThreadEventQueueEnabled() &&
+      IsUpdateScrollPredictorInputMappingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, ScrollUpdate(_, _))
+        .WillOnce(testing::Return(scroll_result_did_not_scroll_))
+        .WillOnce(testing::Return(scroll_result_did_scroll_));
+  }
+
+  EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput()).Times(2);
+
+  HandleGestureEvent(WebInputEvent::Type::kGestureScrollBegin);
+  DeliverInputForBeginFrame();
+
+  if (!IsRefactorCompositorThreadEventQueueEnabled() ||
+      !IsUpdateScrollPredictorInputMappingEnabled()) {
+    // The first (empty) scroll update will be dispatched immediately.
+    HandleGestureEvent(WebInputEvent::Type::kGestureScrollUpdate, 0);
+  }
+
+  // This is the only update in the queue and the mock returned 'did not
+  // scroll', so the histogram value should be false.
+  HandleGestureEvent(WebInputEvent::Type::kGestureScrollUpdate, 0);
+  DeliverInputForBeginFrame();
+  GetInputHandlerProxy()->DispatchQueuedInputEventsHelper();
+
+  histogram_tester.ExpectBucketCount(
+      "Event.ScrollJank.EmptyGestureScrollUpdateFrame", false, 1);
+
+  // This is the only update in the queue and the mock returned 'did scroll', so
+  // the histogram value should be true.
+  HandleGestureEvent(WebInputEvent::Type::kGestureScrollUpdate, 0);
+  DeliverInputForBeginFrame();
+  GetInputHandlerProxy()->DispatchQueuedInputEventsHelper();
+
+  histogram_tester.ExpectBucketCount(
+      "Event.ScrollJank.EmptyGestureScrollUpdateFrame", true, 1);
+}
+
 // Verifies that when the `filter_out_empty_updates` parameter for the
 // SendEmptyGestureScrollUpdate feature is set to true, empty
-// GestureScrollUpdates are not passed to the resampling code.
+// GestureScrollUpdates are discarded on the renderer side.
 TEST_P(InputHandlerProxyEventQueueTest, FilterOutEmptyUpdates) {
   base::test::ScopedFeatureList feature_list;
   std::vector<base::test::FeatureRefAndParams> enabled_features;
@@ -1414,13 +1493,12 @@ TEST_P(InputHandlerProxyEventQueueTest, FilterOutEmptyUpdates) {
       RecordScrollBegin(_, cc::ScrollBeginThreadState::kScrollingOnCompositor))
       .Times(1);
 
-  EXPECT_CALL(mock_input_handler_, ScrollUpdate(_, _)).Times(3);
+  EXPECT_CALL(mock_input_handler_, ScrollUpdate(_, _)).Times(2);
 
   HandleGestureEvent(WebInputEvent::Type::kGestureScrollBegin);
   DeliverInputForBeginFrame();
 
-  // The first (empty) scroll update will be dispatched immediately and not sent
-  // to predictor.
+  // The first (empty) scroll update will be discarded on the renderer side.
   HandleGestureEvent(WebInputEvent::Type::kGestureScrollUpdate, 0);
   DeliverInputForBeginFrame();
   auto result = GestureScrollEventPredictionAvailable();
@@ -1430,7 +1508,7 @@ TEST_P(InputHandlerProxyEventQueueTest, FilterOutEmptyUpdates) {
   tick_clock.Advance(base::Milliseconds(2));
 
   // The second (non-empty) scroll update will be sent to the predictor,
-  // enqueued and then dispatched. predictor.
+  // enqueued and then dispatched.
   HandleGestureEvent(WebInputEvent::Type::kGestureScrollUpdate, -10);
   DeliverInputForBeginFrame();
 
@@ -1442,7 +1520,7 @@ TEST_P(InputHandlerProxyEventQueueTest, FilterOutEmptyUpdates) {
   // Predictor needs at least 2 ms of delta between events to make a prediction.
   tick_clock.Advance(base::Milliseconds(2));
 
-  // The third  (non-empty) scroll update will be sent to the predictor,
+  // The third (non-empty) scroll update will be sent to the predictor,
   // enqueued and then dispatched.
   HandleGestureEvent(WebInputEvent::Type::kGestureScrollUpdate, -5);
 
@@ -1450,6 +1528,67 @@ TEST_P(InputHandlerProxyEventQueueTest, FilterOutEmptyUpdates) {
   // available.
   result = GestureScrollEventPredictionAvailable();
   EXPECT_TRUE(result);
+}
+
+// Verifies that when the `filter_out_empty_updates` parameter for the
+// SendEmptyGestureScrollUpdate feature is set to true, empty
+// GestureScrollUpdates are discarded on the renderer side even if
+// UpdateScrollPredictorInputMapping is also enabled.
+TEST_P(InputHandlerProxyEventQueueTest,
+       FilterOutEmptyUpdatesWhenInputPredictorMappingEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  std::vector<base::test::FeatureRefAndParams> enabled_features;
+
+  // Always enable the empty update filtering.
+  enabled_features.push_back({
+      ::features::kSendEmptyGestureScrollUpdate,
+      {{"filter_out_empty_updates", "true"}},
+  });
+
+  feature_list.InitWithFeaturesAndParameters(enabled_features,
+                                             /* disabled_features */ {});
+  base::SimpleTestTickClock tick_clock;
+  tick_clock.SetNowTicks(base::TimeTicks::Now());
+  SetInputHandlerProxyTickClockForTesting(&tick_clock);
+
+  input_handler_proxy_->SetScrollEventDispatchMode(
+      cc::InputHandlerClient::ScrollEventDispatchMode::
+          kDispatchScrollEventsUntilDeadline,
+      0.333);
+
+  EXPECT_CALL(mock_input_handler_, ScrollBegin(_, _))
+      .WillOnce(testing::Return(kImplThreadScrollState));
+  EXPECT_CALL(
+      mock_input_handler_,
+      RecordScrollBegin(_, cc::ScrollBeginThreadState::kScrollingOnCompositor))
+      .Times(1);
+
+  if (IsRefactorCompositorThreadEventQueueEnabled() &&
+      IsUpdateScrollPredictorInputMappingEnabled()) {
+    EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput()).Times(1);
+  }
+  EXPECT_CALL(mock_input_handler_, ScrollUpdate(_, _)).Times(1);
+
+  HandleGestureEvent(WebInputEvent::Type::kGestureScrollBegin);
+  DeliverInputForBeginFrame();
+
+  // The first (empty) scroll update will be discarded on the renderer side.
+  HandleGestureEvent(WebInputEvent::Type::kGestureScrollUpdate, 0);
+  DeliverInputForBeginFrame();
+
+  // The second (non-empty) scroll update will be enqueued if predictor input
+  // mapping and compositor queue refactoring are enabled. Otherwise, the update
+  // will de dispatched.
+  HandleGestureEvent(WebInputEvent::Type::kGestureScrollUpdate, -10);
+
+  if (IsRefactorCompositorThreadEventQueueEnabled() &&
+      IsUpdateScrollPredictorInputMappingEnabled()) {
+    EXPECT_EQ(1ul, event_queue().size());
+  } else {
+    EXPECT_EQ(0ul, event_queue().size());
+  }
+  GetInputHandlerProxy()->DispatchQueuedInputEventsHelper();
+  EXPECT_EQ(0ul, event_queue().size());
 }
 
 TEST_P(InputHandlerProxyTest, HitTestTouchEventNullTouchAction) {
@@ -3680,6 +3819,82 @@ INSTANTIATE_TEST_SUITE_P(All,
                          kTestCombinations,
                          kSuffixGenerator);
 
+TEST_P(InputHandlerProxyEventQueueTest, FutureEventDispatch) {
+  bool update_scroll_predictor = IsUpdateScrollPredictorInputMappingEnabled();
+  bool refactor_queue = IsRefactorCompositorThreadEventQueueEnabled();
+
+  // The kUpdateScrollPredictorInputMapping feature depends on
+  // kRefactorCompositorThreadEventQueue. So, the case where
+  // update_scroll_predictor is true and refactor_queue is false is invalid.
+  if (update_scroll_predictor && !refactor_queue) {
+    return;
+  }
+
+  // Setup
+  base::SimpleTestTickClock tick_clock;
+  tick_clock.SetNowTicks(base::TimeTicks::Now());
+  SetInputHandlerProxyTickClockForTesting(&tick_clock);
+  constexpr base::TimeDelta kInterval = base::Milliseconds(16);
+
+  // 1. Start a scroll
+  EXPECT_CALL(mock_input_handler_, ScrollBegin(_, _))
+      .WillOnce(testing::Return(kImplThreadScrollState));
+  EXPECT_CALL(
+      mock_input_handler_,
+      RecordScrollBegin(_, cc::ScrollBeginThreadState::kScrollingOnCompositor))
+      .Times(1);
+  HandleGestureEvent(WebInputEvent::Type::kGestureScrollBegin);
+  Mock::VerifyAndClearExpectations(&mock_input_handler_);
+
+  // 2. Deliver a BeginFrame to set up the timing
+  DeliverInputForBeginFrame(tick_clock.NowTicks());
+
+  // 3. Queue an event "in the future" (e.g., 50ms from now)
+  base::TimeTicks future_event_time =
+      tick_clock.NowTicks() + base::Milliseconds(50);
+  auto future_event = CreateGestureScrollPinch(
+      WebInputEvent::Type::kGestureScrollUpdate, WebGestureDevice::kTouchscreen,
+      future_event_time, -10);
+
+  EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput()).Times(1);
+  InjectInputEvent(std::move(future_event));
+  EXPECT_EQ(1ul, event_queue().size());
+  Mock::VerifyAndClearExpectations(&mock_input_handler_);
+
+  // 4. Advance time to the next VSync
+  tick_clock.Advance(kInterval);
+
+  // 5. Deliver the FIRST BeginFrame after queuing.
+  if (!update_scroll_predictor) {
+    // Without kUpdateScrollPredictorInputMapping, future timestamp doesn't
+    // cause deferral.
+    EXPECT_CALL(mock_input_handler_, ScrollUpdate(_, _)).Times(1);
+    DeliverInputForBeginFrame(tick_clock.NowTicks());
+    EXPECT_EQ(0ul, event_queue().size());
+  } else {
+    // With kUpdateScrollPredictorInputMapping, the future event is deferred.
+    EXPECT_CALL(mock_input_handler_, ScrollUpdate(_, _)).Times(0);
+    DeliverInputForBeginFrame(tick_clock.NowTicks());
+    EXPECT_EQ(1ul, event_queue().size());
+  }
+  Mock::VerifyAndClearExpectations(&mock_input_handler_);
+
+  // 6. Advance time to the SECOND VSync
+  tick_clock.Advance(kInterval);
+
+  // 7. Deliver the SECOND BeginFrame.
+  if (!update_scroll_predictor) {
+    // Already dispatched.
+    EXPECT_CALL(mock_input_handler_, ScrollUpdate(_, _)).Times(0);
+  } else {
+    // Both features on: Dispatched from backlog.
+    EXPECT_CALL(mock_input_handler_, ScrollUpdate(_, _)).Times(1);
+  }
+  DeliverInputForBeginFrame(tick_clock.NowTicks());
+  EXPECT_EQ(0ul, event_queue().size());
+  Mock::VerifyAndClearExpectations(&mock_input_handler_);
+}
+
 INSTANTIATE_TEST_SUITE_P(
     All,
     InputHandlerProxyEventQueueTest,
@@ -3752,36 +3967,70 @@ class InputHandlerProxyScrollEventMetricsTest
           InputHandlerProxyScrollEventMetricsTestCase> {};
 
 TEST_P(InputHandlerProxyScrollEventMetricsTest, SavesScrollEndMetrics) {
+  constexpr base::TimeDelta kInterval = base::Milliseconds(16);
   const InputHandlerProxyScrollEventMetricsTestCase& param = GetParam();
 
+  // Inject a gesture scroll begin first so that `InputHandlerProxy` would set
+  // `InputHandlerProxy::currently_active_gesture_device()` and consequently
+  // queue inputs instead of dispatching them immediately.
+  input_handler_proxy_.HandleInputEventWithLatencyInfo(
+      std::make_unique<WebCoalescedInputEvent>(
+          std::make_unique<WebGestureEvent>(
+              WebInputEvent::Type::kGestureScrollBegin,
+              WebInputEvent::kNoModifiers,
+              WebInputEvent::GetStaticTimeStampForTests(),
+              WebGestureDevice::kTouchscreen),
+          ui::LatencyInfo()),
+      /* metrics= */ nullptr, /* callback= */ base::DoNothing());
+
+  // Send begin frame 1.
+  base::TimeTicks frame1_ts = tick_clock_.NowTicks();
+  input_handler_proxy_.DeliverInputForBeginFrame(viz::BeginFrameArgs::Create(
+      BEGINFRAME_FROM_HERE, /* source_id= */ 0, /* sequence_number= */ 41,
+      frame1_ts, frame1_ts + kInterval, kInterval,
+      viz::BeginFrameArgs::NORMAL));
+
+  // Inject the gesture scroll update. `InputHandlerProxy` will enqueue it.
+  tick_clock_.Advance(base::Microseconds(10));
+  base::TimeTicks timestamp = tick_clock_.NowTicks();
+  tick_clock_.Advance(base::Microseconds(10));
+  base::TimeTicks arrived_in_browser_main_timestamp = tick_clock_.NowTicks();
+  tick_clock_.Advance(base::Microseconds(10));
   std::unique_ptr<WebGestureEvent> gesture_event =
       std::make_unique<WebGestureEvent>(
           WebInputEvent::Type::kGestureScrollEnd, WebInputEvent::kNoModifiers,
           WebInputEvent::GetStaticTimeStampForTests(),
           WebGestureDevice::kTouchscreen);
   gesture_event->data.scroll_end.inertial_phase = param.inertial_phase;
-  std::unique_ptr<WebCoalescedInputEvent> coalesced_event =
-      std::make_unique<WebCoalescedInputEvent>(std::move(gesture_event),
-                                               ui::LatencyInfo());
-
-  base::TimeTicks timestamp = tick_clock_.NowTicks();
-  tick_clock_.Advance(base::Microseconds(10));
-  base::TimeTicks arrived_in_browser_main_timestamp = tick_clock_.NowTicks();
-  tick_clock_.Advance(base::Microseconds(10));
   std::unique_ptr<cc::EventMetrics> metrics =
       cc::ScrollEventMetrics::CreateForTesting(
           ui::EventType::kGestureScrollEnd, ui::ScrollInputType::kTouchscreen,
           param.is_inertial, timestamp, arrived_in_browser_main_timestamp,
           &tick_clock_);
-
   input_handler_proxy_.HandleInputEventWithLatencyInfo(
-      std::move(coalesced_event), std::move(metrics),
+      std::make_unique<WebCoalescedInputEvent>(std::move(gesture_event),
+                                               ui::LatencyInfo()),
+      std::move(metrics),
       /* callback= */ base::DoNothing());
 
-  EXPECT_THAT(
-      mock_input_handler_.events_metrics_manager.TakeSavedEventsMetrics(),
-      testing::ElementsAre(testing::Pointee(testing::Property(
-          &cc::EventMetrics::type, param.expected_event_type))));
+  // Send begin frame 2, which dispatches the gesture scroll update.
+  base::TimeTicks frame2_ts = frame1_ts + kInterval;
+  tick_clock_.SetNowTicks(frame2_ts);
+  input_handler_proxy_.DeliverInputForBeginFrame(viz::BeginFrameArgs::Create(
+      BEGINFRAME_FROM_HERE, /* source_id= */ 0, /* sequence_number= */ 42,
+      frame1_ts, frame1_ts + kInterval, kInterval,
+      viz::BeginFrameArgs::NORMAL));
+
+  cc::EventMetrics::List saved_metrics =
+      mock_input_handler_.events_metrics_manager.TakeSavedEventsMetrics();
+  EXPECT_THAT(saved_metrics, SizeIs(1u));
+  EXPECT_EQ(saved_metrics[0]->type(), param.expected_event_type);
+  EXPECT_EQ(
+      saved_metrics[0]->AsScroll()->begin_frame_args().frame_id.sequence_number,
+      41u);
+  EXPECT_EQ(
+      saved_metrics[0]->AsScroll()->dispatch_args().frame_id.sequence_number,
+      42u);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -3817,8 +4066,35 @@ class InputHandlerProxyScrollUpdateEventMetricsTest
 
 TEST_P(InputHandlerProxyScrollUpdateEventMetricsTest,
        SavesScrollUpdateMetrics) {
+  constexpr base::TimeDelta kInterval = base::Milliseconds(16);
   const InputHandlerProxyScrollUpdateEventMetricsTestCase& param = GetParam();
 
+  // Inject a gesture scroll begin first so that `InputHandlerProxy` would set
+  // `InputHandlerProxy::currently_active_gesture_device()` and consequently
+  // queue inputs instead of dispatching them immediately.
+  input_handler_proxy_.HandleInputEventWithLatencyInfo(
+      std::make_unique<WebCoalescedInputEvent>(
+          std::make_unique<WebGestureEvent>(
+              WebInputEvent::Type::kGestureScrollBegin,
+              WebInputEvent::kNoModifiers,
+              WebInputEvent::GetStaticTimeStampForTests(),
+              WebGestureDevice::kTouchscreen),
+          ui::LatencyInfo()),
+      /* metrics= */ nullptr, /* callback= */ base::DoNothing());
+
+  // Send begin frame 1.
+  base::TimeTicks frame1_ts = tick_clock_.NowTicks();
+  input_handler_proxy_.DeliverInputForBeginFrame(viz::BeginFrameArgs::Create(
+      BEGINFRAME_FROM_HERE, /* source_id= */ 0, /* sequence_number= */ 41,
+      frame1_ts, frame1_ts + kInterval, kInterval,
+      viz::BeginFrameArgs::NORMAL));
+
+  // Inject the gesture scroll update. `InputHandlerProxy` will enqueue it.
+  tick_clock_.Advance(base::Microseconds(10));
+  base::TimeTicks timestamp = tick_clock_.NowTicks();
+  tick_clock_.Advance(base::Microseconds(10));
+  base::TimeTicks arrived_in_browser_main_timestamp = tick_clock_.NowTicks();
+  tick_clock_.Advance(base::Microseconds(10));
   std::unique_ptr<WebGestureEvent> gesture_event =
       std::make_unique<WebGestureEvent>(
           WebInputEvent::Type::kGestureScrollUpdate,
@@ -3826,14 +4102,6 @@ TEST_P(InputHandlerProxyScrollUpdateEventMetricsTest,
           WebInputEvent::GetStaticTimeStampForTests(),
           WebGestureDevice::kTouchscreen);
   gesture_event->data.scroll_update.inertial_phase = param.inertial_phase;
-  std::unique_ptr<WebCoalescedInputEvent> coalesced_event =
-      std::make_unique<WebCoalescedInputEvent>(std::move(gesture_event),
-                                               ui::LatencyInfo());
-
-  base::TimeTicks timestamp = tick_clock_.NowTicks();
-  tick_clock_.Advance(base::Microseconds(10));
-  base::TimeTicks arrived_in_browser_main_timestamp = tick_clock_.NowTicks();
-  tick_clock_.Advance(base::Microseconds(10));
   std::unique_ptr<cc::EventMetrics> metrics =
       cc::ScrollUpdateEventMetrics::CreateForTesting(
           ui::EventType::kGestureScrollUpdate,
@@ -3841,15 +4109,30 @@ TEST_P(InputHandlerProxyScrollUpdateEventMetricsTest,
           param.scroll_update_type,
           /* delta= */ 1.0f, timestamp, arrived_in_browser_main_timestamp,
           &tick_clock_, /* trace_id= */ std::nullopt);
-
   input_handler_proxy_.HandleInputEventWithLatencyInfo(
-      std::move(coalesced_event), std::move(metrics),
+      std::make_unique<WebCoalescedInputEvent>(std::move(gesture_event),
+                                               ui::LatencyInfo()),
+      std::move(metrics),
       /* callback= */ base::DoNothing());
 
-  EXPECT_THAT(
-      mock_input_handler_.events_metrics_manager.TakeSavedEventsMetrics(),
-      testing::ElementsAre(testing::Pointee(testing::Property(
-          &cc::EventMetrics::type, param.expected_event_type))));
+  // Send begin frame 2, which dispatches the gesture scroll update.
+  base::TimeTicks frame2_ts = frame1_ts + kInterval;
+  tick_clock_.SetNowTicks(frame2_ts);
+  input_handler_proxy_.DeliverInputForBeginFrame(viz::BeginFrameArgs::Create(
+      BEGINFRAME_FROM_HERE, /* source_id= */ 0, /* sequence_number= */ 42,
+      frame1_ts, frame1_ts + kInterval, kInterval,
+      viz::BeginFrameArgs::NORMAL));
+
+  cc::EventMetrics::List saved_metrics =
+      mock_input_handler_.events_metrics_manager.TakeSavedEventsMetrics();
+  EXPECT_THAT(saved_metrics, SizeIs(1u));
+  EXPECT_EQ(saved_metrics[0]->type(), param.expected_event_type);
+  EXPECT_EQ(
+      saved_metrics[0]->AsScroll()->begin_frame_args().frame_id.sequence_number,
+      41u);
+  EXPECT_EQ(
+      saved_metrics[0]->AsScroll()->dispatch_args().frame_id.sequence_number,
+      42u);
 }
 
 INSTANTIATE_TEST_SUITE_P(

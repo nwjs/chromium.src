@@ -578,6 +578,7 @@ void IOSCollaborationControllerDelegate::ShowLeaveOrDeleteDialog(
 
 void IOSCollaborationControllerDelegate::OnAuthenticationComplete(
     ResultCallback result,
+    SigninCoordinator* coordinator,
     SigninCoordinatorResult sign_in_result,
     id<SystemIdentity> completion_info) {
   StopSigninCoordinator();
@@ -718,9 +719,11 @@ void IOSCollaborationControllerDelegate::FetchPreviewItems(
     // Asynchronously load the favicon for the tab's URL.
     favicon_loader_->FaviconForPageUrl(
         tab.url, kFaviconSize, kFaviconMinimumSize,
-        /*fallback_to_google_server=*/true, ^(FaviconAttributes* attributes) {
+        /*fallback_to_google_server=*/true,
+        ^(FaviconAttributes* attributes, bool cached) {
           // Skip synchronously returned default favicon.
-          if (completion_block_executed || attributes.usesDefaultImage) {
+          if (completion_block_executed ||
+              (cached && !attributes.faviconImage)) {
             return;
           }
           if (attributes.faviconImage) {

@@ -40,15 +40,18 @@ class DesktopBnplUiDelegate : public BnplUiDelegate {
       std::vector<BnplIssuerContext> bnpl_issuer_context,
       std::string app_locale,
       base::OnceCallback<void(BnplIssuer)> selected_issuer_callback,
-      base::OnceClosure cancel_callback) override;
-  void DismissSelectBnplIssuerUi() override;
+      base::OnceClosure cancel_callback,
+      bool has_seen_ai_terms) override;
+  void UpdateBnplIssuerDialogUi(
+      std::vector<BnplIssuerContext> issuer_contexts) override;
+  void RemoveSelectBnplIssuerOrProgressUi() override;
   void ShowBnplTosUi(BnplTosModel bnpl_tos_model,
                      base::OnceClosure accept_callback,
                      base::OnceClosure cancel_callback) override;
-  void CloseBnplTosUi() override;
+  void RemoveBnplTosOrProgressUi() override;
   void ShowProgressUi(AutofillProgressDialogType autofill_progress_dialog_type,
                       base::OnceClosure cancel_callback) override;
-  void CloseProgressUi(bool show_confirmation_before_closing) override;
+  void CloseProgressUi(bool credit_card_fetched_successfully) override;
   void ShowAutofillErrorUi(AutofillErrorDialogContext context) override;
 
  private:

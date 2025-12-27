@@ -21,6 +21,7 @@
 #include "media/base/demuxer.h"
 #include "media/base/limits.h"
 #include "media/base/media_export.h"
+#include "media/formats/hls/abr_algorithm.h"
 #include "media/formats/hls/rendition_group.h"
 #include "media/formats/hls/types.h"
 #include "media/formats/hls/variant_stream.h"
@@ -87,19 +88,21 @@ class MEDIA_EXPORT RenditionManager {
   void UpdatePlayerResolution(const gfx::Size& resolution);
   void UpdateNetworkSpeed(uint64_t network_bps);
 
+  void SetAbrAlgorithmForTesting(std::unique_ptr<ABRAlgorithm> abr_algorithm);
+
   // Uses player state and user preferences to trigger `on_variant_selected`
   // calls with preferred playback uris.
   void Reselect(SelectedCallonce callback);
 
   // A nullopt means that no preference is set, and automatic selection will
   // take over.
-  void SetPreferredExtraRendition(std::optional<MediaTrack::Id> track_id);
-  void SetPreferredPrimaryRendition(std::optional<MediaTrack::Id> track_id);
+  void SetPreferredAudioRendition(std::optional<MediaTrack::Id> track_id);
+  void SetPreferredVideoRendition(std::optional<MediaTrack::Id> track_id);
 
   bool HasSelectableVariants() const { return !selectable_variants_.empty(); }
 
-  std::vector<MediaTrack> GetSelectablePrimaryRenditions() const;
-  std::vector<MediaTrack> GetSelectableExtraRenditions() const;
+  std::vector<MediaTrack> GetSelectableVideoRenditions() const;
+  std::vector<MediaTrack> GetSelectableAudioRenditions() const;
 
  private:
   const VariantStream* SelectBestVariant() const;
@@ -111,6 +114,8 @@ class MEDIA_EXPORT RenditionManager {
 
   // Fired whenever a variant or rendition changes.
   SelectedCB reselect_cb_;
+
+  std::unique_ptr<ABRAlgorithm> abr_algorithm_;
 
   // A sorted list of variants from {least -> most} preferrential.
   std::vector<raw_ptr<const VariantStream>> selectable_variants_;
@@ -132,7 +137,6 @@ class MEDIA_EXPORT RenditionManager {
 
   // Playback qualities not tied to a specific variant.
   gfx::Size player_resolution_ = {limits::kMaxDimension, limits::kMaxDimension};
-  uint64_t network_bps_ = 0xFFFFFFFFFF;
 };
 
 }  // namespace media::hls

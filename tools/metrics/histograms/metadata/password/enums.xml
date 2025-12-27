@@ -42,10 +42,12 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="'Show other passwords' link"/>
   <int value="8" label="Show Passkeys again"/>
   <int value="9" label="'Use passkey on a different device' link"/>
-  <int value="10" label="'Create plus address' link in the address sheet"/>
+  <int value="10"
+      label="'(Obsolete) Create plus address' link in the address sheet"/>
   <int value="11" label="'Select plus address' link in the address sheet"/>
   <int value="12" label="'Manage plus addresses' link in the address sheet"/>
-  <int value="13" label="'Create plus address' link in the password sheet"/>
+  <int value="13"
+      label="'(Obsolete) Create plus address' link in the password sheet"/>
   <int value="14" label="'Select plus address' link in the password sheet"/>
   <int value="15" label="'Manage plus addresses' link in the password sheet"/>
   <int value="16" label="'Manage loyalty cards' link"/>
@@ -302,7 +304,7 @@ chromium-metrics-reviews@google.com.
   <int value="14" label="Passkey hybrid flow"/>
 </enum>
 
-<!-- LINT.ThenChange(//content/public/browser/login_metrics.h:BrowserAssistedLoginType) -->
+<!-- LINT.ThenChange(//components/password_manager/core/browser/metrics/login_metrics.h:BrowserAssistedLoginType) -->
 
 <enum name="CharacterClassPresenceChange">
   <int value="0" label="No change"/>
@@ -323,17 +325,6 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(/chrome/browser/password_manager/password_change_delegate.h) -->
-
-<enum name="CredentialEntryAction">
-  <int value="0" label="Deleted"/>
-  <int value="1" label="Copied username"/>
-  <int value="2" label="Unmasked password"/>
-  <int value="3" label="Masked password"/>
-  <int value="4" label="Copied password"/>
-  <int value="5" label="Edit username and save"/>
-  <int value="6" label="Edit password and save"/>
-  <int value="7" label="Edit username and password and save"/>
-</enum>
 
 <!-- LINT.IfChange(CredentialManagerAndroidGetResult) -->
 
@@ -831,9 +822,11 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="OTP detected"/>
   <int value="8" label="Canceled by the user"/>
   <int value="9" label="No state. The feature wasn't offered"/>
-  <int value="10" label="Login form detected in an ongoing flow"/>
+  <int value="10"
+      label="Login is unfinished. Prompting user to complete sign in."/>
   <int value="11"
-      label="Login form detected in an ongoing flow. Continue button shown."/>
+      label="Login form detected in an ongoing flow. Continue button shown.
+             (Deprecated)"/>
 </enum>
 
 <!-- LINT.ThenChange(/chrome/browser/password_manager/password_change_delegate.h) -->
@@ -865,6 +858,7 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Canceled"/>
   <int value="2" label="Continue"/>
   <int value="3" label="Open password change tab"/>
+  <int value="4" label="Retry"/>
 </enum>
 
 <!-- LINT.ThenChange(/chrome/browser/ui/passwords/password_change_ui_controller.h:PasswordChangeToastEvent) -->
@@ -905,13 +899,6 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Password Breach Dialog"/>
   <int value="4" label="More passwords to fix bubble"/>
   <int value="5" label="Unsafe state bubble"/>
-</enum>
-
-<enum name="PasswordCheckReferrerAndroid">
-  <int value="0" label="Password Settings"/>
-  <int value="1" label="Safety Check"/>
-  <int value="2" label="Password Breach Dialog"/>
-  <int value="3" label="PhishGuard Dialog"/>
 </enum>
 
 <enum name="PasswordCheckResolutionAction">
@@ -1571,22 +1558,6 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Ignore"/>
   <int value="3" label="Close"/>
   <int value="4" label="Mark as legitimate"/>
-</enum>
-
-<enum name="PasswordRequirementsFetcherResult">
-  <int value="0" label="Found no spec for current origin"/>
-  <int value="1" label="Found a spec for current origin"/>
-  <int value="2" label="Invalid origin">
-    The origin is an IP address, not HTTP/HTTPS, or not a valid URL.
-  </int>
-  <int value="3" label="Failed to fetch requirements file">
-    Server responded with an empty document or an error code.
-  </int>
-  <int value="4" label="Timeout">Server timed out.</int>
-  <int value="5" label="Failed to parse response">
-    Server responded with a document but it could not be parsed.
-  </int>
-  <int value="6" label="No URL Loader">No URL loader configured.</int>
 </enum>
 
 <enum name="PasswordReusePasswordFieldDetected">

@@ -17,6 +17,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_string_stringsequence.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_ice_server.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_transport_config.h"
+#include "third_party/blink/renderer/core/events/message_event.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/timing/performance.h"
@@ -39,55 +40,11 @@
 
 namespace blink {
 namespace {
+using PacketSendParameters = webrtc::DatagramConnection::PacketSendParameters;
+
 // Maximum known size (SHA-512). See
 // third_party/webrtc/rtc_base/message_digest.h
 const size_t kMaxDigestSize = 64;
-
-webrtc::ServerAddresses ParseStunServers(const RtcTransportConfig* config,
-                                         ExceptionState& exception_state) {
-  webrtc::ServerAddresses stun_servers;
-  if (!config->hasIceServers()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
-                                      "Missing iceServers");
-    return stun_servers;
-  }
-
-  webrtc::PeerConnectionInterface::IceServers ice_servers;
-  for (const RTCIceServer* ice_server : config->iceServers()) {
-    if (ice_server->hasUrl()) {
-      exception_state.ThrowDOMException(
-          DOMExceptionCode::kNotSupportedError,
-          "'url' field not supported, use 'urls'");
-      return stun_servers;
-    }
-    if (!ice_server->hasUrls()) {
-      exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
-                                        "Ice server must have 'urls'");
-      return stun_servers;
-    }
-
-    webrtc::PeerConnectionInterface::IceServer server;
-    switch (ice_server->urls()->GetContentType()) {
-      case V8UnionStringOrStringSequence::ContentType::kString:
-        server.urls.push_back(ice_server->urls()->GetAsString().Utf8());
-        break;
-      case V8UnionStringOrStringSequence::ContentType::kStringSequence:
-        for (const String& url : ice_server->urls()->GetAsStringSequence()) {
-          server.urls.push_back(url.Utf8());
-        }
-    }
-    ice_servers.push_back(server);
-  }
-  std::vector<webrtc::RelayServerConfig> unused_turn_servers;
-  webrtc::RTCError error = webrtc::ParseIceServersOrError(
-      ice_servers, &stun_servers, &unused_turn_servers);
-  if (!error.ok()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
-                                      "Failed to parse ice servers");
-  }
-
-  return stun_servers;
-}
 
 class DatagramConnectionObserver : public webrtc::DatagramConnection::Observer {
  public:
@@ -120,7 +77,12 @@ class DatagramConnectionObserver : public webrtc::DatagramConnection::Observer {
   // includes them.
   void OnSendError() override {}
   void OnConnectionError() override {}
-  void OnWritableChange() override {}
+  void OnWritableChange() override {
+    PostCrossThreadTask(
+        *main_task_runner_, FROM_HERE,
+        CrossThreadBindOnce(&RtcTransport::OnWritableChangeOnMainThread,
+                            MakeUnwrappingCrossThreadWeakHandle(transport_)));
+  }
 
  private:
   scoped_refptr<base::SequencedTaskRunner> main_task_runner_;
@@ -137,6 +99,20 @@ V8RTCIceCandidateType IceCandidateTypeFrom(webrtc::IceCandidateType type) {
       return V8RTCIceCandidateType(V8RTCIceCandidateType::Enum::kPrflx);
     case webrtc::IceCandidateType::kRelay:
       return V8RTCIceCandidateType(V8RTCIceCandidateType::Enum::kRelay);
+  }
+}
+
+webrtc::IceCandidateType WebrtcIceCandidateTypeFromIdl(
+    V8RTCIceCandidateType type) {
+  switch (type.AsEnum()) {
+    case V8RTCIceCandidateType::Enum::kHost:
+      return webrtc::IceCandidateType::kHost;
+    case V8RTCIceCandidateType::Enum::kSrflx:
+      return webrtc::IceCandidateType::kSrflx;
+    case V8RTCIceCandidateType::Enum::kPrflx:
+      return webrtc::IceCandidateType::kPrflx;
+    case V8RTCIceCandidateType::Enum::kRelay:
+      return webrtc::IceCandidateType::kRelay;
   }
 }
 
@@ -216,9 +192,12 @@ class AsyncDatagramConnectionImpl : public AsyncDatagramConnection {
             [](webrtc::scoped_refptr<webrtc::DatagramConnection>
                    datagram_connection,
                std::unique_ptr<Vector<Vector<uint8_t>>> packet_payloads) {
+              std::vector<PacketSendParameters> send_params;
+              send_params.reserve(packet_payloads->size());
               for (const Vector<uint8_t>& payload : *packet_payloads) {
-                datagram_connection->SendPacket(payload);
+                send_params.push_back(PacketSendParameters{.payload = payload});
               }
+              datagram_connection->SendPackets(send_params);
             },
             datagram_connection_, std::move(packet_payloads)));
   }
@@ -257,7 +236,7 @@ RtcTransport* RtcTransport::Create(ExecutionContext* context,
                                    ExceptionState& exception_state) {
   auto* transport = MakeGarbageCollected<RtcTransport>(PassKey(), context);
 
-  webrtc::ServerAddresses stun_servers =
+  std::unique_ptr<StunAndTurnServers> stun_and_turn_servers =
       ParseStunServers(config, exception_state);
   if (exception_state.HadException()) {
     return nullptr;
@@ -276,7 +255,7 @@ RtcTransport* RtcTransport::Create(ExecutionContext* context,
   RtcTransportDependencies::GetInitialized(
       *context,
       BindOnce(&RtcTransport::ContinueInitialization, WrapPersistent(transport),
-               config->iceControlling(), stun_servers,
+               config->iceControlling(), std::move(stun_and_turn_servers),
                /*injected_datagram_connection=*/nullptr,
                ToWebrtcWireProtocol(config->wireProtocol())));
   return transport;
@@ -291,7 +270,7 @@ RtcTransport* RtcTransport::CreateForTests(
     webrtc::scoped_refptr<webrtc::DatagramConnection> datagram_connection) {
   auto* transport = MakeGarbageCollected<RtcTransport>(PassKey(), context);
 
-  webrtc::ServerAddresses stun_servers =
+  std::unique_ptr<StunAndTurnServers> stun_and_turn_servers =
       ParseStunServers(config, exception_state);
   if (exception_state.HadException()) {
     return nullptr;
@@ -302,12 +281,67 @@ RtcTransport* RtcTransport::CreateForTests(
   }
   if (datagram_connection) {
     RtcTransportDependencies::GetInitialized(
-        *context, BindOnce(&RtcTransport::ContinueInitialization,
-                           WrapPersistent(transport), config->iceControlling(),
-                           stun_servers, datagram_connection,
-                           ToWebrtcWireProtocol(config->wireProtocol())));
+        *context,
+        BindOnce(&RtcTransport::ContinueInitialization,
+                 WrapPersistent(transport), config->iceControlling(),
+                 std::move(stun_and_turn_servers), datagram_connection,
+                 ToWebrtcWireProtocol(config->wireProtocol())));
   }
   return transport;
+}
+
+// static
+std::unique_ptr<RtcTransport::StunAndTurnServers>
+RtcTransport::ParseStunServers(const RtcTransportConfig* config,
+                               ExceptionState& exception_state) {
+  auto stun_and_turn_servers = std::make_unique<StunAndTurnServers>();
+  if (!config->hasIceServers()) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
+                                      "Missing iceServers");
+    return stun_and_turn_servers;
+  }
+
+  webrtc::PeerConnectionInterface::IceServers ice_servers;
+  for (const RTCIceServer* ice_server : config->iceServers()) {
+    if (ice_server->hasUrl()) {
+      exception_state.ThrowDOMException(
+          DOMExceptionCode::kNotSupportedError,
+          "'url' field not supported, use 'urls'");
+      return stun_and_turn_servers;
+    }
+    if (!ice_server->hasUrls()) {
+      exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
+                                        "Ice server must have 'urls'");
+      return stun_and_turn_servers;
+    }
+
+    webrtc::PeerConnectionInterface::IceServer server;
+    switch (ice_server->urls()->GetContentType()) {
+      case V8UnionStringOrStringSequence::ContentType::kString:
+        server.urls.push_back(ice_server->urls()->GetAsString().Utf8());
+        break;
+      case V8UnionStringOrStringSequence::ContentType::kStringSequence:
+        for (const String& url : ice_server->urls()->GetAsStringSequence()) {
+          server.urls.push_back(url.Utf8());
+        }
+    }
+    if (ice_server->hasUsername()) {
+      server.username = ice_server->username().Utf8();
+    }
+    if (ice_server->hasCredential()) {
+      server.password = ice_server->credential().Utf8();
+    }
+    ice_servers.push_back(server);
+  }
+  webrtc::RTCError error = webrtc::ParseIceServersOrError(
+      ice_servers, &stun_and_turn_servers->stun_servers,
+      &stun_and_turn_servers->turn_servers);
+  if (!error.ok()) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
+                                      "Failed to parse ice servers");
+  }
+
+  return stun_and_turn_servers;
 }
 
 RtcTransport::RtcTransport(PassKey, ExecutionContext* context)
@@ -328,15 +362,15 @@ RtcTransport::RtcTransport(PassKey, ExecutionContext* context)
 
 void RtcTransport::ContinueInitialization(
     bool ice_controlling,
-    webrtc::ServerAddresses stun_servers,
+    std::unique_ptr<StunAndTurnServers> stun_and_turn_servers,
     webrtc::scoped_refptr<webrtc::DatagramConnection>
         injected_datagram_connection,
     webrtc::DatagramConnection::WireProtocol wire_protocol,
     RtcTransportDependencies* dependencies) {
   std::unique_ptr<P2PPortAllocator> port_allocator =
       dependencies->CreatePortAllocator();
-  std::vector<webrtc::RelayServerConfig> turn_servers;
-  port_allocator->SetConfiguration(stun_servers, turn_servers, 0,
+  port_allocator->SetConfiguration(stun_and_turn_servers->stun_servers,
+                                   stun_and_turn_servers->turn_servers, 0,
                                    webrtc::PortPrunePolicy::NO_PRUNE);
 
   auto observer = std::make_unique<DatagramConnectionObserver>(
@@ -347,8 +381,7 @@ void RtcTransport::ContinueInitialization(
           [](CrossThreadHandle<RtcTransport> transport,
              scoped_refptr<base::SequencedTaskRunner> task_runner,
              std::unique_ptr<P2PPortAllocator> port_allocator,
-             const webrtc::ServerAddresses stun_servers, bool ice_controlling,
-             const webrtc::Environment& env,
+             bool ice_controlling, const webrtc::Environment& env,
              webrtc::scoped_refptr<webrtc::RTCCertificate> certificate,
              std::unique_ptr<webrtc::DatagramConnection::Observer> observer,
              webrtc::scoped_refptr<webrtc::DatagramConnection>
@@ -376,9 +409,9 @@ void RtcTransport::ContinueInitialization(
                                     std::move(async_datagram_connection)));
           },
           MakeCrossThreadHandle(this), task_runner_, std::move(port_allocator),
-          stun_servers, ice_controlling, dependencies->Environment(),
-          certificate_, std::move(observer),
-          std::move(injected_datagram_connection), wire_protocol));
+          ice_controlling, dependencies->Environment(), certificate_,
+          std::move(observer), std::move(injected_datagram_connection),
+          wire_protocol));
 }
 
 void RtcTransport::OnInitialized(
@@ -418,35 +451,19 @@ void RtcTransport::OnCandidateGatheredOnMainThread(
 void RtcTransport::OnPacketReceivedOnMainThread(
     Vector<uint8_t> data,
     webrtc::Timestamp receive_time) {
+  ExecutionContext* context = GetExecutionContext();
+  if (!context) {
+    // Context has gone away - eg page has been closed. Just bail.
+    return;
+  }
   received_packets_.push_back(MakeGarbageCollected<RtcReceivedPacket>(
       DOMArrayBuffer::Create(data),
-      RTCTimeStampFromTimeTicks(GetExecutionContext(),
+      RTCTimeStampFromTimeTicks(context,
                                 ConvertToBaseTimeTicks(receive_time))));
 }
 
 void RtcTransport::addRemoteCandidate(RtcTransportICECandidateInit* init,
                                       ExceptionState& exception_state) {
-  if (!init->hasType()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kSyntaxError,
-                                      "Missing type");
-    return;
-  }
-  if (!init->hasAddress()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kSyntaxError,
-                                      "Missing Address");
-    return;
-  }
-  if (!init->hasUsernameFragment()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kSyntaxError,
-                                      "Missing usernameFragment");
-    return;
-  }
-  if (!init->hasPassword()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kSyntaxError,
-                                      "Missing Password");
-    return;
-  }
-
   webrtc::Candidate candidate;
   // Only UDP candidates supported.
   candidate.set_protocol("udp");
@@ -462,19 +479,7 @@ void RtcTransport::addRemoteCandidate(RtcTransportICECandidateInit* init,
   candidate.set_address(address);
   candidate.set_username(init->usernameFragment().Utf8());
   candidate.set_password(init->password().Utf8());
-
-  if (init->type() ==
-      V8RTCIceCandidateType(V8RTCIceCandidateType::Enum::kHost)) {
-    candidate.set_type(webrtc::IceCandidateType::kHost);
-  } else if (init->type() ==
-             V8RTCIceCandidateType(V8RTCIceCandidateType::Enum::kSrflx)) {
-    candidate.set_type(webrtc::IceCandidateType::kSrflx);
-  } else {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kSyntaxError,
-        "Only Host and Srflx candidates currently supported");
-    return;
-  }
+  candidate.set_type(WebrtcIceCandidateTypeFromIdl(init->type()));
 
   if (!initialized_) {
     pending_remote_candidates_.push_back(candidate);
@@ -497,6 +502,7 @@ void RtcTransport::sendPackets(
     return;
   }
   auto packet_payloads = std::make_unique<Vector<Vector<uint8_t>>>();
+  packet_payloads->reserve(packets.size());
   for (const auto& packet : packets) {
     packet_payloads->emplace_back(packet->data()->ByteSpan());
   }
@@ -530,6 +536,10 @@ ScriptPromise<IDLBoolean> RtcTransport::writable(ScriptState* script_state) {
   }
 
   return resolver->Promise();
+}
+
+void RtcTransport::OnWritableChangeOnMainThread() {
+  DispatchEvent(*Event::Create(event_type_names::kWritablechange));
 }
 
 void RtcTransport::Trace(Visitor* visitor) const {

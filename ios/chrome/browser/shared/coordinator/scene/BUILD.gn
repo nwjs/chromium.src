@@ -218,7 +218,6 @@ source_set("scene") {
     "//ios/public/provider/chrome/browser/ui_utils:ui_utils_api",
     "//ios/public/provider/chrome/browser/user_feedback:user_feedback_api",
     "//ios/web/public/js_image_transcoder",
-    "//ios/web/public/session",
     "//ios/web/public/session/proto",
     "//ui/base",
   ]
@@ -278,6 +277,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/intents/model:user_activity_browser_agent",
     "//ios/chrome/browser/main/ui_bundled",
     "//ios/chrome/browser/prerender/model",
+    "//ios/chrome/browser/saved_tab_groups/model",
     "//ios/chrome/browser/search_engines/model:template_url_service_factory",
     "//ios/chrome/browser/sessions/model:session_restoration_service_factory",
     "//ios/chrome/browser/sessions/model:test_support",

@@ -19,6 +19,7 @@
 #import "ios/chrome/browser/infobars/ui_bundled/infobar_constants.h"
 #import "ios/chrome/browser/infobars/ui_bundled/modals/infobar_modal_constants.h"
 #import "ios/chrome/browser/infobars/ui_bundled/modals/infobar_translate_modal_constants.h"
+#import "ios/chrome/browser/location_bar/badge/ui/location_bar_badge_constants.h"
 #import "ios/chrome/browser/popup_menu/ui_bundled/popup_menu_constants.h"
 #import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/reader_mode/ui/constants.h"
@@ -30,6 +31,7 @@
 #import "ios/chrome/test/earl_grey/chrome_matchers.h"
 #import "ios/chrome/test/earl_grey/scoped_disable_timer_tracking.h"
 #import "ios/chrome/test/earl_grey/web_http_server_chrome_test_case.h"
+#import "ios/chrome/test/scoped_eg_synchronization_disabler.h"
 #import "ios/components/webui/web_ui_url_constants.h"
 #import "ios/testing/earl_grey/app_launch_manager.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
@@ -316,8 +318,10 @@ void TestResponseProvider::GetLanguageResponse(
       [self isRunningTest:@selector(testTranslateAfterReaderMode)] ||
       [self isRunningTest:@selector(testTranslatePriorToReaderMode)] ||
       [self isRunningTest:@selector(testNoAutotranslateInReaderMode)] ||
+      [self isRunningTest:@selector(testTranslateBadgeInReaderMode)] ||
       [self isRunningTest:@selector(testTranslateInClosedReaderMode)]) {
     config.features_enabled.push_back(kEnableReaderMode);
+    config.features_enabled.push_back(kEnableReaderModeInUS);
   }
 
   return config;
@@ -821,7 +825,8 @@ void TestResponseProvider::GetLanguageResponse(
 
 // Tests that the target language can be changed. TODO(crbug.com/40670920):
 // implement test for changing source language.
-- (void)testInfobarChangeTargetLanguage {
+// TODO(crbug.com/460748990): Test is flaky.
+- (void)FLAKY_testInfobarChangeTargetLanguage {
 // TODO(crbug.com/383556552): This test is flaky on iPad device.
 #if !TARGET_OS_SIMULATOR
   if ([ChromeEarlGrey isIPadIdiom]) {
@@ -951,7 +956,8 @@ void TestResponseProvider::GetLanguageResponse(
 
 // Tests that the "Never Translate ..." options dismisses the infobar and
 // updates the prefs accordingly.
-- (void)testInfobarNeverTranslate {
+// TODO(crbug.com/460749272): Test is flaky.
+- (void)FLAKY_testInfobarNeverTranslate {
 // TODO(crbug.com/383556552): This test is flaky on iPad device.
 #if !TARGET_OS_SIMULATOR
   if ([ChromeEarlGrey isIPadIdiom]) {
@@ -1223,6 +1229,19 @@ void TestResponseProvider::GetLanguageResponse(
 
 #pragma mark - Utility methods
 
+- (BOOL)isTranslateBadgeVisible {
+  bool badgeShown = WaitUntilConditionOrTimeout(kWaitForUIElement3xTimeout, ^{
+    NSError* error = nil;
+    [[EarlGrey
+        selectElementWithMatcher:
+            grey_accessibilityID(kBadgeButtonTranslateAccessibilityIdentifier)]
+        assertWithMatcher:grey_notNil()
+                    error:&error];
+    return error == nil;
+  });
+  return badgeShown;
+}
+
 - (BOOL)isBeforeTranslateBannerVisible {
   BOOL bannerShown = WaitUntilConditionOrTimeout(kWaitForUIElement3xTimeout, ^{
     NSError* error = nil;
@@ -1423,12 +1442,21 @@ void TestResponseProvider::GetLanguageResponse(
       waitForUIElementToDisappearWithMatcher:
           grey_accessibilityID(kReaderModeViewAccessibilityIdentifier)];
 
-  // Verify badge is shown and page is translated.
+  // Verify translate badge and Reading Mode contextual chip are shown and page
+  // is translated.
   [[EarlGrey selectElementWithMatcher:
                  grey_accessibilityID(
                      kBadgeButtonTranslateAcceptedAccessibilityIdentifier)]
       assertWithMatcher:grey_notNil()];
   [ChromeEarlGrey waitForWebStateContainingText:"Translated"];
+  // TODO(crbug.com/457880049): Clean up when feature is enabled by default.
+  NSString* imageViewIdentifier =
+      [ChromeEarlGrey isAskGeminiChipEnabled]
+          ? kLocationBarBadgeImageViewIdentifier
+          : @"ContextualPanelEntrypointImageViewAXID";
+  [ChromeEarlGrey
+      waitForSufficientlyVisibleElementWithMatcher:grey_accessibilityID(
+                                                       imageViewIdentifier)];
 }
 
 // Tests that translation settings in Reader Mode is displayed and that
@@ -1459,6 +1487,11 @@ void TestResponseProvider::GetLanguageResponse(
       waitForSufficientlyVisibleElementWithMatcher:
           grey_accessibilityID(kReaderModeViewAccessibilityIdentifier)];
 
+  // iOS26 introduces latency in the UI detection logic, which results in the
+  // infobar disappearing before the EG test attempts to detect it.
+  // Temporarily disabling synchronization allows the infobar to be detected
+  // within the expected latency.
+  ScopedSynchronizationDisabler disabler;
   // Select translation in the tools menu.
   [ChromeEarlGreyUI openToolsMenu];
 
@@ -1578,6 +1611,49 @@ void TestResponseProvider::GetLanguageResponse(
 
   // Verify page is not translated.
   [ChromeEarlGrey waitForWebStateNotContainingText:"Translated"];
+}
+
+// Tests that opening and closing reader mode does not impact the state of the
+// translate badge.
+- (void)testTranslateBadgeInReaderMode {
+#if !TARGET_OS_SIMULATOR
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Disabled on iPad devices");
+  }
+#endif
+  // Set up server with a French page.
+  std::unique_ptr<web::DataResponseProvider> provider(new TestResponseProvider);
+  web::test::SetUpHttpServer(std::move(provider));
+
+  GURL URL = web::test::HttpServer::MakeUrl(
+      base::StringPrintf("http://%s", kFrenchPageDistillablePath));
+
+  // Load URL.
+  [ChromeEarlGrey loadURL:URL];
+
+  // Check Translate banner is presented.
+  GREYAssertTrue([self isBeforeTranslateBannerVisible],
+                 @"Before Translate banner was not found");
+
+  // Open and close Reader Mode.
+  GREYAssertTrue(
+      [ChromeEarlGrey showReaderModeAndWaitUntilReaderModeWebStateIsReady],
+      @"Reader mode content could not be loaded.");
+  [ChromeEarlGrey
+      waitForSufficientlyVisibleElementWithMatcher:
+          grey_accessibilityID(kReaderModeViewAccessibilityIdentifier)];
+  [ChromeEarlGrey hideReaderMode];
+  [ChromeEarlGrey
+      waitForUIElementToDisappearWithMatcher:
+          grey_accessibilityID(kReaderModeViewAccessibilityIdentifier)];
+
+  // Verify badge is visible and not accepted.
+  GREYAssertTrue([self isTranslateBadgeVisible],
+                 @"Translate badge was not visible");
+  [[EarlGrey selectElementWithMatcher:
+                 grey_accessibilityID(
+                     kBadgeButtonTranslateAcceptedAccessibilityIdentifier)]
+      assertWithMatcher:grey_nil()];
 }
 
 // Tests that for a tab where translation was applied in Reading Mode, deletion

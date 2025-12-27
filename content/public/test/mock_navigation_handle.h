@@ -6,6 +6,7 @@
 #define CONTENT_PUBLIC_TEST_MOCK_NAVIGATION_HANDLE_H_
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
@@ -13,6 +14,7 @@
 #include "base/no_destructor.h"
 #include "base/notimplemented.h"
 #include "base/types/optional_util.h"
+#include "base/unguessable_token.h"
 #include "content/public/browser/child_process_host.h"
 #include "content/public/browser/error_navigation_trigger.h"
 #include "content/public/browser/global_request_id.h"
@@ -148,6 +150,13 @@ class MockNavigationHandle : public NavigationHandle {
     return render_frame_host_;
   }
   bool IsSameDocument() const override { return is_same_document_; }
+  std::optional<base::UnguessableToken> GetSameDocumentMetricsToken()
+      const override {
+    return same_document_metrics_token_;
+  }
+  void set_same_document_metrics_token(base::UnguessableToken token) {
+    same_document_metrics_token_ = token;
+  }
   bool IsHistory() const override {
     NOTIMPLEMENTED();
     return false;
@@ -165,10 +174,8 @@ class MockNavigationHandle : public NavigationHandle {
   const net::HttpRequestHeaders& GetRequestHeaders() override {
     return request_headers_;
   }
-  MOCK_METHOD1(RemoveRequestHeader, void(const std::string&));
-  MOCK_METHOD2(SetRequestHeader, void(const std::string&, const std::string&));
-  MOCK_METHOD2(SetCorsExemptRequestHeader,
-               void(const std::string&, const std::string&));
+  MOCK_METHOD1(RemoveRequestHeader, void(std::string_view));
+  MOCK_METHOD2(SetRequestHeader, void(std::string_view, std::string_view));
   const net::HttpResponseHeaders* GetResponseHeaders() override {
     return response_headers_.get();
   }
@@ -252,10 +259,6 @@ class MockNavigationHandle : public NavigationHandle {
   MOCK_METHOD(std::optional<NavigationDiscardReason>,
               GetNavigationDiscardReason,
               ());
-  MOCK_METHOD(ProcessSelectionUserData&,
-              GetProcessSelectionUserData,
-              (),
-              (override));
 
 #if BUILDFLAG(IS_ANDROID)
   MOCK_METHOD(const base::android::JavaRef<jobject>&,
@@ -278,6 +281,11 @@ class MockNavigationHandle : public NavigationHandle {
       override {
     return nullptr;
   }
+
+  ProcessSelectionUserData& GetProcessSelectionUserData() override {
+    return process_selection_user_data_;
+  }
+
   MOCK_METHOD(void, SetIsAdTagged, ());
 
   blink::RuntimeFeatureStateContext& GetMutableRuntimeFeatureStateContext()
@@ -418,6 +426,8 @@ class MockNavigationHandle : public NavigationHandle {
   int initiator_process_id_ = ChildProcessHost::kInvalidUniqueID;
   bool was_started_from_context_menu_ = false;
   blink::RuntimeFeatureStateContext runtime_feature_state_context_;
+  ProcessSelectionUserData process_selection_user_data_;
+  std::optional<base::UnguessableToken> same_document_metrics_token_;
 
   base::WeakPtrFactory<MockNavigationHandle> weak_factory_{this};
 };

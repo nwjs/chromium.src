@@ -22,7 +22,6 @@
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "build/build_config.h"
-#include "components/network_session_configurator/common/network_features.h"
 #include "components/network_session_configurator/common/network_switches.h"
 #include "components/variations/variations_switches.h"
 #include "net/base/features.h"
@@ -392,6 +391,14 @@ int GetQuicRetransmittableOnWireTimeoutMilliseconds(
   return 0;
 }
 
+bool ShouldQuicAllowDebuggingSniInTransportParam(
+    const VariationParameters& quic_trial_params) {
+  return base::EqualsCaseInsensitiveASCII(
+      GetVariationParam(quic_trial_params,
+                        "enable_debugging_sni_in_transport_param"),
+      "true");
+}
+
 int GetQuicIdleSessionMigrationPeriodSeconds(
     const VariationParameters& quic_trial_params) {
   int value;
@@ -670,6 +677,10 @@ void ConfigureQuicParams(const base::CommandLine& command_line,
       quic_params->retransmittable_on_wire_timeout =
           base::Milliseconds(retransmittable_on_wire_timeout_milliseconds);
     }
+
+    quic_params->enable_debugging_sni_in_transport_param =
+        ShouldQuicAllowDebuggingSniInTransportParam(quic_trial_params);
+
     quic_params->migrate_idle_sessions =
         ShouldQuicMigrateIdleSessions(quic_trial_params);
     int idle_session_migration_period_seconds =

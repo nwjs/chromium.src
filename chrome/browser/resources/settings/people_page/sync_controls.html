@@ -68,6 +68,12 @@
       <div class="cr-row continuation">
         <div class="cr-secondary-text flex">$i18n{accountDataTypesBody}</div>
       </div>
+      <div class="cr-row continuation" hidden="[[!shouldShowBatchUploadPromo_(
+            batchUploadPromoLocalDataCount_, isAccountSettingsPage_)]]">
+        <div class="cr-secondary-text flex" id="batchUploadPromo"
+            inner-h-t-m-l="[[getSubtitleString_(batchUploadPromoString_)]]">
+        </div>
+      </div>
     </div>
 </if>
 
@@ -75,8 +81,14 @@
 <if expr="not is_chromeos">
       <template is="dom-if" if="[[isAccountSettingsPage_]]" restamp>
         <div class="list-item">
-          <div id="historyTabsCheckboxLabel">
-            $i18n{historyTabsCheckboxLabel}
+          <div>
+            <div id="historyTabsCheckboxLabel">
+              $i18n{historyTabsCheckboxLabel}
+            </div>
+            <div class="cr-secondary-text"
+                hidden="[[mergedHistoryTabsToggleChecked_(syncPrefs)]]">
+              $i18n{historyTabsCheckboxSubLabelOff}
+            </div>
           </div>
           <cr-policy-indicator id="mergedHistoryTabsToggleIndicator"
               indicator-type="userPolicy"

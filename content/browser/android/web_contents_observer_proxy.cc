@@ -19,7 +19,7 @@
 #include "content/browser/renderer_host/navigation_request.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
-#include "content/public/browser/focused_node_details.h"
+#include "content/public/browser/media_player_id.h"
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
@@ -30,10 +30,10 @@
 #include "content/public/android/content_jni_headers/WebContentsObserverProxy_jni.h"
 
 using base::android::AttachCurrentThread;
+using base::android::ConvertUTF16ToJavaString;
+using base::android::ConvertUTF8ToJavaString;
 using base::android::JavaParamRef;
 using base::android::ScopedJavaLocalRef;
-using base::android::ConvertUTF8ToJavaString;
-using base::android::ConvertUTF16ToJavaString;
 
 namespace content {
 
@@ -49,10 +49,9 @@ WebContentsObserverProxy::WebContentsObserverProxy(
   java_observer_.Reset(env, obj);
 }
 
-WebContentsObserverProxy::~WebContentsObserverProxy() {
-}
+WebContentsObserverProxy::~WebContentsObserverProxy() {}
 
-jlong JNI_WebContentsObserverProxy_Init(
+static jlong JNI_WebContentsObserverProxy_Init(
     JNIEnv* env,
     const JavaParamRef<jobject>& obj,
     const JavaParamRef<jobject>& java_web_contents) {
@@ -267,7 +266,9 @@ void WebContentsObserverProxy::MediaStartedPlaying(
     const MediaPlayerInfo& video_type,
     const MediaPlayerId& id) {
   JNIEnv* env = AttachCurrentThread();
-  Java_WebContentsObserverProxy_mediaStartedPlaying(env, java_observer_);
+  Java_WebContentsObserverProxy_mediaStartedPlaying(
+      env, java_observer_, id.player_id, video_type.has_audio,
+      video_type.has_video);
 }
 
 void WebContentsObserverProxy::MediaStoppedPlaying(
@@ -275,7 +276,8 @@ void WebContentsObserverProxy::MediaStoppedPlaying(
     const MediaPlayerId& id,
     WebContentsObserver::MediaStoppedReason reason) {
   JNIEnv* env = AttachCurrentThread();
-  Java_WebContentsObserverProxy_mediaStoppedPlaying(env, java_observer_);
+  Java_WebContentsObserverProxy_mediaStoppedPlaying(env, java_observer_,
+                                                    id.player_id);
 }
 
 void WebContentsObserverProxy::MediaEffectivelyFullscreenChanged(
@@ -309,8 +311,7 @@ void WebContentsObserverProxy::OnVisibilityChanged(
 void WebContentsObserverProxy::TitleWasSet(NavigationEntry* entry) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jstring> jstring_title = ConvertUTF8ToJavaString(
-      env,
-      base::UTF16ToUTF8(web_contents()->GetTitle()));
+      env, base::UTF16ToUTF8(web_contents()->GetTitle()));
   Java_WebContentsObserverProxy_titleWasSet(env, java_observer_, jstring_title);
 }
 
@@ -363,15 +364,6 @@ void WebContentsObserverProxy::OnWebContentsLostFocus(RenderWidgetHost*) {
   Java_WebContentsObserverProxy_onWebContentsLostFocus(env, java_observer_);
 }
 
-void WebContentsObserverProxy::OnFocusChangedInPage(
-    const FocusedNodeDetails& details) {
-  const gfx::Rect& bounds = details.node_bounds_in_root_view;
-  JNIEnv* env = AttachCurrentThread();
-  Java_WebContentsObserverProxy_onFocusChangedInPage(
-      env, java_observer_, details.is_editable_node, bounds.x(), bounds.y(),
-      bounds.right(), bounds.bottom(), static_cast<jint>(details.focus_type));
-}
-
 void WebContentsObserverProxy::MediaSessionCreated(MediaSession* session) {
   JNIEnv* env = AttachCurrentThread();
   Java_WebContentsObserverProxy_mediaSessionCreated(
@@ -386,10 +378,7 @@ void WebContentsObserverProxy::WasDiscarded() {
   Java_WebContentsObserverProxy_wasDiscarded(env, java_observer_);
 }
 
-void WebContentsObserverProxy::DidUpdateAudioMutingState(bool muted) {
-  JNIEnv* env = AttachCurrentThread();
-  Java_WebContentsObserverProxy_didUpdateAudioMutingState(env, java_observer_,
-                                                          muted);
-}
-
 }  // namespace content
+
+DEFINE_JNI(LoadCommittedDetails)
+DEFINE_JNI(WebContentsObserverProxy)

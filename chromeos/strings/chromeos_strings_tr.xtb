@@ -74,6 +74,7 @@
 <translation id="1274654146705270731">portakallar</translation>
 <translation id="1275718070701477396">Seçildi</translation>
 <translation id="1290331692326790741">Zayıf sinyal</translation>
+<translation id="1292474106138697109">Sınıf araçları ekranı</translation>
 <translation id="1300115153046603471">APN, varsayılan ve <ph name="ATTACH" /> türünde.</translation>
 <translation id="1301069673413256657">GSM</translation>
 <translation id="1301340234286078471">Dönüştür</translation>
@@ -1046,6 +1047,7 @@
 <translation id="5596627076506792578">Diğer seçenekler</translation>
 <translation id="5600027863942488546"><ph name="KEY_NAME" /> tuşu test edildi</translation>
 <translation id="5606865426897221650">Sekme</translation>
+<translation id="5612205513582918357">Sınıf araçları, ekranınızı <ph name="RECEIVER_NAME" /> ile paylaşıyor</translation>
 <translation id="5613201299517339763">Oturumunuz kapatıldı</translation>
 <translation id="5620281292257375798">Yalnızca dahili</translation>
 <translation id="5628106863521633649">Kullanıma sunulduğu diller</translation>
@@ -1473,7 +1475,6 @@ Bu transkriptleri almak için metne dönüştürme modelini (100 MB'a kadar) ind
 <translation id="7425832472614771259"><ph name="LANGUAGE_NAME" /> metne dönüştürme modeli %<ph name="PROGRESS_PERCENTAGE" /> indirildi</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">Bu APN devre dışı bırakılamaz veya kaldırılamaz. Etkin durumdaki <ph name="ATTACH" /> APN'lerin devre dışı bırakıldığından veya kaldırıldığından emin olun.</translation>
-<translation id="7458359366992324037">Uzaktan kumanda ekranı</translation>
 <translation id="7458970041932198923">Avatarları görüntülemek ve ayarlamak için lütfen bir ağa bağlanıp sayfayı yeniden yükleyin.</translation>
 <translation id="7469648432129124067">Portal algılandı</translation>
 <translation id="7481312909269577407">İleri</translation>

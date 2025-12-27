@@ -79,6 +79,10 @@ constexpr PrefsForManagedContentSettingsMapEntry
          ContentSettingsType::CLIPBOARD_READ_WRITE, CONTENT_SETTING_ALLOW},
         {prefs::kManagedClipboardBlockedForUrls,
          ContentSettingsType::CLIPBOARD_READ_WRITE, CONTENT_SETTING_BLOCK},
+        {prefs::kManagedPreciseGeolocationAllowedForUrls,
+         ContentSettingsType::GEOLOCATION, CONTENT_SETTING_ALLOW},
+        {prefs::kManagedGeolocationBlockedForUrls,
+         ContentSettingsType::GEOLOCATION, CONTENT_SETTING_BLOCK},
         {prefs::kManagedNotificationsAllowedForUrls,
          ContentSettingsType::NOTIFICATIONS, CONTENT_SETTING_ALLOW},
         {prefs::kManagedNotificationsBlockedForUrls,
@@ -169,6 +173,10 @@ constexpr PrefsForManagedContentSettingsMapEntry
          ContentSettingsType::LOCAL_NETWORK_ACCESS, CONTENT_SETTING_ALLOW},
         {prefs::kManagedLocalNetworkAccessBlockedForUrls,
          ContentSettingsType::LOCAL_NETWORK_ACCESS, CONTENT_SETTING_BLOCK},
+        {prefs::kManagedIdleDetectionAllowedForUrls,
+         ContentSettingsType::IDLE_DETECTION, CONTENT_SETTING_ALLOW},
+        {prefs::kManagedIdleDetectionBlockedForUrls,
+         ContentSettingsType::IDLE_DETECTION, CONTENT_SETTING_BLOCK},
 };
 
 constexpr const char* kManagedPrefs[] = {
@@ -184,11 +192,15 @@ constexpr const char* kManagedPrefs[] = {
     prefs::kManagedFileSystemReadBlockedForUrls,
     prefs::kManagedFileSystemWriteAskForUrls,
     prefs::kManagedFileSystemWriteBlockedForUrls,
+    prefs::kManagedPreciseGeolocationAllowedForUrls,
+    prefs::kManagedGeolocationBlockedForUrls,
     prefs::kManagedAccessToGetAllScreensMediaInSessionAllowedForUrls,
     prefs::kManagedImagesAllowedForUrls,
     prefs::kManagedImagesBlockedForUrls,
     prefs::kManagedInsecureContentAllowedForUrls,
     prefs::kManagedInsecureContentBlockedForUrls,
+    prefs::kManagedIdleDetectionAllowedForUrls,
+    prefs::kManagedIdleDetectionBlockedForUrls,
     prefs::kManagedJavaScriptAllowedForUrls,
     prefs::kManagedJavaScriptBlockedForUrls,
     prefs::kManagedJavaScriptJitAllowedForSites,
@@ -246,6 +258,7 @@ constexpr const char* kManagedDefaultPrefs[] = {
     prefs::kManagedDefaultFileSystemReadGuardSetting,
     prefs::kManagedDefaultFileSystemWriteGuardSetting,
     prefs::kManagedDefaultGeolocationSetting,
+    prefs::kManagedDefaultIdleDetectionSetting,
     prefs::kManagedDefaultImagesSetting,
     prefs::kManagedDefaultInsecureContentSetting,
     prefs::kManagedDefaultJavaScriptSetting,
@@ -342,6 +355,8 @@ const PolicyProvider::PrefsForManagedDefaultMapEntry
         {ContentSettingsType::IMAGES, prefs::kManagedDefaultImagesSetting},
         {ContentSettingsType::GEOLOCATION,
          prefs::kManagedDefaultGeolocationSetting},
+        {ContentSettingsType::IDLE_DETECTION,
+         prefs::kManagedDefaultIdleDetectionSetting},
         {ContentSettingsType::LEGACY_COOKIE_SCOPE,
          prefs::kManagedDefaultLegacyCookieScope},
         {ContentSettingsType::JAVASCRIPT,
@@ -518,6 +533,19 @@ void PolicyProvider::GetContentSettingsFromPreferences() {
       // Don't set a timestamp for policy settings.
       value_map_.SetValue(pattern_pair.first, secondary_pattern,
                           entry.content_type, base::Value(entry.setting), {});
+
+      if (entry.content_type == ContentSettingsType::GEOLOCATION &&
+          base::FeatureList::IsEnabled(
+              features::kApproximateGeolocationPermission)) {
+        auto* info = PermissionSettingsRegistry::GetInstance()->Get(
+            ContentSettingsType::GEOLOCATION_WITH_OPTIONS);
+        value_map_.SetValue(pattern_pair.first, secondary_pattern,
+                            ContentSettingsType::GEOLOCATION_WITH_OPTIONS,
+                            info->delegate().ToValue(GeolocationSetting{
+                                ToPermissionOption(entry.setting),
+                                ToPermissionOption(entry.setting)}),
+                            {});
+      }
     }
   }
 }

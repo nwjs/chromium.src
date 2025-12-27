@@ -84,6 +84,10 @@ LinuxUi::WindowFrameAction FakeLinuxUi::GetWindowFrameAction(
   return WindowFrameAction::kNone;
 }
 
+bool FakeLinuxUi::PrimaryPasteEnabled() const {
+  return true;
+}
+
 std::vector<std::string> FakeLinuxUi::GetCmdLineFlagsForCopy() const {
   return {};
 }

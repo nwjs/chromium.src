@@ -6,6 +6,7 @@
 
 #include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/ui/actor_ui_state_manager_interface.h"
 #include "chrome/browser/profiles/profile.h"
 
@@ -19,6 +20,7 @@ bool ShouldDisplayInTaskListBubble(actor::ActorTask::State state) {
 namespace tabs {
 
 using actor::ActorKeyedService;
+using ActorTaskNudgeState = actor::ui::ActorTaskNudgeState;
 using actor::ActorTask;
 using glic::GlicWindowController;
 using glic::Host;
@@ -57,15 +59,9 @@ void GlicActorTaskIconManager::RegisterSubscriptions() {
   callback_subscriptions_.push_back(
       actor::ActorKeyedService::Get(profile_)
           ->GetActorUiStateManager()
-          ->RegisterActorTaskCompleted(base::BindRepeating(
-              [](GlicActorTaskIconManager* icon_manager, actor::TaskId task_id,
-                 actor::ActorTask::State final_state, std::string title) {
-                // We have a wrapper function because the header can't depend
-                // on actor::ActorTask.
-                icon_manager->OnActorTaskCompleted(
-                    task_id, final_state == actor::ActorTask::State::kFinished);
-              },
-              base::Unretained(this))));
+          ->RegisterActorTaskStopped(
+              base::BindRepeating(&GlicActorTaskIconManager::OnActorTaskStopped,
+                                  base::Unretained(this))));
 }
 
 void GlicActorTaskIconManager::OnInstanceStateChange(bool is_showing,
@@ -76,33 +72,36 @@ void GlicActorTaskIconManager::OnInstanceStateChange(bool is_showing,
 void GlicActorTaskIconManager::OnActorTaskStateUpdate(actor::TaskId task_id) {
   current_task_id_ = task_id;
 
-  // TODO(crbug.com/446734119): Instead ActorTask should hold a glic
-  // InstanceId and use that to retrieve the instance.
-  std::vector<glic::GlicInstance*> instances =
-      window_controller_->GetInstances();
-  if (instances.empty()) {
-    return;
-  }
-  glic::GlicInstance* instance = instances.front();
+  // TODO(crbug.com/444706814): Delete instance code once task icon path is
+  // removed.
+  glic::GlicInstance* instance = window_controller_->GetInstanceForTab(
+      GetLastUpdatedTabForTaskId(task_id));
+
   if (base::FeatureList::IsEnabled(features::kGlicActorUiNudgeRedesign)) {
     UpdateTaskListBubble(task_id);
     UpdateTaskNudge();
-  } else {
+  } else if (instance) {
     UpdateTaskIcon(instance->IsShowing(),
                    instance->host().GetPrimaryCurrentView());
   }
 }
 
-void GlicActorTaskIconManager::OnActorTaskCompleted(actor::TaskId task_id,
-                                                    bool success) {
-  if (!success) {
-    return;
+// TODO(crbug.com/458391262) revisit or cleanup implementation here for m144.
+void GlicActorTaskIconManager::OnActorTaskStopped(
+    actor::TaskId task_id,
+    actor::ActorTask::State final_state,
+    std::string task_title) {
+  if (final_state == actor::ActorTask::State::kFinished) {
+    has_unprocessed_completed_tasks_ = true;
+  } else if (final_state == actor::ActorTask::State::kFailed) {
+    has_unprocessed_failed_tasks_ = true;
   }
-  has_unprocessed_completed_tasks_ = true;
 }
 
-void GlicActorTaskIconManager::ClearCompletedTasks() {
+// TODO(crbug.com/458391262) revisit or cleanup implementation here for m144.
+void GlicActorTaskIconManager::ClearStoppedTasks() {
   has_unprocessed_completed_tasks_ = false;
+  has_unprocessed_failed_tasks_ = false;
   OnActorTaskStateUpdate(current_task_id_);
 }
 
@@ -111,20 +110,16 @@ void GlicActorTaskIconManager::Shutdown() {}
 void GlicActorTaskIconManager::UpdateTaskIcon(bool is_showing,
                                               CurrentView current_view) {
   auto active_tasks = actor_service_->GetActiveTasks();
-
-  // TODO(b/440770955): Replace has_unprocessed_completed_tasks_ with a
-  // snapshot (task title, state and tab handle) of the completed or failed
-  // tasks for the pop-over.
-  bool has_recently_completed_tasks = has_unprocessed_completed_tasks_;
   auto paused_or_yielded_actor_tasks =
       actor_service_->FindTaskIdsInActive([](const ActorTask& task) {
-        return (task.GetState() == ActorTask::State::kPausedByActor ||
-                task.GetState() == ActorTask::State::kWaitingOnUser);
+        return (task.GetState() == actor::ActorTask::State::kPausedByActor ||
+                task.GetState() == actor::ActorTask::State::kWaitingOnUser);
       });
   auto old_state = current_actor_task_icon_state_;
   // If there are no active tasks and no recently completed tasks, we can hide
   // the task icon.
-  if (active_tasks.empty() && !has_recently_completed_tasks) {
+  if (active_tasks.empty() && !has_unprocessed_completed_tasks_ &&
+      !has_unprocessed_failed_tasks_) {
     current_actor_task_icon_state_ = {
         .is_visible = false,
         .text = ActorTaskIconState::Text::kDefault,
@@ -140,10 +135,10 @@ void GlicActorTaskIconManager::UpdateTaskIcon(bool is_showing,
   current_actor_task_icon_state_.is_visible = true;
 
   // Apply text state change.
-  if (!paused_or_yielded_actor_tasks.empty()) {
+  if (!paused_or_yielded_actor_tasks.empty() || has_unprocessed_failed_tasks_) {
     current_actor_task_icon_state_.text =
         ActorTaskIconState::Text::kNeedsAttention;
-  } else if (has_recently_completed_tasks) {
+  } else if (has_unprocessed_completed_tasks_) {
     current_actor_task_icon_state_.text =
         ActorTaskIconState::Text::kCompleteTasks;
   } else {
@@ -163,8 +158,8 @@ void GlicActorTaskIconManager::UpdateTaskNudge() {
   // tasks for the pop-over.
   auto paused_or_yielded_actor_tasks =
       actor_service_->FindTaskIdsInActive([](const ActorTask& task) {
-        return (task.GetState() == ActorTask::State::kPausedByActor ||
-                task.GetState() == ActorTask::State::kWaitingOnUser);
+        return (task.GetState() == actor::ActorTask::State::kPausedByActor ||
+                task.GetState() == actor::ActorTask::State::kWaitingOnUser);
       });
 
   ActorTaskNudgeState old_state = current_actor_task_nudge_state_;

@@ -513,10 +513,15 @@ std::unique_ptr<URLRequestContext> URLRequestContextBuilder::Build() {
 
 #if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
   if (has_device_bound_session_service_) {
+    if (unexportable_key_service_) {
+      context->set_unexportable_key_service(
+          std::move(unexportable_key_service_));
+    }
     if (!device_bound_sessions_file_path_.empty()) {
       context->set_device_bound_session_store(
           device_bound_sessions::SessionStore::Create(
-              device_bound_sessions_file_path_));
+              device_bound_sessions_file_path_,
+              unexportable_key_service_.get()));
     }
     context->set_device_bound_session_service(
         device_bound_sessions::SessionService::Create(context.get()));
@@ -620,13 +625,7 @@ std::unique_ptr<URLRequestContext> URLRequestContextBuilder::Build() {
                                     std::move(scheme_handler.second));
   }
   protocol_handlers_.clear();
-
   context->set_job_factory(std::move(job_factory));
-
-  if (cookie_deprecation_label_.has_value()) {
-    context->set_cookie_deprecation_label(*cookie_deprecation_label_);
-  }
-
   return context;
 }
 
@@ -638,8 +637,10 @@ URLRequestContextBuilder::CreateProxyResolutionService(
     NetworkDelegate* network_delegate,
     NetLog* net_log,
     bool pac_quick_check_enabled) {
+  DCHECK(host_resolver);
   return ConfiguredProxyResolutionService::CreateUsingSystemProxyResolver(
-      std::move(proxy_config_service), net_log, pac_quick_check_enabled);
+      std::move(proxy_config_service), host_resolver, net_log,
+      pac_quick_check_enabled);
 }
 
 }  // namespace net

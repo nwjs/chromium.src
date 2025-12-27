@@ -1653,6 +1653,97 @@ class ApiTests extends ApiTestFixtureBase {
     }
   }
 
+  async testSwitchConversationToOldConversationNewInstance() {
+    assertDefined(this.host.switchConversation);
+    await this.host.switchConversation(
+        {conversationId: 'A', conversationTitle: 'Title A'});
+  }
+
+  async testSwitchConversationToNewConversationNewInstance() {
+    assertDefined(this.host.switchConversation);
+    await this.host.switchConversation();
+  }
+
+  async testSwitchConversationToLastActiveConversation() {
+    assertDefined(this.host.registerConversation);
+    assertDefined(this.host.switchConversation);
+    if (this.testParams === 'step1') {
+      await this.host.registerConversation(
+          {conversationId: 'A', conversationTitle: 'Title A'});
+      await this.advanceToNextStep();
+    } else if (this.testParams === 'step2') {
+      // Return and then switch conversation to ensure that ExecuteJsTest
+      // completes before the instance is deleted. The instance is deleted
+      // during the `switchConversation` call.
+      sleep(100).then(() => {
+        assertDefined(this.host.switchConversation);
+        this.host.switchConversation(
+            {conversationId: 'A', conversationTitle: 'Title A'});
+      });
+    }
+  }
+
+  async testSwitchConversationToOldConversationInOldInstance() {
+    assertDefined(this.host.registerConversation);
+    assertDefined(this.host.switchConversation);
+    if (this.testParams === 'step1') {
+      await this.host.registerConversation(
+          {conversationId: 'A', conversationTitle: 'Title A'});
+      await this.advanceToNextStep();
+    } else if (this.testParams === 'step2') {
+      sleep(100).then(() => {
+        assertDefined(this.host.switchConversation);
+        this.host.switchConversation(
+            {conversationId: 'B', conversationTitle: 'Title B'});
+      });
+    } else if (this.testParams === 'step3') {
+      // Return and then switch conversation to ensure that ExecuteJsTest
+      // completes before the instance is deleted. The instance is deleted
+      // during the `switchConversation` call.
+      sleep(100).then(() => {
+        assertDefined(this.host.switchConversation);
+        this.host.switchConversation(
+            {conversationId: 'A', conversationTitle: 'Title A'});
+      });
+    }
+  }
+
+  async testTabSwitchDoesNotLogActivationMetric() {
+    assertDefined(this.host.registerConversation);
+    assertDefined(this.host.switchConversation);
+    if (this.testParams === 'first') {
+      await this.host.registerConversation(
+          {conversationId: 'A', conversationTitle: 'Title A'});
+      this.advanceToNextStep();
+    } else if (this.testParams === 'second') {
+      // Return and then switch conversation to ensure that ExecuteJsTest
+      // completes before the instance is deleted. The instance is deleted
+      // during the `switchConversation` call.
+      sleep(100).then(() => {
+        assertDefined(this.host.switchConversation);
+        this.host.switchConversation(
+            {conversationId: 'A', conversationTitle: 'Title A'});
+      });
+    }
+  }
+
+  async testDetachDoesNotLogActivationMetric() {
+    assertDefined(this.host.registerConversation);
+    assertDefined(this.host.detachPanel);
+    assertDefined(this.host.getPanelState);
+
+    if (this.testParams === 'registerAndDetach') {
+      await this.host.registerConversation(
+          {conversationId: 'A', conversationTitle: 'Title A'});
+      const panelStates = observeSequence(this.host.getPanelState());
+      await panelStates.waitFor(
+          state => state.kind === PanelStateKind.ATTACHED);
+
+      this.host.detachPanel();
+      await panelStates.waitFor(
+          state => state.kind === PanelStateKind.DETACHED);
+    }
+  }
 
   async testReloadWebUi() {}
 
@@ -1694,6 +1785,11 @@ class ApiTests extends ApiTestFixtureBase {
     assertDefined(conversationChangeRequest.desiredView);
     assertEquals(
         conversationChangeRequest.desiredView, ClientView.CONVERSATION);
+  }
+
+  async testRemoveBlankInstanceOnClose() {
+    assertDefined(this.host.closePanel);
+    await this.host.closePanel();
   }
 
   async testJournal() {
@@ -2288,10 +2384,15 @@ class ApiTests extends ApiTestFixtureBase {
       assertEquals(
           undefined,
           this.client.panelOpenData.getCurrentValue()?.conversationId);
-      await this.host.switchConversation(
-          {conversationTitle: 'Hello', conversationId: 'id_hello'});
-      // Note that switchConversation does resolve, even though this instance
-      // will be destroyed very soon.
+
+      // Return and then switch conversation to ensure that ExecuteJsTest
+      // completes before the instance is deleted. The instance is deleted
+      // during the `switchConversation` call.
+      sleep(100).then(() => {
+        assertDefined(this.host.switchConversation);
+        this.host.switchConversation(
+            {conversationTitle: 'Hello', conversationId: 'id_hello'});
+      });
     }
   }
 
@@ -2579,6 +2680,35 @@ class WebClientThatOpensOnce extends WebClient {
   }
 }
 
+class DaisyChainApiTests extends ApiTestFixtureBase {
+  async clickLinkInGlicUi() {
+    const link = document.createElement('a');
+    link.setAttribute('href', location.href);
+    link.setAttribute('target', '_blank');
+    document.body.appendChild(link);
+    link.click();
+  }
+
+  // Helper to handle the daisy chain actions.
+  async handleDaisyChainStep(action: string) {
+    if (action === 'createTab') {
+      await this.clickLinkInGlicUi();
+    } else if (action === 'inputSubmitted') {
+      assertDefined(this.host.getMetrics);
+      const metrics = this.host.getMetrics();
+      assertDefined(metrics);
+      assertDefined(metrics.onUserInputSubmitted);
+      metrics.onUserInputSubmitted(WebClientMode.TEXT);
+    } else {
+      assertTrue(false, `Unexpected daisy chain action: ${action}`);
+    }
+  }
+
+  async testDaisyChainRecursiveAndInput() {
+    await this.handleDaisyChainStep(this.testParams);
+  }
+}
+
 class NotifyPanelWillOpenTest extends ApiTestFixtureBase {
   override createWebClient(): WebClient {
     return new WebClientThatOpensOnce();
@@ -2613,6 +2743,7 @@ class InitiallyNotResizableTest extends ApiTestFixtureBase {
 // Therefore all tests must have unique names.
 const TEST_FIXTURES = [
   ApiTests,
+  DaisyChainApiTests,
   NotifyPanelWillOpenTest,
   InitiallyNotResizableTest,
   ApiTestWithoutOpen,

@@ -43,14 +43,18 @@ class AndroidAutofillManager : public AutofillManager,
 
   void OnFocusOnNonFormFieldImpl() override;
 
-  void OnDidAutofillFormImpl(const FormData& form,
-                             const base::TimeTicks timestamp) override;
+  void OnDidAutofillFormImpl(const FormData& form) override;
 
   void OnDidEndTextFieldEditingImpl() override {}
   void OnHidePopupImpl() override;
-  void OnSelectFieldOptionsDidChangeImpl(const FormData& form) override {}
+  void OnSelectFieldOptionsDidChangeImpl(
+      const FormData& form,
+      const FieldGlobalId& field_id) override {}
 
   void ReportAutofillWebOTPMetrics(bool used_web_otp) override {}
+
+  CreditCardAccessManager* GetCreditCardAccessManager() override;
+  const CreditCardAccessManager* GetCreditCardAccessManager() const override;
 
   bool has_server_prediction(FormGlobalId form) const {
     return forms_with_server_predictions_.contains(form);

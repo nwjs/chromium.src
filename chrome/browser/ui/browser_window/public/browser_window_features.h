@@ -48,6 +48,7 @@ class ColorProviderBrowserHelper;
 class LocationBar;
 class CommentsSidePanelCoordinator;
 class ContentsBorderController;
+class ContextualTasksEphemeralButtonController;
 class CookieControlsBubbleCoordinator;
 class DataSharingBubbleController;
 class DesktopBrowserWindowCapabilities;
@@ -73,6 +74,7 @@ class BrowserSelectFileDialogController;
 class ScrimViewController;
 class SearchboxContextData;
 class SidePanelCoordinator;
+class SidePanelRegistry;
 class SidePanelUI;
 class SigninViewController;
 class SplitViewIphController;
@@ -85,6 +87,7 @@ class ToastController;
 class ToastService;
 class TranslateBubbleController;
 class UpgradeNotificationController;
+class WebUIBrowserExclusiveAccessContext;
 class WebUIBrowserSidePanelUI;
 class ZoomBubbleCoordinator;
 
@@ -139,6 +142,7 @@ class ProductSpecificationsEntryPointController;
 }  // namespace commerce
 
 namespace contextual_tasks {
+class ActiveTaskContextProvider;
 class ContextualTasksSidePanelCoordinator;
 }  // namespace contextual_tasks
 
@@ -195,6 +199,7 @@ class AppBrowserController;
 
 namespace omnibox {
 class AiModePageActionController;
+class OmniboxPopupCloser;
 }  // namespace omnibox
 
 // This class owns the core controllers for features that are scoped to a given
@@ -228,15 +233,6 @@ class BrowserWindowFeatures {
   // Called exactly once to tear down state that depends on the window object.
   void TearDownPreBrowserWindowDestruction();
 
-  // Public accessors for features:
-  web_app::AppBrowserController* app_browser_controller() {
-    return app_browser_controller_.get();
-  }
-
-  const web_app::AppBrowserController* app_browser_controller() const {
-    return app_browser_controller_.get();
-  }
-
   BrowserActions* browser_actions() { return browser_actions_.get(); }
 
   chrome::BrowserCommandController* browser_command_controller() {
@@ -250,6 +246,11 @@ class BrowserWindowFeatures {
 
   ChromeLabsCoordinator* chrome_labs_coordinator() {
     return chrome_labs_coordinator_.get();
+  }
+
+  contextual_tasks::ActiveTaskContextProvider*
+  contextual_tasks_active_task_context_provider() {
+    return contextual_tasks_active_task_context_provider_.get();
   }
 
   media_router::CastBrowserController* cast_browser_controller() {
@@ -464,6 +465,10 @@ class BrowserWindowFeatures {
   // Returns true if a FindBarController exists for this browser window.
   bool HasFindBarController() const;
 
+  WebUIBrowserExclusiveAccessContext* webui_browser_exclusive_access_context() {
+    return webui_browser_exclusive_access_context_.get();
+  }
+
   ExclusiveAccessManager* exclusive_access_manager() {
     return exclusive_access_manager_.get();
   }
@@ -496,6 +501,10 @@ class BrowserWindowFeatures {
 
   SearchboxContextData* searchbox_context_data() {
     return searchbox_context_data_.get();
+  }
+
+  omnibox::OmniboxPopupCloser* omnibox_popup_closer() {
+    return omnibox_popup_closer_.get();
   }
 
   static ui::UserDataFactoryWithOwner<BrowserWindowInterface>&
@@ -539,6 +548,9 @@ class BrowserWindowFeatures {
 
   std::unique_ptr<ImmersiveModeController> immersive_mode_controller_;
 
+  std::unique_ptr<WebUIBrowserExclusiveAccessContext>
+      webui_browser_exclusive_access_context_;
+
   std::unique_ptr<ExclusiveAccessManager> exclusive_access_manager_;
 
   std::unique_ptr<FullscreenControlHost> fullscreen_control_host_;
@@ -581,6 +593,8 @@ class BrowserWindowFeatures {
 #endif
 
   std::unique_ptr<ScrimViewController> scrim_view_controller_;
+
+  std::unique_ptr<SidePanelRegistry> side_panel_registry_;
 
   std::unique_ptr<SidePanelCoordinator> side_panel_coordinator_;
 
@@ -627,6 +641,9 @@ class BrowserWindowFeatures {
       session_restore_infobar_controller_;
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
+  std::unique_ptr<ContextualTasksEphemeralButtonController>
+      contextual_tasks_ephemeral_button_controller_;
+
   std::unique_ptr<tabs::GlicNudgeController> glic_nudge_controller_;
 
 #if BUILDFLAG(ENABLE_GLIC)
@@ -643,6 +660,9 @@ class BrowserWindowFeatures {
 
   std::unique_ptr<contextual_tasks::ContextualTasksSidePanelCoordinator>
       contextual_tasks_side_panel_coordinator_;
+
+  std::unique_ptr<contextual_tasks::ActiveTaskContextProvider>
+      contextual_tasks_active_task_context_provider_;
 
   std::unique_ptr<tab_groups::MostRecentSharedTabUpdateStore>
       most_recent_shared_tab_update_store_;
@@ -765,6 +785,8 @@ class BrowserWindowFeatures {
       ai_mode_page_action_controller_;
 
   std::unique_ptr<SearchboxContextData> searchbox_context_data_;
+
+  std::unique_ptr<omnibox::OmniboxPopupCloser> omnibox_popup_closer_;
 
   // Keep this member last to ensure embedder features are torn down first, in
   // reverse order of initialization.

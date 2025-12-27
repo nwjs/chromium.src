@@ -54,7 +54,7 @@ class SettingsBrowserTest : public WebUIMochaBrowserTest {
  protected:
   SettingsBrowserTest() {
     scoped_feature_list_.InitWithFeatures(
-        {privacy_sandbox::kFingerprintingProtectionUx},
+        {},
         /*disabled_features=*/
         {
 #if BUILDFLAG(ENABLE_GLIC)
@@ -275,11 +275,6 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, HelpPage) {
   RunTest("settings/help_page_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(SettingsTest, IncognitoTrackingProtectionsPageTest) {
-  RunTest("settings/incognito_tracking_protections_page_test.js",
-          "runMochaSuite('IncognitoTrackingProtectionsPageTest')");
-}
-
 #if !BUILDFLAG(IS_CHROMEOS)
 IN_PROC_BROWSER_TEST_F(SettingsTest, ImportDataDialog) {
   RunTest("settings/import_data_dialog_test.js", "mocha.run()");
@@ -289,12 +284,12 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, Languages) {
   RunTest("settings/languages_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(SettingsTest, LiveCaptionSection) {
-  RunTest("settings/live_caption_section_test.js", "mocha.run()");
+IN_PROC_BROWSER_TEST_F(SettingsTest, LiveCaption) {
+  RunTest("settings/live_caption_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(SettingsTest, LiveTranslateSection) {
-  RunTest("settings/live_translate_section_test.js", "mocha.run()");
+IN_PROC_BROWSER_TEST_F(SettingsTest, LiveTranslate) {
+  RunTest("settings/live_translate_test.js", "mocha.run()");
 }
 #endif
 
@@ -527,6 +522,26 @@ IN_PROC_BROWSER_TEST_F(SettingsGlicSubageClosedCaptionsToggleTest,
                        SettingsGlicSubageClosedCaptionsToggleEnabled) {
   RunTest("settings/glic_subpage_test.js",
           "runMochaSuite('GlicSubpage ClosedCaptionsToggleEnabled')");
+}
+
+class SettingsGlicSubpageKeepSidepanelOpenOnNewTabsToggleTest
+    : public SettingsBrowserTest {
+ public:
+  SettingsGlicSubpageKeepSidepanelOpenOnNewTabsToggleTest() {
+    scoped_feature_list_.InitWithFeatures({features::kGlicDaisyChainNewTabs},
+                                          /*disabled_features=*/{});
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(
+    SettingsGlicSubpageKeepSidepanelOpenOnNewTabsToggleTest,
+    SettingsGlicSubpageKeepSidepanelOpenOnNewTabsToggleEnabled) {
+  RunTest(
+      "settings/glic_subpage_test.js",
+      "runMochaSuite('GlicSubpage KeepSidepanelOpenOnNewTabsToggleEnabled')");
 }
 
 class SettingsGlicSubPageDefaultTabContextToggleTest
@@ -1295,7 +1310,6 @@ class SettingsPrivacyPageTest : public SettingsBrowserTest {
 #endif
             browsing_data::features::kDbdRevampDesktop,
             permissions::features::kPermissionSiteSettingsRadioButton,
-            privacy_sandbox::kFingerprintingProtectionUx,
             safe_browsing::kBundledSecuritySettings,
         },
         {});
@@ -1326,12 +1340,6 @@ IN_PROC_BROWSER_TEST_F(SettingsPrivacyPageTest,
 
 IN_PROC_BROWSER_TEST_F(SettingsPrivacyPageTest, CookiesSubpage) {
   RunTest("settings/privacy_page_test.js", "runMochaSuite('CookiesSubpage')");
-}
-
-IN_PROC_BROWSER_TEST_F(SettingsPrivacyPageTest,
-                       IncognitoTrackingProtectionsSubpage) {
-  RunTest("settings/privacy_page_test.js",
-          "runMochaSuite('IncognitoTrackingProtectionsSubpage')");
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsPrivacyPageTest, PrivacyGuideRow) {
@@ -1579,12 +1587,6 @@ IN_PROC_BROWSER_TEST_F(SettingsSecurityPageTest, FlagsDisabled) {
   RunTest("settings/security_page_test.js", "runMochaSuite('FlagsDisabled')");
 }
 
-IN_PROC_BROWSER_TEST_F(SettingsSecurityPageTest,
-                       SecurityPageHappinessTrackingSurveys) {
-  RunTest("settings/security_page_test.js",
-          "runMochaSuite('SecurityPageHappinessTrackingSurveys')");
-}
-
 IN_PROC_BROWSER_TEST_F(SettingsSecurityPageTest, JavascriptOptimizer) {
   RunTest("settings/security_page_test.js",
           "runMochaSuite('JavascriptOptimizer')");
@@ -1606,6 +1608,12 @@ using SettingsSecurityPageV2Test = SettingsBrowserTest;
 
 IN_PROC_BROWSER_TEST_F(SettingsSecurityPageV2Test, Main) {
   RunTest("settings/security_page_v2_test.js", "runMochaSuite('Main')");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsSecurityPageV2Test,
+                       SecurityPageHappinessTrackingSurveys) {
+  RunTest("settings/security_page_v2_test.js",
+          "runMochaSuite('SecurityPageV2HappinessTrackingSurveys')");
 }
 
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -1785,4 +1793,12 @@ IN_PROC_BROWSER_TEST_F(YourSavedInfoTest, YourSavedInfoPage) {
 
 IN_PROC_BROWSER_TEST_F(YourSavedInfoTest, YourSavedInfoPageIndex) {
   RunTest("settings/your_saved_info_page_index_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(YourSavedInfoTest, IdentityDocsPageTest) {
+  RunTest("settings/identity_docs_page_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(YourSavedInfoTest, TravelPageTest) {
+  RunTest("settings/travel_page_test.js", "mocha.run()");
 }

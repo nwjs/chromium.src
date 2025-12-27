@@ -42,6 +42,7 @@
 #include "chrome/browser/extensions/chrome_kiosk_delegate.h"
 #include "chrome/browser/extensions/chrome_url_request_util.h"
 #include "chrome/browser/extensions/event_router_forwarder.h"
+#include "chrome/browser/extensions/extension_action_runner.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/extension_util.h"
@@ -59,6 +60,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_selections.h"
+#include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_controller_factory.h"
 #include "chrome/browser/usb/usb_chooser_context.h"
@@ -74,6 +76,7 @@
 #include "components/privacy_sandbox/privacy_sandbox_prefs.h"
 #include "components/proxy_config/proxy_config_pref_names.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/update_client/configurator.h"
 #include "components/update_client/update_client.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/browser_context.h"
@@ -86,10 +89,12 @@
 #include "extensions/browser/api/core_extensions_browser_api_provider.h"
 #include "extensions/browser/api/extensions_api_client.h"
 #include "extensions/browser/component_extension_resource_manager.h"
+#include "extensions/browser/extension_management_client.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_util.h"
 #include "extensions/browser/extensions_browser_interface_binders.h"
+#include "extensions/browser/permissions/site_permissions_helper.h"
 #include "extensions/browser/pref_names.h"
 #include "extensions/browser/process_manager_delegate.h"
 #include "extensions/browser/safe_browsing_delegate.h"
@@ -598,6 +603,12 @@ void ChromeExtensionsBrowserClient::AttachExtensionTaskManagerTag(
 
 scoped_refptr<update_client::UpdateClient>
 ChromeExtensionsBrowserClient::CreateUpdateClient(
+    scoped_refptr<update_client::Configurator> configurator) {
+  return update_client::UpdateClientFactory(configurator);
+}
+
+scoped_refptr<update_client::Configurator>
+ChromeExtensionsBrowserClient::CreateUpdateClientConfigurator(
     content::BrowserContext* context) {
   std::optional<GURL> override_url;
   GURL update_url = extension_urls::GetWebstoreUpdateUrl();
@@ -608,8 +619,7 @@ ChromeExtensionsBrowserClient::CreateUpdateClient(
       override_url = update_url;
     }
   }
-  return update_client::UpdateClientFactory(
-      ChromeUpdateClientConfig::Create(context, override_url));
+  return ChromeUpdateClientConfig::Create(context, override_url);
 }
 
 std::unique_ptr<ScopedExtensionUpdaterKeepAlive>
@@ -882,7 +892,7 @@ bool ChromeExtensionsBrowserClient::HasControlledFrameCapability(
   // controlled frame admin policies (check
   // components/policy/resources/templates/policy_definitions/ContentSettings).
   return HostContentSettingsMapFactory::GetForProfile(context)
-             ->GetContentSetting(url, url,
+             ->GetContentSetting(url, /*secondary_url=*/GURL(),
                                  content_settings::mojom::ContentSettingsType::
                                      CONTROLLED_FRAME) == CONTENT_SETTING_ALLOW;
 }
@@ -892,25 +902,80 @@ void ChromeExtensionsBrowserClient::CheckManagementPolicy(
   ExtensionSystem::Get(context)->extension_service()->CheckManagementPolicy();
 }
 
-bool ChromeExtensionsBrowserClient::IsForceInstalledInLowTrustEnvironment(
-    content::BrowserContext* context,
-    const Extension& extension) {
-  return ExtensionManagementFactory::GetForBrowserContext(context)
-      ->IsForceInstalledInLowTrustEnvironment(extension);
+scoped_refptr<safe_browsing::SafeBrowsingDatabaseManager>
+ChromeExtensionsBrowserClient::GetSafeBrowsingDatabaseManager() const {
+#if BUILDFLAG(SAFE_BROWSING_DB_LOCAL)
+  return g_browser_process && g_browser_process->safe_browsing_service()
+             ? g_browser_process->safe_browsing_service()->database_manager()
+             : nullptr;
+#else
+  return nullptr;
+#endif
 }
 
-bool ChromeExtensionsBrowserClient::IsInstallationExplicitlyAllowed(
-    content::BrowserContext* context,
-    const ExtensionId& id) {
-  return ExtensionManagementFactory::GetForBrowserContext(context)
-      ->IsInstallationExplicitlyAllowed(id);
+std::optional<safe_browsing::V4ProtocolConfig>
+ChromeExtensionsBrowserClient::GetV4ProtocolConfig() const {
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+  return g_browser_process && g_browser_process->safe_browsing_service()
+             ? std::optional(g_browser_process->safe_browsing_service()
+                                 ->GetV4ProtocolConfig())
+             : std::nullopt;
+#else
+  return std::nullopt;
+#endif
 }
 
-bool ChromeExtensionsBrowserClient::UpdatesFromWebstore(
-    content::BrowserContext* context,
-    const Extension& extension) {
-  return ExtensionManagementFactory::GetForBrowserContext(context)
-      ->UpdatesFromWebstore(extension);
+void ChromeExtensionsBrowserClient::OnActiveTabPermissionGranted(
+    const Extension* extension,
+    content::WebContents* web_contents) const {
+  ExtensionActionRunner::GetForWebContents(web_contents)
+      ->OnActiveTabPermissionGranted(extension);
+}
+
+ExtensionManagementClient*
+ChromeExtensionsBrowserClient::GetExtensionManagementClient(
+    content::BrowserContext* context) {
+  return ExtensionManagementFactory::GetForBrowserContext(context);
+}
+
+void ChromeExtensionsBrowserClient::RunBlockActionsIfNeeded(
+    const Extension* extension,
+    content::WebContents* web_contents,
+    SitePermissionsHelper* permission_helper,
+    bool* reload_required) {
+  ExtensionActionRunner* action_runner =
+      ExtensionActionRunner::GetForWebContents(web_contents);
+  if (!action_runner) {
+    return;
+  }
+
+  // Run blocked actions when granting user site permissions.
+  int blocked_actions = action_runner->GetBlockedActions(extension->id());
+  if (permission_helper->PageNeedsRefreshToRun(blocked_actions)) {
+    *reload_required = true;
+  } else if (blocked_actions != BLOCKED_ACTION_NONE) {
+    action_runner->RunBlockedActions(extension);
+  }
+}
+
+void ChromeExtensionsBrowserClient::ShowReloadBubbleForAllExtensions(
+    const std::vector<const Extension*>& extensions,
+    content::WebContents* web_contents) {
+  ExtensionActionRunner* action_runner =
+      ExtensionActionRunner::GetForWebContents(web_contents);
+  if (!action_runner) {
+    return;
+  }
+
+  action_runner->ShowReloadPageBubble(extensions);
+}
+
+bool ChromeExtensionsBrowserClient::HasBeenBlocked(
+    const Extension& extension,
+    content::WebContents* web_contents) const {
+  ExtensionActionRunner* action_runner =
+      ExtensionActionRunner::GetForWebContents(web_contents);
+  return action_runner && action_runner->WantsToRun(&extension);
 }
 
 // static

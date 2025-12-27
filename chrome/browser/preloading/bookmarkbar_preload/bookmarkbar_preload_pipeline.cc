@@ -18,6 +18,7 @@
 #include "content/public/browser/preloading_data.h"
 #include "content/public/browser/preloading_trigger_type.h"
 #include "content/public/browser/web_contents.h"
+#include "third_party/blink/public/mojom/loader/referrer.mojom.h"
 
 namespace {
 
@@ -125,6 +126,21 @@ void BookmarkBarPreloadPipeline::StartPrerender(
         ChromePreloadingEligibility::KDisallowSearchUrl));
     return;
   }
+
+  // Currently, this method has a precondition: It should be called after
+  // `StartPrefetch()` if the feature is enabled. The precondition was checked
+  // at the head of the method, but we found that `StartPrefetch()` might not
+  // trigger prefetch as prefetch could fail due to some eligibility checks
+  // which prerender hadn't executed yet before the CHECK. For more detalis, see
+  // https://crbug.com/449105853
+  //
+  // So, we place the check here, after the same eligibility check as in the
+  // `StartPrefetch()`.
+  //
+  // TODO(crbug.com/413259638): Remove this CHECK when a refactor to
+  // `BookmarkBarPreloadPipelineManager` is done to guarantee the order of
+  // prefetch ahead prerender. For more details of the refactor goal, please see
+  // the comments in `BookmarkBarPreloadPipelineManager`.
   CHECK(!base::FeatureList::IsEnabled(features::kBookmarkTriggerForPrefetch) ||
         prefetch_handle_);
 

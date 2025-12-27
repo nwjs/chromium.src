@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/autofill/ui_bundled/ios_chrome_payments_autofill_client.h"
 
+#import "base/functional/callback_helpers.h"
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/mock_callback.h"
 #import "base/test/scoped_feature_list.h"
@@ -26,6 +27,7 @@
 #import "ios/chrome/browser/infobars/model/infobar_type.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/autofill_commands.h"
+#import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "ios/web/public/web_state.h"
 #import "testing/gmock/include/gmock/gmock.h"
@@ -76,7 +78,7 @@
 }
 - (void)continueCardUnmaskWithCvcAuth {
 }
-- (void)showPasswordBottomSheet:(const autofill::FormActivityParams&)params {
+- (void)showCredentialBottomSheet:(const autofill::FormActivityParams&)params {
 }
 - (void)showPaymentsBottomSheet:(const autofill::FormActivityParams&)params {
 }
@@ -193,12 +195,12 @@ class IOSChromePaymentsAutofillClientTest : public PlatformTest {
 
  protected:
   FakeAutofillCommands* autofill_commands_;
-  raw_ptr<AutofillBottomSheetTabHelper, DanglingUntriaged>
-      bottomsheet_tab_helper_;
   std::unique_ptr<web::WebState> web_state_;
+  raw_ptr<AutofillBottomSheetTabHelper> bottomsheet_tab_helper_;
 
  private:
   web::WebTaskEnvironment task_environment_;
+  IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   std::unique_ptr<TestProfileIOS> profile_;
   AutofillAgent* autofill_agent_;
   std::unique_ptr<TestChromeAutofillClient> autofill_client_;

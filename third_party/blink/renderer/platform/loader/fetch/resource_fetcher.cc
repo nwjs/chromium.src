@@ -135,7 +135,7 @@ static constexpr char kEarlyHintsInitiatorType[] = "early-hints";
     break;                       \
   }
 
-const std::string ResourceTypeName(ResourceType type) {
+std::string_view ResourceTypeName(ResourceType type) {
   // `ResourceType` variants in
   // tools/metrics/histograms/metadata/blink/histograms.xml
   // should be updated when you update the followings.
@@ -365,7 +365,7 @@ void MaybeRecordBoostImagePriorityReason(const bool is_first_n,
 constexpr char kLCPPDeferUnusedPreloadHistogramPrefix[] =
     "Blink.LCPP.DeferUnusedPreload.";
 
-std::string LinkPreloadStrForHistogram(bool link_preload) {
+std::string_view LinkPreloadStrForHistogram(bool link_preload) {
   return link_preload ? "LinkPreload" : "NoLinkPreload";
 }
 
@@ -832,12 +832,15 @@ ResourceFetcher::ResourceFetcher(const ResourceFetcherInit& init)
       context_lifecycle_notifier_(init.context_lifecycle_notifier),
       auto_load_images_(true),
       allow_stale_resources_(false),
-      image_fetched_(false) {
+      image_fetched_(false),
+      memory_pressure_listener_registration_(
+          FROM_HERE,
+          base::MemoryPressureListenerTag::kResourceFetcher,
+          this) {
   InstanceCounters::IncrementCounter(InstanceCounters::kResourceFetcherCounter);
 
   if (IsMainThread()) {
     MainThreadFetchersSet().insert(this);
-    MemoryPressureListenerRegistry::Instance().RegisterClient(this);
   }
 }
 
@@ -1149,17 +1152,33 @@ Resource* ResourceFetcher::ResourceForBlockedRequest(
   return resource;
 }
 
-void ResourceFetcher::MakePreloadedResourceBlockOnloadIfNeeded(
+void ResourceFetcher::MakePreloadedResourceBlockIfNeeded(
     Resource* resource,
     const FetchParameters& params) {
   // TODO(yoav): Test that non-blocking resources (video/audio/track) continue
   // to not-block even after being preloaded and discovered.
   if (resource && resource->Loader() &&
-      resource->IsLoadEventBlockingResourceType() &&
       resource->IsLinkPreload() && !params.IsLinkPreload() &&
       non_blocking_loaders_.Contains(resource->Loader())) {
-    non_blocking_loaders_.erase(resource->Loader());
-    loaders_.insert(resource->Loader());
+    if (resource->IsLoadEventBlockingResourceType()) {
+      non_blocking_loaders_.erase(resource->Loader());
+      loaders_.insert(resource->Loader());
+    }
+    // If new resource is render-blocking then mark it as such in the pending
+    // Resource Timing. Note this sits outside of the
+    // IsLoadEventBlockingResourceType check as that doesn't include scripts
+    // But scripts can be render-blocking.
+    // We only pass kBlocking as that is the only one used in Resource Timing
+    // and avoids checking this for other status and more complicated logic to
+    // choose the largest blocking value if we have multiple resource requests.
+    if (params.GetResourceRequest().GetRenderBlockingBehavior() ==
+        RenderBlockingBehavior::kBlocking) {
+      PendingResourceTimingInfoMap::iterator it =
+          resource_timing_info_map_.find(resource);
+      if (it != resource_timing_info_map_.end()) {
+        it->value.render_blocking_behavior = RenderBlockingBehavior::kBlocking;
+      }
+    }
     if (resource_load_observer_) {
       resource_load_observer_->DidChangeRenderBlockingBehavior(resource,
                                                                params);
@@ -1461,8 +1480,9 @@ Resource* ResourceFetcher::RequestResource(FetchParameters& params,
       policy = RevalidationPolicy::kUse;
       prepare_helper.UpgradeForLoaderIfNecessary(pauser);
       // If |params| is for a blocking resource and a preloaded resource is
-      // found, we may need to make it block the onload event.
-      MakePreloadedResourceBlockOnloadIfNeeded(resource, params);
+      // found, we may need to make it block the onload event or mark as
+      // render-blocking.
+      MakePreloadedResourceBlockIfNeeded(resource, params);
     } else if (IsMainThread()) {
       const String cache_identifier = GetCacheIdentifier(
           resource_type, params.GetResourceRequest().Url(),
@@ -2325,8 +2345,8 @@ void ResourceFetcher::ClearContext() {
     // complete or the timer fires.
     keepalive_loaders_task_handle_ = PostDelayedCancellableTask(
         *freezable_task_runner_, FROM_HERE,
-        BindOnce(&ResourceFetcher::StopFetchingIncludingKeepaliveLoaders,
-                 WrapPersistent(this)),
+        blink::BindOnce(&ResourceFetcher::StopFetchingIncludingKeepaliveLoaders,
+                        WrapPersistent(this)),
         kKeepaliveLoadersTimeout);
   }
 }
@@ -2372,6 +2392,8 @@ void ResourceFetcher::ClearPreloads(ClearPreloadsPolicy policy) {
   preloads_.RemoveAll(keys_to_be_removed);
 
   matched_preloads_.clear();
+
+  memory_pressure_listener_registration_.Dispose();
 }
 
 void ResourceFetcher::ScheduleWarnUnusedPreloads(
@@ -2700,7 +2722,7 @@ bool ResourceFetcher::StartLoad(
     // actually continues to return true for Resources matched from the preload
     // cache that must block the load event, but that is OK because this method
     // is not responsible for promoting matched preloads to load-blocking. This
-    // is handled by MakePreloadedResourceBlockOnloadIfNeeded().
+    // is handled by MakePreloadedResourceBlockIfNeeded().
     if (!resource->IsLinkPreload() &&
         resource->IsLoadEventBlockingResourceType() &&
         policy != ImageLoadBlockingPolicy::kForceNonBlockingLoad) {
@@ -2747,17 +2769,17 @@ void ResourceFetcher::ScheduleLoadingPotentiallyUnusedPreload(
           resource, /*is_potentially_unused_preload=*/true);
       break;
     case features::LcppDeferUnusedPreloadTiming::kLcpTimingPredictor:
-      context_->AddLcpPredictedCallback(
-          BindOnce(&ResourceFetcher::StartLoadAndFinishIfFailed,
-                   WrapWeakPersistent(this), WrapWeakPersistent(resource),
-                   /*is_potentially_unused_preload=*/true));
+      context_->AddLcpPredictedCallback(blink::BindOnce(
+          &ResourceFetcher::StartLoadAndFinishIfFailed,
+          WrapWeakPersistent(this), WrapWeakPersistent(resource),
+          /*is_potentially_unused_preload=*/true));
       break;
     case features::LcppDeferUnusedPreloadTiming::
         kLcpTimingPredictorWithPostTask:
-      context_->AddLcpPredictedCallback(
-          BindOnce(&ResourceFetcher::ScheduleStartLoadAndFinishIfFailed,
-                   WrapWeakPersistent(this), WrapWeakPersistent(resource),
-                   /*is_potentially_unused_preload=*/true));
+      context_->AddLcpPredictedCallback(blink::BindOnce(
+          &ResourceFetcher::ScheduleStartLoadAndFinishIfFailed,
+          WrapWeakPersistent(this), WrapWeakPersistent(resource),
+          /*is_potentially_unused_preload=*/true));
       break;
   }
 }
@@ -2789,9 +2811,9 @@ void ResourceFetcher::ScheduleStartLoadAndFinishIfFailed(
     bool is_potentially_unused_preload) {
   freezable_task_runner_->PostTask(
       FROM_HERE,
-      BindOnce(&ResourceFetcher::StartLoadAndFinishIfFailed,
-               WrapWeakPersistent(this), WrapWeakPersistent(resource),
-               is_potentially_unused_preload));
+      blink::BindOnce(&ResourceFetcher::StartLoadAndFinishIfFailed,
+                      WrapWeakPersistent(this), WrapWeakPersistent(resource),
+                      is_potentially_unused_preload));
 }
 
 void ResourceFetcher::RemoveResourceLoader(ResourceLoader* loader) {
@@ -3094,9 +3116,9 @@ void ResourceFetcher::ScheduleStaleRevalidate(Resource* stale_resource) {
   }
   stale_resource->SetStaleRevalidationStarted();
   freezable_task_runner_->PostTask(
-      FROM_HERE,
-      BindOnce(&ResourceFetcher::RevalidateStaleResource,
-               WrapWeakPersistent(this), WrapPersistent(stale_resource)));
+      FROM_HERE, blink::BindOnce(&ResourceFetcher::RevalidateStaleResource,
+                                 WrapWeakPersistent(this),
+                                 WrapPersistent(stale_resource)));
 }
 
 void ResourceFetcher::RevalidateStaleResource(Resource* stale_resource) {
@@ -3163,6 +3185,9 @@ void ResourceFetcher::PopulateAndAddResourceTimingInfo(
   if (info->allow_timing_details) {
     info->last_redirect_end_time = pending_info.redirect_end_time;
   }
+  // If we expand this beyond just kBlocking then also need to change
+  // MakePreloadedResourceBlockIfNeeded which currently only passes
+  // kBlocking for simplicity.
   info->render_blocking_status = pending_info.render_blocking_behavior ==
                                  RenderBlockingBehavior::kBlocking;
   info->response_end = response_end;
@@ -3235,8 +3260,8 @@ void ResourceFetcher::MaybeSaveResourceToStrongReference(Resource* resource) {
     document_resource_strong_refs_total_size_ += resource_size;
     freezable_task_runner_->PostDelayedTask(
         FROM_HERE,
-        BindOnce(&ResourceFetcher::RemoveResourceStrongReference,
-                 WrapWeakPersistent(this), WrapWeakPersistent(resource)),
+        blink::BindOnce(&ResourceFetcher::RemoveResourceStrongReference,
+                        WrapWeakPersistent(this), WrapWeakPersistent(resource)),
         GetResourceStrongReferenceTimeout(resource));
   } else {
     MemoryCache::Get()->SaveStrongReference(resource);
@@ -3268,6 +3293,10 @@ void ResourceFetcher::StartSpeculativeImageDecodes() {
 }
 
 void ResourceFetcher::OnMemoryPressure(base::MemoryPressureLevel level) {
+  if (level == base::MEMORY_PRESSURE_LEVEL_NONE) {
+    return;
+  }
+
   if (base::FeatureList::IsEnabled(
           features::kReleaseResourceStrongReferencesOnMemoryPressure)) {
     document_resource_strong_refs_.clear();
@@ -3408,7 +3437,6 @@ void ResourceFetcher::Trace(Visitor* visitor) const {
   visitor->Trace(subresource_web_bundles_);
   visitor->Trace(document_resource_strong_refs_);
   visitor->Trace(context_lifecycle_notifier_);
-  MemoryPressureListener::Trace(visitor);
 }
 
 // static

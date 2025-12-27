@@ -48,8 +48,6 @@
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/load_error_reporter.h"
-#include "chrome/browser/extensions/permissions/active_tab_permission_granter.h"
-#include "chrome/browser/extensions/permissions/scripting_permissions_modifier.h"
 #include "chrome/browser/extensions/test_extension_action_dispatcher_observer.h"
 #include "chrome/browser/net/profile_network_context_service.h"
 #include "chrome/browser/net/profile_network_context_service_factory.h"
@@ -107,6 +105,8 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_util.h"
 #include "extensions/browser/install_prefs_helper.h"
+#include "extensions/browser/permissions/active_tab_permission_granter.h"
+#include "extensions/browser/permissions/scripting_permissions_modifier.h"
 #include "extensions/browser/test_extension_registry_observer.h"
 #include "extensions/browser/warning_service.h"
 #include "extensions/browser/warning_set.h"
@@ -4280,10 +4280,10 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
 
 // Test that the action matched badge text for an extension is visible in an
 // incognito context if the extension is incognito enabled.
-// Test is disabled on Mac/Linux. See https://crbug.com/1280116
+// Test is disabled on Mac/Linux/CrOS. See https://crbug.com/1280116
 // TODO(crbug.com/393191910): Port to desktop Android. The test fails with
 // no stack and no logs.
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_ActionsMatchedCountAsBadgeTextIncognito \
   DISABLED_ActionsMatchedCountAsBadgeTextIncognito
 #else

@@ -50,6 +50,7 @@
 #include "third_party/blink/renderer/core/css_value_keywords.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/document_fragment.h"
+#include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/element_rare_data_vector.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/dom/events/event_listener.h"
@@ -72,6 +73,7 @@
 #include "third_party/blink/renderer/core/editing/serializers/serialization.h"
 #include "third_party/blink/renderer/core/editing/spellcheck/spell_checker.h"
 #include "third_party/blink/renderer/core/event_type_names.h"
+#include "third_party/blink/renderer/core/events/command_event.h"
 #include "third_party/blink/renderer/core/events/keyboard_event.h"
 #include "third_party/blink/renderer/core/events/pointer_event.h"
 #include "third_party/blink/renderer/core/events/toggle_event.h"
@@ -131,6 +133,7 @@
 #include "third_party/blink/renderer/platform/scheduler/public/post_cancellable_task.h"
 #include "third_party/blink/renderer/platform/text/bidi_paragraph.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
+#include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "third_party/blink/renderer/platform/wtf/text/character_names.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 
@@ -322,13 +325,14 @@ void HTMLElement::ApplyBorderAttributeToStyle(
 }
 
 bool HTMLElement::IsPresentationAttribute(const QualifiedName& name) const {
-  if (name == html_names::kAlignAttr ||
+  if (name == html_names::kAlignAttr || name == html_names::kAnchorAttr ||
       name == html_names::kContenteditableAttr ||
       name == html_names::kHiddenAttr || name == html_names::kLangAttr ||
       name.Matches(xml_names::kLangAttr) ||
       name == html_names::kDraggableAttr || name == html_names::kDirAttr ||
-      name == html_names::kInertAttr)
+      name == html_names::kInertAttr) {
     return true;
+  }
   return Element::IsPresentationAttribute(name);
 }
 
@@ -336,14 +340,6 @@ bool HTMLElement::IsValidDirAttribute(const AtomicString& value) {
   return EqualIgnoringASCIICase(value, "auto") ||
          EqualIgnoringASCIICase(value, "ltr") ||
          EqualIgnoringASCIICase(value, "rtl");
-}
-
-bool HTMLElement::IsValidContainerTimingNestingAttribute(
-    const AtomicString& value) {
-  return EqualIgnoringASCIICase(value, "auto") ||
-         EqualIgnoringASCIICase(value, "ignore") ||
-         EqualIgnoringASCIICase(value, "transparent") ||
-         EqualIgnoringASCIICase(value, "shadowed");
 }
 
 void HTMLElement::CollectStyleForPresentationAttribute(
@@ -357,6 +353,11 @@ void HTMLElement::CollectStyleForPresentationAttribute(
     } else {
       AddPropertyToPresentationAttributeStyle(style, CSSPropertyID::kTextAlign,
                                               value);
+    }
+  } else if (name == html_names::kAnchorAttr) {
+    if (RuntimeEnabledFeatures::HTMLAnchorAttributeEnabled()) {
+      AddPropertyToPresentationAttributeStyle(
+          style, CSSPropertyID::kPositionAnchor, CSSValueID::kAuto);
     }
   } else if (name == html_names::kContenteditableAttr) {
     AtomicString lower_value = value.LowerASCII();
@@ -459,8 +460,6 @@ const AttributeTriggers* HTMLElement::TriggersForAttributeName(
        &HTMLElement::OnContainerTimingAttrChanged},
       {html_names::kContainertimingIgnoreAttr, kNoWebFeature, kNoEvent,
        &HTMLElement::OnContainerTimingIgnoreAttrChanged},
-      {html_names::kContainertimingNestingAttr, kNoWebFeature, kNoEvent,
-       &HTMLElement::OnContainerTimingNestingAttrChanged},
 
       {html_names::kOnabortAttr, kNoWebFeature, event_type_names::kAbort,
        nullptr},
@@ -512,8 +511,6 @@ const AttributeTriggers* HTMLElement::TriggersForAttributeName(
        event_type_names::kCuechange, nullptr},
       {html_names::kOncutAttr, kNoWebFeature, event_type_names::kCut, nullptr},
       {html_names::kOndblclickAttr, kNoWebFeature, event_type_names::kDblclick,
-       nullptr},
-      {html_names::kOndismissAttr, kNoWebFeature, event_type_names::kDismiss,
        nullptr},
       {html_names::kOndragAttr, kNoWebFeature, event_type_names::kDrag,
        nullptr},
@@ -622,8 +619,6 @@ const AttributeTriggers* HTMLElement::TriggersForAttributeName(
       {html_names::kOnresetAttr, kNoWebFeature, event_type_names::kReset,
        nullptr},
       {html_names::kOnresizeAttr, kNoWebFeature, event_type_names::kResize,
-       nullptr},
-      {html_names::kOnresolveAttr, kNoWebFeature, event_type_names::kResolve,
        nullptr},
       {html_names::kOnscrollAttr, kNoWebFeature, event_type_names::kScroll,
        nullptr},
@@ -2480,13 +2475,16 @@ bool HTMLElement::IsValidBuiltinCommand(HTMLElement& invoker,
          (RuntimeEnabledFeatures::HTMLCommandActionsV2Enabled() &&
           (command == CommandEventType::kToggleFullscreen ||
            command == CommandEventType::kRequestFullscreen ||
-           command == CommandEventType::kExitFullscreen));
+           command == CommandEventType::kExitFullscreen)) ||
+         (RuntimeEnabledFeatures::HTMLCommandForScrollCommandsEnabled() &&
+          Element::IsScrollCommand(command));
 }
 
 bool HTMLElement::HandleCommandInternal(HTMLElement& invoker,
                                         CommandEventType command) {
-  CHECK(IsValidBuiltinCommand(invoker, command));
-
+  if (!IsValidBuiltinCommand(invoker, command)) {
+    return false;
+  }
   if (Element::HandleCommandInternal(invoker, command)) {
     return true;
   }
@@ -2518,19 +2516,13 @@ bool HTMLElement::HandleCommandInternal(HTMLElement& invoker,
                      /*exception_state=*/nullptr,
                      /*include_event_handler_text=*/true, &document) &&
       (command == CommandEventType::kTogglePopover ||
-       command == CommandEventType::kShowPopover ||
-       (RuntimeEnabledFeatures::MenuElementsEnabled() &&
-        (command == CommandEventType::kToggleMenu ||
-         command == CommandEventType::kShowMenu)));
+       command == CommandEventType::kShowPopover);
   bool can_hide =
       IsPopoverReady(PopoverTriggerAction::kHide,
                      /*exception_state=*/nullptr,
                      /*include_event_handler_text=*/true, &document) &&
       (command == CommandEventType::kTogglePopover ||
-       command == CommandEventType::kHidePopover ||
-       (RuntimeEnabledFeatures::MenuElementsEnabled() &&
-        (command == CommandEventType::kToggleMenu ||
-         command == CommandEventType::kHideMenu)));
+       command == CommandEventType::kHidePopover);
   if (can_hide) {
     HidePopoverInternal(
         &invoker, HidePopoverFocusBehavior::kFocusPreviousElement,
@@ -2583,6 +2575,214 @@ bool HTMLElement::HandleCommandInternal(HTMLElement& invoker,
     return true;
   }
   return false;
+}
+
+bool HTMLElement::CanBeCommandInvoker() const {
+  return RuntimeEnabledFeatures::ElementInternalsDotTypeEnabled() &&
+         IsCustomButton();
+}
+
+bool HTMLElement::HandleCommandForActivation() {
+  if (!CanBeCommandInvoker()) {
+    return false;
+  }
+
+  // Buttons with a commandfor will dispatch a CommandEvent on the target of the
+  // invoker, and run `HandleCommandInternal` to perform default logic.
+  Element* command_target = commandForElement();
+  if (!command_target) {
+    return false;
+  }
+  // commandfor & popovertarget shouldn't be combined, so warn.
+  if (FastHasAttribute(html_names::kPopovertargetAttr)) {
+    AddConsoleMessage(mojom::blink::ConsoleMessageSource::kOther,
+                      mojom::blink::ConsoleMessageLevel::kWarning,
+                      "popovertarget is ignored on elements with commandfor.");
+  }
+  const AtomicString& action = command();
+  if (action.empty()) {
+    return false;
+  }
+  DCHECK_NE(GetCommandEventType(FastGetAttribute(html_names::kCommandAttr),
+                                GetExecutionContext()),
+            CommandEventType::kNone);
+  const auto command_event_type =
+      GetCommandEventType(action, GetExecutionContext());
+  Event* command_event =
+      CommandEvent::Create(event_type_names::kCommand, action, this);
+  command_target->DispatchEvent(*command_event);
+  if (!command_event->defaultPrevented() &&
+      command_event_type != CommandEventType::kCustom) {
+    command_target->HandleCommandInternal(*this, command_event_type);
+  }
+  return true;
+}
+
+Element* HTMLElement::commandForElement() const {
+  if (!IsInTreeScope() || IsDisabledFormControl()) {
+    return nullptr;
+  }
+  if (!CanBeCommandInvoker()) {
+    return nullptr;
+  }
+  return GetElementAttributeResolvingReferenceTarget(
+      html_names::kCommandforAttr);
+}
+
+AtomicString HTMLElement::command() const {
+  if (!CanBeCommandInvoker()) {
+    return g_empty_atom;
+  }
+  const AtomicString& action = FastGetAttribute(html_names::kCommandAttr);
+  CommandEventType type = GetCommandEventType(action, GetExecutionContext());
+  switch (type) {
+    case CommandEventType::kNone:
+      return g_empty_atom;
+    case CommandEventType::kCustom:
+      return action;
+    default: {
+      const AtomicString& lower_action = action.LowerASCII();
+      DCHECK_EQ(GetCommandEventType(lower_action, GetExecutionContext()), type);
+      return lower_action;
+    }
+  }
+}
+
+void HTMLElement::setCommand(const AtomicString& type) {
+  setAttribute(html_names::kCommandAttr, type);
+}
+
+CommandEventType HTMLElement::GetCommandEventType(
+    const AtomicString& action,
+    ExecutionContext* execution_context) const {
+  if (action.IsNull() || action.empty()) {
+    return CommandEventType::kNone;
+  }
+
+  // Custom Invoke Action
+  if (action.StartsWith("--")) {
+    return CommandEventType::kCustom;
+  }
+
+  // Popover Cases
+  if (EqualIgnoringASCIICase(action, keywords::kTogglePopover)) {
+    return CommandEventType::kTogglePopover;
+  }
+  if (EqualIgnoringASCIICase(action, keywords::kShowPopover)) {
+    return CommandEventType::kShowPopover;
+  }
+  if (EqualIgnoringASCIICase(action, keywords::kHidePopover)) {
+    return CommandEventType::kHidePopover;
+  }
+
+  // Dialog Cases
+  if (EqualIgnoringASCIICase(action, keywords::kClose)) {
+    return CommandEventType::kClose;
+  }
+  if (EqualIgnoringASCIICase(action, keywords::kShowModal)) {
+    return CommandEventType::kShowModal;
+  }
+
+  if (RuntimeEnabledFeatures::HTMLCommandRequestCloseEnabled() &&
+      EqualIgnoringASCIICase(action, keywords::kRequestClose)) {
+    return CommandEventType::kRequestClose;
+  }
+
+  // Menu Cases
+  if (RuntimeEnabledFeatures::MenuElementsEnabled()) {
+    if (EqualIgnoringASCIICase(action, keywords::kToggleMenu)) {
+      return CommandEventType::kToggleMenu;
+    }
+    if (EqualIgnoringASCIICase(action, keywords::kShowMenu)) {
+      return CommandEventType::kShowMenu;
+    }
+    if (EqualIgnoringASCIICase(action, keywords::kHideMenu)) {
+      return CommandEventType::kHideMenu;
+    }
+  }
+
+  // V2 commands go below this point
+
+  if (!RuntimeEnabledFeatures::HTMLCommandActionsV2Enabled()) {
+    return CommandEventType::kNone;
+  }
+
+  // Input/Select Cases
+  if (EqualIgnoringASCIICase(action, keywords::kShowPicker)) {
+    return CommandEventType::kShowPicker;
+  }
+
+  // Number Input Cases
+  if (EqualIgnoringASCIICase(action, keywords::kStepUp)) {
+    return CommandEventType::kStepUp;
+  }
+  if (EqualIgnoringASCIICase(action, keywords::kStepDown)) {
+    return CommandEventType::kStepDown;
+  }
+
+  // Fullscreen Cases
+  if (EqualIgnoringASCIICase(action, keywords::kToggleFullscreen)) {
+    return CommandEventType::kToggleFullscreen;
+  }
+  if (EqualIgnoringASCIICase(action, keywords::kRequestFullscreen)) {
+    return CommandEventType::kRequestFullscreen;
+  }
+  if (EqualIgnoringASCIICase(action, keywords::kExitFullscreen)) {
+    return CommandEventType::kExitFullscreen;
+  }
+
+  // Details cases
+  if (EqualIgnoringASCIICase(action, keywords::kToggle)) {
+    return CommandEventType::kToggle;
+  }
+  if (EqualIgnoringASCIICase(action, keywords::kOpen)) {
+    return CommandEventType::kOpen;
+  }
+  // CommandEventType::kClose handled above in Dialog
+
+  // Media cases
+  if (EqualIgnoringASCIICase(action, keywords::kPlayPause)) {
+    return CommandEventType::kPlayPause;
+  }
+  if (EqualIgnoringASCIICase(action, keywords::kPause)) {
+    return CommandEventType::kPause;
+  }
+  if (EqualIgnoringASCIICase(action, keywords::kPlay)) {
+    return CommandEventType::kPlay;
+  }
+  if (EqualIgnoringASCIICase(action, keywords::kToggleMuted)) {
+    return CommandEventType::kToggleMuted;
+  }
+
+  // Scroll command cases
+  if (RuntimeEnabledFeatures::HTMLCommandForScrollCommandsEnabled()) {
+    if (EqualIgnoringASCIICase(action, keywords::kPage_Up)) {
+      return CommandEventType::kPageUp;
+    }
+    if (EqualIgnoringASCIICase(action, keywords::kPage_Down)) {
+      return CommandEventType::kPageDown;
+    }
+    if (EqualIgnoringASCIICase(action, keywords::kPageLeft)) {
+      return CommandEventType::kPageLeft;
+    }
+    if (EqualIgnoringASCIICase(action, keywords::kPageRight)) {
+      return CommandEventType::kPageRight;
+    }
+    if (EqualIgnoringASCIICase(action, keywords::kPageBlockStart)) {
+      return CommandEventType::kPageBlockStart;
+    }
+    if (EqualIgnoringASCIICase(action, keywords::kPageBlockEnd)) {
+      return CommandEventType::kPageBlockEnd;
+    }
+    if (EqualIgnoringASCIICase(action, keywords::kPageInlineStart)) {
+      return CommandEventType::kPageInlineStart;
+    }
+    if (EqualIgnoringASCIICase(action, keywords::kPageInlineEnd)) {
+      return CommandEventType::kPageInlineEnd;
+    }
+  }
+
+  return CommandEventType::kNone;
 }
 
 PopoverTriggerSupport HTMLElement::SupportsPopoverTriggering() const {
@@ -3092,12 +3292,14 @@ bool HTMLElement::IsInteractiveContent() const {
 void HTMLElement::DefaultEventHandler(Event& event) {
   auto* keyboard_event = DynamicTo<KeyboardEvent>(event);
 
-  if (RuntimeEnabledFeatures::ElementInternalsDotTypeEnabled() &&
-      IsCustomButton()) {
-    HTMLButtonElement::HandleCommandForActivation(event, *this);
-    if (event.DefaultHandled()) {
+  if (event.type() == event_type_names::kDOMActivate) {
+    if (HandleCommandForActivation()) {
       return;
     }
+  }
+
+  if (RuntimeEnabledFeatures::ElementInternalsDotTypeEnabled() &&
+      IsCustomButton()) {
     HTMLFormControlElement::HandlePopoverActivation(event, *this);
   }
 
@@ -3402,28 +3604,6 @@ void HTMLElement::OnContainerTimingIgnoreAttrChanged(
     // the tree if the node has ignore only
     ClearSelfOrAncestorHasContainerTiming();
     UpdateDescendantHasContainerTiming(false /* has_container_timing */);
-  }
-}
-
-void HTMLElement::OnContainerTimingNestingAttrChanged(
-    const AttributeModificationParams& params) {
-  if (!RuntimeEnabledFeatures::ContainerTimingEnabled()) {
-    return;
-  }
-
-  if (!FastHasAttribute(html_names::kContainertimingAttr)) {
-    return;
-  }
-
-  bool is_old_valid = IsValidContainerTimingNestingAttribute(params.old_value);
-  bool is_new_valid = IsValidContainerTimingNestingAttribute(params.new_value);
-  if (!is_old_valid && !is_new_valid) {
-    return;
-  }
-
-  if (auto* window = GetDocument().domWindow()) {
-    ContainerTiming::From(*window).MaybeUpdateContainerRootNestingPolicy(
-        this, params.new_value);
   }
 }
 

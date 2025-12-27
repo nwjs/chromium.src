@@ -17,6 +17,7 @@
 #include "base/command_line.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -32,6 +33,8 @@
 #include "base/win/registry.h"
 #include "base/win/windows_types.h"
 #include "chrome/installer/util/work_item_list.h"
+#include "chrome/updater/app/server/update_service_internal_stub.h"
+#include "chrome/updater/app/server/update_service_stub.h"
 #include "chrome/updater/app/server/win/update_service_internal_stub_win.h"
 #include "chrome/updater/app/server/win/update_service_stub_win.h"
 #include "chrome/updater/constants.h"
@@ -248,21 +251,11 @@ void AppServerWin::PostRpcTask(base::OnceClosure task) {
   GetAppServerWinInstance()->PostRpcTaskOnMainSequence(std::move(task));
 }
 
-void AppServerWin::PostOnTaskRunner(scoped_refptr<base::TaskRunner> task_runner,
-                                    base::OnceClosure task) {
-  const auto count =
-      Microsoft::WRL::Module<Microsoft::WRL::OutOfProc>::GetModule()
-          .IncrementObjectCount();
-  VLOG(2) << "Started PostOnTaskRunner, Microsoft::WRL::Module count: "
-          << count;
-  task_runner->PostTask(FROM_HERE, std::move(task).Then(base::BindOnce([] {
-    const auto count =
-        Microsoft::WRL::Module<Microsoft::WRL::OutOfProc>::GetModule()
-            .DecrementObjectCount();
-    VLOG(2) << "Completed PostOnTaskRunner, "
-               "Microsoft::WRL::Module count: "
-            << count;
-  })));
+void AppServerWin::PostOnTaskRunner(
+    scoped_refptr<base::TaskRunner> task_runner,
+    base::OnceCallback<void(base::OnceClosure)> task) {
+  GetAppServerWinInstance()->PostRpcTaskOnTaskRunner(task_runner,
+                                                     std::move(task));
 }
 
 void AppServerWin::Stop() {
@@ -278,20 +271,24 @@ void AppServerWin::Stop() {
 }
 
 void AppServerWin::PostRpcTaskOnMainSequence(base::OnceClosure task) {
-  const auto count =
-      Microsoft::WRL::Module<Microsoft::WRL::OutOfProc>::GetModule()
-          .IncrementObjectCount();
-  VLOG(2) << "Started PostRpcTaskOnMainSequence, Microsoft::WRL::Module count: "
-          << count;
   main_task_runner_->PostTask(
-      FROM_HERE, std::move(task).Then(base::BindOnce([] {
-        const auto count =
-            Microsoft::WRL::Module<Microsoft::WRL::OutOfProc>::GetModule()
-                .DecrementObjectCount();
-        VLOG(2) << "Completed PostRpcTaskOnMainSequence, "
-                   "Microsoft::WRL::Module count: "
-                << count;
-      })));
+      FROM_HERE, base::BindOnce(&AppServerWin::TaskStarted, this)
+                     .Then(base::BindOnce(std::move(task)))
+                     .Then(base::BindOnce(&AppServerWin::TaskCompleted, this)));
+}
+
+void AppServerWin::PostRpcTaskOnTaskRunner(
+    scoped_refptr<base::TaskRunner> task_runner,
+    base::OnceCallback<void(base::OnceClosure)> task) {
+  task_runner->PostTask(
+      FROM_HERE,
+      base::BindPostTask(main_task_runner_,
+                         base::BindOnce(&AppServerWin::TaskStarted, this))
+          .Then(base::BindOnce(
+              std::move(task),
+              base::BindPostTask(
+                  main_task_runner_,
+                  base::BindOnce(&AppServerWin::TaskCompleted, this)))));
 }
 
 HRESULT AppServerWin::RegisterClassObjects() {
@@ -344,9 +341,9 @@ void AppServerWin::OnDelayedTaskComplete() {
 
 void AppServerWin::ActiveDuty(scoped_refptr<UpdateService> update_service) {
   update_service_ = base::MakeRefCounted<UpdateServiceStubWin>(
-      std::move(update_service),
-      base::BindRepeating(&AppServerWin::TaskStarted, this),
+      update_service, base::BindRepeating(&AppServerWin::TaskStarted, this),
       base::BindRepeating(&AppServerWin::TaskCompleted, this));
+
   Start(base::BindOnce(&AppServerWin::RegisterClassObjects,
                        base::Unretained(this)));
 }
@@ -354,9 +351,10 @@ void AppServerWin::ActiveDuty(scoped_refptr<UpdateService> update_service) {
 void AppServerWin::ActiveDutyInternal(
     scoped_refptr<UpdateServiceInternal> update_service_internal) {
   update_service_internal_ = base::MakeRefCounted<UpdateServiceInternalStubWin>(
-      std::move(update_service_internal),
+      update_service_internal,
       base::BindRepeating(&AppServerWin::TaskStarted, this),
       base::BindRepeating(&AppServerWin::TaskCompleted, this));
+
   Start(base::BindOnce(&AppServerWin::RegisterInternalClassObjects,
                        base::Unretained(this)));
 }

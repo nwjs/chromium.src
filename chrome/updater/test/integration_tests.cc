@@ -71,6 +71,7 @@
 #include "components/policy/proto/device_management_backend.pb.h"
 #include "components/update_client/protocol_definition.h"
 #include "components/update_client/update_client.h"
+#include "components/update_client/utils.h"
 #include "net/http/http_status_code.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -264,12 +265,8 @@ struct TestApp {
   }
 
   std::string GetInstallCommandLineArgs(bool install_v1) const {
-#if BUILDFLAG(IS_WIN)
-    return base::WideToUTF8(
+    return update_client::StringTypeToUTF8(
         GetInstallCommandSwitches(install_v1).GetCommandLineString());
-#else
-    return GetInstallCommandSwitches(install_v1).GetCommandLineString();
-#endif
   }
 
   base::CommandLine GetInstallCommandLine(bool install_v1) const {
@@ -1498,6 +1495,82 @@ TEST_F(IntegrationTest, CheckForUpdate) {
   ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
+
+#if BUILDFLAG(IS_WIN)
+// TODO(crbug.com/462797181): Disabled while mojo server is disabled.
+TEST_F(IntegrationTest, DISABLED_CheckForUpdateAndInstallAppViaMojo) {
+  ScopedServer test_server(test_commands_);
+  ExpectInstallEvent(test_server, kUpdaterAppId);
+  ASSERT_NO_FATAL_FAILURE(Install());
+
+  const std::string kAppId("test");
+  ExpectInstallEvent(test_server, kAppId);
+  ASSERT_NO_FATAL_FAILURE(InstallApp(kAppId));
+  ASSERT_NO_FATAL_FAILURE(ExpectUpdateCheckSequence(
+      &test_server, kAppId, UpdateService::Priority::kForeground,
+      base::Version("0.1"), base::Version("1")));
+
+  {
+    scoped_refptr<UpdateService> update_service =
+        CreateUpdateServiceProxyMojo(GetUpdaterScopeForTesting());
+    {
+      base::RunLoop loop;
+      update_service->CheckForUpdate(
+          "test", UpdateService::Priority::kForeground,
+          UpdateService::PolicySameVersionUpdate::kNotAllowed,
+          /*language=*/{}, base::DoNothing(),
+          base::BindLambdaForTesting([&](UpdateService::Result result) {
+            EXPECT_EQ(result, UpdateService::Result::kSuccess)
+                << "result == " << result;
+            loop.Quit();
+          }));
+      loop.Run();
+    }
+
+    {
+      if (!IsSystemInstall(GetUpdaterScopeForTesting())) {
+        ASSERT_NO_FATAL_FAILURE(ExpectAppsUpdateSequence(
+            GetUpdaterScopeForTesting(), &test_server,
+            /*request_attributes=*/{},
+            {
+                AppUpdateExpectation(
+                    kApp1.GetInstallCommandLineArgs(/*install_v1=*/true),
+                    kApp1.appid, base::Version({0, 0, 0, 0}), kApp1.v1,
+                    /*is_install=*/true,
+                    /*should_update=*/true, false, "", "",
+                    GetInstallerPath(kApp1.v1_crx)),
+            }));
+      }
+
+      RegistrationRequest registration;
+      registration.app_id = kApp1.appid;
+      registration.version = kNullVersion;
+      base::RunLoop loop;
+      update_service->Install(
+          registration, /*client_install_data=*/"", /*install_data_index=*/"",
+          UpdateService::Priority::kForeground,
+          /*language=*/{}, base::DoNothing(),
+          base::BindLambdaForTesting([&](UpdateService::Result result) {
+            if (IsSystemInstall(GetUpdaterScopeForTesting())) {
+              // TODO(crbug.com/456542123): the system case will change after
+              // the client proxy allows impersonation and the server stub gates
+              // method calls based on the client's integrity levels.
+              EXPECT_EQ(result, UpdateService::Result::kPermissionDenied)
+                  << "result == " << result;
+            } else {
+              EXPECT_EQ(result, UpdateService::Result::kSuccess)
+                  << "result == " << result;
+            }
+            loop.Quit();
+          }));
+      loop.Run();
+    }
+  }
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+#endif  // BUILDFLAG(IS_WIN)
 
 TEST_F(IntegrationTest, UpdateBadHash) {
   ASSERT_NO_FATAL_FAILURE(Install());

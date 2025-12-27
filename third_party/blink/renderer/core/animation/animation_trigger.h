@@ -5,6 +5,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_ANIMATION_ANIMATION_TRIGGER_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_ANIMATION_ANIMATION_TRIGGER_H_
 
+#include "cc/animation/animation_host.h"
+#include "cc/animation/animation_trigger.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_animation_play_state.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_animation_trigger_behavior.h"
 #include "third_party/blink/renderer/core/animation/animation.h"
@@ -22,6 +24,7 @@ class ExceptionState;
 
 class CORE_EXPORT AnimationTrigger : public ScriptWrappable {
   DEFINE_WRAPPERTYPEINFO();
+  USING_PRE_FINALIZER(AnimationTrigger, Dispose);
 
  public:
   using Behavior = V8AnimationTriggerBehavior::Enum;
@@ -35,6 +38,7 @@ class CORE_EXPORT AnimationTrigger : public ScriptWrappable {
                     V8AnimationTriggerBehavior deactivate_behavior,
                     ExceptionState& exception_state);
   void removeAnimation(Animation* animation);
+  HeapVector<Member<Animation>> getAnimations();
 
   virtual bool CanTrigger() const = 0;
   virtual bool IsTimelineTrigger() const;
@@ -48,6 +52,13 @@ class CORE_EXPORT AnimationTrigger : public ScriptWrappable {
 
   static bool HasPausedCSSPlayState(Animation* animation);
 
+  void UpdateCompositorTrigger();
+  virtual void CreateCompositorTrigger() {}
+  virtual void DestroyCompositorTrigger() {}
+  cc::AnimationTrigger* CompositorTrigger() { return nullptr; }
+
+  void Dispose();
+
   void Trace(Visitor* visitor) const override;
 
  protected:
@@ -57,6 +68,10 @@ class CORE_EXPORT AnimationTrigger : public ScriptWrappable {
   static void PerformBehavior(Animation& animation,
                               Behavior behavior,
                               ExceptionState& exception_state);
+
+  // The (main thread) cc::AnimationTrigger corresponding to |this|. The impl
+  // thread version is cloned from this.
+  scoped_refptr<cc::AnimationTrigger> compositor_trigger_;
 
  private:
   virtual void WillAddAnimation(Animation* animation,

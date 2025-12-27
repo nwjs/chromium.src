@@ -135,6 +135,10 @@ class ServiceWorkerContextObserverSynchronous : public base::CheckedObserver {
 // All methods must be called on the UI thread.
 class CONTENT_EXPORT ServiceWorkerContext {
  public:
+  // The delay from navigation to starting an update of a service
+  // worker's script.
+  static constexpr base::TimeDelta kUpdateDelay = base::Milliseconds(1000);
+
   using ResultCallback = base::OnceCallback<void(bool success)>;
 
   using GetInstalledRegistrationOriginsCallback =
@@ -169,10 +173,6 @@ class CONTENT_EXPORT ServiceWorkerContext {
                       const base::Location& from_here,
                       ServiceWorkerContext* service_worker_context,
                       base::OnceClosure task);
-
-  // Returns the delay from navigation to starting an update of a service
-  // worker's script.
-  static base::TimeDelta GetUpdateDelay();
 
   // Add/remove an observer that is asynchronously notified.
   virtual void AddObserver(ServiceWorkerContextObserver* observer) = 0;
@@ -339,11 +339,6 @@ class CONTENT_EXPORT ServiceWorkerContext {
   // live and running.
   virtual bool IsLiveRunningServiceWorker(
       int64_t service_worker_version_id) = 0;
-
-  // Updates the canvas noise token for all Service Workers that have the same
-  // `top_level_site` as their owning blink::StorageKey's top level site.
-  virtual void UpdateAllCanvasNoiseTokensFromTopLevelSite(
-      const GURL& top_level_site) = 0;
 
   // Returns the InterfaceProvider for the worker specified by
   // `service_worker_version_id`. The caller can use InterfaceProvider to bind

@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Linux ASan LSan Builder",
-              "project": "chromium-m143"
+              "project": "chromium-m144"
             },
             "builder_spec": {
               "builder_group": "chromium.memory",
@@ -34,7 +34,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Linux ASan LSan Tests (1)",
-              "project": "chromium-m143"
+              "project": "chromium-m144"
             },
             "builder_spec": {
               "builder_group": "chromium.memory",
@@ -55,7 +55,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "Linux ASan LSan Builder",
-                "project": "chromium-m143"
+                "project": "chromium-m144"
               }
             }
           }
@@ -65,14 +65,14 @@
         {
           "bucket": "ci",
           "builder": "Linux ASan LSan Builder",
-          "project": "chromium-m143"
+          "project": "chromium-m144"
         }
       ],
       "builder_ids_in_scope_for_testing": [
         {
           "bucket": "ci",
           "builder": "Linux ASan LSan Tests (1)",
-          "project": "chromium-m143"
+          "project": "chromium-m144"
         }
       ],
       "mirroring_builder_group_and_names": [
@@ -82,6 +82,7 @@
         }
       ],
       "retry_failed_shards": true,
+      "retry_invalid_shards": true,
       "targets_spec_directory": "infra/config/generated/builders/ci/Linux ASan LSan Builder/targets",
       "targets_spec_directory_relative_to_source_dir": true
     }

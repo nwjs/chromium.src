@@ -17,6 +17,7 @@
 #include "base/compiler_specific.h"
 #include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/synchronization/lock.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "base/build_info_jni/AndroidInfo_jni.h"
@@ -70,8 +71,13 @@ const IAndroidInfo& get_android_info() {
 }  // namespace
 
 void Set(const IAndroidInfo& info) {
+  static base::NoDestructor<base::Lock> lock;
+  base::AutoLock l(*lock);
+
   std::optional<IAndroidInfo>& holder = get_holder();
-  DCHECK(!holder.has_value());
+  if (holder.has_value()) {
+    return;
+  }
   holder.emplace(info);
 }
 
@@ -176,3 +182,5 @@ const std::string& security_patch() {
 }
 
 }  // namespace base::android::android_info
+
+DEFINE_JNI(AndroidInfo)

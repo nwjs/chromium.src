@@ -7,12 +7,9 @@
 
 #include <cstdint>
 
+#include "content/browser/media/capture/pip_screen_capture_coordinator_proxy.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents_user_data.h"
-
-#if BUILDFLAG(IS_MAC)
-#include "content/browser/media/capture/pip_screen_capture_coordinator_impl.h"
-#endif
 
 namespace content {
 
@@ -54,16 +51,14 @@ class CONTENT_EXPORT PipScreenCaptureCoordinator
   // Called when the PiP window is closed.
   virtual void OnPipClosed();
 
+  std::unique_ptr<PipScreenCaptureCoordinatorProxy> CreateProxy();
+
  private:
   explicit PipScreenCaptureCoordinator(WebContents* web_contents);
 
   friend class MockPipScreenCaptureCoordinator;
   friend class WebContentsUserData<PipScreenCaptureCoordinator>;
   WEB_CONTENTS_USER_DATA_KEY_DECL();
-
-#if BUILDFLAG(IS_MAC)
-  std::unique_ptr<PipScreenCaptureCoordinatorImpl> impl_;
-#endif
 };
 
 }  // namespace content

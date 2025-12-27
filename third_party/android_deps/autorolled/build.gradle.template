@@ -25,8 +25,7 @@ dependencies {
     // Use testCompile to have requires_robolectric = true set on targets.
     testCompileLatest 'org.robolectric:robolectric:+'
 
-    compileLatest 'com.google.guava:guava:+'
-    buildCompileLatest 'com.google.guava:guava:+'
+    supportsAndroidCompileLatest 'com.google.guava:guava:+'
 
     // Libraries from Google:
     compileLatest 'com.google.protobuf:protobuf-javalite:+'
@@ -63,6 +62,7 @@ dependencies {
     compileLatest 'com.google.android.gms:play-services-instantapps:+'
     compileLatest 'com.google.android.gms:play-services-location:+'
     compileLatest 'com.google.android.gms:play-services-tasks:+'
+    compileLatest 'com.google.android.gms:play-services-time:+'
     compileLatest 'com.google.android.gms:play-services-vision-common:+'
     compileLatest 'com.google.android.gms:play-services-vision:+'
     compileLatest 'com.google.firebase:firebase-messaging:+'
@@ -74,23 +74,26 @@ dependencies {
     compileLatest 'javax.inject:javax.inject:+'
     compileLatest 'javax.annotation:javax.annotation-api:+'
     compileLatest 'com.squareup.leakcanary:leakcanary-android:+'
+    compileLatest 'com.squareup.leakcanary:leakcanary-android-core:+'
+    compileLatest 'com.squareup.leakcanary:shark:+'
+    compileLatest 'com.squareup.leakcanary:shark-android:+'
     androidTestCompileLatest 'com.squareup.leakcanary:leakcanary-android-instrumentation:+'
     buildCompileLatest 'org.ow2.asm:asm:+'
     buildCompileLatest 'org.ow2.asm:asm-commons:+'
     buildCompileLatest 'com.android.extensions.xr:extensions-xr:+'
 
     // Needed by internal targets
-    compileLatest 'com.google.auto.service:auto-service-annotations:+'
-    compileLatest 'com.google.code.findbugs:jsr305:+'
-    compileLatest 'com.google.j2objc:j2objc-annotations:+'
-    compileLatest 'com.squareup.okio:okio-jvm:+'
-    compileLatest 'io.reactivex.rxjava2:rxandroid:+'
-    compileLatest 'org.checkerframework:checker-qual:+'
-    compileLatest 'org.checkerframework:checker-util:+'
-    compileLatest 'org.codehaus.mojo:animal-sniffer-annotations:+'
+    supportsAndroidCompileLatest 'com.google.auto.service:auto-service-annotations:+'
+    supportsAndroidCompileLatest 'com.google.code.findbugs:jsr305:+'
+    supportsAndroidCompileLatest 'com.google.j2objc:j2objc-annotations:+'
+    supportsAndroidCompileLatest 'com.squareup.okio:okio-jvm:+'
+    supportsAndroidCompileLatest 'io.reactivex.rxjava2:rxandroid:+'
+    supportsAndroidCompileLatest 'org.checkerframework:checker-qual:+'
+    supportsAndroidCompileLatest 'org.checkerframework:checker-util:+'
+    supportsAndroidCompileLatest 'org.codehaus.mojo:animal-sniffer-annotations:+'
+    supportsAndroidCompileLatest 'org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:+'
+    supportsAndroidCompileLatest 'org.reactivestreams:reactive-streams:+'
     compileLatest 'org.jetbrains.kotlinx:kotlinx-coroutines-android:+'
-    compileLatest 'org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:+'
-    compileLatest 'org.reactivestreams:reactive-streams:+'
 }
 
 task setUpRepository(type: BuildConfigGenerator) {

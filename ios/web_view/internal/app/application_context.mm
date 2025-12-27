@@ -7,6 +7,7 @@
 #import "base/base_paths.h"
 #import "base/command_line.h"
 #import "base/functional/bind.h"
+#import "base/functional/callback_helpers.h"
 #import "base/no_destructor.h"
 #import "base/path_service.h"
 #import "components/autofill/core/common/autofill_features.h"
@@ -148,11 +149,11 @@ PrefService* ApplicationContext::GetLocalState() {
 
     sessions::SessionIdGenerator::GetInstance()->Init(local_state_.get());
 
-    int max_normal_socket_pool_count =
+    size_t max_normal_socket_pool_count =
         net::ClientSocketPoolManager::max_sockets_per_group(
             net::HttpNetworkSession::NORMAL_SOCKET_POOL);
-    int socket_count = std::max<int>(net::kDefaultMaxSocketsPerProxyChain,
-                                     max_normal_socket_pool_count);
+    size_t socket_count = std::max<size_t>(net::kDefaultMaxSocketsPerProxyChain,
+                                           max_normal_socket_pool_count);
     net::ClientSocketPoolManager::set_max_sockets_per_proxy_chain(
         net::HttpNetworkSession::NORMAL_SOCKET_POOL, socket_count);
   }

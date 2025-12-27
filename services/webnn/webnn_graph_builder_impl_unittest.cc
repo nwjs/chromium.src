@@ -146,7 +146,7 @@ class FakeWebNNContextImpl final : public WebNNContextImpl {
   CreateTensorFromSharedImageImpl(
       mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
       mojom::TensorInfoPtr tensor_info,
-      std::unique_ptr<gpu::WebNNTensorRepresentation> representation) override {
+      WebNNTensorImpl::RepresentationPtr representation) override {
     return base::unexpected(mojom::Error::New(
         mojom::Error::Code::kNotSupportedError, "Not implemented"));
   }
@@ -158,7 +158,7 @@ class FakeWebNNContextImpl final : public WebNNContextImpl {
 // the graph validation steps and computation resources.
 class FakeWebNNBackend : public WebNNContextProviderImpl::BackendForTesting {
  public:
-  scoped_refptr<WebNNContextImpl> CreateWebNNContext(
+  std::unique_ptr<WebNNContextImpl, OnTaskRunnerDeleter> CreateWebNNContext(
       base::WeakPtr<WebNNContextProviderImpl> context_provider_impl,
       mojom::CreateContextOptionsPtr options,
       gpu::CommandBufferId command_buffer_id,
@@ -170,12 +170,15 @@ class FakeWebNNBackend : public WebNNContextProviderImpl::BackendForTesting {
       mojom::WebNNContextProvider::CreateWebNNContextCallback callback)
       override {
     mojo::PendingRemote<mojom::WebNNContext> remote;
-    auto context_impl = base::MakeRefCounted<FakeWebNNContextImpl>(
-        remote.InitWithNewPipeAndPassReceiver(),
-        std::move(context_provider_impl), command_buffer_id,
-        std::move(sequence), std::move(memory_tracker),
-        std::move(owning_task_runner), shared_image_manager,
-        std::move(main_task_runner));
+    auto task_runner = owning_task_runner;
+    std::unique_ptr<WebNNContextImpl, OnTaskRunnerDeleter> context_impl(
+        new FakeWebNNContextImpl(
+            remote.InitWithNewPipeAndPassReceiver(),
+            std::move(context_provider_impl), command_buffer_id,
+            std::move(sequence), std::move(memory_tracker),
+            std::move(owning_task_runner), shared_image_manager,
+            std::move(main_task_runner)),
+        OnTaskRunnerDeleter(std::move(task_runner)));
     ContextProperties context_properties = context_impl->properties();
     // The receiver bound to FakeWebNNContext.
     auto success = mojom::CreateContextSuccess::New(

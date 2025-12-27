@@ -6,7 +6,6 @@
 
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/utf_string_conversions.h"
@@ -143,6 +142,7 @@ SigninViewControllerDelegateViews::CreateSyncConfirmationWebView(
 std::unique_ptr<views::WebView>
 SigninViewControllerDelegateViews::CreateHistorySyncOptInWebView(
     Browser* browser,
+    bool should_close_modal_dialog,
     HistorySyncOptinLaunchContext launch_context,
     HistorySyncOptinHelper::FlowCompletedCallback callback) {
   GURL url = GURL(chrome::kChromeUIHistorySyncOptinURL);
@@ -162,7 +162,7 @@ SigninViewControllerDelegateViews::CreateHistorySyncOptInWebView(
   DCHECK(web_ui);
   web_view->SetProperty(views::kElementIdentifierKey,
                         SigninViewController::kHistorySyncOptinViewId);
-  web_ui->Initialize(browser, std::move(callback));
+  web_ui->Initialize(browser, should_close_modal_dialog, std::move(callback));
   return web_view;
 }
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
@@ -209,6 +209,7 @@ std::unique_ptr<views::WebView>
 SigninViewControllerDelegateViews::CreateSignoutConfirmationWebView(
     Browser* browser,
     ChromeSignoutConfirmationPromptVariant variant,
+    size_t unsynced_data_count,
     SignoutConfirmationCallback callback) {
   // Set an initial height of 0 since the actual dialog's height will be set
   // dynamically based on its contents, so the initial height does not matter.
@@ -225,7 +226,8 @@ SigninViewControllerDelegateViews::CreateSignoutConfirmationWebView(
                                       ->GetController()
                                       ->GetAs<SignoutConfirmationUI>();
   DCHECK(web_ui);
-  web_ui->Initialize(browser, variant, std::move(callback));
+  web_ui->Initialize(browser, variant, unsynced_data_count,
+                     std::move(callback));
   return web_view;
 }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -543,12 +545,14 @@ SigninViewControllerDelegate::CreateSyncConfirmationDelegate(
 SigninViewControllerDelegate*
 SigninViewControllerDelegate::CreateSyncHistoryOptInDelegate(
     Browser* browser,
+    bool should_close_modal_dialog,
     HistorySyncOptinLaunchContext launch_context,
     HistorySyncOptinHelper::FlowCompletedCallback
         history_optin_completed_callback) {
   auto content_view =
       SigninViewControllerDelegateViews::CreateHistorySyncOptInWebView(
-          browser, launch_context, std::move(history_optin_completed_callback));
+          browser, should_close_modal_dialog, launch_context,
+          std::move(history_optin_completed_callback));
   return new SigninViewControllerDelegateViews(
       std::move(content_view), browser, ui::mojom::ModalType::kWindow,
       /*wait_for_size=*/true, /*should_show_close_button=*/false,
@@ -586,12 +590,13 @@ SigninViewControllerDelegate*
 SigninViewControllerDelegate::CreateSignoutConfirmationDelegate(
     Browser* browser,
     ChromeSignoutConfirmationPromptVariant variant,
+    size_t unsynced_data_count,
     SignoutConfirmationCallback callback) {
   // Don't have the native view animate resizes since the dialog contains WebUI
   // elements that animate on resize.
   return new SigninViewControllerDelegateViews(
       SigninViewControllerDelegateViews::CreateSignoutConfirmationWebView(
-          browser, variant, std::move(callback)),
+          browser, variant, unsynced_data_count, std::move(callback)),
       browser, ui::mojom::ModalType::kWindow, true, false,
       /*animate_on_resize=*/false);
 }

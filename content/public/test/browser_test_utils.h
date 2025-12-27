@@ -793,7 +793,8 @@ base::Value ListValueOf(Args&&... args) {
 // Each |arg| can be any type explicitly convertible to base::Value
 // (including int/string/std::string_view/char*/double/bool), or any type that
 // JsLiteralHelper is specialized for -- like URL and url::Origin, which emit
-// string literals. |args| can be a mix of different types.
+// string literals. Note that base::Value::Type::BINARY is not supported.
+// |args| can be a mix of different types.
 //
 // Example 1:
 //
@@ -1838,6 +1839,11 @@ class TestNavigationManager : public WebContentsObserver {
   // getting a response.
   [[nodiscard]] bool WaitForResponse();
 
+  // Waits until the navigation fails. This will wait until all
+  // NavigationThrottles have proceeded through WillFailRequest. Returns false
+  // if the request did not fail.
+  [[nodiscard]] bool WaitForRequestFailed();
+
   // Waits until the navigation has been finished. Will automatically resume
   // navigations paused before this point. Returns false if the waiting was
   // terminated before reaching DidStartNavigation (e.g. timeout).
@@ -1886,7 +1892,8 @@ class TestNavigationManager : public WebContentsObserver {
     LOADER_STARTED = 3,
     REDIRECTED = 4,
     RESPONSE = 5,
-    FINISHED = 6,
+    REQUEST_FAILED = 6,
+    FINISHED = 7,
   };
 
   // WebContentsObserver:
@@ -1907,6 +1914,10 @@ class TestNavigationManager : public WebContentsObserver {
   // Called when the NavigationThrottle pauses the navigation in
   // WillProcessResponse.
   void OnWillProcessResponse();
+
+  // Called when the NavigationThrottle pauses the navigation in
+  // WillFailRequest.
+  void OnWillFailRequest();
 
   // Waits for the desired state. Returns false if the desired state cannot be
   // reached (eg the navigation finishes before reaching this state).

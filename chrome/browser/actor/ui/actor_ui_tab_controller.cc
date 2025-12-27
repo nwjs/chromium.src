@@ -37,12 +37,6 @@ void LogAndIgnoreCallbackError(const std::string_view source_name,
   }
 }
 
-std::unique_ptr<HandoffButtonController>
-ActorUiTabControllerFactory::CreateHandoffButtonController(
-    tabs::TabInterface& tab) {
-  return std::make_unique<HandoffButtonController>(tab);
-}
-
 ActorUiTabController::ActorUiTabController(
     tabs::TabInterface& tab,
     ActorKeyedService* actor_keyed_service,
@@ -50,7 +44,6 @@ ActorUiTabController::ActorUiTabController(
     : ActorUiTabControllerInterface(tab),
       tab_(tab),
       actor_keyed_service_(actor_keyed_service),
-      controller_factory_(std::move(controller_factory)),
       update_scrim_background_debounce_timer_(
           FROM_HERE,
           features::kGlicActorUiDebounceTimer.Get(),
@@ -58,8 +51,7 @@ ActorUiTabController::ActorUiTabController(
                               base::Unretained(this))),
       scoped_unowned_user_data_(tab.GetUnownedUserDataHost(), *this) {
   CHECK(actor_keyed_service_);
-  handoff_button_controller_ =
-      controller_factory_->CreateHandoffButtonController(tab);
+
   RegisterTabSubscriptions();
 }
 
@@ -205,7 +197,7 @@ void ActorUiTabController::UpdateUi(UiResultCallback callback) {
         concurrent_closures.CreateClosure());
   }
   // Handoff Button
-  if (features::kGlicActorUiHandoffButton.Get()) {
+  if (features::kGlicActorUiHandoffButton.Get() && handoff_button_controller_) {
     handoff_button_controller_->UpdateState(
         current_ui_tab_state_.handoff_button, ComputeHandoffButtonVisibility(),
         concurrent_closures.CreateClosure());
@@ -236,32 +228,9 @@ void ActorUiTabController::OnWebContentsAttached() {
   UpdateUi(base::BindOnce(&LogAndIgnoreCallbackError, "OnWebContentsAttached"));
 }
 
-void ActorUiTabController::InitializeImmersiveModeObserver() {
-  if (immersive_mode_observer_.IsObserving()) {
-    return;
-  }
-  immersive_mode_observer_.Observe(
-      ImmersiveModeController::From(tab_->GetBrowserWindowInterface()));
-}
-
-void ActorUiTabController::OnImmersiveFullscreenEntered() {
-  if (!actor_keyed_service_->GetTaskFromTab(*tab_)) {
-    return;
-  }
-  UpdateUi(base::BindOnce(&LogAndIgnoreCallbackError,
-                          "OnImmersiveFullscreenEntered"));
-}
-
-void ActorUiTabController::OnImmersiveFullscreenExited() {
-  if (!actor_keyed_service_->GetTaskFromTab(*tab_)) {
-    return;
-  }
-  UpdateUi(base::BindOnce(&LogAndIgnoreCallbackError,
-                          "OnImmersiveFullscreenExited"));
-}
-
-void ActorUiTabController::OnImmersiveModeControllerDestroyed() {
-  immersive_mode_observer_.Reset();
+void ActorUiTabController::OnImmersiveModeChanged() {
+  UpdateUi(
+      base::BindOnce(&LogAndIgnoreCallbackError, "OnImmersiveModeChanged"));
 }
 
 void ActorUiTabController::SetBorderGlowVisibility(base::OnceClosure callback) {
@@ -287,21 +256,29 @@ bool ActorUiTabController::ComputeHandoffButtonVisibility() {
   // BrowserView exists, we can check if ActorUiWindowController has been
   // created, since its creation relies on a valid BrowserView. Once those tests
   // are cleaned up, this null checks on the window controller can be removed.
-  if (!ActorUiWindowController::From(tab_->GetBrowserWindowInterface())) {
+  auto* window_controller =
+      ActorUiWindowController::From(tab_->GetBrowserWindowInterface());
+  if (!window_controller) {
     return false;
   }
-  InitializeImmersiveModeObserver();
-  if (ImmersiveModeController::From(tab_->GetBrowserWindowInterface())
-          ->IsEnabled()) {
-    return false;
+  if (window_controller->IsImmersiveModeEnabled()) {
+    if (!base::FeatureList::IsEnabled(
+            features::kGlicHandoffButtonShowInImmersiveMode)) {
+      return false;
+    }
+    // Still hide the button in the specific scenario where the toolbar is
+    // revealed temporarily but not pinned.
+    if (window_controller->IsToolbarRevealed() &&
+        !window_controller->IsToolbarPinned()) {
+      return false;
+    }
   }
   UpdateOmniboxTabHelperObserver();
   if (is_focusing_omnibox_) {
     return false;
   }
 
-  // Only visible when:
-  // 1. Its state is active and the associated tab is selected.
+  // Only visible when its state is active and the associated tab is selected.
   return tab_->IsSelected() && current_ui_tab_state_.handoff_button.is_active;
 }
 
@@ -329,12 +306,14 @@ void ActorUiTabController::SetActorTaskResume() {
   }
 }
 
-// TODO(crbug.com/447624564): After migrating the Handoff button off the TDM and
-// onto contents container, investigate removing debouncing on the tab
+// TODO(crbug.com/447624564): After migrating the Handoff button off the TDM
+// and onto contents container, investigate removing debouncing on the tab
 // controller side and handle it on the ui component side.
 void ActorUiTabController::UpdateScrimBackground() {
   bool should_show_scrim_background =
-      is_overlay_hovered_ || handoff_button_controller_->IsHovering();
+      is_overlay_hovered_ || (handoff_button_controller_ &&
+                              (handoff_button_controller_->IsHovering() ||
+                               handoff_button_controller_->IsFocused()));
   if (should_show_scrim_background_ == should_show_scrim_background) {
     return;
   }
@@ -367,6 +346,23 @@ void ActorUiTabController::UnregisterActorOverlayBackgroundChange() {
 
 void ActorUiTabController::UnregisterActorTabIndicatorStateChange() {
   on_actor_tab_indicator_changed_callback_.Reset();
+}
+
+void ActorUiTabController::UnregisterHandoffButtonController() {
+  handoff_button_controller_ = nullptr;
+}
+
+void ActorUiTabController::OnHandoffButtonFocusStatusChanged() {
+  update_scrim_background_debounce_timer_.Reset();
+}
+
+[[nodiscard]] base::ScopedClosureRunner
+ActorUiTabController::RegisterHandoffButtonController(
+    HandoffButtonController* controller) {
+  handoff_button_controller_ = controller;
+  return base::ScopedClosureRunner(
+      base::BindOnce(&ActorUiTabController::UnregisterHandoffButtonController,
+                     weak_factory_.GetWeakPtr()));
 }
 
 base::WeakPtr<ActorUiTabControllerInterface>

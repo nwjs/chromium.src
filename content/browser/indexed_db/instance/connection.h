@@ -27,6 +27,7 @@
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "mojo/public/cpp/bindings/remote_set.h"
+#include "mojo/public/cpp/bindings/self_owned_associated_receiver.h"
 #include "third_party/blink/public/common/indexeddb/indexeddb_key.h"
 #include "third_party/blink/public/common/indexeddb/indexeddb_key_path.h"
 #include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom.h"
@@ -60,7 +61,7 @@ class CONTENT_EXPORT Connection : public blink::mojom::IDBDatabase {
   Connection(BucketContext& bucket_context,
              base::WeakPtr<Database> database,
              base::RepeatingClosure on_version_change_ignored,
-             base::OnceCallback<void(Connection*)> on_close,
+             base::OnceCallback<void(Connection&)> on_close,
              std::unique_ptr<DatabaseCallbacks> callbacks,
              mojo::Remote<storage::mojom::IndexedDBClientStateChecker>
                  client_state_checker,
@@ -166,7 +167,7 @@ class CONTENT_EXPORT Connection : public blink::mojom::IDBDatabase {
               int64_t index_id,
               blink::IndexedDBKeyRange key_range,
               blink::mojom::IDBGetAllResultType result_type,
-              int64_t max_count,
+              uint32_t max_count,
               blink::mojom::IDBCursorDirection direction,
               blink::mojom::IDBDatabase::GetAllCallback callback) override;
   void OpenCursor(
@@ -247,7 +248,7 @@ class CONTENT_EXPORT Connection : public blink::mojom::IDBDatabase {
 
   base::WeakPtr<Database> database_;
   base::RepeatingClosure on_version_change_ignored_;
-  base::OnceCallback<void(Connection*)> on_close_;
+  base::OnceCallback<void(Connection&)> on_close_;
 
   // The connection owns transactions created on this connection. It's important
   // to preserve ordering.
@@ -284,6 +285,10 @@ class CONTENT_EXPORT Connection : public blink::mojom::IDBDatabase {
   int scheduling_priority_;
 
   bool is_shutting_down_ = false;
+
+  // When connected, `this` is self-owned, but this reference to the self-owning
+  // helper is necessary.
+  mojo::SelfOwnedAssociatedReceiverRef<blink::mojom::IDBDatabase> receiver_;
 
   base::WeakPtrFactory<Connection> weak_factory_{this};
 };

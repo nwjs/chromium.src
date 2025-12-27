@@ -28,6 +28,8 @@
 #import "ios/chrome/browser/authentication/account_menu/coordinator/account_menu_mediator_delegate.h"
 #import "ios/chrome/browser/authentication/account_menu/public/account_menu_constants.h"
 #import "ios/chrome/browser/authentication/account_menu/ui/account_menu_view_controller.h"
+#import "ios/chrome/browser/authentication/trusted_vault_reauthentication/coordinator/trusted_vault_reauthentication_coordinator.h"
+#import "ios/chrome/browser/authentication/trusted_vault_reauthentication/coordinator/trusted_vault_reauthentication_coordinator_delegate.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow.h"
 #import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/reauth/signin_reauth_coordinator.h"
@@ -35,8 +37,6 @@
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_in_progress.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signout_action_sheet/signout_action_sheet_coordinator.h"
-#import "ios/chrome/browser/authentication/ui_bundled/trusted_vault_reauthentication/trusted_vault_reauthentication_coordinator.h"
-#import "ios/chrome/browser/authentication/ui_bundled/trusted_vault_reauthentication/trusted_vault_reauthentication_coordinator_delegate.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_service.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_accounts/manage_accounts_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_accounts/manage_accounts_coordinator_delegate.h"
@@ -338,7 +338,7 @@ void maybeShowSettingsIPH(Browser* browser) {
 
 - (void)didTapAddAccount {
   auto style = SigninContextStyle::kDefault;
-  auto accessPoint = signin_metrics::AccessPoint::kAccountMenu;
+  auto accessPoint = signin_metrics::AccessPoint::kAccountMenuSwitchAccount;
   if (_addAccountSigninCoordinator.viewWillPersist) {
     return;
   }
@@ -353,9 +353,9 @@ void maybeShowSettingsIPH(Browser* browser) {
                                  DoNothingContinuationProvider()];
   __weak __typeof(self) weakSelf = self;
   _addAccountSigninCoordinator.signinCompletion =
-      ^(SigninCoordinatorResult signinResult,
+      ^(SigninCoordinator* coordinator, SigninCoordinatorResult signinResult,
         id<SystemIdentity> signinCompletionIdentity) {
-        [weakSelf signinCoordinatorCompletion];
+        [weakSelf signinCoordinatorCompletionWithCoordinator:coordinator];
       };
   [_addAccountSigninCoordinator start];
 }
@@ -384,7 +384,8 @@ void maybeShowSettingsIPH(Browser* browser) {
   AuthenticationFlow* authenticationFlow = [[AuthenticationFlow alloc]
                initWithBrowser:self.browser
                       identity:identity
-                   accessPoint:signin_metrics::AccessPoint::kAccountMenu
+                   accessPoint:signin_metrics::AccessPoint::
+                                   kAccountMenuSwitchAccount
           precedingHistorySync:NO
              postSignInActions:
                  {PostSignInAction::kShowIdentityConfirmationSnackbar}
@@ -442,8 +443,8 @@ void maybeShowSettingsIPH(Browser* browser) {
   }
   trusted_vault::SecurityDomainId securityDomainID =
       trusted_vault::SecurityDomainId::kChromeSync;
-  syncer::TrustedVaultUserActionTriggerForUMA trigger =
-      syncer::TrustedVaultUserActionTriggerForUMA::kAccountMenu;
+  trusted_vault::TrustedVaultUserActionTriggerForUMA trigger =
+      trusted_vault::TrustedVaultUserActionTriggerForUMA::kAccountMenu;
   SigninTrustedVaultDialogIntent intent =
       SigninTrustedVaultDialogIntentFetchKeys;
   CHECK(!_trustedVaultReauthenticationCoordinator, base::NotFatalUntil::M145);
@@ -466,8 +467,8 @@ void maybeShowSettingsIPH(Browser* browser) {
   }
   trusted_vault::SecurityDomainId securityDomainID =
       trusted_vault::SecurityDomainId::kChromeSync;
-  syncer::TrustedVaultUserActionTriggerForUMA trigger =
-      syncer::TrustedVaultUserActionTriggerForUMA::kAccountMenu;
+  trusted_vault::TrustedVaultUserActionTriggerForUMA trigger =
+      trusted_vault::TrustedVaultUserActionTriggerForUMA::kAccountMenu;
   SigninTrustedVaultDialogIntent intent =
       SigninTrustedVaultDialogIntentDegradedRecoverability;
   CHECK(!_trustedVaultReauthenticationCoordinator, base::NotFatalUntil::M145);
@@ -522,7 +523,7 @@ void maybeShowSettingsIPH(Browser* browser) {
   }
   [_addAccountSigninCoordinator stop];
   signin_metrics::AccessPoint accessPoint =
-      signin_metrics::AccessPoint::kAccountMenu;
+      signin_metrics::AccessPoint::kAccountMenuSwitchAccount;
   signin_metrics::PromoAction promoAction =
       signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO;
   SigninContextStyle style = SigninContextStyle::kDefault;
@@ -537,9 +538,9 @@ void maybeShowSettingsIPH(Browser* browser) {
                                            DoNothingContinuationProvider()];
   __weak __typeof(self) weakSelf = self;
   _addAccountSigninCoordinator.signinCompletion =
-      ^(SigninCoordinatorResult signinResult,
+      ^(SigninCoordinator* coordinator, SigninCoordinatorResult signinResult,
         id<SystemIdentity> signinCompletionIdentity) {
-        [weakSelf signinCoordinatorCompletion];
+        [weakSelf signinCoordinatorCompletionWithCoordinator:coordinator];
       };
   [_addAccountSigninCoordinator start];
 }
@@ -570,7 +571,10 @@ void maybeShowSettingsIPH(Browser* browser) {
 }
 
 // Clean up the add account coordinator.
-- (void)signinCoordinatorCompletion {
+- (void)signinCoordinatorCompletionWithCoordinator:
+    (SigninCoordinator*)coordinator {
+  CHECK_EQ(_addAccountSigninCoordinator, coordinator,
+           base::NotFatalUntil::M151);
   [self.mediator accountMenuIsUsable];
   [self stopAddAccountCoordinator];
 }

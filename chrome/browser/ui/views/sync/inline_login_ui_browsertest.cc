@@ -23,6 +23,7 @@
 #include "chrome/browser/signin/signin_promo.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
@@ -36,6 +37,7 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
+#include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/test_browser_window.h"
 #include "chrome/test/base/test_chrome_web_ui_controller_factory.h"
@@ -285,10 +287,10 @@ IN_PROC_BROWSER_TEST_F(InlineLoginUIBrowserTest, MAYBE_DifferentStorageId) {
 }
 
 IN_PROC_BROWSER_TEST_F(InlineLoginUIBrowserTest, OneProcessLimit) {
-  GURL test_url_1 = ui_test_utils::GetTestUrl(
+  GURL test_url_1 = chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(FILE_PATH_LITERAL("title1.html")));
-  GURL test_url_2 = ui_test_utils::GetTestUrl(
+  GURL test_url_2 = chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory)
           .Append(FILE_PATH_LITERAL("frame_tree")),
       base::FilePath(FILE_PATH_LITERAL("simple.htm")));
@@ -488,9 +490,9 @@ IN_PROC_BROWSER_TEST_F(InlineLoginHelperBrowserTest,
   ASSERT_NE(entry, nullptr);
   entry->LockForceSigninProfile(true);
 
-  ASSERT_EQ(0ul, BrowserList::GetInstance()->size());
+  ASSERT_EQ(0ul, chrome::GetTotalBrowserCount());
   SimulateOnClientOAuthSuccess(helper, "refresh_token");
-  ASSERT_EQ(0ul, BrowserList::GetInstance()->size());
+  ASSERT_EQ(0ul, chrome::GetTotalBrowserCount());
   // if |force_sign_in_with_user_manager| is false, the profile should be
   // unlocked early and InlineLoginHelper won't try to do it again
   ASSERT_TRUE(entry->IsSigninRequired());
@@ -622,9 +624,9 @@ IN_PROC_BROWSER_TEST_F(InlineLoginHelperBrowserTest,
   ASSERT_NE(entry, nullptr);
   entry->LockForceSigninProfile(true);
 
-  ASSERT_EQ(0ul, BrowserList::GetInstance()->size());
+  ASSERT_EQ(0ul, chrome::GetTotalBrowserCount());
   SimulateOnClientOAuthSuccess(helper, "refresh_token");
-  ASSERT_EQ(1ul, BrowserList::GetInstance()->size());
+  ASSERT_EQ(1ul, chrome::GetTotalBrowserCount());
   ASSERT_FALSE(entry->IsSigninRequired());
 }
 

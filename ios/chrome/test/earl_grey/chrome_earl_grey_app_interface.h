@@ -260,6 +260,12 @@ enum class TipsNotificationType;
 // Returns a key window from the connected scenes.
 + (UIWindow*)keyWindow;
 
+// Opens the settings menu directly (not via the UI) in the window with the
+// given number. EarlGrey + Multiwindow + SwiftUI (the tools menu) do not play
+// well together, so EG often fails to interact with the tools menu in secondary
+// windows.
++ (void)openSettingsInWindowWithNumber:(int)windowNumber;
+
 #pragma mark - WebState Utilities (EG2)
 
 // Attempts to tap the element with `element_id` within window.frames[0] of the
@@ -531,6 +537,9 @@ enum class TipsNotificationType;
 
 // Returns YES if DemographicMetricsReporting feature is enabled.
 + (BOOL)isDemographicMetricsReportingEnabled [[nodiscard]];
+
+// Returns YES if AskGeminiChip is enabled.
++ (BOOL)isAskGeminiChipEnabled [[nodiscard]];
 
 // Returns YES if the `launchSwitch` is found in host app launch switches.
 + (BOOL)appHasLaunchSwitch:(NSString*)launchSwitch;

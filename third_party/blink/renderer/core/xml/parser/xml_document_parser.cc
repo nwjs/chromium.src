@@ -52,6 +52,7 @@
 #include "third_party/blink/renderer/core/dom/xml_document.h"
 #include "third_party/blink/renderer/core/execution_context/agent.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
+#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/custom/ce_reactions_scope.h"
@@ -510,6 +511,10 @@ bool XMLDocumentParser::ParseDocumentFragment(
     Element* context_element,
     ParserContentPolicy parser_content_policy,
     ExceptionState& exception_state) {
+  // TODO(https://crbug.com/441911594): Add a
+  // CHECK(!RuntimeEnabledFeatures::XMLParsingRustEnabled()) here when there is
+  // a Rust implementation for this.
+
   if (!chunk.length())
     return true;
 
@@ -640,10 +645,10 @@ static bool ShouldAllowExternalLoad(const KURL& url) {
     // FIXME: This is copy/pasted. We should probably build console logging into
     // canRequest().
     if (!url.IsNull()) {
-      String message = "Unsafe attempt to load URL " + url.ElidedString() +
-                       " from frame with URL " +
-                       current_context->Url().ElidedString() +
-                       ". Domains, protocols and ports must match.\n";
+      String message = StrCat({"Unsafe attempt to load URL ",
+                               url.ElidedString(), " from frame with URL ",
+                               current_context->Url().ElidedString(),
+                               ". Domains, protocols and ports must match.\n"});
       current_context->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
           mojom::blink::ConsoleMessageSource::kSecurity,
           mojom::blink::ConsoleMessageLevel::kError, message));
@@ -752,7 +757,18 @@ scoped_refptr<XMLParserContext> XMLParserContext::CreateStringParser(
   InitializeLibXMLIfNecessary();
   xmlParserCtxtPtr parser =
       xmlCreatePushParserCtxt(handlers, nullptr, nullptr, 0, nullptr);
-  xmlCtxtUseOptions(parser, XML_PARSE_HUGE | XML_PARSE_NOENT);
+
+  int32_t options = XML_PARSE_HUGE | XML_PARSE_NOENT;
+
+  // See https://crbug.com/455813733: We choose to prevent network loads of
+  // external entities and DTDs here, but not in xmlReadMemory of
+  // XmlDocPtrForString and in XSLTStyleSheet::Parse in order not to overlap
+  // with XSLT deprecation.
+  if (RuntimeEnabledFeatures::XMLNoExternalEntitiesEnabled()) {
+    options |= XML_PARSE_NO_XXE;
+  }
+
+  xmlCtxtUseOptions(parser, options);
   parser->_private = user_data;
   return base::AdoptRef(new XMLParserContext(parser));
 }
@@ -778,8 +794,17 @@ scoped_refptr<XMLParserContext> XMLParserContext::CreateMemoryParser(
   // XML_PARSE_NODICT: default dictionary option.
   // XML_PARSE_NOENT: force entities substitutions.
   // XML_PARSE_HUGE: don't impose arbitrary limits on document size.
-  xmlCtxtUseOptions(parser,
-                    XML_PARSE_NODICT | XML_PARSE_NOENT | XML_PARSE_HUGE);
+  int32_t options = XML_PARSE_NODICT | XML_PARSE_NOENT | XML_PARSE_HUGE;
+
+  // See https://crbug.com/455813733: We choose to prevent network loads of
+  // external entities and DTDs here, but not in xmlReadMemory of
+  // XmlDocPtrForString and in XSLTStyleSheet::Parse in order not to overlap
+  // with XSLT deprecation.
+  if (RuntimeEnabledFeatures::XMLNoExternalEntitiesEnabled()) {
+    options |= XML_PARSE_NO_XXE;
+  }
+
+  xmlCtxtUseOptions(parser, options);
 
   parser->_private = user_data;
 
@@ -814,6 +839,7 @@ XMLDocumentParser::XMLDocumentParser(Document& document,
                                       // documents without frames.
       script_start_position_(TextPosition::BelowRangePosition()),
       parsing_fragment_(false) {
+  CHECK(!RuntimeEnabledFeatures::XMLParsingRustEnabled());
   // This is XML being used as a document resource.
   if (frame_view && IsA<XMLDocument>(document))
     UseCounter::Count(document, WebFeature::kXMLDocument);
@@ -839,6 +865,11 @@ XMLDocumentParser::XMLDocumentParser(DocumentFragment* fragment,
       script_runner_(nullptr),  // Don't execute scripts for document fragments.
       script_start_position_(TextPosition::BelowRangePosition()),
       parsing_fragment_(true) {
+  // TODO(https://crbug.com/441911594): Add a
+  // CHECK(!RuntimeEnabledFeatures::XMLParsingRustEnabled()) here when there is
+  // a Rust implementation for ParseDocumentFagment() and this is no longer
+  // reached.
+
   // Step 2 of
   // https://html.spec.whatwg.org/C/#xml-fragment-parsing-algorithm
   // The following code collects prefix-namespace mapping in scope on
@@ -971,8 +1002,8 @@ static inline bool HandleElementAttributes(
         } else {
           exception_state.ThrowDOMException(
               DOMExceptionCode::kNamespaceError,
-              "Namespace prefix " + attr_prefix + " for attribute " +
-                  ToString(attr.localname) + " is not declared.");
+              StrCat({"Namespace prefix ", attr_prefix, " for attribute ",
+                      ToString(attr.localname), " is not declared."}));
           return false;
         }
       }
@@ -1015,6 +1046,10 @@ void XMLDocumentParser::StartElementNs(
   if (!UpdateLeafTextNode())
     return;
 
+  // Needed for fragment parsing. If the parser library reports an empty NS url,
+  // resolve it against the initially preserved namespace hierarchy that is
+  // built when creating an XMLDocumentParser with the fragment-parsing
+  // constructor.
   AtomicString adjusted_uri = uri;
   if (parsing_fragment_ && adjusted_uri.IsNull()) {
     if (!prefix.IsNull()) {
@@ -1265,7 +1300,9 @@ void XMLDocumentParser::GetProcessingInstruction(const String& target,
   CheckIfBlockingStyleSheetAdded();
 
   saw_xsl_transform_ = !saw_first_element_ && pi->IsXSL();
-  CHECK(!saw_xsl_transform_ || RuntimeEnabledFeatures::XSLTEnabled());
+  CHECK(!saw_xsl_transform_ ||
+        (RuntimeEnabledFeatures::XSLTEnabled() &&
+         RuntimeEnabledFeatures::XSLTSpecialTrialEnabled()));
   if (saw_xsl_transform_ &&
       !DocumentXSLT::HasTransformSourceDocument(*GetDocument())) {
     // This behavior is very tricky. We call stopParsing() here because we
@@ -1537,6 +1574,11 @@ static xmlEntityPtr GetEntityHandler(void* closure, const xmlChar* name) {
   }
 
   ent = xmlGetDocEntity(ctxt->myDoc, name);
+
+  if (ent && ent->etype == XML_EXTERNAL_GENERAL_PARSED_ENTITY) {
+    GetParser(closure)->DidSeeExternalEntity();
+  }
+
   if (!ent && GetParser(closure)->IsXHTMLDocument()) {
     ent = GetXHTMLEntity(name);
     if (ent) {
@@ -1645,6 +1687,25 @@ void XMLDocumentParser::DoEnd() {
 
       context_ = nullptr;
     }
+  }
+
+  auto* window = GetDocument()->domWindow();
+
+  // Don't issue the warning when we have moved from deprecation to removal.
+  if (!RuntimeEnabledFeatures::XMLNoExternalEntitiesEnabled() && !saw_error_ &&
+      !saw_xsl_transform_ && saw_external_entity_ && window) {
+    GetDocument()->CountDeprecation(WebFeature::kXMLExternalResourceLoadEntitiesOnly);
+
+    // The previous line counts this as a deprecation, but add an
+    // explicit message here, due to crbug.com/40069336.
+    window->AddConsoleMessage(
+        MakeGarbageCollected<ConsoleMessage>(
+            ConsoleMessage::Source::kDeprecation,
+            ConsoleMessage::Level::kWarning,
+            "Externally loaded entities in XML parsing have been deprecated "
+            "and will be removed from this browser soon. See "
+            "https://chromestatus.com/feature/6734457763659776."),
+        /*discard_duplicates=*/true);
   }
 
   bool xml_viewer_mode = !saw_error_ && !saw_css_ && !saw_xsl_transform_ &&
@@ -1820,13 +1881,14 @@ static void AttributesStartElementNsHandler(void* closure,
     String attr_prefix = ToString(attr.prefix);
     String attr_q_name = attr_prefix.empty()
                              ? attr_local_name
-                             : attr_prefix + ":" + attr_local_name;
+                             : StrCat({attr_prefix, ":", attr_local_name});
 
     state->attributes.Set(attr_q_name, ToString(attr.ValueSpan()));
   }
 }
 
 HashMap<String, String> ParseAttributes(const String& string, bool& attrs_ok) {
+  CHECK(!RuntimeEnabledFeatures::XMLParsingRustEnabled());
   AttributeParseState state;
   state.got_attributes = false;
 
@@ -1835,7 +1897,8 @@ HashMap<String, String> ParseAttributes(const String& string, bool& attrs_ok) {
   sax.initialized = XML_SAX2_MAGIC;
   scoped_refptr<XMLParserContext> parser =
       XMLParserContext::CreateStringParser(&sax, &state);
-  String parse_string = "<?xml version=\"1.0\"?><attrs " + string + " />";
+  String parse_string =
+      StrCat({"<?xml version=\"1.0\"?><attrs ", string, " />"});
   ParseChunk(parser->Context(), parse_string);
   FinishParsing(parser->Context());
   attrs_ok = state.got_attributes;

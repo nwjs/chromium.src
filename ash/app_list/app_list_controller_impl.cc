@@ -522,12 +522,6 @@ void AppListControllerImpl::OnUserSessionAdded(const AccountId& account_id) {
 
   ash::ReportPrefSortOrderOnSessionStart(client_->GetPermanentSortingOrder(),
                                          IsInTabletMode());
-
-  auto* prefs =
-      Shell::Get()->session_controller()->GetUserPrefServiceForUser(account_id);
-  if (features::IsLauncherNudgeSessionResetEnabled()) {
-    AppListNudgeController::ResetPrefsForNewUserSession(prefs);
-  }
 }
 
 void AppListControllerImpl::OnSunfishScannerFeatureStatesChanged(
@@ -1933,9 +1927,6 @@ int AppListControllerImpl::GetPreferredBubbleWidth(
 }
 
 bool AppListControllerImpl::SetHomeButtonQuickApp(const std::string& app_id) {
-  if (!features::IsHomeButtonQuickAppAccessEnabled()) {
-    return false;
-  }
   return model_provider_->quick_app_access_model()->SetQuickApp(app_id);
 }
 

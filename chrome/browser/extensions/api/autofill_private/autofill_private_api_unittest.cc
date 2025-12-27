@@ -34,8 +34,11 @@
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/device_reauth/mock_device_authenticator.h"
+#include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/sync/test/test_sync_service.h"
+#include "components/wallet/core/common/wallet_features.h"
+#include "components/wallet/core/common/wallet_prefs.h"
 #include "content/public/test/browser_test.h"
 
 namespace {
@@ -63,7 +66,6 @@ class MandatoryReauthSettingsPageMetricsTest
 
   void SetUpOnMainThread() override {
     ExtensionApiTest::SetUpOnMainThread();
-    personal_data_manager().SetPrefService(autofill_client()->GetPrefs());
     personal_data_manager()
         .payments_data_manager()
         .SetPaymentMethodsMandatoryReauthEnabled(IsFeatureTurnedOn());
@@ -192,9 +194,13 @@ class AutofillPrivateApiUnitTest : public extensions::ExtensionApiTest {
             autofill::features::kAutofillAiWithDataSchema,
             autofill::features::kAutofillAiWalletFlightReservation,
             autofill::features::kAutofillAiWalletVehicleRegistration,
+            wallet::kWalletablePassDetection,
         },
         /*disabled_features=*/
-        {autofill::features::kAutofillAiIgnoreLocale});
+        {autofill::features::kAutofillAiIgnoreLocale,
+         autofill::features::kAutofillAiNationalIdCard,
+         autofill::features::kAutofillAiKnownTravelerNumber,
+         autofill::features::kAutofillAiRedressNumber});
   }
   AutofillPrivateApiUnitTest(const AutofillPrivateApiUnitTest&) = delete;
   AutofillPrivateApiUnitTest& operator=(const AutofillPrivateApiUnitTest&) =
@@ -203,7 +209,6 @@ class AutofillPrivateApiUnitTest : public extensions::ExtensionApiTest {
   void SetUpOnMainThread() override {
     ExtensionApiTest::SetUpOnMainThread();
     payments_data_manager().SetSyncingForTest(/*is_syncing_for_test=*/true);
-    payments_data_manager().SetPrefService(autofill_client()->GetPrefs());
   }
 
   void TearDownOnMainThread() override {
@@ -476,6 +481,19 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest,
 IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest,
                        GetAllWritableEntityTypes_DoesNotIncludeReadOnlyTypes) {
   ASSERT_TRUE(RunAutofillSubtest("getWritableEntityTypes"));
+}
+
+IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest,
+                       SetWalletablePassDetectionOptInStatus) {
+  autofill_client()->GetPrefs()->registry()->RegisterDictionaryPref(
+      wallet::prefs::kWalletablePassDetectionOptInStatus);
+  autofill_client()->SetUpPrefsAndIdentityForAutofillAi();
+  EXPECT_TRUE(RunAutofillSubtest("optIntoWalletablePassDetection"));
+  EXPECT_TRUE(RunAutofillSubtest("verifyUserOptedIntoWalletablePassDetection"));
+
+  EXPECT_TRUE(RunAutofillSubtest("optOutOfWalletablePassDetection"));
+  EXPECT_TRUE(
+      RunAutofillSubtest("verifyUserOptedOutOfWalletablePassDetection"));
 }
 
 }  // namespace

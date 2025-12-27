@@ -9,7 +9,6 @@ import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
@@ -27,6 +26,8 @@ import static org.chromium.chrome.browser.ntp_customization.theme.NtpThemeProper
 import static org.chromium.chrome.browser.ntp_customization.theme.NtpThemeProperty.SECTION_ON_CLICK_LISTENER;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.net.Uri;
 import android.util.Pair;
 import android.view.ContextThemeWrapper;
 import android.view.View;
@@ -41,7 +42,9 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.ntp_customization.BottomSheetDelegate;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType;
@@ -49,9 +52,7 @@ import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundImageType;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationViewProperties;
 import org.chromium.chrome.browser.ntp_customization.R;
-import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpChromeColorsCoordinator;
-import org.chromium.chrome.browser.ntp_customization.theme.theme_collections.NtpThemeCollectionsCoordinator;
-import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.ntp_customization.theme.theme_collections.NtpThemeCollectionManager;
 import org.chromium.ui.modelutil.PropertyModel;
 
 /** Tests for {@link NtpThemeMediator}. */
@@ -60,18 +61,18 @@ public class NtpThemeMediatorUnitTest {
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
+    @Mock private Callback<Bitmap> mOnImageSelectedCallback;
     @Mock private BottomSheetDelegate mBottomSheetDelegate;
-    @Mock private Profile mProfile;
     @Mock private View mView;
     @Mock private NtpCustomizationConfigManager mNtpCustomizationConfigManager;
-    @Mock private NtpThemeCollectionsCoordinator mNtpThemeCollectionsCoordinator;
-    @Mock private NtpChromeColorsCoordinator mNtpChromeColorsCoordinator;
+    @Mock private Uri mUri;
+    @Mock private NtpThemeDelegate mNtpThemeDelegate;
+    @Mock private NtpThemeCollectionManager mNtpThemeCollectionManager;
 
     private PropertyModel mBottomSheetPropertyModel;
     private PropertyModel mThemePropertyModel;
     private NtpThemeMediator mMediator;
     private Context mContext;
-    @Mock private NtpThemeBridge.Natives mNtpThemeBridgeJniMock;
 
     @Before
     public void setUp() {
@@ -84,9 +85,6 @@ public class NtpThemeMediatorUnitTest {
         mBottomSheetPropertyModel =
                 new PropertyModel(NtpCustomizationViewProperties.BOTTOM_SHEET_KEYS);
         mThemePropertyModel = spy(new PropertyModel(NtpThemeProperty.THEME_KEYS));
-
-        NtpThemeBridgeJni.setInstanceForTesting(mNtpThemeBridgeJniMock);
-        when(mNtpThemeBridgeJniMock.init(mProfile)).thenReturn(1L);
     }
 
     @Test
@@ -110,8 +108,6 @@ public class NtpThemeMediatorUnitTest {
     @Test
     public void testDestroy() {
         createMediator(/* shouldShowAlone= */ false);
-        mMediator.setNtpThemeCollectionsCoordinatorForTesting(mNtpThemeCollectionsCoordinator);
-        mMediator.setNtpChromeColorsCoordinatorForTesting(mNtpChromeColorsCoordinator);
 
         assertNotNull(mBottomSheetPropertyModel.get(BACK_PRESS_HANDLER));
         assertNotNull(mThemePropertyModel.get(LEARN_MORE_BUTTON_CLICK_LISTENER));
@@ -120,18 +116,22 @@ public class NtpThemeMediatorUnitTest {
 
         assertNull(mBottomSheetPropertyModel.get(BACK_PRESS_HANDLER));
         assertNull(mThemePropertyModel.get(LEARN_MORE_BUTTON_CLICK_LISTENER));
-
-        verify(mNtpThemeCollectionsCoordinator).destroy();
-        verify(mNtpChromeColorsCoordinator).destroy();
     }
 
     @Test
     public void testHandleChromeDefaultSectionClick() {
         createMediator(/* shouldShowAlone= */ true);
 
+        String histogramName = "NewTabPage.Customization.BottomSheet.Shown";
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        histogramName, BottomSheetType.CHROME_DEFAULT);
+
         mMediator.handleChromeDefaultSectionClick(mView);
         verify(mNtpCustomizationConfigManager)
                 .onBackgroundColorChanged(eq(mContext), eq(null), eq(DEFAULT));
+        verify(mNtpThemeCollectionManager).resetCustomBackground();
+        histogramWatcher.assertExpected();
     }
 
     @Test
@@ -140,8 +140,7 @@ public class NtpThemeMediatorUnitTest {
 
         mMediator.handleThemeCollectionsSectionClick(mView);
 
-        // Verify it tries to show the theme collections bottom sheet.
-        verify(mBottomSheetDelegate).showBottomSheet(eq(BottomSheetType.THEME_COLLECTIONS));
+        verify(mNtpThemeDelegate).onThemeCollectionsClicked(any(Runnable.class));
     }
 
     @Test
@@ -150,8 +149,7 @@ public class NtpThemeMediatorUnitTest {
 
         mMediator.handleChromeColorsSectionClick(mView);
 
-        // Verify it tries to show the chrome colors bottom sheet.
-        verify(mBottomSheetDelegate).showBottomSheet(eq(BottomSheetType.CHROME_COLORS));
+        verify(mNtpThemeDelegate).onChromeColorsClicked();
     }
 
     @Test
@@ -193,29 +191,6 @@ public class NtpThemeMediatorUnitTest {
     }
 
     @Test
-    public void testClearThemeCollectionSelection() {
-        createMediator(true);
-        mMediator.setNtpThemeCollectionsCoordinatorForTesting(mNtpThemeCollectionsCoordinator);
-        reset(mNtpThemeCollectionsCoordinator);
-
-        // Action: Click default theme. This should clear the selection.
-        mMediator.handleChromeDefaultSectionClick(mView);
-        // Verification: Selection should be cleared.
-        verify(mNtpThemeCollectionsCoordinator).clearThemeCollectionSelection();
-        clearInvocations(mNtpThemeCollectionsCoordinator);
-
-        // Action: Click theme collections. This should NOT clear the selection.
-        mMediator.handleThemeCollectionsSectionClick(mView);
-        // Verification: clearThemeCollectionSelection should NOT be called again.
-        verify(mNtpThemeCollectionsCoordinator, never()).clearThemeCollectionSelection();
-
-        // Action: Click chrome colors. This should also NOT clear the selection directly.
-        mMediator.handleChromeColorsSectionClick(mView);
-        // Verification: still should only have been called once.
-        verify(mNtpThemeCollectionsCoordinator, never()).clearThemeCollectionSelection();
-    }
-
-    @Test
     public void testInitTrailingIcon() {
         NtpCustomizationUtils.setNtpBackgroundImageTypeToSharedPreference(CHROME_COLOR);
         createMediator(true);
@@ -247,6 +222,30 @@ public class NtpThemeMediatorUnitTest {
         verify(mBottomSheetDelegate, times(2)).onNewColorSelected(eq(true));
     }
 
+    @Test
+    public void testOnUploadImageResult_nullUri() {
+        createMediator(true);
+        String histogramName = "NewTabPage.Customization.BottomSheet.Shown";
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        histogramName, BottomSheetType.UPLOAD_IMAGE);
+
+        mMediator.onUploadImageResult(null);
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    public void testOnUploadImageResult_validUri() {
+        createMediator(true);
+        String histogramName = "NewTabPage.Customization.BottomSheet.Shown";
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        histogramName, BottomSheetType.UPLOAD_IMAGE);
+
+        mMediator.onUploadImageResult(mUri);
+        histogramWatcher.assertExpected();
+    }
+
     private void createMediator(boolean shouldShowAlone) {
         when(mBottomSheetDelegate.shouldShowAlone()).thenReturn(shouldShowAlone);
         mMediator =
@@ -255,9 +254,27 @@ public class NtpThemeMediatorUnitTest {
                         mBottomSheetPropertyModel,
                         mThemePropertyModel,
                         mBottomSheetDelegate,
-                        mProfile,
                         mNtpCustomizationConfigManager,
-                        null,
-                        null);
+                        /* activityResultRegistry= */ null,
+                        mOnImageSelectedCallback,
+                        mNtpThemeDelegate,
+                        mNtpThemeCollectionManager);
+    }
+
+    @Test
+    public void testUpdateForChoosingDefaultOrChromeColorOption() {
+        createMediator(true);
+        reset(mThemePropertyModel);
+
+        mMediator.updateForChoosingDefaultOrChromeColorOption(CHROME_COLOR);
+
+        verify(mThemePropertyModel)
+                .set(eq(IS_SECTION_TRAILING_ICON_VISIBLE), eq(new Pair<>(CHROME_COLOR, true)));
+        verify(mThemePropertyModel)
+                .set(eq(IS_SECTION_TRAILING_ICON_VISIBLE), eq(new Pair<>(DEFAULT, false)));
+        verify(mThemePropertyModel)
+                .set(eq(IS_SECTION_TRAILING_ICON_VISIBLE), eq(new Pair<>(IMAGE_FROM_DISK, false)));
+
+        verify(mNtpThemeCollectionManager).resetCustomBackground();
     }
 }

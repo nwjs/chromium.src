@@ -227,6 +227,10 @@ bool FakeBaseTabStripController::IsTabPinned(int index) const {
   return index < num_pinned_tabs_;
 }
 
+bool FakeBaseTabStripController::IsBrowserClosing() const {
+  return false;
+}
+
 void FakeBaseTabStripController::SelectTab(int index, const ui::Event& event) {
   if (!IsValidIndex(index) || active_index_ == index) {
     return;
@@ -312,6 +316,16 @@ std::optional<int> FakeBaseTabStripController::GetCustomBackgroundId(
 std::u16string FakeBaseTabStripController::GetAccessibleTabName(
     const Tab* tab) const {
   return std::u16string();
+}
+
+std::optional<tab_groups::TabGroupId>
+FakeBaseTabStripController::GetFocusedGroup() const {
+  return focused_group_;
+}
+
+void FakeBaseTabStripController::SetFocusedGroup(
+    std::optional<tab_groups::TabGroupId> group) {
+  focused_group_ = group;
 }
 
 Profile* FakeBaseTabStripController::GetProfile() const {

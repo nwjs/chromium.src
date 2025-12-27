@@ -61,6 +61,7 @@
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
+#include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/svg/svg_text_content_element.h"
 #include "third_party/blink/renderer/core/svg/svg_tree_scope_resources.h"
 #include "third_party/blink/renderer/platform/bindings/script_forbidden_scope.h"
@@ -235,10 +236,10 @@ static bool PointInFrameContentIfVisible(Document& document,
   return true;
 }
 
-HitTestResult HitTestInDocument(Document* document,
-                                double x,
-                                double y,
-                                const HitTestRequest& request) {
+static HitTestResult HitTestInDocumentImpl(Document* document,
+                                           double x,
+                                           double y,
+                                           const HitTestRequest& request) {
   if (!document->IsActive())
     return HitTestResult();
 
@@ -252,6 +253,11 @@ HitTestResult HitTestInDocument(Document* document,
   return result;
 }
 
+HitTestResult HitTestInDocument(Document* document, double x, double y) {
+  return HitTestInDocumentImpl(
+      document, x, y, HitTestRequest::kReadOnly | HitTestRequest::kActive);
+}
+
 Element* TreeScope::ElementFromPoint(double x, double y) const {
   return HitTestPoint(x, y,
                       HitTestRequest::kReadOnly | HitTestRequest::kActive);
@@ -261,7 +267,7 @@ Element* TreeScope::HitTestPoint(double x,
                                  double y,
                                  const HitTestRequest& request) const {
   HitTestResult result =
-      HitTestInDocument(&RootNode().GetDocument(), x, y, request);
+      HitTestInDocumentImpl(&RootNode().GetDocument(), x, y, request);
   if (request.AllowsChildFrameContent()) {
     return ElementForHitTest(result.InnerNode(), HitTestPointType::kInternal);
   }
@@ -416,10 +422,12 @@ bool TreeScope::HasAdoptedStyleSheets() const {
 
 void TreeScope::StyleSheetWasAdded(CSSStyleSheet* sheet) {
   GetDocument().GetStyleEngine().AdoptedStyleSheetAdded(*this, sheet);
+  probe::DidModifyAdoptedStyleSheets(&RootNode());
 }
 
 void TreeScope::StyleSheetWasRemoved(CSSStyleSheet* sheet) {
   GetDocument().GetStyleEngine().AdoptedStyleSheetRemoved(*this, sheet);
+  probe::DidModifyAdoptedStyleSheets(&RootNode());
 }
 
 // We pass TreeScope to the bindings array to be informed via set and delete
@@ -480,7 +488,7 @@ void TreeScope::ClearAdoptedStyleSheets() {
 }
 
 void TreeScope::AppendAdoptedStyleSheets(
-    HeapVector<Member<CSSStyleSheet>>& adopted_style_sheets) {
+    HeapVector<Member<CSSStyleSheet>>&& adopted_style_sheets) {
   EnsureAdoptedStyleSheets();
   for (const auto& sheet : adopted_style_sheets) {
     DCHECK(sheet->IsConstructed());
@@ -491,9 +499,9 @@ void TreeScope::AppendAdoptedStyleSheets(
 }
 
 void TreeScope::SetAdoptedStyleSheetsForTesting(
-    HeapVector<Member<CSSStyleSheet>>& adopted_style_sheets) {
+    HeapVector<Member<CSSStyleSheet>> adopted_style_sheets) {
   ClearAdoptedStyleSheets();
-  AppendAdoptedStyleSheets(adopted_style_sheets);
+  AppendAdoptedStyleSheets(std::move(adopted_style_sheets));
 }
 
 DOMSelection* TreeScope::GetSelection() const {

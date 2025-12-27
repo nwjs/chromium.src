@@ -54,13 +54,11 @@
 #include "chrome/browser/metrics/network_quality_estimator_provider_impl.h"
 #include "chrome/browser/metrics/usertype_by_devicetype_metrics_provider.h"
 #include "chrome/browser/performance_manager/metrics/metrics_provider_common.h"
-#include "chrome/browser/privacy_budget/identifiability_study_state.h"
-#include "chrome/browser/privacy_budget/privacy_budget_metrics_provider.h"
 #include "chrome/browser/privacy_budget/privacy_budget_prefs.h"
-#include "chrome/browser/privacy_budget/privacy_budget_ukm_entry_filter.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/regional_capabilities/regional_capabilities_metrics_provider.h"
+#include "chrome/browser/regional_capabilities/regional_capabilities_service_factory.h"
 #include "chrome/browser/safe_browsing/metrics/safe_browsing_metrics_provider.h"
 #include "chrome/browser/subscription_eligibility/subscription_eligibility_metrics_provider.h"
 #include "chrome/browser/sync/device_info_sync_service_factory.h"
@@ -75,6 +73,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "components/component_updater/component_updater_service.h"
+#include "components/country_codes/country_codes.h"
 #include "components/crash/core/common/crash_keys.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/metrics/call_stacks/call_stack_profile_metrics_provider.h"
@@ -102,6 +101,7 @@
 #include "components/metrics/net/network_metrics_provider.h"
 #include "components/metrics/persistent_histograms.h"
 #include "components/metrics/persistent_synthetic_trial_observer.h"
+#include "components/metrics/private_metrics/puma_service.h"
 #include "components/metrics/sampling_metrics_provider.h"
 #include "components/metrics/stability_metrics_helper.h"
 #include "components/metrics/structured/structured_metrics_features.h"  // nogncheck
@@ -114,6 +114,8 @@
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
+#include "components/regional_capabilities/regional_capabilities_country_id.h"
+#include "components/regional_capabilities/regional_capabilities_service.h"
 #include "components/regional_capabilities/regional_capabilities_switches.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/sync/service/passphrase_type_metrics_provider.h"
@@ -540,6 +542,7 @@ void ChromeMetricsServiceClient::RegisterPrefs(PrefRegistrySimple* registry) {
   metrics::MetricsService::RegisterPrefs(registry);
   ukm::UkmService::RegisterPrefs(registry);
   metrics::dwa::DwaService::RegisterPrefs(registry);
+  metrics::private_metrics::PumaService::RegisterPrefs(registry);
   metrics::StabilityMetricsHelper::RegisterPrefs(registry);
   prefs::RegisterPrivacyBudgetPrefs(registry);
 
@@ -587,11 +590,6 @@ ukm::UkmService* ChromeMetricsServiceClient::GetUkmService() {
   return ukm_service_.get();
 }
 
-IdentifiabilityStudyState*
-ChromeMetricsServiceClient::GetIdentifiabilityStudyState() {
-  return identifiability_study_state_.get();
-}
-
 metrics::structured::StructuredMetricsService*
 ChromeMetricsServiceClient::GetStructuredMetricsService() {
   return structured_metrics_service_.get();
@@ -599,6 +597,22 @@ ChromeMetricsServiceClient::GetStructuredMetricsService() {
 
 metrics::dwa::DwaService* ChromeMetricsServiceClient::GetDwaService() {
   return dwa_service_.get();
+}
+
+metrics::private_metrics::PumaService*
+ChromeMetricsServiceClient::GetPumaService() {
+  return puma_service_.get();
+}
+
+std::optional<regional_capabilities::CountryIdHolder>
+ChromeMetricsServiceClient::GetProfileCountryIdForPrivateMetricsReporting() {
+  auto* service =
+      regional_capabilities::RegionalCapabilitiesServiceFactory::GetForProfile(
+          cached_profile_.GetMetricsProfile());
+  if (service) {
+    return service->GetCountryId();
+  }
+  return std::nullopt;
 }
 
 void ChromeMetricsServiceClient::SetMetricsClientId(
@@ -719,18 +733,12 @@ void ChromeMetricsServiceClient::Initialize() {
 
   if (IsMetricsReportingForceEnabled() ||
       base::FeatureList::IsEnabled(ukm::kUkmFeature)) {
-    identifiability_study_state_ =
-        std::make_unique<IdentifiabilityStudyState>(local_state);
-
     ukm_service_ = std::make_unique<ukm::UkmService>(
         local_state, this,
         MakeDemographicMetricsProvider(
             metrics::MetricsLogUploader::MetricServiceType::UKM));
     ukm_service_->SetIsWebstoreExtensionCallback(
         base::BindRepeating(&IsWebstoreExtension));
-    ukm_service_->RegisterEventFilter(
-        std::make_unique<PrivacyBudgetUkmEntryFilter>(
-            identifiability_study_state_.get()));
 
     RegisterUKMProviders();
   }
@@ -738,6 +746,10 @@ void ChromeMetricsServiceClient::Initialize() {
   if (metrics::dwa::DwaRecorder::IsDwaOrPrivateMetricsFeatureEnabled()) {
     dwa_service_ = std::make_unique<metrics::dwa::DwaService>(
         this, local_state, g_browser_process->shared_url_loader_factory());
+  }
+  if (metrics::private_metrics::PumaService::IsPumaEnabled()) {
+    puma_service_ = std::make_unique<metrics::private_metrics::PumaService>(
+        this, local_state);
   }
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || \
     BUILDFLAG(IS_CHROMEOS)
@@ -1065,16 +1077,18 @@ void ChromeMetricsServiceClient::RegisterUKMProviders() {
       ukm::CreateFieldTrialsProviderForUkm(synthetic_trial_registry_.get()));
 
   ukm_service_->RegisterMetricsProvider(
-      std::make_unique<PrivacyBudgetMetricsProvider>(
-          identifiability_study_state_.get()));
-
-  ukm_service_->RegisterMetricsProvider(
       std::make_unique<metrics::ComponentMetricsProvider>(
           std::make_unique<ChromeComponentMetricsProviderDelegate>(
               g_browser_process->component_updater())));
 
   ukm_service_->RegisterMetricsProvider(
       std::make_unique<metrics::EntropyStateProvider>(local_state));
+
+#if BUILDFLAG(IS_ANDROID)
+  ukm_service_->RegisterMetricsProvider(
+      std::make_unique<ChromeAndroidMetricsProvider>(local_state));
+#endif  // BUILDFLAG(IS_ANDROID)
+
   // LINT.ThenChange(/ios/chrome/browser/metrics/model/ios_chrome_metrics_service_client.mm:UkmProviders)
 }
 
@@ -1281,7 +1295,8 @@ void ChromeMetricsServiceClient::OnUkmAllowedStateChanged(
     // Manages purging of events and sources.
     if (total_purge) {
       ukm_service_->Purge();
-      ukm_service_->ResetClientState(ukm::ResetReason::kOnUkmAllowedStateChanged);
+      ukm_service_->ResetClientState(
+          ukm::ResetReason::kOnUkmAllowedStateChanged);
     } else {
       // Purge recording if required consent has been revoked.
       if (!consent_state.Has(ukm::MSBB)) {
@@ -1301,11 +1316,12 @@ void ChromeMetricsServiceClient::OnUkmAllowedStateChanged(
       // On non-ChromeOS platforms, client reset is handled above because
       // |total_purge| will be true. MSBB is used to determine if UKM is enabled
       // or disabled. When the consent is revoked UkmService will be disabled,
-      // triggering |total_purge| to be true. At which point the client state will
-      // be reset.
+      // triggering |total_purge| to be true. At which point the client state
+      // will be reset.
       //
       // On ChromeOS, disabling MSBB or App-Sync will not trigger a total purge.
-      // Resetting the client state has to be handled specifically for this case.
+      // Resetting the client state has to be handled specifically for this
+      // case.
       ResetClientStateWhenMsbbOrAppConsentIsRevoked(previous_consent_state);
     }
 
@@ -1323,7 +1339,7 @@ void ChromeMetricsServiceClient::OnUkmAllowedStateChanged(
   if (dwa_service_ &&
       (total_purge ||
        !consent_state.HasAll({ukm::MSBB, ukm::APPS, ukm::EXTENSIONS}))) {
-      dwa_service_->Purge();
+    dwa_service_->Purge();
   }
 
   // Signal service manager to enable/disable UKM/DWA based on new states.

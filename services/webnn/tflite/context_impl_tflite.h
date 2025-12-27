@@ -23,7 +23,7 @@ class ContextImplTflite final : public WebNNContextImpl {
  public:
   // Constructs a new `ContextImplTflite`. Must be called on
   // `owning_task_runner`.
-  static scoped_refptr<WebNNContextImpl> Create(
+  static std::unique_ptr<WebNNContextImpl, OnTaskRunnerDeleter> Create(
       mojo::PendingReceiver<mojom::WebNNContext> receiver,
       base::WeakPtr<WebNNContextProviderImpl> context_provider,
       mojom::CreateContextOptionsPtr options,
@@ -76,7 +76,7 @@ class ContextImplTflite final : public WebNNContextImpl {
   CreateTensorFromSharedImageImpl(
       mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
       mojom::TensorInfoPtr tensor_info,
-      std::unique_ptr<gpu::WebNNTensorRepresentation> representation) override;
+      WebNNTensorImpl::RepresentationPtr representation) override;
 
   base::WeakPtrFactory<ContextImplTflite> weak_factory_{this};
 };

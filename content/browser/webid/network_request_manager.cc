@@ -4,7 +4,11 @@
 
 #include "content/browser/webid/network_request_manager.h"
 
+#include <optional>
+#include <string>
+
 #include "base/strings/string_util.h"
+#include "base/types/optional_ref.h"
 #include "content/browser/devtools/devtools_instrumentation.h"
 #include "content/browser/webid/flags.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
@@ -26,7 +30,7 @@ constexpr char kUrlEncodedContentType[] = "application/x-www-form-urlencoded";
 // response size that is a part of this protocol.
 constexpr int maxResponseSizeInKiB = 1024;
 
-ParseStatus GetResponseError(std::string* response_body,
+ParseStatus GetResponseError(base::optional_ref<std::string> response_body,
                              int response_code,
                              const std::string& mime_type) {
   if (response_code == net::HTTP_NOT_FOUND) {
@@ -64,12 +68,12 @@ void OnJsonParsed(ParseJsonCallback parse_json_callback,
 }
 
 void OnDownloadedJson(ParseJsonCallback parse_json_callback,
-                      std::unique_ptr<std::string> response_body,
+                      std::optional<std::string> response_body,
                       int response_code,
                       const std::string& mime_type,
                       bool cors_error) {
   ParseStatus parse_status =
-      GetResponseError(response_body.get(), response_code, mime_type);
+      GetResponseError(response_body, response_code, mime_type);
 
   if (parse_status != ParseStatus::kSuccess) {
     std::move(parse_json_callback)
@@ -120,10 +124,12 @@ NetworkRequestManager::NetworkRequestManager(
     const url::Origin& relying_party_origin,
     scoped_refptr<network::SharedURLLoaderFactory> loader_factory,
     network::mojom::ClientSecurityStatePtr client_security_state,
+    network::mojom::RequestDestination destination,
     content::FrameTreeNodeId frame_tree_node_id)
     : relying_party_origin_(relying_party_origin),
       loader_factory_(loader_factory),
       client_security_state_(std::move(client_security_state)),
+      destination_(destination),
       frame_tree_node_id_(frame_tree_node_id) {}
 
 NetworkRequestManager::~NetworkRequestManager() = default;
@@ -191,7 +197,7 @@ void NetworkRequestManager::DownloadUrl(
 void NetworkRequestManager::OnDownloadedUrl(
     std::unique_ptr<network::SimpleURLLoader> url_loader,
     DownloadCallback callback,
-    std::unique_ptr<std::string> response_body) {
+    std::optional<std::string> response_body) {
   auto* response_info = url_loader->ResponseInfo();
   // Use the HTTP response code, if available. If it is not available, use the
   // NetError(). Note that it is acceptable to put these in the same int because
@@ -208,7 +214,7 @@ void NetworkRequestManager::OnDownloadedUrl(
   if (it != urlloader_devtools_request_id_map_.end()) {
     auto request_id = it->second;
     const std::string& response_body_str =
-        response_body ? *response_body : std::string();
+        response_body.value_or(std::string());
     auto completion_status = status.value_or(
         network::URLLoaderCompletionStatus(url_loader->NetError()));
 
@@ -251,8 +257,7 @@ NetworkRequestManager::CreateUncredentialedResourceRequest(
   resource_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
   resource_request->headers.SetHeader(net::HttpRequestHeaders::kAccept,
                                       kApplicationJson);
-  resource_request->destination =
-      network::mojom::RequestDestination::kWebIdentity;
+  resource_request->destination = destination_;
   // See https://github.com/fedidcg/FedCM/issues/379 for why the Origin header
   // is sent instead of the Referrer header.
   if (send_origin) {
@@ -291,8 +296,7 @@ NetworkRequestManager::CreateCredentialedResourceRequest(
   // SameSite=Strict cookies.
   resource_request->request_initiator = relying_party_origin_;
 
-  resource_request->destination =
-      network::mojom::RequestDestination::kWebIdentity;
+  resource_request->destination = destination_;
   resource_request->url = target_url;
   resource_request->site_for_cookies = site_for_cookies;
   // TODO(crbug.com/40284123): Figure out why when using CORS we still need to

@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/functional/callback.h"
 #include "base/json/json_writer.h"
 #include "chrome/test/chromedriver/chrome/devtools_client.h"
 #include "chrome/test/chromedriver/chrome/status.h"
@@ -210,4 +211,10 @@ Status FrameTracker::OnEvent(DevToolsClient* client,
       frame_to_target_map_.erase(*target_id);
   }
   return Status(kOk);
+}
+
+void FrameTracker::ForEachTarget(base::RepeatingCallback<void(WebView&)> func) {
+  for (auto& pair : frame_to_target_map_) {
+    func.Run(*pair.second);
+  }
 }

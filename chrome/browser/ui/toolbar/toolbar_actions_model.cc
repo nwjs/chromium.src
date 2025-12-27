@@ -25,8 +25,8 @@
 #include "chrome/browser/extensions/profile_util.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/extensions/extension_action_view_controller.h"
-#include "chrome/browser/ui/toolbar/toolbar_action_view_controller.h"
+#include "chrome/browser/ui/extensions/extension_action_view_model.h"
+#include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model_factory.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/web_contents.h"
@@ -253,13 +253,18 @@ bool ToolbarActionsModel::HasAction(const ActionId& action_id) const {
   return base::Contains(action_ids_, action_id);
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 bool ToolbarActionsModel::CanShowActionsInToolbar(
     const BrowserWindowInterface& browser) {
+#if BUILDFLAG(IS_ANDROID)
+  // On Desktop Android, we show actions in the toolbar as long as the rest of
+  // the extensions UI is enabled in the browser.
+  // TODO(crbug.com/460554584): Make sure this is the intended behavior.
+  return true;
+#else   // BUILDFLAG(IS_ANDROID)
   // Pinning extensions is not available in PWAs.
   return !web_app::AppBrowserController::IsWebApp(&browser);
+#endif  // BUILDFLAG(IS_ANDROID)
 }
-#endif
 
 bool ToolbarActionsModel::IsRestrictedUrl(const GURL& url) const {
   // We consider a site to be restricted if it's restricted for every

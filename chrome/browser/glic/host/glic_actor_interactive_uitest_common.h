@@ -145,16 +145,19 @@ class GlicActorUiTest : public test::InteractiveGlicTest {
   // create a new tab. The new tab can then be referenced by the identifier
   // passed in `new_tab_id`. Stores the created task's id in `task_id_` and the
   // new tab's handle in `tab_handle_`.
+  // If `open_in_foreground` is true (default), the new tab becomes active.
+  // If false, the tab opens in the background, preventing the browser window
+  // from stealing focus (useful for avoiding window-activation side effects in
+  // tests).
   MultiStep StartActorTaskInNewTab(const GURL& task_url,
-                                   ui::ElementIdentifier new_tab_id);
+                                   ui::ElementIdentifier new_tab_id,
+                                   bool open_in_foreground = true);
 
   // After invoking APIs that don't return promises, we round trip to both the
   // client and host to make sure the call has made it to the browser.
   MultiStep RoundTrip(actor::TaskId& task_id);
 
   // Stops a running task by calling the glic StopActorTask API.
-  // TODO(crbug.com/431760051): This needs to use the correct task_id but the
-  // implementation of stopActorTask currently ignores the argument.
   MultiStep StopActorTask();
 
   // Pauses a running task by calling the glic PauseActorTask API.
@@ -163,6 +166,9 @@ class GlicActorUiTest : public test::InteractiveGlicTest {
   // Resumes a paused task by calling the glic ResumeActorTask API.
   MultiStep ResumeActorTask(base::Value::Dict context_options,
                             ExpectedResumeResult expected_result);
+
+  // Interrupts a task by calling the glic InterruptActorTask API.
+  MultiStep InterruptActorTask();
 
   MultiStep WaitForActorTaskState(mojom::ActorTaskState expected_state);
 

@@ -480,6 +480,10 @@ syncer::UserSelectableTypeSet SyncTest::GetRegisteredSelectableTypes(
       ->GetRegisteredSelectableTypes();
 }
 
+SyncTest::SetupSyncMode SyncTest::GetSetupSyncMode() const {
+  return SetupSyncMode::kSyncTheFeature;
+}
+
 std::vector<raw_ptr<SyncServiceImpl, VectorExperimental>>
 SyncTest::GetSyncServices() {
   std::vector<raw_ptr<SyncServiceImpl, VectorExperimental>> services;
@@ -620,9 +624,9 @@ void SyncTest::InitializeProfile(int index, Profile* profile) {
   EXPECT_NE(nullptr, GetClient(index)) << "Could not create Client " << index;
 }
 
-bool SyncTest::SetupSyncInternal(SyncTestAccount account,
-                                 SetupSyncMode setup_mode,
-                                 SyncWaitCondition wait_condition) {
+bool SyncTest::SetupSyncInternal(SetupSyncMode setup_mode,
+                                 SyncWaitCondition wait_condition,
+                                 SyncTestAccount account) {
   // Create sync profiles and clients if they haven't already been created.
   if (profiles_.empty()) {
     if (!SetupClients()) {
@@ -647,9 +651,10 @@ bool SyncTest::SetupSyncInternal(SyncTestAccount account,
     SyncServiceImplHarness* client = GetClient(client_index);
     DVLOG(1) << "Setting up " << client_index << " client";
 
-    if (setup_mode == kSyncTransportOnly) {
+    if (setup_mode == SetupSyncMode::kSyncTransportOnly) {
       if (!client->SignInPrimaryAccount(account) ||
-          !client->AwaitEngineInitialization()) {
+          !client->AwaitEngineInitialization() ||
+          !client->EnableHistorySyncNoWaitForCompletion()) {
         ADD_FAILURE() << "SetupSync() failed.";
         return false;
       }
@@ -683,16 +688,9 @@ bool SyncTest::SetupSyncInternal(SyncTestAccount account,
       case NO_WAITING:
         break;
       case WAIT_FOR_SYNC_SETUP_TO_COMPLETE:
-        if (setup_mode == kSyncTransportOnly) {
-          if (!client->AwaitSyncTransportActive()) {
-            ADD_FAILURE() << "AwaitSyncTransportActive() failed";
-            return false;
-          }
-        } else {
-          if (!client->AwaitSyncSetupCompletion()) {
-            ADD_FAILURE() << "AwaitSyncSetupCompletion() failed";
-            return false;
-          }
+        if (!client->AwaitSyncTransportActive()) {
+          ADD_FAILURE() << "AwaitSyncTransportActive() failed";
+          return false;
         }
         if (!client->AwaitInvalidationsStatus(/*expected_status=*/true)) {
           ADD_FAILURE() << "AwaitInvalidationsStatus() failed";
@@ -700,16 +698,9 @@ bool SyncTest::SetupSyncInternal(SyncTestAccount account,
         }
         break;
       case WAIT_FOR_COMMITS_TO_COMPLETE:
-        if (setup_mode == kSyncTransportOnly) {
-          if (!client->AwaitSyncTransportActive()) {
-            ADD_FAILURE() << "AwaitSyncTransportActive() failed";
-            return false;
-          }
-        } else {
-          if (!client->AwaitSyncSetupCompletion()) {
-            ADD_FAILURE() << "AwaitSyncSetupCompletion() failed";
-            return false;
-          }
+        if (!client->AwaitSyncTransportActive()) {
+          ADD_FAILURE() << "AwaitSyncTransportActive() failed";
+          return false;
         }
         if (!client->AwaitInvalidationsStatus(/*expected_status=*/true)) {
           ADD_FAILURE() << "AwaitInvalidationsStatus() failed";
@@ -729,15 +720,18 @@ bool SyncTest::SetupSyncInternal(SyncTestAccount account,
   return true;
 }
 
-bool SyncTest::SetupSync(SetupSyncMode setup_mode,
-                         SyncWaitCondition wait_condition) {
-  return SetupSync(SyncTestAccount::kDefaultAccount, setup_mode,
-                   wait_condition);
+bool SyncTest::SetupSync(SyncWaitCondition wait_condition) {
+  return SetupSync(SyncTestAccount::kDefaultAccount, wait_condition);
 }
 
 bool SyncTest::SetupSync(SyncTestAccount account,
-                         SetupSyncMode setup_mode,
                          SyncWaitCondition wait_condition) {
+  return SetupSyncWithMode(GetSetupSyncMode(), wait_condition, account);
+}
+
+bool SyncTest::SetupSyncWithMode(SetupSyncMode setup_mode,
+                                 SyncWaitCondition wait_condition,
+                                 SyncTestAccount account) {
 #if BUILDFLAG(IS_ANDROID)
   // For Android, currently the framework only supports one client.
   // The client uses the default profile.
@@ -747,7 +741,7 @@ bool SyncTest::SetupSync(SyncTestAccount account,
 
   base::ScopedAllowBlockingForTesting allow_blocking;
 
-  if (!SetupSyncInternal(account, setup_mode, wait_condition)) {
+  if (!SetupSyncInternal(setup_mode, wait_condition, account)) {
     return false;
   }
 
@@ -1219,8 +1213,10 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
     }
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-    allowed_types.Put(syncer::EXTENSIONS);
-    allowed_types.Put(syncer::EXTENSION_SETTINGS);
+    if (switches::IsExtensionsExplicitBrowserSigninEnabled()) {
+      allowed_types.Put(syncer::EXTENSIONS);
+      allowed_types.Put(syncer::EXTENSION_SETTINGS);
+    }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
   }
   if (base::FeatureList::IsEnabled(syncer::kSyncAutofillLoyaltyCard)) {

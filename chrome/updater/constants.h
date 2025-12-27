@@ -561,6 +561,9 @@ inline constexpr int kErrorNoObserverCompletionInfo = kUpdaterErrorBase + 82;
 // No apps to install.
 inline constexpr int kErrorNoApps = kUpdaterErrorBase + 83;
 
+// A path references the parent directory.
+inline constexpr int kErrorPathReferencesParent = kUpdaterErrorBase + 84;
+
 // Policy Management constants.
 // The maximum value allowed for policy AutoUpdateCheckPeriodMinutes.
 inline constexpr int kMaxAutoUpdateCheckPeriodMinutes = 43200;
@@ -618,10 +621,12 @@ inline constexpr char kSourcePlatformPolicyManager[] = "not-defined";
 inline constexpr bool kCloudPolicyOverridesPlatformPolicyDefaultValue = true;
 #endif
 
-inline constexpr int kUninstallPingReasonUninstalled = 0;
-inline constexpr int kUninstallPingReasonUserNotAnOwner = 1;
-inline constexpr int kUninstallPingReasonNoAppsRemain = 2;
-inline constexpr int kUninstallPingReasonNeverHadApps = 3;
+enum class UninstallPingReason {
+  kUninstalled = 0,
+  kUserNotAnOwner = 1,
+  kNoAppsRemain = 2,
+  kNeverHadApps = 3,
+};
 
 // The file downloaded to a temporary location could not be moved.
 inline constexpr int kErrorFailedToMoveDownloadedFile = 5;

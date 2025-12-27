@@ -352,8 +352,12 @@ struct NSEdgeAndCornerThicknesses {
 }
 
 - (NSRect)constrainFrameRect:(NSRect)frameRect toScreen:(NSScreen*)screen {
-  // Headless windows should not be constrained within the physical screen.
-  if (_isHeadless) {
+  if (_isHeadless || self.parentWindow) {
+    // AppKit's default implementation moves child windows down to avoid
+    // the menu bar. We don't want that behavior, because widgets like the
+    // Omnibox may have a big shadow that could cause invisible menu bar
+    // collision in fullscreen/maximized state. We override it here to
+    // return the original frameRect before the adjustment.
     return frameRect;
   }
 

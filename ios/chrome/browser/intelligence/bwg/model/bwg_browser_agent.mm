@@ -150,9 +150,11 @@ void BwgBrowserAgent::PresentBwgOverlayWithState(
       maybe_server_id ? base::SysUTF8ToNSString(*maybe_server_id) : nil;
   config.shouldAnimatePresentation =
       !bwg_tab_helper->GetIsBwgSessionActiveInBackground();
-  config.shouldShowZeroState = bwg_tab_helper->ShouldShowZeroState();
+  config.lastInteractionURLDifferent =
+      bwg_tab_helper->IsLastInteractionUrlDifferent();
   config.shouldShowSuggestionChips =
       bwg_tab_helper->ShouldShowSuggestionChips();
+  config.contextualCueChipLabel = bwg_tab_helper->GetContextualCueLabel();
 
   // Set the location permission state.
   // TODO(crbug.com/426207968): Populate with actual value.

@@ -688,9 +688,6 @@ Google Chrome is unable to recover your settings.
         <message name="IDS_UNINSTALL_DELETE_PROFILE" desc="Text to show user to ask whether to delete all the profile data also during uninstallation.">
           Also delete your browsing data?
         </message>
-        <message name="IDS_UNINSTALL_SET_DEFAULT_BROWSER" desc="Text to ask whether to set another browser as default when Chromium is uninstalled.">
-          Change default browser to:
-        </message>
         <message name="IDS_UNINSTALL_BUTTON_TEXT" desc="Label for uninstall button on Uninstall confirmation dialog.">
           Uninstall
         </message>
@@ -1064,6 +1061,9 @@ Google Chrome is unable to recover your settings.
       <message name="IDS_SESSION_RESTORE_LINK" desc="Text for the link in the session restore infobar to open the Settings page.">
          Settings.
       </message>
+      <message name="IDS_SESSION_RESTORE_LINK_ARIA_LABEL" desc="Accessibility text for the link in the session restore infobar to open the Settings page.">
+        Settings, opens in new tab.
+      </message>
 
       <!-- Enterprise sign-in dialog -->
       <message name="IDS_ENTERPRISE_VALUE_PROPOSITION_PROFILE_REQUIRED_BY_ORG_TITLE" desc="Title of the screen in the profile creation flow where the user is asked whether they want to confirm signing in to Chrome with their enterprise account when it is mandatory to sign in to Chrome with the enterprise account.">
@@ -1149,14 +1149,6 @@ Google Chrome is unable to recover your settings.
         Click the Customize Chrome button on the New Tab Page to give Chrome a new look
       </message>
 
-      <!-- Realbox Strings -->
-      <message name="IDS_IPH_REALBOX_CONTEXTUAL_ENTRYPOINT" desc="The description of the IPH shown for the realbox contextual entrypoint." translateable="false">
-        Deepen your search by adding multiple tabs, files, and tools
-      </message>
-      <message name="IDS_IPH_REALBOX_CONTEXTUAL_ENTRYPOINT_SCREENREADER" desc="The screenreader text of the IPH shown for the realbox contextual entrypoint." translateable="false">
-        Deepen your search by adding multiple tabs, files, and tools using the "Add a tab and more" button.
-      </message>
-
       <!-- Signin Email Confirmation tab modal dialog -->
       <if expr="not is_chromeos">
         <message name="IDS_SIGNIN_EMAIL_CONFIRMATION_TITLE" desc="Title of the signin email confirmation tab modal dialog.">
@@ -1216,7 +1208,7 @@ Google Chrome is unable to recover your settings.
           To stay safer online with your parent’s choices, sign in to Chrome
         </message>
         <message name="IDS_SIGNIN_DICE_WEB_INTERCEPT_BUBBLE_CHROME_SIGNIN_IPH_TEXT_SIGNIN_REMINDER" desc="This string is the body text of a reminder message, which is intended to help users understand that they have been signed in to Chrome. The user previously signed in to a Google service (like Gmail or Maps), and saw the Chrome Signin Bubble intercept; when asked whether the user wanted to sign in to Chrome as well, the user selected yes. After a period of time, this reminder message appears at the top right of Chrome (pointing at the Profile Menu) to remind the user that they made this choice a while ago. This body text string comes after the 'Welcome back, USER_NAME' string. We are focusing on the benefit that user enjoys, now that they're signed in to Chrome. The tone should be welcoming.">
-          While you're signed in, you can use your passwords and more from your Google Account in Chrome. You can change this anytime in settings.
+          While you're signed in, you can use your passwords and more from your Google Account in Chrome. To change this, go to “Your account in Chrome”.
         </message>
         <message name="IDS_SIGNIN_DICE_WEB_INTERCEPT_BUBBLE_CHROME_SIGNIN_IPH_TEXT_SIGNIN_REMINDER_SCREENREADER" desc="This string is the accessibility text of a reminder message, which is intended to help users understand that they have been signed in to Chrome.">
           While you're signed in, you can use your passwords and more from your Google Account in Chrome. <ph name="SHORTCUT">$1<ex>CTRL+SHIFT+M</ex></ph> can change your Google services settings.
@@ -1233,8 +1225,18 @@ Google Chrome is unable to recover your settings.
         <message name="IDS_CHROME_SIGNOUT_CONFIRMATION_PROMPT_VERIFY_BODY" desc="This is the subtitle of an error message dialog that appears when the user opens the Chrome Profile Menu and chooses 'Sign out of Chrome'. The error message appears when the user has saved some data (like a password or payment method) to Chrome, but Chrome wasn't able to save the data to the user's Google Account due to a sign-in error; we want to set expectations by clarifying that the data will be removed from the device. This subtitle is after the 'Some data isn’t saved yet' string. The tone should be cautionary, because we want to explain to the user that their data is not saved and will be deleted if they sign out. This string provides a path to resolution because it explains how the user can properly save their data before they sign out of Chrome.">
           Chrome needs to verify it’s you before some data can be saved in your Google Account and used on all your devices. If you sign out now, this data will be deleted.
         </message>
-        <message name="IDS_CHROME_SIGNOUT_CONFIRMATION_PROMPT_UNSYNCED_BODY" desc="This is the subtitle of an error message dialog that appears when the user opens the Chrome Profile Menu and chooses 'Sign out of Chrome'. The error message appears when the user tries to sign out immediately after having saved saved some data (like a password or payment method) to Chrome and Chrome hasn't had time to save that data to the user's Google Account yet. This subtitle is after the 'Some data isn't saved yet' string. The tone should be cautionary, because we want to explain to the user that their data is not saved to their Google Account. This string asks the user to wait a few minutes before trying to sign out again.">
+        <message name="IDS_CHROME_SIGNOUT_CONFIRMATION_PROMPT_VERIFY_BODY_WITH_COUNT" desc="This is the subtitle of an error message dialog that appears when the user opens the Chrome Profile Menu and chooses 'Sign out of Chrome'. The error message appears when the user has saved some data (like a password or payment method) to Chrome, but Chrome wasn't able to save the data to the user's Google Account due to a sign-in error; we want to set expectations by clarifying that the data will be removed from the device. This subtitle is after the 'Some data isn’t saved yet' string. The tone should be cautionary, because we want to explain to the user that their data is not saved and will be deleted if they sign out. This string provides a path to resolution because it explains how the user can properly save their data before they sign out of Chrome.">
+          {count, plural,
+            =1 {Chrome needs to verify it’s you before some data can be saved in your Google Account and used on all your devices. If you sign out now, this data (1 item) will be deleted.}
+            other {Chrome needs to verify it’s you before some data can be saved in your Google Account and used on all your devices. If you sign out now, this data ({count} items) will be deleted.}}
+        </message>
+        <message name="IDS_CHROME_SIGNOUT_CONFIRMATION_PROMPT_UNSYNCED_BODY"  desc="This is the subtitle of an error message dialog that appears when the user opens the Chrome Profile Menu and chooses 'Sign out of Chrome'. The error message appears when the user tries to sign out immediately after having saved saved some data (like a password or payment method) to Chrome and Chrome hasn't had time to save that data to the user's Google Account yet. This subtitle is after the 'Some data isn't saved yet' string. The tone should be cautionary, because we want to explain to the user that their data is not saved to their Google Account. This string asks the user to wait a few minutes before trying to sign out again.">
           Some of your Chrome data hasn't been saved in your Google Account yet. Try waiting a few minutes before signing out. If you sign out now, this data will be deleted.
+        </message>
+        <message name="IDS_CHROME_SIGNOUT_CONFIRMATION_PROMPT_UNSYNCED_BODY_WITH_COUNT"  desc="This is the subtitle of an error message dialog that appears when the user opens the Chrome Profile Menu and chooses 'Sign out of Chrome'. The error message appears when the user tries to sign out immediately after having saved saved some data (like a password or payment method) to Chrome and Chrome hasn't had time to save that data to the user's Google Account yet. This subtitle is after the 'Some data isn't saved yet' string. The tone should be cautionary, because we want to explain to the user that their data is not saved to their Google Account. This string asks the user to wait a few minutes before trying to sign out again.">
+          {count, plural,
+            =1 {Some of your Chrome data hasn't been saved in your Google Account yet. Try waiting a few minutes before signing out. If you sign out now, this data (1 item) will be deleted.}
+            other {Some of your Chrome data hasn't been saved in your Google Account yet. Try waiting a few minutes before signing out. If you sign out now, this data ({count} items) will be deleted.}}
         </message>
         <message name="IDS_CLOSE_WARNING_FOR_CLEAR_COOKIES_ON_EXIT_TEXT" desc="Body of a notice displayed when closing the last Chrome window, to inform the user about a change in the way the 'Clear cookie on exit' setting works.">
           You’ll be signed out of most sites when you close all Chrome windows, except your Google Account if you’re signed in to Chrome. To let sites remember you, <ph name="SETTINGS_LINK">$1<ex>go to settings</ex></ph>.
@@ -1705,6 +1707,9 @@ Google Chrome is unable to recover your settings.
       <message name="IDS_DESKTOP_MEDIA_PICKER_PERMISSION_RESTART_TEXT_MAC" desc="Supplementary text about the need to restart Chrome, displayed below the message about enabling screen-recording permissions on Mac when those permissions are missing." >
         You'll then need to restart Chrome.
       </message>
+      <message name="IDS_DESKTOP_MEDIA_PICKER_SYSTEM_AUDIO_PERMISSION_TEXT_MAC" desc="Instructive text for how to enable system audio capture on Mac." >
+        To share system audio, open System Settings and allow 'System Audio Recording Only' for Chrome. You'll then need to restart Chrome.
+      </message>
 
       <!-- Runtime permission strings -->
       <if expr="is_android">
@@ -2058,6 +2063,10 @@ Google Chrome is unable to recover your settings.
           desc="Label for the Lens overlay command, through which the image will be searched using Google Lens.">
           Search this image with Google Lens
         </message>
+        <message name="IDS_LENS_OVERLAY_TAB_ENTRYPOINT_LABEL"
+          desc="Label for the Lens overlay command, through which the current tab will be searched using Google Lens.">
+          Search this tab with Google Lens
+        </message>
         <message name="IDS_LENS_OVERLAY_VIDEO_ENTRYPOINT_LABEL_ALT1"
           desc="Label for the Lens overlay command, through which the user can ask Google questions about the video.">
           Ask Google about this video
@@ -2117,9 +2126,17 @@ Google Chrome is unable to recover your settings.
           desc="Text link that is shown to users to learn more about privacy in relation to Google Lens.">
           Learn more
         </message>
+        <message name="IDS_LENS_PERMISSION_BUBBLE_DIALOG_LEARN_MORE_ABOUT_GOOGLE_LENS_LINK"
+          desc="Accessibility label for text link that is shown to users to learn more about privacy in relation to Google Lens.">
+          Learn more about searching with Google Lens in Chrome
+        </message>
         <message name="IDS_LENS_PERMISSION_BUBBLE_DIALOG_TITLE"
           desc="The title of the lens permission search bubble dialog, introducing Lens as a way to search what's on their screen.">
           Search anything on this page with Google Lens
+        </message>
+        <message name="IDS_LENS_PERMISSION_BUBBLE_DIALOG_TAB_TO_CONTINUE"
+          desc="Instructs the user to press Tab to begin using the feature.">
+          Tab to continue
         </message>
 
         <!-- Title Case Dependent -->
@@ -2162,15 +2179,40 @@ Google Chrome is unable to recover your settings.
           Ask a follow up
         </message>
 
+        <message name="IDS_LENS_COMPOSEBOX_HINT_TEXT_ASK_ANYTHING"
+          desc="The hint text of the AI mode searchbox in the Lens tab. This text is shown in the searchbox when the user has not yet typed any text, and prompts the user to ask a question.">
+          Ask anything
+        </message>
+
+        <message name="IDS_AI_MODE_ASK_ABOUT_THIS_TAB"
+          desc="Title for the AI Mode zero state welcome message in the Lens side panel. Prompts the user to ask questions about the current tab. Includes a line break to force desired line wrapping.">
+          Ask Google<ph name="LINE_BREAK">$1</ph>about this tab
+        </message>
+
+        <message name="IDS_AI_MODE_FRIENDLY_ZERO_STATE_TITLE"
+          desc="Title for the AI Mode zero state welcome message in the Lens tab. The first placeholder is the user's given name. Includes a line break to force desired line wrapping.">
+          Hi <ph name="USER_NAME">$1<ex>Josh</ex></ph>,<ph name="LINE_BREAK">$2</ph>what's on your mind today?
+        </message>
+
+        <message name="IDS_AI_MODE_FRIENDLY_ZERO_STATE_TITLE_WITHOUT_NAME"
+          desc="Title for the AI Mode zero state welcome message in the Lens tab.">
+          What's on your mind today?
+        </message>
+
+        <message name="IDS_AI_MODE_NEW_SEARCH"
+          desc="Header in the Lens side panel indicating a new AI Mode search session.">
+          New search
+        </message>
+
         <if expr="use_titlecase">
           <message name="IDS_CONTEXT_MENU_SHOW_AI_MODE_OMNIBOX_BUTTON"
             desc="In Title Case: The text label of the omnibox context menu option to show the 'AI Mode' shortcut button">
-            Always Show Google AI Mode Shortcut
+            Always Show AI Mode Shortcuts
           </message>
         </if>
         <if expr="not use_titlecase">
         <message name="IDS_CONTEXT_MENU_SHOW_AI_MODE_OMNIBOX_BUTTON" desc="The text label of the omnibox context menu option to show the 'AI Mode' shortcut button">
-          Always show Google AI Mode shortcut
+          Always show AI Mode shortcuts
         </message>
       </if>
 
@@ -2840,7 +2882,7 @@ Google Chrome is unable to recover your settings.
           Close Gemini in Chrome
         </message>
 
-        <message name="IDS_GLIC_THREE_DOT_MENU_ITEM" desc="This is the three-dot menu item for opening Gemini." translateable="false">
+        <message name="IDS_GLIC_THREE_DOT_MENU_ITEM" desc="This is the three-dot menu item for opening Gemini.">
           Open Gemini in Chrome
         </message>
 
@@ -2906,25 +2948,30 @@ Google Chrome is unable to recover your settings.
         </message>
 
         <!-- Profile Picker Glic version-->
-        <message name="IDS_PROFILE_PICKER_MAIN_VIEW_TITLE_GLIC" desc="Heading describing that the section below choosing a Chrome profile to use with Gemini. 'Gemini' has a special styling." translateable="false">
+        <message name="IDS_PROFILE_PICKER_MAIN_VIEW_TITLE_GLIC" desc="Heading describing that the section below choosing a Chrome profile to use with Gemini. 'Gemini' has a special styling.">
           Choose a Chrome profile to use with <ph name="START_GLIC_STYLING">&lt;span class="glic-brand-style"&gt;</ph>Gemini<ph name="END_GLIC_STYLING">&lt;/span&gt;</ph>
         </message>
-        <message name="IDS_PROFILE_PICKER_MAIN_VIEW_TITLE_GLIC_NO_PROFILE" desc="Sublabel describing to sign with a Google account to use Chrome with Gemini. 'Gemini' has a special styling." translateable="false">
+        <message name="IDS_PROFILE_PICKER_MAIN_VIEW_TITLE_GLIC_NO_PROFILE" desc="Sublabel describing to sign with a Google account to use Chrome with Gemini. 'Gemini' has a special styling.">
           Sign into Chrome with your Google Account to use <ph name="START_GLIC_STYLING">&lt;span class="glic-brand-style"&gt;</ph>Gemini<ph name="END_GLIC_STYLING">&lt;/span&gt;</ph>
         </message>
-        <message name="IDS_PROFILE_PICKER_MAIN_VIEW_SUBTITLE_GLIC" desc="Sublabel describing that the section below choosing a Chrome profile to use with Gemini" translateable="false">
+        <message name="IDS_PROFILE_PICKER_MAIN_VIEW_SUBTITLE_GLIC" desc="Sublabel describing that the section below choosing a Chrome profile to use with Gemini">
           To use Gemini in Chrome, you need to be signed in to Chrome with your Google Account
         </message>
-        <message name="IDS_PROFILE_PICKER_MAIN_VIEW_SUBTITLE_GLIC_NO_PROFILE" desc="Sublabel describing that in order to add a new Chrome profile to use with Gemini, sign up with a Google account" translateable="false">
+        <message name="IDS_PROFILE_PICKER_MAIN_VIEW_SUBTITLE_GLIC_NO_PROFILE" desc="Sublabel describing that in order to add a new Chrome profile to use with Gemini, sign up with a Google account">
           When you sign in to Chrome with your Google Account, you can use your Chrome profile with Gemini. <ph name="BEGIN_LINK">&lt;a class="learn-more-link" href="#" target=&quot;_blank&quot;&gt;</ph>Learn how to sign in to Chrome<ph name="END_LINK">&lt;/a&gt;</ph>
         </message>
-        <message name="IDS_PROFILE_PICKER_ADD_PROFILE_HELPER_GLIC" desc="Sublabel describing that in order to add a new Chrome profile to use with Gemini, sign up with a different Google account" translateable="false">
+        <message name="IDS_PROFILE_PICKER_ADD_PROFILE_HELPER_GLIC" desc="Sublabel describing that in order to add a new Chrome profile to use with Gemini, sign up with a different Google account">
           To use a different Google Account with Gemini in Chrome, <ph name="BEGIN_LINK">&lt;a class="learn-more-link" href="#" target=&quot;_blank&quot;&gt;</ph>create a new profile<ph name="END_LINK">&lt;/a&gt;</ph> and sign in with the account you want
         </message>
 
         <!-- Glic button and tab strip context menu -->
-        <message name="IDS_GLIC_CONTEXTUAL_CUEING_ANNOUNCEMENT" desc="Polite announcement that happens when a contextual nudge is shown next to the Gemini button." translateable="false">
+        <message name="IDS_GLIC_CONTEXTUAL_CUEING_ANNOUNCEMENT" desc="Polite voice over announcement that happens when a contextual nudge is shown next to the Gemini button.">
           To open Gemini in Chrome, press <ph name="GLOBAL_HOTKEY">$1<ex>⌘+G</ex></ph>
+        </message>
+
+        <!-- Variant of the label on the Gemini button in the tabstrip-->
+        <message name="IDS_GLIC_BUTTON_ENTRYPOINT_ASK_BROWSER_LABEL" desc="Label on the button used to open Gemini in Chrome.">
+          Ask Chrome
         </message>
       </if>
 
@@ -2938,6 +2985,9 @@ Google Chrome is unable to recover your settings.
       <!-- UNO Promo strings for bookmarks -->
       <message name="IDS_BOOKMARK_INSTALLED_PROMO_EXPLICIT_SIGNIN_MESSAGE" desc="Text of the promo displayed at the bottom of the bookmark bubble asking the user to enable UNO.">
         To get this bookmark and more on all your devices, sign in to Chrome
+      </message>
+      <message name="IDS_BOOKMARK_INSTALLED_BUBBLE_PROMO_EXPLICIT_SIGNIN_MESSAGE" desc="Text of the promo displayed after the bookmark bubble asking the user to enable UNO.">
+        To get your bookmarks and more on all your devices, sign in to Chrome. This bookmark will be saved in your Google Account after you sign in.
       </message>
 
       <!-- Dice Migration strings -->

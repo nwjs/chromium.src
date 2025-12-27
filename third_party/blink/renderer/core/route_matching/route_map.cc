@@ -35,15 +35,15 @@ RouteMap::ParseResult AddPatternToRoute(const Document& document,
 
 }  // anonymous namespace
 
-RouteMap::RouteMap(Document& document) : Supplement<Document>(document) {}
-RouteMap::RouteMap() : Supplement<Document>(nullptr) {
+RouteMap::RouteMap(Document& document) : document_(document) {}
+RouteMap::RouteMap() {
   CHECK_IS_TEST();
 }
 
 void RouteMap::Trace(Visitor* v) const {
+  v->Trace(document_);
   v->Trace(routes_);
   v->Trace(anonymous_routes_);
-  Supplement<Document>::Trace(v);
   ScriptWrappable::Trace(v);
 }
 
@@ -55,34 +55,28 @@ Route* RouteMap::get(const String& route_name) {
   return it->value;
 }
 
-// BEGIN Supplement support:
-
-const char RouteMap::kSupplementName[] = "RouteMap";
-
 const RouteMap* RouteMap::Get(const Document* document) {
   if (!document) {
     return nullptr;
   }
-  return Supplement<Document>::From<RouteMap>(*document);
+  return document->GetRouteMap();
 }
 
 RouteMap* RouteMap::Get(Document* document) {
   if (!document) {
     return nullptr;
   }
-  return Supplement<Document>::From<RouteMap>(*document);
+  return document->GetRouteMap();
 }
 
 RouteMap& RouteMap::Ensure(Document& document) {
   RouteMap* route_map = Get(&document);
   if (!route_map) {
     route_map = MakeGarbageCollected<RouteMap>(document);
-    Supplement<Document>::ProvideTo<RouteMap>(document, route_map);
+    document.SetRouteMap(route_map);
   }
   return *route_map;
 }
-
-// END Supplement support
 
 RouteMap::ParseResult RouteMap::ParseAndApplyRoutes(
     const String& route_map_text) {
@@ -182,27 +176,15 @@ void RouteMap::AddAnonymousRoute(URLPattern* pattern) {
   route->UpdateMatchStatus(previous_url_, next_url_);
 }
 
-bool RouteMap::MatchesRoute(const String& route_name,
-                            RoutePreposition preposition) const {
+const Route* RouteMap::FindRoute(const String& route_name) const {
   const auto it = routes_.find(route_name);
-  if (it == routes_.end()) {
-    return false;
-  }
-
-  Route& route = *it->value;
-  return route.Matches(preposition);
+  return it == routes_.end() ? nullptr : it->value;
 }
 
-bool RouteMap::MatchesURLPattern(const URLPattern* pattern,
-                                 RoutePreposition preposition) const {
+const Route* RouteMap::FindRoute(const URLPattern* pattern) const {
   String pattern_string = pattern->ToString();
   auto it = anonymous_routes_.find(pattern_string);
-  if (it == anonymous_routes_.end()) {
-    return false;
-  }
-
-  Route& route = *it->value;
-  return route.Matches(preposition);
+  return it == anonymous_routes_.end() ? nullptr : it->value;
 }
 
 void RouteMap::UpdateActiveRoutes() {

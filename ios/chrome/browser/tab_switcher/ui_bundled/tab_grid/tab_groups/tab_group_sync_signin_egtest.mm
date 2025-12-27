@@ -11,6 +11,7 @@
 #import "components/sync/base/command_line_switches.h"
 #import "components/sync/base/data_type.h"
 #import "ios/chrome/browser/authentication/test/signin_earl_grey.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_groups_eg_utils.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
@@ -92,6 +93,7 @@ void WaitForEntitiesOnFakeServer(int entity_count) {
                                    syncer::kSyncShortNudgeDelayForTest);
   config.features_enabled.push_back(
       data_sharing::features::kDataSharingFeature);
+  config.features_disabled.push_back(kIOSAutoOpenRemoteTabGroupsSettings);
   return config;
 }
 
@@ -188,6 +190,11 @@ void WaitForEntitiesOnFakeServer(int entity_count) {
 // Tests that signing out keeps groups created before syncing and deletes groups
 // created since.
 - (void)testSignOutKeepsPreviousGroupDeletesNewGroup {
+  // TODO(crbug.com/455766365): Re-enable the test.
+  if (@available(iOS 26.1, *)) {
+    EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.1.");
+  }
+
   [ChromeEarlGreyUI openTabGrid];
 
   // Switch over to the tab groups page and delete existing saved groups.
@@ -316,6 +323,11 @@ void WaitForEntitiesOnFakeServer(int entity_count) {
 
 // Tests that tab groups don't get reopened after signing out and back in
 - (void)testSignOutAndBackInDoesNotReopenGroups {
+  // TODO(crbug.com/455766365): Re-enable the test.
+  if (@available(iOS 26.1, *)) {
+    EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.1.");
+  }
+
   // TODO(crbug.com/415554855): Test is flaky on iPad device from 18.2.
   if (@available(iOS 18, *)) {
     if ([ChromeEarlGrey isIPadIdiom]) {

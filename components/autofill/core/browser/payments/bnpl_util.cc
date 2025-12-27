@@ -48,6 +48,8 @@ bool BnplIssuerContext::IsEligible() const {
     case BnplIssuerEligibilityForPage::kUndefined:
       NOTREACHED();
     case BnplIssuerEligibilityForPage::kIsEligible:
+    case BnplIssuerEligibilityForPage::
+        kTemporarilyEligibleCheckoutAmountNotYetKnown:
       return true;
     case BnplIssuerEligibilityForPage::kNotEligibleIssuerDoesNotSupportMerchant:
     case BnplIssuerEligibilityForPage::kNotEligibleCheckoutAmountTooLow:
@@ -58,19 +60,17 @@ bool BnplIssuerContext::IsEligible() const {
 }
 
 BnplIssuerTosDetail::BnplIssuerTosDetail(
+    BnplIssuer::IssuerId issuer_id,
     int header_icon_id,
     int header_icon_id_dark,
-    std::u16string title,
-    std::u16string review_text,
-    std::u16string approve_text,
-    TextWithLink link_text,
+    bool is_linked_issuer,
+    std::u16string issuer_name,
     std::vector<LegalMessageLine> legal_message_lines)
-    : header_icon_id(header_icon_id),
+    : issuer_id(issuer_id),
+      header_icon_id(header_icon_id),
       header_icon_id_dark(header_icon_id_dark),
-      title(std::move(title)),
-      review_text(std::move(review_text)),
-      approve_text(std::move(approve_text)),
-      link_text(std::move(link_text)),
+      is_linked_issuer(is_linked_issuer),
+      issuer_name(std::move(issuer_name)),
       legal_message_lines(std::move(legal_message_lines)) {}
 
 BnplIssuerTosDetail::BnplIssuerTosDetail(const BnplIssuerTosDetail& other) =
@@ -85,6 +85,9 @@ BnplIssuerTosDetail& BnplIssuerTosDetail::operator=(BnplIssuerTosDetail&&) =
     default;
 
 BnplIssuerTosDetail::~BnplIssuerTosDetail() = default;
+
+bool BnplIssuerTosDetail::operator==(const BnplIssuerTosDetail&) const =
+    default;
 
 std::u16string GetBnplIssuerSelectionOptionText(
     BnplIssuer::IssuerId issuer_id,
@@ -116,6 +119,8 @@ std::u16string GetBnplIssuerSelectionOptionText(
     case BnplIssuerEligibilityForPage::kUndefined:
       NOTREACHED();
     case BnplIssuerEligibilityForPage::kIsEligible:
+    case BnplIssuerEligibilityForPage::
+        kTemporarilyEligibleCheckoutAmountNotYetKnown:
       switch (issuer_id) {
         case BnplIssuer::IssuerId::kBnplAffirm:
         case BnplIssuer::IssuerId::kBnplAfterpay:
@@ -177,6 +182,27 @@ TextWithLink GetBnplUiFooterText() {
   text_with_link.offset =
       gfx::Range(offset, offset + payments_settings_link_text.length());
 
+  return text_with_link;
+}
+
+TextWithLink GetBnplUiFooterTextForAi(
+    const PaymentsDataManager& payments_data_manager) {
+  TextWithLink text_with_link;
+  std::u16string payments_settings_link_text = l10n_util::GetStringUTF16(
+      IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_FOOTNOTE_HIDE_OPTION_PAYMENT_SETTINGS_LINK_TEXT);
+  size_t offset = 0;
+  text_with_link.text = l10n_util::GetStringFUTF16(
+      IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_AI_FOOTNOTE,
+      payments_settings_link_text, &offset);
+
+  text_with_link.offset =
+      gfx::Range(offset, offset + payments_settings_link_text.length());
+  if (!payments_data_manager
+           .IsAutofillAmountExtractionAiTermsSeenPrefEnabled()) {
+    std::u16string ai_notice = l10n_util::GetStringUTF16(
+        IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_FOOTNOTE_FOR_AI_AMOUNT_EXTRACTION_NOTE);
+    text_with_link.bold_range = gfx::Range(0, ai_notice.length());
+  }
   return text_with_link;
 }
 

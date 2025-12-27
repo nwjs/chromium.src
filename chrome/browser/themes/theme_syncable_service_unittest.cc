@@ -27,7 +27,6 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_service_test_base.h"
 #include "chrome/browser/extensions/test_extension_system.h"
@@ -44,7 +43,6 @@
 #include "chrome/common/extensions/extension_test_util.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_profile.h"
-#include "components/custom_handlers/simple_protocol_handler_registry_factory.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/sync/base/client_tag_hash.h"
 #include "components/sync/base/features.h"
@@ -255,12 +253,6 @@ class ThemeSyncableServiceTest : public testing::Test,
     extension_test_util::SetGalleryUpdateURL(GURL(kCustomThemeUrl));
 
     TestingProfile::Builder builder;
-    // Use SimpleProtocolHandlerRegistryFactory to prevent OS integration during
-    // the protocol registration process.
-    builder.AddTestingFactory(
-        ProtocolHandlerRegistryFactory::GetInstance(),
-        custom_handlers::SimpleProtocolHandlerRegistryFactory::
-            GetDefaultFactory());
     builder.AddTestingFactory(
         ThemeServiceFactory::GetInstance(),
         base::BindRepeating([](content::BrowserContext* context)
@@ -878,7 +870,7 @@ class RealThemeSyncableServiceTest
 
     extensions::ExtensionServiceTestBase::SetUp();
     InitializeExtensionService(ExtensionServiceInitParams());
-    service_->Init();
+    service()->Init();
 
     theme_service_ = ThemeServiceFactory::GetForProfile(profile());
 
@@ -1051,7 +1043,7 @@ TEST_F(RealThemeSyncableServiceTest, UpdateThemeSpecifics_CurrentTheme_Policy) {
 
   fake_change_processor()->changes().clear();
   // Set up theme service to use policy theme.
-  profile_->GetTestingPrefService()->SetManagedPref(
+  testing_profile()->GetTestingPrefService()->SetManagedPref(
       themes::prefs::kPolicyThemeColor, std::make_unique<base::Value>(100));
 
   ASSERT_TRUE(theme_service()->UsingPolicyTheme());
@@ -2807,7 +2799,7 @@ class ThemeSyncableServiceTestWithAccountThemesSeparation
 
   sync_pb::ThemeSpecifics ReadSavedLocalThemeSpecifics() {
     std::string encoded_str =
-        profile_->GetPrefs()->GetString(prefs::kSavedLocalTheme);
+        profile()->GetPrefs()->GetString(prefs::kSavedLocalTheme);
     std::string decoded_str;
     EXPECT_TRUE(base::Base64Decode(encoded_str, &decoded_str));
 
@@ -2999,7 +2991,8 @@ TEST_F(ThemeSyncableServiceTestWithAccountThemesSeparation,
                   fake_change_processor())));
 
   // No theme was saved.
-  EXPECT_FALSE(profile_->GetPrefs()->GetUserPrefValue(prefs::kSavedLocalTheme));
+  EXPECT_FALSE(
+      profile()->GetPrefs()->GetUserPrefValue(prefs::kSavedLocalTheme));
 }
 
 TEST_F(ThemeSyncableServiceTestWithAccountThemesSeparation,
@@ -3555,7 +3548,7 @@ class ThemeSyncableServiceTestForThemeExtension
     ThemeSyncableServiceTestWithAccountThemesSeparation::SetUp();
 
     // Remove theme extension added during parent SetUp().
-    service_->UnloadAllExtensionsForTest();
+    service()->UnloadAllExtensionsForTest();
     ASSERT_FALSE(
         extensions::ExtensionRegistry::Get(profile())->GetExtensionById(
             kCustomThemeId, extensions::ExtensionRegistry::EVERYTHING));
@@ -3572,9 +3565,8 @@ class ThemeSyncableServiceTestForThemeExtension
     // TODO(crbug.com/425913203): Remove once usage of TestSyncService is
     // simplified.
     SyncServiceFactory::GetInstance()->SetTestingFactoryAndUse(
-        profile_.get(),
-        base::BindRepeating([](content::BrowserContext* context)
-                                -> std::unique_ptr<KeyedService> {
+        profile(), base::BindRepeating([](content::BrowserContext* context)
+                                           -> std::unique_ptr<KeyedService> {
           return std::make_unique<syncer::TestSyncService>();
         }));
   }

@@ -76,12 +76,15 @@ class PageContext;
 // Whether to animate the presentation of the BWG UI.
 @property(nonatomic, assign) BOOL shouldAnimatePresentation;
 
-// Whether the zero-state UI for the input box should be shown (i.e. page
-// context information about the web page).
-@property(nonatomic, assign) BOOL shouldShowZeroState;
+// Whether the last interaction was completed on a different URL (ignoring
+// fragments).
+@property(nonatomic, assign) BOOL lastInteractionURLDifferent;
 
 // Whether the zero-state suggestion chips should be shown.
 @property(nonatomic, assign) BOOL shouldShowSuggestionChips;
+
+// Label displayed from a Gemini contextual cue chip.
+@property(nonatomic, copy) NSString* contextualCueChipLabel;
 
 @end
 

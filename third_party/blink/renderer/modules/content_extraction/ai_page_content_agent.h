@@ -5,7 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_MODULES_CONTENT_EXTRACTION_AI_PAGE_CONTENT_AGENT_H_
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_CONTENT_EXTRACTION_AI_PAGE_CONTENT_AGENT_H_
 
-#include "base/functional/callback_forward.h"
+#include "base/functional/callback.h"
 #include "base/memory/stack_allocated.h"
 #include "base/types/pass_key.h"
 #include "mojo/public/cpp/bindings/lib/validation_context.h"
@@ -18,7 +18,8 @@
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_receiver_set.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_wrapper_mode.h"
-#include "third_party/blink/renderer/platform/supplementable.h"
+#include "third_party/blink/renderer/platform/wtf/hash_map.h"
+#include "third_party/blink/renderer/platform/wtf/hash_traits.h"
 
 namespace blink {
 class Document;
@@ -31,16 +32,20 @@ class LocalFrame;
 class MODULES_EXPORT AIPageContentAgent final
     : public GarbageCollected<AIPageContentAgent>,
       public mojom::blink::AIPageContentAgent,
-      public Supplement<Document>,
       public LocalFrameView::LifecycleNotificationObserver {
  public:
-  static const char kSupplementName[];
+  static const unsigned kSupplementIndex;
   static AIPageContentAgent* From(Document&);
   static void BindReceiver(
       LocalFrame* frame,
       mojo::PendingReceiver<mojom::blink::AIPageContentAgent> receiver);
 
   static AIPageContentAgent* GetOrCreateForTesting(Document&);
+#if DCHECK_IS_ON()
+  // If enabled, the ContentNode tree will be automatically built on page load.
+  static void EnableAutomaticActionableExtractionOnPageLoadForTesting(
+      LocalFrame&);
+#endif
 
   AIPageContentAgent(base::PassKey<AIPageContentAgent>, LocalFrame&);
   AIPageContentAgent(const AIPageContentAgent&) = delete;
@@ -160,7 +165,8 @@ class MODULES_EXPORT AIPageContentAgent final
 
     const raw_ref<const mojom::blink::AIPageContentOptions> options_;
 
-    base::flat_map<DOMNodeId, int32_t> dom_node_to_z_order_;
+    HashMap<DOMNodeId, int32_t, IntWithZeroKeyHashTraits<DOMNodeId>>
+        dom_node_to_z_order_;
 
     // Whether the stack depth has exceeded the max tree depth.
     bool stack_depth_exceeded_ = false;
@@ -170,13 +176,21 @@ class MODULES_EXPORT AIPageContentAgent final
   };
 
   void Bind(mojo::PendingReceiver<mojom::blink::AIPageContentAgent> receiver);
+  void EnsureLifecycleObserverRegistered();
 
+  Member<Document> document_;
   HeapMojoReceiverSet<mojom::blink::AIPageContentAgent, AIPageContentAgent>
       receiver_set_;
   // Already registered for lifetime notifications.
-  bool is_registered_ = false;
+  bool is_lifecycle_observer_registered_ = false;
   // Tasks to run when post lifecycle.
   Vector<base::OnceClosure> async_extraction_tasks_;
+
+#if DCHECK_IS_ON()
+  void MaybeRunAutomaticActionableExtraction();
+  // Should content extraction tree be built automatically on page load.
+  bool is_auto_actionable_extraction_pending_ = false;
+#endif
 };
 
 }  // namespace blink

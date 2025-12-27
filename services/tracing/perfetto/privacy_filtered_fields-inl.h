@@ -348,12 +348,30 @@ constexpr int kMissedVsyncsForJankReasonIndices[] = {1, 2, -1};
 constexpr MessageInfo kMissedVsyncsForJankReason = {
     kMissedVsyncsForJankReasonIndices, nullptr};
 
+// Proto Message: Real
+constexpr int kRealIndices[] = {1, 2, 3, -1};
+constexpr MessageInfo kReal = {kRealIndices, nullptr};
+
+// Proto Message: Synthetic
+constexpr int kSyntheticIndices[] = {1, -1};
+constexpr MessageInfo kSynthetic = {kSyntheticIndices, nullptr};
+
+// Proto Message: ScrollUpdates
+constexpr int kScrollUpdatesIndices[] = {1, 2, 3, -1};
+constexpr MessageInfo const* kScrollUpdatesComplexMessages[] = {
+    &kReal, &kSynthetic, nullptr};
+constexpr MessageInfo kScrollUpdates = {kScrollUpdatesIndices,
+                                        kScrollUpdatesComplexMessages};
+
 // Proto Message: ScrollJankV4Result
-constexpr int kScrollJankV4ResultIndices[] = {1, 2, 3, 4, 5, 6, 7, 8, -1};
+constexpr int kScrollJankV4ResultIndices[] = {1, 2, 3,  4,  5,  6, 7,
+                                              8, 9, 10, 11, 12, -1};
 constexpr MessageInfo const* kScrollJankV4ResultComplexMessages[] = {
     nullptr, &kMissedVsyncsForJankReason,
     nullptr, nullptr,
     nullptr, nullptr,
+    nullptr, nullptr,
+    nullptr, &kScrollUpdates,
     nullptr, nullptr};
 constexpr MessageInfo kScrollJankV4Result = {
     kScrollJankV4ResultIndices, kScrollJankV4ResultComplexMessages};
@@ -566,7 +584,7 @@ constexpr int kTrackEventIndices[] = {
     1022, 1023, 1024, 1025, 1028, 1031, 1032, 1033, 1034, 1036, 1038,
     1039, 1040, 1041, 1042, 1046, 1047, 1048, 1049, 1050, 1051, 1052,
     1053, 1054, 1055, 1056, 1057, 1058, 1059, 1060, 1061, 1064, 1065,
-    1066, 1067, 1068, 1069, 1071, 1075, 1076, 1077, -1};
+    1066, 1067, 1068, 1069, 1071, 1075, 1076, 1077, 1078, -1};
 constexpr MessageInfo const* kTrackEventComplexMessages[] = {
     nullptr,
     nullptr,
@@ -663,7 +681,8 @@ constexpr MessageInfo const* kTrackEventComplexMessages[] = {
     &kCurrentTask,
     &kChromeFrameReporter2,
     &kInputTransferHandler,
-    &kResponseInfo};
+    &kResponseInfo,
+    &kScrollJankV4Result};
 constexpr MessageInfo kTrackEvent = {kTrackEventIndices,
                                      kTrackEventComplexMessages};
 
@@ -867,11 +886,52 @@ constexpr int kMemInfoEtwEventIndices[] = {1, 2, 3,  4,  5,  6,  7,
                                            8, 9, 10, 11, 12, 13, -1};
 constexpr MessageInfo kMemInfoEtwEvent = {kMemInfoEtwEventIndices, nullptr};
 
+// Proto Message: FileIoCreateEtwEvent
+constexpr int kFileIoCreateEtwEventIndices[] = {1, 2, 3, 4, 5, 6, -1};
+constexpr MessageInfo kFileIoCreateEtwEvent = {kFileIoCreateEtwEventIndices,
+                                               nullptr};
+
+// Proto Message: FileIoDirEnumEtwEvent
+constexpr int kFileIoDirEnumEtwEventIndices[] = {1, 2, 3, 4, 5, 6, 7, -1};
+constexpr MessageInfo kFileIoDirEnumEtwEvent = {kFileIoDirEnumEtwEventIndices,
+                                                nullptr};
+
+// Proto Message: FileIoInfoEtwEvent
+constexpr int kFileIoInfoEtwEventIndices[] = {1, 2, 3, 4, 5, 6, -1};
+constexpr MessageInfo kFileIoInfoEtwEvent = {kFileIoInfoEtwEventIndices,
+                                             nullptr};
+
+// Proto Message: FileIoReadWriteEtwEvent
+constexpr int kFileIoReadWriteEtwEventIndices[] = {1, 2, 3, 4, 5, 6, 7, -1};
+constexpr MessageInfo kFileIoReadWriteEtwEvent = {
+    kFileIoReadWriteEtwEventIndices, nullptr};
+
+// Proto Message: FileIoSimpleOpEtwEvent
+constexpr int kFileIoSimpleOpEtwEventIndices[] = {1, 2, 3, 4, -1};
+constexpr MessageInfo kFileIoSimpleOpEtwEvent = {kFileIoSimpleOpEtwEventIndices,
+                                                 nullptr};
+
+// Proto Message: FileIoOpEndEtwEvent
+constexpr int kFileIoOpEndEtwEventIndices[] = {1, 2, 3, -1};
+constexpr MessageInfo kFileIoOpEndEtwEvent = {kFileIoOpEndEtwEventIndices,
+                                              nullptr};
+
 // Proto Message: EtwTraceEvent
-constexpr int kEtwTraceEventIndices[] = {1, 2, 3, 4, 5, 6, -1};
+constexpr int kEtwTraceEventIndices[] = {1, 2, 3,  4,  5,  6, 7,
+                                         8, 9, 10, 11, 12, -1};
 constexpr MessageInfo const* kEtwTraceEventComplexMessages[] = {
-    nullptr, &kCSwitchEtwEvent, &kReadyThreadEtwEvent,
-    nullptr, nullptr,           &kMemInfoEtwEvent};
+    nullptr,
+    &kCSwitchEtwEvent,
+    &kReadyThreadEtwEvent,
+    nullptr,
+    nullptr,
+    &kMemInfoEtwEvent,
+    &kFileIoCreateEtwEvent,
+    &kFileIoDirEnumEtwEvent,
+    &kFileIoInfoEtwEvent,
+    &kFileIoReadWriteEtwEvent,
+    &kFileIoSimpleOpEtwEvent,
+    &kFileIoOpEndEtwEvent};
 constexpr MessageInfo kEtwTraceEvent = {kEtwTraceEventIndices,
                                         kEtwTraceEventComplexMessages};
 

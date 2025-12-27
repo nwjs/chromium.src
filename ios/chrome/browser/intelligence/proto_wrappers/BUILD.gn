@@ -27,6 +27,8 @@ source_set("proto_wrappers") {
   sources = [
     "page_context_wrapper.h",
     "page_context_wrapper.mm",
+    "page_context_wrapper_config.h",
+    "page_context_wrapper_config.mm",
     "tab_organization_request_wrapper.h",
     "tab_organization_request_wrapper.mm",
   ]
@@ -46,6 +48,24 @@ source_set("proto_wrappers") {
     "//ios/web/public",
     "//ios/web/public/js_messaging",
     "//url",
+  ]
+}
+
+source_set("ios_smart_tab_grouping_proto_wrapper") {
+  sources = [
+    "ios_smart_tab_grouping_request_wrapper.h",
+    "ios_smart_tab_grouping_request_wrapper.mm",
+  ]
+
+  deps = [
+    ":proto_wrappers",
+    "//base",
+    "//components/optimization_guide/proto:optimization_guide_proto_gen",
+    "//ios/chrome/browser/intelligence/features",
+    "//ios/chrome/browser/intelligence/persist_tab_context/model",
+    "//ios/chrome/browser/shared/model/browser",
+    "//ios/chrome/browser/shared/model/web_state_list",
+    "//ios/web/public",
   ]
 }
 
@@ -77,11 +97,13 @@ source_set("unit_tests") {
   sources = [
     "page_context_extractor_java_script_feature_unittest.mm",
     "page_context_utils_unittest.mm",
+    "page_context_wrapper_metrics_unittest.mm",
     "page_context_wrapper_unittest.mm",
   ]
   deps = [
     ":metrics_constants",
     ":page_context_extractor_feature",
+    ":page_context_metrics",
     ":proto_wrappers",
     ":utils",
     "//base/test:test_support",

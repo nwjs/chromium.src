@@ -5,7 +5,6 @@
 #include "chrome/browser/web_applications/commands/manifest_update_check_command.h"
 
 #include "base/feature_list.h"
-#include "base/functional/callback_forward.h"
 #include "base/i18n/time_formatting.h"
 #include "base/notreached.h"
 #include "base/strings/to_string.h"
@@ -481,7 +480,7 @@ void ManifestUpdateCheckCommand::ConfirmAppIdentityUpdate(
       /*icon_change=*/
       manifest_data_changes_.app_icon_identity_change.has_value(),
       /*old_title=*/base::UTF8ToUTF16(GetWebApp().untranslated_name()),
-      /*new_title=*/new_install_info_->title,
+      /*new_title=*/new_install_info_->title.value(),
       /*old_icon=*/*before_icon,
       /*new_icon=*/*after_icon, web_contents_.get(),
       base::BindOnce(

@@ -14,11 +14,12 @@
 #include "base/functional/callback.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/color/color_id.h"
-#include "ui/color/color_id.mojom.h"
-#include "ui/color/color_mixer.h"
+#include "ui/color/color_id.mojom-forward.h"
 #include "ui/color/color_provider_manager.h"
 
 namespace ui {
+
+class ColorMixer;
 
 using RendererColorMap = base::flat_map<color::mojom::RendererColorId, SkColor>;
 
@@ -43,7 +44,7 @@ std::string COMPONENT_EXPORT(COLOR) SkColorName(SkColor color);
 // Converts Color Provider Color Id in string format from kColorXXX to
 // "--color-X-X-X" for CSS
 std::string COMPONENT_EXPORT(COLOR)
-    ConvertColorProviderColorIdToCSSColorId(std::string color_id_name);
+    ConvertColorProviderColorIdToCSSColorId(std::string_view color_id_name);
 
 // Converts SkColor in ARGB format to CSS color in RGBA color. Returns the color
 // in a Hex string representation.

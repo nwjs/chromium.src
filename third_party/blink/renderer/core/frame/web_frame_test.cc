@@ -118,6 +118,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/serialization/serialized_script_value_factory.h"
 #include "third_party/blink/renderer/bindings/core/v8/serialization/v8_script_value_serializer.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_focus_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_node.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_pointer_event_init.h"
 #include "third_party/blink/renderer/core/clipboard/data_transfer.h"
@@ -6977,6 +6978,7 @@ class TextCheckClient : public WebTextCheckClient {
   bool IsSpellCheckingEnabled() const override { return true; }
   void RequestCheckingOfText(
       const WebString&,
+      WebTextCheckClient::ShouldForceRefreshTextCheckService,
       std::unique_ptr<WebTextCheckingCompletion> completion) override {
     ++number_of_times_checked_;
     const int kMisspellingStartOffset = 1;
@@ -7122,6 +7124,7 @@ class StubbornTextCheckClient : public WebTextCheckClient {
   bool IsSpellCheckingEnabled() const override { return true; }
   void RequestCheckingOfText(
       const WebString&,
+      WebTextCheckClient::ShouldForceRefreshTextCheckService,
       std::unique_ptr<WebTextCheckingCompletion> completion) override {
     completion_ = std::move(completion);
   }
@@ -7302,10 +7305,12 @@ class TestAccessInitialDocumentLocalFrameHost
                      SetWindowRectCallback callback) override {
     std::move(callback).Run();
   }
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   void Minimize() override {}
   void Maximize() override {}
   void Restore() override {}
   void SetResizable(bool resizable) override {}
+#endif
   void DidFirstVisuallyNonEmptyPaint() override {}
   void DidAccessInitialMainDocument() override {
     ++did_access_initial_main_document_;
@@ -8148,7 +8153,8 @@ class TestDidNavigateCommitTypeWebFrameClient
       mojom::blink::SameDocumentNavigationType,
       bool is_client_redirect,
       const std::optional<blink::SameDocNavigationScreenshotDestinationToken>&
-          screenshot_destination) override {
+          screenshot_destination,
+      base::UnguessableToken same_document_metrics_token) override {
     last_commit_type_ = type;
   }
 
@@ -9663,48 +9669,6 @@ TEST_F(WebFrameSwapTest, SwapFirstChild) {
   std::string content =
       TestWebFrameContentDumper::DumpWebViewAsText(WebView(), 1024).Utf8();
   EXPECT_EQ("  \n\nhello\n\nb \n\na\n\nc", content);
-}
-
-// Asserts that the `Settings::SetHighlightAds` is properly applied to a
-// `LocalFrame` even if `Settings::SetHighlightAds` is fired when the
-// `LocalFrame` is still provisional. See crbug/1312107. While the bug is first
-// observed on fenced frames, the underlying issue lies in the timing of the
-// `Settings::SetHighlightAds` call with respect to the navigation progress of
-// the frame.
-TEST_F(WebFrameSwapTest, AdHighlightEarlyApply) {
-  WebRemoteFrame* remote_frame = frame_test_helpers::CreateRemote();
-  SwapAndVerifyFirstChildConsistency("local->remote", MainFrame(),
-                                     remote_frame);
-
-  // Create the provisional frame and set its ad evidence.
-  WebLocalFrameImpl* local_frame =
-      web_view_helper_.CreateProvisional(*remote_frame);
-  // Value of `parent_is_ad` does not matter.
-  blink::FrameAdEvidence ad_evidence(/*parent_is_ad=*/false);
-  ad_evidence.set_created_by_ad_script(
-      mojom::FrameCreationStackEvidence::kCreatedByAdScript);
-  ad_evidence.set_is_complete();
-  local_frame->SetAdEvidence(ad_evidence);
-
-  // Toggle the settings for provisional local frame.
-  local_frame->View()->GetSettings()->SetHighlightAds(true);
-
-  // Assert that the local frame does not have any overlay color since it is not
-  // in the frame tree yet.
-  ASSERT_EQ(local_frame->GetFrame()->GetFrameOverlayColor(), std::nullopt);
-
-  WebDocument doc_before_navigation = local_frame->GetDocument();
-
-  auto params = std::make_unique<WebNavigationParams>();
-  params->url = url_test_helpers::ToKURL("about:blank");
-  // `CommitNavigation` will swap in the local frame to replace the remote
-  // frame.
-  local_frame->CommitNavigation(std::move(params), nullptr);
-
-  ASSERT_FALSE(local_frame->IsProvisional());
-  ASSERT_NE(doc_before_navigation, local_frame->GetDocument());
-  ASSERT_EQ(local_frame->GetFrame()->GetFrameOverlayColor(),
-            SkColorSetARGB(128, 255, 0, 0));
 }
 
 // TODO(crbug.com/1314493): This test is flaky.
@@ -12752,6 +12716,79 @@ TEST_F(WebFrameSimTest, ScrollToEndBubblingCrash) {
   key_event.SetType(WebInputEvent::Type::kKeyUp);
   WebView().MainFrameWidget()->HandleInputEvent(
       WebCoalescedInputEvent(key_event, ui::LatencyInfo()));
+}
+
+// https://crbug.com/41492445
+TEST_F(WebFrameSimTest, TestFocusPreventScrollNotScrollElementIntoView) {
+  UseAndroidSettings();
+  WebView().MainFrameViewWidget()->Resize(gfx::Size(400, 400));
+  WebView().EnableFakePageScaleAnimationForTesting(true);
+  WebView().GetPage()->GetSettings().SetTextAutosizingEnabled(false);
+
+  SimRequest request("https://example.com/test.html", "text/html");
+  LoadURL("https://example.com/test.html");
+  request.Complete(R"HTML(
+    <!DOCTYPE html>
+    <style>
+      ::-webkit-scrollbar {
+        width: 0px;
+        height: 0px;
+      }
+      body,html {
+        width: 100%;
+        height: 100%;
+        margin: 0px;
+      }
+      input {
+        border: 0;
+        padding: 0;
+        margin-top: 1000px;
+        width: 100px;
+        height: 20px;
+      }
+    </style>
+    <input id="target" type="text" value="test" />
+  )HTML");
+
+  Compositor().BeginFrame();
+
+  ScrollableArea* area = GetDocument().View()->LayoutViewport();
+  Element* input = GetDocument().getElementById(AtomicString("target"));
+  gfx::Rect input_rect(0, 1000, 100, 20);
+
+  // Focus the element with `preventScroll: true` to ensure it does not scroll
+  // into view.
+  FocusOptions* focus_options = FocusOptions::Create();
+  focus_options->setPreventScroll(true);
+  input->Focus(focus_options);
+  ASSERT_TRUE(input->GetLayoutObject());
+  ASSERT_EQ(input, WebView().FocusedElement());
+  ASSERT_EQ(ScrollOffset(), area->GetScrollOffset());
+  ASSERT_FALSE(area->VisibleContentRect().Contains(input_rect));
+  ASSERT_EQ(WebView().FakePageScaleAnimationPageScaleForTesting(), 0.f);
+  // Simulate the keyboard being shown and resizing the widget. Cause a scroll
+  // into view after.
+  WebView().MainFrameViewWidget()->Resize(gfx::Size(400, 300));
+  WebView()
+      .MainFrameImpl()
+      ->FrameWidget()
+      ->ScrollFocusedEditableElementIntoView();
+  // Verify that `preventScroll: true` prevents the page from scrolling.
+  ASSERT_EQ(0.f, WebView().FakePageScaleAnimationPageScaleForTesting());
+  EXPECT_EQ(gfx::Point(),
+            WebView().FakePageScaleAnimationTargetPositionForTesting());
+
+  // Reset focus to ensure the next focus call triggers scroll behavior.
+  GetDocument().ClearFocusedElement();
+  ASSERT_EQ(nullptr, GetDocument().FocusedElement());
+
+  // Focus the element again without `preventScroll` to ensure it is scrolled
+  // into view.
+  input->Focus();
+  ASSERT_TRUE(input->GetLayoutObject());
+  ASSERT_EQ(input, WebView().FocusedElement());
+  ASSERT_NE(ScrollOffset(), area->GetScrollOffset());
+  ASSERT_TRUE(area->VisibleContentRect().Contains(input_rect));
 }
 
 TEST_F(WebFrameSimTest, TestScrollFocusedEditableElementIntoView) {

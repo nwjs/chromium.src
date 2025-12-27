@@ -20,13 +20,7 @@ namespace features {
 // All features in alphabetical order. The features should be documented
 // alongside the definition of their values in the .cc file.
 
-// TODO(crbug.com/40598679): Remove this when the tab dragging
-// interactive_ui_tests pass on Wayland.
-BASE_DECLARE_FEATURE(kAllowWindowDragUsingSystemDragDrop);
-
 BASE_DECLARE_FEATURE(kAllowEyeDropperWGCScreenCapture);
-
-BASE_DECLARE_FEATURE(kCloseOmniboxPopupOnInactiveAreaClick);
 
 BASE_DECLARE_FEATURE(kCreateNewTabGroupAppMenuTopLevel);
 
@@ -94,11 +88,10 @@ inline constexpr base::FeatureParam<PreloadTopChromeWebUIMode>::Option
          kPreloadTopChromeWebUIModePreloadOnMakeContentsName}};
 
 inline constexpr base::FeatureParam<PreloadTopChromeWebUIMode>
-    kPreloadTopChromeWebUIMode(
-        &kPreloadTopChromeWebUI,
-        kPreloadTopChromeWebUIModeName,
-        PreloadTopChromeWebUIMode::kPreloadOnWarmup,
-        &kPreloadTopChromeWebUIModeOptions);
+    kPreloadTopChromeWebUIMode(&kPreloadTopChromeWebUI,
+                               kPreloadTopChromeWebUIModeName,
+                               PreloadTopChromeWebUIMode::kPreloadOnWarmup,
+                               &kPreloadTopChromeWebUIModeOptions);
 
 // If smart preload is enabled, the preload WebUI is determined by historical
 // engagement scores and whether a WebUI is currently being shown.
@@ -226,14 +219,27 @@ bool IsSideBySideKeyboardShortcutEnabled();
 
 BASE_DECLARE_FEATURE(kSideBySideFocusClearing);
 
+enum class SidePanelRelativeAlignment {
+  // Shows the toolbar and content height side panels on the same side.
+  kShowPanelsOnSameSide,
+  // Shows the toolbar and content height side panels on opposite sides.
+  kShowPanelsOnOppositeSides,
+};
+BASE_DECLARE_FEATURE_PARAM(SidePanelRelativeAlignment,
+                           kSidePanelRelativeAlignment);
+
+BASE_DECLARE_FEATURE(kAppBrowserUseNewLayout);
+
+BASE_DECLARE_FEATURE(kPopupBrowserUseNewLayout);
+
+BASE_DECLARE_FEATURE(kTabbedBrowserUseNewLayout);
+
 BASE_DECLARE_FEATURE(kTabDuplicateMetrics);
 
 BASE_DECLARE_FEATURE(kTabScrollingButtonPosition);
 
 inline constexpr char kTabScrollingButtonPositionParameterName[] =
     "buttonPosition";
-
-BASE_DECLARE_FEATURE(kSidePanelSearchCompanion);
 
 BASE_DECLARE_FEATURE(kTabGroupsCollapseFreezing);
 BASE_DECLARE_FEATURE(kTabGroupHoverCards);
@@ -340,8 +346,6 @@ BASE_DECLARE_FEATURE(kThreeButtonPasswordSaveDialog);
 // of the browser.
 BASE_DECLARE_FEATURE(kToolbarHeightSidePanel);
 
-bool IsToolbarPinningEnabled();
-
 // TODO(crbug.com/460764864): Cleanup all the enterprise badging feature flags.
 BASE_DECLARE_FEATURE(kEnterpriseProfileBadgingForMenu);
 BASE_DECLARE_FEATURE(kEnterpriseBadgingForNtpFooter);
@@ -351,8 +355,6 @@ BASE_DECLARE_FEATURE(kNTPFooterBadgingPolicies);
 
 BASE_DECLARE_FEATURE(kEnterpriseManagementDisclaimerUsesCustomLabel);
 BASE_DECLARE_FEATURE(kManagedProfileRequiredInterstitial);
-
-BASE_DECLARE_FEATURE(kUseNewTabbedBrowserLayout);
 
 BASE_DECLARE_FEATURE(kWebUITabStrip);
 
@@ -414,6 +416,12 @@ BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationAutofillMandatoryReauth);
 BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationClickToCall);
 BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationSharingHub);
 BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationAiMode);
+BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationVirtualCard);
+BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationFilledCardInformation);
+BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationReadingMode);
+BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationSavePayments);
+BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationLensOverlayHomework);
+BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationBookmarkStar);
 
 // Determines whether the "save password" page action displays different UI if
 // the user has said to never save passwords for that site.
@@ -423,10 +431,6 @@ BASE_DECLARE_FEATURE(kSavePasswordsContextualUi);
 // Add tab group colours when viewing tab groups using the top mac OS menu bar.
 BASE_DECLARE_FEATURE(kShowTabGroupsMacSystemMenu);
 #endif  // BUILDFLAG(IS_MAC)
-
-// Controls whether browser tab loading animations are driven by the compositor
-// vs. a repeating timer.
-BASE_DECLARE_FEATURE(kCompositorLoadingAnimations);
 
 // If enabled, the by date history will show in the side panel.
 BASE_DECLARE_FEATURE(kByDateHistoryInSidePanel);
@@ -471,6 +475,8 @@ bool IsAndroidAnimatedProgressBarInBrowserEnabled();
 
 // Controls whether the updated What's New page is enabled.
 BASE_DECLARE_FEATURE(kWhatsNewDesktopRefresh);
+
+BASE_DECLARE_FEATURE(kTabGroupsFocusing);
 
 }  // namespace features
 

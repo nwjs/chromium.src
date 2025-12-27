@@ -20,9 +20,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/subresource_filter/subresource_filter_browser_test_harness.h"
 #include "chrome/browser/tpcd/experiment/tpcd_experiment_features.h"
-#include "chrome/browser/tpcd/support/tpcd_support_service.h"
-#include "chrome/browser/tpcd/support/tpcd_support_service_factory.h"
-#include "chrome/browser/tpcd/support/validity_service.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -32,7 +29,6 @@
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/content_settings/core/common/pref_names.h"
-#include "components/network_session_configurator/common/network_switches.h"
 #include "components/prefs/pref_service.h"
 #include "components/privacy_sandbox/tpcd_pref_names.h"
 #include "components/privacy_sandbox/tpcd_utils.h"
@@ -85,7 +81,6 @@ using MetadataSourceType =
 
 struct Allow3PCMechanismBrowserTestCase {
   bool allow_by_global_setting = false;
-  bool allow_by_3pcd_3p_trial_token = false;
   bool tpcd_metadata_unspecified_allow_3p_cookie = false;
   bool tpcd_metadata_test_allow_3p_cookie = false;
   bool tpcd_metadata_1p_dt_allow_3p_cookie = false;
@@ -109,14 +104,6 @@ const Allow3PCMechanismBrowserTestCase kAllowMechanismTestCases[] = {
         .expected_web_feature_histogram_sample =
             WebFeature::kThirdPartyCookieDeprecation_AllowByGlobalSetting,
         .expected_metadata_source_type = MetadataSourceType::None,
-    },
-    {
-        .allow_by_3pcd_3p_trial_token = true,
-        .expected_allow_mechanism_histogram_sample =
-            ThirdPartyCookieAllowMechanism::kAllowBy3PCD,
-        .expected_web_feature_histogram_sample =
-            WebFeature::kThirdPartyCookieDeprecation_AllowBy3PCD,
-        .expected_metadata_source_type = MetadataSourceType::ThirdPartyDt,
     },
     {
         .tpcd_metadata_unspecified_allow_3p_cookie = true,
@@ -205,18 +192,6 @@ const Allow3PCMechanismBrowserTestCase kAllowMechanismTestCases[] = {
         .expected_metadata_source_type = MetadataSourceType::FirstPartyDt,
     },
     {
-        .allow_by_3pcd_3p_trial_token = true,
-        // This test only needs to be perform with one variant of the TPCD
-        // Metadata.
-        .tpcd_metadata_critical_sector_allow_3p_cookie = true,
-        .expected_allow_mechanism_histogram_sample =
-            ThirdPartyCookieAllowMechanism::
-                kAllowBy3PCDMetadataSourceCriticalSector,
-        .expected_web_feature_histogram_sample =
-            WebFeature::kThirdPartyCookieDeprecation_AllowBy3PCDMetadata,
-        .expected_metadata_source_type = MetadataSourceType::CriticalSector,
-    },
-    {
         .tpcd_metadata_critical_sector_allow_3p_cookie = true,
         .allow_by_explicit_setting = true,
         .expected_allow_mechanism_histogram_sample =
@@ -251,18 +226,12 @@ class ThirdPartyCookieDeprecationObserverBaseBrowserTest
     host_resolver()->AddRule("*", "127.0.0.1");
     https_server()->AddDefaultHandlers(GetChromeTestDataDir());
     https_server()->ServeFilesFromSourceDirectory("components/test/data");
+    https_server()->SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
     ASSERT_TRUE(https_server()->Start());
     SetRulesetWithRules(
         {subresource_filter::testing::CreateSuffixRule("isad=1"),
          subresource_filter::testing::CreateSuffixRule("ad_script.js")});
     ukm::InitializeSourceUrlRecorderForWebContents(web_contents());
-  }
-
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    // HTTPS server only serves a valid cert for 127.0.0.1 or localhost, so this
-    // is needed to load pages from other hosts (b.test, c.test) without an
-    // error.
-    command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
   }
 
   GURL GetURL(const std::string& host) {
@@ -889,8 +858,7 @@ class ThirdPartyCookieDeprecationObserverMechanismBrowserTest
   }
 
   bool IsAnyTpcdMitigationAllowMechanismTestCase() {
-    return IsAnyTpcdMetadataAllowMechanismTestCase() ||
-           test_case_.allow_by_3pcd_3p_trial_token;
+    return IsAnyTpcdMetadataAllowMechanismTestCase();
   }
 
   void SetUp() override {
@@ -904,13 +872,6 @@ class ThirdPartyCookieDeprecationObserverMechanismBrowserTest
 
     if (IsAnyTpcdMetadataAllowMechanismTestCase()) {
       enabled_features.push_back({net::features::kTpcdMetadataGrants, {}});
-    }
-
-    if (test_case_.allow_by_3pcd_3p_trial_token) {
-      enabled_features.push_back({net::features::kTpcdTrialSettings, {}});
-      // Disable the validity service so it doesn't remove manually created
-      // trial settings.
-      tpcd::trial::ValidityService::DisableForTesting();
     }
 
     if (is_tracking_protection_onboarded_) {
@@ -957,17 +918,6 @@ class ThirdPartyCookieDeprecationObserverMechanismBrowserTest
 
     if (test_case_.allow_by_global_setting) {
       DisableGlobal3pcb();
-    }
-
-    if (test_case_.allow_by_3pcd_3p_trial_token) {
-      auto* service = tpcd::trial::TpcdTrialServiceFactory::GetForProfile(
-          browser()->profile());
-      auto request_origin = url::Origin::Create(third_party_url);
-      auto partition_origin = url::Origin::Create(first_party_url);
-      service->Update3pcdTrialSettingsForTesting(OriginTrialStatusChangeDetails(
-          request_origin, net::SchemefulSite(partition_origin).Serialize(),
-          /*match_subdomains=*/true, /*enabled=*/true,
-          /*source_id=*/std::nullopt));
     }
 
     auto tpcd_metadata_helper = [&](const std::string& source) {

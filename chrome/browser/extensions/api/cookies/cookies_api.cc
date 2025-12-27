@@ -201,10 +201,12 @@ void CookiesEventRouter::OnCookieChange(bool otr,
   }
   base::Value::List args;
   base::Value::Dict dict;
-  dict.Set(
-      kRemovedKey,
-      change.cause != net::CookieChangeCause::INSERTED &&
-          change.cause != net::CookieChangeCause::INSERTED_NO_CHANGE_OVERWRITE);
+  dict.Set(kRemovedKey,
+           change.cause != net::CookieChangeCause::INSERTED &&
+               change.cause !=
+                   net::CookieChangeCause::INSERTED_NO_CHANGE_OVERWRITE &&
+               change.cause !=
+                   net::CookieChangeCause::INSERTED_NO_VALUE_CHANGE_OVERWRITE);
 
   Profile* profile =
       otr ? profile_->GetPrimaryOTRProfile(/*create_if_needed=*/false)
@@ -225,6 +227,7 @@ void CookiesEventRouter::OnCookieChange(bool otr,
     case net::CookieChangeCause::INSERTED:
     case net::CookieChangeCause::EXPLICIT:
     case net::CookieChangeCause::INSERTED_NO_CHANGE_OVERWRITE:
+    case net::CookieChangeCause::INSERTED_NO_VALUE_CHANGE_OVERWRITE:
       cause_dict_entry = kExplicitChangeCause;
       break;
 

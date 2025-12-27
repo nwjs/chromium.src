@@ -23,18 +23,18 @@ XRShapedLayer::XRShapedLayer(const XRLayerInit* init,
   SetMipLevels(init->mipLevels());
 }
 
+bool XRShapedLayer::isStatic() const {
+  return is_static_;
+}
+
 void XRShapedLayer::setSpace(XRSpace* space) {
   xr_space_ = space;
   SetModified(true);
 }
 
-device::mojom::blink::XRReferenceSpaceType
-XRShapedLayer::GetReferenceSpaceType() const {
-  if (space()->IsReferenceSpace()) {
-    return static_cast<XRReferenceSpace*>(space())->GetType();
-  }
-  // TODO(crbug.com/454041065): add non-reference space support.
-  return device::mojom::blink::XRReferenceSpaceType::kLocal;
+device::mojom::blink::XRNativeOriginInformationPtr XRShapedLayer::NativeOrigin()
+    const {
+  return xr_space_->NativeOrigin();
 }
 
 void XRShapedLayer::UpdateLayerBackend() {
@@ -43,12 +43,16 @@ void XRShapedLayer::UpdateLayerBackend() {
         device::mojom::blink::XRLayerMutableData::New();
     mutable_data->blend_texture_source_alpha = blendTextureSourceAlpha();
     mutable_data->opacity = opacity();
-    mutable_data->reference_space_type = GetReferenceSpaceType();
+    mutable_data->native_origin_information = NativeOrigin();
 
     // Layer Specific data.
     mutable_data->layer_data = CreateLayerSpecificData();
     layer_manager->UpdateCompositionLayer(layer_id(), std::move(mutable_data));
   }
+}
+
+bool XRShapedLayer::IsRedrawEventSupported() const {
+  return true;
 }
 
 void XRShapedLayer::Trace(Visitor* visitor) const {

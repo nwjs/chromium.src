@@ -222,7 +222,7 @@ public class CronetUrlRequestTest {
         // Default method is 'GET'.
         assertThat(callback.mResponseAsString).isEqualTo("GET");
         assertThat(callback.mRedirectCount).isEqualTo(0);
-        assertThat(ResponseStep.ON_SUCCEEDED).isEqualTo(callback.mResponseStep);
+        assertThat(callback.mResponseStep).isEqualTo(ResponseStep.ON_SUCCEEDED);
         UrlResponseInfo urlResponseInfo =
                 createUrlResponseInfo(
                         new String[] {url},
@@ -530,7 +530,7 @@ public class CronetUrlRequestTest {
                         "<!DOCTYPE html>\n<html>\n<head>\n<title>Not found</title>\n"
                                 + "<p>Test page loaded.</p>\n</head>\n</html>\n");
         assertThat(callback.mRedirectCount).isEqualTo(0);
-        assertThat(ResponseStep.ON_SUCCEEDED).isEqualTo(callback.mResponseStep);
+        assertThat(callback.mResponseStep).isEqualTo(ResponseStep.ON_SUCCEEDED);
     }
 
     // Checks that UrlRequest.Callback.onFailed is only called once in the case
@@ -874,7 +874,7 @@ public class CronetUrlRequestTest {
         assertThat(callback.getResponseInfoWithChecks()).hasHttpStatusCodeThat().isEqualTo(200);
         assertThat(callback.mRedirectResponseInfoList).isEmpty();
         assertThat(callback.mHttpResponseDataLength).isNotEqualTo(0);
-        assertThat(ResponseStep.ON_SUCCEEDED).isEqualTo(callback.mResponseStep);
+        assertThat(callback.mResponseStep).isEqualTo(ResponseStep.ON_SUCCEEDED);
         Map<String, List<String>> responseHeaders =
                 callback.getResponseInfoWithChecks().getAllHeaders();
         assertThat(responseHeaders).containsEntry("header-name", Arrays.asList("header-value"));
@@ -958,7 +958,7 @@ public class CronetUrlRequestTest {
         mTestRule.assertResponseEquals(secondExpectedResponseInfo, mResponseInfo);
         assertThat(callback.mHttpResponseDataLength).isNotEqualTo(0);
         assertThat(callback.mRedirectCount).isEqualTo(2);
-        assertThat(ResponseStep.ON_SUCCEEDED).isEqualTo(callback.mResponseStep);
+        assertThat(callback.mResponseStep).isEqualTo(ResponseStep.ON_SUCCEEDED);
     }
 
     @Test
@@ -978,7 +978,7 @@ public class CronetUrlRequestTest {
         assertThat(callback.mHttpResponseDataLength).isNotEqualTo(0);
         assertThat(callback.mRedirectCount).isEqualTo(0);
         assertThat(callback.mOnErrorCalled).isFalse();
-        assertThat(ResponseStep.ON_SUCCEEDED).isEqualTo(callback.mResponseStep);
+        assertThat(callback.mResponseStep).isEqualTo(ResponseStep.ON_SUCCEEDED);
     }
 
     @Test
@@ -1295,13 +1295,13 @@ public class CronetUrlRequestTest {
         callback.getExecutor().submit(startAndRead).get();
         callback.waitForNextStep();
 
-        assertThat(ResponseStep.ON_RECEIVED_REDIRECT).isEqualTo(callback.mResponseStep);
+        assertThat(callback.mResponseStep).isEqualTo(ResponseStep.ON_RECEIVED_REDIRECT);
         // Try to read after the redirect.
         assertThrows(IllegalStateException.class, () -> callback.startNextRead(urlRequest));
         urlRequest.followRedirect();
         callback.waitForNextStep();
 
-        assertThat(ResponseStep.ON_RESPONSE_STARTED).isEqualTo(callback.mResponseStep);
+        assertThat(callback.mResponseStep).isEqualTo(ResponseStep.ON_RESPONSE_STARTED);
         assertThat(callback.getResponseInfoWithChecks()).hasHttpStatusCodeThat().isEqualTo(200);
 
         while (!callback.isDone()) {
@@ -1320,7 +1320,7 @@ public class CronetUrlRequestTest {
             callback.waitForNextStep();
         }
 
-        assertThat(ResponseStep.ON_SUCCEEDED).isEqualTo(callback.mResponseStep);
+        assertThat(callback.mResponseStep).isEqualTo(ResponseStep.ON_SUCCEEDED);
         assertThat(callback.mResponseAsString).isEqualTo(NativeTestServer.SUCCESS_BODY);
 
         // Try to read after request is complete.
@@ -1358,7 +1358,7 @@ public class CronetUrlRequestTest {
         callback.getExecutor().execute(startAndRead);
         callback.waitForNextStep();
 
-        assertThat(ResponseStep.ON_RECEIVED_REDIRECT).isEqualTo(callback.mResponseStep);
+        assertThat(callback.mResponseStep).isEqualTo(ResponseStep.ON_RECEIVED_REDIRECT);
         // Try to follow the redirect twice. Second attempt should fail.
         Runnable followRedirectTwice =
                 new Runnable() {
@@ -1371,7 +1371,7 @@ public class CronetUrlRequestTest {
         callback.getExecutor().execute(followRedirectTwice);
         callback.waitForNextStep();
 
-        assertThat(ResponseStep.ON_RESPONSE_STARTED).isEqualTo(callback.mResponseStep);
+        assertThat(callback.mResponseStep).isEqualTo(ResponseStep.ON_RESPONSE_STARTED);
         assertThat(callback.getResponseInfoWithChecks()).hasHttpStatusCodeThat().isEqualTo(200);
 
         while (!callback.isDone()) {
@@ -1380,7 +1380,7 @@ public class CronetUrlRequestTest {
             callback.waitForNextStep();
         }
 
-        assertThat(ResponseStep.ON_SUCCEEDED).isEqualTo(callback.mResponseStep);
+        assertThat(callback.mResponseStep).isEqualTo(ResponseStep.ON_SUCCEEDED);
         assertThat(callback.mResponseAsString).isEqualTo(NativeTestServer.SUCCESS_BODY);
 
         // Try to follow redirect after request is complete.

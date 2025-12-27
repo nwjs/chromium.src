@@ -12,7 +12,6 @@
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
-#include "base/functional/callback_forward.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
@@ -104,8 +103,8 @@ void OAuthTokenFetcher::OnOAuthTokenRequestCompleted(
         std::move(access_token_info.token), access_token_info.expiration_time));
     return;
   }
-  VLOG(1) << "OAuth token fetch failed for consumer:"
-          << GetOAuthConsumerFromId(oauth_consumer_id_).GetName()
+  VLOG(1) << "OAuth token fetch failed for consumer id:"
+          << static_cast<int>(oauth_consumer_id_)
           << " with error: " << error.state();
   std::move(callback).Run(std::nullopt);
 }

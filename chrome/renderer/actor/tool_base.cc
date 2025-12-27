@@ -77,7 +77,7 @@ WebNode GetNodeFromIdIncludingPopup(const content::RenderFrame& frame,
 }  // namespace
 
 WebWidget* ResolvedTarget::GetWidget(const ToolBase& tool) const {
-  WebLocalFrame* web_frame = tool.frame()->GetWebFrame();
+  const WebLocalFrame* web_frame = tool.frame()->GetWebFrame();
   if (!web_frame || !web_frame->FrameWidget()) {
     return nullptr;
   }
@@ -118,6 +118,8 @@ ToolBase::ToolBase(content::RenderFrame& frame,
       observed_target_(std::move(observed_target)) {}
 
 ToolBase::~ToolBase() = default;
+
+void ToolBase::Cancel() {}
 
 ToolBase::ResolveResult ToolBase::ResolveTarget(
     const mojom::ToolTarget& target) const {
@@ -174,7 +176,7 @@ ToolBase::ResolveResult ToolBase::ResolveTarget(
 
   WebNode node =
       GetNodeFromIdIncludingPopup(frame_.get(), target.get_dom_node_id());
-  if (node.IsNull()) {
+  if (node.IsNull() || !node.IsConnected()) {
     return base::unexpected(
         MakeResult(mojom::ActionResultCode::kInvalidDomNodeId));
   }
@@ -222,16 +224,16 @@ ToolBase::ResolveResult ToolBase::ValidateAndResolveTarget() const {
   return resolved_target.value();
 }
 
-void ToolBase::EnsureTargetInView() {
+bool ToolBase::EnsureTargetInView() {
   if (!target_) {
-    return;
+    return false;
   }
 
   // Scrolling a target into view is only supported for node_id targets since
   // TOCTOU checks cannot be applied to the APC captured at the old scroll
   // offset.
   if (target_->is_coordinate_dip()) {
-    return;
+    return false;
   }
 
   int32_t dom_node_id = target_->get_dom_node_id();
@@ -239,7 +241,10 @@ void ToolBase::EnsureTargetInView() {
                         .DynamicTo<WebElement>();
   if (node && node.VisibleBoundsInWidget().IsEmpty()) {
     node.ScrollIntoViewIfNeeded();
+    return true;
   }
+
+  return false;
 }
 
 mojom::ActionResultPtr ToolBase::ValidateTimeOfUse(
@@ -271,7 +276,7 @@ mojom::ActionResultPtr ToolBase::ValidateTimeOfUse(
               .Add("target_id", target_node.GetDomNodeId())
               .Add("observed_target_id",
                    *observed_target_->node_attribute->dom_node_id)
-              .Add("target", NodeToDebugSring(target_node))
+              .Add("target", NodeToDebugString(target_node))
               .AddError(
                   "Observed target at coordinate is not present in live DOM")
               .Build());
@@ -293,8 +298,8 @@ mojom::ActionResultPtr ToolBase::ValidateTimeOfUse(
                    base::ToString(target_->get_coordinate_dip()))
               .Add("target_id", target_node.GetDomNodeId())
               .Add("observed_target_id", observed_target_node.GetDomNodeId())
-              .Add("target", NodeToDebugSring(target_node))
-              .Add("observed_target", NodeToDebugSring(observed_target_node))
+              .Add("target", NodeToDebugString(target_node))
+              .Add("observed_target", NodeToDebugString(observed_target_node))
               .AddError("Wrong Node At Location")
               .Build());
       UmaHistogramEnumeration(kTimeOfUseValidationHistogram,
@@ -327,8 +332,8 @@ mojom::ActionResultPtr ToolBase::ValidateTimeOfUse(
                     JournalDetailsBuilder()
                         .Add("target_id", target_node.GetDomNodeId())
                         .Add("hit_node_id", hit_element.GetDomNodeId())
-                        .Add("target", NodeToDebugSring(target_node))
-                        .Add("hit_node", NodeToDebugSring(hit_element))
+                        .Add("target", NodeToDebugString(target_node))
+                        .Add("hit_node", NodeToDebugString(hit_element))
                         .AddError("Node covered by another node")
                         .Build());
       UmaHistogramEnumeration(

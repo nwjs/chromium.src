@@ -8,7 +8,6 @@
 #include "components/guest_contents/browser/guest_contents_handle.h"
 #include "components/guest_contents/browser/guest_contents_host_impl.h"
 #include "components/guest_contents/common/guest_contents.mojom.h"
-#include "components/network_session_configurator/common/network_switches.h"
 #include "content/public/browser/unowned_inner_web_contents_client.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
@@ -33,17 +32,12 @@ class GuestContentsSecurityBrowsertest : public content::ContentBrowserTest {
 
     host_resolver()->AddRule("*", "127.0.0.1");
 
-    embedded_https_test_server().SetSSLConfig(net::EmbeddedTestServer::CERT_OK);
+    embedded_https_test_server().SetCertHostnames(
+        {"outer.com", "inner.com", "attacker.com", "a.com", "b.com"});
     embedded_https_test_server().ServeFilesFromSourceDirectory(
         "components/test/data/guest_contents");
 
     ASSERT_TRUE(embedded_https_test_server().Start());
-  }
-
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    // HTTPS server only serves a valid cert for localhost, so this is needed
-    // to load pages from other hosts without an error.
-    command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
   }
 
   void TearDownOnMainThread() override { inner_webcontents_.reset(); }
@@ -367,4 +361,94 @@ IN_PROC_BROWSER_TEST_F(GuestContentsSecurityBrowsertest, NestedIframeInGuest) {
   // window[0] refers to the guest contents, [1] should not refer to anything.
   EXPECT_TRUE(
       EvalJs(outer_webcontents, "window[1] === undefined").ExtractBool());
+}
+
+// Test HTMLIFrameElement's contentWindow and contentDocument accessibility.
+// NOTE: This is a known security issue.
+IN_PROC_BROWSER_TEST_F(GuestContentsSecurityBrowsertest, HTMLIFrameElement) {
+  content::WebContents* outer_webcontents = GetOuterWebContents();
+
+  EXPECT_TRUE(ExecJs(outer_webcontents,
+                     "var iframe = document.querySelector('#iframe');"));
+  EXPECT_FALSE(
+      EvalJs(outer_webcontents, "iframe.contentWindow === null").ExtractBool());
+  EXPECT_TRUE(EvalJs(outer_webcontents, "iframe.contentDocument === null")
+                  .ExtractBool());
+}
+
+// Test that a link with target="_parent" or target="_top" from the inner
+// webcontents does not navigate the outer webcontents.
+IN_PROC_BROWSER_TEST_F(GuestContentsSecurityBrowsertest,
+                       NavigateParentWithLink) {
+  content::WebContents* outer_webcontents = GetOuterWebContents();
+  content::WebContents* inner_webcontents = GetInnerWebContents();
+
+  // Store the outer's current URL to verify it doesn't change.
+  GURL outer_url = outer_webcontents->GetLastCommittedURL();
+  GURL inner_url = inner_webcontents->GetLastCommittedURL();
+
+  // Test 1: Create a link with target="_parent" and click it.
+  GURL target_url =
+      embedded_https_test_server().GetURL("attacker.com", "/simple.html");
+  EXPECT_TRUE(
+      ExecJs(inner_webcontents,
+             content::JsReplace("const link = document.createElement('a');"
+                                "link.href = $1;"
+                                "link.target = '_parent';"
+                                "link.id = 'testLink';"
+                                "link.textContent = 'Click me';"
+                                "document.body.appendChild(link);"
+                                "link.click();",
+                                target_url)));
+  EXPECT_TRUE(content::WaitForLoadStop(inner_webcontents));
+
+  // Verify the inner webcontents navigated to the target URL.
+  EXPECT_EQ(inner_webcontents->GetLastCommittedURL(), target_url);
+
+  // Verify the outer webcontents did NOT navigate.
+  EXPECT_EQ(outer_webcontents->GetLastCommittedURL(), outer_url);
+
+  // Navigate inner back to original URL for next test.
+  EXPECT_TRUE(NavigateToURL(inner_webcontents, inner_url));
+
+  // Test 2: Create a link with target="_top" and click it.
+  EXPECT_TRUE(
+      ExecJs(inner_webcontents,
+             content::JsReplace("const link2 = document.createElement('a');"
+                                "link2.href = $1;"
+                                "link2.target = '_top';"
+                                "link2.textContent = 'Click me too';"
+                                "document.body.appendChild(link2);"
+                                "link2.click();",
+                                target_url)));
+  EXPECT_TRUE(content::WaitForLoadStop(inner_webcontents));
+
+  // Verify the inner webcontents navigated to the target URL.
+  EXPECT_EQ(inner_webcontents->GetLastCommittedURL(), target_url);
+
+  // Verify the outer webcontents still did NOT navigate.
+  EXPECT_EQ(outer_webcontents->GetLastCommittedURL(), outer_url);
+}
+
+// Test that document.referrer in the inner webcontents does not leak the
+// embedder's URL.
+IN_PROC_BROWSER_TEST_F(GuestContentsSecurityBrowsertest,
+                       DocumentReferrerIndependent) {
+  content::WebContents* inner_webcontents = GetInnerWebContents();
+
+  // The inner webcontents should not have a referrer since it acts as a
+  // top-level browsing context, not as an embedded frame.
+  EXPECT_EQ("", EvalJs(inner_webcontents, "document.referrer"));
+}
+
+// Navigating the outer should always navigate the outer.
+IN_PROC_BROWSER_TEST_F(GuestContentsSecurityBrowsertest,
+                       NavigateOuterWithWindowLocation) {
+  content::WebContents* outer_webcontents = GetOuterWebContents();
+
+  GURL url = embedded_https_test_server().GetURL("outer.com", "/simple.html");
+  EXPECT_TRUE(ExecJs(outer_webcontents,
+                     content::JsReplace("window.location.href = $1", url)));
+  EXPECT_TRUE(content::WaitForLoadStop(outer_webcontents));
+  EXPECT_EQ(outer_webcontents->GetLastCommittedURL(), url);
 }

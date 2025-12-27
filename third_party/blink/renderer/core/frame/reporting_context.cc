@@ -53,22 +53,17 @@ bool ShouldReportBeVisibleToObservers(Report* report) {
 
 }  // namespace
 
-// static
-const char ReportingContext::kSupplementName[] = "ReportingContext";
-
 ReportingContext::ReportingContext(ExecutionContext& context)
-    : Supplement<ExecutionContext>(context),
-      execution_context_(context),
+    : execution_context_(context),
       reporting_service_(&context),
       receivers_(this, &context) {}
 
 // static
 ReportingContext* ReportingContext::From(ExecutionContext* context) {
-  ReportingContext* reporting_context =
-      Supplement<ExecutionContext>::From<ReportingContext>(context);
+  ReportingContext* reporting_context = context->GetReportingContext();
   if (!reporting_context) {
     reporting_context = MakeGarbageCollected<ReportingContext>(*context);
-    Supplement<ExecutionContext>::ProvideTo(*context, reporting_context);
+    context->SetReportingContext(reporting_context);
   }
   return reporting_context;
 }
@@ -128,7 +123,6 @@ void ReportingContext::Trace(Visitor* visitor) const {
   visitor->Trace(execution_context_);
   visitor->Trace(reporting_service_);
   visitor->Trace(receivers_);
-  Supplement<ExecutionContext>::Trace(visitor);
 }
 
 void ReportingContext::CountReport(Report* report) {

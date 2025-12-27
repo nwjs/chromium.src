@@ -12,7 +12,6 @@
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_remote.h"
-#include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
 
@@ -24,11 +23,8 @@ class SpeculationRuleLoader;
 //
 // Updates are pushed asynchronously.
 class CORE_EXPORT DocumentSpeculationRules
-    : public GarbageCollected<DocumentSpeculationRules>,
-      public Supplement<Document> {
+    : public GarbageCollected<DocumentSpeculationRules> {
  public:
-  static const char kSupplementName[];
-
   static DocumentSpeculationRules& From(Document&);
   static DocumentSpeculationRules* FromIfExists(Document&);
 
@@ -78,7 +74,7 @@ class CORE_EXPORT DocumentSpeculationRules
 
   void FlushMojoMessageForTesting();
 
-  void Trace(Visitor*) const override;
+  void Trace(Visitor*) const;
 
  private:
   // Retrieves a valid proxy to the speculation host in the browser.
@@ -144,6 +140,7 @@ class CORE_EXPORT DocumentSpeculationRules
                PendingUpdateState::kMicrotaskQueuedWithForcedStyleUpdate;
   }
 
+  Member<Document> document_;
   HeapVector<Member<SpeculationRuleSet>> rule_sets_;
   HeapMojoRemote<mojom::blink::SpeculationHost> host_;
   HeapHashSet<Member<SpeculationRuleLoader>> speculation_rule_loaders_;

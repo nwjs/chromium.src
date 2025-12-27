@@ -8,11 +8,13 @@ import android.content.Context;
 import android.view.ActionMode;
 import android.view.View;
 import android.view.View.OnLongClickListener;
+import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 
 import androidx.annotation.IntDef;
 
 import org.chromium.base.Callback;
+import org.chromium.base.ObserverList;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.omnibox.UrlBar.ScrollType;
@@ -49,7 +51,11 @@ public class UrlBarCoordinator
     private final UrlBarMediator mMediator;
     private final KeyboardVisibilityDelegate mKeyboardVisibilityDelegate;
     private final Callback<Boolean> mFocusChangeCallback;
+    private final Callback<Boolean> mTextWrappedCallback;
+    private final ObserverList<Callback<Boolean>> mTextWrapListeners = new ObserverList<>();
     private @Nullable Runnable mKeyboardHideTask;
+    private boolean mHasFocus;
+    private boolean mTextIsWrapped;
 
     /**
      * Constructs a coordinator for the given UrlBar view.
@@ -80,6 +86,7 @@ public class UrlBarCoordinator
         mUrlBar = urlBar;
         mKeyboardVisibilityDelegate = keyboardVisibilityDelegate;
         mFocusChangeCallback = focusChangeCallback;
+        mTextWrappedCallback = this::onTextWrappingChanged;
 
         PropertyModel model =
                 new PropertyModel.Builder(UrlBarProperties.ALL_KEYS)
@@ -87,6 +94,7 @@ public class UrlBarCoordinator
                         .with(UrlBarProperties.DELEGATE, delegate)
                         .with(UrlBarProperties.INCOGNITO_COLORS_ENABLED, isIncognitoBranded)
                         .with(UrlBarProperties.LONG_CLICK_LISTENER, onLongClickListener)
+                        .with(UrlBarProperties.TEXT_WRAPPED_CALLBACK, mTextWrappedCallback)
                         .build();
         PropertyModelChangeProcessor.create(model, urlBar, UrlBarViewBinder::bind);
 
@@ -101,6 +109,36 @@ public class UrlBarCoordinator
             mUrlBar.removeCallbacks(mKeyboardHideTask);
         }
         mUrlBar.destroy();
+    }
+
+    /** Returns whether the url bar currently contains more than a single line of text. */
+    public boolean isTextWrapped() {
+        return mTextIsWrapped;
+    }
+
+    /**
+     * Adds a listener for text wrapping changes.
+     *
+     * @param listener The listener to be added.
+     */
+    public void addTextWrappingChangeListener(Callback<Boolean> listener) {
+        mTextWrapListeners.addObserver(listener);
+    }
+
+    /**
+     * Removes a listener for text wrapping changes.
+     *
+     * @param listener The listener to be removed.
+     */
+    public void removeTextWrappingChangeListener(Callback<Boolean> listener) {
+        mTextWrapListeners.removeObserver(listener);
+    }
+
+    private void onTextWrappingChanged(boolean isWrapped) {
+        mTextIsWrapped = isWrapped;
+        for (Callback<Boolean> listener : mTextWrapListeners) {
+            listener.onResult(isWrapped);
+        }
     }
 
     /**
@@ -267,7 +305,7 @@ public class UrlBarCoordinator
     }
 
     /* package */ boolean hasFocus() {
-        return mUrlBar.hasFocus();
+        return mHasFocus;
     }
 
     /* package */ void requestFocus() {
@@ -280,6 +318,11 @@ public class UrlBarCoordinator
 
     /* package */ void requestAccessibilityFocus() {
         mUrlBar.requestAccessibilityFocus();
+    }
+
+    /* package */ void dispatchGoEvent() {
+        if (!mHasFocus) return;
+        mUrlBar.onEditorAction(EditorInfo.IME_ACTION_GO);
     }
 
     /**
@@ -339,6 +382,7 @@ public class UrlBarCoordinator
         InputMethodManager imm =
                 (InputMethodManager)
                         mUrlBar.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+        mHasFocus = hasFocus;
         if (hasFocus) {
             // Explicitly tell InputMethodManager that the url bar is focused before any callbacks
             // so that it updates the active view accordingly. Otherwise, it may fail to update

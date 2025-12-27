@@ -5,6 +5,7 @@
 #include "components/optimization_guide/core/optimization_guide_features.h"
 
 #include <cstring>
+#include <optional>
 
 #include "base/byte_count.h"
 #include "base/command_line.h"
@@ -20,6 +21,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/to_string.h"
 #include "base/system/sys_info.h"
+#include "base/time/time.h"
 #include "components/optimization_guide/core/feature_registry/mqls_feature_registry.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/optimization_guide_constants.h"
@@ -53,11 +55,6 @@ BASE_FEATURE(kOptimizationHints, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the prediction of optimization targets.
 BASE_FEATURE(kOptimizationTargetPrediction, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables push notification of hints.
-BASE_FEATURE(kPushNotifications,
-             "OptimizationGuidePushNotifications",
-             enabled_by_default_mobile_only);
 
 // This feature flag does not turn off any behavior, it is only used for
 // experiment parameters.
@@ -103,11 +100,6 @@ BASE_FEATURE(kOptimizationGuideOnDeviceModel,
 #else
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
-
-// Whether to allow on device model evaluation for Compose. This has no effect
-// if OptimizationGuideOnDeviceModel is off.
-BASE_FEATURE(kOptimizationGuideComposeOnDeviceEval,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Whether the on device service is launched after a delay on startup to log
 // metrics.
@@ -168,6 +160,24 @@ BASE_FEATURE(kOptimizationGuideProactivePersonalizedHintsFetching,
 
 BASE_FEATURE(kOptimizationGuideBypassFormsClassificationAuth,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Controls whether to enforce a timeout for subframe page content extraction.
+// If enabled, defaults to 1 second. If disabled, wait indefinitely for all
+// subframes to respond.
+BASE_FEATURE(kGetAIPageContentSubframeTimeoutEnabled,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+const base::FeatureParam<base::TimeDelta> kGetAIPageContentSubframeTimeoutParam{
+    &kGetAIPageContentSubframeTimeoutEnabled, "timeout", base::Seconds(1)};
+
+// Controls whether to enforce a timeout for main frame page content extraction.
+// If enabled, defaults to 10 seconds. If disabled, wait indefinitely for the
+// main frame to respond.
+BASE_FEATURE(kGetAIPageContentMainFrameTimeoutEnabled,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+const base::FeatureParam<base::TimeDelta>
+    kGetAIPageContentMainFrameTimeoutParam{
+        &kGetAIPageContentMainFrameTimeoutEnabled, "timeout",
+        base::Seconds(10)};
 
 // The default value here is a bit of a guess.
 // TODO(crbug.com/40163041): This should be tuned once metrics are available.
@@ -234,7 +244,7 @@ bool IsSRPFetchingEnabled() {
 }
 
 bool IsPushNotificationsEnabled() {
-  return base::FeatureList::IsEnabled(kPushNotifications);
+  return enabled_by_default_mobile_only;
 }
 
 size_t MaxHostKeyedHintCacheSize() {
@@ -489,7 +499,7 @@ bool IsFreeDiskSpaceTooLowForOnDeviceModelInstall(
   return base::MiB(base::GetFieldTrialParamByFeatureAsInt(
              kOptimizationGuideOnDeviceModel,
              "on_device_model_free_space_mb_required_to_retain",
-             base::GiB(10).InMiB())) >= free_disk_space_bytes;
+             base::GiB(5).InMiB())) >= free_disk_space_bytes;
 }
 
 bool GetOnDeviceModelRetractUnsafeContent() {
@@ -577,6 +587,20 @@ std::vector<uint32_t> GetOnDeviceModelAllowedAdaptationRanks() {
 
 bool ShouldEnableOptimizationGuideIconView() {
   return base::FeatureList::IsEnabled(kOptimizationGuideIconView);
+}
+
+std::optional<base::TimeDelta> GetSubframeGetAIPageContentTimeout() {
+  if (!base::FeatureList::IsEnabled(kGetAIPageContentSubframeTimeoutEnabled)) {
+    return std::nullopt;
+  }
+  return kGetAIPageContentSubframeTimeoutParam.Get();
+}
+
+std::optional<base::TimeDelta> GetMainFrameGetAIPageContentTimeout() {
+  if (!base::FeatureList::IsEnabled(kGetAIPageContentMainFrameTimeoutEnabled)) {
+    return std::nullopt;
+  }
+  return kGetAIPageContentMainFrameTimeoutParam.Get();
 }
 
 }  // namespace features

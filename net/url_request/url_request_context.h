@@ -16,7 +16,6 @@
 #include <string>
 
 #include "base/memory/raw_ptr.h"
-#include "base/memory/weak_ptr.h"
 #include "base/threading/thread_checker.h"
 #include "base/types/pass_key.h"
 #include "build/build_config.h"
@@ -27,6 +26,10 @@
 #include "net/net_buildflags.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "net/url_request/url_request.h"
+
+namespace unexportable_keys {
+class UnexportableKeyService;
+}
 
 namespace net {
 class CertVerifier;
@@ -217,6 +220,15 @@ class NET_EXPORT URLRequestContext final {
 #endif
   }
   // May return nullptr if the feature is disabled.
+  unexportable_keys::UnexportableKeyService* unexportable_key_service() const {
+#if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+    return unexportable_key_service_.get();
+#else
+    return nullptr;
+#endif
+  }
+
+  // May return nullptr if the feature is disabled.
   device_bound_sessions::SessionService* device_bound_session_service() const {
 #if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
     return device_bound_session_service_.get();
@@ -247,14 +259,6 @@ class NET_EXPORT URLRequestContext final {
   // DEPRECATED: Do not use this even in tests. This is for a legacy use.
   void SetJobFactoryForTesting(const URLRequestJobFactory* job_factory) {
     job_factory_ = job_factory;
-  }
-
-  const std::optional<std::string>& cookie_deprecation_label() const {
-    return cookie_deprecation_label_;
-  }
-
-  void set_cookie_deprecation_label(const std::optional<std::string>& label) {
-    cookie_deprecation_label_ = label;
   }
 
  private:
@@ -326,6 +330,9 @@ class NET_EXPORT URLRequestContext final {
   void set_device_bound_session_service(
       std::unique_ptr<device_bound_sessions::SessionService>
           device_bound_session_service);
+  void set_unexportable_key_service(
+      std::unique_ptr<unexportable_keys::UnexportableKeyService>
+          unexportable_key_service);
 #endif  // BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
 
   std::unique_ptr<HostResolver> host_resolver_;
@@ -375,6 +382,8 @@ class NET_EXPORT URLRequestContext final {
       url_requests_;
 
 #if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+  std::unique_ptr<unexportable_keys::UnexportableKeyService>
+      unexportable_key_service_;
   std::unique_ptr<device_bound_sessions::SessionStore>
       device_bound_session_store_;
   std::unique_ptr<device_bound_sessions::SessionService>
@@ -392,8 +401,6 @@ class NET_EXPORT URLRequestContext final {
   // Triggers a DCHECK if a NetworkAnonymizationKey/IsolationInfo is not
   // provided to a request when true.
   bool require_network_anonymization_key_ = false;
-
-  std::optional<std::string> cookie_deprecation_label_;
 
   handles::NetworkHandle bound_network_;
 

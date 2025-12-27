@@ -7,6 +7,7 @@
 
 #include <array>
 #include <string_view>
+#include <vector>
 
 #include "base/containers/span.h"
 #include "base/gtest_prod_util.h"
@@ -18,10 +19,43 @@ static constexpr size_t kSha1Size = 20;
 class Sha1;
 }  // namespace crypto::obsolete
 
+namespace arc {
+std::string GetSha1HashForArcPlayTermsOfService(std::string_view tos_content);
+}
+
 namespace ash::ambient {
 std::string GetCachedImageHash(std::string_view image);
 std::string Sha1UrlAsHexEncodeForFilename(std::string_view url);
 }  // namespace ash::ambient
+
+namespace ash::login {
+std::string GetHashedTosContent(std::string_view tos_content);
+std::string Sha1AsHexForRefreshToken(std::string_view data);
+}  // namespace ash::login
+
+namespace ash::quick_start {
+std::string GetHashedAuthToken(std::string_view authentication_token);
+}  // namespace ash::quick_start
+
+namespace kcer::internal {
+std::vector<uint8_t> Sha1ForPkcs11Id(base::span<const uint8_t> data);
+}  // namespace kcer::internal
+
+namespace net {
+std::string ComputeSecWebSocketAccept(std::string_view key);
+}  // namespace net
+
+namespace policy {
+std::array<uint8_t, crypto::obsolete::kSha1Size> Sha1ForDmTokenFilePath(
+    std::string_view input);
+std::array<uint8_t, crypto::obsolete::kSha1Size> Sha1ForMachineId(
+    std::string_view input);
+}  // namespace policy
+
+namespace wallpaper {
+std::string GetHexForWallpaperFilesId(
+    const base::span<const uint8_t> files_id_unhashed);
+}  // namespace wallpaper
 
 namespace crypto::obsolete {
 
@@ -56,7 +90,35 @@ class CRYPTO_EXPORT Sha1 {
   // The friends listed here are the areas required to continue using SHA-1 for
   // compatibility with existing specs, on-disk data, or similar.
   friend std::string ash::ambient::GetCachedImageHash(std::string_view image);
-  friend std::string ash::ambient::Sha1UrlAsHexEncodeForFilename(std::string_view url);
+  friend std::string ash::ambient::Sha1UrlAsHexEncodeForFilename(
+      std::string_view url);
+  friend std::string ash::login::GetHashedTosContent(
+      std::string_view tos_content);
+  friend std::string ash::login::Sha1AsHexForRefreshToken(
+      std::string_view data);
+  friend std::string ash::quick_start::GetHashedAuthToken(
+      std::string_view authentication_token);
+  friend std::string net::ComputeSecWebSocketAccept(std::string_view key);
+
+  // TODO(crbug.com/457771366): Remove once play_terms_of_service_hash is
+  // migrated to use SHA-256.
+  friend std::string arc::GetSha1HashForArcPlayTermsOfService(
+      std::string_view tos_content);
+
+  // TODO(crbug.com/459863801): get rid of this.
+  friend std::vector<uint8_t> kcer::internal::Sha1ForPkcs11Id(
+      base::span<const uint8_t> data);
+
+  // TODO(b/460489502): remove once SHA-1 is no longer used for hashing client
+  // IDs.
+  friend std::array<uint8_t, crypto::obsolete::kSha1Size>
+  policy::Sha1ForDmTokenFilePath(std::string_view input);
+  friend std::array<uint8_t, crypto::obsolete::kSha1Size>
+  policy::Sha1ForMachineId(std::string_view input);
+
+  // TODO(crbug.com/458084930): get rid of this.
+  friend std::string wallpaper::GetHexForWallpaperFilesId(
+      const base::span<const uint8_t> files_id_unhashed);
 
   Sha1();
   static std::array<uint8_t, kSize> Hash(std::string_view data);

@@ -9,6 +9,7 @@
 #include "third_party/blink/renderer/core/layout/constraint_space.h"
 #include "third_party/blink/renderer/core/layout/geometry/box_strut.h"
 #include "third_party/blink/renderer/core/layout/geometry/logical_size.h"
+#include "third_party/blink/renderer/core/layout/geometry/static_position.h"
 #include "third_party/blink/renderer/core/layout/grid/grid_item.h"
 #include "third_party/blink/renderer/core/layout/grid/grid_track_collection.h"
 #include "third_party/blink/renderer/core/layout/length_utils.h"
@@ -350,14 +351,22 @@ void ComputeOutOfFlowOffsetAndSize(
     const BoxStrut& borders,
     const LogicalSize& border_box_size,
     LayoutUnit* start_offset,
-    LayoutUnit* size) {
+    LayoutUnit* size,
+    bool is_masonry_axis) {
   DCHECK(start_offset && size && out_of_flow_item.IsOutOfFlow());
   OutOfFlowItemPlacement item_placement;
   LayoutUnit end_offset;
 
+  // For the normal grid axis, determine axis from track collection direction.
+  // For the masonry stacking axis, invert the direction to get the stacking
+  // axis.
+  const bool is_for_columns = is_masonry_axis
+                                  ? track_collection.Direction() == kForRows
+                                  : track_collection.Direction() == kForColumns;
+
   // The default padding box value for `size` is used for out of flow items in
   // which both the start line and end line are defined as 'auto'.
-  if (track_collection.Direction() == kForColumns) {
+  if (is_for_columns) {
     item_placement = out_of_flow_item.column_placement;
     *start_offset = borders.inline_start;
     end_offset = border_box_size.inline_size - borders.inline_end;
@@ -367,9 +376,10 @@ void ComputeOutOfFlowOffsetAndSize(
     end_offset = border_box_size.block_size - borders.block_end;
   }
 
+  // For the masonry stacking axis, ignore grid placement and use border edges.
   // If the start line is defined, the size will be calculated by subtracting
   // the offset at `start_index`; otherwise, use the computed border start.
-  if (item_placement.range_index.begin != kNotFound) {
+  if (!is_masonry_axis && item_placement.range_index.begin != kNotFound) {
     DCHECK_NE(item_placement.offset_in_range.begin, kNotFound);
 
     *start_offset =
@@ -380,7 +390,7 @@ void ComputeOutOfFlowOffsetAndSize(
   // If the end line is defined, the offset (which can be the offset at the
   // start index or the start border) and the added grid gap after the spanned
   // tracks are subtracted from the offset at the end index.
-  if (item_placement.range_index.end != kNotFound) {
+  if (!is_masonry_axis && item_placement.range_index.end != kNotFound) {
     DCHECK_NE(item_placement.offset_in_range.end, kNotFound);
 
     end_offset =
@@ -396,41 +406,39 @@ void ComputeOutOfFlowOffsetAndSize(
 void AlignmentOffsetForOutOfFlow(AxisEdge inline_axis_edge,
                                  AxisEdge block_axis_edge,
                                  LogicalSize container_size,
-                                 LogicalStaticPosition::InlineEdge* inline_edge,
-                                 LogicalStaticPosition::BlockEdge* block_edge,
-                                 LogicalOffset* offset) {
+                                 LogicalStaticPosition* static_pos) {
   using InlineEdge = LogicalStaticPosition::InlineEdge;
   using BlockEdge = LogicalStaticPosition::BlockEdge;
 
   switch (inline_axis_edge) {
     case AxisEdge::kStart:
     case AxisEdge::kFirstBaseline:
-      *inline_edge = InlineEdge::kInlineStart;
+      static_pos->inline_edge = InlineEdge::kInlineStart;
       break;
     case AxisEdge::kCenter:
-      *inline_edge = InlineEdge::kInlineCenter;
-      offset->inline_offset += container_size.inline_size / 2;
+      static_pos->inline_edge = InlineEdge::kInlineCenter;
+      static_pos->offset.inline_offset += container_size.inline_size / 2;
       break;
     case AxisEdge::kEnd:
     case AxisEdge::kLastBaseline:
-      *inline_edge = InlineEdge::kInlineEnd;
-      offset->inline_offset += container_size.inline_size;
+      static_pos->inline_edge = InlineEdge::kInlineEnd;
+      static_pos->offset.inline_offset += container_size.inline_size;
       break;
   }
 
   switch (block_axis_edge) {
     case AxisEdge::kStart:
     case AxisEdge::kFirstBaseline:
-      *block_edge = BlockEdge::kBlockStart;
+      static_pos->block_edge = BlockEdge::kBlockStart;
       break;
     case AxisEdge::kCenter:
-      *block_edge = BlockEdge::kBlockCenter;
-      offset->block_offset += container_size.block_size / 2;
+      static_pos->block_edge = BlockEdge::kBlockCenter;
+      static_pos->offset.block_offset += container_size.block_size / 2;
       break;
     case AxisEdge::kEnd:
     case AxisEdge::kLastBaseline:
-      *block_edge = BlockEdge::kBlockEnd;
-      offset->block_offset += container_size.block_size;
+      static_pos->block_edge = BlockEdge::kBlockEnd;
+      static_pos->offset.block_offset += container_size.block_size;
       break;
   }
 }

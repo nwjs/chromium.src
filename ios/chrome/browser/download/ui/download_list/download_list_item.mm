@@ -101,6 +101,18 @@ NSString* const kStatusTextEmptyString = @"";
   return _downloadID;
 }
 
+- (CGFloat)downloadProgress {
+  return _downloadRecord.progress_percent / 100.0f;
+}
+
+- (web::DownloadTask::State)downloadState {
+  return _downloadRecord.state;
+}
+
+- (BOOL)shouldShowProgressView {
+  return _downloadRecord.state == web::DownloadTask::State::kInProgress;
+}
+
 - (NSString*)fileName {
   if (_downloadRecord.file_name.empty()) {
     return self.defaultFileName;
@@ -110,7 +122,14 @@ NSString* const kStatusTextEmptyString = @"";
 }
 
 - (base::FilePath)filePath {
+  if (_downloadRecord.file_path.empty()) {
+    return base::FilePath();
+  }
   return ConvertToAbsoluteDownloadPath(_downloadRecord.file_path);
+}
+
+- (NSString*)mimeType {
+  return base::SysUTF8ToNSString(_downloadRecord.mime_type);
 }
 
 - (UIImage*)fileTypeIcon {

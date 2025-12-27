@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 """Asserts for checking changed files in git."""
 
+import os
 import subprocess
 
 
@@ -63,3 +64,61 @@ def check_files_changed(_: str, context):
 def check_files_added(_: str, context):
     """Checks if specific files have been added and uncommitted."""
     return _check_files_status(context, ['A', '??'], 'added')
+
+
+def check_files_exist(_: str, context):
+    """Checks if specific files exist on the filesystem."""
+    files = context.get('config', {}).get('files', {})
+    files_that_do_not_exist = [
+        file for file in files if not os.path.exists(file)
+    ]
+    if files_that_do_not_exist:
+        non_existent_files = '\n'.join(files_that_do_not_exist)
+        return {
+            'pass': False,
+            'reason': f'Expected files do not exist:\n{non_existent_files}',
+            'score': 0
+        }
+    return {'pass': True, 'reason': 'All expected files exist.', 'score': 1}
+
+
+def check_file_content(_: str, context):
+    """Checks if files contain or do not contain specific strings."""
+    file_configs = context.get('config', {}).get('files', [])
+    errors = []
+
+    for config in file_configs:
+        file_path = config.get('path')
+        if not file_path:
+            continue
+
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+        except FileNotFoundError:
+            errors.append(f'File not found: {file_path}')
+            continue
+        except Exception as e:
+            errors.append(f'Error reading file {file_path}: {e}')
+            continue
+
+        for s in config.get('present', []):
+            if s not in content:
+                errors.append(
+                    f'Expected to find "{s}" in {file_path}, but it was not '
+                    'found.')
+
+        for s in config.get('absent', []):
+            if s in content:
+                errors.append(
+                    f'Expected to not find "{s}" in {file_path}, but it was '
+                    'found.')
+
+    if errors:
+        return {'pass': False, 'reason': '\n'.join(errors), 'score': 0}
+
+    return {
+        'pass': True,
+        'reason': 'All file content checks passed.',
+        'score': 1
+    }

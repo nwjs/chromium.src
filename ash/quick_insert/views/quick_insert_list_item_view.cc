@@ -25,7 +25,6 @@
 #include "ash/style/typography.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
-#include "base/files/file_util.h"
 #include "base/location.h"
 #include "base/strings/string_util.h"
 #include "base/task/task_traits.h"
@@ -80,11 +79,9 @@ class LeadingIconImageView : public views::ImageView {
 
       // Calculate the radius of the circle based on the minimum of width and
       // height in case the icon isn't square.
-      SkPath mask;
-      mask.addCircle(bounds.x() + bounds.width() / 2,
-                     bounds.y() + bounds.height() / 2,
-                     std::min(bounds.width(), bounds.height()) / 2);
-      SetClipPath(mask);
+      SetClipPath(SkPath::Circle(
+          bounds.x() + bounds.width() / 2, bounds.y() + bounds.height() / 2,
+          std::min(bounds.width(), bounds.height()) / 2));
     } else {
       SetClipPath(SkPath());
     }
@@ -205,10 +202,9 @@ void QuickInsertListItemView::SetPrimaryImage(
   image_view->SetCanProcessEventsWithinSubtree(false);
   const gfx::Size cropped_size = image_view->GetImageModel().Size();
   if (cropped_size.height() > 0) {
-    SkPath path;
-    path.addRoundRect(gfx::RectToSkRect(gfx::Rect(gfx::Point(), cropped_size)),
-                      SkIntToScalar(kImageRadius), SkIntToScalar(kImageRadius));
-    image_view->SetClipPath(path);
+    image_view->SetClipPath(SkPath::RRect(SkRRect::MakeRectXY(
+        gfx::RectToSkRect(gfx::Rect(gfx::Point(), cropped_size)), kImageRadius,
+        kImageRadius)));
   }
   UpdateAccessibleName();
 }

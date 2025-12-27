@@ -144,7 +144,7 @@ bool ShouldOpenPdfInline(DownloadItem* item) {
   BrowserContext* context = content::DownloadItemUtils::GetBrowserContext(item);
   return context && context->GetDownloadManagerDelegate() &&
          context->GetDownloadManagerDelegate()->ShouldOpenPdfInline() &&
-         !item->IsMustDownload() && item->IsTransient();
+         item->AllowAutoOpenAfterCompletion() && item->IsTransient();
 }
 
 void CleanupAppVerificationTimestamps(download::DownloadItem* item) {
@@ -576,3 +576,5 @@ bool DownloadController::ShouldShowAppVerificationPrompt(
 
   return true;
 }
+
+DEFINE_JNI(DownloadController)

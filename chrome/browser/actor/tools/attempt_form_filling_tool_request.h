@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_ACTOR_TOOLS_ATTEMPT_FORM_FILLING_TOOL_REQUEST_H_
 #define CHROME_BROWSER_ACTOR_TOOLS_ATTEMPT_FORM_FILLING_TOOL_REQUEST_H_
 
+#include <iosfwd>
 #include <memory>
 #include <string>
 #include <vector>
@@ -19,6 +20,7 @@ class ToolRequestVisitorFunctor;
 
 class AttemptFormFillingToolRequest : public TabToolRequest {
  public:
+  static constexpr char kName[] = "AttemptFormFilling";
   // Note: While autofill detects the type of data to be filled into a field
   // (address or credit card), autofill is unable to identify the purpose (e.g.
   // shipping v.s. billing address). Therefore the purpose needs to be provided
@@ -48,6 +50,11 @@ class AttemptFormFillingToolRequest : public TabToolRequest {
 
     // A credit card should be filled.
     kCreditCard = 6,
+
+    // Contact information should be filled. Contact information includes name,
+    // email, phone number, but not postal address information (street, city,
+    // etc.)
+    kContactInformation = 7,
   };
 
   struct FormFillingRequest {
@@ -58,7 +65,7 @@ class AttemptFormFillingToolRequest : public TabToolRequest {
     FormFillingRequest(FormFillingRequest&&);
     FormFillingRequest& operator=(FormFillingRequest&&);
 
-    RequestedData requested_data;
+    RequestedData requested_data{};
     std::vector<PageTarget> trigger_fields;
   };
 
@@ -72,13 +79,23 @@ class AttemptFormFillingToolRequest : public TabToolRequest {
   // ToolRequest:
   CreateToolResult CreateTool(TaskId task_id,
                               ToolDelegate& tool_delegate) const override;
-  std::string Name() const override;
+  std::string_view Name() const override;
   void Apply(ToolRequestVisitorFunctor& f) const override;
-  std::string JournalEvent() const override;
 
  private:
   std::vector<FormFillingRequest> requests_;
 };
+
+// To support JournalDetailsBuilder which calls base::ToString(), implement the
+// ostream operator<<.
+std::ostream& operator<<(
+    std::ostream& out,
+    const AttemptFormFillingToolRequest::FormFillingRequest& request);
+
+std::ostream& operator<<(
+    std::ostream& out,
+    const std::vector<AttemptFormFillingToolRequest::FormFillingRequest>&
+        requests);
 
 }  // namespace actor
 

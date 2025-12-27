@@ -19,6 +19,7 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
@@ -2000,7 +2001,6 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdate) {
 TEST_F(UpdateClientTest, OneCrxInstallError) {
   class MockInstaller : public CrxInstaller {
    public:
-    MOCK_METHOD1(OnUpdateError, void(int error));
     MOCK_METHOD1(DoInstall, void(const base::FilePath& unpack_path));
     MOCK_METHOD1(GetInstalledFile,
                  std::optional<base::FilePath>(const std::string& file));
@@ -2048,7 +2048,6 @@ TEST_F(UpdateClientTest, OneCrxInstallError) {
       scoped_refptr<MockInstaller> installer =
           base::MakeRefCounted<MockInstaller>();
 
-      EXPECT_CALL(*installer, OnUpdateError(_)).Times(0);
       EXPECT_CALL(*installer, DoInstall(_));
       EXPECT_CALL(*installer, GetInstalledFile(_)).Times(0);
       EXPECT_CALL(*installer, Uninstall()).Times(0);

@@ -60,6 +60,7 @@
 #include "third_party/blink/renderer/core/layout/custom/layout_worklet.h"
 #include "third_party/blink/renderer/core/layout/layout_block.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
+#include "third_party/blink/renderer/core/layout/layout_text_combine.h"
 #include "third_party/blink/renderer/core/layout/layout_theme.h"
 #include "third_party/blink/renderer/core/layout/map_coordinates_flags.h"
 #include "third_party/blink/renderer/core/layout/text_autosizer.h"
@@ -317,6 +318,9 @@ bool ComputedStyle::NeedsReattachLayoutTree(const Element& element,
   if (!old_style->ScrollMarkerGroupEqual(*new_style)) {
     return true;
   }
+  if (old_style->OverscrollArea() != new_style->OverscrollArea()) {
+    return true;
+  }
   // We need to perform a reattach if a "display: layout(foo)" has changed to a
   // "display: layout(bar)". This is because one custom layout could be
   // registered and the other may not, affecting the box-tree construction.
@@ -341,9 +345,10 @@ bool ComputedStyle::NeedsReattachLayoutTree(const Element& element,
     return true;
   }
 
-  // We use LayoutTextCombine only for vertical writing mode.
-  if (new_style->HasTextCombine() && old_style->IsHorizontalWritingMode() !=
-                                         new_style->IsHorizontalWritingMode()) {
+  // We use LayoutTextCombine only for vertical typographic mode.
+  if (new_style->HasTextCombine() &&
+      LayoutTextCombine::IsSupportedMode(old_style->GetWritingMode()) !=
+          LayoutTextCombine::IsSupportedMode(new_style->GetWritingMode())) {
     DCHECK_EQ(old_style->HasTextCombine(), new_style->HasTextCombine());
     return true;
   }
@@ -446,6 +451,13 @@ ComputedStyle::ComputeDifferenceIgnoringInheritedFirstLineStyle(
     }
     return Difference::kPseudoElementStyle;
   }
+  if (old_style.OverscrollArea() != new_style.OverscrollArea()) {
+    // TODO(crbug.com/447642032): Should we return kDescendantAffecting since
+    // descendants may move into or out of a newly declared or no longer
+    // declared overscroll area?
+    return Difference::kPseudoElementStyle;
+  }
+
   if (new_style.HasAnyPseudoElementStyles() ||
       old_style.HasAnyPseudoElementStyles()) {
     return Difference::kPseudoElementStyle;
@@ -724,11 +736,12 @@ bool ComputedStyle::NonInheritedEqual(const ComputedStyle& other) const {
   return ComputedStyleBase::NonInheritedEqual(other);
 }
 
-bool ComputedStyle::InheritedDataShared(const ComputedStyle& other) const {
+bool ComputedStyle::InheritedEqualIncludingInheritedVariables(
+    const ComputedStyle& other) const {
   // We use a by-value check that is a bit more expensive than
-  // pointer comparison, but yields many more full MPC hits,
+  // pointer comparison, but yields many more MPC hits,
   // so it generally makes up for it.
-  return ComputedStyleBase::InheritedDataShared(other);
+  return ComputedStyleBase::InheritedEqualIncludingInheritedVariables(other);
 }
 
 StyleDifference ComputedStyle::VisualInvalidationDiff(

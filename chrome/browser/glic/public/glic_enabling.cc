@@ -32,8 +32,10 @@
 #include "components/variations/service/variations_service.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
+#include "base/system/sys_info.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"  // nogncheck
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"  // nogncheck
+#include "chromeos/constants/chromeos_features.h"
 #include "components/user_manager/user.h"       // nogncheck
 #include "components/user_manager/user_type.h"  // nogncheck
 #endif
@@ -135,15 +137,30 @@ GlicEnabling::ProfileEnablement GlicEnabling::EnablementForProfile(
 
 // static
 bool GlicEnabling::IsInRolloutLocation() {
+  // TODO(crbug.com/454702721): Getting the location on ChromeOS is done
+  // differently.
   auto* variations_service = g_browser_process->variations_service();
   return variations_service->GetStoredPermanentCountry() == "us" &&
          g_browser_process->GetApplicationLocale() == "en-US";
 }
 
 bool GlicEnabling::IsEnabledByFlags() {
-  // Check that the feature flags are enabled.
-  return base::FeatureList::IsEnabled(features::kGlic) &&
-         features::HasTabSearchToolbarButton();
+  bool is_enabled = base::FeatureList::IsEnabled(features::kGlic) &&
+                    features::HasTabSearchToolbarButton();
+#if BUILDFLAG(IS_CHROMEOS)
+  constexpr base::ByteCount kMinimumMemoryThreshold = base::GiB(8);
+
+  // TODO(b:468055370): Remove the bypassing once the glic is fully launched.
+  const bool bypass_cbx_requirement =
+      base::FeatureList::IsEnabled(
+          chromeos::features::kGlicEnableFor8GbDevices) &&
+      base::SysInfo::AmountOfPhysicalMemory() >= kMinimumMemoryThreshold;
+
+  is_enabled = is_enabled && (bypass_cbx_requirement ||
+                              base::FeatureList::IsEnabled(
+                                  chromeos::features::kFeatureManagementGlic));
+#endif  // BUILDFLAG(IS_CHROMEOS)
+  return is_enabled;
 }
 
 bool GlicEnabling::IsProfileEligible(const Profile* profile) {
@@ -279,6 +296,11 @@ bool GlicEnabling::IsShareImageEnabledForProfile(Profile* profile) {
       !base::FeatureList::IsEnabled(features::kGlicShareImage)) {
     return false;
   }
+
+  if (base::FeatureList::IsEnabled(features::kGlicShareImageEnterprise)) {
+    return true;
+  }
+
   auto* identity_manager = IdentityManagerFactory::GetForProfile(profile);
   if (!identity_manager) {
     return false;

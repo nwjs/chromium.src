@@ -333,6 +333,10 @@ id<GREYMatcher> OpenLinkInNewWindowButton() {
   return [ChromeMatchersAppInterface openLinkInNewWindowButton];
 }
 
+id<GREYMatcher> NavigationBarCloseButton() {
+  return [ChromeMatchersAppInterface navigationBarCloseButton];
+}
+
 id<GREYMatcher> NavigationBarDoneButton() {
   return [ChromeMatchersAppInterface navigationBarDoneButton];
 }
@@ -758,6 +762,10 @@ id<GREYMatcher> TabGridDoneButton() {
   return [ChromeMatchersAppInterface tabGridDoneButton];
 }
 
+id<GREYMatcher> TabGridOverflowMenuButton() {
+  return [ChromeMatchersAppInterface tabGridOverflowMenuButton];
+}
+
 id<GREYMatcher> TabGridUndoCloseAllButton() {
   return [ChromeMatchersAppInterface tabGridUndoCloseAllButton];
 }
@@ -872,9 +880,11 @@ id<GREYMatcher> ContentViewSmallerThanScrollView() {
 }
 
 id<GREYMatcher> HistoryEntry(const std::string& url, const std::string& title) {
-  return [ChromeMatchersAppInterface
-      historyEntryForURL:base::SysUTF8ToNSString(url)
-                   title:base::SysUTF8ToNSString(title)];
+  return grey_allOf(
+      grey_accessibilityLabel(
+          [NSString stringWithFormat:@"%@, %@", base::SysUTF8ToNSString(title),
+                                     base::SysUTF8ToNSString(url)]),
+      grey_sufficientlyVisible(), nil);
 }
 
 id<GREYMatcher> HistoryEntry(const GURL& url, const std::string& title) {
@@ -983,12 +993,16 @@ id<GREYMatcher> SettingsActionButton() {
 
 #pragma mark - Promo style view controller
 
+// TODO(crbug.com/444648926): Remove this matcher once downstream dependencies
+// have been updated.
 id<GREYMatcher> PromoScreenPrimaryButtonMatcher() {
-  return [ChromeMatchersAppInterface promoScreenPrimaryButtonMatcher];
+  return chrome_test_util::ButtonStackPrimaryButton();
 }
 
+// TODO(crbug.com/444648926): Remove this matcher once downstream dependencies
+// have been updated.
 id<GREYMatcher> PromoScreenSecondaryButtonMatcher() {
-  return [ChromeMatchersAppInterface promoScreenSecondaryButtonMatcher];
+  return chrome_test_util::ButtonStackSecondaryButton();
 }
 
 #pragma mark - Incognito Interstitial
@@ -1193,6 +1207,24 @@ id<GREYMatcher> FakeJoinFlowView() {
 
 id<GREYMatcher> TabGroupsPanel() {
   return [ChromeMatchersAppInterface tabGroupsPanel];
+}
+
+#pragma mark - Button Stack
+
+id<GREYMatcher> ButtonStackPrimaryButton() {
+  return [ChromeMatchersAppInterface buttonStackPrimaryButton];
+}
+
+id<GREYMatcher> ButtonStackSecondaryButton() {
+  return [ChromeMatchersAppInterface buttonStackSecondaryButton];
+}
+
+id<GREYMatcher> ButtonStackTertiaryButton() {
+  return [ChromeMatchersAppInterface buttonStackTertiaryButton];
+}
+
+id<GREYMatcher> ButtonStackCheckmarkSymbol() {
+  return [ChromeMatchersAppInterface buttonStackCheckmarkSymbol];
 }
 
 }  // namespace chrome_test_util

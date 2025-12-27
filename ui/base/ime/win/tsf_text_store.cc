@@ -190,6 +190,8 @@ HRESULT TSFTextStore::GetACPFromPoint(TsViewCookie view_cookie,
       return TS_E_INVALIDPOINT;
     }
     *acp = index.value();
+    TRACE_EVENT2("ime", "TSFTextStore::GetACPFromPoint", "POINT",
+                 gfx::Point(*point).ToString(), "ACP", acp);
     return S_OK;
   }
 
@@ -680,7 +682,7 @@ HRESULT TSFTextStore::RequestLock(DWORD lock_flags, HRESULT* result) {
 
   // if nothing has changed from input service, then only need to
   // compare our cache with latest textinputstate.
-  if (!edit_flag_) {
+  if (!edit_flag_ || is_cancel_composition_in_progress_) {
     ResetCacheAfterEditSession();
     CalculateTextandSelectionDiffAndNotifyIfNeeded();
     return S_OK;
@@ -1431,10 +1433,12 @@ bool TSFTextStore::CancelComposition() {
     return false;
 
   TRACE_EVENT0("ime", "TSFTextStore::CancelComposition");
-
+  is_cancel_composition_in_progress_ = true;
   ResetCompositionState();
 
-  return TerminateComposition();
+  bool result = TerminateComposition();
+  is_cancel_composition_in_progress_ = false;
+  return result;
 }
 
 bool TSFTextStore::ConfirmComposition() {
@@ -1577,6 +1581,8 @@ void TSFTextStore::CommitTextAndEndCompositionIfAny(size_t old_size,
     text_input_client_->InsertText(
         new_committed_string,
         ui::TextInputClient::InsertTextCursorBehavior::kMoveCursorAfterText);
+    TRACE_EVENT1("ime", "TSFTextStore::CommitTextAndEndCompositionIfAny",
+                 "data", new_committed_string);
   } else {
     text_input_client_->ClearCompositionText();
   }

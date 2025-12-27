@@ -9,7 +9,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/test/task_environment.h"
 #include "build/build_config.h"
-#include "components/privacy_sandbox/masked_domain_list/masked_domain_list.pb.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/test_support/fake_message_dispatch_context.h"
 #include "mojo/public/cpp/test_support/test_utils.h"
@@ -359,13 +358,30 @@ TEST_F(CorsURLLoaderFactoryTest,
       bad_message_observer.WaitForBadMessage());
 }
 
-TEST_F(CorsURLLoaderFactoryTest, DisallowedDestinationFromRenderer) {
+TEST_F(CorsURLLoaderFactoryTest, DisallowedDestinationFromRendererWebIdentity) {
   ResourceRequest request;
   request.mode = mojom::RequestMode::kNoCors;
   request.credentials_mode = mojom::CredentialsMode::kOmit;
   request.method = net::HttpRequestHeaders::kGetMethod;
   request.url = test_server()->GetURL("/echoall");
   request.destination = network::mojom::RequestDestination::kWebIdentity;
+  request.request_initiator = url::Origin::Create(request.url);
+  mojo::test::BadMessageObserver bad_message_observer;
+  CreateLoaderAndStart(request);
+  EXPECT_EQ(
+      "CorsURLLoaderFactory: attempt to use forbidden destination from "
+      "renderer",
+      bad_message_observer.WaitForBadMessage());
+}
+
+TEST_F(CorsURLLoaderFactoryTest,
+       DisallowedDestinationFromRendererEmailVerification) {
+  ResourceRequest request;
+  request.mode = mojom::RequestMode::kNoCors;
+  request.credentials_mode = mojom::CredentialsMode::kOmit;
+  request.method = net::HttpRequestHeaders::kGetMethod;
+  request.url = test_server()->GetURL("/echoall");
+  request.destination = network::mojom::RequestDestination::kEmailVerification;
   request.request_initiator = url::Origin::Create(request.url);
   mojo::test::BadMessageObserver bad_message_observer;
   CreateLoaderAndStart(request);

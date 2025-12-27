@@ -29,6 +29,7 @@
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
 #include "third_party/blink/renderer/core/css/css_uri_value.h"
 #include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
+#include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
 #include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
@@ -324,7 +325,8 @@ void StyleResolverState::SetTextOrientation(ETextOrientation text_orientation) {
   }
 }
 
-void StyleResolverState::SetPositionAnchor(ScopedCSSName* position_anchor) {
+void StyleResolverState::SetPositionAnchor(
+    const StylePositionAnchor& position_anchor) {
   if (StyleBuilder().PositionAnchor() != position_anchor) {
     StyleBuilder().SetPositionAnchor(position_anchor);
     css_to_length_conversion_data_.SetAnchorData(
@@ -343,6 +345,16 @@ void StyleResolverState::SetPositionAreaOffsets(
                                               StyleBuilder().PositionAnchor(),
                                               position_area_offsets));
   }
+}
+
+WritingDirectionMode StyleResolverState::GetAnchoredContainerWritingDirection()
+    const {
+  AnchorEvaluator* anchor_evaluator = GetAnchorEvaluator();
+  CHECK(anchor_evaluator)
+      << "Should only be invoked for flips, which only happen from "
+         "UpdateStyleAndLayoutTreeForOutOfFlow() for which we always have a "
+         "non-null AnchorEvaluator";
+  return anchor_evaluator->GetContainerWritingDirection();
 }
 
 CSSParserMode StyleResolverState::GetParserMode() const {

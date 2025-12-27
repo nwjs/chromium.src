@@ -469,8 +469,6 @@ public class InterceptNavigationDelegateImpl extends InterceptNavigationDelegate
                         .setIsTabInPWA(mClient.isTabInPWA())
                         .setIsTabInBrowser(mClient.isTabInBrowser())
                         .setIsInDesktopWindowingMode(mClient.isInDesktopWindowingMode())
-                        .setOriginalWindowOpenDisposition(
-                                mClient.getWebContents().getOriginalWindowOpenDisposition())
                         .build();
         if (!shouldRunAsync) return doShouldOverrideUrlLoading(params, isExternalProtocol);
         Runnable shouldIgnoreCheck =
@@ -751,11 +749,9 @@ public class InterceptNavigationDelegateImpl extends InterceptNavigationDelegate
     }
 
     private void clobberMainFrame(GURL targetUrl, ExternalNavigationParams params) {
-        if (ExternalIntentsFeatures.BLOCK_INTENTS_TO_SELF.isEnabled()) {
-            // Our current tab clobbering strategy doesn't support persisting sandbox attributes, so
-            // for sandboxed main frames, drop the navigation.
-            if (params.isSandboxedMainFrame()) return;
-        }
+        // Our current tab clobbering strategy doesn't support persisting sandbox attributes, so
+        // for sandboxed main frames, drop the navigation.
+        if (params.isSandboxedMainFrame()) return;
 
         int transitionType = PageTransition.LINK;
         final LoadUrlParams loadUrlParams = new LoadUrlParams(targetUrl, transitionType);

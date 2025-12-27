@@ -129,8 +129,7 @@ class TabLifecycleUnitFreezeWaiter
   // resource_coordinator::LifecycleUnitObserver:
   void OnLifecycleUnitStateChanged(
       resource_coordinator::LifecycleUnit* lifecycle_unit,
-      ::mojom::LifecycleUnitState last_state,
-      ::mojom::LifecycleUnitStateChangeReason reason) override {
+      ::mojom::LifecycleUnitState last_state) override {
     if (lifecycle_unit->GetState() == ::mojom::LifecycleUnitState::FROZEN) {
       run_loop_.Quit();
     }
@@ -557,10 +556,10 @@ IN_PROC_BROWSER_TEST_P(PageDiscardingHelperBrowserTest,
                                              base::TimeDelta()));
     auto* helper = PageDiscardingHelper::GetFromGraph(graph);
     ASSERT_TRUE(helper);
-    std::optional<base::TimeTicks> first_discarded_at =
+    PageDiscardingHelper::DiscardResult result =
         helper->DiscardAPage(DiscardReason::URGENT, base::TimeDelta());
 
-    EXPECT_TRUE(first_discarded_at.has_value());
+    EXPECT_TRUE(result.first_discard_time.has_value());
   };
   attempt_discard();
 
@@ -626,10 +625,10 @@ IN_PROC_BROWSER_TEST_P(PageDiscardingHelperBrowserTest,
                                              base::TimeDelta()));
     auto* helper = PageDiscardingHelper::GetFromGraph(graph);
     ASSERT_TRUE(helper);
-    std::optional<base::TimeTicks> first_discarded_at =
+    PageDiscardingHelper::DiscardResult result =
         helper->DiscardAPage(DiscardReason::URGENT, base::TimeDelta());
 
-    EXPECT_TRUE(first_discarded_at.has_value());
+    EXPECT_TRUE(result.first_discard_time.has_value());
   };
   attempt_discard();
 

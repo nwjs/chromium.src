@@ -5,7 +5,8 @@
 import '//components/autofill/ios/form_util/resources/create_fill_namespace.js';
 
 import * as fillConstants from '//components/autofill/ios/form_util/resources/fill_constants.js';
-import {findChildText, hasTagName, isSelectElement} from '//components/autofill/ios/form_util/resources/fill_element_inference_util.js';
+import * as inferenceUtil from '//components/autofill/ios/form_util/resources/fill_element_inference_util.js';
+import {findChildText, hasTagName, isFormControlElement, isSelectElement} from '//components/autofill/ios/form_util/resources/fill_element_inference_util.js';
 import {gCrWebLegacy} from '//ios/web/public/js_messaging/resources/gcrweb.js';
 import {isTextField, removeQueryAndReferenceFromURL, trim} from '//ios/web/public/js_messaging/resources/utils.js';
 
@@ -518,7 +519,7 @@ declare interface OptionFieldStrings {
  * @param field A field that will contain the extracted option
  *     information.
  */
-gCrWebLegacy.fill.getOptionStringsFromElement = function(
+export function getOptionStringsFromElement(
     selectElement: HTMLSelectElement, field: OptionFieldStrings): void {
   field.option_values = [];
   // Protect against custom implementation of Array.toJSON in host pages.
@@ -533,7 +534,7 @@ gCrWebLegacy.fill.getOptionStringsFromElement = function(
     field.option_texts.push(
         option.text.substring(0, fillConstants.MAX_STRING_LENGTH));
   }
-};
+}
 
 /**
  * Returns the value in a way similar to the C++ version of node.value,
@@ -665,42 +666,6 @@ export function isElementInsideFormOrFieldSet(
 }
 
 /**
- * @param element Form or form input element.
- * @return Unique stable ID converted to string..
- */
-gCrWebLegacy.fill.getUniqueID = function(element: any): string {
-  // `setUniqueIDIfNeeded` is only available in the isolated content world.
-  // Check before invoking it as this script is injected into the page content
-  // world as well.
-  if (gCrWebLegacy.fill.setUniqueIDIfNeeded) {
-    gCrWebLegacy.fill.setUniqueIDIfNeeded(element);
-  }
-
-  try {
-    const uniqueIDSymbol = gCrWebLegacy.fill.ID_SYMBOL;
-    if (typeof element[uniqueIDSymbol] !== 'undefined' &&
-        !isNaN(element[uniqueIDSymbol]!)) {
-      return element[uniqueIDSymbol].toString();
-    } else {
-      // Use the fallback value stored in the DOM. This will happen when the
-      // script is running in the page content world. JavaScript properties are
-      // not shared across content worlds. This means that `element[uniqueID]`
-      // will not have value in the page content world because it was set in the
-      // isolated content world.
-      const valueInDOM =
-          element.getAttribute(fillConstants.UNIQUE_ID_ATTRIBUTE);
-
-      // Check that there is a valid integer ID stored in the DOM. If not,
-      // return the fallback value.
-      return isNaN(parseInt(valueInDOM)) ? fillConstants.RENDERER_ID_NOT_SET :
-                                           valueInDOM;
-    }
-  } catch (e) {
-    return fillConstants.RENDERER_ID_NOT_SET;
-  }
-};
-
-/**
  * Check if the node is visible.
  *
  * @param node The node to be processed.
@@ -735,7 +700,7 @@ export function getUniqueID(element: any): string {
   }
 
   try {
-    const uniqueIDSymbol = gCrWebLegacy.fill.ID_SYMBOL;
+    const uniqueIDSymbol = fillConstants.ID_SYMBOL;
     if (typeof element[uniqueIDSymbol] !== 'undefined' &&
         !isNaN(element[uniqueIDSymbol]!)) {
       return element[uniqueIDSymbol].toString();
@@ -764,4 +729,67 @@ export function setRemoteFrameToken(token: string) {
 
 export function getRemoteFrameToken(): string|null {
   return document.documentElement.getAttribute(REMOTE_FRAME_TOKEN_ATTRIBUTE);
+}
+
+/**
+ * Get all form control elements from |elements| that are not part of a form.
+ * Also append the fieldsets encountered that are not part of a form to
+ * |fieldsets|.
+ *
+ * It is based on the logic in:
+ *     std::vector<WebFormControlElement>
+ *     GetUnownedAutofillableFormFieldElements(
+ *         const WebElementCollection& elements,
+ *         std::vector<WebElement>* fieldsets);
+ * in chromium/src/components/autofill/content/renderer/form_autofill_util.cc.
+ *
+ * In the C++ version, |fieldsets| can be NULL, in which case we do not try to
+ * append to it.
+ *
+ * @param elements elements to look through.
+ * @param fieldsets out param for unowned fieldsets.
+ * @return The elements that are not part of a form.
+ */
+export function getUnownedAutofillableFormFieldElements(
+    elements: fillConstants.FormControlElement[],
+    fieldsets: Element[]): fillConstants.FormControlElement[] {
+  const unownedFieldsetChildren: fillConstants.FormControlElement[] = [];
+  for (const element of elements) {
+    if (isFormControlElement(element)) {
+      if (!element.form) {
+        unownedFieldsetChildren.push(element);
+      }
+    }
+
+    if (inferenceUtil.hasTagName(element, 'fieldset') &&
+        !isElementInsideFormOrFieldSet(element)) {
+      fieldsets.push(element);
+    }
+  }
+  return extractAutofillableElementsFromSet(unownedFieldsetChildren);
+}
+
+/**
+ * Returns the auto-fillable form control elements in |formElement|.
+ *
+ * It is based on the logic in:
+ *     std::vector<blink::WebFormControlElement>
+ *     ExtractAutofillableElementsFromSet(
+ *         const WebVector<WebFormControlElement>& control_elements);
+ * in chromium/src/components/autofill/content/renderer/form_autofill_util.h.
+ *
+ * @param controlElements Set of control elements.
+ * @return The array of autofillable elements.
+ */
+function extractAutofillableElementsFromSet(
+    controlElements: fillConstants.FormControlElement[]):
+    fillConstants.FormControlElement[] {
+  const autofillableElements: fillConstants.FormControlElement[] = [];
+  for (const element of controlElements) {
+    if (!inferenceUtil.isAutofillableElement(element)) {
+      continue;
+    }
+    autofillableElements.push(element);
+  }
+  return autofillableElements;
 }

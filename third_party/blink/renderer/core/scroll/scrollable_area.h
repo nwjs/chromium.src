@@ -43,7 +43,6 @@
 #include "third_party/blink/renderer/core/loader/history_item.h"
 #include "third_party/blink/renderer/core/scroll/scroll_types.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar.h"
-#include "third_party/blink/renderer/core/style/scroll_start_data.h"
 #include "third_party/blink/renderer/platform/graphics/compositor_element_id.h"
 #include "third_party/blink/renderer/platform/graphics/overlay_scrollbar_clip_behavior.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
@@ -261,7 +260,7 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
 
   void SetMacScrollbarAnimatorForTesting(MacScrollbarAnimator*);
 
-  bool FadeInScrollbarIfExists();
+  bool FadeInScrollbarIfExists(bool horizontal, bool vertical);
 
   // This getter will create a ScrollAnimatorBase if it doesn't already exist.
   ScrollAnimatorBase& GetScrollAnimator() const;
@@ -586,11 +585,7 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   scoped_refptr<base::SingleThreadTaskRunner> GetCompositorTaskRunner();
   void EnqueueScrollSnapChangeEvent() const;
 
-  ScrollOffset ScrollOffsetFromScrollStartData(
-      const ScrollStartData& block_value,
-      const ScrollStartData& inline_value) const;
   void ApplyScrollStart();
-  bool ScrollStartIsDefault() const;
   virtual bool IsApplyingScrollStart() const { return false; }
 
   virtual void SetScrollsnapchangeTargetIds(
@@ -708,9 +703,6 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
                                   mojom::blink::ScrollType,
                                   cc::ScrollSourceType) = 0;
 
-  float ScrollStartValueToOffsetAlongAxis(const ScrollStartData&,
-                                          cc::SnapAxis) const;
-
   virtual int LineStep(ScrollbarOrientation) const;
   virtual int PageStep(ScrollbarOrientation) const;
   virtual int DocumentStep(ScrollbarOrientation) const;
@@ -795,6 +787,47 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   std::optional<mojom::blink::ScrollType> active_smooth_scroll_type_;
 
   scoped_refptr<base::SingleThreadTaskRunner> compositor_task_runner_;
+};
+
+// Traverse all enclosing scrollable layout boxes of the scroll target
+// node in nearest order.
+class CORE_EXPORT ScrollableAreaTraversal {
+  STACK_ALLOCATED();
+
+ public:
+  explicit ScrollableAreaTraversal(Node* target_node);
+
+  class Iterator {
+    STACK_ALLOCATED();
+
+   public:
+    explicit Iterator(ScrollableArea* current_scrollable_area)
+        : current_scrollable_area_(current_scrollable_area) {}
+
+    ScrollableArea& operator*() { return *GetScrollableArea(); }
+
+    ScrollableArea* operator->() { return GetScrollableArea(); }
+
+    bool operator==(const Iterator& other) const {
+      return current_scrollable_area_ == other.current_scrollable_area_;
+    }
+
+    Iterator& operator++();
+
+   private:
+    ScrollableArea* GetScrollableArea() {
+      CHECK(current_scrollable_area_);
+      return current_scrollable_area_;
+    }
+
+    ScrollableArea* current_scrollable_area_;
+  };
+
+  Iterator begin() const { return Iterator(start_scrollable_area_); }
+  Iterator end() const { return Iterator(/*current_scrollable_area=*/nullptr); }
+
+ private:
+  ScrollableArea* start_scrollable_area_ = nullptr;
 };
 
 }  // namespace blink

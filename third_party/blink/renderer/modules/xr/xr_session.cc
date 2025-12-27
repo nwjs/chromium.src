@@ -15,6 +15,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/trace_event/trace_event.h"
 #include "base/types/pass_key.h"
+#include "device/vr/buildflags/buildflags.h"
 #include "device/vr/public/mojom/hit_test_subscription_id.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "third_party/blink/renderer/bindings/core/v8/frozen_array.h"
@@ -66,9 +67,12 @@
 #include "third_party/blink/renderer/platform/bindings/enumeration_base.h"
 #include "third_party/blink/renderer/platform/bindings/v8_throw_exception.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/wtf/text/string_operators.h"
 #include "ui/gfx/geometry/point3_f.h"
 #include "ui/gfx/geometry/transform.h"
+
+#if BUILDFLAG(ENABLE_VR)
+#include "device/vr/public/cpp/features.h"
+#endif
 
 namespace blink {
 
@@ -369,6 +373,7 @@ XRSession::XRSession(
           MakeGarbageCollected<XRPlaneManager>(base::PassKey<XRSession>{},
                                                this)),
       input_sources_(MakeGarbageCollected<XRInputSourceArray>()),
+      empty_input_sources_(MakeGarbageCollected<XRInputSourceArray>()),
       client_receiver_(this, xr->GetExecutionContext()),
       callback_collection_(
           MakeGarbageCollected<XRFrameRequestCallbackCollection>(
@@ -379,7 +384,7 @@ XRSession::XRSession(
       trace_id_(trace_id) {
   FrozenArray<IDLString>::VectorType enabled_features;
   for (const auto& feature : enabled_feature_set_) {
-    enabled_features.push_back(XRSessionFeatureToString(feature));
+    enabled_features.push_back(XRSessionFeatureToString(feature).ToString());
   }
   enabled_features_ =
       MakeGarbageCollected<FrozenArray<IDLString>>(std::move(enabled_features));
@@ -873,8 +878,9 @@ ScriptPromise<XRAnchor> XRSession::CreateAnchorHelper(
   if (!xr_->xrEnvironmentProviderRemote()) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
-        kFeatureNotSupportedByDevicePrefix +
-            XRSessionFeatureToString(device::mojom::XRSessionFeature::ANCHORS));
+        StrCat({kFeatureNotSupportedByDevicePrefix,
+                XRSessionFeatureToString(
+                    device::mojom::XRSessionFeature::ANCHORS)}));
     return EmptyPromise();
   }
 
@@ -980,6 +986,9 @@ XRInputSourceArray* XRSession::inputSources(ScriptState* script_state) const {
     did_log_getInputSources_ = true;
   }
 
+  if (!CanReportInputPoses()) {
+    return empty_input_sources_.Get();
+  }
   return input_sources_.Get();
 }
 
@@ -993,9 +1002,9 @@ ScriptPromise<XRHitTestSource> XRSession::requestHitTestSource(
   if (!IsFeatureEnabled(device::mojom::XRSessionFeature::HIT_TEST)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kNotSupportedError,
-        kFeatureNotSupportedBySessionPrefix +
-            XRSessionFeatureToString(
-                device::mojom::XRSessionFeature::HIT_TEST));
+        StrCat({kFeatureNotSupportedBySessionPrefix,
+                XRSessionFeatureToString(
+                    device::mojom::XRSessionFeature::HIT_TEST)}));
     return {};
   }
 
@@ -1008,9 +1017,9 @@ ScriptPromise<XRHitTestSource> XRSession::requestHitTestSource(
   if (!xr_->xrEnvironmentProviderRemote()) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
-        kFeatureNotSupportedByDevicePrefix +
-            XRSessionFeatureToString(
-                device::mojom::XRSessionFeature::HIT_TEST));
+        StrCat({kFeatureNotSupportedByDevicePrefix,
+                XRSessionFeatureToString(
+                    device::mojom::XRSessionFeature::HIT_TEST)}));
     return {};
   }
 
@@ -1093,9 +1102,9 @@ XRSession::requestHitTestSourceForTransientInput(
   if (!IsFeatureEnabled(device::mojom::XRSessionFeature::HIT_TEST)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kNotSupportedError,
-        kFeatureNotSupportedBySessionPrefix +
-            XRSessionFeatureToString(
-                device::mojom::XRSessionFeature::HIT_TEST));
+        StrCat({kFeatureNotSupportedBySessionPrefix,
+                XRSessionFeatureToString(
+                    device::mojom::XRSessionFeature::HIT_TEST)}));
     return {};
   }
 
@@ -1108,9 +1117,9 @@ XRSession::requestHitTestSourceForTransientInput(
   if (!xr_->xrEnvironmentProviderRemote()) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
-        kFeatureNotSupportedByDevicePrefix +
-            XRSessionFeatureToString(
-                device::mojom::XRSessionFeature::HIT_TEST));
+        StrCat({kFeatureNotSupportedByDevicePrefix,
+                XRSessionFeatureToString(
+                    device::mojom::XRSessionFeature::HIT_TEST)}));
     return {};
   }
 
@@ -1461,9 +1470,9 @@ ScriptPromise<XRLightProbe> XRSession::requestLightProbe(
   if (!IsFeatureEnabled(device::mojom::XRSessionFeature::LIGHT_ESTIMATION)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kNotSupportedError,
-        kFeatureNotSupportedBySessionPrefix +
-            XRSessionFeatureToString(
-                device::mojom::XRSessionFeature::LIGHT_ESTIMATION));
+        StrCat({kFeatureNotSupportedBySessionPrefix,
+                XRSessionFeatureToString(
+                    device::mojom::XRSessionFeature::LIGHT_ESTIMATION)}));
     return EmptyPromise();
   }
 
@@ -1473,9 +1482,9 @@ ScriptPromise<XRLightProbe> XRSession::requestLightProbe(
           V8XRReflectionFormat::Enum::kRgba16F) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kNotSupportedError,
-        "Reflection format \"" +
-            light_probe_init->reflectionFormat().AsStringView() +
-            "\" not supported.");
+        StrCat({"Reflection format \"",
+                light_probe_init->reflectionFormat().AsStringView(),
+                "\" not supported."}));
     return EmptyPromise();
   }
 
@@ -1549,7 +1558,7 @@ void XRSession::ForceEnd(ShutdownPolicy shutdown_policy) {
     input_source->OnRemoved();
   }
 
-  input_sources_ = nullptr;
+  input_sources_ = empty_input_sources_;
 
   if (canvas_input_provider_) {
     canvas_input_provider_->Stop();
@@ -1673,12 +1682,6 @@ void XRSession::OnFocusChanged() {
 }
 
 void XRSession::OnVisibilityStateChanged(XRVisibilityState visibility_state) {
-  // TODO(crbug.com/1002742): Until some ambiguities in the spec are cleared up,
-  // force "visible-blurred" states from the device to report as "hidden"
-  if (visibility_state == XRVisibilityState::VISIBLE_BLURRED) {
-    visibility_state = XRVisibilityState::HIDDEN;
-  }
-
   if (device_visibility_state_ != visibility_state) {
     device_visibility_state_ = visibility_state;
     UpdateVisibilityState();
@@ -1708,6 +1711,18 @@ void XRSession::UpdateVisibilityState() {
     state = XRVisibilityState::HIDDEN;
   }
 
+  // Force visible-blurred state to hidden until the feature to allow it is
+  // enabled. This matches the long-term behavior that the feature is trying to
+  // change.
+  bool can_use_visible_blurred = false;
+#if BUILDFLAG(ENABLE_VR)
+  can_use_visible_blurred =
+      base::FeatureList::IsEnabled(device::features::kWebXrVisibleBlurred);
+#endif
+  if (!can_use_visible_blurred && state == XRVisibilityState::VISIBLE_BLURRED) {
+    state = XRVisibilityState::HIDDEN;
+  }
+
   if (visibility_state_ != state) {
     visibility_state_ = state;
 
@@ -1727,7 +1742,8 @@ void XRSession::MaybeRequestFrame() {
     if (init->hasBaseLayer()) {
       will_have_valid_render_state = !!init->baseLayer();
     } else if (init->hasLayers()) {
-      will_have_valid_render_state = init->layers()->size() > 0;
+      will_have_valid_render_state =
+          init->layers() && init->layers()->size() > 0;
     }
   }
 
@@ -1937,11 +1953,18 @@ void XRSession::UpdatePresentationFrameState(
                           frame_data->stage_parameters);
 
     // Now update the input sources
-    base::span<const device::mojom::blink::XRInputSourceStatePtr> input_states;
-    if (frame_data->input_state.has_value())
-      input_states = frame_data->input_state.value();
+    // Only process input when we can report it to the page.
+    if (CanReportInputPoses()) {
+      base::span<const device::mojom::blink::XRInputSourceStatePtr>
+          input_states;
+      if (frame_data->input_state.has_value()) {
+        input_states = frame_data->input_state.value();
+      }
 
-    OnInputStateChangeInternal(frame_id, input_states);
+      OnInputStateChangeInternal(frame_id, input_states);
+
+      ProcessInputSourceEvents(input_states);
+    }
 
     // World understanding includes hit testing for transient input sources, and
     // these sources may have been hidden when touching DOM Overlay content
@@ -1950,8 +1973,6 @@ void XRSession::UpdatePresentationFrameState(
     // generate hit test results. For this to work, this step must happen
     // after OnInputStateChangeInternal which updated input sources.
     UpdateWorldUnderstandingStateForFrame(timestamp, frame_data);
-
-    ProcessInputSourceEvents(input_states);
 
     // Now that all pose data is updated trigger a reset event if it's there.
     if (frame_data->mojo_space_reset) {
@@ -1980,9 +2001,9 @@ XRSession::getTrackedImageScores(ScriptState* script_state,
   if (!IsFeatureEnabled(device::mojom::XRSessionFeature::IMAGE_TRACKING)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kNotSupportedError,
-        kFeatureNotSupportedBySessionPrefix +
-            XRSessionFeatureToString(
-                device::mojom::XRSessionFeature::IMAGE_TRACKING));
+        StrCat({kFeatureNotSupportedBySessionPrefix,
+                XRSessionFeatureToString(
+                    device::mojom::XRSessionFeature::IMAGE_TRACKING)}));
     return ScriptPromise<IDLArray<V8XRImageTrackingScore>>();
   }
 
@@ -2048,9 +2069,9 @@ const FrozenArray<XRImageTrackingResult>& XRSession::ImageTrackingResults(
   if (!IsFeatureEnabled(device::mojom::XRSessionFeature::IMAGE_TRACKING)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kNotSupportedError,
-        kFeatureNotSupportedBySessionPrefix +
-            XRSessionFeatureToString(
-                device::mojom::XRSessionFeature::IMAGE_TRACKING));
+        StrCat({kFeatureNotSupportedBySessionPrefix,
+                XRSessionFeatureToString(
+                    device::mojom::XRSessionFeature::IMAGE_TRACKING)}));
     return *MakeGarbageCollected<FrozenArray<XRImageTrackingResult>>();
   }
 
@@ -2198,6 +2219,11 @@ void XRSession::OnFrame(double timestamp,
         layers_enabled_ ? nullptr : render_state_->GetFirstLayer(),
         std::move(shared_images));
 
+    // Dispatch the "redraw" event for layers that should be updated.
+    if (layers_enabled_) {
+      render_state_->MaybeDispatchRedrawEvents();
+    }
+
     // Don't allow frames to be processed if the session's visibility state is
     // "hidden".
     if (visibility_state_ == XRVisibilityState::HIDDEN) {
@@ -2260,7 +2286,12 @@ bool XRSession::CanReportPoses() const {
   // The spec has a few requirements for if poses can be reported.
   // If we have a session, then user intent is understood. Therefore, (due to
   // the way visibility state is updatd), the rest of the steps really just
-  // boil down to whether or not the XRVisibilityState is Visible.
+  // boil down to whether or not the XRVisibilityState is a "visible" type.
+  return visibility_state_ != XRVisibilityState::HIDDEN;
+}
+
+bool XRSession::CanReportInputPoses() const {
+  // We can only report input-based poses if we're fully visible.
   return visibility_state_ == XRVisibilityState::VISIBLE;
 }
 
@@ -2368,11 +2399,6 @@ void XRSession::OnInputStateChangeInternal(
     int16_t frame_id,
     base::span<const device::mojom::blink::XRInputSourceStatePtr>
         input_states) {
-  // If we're in any state other than visible, input should not be processed
-  if (visibility_state_ != XRVisibilityState::VISIBLE) {
-    return;
-  }
-
   HeapVector<Member<XRInputSource>> added;
   HeapVector<Member<XRInputSource>> removed;
   last_frame_id_ = frame_id;
@@ -2640,6 +2666,7 @@ void XRSession::Trace(Visitor* visitor) const {
   visitor->Trace(end_session_resolver_);
   visitor->Trace(enabled_features_);
   visitor->Trace(animation_frame_);
+  visitor->Trace(empty_input_sources_);
   visitor->Trace(input_sources_);
   visitor->Trace(resize_observer_);
   visitor->Trace(canvas_input_provider_);

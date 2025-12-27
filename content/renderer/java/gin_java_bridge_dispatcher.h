@@ -11,14 +11,12 @@
 #include <string>
 
 #include "base/containers/flat_map.h"
-#include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/values.h"
 #include "components/origin_matcher/origin_matcher.h"
 #include "content/common/android/gin_java_bridge_errors.h"
 #include "content/common/gin_java_bridge.mojom.h"
 #include "content/public/renderer/render_frame_observer.h"
-#include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "v8/include/cppgc/persistent.h"
 

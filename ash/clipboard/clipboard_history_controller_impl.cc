@@ -33,7 +33,6 @@
 #include "base/check_is_test.h"
 #include "base/check_op.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_forward.h"
 #include "base/json/values_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -1103,8 +1102,6 @@ gfx::Rect ClipboardHistoryControllerImpl::CalculateAnchorRect() const {
 
   // Some web apps render the caret in an IFrame, and we will not get the
   // bounds in that case.
-  // TODO(crbug.com/40137728): Show the menu in the middle of the
-  // webview if the bounds are empty.
   ui::TextInputClient* text_input_client =
       host->GetInputMethod()->GetTextInputClient();
 

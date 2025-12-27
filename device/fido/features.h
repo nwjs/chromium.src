@@ -14,9 +14,22 @@ namespace device {
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
+// Enables the Passkey Unlock Manager.
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_DECLARE_FEATURE(kPasskeyUnlockManager);
+
 // Allows the passkey unlock error UI to be shown.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kPasskeyUnlockErrorUi);
+
+enum class PasskeyUnlockErrorUiExperimentArm {
+  kUnlock,
+  kGet,
+  kVerify,
+};
+COMPONENT_EXPORT(DEVICE_FIDO)
+extern const base::FeatureParam<PasskeyUnlockErrorUiExperimentArm>
+    kPasskeyUnlockErrorUiExperimentArm;
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -178,6 +191,10 @@ BASE_DECLARE_FEATURE(kWebAuthnOpportunisticRetrieval);
 // https://w3c.github.io/webauthn/#enum-hints.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthenticationWindowsHints);
+
+// Enables the logic of refreshing the state of GPM Enclave Controller.
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_DECLARE_FEATURE(kWebAuthnEnableRefreshingStateOfGpmEnclaveController);
 
 }  // namespace device
 

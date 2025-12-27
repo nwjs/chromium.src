@@ -50,6 +50,22 @@ class InfoBar;
 // InfoBar variety.
 class InfoBarDelegate {
  public:
+  // Used to arbitrate visibility and queueing order of InfoBars on a
+  // per-WebContents basis.
+  enum class InfobarPriority {
+    // Promotional or non-urgent surfaces.
+    kLow = 0,
+
+    // Standard feature-driven prompts. Examples: Translate, Save Password,
+    // Send Tab to Self, Extensions web auth flow.
+    kDefault = 1,
+
+    // Security/safety-critical surfaces. Examples:  tab-sharing warnings, other
+    // critical banners. May stack up to a small cap and are never preempted by
+    // lower tiers.
+    kCriticalSecurity = 2,
+  };
+
   // The type of the infobar. It controls its appearance, such as its background
   // color.
   enum Type {
@@ -99,7 +115,7 @@ class InfoBarDelegate {
     // Removed: OUTDATED_PLUGIN_INFOBAR_DELEGATE = 31,
     // Removed: PLUGIN_METRO_MODE_INFOBAR_DELEGATE = 32,
     RELOAD_PLUGIN_INFOBAR_DELEGATE = 33,
-    PLUGIN_OBSERVER_INFOBAR_DELEGATE = 34,
+    // Removed: PLUGIN_OBSERVER_INFOBAR_DELEGATE = 34,
     // Removed: SSL_ADD_CERTIFICATE = 35,
     // Removed: SSL_ADD_CERTIFICATE_INFOBAR_DELEGATE = 36,
     POPUP_BLOCKED_INFOBAR_DELEGATE_MOBILE = 37,
@@ -183,7 +199,7 @@ class InfoBarDelegate {
     LOCAL_TEST_POLICIES_APPLIED_INFOBAR = 115,
     BIDDING_AND_AUCTION_CONSENTED_DEBUGGING_DELEGATE = 116,
     // Removed: PARCEL_TRACKING_INFOBAR_DELEGATE = 117,
-    TEST_THIRD_PARTY_COOKIE_PHASEOUT_DELEGATE = 118,
+    // Removed: TEST_THIRD_PARTY_COOKIE_PHASEOUT_DELEGATE = 118,
     ENABLE_LINK_CAPTURING_INFOBAR_DELEGATE = 119,
     DEV_TOOLS_SHARED_PROCESS_DELEGATE = 120,
     ENHANCED_SAFE_BROWSING_INFOBAR_DELEGATE = 121,
@@ -195,6 +211,7 @@ class InfoBarDelegate {
     PIN_INFOBAR_DELEGATE = 127,
     SESSION_RESTORE_INFOBAR_DELEGATE = 128,
     ROLL_BACK_MODE_B_INFOBAR_DELEGATE = 129,
+    DEV_TOOLS_REMOTE_DEBUGGING_INFOBAR_DELEGATE = 130,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/browser/enums.xml:InfoBarIdentifier)
 
@@ -232,6 +249,9 @@ class InfoBarDelegate {
   // New implementers must append a new value to the InfoBarIdentifier enum here
   // and in histograms/enums.xml.
   virtual InfoBarIdentifier GetIdentifier() const = 0;
+
+  // Returns the priority tier for this infobar delegate. Default is kDefault.
+  virtual InfobarPriority GetPriority() const;
 
   // Returns the resource ID of the icon to be shown for this InfoBar.  If the
   // value is equal to |kNoIconID|, GetIcon() will not show an icon by default.

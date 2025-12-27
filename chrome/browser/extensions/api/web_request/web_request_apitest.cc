@@ -49,8 +49,6 @@
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/extension_with_management_policy_apitest.h"
-#include "chrome/browser/extensions/permissions/active_tab_permission_granter.h"
-#include "chrome/browser/extensions/permissions/scripting_permissions_modifier.h"
 #include "chrome/browser/net/profile_network_context_service.h"
 #include "chrome/browser/net/profile_network_context_service_factory.h"
 #include "chrome/browser/net/system_network_context_manager.h"
@@ -101,6 +99,8 @@
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/install_prefs_helper.h"
+#include "extensions/browser/permissions/active_tab_permission_granter.h"
+#include "extensions/browser/permissions/scripting_permissions_modifier.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/service_worker/service_worker_task_queue.h"
 #include "extensions/browser/service_worker/service_worker_test_utils.h"
@@ -163,6 +163,8 @@
 #include "chrome/browser/ui/search/ntp_test_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/network_session_configurator/common/network_switches.h"
+#include "net/cert/x509_certificate.h"
 #include "ui/base/ui_base_features.h"
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
@@ -408,7 +410,7 @@ class ExtensionWebRequestApiTest : public ExtensionApiTest {
       ContextType context_type = ContextType::kFromManifest)
       : ExtensionApiTest(context_type) {
     feature_list_.InitWithFeatures(
-        /*enabled_features=*/{},
+        /*enabled_features=*/{extensions_features::kWebRequestSecurityInfo},
         // TODO(crbug.com/40248833): Use HTTPS URLs in tests to avoid having to
         // disable this feature.
         /*disabled_features=*/
@@ -454,6 +456,43 @@ class ExtensionWebRequestApiTest : public ExtensionApiTest {
         ->CreateURLLoaderFactory(
             loader_factory.InitWithNewPipeAndPassReceiver(), std::move(params));
     return loader_factory;
+  }
+
+  void RunSecurityInfoTest(std::string expect_state,
+                           bool use_web_socket,
+                           scoped_refptr<net::X509Certificate> certificate,
+                           GURL request_url) {
+    std::string sha256_string =
+        base::HexEncode(net::X509Certificate::CalculateFingerprint256(
+            certificate->cert_buffer()));
+    std::string pem_string;
+    net::X509Certificate::GetPEMEncoded(certificate->cert_buffer(),
+                                        &pem_string);
+
+    base::Value::Dict custom_args;
+    custom_args.Set("request_url", request_url.spec());
+    custom_args.Set("certificate_bytes", std::move(pem_string));
+    custom_args.Set("certificate_sha256", std::move(sha256_string));
+    custom_args.Set("expect_state", std::move(expect_state));
+    custom_args.Set("use_web_socket", use_web_socket);
+
+    std::string config_string = base::WriteJson(custom_args).value_or("");
+
+    ASSERT_TRUE(RunExtensionTest("webrequest/test_security_info",
+                                 {.custom_arg = config_string.c_str()}))
+        << message_;
+  }
+
+  void RunSecurityInfoInsecureTest(bool use_web_socket, GURL request_url) {
+    base::Value::Dict custom_args;
+    custom_args.Set("request_url", request_url.spec());
+    custom_args.Set("use_web_socket", use_web_socket);
+
+    std::string config_string = base::WriteJson(custom_args).value_or("");
+
+    ASSERT_TRUE(RunExtensionTest("webrequest/test_security_info_insecure",
+                                 {.custom_arg = config_string.c_str()}))
+        << message_;
   }
 
   void InstallWebRequestExtension(const std::string& name) {
@@ -2271,7 +2310,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextTypeMV3,
     auto loader = network::SimpleURLLoader::Create(
         std::move(request), TRAFFIC_ANNOTATION_FOR_TESTS);
     loader->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
-        url_loader_factory, loader_helper.GetCallbackDeprecated());
+        url_loader_factory, loader_helper.GetCallback());
 
     // Wait for the response to complete.
     loader_helper.WaitForCallback();
@@ -2657,7 +2696,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
         auto simple_loader = network::SimpleURLLoader::Create(
             std::move(request), TRAFFIC_ANNOTATION_FOR_TESTS);
         simple_loader->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
-            url_loader_factory, simple_loader_helper.GetCallbackDeprecated());
+            url_loader_factory, simple_loader_helper.GetCallback());
 
         simple_loader_helper.WaitForCallback();
 
@@ -6885,6 +6924,111 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
   }
 }
 
+// Tests that a service worker-based extension with webRequestBlocking that
+// registers listeners conditionally doesn't hang the browser.
+// Regression test for crbug.com/467448815.
+IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
+                       WebRequestBlocking_ListenersRegisteredConditionally) {
+  ASSERT_TRUE(StartEmbeddedTestServer());
+  static constexpr char kManifest[] =
+      R"({
+           "name": "MV3 WebRequest",
+           "version": "0.1",
+           "manifest_version": 3,
+           "permissions": ["webRequest", "webRequestBlocking", "storage"],
+           "host_permissions": [
+             "http://block.example/*"
+           ],
+           "background": {"service_worker": "background.js"}
+         })";
+  static constexpr char kBackgroundJs[] =
+      R"(chrome.storage.local.get(
+           ['shouldSkipRegistration'],
+           async (storage) => {
+             const shouldSkip = storage.shouldSkipRegistration === true;
+             if (shouldSkip) {
+               await chrome.storage.local.remove('shouldSkipRegistration');
+               chrome.test.sendMessage('skipped');
+             } else {
+               chrome.webRequest.onHeadersReceived.addListener(
+                   (details) => {},
+                   {urls: ['<all_urls>'], types: ['main_frame']},
+                   ['blocking']);
+               chrome.webRequest.onBeforeRequest.addListener(
+                   (details) => {
+                     return {cancel: true};
+                   },
+                   {urls: ['<all_urls>'], types: ['main_frame']},
+                   ['blocking']);
+               await chrome.storage.local.set({shouldSkipRegistration: true});
+               chrome.test.sendMessage('registered');
+             }
+           }
+         );
+         chrome.test.sendMessage('ready');)";
+
+  TestExtensionDir test_dir;
+  test_dir.WriteManifest(kManifest);
+  test_dir.WriteFile(FILE_PATH_LITERAL("background.js"), kBackgroundJs);
+
+  ExtensionTestMessageListener registered_listener("registered");
+  ExtensionTestMessageListener skipped_listener("skipped");
+
+  const Extension* extension = LoadPolicyExtension(test_dir);
+  ASSERT_TRUE(extension);
+  ASSERT_TRUE(registered_listener.WaitUntilSatisfied());
+
+  // Two webRequest listeners should be registered.
+  EXPECT_EQ(1u, web_request_router()->GetListenerCountForTesting(
+                    profile(), "webRequest.onBeforeRequest"));
+  EXPECT_EQ(1u, web_request_router()->GetListenerCountForTesting(
+                    profile(), "webRequest.onHeadersReceived"));
+  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCountForTesting(
+                    profile(), "webRequest.onBeforeRequest"));
+  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCountForTesting(
+                    profile(), "webRequest.onHeadersReceived"));
+
+  // Navigate to block.example. The worker will start, and register the
+  // listener. The request should be blocked.
+  {
+    content::WebContents* web_contents = GetActiveWebContents();
+    content::TestNavigationObserver nav_observer(web_contents);
+    EXPECT_FALSE(NavigateToURL(
+        web_contents,
+        embedded_test_server()->GetURL("block.example", "/simple.html")));
+    EXPECT_EQ(net::ERR_BLOCKED_BY_CLIENT, nav_observer.last_net_error_code());
+  }
+
+  // Stop the service worker.
+  browsertest_util::StopServiceWorkerForExtensionGlobalScope(profile(),
+                                                             extension->id());
+  base::RunLoop().RunUntilIdle();
+
+  // The listeners should still be registered, but should be counted as
+  // inactive listeners.
+  EXPECT_EQ(0u, web_request_router()->GetListenerCountForTesting(
+                    profile(), "webRequest.onBeforeRequest"));
+  EXPECT_EQ(0u, web_request_router()->GetListenerCountForTesting(
+                    profile(), "webRequest.onHeadersReceived"));
+  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCountForTesting(
+                    profile(), "webRequest.onBeforeRequest"));
+  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCountForTesting(
+                    profile(), "webRequest.onHeadersReceived"));
+
+  // Navigate to block.example. The worker will start, but NOT register the
+  // listeners. The request should proceed rather than hanging the browser.
+  {
+    content::WebContents* web_contents = GetActiveWebContents();
+    content::TestNavigationObserver nav_observer(web_contents);
+    EXPECT_TRUE(NavigateToURL(
+        web_contents,
+        embedded_test_server()->GetURL("block.example", "/simple.html")));
+    EXPECT_EQ(net::OK, nav_observer.last_net_error_code());
+  }
+
+  ASSERT_TRUE(skipped_listener.WaitUntilSatisfied());
+}
+
 // Tests a service worker-based extension using webRequest for observational
 // purposes receives events after the worker stops.
 IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
@@ -8339,5 +8483,49 @@ INSTANTIATE_TEST_SUITE_P(
     All,
     ManifestV3WebRequestApiTestWithSkipResetServiceWorkerURLLoaderFactories,
     testing::Bool());
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+
+IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, SecurityInfo_Secure) {
+  UseHttpsTestServer(net::EmbeddedTestServer::ServerCertificate::CERT_OK);
+  ASSERT_TRUE(StartEmbeddedTestServer());
+
+  RunSecurityInfoTest("secure", /*use_web_socket=*/false,
+                      embedded_test_server()->GetCertificate(),
+                      embedded_test_server()->GetURL("/simple.html"));
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, SecurityInfo_Insecure) {
+  ASSERT_TRUE(StartEmbeddedTestServer());
+
+  RunSecurityInfoInsecureTest(/*use_web_socket=*/false,
+                              embedded_test_server()->GetURL("/simple.html"));
+}
+
+class SecurityInfoBrokenWebRequestApiTest : public ExtensionWebRequestApiTest {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    ExtensionWebRequestApiTest::SetUpCommandLine(command_line);
+    // This flag is necessary for tests to explore a condition, where a server
+    // certificate is invalid (e.g. expired). It simulates the user clicking to
+    // proceed to a dangerous site.
+    // network::switches::kIgnoreCertificateErrorsSPKIList is a recommended
+    // alternative, which does not allow to explore invalid cert, since it
+    // treats any certificate as valid.
+    command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(SecurityInfoBrokenWebRequestApiTest,
+                       SecurityInfo_Broken) {
+  UseHttpsTestServer(net::EmbeddedTestServer::ServerCertificate::CERT_EXPIRED);
+  ASSERT_TRUE(StartEmbeddedTestServer());
+
+  RunSecurityInfoTest("broken", /*use_web_socket=*/false,
+                      embedded_test_server()->GetCertificate(),
+                      embedded_test_server()->GetURL("/simple.html"));
+}
+
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 }  // namespace extensions

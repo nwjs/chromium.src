@@ -5,7 +5,9 @@
 #include "chrome/browser/signin/signin_promo_util.h"
 
 #include "base/check_deref.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/strings/strcat.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/batch_upload/batch_upload_service.h"
 #include "chrome/browser/profiles/batch_upload/batch_upload_service_factory.h"
@@ -121,6 +123,26 @@ const char* GetAvatarButtonPromoUsedKey(
   }
 }
 
+// Returns the Shown/Used count pair for `promo_type`.
+std::pair<int, int> GetPromoUsageCounts(
+    SigninPrefs signin_prefs,
+    ProfileMenuAvatarButtonPromoInfo::Type promo_type,
+    GaiaId gaia) {
+  if (promo_type == ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo) {
+    CHECK(switches::IsAvatarSyncPromoFeatureEnabled());
+    return {signin_prefs.GetSyncPromoIdentityPillShownCount(gaia),
+            signin_prefs.GetSyncPromoIdentityPillUsedCount(gaia)};
+  }
+
+  base::DictValue& promo_counts =
+      signin_prefs.GetOrCreateAvatarButtonPromoCountDictionary(gaia);
+
+  return {promo_counts.FindInt(GetAvatarButtonPromoShownKey(promo_type))
+              .value_or(0),
+          promo_counts.FindInt(GetAvatarButtonPromoUsedKey(promo_type))
+              .value_or(0)};
+}
+
 bool WasPreviouslySyncingWithPrimaryAccount(Profile* profile) {
   const GaiaId last_syncing_gaia_id(
       profile->GetPrefs()->GetString(prefs::kGoogleServicesLastSyncingGaiaId));
@@ -154,8 +176,6 @@ void ComputeProfileMenuAvatarButtonPromoInfoWithBatchUploadResult(
       });
 
   // Batch Upload promo: Windows 10 depreciation promo.
-  // TODO(crbug.com/447048341): Confirm whether additional requirements are
-  // needed for this promo (e.g. minimum cookie age, cross account error).
   if (local_data_count > 0 && switches::IsSigninWindows10DepreciationState()) {
     std::move(result_callback)
         .Run(ProfileMenuAvatarButtonPromoInfo{
@@ -181,7 +201,9 @@ void ComputeProfileMenuAvatarButtonPromoInfoWithBatchUploadResult(
   // History sync promo.
   if (signin_util::ShouldShowHistorySyncOptinScreen(*profile) ==
           signin_util::ShouldShowHistorySyncOptinResult::kShow &&
-      !signin_util::HasExplicitlyDisabledHistorySync(*profile)) {
+      !signin_util::HasExplicitlyDisabledHistorySync(
+          SyncServiceFactory::GetForProfile(profile),
+          IdentityManagerFactory::GetForProfile(profile))) {
     std::move(result_callback)
         .Run(ProfileMenuAvatarButtonPromoInfo{
             .type = ProfileMenuAvatarButtonPromoInfo::Type::kHistorySyncPromo,
@@ -218,11 +240,93 @@ syncer::DataType GetDataTypeFromSignInPromoType(SignInPromoType type) {
   }
 }
 
+int GetAddressPromoShownCount(Profile& profile, const GaiaId& gaia_id) {
+  if (!gaia_id.empty()) {
+    return SigninPrefs(*profile.GetPrefs())
+        .GetAddressSigninPromoImpressionCount(gaia_id);
+  }
+
+  return profile.GetPrefs()->GetInteger(
+      base::FeatureList::IsEnabled(switches::kSigninPromoLimitsExperiment)
+          ? prefs::kAddressSignInPromoShownCountPerProfileForLimitsExperiment
+          : prefs::kAddressSignInPromoShownCountPerProfile);
+}
+
+int GetPasswordPromoShownCount(Profile& profile, const GaiaId& gaia_id) {
+  if (!gaia_id.empty()) {
+    return SigninPrefs(*profile.GetPrefs())
+        .GetPasswordSigninPromoImpressionCount(gaia_id);
+  }
+
+  return profile.GetPrefs()->GetInteger(
+      base::FeatureList::IsEnabled(switches::kSigninPromoLimitsExperiment)
+          ? prefs::kPasswordSignInPromoShownCountPerProfileForLimitsExperiment
+          : prefs::kPasswordSignInPromoShownCountPerProfile);
+}
+
+int GetBookmarkPromoShownCount(Profile& profile, const GaiaId& gaia_id) {
+  if (!gaia_id.empty()) {
+    return SigninPrefs(*profile.GetPrefs())
+        .GetBookmarkSigninPromoImpressionCount(gaia_id);
+  }
+
+  return profile.GetPrefs()->GetInteger(
+      base::FeatureList::IsEnabled(switches::kSigninPromoLimitsExperiment)
+          ? prefs::kBookmarkSignInPromoShownCountPerProfileForLimitsExperiment
+          : prefs::kBookmarkSignInPromoShownCountPerProfile);
+}
+
+int GetContextualPromoDismissCountPerSignedOutProfile(Profile& profile,
+                                                      SignInPromoType type) {
+  if (!base::FeatureList::IsEnabled(switches::kSigninPromoLimitsExperiment)) {
+    return profile.GetPrefs()->GetInteger(
+        prefs::kAutofillSignInPromoDismissCountPerProfile);
+  }
+
+  switch (type) {
+    case SignInPromoType::kAddress:
+      return profile.GetPrefs()->GetInteger(
+          prefs::kAddressSignInPromoDismissCountPerProfileForLimitsExperiment);
+    case SignInPromoType::kPassword:
+      return profile.GetPrefs()->GetInteger(
+          prefs::kPasswordSignInPromoDismissCountPerProfileForLimitsExperiment);
+    case SignInPromoType::kBookmark:
+      return profile.GetPrefs()->GetInteger(
+          prefs::kBookmarkSignInPromoDismissCountPerProfileForLimitsExperiment);
+    case SignInPromoType::kExtension:
+      NOTREACHED();
+  }
+}
+
+int GetContextualPromoDismissCountPerAccount(Profile& profile,
+                                             SignInPromoType type,
+                                             const GaiaId& gaia_id) {
+  if (!base::FeatureList::IsEnabled(switches::kSigninPromoLimitsExperiment)) {
+    return SigninPrefs(*profile.GetPrefs())
+        .GetAutofillSigninPromoDismissCount(gaia_id);
+  }
+
+  switch (type) {
+    case SignInPromoType::kAddress:
+      return SigninPrefs(*profile.GetPrefs())
+          .GetAddressSigninPromoDismissCount(gaia_id);
+    case SignInPromoType::kPassword:
+      return SigninPrefs(*profile.GetPrefs())
+          .GetPasswordSigninPromoDismissCount(gaia_id);
+    case SignInPromoType::kBookmark:
+      return SigninPrefs(*profile.GetPrefs())
+          .GetBookmarkSigninPromoDismissCount(gaia_id);
+    case SignInPromoType::kExtension:
+      NOTREACHED();
+  }
+}
+
 bool ShouldShowPromoBasedOnImpressionOrDismissalCount(Profile& profile,
                                                       SignInPromoType type) {
   // Footer sign in promos are always shown.
   if (type == signin::SignInPromoType::kExtension ||
-      type == signin::SignInPromoType::kBookmark) {
+      (type == signin::SignInPromoType::kBookmark &&
+       !base::FeatureList::IsEnabled(syncer::kUnoPhase2FollowUp))) {
     return true;
   }
 
@@ -232,32 +336,32 @@ bool ShouldShowPromoBasedOnImpressionOrDismissalCount(Profile& profile,
   int show_count = 0;
   switch (type) {
     case SignInPromoType::kAddress:
-      show_count =
-          account.gaia.empty()
-              ? profile.GetPrefs()->GetInteger(
-                    prefs::kAddressSignInPromoShownCountPerProfile)
-              : SigninPrefs(*profile.GetPrefs())
-                    .GetAddressSigninPromoImpressionCount(account.gaia);
+      show_count = GetAddressPromoShownCount(profile, account.gaia);
       break;
     case SignInPromoType::kPassword:
-      show_count =
-          account.gaia.empty()
-              ? profile.GetPrefs()->GetInteger(
-                    prefs::kPasswordSignInPromoShownCountPerProfile)
-              : SigninPrefs(*profile.GetPrefs())
-                    .GetPasswordSigninPromoImpressionCount(account.gaia);
+      show_count = GetPasswordPromoShownCount(profile, account.gaia);
       break;
     case SignInPromoType::kBookmark:
+      if (!base::FeatureList::IsEnabled(syncer::kUnoPhase2FollowUp)) {
+        NOTREACHED();
+      }
+      show_count = GetBookmarkPromoShownCount(profile, account.gaia);
+      break;
     case SignInPromoType::kExtension:
       NOTREACHED();
   }
 
   int dismiss_count =
       account.gaia.empty()
-          ? profile.GetPrefs()->GetInteger(
-                prefs::kAutofillSignInPromoDismissCountPerProfile)
-          : SigninPrefs(*profile.GetPrefs())
-                .GetAutofillSigninPromoDismissCount(account.gaia);
+          ? GetContextualPromoDismissCountPerSignedOutProfile(profile, type)
+          : GetContextualPromoDismissCountPerAccount(profile, type,
+                                                     account.gaia);
+
+  if (base::FeatureList::IsEnabled(switches::kSigninPromoLimitsExperiment)) {
+    return show_count < switches::kContextualSigninPromoShownThreshold.Get() &&
+           dismiss_count <
+               switches::kContextualSigninPromoDismissedThreshold.Get();
+  }
 
   // Don't show the promo again if it
   // - has already been shown `kSigninPromoShownThreshold` times for its
@@ -393,17 +497,19 @@ bool ShouldShowExtensionSyncPromo(Profile& profile,
     return false;
   }
 
-  // `ShouldShowSyncPromo()` does not check if extensions are syncing in
-  // transport mode. That's why `IsSyncingExtensionsEnabled()` is added so the
-  // sign in promo is not shown in that case.
-  if (extensions::sync_util::IsSyncingExtensionsEnabled(&profile)) {
-    return false;
-  }
+  if (!base::FeatureList::IsEnabled(syncer::kUnoPhase2FollowUp)) {
+    // `ShouldShowSyncPromo()` does not check if extensions are syncing in
+    // transport mode. That's why `IsSyncingExtensionsEnabled()` is added so the
+    // sign in promo is not shown in that case.
+    if (extensions::sync_util::IsSyncingExtensionsEnabled(&profile)) {
+      return false;
+    }
 
-  // The promo is not shown to users that have explicitly signed in through the
-  // browser (even if extensions are not syncing).
-  if (profile.GetPrefs()->GetBoolean(prefs::kExplicitBrowserSignin)) {
-    return false;
+    // The promo is not shown to users that have explicitly signed in through
+    // the browser (even if extensions are not syncing).
+    if (profile.GetPrefs()->GetBoolean(prefs::kExplicitBrowserSignin)) {
+      return false;
+    }
   }
 
   return true;
@@ -463,16 +569,6 @@ bool ShouldShowBookmarkSignInPromo(Profile& profile) {
     return false;
   }
 
-  // Do not show the promo if a user was previously syncing, as this may result
-  // in duplicate data.
-  // TODO(crbug.com/402748138): Remove this once bookmarks de-duplication is
-  // implemented.
-  if (!profile.GetPrefs()
-           ->GetString(::prefs::kGoogleServicesLastSyncingGaiaId)
-           .empty()) {
-    return false;
-  }
-
   if (!ShouldShowSignInPromoCommon(profile, SignInPromoType::kBookmark)) {
     return false;
   }
@@ -496,13 +592,19 @@ bool ShouldShowBookmarkSignInPromo(Profile& profile) {
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 }
 
-bool IsAutofillSigninPromo(signin_metrics::AccessPoint access_point) {
+bool IsBubbleSigninPromo(signin_metrics::AccessPoint access_point) {
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
   return access_point == signin_metrics::AccessPoint::kPasswordBubble ||
-         access_point == signin_metrics::AccessPoint::kAddressBubble;
+         access_point == signin_metrics::AccessPoint::kAddressBubble ||
+         (base::FeatureList::IsEnabled(syncer::kUnoPhase2FollowUp) &&
+          access_point == signin_metrics::AccessPoint::kBookmarkBubble);
+#else
+  return false;
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 }
 
 bool IsSignInPromo(signin_metrics::AccessPoint access_point) {
-  if (IsAutofillSigninPromo(access_point)) {
+  if (IsBubbleSigninPromo(access_point)) {
     return true;
   }
 
@@ -549,12 +651,29 @@ void RecordSignInPromoShown(signin_metrics::AccessPoint access_point,
     const char* pref_name;
     switch (promo_type) {
       case SignInPromoType::kPassword:
-        pref_name = prefs::kPasswordSignInPromoShownCountPerProfile;
+        pref_name =
+            base::FeatureList::IsEnabled(switches::kSigninPromoLimitsExperiment)
+                ? prefs::
+                      kPasswordSignInPromoShownCountPerProfileForLimitsExperiment
+                : prefs::kPasswordSignInPromoShownCountPerProfile;
         break;
       case SignInPromoType::kAddress:
-        pref_name = prefs::kAddressSignInPromoShownCountPerProfile;
+        pref_name =
+            base::FeatureList::IsEnabled(switches::kSigninPromoLimitsExperiment)
+                ? prefs::
+                      kAddressSignInPromoShownCountPerProfileForLimitsExperiment
+                : prefs::kAddressSignInPromoShownCountPerProfile;
         break;
       case SignInPromoType::kBookmark:
+        if (!base::FeatureList::IsEnabled(syncer::kUnoPhase2FollowUp)) {
+          return;
+        }
+        pref_name =
+            base::FeatureList::IsEnabled(switches::kSigninPromoLimitsExperiment)
+                ? prefs::
+                      kBookmarkSignInPromoShownCountPerProfileForLimitsExperiment
+                : prefs::kBookmarkSignInPromoShownCountPerProfile;
+        break;
       case SignInPromoType::kExtension:
         return;
     }
@@ -576,9 +695,56 @@ void RecordSignInPromoShown(signin_metrics::AccessPoint access_point,
           .IncrementAddressSigninPromoImpressionCount(account.gaia);
       return;
     case SignInPromoType::kBookmark:
+      if (base::FeatureList::IsEnabled(syncer::kUnoPhase2FollowUp)) {
+        SigninPrefs(*profile->GetPrefs())
+            .IncrementBookmarkSigninPromoImpressionCount(account.gaia);
+      }
+      return;
     case SignInPromoType::kExtension:
       return;
   }
+}
+
+void RecordAvatarButtonPromoAcceptedAtPromoShownCount(
+    ProfileMenuAvatarButtonPromoInfo::Type promo_type,
+    signin::IdentityManager* identity_manager,
+    PrefService& prefs) {
+  GaiaId primary_gaia =
+      identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin)
+          .gaia;
+  CHECK(!primary_gaia.empty());
+
+  constexpr char kAvatarPillPromoAcceptedAtShownCountBaseHistogram[] =
+      "Signin.AvatarPillPromo.AcceptedAtShownCount.";
+
+  std::string_view promo_type_suffix;
+  switch (promo_type) {
+    case ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo:
+      CHECK(switches::IsAvatarSyncPromoFeatureEnabled());
+      promo_type_suffix = "Sync";
+      break;
+    case ProfileMenuAvatarButtonPromoInfo::Type::kHistorySyncPromo:
+      promo_type_suffix = "HistorySync";
+      break;
+    case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadPromo:
+      promo_type_suffix = "BatchUpload";
+      break;
+    case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadBookmarksPromo:
+      promo_type_suffix = "BatchUploadBookmarks";
+      break;
+    case ProfileMenuAvatarButtonPromoInfo::Type::
+        kBatchUploadWindows10DepreciationPromo:
+      promo_type_suffix = "BatchUploadWindows10Depreciation";
+      break;
+  }
+
+  int promo_shown_count =
+      GetPromoUsageCounts(SigninPrefs(prefs), promo_type, primary_gaia).first;
+  base::UmaHistogramExactLinear(
+      base::StrCat({kAvatarPillPromoAcceptedAtShownCountBaseHistogram,
+                    promo_type_suffix}),
+      promo_shown_count,
+      /*exclusive_max=*/user_education::features::GetNewBadgeShowCount() + 1);
 }
 
 void ComputeProfileMenuAvatarButtonPromoInfo(
@@ -648,27 +814,8 @@ bool SyncPromoIdentityPillManager::ShouldShowPromo(
   }
 
   CHECK(signin_prefs_);
-  int promo_shown_count = 0;
-  int promo_used_count = 0;
-  if (promo_type == ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo) {
-    CHECK(switches::IsAvatarSyncPromoFeatureEnabled());
-    promo_shown_count =
-        signin_prefs_->GetSyncPromoIdentityPillShownCount(account.gaia);
-    promo_used_count =
-        signin_prefs_->GetSyncPromoIdentityPillUsedCount(account.gaia);
-  } else {
-    base::DictValue& promo_counts =
-        signin_prefs_->GetOrCreateAvatarButtonPromoCountDictionary(
-            account.gaia);
-
-    promo_shown_count =
-        promo_counts.FindInt(GetAvatarButtonPromoShownKey(promo_type))
-            .value_or(0);
-    promo_used_count =
-        promo_counts.FindInt(GetAvatarButtonPromoUsedKey(promo_type))
-            .value_or(0);
-  }
-
+  auto [promo_shown_count, promo_used_count] =
+      GetPromoUsageCounts(*signin_prefs_.get(), promo_type, account.gaia);
   return promo_shown_count < max_shown_count_ &&
          promo_used_count < max_used_count_;
 }

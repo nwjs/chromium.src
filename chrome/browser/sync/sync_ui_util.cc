@@ -33,22 +33,37 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/search_engines/ui_thread_search_terms_data.h"
+#include "chrome/browser/trusted_vault/trusted_vault_encryption_keys_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/singleton_tabs.h"
+#include "content/public/browser/navigation_handle.h"
 #endif
 
 namespace {
 
 #if !BUILDFLAG(IS_ANDROID)
 
-void OpenTabForSyncTrustedVaultUserAction(Browser* browser, const GURL& url) {
+void OpenTabForSyncTrustedVaultUserAction(
+    Browser* browser,
+    const GURL& url,
+    std::optional<trusted_vault::TrustedVaultUserActionTriggerForUMA> trigger) {
   DCHECK(browser);
 
   NavigateParams params(GetSingletonTabNavigateParams(browser, url));
   // Allow the window to close itself.
   params.opened_by_another_window = true;
-  Navigate(&params);
+  base::WeakPtr<content::NavigationHandle> navigation_handle =
+      Navigate(&params);
+
+  if (navigation_handle && trigger) {
+    TrustedVaultEncryptionKeysTabHelper* encryption_keys_tab_helper =
+        TrustedVaultEncryptionKeysTabHelper::FromWebContents(
+            navigation_handle->GetWebContents());
+    if (encryption_keys_tab_helper) {
+      encryption_keys_tab_helper->SetUserActionTrigger(*trigger);
+    }
+  }
 }
 
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -131,6 +146,9 @@ int GetSyncErrorButtonStringId(syncer::SyncService::UserActionableError error,
       // Only shown for "Sync-the-feature".
       return support_title_case ? IDS_SYNC_RELOGIN_BUTTON_MAYBE_TITLE_CASE
                                 : IDS_SYNC_RELOGIN_BUTTON;
+    case syncer::SyncService::UserActionableError::kBookmarksLimitExceeded:
+      return support_title_case ? IDS_LEARN_MORE_MAYBE_TITLE_CASE
+                                : IDS_LEARN_MORE;
   }
 }
 
@@ -206,6 +224,11 @@ SyncStatusLabels GetAvatarSyncErrorLabelsForSettings(
               IDS_SYNC_STATUS_UNRECOVERABLE_ERROR, button_string_id,
               IDS_PROFILES_ACCOUNT_REMOVAL_TITLE,
               SyncStatusActionType::kReauthenticate};
+    case syncer::SyncService::UserActionableError::kBookmarksLimitExceeded:
+      return {SyncStatusMessageType::kSyncError,
+              IDS_SYNC_ERROR_BOOKMARKS_LIMIT_EXCEEDED_DESCRIPTION,
+              button_string_id, IDS_SETTINGS_PEOPLE_SIGN_OUT,
+              SyncStatusActionType::kShowBookmarksLimitHelpArticle};
   }
 }
 
@@ -248,6 +271,9 @@ std::u16string GetAvatarSyncErrorDescription(
     case syncer::SyncService::UserActionableError::kNeedsSettingsConfirmation:
     case syncer::SyncService::UserActionableError::kUnrecoverableError:
       return l10n_util::GetStringUTF16(IDS_SYNC_ERROR_USER_MENU_TITLE);
+    case syncer::SyncService::UserActionableError::kBookmarksLimitExceeded:
+      return l10n_util::GetStringUTF16(
+          IDS_SYNC_ERROR_BOOKMARKS_LIMIT_EXCEEDED_DESCRIPTION);
   }
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -296,8 +322,8 @@ void ShowSyncPassphraseDialogAndDecryptData(Browser& browser) {
 #if !BUILDFLAG(IS_ANDROID)
 void OpenTabForSyncKeyRetrieval(
     Browser* browser,
-    syncer::TrustedVaultUserActionTriggerForUMA trigger) {
-  RecordKeyRetrievalTrigger(trigger);
+    trusted_vault::TrustedVaultUserActionTriggerForUMA trigger) {
+  syncer::RecordKeyRetrievalTrigger(trigger);
   const GURL continue_url =
       GURL(UIThreadSearchTermsData().GoogleBaseURLValue());
   GURL retrieval_url =
@@ -306,13 +332,13 @@ void OpenTabForSyncKeyRetrieval(
     retrieval_url = net::AppendQueryParameter(retrieval_url, "continue",
                                               continue_url.spec());
   }
-  OpenTabForSyncTrustedVaultUserAction(browser, retrieval_url);
+  OpenTabForSyncTrustedVaultUserAction(browser, retrieval_url, trigger);
 }
 
 void OpenTabForSyncKeyRecoverabilityDegraded(
     Browser* browser,
-    syncer::TrustedVaultUserActionTriggerForUMA trigger) {
-  RecordRecoverabilityDegradedFixTrigger(trigger);
+    trusted_vault::TrustedVaultUserActionTriggerForUMA trigger) {
+  syncer::RecordRecoverabilityDegradedFixTrigger(trigger);
   const GURL continue_url =
       GURL(UIThreadSearchTermsData().GoogleBaseURLValue());
   GURL url = GaiaUrls::GetInstance()
@@ -320,6 +346,6 @@ void OpenTabForSyncKeyRecoverabilityDegraded(
   if (continue_url.is_valid()) {
     url = net::AppendQueryParameter(url, "continue", continue_url.spec());
   }
-  OpenTabForSyncTrustedVaultUserAction(browser, url);
+  OpenTabForSyncTrustedVaultUserAction(browser, url, std::nullopt);
 }
 #endif  // !BUILDFLAG(IS_ANDROID)

@@ -195,10 +195,10 @@ BASE_DECLARE_FEATURE(kSafeBrowsingCrxAllowlistAutoDisable);
 // in 'chrome://extensions' for extensions not included in the allowlist.
 BASE_DECLARE_FEATURE(kSafeBrowsingCrxAllowlistShowWarnings);
 
-// When enabled, causes Manifest V3 (and greater) extensions to use structured
-// cloning (instead of JSON serialization) for extension messaging, except when
-// communicating with native messaging hosts.
-BASE_DECLARE_FEATURE(kStructuredCloningForMV3Messaging);
+// When enabled, cause extensions to use structured cloning (instead of JSON
+// serialization) for extension messaging, except when communicating with native
+// messaging hosts.
+BASE_DECLARE_FEATURE(kStructuredCloningForMessaging);
 
 // If enabled, APIs of the Telemetry Extension platform that have pending
 // approval will be enabled. Read more about the platform here:
@@ -297,8 +297,15 @@ BASE_DECLARE_FEATURE(kRuntimeOnMessageWebExtensionPolyfillSupport);
 // Chrome Enterprise on CWS.
 BASE_DECLARE_FEATURE(kEnableShouldShowPromotion);
 
-// Enables the "collapsed listeners" strategy for webRequest lazy listeners.
-BASE_DECLARE_FEATURE(kEnableWebRequestCollapsedListeners);
+// Enables the securityInfo in chrome.webRequest API for extensions.
+// Allowing them to retrieve certificate information from web requests.
+BASE_DECLARE_FEATURE(kWebRequestSecurityInfo);
+
+// When enabled, filtered webRequest event listeners for service worker-based
+// extensions are persisted to ExtensionPrefs. This allows the browser to know
+// about the listeners before starting the extension service worker (e.g. on
+// browser startup).
+BASE_DECLARE_FEATURE(kWebRequestPersistFilteredEvents);
 
 }  // namespace extensions_features
 

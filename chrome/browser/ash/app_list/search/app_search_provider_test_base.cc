@@ -52,7 +52,7 @@ void AppSearchProviderTestBase::SetUp() {
 void AppSearchProviderTestBase::InitializeSearchProvider() {
   search_controller_ = std::make_unique<TestSearchController>();
   data_source_ =
-      std::make_unique<AppSearchDataSource>(profile_.get(), nullptr, &clock_);
+      std::make_unique<AppSearchDataSource>(profile(), nullptr, &clock_);
 
   std::unique_ptr<SearchProvider> app_search;
   if (zero_state_provider_) {
@@ -118,7 +118,7 @@ std::string AppSearchProviderTestBase::AddArcApp(const std::string& name,
   app_info.activity = activity;
   app_info.sticky = sticky;
   app_info.notifications_enabled = false;
-  arc_test_.app_instance()->SendAppAdded(app_info);
+  arc_app_test_.app_instance()->SendAppAdded(app_info);
   return ArcAppListPrefs::GetAppId(package, activity);
 }
 

@@ -37,13 +37,23 @@ public class StripLayoutUtils {
     // calculated as:
     // closeButtonEndPadding(10) + tabContainerEndPadding(16) + groupTitleStartMargin(13)
     //         - overlap(28-16) =
-    public static final float TAB_GROUP_BOTTOM_INDICATOR_WIDTH_OFFSET = 27.f;
-    public static final float MIN_TAB_WIDTH_DP = shouldApplyMoreDensity() ? 76.f : 108.f;
+    public static final float TAB_GROUP_BOTTOM_INDICATOR_WIDTH_OFFSET = 27f;
+
+    // Tab width constants.
+    private static final float MIN_TAB_WIDTH_DESKTOP_DP = 76f;
+    private static final float MIN_TAB_WIDTH_TABLET_DP = 108f;
+    public static final float MIN_TAB_WIDTH_DP =
+            shouldApplyMoreDensity() ? MIN_TAB_WIDTH_DESKTOP_DP : MIN_TAB_WIDTH_TABLET_DP;
     public static final float MAX_TAB_WIDTH_DP = TabUiThemeUtil.getMaxTabStripTabWidthDp();
-    public static final float TAB_OVERLAP_WIDTH_DP = 28.f;
+    public static final float TAB_OVERLAP_WIDTH_DP = 28f;
 
     // Pinned tab width.
-    public static final float PINNED_TAB_WIDTH_DP = MIN_TAB_WIDTH_DP;
+    public static final float PINNED_TAB_WIDTH_DP = MIN_TAB_WIDTH_DESKTOP_DP;
+
+    // Button size constants.
+    public static final float BUTTON_BACKGROUND_SIZE_DP = 32f;
+    public static final float BUTTON_TOUCH_TARGET_SIZE_DP =
+            shouldApplyMoreDensity() ? BUTTON_BACKGROUND_SIZE_DP : 48f;
 
     // Animation Constants.
     public static final int ANIM_TAB_MOVE_MS = 125;
@@ -282,10 +292,12 @@ public class StripLayoutUtils {
     }
 
     /**
+     * Returns a visible {@link StripLayoutView} at the given x-position, or {@code null} if none.
+     *
      * @param views The list of {@link StripLayoutView}.
      * @param x The x position to use to retrieve view.
      * @param includeGroupTitles Whether to include group title when finding view.
-     * @return View at x position.{@code null} if no view at position or if input criteria not met.
+     * @return View at x position. {@code null} if no view at position or if input criteria not met.
      */
     public static @Nullable StripLayoutView findViewAtPositionX(
             StripLayoutView[] views, float x, boolean includeGroupTitles) {

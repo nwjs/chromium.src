@@ -14,7 +14,6 @@
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/autofill/ui_bundled/authentication/authentication_egtest_util.h"
 #import "ios/chrome/browser/autofill/ui_bundled/autofill_app_interface.h"
-#import "ios/chrome/common/ui/confirmation_alert/constants.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
@@ -101,11 +100,9 @@ id<GREYMatcher> VirtualCardEnrollmentAcceptButton() {
 
 // Matcher for the activity indicator.
 id<GREYMatcher> ActivityIndicatorMatcher() {
-  return grey_allOf(
-      grey_kindOfClassName(@"UIActivityIndicatorView"),
-      grey_ancestor(grey_accessibilityID(
-          kConfirmationAlertPrimaryActionAccessibilityIdentifier)),
-      nil);
+  return grey_allOf(grey_kindOfClassName(@"UIActivityIndicatorView"),
+                    grey_ancestor(chrome_test_util::ButtonStackPrimaryButton()),
+                    nil);
 }
 
 }  // namespace
@@ -316,9 +313,8 @@ id<GREYMatcher> ActivityIndicatorMatcher() {
       assertWithMatcher:grey_sufficientlyVisible()];
 
   // Assert the primary action button is disabled.
-  [[EarlGrey selectElementWithMatcher:
-                 grey_accessibilityID(
-                     kConfirmationAlertPrimaryActionAccessibilityIdentifier)]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::ButtonStackPrimaryButton()]
       assertWithMatcher:
           grey_allOf(
               grey_not(grey_enabled()),
@@ -327,9 +323,8 @@ id<GREYMatcher> ActivityIndicatorMatcher() {
               nil)];
 
   // Assert the secondary action button is disabled.
-  [[EarlGrey selectElementWithMatcher:
-                 grey_accessibilityID(
-                     kConfirmationAlertSecondaryActionAccessibilityIdentifier)]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::ButtonStackSecondaryButton()]
       assertWithMatcher:grey_not(grey_enabled())];
 
   // Inject a successful enrollment response from the payments server.
@@ -338,17 +333,14 @@ id<GREYMatcher> ActivityIndicatorMatcher() {
                               withErrorCode:net::HTTP_OK];
 
   // Assert the primary action button is still disabled.
-  [[EarlGrey selectElementWithMatcher:
-                 grey_accessibilityID(
-                     kConfirmationAlertPrimaryActionAccessibilityIdentifier)]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::ButtonStackPrimaryButton()]
       assertWithMatcher:grey_not(grey_enabled())];
 
   // Assert the primary action button contains the checkmark symbol.
   [[[EarlGrey
-      selectElementWithMatcher:grey_accessibilityID(
-                                   kConfirmationAlertCheckmarkSymbolIdentifier)]
-      inRoot:grey_accessibilityID(
-                 kConfirmationAlertPrimaryActionAccessibilityIdentifier)]
+      selectElementWithMatcher:chrome_test_util::ButtonStackCheckmarkSymbol()]
+      inRoot:chrome_test_util::ButtonStackPrimaryButton()]
       assertWithMatcher:grey_sufficientlyVisible()];
 }
 

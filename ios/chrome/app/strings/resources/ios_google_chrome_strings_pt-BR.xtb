@@ -75,7 +75,6 @@ Considerações:
 <translation id="2576431527583832481">O Google Chrome ficou ainda melhor! Uma nova versão está disponível.</translation>
 <translation id="257708665678654955">Quer que na próxima vez o Google Chrome ofereça a tradução de páginas em <ph name="LANGUAGE_NAME" /> deste site?</translation>
 <translation id="2668242166988961773">Pesquise com a voz no Chrome.</translation>
-<translation id="2695886661449553974">Não foi possível verificar se há atualizações. Tente novamente mais tarde.</translation>
 <translation id="2703746758996815929">Para receber dicas úteis sobre o Chrome, ative as notificações nos ajustes do iOS.</translation>
 <translation id="2728851697704606655">Traduza com o Google Lens</translation>
 <translation id="2736805085127235148">As notificações do Chrome estão desativadas nas configurações do dispositivo no momento.</translation>
@@ -170,9 +169,11 @@ Aguarde alguns minutos antes de sair. Se você sair agora, esses dados serão ex
 <translation id="5162467219239570114">O Chrome está desatualizado. Se nenhuma atualização está disponível na <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" />, é possível que seu dispositivo não seja mais compatível com novas versões do Chrome.</translation>
 <translation id="5184329579814168207">Abrir no Google Chrome</translation>
 <translation id="5190139289262548459">Sua organização, <ph name="DOMAIN" />, gerencia a conta em que você fez login e a forma como o Chrome é usado.</translation>
+<translation id="5209238444239954363">Não foi possível verificar se há atualizações. Tente novamente mais tarde.</translation>
 <translation id="5305440589062022504">Abre o Gerenciador de senhas no Chrome</translation>
 <translation id="5310957470610282541">Alguns dos seus dados do Chrome ainda não foram salvos na sua Conta do Google.
 Aguarde alguns minutos antes de sair. Se você sair agora, esses dados serão excluídos.</translation>
+<translation id="5342685492141499976">Os dados serão salvos no Gerenciador de Senhas do Google da conta <ph name="USER_EMAIL" /></translation>
 <translation id="5389212809648216794">O Google Chrome não pode usar a câmera porque ela está sendo usada por outro app</translation>
 <translation id="5395376160638294582">Garanta que você sempre possa usar os dados do Chrome na sua Conta do Google</translation>
 <translation id="5404252374083197467">Definir o Chrome como padrão?</translation>
@@ -200,6 +201,7 @@ Aguarde alguns minutos antes de sair. Se você sair agora, esses dados serão ex
 <translation id="5808435672482059465">Ver seu histórico do Chrome</translation>
 <translation id="5833027901704861726">Alguns dos seus dados do Chrome ainda não foram salvos na conta <ph name="EMAIL" />.
 Aguarde alguns minutos antes de trocar de conta. Se você mudar de conta agora, esses dados serão excluídos.</translation>
+<translation id="5853754888722423892">Importar para o Gerenciador de Senhas do Google</translation>
 <translation id="5998675059699164418">Sua organização exige que você faça login para usar o Chrome.</translation>
 <translation id="6021312115739110405">Um feed personalizado feito pelo Google. Inclui notícias, esportes e clima.</translation>
 <translation id="6022659036123304283">Deixe o Chrome do seu jeito</translation>
@@ -302,6 +304,7 @@ Para conferir mais configurações que usam dados para melhorar sua experiência
 <translation id="787226752901403048">Faça login no Chrome para compartilhar e participar de grupos de guias e trabalhar em conjunto</translation>
 <translation id="7897703007638178753">Conferir guias recentes do Chrome</translation>
 <translation id="7948283758957877064">Novidades do Chrome</translation>
+<translation id="7996707498590516621">Crie uma imagem com o Gemini no Chrome</translation>
 <translation id="8000174216052461231">Dica do Chrome: aproveite a segurança mais avançada do Chrome</translation>
 <translation id="8006014511203279255">Abra links de mensagens e de outros apps sempre com o Chrome.</translation>
 <translation id="8014670471808569312">O Chrome vai oferecer a opção de salvar sua senha.</translation>

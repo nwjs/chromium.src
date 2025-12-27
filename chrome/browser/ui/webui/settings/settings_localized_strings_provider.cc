@@ -523,6 +523,7 @@ void AddAppearanceStrings(content::WebUIDataSource* html_source,
       {"systemMode", IDS_NTP_CUSTOMIZE_CHROME_COLOR_SCHEME_MODE_SYSTEM_LABEL},
       {"showHomeButton", IDS_SETTINGS_SHOW_HOME_BUTTON},
       {"showBookmarksBar", IDS_SETTINGS_SHOW_BOOKMARKS_BAR},
+      {"tabStripPosition", IDS_SETTINGS_TAB_STRIP_POSITION},
       {"allowSplitViewDragAndDrop",
        IDS_SETTINGS_ALLOW_SPLIT_VIEW_DRAG_AND_DROP},
       {"showTabGroupsInBookmarksBar",
@@ -550,6 +551,8 @@ void AddAppearanceStrings(content::WebUIDataSource* html_source,
       {"huge", IDS_SETTINGS_HUGE_FONT_SIZE},
       {"uiFeatureAlignLeft", IDS_SETTINGS_UI_FEATURE_ALIGN_LEFT},
       {"uiFeatureAlignRight", IDS_SETTINGS_UI_FEATURE_ALIGN_RIGHT},
+      {"uiFeatureAlignSide", IDS_SETTINGS_UI_FEATURE_ALIGN_SIDE},
+      {"uiFeatureAlignTop", IDS_SETTINGS_UI_FEATURE_ALIGN_TOP},
       {"resetToDefault", IDS_SETTINGS_RESET_TO_DEFAULT},
 #if BUILDFLAG(IS_LINUX)
       {"gtkTheme", IDS_SETTINGS_GTK_THEME},
@@ -582,6 +585,8 @@ void AddAppearanceStrings(content::WebUIDataSource* html_source,
       base::FeatureList::IsEnabled(features::kTabHoverCardImages));
   html_source->AddBoolean("showTabSearchPositionSettings",
                           tabs::CanShowTabSearchPositionSetting());
+  html_source->AddBoolean("showVerticalTabsEnabled",
+                          tabs::IsVerticalTabsFeatureEnabled());
   html_source->AddBoolean("showSplitViewDragAndDropSetting",
                           base::FeatureList::IsEnabled(features::kSideBySide));
   html_source->AddBoolean("tabSearchIsRightAlignedAtStartup",
@@ -708,10 +713,22 @@ void AddClearBrowsingDataStrings(content::WebUIDataSource* html_source,
 
 #if !BUILDFLAG(IS_CHROMEOS)
 void AddDefaultBrowserStrings(content::WebUIDataSource* html_source) {
+  html_source->AddString(
+      "defaultBrowserDefault",
+      base::FeatureList::IsEnabled(features::kUserValueDefaultBrowserStrings)
+          ? l10n_util::GetStringUTF16(
+                IDS_SETTINGS_DEFAULT_BROWSER_DEFAULT_THANK_YOU)
+          : l10n_util::GetStringUTF16(IDS_SETTINGS_DEFAULT_BROWSER_DEFAULT));
+  html_source->AddString(
+      "defaultBrowserMakeDefault",
+      base::FeatureList::IsEnabled(features::kUserValueDefaultBrowserStrings)
+          ? l10n_util::GetStringUTF16(
+                IDS_SETTINGS_DEFAULT_BROWSER_MAKE_DEFAULT_USER_VALUE)
+          : l10n_util::GetStringUTF16(
+                IDS_SETTINGS_DEFAULT_BROWSER_MAKE_DEFAULT));
+
   static constexpr webui::LocalizedString kLocalizedStrings[] = {
       {"defaultBrowser", IDS_SETTINGS_DEFAULT_BROWSER},
-      {"defaultBrowserDefault", IDS_SETTINGS_DEFAULT_BROWSER_DEFAULT},
-      {"defaultBrowserMakeDefault", IDS_SETTINGS_DEFAULT_BROWSER_MAKE_DEFAULT},
       {"defaultBrowserMakeDefaultAndPin",
        IDS_SETTINGS_DEFAULT_BROWSER_MAKE_DEFAULT_AND_PIN},
       {"defaultBrowserMakeDefaultButton",
@@ -751,6 +768,10 @@ bool IsWebActuationDisabledForEnterprise(Profile* profile) {
 }
 
 bool ShouldShowWebActuationToggle(Profile* profile) {
+  auto* command_line = base::CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(::switches::kGlicAlwaysShowWebActuationToggle)) {
+    return true;
+  }
   if (!base::FeatureList::IsEnabled(features::kGlicWebActuationSetting)) {
     return false;
   }
@@ -823,6 +844,8 @@ void AddGlicStrings(content::WebUIDataSource* html_source, Profile* profile) {
       {"glicClosedCaptionsToggle", IDS_SETTINGS_GLIC_CLOSED_CAPTIONING},
       {"glicClosedCaptionsToggleSublabel",
        IDS_SETTINGS_GLIC_CLOSED_CAPTIONING_SUBLABEL},
+      {"glicKeepSidepanelOpenOnNewTabsToggle",
+       IDS_SETTINGS_GLIC_KEEP_SIDEPANEL_OPEN_ON_NEW_TABS},
       {"glicLocationToggle", IDS_SETTINGS_GLIC_PERMISSIONS_LOCATION_TOGGLE},
       {"glicLocationToggleSublabel",
        IDS_SETTINGS_GLIC_PERMISSIONS_LOCATION_TOGGLE_SUBLABEL},
@@ -935,6 +958,9 @@ void AddGlicStrings(content::WebUIDataSource* html_source, Profile* profile) {
   html_source->AddBoolean(
       "showGlicDefaultTabContextSetting",
       base::FeatureList::IsEnabled(features::kGlicDefaultTabContextSetting));
+  html_source->AddBoolean(
+      "showGlicKeepSidepanelOpenOnNewTabsSetting",
+      base::FeatureList::IsEnabled(features::kGlicDaisyChainNewTabs));
   html_source->AddBoolean("glicWebActuationFeatureEnabled",
                           ShouldShowWebActuationToggle(profile));
   html_source->AddBoolean("isWebActuationDisabledForEnterprise",
@@ -1327,6 +1353,11 @@ bool IsWalletServerStorageEnabled() {
          base::FeatureList::IsEnabled(syncer::kSyncWalletVehicleRegistrations);
 }
 
+bool AutofillAiIgnoresWhetherAddressFillingIsEnabled() {
+  return base::FeatureList::IsEnabled(
+      autofill::features::kAutofillAiIgnoresWhetherAddressPrefIsEnabled);
+}
+
 void AddAutofillStrings(content::WebUIDataSource* html_source,
                         Profile* profile,
                         content::WebContents* web_contents) {
@@ -1341,11 +1372,17 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
       {"yourSavedInfoRelatedServicesTitle",
        IDS_SETTINGS_RELATED_SERVICES_TITLE},
       {"identityDocsCardTitle", IDS_AUTOFILL_IDENTITY_DOCS_TITLE},
+      {"identityDocsOptInToggleLabel",
+       IDS_AUTOFILL_IDENTITY_DOCS_OPT_IN_TOGGLE_LABEL},
+      {"identityDocsOptInToggleSubLabel",
+       IDS_AUTOFILL_IDENTITY_DOCS_OPT_IN_TOGGLE_SUB_LABEL},
+      {"travelOptInToggleLabel", IDS_AUTOFILL_TRAVEL_OPT_IN_TOGGLE_LABEL},
+      {"travelOptInToggleSubLabel",
+       IDS_AUTOFILL_TRAVEL_OPT_IN_TOGGLE_SUB_LABEL},
       {"yourSavedInfoDriverLicenseChip",
-       IDS_AUTOFILL_AI_DRIVERS_LICENSE_ENTITY_NAME},
-      {"yourSavedInfoNationalIdChip",
-       IDS_AUTOFILL_AI_NATIONAL_ID_CARD_ENTITY_NAME},
-      {"yourSavedInfoPassportChip", IDS_AUTOFILL_AI_PASSPORT_ENTITY_NAME},
+       IDS_AUTOFILL_AI_DRIVERS_LICENSES_TITLE},
+      {"yourSavedInfoNationalIdsChip", IDS_AUTOFILL_AI_NATIONAL_IDS_TITLE},
+      {"yourSavedInfoPassportChip", IDS_AUTOFILL_AI_PASSPORTS_TITLE},
       {"travelCardTitle", IDS_AUTOFILL_TRAVEL_TITLE},
       {"yourSavedInfoVehiclesChip", IDS_AUTOFILL_AI_VEHICLES_TITLE},
       {"yourSavedInfoTravelInfoChip", IDS_AUTOFILL_AI_TRAVEL_INFO_TITLE},
@@ -1446,7 +1483,7 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
       {"addPaymentMethodCreditOrDebitCard",
        IDS_SETTINGS_ADD_PAYMENT_METHOD_CREDIT_OR_DEBIT_CARD},
       {"addPaymentMethodIban", IDS_SETTINGS_ADD_PAYMENT_METHOD_IBAN},
-      {"ibanTitle", IDS_AUTOFILL_SAVE_IBAN_LABEL},
+      {"ibanTitle", IDS_AUTOFILL_IBANS_TITLE},
       {"ibanSavedToThisDeviceOnly",
        IDS_SETTINGS_IBAN_SAVED_TO_THIS_DEVICE_ONLY},
       {"addIbanTitle", IDS_SETTINGS_ADD_IBAN_TITLE},
@@ -1715,6 +1752,8 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
               *autofill_client, autofill::AutofillAiAction::kOptIn));
   html_source->AddBoolean("isWalletServerStorageEnabled",
                           IsWalletServerStorageEnabled());
+  html_source->AddBoolean("AutofillAiIgnoresWhetherAddressFillingIsEnabled",
+                          AutofillAiIgnoresWhetherAddressFillingIsEnabled());
 
   html_source->AddString(
       "autofillPayOverTimeSettingsSublabel",
@@ -1955,6 +1994,8 @@ void AddSyncControlsStrings(content::WebUIDataSource* html_source) {
   static constexpr webui::LocalizedString kLocalizedStrings[] = {
 #if !BUILDFLAG(IS_CHROMEOS)
       {"historyTabsCheckboxLabel", IDS_SETTINGS_ACCOUNT_HISTORY_TOGGLE},
+      {"historyTabsCheckboxSubLabelOff",
+       IDS_SETTINGS_ACCOUNT_HISTORY_TOGGLE_SUB_LABEL_OFF},
 #endif
       {"autofillCheckboxLabel", IDS_SETTINGS_AUTOFILL_CHECKBOX_LABEL},
       {"historyCheckboxLabel", IDS_SETTINGS_HISTORY_CHECKBOX_LABEL},
@@ -1975,12 +2016,8 @@ void AddSyncControlsStrings(content::WebUIDataSource* html_source) {
       {"syncData", IDS_SETTINGS_SYNC_DATA},
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
-  html_source->AddLocalizedString(
-      "paymentsCheckboxLabel",
-      base::FeatureList::IsEnabled(
-          autofill::features::kAutofillEnableLoyaltyCardsFilling)
-          ? IDS_SYNC_DATATYPE_PAYMENTS_AND_INFO
-          : IDS_SYNC_DATATYPE_PAYMENTS);
+  html_source->AddLocalizedString("paymentsCheckboxLabel",
+                                  IDS_SYNC_DATATYPE_PAYMENTS_AND_INFO);
 }
 
 void AddPeopleStrings(content::WebUIDataSource* html_source, Profile* profile) {
@@ -2329,20 +2366,41 @@ void AddPrivacyStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_SECURITY_STANDARD_BUNDLE_TITLE},
       {"securityEnhancedBundleTitle",
        IDS_SETTINGS_SECURITY_ENHANCED_BUNDLE_TITLE},
+      {"securityBundleStandardBulletOne",
+       IDS_SETTINGS_SECURITY_BUNDLE_STANDARD_BULLET_ONE},
+      {"securityBundleStandardBulletTwo",
+       IDS_SETTINGS_SECURITY_BUNDLE_STANDARD_BULLET_TWO},
+      {"securityBundleStandardBulletThree",
+       IDS_SETTINGS_SECURITY_BUNDLE_STANDARD_BULLET_THREE},
+      {"securityBundleEnhancedBulletOne",
+       IDS_SETTINGS_SECURITY_BUNDLE_ENHANCED_BULLET_ONE},
+      {"securityBundleEnhancedBulletTwo",
+       IDS_SETTINGS_SECURITY_BUNDLE_ENHANCED_BULLET_TWO},
+      {"securityBundleEnhancedBulletThree",
+       IDS_SETTINGS_SECURITY_BUNDLE_ENHANCED_BULLET_THREE},
       {"securitySafeBrowsingTitle", IDS_SETTINGS_SECURITY_SAFE_BROWSING_TITLE},
       {"securitySafeBrowsingDesc",
        IDS_SETTINGS_SECURITY_SAFE_BROWSING_DESCRIPTION},
       {"securitySafeBrowsingStandardTitle",
        IDS_SETTINGS_SECURITY_SAFE_BROWSING_STANDARD_TITLE},
       {"securitySafeBrowsingEnhancedTitle",
-       IDS_SETTINGS_SECURITY_SAFE_BROWSING_ENHANCED_TITLE}};
+       IDS_SETTINGS_SECURITY_SAFE_BROWSING_ENHANCED_TITLE},
+      {"securityFeatureRowStateEnhanced",
+       IDS_SETTINGS_SECURITY_FEATURE_ROW_STATE_ENHANCED},
+      {"securityFeatureRowStateStandard",
+       IDS_SETTINGS_SECURITY_FEATURE_ROW_STATE_STANDARD},
+      {"securityFeatureRowStateOff",
+       IDS_SETTINGS_SECURITY_FEATURE_ROW_STATE_OFF},
+      {"securityAccountAndNetworkSectionTitle",
+       IDS_SETTINGS_SECURITY_ACCOUNT_AND_NETWORK_SECTION_TITLE},
+      {"securityPasswordsLeakDetectionTitle",
+       IDS_SETTINGS_SECURITY_PASSWORDS_LEAK_DETECTION_TITLE},
+      {"securityPasswordsLeakDetectionDesc",
+       IDS_SETTINGS_SECURITY_PASSWORDS_LEAK_DETECTION_DESC}};
   html_source->AddLocalizedStrings(kLocalizedStrings);
 
   html_source->AddString("cookiesSettingsHelpCenterURL",
                          chrome::kCookiesSettingsHelpCenterURL);
-
-  html_source->AddString("incognitoTrackingProtectionsLearnMoreUrl",
-                         chrome::kIncognitoTrackingProtectionsLearnMoreUrl);
 
   html_source->AddString("relatedWebsiteSetsLearnMoreURL",
                          chrome::kRelatedWebsiteSetsLearnMoreURL);
@@ -2845,6 +2903,8 @@ void AddSiteSettingsStrings(content::WebUIDataSource* html_source,
       {"siteSettingsAllSites", IDS_SETTINGS_SITE_SETTINGS_ALL_SITES},
       {"siteSettingsAllSitesDescription",
        IDS_SETTINGS_SITE_SETTINGS_ALL_SITES_DESCRIPTION},
+      {"siteSettingsAllSitesFilter",
+       IDS_SETTINGS_SITE_SETTINGS_ALL_SITES_FILTER},
       {"siteSettingsAllSitesSearch",
        IDS_SETTINGS_SITE_SETTINGS_ALL_SITES_SEARCH},
       {"siteSettingsAllSitesSort", IDS_SETTINGS_SITE_SETTINGS_ALL_SITES_SORT},
@@ -3850,6 +3910,18 @@ void AddSystemStrings(content::WebUIDataSource* html_source) {
       l10n_util::GetStringFUTF16(
           IDS_SETTINGS_SYSTEM_PROXY_SETTINGS_POLICY_LABEL,
           l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_NAME)));
+  html_source->AddString(
+      "proxySettingsMultipleSourcesLabel",
+      l10n_util::GetStringUTF16(
+          IDS_SETTINGS_SYSTEM_PROXY_SETTINGS_MULTIPLE_SOURCES_LABEL));
+  html_source->AddString(
+      "proxySettingsYourOrganization",
+      l10n_util::GetStringUTF16(
+          IDS_SETTINGS_SYSTEM_PROXY_SETTINGS_YOUR_ORGANIZATION_LABEL));
+  html_source->AddString(
+      "proxySettingsYourDevice",
+      l10n_util::GetStringUTF16(
+          IDS_SETTINGS_SYSTEM_PROXY_SETTINGS_YOUR_DEVICE_LABEL));
 
   // TODO(dbeam): we should probably rename anything involving "localized
   // strings" to "load time data" as all primitive types are used now.
@@ -3864,6 +3936,8 @@ void AddExtensionsStrings(content::WebUIDataSource* html_source) {
 
 void AddSecurityKeysStrings(content::WebUIDataSource* html_source) {
   static constexpr webui::LocalizedString kSecurityKeysStrings[] = {
+      {"securityBundleResetToDefaultsButtonLabel",
+       IDS_SETTINGS_SECURITY_BUNDLE_RESET_TO_DEFAULTS_BUTTON_LABEL},
       {"securityKeysBioEnrollmentAddTitle",
        IDS_SETTINGS_SECURITY_KEYS_BIO_ENROLLMENT_ADD_TITLE},
       {"securityKeysBioEnrollmentDelete",

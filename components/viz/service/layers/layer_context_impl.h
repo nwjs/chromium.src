@@ -64,7 +64,8 @@ class VIZ_SERVICE_EXPORT LayerContextImpl : public cc::LayerTreeHostImplClient,
       mojom::TilingPtr tiling,
       bool update_damage);
   void DoDraw(const BeginFrameArgs& begin_frame_args,
-              base::TimeTicks start_update_display_tree);
+              base::TimeTicks start_update_display_tree,
+              bool frame_has_damage);
 
   // Receive exported resources returned from the frame sink.
   void ReceiveReturnsFromParent(std::vector<ReturnedResource> resources);
@@ -93,6 +94,7 @@ class VIZ_SERVICE_EXPORT LayerContextImpl : public cc::LayerTreeHostImplClient,
   void SetNeedsPrepareTilesOnImplThread() override;
   void SetNeedsCommitOnImplThread(bool urgent) override;
   void SetVideoNeedsBeginFrames(bool needs_begin_frames) override;
+  void DidChangeBeginFrameSourcePaused(bool paused) override;
   void SetDeferBeginMainFrameFromImpl(bool defer_begin_main_frame) override;
   bool IsInsideDraw() override;
   void RenewTreePriority() override;
@@ -158,8 +160,14 @@ class VIZ_SERVICE_EXPORT LayerContextImpl : public cc::LayerTreeHostImplClient,
   void HandleBadMojoMessage(const std::string& function,
                             const std::string& error);
 
+  // Draws and submits a frame if there is damage. When |expects_to_draw|
+  // is set, this will force draw even if there is no computed damage, or
+  // other conditions would make us abort drawing.
   void DoDrawInternal(const BeginFrameArgs& begin_frame_args,
-                      base::TimeTicks start_update_display_tree);
+                      base::TimeTicks start_update_display_tree,
+                      std::optional<bool> frame_has_damage = std::nullopt);
+
+  void SendTilingsCleanupNotificationToClient();
 
   const raw_ptr<CompositorFrameSinkSupport> compositor_sink_;
   const std::unique_ptr<cc::AnimationHost> animation_host_{

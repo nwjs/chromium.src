@@ -20,9 +20,9 @@ import time
 
 import checkout_helpers
 import constants
+import eval_config
 import promptfoo_installation
 import results
-import eval_config
 
 sys.path.append(str(constants.CHROMIUM_SRC))
 from agents.common import tempfile_ext
@@ -55,12 +55,7 @@ class WorkDir(contextlib.AbstractContextManager):
 
     def __enter__(self) -> 'WorkDir':
         if self.path.exists():
-            if self.force:
-                self._clean()
-            else:
-                raise FileExistsError(
-                    f'Workdir already exists at: {self.path}. Remove it '
-                    'manually or use --force to remove it.')
+            self._clean()
 
         logging.info('Creating new workdir: %s', self.path)
         start_time = time.time()
@@ -118,6 +113,8 @@ class WorkerOptions:
     sandbox: bool
     # An optional path to a gemini-cli binary to use.
     gemini_cli_bin: pathlib.Path | None = None
+    # An optional path to a nodejs binary to use.
+    node_bin: pathlib.Path | None = None
 
 
 class WorkerPool:
@@ -138,8 +135,11 @@ class WorkerPool:
         """
         assert num_workers > 0
         # Create a copy so that options cannot be externally modified.
+        # This is not done for result_options because its result_handlers are
+        # liable to contain callables that use locks under the hood for thread
+        # safety, which causes errors with deepcopy due to them being
+        # un-picklable.
         worker_options = copy.deepcopy(worker_options)
-        result_options = copy.deepcopy(result_options)
 
         self._result_thread = results.ResultThread(
             result_options=result_options)
@@ -225,7 +225,10 @@ def _parse_test_log_results(results_json) -> str:
         return ''
 
     # Display the assertion failures
-    run_result = results_json.get('results', {}).get('results', [{}])[0]
+    results_list = results_json.get('results', {}).get('results')
+    if not results_list:
+        return 'No results found in promptfoo output.'
+    run_result = results_list[0]
     assert_results = []
     grading_result = run_result.get('gradingResult')
     if grading_result:
@@ -252,14 +255,36 @@ def _extract_metrics_from_promptfoo_results(
     if not results_json:
         return {}
 
-    metrics = {
+    extracted_metrics = {
         'token_usage':
         _extract_token_usage_from_promptfoo_results(results_json),
     }
     score = _extract_score_from_promptfoo_results(results_json)
     if score is not None:
-        metrics['score'] = score
-    return metrics
+        extracted_metrics['score'] = score
+    return extracted_metrics
+
+
+def _parse_input_prompt(results_json: dict[str, any]) -> str | None:
+    prompts_json = results_json.get('results', {}).get('prompts')
+    if not prompts_json:
+        logging.error('Did not find the prompts in the test result.')
+        return None
+    prompt = prompts_json[0].get('raw')
+    if not prompt:
+        logging.error('Did not find prompt in the test result.')
+    return prompt
+
+
+def _parse_output(results_json: dict[str, any]) -> str | None:
+    results_json = results_json.get('results', {}).get('results')
+    if not results_json:
+        logging.error('Did not find the response in the test result.')
+        return None
+    output = results_json[0].get('response', {}).get('output')
+    if not output:
+        logging.error('Did not find output response in the test result.')
+    return output
 
 
 def _load_promptfoo_results(results_file: pathlib.Path) -> dict[str, any]:
@@ -472,17 +497,29 @@ class WorkerThread(threading.Thread):
                     '--var',
                     f'gemini_cli_bin={self._worker_options.gemini_cli_bin}'
                 ])
+            if self._worker_options.node_bin:
+                command.extend(
+                    ['--var', f'node_bin={self._worker_options.node_bin}'])
 
             start_time = time.time()
             proc = self._promptfoo.run(command, cwd=workdir.path / 'src')
             duration = time.time() - start_time
 
             results_json = _load_promptfoo_results(promptfoo_output)
+            metrics = _extract_metrics_from_promptfoo_results(results_json)
+            test_log = _parse_test_log_results(results_json)
+            prompt = _parse_input_prompt(results_json)
+            response = _parse_output(results_json)
+            if proc.returncode != 0 and proc.stdout:
+                test_log += f'\npromptfoo stdout:\n{proc.stdout}'
             return results.IterationResult(
                 success=not proc.returncode,
                 duration=duration,
-                test_log=_parse_test_log_results(results_json),
-                metrics=_extract_metrics_from_promptfoo_results(results_json))
+                test_log=test_log,
+                metrics=metrics,
+                prompt=prompt,
+                response=response,
+            )
 
     def shutdown(self) -> None:
         """Tells the thread to shut down gracefully."""

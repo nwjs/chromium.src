@@ -101,6 +101,8 @@ bool SupportsInvalidation(CSSSelector::PseudoType type) {
     case CSSSelector::kPseudoLang:
     case CSSSelector::kPseudoDir:
     case CSSSelector::kPseudoNot:
+    case CSSSelector::kPseudoOverscrollAreaParent:
+    case CSSSelector::kPseudoOverscrollClientArea:
     case CSSSelector::kPseudoPlaceholder:
     case CSSSelector::kPseudoDetailsContent:
     case CSSSelector::kPseudoPermissionIcon:
@@ -135,8 +137,6 @@ bool SupportsInvalidation(CSSSelector::PseudoType type) {
     case CSSSelector::kPseudoFullscreen:
     case CSSSelector::kPseudoPatching:
     case CSSSelector::kPseudoPaused:
-    case CSSSelector::kPseudoPermissionElementInvalidStyle:
-    case CSSSelector::kPseudoPermissionElementOccluded:
     case CSSSelector::kPseudoPermissionGranted:
     case CSSSelector::kPseudoPictureInPicture:
     case CSSSelector::kPseudoPlaying:
@@ -187,6 +187,7 @@ bool SupportsInvalidation(CSSSelector::PseudoType type) {
     case CSSSelector::kPseudoInterestSource:
     case CSSSelector::kPseudoInterestTarget:
     case CSSSelector::kPseudoHasSlotted:
+    case CSSSelector::kPseudoRouteMatch:
       return true;
     case CSSSelector::kPseudoUnknown:
     case CSSSelector::kPseudoLeftPage:
@@ -1677,8 +1678,6 @@ RuleInvalidationDataVisitor<VisitorType>::InvalidationSetForSimpleSelector(
       case CSSSelector::kPseudoFullScreenAncestor:
       case CSSSelector::kPseudoFullscreen:
       case CSSSelector::kPseudoPaused:
-      case CSSSelector::kPseudoPermissionElementInvalidStyle:
-      case CSSSelector::kPseudoPermissionElementOccluded:
       case CSSSelector::kPseudoPermissionGranted:
       case CSSSelector::kPseudoPictureInPicture:
       case CSSSelector::kPseudoPlaying:
@@ -1699,6 +1698,7 @@ RuleInvalidationDataVisitor<VisitorType>::InvalidationSetForSimpleSelector(
       case CSSSelector::kPseudoInterestSource:
       case CSSSelector::kPseudoInterestTarget:
       case CSSSelector::kPseudoHasSlotted:
+      case CSSSelector::kPseudoRouteMatch:
         return EnsurePseudoInvalidationSet(selector.GetPseudoType(), type,
                                            position, in_nth_child);
       case CSSSelector::kPseudoFirstOfType:

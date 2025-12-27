@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/platform/scheduler/main_thread/main_thread_scheduler_impl.h"
 
+#include <atomic>
 #include <memory>
 #include <string>
 #include <utility>
@@ -27,6 +28,9 @@
 #include "base/test/test_mock_time_task_runner.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "components/performance_manager/scenario_api/performance_scenario_observer.h"
+#include "components/performance_manager/scenario_api/performance_scenario_test_support.h"
+#include "components/performance_manager/scenario_api/performance_scenarios.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -123,6 +127,7 @@ class MockWidgetSchedulerDelegate : public WidgetScheduler::Delegate {
   ~MockWidgetSchedulerDelegate() override = default;
 
   MOCK_METHOD(void, RequestBeginMainFrameNotExpected, (bool));
+  MOCK_METHOD(bool, AreMainFramesPausedOrDeferred, (), (const, override));
 };
 
 }  // namespace
@@ -317,14 +322,16 @@ class MainThreadSchedulerImplForTest : public MainThreadSchedulerImpl {
       std::unique_ptr<base::sequence_manager::SequenceManager> manager)
       : MainThreadSchedulerImpl(std::move(manager)), update_policy_count_(0) {}
 
-  void UpdatePolicyLocked(UpdateType update_type) override {
+  void UpdatePolicyLocked(UpdateType update_type) override
+      EXCLUSIVE_LOCKS_REQUIRED(any_thread_lock_) {
     update_policy_count_++;
     MainThreadSchedulerImpl::UpdatePolicyLocked(update_type);
 
     String use_case =
         UseCaseToString(main_thread_only().current_use_case).value;
     if (main_thread_only().blocking_input_expected_soon) {
-      use_cases_.push_back(use_case + " blocking input expected");
+      use_cases_.push_back((use_case ? use_case : "none") +
+                           " blocking input expected");
     } else {
       use_cases_.push_back(use_case);
     }
@@ -687,7 +694,7 @@ class MainThreadSchedulerImplTest : public testing::Test {
       scheduler_->DidHandleInputEventOnMainThread(
           FakeTouchEvent(blink::WebInputEvent::Type::kTouchStart),
           WebInputEventResult::kHandledSystem,
-          /*frame_requested=*/true);
+          /*is_frame_expected=*/true);
 
       scheduler_->DidHandleInputEventOnCompositorThread(
           FakeInputEvent(blink::WebInputEvent::Type::kTouchMove),
@@ -695,7 +702,7 @@ class MainThreadSchedulerImplTest : public testing::Test {
       scheduler_->DidHandleInputEventOnMainThread(
           FakeInputEvent(blink::WebInputEvent::Type::kTouchMove),
           WebInputEventResult::kHandledSystem,
-          /*frame_requested=*/true);
+          /*is_frame_expected=*/true);
 
       scheduler_->DidHandleInputEventOnCompositorThread(
           FakeInputEvent(blink::WebInputEvent::Type::kTouchMove),
@@ -703,7 +710,7 @@ class MainThreadSchedulerImplTest : public testing::Test {
       scheduler_->DidHandleInputEventOnMainThread(
           FakeInputEvent(blink::WebInputEvent::Type::kTouchMove),
           WebInputEventResult::kHandledSystem,
-          /*frame_requested=*/true);
+          /*is_frame_expected=*/true);
     }
     if (gesture_type != blink::WebInputEvent::Type::kUndefined) {
       scheduler_->DidHandleInputEventOnCompositorThread(
@@ -711,7 +718,7 @@ class MainThreadSchedulerImplTest : public testing::Test {
           InputEventState::EVENT_FORWARDED_TO_MAIN_THREAD);
       scheduler_->DidHandleInputEventOnMainThread(
           FakeInputEvent(gesture_type), WebInputEventResult::kHandledSystem,
-          /*frame_requested=*/true);
+          /*is_frame_expected=*/true);
     }
   }
 
@@ -724,7 +731,7 @@ class MainThreadSchedulerImplTest : public testing::Test {
     scheduler_->DidHandleInputEventOnMainThread(
         FakeInputEvent(blink::WebInputEvent::Type::kTouchMove),
         WebInputEventResult::kHandledApplication,
-        /*frame_requested=*/true);
+        /*is_frame_expected=*/true);
     scheduler_->DidCommitFrameToCompositor();
   }
 
@@ -838,7 +845,7 @@ class MainThreadSchedulerImplTest : public testing::Test {
     scheduler_->DidHandleInputEventOnMainThread(
         FakeInputEvent(WebInputEvent::Type::kMouseMove),
         WebInputEventResult::kHandledApplication,
-        /*frame_requested=*/true);
+        /*is_frame_expected=*/true);
     AppendToVectorBeginMainFrameTask(vector, value);
   }
 
@@ -847,7 +854,7 @@ class MainThreadSchedulerImplTest : public testing::Test {
                                     String value) {
     scheduler_->DidHandleInputEventOnMainThread(
         FakeInputEvent(event_type), WebInputEventResult::kHandledApplication,
-        /*frame_requested=*/true);
+        /*is_frame_expected=*/true);
     AppendToVectorTestTask(vector, value);
   }
 
@@ -1290,7 +1297,7 @@ TEST_F(MainThreadSchedulerImplTest,
   scheduler_->DidHandleInputEventOnMainThread(
       FakeInputEvent(blink::WebInputEvent::Type::kGestureFlingStart),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
 }
 
 TEST_F(MainThreadSchedulerImplTest,
@@ -1309,7 +1316,7 @@ TEST_F(MainThreadSchedulerImplTest,
   scheduler_->DidHandleInputEventOnMainThread(
       FakeInputEvent(blink::WebInputEvent::Type::kGestureFlingStart),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
 }
 
 TEST_F(MainThreadSchedulerImplTest,
@@ -1324,7 +1331,7 @@ TEST_F(MainThreadSchedulerImplTest,
   scheduler_->DidHandleInputEventOnMainThread(
       FakeTouchEvent(blink::WebInputEvent::Type::kTouchStart),
       WebInputEventResult::kHandledApplication,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
   base::RunLoop().RunUntilIdle();
   // Because the main thread is performing custom input handling, we let all
   // tasks run. However compositing tasks are still given priority.
@@ -1346,7 +1353,7 @@ TEST_F(
   scheduler_->DidHandleInputEventOnMainThread(
       FakeTouchEvent(blink::WebInputEvent::Type::kTouchStart),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
   base::RunLoop().RunUntilIdle();
   // Because we are still waiting for the touchstart to be processed,
   // non-essential tasks like loading tasks are blocked.
@@ -1421,7 +1428,7 @@ TEST_F(MainThreadSchedulerImplTest, TestTouchstartPolicy_MainThread) {
   scheduler_->DidHandleInputEventOnMainThread(
       FakeTouchEvent(blink::WebInputEvent::Type::kTouchStart),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
   EnableIdleTasks();
   base::RunLoop().RunUntilIdle();
   EXPECT_THAT(run_order, testing::ElementsAre("C1", "C2", "D1", "D2"));
@@ -1434,14 +1441,14 @@ TEST_F(MainThreadSchedulerImplTest, TestTouchstartPolicy_MainThread) {
   scheduler_->DidHandleInputEventOnMainThread(
       FakeInputEvent(blink::WebInputEvent::Type::kGestureFlingCancel),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
   scheduler_->DidHandleInputEventOnCompositorThread(
       FakeInputEvent(blink::WebInputEvent::Type::kGestureTapDown),
       InputEventState::EVENT_FORWARDED_TO_MAIN_THREAD);
   scheduler_->DidHandleInputEventOnMainThread(
       FakeInputEvent(blink::WebInputEvent::Type::kGestureTapDown),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
   base::RunLoop().RunUntilIdle();
   EXPECT_THAT(run_order, testing::ElementsAre());
 
@@ -1454,7 +1461,7 @@ TEST_F(MainThreadSchedulerImplTest, TestTouchstartPolicy_MainThread) {
   scheduler_->DidHandleInputEventOnMainThread(
       FakeInputEvent(blink::WebInputEvent::Type::kGestureScrollBegin),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
   base::RunLoop().RunUntilIdle();
 
   EXPECT_THAT(run_order, testing::ElementsAre("L1", "T1", "T2"));
@@ -1573,7 +1580,7 @@ TEST_F(MainThreadSchedulerImplTest,
       FakeInputEvent(blink::WebInputEvent::Type::kMouseMove,
                      blink::WebInputEvent::kLeftButtonDown),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
 }
 
 TEST_F(MainThreadSchedulerImplTest,
@@ -1749,7 +1756,7 @@ TEST_F(MainThreadSchedulerImplTest,
   scheduler_->DidHandleInputEventOnMainThread(
       FakeInputEvent(blink::WebInputEvent::Type::kKeyDown),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
 }
 
 TEST_F(MainThreadSchedulerImplTest,
@@ -1910,7 +1917,7 @@ TEST_F(MainThreadSchedulerImplTest, SlowMainThreadInputEvent) {
   scheduler_->DidHandleInputEventOnMainThread(
       FakeInputEvent(blink::WebInputEvent::Type::kGestureFlingStart),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
   base::RunLoop().RunUntilIdle();
 
   // Even though we exceeded the input priority escalation period, we should
@@ -1961,7 +1968,7 @@ TEST_F(MainThreadSchedulerImplTest, UpdatePolicyCountTriggeredByOneInputEvent) {
   scheduler_->DidHandleInputEventOnMainThread(
       FakeTouchEvent(blink::WebInputEvent::Type::kTouchStart),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
   EXPECT_EQ(1, scheduler_->update_policy_count_);
 
   test_task_runner_->AdvanceMockTickClock(base::Seconds(1));
@@ -1985,7 +1992,7 @@ TEST_F(MainThreadSchedulerImplTest,
   scheduler_->DidHandleInputEventOnMainThread(
       FakeTouchEvent(blink::WebInputEvent::Type::kTouchStart),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
   EXPECT_EQ(1, scheduler_->update_policy_count_);
 
   // The second call to DidHandleInputEventOnCompositorThread should not post
@@ -2000,7 +2007,7 @@ TEST_F(MainThreadSchedulerImplTest,
   scheduler_->DidHandleInputEventOnMainThread(
       FakeInputEvent(blink::WebInputEvent::Type::kTouchMove),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
   EXPECT_EQ(1, scheduler_->update_policy_count_);
 
   // The third call to DidHandleInputEventOnCompositorThread should post a
@@ -2016,7 +2023,7 @@ TEST_F(MainThreadSchedulerImplTest,
   scheduler_->DidHandleInputEventOnMainThread(
       FakeInputEvent(blink::WebInputEvent::Type::kTouchMove),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
   EXPECT_EQ(2, scheduler_->update_policy_count_);
   test_task_runner_->FastForwardBy(base::Seconds(1));
   // We finally expect a delayed policy update.
@@ -2038,7 +2045,7 @@ TEST_F(MainThreadSchedulerImplTest,
   scheduler_->DidHandleInputEventOnMainThread(
       FakeTouchEvent(blink::WebInputEvent::Type::kTouchStart),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
   EXPECT_EQ(1, scheduler_->update_policy_count_);
   test_task_runner_->FastForwardBy(base::Seconds(1));
   // We expect a delayed policy update.
@@ -2056,7 +2063,7 @@ TEST_F(MainThreadSchedulerImplTest,
   scheduler_->DidHandleInputEventOnMainThread(
       FakeInputEvent(blink::WebInputEvent::Type::kTouchMove),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
   EXPECT_EQ(3, scheduler_->update_policy_count_);
   test_task_runner_->FastForwardBy(base::Seconds(1));
   // We finally expect a delayed policy update.
@@ -2091,19 +2098,19 @@ TEST_F(MainThreadSchedulerImplTest, EnsureUpdatePolicyNotTriggeredTooOften) {
   scheduler_->DidHandleInputEventOnMainThread(
       FakeTouchEvent(blink::WebInputEvent::Type::kTouchStart),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
   scheduler_->DidHandleInputEventOnMainThread(
       FakeInputEvent(blink::WebInputEvent::Type::kTouchMove),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
   scheduler_->DidHandleInputEventOnMainThread(
       FakeInputEvent(blink::WebInputEvent::Type::kTouchMove),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
   scheduler_->DidHandleInputEventOnMainThread(
       FakeInputEvent(blink::WebInputEvent::Type::kTouchEnd),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
 
   EXPECT_EQ(2, scheduler_->update_policy_count_);
 
@@ -2112,9 +2119,9 @@ TEST_F(MainThreadSchedulerImplTest, EnsureUpdatePolicyNotTriggeredTooOften) {
   // transitions from 'not_scrolling touchstart expected' to 'not_scrolling'.
   test_task_runner_->FastForwardUntilNoTasksRemain();
   EXPECT_THAT(scheduler_->use_cases_,
-              testing::ElementsAre("none", "compositor_gesture",
+              testing::ElementsAre(nullptr, "compositor_gesture",
                                    "compositor_gesture blocking input expected",
-                                   "none blocking input expected", "none"));
+                                   "none blocking input expected", nullptr));
 }
 
 TEST_F(MainThreadSchedulerImplTest,
@@ -2392,7 +2399,7 @@ TEST_F(MainThreadSchedulerImplTest, MismatchedDidHandleInputEventOnMainThread) {
   scheduler_->DidHandleInputEventOnMainThread(
       FakeInputEvent(blink::WebInputEvent::Type::kGestureFlingStart),
       WebInputEventResult::kHandledSystem,
-      /*frame_requested=*/true);
+      /*is_frame_expected=*/true);
 }
 
 TEST_F(MainThreadSchedulerImplTest, BeginMainFrameOnCriticalPath) {
@@ -3321,7 +3328,7 @@ TEST_F(MainThreadSchedulerImplTest,
         scheduler_->DidHandleInputEventOnMainThread(
             FakeInputEvent(WebInputEvent::Type::kMouseLeave),
             WebInputEventResult::kHandledApplication,
-            /*frame_requested=*/true);
+            /*is_frame_expected=*/true);
         run_order.push_back("I1");
       }));
   PostTestTasks(&run_order, "D1 D2 CM1");
@@ -3335,7 +3342,7 @@ TEST_F(MainThreadSchedulerImplTest,
         scheduler_->DidHandleInputEventOnMainThread(
             FakeInputEvent(WebInputEvent::Type::kTouchMove),
             WebInputEventResult::kHandledApplication,
-            /*frame_requested=*/true);
+            /*is_frame_expected=*/true);
         run_order.push_back("I1");
       }));
   PostTestTasks(&run_order, "D1 D2 CM1");
@@ -3730,6 +3737,263 @@ TEST_F(MainThreadSchedulerImplTest, UrgentMessageAndCompositorPriority) {
                                               "T1", "T2", "C2", "C3"));
 }
 
+class MainThreadSchedulerPerformanceScenarioTest
+    : public MainThreadSchedulerImplTest {
+ protected:
+  // Convenience aliases
+  using PerformanceScenarioObserverList =
+      performance_scenarios::PerformanceScenarioObserverList;
+  using PerformanceScenarioTestHelper =
+      performance_scenarios::PerformanceScenarioTestHelper;
+
+  using PerformanceScenarioObserver =
+      performance_scenarios::PerformanceScenarioObserver;
+  using MatchingScenarioObserver =
+      performance_scenarios::MatchingScenarioObserver;
+
+  using ScenarioScope = performance_scenarios::ScenarioScope;
+  using ScenarioPattern = performance_scenarios::ScenarioPattern;
+  using LoadingScenario = performance_scenarios::LoadingScenario;
+  using InputScenario = performance_scenarios::InputScenario;
+
+  class MockPerformanceScenarioObserver : public PerformanceScenarioObserver {
+   public:
+    MockPerformanceScenarioObserver() {
+      PerformanceScenarioObserverList::GetForScope(
+          ScenarioScope::kCurrentProcess)
+          ->AddObserver(this);
+    }
+
+    ~MockPerformanceScenarioObserver() override {
+      PerformanceScenarioObserverList::GetForScope(
+          ScenarioScope::kCurrentProcess)
+          ->RemoveObserver(this);
+    }
+
+    MOCK_METHOD(void,
+                OnLoadingScenarioChanged,
+                (ScenarioScope scope,
+                 LoadingScenario old_scenario,
+                 LoadingScenario new_scenario),
+                (override));
+    MOCK_METHOD(void,
+                OnInputScenarioChanged,
+                (ScenarioScope scope,
+                 InputScenario old_scenario,
+                 InputScenario new_scenario),
+                (override));
+  };
+  using StrictMockPerformanceScenarioObserver =
+      ::testing::StrictMock<MockPerformanceScenarioObserver>;
+
+  class MockMatchingScenarioObserver : public MatchingScenarioObserver {
+   public:
+    explicit MockMatchingScenarioObserver(ScenarioPattern pattern)
+        : MatchingScenarioObserver(pattern) {
+      PerformanceScenarioObserverList::GetForScope(
+          ScenarioScope::kCurrentProcess)
+          ->AddMatchingObserver(this);
+    }
+
+    ~MockMatchingScenarioObserver() override {
+      PerformanceScenarioObserverList::GetForScope(
+          ScenarioScope::kCurrentProcess)
+          ->RemoveMatchingObserver(this);
+    }
+
+    MOCK_METHOD(void,
+                OnScenarioMatchChanged,
+                (ScenarioScope scope, bool matches_pattern),
+                (override));
+  };
+  using StrictMockMatchingScenarioObserver =
+      ::testing::StrictMock<MockMatchingScenarioObserver>;
+
+  void SetUp() override {
+    MainThreadSchedulerImplTest::SetUp();
+
+    // Ensure scenarios start in a known state.
+    ASSERT_EQ(performance_scenarios::GetLoadingScenario(
+                  ScenarioScope::kCurrentProcess)
+                  ->load(std::memory_order_relaxed),
+              LoadingScenario::kNoPageLoading);
+    ASSERT_EQ(
+        performance_scenarios::GetInputScenario(ScenarioScope::kCurrentProcess)
+            ->load(std::memory_order_relaxed),
+        InputScenario::kNoInput);
+    ASSERT_TRUE(performance_scenarios::CurrentScenariosMatch(
+        ScenarioScope::kCurrentProcess,
+        performance_scenarios::kDefaultIdleScenarios));
+  }
+
+  void SetLoadingScenario(LoadingScenario scenario) {
+    // Don't notify from the test helper. MainThreadSchedulerImpl should notice
+    // the change and notify observers.
+    performance_scenario_helper_->SetLoadingScenario(
+        ScenarioScope::kCurrentProcess, scenario,
+        /*notify=*/false);
+  }
+
+  void SetInputScenario(InputScenario scenario) {
+    // Don't notify from the test helper. MainThreadSchedulerImpl should notice
+    // the change and notify observers.
+    performance_scenario_helper_->SetInputScenario(
+        ScenarioScope::kCurrentProcess, scenario,
+        /*notify=*/false);
+  }
+
+ private:
+  std::unique_ptr<PerformanceScenarioTestHelper> performance_scenario_helper_ =
+      PerformanceScenarioTestHelper::Create();
+};
+
+TEST_F(MainThreadSchedulerPerformanceScenarioTest, NoChange) {
+  StrictMockPerformanceScenarioObserver mock_scenario_observer;
+  StrictMockMatchingScenarioObserver mock_matching_observer(
+      performance_scenarios::kDefaultIdleScenarios);
+
+  // Posting a task without updating any scenarios shouldn't notify observers.
+  Vector<String> run_order;
+  PostTestTasks(&run_order, "D1");
+  base::RunLoop().RunUntilIdle();
+}
+
+TEST_F(MainThreadSchedulerPerformanceScenarioTest, LoadingScenario) {
+  StrictMockPerformanceScenarioObserver mock_scenario_observer;
+  StrictMockMatchingScenarioObserver mock_matching_observer(
+      performance_scenarios::kDefaultIdleScenarios);
+
+  // kVisiblePageLoading doesn't match the "idle" scenario.
+  EXPECT_CALL(mock_scenario_observer,
+              OnLoadingScenarioChanged(ScenarioScope::kCurrentProcess,
+                                       LoadingScenario::kNoPageLoading,
+                                       LoadingScenario::kVisiblePageLoading));
+  EXPECT_CALL(mock_matching_observer,
+              OnScenarioMatchChanged(ScenarioScope::kCurrentProcess, false));
+
+  SetLoadingScenario(LoadingScenario::kVisiblePageLoading);
+
+  // Observers should be notified when the next task is processed.
+  Vector<String> run_order;
+  PostTestTasks(&run_order, "D1");
+  base::RunLoop().RunUntilIdle();
+  ::testing::Mock::VerifyAndClearExpectations(&mock_scenario_observer);
+  ::testing::Mock::VerifyAndClearExpectations(&mock_matching_observer);
+
+  // kFocusedPageLoading also doesn't match the "idle" scenario so the matching
+  // observer shouldn't be notified again.
+  EXPECT_CALL(mock_scenario_observer,
+              OnLoadingScenarioChanged(ScenarioScope::kCurrentProcess,
+                                       LoadingScenario::kVisiblePageLoading,
+                                       LoadingScenario::kFocusedPageLoading));
+
+  SetLoadingScenario(LoadingScenario::kFocusedPageLoading);
+
+  // Observers should be notified when the next task is processed.
+  PostTestTasks(&run_order, "D1");
+  base::RunLoop().RunUntilIdle();
+}
+
+TEST_F(MainThreadSchedulerPerformanceScenarioTest, InputScenario) {
+  StrictMockPerformanceScenarioObserver mock_scenario_observer;
+  StrictMockMatchingScenarioObserver mock_matching_observer(
+      performance_scenarios::kDefaultIdleScenarios);
+
+  // Any input doesn't match the "idle" scenario.
+  EXPECT_CALL(
+      mock_scenario_observer,
+      OnInputScenarioChanged(ScenarioScope::kCurrentProcess,
+                             InputScenario::kNoInput, InputScenario::kScroll));
+  EXPECT_CALL(mock_matching_observer,
+              OnScenarioMatchChanged(ScenarioScope::kCurrentProcess, false));
+
+  SetInputScenario(InputScenario::kScroll);
+
+  // Observers should be notified when the next task is processed.
+  Vector<String> run_order;
+  PostTestTasks(&run_order, "D1");
+  base::RunLoop().RunUntilIdle();
+  ::testing::Mock::VerifyAndClearExpectations(&mock_scenario_observer);
+  ::testing::Mock::VerifyAndClearExpectations(&mock_matching_observer);
+
+  // Returning to kNoInput matches the "idle" scenario again.
+  EXPECT_CALL(
+      mock_scenario_observer,
+      OnInputScenarioChanged(ScenarioScope::kCurrentProcess,
+                             InputScenario::kScroll, InputScenario::kNoInput));
+  EXPECT_CALL(mock_matching_observer,
+              OnScenarioMatchChanged(ScenarioScope::kCurrentProcess, true));
+
+  SetInputScenario(InputScenario::kNoInput);
+
+  // Observers should be notified when the next task is processed.
+  PostTestTasks(&run_order, "D1");
+  base::RunLoop().RunUntilIdle();
+}
+
+TEST_F(MainThreadSchedulerPerformanceScenarioTest, MultipleScenarios) {
+  StrictMockPerformanceScenarioObserver mock_scenario_observer;
+
+  StrictMockMatchingScenarioObserver mock_idle_observer(
+      performance_scenarios::kDefaultIdleScenarios);
+
+  StrictMockMatchingScenarioObserver mock_scroll_while_loading_observer(
+      performance_scenarios::ScenarioPattern{
+          .loading = {LoadingScenario::kFocusedPageLoading},
+          .input = {InputScenario::kScroll}});
+
+  // Make multiple updates between tasks. Only the final notification of each
+  // type should be sent.
+  EXPECT_CALL(mock_scenario_observer,
+              OnLoadingScenarioChanged(ScenarioScope::kCurrentProcess,
+                                       LoadingScenario::kNoPageLoading,
+                                       LoadingScenario::kVisiblePageLoading));
+  EXPECT_CALL(
+      mock_scenario_observer,
+      OnInputScenarioChanged(ScenarioScope::kCurrentProcess,
+                             InputScenario::kNoInput, InputScenario::kScroll));
+  EXPECT_CALL(mock_idle_observer,
+              OnScenarioMatchChanged(ScenarioScope::kCurrentProcess, false));
+
+  SetLoadingScenario(LoadingScenario::kVisiblePageLoading);
+  // The state no longer matches kDefaultIdleScenarios.
+  SetInputScenario(InputScenario::kTap);
+  SetLoadingScenario(LoadingScenario::kBackgroundPageLoading);
+  SetInputScenario(InputScenario::kNoInput);
+  // The state now matches kDefaultIdleScenarios again.
+  SetLoadingScenario(LoadingScenario::kFocusedPageLoading);
+  // The state no longer matches kDefaultIdleScenarios.
+  SetInputScenario(InputScenario::kScroll);
+  // The state now matches the `scroll_while_loading` pattern.
+  SetLoadingScenario(LoadingScenario::kVisiblePageLoading);
+  // The state no longer matches the `scroll_while_loading` pattern.
+
+  // Observers should be notified when the next task is processed.
+  Vector<String> run_order;
+  PostTestTasks(&run_order, "D1");
+  base::RunLoop().RunUntilIdle();
+  ::testing::Mock::VerifyAndClearExpectations(&mock_scenario_observer);
+  ::testing::Mock::VerifyAndClearExpectations(&mock_idle_observer);
+  ::testing::Mock::VerifyAndClearExpectations(
+      &mock_scroll_while_loading_observer);
+
+  // Changing to kFocusedPageLoading should now notify
+  // `mock_scroll_while_loading_observer`. `mock_idle_observer` isn't notified
+  // again since it didn't change.
+  EXPECT_CALL(mock_scenario_observer,
+              OnLoadingScenarioChanged(ScenarioScope::kCurrentProcess,
+                                       LoadingScenario::kVisiblePageLoading,
+                                       LoadingScenario::kFocusedPageLoading));
+  EXPECT_CALL(mock_scroll_while_loading_observer,
+              OnScenarioMatchChanged(ScenarioScope::kCurrentProcess, true));
+
+  SetLoadingScenario(LoadingScenario::kFocusedPageLoading);
+
+  // Observers should be notified when the next task is processed.
+  PostTestTasks(&run_order, "D1");
+  base::RunLoop().RunUntilIdle();
+}
+
 class DeferRendererTasksAfterInputTest
     : public MainThreadSchedulerImplTest,
       public ::testing::WithParamInterface<features::TaskDeferralPolicy>,
@@ -3935,7 +4199,7 @@ TEST_P(DeferRendererTasksAfterInputTest,
         scheduler_->DidHandleInputEventOnMainThread(
             FakeInputEvent(WebInputEvent::Type::kMouseUp),
             WebInputEventResult::kHandledApplication,
-            /*frame_requested=*/false);
+            /*is_frame_expected=*/false);
       }));
   EXPECT_EQ(CurrentUseCase(), UseCase::kNone);
   base::RunLoop().RunUntilIdle();
@@ -3946,7 +4210,7 @@ TEST_P(DeferRendererTasksAfterInputTest,
         scheduler_->DidHandleInputEventOnMainThread(
             FakeInputEvent(WebInputEvent::Type::kMouseUp),
             WebInputEventResult::kHandledApplication,
-            /*frame_requested=*/true);
+            /*is_frame_expected=*/true);
       }));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(CurrentUseCase(), UseCase::kDiscreteInputResponse);
@@ -3959,7 +4223,7 @@ TEST_P(DeferRendererTasksAfterInputTest,
         scheduler_->DidHandleInputEventOnMainThread(
             FakeInputEvent(WebInputEvent::Type::kMouseMove),
             WebInputEventResult::kHandledApplication,
-            /*frame_requested=*/false);
+            /*is_frame_expected=*/false);
       }));
   EXPECT_EQ(CurrentUseCase(), UseCase::kNone);
   base::RunLoop().RunUntilIdle();
@@ -4012,7 +4276,7 @@ TEST_P(DeferRendererTasksAfterInputTest, DiscreteInputDuringContinuousGesture) {
             FakeInputEvent(WebInputEvent::Type::kMouseDown,
                            blink::WebInputEvent::kLeftButtonDown),
             WebInputEventResult::kHandledApplication,
-            /*frame_requested=*/true);
+            /*is_frame_expected=*/true);
       }));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(CurrentUseCase(), UseCase::kDiscreteInputResponse);
@@ -4026,7 +4290,7 @@ TEST_P(DeferRendererTasksAfterInputTest, DiscreteInputDuringContinuousGesture) {
             FakeInputEvent(WebInputEvent::Type::kMouseMove,
                            blink::WebInputEvent::kLeftButtonDown),
             WebInputEventResult::kHandledApplication,
-            /*frame_requested=*/true);
+            /*is_frame_expected=*/true);
       }));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(CurrentUseCase(), UseCase::kDiscreteInputResponse);
@@ -4068,6 +4332,70 @@ TEST_P(DeferRendererTasksAfterInputTest, DiscreteInputDoesNotChangeRAILMode) {
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(CurrentUseCase(), UseCase::kEarlyLoading);
   EXPECT_EQ(GetRAILMode(), RAILMode::kLoad);
+}
+
+TEST_P(DeferRendererTasksAfterInputTest, TasksAreNotDeferredIfRenderingPaused) {
+  // Simulate pausing or deferring rendering.
+  ON_CALL(*widget_scheduler_delegate_, AreMainFramesPausedOrDeferred)
+      .WillByDefault(Return(true));
+
+  // Post potentially deferrable tasks.
+  Vector<String> run_order;
+  Vector<TestTaskSpecEntry> test_spec = {
+      {.descriptor = "F1", .type_info = TaskType::kDOMManipulation},
+      {.descriptor = "F2", .type_info = TaskType::kPostedMessage},
+      {.descriptor = "F3", .type_info = TaskType::kInternalMediaRealTime},
+      {.descriptor = "F4", .type_info = TaskType::kJavascriptTimerImmediate},
+      {.descriptor = "BG1",
+       .type_info = WebSchedulingParams(
+           {.queue_type = WebSchedulingQueueType::kTaskQueue,
+            .priority = WebSchedulingPriority::kBackgroundPriority})},
+      {.descriptor = "UV1",
+       .type_info = WebSchedulingParams(
+           {.queue_type = WebSchedulingQueueType::kTaskQueue,
+            .priority = WebSchedulingPriority::kUserVisiblePriority})},
+      {.descriptor = "UB1",
+       .type_info = WebSchedulingParams(
+           {.queue_type = WebSchedulingQueueType::kTaskQueue,
+            .priority = WebSchedulingPriority::kUserBlockingPriority})}};
+  web_scheduling_test_helper_->PostTestTasks(&run_order, test_spec);
+
+  // The input task will run first, but the UseCase shouldn't change because
+  // rendering is paused, so all of the tasks should run.
+  input_task_runner_->PostTask(
+      FROM_HERE, base::BindLambdaForTesting([&]() {
+        widget_scheduler_->DidHandleInputEventOnMainThread(
+            FakeInputEvent(WebInputEvent::Type::kMouseDown,
+                           blink::WebInputEvent::kLeftButtonDown),
+            WebInputEventResult::kHandledApplication,
+            /*frame_requested=*/true);
+        run_order.push_back("PD1");
+      }));
+
+  EXPECT_EQ(CurrentUseCase(), UseCase::kNone);
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(CurrentUseCase(), UseCase::kNone);
+  EXPECT_THAT(run_order, testing::ElementsAre("PD1", "UB1", "F1", "F2", "F3",
+                                              "F4", "UV1", "BG1"));
+}
+
+TEST_P(DeferRendererTasksAfterInputTest, TasksAreDeferredIfRenderingNotPaused) {
+  // Test that when going through the `widget_scheduler_`, tasks the UseCase
+  // changes as expected, which controls task deferral.
+  ON_CALL(*widget_scheduler_delegate_, AreMainFramesPausedOrDeferred)
+      .WillByDefault(Return(false));
+
+  EXPECT_EQ(CurrentUseCase(), UseCase::kNone);
+  input_task_runner_->PostTask(
+      FROM_HERE, base::BindLambdaForTesting([&]() {
+        widget_scheduler_->DidHandleInputEventOnMainThread(
+            FakeInputEvent(WebInputEvent::Type::kMouseDown,
+                           blink::WebInputEvent::kLeftButtonDown),
+            WebInputEventResult::kHandledApplication,
+            /*frame_requested=*/true);
+      }));
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(CurrentUseCase(), UseCase::kDiscreteInputResponse);
 }
 
 INSTANTIATE_TEST_SUITE_P(

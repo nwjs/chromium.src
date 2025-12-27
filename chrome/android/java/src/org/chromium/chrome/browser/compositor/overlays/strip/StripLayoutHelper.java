@@ -7,6 +7,8 @@ package org.chromium.chrome.browser.compositor.overlays.strip;
 import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.ANIM_TAB_MOVE_MS;
+import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.BUTTON_BACKGROUND_SIZE_DP;
+import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.BUTTON_TOUCH_TARGET_SIZE_DP;
 import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.INVALID_TIME;
 import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.MAX_TAB_WIDTH_DP;
 import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.MIN_TAB_WIDTH_DP;
@@ -21,7 +23,6 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.PointF;
@@ -48,7 +49,6 @@ import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.view.ViewCompat;
 
-import org.chromium.base.ApplicationStatus;
 import org.chromium.base.Callback;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.MathUtils;
@@ -79,6 +79,7 @@ import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutGroupTit
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutView.StripLayoutViewOnClickHandler;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutView.StripLayoutViewOnKeyboardFocusHandler;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripTabModelActionListener.ActionType;
+import org.chromium.chrome.browser.compositor.overlays.strip.TabContextMenuCoordinator.AnchorInfo;
 import org.chromium.chrome.browser.compositor.overlays.strip.TabLoadTracker.TabLoadTrackerCallback;
 import org.chromium.chrome.browser.compositor.overlays.strip.TabStripIphController.IphType;
 import org.chromium.chrome.browser.compositor.overlays.strip.reorder.ReorderDelegate;
@@ -182,8 +183,6 @@ public class StripLayoutHelper
 
     // Visibility Constants
     private static final float NEW_TAB_BUTTON_BACKGROUND_Y_OFFSET_DP = 3.f;
-    private static final float NEW_TAB_BUTTON_BACKGROUND_WIDTH_DP = 32.f;
-    private static final float NEW_TAB_BUTTON_BACKGROUND_HEIGHT_DP = 32.f;
 
     // Desired spacing between new tab button and tabs when tab strip is not full.
     private static final float DESIRED_PADDING_BETWEEN_NEW_TAB_BUTTON_AND_TABS = 2.f;
@@ -194,10 +193,8 @@ public class StripLayoutHelper
 
     // Values adapt based on whether the device is desktop or tablet.
     private static final boolean IS_DESKTOP_DENSITY = StripLayoutUtils.shouldApplyMoreDensity();
-    private static final float BUTTON_DESIRED_TOUCH_TARGET_SIZE =
-            IS_DESKTOP_DENSITY ? NEW_TAB_BUTTON_BACKGROUND_WIDTH_DP : 48.f;
     private static final float NEW_TAB_BUTTON_CLICK_SLOP_DP =
-            (BUTTON_DESIRED_TOUCH_TARGET_SIZE - NEW_TAB_BUTTON_BACKGROUND_WIDTH_DP) / 2;
+            (BUTTON_TOUCH_TARGET_SIZE_DP - BUTTON_BACKGROUND_SIZE_DP) / 2;
     private static final float NEW_TAB_BUTTON_WITH_MODEL_SELECTOR_BUTTON_PADDING =
             IS_DESKTOP_DENSITY ? 24.f : 8.f;
 
@@ -207,7 +204,6 @@ public class StripLayoutHelper
             DateUtils.MINUTE_IN_MILLIS;
 
     // Reorder Drag Threshold Constants
-    // TODO(crbug.com/382122020): Revisit and update if needed.
     private static final float INITIATE_REORDER_DRAG_THRESHOLD = 30.f;
 
     // Scrolling constants.
@@ -403,6 +399,7 @@ public class StripLayoutHelper
                     StripLayoutTab stripTab = findTabById(tab.getId());
                     assumeNonNull(stripTab);
                     stripTab.setIsPinned(isPinned);
+                    mPinnedTabsBoundarySupplier.set(getPinnedTabsBoundary());
                     setAccessibilityDescription(stripTab, tab);
 
                     // Compute each view's ideal position to get ready for the tab move animation
@@ -412,7 +409,9 @@ public class StripLayoutHelper
                     // Foreground the pinned/unpinned tab to start animation.
                     stripTab.setIsForegrounded(/* isForegrounded= */ true);
                     mTabDelegate.setIsTabNonDragReordering(
-                            stripTab, /* isNonDragReordering= */ true);
+                            stripTab,
+                            /* isNonDragReordering= */ !stripTab.getIsSelected()
+                                    && !stripTab.getIsMultiSelected());
                     List<Animator> pinnedAnimations =
                             computeAndUpdateTabWidth(
                                     /* animate= */ true, /* deferAnimations= */ true);
@@ -423,15 +422,9 @@ public class StripLayoutHelper
                     // would “fly” toward the strip start. To make it appear to fly into the
                     // unpinned section instead, animate offsetX toward the absolute pinned
                     // boundary.
-                    boolean rtl = LocalizationUtils.isLayoutRtl();
-                    float pinnedWidth = getEffectiveTabWidth(/* isPinned= */ true);
-                    // For pinning, subtract one tab width, because the total pinned width already
-                    // includes the newly pinned tab width, but the animation should target the
-                    // x-position before it was included.
-                    float animationEndX =
-                            getPinnedTabsBoundary() + (isPinned && !rtl ? -pinnedWidth : 0f);
                     float startOffsetX = stripTab.getDrawX() - stripTab.getIdealX();
-                    float endOffsetX = animationEndX - stripTab.getIdealX();
+                    float endOffsetX =
+                            isPinned ? 0f : getPinnedTabsBoundary() - stripTab.getIdealX();
                     pinnedAnimations.add(
                             CompositorAnimator.ofFloatProperty(
                                     mUpdateHost.getAnimationHandler(),
@@ -534,6 +527,9 @@ public class StripLayoutHelper
      * space on the tab strip. Constricted by MIN_TAB_WIDTH_DP and MAX_TAB_WIDTH_DP.
      */
     private final ObservableSupplierImpl<Float> mCachedTabWidthSupplier =
+            new ObservableSupplierImpl<>(0f);
+
+    private final ObservableSupplierImpl<Float> mPinnedTabsBoundarySupplier =
             new ObservableSupplierImpl<>(0f);
 
     // Reorder State
@@ -714,7 +710,7 @@ public class StripLayoutHelper
             TabGroupListBottomSheetCoordinatorFactory tabGroupListBottomSheetCoordinatorFactory) {
         mGroupTitleDrawXOffset = TAB_OVERLAP_WIDTH_DP - FOLIO_FOOT_LENGTH_DP;
         mGroupTitleOverlapWidth = FOLIO_FOOT_LENGTH_DP - mGroupTitleDrawXOffset;
-        mNewTabButtonWidth = NEW_TAB_BUTTON_BACKGROUND_WIDTH_DP;
+        mNewTabButtonWidth = BUTTON_BACKGROUND_SIZE_DP;
         mModelSelectorButton = modelSelectorButton;
         mToolbarContainerView = toolbarContainerView;
         mTabStripDragHandler = tabStripDragHandler;
@@ -746,8 +742,8 @@ public class StripLayoutHelper
                         context,
                         ButtonType.NEW_TAB,
                         null,
-                        NEW_TAB_BUTTON_BACKGROUND_WIDTH_DP,
-                        NEW_TAB_BUTTON_BACKGROUND_HEIGHT_DP,
+                        BUTTON_BACKGROUND_SIZE_DP,
+                        BUTTON_BACKGROUND_SIZE_DP,
                         mToolbarContainerView::setTooltipText,
                         /* clickHandler= */ this,
                         /* keyboardFocusHandler= */ this,
@@ -1013,7 +1009,7 @@ public class StripLayoutHelper
      */
     protected float getNtbVisualOffsetHorizontal() {
         return Math.max(
-                (BUTTON_DESIRED_TOUCH_TARGET_SIZE - mNewTabButtonWidth) / 2
+                (BUTTON_TOUCH_TARGET_SIZE_DP - mNewTabButtonWidth) / 2
                         - DESIRED_PADDING_BETWEEN_NEW_TAB_BUTTON_AND_TABS,
                 0);
     }
@@ -1059,7 +1055,10 @@ public class StripLayoutHelper
     }
 
     private boolean doPinnedTabsOccupyEntireVisibleArea() {
-        return getAvailableTabWidthForResizing() < mCachedTabWidthSupplier.get();
+        // Return false if tab strip is still initializing and `mWidth` is 0.
+        if (mWidth == 0) return false;
+        return getStripWidthForResizing() - getTotalPinnedTabsWidth()
+                < mCachedTabWidthSupplier.get();
     }
 
     /**
@@ -1294,6 +1293,7 @@ public class StripLayoutHelper
                     stripTab.setIsPinned(tab.getIsPinned());
                 }
             }
+            mPinnedTabsBoundarySupplier.set(getPinnedTabsBoundary());
 
             RecordHistogram.recordCount1000Histogram(
                     PLACEHOLDER_LEFTOVER_TABS_HISTOGRAM_NAME, numLeftoverPlaceholders);
@@ -1338,6 +1338,7 @@ public class StripLayoutHelper
                 mTabStripDragHandler,
                 mActionConfirmationManager,
                 mCachedTabWidthSupplier,
+                mPinnedTabsBoundarySupplier,
                 mGroupIdToHideSupplier,
                 mToolbarContainerView);
 
@@ -1545,7 +1546,7 @@ public class StripLayoutHelper
                 && !mIsPinnedOnlyStripRecorded
                 && doPinnedTabsOccupyEntireVisibleArea()) {
             mIsPinnedOnlyStripRecorded = true;
-            RecordUserAction.record("MobileToolbarPinnedOnlyTabStrip");
+            RecordUserAction.record("MobileToolbarPinnedOnlyTabStripSkipInit");
         }
     }
 
@@ -1684,7 +1685,10 @@ public class StripLayoutHelper
      * @param newIndex The new index of the tab in the {@link TabModel}.
      */
     public void tabMoved(int id, int oldIndex, int newIndex) {
-        finishAnimations();
+        // See crbug.com/455498650. When re-parenting a tab group, the sequence of events is such
+        // that we move a tab (out of the group), then attempt to close it. The delayed close
+        // animations need to be completed between each event to avoid interacting with stale state.
+        if (mCloseAnimationsRequested) finishAnimations();
         StripLayoutTab tab = findTabById(id);
         if (tab == null || oldIndex == newIndex) return;
 
@@ -2301,10 +2305,6 @@ public class StripLayoutHelper
         StripLayoutView stripView = determineClickedView(x, y, /* buttons= */ 0);
 
         if (stripView == null) {
-            // Broadcast to start moving the window instance as the user has long pressed on the
-            // open space of the tab strip.
-            sendMoveWindowBroadcast(mToolbarContainerView, x, y);
-
             // Show the tab strip context menu at the long-press position on the empty space.
             showTabStripContextMenu(x, y);
             return;
@@ -2434,10 +2434,8 @@ public class StripLayoutHelper
                             mMultiInstanceManager,
                             mShareDelegateSupplier,
                             mWindowAndroid,
-                            mContext,
+                            assertNonNull(mWindowAndroid.getActivity().get()),
                             (ids, toLeft) -> {
-                                assert ids.size() == 1
-                                        : "Expected to only be able to reorder individual tabs";
                                 // Don't use anchorTab here, since that will be the anchor of the
                                 // first-opened tab context menu (it won't change when a new context
                                 // menu is opened).
@@ -2446,7 +2444,7 @@ public class StripLayoutHelper
                                         mStripViews,
                                         mStripGroupTitles,
                                         mStripTabs,
-                                        assumeNonNull(findTabById(ids.get(0))),
+                                        assumeNonNull(findTabById(ids.getAnchorTabId())),
                                         toLeft);
                             });
         }
@@ -2454,7 +2452,8 @@ public class StripLayoutHelper
         anchorTab.getAnchorRect(anchorRectProvider.getRect());
         getAdjustedAnchorRect(anchorRectProvider);
         StripLayoutUtils.performHapticFeedback(mToolbarContainerView);
-        mTabContextMenuCoordinator.showMenu(anchorRectProvider, tabIds);
+        mTabContextMenuCoordinator.showMenu(
+                anchorRectProvider, new AnchorInfo(anchorTab.getTabId(), tabIds));
     }
 
     /**
@@ -4842,11 +4841,10 @@ public class StripLayoutHelper
         computeIdealViewPositions();
 
         // 3. Calculate view stacking - update view draw properties and visibility.
-        float stripWidth =
-                getVisibleRightBound(/* clampToUnpinnedViews= */ false)
-                        - getVisibleLeftBound(/* clampToUnpinnedViews= */ false);
         mStripStacker.pushDrawPropertiesToViews(
-                mStripViews, getVisibleLeftBound(/* clampToUnpinnedViews= */ false), stripWidth);
+                mStripViews,
+                getVisibleLeftBound(/* clampToUnpinnedViews= */ false),
+                getVisibleRightBound(/* clampToUnpinnedViews= */ false));
         mStripStacker.pushDrawPropertiesToButtons(
                 mNewTabButton,
                 mStripTabs,
@@ -5059,6 +5057,17 @@ public class StripLayoutHelper
         if (mTabAtPositionForTesting != null) {
             return mTabAtPositionForTesting;
         }
+
+        // Views are only hidden once they're completely out of the visible region. Since tabs are
+        // wider than the NTB (which is roughly where the end-fade begins), it is possible for a tab
+        // to be visible while having its touch target partially past the NTB. Visible tabs are
+        // considered clickable, so manually suppress clicks beyond the NTB to prevent this.
+        if (LocalizationUtils.isLayoutRtl()) {
+            if (x <= mNewTabButton.getDrawX() + mNewTabButton.getWidth()) return null;
+        } else {
+            if (x >= mNewTabButton.getDrawX()) return null;
+        }
+
         return StripLayoutUtils.findViewAtPositionX(mStripViews, x, includeGroupTitles);
     }
 
@@ -5940,32 +5949,6 @@ public class StripLayoutHelper
     private void resetDelayedReorderState() {
         mDelayedReorderView = null;
         mDelayedReorderInitialX = 0.f;
-    }
-
-    private void sendMoveWindowBroadcast(View view, float startXInView, float startYInView) {
-        if (!DeviceInfo.isXr()) return;
-        if (mWindowAndroid.getActivity().get() == null) return;
-
-        // The start position is in the view coordinate system and related to the top left position
-        // of the toolbar container view. Convert it to the screen coordinate system for window drag
-        // start position.
-        int[] topLeftLocation = new int[2];
-        view.getLocationOnScreen(topLeftLocation);
-        float startXInScreen = topLeftLocation[0] + startXInView;
-        float startYInScreen = topLeftLocation[1] + startYInView;
-
-        int taskId = ApplicationStatus.getTaskId(mWindowAndroid.getActivity().get());
-
-        // Prepare the move window intent for the Android system to initiate move and take over the
-        // user input events. The intent is ignored when not handled with no impact to existing
-        // Android platforms.
-        Intent intent = new Intent();
-        intent.setPackage(view.getContext().getPackageName());
-        intent.setAction("com.android.systemui.MOVE_WINDOW");
-        intent.putExtra("MOVE_WINDOW_TASK_ID", taskId);
-        intent.putExtra("MOVE_WINDOW_START_X", startXInScreen);
-        intent.putExtra("MOVE_WINDOW_START_Y", startYInScreen);
-        mWindowAndroid.sendBroadcast(intent);
     }
 
     /** Returns the keyboard-focused view, or null if there is none. */

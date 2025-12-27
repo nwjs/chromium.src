@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <memory>
 
-#include "base/functional/callback_forward.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
@@ -22,6 +21,7 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
+#include "chromeos/ash/components/install_attributes/stub_install_attributes.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "chromeos/ash/components/system/fake_statistics_provider.h"
 #include "components/prefs/pref_service.h"
@@ -58,11 +58,10 @@ class AppPreloadServiceTest : public testing::Test {
             AppPreloadService::DisablePreloadsOnStartupForTesting()) {
     scoped_feature_list_.InitWithFeatures({kAppPreloadServiceEnableShelfPin},
                                           {});
-    AppPreloadServiceFactory::SkipApiKeyCheckForTesting(true);
   }
 
   void SetUp() override {
-    testing::Test::SetUp();
+    AppPreloadServiceFactory::SkipApiKeyCheckForTesting(true);
 
     user_manager::UserManager::Get()->SetIsCurrentUserNew(true);
 
@@ -86,6 +85,7 @@ class AppPreloadServiceTest : public testing::Test {
   // BrowserTaskEnvironment has to be the first member or test will break.
   content::BrowserTaskEnvironment task_environment_;
   base::test::ScopedFeatureList scoped_feature_list_;
+  ash::ScopedStubInstallAttributes installed_attributes_;
   ash::ScopedTestingCrosSettings testing_cros_settings_;
   user_manager::ScopedUserManager scoped_user_manager_{
       std::make_unique<user_manager::UserManagerImpl>(

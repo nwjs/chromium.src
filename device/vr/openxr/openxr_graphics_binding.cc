@@ -5,6 +5,7 @@
 #include "device/vr/openxr/openxr_graphics_binding.h"
 
 #include "components/viz/common/gpu/context_provider.h"
+#include "device/vr/openxr/openxr_api_wrapper.h"
 #include "device/vr/openxr/openxr_extension_helper.h"
 #include "device/vr/openxr/openxr_util.h"
 #include "device/vr/openxr/openxr_view_configuration.h"
@@ -60,12 +61,12 @@ void OpenXrGraphicsBinding::OnSessionCreated(XrSpace local_space,
           std::move(projection_layer_data));
   layer_data->mutable_data->blend_texture_source_alpha = true;
   layer_data->mutable_data->opacity = 1.f;
-  layer_data->mutable_data->reference_space_type =
-      mojom::XRReferenceSpaceType::kLocal;
+  layer_data->mutable_data->native_origin_information =
+      mojom::XRNativeOriginInformation::NewReferenceSpaceType(
+          mojom::XRReferenceSpaceType::kLocal);
 
   base_layer_ = std::make_unique<OpenXrCompositionLayer>(
-      local_space, std::move(layer_data), this,
-      CreateLayerGraphicsBindingData());
+      std::move(layer_data), this, CreateLayerGraphicsBindingData());
 }
 
 void OpenXrGraphicsBinding::OnSessionDestroyed(gpu::SharedImageInterface* sii) {
@@ -181,6 +182,7 @@ void OpenXrGraphicsBinding::SetOverlayAndWebXrVisibility(bool overlay_visible,
 }
 
 std::unique_ptr<OpenXrLayers> OpenXrGraphicsBinding::GetLayersForViewConfig(
+    OpenXrApiWrapper* openxr,
     const OpenXrViewConfiguration& view_config) const {
   auto openxr_layers = std::make_unique<OpenXrLayers>();
   for (const auto& layer_id : layers_sequence_) {
@@ -190,17 +192,18 @@ std::unique_ptr<OpenXrLayers> OpenXrGraphicsBinding::GetLayersForViewConfig(
     }
     if (layer_it->second->type() == OpenXrCompositionLayer::Type::kProjection) {
       openxr_layers->AddCompositionLayer(
-          *layer_it->second, GetProjectionViews(view_config, *layer_it->second),
+          openxr, *layer_it->second,
+          GetProjectionViews(view_config, *layer_it->second),
           GetFlipLayerLayout());
     } else {
-      openxr_layers->AddCompositionLayer(*layer_it->second, {},
+      openxr_layers->AddCompositionLayer(openxr, *layer_it->second, {},
                                          GetFlipLayerLayout());
     }
   }
   if (ShouldRenderBaseLayer()) {
-    openxr_layers->AddBaseLayer(base_layer_->space(),
-                                GetBaseLayerProjectionViews(view_config),
-                                GetFlipLayerLayout());
+    openxr_layers->AddBaseLayer(
+        openxr->GetReferenceSpace(mojom::XRReferenceSpaceType::kLocal),
+        GetBaseLayerProjectionViews(view_config), GetFlipLayerLayout());
   }
   return openxr_layers;
 }
@@ -287,7 +290,20 @@ XrResult OpenXrGraphicsBinding::ActivateSwapchainImages(
     if (layer_it == layers_.end()) {
       continue;
     }
-    // Static layers should only be rendered once.
+
+    // Do not request another swapchain image if layer has an image which was
+    // not consumed by the previous frame request.
+    if (layer_it->second->has_active_swapchain_image()) {
+      continue;
+    }
+
+    // OpenXR prevents requesting an image more than once for a static
+    // swapchain. Subsequent requests will return an error. That's why we must
+    // prevent any extra requests for a swapchain image if the layer has already
+    // successfully rendered an image.
+    //
+    // The only way to update a static layer's image is to destroy the existing
+    // swapchain and create a new one.
     if (layer_it->second->read_only_data().is_static &&
         layer_it->second->is_rendered()) {
       continue;
@@ -303,6 +319,10 @@ XrResult OpenXrGraphicsBinding::ReleaseActiveSwapchainImages() {
   // Also some layers may have been removed from layers_sequence_ before
   // xrEndFrame, we want to release all.
   for (const auto& [_, layer] : layers_) {
+    // Reuse the active swapchain image if it wasn't rendered this cycle.
+    if (!layer->is_rendered()) {
+      continue;
+    }
     layer->ReleaseActiveSwapchainImage();
   }
   return base_layer_->ReleaseActiveSwapchainImage();
@@ -326,6 +346,12 @@ void OpenXrGraphicsBinding::PopulateSharedImageData(
   for (const auto& layer_id : layers_sequence_) {
     auto layer_it = layers_.find(layer_id);
     if (layer_it == layers_.end()) {
+      continue;
+    }
+    // If the page didn't request to redraw a static image,
+    // we shouldn't send up a shared image for it.
+    if (layer_it->second->read_only_data().is_static &&
+        !layer_it->second->needs_redraw()) {
       continue;
     }
     const auto* swapchain_info = layer_it->second->GetActiveSwapchainImage();
@@ -392,7 +418,6 @@ bool OpenXrGraphicsBinding::Render(
 }
 
 bool OpenXrGraphicsBinding::CreateCompositionLayer(
-    XrSpace space,
     mojom::XRCompositionLayerDataPtr layer_data,
     gpu::SharedImageInterface* sii) {
   if (!SupportsLayers()) {
@@ -403,7 +428,7 @@ bool OpenXrGraphicsBinding::CreateCompositionLayer(
   CHECK(!layers_.contains(layer_id));
 
   auto new_layer = std::make_unique<OpenXrCompositionLayer>(
-      space, std::move(layer_data), this, CreateLayerGraphicsBindingData());
+      std::move(layer_data), this, CreateLayerGraphicsBindingData());
 
   if (new_layer->type() == OpenXrCompositionLayer::Type::kProjection) {
     // All projection layers should have same size.

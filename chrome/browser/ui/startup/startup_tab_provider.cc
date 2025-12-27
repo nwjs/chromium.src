@@ -24,11 +24,13 @@
 #include "chrome/browser/profile_resetter/triggered_profile_resetter_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/browser/shell_integration.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/startup/startup_types.h"
@@ -72,12 +74,16 @@
 
 namespace {
 
-// Strips the `kGoogleChromeURLScheme` prefix from `arg` if present and the
+// Strips the `google-chrome://` prefix from `arg` if present and the
 // `kGoogleChromeScheme` feature is enabled. Returns true if the prefix was
 // stripped.
 bool StripGoogleChromeScheme(base::FilePath::StringViewType& arg) {
-  const base::FilePath kFullPrefixPath = base::FilePath::FromASCII(base::StrCat(
-      {chrome::kGoogleChromeURLScheme, url::kStandardSchemeSeparator}));
+#if BUILDFLAG(CHROME_FOR_TESTING)
+  return false;
+#else
+  const base::FilePath kFullPrefixPath = base::FilePath::FromASCII(
+      base::StrCat({shell_integration::GetDirectLaunchUrlScheme(),
+                    url::kStandardSchemeSeparator}));
   // Note: we enabled the feature flag condition later
   // we want to activate the experiment when it is relevant for better
   // stats collection. We plan to remove this flag once we establish it works
@@ -89,15 +95,22 @@ bool StripGoogleChromeScheme(base::FilePath::StringViewType& arg) {
     return true;
   }
   return false;
+#endif  // BUILDFLAG(CHROME_FOR_TESTING)
 }
 
 // Attempts to find an existing, non-empty tabbed browser for this profile.
 bool ProfileHasOtherTabbedBrowser(Profile* profile) {
-  return std::ranges::any_of(
-      *BrowserList::GetInstance(), [profile](Browser* browser) {
-        return browser->profile() == profile && browser->is_type_normal() &&
-               !browser->tab_strip_model()->empty();
+  bool found = false;
+  ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+      [profile, &found](BrowserWindowInterface* browser) {
+        if (browser->GetProfile() == profile &&
+            browser->GetType() == BrowserWindowInterface::TYPE_NORMAL &&
+            !browser->GetTabStripModel()->empty()) {
+          found = true;
+        }
+        return !found;
       });
+  return found;
 }
 
 // Validates the URL whether it is allowed to be opened at launching. Dangerous
@@ -446,10 +459,9 @@ StartupTabProviderImpl::ParseTabFromCommandLineArg(
     if (url.is_valid()) {
       return {CommandLineTabsPresent::kYes, std::move(url)};
     }
-  }
-  // Otherwise, fall through to treating it as a URL; stripping off the
-  // `kGoogleChromeScheme` if present.
-    else if (!StripGoogleChromeScheme(arg) || !arg.empty()) {
+  } else if (!StripGoogleChromeScheme(arg) || !arg.empty()) {
+    // Otherwise, fall through to treating it as a URL; stripping off the
+    // `kGoogleChromeScheme` if present.
     // This will create a file URL or a regular URL.
     const base::FilePath arg_path(arg);
     GURL url(arg_path.MaybeAsASCII());

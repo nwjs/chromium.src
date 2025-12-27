@@ -65,7 +65,6 @@
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/render_process_host.h"
-#include "content/public/browser/resource_context.h"
 #include "content/public/browser/service_worker_context.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/storage_partition.h"
@@ -74,7 +73,6 @@
 #include "content/public/common/content_features.h"
 #include "ipc/constants.mojom.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
-#include "net/base/features.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/ip_endpoint.h"
 #include "net/base/net_errors.h"
@@ -1356,14 +1354,23 @@ bool NetworkHandler::AddInterceptedResourceType(
     intercepted_resource_types->insert(blink::mojom::ResourceType::kScript);
     return true;
   }
-  if (resource_type == protocol::Network::ResourceTypeEnum::XHR) {
+
+  // Map several fetch-like CDP resource types to the underlying `kXhr` Blink
+  // resource type. This is necessary because Blink's loader subsystem, where
+  // interception occurs, does not differentiate between these types at a
+  // protocol level. This mapping provides a functional interception mechanism
+  // and resolves the issue where filtering for 'Fetch' or 'EventSource' would
+  // silently fail. See https://crbug.com/40256663#comment10 for context.
+  if (resource_type == protocol::Network::ResourceTypeEnum::XHR ||
+      resource_type == protocol::Network::ResourceTypeEnum::Fetch ||
+      resource_type == protocol::Network::ResourceTypeEnum::EventSource) {
     intercepted_resource_types->insert(blink::mojom::ResourceType::kXhr);
+    if (resource_type == protocol::Network::ResourceTypeEnum::Fetch) {
+      intercepted_resource_types->insert(blink::mojom::ResourceType::kPrefetch);
+    }
     return true;
   }
-  if (resource_type == protocol::Network::ResourceTypeEnum::Fetch) {
-    intercepted_resource_types->insert(blink::mojom::ResourceType::kPrefetch);
-    return true;
-  }
+
   if (resource_type ==
       protocol::Network::ResourceTypeEnum::CSPViolationReport) {
     intercepted_resource_types->insert(blink::mojom::ResourceType::kCspReport);
@@ -1490,7 +1497,6 @@ Response NetworkHandler::Disable() {
   enable_third_party_cookie_restriction_ = false;
   disable_third_party_cookie_metadata_ = false;
   disable_third_party_cookie_heuristics_ = false;
-  SetIPProtectionProxyBypassEnabled(false);
   return Response::FallThrough();
 }
 
@@ -1711,11 +1717,9 @@ void NetworkHandler::GetCookies(std::unique_ptr<Array<String>> protocol_urls,
   std::vector<GURL> urls = ComputeCookieURLs(host_, protocol_urls);
   bool is_webui = host_ && host_->web_ui();
 
-  urls.erase(std::remove_if(urls.begin(), urls.end(),
-                            [=, this](const GURL& url) {
-                              return !client_->MayAttachToURL(url, is_webui);
-                            }),
-             urls.end());
+  std::erase_if(urls, [=, this](const GURL& url) {
+    return !client_->MayAttachToURL(url, is_webui);
+  });
 
   CookieRetrieverNetworkService::Retrieve(
       storage_partition_->GetCookieManagerForBrowserProcess(), urls,
@@ -2295,13 +2299,6 @@ std::unique_ptr<Network::Response> BuildResponse(
   if (info.ssl_info.has_value())
     response->SetSecurityDetails(BuildSecurityDetails(*info.ssl_info));
 
-  // Sets `is_ip_protection_used` within the response. This is currently set
-  // only if kIpPrivacyEnableIppInDevTools is enabled.
-  // TODO(crbug.com/432716000): Remove this guard once IPP is fully launched.
-  if (net::features::kIpPrivacyEnableIppInDevTools.Get()) {
-    response->SetIsIpProtectionUsed(info.is_for_ip_protection && !was_cached);
-  }
-
   return response;
 }
 
@@ -2439,25 +2436,6 @@ String GetTrustTokenRefreshPolicy(
       return protocol::Network::TrustTokenParams::RefreshPolicyEnum::UseCached;
     case network::mojom::TrustTokenRefreshPolicy::kRefresh:
       return protocol::Network::TrustTokenParams::RefreshPolicyEnum::Refresh;
-  }
-}
-
-String BuildIpProxyStatus(ip_protection::IpProxyStatus status) {
-  switch (status) {
-    case ip_protection::IpProxyStatus::kOk:
-      return protocol::Network::IpProxyStatusEnum::Available;
-    case ip_protection::IpProxyStatus::kFeatureNotEnabled:
-      return protocol::Network::IpProxyStatusEnum::FeatureNotEnabled;
-    case ip_protection::IpProxyStatus::kMaskedDomainListNotEnabled:
-      return protocol::Network::IpProxyStatusEnum::MaskedDomainListNotEnabled;
-    case ip_protection::IpProxyStatus::kMaskedDomainListNotPopulated:
-      return protocol::Network::IpProxyStatusEnum::MaskedDomainListNotPopulated;
-    case ip_protection::IpProxyStatus::kAuthTokensUnavailable:
-      return protocol::Network::IpProxyStatusEnum::AuthTokensUnavailable;
-    case ip_protection::IpProxyStatus::kUnavailable:
-      return protocol::Network::IpProxyStatusEnum::Unavailable;
-    case ip_protection::IpProxyStatus::kBypassedByDevTools:
-      return protocol::Network::IpProxyStatusEnum::BypassedByDevTools;
   }
 }
 
@@ -2793,14 +2771,6 @@ String BuildCorsError(network::mojom::CorsError cors_error) {
     case network::mojom::CorsError::kPreflightInvalidAllowCredentials:
       return protocol::Network::CorsErrorEnum::PreflightInvalidAllowCredentials;
 
-    case network::mojom::CorsError::kPreflightMissingAllowPrivateNetwork:
-      return protocol::Network::CorsErrorEnum::
-          PreflightMissingAllowPrivateNetwork;
-
-    case network::mojom::CorsError::kPreflightInvalidAllowPrivateNetwork:
-      return protocol::Network::CorsErrorEnum::
-          PreflightInvalidAllowPrivateNetwork;
-
     case network::mojom::CorsError::kInvalidAllowMethodsPreflightResponse:
       return protocol::Network::CorsErrorEnum::
           InvalidAllowMethodsPreflightResponse;
@@ -2825,25 +2795,6 @@ String BuildCorsError(network::mojom::CorsError cors_error) {
 
     case network::mojom::CorsError::kInvalidPrivateNetworkAccess:
       return protocol::Network::CorsErrorEnum::InvalidPrivateNetworkAccess;
-
-    case network::mojom::CorsError::kUnexpectedPrivateNetworkAccess:
-      return protocol::Network::CorsErrorEnum::UnexpectedPrivateNetworkAccess;
-
-    case network::mojom::CorsError::kPreflightMissingPrivateNetworkAccessId:
-      return protocol::Network::CorsErrorEnum::
-          PreflightMissingPrivateNetworkAccessId;
-
-    case network::mojom::CorsError::kPreflightMissingPrivateNetworkAccessName:
-      return protocol::Network::CorsErrorEnum::
-          PreflightMissingPrivateNetworkAccessName;
-
-    case network::mojom::CorsError::kPrivateNetworkAccessPermissionUnavailable:
-      return protocol::Network::CorsErrorEnum::
-          PrivateNetworkAccessPermissionUnavailable;
-
-    case network::mojom::CorsError::kPrivateNetworkAccessPermissionDenied:
-      return protocol::Network::CorsErrorEnum::
-          PrivateNetworkAccessPermissionDenied;
 
     case network::mojom::CorsError::kLocalNetworkAccessPermissionDenied:
       return protocol::Network::CorsErrorEnum::
@@ -3861,6 +3812,7 @@ void NetworkHandler::LoadNetworkResource(
         network::mojom::TrustTokenOperationPolicyVerdict::kForbid,
         network::mojom::TrustTokenOperationPolicyVerdict::kForbid,
         frame->GetCookieSettingOverrides(),
+        /*network_restrictions_id=*/std::nullopt,
         "NetworkHandler::LoadNetworkResource");
 
     auto factory = CreateNetworkFactoryForDevTools(
@@ -3914,46 +3866,6 @@ DispatchResponse NetworkHandler::SetCookieControls(
   return Response::Success();
 }
 
-void NetworkHandler::GetIPProtectionProxyStatus(
-    std::unique_ptr<GetIPProtectionProxyStatusCallback> callback) {
-  if (!storage_partition_) {
-    callback->sendFailure(DispatchResponse::InternalError());
-    return;
-  }
-
-  network::mojom::NetworkContext* context =
-      storage_partition_->GetNetworkContext();
-
-  base::OnceCallback<void(ip_protection::IpProxyStatus)> internal_callback =
-      base::BindOnce(
-          [](std::unique_ptr<GetIPProtectionProxyStatusCallback>
-                 devtools_callback,
-             ip_protection::IpProxyStatus status) {
-            devtools_callback->sendSuccess(BuildIpProxyStatus(status));
-          },
-          std::move(callback));
-
-  context->GetIpProxyStatus(std::move(internal_callback));
-}
-
-DispatchResponse NetworkHandler::SetIPProtectionProxyBypassEnabled(
-    bool bypass_proxy) {
-  if (!net::features::kIpPrivacyEnableIppPanelInDevTools.Get()) {
-    return DispatchResponse::InvalidRequest(
-        "Missing required flag to bypass IP Proxy.");
-  }
-  if (!client_->IsTrusted()) {
-    return DispatchResponse::InternalError();
-  }
-  if (!storage_partition_) {
-    return DispatchResponse::InternalError();
-  }
-
-  storage_partition_->GetNetworkContext()->SetBypassIpProtectionProxy(
-      bypass_proxy);
-
-  return Response::Success();
-}
 namespace {
 
 String GetTrustTokenOperationStatus(
@@ -4045,10 +3957,6 @@ String NetworkHandler::BuildPrivateNetworkRequestPolicy(
       // TODO(crbug.com/40154414): Fix this.
       return protocol::Network::PrivateNetworkRequestPolicyEnum::
           WarnFromInsecureToMorePrivate;
-    case network::mojom::PrivateNetworkRequestPolicy::kPreflightBlock:
-      return protocol::Network::PrivateNetworkRequestPolicyEnum::PreflightBlock;
-    case network::mojom::PrivateNetworkRequestPolicy::kPreflightWarn:
-      return protocol::Network::PrivateNetworkRequestPolicyEnum::PreflightWarn;
     case network::mojom::PrivateNetworkRequestPolicy::kPermissionBlock:
       return protocol::Network::PrivateNetworkRequestPolicyEnum::
           PermissionBlock;

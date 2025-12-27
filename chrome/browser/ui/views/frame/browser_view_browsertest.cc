@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "base/callback_list.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/utf_string_conversions.h"
@@ -15,8 +16,12 @@
 #include "build/build_config.h"
 #include "chrome/browser/devtools/devtools_window_testing.h"
 #include "chrome/browser/policy/dm_token_utils.h"
+#include "chrome/browser/preloading/scoped_prewarm_feature_list.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/chrome_enterprise_url_lookup_service_factory.h"
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/ui/ash/test_util.h"
+#endif
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands_mac.h"
 #include "chrome/browser/ui/browser_navigator.h"
@@ -35,6 +40,7 @@
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view_observer.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/contents_container_view.h"
+#include "chrome/browser/ui/views/frame/immersive_mode_tester.h"
 #include "chrome/browser/ui/views/frame/multi_contents_view.h"
 #include "chrome/browser/ui/views/frame/multi_contents_view_drop_target_controller.h"
 #include "chrome/browser/ui/views/frame/scrim_view.h"
@@ -48,6 +54,7 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
+#include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
@@ -170,6 +177,12 @@ class BrowserViewWithoutSideBySideTest : public BrowserViewTest {
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
+
+#if BUILDFLAG(IS_CHROMEOS)
+using BrowserViewChromeOSTest = ChromeOSBrowserUITest;
+using BrowserViewChromeOSTestNoWebUiTabStrip =
+    WebUiTabStripOverrideTest<false, BrowserViewChromeOSTest>;
+#endif
 
 namespace {
 // Used to simulate scenario in a crash. When WebContentsDestroyed() is
@@ -465,10 +478,12 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, DevToolsWindowResetsSize) {
 // Verifies that the side panel's rounded corner is being correctly layed out.
 IN_PROC_BROWSER_TEST_F(BrowserViewWithoutSideBySideTest,
                        SidePanelRoundedCornerLayout) {
-  SidePanelCoordinator* coordinator =
-      (browser())->GetFeatures().side_panel_coordinator();
-  coordinator->SetNoDelaysForTesting(true);
-  coordinator->Show(SidePanelEntry::Id::kBookmarks);
+  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  side_panel_ui->SetNoDelaysForTesting(true);
+  side_panel_ui->Show(SidePanelEntry::Id::kBookmarks);
+  if (base::FeatureList::IsEnabled(features::kTabbedBrowserUseNewLayout)) {
+    browser()->GetBrowserView().GetWidget()->LayoutRootViewIfNecessary();
+  }
   EXPECT_EQ(side_panel()->bounds().x(),
             side_panel_rounded_corner()->bounds().right());
   EXPECT_EQ(side_panel()->bounds().y(),
@@ -557,7 +572,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, TitleAndLoadState) {
 
   TabStrip* tab_strip = browser_view()->tabstrip();
   // Navigate without blocking.
-  const GURL test_url = ui_test_utils::GetTestUrl(
+  const GURL test_url = chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(FILE_PATH_LITERAL("title2.html")));
   contents->GetController().LoadURL(test_url, content::Referrer(),
@@ -976,7 +991,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, SplitViewFullscreenLayout) {
   views::View* overlay_view = browser_view()->overlay_view();
 
   // Verify top_container is parented to browser_view before fullscreen
-  EXPECT_EQ(browser_view()->main_container(), top_container->parent());
+  EXPECT_EQ(browser_view(), top_container->parent());
   ui_test_utils::ToggleFullscreenModeAndWait(browser());
 
   // Verify top_container is parented to overlay after entering fullscreen
@@ -985,7 +1000,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, SplitViewFullscreenLayout) {
   browser_view()->GetExclusiveAccessContext()->ExitFullscreen();
 
   // Verify top_container is re-parented to browser_view after fullscreen exit
-  EXPECT_EQ(browser_view()->main_container(), top_container->parent());
+  EXPECT_EQ(browser_view(), top_container->parent());
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserViewTest, SplitViewTabRevealFullscreen) {
@@ -1045,7 +1060,9 @@ class FakeRealTimeUrlLookupService
 
 class BrowserViewDataProtectionTest : public InProcessBrowserTest {
  public:
-  BrowserViewDataProtectionTest() {
+  BrowserViewDataProtectionTest()
+      : scoped_prewarm_feature_list_(test::ScopedPrewarmFeatureList::
+                                         PrewarmState::kEnabledWithNoTrigger) {
     scoped_feature_list_.InitAndEnableFeature(features::kSideBySide);
   }
   BrowserViewDataProtectionTest(const BrowserViewDataProtectionTest&) = delete;
@@ -1095,6 +1112,12 @@ class BrowserViewDataProtectionTest : public InProcessBrowserTest {
 
  private:
   base::CallbackListSubscription create_services_subscription_;
+  // TODO(https://crbug.com/458274323): browser()->GetWidget() seems returning
+  // a wrong Widget, one for the prewarm page, unexpectedly, might be due to
+  // missing MPArch support?
+  // Investigate details, and fix it to remove this workaround so that
+  // DC_Screenshot test can pass stably.
+  test::ScopedPrewarmFeatureList scoped_prewarm_feature_list_;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
@@ -1123,6 +1146,67 @@ IN_PROC_BROWSER_TEST_F(BrowserViewDataProtectionTest, DC_Screenshot) {
 }
 
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+
+#if BUILDFLAG(IS_CHROMEOS)
+IN_PROC_BROWSER_TEST_F(BrowserViewChromeOSTestNoWebUiTabStrip,
+                       EnsureViewTreeOrder) {
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
+  auto* const immersive_mode_controller =
+      ImmersiveModeController::From(browser());
+
+  std::vector<views::View*> children_before;
+  for (const auto& child : browser_view->children()) {
+    children_before.push_back(child);
+  }
+
+  EnterTabletMode();
+
+  std::vector<views::View*> children_in_tablet;
+  for (const auto& child : browser_view->children()) {
+    children_in_tablet.push_back(child);
+  }
+
+  // Enter immersive fullscreen.
+  ui_test_utils::ToggleFullscreenModeAndWait(browser());
+  EXPECT_TRUE(immersive_mode_controller->IsEnabled());
+
+  // Exit immersive fullscreen.
+  ui_test_utils::ToggleFullscreenModeAndWait(browser());
+  EXPECT_FALSE(immersive_mode_controller->IsEnabled());
+
+  std::vector<views::View*> children_in_tablet_after_immersive;
+  for (const auto& child : browser_view->children()) {
+    children_in_tablet_after_immersive.push_back(child);
+  }
+
+  // View tree order before and after immersive mode should be the same in
+  // tablet mode.
+  EXPECT_EQ(children_in_tablet, children_in_tablet_after_immersive);
+
+  ExitTabletMode();
+
+  std::vector<views::View*> children_after;
+  for (const auto& child : browser_view->children()) {
+    children_after.push_back(child);
+  }
+
+  // View tree order should be unchanged before and after tablet mode.
+  EXPECT_EQ(children_before, children_after);
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserViewChromeOSTestNoWebUiTabStrip,
+                       TabStripParentedToTopContainer) {
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
+  EXPECT_EQ(browser_view->tab_strip_view()->parent(), browser_view);
+
+  EnterTabletMode();
+  EXPECT_EQ(browser_view->tab_strip_view()->parent(),
+            static_cast<views::View*>(browser_view->top_container()));
+
+  ExitTabletMode();
+  EXPECT_EQ(browser_view->tab_strip_view()->parent(), browser_view);
+}
+#endif  // BUILDFLAG(CHROME_OS)
 
 namespace {
 

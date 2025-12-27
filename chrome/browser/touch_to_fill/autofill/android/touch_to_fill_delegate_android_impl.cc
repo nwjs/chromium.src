@@ -138,10 +138,13 @@ TouchToFillDelegateAndroidImpl::DryRun(FormGlobalId form_id,
   if (!field) {
     return {TriggerOutcome::kUnknownField, {}};
   }
-  // Trigger only if not shown before.
-  if (ttf_payment_method_state_ != TouchToFillState::kShouldShow) {
-    return {TriggerOutcome::kShownBefore, {}};
+  // Trigger only if Touch To Fill should not be shown or reshown.
+  if (ttf_payment_method_state_ != TouchToFillState::kShouldShow &&
+      ttf_payment_method_state_ !=
+          TouchToFillState::kShownAndShouldBeShownAgain) {
+    return {TriggerOutcome::kShownBeforeAndShouldNotBeShownAgain, {}};
   }
+
   // Trigger only if the client and the form are not insecure.
   if (IsFormOrClientNonSecure(manager_->client(), *form)) {
     return {TriggerOutcome::kFormOrClientNotSecure, {}};
@@ -378,13 +381,19 @@ void TouchToFillDelegateAndroidImpl::BnplSuggestionSelected(
     std::optional<int64_t> extracted_amount) {
   payments::BnplManager* bnpl_manager = manager_->GetPaymentsBnplManager();
   CHECK(bnpl_manager);
-  std::optional<uint64_t> final_extracted_amount;
-  if (extracted_amount.has_value()) {
-    final_extracted_amount = static_cast<uint64_t>(extracted_amount.value());
-  }
-  // TODO(crbug.com/430575808): Add callback when VCN fetching flow is ready.
-  bnpl_manager->OnDidAcceptBnplSuggestion(final_extracted_amount,
-                                          /*on_bnpl_vcn_fetched_callback=*/{});
+  bnpl_manager->OnDidAcceptBnplSuggestion(
+      extracted_amount,
+      /*on_bnpl_vcn_fetched_callback=*/base::BindOnce(
+          [](base::WeakPtr<TouchToFillDelegateAndroidImpl> delegate,
+             const CreditCard& card) {
+            if (delegate) {
+              delegate->manager_->FillOrPreviewForm(
+                  mojom::ActionPersistence::kFill, delegate->query_form_,
+                  delegate->query_field_.global_id(), &card,
+                  AutofillTriggerSource::kTouchToFillCreditCard);
+            }
+          },
+          GetWeakPtr()));
 }
 
 void TouchToFillDelegateAndroidImpl::IbanSuggestionSelected(
@@ -429,7 +438,8 @@ void TouchToFillDelegateAndroidImpl::LoyaltyCardSuggestionSelected(
                                         query_field_.global_id());
 }
 
-void TouchToFillDelegateAndroidImpl::OnDismissed(bool dismissed_by_user) {
+void TouchToFillDelegateAndroidImpl::OnDismissed(bool dismissed_by_user,
+                                                 bool should_reshow) {
   if (dismissed_by_user && bnpl_callbacks_.cancel_callback) {
     std::move(bnpl_callbacks_.cancel_callback).Run();
   } else {
@@ -437,13 +447,13 @@ void TouchToFillDelegateAndroidImpl::OnDismissed(bool dismissed_by_user) {
   }
 
   if (IsShowingTouchToFill()) {
-    ttf_payment_method_state_ = TouchToFillState::kWasShown;
+    ttf_payment_method_state_ =
+        should_reshow && base::FeatureList::IsEnabled(
+                             features::kAutofillEnableTouchToFillReshowForBnpl)
+            ? TouchToFillState::kShownAndShouldBeShownAgain
+            : TouchToFillState::kShownAndShouldNotBeShownAgain;
     dismissed_by_user_ = dismissed_by_user;
   }
-}
-
-void TouchToFillDelegateAndroidImpl::OnErrorOkPressed() {
-  HideTouchToFill();
 }
 
 void TouchToFillDelegateAndroidImpl::OnBnplIssuerSuggestionSelected(
@@ -466,6 +476,11 @@ void TouchToFillDelegateAndroidImpl::OnBnplIssuerSuggestionSelected(
       break;
     }
   }
+}
+
+void TouchToFillDelegateAndroidImpl::OnBnplTosAccepted() {
+  CHECK(bnpl_callbacks_.accept_tos_callback);
+  std::move(bnpl_callbacks_.accept_tos_callback).Run();
 }
 
 void TouchToFillDelegateAndroidImpl::LogTriggerOutcomeMetrics(
@@ -493,8 +508,11 @@ void TouchToFillDelegateAndroidImpl::LogTriggerOutcomeMetrics(
 void TouchToFillDelegateAndroidImpl::LogMetricsAfterSubmission(
     const FormStructure& submitted_form) {
   // Log whether autofill was used after dismissing the touch to fill (without
-  // selecting any credit card for filling)
-  if (ttf_payment_method_state_ == TouchToFillState::kWasShown &&
+  // selecting any credit card for filling).
+  if ((ttf_payment_method_state_ ==
+           TouchToFillState::kShownAndShouldNotBeShownAgain ||
+       ttf_payment_method_state_ ==
+           TouchToFillState::kShownAndShouldBeShownAgain) &&
       query_form_.global_id() == submitted_form.global_id() &&
       HasAnyAutofilledFields(submitted_form)) {
     base::UmaHistogramBoolean(
@@ -520,6 +538,11 @@ void TouchToFillDelegateAndroidImpl::SetSelectedIssuerCallback(
     base::OnceCallback<void(BnplIssuer)> selected_issuer_callback) {
   bnpl_callbacks_.selected_issuer_callback =
       std::move(selected_issuer_callback);
+}
+
+void TouchToFillDelegateAndroidImpl::SetBnplTosAcceptCallback(
+    base::OnceClosure accept_tos_callback) {
+  bnpl_callbacks_.accept_tos_callback = std::move(accept_tos_callback);
 }
 
 base::WeakPtr<TouchToFillDelegateAndroidImpl>

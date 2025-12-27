@@ -18,7 +18,6 @@ from collections import OrderedDict
 from functools import cmp_to_key
 from functools import partial
 import ast
-import codecs
 import json
 import os
 import re
@@ -154,6 +153,7 @@ class PolicyDetails:
             PolicyDetails._RemovePlaceholders(policy['desc']).splitlines()))
     self.caption = PolicyDetails._RemovePlaceholders(policy['caption'])
     self.max_size = policy.get('max_size', 0)
+    self.default = policy.get('default', None)
 
     items = policy.get('items')
     if items is None:
@@ -356,7 +356,7 @@ def main():
 
   def GenerateFile(path, writer, sorted=False, xml=False):
     if path:
-      with codecs.open(path, 'w', encoding='utf-8') as f:
+      with open(path, 'w', encoding='utf-8') as f:
         _OutputGeneratedWarningHeader(f, template_file_name, xml)
         writer(sorted and sorted_policy_details or policy_details,
                sorted and sorted_policy_atomic_groups or policy_atomic_groups,
@@ -420,7 +420,7 @@ def _OutputComment(f, comment):
 
 
 def _LoadJSONFile(json_file):
-  with codecs.open(json_file, 'r', encoding='utf-8') as f:
+  with open(json_file, 'r', encoding='utf-8') as f:
     return json.load(f)
 
 
@@ -1653,6 +1653,27 @@ def _GetProtobufTypes():
 ENROLLMENT_TOKEN_POLICY_NAME = 'CloudManagementEnrollmentToken'
 
 
+def _FormatDefaultValue(default_value):
+  """Format default value for Android app restrictions XML.
+
+  Args:
+    default_value: The default value from policy YAML (bool, int, str, or None)
+
+  Returns:
+    String representation suitable for android:defaultValue attribute,
+    or None if the value should not be included.
+  """
+  if default_value is None:
+    return None
+  if isinstance(default_value, bool):
+    return 'true' if default_value else 'false'
+  elif isinstance(default_value, int):
+    return str(default_value)
+  elif isinstance(default_value, str):
+    return xml_escape(default_value)
+  return xml_escape(str(default_value))
+
+
 def _WriteAppRestrictions(policies, policy_atomic_groups, target_platform, f,
                           risk_tags, chunking):
 
@@ -1671,6 +1692,11 @@ def _WriteAppRestrictions(policies, policy_atomic_groups, target_platform, f,
 
     if policy.items is not None:
       WriteItemsDefinition(policy_name)
+
+    # Write default value if it exists
+    formatted_default = _FormatDefaultValue(policy.default)
+    if formatted_default is not None:
+      f.write('        android:defaultValue="%s"\n' % formatted_default)
 
     f.write('        android:restrictionType="%s"/>' % policy.restriction_type)
     f.write('\n\n')

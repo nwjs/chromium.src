@@ -31,7 +31,6 @@
 #include "content/public/browser/storage_partition_config.h"
 #include "content/public/common/window_container_type.mojom-forward.h"
 #include "third_party/blink/public/common/input/web_mouse_event.h"
-#include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "third_party/blink/public/common/page/drag_operation.h"
 #include "third_party/blink/public/mojom/choosers/color_chooser.mojom-forward.h"
 #include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom.h"
@@ -43,19 +42,27 @@
 #include "ui/base/mojom/window_show_state.mojom-forward.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/base/window_open_disposition.h"
-#include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/native_ui_types.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/scoped_java_ref.h"
 #include "content/public/browser/back_forward_transition_animation_manager.h"
+
+namespace base {
+class ScopedClosureRunner;
+}  // namespace base
+
+namespace base::android {
+class ScopedHardwareBufferHandle;
+}  // namespace base::android
+
 #endif
 
 class GURL;
 
 namespace base {
 class FilePath;
-}
+}  // namespace base
 
 namespace blink {
 namespace mojom {
@@ -72,6 +79,7 @@ class GeolocationContext;
 
 namespace gfx {
 class Rect;
+class RectF;
 class Size;
 }  // namespace gfx
 
@@ -108,6 +116,7 @@ class SiteInstance;
 class WebContents;
 struct ContextMenuParams;
 struct DropData;
+struct MediaStreamRequest;
 struct OpenURLParams;
 struct Referrer;
 
@@ -121,6 +130,12 @@ enum class PictureInPictureResult {
   // Picture-in-Picture is not supported by the embedder.
   kNotSupported,
 };
+
+#if BUILDFLAG(IS_ANDROID)
+using HardwareBufferResultCallback =
+    base::OnceCallback<void(base::android::ScopedHardwareBufferHandle,
+                            base::ScopedClosureRunner)>;
+#endif  // BUILDFLAG(IS_ANDROID)
 
 // Objects implement this interface to get notified about changes in the
 // WebContents and to provide necessary functionality. If a method doesn't
@@ -486,10 +501,6 @@ class CONTENT_EXPORT WebContentsDelegate {
                                base::OnceCallback<void()> on_confirm,
                                base::OnceCallback<void()> on_cancel);
 
-  // Returns whether the RFH can use Additional Windowing Controls (AWC) APIs.
-  // https://github.com/explainers-by-googlers/additional-windowing-controls/blob/main/README.md
-  virtual bool CanUseWindowingControls(RenderFrameHost* requesting_frame);
-
   // Notifies `BrowserView` about the resizable boolean having been set vith
   // `window.setResizable(bool)` API.
   virtual void OnWebApiWindowResizableChanged() {}
@@ -497,11 +508,17 @@ class CONTENT_EXPORT WebContentsDelegate {
   // both the value set by the AWC API and browser's "native" resizability.
   virtual bool GetCanResize();
 
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+  // Returns whether the RFH can use Additional Windowing Controls (AWC) APIs.
+  // https://github.com/explainers-by-googlers/additional-windowing-controls/blob/main/README.md
+  virtual bool CanUseWindowingControls(RenderFrameHost* requesting_frame);
+
   // Additional Windowing Controls (AWC) APIs to change the state of the window
   // without the browser's min/max/restore buttons.
   virtual void MinimizeFromWebAPI() {}
   virtual void MaximizeFromWebAPI() {}
   virtual void RestoreFromWebAPI() {}
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
   // This returns the current state of the window, mappable to display-state
   // values: normal/minimized/maximized/fullscreen.
@@ -851,7 +868,29 @@ class CONTENT_EXPORT WebContentsDelegate {
   virtual bool MaybeCopyContentAreaAsBitmap(
       base::OnceCallback<void(const SkBitmap&)> callback);
 
+  // Gets the page content annotations for the given WebContents.
+  // The callback gets a serialized AnnotatedPageContent proto.
+  virtual void GetAIPageContent(
+      WebContents* web_contents,
+      bool include_actionable_elements,
+      base::OnceCallback<void(const std::string&)> callback);
+
 #if BUILDFLAG(IS_ANDROID)
+  // Allow delegate to override how to take a snapshot of this WebContents into
+  // a HardwareBuffer. Return true if the delegate will execute callback with a
+  // captured buffer of the committed navigation entry. The callback also
+  // receives a clean up callback that the invoker can call when it's done using
+  // the buffer. The callback will ensure the HardwareBuffer is associated with
+  // the correct NavigationEntry and it must be dispatched asynchronously (with
+  // an empty buffer if the capture fails) if and only if this returns true. And
+  // If the embedder returns false, the caller within content/ will associate
+  // the currently committed entry with a buffer of the rendered web page. Note
+  // that it's the embedder's responsibility for capturing the visible content
+  // at the time of this call, though it can invoke the callback with the buffer
+  // asynchronously, at a later time.
+  virtual bool MaybeCopyContentAreaAsHardwareBuffer(
+      HardwareBufferResultCallback callback);
+
   // Synchronous version of |MaybeCopyContentAreaAsBitmap|. Return an
   // empty bitmap if embedder is not showing any custom view.
   virtual SkBitmap MaybeCopyContentAreaAsBitmapSync();

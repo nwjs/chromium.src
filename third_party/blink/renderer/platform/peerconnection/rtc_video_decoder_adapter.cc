@@ -19,7 +19,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/synchronization/waitable_event.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/threading/thread_restrictions.h"
@@ -54,12 +53,6 @@
 #include "ui/gfx/geometry/size.h"
 
 namespace blink {
-
-template <>
-struct CrossThreadCopier<media::VideoDecoderConfig>
-    : public CrossThreadCopierPassThrough<media::VideoDecoderConfig> {
-  STATIC_ONLY(CrossThreadCopier);
-};
 
 namespace {
 
@@ -233,6 +226,8 @@ class RTCVideoDecoderAdapter::Impl {
   void Flush(CrossThreadOnceClosure flush_success_cb,
              CrossThreadOnceClosure flush_fail_cb);
   void RegisterDecodeCompleteCallback(webrtc::DecodedImageCallback* callback);
+
+  bool IsDecoderConfigSupported(const media::VideoDecoderConfig& config) const;
 
  private:
   std::optional<RTCVideoDecoderFallbackReason> NeedSoftwareFallback(
@@ -449,6 +444,15 @@ void RTCVideoDecoderAdapter::Impl::RegisterDecodeCompleteCallback(
   decode_complete_callback_ = callback;
 }
 
+bool RTCVideoDecoderAdapter::Impl::IsDecoderConfigSupported(
+    const media::VideoDecoderConfig& config) const {
+  // This function is invoked by any thread. |gpu_factories_|'s lifetime is
+  // guaranteed by RTCVideoDecoder's client and the thread safety of
+  // IsDecoderConfigSupported() is guaranteed by the GpuVideoAcceleratorFactories.
+  return gpu_factories_->IsDecoderConfigSupported(config) !=
+         media::GpuVideoAcceleratorFactories::Supported::kFalse;
+}
+
 void RTCVideoDecoderAdapter::Impl::OnDecodeDone(media::DecoderStatus status) {
   status.DebugLog(3);
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);
@@ -606,18 +610,20 @@ bool RTCVideoDecoderAdapter::InitializeSync(
     const media::VideoDecoderConfig& config) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(decoding_sequence_checker_);
   TRACE_EVENT0("webrtc", "RTCVideoDecoderAdapter::InitializeSync");
-  DVLOG(3) << __func__;
   // This function is called on a decoder thread.
   DCHECK(!media_task_runner_->RunsTasksInCurrentSequence());
   auto start_time = base::TimeTicks::Now();
 
   base::ScopedAllowBaseSyncPrimitivesOutsideBlockingScope allow_wait;
-  bool result = false;
-  base::WaitableEvent waiter(base::WaitableEvent::ResetPolicy::MANUAL,
-                             base::WaitableEvent::InitialState::NOT_SIGNALED);
-  auto init_cb =
-      CrossThreadBindOnce(&FinishWait, CrossThreadUnretained(&waiter),
-                          CrossThreadUnretained(&result));
+  async_init_result_ = false;
+  async_init_waiter_ = std::make_unique<base::WaitableEvent>(
+      base::WaitableEvent::ResetPolicy::MANUAL,
+      base::WaitableEvent::InitialState::NOT_SIGNALED);
+
+  auto init_cb = CrossThreadBindOnce(
+      &FinishWait, CrossThreadUnretained(async_init_waiter_.get()),
+      CrossThreadUnretained(&async_init_result_));
+
   if (PostCrossThreadTask(
           *media_task_runner_.get(), FROM_HERE,
           CrossThreadBindOnce(&RTCVideoDecoderAdapter::Impl::Initialize,
@@ -625,7 +631,7 @@ bool RTCVideoDecoderAdapter::InitializeSync(
                               start_time,
                               CrossThreadUnretained(&decoder_type_)))) {
     // TODO(crbug.com/1076817) Remove if a root cause is found.
-    if (!waiter.TimedWait(base::Seconds(10))) {
+    if (!async_init_waiter_->TimedWait(base::Seconds(10))) {
       RecordInitializationLatency(base::TimeTicks::Now() - start_time);
       return false;
     }
@@ -635,7 +641,7 @@ bool RTCVideoDecoderAdapter::InitializeSync(
 
   decoder_info_.implementation_name =
       "ExternalDecoder (" + media::GetDecoderName(decoder_type_) + ")";
-  return result;
+  return async_init_result_;
 }
 
 bool RTCVideoDecoderAdapter::Configure(const Settings& settings) {
@@ -769,6 +775,17 @@ bool RTCVideoDecoderAdapter::CheckResolutionAndNumInstances(
         config_.codec(),
         RTCVideoDecoderFallbackReason::kParseErrorOnResolutionCheck);
     return false;
+  }
+
+  if (config_.coded_size() != *resolution) {
+    config_.set_coded_size(*resolution);
+    if (!impl_->IsDecoderConfigSupported(config_)) {
+      DVLOG(1) << "Unsupported resolution";
+      RecordRTCVideoDecoderFallbackReason(
+          config_.codec(),
+          RTCVideoDecoderFallbackReason::kUnsupportedResolution);
+      return false;
+    }
   }
 
   if (resolution->GetArea() >= kMinResolution.GetArea()) {

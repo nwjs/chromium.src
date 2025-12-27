@@ -45,8 +45,6 @@ using ime::AssistiveSuggestionMode;
 using ime::AssistiveSuggestionType;
 using ime::SuggestionsTextContext;
 
-const char kMaxTextBeforeCursorLength = 50;
-
 constexpr base::TimeDelta kLongpressActivationDelay = base::Milliseconds(500);
 
 // TODO(b/217560706): Make this different based on current engine after research
@@ -71,21 +69,9 @@ void RecordAssistiveMatch(AssistiveType type) {
   }
 }
 
-void RecordAssistiveDisabled(AssistiveType type) {
-  base::UmaHistogramEnumeration("InputMethod.Assistive.Disabled", type);
-}
-
-void RecordAssistiveDisabledReasonForEmoji(DisabledReason reason) {
-  base::UmaHistogramEnumeration("InputMethod.Assistive.Disabled.Emoji", reason);
-}
-
 void RecordAssistiveDisabledReasonForMultiWord(DisabledReason reason) {
   base::UmaHistogramEnumeration("InputMethod.Assistive.Disabled.MultiWord",
                                 reason);
-}
-
-void RecordAssistiveUserPrefForEmoji(bool value) {
-  base::UmaHistogramBoolean("InputMethod.Assistive.UserPref.Emoji", value);
 }
 
 void RecordAssistiveUserPrefForMultiWord(bool value) {
@@ -96,10 +82,6 @@ void RecordAssistiveUserPrefForDiacriticsOnLongpress(bool value) {
   base::UmaHistogramBoolean(
       "InputMethod.Assistive.UserPref.PhysicalKeyboardDiacriticsOnLongpress",
       value);
-}
-
-void RecordAssistiveNotAllowed(AssistiveType type) {
-  base::UmaHistogramEnumeration("InputMethod.Assistive.NotAllowed", type);
 }
 
 void RecordAssistiveCoverage(AssistiveType type) {
@@ -185,30 +167,23 @@ AssistiveSuggester::AssistiveSuggester(
     Profile* profile,
     std::unique_ptr<AssistiveSuggesterSwitch> suggester_switch)
     : profile_(profile),
-      emoji_suggester_(suggestion_handler, profile),
       multi_word_suggester_(suggestion_handler, profile),
       longpress_diacritics_suggester_(suggestion_handler),
       longpress_control_v_suggester_(suggestion_handler),
       suggester_switch_(std::move(suggester_switch)),
       context_(TextInputMethod::InputContext(ui::TEXT_INPUT_TYPE_NONE)) {
-  RecordAssistiveUserPrefForEmoji(
-      profile_->GetPrefs()->GetBoolean(prefs::kEmojiSuggestionEnabled));
 }
 
 AssistiveSuggester::~AssistiveSuggester() = default;
 
 bool AssistiveSuggester::IsAssistiveFeatureEnabled() {
-  return IsEmojiSuggestAdditionEnabled() || IsMultiWordSuggestEnabled() ||
+  return IsMultiWordSuggestEnabled() ||
          IsDiacriticsOnPhysicalKeyboardLongpressEnabled();
 }
 
 void AssistiveSuggester::FetchEnabledSuggestionsFromBrowserContextThen(
     AssistiveSuggesterSwitch::FetchEnabledSuggestionsCallback callback) {
   suggester_switch_->FetchEnabledSuggestionsThen(std::move(callback), context_);
-}
-
-bool AssistiveSuggester::IsEmojiSuggestAdditionEnabled() {
-  return false;
 }
 
 bool AssistiveSuggester::IsMultiWordSuggestEnabled() {
@@ -221,21 +196,6 @@ bool AssistiveSuggester::IsDiacriticsOnPhysicalKeyboardLongpressEnabled() {
   return IsUsEnglishEngine(active_engine_id_) &&
          IsDiacriticsOnLongpressPrefEnabled(profile_->GetPrefs(),
                                             active_engine_id_);
-}
-
-DisabledReason AssistiveSuggester::GetDisabledReasonForEmoji(
-    const AssistiveSuggesterSwitch::EnabledSuggestions& enabled_suggestions) {
-  if (!profile_->GetPrefs()->GetBoolean(
-          prefs::kEmojiSuggestionEnterpriseAllowed)) {
-    return DisabledReason::kEnterpriseSettingsOff;
-  }
-  if (!profile_->GetPrefs()->GetBoolean(prefs::kEmojiSuggestionEnabled)) {
-    return DisabledReason::kUserSettingsOff;
-  }
-  if (!enabled_suggestions.emoji_suggestions) {
-    return DisabledReason::kUrlOrAppNotAllowed;
-  }
-  return DisabledReason::kNone;
 }
 
 DisabledReason AssistiveSuggester::GetDisabledReasonForMultiWord(
@@ -253,53 +213,6 @@ DisabledReason AssistiveSuggester::GetDisabledReasonForMultiWord(
   return DisabledReason::kNone;
 }
 
-AssistiveSuggester::AssistiveFeature
-AssistiveSuggester::GetAssistiveFeatureForType(AssistiveType type) {
-  switch (type) {
-    case AssistiveType::kEmoji:
-      return AssistiveFeature::kEmojiSuggestion;
-    case AssistiveType::kMultiWordCompletion:
-    case AssistiveType::kMultiWordPrediction:
-      return AssistiveFeature::kMultiWordSuggestion;
-    default:
-      // We should only handle Emoji and Multiword related assistive types.
-      //
-      // Any assistive types outside of this should not be processed in this
-      // class, hence we shall DCHECK here if that ever occurs.
-      LOG(DFATAL) << "Unexpected AssistiveType value: "
-                  << static_cast<int>(type);
-      return AssistiveFeature::kUnknown;
-  }
-}
-
-bool AssistiveSuggester::IsAssistiveTypeEnabled(AssistiveType type) {
-  switch (GetAssistiveFeatureForType(type)) {
-    case AssistiveFeature::kEmojiSuggestion:
-      return IsEmojiSuggestAdditionEnabled();
-    case AssistiveFeature::kMultiWordSuggestion:
-      return IsMultiWordSuggestEnabled();
-    default:
-      LOG(DFATAL) << "Unexpected AssistiveType value: "
-                  << static_cast<int>(type);
-      return false;
-  }
-}
-
-bool AssistiveSuggester::IsAssistiveTypeAllowedInBrowserContext(
-    AssistiveType type,
-    const AssistiveSuggesterSwitch::EnabledSuggestions& enabled_suggestions) {
-  switch (GetAssistiveFeatureForType(type)) {
-    case AssistiveFeature::kEmojiSuggestion:
-      return enabled_suggestions.emoji_suggestions;
-    case AssistiveFeature::kMultiWordSuggestion:
-      return enabled_suggestions.multi_word_suggestions;
-    default:
-      LOG(DFATAL) << "Unexpected AssistiveType value: "
-                  << static_cast<int>(type);
-      return false;
-  }
-}
-
 void AssistiveSuggester::OnFocus(int context_id,
                                  const TextInputMethod::InputContext& context) {
   // Some parts of the code reserve negative/zero context_id for unfocused
@@ -308,7 +221,6 @@ void AssistiveSuggester::OnFocus(int context_id,
   context_ = context;
   DCHECK(context_id > 0);
   focused_context_id_ = context_id;
-  emoji_suggester_.OnFocus(context_id);
   multi_word_suggester_.OnFocus(context_id);
   longpress_diacritics_suggester_.OnFocus(context_id);
   longpress_control_v_suggester_.OnFocus(context_id);
@@ -328,7 +240,6 @@ void AssistiveSuggester::HandleEnabledSuggestionsOnFocus(
 void AssistiveSuggester::OnBlur() {
   focused_context_id_ = std::nullopt;
   enabled_suggestions_from_last_onfocus_ = std::nullopt;
-  emoji_suggester_.OnBlur();
   multi_word_suggester_.OnBlur();
   longpress_diacritics_suggester_.OnBlur();
   longpress_control_v_suggester_.OnBlur();
@@ -503,41 +414,6 @@ void AssistiveSuggester::RecordTextInputStateMetrics(
   }
 }
 
-void AssistiveSuggester::RecordAssistiveMatchMetricsForAssistiveType(
-    AssistiveType type,
-    const AssistiveSuggesterSwitch::EnabledSuggestions& enabled_suggestions) {
-  RecordAssistiveMatch(type);
-  if (!IsAssistiveTypeEnabled(type)) {
-    RecordAssistiveDisabled(type);
-  } else if (!IsAssistiveTypeAllowedInBrowserContext(type,
-                                                     enabled_suggestions)) {
-    RecordAssistiveNotAllowed(type);
-  }
-}
-
-void AssistiveSuggester::RecordAssistiveMatchMetrics(
-    const std::u16string& text,
-    const gfx::Range selection_range,
-    const AssistiveSuggesterSwitch::EnabledSuggestions& enabled_suggestions) {
-  int len = static_cast<int>(text.length());
-  const int cursor_pos = selection_range.end();
-  if (cursor_pos > 0 && cursor_pos <= len && selection_range.is_empty() &&
-      (cursor_pos == len || base::IsAsciiWhitespace(text[cursor_pos]))) {
-    int start_pos = std::max(0, cursor_pos - kMaxTextBeforeCursorLength);
-    std::u16string text_before_cursor =
-        text.substr(start_pos, cursor_pos - start_pos);
-    // Emoji suggestion match
-    if (emoji_suggester_.ShouldShowSuggestion(text_before_cursor)) {
-      RecordAssistiveMatchMetricsForAssistiveType(AssistiveType::kEmoji,
-                                                  enabled_suggestions);
-      base::RecordAction(
-          base::UserMetricsAction("InputMethod.Assistive.EmojiSuggested"));
-      RecordAssistiveDisabledReasonForEmoji(
-          GetDisabledReasonForEmoji(enabled_suggestions));
-    }
-  }
-}
-
 bool AssistiveSuggester::WithinGrammarFragment() {
   TextInputTarget* input_context = IMEBridge::Get()->GetInputContextHandler();
   if (!input_context) {
@@ -565,7 +441,6 @@ void AssistiveSuggester::ProcessOnSurroundingTextChanged(
     const std::u16string& text,
     const gfx::Range selection_range,
     const AssistiveSuggesterSwitch::EnabledSuggestions& enabled_suggestions) {
-  RecordAssistiveMatchMetrics(text, selection_range, enabled_suggestions);
   if (!IsAssistiveFeatureEnabled() || !focused_context_id_.has_value()) {
     return;
   }
@@ -591,13 +466,6 @@ bool AssistiveSuggester::TrySuggestWithSurroundingText(
   if (IsSuggestionShown()) {
     return current_suggester_->TrySuggestWithSurroundingText(text,
                                                              selection_range);
-  }
-  if (IsEmojiSuggestAdditionEnabled() &&
-      enabled_suggestions.emoji_suggestions &&
-      emoji_suggester_.TrySuggestWithSurroundingText(text, selection_range)) {
-    current_suggester_ = &emoji_suggester_;
-    RecordAssistiveCoverage(current_suggester_->GetProposeActionType());
-    return true;
   }
   // No suggestions were shown.
   return false;

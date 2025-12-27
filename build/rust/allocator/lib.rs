@@ -90,9 +90,21 @@ mod both_allocators {
     #[linkage = "weak"]
     fn __rust_no_alloc_shim_is_unstable_v2() {}
 
+    #[cfg(rust_allocator_no_nightly_capability)]
+    #[rustc_std_internal_symbol]
+    #[linkage = "weak"]
+    fn __rust_no_alloc_shim_is_unstable() {}
+
     #[rustc_std_internal_symbol]
     #[linkage = "weak"]
     fn __rust_alloc_error_handler_should_panic_v2() -> u8 {
+        0
+    }
+
+    #[cfg(rust_allocator_no_nightly_capability)]
+    #[rustc_std_internal_symbol]
+    #[linkage = "weak"]
+    fn __rust_alloc_error_handler_should_panic() -> u8 {
         0
     }
 

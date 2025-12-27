@@ -57,14 +57,7 @@ void SelectTool::Execute(ToolFinishedCallback callback) {
   WebString value = validated_result.value().option_value;
   select.SetValue(value, /*send_events=*/true);
 
-  if (base::FeatureList::IsEnabled(features::kGlicActorSelectCancelsPopup)) {
-    frame_->GetWebFrame()->View()->CancelPagePopup();
-  } else {
-    // If the select tool makes the selection in a popup widget (e.g., a
-    // dropdown menu), de-focus so the popup is hidden. An visible popup could
-    // occlude the contents underneath it.
-    select.Blur();
-  }
+  frame_->GetWebFrame()->View()->CancelPagePopup();
 
   std::move(callback).Run(MakeOkResult());
 }
@@ -79,8 +72,12 @@ SelectTool::ValidatedResult SelectTool::Validate() const {
   CHECK(frame_->GetWebFrame()->FrameWidget());
 
   if (target_->is_coordinate_dip()) {
-    NOTIMPLEMENTED() << "Coordinate-based target is not yet supported.";
-    return base::unexpected(MakeErrorResult());
+    static constexpr std::string_view kErrorMessage =
+        "Coordinate-based target is not yet supported.";
+    NOTIMPLEMENTED() << kErrorMessage;
+    return base::unexpected(MakeResult(mojom::ActionResultCode::kNotImplemented,
+                                       /*requires_page_stabilization=*/false,
+                                       kErrorMessage));
   }
 
   auto resolved_target = ValidateAndResolveTarget();

@@ -5,10 +5,12 @@
 #include "content/browser/site_info.h"
 
 #include <algorithm>
+#include <optional>
 
 #include "base/command_line.h"
 #include "base/containers/contains.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/memory/safe_ref.h"
 #include "base/no_destructor.h"
 #include "base/strings/string_split.h"
 #include "base/strings/stringprintf.h"
@@ -20,6 +22,7 @@
 #include "content/browser/webui/url_data_manager_backend.h"
 #include "content/common/features.h"
 #include "content/public/browser/content_browser_client.h"
+#include "content/public/browser/process_selection_user_data.h"
 #include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/storage_partition_config.h"
 #include "content/public/browser/web_exposed_isolation_level.h"
@@ -129,6 +132,8 @@ bool IsOriginIsolatedSandboxedFrame(const UrlInfo& url_info) {
 bool CheckShouldDisableV8Optimization(
     BrowserContext* browser_context,
     const BrowsingInstanceId& browsing_instance_id,
+    const std::optional<base::SafeRef<ProcessSelectionUserData>>&
+        process_selection_user_data,
     const GURL& process_lock_url) {
   std::optional<bool> are_v8_optimizations_disabled_result =
       ChildProcessSecurityPolicyImpl::GetInstance()
@@ -138,8 +143,8 @@ bool CheckShouldDisableV8Optimization(
     return are_v8_optimizations_disabled_result.value();
   }
 
-  return GetContentClient()->browser()->AreV8OptimizationsDisabledForSite(
-      browser_context, process_lock_url);
+  return !GetContentClient()->browser()->AreV8OptimizationsEnabledForSite(
+      browser_context, process_selection_user_data, process_lock_url);
 }
 
 }  // namespace
@@ -183,12 +188,12 @@ SiteInfo SiteInfo::CreateForDefaultSiteInstance(
         cross_origin_isolation_key) {
   // Get default JIT policy for this browser_context by passing in an empty
   // site_url.
-  BrowserContext* browser_context =
-      isolation_context.browser_or_resource_context().ToBrowserContext();
+  BrowserContext* browser_context = isolation_context.browser_context();
   bool is_jit_disabled = GetContentClient()->browser()->IsJitDisabledForSite(
       browser_context, GURL());
   bool are_v8_optimizations_disabled = CheckShouldDisableV8Optimization(
-      browser_context, isolation_context.browsing_instance_id(), GURL());
+      browser_context, isolation_context.browsing_instance_id(), std::nullopt,
+      GURL());
 
   WebExposedIsolationLevel web_exposed_isolation_level =
       SiteInfo::ComputeWebExposedIsolationLevelForEmptySite(
@@ -259,8 +264,7 @@ SiteInfo SiteInfo::Create(const IsolationContext& isolation_context,
 
   std::optional<GURL> effective_url =
       GetContentClient()->browser()->GetEffectiveURL(
-          isolation_context.browser_or_resource_context().ToBrowserContext(),
-          url_info.url);
+          isolation_context.browser_context(), url_info.url);
 
   // In the case of WebUIs, pass the real URL as an effective URL. It will be
   // used to compute a SiteInfo's site URL which is the complete WebUI URL,
@@ -282,8 +286,7 @@ SiteInfo SiteInfo::Create(const IsolationContext& isolation_context,
             .GetURL();
   }
 
-  BrowserContext* browser_context =
-      isolation_context.browser_or_resource_context().ToBrowserContext();
+  BrowserContext* browser_context = isolation_context.browser_context();
 
   // If the SiteInfo is for a site that does not require a dedicated process
   // (and will end up in the default SiteInstanceGroup), then we should use
@@ -304,7 +307,7 @@ SiteInfo SiteInfo::Create(const IsolationContext& isolation_context,
                         browser_context, agent_cluster_url_or_default);
   are_v8_optimizations_disabled = CheckShouldDisableV8Optimization(
       browser_context, isolation_context.browsing_instance_id(),
-      agent_cluster_url_or_default);
+      url_info.process_selection_user_data, agent_cluster_url_or_default);
 
   if (!storage_partition_config.has_value()) {
     storage_partition_config =
@@ -461,11 +464,10 @@ SiteInfo SiteInfo::GetNonOriginKeyedEquivalentForMetrics(
     // SiteInfo.
     GURL process_lock_url;
     if (policy->GetMatchingProcessIsolatedOrigin(
-            IsolationContext(BrowsingInstanceId(0),
-                             isolation_context.browser_or_resource_context(),
-                             isolation_context.is_guest(),
-                             isolation_context.is_fenced(),
-                             isolation_context.default_isolation_state()),
+            IsolationContext(
+                BrowsingInstanceId(0), isolation_context.browser_context(),
+                isolation_context.is_guest(), isolation_context.is_fenced(),
+                isolation_context.default_isolation_state()),
             agent_cluster_key_.GetOrigin(),
             false /* origin_requests_isolation */, &result_origin)) {
       process_lock_url = result_origin.GetURL();
@@ -660,10 +662,8 @@ std::ostream& operator<<(std::ostream& out, const SiteInfo& site_info) {
 bool SiteInfo::RequiresDedicatedProcess(
     const IsolationContext& isolation_context) const {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  DCHECK(isolation_context.browser_or_resource_context());
-
-  BrowserContext* browser_context =
-      isolation_context.browser_or_resource_context().ToBrowserContext();
+  BrowserContext* browser_context = isolation_context.browser_context();
+  DCHECK(browser_context);
   return RequiresDedicatedProcessInternal(
       site_url_, isolation_context, browser_context,
       does_site_request_dedicated_process_for_coop_,
@@ -673,8 +673,7 @@ bool SiteInfo::RequiresDedicatedProcess(
 bool SiteInfo::ShouldLockProcessToSite(
     const IsolationContext& isolation_context) const {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  BrowserContext* browser_context =
-      isolation_context.browser_or_resource_context().ToBrowserContext();
+  BrowserContext* browser_context = isolation_context.browser_context();
   DCHECK(browser_context);
 
   // Don't lock to origin in --single-process mode, since this mode puts
@@ -1152,8 +1151,7 @@ GURL SiteInfo::GetSiteForURLForTest(const IsolationContext& isolation_context,
   std::optional<GURL> effective_url;
   if (should_use_effective_urls) {
     effective_url = GetContentClient()->browser()->GetEffectiveURL(
-        isolation_context.browser_or_resource_context().ToBrowserContext(),
-        url_info.url);
+        isolation_context.browser_context(), url_info.url);
   }
   return GetAgentClusterKeyForURL(isolation_context, url_info, effective_url)
       .GetURL();

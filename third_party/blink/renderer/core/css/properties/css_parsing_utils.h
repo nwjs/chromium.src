@@ -10,6 +10,7 @@
 
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_anchor_query_enums.h"
+#include "third_party/blink/renderer/core/css/css_counter_value.h"
 #include "third_party/blink/renderer/core/css/css_custom_ident_value.h"
 #include "third_party/blink/renderer/core/css/css_identifier_value.h"
 #include "third_party/blink/renderer/core/css/css_numeric_literal_value.h"
@@ -99,8 +100,7 @@ enum class EmptyPathStringHandling { kFailure, kTreatAsNone };
 
 using ConsumeAnimationItemValue = CSSValue* (*)(CSSPropertyID,
                                                 CSSParserTokenStream&,
-                                                const CSSParserContext&,
-                                                bool use_legacy_parsing);
+                                                const CSSParserContext&);
 using IsResetOnlyFunction = bool (*)(CSSPropertyID);
 using IsPositionKeyword = bool (*)(CSSValueID);
 
@@ -345,6 +345,7 @@ bool IsContentPositionKeyword(CSSValueID);
 bool IsContentPositionOrLeftOrRightKeyword(CSSValueID);
 CORE_EXPORT bool IsCSSWideKeyword(CSSValueID);
 CORE_EXPORT bool IsCSSWideKeyword(StringView);
+bool IsInvalidFontFamily(const AtomicString&);
 bool IsRevertKeyword(StringView);
 bool IsDefaultKeyword(StringView);
 bool IsHashIdentifier(const CSSParserToken&);
@@ -379,9 +380,8 @@ CSSValue* ConsumeContentDistributionOverflowPosition(CSSParserTokenStream&,
 
 CSSValue* ConsumeAnimationIterationCount(CSSParserTokenStream&,
                                          const CSSParserContext&);
-CSSValue* ConsumeAnimationName(CSSParserTokenStream&,
-                               const CSSParserContext&,
-                               bool allow_quoted_name);
+bool IsValidIdentAnimationName(const AtomicString& name);
+CSSValue* ConsumeAnimationName(CSSParserTokenStream&, const CSSParserContext&);
 CSSValue* ConsumeAnimationTimeline(CSSParserTokenStream&,
                                    const CSSParserContext&);
 CSSValue* ConsumeAnimationTimingFunction(CSSParserTokenStream&,
@@ -404,8 +404,7 @@ bool ConsumeAnimationShorthand(
     ConsumeAnimationItemValue,
     IsResetOnlyFunction,
     CSSParserTokenStream&,
-    const CSSParserContext&,
-    bool use_legacy_parsing);
+    const CSSParserContext&);
 
 CSSValue* ConsumeSingleTimelineAxis(CSSParserTokenStream&);
 CSSValue* ConsumeSingleTimelineName(CSSParserTokenStream&,
@@ -517,7 +516,14 @@ bool ConsumeColumnWidthOrCount(CSSParserTokenStream&,
                                CSSValue*&);
 CSSValue* ConsumeGapLength(CSSParserTokenStream&, const CSSParserContext&);
 
-CSSValue* ConsumeCounter(CSSParserTokenStream&, const CSSParserContext&, int);
+cssvalue::CSSCounterValue* ConsumeCounter(CSSParserTokenStream& stream,
+                                          const CSSParserContext& context,
+                                          int default_value,
+                                          bool accept_reversed_function);
+CSSValue* ConsumeCounters(CSSParserTokenStream&,
+                          const CSSParserContext&,
+                          int,
+                          bool accept_reversed_function = false);
 
 CSSValue* ConsumeFontSize(CSSParserTokenStream&,
                           const CSSParserContext&,
@@ -559,14 +565,15 @@ CSSValue* ConsumeGridLine(CSSParserTokenStream&, const CSSParserContext&);
 CSSValue* ConsumeGridTrackList(CSSParserTokenStream&,
                                const CSSParserContext&,
                                TrackListType,
-                               bool is_masonry_shorthand = false);
+                               bool is_grid_lanes_shorthand = false);
 bool ParseGridTemplateAreasRow(const String& grid_row_names,
                                NamedGridAreaMap&,
                                const wtf_size_t row_count,
                                wtf_size_t& column_count);
-CSSValue* ConsumeGridTemplatesRowsOrColumns(CSSParserTokenStream&,
-                                            const CSSParserContext&,
-                                            bool is_masonry_shorthand = false);
+CSSValue* ConsumeGridTemplatesRowsOrColumns(
+    CSSParserTokenStream&,
+    const CSSParserContext&,
+    bool is_grid_lanes_shorthand = false);
 bool ConsumeGridItemPositionShorthand(bool important,
                                       CSSParserTokenStream&,
                                       const CSSParserContext&,
@@ -579,10 +586,20 @@ bool ConsumeGridTemplateShorthand(bool important,
                                   const CSSValue*& template_columns,
                                   const CSSValue*& template_areas);
 
-CSSValue* ParseMasonryTemplateAreasValue(const String& masonry_template_areas,
-                                         bool is_template_columns);
+CSSValue* ParseGridLanesTemplateAreasValue(
+    const String& grid_lanes_template_areas,
+    bool is_template_columns);
 
 CSSValue* ConsumeItemTolerance(CSSParserTokenStream&, const CSSParserContext&);
+
+bool ConsumeGapDecorationsRuleInsetShorthand(
+    bool important,
+    const CSSParserContext& context,
+    CSSParserTokenStream& stream,
+    CSSValue*& rule_edge_start_inset,
+    CSSValue*& rule_edge_end_inset,
+    CSSValue*& rule_interior_start_inset,
+    CSSValue*& rule_interior_end_inset);
 
 bool ConsumeGapDecorationsRuleShorthand(bool important,
                                         const CSSParserContext& context,
@@ -616,7 +633,6 @@ CSSValue* ConsumeMarginOrOffset(CSSParserTokenStream&,
                                 UnitlessQuirk,
                                 CSSAnchorQueryTypes = kCSSAnchorQueryTypesNone);
 CSSValue* ConsumeScrollPadding(CSSParserTokenStream&, const CSSParserContext&);
-CSSValue* ConsumeScrollStart(CSSParserTokenStream&, const CSSParserContext&);
 CSSValue* ConsumeOffsetPath(CSSParserTokenStream&, const CSSParserContext&);
 CSSValue* ConsumePathOrNone(CSSParserTokenStream&);
 CSSValue* ConsumeOffsetRotate(CSSParserTokenStream&, const CSSParserContext&);
@@ -652,11 +668,10 @@ CSSValue* ConsumeTransformValue(CSSParserTokenStream&,
 CSSValue* ConsumeTransformList(CSSParserTokenStream&,
                                const CSSParserContext&,
                                const CSSParserLocalContext&);
+CSSValue* ConsumeTransitionBehavior(CSSParserTokenStream&);
 CSSValue* ConsumeTransitionProperty(CSSParserTokenStream&,
                                     const CSSParserContext&);
 bool IsValidPropertyList(const CSSValueList&);
-bool IsValidTransitionBehavior(const CSSValueID&);
-bool IsValidTransitionBehaviorList(const CSSValueList&);
 
 CSSValue* ConsumeBorderColorSide(CSSParserTokenStream&,
                                  const CSSParserContext&,

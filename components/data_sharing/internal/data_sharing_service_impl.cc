@@ -8,10 +8,9 @@
 
 #include "base/check_is_test.h"
 #include "base/files/file_path.h"
-#include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
-#include "base/metrics/histogram_functions_internal_overloads.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
 #include "base/observer_list.h"

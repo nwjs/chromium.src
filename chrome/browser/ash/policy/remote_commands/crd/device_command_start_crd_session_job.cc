@@ -15,6 +15,7 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/memory/raw_ref.h"
@@ -174,13 +175,6 @@ CrdSessionType ToCrdSessionTypeOrDefault(std::optional<int> int_value,
   return static_cast<CrdSessionType>(int_value.value());
 }
 
-void OnCrdSessionFinished(CrdSessionType crd_session_type,
-                          UserSessionType user_session_type,
-                          base::TimeDelta session_duration) {
-  CrdUmaLogger(crd_session_type, user_session_type)
-      .LogSessionDuration(session_duration);
-}
-
 bool IsKioskSession(UserSessionType session_type) {
   return session_type == UserSessionType::AUTO_LAUNCHED_KIOSK_SESSION ||
          session_type == UserSessionType::MANUALLY_LAUNCHED_KIOSK_SESSION;
@@ -327,7 +321,8 @@ void DeviceCommandStartCrdSessionJob::StartCrdHostAndGetCode(
   parameters.allow_clipboard_sync = kAllowClipboardSync;
   parameters.request_origin =
       StartCrdSessionJobDelegate::RequestOrigin::kEnterpriseAdmin;
-  // Using default for parameters.audio_playback.
+  parameters.audio_playback =
+      StartCrdSessionJobDelegate::AudioPlayback::kLocalOnly;
   if (ShouldAutoAcceptSession(is_in_managed_environment)) {
     parameters.connection_auto_accept_timeout = kConnectionAutoAcceptTimeout;
   }
@@ -341,8 +336,7 @@ void DeviceCommandStartCrdSessionJob::StartCrdHostAndGetCode(
                      weak_factory_.GetWeakPtr()),
       base::BindOnce(&DeviceCommandStartCrdSessionJob::FinishWithError,
                      weak_factory_.GetWeakPtr()),
-      base::BindOnce(&OnCrdSessionFinished, GetCrdSessionType(),
-                     GetCurrentUserSessionType()));
+      /*session_finished_callback=*/base::DoNothing());
 }
 
 void DeviceCommandStartCrdSessionJob::FinishWithSuccess(

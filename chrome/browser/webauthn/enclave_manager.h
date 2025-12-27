@@ -20,6 +20,7 @@
 #include "base/observer_list.h"
 #include "base/sequence_checker.h"
 #include "base/thread_annotations.h"
+#include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "build/build_config.h"
 #include "chrome/browser/webauthn/enclave_manager_interface.h"
@@ -106,26 +107,6 @@ class EnclaveManager : public EnclaveManagerInterface {
                                  ".webauthn-uvk";
 #endif  // BUILDFLAG(IS_MAC)
   struct StoreKeysArgs;
-  class Observer : public base::CheckedObserver {
-   public:
-    // OnKeyStores is called when MagicArch provides keys to the EnclaveManager
-    // by calling `StoreKeys`.
-    virtual void OnKeysStored() = 0;
-
-    // `OnStateUpdated` is called from `EnclaveManager::Stopped()` - indicating
-    // that the state machine reached its final state (so the state of the
-    // enclave manager might be updated now, e.g. it might become ready).
-    virtual void OnStateUpdated() = 0;
-  };
-
-  // An enum that expresses whether a GPM PIN is set on an account.
-  enum class GpmPinAvailability {
-    // The PIN is set. It doesn't mean it's usable because it could have been
-    // entered incorrectly too many times.
-    kGpmPinSet,
-    // The PIN is unset.
-    kGpmPinUnset,
-  };
 
   struct UVKeyOptions {
     UVKeyOptions();
@@ -218,7 +199,7 @@ class EnclaveManager : public EnclaveManagerInterface {
   bool is_idle() const;
   // Returns true if the persistent state has been loaded from the disk. (Or
   // else the loading failed and an empty state is being used.)
-  bool is_loaded() const;
+  bool is_loaded() const override;
   // Returns true if the current user has been registered with the enclave.
   bool is_registered() const override;
   // Returns true if `StoreKeys` has been called and thus `AddDeviceToAccount`
@@ -227,12 +208,15 @@ class EnclaveManager : public EnclaveManagerInterface {
   // Returns true if the current user has joined the security domain and has one
   // or more wrapped security domain secrets available. (This implies
   // `is_registered`.)
-  bool is_ready() const;
+  bool is_ready() const override;
   // Returns the number of times that `StoreKeys` has been called.
   unsigned store_keys_count() const;
 
   // Load the persisted state from disk. Harmless to call if `is_loaded`.
   void Load(base::OnceClosure closure);
+  // Preforms `Load` after the given delay,
+  void LoadAfterDelay(base::TimeDelta delay,
+                      base::OnceClosure closure) override;
   // Register with the enclave if not already registered.
   void RegisterIfNeeded(Callback callback);
   // Set up an account with a newly-created PIN.
@@ -356,8 +340,7 @@ class EnclaveManager : public EnclaveManagerInterface {
   };
   UvKeyState uv_key_state(bool platform_has_biometrics) const;
 
-  void CheckGpmPinAvailability(
-      base::OnceCallback<void(GpmPinAvailability)> callback);
+  void CheckGpmPinAvailability(GpmPinAvailabilityCallback callback) override;
 
   // Checks whether UserVerifyingKeyCreationCallback() is available to be
   // called, returning true if not. There should only be one key creation
@@ -381,8 +364,8 @@ class EnclaveManager : public EnclaveManagerInterface {
   std::unique_ptr<signin::PrimaryAccountAccessTokenFetcher> GetAccessToken(
       base::OnceCallback<void(std::optional<std::string>)> callback);
 
-  void AddObserver(Observer* observer);
-  void RemoveObserver(Observer* observer);
+  void AddObserver(Observer* observer) override;
+  void RemoveObserver(Observer* observer) override;
 
   // This function is called by the MagicArch integration when the user
   // successfully completes recovery. It must be called either with a lock
@@ -418,6 +401,8 @@ class EnclaveManager : public EnclaveManagerInterface {
 
   // Check whether the GPM PIN Vault should be renewed, and do so if needed.
   void ConsiderPinRenewalForTesting();
+
+  void NotifyObserversThatStateUpdated();
 
   unsigned renewal_checks_for_testing() const;
   unsigned renewal_attempts_for_testing() const;
@@ -532,17 +517,36 @@ class EnclaveManager : public EnclaveManagerInterface {
                         std::vector<std::vector<uint8_t>> keys,
                         int last_key_version);
 
-  // Stores keys and performs `AddDeviceToAccount` if the system UV is
-  // available.
+  // Stores keys and performs `AddDeviceToAccount` if the system UV or the GPM
+  // PIN is available.
   void StoreKeysFromOutOfContextRetrieval(
       const GaiaId& gaia_id,
       std::vector<std::vector<uint8_t>> keys,
       int last_key_version);
-
+  // Used by `StoreKeysFromOutOfContextRetrieval`. Executed upon verification of
+  // the system UV availability. If a system UV is available - stores the
+  // opportunistically retrieved keys. If a system UV is not available -
+  // starts verification of the presence of a GPM PIN (because the GPM PIN can
+  // be used for user verification as well). If the GPM PIN is present - the
+  // opportunistically retrieved keys will be stored as well.
   void OpportunisticStoreKeysUVCheckComplete(
       std::unique_ptr<StoreKeysArgs> pending_keys,
       bool can_make_uv_keys);
-  void OpportunisticStoreKeysAddComplete(bool can_make_uv_keys);
+  // Indirectly used by `StoreKeysFromOutOfContextRetrieval`
+  // (`StoreKeysFromOutOfContextRetrieval` performs the check of the presence of
+  // the system UV, and if the system UV is not available - we check the
+  // presence of the GPM PIN). This method is being executed upon verification
+  // of the GPM PIN availability. If the GPM PIN is present - the
+  // opportunistically retrieved keys will be stored.
+  void OpportunisticStoreKeysGpmPinCheckComplete(
+      std::unique_ptr<StoreKeysArgs> pending_keys,
+      GpmPinAvailability gpm_pin_availability);
+  // Indirectly used by `StoreKeysFromOutOfContextRetrieval`: if either the
+  // system UV is present or the GPM PIN is present - stores keys.
+  void OpportunisticStoreKeys(std::unique_ptr<StoreKeysArgs> pending_keys);
+  void OpportunisticStoreKeysAddComplete(bool success);
+  void NotifyObserversAboutOutOfContextRecoveryOutcome(
+      OutOfContextRecoveryOutcome outcome);
 
   const base::FilePath file_path_;
   const raw_ptr<signin::IdentityManager> identity_manager_;

@@ -72,7 +72,7 @@ std::unique_ptr<DrmWindowProxy> DrmThreadProxy::CreateDrmWindowProxy(
 void DrmThreadProxy::CreateBuffer(gfx::AcceleratedWidget widget,
                                   const gfx::Size& size,
                                   const gfx::Size& framebuffer_size,
-                                  gfx::BufferFormat format,
+                                  viz::SharedImageFormat format,
                                   NativePixmapUsageSet usage,
                                   uint32_t flags,
                                   std::unique_ptr<GbmBuffer>* buffer,
@@ -92,7 +92,7 @@ void DrmThreadProxy::CreateBuffer(gfx::AcceleratedWidget widget,
 void DrmThreadProxy::CreateBufferFromHandle(
     gfx::AcceleratedWidget widget,
     const gfx::Size& size,
-    gfx::BufferFormat format,
+    viz::SharedImageFormat format,
     gfx::NativePixmapHandle handle,
     std::unique_ptr<GbmBuffer>* buffer,
     scoped_refptr<DrmFramebuffer>* framebuffer) {

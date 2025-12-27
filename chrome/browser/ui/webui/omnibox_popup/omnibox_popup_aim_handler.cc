@@ -40,7 +40,7 @@ OmniboxPopupAimHandler::OmniboxPopupAimHandler(
 
 OmniboxPopupAimHandler::~OmniboxPopupAimHandler() = default;
 
-void OmniboxPopupAimHandler::Close() {
+void OmniboxPopupAimHandler::RequestClose() {
   omnibox_popup_ui_->embedder()->CloseUI();
 }
 
@@ -53,15 +53,22 @@ void OmniboxPopupAimHandler::NavigateCurrentTab(const GURL& url) {
   browser_window_interface->OpenURL(params, base::NullCallback());
 }
 
-void OmniboxPopupAimHandler::OnWidgetShown(
+void OmniboxPopupAimHandler::OnPopupShown(
     std::unique_ptr<SearchboxContextData::Context> context) {
-  page_->OnShow(ToSearchContext(std::move(context)));
+  auto page_context = ToSearchContext(std::move(context));
+  CHECK(page_context);
+  page_->OnPopupShown(std::move(page_context));
 }
 
-void OmniboxPopupAimHandler::OnClose() {
+void OmniboxPopupAimHandler::SetPreserveContextOnClose(
+    bool preserve_context_on_close) {
+  page_->SetPreserveContextOnClose(preserve_context_on_close);
+}
+
+void OmniboxPopupAimHandler::OnPopupHidden() {
   // Unretained() is safe because `page_` is a mojo remote owned by `this`.
-  page_->OnClose(base::BindOnce(&OmniboxPopupAimHandler::OnClosedCallback,
-                                base::Unretained(this)));
+  page_->OnPopupHidden(base::BindOnce(
+      &OmniboxPopupAimHandler::OnPopupHiddenCallback, base::Unretained(this)));
 }
 
 void OmniboxPopupAimHandler::AddContext(
@@ -73,12 +80,12 @@ void OmniboxPopupAimHandler::AddContext(
   page_->AddContext(std::move(search_context));
 }
 
-void OmniboxPopupAimHandler::OnClosedCallback(const std::string& input) {
+void OmniboxPopupAimHandler::OnPopupHiddenCallback(const std::string& input) {
   WebUIContentsWrapper* wrapper =
       static_cast<WebUIContentsWrapper*>(omnibox_popup_ui_->embedder().get());
   OmniboxAimPopupWebUIContent* aim_popup_content =
       static_cast<OmniboxAimPopupWebUIContent*>(wrapper->GetHost().get());
   if (aim_popup_content) {
-    aim_popup_content->OnClosedWithInput(input);
+    aim_popup_content->OnPageClosedWithInput(input);
   }
 }

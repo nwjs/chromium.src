@@ -13,6 +13,7 @@
 #include "services/webnn/ort/logging.h"
 #include "services/webnn/ort/ort_status.h"
 #include "services/webnn/ort/platform_functions_ort.h"
+#include "services/webnn/public/cpp/execution_providers_info.h"
 #include "services/webnn/public/cpp/webnn_trace.h"
 #include "services/webnn/public/mojom/webnn_device.mojom.h"
 #include "services/webnn/public/mojom/webnn_error.mojom.h"
@@ -22,18 +23,6 @@
 namespace webnn::ort {
 
 namespace {
-
-// Helper to convert `mojom::Device` to string for logging.
-std::string_view WebNNDeviceTypeToString(mojom::Device device_type) {
-  switch (device_type) {
-    case mojom::Device::kCpu:
-      return "CPU";
-    case mojom::Device::kGpu:
-      return "GPU";
-    case mojom::Device::kNpu:
-      return "NPU";
-  }
-}
 
 // Execution Provider selection delegate function that selects EPs based on
 // WebNN device type.
@@ -67,7 +56,7 @@ EpSelectionPolicyDelegate(const OrtEpDevice** ep_devices,
   // According to:
   // https://github.com/microsoft/onnxruntime/blob/f8c6262399e2c7e0a58cd494f0e58d4f4262dc43/onnxruntime/core/session/provider_policy_context.cc#L159
   std::vector<const OrtEpDevice*> selected_devices =
-      Environment::SelectEpDevicesForDeviceType(available_devices, device_type);
+      Environment::SelectEpDevices(available_devices, device_type);
   CHECK_LE(selected_devices.size(), max_selected)
       << "Selected device count (" << selected_devices.size()
       << ") exceeds maximum allowed (" << max_selected << ")";
@@ -77,9 +66,7 @@ EpSelectionPolicyDelegate(const OrtEpDevice** ep_devices,
       ort_logging_level == ORT_LOGGING_LEVEL_INFO) {
     // Logs selected EP devices for the given WebNN device type.
     const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
-    LogEpDevices(ort_api, selected_devices,
-                 base::StrCat({"Selected OrtEpDevice for WebNN ",
-                               WebNNDeviceTypeToString(device_type)}));
+    LogEpDevices(ort_api, selected_devices, "Selected OrtEpDevice");
   }
 
   for (size_t i = 0; i < selected_devices.size(); ++i) {
@@ -182,7 +169,7 @@ scoped_refptr<SessionOptions> SessionOptions::Create(
     }
   }
 
-  std::vector<Environment::SessionConfigEntry> ep_config_entries =
+  std::vector<SessionConfigEntry> ep_config_entries =
       env->GetEpConfigEntries(device_type);
   for (const auto& config_entry : ep_config_entries) {
     CHECK_STATUS(ort_api->AddSessionConfigEntry(

@@ -45,7 +45,6 @@
 #include "chrome/browser/webauthn/enclave_manager.h"
 #include "chrome/browser/webauthn/enclave_manager_factory.h"
 #include "chrome/browser/webauthn/gpm_enclave_transaction.h"
-#include "chrome/browser/webauthn/gpm_user_verification_policy.h"
 #include "chrome/browser/webauthn/passkey_model_factory.h"
 #include "chrome/browser/webauthn/webauthn_metrics_util.h"
 #include "chrome/browser/webauthn/webauthn_pref_names.h"
@@ -60,6 +59,7 @@
 #include "components/trusted_vault/trusted_vault_connection.h"
 #include "components/trusted_vault/trusted_vault_crypto.h"
 #include "components/trusted_vault/trusted_vault_server_constants.h"
+#include "components/webauthn/core/browser/gpm_user_verification_policy.h"
 #include "components/webauthn/core/browser/passkey_model.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
@@ -253,7 +253,7 @@ EnclaveUserVerificationMethod PickEnclaveUserVerificationMethod(
     platform_has_biometrics = false;
   }
 
-  if (!GpmWillDoUserVerification(uv, platform_has_biometrics)) {
+  if (!webauthn::GpmWillDoUserVerification(uv, platform_has_biometrics)) {
     return EnclaveUserVerificationMethod::kUserPresenceOnly;
   }
 
@@ -548,6 +548,10 @@ Profile* GPMEnclaveController::GetProfile() const {
 }
 
 void GPMEnclaveController::ShowSecurityDomainRecoveryUI() {
+  if (ShouldRefreshState()) {
+    RefreshStateAndRepeatOperation();
+    return;
+  }
   // The acquired lock indicates that the explicit key retrieval flow is being
   // used.
   store_keys_lock_ = enclave_manager_->GetStoreKeysLock();
@@ -716,6 +720,43 @@ void GPMEnclaveController::SetActive(EnclaveEnabledStatus status) {
   model_->OnReadyForUI();
 }
 
+void GPMEnclaveController::RefreshStateAndRepeatOperation() {
+  is_state_stale_ = false;
+  // The account state is stale. Reload it and then restart the operation.
+  waiting_for_account_state_ =
+      request_type_ == device::FidoRequestType::kGetAssertion
+          ? base::BindOnce(&GPMEnclaveController::OnGPMPasskeySelected,
+                           weak_ptr_factory_.GetWeakPtr(), *selected_cred_id_)
+          : base::BindOnce(&GPMEnclaveController::OnGPMSelected,
+                           weak_ptr_factory_.GetWeakPtr());
+  // Refreshing the state:
+  SetAccountState(AccountState::kLoading);
+  OnEnclaveLoaded();
+}
+
+bool GPMEnclaveController::ShouldRefreshState() {
+  if (!base::FeatureList::IsEnabled(
+          device::kWebAuthnEnableRefreshingStateOfGpmEnclaveController)) {
+    return false;
+  }
+  // In case of removing passkey access Enclave Manager might become
+  // unregistered but GPM Enclave Controller might still be in the active
+  // state.
+  bool account_state_is_out_of_sync =
+      account_state_ == AccountState::kReady && !enclave_manager_->is_ready();
+  return is_state_stale_ || account_state_is_out_of_sync;
+}
+
+void GPMEnclaveController::OnOutOfContextRecoveryCompletion(
+    EnclaveManager::OutOfContextRecoveryOutcome outcome) {
+  if (outcome == EnclaveManager::OutOfContextRecoveryOutcome::
+                     kStoreKeysFromOpportunisticFlowSucceeded) {
+    // In case of successful opportunistic key retrieval we conclude
+    // that the state of GPM Enclave Controller becomes stale.
+    is_state_stale_ = true;
+  }
+}
+
 void GPMEnclaveController::OnKeysStored() {
   if (recovered_with_icloud_keychain_) {
     // iCloud keychain recovery.
@@ -730,7 +771,10 @@ void GPMEnclaveController::OnKeysStored() {
             kStoreKeysFromExplicitFlowSucceeded);
   } else {
     // Keys were stored but we were not expecting it, e.g. because it happened
-    // during a request at a different step on another tab. Ignore it.
+    // during a request at a different step on another tab. In case of
+    // successful key retrieval in another tab, we conclude that the state of
+    // the GPM Enclave Controller has become stale.
+    is_state_stale_ = true;
     return;
   }
 
@@ -754,8 +798,6 @@ void GPMEnclaveController::OnKeysStored() {
     model_->SetStep(Step::kGPMCreatePin);
   }
 }
-
-void GPMEnclaveController::OnStateUpdated() {}
 
 void GPMEnclaveController::OnDeviceAdded(bool success) {
   ResetDeclinedBootstrappingCount(GetProfile());
@@ -982,6 +1024,11 @@ void GPMEnclaveController::OnLoadingTimeout() {
 
 
 void GPMEnclaveController::OnGPMSelected() {
+  if (ShouldRefreshState()) {
+    RefreshStateAndRepeatOperation();
+    return;
+  }
+
   // Reset after each GPM selection to ensure correct metric emission.
   model_->in_onboarding_flow = false;
 
@@ -1058,6 +1105,11 @@ void GPMEnclaveController::OnGPMSelected() {
 void GPMEnclaveController::OnGPMPasskeySelected(
     std::vector<uint8_t> credential_id) {
   selected_cred_id_ = std::move(credential_id);
+
+  if (ShouldRefreshState()) {
+    RefreshStateAndRepeatOperation();
+    return;
+  }
 
   if (account_state_ != AccountState::kLoading) {
     // `kLoading` will call `OnGPMPasskeySelected` again, therefore we don't
@@ -1154,6 +1206,10 @@ void GPMEnclaveController::OnGPMPinOptionChanged(bool is_arbitrary) {
 }
 
 void GPMEnclaveController::OnGPMCreatePasskey() {
+  if (ShouldRefreshState()) {
+    RefreshStateAndRepeatOperation();
+    return;
+  }
   CHECK_EQ(model_->step(), Step::kGPMCreatePasskey);
   CHECK(account_state_ == AccountState::kEmpty ||
         account_state_ == AccountState::kReady);
@@ -1191,6 +1247,10 @@ void GPMEnclaveController::OnGPMConfirmOffTheRecordCreate() {
 }
 
 void GPMEnclaveController::OnGPMPinEntered(const std::u16string& pin) {
+  if (ShouldRefreshState()) {
+    RefreshStateAndRepeatOperation();
+    return;
+  }
   CHECK(model_->step() == Step::kGPMChangeArbitraryPin ||
         model_->step() == Step::kGPMChangePin ||
         model_->step() == Step::kGPMCreateArbitraryPin ||
@@ -1236,6 +1296,10 @@ void GPMEnclaveController::OnGPMPinEntered(const std::u16string& pin) {
 }
 
 void GPMEnclaveController::OnTouchIDComplete(bool success) {
+  if (ShouldRefreshState()) {
+    RefreshStateAndRepeatOperation();
+    return;
+  }
   // On error no LAContext will be provided and macOS will show the system UI
   // for user verification.
   model_->DisableUiOrShowLoadingDialog();

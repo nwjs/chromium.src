@@ -14,9 +14,11 @@
 #include "components/contextual_search/contextual_search_metrics_recorder.h"
 #include "components/contextual_search/contextual_search_session_handle.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "components/prefs/pref_service.h"
 #include "components/version_info/channel.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
+class PrefRegistrySimple;
 class TemplateURLService;
 
 namespace signin {
@@ -45,6 +47,11 @@ class ContextualSearchService : public KeyedService {
       const std::string& locale);
   ~ContextualSearchService() override;
 
+  // Register profile related prefs.
+  static void RegisterProfilePrefs(PrefRegistrySimple* registry);
+  // Check whether contextual search is enabled.
+  static bool IsContextSharingEnabled(const PrefService* prefs);
+
   // Creates a new session and returns a handle to it.
   std::unique_ptr<ContextualSearchSessionHandle> CreateSession(
       std::unique_ptr<ContextualSearchContextController::ConfigParams>
@@ -61,6 +68,12 @@ class ContextualSearchService : public KeyedService {
 
  protected:
   friend class ContextualSearchSessionHandle;
+
+  // Creates and returns a ContextualSearchContextController.
+  virtual std::unique_ptr<ContextualSearchContextController>
+  CreateComposeboxQueryController(
+      std::unique_ptr<ContextualSearchContextController::ConfigParams>
+          query_controller_config_params);
 
   // Called by SessionHandle to retrieve a reference to the session controller.
   ContextualSearchContextController* GetSessionController(

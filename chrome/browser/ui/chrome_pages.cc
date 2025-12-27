@@ -51,6 +51,7 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_node.h"
 #include "components/commerce/core/commerce_constants.h"
@@ -650,9 +651,24 @@ void ShowAddresses(BrowserWindowInterface* bwi) {
   ShowSettingsSubPage(bwi->GetBrowserForMigrationOnly(), kAddressesSubPage);
 }
 
+void ShowContactInfo(BrowserWindowInterface* bwi) {
+  base::RecordAction(UserMetricsAction("Options_ShowContactInfo"));
+  ShowSettingsSubPage(bwi->GetBrowserForMigrationOnly(), kContactInfoSubPage);
+}
+
 void ShowPaymentMethods(BrowserWindowInterface* bwi) {
   base::RecordAction(UserMetricsAction("Options_ShowPaymentMethods"));
   ShowSettingsSubPage(bwi->GetBrowserForMigrationOnly(), kPaymentsSubPage);
+}
+
+void ShowIdentityDocs(BrowserWindowInterface* bwi) {
+  base::RecordAction(UserMetricsAction("Options_ShowIdentityDocs"));
+  ShowSettingsSubPage(bwi->GetBrowserForMigrationOnly(), kIdentityDocsSubPage);
+}
+
+void ShowTravel(BrowserWindowInterface* bwi) {
+  base::RecordAction(UserMetricsAction("Options_ShowTravel"));
+  ShowSettingsSubPage(bwi->GetBrowserForMigrationOnly(), kTravelSubPage);
 }
 
 void ShowAllSitesSettingsFilteredByRwsOwner(

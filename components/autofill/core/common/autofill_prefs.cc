@@ -39,6 +39,9 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(
       kAutofillAiIdentityEntitiesEnabled, true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterBooleanPref(
+      kAutofillAiSyncedOptInStatus, false,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterIntegerPref(
       kAutofillAiLastVersionDeduped, 0,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
@@ -95,7 +98,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   }
   registry->RegisterIntegerPref(
       kAutofillPaymentMethodsMandatoryReauthPromoShownCounter, 0);
-#elif BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#elif BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
   registry->RegisterBooleanPref(kAutofillPaymentMethodsMandatoryReauth, false);
   registry->RegisterIntegerPref(
       kAutofillPaymentMethodsMandatoryReauthPromoShownCounter, 0);
@@ -147,12 +150,9 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillEnableAiBasedAmountExtraction)) {
-    registry->RegisterBooleanPref(
-        kAutofillAmountExtractionAiTermsSeen, false,
-        user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
-  }
+  registry->RegisterBooleanPref(
+      kAutofillAmountExtractionAiTermsSeen, false,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
 
   if (base::FeatureList::IsEnabled(
           features::kAutofillEnableSupportForHomeAndWork)) {
@@ -247,14 +247,27 @@ void SetAutofillProfileEnabled(PrefService* prefs, bool enabled) {
                                 enabled ? kOptIn : kOptOut);
 }
 
+bool IsAutofillAiSyncedOptInStatusEnabled(const PrefService* prefs) {
+  return prefs->GetBoolean(kAutofillAiSyncedOptInStatus);
+}
+
+void SetAutofillAiSyncedOptInStatus(PrefService* prefs, bool enabled) {
+  prefs->SetBoolean(kAutofillAiSyncedOptInStatus, enabled);
+}
+
 bool IsPaymentMethodsMandatoryReauthEnabled(const PrefService* prefs) {
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
     BUILDFLAG(IS_IOS)
   return prefs->GetBoolean(kAutofillPaymentMethodsMandatoryReauth);
+#elif BUILDFLAG(IS_CHROMEOS)
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillEnablePaymentsMandatoryReauthChromeOs)) {
+    return false;
+  }
+  return prefs->GetBoolean(kAutofillPaymentMethodsMandatoryReauth);
 #else
   return false;
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) ||
-        // BUILDFLAG(IS_IOS)
+#endif
 }
 
 void SetPaymentMethodsMandatoryReauthEnabled(PrefService* prefs, bool enabled) {
@@ -266,17 +279,29 @@ void SetPaymentMethodsMandatoryReauthEnabled(PrefService* prefs, bool enabled) {
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
     BUILDFLAG(IS_IOS)
   prefs->SetBoolean(kAutofillPaymentMethodsMandatoryReauth, enabled);
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) ||
-        // BUILDFLAG(IS_IOS)
+#elif BUILDFLAG(IS_CHROMEOS)
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillEnablePaymentsMandatoryReauthChromeOs)) {
+    return;
+  }
+  prefs->SetBoolean(kAutofillPaymentMethodsMandatoryReauth, enabled);
+#endif
 }
 
 bool IsPaymentMethodsMandatoryReauthSetExplicitly(const PrefService* prefs) {
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
   return prefs->GetUserPrefValue(kAutofillPaymentMethodsMandatoryReauth) !=
          nullptr;
+#elif BUILDFLAG(IS_CHROMEOS)
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillEnablePaymentsMandatoryReauthChromeOs)) {
+    return false;
+  }
+  return prefs->GetUserPrefValue(kAutofillPaymentMethodsMandatoryReauth) !=
+         nullptr;
 #else
   return false;
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
+#endif
 }
 
 bool IsPaymentMethodsMandatoryReauthPromoShownCounterBelowMaxCap(
@@ -285,9 +310,17 @@ bool IsPaymentMethodsMandatoryReauthPromoShownCounterBelowMaxCap(
   return prefs->GetInteger(
              kAutofillPaymentMethodsMandatoryReauthPromoShownCounter) <
          kMaxValueForMandatoryReauthPromoShownCounter;
+#elif BUILDFLAG(IS_CHROMEOS)
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillEnablePaymentsMandatoryReauthChromeOs)) {
+    return false;
+  }
+  return prefs->GetInteger(
+             kAutofillPaymentMethodsMandatoryReauthPromoShownCounter) <
+         kMaxValueForMandatoryReauthPromoShownCounter;
 #else
   return false;
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
+#endif
 }
 
 void IncrementPaymentMethodsMandatoryReauthPromoShownCounter(
@@ -304,7 +337,24 @@ void IncrementPaymentMethodsMandatoryReauthPromoShownCounter(
       prefs->GetInteger(
           kAutofillPaymentMethodsMandatoryReauthPromoShownCounter) +
           1);
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
+#elif BUILDFLAG(IS_CHROMEOS)
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillEnablePaymentsMandatoryReauthChromeOs)) {
+    return;
+  }
+
+  if (prefs->GetInteger(
+          kAutofillPaymentMethodsMandatoryReauthPromoShownCounter) >=
+      kMaxValueForMandatoryReauthPromoShownCounter) {
+    return;
+  }
+
+  prefs->SetInteger(
+      kAutofillPaymentMethodsMandatoryReauthPromoShownCounter,
+      prefs->GetInteger(
+          kAutofillPaymentMethodsMandatoryReauthPromoShownCounter) +
+          1);
+#endif
 }
 
 bool IsPaymentCvcStorageEnabled(const PrefService* prefs) {

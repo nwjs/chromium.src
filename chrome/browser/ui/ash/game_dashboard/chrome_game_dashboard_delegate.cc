@@ -6,13 +6,12 @@
 
 #include "ash/multi_user/multi_user_window_manager.h"
 #include "ash/shell.h"
+#include "base/functional/callback_helpers.h"
 #include "chrome/browser/apps/app_service/metrics/app_platform_metrics.h"
 #include "chrome/browser/ash/app_list/arc/arc_app_list_prefs.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chromeos/ash/components/growth/campaigns_constants.h"
 #include "chromeos/ash/components/growth/campaigns_manager.h"
-#include "chromeos/ash/components/scalable_iph/scalable_iph.h"
-#include "chromeos/ash/components/scalable_iph/scalable_iph_factory.h"
 #include "chromeos/ash/experiences/arc/arc_util.h"
 #include "chromeos/ash/experiences/arc/compat_mode/arc_resize_lock_manager.h"
 #include "chromeos/ash/experiences/arc/compat_mode/compat_mode_button_controller.h"
@@ -95,16 +94,6 @@ void ChromeGameDashboardDelegate::RecordGameWindowOpenedEvent(
         user_manager->GetPrimaryUser()->GetAccountId() != account_id) {
       return;
     }
-  }
-
-  Profile* profile = ProfileManager::GetPrimaryUserProfile();
-  CHECK(profile);
-
-  scalable_iph::ScalableIph* scalable_iph =
-      ScalableIphFactory::GetForBrowserContext(profile);
-  if (scalable_iph) {
-    scalable_iph->RecordEvent(
-        scalable_iph::ScalableIph::Event::kGameWindowOpened);
   }
 }
 

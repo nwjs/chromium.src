@@ -248,7 +248,7 @@ TEST(SetupUtilTest, GetInstallAge) {
       FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES,
       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
       OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr));
-  ASSERT_TRUE(dir.IsValid());
+  ASSERT_TRUE(dir.is_valid());
 
   FILE_BASIC_INFO info = {};
   ASSERT_NE(0, ::GetFileInformationByHandleEx(dir.Get(), FileBasicInfo, &info,
@@ -265,16 +265,17 @@ TEST(SetupUtilTest, GetInstallAge) {
 TEST(SetupUtilTest, RecordUnPackMetricsTest) {
   base::HistogramTester histogram_tester;
   std::string unpack_status_metrics_name =
-      std::string(installer::kUnPackStatusMetricsName) + "_SetupExePatch";
+      std::string(installer::kUnPackStatusMetricsName) +
+      "_UncompressedChromeArchive";
   histogram_tester.ExpectTotalCount(unpack_status_metrics_name, 0);
 
   RecordUnPackMetrics(UnPackStatus::UNPACK_NO_ERROR,
-                      installer::UnPackConsumer::SETUP_EXE_PATCH);
+                      installer::UnPackConsumer::UNCOMPRESSED_CHROME_ARCHIVE);
   histogram_tester.ExpectTotalCount(unpack_status_metrics_name, 1);
   histogram_tester.ExpectBucketCount(unpack_status_metrics_name, 0, 1);
 
   RecordUnPackMetrics(UnPackStatus::UNPACK_EXTRACT_ERROR,
-                      installer::UnPackConsumer::SETUP_EXE_PATCH);
+                      installer::UnPackConsumer::UNCOMPRESSED_CHROME_ARCHIVE);
   histogram_tester.ExpectTotalCount(unpack_status_metrics_name, 2);
   histogram_tester.ExpectBucketCount(unpack_status_metrics_name, 4, 1);
 }
@@ -379,11 +380,6 @@ TEST(SetupUtilTest, ContainsUnsupportedSwitch) {
       base::CommandLine::FromString(L"foo.exe")));
   EXPECT_TRUE(installer::ContainsUnsupportedSwitch(
       base::CommandLine::FromString(L"foo.exe --chrome-frame")));
-}
-
-TEST(SetupUtilTest, GetConsoleSessionStartTime) {
-  base::Time start_time = installer::GetConsoleSessionStartTime();
-  EXPECT_FALSE(start_time.is_null());
 }
 
 TEST(SetupUtilTest, DecodeDMTokenSwitchValue) {

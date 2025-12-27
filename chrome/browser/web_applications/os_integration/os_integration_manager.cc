@@ -16,7 +16,6 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
-#include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/functional/concurrent_closures.h"
 #include "base/memory/ref_counted.h"
@@ -256,8 +255,13 @@ void OsIntegrationManager::Synchronize(
   }
 
   std::unique_ptr<ScopedProfileKeepAlive> profile_keep_alive =
-      std::make_unique<ScopedProfileKeepAlive>(
-          profile_, ProfileKeepAliveOrigin::kWebAppUpdate);
+      ScopedProfileKeepAlive::TryAcquire(profile_,
+                                         ProfileKeepAliveOrigin::kWebAppUpdate);
+  if (!profile_keep_alive) {
+    // Profile is scheduled for destruction, abort.
+    std::move(callback).Run();
+    return;
+  }
   std::unique_ptr<ScopedKeepAlive> browser_keep_alive =
       std::make_unique<ScopedKeepAlive>(KeepAliveOrigin::WEB_APP_INSTALL,
                                         KeepAliveRestartOption::DISABLED);

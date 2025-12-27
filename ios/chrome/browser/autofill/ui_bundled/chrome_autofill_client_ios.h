@@ -131,8 +131,7 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   void HideAutofillSuggestions(SuggestionHidingReason reason) override;
   bool IsAutofillEnabled() const override;
   bool IsAutofillProfileEnabled() const override;
-  bool IsAutofillPaymentMethodsEnabled() const override;
-  bool IsImportingToWalletEnabled() const override;
+  bool IsWalletStorageEnabled() const override;
   bool IsAutocompleteEnabled() const override;
   bool IsPasswordManagerEnabled() const override;
   void DidFillForm(AutofillTriggerSource trigger_source,
@@ -146,9 +145,6 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   bool IsLastQueriedField(FieldGlobalId field_id) override;
   bool ShouldFormatForLargeKeyboardAccessory() const override;
   AutofillPlusAddressDelegate* GetPlusAddressDelegate() override;
-  void OfferPlusAddressCreation(const url::Origin& main_frame_origin,
-                                bool is_manual_fallback,
-                                PlusAddressCallback callback) override;
   std::unique_ptr<device_reauth::DeviceAuthenticator> GetDeviceAuthenticator()
       override;
   PasswordFormClassification ClassifyAsPasswordForm(
@@ -164,6 +160,8 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
 
   // Removes the save card infobar if it exists.
   virtual void RemoveAutofillSaveCardInfoBar();
+
+  void ConsiderAsSecureForTesting() { consider_as_secure_for_testing_ = true; }
 
  private:
   // Returns the account email of the signed-in user, or nullopt if there is no
@@ -202,6 +200,10 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   __weak UIViewController* base_view_controller_;
 
   __weak id<AutofillCommands> commands_handler_;
+
+  // If this is true, we consider the form to be secure.
+  // Only use this for testing purposes!
+  bool consider_as_secure_for_testing_ = false;
 
   base::WeakPtrFactory<ChromeAutofillClientIOS> weak_ptr_factory_{this};
 };

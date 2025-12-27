@@ -64,17 +64,19 @@ WebSocketClient::WebSocketClient(const GURL& service_url,
 
 WebSocketClient::~WebSocketClient() = default;
 
-void WebSocketClient::Send(const oak::session::v1::SessionRequest& request,
-                           ResponseCallback callback) {
-  DCHECK(!response_callback_);
+void WebSocketClient::SetResponseCallback(ResponseCallback callback) {
+  CHECK_EQ(state_, State::kInitialized);
   response_callback_ = std::move(callback);
+}
 
+void WebSocketClient::Send(const oak::session::v1::SessionRequest& request) {
+  CHECK(response_callback_);
   std::string binary_proto;
   if (!request.SerializeToString(&binary_proto)) {
     LOG(ERROR) << "Failed to serialize proto request into a string. Check all "
                   "required fields are set";
-    std::move(response_callback_)
-        .Run(base::unexpected(TransportError::kSerializationError));
+    response_callback_.Run(
+        base::unexpected(TransportError::kSerializationError));
     return;
   }
 
@@ -109,19 +111,19 @@ void WebSocketClient::OnResponse(
   }
 
   if (!response.has_value()) {
-    std::move(response_callback_).Run(base::unexpected(response.error()));
+    response_callback_.Run(base::unexpected(response.error()));
     return;
   }
 
   std::string response_str = std::string(response->begin(), response->end());
   oak::session::v1::SessionResponse session_response;
   if (!session_response.ParseFromString(response_str)) {
-    std::move(response_callback_)
-        .Run(base::unexpected(TransportError::kDeserializationError));
+    response_callback_.Run(
+        base::unexpected(TransportError::kDeserializationError));
     return;
   }
 
-  std::move(response_callback_).Run(base::ok(std::move(session_response)));
+  response_callback_.Run(base::ok(std::move(session_response)));
 }
 
 void WebSocketClient::Connect() {
@@ -161,7 +163,9 @@ void WebSocketClient::Connect() {
 void WebSocketClient::InternalWrite(base::span<const uint8_t> data) {
   CHECK(state_ == State::kOpen);
 
-  websocket_->SendMessage(network::mojom::WebSocketMessageType::TEXT,
+  // Use the BINARY message type because the message is a binary-encoded
+  // protobuf. The TEXT message type would be used for JSON.
+  websocket_->SendMessage(network::mojom::WebSocketMessageType::BINARY,
                           data.size());
   MojoResult result = writable_->WriteAllData(data);
   if (result != MOJO_RESULT_OK) {

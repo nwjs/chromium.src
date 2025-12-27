@@ -78,24 +78,29 @@ const char kXdgSettings[] = "xdg-settings";
 const char kXdgSettingsDefaultBrowser[] = "default-web-browser";
 const char kXdgSettingsDefaultSchemeHandler[] = "default-url-scheme-handler";
 
+#if defined(USE_GLIB)
+struct GKeyFileDataDeleter {
+  void operator()(gchar* data) { g_free(data); }
+};
+
 // Returns the contents of `key_file`. Assumes `key_file` is non-null.
 std::string GetFileContents(GKeyFile* key_file) {
-  std::string contents;
   gsize length = 0;
-  gchar* data_dump = g_key_file_to_data(key_file, &length, nullptr);
-  if (data_dump) {
-    std::string_view data_view(data_dump, length);
-    if (data_view.starts_with('\n')) {
-      // Older versions of glib produce a leading newline. If this is the case,
-      // remove it to avoid double-newline after the shebang.
-      contents = data_view.substr(1);
-    } else {
-      contents = data_view;
-    }
-    g_free(data_dump);
+  std::unique_ptr<gchar, GKeyFileDataDeleter> data_dump(
+      g_key_file_to_data(key_file, &length, nullptr));
+  if (!data_dump) {
+    return "";
   }
-  return contents;
+
+  std::string_view data_view(data_dump.get(), length);
+  if (data_view.starts_with('\n')) {
+    // Older versions of glib produce a leading newline. If this is the case,
+    // remove it to avoid double-newline after the shebang.
+    data_view.remove_prefix(1);
+  }
+  return std::string(data_view);
 }
+#endif
 
 // Utility function to get the path to the version of a script shipped with
 // Chrome. |script| gives the name of the script. |chrome_version| returns the
@@ -376,8 +381,16 @@ std::string GetDesktopEntryStringValueFromFromDesktopFile(
 
   return key_value;
 }
-
 }  // namespace
+
+std::string GetDirectLaunchMimeTypeHandler() {
+  std::string scheme = shell_integration::GetDirectLaunchUrlScheme();
+  if (scheme.empty()) {
+    return "";
+  }
+  return base::StrCat({"x-scheme-handler/", scheme, ";"});
+}
+
 
 // Allows LaunchXdgUtility to join a process.
 // thread_restrictions.h assumes it to be in shell_integration_linux namespace.
@@ -617,9 +630,9 @@ std::string GetDesktopFileContents(
   base::CommandLine cmd_line = shell_integration::CommandLineArgsForLauncher(
       url, extension_id, profile_path, run_on_os_login_mode);
   cmd_line.SetProgram(chrome_exe_path);
-  return GetDesktopFileContentsForCommand(cmd_line, app_name, url, title,
-                                          icon_name, categories, mime_type,
-                                          no_display, std::move(action_info));
+  return GetDesktopFileContentsForCommand(
+      cmd_line, app_name, url, title, icon_name, categories, mime_type,
+      no_display, GetDirectLaunchMimeTypeHandler(), std::move(action_info));
 }
 
 std::string GetDesktopFileContentsForCommand(
@@ -631,6 +644,7 @@ std::string GetDesktopFileContentsForCommand(
     const std::string& categories,
     const std::string& mime_type,
     bool no_display,
+    std::string_view extra_mime_types,
     std::set<web_app::DesktopActionInfo> action_info) {
 #if defined(USE_GLIB)
   // Although not required by the spec, Nautilus on Ubuntu Karmic creates its
@@ -662,8 +676,15 @@ std::string GetDesktopFileContentsForCommand(
   // Set the "MimeType" key.
   if (!mime_type.empty() && mime_type.find("\n") == std::string::npos &&
       mime_type.find("\r") == std::string::npos) {
+    std::string full_mime_type = mime_type;
+    if (!extra_mime_types.empty()) {
+      if (!full_mime_type.empty() && full_mime_type.back() != ';') {
+        full_mime_type += ';';
+      }
+      base::StrAppend(&full_mime_type, {extra_mime_types});
+    }
     g_key_file_set_string(key_file, kDesktopEntry, "MimeType",
-                          mime_type.c_str());
+                          full_mime_type.c_str());
 
     // Some Linux Desktop Environments don't show file handlers unless they
     // specify where to place file arguments.
@@ -704,6 +725,9 @@ std::string GetDesktopFileContentsForCommand(
                                   std::move(action_info));
 
   output_buffer += GetFileContents(key_file);
+
+  base::ReplaceSubstringsAfterOffset(&output_buffer, 0, "@@URI_SCHEME@@",
+                                     shell_integration::GetDirectLaunchUrlScheme());
 
   g_key_file_free(key_file);
   return output_buffer;
@@ -896,6 +920,28 @@ bool IsFirefoxDefaultBrowser() {
 
 DefaultWebClientState IsDefaultClientForScheme(const std::string& scheme) {
   return shell_integration_linux::GetIsDefaultWebClient(scheme);
+}
+
+std::string GetDirectLaunchUrlScheme() {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  // On Linux, channel determination is static and tied to the installed
+  // package, unlike macOS and Windows which support "floating" channels.
+  // For security reasons, the custom URI scheme handler is only registered
+  // for Google Chrome in stable and extended stable channels. For other
+  // channels (beta, dev, canary), an empty string is returned to omit the
+  // handler from the .desktop file.
+  switch (chrome::GetChannel()) {
+    case version_info::Channel::CANARY:
+    case version_info::Channel::DEV:
+    case version_info::Channel::BETA:
+      return "";
+    case version_info::Channel::STABLE:
+    case version_info::Channel::UNKNOWN:
+      return "google-chrome";
+  }
+#else
+  return "chromium";
+#endif
 }
 
 namespace internal {

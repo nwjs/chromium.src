@@ -415,14 +415,6 @@ IN_PROC_BROWSER_TEST_P(ClickToCallBrowserTest, LeftClick_ChooseDevice) {
   ASSERT_EQ(1u, devices.size());
 
   base::RunLoop run_loop;
-  PageActionIconView* click_to_call_icon =
-      GetPageActionIconView(PageActionIconType::kClickToCall);
-  if (IsPageActionsMigrationEnabled()) {
-    ASSERT_EQ(nullptr, click_to_call_icon);
-  } else {
-    ASSERT_FALSE(click_to_call_icon->GetVisible());
-  }
-
   ClickToCallUiController* controller =
       ClickToCallUiController::GetOrCreateFromWebContents(web_contents());
   controller->set_on_dialog_shown_closure_for_testing(run_loop.QuitClosure());
@@ -436,11 +428,6 @@ IN_PROC_BROWSER_TEST_P(ClickToCallBrowserTest, LeftClick_ChooseDevice) {
 
   SharingDialogView* dialog =
       static_cast<SharingDialogView*>(controller->dialog());
-  if (IsPageActionsMigrationEnabled()) {
-    ASSERT_NE(nullptr, dialog);
-  } else {
-    ASSERT_TRUE(click_to_call_icon->GetVisible());
-  }
 
   EXPECT_EQ(SharingDialogType::kDialogWithDevicesMaybeApps,
             dialog->GetDialogType());
@@ -449,8 +436,7 @@ IN_PROC_BROWSER_TEST_P(ClickToCallBrowserTest, LeftClick_ChooseDevice) {
   const auto& buttons = dialog->button_list_for_testing()->children();
   ASSERT_GT(buttons.size(), 0u);
   views::test::ButtonTestApi(static_cast<views::Button*>(buttons[0]))
-      .NotifyClick(ui::MouseEvent(ui::EventType::kMousePressed, gfx::Point(),
-                                  gfx::Point(), ui::EventTimeForNow(), 0, 0));
+      .NotifyDefaultMouseClick();
 
   CheckLastReceiver(devices[0]);
   // Defined in tel.html

@@ -68,6 +68,9 @@ const CGFloat kPromoMaxImpressionCount = 3;
 
   // Pref service.
   raw_ptr<PrefService> _prefService;
+
+  // The feature engagement tracker.
+  raw_ptr<feature_engagement::Tracker> _tracker;
 }
 
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
@@ -108,6 +111,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
   _helpCommandsHandler = nil;
   _mediator = nil;
   _prefService = nil;
+  _tracker = nil;
   [self dismissPresentedViewWithCompletion:completion];
   [super stop];
 }
@@ -115,6 +119,11 @@ const CGFloat kPromoMaxImpressionCount = 3;
 #pragma mark - BWGMediatorDelegate
 
 - (BOOL)maybePresentBWGFRE {
+  if (_entryPoint != bwg::EntryPoint::Promo) {
+    _tracker->NotifyEvent(
+        feature_engagement::events::kIOSGeminiFlowStartedNonPromo);
+  }
+
   // TODO(crbug.com/414768296): Move business logic to the mediator.
   BOOL showConsent = [self shouldShowBWGConsent];
   if (!showConsent) {
@@ -125,15 +134,21 @@ const CGFloat kPromoMaxImpressionCount = 3;
   BwgTabHelper* BWGTabHelper = [self activeWebStateBWGTabHelper];
 
   if (showPromo) {
+    if (IsGeminiNavigationPromoEnabled() &&
+        _entryPoint == bwg::EntryPoint::Promo) {
+      _tracker->NotifyEvent(
+          feature_engagement::events::kIOSFullscreenPromosGroupTrigger);
+      _tracker->NotifyEvent(
+          feature_engagement::events::kIOSGeminiFullscreenPromoTriggered);
+    }
     int impressionCount =
         _prefService->GetInteger(prefs::kIOSBWGPromoImpressionCount) + 1;
     _prefService->SetInteger(prefs::kIOSBWGPromoImpressionCount,
                              impressionCount);
 
     if (impressionCount == 1) {
-      feature_engagement::TrackerFactory::GetForProfile(self.profile)
-          ->NotifyEvent(
-              feature_engagement::events::kIOSGeminiPromoFirstCompletion);
+      _tracker->NotifyEvent(
+          feature_engagement::events::kIOSGeminiPromoFirstCompletion);
       if (BWGTabHelper) {
         BWGTabHelper->SetPreventContextualPanelEntryPoint(
             [self shouldShowAIHubIPH]);
@@ -192,25 +207,30 @@ const CGFloat kPromoMaxImpressionCount = 3;
   _prefService = self.profile->GetPrefs();
   CHECK(_prefService);
 
+  _tracker = feature_engagement::TrackerFactory::GetForProfile(self.profile);
+  CHECK(_tracker);
+
   BOOL willShowFRE = [self shouldShowBWGConsent];
   // Record entry point with FRE context.
   RecordBWGEntryPointClick(_entryPoint, willShowFRE);
 
   if (_entryPoint == bwg::EntryPoint::AIHub) {
-    feature_engagement::TrackerFactory::GetForProfile(self.profile)
-        ->NotifyEvent(feature_engagement::events::kIOSPageActionMenuIPHUsed);
+    _tracker->NotifyEvent(
+        feature_engagement::events::kIOSPageActionMenuIPHUsed);
   }
 
   CommandDispatcher* dispatcher = self.browser->GetCommandDispatcher();
   _BWGCommandsHandler = HandlerForProtocol(dispatcher, BWGCommands);
   _helpCommandsHandler = HandlerForProtocol(dispatcher, HelpCommands);
 
+  // TODO(crbug.com/455906590): Pipe the image to the Gemini overlay.
   _mediator = [[BWGMediator alloc]
       initWithPrefService:_prefService
              webStateList:self.browser->GetWebStateList()
        baseViewController:self.baseViewController
                BWGService:BwgServiceFactory::GetForProfile(self.profile)
-          BWGBrowserAgent:BwgBrowserAgent::FromBrowser(self.browser)];
+          BWGBrowserAgent:BwgBrowserAgent::FromBrowser(self.browser)
+                  tracker:_tracker];
   _mediator.applicationHandler = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), ApplicationCommands);
 
@@ -319,8 +339,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
 // Returns whether to show AI Hub IPH.
 - (BOOL)shouldShowAIHubIPH {
   BOOL wouldTriggerIPH =
-      feature_engagement::TrackerFactory::GetForProfile(self.profile)
-          ->WouldTriggerHelpUI(feature_engagement::kIPHIOSPageActionMenu);
+      _tracker->WouldTriggerHelpUI(feature_engagement::kIPHIOSPageActionMenu);
 
   return _entryPoint != bwg::EntryPoint::AIHub && [self shouldShowBWGPromo] &&
          wouldTriggerIPH;

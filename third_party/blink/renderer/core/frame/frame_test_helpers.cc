@@ -58,7 +58,6 @@
 #include "third_party/blink/public/mojom/input/touch_event.mojom-blink.h"
 #include "third_party/blink/public/mojom/page/prerender_page_param.mojom.h"
 #include "third_party/blink/public/mojom/page/widget.mojom-blink.h"
-#include "third_party/blink/public/mojom/partitioned_popins/partitioned_popin_params.mojom.h"
 #include "third_party/blink/public/platform/interface_registry.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
@@ -754,10 +753,8 @@ void WebViewHelper::InitializeWebView(
       /*session_storage_namespace_id=*/std::string(),
       /*page_base_background_color=*/std::nullopt, browsing_context_group_token,
       /*color_provider_colors=*/nullptr,
-      /*partitioned_popin_params=*/nullptr,
       /*history_index=*/-1,
-      /*history_length=*/0,
-      /*canvas_noise_token=*/std::nullopt));
+      /*history_length=*/0));
   // This property must be set at initialization time, it is not supported to be
   // changed afterward, and does nothing.
   web_view_->GetSettings()->SetViewportEnabled(viewport_enabled_);
@@ -800,10 +797,8 @@ WebViewImpl* WebViewHelper::CreateWebView(WebViewClient* web_view_client,
       /*page_base_background_color=*/std::nullopt,
       /*browsing_context_group_token=*/base::UnguessableToken::Create(),
       /*color_provider_colors=*/nullptr,
-      /*partitioned_popin_params=*/nullptr,
       /*history_index=*/-1,
-      /*history_length=*/0,
-      /*canvas_noise_token=*/std::nullopt));
+      /*history_length=*/0));
 }
 
 int TestWebFrameClient::loads_in_progress_ = 0;

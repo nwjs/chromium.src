@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "chrome/installer/util/install_service_work_item_impl.h"
 
 #include <cguid.h>
@@ -18,6 +13,7 @@
 #include <utility>
 
 #include "base/check.h"
+#include "base/compiler_specific.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
@@ -171,7 +167,7 @@ bool InstallServiceWorkItemImpl::DoImpl() {
 bool InstallServiceWorkItemImpl::DoInstallService() {
   scm_.Set(::OpenSCManager(nullptr, nullptr,
                            SC_MANAGER_CONNECT | SC_MANAGER_CREATE_SERVICE));
-  if (!scm_.IsValid()) {
+  if (!scm_.is_valid()) {
     auto error = ::GetLastError();
     PLOG(ERROR) << "::OpenSCManager Failed";
     RecordResult(Operation::kOpenSCManager, error);
@@ -305,14 +301,14 @@ void InstallServiceWorkItemImpl::RollbackImpl() {
     return;
 
   if (rollback_existing_service_) {
-    DCHECK(service_.IsValid());
+    DCHECK(service_.is_valid());
     DCHECK(original_service_config_.is_valid);
     RestoreOriginalServiceConfig();
     return;
   }
 
   DCHECK(rollback_new_service_);
-  DCHECK(service_.IsValid());
+  DCHECK(service_.is_valid());
 
   // Delete the newly created service.
   DeleteCurrentService();
@@ -361,7 +357,7 @@ bool InstallServiceWorkItemImpl::DeleteServiceImpl() {
   }
 
   scm_.Set(::OpenSCManager(nullptr, nullptr, SC_MANAGER_CONNECT));
-  if (!scm_.IsValid()) {
+  if (!scm_.is_valid()) {
     auto error = ::GetLastError();
     DPLOG(ERROR) << "::OpenSCManager Failed";
     RecordResult(Operation::kOpenSCManager, error);
@@ -426,7 +422,7 @@ bool InstallServiceWorkItemImpl::IsUpgradeNeeded(
 
 bool InstallServiceWorkItemImpl::ChangeServiceConfig(
     const ServiceConfig& config) {
-  DCHECK(service_.IsValid());
+  DCHECK(service_.is_valid());
 
   // Change the configuration of the existing service.
   // If the service is deleted, ::ChangeServiceConfig will fail with the error
@@ -456,10 +452,10 @@ bool InstallServiceWorkItemImpl::DeleteCurrentService() {
 }
 
 bool InstallServiceWorkItemImpl::OpenService() {
-  DCHECK(scm_.IsValid());
+  DCHECK(scm_.is_valid());
   service_.Set(::OpenService(scm_.Get(), GetCurrentServiceName().c_str(),
                              kServiceAccess));
-  if (!service_.IsValid()) {
+  if (!service_.is_valid()) {
     auto error = ::GetLastError();
     RecordResult(Operation::kOpenService, error);
     return false;
@@ -470,7 +466,7 @@ bool InstallServiceWorkItemImpl::OpenService() {
 
 bool InstallServiceWorkItemImpl::GetServiceConfig(ServiceConfig* config) const {
   DCHECK(config);
-  DCHECK(service_.IsValid());
+  DCHECK(service_.is_valid());
 
   constexpr uint32_t kMaxQueryConfigBufferBytes = 8 * 1024;
 
@@ -556,10 +552,10 @@ std::vector<wchar_t> InstallServiceWorkItemImpl::MultiSzToVector(
   // strings in the multi-sz.
   const wchar_t* scan = multi_sz;
   do {
-    scan += wcslen(scan) + 1;
+    UNSAFE_TODO(scan += wcslen(scan) + 1);
   } while (*scan);
 
-  return std::vector<wchar_t>(multi_sz, scan + 1);
+  return std::vector<wchar_t>(multi_sz, UNSAFE_TODO(scan + 1));
 }
 
 // static
@@ -587,7 +583,7 @@ std::wstring InstallServiceWorkItemImpl::GetCurrentServiceName(
 }
 
 std::wstring InstallServiceWorkItemImpl::GetCurrentServiceDescription() const {
-  DCHECK(service_.IsValid());
+  DCHECK(service_.is_valid());
 
   constexpr uint32_t kMaxQueryConfigBufferBytes = 8 * 1024;
 
@@ -613,7 +609,7 @@ std::wstring InstallServiceWorkItemImpl::GetCurrentServiceDescription() const {
 }
 
 void InstallServiceWorkItemImpl::SetDescription() {
-  DCHECK(service_.IsValid());
+  DCHECK(service_.is_valid());
 
   if (description_.empty()) {
     return;
@@ -633,7 +629,7 @@ void InstallServiceWorkItemImpl::SetDescription() {
 }
 
 bool InstallServiceWorkItemImpl::InstallNewService() {
-  DCHECK(!service_.IsValid());
+  DCHECK(!service_.is_valid());
   if (!InstallService(ServiceConfig(
           kServiceType, start_type_, kServiceErrorControl,
           service_cmd_line_.GetCommandLineString(), kServiceDependencies,
@@ -649,7 +645,7 @@ bool InstallServiceWorkItemImpl::InstallNewService() {
 }
 
 bool InstallServiceWorkItemImpl::UpgradeService() {
-  DCHECK(service_.IsValid());
+  DCHECK(service_.is_valid());
   DCHECK(!original_service_config_.is_valid);
 
   ServiceConfig original_config;
@@ -692,7 +688,7 @@ bool InstallServiceWorkItemImpl::InstallService(const ServiceConfig& config) {
       config.cmd_line.c_str(), nullptr, nullptr,
       !config.dependencies.empty() ? config.dependencies.data() : nullptr,
       nullptr, nullptr));
-  if (!service.IsValid()) {
+  if (!service.is_valid()) {
     auto error = ::GetLastError();
     PLOG(WARNING) << "Failed to create service "
                   << GetCurrentServiceName().c_str();
@@ -706,8 +702,9 @@ bool InstallServiceWorkItemImpl::InstallService(const ServiceConfig& config) {
 }
 
 bool InstallServiceWorkItemImpl::DeleteService(ScopedScHandle service) const {
-  if (!service.IsValid())
+  if (!service.is_valid()) {
     return false;
+  }
 
   if (!::DeleteService(service.Get())) {
     DWORD error = ::GetLastError();

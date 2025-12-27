@@ -22,6 +22,7 @@
 #import "components/component_updater/component_updater_service.h"
 #import "components/component_updater/installer_policies/autofill_states_component_installer.h"
 #import "components/content_settings/core/browser/host_content_settings_map.h"
+#import "components/contextual_search/contextual_search_service.h"
 #import "components/dom_distiller/core/distilled_page_prefs.h"
 #import "components/enterprise/browser/identifiers/identifiers_prefs.h"
 #import "components/enterprise/browser/reporting/common_pref_names.h"
@@ -54,7 +55,7 @@
 #import "components/payments/core/payment_prefs.h"
 #import "components/plus_addresses/core/common/plus_address_prefs.h"
 #import "components/policy/core/browser/browser_policy_connector.h"
-#import "components/policy/core/browser/url_blocklist_manager.h"
+#import "components/policy/core/browser/url_list/url_blocklist_manager.h"
 #import "components/policy/core/common/local_test_policy_provider.h"
 #import "components/policy/core/common/policy_pref_names.h"
 #import "components/policy/core/common/policy_statistics_collector.h"
@@ -98,16 +99,16 @@
 #import "components/webui/flags/pref_service_flags_storage.h"
 #import "ios/chrome/app/spotlight/spotlight_util.h"
 #import "ios/chrome/app/variations_app_state_agent.h"
-#import "ios/chrome/browser/authentication/ui_bundled/history_sync/history_sync_utils.h"
+#import "ios/chrome/browser/authentication/history_sync/model/history_sync_utils.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_promo_view_mediator.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/bookmark_mediator.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/bookmark_path_cache.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/home/bookmarks_home_mediator.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/price_tracking_promo/price_tracking_promo_prefs.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/safety_check_prefs.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/shop_card/shop_card_prefs.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/price_tracking_promo/model/price_tracking_promo_prefs.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/model/safety_check_prefs.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/shop_card/model/shop_card_prefs.h"
 #import "ios/chrome/browser/cross_platform_promos/model/cross_platform_promos_service.h"
 #import "ios/chrome/browser/download/model/auto_deletion/auto_deletion_service.h"
 #import "ios/chrome/browser/drive/model/drive_policy.h"
@@ -124,7 +125,7 @@
 #import "ios/chrome/browser/prerender/model/prerender_pref.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_prefs.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_service.h"
-#import "ios/chrome/browser/reader_mode/model/reader_mode_prefs.h"
+#import "ios/chrome/browser/reader_mode/model/constants.h"
 #import "ios/chrome/browser/safety_check/model/ios_chrome_safety_check_manager_constants.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -145,10 +146,6 @@
 #endif  // !BUILDFLAG(IS_IOS_MACCATALYST)
 
 namespace {
-
-// Deprecated 12/2024.
-inline constexpr char kPageContentCollectionEnabled[] =
-    "page_content_collection.enabled";
 
 // Deprecated 02/2025.
 inline constexpr char kNumberOfProfiles[] = "profile.profiles_created";
@@ -219,6 +216,12 @@ constexpr char kGaiaCookieLastListAccountsData[] =
 inline constexpr char kFRESourceTrial[] = "FileMetricsProviderFRESourceTrial";
 
 // Deprecated 10/2025
+inline constexpr char kSessionStorageFormatPref[] =
+    "ios.session.storage.format";
+inline constexpr char kSessionStorageMigrationStatusPref[] =
+    "ios.session.storage.migration-status";
+inline constexpr char kSessionStorageMigrationStartedTimePref[] =
+    "ios.session.storage.migration-start-time";
 inline constexpr char kTipsInMagicStackDisabledPref[] =
     "tips_magic_stack.disabled";
 inline constexpr char kHomeCustomizationMagicStackSetUpListEnabled[] =
@@ -701,6 +704,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   autofill::prefs::RegisterProfilePrefs(registry);
   collaboration::prefs::RegisterProfilePrefs(registry);
   commerce::RegisterProfilePrefs(registry);
+  contextual_search::ContextualSearchService::RegisterProfilePrefs(registry);
   AimEligibilityService::RegisterProfilePrefs(registry);
   cross_device::RegisterProfilePrefs(registry);
   CrossPlatformPromosService::RegisterProfilePrefs(registry);
@@ -749,7 +753,6 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   variations::VariationsService::RegisterProfilePrefs(registry);
   ZeroSuggestProvider::RegisterProfilePrefs(registry);
   tab_resumption_prefs::RegisterProfilePrefs(registry);
-  reader_mode_prefs::RegisterProfilePrefs(registry);
 
   [BookmarkMediator registerProfilePrefs:registry];
   [BookmarkPathCache registerProfilePrefs:registry];
@@ -1056,6 +1059,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterIntegerPref(prefs::kIOSBWGPromoImpressionCount, 0);
   registry->RegisterTimePref(prefs::kLastGeminiInteractionTimestamp,
                              base::Time());
+  registry->RegisterTimePref(prefs::kLastGeminiContextualChipDisplayedTimestamp,
+                             base::Time());
   registry->RegisterStringPref(prefs::kLastGeminiInteractionURL, std::string());
   registry->RegisterStringPref(prefs::kGeminiConversationId, std::string());
 
@@ -1070,9 +1075,6 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
 
   // Prefs for the Synced Set Up Feature.
   registry->RegisterIntegerPref(prefs::kSyncedSetUpImpressionCount, 0);
-
-  // Deprecated 12/2024.
-  registry->RegisterBooleanPref(kPageContentCollectionEnabled, false);
 
   // Deprecated 02/2025 (migrated to LocalState pref).
   registry->RegisterIntegerPref(prefs::kNTPLensEntryPointNewBadgeShownCount, 0);
@@ -1119,6 +1121,10 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterStringPref(kFRESourceTrial, std::string());
 
   // Deprecated 10/2025
+  registry->RegisterIntegerPref(kSessionStorageFormatPref, 0);
+  registry->RegisterIntegerPref(kSessionStorageMigrationStatusPref, 0);
+  registry->RegisterTimePref(kSessionStorageMigrationStartedTimePref,
+                             base::Time());
   registry->RegisterBooleanPref(kTipsInMagicStackDisabledPref, false);
   registry->RegisterBooleanPref(kHomeCustomizationMagicStackSetUpListEnabled,
                                 true);
@@ -1165,6 +1171,9 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   // Deprecated 10/2025.
   registry->RegisterStringPref(kLegacySyncSessionsGUID, std::string());
   registry->RegisterBooleanPref(prefs::kFingerprintingProtectionEnabled, true);
+
+  // Deprecated 11/2025.
+  registry->RegisterListPref(kReaderModeRecentlyUsedTimestampsPref);
 }
 
 // This method should be periodically pruned of year+ old migrations.
@@ -1219,9 +1228,6 @@ void MigrateObsoleteProfilePrefs(PrefService* prefs) {
 
   // Added 09/2024.
   browsing_data::prefs::MaybeMigrateToQuickDeletePrefValues(prefs);
-
-  // Added 12/2024.
-  prefs->ClearPref(kPageContentCollectionEnabled);
 
   // Added 02/2025
   // TODO(crbug.com/395840121): Remove migration call below after successfully
@@ -1335,6 +1341,9 @@ void MigrateObsoleteProfilePrefs(PrefService* prefs) {
   prefs->ClearPref(kFRESourceTrial);
 
   // Added 10/2025.
+  prefs->ClearPref(kSessionStorageFormatPref);
+  prefs->ClearPref(kSessionStorageMigrationStatusPref);
+  prefs->ClearPref(kSessionStorageMigrationStartedTimePref);
   prefs->ClearPref(kTipsInMagicStackDisabledPref);
   prefs->ClearPref(kHomeCustomizationMagicStackSetUpListEnabled);
   prefs->ClearPref(kNTPFollowingFeedSortType);
@@ -1364,6 +1373,9 @@ void MigrateObsoleteProfilePrefs(PrefService* prefs) {
   prefs->ClearPref(kLastUsedFeedForGoodVisitsKey);
   prefs->ClearPref(kLegacySyncSessionsGUID);
   prefs->ClearPref(prefs::kFingerprintingProtectionEnabled);
+
+  // Added 11/2025.
+  prefs->ClearPref(kReaderModeRecentlyUsedTimestampsPref);
 }
 
 void MigrateObsoleteUserDefault() {
@@ -1377,4 +1389,14 @@ void MigrateObsoleteUserDefault() {
 
   // Added 03/2025.
   [defaults removeObjectForKey:@"PreviousSessionInfoConnectedSceneSessionIDs"];
+
+  // Added 10/2025.
+  [defaults removeObjectForKey:@"TimestampTriggerCriteriaExperimentStarted"];
+  [defaults removeObjectForKey:@"AllTimestampsAppLaunchColdStart"];
+  [defaults removeObjectForKey:@"AllTimestampsAppLaunchWarmStart"];
+  [defaults removeObjectForKey:@"AllTimestampsAppLaunchIndirectStart"];
+  [defaults removeObjectForKey:@"AutofillUseCount"];
+  [defaults removeObjectForKey:@"SpecialTabUseCount"];
+  [defaults removeObjectForKey:@"OmniboxUseCount"];
+  [defaults removeObjectForKey:@"BookmarkUseCount"];
 }

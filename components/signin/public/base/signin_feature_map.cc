@@ -32,6 +32,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &switches::kSmartEmailLineBreaking,
     &switches::kSupportWebSigninAddSession,
     &switches::kSkipRefreshTokenCheckInIdentityManager,
+    &switches::kFRESignInAlternativeSecondaryButtonText,
 };
 
 // static
@@ -48,3 +49,5 @@ static jlong JNI_SigninFeatureMap_GetNativeMap(JNIEnv* env) {
 }
 
 }  // namespace signin
+
+DEFINE_JNI(SigninFeatureMap)

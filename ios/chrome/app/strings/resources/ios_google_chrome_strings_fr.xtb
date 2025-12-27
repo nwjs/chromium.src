@@ -75,7 +75,6 @@ Points à prendre en compte :
 <translation id="2576431527583832481">Google Chrome s'est amélioré ! Une nouvelle version est désormais disponible.</translation>
 <translation id="257708665678654955">Souhaitez-vous que Google Chrome vous propose de traduire les pages de ce site rédigées en <ph name="LANGUAGE_NAME" /> lors de votre prochaine visite ?</translation>
 <translation id="2668242166988961773">Effectuez une recherche vocale dans Chrome.</translation>
-<translation id="2695886661449553974">Chrome n'est pas parvenu à rechercher les mises à jour. Réessayez plus tard.</translation>
 <translation id="2703746758996815929">Pour recevoir des conseils pratiques sur Chrome, activez les notifications dans les réglages iOS.</translation>
 <translation id="2728851697704606655">Traduire avec Google Lens</translation>
 <translation id="2736805085127235148">Les notifications Chrome sont actuellement désactivées dans les paramètres de votre appareil.</translation>
@@ -170,9 +169,11 @@ Patientez quelques minutes avant de vous déconnecter. Si vous vous déconnectez
 <translation id="5162467219239570114">Version de Chrome obsolète. Si aucune mise à jour n'est disponible sur l'<ph name="BEGIN_LINK" />App Store<ph name="END_LINK" />, votre appareil n'est peut-être plus compatible avec les nouvelles versions de Chrome.</translation>
 <translation id="5184329579814168207">Ouvrir dans Chrome</translation>
 <translation id="5190139289262548459">Votre organisation (<ph name="DOMAIN" />) gère le compte auquel vous êtes connecté et la manière dont Chrome est utilisé.</translation>
+<translation id="5209238444239954363">Chrome n'est pas parvenu à rechercher les mises à jour. Réessayez plus tard.</translation>
 <translation id="5305440589062022504">Ouvre le Gestionnaire de mots de passe dans Chrome</translation>
 <translation id="5310957470610282541">Certaines de vos données Chrome n'ont pas encore été enregistrées dans votre compte Google.
 Patientez quelques minutes avant de vous déconnecter. Si vous vous déconnectez maintenant, ces données seront supprimées.</translation>
+<translation id="5342685492141499976">Vos données seront enregistrées dans le Gestionnaire de mots de passe Google pour <ph name="USER_EMAIL" /></translation>
 <translation id="5389212809648216794">Google Chrome ne peut pas utiliser l'appareil photo, car celui-ci est utilisé par une autre application</translation>
 <translation id="5395376160638294582">Assurez-vous de toujours pouvoir utiliser les données Chrome de votre compte Google</translation>
 <translation id="5404252374083197467">Utiliser Chrome par défaut ?</translation>
@@ -200,6 +201,7 @@ Patientez quelques minutes avant de vous déconnecter. Si vous vous déconnectez
 <translation id="5808435672482059465">Afficher votre historique Chrome</translation>
 <translation id="5833027901704861726">Certaines de vos données Chrome n'ont pas encore été enregistrées dans <ph name="EMAIL" />.
 Patientez quelques minutes avant de changer de compte. Si vous changez de compte maintenant, ces données seront supprimées.</translation>
+<translation id="5853754888722423892">Importer dans le Gestionnaire de mots de passe de Google</translation>
 <translation id="5998675059699164418">Votre organisation exige que vous vous connectiez pour utiliser Chrome.</translation>
 <translation id="6021312115739110405">Flux personnalisé pour vous par Google. Avec les actualités, le sport et la météo.</translation>
 <translation id="6022659036123304283">Personnalisez Chrome</translation>
@@ -302,6 +304,7 @@ Pour voir d'autres paramètres qui utilisent les données pour améliorer votre 
 <translation id="787226752901403048">Connectez-vous à Chrome pour partager et rejoindre des groupes d'onglets, et collaborer sur des idées</translation>
 <translation id="7897703007638178753">Voir les onglets récents de Chrome</translation>
 <translation id="7948283758957877064">Nouveautés de Chrome</translation>
+<translation id="7996707498590516621">Créez une image avec Gemini dans Chrome</translation>
 <translation id="8000174216052461231">Astuce Chrome : profitez de la protection renforcée de Chrome</translation>
 <translation id="8006014511203279255">Utilisez Chrome chaque fois que vous appuyez sur un lien dans un message ou une autre appli.</translation>
 <translation id="8014670471808569312">Chrome vous proposera d'enregistrer votre mot de passe.</translation>

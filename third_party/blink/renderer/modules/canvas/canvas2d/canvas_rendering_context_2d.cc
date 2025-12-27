@@ -45,6 +45,7 @@
 #include "base/feature_list.h"
 #include "base/location.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/memory/values_equivalent.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -55,10 +56,10 @@
 #include "cc/paint/paint_record.h"
 #include "cc/paint/record_paint_canvas.h"
 #include "components/viz/common/resources/transferable_resource.h"
+#include "gpu/command_buffer/common/shared_image_capabilities.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/metrics/document_update_reason.h"
-#include "third_party/blink/public/common/privacy_budget/identifiable_token.h"
 #include "third_party/blink/public/mojom/frame/color_scheme.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scroll_enums.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
@@ -77,6 +78,7 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
+#include "third_party/blink/renderer/core/geometry/dom_matrix.h"
 #include "third_party/blink/renderer/core/geometry/dom_rect_read_only.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_context_creation_attributes_core.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_font_cache.h"
@@ -84,8 +86,7 @@
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context_host.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
-#include "third_party/blink/renderer/core/layout/layout_box.h"
-#include "third_party/blink/renderer/core/layout/layout_box_model_object.h"
+#include "third_party/blink/renderer/core/layout/layout_replaced.h"
 #include "third_party/blink/renderer/core/layout/layout_theme.h"
 #include "third_party/blink/renderer/core/layout/map_coordinates_flags.h"
 #include "third_party/blink/renderer/core/scroll/scroll_alignment.h"
@@ -148,7 +149,6 @@ class ExecutionContext;
 class FontSelector;
 class ImageData;
 class ImageDataSettings;
-class LayoutObject;
 class MemoryManagedPaintCanvas;
 class SVGResource;
 
@@ -205,8 +205,6 @@ CanvasRenderingContext2D::CanvasRenderingContext2D(
           attrs,
           canvas->GetDocument().GetTaskRunner(TaskType::kInternalDefault)),
       should_prune_local_font_cache_(false) {
-  identifiability_study_helper_.SetExecutionContext(
-      canvas->GetTopExecutionContext());
   if (canvas->GetDocument().GetSettings() &&
       canvas->GetDocument().GetSettings()->GetAntialiasedClips2dCanvasEnabled())
     clip_antialiasing_ = kAntiAliased;
@@ -652,7 +650,8 @@ void CanvasRenderingContext2D::PruneLocalFontCache(size_t target_size) {
 
 void CanvasRenderingContext2D::StyleDidChange(const ComputedStyle* old_style,
                                               const ComputedStyle& new_style) {
-  if (old_style && old_style->GetFont() == new_style.GetFont()) {
+  if (old_style &&
+      base::ValuesEquivalent(old_style->GetFont(), new_style.GetFont())) {
     return;
   }
   PruneLocalFontCache(0);
@@ -726,8 +725,7 @@ bool CanvasRenderingContext2D::CanCreateResourceProvider() {
   return GetOrCreateResourceProvider();
 }
 
-scoped_refptr<StaticBitmapImage> blink::CanvasRenderingContext2D::GetImage(
-    FlushReason reason) {
+scoped_refptr<StaticBitmapImage> blink::CanvasRenderingContext2D::GetImage() {
   if (IsHibernating()) {
     return UnacceleratedStaticBitmapImage::Create(
         GetHibernationHandler()->GetImage());
@@ -737,8 +735,8 @@ scoped_refptr<StaticBitmapImage> blink::CanvasRenderingContext2D::GetImage(
     return nullptr;
   }
 
-  resource_provider_->FlushCanvas(reason);
-  return resource_provider_->Snapshot(reason);
+  resource_provider_->FlushCanvas();
+  return resource_provider_->Snapshot();
 }
 
 ImageData* CanvasRenderingContext2D::getImageDataInternal(
@@ -756,57 +754,42 @@ ImageData* CanvasRenderingContext2D::getImageDataInternal(
       sx, sy, sw, sh, image_data_settings, exception_state);
 }
 
-void CanvasRenderingContext2D::drawElement(Element* element,
-                                           double x,
-                                           double y,
-                                           ExceptionState& exception_state) {
-  DrawElementInternal(element, x, y, std::nullopt, std::nullopt,
-                      exception_state);
-}
-
-void CanvasRenderingContext2D::drawElement(Element* element,
-                                           double x,
-                                           double y,
-                                           double dwidth,
-                                           double dheight,
-                                           ExceptionState& exception_state) {
-  DrawElementInternal(element, x, y, dwidth, dheight, exception_state);
-}
-
-void CanvasRenderingContext2D::drawElementImage(
+DOMMatrix* CanvasRenderingContext2D::drawElement(
     Element* element,
     double x,
     double y,
     ExceptionState& exception_state) {
-  DrawElementInternal(element, x, y, std::nullopt, std::nullopt,
-                      exception_state);
+  return DrawElementInternal(element, x, y, std::nullopt, std::nullopt,
+                             exception_state);
 }
 
-void CanvasRenderingContext2D::drawElementImage(
+DOMMatrix* CanvasRenderingContext2D::drawElement(
     Element* element,
     double x,
     double y,
     double dwidth,
     double dheight,
     ExceptionState& exception_state) {
-  DrawElementInternal(element, x, y, dwidth, dheight, exception_state);
+  return DrawElementInternal(element, x, y, dwidth, dheight, exception_state);
 }
 
-void CanvasRenderingContext2D::setHitTestRegions(
-    VectorOf<CanvasElementHitTestRegion> hit_test_regions,
+DOMMatrix* CanvasRenderingContext2D::drawElementImage(
+    Element* element,
+    double x,
+    double y,
     ExceptionState& exception_state) {
-  HTMLCanvasElement* canvas_element = HostAsHTMLCanvasElement();
-  DCHECK(canvas_element);
-  canvas_element->GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
-      DocumentUpdateReason::kCanvasDrawElementImage);
+  return DrawElementInternal(element, x, y, std::nullopt, std::nullopt,
+                             exception_state);
+}
 
-  VectorOf<HTMLCanvasElement::ElementHitTestRegion> result;
-  if (!ConvertHitTestRegionsToHTMLCanvasRegions(
-          hit_test_regions, result, "setHitTestRegions()", exception_state)) {
-    return;
-  }
-
-  HostAsHTMLCanvasElement()->SetHitTestRegions(std::move(result));
+DOMMatrix* CanvasRenderingContext2D::drawElementImage(
+    Element* element,
+    double x,
+    double y,
+    double dwidth,
+    double dheight,
+    ExceptionState& exception_state) {
+  return DrawElementInternal(element, x, y, dwidth, dheight, exception_state);
 }
 
 void CanvasRenderingContext2D::EnableAccelerationIfPossible() {
@@ -817,7 +800,7 @@ void CanvasRenderingContext2D::EnableAccelerationIfPossible() {
   }
 }
 
-void CanvasRenderingContext2D::DrawElementInternal(
+DOMMatrix* CanvasRenderingContext2D::DrawElementInternal(
     Element* element,
     double x,
     double y,
@@ -827,21 +810,38 @@ void CanvasRenderingContext2D::DrawElementInternal(
   CHECK(RuntimeEnabledFeatures::CanvasDrawElementEnabled());
 
   if (!GetOrCreatePaintCanvas()) {
-    return;
+    return nullptr;
   }
 
   std::optional<cc::PaintRecord> paint_record =
       GetElementPaintRecord(element, "drawElementImage()", exception_state);
   if (!paint_record) {
-    return;
+    return nullptr;
   }
 
   // The filter needs to be resolved before calling Draw, because it
   // immediately checks IsFilterResolved() and uses a null canvas if not.
   StateGetFilter();
 
-  auto box_rect =
-      gfx::Rect(ToCeiledSize(element->GetLayoutBox()->StitchedSize()));
+  // Element size in physical coordinates.
+  gfx::SizeF box_size(element->GetLayoutBox()->StitchedSize());
+
+  // The ideal size is the source content size, represented in canvas grid
+  // coordinates. This will cause the element to have the same proportions when
+  // appearing inside the canvas as it would have were it painted outside the
+  // canvas.
+  gfx::SizeF ideal_dst_size(box_size);
+  gfx::Vector2dF scale_factor =
+      canvas()->PhysicalPixelToCanvasGridScaleFactor();
+  ideal_dst_size.Scale(scale_factor.x(), scale_factor.y());
+
+  gfx::RectF dst_rect(x, y, 0, 0);
+  if (dwidth && dheight) {
+    dst_rect.set_size(gfx::SizeF(*dwidth, *dheight));
+  } else {
+    // If no explicit destination size is given, default to the ideal size.
+    dst_rect.set_size(ideal_dst_size);
+  }
 
   // TODO(crbug.com/421834883): This code is based on image drawing. Maybe we
   // need a distinct paint_type: kImagePaintType seems to do the right thing
@@ -851,16 +851,11 @@ void CanvasRenderingContext2D::DrawElementInternal(
   // opaque so going with that for now.
   Draw<OverdrawOp::kNone>(
       /*draw_func=*/
-      [paint_record, x, y, dwidth, dheight, box_rect](
-          MemoryManagedPaintCanvas* c, const cc::PaintFlags* flags) {
+      [paint_record, dst_rect, box_size](MemoryManagedPaintCanvas* c,
+                                         const cc::PaintFlags* flags) {
         cc::RecordPaintCanvas::DisableFlushCheckScope disable_flush_check_scope(
             static_cast<cc::RecordPaintCanvas*>(c));
         int initial_save_count = c->getSaveCount();
-
-        gfx::RectF dst_rect(x, y, box_rect.width(), box_rect.height());
-        if (dwidth && dheight) {
-          dst_rect = gfx::RectF(x, y, *dwidth, *dheight);
-        }
 
         if (flags->getImageFilter() ||
             flags->getBlendMode() != SkBlendMode::kSrcOver ||
@@ -897,12 +892,11 @@ void CanvasRenderingContext2D::DrawElementInternal(
         }
 
         c->save();
-        c->translate(x, y);
-        if (dwidth && dheight) {
-          c->scale(*dwidth / box_rect.width(), *dheight / box_rect.height());
-        }
+        c->translate(dst_rect.x(), dst_rect.y());
+        c->scale(dst_rect.width() / box_size.width(),
+                 dst_rect.height() / box_size.height());
 
-        c->clipRect(SkRect::MakeWH(box_rect.width(), box_rect.height()));
+        c->clipRect(SkRect::MakeWH(box_size.width(), box_size.height()));
 
         c->drawPicture(paint_record.value(),
                        // use a save at the beginning of the record to keep
@@ -911,10 +905,28 @@ void CanvasRenderingContext2D::DrawElementInternal(
 
         c->restoreToCount(initial_save_count);
       },
-      NoOverdraw, /*bounds=*/gfx::RectF(box_rect.width(), box_rect.height()),
+      NoOverdraw, /*bounds=*/gfx::RectF(box_size.width(), box_size.height()),
       CanvasRenderingContext2DState::kImagePaintType,
       CanvasRenderingContext2DState::kNonOpaqueImage,
       CanvasPerformanceMonitor::DrawType::kElement);
+
+  // Compute the transform, in canvas grid coordinates, that we just drew with.
+  // We start from the context's CTM, then offset by x,y, and finally apply any
+  // dest scaling.
+  gfx::Transform draw_transform = GetState().GetTransform().ToTransform();
+  draw_transform.Translate(x, y);
+  // The drawing commands above scale by `dst_rect.size() / box_size`, which
+  // does two things: 1) scales the drawing commands of `paint_record` (in
+  // physical pixels) to canvas grid coordinates, and 2) applies any additional
+  // dest scaling. We are only returning #2 in the logic below.
+  draw_transform.Scale(dst_rect.width() / ideal_dst_size.width(),
+                       dst_rect.height() / ideal_dst_size.height());
+
+  // This call will take our draw transform in canvas grid coordinates, and
+  // convert it to a transform in CSS pixels suitable for positioning the
+  // element.
+  DOMMatrix* draw_matrix = MakeGarbageCollected<DOMMatrix>(draw_transform);
+  return canvas()->getElementTransform(element, draw_matrix, exception_state);
 }
 
 void CanvasRenderingContext2D::PreFinalizeFrame() {
@@ -1057,14 +1069,11 @@ void CanvasRenderingContext2D::drawFocusIfNeeded(Element* element) {
 
 void CanvasRenderingContext2D::drawFocusIfNeeded(Path2D* path2d,
                                                  Element* element) {
-  DrawFocusIfNeededInternal(path2d->GetPath(), element,
-                            path2d->GetIdentifiableToken());
+  DrawFocusIfNeededInternal(path2d->GetPath(), element);
 }
 
-void CanvasRenderingContext2D::DrawFocusIfNeededInternal(
-    const Path& path,
-    Element* element,
-    IdentifiableToken path_token) {
+void CanvasRenderingContext2D::DrawFocusIfNeededInternal(const Path& path,
+                                                         Element* element) {
   if (!FocusRingCallIsValid(path, element))
     return;
 
@@ -1072,10 +1081,6 @@ void CanvasRenderingContext2D::DrawFocusIfNeededInternal(
   // element->focused(), because element->focused() isn't updated until after
   // focus events fire.
   if (element->GetDocument().FocusedElement() == element) {
-    if (identifiability_study_helper_.ShouldUpdateBuilder()) [[unlikely]] {
-      identifiability_study_helper_.UpdateBuilder(CanvasOps::kDrawFocusIfNeeded,
-                                                  path_token);
-    }
     ScrollPathIntoViewInternal(path);
     DrawFocusRing(path, element);
   }
@@ -1233,30 +1238,28 @@ CanvasRenderingContext2D::CreateCanvasResourceProvider() {
   constexpr auto kShouldInitialize =
       CanvasResourceProvider::ShouldInitialize::kCallClear;
   if (use_gpu && canvas()->LowLatencyEnabled()) {
-    // If we can use the gpu and low latency is enabled, we will try to use a
-    // SwapChain if possible.
-    provider = CanvasResourceProvider::CreateSwapChainProvider(
-        canvas()->Size(), format, alpha_type, color_space, kShouldInitialize,
-        SharedGpuContext::ContextProviderWrapper(), canvas());
-    // If SwapChain failed or it was not possible, we will try a SharedImage
-    // with a set of flags trying to add Usage Display and Usage Scanout and
-    // Concurrent Read and Write if possible.
-    if (!provider) {
-      gpu::SharedImageUsageSet shared_image_usage_flags =
-          gpu::SHARED_IMAGE_USAGE_DISPLAY_READ;
-      if (SharedGpuContext::MaySupportImageChromium() &&
-          (RuntimeEnabledFeatures::Canvas2dImageChromiumEnabled() ||
-           base::FeatureList::IsEnabled(
-               features::kLowLatencyCanvas2dImageChromium))) {
-        shared_image_usage_flags |= gpu::SHARED_IMAGE_USAGE_SCANOUT;
-        shared_image_usage_flags |=
-            gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE;
-      }
-      provider = CanvasResourceProvider::CreateSharedImageProvider(
-          canvas()->Size(), format, alpha_type, color_space, kShouldInitialize,
-          SharedGpuContext::ContextProviderWrapper(), RasterMode::kGPU,
-          shared_image_usage_flags, canvas());
+    // Try a SharedImage provider with usage optimized for low-latency.
+    gpu::SharedImageUsageSet shared_image_usage_flags =
+        gpu::SHARED_IMAGE_USAGE_DISPLAY_READ;
+    bool can_use_swapchain = SharedGpuContext::ContextProviderWrapper()
+                                 ->ContextProvider()
+                                 .SharedImageInterface()
+                                 ->GetCapabilities()
+                                 .shared_image_swap_chain;
+    bool can_use_concurrent_read_write =
+        can_use_swapchain ||
+        (SharedGpuContext::MaySupportImageChromium() &&
+         (RuntimeEnabledFeatures::Canvas2dImageChromiumEnabled() ||
+          base::FeatureList::IsEnabled(
+              features::kLowLatencyCanvas2dImageChromium)));
+    if (can_use_concurrent_read_write) {
+      shared_image_usage_flags |= gpu::SHARED_IMAGE_USAGE_SCANOUT;
+      shared_image_usage_flags |= gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE;
     }
+    provider = CanvasResourceProvider::CreateSharedImageProvider(
+        canvas()->Size(), format, alpha_type, color_space, kShouldInitialize,
+        SharedGpuContext::ContextProviderWrapper(), RasterMode::kGPU,
+        shared_image_usage_flags, canvas());
   } else if (use_gpu) {
     // First try to be optimized for displaying on screen. In the case we are
     // hardware compositing, we also try to enable the usage of the image as
@@ -1304,7 +1307,7 @@ CanvasRenderingContext2D::CreateCanvasResourceProvider() {
     // The final fallback is to raster into a bitmap that will then either be
     // uploaded into GPU memory (for GPU compositing) or copied into the Viz
     // process (for software compositing).
-    provider = CanvasResourceProvider::CreateBitmapProvider(
+    provider = Canvas2DResourceProviderBitmap::Create(
         canvas()->Size(), format, alpha_type, color_space, kShouldInitialize,
         canvas());
   }
@@ -1396,7 +1399,7 @@ void CanvasRenderingContext2D::DropAndRecreateExistingResourceProvider() {
     return;
   }
 
-  scoped_refptr<StaticBitmapImage> image = GetImage(FlushReason::kOther);
+  scoped_refptr<StaticBitmapImage> image = GetImage();
   // image can be null if allocation failed in which case we should just
   // abort the provider switch to retain the old provider, which is still
   // functional.

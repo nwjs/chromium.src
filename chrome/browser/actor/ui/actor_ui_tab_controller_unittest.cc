@@ -4,6 +4,8 @@
 
 #include "chrome/browser/actor/ui/actor_ui_tab_controller.h"
 
+#include <memory>
+
 #include "base/functional/callback_helpers.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -15,7 +17,6 @@
 #include "chrome/browser/actor/ui/actor_ui_tab_controller_interface.h"
 #include "chrome/browser/actor/ui/actor_ui_window_controller.h"
 #include "chrome/browser/actor/ui/mocks/mock_actor_ui_state_manager.h"
-#include "chrome/browser/actor/ui/mocks/mock_actor_ui_tab_controller_factory.h"
 #include "chrome/browser/actor/ui/mocks/mock_handoff_button_controller.h"
 #include "chrome/browser/actor/ui/states/actor_overlay_state.h"
 #include "chrome/browser/actor/ui/states/handoff_button_state.h"
@@ -28,7 +29,7 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/tabs/public/mock_tab_interface.h"
-#include "content/public/test/browser_task_environment.h"
+#include "content/public/test/test_renderer_host.h"
 #include "content/test/test_web_contents.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -49,6 +50,16 @@ class MockWebContents : public content::TestWebContents {
   explicit MockWebContents(content::BrowserContext* browser_context);
   ~MockWebContents() override;
 
+  static std::unique_ptr<MockWebContents> Create(
+      content::BrowserContext* browser_context) {
+    auto mock_web_contents = std::make_unique<MockWebContents>(browser_context);
+    mock_web_contents->Init(
+        CreateParams(browser_context,
+                     content::SiteInstance::Create(browser_context)),
+        blink::FramePolicy());
+    return mock_web_contents;
+  }
+
   MOCK_METHOD(base::ScopedClosureRunner,
               IncrementCapturerCount,
               (const gfx::Size&, bool, bool, bool),
@@ -64,13 +75,18 @@ ACTION(ReturnNewScopedClosureRunner) {
   return base::ScopedClosureRunner(base::DoNothing());
 }
 
-class ActorUiTabControllerTest : public testing::Test {
+class ActorUiTabControllerTest : public content::RenderViewHostTestHarness {
  public:
-  ActorUiTabControllerTest() : tab_strip_model_(&delegate_, profile()) {}
+  ActorUiTabControllerTest()
+      : content::RenderViewHostTestHarness(
+            base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
   ~ActorUiTabControllerTest() override = default;
 
   // testing::Test:
   void SetUp() override {
+    content::RenderViewHostTestHarness::SetUp();
+    tab_strip_model_ = std::make_unique<TabStripModel>(
+        &delegate_, static_cast<TestingProfile*>(browser_context()));
     scoped_feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/{{features::kGlicHandoffButtonHiddenClientControl,
                                {}},
@@ -78,17 +94,16 @@ class ActorUiTabControllerTest : public testing::Test {
                                {{features::kGlicActorUiHandoffButtonName,
                                  "true"},
                                 {features::kGlicActorUiOverlayName, "true"}}}},
-        /*disabled_features=*/{features::kGlicActorInternalPopups});
-    profile_ = TestingProfile::Builder().Build();
+        /*disabled_features=*/{});
 
     ON_CALL(mock_tab_, GetBrowserWindowInterface())
         .WillByDefault(Return(&mock_browser_window_interface_));
     ON_CALL(mock_tab_, GetUnownedUserDataHost())
         .WillByDefault(::testing::ReturnRef(user_data_host_));
     ON_CALL(mock_browser_window_interface_, GetProfile())
-        .WillByDefault(Return(profile()));
+        .WillByDefault(Return(static_cast<TestingProfile*>(browser_context())));
     ON_CALL(mock_browser_window_interface_, GetTabStripModel())
-        .WillByDefault(Return(&tab_strip_model_));
+        .WillByDefault(Return(tab_strip_model_.get()));
     ON_CALL(mock_browser_window_interface_, GetUnownedUserDataHost)
         .WillByDefault(ReturnRef(user_data_host_));
 
@@ -97,13 +112,11 @@ class ActorUiTabControllerTest : public testing::Test {
     ON_CALL(*immersive_mode_controller(), IsEnabled())
         .WillByDefault(Return(false));
 
-    actor_keyed_service_ = std::make_unique<ActorKeyedServiceFake>(profile());
+    actor_keyed_service_ = std::make_unique<ActorKeyedServiceFake>(
+        static_cast<TestingProfile*>(browser_context()));
     std::unique_ptr<MockActorUiStateManager> ausm =
         std::make_unique<MockActorUiStateManager>();
     actor_keyed_service_->SetActorUiStateManagerForTesting(std::move(ausm));
-    auto controller_factory =
-        std::make_unique<MockActorUiTabControllerFactory>();
-    actor_ui_tab_controller_factory_ = controller_factory.get();
 
     window_controller_ = std::make_unique<ActorUiWindowController>(
         &mock_browser_window_interface_,
@@ -112,20 +125,30 @@ class ActorUiTabControllerTest : public testing::Test {
     border_view_controller_ = std::make_unique<ActorBorderViewController>(
         &mock_browser_window_interface_);
 
-    mock_web_contents_ = std::make_unique<MockWebContents>(profile_.get());
-    ON_CALL(mock_tab_, GetContents)
-        .WillByDefault(Return(mock_web_contents_.get()));
+    auto mock_web_contents = MockWebContents::Create(browser_context());
+    mock_web_contents_ = mock_web_contents.get();
+    SetContents(std::move(mock_web_contents));
+
+    ON_CALL(mock_tab_, GetContents).WillByDefault(Return(mock_web_contents_));
     ON_CALL(mock_tab_, IsSelected).WillByDefault(Return(true));
-    ON_CALL(*mock_web_contents_, IncrementCapturerCount(_, _, _, _))
+    ON_CALL(*mock_web_contents_, IncrementCapturerCount)
         .WillByDefault(ReturnNewScopedClosureRunner());
 
     actor_ui_tab_controller_ = std::make_unique<ActorUiTabController>(
-        mock_tab_, actor_keyed_service(), std::move(controller_factory));
+        mock_tab_, actor_keyed_service(),
+        std::make_unique<ActorUiTabControllerFactory>());
+
+    mock_handoff_button_controller_ =
+        std::make_unique<MockHandoffButtonController>(
+            /*anchor_view=*/nullptr, /*window_controller*/ nullptr);
+    handoff_button_controller_registration_ =
+        actor_ui_tab_controller_->RegisterHandoffButtonController(
+            mock_handoff_button_controller_.get());
 
     // Creates task for testing.
     task_id_ = actor_keyed_service()->CreateTaskForTesting();
     base::RunLoop loop;
-    actor_keyed_service()->GetTask(task_id_)->AddTab(
+    actor_keyed_service_->GetTask(task_id_)->AddTab(
         mock_tab_.GetHandle(),
         base::BindLambdaForTesting([&](::actor::mojom::ActionResultPtr result) {
           EXPECT_TRUE(IsOk(*result));
@@ -145,8 +168,8 @@ class ActorUiTabControllerTest : public testing::Test {
     return actor_ui_tab_controller_.get();
   }
 
-  MockActorUiTabControllerFactory* tab_controller_factory() {
-    return actor_ui_tab_controller_factory_;
+  MockHandoffButtonController* handoff_button_controller() {
+    return mock_handoff_button_controller_.get();
   }
 
   ActorBorderViewController* actor_border_view_controller() {
@@ -158,19 +181,31 @@ class ActorUiTabControllerTest : public testing::Test {
   }
 
   void TearDown() override {
+    border_view_controller_.reset();
+    actor_ui_tab_controller_.reset();
+    mock_handoff_button_controller_.reset();
     window_controller_.reset();
-    testing::Test::TearDown();
+    immersive_mode_controller_.reset();
+    actor_keyed_service_->Shutdown();
+    actor_keyed_service_.reset();
+    tab_strip_model_.reset();
+
+    testing::Mock::VerifyAndClear(&mock_tab_);
+    mock_web_contents_ = nullptr;
+    content::RenderViewHostTestHarness::TearDown();
+  }
+
+  std::unique_ptr<content::BrowserContext> CreateBrowserContext() override {
+    return TestingProfile::Builder().Build();
   }
 
   TaskId task_id() { return task_id_; }
 
-  TestingProfile* profile() { return profile_.get(); }
-
   MockTabInterface& mock_tab() { return mock_tab_; }
 
   void Debounce() {
-    task_environment_.FastForwardBy(features::kGlicActorUiDebounceTimer.Get() +
-                                    base::Milliseconds(1));
+    task_environment()->FastForwardBy(
+        features::kGlicActorUiDebounceTimer.Get() + base::Milliseconds(1));
   }
 
  protected:
@@ -178,8 +213,7 @@ class ActorUiTabControllerTest : public testing::Test {
   // This ensures that any test calling UpdateState will automatically run the
   // barrier closure, preventing timeouts.
   void SetUpDefaultHandoffButtonExpectations() {
-    ON_CALL(*tab_controller_factory()->handoff_button_controller(),
-            UpdateState(_, _, _))
+    ON_CALL(*handoff_button_controller(), UpdateState)
         .WillByDefault(
             [](const HandoffButtonState&, bool, base::OnceClosure callback) {
               std::move(callback).Run();
@@ -202,18 +236,16 @@ class ActorUiTabControllerTest : public testing::Test {
             },
             weak_factory_.GetWeakPtr()));
 
-    ON_CALL(mock_overlay_callback_, Call(_, _, _))
+    ON_CALL(mock_overlay_callback_, Call)
         .WillByDefault([](bool, ActorOverlayState, base::OnceClosure callback) {
           std::move(callback).Run();
         });
   }
-  content::BrowserTaskEnvironment task_environment_{
-      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
+
   MockFunction<void(bool, ActorOverlayState, base::OnceClosure)>
       mock_overlay_callback_;
 
  private:
-  std::unique_ptr<TestingProfile> profile_;
   std::unique_ptr<ActorKeyedServiceFake> actor_keyed_service_;
   ::ui::UnownedUserDataHost user_data_host_;
   MockTabInterface mock_tab_;
@@ -221,15 +253,15 @@ class ActorUiTabControllerTest : public testing::Test {
   std::unique_ptr<MockImmersiveModeController> immersive_mode_controller_;
   std::unique_ptr<ActorUiWindowController> window_controller_;
   TestTabStripModelDelegate delegate_;
-  TabStripModel tab_strip_model_;
+  std::unique_ptr<TabStripModel> tab_strip_model_;
   base::test::ScopedFeatureList scoped_feature_list_;
-  std::unique_ptr<MockWebContents> mock_web_contents_;
+  raw_ptr<MockWebContents> mock_web_contents_ = nullptr;
   TaskId task_id_;
   std::unique_ptr<ActorUiTabController> actor_ui_tab_controller_;
-  raw_ptr<MockActorUiTabControllerFactory> actor_ui_tab_controller_factory_ =
-      nullptr;
+  std::unique_ptr<MockHandoffButtonController> mock_handoff_button_controller_;
   std::unique_ptr<ActorBorderViewController> border_view_controller_;
   base::ScopedClosureRunner overlay_subscription_;
+  base::ScopedClosureRunner handoff_button_controller_registration_;
   base::WeakPtrFactory<ActorUiTabControllerTest> weak_factory_{this};
 };
 
@@ -252,7 +284,7 @@ TEST_F(ActorUiTabControllerTest,
   HandoffButtonState handoff_button_state(
       true, HandoffButtonState::ControlOwnership::kActor);
   // Expect UpdateState to be called with is_visible set to true.
-  EXPECT_CALL(*tab_controller_factory()->handoff_button_controller(),
+  EXPECT_CALL(*handoff_button_controller(),
               UpdateState(handoff_button_state, true, _));
 
   UiTabState ui_tab_state(ActorOverlayState(), handoff_button_state);
@@ -266,7 +298,7 @@ TEST_F(
   local_list.InitAndDisableFeature(
       features::kGlicHandoffButtonHiddenClientControl);
 
-  EXPECT_CALL(*tab_controller_factory()->handoff_button_controller(),
+  EXPECT_CALL(*handoff_button_controller(),
               UpdateState(_, /*is_visible=*/true, _));
 
   HandoffButtonState client_control_state(
@@ -284,7 +316,7 @@ TEST_F(ActorUiTabControllerTest,
   HandoffButtonState client_control_state(
       false, HandoffButtonState::ControlOwnership::kClient);
 
-  EXPECT_CALL(*tab_controller_factory()->handoff_button_controller(),
+  EXPECT_CALL(*handoff_button_controller(),
               UpdateState(client_control_state, /*is_visible=*/false, _));
 
   UiTabState new_ui_tab_state(ActorOverlayState(), client_control_state);
@@ -328,20 +360,6 @@ TEST_F(ActorUiTabControllerTest, BorderGlowChangesOnUiTabStateChange) {
   tab_controller()->OnUiTabStateChange(ui_tab_state_glow_on, base::DoNothing());
 }
 
-TEST_F(ActorUiTabControllerTest, HandoffButtonHidesWhenInImmersiveMode) {
-  EXPECT_CALL(*tab_controller_factory()->handoff_button_controller(),
-              UpdateState(_, /*is_visible=*/false, _));
-
-  ON_CALL(*immersive_mode_controller(), IsEnabled())
-      .WillByDefault(Return(true));
-  HandoffButtonState handoff_button_state(
-      true, HandoffButtonState::ControlOwnership::kActor);
-  UiTabState ui_tab_state(ActorOverlayState(), handoff_button_state);
-  base::test::TestFuture<bool> future;
-  tab_controller()->OnUiTabStateChange(ui_tab_state, future.GetCallback());
-  EXPECT_TRUE(future.Get());
-}
-
 TEST_F(ActorUiTabControllerTest,
        OnUiTabStateChange_SameStateRunsCallbackOnceAndDoesNotUpdateState) {
   ActorOverlayState actor_overlay_state{.is_active = true};
@@ -350,7 +368,7 @@ TEST_F(ActorUiTabControllerTest,
       /*control_ownership=*/HandoffButtonState::ControlOwnership::kActor);
   UiTabState ui_tab_state(actor_overlay_state, handoff_button_state);
 
-  EXPECT_CALL(*tab_controller_factory()->handoff_button_controller(),
+  EXPECT_CALL(*handoff_button_controller(),
               UpdateState(handoff_button_state, /*is_visible=*/true, _));
 
   base::test::TestFuture<bool> future1;
@@ -359,7 +377,7 @@ TEST_F(ActorUiTabControllerTest,
 
   // On second call, the callback should be run and the state shouldn't be
   // updated.
-  EXPECT_CALL(*tab_controller_factory()->handoff_button_controller(),
+  EXPECT_CALL(*handoff_button_controller(),
               UpdateState(handoff_button_state, /*is_visible=*/true, _))
       .Times(0);
 
@@ -393,8 +411,7 @@ TEST_F(ActorUiTabControllerTest, OnUiTabStateChange_CallsCallbacks) {
 
 TEST_F(ActorUiTabControllerTest, SetScrimBackgroundOnHoverChanges) {
   int callback_count = 0;
-  auto* mock_handoff_button_controller =
-      tab_controller_factory()->handoff_button_controller();
+  auto* mock_handoff_button_controller = handoff_button_controller();
 
   std::vector<base::ScopedClosureRunner> subscriptions;
   ON_CALL(*mock_handoff_button_controller, IsHovering())
@@ -444,6 +461,47 @@ TEST_F(ActorUiTabControllerTest, SetScrimBackgroundOnHoverChanges) {
   Debounce();
   EXPECT_EQ(callback_count, 1);
   subscriptions.clear();
+}
+
+TEST_F(ActorUiTabControllerTest, SetScrimBackgroundOnFocusChanges) {
+  int callback_count = 0;
+  auto* mock_handoff_button_controller = handoff_button_controller();
+
+  std::vector<base::ScopedClosureRunner> subscriptions;
+
+  ON_CALL(*mock_handoff_button_controller, IsHovering())
+      .WillByDefault(Return(false));
+  ON_CALL(*mock_handoff_button_controller, IsFocused())
+      .WillByDefault(Return(false));
+
+  subscriptions.push_back(
+      tab_controller()->RegisterActorOverlayBackgroundChange(
+          base::BindLambdaForTesting([&callback_count](bool is_visible) {
+            callback_count++;
+            EXPECT_TRUE(is_visible);
+          })));
+
+  ON_CALL(*mock_handoff_button_controller, IsFocused())
+      .WillByDefault(Return(true));
+  tab_controller()->OnHandoffButtonFocusStatusChanged();
+  Debounce();
+  EXPECT_EQ(callback_count, 1);
+
+  subscriptions.clear();
+  callback_count = 0;
+
+  subscriptions.push_back(
+      tab_controller()->RegisterActorOverlayBackgroundChange(
+          base::BindLambdaForTesting([&callback_count](bool is_visible) {
+            callback_count++;
+            EXPECT_FALSE(is_visible);
+          })));
+
+  ON_CALL(*mock_handoff_button_controller, IsFocused())
+      .WillByDefault(Return(false));
+  tab_controller()->OnHandoffButtonFocusStatusChanged();
+  Debounce();
+  EXPECT_EQ(callback_count, 1);
 }
 
 TEST_F(ActorUiTabControllerTest, From_RecordsHistogramWhenTabDoesNotExist) {

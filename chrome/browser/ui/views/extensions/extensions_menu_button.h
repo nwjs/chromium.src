@@ -8,25 +8,23 @@
 #include <memory>
 #include <string_view>
 
+#include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/browser/ui/views/controls/hover_button.h"
 #include "chrome/browser/ui/views/extensions/extension_context_menu_controller.h"
-#include "chrome/browser/ui/views/toolbar/toolbar_action_view_delegate_views.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 
 // ExtensionsMenuButton is the single extension action button within a row in
 // the extensions menu. This includes the extension icon and name and triggers
 // the extension action.
-class ExtensionsMenuButton : public HoverButton,
-                             public ToolbarActionViewDelegateViews {
+class ExtensionsMenuButton : public HoverButton {
   METADATA_HEADER(ExtensionsMenuButton, HoverButton)
 
  public:
-  ExtensionsMenuButton(Browser* browser,
-                       ToolbarActionViewController* controller);
+  ExtensionsMenuButton(Browser* browser, ToolbarActionViewModel* model);
   ExtensionsMenuButton(const ExtensionsMenuButton&) = delete;
   ExtensionsMenuButton& operator=(const ExtensionsMenuButton&) = delete;
   ~ExtensionsMenuButton() override;
@@ -34,21 +32,22 @@ class ExtensionsMenuButton : public HoverButton,
   // HoverButton:
   void AddedToWidget() override;
 
-  // ToolbarActionViewDelegate:
-  void UpdateState() override;
-
   std::u16string_view label_text_for_testing() const {
     return label()->GetText();
   }
 
  private:
+  void UpdateState();
   content::WebContents* GetCurrentWebContents() const;
   void ButtonPressed();
 
   const raw_ptr<Browser, DanglingUntriaged> browser_;
 
   // Responsible for executing the extension's actions.
-  const raw_ptr<ToolbarActionViewController, DanglingUntriaged> controller_;
+  const raw_ptr<ToolbarActionViewModel, DanglingUntriaged> model_;
+
+  // Subscription to model updates.
+  base::CallbackListSubscription model_subscription_;
 };
 
 BEGIN_VIEW_BUILDER(/* no export */, ExtensionsMenuButton, HoverButton)

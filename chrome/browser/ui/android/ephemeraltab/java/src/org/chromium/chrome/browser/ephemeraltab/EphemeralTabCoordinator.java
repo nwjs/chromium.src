@@ -19,6 +19,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.content.ContentUtils;
 import org.chromium.chrome.browser.content.WebContentsFactory;
+import org.chromium.chrome.browser.desktop_site.DesktopSiteUtils;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
@@ -228,7 +229,17 @@ public class EphemeralTabCoordinator implements View.OnLayoutChangeListener {
                 mContentView,
                 mWindow,
                 WebContents.createDefaultInternalsHolder());
+        // Set UA override in renderer preferences.
         ContentUtils.setUserAgentOverride(mWebContents, /* overrideInNewTabs= */ false);
+        // Set UA override in WebContents preferences.
+        boolean shouldUseDesktopUserAgent =
+                DesktopSiteUtils.shouldOverrideDesktopSite(profile, mUrl, mContext);
+        mWebContents
+                .getNavigationController()
+                .setUseDesktopUserAgent(
+                        shouldUseDesktopUserAgent,
+                        /* reloadOnChange= */ false,
+                        /* skipOnInitialNavigation= */ false);
     }
 
     private void destroyWebContents() {

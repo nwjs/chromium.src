@@ -40,12 +40,12 @@
 #include "ui/base/accelerators/test_accelerator_target.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/compositor/layer.h"
-#include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/compositor/test/draw_waiter_for_test.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_unittest_util.h"
+#include "ui/gfx/scoped_animation_duration_scale_mode.h"
 #include "ui/gfx/vector_icon_types.h"
 #include "ui/views/test/test_widget_builder.h"
 #include "ui/views/test/views_test_utils.h"
@@ -262,6 +262,25 @@ TEST_F(FrameViewAshTest, AvatarIcon) {
   EXPECT_FALSE(frame_view->GetAvatarIconViewForTest());
 }
 
+TEST_F(FrameViewAshTest, NonStandardFrame) {
+  FrameViewAshTestWidgetDelegate* delegate = new FrameViewAshTestWidgetDelegate;
+
+  views::Widget::InitParams params(
+      views::Widget::InitParams::CLIENT_OWNS_WIDGET,
+      views::Widget::InitParams::TYPE_WINDOW);
+  params.delegate = delegate;
+  params.parent = Shell::GetPrimaryRootWindow()->GetChildById(
+      desks_util::GetActiveDeskContainerId());
+  params.remove_standard_frame = true;
+
+  views::Widget widget;
+  widget.Init(std::move(params));
+  widget.Show();
+
+  EXPECT_FALSE(delegate->frame_view()->GetFrameEnabled());
+  EXPECT_FALSE(delegate->header_view()->should_paint());
+}
+
 // Tests that a window is minimized, toggling tablet mode doesn't trigger
 // caption button update (https://crbug.com/822890).
 TEST_F(FrameViewAshTest, ToggleTabletModeOnMinimizedWindow) {
@@ -436,8 +455,8 @@ TEST_F(FrameViewAshTest, HeaderVisibilityInFullscreen) {
 
   auto* controller = ImmersiveFullscreenController::Get(widget.get());
   ImmersiveFullscreenControllerTestApi test_api(controller);
-  ui::ScopedAnimationDurationScaleMode test_duration_mode(
-      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+  gfx::ScopedAnimationDurationScaleMode test_duration_mode(
+      gfx::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
 
   FrameViewAsh* frame_view = delegate->frame_view();
   chromeos::HeaderView* header_view = frame_view->GetHeaderView();

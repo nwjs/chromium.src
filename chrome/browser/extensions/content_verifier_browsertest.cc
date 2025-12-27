@@ -8,9 +8,12 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "base/command_line.h"
 #include "base/files/file_util.h"
+#include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/string_split.h"
 #include "base/strings/stringprintf.h"
@@ -85,7 +88,13 @@ constexpr char kStoragePermissionExtensionCrx[] =
 
 class MockUpdateService : public UpdateService {
  public:
-  MockUpdateService() : UpdateService(nullptr, nullptr) {}
+  MockUpdateService()
+      : UpdateService(nullptr,
+                      nullptr,
+                      base::BindRepeating([](const std::vector<std::string>&,
+                                             base::OnceClosure callback) {
+                        std::move(callback).Run();
+                      })) {}
   MOCK_CONST_METHOD0(IsBusy, bool());
   MOCK_METHOD3(SendUninstallPing,
                void(const std::string& id,
@@ -270,7 +279,7 @@ class ContentVerifierTest : public ExtensionBrowserTest {
     auto signing_key = crypto::keypair::PrivateKey::FromPrivateKeyInfo(
         base::as_byte_span(private_key_bytes));
     std::vector<uint8_t> public_key = signing_key->ToSubjectPublicKeyInfo();
-    return crx_file::id_util::GenerateId(base::as_string_view(public_key));
+    return crx_file::id_util::GenerateId(public_key);
   }
 
   // Creates a random signing key and sets |extension_id| according to it.
@@ -278,8 +287,7 @@ class ContentVerifierTest : public ExtensionBrowserTest {
       std::string& extension_id) {
     auto signing_key = crypto::keypair::PrivateKey::GenerateRsa2048();
     std::vector<uint8_t> public_key = signing_key.ToSubjectPublicKeyInfo();
-    extension_id =
-        crx_file::id_util::GenerateId(base::as_string_view(public_key));
+    extension_id = crx_file::id_util::GenerateId(public_key);
     return signing_key;
   }
 

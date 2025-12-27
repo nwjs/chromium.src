@@ -338,6 +338,7 @@ targets.bundle(
 targets.bundle(
     name = "android_ar_gtests",
     targets = [
+        "chrome_public_test_ar_apk",
         # Name is vr_*, but actually has AR tests.
         "vr_android_unittests",
     ],
@@ -482,6 +483,7 @@ targets.bundle(
         "chrome_public_test_apk_desktop",
         "chrome_public_unit_test_apk",
         "extensions_unittests",
+        "media_unittests",
         "unit_tests",
         "video_encode_accelerator_tests",
     ],
@@ -504,9 +506,6 @@ targets.bundle(
             swarming = targets.swarming(
                 shards = 30,
             ),
-            # TODO(crbug.com/444482498): Remove the experiment after the suite
-            # is green.
-            experiment_percentage = 100,
         ),
         "chrome_public_test_apk_desktop": targets.mixin(
             args = [
@@ -934,6 +933,7 @@ targets.bundle(
         "android_browsertests",
         "android_sync_integration_tests",
         "android_webview_unittests",
+        "base_unittests_android_death_tests",
         "content_shell_test_apk",
         "mojo_test_apk",
         "ui_android_unittests",
@@ -1393,8 +1393,6 @@ targets.bundle(
                     # https://crbug.com/549140
                     idempotent = False,
                 ),
-                # TODO(b/451296512): Remove experimental.
-                experiment_percentage = 100,
             ),
             "has_native_resultdb_integration",
         ],
@@ -1414,8 +1412,6 @@ targets.bundle(
                     # https://crbug.com/549140
                     idempotent = False,
                 ),
-                # TODO(b/451296512): Remove experimental.
-                experiment_percentage = 100,
             ),
             "has_native_resultdb_integration",
         ],
@@ -3409,12 +3405,6 @@ targets.bundle(
     targets = [
         "gpu_webgl_conformance_telemetry_tests",
     ],
-    per_test_modifications = {
-        "webgl_conformance_tests": targets.mixin(
-            # TODO(b/451296512): Remove experimental.
-            experiment_percentage = 100,
-        ),
-    },
 )
 
 # The command buffer perf tests are only run on Windows.
@@ -4991,8 +4981,8 @@ targets.bundle(
         targets.bundle(
             targets = "ios_common_tests",
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_1",
-                "SIM_IPHONE_16_26_1",
+                "SIM_IPAD_AIR_6TH_GEN_26_2",
+                "SIM_IPHONE_16_26_2",
             ],
         ),
         targets.bundle(
@@ -5001,8 +4991,8 @@ targets.bundle(
                 "xcodebuild_sim_runner",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_1",
-                "SIM_IPHONE_16_26_1",
+                "SIM_IPAD_AIR_6TH_GEN_26_2",
+                "SIM_IPHONE_16_26_2",
             ],
         ),
         targets.bundle(
@@ -5012,8 +5002,8 @@ targets.bundle(
                 "record_failed_tests",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_1",
-                "SIM_IPHONE_16_26_1",
+                "SIM_IPAD_AIR_6TH_GEN_26_2",
+                "SIM_IPHONE_16_26_2",
             ],
         ),
         targets.bundle(
@@ -5023,16 +5013,16 @@ targets.bundle(
                 "record_failed_tests",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_1",
-                "SIM_IPHONE_16_26_1",
+                "SIM_IPAD_AIR_6TH_GEN_26_2",
+                "SIM_IPHONE_16_26_2",
             ],
         ),
         targets.bundle(
             targets = "ios_screen_size_dependent_tests",
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_1",
-                "SIM_IPHONE_16_26_1",
-                "SIM_IPHONE_SE_3RD_GEN_26_1",
+                "SIM_IPAD_AIR_6TH_GEN_26_2",
+                "SIM_IPHONE_16_26_2",
+                "SIM_IPHONE_SE_3RD_GEN_26_2",
             ],
         ),
     ],
@@ -5044,8 +5034,8 @@ targets.bundle(
         targets.bundle(
             targets = "ios_common_tests",
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_1",
-                "SIM_IPHONE_16_26_1",
+                "SIM_IPAD_AIR_6TH_GEN_26_2",
+                "SIM_IPHONE_16_26_2",
             ],
         ),
         targets.bundle(
@@ -5054,8 +5044,8 @@ targets.bundle(
                 "xcodebuild_sim_runner",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_1",
-                "SIM_IPHONE_16_26_1",
+                "SIM_IPAD_AIR_6TH_GEN_26_2",
+                "SIM_IPHONE_16_26_2",
             ],
         ),
         targets.bundle(
@@ -5064,16 +5054,16 @@ targets.bundle(
                 "xcodebuild_sim_runner",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_1",
-                "SIM_IPHONE_16_26_1",
+                "SIM_IPAD_AIR_6TH_GEN_26_2",
+                "SIM_IPHONE_16_26_2",
             ],
         ),
         targets.bundle(
             targets = "ios_screen_size_dependent_tests",
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_1",
-                "SIM_IPHONE_16_26_1",
-                "SIM_IPHONE_SE_3RD_GEN_26_1",
+                "SIM_IPAD_AIR_6TH_GEN_26_2",
+                "SIM_IPHONE_16_26_2",
+                "SIM_IPHONE_SE_3RD_GEN_26_2",
             ],
         ),
     ],
@@ -5129,7 +5119,7 @@ targets.bundle(
         targets.bundle(
             targets = "ios_blink_tests",
             variants = [
-                "SIM_IPHONE_15_26_1",
+                "SIM_IPHONE_15_26_2",
             ],
         ),
     ],
@@ -6864,6 +6854,12 @@ targets.bundle(
     ],
     per_test_modifications = {
         "updater_tests": [
+            targets.mixin(
+                swarming = targets.swarming(
+                    shards = 2,
+                    hard_timeout_sec = 7200,
+                ),
+            ),
             "integrity_high",
             "updater-default-pool",
         ],

@@ -63,11 +63,6 @@
     'name': 'chrome',
     'mixins': ['chrome-tester-service-account'],
     'machines': {
-      'chromeos-arm-generic-cfi-thin-lto-chrome': {
-        'additional_compile_targets': [
-          'chromiumos_preflight',
-        ],
-      },
       'chromeos-arm64-generic-cfi-thin-lto-chrome': {
         'additional_compile_targets': [
           'chromiumos_preflight',
@@ -627,7 +622,7 @@
           'components/openscreen_platform',
         ],
       },
-      'chromium_mac_x64': {
+      'chromium_mac_arm64': {
         'additional_compile_targets': [
           'chrome/browser/media/router',
           'chrome/browser/media/router:openscreen_unittests',

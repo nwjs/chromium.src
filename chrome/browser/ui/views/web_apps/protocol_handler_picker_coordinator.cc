@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/tabs/public/tab_dialog_manager.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/url_identity.h"
 #include "chrome/browser/ui/views/web_apps/protocol_handler_picker_dialog.h"
 #include "components/services/app_service/public/cpp/app_update.h"
 #include "components/services/app_service/public/cpp/icon_types.h"
@@ -37,14 +38,10 @@ namespace {
 constexpr int kIconSizeInDip = 32;
 
 void MaybeCloseTabAsync(tabs::TabInterface& tab) {
-  TabStripModel* tab_strip_model =
-      tab.GetBrowserWindowInterface()->GetTabStripModel();
   // If there's more than one tab in the browser corresponding to the current
   // tab and the current tab still in the initial navigation state, it's
   // expected to be closed.
-  if (tab_strip_model->GetIndexOfTab(&tab) != TabStripModel::kNoTab &&
-      tab_strip_model->count() > 1 &&
-      tab.GetContents()->GetController().IsInitialNavigation()) {
+  if (tab.GetContents()->GetController().IsInitialNavigation()) {
     base::UmaHistogramBoolean("WebApp.ProtocolHandlerPicker.TabClosed", true);
     content::GetUIThreadTaskRunner({})->PostTask(
         FROM_HERE,
@@ -94,6 +91,20 @@ void RecordPickerAction(ProtocolHandlerPickerAction action) {
   base::UmaHistogramEnumeration("WebApp.ProtocolHandlerPicker.Action", action);
 }
 
+std::optional<std::u16string> SerializeInitiatorOriginWithUrlIdentity(
+    Profile* profile,
+    const std::optional<url::Origin>& initiator_origin) {
+  if (!initiator_origin) {
+    return std::nullopt;
+  }
+  return UrlIdentity::CreateFromUrl(
+             profile, initiator_origin->GetURL(),
+             {UrlIdentity::Type::kDefault, UrlIdentity::Type::kIsolatedWebApp,
+              UrlIdentity::Type::kChromeExtension},
+             {.default_options = {}})
+      .name;
+}
+
 }  // namespace
 
 namespace web_app {
@@ -119,13 +130,16 @@ std::optional<std::string> ProtocolHandlerPickerCoordinator::FindPreferredApp(
   return std::nullopt;
 }
 
-void ProtocolHandlerPickerCoordinator::LaunchApp(const GURL& protocol_url,
-                                                 const std::string& app_id) {
+void ProtocolHandlerPickerCoordinator::LaunchApp(
+    const GURL& protocol_url,
+    const std::string& app_id,
+    std::optional<ConfirmationDialogAction> action) {
   apps::AppLaunchParams params(app_id,
                                apps::LaunchContainer::kLaunchContainerWindow,
                                WindowOpenDisposition::NEW_FOREGROUND_TAB,
                                apps::LaunchSource::kFromProtocolHandler);
   params.protocol_handler_launch_url = protocol_url;
+  params.confirmation_dialog_action = action;
   proxy_->LaunchAppWithParams(std::move(params));
 }
 
@@ -189,7 +203,11 @@ void ProtocolHandlerPickerCoordinator::ShowPickerWithEntries(
 
   std::unique_ptr<ui::DialogModel> dialog_model =
       CreateProtocolHandlerPickerDialog(
-          protocol_url, app_entries, initiator_origin,
+          protocol_url, app_entries,
+          SerializeInitiatorOriginWithUrlIdentity(
+              Profile::FromBrowserContext(
+                  tab_->GetContents()->GetBrowserContext()),
+              initiator_origin),
           base::BindOnce(
               &ProtocolHandlerPickerCoordinator::OnPreferredHandlerSelected,
               weak_factory_.GetWeakPtr(), protocol_url));
@@ -230,10 +248,13 @@ void ProtocolHandlerPickerCoordinator::OnPreferredHandlerSelected(
     bool remember_choice) {
   base::UmaHistogramBoolean("WebApp.ProtocolHandlerPicker.RememberSelection",
                             remember_choice);
+  auto action = ConfirmationDialogAction::kForceSkip;
   if (remember_choice) {
     proxy_->SetProtocolLinkPreference(app_id, protocol_url.scheme());
+    action = ConfirmationDialogAction::kPersistentlyForceSkip;
   }
-  LaunchApp(protocol_url, app_id);
+
+  LaunchApp(protocol_url, app_id, action);
 }
 
 void ProtocolHandlerPickerCoordinator::CloseDialogWidget(

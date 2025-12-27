@@ -13,11 +13,17 @@
 #import "components/optimization_guide/core/hints/optimization_metadata.h"
 #import "components/optimization_guide/proto/contextual_cueing_metadata.pb.h"
 #import "ios/chrome/browser/optimization_guide/mojom/zero_state_suggestions_service.mojom.h"
+#import "ios/web/public/js_image_transcoder/java_script_image_transcoder.h"
 #import "ios/web/public/web_state_observer.h"
 #import "ios/web/public/web_state_user_data.h"
 
 @protocol BWGCommands;
+@protocol LocationBarBadgeCommands;
 @protocol SnackbarCommands;
+
+namespace base {
+class Value;
+}  // namespace base
 
 // Tab helper controlling the BWG feature and its current state for a given tab.
 class BwgTabHelper : public web::WebStateObserver,
@@ -41,9 +47,9 @@ class BwgTabHelper : public web::WebStateObserver,
   // Deactivates the BWG associated to this WebState.
   void DeactivateBWGSession();
 
-  // Whether BWG should show the zero-state input box UI for the current Web
-  // State and visible URL.
-  bool ShouldShowZeroState();
+  // Returns true if the URL of last recorded interaction is not the same as the
+  // current URL (ignoring URL fragments).
+  bool IsLastInteractionUrlDifferent();
 
   // Whether BWG should show the suggestion chips for the current Web State and
   // visible URL.
@@ -74,6 +80,9 @@ class BwgTabHelper : public web::WebStateObserver,
   // Set the snackbar commands handler for presenting snackbars.
   void SetSnackbarCommandsHandler(id<SnackbarCommands> handler);
 
+  // Set the location bar badge commands handler.
+  void SetLocationBarBadgeCommandsHandler(id<LocationBarBadgeCommands> handler);
+
   // Sets the state of `is_first_run`.
   void SetIsFirstRun(bool is_first_run);
 
@@ -89,6 +98,12 @@ class BwgTabHelper : public web::WebStateObserver,
 
   // Sets a callback to be run when the page has finished loading.
   void SetPageLoadedCallback(base::OnceClosure callback);
+
+  // Getter `contextual_cue_label_`.
+  NSString* GetContextualCueLabel();
+
+  // Setter for `contextual_cue_label_`.
+  void SetContextualCueLabel(NSString* cue_label);
 
   // WebStateObserver:
   void WasShown(web::WebState* web_state) override;
@@ -120,7 +135,7 @@ class BwgTabHelper : public web::WebStateObserver,
       const optimization_guide::OptimizationMetadata& metadata);
 
   // Callback from OptimizationGuide metadata request.
-  void OnOptimizationGuideDecision(
+  void OnCanApplyContextualCueingDecision(
       const GURL& main_frame_url,
       optimization_guide::OptimizationGuideDecision decision,
       const optimization_guide::OptimizationMetadata& metadata);
@@ -167,10 +182,14 @@ class BwgTabHelper : public web::WebStateObserver,
   bool is_bwg_session_active_in_background_ = false;
 
   // Commands handler for BWG commands.
-  __weak id<BWGCommands> bwg_commands_handler_ = nil;
+  __weak id<BWGCommands> bwg_commands_handler_ = nullptr;
 
   // Commands handler for snackbars.
-  __weak id<SnackbarCommands> snackbar_commands_handler_ = nil;
+  __weak id<SnackbarCommands> snackbar_commands_handler_ = nullptr;
+
+  // Commands handler for location bar badge.
+  __weak id<LocationBarBadgeCommands> location_bar_badge_commands_handler_ =
+      nullptr;
 
   // The observation of the Web State.
   base::ScopedObservation<web::WebState, web::WebStateObserver>
@@ -194,11 +213,30 @@ class BwgTabHelper : public web::WebStateObserver,
   // Whether to prevent contextual panel entry point.
   bool prevent_contextual_panel_entry_point_ = false;
 
+  // TODO(crbug.com/456782848): Cleanup when no longer needed/wanted.
+  // Experimental. Injects JS to extract the URL of an `og:image`, fetches its
+  // bytes, transcodes it to PNG safely and finally presents a snackbar with a
+  // button that presents a sheet on the current WebState, along with its
+  // resolution. Most of this work is async, so this is implemented as a chain
+  // of callbacks.
+  void PrepareWebPageReportedImagesSnackbar();
+  void OnImageExtractedFromWebState(const base::Value* value, NSError* error);
+  void OnImageFetched(NSData* data);
+  void OnImageTranscoded(NSData* png_data, NSError* error);
+
+  // TODO(crbug.com/456782848): Cleanup when no longer needed/wanted.
+  // Experimental. The image transcoder web JS feature to convert images to PNG
+  // safely.
+  std::unique_ptr<web::JavaScriptImageTranscoder> image_transcoder_;
+
   // The zero-state suggestions data and service for the current page.
   std::unique_ptr<ZeroStateSuggestions> zero_state_suggestions_;
 
   // Callback to be run when the page has finished loading.
   base::OnceClosure page_loaded_callback_;
+
+  // Contextual cue label generated for Gemini contextual cue metadata.
+  NSString* contextual_cue_label_;
 
   base::WeakPtrFactory<BwgTabHelper> weak_ptr_factory_{this};
 };

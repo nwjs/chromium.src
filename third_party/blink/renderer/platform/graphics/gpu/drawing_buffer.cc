@@ -49,6 +49,7 @@
 #include "gpu/command_buffer/client/context_support.h"
 #include "gpu/command_buffer/client/shared_image_interface.h"
 #include "gpu/command_buffer/common/capabilities.h"
+#include "gpu/command_buffer/common/shared_image_capabilities.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/config/gpu_driver_bug_workaround_type.h"
 #include "gpu/config/gpu_feature_info.h"
@@ -117,16 +118,12 @@ void FlipVertically(base::span<uint8_t> framebuffer,
 
 sk_sp<SkData> TryAllocateSkDataForBitmap(viz::SharedImageFormat format,
                                          gfx::Size size) {
-  CHECK_EQ(format.BitsPerPixel() % 8, 0);
-  base::CheckedNumeric<size_t> data_size = format.BitsPerPixel() / 8;
-  data_size *= size.width();
-  data_size *= size.height();
-
-  if (!data_size.IsValid()) {
+  auto data_size = format.MaybeEstimatedSizeInBytes(size);
+  if (!data_size) {
     return nullptr;
   }
 
-  return TryAllocateSkData(data_size.ValueOrDie());
+  return TryAllocateSkData(data_size.value());
 }
 
 class ScopedDrawBuffer {
@@ -174,7 +171,6 @@ void ForceNextDrawingBufferCreationToFailForTest() {
 scoped_refptr<DrawingBuffer> DrawingBuffer::Create(
     std::unique_ptr<WebGraphicsContext3DProvider> context_provider,
     const Platform::WebGLContextInfo& context_info,
-    bool using_swap_chain,
     Client* client,
     const gfx::Size& size,
     bool premultiplied_alpha,
@@ -239,12 +235,11 @@ scoped_refptr<DrawingBuffer> DrawingBuffer::Create(
 
   scoped_refptr<DrawingBuffer> drawing_buffer =
       base::AdoptRef(new DrawingBuffer(
-          std::move(context_provider), context_info, using_swap_chain,
-          desynchronized, std::move(extensions_util), client,
-          discard_framebuffer_supported, texture_storage_enabled,
-          want_alpha_channel, premultiplied_alpha, preserve, webgl_version,
-          want_depth_buffer, want_stencil_buffer, chromium_image_usage,
-          color_space, gpu_preference));
+          std::move(context_provider), context_info, desynchronized,
+          std::move(extensions_util), client, discard_framebuffer_supported,
+          texture_storage_enabled, want_alpha_channel, premultiplied_alpha,
+          preserve, webgl_version, want_depth_buffer, want_stencil_buffer,
+          chromium_image_usage, color_space, gpu_preference));
   if (!drawing_buffer->Initialize(size, multisample_supported)) {
     drawing_buffer->BeginDestruction();
     return scoped_refptr<DrawingBuffer>();
@@ -255,7 +250,6 @@ scoped_refptr<DrawingBuffer> DrawingBuffer::Create(
 DrawingBuffer::DrawingBuffer(
     std::unique_ptr<WebGraphicsContext3DProvider> context_provider,
     const Platform::WebGLContextInfo& context_info,
-    bool using_swap_chain,
     bool desynchronized,
     std::unique_ptr<Extensions3DUtil> extensions_util,
     Client* client,
@@ -285,7 +279,11 @@ DrawingBuffer::DrawingBuffer(
                                 : kOpaque_SkAlphaType),
       requested_format_(want_alpha_channel ? GL_RGBA8 : GL_RGB8),
       context_info_(context_info),
-      using_swap_chain_(using_swap_chain),
+      using_swap_chain_(ContextProvider()
+                            ->SharedImageInterface()
+                            ->GetCapabilities()
+                            .shared_image_swap_chain &&
+                        desynchronized),
       low_latency_enabled_(desynchronized),
       want_depth_(want_depth),
       want_stencil_(want_stencil),
@@ -895,6 +893,10 @@ void DrawingBuffer::ColorBuffer::BeginAccess(const gpu::SyncToken& sync_token,
       shared_image_texture_->BeginAccess(sync_token, readonly);
 }
 
+base::ByteCount DrawingBuffer::ColorBuffer::EstimatedSizeInBytes() const {
+  return shared_image->EstimatedSizeInBytes();
+}
+
 gpu::SyncToken DrawingBuffer::ColorBuffer::EndAccess() {
   return gpu::SharedImageTexture::ScopedAccess::EndAccess(
       std::move(scoped_shared_image_access_));
@@ -925,9 +927,8 @@ bool DrawingBuffer::Initialize(const gfx::Size& size, bool use_multisampling) {
 
   auto webgl_preferences = ContextProvider()->GetWebglPreferences();
 
-  // We can't use anything other than explicit resolve for swap chain.
-  // TODO(crbug.com/40074896): Determine whether this restriction holds for the
-  // single-SI swapchain impl.
+  // We can't use anything other than explicit resolve for swap chain, as the
+  // D3D11 texture backing the back buffer is single-sampled.
   bool supports_implicit_resolve =
       !using_swap_chain_ && extensions_util_->SupportsExtension(
                                 "GL_EXT_multisampled_render_to_texture");
@@ -1214,6 +1215,29 @@ bool DrawingBuffer::CopyToVideoFrame(
   return CopyToPlatformInternal(raster_interface, /*dst_is_unpremul_gl=*/false,
                                 src_buffer, copy_function)
       .has_value();
+}
+
+base::ByteCount DrawingBuffer::EstimatedSizeInBytes() const {
+  base::ByteCount result;
+  if (back_color_buffer_) {
+    result += back_color_buffer_->EstimatedSizeInBytes();
+  }
+  for (const auto& buffer : recycled_color_buffer_queue_) {
+    result += buffer->EstimatedSizeInBytes();
+  }
+  for (const auto& buffer : exported_color_buffers_) {
+    result += buffer->EstimatedSizeInBytes();
+  }
+  if (staging_texture_needed_ || SampleCount() > 0) {
+    result +=
+        base::ByteCount(color_buffer_format_.EstimatedSizeInBytes(size_)) *
+        (SampleCount() + staging_texture_needed_);
+  }
+  if (HasDepthBuffer() || HasStencilBuffer()) {
+    result += std::max(SampleCount(), 1) *
+              base::ByteCount(4 * size_.width() * size_.height());
+  }
+  return result;
 }
 
 cc::Layer* DrawingBuffer::CcLayer() {
@@ -1938,7 +1962,6 @@ scoped_refptr<DrawingBuffer::ColorBuffer> DrawingBuffer::CreateColorBuffer(
   gpu::SharedImageInterface* sii = ContextProvider()->SharedImageInterface();
 
   scoped_refptr<gpu::ClientSharedImage> back_buffer_shared_image;
-  GLenum texture_target = GL_TEXTURE_2D;
 
   // The SharedImages created here are read to and written from by WebGL. They
   // may also be read via the raster interface for WebGL->video and/or
@@ -1974,10 +1997,6 @@ scoped_refptr<DrawingBuffer::ColorBuffer> DrawingBuffer::CreateColorBuffer(
   if (using_swap_chain_) {
     usage = usage | gpu::SHARED_IMAGE_USAGE_SCANOUT;
     usage = usage | gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE;
-    back_buffer_shared_image = sii->CreateSharedImage(
-        {color_buffer_format_, size, color_space_, origin,
-         back_buffer_alpha_type, usage, "WebGLDrawingBuffer"},
-        gpu::kNullSurfaceHandle);
   } else {
     // First see if creating a SharedImage that can be used as an overlay is
     // feasible.
@@ -2024,19 +2043,12 @@ scoped_refptr<DrawingBuffer::ColorBuffer> DrawingBuffer::CreateColorBuffer(
         !usage.Has(gpu::SHARED_IMAGE_USAGE_SCANOUT)) {
       back_buffer_alpha_type = kUnpremul_SkAlphaType;
     }
-
-    back_buffer_shared_image = sii->CreateSharedImage(
-        {color_buffer_format_, size, color_space_, origin,
-         back_buffer_alpha_type, usage, "WebGLDrawingBuffer"},
-        gpu::kNullSurfaceHandle);
-
-    if (usage.Has(gpu::SHARED_IMAGE_USAGE_SCANOUT)) {
-      // On Mac the texture target for SharedImages with SCANOUT usage (which
-      // get backed by IOSurfaces) is the "native" texture target for
-      // IOSurfaces, which is not necessarily GL_TEXTURE_2D.
-      texture_target = back_buffer_shared_image->GetTextureTarget();
-    }
   }
+
+  back_buffer_shared_image = sii->CreateSharedImage(
+      {color_buffer_format_, size, color_space_, origin, back_buffer_alpha_type,
+       usage, "WebGLDrawingBuffer"},
+      gpu::kNullSurfaceHandle);
 
   staging_texture_needed_ = false;
   if (requested_alpha_type_ == kUnpremul_SkAlphaType &&
@@ -2056,12 +2068,13 @@ scoped_refptr<DrawingBuffer::ColorBuffer> DrawingBuffer::CreateColorBuffer(
   // Import the backbuffer of swap chain or allocated SharedImage into GL.
   std::unique_ptr<gpu::SharedImageTexture> si_texture =
       back_buffer_shared_image->CreateGLTexture(gl_);
+  GLenum si_texture_target = back_buffer_shared_image->GetTextureTarget();
   scoped_refptr<DrawingBuffer::ColorBuffer> color_buffer =
       base::MakeRefCounted<ColorBuffer>(weak_factory_.GetWeakPtr(),
                                         std::move(back_buffer_shared_image),
                                         std::move(si_texture));
   color_buffer->BeginAccess(gpu::SyncToken(), /*readonly=*/false);
-  gl_->BindTexture(texture_target, color_buffer->texture_id());
+  gl_->BindTexture(si_texture_target, color_buffer->texture_id());
 
   // Clear the alpha channel if RGB emulation is required.
   if (DefaultBufferRequiresAlphaChannelToBePreserved()) {
@@ -2071,13 +2084,13 @@ scoped_refptr<DrawingBuffer::ColorBuffer> DrawingBuffer::CreateColorBuffer(
     gl_->GenFramebuffers(1, &fbo);
     gl_->BindFramebuffer(GL_FRAMEBUFFER, fbo);
     gl_->FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                              texture_target, color_buffer->texture_id(), 0);
+                              si_texture_target, color_buffer->texture_id(), 0);
     gl_->ClearColor(0, 0, 0, 1);
     gl_->ColorMask(false, false, false, true);
     gl_->Disable(GL_SCISSOR_TEST);
     gl_->Clear(GL_COLOR_BUFFER_BIT);
     gl_->FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                              texture_target, 0, 0);
+                              si_texture_target, 0, 0);
     gl_->DeleteFramebuffers(1, &fbo);
   }
 

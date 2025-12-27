@@ -194,11 +194,6 @@ class MockIpProtectionCore : public IpProtectionCore {
       size_t chain_index) override {
     return std::nullopt;
   }
-  std::optional<std::string> GetProbabilisticRevealToken(
-      const GURL& url,
-      const net::SchemefulSite& top_frame_site) override {
-    NOTREACHED();
-  }
   bool IsProxyListAvailable() override { return false; }
   void QuicProxiesFailed() override {}
   std::vector<net::ProxyChain> GetProxyChainList() override { return {}; }
@@ -209,15 +204,6 @@ class MockIpProtectionCore : public IpProtectionCore {
   }
   void SetTrackingProtectionContentSetting(
       const ContentSettingsForOneType& settings) override {}
-  bool ShouldRequestIncludeProbabilisticRevealToken(
-      const GURL& request_url) override {
-    return false;
-  }
-  IpProxyStatus GetIpProxyStatus() override {
-    return IpProxyStatus::kUnavailable;
-  }
-  bool IsProxyBypassed() override { return false; }
-  void SetBypassProxy(bool bypass_proxy) override {}
 };
 
 class FakeCoreHost : public ip_protection::mojom::CoreHost {
@@ -230,11 +216,6 @@ class FakeCoreHost : public ip_protection::mojom::CoreHost {
   }
   void GetProxyConfig(ip_protection::mojom::CoreHost::GetProxyConfigCallback
                           callback) override {
-    NOTREACHED();
-  }
-  void TryGetProbabilisticRevealTokens(
-      ip_protection::mojom::CoreHost::TryGetProbabilisticRevealTokensCallback
-          callback) override {
     NOTREACHED();
   }
   void RecycleTokens(ip_protection::ProxyLayer proxy_layer,

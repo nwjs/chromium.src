@@ -8,7 +8,6 @@
 #include <optional>
 #include <vector>
 
-#include "base/functional/callback_forward.h"
 #include "base/functional/concurrent_closures.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/utf_string_conversions.h"
@@ -114,7 +113,7 @@ void AppUpdateDataReadCommand::StartWithLock(std::unique_ptr<AppLock> lock) {
   // Start fetching the icons for the update dialog.
   pending_update_info_ = *web_app->pending_update_info();
   GetMutableDebugValue().Set("pending_update_info",
-                             proto::Serialize(pending_update_info_));
+                             proto::ToValue(pending_update_info_));
 
   std::optional<IconPurpose> trusted_icon_purpose_if_any =
       pending_update_info_.trusted_icons_size() > 0

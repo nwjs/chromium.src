@@ -142,8 +142,9 @@ class ArcAppInstallEventLogCollectorTest : public testing::Test {
 
   void SetUp() override {
     chromeos::PowerManagerClient::InitializeFake();
+    arc_app_test_.PreProfileSetUp();
     profile_ = std::make_unique<TestingProfile>();
-    arc_app_test_.SetUp(profile_.get());
+    arc_app_test_.PostProfileSetUp(profile_.get());
 
     network_handler_test_helper_ =
         std::make_unique<ash::NetworkHandlerTestHelper>();
@@ -158,9 +159,9 @@ class ArcAppInstallEventLogCollectorTest : public testing::Test {
 
   void TearDown() override {
     network_handler_test_helper_.reset();
-    arc_app_test_.TearDown();
-
+    arc_app_test_.PreProfileTearDown();
     profile_.reset();
+    arc_app_test_.PostProfileTearDown();
     chromeos::PowerManagerClient::Shutdown();
   }
 

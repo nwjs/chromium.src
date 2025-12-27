@@ -51,6 +51,14 @@ NET_EXPORT extern const base::FeatureParam<base::TimeDelta>
 // are used (e.g. to connect via ECH) may be controlled by separate features.
 NET_EXPORT BASE_DECLARE_FEATURE(kUseDnsHttpsSvcb);
 
+// Enables partial support for Structured DNS Errors
+// (draft-ietf-dnsop-structured-dns-error). When enabled, the Chrome DNS
+// resolver will indicate support for structured extended errors in outgoing DNS
+// requests, render EDNS error codes on the error page, and populate filtering
+// details when provided as a structured error
+// (draft-nottingham-public-resolver-errors).
+NET_EXPORT BASE_DECLARE_FEATURE(kUseStructuredDnsErrors);
+
 // Param to control whether or not HostResolver, when using Secure DNS, will
 // fail the entire connection attempt when receiving an inconclusive response to
 // an HTTPS query (anything except transport error, timeout, or SERVFAIL). Used
@@ -161,13 +169,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kSplitCacheByIncludeCredentials);
 // Splits cache entries by the request's NetworkIsolationKey if one is
 // available.
 NET_EXPORT BASE_DECLARE_FEATURE(kSplitCacheByNetworkIsolationKey);
-
-// This flag incorporates a boolean into the cache key that is true for
-// renderer-initiated main frame navigations when the request initiator site is
-// cross-site to the URL being navigated to. This provides protections against
-// certain cross-site leak attacks involving cross-site navigations.
-NET_EXPORT BASE_DECLARE_FEATURE(
-    kSplitCacheByCrossSiteMainFrameNavigationBoolean);
 
 // Splits the generated code cache by the request's NetworkIsolationKey if one
 // is available. Note that this feature is also gated behind
@@ -288,13 +289,6 @@ NET_EXPORT extern const base::FeatureParam<base::TimeDelta>
 // requests allowed because of requestStorageAccessFor instead of cors.
 NET_EXPORT BASE_DECLARE_FEATURE(kRequestStorageAccessNoCorsRequired);
 
-// When enabled, the Storage Access API follows the Same Origin Policy when
-// including cookies on network requests. (I.e., a cross-site cookie is only
-// included via the Storage Access API if the request's URL's origin [not site]
-// has opted into receiving cross-site cookies.)
-NET_EXPORT
-BASE_DECLARE_FEATURE(kStorageAccessApiFollowsSameOriginPolicy);
-
 // Controls whether static key pinning is enforced.
 NET_EXPORT BASE_DECLARE_FEATURE(kStaticKeyPinningEnforcement);
 
@@ -302,9 +296,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kStaticKeyPinningEnforcement);
 NET_EXPORT BASE_DECLARE_FEATURE(kCookieDomainRejectNonASCII);
 
 NET_EXPORT BASE_DECLARE_FEATURE(kThirdPartyStoragePartitioning);
-
-// Feature to enable consideration of 3PC deprecation trial settings.
-NET_EXPORT BASE_DECLARE_FEATURE(kTpcdTrialSettings);
 
 // Whether to enable the use of 3PC based on 3PCD metadata grants delivered via
 // component updater.
@@ -364,72 +355,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kAsyncQuicSession);
 
 // A flag to make multiport context creation asynchronous.
 NET_EXPORT BASE_DECLARE_FEATURE(kAsyncMultiPortPath);
-
-// Enables the Probabilistic Reveal Tokens feature.
-NET_EXPORT BASE_DECLARE_FEATURE(kEnableProbabilisticRevealTokens);
-
-// Sets the name of the probabilistic reveal token issuer server.
-NET_EXPORT extern const base::FeatureParam<std::string>
-    kProbabilisticRevealTokenServer;
-
-// Sets the path of the probabilistic reveal token server URL used for issuing
-// tokens.
-NET_EXPORT extern const base::FeatureParam<std::string>
-    kProbabilisticRevealTokenServerPath;
-
-// If true, the probabilistic reveal token registration check will be skipped
-// and we will consider every domain as being eligible to receive PRTs. In order
-// for PRTs to be attached to requests, the
-// `ProbabilisticRevealTokensAddHeaderToProxiedRequests` flag must also be true.
-NET_EXPORT extern const base::FeatureParam<bool>
-    kBypassProbabilisticRevealTokenRegistry;
-
-// If true, the standard probabilistic reveal token registry will be ignored and
-// the custom registry will be used instead. The custom registry can be set with
-// the `CustomProbabilisticRevealTokenRegistry` flag. This will only be used if
-// `BypassProbabilisticRevealTokenRegistry` is false. This is intended to be
-// used for developer testing only.
-NET_EXPORT extern const base::FeatureParam<bool>
-    kUseCustomProbabilisticRevealTokenRegistry;
-
-// A comma-separated list of domains (eTLD+1) which will be considered eligible
-// to receive PRTs. This will override the default PRT registry and will only be
-// used if `UseCustomProbabilisticRevealTokenRegistry` is true and
-// `BypassProbabilisticRevealTokenRegistry` is false. This is intended to be
-// used for developer testing only.
-NET_EXPORT extern const base::FeatureParam<std::string>
-    kCustomProbabilisticRevealTokenRegistry;
-
-// If true, probabilistic reveal tokens will only be enabled in Incognito mode.
-NET_EXPORT extern const base::FeatureParam<bool>
-    kProbabilisticRevealTokensOnlyInIncognito;
-
-// If true, probabilistic reveal tokens will only be fetched. PRTs will not be
-// randomized at request time or attached to any requests. This is intended to
-// be used for measuring issuer server load before the feature is fully enabled.
-NET_EXPORT extern const base::FeatureParam<bool>
-    kProbabilisticRevealTokenFetchOnly;
-
-// If true, PRTs are attached to the non-proxied requests satisfying the
-// right conditions specified by other PRT flags, in addition to the proxied
-// ones.
-NET_EXPORT extern const base::FeatureParam<bool>
-    kEnableProbabilisticRevealTokensForNonProxiedRequests;
-
-// TODO(crbug.com/425905281): Rename feature flag
-// `kProbabilisticRevealTokensAddHeaderToProxiedRequests`
-//
-// Despite its name this flag controls whether the PRT header should be added to
-// a given request, independent of the request being proxied or not. The
-// decision on enabling PRTs for non-proxied requests is controlled with
-// `kEnableProbabilisticRevealTokensForNonProxiedRequests`.
-//
-// If true, PRT header will be added to the not necessarily proxied requests
-// satisfying the right conditions specified by other PRT flags, i.e., whether
-// PRTs are enabled for the request/session, destination domain is eligible and
-// kProbabilisticRevealTokenFetchOnly is false.
-NET_EXPORT extern const base::FeatureParam<bool>
-    kProbabilisticRevealTokensAddHeaderToProxiedRequests;
 
 // Enables custom proxy configuration for the IP Protection experimental proxy.
 NET_EXPORT BASE_DECLARE_FEATURE(kEnableIpProtectionProxy);
@@ -541,12 +466,6 @@ NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyUseQuicProxies;
 // fallback to HTTPS. This is intended for development of the QUIC
 // functionality.
 NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyUseQuicProxiesOnly;
-
-// If true, IP protection will not wait for a CONNECT-UDP response before
-// sending datagrams. This will not do anything if kIpPrivacyUseQuicProxies is
-// false.
-NET_EXPORT extern const base::FeatureParam<bool>
-    kIpPrivacyUseQuicProxiesWithoutWaitingForConnectResponse;
 
 // Fallback to direct when connections to IP protection proxies fail. This
 // defaults to true and is intended for development of the QUIC functionality.
@@ -713,13 +632,6 @@ NET_EXPORT BASE_DECLARE_FEATURE_PARAM(
     kDeviceBoundSessionsCheckSubdomainRegistration);
 // This feature controls the database schema version for stored sessions.
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(int, kDeviceBoundSessionsSchemaVersion);
-// This feature will enable breaking changes to Device Bound Session
-// Credentials from after the Origin Trial started. This is disabled by
-// default to facilitate implementation of feedback from the Origin
-// Trial while still being able to get consistent metrics across Chrome
-// releases.
-NET_EXPORT BASE_DECLARE_FEATURE_PARAM(bool,
-                                      kDeviceBoundSessionsOriginTrialFeedback);
 
 // This feature controls whether DBSC allows federated sessions.
 NET_EXPORT BASE_DECLARE_FEATURE(kDeviceBoundSessionsFederatedRegistration);
@@ -767,10 +679,9 @@ NET_EXPORT BASE_DECLARE_FEATURE(kFurtherOptimizeParsingDataUrls);
 // Otherwise, unrecognized keys are treated as if the header was invalid.
 NET_EXPORT BASE_DECLARE_FEATURE(kNoVarySearchIgnoreUnrecognizedKeys);
 
-// Kill switch for Static CT Log (aka Tiled Log aka Sunlight)
-// enforcements in Certificate Transparency policy checks. If disabled, SCTs
-// from Static CT Logs will simply be ignored.
-NET_EXPORT BASE_DECLARE_FEATURE(kEnableStaticCTAPIEnforcement);
+// Enables enforcement of One-RFC6962 policy for Certificate Transparency. When
+// disabled, Chrome does not distinguish between SCTs based on log type.
+NET_EXPORT BASE_DECLARE_FEATURE(kEnforceOneRfc6962CtPolicy);
 
 // Finch experiment to select a disk cache backend.
 enum class DiskCacheBackend {
@@ -803,6 +714,8 @@ NET_EXPORT BASE_DECLARE_FEATURE_PARAM(int,
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(bool, kSqlDiskCacheSynchronousOff);
 // The number of shards for the SQL disk cache.
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(int, kSqlDiskCacheShardCount);
+// Loads the in-memory index on initialization.
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(bool, kSqlDiskCacheLoadIndexOnInit);
 #endif  // ENABLE_DISK_CACHE_SQL_BACKEND
 
 // If enabled, ignore Strict-Transport-Security for [*.]localhost hosts.
@@ -847,6 +760,10 @@ NET_EXPORT BASE_DECLARE_FEATURE_PARAM(bool,
 // Whether to use the new implementation of
 // HttpNoVarySearchData::AreEquivalent().
 NET_EXPORT BASE_DECLARE_FEATURE(kHttpNoVarySearchDataUseNewAreEquivalent);
+
+// Whether to skip opening the http cache entry which was marked as "unusable"
+// from the "Cache-Control" header point of view.
+NET_EXPORT BASE_DECLARE_FEATURE(kHttpCacheSkipUnusableEntry);
 
 // Enables sending the CORS Origin header on the POST request for Reporting API
 // report uploads.
@@ -893,6 +810,12 @@ NET_EXPORT BASE_DECLARE_FEATURE(kRestrictAbusePortsOnLocalhost);
 // a TLS extension to help the server serve a certificate that the client will
 // trust.
 NET_EXPORT BASE_DECLARE_FEATURE(kTLSTrustAnchorIDs);
+
+#if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
+// Enables support for Merkle Tree Certificates. `kTLSTrustAnchorIDs` must also
+// be enabled for this to be useful.
+NET_EXPORT BASE_DECLARE_FEATURE(kVerifyMTCs);
+#endif
 
 // Indicates if the client is participating in the TCP socket pool limit
 // randomization trial. The params below define the bounds for the probability.
@@ -962,12 +885,6 @@ NET_EXPORT BASE_DECLARE_FEATURE_PARAM(std::string, kQuicHintHostPortPairs);
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(std::string,
                                       kWildcardQuicHintHostPortPairs);
 
-// Enables support for Public Resolver Errors (PRE), based on Version 2 of the
-// https://datatracker.ietf.org/doc/draft-nottingham-public-resolver-errors/02/
-// When enabled, clients will attempt to parse structured error information
-// from the EXTRA-TEXT field of Extended DNS Errors.
-NET_EXPORT BASE_DECLARE_FEATURE(kDnsFilteringDetails);
-
 // When enabled, the browser checks if a navigation URL is in any navigation
 // entry. If so, it sets the
 // `IS_MAIN_FRAME_ORIGIN_RECENTLY_ACCESSED` load flag.
@@ -985,6 +902,14 @@ NET_EXPORT BASE_DECLARE_FEATURE(kTryQuicByDefault);
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(std::string, kQuicOptions);
 
 NET_EXPORT BASE_DECLARE_FEATURE(kDnsResponseDiscardPartialQuestions);
+
+// When enabled, users can make Secure DNS in AUTOMATIC mode fallback to a
+// well-known DoH provider before using insecure DNS.
+NET_EXPORT BASE_DECLARE_FEATURE(kAddAutomaticWithDohFallbackMode);
+
+// If true, a CONNECT-UDP response is not needed to start sending datagrams.
+NET_EXPORT BASE_DECLARE_FEATURE(
+    kUseQuicProxiesWithoutWaitingForConnectResponse);
 
 }  // namespace net::features
 

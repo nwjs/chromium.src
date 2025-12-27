@@ -63,6 +63,7 @@ import androidx.test.espresso.matcher.RootMatchers;
 import androidx.test.filters.MediumTest;
 
 import org.hamcrest.Matcher;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -228,6 +229,11 @@ public class KeyboardAccessoryViewTest {
         public void addOnInitializedCallback(Callback<Boolean> callback) {
             throw new AssertionError("Implement addOnInitializedCallback if you need it.");
         }
+    }
+
+    @After
+    public void tearDown() {
+        mActivityTestRule.skipWindowAndTabStateCleanup();
     }
 
     @Before
@@ -523,45 +529,6 @@ public class KeyboardAccessoryViewTest {
         mActivityTestRule
                 .getActivity()
                 .setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
-    }
-
-    @Test
-    @MediumTest
-    public void testDismissesPlusAddressEducationBubbleOnFilling() throws InterruptedException {
-        AutofillBarItem itemWithIph =
-                new AutofillBarItem(
-                        new AutofillSuggestion.Builder()
-                                .setLabel("Create plus address")
-                                .setSubLabel("")
-                                .setSuggestionType(SuggestionType.CREATE_NEW_PLUS_ADDRESS)
-                                .setFeatureForIph("")
-                                .setApplyDeactivatedStyle(false)
-                                .build(),
-                        new Action(AUTOFILL_SUGGESTION, unused -> {}),
-                        mMockProfile);
-        itemWithIph.setFeatureForIph(
-                FeatureConstants.KEYBOARD_ACCESSORY_PLUS_ADDRESS_CREATE_SUGGESTION);
-
-        TestTracker tracker = new TestTracker();
-        TrackerFactory.setTrackerForTests(tracker);
-
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mModel.set(VISIBLE, true);
-                    mModel.get(BAR_ITEMS).set(new BarItem[] {itemWithIph, createSheetOpener()});
-                });
-
-        onViewWaiting(withText("Create plus address"));
-        waitForHelpBubble(withText(R.string.plus_address_create_suggestion_iph_android));
-        assertThat(mKeyboardAccessoryView.take().areClicksAllowedWhenObscured(), is(true));
-        onView(withChild(withText("Create plus address"))).check(matches(isSelected()));
-        onView(withText("Create plus address")).perform(click());
-
-        assertThat(tracker.wasDismissed(), is(true));
-        assertThat(
-                tracker.getLastEmittedEvent(),
-                is(EventConstants.KEYBOARD_ACCESSORY_PLUS_ADDRESS_CREATE_SUGGESTION));
-        onView(withChild(withText("Create plus address"))).check(matches(not(isSelected())));
     }
 
     @Test

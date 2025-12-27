@@ -44,6 +44,7 @@
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/menu/menu_runner.h"
+#include "ui/views/controls/focus_ring.h"
 #include "ui/views/highlight_border.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/flex_layout.h"
@@ -337,7 +338,7 @@ ui::SimpleMenuModel* ContinueTaskView::BuildMenuModel() {
                                        ui::kColorAshSystemUIMenuIcon));
   }
 
-  if (Shell::Get()->IsInTabletMode()) {
+  if (display::Screen::Get()->InTabletMode()) {
     context_menu_model_->AddSeparator(ui::NORMAL_SEPARATOR);
     context_menu_model_->AddItemWithIcon(
         ContinueTaskCommandId::kHideContinueSection,

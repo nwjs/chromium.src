@@ -366,6 +366,11 @@ public class Features {
     public static final String ON_NAVIGATION_COMPLETED_NON_COMMITTED =
             "ON_NAVIGATION_COMPLETED_NON_COMMITTED";
 
+    // Navigation.getPage() will return a non-null Page for all committed
+    // navigations, including same-document-navigations.
+    public static final String COMMITTED_NAVIGATION_GET_PAGE_NON_NULL =
+            "COMMITTED_NAVIGATION_GET_PAGE_NON_NULL";
+
     // SupportLibWebViewChromium weakly reference WebView
     public static final String PROVIDER_WEAKLY_REF_WEBVIEW = "PROVIDER_WEAKLY_REF_WEBVIEW";
 
@@ -375,8 +380,8 @@ public class Features {
     // WebSettingsCompat#getHasEnrolledInstrumentEnabled
     public static final String PAYMENT_REQUEST = "PAYMENT_REQUEST";
 
-    // WebViewBuilder
-    public static final String WEBVIEW_BUILDER = "WEBVIEW_BUILDER";
+    // WebViewBuilder.build
+    public static final String WEBVIEW_BUILDER = "WEBVIEW_BUILDER_V1";
 
     // WebSettingsCompat.setIncludeCookiesOnIntercept
     // WebSettingsCompat.getIncludeCookiesOnIntercept

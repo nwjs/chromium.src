@@ -22,6 +22,7 @@
 #include "base/notreached.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/types/pass_key.h"
+#include "base/values.h"
 #include "chrome/browser/ash/accessibility/accessibility_manager.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_types.h"
 #include "chrome/browser/ash/app_mode/kiosk_controller.h"
@@ -39,6 +40,7 @@
 #include "chrome/browser/ash/login/screens/app_launch_splash_screen.h"
 #include "chrome/browser/ash/login/screens/encryption_migration_screen.h"
 #include "chrome/browser/ash/login/screens/gaia_screen.h"
+#include "chrome/browser/ash/login/screens/osauth/password_selection_screen.h"
 #include "chrome/browser/ash/login/screens/osauth/recovery_eligibility_screen.h"
 #include "chrome/browser/ash/login/screens/pin_setup_screen.h"
 #include "chrome/browser/ash/login/screens/reset_screen.h"
@@ -66,6 +68,7 @@
 #include "chrome/browser/ui/webui/ash/login/locale_switch_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/management_transition_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/offline_login_screen_handler.h"
+#include "chrome/browser/ui/webui/ash/login/password_selection_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/reset_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/saml_confirm_password_handler.h"
 #include "chrome/browser/ui/webui/ash/login/signin_fatal_error_screen_handler.h"
@@ -580,6 +583,10 @@ void LoginDisplayHostCommon::ShowNewTermsForFlexUsers() {
   StartWizard(TermsOfServiceScreenView::kScreenId);
 }
 
+void LoginDisplayHostCommon::ShowPasswordSelectionScreen() {
+  StartWizard(PasswordSelectionScreenView::kScreenId);
+}
+
 void LoginDisplayHostCommon::SetAuthSessionForOnboarding(
     const UserContext& user_context) {
   wizard_context_->extra_factors_token = AuthSessionStorage::Get()->Store(
@@ -659,6 +666,13 @@ void LoginDisplayHostCommon::ShowSigninError(SigninError error,
 
   GetWizardController()->GetScreen<SignInFatalErrorScreen>()->SetCustomError(
       error_text, keyboard_hint, details, help_link_text);
+  StartWizard(SignInFatalErrorView::kScreenId);
+}
+
+void LoginDisplayHostCommon::ShowOobeNotCompletedError() {
+  GetWizardController()->GetScreen<SignInFatalErrorScreen>()->SetErrorState(
+      SignInFatalErrorScreen::Error::kOobeCompletionSkipped,
+      base::Value::Dict());
   StartWizard(SignInFatalErrorView::kScreenId);
 }
 

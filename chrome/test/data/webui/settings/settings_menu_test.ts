@@ -180,6 +180,11 @@ suite('SettingsMenu', function() {
   });
 
   test('autofillPageMenuClick', async function() {
+    loadTimeData.overrideValues({enableYourSavedInfoSettingsPage: false});
+    resetRouterForTesting();
+    createSettingsMenu();
+    await flushTasks();
+
     const entry = settingsMenu.shadowRoot!.querySelector<HTMLElement>(
       'a[href=\'/autofill\']');
     assertTrue(!!entry);
@@ -222,6 +227,11 @@ suite('SettingsMenu', function() {
 
     entry.click();
     await microtasksFinished();
+    const [histogramName, referrer] =
+        await metricsBrowserProxy.whenCalled('recordAutofillSettingsReferrer');
+    assertEquals(
+        'Autofill.YourSavedInfoSettingsPage.VisitReferrer', histogramName);
+    assertEquals(AutofillSettingsReferrer.SETTINGS_MENU, referrer);
 
     const selector = settingsMenu.$.menu;
     assertTrue(!!selector.selected);

@@ -5,7 +5,6 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_GRID_GRID_LAYOUT_UTILS_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_GRID_GRID_LAYOUT_UTILS_H_
 
-#include "third_party/blink/renderer/core/layout/geometry/static_position.h"
 #include "third_party/blink/renderer/platform/geometry/layout_unit.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
 
@@ -20,8 +19,8 @@ class GridTrackList;
 enum class AxisEdge;
 struct BoxStrut;
 struct GridItemData;
-struct LogicalOffset;
 struct LogicalSize;
+struct LogicalStaticPosition;
 struct MinMaxSizesResult;
 
 // Update the provided `available_size`, `min_available_size`, and
@@ -51,21 +50,23 @@ wtf_size_t CalculateAutomaticRepetitions(
 
 // Computes the start offset and size for an out-of-flow item in a single
 // direction (either inline or block).
+//
+// `is_masonry_axis` indicates whether this is for masonry's stacking axis,
+// which ignores grid placement and uses the full container size.
 void ComputeOutOfFlowOffsetAndSize(
     const GridItemData& out_of_flow_item,
     const GridLayoutTrackCollection& track_collection,
     const BoxStrut& borders,
     const LogicalSize& border_box_size,
     LayoutUnit* start_offset,
-    LayoutUnit* size);
+    LayoutUnit* size,
+    bool is_masonry_axis = false);
 
 // Computes alignment offset for out-of-flow items.
 void AlignmentOffsetForOutOfFlow(AxisEdge inline_axis_edge,
                                  AxisEdge block_axis_edge,
                                  LogicalSize container_size,
-                                 LogicalStaticPosition::InlineEdge* inline_edge,
-                                 LogicalStaticPosition::BlockEdge* block_edge,
-                                 LogicalOffset* offset);
+                                 LogicalStaticPosition*);
 
 // Per the Grid spec [1] there is special logic for the contribution size to use
 // for intrinsic minimums. This method returns the contribution size of

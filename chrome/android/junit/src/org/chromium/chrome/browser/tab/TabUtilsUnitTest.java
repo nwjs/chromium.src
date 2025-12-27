@@ -48,7 +48,6 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.tab.TabUtils.UseDesktopUserAgentCaller;
 import org.chromium.chrome.browser.tab_ui.TabThumbnailView;
 import org.chromium.chrome.test.OverrideContextWrapperTestRule;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
@@ -60,8 +59,6 @@ import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.display.DisplayUtil;
-import org.chromium.url.GURL;
-import org.chromium.url.JUnitTestGURLs;
 
 /** Unit tests for {@link TabUtils}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -192,22 +189,18 @@ public class TabUtilsUnitTest {
     @Test
     public void testSwitchUserAgent() {
         // Test non-native tab.
-        TabUtils.switchUserAgent(mTab, false, UseDesktopUserAgentCaller.OTHER);
-        verify(mNavigationController)
-                .setUseDesktopUserAgent(false, true, UseDesktopUserAgentCaller.OTHER);
+        TabUtils.switchUserAgent(mTab, false);
+        verify(mNavigationController).setUseDesktopUserAgent(false, true, true);
 
-        TabUtils.switchUserAgent(mTab, true, UseDesktopUserAgentCaller.OTHER);
-        verify(mNavigationController)
-                .setUseDesktopUserAgent(true, true, UseDesktopUserAgentCaller.OTHER);
+        TabUtils.switchUserAgent(mTab, true);
+        verify(mNavigationController).setUseDesktopUserAgent(true, true, true);
 
         // Test native tab.
-        TabUtils.switchUserAgent(mTabNative, false, UseDesktopUserAgentCaller.OTHER);
-        verify(mNavigationController)
-                .setUseDesktopUserAgent(false, false, UseDesktopUserAgentCaller.OTHER);
+        TabUtils.switchUserAgent(mTabNative, false);
+        verify(mNavigationController).setUseDesktopUserAgent(false, false, true);
 
-        TabUtils.switchUserAgent(mTabNative, true, UseDesktopUserAgentCaller.OTHER);
-        verify(mNavigationController)
-                .setUseDesktopUserAgent(true, false, UseDesktopUserAgentCaller.OTHER);
+        TabUtils.switchUserAgent(mTabNative, true);
+        verify(mNavigationController).setUseDesktopUserAgent(true, false, true);
     }
 
     @Test
@@ -221,52 +214,6 @@ public class TabUtilsUnitTest {
         mUseDesktopUserAgent = true;
         Assert.assertTrue(
                 "Should get RDS from WebContents.", TabUtils.isUsingDesktopUserAgent(mWebContents));
-    }
-
-    @Test
-    public void testReadRequestDesktopSiteContentSettings() {
-        GURL gurl = JUnitTestGURLs.EXAMPLE_URL;
-
-        // Site level setting is Mobile.
-        mRdsException = ContentSetting.BLOCK;
-        Assert.assertFalse(
-                "The result should be false when there is no url",
-                TabUtils.readRequestDesktopSiteContentSettings(mProfile, null));
-        Assert.assertFalse(
-                "The result should match RDS site level setting.",
-                TabUtils.readRequestDesktopSiteContentSettings(mProfile, gurl));
-
-        // Site level setting is Desktop.
-        mRdsException = ContentSetting.ALLOW;
-        Assert.assertFalse(
-                "The result should be false when there is no url",
-                TabUtils.readRequestDesktopSiteContentSettings(mProfile, null));
-        Assert.assertTrue(
-                "The result should match RDS site level setting.",
-                TabUtils.readRequestDesktopSiteContentSettings(mProfile, gurl));
-    }
-
-    @Test
-    public void testIsRequestDesktopSiteContentSettingsGlobal() {
-        GURL gurl = JUnitTestGURLs.EXAMPLE_URL;
-
-        // Content setting is global setting.
-        mIsGlobal = true;
-        Assert.assertTrue(
-                "The result should be true when there is no url",
-                TabUtils.isRequestDesktopSiteContentSettingsGlobal(mProfile, null));
-        Assert.assertTrue(
-                "Content setting is global setting.",
-                TabUtils.isRequestDesktopSiteContentSettingsGlobal(mProfile, gurl));
-
-        // Content setting is NOT global setting.
-        mIsGlobal = false;
-        Assert.assertTrue(
-                "The result should be true when there is no url",
-                TabUtils.isRequestDesktopSiteContentSettingsGlobal(mProfile, null));
-        Assert.assertFalse(
-                "Content setting is domain setting.",
-                TabUtils.isRequestDesktopSiteContentSettingsGlobal(mProfile, gurl));
     }
 
     @Test

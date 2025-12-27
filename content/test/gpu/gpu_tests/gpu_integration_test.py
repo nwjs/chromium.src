@@ -311,6 +311,9 @@ class GpuIntegrationTest(
         # results. (Note that this argument takes a list of IPH that will be
         # allowed; specifying none disables all IPH.)
         '--propagate-iph-for-testing',
+        # TODO(crbug.com/458424927): Remove this once the feature no longer
+        # causes test failures.
+        '--disable-features=SessionRestoreInfobar',
     ]
     if cls._SuiteSupportsParallelTests():
       # When running tests in parallel, windows can be treated as occluded if a
@@ -575,8 +578,9 @@ class GpuIntegrationTest(
 
     # chrome://gpu does not exist for Webview or the Fuchsia cast streaming
     # shell.
-    if cls.browser.browser_type in ('android-webview-instrumentation',
-                                    'cast-streaming-shell'):
+    if (isinstance(cls.browser.browser_type, str)
+        and ('webview' in cls.browser.browser_type
+             or cls.browser.browser_type == 'cast-streaming-shell')):
       return
 
     # TODO(crbug.com/376498163): Remove this early return once Telemetry's

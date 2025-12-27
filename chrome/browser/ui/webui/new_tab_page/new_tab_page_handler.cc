@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -129,32 +130,6 @@ std::vector<std::string> GetSurveyEligibleModuleIds() {
       ",:;", base::WhitespaceHandling::TRIM_WHITESPACE,
       base::SplitResult::SPLIT_WANT_NONEMPTY);
 }
-
-const void* const kCustomizeChromeAutoOpenedUserDataKey =
-    &kCustomizeChromeAutoOpenedUserDataKey;
-
-class CustomizeChromeAutoOpenedUserData : public base::SupportsUserData::Data {
- public:
-  static CustomizeChromeAutoOpenedUserData* GetOrCreateForProfile(
-      Profile* profile) {
-    auto* data = static_cast<CustomizeChromeAutoOpenedUserData*>(
-        profile->GetUserData(kCustomizeChromeAutoOpenedUserDataKey));
-    if (!data) {
-      data = new CustomizeChromeAutoOpenedUserData();
-      profile->SetUserData(kCustomizeChromeAutoOpenedUserDataKey,
-                           base::WrapUnique(data));
-    }
-    return data;
-  }
-
-  int times_opened() const { return times_opened_; }
-  void IncrementTimesOpened() { times_opened_ += 1; }
-
- private:
-  CustomizeChromeAutoOpenedUserData() = default;
-
-  int times_opened_ = 0;
-};
 
 // Returns true if we should force dark foreground colors for the Google logo
 // and the One Google Bar. This is done to fix specific GWS themes where the
@@ -491,8 +466,6 @@ NewTabPageHandler::NewTabPageHandler(
     segmentation_platform::SegmentationPlatformService*
         segmentation_platform_service,
     content::WebContents* web_contents,
-    std::unique_ptr<NewTabPageFeaturePromoHelper>
-        customize_chrome_feature_promo_helper,
     const base::Time& ntp_navigation_start_time,
     const std::vector<ntp::ModuleIdDetail>* module_id_details)
     : SettingsEnabledObserver(
@@ -505,7 +478,7 @@ NewTabPageHandler::NewTabPageHandler(
       segmentation_platform_service_(segmentation_platform_service),
       profile_(profile),
       web_contents_(web_contents),
-      feature_promo_helper_(std::move(customize_chrome_feature_promo_helper)),
+      feature_promo_helper_(std::make_unique<NewTabPageFeaturePromoHelper>()),
       ntp_navigation_start_time_(ntp_navigation_start_time),
       module_id_details_(module_id_details),
       logger_(profile,
@@ -673,7 +646,7 @@ void NewTabPageHandler::OnDismissModule(const std::string& module_id) {
   base::UmaHistogramExactLinear(histogram_prefix, 1, 1);
   base::UmaHistogramExactLinear(histogram_prefix + "." + module_id, 1, 1);
 
-  IncrementDictPrefKeyCount(prefs::kNtpModulesInteractedCountDict, module_id);
+  RecordModuleInteraction(module_id);
   MaybeLaunchInteractionSurvey(kDismissInteraction, module_id);
 }
 
@@ -684,6 +657,7 @@ void NewTabPageHandler::OnRestoreModule(const std::string& module_id) {
 }
 
 void NewTabPageHandler::SetModulesVisible(bool visible) {
+  DisableModuleAutoRemoval(profile_, ntp_modules::kAllModulesId);
   profile_->GetPrefs()->SetBoolean(prefs::kNtpModulesVisible, visible);
 }
 
@@ -700,7 +674,7 @@ void NewTabPageHandler::SetModuleDisabled(const std::string& module_id,
     list.EraseValue(module_id_value);
   }
 
-  IncrementDictPrefKeyCount(prefs::kNtpModulesInteractedCountDict, module_id);
+  RecordModuleInteraction(module_id);
   MaybeLaunchInteractionSurvey(kDisableInteraction, module_id);
 }
 
@@ -780,7 +754,7 @@ void NewTabPageHandler::OnModulesLoadedWithData(
 }
 
 void NewTabPageHandler::OnModuleUsed(const std::string& module_id) {
-  IncrementDictPrefKeyCount(prefs::kNtpModulesInteractedCountDict, module_id);
+  RecordModuleInteraction(module_id);
   MaybeLaunchInteractionSurvey(kUseInteraction, module_id);
 }
 
@@ -871,31 +845,6 @@ void NewTabPageHandler::UpdateFooterVisibility() {
   OnFooterVisibilityUpdated(footer_controller->GetFooterVisible(web_contents_));
 }
 
-void NewTabPageHandler::MaybeShowFeaturePromo(
-    new_tab_page::mojom::IphFeature iph_feature) {
-  CHECK(profile_);
-  CHECK(profile_->GetPrefs());
-
-  // If a sign-in dialog is being currently displayed, the promo should not be
-  // shown to avoid conflict. The sign-in dialog would be shown as soon as the
-  // browser is opened, before the promo.
-  bool is_signin_modal_dialog_open =
-      feature_promo_helper_->IsSigninModalDialogOpen(web_contents_.get());
-  if (is_signin_modal_dialog_open) {
-    return;
-  }
-
-  switch (iph_feature) {
-    case new_tab_page::mojom::IphFeature::kCustomizeChrome: {
-      feature_promo_helper_->MaybeShowFeaturePromo(
-          feature_engagement::kIPHDesktopCustomizeChromeRefreshFeature,
-          web_contents_.get());
-    } break;
-    default:
-      NOTREACHED();
-  }
-}
-
 void NewTabPageHandler::OnAppRendered(double time) {
   logger_.LogEvent(NTP_APP_RENDERED,
                    base::Time::FromMillisecondsSinceUnixEpoch(time) -
@@ -914,7 +863,7 @@ void NewTabPageHandler::OnPromoRendered(double time,
                    base::Time::FromMillisecondsSinceUnixEpoch(time) -
                        ntp_navigation_start_time_);
   if (log_url.has_value() && log_url->is_valid()) {
-    Fetch(*log_url, base::BindOnce([](bool, std::unique_ptr<std::string>) {}));
+    Fetch(*log_url, base::NullCallback());
   }
 }
 
@@ -993,7 +942,7 @@ void NewTabPageHandler::OnDoodleImageClicked(
   if (type == new_tab_page::mojom::DoodleImageType::kCta &&
       log_url.has_value()) {
     // We just ping the server to indicate a CTA image has been clicked.
-    Fetch(*log_url, base::BindOnce([](bool, std::unique_ptr<std::string>) {}));
+    Fetch(*log_url, base::NullCallback());
   }
 }
 
@@ -1047,7 +996,7 @@ void NewTabPageHandler::OnDoodleShared(
                       .GoogleBaseURLValue())
                  .Resolve(query);
   // We just ping the server to indicate a doodle has been shared.
-  Fetch(url, base::BindOnce([](bool s, std::unique_ptr<std::string>) {}));
+  Fetch(url, base::NullCallback());
 }
 
 void NewTabPageHandler::OnPromoLinkClicked() {
@@ -1252,19 +1201,22 @@ void NewTabPageHandler::Fetch(const GURL& url,
 
 void NewTabPageHandler::OnFetchResult(const network::SimpleURLLoader* loader,
                                       OnFetchResultCallback on_result,
-                                      std::unique_ptr<std::string> body) {
+                                      std::optional<std::string> body) {
   bool success = loader->NetError() == net::OK && loader->ResponseInfo() &&
                  loader->ResponseInfo()->headers &&
                  loader->ResponseInfo()->headers->response_code() >= 200 &&
                  loader->ResponseInfo()->headers->response_code() <= 299 &&
                  body;
-  std::move(on_result).Run(success, std::move(body));
+  if (on_result) {
+    std::move(on_result).Run(success, std::move(body));
+  }
   loader_map_.erase(loader);
 }
 
 void NewTabPageHandler::OnLogFetchResult(OnDoodleImageRenderedCallback callback,
                                          bool success,
-                                         std::unique_ptr<std::string> body) {
+                                         std::optional<std::string> body) {
+  CHECK(!success || body);
   if (!success || body->size() < 4 || body->substr(0, 4) != ")]}'") {
     std::move(callback).Run("", std::nullopt, "");
     return;
@@ -1339,6 +1291,11 @@ void NewTabPageHandler::MaybeShowWebstoreToast() {
   if (profile_->GetPrefs()->GetInteger(prefs::kSeedColorChangeCount) <= 3) {
     page_->ShowWebstoreToast();
   }
+}
+
+void NewTabPageHandler::RecordModuleInteraction(const std::string& module_id) {
+  DisableModuleAutoRemoval(profile_, module_id);
+  IncrementDictPrefKeyCount(prefs::kNtpModulesInteractedCountDict, module_id);
 }
 
 void NewTabPageHandler::IncrementDictPrefKeyCount(const std::string& pref_name,

@@ -107,9 +107,6 @@ namespace {
 
 SystemWebAppDelegateMap CreateSystemWebApps(Profile* profile) {
   std::vector<std::unique_ptr<SystemWebAppDelegate>> info_vec;
-  // TODO(crbug.com/40118385): Currently unused, will be hooked up
-  // post-migration. We're making delegates for everything, and will then use
-  // them in place of SystemAppInfos.
   info_vec.push_back(std::make_unique<CameraSystemAppDelegate>(profile));
   info_vec.push_back(std::make_unique<DemoModeSystemAppDelegate>(profile));
   info_vec.push_back(std::make_unique<DiagnosticsSystemAppDelegate>(profile));
@@ -199,7 +196,8 @@ web_app::ExternalInstallOptions CreateInstallOptionsForSystemApp(
   install_options.add_to_search = delegate.ShouldShowInSearchAndShelf();
   install_options.add_to_management = false;
   install_options.is_disabled = is_disabled;
-  install_options.force_reinstall = force_update;
+  install_options.force_reinstall =
+      force_update || delegate.ShouldForceReinstall();
   install_options.uninstall_and_replace =
       delegate.GetAppIdsToUninstallAndReplace();
   install_options.system_app_type = type;

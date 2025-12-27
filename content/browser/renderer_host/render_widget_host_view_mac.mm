@@ -682,6 +682,7 @@ void RenderWidgetHostViewMac::DidEnterBackForwardCache() {
   //
   // Called after to prevent prematurely evict the BFCached surface.
   host()->ForceFirstFrameAfterNavigationTimeout();
+  mouse_wheel_phase_handler_.DidEnterBackForwardCache();
 }
 
 void RenderWidgetHostViewMac::ActivatedOrEvictedFromBackForwardCache() {
@@ -1082,6 +1083,11 @@ void RenderWidgetHostViewMac::EnsureSurfaceSynchronizedForWebTest() {
   browser_compositor_->ForceNewSurfaceId();
 }
 
+ui::FilteredGestureProvider*
+RenderWidgetHostViewMac::GetFilteredGestureProviderForTesting() {
+  return &gesture_provider_;
+}
+
 void RenderWidgetHostViewMac::OnDidUpdateVisualPropertiesComplete(
     const cc::RenderFrameMetadata& metadata) {
   browser_compositor_->UpdateSurfaceFromChild(
@@ -1341,6 +1347,10 @@ void RenderWidgetHostViewMac::ClearFallbackSurfaceForCommitPending() {
 void RenderWidgetHostViewMac::ResetFallbackToFirstNavigationSurface() {
   browser_compositor_->GetDelegatedFrameHost()
       ->ResetFallbackToFirstNavigationSurface();
+}
+
+void RenderWidgetHostViewMac::OnUnconfirmedTapConvertedToTap() {
+  gesture_provider_.OnUnconfirmedTapConvertedToTap();
 }
 
 bool RenderWidgetHostViewMac::RequestRepaintOnNewSurface() {

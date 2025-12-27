@@ -28,7 +28,6 @@
 #include "base/containers/span_reader.h"
 #include "base/feature_list.h"
 #include "base/functional/callback.h"
-#include "base/functional/callback_forward.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/json/string_escape.h"
@@ -18581,7 +18580,6 @@ IN_PROC_BROWSER_TEST_F(InterestGroupPrivateNetworkBrowserTest,
   EXPECT_THAT(bidder_status.cors_error_status,
               Optional(network::CorsErrorStatus(
                   network::mojom::CorsError::kInsecurePrivateNetwork,
-                  network::mojom::IPAddressSpace::kUnknown,
                   network::mojom::IPAddressSpace::kLoopback)));
 }
 
@@ -18639,7 +18637,6 @@ IN_PROC_BROWSER_TEST_F(InterestGroupPrivateNetworkBrowserTest,
       seller_status.cors_error_status,
       Optional(network::CorsErrorStatus(
           network::mojom::CorsError::kLocalNetworkAccessPermissionDenied,
-          network::mojom::IPAddressSpace::kUnknown,
           network::mojom::IPAddressSpace::kLoopback)));
 }
 
@@ -18719,7 +18716,6 @@ IN_PROC_BROWSER_TEST_F(InterestGroupPrivateNetworkBrowserTest,
     EXPECT_THAT(report_status.cors_error_status,
                 Optional(network::CorsErrorStatus(
                     network::mojom::CorsError::kInsecurePrivateNetwork,
-                    network::mojom::IPAddressSpace::kUnknown,
                     network::mojom::IPAddressSpace::kLoopback)));
   }
 }

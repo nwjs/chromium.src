@@ -65,8 +65,6 @@
 #include "services/network/public/mojom/web_sandbox_flags.mojom-blink.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/permissions_policy/document_policy_features.h"
-#include "third_party/blink/public/common/privacy_budget/identifiability_sample_collector.h"
-#include "third_party/blink/public/common/privacy_budget/identifiability_study_settings.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/css/preferred_color_scheme.mojom-blink.h"
 #include "third_party/blink/public/mojom/css/preferred_contrast.mojom-blink.h"
@@ -91,6 +89,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_document_ready_state.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_element_creation_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_element_registration_options.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_focus_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_import_node_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_observable_array_css_style_sheet.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_throw_dom_exception.h"
@@ -109,6 +108,7 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
+#include "third_party/blink/renderer/core/css/css_selector_watch.h"
 #include "third_party/blink/renderer/core/css/css_style_declaration.h"
 #include "third_party/blink/renderer/core/css/css_style_sheet.h"
 #include "third_party/blink/renderer/core/css/cssom/caret_position.h"
@@ -212,7 +212,6 @@
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/dom_visual_viewport.h"
 #include "third_party/blink/renderer/core/frame/event_handler_registry.h"
-#include "third_party/blink/renderer/core/frame/font_matching_metrics.h"
 #include "third_party/blink/renderer/core/frame/frame_console.h"
 #include "third_party/blink/renderer/core/frame/history.h"
 #include "third_party/blink/renderer/core/frame/intervention.h"
@@ -236,6 +235,7 @@
 #include "third_party/blink/renderer/core/html/custom/custom_element_registry.h"
 #include "third_party/blink/renderer/core/html/document_all_name_collection.h"
 #include "third_party/blink/renderer/core/html/document_name_collection.h"
+#include "third_party/blink/renderer/core/html/fenced_frame/document_fenced_frames.h"
 #include "third_party/blink/renderer/core/html/forms/email_input_type.h"
 #include "third_party/blink/renderer/core/html/forms/form_controller.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
@@ -327,6 +327,7 @@
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/paint/timing/first_meaningful_paint_detector.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing.h"
+#include "third_party/blink/renderer/core/patching/patch_supplement.h"
 #include "third_party/blink/renderer/core/permissions_policy/dom_feature_policy.h"
 #include "third_party/blink/renderer/core/permissions_policy/permissions_policy_parser.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
@@ -354,7 +355,10 @@
 #include "third_party/blink/renderer/core/view_transition/page_reveal_event.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_supplement.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_utils.h"
+#include "third_party/blink/renderer/core/xml/document_xpath_evaluator.h"
+#include "third_party/blink/renderer/core/xml/document_xslt.h"
 #include "third_party/blink/renderer/core/xml/parser/xml_document_parser.h"
+#include "third_party/blink/renderer/core/xml/parser/xml_document_parser_rs.h"
 #include "third_party/blink/renderer/core/xml_names.h"
 #include "third_party/blink/renderer/core/xmlns_names.h"
 #include "third_party/blink/renderer/platform/bindings/dom_data_store.h"
@@ -1095,7 +1099,6 @@ Document::Document(const DocumentInit& initializer,
   }
   if (is_prerendering_ &&
       GetPage()->ShouldPauseJavaScriptExecutionOnPrerender()) {
-    DCHECK(RuntimeEnabledFeatures::PrerenderUntilScriptEnabled());
     prerender_script_runner_delayer_ =
         MakeGarbageCollected<ScriptRunnerDelayer>(
             script_runner_, ScriptRunner::DelayReason::kPausedForPrerender);
@@ -1106,9 +1109,6 @@ Document::Document(const DocumentInit& initializer,
     fetcher_ = FrameFetchContext::CreateFetcherForCommittedDocument(
         *frame->Loader().GetDocumentLoader(), *this);
     cookie_jar_ = MakeGarbageCollected<CookieJar>(this);
-    if (IsInMainFrame() && GetPage()->IsPartitionedPopin()) {
-      CountUse(WebFeature::kPartitionedPopin_Opened);
-    }
     is_vertical_scroll_enforced_ =
         RuntimeEnabledFeatures::ExperimentalPoliciesEnabled() &&
         !frame->IsOutermostMainFrame() &&
@@ -2348,17 +2348,7 @@ void Document::DidChangeVisibilityState() {
     interactive_detector->OnPageHiddenChanged(hidden());
   }
 
-  // Don't create a |ukm_recorder_| and |ukm_source_id_| unless necessary.
-  if (hidden() && IdentifiabilityStudySettings::Get()->IsActive()) {
-    // Flush UKM data here in addition to Document::Shutdown(). We want to flush
-    // the UKM data before this document becomes invisible (e.g. before entering
-    // back/forward cache) because we want to send the UKM data before the
-    // renderer process is killed.
-    IdentifiabilitySampleCollector::Get()->FlushSource(UkmRecorder(),
-                                                       UkmSourceID());
-  }
-
-  ViewTransitionSupplement::From(*this)->DidChangeVisibilityState();
+  GetViewTransitions().DidChangeVisibilityState();
 }
 
 String Document::nodeName() const {
@@ -2554,7 +2544,8 @@ static void AssertLayoutTreeUpdatedForPseudoElements(const Element& element) {
                                  kPseudoIdScrollButtonInlineStart,
                                  kPseudoIdScrollButtonInlineEnd,
                                  kPseudoIdScrollButtonBlockEnd,
-                                 kPseudoIdScrollMarker};
+                                 kPseudoIdScrollMarker,
+                                 kPseudoIdOverscrollClientArea};
   for (auto pseudo_id : pseudo_ids) {
     if (const PseudoElement* pseudo_element =
             element.GetPseudoElement(pseudo_id)) {
@@ -3365,10 +3356,6 @@ void Document::Shutdown() {
   if (num_canvases_ > 0)
     UMA_HISTOGRAM_COUNTS_100("Blink.Canvas.NumCanvasesPerPage", num_canvases_);
 
-  if (font_matching_metrics_) {
-    font_matching_metrics_->PublishAllMetrics();
-  }
-
   GetViewportData().Shutdown();
 
   View()->Dispose();
@@ -3409,6 +3396,7 @@ void Document::Shutdown() {
   http_refresh_scheduler_->Cancel();
 
   GetDocumentAnimations().DetachCompositorTimelines();
+  GetDocumentAnimations().DetachCompositorTriggers();
 
   if (GetFrame()->IsLocalRoot())
     GetPage()->GetChromeClient().AttachRootLayer(nullptr, GetFrame());
@@ -3422,6 +3410,7 @@ void Document::Shutdown() {
   if (focused_element_.Get()) {
     Element* old_focused_element = focused_element_;
     focused_element_ = nullptr;
+    focus_options_ = nullptr;
     NotifyFocusedElementChanged(old_focused_element, nullptr,
                                 mojom::blink::FocusType::kNone);
   }
@@ -3460,12 +3449,6 @@ void Document::Shutdown() {
 
   lifecycle_.AdvanceTo(DocumentLifecycle::kStopped);
   DCHECK(!View()->IsAttached());
-
-  // Don't create a |ukm_recorder_| and |ukm_source_id_| unless necessary.
-  if (IdentifiabilityStudySettings::Get()->IsActive()) {
-    IdentifiabilitySampleCollector::Get()->FlushSource(UkmRecorder(),
-                                                       UkmSourceID());
-  }
 
   mime_handler_view_before_unload_event_listener_ = nullptr;
 
@@ -3655,7 +3638,11 @@ DocumentParser* Document::CreateParser() {
                                                     parser_sync_policy_);
   }
   // FIXME: this should probably pass the frame instead
-  return MakeGarbageCollected<XMLDocumentParser>(*this, View());
+  if (RuntimeEnabledFeatures::XMLParsingRustEnabled()) {
+    return MakeGarbageCollected<XMLDocumentParserRs>(*this, View());
+  } else {
+    return MakeGarbageCollected<XMLDocumentParser>(*this, View());
+  }
 }
 
 bool Document::IsFrameSet() const {
@@ -3942,6 +3929,29 @@ void Document::open() {
   if (GetFrame())
     GetFrame()->CancelFormSubmission();
 
+  // The HTML spec for document.open()
+  // (https://html.spec.whatwg.org/#document-open-steps) specifies erasing all
+  // event listeners for descendant nodes, but doesn't explicitly address when
+  // child frame unload events should fire. We trigger child frame unload events
+  // first, following the same pattern used in LocalFrame::DetachImpl where
+  // child frames are unloaded before other cleanup. This ensures child frames
+  // properly unload and their handlers execute before removing the parent
+  // document's event listeners (crbug.com/40947017).
+  if (RuntimeEnabledFeatures::DocumentOpenIframeUnloadEventsEnabled() &&
+      GetFrame()) {
+    for (Frame* child = GetFrame()->Tree().FirstChild(); child;) {
+      Frame* next_child = child->Tree().NextSibling();
+      if (auto* local_child = DynamicTo<LocalFrame>(child)) {
+        // Note: Cross-origin frames are handled correctly as the loader
+        // mechanism already respects cross-origin boundaries and security
+        // policies when dispatching unload events.
+        local_child->Loader().DispatchUnloadEventAndFillOldDocumentInfoIfNeeded(
+            /*will_commit_new_document_in_this_frame=*/false);
+      }
+      child = next_child;
+    }
+  }
+
   // For each shadow-including inclusive descendant |node| of |document|, erase
   // all event listeners and handlers given |node|.
   //
@@ -4128,8 +4138,8 @@ void Document::WillInsertBody() {
   if (Loader())
     fetcher_->LoosenLoadThrottlingPolicy();
 
-  if (auto* supplement = ViewTransitionSupplement::FromIfExists(*this)) {
-    supplement->WillInsertBody();
+  if (view_transitions_) {
+    view_transitions_->WillInsertBody();
   }
 
   if (render_blocking_resource_manager_) {
@@ -5243,9 +5253,6 @@ void Document::ExecuteScriptsWaitingForResources() {
 }
 
 void Document::UnblockScriptExecutionForPrerenderActivation() {
-  if (!RuntimeEnabledFeatures::PrerenderUntilScriptEnabled()) {
-    return;
-  }
   CHECK(!IsScriptBlockedUntilPrerenderActivation());
   if (ScriptableDocumentParser* parser = GetScriptableDocumentParser()) {
     parser->ExecuteScriptsWaitingForPrerenderActivation();
@@ -5256,6 +5263,11 @@ void Document::UnblockScriptExecutionForPrerenderActivation() {
   if (prerender_script_runner_delayer_) {
     prerender_script_runner_delayer_->Deactivate();
   }
+}
+
+ViewTransitionSupplement& Document::CreateViewTransitions() {
+  view_transitions_ = MakeGarbageCollected<ViewTransitionSupplement>(*this);
+  return *view_transitions_;
 }
 
 CSSStyleSheet& Document::ElementSheet() {
@@ -5843,12 +5855,17 @@ bool Document::SetFocusedElement(Element* new_focused_element,
       return true;
   }
 
-  if (focused_element_ == new_focused_element)
+  if (focused_element_ == new_focused_element) {
+    // Even though `focused_element_` hasn't changed, `focus_options_` may have,
+    // so update it.
+    focus_options_ = params.options;
     return true;
+  }
 
   bool focus_change_blocked = false;
   Element* old_focused_element = focused_element_;
   focused_element_ = nullptr;
+  focus_options_ = nullptr;
 
   Element* ancestor =
       (old_focused_element && old_focused_element->isConnected() &&
@@ -5925,6 +5942,7 @@ bool Document::SetFocusedElement(Element* new_focused_element,
     }
     // Set focus on the new node
     focused_element_ = new_focused_element;
+    focus_options_ = params.options;
     SetSequentialFocusNavigationStartingPoint(focused_element_.Get());
 
     // Keep track of last focus from user interaction, ignoring focus from code
@@ -6996,14 +7014,8 @@ scoped_refptr<const SecurityOrigin> Document::TopFrameOrigin() const {
   if (!GetFrame())
     return scoped_refptr<const SecurityOrigin>();
 
-  // If this window was opened as a new partitioned popin we need to use the
-  // origin of the opener's top-frame as our top-frame.
-  // See https://explainers-by-googlers.github.io/partitioned-popins/
-  if (GetPage()->IsPartitionedPopin()) {
-    return GetPage()->GetPartitionedPopinOpenerProperties().top_frame_origin;
-  }
-
-  return GetFrame()->Tree().FindFrameByName(WebString::FromUTF8("_top"), true)->GetSecurityContext()->GetSecurityOrigin();
+  return GetFrame()->Tree().FindFrameByName(WebString::FromUTF8("_top"), true)
+      ->GetSecurityContext()->GetSecurityOrigin();
 }
 
 net::SiteForCookies Document::SiteForCookies() const {
@@ -7034,19 +7046,6 @@ net::SiteForCookies Document::SiteForCookies() const {
   // SecurityOrigin, then this is set to false so that
   // CompareWithFrameTreeOriginAndRevise() is called for all remaining frames.
   bool can_avoid_revise_if_security_origins_match = true;
-
-  // If this window was opened as a new partitioned popin we need to use the
-  // site for cookies of the opener as our initial candidate.
-  // See https://explainers-by-googlers.github.io/partitioned-popins/
-  if (GetPage()->IsPartitionedPopin()) {
-    candidate =
-        GetPage()->GetPartitionedPopinOpenerProperties().site_for_cookies;
-    // We can only skip comparisons when using the SiteForCookies from the
-    // top frame. Because we reset `candidate`, we need to call
-    // CompareWithFrameTreeOriginAndRevise() regardless of whether a frame
-    // has the same SecurityOrigin as the top frame.
-    can_avoid_revise_if_security_origins_match = false;
-  }
 
   if (SchemeRegistry::ShouldTreatURLSchemeAsFirstPartyWhenTopLevel(
           origin->Protocol())) {
@@ -7452,11 +7451,10 @@ static ParseQualifiedNameResult ParseQualifiedNameInternal(
     prefix = g_null_atom;
     local_name = qualified_name;
   } else {
-    auto [prefix_span, rest] = characters.split_at(colon_pos);
-    prefix = AtomicString(prefix_span);
+    prefix = AtomicString(characters.take_first(colon_pos));
     if (prefix.empty())
       return ParseQualifiedNameResult(kQNEmptyPrefix);
-    local_name = AtomicString(rest.subspan(1u));
+    local_name = AtomicString(characters.template subspan<1u>());
   }
 
   if (local_name.empty())
@@ -8309,8 +8307,10 @@ void Document::RequestResizeResponsiveIframe(ExceptionState* exception_state) {
     return;
   }
   if (auto* owner = GetFrame()->Owner()) {
+    LocalFrameView* view = View();
+    LocalFrameView::NaturalSizeLayoutScope natural_size_scope(view);
     UpdateStyleAndLayout(DocumentUpdateReason::kUnknown);
-    if (View()->RecordNaturalDimensions()) {
+    if (view->RecordNaturalDimensions()) {
       owner->NaturalSizingInfoChanged();
     }
   } else if (exception_state) {
@@ -8414,17 +8414,6 @@ ukm::UkmRecorder* Document::UkmRecorder() {
 
 ukm::SourceId Document::UkmSourceID() const {
   return ukm_source_id_;
-}
-
-FontMatchingMetrics* Document::GetFontMatchingMetrics() {
-  if (Lifecycle().GetState() >= DocumentLifecycle::LifecycleState::kStopping) {
-    return nullptr;
-  }
-  if (font_matching_metrics_)
-    return font_matching_metrics_.get();
-  font_matching_metrics_ = std::make_unique<FontMatchingMetrics>(
-      dom_window_, GetTaskRunner(TaskType::kInternalDefault));
-  return font_matching_metrics_.get();
 }
 
 void Document::MaybeRecordSvgImageProcessingTime(
@@ -8551,14 +8540,6 @@ const ScriptRegexp& Document::EnsureEmailRegexp() const {
         EmailInputType::CreateEmailRegexp(GetAgent().isolate());
   }
   return *data_->email_regexp_;
-}
-
-void Document::SetMediaFeatureEvaluated(int feature) {
-  evaluated_media_features_ |= (1 << feature);
-}
-
-bool Document::WasMediaFeatureEvaluated(int feature) {
-  return (evaluated_media_features_ >> feature) & 1;
 }
 
 void Document::AddConsoleMessage(ConsoleMessage* message,
@@ -8729,9 +8710,9 @@ void Document::SetPopoverPointerdownTarget(const HTMLElement* popover) {
   popover_pointerdown_target_ = popover;
 }
 
-void Document::SetCustomizableSelectMousedownLocation(
+void Document::SetPopoverPickerMousedownLocation(
     std::optional<gfx::PointF> point) {
-  customizable_select_mousedown_location_ = point;
+  popover_picker_mousedown_location_ = point;
 }
 
 const HTMLDialogElement* Document::DialogPointerdownTarget() const {
@@ -9461,6 +9442,7 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(implementation_);
   visitor->Trace(autofocus_candidates_);
   visitor->Trace(focused_element_);
+  visitor->Trace(focus_options_);
   visitor->Trace(sequential_focus_navigation_starting_point_);
   visitor->Trace(hover_element_);
   visitor->Trace(active_element_);
@@ -9551,7 +9533,34 @@ void Document::Trace(Visitor* visitor) const {
 #if BUILDFLAG(IS_ANDROID)
   visitor->Trace(payment_link_handler_);
 #endif  // BUILDFLAG(IS_ANDROID)
-  Supplementable<Document>::Trace(visitor);
+  visitor->Trace(view_transitions_);
+  visitor->Trace(ai_page_content_agent_);
+  visitor->Trace(anchor_element_metrics_sender_);
+  visitor->Trace(anchor_element_viewport_position_tracker_);
+  visitor->Trace(annotation_agent_container_impl_);
+  visitor->Trace(browsing_topics_document_supplement_);
+  visitor->Trace(css_selector_watch_);
+  visitor->Trace(credential_metrics_);
+  visitor->Trace(disabled_acceleration_counter_supplement_);
+  visitor->Trace(document_fenced_frames_);
+  visitor->Trace(document_metadata_server_);
+  visitor->Trace(document_parser_timing_);
+  visitor->Trace(document_speculation_rules_);
+  visitor->Trace(document_storage_access_);
+  visitor->Trace(document_xpath_evaluator_);
+  visitor->Trace(document_xslt_);
+  visitor->Trace(font_face_set_document_);
+  visitor->Trace(frame_metadata_observer_registry_);
+  visitor->Trace(inner_html_agent_);
+  visitor->Trace(inner_text_agent_);
+  visitor->Trace(interactive_detector_);
+  visitor->Trace(paint_timing_);
+  visitor->Trace(patch_supplement_);
+  visitor->Trace(picture_in_picture_controller_);
+  visitor->Trace(rtc_peer_connection_controller_);
+  visitor->Trace(render_blocking_metrics_reporter_);
+  visitor->Trace(route_map_);
+  visitor->Trace(transfer_to_gpu_texture_invoked_supplement_);
   TreeScope::Trace(visitor);
   ContainerNode::Trace(visitor);
 }
@@ -10297,8 +10306,6 @@ CustomElementRegistry* Document::EffectiveGlobalCustomElementRegistry() const {
   }
   return nullptr;
 }
-
-template class CORE_TEMPLATE_EXPORT Supplement<Document>;
 
 }  // namespace blink
 

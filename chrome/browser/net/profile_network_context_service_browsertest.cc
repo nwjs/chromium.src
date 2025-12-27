@@ -159,7 +159,7 @@ IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceBrowsertest,
                                        TRAFFIC_ANNOTATION_FOR_TESTS);
 
   simple_loader->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
-      loader_factory(), simple_loader_helper.GetCallbackDeprecated());
+      loader_factory(), simple_loader_helper.GetCallback());
   simple_loader_helper.WaitForCallback();
   ASSERT_TRUE(simple_loader_helper.response_body());
 
@@ -224,7 +224,7 @@ IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceBrowsertest, BrotliEnabled) {
       network::SimpleURLLoader::Create(std::move(request),
                                        TRAFFIC_ANNOTATION_FOR_TESTS);
   simple_loader->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
-      loader_factory(), simple_loader_helper.GetCallbackDeprecated());
+      loader_factory(), simple_loader_helper.GetCallback());
   simple_loader_helper.WaitForCallback();
   ASSERT_TRUE(simple_loader_helper.response_body());
   std::vector<std::string> encodings =
@@ -261,18 +261,15 @@ class ProfileNetworkContextServiceCacheSameBrowsertest
  public:
   ProfileNetworkContextServiceCacheSameBrowsertest() {
     // Override features that are enabled via the fieldtrial testing config.
-    split_cache_features_disabled_feature_list_.InitWithFeatures(
-        {}, {
-                net::features::kSplitCacheByNetworkIsolationKey,
-                net::features::kSplitCacheByCrossSiteMainFrameNavigationBoolean,
-            });
+    split_cache_disabled_feature_list_.InitAndDisableFeature(
+        net::features::kSplitCacheByNetworkIsolationKey);
   }
   ~ProfileNetworkContextServiceCacheSameBrowsertest() override = default;
 
   base::HistogramTester histograms_;
 
  private:
-  base::test::ScopedFeatureList split_cache_features_disabled_feature_list_;
+  base::test::ScopedFeatureList split_cache_disabled_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceCacheSameBrowsertest,
@@ -597,7 +594,7 @@ IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceDiskCacheBrowsertest,
                                        TRAFFIC_ANNOTATION_FOR_TESTS);
 
   simple_loader->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
-      loader_factory(), simple_loader_helper.GetCallbackDeprecated());
+      loader_factory(), simple_loader_helper.GetCallback());
   simple_loader_helper.WaitForCallback();
   ASSERT_TRUE(simple_loader_helper.response_body());
 

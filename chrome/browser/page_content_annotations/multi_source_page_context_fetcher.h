@@ -131,7 +131,8 @@ struct FetchPageContextResult {
   base::expected<ScreenshotResult, std::string> screenshot_result;
   std::optional<InnerTextResultWithTruncation> inner_text_result;
   std::optional<PdfResult> pdf_result;
-  std::optional<PageContentResultWithEndTime> annotated_page_content_result;
+  base::expected<PageContentResultWithEndTime, std::string>
+      annotated_page_content_result;
 };
 
 enum class FetchPageContextError {
@@ -165,9 +166,6 @@ extern const base::FeatureParam<int> kScreenshotQuality;
 extern const base::FeatureParam<std::string> kScreenshotImageType;
 
 extern const base::FeatureParam<base::TimeDelta> kScreenshotTimeout;
-
-// Enables page context eligibility checks.
-BASE_DECLARE_FEATURE(kGlicPageContextEligibility);
 
 // Callback used for relaying progress.
 class FetchPageProgressListener {

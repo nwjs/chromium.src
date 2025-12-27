@@ -17,7 +17,7 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/named_animation_trigger_map.h"
 #include "third_party/blink/renderer/core/editing/forward.h"
-#include "third_party/blink/renderer/core/layout/anchor_evaluator_impl.h"
+#include "third_party/blink/renderer/core/layout/anchor_map.h"
 #include "third_party/blink/renderer/core/layout/break_token.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
 #include "third_party/blink/renderer/core/layout/ink_overflow.h"
@@ -267,7 +267,7 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
   }
 
   bool IsGrid() const { return layout_object_->IsLayoutGrid(); }
-  bool IsMasonry() const { return layout_object_->IsLayoutMasonry(); }
+  bool IsGridLanes() const { return layout_object_->IsLayoutGridLanes(); }
 
   bool IsTextControlContainer() const;
   bool IsTextControlPlaceholder() const;
@@ -643,6 +643,13 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
     return depends_on_percentage_block_size_;
   }
 
+  // Return true if there's an anchor-positioned element inside, where its
+  // anchor either has a transform, or is inside a subtree with a transform, AND
+  // this transform is currently being animated.
+  bool HasRunningAnchorTransformAnimation() const {
+    return has_running_anchor_transform_animation_;
+  }
+
   const GCedHeapVector<Member<LayoutBoxModelObject>>* StickyDescendants()
       const {
     return propagated_data_ ? propagated_data_->sticky_descendants.Get()
@@ -669,7 +676,7 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
 
   bool HasPropagatedLayoutObjects() const {
     return PropagatedStickyDescendants() || PropagatedScrollInitialTarget() ||
-           PropagatedSnapAreas();
+           PropagatedSnapAreas() || NamedTriggers();
   }
 
   class OofData : public GarbageCollected<OofData> {
@@ -679,13 +686,13 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
     HeapVector<PhysicalOofPositionedNode>& OofPositionedDescendants() {
       return oof_positioned_descendants_;
     }
-    void SetAnchorQuery(PhysicalAnchorQuery* query) { anchor_query_ = query; }
-    const PhysicalAnchorQuery* AnchorQuery() const { return anchor_query_; }
-    PhysicalAnchorQuery& EnsureAnchorQuery();
+    void SetAnchorMap(AnchorMap* anchor_map) { anchor_map_ = anchor_map; }
+    const AnchorMap* GetAnchorMap() const { return anchor_map_; }
+    AnchorMap& EnsureAnchorMap();
 
    private:
     HeapVector<PhysicalOofPositionedNode> oof_positioned_descendants_;
-    Member<PhysicalAnchorQuery> anchor_query_;
+    Member<AnchorMap> anchor_map_;
   };
 
   // Returns true if some child is OOF in the fragment tree. This happens if
@@ -708,17 +715,16 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
 
   base::span<PhysicalOofPositionedNode> OutOfFlowPositionedDescendants() const;
 
-  bool HasAnchorQuery() const {
-    return oof_data_ && oof_data_->AnchorQuery() &&
-           !oof_data_->AnchorQuery()->IsEmpty();
+  bool HasChildAnchors() const {
+    return oof_data_ && oof_data_->GetAnchorMap() &&
+           !oof_data_->GetAnchorMap()->IsEmpty();
   }
-  bool HasAnchorQueryToPropagate() const {
-    return HasAnchorQuery() || IsAnchor();
-  }
-  const PhysicalAnchorQuery* AnchorQuery() const {
-    if (!HasAnchorQuery())
+  bool HasAnchorsToPropagate() const { return HasChildAnchors() || IsAnchor(); }
+  const AnchorMap* GetAnchorMap() const {
+    if (!HasChildAnchors()) {
       return nullptr;
-    return oof_data_->AnchorQuery();
+    }
+    return oof_data_->GetAnchorMap();
   }
 
   const GCedNamedAnimationTriggerMap* NamedTriggers() const {
@@ -762,6 +768,7 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
   uint8_t has_floating_descendants_for_paint_ : 1;  // NOLINT
   uint8_t has_adjoining_object_descendants_ : 1;    // NOLINT
   uint8_t depends_on_percentage_block_size_ : 1;    // NOLINT
+  uint8_t has_running_anchor_transform_animation_ : 1;
   mutable uint8_t children_valid_ : 1;              // NOLINT
 
   // The following bitfields are only to be used by PhysicalLineBoxFragment

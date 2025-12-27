@@ -4,6 +4,7 @@
 
 #include "components/autofill/core/browser/payments/amount_extraction_manager.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
@@ -40,7 +41,7 @@ AmountExtractionManager::AmountExtractionManager(
 AmountExtractionManager::~AmountExtractionManager() = default;
 
 // static
-std::optional<uint64_t>
+std::optional<int64_t>
 AmountExtractionManager::MaybeParseAmountToMonetaryMicroUnits(
     const std::string& amount) {
   const RE2 re(
@@ -53,18 +54,18 @@ AmountExtractionManager::MaybeParseAmountToMonetaryMicroUnits(
   }
   std::erase(dollar, ',');
 
-  uint64_t dollar_value = 0;
-  uint64_t cent_value = 0;
-  base::StringToUint64(dollar, &dollar_value);
-  base::StringToUint64(cent, &cent_value);
+  int64_t dollar_value = 0;
+  int64_t cent_value = 0;
+  base::StringToInt64(dollar, &dollar_value);
+  base::StringToInt64(cent, &cent_value);
 
   // Safely multiply to convert amount to micro.
-  uint64_t micro_amount = 0;
-  base::CheckedNumeric<uint64_t> checked_dollar_value =
-      base::CheckedNumeric<uint64_t>(dollar_value) * kMicrosPerDollar;
-  base::CheckedNumeric<uint64_t> checked_cent_value =
-      base::CheckedNumeric<uint64_t>(cent_value) * (kMicrosPerDollar / 100);
-  base::CheckedNumeric<uint64_t> checked_result =
+  int64_t micro_amount = 0;
+  base::CheckedNumeric<int64_t> checked_dollar_value =
+      base::CheckedNumeric<int64_t>(dollar_value) * kMicrosPerDollar;
+  base::CheckedNumeric<int64_t> checked_cent_value =
+      base::CheckedNumeric<int64_t>(cent_value) * (kMicrosPerDollar / 100);
+  base::CheckedNumeric<int64_t> checked_result =
       checked_dollar_value + checked_cent_value;
   if (!checked_result.AssignIfValid(&micro_amount)) {
     return std::nullopt;
@@ -111,38 +112,50 @@ bool AmountExtractionManager::IsValidAmountExtractionResponse(
 }
 
 DenseSet<AmountExtractionManager::EligibleFeature>
-AmountExtractionManager::GetEligibleFeatures(bool is_autofill_payments_enabled,
-                                             bool should_suppress_suggestions,
-                                             bool has_suggestions,
-                                             FillingProduct filling_product,
-                                             FieldType field_type) const {
-  // If there is an ongoing search, do not trigger the search.
-  if (search_request_pending_) {
-    return {};
-  }
-  // If autofill is not available, do not trigger the search.
-  if (!is_autofill_payments_enabled) {
-    return {};
-  }
+AmountExtractionManager::GetEligibleFeatures(
+    bool is_autofill_payments_enabled,
+    bool should_suppress_suggestions,
+    const std::vector<Suggestion>& suggestions,
+    FillingProduct filling_product,
+    FieldType field_type) const {
+  // In AI-based amount extraction case, if there is a BNPL suggestion present,
+  // then the amount extraction flow should be initiated.
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillEnableAiBasedAmountExtraction)) {
+    if (std::ranges::none_of(suggestions, [](const Suggestion& suggestion) {
+          return suggestion.type == SuggestionType::kBnplEntry;
+        })) {
+      return {};
+    }
+  } else {
+    // If there is an ongoing search, do not trigger the search.
+    if (search_request_pending_) {
+      return {};
+    }
+    // If autofill is not available, do not trigger the search.
+    if (!is_autofill_payments_enabled) {
+      return {};
+    }
 
-  // If the interacted form field is CVC, do not trigger the search.
-  if (kCvcFieldTypes.find(field_type) != kCvcFieldTypes.end()) {
-    return {};
-  }
+    // If the interacted form field is CVC, do not trigger the search.
+    if (kCvcFieldTypes.find(field_type) != kCvcFieldTypes.end()) {
+      return {};
+    }
 
-  // If there are no suggestions, do not trigger the search as suggestions
-  // showing is a requirement for amount extraction.
-  if (!has_suggestions) {
-    return {};
-  }
-  // If there are no suggestions, do not trigger the search as suggestions
-  // showing is a requirement for amount extraction.
-  if (should_suppress_suggestions) {
-    return {};
-  }
-  // Amount extraction is only offered for Credit Card filling scenarios.
-  if (filling_product != FillingProduct::kCreditCard) {
-    return {};
+    // If there are no suggestions, do not trigger the search as suggestions
+    // showing is a requirement for amount extraction.
+    if (suggestions.empty()) {
+      return {};
+    }
+    // If there are no suggestions, do not trigger the search as suggestions
+    // showing is a requirement for amount extraction.
+    if (should_suppress_suggestions) {
+      return {};
+    }
+    // Amount extraction is only offered for Credit Card filling scenarios.
+    if (filling_product != FillingProduct::kCreditCard) {
+      return {};
+    }
   }
 
   const DenseSet<EligibleFeature> eligible_features =
@@ -195,7 +208,8 @@ void AmountExtractionManager::TriggerCheckoutAmountExtractionWithAi() {
 
   autofill_manager_->client().GetRemoteModelExecutor()->ExecuteModel(
       optimization_guide::ModelBasedCapabilityKey::kAmountExtraction,
-      std::move(request), kAiBasedAmountExtractionWaitTime,
+      std::move(request),
+      {.execution_timeout = kAiBasedAmountExtractionWaitTime},
       base::BindOnce(&AmountExtractionManager::OnCheckoutAmountReceivedFromAi,
                      weak_ptr_factory_.GetWeakPtr()));
 }
@@ -241,7 +255,7 @@ void AmountExtractionManager::OnCheckoutAmountReceived(
   // amount is found.
   weak_ptr_factory_.InvalidateWeakPtrs();
 
-  std::optional<uint64_t> parsed_extracted_amount =
+  std::optional<int64_t> parsed_extracted_amount =
       MaybeParseAmountToMonetaryMicroUnits(extracted_amount);
 
   if (BnplManager* bnpl_manager = autofill_manager_->GetPaymentsBnplManager()) {
@@ -289,7 +303,7 @@ void AmountExtractionManager::OnCheckoutAmountReceivedFromAi(
     return;
   }
 
-  uint64_t parsed_extracted_amount = static_cast<uint64_t>(
+  int64_t parsed_extracted_amount = static_cast<int64_t>(
       response->final_checkout_amount() * kMicrosPerDollar);
 
   bnpl_manager->OnAmountExtractionReturnedFromAi(parsed_extracted_amount,

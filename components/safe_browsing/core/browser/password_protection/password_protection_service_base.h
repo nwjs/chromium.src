@@ -8,7 +8,6 @@
 #include <set>
 #include <vector>
 
-#include "base/feature_list.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
@@ -60,7 +59,6 @@ using password_manager::metrics_util::PasswordType;
 // HostContentSettingsMap instance.
 class PasswordProtectionServiceBase : public history::HistoryServiceObserver {
  public:
-  using OtpPhishingVerdictCallback = base::OnceCallback<void(bool)>;
   // Creates an instance with various fields set. Needs pref_service to get safe
   // browsing protection level, is_off_the_record to check for incognito,
   // identity_manager to verify that the user is signed in, and token_fetcher to
@@ -111,10 +109,6 @@ class PasswordProtectionServiceBase : public history::HistoryServiceObserver {
       LoginReputationClientRequest::TriggerType trigger_type,
       ReusedPasswordAccountType password_type,
       LoginReputationClientResponse::VerdictType verdict_type);
-
-  // If we should run otp phishing verdict callback.
-  bool ShouldRunOtpPhishingVerdictCallback(
-      LoginReputationClientRequest::TriggerType trigger_type) const;
 
   // Shows modal warning dialog on the current |web_contents| and pass the
   // |verdict_token| to callback of this dialog.
@@ -370,9 +364,6 @@ class PasswordProtectionServiceBase : public history::HistoryServiceObserver {
   // Set of PasswordProtectionRequests that are triggering modal warnings.
   std::set<scoped_refptr<PasswordProtectionRequest>> warning_requests_;
 
-  // Callback for otp phishing verdict.
-  std::optional<OtpPhishingVerdictCallback> otp_phishing_verdict_callback_;
-
   // The username of the account which password has been reused on. It is only
   // set once a modal warning or interstitial is verified to be shown.
   std::string username_for_last_shown_warning_ = "";
@@ -401,8 +392,6 @@ class PasswordProtectionServiceBase : public history::HistoryServiceObserver {
                            TestCleanUpExpiredVerdict);
   FRIEND_TEST_ALL_PREFIXES(PasswordProtectionServiceTest,
                            NoSendPingPrivateIpHostname);
-  FRIEND_TEST_ALL_PREFIXES(PasswordProtectionServiceBaseTest,
-                           VerifyShouldRunOtpPhishingVerdictCallback);
 
   // Overridden from history::HistoryServiceObserver.
   void OnHistoryDeletions(history::HistoryService* history_service,

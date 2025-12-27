@@ -12,6 +12,7 @@
 #include "base/strings/strcat.h"
 #include "base/trace_event/trace_event.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/ui/waap/waap_ui_metrics_recorder.h"
 #include "chrome/browser/ui/waap/waap_ui_metrics_service_factory.h"
 #include "components/startup_metric_utils/browser/startup_metric_utils.h"
@@ -79,7 +80,26 @@ void EmitReloadButtonHistogramWithTraceEvent(const char* event_name,
                                 base::Minutes(3), 100);
 }
 
-void RecordStartupPaintMetric(const char* paint_metric_name,
+// Returns a suffix for the startup temperature of the browser.
+const char* GetStartupTemperatureSuffix() {
+  switch (startup_metric_utils::GetBrowser().GetStartupTemperature()) {
+    case startup_metric_utils::COLD_STARTUP_TEMPERATURE:
+      return ".ColdStartup";
+    case startup_metric_utils::WARM_STARTUP_TEMPERATURE:
+      return ".WarmStartup";
+    case startup_metric_utils::LUKEWARM_STARTUP_TEMPERATURE:
+      return "";
+    case startup_metric_utils::UNDETERMINED_STARTUP_TEMPERATURE:
+      return "";
+    case startup_metric_utils::STARTUP_TEMPERATURE_COUNT:
+      NOTREACHED();
+  }
+  return "";
+}
+
+// Records a startup paint metric for the given `paint_metric_base`.
+void RecordStartupPaintMetric(std::string_view paint_metric_base,
+                              bool is_session_restored,
                               base::TimeTicks paint_time) {
   if (!startup_metric_utils::GetBrowser().ShouldLogStartupHistogram()) {
     return;
@@ -91,24 +111,9 @@ void RecordStartupPaintMetric(const char* paint_metric_name,
     return;
   }
 
-  // For early experiment, this is ReloadButton only.
-  // TODO(crbug.com/448794588): Switch to general name after initial phase.
-  std::string histogram_name =
-      base::StrCat({"InitialWebUI.Startup.ReloadButton.", paint_metric_name});
-  switch (startup_metric_utils::GetBrowser().GetStartupTemperature()) {
-    case startup_metric_utils::COLD_STARTUP_TEMPERATURE:
-      histogram_name = base::StrCat({histogram_name, ".ColdStartup"});
-      break;
-    case startup_metric_utils::WARM_STARTUP_TEMPERATURE:
-      histogram_name = base::StrCat({histogram_name, ".WarmStartup"});
-      break;
-    case startup_metric_utils::LUKEWARM_STARTUP_TEMPERATURE:
-      break;
-    case startup_metric_utils::UNDETERMINED_STARTUP_TEMPERATURE:
-      break;
-    case startup_metric_utils::STARTUP_TEMPERATURE_COUNT:
-      NOTREACHED();
-  }
+  std::string histogram_name = base::StrCat(
+      {"InitialWebUI.Startup", (is_session_restored ? ".SessionRestore" : ""),
+       ".", paint_metric_base, GetStartupTemperatureSuffix()});
 
   EmitHistogramWithTraceEvent(histogram_name.c_str(), time_origin, paint_time);
 }
@@ -116,13 +121,35 @@ void RecordStartupPaintMetric(const char* paint_metric_name,
 }  // namespace
 
 WaapUIMetricsService::WaapUIMetricsService(
-    base::PassKey<WaapUIMetricsServiceFactory>) {}
+    base::PassKey<WaapUIMetricsServiceFactory>,
+    const Profile* profile)
+    : is_session_restored_(SessionRestore::IsRestoring(profile)) {}
 
 WaapUIMetricsService::~WaapUIMetricsService() = default;
 
 // static
 WaapUIMetricsService* WaapUIMetricsService::Get(Profile* profile) {
   return WaapUIMetricsServiceFactory::GetForProfile(profile);
+}
+
+void WaapUIMetricsService::OnBrowserWindowFirstPresentation(
+    base::TimeTicks time) {
+  static bool is_first_call = true;
+  // It is possible for the presentation feedback to have a null timestamp even
+  // if the presentation was considered successful (e.g. if the OS/driver
+  // confirmed the swap but didn't provide a timestamp). In this case, we simply
+  // skip recording the metric.
+  // A longer term fix would require modifying
+  // `CompositorFrameSinkSupport::DidPresentCompositorFrame()`, which requires
+  // carefully auditing all callers. See https://crbug.com/464980749#comment10.
+  if (time.is_null()) {
+    return;
+  }
+  CHECK(is_first_call);
+  is_first_call = false;
+
+  RecordStartupPaintMetric("BrowserWindow.FirstPaint", is_session_restored_,
+                           time);
 }
 
 void WaapUIMetricsService::OnFirstPaint(base::TimeTicks time) {
@@ -133,7 +160,10 @@ void WaapUIMetricsService::OnFirstPaint(base::TimeTicks time) {
   }
   is_first_call = false;
 
-  RecordStartupPaintMetric("FirstPaint", time);
+  // For early experiment, this is ReloadButton only.
+  // TODO(crbug.com/448794588): Switch to general name after initial phase.
+  RecordStartupPaintMetric("ReloadButton.FirstPaint", is_session_restored_,
+                           time);
 }
 
 void WaapUIMetricsService::OnFirstContentfulPaint(base::TimeTicks time) {
@@ -144,7 +174,10 @@ void WaapUIMetricsService::OnFirstContentfulPaint(base::TimeTicks time) {
   }
   is_first_call = false;
 
-  RecordStartupPaintMetric("FirstContentfulPaint", time);
+  // For early experiment, this is ReloadButton only.
+  // TODO(crbug.com/448794588): Switch to general name after initial phase.
+  RecordStartupPaintMetric("ReloadButton.FirstContentfulPaint",
+                           is_session_restored_, time);
 }
 
 void WaapUIMetricsService::OnReloadButtonMousePressToNextPaint(

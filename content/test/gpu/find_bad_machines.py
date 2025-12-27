@@ -34,6 +34,7 @@ MIXIN_GROUPS = {
         'linux_intel_uhd_770_stable',
         'linux_nvidia_gtx_1660_experimental',
         'linux_nvidia_gtx_1660_stable',
+        'linux_nvidia_rtx_4070_super_stable',
         'mac_arm64_apple_m1_gpu_experimental',
         'mac_arm64_apple_m1_gpu_stable',
         'mac_arm64_apple_m2_retina_gpu_experimental',
@@ -42,6 +43,7 @@ MIXIN_GROUPS = {
         'mac_mini_intel_gpu_experimental',
         'mac_mini_intel_gpu_stable',
         'mac_pro_amd_gpu',
+        'mac_retina_amd_555x_gpu_stable',
         'mac_retina_amd_gpu_experimental',
         'mac_retina_amd_gpu_stable',
         'win10_amd_rx_5500_xt_stable',
@@ -54,6 +56,7 @@ MIXIN_GROUPS = {
         'win11_nvidia_rtx_4070_super_experimental',
         'win11_nvidia_rtx_4070_super_stable',
         'win11_qualcomm_adreno_690_stable',
+        'win11_qualcomm_snapdragon_x_elite_stable',
     ],
 }
 

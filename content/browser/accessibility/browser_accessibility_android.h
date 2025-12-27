@@ -113,6 +113,7 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
 
   bool HasCharacterLocations() const;
   bool HasImage() const;
+  bool HasLayoutBasedActions() const;
 
   const char* GetClassName() const;
   bool IsChildOfLeaf() const override;
@@ -159,8 +160,6 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
   std::string GetRoleString() const;
 
   std::u16string GetPaneTitle() const;
-
-  std::u16string GetDialogModalMessageText() const;
 
   std::u16string GetContentInvalidErrorMessage() const;
 

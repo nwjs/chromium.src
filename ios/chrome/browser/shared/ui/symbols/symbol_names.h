@@ -116,6 +116,7 @@ extern NSString* const kIncognitoRectangle;
 // only.
 extern NSString* const kIncognitoCircleFillSymbol;
 extern NSString* const kPlusCircleFillSymbol;
+extern NSString* const kPDFFillSymbol;
 
 // Symbols available on iOS 18.0+.
 extern NSString* const kClockArrowTriangleheadCounterclockwiseRotate90Symbol
@@ -186,6 +187,7 @@ extern NSString* const kMagnifyingglassSymbol;
 extern NSString* const kMagnifyingglassCircleSymbol;
 extern NSString* const kEllipsisCircleFillSymbol;
 extern NSString* const kEllipsisRectangleSymbol;
+extern NSString* const kEllipsisSymbol;
 extern NSString* const kPinSymbol;
 extern NSString* const kPinSlashSymbol;
 extern NSString* const kSettingsSymbol;
@@ -223,6 +225,7 @@ extern NSString* const kExpandSymbol;
 extern NSString* const kBackSymbol;
 extern NSString* const kForwardSymbol;
 extern NSString* const kPersonFillSymbol;
+extern NSString* const kPersonBadgeKeyFillSymbol;
 extern NSString* const kPersonClockFillSymbol;
 extern NSString* const kPersonFillBadgePlusSymbol;
 extern NSString* const kMailFillSymbol;
@@ -324,6 +327,7 @@ extern NSString* const kSystemCameraSymbol;
 extern NSString* const kTextJustifyLeftSymbol;
 extern NSString* const kVideoSymbol;
 extern NSString* const kWaveformSymbol;
+extern NSString* const kRightArrowCircleFillSymbol;
 
 // Names of the default symbol being non-monochrome by default. When using them,
 // you probably want to set their color to monochrome.

@@ -21,10 +21,10 @@ namespace blink {
 ClipboardChangeEventController::ClipboardChangeEventController(
     Navigator& navigator,
     EventTarget* event_target)
-    : Supplement<Navigator>(navigator),
-      PlatformEventController(*navigator.DomWindow()),
+    : PlatformEventController(*navigator.DomWindow()),
       FocusChangedObserver(navigator.DomWindow()->GetFrame()->GetPage()),
-      event_target_(event_target) {}
+      event_target_(event_target),
+      navigator_(&navigator) {}
 
 void ClipboardChangeEventController::FocusedFrameChanged() {
   ExecutionContext* context = GetExecutionContext();
@@ -42,7 +42,7 @@ void ClipboardChangeEventController::FocusedFrameChanged() {
 }
 
 ExecutionContext* ClipboardChangeEventController::GetExecutionContext() const {
-  return GetSupplementable()->DomWindow();
+  return navigator_->DomWindow();
 }
 
 void ClipboardChangeEventController::DidUpdateData() {
@@ -56,7 +56,7 @@ bool ClipboardChangeEventController::HasLastData() {
 void ClipboardChangeEventController::RegisterWithDispatcher() {
   SystemClipboard* clipboard = GetSystemClipboard();
   if (clipboard) {
-    clipboard->AddController(this, GetSupplementable()->DomWindow());
+    clipboard->AddController(this, navigator_->DomWindow());
   }
 }
 
@@ -76,27 +76,10 @@ SystemClipboard* ClipboardChangeEventController::GetSystemClipboard() const {
   return local_frame->GetSystemClipboard();
 }
 
-// Helper function to filter and only allow standard MIME types
-Vector<String> FilterForStandardMimeTypes(const Vector<String>& types) {
-  // Static list of allowed standard MIME types
-  // https://w3c.github.io/clipboard-apis/#mandatory-data-types-x
-  constexpr auto kAllowedMimeTypesSet =
-      base::MakeFixedFlatSet<std::string_view>(
-          {ui::kMimeTypePlainText, ui::kMimeTypeHtml, ui::kMimeTypePng});
-
-  Vector<String> filtered_types;
-  for (const auto& type : types) {
-    if (kAllowedMimeTypesSet.contains(type.Utf8())) {
-      filtered_types.push_back(type);
-    }
-  }
-  return filtered_types;
-}
-
 void ClipboardChangeEventController::Trace(Visitor* visitor) const {
-  Supplement<Navigator>::Trace(visitor);
   PlatformEventController::Trace(visitor);
   FocusChangedObserver::Trace(visitor);
+  visitor->Trace(navigator_);
   visitor->Trace(event_target_);
 }
 
@@ -111,13 +94,12 @@ void ClipboardChangeEventController::OnClipboardChanged() {
   if (window.document()->hasFocus()) {
     fire_clipboardchange_on_focus_ = false;
     if (event_target_) {
-      SystemClipboard* system_clipboard = GetSystemClipboard();
-      Vector<String> available_types = system_clipboard->ReadAvailableTypes();
-      Vector<String> standard_types =
-          FilterForStandardMimeTypes(available_types);
-
+      const auto& clipboardchange_data =
+          GetSystemClipboard()->GetClipboardChangeEventData();
+      // This notification should never be received if the data is not
+      // available.
       event_target_->DispatchEvent(*ClipboardChangeEvent::Create(
-          standard_types, blink::BigInt(system_clipboard->SequenceNumber())));
+          clipboardchange_data.types, clipboardchange_data.change_id));
 
       UseCounter::Count(GetExecutionContext(),
                         WebFeature::kClipboardChangeEventFired);

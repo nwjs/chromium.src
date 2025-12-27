@@ -30,14 +30,11 @@ class WebUIBrowserExtensionsContainer
   ~WebUIBrowserExtensionsContainer() override;
 
   // ExtensionsContainerViews:
-  ToolbarActionViewController* GetActionForId(
-      const std::string& action_id) override;
+  ToolbarActionViewModel* GetActionForId(const std::string& action_id) override;
   std::optional<extensions::ExtensionId> GetPoppedOutActionId() const override;
-  void OnContextMenuShownFromToolbar(const std::string& action_id) override;
-  void OnContextMenuClosedFromToolbar() override;
   bool IsActionVisibleOnToolbar(const std::string& action_id) const override;
   void UndoPopOut() override;
-  void SetPopupOwner(ToolbarActionViewController* popup_owner) override;
+  void SetPopupOwner(ToolbarActionViewModel* popup_owner) override;
   void HideActivePopup() override;
   bool CloseOverflowMenuIfOpen() override;
   void PopOutAction(const extensions::ExtensionId& action_id,
@@ -46,9 +43,6 @@ class WebUIBrowserExtensionsContainer
                                         ShowPopupCallback callback) override;
   void ToggleExtensionsMenu() override;
   bool HasAnyExtensions() const override;
-  void UpdateToolbarActionHoverCard(
-      ToolbarActionView* action_view,
-      ToolbarActionHoverCardUpdateType update_type) override;
   void ShowContextMenuAsFallback(
       const extensions::ExtensionId& action_id) override;
   void OnPopupShown(const extensions::ExtensionId& action_id,
@@ -88,6 +82,9 @@ class WebUIBrowserExtensionsContainer
   void CreateActions();
   void CreateActionForId(const ToolbarActionsModel::ActionId& action_id);
 
+  void OnContextMenuShownFromToolbar(const std::string& action_id);
+  void OnContextMenuClosedFromToolbar();
+
   const raw_ref<Browser> browser_;
   const raw_ref<WebUIBrowserWindow> window_;
   const raw_ref<ToolbarActionsModel> model_;
@@ -102,7 +99,7 @@ class WebUIBrowserExtensionsContainer
   std::unique_ptr<ContextMenu> context_menu_;
 
   // The action that triggered the current popup, if any.
-  raw_ptr<ToolbarActionViewController> popup_owner_ = nullptr;
+  raw_ptr<ToolbarActionViewModel> popup_owner_ = nullptr;
 
   // Coordinator to show and hide the ExtensionsMenuView.
   const std::unique_ptr<ExtensionsMenuCoordinator> extensions_menu_coordinator_;

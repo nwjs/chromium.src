@@ -21,6 +21,7 @@
 <translation id="1184145431117212167">Installationen mislykkedes, da din version af Windows ikke understøttes.</translation>
 <translation id="1185134272377778587">Om Chromium</translation>
 <translation id="1203500561924088507">Tak for installationen. Du skal genstarte browseren, før du bruger <ph name="BUNDLE_NAME" />.</translation>
+<translation id="123265588161106468">Mens du er logget ind, kan du bruge dine adgangskoder m.m. fra din Google-konto i Chromium. Du kan ændre dette ved at gå til "Din konto i Chromium".</translation>
 <translation id="1262876892872089030">Mens denne fane var inaktiv, blev der frigjort hukommelse for at sikre, at Chromium kører hurtigt. Du kan vælge, at dette website altid skal være inaktivt.</translation>
 <translation id="1265577313130862557">Chromium har blokeret denne download, fordi filen er skadelig</translation>
 <translation id="126567311906253476">Når du logger ind i Google-tjenester som f.eks. Gmail eller YouTube med <ph name="USER_EMAIL" />, kan du automatisk logge ind i Chromium med den samme konto</translation>
@@ -38,6 +39,7 @@
 <translation id="141901961143729572">Del dine tanker</translation>
 <translation id="1465192221147974788">Tillad skærmoptagelse for Chromium under Systemindstillinger for at dele dit vindue.</translation>
 <translation id="1478370723027452770">Få hjælp til Chrome for Testing</translation>
+<translation id="1496875977627931224">Hej <ph name="USER_NAME" /><ph name="LINE_BREAK" />Hvad har du på hjerte i dag?</translation>
 <translation id="1497802159252041924">Installationsfejl: <ph name="INSTALL_ERROR" /></translation>
 <translation id="1518627427551567882">Denne side er beskyttet</translation>
 <translation id="1524282610922162960">Del en Chromium-fane</translation>
@@ -73,7 +75,6 @@
 <translation id="1896836275755235458">Chromium sparer på batteriet ved at begrænse aktivitet i baggrunden og visuelle effekter, f.eks. smooth scrolling og videobilledfrekvenser. <ph name="BEGIN_LINK" />Få flere oplysninger om Energisparefunktion<ph name="END_LINK" /></translation>
 <translation id="1898804291554630487">Stil spørgsmål om denne side</translation>
 <translation id="1900969832270057921">Chromium Updater Service</translation>
-<translation id="1911666947158375684">Mens du er logget ind, kan du bruge dine adgangskoder m.m. fra din Google-konto i Chromium. Du kan til enhver tid ændre dette i indstillingerne.</translation>
 <translation id="1911763535808217981">Når du deaktiverer denne indstilling, kan du logge ind på Google-websites som f.eks. Gmail uden at logge ind i Chromium</translation>
 <translation id="1929939181775079593">Chromium svarer ikke. Vil du genstarte nu?</translation>
 <translation id="1933341829955786215">Din organisation, <ph name="MANAGER" />, kræver, at du logger ind i Chromium</translation>
@@ -107,6 +108,7 @@
 <translation id="2236949375853147973">Min aktivitet</translation>
 <translation id="2238130810669087193">For at kunne se dine adresser m.m. på alle dine enheder skal du logge ind i Chromium. Denne adresse gemmes på din Google-konto, når du er logget ind.</translation>
 <translation id="2241627712206172106">Hvis du deler en computer, kan venner og familie browse individuelt og konfigurere Chromium, som de ønsker hver især.</translation>
+<translation id="2283803047247799269">Søg på denne fane med Billedsøgning</translation>
 <translation id="2287771843518581140">{NUM_TABS,plural, =1{Chromium anbefaler, at du sætter den fane, der gør din browser langsom, på pause}one{Chromium anbefaler, at du sætter den fane, der gør din browser langsom, på pause}other{Chromium anbefaler, at du sætter de faner, der gør din browser langsom, på pause}}</translation>
 <translation id="2307973900865360088">Behold på applinje</translation>
 <translation id="2313870531055795960">Tjekker webadresser ift. en liste over usikre websites, der er gemt i Chromium. Hvis et website forsøger at stjæle din adgangskode, eller hvis du downloader en skadelig fil, sender Chromium muligvis også webadresser og bl.a. mindre mængder sideindhold til Beskyttet browsing.</translation>
@@ -153,11 +155,9 @@
 <translation id="2718390899429598676">Som et ekstra sikkerhedsniveau krypterer Chromium dine data.</translation>
 <translation id="2721354645805494590">Log ud for at fjerne din Google-konto fra Chromium</translation>
 <translation id="2722636413143664436">For at kunne se dine adgangskoder m.m. på alle dine enheder skal du logge ind i Chromium</translation>
-<translation id="2723860029395667894">Vis altid genvejen til Google AI-tilstand</translation>
 <translation id="2738871930057338499">Der kan ikke oprettes forbindelse til internettet. HTTP 403 (forbudt). Tjek din proxykonfiguration.</translation>
 <translation id="2753623023919742414">Klik for at søge</translation>
 <translation id="2768103863314748511">Angiv Chromium som din standard PDF-fremviser</translation>
-<translation id="2770231113462710648">Skift standardbrowser til:</translation>
 <translation id="2785438272836277133">Denne udvidelse indeholder malware og er ikke sikker. Fjern den fra Chromium, så den ikke længere kan se og ændre dine data på de websites, du besøger, bl.a. dine personlige oplysninger.</translation>
 <translation id="2799223571221894425">Genstart</translation>
 <translation id="2803971713792056305">Dit Chromium</translation>
@@ -179,6 +179,7 @@
 <translation id="2977506796191543575">Hvis et website forsøger at stjæle din adgangskode, eller hvis du downloader en skadelig fil, sender Chromium muligvis også webadresser, bl.a. mindre mængder sideindhold, til Beskyttet browsing</translation>
 <translation id="2981563588585023386">Log ind i Chromium for at blive beskyttet på nettet med dine forældres valg</translation>
 <translation id="3003694935412297923">Alle opgaver</translation>
+<translation id="3012615494352020668">{count,plural, =1{Chromium skal verificere din identitet, før visse data kan gemmes på din Google-konto og bruges på alle dine enheder. Hvis du logger ud nu, slettes disse data (1 element).}one{Chromium skal verificere din identitet, før visse data kan gemmes på din Google-konto og bruges på alle dine enheder. Hvis du logger ud nu, slettes disse data ({count} element).}other{Chromium skal verificere din identitet, før visse data kan gemmes på din Google-konto og bruges på alle dine enheder. Hvis du logger ud nu, slettes disse data ({count} elementer).}}</translation>
 <translation id="3013473503895162900">Åbn <ph name="URL" /> på en ny fane i Chromium.</translation>
 <translation id="3032706164202344641">Chromium kan ikke tjekke dine adgangskoder. Prøv igen senere.</translation>
 <translation id="3032787606318309379">Føjer til Chromium...</translation>
@@ -192,6 +193,7 @@
 <translation id="3103660991484857065">Installationsprogrammet kunne ikke pakke arkivet ud. Download Chromium igen.</translation>
 <translation id="310459126943037700">Opgaverne kunne ikke afsluttes.</translation>
 <translation id="3130323860337406239">Chromium bruger din mikrofon.</translation>
+<translation id="3130333203120345554">Ny søgning</translation>
 <translation id="3137969841538672700">Træk for at søge</translation>
 <translation id="3144188012276422546">Denne fane bruger ekstra ressourcer. Du kan forbedre ydeevnen ved at give Chromium tilladelse til at gøre den inaktiv.</translation>
 <translation id="3149163023759831301">Tillad skærmoptagelse for Chromium under Systemindstillinger for at dele din skærm.</translation>
@@ -237,6 +239,7 @@
 <translation id="370962675267501463">{COUNT,plural, =0{Din administrator anmoder om, at du genstarter Chromium for at anvende denne opdatering}=1{Din administrator anmoder om, at du genstarter Chromium for at anvende denne opdatering. Dit inkognitovindue åbnes ikke igen.}one{Din administrator anmoder om, at du genstarter Chromium for at anvende denne opdatering. # inkognitovindue åbnes ikke igen.}other{Din administrator anmoder om, at du genstarter Chromium for at anvende denne opdatering. Dine # inkognitovinduer åbnes ikke igen.}}</translation>
 <translation id="3713809861844741608">Åbn linket på en ny Chromium-&amp;fane</translation>
 <translation id="3728124580182886854">Tilknyt Chromium og andre Google-tjenester med henblik på personlig tilpasning og andre formål</translation>
+<translation id="3729187154190517324">Gør din søgning mere dybdegående ved at tilføje flere faner, filer og værktøjer ved hjælp af knappen "Tilføj en fane og meget mere".</translation>
 <translation id="3788675262216168505">Administrer Chromium-profiler</translation>
 <translation id="3790262771324122253">Få flere oplysninger om, hvorfor Chromium blokerer visse downloads</translation>
 <translation id="379589255253486813">Chromium giver dig besked, hvis der er noget, du skal gennemgå</translation>
@@ -267,6 +270,7 @@
 <translation id="4023601594785368013">Originalsprog: <ph name="LANGUAGE" /></translation>
 <translation id="4023845192681161785">Åbn links i Chromium fra en hvilken som helst app. Den fastgøres også til proceslinjen, så du nemt kan tilgå den.</translation>
 <translation id="4036079820698952681">Hjælp med at gøre Chromium bedre ved at rapportere de <ph name="BEGIN_LINK" />aktuelle indstillinger<ph name="END_LINK" />.</translation>
+<translation id="4039097928859803404">Vis altid genveje til AI-tilstand</translation>
 <translation id="4050175100176540509">Vigtige sikkerhedsforbedringer og nye funktioner er tilgængelige i den seneste version.</translation>
 <translation id="4055805654398742145">Adgangs­kode­admin­istrator</translation>
 <translation id="4061696872429826774">Et andet program på din computer har tilføjet en udvidelse, som kan ændre måden, Chromium fungerer på.
@@ -332,6 +336,7 @@
 <translation id="4724676981607797757">Installationen mislykkedes på grund af en fejl med ikke-understøttet protokol.</translation>
 <translation id="4746050847053251315">Vil du slutte Chromium alligevel?</translation>
 <translation id="4748217263233248895">En særlig sikkerhedsopdatering til Chromium blev netop anvendt. Genstart nu, hvorefter vi gendanner dine faner.</translation>
+<translation id="4759645701210484457">Spørg Chromium</translation>
 <translation id="4771701986670315895">Du har ikke besøgt websitet for nylig. Chromium har fjernet <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> og <ph name="COUNT" /> andre.</translation>
 <translation id="4788777615168560705">Chromium kan ikke tjekke dine adgangskoder. Prøv igen efter 24 timer, eller <ph name="BEGIN_LINK" />tjek adgangskoder på din Google-konto<ph name="END_LINK" />.</translation>
 <translation id="479167709087336770">Dette anvender den samme stavekontrol, som anvendes i Google Søgning. Tekst, som du angiver i browseren, sendes til Google. Du kan altid ændre denne adfærd i indstillingerne.</translation>
@@ -347,6 +352,7 @@
 <translation id="4994636714258228724">Tilføj dig selv i Chromium</translation>
 <translation id="5123973130450702873">Chromium skal have tilladelse til at registrere dine håndbevægelser</translation>
 <translation id="5141988424377517949">Du har ikke besøgt websitet for nylig. Chromium har fjernet <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> og <ph name="PERMISSION_3" />.</translation>
+<translation id="5167819546851111585">Hvad har du på hjerte i dag?</translation>
 <translation id="5174969993834422967">Du blokerer som regel notifikationer. Klik på notifikationsikonet i højre hjørne af din adresselinje for at give websitet tilladelse til at sende notifikationer.</translation>
 <translation id="5174983315706567306">Der er ikke nok diskplads.</translation>
 <translation id="5187123684706427865">Chromium-kontoen kræver fornyet godkendelse</translation>
@@ -358,6 +364,7 @@
 <translation id="5286907366254680517">Registreret</translation>
 <translation id="5294316920224716406">Når du browser i inkognitotilstand, advarer Chromium dig, inden et website indlæses via en usikker forbindelse</translation>
 <translation id="5313228254328109263">Chromium Updater Internal Service</translation>
+<translation id="5346389065299425353">Gør din søgning mere dybdegående ved at tilføje flere faner, filer og værktøjer</translation>
 <translation id="5352264705793813212">Chromium har fundet nogle sikkerhedsanbefalinger, du kan gennemgå</translation>
 <translation id="5352361688875342522">Andre Chromium-profiler</translation>
 <translation id="5358375970380395591">Du er ved at logge ind med en managerstyret konto og giver dens administrator kontrol over din profil i Chromium. Dine Chromium-data, f.eks. dine apps, bogmærker, historikdata, adgangskoder og andre indstillinger, knyttes permanent til <ph name="USER_NAME" />. Du kan slette disse data via kontrolpanelet for Google Konti, men du kan ikke knytte disse data til en anden konto. <ph name="LEARN_MORE" /></translation>
@@ -378,12 +385,14 @@
 <translation id="5496810170689441661">Chromium forsøger at redigere adgangskoder. Angiv din Windows-adgangskode for at tillade dette.</translation>
 <translation id="5524890928877629608">øverste venstre hjørne af søgeområdet: venstre <ph name="LEFT" /> %, øverste <ph name="TOP" /> %</translation>
 <translation id="5527463683072221100">Åbn PDF-filer i Chromium</translation>
+<translation id="5536164441519929134">Stil spørgsmål<ph name="LINE_BREAK" />om denne fane</translation>
 <translation id="5579324208890605088">Opstartsfejl: Kør installationsprogrammet som almindelig bruger, ikke som administrator.</translation>
 <translation id="5580770360767802657">Brug Chromium som standard, og fastgør den</translation>
 <translation id="5596627076506792578">Flere valgmuligheder</translation>
 <translation id="5605834417512968703">Vælg det, du vil søge efter med billedsøgning, eller tryk på Escape for at lukke billedsøgning</translation>
 <translation id="5618818588972826921">Vælg den tekst eller det billede, du vil søge efter med Billedsøgning, eller tryk på Escape for at lukke Billedsøgning</translation>
 <translation id="5623402015214259806">{0,plural, =0{Der er en tilgængelig Chromium-opdatering}=1{Der er en tilgængelig Chromium-opdatering}one{En Chromium-opdatering har været tilgængelig i # dag}other{En Chromium-opdatering har været tilgængelig i # dage}}</translation>
+<translation id="5633450273457573375">Brug din <ph name="BEGIN_LINK" />egen adgangssætning<ph name="END_LINK" /> til at kryptere alle Chromium-data på din Google-konto. Adresser og eventuelle data, der er gemt i Google Wallet, krypteres ikke med din adgangssætning. Browserhistorik fra Chromium synkroniseres ikke.</translation>
 <translation id="5643865575100044307">Slet altid websitedata fra din enhed, når du lukker Chromium</translation>
 <translation id="5653831366781983928">Genstart Chromium nu</translation>
 <translation id="5690427481109656848">Google LLC</translation>
@@ -493,13 +502,16 @@
 Visse funktioner kan være utilgængelige. Angiv en anden profilmappe, eller brug en nyere version af Chromium.</translation>
 <translation id="6729124504294600478">For at få personlig tilpasning og andre funktioner skal du medtage Chromium i Web- og appaktivitet og tilknyttede Google-tjenester</translation>
 <translation id="6734291798041940871">Chromium er allerede installeret for alle brugere på computeren.</translation>
+<translation id="6742093177587589736">Hvis du vil have dine bogmærker m.m. på alle dine enheder, skal du logge ind i Chromium. Denne adgangskode gemmes på din Google-konto, når du er logget ind.</translation>
 <translation id="6751374565094704799">Gør websites hurtigere ved hjælp af Chromiums V8-maskine, men gør Chromium en smule mindre modstandsdygtig over for angreb. Denne indstilling er aktiveret.</translation>
+<translation id="6754665438209053659">{count,plural, =1{Nogle af dine Chromium-data er endnu ikke gemt på din Google-konto. Prøv at vente et par minutter, før du logger ud. Hvis du logger ud nu, slettes disse data (1 element).}one{Nogle af dine Chromium-data er endnu ikke gemt på din Google-konto. Prøv at vente et par minutter, før du logger ud. Hvis du logger ud nu, slettes disse data ({count} element).}other{Nogle af dine Chromium-data er endnu ikke gemt på din Google-konto. Prøv at vente et par minutter, før du logger ud. Hvis du logger ud nu, slettes disse data ({count} elementer).}}</translation>
 <translation id="67706546131546258">Chromium anbefaler, at du scanner denne fil, da den kan være skadelig.</translation>
 <translation id="6779406956731413166">Chromium OS leveres ved hjælp af <ph name="BEGIN_LINK_CROS_OSS" />open source-software<ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="6831043979455480757">Oversæt</translation>
 <translation id="6847869444787758381">Chromium giver dig besked, hvis dine adgangskoder kompromitteres</translation>
 <translation id="684888714667046800">Der kunne ikke oprettes forbindelse til internettet. Hvis du bruger en firewall, skal du angive <ph name="PRODUCT_EXE_NAME" /> på tilladelseslisten.</translation>
 <translation id="6857782730669500492">Chromium – <ph name="PAGE_TITLE" /></translation>
+<translation id="6859580922007887573">Tryk på Tab for at fortsætte</translation>
 <translation id="6862030660799253820">Søg med dette billede via Billedsøgning</translation>
 <translation id="6873893289264747459">Chromium har registreret malware i "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="6877155553248388166">nederste højre hjørne af søgeområdet: højre <ph name="RIGHT" /> %, nederste <ph name="BOTTOM" /> %</translation>
@@ -521,6 +533,7 @@ Visse funktioner kan være utilgængelige. Angiv en anden profilmappe, eller bru
 <translation id="705851970750939768">Opdater Chromium</translation>
 <translation id="7067091210845072982">Hvis et billede ikke har en brugbar beskrivelse, forsøger Chromium at angive en for dig. Billederne sendes til Google, så der kan oprettes beskrivelser.</translation>
 <translation id="7141270731789036260">Tilpas Chrome for Testing</translation>
+<translation id="7147227333672430807">Du kan bruge Chromium, hver gang du klikker på links i beskeder, dokumenter og andre apps</translation>
 <translation id="7163519456498498587">Fjern <ph name="EXTENSION_NAME" /> fra Chromium</translation>
 <translation id="7173822816570314652">Din organisation sletter Chromium-data, når de ikke har været i brug i <ph name="TIMEOUT_DURATION" />. Disse data kan omfatte historik, Autofyld og downloads.</translation>
 <translation id="718435575166326686">Chromium skal have kameratilladelse for at bruge dette website</translation>
@@ -533,6 +546,7 @@ Visse funktioner kan være utilgængelige. Angiv en anden profilmappe, eller bru
 <translation id="7274695763216404502">Panelet er fastgjort. Brug billedsøgning igen via værktøjslinjen</translation>
 <translation id="7288567540154601580">Faner og udvidelser</translation>
 <translation id="7295544978856094497">{NUM_EXTENSIONS,plural, =1{Chromium anbefaler, at du fjerner den}one{Chromium anbefaler, at du fjerner den}other{Chromium anbefaler, at du fjerner dem}}</translation>
+<translation id="7296334833518879294">Hvis du vil dele systemlyd, skal du åbne Systemindstillinger og tillade "Kun optagelse af systemlyd" for Chromium. Genstart derefter Chromium.</translation>
 <translation id="7309928523159922338">Ad measurement giver websites, du besøger, mulighed for at anmode om oplysninger fra Chromium, som hjælper websitet med at måle, hvor godt dets annoncer klarer sig. Ad measurement begrænser sporing på tværs af websites ved at overføre så få oplysninger som muligt mellem websites.</translation>
 <translation id="731795002583552498">Chromium opdateres</translation>
 <translation id="7318036098707714271">Din præferencefil er beskadiget eller ugyldig.
@@ -583,6 +597,7 @@ Chromium kan ikke gendanne dine præferencer.</translation>
 <translation id="7872446069773932638">Downloader… Der er <ph name="SECONDS" /> sekunder tilbage</translation>
 <translation id="7873537467422636035">Hvis du glemmer din adgangssætning eller vil ændre denne indstilling, skal du <ph name="BEGIN_LINK" />slette Chromium-dataene på din konto<ph name="END_LINK" /></translation>
 <translation id="7877212753140190672">Stil spørgsmål om dette billede</translation>
+<translation id="7887929410013642057">Vis altid genveje til AI-tilstand</translation>
 <translation id="7888981273428720788">Angiv Chromium som standardbrowser</translation>
 <translation id="7934340546140346950">Chromium opgraderer automatisk usikre forbindelser til HTTPS, når det er muligt</translation>
 <translation id="7937630085815544518">Du loggede ind på Chromium som <ph name="USER_EMAIL_ADDRESS" />. Brug den samme konto til at logge ind igen.</translation>
@@ -621,6 +636,7 @@ Chromium kan ikke gendanne dine præferencer.</translation>
 <translation id="8359544530202147897">Opdater Chromium for at fortsætte med at bruge Chromium-dataene på din Google-konto, <ph name="ACCOUNT_EMAIL" /></translation>
 <translation id="8360718212975266891">Hvis du vil have fremtidige Chromium-opdateringer, skal du have Windows 10 eller nyere. Denne computer har Windows 8.</translation>
 <translation id="8362914115861174987">Oversæt til</translation>
+<translation id="8367705492654390392">Stil et spørgsmål</translation>
 <translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC. Alle rettigheder forbeholdes.</translation>
 <translation id="8372327902843331129">For at kunne se dine adgangskoder m.m. på alle dine enheder skal du logge ind på Chromium. Denne adgangskode gemmes på din Google-konto, når du er logget ind.</translation>
 <translation id="837460953767177950">Du skal derefter genstarte Chromium.</translation>
@@ -629,13 +645,16 @@ Chromium kan ikke gendanne dine præferencer.</translation>
 <translation id="8416884904046428725">Chromium skal verificere din identitet, før visse data kan gemmes på din Google-konto og bruges på alle dine enheder. Hvis du logger ud nu, slettes disse data.</translation>
 <translation id="8417404458978023919">{0,plural, =1{Genstart Chromium inden for en dag}one{Genstart Chromium inden for # dag}other{Genstart Chromium inden for # dag}}</translation>
 <translation id="8438543370129609977">Når du bruger Billedsøgning, sendes sidetitlen, webadressen og indholdet, herunder PDF-filer, til serveren. <ph name="LEARN_MORE" /></translation>
+<translation id="8447525028100794994">Få flere oplysninger om at bruge billedsøgning i Chromium</translation>
 <translation id="8453117565092476964">Installationsarkivet er beskadiget eller ugyldigt. Download Chromium igen.</translation>
 <translation id="8458614432758743027">Chromium kræver Windows 10 eller nyere.</translation>
 <translation id="8463672209299734063">Valgfrit: Vær med til at forbedre funktioner og ydeevne i Chromium OS ved automatisk at sende diagnostik og brugsdata til Google.</translation>
 <translation id="8471947159125090285">Verificer din identitet for at bruge og gemme Chromium-data på din Google-konto</translation>
 <translation id="8482493977473846331">Viser meddelelser om at logge ind i Chromium</translation>
 <translation id="8493179195440786826">Chromium er forældet</translation>
+<translation id="850264194101621529">Tak, fordi du har valgt Chromium som din standardbrowser.</translation>
 <translation id="8522801943730206384">Chromium kan tjekke dine adgangskoder, når du gemmer dem</translation>
+<translation id="8548787790260785208">Få en advarsel, hvis Chromium registrerer, at én af dine adgangskoder er blevet offentligt tilgængelig i forbindelse med et brud på datasikkerheden</translation>
 <translation id="8555465886620020932">Tjenestefejl: <ph name="SERVICE_ERROR" />.</translation>
 <translation id="8556420416730706394">Du kan fastgøre billedsøgning for at få nem adgang. Klik på knappen Fastgør øverst i sidepanelet</translation>
 <translation id="856656450041460113">Søg i sproglisten</translation>
@@ -644,8 +663,8 @@ Chromium kan ikke gendanne dine præferencer.</translation>
 <translation id="8586442755830160949">Copyright <ph name="YEAR" /> Forfatterne bag Chromium. Alle rettigheder forbeholdes.</translation>
 <translation id="8601359445272098721">Nyhed! Du kan oversætte både tekst og billeder på din skærm ved at vælge knappen "Oversæt skærmen"</translation>
 <translation id="8619360774459241877">Starter Chromium...</translation>
+<translation id="8624541899164515475">Indstillinger (åbnes på en ny fane).</translation>
 <translation id="8648201657708811153">Google Chrome for Testing kan ikke angives som din standardbrowser.</translation>
-<translation id="8677922833187616101">Vis altid genvejen til Google AI-tilstand</translation>
 <translation id="8697124171261953979">Den styrer også, hvilken side der vises, når du åbner Chromium eller søger via omnifeltet.</translation>
 <translation id="8704119203788522458">Dette er din Chromium-browser</translation>
 <translation id="8712637175834984815">Forstået</translation>

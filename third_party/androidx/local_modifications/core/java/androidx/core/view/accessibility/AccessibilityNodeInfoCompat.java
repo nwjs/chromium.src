@@ -40,6 +40,8 @@ import android.util.SparseArray;
 import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityNodeInfo.Selection;
+import android.view.accessibility.AccessibilityNodeInfo.SelectionPosition;
 import android.view.accessibility.AccessibilityNodeInfo.TouchDelegateInfo;
 
 import androidx.annotation.IntDef;
@@ -76,35 +78,35 @@ import java.util.Map;
  */
 public class AccessibilityNodeInfoCompat {
 
+    private static boolean isAtLeastB_1() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA
+                && Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1;
+    }
+
     /**
-     * A class defining an action that can be performed on an {@link AccessibilityNodeInfo}.
-     * Each action has a unique id and a label.
-     * <p>
-     * There are three categories of actions:
+     * A class defining an action that can be performed on an {@link AccessibilityNodeInfo}. Each
+     * action has a unique id and a label.
+     *
+     * <p>There are three categories of actions:
+     *
      * <ul>
-     * <li><strong>Standard actions</strong> - These are actions that are reported and
-     * handled by the standard UI widgets in the platform. Each standard action is associated with
-     * a resource id, e.g. {@link android.R.id#accessibilityActionScrollUp}. Note that actions were
-     * formerly associated with static constants defined in this class, e.g.
-     * {@link #ACTION_FOCUS}. These actions will have {@code null} labels.
-     * </li>
-     * <li><strong>Custom actions action</strong> - These are actions that are reported
-     * and handled by custom widgets. i.e. ones that are not part of the UI toolkit. For
-     * example, an application may define a custom action for clearing the user history.
-     * </li>
-     * <li><strong>Overriden standard actions</strong> - These are actions that override
-     * standard actions to customize them. For example, an app may add a label to the
-     * standard {@link #ACTION_CLICK} action to indicate to the user that this action clears
-     * browsing history.
+     *   <li><strong>Standard actions</strong> - These are actions that are reported and handled by
+     *       the standard UI widgets in the platform. Each standard action is associated with a
+     *       resource id, e.g. {@link android.R.id#accessibilityActionScrollUp}. Note that actions
+     *       were formerly associated with static constants defined in this class, e.g. {@link
+     *       #ACTION_FOCUS}. These actions will have {@code null} labels.
+     *   <li><strong>Custom actions action</strong> - These are actions that are reported and
+     *       handled by custom widgets. i.e. ones that are not part of the UI toolkit. For example,
+     *       an application may define a custom action for clearing the user history.
+     *   <li><strong>Overriden standard actions</strong> - These are actions that override standard
+     *       actions to customize them. For example, an app may add a label to the standard {@link
+     *       #ACTION_CLICK} action to indicate to the user that this action clears browsing history.
      * </ul>
-     * </p>
-     * <p class="note">
-     * <strong>Note:</strong> Views which support these actions should invoke
-     * {@link ViewCompat#setImportantForAccessibility(View, int)} with
-     * {@link ViewCompat#IMPORTANT_FOR_ACCESSIBILITY_YES} to ensure an
-     * {@link android.accessibilityservice.AccessibilityService} can discover the set of supported
-     * actions.
-     * </p>
+     *
+     * <p class="note"><strong>Note:</strong> Views which support these actions should invoke {@link
+     * ViewCompat#setImportantForAccessibility(View, int)} with {@link
+     * ViewCompat#IMPORTANT_FOR_ACCESSIBILITY_YES} to ensure an {@link
+     * android.accessibilityservice.AccessibilityService} can discover the set of supported actions.
      */
     public static class AccessibilityActionCompat {
 
@@ -715,31 +717,52 @@ public class AccessibilityNodeInfoCompat {
         /**
          * Action that brings fully on screen the next node in the specified direction.
          *
-         * <p>
-         *     This should include wrapping around to the next/previous row, column, etc. in a
-         *     collection if one is available. If there is no node in that direction, the action
-         *     should fail and return false.
-         * </p>
-         * <p>
-         *     This action should be used instead of
-         *     {@link AccessibilityActionCompat#ACTION_SCROLL_TO_POSITION} when a widget does not
-         *     have clear row and column semantics or if a directional search is needed to find a
-         *     node in a complex ViewGroup where individual nodes may span multiple rows or
-         *     columns. The implementing widget must send a
-         *     {@link AccessibilityEventCompat#TYPE_VIEW_TARGETED_BY_SCROLL} accessibility event
-         *     with the scroll target as the source.  An accessibility service can listen for this
-         *     event, inspect its source, and use the result when determining where to place
-         *     accessibility focus.
-         * <p>
-         *     <strong>Arguments:</strong> {@link #ACTION_ARGUMENT_DIRECTION_INT}. This is a
-         *     required argument.<br>
-         * </p>
+         * <p>This should include wrapping around to the next/previous row, column, etc. in a
+         * collection if one is available. If there is no node in that direction, the action should
+         * fail and return false.
+         *
+         * <p>This action should be used instead of {@link
+         * AccessibilityActionCompat#ACTION_SCROLL_TO_POSITION} when a widget does not have clear
+         * row and column semantics or if a directional search is needed to find a node in a complex
+         * ViewGroup where individual nodes may span multiple rows or columns. The implementing
+         * widget must send a {@link AccessibilityEventCompat#TYPE_VIEW_TARGETED_BY_SCROLL}
+         * accessibility event with the scroll target as the source. An accessibility service can
+         * listen for this event, inspect its source, and use the result when determining where to
+         * place accessibility focus.
+         *
+         * <p><strong>Arguments:</strong> {@link #ACTION_ARGUMENT_DIRECTION_INT}. This is a required
+         * argument.<br>
          */
         @OptIn(markerClass = androidx.core.os.BuildCompat.PrereleaseSdkCheck.class)
         public static final @NonNull AccessibilityActionCompat ACTION_SCROLL_IN_DIRECTION =
                 new AccessibilityActionCompat(
                         Build.VERSION.SDK_INT >= 34 ? Api34Impl.getActionScrollInDirection() : null,
-                        android.R.id.accessibilityActionScrollInDirection, null, null, null);
+                        android.R.id.accessibilityActionScrollInDirection,
+                        null,
+                        null,
+                        null);
+
+        /**
+         * Action to set the extended selection. Performing this action with no arguments clears the
+         * selection.
+         *
+         * <p><strong>Example:</strong> <code><pre><p>
+         *  Bundle arguments = new Bundle();
+         *  SelectionCompat selection = new SelectionCompat(null, null);
+         *  arguments.setParcelable(
+         *          AccessibilityNodeInfoCompat.ACTION_ARGUMENT_SELECTION_PARCELABLE,
+         *          selection.mSelection);
+         *  info.performAction(
+         *          AccessibilityActionCompat.ACTION_SET_EXTENDED_SELECTION.getId(), arguments);
+         * </pre></code>
+         */
+        public static final @NonNull AccessibilityActionCompat ACTION_SET_EXTENDED_SELECTION =
+                new AccessibilityActionCompat(
+                        isAtLeastB_1() ? Api36MinorImpl.getActionSetExtendedSelection() : null,
+                        android.R.id.accessibilityActionSetExtendedSelection,
+                        null,
+                        null,
+                        null);
 
         final Object mAction;
         private final int mId;
@@ -1172,15 +1195,55 @@ public class AccessibilityNodeInfoCompat {
 
     /**
      * Class with information if a node is a collection item.
-     * <p>
-     * A collection item is contained in a collection, it starts at
-     * a given row and column in the collection, and spans one or
-     * more rows and columns. For example, a header of two related
-     * table columns starts at the first row and the first column,
-     * spans one row and two columns.
-     * </p>
+     *
+     * <p>A collection item is contained in a collection, it starts at a given row and column in the
+     * collection, and spans one or more rows and columns. For example, a header of two related
+     * table columns starts at the first row and the first column, spans one row and two columns.
      */
     public static class CollectionItemInfoCompat {
+        /**
+         * There is no sort direction.
+         *
+         * @see #getSortDirection()
+         * @see Builder#setSortDirection(int)
+         */
+        public static final int SORT_DIRECTION_NONE = 0;
+
+        /**
+         * Items are sorted in ascending order (e.g., A-Z, 0-9).
+         *
+         * @see #getSortDirection()
+         * @see Builder#setSortDirection(int)
+         */
+        public static final int SORT_DIRECTION_ASCENDING = 1;
+
+        /**
+         * Items are sorted in descending order (e.g., Z-A, 9-0).
+         *
+         * @see #getSortDirection()
+         * @see Builder#setSortDirection(int)
+         */
+        public static final int SORT_DIRECTION_DESCENDING = 2;
+
+        /**
+         * Items are sorted, but using a method other than ascending or descending (e.g., based on
+         * relevance or a custom algorithm).
+         *
+         * @see #getSortDirection()
+         * @see Builder#setSortDirection(int)
+         */
+        public static final int SORT_DIRECTION_OTHER = 3;
+
+        @RestrictTo(LIBRARY_GROUP_PREFIX)
+        @Retention(RetentionPolicy.SOURCE)
+        @IntDef(
+                value = {
+                    SORT_DIRECTION_NONE,
+                    SORT_DIRECTION_ASCENDING,
+                    SORT_DIRECTION_DESCENDING,
+                    SORT_DIRECTION_OTHER,
+                })
+        public @interface SortDirection {}
 
         final Object mInfo;
 
@@ -1310,8 +1373,31 @@ public class AccessibilityNodeInfoCompat {
         }
 
         /**
-         * Builder for creating {@link CollectionItemInfoCompat} objects.
+         * Gets the sort direction applied to the data associated with this node.
+         *
+         * <p>This item can only be set on a heading node within a table collection. Given the
+         * heading node's collection item, a subsequent collection item uses this sort direction if
+         * it has the same row or column index, and a greater index in the other dimension. For
+         * example, an item at row 2, column 2 can reference a heading at row 2, column 1 for its
+         * sort direction.
+         *
+         * <p>Compatibility:
+         *
+         * <ul>
+         *   <li>API &lt; 36.1: Always returns SORT_DIRECTION_NONE
+         * </ul>
+         *
+         * @return The current sort direction.
          */
+        public @SortDirection int getSortDirection() {
+            if (isAtLeastB_1()) {
+                return Api36MinorImpl.getCollectionItemSortDirection(mInfo);
+            }
+
+            return SORT_DIRECTION_NONE;
+        }
+
+        /** Builder for creating {@link CollectionItemInfoCompat} objects. */
         public static final class Builder {
             private boolean mHeading;
             private int mColumnIndex;
@@ -1321,12 +1407,10 @@ public class AccessibilityNodeInfoCompat {
             private boolean mSelected;
             private String mRowTitle;
             private String mColumnTitle;
+            private int mSortDirection;
 
-            /**
-             * Creates a new Builder.
-             */
-            public Builder() {
-            }
+            /** Creates a new Builder. */
+            public Builder() {}
 
             /**
              * Sets the collection item is a heading.
@@ -1417,16 +1501,54 @@ public class AccessibilityNodeInfoCompat {
             }
 
             /**
-             * Builds and returns a {@link AccessibilityNodeInfo.CollectionItemInfo}.
+             * Sets the sort direction for this item.
+             *
+             * <p>Valid only if {@link AccessibilityNodeInfo#isHeading()} returns {@code true}.
+             * Indicates that collection content associated with this heading is presented in the
+             * indicated sort direction. It should only be called by accessibility providers. For
+             * accessibility services, see {@link #getSortDirection()} to query the current state.
+             *
+             * @param sortDirection the sort direction of this collection item info
+             * @return This builder
              */
+            @NonNull
+            public Builder setSortDirection(@SortDirection int sortDirection) {
+                mSortDirection = sortDirection;
+                return this;
+            }
+
+            /** Builds and returns a {@link AccessibilityNodeInfo.CollectionItemInfo}. */
             public @NonNull CollectionItemInfoCompat build() {
-                if (Build.VERSION.SDK_INT >= 33) {
-                    return Api33Impl.buildCollectionItemInfoCompat(mHeading, mColumnIndex,
-                            mRowIndex, mColumnSpan, mRowSpan, mSelected, mRowTitle, mColumnTitle);
+                if (isAtLeastB_1()) {
+                    return Api36MinorImpl.buildCollectionItemInfoCompat(
+                            mHeading,
+                            mColumnIndex,
+                            mRowIndex,
+                            mColumnSpan,
+                            mRowSpan,
+                            mSelected,
+                            mRowTitle,
+                            mColumnTitle,
+                            mSortDirection);
+                } else if (Build.VERSION.SDK_INT >= 33) {
+                    return Api33Impl.buildCollectionItemInfoCompat(
+                            mHeading,
+                            mColumnIndex,
+                            mRowIndex,
+                            mColumnSpan,
+                            mRowSpan,
+                            mSelected,
+                            mRowTitle,
+                            mColumnTitle);
                 } else {
                     return new CollectionItemInfoCompat(
-                            AccessibilityNodeInfo.CollectionItemInfo.obtain(mRowIndex, mRowSpan,
-                                    mColumnIndex, mColumnSpan, mHeading, mSelected));
+                            AccessibilityNodeInfo.CollectionItemInfo.obtain(
+                                    mRowIndex,
+                                    mRowSpan,
+                                    mColumnIndex,
+                                    mColumnSpan,
+                                    mHeading,
+                                    mSelected));
                 }
             }
         }
@@ -1606,8 +1728,251 @@ public class AccessibilityNodeInfoCompat {
         }
     }
 
-    private static final String ROLE_DESCRIPTION_KEY =
-            "AccessibilityNodeInfo.roleDescription";
+    /**
+     * Compat class for AccessibilityNodeInfo.SelectionPosition, which is a class that defines
+     * either the start or end of a selection that can span across multiple AccessibilityNodeInfo
+     * objects.
+     *
+     * @see AccessibilityNodeInfo.SelectionPosition
+     *     <p>Compatibility:
+     *     <ul>
+     *       <li>API &lt: 36.1: Class methods perform no-op behavior.
+     *     </ul>
+     */
+    public static final class SelectionPositionCompat {
+        final SelectionPosition mPosition;
+
+        /**
+         * Instantiates a new SelectionPositionCompat.
+         *
+         * @param node The {@link AccessibilityNodeInfoCompat} for the node of this selection
+         *     position.
+         * @param offset The offset for a {@link SelectionPositionCompat} within {@code view}'s text
+         *     content, which should be a value between 0 and the length of {@code view}'s text.
+         */
+        public SelectionPositionCompat(@NonNull AccessibilityNodeInfoCompat node, int offset) {
+            if (isAtLeastB_1()) {
+                mPosition = new SelectionPosition(node.unwrap(), offset);
+            } else {
+                mPosition = null;
+            }
+        }
+
+        /**
+         * Instantiates a new SelectionPositionCompat.
+         *
+         * @param view The {@link View} containing the text associated with this selection position.
+         * @param offset The offset for a selection position within {@code view}'s text content,
+         *     which should be a value between 0 and the length of {@code view}'s text.
+         */
+        public SelectionPositionCompat(@NonNull View view, int offset) {
+            if (isAtLeastB_1()) {
+                mPosition = new SelectionPosition(view, offset);
+            } else {
+                mPosition = null;
+            }
+        }
+
+        /**
+         * Instantiates a new SelectionPositionCompat.
+         *
+         * @param view The view whose virtual descendant is associated with the selection position.
+         * @param virtualDescendantId The ID of the virtual descendant within {@code view}'s virtual
+         *     subtree that contains the selection position.
+         * @param offset The offset for a selection position within the virtual descendant's text
+         *     content, which should be a value between 0 and the length of the descendant's text.
+         */
+        public SelectionPositionCompat(@NonNull View view, int virtualDescendantId, int offset) {
+            if (isAtLeastB_1()) {
+                mPosition = new SelectionPosition(view, virtualDescendantId, offset);
+            } else {
+                mPosition = null;
+            }
+        }
+
+        /**
+         * Instantiates a new SelectionPositionCompat.
+         *
+         * @param position The underlying SelectionPosition to wrap.
+         */
+        public SelectionPositionCompat(@NonNull SelectionPosition position) {
+            if (isAtLeastB_1()) {
+                mPosition = position;
+            } else {
+                mPosition = null;
+            }
+        }
+
+        /**
+         * @return The node associated with {@code this} {@link SelectionPositionCompat}
+         *     <p>Compatibility:
+         *     <ul>
+         *       <li>API &lt: 36.1: Always returns {@code null}
+         *     </ul>
+         */
+        public @Nullable AccessibilityNodeInfoCompat getNode() {
+            if (isAtLeastB_1()) {
+                return AccessibilityNodeInfoCompat.wrap(mPosition.getNode());
+            } else {
+                return null;
+            }
+        }
+
+        /**
+         * @return A value from 0 to the length of {@link #getNode()}'s content representing the
+         *     offset of the {@link SelectionPositionCompat}
+         *     <p>Compatibility:
+         *     <ul>
+         *       <li>API &lt: 36.1: Always returns {@code -1}
+         *     </ul>
+         */
+        public int getOffset() {
+            if (isAtLeastB_1()) {
+                return mPosition.getOffset();
+            } else {
+                return -1;
+            }
+        }
+
+        /**
+         * Compatibility:
+         *
+         * <ul>
+         *   <li>API &lt: 36.1: Always returns {@code 0}
+         * </ul>
+         */
+        @Override
+        public int hashCode() {
+            if (isAtLeastB_1()) {
+                return mPosition != null ? mPosition.hashCode() : 0;
+            } else {
+                return 0;
+            }
+        }
+
+        /**
+         * Compatibility:
+         *
+         * <ul>
+         *   <li>API &lt: 36.1: Always returns {@code false}
+         * </ul>
+         */
+        @Override
+        public boolean equals(Object other) {
+            if (isAtLeastB_1()) {
+                return mPosition != null ? mPosition.equals(other) : false;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    /**
+     * Compat class for AccessibilityNodeInfo.Selection, which is a class that represents a
+     * selection of content that may extend across more than one {@link AccessibilityNodeInfo}
+     * instance.
+     *
+     * @see AccessibilityNodeInfo.Selection
+     *     <p>Compatibility:
+     *     <ul>
+     *       <li>API &lt: 36.1: Class methods perform no-op behavior.
+     *     </ul>
+     */
+    public static final class SelectionCompat {
+        final Selection mSelection;
+
+        /**
+         * Instantiates a new SelectionCompat.
+         *
+         * @param start The start of the extended selection.
+         * @param end The end of the extended selection.
+         */
+        public SelectionCompat(
+                @NonNull SelectionPositionCompat start, @NonNull SelectionPositionCompat end) {
+            if (isAtLeastB_1()) {
+                mSelection = new Selection(start.mPosition, end.mPosition);
+            } else {
+                mSelection = null;
+            }
+        }
+
+        /**
+         * Instantiates a new SelectionCompat.
+         *
+         * @param selection The underlying Selection to wrap.
+         */
+        public SelectionCompat(@Nullable Selection selection) {
+            if (isAtLeastB_1()) {
+                mSelection = selection;
+            } else {
+                mSelection = null;
+            }
+        }
+
+        /**
+         * @return The start of the extended selection.
+         *     <p>Compatibility:
+         *     <ul>
+         *       <li>API &lt: 36.1: Always returns {@code null}
+         *     </ul>
+         */
+        public @Nullable SelectionPositionCompat getStart() {
+            if (isAtLeastB_1()) {
+                return new SelectionPositionCompat(mSelection.getStart());
+            } else {
+                return null;
+            }
+        }
+
+        /**
+         * @return The end of the extended selection.
+         *     <p>Compatibility:
+         *     <ul>
+         *       <li>API &lt: 36.1: Always returns {@code null}
+         *     </ul>
+         */
+        public @Nullable SelectionPositionCompat getEnd() {
+            if (isAtLeastB_1()) {
+                return new SelectionPositionCompat(mSelection.getEnd());
+            } else {
+                return null;
+            }
+        }
+
+        /**
+         * Compatibility:
+         *
+         * <ul>
+         *   <li>API &lt: 36.1: Always returns {@code 0}
+         * </ul>
+         */
+        @Override
+        public int hashCode() {
+            if (isAtLeastB_1()) {
+                return mSelection != null ? mSelection.hashCode() : 0;
+            } else {
+                return 0;
+            }
+        }
+
+        /**
+         * Compatibility:
+         *
+         * <ul>
+         *   <li>API &lt: 36.1: Always returns {@code false}
+         * </ul>
+         */
+        @Override
+        public boolean equals(Object obj) {
+            if (isAtLeastB_1()) {
+                return mSelection != null ? mSelection.equals(obj) : false;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    private static final String ROLE_DESCRIPTION_KEY = "AccessibilityNodeInfo.roleDescription";
 
     private static final String PANE_TITLE_KEY =
             "androidx.view.accessibility.AccessibilityNodeInfoCompat.PANE_TITLE_KEY";
@@ -1939,23 +2304,36 @@ public class AccessibilityNodeInfoCompat {
 
     /**
      * Argument for which HTML element to get moving to the next/previous HTML element.
-     * <p>
-     * <strong>Type:</strong> String<br>
-     * <strong>Actions:</strong> {@link AccessibilityActionCompat#ACTION_NEXT_HTML_ELEMENT},
-     *         {@link AccessibilityActionCompat#ACTION_PREVIOUS_HTML_ELEMENT}
-     * </p>
+     *
+     * <p><strong>Type:</strong> String<br>
+     * <strong>Actions:</strong> {@link AccessibilityActionCompat#ACTION_NEXT_HTML_ELEMENT}, {@link
+     * AccessibilityActionCompat#ACTION_PREVIOUS_HTML_ELEMENT}
      */
     public static final String ACTION_ARGUMENT_HTML_ELEMENT_STRING =
-        "ACTION_ARGUMENT_HTML_ELEMENT_STRING";
+            "ACTION_ARGUMENT_HTML_ELEMENT_STRING";
 
     /**
-     * Argument for whether when moving at granularity to extend the selection
-     * or to move it otherwise.
-     * <p>
-     * <strong>Type:</strong> boolean<br>
-     * <strong>Actions:</strong> {@link #ACTION_NEXT_AT_MOVEMENT_GRANULARITY},
-     * {@link #ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY}
-     * </p>
+     * Argument for specifying the extended selection.
+     *
+     * <p><strong>Type:</strong> {@link AccessibilityNodeInfoCompat.SelectionCompat}<br>
+     * <strong>Actions:</strong>
+     *
+     * <ul>
+     *   <li>{@link AccessibilityActionCompat#ACTION_SET_EXTENDED_SELECTION}
+     * </ul>
+     *
+     * @see AccessibilityActionCompat#ACTION_SET_EXTENDED_SELECTION
+     */
+    public static final String ACTION_ARGUMENT_SELECTION_PARCELABLE =
+            "androidx.core.view.accessibility.action.ARGUMENT_SELECTION_PARCELABLE";
+
+    /**
+     * Argument for whether when moving at granularity to extend the selection or to move it
+     * otherwise.
+     *
+     * <p><strong>Type:</strong> boolean<br>
+     * <strong>Actions:</strong> {@link #ACTION_NEXT_AT_MOVEMENT_GRANULARITY}, {@link
+     * #ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY}
      *
      * @see AccessibilityActionCompat#ACTION_NEXT_AT_MOVEMENT_GRANULARITY
      * @see AccessibilityActionCompat#ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
@@ -2104,56 +2482,109 @@ public class AccessibilityNodeInfoCompat {
             "androidx.core.view.accessibility.action.ARGUMENT_DIRECTION_INT";
 
     /**
-     * <p>Argument to represent the scroll amount as a percent of the visible area of a node, with
-     * 1.0F as the default. Values smaller than 1.0F represent a partial scroll of the node, and
-     * values larger than 1.0F represent a scroll that extends beyond the currently visible node
-     * Rect. Setting this to {@link Float#POSITIVE_INFINITY} or to another "too large" value should
-     * scroll to the end of the node. Negative values should not be used with this argument.
-     * </p>
+     * Argument to represent the scroll amount as a percent of the visible area of a node, with 1.0F
+     * as the default. Values smaller than 1.0F represent a partial scroll of the node, and values
+     * larger than 1.0F represent a scroll that extends beyond the currently visible node Rect.
+     * Setting this to {@link Float#POSITIVE_INFINITY} or to another "too large" value should scroll
+     * to the end of the node. Negative values should not be used with this argument.
      *
-     * <p>
-     *     This argument should be used with the following scroll actions:
-     *     <ul>
-     *         <li>{@link AccessibilityActionCompat#ACTION_SCROLL_FORWARD}</li>
-     *         <li>{@link AccessibilityActionCompat#ACTION_SCROLL_BACKWARD}</li>
-     *         <li>{@link AccessibilityActionCompat#ACTION_SCROLL_UP}</li>
-     *         <li>{@link AccessibilityActionCompat#ACTION_SCROLL_DOWN}</li>
-     *         <li>{@link AccessibilityActionCompat#ACTION_SCROLL_LEFT}</li>
-     *         <li>{@link AccessibilityActionCompat#ACTION_SCROLL_RIGHT}</li>
-     *     </ul>
-     * </p>
-     * <p>
-     *     Example: if a view representing a list of items implements
-     *     {@link AccessibilityActionCompat#ACTION_SCROLL_FORWARD} to scroll forward by an entire
-     *     screen
-     *     (one "page"), then passing a value of .25F via this argument should scroll that view
-     *     only by 1/4th of a screen. Passing a value of 1.50F via this argument should scroll the
-     *     view by 1 1/2 screens or to end of the node if the node doesn't extend to 1 1/2 screens.
-     * </p>
+     * <p>This argument should be used with the following scroll actions:
      *
-     * <p>
-     *     This argument should not be used with the following scroll actions, which don't cleanly
-     *     conform to granular scroll semantics:
-     *     <ul>
-     *         <li>{@link AccessibilityActionCompat#ACTION_SCROLL_IN_DIRECTION}</li>
-     *         <li>{@link AccessibilityActionCompat#ACTION_SCROLL_TO_POSITION}</li>
-     *     </ul>
-     * </p>
+     * <ul>
+     *   <li>{@link AccessibilityActionCompat#ACTION_SCROLL_FORWARD}
+     *   <li>{@link AccessibilityActionCompat#ACTION_SCROLL_BACKWARD}
+     *   <li>{@link AccessibilityActionCompat#ACTION_SCROLL_UP}
+     *   <li>{@link AccessibilityActionCompat#ACTION_SCROLL_DOWN}
+     *   <li>{@link AccessibilityActionCompat#ACTION_SCROLL_LEFT}
+     *   <li>{@link AccessibilityActionCompat#ACTION_SCROLL_RIGHT}
+     * </ul>
      *
-     * <p>
-     *     Views that support this argument should set
-     *     {@link #setGranularScrollingSupported(boolean)} to true. Clients should use
-     *     {@link #isGranularScrollingSupported()} to check if granular scrolling is supported.
-     * </p>
+     * <p>Example: if a view representing a list of items implements {@link
+     * AccessibilityActionCompat#ACTION_SCROLL_FORWARD} to scroll forward by an entire screen (one
+     * "page"), then passing a value of .25F via this argument should scroll that view only by 1/4th
+     * of a screen. Passing a value of 1.50F via this argument should scroll the view by 1 1/2
+     * screens or to end of the node if the node doesn't extend to 1 1/2 screens.
+     *
+     * <p>This argument should not be used with the following scroll actions, which don't cleanly
+     * conform to granular scroll semantics:
+     *
+     * <ul>
+     *   <li>{@link AccessibilityActionCompat#ACTION_SCROLL_IN_DIRECTION}
+     *   <li>{@link AccessibilityActionCompat#ACTION_SCROLL_TO_POSITION}
+     * </ul>
+     *
+     * <p>Views that support this argument should set {@link
+     * #setGranularScrollingSupported(boolean)} to true. Clients should use {@link
+     * #isGranularScrollingSupported()} to check if granular scrolling is supported.
      */
     public static final String ACTION_ARGUMENT_SCROLL_AMOUNT_FLOAT =
             "androidx.core.view.accessibility.action.ARGUMENT_SCROLL_AMOUNT_FLOAT";
 
-    // Focus types
+    // Checked states.
 
     /**
-     * The input focus.
+     * Checked state for a node that is not checked.
+     *
+     * @see #getChecked()
+     * @see #setChecked(int)
      */
+    public static final int CHECKED_STATE_FALSE = 0;
+
+    /**
+     * Checked state for a node that is checked.
+     *
+     * @see #getChecked()
+     * @see #setChecked(int)
+     */
+    public static final int CHECKED_STATE_TRUE = 1;
+
+    /**
+     * Checked state for a node that is partially checked. For example, when a checkbox owns a
+     * number of sub-options and they have different states, then the main checkbox is in a
+     * partially-checked state.
+     *
+     * @see #getChecked()
+     * @see #setChecked(int)
+     */
+    public static final int CHECKED_STATE_PARTIAL = 2;
+
+    // Expanded states.
+
+    /**
+     * Expanded state for a non-expandable element
+     *
+     * @see #getExpandedState()
+     * @see #setExpandedState(int)
+     */
+    public static final int EXPANDED_STATE_UNDEFINED = 0;
+
+    /**
+     * Expanded state for a collapsed expandable element.
+     *
+     * @see #getExpandedState()
+     * @see #setExpandedState(int)
+     */
+    public static final int EXPANDED_STATE_COLLAPSED = 1;
+
+    /**
+     * Expanded state for an expanded expandable element that can still be expanded further.
+     *
+     * @see #getExpandedState()
+     * @see #setExpandedState(int)
+     */
+    public static final int EXPANDED_STATE_PARTIAL = 2;
+
+    /**
+     * Expanded state for an expanded expandable element that cannot be expanded further.
+     *
+     * @see #getExpandedState()
+     * @see #setExpandedState(int)
+     */
+    public static final int EXPANDED_STATE_FULL = 3;
+
+    // Focus types
+
+    /** The input focus. */
     public static final int FOCUS_INPUT = 1;
 
     /**
@@ -2335,23 +2766,25 @@ public class AccessibilityNodeInfoCompat {
     @IntDef(
             flag = false,
             value = {
-                AccessibilityNodeInfo.EXPANDED_STATE_UNDEFINED,
-                AccessibilityNodeInfo.EXPANDED_STATE_COLLAPSED,
-                AccessibilityNodeInfo.EXPANDED_STATE_PARTIAL,
-                AccessibilityNodeInfo.EXPANDED_STATE_FULL,
+                EXPANDED_STATE_UNDEFINED,
+                EXPANDED_STATE_COLLAPSED,
+                EXPANDED_STATE_PARTIAL,
+                EXPANDED_STATE_FULL,
             })
+    @RestrictTo(LIBRARY_GROUP_PREFIX)
     @Retention(RetentionPolicy.SOURCE)
-    private @interface ExpandedState {}
+    public @interface ExpandedState {}
 
     @IntDef(
             flag = false,
             value = {
-                AccessibilityNodeInfo.CHECKED_STATE_FALSE,
-                AccessibilityNodeInfo.CHECKED_STATE_TRUE,
-                AccessibilityNodeInfo.CHECKED_STATE_PARTIAL,
+                CHECKED_STATE_FALSE,
+                CHECKED_STATE_TRUE,
+                CHECKED_STATE_PARTIAL,
             })
+    @RestrictTo(LIBRARY_GROUP_PREFIX)
     @Retention(RetentionPolicy.SOURCE)
-    private @interface CheckedState {}
+    public @interface CheckedState {}
 
     private static int sClickableSpanId = 0;
 
@@ -2781,10 +3214,10 @@ public class AccessibilityNodeInfoCompat {
      *
      * @return The expanded state, one of:
      *     <ul>
-     *       <li>{@link AccessibilityNodeInfo#EXPANDED_STATE_UNDEFINED}
-     *       <li>{@link AccessibilityNodeInfo#EXPANDED_STATE_COLLAPSED}
-     *       <li>{@link AccessibilityNodeInfo#EXPANDED_STATE_FULL}
-     *       <li>{@link AccessibilityNodeInfo#EXPANDED_STATE_PARTIAL}
+     *       <li>{@link AccessibilityNodeInfoCompat#EXPANDED_STATE_UNDEFINED}
+     *       <li>{@link AccessibilityNodeInfoCompat#EXPANDED_STATE_COLLAPSED}
+     *       <li>{@link AccessibilityNodeInfoCompat#EXPANDED_STATE_FULL}
+     *       <li>{@link AccessibilityNodeInfoCompat#EXPANDED_STATE_PARTIAL}
      *     </ul>
      */
     @ExpandedState
@@ -2792,8 +3225,7 @@ public class AccessibilityNodeInfoCompat {
         if (Build.VERSION.SDK_INT >= 36) {
             return Api36Impl.getExpandedState(mInfo);
         } else {
-            return mInfo.getExtras().getInt(EXPANDED_STATE_KEY,
-                AccessibilityNodeInfo.EXPANDED_STATE_UNDEFINED);
+            return mInfo.getExtras().getInt(EXPANDED_STATE_KEY, EXPANDED_STATE_UNDEFINED);
         }
     }
 
@@ -2807,10 +3239,10 @@ public class AccessibilityNodeInfoCompat {
      * @param state new expanded state of this node.
      * @throws IllegalArgumentException If state is not one of:
      *     <ul>
-     *       <li>{@link AccessibilityNodeInfo#EXPANDED_STATE_UNDEFINED}
-     *       <li>{@link AccessibilityNodeInfo#EXPANDED_STATE_COLLAPSED}
-     *       <li>{@link AccessibilityNodeInfo#EXPANDED_STATE_PARTIAL}
-     *       <li>{@link AccessibilityNodeInfo#EXPANDED_STATE_FULL}
+     *       <li>{@link AccessibilityNodeInfoCompat#EXPANDED_STATE_UNDEFINED}
+     *       <li>{@link AccessibilityNodeInfoCompat#EXPANDED_STATE_COLLAPSED}
+     *       <li>{@link AccessibilityNodeInfoCompat#EXPANDED_STATE_PARTIAL}
+     *       <li>{@link AccessibilityNodeInfoCompat#EXPANDED_STATE_FULL}
      *     </ul>
      *
      * @throws IllegalStateException If called from an AccessibilityService
@@ -3099,51 +3531,54 @@ public class AccessibilityNodeInfoCompat {
 
     /**
      * Gets the checked state of this node.
-     * <p>
-     * Note that this is only meaningful when {@link #isCheckable()} returns {@code true}.
+     *
+     * <p>Note that this is only meaningful when {@link #isCheckable()} returns {@code true}.
      *
      * @see #setCheckable(boolean)
      * @see #isCheckable()
      * @see #setChecked(int)
      * @return The checked state, one of:
-     *          <ul>
-     *          <li>{@link AccessibilityNodeInfo#CHECKED_STATE_FALSE}
-     *          <li>{@link AccessibilityNodeInfo#CHECKED_STATE_TRUE}
-     *          <li>{@link AccessibilityNodeInfo#CHECKED_STATE_PARTIAL}
-     *          </ul>
+     *     <ul>
+     *       <li>{@link AccessibilityNodeInfoCompat#CHECKED_STATE_FALSE}
+     *       <li>{@link AccessibilityNodeInfoCompat#CHECKED_STATE_TRUE}
+     *       <li>{@link AccessibilityNodeInfoCompat#CHECKED_STATE_PARTIAL}
+     *     </ul>
      */
     @CheckedState
     public int getChecked() {
         if (Build.VERSION.SDK_INT >= 36) {
             return Api36Impl.getChecked(mInfo);
         } else {
-            return mInfo.getExtras().getInt(CHECKED_KEY,
-                    mInfo.isChecked() ? AccessibilityNodeInfo.CHECKED_STATE_TRUE
-                            : AccessibilityNodeInfo.CHECKED_STATE_FALSE);
+            return mInfo.getExtras()
+                    .getInt(
+                            CHECKED_KEY,
+                            mInfo.isChecked() ? CHECKED_STATE_TRUE : CHECKED_STATE_FALSE);
         }
     }
 
     /**
-     * Sets the checked state of this node. This is only meaningful
-     * when {@link #isCheckable()} returns {@code true}.
-     * <p><strong>Note:</strong> Cannot be called from an
-     *   {@link android.accessibilityservice.AccessibilityService}. This class is made immutable
-     *   before being delivered to an AccessibilityService.
+     * Sets the checked state of this node. This is only meaningful when {@link #isCheckable()}
+     * returns {@code true}.
+     *
+     * <p><strong>Note:</strong> Cannot be called from an {@link
+     * android.accessibilityservice.AccessibilityService}. This class is made immutable before being
+     * delivered to an AccessibilityService.
      *
      * @see #setCheckable(boolean)
      * @see #isCheckable()
      * @see #getChecked()
      * @param checked The checked state. One of
-     *          <ul>
-     *          <li>{@link AccessibilityNodeInfo#CHECKED_STATE_FALSE}
-     *          <li>{@link AccessibilityNodeInfo#CHECKED_STATE_TRUE}
-     *          <li>{@link AccessibilityNodeInfo#CHECKED_STATE_PARTIAL}
-     *          </ul>
+     *     <ul>
+     *       <li>{@link AccessibilityNodeInfoCompat#CHECKED_STATE_FALSE}
+     *       <li>{@link AccessibilityNodeInfoCompat#CHECKED_STATE_TRUE}
+     *       <li>{@link AccessibilityNodeInfoCompat#CHECKED_STATE_PARTIAL}
+     *     </ul>
+     *
      * @throws IllegalStateException If called from an AccessibilityService.
-     * @throws IllegalArgumentException if {@code checked} is not one of
-     * {@link AccessibilityNodeInfo#CHECKED_STATE_FALSE},
-     *          {@link AccessibilityNodeInfo#CHECKED_STATE_TRUE}, or
-     *          {@link AccessibilityNodeInfo#CHECKED_STATE_PARTIAL}.
+     * @throws IllegalArgumentException if {@code checked} is not one of {@link
+     *     AccessibilityNodeInfoCompat#CHECKED_STATE_FALSE}, {@link
+     *     AccessibilityNodeInfoCompat#CHECKED_STATE_TRUE}, or {@link
+     *     AccessibilityNodeInfoCompat#CHECKED_STATE_PARTIAL}.
      */
     public void setChecked(@CheckedState int checked) {
         if (Build.VERSION.SDK_INT >= 36) {
@@ -3151,10 +3586,10 @@ public class AccessibilityNodeInfoCompat {
             return;
         }
 
-        if (checked == AccessibilityNodeInfo.CHECKED_STATE_TRUE
-                || checked == AccessibilityNodeInfo.CHECKED_STATE_PARTIAL
-                || checked == AccessibilityNodeInfo.CHECKED_STATE_FALSE) {
-            mInfo.setChecked(checked == AccessibilityNodeInfo.CHECKED_STATE_TRUE);
+        if (checked == CHECKED_STATE_TRUE
+                || checked == CHECKED_STATE_PARTIAL
+                || checked == CHECKED_STATE_FALSE) {
+            mInfo.setChecked(checked == CHECKED_STATE_TRUE);
             mInfo.getExtras().putInt(CHECKED_KEY, checked);
         } else {
             throw new IllegalArgumentException("Unknown checked argument: " + checked);
@@ -4161,6 +4596,28 @@ public class AccessibilityNodeInfoCompat {
     }
 
     /**
+     * Gets the {@link android.view.accessibility.AccessibilityNodeInfo#Selection selection} of this
+     * node.
+     *
+     * @return The selection, or {@code null} if the node has no selection.
+     *     <p>Compatibility:
+     *     <ul>
+     *       <li>API &lt: 36.1: Always returns {@code null}
+     *     </ul>
+     */
+    @Nullable
+    public SelectionCompat getSelection() {
+        if (isAtLeastB_1()) {
+            Selection selection = mInfo.getSelection();
+            if (selection != null) {
+                return new SelectionCompat(selection);
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Gets the actions that can be performed on the node.
      *
      * @return A list of AccessibilityActions.
@@ -4985,11 +5442,37 @@ public class AccessibilityNodeInfoCompat {
     }
 
     /**
+     * Sets the {@link android.view.accessibility.AccessibilityNodeInfo#Selection selection} of this
+     * node.
+     *
+     * <p><strong>Note:</strong> Cannot be called from an {@link
+     * android.accessibilityservice.AccessibilityService}. This class is made immutable before being
+     * delivered to an AccessibilityService.
+     *
+     * @param selection The selection, or {@code null} to clear the selection.
+     *     <p>Compatibility:
+     *     <ul>
+     *       <li>API &lt: 36.1: Do nothing
+     *     </ul>
+     *
+     * @throws IllegalStateException If called from an AccessibilityService.
+     */
+    public void setSelection(@Nullable SelectionCompat selection) {
+        if (isAtLeastB_1()) {
+            if (selection == null) {
+                mInfo.setSelection(null);
+            } else {
+                mInfo.setSelection(selection.mSelection);
+            }
+        }
+    }
+
+    /**
      * Returns whether the node's text represents a hint for the user to enter text. It should only
      * be {@code true} if the node has editable text.
      *
      * @return {@code true} if the text in the node represents a hint to the user, {@code false}
-     * otherwise.
+     *     otherwise.
      */
     public boolean isShowingHintText() {
         if (Build.VERSION.SDK_INT >= 26) {
@@ -5455,9 +5938,9 @@ public class AccessibilityNodeInfoCompat {
 
     private String getCheckedString() {
         @CheckedState int checkedState = getChecked();
-        if (checkedState == AccessibilityNodeInfo.CHECKED_STATE_TRUE) {
+        if (checkedState == CHECKED_STATE_TRUE) {
             return "TRUE";
-        } else if (checkedState == AccessibilityNodeInfo.CHECKED_STATE_PARTIAL) {
+        } else if (checkedState == CHECKED_STATE_PARTIAL) {
             return "PARTIAL";
         } else {
             return "FALSE";
@@ -5550,20 +6033,22 @@ public class AccessibilityNodeInfoCompat {
                 return "ACTION_DRAG_CANCEL";
             case android.R.id.accessibilityActionScrollInDirection:
                 return "ACTION_SCROLL_IN_DIRECTION";
+            case android.R.id.accessibilityActionSetExtendedSelection:
+                return "ACTION_SET_EXTENDED_SELECTION";
             default:
                 return "ACTION_UNKNOWN";
         }
     }
 
     static String getExpandedStateSymbolicName(@ExpandedState int state) {
-        switch(state) {
-            case AccessibilityNodeInfo.EXPANDED_STATE_UNDEFINED:
+        switch (state) {
+            case EXPANDED_STATE_UNDEFINED:
                 return "UNDEFINED";
-            case AccessibilityNodeInfo.EXPANDED_STATE_COLLAPSED:
+            case EXPANDED_STATE_COLLAPSED:
                 return "COLLAPSED";
-            case AccessibilityNodeInfo.EXPANDED_STATE_PARTIAL:
+            case EXPANDED_STATE_PARTIAL:
                 return "PARTIAL";
-            case AccessibilityNodeInfo.EXPANDED_STATE_FULL:
+            case EXPANDED_STATE_FULL:
                 return "FULL";
             default:
                 return "UNKNOWN";
@@ -5803,6 +6288,46 @@ public class AccessibilityNodeInfoCompat {
         private static boolean removeLabeledBy(AccessibilityNodeInfo info, @NonNull View root,
                 int virtualDescendantId) {
             return info.removeLabeledBy(root, virtualDescendantId);
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES_FULL.BAKLAVA_1)
+    private static class Api36MinorImpl {
+        private Api36MinorImpl() {
+            // This class is non instantiable.
+        }
+
+        public static CollectionItemInfoCompat buildCollectionItemInfoCompat(
+                boolean heading,
+                int columnIndex,
+                int rowIndex,
+                int columnSpan,
+                int rowSpan,
+                boolean selected,
+                String rowTitle,
+                String columnTitle,
+                @CollectionItemInfoCompat.SortDirection int sortDirection) {
+            return new CollectionItemInfoCompat(
+                    new AccessibilityNodeInfo.CollectionItemInfo.Builder()
+                            .setHeading(heading)
+                            .setColumnIndex(columnIndex)
+                            .setRowIndex(rowIndex)
+                            .setColumnSpan(columnSpan)
+                            .setRowSpan(rowSpan)
+                            .setSelected(selected)
+                            .setRowTitle(rowTitle)
+                            .setColumnTitle(columnTitle)
+                            .setSortDirection(sortDirection)
+                            .build());
+        }
+
+        public static @CollectionItemInfoCompat.SortDirection int getCollectionItemSortDirection(
+                Object info) {
+            return ((AccessibilityNodeInfo.CollectionItemInfo) info).getSortDirection();
+        }
+
+        public static AccessibilityNodeInfo.AccessibilityAction getActionSetExtendedSelection() {
+            return AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_EXTENDED_SELECTION;
         }
     }
 }

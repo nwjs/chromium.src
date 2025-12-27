@@ -16,8 +16,8 @@
 #import "base/metrics/user_metrics_action.h"
 #import "base/strings/sys_string_conversions.h"
 #import "ios/chrome/browser/bookmarks/editor/ui/bookmarks_editor_mutator.h"
+#import "ios/chrome/browser/bookmarks/public/bookmarks_ui_constants.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/bookmark_mediator.h"
-#import "ios/chrome/browser/bookmarks/ui_bundled/bookmark_ui_constants.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/bookmark_utils_ios.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/cells/bookmark_parent_folder_item.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/cells/bookmark_text_field_item.h"
@@ -374,7 +374,7 @@ const CGFloat kEstimatedTableSectionFooterHeight = 40;
 
 - (UITableViewCell*)tableView:(UITableView*)tableView
         cellForRowAtIndexPath:(NSIndexPath*)indexPath {
-  DCHECK_EQ(tableView, self.tableView);
+  CHECK_EQ(tableView, self.tableView, base::NotFatalUntil::M152);
   UITableViewCell* cell = [super tableView:tableView
                      cellForRowAtIndexPath:indexPath];
   NSInteger type = [self.tableViewModel itemTypeForIndexPath:indexPath];
@@ -393,7 +393,7 @@ const CGFloat kEstimatedTableSectionFooterHeight = 40;
 
 - (void)tableView:(UITableView*)tableView
     didSelectRowAtIndexPath:(NSIndexPath*)indexPath {
-  DCHECK_EQ(tableView, self.tableView);
+  CHECK_EQ(tableView, self.tableView, base::NotFatalUntil::M152);
   if ([self.tableViewModel itemTypeForIndexPath:indexPath] == ItemTypeFolder) {
     [self moveBookmark];
   }

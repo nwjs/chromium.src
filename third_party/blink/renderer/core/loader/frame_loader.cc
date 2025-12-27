@@ -41,6 +41,7 @@
 
 #include "base/auto_reset.h"
 #include "base/notreached.h"
+#include "base/time/time.h"
 #include "base/trace_event/typed_macros.h"
 #include "base/unguessable_token.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -97,6 +98,7 @@
 #include "third_party/blink/renderer/core/loader/idleness_detector.h"
 #include "third_party/blink/renderer/core/loader/mixed_content_checker.h"
 #include "third_party/blink/renderer/core/loader/navigation_policy.h"
+#include "third_party/blink/renderer/core/loader/old_document_info_for_commit.h"
 #include "third_party/blink/renderer/core/loader/progress_tracker.h"
 #include "third_party/blink/renderer/core/navigation_api/navigation_api.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
@@ -422,8 +424,13 @@ void FrameLoader::DispatchUnloadEventAndFillOldDocumentInfoIfNeeded(
       (frame_->GetPage()->GetFocusController().FocusedFrame() == frame_);
   old_document_info->overlay_color = frame_->GetFrameOverlayColor();
 
+  base::ElapsedTimer elapsed_timer;
   frame_->GetDocument()->DispatchUnloadEvents(
       &old_document_info->unload_timing_info);
+  old_document_info->total_lifecycle_events_processing_time_on_commit =
+      std::max(
+          old_document_info->total_lifecycle_events_processing_time_on_commit,
+          elapsed_timer.Elapsed());
 }
 
 void FrameLoader::DidExplicitOpen() {
@@ -1180,6 +1187,10 @@ void FrameLoader::CommitNavigation(
   auto url_origin = SecurityOrigin::Create(navigation_params->url);
   ScopedOldDocumentInfoForCommitCapturer scoped_old_document_info(
       MakeGarbageCollected<OldDocumentInfoForCommit>(url_origin));
+  scoped_old_document_info.CurrentInfo()
+      ->total_lifecycle_events_processing_time_on_commit =
+      navigation_params->navigation_timings
+          .total_lifecycle_events_processing_time_on_commit;
 
   FrameSwapScope frame_swap_scope(frame_owner);
   {
@@ -1276,6 +1287,17 @@ void FrameLoader::CommitNavigation(
       commit_reason);
 
   RestoreScrollPositionAndViewState();
+
+  if (!frame_->IsDetached() && frame_->IsOutermostMainFrame()) {
+    ukm::builders::PageLifecycleMetricsOnNewPageCommit(
+        frame_->GetDocument()->UkmSourceID())
+        .SetPageLifecycleEventsTotalProcessingTime(
+            ukm::GetExponentialBucketMinForFineUserTiming(
+                scoped_old_document_info.CurrentInfo()
+                    ->total_lifecycle_events_processing_time_on_commit
+                    .InMilliseconds()))
+        .Record(frame_->GetDocument()->UkmRecorder());
+  }
 
   TakeObjectSnapshot();
 }

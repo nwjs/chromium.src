@@ -75,7 +75,6 @@ Aspectos que debes tener en cuenta:
 <translation id="2576431527583832481">¡Chrome mejoró! Hay una nueva versión disponible.</translation>
 <translation id="257708665678654955">¿Quieres que Google Chrome te ofrezca traducir las páginas de este sitio que estén en <ph name="LANGUAGE_NAME" /> la próxima vez?</translation>
 <translation id="2668242166988961773">Realiza búsquedas con la voz en Chrome.</translation>
-<translation id="2695886661449553974">Chrome no pudo buscar actualizaciones. Vuelve a intentarlo más tarde.</translation>
 <translation id="2703746758996815929">Para obtener sugerencias útiles de Chrome, activa las notificaciones en la configuración de iOS.</translation>
 <translation id="2728851697704606655">Traduce con Google Lens</translation>
 <translation id="2736805085127235148">Las notificaciones de Chrome están desactivadas en la configuración del dispositivo por el momento.</translation>
@@ -170,9 +169,11 @@ Espera unos minutos antes de salir. Si sales ahora, se borrarán estos datos.</t
 <translation id="5162467219239570114">Chrome no está actualizado. Si no hay actualizaciones disponibles en <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" />, es posible que tu dispositivo no sea compatible con nuevas versiones de Chrome.</translation>
 <translation id="5184329579814168207">Abrir en Chrome</translation>
 <translation id="5190139289262548459">Tu organización, <ph name="DOMAIN" />, administra la cuenta con la que accediste y la forma en que se usa Chrome.</translation>
+<translation id="5209238444239954363">Chrome no pudo buscar actualizaciones. Vuelve a intentarlo más tarde.</translation>
 <translation id="5305440589062022504">Abre el Administrador de contraseñas en Chrome.</translation>
 <translation id="5310957470610282541">Aún no se guardaron algunos de tus datos de Chrome en tu Cuenta de Google.
 Espera unos minutos antes de salir. Si sales ahora, se borrarán estos datos.</translation>
+<translation id="5342685492141499976">Tus datos se guardarán en el Administrador de contraseñas de Google de <ph name="USER_EMAIL" /></translation>
 <translation id="5389212809648216794">Google Chrome no puede utilizar tu cámara porque la está usando otra aplicación</translation>
 <translation id="5395376160638294582">Asegúrate de que siempre puedas usar los datos de Chrome en tu Cuenta de Google</translation>
 <translation id="5404252374083197467">¿Quieres establecer Chrome como navegador predeterminado?</translation>
@@ -200,6 +201,7 @@ Espera unos minutos antes de salir. Si sales ahora, se borrarán estos datos.</t
 <translation id="5808435672482059465">Ver tu historial de Chrome</translation>
 <translation id="5833027901704861726">Aún no se guardaron algunos de tus datos de Chrome en <ph name="EMAIL" />.
 Espera unos minutos antes de cambiar de cuenta. Si cambias de cuenta ahora, se borrarán estos datos.</translation>
+<translation id="5853754888722423892">Importar al Administrador de contraseñas de Google</translation>
 <translation id="5998675059699164418">Tu organización requiere que accedas para usar Chrome.</translation>
 <translation id="6021312115739110405">Un feed personalizado que Google creó para ti. Incluye noticias, deportes y el clima.</translation>
 <translation id="6022659036123304283">Personaliza Chrome a tu medida</translation>
@@ -302,6 +304,7 @@ Si quieres ver más parámetros de configuración que usan datos para mejorar tu
 <translation id="787226752901403048">Accede a Chrome para compartir y unirte a grupos de pestañas, y trabajar en ideas de forma colaborativa</translation>
 <translation id="7897703007638178753">Ver las pestañas recientes de Chrome</translation>
 <translation id="7948283758957877064">Novedades de Chrome</translation>
+<translation id="7996707498590516621">Crea una imagen con Gemini en Chrome</translation>
 <translation id="8000174216052461231">Sugerencia de Chrome: Obtén la seguridad más sólida de Chrome</translation>
 <translation id="8006014511203279255">Usa Chrome cada vez que presiones vínculos en mensajes o demás apps.</translation>
 <translation id="8014670471808569312">Chrome te ofrecerá guardar la contraseña.</translation>

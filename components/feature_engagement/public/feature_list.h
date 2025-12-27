@@ -351,6 +351,10 @@ DEFINE_VARIATION_PARAM(kIPHiOSHomepageLensNewBadge,
 DEFINE_VARIATION_PARAM(kIPHiOSHomepageCustomizationNewBadge,
                        "IPH_iOSHomepageCustomizationNewBadge");
 DEFINE_VARIATION_PARAM(kIPHiOSAIHubNewBadge, "IPH_iOSAIHubNewBadge");
+DEFINE_VARIATION_PARAM(kIPHiOSGeminiContextualCueChip,
+                       "IPH_iOSGeminiContextualCueChip");
+DEFINE_VARIATION_PARAM(kIPHiOSGeminiFullscreenPromoFeature,
+                       "IPH_iOSGeminiFullscreenPromoFeature");
 
 #endif  // BUILDFLAG(IS_IOS)
 
@@ -371,8 +375,6 @@ DEFINE_VARIATION_PARAM(kIPHDesktopCustomizeChromeAutoOpenFeature,
                        "IPH_DesktopCustomizeChromeAutoOpen");
 DEFINE_VARIATION_PARAM(kIPHDesktopCustomizeChromeExperimentFeature,
                        "IPH_DesktopCustomizeChromeExperiment");
-DEFINE_VARIATION_PARAM(kIPHDesktopCustomizeChromeRefreshFeature,
-                       "IPH_DesktopCustomizeChromeRefresh");
 DEFINE_VARIATION_PARAM(kIPHDiscardRingFeature, "IPH_DiscardRing");
 DEFINE_VARIATION_PARAM(kIPHDownloadEsbPromoFeature, "IPH_DownloadEsbPromo");
 DEFINE_VARIATION_PARAM(kIPHExplicitBrowserSigninPreferenceRememberedFeature,
@@ -412,6 +414,7 @@ DEFINE_VARIATION_PARAM(kIPHPasswordManagerShortcutFeature,
                        "IPH_PasswordManagerShortcut");
 DEFINE_VARIATION_PARAM(kIPHPasswordSharingFeature,
                        "IPH_PasswordSharingFeature");
+DEFINE_VARIATION_PARAM(kIPHPdfInkSignaturesFeature, "IPH_PdfInkSignatures");
 DEFINE_VARIATION_PARAM(kIPHPdfSearchifyFeature, "IPH_PdfSearchifyFeature");
 DEFINE_VARIATION_PARAM(kIPHPerformanceInterventionDialogFeature,
                        "IPH_PerformanceInterventionDialogFeature");
@@ -433,6 +436,8 @@ DEFINE_VARIATION_PARAM(kIPHReadingListInSidePanelFeature,
                        "IPH_ReadingListInSidePanel");
 DEFINE_VARIATION_PARAM(kIPHReadingModeSidePanelFeature,
                        "IPH_ReadingModeSidePanel");
+DEFINE_VARIATION_PARAM(kIPHReadingModePageActionLabelFeature,
+                       "IPH_ReadingModePageActionLabel");
 DEFINE_VARIATION_PARAM(kIPHShoppingCollectionFeature,
                        "IPH_ShoppingCollectionFeature");
 DEFINE_VARIATION_PARAM(kIPHSideBySidePinnableFeature,
@@ -780,6 +785,8 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHiOSSafariImportFeature),
         VARIATION_ENTRY(kIPHIOSPageActionMenu),
         VARIATION_ENTRY(kIPHiOSAIHubNewBadge),
+        VARIATION_ENTRY(kIPHiOSGeminiContextualCueChip),
+        VARIATION_ENTRY(kIPHiOSGeminiFullscreenPromoFeature),
 #elif BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
         VARIATION_ENTRY(kIPHBatterySaverModeFeature),
@@ -788,7 +795,6 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHComposeMSBBSettingsFeature),
         VARIATION_ENTRY(kIPHComposeNewBadgeFeature),
         VARIATION_ENTRY(kIPHDesktopCustomizeChromeExperimentFeature),
-        VARIATION_ENTRY(kIPHDesktopCustomizeChromeRefreshFeature),
         VARIATION_ENTRY(kIPHDesktopCustomizeChromeAutoOpenFeature),
         VARIATION_ENTRY(kIPHDiscardRingFeature),
         VARIATION_ENTRY(kIPHExplicitBrowserSigninPreferenceRememberedFeature),
@@ -810,6 +816,7 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHPasswordsWebAppProfileSwitchFeature),
         VARIATION_ENTRY(kIPHPasswordManagerShortcutFeature),
         VARIATION_ENTRY(kIPHPasswordSharingFeature),
+        VARIATION_ENTRY(kIPHPdfInkSignaturesFeature),
         VARIATION_ENTRY(kIPHPdfSearchifyFeature),
         VARIATION_ENTRY(kIPHPerformanceInterventionDialogFeature),
         VARIATION_ENTRY(kIPHPlusAddressFirstSaveFeature),
@@ -821,6 +828,7 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHReadingListEntryPointFeature),
         VARIATION_ENTRY(kIPHReadingListInSidePanelFeature),
         VARIATION_ENTRY(kIPHReadingModeSidePanelFeature),
+        VARIATION_ENTRY(kIPHReadingModePageActionLabelFeature),
         VARIATION_ENTRY(kIPHShoppingCollectionFeature),
         VARIATION_ENTRY(kIPHSideBySidePinnableFeature),
         VARIATION_ENTRY(kIPHSideBySideTabSwitchFeature),

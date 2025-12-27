@@ -77,7 +77,7 @@ class COMPONENT_EXPORT(OZONE_BASE) GLOzone {
   // live until glDeleteTextures fn is called on all platforms.
   virtual std::unique_ptr<NativePixmapGLBinding> ImportNativePixmap(
       scoped_refptr<gfx::NativePixmap> pixmap,
-      gfx::BufferFormat plane_format,
+      viz::SharedImageFormat plane_format,
       gfx::BufferPlane plane,
       gfx::Size plane_size,
       const gfx::ColorSpace& color_space,

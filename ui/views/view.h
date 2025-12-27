@@ -35,7 +35,6 @@
 #include "ui/base/clipboard/clipboard_format_type.h"
 #include "ui/base/dragdrop/drop_target_event.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom-forward.h"
-#include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_types.h"
@@ -62,8 +61,6 @@
 #include "ui/views/paint_info.h"
 #include "ui/views/view_targeter.h"
 #include "ui/views/views_export.h"
-
-using ui::OSExchangeData;
 
 class BrowserView;
 class InfoBarView;
@@ -104,10 +101,13 @@ class InputMethod;
 class Layer;
 class LayerTreeOwner;
 class NativeTheme;
+class OSExchangeData;
 class PaintContext;
 class ThemeProvider;
 class TransformRecorder;
 }  // namespace ui
+
+using ui::OSExchangeData;
 
 namespace views {
 
@@ -163,20 +163,19 @@ struct VIEWS_EXPORT ViewHierarchyChangedDetails {
 
 using PropertyChangedCallback = ui::metadata::PropertyChangedCallback;
 
-// The elements in PropertyEffects represent bits which define what effect(s) a
-// changed Property has on the containing class. Additional elements should
-// use the next most significant bit.
-enum PropertyEffects {
-  kPropertyEffectsNone = 0,
+// The elements in PropertyEffects define what effect(s) a changed Property has
+// on the containing class.
+enum class PropertyEffects {
+  kNone,
   // Any changes to the property should cause the container to invalidate the
   // current layout state.
-  kPropertyEffectsLayout = 0x00000001,
+  kLayout,
   // Changes to the property should cause the container to schedule a painting
   // update.
-  kPropertyEffectsPaint = 0x00000002,
+  kPaint,
   // Changes to the property should cause the preferred size to change. This
-  // implies kPropertyEffectsLayout.
-  kPropertyEffectsPreferredSizeChanged = 0x00000004,
+  // implies kLayout.
+  kPreferredSizeChanged,
 };
 
 // When adding layers to the view, this indicates the region into which the
@@ -233,15 +232,14 @@ enum class ViewLayer {
 //
 //   In the SetXXXX method, after the value storage location has been updated,
 //   OnPropertyChanged() must be called using the address of the storage
-//   location as a key. Additionally, any combination of PropertyEffects are
-//   also passed in. This will ensure that any desired side effects are properly
-//   invoked.
+//   location as a key. Additionally, PropertyEffects are also passed in. This
+//   will ensure that any desired side effects are properly invoked.
 //
 //   void View::SetFrobble(bool is_frobble) {
 //     if (is_frobble == frobble_)
 //       return;
 //     frobble_ = is_frobble;
-//     OnPropertyChanged(&frobble_, kPropertyEffectsPaint);
+//     OnPropertyChanged(&frobble_, PropertyEffects::kPaint);
 //   }
 //
 //   Each property should also have a way to "listen" to changes by registering
@@ -487,7 +485,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // return the actual passed-in type.
   template <typename T>
   T* AddChildView(std::unique_ptr<T> view) {
-    DCHECK(!view->owned_by_client())
+    CHECK(!view->owned_by_client())
         << "This should only be called if the client is passing ownership of "
            "|view| to the parent View.";
     CHECK_CLASS_HAS_METADATA(T)
@@ -495,7 +493,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   }
   template <typename T>
   T* AddChildViewAt(std::unique_ptr<T> view, size_t index) {
-    DCHECK(!view->owned_by_client())
+    CHECK(!view->owned_by_client())
         << "This should only be called if the client is passing ownership of "
            "|view| to the parent View.";
     CHECK_CLASS_HAS_METADATA(T)
@@ -545,7 +543,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   //                to eliminate the uses of the old RemoveChildView().
   template <typename T>
   std::unique_ptr<T> RemoveChildViewT(T* view) {
-    DCHECK(!view->owned_by_client())
+    CHECK(!view->owned_by_client())
         << "This should only be called if the client doesn't already have "
            "ownership of |view|.";
     DCHECK(base::Contains(children_, view));
@@ -804,6 +802,12 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // Overridden from ui::LayerOwner:
   std::unique_ptr<ui::Layer> RecreateLayer() override;
 
+  // When set to true, the layer will be masked to the view's visible bounds.
+  // A client should not modify the layer's `clip_rect`, which will be updated
+  // by the view.
+  bool GetClipLayerToVisibleBounds() const;
+  void SetClipLayerToVisibleBounds(bool clip_layer);
+
   // RTL positioning -----------------------------------------------------------
 
   // Methods for accessing the bounds and position of the view, relative to its
@@ -884,7 +888,13 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // Mark this view and all parents to require a relayout. This ensures the
   // next layout will propagate to this view, even if the bounds of parent views
   // do not change.
-  void InvalidateLayout();
+  //
+  // If `avoid_propagate_during_layout` is set, and the parent view is laying
+  // out, the current view will be marked as needing layout, but the ancestor
+  // chain will *not* be invalidated, preventing a double layout or layout loop.
+  // This can be used when a call during a Layout() method might invalidate a
+  // child view.
+  void InvalidateLayout(bool avoid_propagate_during_layout = false);
 
   // Sets whether or not the layout manager need to respect the available space.
   //
@@ -1989,7 +1999,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
     requires std::derived_from<Super, View> && std::derived_from<This, Super> &&
              (!std::same_as<Super, This>)
   void LayoutSuperclass(This* ptr) {
-    CHECK(layout_allowed_);
+    CHECK(performing_layout_);
     static_cast<Super*>(ptr)->Super::Layout(PassKey());
   }
 
@@ -2297,6 +2307,18 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // parent in the correct order.
   void SetLayerParent(ui::Layer* parent_layer);
 
+  // Returns true if this view is interested in VisibleBoundsChange event.
+  bool GetNeedsNotificationWhenVisibleBoundsChangeImpl() const;
+
+  // Performs tasks that are needed when visible bounds are changed. Internally
+  // this will call subclasses `OnVisibleBoundsChanged()` first.
+  void OnVisibleBoundsChangedImpl();
+
+  // Apply or remove the clip rect so that the layer's visible area matches
+  // views visible bounds. When `remove_layer_clip` is true, this will remove
+  // the clip rect regardless of the visible bounds.
+  void UpdateLayerClipForVisibleBounds(bool remove_layer_clip);
+
   // Layout --------------------------------------------------------------------
 
   // Returns whether a layout is deferred to a layout manager, either the
@@ -2370,8 +2392,8 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
 
   // Property support ----------------------------------------------------------
 
-  // Called from OnPropertyChanged with the given set of property effects. This
-  // function is NOT called if effects == kPropertyEffectsNone.
+  // Called from OnPropertyChanged with the given property effects. This
+  // function is NOT called if effects == PropertyEffects::kNone.
   void HandlePropertyChangeEffects(PropertyEffects effects);
 
   // The following methods are used by the property access system described in
@@ -2489,9 +2511,9 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // Whether the view needs to be laid out.
   bool needs_layout_ = true;
 
-  // Whether Layout() access is currently legal. This is used to prevent calls
-  // to LayoutSuperclass() outside the implementation of Layout().
-  bool layout_allowed_ = false;
+  // Whether Layout() is currently underway. This is used to prevent calls to
+  // LayoutSuperclass() outside the implementation of Layout().
+  bool performing_layout_ = false;
 
   // Whether this view is in the middle of InvalidateLayout().
   bool invalidating_ = false;
@@ -2591,6 +2613,9 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // If painting to a layer |mask_layer_| will mask the current layer and all
   // child layers to within the |clip_path_|.
   std::unique_ptr<views::ViewMaskLayer> mask_layer_;
+
+  // When true, the layer will be clipped to view's visible bounds.
+  bool clip_layer_to_visible_bounds_ = false;
 
   // Accelerators --------------------------------------------------------------
 
@@ -2746,6 +2771,7 @@ VIEW_BUILDER_PROPERTY(gfx::Transform, Transform)
 VIEW_BUILDER_PROPERTY(bool, Visible)
 VIEW_BUILDER_PROPERTY(bool, CanProcessEventsWithinSubtree)
 VIEW_BUILDER_PROPERTY(bool, UseDefaultFillLayout)
+VIEW_BUILDER_PROPERTY(bool, ClipLayerToVisibleBounds)
 END_VIEW_BUILDER
 
 }  // namespace views

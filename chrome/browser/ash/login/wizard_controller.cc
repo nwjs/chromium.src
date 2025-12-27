@@ -241,7 +241,7 @@
 #include "chromeos/ash/components/audio/cras_audio_handler.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
 #include "chromeos/ash/components/dbus/update_engine/update_engine_client.h"
-#include "chromeos/ash/components/geolocation/simple_geolocation_provider.h"
+#include "chromeos/ash/components/geolocation/system_location_provider.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "chromeos/ash/components/language_packs/language_pack_manager.h"
 #include "chromeos/ash/components/network/network_state.h"
@@ -1261,6 +1261,13 @@ void WizardController::ShowWrongHWIDScreen() {
 }
 
 void WizardController::ShowAutoEnrollmentCheckScreen() {
+  if (features::IsOobeAutoEnrollmentCheckForcedEnabled() &&
+      wizard_context_->skip_auto_enrollment_check_for_tests) {
+    OnAutoEnrollmentCheckScreenExit(
+        AutoEnrollmentCheckScreen::Result::NOT_APPLICABLE);
+    return;
+  }
+
   AutoEnrollmentCheckScreen* screen = GetScreen<AutoEnrollmentCheckScreen>();
   screen->set_auto_enrollment_controller(GetAutoEnrollmentController());
   SetCurrentScreen(screen);
@@ -1546,6 +1553,15 @@ void WizardController::OnGaiaScreenExit(GaiaScreen::Result result) {
     case GaiaScreen::Result::QUICK_START_ONGOING:
       ShowQuickStartScreen();
       break;
+    case GaiaScreen::Result::ERROR_OOBE_NOT_COMPLETED:
+      GetLoginDisplayHost()
+          ->GetOobeMetricsHelper()
+          ->RecordOobeNotCompletedErrorTrigger(
+              OobeMetricsHelper::OobeNotCompletedTrigger::kGaiaScreen);
+      ShowSignInFatalErrorScreen(
+          SignInFatalErrorScreen::Error::kOobeCompletionSkipped,
+          base::Value::Dict());
+      break;
   }
 }
 
@@ -1620,6 +1636,22 @@ void WizardController::OnSamlConfirmPasswordScreenExit(
   OnScreenExit(SamlConfirmPasswordView::kScreenId,
                SamlConfirmPasswordScreen::GetResultString(result));
   switch (result) {
+    case SamlConfirmPasswordScreen::Result::kSuccess:
+      switch (wizard_context_->knowledge_factor_setup.auth_setup_flow) {
+        case WizardContext::AuthChangeFlow::kInitialSetup:
+          // TODO: b/445665662 - Move the SAML confirm password screen to after
+          // Cryptohome is mounted for initial setup.
+          [[fallthrough]];
+        case WizardContext::AuthChangeFlow::kReauthentication:
+          // During reauthentication the SAML confirm password screen is only
+          // shown before Cryptohome is mounted.
+          CompleteLogin();
+          break;
+        case WizardContext::AuthChangeFlow::kRecovery:
+          NOTREACHED() << "SAML confirm password screen should not be shown "
+                          "during recovery.";
+      }
+      break;
     case SamlConfirmPasswordScreen::Result::kCancel:
       LoginDisplayHost::default_host()->StartSignInScreen();
       return;
@@ -1797,7 +1829,11 @@ void WizardController::OnCryptohomeRecoveryScreenExit(
         case WizardContext::AuthChangeFlow::kInitialSetup:
           NOTREACHED() << "Recovery can not be used during initial setup.";
         case WizardContext::AuthChangeFlow::kRecovery:
-          ShowPasswordSelectionScreen();
+          if (ash::features::IsRecoveryFlowReorderEnabled()) {
+            ObtainContextAndLoginAuthenticated();
+          } else {
+            ShowPasswordSelectionScreen();
+          }
           return;
         case WizardContext::AuthChangeFlow::kReauthentication:
           // Proceed with login
@@ -1961,7 +1997,7 @@ void WizardController::OnPersonalizedRecomendAppsScreenExit(
     case PersonalizedRecommendAppsScreen::Result::kDataMalformed:
     case PersonalizedRecommendAppsScreen::Result::kError:
     case PersonalizedRecommendAppsScreen::Result::kTimeout:
-        ShowPerksDiscoveryScreen();
+      ShowPerksDiscoveryScreen();
       break;
   }
 }
@@ -2022,6 +2058,9 @@ void WizardController::SkipToLoginForTesting() {
   StartNetworkTimezoneResolve();
   DelayNetworkCall(ServicesCustomizationDocument::GetInstance()
                        ->EnsureCustomizationAppliedClosure());
+  if (features::IsOobeAutoEnrollmentCheckForcedEnabled()) {
+    StartupUtils::MarkOobeCompleted();
+  }
   OnDeviceDisabledChecked(/*device_disabled=*/false);
 }
 
@@ -2207,11 +2246,9 @@ void WizardController::OnUpdateScreenExit(UpdateScreen::Result result) {
 
 void WizardController::OnUpdateCompleted() {
   // Install language packs based on the user selected language.
-  if (ash::features::IsLanguagePacksInOobeEnabled()) {
-    const std::string locale = GetApplicationLocale();
-    language_packs::LanguagePackManager::UpdatePacksForOobe(locale,
-                                                            base::DoNothing());
-  }
+  const std::string locale = GetApplicationLocale();
+  language_packs::LanguagePackManager::UpdatePacksForOobe(locale,
+                                                          base::DoNothing());
 
   if (demo_setup_controller_) {
     ShowConsolidatedConsentScreen();
@@ -2437,13 +2474,9 @@ void WizardController::OnCryptohomeRecoverySetupScreenExit(
     CryptohomeRecoverySetupScreen::Result result) {
   OnScreenExit(CryptohomeRecoverySetupScreenView::kScreenId,
                CryptohomeRecoverySetupScreen::GetResultString(result));
-  if (features::IsAllowPasswordlessSetupEnabled()) {
-    // First step of the AuthFactor setup flow. Offer PIN as a main factor. If
-    // there isn't hardware support, the screen exits gracefully.
-    ShowPinSetupScreenAsMainFactor();
-  } else {
-    ShowPasswordSelectionScreen();
-  }
+  // First step of the AuthFactor setup flow. Offer PIN as a main factor. If
+  // there isn't hardware support, the screen exits gracefully.
+  ShowPinSetupScreenAsMainFactor();
 }
 
 void WizardController::OnPasswordSelectionScreenExit(
@@ -2469,7 +2502,6 @@ void WizardController::OnPasswordSelectionScreenExit(
       CHECK_EQ(wizard_context_->knowledge_factor_setup.auth_setup_flow,
                WizardContext::AuthChangeFlow::kRecovery)
           << "PasswordSelection exited with PIN_RESET result outside recovery.";
-      CHECK(features::IsAllowPasswordlessRecoveryEnabled());
       ShowPinSetupScreenForRecovery();
       return;
     }
@@ -2592,14 +2624,31 @@ void WizardController::OnFactorSetupSuccessScreenExit(
         case WizardContext::AuthChangeFlow::kInitialSetup:
           ShowFingerprintSetupScreen();
           return;
-        case WizardContext::AuthChangeFlow::kRecovery:
         case WizardContext::AuthChangeFlow::kReauthentication:
           // Proceed with login
+          ObtainContextAndLoginAuthenticated();
+          return;
+        case WizardContext::AuthChangeFlow::kRecovery:
+          if (ash::features::IsRecoveryFlowReorderEnabled()) {
+            ObtainContextAndFinalizeAuth();
+            return;
+          }
           ObtainContextAndLoginAuthenticated();
           return;
       }
     }
     case FactorSetupSuccessScreen::Result::kTimedOut:
+      // After the recovery re-order changes there is a strong invariant that
+      // auth factors are only reset in the recovery flow after a cryptohome
+      // mount. In that case the safest way to logout is to restart the chrome
+      // process.
+      if (ash::features::IsRecoveryFlowReorderEnabled() &&
+          wizard_context_->knowledge_factor_setup.auth_setup_flow ==
+              WizardContext::AuthChangeFlow::kRecovery) {
+        chrome::AttemptUserExit();
+        return;
+      }
+
       ShowLoginScreen();
       return;
   }
@@ -2629,45 +2678,62 @@ void WizardController::OnFingerprintSetupScreenExit(
 void WizardController::OnPinSetupScreenExit(PinSetupScreen::Result result) {
   OnScreenExit(PinSetupScreenView::kScreenId,
                PinSetupScreen::GetResultString(result));
-  if (features::IsAllowPasswordlessSetupEnabled()) {
-    switch (result) {
-      // PIN as a main factor is not supported or not wanted. In both cases,
-      // proceed to the PasswordSelectionScreen.
-      case PinSetupScreen::Result::kUserChosePassword:
-        // The user does not wish to have a PIN as their main authentication
-        // factor. Setting this setup mode ensures that the screen is not
-        // resurfaced later in the flow a second time, and that a back button
-        // will be shown on PasswordSelectionScreen for the user to go back.
-        wizard_context_->knowledge_factor_setup.pin_setup_mode =
-            WizardContext::PinSetupMode::kUserChosePasswordInstead;
-        [[fallthrough]];
-      case PinSetupScreen::Result::kNotApplicableAsPrimaryFactor:
-        ShowPasswordSelectionScreen();
+  switch (result) {
+    // PIN as a main factor is not supported or not wanted. In both cases,
+    // proceed to the PasswordSelectionScreen.
+    case PinSetupScreen::Result::kUserChosePassword:
+      // The user does not wish to have a PIN as their main authentication
+      // factor. Setting this setup mode ensures that the screen is not
+      // resurfaced later in the flow a second time, and that a back button
+      // will be shown on PasswordSelectionScreen for the user to go back.
+      wizard_context_->knowledge_factor_setup.pin_setup_mode =
+          WizardContext::PinSetupMode::kUserChosePasswordInstead;
+      [[fallthrough]];
+    case PinSetupScreen::Result::kNotApplicableAsPrimaryFactor:
+      ShowPasswordSelectionScreen();
+      return;
+    case PinSetupScreen::Result::kDoneAsMainFactor:
+      wizard_context_->knowledge_factor_setup.pin_setup_mode =
+          WizardContext::PinSetupMode::kAlreadyPerformed;
+      ShowFingerprintSetupScreen();
+      return;
+    // These are emitted when the screen is surfaced at the end of the flow,
+    // offering PIN as an additional factor.
+    case PinSetupScreen::Result::kDoneAsSecondaryFactor:
+    case PinSetupScreen::Result::kUserSkip:
+    case PinSetupScreen::Result::kNotApplicable:
+    case PinSetupScreen::Result::kTimedOut:
+      FinishAuthFactorsSetup();
+      return;
+    // Proceed into session when PIN is reset via recovery.
+    case PinSetupScreen::Result::kDoneRecoveryReset:
+      CHECK_EQ(wizard_context_->knowledge_factor_setup.auth_setup_flow,
+               WizardContext::AuthChangeFlow::kRecovery);
+
+      if (features::IsRecoveryFlowReorderEnabled()) {
+        ObtainContextAndFinalizeAuth();
         return;
-      case PinSetupScreen::Result::kDoneAsMainFactor:
-        wizard_context_->knowledge_factor_setup.pin_setup_mode =
-            WizardContext::PinSetupMode::kAlreadyPerformed;
-        ShowFingerprintSetupScreen();
-        return;
-      // These are emitted when the screen is surfaced at the end of the flow,
-      // offering PIN as an additional factor.
-      case PinSetupScreen::Result::kDoneAsSecondaryFactor:
-      case PinSetupScreen::Result::kUserSkip:
-      case PinSetupScreen::Result::kNotApplicable:
-      case PinSetupScreen::Result::kTimedOut:
-        FinishAuthFactorsSetup();
-        return;
-      // Proceed into session when PIN is reset via recovery.
-      case PinSetupScreen::Result::kDoneRecoveryReset:
-        CHECK_EQ(wizard_context_->knowledge_factor_setup.auth_setup_flow,
-                 WizardContext::AuthChangeFlow::kRecovery);
-        CHECK(features::IsAllowPasswordlessRecoveryEnabled());
-        ObtainContextAndLoginAuthenticated();
-        return;
-    }
-  } else {
-    FinishAuthFactorsSetup();
+      }
+      ObtainContextAndLoginAuthenticated();
+      return;
   }
+}
+
+void WizardController::ObtainContextAndFinalizeAuth() {
+  CHECK(wizard_context_->extra_factors_token);
+  auto token = std::move(wizard_context_->extra_factors_token);
+  wizard_context_->extra_factors_token = std::nullopt;
+
+  ash::AuthSessionStorage::Get()->Withdraw(
+      *token, base::BindOnce(&WizardController::FinalizeAuthWithContext,
+                             weak_factory_.GetWeakPtr()));
+}
+
+void WizardController::FinalizeAuthWithContext(
+    std::unique_ptr<UserContext> context) {
+  ash::LoginDisplayHost::default_host()
+      ->GetExistingUserController()
+      ->FinalizeAuthAndStartSession(*context);
 }
 
 void WizardController::ObtainContextAndLoginAuthenticated() {
@@ -2689,6 +2755,13 @@ void WizardController::ObtainContextAndAttemptLocalAuthentication() {
       *token,
       base::BindOnce(&WizardController::AttemptLocalAuthenticationWithContext,
                      weak_factory_.GetWeakPtr()));
+}
+
+void WizardController::CompleteLogin() {
+  CHECK(wizard_context_->user_context);
+  auto user_context = std::move(wizard_context_->user_context);
+  LoginDisplayHost::default_host()->CompleteLogin(*user_context);
+  wizard_context_->user_context = nullptr;
 }
 
 void WizardController::LoginAuthenticatedWithContext(
@@ -2741,7 +2814,7 @@ void WizardController::OnRecommendAppsScreenExit(
     case RecommendAppsScreen::Result::kSkipped:
     case RecommendAppsScreen::Result::kNotApplicable:
     case RecommendAppsScreen::Result::kLoadError:
-        ShowPerksDiscoveryScreen();
+      ShowPerksDiscoveryScreen();
       break;
   }
 }
@@ -2904,6 +2977,12 @@ bool WizardController::ExitFjordTouchControllerScreen() {
     ShowFjordStationSetupScreen();
     return true;
   }
+  // Return true if Station setup screen is showing because this means the TC
+  // setup screen was shown before this. This ensures that if the TC goes
+  // offline and online again, it can know if the TC setup screen was exited.
+  if (current_screen()->screen_id() == FjordStationSetupScreenView::kScreenId) {
+    return true;
+  }
 
   LOG(ERROR) << "Can't exit: Fjord touch controller screen is not showing.";
   return false;
@@ -2943,7 +3022,7 @@ void WizardController::OnOobeFlowFinished() {
   // Check if pre-consent metrics is still enabled.
   if (metrics::CrOSPreConsentMetricsManager::Get()) {
     LOG(ERROR) << "OOBE flow is finished and Pre-consent metrics is still "
-      << "enabled. Disabling pre-consent metrics.";
+               << "enabled. Disabling pre-consent metrics.";
     metrics::CrOSPreConsentMetricsManager::Get()->Disable();
   }
 
@@ -2977,7 +3056,14 @@ void WizardController::OnDeviceDisabledChecked(bool device_disabled) {
   } else {
     PerformOOBECompletedActions(
         OobeMetricsHelper::CompletedPreLoginOobeFlowType::kRegular);
-    ShowPackagedLicenseScreen();
+
+    // Show the `PackagedLicenseScreen` if Auto-Enrollment check isn't forced
+    // or if OOBE is already completed. Otherwise, `SignInFatalErrorScreen` is
+    // expected to be shown if the forced check hasn't led to OOBE completion.
+    if (!features::IsOobeAutoEnrollmentCheckForcedEnabled() ||
+        StartupUtils::IsOobeCompleted()) {
+      ShowPackagedLicenseScreen();
+    }
   }
 }
 
@@ -3025,13 +3111,13 @@ void WizardController::StartTimezoneResolve() {
     return;
   }
 
-  SimpleGeolocationProvider::GetInstance()->RequestGeolocation(
+  SystemLocationProvider::GetInstance()->RequestGeolocation(
       base::Seconds(kResolveTimeZoneTimeoutSeconds),
       false /* send_wifi_geolocation_data */,
       false /* send_cellular_geolocation_data */,
       base::BindOnce(&WizardController::OnLocationResolved,
                      weak_factory_.GetWeakPtr()),
-      SimpleGeolocationProvider::ClientId::kWizardController);
+      SystemLocationProvider::ClientId::kWizardController);
 }
 
 void WizardController::PerformPostNetworkScreenActions() {
@@ -3047,6 +3133,25 @@ void WizardController::PerformOOBECompletedActions(
   // to enrollment screen (and back).
   if (StartupUtils::IsOobeCompleted()) {
     return;
+  }
+
+  if (features::IsOobeAutoEnrollmentCheckForcedEnabled()) {
+    // To prevent auto-enrollment bypass, check if `kAutoEnrollmentCheckExited`
+    // has been set. If it's false, the auto-enrollment check was not properly
+    // completed.
+    if (!GetLocalState()->GetBoolean(prefs::kAutoEnrollmentCheckExited)) {
+      GetLoginDisplayHost()
+          ->GetOobeMetricsHelper()
+          ->RecordOobeNotCompletedErrorTrigger(
+              OobeMetricsHelper::OobeNotCompletedTrigger::
+                  kPerformOobeCompletedAction);
+
+      // Show a fatal error and do not mark OOBE as completed.
+      ShowSignInFatalErrorScreen(
+          SignInFatalErrorScreen::Error::kOobeCompletionSkipped,
+          base::Value::Dict());
+      return;
+    }
   }
 
   StartupUtils::MarkOobeCompleted();

@@ -23,6 +23,10 @@ class GURL;
 class LocationBar;
 class Profile;
 
+namespace omnibox {
+class OmniboxPopupCloser;
+}  // namespace omnibox
+
 class ChromeOmniboxClient final : public OmniboxClient {
  public:
   ChromeOmniboxClient(LocationBar* location_bar,
@@ -51,6 +55,7 @@ class ChromeOmniboxClient final : public OmniboxClient {
   TemplateURLService* GetTemplateURLService() override;
   const AutocompleteSchemeClassifier& GetSchemeClassifier() const override;
   AutocompleteClassifier* GetAutocompleteClassifier() override;
+  omnibox::OmniboxPopupCloser* GetOmniboxPopupCloser() override;
   bool ShouldDefaultTypedNavigationsToHttps() const override;
   int GetHttpsPortForTesting() const override;
   bool IsUsingFakeHttpsForHttpsUpgradeTesting() const override;
@@ -64,6 +69,8 @@ class ChromeOmniboxClient final : public OmniboxClient {
   GURL GetNavigationEntryURL() const override;
   metrics::OmniboxEventProto::PageClassification GetPageClassification(
       bool is_prefetch) const override;
+  metrics::OmniboxEventProto::PageClassification
+  GetOmniboxComposeboxPageClassification() const override;
   security_state::SecurityLevel GetSecurityLevel() const override;
   net::CertStatus GetCertStatus() const override;
   const gfx::VectorIcon& GetVectorIcon() const override;

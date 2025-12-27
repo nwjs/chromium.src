@@ -166,7 +166,8 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
   source->AddResourcePath("test_loader.html", IDR_WEBUI_TEST_LOADER_HTML);
   webui::EnableTrustedTypesCSP(source);
   source->AddResourcePaths(kSidePanelReadAnythingResources);
-  source->AddResourcePath("", IDR_SIDE_PANEL_READ_ANYTHING_READ_ANYTHING_HTML);
+  source->AddResourcePath("",
+                          IDR_SIDE_PANEL_READ_ANYTHING_APP_READ_ANYTHING_HTML);
   source->AddResourcePaths(kSidePanelSharedResources);
   source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::ScriptSrc,
@@ -195,13 +196,6 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
 ReadAnythingUntrustedUI::~ReadAnythingUntrustedUI() = default;
 
 WEB_UI_CONTROLLER_TYPE_IMPL(ReadAnythingUntrustedUI)
-
-void ReadAnythingUntrustedUI::BindInterface(
-    mojo::PendingReceiver<color_change_listener::mojom::PageHandler>
-        pending_receiver) {
-  color_provider_handler_ = std::make_unique<ui::ColorChangeHandler>(
-      web_ui()->GetWebContents(), std::move(pending_receiver));
-}
 
 void ReadAnythingUntrustedUI::BindInterface(
     mojo::PendingReceiver<read_anything::mojom::UntrustedPageHandlerFactory>

@@ -66,7 +66,6 @@
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
-#include "content/public/browser/resource_context.h"
 #include "content/public/browser/shared_cors_origin_access_list.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_ui_url_loader_factory.h"
@@ -717,7 +716,7 @@ void DownloadManagerImpl::OnNewDownloadIdRetrieved(
     download::InProgressDownloadManager::StartDownloadItemCallback callback,
     uint32_t id) {
 #if BUILDFLAG(IS_ANDROID)
-  if (info->transient && !info->is_must_download &&
+  if (info->transient && info->allow_auto_open_after_completion &&
       delegate_->ShouldOpenPdfInline() &&
       base::EqualsCaseInsensitiveASCII(info->mime_type, kPdfMimeType)) {
     if (IsOffTheRecord()) {
@@ -735,7 +734,7 @@ void DownloadManagerImpl::OnNewDownloadIdRetrieved(
           continue;
         }
 
-        if (!item->IsTransient() || item->IsMustDownload()) {
+        if (!item->IsTransient() || !item->AllowAutoOpenAfterCompletion()) {
           continue;
         }
 

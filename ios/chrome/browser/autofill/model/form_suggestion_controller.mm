@@ -8,6 +8,7 @@
 
 #import "base/apple/foundation_util.h"
 #import "base/feature_list.h"
+#import "base/functional/callback_helpers.h"
 #import "base/memory/raw_ptr.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/not_fatal_until.h"
@@ -98,16 +99,15 @@ UIImage* defaultIconForType(FormSuggestion* suggestion) {
     case autofill::SuggestionType::kGeneratePasswordEntry:
       return MakeSymbolMulticolor(
           CustomSymbolWithPointSize(kPasswordManagerSymbol, kSymbolPointSize));
-    case autofill::SuggestionType::kCreateNewPlusAddress:
     case autofill::SuggestionType::kFillExistingPlusAddress: {
       BOOL isPlusAddressFeaturesEnabled = base::FeatureList::IsEnabled(
           plus_addresses::features::kPlusAddressesEnabled);
       return isPlusAddressFeaturesEnabled
-          ? SymbolWithPalette(
-                DefaultSymbolWithPointSize(kShieldedEnvelope, kSymbolPointSize),
-                @[
-                  [UIColor colorNamed:kTextPrimaryColor],
-                ])
+                 ? SymbolWithPalette(DefaultSymbolWithPointSize(
+                                         kShieldedEnvelope, kSymbolPointSize),
+                                     @[
+                                       [UIColor colorNamed:kTextPrimaryColor],
+                                     ])
                  : nil;
     }
     case autofill::SuggestionType::kAddressEntry: {
@@ -519,10 +519,10 @@ bool IsRequestDedupingAllowed() {
                       state:(const AutofillSuggestionState&)suggestionState {
   id<FormSuggestionProvider> provider = suggestion.provider ?: _provider;
 
-  // If a password related suggestion was selected, reset the password bottom
+  // If a password related suggestion was selected, reset the credential bottom
   // sheet dismiss count to 0.
   if (provider.type == SuggestionProviderTypePassword) {
-    [self resetPasswordBottomSheetDismissCount];
+    [self resetCredentialBottomSheetDismissCount];
   }
 
   // Send the suggestion to the provider. Upon completion advance the cursor
@@ -543,8 +543,8 @@ bool IsRequestDedupingAllowed() {
         }];
 }
 
-// Resets the password bottom sheet dismiss count to 0.
-- (void)resetPasswordBottomSheetDismissCount {
+// Resets the credential bottom sheet dismiss count to 0.
+- (void)resetCredentialBottomSheetDismissCount {
   ProfileIOS* profile =
       _webState ? ProfileIOS::FromBrowserState(_webState->GetBrowserState())
                 : nullptr;

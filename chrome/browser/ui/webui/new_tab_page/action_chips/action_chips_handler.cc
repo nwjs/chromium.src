@@ -89,6 +89,12 @@ void RecordImpressionMetrics(const std::vector<ActionChipPtr>& chips) {
   }
 }
 
+// Helper method to record latency metrics for action chips retrieval.
+void RecordActionChipsRetrievalLatencyMetrics(base::TimeDelta latency) {
+  base::UmaHistogramTimes(
+      "NewTabPage.ActionChips.Handler.ActionChipsRetrievalLatency", latency);
+}
+
 bool IsTabReadyForActionChipsRetrieval(content::WebContents* web_contents,
                                        const TabStripModelChange& change) {
   if (web_contents == nullptr) {
@@ -126,6 +132,7 @@ ActionChipsHandler::ActionChipsHandler(
 ActionChipsHandler::~ActionChipsHandler() = default;
 
 void ActionChipsHandler::StartActionChipsRetrieval() {
+  const auto start_time = base::TimeTicks::Now();
   if (!page_.is_bound()) {
     return;
   }
@@ -133,11 +140,19 @@ void ActionChipsHandler::StartActionChipsRetrieval() {
       FindMostRecentTab(*web_ui_),
       base::BindOnce(&ActionChipsHandler::SendActionChipsToUi,
                      weak_factory_.GetWeakPtr()));
+
+  RecordActionChipsRetrievalLatencyMetrics(base::TimeTicks::Now() - start_time);
 }
 
 void ActionChipsHandler::SendActionChipsToUi(std::vector<ActionChipPtr> chips) {
   if (!page_.is_bound()) {
     return;
+  }
+  if (chips.size() <= 1) {
+    // We show a chip only when there are more than one chip. This occurs when
+    // there is no tab opened and only one of the AIM features are enabled.
+    // This branch ensures that no chip is displayed by returning an empty list.
+    chips.clear();
   }
   RecordImpressionMetrics(chips);
 

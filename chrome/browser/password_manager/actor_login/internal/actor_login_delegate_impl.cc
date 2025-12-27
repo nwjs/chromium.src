@@ -148,8 +148,9 @@ void ActorLoginDelegateImpl::AttemptLogin(
 
   if (!base::FeatureList::IsEnabled(password_manager::features::kActorLogin)) {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(std::move(callback),
-                                  base::unexpected(ActorLoginError::kUnknown)));
+        FROM_HERE,
+        base::BindOnce(std::move(callback),
+                       base::unexpected(ActorLoginError::kFeatureDisabled)));
     return;
   }
 
@@ -168,6 +169,7 @@ void ActorLoginDelegateImpl::AttemptLogin(
       ChromeTranslateClient::GetManagerFromWebContents(&GetWebContents()),
       origin.GetURL());
 #endif
+
   credential_filler_ = std::make_unique<ActorLoginCredentialFiller>(
       origin, credential, should_store_permission, client_, mqls_logger,
       base::BindRepeating(&ActorLoginDelegateImpl::IsTaskInFocus,

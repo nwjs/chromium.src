@@ -7,25 +7,21 @@
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_policy_checker.h"
 #include "chrome/browser/actor/actor_task.h"
-#include "chrome/browser/actor/actor_task_metadata.h"
-#include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/resources/grit/actor_browser_resources.h"
+#include "chrome/browser/actor/ui/actor_ui_interactive_browser_test.h"
 #include "chrome/browser/actor/ui/actor_ui_tab_controller.h"
 #include "chrome/browser/actor/ui/handoff_button_controller.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/chrome_features.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/interaction/interaction_test_util_browser.h"
-#include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/test/browser_test.h"
 #include "ui/base/interaction/element_identifier.h"
@@ -48,27 +44,19 @@ using TabHandle = tabs::TabInterface::Handle;
 using DeepQuery = ::WebContentsInteractionTestUtil::DeepQuery;
 
 class ActorUiHandoffButtonControllerInteractiveUiTest
-    : public InteractiveBrowserTest {
+    : public ActorUiInteractiveBrowserTest {
  public:
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    InteractiveBrowserTest::SetUpCommandLine(command_line);
-#if BUILDFLAG(ENABLE_GLIC)
-    command_line->AppendSwitch(switches::kGlicDev);
-    // Skips FRE experience.
-    command_line->AppendSwitch(switches::kGlicAutomation);
-#endif
-  }
-
   void SetUp() override {
     feature_list_.InitWithFeaturesAndParameters(
         // Use a dummy URL so we don't make a network request.
         {
 #if BUILDFLAG(ENABLE_GLIC)
             {features::kGlicURLConfig,
-             {{features::kGlicGuestURL.name, "about:blank"}}},
+             { {features::kGlicGuestURL.name, "about:blank"} }},
 #endif
             {features::kGlicActor, {}},
             {features::kGlicHandoffButtonHiddenClientControl, {}},
+            {features::kGlicHandoffButtonShowInImmersiveMode, {}},
             {features::kGlicActorUi,
              {{features::kGlicActorUiHandoffButtonName, "true"}}},
 #if BUILDFLAG(IS_MAC)
@@ -83,30 +71,6 @@ class ActorUiHandoffButtonControllerInteractiveUiTest
     InteractiveBrowserTest::SetUp();
   }
 
-  void SetUpOnMainThread() override {
-    InteractiveBrowserTest::SetUpOnMainThread();
-    GetActorKeyedService()->GetPolicyChecker().SetActOnWebForTesting(true);
-  }
-
-  ActorKeyedService* GetActorKeyedService() {
-    return ActorKeyedService::Get(browser()->profile());
-  }
-
-  void StartActingOnTab() {
-    task_id_ = GetActorKeyedService()->CreateTask();
-    TestFuture<actor::mojom::ActionResultPtr> future;
-    GetActorKeyedService()->GetTask(task_id_)->AddTab(
-        browser()->GetActiveTabInterface()->GetHandle(), future.GetCallback());
-    ExpectOkResult(future);
-    actor::PerformActionsFuture result_future;
-    std::vector<std::unique_ptr<actor::ToolRequest>> actions;
-    actions.push_back(actor::MakeWaitRequest());
-    GetActorKeyedService()->PerformActions(task_id_, std::move(actions),
-                                           actor::ActorTaskMetadata(),
-                                           result_future.GetCallback());
-    ExpectOkResult(result_future);
-  }
-
   auto ClearOmniboxFocus() {
     return WithView(kOmniboxElementId, [](OmniboxViewViews* omnibox_view) {
       omnibox_view->GetFocusManager()->ClearFocus();
@@ -114,7 +78,7 @@ class ActorUiHandoffButtonControllerInteractiveUiTest
   }
 
 #if BUILDFLAG(IS_MAC)
-  auto EnterImmersiveFullscreen() {
+  auto ToggleImmersiveFullscreen() {
     return [&]() { ui_test_utils::ToggleFullscreenModeAndWait(browser()); };
   }
 
@@ -128,7 +92,6 @@ class ActorUiHandoffButtonControllerInteractiveUiTest
 #endif  // BUILDFLAG(IS_MAC)
 
  protected:
-  TaskId task_id_;
 #if BUILDFLAG(ENABLE_GLIC)
   glic::GlicTestEnvironment glic_test_env_;
 #endif
@@ -142,10 +105,7 @@ IN_PROC_BROWSER_TEST_F(ActorUiHandoffButtonControllerInteractiveUiTest,
                   InAnyContext(WaitForShow(
                       HandoffButtonController::kHandoffButtonElementId)),
                   // Trigger the event to destroy the button.
-                  Do([&]() {
-                    GetActorKeyedService()->StopTask(
-                        task_id_, ActorTask::StoppedReason::kTaskComplete);
-                  }),
+                  Do([&]() { CompleteTask(); }),
                   InAnyContext(WaitForHide(
                       HandoffButtonController::kHandoffButtonElementId)));
 }
@@ -224,18 +184,31 @@ IN_PROC_BROWSER_TEST_F(ActorUiHandoffButtonControllerInteractiveUiTest,
 // This test is only for Mac where we have immersive fullscreen.
 #if BUILDFLAG(IS_MAC)
 IN_PROC_BROWSER_TEST_F(ActorUiHandoffButtonControllerInteractiveUiTest,
-                       ButtonHidesInImmersiveFullscreen) {
+                       ButtonReappearsAfterFullscreenToggle) {
   StartActingOnTab();
-  RunTestSequence(ClearOmniboxFocus(), Do(EnterImmersiveFullscreen()),
-                  Check(IsInImmersiveFullscreen()),
-                  // Verify the button does not show.
-                  InAnyContext(EnsureNotPresent(
-                      HandoffButtonController::kHandoffButtonElementId)));
+  RunTestSequence(
+      ClearOmniboxFocus(),
+      InAnyContext(
+          WaitForShow(HandoffButtonController::kHandoffButtonElementId)),
+      Do(ToggleImmersiveFullscreen()), Check(IsInImmersiveFullscreen()),
+      InAnyContext(
+          WaitForShow(HandoffButtonController::kHandoffButtonElementId)),
+      // Exit fullscreen.
+      Do(ToggleImmersiveFullscreen()),
+      InAnyContext(
+          WaitForShow(HandoffButtonController::kHandoffButtonElementId)));
 }
 #endif  // BUILDFLAG(IS_MAC)
 
+// TODO(crbug.com/465113623) Test flaky on Wayland.
+#if BUILDFLAG(IS_OZONE_WAYLAND)
+#define MAYBE_ButtonHidesWhenOmniboxIsFocused \
+  DISABLED_ButtonHidesWhenOmniboxIsFocused
+#else
+#define MAYBE_ButtonHidesWhenOmniboxIsFocused ButtonHidesWhenOmniboxIsFocused
+#endif
 IN_PROC_BROWSER_TEST_F(ActorUiHandoffButtonControllerInteractiveUiTest,
-                       ButtonHidesWhenOmniboxIsFocused) {
+                       MAYBE_ButtonHidesWhenOmniboxIsFocused) {
   StartActingOnTab();
   RunTestSequence(
       ClearOmniboxFocus(),
@@ -252,9 +225,6 @@ IN_PROC_BROWSER_TEST_F(ActorUiHandoffButtonControllerInteractiveUiTest,
 #if BUILDFLAG(ENABLE_GLIC)
 IN_PROC_BROWSER_TEST_F(ActorUiHandoffButtonControllerInteractiveUiTest,
                        GlicSidePanelTogglesOnWhenButtonClicked) {
-  SidePanelCoordinator* const coordinator =
-      browser()->GetFeatures().side_panel_coordinator();
-  coordinator->SetNoDelaysForTesting(true);
   StartActingOnTab();
   RunTestSequence(ClearOmniboxFocus(), EnsureNotPresent(kSidePanelElementId),
                   EnsureNotPresent(kGlicViewElementId),
@@ -283,16 +253,13 @@ class ActorUiHandoffButtonVisibleInBothStatesInteractiveUiTest
         {
 #if BUILDFLAG(ENABLE_GLIC)
             {features::kGlicURLConfig,
-             {{features::kGlicGuestURL.name, "about:blank"}}},
+             { {features::kGlicGuestURL.name, "about:blank"} }},
             {features::kGlic, {}},
             {features::kTabstripComboButton, {}},
 #endif
             {features::kGlicActor, {}},
             {features::kGlicActorUi,
              {{features::kGlicActorUiHandoffButtonName, "true"}}},
-#if BUILDFLAG(IS_MAC)
-            {features::kImmersiveFullscreen, {}},
-#endif
         },
         /*disabled_features=*/{
 #if BUILDFLAG(ENABLE_GLIC)

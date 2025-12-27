@@ -75,7 +75,6 @@ Tasub teada
 <translation id="2576431527583832481">Chrome muutus just veelgi paremaks! Saadaval on uus versioon.</translation>
 <translation id="257708665678654955">Kas soovite, et Google Chrome pakuks järgmisel korral sellel saidil <ph name="LANGUAGE_NAME" /> keeles olevate lehtede tõlkimise võimalust?</translation>
 <translation id="2668242166988961773">Chrome'is hääle abil otsimine.</translation>
-<translation id="2695886661449553974">Chrome ei saanud värskendusi otsida. Proovige hiljem uuesti.</translation>
 <translation id="2703746758996815929">Lülitage iOS-i seadetes märguanded sisse, et saada Chrome'i kohta kasulikke nõuandeid.</translation>
 <translation id="2728851697704606655">Tõlkige Google Lensi abil</translation>
 <translation id="2736805085127235148">Chrome’i märguanded on praegu teie seadme seadetes välja lülitatud.</translation>
@@ -170,9 +169,11 @@ Oodake enne väljalogimist paar minutit. Kui logite kohe välja, siis need andme
 <translation id="5162467219239570114">Chrome on aegunud. Kui <ph name="BEGIN_LINK" />App Store'is<ph name="END_LINK" /> pole värskendust saadaval, on võimalik, et teie seade ei toeta enam Chrome'i uuemaid versioone.</translation>
 <translation id="5184329579814168207">Ava Chrome'is</translation>
 <translation id="5190139289262548459">Teie organisatsioon <ph name="DOMAIN" /> haldab kontot, millele olete sisse logitud, ja Chrome’i kasutamist.</translation>
+<translation id="5209238444239954363">Chrome ei saanud värskendusi otsida. Proovige hiljem uuesti.</translation>
 <translation id="5305440589062022504">Avab Chrome’is paroolihalduri</translation>
 <translation id="5310957470610282541">Teatud Chrome’i andmeid pole veel teie Google’i kontole salvestatud.
 Oodake enne väljalogimist paar minutit. Kui logite kohe välja, siis need andmed kustutatakse.</translation>
+<translation id="5342685492141499976">Teie andmed salvestatakse konto <ph name="USER_EMAIL" /> Google'i paroolihaldurisse.</translation>
 <translation id="5389212809648216794">Google Chrome ei saa kaamerat kasutada, kuna seda kasutab muu rakendus</translation>
 <translation id="5395376160638294582">Veenduge, et saaksite alati kasutada oma Google'i kontol Chrome'i andmeid</translation>
 <translation id="5404252374083197467">Kas määrata Chrome vaikebrauseriks?</translation>
@@ -200,6 +201,7 @@ Oodake enne väljalogimist paar minutit. Kui logite kohe välja, siis need andme
 <translation id="5808435672482059465">Chrome’i ajaloo vaatamine</translation>
 <translation id="5833027901704861726">Mõned teie Chrome'i andmed ei ole veel kontole <ph name="EMAIL" /> salvestatud.
 Oodake enne konto vahetamist paar minutit. Kui vahetate kohe kontot, siis need andmed kustutatakse.</translation>
+<translation id="5853754888722423892">Importimine Google'i paroolihaldurisse</translation>
 <translation id="5998675059699164418">Teie organisatsioon nõuab, et logiksite Chrome'i kasutamiseks sisse.</translation>
 <translation id="6021312115739110405">Teie jaoks Google’i loodud kohandatud voog. Sisaldab uudiseid, sporti ja ilmateadet.</translation>
 <translation id="6022659036123304283">Isikupärastage Chrome'i</translation>
@@ -302,6 +304,7 @@ Kui soovite näha veel seadeid, mis kasutavad andmeid, et parandada teie Chrome'
 <translation id="787226752901403048">Vahelehegruppide jagamiseks ja nendega liitumiseks ning ideede põhjal koos töötamiseks logige Chrome'i sisse</translation>
 <translation id="7897703007638178753">Kuva Chrome'i hiljutised vahelehed</translation>
 <translation id="7948283758957877064">Mis on Chrome'is uut?</translation>
+<translation id="7996707498590516621">Pildi loomine Geminiga Chrome'is</translation>
 <translation id="8000174216052461231">Chrome'i nõuanne: Chrome'i tugevaim kaitse</translation>
 <translation id="8006014511203279255">Saate Chrome'i kasutada igal ajal, kui puudutate sõnumites või muudes rakendustes linke.</translation>
 <translation id="8014670471808569312">Chrome pakub võimalust parool salvestada.</translation>

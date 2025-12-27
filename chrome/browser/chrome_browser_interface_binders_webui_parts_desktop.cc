@@ -2,9 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <memory>
+
+#include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "chrome/browser/actor/ui/actor_overlay_ui.h"
 #include "chrome/browser/chrome_browser_interface_binders_webui_parts.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks.mojom.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_context_service_factory.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_internals.mojom.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
 #include "chrome/browser/history_clusters/history_clusters_service_factory.h"
 #include "chrome/browser/history_embeddings/history_embeddings_utils.h"
@@ -39,6 +45,8 @@
 #include "chrome/browser/ui/webui/history/history_ui.h"
 #include "chrome/browser/ui/webui/infobar_internals/infobar_internals.mojom.h"
 #include "chrome/browser/ui/webui/infobar_internals/infobar_internals_ui.h"
+#include "chrome/browser/ui/webui/legion_internals/legion_internals.mojom.h"
+#include "chrome/browser/ui/webui/legion_internals/legion_internals_ui.h"
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter_service.h"
 #include "chrome/browser/ui/webui/new_tab_footer/new_tab_footer.mojom.h"
 #include "chrome/browser/ui/webui/new_tab_footer/new_tab_footer_ui.h"
@@ -52,7 +60,6 @@
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_ui.h"
 #include "chrome/browser/ui/webui/on_device_internals/on_device_internals_ui.h"
 #include "chrome/browser/ui/webui/password_manager/password_manager_ui.h"
-#include "chrome/browser/ui/webui/privacy_sandbox/base_dialog_ui.h"
 #include "chrome/browser/ui/webui/privacy_sandbox/privacy_sandbox_internals_ui.h"
 #include "chrome/browser/ui/webui/privacy_sandbox/private_state_tokens/private_state_tokens.mojom.h"
 #include "chrome/browser/ui/webui/privacy_sandbox/related_website_sets/related_website_sets.mojom.h"
@@ -91,6 +98,7 @@
 #include "components/data_sharing/public/features.h"
 #include "components/guest_contents/common/guest_contents.mojom.h"
 #include "components/history_clusters/core/history_clusters_service.h"
+#include "components/legion/features.h"
 #include "components/lens/lens_features.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
 #include "components/omnibox/common/omnibox_features.h"
@@ -100,10 +108,15 @@
 #include "components/search/ntp_features.h"
 #include "components/sync/base/features.h"
 #include "components/user_education/common/user_education_features.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui_browser_interface_broker_registry.h"
 #include "content/public/browser/web_ui_controller_interface_binder.h"
 #include "mojo/public/cpp/bindings/binder_map.h"
+#include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "mojo/public/cpp/bindings/self_owned_receiver.h"
+#include "ui/webui/color_change_listener/color_change_handler.h"
 #include "ui/webui/resources/cr_components/app_management/app_management.mojom.h"
 #include "ui/webui/resources/cr_components/color_change_listener/color_change_listener.mojom.h"
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
@@ -165,6 +178,7 @@
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 #include "chrome/browser/ui/webui/signin/signout_confirmation/signout_confirmation_ui.h"
+#include "ui/webui/resources/js/batch_upload_promo/batch_upload_promo.mojom.h"
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 #if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
@@ -195,6 +209,15 @@ void BindMetricsReporterService(
   service->BindReceiver(std::move(receiver));
 }
 
+void BindColorChangeListener(
+    content::RenderFrameHost* frame_host,
+    mojo::PendingReceiver<color_change_listener::mojom::PageHandler>
+        pending_receiver) {
+  auto* color_change_handler =
+      ui::ColorChangeHandler::GetOrCreateForCurrentDocument(frame_host);
+  color_change_handler->Bind(std::move(pending_receiver));
+}
+
 }  // namespace
 
 void PopulateChromeWebUIFrameBindersPartsDesktop(
@@ -223,36 +246,6 @@ void PopulateChromeWebUIFrameBindersPartsDesktop(
         actor::ui::mojom::ActorOverlayPageHandlerFactory,
         actor::ui::ActorOverlayUI>(map);
   }
-
-  RegisterWebUIControllerInterfaceBinder<
-      color_change_listener::mojom::PageHandler,
-#if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
-      TabStripUI,
-#endif
-#if BUILDFLAG(IS_CHROMEOS)
-      ash::OobeUI, ash::personalization_app::PersonalizationAppUI,
-      ash::vc_background_ui::VcBackgroundUI, ash::settings::OSSettingsUI,
-      ash::DiagnosticsDialogUI, ash::FirmwareUpdateAppUI, ash::ScanningUI,
-      ash::OSFeedbackUI, ash::ShortcutCustomizationAppUI,
-      ash::printing::printing_manager::PrintManagementUI,
-      ash::InternetConfigDialogUI, ash::InternetDetailDialogUI, ash::SetTimeUI,
-      ash::BluetoothPairingDialogUI, nearby_share::NearbyShareDialogUI,
-      ash::cloud_upload::CloudUploadUI, ash::office_fallback::OfficeFallbackUI,
-      ash::multidevice_setup::MultiDeviceSetupDialogUI, ash::ParentAccessUI,
-      ash::EmojiUI, ash::RemoteMaintenanceCurtainUI,
-      ash::app_install::AppInstallDialogUI, ash::SanitizeDialogUI,
-      ash::printing::print_preview::PrintPreviewCrosUI,
-      ash::extended_updates::ExtendedUpdatesUI, ash::graduation::GraduationUI,
-      policy::local_user_files::LocalFilesMigrationUI,
-#endif
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-      SignoutConfirmationUI,
-#endif
-      NewTabPageUI, OmniboxPopupUI, BookmarksSidePanelUI, CustomizeChromeUI,
-      ColorPipelineInternalsUI, UserEducationInternalsUI, ReadingListUI,
-      TabSearchUI, WebuiGalleryUI, HistoryClustersSidePanelUI,
-      ShoppingInsightsSidePanelUI, media_router::AccessCodeCastUI,
-      commerce::ProductSpecificationsUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
       customize_buttons::mojom::CustomizeButtonsHandlerFactory, NewTabPageUI>(
@@ -339,6 +332,11 @@ void PopulateChromeWebUIFrameBindersPartsDesktop(
   RegisterWebUIControllerInterfaceBinder<whats_new::mojom::PageHandlerFactory,
                                          WhatsNewUI>(map);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  RegisterWebUIControllerInterfaceBinder<
+      batch_upload_promo::mojom::PageHandlerFactory, settings::SettingsUI>(map);
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
   RegisterWebUIControllerInterfaceBinder<
       browser_command::mojom::CommandHandlerFactory,
@@ -473,9 +471,6 @@ void PopulateChromeWebUIFrameBindersPartsDesktop(
       read_anything::mojom::UntrustedPageHandlerFactory,
       ReadAnythingUntrustedUI>(map);
 
-  RegisterWebUIControllerInterfaceBinder<tab_search::mojom::PageHandlerFactory,
-                                         TabSearchUI>(map);
-
   RegisterWebUIControllerInterfaceBinder<
       ::mojom::user_education_internals::UserEducationInternalsPageHandler,
       UserEducationInternalsUI>(map);
@@ -494,6 +489,8 @@ void PopulateChromeWebUIFrameBindersPartsDesktop(
   // TODO(crbug.com/398926117): Create a generic mechanism for these interfaces.
   map->Add<metrics_reporter::mojom::PageMetricsHost>(
       &BindMetricsReporterService);
+
+  map->Add<color_change_listener::mojom::PageHandler>(&BindColorChangeListener);
 
   RegisterWebUIControllerInterfaceBinder<::mojom::WebAppInternalsHandler,
                                          WebAppInternalsUI>(map);
@@ -514,10 +511,6 @@ void PopulateChromeWebUIFrameBindersPartsDesktop(
         private_state_tokens::mojom::PrivateStateTokensPageHandler,
         privacy_sandbox_internals::PrivacySandboxInternalsUI>(map);
   }
-
-  RegisterWebUIControllerInterfaceBinder<
-      privacy_sandbox::dialog::mojom::BaseDialogPageHandlerFactory,
-      privacy_sandbox::BaseDialogUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
       guest_contents::mojom::GuestContentsHost, WebUIBrowserUI>(map);
@@ -564,13 +557,39 @@ void PopulateChromeWebUIFrameBindersPartsDesktop(
   RegisterWebUIControllerInterfaceBinder<::app_home::mojom::PageHandlerFactory,
                                          webapps::AppHomeUI>(map);
 #endif
+
+  if (base::FeatureList::IsEnabled(legion::kLegion)) {
+    RegisterWebUIControllerInterfaceBinder<
+        legion_internals::mojom::LegionInternalsPageHandler, LegionInternalsUI>(
+        map);
+  }
+
+  auto* contextual_tasks_context_service =
+      contextual_tasks::ContextualTasksContextServiceFactory::GetForProfile(
+          Profile::FromBrowserContext(
+              render_frame_host->GetProcess()->GetBrowserContext()));
+  if (contextual_tasks_context_service) {
+    RegisterWebUIControllerInterfaceBinder<
+        contextual_tasks_internals::mojom::
+            ContextualTasksInternalsPageHandlerFactory,
+        ContextualTasksUI>(map);
+  }
 }
 
 void PopulateChromeWebUIFrameInterfaceBrokersTrustedPartsDesktop(
     content::WebUIBrowserInterfaceBrokerRegistry& registry) {
+  // Note: The MetricsReporterService & ColorChangeListener are available to all
+  // WebUIs in the registry
+  registry
+      .AddGlobal<metrics_reporter::mojom::PageMetricsHost>(
+          base::BindRepeating(&BindMetricsReporterService))
+      .AddGlobal<color_change_listener::mojom::PageHandler>(
+          base::BindRepeating(&BindColorChangeListener));
+
+  registry.ForWebUI<TabSearchUI>().Add<tab_search::mojom::PageHandlerFactory>();
+
   if (base::FeatureList::IsEnabled(ntp_features::kNtpFooter)) {
     registry.ForWebUI<NewTabFooterUI>()
-        .Add<color_change_listener::mojom::PageHandler>()
         .Add<customize_buttons::mojom::CustomizeButtonsHandlerFactory>()
         .Add<new_tab_footer::mojom::NewTabFooterHandlerFactory>()
         .Add<help_bubble::mojom::HelpBubbleHandlerFactory>();
@@ -585,6 +604,9 @@ void PopulateChromeWebUIFrameInterfaceBrokersTrustedPartsDesktop(
 #if !BUILDFLAG(IS_CHROMEOS)
       .Add<theme_color_picker::mojom::ThemeColorPickerHandlerFactory>()
 #endif  // !BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+      .Add<batch_upload_promo::mojom::PageHandlerFactory>()
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
       .Add<customize_color_scheme_mode::mojom::
                CustomizeColorSchemeModeHandlerFactory>()
       .Add<help_bubble::mojom::HelpBubbleHandlerFactory>();
@@ -602,24 +624,20 @@ void PopulateChromeWebUIFrameInterfaceBrokersUntrustedPartsDesktop(
         .Add<lens::mojom::LensGhostLoaderPageHandlerFactory>()
         .Add<searchbox::mojom::PageHandler>()
         .Add<help_bubble::mojom::HelpBubbleHandlerFactory>()
-        .Add<composebox::mojom::PageHandlerFactory>()
-        .Add<color_change_listener::mojom::PageHandler>();
+        .Add<composebox::mojom::PageHandlerFactory>();
   }
   if (lens::features::IsLensOverlayEnabled()) {
     registry.ForWebUI<lens::LensOverlayUntrustedUI>()
         .Add<lens::mojom::LensPageHandlerFactory>()
         .Add<lens::mojom::LensGhostLoaderPageHandlerFactory>()
-        .Add<color_change_listener::mojom::PageHandler>()
         .Add<help_bubble::mojom::HelpBubbleHandlerFactory>()
         .Add<searchbox::mojom::PageHandler>();
   }
-  registry.ForWebUI<ReadAnythingUntrustedUI>()
-      .Add<color_change_listener::mojom::PageHandler>();
+  registry.ForWebUI<ReadAnythingUntrustedUI>();
 
   if (data_sharing::features::IsDataSharingFunctionalityEnabled()) {
     registry.ForWebUI<DataSharingUI>()
-        .Add<data_sharing::mojom::PageHandlerFactory>()
-        .Add<color_change_listener::mojom::PageHandler>();
+        .Add<data_sharing::mojom::PageHandlerFactory>();
   }
 
   registry.ForWebUI<NtpMicrosoftAuthUntrustedUI>()
@@ -628,21 +646,17 @@ void PopulateChromeWebUIFrameInterfaceBrokersUntrustedPartsDesktop(
 
   if (webui_browser::IsWebUIBrowserEnabled()) {
     registry.ForWebUI<WebUIBrowserUI>()
-        .Add<color_change_listener::mojom::PageHandler>()
         .Add<webui_browser::mojom::PageHandlerFactory>()
         .Add<bookmark_bar::mojom::PageHandlerFactory>()
         .Add<extensions_bar::mojom::PageHandlerFactory>()
         .Add<searchbox::mojom::PageHandler>()
-        .Add<metrics_reporter::mojom::PageMetricsHost>()
         .Add<tabs_api::mojom::TabStripService>()
         .Add<tracked_element::mojom::TrackedElementHandler>();
   }
 
   if (features::IsWebUIReloadButtonEnabled()) {
     registry.ForWebUI<ReloadButtonUI>()
-        .Add<color_change_listener::mojom::PageHandler>()
-        .Add<reload_button::mojom::PageHandlerFactory>()
-        .Add<metrics_reporter::mojom::PageMetricsHost>();
+        .Add<reload_button::mojom::PageHandlerFactory>();
   }
 }
 

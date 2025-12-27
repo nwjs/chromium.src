@@ -48,7 +48,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PaymentRequest.CheckoutFunnel"
-    enum="PaymentRequestCheckoutFunnelSteps" expires_after="2026-03-22">
+    enum="PaymentRequestCheckoutFunnelSteps" expires_after="2026-05-24">
   <owner>smcgruer@chromium.org</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>
@@ -154,16 +154,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PaymentRequest.NumberOfSupportedMethods.AndroidApp"
-    units="methods" expires_after="2023-07-14">
-  <owner>smcgruer@chromium.org</owner>
-  <owner>chrome-payments-eng@google.com</owner>
-  <summary>
-    The number of payment methods that an installed Android payment app declares
-    to support. Recorded when a website creates a new PaymentRequest JS object.
-  </summary>
-</histogram>
-
 <histogram
     name="PaymentRequest.PaymentDetailsUpdateService.ChangePaymentMethod"
     enum="Boolean" expires_after="2026-03-22">
@@ -237,10 +227,23 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
+    name="PaymentRequest.SecurePaymentConfirmation.BrowserBoundKey.SignLatency"
+    units="ms" expires_after="2026-11-01">
+  <owner>darwinyang@chromium.org</owner>
+  <owner>chrome-payments-eng@google.com</owner>
+  <summary>
+    Records the latency of signing data with the browser bound key. This latency
+    is measured from the moment a key is about to sign data to when the key is
+    done signing.
+  </summary>
+</histogram>
+
+<histogram
     name="PaymentRequest.SecurePaymentConfirmation.BrowserBoundKeyInclusion"
     enum="SecurePaymentConfirmationBrowserBoundKeyInclusionResult"
-    expires_after="2025-12-04">
+    expires_after="2026-11-01">
   <owner>slobodan@chromium.org</owner>
+  <owner>darwinyang@chromium.org</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>
     Whether and how browser bound key will be included in a secure payment
@@ -253,7 +256,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PaymentRequest.SecurePaymentConfirmation.BrowserBoundKeyMetadataUpdate"
-    enum="Boolean" expires_after="2026-09-01">
+    enum="Boolean" expires_after="2026-11-01">
   <owner>darwinyang@chromium.org</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>
@@ -263,10 +266,41 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
+    name="PaymentRequest.SecurePaymentConfirmation.BrowserBoundKeyStore.CreateKeyLatency"
+    units="ms" expires_after="2026-11-01">
+  <owner>darwinyang@chromium.org</owner>
+  <owner>chrome-payments-eng@google.com</owner>
+  <summary>
+    Records the latency of creating the browser bound key. This latency is
+    measured from the moment a key is about to be created to when the key is
+    returned.
+  </summary>
+</histogram>
+
+<histogram
+    name="PaymentRequest.SecurePaymentConfirmation.BrowserBoundKeyStore.GetKeyLatency.{GetKeyLatencyResult}"
+    units="ms" expires_after="2026-11-01">
+  <owner>darwinyang@chromium.org</owner>
+  <owner>chrome-payments-eng@google.com</owner>
+  <summary>
+    Records the latency of getting the browser bound key. This latency is
+    measured from the moment a key is about to be retrieved to when the key is
+    returned.
+  </summary>
+  <token key="GetKeyLatencyResult">
+    <variant name="KeyFound"
+        summary="Labeled get key latency when a key is returned"/>
+    <variant name="KeyNotFound"
+        summary="Labeled get key latency when a key is not returned"/>
+  </token>
+</histogram>
+
+<histogram
     name="PaymentRequest.SecurePaymentConfirmation.BrowserBoundKeyStoreCreate"
     enum="SecurePaymentConfirmationBrowserBoundKeyDeviceResult"
-    expires_after="2026-04-05">
+    expires_after="2026-11-01">
   <owner>slobodan@chromium.org</owner>
+  <owner>darwinyang@chromium.org</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>
     Whether the creation of a browser bound key succeeded or failed and whether
@@ -278,8 +312,9 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="PaymentRequest.SecurePaymentConfirmation.BrowserBoundKeyStoreRetrieve"
     enum="SecurePaymentConfirmationBrowserBoundKeyDeviceResult"
-    expires_after="2025-12-04">
+    expires_after="2026-11-01">
   <owner>slobodan@chromium.org</owner>
+  <owner>darwinyang@chromium.org</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>
     Whether the retrieval of a browser bound key succeeded or failed and whether
@@ -312,7 +347,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SecurePaymentRequest.Fallback.Outcome"
-    enum="SecurePaymentRequestOutcome" expires_after="2025-12-31">
+    enum="SecurePaymentRequestOutcome" expires_after="2026-11-01">
   <owner>darwinyang@google.com</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>
@@ -328,7 +363,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SecurePaymentRequest.Transaction.Outcome"
-    enum="SecurePaymentRequestOutcome" expires_after="2026-03-08">
+    enum="SecurePaymentRequestOutcome" expires_after="2026-11-01">
   <owner>darwinyang@google.com</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>

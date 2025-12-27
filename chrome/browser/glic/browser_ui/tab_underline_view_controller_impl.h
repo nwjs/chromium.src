@@ -14,6 +14,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
+#include "chrome/browser/contextual_tasks/active_task_context_provider.h"
 #include "chrome/browser/glic/browser_ui/tab_underline_view_controller.h"
 #include "chrome/browser/glic/host/context/glic_tab_data.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
@@ -33,7 +34,8 @@ class TabUnderlineView;
 
 class TabUnderlineViewControllerImpl
     : public TabUnderlineViewController,
-      public GlicWindowController::StateObserver {
+      public GlicWindowController::StateObserver,
+      public contextual_tasks::ActiveTaskContextProvider::Observer {
  public:
   TabUnderlineViewControllerImpl();
   TabUnderlineViewControllerImpl(const TabUnderlineViewControllerImpl&) =
@@ -44,6 +46,12 @@ class TabUnderlineViewControllerImpl
 
   // TabUnderlineViewController overrides:
   void Initialize(TabUnderlineView* underline_view, Browser* browser) override;
+
+  // contextual_tasks::ActiveTaskContextProvider::Observer overrides:
+  // Handles updates from the contextual Tasks backend.
+  // Note: This flow is distinct from the GLIC flow.
+  void OnContextTabsChanged(
+      const std::set<tabs::TabHandle>& context_tabs) override;
 
  private:
   // Called when the focused tab changes with the focused tab data object.
@@ -88,6 +96,11 @@ class TabUnderlineViewControllerImpl
     kPanelStateChanged_PanelShowing,
     kPanelStateChanged_PanelHidden,
 
+    // Changes were made to the set of tabs for contextual task. Note that this
+    // is independent of the GLIC flow.
+    kContextualTask_TabInContext,
+    kContextualTask_TabNotInContext,
+
     kUserInputSubmitted,
   };
 
@@ -125,6 +138,10 @@ class TabUnderlineViewControllerImpl
 
   void AddReasonForDebugging(UpdateUnderlineReason reason);
 
+  // Helper methods to check feature flags for Glic and contextual tasks.
+  bool ShouldUseSignalsForGlicUnderlines();
+  bool ShouldUseSignalsForContextualTasks();
+
   std::string UpdateReasonsToString() const;
 
   // Back pointer to the owner. Guaranteed to outlive `this`.
@@ -134,7 +151,9 @@ class TabUnderlineViewControllerImpl
   // underline view.
   raw_ptr<Browser> browser_;
 
-  // The Glic keyed service.
+  // The Glic keyed service. This is only assigned if
+  // ShouldUseSignalsForGlicUnderlines() returns true. Otherwise, it will stay
+  // null.
   raw_ptr<GlicKeyedService> glic_service_;
 
   // Tracked states and their subscriptions.
@@ -144,6 +163,11 @@ class TabUnderlineViewControllerImpl
   base::CallbackListSubscription indicator_change_subscription_;
   base::CallbackListSubscription pinned_tabs_change_subscription_;
   base::CallbackListSubscription user_input_submitted_subscription_;
+
+  // Subscription for contextual tasks backend.
+  base::ScopedObservation<contextual_tasks::ActiveTaskContextProvider,
+                          contextual_tasks::ActiveTaskContextProvider::Observer>
+      contextual_task_observation_{this};
 
   static constexpr size_t kNumReasonsToKeep = 10u;
   std::list<std::string> underline_update_reasons_;

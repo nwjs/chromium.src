@@ -718,12 +718,8 @@ void WebContentsViewAura::PrepareDropData(
     drop_data->text = std::move(*string);
   }
 
-  if (std::optional<ui::OSExchangeData::UrlInfo> url = data.GetURLAndTitle(
-          ui::FilenameToURLPolicy::DO_NOT_CONVERT_FILENAMES);
-      url.has_value() && url->url.is_valid()) {
-    drop_data->url_infos.emplace_back(std::move(url->url),
-                                      std::move(url->title));
-  }
+  drop_data->url_infos =
+      data.GetURLsAndTitles(ui::FilenameToURLPolicy::DO_NOT_CONVERT_FILENAMES);
 
   if (std::optional<ui::OSExchangeData::HtmlInfo> html = data.GetHtml();
       html.has_value()) {
@@ -943,6 +939,16 @@ DropData* WebContentsViewAura::GetDropData() const {
 
 gfx::Rect WebContentsViewAura::GetViewBounds() const {
   return GetNativeView()->GetBoundsInScreen();
+}
+
+void WebContentsViewAura::Resize(const gfx::Rect& new_bounds) {
+  aura::Window* window = GetNativeView();
+  window->SetBounds(gfx::Rect(window->bounds().origin(), new_bounds.size()));
+}
+
+gfx::Size WebContentsViewAura::GetSize() const {
+  aura::Window* window = GetNativeView();
+  return window->bounds().size();
 }
 
 void WebContentsViewAura::CreateAuraWindow(aura::Window* context) {

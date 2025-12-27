@@ -36,6 +36,7 @@ enum class AutofillProgressDialogType;
 class AutofillSaveCardBottomSheetBridge;
 class AutofillSaveIbanBottomSheetBridge;
 class BnplIssuer;
+struct BnplTosModel;
 struct CardUnmaskChallengeOption;
 class CardUnmaskDelegate;
 class AutofillProgressDialogController;
@@ -567,6 +568,14 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // was accepted, this will display the re-auth opt-in confirmation bubble.
   virtual void ShowMandatoryReauthOptInConfirmation() = 0;
 
+  // Returns true if the value of the AutofillCreditCardEnabled pref is true
+  // and the client supports Autofill.
+  virtual bool IsAutofillPaymentMethodsEnabled() const = 0;
+
+  // Disables payments autofill support for this client. Used when the client's
+  // WebContents does not support autofill, such as in an Ephemeral Tab.
+  virtual void DisablePaymentsAutofill() = 0;
+
   // Gets the IbanManager instance associated with the client.
   virtual IbanManager* GetIbanManager() = 0;
 
@@ -629,12 +638,19 @@ class PaymentsAutofillClient : public RiskDataLoader {
       base::WeakPtr<TouchToFillDelegate> delegate,
       std::vector<LoyaltyCard> loyalty_cards_to_suggest) = 0;
 
-  // Updates the BNPL payment method option on the Touch To Fill surface, if
-  // possible, returning `true` on success. Should be called only on Android if
-  // the feature is supported by the platform.
-  virtual bool UpdateTouchToFillBnplPaymentMethod(
-      std::optional<uint64_t> extracted_amount,
-      bool is_amount_supported_by_any_issuer) = 0;
+  // Updates the BNPL UI, returning true on success. This either:
+  // 1. Updates the BNPL payment method option on the Touch To Fill surface, OR
+  // 2. Updates the progress screen with the selection screen or error screen,
+  // based on whether the extracted amount exists or not.
+  // Should be called only on Android if the feature is supported by the
+  // platform.
+  virtual bool OnPurchaseAmountExtracted(
+      base::span<const payments::BnplIssuerContext> bnpl_issuer_contexts,
+      std::optional<int64_t> extracted_amount,
+      bool is_amount_supported_by_any_issuer,
+      const std::optional<std::string>& app_locale,
+      base::OnceCallback<void(BnplIssuer)> selected_issuer_callback,
+      base::OnceClosure cancel_callback) = 0;
 
   // Shows the BNPL progress screen, if possible, returning `true` on success.
   // Should be called only on Android if the feature is supported by the
@@ -656,6 +672,13 @@ class PaymentsAutofillClient : public RiskDataLoader {
       const std::string& app_locale,
       base::OnceCallback<void(BnplIssuer)> selected_issuer_callback,
       base::OnceClosure cancel_callback) = 0;
+
+  // Shows the Touch To Fill surface with terms for linking a new BNPL issuer,
+  // if possible, returning `true` on success. This function is not implemented
+  // on iOS and iOS WebView, and should not be used on those platforms.
+  virtual bool ShowTouchToFillBnplTos(BnplTosModel bnpl_tos_model,
+                                      base::OnceClosure accept_callback,
+                                      base::OnceClosure cancel_callback) = 0;
 
   // Shows the BNPL error screen, if possible, returning `true` on success.
   // Should be called only on Android if the feature is supported by the

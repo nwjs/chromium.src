@@ -377,7 +377,6 @@ TEST_P(DesktopWindowTreeHostPlatformImplTestWithTouch, HitTest) {
     // Send mouse/touch down event and make sure the WindowEventFilter calls
     // the move/resize handler to start interactive move/resize with the
     // |hittest| value we specified.
-
     if (use_touch_event()) {
       ui::GestureEventDetails gesture_details(
           ui::EventType::kGestureScrollBegin);

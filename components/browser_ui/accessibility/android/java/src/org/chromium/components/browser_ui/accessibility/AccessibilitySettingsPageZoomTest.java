@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import android.view.View;
 
+import androidx.test.InstrumentationRegistry;
 import androidx.test.espresso.ViewInteraction;
 import androidx.test.espresso.action.ViewActions;
 import androidx.test.filters.SmallTest;
@@ -92,6 +93,8 @@ public class AccessibilitySettingsPageZoomTest {
         when(mDelegate.getBrowserContextHandle()).thenReturn(mContextHandleMock);
         when(mDelegate.getForceEnableZoomAccessibilityDelegate()).thenReturn(mBoolPrefMock);
         when(mDelegate.getReaderAccessibilityDelegate()).thenReturn(mBoolPrefMock);
+        when(mDelegate.getTouchpadOverscrollHistoryNavigationAccessibilityDelegate())
+                .thenReturn(mBoolPrefMock);
         when(mDelegate.getTextSizeContrastAccessibilityDelegate()).thenReturn(mIntegerPrefMock);
         when(mDelegate.getSiteSettingsNavigation()).thenReturn(mSettingsNavigationMock);
         when(mDelegate.shouldUseSlider()).thenReturn(mUseSlider);
@@ -107,6 +110,8 @@ public class AccessibilitySettingsPageZoomTest {
                 (fragment) -> ((AccessibilitySettings) fragment).setDelegate(mDelegate));
         mAccessibilitySettings =
                 (AccessibilitySettings) mSettingsActivityTestRule.getPreferenceFragment();
+
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 
     @After

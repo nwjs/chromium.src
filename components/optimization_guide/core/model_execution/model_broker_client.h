@@ -10,7 +10,6 @@
 
 #include "base/functional/callback_forward.h"
 #include "base/memory/weak_ptr.h"
-#include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/multimodal_message.h"
 #include "components/optimization_guide/core/model_execution/on_device_capability.h"
 #include "components/optimization_guide/core/model_execution/on_device_execution.h"
@@ -38,7 +37,8 @@ class ModelClient final : public TextSafetyClient {
 
   // Construct a session for this capability.
   std::unique_ptr<OnDeviceSession> CreateSession(
-      const SessionConfigParams& config_params);
+      const SessionConfigParams& config_params,
+      base::WeakPtr<OptimizationGuideLogger> logger);
 
   // TextSafetyClient:
   void StartSession(
@@ -73,7 +73,7 @@ class ModelClient final : public TextSafetyClient {
   proto::OnDeviceModelVersions model_versions_;
   // The full combined limit for input and output tokens.
   uint32_t max_tokens_ = 0;
-  ModelBasedCapabilityKey key_;
+  mojom::OnDeviceFeature feature_;
   base::WeakPtrFactory<ModelClient> weak_ptr_factory_{this};
 };
 
@@ -96,7 +96,8 @@ class ModelSubscriberImpl : public mojom::ModelSubscriber {
   // Creates and returns a session via callback as soon as a model is available.
   // Calls the callback with nullptr if the state become NotSupported.
   void CreateSession(const SessionConfigParams& config_params,
-                     CreateSessionCallback callback);
+                     CreateSessionCallback callback,
+                     base::WeakPtr<OptimizationGuideLogger> logger);
 
   // Wait for the client to be available and call the callback with a reference.
   // Calls the callback with nullptr if the state become NotSupported.
@@ -130,28 +131,29 @@ class ModelSubscriber final : public ModelSubscriberImpl {
 
 class ModelBrokerClient final {
  public:
-  explicit ModelBrokerClient(mojo::PendingRemote<mojom::ModelBroker> remote);
+  explicit ModelBrokerClient(mojo::PendingRemote<mojom::ModelBroker> remote,
+                             base::WeakPtr<OptimizationGuideLogger> logger);
   ~ModelBrokerClient();
 
   using CreateSessionResult = ModelSubscriber::CreateSessionResult;
   using CreateSessionCallback = ModelSubscriber::CreateSessionCallback;
 
   // Get or create the subscriber for the given key.
-  ModelSubscriber& GetSubscriber(mojom::ModelBasedCapabilityKey key);
+  ModelSubscriber& GetSubscriber(mojom::OnDeviceFeature feature);
 
   // Whether the subscriber for this key already exists.
-  bool HasSubscriber(mojom::ModelBasedCapabilityKey key);
+  bool HasSubscriber(mojom::OnDeviceFeature feature);
 
   // Async session creation.
-  void CreateSession(mojom::ModelBasedCapabilityKey key,
+  void CreateSession(mojom::OnDeviceFeature feature,
                      const SessionConfigParams& config_params,
                      CreateSessionCallback callback);
 
  private:
   mojo::Remote<mojom::ModelBroker> remote_;
+  base::WeakPtr<OptimizationGuideLogger> logger_;
 
-  absl::flat_hash_map<mojom::ModelBasedCapabilityKey,
-                      std::unique_ptr<ModelSubscriber>>
+  absl::flat_hash_map<mojom::OnDeviceFeature, std::unique_ptr<ModelSubscriber>>
       subscribers_;
 };
 

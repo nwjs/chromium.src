@@ -36,8 +36,8 @@
 #include "cc/paint/paint_canvas.h"
 #include "cc/trees/paint_holding_reason.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
-#include "mojo/public/cpp/bindings/remote.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
+#include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/input/web_menu_source_type.h"
 #include "third_party/blink/public/common/scheduler/task_attribution_id.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
@@ -100,10 +100,12 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
   WebViewImpl* GetWebView() const override { return nullptr; }
   void ChromeDestroyed() override {}
   void SetWindowRect(const gfx::Rect&, LocalFrame&) override {}
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   void Minimize(LocalFrame&) override {}
   void Maximize(LocalFrame&) override {}
   void Restore(LocalFrame&) override {}
   void SetResizable(bool resizable, LocalFrame&) override {}
+#endif
   gfx::Rect RootWindowRect(LocalFrame&) override { return gfx::Rect(); }
   void DidAccessInitialMainDocument() override {}
   void FocusPage() override {}

@@ -10,6 +10,7 @@
 #include "base/callback_list.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "net/device_bound_sessions/session_error.h"
 #include "services/network/public/mojom/device_bound_sessions.mojom.h"
 
 namespace net::device_bound_sessions {
@@ -47,12 +48,12 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) DeviceBoundSessionManager
       const GURL& url,
       mojo::PendingRemote<network::mojom::DeviceBoundSessionAccessObserver>
           observer) override;
-  void CreateBoundSession(
-      net::device_bound_sessions::SessionParams params,
+  void CreateBoundSessions(
+      std::vector<net::device_bound_sessions::SessionParams> params,
       const std::vector<uint8_t>& wrapped_key,
       const std::vector<net::CanonicalCookie>& cookies_to_set,
       const net::CookieOptions& cookie_options,
-      CreateBoundSessionCallback callback) override;
+      CreateBoundSessionsCallback callback) override;
 
  private:
   // State associated with a DeviceBoundSessionAccessObserver.
@@ -74,12 +75,12 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) DeviceBoundSessionManager
   // Remove an observer by its registration.
   void RemoveObserver(ObserverRegistration* registration);
 
-  void OnCreateBoundSessionAdded(
+  void OnCreateBoundSessionsAdded(
       const std::vector<net::CanonicalCookie>& cookies_to_set,
-      const GURL& fetcher_url,
       const net::CookieOptions& cookie_options,
-      CreateBoundSessionCallback callback,
-      bool session_success);
+      CreateBoundSessionsCallback callback,
+      std::vector<net::device_bound_sessions::SessionError::ErrorType>
+          session_errors);
 
   raw_ptr<net::device_bound_sessions::SessionService> service_;
   // `raw_ptr` is safe because both `this` and `cookie_manager_` are

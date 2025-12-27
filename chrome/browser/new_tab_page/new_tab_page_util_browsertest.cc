@@ -9,6 +9,7 @@
 
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/new_tab_page/modules/modules_constants.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -156,15 +157,6 @@ class NewTabPageUtilDisableFlagBrowserTest : public NewTabPageUtilBrowserTest {
   }
 };
 
-class NewTabPageUtilDriveHistorySyncBrowserTest
-    : public NewTabPageUtilBrowserTest {
- public:
-  NewTabPageUtilDriveHistorySyncBrowserTest() {
-    features().InitWithFeatures(
-        {ntp_features::kNtpDriveModuleHistorySyncRequirement}, {});
-  }
-};
-
 IN_PROC_BROWSER_TEST_P(NewTabPageUtilBrowserTest, EnableCartByToT) {
   auto locale = std::make_unique<ScopedBrowserLocale>("en-US");
   g_browser_process->variations_service()->OverrideStoredPermanentCountry("us");
@@ -193,24 +185,6 @@ IN_PROC_BROWSER_TEST_P(NewTabPageUtilDisableFlagBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_P(NewTabPageUtilBrowserTest, EnableDriveByToT) {
-  SetSync(true);
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-  EXPECT_EQ(
-      IsDriveModuleEnabledForProfile(/*is_managed_profile=*/true, GetProfile()),
-      GetParam());
-  CheckInternalsLog(std::string(ntp_features::kNtpDriveModule.name) +
-                    (GetParam() ? " enabled: default feature flag value"
-                                : " disabled: not signed in"));
-#else
-  EXPECT_FALSE(IsDriveModuleEnabledForProfile(/*is_managed_profile=*/true,
-                                              GetProfile()));
-  CheckInternalsLog(std::string(ntp_features::kNtpDriveModule.name) +
-                    " disabled: default feature flag value");
-#endif
-}
-
-IN_PROC_BROWSER_TEST_P(NewTabPageUtilDriveHistorySyncBrowserTest,
-                       DriveHistory_SyncEnabled) {
   SetHistorySync(true);
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   EXPECT_EQ(
@@ -227,8 +201,7 @@ IN_PROC_BROWSER_TEST_P(NewTabPageUtilDriveHistorySyncBrowserTest,
 #endif
 }
 
-IN_PROC_BROWSER_TEST_P(NewTabPageUtilDriveHistorySyncBrowserTest,
-                       DriveHistory_SyncDisabled) {
+IN_PROC_BROWSER_TEST_P(NewTabPageUtilBrowserTest, Drive_HistorySyncDisabled) {
   SetHistorySync(false);
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   EXPECT_FALSE(IsDriveModuleEnabledForProfile(/*is_managed_profile=*/true,
@@ -267,22 +240,6 @@ IN_PROC_BROWSER_TEST_P(NewTabPageUtilEnableFlagBrowserTest, DriveIsNotManaged) {
   CheckInternalsLog(std::string(ntp_features::kNtpDriveModule.name) +
                     (GetParam() ? " disabled: account not managed"
                                 : " disabled: not signed in"));
-}
-
-IN_PROC_BROWSER_TEST_P(NewTabPageUtilBrowserTest, SyncRequired) {
-  SetSync(false);
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-  EXPECT_FALSE(IsDriveModuleEnabledForProfile(/*is_managed_profile=*/true,
-                                              GetProfile()));
-  CheckInternalsLog(
-      std::string(ntp_features::kNtpDriveModule.name) +
-      (GetParam() ? " disabled: no sync" : " disabled: not signed in"));
-#else
-  EXPECT_FALSE(IsDriveModuleEnabledForProfile(/*is_managed_profile=*/true,
-                                              GetProfile()));
-  CheckInternalsLog(std::string(ntp_features::kNtpDriveModule.name) +
-                    " disabled: default feature flag value");
-#endif
 }
 
 IN_PROC_BROWSER_TEST_P(NewTabPageUtilEnableFlagBrowserTest,
@@ -495,6 +452,32 @@ IN_PROC_BROWSER_TEST_P(
             std::set<ntp_tiles::TileType>({ntp_tiles::TileType::kCustomLinks}));
 }
 
+class NewTabPageUtilFeatureOptimizationTest : public NewTabPageUtilBrowserTest {
+ public:
+  NewTabPageUtilFeatureOptimizationTest() {
+    features().InitWithFeatures({ntp_features::kNtpFeatureOptimization}, {});
+  }
+};
+
+IN_PROC_BROWSER_TEST_P(NewTabPageUtilFeatureOptimizationTest,
+                       DisableModuleAutoRemoval) {
+  // Arrange.
+  const std::string module_id = ntp_modules::kGoogleCalendarModuleId;
+
+  // Act.
+  DisableModuleAutoRemoval(browser()->profile(), module_id);
+
+  // Assert.
+  const bool actual_value =
+      browser()
+          ->profile()
+          ->GetPrefs()
+          ->GetDict(ntp_prefs::kNtpModulesAutoRemovalDisabledDict)
+          .FindBool(module_id)
+          .value_or(false);
+  EXPECT_TRUE(actual_value);
+}
+
 INSTANTIATE_TEST_SUITE_P(All, NewTabPageUtilBrowserTest, testing::Bool());
 
 INSTANTIATE_TEST_SUITE_P(All,
@@ -503,10 +486,6 @@ INSTANTIATE_TEST_SUITE_P(All,
 
 INSTANTIATE_TEST_SUITE_P(All,
                          NewTabPageUtilDisableFlagBrowserTest,
-                         testing::Bool());
-
-INSTANTIATE_TEST_SUITE_P(All,
-                         NewTabPageUtilDriveHistorySyncBrowserTest,
                          testing::Bool());
 
 INSTANTIATE_TEST_SUITE_P(
@@ -523,3 +502,7 @@ INSTANTIATE_TEST_SUITE_P(
     All,
     NewTabPageUtilTileTypesEnterpriseShortcutsEnabledAllowMixingBrowserTest,
     testing::Bool());
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         NewTabPageUtilFeatureOptimizationTest,
+                         testing::Bool());

@@ -63,6 +63,7 @@
 #include "components/autofill/core/browser/metrics/prediction_quality_metrics.h"
 #include "components/autofill/core/common/autocomplete_parsing_util.h"
 #include "components/autofill/core/common/autofill_constants.h"
+#include "components/autofill/core/common/autofill_debug_features.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_internals/log_message.h"
 #include "components/autofill/core/common/autofill_internals/logging_scope.h"
@@ -222,7 +223,7 @@ void FormStructure::RationalizeAndAssignSections(
 
 FormDataPredictions FormStructure::GetFieldTypePredictions() const {
   CHECK(base::FeatureList::IsEnabled(
-      features::test::kAutofillShowTypePredictions));
+      features::debug::kAutofillShowTypePredictions));
   FormDataPredictions form;
   form.data = ToFormData();
   form.signature = FormSignatureAsStr();
@@ -255,6 +256,8 @@ FormDataPredictions FormStructure::GetFieldTypePredictions() const {
     annotated_field.signature = field->FieldSignatureAsStr();
     annotated_field.heuristic_type =
         FieldTypeToStringView(field->heuristic_type());
+    annotated_field.pwm_ml_type = FieldTypeToStringView(field->heuristic_type(
+        HeuristicSource::kPasswordManagerMachineLearning));
     if (!field->server_predictions().empty()) {
       annotated_field.server_type = FieldTypeToStringView(field->server_type());
     }
@@ -272,7 +275,7 @@ FormDataPredictions FormStructure::GetFieldTypePredictions() const {
       if (FieldTypeSet field_types = overall_type.GetTypes();
           field_types.size() > 1 &&
           base::FeatureList::IsEnabled(
-              features::test::
+              features::debug::
                   kAutofillUnionTypesSingleTypeInAutofillInformation)) {
         return FieldTypeToString(*field_types.begin());
       }

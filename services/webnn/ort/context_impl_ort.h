@@ -26,7 +26,7 @@ namespace ort {
 class ContextImplOrt final : public WebNNContextImpl {
  public:
   // Constructs a new `ContextImplOrt`. Must be called on `owning_task_runner`.
-  static scoped_refptr<WebNNContextImpl> Create(
+  static std::unique_ptr<WebNNContextImpl, OnTaskRunnerDeleter> Create(
       mojo::PendingReceiver<mojom::WebNNContext> receiver,
       base::WeakPtr<WebNNContextProviderImpl> context_provider,
       const EpWorkarounds& ep_workarounds,
@@ -93,7 +93,7 @@ class ContextImplOrt final : public WebNNContextImpl {
   CreateTensorFromSharedImageImpl(
       mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
       mojom::TensorInfoPtr tensor_info,
-      std::unique_ptr<gpu::WebNNTensorRepresentation> representation) override;
+      WebNNTensorImpl::RepresentationPtr representation) override;
 
   scoped_refptr<Environment> env_;
 

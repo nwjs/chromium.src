@@ -14,6 +14,7 @@ import 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import 'chrome://resources/cr_elements/cr_shared_style.css.js';
 import 'chrome://resources/cr_elements/icons.html.js';
 import '/shared/settings/prefs/prefs.js';
+import '../ai_page/ai_logging_info_bullet.js';
 import '../controls/settings_toggle_button.js';
 import '../icons.html.js';
 import '../settings_columned_section.css.js';
@@ -89,18 +90,33 @@ export class CollapsibleCardElement extends
           value: false,
         }),
       },
+
+      /**
+        If true, Autofill AI does not depend on whether Autofill for addresses
+        is enabled.
+      */
+      autofillAiIgnoresWhetherAddressFillingIsEnabled_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.getBoolean(
+              'AutofillAiIgnoresWhetherAddressFillingIsEnabled');
+        },
+      },
     };
   }
 
   static get observers() {
     return [
-      'onAutofillAiPrefChanged_(prefs.autofill.profile_enabled.value)',
+      'onAutofillAddressPrefChanged_(prefs.autofill.profile_enabled.value)',
+      `onEnterprisePolicyChanged_(prefs.${
+          AiEnterpriseFeaturePrefName.AUTOFILL_AI}.value)`,
     ];
   }
 
   declare private expanded_: boolean;
   declare private enhancedAutofillEligibleUser_: boolean;
   declare private enhancedAutofillOptedIn_: chrome.settingsPrivate.PrefObject;
+  declare private autofillAiIgnoresWhetherAddressFillingIsEnabled_: boolean;
 
   private entityInstancesChangedListener_: EntityInstancesChangedListener|null =
       null;
@@ -115,17 +131,6 @@ export class CollapsibleCardElement extends
           'enhancedAutofillOptedIn_.value',
           this.enhancedAutofillEligibleUser_ && enhancedAutofillOptedIn);
     });
-    const policyDisabled =
-        this.getPref(AiEnterpriseFeaturePrefName.AUTOFILL_AI).value ===
-        ModelExecutionEnterprisePolicyValue.DISABLE;
-    if (policyDisabled) {
-      this.set(
-          'enhancedAutofillOptedIn_.enforcement',
-          chrome.settingsPrivate.Enforcement.ENFORCED);
-      this.set(
-          'enhancedAutofillOptedIn_.controlledBy',
-          chrome.settingsPrivate.ControlledBy.USER_POLICY);
-    }
   }
 
   override disconnectedCallback() {
@@ -164,13 +169,51 @@ export class CollapsibleCardElement extends
   // the AutofillAI opt-in status. In this case, we do not remove the AutofillAI
   // entry, but just set the opt-in to false. Note that other
   // preconditions (e.g., sync) are not covered.
-  private async onAutofillAiPrefChanged_(prefValue: boolean) {
+  private async onAutofillAddressPrefChanged_(prefValue: boolean) {
+    if (this.autofillAiIgnoresWhetherAddressFillingIsEnabled_) {
+      return;
+    }
     const enhancedAutofillOptedIn =
         await this.entityDataManager_.getOptInStatus();
     this.set(
         'enhancedAutofillOptedIn_.value',
         this.enhancedAutofillEligibleUser_ && enhancedAutofillOptedIn &&
             prefValue);
+  }
+
+  /**
+   * Observes changes to the enterprise policy for Autofill AI keeping the
+   * component's state up to date. When the policy disables the feature, updates
+   * the UI to reflect the enforced state, disabling the toggle. When the policy
+   * is lifted, it asynchronously fetches the user's latest opt-in status to
+   * accurately restore the toggle's state without blocking the UI.
+   */
+  private async onEnterprisePolicyChanged_(
+      policyValue: ModelExecutionEnterprisePolicyValue|undefined) {
+    if (policyValue === undefined) {
+      return;
+    }
+
+    if (policyValue === ModelExecutionEnterprisePolicyValue.DISABLE) {
+      this.set(
+          'enhancedAutofillOptedIn_.enforcement',
+          chrome.settingsPrivate.Enforcement.ENFORCED);
+      this.set(
+          'enhancedAutofillOptedIn_.controlledBy',
+          chrome.settingsPrivate.ControlledBy.USER_POLICY);
+      this.set('enhancedAutofillOptedIn_.value', false);
+    } else {
+      this.set('enhancedAutofillOptedIn_.enforcement', undefined);
+      this.set('enhancedAutofillOptedIn_.controlledBy', undefined);
+
+      const enhancedAutofillOptedIn =
+          await this.entityDataManager_.getOptInStatus();
+      const autofillEnabled = this.get('prefs.autofill.profile_enabled.value');
+      this.set(
+          'enhancedAutofillOptedIn_.value',
+          this.enhancedAutofillEligibleUser_ && enhancedAutofillOptedIn &&
+              autofillEnabled);
+    }
   }
 }
 

@@ -94,7 +94,6 @@
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
-#include "components/signin/public/identity_manager/signin_constants.h"
 #include "components/sync/base/features.h"
 #include "components/sync/base/pref_names.h"
 #include "components/sync/base/user_selectable_type.h"
@@ -129,7 +128,6 @@ using net::test_server::BasicHttpResponse;
 using net::test_server::HttpRequest;
 using net::test_server::HttpResponse;
 using signin::AccountConsistencyMethod;
-using signin::constants::kNoHostedDomainFound;
 
 namespace {
 
@@ -738,11 +736,13 @@ class DiceBrowserTest : public InProcessBrowserTest,
 
   void UpdateAccountInfoForAccount(AccountInfo account_info) {
     // Fill the account info.
-    account_info.full_name = "fullname";
-    account_info.given_name = "givenname";
-    account_info.hosted_domain = kNoHostedDomainFound;
-    account_info.locale = "en";
-    account_info.picture_url = "https://example.com";
+    account_info = AccountInfo::Builder(account_info)
+                       .SetFullName("fullname")
+                       .SetGivenName("givenname")
+                       .SetHostedDomain(std::string())
+                       .SetLocale("en")
+                       .SetAvatarUrl("https://example.com")
+                       .Build();
     // Fill in the required account capabilities for the sign in intercept.
     AccountCapabilitiesTestMutator mutator(&account_info.capabilities);
     mutator.set_is_subject_to_parental_controls(false);
@@ -1577,8 +1577,8 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithSyncOptinScreen,
   // Open the signin tab from the tabs history page (reuses the previous sign
   // in tab with an updated entry point).
   access_point = signin_metrics::AccessPoint::kRecentTabs;
-  signin_ui_util::TriggerSignInForHistorySyncOptIn(
-      browser(), browser()->profile(), access_point);
+  signin_ui_util::SignInAndEnableHistorySync(browser(), browser()->profile(),
+                                             access_point);
   // Receive token.
   SendRefreshTokenResponse();
 
@@ -1651,8 +1651,13 @@ IN_PROC_BROWSER_TEST_F(DiceExplicitSigninBrowserTest,
       builder.AsPrimary(signin::ConsentLevel::kSync)
           .WithAccessPoint(signin_metrics::AccessPoint::kWebSignin)
           .Build(kMainGmailEmail));
-  ASSERT_EQ(signin::GetPrimaryAccountConsentLevel(GetIdentityManager()),
-            signin::ConsentLevel::kSync);
+  syncer::SyncService* sync_service =
+      SyncServiceFactory::GetForProfile(profile);
+  // TODO(crbug.com/464457988): Mark sync setup as complete by default in the
+  // sign-in helper method.
+  sync_service->GetUserSettings()->SetInitialSyncFeatureSetupComplete(
+      syncer::SyncFirstSetupCompleteSource::BASIC_FLOW);
+  ASSERT_TRUE(sync_service->IsSyncFeatureEnabled());
 
   ASSERT_FALSE(profile->GetPrefs()->GetBoolean(prefs::kExplicitBrowserSignin));
 
@@ -2054,10 +2059,12 @@ class DiceBrowserTestWithChromeSigninIPH
             signin::ConsentLevel::kSignin);
     AccountInfo account_info =
         GetIdentityManager()->FindExtendedAccountInfo(core_account_info);
-    account_info.full_name = "First Last";
-    account_info.given_name = "First";
-    account_info.hosted_domain = kNoHostedDomainFound;
-    account_info.picture_url = "https://example.com";
+    account_info = AccountInfo::Builder(account_info)
+                       .SetFullName("First Last")
+                       .SetGivenName("First")
+                       .SetHostedDomain(std::string())
+                       .SetAvatarUrl("https://example.com")
+                       .Build();
     signin::UpdateAccountInfoForAccount(GetIdentityManager(), account_info);
   }
 
@@ -2201,7 +2208,15 @@ IN_PROC_BROWSER_TEST_F(DiceManageAccountBrowserTest,
   ASSERT_TRUE(deleted_profiles.empty());
 
   // Sign the profile in.
+  // Using `kSignin` leads to test failure for some reason but should be
+  // addressed under crbug.com/417950948.
   SetupSignedInAccounts(signin::ConsentLevel::kSync);
+  syncer::SyncService* sync_service =
+      SyncServiceFactory::GetForProfile(browser()->profile());
+  // TODO(crbug.com/464457988): Mark sync setup as complete by default in the
+  // sign-in helper method.
+  sync_service->GetUserSettings()->SetInitialSyncFeatureSetupComplete(
+      syncer::SyncFirstSetupCompleteSource::BASIC_FLOW);
   enterprise_util::SetUserAcceptedAccountManagement(browser()->profile(), true);
 
   // Prohibit sign-in on next start-up.

@@ -43,11 +43,8 @@
 namespace blink {
 
 class CORE_EXPORT CSSSelectorWatch final
-    : public GarbageCollected<CSSSelectorWatch>,
-      public Supplement<Document> {
+    : public GarbageCollected<CSSSelectorWatch> {
  public:
-  static const char kSupplementName[];
-
   explicit CSSSelectorWatch(Document&);
   ~CSSSelectorWatch() = default;
 
@@ -62,10 +59,12 @@ class CORE_EXPORT CSSSelectorWatch final
   void UpdateSelectorMatches(const Vector<String>& removed_selectors,
                              const Vector<String>& added_selectors);
 
-  void Trace(Visitor*) const override;
+  void Trace(Visitor*) const;
 
  private:
   void CallbackSelectorChangeTimerFired(TimerBase*);
+
+  Member<Document> document_;
 
   HeapVector<Member<StyleRule>> watched_callback_selectors_;
 

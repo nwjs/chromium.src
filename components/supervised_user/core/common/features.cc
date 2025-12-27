@@ -103,11 +103,11 @@ BASE_FEATURE(kSupervisedUserBrowserContentFiltersKillSwitch,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kSupervisedUserSearchContentFiltersKillSwitch,
              base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kSupervisedUserClearDeviceContentFiltersPrefsOnStartup,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kSupervisedUserInterstitialWithoutApprovals,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kSupervisedUserLocalSupervisionPreview,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kSupervisedUserOverrideLocalSupervisionForFamilyLinkAccounts,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 const base::FeatureParam<std::string>

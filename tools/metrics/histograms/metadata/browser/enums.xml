@@ -253,7 +253,7 @@ chromium-metrics-reviews@google.com.
   <int value="31" label="OUTDATED_PLUGIN_INFOBAR_DELEGATE (Obsolete)"/>
   <int value="32" label="PLUGIN_METRO_MODE_INFOBAR_DELEGATE (Obsolete)"/>
   <int value="33" label="RELOAD_PLUGIN_INFOBAR_DELEGATE"/>
-  <int value="34" label="PLUGIN_OBSERVER_INFOBAR_DELEGATE"/>
+  <int value="34" label="PLUGIN_OBSERVER_INFOBAR_DELEGATE (Obsolete)"/>
   <int value="35" label="SSL_ADD_CERTIFICATE (Obsolete)"/>
   <int value="36" label="SSL_ADD_CERTIFICATE_INFOBAR_DELEGATE (Obsolete)"/>
   <int value="37" label="POPUP_BLOCKED_INFOBAR_DELEGATE_MOBILE"/>
@@ -349,7 +349,8 @@ chromium-metrics-reviews@google.com.
   <int value="116"
       label="BIDDING_AND_AUCTION_USER_CONSENTED_DEBUGGING_DELEGATE"/>
   <int value="117" label="PARCEL_TRACKING_INFOBAR_DELEGATE (Obsolete)"/>
-  <int value="118" label="TEST_THIRD_PARTY_COOKIE_PHASEOUT_DELEGATE"/>
+  <int value="118"
+      label="TEST_THIRD_PARTY_COOKIE_PHASEOUT_DELEGATE (Obsolete)"/>
   <int value="119" label="ENABLE_LINK_CAPTURING_INFOBAR_DELEGATE"/>
   <int value="120" label="DEV_TOOLS_SHARED_PROCESS_DELEGATE"/>
   <int value="121" label="ENHANCED_SAFE_BROWSING_INFOBAR_DELEGATE"/>
@@ -361,6 +362,7 @@ chromium-metrics-reviews@google.com.
   <int value="127" label="PIN_TO_TASKBAR_INFOBAR_DELEGATE"/>
   <int value="128" label="SESSION_RESTORE_INFOBAR_DELEGATE"/>
   <int value="129" label="ROLL_BACK_MODE_B_INFOBAR_DELEGATE"/>
+  <int value="130" label="DEV_TOOLS_REMOTE_DEBUGGING_INFOBAR_DELEGATE"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/infobars/core/infobar_delegate.h:InfoBarIdentifier) -->
@@ -536,6 +538,7 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="RefusedForJitMismatch"/>
   <int value="8" label="RefusedForV8OptimizationMismatch"/>
   <int value="9" label="RefusedNonNavigation"/>
+  <int value="10" label="CannotAddThrottle"/>
 </enum>
 
 <!-- LINT.ThenChange(//content/browser/renderer_host/render_process_host_impl.h:SpareProcessMaybeTakeAction) -->

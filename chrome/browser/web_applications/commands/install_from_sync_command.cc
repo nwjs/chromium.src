@@ -60,6 +60,17 @@ WebAppInstallFinalizer::FinalizeOptions GetFinalizerOptionForSyncInstall() {
   return finalize_options;
 }
 
+// On ChromeOS, always perform installation by fetching the manifest, while on
+// other platforms, always install from fallback based on whether trusted icons
+// are enabled.
+bool ShouldInstallFallbackNoManifestFetching() {
+#if BUILDFLAG(IS_CHROMEOS)
+  return false;
+#else
+  return base::FeatureList::IsEnabled(features::kWebAppUsePrimaryIcon);
+#endif  // BUILDFLAG(IS_CHROMEOS)
+}
+
 }  // namespace
 
 InstallFromSyncCommand::Params::~Params() = default;
@@ -140,9 +151,7 @@ void InstallFromSyncCommand::StartWithLock(
   url_loader_ = lock_->web_contents_manager().CreateUrlLoader();
   data_retriever_ = lock_->web_contents_manager().CreateDataRetriever();
 
-  // TODO(crbug.com/443106390): Clean up non-fallback code once primary icon
-  // architecture is running on production for a few milestones.
-  if (base::FeatureList::IsEnabled(features::kWebAppUsePrimaryIcon)) {
+  if (ShouldInstallFallbackNoManifestFetching()) {
     InstallFallback(
         webapps::InstallResultCode::kFallbackInstallUsingTrustedIcons);
     return;
@@ -362,10 +371,10 @@ void InstallFromSyncCommand::ReportResultAndDestroy(
   }
 
   if (manifest_to_install_info_job_) {
-    base::Value::Dict install_info_job_error_dict =
+    base::Value install_info_job_error_dict =
         manifest_to_install_info_job_
             ->GetManifestToWebAppInfoGenerationErrors();
-    if (!install_info_job_error_dict.empty()) {
+    if (!install_info_job_error_dict.is_none()) {
       command_manager()->LogToInstallManager(
           std::move(install_info_job_error_dict));
     }

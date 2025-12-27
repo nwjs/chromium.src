@@ -40,7 +40,7 @@ TestPasskeyModel::GetDataTypeControllerDelegate() {
 }
 
 bool TestPasskeyModel::IsReady() const {
-  return true;
+  return is_ready_;
 }
 
 bool TestPasskeyModel::IsEmpty() const {
@@ -79,6 +79,25 @@ TestPasskeyModel::GetPasskeyByCredentialId(
                        [&credential_id](const auto& passkey) {
                          return passkey.credential_id() == credential_id;
                        });
+  if (result.empty()) {
+    return std::nullopt;
+  }
+  CHECK_EQ(result.size(), 1u);
+  return result.front();
+}
+
+std::optional<sync_pb::WebauthnCredentialSpecifics>
+TestPasskeyModel::GetPasskeyByUserId(const std::string& rp_id,
+                                     const std::string& user_id) const {
+  std::vector<sync_pb::WebauthnCredentialSpecifics> rp_passkeys;
+  std::ranges::copy_if(
+      credentials_, std::back_inserter(rp_passkeys),
+      [&rp_id](const auto& passkey) { return passkey.rp_id() == rp_id; });
+  rp_passkeys = passkey_model_utils::FilterShadowedCredentials(rp_passkeys);
+  std::vector<sync_pb::WebauthnCredentialSpecifics> result;
+  std::ranges::copy_if(
+      rp_passkeys, std::back_inserter(result),
+      [&user_id](const auto& passkey) { return passkey.user_id() == user_id; });
   if (result.empty()) {
     return std::nullopt;
   }
@@ -250,6 +269,13 @@ void TestPasskeyModel::AddShadowedCredentialIdsToNewPasskey(
       passkey.add_newly_shadowed_credential_ids(
           existing_passkey.credential_id());
     }
+  }
+}
+
+void TestPasskeyModel::SetReady(bool is_ready) {
+  is_ready_ = is_ready;
+  for (auto& observer : observers_) {
+    observer.OnPasskeyModelIsReady(is_ready_);
   }
 }
 

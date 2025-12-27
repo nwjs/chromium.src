@@ -18,7 +18,6 @@
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/unique_ptr_adapters.h"
-#include "base/feature_list.h"
 #include "base/files/file.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
@@ -26,9 +25,6 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "build/build_config.h"
-#include "components/ip_protection/common/masked_domain_list_manager.h"
-#include "components/ip_protection/common/probabilistic_reveal_token_registry.h"
-#include "components/privacy_sandbox/masked_domain_list/masked_domain_list.pb.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -72,6 +68,7 @@ namespace net {
 class FileNetLogObserver;
 class HostResolverManager;
 class HttpAuthHandlerFactory;
+class IPEndPoint;
 class LoggingNetworkChangeObserver;
 class NetworkChangeNotifier;
 class NetworkQualityEstimator;
@@ -171,7 +168,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
       bool happy_eyeballs_v3_enabled,
       net::SecureDnsMode secure_dns_mode,
       const net::DnsOverHttpsConfig& dns_over_https_config,
-      bool additional_dns_types_enabled) override;
+      bool additional_dns_types_enabled,
+      const std::vector<net::IPEndPoint>& fallback_doh_nameservers) override;
   void DisableQuic() override;
   void SetUpHttpAuth(
       mojom::HttpAuthStaticParamsPtr http_auth_static_params) override;
@@ -179,7 +177,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
       mojom::HttpAuthDynamicParamsPtr http_auth_dynamic_params) override;
   void SetRawHeadersAccess(int32_t process_id,
                            const std::vector<url::Origin>& origins) override;
-  void SetMaxConnectionsPerProxyChain(int32_t max_connections) override;
+  void SetMaxConnectionsPerProxyChain(uint32_t max_connections) override;
   void GetNetworkChangeManager(
       mojo::PendingReceiver<mojom::NetworkChangeManager> receiver) override;
   void GetNetworkQualityEstimatorManager(
@@ -222,15 +220,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
 
   void UpdateKeyPinsList(mojom::PinListPtr pin_list,
                          base::Time update_time) override;
-
-  void UpdateMaskedDomainList(
-      base::File default_file,
-      uint64_t default_file_size,
-      base::File regular_browsing_file,
-      uint64_t regular_browsing_file_size) override;
-
-  void UpdateProbabilisticRevealTokenRegistry(
-      base::Value::Dict registry) override;
 
 #if BUILDFLAG(IS_ANDROID)
   void DumpWithoutCrashing(base::Time dump_request_time) override;
@@ -323,15 +312,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
 
   network::tpcd::metadata::Manager* tpcd_metadata_manager() const {
     return tpcd_metadata_manager_.get();
-  }
-
-  ip_protection::MaskedDomainListManager* masked_domain_list_manager() const {
-    return masked_domain_list_manager_.get();
-  }
-
-  ip_protection::ProbabilisticRevealTokenRegistry*
-  probabilistic_reveal_token_registry() const {
-    return probabilistic_reveal_token_registry_.get();
   }
 
   void set_host_resolver_factory_for_testing(
@@ -497,14 +477,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   // TODO(mmenke): Once the NetworkService always owns NetworkContexts, merge
   // this with |owned_network_contexts_|.
   std::set<raw_ptr<NetworkContext, SetExperimental>> network_contexts_;
-
-  std::unique_ptr<ip_protection::MaskedDomainListManager>
-      masked_domain_list_manager_;
-
-  // Holds the list of domains that have registered to receive Probabilistic
-  // Reveal Tokens.
-  std::unique_ptr<ip_protection::ProbabilisticRevealTokenRegistry>
-      probabilistic_reveal_token_registry_;
 
   // A per-process_id map of origins that are white-listed to allow
   // them to request raw headers for resources they request.

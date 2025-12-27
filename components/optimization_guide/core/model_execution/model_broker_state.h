@@ -8,11 +8,13 @@
 #include <memory>
 
 #include "base/memory/weak_ptr.h"
+#include "components/optimization_guide/core/delivery/optimization_guide_model_provider.h"
 #include "components/optimization_guide/core/model_execution/on_device_asset_manager.h"
 #include "components/optimization_guide/core/model_execution/on_device_capability.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_service_controller.h"
 #include "components/optimization_guide/core/model_execution/performance_class.h"
 #include "components/optimization_guide/core/model_execution/usage_tracker.h"
+#include "components/optimization_guide/public/mojom/model_broker.mojom-data-view.h"
 
 namespace optimization_guide {
 
@@ -22,7 +24,8 @@ namespace optimization_guide {
 class ModelBrokerState final : public OnDeviceCapability {
  public:
   ModelBrokerState(
-      PrefService* local_state,
+      PrefService& local_state,
+      OptimizationGuideModelProvider& model_provider,
       std::unique_ptr<OnDeviceModelComponentStateManager::Delegate> delegate,
       on_device_model::ServiceClient::LaunchFn launch_fn);
   ~ModelBrokerState() override;
@@ -41,56 +44,48 @@ class ModelBrokerState final : public OnDeviceCapability {
   }
 
   OnDeviceModelServiceController& service_controller() {
-    return *service_controller_;
+    return service_controller_;
   }
-
-  // Executes initialization steps. This is normally called immediately on
-  // construction, but can be called later to allow tests to register
-  // preferences and other state.
-  void Init();
-
-  // Create a new asset manager to provide extra models/configs to the broker.
-  std::unique_ptr<OnDeviceAssetManager> CreateAssetManager(
-      OptimizationGuideModelProvider* provider);
 
   // OnDeviceCapability
   void BindModelBroker(
       mojo::PendingReceiver<mojom::ModelBroker> receiver) override;
   std::unique_ptr<OnDeviceSession> StartSession(
-      ModelBasedCapabilityKey feature,
-      const SessionConfigParams& config_params) override;
+      mojom::OnDeviceFeature feature,
+      const SessionConfigParams& config_params,
+      base::WeakPtr<OptimizationGuideLogger> logger) override;
   OnDeviceModelEligibilityReason GetOnDeviceModelEligibility(
-      ModelBasedCapabilityKey feature) override;
+      mojom::OnDeviceFeature feature) override;
   void GetOnDeviceModelEligibilityAsync(
-      ModelBasedCapabilityKey feature,
+      mojom::OnDeviceFeature feature,
       const on_device_model::Capabilities& capabilities,
       base::OnceCallback<void(OnDeviceModelEligibilityReason)> callback)
       override;
   std::optional<SamplingParamsConfig> GetSamplingParamsConfig(
-      ModelBasedCapabilityKey feature) override;
+      mojom::OnDeviceFeature feature) override;
   std::optional<const optimization_guide::proto::Any> GetFeatureMetadata(
-      optimization_guide::ModelBasedCapabilityKey feature) override;
+      mojom::OnDeviceFeature feature) override;
   void AddOnDeviceModelAvailabilityChangeObserver(
-      ModelBasedCapabilityKey feature,
+      mojom::OnDeviceFeature feature,
       OnDeviceModelAvailabilityObserver* observer) override;
   void RemoveOnDeviceModelAvailabilityChangeObserver(
-      ModelBasedCapabilityKey feature,
+      mojom::OnDeviceFeature feature,
       OnDeviceModelAvailabilityObserver* observer) override;
   on_device_model::Capabilities GetOnDeviceCapabilities() override;
 
  private:
   void FinishGetOnDeviceModelEligibility(
-      optimization_guide::ModelBasedCapabilityKey feature,
+      mojom::OnDeviceFeature feature,
       const on_device_model::Capabilities& capabilities,
       base::OnceCallback<
           void(optimization_guide::OnDeviceModelEligibilityReason)> callback);
 
-  raw_ptr<PrefService> local_state_;
   on_device_model::ServiceClient service_client_;
   UsageTracker usage_tracker_;
   PerformanceClassifier performance_classifier_;
   OnDeviceModelComponentStateManager component_state_manager_;
-  std::unique_ptr<OnDeviceModelServiceController> service_controller_;
+  OnDeviceModelServiceController service_controller_;
+  OnDeviceAssetManager asset_manager_;
   base::WeakPtrFactory<ModelBrokerState> weak_ptr_factory_{this};
 };
 

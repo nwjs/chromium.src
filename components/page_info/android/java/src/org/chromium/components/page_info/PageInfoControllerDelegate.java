@@ -145,12 +145,6 @@ public abstract class PageInfoControllerDelegate {
     /** Show cookie settings. */
     public abstract void showCookieSettings();
 
-    /** Show Tracking Protection settings. */
-    public abstract void showTrackingProtectionSettings();
-
-    /** Show Incognito tracking protections settings. */
-    public abstract void showIncognitoTrackingProtectionsSettings();
-
     /**
      * Show site settings for the current page.
      *

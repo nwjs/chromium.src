@@ -138,14 +138,6 @@ class ChromeAutofillClient : public ContentAutofillClient,
   AutofillAiModelExecutor* GetAutofillAiModelExecutor() final;
   optimization_guide::RemoteModelExecutor* GetRemoteModelExecutor() final;
   IdentityCredentialDelegate* GetIdentityCredentialDelegate() final;
-  void OfferPlusAddressCreation(const url::Origin& main_frame_origin,
-                                bool is_manual_fallback,
-                                PlusAddressCallback callback) final;
-  void ShowPlusAddressError(PlusAddressErrorDialogType error_dialog_type,
-                            base::OnceClosure on_accepted) final;
-  void ShowPlusAddressAffiliationError(std::u16string affiliated_domain,
-                                       std::u16string affiliated_plus_address,
-                                       base::OnceClosure on_accepted) final;
   PrefService* GetPrefs() final;
   const PrefService* GetPrefs() const final;
   syncer::SyncService* GetSyncService() final;
@@ -202,11 +194,11 @@ class ChromeAutofillClient : public ContentAutofillClient,
       bool prompt_accepted,
       EntityType entity_type,
       const base::flat_set<EntityTypeName>& saved_entities) final;
+  bool IsActorTaskActive() const final;
   bool IsAutofillEnabled() const final;
   bool IsAutofillProfileEnabled() const final;
-  bool IsAutofillPaymentMethodsEnabled() const final;
   bool IsAutocompleteEnabled() const final;
-  bool IsImportingToWalletEnabled() const final;
+  bool IsWalletStorageEnabled() const final;
   bool IsPasswordManagerEnabled() const final;
   void DidFillForm(AutofillTriggerSource trigger_source, bool is_refill) final;
   bool IsContextSecure() const final;
@@ -304,9 +296,7 @@ class ChromeAutofillClient : public ContentAutofillClient,
   autofill_metrics::FormInteractionsUkmLogger form_interactions_ukm_logger_{
       this};
 
-#if !BUILDFLAG(IS_ANDROID)
-  AutofillAiManager autofill_ai_manager_;
-#endif
+  std::unique_ptr<AutofillAiManager> autofill_ai_manager_;
 
   // These members are initialized lazily in their respective getters.
   // Therefore, do not access the members directly.

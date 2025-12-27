@@ -15,6 +15,7 @@
 #include "chrome/browser/ash/app_list/arc/arc_app_test.h"
 #include "chrome/browser/ash/arc/session/arc_session_manager.h"
 #include "chrome/browser/ash/arc/test/test_arc_session_manager.h"
+#include "chrome/browser/ash/browser_delegate/browser_controller_impl.h"
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
 #include "chrome/browser/ash/plugin_vm/plugin_vm_manager.h"
 #include "chrome/browser/ash/plugin_vm/plugin_vm_manager_factory.h"
@@ -44,7 +45,9 @@
 #include "components/account_id/account_id.h"
 #include "components/policy/proto/chrome_device_policy.pb.h"
 #include "components/prefs/testing_pref_service.h"
+#include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/scoped_user_manager.h"
+#include "components/user_manager/test_helper.h"
 #include "google_apis/gaia/gaia_id.h"
 
 namespace policy {
@@ -76,6 +79,8 @@ class LockToSingleUserManagerTest : public BrowserWithTestWindowTest {
     ash::VmPluginDispatcherClient::InitializeFake();
     lock_to_single_user_manager_ = std::make_unique<LockToSingleUserManager>();
     scoped_feature_list_.InitAndEnableFeature(features::kPluginVm);
+
+    browser_controller_.emplace();
 
     BrowserWithTestWindowTest::SetUp();
 
@@ -116,6 +121,8 @@ class LockToSingleUserManagerTest : public BrowserWithTestWindowTest {
     // ArcServiceManager must still be alive at this line.
     BrowserWithTestWindowTest::TearDown();
 
+    browser_controller_.reset();
+
     arc_service_manager_.reset();
     ash::VmPluginDispatcherClient::Shutdown();
     ash::CryptohomeMiscClient::Shutdown();
@@ -144,6 +151,10 @@ class LockToSingleUserManagerTest : public BrowserWithTestWindowTest {
     const AccountId account_id(AccountId::FromUserEmailGaiaId(
         profile()->GetProfileUserName(), GaiaId("1234567890")));
     fake_user_manager_->AddUserWithAffiliation(account_id, is_affiliated);
+    session_manager::SessionManager::Get()->CreateSession(
+        account_id, user_manager::TestHelper::GetFakeUsernameHash(account_id),
+        /*new_user=*/false,
+        /*has_active_session=*/false);
     fake_user_manager_->LoginUser(account_id);
     // This step should be part of LoginUser(). There's a TODO to add it there,
     // but it breaks many tests.
@@ -214,6 +225,7 @@ class LockToSingleUserManagerTest : public BrowserWithTestWindowTest {
       new ash::FakeChromeUserManager()};
   user_manager::ScopedUserManager scoped_user_manager_{
       base::WrapUnique(fake_user_manager_.get())};
+  std::optional<ash::BrowserControllerImpl> browser_controller_;
   std::unique_ptr<arc::ArcServiceManager> arc_service_manager_;
   std::unique_ptr<arc::ArcSessionManager> arc_session_manager_;
   std::unique_ptr<ash::ShelfModel> shelf_model_;

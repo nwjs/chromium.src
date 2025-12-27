@@ -8,7 +8,6 @@
 #import "ios/chrome/browser/authentication/ui_bundled/cells/central_account_view.h"
 #import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/policy/model/management_state.h"
-#import "ios/chrome/browser/settings/ui_bundled/cells/settings_image_detail_text_cell.h"
 #import "ios/chrome/browser/settings/ui_bundled/cells/sync_switch_item.h"
 #import "ios/chrome/browser/settings/ui_bundled/elements/enterprise_info_popover_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_constants.h"
@@ -16,7 +15,6 @@
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_table_view_controller_model_delegate.h"
 #import "ios/chrome/browser/shared/model/profile/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
-#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_info_button_cell.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -26,12 +24,12 @@
 namespace {
 
 // Table view customized header heights.
-CGFloat kAdvancedSettingsSectionHeaderHeightPointSize = 26.;
-CGFloat kSignOutSectionHeaderHeightPointSize = 26.;
-CGFloat kDefaultSectionHeaderHeightPointSize = 10.;
+constexpr CGFloat kAdvancedSettingsSectionHeaderHeightPointSize = 26.;
+constexpr CGFloat kSignOutSectionHeaderHeightPointSize = 26.;
+constexpr CGFloat kDefaultSectionHeaderHeightPointSize = 10.;
 
 // Table view customized footer heights.
-CGFloat kDefaultSectionFooterHeightPointSize = 10.;
+constexpr CGFloat kDefaultSectionFooterHeightPointSize = 10.;
 
 }  // namespace
 
@@ -63,23 +61,6 @@ CGFloat kDefaultSectionFooterHeightPointSize = 10.;
 }
 
 #pragma mark - UITableViewDataSource
-
-- (UITableViewCell*)tableView:(UITableView*)tableView
-        cellForRowAtIndexPath:(NSIndexPath*)indexPath {
-  UITableViewCell* cell = [super tableView:tableView
-                     cellForRowAtIndexPath:indexPath];
-  if ([cell isKindOfClass:[TableViewInfoButtonCell class]]) {
-    TableViewInfoButtonCell* managedCell =
-        base::apple::ObjCCastStrict<TableViewInfoButtonCell>(cell);
-    managedCell.textLabel.textColor = [UIColor colorNamed:kTextSecondaryColor];
-    [managedCell.trailingButton addTarget:self
-                                   action:@selector(didTapManagedUIInfoButton:)
-                         forControlEvents:UIControlEventTouchUpInside];
-  } else if ([cell isKindOfClass:[SettingsImageDetailTextCell class]]) {
-    cell.selectionStyle = UITableViewCellSelectionStyleNone;
-  }
-  return cell;
-}
 
 - (UIView*)tableView:(UITableView*)tableView
     viewForFooterInSection:(NSInteger)section {
@@ -201,6 +182,10 @@ CGFloat kDefaultSectionFooterHeightPointSize = 10.;
                                 useLargeMargins:YES];
   self.tableView.tableHeaderView = identityAccountItem;
   [self.tableView reloadData];
+}
+
+- (void)showManagedUIInfoForButton:(UIButton*)button {
+  [self didTapManagedUIInfoButton:button];
 }
 
 #pragma mark - UITableViewDelegate

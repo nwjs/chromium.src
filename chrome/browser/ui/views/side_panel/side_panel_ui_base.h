@@ -9,7 +9,6 @@
 #include <optional>
 
 #include "base/memory/raw_ptr.h"
-#include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry_id.h"
@@ -50,29 +49,26 @@ class SidePanelUIBase : public SidePanelUI, public TabStripModelObserver {
   // SidePanelUI:
   using SidePanelUI::Close;
   using SidePanelUI::Show;
-  void Show(
-      SidePanelEntry::Id entry_id,
-      std::optional<SidePanelUtil::SidePanelOpenTrigger> open_trigger) override;
-  void Show(
-      SidePanelEntry::Key entry_key,
-      std::optional<SidePanelUtil::SidePanelOpenTrigger> open_trigger) override;
-  std::optional<SidePanelEntry::Id> GetCurrentEntryId() const override;
+  void Show(SidePanelEntry::Id entry_id,
+            std::optional<SidePanelUtil::SidePanelOpenTrigger> open_trigger,
+            bool suppress_animations) override;
+  void Show(SidePanelEntry::Key entry_key,
+            std::optional<SidePanelUtil::SidePanelOpenTrigger> open_trigger,
+            bool suppress_animations) override;
+  std::optional<SidePanelEntry::Id> GetCurrentEntryId(
+      SidePanelEntry::PanelType panel_type) const override;
   int GetCurrentEntryDefaultContentWidth(
       SidePanelEntry::PanelType type) const override;
   bool IsSidePanelShowing(SidePanelEntry::PanelType type) const override;
   bool IsSidePanelEntryShowing(
       const SidePanelEntry::Key& entry_key) const override;
+  bool IsSidePanelEntryShowing(const SidePanelEntry::Key& entry_key,
+                               bool for_tab) const override;
   base::CallbackListSubscription RegisterSidePanelShown(
       SidePanelEntry::PanelType type,
       SidePanelUI::ShownCallback callback) override;
 
-  // Similar to IsSidePanelEntryShowing, but restricts to either the tab-scoped
-  // or window-scoped registry.
-  bool IsSidePanelEntryShowing(const SidePanelEntry::Key& entry_key,
-                               bool for_tab) const;
-
   Browser* browser() const { return browser_; }
-  SidePanelRegistry* GetWindowRegistry() { return window_registry_.get(); }
 
  protected:
   friend class SidePanelEntryWaiter;
@@ -104,8 +100,6 @@ class SidePanelUIBase : public SidePanelUI, public TabStripModelObserver {
     base::RepeatingCallbackList<void()> shown_callback_list;
   };
 
-  virtual void Close(bool suppress_animations) = 0;
-
   // This method does not show the side panel. Instead, it queues the side panel
   // to be shown once the contents have been loaded. This process may be either
   // synchronous or asynchronous.
@@ -131,10 +125,10 @@ class SidePanelUIBase : public SidePanelUI, public TabStripModelObserver {
       SidePanelRegistry* old_contextual_registry,
       SidePanelRegistry* new_contextual_registry) = 0;
 
-  void SetOpenedTimestamp(base::TimeTicks timestamp);
-  base::TimeTicks opened_timestamp() {
-    return panel_data_.at(SidePanelEntry::PanelType::kContent)
-        ->opened_timestamp;
+  void SetOpenedTimestamp(SidePanelEntry::PanelType type,
+                          base::TimeTicks timestamp);
+  base::TimeTicks opened_timestamp(SidePanelEntry::PanelType type) {
+    return panel_data_.at(type)->opened_timestamp;
   }
 
   void NotifyShownCallbacksFor(SidePanelEntry::PanelType type);
@@ -166,9 +160,6 @@ class SidePanelUIBase : public SidePanelUI, public TabStripModelObserver {
   SidePanelEntryWaiter* waiter(SidePanelEntry::PanelType type) const;
 
   const raw_ptr<Browser> browser_;
-
-  // This registry is scoped to the browser window and is owned by this class.
-  std::unique_ptr<SidePanelRegistry> window_registry_;
 
  private:
   // TabStripModelObserver:

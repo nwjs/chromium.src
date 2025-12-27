@@ -182,6 +182,9 @@ extern const char kSettingsOnOverflowMenuUsed[];
 // The user has triggered the Lens button in the Omnibox keyboard.
 extern const char kLensButtonKeyboardUsed[];
 
+// The user has triggered the Lens button in the Composebox.
+extern const char kIOSLensButtonComposeboxUsed[];
+
 // The user has more than one gesture to refresh a page in iOS. This includes
 // but not limited to re-typing the URL in omnibox and refreshing from context
 // menu.
@@ -359,6 +362,15 @@ extern const char kIOSAIHubNewBadgeTriggered[];
 // Event fired when the AI Hub's entry point is tapped.
 extern const char kIOSAIHubNewBadgeUsed[];
 
+// Event fired when a fullscreen promo is triggered, to manage group frequency.
+extern const char kIOSFullscreenPromosGroupTrigger[];
+
+// Event fired when the omnibox Gemini contextual cue chip is shown.
+extern const char kIOSGeminiContextualCueChipTriggered[];
+
+// Event fired when the omnibox Gemini contextual cue chip is tapped.
+extern const char kIOSGeminiContextualCueChipUsed[];
+
 // Event fired when the Gemini Promo is completed for the first time on iOS.
 extern const char kIOSGeminiPromoFirstCompletion[];
 
@@ -370,6 +382,16 @@ extern const char kIOSIPHReaderModeOptionsUsed[];
 
 // The Reader Mode options entrypoint in-product help was triggered.
 extern const char kIOSIPHReaderModeOptionsTriggered[];
+
+// Event fired when the Gemini Fullscreen Promo is triggered.
+extern const char kIOSGeminiFullscreenPromoTriggered[];
+
+// Event fired when the user starts the Gemini flow without the seeing the
+// promo.
+extern const char kIOSGeminiFlowStartedNonPromo[];
+
+// Event fired when the Gemini consent is given.
+extern const char kIOSGeminiConsentGiven[];
 
 #endif  // BUILDFLAG(IS_IOS)
 

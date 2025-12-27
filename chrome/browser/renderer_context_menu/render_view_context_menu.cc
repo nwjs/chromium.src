@@ -107,6 +107,9 @@
 #include "chrome/browser/ui/profiles/profile_colors_util.h"
 #include "chrome/browser/ui/profiles/profile_view_utils.h"
 #include "chrome/browser/ui/qrcode_generator/qrcode_generator_bubble_controller.h"
+#include "chrome/browser/ui/read_anything/read_anything_controller.h"
+#include "chrome/browser/ui/read_anything/read_anything_entry_point_controller.h"
+#include "chrome/browser/ui/read_anything/read_anything_side_panel_controller_utils.h"
 #include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_bubble.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
@@ -115,7 +118,6 @@
 #include "chrome/browser/ui/translate/partial_translate_bubble_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
-#include "chrome/browser/ui/views/side_panel/read_anything/read_anything_side_panel_controller_utils.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/webauthn/context_menu_helper.h"
 #include "chrome/browser/ui/webui/history/foreign_session_handler.h"
@@ -165,7 +167,7 @@
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_manager_util.h"
 #include "components/pdf/common/pdf_util.h"
-#include "components/policy/content/policy_blocklist_service.h"
+#include "components/policy/core/browser/url_list/policy_blocklist_service.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_member.h"
 #include "components/prefs/pref_service.h"
@@ -750,7 +752,7 @@ void OnBrowserCreated(const GURL& link_url,
   // We are opening the link across profiles, so sending the referer
   // header is a privacy risk.
   nav_params.referrer = content::Referrer();
-  nav_params.window_action = NavigateParams::SHOW_WINDOW;
+  nav_params.window_action = NavigateParams::WindowAction::kShowWindow;
   Navigate(&nav_params);
 }
 
@@ -1329,6 +1331,13 @@ void RenderViewContextMenu::InitMenu() {
   if (autofill_client) {
     autofill_client->HideAutofillSuggestions(
         autofill::SuggestionHidingReason::kContextMenuOpened);
+  }
+
+  if (features::IsReadAnythingMenuShuffleExperimentEnabled() &&
+      features::GetReadAnythingMenuShuffleExperimentGroup() ==
+          features::ReadAnythingMenuShuffleExperimentGroup::kPlaceAtBottom &&
+      content_type_->SupportsGroup(ContextMenuContentType::ITEM_GROUP_PAGE)) {
+    AppendReadAnythingItem();
   }
 }
 
@@ -2267,10 +2276,31 @@ void RenderViewContextMenu::AppendPageItems() {
   menu_model_.AddItemWithStringId(IDC_PRINT, IDS_CONTENT_CONTEXT_PRINT);
   AppendLiveCaptionItem();
   AppendMediaRouterItem();
-  if (IsRegionSearchEnabled()) {
-    AppendRegionSearchItem();
+
+  if (features::IsReadAnythingMenuShuffleExperimentEnabled()) {
+    // This will be set to false in AppendRegionSearchItem() if it is called.
+    const auto experiment_group =
+        features::GetReadAnythingMenuShuffleExperimentGroup();
+
+    if (IsRegionSearchEnabled()) {
+      AppendRegionSearchItem();
+    }
+
+    if (experiment_group ==
+        features::ReadAnythingMenuShuffleExperimentGroup::kDefault) {
+      AppendReadAnythingItem();
+    } else if (experiment_group ==
+               features::ReadAnythingMenuShuffleExperimentGroup::
+                   kPlaceWithSeparation) {
+      menu_model_.AddSeparator(ui::NORMAL_SEPARATOR);
+      AppendReadAnythingItem();
+    }
+  } else {  // No ReadAnythingMenuShuffleExperiment -- keep default code.
+    if (IsRegionSearchEnabled()) {
+      AppendRegionSearchItem();
+    }
+    AppendReadAnythingItem();
   }
-  AppendReadAnythingItem();
 
   // Note: `has_sharing_menu_items = true` also implies a separator was added
   // for sharing section.
@@ -2380,11 +2410,13 @@ void RenderViewContextMenu::AppendPartialTranslateItem() {
 }
 
 void RenderViewContextMenu::AppendTranslateItem() {
-  menu_model_.AddItem(
+  menu_model_.AddItemWithIcon(
       IDC_CONTENT_CONTEXT_TRANSLATE,
       l10n_util::GetStringFUTF16(
           IDS_CONTENT_CONTEXT_TRANSLATE,
-          GetTargetLanguageDisplayName(/*is_full_page_translation=*/true)));
+          GetTargetLanguageDisplayName(/*is_full_page_translation=*/true)),
+      ui::ImageModel::FromVectorIcon(vector_icons::kTranslateIcon,
+                                     ui::kColorMenuIcon, kTabMenuIconSize));
 }
 
 void RenderViewContextMenu::AppendMediaRouterItem() {
@@ -4229,8 +4261,6 @@ void RenderViewContextMenu::ExecOpenCompose() {
     autofill::LocalFrameToken frame_token = driver->GetFrameToken();
     client->GetManager().OpenCompose(
         *driver,
-        autofill::FormGlobalId(
-            frame_token, autofill::FormRendererId(params_.form_renderer_id)),
         autofill::FieldGlobalId(
             frame_token, autofill::FieldRendererId(params_.field_renderer_id)),
         compose::ComposeManagerImpl::UiEntryPoint::kContextMenu);
@@ -4248,8 +4278,8 @@ void RenderViewContextMenu::ExecOpenInReadAnything() {
   if (!browser) {
     return;
   }
-  ShowReadAnythingSidePanel(browser,
-                            SidePanelOpenTrigger::kReadAnythingContextMenu);
+  read_anything::ReadAnythingEntryPointController::ShowUI(
+      browser, ReadAnythingOpenTrigger::kReadAnythingContextMenu);
 }
 
 void RenderViewContextMenu::ExecInspectElement() {
@@ -5032,8 +5062,8 @@ void RenderViewContextMenu::OpenLinkInSplitView() {
 
   TabStripModel* const tab_strip_model = browser->tab_strip_model();
   tabs::TabInterface* const source_tab =
-      tabs::TabInterface::GetFromContents(source_web_contents_);
-  if (source_tab->IsSplit()) {
+      tabs::TabInterface::MaybeGetFromContents(source_web_contents_);
+  if (source_tab && source_tab->IsSplit()) {
     // Navigate the inactive tab to the URL
     const split_tabs::SplitTabId split_id = source_tab->GetSplit().value();
     for (tabs::TabInterface* tab :

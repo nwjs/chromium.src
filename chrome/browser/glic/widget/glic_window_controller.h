@@ -29,6 +29,7 @@
 #include "ui/views/widget/widget.h"
 
 class Browser;
+class SkRegion;
 
 namespace content {
 class RenderFrameHost;
@@ -85,6 +86,14 @@ class GlicWindowController {
 
   // Close the panel but keep the glic WebContents alive in the background.
   virtual void Close() = 0;
+  // Closes the active embedder of an instance with matching render_frame_host
+  // without resetting webcontents.
+  virtual void CloseInstanceWithFrame(
+      content::RenderFrameHost* render_frame_host) = 0;
+  // Closes the active embedder of an instance with matching render_frame_host
+  // with resetting webcontents.
+  virtual void CloseAndShutdownInstanceWithFrame(
+      content::RenderFrameHost* render_frame_host) = 0;
 
   // Returns wehether or not the glic window is currently showing detached.
   // When True |GetGlicWidget| will return a valid ptr.
@@ -165,6 +174,8 @@ class GlicWindowController {
   // documentation.
   virtual void AddGlobalStateObserver(PanelStateObserver* observer) = 0;
   virtual void RemoveGlobalStateObserver(PanelStateObserver* observer) = 0;
+
+  virtual void SetDraggableRegion(const SkRegion& region) = 0;
 };
 
 // This class owns and manages the glic window. This class has the same lifetime

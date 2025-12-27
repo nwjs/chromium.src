@@ -48,6 +48,7 @@ extern const char kHatsSurveyTriggerIdentitySwitchProfileFromProfileMenu[];
 extern const char kHatsSurveyTriggerIdentitySwitchProfileFromProfilePicker[];
 extern const char kHatsSurveyTriggerLensOverlayResults[];
 extern const char kHatsSurveyTriggerNtpModules[];
+extern const char kHatsSurveyTriggerNextPanel[];
 extern const char kHatsSurveyTriggerNtpPhotosModuleOptOut[];
 extern const char kHatsSurveyTriggerPasswordChangeCanceled[];
 extern const char kHatsSurveyTriggerPasswordChangeDelayed[];
@@ -85,10 +86,6 @@ extern const char kHatsSurveyTriggerComposeNudgeClose[];
 extern const char kHatsSurveyTriggerWhatsNew[];
 #else   // BUILDFLAG(IS_ANDROID)
 extern const char kHatsSurveyTriggerAndroidStartupSurvey[];
-extern const char kHatsSurveyTriggerQuickDelete[];
-extern const char kHatsSurveyTriggerClearBrowsingData[];
-extern const char kHatsSurveyTriggerSafetyHubAndroid[];
-extern const char kHatsSurveyOrganicTriggerSafetyHubAndroid[];
 extern const char kHatsSurveyTriggerSigninFirstRun[];
 extern const char kHatsSurveyTriggerSigninWeb[];
 extern const char kHatsSurveyTriggerSigninNtpAvatar[];

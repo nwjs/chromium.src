@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/column_pseudo_element.h"
 #include "third_party/blink/renderer/core/layout/block_layout_algorithm.h"
 #include "third_party/blink/renderer/core/layout/block_layout_algorithm_utils.h"
@@ -19,6 +20,7 @@
 #include "third_party/blink/renderer/core/layout/length_utils.h"
 #include "third_party/blink/renderer/core/layout/list/unpositioned_list_marker.h"
 #include "third_party/blink/renderer/core/layout/logical_box_fragment.h"
+#include "third_party/blink/renderer/core/layout/multicol_break_token_data.h"
 #include "third_party/blink/renderer/core/layout/out_of_flow_layout_part.h"
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
 #include "third_party/blink/renderer/core/layout/simplified_oof_layout_algorithm.h"
@@ -294,10 +296,17 @@ const LayoutResult* ColumnLayoutAlgorithm::Layout() {
       std::max(intrinsic_block_size_, BorderScrollbarPadding().block_start);
 
   if (!Style().HasAutoColumnHeight()) {
+    // Use all of column-height on the last row as well, but don't let that
+    // overflow the outer fragmentainer, if nested.
     LayoutUnit remaining_column_height =
         RemainingRowHeightAtOffset(intrinsic_block_size_);
+    if (GetConstraintSpace().HasKnownFragmentainerBlockSize()) {
+      remaining_column_height =
+          std::min(remaining_column_height,
+                   FragmentainerSpaceLeftForChildren() - intrinsic_block_size_);
+      remaining_column_height = remaining_column_height.ClampNegativeToZero();
+    }
     if (remaining_column_height < RowHeight()) {
-      // Use all of column-height on the last row as well.
       intrinsic_block_size_ += remaining_column_height;
     }
   }
@@ -366,6 +375,23 @@ const LayoutResult* ColumnLayoutAlgorithm::Layout() {
       Style().HasGapRule() && (!cross_gaps_.empty() || !main_gaps_.empty())) {
     auto* gap_geometry =
         MakeGarbageCollected<GapGeometry>(GapGeometry::kMultiColumn);
+
+    // We need to update the edge states for cross gaps in the last row, since
+    // we are not able to accurately do so when we laid them out.
+    if (!main_gaps_.empty() && main_gaps_.back().HasCrossGapsBefore()) {
+      // There could be a scenario in which a spanner is the last thing in the
+      // fragment, in which case the edge states will already be up to date.
+      wtf_size_t start_index = main_gaps_.back().GetCrossGapBeforeEnd() + 1;
+      CrossGap::UpdateCrossGapRangeEdgeState(
+          cross_gaps_, start_index, cross_gaps_.size() - 1,
+          CrossGap::EdgeIntersectionState::kEnd);
+    } else {
+      // If we have no main gaps, it means that all the cross gaps are adjacent
+      // to the content end.
+      CrossGap::UpdateCrossGapRangeEdgeState(
+          cross_gaps_, 0, cross_gaps_.size() - 1,
+          CrossGap::EdgeIntersectionState::kEnd);
+    }
 
     // For the content inline and block ends, we must take the max of where the
     // fragment starts and ends and where the last cross gap and main gap are.
@@ -682,12 +708,23 @@ const LayoutResult* ColumnLayoutAlgorithm::LayoutFragmentationContext(
       DCHECK(!first_trailing_column_gap_idx_);
     }
 
+    // If we're done with one row, move to the next, by consuming any remaining
+    // space from the current row, and then past the following row gap. Also do
+    // this in the first iteration, if there's no room in the current row
+    // (because of a preceding spanner, typically). Make an exception for
+    // zero-height rows (which is a rather useless but supported concept) here,
+    // since they'll never be able to fit anything without overflowing anyway.
     if (!is_first_row ||
-        (ShouldWrapColumns() && HasRowHeight() &&
+        (ShouldWrapColumns() && HasRowHeight() && RowHeight() > LayoutUnit() &&
          RemainingRowHeightAtOffset(line_offset) <= LayoutUnit())) {
-      // Move to the next row, by consuming any remaining space from the current
-      // row, and then past the following row gap.
       line_offset += OffsetToNextRow(line_offset);
+
+      if (GetConstraintSpace().HasKnownFragmentainerBlockSize() &&
+          !is_first_row && HasRowHeight() &&
+          RowHeight() > FragmentainerSpaceLeftForChildren() - line_offset) {
+        // Another row doesn't fit in the outer fragmentainer. Break.
+        return result;
+      }
     }
 
     const LayoutResult* new_result =
@@ -704,6 +741,18 @@ const LayoutResult* ColumnLayoutAlgorithm::LayoutFragmentationContext(
     next_column_token =
         To<BlockBreakToken>(result->GetPhysicalFragment().GetBreakToken());
 
+    if (ShouldWrapColumns() && HasRowHeight() && is_first_row &&
+        GetConstraintSpace().HasKnownFragmentainerBlockSize()) {
+      LayoutUnit overflow = RemainingRowHeightAtOffset(line_offset) -
+                            (FragmentainerSpaceLeftForChildren() - line_offset);
+      if (overflow > LayoutUnit()) {
+        // There wasn't even enough room for one row in the outer
+        // fragmentainer. Resume the row in the next fragmentainer.
+        container_builder_.SetBreakTokenData(
+            MakeGarbageCollected<MulticolBreakTokenData>(RowHeight() -
+                                                         overflow));
+      }
+    }
     is_first_row = false;
   } while (next_column_token && ShouldWrapColumns() &&
            !result->GetColumnSpannerPath());
@@ -1229,9 +1278,13 @@ const LayoutResult* ColumnLayoutAlgorithm::LayoutLine(
         }
         LayoutUnit gap_center =
             column_logical_rect.InlineStartOffset() - (column_gap_size_ / 2);
+        CrossGap::EdgeIntersectionState edge_state =
+            main_gaps_.empty() || main_gaps_.back().IsEndSpannerMainGap()
+                ? CrossGap::EdgeIntersectionState::kStart
+                : CrossGap::EdgeIntersectionState::kNone;
         cross_gaps_.emplace_back(
             LogicalOffset(gap_center, column_logical_rect.BlockStartOffset()),
-            CrossGap::EdgeIntersectionState::kBoth);
+            edge_state);
       }
 
       if (!first_column_offset_.has_value()) {
@@ -1305,6 +1358,18 @@ BreakStatus ColumnLayoutAlgorithm::LayoutSpanner(
       }
 
       intrinsic_block_size_ += row_gap_size_;
+
+      if (GetConstraintSpace().HasKnownFragmentainerBlockSize() &&
+          HasRowHeight() &&
+          RowHeight() >
+              FragmentainerSpaceLeftForChildren() - intrinsic_block_size_) {
+        // The new row doesn't fit in the outer fragmentainer. Push the spanner
+        // (along with the row) to the next outer fragmentainer.
+        container_builder_.AddBreakBeforeChild(
+            spanner_node, kBreakAppealPerfect, /*is_forced_break=*/false);
+        return BreakStatus::kBrokeBefore;
+      }
+
       result = layout();
     }
   }
@@ -1357,6 +1422,15 @@ BreakStatus ColumnLayoutAlgorithm::LayoutSpanner(
       // gaps, and no preceding adjacent spanner). Insert a break for column
       // rules. They are not to overlap with the margin box of spanners.
       AddMainGap(intrinsic_block_size_, SpannerMainGapType::kStart);
+      // Cross Gaps adjacent to spanners are considered "edge" gaps. As such,
+      // when we add a spanner that is preceded by column content we must update
+      // the cross gaps that are adjacent to it accordingly.
+      if (main_gaps_.back().HasCrossGapsBefore()) {
+        CrossGap::UpdateCrossGapRangeEdgeState(
+            cross_gaps_, main_gaps_.back().GetCrossGapBeforeStart(),
+            main_gaps_.back().GetCrossGapBeforeEnd(),
+            CrossGap::EdgeIntersectionState::kEnd);
+      }
     }
   }
 
@@ -1830,6 +1904,15 @@ LayoutUnit ColumnLayoutAlgorithm::OffsetInCurrentRow(
     // Zero row height, no gap.
     return LayoutUnit();
   }
+
+  if (GetBreakToken()) {
+    if (const auto* data =
+            DynamicTo<MulticolBreakTokenData>(GetBreakToken()->TokenData())) {
+      // Add row progress from previous outer fragmentainers.
+      line_offset += data->consumed_row_block_size;
+    }
+  }
+
   return CurrentContentBlockOffset(line_offset) % row_stride;
 }
 

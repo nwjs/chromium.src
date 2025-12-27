@@ -19,14 +19,15 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
+#include "base/test/gmock_expected_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "build/build_config.h"
-#include "components/services/storage/dom_storage/dom_storage_batch_operation_leveldb.h"
-#include "components/services/storage/dom_storage/local_storage_database.pb.h"
+#include "components/services/storage/dom_storage/leveldb/dom_storage_batch_operation_leveldb.h"
+#include "components/services/storage/dom_storage/leveldb/local_storage_database.pb.h"
 #include "components/services/storage/dom_storage/storage_area_test_util.h"
 #include "components/services/storage/public/cpp/constants.h"
 #include "components/services/storage/public/cpp/filesystem/filesystem_proxy.h"
@@ -170,12 +171,15 @@ class LocalStorageImplTest : public testing::Test {
     WaitForDatabaseOpen();
     base::RunLoop loop;
     context()->GetDatabaseForTesting().PostTaskWithThisObject(
-        base::BindLambdaForTesting([&](DomStorageDatabase* db) {
-          DbStatus status =
-              db->Put(base::as_byte_span(key), base::as_byte_span(value));
-          ASSERT_TRUE(status.ok());
-          loop.Quit();
-        }));
+        base::BindLambdaForTesting(
+            [&](DomStorageDatabase* dom_storage_database) {
+              DomStorageDatabaseLevelDB* db =
+                  &dom_storage_database->GetLevelDB();
+              DbStatus status =
+                  db->Put(base::as_byte_span(key), base::as_byte_span(value));
+              ASSERT_TRUE(status.ok());
+              loop.Quit();
+            }));
     loop.Run();
   }
 
@@ -183,13 +187,16 @@ class LocalStorageImplTest : public testing::Test {
     WaitForDatabaseOpen();
     base::RunLoop loop;
     context()->GetDatabaseForTesting().PostTaskWithThisObject(
-        base::BindLambdaForTesting([&](DomStorageDatabase* db) {
-          std::unique_ptr<DomStorageBatchOperationLevelDB> batch =
-              db->CreateBatchOperation();
-          ASSERT_TRUE(batch->DeletePrefixed({}).ok());
-          ASSERT_TRUE(batch->Commit().ok());
-          loop.Quit();
-        }));
+        base::BindLambdaForTesting(
+            [&](DomStorageDatabase* dom_storage_database) {
+              DomStorageDatabaseLevelDB* db =
+                  &dom_storage_database->GetLevelDB();
+              std::unique_ptr<DomStorageBatchOperationLevelDB> batch =
+                  db->CreateBatchOperation();
+              ASSERT_TRUE(batch->DeletePrefixed({}).ok());
+              ASSERT_TRUE(batch->Commit().ok());
+              loop.Quit();
+            }));
     loop.Run();
   }
 
@@ -198,11 +205,13 @@ class LocalStorageImplTest : public testing::Test {
     WaitForDatabaseOpen();
     base::RunLoop loop;
     context()->GetDatabaseForTesting().PostTaskWithThisObject(
-        base::BindLambdaForTesting([&](const DomStorageDatabase& db) {
-          DbStatus status = db.GetPrefixed({}, &entries);
-          ASSERT_TRUE(status.ok());
-          loop.Quit();
-        }));
+        base::BindLambdaForTesting(
+            [&](DomStorageDatabase* dom_storage_database) {
+              DomStorageDatabaseLevelDB& db =
+                  dom_storage_database->GetLevelDB();
+              ASSERT_OK_AND_ASSIGN(entries, db.GetPrefixed({}));
+              loop.Quit();
+            }));
     loop.Run();
 
     std::map<std::string, std::string> contents;
@@ -440,13 +449,13 @@ TEST_F(LocalStorageImplTest, InvalidVersion) {
   EXPECT_EQ(std::nullopt, DoTestGet(StdStringToUint8Vector("key")));
 }
 
-TEST_F(LocalStorageImplTest, VersionOnlyWrittenOnCommit) {
+TEST_F(LocalStorageImplTest, VersionWrittenOnOpen) {
   EXPECT_EQ(std::nullopt, DoTestGet(StdStringToUint8Vector("key")));
 
-  // Since we're waiting to make sure state *doesn't* change, `RunUntil` isn't
-  // helpful.
-  RunUntilIdle();
-  EXPECT_TRUE(GetDatabaseContents().empty());
+  std::map<std::string, std::string> database_contents = GetDatabaseContents();
+  auto it = database_contents.find("VERSION");
+  ASSERT_TRUE(it != database_contents.end());
+  EXPECT_EQ(it->second, "1");
 }
 
 TEST_F(LocalStorageImplTest, GetStorageUsage_NoData) {

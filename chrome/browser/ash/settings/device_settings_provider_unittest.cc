@@ -10,6 +10,7 @@
 
 #include "ash/constants/ash_features.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_path_override.h"
@@ -153,18 +154,18 @@ class DeviceSettingsProviderTest : public DeviceSettingsTestBase {
     BuildAndInstallDevicePolicy();
   }
 
-  enum MetricsOption { DISABLE_METRICS, ENABLE_METRICS, REMOVE_METRICS_POLICY };
+  enum MetricsOption { kDisableMetrics, kEnableMetrics, kRemoveMetricsPolicy };
 
   // Helper routine to enable/disable metrics report upload settings in policy.
   void SetMetricsReportingSettings(MetricsOption option) {
-    if (option == REMOVE_METRICS_POLICY) {
+    if (option == kRemoveMetricsPolicy) {
       // Remove policy altogether
       device_policy_->payload().clear_metrics_enabled();
     } else {
       // Enable or disable policy
       em::MetricsEnabledProto* proto =
           device_policy_->payload().mutable_metrics_enabled();
-      proto->set_metrics_enabled(option == ENABLE_METRICS);
+      proto->set_metrics_enabled(option == kEnableMetrics);
     }
     BuildAndInstallDevicePolicy();
   }
@@ -517,7 +518,7 @@ TEST_F(DeviceSettingsProviderTest, InitializationTestUnowned) {
 TEST_F(DeviceSettingsProviderTestEnterprise, NoPolicyDefaultsOn) {
   // Missing policy should default to reporting enabled for enterprise-enrolled
   // devices, see crbug/456186.
-  SetMetricsReportingSettings(REMOVE_METRICS_POLICY);
+  SetMetricsReportingSettings(kRemoveMetricsPolicy);
   const base::Value* saved_value = provider_->Get(kStatsReportingPref);
   ASSERT_TRUE(saved_value);
   ASSERT_TRUE(saved_value->is_bool());
@@ -527,7 +528,7 @@ TEST_F(DeviceSettingsProviderTestEnterprise, NoPolicyDefaultsOn) {
 TEST_F(DeviceSettingsProviderTest, NoPolicyDefaultsOff) {
   // Missing policy should default to reporting enabled for non-enterprise-
   // enrolled devices, see crbug/456186.
-  SetMetricsReportingSettings(REMOVE_METRICS_POLICY);
+  SetMetricsReportingSettings(kRemoveMetricsPolicy);
   const base::Value* saved_value = provider_->Get(kStatsReportingPref);
   ASSERT_TRUE(saved_value);
   ASSERT_TRUE(saved_value->is_bool());
@@ -535,7 +536,7 @@ TEST_F(DeviceSettingsProviderTest, NoPolicyDefaultsOff) {
 }
 
 TEST_F(DeviceSettingsProviderTest, SetPrefFailed) {
-  SetMetricsReportingSettings(DISABLE_METRICS);
+  SetMetricsReportingSettings(kDisableMetrics);
 
   // If we are not the owner no sets should work.
   base::Value value(true);
@@ -1166,28 +1167,8 @@ TEST_F(DeviceSettingsProviderTestEnterprise,
   VerifyDeviceShowLowDiskSpaceNotification(false);
 }
 
-// Tests DeviceFamilyLinkAccountsAllowed policy with the feature disabled.
-// The policy should have no effect.
-TEST_F(DeviceSettingsProviderTest, DeviceFamilyLinkAccountsAllowedDisabled) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      features::kFamilyLinkOnSchoolDevice);
-
-  base::Value default_value(false);
-  VerifyPolicyValue(kAccountsPrefFamilyLinkAccountsAllowed, &default_value);
-
-  // Family Link allowed with allowlist set, but the feature is disabled.
-  SetDeviceFamilyLinkAccountsAllowed(true);
-  AddUserToAllowlist("*@managedchrome.com");
-  EXPECT_EQ(base::Value(false),
-            *provider_->Get(kAccountsPrefFamilyLinkAccountsAllowed));
-}
-
-// Tests DeviceFamilyLinkAccountsAllowed policy with the feature enabled.
-TEST_F(DeviceSettingsProviderTest, DeviceFamilyLinkAccountsAllowedEnabled) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kFamilyLinkOnSchoolDevice);
-
+// Tests DeviceFamilyLinkAccountsAllowed policy.
+TEST_F(DeviceSettingsProviderTest, DeviceFamilyLinkAccountsAllowed) {
   base::Value default_value(false);
   VerifyPolicyValue(kAccountsPrefFamilyLinkAccountsAllowed, &default_value);
 

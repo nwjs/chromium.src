@@ -78,6 +78,7 @@
 #include "net/log/net_log_with_source.h"
 #include "net/ssl/client_cert_store.h"
 #include "net/ssl/ssl_connection_status_flags.h"
+#include "net/ssl/ssl_info.h"
 #include "net/ssl/ssl_private_key.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "net/url_request/redirect_info.h"
@@ -151,27 +152,6 @@ constexpr size_t kBlockedBodyAllocationSize = 1;
 constexpr size_t kDiscardBufferSize = 128 * 1024;
 
 constexpr char kActivateStorageAccessHeader[] = "activate-storage-access";
-
-// These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused.
-enum class StorageAccessRedirectKind {
-  // The `kStorageAccessGrantEligible` override was missing from the request.
-  kNoAccess = 0,
-  // The request had the `kStorageAccessGrantEligible` override, and was a
-  // same-origin redirect.
-  kSameOrigin = 1,
-  // The request had the `kStorageAccessGrantEligible` override, and was a
-  // cross-origin, same-site redirect.
-  kCrossOriginSameSite = 2,
-  // The request had the `kStorageAccessGrantEligible` override, and was a
-  // cross-site redirect.
-  kCrossSite = 3,
-  kMaxValue = kCrossSite
-};
-
-void RecordStorageAccessRedirectMetric(StorageAccessRedirectKind kind) {
-  base::UmaHistogramEnumeration("Net.HttpJob.StorageAccessRedirect", kind);
-}
 
 bool ShouldNotifyAboutCookie(net::CookieInclusionStatus status) {
   // Notify about cookies actually used, and those blocked by preferences ---
@@ -492,6 +472,35 @@ URLLoader::URLLoader(
   }
   receiver_.set_disconnect_handler(
       base::BindOnce(&URLLoader::OnMojoDisconnect, base::Unretained(this)));
+
+  // If the request is to a URL that we can determine is an LNA request from
+  // just the URL, then trigger the LNA prompt. We only trigger this for request
+  // where GetAddressSpaceFromUrl() returns a value as those would also trigger
+  // if and when we move the LNA check to after hostname resolution but before
+  // connection.
+  const mojom::ClientSecurityState* client_security_state =
+      GetClientSecurityState();
+  if (client_security_state &&
+      client_security_state->private_network_request_policy ==
+          mojom::PrivateNetworkRequestPolicy::kPermissionBlock &&
+      url_loader_network_observer_) {
+    std::optional<mojom::IPAddressSpace> url_address_space =
+        GetAddressSpaceFromUrl(request.url);
+    if (url_address_space) {
+      PrivateNetworkAccessChecker lna_checker(request, client_security_state,
+                                              options_);
+      if (lna_checker.CheckAddressSpace(*url_address_space) ==
+          PrivateNetworkAccessCheckResult::kLNAPermissionRequired) {
+        // Ignoring the result of the permission here because the point of this
+        // call is to get the permission prompt shown if the permission is
+        // "prompt". Later LNA checks will check the permission and use the
+        // the result.
+        url_loader_network_observer_->OnLocalNetworkAccessPermissionRequired(
+            base::BindOnce([](bool permission_granted) {}));
+      }
+    }
+  }
+
   url_request_ = url_request_context_->CreateRequest(
       request.url, request.priority, this, traffic_annotation,
       /*is_for_websockets=*/false, request.net_log_create_info);
@@ -1005,34 +1014,12 @@ void URLLoader::OnReceivedRedirect(net::URLRequest* url_request,
 
   const url::Origin origin = url::Origin::Create(url_request_->url());
   const url::Origin pending_origin = url::Origin::Create(redirect_info.new_url);
-  const bool storage_access_eligible =
-      url_request_->cookie_setting_overrides().Has(
-          net::CookieSettingOverride::kStorageAccessGrantEligible);
-  using enum StorageAccessRedirectKind;
-  StorageAccessRedirectKind storage_access_redirect_kind =
-      storage_access_eligible ? kSameOrigin : kNoAccess;
   if (!origin.IsSameOriginWith(pending_origin)) {
-    storage_access_redirect_kind =
-        storage_access_eligible ? kCrossOriginSameSite : kNoAccess;
     url_request_->cookie_setting_overrides().Remove(
         net::CookieSettingOverride::kStorageAccessGrantEligibleViaHeader);
-
-    if (storage_access_eligible) {
-      // TODO(https://crbug.com/379030052): the `CookieSettingOverride`s for
-      // Storage Access API and Storage Access Headers should be handled
-      // consistently during a same-site, cross-origin redirect.
-      bool cross_site = !net::SchemefulSite::IsSameSite(origin, pending_origin);
-      storage_access_redirect_kind =
-          cross_site ? kCrossSite : kCrossOriginSameSite;
-      if (cross_site ||
-          base::FeatureList::IsEnabled(
-              net::features::kStorageAccessApiFollowsSameOriginPolicy)) {
-        url_request_->cookie_setting_overrides().Remove(
-            net::CookieSettingOverride::kStorageAccessGrantEligible);
-      }
-    }
+    url_request_->cookie_setting_overrides().Remove(
+        net::CookieSettingOverride::kStorageAccessGrantEligible);
   }
-  RecordStorageAccessRedirectMetric(storage_access_redirect_kind);
 
   DCHECK_EQ(emitted_devtools_raw_request_, emitted_devtools_raw_response_);
   response->emitted_extra_info = emitted_devtools_raw_request_;
@@ -1819,10 +1806,11 @@ int URLLoader::OnHeadersReceived(
     const net::HttpResponseHeaders* original_response_headers,
     scoped_refptr<net::HttpResponseHeaders>* override_response_headers,
     const net::IPEndPoint& endpoint,
-    std::optional<GURL>* preserve_fragment_on_redirect_url) {
+    std::optional<GURL>* preserve_fragment_on_redirect_url,
+    const std::optional<net::SSLInfo>& ssl_info) {
   if (header_client_) {
     header_client_->OnHeadersReceived(
-        original_response_headers->raw_headers(), endpoint,
+        original_response_headers->raw_headers(), endpoint, ssl_info,
         base::BindOnce(&URLLoader::OnHeadersReceivedComplete,
                        weak_ptr_factory_.GetWeakPtr(), std::move(callback),
                        override_response_headers,

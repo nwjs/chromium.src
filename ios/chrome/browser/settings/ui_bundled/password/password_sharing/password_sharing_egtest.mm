@@ -418,9 +418,8 @@ void TapShareButtonAndWaitForSpinnerToDisappear() {
                             nil)] assertWithMatcher:grey_sufficientlyVisible()];
 
   // Click the "Got It" button.
-  [[EarlGrey selectElementWithMatcher:
-                 grey_accessibilityID(
-                     kConfirmationAlertPrimaryActionAccessibilityIdentifier)]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::ButtonStackPrimaryButton()]
       performAction:grey_tap()];
 
   // Check that the current view is the password details view.
@@ -454,9 +453,8 @@ void TapShareButtonAndWaitForSpinnerToDisappear() {
               nil)] assertWithMatcher:grey_sufficientlyVisible()];
 
   // Click the "Got It" button.
-  [[EarlGrey selectElementWithMatcher:
-                 grey_accessibilityID(
-                     kConfirmationAlertPrimaryActionAccessibilityIdentifier)]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::ButtonStackPrimaryButton()]
       performAction:grey_tap()];
 
   // Check that the current view is the password details view.
@@ -615,9 +613,8 @@ void TapShareButtonAndWaitForSpinnerToDisappear() {
   TapShareButtonAndWaitForSpinnerToDisappear();
 
   // Tap the cancel button.
-  [[EarlGrey selectElementWithMatcher:
-                 grey_accessibilityID(
-                     kConfirmationAlertSecondaryActionAccessibilityIdentifier)]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::ButtonStackSecondaryButton()]
       performAction:grey_tap()];
 
   // Check that the current view is the password details view.
@@ -650,10 +647,8 @@ void TapShareButtonAndWaitForSpinnerToDisappear() {
 
   TapShareButtonAndWaitForSpinnerToDisappear();
 
-  // Tap the share button in the first run experience view.
-  [[EarlGrey selectElementWithMatcher:
-                 grey_accessibilityID(
-                     kConfirmationAlertPrimaryActionAccessibilityIdentifier)]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::ButtonStackPrimaryButton()]
       performAction:grey_tap()];
 
   // Check that the current view is the family picker view.

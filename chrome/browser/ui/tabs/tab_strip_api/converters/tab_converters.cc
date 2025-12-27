@@ -35,41 +35,41 @@ mojom::NetworkState ToMojo(TabNetworkState state) {
 
 mojom::AlertState ToMojo(tabs::TabAlert state) {
   switch (state) {
-    case tabs::TabAlert::MEDIA_RECORDING:
+    case tabs::TabAlert::kMediaRecording:
       return mojom::AlertState::kMediaRecording;
-    case tabs::TabAlert::TAB_CAPTURING:
+    case tabs::TabAlert::kTabCapturing:
       return mojom::AlertState::kTabCapturing;
-    case tabs::TabAlert::AUDIO_PLAYING:
+    case tabs::TabAlert::kAudioPlaying:
       return mojom::AlertState::kAudioPlaying;
-    case tabs::TabAlert::AUDIO_MUTING:
+    case tabs::TabAlert::kAudioMuting:
       return mojom::AlertState::kAudioMuting;
-    case tabs::TabAlert::BLUETOOTH_CONNECTED:
+    case tabs::TabAlert::kBluetoothConnected:
       return mojom::AlertState::kBluetoothConnected;
-    case tabs::TabAlert::BLUETOOTH_SCAN_ACTIVE:
+    case tabs::TabAlert::kBluetoothScanActive:
       return mojom::AlertState::kBluetoothScanActive;
-    case tabs::TabAlert::USB_CONNECTED:
+    case tabs::TabAlert::kUsbConnected:
       return mojom::AlertState::kUsbConnected;
-    case tabs::TabAlert::HID_CONNECTED:
+    case tabs::TabAlert::kHidConnected:
       return mojom::AlertState::kHidConnected;
-    case tabs::TabAlert::SERIAL_CONNECTED:
+    case tabs::TabAlert::kSerialConnected:
       return mojom::AlertState::kSerialConnected;
-    case tabs::TabAlert::PIP_PLAYING:
+    case tabs::TabAlert::kPipPlaying:
       return mojom::AlertState::kPipPlaying;
-    case tabs::TabAlert::DESKTOP_CAPTURING:
+    case tabs::TabAlert::kDesktopCapturing:
       return mojom::AlertState::kDesktopCapturing;
-    case tabs::TabAlert::VR_PRESENTING_IN_HEADSET:
+    case tabs::TabAlert::kVrPresentingInHeadset:
       return mojom::AlertState::kVrPresentingInHeadset;
-    case tabs::TabAlert::AUDIO_RECORDING:
+    case tabs::TabAlert::kAudioRecording:
       return mojom::AlertState::kAudioRecording;
-    case tabs::TabAlert::VIDEO_RECORDING:
+    case tabs::TabAlert::kVideoRecording:
       return mojom::AlertState::kVideoRecording;
-    case tabs::TabAlert::GLIC_ACCESSING:
+    case tabs::TabAlert::kGlicAccessing:
       return mojom::AlertState::kGlicAccessing;
-    case tabs::TabAlert::GLIC_SHARING:
+    case tabs::TabAlert::kGlicSharing:
       return mojom::AlertState::kGlicSharing;
-    case tabs::TabAlert::ACTOR_ACCESSING:
+    case tabs::TabAlert::kActorAccessing:
       return mojom::AlertState::kActorAccessing;
-    case tabs::TabAlert::ACTOR_WAITING_ON_USER:
+    case tabs::TabAlert::kActorWaitingOnUser:
       return mojom::AlertState::kActorWaitingOnUser;
   }
 }
@@ -156,6 +156,60 @@ tabs_api::mojom::DataPtr BuildMojoTabCollectionData(
     }
   }
   NOTREACHED();
+}
+
+TabNetworkState FromMojo(mojom::NetworkState state) {
+  switch (state) {
+    case mojom::NetworkState::kNone:
+      return TabNetworkState::kNone;
+    case mojom::NetworkState::kWaiting:
+      return TabNetworkState::kWaiting;
+    case mojom::NetworkState::kLoading:
+      return TabNetworkState::kLoading;
+    case mojom::NetworkState::kError:
+      return TabNetworkState::kError;
+  }
+}
+
+tabs::TabAlert FromMojo(mojom::AlertState state) {
+  switch (state) {
+    case mojom::AlertState::kMediaRecording:
+      return tabs::TabAlert::kMediaRecording;
+    case mojom::AlertState::kTabCapturing:
+      return tabs::TabAlert::kTabCapturing;
+    case mojom::AlertState::kAudioPlaying:
+      return tabs::TabAlert::kAudioPlaying;
+    case mojom::AlertState::kAudioMuting:
+      return tabs::TabAlert::kAudioMuting;
+    case mojom::AlertState::kBluetoothConnected:
+      return tabs::TabAlert::kBluetoothConnected;
+    case mojom::AlertState::kBluetoothScanActive:
+      return tabs::TabAlert::kBluetoothScanActive;
+    case mojom::AlertState::kUsbConnected:
+      return tabs::TabAlert::kUsbConnected;
+    case mojom::AlertState::kHidConnected:
+      return tabs::TabAlert::kHidConnected;
+    case mojom::AlertState::kSerialConnected:
+      return tabs::TabAlert::kSerialConnected;
+    case mojom::AlertState::kPipPlaying:
+      return tabs::TabAlert::kPipPlaying;
+    case mojom::AlertState::kDesktopCapturing:
+      return tabs::TabAlert::kDesktopCapturing;
+    case mojom::AlertState::kVrPresentingInHeadset:
+      return tabs::TabAlert::kVrPresentingInHeadset;
+    case mojom::AlertState::kAudioRecording:
+      return tabs::TabAlert::kAudioRecording;
+    case mojom::AlertState::kVideoRecording:
+      return tabs::TabAlert::kVideoRecording;
+    case mojom::AlertState::kGlicAccessing:
+      return tabs::TabAlert::kGlicAccessing;
+    case mojom::AlertState::kGlicSharing:
+      return tabs::TabAlert::kGlicSharing;
+    case mojom::AlertState::kActorAccessing:
+      return tabs::TabAlert::kActorAccessing;
+    case mojom::AlertState::kActorWaitingOnUser:
+      return tabs::TabAlert::kActorWaitingOnUser;
+  }
 }
 
 }  // namespace tabs_api::converters

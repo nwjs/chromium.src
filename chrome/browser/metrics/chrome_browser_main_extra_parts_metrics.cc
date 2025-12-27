@@ -120,7 +120,7 @@
 
 #if BUILDFLAG(IS_MAC)
 #include "base/mac/process_requirement.h"
-#include "chrome/common/chrome_version.h"
+#include "chrome/browser/signin/bound_session_credentials/unexportable_key_service_factory.h"
 #endif  // BUILDFLAG(IS_MAC)
 
 namespace {
@@ -128,12 +128,6 @@ namespace {
 // The number of restarts to wait until removing the enable-benchmarking flag.
 constexpr int kEnableBenchmarkingCountdownDefault = 3;
 constexpr char kEnableBenchmarkingPrefId[] = "enable_benchmarking_countdown";
-
-#if BUILDFLAG(IS_MAC)
-constexpr char kUnexportableKeysKeychainAccessGroup[] =
-    MAC_TEAM_IDENTIFIER_STRING "." MAC_BUNDLE_IDENTIFIER_STRING
-                               ".unexportable-keys";
-#endif  // BUILDFLAG(IS_MAC)
 
 void RecordMemoryMetrics();
 
@@ -696,14 +690,14 @@ void RecordLinuxGlibcVersion() {
 // Record the UMA histogram when a response is received.
 void OnIsPinnedToTaskbarResult(bool succeeded, bool is_pinned_to_taskbar) {
   // Used for histograms; do not reorder.
-  enum Result { NOT_PINNED = 0, PINNED = 1, FAILURE = 2, NUM_RESULTS };
+  enum Result { kNotPinned = 0, kPinned = 1, kFailure = 2, kNumResults };
 
-  Result result = FAILURE;
+  Result result = kFailure;
   if (succeeded)
-    result = is_pinned_to_taskbar ? PINNED : NOT_PINNED;
+    result = is_pinned_to_taskbar ? kPinned : kNotPinned;
 
   base::UmaHistogramEnumeration("Windows.IsPinnedToTaskbar", result,
-                                NUM_RESULTS);
+                                kNumResults);
 
   // If Chrome is not pinned to taskbar, clear the recording that the installer
   // pinned Chrome to the taskbar, so that if the user pins Chrome back to the
@@ -717,11 +711,12 @@ void OnIsPinnedToTaskbarResult(bool succeeded, bool is_pinned_to_taskbar) {
   // true if the installer pinned Chrome, and it's not pinned on this startup,
   // false if the installer pinned Chrome, and it's still pinned.
   if (GetInstallerPinnedChromeToTaskbar().value_or(false)) {
-    if (result == NOT_PINNED)
+    if (result == kNotPinned) {
       SetInstallerPinnedChromeToTaskbar(false);
-    if (result != FAILURE) {
+    }
+    if (result != kFailure) {
       base::UmaHistogramBoolean("Windows.InstallerPinUnpinned",
-                                result == NOT_PINNED);
+                                result == kNotPinned);
     }
   }
 }
@@ -881,7 +876,8 @@ void RecordStartupMetrics() {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   crypto::UnexportableKeyProvider::Config config;
 #if BUILDFLAG(IS_MAC)
-  config.keychain_access_group = kUnexportableKeysKeychainAccessGroup;
+  config.keychain_access_group =
+      UnexportableKeyServiceFactory::GetKeychainAccessGroup();
 #endif  // BUILDFLAG(IS_MAC)
   crypto::MaybeMeasureTpmOperations(std::move(config));
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)

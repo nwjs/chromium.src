@@ -981,6 +981,12 @@ bool WebAppRegistrar::IsInstallState(
 
 bool WebAppRegistrar::AppMatches(const webapps::AppId& app_id,
                                  const WebAppFilter& filter) const {
+  if (filter.is_isolated_apps_including_uninstalling_) {
+    return IsIsolated(app_id);
+  }
+
+  // All filters below this line rely on the app not being a stub app, which can
+  // happen if the app is marked for uninstallation.
   std::optional<proto::InstallState> install_state = GetInstallState(app_id);
   if (install_state == std::nullopt) {
     return false;
@@ -1144,11 +1150,6 @@ bool WebAppRegistrar::DoesScopeContainAnyApp(
 bool WebAppRegistrar::IsUninstalling(const webapps::AppId& app_id) const {
   const WebApp* web_app = GetAppById(app_id);
   return web_app && web_app->is_uninstalling();
-}
-
-bool WebAppRegistrar::IsIsolated(const webapps::AppId& app_id) const {
-  auto* web_app = GetAppById(app_id);
-  return web_app && web_app->isolation_data().has_value();
 }
 
 bool WebAppRegistrar::IsInstalledByDefaultManagement(
@@ -1567,7 +1568,9 @@ bool WebAppRegistrar::IsPreferredAppForCapturingUrl(
 #endif
 
 base::flat_map<webapps::AppId, std::string>
-WebAppRegistrar::GetAllAppsControllingUrl(const GURL& url) const {
+WebAppRegistrar::GetAllAppsControllingUrl(
+    const GURL& url,
+    WebAppScopeScoreOptions scope_score_options) const {
   base::flat_map<webapps::AppId, std::string> all_controlling_apps;
   for (const webapps::AppId& app_id : GetAppIds()) {
     if (!IsInstallState(app_id,
@@ -1580,17 +1583,9 @@ WebAppRegistrar::GetAllAppsControllingUrl(const GURL& url) const {
       continue;
     }
 
-    bool in_scope = false;
-    if (base::FeatureList::IsEnabled(
-            features::kPwaNavigationCapturingWithScopeExtensions)) {
-      in_scope = IsUrlInAppExtendedScope(url, app_id);
-    } else {
-      const GURL scope = GetAppScope(app_id);
-      in_scope = base::StartsWith(url.spec(), scope.spec(),
-                                  base::CompareCase::SENSITIVE);
-    }
-
-    if (in_scope) {
+    std::optional<WebAppScope> scope = GetEffectiveScope(app_id);
+    if (scope.has_value() &&
+        scope->GetScopeScore(url, scope_score_options) > 0) {
       all_controlling_apps.insert_or_assign(app_id, GetAppShortName(app_id));
     }
   }
@@ -2183,6 +2178,11 @@ std::vector<webapps::AppId> WebAppRegistrar::GetAppIdsForAppSet(
   }
 
   return app_ids;
+}
+
+bool WebAppRegistrar::IsIsolated(const webapps::AppId& app_id) const {
+  auto* web_app = GetAppById(app_id);
+  return web_app && web_app->isolation_data().has_value();
 }
 
 int WebAppRegistrar::CountUserInstalledNotLocallyInstalledApps() const {

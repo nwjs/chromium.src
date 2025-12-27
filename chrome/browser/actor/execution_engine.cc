@@ -22,12 +22,14 @@
 #include "base/notimplemented.h"
 #include "base/state_transitions.h"
 #include "base/trace_event/trace_event.h"
+#include "base/types/cxx23_to_underlying.h"
 #include "base/types/id_type.h"
 #include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_metrics.h"
 #include "chrome/browser/actor/actor_policy_checker.h"
 #include "chrome/browser/actor/actor_task.h"
+#include "chrome/browser/actor/actor_util.h"
 #include "chrome/browser/actor/browser_action_util.h"
 #include "chrome/browser/actor/safety_list_manager.h"
 #include "chrome/browser/actor/site_policy.h"
@@ -57,6 +59,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "mojo/public/cpp/base/proto_wrapper.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
+#include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "ui/event_dispatcher.h"
 #include "url/origin.h"
 
@@ -73,6 +76,8 @@ namespace actor {
 
 namespace {
 
+BASE_FEATURE(kActorReloadCrashedTabBeforeAct, base::FEATURE_ENABLED_BY_DEFAULT);
+
 const RenderFrameHost* GetPrimaryMainFrame(
     content::NavigationHandle& navigation_handle) {
   return navigation_handle.GetWebContents()->GetPrimaryMainFrame();
@@ -83,8 +88,11 @@ void PostTaskForActCallback(
     mojom::ActionResultPtr result,
     std::optional<size_t> index_of_failed_action,
     std::vector<ActionResultWithLatencyInfo> action_results) {
-  UMA_HISTOGRAM_ENUMERATION("Actor.ExecutionEngine.Action.ResultCode",
-                            result->code);
+  // Using a sparse histogram instead of a linear (i.e. enumeration) histogram
+  // here because, the linear histograms are limited to 1000 values in
+  // base/metrics/histogram.cc.
+  base::UmaHistogramSparse("Actor.ExecutionEngine.Action.ResultCode",
+                           base::to_underlying(result->code));
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindOnce(std::move(callback), std::move(result),
@@ -95,7 +103,7 @@ void PostTaskForActCallback(
 // to a new origin. See note on `kGlicNavigationGatingUseSiteNotOrigin`.
 bool IsSameForNewOriginNavigationGating(const url::Origin& reference_origin,
                                         const GURL& navigation_url) {
-  CHECK(base::FeatureList::IsEnabled(kGlicCrossOriginNavigationGating));
+  CHECK(IsNavigationGatingEnabled());
 
   if (kGlicNavigationGatingUseSiteNotOrigin.Get()) {
     return net::SchemefulSite::IsSameSite(reference_origin.GetURL(),
@@ -218,7 +226,7 @@ std::string ExecutionEngine::StateToString(State state) {
 bool ExecutionEngine::ShouldGateNavigation(
     content::NavigationHandle& navigation_handle,
     ExecutionEngine::NavigationDecisionCallback callback) {
-  if (!base::FeatureList::IsEnabled(kGlicCrossOriginNavigationGating)) {
+  if (!IsNavigationGatingEnabled()) {
     return false;
   }
 
@@ -566,6 +574,16 @@ void ExecutionEngine::Act(std::vector<std::unique_ptr<ToolRequest>>&& actions,
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK_EQ(task_->GetState(), ActorTask::State::kActing);
 
+  {
+    JournalDetailsBuilder journal_details;
+    for (size_t i = 0; i < actions.size(); ++i) {
+      journal_details.Add(absl::StrFormat("Actions[%d]", i),
+                          actions[i]->JournalEvent());
+    }
+    journal_->Log(GURL::EmptyGURL(), task_->id(), "ExecutionEngine::Act",
+                  std::move(journal_details).Build());
+  }
+
   if (!action_sequence_.empty()) {
     journal_->Log(
         actions[0]->GetURLForJournal(), task_->id(), "Act Failed",
@@ -586,14 +604,12 @@ void ExecutionEngine::Act(std::vector<std::unique_ptr<ToolRequest>>&& actions,
   absl::flat_hash_set<int32_t> acting_tab_handles;
 
   action_sequence_ = std::move(actions);
-  bool origin_gating_enabled =
-      base::FeatureList::IsEnabled(kGlicCrossOriginNavigationGating);
   for (const std::unique_ptr<ToolRequest>& action : action_sequence_) {
     CHECK(action);
     if (action->GetTabHandle() != tabs::TabHandle::Null()) {
       acting_tab_handles.insert(action->GetTabHandle().raw_value());
     }
-    if (origin_gating_enabled) {
+    if (IsNavigationGatingEnabled()) {
       if (std::optional<url::Origin> maybe_origin =
               action->AssociatedOriginGrant();
           maybe_origin) {
@@ -602,26 +618,38 @@ void ExecutionEngine::Act(std::vector<std::unique_ptr<ToolRequest>>&& actions,
     }
   }
 
-  KickOffNextAction(MakeOkResult());
+  KickOffNextAction();
 }
 
-void ExecutionEngine::KickOffNextAction(
-    mojom::ActionResultPtr init_hooks_result) {
+void ExecutionEngine::KickOffNextAction() {
   TRACE_EVENT0("actor", "ExecutionEngine::KickOffNextAction");
   DCHECK(state_ == State::kInit || state_ == State::kUiPostInvoke ||
          state_ == State::kComplete)
       << "Current state is " << StateToString(state_);
   CHECK_LT(next_action_index_, action_sequence_.size());
 
-  // The init hooks errored out.
-  if (init_hooks_result && !IsOk(*init_hooks_result)) {
-    CompleteActions(std::move(init_hooks_result),
-                    /*action_index=*/std::nullopt);
-    return;
-  }
-
   SetState(State::kStartAction);
   action_start_time_ = base::TimeTicks::Now();
+
+  // TODO(b/467984847): ActorTask::AddTab isn't the best way to track a crashed
+  // tab here. We should refactor this to be more explicit.
+  if (tabs::TabInterface* tab = GetNextAction().GetTabHandle().Get();
+      tab && base::FeatureList::IsEnabled(kActorReloadCrashedTabBeforeAct)) {
+    content::WebContents* contents = tab->GetContents();
+    CHECK(contents);
+    if (contents->IsCrashed()) {
+      GetJournal().Log(
+          contents->GetLastCommittedURL(), task_->id(),
+          "ExecutionEngine::KickOffNextAction",
+          JournalDetailsBuilder().AddError("Renderer crashed").Build());
+      task_->AddTab(GetNextAction().GetTabHandle(), base::DoNothing());
+      CompleteActions(MakeResult(mojom::ActionResultCode::kRendererCrashed,
+                                 /*requires_page_stabilization=*/false,
+                                 "Renderer crashed."),
+                      next_action_index_);
+      return;
+    }
+  }
 
   if (GetNextAction().RequiresUrlCheckInCurrentTab()) {
     SafetyChecksForNextAction();
@@ -662,7 +690,7 @@ void ExecutionEngine::OnMayActOnTabDecision(
       DidFinishAsyncSafetyChecks(evaluated_origin, /*may_act=*/true);
       return;
     case MayActOnUrlBlockReason::kOptimizationGuideBlock:
-      if (base::FeatureList::IsEnabled(kGlicCrossOriginNavigationGating) &&
+      if (IsNavigationGatingEnabled() &&
           kGlicPromptUserForSensitiveNavigations.Get()) {
         SendUserConfirmationDialogRequest(
             evaluated_origin,
@@ -831,7 +859,7 @@ void ExecutionEngine::FinishedUiPostInvoke(mojom::ActionResultPtr result) {
     return;
   }
 
-  KickOffNextAction(/*init_hooks_result=*/nullptr);
+  KickOffNextAction();
 }
 
 void ExecutionEngine::CompleteActions(mojom::ActionResultPtr result,
@@ -959,7 +987,7 @@ void ExecutionEngine::UninterruptFromTool() {
 
 void ExecutionEngine::AddWritableMainframeOrigins(
     const ExecutionEngine::AllowedOriginSet& added_writable_mainframe_origins) {
-  if (!base::FeatureList::IsEnabled(kGlicCrossOriginNavigationGating)) {
+  if (!IsNavigationGatingEnabled()) {
     return;
   }
   for (const auto& origin : added_writable_mainframe_origins) {

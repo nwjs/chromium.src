@@ -42,6 +42,9 @@ struct VectorIcon;
 
 class AutocompleteControllerEmitter;
 class PrefService;
+namespace omnibox {
+class OmniboxPopupCloser;
+}  // namespace omnibox
 
 // Interface that allows the omnibox component to interact with its embedder
 // (e.g., getting information about the current page, retrieving objects
@@ -108,6 +111,7 @@ class OmniboxClient {
   }
   virtual const AutocompleteSchemeClassifier& GetSchemeClassifier() const = 0;
   virtual AutocompleteClassifier* GetAutocompleteClassifier();
+  virtual omnibox::OmniboxPopupCloser* GetOmniboxPopupCloser();
   virtual bool ShouldDefaultTypedNavigationsToHttps() const = 0;
   // Returns the port used by the embedded https server in tests. This is used
   // to determine the correct port while upgrading typed URLs to https if the
@@ -157,6 +161,13 @@ class OmniboxClient {
   // current page is the user's home page.
   virtual metrics::OmniboxEventProto::PageClassification GetPageClassification(
       bool is_prefetch) const = 0;
+
+  // Classify the current page being viewed as, for example, the new tab
+  // page or a normal web page.  Used for logging omnibox events for
+  // UMA opted-in users.  Examines the user's profile to determine if the
+  // current page is the user's home page.
+  virtual metrics::OmniboxEventProto::PageClassification
+  GetOmniboxComposeboxPageClassification() const;
 
   // Returns the security level that the toolbar should display.
   virtual security_state::SecurityLevel GetSecurityLevel() const = 0;
@@ -328,6 +339,9 @@ class OmniboxClient {
   // Whether WebUi Omnibox's aim popup is enabled and the user is eligible to
   // use it.
   virtual bool IsAimPopupEnabled() const;
+
+  // Returns the current enabled tool mode if any.
+  virtual omnibox::ChromeAimToolsAndModels AimToolMode() const;
 
   virtual base::WeakPtr<OmniboxClient> AsWeakPtr() = 0;
 };

@@ -190,7 +190,8 @@ std::unique_ptr<net::test_server::HttpResponse> CreateHttpResponse(
 
 // Tests that link clicks from a chrome:// to chrome:// link result in the
 // header being shown even if was not previously shown.
-- (void)testChromeToChromeURLKeepsHeaderOnScreen {
+// TODO(crbug.com/461735565): Test flaky on device and simulator.
+- (void)DISABLED_testChromeToChromeURLKeepsHeaderOnScreen {
   const GURL kChromeAboutURL("chrome://chrome-urls");
   [ChromeEarlGrey loadURL:kChromeAboutURL];
   [ChromeEarlGrey waitForWebStateContainingText:"chrome://version"];
@@ -480,12 +481,13 @@ std::unique_ptr<net::test_server::HttpResponse> CreateHttpResponse(
   [ChromeEarlGreyUI waitForToolbarVisible:NO];
 
   // Rotate and check that toolbar is still collapsed.
-  [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationLandscapeLeft
-                                error:nil];
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationLandscapeLeft
+                                   error:nil];
   [ChromeEarlGreyUI waitForToolbarVisible:NO];
 
   // Cancel the rotation.
-  [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationPortrait error:nil];
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationPortrait
+                                   error:nil];
 }
 
 // Tests that the toolbar reappears after backgrounding and foregrounding the

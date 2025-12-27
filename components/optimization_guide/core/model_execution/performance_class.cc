@@ -5,11 +5,11 @@
 #include "components/optimization_guide/core/model_execution/performance_class.h"
 
 #include "base/containers/contains.h"
-#include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
+#include "base/trace_event/trace_event.h"
 #include "base/types/cxx23_to_underlying.h"
 #include "base/version_info/version_info.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
@@ -182,12 +182,9 @@ void UpdateDeviceInfoPrefs(PrefService* local_state,
 PerformanceClassifier::PerformanceClassifier(
     PrefService* local_state,
     base::SafeRef<on_device_model::ServiceClient> service_client)
-    : local_state_(local_state), service_client_(std::move(service_client)) {}
-PerformanceClassifier::~PerformanceClassifier() = default;
-
-void PerformanceClassifier::Init() {
-  CHECK_EQ(performance_class_state_, PerformanceClassState::kNotStarted);
-  CHECK(performance_class_callbacks_.empty());
+    : local_state_(local_state), service_client_(std::move(service_client)) {
+  TRACE_EVENT("optimization_guide",
+              "PerformanceClassifier::PerformanceClassifier");
   OnDeviceModelPerformanceClass override_class = GetPerformanceClassSwitch();
   if (override_class != OnDeviceModelPerformanceClass::kUnknown) {
     UpdatePerformanceClassPref(local_state_, override_class);
@@ -198,8 +195,11 @@ void PerformanceClassifier::Init() {
     performance_class_state_ = PerformanceClassState::kComplete;
   }
 }
+PerformanceClassifier::~PerformanceClassifier() = default;
 
 void PerformanceClassifier::ScheduleEvaluation() {
+  TRACE_EVENT("optimization_guide",
+              "PerformanceClassifier::ScheduleEvaluation");
   base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&PerformanceClassifier::EnsurePerformanceClassAvailable,
@@ -209,6 +209,8 @@ void PerformanceClassifier::ScheduleEvaluation() {
 
 void PerformanceClassifier::EnsurePerformanceClassAvailable(
     base::OnceClosure complete) {
+  TRACE_EVENT("optimization_guide",
+              "PerformanceClassifier::EnsurePerformanceClassAvailable");
   if (ListenForPerformanceClassAvailable(std::move(complete))) {
     return;
   }
@@ -229,6 +231,8 @@ void PerformanceClassifier::EnsurePerformanceClassAvailable(
 
 bool PerformanceClassifier::ListenForPerformanceClassAvailable(
     base::OnceClosure available) {
+  TRACE_EVENT("optimization_guide",
+              "PerformanceClassifier::ListenForPerformanceClassAvailable");
   if (IsPerformanceClassAvailable()) {
     std::move(available).Run();
     return true;
@@ -312,6 +316,8 @@ PerformanceClassifier::GetPossibleOnDeviceCapabilities() const {
 void PerformanceClassifier::OnDeviceAndPerformanceInfo(
     on_device_model::mojom::DevicePerformanceInfoPtr perf_info,
     on_device_model::mojom::DeviceInfoPtr device_info) {
+  TRACE_EVENT("optimization_guide",
+              "PerformanceClassifier::OnDeviceAndPerformanceInfo");
   if (!perf_info || !device_info) {
     // Must be a DefaultInvoke due to service crash
     base::UmaHistogramEnumeration(

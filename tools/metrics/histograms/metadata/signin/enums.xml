@@ -304,6 +304,7 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Required field missing"/>
   <int value="6" label="Invalid session parameters"/>
   <int value="7" label="Required credential field missing"/>
+  <int value="8" label="Unexpected parser error"/>
 </enum>
 
 <!-- LINT.IfChange(BoundSessionParamsReadError) -->
@@ -379,6 +380,18 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/signin/chrome_signout_confirmation_prompt.h:ChromeSignoutConfirmationChoice) -->
+
+<!-- LINT.IfChange(DeviceBoundSessionCreateSessionsResult) -->
+
+<enum name="DeviceBoundSessionCreateSessionsResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Failure"/>
+  <int value="2"
+      label="No bound sessions, fallback to legacy set cookies flow"/>
+  <int value="3" label="No binding key, fallback to legacy set cookies flow"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/signin/internal/identity_manager/oauth_multilogin_helper.h:DeviceBoundSessionCreateSessionsResult) -->
 
 <!-- LINT.IfChange(DiceMigrationDialogCloseReason) -->
 
@@ -491,6 +504,13 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//components/signin/ios/browser/account_consistency_service.mm:GaiaPage) -->
+
+<enum name="GetAccountsAndroidResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="UserRecoverableAuthError"/>
+  <int value="2" label="GoogleAuthError"/>
+  <int value="3" label="OtherError"/>
+</enum>
 
 <!-- LINT.IfChange(GetAuthTokenResult) -->
 
@@ -770,9 +790,10 @@ chromium-metrics-reviews@google.com.
   <int value="75" label="Auth Service (Glanceables Classroom)"/>
   <int value="76" label="Auth Service (Tasks Client)"/>
   <int value="77" label="YouTube Music"/>
+  <int value="78" label="Contextual Tasks"/>
 </enum>
 
-<!-- LINT.ThenChange(//components/signin/public/identity_manager/oauth_consumer_ids.h:OAuthConsumerId) -->
+<!-- LINT.ThenChange(//components/signin/public/base/oauth_consumer_id.h:OAuthConsumerId) -->
 
 <!-- LINT.IfChange(OAuthMultiloginDeviceBoundSessionParsingError) -->
 
@@ -781,6 +802,12 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Invalid domain"/>
   <int value="2" label="Register payload required field missing"/>
   <int value="3" label="Register payload required credential field missing"/>
+  <int value="4" label="Register payload malformed refresh initiator"/>
+  <int value="5"
+      label="Register payload malformed session scope specification"/>
+  <int value="6" label="Register payload required scope field missing"/>
+  <int value="7" label="Register payload invalid scope type"/>
+  <int value="8" label="Register payload invalid credential type"/>
 </enum>
 
 <!-- LINT.ThenChange(//google_apis/gaia/oauth_multilogin_result.h:OAuthMultiloginDeviceBoundSessionParsingError) -->
@@ -823,6 +850,18 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Sign in (reauth)"/>
   <int value="1" label="Sign out"/>
 </enum>
+
+<!-- LINT.IfChange(ProfileMenuAvatarButtonPromoType) -->
+
+<enum name="ProfileMenuAvatarButtonPromoType">
+  <int value="0" label="History Sync"/>
+  <int value="1" label="Batch Upload - Regular"/>
+  <int value="2" label="Batch Upload - Bookmarks deduplication"/>
+  <int value="3" label="Batch Upload - Windows10 Depreciation"/>
+  <int value="4" label="Sync Promo"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/signin/signin_promo_util.h:ProfileMenuAvatarButtonPromoType) -->
 
 <!-- LINT.IfChange(ReauthAccessPoint) -->
 
@@ -928,9 +967,9 @@ chromium-metrics-reviews@google.com.
   <int value="64" label="OIDC auth redirect URI interception"/>
   <int value="65" label="WebAuthn modal dialog"/>
   <int value="66" label="Avatar bubble sign in with sync promo"/>
-  <int value="67" label="Account menu"/>
+  <int value="67" label="Account menu: Switch account"/>
   <int value="68" label="Product Specifications"/>
-  <int value="69" label="Account menu failed switch"/>
+  <int value="69" label="Account menu: Switch account failed"/>
   <int value="70" label="Address bubble"/>
   <int value="71" label="CCT account mismatch notification"/>
   <int value="72" label="Drive file picker (iOS only)"/>
@@ -955,6 +994,8 @@ chromium-metrics-reviews@google.com.
   <int value="87" label="Enterprise management disclaimer after browser focus"/>
   <int value="88" label="Enterprise management disclaimer after signin"/>
   <int value="89" label="New Tab Page sign-in feature promo"/>
+  <int value="90" label="Enterprise dialog after signin interception"/>
+  <int value="91" label="Your saved info page in settings"/>
 </enum>
 
 <enum name="SigninAccountReconcilorState">
@@ -989,7 +1030,7 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Interrupted"/>
 </enum>
 
-<!-- LINT.ThenChange(//ios/chrome/browser/authentication/ui_bundled/signin/add_account_signin/add_account_signin_manager.h:SigninAddAccountToDeviceResult) -->
+<!-- LINT.ThenChange(//ios/chrome/browser/authentication/add_account_signin/add_account_signin_manager.h:SigninAddAccountToDeviceResult) -->
 
 <enum name="SigninAndroidAddAccountState">
   <int value="0" label="Requested"/>
@@ -1035,6 +1076,9 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Profile customization shown"/>
   <int value="6" label="The user completed profile customization"/>
   <int value="7" label="The user skipped profile customization"/>
+  <int value="8" label="History sync optin shown"/>
+  <int value="9" label="The user turned on history syncing"/>
+  <int value="10" label="The user rejected history syncing"/>
 </enum>
 
 <enum name="SigninInterceptHeuristicOutcome">
@@ -1229,7 +1273,7 @@ chromium-metrics-reviews@google.com.
   </int>
   <int value="26" label="User tapped on undo right after signin">
     User tapped on the 'Undo' button in a snackbar shown right after signin
-    through promo in bookmarks and reading list page (iOS only).
+    through promo in bookmarks and reading list page.
   </int>
   <int value="27" label="User declined history sync after dedicated sign-in">
     User has signed-in previously for the sole purpose of enabling history sync

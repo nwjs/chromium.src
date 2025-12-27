@@ -59,9 +59,6 @@ BASE_FEATURE(kIPHDesktopSharedHighlightingFeature,
 BASE_FEATURE(kIPHDesktopCustomizeChromeExperimentFeature,
              "IPH_DesktopCustomizeChromeExperiment",
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHDesktopCustomizeChromeRefreshFeature,
-             "IPH_DesktopCustomizeChromeRefresh",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHDesktopCustomizeChromeAutoOpenFeature,
              "IPH_DesktopCustomizeChromeAutoOpen",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -178,6 +175,9 @@ BASE_FEATURE(kIPHPasswordManagerShortcutFeature,
 BASE_FEATURE(kIPHPasswordSharingFeature,
              "IPH_PasswordSharingFeature",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHPdfInkSignaturesFeature,
+             "IPH_PdfInkSignatures",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHPdfSearchifyFeature,
              "IPH_PdfSearchifyFeature",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -211,15 +211,29 @@ BASE_FEATURE(kIPHReadingListInSidePanelFeature,
 BASE_FEATURE(kIPHReadingModeSidePanelFeature,
              "IPH_ReadingModeSidePanel",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHReadingModePageActionLabelFeature,
+             "IPH_ReadingModePageActionLabel",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHShoppingCollectionFeature,
              "IPH_ShoppingCollectionFeature",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHSideBySidePinnableFeature,
              "IPH_SideBySidePinnableFeature",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 BASE_FEATURE(kIPHSideBySideTabSwitchFeature,
              "IPH_SideBySideTabSwitchFeature",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 BASE_FEATURE(kIPHSidePanelGenericPinnableFeature,
              "IPH_SidePanelGenericPinnableFeature",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -838,11 +852,16 @@ constexpr base::FeatureParam<int> kDefaultBrowserEligibilitySlidingWindowParam{
     /*name=*/"sliding-window-days",
     /*default_value=*/180};
 
-BASE_FEATURE(kDefaultBrowserTriggerCriteriaExperiment,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kIPHiOSAIHubNewBadge,
              "IPH_iOSAIHubNewBadge",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kIPHiOSGeminiFullscreenPromoFeature,
+             "IPH_iOSGeminiFullscreenPromoFeature",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kIPHiOSGeminiContextualCueChip,
+             "IPH_iOSGeminiContextualCueChip",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 #endif  // BUILDFLAG(IS_IOS)

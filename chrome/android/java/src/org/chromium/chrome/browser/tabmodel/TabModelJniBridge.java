@@ -25,6 +25,8 @@ import org.chromium.chrome.browser.app.tab_activity_glue.ReparentingTask;
 import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
@@ -166,6 +168,11 @@ public abstract class TabModelJniBridge implements TabModelInternal {
         return TabModelJniBridgeJni.get().getSessionIdForTesting(mNativeTabModelJniBridge);
     }
 
+    @Override
+    public Tab duplicateTab(Tab tab) {
+        return TabModelJniBridgeJni.get().duplicateTab(mNativeTabModelJniBridge, tab);
+    }
+
     /**
      * Called by subclasses when a Tab is added to the TabModel.
      *
@@ -175,12 +182,6 @@ public abstract class TabModelJniBridge implements TabModelInternal {
         if (isNativeInitialized()) {
             TabModelJniBridgeJni.get().tabAddedToModel(mNativeTabModelJniBridge, tab);
         }
-    }
-
-    protected Tab duplicateTabForTesting(Tab tab) {
-        return TabModelJniBridgeJni.get()
-                .duplicateTabForTesting( // IN-TEST
-                        mNativeTabModelJniBridge, tab);
     }
 
     protected void moveTabToWindowForTesting(
@@ -353,7 +354,8 @@ public abstract class TabModelJniBridge implements TabModelInternal {
         LoadUrlParams loadParams = new LoadUrlParams(url);
         @TabLaunchType int launchType = TabLaunchType.FROM_CHROME_UI;
         if (!newWindow
-                || MultiWindowUtils.getInstanceCount() >= MultiWindowUtils.getMaxInstances()) {
+                || MultiWindowUtils.getInstanceCountWithFallback(PersistedInstanceType.ACTIVE)
+                        >= MultiWindowUtils.getMaxInstances()) {
             return assumeNonNull(
                     getTabCreator(/* isIncognito= */ false)
                             .createNewTab(loadParams, launchType, null));
@@ -379,7 +381,8 @@ public abstract class TabModelJniBridge implements TabModelInternal {
                         TabWindowManager.INVALID_WINDOW_ID,
                         /* preferNew= */ true,
                         /* openAdjacently= */ true,
-                        /* addTrustedIntentExtras= */ true);
+                        /* addTrustedIntentExtras= */ true,
+                        NewWindowAppSource.OTHER);
 
         Activity activity = ContextUtils.activityFromContext(parentTab.getContext());
 
@@ -649,8 +652,7 @@ public abstract class TabModelJniBridge implements TabModelInternal {
                 boolean mute);
 
         @JniType("TabAndroid*")
-        Tab duplicateTabForTesting( // IN-TEST
-                long nativeTabModelJniBridge, @JniType("TabAndroid*") Tab tab);
+        Tab duplicateTab(long nativeTabModelJniBridge, @JniType("TabAndroid*") Tab tab);
 
         void moveTabToWindowForTesting( // IN-TEST
                 long nativeTabModelJniBridge,

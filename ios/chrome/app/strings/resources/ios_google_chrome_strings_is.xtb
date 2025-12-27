@@ -75,7 +75,6 @@ Hafðu í huga:
 <translation id="2576431527583832481">Chrome er nú enn betra! Ný útgáfa er í boði.</translation>
 <translation id="257708665678654955">Viltu að Google Chrome bjóðist til að þýða síður á <ph name="LANGUAGE_NAME" /> næst á þessu vefsvæði?</translation>
 <translation id="2668242166988961773">Leita með röddinni í Chrome.</translation>
-<translation id="2695886661449553974">Chrome gat ekki leitað að uppfærslum. Reyndu aftur síðar.</translation>
 <translation id="2703746758996815929">Til að fá gagnleg ráð um Chrome skaltu kveikja á tilkynningum í iOS-stillingum.</translation>
 <translation id="2728851697704606655">Þýða með Google-linsu</translation>
 <translation id="2736805085127235148">Slökkt er á Chrome-tilkynningum í stillingum tækisins.</translation>
@@ -170,9 +169,11 @@ Prófaðu að bíða í nokkrar mínútur áður en þú skráir þig út. Ef þ
 <translation id="5162467219239570114">Chrome er úrelt. Ef engin uppfærsla er til staðar í <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" /> getur verið að tækið þitt styðji ekki lengur nýjar útgáfur af Chrome.</translation>
 <translation id="5184329579814168207">Opna í Chrome</translation>
 <translation id="5190139289262548459">Fyrirtækið þitt, <ph name="DOMAIN" />, stjórnar reikningnum sem þú ert innskráð(ur) á og hvernig Chrome er notað.</translation>
+<translation id="5209238444239954363">Chrome gat ekki leitað að uppfærslum. Reyndu aftur síðar.</translation>
 <translation id="5305440589062022504">Opnar Aðgangsorðastjórnun í Chrome</translation>
 <translation id="5310957470610282541">Einhver Chrome-gögn hafa ekki enn verið vistuð á Google-reikningnum þínum.
 Prófaðu að bíða í nokkrar mínútur áður en þú skráir þig út. Ef þú skráir þig út núna verður þessum gögnum eytt.</translation>
+<translation id="5342685492141499976">Gögnin þín verða vistuð í Google-aðgangsorðastjórnun hjá <ph name="USER_EMAIL" /></translation>
 <translation id="5389212809648216794">Google Chrome getur ekki notað myndavélina því að annað forrit er að nota hana</translation>
 <translation id="5395376160638294582">Gakktu úr skugga um að þú getir alltaf notað Chrome-gögnin á Google-reikningnum þínum</translation>
 <translation id="5404252374083197467">Stilla Chrome sem sjálfgefinn vafra?</translation>
@@ -200,6 +201,7 @@ Prófaðu að bíða í nokkrar mínútur áður en þú skráir þig út. Ef þ
 <translation id="5808435672482059465">Skoða Chrome ferilinn þinn</translation>
 <translation id="5833027901704861726">Einhver Chrome-gögn hafa ekki enn verið vistuð á <ph name="EMAIL" /> þínum.
 Prófaðu að bíða í nokkrar mínútur áður en þú skiptir um reikning. Ef þú skiptir um reikning núna verður þessum gögnum eytt.</translation>
+<translation id="5853754888722423892">Flytja inn í Google-aðgangsorðastjórnun</translation>
 <translation id="5998675059699164418">Fyrirtækið þitt krefst þess að þú skráir þig inn til að nota Chrome.</translation>
 <translation id="6021312115739110405">Sérsniðinn straumur sem Google bjó til fyrir þig. Inniheldur m.a. fréttir, íþróttir og veður.</translation>
 <translation id="6022659036123304283">Gerðu Chrome að þínu</translation>
@@ -302,6 +304,7 @@ Til að skoða fleiri stillingar sem nota gögn til að bæta Chrome-upplifunina
 <translation id="787226752901403048">Skráðu þig inn í Chrome til að deila og taka þátt í flipahópum og vinna að hugmyndum ásamt öðrum</translation>
 <translation id="7897703007638178753">Sjá nýlega flipa Chrome</translation>
 <translation id="7948283758957877064">Nýjungar í Chrome</translation>
+<translation id="7996707498590516621">Búðu til mynd með Gemini í Chrome</translation>
 <translation id="8000174216052461231">Ábending frá Chrome: Fáðu hámarksöryggi Chrome</translation>
 <translation id="8006014511203279255">Notaðu Chrome þegar þú ýtir á tengla í skilaboðum eða öðrum forritum.</translation>
 <translation id="8014670471808569312">Chrome býðst til að vista aðgangsorðið þitt.</translation>

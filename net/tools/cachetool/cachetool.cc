@@ -13,7 +13,6 @@
 #include "base/containers/span.h"
 #include "base/files/file_path.h"
 #include "base/format_macros.h"
-#include "base/hash/md5.h"
 #include "base/logging.h"
 #include "base/message_loop/message_pump_type.h"
 #include "base/pickle.h"
@@ -54,7 +53,7 @@ struct EntryData {
 constexpr int kResponseInfoIndex = 0;
 constexpr int kResponseContentIndex = 1;
 
-auto kCommandNames = std::to_array(
+constexpr auto kCommandNames = std::to_array(
     {"stop", "get_size", "list_keys", "get_stream", "delete_stream",
      "delete_key", "update_raw_headers", "list_dups", "set_header"});
 
@@ -405,7 +404,7 @@ std::string GetMD5ForResponseBody(disk_cache::Entry* entry) {
     }
 
     if (rv == 0) {
-      return base::ToLowerASCII(base::HexEncode(hasher.Finish()));
+      return base::HexEncodeLower(hasher.Finish());
     }
 
     bytes_read += rv;

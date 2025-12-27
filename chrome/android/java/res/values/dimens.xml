@@ -109,9 +109,6 @@ found in the LICENSE file.
     <dimen name="signin_chooser_padding">16dp</dimen>
     <dimen name="signin_screen_top_padding">50dp</dimen>
 
-    <!-- ModalDialogView dimensions -->
-    <dimen name="tab_modal_scrim_vertical_margin">16dp</dimen>
-
     <!-- Should match toolbar_height_no_shadow -->
     <dimen name="control_container_height">@dimen/default_action_bar_height</dimen>
     <dimen name="custom_tabs_control_container_height">@dimen/default_action_bar_height</dimen>
@@ -262,6 +259,16 @@ found in the LICENSE file.
     <dimen name="custom_tabs_toast_branding_padding">16dp</dimen>
     <dimen name="custom_tabs_max_width_bottom_sheet_elev">3dp</dimen>
 
+    <!-- Tab title won't show up in the caption bar of a popup window if the
+         widest unoccludded rect of the caption bar is narrower than this. -->
+    <dimen name="custom_tabs_popup_title_bar_min_width">48sp</dimen>
+
+    <!-- Minimum height of the title bar to satisfy a11y requirements. -->
+    <dimen name="custom_tabs_popup_title_bar_min_height">@dimen/min_touch_target_size</dimen>
+
+    <!-- Minimum height of the title bar to fit the tab title text. -->
+    <dimen name="custom_tabs_popup_title_bar_text_height">24sp</dimen>
+
     <!-- Search in CCT specific dimensions for presenting interactable Omnibox -->
     <dimen name="custom_tabs_location_bar_active_height">40dp</dimen>
     <dimen name="custom_tabs_url_bar_active_height">48dp</dimen>
@@ -306,8 +313,6 @@ found in the LICENSE file.
     <dimen name="context_menu_popup_header_image_max_size">36dp</dimen>
     <dimen name="context_menu_popup_header_monogram_size">16dp</dimen>
 
-    <dimen name="context_menu_flyout_popup_horizontal_overlap">8dp</dimen>
-
     <!-- History Navigation UI Item -->
     <dimen name="navigation_bubble_size">44dp</dimen>
     <dimen name="navigation_bubble_arrow_size">32dp</dimen>
@@ -348,15 +353,15 @@ found in the LICENSE file.
     <dimen name="overflow_menu_update_padding">12dp</dimen>
 
     <!-- Settings dimensions -->
+    <dimen name="settings_single_column_layout_margin">16dp</dimen>
     <dimen name="settings_wide_display_min_padding">16dp</dimen>
     <dimen name="settings_min_multi_column_screen_width">840dp</dimen>
     <dimen name="settings_narrow_header_width">360dp</dimen>
     <dimen name="settings_wide_header_width">412dp</dimen>
-    <dimen name="settings_detail_panel_end_padding">60dp</dimen>
     <dimen name="settings_search_ui_height">48dp</dimen>
-    <dimen name="settings_search_ui_horizontal_margin">16dp</dimen>
     <dimen name="settings_search_icon_padding">16dp</dimen>
     <dimen name="settings_detailed_title_padding">10dp</dimen>
+    <dimen name="settings_detailed_title_height">48dp</dimen>
     <dimen name="settings_multi_column_divider_size">24dp</dimen>
     <dimen name="settings_detailed_title_offset">16dp</dimen>
 
@@ -432,6 +437,11 @@ found in the LICENSE file.
     <dimen name="tab_strip_context_menu_min_width">200dp</dimen>
     <dimen name="tab_strip_context_menu_max_width">300dp</dimen>
 
+    <!-- Link Hover Status Bar dimensions. -->
+    <dimen name="link_hover_status_bar_max_width">300dp</dimen>
+    <dimen name="link_hover_status_bar_margin">16dp</dimen>
+    <dimen name="link_hover_status_bar_mouse_padding">20dp</dimen>
+
     <!--  Reader mode prefs dimensions. -->
     <dimen name="reader_mode_prefs_font_style_container_width">280dp</dimen>
     <dimen name="reader_mode_prefs_font_style_button_size">72dp</dimen>
@@ -454,4 +464,8 @@ found in the LICENSE file.
     <!-- Caret browsing dimensions -->
     <dimen name="caret_top_padding">18dp</dimen>
     <dimen name="caret_external_margin">16dp</dimen>
+
+    <!-- Auto PiP permission dialog dimensions -->
+    <dimen name="auto_pip_permission_dialog_width">360dp</dimen>
+    <dimen name="auto_pip_permission_dialog_padding">24dp</dimen>
 </resources>

@@ -6,7 +6,6 @@
 
 #include <memory>
 
-#include "base/functional/callback_forward.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "base/time/time.h"
@@ -158,7 +157,7 @@ TEST_F(SharedCrdSessionImplTest, RunsConsumerCallbackOnCrdSessionEnd) {
                                     error_callback_future.GetCallback(),
                                     session_finished_future.GetCallback());
 
-  delegate().TerminateCrdSession(base::Seconds(0));
+  delegate().TerminateCrdSession();
   EXPECT_TRUE(session_finished_future.Wait());
 }
 

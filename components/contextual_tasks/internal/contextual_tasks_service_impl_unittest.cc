@@ -13,12 +13,15 @@
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/uuid.h"
 #include "base/version_info/channel.h"
+#include "components/contextual_search/contextual_search_service.h"
 #include "components/contextual_tasks/internal/composite_context_decorator.h"
 #include "components/contextual_tasks/internal/contextual_tasks_service_impl.h"
+#include "components/contextual_tasks/public/context_decoration_params.h"
 #include "components/contextual_tasks/public/contextual_task.h"
 #include "components/contextual_tasks/public/contextual_task_context.h"
 #include "components/contextual_tasks/public/features.h"
@@ -78,6 +81,14 @@ class MockContextualTaskSyncBridge : public ContextualTaskSyncBridge {
   ~MockContextualTaskSyncBridge() override = default;
 
   MOCK_METHOD(std::vector<ContextualTask>, GetTasks, (), (const, override));
+  MOCK_METHOD(void,
+              OnUrlAddedToTaskLocally,
+              (const base::Uuid& task_id, const UrlResource& url_resource),
+              (override));
+  MOCK_METHOD(void,
+              OnUrlRemovedFromTaskLocally,
+              (const base::Uuid& url_id),
+              (override));
 };
 
 class MockContextualTasksObserver : public ContextualTasksService::Observer {
@@ -98,6 +109,14 @@ class MockContextualTasksObserver : public ContextualTasksService::Observer {
               (const base::Uuid& task_id,
                ContextualTasksService::TriggerSource source),
               (override));
+  MOCK_METHOD(void,
+              OnTaskAssociatedToTab,
+              (const base::Uuid& task_id, SessionID tab_id),
+              (override));
+  MOCK_METHOD(void,
+              OnTaskDisassociatedFromTab,
+              (const base::Uuid& task_id, SessionID tab_id),
+              (override));
 };
 
 class MockCompositeContextDecorator : public CompositeContextDecorator {
@@ -110,6 +129,7 @@ class MockCompositeContextDecorator : public CompositeContextDecorator {
               DecorateContext,
               (std::unique_ptr<ContextualTaskContext> context,
                const std::set<ContextualTaskContextSource>& sources,
+               std::unique_ptr<ContextDecorationParams> params,
                base::OnceCallback<void(std::unique_ptr<ContextualTaskContext>)>
                    context_callback),
               (override));
@@ -128,13 +148,16 @@ class ContextualTasksServiceImplTest : public testing::Test {
         std::make_unique<testing::NiceMock<MockCompositeContextDecorator>>();
     mock_decorator_ = mock_decorator.get();
     AimEligibilityService::RegisterProfilePrefs(pref_service_.registry());
+    contextual_search::ContextualSearchService::RegisterProfilePrefs(
+        pref_service_.registry());
     mock_aim_eligibility_service_ =
         std::make_unique<MockAimEligibilityService>(&pref_service_);
     service_ = std::make_unique<ContextualTasksServiceImpl>(
         version_info::Channel::UNKNOWN,
         syncer::DataTypeStoreTestUtil::FactoryForInMemoryStoreForTest(),
         std::move(mock_decorator), mock_aim_eligibility_service_.get(),
-        identity_test_environment_.identity_manager(), SupportsEphemeralOnly());
+        identity_test_environment_.identity_manager(), &pref_service_,
+        SupportsEphemeralOnly());
   }
 
   virtual bool SupportsEphemeralOnly() { return false; }
@@ -174,7 +197,7 @@ class ContextualTasksServiceImplTest : public testing::Test {
     std::unique_ptr<ContextualTaskContext> result;
     base::RunLoop run_loop;
     service_->GetContextForTask(
-        task_id, {},
+        task_id, {}, nullptr,
         base::BindOnce(
             [](std::unique_ptr<ContextualTaskContext>* out_context,
                base::OnceClosure quit_closure,
@@ -879,16 +902,256 @@ TEST_F(ContextualTasksServiceImplTest, DetachUrlFromTask) {
   service_->RemoveObserver(&observer_);
 }
 
+TEST_F(ContextualTasksServiceImplTest, SetUrlResourcesFromServer) {
+  service_->AddObserver(&observer_);
+  auto mock_bridge =
+      std::make_unique<testing::NiceMock<MockContextualTaskSyncBridge>>();
+  MockContextualTaskSyncBridge* bridge_ptr = mock_bridge.get();
+  SetContextualTaskSyncBridgeForTesting(std::move(mock_bridge));
+
+  ContextualTask task = service_->CreateTask();
+  base::Uuid task_id = task.GetTaskId();
+
+  // Setup existing resources
+  // 1. Resource to be matched by ID (and updated)
+  UrlResource res1(base::Uuid::GenerateRandomV4(),
+                   GURL("https://example.com/1"));
+  res1.title = "Old Title 1";
+
+  // 2. Resource to be matched by Context ID (and filled)
+  UrlResource res2(base::Uuid::GenerateRandomV4(),
+                   GURL("https://example.com/2"));
+  res2.context_id = 12345;
+  res2.title = "Old Title 2";
+
+  // 3. Resource to be matched by URL (and filled)
+  UrlResource res3(base::Uuid::GenerateRandomV4(),
+                   GURL("https://example.com/3"));
+  res3.title = "Old Title 3";
+
+  // 4. Resource to be removed
+  UrlResource res4(base::Uuid::GenerateRandomV4(),
+                   GURL("https://example.com/4"));
+
+  std::vector<UrlResource> initial_resources = {res1, res2, res3, res4};
+
+  // First call to set up initial state.
+  // Expect adds for all.
+  {
+    base::RunLoop run_loop;
+    EXPECT_CALL(*bridge_ptr, OnUrlAddedToTaskLocally(task_id, testing::_))
+        .Times(4);
+    EXPECT_CALL(observer_,
+                OnTaskUpdated(testing::_,
+                              ContextualTasksService::TriggerSource::kLocal))
+        .WillOnce(testing::InvokeWithoutArgs(&run_loop, &base::RunLoop::Quit));
+    service_->SetUrlResourcesFromServer(task_id, initial_resources);
+    run_loop.Run();
+  }
+
+  // Now prepare incoming resources for the test.
+
+  // 1. Update res1 (Match by ID)
+  UrlResource in1(res1.url_id, GURL("https://example.com/1"));
+  in1.title = "New Title 1";  // Changed
+
+  // 2. Update res2 (Match by Context ID)
+  UrlResource in2(GURL("https://example.com/2"));  // No ID
+  in2.context_id = 12345;
+  // Missing title, should copy "Old Title 2"
+
+  // 3. Update res3 (Match by URL)
+  UrlResource in3(GURL("https://example.com/3"));  // No ID, No Context ID
+  // Missing title, should copy "Old Title 3"
+
+  // 4. New resource (Added)
+  UrlResource in5(GURL("https://example.com/5"));
+  in5.title = "New Title 5";
+
+  std::vector<UrlResource> incoming_resources = {in1, in2, in3, in5};
+
+  base::RunLoop run_loop;
+
+  EXPECT_CALL(*bridge_ptr, OnUrlAddedToTaskLocally(task_id, testing::_))
+      .WillOnce([&](const base::Uuid& tid, const UrlResource& res) {
+        // First invocation: matches in1 (updated) or in5 (newly added).
+        if (res.url == in1.url) {
+          EXPECT_EQ(res.title, "New Title 1");
+          EXPECT_EQ(res.url_id, res1.url_id);
+        } else if (res.url == in5.url) {
+          EXPECT_EQ(res.title, "New Title 5");
+          EXPECT_TRUE(res.url_id.is_valid());
+        } else {
+          ADD_FAILURE() << "Unexpected add: " << res.url.spec();
+        }
+      })
+      .WillOnce([&](const base::Uuid& tid, const UrlResource& res) {
+        // Second invocation: matches the other resource (in1 or in5).
+        if (res.url == in1.url) {
+          EXPECT_EQ(res.title, "New Title 1");
+        } else if (res.url == in5.url) {
+          EXPECT_EQ(res.title, "New Title 5");
+        }
+      });
+
+  EXPECT_CALL(*bridge_ptr, OnUrlRemovedFromTaskLocally(res4.url_id));
+
+  EXPECT_CALL(
+      observer_,
+      OnTaskUpdated(testing::_, ContextualTasksService::TriggerSource::kLocal))
+      .WillOnce(testing::InvokeWithoutArgs(&run_loop, &base::RunLoop::Quit));
+
+  service_->SetUrlResourcesFromServer(task_id, incoming_resources);
+  run_loop.Run();
+
+  // Verify final state
+  std::optional<ContextualTask> result_task = GetTaskById(task_id);
+  ASSERT_TRUE(result_task.has_value());
+  std::vector<UrlResource> final_urls = result_task->GetUrlResources();
+  ASSERT_EQ(4u, final_urls.size());  // 1, 2, 3, 5
+
+  // Check 1
+  auto it1 =
+      std::find_if(final_urls.begin(), final_urls.end(),
+                   [&](const auto& r) { return r.url_id == res1.url_id; });
+  ASSERT_NE(it1, final_urls.end());
+  EXPECT_EQ(it1->title, "New Title 1");
+
+  // Check 2 (ID should be preserved)
+  auto it2 =
+      std::find_if(final_urls.begin(), final_urls.end(),
+                   [&](const auto& r) { return r.url_id == res2.url_id; });
+  ASSERT_NE(it2, final_urls.end());
+  EXPECT_EQ(it2->title, "Old Title 2");  // Copied
+
+  // Check 3 (ID should be preserved)
+  auto it3 =
+      std::find_if(final_urls.begin(), final_urls.end(),
+                   [&](const auto& r) { return r.url_id == res3.url_id; });
+  ASSERT_NE(it3, final_urls.end());
+  EXPECT_EQ(it3->title, "Old Title 3");  // Copied
+
+  // Check 5
+  auto it5 = std::find_if(final_urls.begin(), final_urls.end(),
+                          [&](const auto& r) { return r.url == in5.url; });
+  ASSERT_NE(it5, final_urls.end());
+  EXPECT_EQ(it5->title, "New Title 5");
+  EXPECT_TRUE(it5->url_id.is_valid());
+
+  service_->RemoveObserver(&observer_);
+}
+
+TEST_F(ContextualTasksServiceImplTest, SetUrlResourcesFromServer_NoChange) {
+  service_->AddObserver(&observer_);
+  auto mock_bridge =
+      std::make_unique<testing::NiceMock<MockContextualTaskSyncBridge>>();
+  MockContextualTaskSyncBridge* bridge_ptr = mock_bridge.get();
+  SetContextualTaskSyncBridgeForTesting(std::move(mock_bridge));
+
+  ContextualTask task = service_->CreateTask();
+  base::Uuid task_id = task.GetTaskId();
+
+  UrlResource res1(base::Uuid::GenerateRandomV4(),
+                   GURL("https://example.com/1"));
+  res1.title = "Title 1";
+
+  std::vector<UrlResource> initial_resources = {res1};
+
+  // Setup initial state.
+  {
+    base::RunLoop run_loop;
+    EXPECT_CALL(*bridge_ptr, OnUrlAddedToTaskLocally(task_id, testing::_))
+        .Times(1);
+    EXPECT_CALL(observer_,
+                OnTaskUpdated(testing::_,
+                              ContextualTasksService::TriggerSource::kLocal))
+        .WillOnce(testing::InvokeWithoutArgs(&run_loop, &base::RunLoop::Quit));
+    service_->SetUrlResourcesFromServer(task_id, initial_resources);
+    run_loop.Run();
+  }
+
+  // Set the same resources again.
+  // Expect NO calls to observer or bridge.
+  EXPECT_CALL(observer_, OnTaskUpdated(testing::_, testing::_)).Times(0);
+  EXPECT_CALL(*bridge_ptr, OnUrlAddedToTaskLocally(testing::_, testing::_))
+      .Times(0);
+  EXPECT_CALL(*bridge_ptr, OnUrlRemovedFromTaskLocally(testing::_)).Times(0);
+
+  service_->SetUrlResourcesFromServer(task_id, initial_resources);
+
+  service_->RemoveObserver(&observer_);
+}
+
+TEST_F(ContextualTasksServiceImplTest, SetUrlResourcesFromServer_Reorder) {
+  service_->AddObserver(&observer_);
+  auto mock_bridge =
+      std::make_unique<testing::NiceMock<MockContextualTaskSyncBridge>>();
+  MockContextualTaskSyncBridge* bridge_ptr = mock_bridge.get();
+  SetContextualTaskSyncBridgeForTesting(std::move(mock_bridge));
+
+  ContextualTask task = service_->CreateTask();
+  base::Uuid task_id = task.GetTaskId();
+
+  UrlResource res1(base::Uuid::GenerateRandomV4(),
+                   GURL("https://example.com/1"));
+  res1.title = "Title 1";
+  UrlResource res2(base::Uuid::GenerateRandomV4(),
+                   GURL("https://example.com/2"));
+  res2.title = "Title 2";
+
+  std::vector<UrlResource> initial_resources = {res1, res2};
+  std::vector<UrlResource> reordered_resources = {res2, res1};
+
+  // Setup initial state.
+  {
+    base::RunLoop run_loop;
+    EXPECT_CALL(*bridge_ptr, OnUrlAddedToTaskLocally(task_id, testing::_))
+        .Times(2);
+    EXPECT_CALL(observer_,
+                OnTaskUpdated(testing::_,
+                              ContextualTasksService::TriggerSource::kLocal))
+        .WillOnce(testing::InvokeWithoutArgs(&run_loop, &base::RunLoop::Quit));
+    service_->SetUrlResourcesFromServer(task_id, initial_resources);
+    run_loop.Run();
+  }
+
+  // Set the reordered resources.
+  // Expect observer notification because order changed.
+  base::RunLoop run_loop;
+  EXPECT_CALL(
+      observer_,
+      OnTaskUpdated(testing::_, ContextualTasksService::TriggerSource::kLocal))
+      .WillOnce(testing::InvokeWithoutArgs(&run_loop, &base::RunLoop::Quit));
+
+  service_->SetUrlResourcesFromServer(task_id, reordered_resources);
+  run_loop.Run();
+
+  std::optional<ContextualTask> result_task = GetTaskById(task_id);
+  ASSERT_TRUE(result_task.has_value());
+  std::vector<UrlResource> final_urls = result_task->GetUrlResources();
+  ASSERT_EQ(2u, final_urls.size());
+  EXPECT_EQ(final_urls[0].url, res2.url);
+  EXPECT_EQ(final_urls[1].url, res1.url);
+
+  service_->RemoveObserver(&observer_);
+}
+
 TEST_F(ContextualTasksServiceImplTest, AssociateTabWithTask) {
+  service_->AddObserver(&observer_);
   ContextualTask task = service_->CreateTask();
   SessionID tab_id = SessionID::FromSerializedValue(1);
 
+  base::RunLoop run_loop;
+  EXPECT_CALL(observer_, OnTaskAssociatedToTab(task.GetTaskId(), tab_id))
+      .WillOnce(testing::InvokeWithoutArgs(&run_loop, &base::RunLoop::Quit));
   service_->AssociateTabWithTask(task.GetTaskId(), tab_id);
+  run_loop.Run();
 
   std::optional<ContextualTask> recent_task =
       service_->GetContextualTaskForTab(tab_id);
   ASSERT_TRUE(recent_task.has_value());
   EXPECT_EQ(task.GetTaskId(), recent_task->GetTaskId());
+  service_->RemoveObserver(&observer_);
 }
 
 TEST_F(ContextualTasksServiceImplTest, AssociateTabWithInvalidTask) {
@@ -906,14 +1169,20 @@ TEST_F(ContextualTasksServiceImplTest, AssociateTabWithInvalidTask) {
 }
 
 TEST_F(ContextualTasksServiceImplTest, DisassociateTabFromTask) {
+  service_->AddObserver(&observer_);
   ContextualTask task = service_->CreateTask();
   SessionID tab_id = SessionID::FromSerializedValue(1);
 
   service_->AssociateTabWithTask(task.GetTaskId(), tab_id);
   EXPECT_TRUE(service_->GetContextualTaskForTab(tab_id));
 
+  base::RunLoop run_loop;
+  EXPECT_CALL(observer_, OnTaskDisassociatedFromTab(task.GetTaskId(), tab_id))
+      .WillOnce(testing::InvokeWithoutArgs(&run_loop, &base::RunLoop::Quit));
   service_->DisassociateTabFromTask(task.GetTaskId(), tab_id);
+  run_loop.Run();
   EXPECT_FALSE(service_->GetContextualTaskForTab(tab_id));
+  service_->RemoveObserver(&observer_);
 }
 
 TEST_F(ContextualTasksServiceImplTest, GetContextualTaskForTab_NotFound) {
@@ -949,10 +1218,11 @@ TEST_F(ContextualTasksServiceImplTest, GetContextForTask) {
   service_->AttachUrlToTask(task.GetTaskId(), url);
 
   EXPECT_CALL(*mock_decorator_,
-              DecorateContext(testing::_, testing::_, testing::_))
+              DecorateContext(testing::_, testing::_, testing::_, testing::_))
       .WillOnce(
           [](std::unique_ptr<ContextualTaskContext> context,
              const std::set<ContextualTaskContextSource>& sources,
+             std::unique_ptr<ContextDecorationParams> params,
              base::OnceCallback<void(std::unique_ptr<ContextualTaskContext>)>
                  callback) {
             // Mock decorator just passes the context through.
@@ -975,10 +1245,11 @@ TEST_F(ContextualTasksServiceImplTest, GetContextForTask_WithTitle) {
   service_->AttachUrlToTask(task.GetTaskId(), url);
 
   EXPECT_CALL(*mock_decorator_,
-              DecorateContext(testing::_, testing::_, testing::_))
+              DecorateContext(testing::_, testing::_, testing::_, testing::_))
       .WillOnce(
           [](std::unique_ptr<ContextualTaskContext> context,
              const std::set<ContextualTaskContextSource>& sources,
+             std::unique_ptr<ContextDecorationParams> params,
              base::OnceCallback<void(std::unique_ptr<ContextualTaskContext>)>
                  callback) {
             // Mock decorator adds a title.
@@ -1328,6 +1599,102 @@ TEST_F(ContextualTasksServiceImplTest, OnTaskRemovedRemotely) {
   EXPECT_EQ(task_to_keep.GetTaskId(), remaining_tasks[0].GetTaskId());
 
   service_->RemoveObserver(&observer_);
+}
+
+TEST_F(ContextualTasksServiceImplTest, GetTabsAssociatedWithTask) {
+  ContextualTask task1 = service_->CreateTask();
+  ContextualTask task2 = service_->CreateTask();
+
+  SessionID tab_id1 = SessionID::FromSerializedValue(1);
+  SessionID tab_id2 = SessionID::FromSerializedValue(2);
+  SessionID tab_id3 = SessionID::FromSerializedValue(3);
+
+  {
+    base::HistogramTester histogram_tester;
+    service_->AssociateTabWithTask(task1.GetTaskId(), tab_id1);
+    histogram_tester.ExpectUniqueSample("ContextualTasks.TabAffiliationCount",
+                                        1, 1);
+  }
+  {
+    base::HistogramTester histogram_tester;
+    service_->AssociateTabWithTask(task1.GetTaskId(), tab_id2);
+    histogram_tester.ExpectUniqueSample("ContextualTasks.TabAffiliationCount",
+                                        2, 1);
+  }
+  {
+    base::HistogramTester histogram_tester;
+    service_->AssociateTabWithTask(task2.GetTaskId(), tab_id3);
+    histogram_tester.ExpectUniqueSample("ContextualTasks.TabAffiliationCount",
+                                        1, 1);
+  }
+
+  std::vector<SessionID> tabs_for_task1 =
+      service_->GetTabsAssociatedWithTask(task1.GetTaskId());
+  ASSERT_EQ(2u, tabs_for_task1.size());
+  EXPECT_TRUE(base::Contains(tabs_for_task1, tab_id1));
+  EXPECT_TRUE(base::Contains(tabs_for_task1, tab_id2));
+
+  std::vector<SessionID> tabs_for_task2 =
+      service_->GetTabsAssociatedWithTask(task2.GetTaskId());
+  ASSERT_EQ(1u, tabs_for_task2.size());
+  EXPECT_TRUE(base::Contains(tabs_for_task2, tab_id3));
+
+  // Test with a task that has no associated tabs.
+  ContextualTask task3 = service_->CreateTask();
+  std::vector<SessionID> tabs_for_task3 =
+      service_->GetTabsAssociatedWithTask(task3.GetTaskId());
+  EXPECT_TRUE(tabs_for_task3.empty());
+
+  // Test with an invalid task ID.
+  base::Uuid invalid_task_id = base::Uuid::GenerateRandomV4();
+  std::vector<SessionID> tabs_for_invalid_task =
+      service_->GetTabsAssociatedWithTask(invalid_task_id);
+  EXPECT_TRUE(tabs_for_invalid_task.empty());
+}
+
+TEST_F(ContextualTasksServiceImplTest,
+       AssociateTabWithTask_DisassociatesOldTask) {
+  ContextualTask task1 = service_->CreateTask();
+  ContextualTask task2 = service_->CreateTask();
+  SessionID tab_id = SessionID::FromSerializedValue(1);
+
+  // Associate tab with task1.
+  service_->AssociateTabWithTask(task1.GetTaskId(), tab_id);
+  std::optional<ContextualTask> current_task =
+      service_->GetContextualTaskForTab(tab_id);
+  ASSERT_TRUE(current_task.has_value());
+  EXPECT_EQ(task1.GetTaskId(), current_task->GetTaskId());
+  EXPECT_TRUE(base::Contains(
+      service_->GetTabsAssociatedWithTask(task1.GetTaskId()), tab_id));
+  EXPECT_FALSE(base::Contains(
+      service_->GetTabsAssociatedWithTask(task2.GetTaskId()), tab_id));
+
+  // Associate same tab with task2.
+  service_->AssociateTabWithTask(task2.GetTaskId(), tab_id);
+  current_task = service_->GetContextualTaskForTab(tab_id);
+  ASSERT_TRUE(current_task.has_value());
+  EXPECT_EQ(task2.GetTaskId(), current_task->GetTaskId());
+  EXPECT_TRUE(base::Contains(
+      service_->GetTabsAssociatedWithTask(task2.GetTaskId()), tab_id));
+  EXPECT_FALSE(base::Contains(
+      service_->GetTabsAssociatedWithTask(task1.GetTaskId()), tab_id));
+}
+
+TEST_F(ContextualTasksServiceImplTest,
+       DisassociateTabFromTask_RemovesEmptyTask) {
+  ContextualTask task = service_->CreateTask();
+  SessionID tab_id = SessionID::FromSerializedValue(1);
+
+  // Associate the tab with the task.
+  service_->AssociateTabWithTask(task.GetTaskId(), tab_id);
+  EXPECT_TRUE(service_->GetContextualTaskForTab(tab_id).has_value());
+  EXPECT_TRUE(GetTaskById(task.GetTaskId()).has_value());
+
+  // Disassociate the tab. The task should be removed since it has no thread
+  // and no other tabs.
+  service_->DisassociateTabFromTask(task.GetTaskId(), tab_id);
+  EXPECT_FALSE(service_->GetContextualTaskForTab(tab_id).has_value());
+  EXPECT_FALSE(GetTaskById(task.GetTaskId()).has_value());
 }
 
 class ContextualTasksServiceImplEphemeralOnlyTest

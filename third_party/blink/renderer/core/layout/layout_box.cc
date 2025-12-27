@@ -507,7 +507,7 @@ bool LayoutBox::TransformsChangeMayRequireLayout() const {
   }
 
   for (const PhysicalBoxFragment& fragment : PhysicalFragments()) {
-    if (fragment.HasAnchorQueryToPropagate()) {
+    if (fragment.HasAnchorsToPropagate()) {
       return true;
     }
   }
@@ -588,12 +588,12 @@ void LayoutBox::StyleWillChange(StyleDifference diff,
           SetNeedsLayoutAndIntrinsicWidthsRecalc(
               layout_invalidation_reason::kStyleChange);
 
-          // Grid/Masonry placement is different for out-of-flow elements, so if
-          // the containing block is a grid or masonry, dirty the container's
-          // placement. The converse (going from out of flow to in flow) is
-          // handled in LayoutBox::UpdateGridPositionAfterStyleChange.
+          // Grid/Grid-Lanes placement is different for out-of-flow elements, so
+          // if the containing block is a grid or grid-lanes, dirty the
+          // container's placement. The converse (going from out of flow to in
+          // flow) is handled in LayoutBox::UpdateGridPositionAfterStyleChange.
           LayoutBlock* containing_block = ContainingBlock();
-          if (containing_block && containing_block->IsLayoutGridOrMasonry()) {
+          if (containing_block && containing_block->IsLayoutGridOrGridLanes()) {
             containing_block->SetGridPlacementDirty(true);
           }
 
@@ -828,17 +828,17 @@ void LayoutBox::UpdateGridPositionAfterStyleChange(
   const bool is_out_of_flow = StyleRef().HasOutOfFlowPosition();
 
   LayoutBlock* containing_block = ContainingBlock();
-  if ((containing_block && containing_block->IsLayoutGridOrMasonry()) &&
+  if ((containing_block && containing_block->IsLayoutGridOrGridLanes()) &&
       GridStyleChanged(old_style, StyleRef())) {
-    // Out-of-flow items do not impact grid/masonry placement.
-    // TODO(kschmi): Scope this so that it only dirties the grid/masonry when
+    // Out-of-flow items do not impact grid/grid-lanes placement.
+    // TODO(kschmi): Scope this so that it only dirties the grid/grid-lanes when
     // track sizing depends on item sizes.
     if (!was_out_of_flow || !is_out_of_flow)
       containing_block->SetGridPlacementDirty(true);
 
-    // For out-of-flow elements with grid/masonry container as containing block,
-    // we need to run the entire algorithm to place and size them correctly. As
-    // a result, we trigger a full layout.
+    // For out-of-flow elements with grid/grid-lanes container as containing
+    // block, we need to run the entire algorithm to place and size them
+    // correctly. As a result, we trigger a full layout.
     if (is_out_of_flow) {
       containing_block->SetNeedsLayout(layout_invalidation_reason::kGridChanged,
                                        kMarkContainerChain);
@@ -4397,7 +4397,7 @@ PhysicalOffset LayoutBox::AnchorPositionScrollTranslationOffset() const {
 namespace {
 
 template <typename Function>
-void ForEachAnchorQueryOnContainer(const LayoutBox& box, Function func) {
+void ForEachAnchorMapOnContainer(const LayoutBox& box, Function func) {
   const LayoutObject* container = box.Container();
   if (!container) {
     // This is not supposed to be possible, but it is (crbug.com/424420492).
@@ -4407,14 +4407,14 @@ void ForEachAnchorQueryOnContainer(const LayoutBox& box, Function func) {
   if (container->IsLayoutBlock()) {
     for (const PhysicalBoxFragment& fragment :
          To<LayoutBlock>(container)->PhysicalFragments()) {
-      if (const PhysicalAnchorQuery* anchor_query = fragment.AnchorQuery()) {
-        func(*anchor_query);
+      if (const AnchorMap* anchor_map = fragment.GetAnchorMap()) {
+        func(*anchor_map);
       }
     }
     return;
   }
 
-  // Now the container is an inline box that's also an abspos containing block.
+  // The container is an inline that's also an abspos containing block.
   CHECK(container->IsLayoutInline());
   const LayoutInline* inline_container = To<LayoutInline>(container);
   if (!inline_container->HasInlineFragments()) {
@@ -4424,8 +4424,8 @@ void ForEachAnchorQueryOnContainer(const LayoutBox& box, Function func) {
   cursor.MoveTo(*container);
   for (; cursor; cursor.MoveToNextForSameLayoutObject()) {
     if (const PhysicalBoxFragment* fragment = cursor.Current().BoxFragment()) {
-      if (const PhysicalAnchorQuery* anchor_query = fragment->AnchorQuery()) {
-        func(*anchor_query);
+      if (const AnchorMap* anchor_map = fragment->GetAnchorMap()) {
+        func(*anchor_map);
       }
     }
   }
@@ -4456,18 +4456,18 @@ const LayoutObject* LayoutBox::FindTargetAnchor(
 
   AnchorScopedName* anchor_scoped_name = ToAnchorScopedName(anchor_name, *this);
 
-  // Go through the already built PhysicalAnchorQuery to avoid tree traversal.
+  // Go through the already built AnchorMap to avoid tree traversal.
   const LayoutObject* anchor = nullptr;
-  auto search_for_anchor = [&](const PhysicalAnchorQuery& anchor_query) {
+  auto search_for_anchor = [&](const AnchorMap& anchor_map) {
     if (const LayoutObject* current =
-            anchor_query.AnchorLayoutObject(*this, anchor_scoped_name)) {
+            anchor_map.AnchorLayoutObject(*this, anchor_scoped_name)) {
       if (!anchor ||
           (anchor != current && anchor->IsBeforeInPreOrder(*current))) {
         anchor = current;
       }
     }
   };
-  ForEachAnchorQueryOnContainer(*this, search_for_anchor);
+  ForEachAnchorMapOnContainer(*this, search_for_anchor);
   return anchor;
 }
 
@@ -4484,14 +4484,14 @@ const LayoutObject* LayoutBox::AcceptableImplicitAnchor() const {
   if (!anchor_layout_object) {
     return nullptr;
   }
-  // Go through the already built PhysicalAnchorQuery to avoid tree traversal.
+  // Go through the already built AnchorMap to avoid tree traversal.
   bool is_acceptable_anchor = false;
-  auto validate_anchor = [&](const PhysicalAnchorQuery& anchor_query) {
-    if (anchor_query.AnchorLayoutObject(*this, anchor_element)) {
+  auto validate_anchor = [&](const AnchorMap& anchor_map) {
+    if (anchor_map.AnchorLayoutObject(*this, anchor_element)) {
       is_acceptable_anchor = true;
     }
   };
-  ForEachAnchorQueryOnContainer(*this, validate_anchor);
+  ForEachAnchorMapOnContainer(*this, validate_anchor);
   return is_acceptable_anchor ? anchor_layout_object : nullptr;
 }
 
@@ -4641,7 +4641,7 @@ PhysicalRect LayoutBox::BoundingBoxRelativeToFirstFragment() const {
 
 bool LayoutBox::IsReadingFlowContainer() const {
   NOT_DESTROYED();
-  // TODO(almaher): Add reading flow support for masonry.
+  // TODO(almaher): Add reading flow support for grid-lanes.
   const ComputedStyle& style = StyleRef();
   switch (style.ReadingFlow()) {
     case EReadingFlow::kNormal:
@@ -4654,7 +4654,7 @@ bool LayoutBox::IsReadingFlowContainer() const {
     case EReadingFlow::kGridOrder:
       return IsLayoutGrid();
     case EReadingFlow::kSourceOrder:
-      return IsLayoutBlock() || IsFlexibleBox() || IsLayoutGridOrMasonry();
+      return IsLayoutBlock() || IsFlexibleBox() || IsLayoutGridOrGridLanes();
   }
   return false;
 }

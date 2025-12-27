@@ -64,21 +64,6 @@ bool IsBackground(Visibility visibility) {
   }
 }
 
-// Returns true when it is allowed to activate a prerendered page in a
-// background tab.
-bool IsAllowedToActivateInBackgroundForTesting() {
-  // Now it is allowed to activate a prerendered page in a background only on
-  // macOS for running web platform tests. See comments on the flag definition
-  // for more details.
-#if BUILDFLAG(IS_MAC)
-  if (base::FeatureList::IsEnabled(
-          features::kPrerender2AllowActivationInBackground)) {
-    return true;
-  }
-#endif
-  return false;
-}
-
 bool DeviceHasEnoughMemoryForPrerender() {
   // This method disallows prerendering on low-end devices if the
   // kPrerender2MemoryControls feature is enabled.
@@ -558,8 +543,8 @@ FrameTreeNodeId PrerenderHostRegistry::CreateAndStartHost(
           ? attributes.initiator_origin.value().GetURL().spec()
           : "(empty_url)";
 
-  TRACE_EVENT2("navigation", "PrerenderHostRegistry::CreateAndStartHost",
-               "attributes", attributes, "initiator_origin", recorded_url);
+  TRACE_EVENT("navigation", "PrerenderHostRegistry::CreateAndStartHost",
+              "attributes", attributes, "initiator_origin", recorded_url);
 
   // The initiator WebContents can be different from the WebContents that will
   // host a prerendered page only when the prerender-in-new-tab runs.
@@ -894,9 +879,9 @@ FrameTreeNodeId PrerenderHostRegistry::CreateAndStartHostForNewTab(
       attributes.initiator_origin.has_value()
           ? attributes.initiator_origin.value().GetURL().spec()
           : "(empty_url)";
-  TRACE_EVENT2("navigation",
-               "PrerenderHostRegistry::CreateAndStartHostForNewTab",
-               "attributes", attributes, "initiator_origin", recorded_url);
+  TRACE_EVENT("navigation",
+              "PrerenderHostRegistry::CreateAndStartHostForNewTab",
+              "attributes", attributes, "initiator_origin", recorded_url);
 
   auto handle = std::make_unique<PrerenderNewTabHandle>(
       attributes, *web_contents()->GetBrowserContext());
@@ -999,8 +984,8 @@ FrameTreeNodeId PrerenderHostRegistry::StartPrerendering(
 std::set<FrameTreeNodeId> PrerenderHostRegistry::CancelHosts(
     const std::vector<FrameTreeNodeId>& frame_tree_node_ids,
     const PrerenderCancellationReason& reason) {
-  TRACE_EVENT1("navigation", "PrerenderHostRegistry::CancelHosts",
-               "frame_tree_node_ids", frame_tree_node_ids);
+  TRACE_EVENT("navigation", "PrerenderHostRegistry::CancelHosts",
+              "frame_tree_node_ids", frame_tree_node_ids);
 
   // Cancel must not be requested during activation.
   CHECK(!reserved_prerender_host_);
@@ -1031,8 +1016,8 @@ bool PrerenderHostRegistry::CancelHost(FrameTreeNodeId frame_tree_node_id,
 bool PrerenderHostRegistry::CancelHost(
     FrameTreeNodeId frame_tree_node_id,
     const PrerenderCancellationReason& reason) {
-  TRACE_EVENT1("navigation", "PrerenderHostRegistry::CancelHost",
-               "frame_tree_node_id", frame_tree_node_id);
+  TRACE_EVENT("navigation", "PrerenderHostRegistry::CancelHost",
+              "frame_tree_node_id", frame_tree_node_id);
   std::set<FrameTreeNodeId> cancelled_ids =
       CancelHosts({frame_tree_node_id}, reason);
   return !cancelled_ids.empty();
@@ -1041,8 +1026,8 @@ bool PrerenderHostRegistry::CancelHost(
 void PrerenderHostRegistry::CancelHostsForTriggers(
     std::vector<PreloadingTriggerType> trigger_types,
     const PrerenderCancellationReason& reason) {
-  TRACE_EVENT1("navigation", "PrerenderHostRegistry::CancelHostsForTrigger",
-               "trigger_type", trigger_types[0]);
+  TRACE_EVENT("navigation", "PrerenderHostRegistry::CancelHostsForTrigger",
+              "trigger_type", trigger_types[0]);
 
   std::vector<FrameTreeNodeId> ids_to_be_deleted;
 
@@ -1163,7 +1148,7 @@ bool PrerenderHostRegistry::CancelNewTabHostInternal(
 
 FrameTreeNodeId PrerenderHostRegistry::FindPotentialHostToActivate(
     NavigationRequest& navigation_request) {
-  TRACE_EVENT2(
+  TRACE_EVENT(
       "navigation", "PrerenderHostRegistry::FindPotentialHostToActivate",
       "navigation_url", navigation_request.GetURL().spec(), "render_frame_host",
       navigation_request.frame_tree_node()->current_frame_host());
@@ -1225,9 +1210,9 @@ PrerenderHostRegistry::ReserveHostToActivate(
     FrameTreeNodeId expected_host_id) {
   RenderFrameHostImpl* render_frame_host =
       navigation_request.frame_tree_node()->current_frame_host();
-  TRACE_EVENT2("navigation", "PrerenderHostRegistry::ReserveHostToActivate",
-               "navigation_url", navigation_request.GetURL().spec(),
-               "render_frame_host", render_frame_host);
+  TRACE_EVENT("navigation", "PrerenderHostRegistry::ReserveHostToActivate",
+              "navigation_url", navigation_request.GetURL().spec(),
+              "render_frame_host", render_frame_host);
 
   CHECK(navigation_request.IsInPrimaryMainFrame());
 
@@ -1725,9 +1710,9 @@ bool PrerenderHostRegistry::CanNavigationActivateHost(
     PrerenderHost& host) {
   RenderFrameHostImpl* render_frame_host =
       navigation_request.frame_tree_node()->current_frame_host();
-  TRACE_EVENT2("navigation", "PrerenderHostRegistry::CanNavigationActivateHost",
-               "navigation_url", navigation_request.GetURL().spec(),
-               "render_frame_host", render_frame_host);
+  TRACE_EVENT("navigation", "PrerenderHostRegistry::CanNavigationActivateHost",
+              "navigation_url", navigation_request.GetURL().spec(),
+              "render_frame_host", render_frame_host);
 
   // Disallow activation when the navigation URL has an effective URL like
   // hosted apps and NTP.
@@ -1749,11 +1734,27 @@ bool PrerenderHostRegistry::CanNavigationActivateHost(
     return false;
   }
 
+  // Disallow activation when the navigation happens in the hidden tab.
+  //
+  // This visibility check is a bit tricky:
+  //
+  // - If this host is for prerendering in the same tab, `web_contents()` is the
+  //   same as `host.initiator_web_contents()`. Thus, both web_contents should
+  //   return the same visibility. In this case, we don't need to check both
+  //   web_contents here but it's still necessary for the next case.
+  //
+  // - If this host is for prerendering in a new tab (i.e., `target_hint` is
+  //   `_blank` in speculation rules), `web_contents()` is different from
+  //   `host.initiator_web_contents()`. Depending on platforms (e.g., WPT on
+  //   macOS), `web_contents()`'s visibiltiy can still be hidden and instead
+  //   `host.initiator_web_contents()` is visible at this point. Thus,
+  //   activation is allowed when either of them is visible.
+  //
   // TODO(crbug.com/40249964): Remove the restriction after further
-  // investigation and discussion. Disallow activation when the navigation
-  // happens in the hidden tab.
+  // investigation and discussion.
+  CHECK(host.initiator_web_contents());
   if (web_contents()->GetVisibility() == Visibility::HIDDEN &&
-      !IsAllowedToActivateInBackgroundForTesting()) {
+      host.initiator_web_contents()->GetVisibility() == Visibility::HIDDEN) {
     CancelHost(host.frame_tree_node_id(),
                PrerenderFinalStatus::kActivatedInBackground);
     return false;

@@ -13,10 +13,13 @@
 namespace autofill::features {
 
 // All features in alphabetical order.
+
 #if BUILDFLAG(IS_IOS)
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillCreditCardScannerIos);
 #endif
+COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillDisableBnplCountryCheckForTesting);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableAiBasedAmountExtraction);
 COMPONENT_EXPORT(AUTOFILL)
@@ -63,18 +66,25 @@ COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableFlatRateCardBenefitsFromCurinos);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableFpanRiskBasedAuthentication);
-COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillEnableLoadBnplAllowlistAfterSyncing);
 
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(
     kAutofillEnableMultipleRequestInVirtualCardDownstreamEnrollment);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableNewCardBenefitsToggleText);
+#if BUILDFLAG(IS_ANDROID)
+COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillEnableNewFopDisplayAndroid);
+#endif
+
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableNewFopDisplayDesktop);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableOffersInClankKeyboardAccessory);
+#if BUILDFLAG(IS_CHROMEOS)
+COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillEnablePaymentsMandatoryReauthChromeOs);
+#endif
 
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnablePrefetchingRiskDataForRetrieval);
@@ -83,10 +93,11 @@ BASE_DECLARE_FEATURE(kAutofillEnableSaveAndFill);
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableSeparatePixPreferenceItem);
-COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillEnableSyncingOfPixBankAccounts);
 #endif
-
+#if BUILDFLAG(IS_ANDROID)
+COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillEnableTouchToFillReshowForBnpl);
+#endif
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableVcn3dsAuthentication);
 COMPONENT_EXPORT(AUTOFILL)

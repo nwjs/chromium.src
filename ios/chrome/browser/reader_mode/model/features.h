@@ -6,10 +6,13 @@
 #define IOS_CHROME_BROWSER_READER_MODE_MODEL_FEATURES_H_
 
 #import "base/feature_list.h"
-#import "base/metrics/field_trial_params.h"
+#import "base/time/time.h"
 
 // Feature to enable Reader Mode UI and entry points.
 BASE_DECLARE_FEATURE(kEnableReaderMode);
+
+// Feature to enable Reader Mode UI in the US country code.
+BASE_DECLARE_FEATURE(kEnableReaderModeInUS);
 
 // Feature to enable Reader Mode omnibox entry point.
 BASE_DECLARE_FEATURE(kEnableReaderModeOmniboxEntryPoint);
@@ -25,15 +28,11 @@ BASE_DECLARE_FEATURE(kEnableReaderModeTranslationWithInfobar);
 // menu Reader Mode entry point should be shown for the web page.
 BASE_DECLARE_FEATURE(kEnableReaderModePageEligibilityForToolsMenu);
 
-// Feature to enable debugging information for Reader Mode UI.
-BASE_DECLARE_FEATURE(kEnableReaderModeDebugInfo);
-
 // Feature to enable Readability heuristic for page triggering eligibility.
 BASE_DECLARE_FEATURE(kEnableReadabilityHeuristic);
 
-// Feature to enable the default browser promo with Reading mode eligibility
-// criteria.
-BASE_DECLARE_FEATURE(kEnableReaderModeDefaultBrowserPromo);
+// Feature to enable optimization guide eligibility check.
+BASE_DECLARE_FEATURE(kEnableReaderModeOptimizationGuideEligibility);
 
 // Name to configure the duration string for heuristic page load delay. See
 // `base::TimeDeltaFromString` for valid duration string configurations.
@@ -55,18 +54,10 @@ bool IsReaderModeAvailable();
 // Returns whether the omnibox entrypoint is enabled.
 bool IsReaderModeOmniboxEntryPointEnabled();
 
-// Returns whether the Reader Mode snackbar is enabled.
-bool IsReaderModeSnackbarEnabled();
-
-// Returns the number of days a user must be active to display the default
-// browser promo.
-int ReaderModeDefaultBrowserActiveDaysCriteria();
-
-// Returns the number of days to span to determine the Reading Mode default
-// browser eligibility criteria.
-int ReaderModeDefaultBrowserNumDaysCriteria();
-
 // Returns whether translation is enabled while in Reading Mode.
 bool IsReaderModeTranslationAvailable();
+
+// Returns whether optimization guide eligibility check is enabled.
+bool IsReaderModeOptimizationGuideEligibilityAvailable();
 
 #endif  // IOS_CHROME_BROWSER_READER_MODE_MODEL_FEATURES_H_

@@ -11,21 +11,10 @@
 namespace switches {
 
 #if BUILDFLAG(IS_ANDROID)
-// Mitigate overlap cases between the legacy search engine promo and the
-// device-based program eligibility determinations.
-BASE_FEATURE(kMitigateLegacySearchEnginePromoOverlap,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kRestrictLegacySearchEnginePromoOnFormFactors,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kResolveRegionalCapabilitiesFromDevice,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
-BASE_FEATURE(kUseFinchPermanentCountryForFetchCountryId,
-             "UseFinchPermanentCountyForFetchCountryId",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
@@ -53,7 +42,7 @@ const base::FeatureParam<RegionalCapabilitiesChoiceScreenSurface>
 #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 
 BASE_FEATURE(kDynamicProfileCountry,
-#if BUILDFLAG(IS_IOS)
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -61,6 +50,12 @@ BASE_FEATURE(kDynamicProfileCountry,
 );
 
 BASE_FEATURE(kCurrentDseHighlightOnChoiceScreenSupport,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kWaffleRestrictToAssociatedCountries,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kStrictAssociatedCountriesCheck,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace switches

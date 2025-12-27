@@ -13,6 +13,7 @@
 #include "base/containers/span.h"
 #include "base/environment.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/memory/scoped_refptr.h"
@@ -26,7 +27,6 @@
 #include "components/dbus/utils/call_method.h"
 #include "components/dbus/utils/connect_to_signal.h"
 #include "components/dbus/utils/variant.h"
-#include "components/os_crypt/async/browser/posix_key_provider.h"
 #include "components/os_crypt/async/common/algorithm.mojom.h"
 #include "crypto/kdf.h"
 #include "dbus/message.h"
@@ -173,7 +173,7 @@ class FreedesktopSecretKeyProvider::Prompter
   void StartPrompt() {
     auto* prompt_proxy = bus_->GetObjectProxy(
         FreedesktopSecretKeyProvider::kSecretServiceName, prompt_path_);
-    dbus_utils::ConnectToSignal(
+    dbus_utils::ConnectToSignal<"bv">(
         prompt_proxy, FreedesktopSecretKeyProvider::kSecretPromptInterface,
         "Completed",
         base::BindRepeating(&Prompter::OnPromptCompletedSignal, this),
@@ -201,7 +201,7 @@ class FreedesktopSecretKeyProvider::Prompter
   }
 
   void OnPromptCompletedSignal(
-      dbus_utils::ConnectToSignalResult<bool, dbus_utils::Variant> result) {
+      dbus_utils::ConnectToSignalResultSig<"bv"> result) {
     if (!result.has_value()) {
       LOG(ERROR) << "Failed to read Prompt.Completed signal args.";
       Finish(base::unexpected(ErrorDetail::kInvalidSignalFormat));
@@ -585,7 +585,7 @@ void FreedesktopSecretKeyProvider::OnKWalletNetworkWallet(
     return;
   }
 
-  dbus_utils::ConnectToSignal(
+  dbus_utils::ConnectToSignal<"ii">(
       kwallet_proxy_, kKWalletInterface, kKWalletSignalWalletAsyncOpened,
       base::BindRepeating(
           &FreedesktopSecretKeyProvider::OnKWalletWalletAsyncOpened,
@@ -628,7 +628,7 @@ void FreedesktopSecretKeyProvider::OnSignalConnected(
 }
 
 void FreedesktopSecretKeyProvider::OnKWalletWalletAsyncOpened(
-    dbus_utils::ConnectToSignalResult<int32_t, int32_t> result) {
+    dbus_utils::ConnectToSignalResultSig<"ii"> result) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   if (kwallet_transaction_id_ == kKWalletInvalidTransactionId) {
@@ -854,11 +854,9 @@ void FreedesktopSecretKeyProvider::FinalizeFailure(InitStatus status,
     return;
   }
   RecordInitStatus(status, detail);
-  // Fallback to PosixKeyProvider.
-  PosixKeyProvider fallback_key_provider;
-  // PosixKeyProvider::GetKey runs synchronously, so `fallback_key_provider`
-  // doesn't need to outlive the callback.
-  fallback_key_provider.GetKey(std::move(key_callback_));
+  std::move(key_callback_)
+      .Run(kEncryptionTag,
+           base::unexpected(KeyProvider::KeyError::kPermanentlyUnavailable));
   CloseSession();
 }
 

@@ -106,20 +106,19 @@ BASE_FEATURE(kSafetyHubUnusedPermissionRevocationForAllSurfaces,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
-// When the kill switch is unset, some Chrome features such as
-// Javascript-Optimizers are gated on an additional OS-provided security
-// permission. When the kill switch is set, the OS-provided security permission
-// is ignored when determining whether to enable Chrome features such as
-// Javascript-Optimizers.
-BASE_FEATURE(kOsAdditionalSecurityPermissionKillSwitch,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // When enabled, Chrome returns "DENIED" (instead of "ASK") as permission state
 // for notifications if Chrome does not have and cannot acquire app-level
 // permissions on Android.
 BASE_FEATURE(kReturnDeniedForNotificationsWhenNoAppLevelSettings,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
+
+// Only applicable if kApproximateGeolocationPermission is enabled. When
+// enabled, will use the returned accuracy from CPSS to select the initial value
+// of the geolocation accuracy (precise/approximate) for geolocation permission
+// prompts.
+BASE_FEATURE(kPermissionPredictionsGeolocationAccuracy,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features
 

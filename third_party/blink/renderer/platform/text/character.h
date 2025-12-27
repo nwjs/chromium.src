@@ -33,6 +33,7 @@
 
 #include <unicode/uchar.h>
 #include <unicode/uniset.h>
+#include <unicode/uscript.h>
 
 #include "base/containers/span.h"
 #include "base/gtest_prod_util.h"
@@ -41,6 +42,7 @@
 #include "third_party/blink/renderer/platform/text/east_asian_spacing_type.h"
 #include "third_party/blink/renderer/platform/text/han_kerning_char_type.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
+#include "third_party/blink/renderer/platform/text/text_justify.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/text/ascii_ctype.h"
 #include "third_party/blink/renderer/platform/wtf/text/character_names.h"
@@ -112,10 +114,12 @@ class PLATFORM_EXPORT Character {
     return c < 0x1100 ? false : IsHangulSlow(c);
   }
 
-  static unsigned ExpansionOpportunityCount(base::span<const LChar>,
+  static unsigned ExpansionOpportunityCount(TextJustify method,
+                                            base::span<const LChar>,
                                             TextDirection,
                                             bool& is_after_expansion);
-  static unsigned ExpansionOpportunityCount(base::span<const UChar>,
+  static unsigned ExpansionOpportunityCount(TextJustify method,
+                                            base::span<const UChar>,
                                             TextDirection,
                                             bool& is_after_expansion);
 
@@ -253,7 +257,8 @@ class PLATFORM_EXPORT Character {
 
   // Returns whether a script code could be determined for the given character
   // and that script code is not USCRIPT_COMMON or USCRIPT_INHERITED.
-  static bool HasDefiniteScript(UChar32);
+  static bool HasLikelyScript(UChar32);
+  static UScriptCode GetScriptBasedOnUnicodeBlock(UChar32);
 
   static bool IsModernGeorgianUppercase(UChar32 c) {
     return IsInRange(c, 0x1C90, 0x1CBF);

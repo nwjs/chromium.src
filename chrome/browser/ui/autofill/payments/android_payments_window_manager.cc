@@ -46,6 +46,17 @@ void AndroidPaymentsWindowManager::InitVcn3dsAuthentication(
   NOTIMPLEMENTED();
 }
 
+void AndroidPaymentsWindowManager::OnWebContentsObservationStarted(
+    content::WebContents& web_contents) {
+  if (ContentAutofillClient* client =
+          ContentAutofillClient::FromWebContents(&web_contents)) {
+    if (payments::PaymentsAutofillClient* payments_client =
+            client->GetPaymentsAutofillClient()) {
+      payments_client->DisablePaymentsAutofill();
+    }
+  }
+}
+
 void AndroidPaymentsWindowManager::WebContentsDestroyed() {
   // If `flow_state_` is not present, then completion flow has already been
   // handled.
@@ -75,7 +86,8 @@ void AndroidPaymentsWindowManager::WebContentsDestroyed() {
       if (payments_autofill_client &&
           payments_autofill_client->GetTouchToFillPaymentMethodController()) {
         payments_autofill_client->GetTouchToFillPaymentMethodController()
-            ->OnDismissed(/*env=*/nullptr, /*dismissed_by_user=*/true);
+            ->OnDismissed(/*env=*/nullptr, /*dismissed_by_user=*/true,
+                          /*should_reshow=*/true);
       }
       break;
     case FlowType::kVcn3ds:
@@ -87,7 +99,14 @@ void AndroidPaymentsWindowManager::WebContentsDestroyed() {
 
 void AndroidPaymentsWindowManager::OnDidFinishNavigationForBnpl(
     const GURL& url) {
-  CHECK(flow_state_.has_value());
+  // An extra navigation (e.g., a JS redirect) may trigger immediately after the
+  // completion URL is reached but before the ephemeral tab fully closes. If the
+  // flow state has already been reset, the tab is closing, and nothing needs to
+  // be done here.
+  if (!flow_state_.has_value()) {
+    return;
+  }
+
   CHECK_EQ(flow_state_->flow_type, FlowType::kBnpl);
 
   flow_state_->most_recent_url_navigation = url;

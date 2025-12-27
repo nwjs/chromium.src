@@ -13,13 +13,10 @@
 #include "base/functional/callback.h"
 #include "base/notimplemented.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/android/preferences/autofill/settings_navigation_helper.h"
 #include "chrome/browser/autofill/autofill_offer_manager_factory.h"
 #include "chrome/browser/autofill/iban_manager_factory.h"
 #include "chrome/browser/autofill/merchant_promo_code_manager_factory.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
-#include "chrome/browser/keyboard_accessory/android/manual_filling_controller.h"
-#include "chrome/browser/keyboard_accessory/android/manual_filling_controller_impl.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/autofill/payments/create_card_unmask_prompt_view.h"
@@ -59,6 +56,7 @@
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/ui/payments/autofill_error_dialog_controller_impl.h"
 #include "components/autofill/core/browser/ui/payments/autofill_progress_dialog_controller_impl.h"
+#include "components/autofill/core/browser/ui/payments/bnpl_tos_controller.h"
 #include "components/autofill/core/browser/ui/payments/bubble_show_options.h"
 #include "components/autofill/core/browser/ui/payments/card_unmask_authentication_selection_dialog_controller_impl.h"
 #include "components/autofill/core/browser/ui/payments/card_unmask_otp_input_dialog_controller_impl.h"
@@ -66,6 +64,7 @@
 #include "components/autofill/core/browser/ui/payments/card_unmask_prompt_view.h"
 #include "components/autofill/core/browser/ui/payments/save_and_fill_dialog_controller_impl.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
+#include "components/autofill/core/common/autofill_prefs.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/feature_engagement/public/tracker.h"
 #include "components/signin/public/identity_manager/account_info.h"
@@ -79,6 +78,10 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/android/preferences/autofill/settings_navigation_helper.h"
+#include "chrome/browser/keyboard_accessory/android/manual_filling_controller.h"
+#include "chrome/browser/keyboard_accessory/android/manual_filling_controller_impl.h"
+#include "chrome/browser/keyboard_accessory/android/payment_method_accessory_controller.h"
 #include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_payment_method_controller.h"
 #include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_payment_method_view_impl.h"
 #include "chrome/browser/ui/android/autofill/autofill_cvc_save_message_delegate.h"
@@ -468,11 +471,32 @@ void ChromePaymentsAutofillClient::OnCardDataAvailable(
     const FilledCardInformationBubbleOptions& options) {
 #if BUILDFLAG(IS_ANDROID)
   // Note that currently the snackbar is displayed only for virtual cards or
-  // cards enrolled in card info retrieval.
-  client_->GetAutofillSnackbarController()->Show(
-      options.filled_card.record_type() == CreditCard::RecordType::kVirtualCard
-          ? AutofillSnackbarType::kVirtualCard
-          : AutofillSnackbarType::kCardInfoRetrieval,
+  // cards enrolled in card info retrieval. In the case for BNPL, it is a
+  // one-time use virtual card.
+  AutofillSnackbarType type;
+  if (options.filled_card.is_bnpl_card()) {
+    type = AutofillSnackbarType::kBnpl;
+  } else {
+    type = options.filled_card.record_type() ==
+                   CreditCard::RecordType::kVirtualCard
+               ? AutofillSnackbarType::kVirtualCard
+               : AutofillSnackbarType::kCardInfoRetrieval;
+  }
+
+  // Credit card manual filling sheet should always be created on the Java side.
+  // This happens after the first time `PaymentMethodAccessoryControllerImpl`
+  // pushes data to the Java keyboard accessory. Before that, credit card manual
+  // filling sheet doesn't exist on the java side. The data is pushed
+  // asynchronously in `ManualFillingViewAndroid::OnItemsAvailable`. Manually
+  // refresh credit card suggestions before the snackbar is shown so that the
+  // credit card manual filling sheet can be opened from the snackbar.
+  // TODO(crbug.com/430575808): Consider adding a synchronous version of the
+  // `RefreshSuggestions` so that the race condition is removed completely.
+  PaymentMethodAccessoryController::GetOrCreate(web_contents())
+      ->RefreshSuggestions();
+
+  client_->GetAutofillSnackbarController()->ShowPaymentsSnackbar(
+      type, options.filled_card,
       base::BindOnce(
           [](base::WeakPtr<content::WebContents> contents) {
             if (!contents) {
@@ -815,6 +839,17 @@ void ChromePaymentsAutofillClient::ShowMandatoryReauthOptInConfirmation() {
 #endif
 }
 
+bool ChromePaymentsAutofillClient::IsAutofillPaymentMethodsEnabled() const {
+  return autofill_payment_methods_supported_ &&
+         prefs::IsAutofillPaymentMethodsEnabled(
+             Profile::FromBrowserContext(web_contents()->GetBrowserContext())
+                 ->GetPrefs());
+}
+
+void ChromePaymentsAutofillClient::DisablePaymentsAutofill() {
+  autofill_payment_methods_supported_ = false;
+}
+
 IbanManager* ChromePaymentsAutofillClient::GetIbanManager() {
   Profile* profile =
       Profile::FromBrowserContext(web_contents()->GetBrowserContext());
@@ -966,12 +1001,18 @@ bool ChromePaymentsAutofillClient::ShowTouchToFillLoyaltyCard(
 #endif
 }
 
-bool ChromePaymentsAutofillClient::UpdateTouchToFillBnplPaymentMethod(
-    std::optional<uint64_t> extracted_amount,
-    bool is_amount_supported_by_any_issuer) {
+bool ChromePaymentsAutofillClient::OnPurchaseAmountExtracted(
+    base::span<const payments::BnplIssuerContext> bnpl_issuer_contexts,
+    std::optional<int64_t> extracted_amount,
+    bool is_amount_supported_by_any_issuer,
+    const std::optional<std::string>& app_locale,
+    base::OnceCallback<void(BnplIssuer)> selected_issuer_callback,
+    base::OnceClosure cancel_callback) {
 #if BUILDFLAG(IS_ANDROID)
-  return GetTouchToFillPaymentMethodController()->UpdateBnplPaymentMethod(
-      extracted_amount, is_amount_supported_by_any_issuer);
+  return GetTouchToFillPaymentMethodController()->OnPurchaseAmountExtracted(
+      bnpl_issuer_contexts, extracted_amount, is_amount_supported_by_any_issuer,
+      app_locale, std::move(selected_issuer_callback),
+      std::move(cancel_callback));
 #else
   // Touch To Fill is not supported on Desktop.
   NOTREACHED();
@@ -998,6 +1039,20 @@ bool ChromePaymentsAutofillClient::ShowTouchToFillBnplIssuers(
 #if BUILDFLAG(IS_ANDROID)
   return GetTouchToFillPaymentMethodController()->ShowBnplIssuers(
       bnpl_issuer_contexts, app_locale, std::move(selected_issuer_callback),
+      std::move(cancel_callback));
+#else
+  // Touch To Fill is not supported on Desktop.
+  NOTREACHED();
+#endif
+}
+
+bool ChromePaymentsAutofillClient::ShowTouchToFillBnplTos(
+    BnplTosModel bnpl_tos_model,
+    base::OnceClosure accept_callback,
+    base::OnceClosure cancel_callback) {
+#if BUILDFLAG(IS_ANDROID)
+  return GetTouchToFillPaymentMethodController()->ShowBnplIssuerTos(
+      std::move(bnpl_tos_model), std::move(accept_callback),
       std::move(cancel_callback));
 #else
   // Touch To Fill is not supported on Desktop.

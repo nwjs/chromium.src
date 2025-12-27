@@ -26,13 +26,14 @@
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_constants.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/new_tab_page_app_interface.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/ntp_home_constant.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/constants.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/public/safety_check_constants.h"
 #import "ios/chrome/browser/flags/chrome_switches.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_accessibility_identifiers.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_constants.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_helper.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_constants.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
+#import "ios/chrome/browser/omnibox/public/omnibox_constants.h"
 #import "ios/chrome/browser/popup_menu/ui_bundled/popup_menu_constants.h"
 #import "ios/chrome/browser/safety_check/model/ios_chrome_safety_check_manager_constants.h"
 #import "ios/chrome/browser/search_engine_choice/test/search_engine_choice_earl_grey_ui_test_util.h"
@@ -237,7 +238,8 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 }
 
 - (void)tearDownHelper {
-  [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationPortrait error:nil];
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationPortrait
+                                   error:nil];
   [SearchEnginesAppInterface setSearchEngineTo:self.defaultSearchEngine];
 
   [self resetCustomizationPrefs];
@@ -343,7 +345,8 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
                      IDS_IOS_CONTENT_SUGGESTIONS_WHATS_NEW)]
       assertWithMatcher:grey_sufficientlyVisible()];
   [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::NavigationBarDoneButton()]
+      selectElementWithMatcher:grey_accessibilityID(
+                                   kWhatsNewTableViewNavigationDismissButtonId)]
       performAction:grey_tap()];
 
   // Check the ReadingList.
@@ -403,8 +406,7 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
       performAction:grey_tap()];
   [ChromeEarlGrey
       waitForSufficientlyVisibleElementWithMatcher:chrome_test_util::Omnibox()];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
-      performAction:grey_replaceText(URL)];
+  [ChromeEarlGreyUI replaceTextInOmnibox:URL];
 
   // The first suggestion is a search, the second suggestion is the URL.
   id<GREYMatcher> rowMatcher = grey_allOf(
@@ -443,8 +445,8 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   [[EarlGrey selectElementWithMatcher:chrome_test_util::FakeOmnibox()]
       assertWithMatcher:OmniboxWidth(fakeOmniboxWidth)];
 
-  [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationLandscapeLeft
-                                error:nil];
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationLandscapeLeft
+                                   error:nil];
 
   [ChromeEarlGreyUI waitForAppToIdle];
 
@@ -478,8 +480,8 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 
   [ChromeEarlGreyUI openSettingsMenu];
 
-  [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationLandscapeLeft
-                                error:nil];
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationLandscapeLeft
+                                   error:nil];
 
   [ChromeEarlGreyUI waitForAppToIdle];
 
@@ -516,8 +518,8 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   [[EarlGrey selectElementWithMatcher:chrome_test_util::FakeOmnibox()]
       assertWithMatcher:OmniboxWidthBetween(NTPWidth + 1, 2)];
 
-  [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationLandscapeLeft
-                                error:nil];
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationLandscapeLeft
+                                   error:nil];
 
   UICollectionView* collectionView = [NewTabPageAppInterface collectionView];
   UIEdgeInsets safeArea = collectionView.safeAreaInsets;
@@ -627,8 +629,8 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   UICollectionView* collectionView = [NewTabPageAppInterface collectionView];
   [self testNTPInitialPositionAndContent:collectionView];
 
-  [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationLandscapeRight
-                                error:nil];
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationLandscapeRight
+                                   error:nil];
   [self testNTPInitialPositionAndContent:collectionView];
 
   [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPCollectionView()]
@@ -811,8 +813,7 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
       assertWithMatcher:grey_sufficientlyVisible()];
 
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
-      performAction:grey_replaceText(URL)];
+  [ChromeEarlGreyUI replaceTextInOmnibox:URL];
   // TODO(crbug.com/40916974): Use simulatePhysicalKeyboardEvent until
   // replaceText can properly handle \n.
   [ChromeEarlGrey simulatePhysicalKeyboardEvent:@"\n" flags:0];
@@ -1081,12 +1082,13 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 
   [self testNTPInitialPositionAndContent:collectionView];
 
-  [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationLandscapeRight
-                                error:nil];
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationLandscapeRight
+                                   error:nil];
 
   [self testNTPInitialPositionAndContent:collectionView];
 
-  [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationPortrait error:nil];
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationPortrait
+                                   error:nil];
 
   [self testNTPInitialPositionAndContent:collectionView];
 }
@@ -1255,8 +1257,7 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   // Focus the omnibox and type some text into it.
   [self focusFakebox];
   NSString* omniboxText = @"Some text";
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
-      performAction:grey_replaceText(omniboxText)];
+  [ChromeEarlGreyUI replaceTextInOmnibox:omniboxText];
 
   // Check that the omnibox contains the inputted text.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
@@ -1276,8 +1277,7 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   // Focus the omnibox and type some text into it.
   [self focusFakebox];
   NSString* omniboxText = @"Some text";
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
-      performAction:grey_replaceText(omniboxText)];
+  [ChromeEarlGreyUI replaceTextInOmnibox:omniboxText];
 
   // Check that the omnibox contains the inputted text.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
@@ -1551,7 +1551,7 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
     [ChromeEarlGrey simulatePhysicalKeyboardEvent:@"escape" flags:0];
   } else {
     id<GREYMatcher> cancelButton =
-        grey_accessibilityID(kToolbarCancelOmniboxEditButtonIdentifier);
+        grey_accessibilityID(kOmniboxCancelButtonAccessibilityIdentifier);
     [[EarlGrey
         selectElementWithMatcher:grey_allOf(cancelButton,
                                             grey_sufficientlyVisible(), nil)]

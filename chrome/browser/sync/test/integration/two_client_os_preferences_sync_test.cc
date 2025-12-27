@@ -25,15 +25,15 @@ class TwoClientOsPreferencesSyncTest : public SyncTest {
   TwoClientOsPreferencesSyncTest() : SyncTest(TWO_CLIENT) {}
   ~TwoClientOsPreferencesSyncTest() override = default;
 
-  // Needed for AwaitQuiescence().
-  bool TestUsesSelfNotifications() override { return true; }
+  // This test suite is ChromeOS specific, where there's only Sync-the-feature.
+  SyncTest::SetupSyncMode GetSetupSyncMode() const override {
+    return SetupSyncMode::kSyncTheFeature;
+  }
 };
 
 IN_PROC_BROWSER_TEST_F(TwoClientOsPreferencesSyncTest, E2E_ENABLED(Sanity)) {
   ASSERT_TRUE(ResetSyncForPrimaryAccount());
   ASSERT_TRUE(SetupSync());
-  // Wait until sync settles before we override the prefs below.
-  ASSERT_TRUE(AwaitQuiescence());
 
   // Shelf alignment is a Chrome OS only preference.
   ASSERT_TRUE(StringPrefMatchChecker(ash::prefs::kShelfAlignment).Wait());
@@ -103,7 +103,7 @@ IN_PROC_BROWSER_TEST_F(TwoClientOsPreferencesSyncTest, BrowserSyncDisabled) {
     // Disable all browser types.
     GetSyncService(i)->GetUserSettings()->SetSelectedTypes(
         false, syncer::UserSelectableTypeSet());
-    ASSERT_TRUE(GetClient(i)->AwaitSyncSetupCompletion());
+    ASSERT_TRUE(GetClient(i)->AwaitSyncTransportActive());
   }
 
   ChangeStringPref(0, ash::prefs::kShelfAlignment, ash::kShelfAlignmentRight);

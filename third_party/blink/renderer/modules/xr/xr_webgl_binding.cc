@@ -15,6 +15,7 @@
 #include "third_party/blink/renderer/modules/webgl/webgl_texture.h"
 #include "third_party/blink/renderer/modules/webgl/webgl_unowned_texture.h"
 #include "third_party/blink/renderer/modules/xr/xr_camera.h"
+#include "third_party/blink/renderer/modules/xr/xr_cube_layer.h"
 #include "third_party/blink/renderer/modules/xr/xr_cube_map.h"
 #include "third_party/blink/renderer/modules/xr/xr_cylinder_layer.h"
 #include "third_party/blink/renderer/modules/xr/xr_equirect_layer.h"
@@ -29,6 +30,7 @@
 #include "third_party/blink/renderer/modules/xr/xr_system.h"
 #include "third_party/blink/renderer/modules/xr/xr_utils.h"
 #include "third_party/blink/renderer/modules/xr/xr_viewer_pose.h"
+#include "third_party/blink/renderer/modules/xr/xr_webgl_cubemap_swap_chain.h"
 #include "third_party/blink/renderer/modules/xr/xr_webgl_drawing_buffer_swap_chain.h"
 #include "third_party/blink/renderer/modules/xr/xr_webgl_drawing_context.h"
 #include "third_party/blink/renderer/modules/xr/xr_webgl_frame_transport_context_impl.h"
@@ -232,9 +234,8 @@ XRQuadLayer* XRWebGLBinding::createQuadLayer(const XRQuadLayerInit* init,
     return nullptr;
   }
 
-  XRWebGLSwapChain* color_swap_chain = CreateColorSwapchain(
-      init->colorFormat(),
-      gfx::Size(init->viewPixelWidth(), init->viewPixelHeight()));
+  XRWebGLSwapChain* color_swap_chain =
+      CreateColorSwapchain(init->colorFormat(), GetTextureSizeForLayer(init));
 
   auto* drawing_context =
       MakeGarbageCollected<XRWebGLDrawingContext>(this, color_swap_chain);
@@ -250,9 +251,8 @@ XRCylinderLayer* XRWebGLBinding::createCylinderLayer(
     return nullptr;
   }
 
-  XRWebGLSwapChain* color_swap_chain = CreateColorSwapchain(
-      init->colorFormat(),
-      gfx::Size(init->viewPixelWidth(), init->viewPixelHeight()));
+  XRWebGLSwapChain* color_swap_chain =
+      CreateColorSwapchain(init->colorFormat(), GetTextureSizeForLayer(init));
 
   auto* drawing_context =
       MakeGarbageCollected<XRWebGLDrawingContext>(this, color_swap_chain);
@@ -282,9 +282,8 @@ XREquirectLayer* XRWebGLBinding::createEquirectLayer(
     return nullptr;
   }
 
-  XRWebGLSwapChain* color_swap_chain = CreateColorSwapchain(
-      init->colorFormat(),
-      gfx::Size(init->viewPixelWidth(), init->viewPixelHeight()));
+  XRWebGLSwapChain* color_swap_chain =
+      CreateColorSwapchain(init->colorFormat(), GetTextureSizeForLayer(init));
 
   auto* drawing_context =
       MakeGarbageCollected<XRWebGLDrawingContext>(this, color_swap_chain);
@@ -298,10 +297,50 @@ XRCubeLayer* XRWebGLBinding::createCubeLayer(const XRCubeLayerInit* init,
     return nullptr;
   }
 
-  // TODO(crbug.com/445772683): create cube layer instance.
-  exception_state.ThrowTypeError(
-      "XRCubeLayer was not implemented for the platform.");
-  return nullptr;
+  // Validating parameters specific to XRCubeLayer.
+  if (init->viewPixelWidth() != init->viewPixelHeight()) {
+    exception_state.ThrowTypeError(
+        "Cube face must be square (width == height).");
+    return nullptr;
+  }
+
+  XRWebGLSwapChain* texture_2d_swapchain = CreateColorSwapchain(
+      init->colorFormat(),
+      gfx::Size(init->viewPixelWidth(), init->viewPixelHeight()));
+
+  XRWebGLSwapChain* cubemap_swap_chain =
+      MakeGarbageCollected<XRWebGLCubemapSwapChain>(texture_2d_swapchain);
+
+  auto* drawing_context =
+      MakeGarbageCollected<XRWebGLDrawingContext>(this, cubemap_swap_chain);
+
+  return MakeGarbageCollected<XRCubeLayer>(init, this, drawing_context);
+}
+
+gfx::Size XRWebGLBinding::GetTextureSizeForLayer(
+    const XRLayerInit* init) const {
+  return gfx::Size(
+      init->viewPixelWidth() * GetHorizontalViewCount(init->layout()),
+      init->viewPixelHeight() * GetVerticalViewCount(init->layout()));
+}
+
+gfx::Rect XRWebGLBinding::GetViewportForLayer(const XRCompositionLayer& layer,
+                                              V8XREye eye) const {
+  uint32_t width =
+      layer.textureWidth() / GetHorizontalViewCount(layer.layout());
+  uint32_t height =
+      layer.textureHeight() / GetHorizontalViewCount(layer.layout());
+
+  if (eye == V8XREye::Enum::kRight &&
+      (layer.layout() == V8XRLayerLayout::Enum::kStereoTopBottom ||
+       layer.layout() == V8XRLayerLayout::Enum::kStereoLeftRight)) {
+    return gfx::Rect(
+        (layer.layout() == V8XRLayerLayout::Enum::kStereoTopBottom) ? 0 : width,
+        (layer.layout() == V8XRLayerLayout::Enum::kStereoLeftRight) ? 0
+                                                                    : height,
+        width, height);
+  }
+  return gfx::Rect(0, 0, width, height);
 }
 
 XRWebGLSubImage* XRWebGLBinding::getViewSubImage(
@@ -415,9 +454,8 @@ XRWebGLSubImage* XRWebGLBinding::getSubImage(XRCompositionLayer* layer,
   auto* drawing_context =
       static_cast<XRWebGLDrawingContext*>(layer->drawing_context());
 
-  gfx::Rect viewport{0, 0, layer->textureWidth(), layer->textureHeight()};
   return MakeGarbageCollected<XRWebGLSubImage>(
-      viewport, 0, drawing_context->color_swap_chain(),
+      GetViewportForLayer(*layer, eye), 0, drawing_context->color_swap_chain(),
       drawing_context->depth_stencil_swap_chain(),
       /*motion_vector_swap_chain=*/nullptr);
 }
@@ -817,8 +855,9 @@ bool XRWebGLBinding::ValidateShapedLayerData(const XRLayerInit* init,
   }
 
   // TODO(crbug.com/444681345): Add stereo layout support.
-  if (init->layout() != V8XRLayerLayout::Enum::kMono) {
-    exception_state.ThrowTypeError("Platform only supports 'mono' layout.");
+  if (init->layout() == V8XRLayerLayout::Enum::kStereo) {
+    exception_state.ThrowTypeError(
+        "Platform does not support 'stereo' layout.");
     return false;
   }
 
@@ -848,13 +887,15 @@ bool XRWebGLBinding::ValidateShapedLayerData(const XRLayerInit* init,
   webgl_context_->ContextGL()->GetIntegerv(GL_MAX_TEXTURE_SIZE,
                                            &max_texture_size);
 
-  if (init->viewPixelHeight() > static_cast<uint32_t>(max_texture_size)) {
+  if (init->viewPixelHeight() > static_cast<uint32_t>(max_texture_size) /
+                                    GetVerticalViewCount(init->layout())) {
     exception_state.ThrowTypeError(
         "ViewPixelHeight exceeds the maximum texture size.");
     return false;
   }
 
-  if (init->viewPixelWidth() > static_cast<uint32_t>(max_texture_size)) {
+  if (init->viewPixelWidth() > static_cast<uint32_t>(max_texture_size) /
+                                   GetHorizontalViewCount(init->layout())) {
     exception_state.ThrowTypeError(
         "ViewPixelWidth exceeds the maximum texture size.");
     return false;

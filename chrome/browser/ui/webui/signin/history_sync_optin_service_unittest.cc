@@ -6,9 +6,11 @@
 
 #include <cstddef>
 #include <string>
+#include <utility>
 
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/notreached.h"
 #include "base/test/bind.h"
@@ -21,6 +23,7 @@
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
+#include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/webui/signin/history_sync_optin_helper.h"
 #include "chrome/browser/ui/webui/signin/history_sync_optin_service_factory.h"
@@ -35,6 +38,7 @@
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
 #include "components/signin/public/identity_manager/signin_constants.h"
+#include "components/strings/grit/components_strings.h"
 #include "components/sync/base/features.h"
 #include "components/sync/test/test_sync_service.h"
 #include "content/public/test/browser_task_environment.h"
@@ -62,6 +66,15 @@ class MockHistorySyncOptinHelperDelegate
               (signin::SigninChoiceCallback),
               (override));
   MOCK_METHOD(void, FinishFlowWithoutHistorySyncOptin, (), (override));
+};
+
+class MockHistorySyncOptinService : public HistorySyncOptinService {
+ public:
+  explicit MockHistorySyncOptinService(Profile* profile)
+      : HistorySyncOptinService(profile) {}
+  ~MockHistorySyncOptinService() override = default;
+
+  MOCK_METHOD(void, ShowErrorDialogWithMessage, (int), (override));
 };
 
 class MockProfileManagementDisclaimerService
@@ -92,7 +105,7 @@ std::unique_ptr<KeyedService> BuildTestSyncService(
 
 std::unique_ptr<KeyedService> BuildHistorySyncOptinService(
     content::BrowserContext* context) {
-  return std::make_unique<HistorySyncOptinService>(
+  return std::make_unique<MockHistorySyncOptinService>(
       Profile::FromBrowserContext(context));
 }
 
@@ -145,10 +158,9 @@ class CrashingObserver : public HistorySyncOptinHelper::Observer {
       observation_{this};
 };
 
-class HistorySyncOptinServiceTest : public testing::Test,
-                                    public testing::WithParamInterface<bool> {
+class HistorySyncOptinServiceTestBase : public testing::Test {
  public:
-  HistorySyncOptinServiceTest()
+  HistorySyncOptinServiceTestBase()
       : profile_manager_(TestingBrowserProcess::GetGlobal()) {
     feature_list_.InitAndEnableFeature(
         syncer::kReplaceSyncPromosWithSignInPromos);
@@ -156,19 +168,27 @@ class HistorySyncOptinServiceTest : public testing::Test,
     profile_ = CreateNewProfile(profile_manager_, "TestingProfile");
     identity_test_env_adaptor_ =
         std::make_unique<IdentityTestEnvironmentProfileAdaptor>(profile_);
-    service_ = std::make_unique<HistorySyncOptinService>(profile_);
+    service_ = static_cast<MockHistorySyncOptinService*>(
+        HistorySyncOptinServiceFactory::GetForProfile(profile_.get()));
   }
 
   AccountInfo MakePrimaryAccountAvailable(
       std::string email,
       IdentityTestEnvironmentProfileAdaptor* identity_test_env_adaptor,
-      bool with_managed_account_info_available) {
+      bool with_managed_account_info_available,
+      std::optional<signin_metrics::AccessPoint> access_point = std::nullopt) {
+    auto builder = identity_test_env_adaptor->identity_test_env()
+                       ->CreateAccountAvailabilityOptionsBuilder();
+    if (access_point.has_value()) {
+      builder.WithAccessPoint(access_point.value());
+    }
+
     AccountInfo account_info =
-        identity_test_env_adaptor->identity_test_env()
-            ->MakePrimaryAccountAvailable(email, signin::ConsentLevel::kSignin);
+        identity_test_env_adaptor->identity_test_env()->MakeAccountAvailable(
+            builder.AsPrimary(signin::ConsentLevel::kSignin).Build(email));
+
     if (with_managed_account_info_available) {
-      account_info =
-          UpdateAccountManagementInfo(account_info, identity_test_env_adaptor);
+      UpdateAccountManagementInfo(account_info, identity_test_env_adaptor);
     }
     account_info.full_name = "fullname";
     account_info.given_name = "givenname";
@@ -179,25 +199,26 @@ class HistorySyncOptinServiceTest : public testing::Test,
     return account_info;
   }
 
-  AccountInfo UpdateAccountManagementInfo(
+  void UpdateAccountManagementInfo(
       AccountInfo& account_info,
       IdentityTestEnvironmentProfileAdaptor* identity_test_env_adaptor) {
-    if (account_info.email == kMainEmail) {
-      account_info.hosted_domain = signin::constants::kNoHostedDomainFound;
-    } else if (account_info.email == kManagedEmail ||
-               account_info.email == kManagedEmail2) {
-      account_info.hosted_domain = "example.com";
+    std::string hosted_domain;
+    if (account_info.email == kManagedEmail ||
+        account_info.email == kManagedEmail2) {
+      hosted_domain = "example.com";
     } else {
-      NOTREACHED();
+      CHECK_EQ(account_info.email, kMainEmail);
     }
+
+    account_info = AccountInfo::Builder(account_info)
+                       .SetHostedDomain(hosted_domain)
+                       .Build();
+
     identity_test_env_adaptor->identity_test_env()->UpdateAccountInfoForAccount(
         account_info);
-    return account_info;
   }
 
-  bool IsManagedAccountInfoAvailableInAdvance() { return GetParam(); }
-
-  ~HistorySyncOptinServiceTest() override = default;
+  ~HistorySyncOptinServiceTestBase() override = default;
 
   void DisableHistorySync(Profile* profile) {
     auto* sync_service = SyncServiceFactory::GetForProfile(profile);
@@ -235,7 +256,13 @@ class HistorySyncOptinServiceTest : public testing::Test,
   std::unique_ptr<IdentityTestEnvironmentProfileAdaptor>
       identity_test_env_adaptor_;
   std::unique_ptr<MockHistorySyncOptinHelperDelegate> delegate_;
-  std::unique_ptr<HistorySyncOptinService> service_;
+  raw_ptr<HistorySyncOptinService> service_;
+};
+
+class HistorySyncOptinServiceTest : public HistorySyncOptinServiceTestBase,
+                                    public testing::WithParamInterface<bool> {
+ public:
+  bool IsManagedAccountInfoAvailableInAdvance() { return GetParam(); }
 };
 
 TEST_P(HistorySyncOptinServiceTest, StartFlow) {
@@ -254,7 +281,7 @@ TEST_P(HistorySyncOptinServiceTest, StartFlow) {
       .Times(1);
   bool flow_started = service_->StartHistorySyncOptinFlow(
       account_info, std::move(delegate),
-      signin_metrics::AccessPoint::kAccountMenu);
+      signin_metrics::AccessPoint::kAccountMenuSwitchAccount);
   EXPECT_TRUE(flow_started);
   if (!IsManagedAccountInfoAvailableInAdvance()) {
     UpdateAccountManagementInfo(account_info, identity_test_env_adaptor_.get());
@@ -285,7 +312,7 @@ TEST_P(HistorySyncOptinServiceTest, AbortFlowIfOneInProgress) {
   // Start the first flow.
   bool flow_started = service_->StartHistorySyncOptinFlow(
       account_info, std::move(delegate),
-      signin_metrics::AccessPoint::kAccountMenu);
+      signin_metrics::AccessPoint::kAccountMenuSwitchAccount);
   EXPECT_TRUE(flow_started);
   if (!IsManagedAccountInfoAvailableInAdvance()) {
     UpdateAccountManagementInfo(account_info, identity_test_env_adaptor_.get());
@@ -312,7 +339,7 @@ TEST_P(HistorySyncOptinServiceTest, AbortFlowIfOneInProgress) {
       .Times(1);
   flow_started = service_->StartHistorySyncOptinFlow(
       account_info, std::move(second_delegate),
-      signin_metrics::AccessPoint::kAccountMenu);
+      signin_metrics::AccessPoint::kAccountMenuSwitchAccount);
   EXPECT_TRUE(flow_started);
 }
 
@@ -352,7 +379,7 @@ TEST_P(HistorySyncOptinServiceTest,
   EXPECT_CALL(*disclaimer_service, EnsureManagedProfileForAccount)
       .WillOnce([&](const CoreAccountId&, signin_metrics::AccessPoint,
                     base::OnceCallback<void(Profile*, bool)> callback) {
-        // Sign-in to the new managed profile the user.
+        // Sign the user in to the new managed profile.
         MakePrimaryAccountAvailable(original_managed_account_info.email,
                                     &new_profile_adaptor,
                                     IsManagedAccountInfoAvailableInAdvance());
@@ -416,7 +443,7 @@ TEST_P(HistorySyncOptinServiceTest,
   // Start the history sync opt-in flow with the managed account.
   bool flow_started = service_->StartHistorySyncOptinFlow(
       original_managed_account_info, std::move(original_delegate),
-      signin_metrics::AccessPoint::kAccountMenu);
+      signin_metrics::AccessPoint::kAccountMenuSwitchAccount);
   EXPECT_TRUE(flow_started);
 
   if (!IsManagedAccountInfoAvailableInAdvance()) {
@@ -430,7 +457,7 @@ TEST_P(HistorySyncOptinServiceTest,
 
   histogram_tester.ExpectUniqueSample(
       "Signin.HistorySyncOptIn.Started",
-      /*sample=*/signin_metrics::AccessPoint::kAccountMenu,
+      /*sample=*/signin_metrics::AccessPoint::kAccountMenuSwitchAccount,
       /*expected_bucket_count=*/1);
 }
 
@@ -480,7 +507,7 @@ TEST_P(HistorySyncOptinServiceTest,
   // Start the history sync opt-in flow with the managed account.
   bool flow_started = service_->StartHistorySyncOptinFlow(
       managed_account_info, std::move(delegate),
-      signin_metrics::AccessPoint::kAccountMenu);
+      signin_metrics::AccessPoint::kAccountMenuSwitchAccount);
   EXPECT_TRUE(flow_started);
 
   if (!IsManagedAccountInfoAvailableInAdvance()) {
@@ -494,7 +521,7 @@ TEST_P(HistorySyncOptinServiceTest,
 
   histogram_tester.ExpectUniqueSample(
       "Signin.HistorySyncOptIn.Started",
-      /*sample=*/signin_metrics::AccessPoint::kAccountMenu,
+      /*sample=*/signin_metrics::AccessPoint::kAccountMenuSwitchAccount,
       /*expected_bucket_count=*/1);
 }
 
@@ -534,7 +561,7 @@ TEST_P(HistorySyncOptinServiceTest,
   // Start the history sync opt-in flow with the managed account.
   bool flow_started = service_->StartHistorySyncOptinFlow(
       original_managed_account_info, std::move(delegate),
-      signin_metrics::AccessPoint::kAccountMenu);
+      signin_metrics::AccessPoint::kAccountMenuSwitchAccount);
   EXPECT_TRUE(flow_started);
   if (!IsManagedAccountInfoAvailableInAdvance()) {
     UpdateAccountManagementInfo(original_managed_account_info,
@@ -544,7 +571,7 @@ TEST_P(HistorySyncOptinServiceTest,
 
   histogram_tester.ExpectUniqueSample(
       "Signin.HistorySyncOptIn.Started",
-      /*sample=*/signin_metrics::AccessPoint::kAccountMenu,
+      /*sample=*/signin_metrics::AccessPoint::kAccountMenuSwitchAccount,
       /*expected_bucket_count=*/1);
 }
 
@@ -571,7 +598,7 @@ TEST_P(HistorySyncOptinServiceTest,
 
   service_->StartHistorySyncOptinFlow(
       account_info, std::move(delegate),
-      signin_metrics::AccessPoint::kAccountMenu);
+      signin_metrics::AccessPoint::kAccountMenuSwitchAccount);
   if (!IsManagedAccountInfoAvailableInAdvance()) {
     UpdateAccountManagementInfo(account_info, identity_test_env_adaptor_.get());
   }
@@ -648,7 +675,7 @@ TEST_P(HistorySyncOptinServiceTest,
   bool flow_started = history_sync_optin_service->StartHistorySyncOptinFlow(
       other_account_info,
       std::make_unique<MockHistorySyncOptinHelperDelegate>(),
-      signin_metrics::AccessPoint::kAccountMenu);
+      signin_metrics::AccessPoint::kAccountMenuSwitchAccount);
   EXPECT_TRUE(flow_started);
 
   if (!IsManagedAccountInfoAvailableInAdvance()) {
@@ -662,7 +689,7 @@ TEST_P(HistorySyncOptinServiceTest,
 
   histogram_tester.ExpectUniqueSample(
       "Signin.HistorySyncOptIn.Aborted",
-      /*sample=*/signin_metrics::AccessPoint::kAccountMenu,
+      /*sample=*/signin_metrics::AccessPoint::kAccountMenuSwitchAccount,
       /*expected_bucket_count=*/1);
   histogram_tester.ExpectUniqueSample(
       "Signin.ManagedUserProfileCreationConflict", true, 1);
@@ -676,3 +703,128 @@ INSTANTIATE_TEST_SUITE_P(All,
                                       ? "WithManagementInfoKnownInAdvance"
                                       : "WithManagementInfoFetchedLater";
                          });
+
+struct ManagedDataTypeTestParam {
+  syncer::UserSelectableType data_type;
+  signin_metrics::AccessPoint access_point;
+};
+
+class ManagedDataTypeErrorScreenServiceTest
+    : public HistorySyncOptinServiceTestBase,
+      public testing::WithParamInterface<
+          std::tuple<ManagedDataTypeTestParam, bool>> {
+ public:
+  bool IsManagedAccountInfoAvailableInAdvance() {
+    return std::get<1>(GetParam());
+  }
+};
+
+TEST_P(ManagedDataTypeErrorScreenServiceTest,
+       OnSiginInShowErrorIfDatatypeSyncIsManagedOnCurrentProfile) {
+  syncer::TestSyncService* sync_service = static_cast<syncer::TestSyncService*>(
+      SyncServiceFactory::GetForProfile(profile_.get()));
+  sync_service->GetUserSettings()->SetSelectedTypes(
+      /*sync_everything=*/false,
+      /*types=*/{});
+  sync_service->GetUserSettings()->SetTypeIsManagedByPolicy(
+      std::get<0>(GetParam()).data_type, /*managed=*/true);
+
+  base::test::TestFuture<void> future;
+  MockHistorySyncOptinService* history_sync_optin_service =
+      static_cast<MockHistorySyncOptinService*>(service_);
+  EXPECT_CALL(*history_sync_optin_service,
+              ShowErrorDialogWithMessage(testing::_))
+      .WillOnce(testing::InvokeWithoutArgs([&future] { future.SetValue(); }));
+
+  MockProfileManagementDisclaimerService* disclaimer_service =
+      static_cast<MockProfileManagementDisclaimerService*>(
+          ProfileManagementDisclaimerServiceFactory::GetForProfile(
+              profile_.get()));
+
+  EXPECT_CALL(*disclaimer_service, EnsureManagedProfileForAccount)
+      .WillOnce([&](const CoreAccountId&, signin_metrics::AccessPoint,
+                    base::OnceCallback<void(Profile*, bool)> callback) {
+        std::move(callback).Run(profile_.get(), true);
+      });
+
+  // Sigin the user to the browser. This triggers the flow to enable tab syncing
+  // and shows an error screen (due to syncing disabled by policies).
+  MakePrimaryAccountAvailable(kManagedEmail, identity_test_env_adaptor_.get(),
+                              IsManagedAccountInfoAvailableInAdvance(),
+                              std::get<0>(GetParam()).access_point);
+  EXPECT_TRUE(future.Wait());
+}
+
+TEST_P(ManagedDataTypeErrorScreenServiceTest,
+       OnSiginInShowErrorIfDatatypeSyncIsManagedOnNewProfile) {
+  syncer::TestSyncService* sync_service = static_cast<syncer::TestSyncService*>(
+      SyncServiceFactory::GetForProfile(profile_.get()));
+  sync_service->GetUserSettings()->SetSelectedTypes(
+      /*sync_everything=*/false,
+      /*types=*/{});
+
+  MockProfileManagementDisclaimerService* disclaimer_service =
+      static_cast<MockProfileManagementDisclaimerService*>(
+          ProfileManagementDisclaimerServiceFactory::GetForProfile(
+              profile_.get()));
+
+  // Create a new managed profile that will be used during profile management's
+  // new profile selection (during the `EnsureManagedProfileForAccount`
+  // execution).
+  TestingProfile* new_managed_profile =
+      CreateNewProfile(profile_manager_, "NewManagedProfile");
+  CHECK(new_managed_profile);
+  syncer::TestSyncService* new_sync_service =
+      static_cast<syncer::TestSyncService*>(
+          SyncServiceFactory::GetForProfile(new_managed_profile));
+  new_sync_service->GetUserSettings()->SetTypeIsManagedByPolicy(
+      std::get<0>(GetParam()).data_type, /*managed=*/true);
+
+  // Do not sync history, tabs and tab groups.
+  DisableHistorySync(new_managed_profile);
+
+  EXPECT_CALL(*disclaimer_service, EnsureManagedProfileForAccount)
+      .WillOnce([&](const CoreAccountId& account_id,
+                    signin_metrics::AccessPoint,
+                    base::OnceCallback<void(Profile*, bool)> callback) {
+        IdentityTestEnvironmentProfileAdaptor new_profile_adaptor(
+            new_managed_profile);
+        // Sign in the account to the new managed profile.
+        MakePrimaryAccountAvailable(kManagedEmail, &new_profile_adaptor,
+                                    IsManagedAccountInfoAvailableInAdvance());
+        // Mark management as accepted.
+        enterprise_util::SetUserAcceptedAccountManagement(new_managed_profile,
+                                                          true);
+        std::move(callback).Run(new_managed_profile, true);
+      });
+
+  base::test::TestFuture<void> future;
+  MockHistorySyncOptinService* new_history_sync_optin_service =
+      static_cast<MockHistorySyncOptinService*>(
+          HistorySyncOptinServiceFactory::GetForProfile(new_managed_profile));
+  EXPECT_CALL(*new_history_sync_optin_service,
+              ShowErrorDialogWithMessage(testing::_))
+      .WillOnce(testing::InvokeWithoutArgs([&future] { future.SetValue(); }));
+
+  // Sigin the user to the browser. This triggers the flow to enable tab syncing
+  // and shows an error screen (due to syncing disabled by policies).
+  MakePrimaryAccountAvailable(kManagedEmail, identity_test_env_adaptor_.get(),
+                              IsManagedAccountInfoAvailableInAdvance(),
+                              std::get<0>(GetParam()).access_point);
+  EXPECT_TRUE(future.Wait());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    ManagedDataTypeErrorScreenServiceTest,
+    testing::Combine(
+        testing::Values(
+            ManagedDataTypeTestParam(syncer::UserSelectableType::kTabs,
+                                     signin_metrics::AccessPoint::kRecentTabs),
+            ManagedDataTypeTestParam(
+                syncer::UserSelectableType::kSavedTabGroups,
+                signin_metrics::AccessPoint::kCollaborationJoinTabGroup),
+            ManagedDataTypeTestParam(
+                syncer::UserSelectableType::kSavedTabGroups,
+                signin_metrics::AccessPoint::kCollaborationShareTabGroup)),
+        testing::Bool()));

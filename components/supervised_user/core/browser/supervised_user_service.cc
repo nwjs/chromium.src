@@ -45,6 +45,16 @@ namespace supervised_user {
 
 namespace {
 
+#if BUILDFLAG(IS_ANDROID)
+const char kSupervisionConflictHistogramName[] =
+    "SupervisedUsers.FamilyLinkSupervisionConflict";
+enum class SupervisionHasConflict : int {
+  kNoConflict = 0,
+  kHasConflict = 1,
+  kMaxValue = kHasConflict,
+};
+#endif  // BUILDFLAG(IS_ANDROID)
+
 using base::UserMetricsAction;
 
 // All prefs that configure the url filter.
@@ -199,7 +209,9 @@ SupervisedUserService::SupervisedUserService(
                   base::Unretained(this)),
               base::BindRepeating(
                   &SupervisedUserService::DisableBrowserContentFilters,
-                  base::Unretained(this)))),
+                  base::Unretained(this)),
+              base::BindRepeating(&IsSubjectToParentalControls,
+                                  base::Unretained(user_prefs_)))),
       search_content_filters_observer_(
           content_filters_observer_bridge_factory.Run(
               kSearchContentFiltersSettingName,
@@ -208,7 +220,9 @@ SupervisedUserService::SupervisedUserService(
                   base::Unretained(this)),
               base::BindRepeating(
                   &SupervisedUserService::DisableSearchContentFilters,
-                  base::Unretained(this))))
+                  base::Unretained(this)),
+              base::BindRepeating(&IsSubjectToParentalControls,
+                                  base::Unretained(user_prefs_))))
 #endif  // BUILDFLAG(IS_ANDROID)
 {
   CHECK(settings_service_->IsReady())
@@ -216,24 +230,6 @@ SupervisedUserService::SupervisedUserService(
          "a dependency of this service.";
 
 #if BUILDFLAG(IS_ANDROID)
-  if (!UseLocalSupervision() &&
-      (base::FeatureList::IsEnabled(
-          kSupervisedUserClearDeviceContentFiltersPrefsOnStartup))) {
-    // Users with disabled experiment cannot have these prefs set in user space
-    // - the experiment is currently disabled, and that's the only one which
-    // could had set them. These prefs as "user settings" are artifacts of
-    // previous run with the experiment enabled. That's required only because
-    // with the experiment disabled, the Init() calls below are no-ops.
-    for (const auto& pref :
-         {prefs::kSupervisedUserSafeSites,
-          prefs::kDefaultSupervisedUserFilteringBehavior,
-          policy::policy_prefs::kForceGoogleSafeSearch,
-          policy::policy_prefs::kIncognitoModeAvailability}) {
-      if (user_prefs.FindPreference(pref)->HasUserSetting()) {
-        user_prefs.ClearPref(pref);
-      }
-    }
-  }
   browser_content_filters_observer_->Init();
   search_content_filters_observer_->Init();
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -281,9 +277,25 @@ void SupervisedUserService::OnFamilyLinkParentalControlsEnabled() {
   // device was also locally supervised. In this case, next start of the browser
   // should be clean because it is expected that family link and device controls
   // are mutually exclusive and device controls are just being disabled.
+
+#if BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(
+          kSupervisedUserOverrideLocalSupervisionForFamilyLinkAccounts) &&
+      IsSupervisedLocally()) {
+    base::UmaHistogramEnumeration(kSupervisionConflictHistogramName,
+                                  SupervisionHasConflict::kHasConflict);
+    // This properly shuts down local supervision before enabling family link
+    // supervision.
+    browser_content_filters_observer_->OnChange(/*env=*/nullptr,
+                                                /*enabled=*/false);
+    search_content_filters_observer_->OnChange(/*env=*/nullptr,
+                                               /*enabled=*/false);
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+
   CHECK(!IsSupervisedLocally())
-      << "Family link parental controls cannot be manipulated with local "
-         "supervision.";
+      << "Family link parental controls cannot be manipulated when locally "
+         "supervised.";
 
   // Remove the handlers of the disabled parental controls mode.
   RemoveURLFilterPrefChangeHandlers();
@@ -407,10 +419,7 @@ void SupervisedUserService::Shutdown() {
 
 namespace {
 bool IsEligibleForContentFilters(const PrefService& user_prefs) {
-  bool subject_to_parental_controls = IsSubjectToParentalControls(user_prefs);
-  CHECK(!subject_to_parental_controls, base::NotFatalUntil::M150)
-      << "Content filters cannot be manipulated for Family Link users.";
-  return !subject_to_parental_controls;
+  return !IsSubjectToParentalControls(user_prefs);
 }
 }  // namespace
 

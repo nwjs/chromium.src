@@ -11,13 +11,11 @@
 #include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_associated_remote.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_remote.h"
-#include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
 
 class CORE_EXPORT FileBackedBlobFactoryDispatcher
     : public GarbageCollected<FileBackedBlobFactoryDispatcher>,
-      public Supplement<ExecutionContext>,
       public ExecutionContextClient {
  public:
   virtual ~FileBackedBlobFactoryDispatcher() = default;
@@ -35,8 +33,6 @@ class CORE_EXPORT FileBackedBlobFactoryDispatcher
 
   // GC
   void Trace(Visitor* visitor) const override;
-
-  static const char kSupplementName[];
 
  private:
   friend class FileBackedBlobFactoryTestHelper;

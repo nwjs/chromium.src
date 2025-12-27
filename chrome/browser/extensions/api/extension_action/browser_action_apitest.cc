@@ -7,7 +7,6 @@
 #include <string_view>
 
 #include "base/files/file_path.h"
-#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_restrictions.h"
@@ -27,7 +26,7 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/toolbar/toolbar_action_view_controller.h"
+#include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_container.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_icon_container_view.h"
@@ -129,9 +128,7 @@ class BrowserActionApiTest : public ExtensionApiTest {
   void ClickAction(const extensions::ExtensionId& extension_id) {
     ToolbarActionView* action_view =
         extensions_container()->GetViewForId(extension_id);
-    ui::MouseEvent event(ui::EventType::kMousePressed, gfx::Point(),
-                         gfx::Point(), ui::EventTimeForNow(), 0, 0);
-    views::test::ButtonTestApi(action_view).NotifyClick(event);
+    views::test::ButtonTestApi(action_view).NotifyDefaultMouseClick();
   }
 
   ExtensionsToolbarContainer* extensions_container() {
@@ -312,10 +309,10 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiCanvasTest, DynamicBrowserAction) {
 
   ToolbarActionView* action_view =
       extensions_container()->GetViewForId(extension->id());
-  ToolbarActionViewController* action_controller =
+  ToolbarActionViewModel* model =
       extensions_container()->GetActionForId(extension->id());
   ASSERT_TRUE(action_view);
-  ASSERT_TRUE(action_controller);
+  ASSERT_TRUE(model);
 
   gfx::Image last_bar_icon = gfx::Image(action_view->GetIconForTest());
 
@@ -332,8 +329,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiCanvasTest, DynamicBrowserAction) {
 
   // Tell the extension to update the icon using ImageData object.
   ResultCatcher catcher;
-  action_controller->ExecuteUserAction(
-      ToolbarActionViewController::InvocationSource::kToolbarButton);
+  model->ExecuteUserAction(
+      ToolbarActionViewModel::InvocationSource::kToolbarButton);
   ASSERT_TRUE(catcher.GetNextResult());
 
   EXPECT_FALSE(gfx::test::AreImagesEqual(
@@ -351,8 +348,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiCanvasTest, DynamicBrowserAction) {
   EXPECT_FALSE(action_icon.ToImageSkia()->HasRepresentation(kLargeIconScale));
 
   // Tell the extension to update the icon using path.
-  action_controller->ExecuteUserAction(
-      ToolbarActionViewController::InvocationSource::kToolbarButton);
+  model->ExecuteUserAction(
+      ToolbarActionViewModel::InvocationSource::kToolbarButton);
   ASSERT_TRUE(catcher.GetNextResult());
 
   // Make sure the browser action bar updated.
@@ -372,8 +369,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiCanvasTest, DynamicBrowserAction) {
 
   // Tell the extension to update the icon using dictionary of ImageData
   // objects.
-  action_controller->ExecuteUserAction(
-      ToolbarActionViewController::InvocationSource::kToolbarButton);
+  model->ExecuteUserAction(
+      ToolbarActionViewModel::InvocationSource::kToolbarButton);
   ASSERT_TRUE(catcher.GetNextResult());
 
   EXPECT_FALSE(gfx::test::AreImagesEqual(
@@ -391,8 +388,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiCanvasTest, DynamicBrowserAction) {
   EXPECT_TRUE(action_icon.AsImageSkia().HasRepresentation(kLargeIconScale));
 
   // Tell the extension to update the icon using dictionary of paths.
-  action_controller->ExecuteUserAction(
-      ToolbarActionViewController::InvocationSource::kToolbarButton);
+  model->ExecuteUserAction(
+      ToolbarActionViewModel::InvocationSource::kToolbarButton);
   ASSERT_TRUE(catcher.GetNextResult());
 
   EXPECT_FALSE(gfx::test::AreImagesEqual(
@@ -411,8 +408,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiCanvasTest, DynamicBrowserAction) {
 
   // Tell the extension to update the icon using dictionary of ImageData
   // objects, but setting only one size.
-  action_controller->ExecuteUserAction(
-      ToolbarActionViewController::InvocationSource::kToolbarButton);
+  model->ExecuteUserAction(
+      ToolbarActionViewModel::InvocationSource::kToolbarButton);
   ASSERT_TRUE(catcher.GetNextResult());
 
   EXPECT_FALSE(gfx::test::AreImagesEqual(
@@ -431,8 +428,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiCanvasTest, DynamicBrowserAction) {
 
   // Tell the extension to update the icon using dictionary of paths, but
   // setting only one size.
-  action_controller->ExecuteUserAction(
-      ToolbarActionViewController::InvocationSource::kToolbarButton);
+  model->ExecuteUserAction(
+      ToolbarActionViewModel::InvocationSource::kToolbarButton);
   ASSERT_TRUE(catcher.GetNextResult());
 
   EXPECT_FALSE(gfx::test::AreImagesEqual(
@@ -451,8 +448,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiCanvasTest, DynamicBrowserAction) {
 
   // Tell the extension to update the icon using dictionary of ImageData
   // objects, but setting only size 42.
-  action_controller->ExecuteUserAction(
-      ToolbarActionViewController::InvocationSource::kToolbarButton);
+  model->ExecuteUserAction(
+      ToolbarActionViewModel::InvocationSource::kToolbarButton);
   ASSERT_TRUE(catcher.GetNextResult());
 
   EXPECT_FALSE(gfx::test::AreImagesEqual(
@@ -469,14 +466,14 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiCanvasTest, DynamicBrowserAction) {
   EXPECT_TRUE(action_icon.AsImageSkia().HasRepresentation(kLargeIconScale));
 
   // Try setting icon with empty dictionary of ImageData objects.
-  action_controller->ExecuteUserAction(
-      ToolbarActionViewController::InvocationSource::kToolbarButton);
+  model->ExecuteUserAction(
+      ToolbarActionViewModel::InvocationSource::kToolbarButton);
   ASSERT_FALSE(catcher.GetNextResult());
   EXPECT_EQ(kEmptyImageDataError, catcher.message());
 
   // Try setting icon with empty dictionary of path objects.
-  action_controller->ExecuteUserAction(
-      ToolbarActionViewController::InvocationSource::kToolbarButton);
+  model->ExecuteUserAction(
+      ToolbarActionViewModel::InvocationSource::kToolbarButton);
   ASSERT_FALSE(catcher.GetNextResult());
   EXPECT_EQ(kEmptyPathError, catcher.message());
 }

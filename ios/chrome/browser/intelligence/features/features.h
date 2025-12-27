@@ -6,7 +6,6 @@
 #define IOS_CHROME_BROWSER_INTELLIGENCE_FEATURES_FEATURES_H_
 
 #import "base/feature_list.h"
-#import "base/metrics/field_trial_params.h"
 
 namespace base {
 class TimeDelta;
@@ -38,10 +37,20 @@ BASE_DECLARE_FEATURE(kAskGeminiChip);
 // Returns true if the Ask Gemini chip is enabled.
 bool IsAskGeminiChipEnabled();
 
+// Returns true if the Ask Gemini chip should be shown without checking the FET
+// and time criteria.
+bool IsAskGeminiChipIgnoreCriteria();
+extern const char kAskGeminiChipIgnoreCriteria[];
+
 // Returns true if a snackbar should be shown when a site is eligible for Ask
 // Gemini.
 bool IsAskGeminiSnackbarEnabled();
 extern const char kAskGeminiChipUseSnackbar[];
+
+// Returns true if the Ask Gemini chip should prepopulate the Gemini Floaty with
+// a prompt.
+bool IsAskGeminiChipPrepopulateFloatyEnabled();
+extern const char kAskGeminiChipPrepopulateFloaty[];
 
 // Feature flag controlling the cross-tab floaty chat persistence.
 BASE_DECLARE_FEATURE(kGeminiCrossTab);
@@ -132,8 +141,46 @@ BASE_DECLARE_FEATURE(kSmartTabGrouping);
 // Returns true if smart tab grouping is enabled.
 bool IsSmartTabGroupingEnabled();
 
+// Feature parameter determining the storage backend used for persisting tab
+// contexts.
+extern const char kPersistTabContextStorageParam[];
+
+// Feature parameter detirmining the event(s) that trigger page context
+// extraction.
+extern const char kPersistTabContextExtractionTimingParam[];
+
+// Feature parameter detirmining what page content data is persisted.
+extern const char kPersistTabContextDataParam[];
+
+// Defines the storage backend used for persisting tab contexts.
+enum class PersistTabStorageType {
+  kFileSystem = 0,
+  kSQLite = 1,
+};
+
+// Defines the event(s) that trigger page context extraction.
+enum class PersistTabExtractionTiming {
+  kOnWasHidden = 0,
+  kOnWasHiddenAndPageLoad = 1,
+};
+
+// Defines what page content data is persisted.
+enum class PersistTabDataExtracted {
+  kApcAndInnerText = 0,
+  kInnerTextOnly = 1,
+};
+
 // Returns true if tab context persisting is enabled.
 bool IsPersistTabContextEnabled();
+
+// Returns the configured persistent tab context storage type.
+PersistTabStorageType GetPersistTabContextStorageType();
+
+// Returns the configured persistent tab context extraction timing.
+PersistTabExtractionTiming GetPersistTabContextExtractionTiming();
+
+// Returns the configured persistent tab context data extracted.
+PersistTabDataExtracted GetPersistTabContextDataExtracted();
 
 // Feature flag to persist tab context.
 BASE_DECLARE_FEATURE(kPersistTabContext);
@@ -200,8 +247,26 @@ bool IsGeminiOnboardingCardsEnabled();
 // Acts as a killswitch where the feature is enabled by default.
 BASE_DECLARE_FEATURE(kPageContextExtractorRefactored);
 
+// Feature flag for displaying a sheet which shows the web page's self-reported
+// important images. Experimental.
+BASE_DECLARE_FEATURE(kWebPageReportedImagesSheet);
+bool IsWebPageReportedImagesSheetEnabled();
+
+// Feature flag for enabling passing an image from the long-press context menu
+// to Gemini.
+BASE_DECLARE_FEATURE(kImageContextMenuGeminiEntryPoint);
+bool IsImageContextMenuGeminiEntryPointEnabled();
+
 // Feature flag for enabling the Gemini eligibility ablation experiment.
 BASE_DECLARE_FEATURE(kGeminiEligibilityAblation);
 bool IsGeminiEligibilityAblationEnabled();
+
+// Feature flag for Gemini Live.
+BASE_DECLARE_FEATURE(kGeminiLive);
+bool IsGeminiLiveEnabled();
+
+// Feature flag for Gemini Personalization.
+BASE_DECLARE_FEATURE(kGeminiPersonalization);
+bool IsGeminiPersonalizationEnabled();
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_FEATURES_FEATURES_H_

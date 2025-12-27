@@ -19,6 +19,7 @@ const AccessPoint kAccessPointsThatSupportUserAction[] = {
     AccessPoint::kNtpLink,
     AccessPoint::kMenu,
     AccessPoint::kSettings,
+    AccessPoint::kSettingsYourSavedInfo,
     AccessPoint::kSupervisedUser,
     AccessPoint::kExtensionInstallBubble,
     AccessPoint::kExtensions,
@@ -53,6 +54,7 @@ const AccessPoint kAccessPointsThatSupportUserAction[] = {
     AccessPoint::kNonModalSigninPasswordPromo,
     AccessPoint::kNonModalSigninBookmarkPromo,
     AccessPoint::kUserManagerWithPrefilledEmail,
+    AccessPoint::kEnterpriseDialogAfterSigninInterception,
 };
 
 const AccessPoint kAccessPointsThatSupportImpression[] = {
@@ -60,6 +62,7 @@ const AccessPoint kAccessPointsThatSupportImpression[] = {
     AccessPoint::kNtpLink,
     AccessPoint::kMenu,
     AccessPoint::kSettings,
+    AccessPoint::kSettingsYourSavedInfo,
     AccessPoint::kExtensionInstallBubble,
     AccessPoint::kBookmarkBubble,
     AccessPoint::kBookmarkManager,
@@ -81,6 +84,7 @@ const AccessPoint kAccessPointsThatSupportImpression[] = {
     AccessPoint::kChromeSigninInterceptBubble,
     AccessPoint::kNotificationsOptInScreenContentToggle,
     AccessPoint::kAddressBubble,
+    AccessPoint::kEnterpriseDialogAfterSigninInterception,
 };
 
 class SigninMetricsTest : public ::testing::Test {
@@ -95,6 +99,8 @@ class SigninMetricsTest : public ::testing::Test {
         return "Menu";
       case AccessPoint::kSettings:
         return "Settings";
+      case AccessPoint::kSettingsYourSavedInfo:
+        return "YourSavedInfo";
       case AccessPoint::kSupervisedUser:
         return "SupervisedUser";
       case AccessPoint::kExtensionInstallBubble:
@@ -205,9 +211,9 @@ class SigninMetricsTest : public ::testing::Test {
         return "WebAuthnModalDialog";
       case AccessPoint::kAvatarBubbleSignInWithSyncPromo:
         return "AvatarBubbleSigninWithSyncPromo";
-      case AccessPoint::kAccountMenu:
+      case AccessPoint::kAccountMenuSwitchAccount:
         return "AccountMenu";
-      case AccessPoint::kAccountMenuFailedSwitch:
+      case AccessPoint::kAccountMenuSwitchAccountFailed:
         return "AccountMenuFailedSwitch";
       case AccessPoint::kProductSpecifications:
         return "ProductSpecifications";
@@ -249,6 +255,8 @@ class SigninMetricsTest : public ::testing::Test {
         return "EnterpriseManagementDisclaimerAfterSignin";
       case AccessPoint::kNtpFeaturePromo:
         return "NtpFeaturePromo";
+      case AccessPoint::kEnterpriseDialogAfterSigninInterception:
+        return "EnterpriseDialogAfterSigninInterception";
     }
   }
 };

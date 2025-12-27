@@ -39,7 +39,24 @@ namespace device {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
 // Not yet enabled by default.
+BASE_FEATURE(kPasskeyUnlockManager, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Not yet enabled by default.
 BASE_FEATURE(kPasskeyUnlockErrorUi, base::FEATURE_DISABLED_BY_DEFAULT);
+
+constexpr base::FeatureParam<PasskeyUnlockErrorUiExperimentArm>::Option
+    kPasskeyUnlockErrorUiExperimentArms[] = {
+        {PasskeyUnlockErrorUiExperimentArm::kUnlock,
+         "text_with_unlock_wording"},
+        {PasskeyUnlockErrorUiExperimentArm::kGet, "text_with_get_wording"},
+        {PasskeyUnlockErrorUiExperimentArm::kVerify,
+         "text_with_verify_wording"},
+};
+constexpr base::FeatureParam<PasskeyUnlockErrorUiExperimentArm>
+    kPasskeyUnlockErrorUiExperimentArm{
+        &kPasskeyUnlockErrorUi, "passkey_unlock_ui_experiment_arm",
+        PasskeyUnlockErrorUiExperimentArm::kVerify,
+        &kPasskeyUnlockErrorUiExperimentArms};
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -113,10 +130,10 @@ BASE_FEATURE(kWebAuthnHelloSignal,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
-// Not yet enabled by default.
+// Enabled by default in M144 Remove in or after M146.
 BASE_FEATURE(kWebAuthnAndroidSignal,
              "WebAuthenticationAndroidSignal",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // Disabled by default.
@@ -140,10 +157,10 @@ BASE_FEATURE(kWebAuthnMicrosoftSoftwareUnexportableKeyProvider,
              "WebAuthenticationMicrosoftSoftwareUnexportableKeyProvider",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Not yet enabled by default.
+// Default enabled in M144. Remove in or after M147.
 BASE_FEATURE(kWebAuthnSignalApiHidePasskeys,
              "WebAuthenticationSignalApiHidePasskeys",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enabled by default as part of the WebAuthenticationImmediateGet feature. Do
 // not remove before WebAuthenticationImmediateGet is removed.
@@ -221,5 +238,9 @@ BASE_FEATURE(kWebAuthnOpportunisticRetrieval, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enabled by default in M143. Remove in or after M146.
 BASE_FEATURE(kWebAuthenticationWindowsHints, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enabled by default in M144. Remove in or after M147.
+BASE_FEATURE(kWebAuthnEnableRefreshingStateOfGpmEnclaveController,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace device

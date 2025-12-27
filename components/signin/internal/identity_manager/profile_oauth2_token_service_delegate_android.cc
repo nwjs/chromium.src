@@ -15,6 +15,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/not_fatal_until.h"
+#include "base/notreached.h"
 #include "components/signin/public/base/account_consistency_method.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_info.h"
@@ -250,8 +251,8 @@ void ProfileOAuth2TokenServiceDelegateAndroid::OnAccessTokenInvalidated(
   // CHECK added to investigate crbug.com/366403142.
   // Sometimes access_token is unexpectedly empty (for example,
   // when visiting corp sites), and a previous attempt to throw an exception
-  // caused crashes (see crbug.com/428081405).
-  CHECK(!access_token.empty(), base::NotFatalUntil::M143);
+  // still causing crashes (see crbug.com/443111285).
+  CHECK(!access_token.empty(), base::NotFatalUntil::M145);
   signin::Java_ProfileOAuth2TokenServiceDelegate_invalidateAccessToken(
       env, java_ref_, j_access_token);
 }
@@ -318,6 +319,18 @@ void ProfileOAuth2TokenServiceDelegateAndroid::UpdateAccountList(
     fire_refresh_token_loaded_ = RT_LOADED;
     FireRefreshTokensLoaded();
   } else if (fire_refresh_token_loaded_ == RT_LOAD_NOT_START) {
+    // `LoadCredentials` should be invoked before SigninManagerImpl is created.
+    // Otherwise, it might create a weird situation when a sign-out needs to be
+    // triggered before `LoadCredentials` is invoked. In reality, this invariant
+    // should always be true, as `SigninManagerImpl depends on IdentityManager,
+    // which in turn triggers loading tokens in its creation process. This check
+    // ensures that this invariant doesn't change in the future.
+    //
+    // TODO(crbug.com/455610913): Remove `RT_HAS_BEEN_VALIDATED` after M147.
+    if (base::FeatureList::IsEnabled(
+            switches::kMakeAccountsAvailableInIdentityManager)) {
+      NOTREACHED(base::NotFatalUntil::M147);
+    }
     fire_refresh_token_loaded_ = RT_HAS_BEEN_VALIDATED;
   }
 }
@@ -427,7 +440,9 @@ void ProfileOAuth2TokenServiceDelegateAndroid::LoadCredentialsInternal(
             load_credentials_state());
   set_load_credentials_state(
       signin::LoadCredentialsState::LOAD_CREDENTIALS_IN_PROGRESS);
-  if (primary_account_id.empty()) {
+  if (primary_account_id.empty() &&
+      !base::FeatureList::IsEnabled(
+          switches::kMakeAccountsAvailableInIdentityManager)) {
     FireRefreshTokensLoaded();
     return;
   }
@@ -446,7 +461,7 @@ namespace signin {
 // |expiration_time_secs| param is the number of seconds (NOT milliseconds)
 // after the Unix epoch when the token is scheduled to expire.
 // It is set to 0 if there's no known expiration time.
-void JNI_ProfileOAuth2TokenServiceDelegate_OnOAuth2TokenFetched(
+static void JNI_ProfileOAuth2TokenServiceDelegate_OnOAuth2TokenFetched(
     JNIEnv* env,
     const JavaParamRef<jstring>& authToken,
     const jlong expiration_time_secs,
@@ -464,3 +479,5 @@ void JNI_ProfileOAuth2TokenServiceDelegate_OnOAuth2TokenFetched(
            base::Time::FromSecondsSinceUnixEpoch(expiration_time_secs));
 }
 }  // namespace signin
+
+DEFINE_JNI(ProfileOAuth2TokenServiceDelegate)

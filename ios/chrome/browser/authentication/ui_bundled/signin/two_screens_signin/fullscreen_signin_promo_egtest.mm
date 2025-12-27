@@ -141,8 +141,8 @@ void OpenNTPAndBackgroundAndForegroundApp() {
       selectElementWithMatcher:chrome_test_util::SigninScreenPromoMatcher()]
       assertWithMatcher:grey_notVisible()];
   VerifyHystoryOptInPromoSufficientlyVisible();
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::
-                                          PromoScreenPrimaryButtonMatcher()]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::ButtonStackPrimaryButton()]
       performAction:grey_tap()];
   [ChromeEarlGreyUI waitForAppToIdle];
   [self expectFullscreenSigninPromoMetricsAndPreferences];
@@ -178,12 +178,12 @@ void OpenNTPAndBackgroundAndForegroundApp() {
   OpenNTPAndBackgroundAndForegroundApp();
 
   VerifySigninPromoSufficientlyVisible();
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::
-                                          PromoScreenPrimaryButtonMatcher()]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::ButtonStackPrimaryButton()]
       performAction:grey_tap()];
   [ChromeEarlGreyUI waitForAppToIdle];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::
-                                          PromoScreenPrimaryButtonMatcher()]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::ButtonStackPrimaryButton()]
       performAction:grey_tap()];
   [ChromeEarlGreyUI waitForAppToIdle];
   [self expectFullscreenSigninPromoMetricsAndPreferences];
@@ -193,8 +193,8 @@ void OpenNTPAndBackgroundAndForegroundApp() {
 // the device is an ipad.
 // TODO(crbug.com/40266894): Need to enable this test.
 - (void)DISABLED_testNoSignInPromoInLandscapeMode {
-  [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationLandscapeLeft
-                                error:nil];
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationLandscapeLeft
+                                   error:nil];
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
 

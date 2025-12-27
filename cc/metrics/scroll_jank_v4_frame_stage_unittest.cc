@@ -6,15 +6,15 @@
 
 #include <memory>
 #include <optional>
-#include <ostream>
-#include <variant>
+#include <sstream>
 
-#include "base/test/simple_test_tick_clock.h"
+#include "base/rand_util.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/time/time.h"
 #include "cc/metrics/event_metrics.h"
+#include "cc/test/event_metrics_test_creator.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "ui/events/types/event_type.h"
 #include "ui/events/types/scroll_input_type.h"
 
@@ -22,34 +22,17 @@ namespace cc {
 
 namespace {
 
+using DispatchBeginFrameArgs = ScrollEventMetrics::DispatchBeginFrameArgs;
 using ScrollUpdates = ScrollJankV4FrameStage::ScrollUpdates;
+using ScrollStart = ScrollJankV4FrameStage::ScrollStart;
 using ScrollEnd = ScrollJankV4FrameStage::ScrollEnd;
+using Real = ScrollUpdates::Real;
+using Synthetic = ScrollUpdates::Synthetic;
+using TraceId = EventMetrics::TraceId;
 using ::testing::ElementsAre;
 using ::testing::IsEmpty;
 
 }  // namespace
-
-// Printer for gtest. Must be in the same namespace as `ScrollJankV4FrameStage`
-// (i.e. in cc) so that gtest would find it.
-inline void PrintTo(const ScrollJankV4FrameStage& stage, std::ostream* os) {
-  std::visit(absl::Overload{
-                 [&](const ScrollUpdates& updates) {
-                   (*os) << "ScrollUpdates{is_scroll_start: "
-                         << updates.is_scroll_start << ", earliest_event: "
-                         << updates.earliest_event->GetTypeName() << "@"
-                         << &(*updates.earliest_event)
-                         << ", last_input_generation_ts: "
-                         << updates.last_input_generation_ts
-                         << ", has_inertial_input: "
-                         << updates.has_inertial_input
-                         << ", total_raw_delta_pixels: "
-                         << updates.total_raw_delta_pixels
-                         << ", max_abs_inertial_raw_delta_pixels: "
-                         << updates.max_abs_inertial_raw_delta_pixels << "}";
-                 },
-                 [&](const ScrollEnd& end) { (*os) << "ScrollEnd{}"; }},
-             stage.stage);
-}
 
 class ScrollJankV4FrameStageTest : public testing::Test {
  public:
@@ -57,108 +40,11 @@ class ScrollJankV4FrameStageTest : public testing::Test {
   ~ScrollJankV4FrameStageTest() override = default;
 
  protected:
-  std::unique_ptr<EventMetrics> CreateEventMetrics(base::TimeTicks timestamp,
-                                                   ui::EventType type) {
-    return EventMetrics::CreateForTesting(
-        type, timestamp,
-        /* arrived_in_browser_main_timestamp= */ timestamp +
-            base::Nanoseconds(1),
-        &test_tick_clock_, /* trace_id= */ std::nullopt);
-  }
-
-  std::unique_ptr<ScrollEventMetrics> CreateScrollEventMetrics(
-      base::TimeTicks timestamp,
-      ui::EventType type,
-      bool is_inertial) {
-    return ScrollEventMetrics::CreateForTesting(
-        type, ui::ScrollInputType::kTouchscreen, is_inertial, timestamp,
-        /* arrived_in_browser_main_timestamp= */ timestamp +
-            base::Nanoseconds(1),
-        &test_tick_clock_);
-  }
-
-  std::unique_ptr<ScrollUpdateEventMetrics> CreateScrollUpdateEventMetrics(
-      base::TimeTicks timestamp,
-      ui::EventType type,
-      bool is_inertial,
-      ScrollUpdateEventMetrics::ScrollUpdateType scroll_update_type,
-      float delta) {
-    auto event = ScrollUpdateEventMetrics::CreateForTesting(
-        type, ui::ScrollInputType::kTouchscreen, is_inertial,
-        scroll_update_type, delta, timestamp,
-        /* arrived_in_browser_main_timestamp= */ timestamp +
-            base::Nanoseconds(1),
-        &test_tick_clock_,
-        /* trace_id= */ std::nullopt);
-    return event;
-  }
-
-  std::unique_ptr<ScrollUpdateEventMetrics> CreateFirstGestureScrollUpdate(
-      base::TimeTicks timestamp,
-      float delta,
-      bool did_scroll) {
-    auto event = CreateScrollUpdateEventMetrics(
-        timestamp, ui::EventType::kGestureScrollUpdate,
-        /* is_inertial= */ false,
-        ScrollUpdateEventMetrics::ScrollUpdateType::kStarted, delta);
-    EXPECT_EQ(event->type(),
-              EventMetrics::EventType::kFirstGestureScrollUpdate);
-    event->set_did_scroll(did_scroll);
-    return event;
-  }
-
-  std::unique_ptr<ScrollUpdateEventMetrics> CreateGestureScrollUpdate(
-      base::TimeTicks timestamp,
-      float delta,
-      bool did_scroll) {
-    auto event = CreateScrollUpdateEventMetrics(
-        timestamp, ui::EventType::kGestureScrollUpdate,
-        /* is_inertial= */ false,
-        ScrollUpdateEventMetrics::ScrollUpdateType::kContinued, delta);
-    EXPECT_EQ(event->type(), EventMetrics::EventType::kGestureScrollUpdate);
-    event->set_did_scroll(did_scroll);
-    return event;
-  }
-
-  std::unique_ptr<ScrollUpdateEventMetrics> CreateInertialGestureScrollUpdate(
-      base::TimeTicks timestamp,
-      float delta,
-      bool did_scroll) {
-    auto event = CreateScrollUpdateEventMetrics(
-        timestamp, ui::EventType::kGestureScrollUpdate, /* is_inertial= */ true,
-        ScrollUpdateEventMetrics::ScrollUpdateType::kContinued, delta);
-    EXPECT_EQ(event->type(),
-              EventMetrics::EventType::kInertialGestureScrollUpdate);
-    event->set_did_scroll(did_scroll);
-    return event;
-  }
-
-  std::unique_ptr<ScrollEventMetrics> CreateGestureScrollEnd(
-      base::TimeTicks timestamp) {
-    auto event =
-        CreateScrollEventMetrics(timestamp, ui::EventType::kGestureScrollEnd,
-                                 /* is_inertial= */ false);
-    EXPECT_EQ(event->type(), EventMetrics::EventType::kGestureScrollEnd);
-    event->set_caused_frame_update(false);
-    return event;
-  }
-
-  std::unique_ptr<ScrollEventMetrics> CreateInertialGestureScrollEnd(
-      base::TimeTicks timestamp) {
-    auto event =
-        CreateScrollEventMetrics(timestamp, ui::EventType::kGestureScrollEnd,
-                                 /* is_inertial= */ true);
-    EXPECT_EQ(event->type(),
-              EventMetrics::EventType::kInertialGestureScrollEnd);
-    event->set_caused_frame_update(false);
-    return event;
-  }
-
   static base::TimeTicks MillisecondsTicks(int ms) {
     return base::TimeTicks() + base::Milliseconds(ms);
   }
 
-  base::SimpleTestTickClock test_tick_clock_;
+  EventMetricsTestCreator metrics_creator_;
 };
 
 TEST_F(ScrollJankV4FrameStageTest, EmptyEventMetricsList) {
@@ -167,108 +53,314 @@ TEST_F(ScrollJankV4FrameStageTest, EmptyEventMetricsList) {
   EXPECT_THAT(stages, IsEmpty());
 }
 
-TEST_F(ScrollJankV4FrameStageTest, FirstGestureScrollUpdateWhichDidScroll) {
+TEST_F(ScrollJankV4FrameStageTest,
+       FirstGestureScrollUpdateWhichCausedFrameUpdateAndDidScroll) {
   EventMetrics::List events_metrics;
-  events_metrics.push_back(
-      CreateFirstGestureScrollUpdate(MillisecondsTicks(16), 4, true));
+  events_metrics.push_back(metrics_creator_.CreateFirstGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(16),
+       .delta = 4,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
   auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
   EXPECT_THAT(
       stages,
-      ElementsAre(ScrollJankV4FrameStage{ScrollUpdates{
-          .is_scroll_start = true,
-          .earliest_event = base::raw_ref(
-              static_cast<ScrollUpdateEventMetrics&>(*events_metrics[0])),
-          .last_input_generation_ts = MillisecondsTicks(16),
-          .has_inertial_input = false,
-          .total_raw_delta_pixels = 4,
-          .max_abs_inertial_raw_delta_pixels = 0,
-      }}));
+      ElementsAre(
+          ScrollJankV4FrameStage{ScrollStart{}},
+          ScrollJankV4FrameStage{ScrollUpdates(
+              Real{
+                  .first_input_generation_ts = MillisecondsTicks(16),
+                  .last_input_generation_ts = MillisecondsTicks(16),
+                  .has_inertial_input = false,
+                  .abs_total_raw_delta_pixels = 4,
+                  .max_abs_inertial_raw_delta_pixels = 0,
+                  .first_input_trace_id = TraceId(42),
+              },
+              /* synthetic= */ std::nullopt)}));
 }
 
-TEST_F(ScrollJankV4FrameStageTest, FirstGestureScrollUpdateWhichDidNotScroll) {
+TEST_F(ScrollJankV4FrameStageTest,
+       FirstGestureScrollUpdateWhichDidNotCauseFrameUpdate) {
   EventMetrics::List events_metrics;
-  events_metrics.push_back(
-      CreateFirstGestureScrollUpdate(MillisecondsTicks(16), 4, false));
-  auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
-  // Unlike continued GSUs (regular or inertial), scroll jank should always be
-  // reported for FGSUs (even if they didn't cause a scroll).
-  EXPECT_THAT(
-      stages,
-      ElementsAre(ScrollJankV4FrameStage{ScrollUpdates{
-          .is_scroll_start = true,
-          .earliest_event = base::raw_ref(
-              static_cast<ScrollUpdateEventMetrics&>(*events_metrics[0])),
-          .last_input_generation_ts = MillisecondsTicks(16),
-          .has_inertial_input = false,
-          .total_raw_delta_pixels = 4,
-          .max_abs_inertial_raw_delta_pixels = 0,
-      }}));
-}
-
-TEST_F(ScrollJankV4FrameStageTest, GestureScrollUpdateWhichDidScroll) {
-  EventMetrics::List events_metrics;
-  events_metrics.push_back(
-      CreateGestureScrollUpdate(MillisecondsTicks(16), 4, true));
-  auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
-  EXPECT_THAT(
-      stages,
-      ElementsAre(ScrollJankV4FrameStage{ScrollUpdates{
-          .is_scroll_start = false,
-          .earliest_event = base::raw_ref(
-              static_cast<ScrollUpdateEventMetrics&>(*events_metrics[0])),
-          .last_input_generation_ts = MillisecondsTicks(16),
-          .has_inertial_input = false,
-          .total_raw_delta_pixels = 4,
-          .max_abs_inertial_raw_delta_pixels = 0,
-      }}));
-}
-
-TEST_F(ScrollJankV4FrameStageTest, GestureScrollUpdateWhichDidNotScroll) {
-  EventMetrics::List events_metrics;
-  events_metrics.push_back(
-      CreateGestureScrollUpdate(MillisecondsTicks(16), 4, false));
+  events_metrics.push_back(metrics_creator_.CreateFirstGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(16),
+       .delta = 4,
+       .caused_frame_update = false,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
   auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
   EXPECT_THAT(stages, IsEmpty());
 }
 
-TEST_F(ScrollJankV4FrameStageTest, InertialGestureScrollUpdateWhichDidScroll) {
+TEST_F(ScrollJankV4FrameStageTest, FirstGestureScrollUpdateWhichDidNotScroll) {
   EventMetrics::List events_metrics;
-  events_metrics.push_back(
-      CreateInertialGestureScrollUpdate(MillisecondsTicks(16), 4, true));
+  events_metrics.push_back(metrics_creator_.CreateFirstGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(16),
+       .delta = 4,
+       .caused_frame_update = true,
+       .did_scroll = false,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
+  // Unlike continued GSUs (regular or inertial), scroll jank should be
+  // reported for FGSUs even if they didn't cause a scroll.
+  EXPECT_THAT(
+      stages,
+      ElementsAre(
+          ScrollJankV4FrameStage{ScrollStart{}},
+          ScrollJankV4FrameStage{ScrollUpdates(
+              Real{.first_input_generation_ts = MillisecondsTicks(16),
+                   .last_input_generation_ts = MillisecondsTicks(16),
+                   .has_inertial_input = false,
+                   .abs_total_raw_delta_pixels = 4,
+                   .max_abs_inertial_raw_delta_pixels = 0,
+                   .first_input_trace_id = TraceId(42)},
+              /* synthetic= */ std::nullopt)}));
+}
+
+TEST_F(ScrollJankV4FrameStageTest,
+       FirstGestureScrollUpdateDoNotSkipNonDamagingEvents) {
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateFirstGestureScrollUpdate({
+      .timestamp = MillisecondsTicks(16),
+      .delta = 4,
+      .caused_frame_update = false,
+      .did_scroll = false,
+      .is_synthetic = false,
+      .trace_id = TraceId(42),
+  }));
+  auto stages = ScrollJankV4FrameStage::CalculateStages(
+      events_metrics, /* skip_non_damaging_events= */ false);
+  EXPECT_THAT(
+      stages,
+      ElementsAre(
+          ScrollJankV4FrameStage{ScrollStart{}},
+          ScrollJankV4FrameStage{ScrollUpdates(
+              Real{.first_input_generation_ts = MillisecondsTicks(16),
+                   .last_input_generation_ts = MillisecondsTicks(16),
+                   .has_inertial_input = false,
+                   .abs_total_raw_delta_pixels = 4,
+                   .max_abs_inertial_raw_delta_pixels = 0,
+                   .first_input_trace_id = TraceId(42)},
+              /* synthetic= */ std::nullopt)}));
+}
+
+TEST_F(ScrollJankV4FrameStageTest, SyntheticFirstGestureScrollUpdate) {
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateFirstGestureScrollUpdate({
+      .timestamp = MillisecondsTicks(16),
+      .delta = 4,
+      .caused_frame_update = true,
+      .did_scroll = true,
+      .is_synthetic = true,
+      .trace_id = TraceId(42),
+      .dispatch_args =
+          DispatchBeginFrameArgs{.frame_time = MillisecondsTicks(24)},
+  }));
   auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
   EXPECT_THAT(
       stages,
-      ElementsAre(ScrollJankV4FrameStage{ScrollUpdates{
-          .is_scroll_start = false,
-          .earliest_event = base::raw_ref(
-              static_cast<ScrollUpdateEventMetrics&>(*events_metrics[0])),
-          .last_input_generation_ts = MillisecondsTicks(16),
-          .has_inertial_input = true,
-          .total_raw_delta_pixels = 4,
-          .max_abs_inertial_raw_delta_pixels = 4,
-      }}));
+      ElementsAre(
+          ScrollJankV4FrameStage{ScrollStart{}},
+          ScrollJankV4FrameStage{ScrollUpdates(
+              /* real= */ std::nullopt,
+              Synthetic{
+                  .first_input_begin_frame_ts = MillisecondsTicks(24),
+                  .first_input_trace_id = TraceId(42),
+              })}));
+}
+
+TEST_F(ScrollJankV4FrameStageTest,
+       GestureScrollUpdateWhichCausedFrameUpdateAndDidScroll) {
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(16),
+       .delta = 4,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
+  EXPECT_THAT(
+      stages,
+      ElementsAre(ScrollJankV4FrameStage{ScrollUpdates(
+          Real{.first_input_generation_ts = MillisecondsTicks(16),
+               .last_input_generation_ts = MillisecondsTicks(16),
+               .has_inertial_input = false,
+               .abs_total_raw_delta_pixels = 4,
+               .max_abs_inertial_raw_delta_pixels = 0,
+               .first_input_trace_id = TraceId(42)},
+          /* synthetic= */ std::nullopt)}));
+}
+
+TEST_F(ScrollJankV4FrameStageTest,
+       GestureScrollUpdateWhichDidNotCauseFrameUpdate) {
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(16),
+       .delta = 4,
+       .caused_frame_update = false,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
+  EXPECT_THAT(stages, IsEmpty());
+}
+
+TEST_F(ScrollJankV4FrameStageTest, GestureScrollUpdateWhichDidNotScroll) {
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(16),
+       .delta = 4,
+       .caused_frame_update = true,
+       .did_scroll = false,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
+  EXPECT_THAT(stages, IsEmpty());
+}
+
+TEST_F(ScrollJankV4FrameStageTest,
+       GestureScrollUpdateDoNotSkipNonDamagingEvents) {
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(16),
+       .delta = 4,
+       .caused_frame_update = false,
+       .did_scroll = false,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  auto stages = ScrollJankV4FrameStage::CalculateStages(
+      events_metrics, /* skip_non_damaging_events= */ false);
+  EXPECT_THAT(
+      stages,
+      ElementsAre(ScrollJankV4FrameStage{ScrollUpdates(
+          Real{
+              .first_input_generation_ts = MillisecondsTicks(16),
+              .last_input_generation_ts = MillisecondsTicks(16),
+              .has_inertial_input = false,
+              .abs_total_raw_delta_pixels = 4,
+              .max_abs_inertial_raw_delta_pixels = 0,
+              .first_input_trace_id = TraceId(42),
+          },
+          /* synthetic= */ std::nullopt)}));
+}
+
+TEST_F(ScrollJankV4FrameStageTest, SyntheticGestureScrollUpdate) {
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(16),
+       .delta = 4,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = true,
+       .trace_id = TraceId(42),
+       .dispatch_args =
+           DispatchBeginFrameArgs{.frame_time = MillisecondsTicks(24)}}));
+  auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
+  EXPECT_THAT(
+      stages,
+      ElementsAre(ScrollJankV4FrameStage{ScrollUpdates(
+          /* real= */ std::nullopt,
+          Synthetic{
+              .first_input_begin_frame_ts = MillisecondsTicks(24),
+              .first_input_trace_id = TraceId(42),
+          })}));
+}
+
+TEST_F(ScrollJankV4FrameStageTest,
+       InertialGestureScrollUpdateWhichCausedFrameUpdateAndDidScroll) {
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(16),
+       .delta = 4,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
+  EXPECT_THAT(
+      stages,
+      ElementsAre(ScrollJankV4FrameStage{ScrollUpdates(
+          Real{
+              .first_input_generation_ts = MillisecondsTicks(16),
+              .last_input_generation_ts = MillisecondsTicks(16),
+              .has_inertial_input = true,
+              .abs_total_raw_delta_pixels = 4,
+              .max_abs_inertial_raw_delta_pixels = 4,
+              .first_input_trace_id = TraceId(42),
+          },
+          /* synthetic= */ std::nullopt)}));
+}
+
+TEST_F(ScrollJankV4FrameStageTest,
+       InertialGestureScrollUpdateWhichDidNotCauseFrameUpdate) {
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(16),
+       .delta = 4,
+       .caused_frame_update = false,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
+  EXPECT_THAT(stages, IsEmpty());
 }
 
 TEST_F(ScrollJankV4FrameStageTest,
        InertialGestureScrollUpdateWhichDidNotScroll) {
   EventMetrics::List events_metrics;
-  events_metrics.push_back(
-      CreateInertialGestureScrollUpdate(MillisecondsTicks(16), 4, false));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(16),
+       .delta = 4,
+       .caused_frame_update = true,
+       .did_scroll = false,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
   auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
   EXPECT_THAT(stages, IsEmpty());
 }
 
+TEST_F(ScrollJankV4FrameStageTest,
+       InertialGestureScrollUpdateDoNotSkipNonDamagingEvents) {
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(16),
+       .delta = 4,
+       .caused_frame_update = false,
+       .did_scroll = false,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  auto stages = ScrollJankV4FrameStage::CalculateStages(
+      events_metrics, /* skip_non_damaging_events= */ false);
+  EXPECT_THAT(
+      stages,
+      ElementsAre(ScrollJankV4FrameStage{ScrollUpdates(
+          Real{
+              .first_input_generation_ts = MillisecondsTicks(16),
+              .last_input_generation_ts = MillisecondsTicks(16),
+              .has_inertial_input = true,
+              .abs_total_raw_delta_pixels = 4,
+              .max_abs_inertial_raw_delta_pixels = 4,
+              .first_input_trace_id = TraceId(42),
+          },
+          /* synthetic= */ std::nullopt)}));
+}
+
 TEST_F(ScrollJankV4FrameStageTest, GestureScrollEnd) {
   EventMetrics::List events_metrics;
-  events_metrics.push_back(CreateGestureScrollEnd(MillisecondsTicks(16)));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollEnd(
+      {.timestamp = MillisecondsTicks(16), .caused_frame_update = false}));
   auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
   EXPECT_THAT(stages, ElementsAre(ScrollJankV4FrameStage{ScrollEnd{}}));
 }
 
 TEST_F(ScrollJankV4FrameStageTest, InertialGestureScrollEnd) {
   EventMetrics::List events_metrics;
-  events_metrics.push_back(
-      CreateInertialGestureScrollEnd(MillisecondsTicks(16)));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollEnd(
+      {.timestamp = MillisecondsTicks(16), .caused_frame_update = false}));
   auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
   EXPECT_THAT(stages, ElementsAre(ScrollJankV4FrameStage{ScrollEnd{}}));
 }
@@ -276,7 +368,9 @@ TEST_F(ScrollJankV4FrameStageTest, InertialGestureScrollEnd) {
 TEST_F(ScrollJankV4FrameStageTest, NonScrollEventType) {
   EventMetrics::List events_metrics;
   events_metrics.push_back(
-      CreateEventMetrics(MillisecondsTicks(16), ui::EventType::kMouseMoved));
+      metrics_creator_.CreateEventMetrics({.type = ui::EventType::kMouseMoved,
+                                           .timestamp = MillisecondsTicks(16),
+                                           .caused_frame_update = true}));
   auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
   EXPECT_THAT(stages, IsEmpty());
 }
@@ -285,108 +379,754 @@ TEST_F(ScrollJankV4FrameStageTest, MultipleScrollUpdates) {
   EventMetrics::List events_metrics;
   // Intentionally in "random" order to make sure that the calculation doesn't
   // rely on the list being sorted (because the list isn't sorted in general).
-  events_metrics.push_back(
-      CreateGestureScrollUpdate(MillisecondsTicks(4), -8'000, true));
-  events_metrics.push_back(
-      CreateGestureScrollUpdate(MillisecondsTicks(2), -32'000, true));
-  events_metrics.push_back(
-      CreateInertialGestureScrollUpdate(MillisecondsTicks(7), -1'000, false));
-  events_metrics.push_back(
-      CreateFirstGestureScrollUpdate(MillisecondsTicks(1), -64'000, true));
-  events_metrics.push_back(
-      CreateInertialGestureScrollUpdate(MillisecondsTicks(5), -4'000, true));
-  events_metrics.push_back(
-      CreateInertialGestureScrollUpdate(MillisecondsTicks(6), -2'000, true));
-  events_metrics.push_back(
-      CreateGestureScrollUpdate(MillisecondsTicks(3), -16'000, true));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(4),
+       .delta = -8'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(44)}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(2),
+       .delta = -32'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(22)}));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(7),
+       .delta = -1'000,
+       .caused_frame_update = true,
+       .did_scroll = false,
+       .is_synthetic = false,
+       .trace_id = TraceId(77)}));
+  events_metrics.push_back(metrics_creator_.CreateFirstGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(1),
+       .delta = -64'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(11)}));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(5),
+       .delta = -4'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(55)}));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(6),
+       .delta = -2'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(66)}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(3),
+       .delta = -16'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(33)}));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(8),
+       .delta = -128'000,
+       .caused_frame_update = false,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(88)}));
 
   auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
   EXPECT_THAT(
       stages,
-      ElementsAre(ScrollJankV4FrameStage{ScrollUpdates{
-          .is_scroll_start = true,
-          .earliest_event = base::raw_ref(
-              static_cast<ScrollUpdateEventMetrics&>(*events_metrics[3])),
-          .last_input_generation_ts = MillisecondsTicks(7),
-          .has_inertial_input = true,
-          .total_raw_delta_pixels = -127'000,
-          .max_abs_inertial_raw_delta_pixels = 4'000,
-      }}));
+      ElementsAre(
+          ScrollJankV4FrameStage{ScrollStart{}},
+          ScrollJankV4FrameStage{ScrollUpdates(
+              Real{
+                  .first_input_generation_ts = MillisecondsTicks(1),
+                  .last_input_generation_ts = MillisecondsTicks(7),
+                  .has_inertial_input = true,
+                  .abs_total_raw_delta_pixels = 127'000,
+                  .max_abs_inertial_raw_delta_pixels = 4'000,
+                  .first_input_trace_id = TraceId(11),
+              },
+              /* synthetic= */ std::nullopt)}));
+}
+
+TEST_F(ScrollJankV4FrameStageTest,
+       MultipleScrollUpdatesDoNotSkipNonDamagingEvents) {
+  EventMetrics::List events_metrics;
+  // Intentionally in "random" order to make sure that the calculation doesn't
+  // rely on the list being sorted (because the list isn't sorted in general).
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(4),
+       .delta = -8'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(44)}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(2),
+       .delta = -32'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(22)}));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(7),
+       .delta = -1'000,
+       .caused_frame_update = true,
+       .did_scroll = false,
+       .is_synthetic = false,
+       .trace_id = TraceId(77)}));
+  events_metrics.push_back(metrics_creator_.CreateFirstGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(1),
+       .delta = -64'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(11)}));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(5),
+       .delta = -4'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(55)}));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(6),
+       .delta = -2'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(66)}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(3),
+       .delta = -16'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(33)}));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(8),
+       .delta = -128'000,
+       .caused_frame_update = false,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(88)}));
+
+  auto stages = ScrollJankV4FrameStage::CalculateStages(
+      events_metrics, /* skip_non_damaging_events= */ false);
+  EXPECT_THAT(
+      stages,
+      ElementsAre(
+          ScrollJankV4FrameStage{ScrollStart{}},
+          ScrollJankV4FrameStage{ScrollUpdates(
+              Real{
+                  .first_input_generation_ts = MillisecondsTicks(1),
+                  .last_input_generation_ts = MillisecondsTicks(8),
+                  .has_inertial_input = true,
+                  .abs_total_raw_delta_pixels = 255'000,
+                  .max_abs_inertial_raw_delta_pixels = 128'000,
+                  .first_input_trace_id = TraceId(11),
+              },
+              /* synthetic= */ std::nullopt)}));
+}
+
+TEST_F(ScrollJankV4FrameStageTest, MultipleScrollUpdatesIncludingSynthetic) {
+  EventMetrics::List events_metrics;
+  // Intentionally in "random" order to make sure that the calculation doesn't
+  // rely on the list being sorted (because the list isn't sorted in general).
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(4),
+       .delta = -8'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = true,
+       .trace_id = TraceId(44),
+       .dispatch_args =
+           DispatchBeginFrameArgs{.frame_time = MillisecondsTicks(24)}}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(2),
+       .delta = -32'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(22)}));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(7),
+       .delta = -1'000,
+       .caused_frame_update = true,
+       .did_scroll = false,
+       .is_synthetic = false,
+       .trace_id = TraceId(77)}));
+  events_metrics.push_back(metrics_creator_.CreateFirstGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(1),
+       .delta = -64'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = true,
+       .trace_id = TraceId(11),
+       .dispatch_args =
+           DispatchBeginFrameArgs{.frame_time = MillisecondsTicks(48)}}));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(5),
+       .delta = -4'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(55)}));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(6),
+       .delta = -2'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(66)}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(3),
+       .delta = -16'000,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(33)}));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(8),
+       .delta = -128'000,
+       .caused_frame_update = false,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(88)}));
+
+  auto stages = ScrollJankV4FrameStage::CalculateStages(
+      events_metrics, /* skip_non_damaging_events= */ false);
+  EXPECT_THAT(
+      stages,
+      ElementsAre(
+          ScrollJankV4FrameStage{ScrollStart{}},
+          ScrollJankV4FrameStage{ScrollUpdates(
+              Real{
+                  .first_input_generation_ts = MillisecondsTicks(2),
+                  .last_input_generation_ts = MillisecondsTicks(8),
+                  .has_inertial_input = true,
+                  .abs_total_raw_delta_pixels = 183'000,
+                  .max_abs_inertial_raw_delta_pixels = 128'000,
+                  .first_input_trace_id = TraceId(22),
+              },
+              Synthetic{
+                  .first_input_begin_frame_ts = MillisecondsTicks(24),
+                  .first_input_trace_id = TraceId(44),
+              })}));
 }
 
 TEST_F(ScrollJankV4FrameStageTest,
        ScrollEndForPreviousScrollThenScrollUpdates) {
   EventMetrics::List events_metrics;
-  events_metrics.push_back(
-      CreateGestureScrollUpdate(MillisecondsTicks(3), 40, true));
-  events_metrics.push_back(CreateGestureScrollEnd(MillisecondsTicks(1)));
-  events_metrics.push_back(
-      CreateFirstGestureScrollUpdate(MillisecondsTicks(2), 6, true));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(3),
+       .delta = 40,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(33)}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollEnd(
+      {.timestamp = MillisecondsTicks(1), .caused_frame_update = false}));
+  events_metrics.push_back(metrics_creator_.CreateFirstGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(2),
+       .delta = 6,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(22)}));
   auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
   EXPECT_THAT(
       stages,
       ElementsAre(
           ScrollJankV4FrameStage{ScrollEnd{}},
-          ScrollJankV4FrameStage{ScrollUpdates{
-              .is_scroll_start = true,
-              .earliest_event = base::raw_ref(
-                  static_cast<ScrollUpdateEventMetrics&>(*events_metrics[2])),
-              .last_input_generation_ts = MillisecondsTicks(3),
-              .has_inertial_input = false,
-              .total_raw_delta_pixels = 46,
-              .max_abs_inertial_raw_delta_pixels = 0,
-          }}));
+          ScrollJankV4FrameStage{ScrollStart{}},
+          ScrollJankV4FrameStage{ScrollUpdates(
+              Real{
+                  .first_input_generation_ts = MillisecondsTicks(2),
+                  .last_input_generation_ts = MillisecondsTicks(3),
+                  .has_inertial_input = false,
+                  .abs_total_raw_delta_pixels = 46,
+                  .max_abs_inertial_raw_delta_pixels = 0,
+                  .first_input_trace_id = TraceId(22),
+              },
+              /* synthetic= */ std::nullopt)}));
 }
 
 TEST_F(ScrollJankV4FrameStageTest, ScrollUpdatesThenScrollEndForCurrentScroll) {
   EventMetrics::List events_metrics;
-  events_metrics.push_back(
-      CreateInertialGestureScrollUpdate(MillisecondsTicks(1), 40, true));
-  events_metrics.push_back(CreateGestureScrollEnd(MillisecondsTicks(3)));
-  events_metrics.push_back(
-      CreateInertialGestureScrollUpdate(MillisecondsTicks(2), 6, true));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(1),
+       .delta = 40,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(11)}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollEnd(
+      {.timestamp = MillisecondsTicks(3), .caused_frame_update = false}));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(2),
+       .delta = 6,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(22)}));
   auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
   EXPECT_THAT(
       stages,
       ElementsAre(
-          ScrollJankV4FrameStage{ScrollUpdates{
-              .is_scroll_start = false,
-              .earliest_event = base::raw_ref(
-                  static_cast<ScrollUpdateEventMetrics&>(*events_metrics[0])),
-              .last_input_generation_ts = MillisecondsTicks(2),
-              .has_inertial_input = true,
-              .total_raw_delta_pixels = 46,
-              .max_abs_inertial_raw_delta_pixels = 40,
-          }},
+          ScrollJankV4FrameStage{ScrollUpdates(
+              Real{
+                  .first_input_generation_ts = MillisecondsTicks(1),
+                  .last_input_generation_ts = MillisecondsTicks(2),
+                  .has_inertial_input = true,
+                  .abs_total_raw_delta_pixels = 46,
+                  .max_abs_inertial_raw_delta_pixels = 40,
+                  .first_input_trace_id = TraceId(11),
+              },
+              /* synthetic= */ std::nullopt)},
           ScrollJankV4FrameStage{ScrollEnd{}}));
 }
 
 TEST_F(ScrollJankV4FrameStageTest,
        IgnoreScrollUpdatesThatDidNotCauseFrameUpdate) {
   EventMetrics::List events_metrics;
-  events_metrics.push_back(
-      CreateGestureScrollUpdate(MillisecondsTicks(1), 1, true));
-  events_metrics[0]->set_caused_frame_update(false);
-  events_metrics.push_back(
-      CreateGestureScrollUpdate(MillisecondsTicks(2), 10, true));
-  events_metrics.push_back(
-      CreateInertialGestureScrollUpdate(MillisecondsTicks(3), 100, true));
-  events_metrics.push_back(
-      CreateInertialGestureScrollUpdate(MillisecondsTicks(4), 1000, true));
-  events_metrics[3]->set_caused_frame_update(false);
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(1),
+       .delta = 1,
+       .caused_frame_update = false,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(11)}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(2),
+       .delta = 10,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(22)}));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(3),
+       .delta = 100,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(33)}));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(4),
+       .delta = 1000,
+       .caused_frame_update = false,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(44)}));
 
   auto stages = ScrollJankV4FrameStage::CalculateStages(events_metrics);
   EXPECT_THAT(
       stages,
-      ElementsAre(ScrollJankV4FrameStage{ScrollUpdates{
-          .is_scroll_start = false,
-          .earliest_event = base::raw_ref(
-              static_cast<ScrollUpdateEventMetrics&>(*events_metrics[1])),
+      ElementsAre(ScrollJankV4FrameStage{ScrollUpdates(
+          Real{
+              .first_input_generation_ts = MillisecondsTicks(2),
+              .last_input_generation_ts = MillisecondsTicks(3),
+              .has_inertial_input = true,
+              .abs_total_raw_delta_pixels = 110,
+              .max_abs_inertial_raw_delta_pixels = 100,
+              .first_input_trace_id = TraceId(22),
+          },
+          /* synthetic= */ std::nullopt)}));
+}
+
+TEST_F(ScrollJankV4FrameStageTest, EmptyRealScrollUpdatesToOstream) {
+  std::optional<ScrollUpdates::Real> updates = std::nullopt;
+
+  std::ostringstream out;
+  auto& result = out << updates;
+  EXPECT_EQ(out.str(), "empty");
+  EXPECT_EQ(&result, &out);
+}
+
+TEST_F(ScrollJankV4FrameStageTest, NonEmptyRealScrollUpdatesToOstream) {
+  std::optional<ScrollUpdates::Real> updates = ScrollUpdates::Real{
+      .last_input_generation_ts = MillisecondsTicks(3),
+      .has_inertial_input = false,
+      .abs_total_raw_delta_pixels = 10,
+      .max_abs_inertial_raw_delta_pixels = 0,
+  };
+
+  std::ostringstream out;
+  auto& result = out << updates;
+  EXPECT_THAT(out.str(), ::testing::MatchesRegex(R"(Real\{.+\})"));
+  EXPECT_EQ(&result, &out);
+}
+
+TEST_F(ScrollJankV4FrameStageTest, EmptySyntheticScrollUpdatesToOstream) {
+  std::optional<ScrollUpdates::Synthetic> updates = std::nullopt;
+
+  std::ostringstream out;
+  auto& result = out << updates;
+  EXPECT_EQ(out.str(), "empty");
+  EXPECT_EQ(&result, &out);
+}
+
+TEST_F(ScrollJankV4FrameStageTest, NonEmptySyntheticScrollUpdatesToOstream) {
+  std::optional<ScrollUpdates::Synthetic> updates = ScrollUpdates::Synthetic{
+      .first_input_begin_frame_ts = MillisecondsTicks(42),
+  };
+
+  std::ostringstream out;
+  auto& result = out << updates;
+  EXPECT_THAT(out.str(), ::testing::MatchesRegex(R"(Synthetic\{.+\})"));
+  EXPECT_EQ(&result, &out);
+}
+
+TEST_F(ScrollJankV4FrameStageTest, ScrollUpdatesToOstream) {
+  auto stage = ScrollJankV4FrameStage{ScrollUpdates(
+      ScrollUpdates::Real{
+          .first_input_generation_ts = MillisecondsTicks(1),
           .last_input_generation_ts = MillisecondsTicks(3),
-          .has_inertial_input = true,
-          .total_raw_delta_pixels = 110,
-          .max_abs_inertial_raw_delta_pixels = 100,
-      }}));
+          .has_inertial_input = false,
+          .abs_total_raw_delta_pixels = 10,
+          .max_abs_inertial_raw_delta_pixels = 0,
+      },
+      /* synthetic= */ std::nullopt)};
+
+  std::ostringstream out;
+  auto& result = out << stage;
+  EXPECT_THAT(out.str(), ::testing::MatchesRegex(R"(ScrollUpdates\{.+\})"));
+  EXPECT_EQ(&result, &out);
+}
+
+TEST_F(ScrollJankV4FrameStageTest, ScrollStartToOstream) {
+  auto stage = ScrollJankV4FrameStage{ScrollStart{}};
+
+  std::ostringstream out;
+  auto& result = out << stage;
+  EXPECT_EQ(out.str(), "ScrollStart{}");
+  EXPECT_EQ(&result, &out);
+}
+
+TEST_F(ScrollJankV4FrameStageTest, ScrollEndToOstream) {
+  auto stage = ScrollJankV4FrameStage{ScrollEnd{}};
+
+  std::ostringstream out;
+  auto& result = out << stage;
+  EXPECT_EQ(out.str(), "ScrollEnd{}");
+  EXPECT_EQ(&result, &out);
+}
+
+TEST_F(ScrollJankV4FrameStageTest,
+       FrameStageCalculationResultScrollUpdatesOnly) {
+  base::HistogramTester histogram_tester;
+  base::MetricsSubSampler::ScopedAlwaysSampleForTesting always_sample;
+
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(1),
+       .delta = 5,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  events_metrics.push_back(metrics_creator_.CreateInertialGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(2),
+       .delta = 5,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  ScrollJankV4FrameStage::CalculateStages(events_metrics);
+
+  histogram_tester.ExpectUniqueSample(
+      "Event.ScrollJank.FrameStageCalculationResult",
+      ScrollJankV4FrameStage::FrameStageCalculationResult::kScrollUpdatesOnly,
+      1);
+}
+
+TEST_F(ScrollJankV4FrameStageTest,
+       FrameStageCalculationResultScrollUpdatesThenEnd) {
+  base::HistogramTester histogram_tester;
+  base::MetricsSubSampler::ScopedAlwaysSampleForTesting always_sample;
+
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(1),
+       .delta = 5,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollEnd(
+      {.timestamp = MillisecondsTicks(2), .caused_frame_update = false}));
+  ScrollJankV4FrameStage::CalculateStages(events_metrics);
+
+  histogram_tester.ExpectUniqueSample(
+      "Event.ScrollJank.FrameStageCalculationResult",
+      ScrollJankV4FrameStage::FrameStageCalculationResult::
+          kScrollUpdatesThenEnd,
+      1);
+}
+
+TEST_F(ScrollJankV4FrameStageTest, FrameStageCalculationResultScrollEndOnly) {
+  base::HistogramTester histogram_tester;
+  base::MetricsSubSampler::ScopedAlwaysSampleForTesting always_sample;
+
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollEnd(
+      {.timestamp = MillisecondsTicks(1), .caused_frame_update = false}));
+  ScrollJankV4FrameStage::CalculateStages(events_metrics);
+
+  histogram_tester.ExpectUniqueSample(
+      "Event.ScrollJank.FrameStageCalculationResult",
+      ScrollJankV4FrameStage::FrameStageCalculationResult::kScrollEndOnly, 1);
+}
+
+TEST_F(ScrollJankV4FrameStageTest,
+       FrameStageCalculationResultScrollEndThenStartThenUpdates) {
+  base::HistogramTester histogram_tester;
+  base::MetricsSubSampler::ScopedAlwaysSampleForTesting always_sample;
+
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollEnd(
+      {.timestamp = MillisecondsTicks(1), .caused_frame_update = false}));
+  events_metrics.push_back(metrics_creator_.CreateFirstGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(2),
+       .delta = 5,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(3),
+       .delta = 5,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  ScrollJankV4FrameStage::CalculateStages(events_metrics);
+
+  histogram_tester.ExpectUniqueSample(
+      "Event.ScrollJank.FrameStageCalculationResult",
+      ScrollJankV4FrameStage::FrameStageCalculationResult::
+          kScrollEndThenStartThenUpdates,
+      1);
+}
+
+TEST_F(ScrollJankV4FrameStageTest,
+       FrameStageCalculationResultMultipleScrollEnds) {
+  base::HistogramTester histogram_tester;
+  base::MetricsSubSampler::ScopedAlwaysSampleForTesting always_sample;
+
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollEnd(
+      {.timestamp = MillisecondsTicks(1), .caused_frame_update = false}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollEnd(
+      {.timestamp = MillisecondsTicks(2), .caused_frame_update = false}));
+  ScrollJankV4FrameStage::CalculateStages(events_metrics);
+
+  histogram_tester.ExpectUniqueSample(
+      "Event.ScrollJank.FrameStageCalculationResult",
+      ScrollJankV4FrameStage::FrameStageCalculationResult::kMultipleScrollEnds,
+      1);
+}
+
+TEST_F(ScrollJankV4FrameStageTest,
+       FrameStageCalculationResultMultipleScrollStarts) {
+  base::HistogramTester histogram_tester;
+  base::MetricsSubSampler::ScopedAlwaysSampleForTesting always_sample;
+
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateFirstGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(1),
+       .delta = 5,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  events_metrics.push_back(metrics_creator_.CreateFirstGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(2),
+       .delta = 5,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  ScrollJankV4FrameStage::CalculateStages(events_metrics);
+
+  histogram_tester.ExpectUniqueSample(
+      "Event.ScrollJank.FrameStageCalculationResult",
+      ScrollJankV4FrameStage::FrameStageCalculationResult::
+          kMultipleScrollStarts,
+      1);
+}
+
+TEST_F(ScrollJankV4FrameStageTest,
+       FrameStageCalculationResultScrollStartAfterUpdate) {
+  base::HistogramTester histogram_tester;
+  base::MetricsSubSampler::ScopedAlwaysSampleForTesting always_sample;
+
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(1),
+       .delta = 5,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  events_metrics.push_back(metrics_creator_.CreateFirstGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(2),
+       .delta = 5,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  ScrollJankV4FrameStage::CalculateStages(events_metrics);
+
+  histogram_tester.ExpectUniqueSample(
+      "Event.ScrollJank.FrameStageCalculationResult",
+      ScrollJankV4FrameStage::FrameStageCalculationResult::
+          kScrollStartAfterUpdate,
+      1);
+}
+
+TEST_F(ScrollJankV4FrameStageTest,
+       FrameStageCalculationResultScrollEndBetweenUpdates) {
+  base::HistogramTester histogram_tester;
+  base::MetricsSubSampler::ScopedAlwaysSampleForTesting always_sample;
+
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(1),
+       .delta = 5,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollEnd(
+      {.timestamp = MillisecondsTicks(2), .caused_frame_update = false}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(3),
+       .delta = 5,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  ScrollJankV4FrameStage::CalculateStages(events_metrics);
+
+  histogram_tester.ExpectUniqueSample(
+      "Event.ScrollJank.FrameStageCalculationResult",
+      ScrollJankV4FrameStage::FrameStageCalculationResult::
+          kScrollEndBetweenUpdates,
+      1);
+}
+
+TEST_F(ScrollJankV4FrameStageTest,
+       FrameStageCalculationResultScrollEndThenUpdatesWithoutStart) {
+  base::HistogramTester histogram_tester;
+  base::MetricsSubSampler::ScopedAlwaysSampleForTesting always_sample;
+
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollEnd(
+      {.timestamp = MillisecondsTicks(1), .caused_frame_update = false}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(2),
+       .delta = 5,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  ScrollJankV4FrameStage::CalculateStages(events_metrics);
+
+  histogram_tester.ExpectUniqueSample(
+      "Event.ScrollJank.FrameStageCalculationResult",
+      ScrollJankV4FrameStage::FrameStageCalculationResult::
+          kScrollEndThenUpdatesWithoutStart,
+      1);
+}
+
+TEST_F(ScrollJankV4FrameStageTest, FrameStageCalculationResultMultipleIssues) {
+  base::HistogramTester histogram_tester;
+  base::MetricsSubSampler::ScopedAlwaysSampleForTesting always_sample;
+
+  EventMetrics::List events_metrics;
+  // Two scroll ends.
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollEnd(
+      {.timestamp = MillisecondsTicks(1), .caused_frame_update = false}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollEnd(
+      {.timestamp = MillisecondsTicks(2), .caused_frame_update = false}));
+  // Two scroll starts.
+  events_metrics.push_back(metrics_creator_.CreateFirstGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(3),
+       .delta = 5,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  events_metrics.push_back(metrics_creator_.CreateFirstGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(4),
+       .delta = 5,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  ScrollJankV4FrameStage::CalculateStages(events_metrics);
+
+  histogram_tester.ExpectUniqueSample(
+      "Event.ScrollJank.FrameStageCalculationResult",
+      ScrollJankV4FrameStage::FrameStageCalculationResult::kMultipleIssues, 1);
+}
+
+TEST_F(ScrollJankV4FrameStageTest,
+       FrameStageCalculationResultScrollStartThenUpdates) {
+  base::HistogramTester histogram_tester;
+  base::MetricsSubSampler::ScopedAlwaysSampleForTesting always_sample;
+
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateFirstGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(1),
+       .delta = 5,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(2),
+       .delta = 5,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  ScrollJankV4FrameStage::CalculateStages(events_metrics);
+
+  histogram_tester.ExpectUniqueSample(
+      "Event.ScrollJank.FrameStageCalculationResult",
+      ScrollJankV4FrameStage::FrameStageCalculationResult::
+          kScrollStartThenUpdates,
+      1);
+}
+
+TEST_F(ScrollJankV4FrameStageTest,
+       FrameStageCalculationResultScrollStartThenUpdatesThenEnd) {
+  base::HistogramTester histogram_tester;
+  base::MetricsSubSampler::ScopedAlwaysSampleForTesting always_sample;
+
+  EventMetrics::List events_metrics;
+  events_metrics.push_back(metrics_creator_.CreateFirstGestureScrollUpdate(
+      {.timestamp = MillisecondsTicks(1),
+       .delta = 5,
+       .caused_frame_update = true,
+       .did_scroll = true,
+       .is_synthetic = false,
+       .trace_id = TraceId(42)}));
+  events_metrics.push_back(metrics_creator_.CreateGestureScrollEnd(
+      {.timestamp = MillisecondsTicks(2), .caused_frame_update = true}));
+  ScrollJankV4FrameStage::CalculateStages(events_metrics);
+
+  histogram_tester.ExpectUniqueSample(
+      "Event.ScrollJank.FrameStageCalculationResult",
+      ScrollJankV4FrameStage::FrameStageCalculationResult::
+          kScrollStartThenUpdatesThenEnd,
+      1);
 }
 
 }  // namespace cc

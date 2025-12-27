@@ -41,7 +41,10 @@
 #include "content/common/renderer.mojom.h"
 #include "content/common/renderer_host.mojom.h"
 #include "content/public/renderer/render_thread.h"
+#include "content/renderer/blink_isolates_pressure_listener.h"
 #include "content/renderer/discardable_memory_utils.h"
+#include "content/renderer/memory_reclaimer_pressure_listener.h"
+#include "content/renderer/skia_graphics_pressure_listener.h"
 #include "gpu/ipc/client/gpu_channel_host.h"
 #include "ipc/ipc_sync_channel.h"
 #include "media/media_buildflags.h"
@@ -50,7 +53,6 @@
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/network_change_notifier.h"
@@ -81,7 +83,7 @@ class RasterDarkModeFilter;
 
 namespace gpu {
 class GpuChannelHost;
-class ClientSharedImageInterface;
+class SharedImageInterface;
 }
 
 namespace media {
@@ -172,6 +174,7 @@ class CONTENT_EXPORT RenderThreadImpl
   void WriteIntoTrace(
       perfetto::TracedProto<perfetto::protos::pbzero::RenderProcessHost> proto)
       override;
+  blink::mojom::PerformanceTier GetCpuPerformanceTier() override;
 
   // IPC::Listener implementation via ChildThreadImpl:
   void OnAssociatedInterfaceRequest(
@@ -268,7 +271,7 @@ class CONTENT_EXPORT RenderThreadImpl
       GetVideoFrameCompositorContextProvider(
           scoped_refptr<viz::RasterContextProvider>);
 
-  scoped_refptr<gpu::ClientSharedImageInterface>
+  scoped_refptr<gpu::SharedImageInterface>
   GetRenderThreadSharedImageInterface();
 
   // Returns a worker context provider that will be bound on the compositor
@@ -405,13 +408,14 @@ class CONTENT_EXPORT RenderThreadImpl
       const blink::UserAgentMetadata& user_agent_metadata,
       const std::vector<std::string>& cors_exempt_header_list,
       blink::mojom::OriginTrialsSettingsPtr origin_trial_settings,
+      blink::mojom::PerformanceTier cpu_performance_tier,
       uint64_t trace_id) override;
   void UpdateScrollbarTheme(
       mojom::UpdateScrollbarThemeParamsPtr params) override;
   void OnSystemColorsChanged(int32_t aqua_color_variant) override;
   void UpdateSystemColorInfo(
       mojom::UpdateSystemColorInfoParamsPtr params) override;
-  void PurgePluginListCache(bool reload_pages) override;
+  void PurgePluginListCache() override;
   void PurgeResourceCache(PurgeResourceCacheCallback callback) override;
   void SetProcessState(base::Process::Priority priority,
                        mojom::RenderProcessVisibleState visible_state) override;
@@ -523,12 +527,18 @@ class CONTENT_EXPORT RenderThreadImpl
 
   scoped_refptr<viz::RasterContextProvider> shared_worker_context_provider_;
 
-  scoped_refptr<gpu::ClientSharedImageInterface> shared_image_interface_;
+  scoped_refptr<gpu::SharedImageInterface> shared_image_interface_;
 
   HistogramCustomizer histogram_customizer_;
 
   std::unique_ptr<base::SyncMemoryPressureListenerRegistration>
       memory_pressure_listener_registration_;
+
+  MemoryReclaimerPressureListener memory_reclaimer_pressure_listener_;
+
+  SkiaGraphicsPressureListener skia_graphics_pressure_listener_;
+
+  BlinkIsolatesPressureListener blink_isolates_pressure_listener_;
 
   std::unique_ptr<viz::Gpu> gpu_;
 
@@ -581,6 +591,9 @@ class CONTENT_EXPORT RenderThreadImpl
   // off only one asynchronous request.
   bool cached_items_requested_ = false;
   bool use_cached_routing_table_ = false;
+
+  blink::mojom::PerformanceTier cpu_performance_tier_ =
+      blink::mojom::PerformanceTier::kUnknown;
 
   std::optional<base::ThreadPoolInstance::ScopedRestrictedTasks>
       restrict_thread_pool_;

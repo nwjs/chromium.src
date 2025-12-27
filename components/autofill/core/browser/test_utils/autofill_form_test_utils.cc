@@ -4,6 +4,8 @@
 
 #include "components/autofill/core/browser/test_utils/autofill_form_test_utils.h"
 
+#include <string_view>
+
 #include "base/containers/to_vector.h"
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/form_parsing/determine_regex_types.h"
@@ -14,10 +16,17 @@
 
 namespace autofill::test {
 
-using ::testing::ElementsAre;
+namespace {
 
-testing::Message DescribeFormData(const FormData& form_data) {
-  testing::Message result;
+using ::testing::ElementsAre;
+using ::testing::Message;
+
+constexpr std::string_view kDefaultTestOrigin = "https://example.test/";
+
+}  // namespace
+
+Message DescribeFormData(const FormData& form_data) {
+  Message result;
   result << "Form contains " << form_data.fields().size() << " fields:\n";
   for (const FormFieldData& field : form_data.fields()) {
     result << "type=" << FormControlTypeToString(field.form_control_type())
@@ -193,6 +202,8 @@ FormData GetFormData(const FormDescription& d) {
   f.set_renderer_id(d.renderer_id.value_or(MakeFormRendererId()));
   if (d.main_frame_origin) {
     f.set_main_frame_origin(*d.main_frame_origin);
+  } else {
+    f.set_main_frame_origin(url::Origin::Create(GURL(kDefaultTestOrigin)));
   }
   f.set_fields(base::ToVector(d.fields, [&f](const FieldDescription& dd) {
     FormFieldData ff = GetFormFieldData(dd);
@@ -231,7 +242,7 @@ void FormStructureTest::CheckFormStructureTestData(
     const std::vector<FormStructureTestCase>& test_cases) {
   for (const FormStructureTestCase& test_case : test_cases) {
     const FormData form = GetFormData(test_case.form_attributes);
-    SCOPED_TRACE(testing::Message("Test description: ")
+    SCOPED_TRACE(Message("Test description: ")
                  << test_case.form_attributes.description_for_logging);
 
     auto form_structure = std::make_unique<FormStructure>(form);

@@ -11,6 +11,7 @@
 #include "components/vector_icons/vector_icons.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkPath.h"
+#include "third_party/skia/include/core/SkRRect.h"
 #include "ui/base/default_style.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -239,13 +240,14 @@ bool BubbleFrameView::GetClientMask(const gfx::Size& size, SkPath* path) const {
     return false;
   }
 
-  // Format is upper-left x, upper-left y, upper-right x, and so forth,
-  // clockwise around the boundary.
-  SkScalar radii[]{corner_radii.upper_left(),  corner_radii.upper_left(),
-                   corner_radii.upper_right(), corner_radii.upper_right(),
-                   corner_radii.lower_right(), corner_radii.lower_right(),
-                   corner_radii.lower_left(),  corner_radii.lower_left()};
-  path->addRoundRect(SkRect::MakeIWH(size.width(), size.height()), radii);
+  // Format is upper-left, upper-right, lower-right, and lower-left.
+  const SkVector radii[4]{
+      {corner_radii.upper_left(),  corner_radii.upper_left()},
+      {corner_radii.upper_right(), corner_radii.upper_right()},
+      {corner_radii.lower_right(), corner_radii.lower_right()},
+      {corner_radii.lower_left(),  corner_radii.lower_left()}};
+  *path = SkPath::RRect(SkRRect::MakeRectRadii(
+      SkRect::MakeIWH(size.width(), size.height()), radii));
   return true;
 }
 
@@ -325,17 +327,15 @@ void BubbleFrameView::GetWindowMask(const gfx::Size& size,
                     kBorderStrokeSize)};
 
   if (bubble_border_->shadow() == BubbleBorder::NO_SHADOW) {
-    SkRRect rrect;
-    SkVector radii[4]{{border_radii.upper_left(), border_radii.upper_left()},
+    SkVector radii[4]{{border_radii.upper_left(),  border_radii.upper_left()},
                       {border_radii.upper_right(), border_radii.upper_right()},
                       {border_radii.lower_right(), border_radii.lower_right()},
-                      {border_radii.lower_left(), border_radii.lower_left()}};
-    rrect.setRectRadii(rect, radii);
-    window_mask->addRRect(rrect);
+                      {border_radii.lower_left(),  border_radii.lower_left()}};
+    *window_mask = SkPath::RRect(SkRRect::MakeRectRadii(rect, radii));
   } else {
     static const int kBottomBorderShadowSize = 2;
     rect.fBottom += SkIntToScalar(kBottomBorderShadowSize);
-    window_mask->addRect(rect);
+    *window_mask = SkPath::Rect(rect);
   }
 }
 
@@ -762,7 +762,7 @@ void BubbleFrameView::SetBubbleBorder(std::unique_ptr<BubbleBorder> border) {
 
 void BubbleFrameView::SetContentMargins(const gfx::Insets& content_margins) {
   content_margins_ = content_margins;
-  OnPropertyChanged(&content_margins_, kPropertyEffectsPreferredSizeChanged);
+  OnPropertyChanged(&content_margins_, PropertyEffects::kPreferredSizeChanged);
 }
 
 gfx::Insets BubbleFrameView::GetContentMargins() const {
@@ -808,7 +808,7 @@ View* BubbleFrameView::GetFootnoteView() const {
 
 void BubbleFrameView::SetFootnoteMargins(const gfx::Insets& footnote_margins) {
   footnote_margins_ = footnote_margins;
-  OnPropertyChanged(&footnote_margins_, kPropertyEffectsLayout);
+  OnPropertyChanged(&footnote_margins_, PropertyEffects::kLayout);
 }
 
 gfx::Insets BubbleFrameView::GetFootnoteMargins() const {
@@ -823,7 +823,7 @@ void BubbleFrameView::SetPreferredArrowAdjustment(
 
   preferred_arrow_adjustment_ = adjustment;
   // Changing |preferred_arrow_adjustment| will affect window bounds.
-  OnPropertyChanged(&preferred_arrow_adjustment_, kPropertyEffectsLayout);
+  OnPropertyChanged(&preferred_arrow_adjustment_, PropertyEffects::kLayout);
 }
 
 BubbleFrameView::PreferredArrowAdjustment

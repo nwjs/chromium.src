@@ -23,7 +23,6 @@
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
-#include "components/signin/public/identity_manager/signin_constants.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/service/sync_prefs.h"
 #include "components/sync/test/test_sync_service.h"
@@ -392,9 +391,10 @@ class SigninUtilHistorySyncOptinTest : public SigninUtilTest {
             .WithGaiaId(kSignedInGaiaId)
             .Build(managed_account ? "test@managed.com" : "test@gmail.com"));
 
-    account_info.hosted_domain = managed_account
-                                     ? "managed.com"
-                                     : signin::constants::kNoHostedDomainFound;
+    account_info =
+        AccountInfo::Builder(account_info)
+            .SetHostedDomain(managed_account ? "managed.com" : std::string())
+            .Build();
     signin::UpdateAccountInfoForAccount(identity_manager, account_info);
   }
 
@@ -475,11 +475,13 @@ TEST_F(SigninUtilHistorySyncOptinTest,
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 TEST_F(SigninUtilHistorySyncOptinTest, HasExplicitlyDisabledHistorySync) {
   SignInAndSetUpSyncService();
-  EXPECT_FALSE(signin_util::HasExplicitlyDisabledHistorySync(*profile()));
+  EXPECT_FALSE(signin_util::HasExplicitlyDisabledHistorySync(
+      test_sync_service(), IdentityManagerFactory::GetForProfile(profile())));
 
   test_sync_service()->GetUserSettings()->SetDisabledType(
       syncer::UserSelectableType::kHistory);
-  EXPECT_TRUE(signin_util::HasExplicitlyDisabledHistorySync(*profile()));
+  EXPECT_TRUE(signin_util::HasExplicitlyDisabledHistorySync(
+      test_sync_service(), IdentityManagerFactory::GetForProfile(profile())));
 }
 
 TEST_F(SigninUtilHistorySyncOptinTest,

@@ -30,7 +30,6 @@
 #include "base/command_line.h"
 #include "base/debug/debugger.h"
 #include "base/files/file_path.h"
-#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/test/test_support_android.h"
 #include "base/threading/thread_restrictions.h"
@@ -183,3 +182,5 @@ void InstallHandlers() {
 
 }  // namespace android
 }  // namespace testing
+
+DEFINE_JNI(NativeTest)

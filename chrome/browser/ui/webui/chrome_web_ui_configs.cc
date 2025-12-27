@@ -42,6 +42,7 @@
 #include "chrome/browser/ui/webui/policy/policy_ui.h"
 #include "chrome/browser/ui/webui/predictors/predictors_ui.h"
 #include "chrome/browser/ui/webui/privacy_sandbox/privacy_sandbox_internals_ui.h"
+#include "chrome/browser/ui/webui/regional_capabilities_internals/regional_capabilities_internals_ui.h"
 #include "chrome/browser/ui/webui/saved_tab_groups_unsupported/saved_tab_groups_unsupported_ui.h"
 #include "chrome/browser/ui/webui/segmentation_internals/segmentation_internals_ui.h"
 #include "chrome/browser/ui/webui/signin_internals_ui.h"
@@ -95,6 +96,7 @@
 #include "chrome/browser/ui/webui/internals/internals_ui.h"
 #include "chrome/browser/ui/webui/tab_strip_internals/tab_strip_internals_ui.h"
 #endif  // BUILDFLAG(ENABLE_SESSION_SERVICE)
+#include "chrome/browser/ui/webui/legion_internals/legion_internals_ui.h"
 #include "chrome/browser/ui/webui/management/management_ui.h"
 #include "chrome/browser/ui/webui/media_router/media_router_internals_ui.h"
 #include "chrome/browser/ui/webui/new_tab_footer/new_tab_footer_ui.h"
@@ -104,7 +106,6 @@
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_ui.h"
 #include "chrome/browser/ui/webui/on_device_internals/on_device_internals_ui.h"
 #include "chrome/browser/ui/webui/password_manager/password_manager_ui.h"
-#include "chrome/browser/ui/webui/privacy_sandbox/base_dialog_ui.h"
 #include "chrome/browser/ui/webui/privacy_sandbox/privacy_sandbox_dialog_ui.h"
 #include "chrome/browser/ui/webui/profile_internals/profile_internals_ui.h"
 #include "chrome/browser/ui/webui/search_engine_choice/search_engine_choice_ui.h"
@@ -173,6 +174,10 @@
 #include "chrome/browser/ui/webui/discards/discards_ui.h"
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_DESKTOP_ANDROID)
+
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#include "chrome/browser/ui/webui/updater/updater_ui.h"
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 #include "chrome/browser/ui/webui/signin/batch_upload_ui.h"
@@ -276,6 +281,7 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(
       std::make_unique<
           privacy_sandbox_internals::PrivacySandboxInternalsUIConfig>());
+  map.AddWebUIConfig(std::make_unique<RegionalCapabilitiesInternalsUIConfig>());
 
 #if BUILDFLAG(ENABLE_WEBUI_CERTIFICATE_VIEWER)
   map.AddWebUIConfig(std::make_unique<CertificateViewerUIConfig>());
@@ -318,6 +324,7 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<InternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<TabStripInternalsUIConfig>());
 #endif  // BUILDFLAG(ENABLE_SESSION_SERVICE)
+  map.AddWebUIConfig(std::make_unique<LegionInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<ManagementUIConfig>());
   map.AddWebUIConfig(
       std::make_unique<media_router::MediaRouterInternalsUIConfig>());
@@ -330,7 +337,6 @@ void RegisterChromeWebUIConfigs() {
       std::make_unique<on_device_internals::OnDeviceInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<PasswordManagerUIConfig>());
   map.AddWebUIConfig(std::make_unique<PrivacySandboxDialogUIConfig>());
-  map.AddWebUIConfig(std::make_unique<privacy_sandbox::BaseDialogUIConfig>());
   map.AddWebUIConfig(
       std::make_unique<commerce::ProductSpecificationsUIConfig>());
   map.AddWebUIConfig(std::make_unique<ProfileInternalsUIConfig>());
@@ -402,6 +408,10 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<DiscardsUIConfig>());
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_DESKTOP_ANDROID)
+
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+  map.AddWebUIConfig(std::make_unique<UpdaterUIConfig>());
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   map.AddWebUIConfig(std::make_unique<BatchUploadUIConfig>());

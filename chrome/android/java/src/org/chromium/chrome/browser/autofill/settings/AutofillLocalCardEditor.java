@@ -6,11 +6,13 @@ package org.chromium.chrome.browser.autofill.settings;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -48,7 +50,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.settings.SettingsActivity;
 import org.chromium.components.autofill.AutofillProfile;
 import org.chromium.components.browser_ui.settings.SettingsFragment;
-import org.chromium.components.browser_ui.styles.ChromeColors;
+import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.ui.text.EmptyTextWatcher;
 
@@ -114,7 +116,16 @@ public class AutofillLocalCardEditor extends AutofillCreditCardEditor
             getActivity().getWindow().setAttributes(attributes);
         }
 
-        View v = super.onCreateView(inflater, container, savedInstanceState);
+        LayoutInflater localInflater = inflater;
+        if (ChromeFeatureList.sAndroidSettingsContainment.isEnabled()) {
+            // TODO(crbug.com/439911511): Set the style directly in the layout instead.
+            Context themedContext =
+                    new ContextThemeWrapper(
+                            getActivity(), R.style.ThemeOverlay_Chromium_Settings_InputFields);
+            localInflater = inflater.cloneInContext(themedContext);
+        }
+
+        View v = super.onCreateView(localInflater, container, savedInstanceState);
 
         mDoneButton = v.findViewById(R.id.button_primary);
         mNameLabel = v.findViewById(R.id.credit_card_name_label);
@@ -196,7 +207,8 @@ public class AutofillLocalCardEditor extends AutofillCreditCardEditor
         mScanButton = v.findViewById(R.id.scan_card_button);
         if (ChromeFeatureList.sAndroidSettingsContainment.isEnabled()) {
             mScanButton.setBackgroundColor(
-                    ChromeColors.getSettingsContainerBackgroundColor(mScanButton.getContext()));
+                    SemanticColorUtils.getSettingsContainerBackgroundColor(
+                            mScanButton.getContext()));
         }
         mScanButton.setVisibility(View.GONE);
         mScannerManager = new CreditCardScannerManager(this);

@@ -10,30 +10,16 @@
 #import <vector>
 
 #import "base/functional/callback_forward.h"
+#import "components/webauthn/ios/passkey_types.h"
 
 @class GCRSSOFolsomService;
 
 // Class to manage passkey vault keys.
 class PasskeyKeychainProvider {
  public:
-  // The client-defined purpose of the reauthentication flow.
-  enum class ReauthenticatePurpose {
-    // Unspecified action.
-    kUnspecified,
-    // The client is trying to encrypt using the shared key.
-    kEncrypt,
-    // The user is trying to decrypt using the shared key.
-    kDecrypt,
-  };
-
-  // Helper types representing a key and a list of key respectively.
-  using SharedKey = std::vector<uint8_t>;
-  using SharedKeyList = std::vector<SharedKey>;
-
   // Types for the different callbacks.
   using CheckEnrolledCallback = base::OnceCallback<void(BOOL, NSError*)>;
   using EnrollCallback = base::OnceCallback<void(NSError*)>;
-  using KeysFetchedCallback = base::OnceCallback<void(const SharedKeyList&)>;
   using KeysMarkedAsAsStaleCallback = base::OnceCallback<void(void)>;
   using CheckDegradedRecoverabilityCallback =
       base::OnceCallback<void(BOOL, NSError*)>;
@@ -76,8 +62,8 @@ class PasskeyKeychainProvider {
   // - "callback" is called once the keys are fetched and receives the fetched
   //   keys as input (the array will be empty on failure).
   void FetchKeys(NSString* gaia,
-                 ReauthenticatePurpose purpose,
-                 KeysFetchedCallback callback);
+                 webauthn::ReauthenticatePurpose purpose,
+                 webauthn::KeysFetchedCallback callback);
 
   // Asynchronously marks the keys as stale for the identity identified by
   // `gaia` and invokes `callback` after completion. This should be invoked
@@ -102,8 +88,8 @@ class PasskeyKeychainProvider {
   void Reauthenticate(NSString* gaia,
                       UINavigationController* navigation_controller,
                       UIView* navigation_item_title_view,
-                      ReauthenticatePurpose purpose,
-                      KeysFetchedCallback callback);
+                      webauthn::ReauthenticatePurpose purpose,
+                      webauthn::KeysFetchedCallback callback);
 
   // Checks if the identity identified by `gaia` is in the degraded
   // recoverability state.

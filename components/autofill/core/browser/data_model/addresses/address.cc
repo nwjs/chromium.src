@@ -23,6 +23,7 @@
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_normalization_utils.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_profile_comparator.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_utils.h"
 #include "components/autofill/core/browser/data_quality/autofill_data_util.h"
@@ -144,6 +145,21 @@ void Address::SetRawInfoWithVerificationStatus(FieldType type,
     }
   }
 
+  // In case the settings dialog was used to change the zip code value, the
+  // structure must be reset.
+  if (type == ADDRESS_HOME_ZIP &&
+      base::FeatureList::IsEnabled(features::kAutofillSupportSplitZipCode)) {
+    const std::u16string current_value = Root()->GetValueForType(type);
+    if (!current_value.empty()) {
+      AutofillProfileComparator::Compare(value, current_value,
+                                         normalization::WhitespaceSpec::kRetain)
+          ? Root()->SetValueForType(ADDRESS_HOME_ZIP, value, status)
+          : Root()->SetValueForType(ADDRESS_HOME_ZIP, value, status,
+                                    /*invalidate_child_nodes=*/true);
+      return;
+    }
+  }
+
   if (type == ADDRESS_HOME_COUNTRY) {
     SetAddressCountryCode(value, status);
     return;
@@ -226,38 +242,16 @@ bool Address::SetInfoWithVerificationStatus(const AutofillType& type,
                                             std::string_view locale,
                                             VerificationStatus status) {
   FieldType storable_type = type.GetAddressType();
-  if (storable_type == ADDRESS_HOME_COUNTRY && type.is_country_code()) {
-    std::string country_code =
-        base::IsStringASCII(value)
-            ? base::ToUpperASCII(base::UTF16ToASCII(value))
-            : std::string();
-    if (!data_util::IsValidCountryCode(country_code)) {
-      // To counteract the misuse of autocomplete=country attribute when used
-      // with full country names, if the supplied country code is not a valid,
-      // it is tested if a country code can be derived from the value when it is
-      // interpreted as a full country name. Otherwise an empty string is
-      // assigned to |country_code|.
-      CountryNames* country_names =
-          !value.empty() ? CountryNames::GetInstance() : nullptr;
-      country_code = country_names
-                         ? country_names->GetCountryCodeForLocalizedCountryName(
-                               value, locale)
-                         : std::string();
-    }
+
+  if (storable_type == ADDRESS_HOME_COUNTRY) {
+    // `ParseCountryCode` handles empty values, trying to parse the country from
+    // a country code or a country name
+    const std::string country_code = ParseCountryCode(type, value, locale);
 
     SetRawInfoWithVerificationStatus(ADDRESS_HOME_COUNTRY,
                                      base::UTF8ToUTF16(country_code), status);
+    // Return true if a country code was successfully determined.
     return !country_code.empty();
-  }
-
-  if (storable_type == ADDRESS_HOME_COUNTRY && !value.empty()) {
-    std::string country_code =
-        CountryNames::GetInstance()->GetCountryCodeForLocalizedCountryName(
-            value, locale);
-
-    SetRawInfoWithVerificationStatus(ADDRESS_HOME_COUNTRY,
-                                     base::UTF8ToUTF16(country_code), status);
-    return !GetRawInfo(ADDRESS_HOME_COUNTRY).empty();
   }
 
   SetRawInfoWithVerificationStatus(storable_type, value, status);

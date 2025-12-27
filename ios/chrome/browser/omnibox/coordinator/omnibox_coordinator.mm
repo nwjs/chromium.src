@@ -16,13 +16,13 @@
 #import "components/open_from_clipboard/clipboard_recent_content.h"
 #import "components/search_engines/template_url_service.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/autocomplete/model/autocomplete_browser_agent.h"
 #import "ios/chrome/browser/favicon/model/ios_chrome_favicon_loader_factory.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_constants.h"
 #import "ios/chrome/browser/omnibox/coordinator/omnibox_mediator.h"
 #import "ios/chrome/browser/omnibox/coordinator/omnibox_mediator_delegate.h"
 #import "ios/chrome/browser/omnibox/coordinator/popup/omnibox_popup_coordinator.h"
-#import "ios/chrome/browser/omnibox/coordinator/zero_suggest_prefetch_helper.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_autocomplete_controller.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_metrics_recorder.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_text_controller.h"
@@ -74,10 +74,6 @@
 
 // The paste delegate for the omnibox that prevents multipasting.
 @property(nonatomic, strong) OmniboxTextFieldPasteDelegate* pasteDelegate;
-
-// Helper that starts ZPS prefetch when the user opens a NTP.
-@property(nonatomic, strong)
-    ZeroSuggestPrefetchHelper* zeroSuggestPrefetchHelper;
 
 // The keyboard accessory view. Will be nil if the app is running on an iPad.
 @property(nonatomic, strong)
@@ -182,18 +178,22 @@
   _omniboxTextModel = std::make_unique<OmniboxTextModel>(_client.get());
   id<OmniboxTextInput> textInput = viewController.textInput;
 
+  AutocompleteBrowserAgent* autocompleteBrowserAgent =
+      AutocompleteBrowserAgent::FromBrowser(browser);
+  AutocompleteController* autocompleteController =
+      autocompleteBrowserAgent->GetAutocompleteController(_presentationContext);
+
   _omniboxAutocompleteController = [[OmniboxAutocompleteController alloc]
-      initWithOmniboxClient:_client.get()
-           omniboxTextModel:_omniboxTextModel.get()
-        presentationContext:_presentationContext];
+       initWithOmniboxClient:_client.get()
+      autocompleteController:autocompleteController
+            omniboxTextModel:_omniboxTextModel.get()
+         presentationContext:_presentationContext];
 
   _omniboxMetricsRecorder =
       [[OmniboxMetricsRecorder alloc] initWithClient:_client.get()
                                            textModel:_omniboxTextModel.get()];
   viewController.metricsRecorder = _omniboxMetricsRecorder;
-  [_omniboxMetricsRecorder
-      setAutocompleteController:[_omniboxAutocompleteController
-                                    autocompleteController]];
+  [_omniboxMetricsRecorder setAutocompleteController:autocompleteController];
 
   self.pasteDelegate = [[OmniboxTextFieldPasteDelegate alloc] init];
   [textInput setPasteDelegate:self.pasteDelegate];
@@ -233,11 +233,6 @@
       _omniboxAutocompleteController;
 
   mediator.omniboxTextController = _omniboxTextController;
-
-  self.zeroSuggestPrefetchHelper = [[ZeroSuggestPrefetchHelper alloc]
-      initWithWebStateList:browser->GetWebStateList()];
-  self.zeroSuggestPrefetchHelper.omniboxAutocompleteController =
-      _omniboxAutocompleteController;
 
   CommandDispatcher* dispatcher = browser->GetCommandDispatcher();
   OmniboxPedalAnnotator* annotator = [[OmniboxPedalAnnotator alloc] init];
@@ -286,11 +281,10 @@
     self.keyboardAccessoryView.templateURLService = nil;
   }
 
+  _keyboardMediator.delegate = nil;
   _keyboardMediator = nil;
   self.keyboardAccessoryView = nil;
   self.mediator = nil;
-  [self.zeroSuggestPrefetchHelper disconnect];
-  self.zeroSuggestPrefetchHelper = nil;
   [_omniboxAutocompleteController disconnect];
   _omniboxAutocompleteController = nil;
   [_omniboxTextController disconnect];
@@ -313,6 +307,10 @@
 
 - (void)endEditing {
   [_omniboxTextController endEditing];
+}
+
+- (void)acceptInput {
+  [self.mediator acceptInput];
 }
 
 - (void)insertTextToOmnibox:(NSString*)text {
@@ -344,6 +342,15 @@
 
 - (id<LocationBarOffsetProvider>)offsetProvider {
   return self.viewController;
+}
+
+- (void)clearSuggestionsWithRestartAutocomplete:(BOOL)restartAutocomplete {
+  [_omniboxTextController removePreEditText];
+  if (restartAutocomplete) {
+    [_omniboxAutocompleteController clearAndRestartAutocomplete];
+  } else {
+    [_omniboxAutocompleteController stopAutocompleteWithClearSuggestions:YES];
+  }
 }
 
 - (id<EditViewAnimatee>)animatee {
@@ -379,6 +386,12 @@
   [self.popupCoordinator toggleOmniboxDebuggerView];
 }
 
+- (void)presentLensKeyboardInProductHelper {
+  id<HelpCommands> helpHandler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(), HelpCommands);
+  [helpHandler presentInProductHelpWithType:InProductHelpType::kLensKeyboard];
+}
+
 #pragma mark - OmniboxMediatorDelegate
 
 - (void)omniboxMediatorDidBeginEditing:(OmniboxMediator*)mediator {
@@ -391,15 +404,14 @@
   BOOL showKeyboardAccessory =
       experimental_flags::IsOmniboxDebuggingEnabled() ||
       (!self.searchOnlyUI &&
-       _presentationContext != OmniboxPresentationContext::kAIMPrototype);
+       _presentationContext != OmniboxPresentationContext::kComposebox);
 
   if (!self.keyboardAccessoryView && showKeyboardAccessory) {
     TemplateURLService* templateURLService =
         ios::TemplateURLServiceFactory::GetForProfile(self.profile);
     self.keyboardAccessoryView = ConfigureAssistiveKeyboardViews(
         self.viewController.textInput, kDotComTLD, _keyboardMediator,
-        templateURLService,
-        HandlerForProtocol(self.browser->GetCommandDispatcher(), HelpCommands));
+        templateURLService);
   }
 }
 

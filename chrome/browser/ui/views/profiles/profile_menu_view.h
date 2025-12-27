@@ -13,7 +13,6 @@
 #include <vector>
 
 #include "base/functional/callback_forward.h"
-#include "base/memory/weak_ptr.h"
 #include "build/build_config.h"
 #include "chrome/browser/password_manager/web_app_profile_switcher.h"
 #include "chrome/browser/profiles/avatar_menu.h"
@@ -59,8 +58,7 @@ class ProfileMenuView : public ProfileMenuViewBase {
   ProfileMenuView(ui::TrackedElement* anchor_element,
                   Browser* browser,
                   signin::ProfileMenuAvatarButtonPromoInfo promo_info,
-                  std::optional<signin_metrics::AccessPoint>
-                      explicit_signin_access_point = std::nullopt);
+                  bool from_avatar_promo);
   ~ProfileMenuView() override;
 
   ProfileMenuView(const ProfileMenuView&) = delete;
@@ -97,6 +95,7 @@ class ProfileMenuView : public ProfileMenuViewBase {
   void OnGoogleServicesSettingsButtonClicked();
   void OnAccountSettingsButtonClicked();
   void OnSyncErrorButtonClicked(syncer::SyncService::UserActionableError error);
+  void OnPasskeyUnlockButtonClicked();
   void OnSigninButtonClicked(CoreAccountInfo account,
                              ActionableItem button_type,
                              signin_metrics::AccessPoint access_point);
@@ -106,6 +105,7 @@ class ProfileMenuView : public ProfileMenuViewBase {
   void OnManageProfilesButtonClicked();
   void OnEditProfileButtonClicked();
   void OnAutofillSettingsButtonClicked();
+  void OnYourSavedInfoSettingsButtonClicked();
   void OnBatchUploadButtonClicked(ActionableItem button_type);
 
   // We normally close the bubble any time it becomes inactive but this can lead
@@ -146,7 +146,8 @@ class ProfileMenuView : public ProfileMenuViewBase {
 
   const raw_ref<Browser> browser_;
   signin::ProfileMenuAvatarButtonPromoInfo promo_info_;
-  std::optional<signin_metrics::AccessPoint> explicit_signin_access_point_;
+  // If the profile menu opening originated from a Promo on the AvatarButton.
+  bool from_avatar_promo_;
 
   std::u16string menu_title_;
   std::u16string menu_subtitle_;

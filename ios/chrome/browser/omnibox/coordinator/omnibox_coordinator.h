@@ -60,10 +60,10 @@ class OmniboxClient;
 /// Offset provider for location bar animations.
 - (id<LocationBarOffsetProvider>)offsetProvider;
 
-/// Start this coordinator. When it starts, it expects to have `textField` and
+/// Starts this coordinator. When it starts, it expects to have `textField` and
 /// `locationBar`.
 - (void)start;
-/// Stop this coordinator.
+/// Stops this coordinator.
 - (void)stop;
 
 /// Indicates if the omnibox is the first responder.
@@ -72,17 +72,20 @@ class OmniboxClient;
 /// Use this method to insert target URL or search terms for alternative input
 /// methods, such as QR code scanner or voice search.
 - (void)insertTextToOmnibox:(NSString*)string;
-/// Update the contents and the styling of the omnibox.
+/// Updates the contents and the styling of the omnibox.
 - (void)updateOmniboxState;
-/// Use this method to make the omnibox first responder.
+/// Makes the omnibox first responder.
 - (void)focusOmnibox;
-/// Prepare the omnibox for scribbling.
+/// Prepares the omnibox for scribbling.
 - (void)focusOmniboxForScribble;
-/// Target input for scribble targeting the omnibox.
+/// Targets input for scribble targeting the omnibox.
 - (UIResponder<UITextInput>*)scribbleInput;
 
-/// Use this method to resign `textField` as the first responder.
+/// Resigns `textField` as the first responder.
 - (void)endEditing;
+
+/// Accepts the current input.
+- (void)acceptInput;
 
 /// Sets the thumbnail image used for image search. Set to`nil` to hide the
 /// thumbnail.
@@ -90,6 +93,10 @@ class OmniboxClient;
 
 /// Returns the toolbar omnibox consumer.
 - (id<ToolbarOmniboxConsumer>)toolbarOmniboxConsumer;
+
+// Clears the omnibox suggestions and optionally restarts autocomplete.
+- (void)clearSuggestionsWithRestartAutocomplete:(BOOL)restartAutocomplete;
+
 @end
 
 #endif  // IOS_CHROME_BROWSER_OMNIBOX_COORDINATOR_OMNIBOX_COORDINATOR_H_

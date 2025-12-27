@@ -116,21 +116,8 @@ class WorkDirUnittest(fake_filesystem_unittest.TestCase):
             stderr=subprocess.STDOUT,
         )
 
-    def test_enter_exists_no_force(self):
-        """Tests that an error is raised if the workdir exists."""
-        self.fs.create_dir('/tmp/workdir')
-        self.mock_check_btrfs.return_value = False
-        workdir = workers.WorkDir('workdir',
-                                  pathlib.Path('/tmp/src'),
-                                  clean=False,
-                                  verbose=False,
-                                  force=False)
-        with self.assertRaises(FileExistsError):
-            with workdir:
-                pass
-
-    def test_enter_exists_force(self):
-        """Tests that the workdir is removed if it exists and force is on."""
+    def test_enter_exists(self):
+        """Tests that the workdir is removed if it exists."""
         self.fs.create_dir('/tmp/workdir')
         self.mock_check_btrfs.return_value = True
         workdir = workers.WorkDir('workdir',
@@ -310,9 +297,13 @@ class ParseTestLogResultsTest(unittest.TestCase):
 
     def test_empty_json(self):
         self.assertEqual(workers._parse_test_log_results(None), '')
-        self.assertEqual(
-            workers._parse_test_log_results({}),
-            'Input prompt: None\nResponse: None\nAssertion results:\n')
+        self.assertEqual(workers._parse_test_log_results({}),
+                         'No results found in promptfoo output.')
+
+    def test_empty_results_list(self):
+        json_data = {'results': {'results': []}}
+        self.assertEqual(workers._parse_test_log_results(json_data),
+                         'No results found in promptfoo output.')
 
     def test_missing_keys(self):
         json_data = {'results': {'results': [{}]}}
@@ -822,24 +813,42 @@ class RunOneConfigTest(WorkerThreadUnittest):
                                         runs_per_test=3,
                                         pass_k_threshold=2)
         results_to_return = [
-            results.IterationResult(success=True,
-                                    duration=1.0,
-                                    test_log='log1',
-                                    metrics={'token_usage': {
-                                        'total': 10
-                                    }}),
-            results.IterationResult(success=False,
-                                    duration=1.5,
-                                    test_log='log2',
-                                    metrics={'token_usage': {
-                                        'total': 5
-                                    }}),
-            results.IterationResult(success=True,
-                                    duration=2.0,
-                                    test_log='log3',
-                                    metrics={'token_usage': {
-                                        'total': 15
-                                    }}),
+            results.IterationResult(
+                success=True,
+                duration=1.0,
+                test_log='log1',
+                metrics={
+                    'token_usage': {
+                        'total': 10
+                    },
+                },
+                prompt=None,
+                response=None,
+            ),
+            results.IterationResult(
+                success=False,
+                duration=1.5,
+                test_log='log2',
+                metrics={
+                    'token_usage': {
+                        'total': 5
+                    },
+                },
+                prompt=None,
+                response=None,
+            ),
+            results.IterationResult(
+                success=True,
+                duration=2.0,
+                test_log='log3',
+                metrics={
+                    'token_usage': {
+                        'total': 15
+                    },
+                },
+                prompt=None,
+                response=None,
+            ),
         ]
         with mock.patch.object(workers.WorkerThread,
                                '_run_single_iteration',
@@ -863,18 +872,30 @@ class RunOneConfigTest(WorkerThreadUnittest):
                                         runs_per_test=3,
                                         pass_k_threshold=2)
         results_to_return = [
-            results.IterationResult(success=True,
-                                    duration=1,
-                                    test_log='',
-                                    metrics={}),
-            results.IterationResult(success=False,
-                                    duration=1,
-                                    test_log='',
-                                    metrics={}),
-            results.IterationResult(success=True,
-                                    duration=1,
-                                    test_log='',
-                                    metrics={}),
+            results.IterationResult(
+                success=True,
+                duration=1,
+                test_log='',
+                metrics={},
+                prompt=None,
+                response=None,
+            ),
+            results.IterationResult(
+                success=False,
+                duration=1,
+                test_log='',
+                metrics={},
+                prompt=None,
+                response=None,
+            ),
+            results.IterationResult(
+                success=True,
+                duration=1,
+                test_log='',
+                metrics={},
+                prompt=None,
+                response=None,
+            ),
         ]
         with mock.patch.object(workers.WorkerThread,
                                '_run_single_iteration',
@@ -892,18 +913,30 @@ class RunOneConfigTest(WorkerThreadUnittest):
                                         runs_per_test=3,
                                         pass_k_threshold=3)
         results_to_return = [
-            results.IterationResult(success=True,
-                                    duration=1,
-                                    test_log='',
-                                    metrics={}),
-            results.IterationResult(success=True,
-                                    duration=1,
-                                    test_log='',
-                                    metrics={}),
-            results.IterationResult(success=False,
-                                    duration=1,
-                                    test_log='',
-                                    metrics={}),
+            results.IterationResult(
+                success=True,
+                duration=1,
+                test_log='',
+                metrics={},
+                prompt=None,
+                response=None,
+            ),
+            results.IterationResult(
+                success=True,
+                duration=1,
+                test_log='',
+                metrics={},
+                prompt=None,
+                response=None,
+            ),
+            results.IterationResult(
+                success=False,
+                duration=1,
+                test_log='',
+                metrics={},
+                prompt=None,
+                response=None,
+            ),
         ]
         with mock.patch.object(workers.WorkerThread,
                                '_run_single_iteration',
@@ -921,14 +954,22 @@ class RunOneConfigTest(WorkerThreadUnittest):
                                         runs_per_test=5,
                                         pass_k_threshold=2)
         results_to_return = [
-            results.IterationResult(success=True,
-                                    duration=1,
-                                    test_log='',
-                                    metrics={}),
-            results.IterationResult(success=True,
-                                    duration=1,
-                                    test_log='',
-                                    metrics={}),
+            results.IterationResult(
+                success=True,
+                duration=1,
+                test_log='',
+                metrics={},
+                prompt=None,
+                response=None,
+            ),
+            results.IterationResult(
+                success=True,
+                duration=1,
+                test_log='',
+                metrics={},
+                prompt=None,
+                response=None,
+            ),
         ]
         with mock.patch.object(workers.WorkerThread,
                                '_run_single_iteration',
@@ -946,18 +987,30 @@ class RunOneConfigTest(WorkerThreadUnittest):
                                         runs_per_test=5,
                                         pass_k_threshold=3)
         results_to_return = [
-            results.IterationResult(success=False,
-                                    duration=1,
-                                    test_log='',
-                                    metrics={}),
-            results.IterationResult(success=False,
-                                    duration=1,
-                                    test_log='',
-                                    metrics={}),
-            results.IterationResult(success=False,
-                                    duration=1,
-                                    test_log='',
-                                    metrics={}),
+            results.IterationResult(
+                success=False,
+                duration=1,
+                test_log='',
+                metrics={},
+                prompt=None,
+                response=None,
+            ),
+            results.IterationResult(
+                success=False,
+                duration=1,
+                test_log='',
+                metrics={},
+                prompt=None,
+                response=None,
+            ),
+            results.IterationResult(
+                success=False,
+                duration=1,
+                test_log='',
+                metrics={},
+                prompt=None,
+                response=None,
+            ),
         ]
         with mock.patch.object(workers.WorkerThread,
                                '_run_single_iteration',
@@ -989,8 +1042,7 @@ class WorkerPoolUnittest(unittest.TestCase):
         )
         self.result_options = results.ResultOptions(
             print_output_on_success=False,
-            enable_perf_uploading=False,
-            git_revision=None,
+            result_handlers=[],
         )
 
     def _setUpPatches(self):
@@ -1093,7 +1145,10 @@ class WorkerPoolUnittest(unittest.TestCase):
                                                  success=False,
                                                  duration=1,
                                                  test_log='',
-                                                 metrics={})
+                                                 metrics={},
+                                                 prompt=None,
+                                                 response=None,
+                                             )
                                          ])
         mock_failed_queue = (
             self.mock_result_thread.return_value.failed_result_output_queue)
@@ -1112,6 +1167,8 @@ class WorkerPoolUnittest(unittest.TestCase):
         self.assertEqual(len(failed_tests), 1)
         self.assertEqual(failed_tests[0], failed_test)
         pool.shutdown_blocking(1)
+
+
 
     def test_shutdown_blocking(self):
         """Tests that shutdown_blocking shuts down all threads."""

@@ -126,6 +126,12 @@ std::ostream& operator<<(std::ostream& os, const Section& section);
 
 // Describes formatting information for a field. Currently used only for
 // filling Autofill AI data.
+//
+// Currently, the following kinds of format stings are supported:
+// - Affix format strings: data_util::IsValidAffixFormat().
+// - Date format strings: data_util::IsValidDateFormat().
+// - Date format strings: ICU format.
+// - Flight number format strings (data_util::IsValidFlightNumberFormat().
 struct AutofillFormatString final {
   AutofillFormatString();
   AutofillFormatString(std::u16string value, FormatString_Type type);
@@ -135,6 +141,8 @@ struct AutofillFormatString final {
   AutofillFormatString(AutofillFormatString&&);
   AutofillFormatString& operator=(AutofillFormatString&&);
   ~AutofillFormatString();
+
+  static bool IsValid(std::u16string_view value, FormatString_Type type);
 
   friend bool operator==(const AutofillFormatString&,
                          const AutofillFormatString&) = default;
@@ -198,9 +206,6 @@ class AutofillField : public FormFieldData {
     return server_predictions_;
   }
 
-  const std::vector<FieldPrediction>& experimental_server_predictions() const {
-    return experimental_server_predictions_;
-  }
   HtmlFieldType html_type() const { return html_type_; }
   HtmlFieldMode html_mode() const { return html_mode_; }
   const FieldTypeSet& possible_types() const { return possible_types_; }
@@ -337,7 +342,7 @@ class AutofillField : public FormFieldData {
   // For the field's current value, see FormFieldData::value().
   const std::u16string& initial_value() const { return initial_value_; }
 
-  // Sets the field's current value.
+  // Sets the field's initial value.
   void set_initial_value(std::u16string initial_value,
                          base::PassKey<FormStructure> pass_key) {
     initial_value_ = std::move(initial_value);
@@ -355,14 +360,13 @@ class AutofillField : public FormFieldData {
     return password_requirements_;
   }
 
-  // The format of the value expected by the web document. Currently, the
-  // following kinds of format stings are supported:
-  // - Affix format strings (see data_util::IsValidAffixFormat()).
-  // - Date format strings (data_util::IsValidDateFormat()).
-  // - Flight number format strings (data_util::IsValidFlightNumberFormat()).
+  // The format of the value expected by the web document.
   //
   // Only one format string is stored at a time: the one with the
   // highest-ranking `AutofillFormatString::Source`.
+  //
+  // The server currently does not predict ICU-format dates
+  // (`FormatString_Type_ICU_DATE`).
   base::optional_ref<const AutofillFormatString> format_string() const
       LIFETIME_BOUND;
 
@@ -452,6 +456,7 @@ class AutofillField : public FormFieldData {
 #endif
 
  private:
+  friend class AutofillFieldTestApi;
   struct PredictionResult {
     // The type may be a union type, i.e., hold multiple FieldTypes.
     AutofillType type;
@@ -499,9 +504,6 @@ class AutofillField : public FormFieldData {
 
   // The possible types of the field, as determined by the Autofill server.
   std::vector<FieldPrediction> server_predictions_;
-  // Predictions from the Autofill server which are not intended for general
-  // consumption. They are used for metrics and/or finch experiments.
-  std::vector<FieldPrediction> experimental_server_predictions_;
 
   // Requirements the site imposes to passwords (for password generation).
   // Corresponds to the requirements determined by the Autofill server.
@@ -538,8 +540,9 @@ class AutofillField : public FormFieldData {
   // submission time.
   FieldTypeSet possible_types_;
 
-  // The field's initial value. By default, it's the same as the field's
-  // `value()`, but FormStructure::RetrieveFromCache() may override it.
+  // The field's initial value. Initially, it is the same as
+  // `FormFieldData::value()`, but unlike value(), it remains unchanged over
+  // time.
   std::u16string initial_value_ = value();
 
   // Used to hold the position of the first digit to be copied as a substring

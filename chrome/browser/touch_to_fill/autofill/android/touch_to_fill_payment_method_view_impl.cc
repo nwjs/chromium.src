@@ -23,7 +23,6 @@
 #include "components/autofill/core/browser/data_model/valuables/android/loyalty_card_android.h"
 #include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
 #include "components/autofill/core/browser/payments/bnpl_util.h"
-#include "components/autofill/core/browser/payments/legal_message_line.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/ui/autofill_resource_utils.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -38,34 +37,7 @@
 #include "components/autofill/android/payments_jni_headers/BnplIssuerContext_jni.h"
 #include "components/autofill/android/payments_jni_headers/BnplIssuerTosDetail_jni.h"
 
-using base::android::ConvertUTF16ToJavaString;
-using base::android::ConvertUTF8ToJavaString;
-
 namespace {
-
-static base::android::ScopedJavaLocalRef<jobject>
-ConvertTextWithLinkToJavaObject(
-    JNIEnv* env,
-    const jni_zero::JavaRef<jobject>& obj,
-    const autofill::payments::TextWithLink& link_text) {
-  return autofill::Java_TouchToFillPaymentMethodViewBridge_getSpannableString(
-      env, obj, ConvertUTF16ToJavaString(env, link_text.text),
-      static_cast<int>(link_text.offset.start()),
-      static_cast<int>(link_text.offset.end()),
-      ConvertUTF8ToJavaString(env, link_text.url.spec()));
-}
-
-static base::android::ScopedJavaLocalRef<jobject>
-ConvertLegalMessageLinesToJavaObject(
-    JNIEnv* env,
-    const jni_zero::JavaRef<jobject>& obj,
-    const autofill::LegalMessageLines legal_message_lines) {
-  return autofill::
-      Java_TouchToFillPaymentMethodViewBridge_convertLegalMessageLinesForBnplTos(
-          env, obj,
-          autofill::LegalMessageLineAndroid::ConvertToJavaLinkedList(
-              legal_message_lines));
-}
 
 static base::android::ScopedJavaLocalRef<jobject>
 ConvertBnplIssuerTosDetailToJavaObject(
@@ -74,32 +46,33 @@ ConvertBnplIssuerTosDetailToJavaObject(
     const autofill::TouchToFillPaymentMethodViewController& controller,
     const autofill::payments::BnplIssuerTosDetail& bnpl_issuer_tos_detail) {
   return Java_BnplIssuerTosDetail_Constructor(
-      env, controller.GetJavaResourceId(bnpl_issuer_tos_detail.header_icon_id),
+      env,
+      std::string(
+          ConvertToBnplIssuerIdString(bnpl_issuer_tos_detail.issuer_id)),
+      controller.GetJavaResourceId(bnpl_issuer_tos_detail.header_icon_id),
       controller.GetJavaResourceId(bnpl_issuer_tos_detail.header_icon_id_dark),
-      ConvertUTF16ToJavaString(env, bnpl_issuer_tos_detail.title),
-      ConvertUTF16ToJavaString(env, bnpl_issuer_tos_detail.review_text),
-      ConvertUTF16ToJavaString(env, bnpl_issuer_tos_detail.approve_text),
-      ConvertTextWithLinkToJavaObject(env, obj,
-                                      bnpl_issuer_tos_detail.link_text),
-      ConvertLegalMessageLinesToJavaObject(
-          env, obj, bnpl_issuer_tos_detail.legal_message_lines));
+      bnpl_issuer_tos_detail.is_linked_issuer,
+      bnpl_issuer_tos_detail.issuer_name,
+      autofill::LegalMessageLineAndroid::ConvertToJavaLinkedList(
+          bnpl_issuer_tos_detail.legal_message_lines));
 }
 
 // TODO(crbug.com/449764859): Refactor BnplIssuerContext to use JNI type
 // converters.
+// TODO(crbug.com/430575808): Refactor CreateJavaBnplIssuerContextFromNative to
+// use ResourceMapper::MapToJavaDrawableId directly, eliminating the need to
+// pass the controller argument.
 static base::android::ScopedJavaLocalRef<jobject>
 CreateJavaBnplIssuerContextFromNative(
     JNIEnv* env,
     const autofill::TouchToFillPaymentMethodViewController& controller,
     const autofill::payments::BnplIssuerContext& bnpl_issuer_context,
     const std::string& app_locale) {
-  // Android uses the `LightModeImageId` for both light and dark modes.
-  const std::pair<autofill::BnplIssuer::LightModeImageId,
-                  autofill::BnplIssuer::DarkModeImageId>
-      image_ids = GetBnplIssuerIconIds(
-          bnpl_issuer_context.issuer.issuer_id(),
-          /*issuer_linked=*/bnpl_issuer_context.issuer.payment_instrument()
-              .has_value());
+  // `light_mode_image_id` is used for both light and dark modes on Android.
+  const auto& [light_mode_image_id, _] = GetBnplIssuerIconIds(
+      bnpl_issuer_context.issuer.issuer_id(),
+      /*issuer_linked=*/bnpl_issuer_context.issuer.payment_instrument()
+          .has_value());
 
   const std::u16string selection_text =
       autofill::payments::GetBnplIssuerSelectionOptionText(
@@ -107,7 +80,7 @@ CreateJavaBnplIssuerContextFromNative(
           {bnpl_issuer_context});
 
   return autofill::Java_BnplIssuerContext_Constructor(
-      env, controller.GetJavaResourceId(image_ids.first.value()),
+      env, controller.GetJavaResourceId(light_mode_image_id.value()),
       std::string(
           ConvertToBnplIssuerIdString(bnpl_issuer_context.issuer.issuer_id())),
       bnpl_issuer_context.issuer.GetDisplayName(), selection_text,
@@ -243,19 +216,29 @@ bool TouchToFillPaymentMethodViewImpl::ShowLoyaltyCards(
   return true;
 }
 
-bool TouchToFillPaymentMethodViewImpl::UpdateBnplPaymentMethod(
-    std::optional<uint64_t> extracted_amount,
-    bool is_amount_supported_by_any_issuer) {
+bool TouchToFillPaymentMethodViewImpl::OnPurchaseAmountExtracted(
+    const TouchToFillPaymentMethodViewController& controller,
+    base::span<const payments::BnplIssuerContext> bnpl_issuer_contexts,
+    std::optional<int64_t> extracted_amount,
+    bool is_amount_supported_by_any_issuer,
+    const std::optional<std::string>& app_locale) {
   if (!java_object_) {
     return false;
   }
-  std::optional<int64_t> final_extracted_amount;
-  if (extracted_amount.has_value()) {
-    final_extracted_amount = static_cast<int64_t>(extracted_amount.value());
+  JNIEnv* env = base::android::AttachCurrentThread();
+  std::vector<base::android::ScopedJavaLocalRef<jobject>> issuer_context_array;
+  issuer_context_array.reserve(bnpl_issuer_contexts.size());
+  if (app_locale.has_value()) {
+    for (const payments::BnplIssuerContext& issuer_context :
+         bnpl_issuer_contexts) {
+      issuer_context_array.push_back(CreateJavaBnplIssuerContextFromNative(
+          env, controller, issuer_context, *app_locale));
+    }
   }
-  Java_TouchToFillPaymentMethodViewBridge_updateBnplPaymentMethod(
-      base::android::AttachCurrentThread(), java_object_,
-      final_extracted_amount, is_amount_supported_by_any_issuer);
+
+  Java_TouchToFillPaymentMethodViewBridge_onPurchaseAmountExtracted(
+      env, java_object_, std::move(issuer_context_array), extracted_amount,
+      is_amount_supported_by_any_issuer);
   return true;
 }
 
@@ -351,3 +334,8 @@ void TouchToFillPaymentMethodViewImpl::SetVisible(bool visible) {
 }
 
 }  // namespace autofill
+
+DEFINE_JNI(TouchToFillPaymentMethodViewBridge)
+DEFINE_JNI(LoyaltyCard)
+DEFINE_JNI(BnplIssuerContext)
+DEFINE_JNI(BnplIssuerTosDetail)

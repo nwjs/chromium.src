@@ -48,9 +48,11 @@ import org.chromium.chrome.browser.usb.UsbNotificationManager;
 import org.chromium.chrome.browser.util.WindowFeatures;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
+import org.chromium.components.embedder_support.delegate.ScreenshotResult;
 import org.chromium.components.find_in_page.FindMatchRectsDetails;
 import org.chromium.components.find_in_page.FindNotificationDetails;
 import org.chromium.content_public.browser.InvalidateTypes;
+import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.navigation_controller.UserAgentOverrideOption;
 import org.chromium.content_public.common.ResourceRequestBody;
@@ -260,6 +262,11 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
 
     @Override
     public void loadingStateChanged(boolean shouldShowLoadingUi) {
+        // Destroying a tab destroys the WebContents, which can call this function. Due to
+        // circular dependencies and this function observing the WebContents, not the Tab, there's
+        // no correct destruction ordering, so check if the Tab is being destroyed, and if so, don't
+        // try to use it.
+        if (mTab.isDestroyed()) return;
         boolean isLoading = mTab.getWebContents() != null && mTab.getWebContents().isLoading();
         if (isLoading) {
             mTab.onLoadStarted(shouldShowLoadingUi);
@@ -270,10 +277,10 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
     }
 
     @Override
-    public void onUpdateUrl(GURL url) {
+    public void onUpdateTargetUrl(GURL url) {
         RewindableIterator<TabObserver> observers = mTab.getTabObservers();
-        while (observers.hasNext()) observers.next().onUpdateUrl(mTab, url);
-        mDelegate.onUpdateUrl(url);
+        while (observers.hasNext()) observers.next().onUpdateTargetUrl(mTab, url);
+        mDelegate.onUpdateTargetUrl(url);
     }
 
     @Override
@@ -281,8 +288,9 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
         return mDelegate.takeFocus(reverse);
     }
 
+    @CalledByNative
     @Override
-    public boolean preHandleKeyboardEvent(long nativeKeyEvent) {
+    protected boolean preHandleKeyboardEvent(long nativeKeyEvent) {
         return mDelegate.preHandleKeyboardEvent(nativeKeyEvent);
     }
 
@@ -293,22 +301,22 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
 
     @Override
     public void enterFullscreenModeForTab(
-            long requestingFrame,
+            RenderFrameHost renderFrameHost,
             boolean prefersNavigationBar,
             boolean prefersStatusBar,
             long displayId) {
         mDelegate.enterFullscreenModeForTab(
-                requestingFrame, prefersNavigationBar, prefersStatusBar, displayId);
+                renderFrameHost, prefersNavigationBar, prefersStatusBar, displayId);
     }
 
     @Override
     public void fullscreenStateChangedForTab(
-            long requestingFrame,
+            RenderFrameHost renderFrameHost,
             boolean prefersNavigationBar,
             boolean prefersStatusBar,
             long displayId) {
         mDelegate.fullscreenStateChangedForTab(
-                requestingFrame, prefersNavigationBar, prefersStatusBar, displayId);
+                renderFrameHost, prefersNavigationBar, prefersStatusBar, displayId);
     }
 
     @Override
@@ -593,8 +601,10 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
     }
 
     @Override
-    public boolean maybeCopyContentAreaAsBitmap(Callback<@Nullable Bitmap> callback) {
-        return NativePageBitmapCapturer.maybeCaptureNativeView(mTab, callback);
+    public boolean maybeCopyContentArea(
+            Callback<@Nullable ScreenshotResult> callback,
+            ScreenshotResult.Destination destination) {
+        return NativePageBitmapCapturer.maybeCaptureNativeView(mTab, callback, destination);
     }
 
     @Override

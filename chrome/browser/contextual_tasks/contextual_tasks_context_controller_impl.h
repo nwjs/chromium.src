@@ -13,19 +13,19 @@
 #include "components/sessions/core/session_id.h"
 #include "url/gurl.h"
 
+class Profile;
+
 namespace contextual_tasks {
+
 class ContextualTasksService;
 enum class ContextualTaskContextSource;
-
-}  // namespace contextual_tasks
-
-namespace contextual_tasks {
+struct ContextDecorationParams;
 
 class ContextualTasksContextControllerImpl
     : public ContextualTasksContextController {
  public:
-  explicit ContextualTasksContextControllerImpl(
-      ContextualTasksService* service);
+  ContextualTasksContextControllerImpl(Profile* profile,
+                                       ContextualTasksService* service);
   ~ContextualTasksContextControllerImpl() override;
 
   // ContextualTasksService implementation.
@@ -52,9 +52,13 @@ class ContextualTasksContextControllerImpl
       const std::string& server_id) override;
   void AttachUrlToTask(const base::Uuid& task_id, const GURL& url) override;
   void DetachUrlFromTask(const base::Uuid& task_id, const GURL& url) override;
+  void SetUrlResourcesFromServer(
+      const base::Uuid& task_id,
+      std::vector<UrlResource> url_resources) override;
   void GetContextForTask(
       const base::Uuid& task_id,
       const std::set<ContextualTaskContextSource>& sources,
+      std::unique_ptr<ContextDecorationParams> params,
       base::OnceCallback<void(std::unique_ptr<ContextualTaskContext>)>
           context_callback) override;
   void AssociateTabWithTask(const base::Uuid& task_id,
@@ -63,6 +67,8 @@ class ContextualTasksContextControllerImpl
                                SessionID tab_id) override;
   std::optional<ContextualTask> GetContextualTaskForTab(
       SessionID tab_id) const override;
+  std::vector<SessionID> GetTabsAssociatedWithTask(
+      const base::Uuid& task_id) const override;
   void ClearAllTabAssociationsForTask(const base::Uuid& task_id) override;
   void AddObserver(Observer* observer) override;
   void RemoveObserver(Observer* observer) override;
@@ -70,6 +76,7 @@ class ContextualTasksContextControllerImpl
   GetAiThreadControllerDelegate() override;
 
  private:
+  raw_ptr<Profile> profile_;
   raw_ptr<ContextualTasksService> service_;
 };
 

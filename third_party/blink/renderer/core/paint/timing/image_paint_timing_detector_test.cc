@@ -21,7 +21,9 @@
 #include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/loader/resource/image_resource.h"
+#include "third_party/blink/renderer/core/loader/resource/video_timing.h"
 #include "third_party/blink/renderer/core/paint/timing/largest_contentful_paint_calculator.h"
+#include "third_party/blink/renderer/core/paint/timing/paint_timing.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_detector.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_record.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_test_helper.h"
@@ -35,11 +37,13 @@
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/testing/paint_test_configurations.h"
+#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/url_test_helpers.h"
 #include "third_party/skia/include/core/SkImage.h"
 #include "third_party/skia/include/core/SkSurface.h"
+#include "ui/gfx/geometry/size.h"
 
 namespace blink {
 
@@ -1251,6 +1255,50 @@ TEST_P(ImagePaintTimingDetectorTest, OpacityZeroHTML2) {
   EXPECT_EQ(CountImageRecords(), 0u);
 }
 
+TEST_P(ImagePaintTimingDetectorTest, OpacityZeroHTMLWithInput) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      :root {
+        opacity: 0;
+        will-change: opacity;
+      }
+    </style>
+    <img id="target"></img>
+  )HTML");
+  SetImageAndPaint("target", 256, 256);
+  UpdateAllLifecyclePhasesAndInvokeCallbackIfAny();
+  EXPECT_EQ(CountImageRecords(), 0u);
+
+  // Simulate input to stop LCP.
+  SimulateKeyDown();
+
+  // Change the opacity of documentElement. The img should not be a candidate
+  // because LCP stops on input.
+  GetDocument().documentElement()->setAttribute(html_names::kStyleAttr,
+                                                AtomicString("opacity: 1"));
+  UpdateAllLifecyclePhasesAndInvokeCallbackIfAny();
+  EXPECT_EQ(CountImageRecords(), 0u);
+  auto largest_contentful_paint_details =
+      GetPerformanceTimingForReporting()
+          .LargestContentfulPaintDetailsForMetrics();
+  EXPECT_EQ(largest_contentful_paint_details.image_paint_size, 0u);
+  EXPECT_EQ(largest_contentful_paint_details.image_paint_time, 0u);
+
+  PaintTiming& paint_timing = PaintTiming::From(GetDocument());
+  // FCP and first image paint, however, should be marked, because that does not
+  // stop on input.
+  //
+  // Note: `PaintTiming` doesn't support `MockPaintTimingCallbackManager`, so
+  // check the paint time instead of presentation time.
+  base::TimeTicks fcp_timestamp =
+      paint_timing.FirstContentfulPaintRenderedButNotPresentedAsMonotonicTime();
+  EXPECT_FALSE(fcp_timestamp.is_null());
+
+  base::TimeTicks image_timestamp =
+      paint_timing.FirstImagePaintRenderedButNotPresentedAsMonotonicTime();
+  EXPECT_FALSE(image_timestamp.is_null());
+}
+
 TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_FullViewportImage) {
   ukm::TestAutoSetUkmRecorder test_ukm_recorder;
   SetBodyInnerHTML(R"HTML(
@@ -1316,6 +1364,45 @@ TEST_P(ImagePaintTimingDetectorTest, MAYBE_LargestImagePaint_Detached_Frame) {
   q = Query::EventNameIs("LargestImagePaint::NoCandidate");
   analyzer->FindEvents(q, &events);
   EXPECT_EQ(0u, events.size());
+}
+
+TEST_P(ImagePaintTimingDetectorTest, LargestPaintedImageSetForFirstVideoFrame) {
+  ScopedReportFirstFrameTimeAsRenderTimeForTest
+      scoped_enable_use_first_frame_time(true);
+  SetBodyInnerHTML(R"HTML(
+    <video id="target" width=300 height=200></video>
+  )HTML");
+
+  UpdateAllLifecyclePhasesAndInvokeCallbackIfAny();
+  EXPECT_FALSE(LargestImage());
+
+  Element* video_element = GetDocument().getElementById(AtomicString("target"));
+  ASSERT_TRUE(video_element);
+  ASSERT_TRUE(video_element->GetLayoutObject());
+
+  VideoTiming* video_timing = MakeGarbageCollected<VideoTiming>();
+  video_timing->SetFirstVideoFrameTime(test_task_runner_->NowTicks());
+  video_timing->SetIsSufficientContentLoadedForPaint();
+  video_timing->SetUrl(KURL("http://test.com/video"));
+  video_timing->SetContentSizeForEntropy(1024 * 1024);
+
+  // Since ReportFirstFrameTimeAsRenderTime is enabled, this should create an
+  // `ImageRecord` and set its paint and presentation time. But the image will
+  // only be pending until the next animation frame.
+  GetPaintTimingDetector().NotifyFirstVideoFrame(
+      *video_element->GetLayoutObject(), gfx::Size(300, 100), *video_timing,
+      video_element->GetLayoutObject()
+          ->FirstFragment()
+          .LocalBorderBoxProperties(),
+      video_element->GetLayoutObject()->AbsoluteBoundingBoxRect());
+  EXPECT_FALSE(LargestPaintedImage());
+  ImageRecord* record = LargestImage();
+  ASSERT_TRUE(record);
+  EXPECT_GT(record->RecordedSize(), 0ul);
+  EXPECT_TRUE(record->HasPaintTime());
+
+  UpdateAllLifecyclePhasesAndInvokeCallbackIfAny();
+  EXPECT_EQ(LargestPaintedImage(), record);
 }
 
 class ImagePaintTimingDetectorFencedFrameTest

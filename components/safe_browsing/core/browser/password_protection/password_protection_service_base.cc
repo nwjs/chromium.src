@@ -126,16 +126,6 @@ bool PasswordProtectionServiceBase::ShouldShowModalWarning(
          IsWarningEnabled(password_type);
 }
 
-// TODO(crbug.com/415273169): Update the OTP callback to be tied to the request.
-// And remove these checks.
-bool PasswordProtectionServiceBase::ShouldRunOtpPhishingVerdictCallback(
-    LoginReputationClientRequest::TriggerType trigger_type) const {
-  return trigger_type ==
-             LoginReputationClientRequest::ONE_TIME_PASSWORD_FIELD_DETECTED &&
-         otp_phishing_verdict_callback_.has_value() &&
-         !otp_phishing_verdict_callback_.value().is_null();
-}
-
 LoginReputationClientResponse::VerdictType
 PasswordProtectionServiceBase::GetCachedVerdict(
     const GURL& url,
@@ -194,13 +184,13 @@ void PasswordProtectionServiceBase::RequestFinished(
       warning_shown = true;
     }
 
-    if (ShouldRunOtpPhishingVerdictCallback(request->trigger_type())) {
-      std::move(otp_phishing_verdict_callback_.value())
-          .Run(response->verdict_type() ==
-                   LoginReputationClientResponse::PHISHING ||
-               response->verdict_type() ==
-                   LoginReputationClientResponse::LOW_REPUTATION);
-      otp_phishing_verdict_callback_.reset();
+    if (request->trigger_type() ==
+            LoginReputationClientRequest::ONE_TIME_PASSWORD_FIELD_DETECTED &&
+        request->HasOtpPhishingVerdictCallback()) {
+      request->TakeOtpPhishingVerdictCallback().Run(
+          response->verdict_type() == LoginReputationClientResponse::PHISHING ||
+          response->verdict_type() ==
+              LoginReputationClientResponse::LOW_REPUTATION);
     }
   }
 
@@ -355,7 +345,7 @@ PasswordProtectionServiceBase::GetPasswordProtectionReusedPasswordAccountType(
     case PasswordType::OTHER_GAIA_PASSWORD: {
       AccountInfo account_info = GetAccountInfoForUsername(username);
       if (account_info.account_id.empty() ||
-          account_info.hosted_domain.empty()) {
+          !account_info.GetHostedDomain().has_value()) {
         reused_password_account_type.set_account_type(
             ReusedPasswordAccountType::UNKNOWN);
         return reused_password_account_type;

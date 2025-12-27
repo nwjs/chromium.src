@@ -37,7 +37,6 @@
 #include "chrome/browser/picture_in_picture/picture_in_picture_window.h"
 #include "media/base/media_switches.h"
 #include "net/base/url_util.h"
-#include "third_party/blink/public/common/features.h"
 #include "ui/views/view.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -117,7 +116,6 @@ class PictureInPictureWindowManager::VideoWebContentsObserver final
   raw_ptr<PictureInPictureWindowManager> owner_ = nullptr;
 };
 
-#if !BUILDFLAG(IS_ANDROID)
 // This web contents observer is used only for document PiP.
 class PictureInPictureWindowManager::DocumentWebContentsObserver final
     : public content::WebContentsObserver {
@@ -134,7 +132,6 @@ class PictureInPictureWindowManager::DocumentWebContentsObserver final
   // Owns |this|.
   raw_ptr<PictureInPictureWindowManager> owner_ = nullptr;
 };
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 PictureInPictureWindowManager* PictureInPictureWindowManager::GetInstance() {
   return base::Singleton<PictureInPictureWindowManager>::get();
@@ -164,7 +161,6 @@ void PictureInPictureWindowManager::EnterPictureInPictureWithController(
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 void PictureInPictureWindowManager::EnterDocumentPictureInPicture(
     content::WebContents* parent_web_contents,
     content::WebContents* child_web_contents) {
@@ -190,7 +186,6 @@ void PictureInPictureWindowManager::EnterDocumentPictureInPicture(
 
   NotifyObserversOnEnterPictureInPicture();
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 content::PictureInPictureResult
 PictureInPictureWindowManager::EnterVideoPictureInPicture(
@@ -575,9 +570,10 @@ void PictureInPictureWindowManager::SetWindowParams(NavigateParams& params) {
 #if !BUILDFLAG(IS_ANDROID)
   // Always show document picture-in-picture in a new window. When this is
   // not opened via the AutoPictureInPictureTabHelper, focus the window.
-  params.window_action = ShouldFocusPictureInPictureWindow(params)
-                             ? NavigateParams::SHOW_WINDOW
-                             : NavigateParams::SHOW_WINDOW_INACTIVE;
+  params.window_action =
+      ShouldFocusPictureInPictureWindow(params)
+          ? NavigateParams::WindowAction::kShowWindow
+          : NavigateParams::WindowAction::kShowWindowInactive;
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
 
@@ -653,7 +649,6 @@ bool PictureInPictureWindowManager::IsPictureInPictureDisabled() const {
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 void PictureInPictureWindowManager::DocumentWebContentsDestroyed() {
   // Document PiP window controller also observes the parent and child web
   // contents, so we only need to forget the controller here when user closes
@@ -663,19 +658,13 @@ void PictureInPictureWindowManager::DocumentWebContentsDestroyed() {
     pip_window_controller_ = nullptr;
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 std::unique_ptr<AutoPipSettingOverlayView>
 PictureInPictureWindowManager::GetOverlayView(
     views::View* anchor_view,
     views::BubbleBorder::Arrow arrow) {
   // This should probably CHECK, but tests often can't set the controller.
   if (!pip_window_controller_) {
-    return nullptr;
-  }
-
-  // This is redundant with the check for `auto_pip_tab_helper`, below.
-  // However, for safety, early-out here when the flag is off.
-  if (!base::FeatureList::IsEnabled(
-          blink::features::kMediaSessionEnterPictureInPicture)) {
     return nullptr;
   }
 

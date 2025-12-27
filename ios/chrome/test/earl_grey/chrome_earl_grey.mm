@@ -43,7 +43,7 @@ using chrome_test_util::ShareButton;
 namespace {
 
 // Accessibility ID of the Activity menu.
-NSString* kActivityMenuIdentifier = @"ActivityListView";
+NSString* const kActivityMenuIdentifier = @"ActivityListView";
 
 NSString* const kWaitForPageToStartLoadingError = @"Page did not start to load";
 NSString* const kWaitForPageToFinishLoadingError =
@@ -188,6 +188,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
 
 - (BOOL)isEnhancedSafeBrowsingInfobarEnabled {
   return [ChromeEarlGreyAppInterface isEnhancedSafeBrowsingInfobarEnabled];
+}
+
+- (BOOL)isAskGeminiChipEnabled {
+  return [ChromeEarlGreyAppInterface isAskGeminiChipEnabled];
 }
 
 - (UIInterfaceOrientation)interfaceOrientation {
@@ -1253,6 +1257,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:
                       chrome_test_util::MatchInWindowWithNumber(
                           windowNumber, chrome_test_util::FakeOmnibox())];
+}
+
+- (void)openSettingsInWindowWithNumber:(int)windowNumber {
+  [ChromeEarlGreyAppInterface openSettingsInWindowWithNumber:windowNumber];
 }
 
 #pragma mark - SignIn Utilities (EG2)

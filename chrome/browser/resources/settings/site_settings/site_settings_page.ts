@@ -9,6 +9,7 @@
  */
 
 import 'chrome://resources/cr_elements/icons.html.js';
+import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/cr_collapse/cr_collapse.js';
 import 'chrome://resources/cr_elements/cr_expand_button/cr_expand_button.js';
 import 'chrome://resources/cr_elements/cr_link_row/cr_link_row.js';
@@ -99,7 +100,6 @@ function getCategoryItemMap(): Map<ContentSettingsTypes, CategoryListItem> {
       icon: 'settings:picture-in-picture',
       enabledLabel: 'siteSettingsAutoPictureInPictureAllowed',
       disabledLabel: 'siteSettingsAutoPictureInPictureBlocked',
-      shouldShow: () => loadTimeData.getBoolean('enableAutoPictureInPicture'),
     },
     {
       route: routes.SITE_SETTINGS_BACKGROUND_SYNC,

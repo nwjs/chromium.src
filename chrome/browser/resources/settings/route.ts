@@ -31,9 +31,6 @@ function addPrivacyChildRoutes(r: Partial<SettingsRoutes>) {
   r.SECURITY = r.PRIVACY.createChild('/security');
 
   r.COOKIES = r.PRIVACY.createChild('/cookies');
-  if (loadTimeData.getBoolean('enableIncognitoTrackingProtections') ) {
-    r.INCOGNITO_TRACKING_PROTECTIONS = r.PRIVACY.createChild('/incognito');
-  }
 
   if (!loadTimeData.getBoolean('isPrivacySandboxRestricted')) {
     r.PRIVACY_SANDBOX = r.PRIVACY.createChild('/adPrivacy');
@@ -70,10 +67,8 @@ function addPrivacyChildRoutes(r: Partial<SettingsRoutes>) {
   r.SITE_SETTINGS_AR = r.SITE_SETTINGS.createChild('ar');
   r.SITE_SETTINGS_AUTOMATIC_DOWNLOADS =
       r.SITE_SETTINGS.createChild('automaticDownloads');
-  if (loadTimeData.getBoolean('enableAutoPictureInPicture')) {
-    r.SITE_SETTINGS_AUTO_PICTURE_IN_PICTURE =
-        r.SITE_SETTINGS.createChild('autoPictureInPicture');
-  }
+  r.SITE_SETTINGS_AUTO_PICTURE_IN_PICTURE =
+      r.SITE_SETTINGS.createChild('autoPictureInPicture');
   if (loadTimeData.getBoolean('enableCapturedSurfaceControl')) {
     r.SITE_SETTINGS_CAPTURED_SURFACE_CONTROL =
         r.SITE_SETTINGS.createChild('capturedSurfaceControl');
@@ -231,10 +226,11 @@ function createRoutes(): SettingsRoutes {
           loadTimeData.getString('yourSavedInfoPageTitle'));
 
       r.PAYMENTS = r.YOUR_SAVED_INFO.createChild('/payments');
-      r.ADDRESSES = r.YOUR_SAVED_INFO.createChild('/addresses');
-
-      // TODO(crbug.com/438666322): add routing for "Identity docs"
-      // TODO(crbug.com/438667363): add routing for "Travel"
+      r.YOUR_SAVED_INFO_CONTACT_INFO =
+          r.YOUR_SAVED_INFO.createChild('/contactInfo');
+      r.YOUR_SAVED_INFO_IDENTITY_DOCS =
+          r.YOUR_SAVED_INFO.createChild('/identityDocs');
+      r.YOUR_SAVED_INFO_TRAVEL = r.YOUR_SAVED_INFO.createChild('/travel');
 
       // <if expr="is_win or is_macosx">
       r.PASSKEYS = r.YOUR_SAVED_INFO.createChild('/passkeys');

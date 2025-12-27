@@ -28,7 +28,6 @@
 #import "ios/chrome/browser/prerender/model/prerender_tab_helper.h"
 #import "ios/chrome/browser/print/coordinator/print_coordinator.h"
 #import "ios/chrome/browser/reader_mode/model/features.h"
-#import "ios/chrome/browser/reader_mode/model/reader_mode_browser_agent_web_state_delegate.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_tab_helper.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -89,18 +88,6 @@
 - (void)disconnect {
   // Stop observing the WebStateList before destroying the bridge object.
   _dependencyInstallerBridge.StopObserving();
-}
-
-#pragma mark - ReaderModeBrowserAgentWebStateDelegate
-
-- (void)readerModeBrowserAgent:(ReaderModeBrowserAgent*)browserAgent
-       didCreateReaderWebState:(web::WebState*)webState {
-  [self webStateInserted:webState];
-}
-
-- (void)readerModeBrowserAgent:(ReaderModeBrowserAgent*)browserAgent
-     willDestroyReaderWebState:(web::WebState*)webState {
-  [self webStateRemoved:webState];
 }
 
 #pragma mark - TabsDependencyInstalling
@@ -210,12 +197,6 @@
   if (readerModeTabHelper) {
     readerModeTabHelper->SetReaderModeHandler(
         HandlerForProtocol(_commandDispatcher, ReaderModeCommands));
-    if (IsReaderModeSnackbarEnabled() &&
-        [_commandDispatcher
-            dispatchingForProtocol:@protocol(SnackbarCommands)]) {
-      readerModeTabHelper->SetSnackbarHandler(
-          static_cast<id<SnackbarCommands>>(_commandDispatcher));
-    }
   }
 
   DCHECK(_printCoordinator);
@@ -284,9 +265,14 @@
 
     // TODO(crbug.com/448157489): Remove this or refactor to
     // `HandlerForProtocol`.
-    if (IsAskGeminiSnackbarEnabled()) {
+    if (IsAskGeminiSnackbarEnabled() || IsWebPageReportedImagesSheetEnabled()) {
       BWGTabHelper->SetSnackbarCommandsHandler(
           static_cast<id<SnackbarCommands>>(_commandDispatcher));
+    }
+
+    if (IsAskGeminiChipEnabled()) {
+      BWGTabHelper->SetLocationBarBadgeCommandsHandler(
+          id<LocationBarBadgeCommands>(_commandDispatcher));
     }
   }
 
@@ -300,9 +286,10 @@
   if (base::FeatureList::IsEnabled(kIOSCustomFileUploadMenu)) {
     ChooseFileTabHelper* chooseFileTabHelper =
         ChooseFileTabHelper::FromWebState(webState);
-    CHECK(chooseFileTabHelper);
-    chooseFileTabHelper->SetFileUploadPanelHandler(
-        HandlerForProtocol(_commandDispatcher, FileUploadPanelCommands));
+    if (chooseFileTabHelper) {
+      chooseFileTabHelper->SetFileUploadPanelHandler(
+          HandlerForProtocol(_commandDispatcher, FileUploadPanelCommands));
+    }
   }
 }
 
@@ -366,9 +353,6 @@
       ReaderModeTabHelper::FromWebState(webState);
   if (readerModeTabHelper) {
     readerModeTabHelper->SetReaderModeHandler(nil);
-    if (IsReaderModeSnackbarEnabled()) {
-      readerModeTabHelper->SetSnackbarHandler(nil);
-    }
   }
 
   PrintTabHelper::GetOrCreateForWebState(webState)->set_printer(nil);
@@ -425,6 +409,9 @@
     if (IsAskGeminiSnackbarEnabled()) {
       BWGTabHelper->SetSnackbarCommandsHandler(nil);
     }
+    if (IsAskGeminiChipEnabled()) {
+      BWGTabHelper->SetLocationBarBadgeCommandsHandler(nil);
+    }
   }
 
   FindTabHelper* findTabHelper = FindTabHelper::FromWebState(webState);
@@ -435,8 +422,9 @@
   if (base::FeatureList::IsEnabled(kIOSCustomFileUploadMenu)) {
     ChooseFileTabHelper* chooseFileTabHelper =
         ChooseFileTabHelper::FromWebState(webState);
-    CHECK(chooseFileTabHelper);
-    chooseFileTabHelper->SetFileUploadPanelHandler(nil);
+    if (chooseFileTabHelper) {
+      chooseFileTabHelper->SetFileUploadPanelHandler(nil);
+    }
   }
 }
 

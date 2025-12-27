@@ -18,24 +18,32 @@
 
 namespace ui {
 
-void JNI_AccessibilityState_OnAnimatorDurationScaleChanged(JNIEnv* env) {
+static void JNI_AccessibilityState_OnAnimatorDurationScaleChanged(JNIEnv* env) {
   AccessibilityState::Get()->NotifyAnimatorDurationScaleObservers();
 }
 
-void JNI_AccessibilityState_OnDisplayInversionEnabledChanged(JNIEnv* env,
-                                                             jboolean enabled) {
+static void JNI_AccessibilityState_OnDisplayInversionEnabledChanged(
+    JNIEnv* env,
+    jboolean enabled) {
   AccessibilityState::Get()->NotifyDisplayInversionEnabledObservers(
       static_cast<bool>(enabled));
 }
 
-void JNI_AccessibilityState_OnContrastLevelChanged(
+static void JNI_AccessibilityState_OnContrastLevelChanged(
     JNIEnv* env,
     jboolean highContrastEnabled) {
   AccessibilityState::Get()->NotifyContrastLevelObservers(
       static_cast<bool>(highContrastEnabled));
 }
 
-void JNI_AccessibilityState_RecordAccessibilityServiceInfoHistograms(
+static void JNI_AccessibilityState_OnTextCursorBlinkIntervalChanged(
+    JNIEnv* env,
+    jint newIntervalMs) {
+  AccessibilityState::Get()->NotifyTextCursorBlinkIntervalObservers(
+      base::Milliseconds(newIntervalMs));
+}
+
+static void JNI_AccessibilityState_RecordAccessibilityServiceInfoHistograms(
     JNIEnv* env) {
   AccessibilityState::Get()->NotifyRecordAccessibilityServiceInfoHistogram();
 }
@@ -68,6 +76,13 @@ void AccessibilityState::NotifyContrastLevelObservers(
     bool high_contrast_enabled) {
   observers_.Notify(&AccessibilityStateObserver::OnContrastLevelChanged,
                     high_contrast_enabled);
+}
+
+void AccessibilityState::NotifyTextCursorBlinkIntervalObservers(
+    base::TimeDelta new_interval_ms) {
+  observers_.Notify(
+      &AccessibilityStateObserver::OnTextCursorBlinkIntervalChanged,
+      new_interval_ms);
 }
 
 void AccessibilityState::NotifyRecordAccessibilityServiceInfoHistogram() {
@@ -110,6 +125,12 @@ std::vector<std::string> AccessibilityState::GetAccessibilityServiceIds() {
 }
 
 // static
+base::TimeDelta AccessibilityState::GetTextCursorBlinkInterval() {
+  return base::Milliseconds(Java_AccessibilityState_getTextCursorBlinkInterval(
+      base::android::AttachCurrentThread()));
+}
+
+// static
 bool AccessibilityState::PrefersReducedMotion() {
   return Java_AccessibilityState_prefersReducedMotion(
       base::android::AttachCurrentThread());
@@ -138,3 +159,6 @@ AccessibilityState::AccessibilityState() = default;
 AccessibilityState::~AccessibilityState() = default;
 
 }  // namespace ui
+
+DEFINE_JNI(AccessibilityAutofillHelper)
+DEFINE_JNI(AccessibilityState)

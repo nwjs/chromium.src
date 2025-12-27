@@ -12,6 +12,7 @@
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer.h"
+#import "ios/chrome/browser/tabs/model/tabs_dependency_installer_manager.h"
 #import "ios/web/common/features.h"
 #import "ios/web/public/web_state.h"
 #import "ios/web/public/web_state_observer.h"
@@ -39,7 +40,7 @@ class TabsDependencyInstallationHelper : public WebStateListObserver,
                                          public web::WebStateObserver {
  public:
   TabsDependencyInstallationHelper(
-      WebStateList& web_state_list,
+      Browser& browser,
       TabsDependencyInstaller& dependency_installer,
       TabsDependencyInstaller::Policy policy);
   ~TabsDependencyInstallationHelper() override;
@@ -64,6 +65,8 @@ class TabsDependencyInstallationHelper : public WebStateListObserver,
   void OnWebStateAdded(web::WebState* web_state);
   void OnWebStateRemoved(web::WebState* web_state);
 
+  // Original browser that is being observed.
+  const raw_ref<Browser> browser_;
   // The WebStateList being observed for addition, replacement, and detachment
   // of WebStates
   const raw_ref<WebStateList> web_state_list_;
@@ -82,10 +85,11 @@ class TabsDependencyInstallationHelper : public WebStateListObserver,
 };
 
 TabsDependencyInstallationHelper::TabsDependencyInstallationHelper(
-    WebStateList& web_state_list,
+    Browser& browser,
     TabsDependencyInstaller& dependency_installer,
     TabsDependencyInstaller::Policy policy)
-    : web_state_list_(web_state_list),
+    : browser_(browser),
+      web_state_list_(CHECK_DEREF(browser.GetWebStateList())),
       dependency_installer_(dependency_installer),
       wait_for_realization_to_install_dependencies_(
           WaitForRealizationToInstallDependencies(policy)) {
@@ -93,11 +97,23 @@ TabsDependencyInstallationHelper::TabsDependencyInstallationHelper(
   for (int i = 0; i < web_state_list_->count(); i++) {
     OnWebStateAdded(web_state_list_->GetWebStateAt(i));
   }
+  // Start tracking TabsDependencyInstaller.
+  TabsDependencyInstallerManager* manager =
+      TabsDependencyInstallerManager::FromBrowser(&*browser_);
+  if (manager) {
+    manager->AddInstaller(&*dependency_installer_);
+  }
 }
 
 TabsDependencyInstallationHelper::~TabsDependencyInstallationHelper() {
   for (int i = 0; i < web_state_list_->count(); i++) {
     OnWebStateRemoved(web_state_list_->GetWebStateAt(i));
+  }
+  // Stop tracking TabsDependencyInstaller.
+  TabsDependencyInstallerManager* manager =
+      TabsDependencyInstallerManager::FromBrowser(&*browser_);
+  if (manager) {
+    manager->RemoveInstaller(&*dependency_installer_);
   }
 }
 
@@ -237,7 +253,7 @@ TabsDependencyInstaller::~TabsDependencyInstaller() {
 
 void TabsDependencyInstaller::StartObserving(Browser* browser, Policy policy) {
   installation_helper_ = std::make_unique<TabsDependencyInstallationHelper>(
-      CHECK_DEREF(browser->GetWebStateList()), *this, policy);
+      CHECK_DEREF(browser), *this, policy);
 }
 
 void TabsDependencyInstaller::StopObserving() {

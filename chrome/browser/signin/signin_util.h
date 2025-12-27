@@ -20,6 +20,7 @@
 #include "components/signin/public/identity_manager/tribool.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "net/cookies/canonical_cookie.h"
+#include "ui/base/interaction/element_identifier.h"
 
 class GaiaId;
 class Profile;
@@ -34,6 +35,9 @@ class SyncService;
 }
 
 namespace signin_util {
+
+DECLARE_ELEMENT_IDENTIFIER_VALUE(kSigninErrorDialogId);
+DECLARE_ELEMENT_IDENTIFIER_VALUE(kSigninErrorDialogOkButtonId);
 
 enum class ProfileSeparationPolicyState {
   kEnforcedByExistingProfile,
@@ -205,17 +209,20 @@ bool IsSyncingUserSelectableTypesAllowedByPolicy(
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 // True if the user has explicitly disabled syncing history, tabs or saved tab
-// groups through the settings.
+// groups through the settings. The primary account must be set (this crashes
+// otherwise).
 // This method does not take into account the feature flag
 // `ReplaceSyncPromosWithSignInPromos`.
-bool HasExplicitlyDisabledHistorySync(Profile& profile);
+bool HasExplicitlyDisabledHistorySync(
+    const syncer::SyncService* sync_service,
+    const signin::IdentityManager* identity_manager);
 
 // Returns the value `ShouldShowHistorySyncOptinResult::kShow`
 // if the necessary conditions to show the History Sync Optin screen
 // are met. Otherwise it returns a skip reason.
 // This method does not take into account the feature flag
 // `ReplaceSyncPromosWithSignInPromos`.
-// TODO(crbug.com/419741847): Consider using also on mobile and moving the
+// TODO(crbug.com/457397173): Consider using also on mobile and moving the
 // method as necessary.
 ShouldShowHistorySyncOptinResult ShouldShowHistorySyncOptinScreen(
     Profile& profile);

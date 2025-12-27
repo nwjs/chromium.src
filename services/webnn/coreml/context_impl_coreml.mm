@@ -21,6 +21,29 @@
 
 namespace webnn::coreml {
 
+// static
+std::unique_ptr<WebNNContextImpl, OnTaskRunnerDeleter>
+ContextImplCoreml::Create(
+    mojo::PendingReceiver<mojom::WebNNContext> receiver,
+    base::WeakPtr<WebNNContextProviderImpl> context_provider,
+    mojom::CreateContextOptionsPtr options,
+    gpu::CommandBufferId command_buffer_id,
+    std::unique_ptr<ScopedSequence> sequence,
+    scoped_refptr<gpu::MemoryTracker> memory_tracker,
+    scoped_refptr<base::SingleThreadTaskRunner> owning_task_runner,
+    gpu::SharedImageManager* shared_image_manager,
+    scoped_refptr<base::SingleThreadTaskRunner> main_task_runner) {
+  auto task_runner = owning_task_runner;
+  std::unique_ptr<WebNNContextImpl, OnTaskRunnerDeleter> context_impl(
+      new ContextImplCoreml(std::move(receiver), std::move(context_provider),
+                            std::move(options), command_buffer_id,
+                            std::move(sequence), std::move(memory_tracker),
+                            std::move(owning_task_runner), shared_image_manager,
+                            std::move(main_task_runner)),
+      OnTaskRunnerDeleter(std::move(task_runner)));
+  return context_impl;
+}
+
 ContextImplCoreml::ContextImplCoreml(
     mojo::PendingReceiver<mojom::WebNNContext> receiver,
     base::WeakPtr<WebNNContextProviderImpl> context_provider,
@@ -91,7 +114,7 @@ base::expected<scoped_refptr<WebNNTensorImpl>, mojom::ErrorPtr>
 ContextImplCoreml::CreateTensorFromSharedImageImpl(
     mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
     mojom::TensorInfoPtr tensor_info,
-    std::unique_ptr<gpu::WebNNTensorRepresentation> representation) {
+    WebNNTensorImpl::RepresentationPtr representation) {
   return TensorImplCoreml::Create(std::move(receiver), AsWeakPtr(),
                                   std::move(tensor_info),
                                   std::move(representation));

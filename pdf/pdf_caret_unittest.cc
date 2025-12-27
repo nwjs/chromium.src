@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include "base/compiler_specific.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "pdf/accessibility_structs.h"
@@ -14,6 +15,7 @@
 #include "pdf/page_orientation.h"
 #include "pdf/pdf_caret_client.h"
 #include "pdf/region_data.h"
+#include "pdf/test/mock_pdf_caret_client.h"
 #include "pdf/test/test_helpers.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -22,6 +24,7 @@
 #include "third_party/skia/include/core/SkImageInfo.h"
 #include "third_party/skia/include/core/SkSurface.h"
 #include "ui/events/keycodes/keyboard_codes.h"
+#include "ui/gfx/geometry/rect.h"
 
 namespace chrome_pdf {
 
@@ -33,6 +36,8 @@ using ::testing::InSequence;
 using ::testing::Mock;
 using ::testing::Return;
 using ::testing::StrictMock;
+
+constexpr char kCaretFirstVisibleHistogram[] = "PDF.Caret.FirstVisible";
 
 constexpr base::TimeDelta kOneMs = base::Milliseconds(1);
 
@@ -60,6 +65,9 @@ constexpr gfx::Rect kTestChar1Caret = kTestChar0EndCaret;
 constexpr gfx::Rect kTestChar1EndCaret{34, 10, 1, 14};
 constexpr gfx::Rect kTestChar0ZoomedCaret{20, 20, 1, 28};
 
+constexpr gfx::Rect kTestChar0TopCaret{10, 10, 12, 1};
+constexpr gfx::Rect kTestChar0BottomCaret{10, 24, 12, 1};
+
 constexpr gfx::Rect kTestMultiPage1Char0ScreenRect{15, 15, 8, 4};
 constexpr gfx::Rect kTestMultiPage1Char1ScreenRect{23, 15, 8, 4};
 constexpr gfx::Rect kTestMultiPage2NonTextScreenRect{40, 40, 1, 12};
@@ -78,64 +86,6 @@ AccessibilityTextRunInfo GenerateTestTextRunInfo(
   return text_run;
 }
 
-class MockTestClient : public PdfCaretClient {
- public:
-  MockTestClient() = default;
-  MockTestClient(const MockTestClient&) = delete;
-  MockTestClient& operator=(const MockTestClient&) = delete;
-  ~MockTestClient() override = default;
-
-  const gfx::Rect& invalidated_rect() const { return invalidated_rect_; }
-
-  // PdfCaretClient:
-  MOCK_METHOD(void, ClearTextSelection, (), (override));
-
-  MOCK_METHOD(void,
-              ExtendAndInvalidateSelectionByChar,
-              (const PageCharacterIndex& index),
-              (override));
-
-  MOCK_METHOD(uint32_t, GetCharCount, (uint32_t page_index), (const override));
-
-  MOCK_METHOD(PageOrientation, GetCurrentOrientation, (), (const override));
-
-  MOCK_METHOD(std::vector<gfx::Rect>,
-              GetScreenRectsForCaret,
-              (const PageCharacterIndex& index),
-              (const override));
-
-  MOCK_METHOD(std::optional<AccessibilityTextRunInfo>,
-              GetTextRunInfoAt,
-              (const PageCharacterIndex& index),
-              (const override));
-
-  void InvalidateRect(const gfx::Rect& rect) override {
-    invalidated_rect_ = rect;
-  }
-
-  MOCK_METHOD(bool, IsSelecting, (), (const override));
-
-  MOCK_METHOD(bool,
-              IsSynthesizedNewline,
-              (const PageCharacterIndex& index),
-              (const override));
-
-  MOCK_METHOD(bool, PageIndexInBounds, (int index), (const override));
-
-  MOCK_METHOD(void,
-              ScrollToChar,
-              (const PageCharacterIndex& index),
-              (override));
-
-  MOCK_METHOD(void,
-              StartSelection,
-              (const PageCharacterIndex& index),
-              (override));
-
- private:
-  gfx::Rect invalidated_rect_;
-};
-
 class PdfCaretTest : public testing::Test {
  public:
   PdfCaretTest() = default;
@@ -143,7 +93,7 @@ class PdfCaretTest : public testing::Test {
   PdfCaretTest& operator=(const PdfCaretTest&) = delete;
   ~PdfCaretTest() override = default;
 
-  MockTestClient& client() { return client_; }
+  MockPdfCaretClient& client() { return client_; }
 
   PdfCaret& caret() { return *caret_; }
 
@@ -159,7 +109,8 @@ class PdfCaretTest : public testing::Test {
   }
 
   void InitializeCaretAtChar(const PageCharacterIndex& index) {
-    caret_ = std::make_unique<PdfCaret>(&client_, index);
+    caret_ = std::make_unique<PdfCaret>(&client_);
+    caret_->SetChar(index);
   }
 
   void InitializeVisibleCaretAtChar(const PageCharacterIndex& index) {
@@ -297,19 +248,22 @@ class PdfCaretTest : public testing::Test {
   }
 
  private:
-  StrictMock<MockTestClient> client_;
+  StrictMock<MockPdfCaretClient> client_;
   std::unique_ptr<PdfCaret> caret_;
   SkBitmap bitmap_;
 };
 
 TEST_F(PdfCaretTest, NoTextPage) {
+  base::HistogramTester histograms;
   SetUpNoTextPageTest();
   InitializeVisibleCaretAtChar(kTestChar0);
 
   TestDrawCaret(kDefaultCaret);
+  histograms.ExpectUniqueSample(kCaretFirstVisibleHistogram, true, 1);
 }
 
 TEST_F(PdfCaretTest, SetEnabled) {
+  base::HistogramTester histograms;
   SetUpSingleCharLineTest();
   InitializeCaretAtChar(kTestChar0);
 
@@ -317,19 +271,31 @@ TEST_F(PdfCaretTest, SetEnabled) {
 
   // Default disabled.
   TestDrawCaretFails(kTestChar0Caret);
+  histograms.ExpectTotalCount(kCaretFirstVisibleHistogram, 0);
 
   caret().SetEnabled(true);
 
   TestDrawCaret(kTestChar0Caret);
+  histograms.ExpectUniqueSample(kCaretFirstVisibleHistogram, true, 1);
 
   caret().SetEnabled(false);
+
   TestDrawCaretFails(kTestChar0Caret);
+  histograms.ExpectUniqueSample(kCaretFirstVisibleHistogram, true, 1);
 
   GetPdfTestTaskEnvironment().FastForwardBy(PdfCaret::kDefaultBlinkInterval);
+
   TestDrawCaretFails(kTestChar0Caret);
+  histograms.ExpectUniqueSample(kCaretFirstVisibleHistogram, true, 1);
+
+  caret().SetEnabled(true);
+
+  TestDrawCaret(kTestChar0Caret);
+  histograms.ExpectUniqueSample(kCaretFirstVisibleHistogram, true, 1);
 }
 
 TEST_F(PdfCaretTest, SetVisible) {
+  base::HistogramTester histograms;
   SetUpSingleCharLineTest();
   InitializeCaretAtChar(kTestChar0);
 
@@ -337,16 +303,26 @@ TEST_F(PdfCaretTest, SetVisible) {
 
   // Default not visible.
   TestDrawCaretFails(kTestChar0Caret);
+  histograms.ExpectTotalCount(kCaretFirstVisibleHistogram, 0);
 
   caret().SetVisible(true);
 
   TestDrawCaret(kTestChar0Caret);
 
   caret().SetVisible(false);
+
   TestDrawCaretFails(kTestChar0Caret);
+  histograms.ExpectUniqueSample(kCaretFirstVisibleHistogram, true, 1);
 
   GetPdfTestTaskEnvironment().FastForwardBy(PdfCaret::kDefaultBlinkInterval);
+
   TestDrawCaretFails(kTestChar0Caret);
+  histograms.ExpectUniqueSample(kCaretFirstVisibleHistogram, true, 1);
+
+  caret().SetVisible(true);
+
+  TestDrawCaret(kTestChar0Caret);
+  histograms.ExpectUniqueSample(kCaretFirstVisibleHistogram, true, 1);
 }
 
 TEST_F(PdfCaretTest, SetBlinkIntervalWhileNotVisible) {
@@ -403,6 +379,17 @@ TEST_F(PdfCaretTest, SetBlinkIntervalWhileVisible) {
 
   GetPdfTestTaskEnvironment().FastForwardBy(kBlinkInterval);
   TestDrawCaretFails(kTestChar0Caret);
+
+  GetPdfTestTaskEnvironment().FastForwardBy(kBlinkInterval - kOneMs);
+  TestDrawCaretFails(kTestChar0Caret);
+
+  // Set to the same blink interval. Should not reset the blink timer.
+  caret().SetBlinkInterval(kBlinkInterval);
+
+  TestDrawCaretFails(kTestChar0Caret);
+
+  GetPdfTestTaskEnvironment().FastForwardBy(kOneMs);
+  TestDrawCaret(kTestChar0Caret);
 }
 
 TEST_F(PdfCaretTest, SetBlinkIntervalNegative) {
@@ -422,12 +409,14 @@ TEST_F(PdfCaretTest, SetBlinkIntervalNegative) {
 }
 
 TEST_F(PdfCaretTest, MaybeDrawCaret) {
+  base::HistogramTester histograms;
   SetUpSingleCharLineTest();
   InitializeCaretAtChar(kTestChar0);
 
   // Not yet visible.
   EXPECT_FALSE(caret().MaybeDrawCaret(GetRegionData(kTestChar0Caret.origin()),
                                       kTestChar0Caret));
+  histograms.ExpectTotalCount(kCaretFirstVisibleHistogram, 0);
 
   caret().SetEnabled(true);
   caret().SetVisible(true);
@@ -435,18 +424,21 @@ TEST_F(PdfCaretTest, MaybeDrawCaret) {
   // Not dirty in screen.
   EXPECT_FALSE(caret().MaybeDrawCaret(GetRegionData(gfx::Point(70, 70)),
                                       gfx::Rect(70, 70, 20, 30)));
+  histograms.ExpectTotalCount(kCaretFirstVisibleHistogram, 0);
 
   // Partially dirty in screen. For testing purposes, origin is bottom left
   // instead of top right.
   EXPECT_TRUE(caret().MaybeDrawCaret(GetRegionData(gfx::Point(5, 5)),
                                      gfx::Rect(5, 5, 20, 30)));
   VerifyCaretRendering(gfx::Rect(5, 5, 1, 9));
+  histograms.ExpectUniqueSample(kCaretFirstVisibleHistogram, true, 1);
   ResetBitmap();
 
   // Fully dirty in screen.
   EXPECT_TRUE(caret().MaybeDrawCaret(GetRegionData(kTestChar0Caret.origin()),
                                      kTestChar0Caret));
   VerifyCaretRendering(kTestChar0Caret);
+  histograms.ExpectUniqueSample(kCaretFirstVisibleHistogram, true, 1);
 }
 
 TEST_F(PdfCaretTest, Blink) {
@@ -667,9 +659,6 @@ TEST_F(PdfCaretTest, SetCharAndDrawMultiPage) {
 
 class PdfCaretTextDirectionTest : public PdfCaretTest {
  public:
-  static constexpr gfx::Rect kTestChar0TopCaret{10, 10, 12, 1};
-  static constexpr gfx::Rect kTestChar0BottomCaret{10, 24, 12, 1};
-
   void SetUpTextDirectionTest(const PageCharacterIndex& start_index,
                               AccessibilityTextDirection direction) {
     SetUpPagesWithCharCounts({2});
@@ -728,7 +717,7 @@ TEST_F(PdfCaretTextDirectionTest, NoTextPage) {
 
   InSequence sequence;
   TestOrientation(PageOrientation::kOriginal, kDefaultCaret);
-  TestOrientation(PageOrientation::kClockwise90, gfx::Rect(10, 10, 12, 1));
+  TestOrientation(PageOrientation::kClockwise90, kTestChar0TopCaret);
   TestOrientation(PageOrientation::kClockwise180, gfx::Rect(22, 10, 1, 12));
   TestOrientation(PageOrientation::kClockwise270, gfx::Rect(10, 22, 12, 1));
 }
@@ -1607,6 +1596,58 @@ TEST_F(PdfCaretSelectionTest, MoveCaretWithShiftUpMultiPage) {
   ExpectExtendAndInvalidateSelectionByChar(kTestChar0);
   EXPECT_TRUE(
       caret().OnKeyDown(GenerateShiftKeyboardEvent(ui::KeyboardCode::VKEY_UP)));
+}
+
+class PdfCaretMoveWithTextDirectionTest : public PdfCaretMoveTest {
+ public:
+  void SetUpTextDirectionTest(AccessibilityTextDirection direction) {
+    // To simplify tests, just use a single character.
+    SetUpSingleCharLineTest();
+    EXPECT_CALL(client(), GetTextRunInfoAt(_))
+        .WillRepeatedly(Return(GenerateTestTextRunInfo(direction)));
+    InitializeVisibleCaretAtChar(kTestChar0);
+  }
+
+  void TestMove(ui::KeyboardCode key, const gfx::Rect& expected_caret) {
+    EXPECT_TRUE(caret().OnKeyDown(GenerateKeyboardEvent(key)));
+    TestDrawCaret(expected_caret);
+  }
+};
+
+TEST_F(PdfCaretMoveWithTextDirectionTest, LeftToRight) {
+  SetUpTextDirectionTest(AccessibilityTextDirection::kLeftToRight);
+  TestDrawCaret(kTestChar0Caret);
+  TestMove(ui::KeyboardCode::VKEY_RIGHT, kTestChar0EndCaret);
+  TestMove(ui::KeyboardCode::VKEY_LEFT, kTestChar0Caret);
+  TestMove(ui::KeyboardCode::VKEY_DOWN, kTestChar0EndCaret);
+  TestMove(ui::KeyboardCode::VKEY_UP, kTestChar0Caret);
+}
+
+TEST_F(PdfCaretMoveWithTextDirectionTest, RightToLeft) {
+  SetUpTextDirectionTest(AccessibilityTextDirection::kRightToLeft);
+  TestDrawCaret(kTestChar0EndCaret);
+  TestMove(ui::KeyboardCode::VKEY_LEFT, kTestChar0Caret);
+  TestMove(ui::KeyboardCode::VKEY_RIGHT, kTestChar0EndCaret);
+  TestMove(ui::KeyboardCode::VKEY_DOWN, kTestChar0Caret);
+  TestMove(ui::KeyboardCode::VKEY_UP, kTestChar0EndCaret);
+}
+
+TEST_F(PdfCaretMoveWithTextDirectionTest, TopToBottom) {
+  SetUpTextDirectionTest(AccessibilityTextDirection::kTopToBottom);
+  TestDrawCaret(kTestChar0TopCaret);
+  TestMove(ui::KeyboardCode::VKEY_DOWN, kTestChar0BottomCaret);
+  TestMove(ui::KeyboardCode::VKEY_UP, kTestChar0TopCaret);
+  TestMove(ui::KeyboardCode::VKEY_LEFT, kTestChar0BottomCaret);
+  TestMove(ui::KeyboardCode::VKEY_RIGHT, kTestChar0TopCaret);
+}
+
+TEST_F(PdfCaretMoveWithTextDirectionTest, BottomToTop) {
+  SetUpTextDirectionTest(AccessibilityTextDirection::kBottomToTop);
+  TestDrawCaret(kTestChar0BottomCaret);
+  TestMove(ui::KeyboardCode::VKEY_UP, kTestChar0TopCaret);
+  TestMove(ui::KeyboardCode::VKEY_DOWN, kTestChar0BottomCaret);
+  TestMove(ui::KeyboardCode::VKEY_LEFT, kTestChar0TopCaret);
+  TestMove(ui::KeyboardCode::VKEY_RIGHT, kTestChar0BottomCaret);
 }
 
 }  // namespace

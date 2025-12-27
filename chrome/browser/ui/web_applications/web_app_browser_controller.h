@@ -76,6 +76,10 @@ class WebAppBrowserController : public AppBrowserController,
   WebAppBrowserController& operator=(const WebAppBrowserController&) = delete;
   ~WebAppBrowserController() override;
 
+  // Returns the web app controller if `browser` is a web app and the controller
+  // is a WebAppBrowserController, otherwise null.
+  static WebAppBrowserController* From(BrowserWindowInterface* browser);
+
   // AppBrowserController:
   using HomeTabCallbackList = base::OnceCallbackList<void()>;
   bool HasMinimalUiButtons() const override;
@@ -108,6 +112,7 @@ class WebAppBrowserController : public AppBrowserController,
   void ToggleWindowControlsOverlayEnabled(
       base::OnceClosure on_complete) override;
   bool AppUsesBorderlessMode() const override;
+  bool UrlMatchesBorderlessPattern(const GURL& url) const override;
   bool IsIsolatedWebApp() const override;
   void SetIsolatedWebAppTrueForTesting() override;
   gfx::Rect GetDefaultBounds() const override;
@@ -153,6 +158,8 @@ class WebAppBrowserController : public AppBrowserController,
   void OnTabRemoved(content::WebContents* contents) override;
 
  private:
+  bool did_notify_first_tab_ = false;
+
   mutable HomeTabCallbackList home_tab_callback_list_;
   const WebAppRegistrar& registrar() const;
   const WebAppInstallManager& install_manager() const;

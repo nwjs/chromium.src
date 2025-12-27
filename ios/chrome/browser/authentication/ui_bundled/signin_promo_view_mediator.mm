@@ -28,12 +28,14 @@
 #import "ios/chrome/browser/authentication/ui_bundled/signin_presenter.h"
 #import "ios/chrome/browser/discover_feed/model/feed_constants.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
+#import "ios/chrome/browser/signin/model/avatar_provider.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/system_identity.h"
 #import "ios/chrome/browser/sync/model/sync_observer_bridge.h"
@@ -66,6 +68,7 @@ bool IsSupportedAccessPoint(signin_metrics::AccessPoint access_point) {
     case signin_metrics::AccessPoint::kReadingList:
       return true;
     case signin_metrics::AccessPoint::kSettings:
+    case signin_metrics::AccessPoint::kSettingsYourSavedInfo:
     // TODO(crbug.com/40280655): Pass kTabSwitcher and not recent
     // tabs in the tab switcher promo.
     case signin_metrics::AccessPoint::kTabSwitcher:
@@ -122,8 +125,8 @@ bool IsSupportedAccessPoint(signin_metrics::AccessPoint access_point) {
     case signin_metrics::AccessPoint::kOidcRedirectionInterception:
     case signin_metrics::AccessPoint::kWebauthnModalDialog:
     case signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo:
-    case signin_metrics::AccessPoint::kAccountMenu:
-    case signin_metrics::AccessPoint::kAccountMenuFailedSwitch:
+    case signin_metrics::AccessPoint::kAccountMenuSwitchAccount:
+    case signin_metrics::AccessPoint::kAccountMenuSwitchAccountFailed:
     case signin_metrics::AccessPoint::kProductSpecifications:
     case signin_metrics::AccessPoint::kAddressBubble:
     case signin_metrics::AccessPoint::kCctAccountMismatchNotification:
@@ -146,6 +149,7 @@ bool IsSupportedAccessPoint(signin_metrics::AccessPoint access_point) {
     case signin_metrics::AccessPoint::
         kEnterpriseManagementDisclaimerAfterSignin:
     case signin_metrics::AccessPoint::kNtpFeaturePromo:
+    case signin_metrics::AccessPoint::kEnterpriseDialogAfterSigninInterception:
       return false;
   }
 }
@@ -173,6 +177,7 @@ void RecordImpressionsTilSigninButtonsHistogramForAccessPoint(
       break;
     case signin_metrics::AccessPoint::kEnterpriseSignoutCoordinator:
     case signin_metrics::AccessPoint::kSettings:
+    case signin_metrics::AccessPoint::kSettingsYourSavedInfo:
     case signin_metrics::AccessPoint::kRecentTabs:
     case signin_metrics::AccessPoint::kTabSwitcher:
     case signin_metrics::AccessPoint::kStartPage:
@@ -227,8 +232,8 @@ void RecordImpressionsTilSigninButtonsHistogramForAccessPoint(
     case signin_metrics::AccessPoint::kOidcRedirectionInterception:
     case signin_metrics::AccessPoint::kWebauthnModalDialog:
     case signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo:
-    case signin_metrics::AccessPoint::kAccountMenu:
-    case signin_metrics::AccessPoint::kAccountMenuFailedSwitch:
+    case signin_metrics::AccessPoint::kAccountMenuSwitchAccount:
+    case signin_metrics::AccessPoint::kAccountMenuSwitchAccountFailed:
     case signin_metrics::AccessPoint::kProductSpecifications:
     case signin_metrics::AccessPoint::kAddressBubble:
     case signin_metrics::AccessPoint::kCctAccountMismatchNotification:
@@ -251,6 +256,7 @@ void RecordImpressionsTilSigninButtonsHistogramForAccessPoint(
     case signin_metrics::AccessPoint::
         kEnterpriseManagementDisclaimerAfterSignin:
     case signin_metrics::AccessPoint::kNtpFeaturePromo:
+    case signin_metrics::AccessPoint::kEnterpriseDialogAfterSigninInterception:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
   }
@@ -279,6 +285,7 @@ void RecordImpressionsTilXButtonHistogramForAccessPoint(
       break;
     case signin_metrics::AccessPoint::kEnterpriseSignoutCoordinator:
     case signin_metrics::AccessPoint::kSettings:
+    case signin_metrics::AccessPoint::kSettingsYourSavedInfo:
     case signin_metrics::AccessPoint::kRecentTabs:
     case signin_metrics::AccessPoint::kTabSwitcher:
     case signin_metrics::AccessPoint::kStartPage:
@@ -333,8 +340,8 @@ void RecordImpressionsTilXButtonHistogramForAccessPoint(
     case signin_metrics::AccessPoint::kOidcRedirectionInterception:
     case signin_metrics::AccessPoint::kWebauthnModalDialog:
     case signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo:
-    case signin_metrics::AccessPoint::kAccountMenu:
-    case signin_metrics::AccessPoint::kAccountMenuFailedSwitch:
+    case signin_metrics::AccessPoint::kAccountMenuSwitchAccount:
+    case signin_metrics::AccessPoint::kAccountMenuSwitchAccountFailed:
     case signin_metrics::AccessPoint::kProductSpecifications:
     case signin_metrics::AccessPoint::kAddressBubble:
     case signin_metrics::AccessPoint::kCctAccountMismatchNotification:
@@ -357,6 +364,7 @@ void RecordImpressionsTilXButtonHistogramForAccessPoint(
     case signin_metrics::AccessPoint::
         kEnterpriseManagementDisclaimerAfterSignin:
     case signin_metrics::AccessPoint::kNtpFeaturePromo:
+    case signin_metrics::AccessPoint::kEnterpriseDialogAfterSigninInterception:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
   }
@@ -373,6 +381,7 @@ const char* DisplayedCountPreferenceKey(
     case signin_metrics::AccessPoint::kReadingList:
       return prefs::kIosReadingListSigninPromoDisplayedCount;
     case signin_metrics::AccessPoint::kSettings:
+    case signin_metrics::AccessPoint::kSettingsYourSavedInfo:
     case signin_metrics::AccessPoint::kRecentTabs:
     case signin_metrics::AccessPoint::kTabSwitcher:
     case signin_metrics::AccessPoint::kStartPage:
@@ -428,8 +437,8 @@ const char* DisplayedCountPreferenceKey(
     case signin_metrics::AccessPoint::kOidcRedirectionInterception:
     case signin_metrics::AccessPoint::kWebauthnModalDialog:
     case signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo:
-    case signin_metrics::AccessPoint::kAccountMenu:
-    case signin_metrics::AccessPoint::kAccountMenuFailedSwitch:
+    case signin_metrics::AccessPoint::kAccountMenuSwitchAccount:
+    case signin_metrics::AccessPoint::kAccountMenuSwitchAccountFailed:
     case signin_metrics::AccessPoint::kProductSpecifications:
     case signin_metrics::AccessPoint::kAddressBubble:
     case signin_metrics::AccessPoint::kCctAccountMismatchNotification:
@@ -452,6 +461,7 @@ const char* DisplayedCountPreferenceKey(
     case signin_metrics::AccessPoint::
         kEnterpriseManagementDisclaimerAfterSignin:
     case signin_metrics::AccessPoint::kNtpFeaturePromo:
+    case signin_metrics::AccessPoint::kEnterpriseDialogAfterSigninInterception:
       return nullptr;
   }
 }
@@ -467,6 +477,7 @@ const char* AlreadySeenSigninViewPreferenceKey(
     case signin_metrics::AccessPoint::kReadingList:
       return prefs::kIosReadingListPromoAlreadySeen;
     case signin_metrics::AccessPoint::kSettings:
+    case signin_metrics::AccessPoint::kSettingsYourSavedInfo:
     case signin_metrics::AccessPoint::kRecentTabs:
     case signin_metrics::AccessPoint::kTabSwitcher:
     case signin_metrics::AccessPoint::kStartPage:
@@ -522,8 +533,8 @@ const char* AlreadySeenSigninViewPreferenceKey(
     case signin_metrics::AccessPoint::kOidcRedirectionInterception:
     case signin_metrics::AccessPoint::kWebauthnModalDialog:
     case signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo:
-    case signin_metrics::AccessPoint::kAccountMenu:
-    case signin_metrics::AccessPoint::kAccountMenuFailedSwitch:
+    case signin_metrics::AccessPoint::kAccountMenuSwitchAccount:
+    case signin_metrics::AccessPoint::kAccountMenuSwitchAccountFailed:
     case signin_metrics::AccessPoint::kProductSpecifications:
     case signin_metrics::AccessPoint::kAddressBubble:
     case signin_metrics::AccessPoint::kCctAccountMismatchNotification:
@@ -546,6 +557,7 @@ const char* AlreadySeenSigninViewPreferenceKey(
     case signin_metrics::AccessPoint::
         kEnterpriseManagementDisclaimerAfterSignin:
     case signin_metrics::AccessPoint::kNtpFeaturePromo:
+    case signin_metrics::AccessPoint::kEnterpriseDialogAfterSigninInterception:
       return nullptr;
   }
 }
@@ -623,6 +635,9 @@ id<SystemIdentity> GetDisplayedIdentity(
 // YES if the sign-in promo is either invalid or closed.
 @property(nonatomic, assign, readonly, getter=isInvalidOrClosed)
     BOOL invalidOrClosed;
+
+// Redeclared to be assign.
+@property(nonatomic, assign) SigninPromoViewState signinPromoViewState;
 
 @end
 
@@ -971,7 +986,7 @@ id<SystemIdentity> GetDisplayedIdentity(
     self.displayedIdentityAvatar = nil;
   } else {
     self.displayedIdentityAvatar =
-        _accountManagerService->GetIdentityAvatarWithIdentity(
+        GetApplicationContext()->GetIdentityAvatarProvider()->GetIdentityAvatar(
             _displayedIdentity, IdentityAvatarSize::SmallSize);
   }
 }

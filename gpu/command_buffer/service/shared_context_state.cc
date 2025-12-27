@@ -2,13 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
-#pragma allow_unsafe_libc_calls
-#endif
-
 #include "gpu/command_buffer/service/shared_context_state.h"
 
+#include "base/compiler_specific.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/immediate_crash.h"
 #include "base/metrics/histogram_functions.h"
@@ -181,7 +177,7 @@ GLsizeiptr GL_APIENTRY GLBlobCacheGetCallback(const void* key,
   }
 
   if (value_size > 0 && static_cast<size_t>(value_size) >= sk_data->size()) {
-    memcpy(value, sk_data->data(), sk_data->size());
+    UNSAFE_TODO(memcpy(value, sk_data->data(), sk_data->size()));
   }
 
   // We didn't copy the original key data. Make sure it wasn't stored in the
@@ -301,14 +297,21 @@ SharedContextState::SharedContextState(
       context_(context),
       real_context_(std::move(context)),
       sk_surface_cache_(MaxNumSkSurface()) {
-  if (gr_context_type_ == GrContextType::kVulkan) {
+  if (gr_context_type_ == GrContextType::kVulkan
+#if BUILDFLAG(USE_WEBGPU_ON_VULKAN_VIA_GL_INTEROP)
+      || gr_context_type_ == GrContextType::kGL
+#endif
+  ) {
     if (vk_context_provider_) {
 #if BUILDFLAG(ENABLE_VULKAN) && \
     (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_WIN))
       external_semaphore_pool_ = std::make_unique<ExternalSemaphorePool>(this);
 #endif
-      use_virtualized_gl_contexts_ = false;
     }
+  }
+
+  if (gr_context_type_ == GrContextType::kVulkan && vk_context_provider_) {
+    use_virtualized_gl_contexts_ = false;
   }
 
   DCHECK(context_ && surface && context_->default_surface());
@@ -1008,10 +1011,10 @@ void SharedContextState::MarkContextLost(error::ContextLostReason reason) {
     // the passed in GrContext will be reused.
     // TODO(crbug.com/40672147): always abandon GrContext to release all
     // resources when chrome goes into background with low end device.
+    gr_context_ = nullptr;
     if (owned_gr_context_) {
       owned_gr_context_->abandonContext();
       owned_gr_context_.reset();
-      gr_context_ = nullptr;
     }
     UpdateSkiaOwnedMemorySize();
   }

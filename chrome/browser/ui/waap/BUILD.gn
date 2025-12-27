@@ -16,6 +16,7 @@ static_library("waap") {
   deps = [
     "//base",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/sessions",
     "//chrome/common:constants",
     "//components/keyed_service/core",
     "//components/startup_metric_utils",
@@ -30,7 +31,9 @@ source_set("waap_utils") {
     "waap_utils.h",
   ]
   deps = [
+    ":waap",
     "//base",
+    "//chrome/browser/profiles:profile",
     "//chrome/common",
     "//chrome/common:chrome_features",
     "//content/public/common",

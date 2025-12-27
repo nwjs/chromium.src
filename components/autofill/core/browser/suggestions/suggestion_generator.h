@@ -18,10 +18,12 @@
 #include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
+#include "components/autofill/core/browser/suggestions/addresses/address_on_typing_suggestion_data.h"
+#include "components/autofill/core/browser/suggestions/compose/compose_availability.h"
 #include "components/autofill/core/browser/suggestions/one_time_passwords/one_time_password_suggestion_data.h"
 #include "components/autofill/core/browser/suggestions/passkeys/hybrid_passkey_availability.h"
 #include "components/autofill/core/browser/suggestions/payments/save_and_fill_suggestion.h"
-#include "components/autofill/core/browser/suggestions/plus_addresses/create_plus_address_suggestion.h"
+#include "components/autofill/core/browser/suggestions/payments/virtual_card_suggestion_data.h"
 #include "components/autofill/core/browser/suggestions/plus_addresses/plus_address.h"
 #include "components/autofill/core/browser/suggestions/plus_addresses/plus_address_for_address_suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
@@ -68,11 +70,11 @@ class SuggestionGenerator {
     kIdentityCredential,
     kPasskey,
     kPlusAddress,
-    kCreatePlusAddress,
     kPlusAddressForAddress,
     kCompose,
     kOneTimePassword,
-    kMaxValue = kOneTimePassword
+    kAddressOnTyping,
+    kMaxValue = kAddressOnTyping
   };
 
   SuggestionGenerator() = default;
@@ -92,10 +94,12 @@ class SuggestionGenerator {
                                       IdentityCredential,
                                       HybridPasskeyAvailability,
                                       SaveAndFillSuggestion,
+                                      VirtualCardSuggestionData,
                                       OneTimePasswordSuggestionData,
                                       PlusAddress,
-                                      CreatePlusAddressSuggestion,
-                                      PlusAddressForAddressSuggestion>;
+                                      PlusAddressForAddressSuggestion,
+                                      AddressOnTypingSuggestionData,
+                                      ComposeAvailability>;
 
   // Obtains data that will be used to generate suggestions on a given
   // `trigger_field` that belongs to `form`.
@@ -148,6 +152,7 @@ class SuggestionGenerator {
       const FormFieldData& trigger_field,
       const FormStructure* form_structure,
       const AutofillField* trigger_autofill_field,
+      const AutofillClient& client,
       const base::flat_map<SuggestionDataSource, std::vector<SuggestionData>>&
           all_suggestion_data,
       base::OnceCallback<void(ReturnedSuggestions)> callback) = 0;

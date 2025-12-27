@@ -221,6 +221,9 @@ class CORE_EXPORT StyleCascade {
   // of direction/writing-mode.
   void ApplyCascadeAffecting(CascadeResolver&);
 
+  // Some properties affect scrollbars which in turn affect viewport units.
+  void ApplyViewportUnitAffecting(CascadeResolver&);
+
   // Applies kHighPropertyPriority properties.
   //
   // In theory, it would be possible for each property/value that contains
@@ -577,12 +580,6 @@ class CORE_EXPORT StyleCascade {
                                   const CSSParserContext&,
                                   FunctionContext*);
 
-  KleeneValue EvalIfTest(const IfCondition& node,
-                         const TreeScope* tree_scope,
-                         CascadeResolver& resolver,
-                         const CSSParserContext& context,
-                         FunctionContext* function_context,
-                         bool& is_attr_tainted);
   bool EvalIfCondition(CSSParserTokenStream&,
                        const TreeScope*,
                        CascadeResolver&,

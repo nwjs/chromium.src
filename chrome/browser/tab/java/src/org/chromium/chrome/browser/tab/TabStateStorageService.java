@@ -10,34 +10,12 @@ import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.Callback;
-import org.chromium.base.JniOnceCallback;
-import org.chromium.base.Token;
 import org.chromium.build.annotations.NullMarked;
-import org.chromium.build.annotations.Nullable;
-
-import java.nio.ByteBuffer;
 
 /** Java counterpart to keyed service in native that writes tab data to disk. */
 @JNINamespace("tabs")
 @NullMarked
 public class TabStateStorageService {
-    /** Simple data container for a TabState and its corresponding creation callback. */
-    public static class LoadedTabState {
-        public final @TabId int tabId;
-        public final TabState tabState;
-
-        /** This must always be run or destroyed to avoid leaks. */
-        public final JniOnceCallback<@Nullable Tab> onTabCreationCallback;
-
-        public LoadedTabState(
-                @TabId int tabId,
-                TabState tabState,
-                JniOnceCallback<@Nullable Tab> onTabCreationCallback) {
-            this.tabId = tabId;
-            this.tabState = tabState;
-            this.onTabCreationCallback = onTabCreationCallback;
-        }
-    }
 
     private final long mNativeTabStateStorageService;
 
@@ -51,6 +29,14 @@ public class TabStateStorageService {
     }
 
     /**
+     * Boosts the priority of the database operations to USER_BLOCKING until all current pending
+     * operations are complete. This should be used when it is critical to save user data.
+     */
+    public void boostPriority() {
+        TabStateStorageServiceJni.get().boostPriority(mNativeTabStateStorageService);
+    }
+
+    /**
      * Saves the tab state to persistent storage.
      *
      * @param tab The tab to save to storage.
@@ -60,14 +46,19 @@ public class TabStateStorageService {
     }
 
     /**
-     * Loads all the tabs into TabState objects and asynchronously runs the given callback.
-     * TODO(https://crbug.com/427254267): Add tab id/sort order to this.
-     * TODO(https://crbug.com/430996004): Scope to a given window.
+     * Loads all data from persistent storage and returns it.
      *
-     * @param callback Run with loaded tab data.
+     * <p>TODO(https://crbug.com/427254267): Add tab id/sort order to this.
+     *
+     * @param windowTag The window tag to load data for.
+     * @param isOffTheRecord Whether to load incognito data.
+     * @param callback Run with loaded data.
      */
-    public void loadAllTabs(Callback<LoadedTabState[]> callback) {
-        TabStateStorageServiceJni.get().loadAllTabs(mNativeTabStateStorageService, callback);
+    public void loadAllData(
+            String windowTag, boolean isOffTheRecord, Callback<StorageLoadedData> callback) {
+        assert !windowTag.isEmpty();
+        TabStateStorageServiceJni.get()
+                .loadAllData(mNativeTabStateStorageService, windowTag, isOffTheRecord, callback);
     }
 
     /** Clears all the tabs from persistent storage. */
@@ -75,61 +66,26 @@ public class TabStateStorageService {
         TabStateStorageServiceJni.get().clearState(mNativeTabStateStorageService);
     }
 
-    @CalledByNative
-    public static LoadedTabState createLoadedTabState(
-            @TabId int tabId,
-            TabState tabState,
-            JniOnceCallback<@Nullable Tab> onTabCreationCallback) {
-        return new LoadedTabState(tabId, tabState, onTabCreationCallback);
-    }
-
-    @CalledByNative
-    public static TabState createTabState(
-            int parentTabId,
-            int rootId,
-            long timestampMillis,
-            @Nullable ByteBuffer webContentsStateBuffer,
-            int webContentsStateVersion,
-            long webContentsStateStringPointer,
-            @Nullable @JniType("std::string") String openerAppId,
-            int themeColor,
-            int launchTypeAtCreation,
-            int userAgent,
-            long lastNavigationCommittedTimestampMillis,
-            @Nullable Token tabGroupId,
-            boolean tabHasSensitiveContent,
-            boolean isPinned) {
-        // TODO(skym): Handle id, parent_collection_id, position somehow.
-        TabState tabState = new TabState();
-        tabState.parentId = parentTabId;
-        tabState.rootId = rootId;
-        tabState.timestampMillis = timestampMillis;
-        if (webContentsStateBuffer != null) {
-            assert webContentsStateStringPointer != 0;
-            tabState.contentsState =
-                    new WebContentsState(
-                            webContentsStateBuffer,
-                            webContentsStateVersion,
-                            webContentsStateStringPointer);
-        }
-        tabState.openerAppId = openerAppId;
-        tabState.themeColor = themeColor;
-        tabState.tabLaunchTypeAtCreation = launchTypeAtCreation;
-        tabState.userAgent = userAgent;
-        tabState.lastNavigationCommittedTimestampMillis = lastNavigationCommittedTimestampMillis;
-        tabState.tabGroupId = tabGroupId;
-        tabState.tabHasSensitiveContent = tabHasSensitiveContent;
-        tabState.isPinned = isPinned;
-        return tabState;
+    /** Clears all the tabs for a given window from persistent storage. */
+    public void clearWindow(String windowTag) {
+        TabStateStorageServiceJni.get().clearWindow(mNativeTabStateStorageService, windowTag);
     }
 
     @NativeMethods
     interface Natives {
+        void boostPriority(long nativeTabStateStorageServiceAndroid);
+
         void save(long nativeTabStateStorageServiceAndroid, @JniType("TabAndroid*") Tab tab);
 
-        void loadAllTabs(
-                long nativeTabStateStorageServiceAndroid, Callback<LoadedTabState[]> callback);
+        void loadAllData(
+                long nativeTabStateStorageServiceAndroid,
+                @JniType("std::string") String windowTag,
+                boolean isOffTheRecord,
+                Callback<StorageLoadedData> loadedDataCallback);
 
         void clearState(long nativeTabStateStorageServiceAndroid);
+
+        void clearWindow(
+                long nativeTabStateStorageServiceAndroid, @JniType("std::string") String windowTag);
     }
 }

@@ -12,14 +12,16 @@ import androidx.annotation.Nullable;
 import org.chromium.base.Callback;
 import org.chromium.chrome.browser.touch_to_fill.common.FillableItemCollectionInfo;
 import org.chromium.components.autofill.LoyaltyCard;
-import org.chromium.components.autofill.payments.BnplIssuerTosDetail.LegalMessages;
+import org.chromium.components.autofill.payments.LegalMessageLine;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModel.ReadableObjectPropertyKey;
 import org.chromium.url.GURL;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 /** Properties defined here reflect the visible state of the TouchToFillPaymentMethod component. */
 class TouchToFillPaymentMethodProperties {
@@ -125,8 +127,8 @@ class TouchToFillPaymentMethodProperties {
         // A section contains texts shown on BNPL ToS screen.
         int BNPL_TOS_TEXT = 14;
 
-        // The footer at the bottom of the BNPL selection and progress screens.
-        int BNPL_SELECTION_PROGRESS_FOOTER = 15;
+        // The terms at the bottom of the BNPL selection and progress screens.
+        int BNPL_SELECTION_PROGRESS_TERMS = 15;
 
         // A section contains legal messages shown in the screen footer.
         int TOS_FOOTER = 16;
@@ -416,10 +418,10 @@ class TouchToFillPaymentMethodProperties {
     }
 
     /**
-     * Properties defined here reflect the visible state of the BNPL footer for selection and
+     * Properties defined here reflect the visible state of the BNPL terms for selection and
      * progress screen in the TouchToFill sheet for payments.
      */
-    static class BnplSelectionProgressFooterProperties {
+    static class BnplSelectionProgressTermsProperties {
         static final PropertyModel.ReadableIntPropertyKey TERMS_TEXT_ID =
                 new PropertyModel.ReadableIntPropertyKey("terms_text_id");
         static final PropertyModel.ReadableObjectPropertyKey<String> HIDE_OPTIONS_LINK_TEXT =
@@ -435,15 +437,18 @@ class TouchToFillPaymentMethodProperties {
             APPLY_LINK_DEACTIVATED_STYLE
         };
 
-        private BnplSelectionProgressFooterProperties() {}
+        private BnplSelectionProgressTermsProperties() {}
     }
 
     /** Properties defined here reflect the visible state of the footer showing legal messages. */
     static class TosFooterProperties {
-        static final PropertyModel.ReadableObjectPropertyKey<LegalMessages> LEGAL_MESSAGE =
-                new PropertyModel.ReadableObjectPropertyKey<>("legal_message");
+        static final PropertyModel.ReadableObjectPropertyKey<List<LegalMessageLine>>
+                LEGAL_MESSAGE_LINES =
+                        new PropertyModel.ReadableObjectPropertyKey<>("legal_message_lines");
+        static final PropertyModel.ReadableObjectPropertyKey<Consumer<String>> LINK_OPENER =
+                new PropertyModel.ReadableObjectPropertyKey<>("link_opener");
 
-        static final PropertyKey[] ALL_KEYS = {LEGAL_MESSAGE};
+        static final PropertyKey[] ALL_KEYS = {LEGAL_MESSAGE_LINES, LINK_OPENER};
 
         private TosFooterProperties() {}
     }

@@ -16,6 +16,7 @@
 #include "base/logging.h"
 #include "base/numerics/safe_conversions.h"
 #include "chrome/browser/android/tab_android.h"
+#include "chrome/browser/android/tab_android_conversions.h"
 #include "chrome/browser/android/tab_group_android.h"
 #include "chrome/browser/android/tab_interface_android.h"
 #include "chrome/browser/profiles/profile.h"
@@ -54,32 +55,6 @@ constexpr int kInvalidTabIndex = -1;
 // `TabAndroid` to avoid memory management issues.
 std::unique_ptr<TabInterface> ToTabInterface(TabAndroid* tab_android) {
   return std::make_unique<TabInterfaceAndroid>(tab_android);
-}
-
-// Converts the wrapper class TabInterfaceAndroid* to a TabAndroid*. This will
-// return nullptr if the `tab_interface` has outlived the TabAndroid*.
-TabAndroid* ToTabAndroidOrNull(TabInterface* tab_interface) {
-  if (!tab_interface) {
-    LOG(WARNING) << "Attempting to convert a nullptr to a TabAndroid*.";
-    return nullptr;
-  }
-  auto weak_tab_android =
-      static_cast<TabInterfaceAndroid*>(tab_interface)->GetWeakPtr();
-  if (!weak_tab_android) {
-    LOG(WARNING) << "An already destroyed tab was in the tab strip collection.";
-    return nullptr;
-  }
-  return static_cast<TabAndroid*>(weak_tab_android.get());
-}
-
-// Converts the wrapper class TabInterfaceAndroid* to a TabAndroid*. This will
-// crash if the `tab_interface` has outlived the TabAndroid*.
-TabAndroid* ToTabAndroidChecked(TabInterface* tab_interface) {
-  CHECK(tab_interface);
-  auto weak_tab_android =
-      static_cast<TabInterfaceAndroid*>(tab_interface)->GetWeakPtr();
-  CHECK(weak_tab_android);
-  return static_cast<TabAndroid*>(weak_tab_android.get());
 }
 
 // When moving a tab from a lower index to a higher index a value of 1 less
@@ -301,7 +276,22 @@ int TabCollectionTabModelImpl::MoveTabGroupTo(JNIEnv* env,
     to_index -= range.length() - 1;
     CHECK_GE(to_index, 0);
   }
-  tab_strip_collection_->MoveTabGroupTo(tab_group_id, to_index);
+
+  std::vector<int> tab_indices;
+  tab_indices.reserve(range.length());
+  for (size_t i = range.start(); i < range.end(); ++i) {
+    tab_indices.push_back(base::checked_cast<int>(i));
+  }
+
+  const std::set<tabs::TabCollection::Type> kRetainCollectionTypes =
+      std::set<tabs::TabCollection::Type>(
+          {tabs::TabCollection::Type::SPLIT, tabs::TabCollection::Type::GROUP});
+
+  tab_strip_collection_->MoveTabsRecursive(
+      tab_indices, static_cast<size_t>(to_index),
+      /*new_group_id=*/std::nullopt,
+      /*new_pinned_state=*/false, kRetainCollectionTypes);
+
   return base::checked_cast<int>(to_index);
 }
 
@@ -607,3 +597,5 @@ static jlong JNI_TabCollectionTabModelImpl_Init(
 }
 
 }  // namespace tabs
+
+DEFINE_JNI(TabCollectionTabModelImpl)

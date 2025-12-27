@@ -1220,6 +1220,7 @@ data/accessibility/aria/aria-mismatched-table-attr-expected-mac.txt
 data/accessibility/aria/aria-mismatched-table-attr-expected-uia-win.txt
 data/accessibility/aria/aria-mismatched-table-attr-expected-win.txt
 data/accessibility/aria/aria-mismatched-table-attr.html
+data/accessibility/aria/aria-modal-expected-android-external.txt
 data/accessibility/aria/aria-modal-expected-auralinux.txt
 data/accessibility/aria/aria-modal-expected-mac.txt
 data/accessibility/aria/aria-modal-expected-win.txt
@@ -2312,6 +2313,20 @@ data/accessibility/event/add-subtree-expected-auralinux.txt
 data/accessibility/event/add-subtree-expected-uia-win.txt
 data/accessibility/event/add-subtree-expected-win.txt
 data/accessibility/event/add-subtree.html
+data/accessibility/event/alert-shadow-dom-ignored-changed-expected-android.txt
+data/accessibility/event/alert-shadow-dom-ignored-changed-expected-android-exp.txt
+data/accessibility/event/alert-shadow-dom-ignored-changed-expected-auralinux.txt
+data/accessibility/event/alert-shadow-dom-ignored-changed-expected-mac.txt
+data/accessibility/event/alert-shadow-dom-ignored-changed-expected-uia-win.txt
+data/accessibility/event/alert-shadow-dom-ignored-changed-expected-win.txt
+data/accessibility/event/alert-shadow-dom-ignored-changed.html
+data/accessibility/event/alert-shadow-dom-ignored-reparented-expected-android.txt
+data/accessibility/event/alert-shadow-dom-ignored-reparented-expected-android-exp.txt
+data/accessibility/event/alert-shadow-dom-ignored-reparented-expected-auralinux.txt
+data/accessibility/event/alert-shadow-dom-ignored-reparented-expected-mac.txt
+data/accessibility/event/alert-shadow-dom-ignored-reparented-expected-uia-win.txt
+data/accessibility/event/alert-shadow-dom-ignored-reparented-expected-win.txt
+data/accessibility/event/alert-shadow-dom-ignored-reparented.html
 data/accessibility/event/anonymous-block-children-changed-expected-android.txt
 data/accessibility/event/anonymous-block-children-changed-expected-auralinux.txt
 data/accessibility/event/anonymous-block-children-changed.html
@@ -3315,6 +3330,7 @@ data/accessibility/html/aside-inside-section-role-generic-expected-uia-win.txt
 data/accessibility/html/aside-inside-section-role-generic-expected-win.txt
 data/accessibility/html/aside-inside-section-role-generic.html
 data/accessibility/html/aside.html
+data/accessibility/html/audio-expected-android-external.txt
 data/accessibility/html/audio-expected-android.txt
 data/accessibility/html/audio-expected-auralinux.txt
 data/accessibility/html/audio-expected-mac.txt
@@ -6690,9 +6706,6 @@ data/attribution_reporting/interop/max_event_level_reports_per_source.json
 data/attribution_reporting/interop/max_trigger_state_cardinality.json
 data/attribution_reporting/interop/most_recent_source.json
 data/attribution_reporting/interop/multiple_destinations.json
-data/attribution_reporting/interop/navigation_retry_first_attempt.json
-data/attribution_reporting/interop/navigation_retry_second_attempt.json
-data/attribution_reporting/interop/navigation_retry_third_attempt.json
 data/attribution_reporting/interop/null_aggregatable_report.json
 data/attribution_reporting/interop/os_debug_reports.json
 data/attribution_reporting/interop/parse_failures.json
@@ -7702,6 +7715,8 @@ data/indexeddb/fill_quota.html
 data/indexeddb/fill_up_5k.html
 data/indexeddb/force_close_event.html
 data/indexeddb/force_close_event.js
+data/indexeddb/get_all_chunking.html
+data/indexeddb/get_all_chunking.js
 data/indexeddb/index_deletion_regression_tests.html
 data/indexeddb/index_deletion_regression_tests.js
 data/indexeddb/index_test.html
@@ -8188,6 +8203,7 @@ data/page_with_data_iframe_and_allow.html
 data/page_with_frameset.html
 data/page_with_hidden_iframe.html
 data/page_with_iframe.html
+data/page_with_iframe_and_double_tap_to_zoom.html
 data/page_with_iframe_and_image.html
 data/page_with_iframe_and_link.html
 data/page_with_image.html
@@ -8219,12 +8235,6 @@ data/page_with_touch_start_janking_main_thread.html
 data/page_with_webotp.html
 data/page_with_wheel_handler.html
 data/pagehide_handler_force_layout.html
-data/partitioned_popins/iframe_allow_popins.html
-data/partitioned_popins/iframe_allow_popins.html.mock-http-headers
-data/partitioned_popins/iframes_allow_popins.html
-data/partitioned_popins/iframes_allow_popins.html.mock-http-headers
-data/partitioned_popins/wildcard_policy.html
-data/partitioned_popins/wildcard_policy.html.mock-http-headers
 data/paste_listener.html
 data/pause_schedule_task.html
 data/payments/payment_app.js
@@ -8432,7 +8442,6 @@ data/service_worker/add_save_data_to_title.js
 data/service_worker/add_save_data_to_title.js.mock-http-headers
 data/service_worker/auto_preload.js
 data/service_worker/cached_fetch_event.js
-data/service_worker/canvas_noise_worker.js
 data/service_worker/client_api_worker.js
 data/service_worker/clients_claim_worker.js
 data/service_worker/create_service_worker.html
@@ -8785,6 +8794,7 @@ data/title1.html
 data/title2.html
 data/title3.html
 data/title4.html
+data/touch_action_pan_y.html
 data/touch_selection.html
 data/tree_parser_util.js
 data/unload.html

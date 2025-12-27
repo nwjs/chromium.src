@@ -7,8 +7,8 @@
 #import "base/apple/foundation_util.h"
 #import "components/signin/public/identity_manager/identity_test_environment.h"
 #import "components/test/ios/test_utils.h"
+#import "ios/chrome/browser/authentication/add_account_signin/coordinator/add_account_signin_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signin/add_account_signin/add_account_signin_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
 #import "ios/chrome/browser/photos/model/photos_service_factory.h"
@@ -353,7 +353,8 @@ TEST_F(DownloadsSettingsCoordinatorTest,
   OCMExpect([mock_save_to_photos_settings_mediator_
                 setSelectedIdentityGaiaID:ios::OCM::AnyPointer<const GaiaId>()])
       .andCompareObjectAtIndex(added_identity.gaiaId, 0);
-  show_signin_callback(SigninCoordinatorResultSuccess, added_identity);
+  show_signin_callback(signin_coordinator_mock, SigninCoordinatorResultSuccess,
+                       added_identity);
   EXPECT_OCMOCK_VERIFY(mock_save_to_photos_settings_mediator_);
 
   [coordinator stop];

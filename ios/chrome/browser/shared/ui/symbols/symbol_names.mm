@@ -123,6 +123,7 @@ NSString* const kIncognitoRectangle = @"incognito_rectangle";
 // Custom symbol names which can be configured with a color palette.
 NSString* const kIncognitoCircleFillSymbol = @"incognito_circle_fill";
 NSString* const kPlusCircleFillSymbol = @"plus_circle_fill";
+NSString* const kPDFFillSymbol = @"pdf_fill";
 
 // Custom symbols added for compatibility with iOS 15.0. These symbols are
 // available as system symbols on iOS 15.1+.
@@ -188,6 +189,7 @@ NSString* const kMagnifyingglassSymbol = @"magnifyingglass";
 NSString* const kMagnifyingglassCircleSymbol = @"magnifyingglass.circle";
 NSString* const kEllipsisCircleFillSymbol = @"ellipsis.circle.fill";
 NSString* const kEllipsisRectangleSymbol = @"ellipsis.rectangle";
+NSString* const kEllipsisSymbol = @"ellipsis";
 NSString* const kPinSymbol = @"pin";
 NSString* const kPinSlashSymbol = @"pin.slash";
 NSString* const kSettingsSymbol = @"gearshape";
@@ -227,6 +229,7 @@ NSString* const kExpandSymbol = @"arrow.up.left.and.arrow.down.right";
 NSString* const kBackSymbol = @"arrow.backward";
 NSString* const kForwardSymbol = @"arrow.forward";
 NSString* const kPersonFillSymbol = @"person.fill";
+NSString* const kPersonBadgeKeyFillSymbol = @"person.badge.key.fill";
 NSString* const kPersonClockFillSymbol = @"person.badge.clock.fill";
 NSString* const kPersonFillBadgePlusSymbol = @"person.fill.badge.plus";
 NSString* const kMailFillSymbol = @"envelope.fill";
@@ -336,6 +339,7 @@ NSString* const kVideoSymbol = @"video";
 NSString* const kWaveformSymbol = @"waveform.mid";
 NSString* const kPhotoOnRectangleSymbol = @"photo.on.rectangle";
 NSString* const kSystemCameraSymbol = @"camera";
+NSString* const kRightArrowCircleFillSymbol = @"arrow.right.circle.fill";
 
 // Names of the default symbol being non-monochrome by default. When using them,
 // you probably want to set their color to monochrome.

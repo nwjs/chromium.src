@@ -12,7 +12,6 @@
 #include "base/barrier_closure.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/to_vector.h"
-#include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/memory/weak_ptr.h"
@@ -543,7 +542,7 @@ TEST_F(WebAppCommandManagerTest, ToDebugValue) {
       get_metadata_field_names(log->front().GetDict()),
       ::testing::UnorderedElementsAre(
           "command_result", "completion_location", "id", "initial_lock_request",
-          "name", "result", "started", "scheduled_location", "scheduled_at",
+          "!name", "!result", "started", "scheduled_location", "scheduled_at",
           "completed_at", "started_at"));
 
   base::Value::List* queue =
@@ -552,7 +551,7 @@ TEST_F(WebAppCommandManagerTest, ToDebugValue) {
   ASSERT_GT(queue->size(), 0ul);
   EXPECT_THAT(get_metadata_field_names(queue->front().GetDict()),
               ::testing::UnorderedElementsAre(
-                  "id", "initial_lock_request", "name", "started",
+                  "id", "initial_lock_request", "!name", "started",
                   "scheduled_location", "scheduled_at"));
 }
 

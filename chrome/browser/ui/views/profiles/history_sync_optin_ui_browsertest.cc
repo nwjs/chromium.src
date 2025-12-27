@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/webui/signin/history_sync_optin/history_sync_optin_ui.h"
 
+#include <optional>
+
 #include "base/functional/callback_helpers.h"
 #include "base/strings/strcat.h"
 #include "base/test/scoped_feature_list.h"
@@ -23,7 +25,7 @@
 #include "components/sync/base/features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_navigation_observer.h"
-#include "ui/compositor/scoped_animation_duration_scale_mode.h"
+#include "ui/gfx/scoped_animation_duration_scale_mode.h"
 #include "ui/views/view_observer.h"
 #include "ui/views/widget/any_widget_observer.h"
 
@@ -38,8 +40,6 @@ std::string ParamToTestSuffix(
 const PixelTestParam kDialogTestParams[] = {
     {.test_suffix = "Regular"},
     {.test_suffix = "DarkTheme", .use_dark_theme = true},
-    /* TODO(crbug.com/406751006): Until the strings are translatable the RTL
-       language does not fully apply. */
     {.test_suffix = "Rtl", .use_right_to_left_language = true},
 };
 }  // namespace
@@ -77,12 +77,14 @@ class HistorySyncOptinUIDialogPixelTest
 
     auto* controller = browser()->GetFeatures().signin_view_controller();
     controller->ShowModalHistorySyncOptInDialog(
+        should_close_modal_dialog_,
         HistorySyncOptinHelper::FlowCompletedCallback(base::DoNothing()));
     widget_waiter.WaitIfNeededAndGet();
     observer.Wait();
   }
 
  private:
+  bool should_close_modal_dialog_ = true;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
@@ -129,6 +131,8 @@ class HistorySyncOptinStepControllerForTest
 
     history_sync_optin_ui->Initialize(
         /*browser=*/nullptr,
+        // Value does not matter when browser is null (window mode).
+        /*should_close_modal_dialog=*/std::nullopt,
         HistorySyncOptinHelper::FlowCompletedCallback(base::DoNothing()));
 
     if (!step_shown_callback->is_null()) {
@@ -169,8 +173,8 @@ class HistorySyncOptinUIWindowPixelTest
   }
 
   void ShowUi(const std::string& name) override {
-    ui::ScopedAnimationDurationScaleMode disable_animation(
-        ui::ScopedAnimationDurationScaleMode::ZERO_DURATION);
+    gfx::ScopedAnimationDurationScaleMode disable_animation(
+        gfx::ScopedAnimationDurationScaleMode::ZERO_DURATION);
     CHECK(browser());
 
     SignInWithAccount();

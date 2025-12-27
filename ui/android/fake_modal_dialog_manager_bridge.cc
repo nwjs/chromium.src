@@ -70,6 +70,12 @@ FakeModalDialogManagerBridge::GetMessageParagraphs() {
   return paragraphs;
 }
 
+void FakeModalDialogManagerBridge::ClickLinkInMessageParagraphs(int index) {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  Java_FakeModalDialogManager_clickLinkInMessageParagraphs(env, j_fake_manager_,
+                                                           index);
+}
+
 std::vector<std::u16string> FakeModalDialogManagerBridge::GetMenuItemTexts() {
   JNIEnv* env = base::android::AttachCurrentThread();
   auto java_texts =
@@ -132,3 +138,5 @@ FakeModalDialogManagerBridge::FakeModalDialogManagerBridge(
     : j_fake_manager_(j_fake_manager), window_(window) {}
 
 }  // namespace ui
+
+DEFINE_JNI(FakeModalDialogManager)

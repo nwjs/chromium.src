@@ -1266,10 +1266,11 @@ PaintLayer* PaintLayer::HitTestLayer(
   // there is an ongoing transition, since this may be too heavy of a check for
   // each hit test.
   if (auto* transition =
-          ViewTransitionUtils::GetTransition(layout_object.GetDocument())) {
+          ViewTransitionUtils::TransitionForTaggedElement(layout_object)) {
     // This means that the contents of the object are drawn elsewhere.
-    if (transition->IsRepresentedViaPseudoElements(layout_object))
+    if (transition->IsRepresentedViaPseudoElements(layout_object)) {
       return nullptr;
+    }
   }
 
   ShouldRespectOverflowClipType clip_behavior = kRespectOverflowClip;
@@ -1405,6 +1406,28 @@ PaintLayer* PaintLayer::HitTestLayer(
     z_offset_for_contents_ptr = z_offset;
   }
 
+  // This variable tracks which layer the mouse ends up being inside.
+  PaintLayer* candidate_layer = nullptr;
+
+  PaintLayer* hit_layer = nullptr;
+  if (auto* element = DynamicTo<Element>(layout_object.GetNode())) {
+    if (element->GetPseudoElement(kPseudoIdViewTransition)) {
+      hit_layer = HitTestChildren(
+          kAllChildren, transform_container, container_fragment, result,
+          recursion_data, container_transform_state,
+          z_offset_for_descendants_ptr, z_offset, local_transform_state,
+          depth_sort_descendants, true /* transition_pseudo_pass */);
+      if (hit_layer) {
+        if (!depth_sort_descendants) {
+          return hit_layer;
+        }
+        // Depth-sorting may override z-index, so we need to check below for
+        // other hit_layer candidates.
+        candidate_layer = hit_layer;
+      }
+    }
+  }
+
   // Collect the fragments. This will compute the clip rectangles for each
   // layer fragment.
   PaintLayerFragments layer_fragments;
@@ -1437,12 +1460,9 @@ PaintLayer* PaintLayer::HitTestLayer(
   if (overflow_controls_only)
     return nullptr;
 
-  // This variable tracks which layer the mouse ends up being inside.
-  PaintLayer* candidate_layer = nullptr;
-
   // Begin by walking our list of positive layers from highest z-index down to
   // the lowest z-index.
-  PaintLayer* hit_layer = HitTestChildren(
+  hit_layer = HitTestChildren(
       kPositiveZOrderChildren, transform_container, container_fragment, result,
       recursion_data, container_transform_state, z_offset_for_descendants_ptr,
       z_offset, local_transform_state, depth_sort_descendants);
@@ -1775,7 +1795,8 @@ PaintLayer* PaintLayer::HitTestChildren(
     double* z_offset_for_descendants,
     double* z_offset,
     HitTestingTransformState* local_transform_state,
-    bool depth_sort_descendants) {
+    bool depth_sort_descendants,
+    bool transition_pseudo_pass) {
   if (!HasSelfPaintingLayerDescendant()) {
     return nullptr;
   }
@@ -1784,9 +1805,13 @@ PaintLayer* PaintLayer::HitTestChildren(
     return nullptr;
   }
 
-  if (GetLayoutObject().IsCanvas() &&
-      !RuntimeEnabledFeatures::CanvasDrawElementEnabled()) {
-    return nullptr;
+  if (GetLayoutObject().IsCanvas()) {
+    if (!RuntimeEnabledFeatures::CanvasDrawElementEnabled()) {
+      return nullptr;
+    }
+    if (!To<HTMLCanvasElement>(GetLayoutObject().GetNode())->layoutSubtree()) {
+      return nullptr;
+    }
   }
 
   const LayoutObject* stop_node = result.GetHitTestRequest().GetStopNode();
@@ -1801,6 +1826,16 @@ PaintLayer* PaintLayer::HitTestChildren(
           const HitTestRecursionData& recursion_data) -> bool {
     if (child_layer->IsReplacedNormalFlowStacking())
       return false;
+
+    bool is_scoped_transition_pseudo =
+        !GetLayoutObject().IsViewTransitionRoot() &&
+        ViewTransitionUtils::IsViewTransitionRoot(
+            child_layer->GetLayoutObject());
+    if (is_scoped_transition_pseudo != transition_pseudo_pass) {
+      // A scoped ::view-transition pseudo is handled separately since it paints
+      // on top of all other children of the scope regardless of their z-index.
+      return false;
+    }
 
     // Avoid the call to child_layer.HitTestLayer() if possible.
     if (stop_layer == this &&
@@ -1832,98 +1867,6 @@ PaintLayer* PaintLayer::HitTestChildren(
     }
     return false;
   };
-
-  if (GetLayoutObject().IsCanvas()) {
-    CHECK(RuntimeEnabledFeatures::CanvasDrawElementEnabled());
-    HTMLCanvasElement* canvas =
-        To<HTMLCanvasElement>(GetLayoutObject().GetNode());
-    const auto& hit_test_regions = canvas->GetHitTestRegions();
-    for (const auto& region : base::Reversed(hit_test_regions)) {
-      // TODO(vmpstr): Need to figure out what to do if the element goes away or
-      // is no longer the canvas direct child. For now, just silently skip that
-      // element.
-      if (!region->element()) {
-        continue;
-      }
-
-      LayoutBox* box = region->element()->GetLayoutBox();
-      if (!box || !box->Layer() || box->GetNode()->parentElement() != canvas) {
-        continue;
-      }
-
-      // TODO(vmpstr): This does hit-test in css space, since it's not exactly
-      // obvious how to get the right offsets in physical space for the hit
-      // point and elements. We should probably do this in physical space
-      // though.
-      //
-      // We also need to double check all this for all the cases. Maybe we need
-      // to copy something like `HitTestLayerByApplyingTransform` except that we
-      // don't have a separate transform container.
-      gfx::RectF element_rect =
-          region->element()->GetBoundingClientRectNoLifecycleUpdate();
-      gfx::RectF canvas_rect = canvas->GetBoundingClientRectNoLifecycleUpdate();
-
-      // Hit test region is in canvas backing space, so convert it to canvas css
-      // space.
-      gfx::RectF hit_test_region = region->rect();
-      gfx::Size backing_size = canvas->Size();
-      hit_test_region.Scale(canvas_rect.width() / backing_size.width(),
-                            canvas_rect.height() / backing_size.height());
-
-      // Get the css -> physical space zoom factor, see
-      // `AdjustForAbsoluteZoom::AdjustRectMaybeExcludingCSSZoom`.
-      double zoom = [&]() -> double {
-        auto* layout_object = canvas->GetLayoutObject();
-        if (layout_object->GetDocument().StandardizedBrowserZoomEnabled()) {
-          return layout_object->GetFrame()->LayoutZoomFactor();
-        } else {
-          return layout_object->StyleRef().EffectiveZoom();
-        }
-      }();
-
-      // Determine current point (hit test point) in canvas css space.
-      PhysicalOffset current_point = recursion_data.location.Point();
-      current_point.Scale(1.0 / zoom);
-      current_point -=
-          PhysicalOffset::FromVector2dFRound(canvas_rect.OffsetFromOrigin());
-
-      // If the point is outside of the hit test region, this isn't a candidate.
-      // Both of these should be in css canvas space at this point.
-      if (!hit_test_region.Contains(current_point.left, current_point.top)) {
-        continue;
-      }
-
-      // Determine the percent x of the current point in the hit test rect, so
-      // we map arbitrary x y to [0, 1) range.
-      double percent_x =
-          (current_point.left - hit_test_region.x()) / hit_test_region.width();
-      double percent_y =
-          (current_point.top - hit_test_region.y()) / hit_test_region.height();
-
-      // Now determine the new offset within the hit test element by using the
-      // percentages. This is now in css global space since we also add the
-      // element offset to take it from element space to global space.
-      PhysicalOffset new_offset = PhysicalOffset::FromPointFRound(
-          gfx::PointF(element_rect.x() + percent_x * element_rect.width(),
-                      element_rect.y() + percent_y * element_rect.height()));
-
-      // Convert the offset to physical space before doing the hit test.
-      new_offset.Scale(zoom);
-
-      // HitTestRecursionData takes and stores its parameters by reference, so
-      // create them on the stack explicitly and pass them in.
-      auto adjusted_hit_test_rect = HitTestLocation::RectForPoint(new_offset);
-      auto adjusted_hit_test_location = HitTestLocation(new_offset);
-      HitTestRecursionData adjusted_recursion_data(
-          adjusted_hit_test_rect, adjusted_hit_test_location,
-          recursion_data.original_location);
-
-      if (hit_test_child(box->Layer(), false, adjusted_recursion_data)) {
-        break;
-      }
-    }
-    return result_layer;
-  }
 
   while (PaintLayer* child_layer = iterator.Next()) {
     if (stacking_node_) {

@@ -249,8 +249,7 @@ bool DoSimpleHost(std::basic_string_view<INCHAR> host,
     if (source == '%') {
       // Unescape first, if possible.
       // Source will be used only if decode operation was successful.
-      if (!DecodeEscaped(host.data(), &i, host.length(),
-                         reinterpret_cast<unsigned char*>(&source))) {
+      if (!DecodeEscaped(host, &i, reinterpret_cast<unsigned char*>(&source))) {
         // Invalid escaped character. There is nothing that can make this
         // host valid. We append an escaped percent so the URL looks reasonable
         // and mark as failed.
@@ -294,8 +293,7 @@ bool DoSimpleHost(std::basic_string_view<INCHAR> host,
 
 // Canonicalizes a host that requires IDN conversion. Returns true on success
 template <CanonMode canon_mode>
-bool DoIDNHost(const char16_t* src, size_t src_len, CanonOutput* output) {
-  std::u16string_view host_view(src, src_len);
+bool DoIdnHost(std::u16string_view host_view, CanonOutput* output) {
   int original_output_len = output->length();  // So we can rewind below.
 
   // We need to escape URL before doing IDN conversion, since punicode strings
@@ -407,8 +405,7 @@ bool DoComplexHost(std::string_view host,
 
   // This will call DoSimpleHost which will do normal ASCII canonicalization
   // and also check for IP addresses in the outpt.
-  return DoIDNHost<canon_mode>(utf16.data(), utf16.length(), output) &&
-         are_all_escaped_valid;
+  return DoIdnHost<canon_mode>(utf16.view(), output) && are_all_escaped_valid;
 }
 
 // UTF-16 convert host to its ASCII version. The set up is already ready for
@@ -444,7 +441,7 @@ bool DoComplexHost(std::u16string_view host,
   // function will only get called if we either have escaped or non-ascii
   // input, so it's safe to just use ICU now. Even if the input is ASCII,
   // this function will do the right thing (just slower than we could).
-  return DoIDNHost<canon_mode>(host.data(), host.length(), output);
+  return DoIdnHost<canon_mode>(host, output);
 }
 
 template <typename CHAR, typename UCHAR, CanonMode canon_mode>
@@ -494,7 +491,7 @@ bool DoOpaqueHost(const std::basic_string_view<CharT> host,
     // > 4. Return the result of running UTF-8 percent-encode on input using
     // > the C0 control percent-encode set.
     if (IsInC0ControlPercentEncodeSet(ch)) {
-      AppendUTF8EscapedChar(host.data(), &i, host_len, &output);
+      AppendUtf8EscapedChar(host, &i, &output);
     } else {
       output.push_back(ch);
     }
@@ -510,7 +507,7 @@ void DoHost(std::basic_string_view<CHAR> spec,
   // URL Standard: https://url.spec.whatwg.org/#host-parsing
 
   // Keep track of output's initial length, so we can rewind later.
-  const int output_begin = output.length();
+  const size_t output_begin = output.length();
 
   if (host.is_empty()) {
     // Empty hosts don't need anything.
@@ -529,7 +526,7 @@ void DoHost(std::basic_string_view<CHAR> spec,
     return;
   }
 
-  std::basic_string_view<CHAR> host_view = host.as_string_view_on(spec.data());
+  std::basic_string_view<CHAR> host_view = host.AsViewOn(spec);
   bool success;
   if constexpr (canon_mode == CanonMode::kSpecialURL ||
                 canon_mode == CanonMode::kFileURL) {

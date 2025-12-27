@@ -4,6 +4,7 @@
 
 #include "components/autofill/core/browser/payments/iban_access_manager.h"
 
+#include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/task_environment.h"
@@ -28,6 +29,8 @@
 namespace autofill {
 namespace {
 
+using ::base::test::RunOnceCallbackRepeatedly;
+
 constexpr char16_t kFullIbanValue[] = u"CH5604835012345678009";
 constexpr int64_t kInstrumentId = 12345678;
 constexpr int kDaysSinceLastUsed = 3;
@@ -37,13 +40,11 @@ constexpr size_t kDefaultUseCount = 4;
 class IbanAccessManagerTest : public testing::Test {
  public:
   IbanAccessManagerTest() {
-    autofill_client_.SetPrefs(test::PrefServiceForTesting());
     autofill_client_.set_sync_service(&sync_service_);
     autofill_client_.GetPaymentsAutofillClient()
         ->set_payments_network_interface(
             std::make_unique<MockTestPaymentsNetworkInterface>());
     personal_data().payments_data_manager().SetSyncingForTest(true);
-    personal_data().SetPrefService(autofill_client_.GetPrefs());
 #if BUILDFLAG(IS_IOS)
     // On iOS mandatory reauth is by default enabled. Disable it explicitly
     // to not interfere with tests that do not test reauth functionalities.
@@ -380,10 +381,7 @@ class IbanAccessManagerMandatoryReauthTest : public IbanAccessManagerTest {
 
   void SetUpDeviceAuthenticatorResponseMock(bool success) {
     ON_CALL(mandatory_reauth_manager(), StartDeviceAuthentication)
-        .WillByDefault(testing::WithArg<1>(
-            [success](base::OnceCallback<void(bool)> callback) {
-              std::move(callback).Run(success);
-            }));
+        .WillByDefault(RunOnceCallbackRepeatedly<1>(success));
   }
 
   payments::MockMandatoryReauthManager& mandatory_reauth_manager() {

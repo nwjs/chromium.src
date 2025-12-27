@@ -189,11 +189,6 @@ class MockIpProtectionCore : public IpProtectionCore {
       size_t chain_index) override {
     return std::make_optional<BlindSignedAuthToken>({.token = "a-token"});
   }
-  std::optional<std::string> GetProbabilisticRevealToken(
-      const GURL& url,
-      const net::SchemefulSite& top_frame_site) override {
-    return std::nullopt;
-  }
   void QuicProxiesFailed() override {}
   void RequestRefreshProxyList() override {}
   void GeoObserved(const std::string& geo_id) override {}
@@ -203,13 +198,6 @@ class MockIpProtectionCore : public IpProtectionCore {
   }
   void SetTrackingProtectionContentSetting(
       const ContentSettingsForOneType& settings) override {}
-  bool ShouldRequestIncludeProbabilisticRevealToken(
-      const GURL& request_url) override {
-    return false;
-  }
-  IpProxyStatus GetIpProxyStatus() override { return IpProxyStatus::kOk; }
-  bool IsProxyBypassed() override { return false; }
-  void SetBypassProxy(bool bypass_proxy) override {}
   bool RequestShouldBeProxied(
       const GURL& request_url,
       const net::NetworkAnonymizationKey& network_anonymization_key) override {

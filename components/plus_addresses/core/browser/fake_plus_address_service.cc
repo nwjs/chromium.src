@@ -49,40 +49,15 @@ void FakePlusAddressService::RemoveObserver(PlusAddressService::Observer* o) {
 
 std::vector<autofill::Suggestion>
 FakePlusAddressService::GetSuggestionsFromPlusAddresses(
-    const std::vector<std::string>& plus_addresses,
-    const url::Origin& last_committed_primary_main_frame_origin,
-    bool is_off_the_record,
-    const autofill::FormData& focused_form,
-    const autofill::FormFieldData& focused_field,
-    const base::flat_map<autofill::FieldGlobalId, autofill::FieldTypeGroupSet>&
-        form_field_type_groups,
-    const autofill::PasswordFormClassification& focused_form_classification,
-    bool is_plus_address_manually_triggered) {
-  if (IsPlusAddressCreationEnabled(last_committed_primary_main_frame_origin,
-                                   is_off_the_record)) {
-    Suggestion suggestion(
-        l10n_util::GetStringUTF16(IDS_PLUS_ADDRESS_CREATE_SUGGESTION_MAIN_TEXT),
-        SuggestionType::kCreateNewPlusAddress);
+    const std::vector<std::string>& plus_addresses) {
+  Suggestion suggestion = Suggestion(plus_addresses::test::kFakePlusAddressU16,
+                                     SuggestionType::kFillExistingPlusAddress);
+  if constexpr (!BUILDFLAG(IS_ANDROID)) {
     suggestion.labels = {{Suggestion::Text(l10n_util::GetStringUTF16(
-        IDS_PLUS_ADDRESS_CREATE_SUGGESTION_SECONDARY_TEXT))}};
-    suggestion.icon = Suggestion::Icon::kPlusAddress;
-    suggestion.iph_metadata = Suggestion::IPHMetadata(
-        &feature_engagement::kIPHPlusAddressCreateSuggestionFeature);
-    return {suggestion};
+        IDS_PLUS_ADDRESS_FILL_SUGGESTION_SECONDARY_TEXT))}};
   }
-
-  if (IsPlusAddressFillingEnabled(last_committed_primary_main_frame_origin)) {
-    Suggestion suggestion =
-        Suggestion(plus_addresses::test::kFakePlusAddressU16,
-                   SuggestionType::kFillExistingPlusAddress);
-    if constexpr (!BUILDFLAG(IS_ANDROID)) {
-      suggestion.labels = {{Suggestion::Text(l10n_util::GetStringUTF16(
-          IDS_PLUS_ADDRESS_FILL_SUGGESTION_SECONDARY_TEXT))}};
-    }
-    suggestion.icon = Suggestion::Icon::kPlusAddress;
-    return {suggestion};
-  }
-  return {};
+  suggestion.icon = Suggestion::Icon::kPlusAddress;
+  return {suggestion};
 }
 
 autofill::Suggestion FakePlusAddressService::GetManagePlusAddressSuggestion()
@@ -113,34 +88,6 @@ size_t FakePlusAddressService::GetPlusAddressesCount() {
   return plus_profiles_.size();
 }
 
-void FakePlusAddressService::OnClickedRefreshInlineSuggestion(
-    const url::Origin& last_committed_primary_main_frame_origin,
-    base::span<const autofill::Suggestion> current_suggestions,
-    size_t current_suggestion_index,
-    UpdateSuggestionsCallback update_suggestions_callback) {
-  NOTIMPLEMENTED();
-}
-
-void FakePlusAddressService::OnShowedInlineSuggestion(
-    const url::Origin& primary_main_frame_origin,
-    base::span<const autofill::Suggestion> current_suggestions,
-    UpdateSuggestionsCallback update_suggestions_callback) {
-  NOTIMPLEMENTED();
-}
-
-void FakePlusAddressService::OnAcceptedInlineSuggestion(
-    const url::Origin& primary_main_frame_origin,
-    base::span<const autofill::Suggestion> current_suggestions,
-    size_t current_suggestion_index,
-    UpdateSuggestionsCallback update_suggestions_callback,
-    HideSuggestionsCallback hide_suggestions_callback,
-    PlusAddressCallback fill_field_callback,
-    ShowAffiliationErrorDialogCallback show_affiliation_error_dialog,
-    ShowErrorDialogCallback show_error_dialog,
-    base::OnceClosure reshow_suggestions) {
-  NOTIMPLEMENTED();
-}
-
 std::map<std::string, std::string>
 FakePlusAddressService::GetPlusAddressHatsData() const {
   return {{hats::kPlusAddressesCount, base::ToString(GetPlusProfiles().size())},
@@ -151,12 +98,6 @@ FakePlusAddressService::GetPlusAddressHatsData() const {
 bool FakePlusAddressService::IsPlusAddressFillingEnabled(
     const url::Origin& origin) const {
   return is_plus_address_filling_enabled_;
-}
-
-bool FakePlusAddressService::IsPlusAddressCreationEnabled(
-    const url::Origin& origin,
-    bool is_off_the_record) const {
-  return should_offer_creation_;
 }
 
 bool FakePlusAddressService::IsPlusAddress(
@@ -340,7 +281,6 @@ void FakePlusAddressService::ClearState() {
   should_fail_to_reserve_ = false;
   should_fail_to_refresh_ = false;
   is_plus_address_filling_enabled_ = false;
-  should_offer_creation_ = false;
   should_return_no_affiliated_plus_profiles_ = false;
   should_return_affiliated_plus_profile_on_confirm_ = false;
   should_return_quota_error_ = false;

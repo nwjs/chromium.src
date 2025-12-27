@@ -32,6 +32,7 @@
 #include "net/base/auth.h"
 #include "net/base/completion_once_callback.h"
 #include "net/base/request_priority.h"
+#include "net/ssl/ssl_info.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/cpp/resource_request.h"
@@ -139,6 +140,7 @@ class WebRequestProxyingURLLoaderFactory
                              OnBeforeSendHeadersCallback callback) override;
     void OnHeadersReceived(const std::string& headers,
                            const net::IPEndPoint& endpoint,
+                           const std::optional<net::SSLInfo>& ssl_info,
                            OnHeadersReceivedCallback callback) override;
 
     // Erases all DNR actions in `info_` that are associated with
@@ -256,6 +258,12 @@ class WebRequestProxyingURLLoaderFactory
     // is only set to true if there is a listener that needs to view or modify
     // headers set in the network process.
     const bool has_any_extra_headers_listeners_ = false;
+
+    // Similar to the |has_any_extra_headers_listeners_|, setting
+    // |has_any_security_info_listeners_| also will make the request to use
+    // network::mojom::kURLLoadOptionUseHeaderClient option.
+    const bool has_any_security_info_listeners_ = false;
+
     bool current_request_uses_header_client_ = false;
     OnBeforeSendHeadersCallback on_before_send_headers_callback_;
     OnHeadersReceivedCallback on_headers_received_callback_;
@@ -279,6 +287,10 @@ class WebRequestProxyingURLLoaderFactory
     };
     std::unique_ptr<FollowRedirectParams> pending_follow_redirect_params_;
     State state_ = State::kInProgress;
+
+    // Whether URLLoaderClient's OnReceiveResponse() has been called. It must be
+    // called at most once. It is added to debug crbug.com/463388771.
+    bool has_forwarded_response_ = false;
 
     // A task runner that should be used for the request when non-null. Non-null
     // when this was created for a navigation request.

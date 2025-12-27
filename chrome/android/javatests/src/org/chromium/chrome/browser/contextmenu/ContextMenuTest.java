@@ -46,6 +46,7 @@ import org.mockito.junit.MockitoRule;
 import org.mockito.stubbing.Answer;
 
 import org.chromium.base.Callback;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CallbackHelper;
@@ -53,7 +54,6 @@ import org.chromium.base.test.util.CloseableOnMainThread;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
-import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -74,6 +74,7 @@ import org.chromium.chrome.browser.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.SupportedProfileType;
 import org.chromium.chrome.browser.share.ChromeShareExtras;
 import org.chromium.chrome.browser.share.LensUtils;
 import org.chromium.chrome.browser.share.ShareDelegate;
@@ -90,6 +91,7 @@ import org.chromium.chrome.test.batch.BlankCTATabInitialStateRule;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.browser.contextmenu.ContextMenuUtils;
 import org.chromium.components.browser_ui.share.ShareParams;
+import org.chromium.components.browser_ui.widget.ContextMenuDialog;
 import org.chromium.components.embedder_support.contextmenu.ChipDelegate;
 import org.chromium.components.embedder_support.contextmenu.ChipRenderParams;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuParams;
@@ -106,6 +108,7 @@ import org.chromium.ui.base.Clipboard;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.DeviceInput;
 import org.chromium.ui.base.UiAndroidFeatures;
+import org.chromium.ui.hierarchicalmenu.FlyoutController;
 import org.chromium.ui.listmenu.MenuModelBridge;
 import org.chromium.ui.modelutil.MVCListAdapter;
 import org.chromium.ui.mojom.MenuSourceType;
@@ -320,6 +323,15 @@ public class ContextMenuTest {
         }
 
         assertStringContains("test_link.html", getClipboardText());
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"Browser", "ContextMenu"})
+    public void testInterestForLinkHasCorrectContextMenu() throws TimeoutException {
+        Tab tab = sDownloadTestRule.getActivityTab();
+        mMenuCoordinator = ContextMenuUtils.openContextMenu(tab, "interestForLink");
+        Assert.assertTrue(mMenuCoordinator.getParams().getOpenedFromInterestFor());
     }
 
     @Test
@@ -805,7 +817,9 @@ public class ContextMenuTest {
         Assert.assertEquals(downloadCount, newCount);
 
         // The context menu should still show.
-        Assert.assertTrue(mMenuCoordinator.getDialogsForTest().get(0).popupWindow.isShowing());
+        FlyoutController<ContextMenuDialog> controller =
+                mMenuCoordinator.getHierarchicalMenuControllerForTest().getFlyoutController();
+        Assert.assertTrue(controller.getMainPopup().isShowing());
     }
 
     /**
@@ -886,24 +900,30 @@ public class ContextMenuTest {
 
     @Test
     @SmallTest
-    @DisableIf.Device(DeviceFormFactor.ONLY_TABLET) // https://crbug.com/338969612
     @Feature({"Browser", "ContextMenu"})
-    // TODO(crbug.com/439491767): Fix broken tests caused by desktop-like incognito window.
-    @DisableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testContextMenuRetrievesLinkOptions() throws TimeoutException {
         Tab tab = sDownloadTestRule.getActivityTab();
         mMenuCoordinator = ContextMenuUtils.openContextMenu(tab, "testLink");
-
         Integer[] expectedItems = {
             R.id.contextmenu_open_in_new_tab_in_group,
             R.id.contextmenu_open_in_new_tab,
-            R.id.contextmenu_open_in_incognito_tab,
+            sDownloadTestRule.getActivity().getSupportedProfileType()
+                            == SupportedProfileType.REGULAR
+                    ? R.id.contextmenu_open_in_incognito_window
+                    : R.id.contextmenu_open_in_incognito_tab,
             R.id.contextmenu_save_link_as,
             R.id.contextmenu_copy_link_text,
             R.id.contextmenu_copy_link_address,
             R.id.contextmenu_share_link,
             R.id.contextmenu_read_later
         };
+        expectedItems =
+                addItemsIf(
+                        DeviceFormFactor.isNonMultiDisplayContextOnTablet(
+                                        sDownloadTestRule.getActivity())
+                                && !DeviceInfo.isAutomotive(),
+                        expectedItems,
+                        new Integer[] {R.id.contextmenu_open_in_new_window});
         expectedItems =
                 addItemsIf(
                         EphemeralTabCoordinator.isSupported(),
@@ -982,10 +1002,7 @@ public class ContextMenuTest {
 
     @Test
     @SmallTest
-    @DisableIf.Device(DeviceFormFactor.ONLY_TABLET) // https://crbug.com/338969612
     @Feature({"Browser", "ContextMenu"})
-    // TODO(crbug.com/439491767): Fix broken tests caused by desktop-like incognito window.
-    @DisableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testContextMenuRetrievesImageLinkOptions() throws TimeoutException {
         LensUtils.setFakePassableLensEnvironmentForTesting(true);
 
@@ -995,7 +1012,10 @@ public class ContextMenuTest {
         Integer[] expectedItems = {
             R.id.contextmenu_open_in_new_tab_in_group,
             R.id.contextmenu_open_in_new_tab,
-            R.id.contextmenu_open_in_incognito_tab,
+            sDownloadTestRule.getActivity().getSupportedProfileType()
+                            == SupportedProfileType.REGULAR
+                    ? R.id.contextmenu_open_in_incognito_window
+                    : R.id.contextmenu_open_in_incognito_tab,
             R.id.contextmenu_copy_link_address,
             R.id.contextmenu_save_link_as,
             R.id.contextmenu_save_image,
@@ -1008,6 +1028,13 @@ public class ContextMenuTest {
         Integer[] featureItems = {
             R.id.contextmenu_open_in_ephemeral_tab, R.id.contextmenu_open_image_in_ephemeral_tab
         };
+        expectedItems =
+                addItemsIf(
+                        DeviceFormFactor.isNonMultiDisplayContextOnTablet(
+                                        sDownloadTestRule.getActivity())
+                                && !DeviceInfo.isAutomotive(),
+                        expectedItems,
+                        new Integer[] {R.id.contextmenu_open_in_new_window});
         expectedItems =
                 addItemsIf(EphemeralTabCoordinator.isSupported(), expectedItems, featureItems);
         assertMenuItemsAreEqual(mMenuCoordinator, expectedItems);

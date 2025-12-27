@@ -54,6 +54,7 @@ class TouchToFillDelegate {
   // Called when a BNPL suggestion was selected.
   virtual void BnplSuggestionSelected(
       std::optional<int64_t> extracted_amount) = 0;
+  virtual void OnBnplTosAccepted() = 0;
   // Called when an IBAN suggestion was selected.
   // An Iban::Guid is passed in case of a locally stored IBAN and an
   // Iban::InstrumentId for server IBANs.
@@ -63,8 +64,11 @@ class TouchToFillDelegate {
   // sheet.
   virtual void LoyaltyCardSuggestionSelected(
       const LoyaltyCard& loyalty_card) = 0;
-  virtual void OnDismissed(bool dismissed_by_user) = 0;
-  virtual void OnErrorOkPressed() = 0;
+
+  // Called when the TTF bottom sheet is dismissed. `dismissed_by_user` is true
+  // if the user explicitly dismissed the sheet (e.g. by swiping it away).
+  // `should_reshow` is true if the bottom sheet is eligible to be reshown.
+  virtual void OnDismissed(bool dismissed_by_user, bool should_reshow) = 0;
   virtual void OnBnplIssuerSuggestionSelected(const std::string& issuer_id) = 0;
 
   virtual void LogMetricsAfterSubmission(
@@ -73,6 +77,8 @@ class TouchToFillDelegate {
   virtual void SetCancelCallback(base::OnceClosure cancel_callback) = 0;
   virtual void SetSelectedIssuerCallback(
       base::OnceCallback<void(BnplIssuer)> selected_issuer_callback) = 0;
+  virtual void SetBnplTosAcceptCallback(
+      base::OnceClosure accept_tos_callback) = 0;
 };
 
 }  // namespace autofill

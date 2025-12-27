@@ -190,6 +190,9 @@ class VisitRow {
   // by an app. This is set only on Android if the Custom Tab knows which app
   // launched it; otherwise remains null.
   std::optional<std::string> app_id;
+  // The source of the visit
+  // TODO(crbug.com/464528977): Wrap source with std::optional.
+  history::VisitSource source = history::SOURCE_BROWSED;
   // We allow the implicit copy constructor and operator=.
 };
 
@@ -429,6 +432,10 @@ struct QueryOptions {
 
   // If nullopt, search doesn't take app_id into consideration.
   std::optional<std::string> app_id;
+
+  // If true, visits with a source of SOURCE_ACTOR are included.
+  // Defaults to false, filtering them out.
+  bool include_actor_visits = false;
 
   // Helpers to get the effective parameters values, since a value of 0 means
   // "unspecified".
@@ -688,11 +695,13 @@ enum DomainMetricType : DomainMetricBitmaskType {
 struct HistoryLastVisitResult {
   // Indicates whether the call was successful or not. This can happen if there
   // are internal database errors or the query was called with invalid
-  // arguments. `success` will be true and `last_visit` will be null if
-  // the host was never visited before. `last_visit` will always be null if
-  // `success` is false.
+  // arguments. `success` will be true and both `last_visit` and
+  // `last_visited_url` will be null if the host was never visited before.
+  // `last_visit` and `last_visited_url` will always be null if `success` is
+  // false.
   bool success = false;
   base::Time last_visit;
+  GURL last_visited_url;
 };
 
 // DailyVisitsResult contains the result of counting visits to a host over a
@@ -1290,6 +1299,30 @@ enum class VisitContextEphemerality {
   // The page visit occurred in an ephemeral context (i.e., a credentialless
   // iframe).
   kEphemeral,
+};
+
+// Information associated with a new visit that is added to History.
+// VisitedURLInfo
+// ----------------------------------------------------------------
+struct VisitedURLInfo {
+  VisitedURLInfo();
+  VisitedURLInfo(URLRow url_row,
+                 VisitRow visit_row,
+                 VisitResponseCodeCategory response_code_category =
+                     VisitResponseCodeCategory::kNot404,
+                 std::optional<int64_t> local_navigation_id = std::nullopt);
+  VisitedURLInfo(const VisitedURLInfo& other);
+  ~VisitedURLInfo();
+
+  // The URLRow for which there was a new visit.
+  URLRow url_row;
+  // The VisitRow of the new visit.
+  VisitRow visit_row;
+  // Indicates whether or not this new visit had a 404 response.
+  VisitResponseCodeCategory response_code_category;
+  // Contains the unique navigation id from `content::NavigationHandle` and is
+  // populated only during local visits.
+  std::optional<int64_t> local_navigation_id;
 };
 
 // Marshalling structure for AddPage.

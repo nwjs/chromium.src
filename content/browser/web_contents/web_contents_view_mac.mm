@@ -359,6 +359,23 @@ gfx::Rect WebContentsViewMac::GetViewBounds() const {
   return gfx::ScreenRectFromNSRect(window_bounds);
 }
 
+void WebContentsViewMac::Resize(const gfx::Rect& new_bounds) {
+  NSView* view = GetNativeView().GetNativeNSView();
+  NSRect old_wcv_frame = view.frame;
+  CGFloat new_x = old_wcv_frame.origin.x;
+  CGFloat new_y = old_wcv_frame.origin.y +
+                  (old_wcv_frame.size.height - new_bounds.size().height());
+  NSRect new_wcv_frame = NSMakeRect(new_x, new_y, new_bounds.size().width(),
+                                    new_bounds.size().height());
+  view.frame = new_wcv_frame;
+}
+
+gfx::Size WebContentsViewMac::GetSize() const {
+  NSView* view = GetNativeView().GetNativeNSView();
+  NSRect frame = view.frame;
+  return gfx::Size(NSWidth(frame), NSHeight(frame));
+}
+
 void WebContentsViewMac::CreateView(gfx::NativeView context) {
   in_process_ns_view_bridge_ =
       std::make_unique<remote_cocoa::WebContentsNSViewBridge>(ns_view_id_,
@@ -751,11 +768,11 @@ void WebContentsViewMac::ViewsHostableDetach() {
 }
 
 void WebContentsViewMac::ViewsHostableSetBounds(
-    const gfx::Rect& bounds_in_window) {
+    const gfx::Rect& bounds_in_superview) {
   // Update both the in-process and out-of-process NSViews' bounds.
-  in_process_ns_view_bridge_->SetBounds(bounds_in_window);
+  in_process_ns_view_bridge_->SetBounds(bounds_in_superview);
   if (remote_ns_view_)
-    remote_ns_view_->SetBounds(bounds_in_window);
+    remote_ns_view_->SetBounds(bounds_in_superview);
 }
 
 void WebContentsViewMac::ViewsHostableSetVisible(bool visible) {

@@ -21,6 +21,7 @@ import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.transition.ChangeBounds;
@@ -28,9 +29,11 @@ import android.transition.ChangeTransform;
 import android.transition.Fade;
 import android.transition.Slide;
 import android.transition.Transition;
+import android.transition.Transition.TransitionListener;
 import android.transition.TransitionListenerAdapter;
 import android.transition.TransitionManager;
 import android.transition.TransitionSet;
+import android.transition.TransitionValues;
 import android.util.AttributeSet;
 import android.util.FloatProperty;
 import android.view.Gravity;
@@ -43,6 +46,7 @@ import android.view.ViewStub;
 import androidx.annotation.ColorInt;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
+import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.content.ContextCompat;
@@ -59,6 +63,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.NullUnmarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.omnibox.LocationBar;
 import org.chromium.chrome.browser.omnibox.LocationBarBackgroundDrawable;
 import org.chromium.chrome.browser.omnibox.LocationBarBackgroundDrawable.HairlineBehavior;
@@ -107,6 +112,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 /** Phone specific toolbar implementation. */
 @NullMarked
@@ -145,7 +151,6 @@ public class ToolbarPhone extends ToolbarLayout
     private ObservableSupplier<Tracker> mTrackerSupplier;
 
     private ViewGroup mToolbarButtonsContainer;
-    protected View mUrlActionContainer;
     private @MonotonicNonNull OptionalButtonCoordinator mOptionalButtonCoordinator;
     private HomeButtonDisplay mHomeButtonDisplay;
 
@@ -192,7 +197,15 @@ public class ToolbarPhone extends ToolbarLayout
     /** The omnibox background (white with a shadow). */
     private LocationBarBackgroundDrawable mLocationBarBackground;
 
+    /**
+     * The host for the background drawable when TOOLBAR_PHONE_ANIMATION_REFACTOR is enabled.
+     * TODO(crbug.com/425817689): Remove the Drawable reference when the above refactor is complete
+     * and we no longer need to manually draw the Drawable to the canvas.
+     */
+    private View mActiveLocationBarBackgroundView;
+
     private Drawable mActiveLocationBarBackground;
+    private @Nullable GradientDrawable mNtpFakeboxBackground;
 
     protected boolean mForceDrawLocationBarBackground;
 
@@ -219,6 +232,12 @@ public class ToolbarPhone extends ToolbarLayout
      * NTP.
      */
     private float mUrlActionsNtpEndOffset;
+
+    /**
+     * Offset applied to the location bar when scrolling during a refactored transition. This is to
+     * avoid "double-counting" the offset that is already included in the animation bounds.
+     */
+    private float mRefactoredNtpStartingOffset;
 
     private final Rect mNtpSearchBoxBounds = new Rect();
     protected final Point mNtpSearchBoxTranslation = new Point();
@@ -249,6 +268,8 @@ public class ToolbarPhone extends ToolbarLayout
 
     private final @ColorInt int mToolbarBackgroundColorForNtp;
     private final @ColorInt int mLocationBarBackgroundColorForNtp;
+    private final boolean mUseAdjustedTintColorForNtp;
+    private boolean mIsToolbarExpandedOnNtp;
 
     /** Used to specify the visual state of the toolbar. */
     @IntDef({
@@ -333,6 +354,8 @@ public class ToolbarPhone extends ToolbarLayout
                         SemanticColorUtils.getDefaultIconColorAccent1(context),
                         locationBarBackgroundColorAlphaForNtp);
         mDisableLocationBarRelayout = ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled();
+        mUseAdjustedTintColorForNtp =
+                NtpCustomizationUtils.shouldAdjustIconTintForNtp(/* isTablet= */ false);
     }
 
     @Override
@@ -351,9 +374,11 @@ public class ToolbarPhone extends ToolbarLayout
                 }
             }
 
-            mUrlActionContainer = findViewById(R.id.url_action_container);
             mToolbarBackground =
                     new ColorDrawable(getToolbarColorForVisualState(VisualState.NORMAL));
+            if (ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled()) {
+                setBackground(mToolbarBackground);
+            }
 
             setLayoutTransition(null);
 
@@ -364,6 +389,11 @@ public class ToolbarPhone extends ToolbarLayout
             setWillNotDraw(false);
             mUrlFocusTranslationX =
                     getResources().getDimensionPixelSize(R.dimen.toolbar_url_focus_translation_x);
+
+            mActiveLocationBarBackgroundView = findViewById(R.id.location_bar_background_view);
+            if (ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled()) {
+                mActiveLocationBarBackgroundView.setVisibility(View.VISIBLE);
+            }
         }
     }
 
@@ -384,7 +414,8 @@ public class ToolbarPhone extends ToolbarLayout
             @Nullable HomeButtonDisplay homeButtonDisplay,
             @Nullable ExtensionToolbarCoordinator extensionToolbarCoordinator,
             ThemeColorProvider themeColorProvider,
-            IncognitoStateProvider incognitoStateProvider) {
+            IncognitoStateProvider incognitoStateProvider,
+            @Nullable Supplier<Integer> incognitoWindowCountSupplier) {
         assert tabSwitcherButtonCoordinator != null;
         super.initialize(
                 toolbarDataProvider,
@@ -401,7 +432,8 @@ public class ToolbarPhone extends ToolbarLayout
                 homeButtonDisplay,
                 extensionToolbarCoordinator,
                 themeColorProvider,
-                incognitoStateProvider);
+                incognitoStateProvider,
+                /* incognitoWindowCountSupplier= */ null);
         mUserEducationHelper = userEducationHelper;
         mTrackerSupplier = trackerSupplier;
         mHomeButtonDisplay = assumeNonNull(homeButtonDisplay);
@@ -423,7 +455,21 @@ public class ToolbarPhone extends ToolbarLayout
         mLocationBarBackgroundVerticalInset =
                 res.getDimensionPixelSize(R.dimen.location_bar_vertical_margin);
         mLocationBarBackground = createModernLocationBarBackground(getContext());
-        mActiveLocationBarBackground = mLocationBarBackground;
+        setActiveLocationBarBackground(mLocationBarBackground);
+    }
+
+    private void setActiveLocationBarBackground(Drawable background) {
+        mActiveLocationBarBackground = background;
+        if (ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled()) {
+            mActiveLocationBarBackgroundView.setBackground(mActiveLocationBarBackground);
+            updateLocationBarBackgroundBounds(mLocationBarBackgroundBounds, mVisualState);
+        } else {
+            // With the refactor enabled, the drawable belongs to a different view
+            // (mActiveLocationBarBackgroundView) that handles its invalidations. Otherwise, we need
+            // to manually handle its invalidations since it's not registered as our background
+            // drawable.
+            mLocationBarBackground.setCallback(this);
+        }
     }
 
     private void updateBackgroundHairline(boolean urlHasFocus, @AutocompleteRequestType int type) {
@@ -434,8 +480,19 @@ public class ToolbarPhone extends ToolbarLayout
 
         mLocationBarBackground.setHairlineBehavior(
                 type == AutocompleteRequestType.AI_MODE
+                                || type == AutocompleteRequestType.IMAGE_GENERATION
                         ? HairlineBehavior.RAINBOW
-                        : HairlineBehavior.MONOTONE);
+                        : HairlineBehavior.NONE);
+    }
+
+    @Override
+    public void invalidateDrawable(Drawable who) {
+        if (who == mLocationBarBackground
+                && mActiveLocationBarBackground == mLocationBarBackground) {
+            invalidate();
+        } else {
+            super.invalidateDrawable(who);
+        }
     }
 
     @Override
@@ -462,17 +519,29 @@ public class ToolbarPhone extends ToolbarLayout
                         context,
                         /* cornerRadiusPx= */ resources.getDimensionPixelSize(
                                 R.dimen.modern_toolbar_background_corner_radius),
-                        /* strokePx= */ resources.getDimensionPixelSize(R.dimen.chip_border_width),
-                        ContextCompat.getColor(context, R.color.color_on_surface_with_alpha_12));
+                        /* strokePx= */ resources.getDimensionPixelSize(
+                                R.dimen.fusebox_glif_stroke_width),
+                        /* blurStrokePx= */ resources.getDimensionPixelSize(
+                                R.dimen.fusebox_glif_blur_stroke_width));
         drawable.setBackgroundColor(
                 ContextCompat.getColor(context, R.color.toolbar_text_box_bg_color));
+        return drawable;
+    }
+
+    private static GradientDrawable createNtpFakeboxBackground(Context context) {
+        GradientDrawable drawable =
+                (GradientDrawable)
+                        AppCompatResources.getDrawable(
+                                context, R.drawable.home_surface_search_box_background);
+        assert drawable != null;
+        drawable.mutate();
         return drawable;
     }
 
     private void updateBackground(final boolean hasFocus) {
         if (hasFocus) {
             mDropdownListScrolled = false;
-            mActiveLocationBarBackground = mLocationBarBackground;
+            setActiveLocationBarBackground(mLocationBarBackground);
         } else if (isLocationBarShownInNtp()) {
             updateToNtpBackground();
         }
@@ -480,10 +549,10 @@ public class ToolbarPhone extends ToolbarLayout
 
     // Replace location bar background with NTB fakebox background.
     private void updateToNtpBackground() {
-        Drawable ntpDrawable =
-                AppCompatResources.getDrawable(
-                        getContext(), R.drawable.home_surface_search_box_background);
-        mActiveLocationBarBackground = ntpDrawable;
+        if (mNtpFakeboxBackground == null) {
+            mNtpFakeboxBackground = createNtpFakeboxBackground(getContext());
+        }
+        setActiveLocationBarBackground(mNtpFakeboxBackground);
     }
 
     /** Set the background color of the location bar to appropriately match the theme color. */
@@ -861,12 +930,22 @@ public class ToolbarPhone extends ToolbarLayout
         if (!mTextureCaptureMode && mToolbarBackground.getColor() != Color.TRANSPARENT) {
             // Update to compensate for orientation changes.
             mToolbarBackground.setBounds(0, 0, getWidth(), getHeight());
-            mToolbarBackground.draw(canvas);
+            if (!ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled()) {
+                mToolbarBackground.draw(canvas);
+            } else {
+                mToolbarBackground.setAlpha(255);
+            }
+        } else if (ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled()) {
+            // TODO(crbug.com/425817689): Move the flag-guarded setAlpha calls outside of the draw
+            //  cycle. Specifically, move to where we set the state that determines whether or not
+            //  the background should be drawn (capture mode && transparent color).
+            mToolbarBackground.setAlpha(0);
         }
 
         if (mLocationBarBackground != null
                 && (mLocationBar.getPhoneCoordinator().getVisibility() == VISIBLE
-                        || mTextureCaptureMode)) {
+                        || mTextureCaptureMode)
+                && !ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled()) {
             updateLocationBarBackgroundBounds(mLocationBarBackgroundBounds, mVisualState);
         }
 
@@ -883,17 +962,86 @@ public class ToolbarPhone extends ToolbarLayout
     }
 
     private void onNtpScrollChanged(float scrollFraction) {
+        if (ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled()) {
+            NewTabPageDelegate ntpDelegate = getToolbarDataProvider().getNewTabPageDelegate();
+            if (!ntpDelegate.hasCompletedFirstLayout()) {
+                // If the NTP has not completed its first layout, but we're getting a scroll update,
+                // we're likely navigating to a NTP. Immediately hide the location bar in this case,
+                // as the fakebox will soon show.
+                if (isLocationBarShownInNtp()) {
+                    mLocationBar.getPhoneCoordinator().setAlpha(0.f);
+                    mActiveLocationBarBackgroundView.setAlpha(0.f);
+                }
+                // Also skip the updates below, since we won't be able to derive the correct
+                // properties (translationY, etc.) yet.
+                return;
+            }
+
+            updateButtonsTranslationY();
+            updateToolbarBackgroundFromState(mVisualState);
+            updateLocationBarTranslationOnScroll();
+            float oldScrollFraction = mNtpSearchBoxScrollFraction;
+            if (scrollFraction > 0.f && mNtpSearchBoxScrollFraction != 1.f) {
+                mNtpSearchBoxScrollFraction = 1.f;
+                createAndRunNtpFocusAnimatorRefactored();
+            } else if (scrollFraction <= 0.f && mNtpSearchBoxScrollFraction != 0.f) {
+                mNtpSearchBoxScrollFraction = 0.f;
+                createAndRunNtpFocusAnimatorRefactored();
+            }
+            // If the scroll fraction was previously uninitialized, we likely just navigated to a
+            // NTP. We want to update the location bar's state, but suppress the associated
+            // animations, so allow the transition to start, then immediately end it here.
+            if (oldScrollFraction == UNINITIALIZED_FRACTION) {
+                endFocusTransition(/* hasFocus= */ false);
+            }
+            return;
+        }
+
         mNtpSearchBoxScrollFraction = scrollFraction;
         if (mNtpSearchBoxScrollFraction > 0) {
             updateLocationBarForNtp(mVisualState, urlHasFocus());
         }
+
+        if (mUseAdjustedTintColorForNtp) {
+            if (!mIsToolbarExpandedOnNtp && mNtpSearchBoxScrollFraction > 0) {
+                mIsToolbarExpandedOnNtp = true;
+                notifyToolbarExpandingOnNtp(true);
+            } else if (mIsToolbarExpandedOnNtp && mNtpSearchBoxScrollFraction == 0) {
+                mIsToolbarExpandedOnNtp = false;
+                notifyToolbarExpandingOnNtp(false);
+            }
+        }
         updateUrlExpansionFraction();
-        // TODO(crbug.com/430347234): Cleaning up #updateUrlExpansionAnimation() would imply a
-        // slight compromise in fakebox to expanded location bar transition. Here we'll need to snap
-        // to expanded location bar state when fakebox touches location bar (first
-        // scrollFraction > 0 event) or when scrollFraction == 1. Refactor end state updates in
-        // triggerUrlFocus to also invoke to perform the snap.
         invokeTransition();
+    }
+
+    private void updateLocationBarTranslationOnScroll() {
+        // When the scroll fraction is set to 1.f, the location bar is "snapped" to the top of the
+        // screen, so we don't update the y-translation here.
+        if (mNtpSearchBoxScrollFraction != 1.f) {
+            // We intentionally do not call #onLocationBarBackgroundViewBoundsChanged here, since
+            // the size of the background will instead be handled by the refactored transition.
+            float translationY = getLocationBarTranslationY() - mRefactoredNtpStartingOffset;
+            mLocationBar.getPhoneCoordinator().setTranslationY(translationY);
+            mActiveLocationBarBackgroundView.setTranslationY(translationY);
+        }
+    }
+
+    private float getLocationBarTranslationY() {
+        NewTabPageDelegate ntpDelegate = getToolbarDataProvider().getNewTabPageDelegate();
+        ntpDelegate.getSearchBoxBounds(mNtpSearchBoxBounds, mNtpSearchBoxTranslation);
+        float translationY = mNtpSearchBoxBounds.top - mLocationBar.getPhoneCoordinator().getTop();
+        return Math.max(0, translationY);
+    }
+
+    private void createAndRunNtpFocusAnimatorRefactored() {
+        mRefactoredNtpStartingOffset = getLocationBarTranslationY();
+        // TODO(crbug.com/462492387): Cleanup this flow. It's unclear if we still need to call
+        //  #updateLocationBarForNtp here. We likely can also refactor the transition helpers, so
+        //  we don't #triggerUrlFocusAnimation here, and instead only set up the transitions
+        //  needed for this flow (size change, translation, etc.).
+        updateLocationBarForNtp(mVisualState, /* hasFocus= */ false);
+        triggerUrlFocusAnimation(/* hasFocus= */ false);
     }
 
     /**
@@ -915,7 +1063,7 @@ public class ToolbarPhone extends ToolbarLayout
         if (urlHasFocus() && ChromeFeatureList.sAndroidBottomToolbarV2.isEnabled()) {
             int strokePx =
                     getContext().getResources().getDimensionPixelSize(R.dimen.chip_border_width);
-            verticalInset += strokePx;
+            verticalInset -= strokePx;
             horizontalInset = strokePx;
         }
 
@@ -930,6 +1078,7 @@ public class ToolbarPhone extends ToolbarLayout
                 mLocationBar.getPhoneCoordinator().getTop() + verticalInset,
                 rightViewPosition + horizontalInset,
                 mLocationBar.getPhoneCoordinator().getBottom() - verticalInset);
+        onLocationBarBackgroundViewBoundsChanged();
     }
 
     /**
@@ -1115,11 +1264,13 @@ public class ToolbarPhone extends ToolbarLayout
         if (!mOptionalButtonAnimationRunning) {
             boolean isUrlFocusChangeInProgressWithScrollCompleted =
                     mNtpSearchBoxScrollFraction == 1 && mUrlFocusChangeInProgress;
-            mUrlActionContainer.setTranslationX(
+
+            mLocationBar.setLocationBarButtonTranslationForNtpAnimation(
                     getUrlActionsTranslationXForExpansionAnimation(
                             isLocationBarRtl,
                             locationBarBaseTranslationX,
                             isUrlFocusChangeInProgressWithScrollCompleted));
+
             // A url expansion fraction < 1.0 fades and translates the DSE icon away from its final
             // state. If the DSE icon is always visible on the NTP, it should stay at full alpha and
             // in its final location rather than being affected by scroll offset.
@@ -1148,8 +1299,8 @@ public class ToolbarPhone extends ToolbarLayout
         if ((urlHasFocus() || !isLocationBarShownInNtp()) && mTabSwitcherState == STATIC_TAB) {
             boolean isInGeneralNtp =
                     isLocationBarShownInGeneralNtp() || mIsInLoadingPhaseFromNtpToWebpage;
-            // Add a special case for general NTP to the defaultColor to ensure that the color is
-            // right and changes smoothly during the un-focus animation.
+            // Add a special case for general NTP to the defaultColor to ensure that the color
+            // is right and changes smoothly during the un-focus animation.
             boolean shouldUseFocusColor = isInGeneralNtp && mUrlFocusChangeInProgress;
             @ColorInt int defaultColor = getToolbarDefaultColor(shouldUseFocusColor);
             @ColorInt
@@ -1165,7 +1316,6 @@ public class ToolbarPhone extends ToolbarLayout
             updateToolbarBackground(
                     ColorUtils.blendColorsMultiply(
                             primaryColor, defaultColor, mUrlFocusChangeFraction));
-
             updateModernLocationBarColor(
                     ColorUtils.blendColorsMultiply(
                             themedLocationBarColor,
@@ -1248,9 +1398,11 @@ public class ToolbarPhone extends ToolbarLayout
      */
     private void resetNtpAnimationValues() {
         mLocationBarBackgroundNtpOffset.setEmpty();
+        onLocationBarBackgroundViewBoundsChanged();
         mLocationBarNtpOffsetLeft = 0;
         mLocationBarNtpOffsetRight = 0;
-        mActiveLocationBarBackground = mLocationBarBackground;
+        mRefactoredNtpStartingOffset = 0;
+        setActiveLocationBarBackground(mLocationBarBackground);
         mNtpSearchBoxTranslation.set(0, 0);
         mLocationBar.getPhoneCoordinator().setTranslationY(0);
         mLocationBar.getPhoneCoordinator().setTranslationX(0);
@@ -1264,6 +1416,9 @@ public class ToolbarPhone extends ToolbarLayout
         }
 
         mLocationBar.getPhoneCoordinator().setAlpha(1);
+        if (ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled()) {
+            mActiveLocationBarBackgroundView.setAlpha(1.f);
+        }
         mForceDrawLocationBarBackground = false;
 
         setAncestorsShouldClipChildren(true);
@@ -1279,6 +1434,14 @@ public class ToolbarPhone extends ToolbarLayout
     private void updateNtpTransitionAnimation() {
         // Skip if in or entering tab switcher mode.
         if (mTabSwitcherState == TAB_SWITCHER || mTabSwitcherState == ENTERING_TAB_SWITCHER) return;
+        // If this feature is enabled, this is handled by refactored transitions instead.
+        if (ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled()) {
+            // TODO(crbug.com/425817689): We still need to update the color here, though, since this
+            //  needs to be called after the expansion fraction has been updated, but before
+            //  #updateToolbarAndLocationBarColorForFocusChange, which may override this color.
+            updateToolbarBackgroundFromState(mVisualState);
+            return;
+        }
 
         boolean isExpanded = mUrlExpansionFraction > 0f;
         boolean isPartiallyExpanded = isExpanded && mUrlExpansionFraction < 1f;
@@ -1303,11 +1466,7 @@ public class ToolbarPhone extends ToolbarLayout
         // #getSearchBoxBounds is only valid once the NTP can actually draw itself.
         if (ntpDelegate.hasCompletedFirstLayout()) {
             ntpDelegate.getSearchBoxBounds(mNtpSearchBoxBounds, mNtpSearchBoxTranslation);
-            int locationBarTranslationY =
-                    Math.max(
-                            0,
-                            (mNtpSearchBoxBounds.top
-                                    - mLocationBar.getPhoneCoordinator().getTop()));
+            int locationBarTranslationY = (int) getLocationBarTranslationY();
             mLocationBar.getPhoneCoordinator().setTranslationY(locationBarTranslationY);
 
             updateButtonsTranslationY();
@@ -1335,10 +1494,8 @@ public class ToolbarPhone extends ToolbarLayout
                     locationBarTranslationY);
             float urlExpansionFractionComplement = 1.f - mUrlExpansionFraction;
             var resources = getResources();
-            int baseInset =
-                    resources.getDimensionPixelSize(R.dimen.modern_toolbar_background_size)
-                            - resources.getDimensionPixelSize(R.dimen.ntp_search_box_height);
-            int verticalInset = (int) (((float) baseInset / 2) * urlExpansionFractionComplement);
+            int verticalInset =
+                    (int) (getNtpTransitionVerticalInset() * urlExpansionFractionComplement);
 
             int locationBarUrlActionOffsetChange =
                     resources.getDimensionPixelSize(R.dimen.location_bar_url_action_offset_ntp)
@@ -1372,9 +1529,17 @@ public class ToolbarPhone extends ToolbarLayout
         updateToolbarBackgroundFromState(mVisualState);
     }
 
+    private float getNtpTransitionVerticalInset() {
+        var resources = getResources();
+        int baseInset =
+                resources.getDimensionPixelSize(R.dimen.modern_toolbar_background_size)
+                        - resources.getDimensionPixelSize(R.dimen.ntp_search_box_height);
+        return baseInset / 2.f;
+    }
+
     /**
-     * Update the y translation of the buttons to make it appear as if they were scrolling with
-     * the new tab page.
+     * Update the y translation of the buttons to make it appear as if they were scrolling with the
+     * new tab page.
      */
     private void updateButtonsTranslationY() {
         int transY = mTabSwitcherState == STATIC_TAB ? Math.min(mNtpSearchBoxTranslation.y, 0) : 0;
@@ -1509,12 +1674,41 @@ public class ToolbarPhone extends ToolbarLayout
         return mLocationBarBackground != null;
     }
 
+    /** Called whenever the location bar background view's bounds or its NTP offset changes. */
+    private void onLocationBarBackgroundViewBoundsChanged() {
+        if (!ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled()) {
+            return;
+        }
+        updateLocationBarBackgroundViewBounds();
+    }
+
+    /**
+     * Updates the toolbar animation refactor's location bar background host view's position, based
+     * on its previously calculated bounds, the NTP offset, and the location bar's translation.
+     */
+    private void updateLocationBarBackgroundViewBounds() {
+        int left = mLocationBarBackgroundBounds.left + mLocationBarBackgroundNtpOffset.left;
+        int top = mLocationBarBackgroundBounds.top + mLocationBarBackgroundNtpOffset.top;
+        int right = mLocationBarBackgroundBounds.right + mLocationBarBackgroundNtpOffset.right;
+        int bottom = mLocationBarBackgroundBounds.bottom + mLocationBarBackgroundNtpOffset.bottom;
+
+        mActiveLocationBarBackgroundView.setTranslationX(left);
+        mActiveLocationBarBackgroundView.setTranslationY(top);
+        ViewGroup.LayoutParams lp = mActiveLocationBarBackgroundView.getLayoutParams();
+        lp.width = right - left;
+        lp.height = bottom - top;
+        mActiveLocationBarBackgroundView.setLayoutParams(lp);
+    }
+
     private boolean drawLocationBar(Canvas canvas, long drawingTime) {
         TraceEvent.begin("ToolbarPhone.drawLocationBar");
         boolean clipped = false;
         if (shouldDrawLocationBar()) {
             canvas.save();
-            if (shouldDrawLocationBarBackground()) {
+            // If the animation refactor is enabled, the background will instead be drawn by an
+            // Android view hosting the background drawable.
+            if (shouldDrawLocationBarBackground()
+                    && !ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled()) {
                 mActiveLocationBarBackground.setBounds(
                         mLocationBarBackgroundBounds.left + mLocationBarBackgroundNtpOffset.left,
                         mLocationBarBackgroundBounds.top + mLocationBarBackgroundNtpOffset.top,
@@ -1770,8 +1964,6 @@ public class ToolbarPhone extends ToolbarLayout
             @Nullable ColorStateList tint,
             @Nullable ColorStateList activityFocusTint,
             @BrandedColorScheme int brandedColorScheme) {
-        mHomeButtonDisplay.setForegroundColor(tint);
-
         if (mOptionalButtonCoordinator != null) {
             mOptionalButtonCoordinator.setIconForegroundColor(tint);
         }
@@ -1787,6 +1979,9 @@ public class ToolbarPhone extends ToolbarLayout
         assert mTextureCaptureMode != textureMode;
         mTextureCaptureMode = textureMode;
         if (mTextureCaptureMode) {
+            if (ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled()) {
+                updateLocationBarBackgroundBounds(mLocationBarBackgroundBounds, mVisualState);
+            }
             if (!hideShadowForIncognitoNtp()
                     && !hideShadowForInterstitial()
                     && !hideShadowForRegularNtpTextureCapture()) {
@@ -1907,6 +2102,17 @@ public class ToolbarPhone extends ToolbarLayout
         return super.shouldIgnoreSwipeGesture()
                 || mUrlExpansionFraction > 0f
                 || mNtpSearchBoxTranslation.y < 0f;
+    }
+
+    @Override
+    public void setRequestFixedHeight(boolean requestFixedHeight) {
+        if (requestFixedHeight) {
+            ViewGroup.LayoutParams layoutParams = getLayoutParams();
+            layoutParams.height = getHeight();
+            setLayoutParams(layoutParams);
+        } else {
+            updateLayoutParamsForMultiline();
+        }
     }
 
     private void populateUrlExpansionAnimatorSet(List<Animator> animators) {
@@ -2039,13 +2245,7 @@ public class ToolbarPhone extends ToolbarLayout
         //   dimension).
         if (OmniboxFeatures.allowMultilineEditField()
                 || ChromeFeatureList.sAndroidBottomToolbarV2.isEnabled()) {
-            var params = getLayoutParams();
-            params.height =
-                    hasFocus
-                            ? LayoutParams.WRAP_CONTENT
-                            : getResources().getDimensionPixelSize(R.dimen.toolbar_height_no_shadow)
-                                    + mTopPaddingForEdgeToEdgeNtp;
-            setLayoutParams(params);
+            updateLayoutParamsForMultiline();
         }
 
         if (ChromeFeatureList.sAndroidBottomToolbarV2.isEnabled()) {
@@ -2058,7 +2258,11 @@ public class ToolbarPhone extends ToolbarLayout
             updateBackgroundHairline(hasFocus, AutocompleteRequestType.SEARCH);
         }
 
-        updateBackground(hasFocus);
+        // If the refactored animations are enabled, we want to update the bg only after we've
+        // started the delayed transition in order to grab the correct starting properties.
+        if (!ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled()) {
+            updateBackground(hasFocus);
+        }
         updateLocationBarForNtp(mVisualState, urlHasFocus());
         ToggleTabStackButtonCoordinator tabSwitcherButtonCoordinator =
                 getTabSwitcherButtonCoordinator();
@@ -2066,6 +2270,16 @@ public class ToolbarPhone extends ToolbarLayout
         tabSwitcherButtonCoordinator.getContainerView().setClickable(!hasFocus);
         mHomeButtonDisplay.setClickable(!hasFocus);
         triggerUrlFocusAnimation(hasFocus);
+    }
+
+    private void updateLayoutParamsForMultiline() {
+        var params = getLayoutParams();
+        params.height =
+                urlHasFocus()
+                        ? LayoutParams.WRAP_CONTENT
+                        : getResources().getDimensionPixelSize(R.dimen.toolbar_height_no_shadow)
+                                + mTopPaddingForEdgeToEdgeNtp;
+        setLayoutParams(params);
     }
 
     private boolean animatingSuggestionsListOnNtp() {
@@ -2161,6 +2375,137 @@ public class ToolbarPhone extends ToolbarLayout
         mUrlFocusLayoutAnimator.start();
     }
 
+    private class BackgroundDrawableTransition extends Transition {
+        private static final String PROPNAME_TOOLBAR_COLOR =
+                "BackgroundDrawableTransition:toolbarColor";
+        private static final String PROPNAME_LOCATION_BAR_COLOR =
+                "BackgroundDrawableTransition:locationBarColor";
+        private static final String PROPNAME_LOCATION_BAR_CORNER_RADIUS =
+                "BackgroundDrawableTransition:locationBarCornerRadius";
+
+        private static final String[] sTransitionProperties = {
+            PROPNAME_TOOLBAR_COLOR, PROPNAME_LOCATION_BAR_COLOR, PROPNAME_LOCATION_BAR_CORNER_RADIUS
+        };
+
+        public BackgroundDrawableTransition() {
+            // Ensure we only create one transition.
+            addTarget(ToolbarPhone.this);
+        }
+
+        private void captureValues(TransitionValues transitionValues) {
+            assert transitionValues.view == ToolbarPhone.this : "Unexpected transition target.";
+            transitionValues.values.put(PROPNAME_TOOLBAR_COLOR, mToolbarBackground.getColor());
+
+            GradientDrawable locationBarBackgroundGradientDrawable =
+                    getActiveLocationBarGradientDrawable();
+            if (locationBarBackgroundGradientDrawable != null) {
+                ColorStateList colorStateList = locationBarBackgroundGradientDrawable.getColor();
+                if (colorStateList != null) {
+                    transitionValues.values.put(
+                            PROPNAME_LOCATION_BAR_COLOR, colorStateList.getDefaultColor());
+                }
+
+                transitionValues.values.put(
+                        PROPNAME_LOCATION_BAR_CORNER_RADIUS,
+                        locationBarBackgroundGradientDrawable.getCornerRadius());
+            }
+        }
+
+        private @Nullable GradientDrawable getActiveLocationBarGradientDrawable() {
+            if (mActiveLocationBarBackground == mLocationBarBackground) {
+                return mLocationBarBackground.getBackgroundGradient();
+            } else if (mActiveLocationBarBackground == mNtpFakeboxBackground) {
+                return mNtpFakeboxBackground;
+            }
+            return null;
+        }
+
+        @Override
+        public void captureStartValues(TransitionValues transitionValues) {
+            captureValues(transitionValues);
+        }
+
+        @Override
+        public void captureEndValues(TransitionValues transitionValues) {
+            captureValues(transitionValues);
+        }
+
+        @Nullable
+        @Override
+        public Animator createAnimator(
+                @NonNull ViewGroup sceneRoot,
+                @Nullable TransitionValues startValues,
+                @Nullable TransitionValues endValues) {
+            if (startValues == null || endValues == null) return null;
+            assert startValues.view == ToolbarPhone.this : "Unexpected transition target.";
+            assert endValues.view == ToolbarPhone.this : "Unexpected transition target.";
+            List<Animator> animatorList = new ArrayList<>();
+
+            Object toolbarStartColor = startValues.values.get(PROPNAME_TOOLBAR_COLOR);
+            Object toolbarEndColor = endValues.values.get(PROPNAME_TOOLBAR_COLOR);
+            if (toolbarStartColor != null
+                    && toolbarEndColor != null
+                    && Color.alpha((int) toolbarEndColor) != 0) {
+                ObjectAnimator toolbarBackgroundAnimator =
+                        ObjectAnimator.ofArgb(
+                                mToolbarBackground,
+                                "color",
+                                (int) toolbarStartColor,
+                                (int) toolbarEndColor);
+                toolbarBackgroundAnimator.addUpdateListener(
+                        valueAnimator ->
+                                notifyToolbarColorChanged((int) valueAnimator.getAnimatedValue()));
+                animatorList.add(toolbarBackgroundAnimator);
+            }
+
+            Object locationBarStartColor = startValues.values.get(PROPNAME_LOCATION_BAR_COLOR);
+            Object locationBarEndColor = endValues.values.get(PROPNAME_LOCATION_BAR_COLOR);
+            GradientDrawable locationBarBackgroundGradientDrawable =
+                    getActiveLocationBarGradientDrawable();
+            if (locationBarStartColor != null
+                    && locationBarEndColor != null
+                    && locationBarBackgroundGradientDrawable != null) {
+                ValueAnimator animator = ValueAnimator.ofFloat(0, 1);
+                animator.addUpdateListener(
+                        valueAnimator -> {
+                            float fraction = valueAnimator.getAnimatedFraction();
+                            @ColorInt
+                            int newColor =
+                                    ColorUtils.blendColorsMultiply(
+                                            (int) locationBarStartColor,
+                                            (int) locationBarEndColor,
+                                            fraction);
+                            locationBarBackgroundGradientDrawable.setColor(newColor);
+                        });
+                animatorList.add(animator);
+            }
+
+            Object locationBarStartCornerRadius =
+                    startValues.values.get(PROPNAME_LOCATION_BAR_CORNER_RADIUS);
+            Object locationBarEndCornerRadius =
+                    endValues.values.get(PROPNAME_LOCATION_BAR_CORNER_RADIUS);
+            if (locationBarStartCornerRadius != null
+                    && locationBarEndCornerRadius != null
+                    && locationBarBackgroundGradientDrawable != null) {
+                animatorList.add(
+                        ObjectAnimator.ofFloat(
+                                locationBarBackgroundGradientDrawable,
+                                "cornerRadius",
+                                (float) locationBarStartCornerRadius,
+                                (float) locationBarEndCornerRadius));
+            }
+
+            AnimatorSet animatorSet = new AnimatorSet();
+            animatorSet.playTogether(animatorList);
+            return animatorSet;
+        }
+
+        @Override
+        public String[] getTransitionProperties() {
+            return sTransitionProperties;
+        }
+    }
+
     // TODO(crbug.com/430347234): Refine animations to match the spec.
     private void createAndRunFocusAnimatorRefactored(boolean hasFocus) {
         int toolbarBtnTransitionDuration =
@@ -2184,8 +2529,14 @@ public class ToolbarPhone extends ToolbarLayout
                         .addTransition(
                                 changeBoundsWithText.addTarget(mLocationBar.getContainerView()))
                         .addTransition(
-                                new ChangeTransform().addTarget(mLocationBar.getContainerView()))
-                        .setDuration(URL_FOCUS_CHANGE_ANIMATION_DURATION_MS);
+                                new ChangeBounds().addTarget(mActiveLocationBarBackgroundView))
+                        .addTransition(
+                                new ChangeTransform()
+                                        .addTarget(mLocationBar.getContainerView())
+                                        .addTarget(mActiveLocationBarBackgroundView))
+                        .addTransition(new BackgroundDrawableTransition())
+                        .setDuration(URL_FOCUS_CHANGE_ANIMATION_DURATION_MS)
+                        .setInterpolator(Interpolators.FAST_OUT_SLOW_IN_INTERPOLATOR);
 
         TransitionSet transition =
                 new TransitionSet()
@@ -2195,6 +2546,12 @@ public class ToolbarPhone extends ToolbarLayout
         transition.addListener(
                 new TransitionListenerAdapter() {
                     @Override
+                    public void onTransitionStart(Transition transition) {
+                        super.onTransitionStart(transition);
+                        onFocusTransitionStart();
+                    }
+
+                    @Override
                     public void onTransitionCancel(Transition transition) {
                         super.onTransitionCancel(transition);
                         mUrlFocusChangeInProgress = false;
@@ -2203,8 +2560,7 @@ public class ToolbarPhone extends ToolbarLayout
                     @Override
                     public void onTransitionEnd(Transition transition) {
                         super.onTransitionEnd(transition);
-                        mUrlFocusChangeInProgress = false;
-                        mLocationBar.finishUrlFocusChange(hasFocus, hasFocus);
+                        onFocusTransitionEnd(hasFocus);
                     }
                 });
 
@@ -2224,10 +2580,6 @@ public class ToolbarPhone extends ToolbarLayout
                         ? getFocusedLocationBarWidth(getWidth(), 0, true)
                         : mUnfocusedLocationBarLayoutWidth;
 
-        // TODO (crbug.com/430347234): Should be handled by LocationBarCoordinator. Not setting it
-        // here causes this container to be visible in first frame during unfocus.
-        int urlActionContainerVis = hasFocus ? VISIBLE : INVISIBLE;
-
         mToolbarButtonsContainer.setVisibility(toolbarBtnsVis);
         mHomeButtonDisplay.getView().setVisibility(homeBtnVis);
         getToolbarShadow().setVisibility(toolbarBtnsVis);
@@ -2236,13 +2588,111 @@ public class ToolbarPhone extends ToolbarLayout
         layoutParams.leftMargin = locationBarLeftMargin;
         layoutParams.width = locationBarWidth;
         mLocationBar.getContainerView().setLayoutParams(layoutParams);
-        mUrlActionContainer.setVisibility(urlActionContainerVis);
+        // TODO (crbug.com/430347234): Should be handled by LocationBarCoordinator. Not setting it
+        // here causes this container to be visible in first frame during unfocus.
+        mLocationBar.setUrlActionContainerVisibility(hasFocus);
+
+        float focusChangeFraction = hasFocus ? 1f : 0f;
+        if (isLocationBarShownInNtp()) {
+            NewTabPageDelegate ntpDelegate = getToolbarDataProvider().getNewTabPageDelegate();
+            ntpDelegate.setUrlFocusChangeAnimationPercent(focusChangeFraction);
+            updateLocationBarNtpOffset(
+                    /* expanded= */ hasFocus || mNtpSearchBoxScrollFraction == 1.f);
+        }
+        updateBackground(hasFocus);
 
         // TODO(crbug.com/425817689): In the end state of the refactored animations, we don't want
         //  to rely on the interpolation methods that will be called by #setUrlFocusChangeFraction
         //  (namely #invokeTransition). We instead want to directly set the appropriate end state,
         //  like we do with the button visibility and location bar layout params above.
-        setUrlFocusChangeFraction(hasFocus ? 1f : 0f);
+        setUrlFocusChangeFraction(focusChangeFraction);
+
+        // Set after the fraction update, since this depends on the updated fraction.
+        updateLocationBarBackgroundBounds(mLocationBarBackgroundBounds, mVisualState);
+    }
+
+    private void updateLocationBarNtpOffset(boolean expanded) {
+        if (!isLocationBarShownInNtp()) return;
+
+        NewTabPageDelegate ntpDelegate = getToolbarDataProvider().getNewTabPageDelegate();
+        ntpDelegate.getSearchBoxBounds(mNtpSearchBoxBounds, mNtpSearchBoxTranslation);
+        if (expanded) {
+            mLocationBarBackgroundNtpOffset.set(0, 0, 0, 0);
+            mLocationBarNtpOffsetLeft = 0;
+            mLocationBarNtpOffsetRight = 0;
+            mLocationBar.getPhoneCoordinator().setTranslationY(0);
+        } else {
+            int left = mNtpSearchBoxBounds.left - mLocationBarBackgroundBounds.left;
+            int right = mNtpSearchBoxBounds.right - mLocationBarBackgroundBounds.right;
+            float translationY = getLocationBarTranslationY();
+
+            mLocationBarBackgroundNtpOffset.set(
+                    left, (int) translationY, right, (int) translationY);
+            mLocationBarBackgroundNtpOffset.inset(0, (int) getNtpTransitionVerticalInset());
+            mLocationBarNtpOffsetLeft =
+                    mNtpSearchBoxBounds.left - getFocusedLeftPositionOfLocationBarBackground();
+            mLocationBarNtpOffsetRight =
+                    mNtpSearchBoxBounds.right - getFocusedRightPositionOfLocationBarBackground();
+            mLocationBar.getPhoneCoordinator().setTranslationY(translationY);
+        }
+    }
+
+    private void onFocusTransitionStart() {
+        if (mLocationBar.isDestroyed()) return;
+        // Ensure visibility during the animation.
+        if (isLocationBarShownInNtp()) {
+            // Needed for the NTP transition, to prevent the real location bar from getting clipped
+            // while outside of its parent's bounds during the translation to/from the fakebox's
+            // position.
+            setAncestorsShouldClipChildren(false);
+            setClipToPadding(false);
+
+            NewTabPageDelegate ntpDelegate = getToolbarDataProvider().getNewTabPageDelegate();
+            ntpDelegate.setSearchBoxAlpha(0.f);
+        }
+        mLocationBar.getPhoneCoordinator().setAlpha(1.f);
+        mActiveLocationBarBackgroundView.setAlpha(1.f);
+    }
+
+    private void onFocusTransitionEnd(boolean hasFocus) {
+        if (mLocationBar.isDestroyed()) return;
+
+        mUrlFocusChangeInProgress = false;
+        mRefactoredNtpStartingOffset = 0.f;
+
+        if (isLocationBarShownInNtp()) {
+            setAncestorsShouldClipChildren(true);
+            setClipToPadding(true);
+
+            if (mNtpSearchBoxScrollFraction != 1.f) {
+                NewTabPageDelegate ntpDelegate = getToolbarDataProvider().getNewTabPageDelegate();
+                ntpDelegate.setSearchBoxAlpha(1.f);
+                if (!hasFocus) {
+                    // When unfocusing, the NTP state may be reset. If that is the case, we need to
+                    // update the scroll translation here.
+                    updateLocationBarTranslationOnScroll();
+                    mLocationBar.getPhoneCoordinator().setAlpha(0.f);
+                    mActiveLocationBarBackgroundView.setAlpha(0.f);
+                }
+            }
+        }
+        mLocationBar.finishUrlFocusChange(hasFocus, hasFocus);
+    }
+
+    /**
+     * The refactored flow uses a {@link TransitionManager} to handle the its animations. Evidently,
+     * when {@link TransitionManager#endTransitions} is called, it immediately removes all pending
+     * transitions, effectively allowing the next update cycle to run as expected, without kicking
+     * off the delayed transitions. As a result, the {@link TransitionListener} events
+     * (onTransitionStart, etc.) also are skipped. Our implementation relies on these events being
+     * called, so manually call them when ending the focus transitions early.
+     *
+     * @param hasFocus {@code True} if the URL bar has focus at the end of the transition.
+     */
+    private void endFocusTransition(boolean hasFocus) {
+        onFocusTransitionStart();
+        TransitionManager.endTransitions(this);
+        onFocusTransitionEnd(hasFocus);
     }
 
     // ToolbarDataProvider.Observer implementation.
@@ -2613,6 +3063,9 @@ public class ToolbarPhone extends ToolbarLayout
         startLoadingPhaseFromNtpToWebpage(newVisualState);
 
         mVisualState = newVisualState;
+        if (ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled()) {
+            updateLocationBarBackgroundBounds(mLocationBarBackgroundBounds, newVisualState);
+        }
 
         mHomeButtonDisplay.updateState(
                 mVisualState, mIsHomeButtonEnabled, mIsHomepageNonNtp, urlHasFocus());
@@ -2868,7 +3321,7 @@ public class ToolbarPhone extends ToolbarLayout
         if (mUrlFocusLayoutAnimator != null && mUrlFocusLayoutAnimator.isRunning()) {
             mUrlFocusLayoutAnimator.cancel();
         } else {
-            TransitionManager.endTransitions(this);
+            endFocusTransition(urlHasFocus());
         }
 
         if (mBrandColorTransitionAnimation != null && mBrandColorTransitionAnimation.isRunning()) {

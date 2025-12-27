@@ -64,6 +64,7 @@
 #include "cc/trees/clip_node.h"
 #include "cc/trees/compositor_commit_data.h"
 #include "cc/trees/effect_node.h"
+#include "cc/trees/frame_data.h"
 #include "cc/trees/layer_tree_host_impl.h"
 #include "cc/trees/layer_tree_impl.h"
 #include "cc/trees/paint_holding_reason.h"
@@ -1337,7 +1338,7 @@ class LayerTreeHostTestSurfaceDamage : public LayerTreeHostTest {
   }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     LayerImpl* root_impl = impl->active_tree()->LayerById(root_->id());
     LayerImpl* child_impl = impl->active_tree()->LayerById(child_->id());
@@ -1476,7 +1477,7 @@ class LayerTreeHostTestLayerListSurfaceDamage : public LayerTreeHostTest {
   }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     LayerImpl* child_a_impl = impl->active_tree()->LayerById(child_a_->id());
     LayerImpl* child_b_impl = impl->active_tree()->LayerById(child_b_->id());
@@ -1584,7 +1585,7 @@ class LayerTreeHostTestNoDamageCausesNoInvalidate : public LayerTreeHostTest {
   }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     PostSetNeedsCommitToMainThread();
     return draw_result;
@@ -2360,7 +2361,7 @@ class LayerTreeHostTestTransformTreeDamageIsUpdated : public LayerTreeHostTest {
   }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     if (impl->active_tree()->source_frame_number() == 1) {
       EXPECT_FALSE(
@@ -2535,7 +2536,7 @@ class LayerTreeHostTestSetNeedsRedrawRect : public LayerTreeHostTest {
   }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     EXPECT_EQ(DrawResult::kSuccess, draw_result);
 
@@ -2799,7 +2800,7 @@ class LayerTreeHostTestDeviceScaleFactorChange : public LayerTreeHostTest {
   }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     if (host_impl->active_tree()->source_frame_number() == 0) {
       EXPECT_EQ(1.f, host_impl->active_tree()->device_scale_factor());
@@ -2848,7 +2849,7 @@ class LayerTreeHostTestRasterColorSpaceChange : public LayerTreeHostTest {
   void BeginTest() override { PostSetNeedsCommitToMainThread(); }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     EXPECT_EQ(DrawResult::kSuccess, draw_result);
 
@@ -2991,7 +2992,7 @@ class LayerTreeHostTestSetNeedsCommitWithForcedRedraw
   }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     EXPECT_EQ(DrawResult::kSuccess, draw_result);
 
@@ -3087,7 +3088,7 @@ class LayerTreeHostTestUndrawnLayersDamageLater : public LayerTreeHostTest {
   void BeginTest() override { PostSetNeedsCommitToMainThread(); }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     EXPECT_EQ(DrawResult::kSuccess, draw_result);
 
@@ -3187,7 +3188,7 @@ class LayerTreeHostTestDamageWithScale : public LayerTreeHostTest {
   void BeginTest() override { PostSetNeedsCommitToMainThread(); }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     EXPECT_EQ(DrawResult::kSuccess, draw_result);
 
@@ -3620,7 +3621,7 @@ class LayerTreeHostTestDeviceScaleFactorScalesViewportAndLayers
         impl->active_tree()->LayerById(child_layer_->id()));
 
     // Compute all the layer transforms for the frame.
-    LayerTreeHostImpl::FrameData frame_data;
+    FrameData frame_data;
     impl->PrepareToDraw(&frame_data);
     impl->DidDrawAllLayers(frame_data);
 
@@ -5670,7 +5671,7 @@ class LayerTreeHostTestTreeActivationCallback : public LayerTreeHostTest {
   void BeginTest() override { PostSetNeedsCommitToMainThread(); }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     ++num_commits_;
     switch (num_commits_) {
@@ -5886,11 +5887,19 @@ MULTI_THREAD_TEST_F(LayerTreeHostTestUpdateLayerInEmptyViewport);
 
 class LayerTreeHostTestElasticOverscroll : public LayerTreeHostTest {
  public:
-  LayerTreeHostTestElasticOverscroll()
-      : scroll_elasticity_helper_(nullptr), num_draws_(0) {
+  LayerTreeHostTestElasticOverscroll() : scroll_elasticity_helper_(nullptr) {
     SetUseLayerLists();
   }
 
+ protected:
+  explicit LayerTreeHostTestElasticOverscroll(
+      base::flat_map<base::test::FeatureRef, bool> features)
+      : scroll_elasticity_helper_(nullptr) {
+    SetUseLayerLists();
+    scoped_feature_list_.InitWithFeatureStates(features);
+  }
+
+ public:
   void InitializeSettings(LayerTreeSettings* settings) override {
     settings->enable_elastic_overscroll = true;
   }
@@ -5906,7 +5915,7 @@ class LayerTreeHostTestElasticOverscroll : public LayerTreeHostTest {
     content_layer->SetBounds(gfx::Size(100, 100));
     CopyProperties(layer_tree_host()->OuterViewportScrollLayerForTesting(),
                    content_layer.get());
-    root_layer_->AddChild(content_layer);
+    AttachContentLayer(root_layer_, content_layer);
 
     client_.set_bounds(content_layer->bounds());
     client_.set_fill_with_nonsolid_color(true);
@@ -5921,8 +5930,8 @@ class LayerTreeHostTestElasticOverscroll : public LayerTreeHostTest {
     }
   }
 
-  void VerifyOverscroll(const gfx::Vector2dF& stretch_amount,
-                        const gfx::Transform& transform) {
+  virtual void VerifyOverscroll(const gfx::Vector2dF& stretch_amount,
+                                const gfx::Transform& transform) {
 #if BUILDFLAG(IS_ANDROID)
     gfx::Vector2dF scale = transform.To2dScale();
     // On android, overscroll stretches the content. We don't assert the amount
@@ -5943,12 +5952,21 @@ class LayerTreeHostTestElasticOverscroll : public LayerTreeHostTest {
 #endif  // BUILDFLAG(IS_ANDROID)
   }
 
-  void DrawLayersOnThread(LayerTreeHostImpl* host_impl) override {
-    num_draws_++;
-    FakePictureLayerImpl* content_layer_impl =
-        static_cast<FakePictureLayerImpl*>(
-            host_impl->active_tree()->LayerById(content_layer_id_));
+  void VerifyInnerViewportIsUnscaled(LayerTreeHostImpl* host_impl) {
+    gfx::Transform expected_draw_transform;
+    expected_draw_transform.MakeIdentity();
+    gfx::Transform inner_transform = host_impl->active_tree()
+                                         ->InnerViewportScrollLayerForTesting()
+                                         ->DrawTransform();
+    gfx::Transform outer_transform = host_impl->active_tree()
+                                         ->OuterViewportScrollLayerForTesting()
+                                         ->DrawTransform();
+    // Inner and outer transforms being equals means inner has no scaling.
+    EXPECT_EQ(inner_transform, outer_transform);
+  }
 
+  virtual void VerifyTilingsUnchanged(
+      [[maybe_unused]] FakePictureLayerImpl* content_layer_impl) {
 #if BUILDFLAG(IS_ANDROID)
     // Elastic overscroll should not cause tilings with new scale to be created.
     EXPECT_EQ(1u, content_layer_impl->tilings()->num_tilings())
@@ -5956,6 +5974,20 @@ class LayerTreeHostTestElasticOverscroll : public LayerTreeHostTest {
     EXPECT_EQ(1.f, content_layer_impl->tilings()->GetMaximumContentsScale())
         << "num_draws_:" << num_draws_;
 #endif  // BUILDFLAG(IS_ANDROID)
+  }
+
+  void DrawLayersOnThread(LayerTreeHostImpl* host_impl) override {
+    num_draws_++;
+    FakePictureLayerImpl* content_layer_impl =
+        static_cast<FakePictureLayerImpl*>(
+            host_impl->active_tree()->LayerById(content_layer_id_));
+
+    // Choose the target scroller element id based on config.
+    const ElementId target_scroller_element_id =
+        GetTargetScrollerElementId(host_impl);
+
+    VerifyInnerViewportIsUnscaled(host_impl);
+    VerifyTilingsUnchanged(content_layer_impl);
 
     switch (num_draws_) {
       case 1:
@@ -5964,7 +5996,8 @@ class LayerTreeHostTestElasticOverscroll : public LayerTreeHostTest {
 
         // Begin overscrolling. This should be reflected in the draw transform
         // the next time we draw.
-        scroll_elasticity_helper_->SetStretchAmount(gfx::Vector2dF(5.f, 6.f));
+        scroll_elasticity_helper_->SetStretchAmount(target_scroller_element_id,
+                                                    gfx::Vector2dF(5.f, 6.f));
         PostSetNeedsCommitToMainThread();
         break;
       case 2:
@@ -5972,14 +6005,16 @@ class LayerTreeHostTestElasticOverscroll : public LayerTreeHostTest {
         VerifyOverscroll(gfx::Vector2dF(5.f, 6.f),
                          content_layer_impl->DrawTransform());
 
-        scroll_elasticity_helper_->SetStretchAmount(gfx::Vector2dF(3.f, 2.f));
+        scroll_elasticity_helper_->SetStretchAmount(target_scroller_element_id,
+                                                    gfx::Vector2dF(3.f, 2.f));
         PostSetNeedsCommitToMainThread();
         break;
       case 3:
         VerifyOverscroll(gfx::Vector2dF(3.f, 2.f),
                          content_layer_impl->DrawTransform());
 
-        scroll_elasticity_helper_->SetStretchAmount(gfx::Vector2dF());
+        scroll_elasticity_helper_->SetStretchAmount(target_scroller_element_id,
+                                                    gfx::Vector2dF());
         PostSetNeedsCommitToMainThread();
         break;
       case 4:
@@ -6000,15 +6035,226 @@ class LayerTreeHostTestElasticOverscroll : public LayerTreeHostTest {
     LayerTreeHostTest::AfterTest();
   }
 
+ protected:
+  // Overridable hook to attach the content layer (either directly to root or
+  // into a child scroller).
+  virtual void AttachContentLayer(Layer* root_layer,
+                                  const scoped_refptr<Layer>& content_layer) {
+    root_layer->AddChild(content_layer);
+  }
+
+  // Overridable hook to choose which scroller's ElementId to target.
+  virtual ElementId GetTargetScrollerElementId(LayerTreeHostImpl* host_impl) {
+    return host_impl->InnerViewportScrollNode()->element_id;
+  }
+
+ protected:
+  int content_layer_id_ = 0;
+
  private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+
   FakeContentLayerClient client_;
   raw_ptr<Layer> root_layer_;
+
   raw_ptr<ScrollElasticityHelper> scroll_elasticity_helper_;
-  int content_layer_id_;
-  int num_draws_;
+  int num_draws_ = 0;
 };
 
 MULTI_THREAD_TEST_F(LayerTreeHostTestElasticOverscroll);
+
+class LayerTreeHostTestElasticOverscroll_ChildScroller
+    : public LayerTreeHostTestElasticOverscroll {
+ public:
+  LayerTreeHostTestElasticOverscroll_ChildScroller()
+      : LayerTreeHostTestElasticOverscroll(
+            {{::features::kOverscrollEffectOnNonRootScrollers, true}}) {}
+
+ protected:
+  void AttachContentLayer(Layer* root_layer,
+                          const scoped_refptr<Layer>& content_layer) override {
+    // Create a child scroller to hold the content
+    auto scroll_layer = Layer::Create();
+    child_scroller_layer_id_ = scroll_layer->id();
+    scroll_layer->SetBounds(gfx::Size(100, 100));
+    scroll_layer->SetMasksToBounds(true);
+
+    scroll_layer->SetElementId(
+        LayerIdToElementIdForTesting(scroll_layer->id()));
+    scroll_layer->SetScrollable(scroll_layer->bounds());
+
+    CopyProperties(layer_tree_host()->OuterViewportScrollLayerForTesting(),
+                   scroll_layer.get());
+    CreateTransformNode(scroll_layer.get());
+    CreateScrollNode(scroll_layer.get(), scroll_layer->bounds());
+    root_layer->AddChild(scroll_layer);
+
+    CopyProperties(scroll_layer.get(), content_layer.get());
+    scroll_layer->AddChild(content_layer);
+  }
+
+  ElementId GetTargetScrollerElementId(LayerTreeHostImpl* host_impl) override {
+    return host_impl->active_tree()
+        ->LayerById(child_scroller_layer_id_)
+        ->element_id();
+  }
+
+  void DrawLayersOnThread(LayerTreeHostImpl* host_impl) override {
+    const ElementId target_scroller_element_id =
+        GetTargetScrollerElementId(host_impl);
+    EXPECT_NE(target_scroller_element_id,
+              host_impl->InnerViewportScrollNode()->element_id);
+
+    // When using a child scroller, the viewport should be unaffected.
+    gfx::Transform inner_transform = host_impl->active_tree()
+                                         ->InnerViewportScrollLayerForTesting()
+                                         ->DrawTransform();
+    EXPECT_TRUE(inner_transform.IsIdentity());
+
+    LayerTreeHostTestElasticOverscroll::DrawLayersOnThread(host_impl);
+  }
+
+ private:
+  // Only used for the child-scroller path.
+  int child_scroller_layer_id_ = 0;
+};
+
+MULTI_THREAD_TEST_F(LayerTreeHostTestElasticOverscroll_ChildScroller);
+
+// Verifies that a "fixed" element (child of the root content area) does not
+// transform at all during elastic overscroll of the root scroller.
+class LayerTreeHostTestElasticOverscroll_FixedElementNoTransform
+    : public LayerTreeHostTestElasticOverscroll {
+ public:
+  LayerTreeHostTestElasticOverscroll_FixedElementNoTransform()
+      : LayerTreeHostTestElasticOverscroll(
+            {{::features::kOverscrollEffectOnNonRootScrollers, true}}) {}
+
+ protected:
+  void SetupTree() override {
+    LayerTreeHostTestElasticOverscroll::SetupTree();
+
+    // Create a "fixed" layer under the root content area.
+    auto fixed = Layer::Create();
+    fixed_layer_id_ = fixed->id();
+    fixed->SetBounds(gfx::Size(40, 40));
+
+    // Give it a stable ElementId.
+    fixed->SetElementId(LayerIdToElementIdForTesting(fixed_layer_id_));
+
+    // IMPORTANT: Seed property-tree indices from the *root* (not the scroller),
+    // so it doesn't inherit the root scroller's overscroll stretch.
+    CopyProperties(layer_tree_host()->root_layer(), fixed.get());
+    layer_tree_host()->root_layer()->AddChild(fixed);
+  }
+
+  void DrawLayersOnThread(LayerTreeHostImpl* host_impl) override {
+    // Check the fixed element *before* running the base draw step (which may
+    // EndTest() on the last frame). The fixed element must remain identity.
+    if (LayerImpl* fixed_impl =
+            host_impl->active_tree()->LayerById(fixed_layer_id_)) {
+      const gfx::Transform& t = fixed_impl->DrawTransform();
+#if BUILDFLAG(IS_ANDROID)
+      // On Android the overscroll stretch is applied to content; the fixed
+      // element must never scale.
+      gfx::Vector2dF s = t.To2dScale();
+      EXPECT_EQ(1.f, s.x());
+      EXPECT_EQ(1.f, s.y());
+#else
+      // Desktop overscroll presents as translation on scroller content; fixed
+      // should remain exactly identity.
+      gfx::Transform identity;
+      EXPECT_EQ(identity, t);
+#endif
+    }
+
+    // Now run the standard draw path (drives overscroll on the root scroller,
+    // verifies content transforms, and ends on the 4th frame).
+    LayerTreeHostTestElasticOverscroll::DrawLayersOnThread(host_impl);
+  }
+
+ private:
+  int fixed_layer_id_ = 0;
+};
+
+MULTI_THREAD_TEST_F(LayerTreeHostTestElasticOverscroll_FixedElementNoTransform);
+
+class LayerTreeHostTestElasticOverscroll_ScaledAnimation
+    : public LayerTreeHostTestElasticOverscroll_ChildScroller {
+ public:
+  void SetupTree() override {
+    LayerTreeHostTestElasticOverscroll_ChildScroller::SetupTree();
+
+    // The root layer has multiple children (Inner/Outer viewports, etc.).
+    // We need to find the specific child scroller created by the base class.
+    // We know the child scroller is the parent of the content layer.
+    Layer* root = layer_tree_host()->root_layer();
+    Layer* scroller_layer = nullptr;
+
+    for (const auto& child : root->children()) {
+      for (const auto& grandchild : child->children()) {
+        if (grandchild->id() == content_layer_id_) {
+          scroller_layer = child.get();
+          break;
+        }
+      }
+      if (scroller_layer) {
+        break;
+      }
+    }
+
+    ASSERT_TRUE(scroller_layer);
+    child_scroller_id_ = scroller_layer->id();
+  }
+
+  void WillCommit(const CommitState&) override {
+    TransformTree& transform_tree =
+        layer_tree_host()->property_trees()->transform_tree_mutable();
+
+    // Find the transform node associated with our child scroller.
+    ElementId scroller_element_id =
+        LayerIdToElementIdForTesting(child_scroller_id_);
+    TransformNode* node =
+        transform_tree.FindNodeFromElementId(scroller_element_id);
+
+    // Simulate the animation starting just as the interaction begins.
+    if (layer_tree_host()->SourceFrameNumber() == 0) {
+      node->has_potential_animation = true;
+    }
+    if (layer_tree_host()->SourceFrameNumber() == 1) {
+      // Create the target transform.
+      gfx::Transform transform;
+      transform.Scale(kTargetScale, kTargetScale);
+
+      // Manually update the Property Tree to look like an animation is active.
+      // 1. OnTransformAnimated updates the local transform in the tree.
+      // 2. Setting has_potential_animation = true mimics a running animation,
+      //    which signals the compositor to "veto" re-rastering (creating new
+      //    tilings) because the scale is in flux.
+      transform_tree.OnTransformAnimated(scroller_element_id, transform);
+    }
+  }
+
+  void VerifyOverscroll(const gfx::Vector2dF& stretch_amount,
+                        const gfx::Transform& transform) override {
+    // For this test, do not verify the overscroll amount as we are applying an
+    // animation which has additional scaling.
+  }
+
+ private:
+  static constexpr float kTargetScale = 1.3f;
+
+  int child_scroller_id_ = 0;
+};
+
+#if !BUILDFLAG(IS_ANDROID)
+// TODO(crbug.com/41102897): Fix the edge case where non-root overscroll
+// finishing on a node with an active animation incorrectly clears the
+// `TransformNode::has_potential_animation` flag. This leads to unnecessary
+// re-rasterization, as demonstrated by this test. Allow this test to run on all
+// platforms once fixed.
+MULTI_THREAD_TEST_F(LayerTreeHostTestElasticOverscroll_ScaledAnimation);
+#endif
 
 struct TestSwapPromiseResult {
   TestSwapPromiseResult()
@@ -6657,12 +6903,13 @@ class LayerTreeHostTestGpuRasterizationDisabled : public LayerTreeHostTest {
   }
 
   void CommitCompleteOnThread(LayerTreeHostImpl* host_impl) override {
-    EXPECT_FALSE(host_impl->pending_tree()->use_gpu_rasterization());
+    EXPECT_FALSE(
+        host_impl->pending_tree()->raster_caps().use_gpu_rasterization);
     EXPECT_FALSE(host_impl->use_gpu_rasterization());
   }
 
   void DidActivateTreeOnThread(LayerTreeHostImpl* host_impl) override {
-    EXPECT_FALSE(host_impl->active_tree()->use_gpu_rasterization());
+    EXPECT_FALSE(host_impl->active_tree()->raster_caps().use_gpu_rasterization);
     EXPECT_FALSE(host_impl->use_gpu_rasterization());
     EndTest();
   }
@@ -6700,12 +6947,12 @@ class LayerTreeHostTestGpuRasterizationSupportedButDisabled
   void BeginTest() override { PostSetNeedsCommitToMainThread(); }
 
   void CommitCompleteOnThread(LayerTreeHostImpl* host_impl) override {
-    EXPECT_FALSE(host_impl->sync_tree()->use_gpu_rasterization());
+    EXPECT_FALSE(host_impl->sync_tree()->raster_caps().use_gpu_rasterization);
     EXPECT_FALSE(host_impl->use_gpu_rasterization());
   }
 
   void DidActivateTreeOnThread(LayerTreeHostImpl* host_impl) override {
-    EXPECT_FALSE(host_impl->active_tree()->use_gpu_rasterization());
+    EXPECT_FALSE(host_impl->active_tree()->raster_caps().use_gpu_rasterization);
     EXPECT_FALSE(host_impl->use_gpu_rasterization());
     EndTest();
   }
@@ -6741,12 +6988,12 @@ class LayerTreeHostTestGpuRasterizationEnabled : public LayerTreeHostTest {
   }
 
   void CommitCompleteOnThread(LayerTreeHostImpl* host_impl) override {
-    EXPECT_TRUE(host_impl->sync_tree()->use_gpu_rasterization());
+    EXPECT_TRUE(host_impl->sync_tree()->raster_caps().use_gpu_rasterization);
     EXPECT_TRUE(host_impl->use_gpu_rasterization());
   }
 
   void DidActivateTreeOnThread(LayerTreeHostImpl* host_impl) override {
-    EXPECT_TRUE(host_impl->active_tree()->use_gpu_rasterization());
+    EXPECT_TRUE(host_impl->active_tree()->raster_caps().use_gpu_rasterization);
     EXPECT_TRUE(host_impl->use_gpu_rasterization());
     EndTest();
   }
@@ -6804,7 +7051,7 @@ class LayerTreeHostTestGpuRasterizationEnabledWithMSAA : public LayerTreeTest {
     EXPECT_GT(host_impl->GetMSAASampleCountForRaster(
                   *raster_source->GetDisplayItemList()),
               0);
-    EXPECT_TRUE(host_impl->pending_tree()->use_gpu_rasterization());
+    EXPECT_TRUE(host_impl->pending_tree()->raster_caps().use_gpu_rasterization);
     EXPECT_TRUE(host_impl->use_gpu_rasterization());
     EndTest();
   }
@@ -7269,7 +7516,7 @@ class LayerTreeHostTestCrispUpAfterPinchEnds : public LayerTreeHostTest {
   void AfterTest() override { host_impl_ = nullptr; }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     host_impl_ = host_impl;
     current_page_scale_factor_ =
@@ -7446,7 +7693,7 @@ class RasterizeWithGpuRasterizationCreatesResources : public LayerTreeHostTest {
   void BeginTest() override { PostSetNeedsCommitToMainThread(); }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     EXPECT_NE(0u, host_impl->resource_pool()->resource_count());
     EndTest();
@@ -7487,7 +7734,7 @@ class GpuRasterizationRasterizesBorderTiles : public LayerTreeHostTest {
   void BeginTest() override { PostSetNeedsCommitToMainThread(); }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     EXPECT_EQ(15u, host_impl->resource_pool()->resource_count());
     EndTest();
@@ -7536,7 +7783,7 @@ class LayerTreeHostTestContinuousDrawWhenCreatingVisibleTiles
   void BeginTest() override { PostSetNeedsCommitToMainThread(); }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     current_page_scale_factor_ =
         host_impl->active_tree()->current_page_scale_factor();
@@ -7933,7 +8180,7 @@ class LayerTreeHostTestPaintedDeviceScaleFactor : public LayerTreeHostTest {
   }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     EXPECT_EQ(DrawResult::kSuccess, draw_result);
     EXPECT_EQ(2.0f, host_impl->active_tree()->painted_device_scale_factor());
@@ -7982,7 +8229,7 @@ class LayerTreeHostTestLocalSurfaceId : public LayerTreeHostTest {
   void BeginTest() override {}
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     EXPECT_EQ(DrawResult::kSuccess, draw_result);
     EXPECT_EQ(GetCurrentLocalSurfaceId(),
@@ -8007,7 +8254,7 @@ class LayerTreeHostTestLocalSurfaceIdSkipChildNum : public LayerTreeHostTest {
   }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     EXPECT_EQ(DrawResult::kSuccess, draw_result);
     // We should not be picking up the newer |child_local_surface_id_|.
@@ -8053,7 +8300,7 @@ class LayerTreeHostTestRequestNewLocalSurfaceId : public LayerTreeHostTest {
   }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     EXPECT_EQ(DrawResult::kSuccess, draw_result);
     EXPECT_EQ(GetCurrentLocalSurfaceId(),
@@ -8160,7 +8407,7 @@ class LayerTreeHostTestSubmitFrameMetadata : public LayerTreeHostTest {
   }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     EXPECT_EQ(DrawResult::kSuccess, draw_result);
     EXPECT_EQ(0, num_swaps_);
@@ -8202,7 +8449,7 @@ class LayerTreeHostTestSubmitFrameResources : public LayerTreeHostTest {
   void BeginTest() override { PostSetNeedsCommitToMainThread(); }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame,
+                                   FrameData* frame,
                                    DrawResult draw_result) override {
     frame->render_passes.clear();
 
@@ -8265,7 +8512,7 @@ class LayerTreeHostTestBeginFrameAcks : public LayerTreeHostTest {
   }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     frame_data_ = frame_data;
     return draw_result;
@@ -8301,7 +8548,7 @@ class LayerTreeHostTestBeginFrameAcks : public LayerTreeHostTest {
   bool compositor_frame_submitted_ = false;
   bool layers_drawn_ = false;
   viz::BeginFrameArgs current_begin_frame_args_;
-  raw_ptr<LayerTreeHostImpl::FrameData> frame_data_;
+  raw_ptr<FrameData> frame_data_;
 };
 
 MULTI_THREAD_BLOCKNOTIFY_TEST_F(LayerTreeHostTestBeginFrameAcks);
@@ -10159,7 +10406,7 @@ class LayerTreeHostTestDelayRecreateTiling
   }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
-                                   LayerTreeHostImpl::FrameData* frame_data,
+                                   FrameData* frame_data,
                                    DrawResult draw_result) override {
     if (host_impl->pending_tree() &&
         host_impl->pending_tree()->source_frame_number() == 2) {
@@ -11328,7 +11575,13 @@ class LayerTreeHostTestTextureLayerOffscreenScroll : public LayerTreeTest {
   viz::TransferableResource MakeResource() {
     // Prepare a transferable resource for the TextureLayer. This uses the
     // "push" model, where the main thread provides the resource directly.
-    auto mailbox = gpu::Mailbox::Generate();
+    scoped_refptr<gpu::ClientSharedImage> shared_image =
+        gpu::ClientSharedImage::CreateForTesting(
+            {viz::SinglePlaneFormat::kRGBA_8888, texture_layer_->bounds(),
+             gfx::ColorSpace(), kTopLeft_GrSurfaceOrigin, kPremul_SkAlphaType,
+             gpu::SHARED_IMAGE_USAGE_DISPLAY_READ},
+            GL_TEXTURE_2D);
+
     // Use a verified SyncToken as is conventional in tests.
     gpu::SyncToken sync_token(gpu::CommandBufferNamespace::GPU_IO,
                               gpu::CommandBufferId::FromUnsafeValue(0x123),
@@ -11337,12 +11590,9 @@ class LayerTreeHostTestTextureLayerOffscreenScroll : public LayerTreeTest {
 
     // Correctly create a TransferableResource. The MakeGpu factory is private,
     // so we use the public constructor and populate the fields.
-    auto resource = viz::TransferableResource();
-    resource.format = viz::SinglePlaneFormat::kRGBA_8888;
-    resource.size = texture_layer_->bounds();
-    resource.set_mailbox(mailbox);
-    resource.set_texture_target(GL_TEXTURE_2D);
-    resource.set_sync_token(sync_token);
+    auto resource = viz::TransferableResource::Make(
+        shared_image, viz::TransferableResource::ResourceSource::kTest,
+        sync_token);
 
     return resource;
   }

@@ -74,6 +74,7 @@
 <translation id="1274654146705270731">apelsinai</translation>
 <translation id="1275718070701477396">Pasirinkta</translation>
 <translation id="1290331692326790741">Silpnas signalas</translation>
+<translation id="1292474106138697109">Mokymosi įrankių rodinys</translation>
 <translation id="1300115153046603471">APN yra numatytojo tipo ir <ph name="ATTACH" />.</translation>
 <translation id="1301069673413256657">GSM</translation>
 <translation id="1301340234286078471">Konvertuoti</translation>
@@ -1046,6 +1047,7 @@
 <translation id="5596627076506792578">Daugiau parinkčių</translation>
 <translation id="5600027863942488546">Išbandytas klavišas <ph name="KEY_NAME" /></translation>
 <translation id="5606865426897221650">Tabuliavimo klavišas</translation>
+<translation id="5612205513582918357">Mokymosi įrankiai bendrina jūsų ekraną su <ph name="RECEIVER_NAME" /></translation>
 <translation id="5613201299517339763">Buvote atjungti</translation>
 <translation id="5620281292257375798">Tik vidiniams naudotojams</translation>
 <translation id="5628106863521633649">Pasiekiamos kalbos</translation>
@@ -1473,7 +1475,6 @@ Atsisiųskite transkribavimo modelį (iki 100 MB), kad gautumėte transkribuotus
 <translation id="7425832472614771259">Atsisiųsta <ph name="PROGRESS_PERCENTAGE" /> % <ph name="LANGUAGE_NAME" /> k. transkribavimo modelio</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">Šio APN negalima išjungti arba pašalinti. Įsitikinkite, kad įgalinti <ph name="ATTACH" /> APN yra išjungti arba pašalinti.</translation>
-<translation id="7458359366992324037">Nuotolinio valdymo ekranas</translation>
 <translation id="7458970041932198923">Jei norite peržiūrėti ir nustatyti pseudoportretus, prisijunkite prie tinklo ir iš naujo įkelkite puslapį.</translation>
 <translation id="7469648432129124067">Aptiktas portalas</translation>
 <translation id="7481312909269577407">Persiųsti</translation>

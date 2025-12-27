@@ -138,7 +138,7 @@ content::WebContents* AddWebContents(
   params.disposition = disposition;
   params.window_features = window_features;
   params.window_features.bounds = rect;
-  params.window_action = fullscreen ? NavigateParams::SHOW_WINDOW_FULLSCREEN : window_action;
+  params.window_action = fullscreen ? NavigateParams::WindowAction::kShowWindowFullscreen : window_action;
   params.frameless = !has_frame;
   // At this point, we're already beyond the popup blocker. Even if the popup
   // was created without a user gesture, we have to set |user_gesture| to true,
@@ -174,7 +174,7 @@ void ConfigureTabGroupForNavigation(NavigateParams* nav_params) {
 
   if (!nav_params->browser ||
       !nav_params->browser->GetBrowserForMigrationOnly()->SupportsWindowFeature(
-          Browser::WindowFeature::FEATURE_TABSTRIP)) {
+          Browser::WindowFeature::kFeatureTabStrip)) {
     return;
   }
 

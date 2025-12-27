@@ -10,7 +10,6 @@
 
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
-#include "third_party/blink/renderer/bindings/core/v8/v8_canvas_element_hit_test_region.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_predefined_color_space.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_webgl_context_attributes.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
@@ -607,6 +606,16 @@ class MODULES_EXPORT WebGLRenderingContextWebGPUBase
                          Element* element,
                          ExceptionState& exception_state);
 
+  void texElementImage2D(GLenum target,
+                         GLint level,
+                         GLint internalformat,
+                         GLsizei width,
+                         GLsizei height,
+                         GLenum format,
+                         GLenum type,
+                         Element* element,
+                         ExceptionState& exception_state);
+
   void texElement2D(GLenum target,
                     GLint level,
                     GLint internalformat,
@@ -615,8 +624,15 @@ class MODULES_EXPORT WebGLRenderingContextWebGPUBase
                     Element* element,
                     ExceptionState& exception_state);
 
-  void setHitTestRegions(VectorOf<CanvasElementHitTestRegion> hit_test_regions,
-                         ExceptionState& exception_state);
+  void texElement2D(GLenum target,
+                    GLint level,
+                    GLint internalformat,
+                    GLsizei width,
+                    GLsizei height,
+                    GLenum format,
+                    GLenum type,
+                    Element* element,
+                    ExceptionState& exception_state);
 
   void texSubImage2D(GLenum target,
                      GLint level,
@@ -1282,15 +1298,14 @@ class MODULES_EXPORT WebGLRenderingContextWebGPUBase
   gfx::ColorSpace GetColorSpace() const override;
   int AllocatedBufferCountPerPixel() const override;
   bool isContextLost() const override;
-  scoped_refptr<StaticBitmapImage> GetImage(FlushReason) override;
+  scoped_refptr<StaticBitmapImage> GetImage() override;
   void SetHdrMetadata(const gfx::HDRMetadata& hdr_metadata) override;
 
   bool IsComposited() const override;
   bool IsPaintable() const override;
   void PageVisibilityChanged() override;
   scoped_refptr<StaticBitmapImage> PaintRenderingResultsToSnapshot(
-      SourceDrawingBuffer source_buffer,
-      FlushReason reason) override;
+      SourceDrawingBuffer source_buffer) override;
   bool CopyRenderingResultsToVideoFrame(
       WebGraphicsContext3DVideoFramePool*,
       SourceDrawingBuffer,

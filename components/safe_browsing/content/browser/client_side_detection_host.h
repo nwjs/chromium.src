@@ -27,6 +27,7 @@
 #include "components/permissions/permission_request_manager.h"
 #include "components/safe_browsing/content/browser/async_check_tracker.h"
 #include "components/safe_browsing/content/browser/base_ui_manager.h"
+#include "components/safe_browsing/content/browser/credit_card_form_event.h"
 #include "components/safe_browsing/content/common/safe_browsing.mojom-shared.h"
 #include "components/safe_browsing/content/common/safe_browsing.mojom.h"
 #include "components/safe_browsing/core/browser/db/database_manager.h"
@@ -37,10 +38,13 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "mojo/public/cpp/base/proto_wrapper.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
-#include "mojo/public/cpp/bindings/remote.h"
 #include "net/http/http_status_code.h"
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "url/gurl.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "components/safe_browsing/core/browser/referring_app_info.h"  // nogncheck
+#endif
 
 namespace base {
 class TickClock;
@@ -104,6 +108,11 @@ class ClientSideDetectionHost
     // the delegate when the inner text function is completed. This string is
     // then used to provide the on-device model the information about the page.
     virtual void GetInnerText(HostInnerTextCallback callback) = 0;
+
+#if BUILDFLAG(IS_ANDROID)
+    virtual internal::ReferringAppInfo GetReferringAppInfo(
+        content::WebContents* web_contents) = 0;
+#endif
   };
 
   // Delegate for handling intelligent scanning using on-device models. This
@@ -200,11 +209,14 @@ class ClientSideDetectionHost
 
   void RegisterAsyncCheckTracker();
 
-  // autofill::AutofillManager::Observer method:
+  // autofill::AutofillManager::Observer methods:
   void OnFieldTypesDetermined(
       autofill::AutofillManager& manager,
       autofill::FormGlobalId formId,
       autofill::AutofillManager::Observer::FieldTypeSource source) override;
+  void OnBeforeFocusOnFormField(autofill::AutofillManager& manager,
+                                autofill::FormGlobalId form_id,
+                                autofill::FieldGlobalId field_id) override;
 
   // history::HistoryServiceObserver method:
   void HistoryServiceBeingDeleted(
@@ -290,20 +302,44 @@ class ClientSideDetectionHost
                            ClipboardApiClassificationTriggersCSPPPing);
   FRIEND_TEST_ALL_PREFIXES(
       ClientSideDetectionHostCreditCardFormTest,
-      NonCreditCardFormDoesNotTriggerPreclassificationChecks);
+      NonCreditCardFormDetectionDoesNotTriggerPreclassificationChecks);
+  FRIEND_TEST_ALL_PREFIXES(
+      ClientSideDetectionHostCreditCardFormTest,
+      NonCreditCardFormInteractionDoesNotTriggerPreclassificationChecks);
   FRIEND_TEST_ALL_PREFIXES(
       ClientSideDetectionHostCreditCardFormTest,
       FeatureDisabledDoesNotTriggerPreclassificationChecks);
-  FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionHostCreditCardFormTest,
-                           ESBDisabledDoesNotTriggerPreclassificationChecks);
+  FRIEND_TEST_ALL_PREFIXES(
+      ClientSideDetectionHostCreditCardFormTest,
+      DetectionWhenESBDisabledDoesNotTriggerPreclassificationChecks);
+  FRIEND_TEST_ALL_PREFIXES(
+      ClientSideDetectionHostCreditCardFormTest,
+      InteractionWhenESBDisabledDoesNotTriggerPreclassificationChecks);
   FRIEND_TEST_ALL_PREFIXES(
       ClientSideDetectionHostCreditCardFormTest,
       EventDoesNotTriggerPreclassificationChecksWhenESBDisabled);
   FRIEND_TEST_ALL_PREFIXES(
       ClientSideDetectionHostCreditCardFormTest,
-      CreditCardFormDoesNotStartPreclassificationOnRepeatVisit);
+      DetectionDoesNotStartPreclassificationOnRepeatSiteVisit);
+  FRIEND_TEST_ALL_PREFIXES(
+      ClientSideDetectionHostCreditCardFormTest,
+      InteractionDoesNotStartPreclassificationOnRepeatSiteVisit);
+  FRIEND_TEST_ALL_PREFIXES(
+      ClientSideDetectionHostCreditCardFormTest,
+      DetectionDoesNotStartPreclassificationOnServerHeuristic);
+  FRIEND_TEST_ALL_PREFIXES(
+      ClientSideDetectionHostCreditCardFormTest,
+      InteractionDoesNotStartPreclassificationOnServerHeuristic);
+  FRIEND_TEST_ALL_PREFIXES(
+      ClientSideDetectionHostCreditCardFormReferringAppTest,
+      DetectionDoesNotStartPreclassificationBecauseOfReferringAppFilter);
+  FRIEND_TEST_ALL_PREFIXES(
+      ClientSideDetectionHostCreditCardFormReferringAppTest,
+      InteractionDoesNotStartPreclassificationBecauseOfReferringAppFilter);
   FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionHostCreditCardFormTest,
-                           CreditCardFormUsesCachedHistoryServiceResult);
+                           DetectionPreclassificationIsDedupedByURL);
+  FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionHostCreditCardFormTest,
+                           InteractionPreclassificationIsDedupedByURL);
   FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionHostCreditCardFormTest,
                            CreditCardFormTriggersPreclassificationCheck);
   FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionHostCreditCardFormTest,
@@ -322,6 +358,9 @@ class ClientSideDetectionHost
   // Helper function to create preclassification check once requirements are
   // met.
   void MaybeStartPreClassification(ClientSideDetectionType request_type);
+  void MaybeStartPreClassification(
+      ClientSideDetectionType request_type,
+      std::optional<std::string> credit_card_form_event);
 
   // Called when pre-classification checks are done for the phishing
   // classifiers. |request_type| is passed in to specify the process that
@@ -492,12 +531,26 @@ class ClientSideDetectionHost
   // same as the last committed URL on the RenderFrameHost.
   bool HasDonePreclassificationCheckOnSameURL(
       ClientSideDetectionType client_side_detection_type);
+  bool HasDonePreclassificationCheckOnSameURL(
+      ClientSideDetectionType client_side_detection_type,
+      std::optional<std::string> credit_card_form_event);
 
-  // OnCreditCardFormEvent is a callback that is called to determine
-  // whether a credit card from event should trigger a CSD ping.
+  // OnCreditCardFormEvent is a common method called by Autofill credit card
+  // form events that may trigger a CSD ping.
   void OnCreditCardFormEvent(
       std::string event_name,
+      bool allow_ping,
+      credit_card_form::FieldDetectionHeuristic field_heuristic);
+
+  // OnCreditCardFormVisitCount is a callback that is called when site
+  // visit count on a credit card form event is complete, at which point
+  // it determines whether a credit card from event should trigger a CSD
+  // ping.
+  void OnCreditCardFormVisitCount(
+      std::string event_name,
+      bool allow_ping,
       std::optional<base::TimeTicks> start_time,
+      credit_card_form::FieldDetectionHeuristic field_heuristic,
       history::VisibleVisitCountToHostResult history_result);
 
   // This pointer may be nullptr if client-side phishing detection is
@@ -583,6 +636,11 @@ class ClientSideDetectionHost
   // ClientSideDetectionType. This is because for some ClientSideDetectionType,
   // it can be triggered at a frequent basis per same URL.
   base::flat_map<ClientSideDetectionType, GURL> last_committed_url_map_;
+
+  // This map is used to track the last committed URL per credit card form
+  // event trigger that may trigger a CREDIT_CARD_FORM ping.
+  base::flat_map<std::string, GURL>
+      last_credit_card_form_event_trigger_url_map_;
 
   base::ScopedObservation<AsyncCheckTracker, AsyncCheckTracker::Observer>
       async_check_observation_{this};

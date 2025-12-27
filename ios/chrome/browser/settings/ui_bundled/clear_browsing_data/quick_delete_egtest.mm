@@ -19,7 +19,7 @@
 #import "ios/chrome/browser/authentication/test/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/autofill/ui_bundled/autofill_app_interface.h"
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
-#import "ios/chrome/browser/recent_tabs/ui_bundled/recent_tabs_constants.h"
+#import "ios/chrome/browser/recent_tabs/public/recent_tabs_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/clear_browsing_data/quick_delete_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_settings_app_interface.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -27,7 +27,6 @@
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/grid_constants.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_groups_constants.h"
-#import "ios/chrome/common/ui/confirmation_alert/constants.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey_ui.h"
@@ -1146,7 +1145,8 @@ NSString* CapitalizeFirstLetter(NSString* string) {
 
 // Tests that the selected value for the time range updates across all open
 // Quick Delete menus.
-- (void)testTimeRangeSelectionUpdatesInMultiwindow {
+// TODO(crbug.com/464192351): Re-enable test for multi-window.
+- (void)DISABLED_testTimeRangeSelectionUpdatesInMultiwindow {
   if (![ChromeEarlGrey areMultipleWindowsSupported]) {
     EARL_GREY_TEST_DISABLED(@"Multiple windows can't be opened.");
   }
@@ -1744,7 +1744,8 @@ NSString* CapitalizeFirstLetter(NSString* string) {
 
 // Tests that changing the state of one pref, updates the browsing data summary
 // across all open Quick Delete menus.
-- (void)testPrefChangeUpdatesInMultiwindow {
+// TODO(crbug.com/464192351): Re-enable test for multi-window.
+- (void)DISABLED_testPrefChangeUpdatesInMultiwindow {
   if (![ChromeEarlGrey areMultipleWindowsSupported]) {
     EARL_GREY_TEST_DISABLED(@"Multiple windows can't be opened.");
   }

@@ -27,12 +27,33 @@ chromium-metrics-reviews@google.com.
   <variant name="Image"/>
   <variant name="Other"/>
   <variant name="Pdf"/>
+  <variant name="Tab"/>
 </variants>
 
+<!-- LINT.IfChange(ContextualSearchSource) -->
+
 <variants name="ContextualSearchSource">
+  <variant name="ContextualTasks"/>
+  <variant name="Lens"/>
   <variant name="NewTabPage"/>
+  <variant name="Omnibox"/>
   <variant name="Unknown"/>
 </variants>
+
+<!-- LINT.ThenChange(//components/contextual_search/contextual_search_metrics_recorder.h:ContextualSearchSource) -->
+
+<histogram
+    name="ContextualSearch.ActiveTabsCountOnContextMenuOpen.{ContextualSearchSource}"
+    units="count" expires_after="2026-06-10">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Tracks the total number of active tabs a user has at the time in which they
+    open the composeboxcontext menu. This metric is recorded regardless of
+    whether or not a query was issued with the tab.
+  </summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
 
 <histogram
     name="ContextualSearch.AddedTabContextRecencyRanking.{ContextualSearchSource}"
@@ -44,6 +65,44 @@ chromium-metrics-reviews@google.com.
     when a tab is added as context through the composebox context menu. This
     metric is recorded regardless of whether or not a query was issued with the
     tab.
+  </summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram name="ContextualSearch.ConfigParseSuccess.{ContextualSearchSource}"
+    enum="Boolean" expires_after="2026-06-17">
+  <owner>mahmadi@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Recorded the first time the contextual search box is accessed and the
+    configuration proto feature parameter is set to a non-empty value. This
+    metric records whether the config proto was successfully parsed from the
+    base64-encoded string.
+  </summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram
+    name="ContextualSearch.ContextMenuEntry.Clicked.{ContextualSearchSource}"
+    enum="BooleanOccurred" expires_after="2026-03-29">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Number of times the context menu entrypoint on the {ContextualSearchSource}
+    was clicked. Recorded when the context menu is clicked. This does not mean
+    that a file was added, just simply that the entrypoint was clicked.
+  </summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram
+    name="ContextualSearch.DuplicateTabTitlesShownCount.{ContextualSearchSource}"
+    units="count" expires_after="2026-06-10">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Recorded during each session and records the number of tabs shown in the
+    context menu UI that have duplicate titles.
   </summary>
   <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
 </histogram>
@@ -60,6 +119,30 @@ chromium-metrics-reviews@google.com.
   <token key="ContextualSearchFileTypes" variants="ContextualSearchFileTypes">
     <variant name=""/>
   </token>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram name="ContextualSearch.File.Size.{ContextualSearchSource}"
+    units="bytes" expires_after="2026-03-29">
+  <owner>wenhuc@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    The aggregate size of all file types received by the browser from the WebUI.
+    Recorded as soon as the browser receives it.
+  </summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram
+    name="ContextualSearch.File.WebUI.UploadAttemptFailure.{ContextualSearchSource}"
+    enum="ContextualSearchFileValidationError" expires_after="2026-05-17">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Records the validation error hit on the WebUI side when a file is uploaded.
+    If no error occurred, this is logged as &quot;No error.&quot; Recorded when
+    a file upload is attempted.
+  </summary>
   <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
 </histogram>
 
@@ -87,7 +170,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualSearch.Query.Time.ToSubmission.{ContextualSearchSource}"
-    units="ms" expires_after="2026-03-22">
+    units="ms" expires_after="2026-05-24">
   <owner>hujasonx@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -118,7 +201,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualSearch.Session.Duration.{Status}.{ContextualSearchSource}"
-    units="ms" expires_after="2026-03-22">
+    units="ms" expires_after="2026-05-24">
   <owner>hujasonx@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -155,6 +238,20 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
+    name="ContextualSearch.Session.File.Browser.UploadAttemptCount.{ContextualSearchSource}"
+    units="count" expires_after="2026-01-20">
+  <owner>wenhuc@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    The aggregated number of times the browser attempted to process all file
+    types. Recorded at the end of the session. Note: Only recorded for files
+    that the WebUI approved for file upload (e.g., they passed the file size
+    check).
+  </summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram
     name="ContextualSearch.Session.File.Browser.UploadFailureCount.{ContextualSearchFileTypes}.{ContextualSearchSource}"
     units="count" expires_after="2026-04-19">
   <owner>hujasonx@google.com</owner>
@@ -168,6 +265,20 @@ chromium-metrics-reviews@google.com.
   <token key="ContextualSearchFileTypes" variants="ContextualSearchFileTypes">
     <variant name=""/>
   </token>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram
+    name="ContextualSearch.Session.File.Browser.UploadFailureCount.{ContextualSearchSource}"
+    units="count" expires_after="2026-04-19">
+  <owner>wenhuc@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    The number of failures aggregated across all file types within the session.
+    Recorded at the end of the session. This does not include files that failed
+    browser validation. Note: Only recorded for files that the WebUI approved
+    for file upload (e.g., they passed the file size check).
+  </summary>
   <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
 </histogram>
 
@@ -189,6 +300,20 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
+    name="ContextualSearch.Session.File.Browser.UploadSuccessCount.{ContextualSearchSource}"
+    units="count" expires_after="2026-03-22">
+  <owner>wenhuc@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    The total number of successful file upload attempts to the Lens server
+    aggregated for all file types within the session. Recorded at the end of the
+    session. Note: Only recorded for files that the WebUI approved for file
+    upload (e.g., they passed the file size check).
+  </summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram
     name="ContextualSearch.Session.File.Browser.ValidationFailureCount.{ContextualSearchFileTypes}.{ErrorType}.{ContextualSearchSource}"
     units="count" expires_after="2026-01-20">
   <owner>hujasonx@google.com</owner>
@@ -202,6 +327,29 @@ chromium-metrics-reviews@google.com.
   <token key="ContextualSearchFileTypes" variants="ContextualSearchFileTypes">
     <variant name=""/>
   </token>
+  <token key="ErrorType">
+    <variant name="AbortedError"/>
+    <variant name="BrowserProcessingError"/>
+    <variant name="ImageProcessingError"/>
+    <variant name="NetworkError"/>
+    <variant name="ServerError"/>
+    <variant name="ServerLimitExceededError"/>
+    <variant name="Unknown"/>
+  </token>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram
+    name="ContextualSearch.Session.File.Browser.ValidationFailureCount.{ErrorType}.{ContextualSearchSource}"
+    units="count" expires_after="2026-01-20">
+  <owner>wenhuc@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    The aggregated number across all file types that failed validation with the
+    error {ErrorType}. Recorded at the end of the session. Note: Only recorded
+    for files that the WebUI approved for file upload (e.g., they passed the
+    file size check).
+  </summary>
   <token key="ErrorType">
     <variant name="AbortedError"/>
     <variant name="BrowserProcessingError"/>
@@ -262,6 +410,75 @@ chromium-metrics-reviews@google.com.
     Tracks the number of queries submitted per session. Multiple queries may be
     submitted when the AIM page is opened in a new tab or window and the
     composebox remains open. Recorded at the end of the session.
+  </summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram name="ContextualSearch.TabContextAdded.{ContextualSearchSource}"
+    units="count" expires_after="2026-06-10">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Tracks the total number of times a tab is added as context through the
+    composebox context menu. This metric is recorded regardless of whether or
+    not a query was issued with the tab.
+  </summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram
+    name="ContextualSearch.TabWithDuplicateTitleClicked.{ContextualSearchSource}"
+    units="count" expires_after="2026-06-10">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Tracks the total number of times a tab with a duplicate title is clicked
+    through the composebox context menu. This metric is recorded regardless of
+    whether or not a query was issued with the tab.
+  </summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram
+    name="ContextualSearch.Tools.SubmissionType.{ContextualSearchSource}"
+    enum="ContextualSearchSubmissionType" expires_after="2026-06-10">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Tracks whether the user submitted a query using a tool or model or through a
+    suggestion. This metric is recorded only once the user has submitted the
+    query and navigated to AIM.
+  </summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram
+    name="ContextualSearch.Tools.{ContextualSearchSubmissionType}.{ContextualSearchSource}"
+    enum="ContextualSearchAimToolState" expires_after="2026-06-10">
+  <owner>ananyaseelam@google.com</owner>
+  <owner>chrome-desktop-ntp@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Tracks the number of times the {ContextualSearchSubmissionType} tool
+    selected or deselected in the composebox. The metric is only recorded when
+    the {ContextualSearchSubmissionType} tool chip or the create images dropdown
+    item in the composebox context menu is selected.
+  </summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+  <token key="ContextualSearchSubmissionType">
+    <variant name="CreateImages" summary="create images"/>
+    <variant name="DeepSearch" summary="deep search"/>
+  </token>
+</histogram>
+
+<histogram
+    name="ContextualSearch.UserAction.DeleteAutoSuggestedTab.{ContextualSearchSource}"
+    enum="Boolean" expires_after="2026-06-10">
+  <owner>sophiechang@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Records every time the user deletes the auto-suggested tab context chip from
+    the composebox. Always recorded as true.
   </summary>
   <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
 </histogram>

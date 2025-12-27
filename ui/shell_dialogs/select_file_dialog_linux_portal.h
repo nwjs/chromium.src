@@ -18,6 +18,7 @@
 #include "components/dbus/xdg/request.h"
 #include "dbus/bus.h"
 #include "ui/shell_dialogs/select_file_dialog_linux.h"
+#include "ui/shell_dialogs/shell_dialogs_export.h"
 
 namespace ui {
 
@@ -28,7 +29,8 @@ using OnSelectFileCanceledCallback = base::OnceCallback<void()>;
 
 // Implementation of SelectFileDialog that has the XDG file chooser portal show
 // a platform-dependent file selection dialog. This acts as a modal dialog.
-class SelectFileDialogLinuxPortal : public SelectFileDialogLinux {
+class SHELL_DIALOGS_EXPORT SelectFileDialogLinuxPortal
+    : public SelectFileDialogLinux {
  public:
   SelectFileDialogLinuxPortal(Listener* listener,
                               std::unique_ptr<ui::SelectFilePolicy> policy);
@@ -51,6 +53,7 @@ class SelectFileDialogLinuxPortal : public SelectFileDialogLinux {
   ~SelectFileDialogLinuxPortal() override;
 
   // BaseShellDialog:
+  void ListenerDestroyed() override;
   bool IsRunning(gfx::NativeWindow parent_window) const override;
 
   // SelectFileDialog:
@@ -63,6 +66,10 @@ class SelectFileDialogLinuxPortal : public SelectFileDialogLinux {
                       gfx::NativeWindow owning_window,
                       const GURL* caller) override;
   bool HasMultipleFileTypeChoicesImpl() override;
+
+  base::WeakPtr<SelectFileDialogLinuxPortal> GetWeakPtrForTesting() {
+    return weak_factory_.GetWeakPtr();
+  }
 
  private:
   // Glob-style patterns are indicated by 0, MIME types by 1. Patterns are
@@ -164,6 +171,8 @@ class SelectFileDialogLinuxPortal : public SelectFileDialogLinux {
   // to make the dialog modal.  This closure should be run when the dialog is
   // closed to reenable event handling.
   base::OnceClosure reenable_window_event_handling_;
+
+  base::WeakPtrFactory<SelectFileDialogLinuxPortal> weak_factory_{this};
 };
 
 }  // namespace ui

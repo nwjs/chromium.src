@@ -20,7 +20,6 @@
 #include "base/containers/flat_map.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
-#include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
@@ -282,7 +281,6 @@ class TestSharedStorageDevToolsClient : public TestDevToolsProtocolClient {
 };
 
 }  // namespace
-
 
 class SharedStorageTrustedOriginsResponse
     : public net::test_server::BasicHttpResponse {
@@ -628,6 +626,11 @@ IN_PROC_BROWSER_TEST_P(SharedStorageBrowserTest,
 
 IN_PROC_BROWSER_TEST_P(SharedStorageBrowserTest,
                        AddModue_TheThirdTimeCompilesWithV8CodeCache) {
+  if (blink::features::IsPersistentCacheForCodeCacheEnabled()) {
+    GTEST_SKIP() << "SharedStorage does not use a CodeCache when "
+                    "UsePersistentCacheForCodeCache is enabled.";
+  }
+
   // The test assumes pages get deleted after navigation. To ensure this,
   // disable back/forward cache.
   content::DisableBackForwardCacheForTesting(
@@ -4444,7 +4447,8 @@ IN_PROC_BROWSER_TEST_P(SharedStorageBrowserTest, WebLocksUsageHistograms) {
                          &out_script_url);
 
   // Navigate again to record histograms.
-  EXPECT_TRUE(NavigateToURL(shell(), GURL(url::kAboutBlankURL)));
+  EXPECT_TRUE(
+      NavigateToUrlMaybeWaitForRfhDeleted(shell(), GURL(url::kAboutBlankURL)));
 
   histogram_tester_.ExpectBucketCount(
       "Storage.SharedStorage.UpdateMethod.HasLockOption", true, 1);

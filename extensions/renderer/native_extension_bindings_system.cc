@@ -471,7 +471,7 @@ bool CanWebpageContextConnectExternally(ScriptContext* context) {
 // to these APIs.
 // Note: `runtime` and `test` may also be available, but are handled specially
 // in UpdateBindingsForContext.
-const char* const kWebAvailableFeatures[] = {
+const std::string_view kWebAvailableFeatures[] = {
     "app",
     "webstorePrivate",
     "management",
@@ -644,6 +644,9 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
           if (!browser) {
             browser = GetOrCreateGlobalObjectProperty(v8_context, "browser");
           }
+          if (browser->IsEmpty()) {
+            return false;
+          }
           v8::Maybe<bool> browser_success = (*browser)->SetLazyDataProperty(
               v8_context, api_name, &BindingAccessor, api_name);
           if (!browser_success.IsJust() || !browser_success.FromJust()) {
@@ -707,6 +710,9 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
       if (!browser) {
         browser = GetOrCreateGlobalObjectProperty(v8_context, "browser");
       }
+      if (browser->IsEmpty()) {
+        return false;
+      }
       v8::Maybe<bool> browser_success = (*browser)->SetLazyDataProperty(
           v8_context, api_name, &ThrowDeveloperModeRestrictedError, api_name);
       if (!browser_success.IsJust() || !browser_success.FromJust()) {
@@ -726,10 +732,10 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
     // context types, especially on a given platform. Something to think about
     // for when we generate features.
     bool is_any_feature_available_to_page = false;
-    for (const char* feature_name : kWebAvailableFeatures) {
+    for (std::string_view feature_name : kWebAvailableFeatures) {
       if (context->GetAvailability(feature_name).is_available()) {
         // chrome.app is exposed to all webpages, we ignore it for this check.
-        if (UNSAFE_TODO(strcmp(feature_name, "app")) != 0) {
+        if (feature_name != "app") {
           is_any_feature_available_to_page = true;
         }
         if (!set_accessor(feature_name)) {

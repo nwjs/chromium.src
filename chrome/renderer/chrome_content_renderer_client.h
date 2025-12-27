@@ -65,12 +65,7 @@ namespace chrome {
 class WebRtcLoggingAgentImpl;
 }  // namespace chrome
 
-namespace fingerprinting_protection_filter {
-class UnverifiedRulesetDealer;
-}  // namespace fingerprinting_protection_filter
-
 namespace subresource_filter {
-class MemoryMappedRuleset;
 class UnverifiedRulesetDealer;
 }
 
@@ -120,11 +115,6 @@ class ChromeContentRendererClient
   bool OverrideCreatePlugin(content::RenderFrame* render_frame,
                             const blink::WebPluginParams& params,
                             blink::WebPlugin** plugin) override;
-#if BUILDFLAG(ENABLE_PLUGINS)
-  blink::WebPlugin* CreatePluginReplacement(
-      content::RenderFrame* render_frame,
-      const base::FilePath& plugin_path) override;
-#endif
   void PrepareErrorPage(content::RenderFrame* render_frame,
                         const blink::WebURLError& error,
                         const std::string& http_method,
@@ -233,12 +223,6 @@ class ChromeContentRendererClient
   std::unique_ptr<blink::WebLinkPreviewTriggerer> CreateLinkPreviewTriggerer()
       override;
 
-  bool IsContentBasedFingerprintingProtectionEnabled();
-  bool IsContentBasedFingerprintingProtectionEnabledForMetrics();
-
-  scoped_refptr<const subresource_filter::MemoryMappedRuleset>
-  GetFingerprintingProtectionRuleset();
-
 #if BUILDFLAG(ENABLE_PLUGINS)
   static blink::WebPlugin* CreatePlugin(
       content::RenderFrame* render_frame,
@@ -289,15 +273,6 @@ class ChromeContentRendererClient
 #endif
   std::unique_ptr<subresource_filter::UnverifiedRulesetDealer>
       subresource_filter_ruleset_dealer_;
-  std::unique_ptr<fingerprinting_protection_filter::UnverifiedRulesetDealer>
-      fingerprinting_protection_ruleset_dealer_;
-  scoped_refptr<const subresource_filter::MemoryMappedRuleset>
-      fingerprinting_protection_ruleset_;
-  // Copied from `blink::web_prefs::WebPreferences` whenever a new top-level
-  // main frame is created.
-  bool content_based_fingerprinting_protection_enabled_ = false;
-  // Similar to the above but when any frames are created.
-  bool content_based_fingerprinting_protection_enabled_for_metrics_ = false;
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   std::unique_ptr<safe_browsing::PhishingModelSetterImpl>
       phishing_model_setter_;

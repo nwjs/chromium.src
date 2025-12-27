@@ -165,7 +165,6 @@ bool HasWaylandDisplay(base::Environment* env);
 namespace android_webview {
 class AwBrowserContext;
 class AwBrowserContextStore;
-class AwFormDatabaseService;
 class AwMetricsServiceClient;
 class CookieManager;
 class JsSandboxIsolate;
@@ -401,6 +400,7 @@ class PrintBackendServiceImpl;
 class PrintBackendServiceManager;
 class PrintPreviewUIUntrusted;
 class PrinterQuery;
+base::FilePath GetAbsoluteSystemDestinationLocation(const base::FilePath&);
 }  // namespace printing
 namespace proxy_resolver {
 class ScopedAllowThreadJoinForProxyResolverV8Tracing;
@@ -693,6 +693,8 @@ class BASE_EXPORT ScopedAllowBlocking {
       base::FilePath* file_path);  // http://crbug.com/110709
   friend bool disk_cache::CleanupDirectorySync(const base::FilePath&);
   friend bool gl::init::InitializeStaticGLBindings(gl::GLImplementationParts);
+  friend base::FilePath printing::GetAbsoluteSystemDestinationLocation(
+      const base::FilePath&);
 
  public:
   ScopedAllowBlocking(const Location& from_here = Location::Current());
@@ -844,8 +846,6 @@ class BASE_EXPORT
   friend class ::KeyStorageLinux;
   friend class ::NativeDesktopMediaList;
   friend class android::JavaHandlerThread;
-  friend class android_webview::
-      AwFormDatabaseService;  // http://crbug.com/904431
   friend class android_webview::CookieManager;
   friend class android_webview::VizCompositorThreadRunnerWebView;
   friend class audio::OutputDevice;

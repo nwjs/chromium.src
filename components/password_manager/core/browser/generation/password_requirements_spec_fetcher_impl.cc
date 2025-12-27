@@ -4,6 +4,8 @@
 
 #include "components/password_manager/core/browser/generation/password_requirements_spec_fetcher_impl.h"
 
+#include <optional>
+#include <string>
 #include <string_view>
 
 #include "base/containers/span.h"
@@ -88,7 +90,7 @@ std::string GetHashPrefix(const GURL& origin, size_t prefix_length) {
     }
   }
 
-  return base::ToLowerASCII(base::HexEncode(digest)).substr(0, 4);
+  return base::HexEncodeLower(base::span(digest).first(2u));
 }
 
 // Returns the URL on gstatic.com where the passwords spec file can be found
@@ -187,7 +189,7 @@ void PasswordRequirementsSpecFetcherImpl::Fetch(GURL origin,
 
 void PasswordRequirementsSpecFetcherImpl::OnFetchComplete(
     const std::string& hash_prefix,
-    std::unique_ptr<std::string> response_body) {
+    std::optional<std::string> response_body) {
   std::unique_ptr<LookupInFlight> lookup = RemoveLookupInFlight(hash_prefix);
 
   lookup->download_timer.Stop();

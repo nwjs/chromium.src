@@ -12,6 +12,7 @@
 #import "base/time/time.h"
 #import "components/autofill/core/browser/field_types.h"
 #import "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#import "components/autofill/core/common/autofill_debug_features.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/ios/common/features.h"
 #import "components/feature_engagement/public/feature_constants.h"
@@ -223,6 +224,13 @@ void SlowlyTypeText(NSString* text) {
 
 @implementation FormInputAccessoryEGTest
 
+// Returns whether the two-bubble feature should be enabled for the current
+// test. `NO` is returned to verify all tests pass when the two-bubble feature
+// is disabled.
+- (BOOL)shouldEnableTwoBubbleFeature {
+  return NO;
+}
+
 - (void)setUp {
   [super setUp];
 
@@ -263,7 +271,7 @@ void SlowlyTypeText(NSString* text) {
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
   config.features_disabled.push_back(
-      autofill::features::test::kAutofillServerCommunication);
+      autofill::features::debug::kAutofillServerCommunication);
   if ([self isRunningTest:@selector(testFillXframeCreditCardForm)] ||
       [self isRunningTest:@selector(testFillXframeCreditCardFormThrottled)] ||
       [self isRunningTest:@selector
@@ -305,6 +313,12 @@ void SlowlyTypeText(NSString* text) {
   if ([self isRunningTest:@selector(testUseBackupPassword)]) {
     config.features_enabled.push_back(
         password_manager::features::kIOSFillRecoveryPassword);
+  }
+
+  if ([self shouldEnableTwoBubbleFeature]) {
+    config.features_enabled.push_back(kIOSKeyboardAccessoryTwoBubble);
+  } else {
+    config.features_disabled.push_back(kIOSKeyboardAccessoryTwoBubble);
   }
 
   return config;
@@ -1095,6 +1109,23 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
 
   [self verifyFieldsHaveBeenFilledWithUsername:username
                                       password:backupPassword];
+}
+
+@end
+
+// Reruns all the tests in this file but with the two-bubble feature enabled by
+// default.
+@interface FormInputAccessoryTwoBubbleTestCase : FormInputAccessoryEGTest
+
+@end
+
+@implementation FormInputAccessoryTwoBubbleTestCase
+
+// Returns whether the two-bubble feature should be enabled for the current
+// test. It returns `YES` to rerun tests defined in
+// `FormInputAccessoryEGTest`.
+- (BOOL)shouldEnableTwoBubbleFeature {
+  return YES;
 }
 
 @end

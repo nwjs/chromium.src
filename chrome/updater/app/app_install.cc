@@ -12,6 +12,7 @@
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/task/bind_post_task.h"
@@ -23,6 +24,7 @@
 #include "chrome/updater/activity.h"
 #include "chrome/updater/branded_constants.h"
 #include "chrome/updater/constants.h"
+#include "chrome/updater/event_history.h"
 #include "chrome/updater/external_constants.h"
 #include "chrome/updater/lock.h"
 #include "chrome/updater/persisted_data.h"
@@ -260,6 +262,8 @@ void AppInstall::InstallCandidateDone(bool valid_version, int result) {
               [](UpdaterScope scope) {
                 scoped_refptr<GlobalPrefs> prefs = CreateGlobalPrefs(scope);
                 if (prefs) {
+                  ActivateEndEvent event =
+                      ActivateStartEvent().WriteAsyncAndReturnEndEvent();
                   prefs->SetActiveVersion(kUpdaterVersion);
                   prefs->SetSwapping(true);
                   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
@@ -269,6 +273,7 @@ void AppInstall::InstallCandidateDone(bool valid_version, int result) {
                         ->SetEulaRequired(true);
                   }
                   PrefsCommitPendingWrites(prefs->GetPrefService());
+                  event.SetActivated(true).WriteAsync();
                 }
               },
               updater_scope()),

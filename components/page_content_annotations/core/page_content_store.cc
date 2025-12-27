@@ -5,12 +5,14 @@
 #include "components/page_content_annotations/core/page_content_store.h"
 
 #include <functional>
+#include <set>
 
 #include "base/logging.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/thread_pool.h"
 #include "components/database_utils/url_converter.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
+#include "components/page_content_annotations/core/page_content_annotations_features.h"
 #include "sql/error_delegate_util.h"
 #include "sql/init_status.h"
 #include "sql/recovery.h"
@@ -251,21 +253,36 @@ bool PageContentStore::DeletePageContentOlderThan(base::Time timestamp) {
     return false;
   }
 
+  int max_limit =
+      page_content_annotations::features::kPageContentCacheMaxTabs.Get();
+
+  // This statement identifies the `page_metadata` entries to KEEP, which are
+  // the `max_limit` most recent entries that are also newer than the
+  // provided `timestamp`. Everything else will be deleted.
+  static const char kSelectIdsToKeepSql[] =
+      "SELECT content_id FROM page_metadata WHERE visit_timestamp >= ? "
+      "ORDER BY visit_timestamp DESC LIMIT ?";
+
   static const char kDeleteContentSql[] =
-      "DELETE FROM page_content WHERE id IN ("
-      "SELECT content_id FROM page_metadata WHERE visit_timestamp < ?)";
+      "DELETE FROM page_content WHERE id NOT IN (%s)";
+  std::string delete_content_sql_string =
+      base::StringPrintf(kDeleteContentSql, kSelectIdsToKeepSql);
   sql::Statement delete_content_statement(
-      db_.GetCachedStatement(SQL_FROM_HERE, kDeleteContentSql));
+      db_.GetUniqueStatement(delete_content_sql_string));
   delete_content_statement.BindTime(0, timestamp);
+  delete_content_statement.BindInt(1, max_limit);
   if (!delete_content_statement.Run()) {
     return false;
   }
 
   static const char kDeleteMetadataSql[] =
-      "DELETE FROM page_metadata WHERE visit_timestamp < ?";
+      "DELETE FROM page_metadata WHERE content_id NOT IN (%s)";
+  std::string delete_metadata_sql_string =
+      base::StringPrintf(kDeleteMetadataSql, kSelectIdsToKeepSql);
   sql::Statement delete_metadata_statement(
-      db_.GetCachedStatement(SQL_FROM_HERE, kDeleteMetadataSql));
+      db_.GetUniqueStatement(delete_metadata_sql_string));
   delete_metadata_statement.BindTime(0, timestamp);
+  delete_metadata_statement.BindInt(1, max_limit);
   if (!delete_metadata_statement.Run()) {
     return false;
   }
@@ -302,6 +319,59 @@ bool PageContentStore::DeletePageContentForTab(int64_t tab_id) {
   if (!delete_metadata_statement.Run()) {
     return false;
   }
+  return transaction.Commit();
+}
+
+bool PageContentStore::DeletePageContentForTabs(
+    const std::set<int64_t>& tab_ids) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!db_initialized_) {
+    return false;
+  }
+  if (tab_ids.empty()) {
+    return true;
+  }
+
+  sql::Transaction transaction(&db_);
+  if (!transaction.Begin()) {
+    return false;
+  }
+
+  std::string placeholders;
+  placeholders.reserve(tab_ids.size() * 2 - 1);
+  for (size_t i = 0; i < tab_ids.size(); ++i) {
+    if (i > 0) {
+      placeholders.append(",");
+    }
+    placeholders.append("?");
+  }
+
+  const std::string delete_content_sql = base::StringPrintf(
+      "DELETE FROM page_content WHERE id IN "
+      "(SELECT content_id FROM page_metadata WHERE tab_id IN (%s))",
+      placeholders.c_str());
+  sql::Statement delete_content_statement(
+      db_.GetUniqueStatement(delete_content_sql));
+  int i = 0;
+  for (int64_t tab_id : tab_ids) {
+    delete_content_statement.BindInt64(i++, tab_id);
+  }
+  if (!delete_content_statement.Run()) {
+    return false;
+  }
+
+  const std::string delete_metadata_sql = base::StringPrintf(
+      "DELETE FROM page_metadata WHERE tab_id IN (%s)", placeholders.c_str());
+  sql::Statement delete_metadata_statement(
+      db_.GetUniqueStatement(delete_metadata_sql));
+  i = 0;
+  for (int64_t tab_id : tab_ids) {
+    delete_metadata_statement.BindInt64(i++, tab_id);
+  }
+  if (!delete_metadata_statement.Run()) {
+    return false;
+  }
+
   return transaction.Commit();
 }
 

@@ -74,6 +74,7 @@
 <translation id="1274654146705270731">oranges</translation>
 <translation id="1275718070701477396">Selected</translation>
 <translation id="1290331692326790741">Weak signal</translation>
+<translation id="1292474106138697109">Class tools display</translation>
 <translation id="1300115153046603471">APN is type default and <ph name="ATTACH" />.</translation>
 <translation id="1301069673413256657">GSM</translation>
 <translation id="1301340234286078471">Convert</translation>
@@ -1046,6 +1047,7 @@
 <translation id="5596627076506792578">More options</translation>
 <translation id="5600027863942488546"><ph name="KEY_NAME" /> key tested</translation>
 <translation id="5606865426897221650">Tab</translation>
+<translation id="5612205513582918357">Class tools is sharing your screen to <ph name="RECEIVER_NAME" /></translation>
 <translation id="5613201299517339763">You've been signed out</translation>
 <translation id="5620281292257375798">Internal only</translation>
 <translation id="5628106863521633649">Available languages</translation>
@@ -1473,7 +1475,6 @@ Download the transcription model (up to 100 MB) to get these transcriptions.</tr
 <translation id="7425832472614771259"><ph name="LANGUAGE_NAME" /> transcription model <ph name="PROGRESS_PERCENTAGE" />% downloaded</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">Can't disable or remove this APN. Make sure that enabled <ph name="ATTACH" /> APNs are disabled or removed.</translation>
-<translation id="7458359366992324037">Remote display</translation>
 <translation id="7458970041932198923">Please connect to a network and reload the page to view and set avatars.</translation>
 <translation id="7469648432129124067">Portal detected</translation>
 <translation id="7481312909269577407">Forward</translation>

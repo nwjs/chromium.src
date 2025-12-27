@@ -59,7 +59,7 @@ class TextureLayer::TransferableResourceHolder
 
   void DoReleaseCallback(const gpu::SyncToken& sync_token, bool is_lost) {
     destruction_sync_token_ = sync_token;
-    is_lost_ = is_lost;
+    is_lost_ = is_lost_ || is_lost;
   }
 
   const viz::TransferableResource resource_;
@@ -88,17 +88,17 @@ void TextureLayer::NotifyUpdatedResource() {
   NotifyPropertyChanged();
 }
 
-void TextureLayer::ClearTexture() {
-  OnResourceEvicted();
-  resource_holder_.reset();
-}
-
 void TextureLayer::SetLayerTree(LayerTree* layer_tree) {
   if (this->layer_tree() == layer_tree) {
     return;
   }
   OnResourceEvicted();
   Layer::SetLayerTree(layer_tree);
+}
+
+void TextureLayer::ReleaseResources() {
+  OnResourceEvicted();
+  resource_holder_.reset();
 }
 
 void TextureLayer::OnResourceEvicted() {

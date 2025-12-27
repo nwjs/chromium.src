@@ -18,16 +18,13 @@
 #include "components/content_settings/core/common/content_settings_rules.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/content_settings/core/common/host_indexed_content_settings.h"
-#include "components/ip_protection/common/ip_protection_core_impl.h"
 #include "components/ip_protection/common/ip_protection_data_types.h"
-#include "components/ip_protection/common/ip_protection_probabilistic_reveal_token_manager.h"
 #include "components/ip_protection/common/ip_protection_proxy_config_manager.h"
 #include "components/ip_protection/common/ip_protection_proxy_config_manager_impl.h"
 #include "components/ip_protection/common/ip_protection_telemetry.h"
 #include "components/ip_protection/common/ip_protection_token_manager.h"
 #include "components/ip_protection/common/ip_protection_token_manager_impl.h"
 #include "components/ip_protection/common/masked_domain_list_manager.h"
-#include "components/ip_protection/common/probabilistic_reveal_token_registry.h"
 #include "net/base/features.h"
 #include "net/base/network_change_notifier.h"
 #include "net/base/proxy_chain.h"
@@ -88,16 +85,11 @@ IpProtectionCoreImpl::IpProtectionCoreImpl(
     std::unique_ptr<IpProtectionProxyConfigManager>
         ip_protection_proxy_config_manager,
     ProxyTokenManagerMap ip_protection_token_managers,
-    ProbabilisticRevealTokenRegistry* probabilistic_reveal_token_registry,
-    std::unique_ptr<IpProtectionProbabilisticRevealTokenManager>
-        ipp_prt_manager,
     bool is_ip_protection_enabled,
     bool ip_protection_incognito)
     : masked_domain_list_manager_(masked_domain_list_manager),
       ipp_proxy_config_manager_(std::move(ip_protection_proxy_config_manager)),
       ipp_token_managers_(std::move(ip_protection_token_managers)),
-      probabilistic_reveal_token_registry_(probabilistic_reveal_token_registry),
-      ipp_prt_manager_(std::move(ipp_prt_manager)),
       is_ip_protection_enabled_(is_ip_protection_enabled),
       ipp_over_quic_(net::features::kIpPrivacyUseQuicProxies.Get()),
       mdl_type_(network::features::kSplitMaskedDomainList.Get()
@@ -105,12 +97,6 @@ IpProtectionCoreImpl::IpProtectionCoreImpl(
                                                : MdlType::kRegularBrowsing)
                     : MdlType::kIncognito) {
   net::NetworkChangeNotifier::AddNetworkChangeObserver(this);
-  bool should_request_prts =
-      ip_protection_incognito ||
-      !net::features::kProbabilisticRevealTokensOnlyInIncognito.Get();
-  if (ipp_prt_manager_ && should_request_prts) {
-    ipp_prt_manager_->RequestTokens();
-  }
 }
 
 IpProtectionCoreImpl::~IpProtectionCoreImpl() {
@@ -190,15 +176,6 @@ std::optional<BlindSignedAuthToken> IpProtectionCoreImpl::GetAuthToken(
   return result;
 }
 
-std::optional<std::string> IpProtectionCoreImpl::GetProbabilisticRevealToken(
-    const GURL& url,
-    const net::SchemefulSite& top_frame_site) {
-  if (!ipp_prt_manager_) {
-    return std::nullopt;
-  }
-  return ipp_prt_manager_->GetToken(url, top_frame_site);
-}
-
 IpProtectionTokenManager*
 IpProtectionCoreImpl::GetIpProtectionTokenManagerForTesting(
     ProxyLayer proxy_layer) {
@@ -268,18 +245,6 @@ void IpProtectionCoreImpl::GeoObserved(const std::string& geo_id) {
   }
 }
 
-bool IpProtectionCoreImpl::ShouldRequestIncludeProbabilisticRevealToken(
-    const GURL& request_url) {
-  if (!base::FeatureList::IsEnabled(
-          net::features::kEnableProbabilisticRevealTokens)) {
-    return false;
-  }
-  if (net::features::kBypassProbabilisticRevealTokenRegistry.Get()) {
-    return true;
-  }
-  return probabilistic_reveal_token_registry_->IsRegistered(request_url);
-}
-
 void IpProtectionCoreImpl::OnNetworkChanged(
     net::NetworkChangeNotifier::ConnectionType type) {
   // When the network changes, but there is still a network, reset the
@@ -326,50 +291,6 @@ void IpProtectionCoreImpl::SetTrackingProtectionContentSetting(
     const ContentSettingsForOneType& settings) {
   tp_content_settings_ =
       content_settings::HostIndexedContentSettings::Create(settings);
-}
-
-// Gets the IP Proxy Status to be exposed in DevTools. Any new statuses should
-// also be added to ProxyResolutionResult and ClassifyRequest in
-// ip_protection_proxy_delegate.
-IpProxyStatus IpProtectionCoreImpl::GetIpProxyStatus() {
-  if (!net::features::kIpPrivacyEnableIppPanelInDevTools.Get()) {
-    return IpProxyStatus::kUnavailable;
-  }
-
-  // TODO(crbug.com/440167934): once unit and browser tests include a case where
-  // the MaskedDomainList is populated, move this check down
-  if (bypassed_by_devtools_) {
-    return IpProxyStatus::kBypassedByDevTools;
-  }
-  // Checking conditions that may cause IP protection to not work when it is
-  // eligible to be run
-  if (!net::features::kIpPrivacyEnableIppInDevTools.Get() ||
-      !base::FeatureList::IsEnabled(net::features::kEnableIpProtectionProxy)) {
-    return IpProxyStatus::kFeatureNotEnabled;
-  }
-  if (!masked_domain_list_manager_->IsEnabled()) {
-    return IpProxyStatus::kMaskedDomainListNotEnabled;
-  }
-  if (!IpProtectionCoreImpl::IsMdlPopulated()) {
-    return IpProxyStatus::kMaskedDomainListNotPopulated;
-  }
-  if (!AreAuthTokensAvailable()) {
-    return IpProxyStatus::kAuthTokensUnavailable;
-  }
-  return IsIpProtectionEnabled() ? IpProxyStatus::kOk
-                                 : IpProxyStatus::kUnavailable;
-}
-
-bool IpProtectionCoreImpl::IsProxyBypassed() {
-  return bypassed_by_devtools_;
-}
-
-void IpProtectionCoreImpl::SetBypassProxy(bool bypass_proxy) {
-  // Only allow enabling IP Protection bypass from Devtools if
-  // kIpPrivacyEnableIppPanelInDevTools flag is enabled
-  if (net::features::kIpPrivacyEnableIppPanelInDevTools.Get()) {
-    bypassed_by_devtools_ = bypass_proxy;
-  }
 }
 
 void IpProtectionCoreImpl::RecordTokenDemand(size_t chain_index) {

@@ -48,7 +48,8 @@ struct BrowserViewLayoutViews {
   // NOTE: If you add a view, try to add it as a views::View, which makes
   // testing much easier.
   raw_ptr<views::View> window_scrim = nullptr;
-  raw_ptr<views::View> main_container = nullptr;
+  raw_ptr<views::View> main_background_region = nullptr;
+  raw_ptr<views::View> main_shadow_overlay = nullptr;
   raw_ptr<views::View> menu_bar = nullptr;
   raw_ptr<views::View> top_container = nullptr;
   raw_ptr<WebAppFrameToolbarView> web_app_frame_toolbar = nullptr;
@@ -59,8 +60,9 @@ struct BrowserViewLayoutViews {
   raw_ptr<InfoBarContainerView> infobar_container = nullptr;
   raw_ptr<views::View> contents_container = nullptr;
   raw_ptr<MultiContentsView> multi_contents_view = nullptr;
-  raw_ptr<views::View> toolbar_height_side_panel = nullptr;
+  raw_ptr<SidePanel> toolbar_height_side_panel = nullptr;
   raw_ptr<SidePanel> contents_height_side_panel = nullptr;
+  raw_ptr<views::View> side_panel_animation_content = nullptr;
 
   // TODO(crbug.com/424236535): These can be removed once `SideBySide` is
   // launched.
@@ -97,7 +99,10 @@ class BrowserViewLayout : public views::LayoutManager {
   static constexpr int kMainBrowserContentsMinimumWidth = 500;
 
   // The width of the vertical tab strip.
-  static constexpr int kVerticalTabStripWidth = 240;
+  //
+  // TODO(https://crbug.com/439961053): This shouldn't be hard-coded and should
+  // be reported by the vertical tabstrip itself.
+  static constexpr int kMinVerticalTabStripWidth = 240;
 
   BrowserViewLayout(const BrowserViewLayout&) = delete;
   BrowserViewLayout& operator=(const BrowserViewLayout&) = delete;
@@ -122,6 +127,12 @@ class BrowserViewLayout : public views::LayoutManager {
   }
   void set_bookmark_bar(BookmarkBarView* bookmark_bar) {
     views_.bookmark_bar = bookmark_bar;
+  }
+  void set_side_panel_animation_content(views::View* contents_to_animate) {
+    views_.side_panel_animation_content = contents_to_animate;
+  }
+  views::View* side_panel_animation_content() {
+    return views_.side_panel_animation_content;
   }
 
   void set_menu_bar(views::View* menu_bar) { views_.menu_bar = menu_bar; }

@@ -36,6 +36,7 @@
 #include "net/socket/client_socket_handle.h"
 #include "net/socket/connect_job.h"
 #include "net/socket/connect_job_test_util.h"
+#include "net/socket/socket_pool_additional_capacity.h"
 #include "net/socket/socket_tag.h"
 #include "net/socket/socket_test_util.h"
 #include "net/socket/ssl_client_socket.h"
@@ -60,7 +61,7 @@ namespace net {
 namespace {
 
 const int kMaxSockets = 32;
-const int kMaxSocketsPerGroup = 6;
+const int kGroupSockets = 6;
 const RequestPriority kDefaultPriority = LOW;
 
 IPAddress ParseIP(const std::string& ip) {
@@ -115,7 +116,7 @@ class WebSocketTransportClientSocketPoolTest : public ::testing::Test,
             /*ignore_certificate_errors=*/nullptr,
             /*early_data_enabled=*/nullptr),
         pool_(kMaxSockets,
-              kMaxSocketsPerGroup,
+              SocketPoolAdditionalCapacity::Create(),
               ProxyChain::Direct(),
               &common_connect_job_params_) {
     websocket_endpoint_lock_manager_.SetUnlockDelayForTesting(
@@ -529,19 +530,19 @@ TEST_F(WebSocketTransportClientSocketPoolTest,
   EXPECT_THAT(StartRequest(kDefaultPriority), IsError(ERR_IO_PENDING));
   EXPECT_THAT(StartRequest(kDefaultPriority), IsError(ERR_IO_PENDING));
 
-  // Now, kMaxSocketsPerGroup requests should be active.  Let's cancel them.
-  ASSERT_LE(kMaxSocketsPerGroup, static_cast<int>(requests()->size()));
-  for (int i = 0; i < kMaxSocketsPerGroup; i++) {
+  // Now, kGroupSockets requests should be active.  Let's cancel them.
+  ASSERT_LE(kGroupSockets, static_cast<int>(requests()->size()));
+  for (int i = 0; i < kGroupSockets; i++) {
     request(i)->handle()->Reset();
   }
 
   // Let's wait for the rest to complete now.
-  for (size_t i = kMaxSocketsPerGroup; i < requests()->size(); ++i) {
+  for (size_t i = kGroupSockets; i < requests()->size(); ++i) {
     EXPECT_THAT(request(i)->WaitForResult(), IsOk());
     request(i)->handle()->Reset();
   }
 
-  EXPECT_EQ(requests()->size() - kMaxSocketsPerGroup, completion_count());
+  EXPECT_EQ(requests()->size() - kGroupSockets, completion_count());
 }
 
 // Make sure that pending requests get serviced after active requests fail.
@@ -550,7 +551,7 @@ TEST_F(WebSocketTransportClientSocketPoolTest,
   client_socket_factory_.set_default_client_socket_type(
       MockTransportClientSocketFactory::Type::kPendingFailing);
 
-  const int kNumRequests = 2 * kMaxSocketsPerGroup + 1;
+  const int kNumRequests = 2 * kGroupSockets + 1;
   ASSERT_LE(kNumRequests, kMaxSockets);  // Otherwise the test will hang.
 
   // Queue up all the requests

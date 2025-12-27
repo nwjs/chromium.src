@@ -5,9 +5,10 @@
 import './icons.html.js';
 import './composebox_tab_favicon.js';
 import '//resources/cr_elements/icons.html.js';
-import '//resources/cr_elements/cr_icon/cr_icon.js';
 import '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import '//resources/cr_elements/cr_button/cr_button.js';
+import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
+import '//resources/cr_elements/cr_icon/cr_icon.js';
 
 import {AnchorAlignment} from '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import type {CrActionMenuElement} from '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
@@ -95,6 +96,9 @@ export class ContextMenuEntrypointElement extends
         reflect: true,
         type: Boolean,
       },
+      pdfUploadEnabled_: {
+        type: Boolean,
+      },
     };
   }
 
@@ -119,8 +123,11 @@ export class ContextMenuEntrypointElement extends
       loadTimeData.getBoolean('composeboxShowDeepSearchButton');
   protected accessor showCreateImage_: boolean =
       loadTimeData.getBoolean('composeboxShowCreateImageButton');
+  protected accessor pdfUploadEnabled_: boolean =
+      loadTimeData.getBoolean('composeboxShowPdfUpload');
   protected maxFileCount_: number =
       loadTimeData.getInteger('composeboxFileMaxCount');
+  private metricsSource_: string = loadTimeData.getString('composeboxSource');
 
   constructor() {
     super();
@@ -129,8 +136,12 @@ export class ContextMenuEntrypointElement extends
   openMenuForMultiSelection() {
     if (this.enableMultiTabSelection_ &&
         this.searchboxLayoutMode !== TALL_BOTTOM_CONTEXT_LAYOUT_MODE) {
-      this.showMenuAtEntrypoint_();
+      this.updateComplete.then(this.showMenuAtEntrypoint_.bind(this));
     }
+  }
+
+  closeMenu() {
+    this.$.menu.close();
   }
 
   // Checks if the image upload item in the context menu should be disabled.
@@ -170,7 +181,12 @@ export class ContextMenuEntrypointElement extends
     return noNewContextAllowed || isTabInContext;
   }
 
-  protected onEntrypointClick_() {
+  protected onEntrypointClick_(e: Event) {
+    e.stopPropagation();
+
+    const metricName =
+        'ContextualSearch.ContextMenuEntry.Clicked.' + this.metricsSource_;
+    chrome.metricsPrivate.recordBoolean(metricName, true);
     if (this.entrypointName === 'Omnibox') {
       const entrypoint =
           this.shadowRoot.querySelector<HTMLElement>('#entrypoint');
@@ -182,9 +198,6 @@ export class ContextMenuEntrypointElement extends
       return;
     }
 
-    const metricName =
-        'NewTabPage.' + this.entrypointName + '.ContextMenuEntry.Clicked';
-    chrome.metricsPrivate.recordBoolean(metricName, true);
     this.showMenuAtEntrypoint_();
   }
 
@@ -275,10 +288,18 @@ export class ContextMenuEntrypointElement extends
     }
   }
 
+  protected onMenuClose_() {
+    const entrypoint =
+        this.shadowRoot.querySelector<HTMLElement>('#entrypoint');
+    assert(entrypoint);
+    entrypoint.classList.remove('menu-open');
+  }
+
   private showMenuAtEntrypoint_() {
     const entrypoint =
         this.shadowRoot.querySelector<HTMLElement>('#entrypoint');
     assert(entrypoint);
+    entrypoint?.classList.add('menu-open');
     this.$.menu.showAt(entrypoint, {
       top: entrypoint.getBoundingClientRect().bottom,
       width: MENU_WIDTH_PX,

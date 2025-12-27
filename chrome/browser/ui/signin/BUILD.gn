@@ -65,6 +65,7 @@ source_set("impl") {
     "//base",
     "//chrome/app:branded_strings",
     "//chrome/app:generated_resources",
+    "//chrome/browser:browser_process",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/search",
     "//chrome/browser/search_engines",
@@ -142,6 +143,7 @@ if (!is_android) {
         "//chrome/browser/ui:browser_element_identifiers",
         "//chrome/browser/ui:ui_features",
         "//chrome/browser/ui/browser_window",
+        "//chrome/browser/ui/extensions",
         "//chrome/browser/ui/hats",
         "//chrome/browser/ui/hats:test_support",
         "//chrome/browser/ui/passwords:test_support",
@@ -225,6 +227,7 @@ if (!is_android) {
 
     if (!is_chromeos) {
       sources += [
+        "account_settings_page_pixel_browsertest.cc",
         "chrome_signout_confirmation_prompt_browsertest.cc",
         "cookie_clear_on_exit_migration_notice_browsertest.cc",
       ]

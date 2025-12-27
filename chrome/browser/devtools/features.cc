@@ -108,7 +108,7 @@ const base::FeatureParam<DevToolsFreestylerUserTier>
         &devtools_freestyler_user_tier_options};
 
 // Whether the DevTools AI Code Completion is enabled.
-BASE_FEATURE(kDevToolsAiCodeCompletion, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDevToolsAiCodeCompletion, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<std::string> kDevToolsAiCodeCompletionModelId{
     &kDevToolsAiCodeCompletion, "aida_model_id",
     /*default_value=*/""};
@@ -118,6 +118,20 @@ const base::FeatureParam<double> kDevToolsAiCodeCompletionTemperature{
 const base::FeatureParam<DevToolsFreestylerUserTier>
     kDevToolsAiCodeCompletionUserTier{
         &kDevToolsAiCodeCompletion, "user_tier",
+        /*default_value=*/DevToolsFreestylerUserTier::kPublic,
+        &devtools_freestyler_user_tier_options};
+
+// Whether the DevTools AI Code Generation is enabled.
+BASE_FEATURE(kDevToolsAiCodeGeneration, base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<std::string> kDevToolsAiCodeGenerationModelId{
+    &kDevToolsAiCodeGeneration, "aida_model_id",
+    /*default_value=*/""};
+const base::FeatureParam<double> kDevToolsAiCodeGenerationTemperature{
+    &kDevToolsAiCodeGeneration, "aida_temperature",
+    /*default_value=*/-1};
+const base::FeatureParam<DevToolsFreestylerUserTier>
+    kDevToolsAiCodeGenerationUserTier{
+        &kDevToolsAiCodeGeneration, "user_tier",
         /*default_value=*/DevToolsFreestylerUserTier::kPublic,
         &devtools_freestyler_user_tier_options};
 
@@ -171,14 +185,14 @@ const base::FeatureParam<bool> kDevToolsGdpProfilesBadgesEnabled{
 // Whether the starter badge for the Google Developer Program is enabled.
 const base::FeatureParam<bool> kDevToolsGdpProfilesStarterBadgeEnabled{
     &kDevToolsGdpProfiles, "starter_badge_enabled",
-    /*default_value=*/false};
+    /*default_value=*/true};
 
 // Whether DevTools Live Edit (Debugger.setScriptSource usage in CDP) is
 // enabled.
 BASE_FEATURE(kDevToolsLiveEdit, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDevToolsIndividualRequestThrottling,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Whether the AI Prompt API (https://developer.chrome.com/docs/ai/prompt-api)
 // is available in DevTools.
@@ -193,5 +207,17 @@ BASE_FEATURE(kDevToolsStartingStyleDebugging, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Whether Network panel should use Durable Messages to preserve network bodies.
 BASE_FEATURE(kDevToolsEnableDurableMessages, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, allows starting remote debugging in a running Chrome instance.
+BASE_FEATURE(kDevToolsAcceptDebuggingConnections,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Whether the policy dialog should be shown instead of greying out the
+// Developer Tools toggle.
+// TODO(crbug.com/442892562): Remove this flag once the feature is launched.
+BASE_FEATURE(kDevToolsShowPolicyDialog, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDevToolsAiAssistanceContextSelectionAgent,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

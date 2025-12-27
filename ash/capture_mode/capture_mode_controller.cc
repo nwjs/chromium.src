@@ -57,7 +57,6 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/i18n/time_formatting.h"
 #include "base/location.h"
@@ -222,7 +221,6 @@ bool IsVideoFileExtensionSupported(const base::FilePath& video_file_path) {
 base::FilePath SelectFilePathForCapturedFile(
     const base::FilePath& current_path,
     const base::FilePath& fallback_path) {
-  // TODO(b/323146997): Revisit the behavior if enforced by policy.
   if (base::PathExists(current_path.DirName()))
     return current_path;
   DCHECK(base::PathExists(fallback_path.DirName()));

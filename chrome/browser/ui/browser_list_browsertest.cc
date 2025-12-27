@@ -25,8 +25,7 @@ using BrowserListBrowserTest = InProcessBrowserTest;
 // This tests that minimized windows get added to the active list, at the front
 // the list.
 IN_PROC_BROWSER_TEST_F(BrowserListBrowserTest, TestMinimized) {
-  const BrowserList* browser_list = BrowserList::GetInstance();
-  EXPECT_EQ(1U, browser_list->size());
+  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
   EXPECT_EQ(browser(), GetLastActiveBrowserWindowInterfaceWithAnyProfile());
 
   // Create a minimized browser window. It should be prepended to the active
@@ -34,14 +33,13 @@ IN_PROC_BROWSER_TEST_F(BrowserListBrowserTest, TestMinimized) {
   Browser::CreateParams params(GetProfile(), true);
   params.initial_show_state = ui::mojom::WindowShowState::kMinimized;
   Browser::Create(params);
-  EXPECT_EQ(2U, browser_list->size());
+  EXPECT_EQ(2U, chrome::GetTotalBrowserCount());
   EXPECT_EQ(browser(), GetLastActiveBrowserWindowInterfaceWithAnyProfile());
 }
 
 // This tests that inactive windows do not get added to the active list.
 IN_PROC_BROWSER_TEST_F(BrowserListBrowserTest, TestInactive) {
-  const BrowserList* browser_list = BrowserList::GetInstance();
-  EXPECT_EQ(1U, browser_list->size());
+  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
   EXPECT_EQ(browser(), GetLastActiveBrowserWindowInterfaceWithAnyProfile());
 
   // Create an inactive browser window. It should be prepended to
@@ -50,7 +48,7 @@ IN_PROC_BROWSER_TEST_F(BrowserListBrowserTest, TestInactive) {
   Browser::CreateParams params(GetProfile(), true);
   params.initial_show_state = ui::mojom::WindowShowState::kInactive;
   Browser::Create(params);
-  EXPECT_EQ(2U, browser_list->size());
+  EXPECT_EQ(2U, chrome::GetTotalBrowserCount());
   EXPECT_EQ(browser(), GetLastActiveBrowserWindowInterfaceWithAnyProfile());
 }
 
@@ -58,8 +56,7 @@ IN_PROC_BROWSER_TEST_F(BrowserListBrowserTest, TestInactive) {
 // for the context provided as input.
 IN_PROC_BROWSER_TEST_F(BrowserListBrowserTest,
                        TestFindBrowserWithUiElementContext) {
-  const BrowserList* browser_list = BrowserList::GetInstance();
-  EXPECT_EQ(1U, browser_list->size());
+  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
 
   BrowserWindowInterface* const last_active_browser =
       GetLastActiveBrowserWindowInterfaceWithAnyProfile();
@@ -67,9 +64,9 @@ IN_PROC_BROWSER_TEST_F(BrowserListBrowserTest,
       BrowserElements::From(last_active_browser)->GetContext());
   EXPECT_EQ(last_active_browser, result);
 
-  Browser* browser2 =
+  BrowserWindowInterface* const browser2 =
       Browser::Create(Browser::CreateParams(GetProfile(), true));
-  ASSERT_EQ(2U, browser_list->size());
+  ASSERT_EQ(2U, chrome::GetTotalBrowserCount());
   result = chrome::FindBrowserWithUiElementContext(
       BrowserElements::From(browser2)->GetContext());
   EXPECT_EQ(browser2, result);
@@ -86,24 +83,21 @@ class BrowserObserverChild : public BrowserListObserver, TabStripModelObserver {
  public:
   explicit BrowserObserverChild(Browser* created_for_browser)
       : created_for_browser_(created_for_browser) {
-    BrowserList* browser_list = BrowserList::GetInstance();
-    for (Browser* browser : *browser_list) {
-      EXPECT_FALSE(base::Contains(observed_browsers_, browser));
-      observed_browsers_.insert(browser);
-      browser->tab_strip_model()->AddObserver(this);
-    }
+    ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+        [this](BrowserWindowInterface* browser) {
+          EXPECT_FALSE(base::Contains(observed_browsers_, browser));
+          observed_browsers_.insert(browser);
+          // TODO(crbug.com/452120900): TabStripModelObserver auto-unregisters
+          // in dtor
+          browser->GetTabStripModel()->AddObserver(this);
+          return true;
+        });
     EXPECT_TRUE(base::Contains(observed_browsers_, created_for_browser_));
-    browser_list->AddObserver(this);
+    BrowserList::GetInstance()->AddObserver(this);
   }
 
   ~BrowserObserverChild() override {
-    BrowserList* browser_list = BrowserList::GetInstance();
-    for (Browser* browser : *browser_list) {
-      EXPECT_TRUE(base::Contains(observed_browsers_, browser));
-      observed_browsers_.erase(browser);
-      browser->tab_strip_model()->RemoveObserver(this);
-    }
-    browser_list->RemoveObserver(this);
+    BrowserList::GetInstance()->RemoveObserver(this);
   }
 
   void OnBrowserAdded(Browser* browser) override {
@@ -120,7 +114,7 @@ class BrowserObserverChild : public BrowserListObserver, TabStripModelObserver {
   }
 
  private:
-  std::set<raw_ptr<Browser, SetExperimental>> observed_browsers_;
+  std::set<raw_ptr<BrowserWindowInterface, SetExperimental>> observed_browsers_;
   raw_ptr<Browser, DanglingUntriaged> created_for_browser_;
 };
 
@@ -146,14 +140,13 @@ class BrowserObserverParent : public BrowserListObserver {
 IN_PROC_BROWSER_TEST_F(BrowserListBrowserTest, ObserverAddedInFlight) {
   BrowserObserverParent parent_observer;
 
-  const BrowserList* browser_list = BrowserList::GetInstance();
-  EXPECT_EQ(1U, browser_list->size());
+  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
 
   // Adding second browser should not trigger double-observation.
   Browser::Create(Browser::CreateParams(GetProfile(), true));
-  EXPECT_EQ(2U, browser_list->size());
+  EXPECT_EQ(2U, chrome::GetTotalBrowserCount());
 
   // Create one more browser to trigger BrowserObserverChild::OnBrowserAdded.
   Browser::Create(Browser::CreateParams(GetProfile(), true));
-  EXPECT_EQ(3U, browser_list->size());
+  EXPECT_EQ(3U, chrome::GetTotalBrowserCount());
 }

@@ -48,7 +48,6 @@
 #import "ios/chrome/browser/content_suggestions/ui_bundled/app_bundle_promo/coordinator/app_bundle_promo_mediator.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/cells/content_suggestions_most_visited_item.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/cells/most_visited_tiles_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/cells/shortcuts_mediator.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_collection_utils.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_commands.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_constants.h"
@@ -61,29 +60,30 @@
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_view_controller_audience.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/default_browser/coordinator/default_browser_mediator.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/default_browser/public/features.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/impression_limits/impression_limit_service_factory.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/impression_limits/model/impression_limit_service_factory.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack/magic_stack_collection_view.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack/magic_stack_collection_view_audience.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack/magic_stack_module_container_delegate.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack/magic_stack_ranking_model.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack/magic_stack_utils.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/ntp_home_constant.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/price_tracking_promo/price_tracking_promo_action_delegate.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/price_tracking_promo/price_tracking_promo_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/safety_check_magic_stack_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/types.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/utils.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/send_tab_to_self/send_tab_promo_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/set_up_list_default_browser_promo_coordinator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/set_up_list_default_browser_promo_coordinator_delegate.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/set_up_list_item_view.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/set_up_list_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/set_up_list_show_more_view_controller.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/set_up_list_tap_delegate.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/utils.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/shop_card/shop_card_action_delegate.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/shop_card/shop_card_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/tab_resumption_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/price_tracking_promo/coordinator/price_tracking_promo_action_delegate.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/price_tracking_promo/coordinator/price_tracking_promo_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/coordinator/safety_check_magic_stack_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/model/safety_check_utils.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/ui/safety_check_item_type.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/send_tab_to_self/coordinator/send_tab_promo_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/coordinator/set_up_list_default_browser_promo_coordinator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/coordinator/set_up_list_default_browser_promo_coordinator_delegate.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/coordinator/set_up_list_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/public/set_up_list_utils.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/ui/set_up_list_item_view.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/ui/set_up_list_show_more_view_controller.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/ui/set_up_list_tap_delegate.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/shop_card/coordinator/shop_card_action_delegate.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/shop_card/coordinator/shop_card_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/shortcuts/coordinator/shortcuts_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/coordinator/tab_resumption_mediator.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tips/coordinator/tips_magic_stack_mediator.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tips/coordinator/tips_passwords_coordinator.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tips/model/tips_metrics.h"
@@ -437,7 +437,6 @@ using segmentation_platform::TipIdentifier;
     _shopCardMediator.shopCardActionDelegate = self;
   }
 
-  if (IsSafetyCheckMagicStackEnabled()) {
     IOSChromeSafetyCheckManager* safetyCheckManager =
         IOSChromeSafetyCheckManagerFactory::GetForProfile(profile);
     _safetyCheckMediator = [[SafetyCheckMagicStackMediator alloc]
@@ -447,7 +446,6 @@ using segmentation_platform::TipIdentifier;
                       profileState:self.browser->GetSceneState().profileState];
     _safetyCheckMediator.presentationAudience = self;
     [moduleMediators addObject:_safetyCheckMediator];
-  }
 
   if (send_tab_to_self::
           IsSendTabIOSPushNotificationsEnabledWithMagicStackCard()) {
@@ -696,13 +694,9 @@ using segmentation_platform::TipIdentifier;
 
 // Presents the Best of Google bundle install page in the App Store.
 - (void)presentAppStoreBundlePage {
-  // TODO(crbug.com/442590744): Fix crash when passing `nil` completion. This
-  // method call is intentionally passed an empty completion block. Passing a
-  // `nil` completion results in a crash from the `AppStoreBundleService` API.
   [_appBundlePromoMediator
       presentAppStoreBundlePage:self.magicStackCollectionView
-                 withCompletion:^{
-                 }];
+                 withCompletion:nil];
 }
 
 - (void)didTapDefaultBrowserPromo {
@@ -1122,8 +1116,6 @@ using segmentation_platform::TipIdentifier;
 // Safety Check item `type`, this method fires a UI command to present the
 // Update Chrome page, Password Checkup, or Safety Check half sheet.
 - (void)didSelectSafetyCheckItem:(SafetyCheckItemType)type {
-  CHECK(IsSafetyCheckMagicStackEnabled());
-
   [self.NTPActionsDelegate safetyCheckOpened];
   Browser* browser = self.browser;
   [_magicStackRankingModel logMagicStackEngagementForType:

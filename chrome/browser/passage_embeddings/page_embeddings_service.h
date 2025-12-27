@@ -111,15 +111,16 @@ class PageEmbeddingsService
                         passage_embeddings::Embedder* embedder);
   ~PageEmbeddingsService() override;
 
-  void AddObserver(Observer* observer);
-  void RemoveObserver(Observer* observer);
+  virtual void AddObserver(Observer* observer);
+  virtual void RemoveObserver(Observer* observer);
 
   ScopedPriority RaisePriority(Observer* observer, Priority priority);
 
   // PageEmbeddingsService computes embeddings lazily for the active tab, on
   // backgrounding. ProcessAllEmbeddings() forces the active tab's embeddings to
   // be processed.
-  void ProcessAllEmbeddings();
+  // Virtual for testing.
+  virtual void ProcessAllEmbeddings();
 
   // Retrieves the embeddings for web_content. Returns the empty vector if
   // embeddings have not yet been computed.
@@ -162,6 +163,8 @@ class PageEmbeddingsService
 
   const raw_ptr<passage_embeddings::Embedder> embedder_;
 
+  raw_ptr<page_content_annotations::PageContentExtractionService>
+      page_content_extraction_service_;
   base::ScopedObservation<
       page_content_annotations::PageContentExtractionService,
       PageEmbeddingsService>

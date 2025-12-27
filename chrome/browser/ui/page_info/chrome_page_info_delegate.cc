@@ -220,12 +220,11 @@ bool ChromePageInfoDelegate::IsRwsManaged(const GURL& site_url) {
       ->IsPartOfManagedRelatedWebsiteSet(net::SchemefulSite(site_url));
 }
 
-bool ChromePageInfoDelegate::CreateInfoBarDelegate(
-    content::ReloadType reload_type) {
+bool ChromePageInfoDelegate::CreateInfoBarDelegate() {
   infobars::ContentInfoBarManager* infobar_manager =
       infobars::ContentInfoBarManager::FromWebContents(web_contents_);
   if (infobar_manager) {
-    PageInfoInfoBarDelegate::Create(infobar_manager, reload_type);
+    PageInfoInfoBarDelegate::Create(infobar_manager);
     return true;
   }
   return false;
@@ -254,7 +253,8 @@ bool ChromePageInfoDelegate::IsIsolatedWebApp() {
 
   const webapps::AppId* app_id =
       web_app::WebAppTabHelper::GetAppId(web_contents_);
-  return app_id && provider->registrar_unsafe().IsIsolated(*app_id);
+  return app_id && provider->registrar_unsafe().AppMatches(
+                       *app_id, web_app::WebAppFilter::IsIsolatedApp());
 }
 
 void ChromePageInfoDelegate::ShowSiteSettings(const GURL& site_url) {
@@ -269,11 +269,6 @@ void ChromePageInfoDelegate::ShowSiteSettings(const GURL& site_url) {
 void ChromePageInfoDelegate::ShowCookiesSettings() {
   Browser* browser = chrome::FindBrowserWithTab(web_contents_);
   chrome::ShowSettingsSubPage(browser, chrome::kCookieSettingsSubPage);
-}
-
-void ChromePageInfoDelegate::ShowIncognitoSettings() {
-  Browser* browser = chrome::FindBrowserWithTab(web_contents_);
-  chrome::ShowSettingsSubPage(browser, chrome::kIncognitoSettingsSubPage);
 }
 
 void ChromePageInfoDelegate::ShowAllSitesSettingsFilteredByRwsOwner(

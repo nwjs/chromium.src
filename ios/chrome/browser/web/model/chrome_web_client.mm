@@ -11,7 +11,6 @@
 #import "base/apple/bundle_locations.h"
 #import "base/command_line.h"
 #import "base/feature_list.h"
-#import "base/files/file_util.h"
 #import "base/ios/ios_util.h"
 #import "base/ios/ns_error_util.h"
 #import "base/metrics/histogram_functions.h"
@@ -427,7 +426,7 @@ std::vector<web::JavaScriptFeature*> ChromeWebClient::GetJavaScriptFeatures(
       password_manager::PasswordManagerJavaScriptFeature::GetInstance());
 
   if (base::FeatureList::IsEnabled(kIOSPasskeyShim)) {
-    features.push_back(PasskeyJavaScriptFeature::GetInstance());
+    features.push_back(webauthn::PasskeyJavaScriptFeature::GetInstance());
   }
 
   features.push_back(LinkToTextJavaScriptFeature::GetInstance());

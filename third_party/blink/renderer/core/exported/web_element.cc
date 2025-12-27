@@ -40,6 +40,7 @@
 #include "third_party/blink/renderer/core/clipboard/data_transfer_access_policy.h"
 #include "third_party/blink/renderer/core/css/css_computed_style_declaration.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
+#include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/focus_params.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
@@ -403,11 +404,12 @@ std::vector<uint8_t> WebElement::CopyOfImageData() {
   return image->Data()->CopyAs<std::vector<uint8_t>>();
 }
 
-std::string WebElement::ImageExtension() {
+WebString WebElement::ImageMimeType() {
   Image* image = GetImage();
-  if (!image)
-    return std::string();
-  return image->FilenameExtension().Utf8();
+  if (!image) {
+    return WebString();
+  }
+  return image->MimeType();
 }
 
 gfx::Size WebElement::GetImageSize() {

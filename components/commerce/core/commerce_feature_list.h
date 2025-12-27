@@ -84,9 +84,6 @@ BASE_DECLARE_FEATURE(kCommerceDeveloper);
 // Parameter for enabling feature variation of coupons with code.
 extern const char kRetailCouponsWithCodeParam[];
 
-// Feature flag for Discount user consent v2.
-BASE_DECLARE_FEATURE(kDiscountConsentV2);
-
 // Shopping list update interval.
 constexpr base::FeatureParam<base::TimeDelta>
     kShoppingListBookmarkpdateIntervalParam(
@@ -165,7 +162,6 @@ inline constexpr base::FeatureParam<std::string> kShopCardPosition{
     &kTabResumptionShopCard, "ShopCardPosition", ""};
 
 extern const char kShopCardArm1[];
-extern const char kShopCardArm2[];
 extern const char kShopCardArm3[];
 extern const char kShopCardArm4[];
 extern const char kShopCardArm5[];

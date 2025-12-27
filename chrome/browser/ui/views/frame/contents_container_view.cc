@@ -13,6 +13,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/read_anything/immersive_read_anything_overlay_view.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -44,6 +45,7 @@
 
 #if BUILDFLAG(ENABLE_GLIC)
 #include "chrome/browser/glic/browser_ui/context_sharing_border_view.h"
+#include "chrome/browser/glic/browser_ui/context_sharing_border_view_controller_impl.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #endif
 
@@ -102,11 +104,8 @@ ContentsContainerView::ContentsContainerView(BrowserView* browser_view)
       AddChildView(std::make_unique<enterprise_watermark::WatermarkView>());
 
   if (features::IsImmersiveReadAnythingEnabled()) {
-    auto immersive_read_anything_overlay_view = std::make_unique<views::View>();
-    immersive_read_anything_overlay_view->SetID(VIEW_ID_READ_ANYTHING_OVERLAY);
-    immersive_read_anything_overlay_view->SetVisible(false);
-    immersive_read_anything_overlay_view->SetLayoutManager(
-        std::make_unique<views::FillLayout>());
+    auto immersive_read_anything_overlay_view =
+        std::make_unique<ImmersiveReadAnythingOverlayView>();
     immersive_read_anything_overlay_view_ =
         AddChildView(std::move(immersive_read_anything_overlay_view));
   }
@@ -118,19 +117,20 @@ ContentsContainerView::ContentsContainerView(BrowserView* browser_view)
     auto actor_overlay_web_view =
         std::make_unique<ActorOverlayWebView>(browser_view->browser());
     actor_overlay_web_view->SetID(VIEW_ID_ACTOR_OVERLAY);
-    actor_overlay_web_view->SetVisible(false);
     actor_overlay_web_view_ = AddChildView(std::move(actor_overlay_web_view));
   }
 
 #if BUILDFLAG(ENABLE_GLIC)
   if (glic::GlicEnabling::IsProfileEligible(browser_view->GetProfile())) {
-    glic_border_ =
-        AddChildView(views::Builder<glic::ContextSharingBorderView>(
-                         glic::ContextSharingBorderView::Factory::Create(
-                             browser_view->browser(), contents_view_))
-                         .SetVisible(false)
-                         .SetCanProcessEventsWithinSubtree(false)
-                         .Build());
+    glic_border_ = AddChildView(
+        views::Builder<glic::ContextSharingBorderView>(
+            glic::ContextSharingBorderView::Factory::Create(
+                std::make_unique<
+                    glic::ContextSharingBorderViewControllerImpl>(),
+                browser_view->browser(), contents_view_))
+            .SetVisible(false)
+            .SetCanProcessEventsWithinSubtree(false)
+            .Build());
   }
 #endif
 

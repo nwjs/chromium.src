@@ -70,19 +70,6 @@ namespace search_engines {
 namespace {
 
 const CountryId kBelgiumCountryId = CountryId("BE");
-const CountryId kUsaCountryId = CountryId("US");
-
-TemplateURL::OwnedTemplateURLVector
-OwnedTemplateURLVectorFromPrepopulatedEngines(
-    const std::vector<const TemplateURLPrepopulateData::PrepopulatedEngine*>&
-        engines) {
-  TemplateURL::OwnedTemplateURLVector result;
-  for (const TemplateURLPrepopulateData::PrepopulatedEngine* engine : engines) {
-    result.push_back(std::make_unique<TemplateURL>(
-        *TemplateURLDataFromPrepopulatedEngine(*engine)));
-  }
-  return result;
-}
 
 }  // namespace
 
@@ -166,7 +153,15 @@ TEST_F(SearchEngineChoiceServiceTest, RecordChoiceMade) {
       SearchEngineType::SEARCH_ENGINE_GOOGLE, 0);
   histogram_tester_.ExpectUniqueSample(
       search_engines::
+          kPumaSearchEngineChoiceScreenDefaultSearchEngineTypeHistogram,
+      SearchEngineType::SEARCH_ENGINE_GOOGLE, 0);
+  histogram_tester_.ExpectUniqueSample(
+      search_engines::
           kSearchEngineChoiceScreenDefaultSearchEngineType2Histogram,
+      SearchEngineType::SEARCH_ENGINE_GOOGLE, 0);
+  histogram_tester_.ExpectUniqueSample(
+      search_engines::
+          kPumaSearchEngineChoiceScreenDefaultSearchEngineType2Histogram,
       SearchEngineType::SEARCH_ENGINE_GOOGLE, 0);
   EXPECT_FALSE(pref_service()->HasPrefPath(
       prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp));
@@ -188,7 +183,15 @@ TEST_F(SearchEngineChoiceServiceTest, RecordChoiceMade) {
       SearchEngineType::SEARCH_ENGINE_GOOGLE, 1);
   histogram_tester_.ExpectUniqueSample(
       search_engines::
+          kPumaSearchEngineChoiceScreenDefaultSearchEngineTypeHistogram,
+      SearchEngineType::SEARCH_ENGINE_GOOGLE, 1);
+  histogram_tester_.ExpectUniqueSample(
+      search_engines::
           kSearchEngineChoiceScreenDefaultSearchEngineType2Histogram,
+      SearchEngineType::SEARCH_ENGINE_GOOGLE, 1);
+  histogram_tester_.ExpectUniqueSample(
+      search_engines::
+          kPumaSearchEngineChoiceScreenDefaultSearchEngineType2Histogram,
       SearchEngineType::SEARCH_ENGINE_GOOGLE, 1);
 
   EXPECT_NEAR(pref_service()->GetInt64(
@@ -218,7 +221,15 @@ TEST_F(SearchEngineChoiceServiceTest, RecordChoiceMade) {
       SearchEngineType::SEARCH_ENGINE_GOOGLE, 1);
   histogram_tester_.ExpectUniqueSample(
       search_engines::
+          kPumaSearchEngineChoiceScreenDefaultSearchEngineTypeHistogram,
+      SearchEngineType::SEARCH_ENGINE_GOOGLE, 1);
+  histogram_tester_.ExpectUniqueSample(
+      search_engines::
           kSearchEngineChoiceScreenDefaultSearchEngineType2Histogram,
+      SearchEngineType::SEARCH_ENGINE_GOOGLE, 1);
+  histogram_tester_.ExpectUniqueSample(
+      search_engines::
+          kPumaSearchEngineChoiceScreenDefaultSearchEngineType2Histogram,
       SearchEngineType::SEARCH_ENGINE_GOOGLE, 1);
 }
 
@@ -261,9 +272,17 @@ TEST_F(SearchEngineChoiceServiceTest, RecordChoiceMade_ByLocation_Waffle) {
         search_engines::
             kSearchEngineChoiceScreenDefaultSearchEngineTypeHistogram,
         SearchEngineType::SEARCH_ENGINE_GOOGLE, expected_v1_records);
+    histogram_tester_.ExpectBucketCount(
+        search_engines::
+            kPumaSearchEngineChoiceScreenDefaultSearchEngineTypeHistogram,
+        SearchEngineType::SEARCH_ENGINE_GOOGLE, expected_v1_records);
     histogram_tester_.ExpectUniqueSample(
         search_engines::
             kSearchEngineChoiceScreenDefaultSearchEngineType2Histogram,
+        SearchEngineType::SEARCH_ENGINE_GOOGLE, expected_v2_records);
+    histogram_tester_.ExpectBucketCount(
+        search_engines::
+            kPumaSearchEngineChoiceScreenDefaultSearchEngineType2Histogram,
         SearchEngineType::SEARCH_ENGINE_GOOGLE, expected_v2_records);
     WipeSearchEngineChoicePrefs(*pref_service(),
                                 SearchEngineChoiceWipeReason::kCommandLineFlag);
@@ -357,9 +376,17 @@ TEST_F(SearchEngineChoiceServiceTest, RecordChoiceMade_DistributionCustom) {
   histogram_tester_.ExpectBucketCount(
       search_engines::kSearchEngineChoiceScreenDefaultSearchEngineTypeHistogram,
       SearchEngineType::SEARCH_ENGINE_OTHER, 1);
+  histogram_tester_.ExpectBucketCount(
+      search_engines::
+          kPumaSearchEngineChoiceScreenDefaultSearchEngineTypeHistogram,
+      SearchEngineType::SEARCH_ENGINE_OTHER, 1);
   histogram_tester_.ExpectUniqueSample(
       search_engines::
           kSearchEngineChoiceScreenDefaultSearchEngineType2Histogram,
+      SearchEngineType::SEARCH_ENGINE_OTHER, 1);
+  histogram_tester_.ExpectUniqueSample(
+      search_engines::
+          kPumaSearchEngineChoiceScreenDefaultSearchEngineType2Histogram,
       SearchEngineType::SEARCH_ENGINE_OTHER, 1);
 
   EXPECT_NEAR(pref_service()->GetInt64(
@@ -395,9 +422,17 @@ TEST_F(SearchEngineChoiceServiceTest, RecordChoiceMade_RemovedPrepopulated) {
   histogram_tester_.ExpectBucketCount(
       search_engines::kSearchEngineChoiceScreenDefaultSearchEngineTypeHistogram,
       SearchEngineType::SEARCH_ENGINE_OTHER, 1);
+  histogram_tester_.ExpectBucketCount(
+      search_engines::
+          kPumaSearchEngineChoiceScreenDefaultSearchEngineTypeHistogram,
+      SearchEngineType::SEARCH_ENGINE_OTHER, 1);
   histogram_tester_.ExpectUniqueSample(
       search_engines::
           kSearchEngineChoiceScreenDefaultSearchEngineType2Histogram,
+      SearchEngineType::SEARCH_ENGINE_OTHER, 1);
+  histogram_tester_.ExpectUniqueSample(
+      search_engines::
+          kPumaSearchEngineChoiceScreenDefaultSearchEngineType2Histogram,
       SearchEngineType::SEARCH_ENGINE_OTHER, 1);
 
   EXPECT_NEAR(pref_service()->GetInt64(
@@ -409,7 +444,87 @@ TEST_F(SearchEngineChoiceServiceTest, RecordChoiceMade_RemovedPrepopulated) {
             version_info::GetVersionNumber());
 }
 
-TEST_F(SearchEngineChoiceServiceTest, MaybeRecordChoiceScreenDisplayState) {
+#if BUILDFLAG(CHOICE_SCREEN_IN_CHROME)
+// TODO(https://crbug.com/465088221): The code covered in these tests is
+// irrelevant on Android. Investigate some better way to not include it in the
+// build, maybe by splitting the service across platforms?
+class SearchEngineChoiceServiceDisplayStateRecordTest
+    : public SearchEngineChoiceServiceTest {
+ public:
+  void SetUp() override {
+    SearchEngineChoiceServiceTest::SetUp();
+    base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+        switches::kSearchEngineChoiceCountry);
+  }
+
+  // Based on the max observed list at the moment the test was written. If the
+  // max ever exceeds this, consider some dynamic way to set it based on the
+  // actual data.
+  static constexpr size_t kMaxRegionalListSize = 8u;
+
+  static constexpr CountryId kUsaCountryId = CountryId("US");
+
+  static TemplateURL::OwnedTemplateURLVector
+  OwnedTemplateURLVectorFromPrepopulatedEngines(
+      const std::vector<const TemplateURLPrepopulateData::PrepopulatedEngine*>&
+          engines) {
+    TemplateURL::OwnedTemplateURLVector result;
+    for (const TemplateURLPrepopulateData::PrepopulatedEngine* engine :
+         engines) {
+      result.push_back(std::make_unique<TemplateURL>(
+          *TemplateURLDataFromPrepopulatedEngine(*engine)));
+    }
+    return result;
+  }
+
+  struct DisplayStateRecordExpectations {
+    HistogramExpectation country_mismatch;
+    HistogramExpectation selected_index;
+    HistogramExpectation display_state_status;
+    std::vector<HistogramExpectation> impression_at_index;
+  };
+
+  void CheckExpectations(base::HistogramTester& histogram_tester,
+                         DisplayStateRecordExpectations expectations,
+                         const base::Location& location = FROM_HERE) {
+    CheckHistogramExpectation(
+        histogram_tester,
+        kSearchEngineChoiceScreenShowedEngineAtCountryMismatchHistogram,
+        expectations.country_mismatch, location);
+
+    CheckHistogramExpectation(
+        histogram_tester, kSearchEngineChoiceScreenSelectedEngineIndexHistogram,
+        expectations.selected_index, location);
+    CheckHistogramExpectation(
+        histogram_tester, kPumaSearchChoiceScreenSelectedEngineIndexHistogram,
+        expectations.selected_index, location);
+
+    CheckHistogramExpectation(
+        histogram_tester,
+        "Search.ChoicePrefsCheck.PendingChoiceScreenDisplayStateStatus",
+        expectations.display_state_status, location);
+
+    ASSERT_LE(expectations.impression_at_index.size(), kMaxRegionalListSize);
+    for (size_t i = 0; i < kMaxRegionalListSize; ++i) {
+      if (i < expectations.impression_at_index.size()) {
+        CheckHistogramExpectation(
+            histogram_tester,
+            base::StringPrintf(
+                kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, i),
+            expectations.impression_at_index[i], location);
+      } else {
+        // No expectation passed, let's assume it should not be recorded.
+        CheckHistogramExpectation(
+            histogram_tester,
+            base::StringPrintf(
+                kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, i),
+            ExpectHistogramNever(), location);
+      }
+    }
+  }
+};
+
+TEST_F(SearchEngineChoiceServiceDisplayStateRecordTest, Record) {
   InitService({.variation_country_id = kBelgiumCountryId,
                .client_country_id = kBelgiumCountryId,
                .force_reset = true});
@@ -427,48 +542,39 @@ TEST_F(SearchEngineChoiceServiceTest, MaybeRecordChoiceScreenDisplayState) {
   search_engine_choice_service().MaybeRecordChoiceScreenDisplayState(
       display_state);
 
-  histogram_tester.ExpectUniqueSample(
-      kSearchEngineChoiceScreenSelectedEngineIndexHistogram, 2, 1);
-  histogram_tester.ExpectBucketCount(
-      kSearchEngineChoiceScreenShowedEngineAtCountryMismatchHistogram, false,
-      1);
-  histogram_tester.ExpectUniqueSample(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 0),
-      SEARCH_ENGINE_GOOGLE, 1);
-  histogram_tester.ExpectUniqueSample(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 1),
-      SEARCH_ENGINE_BING, 1);
-  histogram_tester.ExpectUniqueSample(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 2),
-      SEARCH_ENGINE_YAHOO, 1);
-
-  // There is no search engine shown at index 3, since we have only 3 options.
-  histogram_tester.ExpectTotalCount(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 3),
-      0);
+  CheckExpectations(
+      histogram_tester,
+      {.country_mismatch = ExpectHistogramBucket(false),
+       .selected_index = ExpectHistogramBucket(2),
+       .display_state_status = ExpectHistogramNever(),
+       .impression_at_index = {ExpectHistogramBucket(SEARCH_ENGINE_GOOGLE),
+                               ExpectHistogramBucket(SEARCH_ENGINE_BING),
+                               ExpectHistogramBucket(SEARCH_ENGINE_YAHOO)}});
 
   // We logged the display state, so we don't need to cache it.
   EXPECT_FALSE(pref_service()->HasPrefPath(
       prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState));
 }
 
-TEST_F(SearchEngineChoiceServiceTest,
-       MaybeRecordChoiceScreenDisplayState_ProfileCountryMismatch) {
-  // The actual profile of the country does not matter, we are checking the
-  // `ChoiceScreenData` country against the variations country.
-  InitService({.variation_country_id = kBelgiumCountryId,
-               .client_country_id = kUsaCountryId,
+#if BUILDFLAG(IS_IOS)
+TEST_F(SearchEngineChoiceServiceDisplayStateRecordTest, Record_Taiyaki) {
+  if (!regional_capabilities::IsClientCompatibleWithProgram(
+          regional_capabilities::Program::kTaiyaki)) {
+    GTEST_SKIP();
+  }
+
+  const CountryId kJapanCountryId = CountryId("JP");
+  base::test::ScopedFeatureList feature_list{switches::kTaiyaki};
+
+  InitService({.variation_country_id = kJapanCountryId,
+               .client_country_id = kJapanCountryId,
                .force_reset = true});
   ChoiceScreenData choice_screen_data(
       OwnedTemplateURLVectorFromPrepopulatedEngines(
           {&TemplateURLPrepopulateData::google,
            &TemplateURLPrepopulateData::bing,
            &TemplateURLPrepopulateData::yahoo}),
-      /*current_default_to_highlight=*/nullptr, kBelgiumCountryId,
+      /*current_default_to_highlight=*/nullptr, kJapanCountryId,
       SearchTermsData());
   ChoiceScreenDisplayState display_state = choice_screen_data.display_state();
   display_state.selected_engine_index = 2;
@@ -477,37 +583,23 @@ TEST_F(SearchEngineChoiceServiceTest,
   search_engine_choice_service().MaybeRecordChoiceScreenDisplayState(
       display_state);
 
-  histogram_tester.ExpectUniqueSample(
-      kSearchEngineChoiceScreenSelectedEngineIndexHistogram, 2, 1);
-  histogram_tester.ExpectBucketCount(
-      kSearchEngineChoiceScreenShowedEngineAtCountryMismatchHistogram, false,
-      1);
-  histogram_tester.ExpectUniqueSample(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 0),
-      SEARCH_ENGINE_GOOGLE, 1);
-  histogram_tester.ExpectUniqueSample(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 1),
-      SEARCH_ENGINE_BING, 1);
-  histogram_tester.ExpectUniqueSample(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 2),
-      SEARCH_ENGINE_YAHOO, 1);
-
-  // There is no search engine shown at index 3, since we have only 3 options.
-  histogram_tester.ExpectTotalCount(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 3),
-      0);
+  CheckExpectations(
+      histogram_tester,
+      {.country_mismatch = ExpectHistogramBucket(false),
+       .selected_index = ExpectHistogramBucket(2),
+       .display_state_status = ExpectHistogramNever(),
+       .impression_at_index = {ExpectHistogramBucket(SEARCH_ENGINE_GOOGLE),
+                               ExpectHistogramBucket(SEARCH_ENGINE_BING),
+                               ExpectHistogramBucket(SEARCH_ENGINE_YAHOO)}});
 
   // We logged the display state, so we don't need to cache it.
   EXPECT_FALSE(pref_service()->HasPrefPath(
       prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState));
 }
+#endif  // BUILDFLAG(IS_IOS)
 
-TEST_F(SearchEngineChoiceServiceTest,
-       MaybeRecordChoiceScreenDisplayState_NoopUnsupportedCountry) {
+TEST_F(SearchEngineChoiceServiceDisplayStateRecordTest,
+       RecordNoop_UnsupportedCountry) {
   auto engines = {&TemplateURLPrepopulateData::google,
                   &TemplateURLPrepopulateData::bing,
                   &TemplateURLPrepopulateData::yahoo};
@@ -527,10 +619,11 @@ TEST_F(SearchEngineChoiceServiceTest,
         display_state);
   }
 
-  histogram_tester.ExpectTotalCount(
-      kSearchEngineChoiceScreenSelectedEngineIndexHistogram, 0);
-  histogram_tester.ExpectTotalCount(
-      kSearchEngineChoiceScreenShowedEngineAtCountryMismatchHistogram, 0);
+  CheckExpectations(histogram_tester,
+                    {.country_mismatch = ExpectHistogramNever(),
+                     .selected_index = ExpectHistogramNever(),
+                     .display_state_status = ExpectHistogramNever(),
+                     .impression_at_index = {}});
 
   // The choice is coming from a non-eea country and won't be logged, don't
   // cache it.
@@ -550,10 +643,11 @@ TEST_F(SearchEngineChoiceServiceTest,
         display_state);
   }
 
-  histogram_tester.ExpectTotalCount(
-      kSearchEngineChoiceScreenSelectedEngineIndexHistogram, 0);
-  histogram_tester.ExpectTotalCount(
-      kSearchEngineChoiceScreenShowedEngineAtCountryMismatchHistogram, 0);
+  CheckExpectations(histogram_tester,
+                    {.country_mismatch = ExpectHistogramNever(),
+                     .selected_index = ExpectHistogramNever(),
+                     .display_state_status = ExpectHistogramNever(),
+                     .impression_at_index = {}});
 
   // The choice is coming from a non-eea country and won't be logged, don't
   // cache it.
@@ -561,18 +655,19 @@ TEST_F(SearchEngineChoiceServiceTest,
       prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState));
 }
 
-TEST_F(SearchEngineChoiceServiceTest,
-       MaybeRecordChoiceScreenDisplayState_MismatchingCountry) {
-  auto engines = {&TemplateURLPrepopulateData::google,
-                  &TemplateURLPrepopulateData::bing,
-                  &TemplateURLPrepopulateData::yahoo};
+TEST_F(SearchEngineChoiceServiceDisplayStateRecordTest,
+       RecordPostponed_VariationsCountryMismatch) {
   base::HistogramTester histogram_tester;
 
   // Mismatch between the variations and choice screen data country.
   InitService({.variation_country_id = country_codes::CountryId("DE"),
+               .client_country_id = kBelgiumCountryId,
                .force_reset = true});
   ChoiceScreenData choice_screen_data(
-      OwnedTemplateURLVectorFromPrepopulatedEngines(engines),
+      OwnedTemplateURLVectorFromPrepopulatedEngines(
+          {&TemplateURLPrepopulateData::google,
+           &TemplateURLPrepopulateData::bing,
+           &TemplateURLPrepopulateData::yahoo}),
       /*current_default_to_highlight=*/nullptr, kBelgiumCountryId,
       SearchTermsData());
   ChoiceScreenDisplayState display_state = choice_screen_data.display_state();
@@ -580,31 +675,14 @@ TEST_F(SearchEngineChoiceServiceTest,
   search_engine_choice_service().MaybeRecordChoiceScreenDisplayState(
       display_state);
 
-  histogram_tester.ExpectBucketCount(
-      kSearchEngineChoiceScreenSelectedEngineIndexHistogram, 0, 1);
-  histogram_tester.ExpectBucketCount(
-      kSearchEngineChoiceScreenShowedEngineAtCountryMismatchHistogram, true, 1);
-
-  // None of the above should have logged the full list of indices.
-  histogram_tester.ExpectTotalCount(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 0),
-      0);
-  histogram_tester.ExpectTotalCount(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 1),
-      0);
-  histogram_tester.ExpectTotalCount(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 2),
-      0);
-  histogram_tester.ExpectTotalCount(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 3),
-      0);
+  CheckExpectations(histogram_tester,
+                    {.country_mismatch = ExpectHistogramBucket(true),
+                     .selected_index = ExpectHistogramBucket(0),
+                     .display_state_status = ExpectHistogramNever(),
+                     .impression_at_index = {}});
 
   // The choice screen state should be cached for a next chance later.
-  EXPECT_TRUE(pref_service()->HasPrefPath(
+  ASSERT_TRUE(pref_service()->HasPrefPath(
       prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState));
 
   auto stored_display_state =
@@ -616,8 +694,7 @@ TEST_F(SearchEngineChoiceServiceTest,
             display_state.selected_engine_index);
 }
 
-TEST_F(SearchEngineChoiceServiceTest,
-       MaybeRecordChoiceScreenDisplayState_OnServiceStartup) {
+TEST_F(SearchEngineChoiceServiceDisplayStateRecordTest, RecordFromCache) {
   ChoiceScreenDisplayState display_state(
       /*search_engines=*/{SEARCH_ENGINE_GOOGLE, SEARCH_ENGINE_BING,
                           SEARCH_ENGINE_YAHOO},
@@ -631,35 +708,26 @@ TEST_F(SearchEngineChoiceServiceTest,
   search_engines::MarkSearchEngineChoiceCompletedForTesting(*pref_service());
 
   base::HistogramTester histogram_tester;
-  InitService({.variation_country_id = kBelgiumCountryId, .force_reset = true});
+  InitService({.variation_country_id = kBelgiumCountryId,
+               .client_country_id = kBelgiumCountryId,
+               .force_reset = true});
 
-  histogram_tester.ExpectUniqueSample(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 0),
-      SEARCH_ENGINE_GOOGLE, 1);
-  histogram_tester.ExpectUniqueSample(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 1),
-      SEARCH_ENGINE_BING, 1);
-  histogram_tester.ExpectUniqueSample(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 2),
-      SEARCH_ENGINE_YAHOO, 1);
-
-  // These metrics are expected to have been already logged at the time we
-  // cached the screen state.
-  histogram_tester.ExpectTotalCount(
-      kSearchEngineChoiceScreenSelectedEngineIndexHistogram, 0);
-  histogram_tester.ExpectTotalCount(
-      kSearchEngineChoiceScreenShowedEngineAtCountryMismatchHistogram, 0);
+  CheckExpectations(
+      histogram_tester,
+      {.country_mismatch = ExpectHistogramNever(),
+       .selected_index = ExpectHistogramNever(),
+       .display_state_status = ExpectHistogramBucket(2 /* kUploaded */),
+       .impression_at_index = {ExpectHistogramBucket(SEARCH_ENGINE_GOOGLE),
+                               ExpectHistogramBucket(SEARCH_ENGINE_BING),
+                               ExpectHistogramBucket(SEARCH_ENGINE_YAHOO)}});
 
   // The choice screen state should now be cleared.
   EXPECT_FALSE(pref_service()->HasPrefPath(
       prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState));
 }
 
-TEST_F(SearchEngineChoiceServiceTest,
-       MaybeRecordChoiceScreenDisplayState_OnServiceStartup_CountryMismatch) {
+TEST_F(SearchEngineChoiceServiceDisplayStateRecordTest,
+       RecordFromCacheSkipped_ProfileCountryMismatch) {
   ChoiceScreenDisplayState display_state(
       /*search_engines=*/{SEARCH_ENGINE_GOOGLE, SEARCH_ENGINE_BING,
                           SEARCH_ENGINE_YAHOO},
@@ -673,35 +741,88 @@ TEST_F(SearchEngineChoiceServiceTest,
   search_engines::MarkSearchEngineChoiceCompletedForTesting(*pref_service());
 
   base::HistogramTester histogram_tester;
-  InitService({.force_reset = true});
+  InitService({.variation_country_id = kBelgiumCountryId,
+               .client_country_id = kUsaCountryId,
+               .force_reset = true});
 
-  histogram_tester.ExpectTotalCount(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 0),
-      0);
-  histogram_tester.ExpectTotalCount(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 1),
-      0);
-  histogram_tester.ExpectTotalCount(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 2),
-      0);
+  CheckExpectations(
+      histogram_tester,
+      {.country_mismatch = ExpectHistogramNever(),
+       .selected_index = ExpectHistogramNever(),
+       .display_state_status = ExpectHistogramBucket(3 /* kStayPending */),
+       .impression_at_index = {}});
 
-  // These metrics are expected to have been already logged at the time we
-  // cached the screen state.
-  histogram_tester.ExpectTotalCount(
-      kSearchEngineChoiceScreenSelectedEngineIndexHistogram, 0);
-  histogram_tester.ExpectTotalCount(
-      kSearchEngineChoiceScreenShowedEngineAtCountryMismatchHistogram, 0);
+  // The choice screen state should still be pending.
+  EXPECT_TRUE(pref_service()->HasPrefPath(
+      prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState));
+}
+
+TEST_F(SearchEngineChoiceServiceDisplayStateRecordTest,
+       RecordFromCache_ProfileRegionMatch) {
+  ChoiceScreenDisplayState display_state(
+      /*search_engines=*/{SEARCH_ENGINE_GOOGLE, SEARCH_ENGINE_BING,
+                          SEARCH_ENGINE_YAHOO},
+      /*country_id=*/kBelgiumCountryId,
+      /*is_current_default_search_presented=*/false,
+      /*includes_non_regional_set_engine=*/false,
+      /*selected_engine_index=*/0);
+  pref_service()->SetDict(
+      prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState,
+      display_state.ToDict());
+  search_engines::MarkSearchEngineChoiceCompletedForTesting(*pref_service());
+
+  base::HistogramTester histogram_tester;
+  InitService({.variation_country_id = kBelgiumCountryId,
+               .client_country_id = CountryId("FR"),
+               .force_reset = true});
+
+  CheckExpectations(
+      histogram_tester,
+      {.country_mismatch = ExpectHistogramNever(),
+       .selected_index = ExpectHistogramNever(),
+       .display_state_status = ExpectHistogramBucket(2 /* kUploaded */),
+       .impression_at_index = {ExpectHistogramBucket(SEARCH_ENGINE_GOOGLE),
+                               ExpectHistogramBucket(SEARCH_ENGINE_BING),
+                               ExpectHistogramBucket(SEARCH_ENGINE_YAHOO)}});
+
+  // The choice screen state should now be cleared.
+  EXPECT_FALSE(pref_service()->HasPrefPath(
+      prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState));
+}
+
+TEST_F(SearchEngineChoiceServiceDisplayStateRecordTest,
+       RecordFromCacheSkipped_VariationsCountryMismatch) {
+  ChoiceScreenDisplayState display_state(
+      /*search_engines=*/{SEARCH_ENGINE_GOOGLE, SEARCH_ENGINE_BING,
+                          SEARCH_ENGINE_YAHOO},
+      /*country_id=*/kBelgiumCountryId,
+      /*is_current_default_search_presented=*/false,
+      /*includes_non_regional_set_engine=*/false,
+      /*selected_engine_index=*/0);
+  pref_service()->SetDict(
+      prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState,
+      display_state.ToDict());
+  search_engines::MarkSearchEngineChoiceCompletedForTesting(*pref_service());
+
+  base::HistogramTester histogram_tester;
+  InitService({.variation_country_id = kUsaCountryId,
+               .client_country_id = kBelgiumCountryId,
+               .force_reset = true});
+
+  CheckExpectations(
+      histogram_tester,
+      {.country_mismatch = ExpectHistogramNever(),
+       .selected_index = ExpectHistogramNever(),
+       .display_state_status = ExpectHistogramBucket(3 /* kStayPending */),
+       .impression_at_index = {}});
 
   // The choice screen state should stay around.
   EXPECT_TRUE(pref_service()->HasPrefPath(
       prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState));
 }
 
-TEST_F(SearchEngineChoiceServiceTest,
-       MaybeRecordChoiceScreenDisplayState_OnServiceStartup_ChoicePrefCleared) {
+TEST_F(SearchEngineChoiceServiceDisplayStateRecordTest,
+       RecordFromCacheCancelled_MissingChoiceCompletedPref) {
   ChoiceScreenDisplayState display_state(
       /*search_engines=*/{SEARCH_ENGINE_GOOGLE, SEARCH_ENGINE_BING,
                           SEARCH_ENGINE_YAHOO},
@@ -716,31 +837,87 @@ TEST_F(SearchEngineChoiceServiceTest,
   base::HistogramTester histogram_tester;
   InitService({.force_reset = true});
 
-  histogram_tester.ExpectTotalCount(
-      kSearchEngineChoiceScreenShowedEngineAtCountryMismatchHistogram, 0);
-  histogram_tester.ExpectTotalCount(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 0),
-      0);
-  histogram_tester.ExpectTotalCount(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 1),
-      0);
-  histogram_tester.ExpectTotalCount(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 2),
-      0);
+  CheckExpectations(
+      histogram_tester,
+      {.country_mismatch = ExpectHistogramNever(),
+       .selected_index = ExpectHistogramNever(),
+       .display_state_status = ExpectHistogramBucket(1 /* kTimedOut */),
+       .impression_at_index = {}});
 
-  // Choice not marked done, so the service also clear the pending state.
+  // Choice not marked done, so the service also clears the pending state.
   EXPECT_FALSE(pref_service()->HasPrefPath(
       prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState));
 }
 
-TEST_F(SearchEngineChoiceServiceTest,
-       MaybeRecordChoiceScreenDisplayState_OnServiceStartup_UmaDisabled) {
+TEST_F(SearchEngineChoiceServiceDisplayStateRecordTest,
+       RecordFromCacheCancelled_TimedOut) {
+  ChoiceScreenDisplayState display_state(
+      /*search_engines=*/{SEARCH_ENGINE_GOOGLE, SEARCH_ENGINE_BING,
+                          SEARCH_ENGINE_YAHOO},
+      /*country_id=*/kBelgiumCountryId,
+      /*is_current_default_search_presented=*/false,
+      /*includes_non_regional_set_engine=*/false,
+      /*selected_engine_index=*/0);
+  pref_service()->SetDict(
+      prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState,
+      display_state.ToDict());
+
+  auto metadata = CreateChoiceCompletionMetadataWithProgram(
+      regional_capabilities::SerializeProgram(
+          regional_capabilities::Program::kWaffle));
+  metadata.timestamp = base::Time::Now() - base::Days(28);
+  search_engines::MarkSearchEngineChoiceCompletedForTesting(*pref_service(),
+                                                            metadata);
+
+  base::HistogramTester histogram_tester;
+  InitService({.force_reset = true});
+
+  CheckExpectations(
+      histogram_tester,
+      {.country_mismatch = ExpectHistogramNever(),
+       .selected_index = ExpectHistogramNever(),
+       .display_state_status = ExpectHistogramBucket(1 /* kTimedOut */),
+       .impression_at_index = {}});
+
+  // Pending state timed out, so the service also clears it.
+  EXPECT_FALSE(pref_service()->HasPrefPath(
+      prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState));
+}
+
+TEST_F(SearchEngineChoiceServiceDisplayStateRecordTest,
+       RecordFromCacheCancelled_ParseError) {
+  ChoiceScreenDisplayState display_state(
+      /*search_engines=*/{SEARCH_ENGINE_GOOGLE, SEARCH_ENGINE_BING,
+                          SEARCH_ENGINE_YAHOO},
+      /*country_id=*/CountryId(),  // <= Causes the error
+      /*is_current_default_search_presented=*/false,
+      /*includes_non_regional_set_engine=*/false,
+      /*selected_engine_index=*/0);
+  pref_service()->SetDict(
+      prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState,
+      display_state.ToDict());
+
+  search_engines::MarkSearchEngineChoiceCompletedForTesting(*pref_service());
+
+  base::HistogramTester histogram_tester;
+  InitService({.force_reset = true});
+
+  CheckExpectations(
+      histogram_tester,
+      {.country_mismatch = ExpectHistogramNever(),
+       .selected_index = ExpectHistogramNever(),
+       .display_state_status = ExpectHistogramBucket(0 /* kParseError */),
+       .impression_at_index = {}});
+
+  // Pending state is invalid, so the service also clears it.
+  EXPECT_FALSE(pref_service()->HasPrefPath(
+      prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState));
+}
+
+TEST_F(SearchEngineChoiceServiceDisplayStateRecordTest,
+       RecordFromCacheCancelled_UmaDisabled) {
   // Disable UMA reporting.
-  SearchEngineChoiceMetricsServiceAccessor::
-      SetForceIsMetricsReportingEnabledPrefLookup(false);
+  local_state().SetBoolean(metrics::prefs::kMetricsReportingEnabled, false);
 
   ChoiceScreenDisplayState display_state(
       /*search_engines=*/{SEARCH_ENGINE_GOOGLE, SEARCH_ENGINE_BING,
@@ -755,17 +932,19 @@ TEST_F(SearchEngineChoiceServiceTest,
   EXPECT_TRUE(pref_service()->HasPrefPath(
       prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState));
 
-  InitService({.variation_country_id = kBelgiumCountryId, .force_reset = true});
+  InitService({.variation_country_id = kBelgiumCountryId,
+               .client_country_id = kBelgiumCountryId,
+               .force_reset = true});
   EXPECT_FALSE(pref_service()->HasPrefPath(
       prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState));
 
-  histogram_tester_.ExpectTotalCount(
-      base::StringPrintf(
-          kSearchEngineChoiceScreenShowedEngineAtHistogramPattern, 0),
-      0);
-  histogram_tester_.ExpectTotalCount(
-      kSearchEngineChoiceScreenShowedEngineAtCountryMismatchHistogram, 0);
+  CheckExpectations(histogram_tester_,
+                    {.country_mismatch = ExpectHistogramNever(),
+                     .selected_index = ExpectHistogramNever(),
+                     .display_state_status = ExpectHistogramNever(),
+                     .impression_at_index = {}});
 }
+#endif  // BUILDFLAG(CHOICE_SCREEN_IN_CHROME)
 
 // Tests if choice screen completion date is not recorded if last choice date is
 // unknown.
@@ -1327,7 +1506,13 @@ TEST_P(SearchEngineChoiceServiceDeviceRestoreTest, RepromptOnRestoreDetection) {
       search_engines::kSearchEngineChoiceScreenProfileInitConditionsHistogram,
       expected_eligibility_condition, 1);
   histogram_tester_.ExpectUniqueSample(
+      search_engines::kPumaSearchChoiceScreenProfileInitConditionsHistogram,
+      expected_eligibility_condition, 1);
+  histogram_tester_.ExpectUniqueSample(
       "RegionalCapabilities.FunnelStage.Eligibility",
+      expected_eligibility_condition, 1);
+  histogram_tester_.ExpectUniqueSample(
+      "PUMA.RegionalCapabilities.FunnelStage.Eligibility",
       expected_eligibility_condition, 1);
   if (GetParam().restore_detected_in_current_session &&
       GetParam().is_feature_enabled) {
@@ -1343,7 +1528,13 @@ TEST_P(SearchEngineChoiceServiceDeviceRestoreTest, RepromptOnRestoreDetection) {
       search_engines::kSearchEngineChoiceScreenNavigationConditionsHistogram,
       expected_eligibility_condition, 1);
   histogram_tester_.ExpectUniqueSample(
+      search_engines::kPumaSearchChoiceScreenNavigationConditionsHistogram,
+      expected_eligibility_condition, 1);
+  histogram_tester_.ExpectUniqueSample(
       "RegionalCapabilities.FunnelStage.Triggering",
+      expected_eligibility_condition, 1);
+  histogram_tester_.ExpectUniqueSample(
+      "PUMA.RegionalCapabilities.FunnelStage.Triggering",
       expected_eligibility_condition, 1);
   if (GetParam().restore_detected_in_current_session &&
       GetParam().is_feature_enabled) {
@@ -1597,6 +1788,9 @@ TEST_P(SearchEngineChoiceServiceFunnelTest, RecordsFunnelStage) {
     CheckHistogramExpectation(scoped_histogram_tester,
                               "RegionalCapabilities.FunnelStage.Reported",
                               GetParam().expected_if_static);
+    CheckHistogramExpectation(scoped_histogram_tester,
+                              "PUMA.RegionalCapabilities.FunnelStage.Reported",
+                              GetParam().expected_if_static);
   }
 
   {
@@ -1605,6 +1799,9 @@ TEST_P(SearchEngineChoiceServiceFunnelTest, RecordsFunnelStage) {
         GetParam().condition);
     CheckHistogramExpectation(scoped_histogram_tester,
                               "RegionalCapabilities.FunnelStage.Reported",
+                              GetParam().expected_if_dynamic);
+    CheckHistogramExpectation(scoped_histogram_tester,
+                              "PUMA.RegionalCapabilities.FunnelStage.Reported",
                               GetParam().expected_if_dynamic);
   }
 }

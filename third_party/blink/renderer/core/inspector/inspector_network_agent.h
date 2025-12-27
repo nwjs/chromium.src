@@ -265,6 +265,12 @@ class CORE_EXPORT InspectorNetworkAgent final
                                     std::optional<String> remote_addr,
                                     std::optional<uint16_t> remote_port);
 
+  void DirectUDPSocketJoinedMulticastGroup(uint64_t identifier,
+                                           const String& ip_address);
+
+  void DirectUDPSocketLeftMulticastGroup(uint64_t identifier,
+                                         const String& ip_address);
+
   void SetDevToolsIds(ResourceRequest& request, const FetchInitiatorInfo&);
   void IsCacheDisabled(bool* is_cache_disabled) const;
   void ShouldApplyDevtoolsCookieSettingOverrides(
@@ -406,7 +412,7 @@ class CORE_EXPORT InspectorNetworkAgent final
   InspectorAgentState::Boolean cache_disabled_;
   InspectorAgentState::Boolean bypass_service_worker_;
   InspectorAgentState::BooleanMap blocked_urls_;
-  InspectorAgentState::BooleanMap blocked_patterns_;
+  InspectorAgentState::Bytes blocked_patterns_cbor_;
   InspectorAgentState::StringMap extra_request_headers_;
   InspectorAgentState::Boolean attach_debug_stack_enabled_;
   InspectorAgentState::Integer total_buffer_size_;

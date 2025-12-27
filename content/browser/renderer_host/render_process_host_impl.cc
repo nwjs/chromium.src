@@ -145,7 +145,6 @@
 #include "content/common/pseudonymization_salt.h"
 #include "content/public/browser/browser_child_process_host.h"
 #include "content/public/browser/browser_context.h"
-#include "content/public/browser/browser_or_resource_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_host.h"
 #include "content/public/browser/devtools_agent_host.h"
@@ -175,7 +174,7 @@
 #include "google_apis/gaia/gaia_config.h"
 #include "google_apis/gaia/gaia_switches.h"
 #include "gpu/command_buffer/client/gpu_switches.h"
-#include "gpu/command_buffer/service/gpu_switches.h"
+#include "gpu/config/gpu_finch_features.h"
 #include "gpu/config/gpu_switches.h"
 #include "ipc/constants.mojom.h"
 #include "ipc/ipc_channel_factory.h"
@@ -302,9 +301,18 @@ namespace features {
 // channel is paused, and only flushed at OnProcessLaunched.
 BASE_FEATURE(kSkipIPCChannelPausingForNonGuests,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
 const base::FeatureParam<bool> skip_channel_pausing_for_internal_webui_only{
     &features::kSkipIPCChannelPausingForNonGuests, "internal_webui_only",
     false};
+
+#if BUILDFLAG(IS_ANDROID)
+// The feature flag is added for a holdback experiment to estimate
+// the performance impace of the first spare renderer not using the warm-up
+// process in webview.
+BASE_FEATURE(kSpareRendererUseWarmupConnection,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 }  // namespace features
 
@@ -1582,7 +1590,7 @@ RenderProcessHost* RenderProcessHostImpl::CreateRenderProcessHost(
 #if !BUILDFLAG(IS_ANDROID)
   if (site_instance) {
     const GURL& site_url = site_instance->GetSiteURL();
-    if (GetContentClient()->browser()->IsInitialWebUIScheme(site_url)) {
+    if (GetContentClient()->browser()->IsInitialWebUIURL(site_url)) {
       flags |= RenderProcessFlags::kForInitialWebUI;
     }
   }
@@ -1626,21 +1634,22 @@ RenderProcessHostImpl::RenderProcessHostImpl(
                 true /* boost_for_pending_views */,
                 false /*boost_for_loading*/,
                 false /* boost_for_discard */,
-                is_spare_renderer
 #if BUILDFLAG(IS_ANDROID)
-                ,
+                is_spare_renderer,
                 ChildProcessImportance::NORMAL
-#endif
-#if !BUILDFLAG(IS_ANDROID)
-                ,
+#else
                 std::nullopt
 #endif
                 ),
       id_(ChildProcessHostImpl::GenerateChildProcessUniqueId()),
       browser_context_(browser_context),
-      storage_partition_impl_(storage_partition_impl->GetWeakPtr()),
+      storage_partition_impl_(storage_partition_impl),
       flags_(flags),
-      has_spare_renderer_priority_(is_spare_renderer),
+#if BUILDFLAG(IS_ANDROID)
+      spare_renderer_priority_status_(
+          is_spare_renderer ? SpareRendererPriorityStatus::kSpare
+                            : SpareRendererPriorityStatus::kNormal),
+#endif
       tracing_track_(
           perfetto::NamedTrack::FromPointer("RenderProcessHostImpl",
                                             this,
@@ -1771,8 +1780,8 @@ RenderProcessHostImpl::~RenderProcessHostImpl() {
   UnregisterHost(GetID());
 
   // Remove the cache handles for the client at teardown if relevant.
-  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableGpuShaderDiskCache)) {
+  if (features::IsShaderDiskCacheEnabled(
+          base::CommandLine::ForCurrentProcess())) {
     if (GetGpuDiskCacheFactorySingleton()) {
         gpu_client_->RemoveDiskCacheHandles();
     }
@@ -1804,6 +1813,15 @@ bool RenderProcessHostImpl::Init() {
   renderer_prefix =
       browser_command_line.GetSwitchValueNative(switches::kRendererCmdPrefix);
 
+#if BUILDFLAG(IS_ANDROID)
+  // If the spare renderer gets killed when graduating the priority to normal,
+  // we will set the priority to normal during re-initialization.
+  if (spare_renderer_priority_status_ ==
+      SpareRendererPriorityStatus::kGraduating) {
+    spare_renderer_priority_status_ = SpareRendererPriorityStatus::kNormal;
+  }
+#endif
+
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   int flags = renderer_prefix.empty() ? ChildProcessHost::CHILD_ALLOW_SELF
                                       : ChildProcessHost::CHILD_NORMAL;
@@ -1829,8 +1847,8 @@ bool RenderProcessHostImpl::Init() {
   // stored on the channels. Note that we also check if the factory is
   // initialized because in tests the factory may never have been initialized.
   if (!GetBrowserContext()->IsOffTheRecord() &&
-      !base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableGpuShaderDiskCache)) {
+      features::IsShaderDiskCacheEnabled(
+          base::CommandLine::ForCurrentProcess())) {
     if (auto* cache_factory = GetGpuDiskCacheFactorySingleton()) {
       for (const gpu::GpuDiskCacheType type : gpu::kGpuDiskCacheTypes) {
         auto handle = cache_factory->GetCacheHandle(
@@ -1884,7 +1902,8 @@ bool RenderProcessHostImpl::Init() {
           browser_context_),
       GetContentClient()->browser()->GetUserAgentMetadata(),
       storage_partition_impl_->cors_exempt_header_list(),
-      GetContentClient()->browser()->GetOriginTrialsSettings(), trace_id);
+      GetContentClient()->browser()->GetOriginTrialsSettings(),
+      GetContentClient()->browser()->GetCpuPerformanceTier(), trace_id);
 
   if (run_renderer_in_process()) {
     base::ScopedAllowBlocking allow_io;
@@ -3144,6 +3163,19 @@ bool RenderProcessHostImpl::GetIntersectsViewport() {
 }
 
 #if BUILDFLAG(IS_ANDROID)
+void RenderProcessHostImpl::GraduateSpareToNormalRendererPriority() {
+  if (spare_renderer_priority_status_ == SpareRendererPriorityStatus::kSpare) {
+    spare_renderer_priority_status_ = SpareRendererPriorityStatus::kGraduating;
+    UpdateProcessPriority();
+  }
+}
+
+bool RenderProcessHostImpl::
+    ShouldThrottleNavigationForSpareRendererGraduation() {
+  return !is_dead_ && spare_renderer_priority_status_ !=
+                          SpareRendererPriorityStatus::kNormal;
+}
+
 ChildProcessImportance RenderProcessHostImpl::GetEffectiveImportance() {
   return effective_importance_;
 }
@@ -3515,10 +3547,6 @@ bool RenderProcessHostImpl::ShouldPauseChannelUntilProcessLaunched() {
 }
 
 StoragePartitionImpl* RenderProcessHostImpl::GetStoragePartition() {
-  // TODO(crbug.com/40061679): Remove the `CHECK` after the ad-hoc
-  // debugging is no longer needed to investigate the bug.
-  CHECK(!!storage_partition_impl_);
-
   return storage_partition_impl_.get();
 }
 
@@ -3807,7 +3835,6 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
       switches::kDisableThreadedAnimation,
       switches::kEnableGpuBenchmarking,
       switches::kEnableClippedImageScaling,
-      switches::kHighlightNonLCDTextLayers,
       switches::kDumpCompositorFrame,
       switches::kShowCompositedLayerBorders,
       switches::kShowFPSCounter,
@@ -4719,8 +4746,7 @@ bool RenderProcessHostImpl::IsSuitableHost(
     RenderProcessHost* host,
     const IsolationContext& isolation_context,
     const SiteInfo& site_info) {
-  BrowserContext* browser_context =
-      isolation_context.browser_or_resource_context().ToBrowserContext();
+  BrowserContext* browser_context = isolation_context.browser_context();
   DCHECK(browser_context);
   if (run_renderer_in_process()) {
     DCHECK_EQ(host->GetBrowserContext(), browser_context)
@@ -5064,8 +5090,8 @@ RenderProcessHost* RenderProcessHostImpl::GetSoleProcessHostForSite(
     const IsolationContext& isolation_context,
     const SiteInfo& site_info) {
   // Look up the map of site to process for the given browser_context.
-  SiteProcessMap* map = GetSiteProcessMapForBrowserContext(
-      isolation_context.browser_or_resource_context().ToBrowserContext());
+  SiteProcessMap* map =
+      GetSiteProcessMapForBrowserContext(isolation_context.browser_context());
 
   // See if we have an existing process with appropriate bindings for this
   // site. If not, the caller should create a new process and register it.
@@ -5723,13 +5749,11 @@ void RenderProcessHostImpl::UpdateProcessPriority() {
       media_stream_count_ > 0, has_immersive_xr_session_,
       foreground_service_worker_count_ > 0, frame_depth_, intersects_viewport_,
       pending_views_ > 0, /* boost_for_pending_views */
-      boost_for_loading_count_ > 0, is_discarding_, has_spare_renderer_priority_
+      boost_for_loading_count_ > 0, is_discarding_,
 #if BUILDFLAG(IS_ANDROID)
-      ,
+      spare_renderer_priority_status_ == SpareRendererPriorityStatus::kSpare,
       GetEffectiveImportance()
-#endif
-#if !BUILDFLAG(IS_ANDROID)
-          ,
+#else
       priority_override_
 #endif
   );
@@ -5969,17 +5993,23 @@ void RenderProcessHostImpl::OnProcessLaunchFailed(int error_code) {
 
 #if BUILDFLAG(IS_ANDROID)
 bool RenderProcessHostImpl::CanUseWarmUpConnection() {
-  // We disable the spare renderer from using the warmed up connection
-  // because of potential failure to reset the binding state when the
-  // connection is not yet connected or already killed. In practice the
-  // warmed up connection is only created during the start up of the Chrome
-  // application and will not be used by the spare renderer. The filter is
-  // only added for test purposes.
-  return !has_spare_renderer_priority_;
+  // TODO(crbug.com/455620851): Remove the function after finishing the
+  // holdback experiment.
+  return base::FeatureList::IsEnabled(
+             features::kSpareRendererUseWarmupConnection) ||
+         !HasSpareRendererPriority();
 }
 
 bool RenderProcessHostImpl::HasSpareRendererPriority() {
-  return has_spare_renderer_priority_;
+  return spare_renderer_priority_status_ !=
+         SpareRendererPriorityStatus::kNormal;
+}
+
+void RenderProcessHostImpl::OnSpareRendererPriorityGraduated(bool is_alive) {
+  spare_renderer_priority_status_ = SpareRendererPriorityStatus::kNormal;
+  for (auto& observer : observers_) {
+    observer.SpareRendererPriorityGraduated(this, is_alive);
+  }
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -6211,13 +6241,6 @@ void RenderProcessHostImpl::GetBoundInterfacesForTesting(
   io_thread_host_impl_->AsyncCall(&IOThreadHostImpl::GetInterfacesForTesting)
       .WithArgs(std::ref(out));
   io_thread_host_impl_->FlushPostedTasksForTesting();  // IN-TEST
-}
-
-void RenderProcessHostImpl::GraduateSpareToNormalRendererPriority() {
-  if (has_spare_renderer_priority_) {
-    has_spare_renderer_priority_ = false;
-    UpdateProcessPriority();
-  }
 }
 
 bool RenderProcessHostImpl::IsOnlyHostingPrerenderedFramesOrEmpty() {

@@ -59,12 +59,10 @@ include_rules = [
   "+chrome/browser/manta/manta_service_factory.h",
   "+chrome/browser/media/webrtc",
   "+chrome/browser/metrics",
-  # TODO(b/335118703): Move out from this list.
   "+chrome/browser/pdf",
   "+chrome/browser/platform_util.h",
   "+chrome/browser/policy",
   "+chrome/browser/profiles",
-  "+chrome/browser/ash/scalable_iph",
   # TODO(b/338516458): Allow ash to use ScreenAI without depending on //chrome.
   "+chrome/browser/screen_ai/public",
   "+chrome/browser/search_engines/template_url_service_factory.h",
@@ -101,7 +99,6 @@ include_rules = [
   "+chrome/common/url_constants.h",
   "+chrome/common/webui_url_constants.h",
   "+chrome/grit",
-  # TODO(b/335118703): Move out from this list.
   "+chrome/services/pdf/public/mojom",
   "+chrome/test/base",
 ]

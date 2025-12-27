@@ -12,6 +12,8 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.offlinepages.DownloadUiActionFlags;
 import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
@@ -82,11 +84,14 @@ public class NativePageNavigationDelegateImpl implements NativePageNavigationDel
                 mHost.loadUrl(loadUrlParams, true);
                 break;
             case WindowOpenDisposition.NEW_WINDOW:
-                // If there is only one window, launch in a new window.
-                if (IncognitoUtils.shouldOpenIncognitoAsWindow()
-                        && MultiWindowUtils.getActiveInstanceCount() > 1) {
-                    mMultiInstanceManager.openUrlInSelectedWindow(
-                            loadUrlParams, mHost.getParentId());
+                // TODO(crbug.com/435490901): Update native page context menu to handle incognito
+                // windows.
+                if (IncognitoUtils.shouldOpenIncognitoAsWindow()) {
+                    mMultiInstanceManager.openUrlInOtherWindow(
+                            loadUrlParams,
+                            mHost.getParentId(),
+                            /* preferNew= */ false,
+                            PersistedInstanceType.ACTIVE);
                 } else {
                     openUrlInNewWindow(loadUrlParams);
                 }
@@ -119,7 +124,8 @@ public class NativePageNavigationDelegateImpl implements NativePageNavigationDel
                 mActivity,
                 mHost.getParentId(),
                 MultiWindowUtils.getForegroundWindowActivity(mActivity),
-                MultiWindowUtils.NewWindowEntryPoint.OTHER);
+                NewWindowAppSource.OTHER,
+                /* preferNew= */ false);
     }
 
     private Tab openUrlInNewTab(LoadUrlParams loadUrlParams, int windowOpenDisposition) {

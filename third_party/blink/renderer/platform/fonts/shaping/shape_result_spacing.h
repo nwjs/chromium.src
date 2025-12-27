@@ -8,6 +8,7 @@
 #include "third_party/blink/renderer/platform/geometry/layout_unit.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/blink/renderer/platform/text/character.h"
+#include "third_party/blink/renderer/platform/text/text_justify.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
@@ -53,7 +54,8 @@ class PLATFORM_EXPORT ShapeResultSpacing final {
   void SetSpacing(const FontDescription&, bool normalize_space);
 
   // Set the expansion for the justification.
-  void SetExpansion(InlineLayoutUnit expansion,
+  void SetExpansion(TextJustify method,
+                    InlineLayoutUnit expansion,
                     TextDirection,
                     bool allows_leading_expansion = false,
                     bool allows_trailing_expansion = false);
@@ -76,6 +78,14 @@ class PLATFORM_EXPORT ShapeResultSpacing final {
                                    float& offset,
                                    bool is_cursive_script);
 
+  // Returns a pair of
+  //  * Space amount to be added before the glyph, and
+  //  * Pixel amount to be added to the glyph's advance.
+  // Pixel amount to be added after the glyph is <the latter> - <the former>.
+  std::pair<float, TextRunLayoutUnit> ComputeExpansion(
+      unsigned index,
+      bool is_cursive_script = false);
+
  private:
   bool IsAfterExpansion() const { return is_after_expansion_; }
 
@@ -91,6 +101,7 @@ class PLATFORM_EXPORT ShapeResultSpacing final {
   InlineLayoutUnit expansion_;
   TextRunLayoutUnit expansion_per_opportunity_;
   unsigned expansion_opportunity_count_ = 0;
+  TextJustify justification_method_ = TextJustify::kAuto;
   bool has_spacing_ = false;
   bool is_letter_spacing_applied_ = false;
   bool is_word_spacing_applied_ = false;

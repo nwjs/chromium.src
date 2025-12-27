@@ -6,7 +6,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=android-trichrome-chrome-google-64-32-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-brya-kano-i5-8gb-perf_map.json",
@@ -61,7 +60,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=android-trichrome-chrome-google-64-32-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-corsola-steelix-8gb-perf_map.json",
@@ -109,12 +107,21 @@
       }
     ]
   },
+  "android-desktop-arm-builder-perf": {
+    "additional_compile_targets": [
+      "trichrome_google_64_32_minimal_apks"
+    ]
+  },
+  "android-desktop-x64-builder-perf": {
+    "additional_compile_targets": [
+      "trichrome_google_64_minimal_apks"
+    ]
+  },
   "android-go-processor-perf": {},
   "android-go-wembley-perf": {
     "isolated_scripts": [
       {
         "args": [
-          "-v",
           "-v",
           "--browser=android-trichrome-chrome-google-bundle",
           "--upload-results",
@@ -143,7 +150,7 @@
           "hard_timeout": 14400,
           "io_timeout": 21600,
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 13
+          "shards": 11
         },
         "test": "performance_test_suite_android_trichrome_chrome_google_bundle",
         "trigger_script": {
@@ -161,7 +168,6 @@
     "isolated_scripts": [
       {
         "args": [
-          "-v",
           "-v",
           "--browser=android-webview-google",
           "--upload-results",
@@ -190,7 +196,7 @@
           "hard_timeout": 14400,
           "io_timeout": 21600,
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 20
+          "shards": 5
         },
         "test": "performance_webview_test_suite",
         "trigger_script": {
@@ -208,7 +214,6 @@
     "isolated_scripts": [
       {
         "args": [
-          "-v",
           "-v",
           "--browser=android-trichrome-chrome-google-64-32-bundle",
           "--upload-results",
@@ -262,7 +267,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=android-trichrome-chrome-google-64-32-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel-fold-perf_map.json",
@@ -309,7 +313,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=android-trichrome-chrome-google-64-32-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel-tangor-perf_map.json",
@@ -355,7 +358,6 @@
     "isolated_scripts": [
       {
         "args": [
-          "-v",
           "-v",
           "--browser=android-trichrome-chrome-google-64-32-bundle",
           "--upload-results",
@@ -404,7 +406,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=android-trichrome-chrome-google-64-32-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel25-ultra-xl-perf_map.json",
@@ -451,7 +452,6 @@
     "isolated_scripts": [
       {
         "args": [
-          "-v",
           "-v",
           "--browser=android-trichrome-chrome-google-64-32-bundle",
           "--upload-results",
@@ -500,7 +500,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=android-trichrome-chrome-google-64-32-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel4-perf-pgo_map.json",
@@ -544,7 +543,6 @@
     "isolated_scripts": [
       {
         "args": [
-          "-v",
           "-v",
           "--browser=android-webview-trichrome-google-bundle",
           "--upload-results",
@@ -593,7 +591,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=android-webview-trichrome-google-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel4_webview-perf-pgo_map.json",
@@ -640,7 +637,6 @@
     "isolated_scripts": [
       {
         "args": [
-          "-v",
           "-v",
           "--browser=android-trichrome-chrome-google-64-32-bundle",
           "--upload-results",
@@ -689,7 +685,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=android-trichrome-chrome-google-64-32-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel6-perf-pgo_map.json",
@@ -736,7 +731,6 @@
     "isolated_scripts": [
       {
         "args": [
-          "-v",
           "-v",
           "--browser=android-trichrome-chrome-google-64-32-bundle",
           "--upload-results",
@@ -785,7 +779,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=android-trichrome-chrome-google-64-32-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel6-pro-perf-pgo_map.json",
@@ -829,7 +822,6 @@
     "isolated_scripts": [
       {
         "args": [
-          "-v",
           "-v",
           "--browser=android-trichrome-chrome-google-64-32-bundle",
           "--upload-results",
@@ -878,7 +870,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=android-trichrome-chrome-google-64-32-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel9-pro-perf_map.json",
@@ -926,7 +917,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=android-trichrome-chrome-google-64-32-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel9-pro-xl-perf_map.json",
@@ -973,11 +963,103 @@
   "android_arm64-builder-perf-pgo": {},
   "linux-builder-perf": {},
   "linux-builder-perf-pgo": {},
-  "linux-perf-pgo": {
+  "linux-falcon-rak-5070-perf": {
     "isolated_scripts": [
       {
         "args": [
           "-v",
+          "--browser=builder",
+          "--upload-results",
+          "--test-shard-map-filename=linux-falcon-rak-5070-perf_map.json",
+          "--ignore-benchmark-exit-code",
+          "--assert-gpu-compositing"
+        ],
+        "merge": {
+          "args": [
+            "--upload-skia-json"
+          ],
+          "script": "//tools/perf/process_perf_results.py"
+        },
+        "name": "performance_test_suite",
+        "resultdb": {
+          "enable": true
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimensions": {
+            "os": "Ubuntu-22.04.5",
+            "pool": "chrome.tests.perf",
+            "synthetic_product_name": "System Product Name [System Version] (Falcon Northwest)"
+          },
+          "expiration": 7200,
+          "hard_timeout": 14400,
+          "io_timeout": 21600,
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 1
+        },
+        "test": "performance_test_suite",
+        "trigger_script": {
+          "args": [
+            "--multiple-dimension-script-verbose",
+            "True"
+          ],
+          "requires_simultaneous_shard_dispatch": true,
+          "script": "//testing/trigger_scripts/perf_device_trigger.py"
+        }
+      }
+    ]
+  },
+  "linux-perf": {
+    "isolated_scripts": [
+      {
+        "args": [
+          "-v",
+          "--browser=builder",
+          "--upload-results",
+          "--test-shard-map-filename=linux-perf_map.json",
+          "--ignore-benchmark-exit-code",
+          "--assert-gpu-compositing"
+        ],
+        "merge": {
+          "args": [
+            "--upload-skia-json"
+          ],
+          "script": "//tools/perf/process_perf_results.py"
+        },
+        "name": "performance_test_suite",
+        "resultdb": {
+          "enable": true
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimensions": {
+            "gpu": "10de:2184-580.95.05",
+            "os": "Ubuntu-22.04",
+            "pool": "chrome.tests.perf",
+            "synthetic_product_name": "Precision 3930 Rack (Dell Inc.)"
+          },
+          "expiration": 7200,
+          "hard_timeout": 14400,
+          "io_timeout": 21600,
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 7
+        },
+        "test": "performance_test_suite",
+        "trigger_script": {
+          "args": [
+            "--multiple-dimension-script-verbose",
+            "True"
+          ],
+          "requires_simultaneous_shard_dispatch": true,
+          "script": "//testing/trigger_scripts/perf_device_trigger.py"
+        }
+      }
+    ]
+  },
+  "linux-perf-pgo": {
+    "isolated_scripts": [
+      {
+        "args": [
           "-v",
           "--browser=builder",
           "--upload-results",
@@ -1022,7 +1104,6 @@
     "isolated_scripts": [
       {
         "args": [
-          "-v",
           "-v",
           "--browser=builder",
           "--upload-results",
@@ -1071,7 +1152,6 @@
     "isolated_scripts": [
       {
         "args": [
-          "-v",
           "-v",
           "--browser=builder",
           "--upload-results",
@@ -1123,7 +1203,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=builder",
           "--upload-results",
           "--test-shard-map-filename=mac-intel-perf_map.json",
@@ -1172,7 +1251,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=builder",
           "--upload-results",
           "--test-shard-map-filename=mac-m1-pro-perf_map.json",
@@ -1219,7 +1297,6 @@
     "isolated_scripts": [
       {
         "args": [
-          "-v",
           "-v",
           "--browser=builder",
           "--upload-results",
@@ -1268,7 +1345,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=builder",
           "--upload-results",
           "--test-shard-map-filename=mac-m1_mini_2020-perf_map.json",
@@ -1316,7 +1392,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=builder",
           "--upload-results",
           "--test-shard-map-filename=mac-m1_mini_2020-perf-pgo_map.json",
@@ -1363,7 +1438,6 @@
     "isolated_scripts": [
       {
         "args": [
-          "-v",
           "-v",
           "--browser=builder",
           "--upload-results",
@@ -1413,7 +1487,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=builder",
           "--upload-results",
           "--test-shard-map-filename=mac-m3-pro-perf_map.json",
@@ -1461,7 +1534,6 @@
     "isolated_scripts": [
       {
         "args": [
-          "-v",
           "-v",
           "--browser=builder",
           "--upload-results",
@@ -1513,12 +1585,12 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=builder",
           "--upload-results",
           "--test-shard-map-filename=win-10-perf_map.json",
           "--ignore-benchmark-exit-code",
-          "--assert-gpu-compositing"
+          "--assert-gpu-compositing",
+          "--extra-browser-args=--disable-features=SessionRestoreInfobar"
         ],
         "merge": {
           "args": [
@@ -1561,12 +1633,12 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=builder",
           "--upload-results",
           "--test-shard-map-filename=win-10-perf-pgo_map.json",
           "--ignore-benchmark-exit-code",
-          "--assert-gpu-compositing"
+          "--assert-gpu-compositing",
+          "--extra-browser-args=--disable-features=SessionRestoreInfobar"
         ],
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
@@ -1605,7 +1677,6 @@
     "isolated_scripts": [
       {
         "args": [
-          "-v",
           "-v",
           "--browser=builder",
           "--upload-results",
@@ -1654,7 +1725,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=builder",
           "--upload-results",
           "--test-shard-map-filename=win-10_amd_laptop-perf-pgo_map.json",
@@ -1699,12 +1769,12 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=builder",
           "--upload-results",
           "--test-shard-map-filename=win-10_laptop_low_end-perf_map.json",
           "--ignore-benchmark-exit-code",
-          "--assert-gpu-compositing"
+          "--assert-gpu-compositing",
+          "--extra-browser-args=--disable-features=SessionRestoreInfobar"
         ],
         "merge": {
           "args": [
@@ -1748,12 +1818,12 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=builder",
           "--upload-results",
           "--test-shard-map-filename=win-10_laptop_low_end-perf-pgo_map.json",
           "--ignore-benchmark-exit-code",
-          "--assert-gpu-compositing"
+          "--assert-gpu-compositing",
+          "--extra-browser-args=--disable-features=SessionRestoreInfobar"
         ],
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
@@ -1792,7 +1862,6 @@
     "isolated_scripts": [
       {
         "args": [
-          "-v",
           "-v",
           "--browser=builder",
           "--upload-results",
@@ -1842,7 +1911,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=builder",
           "--upload-results",
           "--test-shard-map-filename=win-11-perf-pgo_map.json",
@@ -1889,7 +1957,6 @@
       {
         "args": [
           "-v",
-          "-v",
           "--browser=builder",
           "--upload-results",
           "--test-shard-map-filename=win-arm64-snapdragon-elite-perf_map.json",
@@ -1913,6 +1980,52 @@
             "os": "Windows-11",
             "pool": "chrome.tests.perf",
             "synthetic_product_name": "Latitude 7455 (Dell Inc.)"
+          },
+          "expiration": 7200,
+          "hard_timeout": 14400,
+          "io_timeout": 21600,
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 1
+        },
+        "test": "performance_test_suite",
+        "trigger_script": {
+          "args": [
+            "--multiple-dimension-script-verbose",
+            "True"
+          ],
+          "requires_simultaneous_shard_dispatch": true,
+          "script": "//testing/trigger_scripts/perf_device_trigger.py"
+        }
+      }
+    ]
+  },
+  "win-falcon-rak-5070-perf": {
+    "isolated_scripts": [
+      {
+        "args": [
+          "-v",
+          "--browser=builder",
+          "--upload-results",
+          "--test-shard-map-filename=win-falcon-rak-5070-perf_map.json",
+          "--ignore-benchmark-exit-code",
+          "--assert-gpu-compositing"
+        ],
+        "merge": {
+          "args": [
+            "--upload-skia-json"
+          ],
+          "script": "//tools/perf/process_perf_results.py"
+        },
+        "name": "performance_test_suite",
+        "resultdb": {
+          "enable": true
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimensions": {
+            "os": "Windows-11-26100.1742",
+            "pool": "chrome.tests.perf",
+            "synthetic_product_name": "System Product Name [System Version] (Falcon Northwest)"
           },
           "expiration": 7200,
           "hard_timeout": 14400,

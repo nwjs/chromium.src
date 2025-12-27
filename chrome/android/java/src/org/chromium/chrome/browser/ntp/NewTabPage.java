@@ -73,10 +73,12 @@ import org.chromium.chrome.browser.metrics.StartupMetricsTracker;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinatorFactory;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundImageType;
 import org.chromium.chrome.browser.ntp_customization.edge_to_edge.TopInsetCoordinator;
-import org.chromium.chrome.browser.ntp_customization.theme.BackgroundImageInfo;
+import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorInfo;
+import org.chromium.chrome.browser.ntp_customization.theme.upload_image.BackgroundImageInfo;
 import org.chromium.chrome.browser.omnibox.OmniboxFocusReason;
 import org.chromium.chrome.browser.omnibox.OmniboxStub;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
@@ -122,6 +124,7 @@ import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
+import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.search_engines.TemplateUrlService.TemplateUrlServiceObserver;
@@ -219,6 +222,8 @@ public class NewTabPage
     private NtpCustomizationConfigManager.@org.chromium.build.annotations.Nullable
             HomepageStateListener
             mHomepageStateListener;
+    // A flag to use light tint on toolbar and status bar icons.
+    private boolean mUseLightIconTint;
 
     private @Nullable SearchResumptionModuleCoordinator mSearchResumptionModuleCoordinator;
     private @Nullable NtpSmoothTransitionDelegate mSmoothTransitionDelegate;
@@ -395,7 +400,10 @@ public class NewTabPage
         }
 
         @Override
-        public void focusSearchBox(boolean beginVoiceSearch, @Nullable String pastedText) {
+        public void focusSearchBox(
+                boolean beginVoiceSearch,
+                @AutocompleteRequestType int requestType,
+                @Nullable String pastedText) {
             if (mIsDestroyed) return;
             FeedReliabilityLogger feedReliabilityLogger =
                     mFeedSurfaceProvider.getReliabilityLogger();
@@ -410,12 +418,17 @@ public class NewTabPage
                 if (feedReliabilityLogger != null) {
                     feedReliabilityLogger.onOmniboxFocused();
                 }
-                mOmniboxStub.setUrlBarFocus(
-                        true,
-                        pastedText,
+
+                @OmniboxFocusReason
+                int focusReason =
                         pastedText == null
                                 ? OmniboxFocusReason.FAKE_BOX_TAP
-                                : OmniboxFocusReason.FAKE_BOX_LONG_PRESS);
+                                : OmniboxFocusReason.FAKE_BOX_LONG_PRESS;
+                if (requestType == AutocompleteRequestType.AI_MODE) {
+                    focusReason = OmniboxFocusReason.NTP_AI_MODE;
+                }
+
+                mOmniboxStub.setUrlBarFocus(true, pastedText, focusReason, requestType);
             }
         }
 
@@ -657,6 +670,7 @@ public class NewTabPage
         if (mCanSupportEdgeToEdgeForCustomizedTheme) {
             initTopInsetCoordinatorObserver();
             initHomepageStateListener();
+            initUseLightIconTint();
         }
 
         NewTabPageUma.recordContentSuggestionsDisplayStatus(profile);
@@ -818,8 +832,9 @@ public class NewTabPage
                             Bitmap originalBitmap,
                             @Nullable BackgroundImageInfo backgroundImageInfo,
                             boolean fromInitialization,
-                            int oldType,
-                            int newType) {
+                            @NtpBackgroundImageType int oldType,
+                            @NtpBackgroundImageType int newType) {
+                        mUseLightIconTint = true;
                         if (NtpCustomizationUtils.shouldApplyWhiteBackgroundOnSearchBox(oldType)) {
                             return;
                         }
@@ -829,10 +844,13 @@ public class NewTabPage
 
                     @Override
                     public void onBackgroundColorChanged(
-                            int backgroundColor,
+                            @Nullable NtpThemeColorInfo ntpThemeColorInfo,
+                            @ColorInt int backgroundColor,
                             boolean fromInitialization,
-                            int oldType,
-                            int newType) {
+                            @NtpBackgroundImageType int oldType,
+                            @NtpBackgroundImageType int newType) {
+                        mUseLightIconTint = false;
+
                         if (!NtpCustomizationUtils.shouldApplyWhiteBackgroundOnSearchBox(oldType)) {
                             return;
                         }
@@ -842,6 +860,20 @@ public class NewTabPage
                     }
                 };
         NtpCustomizationConfigManager.getInstance().addListener(mHomepageStateListener, mContext);
+    }
+
+    /** Initializes whether to use a light tint color on icons of toolbar and status bar. */
+    private void initUseLightIconTint() {
+        if (mIsTablet) return;
+
+        @NtpBackgroundImageType
+        int imageType = NtpCustomizationConfigManager.getInstance().getBackgroundImageType();
+        if (imageType == NtpBackgroundImageType.IMAGE_FROM_DISK
+                || imageType == NtpBackgroundImageType.THEME_COLLECTION) {
+            mUseLightIconTint = true;
+        } else {
+            mUseLightIconTint = false;
+        }
     }
 
     /**
@@ -1120,7 +1152,6 @@ public class NewTabPage
      *     extras.
      * @param key The string previously used to tag this piece of data.
      * @return The value previously stored with the given key.
-     *     <p>TODO(crbug.com/40618119): Refactor this to be reusable across NativePage components.
      */
     public static String getStringFromNavigationEntry(Tab tab, String key) {
         if (tab.getWebContents() == null) return "";
@@ -1218,6 +1249,11 @@ public class NewTabPage
     @Override
     public int getBackgroundColor() {
         return mBackgroundColor;
+    }
+
+    @Override
+    public boolean useLightIconTint() {
+        return mUseLightIconTint;
     }
 
     @Override
@@ -1539,7 +1575,8 @@ public class NewTabPage
     @Override
     public void customizeSettings() {
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION)) {
-            new NtpCustomizationCoordinator(
+            NtpCustomizationCoordinatorFactory.getInstance()
+                    .create(
                             mContext,
                             mBottomSheetController,
                             mTab::getProfile,

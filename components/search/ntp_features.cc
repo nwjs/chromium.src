@@ -37,7 +37,12 @@ BASE_FEATURE(kCustomizeChromeSidePanelExtensionsCard,
 
 // If enabled, shows wallpaper search within the Customize Chrome Side Panel.
 // This is a kill switch. Keep indefinitely.
-BASE_FEATURE(kCustomizeChromeWallpaperSearch, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kCustomizeChromeWallpaperSearch,
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 // If enabled, shows entry point on Customize Chrome Side Panel's Appearance
 // page for Wallpaper Search.";
@@ -97,7 +102,7 @@ BASE_FEATURE(kNtpDriveModule, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, the NTP Drive module does not require sync.
 BASE_FEATURE(kNtpDriveModuleHistorySyncRequirement,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, segmentation data will be collected to decide whether or not to
 // show the Drive module.
@@ -253,6 +258,11 @@ BASE_FEATURE(kNtpTabGroupsModuleZeroState,
              "kNtpTabGroupsModuleZeroState",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// If enabled, stale features will be auto-removed from the NTP.
+BASE_FEATURE(kNtpFeatureOptimization,
+             "kNtpFeatureOptimization",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 const char kNtpModuleIgnoredCriteriaThreshold[] =
     "NtpModuleIgnoredCriteriaThreshold";
 const char kNtpModuleIgnoredHaTSDelayTimeParam[] =
@@ -322,6 +332,19 @@ const char kNtpMobilePromoTargetUrlParam[] = "NtpMobilePromoTargetUrlParam";
 const base::FeatureParam<bool> kNtpNextShowStaticTextParam(
     &ntp_features::kNtpNextFeatures,
     "NtpNextShowStaticTextParam",
+    false);
+const base::FeatureParam<bool> kNtpNextShowDeepDiveSuggestionsParam(
+    &ntp_features::kNtpNextFeatures,
+    "NtpNextShowDeepDiveSuggestionsParam",
+    false);
+const base::FeatureParam<bool>
+    kNtpNextSuggestionsFromNewSearchSuggestionsEndpointParam(
+        &ntp_features::kNtpNextFeatures,
+        "NtpNextSuggestionsFromNewSearchSuggestionsEndpointParam",
+        false);
+const base::FeatureParam<bool> kNtpNextShowSimplificationUIParam(
+    &ntp_features::kNtpNextFeatures,
+    "NtpNextShowSimplificationUIParam",
     false);
 const base::FeatureParam<int> kMaxTilesBeforeShowMore{
     &ntp_features::kNtpNextFeatures, "max_tiles_before_show_more", 5};
@@ -435,6 +458,31 @@ const base::FeatureParam<size_t> kNtpTabGroupsModuleMaxGroupCountParam(
     &ntp_features::kNtpTabGroupsModule,
     "kNtpTabGroupsModuleMaxGroupCountParam",
     4);
+
+const base::FeatureParam<bool> kEnableStaleShortcutsAutoRemoval(
+    &ntp_features::kNtpFeatureOptimization,
+    "EnableStaleShortcutsAutoRemoval",
+    false);
+const base::FeatureParam<bool> kEnableStaleModulesAutoRemoval(
+    &ntp_features::kNtpFeatureOptimization,
+    "EnableStaleModulesAutoRemoval",
+    false);
+const base::FeatureParam<base::TimeDelta> kMinStalenessUpdateTimeInterval(
+    &ntp_features::kNtpFeatureOptimization,
+    "MinStalenessUpdateTimeInterval",
+    base::Days(1));
+const base::FeatureParam<int> kStaleShortcutsCountThreshold(
+    &ntp_features::kNtpFeatureOptimization,
+    "StaleShortcutsCountThreshold",
+    60);
+const base::FeatureParam<int> kStaleModulesCountThreshold(
+    &ntp_features::kNtpFeatureOptimization,
+    "StaleModulesCountThreshold",
+    14);
+const base::FeatureParam<bool> kRemoveDismissModules(
+    &ntp_features::kNtpFeatureOptimization,
+    "RemoveDismissModules",
+    false);
 
 base::TimeDelta GetModulesLoadTimeout() {
   std::string param_value = base::GetFieldTrialParamValueByFeature(

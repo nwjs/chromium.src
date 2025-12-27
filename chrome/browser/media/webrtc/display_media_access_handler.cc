@@ -196,7 +196,7 @@ void DisplayMediaAccessHandler::HandleRequest(
       request.render_process_id, request.render_frame_id);
   if (!rfh || !rfh->IsActive()) {
     std::move(callback).Run(blink::mojom::StreamDevicesSet(),
-                            MediaStreamRequestResult::INVALID_STATE,
+                            MediaStreamRequestResult::FAILED_DUE_TO_SHUTDOWN,
                             /*ui=*/nullptr);
     return;
   }
@@ -204,9 +204,10 @@ void DisplayMediaAccessHandler::HandleRequest(
   if (capture_policy::GetAllowedCaptureLevel(request.security_origin,
                                              web_contents) ==
       AllowedScreenCaptureLevel::kDisallowed) {
-    std::move(callback).Run(blink::mojom::StreamDevicesSet(),
-                            MediaStreamRequestResult::PERMISSION_DENIED,
-                            /*ui=*/nullptr);
+    std::move(callback).Run(
+        blink::mojom::StreamDevicesSet(),
+        MediaStreamRequestResult::CAPTURE_NOT_ALLOWED_BY_POLICY,
+        /*ui=*/nullptr);
     return;
   }
 
@@ -269,9 +270,10 @@ void DisplayMediaAccessHandler::HandleRequest(
       bad_message::ReceivedBadMessage(
           rfh->GetProcess(), bad_message::BadMessageReason::
                                  RFH_DISPLAY_CAPTURE_PERMISSION_MISSING);
-      std::move(callback).Run(blink::mojom::StreamDevicesSet(),
-                              MediaStreamRequestResult::PERMISSION_DENIED,
-                              /*ui=*/nullptr);
+      std::move(callback).Run(
+          blink::mojom::StreamDevicesSet(),
+          MediaStreamRequestResult::CAPTURE_NOT_ALLOWED_BY_POLICY,
+          /*ui=*/nullptr);
       return;
     }
 
@@ -279,15 +281,11 @@ void DisplayMediaAccessHandler::HandleRequest(
     // before sending IPC, but just to be sure double check here as well. This
     // is not treated as a BadMessage because it is possible for the transient
     // user activation to expire between the renderer side check and this check.
-    //
-    // TODO(crbug.com/416448339): Introduce and use a new result value,
-    // MediaStreamRequestResult::NO_TRANSIENT_ACTIVATION. In JS, it should map
-    // to `InvalidStateError`, not to `NotAllowedError`.
     if (!rfh->HasTransientUserActivation() &&
         capture_policy::IsTransientActivationRequiredForGetDisplayMedia(
             web_contents)) {
       std::move(callback).Run(blink::mojom::StreamDevicesSet(),
-                              MediaStreamRequestResult::PERMISSION_DENIED,
+                              MediaStreamRequestResult::NO_TRANSIENT_ACTIVATION,
                               /*ui=*/nullptr);
       return;
     }
@@ -353,7 +351,7 @@ void DisplayMediaAccessHandler::ShowMediaSelectionDialog(
       picker_factory_->CreatePicker(&request);
   if (!picker) {
     std::move(callback).Run(blink::mojom::StreamDevicesSet(),
-                            MediaStreamRequestResult::INVALID_STATE,
+                            MediaStreamRequestResult::NOT_SUPPORTED,
                             /*ui=*/nullptr);
     return;
   }
@@ -474,7 +472,8 @@ void DisplayMediaAccessHandler::ProcessQueuedAccessRequest(
 
   // If Capture is not allowed, then reject.
   if (capture_level == AllowedScreenCaptureLevel::kDisallowed) {
-    RejectRequest(web_contents, MediaStreamRequestResult::PERMISSION_DENIED);
+    RejectRequest(web_contents,
+                  MediaStreamRequestResult::CAPTURE_NOT_ALLOWED_BY_POLICY);
     return;
   }
 
@@ -590,6 +589,17 @@ void DisplayMediaAccessHandler::ProcessQueuedPickerRequest(
       (capture_level != AllowedScreenCaptureLevel::kUnrestricted);
   picker_params.preferred_display_surface =
       pending_request.request.preferred_display_surface;
+#if BUILDFLAG(IS_ANDROID)
+  picker_params.capture_this_tab =
+      pending_request.request.video_type ==
+      blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_THIS_TAB;
+  picker_params.exclude_self_browser_surface =
+      pending_request.request.exclude_self_browser_surface;
+  picker_params.exclude_monitor_type_surfaces =
+      pending_request.request.exclude_monitor_type_surfaces;
+  picker_params.includable_web_contents_filter = includable_web_contents_filter;
+#endif
+
   pending_request.picker->Show(picker_params, std::move(source_lists),
                                std::move(done_callback));
 }
@@ -603,7 +613,8 @@ void DisplayMediaAccessHandler::ProcessQueuedChangeSourceRequest(
   WebContentsMediaCaptureId web_contents_id;
   if (!WebContentsMediaCaptureId::Parse(
           request.requested_video_device_ids.front(), &web_contents_id)) {
-    RejectRequest(web_contents, MediaStreamRequestResult::INVALID_STATE);
+    RejectRequest(web_contents,
+                  MediaStreamRequestResult::INVALID_VIDEO_DEVICE_ID);
     return;
   }
   DesktopMediaID media_id(DesktopMediaID::TYPE_WEB_CONTENTS,
@@ -785,7 +796,7 @@ void DisplayMediaAccessHandler::OnDlpRestrictionChecked(
 
   if (!is_dlp_allowed) {
     RejectRequest(web_contents.get(),
-                  MediaStreamRequestResult::PERMISSION_DENIED);
+                  MediaStreamRequestResult::DLP_PERMISSION_DENIED);
   }
   AcceptRequest(web_contents.get(), media_id);
 }

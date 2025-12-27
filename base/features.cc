@@ -10,6 +10,7 @@
 #include "base/debug/stack_trace.h"
 #include "base/files/file_path.h"
 #include "base/task/sequence_manager/sequence_manager_impl.h"
+#include "base/task/thread_pool/job_task_source.h"
 #include "base/threading/platform_thread.h"
 #include "build/blink_buildflags.h"
 #include "build/buildflag.h"
@@ -138,7 +139,7 @@ BASE_FEATURE(kPartialLowEndModeOnMidRangeDevices,
 
 #if BUILDFLAG(IS_ANDROID)
 // Enable not perceptible binding without cpu priority boosting.
-BASE_FEATURE(kBackgroundNotPerceptibleBinding, FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kBackgroundNotPerceptibleBinding, FEATURE_ENABLED_BY_DEFAULT);
 
 // Whether to use effective binding state to manage child process bindings.
 // ChildProcessConnection will binds at most 2 service connections only,
@@ -159,9 +160,6 @@ BASE_FEATURE(kRebindingChildServiceConnectionController,
 
 // Use a batch API to rebind service connections.
 BASE_FEATURE(kRebindServiceBatchApi, FEATURE_DISABLED_BY_DEFAULT);
-
-// Update child process binding state before unbinding.
-BASE_FEATURE(kUpdateStateBeforeUnbinding, FEATURE_ENABLED_BY_DEFAULT);
 
 // Use ChildServiceConnectionController.isUnbound() instead of isConnected() to
 // check the connection state in ChildProcessConnection.
@@ -202,14 +200,13 @@ bool IsReducePPMsEnabled() {
   return g_is_reduce_ppms_enabled.load(std::memory_order_relaxed);
 }
 
-void Init(EmitThreadControllerProfilerMetadata
-              emit_thread_controller_profiler_metadata) {
+void Init() {
   g_is_reduce_ppms_enabled.store(FeatureList::IsEnabled(kReducePPMs),
                                  std::memory_order_relaxed);
 
   sequence_manager::internal::SequenceManagerImpl::InitializeFeatures();
-  sequence_manager::internal::ThreadController::InitializeFeatures(
-      emit_thread_controller_profiler_metadata);
+  sequence_manager::internal::ThreadController::InitializeFeatures();
+  base::internal::JobTaskSource::InitializeFeatures();
 
   debug::StackTrace::InitializeFeatures();
   FilePath::InitializeFeatures();

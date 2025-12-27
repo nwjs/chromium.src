@@ -27,6 +27,7 @@
 #include "chrome/browser/actor/ui/event_dispatcher.h"
 #include "chrome/browser/page_content_annotations/multi_source_page_context_fetcher.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/search/search.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -37,6 +38,7 @@
 #include "chrome/common/actor/journal_details_builder.h"
 #include "chrome/common/actor/task_id.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/common/webui_url_constants.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/download_item_utils.h"
 #include "content/public/browser/navigation_handle.h"
@@ -49,6 +51,35 @@ namespace {
 void RunLater(base::OnceClosure task) {
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(FROM_HERE,
                                                               std::move(task));
+}
+
+void OnCreateActorTabComplete(
+    actor::ActorTask& task,
+    actor::ActorKeyedService::CreateActorTabCallback callback,
+    actor::AggregatedJournal& journal,
+    tabs::TabInterface* tab) {
+  if (base::FeatureList::IsEnabled(actor::kActorBindCreatedTabToTask) && tab) {
+    task.AddTab(
+        tab->GetHandle(),
+        base::BindOnce(
+            [](actor::ActorKeyedService::CreateActorTabCallback callback,
+               tabs::TabHandle handle, actor::TaskId task_id,
+               base::WeakPtr<actor::AggregatedJournal> journal,
+               actor::mojom::ActionResultPtr result) {
+              if (journal) {
+                journal->Log(
+                    GURL(), task_id, "OnCreateActorTabComplete",
+                    actor::JournalDetailsBuilder()
+                        .Add("AddTab result", actor::ToDebugString(*result))
+                        .Build());
+              }
+              std::move(callback).Run(handle.Get());
+            },
+            std::move(callback), tab->GetHandle(), task.id(),
+            journal.GetWeakPtr()));
+  } else {
+    std::move(callback).Run(tab);
+  }
 }
 
 }  // namespace
@@ -85,6 +116,12 @@ void ActorKeyedService::OnProfileInitializationComplete(Profile* profile) {
 }
 
 ActorKeyedService::~ActorKeyedService() = default;
+
+void ActorKeyedService::Shutdown() {
+  // Ensure all tasks are stopped here so we don't cause them to stop in the
+  // dtor.
+  StopAllTasks(ActorTask::StoppedReason::kShutdown);
+}
 
 // static
 ActorKeyedService* ActorKeyedService::Get(content::BrowserContext* context) {
@@ -133,6 +170,27 @@ void ActorKeyedService::CreateActorTab(TaskId task_id,
   BrowserWindowInterface* window_for_new_tab = nullptr;
   tabs::TabInterface* initiator_tab = initiator_tab_handle.Get();
 
+  // Special case: if the initiator tab is the NTP, no need to create a new
+  // tab, reuse it.
+  if (initiator_tab && search::IsNTPURL(initiator_tab->GetContents()
+                                            ->GetPrimaryMainFrame()
+                                            ->GetLastCommittedURL())) {
+    GetJournal().Log(
+        GURL(), task_id, "CreateActorTab",
+        JournalDetailsBuilder().Add("Return", "Initiator is NTP").Build());
+
+    if (!open_in_background) {
+      TabStripModel* tab_strip_model =
+          initiator_tab->GetBrowserWindowInterface()->GetTabStripModel();
+      tab_strip_model->ActivateTabAt(
+          tab_strip_model->GetIndexOfTab(initiator_tab));
+    }
+
+    OnCreateActorTabComplete(*task, std::move(callback), journal_,
+                             initiator_tab);
+    return;
+  }
+
   // If the initiating tab is still live, create the new tab in the same window.
   if (initiator_tab) {
     if (initiator_tab->IsInNormalWindow()) {
@@ -163,7 +221,7 @@ void ActorKeyedService::CreateActorTab(TaskId task_id,
                              ? WindowOpenDisposition::NEW_BACKGROUND_TAB
                              : WindowOpenDisposition::NEW_FOREGROUND_TAB;
     params.browser = window_for_new_tab;
-    params.window_action = NavigateParams::WindowAction::NO_ACTION;
+    params.window_action = NavigateParams::WindowAction::kNoAction;
 
     if (initiator_tab) {
       int initiator_index =
@@ -180,7 +238,7 @@ void ActorKeyedService::CreateActorTab(TaskId task_id,
     // closed) the tab will be created in a new window.
     // TODO(b/454046200): Reconsider what should happen in this case.
     params.disposition = WindowOpenDisposition::NEW_WINDOW;
-    params.window_action = NavigateParams::WindowAction::SHOW_WINDOW;
+    params.window_action = NavigateParams::WindowAction::kShowWindow;
   }
 
   base::WeakPtr<content::NavigationHandle> handle = Navigate(&params);
@@ -188,19 +246,24 @@ void ActorKeyedService::CreateActorTab(TaskId task_id,
     GetJournal().Log(
         GURL(), task_id, "CreateActorTab",
         JournalDetailsBuilder().AddError("Failed creating navigation").Build());
-    std::move(callback).Run(nullptr);
+    OnCreateActorTabComplete(*task, std::move(callback), journal_, nullptr);
     return;
   }
 
   content::WebContents* contents = handle->GetWebContents();
   if (!contents) {
-    std::move(callback).Run(nullptr);
+    GetJournal().Log(GURL(), task_id, "CreateActorTab",
+                     JournalDetailsBuilder()
+                         .AddError("Navigation missing WebContents")
+                         .Build());
+    OnCreateActorTabComplete(*task, std::move(callback), journal_, nullptr);
     return;
   }
 
   // It might be good to wait for this navigation to finish but given we're
   // navigating to about:blank it probably doesn't matter in practice.
-  std::move(callback).Run(tabs::TabInterface::GetFromContents(contents));
+  OnCreateActorTabComplete(*task, std::move(callback), journal_,
+                           tabs::TabInterface::GetFromContents(contents));
 }
 
 base::WeakPtr<ActorKeyedService> ActorKeyedService::GetWeakPtr() {
@@ -213,7 +276,7 @@ TaskId ActorKeyedService::AddActiveTask(std::unique_ptr<ActorTask> task) {
   task->SetId(base::PassKey<ActorKeyedService>(), task_id);
   task->GetExecutionEngine()->SetOwner(task.get());
   // Notify of task creation now that the task id is set.
-  NotifyTaskStateChanged(*task);
+  NotifyTaskStateChanged(task->id(), task->GetState());
   active_tasks_[task_id] = std::move(task);
   return task_id;
 }
@@ -228,21 +291,11 @@ const std::map<TaskId, const ActorTask*> ActorKeyedService::GetActiveTasks()
   return active_tasks;
 }
 
-const std::map<TaskId, const ActorTask*> ActorKeyedService::GetInactiveTasks()
-    const {
-  std::map<TaskId, const ActorTask*> inactive_tasks;
-  for (const auto& [id, task] : inactive_tasks_) {
-    inactive_tasks[id] = task.get();
-  }
-  return inactive_tasks;
-}
-
 void ActorKeyedService::ResetForTesting() {
   for (auto it = active_tasks_.begin(); it != active_tasks_.end();) {
     StopTask((it++)->first, ActorTask::StoppedReason::kTaskComplete);
   }
   active_tasks_.clear();
-  inactive_tasks_.clear();
 }
 
 TaskId ActorKeyedService::CreateTask() {
@@ -275,13 +328,14 @@ base::CallbackListSubscription ActorKeyedService::AddTaskStateChangedCallback(
   return tab_state_change_callback_list_.Add(std::move(callback));
 }
 
-void ActorKeyedService::NotifyTaskStateChanged(const ActorTask& task) {
-  tab_state_change_callback_list_.Notify(task);
+void ActorKeyedService::NotifyTaskStateChanged(TaskId task_id,
+                                               ActorTask::State state) {
+  tab_state_change_callback_list_.Notify(task_id, state);
 }
 
 void ActorKeyedService::OnActOnWebCapabilityChanged(bool can_act_on_web) {
   if (!can_act_on_web) {
-    FailAllTasks();
+    StopAllTasks(ActorTask::StoppedReason::kChromeFailure);
   }
   act_on_web_capability_changed_callback_list_.Notify(can_act_on_web);
 }
@@ -332,50 +386,62 @@ void ActorKeyedService::RequestTabObservation(
              const GURL& last_committed_url,
              page_content_annotations::FetchPageContextResultCallbackArg
                  result) {
-            if (!result.has_value()) {
-              std::move(callback).Run(base::unexpected(absl::StrFormat(
-                  "Failed Observation: code[%s] message[%s]",
-                  page_content_annotations::ToString(result.error().error_code),
-                  result.error().message)));
-              return;
-            }
+            if (result.has_value() &&
+                result.value()->annotated_page_content_result.has_value() &&
+                result.value()->screenshot_result.has_value()) {
+              auto& fetch_result = **result;
+              size_t size = fetch_result.annotated_page_content_result->proto
+                                .ByteSizeLong();
+              std::vector<uint8_t> buffer(size);
+              fetch_result.annotated_page_content_result->proto
+                  .SerializeToArray(buffer.data(), size);
+              pending_journal_entry->GetJournal().LogAnnotatedPageContent(
+                  last_committed_url, pending_journal_entry->GetTaskId(),
+                  buffer);
 
-            // Context for actor observations should always have an APC and a
-            // screenshot, return failure if either is missing.
-            auto& fetch_result = **result;
-            bool has_apc =
-                fetch_result.annotated_page_content_result.has_value();
-            bool has_screenshot = fetch_result.screenshot_result.has_value();
-            if (!has_apc || !has_screenshot) {
-              std::move(callback).Run(base::unexpected(absl::StrFormat(
-                  "Failed Observation: APC[%g] screenshot[%s]", has_apc,
-                  fetch_result.screenshot_result.has_value()
-                      ? std::string("OK")
-                      : fetch_result.screenshot_result.error())));
-              return;
-            }
-
-            size_t size = fetch_result.annotated_page_content_result->proto
-                              .ByteSizeLong();
-            std::vector<uint8_t> buffer(size);
-            fetch_result.annotated_page_content_result->proto.SerializeToArray(
-                buffer.data(), size);
-            pending_journal_entry->GetJournal().LogAnnotatedPageContent(
-                last_committed_url, pending_journal_entry->GetTaskId(), buffer);
-
-            auto& data = fetch_result.screenshot_result->screenshot_data;
-            pending_journal_entry->GetJournal().LogScreenshot(
-                last_committed_url, pending_journal_entry->GetTaskId(),
-                fetch_result.screenshot_result->mime_type, base::as_byte_span(data));
-            if (tab) {
-              actor::ActorTabData::From(tab.get())->DidObserveContent(
-                  fetch_result.annotated_page_content_result->proto);
+              auto& data = fetch_result.screenshot_result->screenshot_data;
+              pending_journal_entry->GetJournal().LogScreenshot(
+                  last_committed_url, pending_journal_entry->GetTaskId(),
+                  fetch_result.screenshot_result->mime_type,
+                  base::as_byte_span(data));
+              if (tab) {
+                actor::ActorTabData::From(tab.get())->DidObserveContent(
+                    fetch_result.annotated_page_content_result->proto);
+              }
             }
 
             std::move(callback).Run(std::move(result).value());
           },
           tab.GetWeakPtr(), std::move(callback), std::move(journal_entry),
           last_committed_url));
+}
+
+//  static
+std::optional<std::string> ActorKeyedService::ExtractErrorMessageIfFailed(
+    const TabObservationResult& result) {
+  if (!result.has_value()) {
+    return absl::StrFormat(
+        "Failed Observation: code[%s] message[%s]",
+        page_content_annotations::ToString(result.error().error_code),
+        result.error().message);
+  }
+
+  page_content_annotations::FetchPageContextResult& fetch_result = **result;
+
+  // Context for actor observations should always have an APC and a screenshot,
+  // return failure if either is missing.
+  bool has_apc = fetch_result.annotated_page_content_result.has_value();
+  bool has_screenshot = fetch_result.screenshot_result.has_value();
+  if (!has_apc || !has_screenshot) {
+    return absl::StrFormat(
+        "Fetch Error: APC[%s] screenshot[%s]",
+        has_apc ? std::string("OK")
+                : fetch_result.annotated_page_content_result.error(),
+        has_screenshot ? std::string("OK")
+                       : fetch_result.screenshot_result.error());
+  }
+
+  return std::nullopt;
 }
 
 void ActorKeyedService::PerformActions(
@@ -428,12 +494,12 @@ void ActorKeyedService::OnActionsFinished(
                           index_of_failed_action, std::move(action_results)));
 }
 
-void ActorKeyedService::FailAllTasks() {
+void ActorKeyedService::StopAllTasks(ActorTask::StoppedReason stop_reason) {
   std::vector<TaskId> tasks_to_stop =
       FindTaskIdsInActive([](const ActorTask& task) { return true; });
-  GetJournal().Log(GURL(), TaskId(), "ActorKeyedService::FailAllTasks", {});
+  GetJournal().Log(GURL(), TaskId(), "ActorKeyedService::StopAllTasks", {});
   for (const auto& task_id : tasks_to_stop) {
-    StopTask(task_id, ActorTask::StoppedReason::kChromeFailure);
+    StopTask(task_id, stop_reason);
   }
 }
 
@@ -448,22 +514,13 @@ void ActorKeyedService::StopTask(TaskId task_id,
 
   auto task = active_tasks_.extract(task_id);
   if (!task.empty()) {
-    if (base::FeatureList::IsEnabled(kActorDoNotStoreCompletedTasks)) {
-      task.mapped()->Stop(stop_reason);
-    } else {
-      auto ret = inactive_tasks_.insert(std::move(task));
-      ret.position->second->Stop(stop_reason);
-    }
+    task.mapped()->Stop(stop_reason);
   }
 }
 
 ActorTask* ActorKeyedService::GetTask(TaskId task_id) {
   auto task = active_tasks_.find(task_id);
   if (task != active_tasks_.end()) {
-    return task->second.get();
-  }
-  task = inactive_tasks_.find(task_id);
-  if (task != inactive_tasks_.end()) {
     return task->second.get();
   }
   return nullptr;
@@ -507,17 +564,6 @@ std::vector<TaskId> ActorKeyedService::FindTaskIdsInActive(
     base::FunctionRef<bool(const ActorTask&)> predicate) const {
   std::vector<TaskId> result;
   for (const auto& [id, task] : active_tasks_) {
-    if (predicate(*task)) {
-      result.push_back(id);
-    }
-  }
-  return result;
-}
-
-std::vector<TaskId> ActorKeyedService::FindTaskIdsInInactive(
-    base::FunctionRef<bool(const ActorTask&)> predicate) const {
-  std::vector<TaskId> result;
-  for (const auto& [id, task] : inactive_tasks_) {
     if (predicate(*task)) {
       result.push_back(id);
     }

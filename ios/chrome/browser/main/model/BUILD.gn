@@ -21,6 +21,7 @@ source_set("model") {
     "//components/breadcrumbs/core:status",
     "//components/data_sharing/public:features",
     "//ios/chrome/browser/app_launcher/model",
+    "//ios/chrome/browser/autocomplete/model",
     "//ios/chrome/browser/browser_view/model",
     "//ios/chrome/browser/bubble/model",
     "//ios/chrome/browser/collaboration/model",
@@ -59,6 +60,7 @@ source_set("model") {
     "//ios/chrome/browser/sync/model:sync_error_browser_agent",
     "//ios/chrome/browser/tab_insertion/model",
     "//ios/chrome/browser/tabs/model",
+    "//ios/chrome/browser/tabs/model:dependency_installer",
     "//ios/chrome/browser/toolbar/ui_bundled/fullscreen",
     "//ios/chrome/browser/url_loading/model",
     "//ios/chrome/browser/view_source/model",
@@ -86,6 +88,7 @@ source_set("unit_tests") {
   deps = [
     ":model",
     "//base/test:test_support",
+    "//ios/chrome/browser/saved_tab_groups/model",
     "//ios/chrome/browser/shared/coordinator/scene/test",
     "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/browser/test:test_support",

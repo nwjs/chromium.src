@@ -48,6 +48,7 @@ group("resources") {
       "history:resources",
       "inspect:resources",
       "key_value_pair_viewer_shared:resources",
+      "legion_internals:resources",
       "lens/overlay:resources",
       "lens/shared:resources",
       "management:resources",
@@ -127,6 +128,10 @@ group("resources") {
       "on_device_translation_internals:resources",
       "signin/history_sync_optin:resources",
     ]
+  }
+
+  if (is_mac || is_win) {
+    public_deps += [ "updater:resources" ]
   }
 
   if (!is_android && !is_chromeos) {

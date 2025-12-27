@@ -8,6 +8,7 @@
 
 #include "base/functional/bind.h"
 #include "base/task/sequenced_task_runner.h"
+#include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/aggregated_journal.h"
 #include "chrome/browser/actor/execution_engine.h"
@@ -31,11 +32,16 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
+#include "pdf/buildflags.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/point_conversions.h"
+
+#if BUILDFLAG(ENABLE_PDF)
+#include "pdf/pdf_features.h"
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 namespace actor {
 
@@ -79,6 +85,20 @@ bool ValidateTargetFrameCandidate(
                               candidate_frame->GetRenderWidgetHost()) {
     return true;
   }
+
+#if BUILDFLAG(ENABLE_PDF)
+  // TODO(b/458776473): Remove once PdfOopif is shipped. The APC is sent
+  // correctly for these pages.
+  if (base::FeatureList::IsEnabled(kActorBypassTOUValidationForGuestView) &&
+      !base::FeatureList::IsEnabled(chrome_pdf::features::kPdfOopif) &&
+      apc_target_frame && !candidate_frame->GetParent() &&
+      !candidate_frame->IsFencedFrameRoot() &&
+      candidate_frame->GetParentOrOuterDocumentOrEmbedder() ==
+          apc_target_frame) {
+    return true;
+  }
+#endif
+
   return false;
 }
 
@@ -121,8 +141,6 @@ mojom::ObservedToolTargetPtr ToMojoObservedToolTarget(
         visible_box_origin_point,
         {content_attributes.geometry().visible_bounding_box().width(),
          content_attributes.geometry().visible_bounding_box().height()});
-    observed_target->node_attribute->geometry->is_fixed_or_sticky_position =
-        content_attributes.geometry().is_fixed_or_sticky_position();
   }
   return observed_target;
 }
@@ -149,7 +167,8 @@ class RenderFrameChangeObserver : public WebContentsObserver {
     }
 
     if (old_host && old_host->GetGlobalId() == rfh_id_) {
-      std::move(on_frame_navigated_callback_).Run();
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE, std::move(on_frame_navigated_callback_));
     }
   }
   void RenderFrameDeleted(RenderFrameHost* rfh) override {
@@ -159,7 +178,8 @@ class RenderFrameChangeObserver : public WebContentsObserver {
     // the crashed frame because the screenshot does not include the sad tab
     // WebUI.
     if (rfh->GetGlobalId() == rfh_id_) {
-      std::move(on_frame_process_gone_callback_).Run();
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE, std::move(on_frame_process_gone_callback_));
     }
   }
 
@@ -176,7 +196,7 @@ PageTool::PageTool(TaskId task_id,
 
 PageTool::~PageTool() = default;
 
-void PageTool::Validate(ValidateCallback callback) {
+void PageTool::Validate(ToolCallback callback) {
   // No browser-side validation yet.
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(std::move(callback), MakeOkResult()));
@@ -210,20 +230,15 @@ mojom::ActionResultPtr PageTool::TimeOfUseValidation(
   std::optional<TargetNodeInfo> observed_target_node_info;
   if (std::holds_alternative<gfx::Point>(request_->GetTarget())) {
     gfx::Point hit_test_target;
-    if (base::FeatureList::IsEnabled(
-            features::kGlicActorTransformCoordinates)) {
-      // Convert target coordinate from DIPs to screen pixels.
-      display::Screen* screen = display::Screen::Get();
-      float scale_factor =
-          screen
-              ->GetPreferredScaleFactorForWindow(
-                  tab->GetContents()->GetTopLevelNativeWindow())
-              .value();
-      hit_test_target = gfx::ScaleToRoundedPoint(
-          std::get<gfx::Point>(request_->GetTarget()), scale_factor);
-    } else {
-      hit_test_target = std::get<gfx::Point>(request_->GetTarget());
-    }
+
+    // Convert target coordinate from DIPs to screen pixels.
+    display::Screen* screen = display::Screen::Get();
+    float scale_factor = screen
+                             ->GetPreferredScaleFactorForWindow(
+                                 tab->GetContents()->GetTopLevelNativeWindow())
+                             .value();
+    hit_test_target = gfx::ScaleToRoundedPoint(
+        std::get<gfx::Point>(request_->GetTarget()), scale_factor);
 
     // TODO(crbug.com/426021822): FindNodeAtPoint does not handle corner cases
     // like clip paths. Need more checks to ensure we don't drop actions
@@ -264,7 +279,7 @@ mojom::ActionResultPtr PageTool::TimeOfUseValidation(
   return MakeOkResult();
 }
 
-void PageTool::Invoke(InvokeCallback callback) {
+void PageTool::Invoke(ToolCallback callback) {
   // Frame was validated in TimeOfUseValidation.
   CHECK(GetFrame());
   RenderFrameHost& frame = *GetFrame();
@@ -325,7 +340,19 @@ void PageTool::Invoke(InvokeCallback callback) {
 
   chrome_render_frame_->InvokeTool(
       std::move(invocation),
-      base::BindOnce(&PageTool::FinishInvoke, base::Unretained(this)));
+      base::BindOnce(&PageTool::FinishInvoke, weak_ptr_factory_.GetWeakPtr()));
+}
+
+void PageTool::Cancel() {
+  if (chrome_render_frame_.is_bound()) {
+    journal().Log(JournalURL(), task_id(), "PageTool::Cancel",
+                  JournalDetailsBuilder()
+                      .Add("tab_handle", request_->GetTabHandle())
+                      .Build());
+
+    chrome_render_frame_->CancelTool(task_id());
+  }
+  FinishInvoke(MakeResult(mojom::ActionResultCode::kInvokeCanceled));
 }
 
 std::string PageTool::DebugString() const {
@@ -363,7 +390,7 @@ std::unique_ptr<ObservationDelayController> PageTool::GetObservationDelayer(
 }
 
 void PageTool::UpdateTaskBeforeInvoke(ActorTask& task,
-                                      InvokeCallback callback) const {
+                                      ToolCallback callback) const {
   task.AddTab(request_->GetTabHandle(), std::move(callback));
 }
 
@@ -387,10 +414,26 @@ void PageTool::OnRenderFrameHostChanged() {
 }
 
 void PageTool::OnRenderFrameGone() {
-  FinishInvoke(MakeResult(mojom::ActionResultCode::kFrameWentAway));
+  auto* tab_interface = request_->GetTabHandle().Get();
+
+  mojom::ActionResultCode result_code = mojom::ActionResultCode::kFrameWentAway;
+  if (!tab_interface || tab_interface->GetContents()->IsBeingDestroyed()) {
+    result_code = mojom::ActionResultCode::kTabWentAway;
+  } else if (tab_interface->GetContents()->IsCrashed()) {
+    result_code = mojom::ActionResultCode::kRendererCrashed;
+  }
+  FinishInvoke(MakeResult(result_code));
 }
 
 void PageTool::OnTimeout() {
+  if (chrome_render_frame_.is_bound()) {
+    journal().Log(JournalURL(), task_id(), "PageTool::OnTimeout",
+                  JournalDetailsBuilder()
+                      .Add("tab_handle", request_->GetTabHandle())
+                      .Build());
+
+    chrome_render_frame_->CancelTool(task_id());
+  }
   FinishInvoke(MakeResult(mojom::ActionResultCode::kToolTimeout));
 }
 

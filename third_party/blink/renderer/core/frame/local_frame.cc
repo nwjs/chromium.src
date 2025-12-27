@@ -114,14 +114,18 @@
 #include "third_party/blink/renderer/core/dom/ignore_opens_during_unload_count_incrementer.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/editing/editor.h"
+#include "third_party/blink/renderer/core/editing/ephemeral_range.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
 #include "third_party/blink/renderer/core/editing/ime/input_method_controller.h"
 #include "third_party/blink/renderer/core/editing/serializers/create_markup_options.h"
 #include "third_party/blink/renderer/core/editing/serializers/serialization.h"
+#include "third_party/blink/renderer/core/editing/spellcheck/spell_check_requester.h"
 #include "third_party/blink/renderer/core/editing/spellcheck/spell_checker.h"
+#include "third_party/blink/renderer/core/editing/suggestion/text_suggestion_backend_impl.h"
 #include "third_party/blink/renderer/core/editing/suggestion/text_suggestion_controller.h"
 #include "third_party/blink/renderer/core/editing/surrounding_text.h"
 #include "third_party/blink/renderer/core/editing/visible_position.h"
+#include "third_party/blink/renderer/core/editing/visible_selection.h"
 #include "third_party/blink/renderer/core/event_type_names.h"
 #include "third_party/blink/renderer/core/events/message_event.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -398,8 +402,6 @@ const char* DocumentReadyStateToString(
 
 }  // namespace
 
-template class CORE_TEMPLATE_EXPORT Supplement<LocalFrame>;
-
 // static
 LocalFrame* LocalFrame::FromFrameToken(const LocalFrameToken& frame_token) {
   LocalFramesByTokenMap& local_frames_map = GetLocalFramesMap();
@@ -530,8 +532,12 @@ void LocalFrame::Trace(Visitor* visitor) const {
   visitor->Trace(browser_interface_broker_proxy_);
   visitor->Trace(frame_visibility_observers_);
   visitor->Trace(window_controls_overlay_changed_delegate_);
+  visitor->Trace(image_downloader_impl_);
+  visitor->Trace(remote_object_gateway_factory_impl_);
+  visitor->Trace(remote_object_gateway_impl_);
+  visitor->Trace(text_suggestion_backend_impl_);
   Frame::Trace(visitor);
-  Supplementable<LocalFrame>::Trace(visitor);
+  visitor->Trace(dev_tools_frontend_impl_);
 }
 
 bool LocalFrame::IsLocalRoot() const {
@@ -812,7 +818,12 @@ bool LocalFrame::DetachImpl(FrameDetachType type) {
 
   probe::FrameDetachedFromParent(this, type);
 
-  supplements_.clear();
+  image_downloader_impl_ = nullptr;
+  remote_object_gateway_factory_impl_ = nullptr;
+  remote_object_gateway_impl_ = nullptr;
+  text_suggestion_backend_impl_ = nullptr;
+  dev_tools_frontend_impl_ = nullptr;
+
   frame_scheduler_.reset();
   mojo_handler_->DidDetachFrame();
   WeakIdentifierMap<LocalFrame>::NotifyObjectDestroyed(this);
@@ -1766,8 +1777,8 @@ void LocalFrame::ViewportSegmentsChanged(
   // "horizontal-viewport-segments" and "vertical-viewport-segments" features).
   MediaQueryAffectingValueChangedForLocalSubtree(MediaValueChange::kOther);
 
-  // Fullscreen element has its own document and uses the viewport media queries,
-  // so we need to make sure the media queries are re-evaluated.
+  // Fullscreen element has its own document and uses the viewport media
+  // queries, so we need to make sure the media queries are re-evaluated.
   if (Element* fullscreen = Fullscreen::FullscreenElementFrom(*GetDocument())) {
     GetDocument()->GetStyleEngine().MarkAllElementsForStyleRecalc(
         StyleChangeReasonForTracing::Create(style_change_reason::kFullscreen));
@@ -2045,8 +2056,10 @@ LocalFrame::LocalFrame(
   // fenced frames.
   is_frame_created_by_ad_script_ =
       !IsMainFrame() && ad_tracker_ &&
-      ad_tracker_->IsAdScriptInStack(AdTracker::StackType::kBottomAndTop,
-                                     &ad_script_ancestry_);
+      ad_tracker_->IsAdScriptInStack(
+          AdTracker::StackType::kBottomAndTop,
+          /*ignore_monkey_patch=*/AdTracker::MonkeyPatchableApi::kNone,
+          &ad_script_ancestry_);
 
   Initialize();
   // Now that we know whether the frame is provisional, inherit the probe
@@ -2282,7 +2295,7 @@ bool LocalFrame::CanNavigate(const Frame& target_frame,
     if (!target_domain.empty() && !destination_domain.empty() &&
         target_domain == destination_domain &&
         (target_frame.GetSecurityContext()->GetSecurityOrigin()->Protocol() ==
-             destination_url.Protocol())) {
+         destination_url.Protocol())) {
       return true;
     }
 
@@ -2765,8 +2778,12 @@ std::optional<AdScriptIdentifier> LocalFrame::CreationAdScript() const {
 }
 
 void LocalFrame::UpdateAdHighlight() {
-  if (IsMainFrame() && !IsInFencedFrameTree())
+  // Ad highlighting is now primarily handled by `BoxFragmentPainter` on the
+  // owner element. We retain this legacy path solely for fenced frame trees, as
+  // a <fencedframe> owner element does not know its ad status.
+  if (!IsInFencedFrameTree()) {
     return;
+  }
 
   // TODO(bokan): Fenced frames may need some work to propagate the ad
   // highlighting setting to the inner tree.
@@ -2938,38 +2955,37 @@ namespace {
 
 class FrameColorOverlay final : public FrameOverlay::Delegate {
  public:
-  explicit FrameColorOverlay(LocalFrame* frame, SkColor color)
-      : color_(color), frame_(frame) {}
+  explicit FrameColorOverlay(SkColor color) : color_(color) {}
   SkColor GetColor() const { return color_; }
 
  private:
   void PaintFrameOverlay(const FrameOverlay& frame_overlay,
                          GraphicsContext& graphics_context,
-                         const gfx::Size&) const override {
-    const auto* view = frame_->View();
+                         const gfx::Size& view_size) const override {
+    const LocalFrameView* view = frame_overlay.Frame().View();
     DCHECK(view);
-    if (view->Width() == 0 || view->Height() == 0)
+    const gfx::Rect view_rect(view->Size());
+    if (view_rect.IsEmpty()) {
       return;
+    }
+    const LayoutView* layout_view = view->GetLayoutView();
     ScopedPaintChunkProperties properties(
         graphics_context.GetPaintController(),
-        view->GetLayoutView()->FirstFragment().LocalBorderBoxProperties(),
-        frame_overlay, DisplayItem::kFrameOverlay);
+        layout_view->FirstFragment().LocalBorderBoxProperties(), frame_overlay,
+        DisplayItem::kFrameOverlay);
     if (DrawingRecorder::UseCachedDrawingIfPossible(
             graphics_context, frame_overlay, DisplayItem::kFrameOverlay))
       return;
     DrawingRecorder recorder(graphics_context, frame_overlay,
-                             DisplayItem::kFrameOverlay,
-                             gfx::Rect(view->Size()));
-    gfx::RectF rect(0, 0, view->Width(), view->Height());
+                             DisplayItem::kFrameOverlay, view_rect);
     graphics_context.FillRect(
-        rect, Color::FromSkColor(color_),
-        PaintAutoDarkMode(view->GetLayoutView()->StyleRef(),
+        view_rect, Color::FromSkColor(color_),
+        PaintAutoDarkMode(layout_view->StyleRef(),
                           DarkModeFilter::ElementRole::kBackground));
   }
 
   // TODO(https://crbug.com/1351544): This should be an SkColor4f or a Color.
-  SkColor color_;
-  Persistent<LocalFrame> frame_;
+  const SkColor color_;
 };
 
 }  // namespace
@@ -2989,8 +3005,7 @@ struct DowncastTraits<FrameColorOverlay> {
 std::optional<SkColor> LocalFrame::GetFrameOverlayColor() const {
   if (!frame_color_overlay_)
     return std::nullopt;
-  return DynamicTo<FrameColorOverlay>(frame_color_overlay_->GetDelegate())
-      ->GetColor();
+  return To<FrameColorOverlay>(*frame_color_overlay_->GetDelegate()).GetColor();
 }
 
 void LocalFrame::SetFrameColorOverlay(SkColor color) {
@@ -3001,7 +3016,7 @@ void LocalFrame::SetFrameColorOverlay(SkColor color) {
     return;
 
   frame_color_overlay_ = MakeGarbageCollected<FrameOverlay>(
-      this, std::make_unique<FrameColorOverlay>(this, color));
+      this, std::make_unique<FrameColorOverlay>(color));
 }
 
 void LocalFrame::UpdateFrameColorOverlayPrePaint() {
@@ -3087,7 +3102,6 @@ bool LocalFrame::SwapIn() {
   WebLocalFrameClient* client = Client()->GetWebFrame()->Client();
   // Swap in `this`, which is a provisional frame to an existing frame.
   Frame* provisional_owner_frame = GetProvisionalOwnerFrame();
-
 
   // First, check if there's a previous main frame to be used for a main frame
   // LocalFrame <-> LocalFrame swap.
@@ -3218,7 +3232,8 @@ void LocalFrame::RequestExecuteScript(
 
   ScriptState* script_state = ToScriptState(this, *world);
   // TODO(https://crbug.com/435149285): Remove this block and revert back to
-  // CHECK(script_state) once the crash associated with the crbug above is resolved.
+  // CHECK(script_state) once the crash associated with the crbug above is
+  // resolved.
   if (!script_state) {
     SCOPED_CRASH_KEY_STRING256(
         "Blink", "request_execute_script_script",
@@ -3725,9 +3740,7 @@ void LocalFrame::RequestVideoFrameAtWithBoundsHint(
     int max_area,
     base::OnceCallback<void(const SkBitmap&, const gfx::Rect&)> callback) {
   HitTestResult result = HitTestResultForVisualViewportPos(viewport_position);
-  Node* node = result.InnerNode();
-  auto* video = DynamicTo<HTMLVideoElement>(node);
-
+  auto* video = DynamicTo<HTMLVideoElement>(result.InnerNode());
   if (!video) {
     std::move(callback).Run(SkBitmap(), gfx::Rect());
     return;
@@ -3771,9 +3784,7 @@ void LocalFrame::RequestVideoFrameAtWithBoundsHint(
   }
 
   // Get the bounds of the video element.
-  WebNode web_node(node);
-  WebElement web_element = web_node.To<WebElement>();
-  auto bounds = web_element.BoundsInWidget();
+  gfx::Rect bounds = video->BoundsInWidget();
 
   std::move(callback).Run(converted_bitmap, bounds);
 }
@@ -4249,6 +4260,19 @@ void LocalFrame::NotifyFrameVisibilityChanged(
   for (auto observer : frame_visibility_observers_as_vector) {
     observer->FrameVisibilityChanged(visibility);
   }
+}
+
+// TODO(crbug.com/447973489) - Add test coverage for this method
+void LocalFrame::PerformSpellCheck() {
+  ContainerNode* container_node = HighestEditableRoot(
+      Selection().ComputeVisibleSelectionInDOMTree().Start());
+  if (!container_node) {
+    return;
+  }
+
+  const EphemeralRange range(Position(container_node, 0),
+                             Position::LastPositionInNode(*container_node));
+  GetSpellChecker().GetSpellCheckRequester().RequestCheckingFor(range);
 }
 
 }  // namespace blink

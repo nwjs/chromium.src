@@ -13,6 +13,7 @@ android_library("java") {
     "//google_apis/gaia/android:java",
     "//net/android:net_java",
     "//third_party/android_deps:chromium_play_services_availability_java",
+    "//third_party/android_deps:com_google_errorprone_error_prone_annotations_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
     "//third_party/jni_zero:jni_zero_java",
   ]
@@ -109,16 +110,17 @@ generate_jni("test_support_jni_headers") {
   namespace = "signin"
   sources = [
     "java/src/org/chromium/components/signin/test/util/AccountCapabilitiesFetcherTestUtil.java",
+    "java/src/org/chromium/components/signin/test/util/AccountInfoSerializer.java",
     "java/src/org/chromium/components/signin/test/util/AccountManagerFacadeUtil.java",
   ]
 }
 
 android_library("signin_java_test_support") {
   testonly = true
+  srcjar_deps = [ ":test_support_jni_headers" ]
   deps = [
     ":java",
     ":signin_test_resources",
-    ":test_support_jni_headers",
     "//base:base_java",
     "//base:base_java_test_support",
     "//components/cached_flags:java",
@@ -135,12 +137,14 @@ android_library("signin_java_test_support") {
     "java/src/org/chromium/components/signin/test/util/AccountCapabilitiesBuilder.java",
     "java/src/org/chromium/components/signin/test/util/AccountCapabilitiesFetcherTestUtil.java",
     "java/src/org/chromium/components/signin/test/util/AccountHolder.java",
+    "java/src/org/chromium/components/signin/test/util/AccountInfoSerializer.java",
     "java/src/org/chromium/components/signin/test/util/AccountManagerFacadeUtil.java",
     "java/src/org/chromium/components/signin/test/util/FakeAccountInfoService.java",
     "java/src/org/chromium/components/signin/test/util/FakeAccountManagerDelegate.java",
     "java/src/org/chromium/components/signin/test/util/FakeAccountManagerFacade.java",
     "java/src/org/chromium/components/signin/test/util/FakeIdentityManager.java",
     "java/src/org/chromium/components/signin/test/util/FakePlatformAccount.java",
+    "java/src/org/chromium/components/signin/test/util/SharedPrefsAccountStorage.java",
     "java/src/org/chromium/components/signin/test/util/SigninMatchers.java",
     "java/src/org/chromium/components/signin/test/util/TestAccounts.java",
   ]

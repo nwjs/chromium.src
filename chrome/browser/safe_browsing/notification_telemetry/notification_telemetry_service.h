@@ -8,6 +8,8 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
+#include <string>
 
 #include "base/memory/raw_ptr.h"
 #include "base/timer/timer.h"
@@ -123,7 +125,7 @@ class NotificationTelemetryService
       bool allowlisted);
 
   // Used for logging after an upload.
-  void UploadComplete(std::unique_ptr<std::string> response_body);
+  void UploadComplete(std::optional<std::string> response_body);
 
   // Check if a notifications service worker ID matches any of the stored
   // service worker origins.
@@ -145,6 +147,11 @@ class NotificationTelemetryService
   // Removes any duplicate requested urls from a ServiceWorkerBehavior.
   void DedupeRequestedURLs(
       CSBRR::ServiceWorkerBehavior* service_worker_behavior);
+
+  // Normalizes URLs by stripping any query param values. Since query param
+  // values aren't important aspects of the URL, removing them reduces noise
+  // and storage usage.
+  std::vector<GURL> NormalizeURLs(std::vector<GURL> urls);
 
   // Stored service worker info whose size is based on
   // `kNotificationTelemetryServiceWorkerInfoMaxCount`

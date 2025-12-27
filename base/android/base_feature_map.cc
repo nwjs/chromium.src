@@ -22,7 +22,6 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kPostGetMyMemoryStateToBackground,
     &features::kRebindingChildServiceConnectionController,
     &features::kRebindServiceBatchApi,
-    &features::kUpdateStateBeforeUnbinding,
     &features::kUseIsUnboundCheck,
     &features::kUseSharedRebindServiceConnection,
 };
@@ -41,3 +40,5 @@ static jlong JNI_BaseFeatureMap_GetNativeMap(JNIEnv* env) {
 }
 
 }  // namespace base::android
+
+DEFINE_JNI(BaseFeatureMap)

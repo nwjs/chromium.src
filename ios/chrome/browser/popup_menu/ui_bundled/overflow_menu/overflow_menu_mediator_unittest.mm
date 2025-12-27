@@ -66,7 +66,6 @@
 #import "ios/chrome/browser/reading_list/model/reading_list_model_factory.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_test_utils.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
-#import "ios/chrome/browser/settings/ui_bundled/password/password_manager_ui_features.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/prefs/browser_prefs.h"
@@ -129,7 +128,7 @@ constexpr syncer::SyncService::UserActionableError
 // when Sync is turned OFF.
 constexpr syncer::SyncService::UserActionableError
     kIneligibleIdentityErrorWhenSyncOff =
-        syncer::SyncService::UserActionableError::kSignInNeedsUpdate;
+        syncer::SyncService::UserActionableError::kNeedsClientUpgrade;
 
 void CleanupNSUserDefaults() {
   [[NSUserDefaults standardUserDefaults]
@@ -226,9 +225,9 @@ class OverflowMenuMediatorTest : public PlatformTest {
     }
 
     // Set up the OverlayPresenter.
-    OverlayPresenter::FromBrowser(browser_.get(),
-                                  OverlayModality::kWebContentArea)
-        ->SetPresentationContext(&presentation_context_);
+    overlay_presenter_ = OverlayPresenter::FromBrowser(
+        browser_.get(), OverlayModality::kWebContentArea);
+    overlay_presenter_->SetPresentationContext(&presentation_context_);
 
     baseViewController_ = [[UIViewController alloc] init];
 
@@ -243,6 +242,9 @@ class OverflowMenuMediatorTest : public PlatformTest {
     // Explicitly disconnect the mediator so there won't be any WebStateList
     // observers when browser_ gets destroyed.
     [mediator_ disconnect];
+    [orderer_ disconnect];
+    overlay_presenter_->SetPresentationContext(nullptr);
+    overlay_presenter_ = nullptr;
     browser_.reset();
 
     CleanupNSUserDefaults();
@@ -254,6 +256,7 @@ class OverflowMenuMediatorTest : public PlatformTest {
   OverflowMenuMediator* CreateMediator(BOOL incognito) {
     orderer_ = [[OverflowMenuOrderer alloc] initWithIsIncognito:incognito];
     orderer_.model = model_;
+    orderer_.localStatePrefs = localStatePrefs_.get();
 
     mediator_ = [[OverflowMenuMediator alloc] init];
     mediator_.incognito = incognito;
@@ -294,6 +297,12 @@ class OverflowMenuMediatorTest : public PlatformTest {
         prefs::kOverflowMenuDestinationsOrder);
     localStatePrefs_->registry()->RegisterDictionaryPref(
         prefs::kOverflowMenuActionsOrder);
+    localStatePrefs_->registry()->RegisterBooleanPref(
+        prefs::kOverflowMenuDestinationUsageHistoryEnabled, true);
+    localStatePrefs_->registry()->RegisterListPref(
+        prefs::kOverflowMenuHiddenDestinations);
+    localStatePrefs_->registry()->RegisterDictionaryPref(
+        prefs::kOverflowMenuDestinationBadgeData);
   }
 
   void SetUpBookmarks() {
@@ -465,6 +474,7 @@ class OverflowMenuMediatorTest : public PlatformTest {
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   std::unique_ptr<TestProfileIOS> profile_;
   std::unique_ptr<Browser> browser_;
+  raw_ptr<OverlayPresenter> overlay_presenter_ = nullptr;
 
   FakeOverlayPresentationContext presentation_context_;
   OverflowMenuModel* model_;
@@ -901,11 +911,6 @@ TEST_F(OverflowMenuMediatorTest, TestSyncError) {
 // Trusted Vault key for preferred data types is missing. The account is signed.
 TEST_F(OverflowMenuMediatorTest,
        TestTrustedVaultKeyMissingForPreferredDataTypes) {
-  // Enable a flag `kIOSEnablePasswordManagerTrustedVaultWidget` for this test.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      password_manager::features::kIOSEnablePasswordManagerTrustedVaultWidget);
-
   CreateMediator(/*incognito=*/NO);
 
   syncer::MockSyncService syncService;
@@ -929,11 +934,6 @@ TEST_F(OverflowMenuMediatorTest,
 // signed.
 TEST_F(OverflowMenuMediatorTest,
        TestNoErrorBadgeWhenTrustedVaultKeyIsNotMissingForPreferredDataTypes) {
-  // Enable a flag `kIOSEnablePasswordManagerTrustedVaultWidget` for this test.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      password_manager::features::kIOSEnablePasswordManagerTrustedVaultWidget);
-
   CreateMediator(/*incognito=*/NO);
 
   syncer::MockSyncService syncService;

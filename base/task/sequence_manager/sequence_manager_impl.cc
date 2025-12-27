@@ -1084,6 +1084,25 @@ WeakPtr<SequenceManagerImpl> SequenceManagerImpl::GetWeakPtr() {
   return weak_factory_.GetWeakPtr();
 }
 
+// static
+scoped_refptr<SingleThreadTaskRunner>
+SequenceManagerImpl::GetCurrentBestEffortTaskRunner(
+    PassKey<SingleThreadTaskRunner>) {
+  if (SequenceManagerImpl* current = GetCurrent()) {
+    if (std::optional<TaskQueue::QueuePriority> best_effort_priority =
+            current->GetBestEffortPriority()) {
+      // Return the first queue with the right priority.
+      for (internal::TaskQueueImpl* task_queue :
+           current->main_thread_only().active_queues) {
+        if (task_queue->GetQueuePriority() == *best_effort_priority) {
+          return task_queue->task_runner();
+        }
+      }
+    }
+  }
+  return nullptr;
+}
+
 void SequenceManagerImpl::SetDefaultTaskRunner(
     scoped_refptr<SingleThreadTaskRunner> task_runner) {
   controller_->SetDefaultTaskRunner(task_runner);
@@ -1248,19 +1267,18 @@ TaskQueue::QueuePriority SequenceManagerImpl::GetPriorityCount() const {
   return settings().priority_settings.priority_count();
 }
 
-std::vector<std::unique_ptr<TaskQueue::QueueEnabledVoter>>
-SequenceManagerImpl::CreateBestEffortTaskQueueEnabledVoters() {
-  std::vector<std::unique_ptr<TaskQueue::QueueEnabledVoter>> voters;
+std::vector<TaskQueue*> SequenceManagerImpl::GetBestEffortTaskQueues() {
+  std::vector<TaskQueue*> queues;
   if (std::optional<TaskQueue::QueuePriority> best_effort_priority =
           GetBestEffortPriority()) {
     for (internal::TaskQueueImpl* task_queue :
          main_thread_only().active_queues) {
       if (task_queue->GetQueuePriority() == *best_effort_priority) {
-        voters.push_back(task_queue->CreateQueueEnabledVoter());
+        queues.push_back(task_queue);
       }
     }
   }
-  return voters;
+  return queues;
 }
 
 std::optional<TaskQueue::QueuePriority>

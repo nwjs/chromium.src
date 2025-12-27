@@ -89,11 +89,11 @@ class HistorySyncOptinPolicyHelper {
 
 // This is a skeleton for the class that shows the history sync optin screen,
 // potentially after the account management screen.
-// TODO(crbug.com/404806750):Incorporate spinner screens in the flow while we
+// TODO(crbug.com/445926827): Incorporate spinner screens in the flow while we
 // wait for the above necessary information to be fetched.
-// TODO(crbug.com/448049615): Split the functionality of this class into separate classes for
-// History sync and for management. A third class for the browser/picker cases should
-// managed the calls.
+// TODO(crbug.com/448049615): Split the functionality of this class into
+// separate classes for History sync and for management. A third class for the
+// browser/picker cases should managed the calls.
 class HistorySyncOptinHelper {
  public:
   // The two contexts below are mutually exclusive.
@@ -166,14 +166,6 @@ class HistorySyncOptinHelper {
       const AccountInfo& account_info,
       Delegate* delegate,
       LaunchContext launch_context,
-      signin_metrics::AccessPoint access_point);
-
-  // Record metrics for the outcome of the flow.
-  static void RecordMetricsForHistorySyncUserChoice(
-      ScreenChoiceResult user_choice,
-      signin_metrics::AccessPoint access_point);
-  static void RecordMetricsForSkippedHistoryScreen(
-      HistorySyncSkipReason skip_reason,
       signin_metrics::AccessPoint access_point);
 
   virtual ~HistorySyncOptinHelper();

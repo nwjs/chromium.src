@@ -206,6 +206,7 @@ build_webui("build") {
   ]
   ts_deps = [
     "//third_party/lit/v3_0:build_ts",
+    "//ui/webui/resources/cr_components/help_bubble:build_ts",
     "//ui/webui/resources/cr_elements:build_ts",
     "//ui/webui/resources/js:build_ts",
   ]
@@ -215,6 +216,8 @@ build_webui("build") {
   extra_grdp_deps = [ ":build_internal_plugin_grdp" ]
   extra_grdp_files = [ "$target_gen_dir/internal_plugin_resources.grdp" ]
   grd_resource_path_prefix = "pdf"
+
+  eslint_enable_web_component_missing_deps = true
 
   # Optimization parameters
   webui_context_type = "trusted_only"

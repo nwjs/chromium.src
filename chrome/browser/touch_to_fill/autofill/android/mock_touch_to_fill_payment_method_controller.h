@@ -21,6 +21,7 @@
 #include "components/autofill/core/browser/integrators/touch_to_fill/touch_to_fill_delegate.h"
 #include "components/autofill/core/browser/payments/bnpl_util.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
+#include "components/autofill/core/browser/ui/payments/bnpl_tos_controller.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -58,11 +59,16 @@ class MockTouchToFillPaymentMethodController
                base::span<const LoyaltyCard>,
                bool),
               (override));
-  MOCK_METHOD(bool,
-              UpdateBnplPaymentMethod,
-              (std::optional<uint64_t> extracted_amount,
-               bool is_amount_supported_by_any_issuer),
-              (override));
+  MOCK_METHOD(
+      bool,
+      OnPurchaseAmountExtracted,
+      (base::span<const payments::BnplIssuerContext> bnpl_issuer_contexts,
+       std::optional<int64_t> extracted_amount,
+       bool is_amount_supported_by_any_issuer,
+       const std::optional<std::string>& app_locale,
+       base::OnceCallback<void(BnplIssuer)> selected_issuer_callback,
+       base::OnceClosure cancel_callback),
+      (override));
   MOCK_METHOD(bool,
               ShowProgressScreen,
               (std::unique_ptr<TouchToFillPaymentMethodView> view,
@@ -84,9 +90,14 @@ class MockTouchToFillPaymentMethodController
               (override));
   MOCK_METHOD(bool,
               ShowBnplIssuerTos,
-              (const payments::BnplIssuerTosDetail&),
+              (BnplTosModel bnpl_tos_model,
+               base::OnceClosure accept_callback,
+               base::OnceClosure cancel_callback),
               (override));
-  MOCK_METHOD(void, OnDismissed, (JNIEnv*, bool), (override));
+  MOCK_METHOD(void,
+              OnDismissed,
+              (JNIEnv*, bool dismissed_by_user, bool should_reshow),
+              (override));
   MOCK_METHOD(void, ScanCreditCard, (JNIEnv*), (override));
   MOCK_METHOD(void, ShowPaymentMethodSettings, (JNIEnv*), (override));
   MOCK_METHOD(void,
@@ -106,11 +117,11 @@ class MockTouchToFillPaymentMethodController
               LoyaltyCardSuggestionSelected,
               (JNIEnv*, const LoyaltyCard&),
               (override));
-  MOCK_METHOD(void, OnErrorOkPressed, (JNIEnv*), (override));
   MOCK_METHOD(void,
               OnBnplIssuerSuggestionSelected,
               (JNIEnv*, const std::string&),
               (override));
+  MOCK_METHOD(void, OnBnplTosAccepted, (JNIEnv*), (override));
   MOCK_METHOD(int, GetJavaResourceId, (int), (const, override));
   MOCK_METHOD(base::android::ScopedJavaLocalRef<jobject>,
               GetJavaObject,

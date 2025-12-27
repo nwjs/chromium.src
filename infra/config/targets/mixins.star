@@ -1146,7 +1146,7 @@ targets.mixin(
             # to refer to the S23 specifically, while "kalama" is for the entire
             # S23 family.
             "device_type": "dm1q",
-            "device_os": "UP1A.231005.007",
+            "device_os": "AP3A.240905.015.A2",
             "device_os_type": "user",
             "os": "Android",
             "pool": "chromium.tests.gpu",
@@ -1180,6 +1180,21 @@ targets.mixin(
             "display_attached": "1",
             "gpu": "8086:64a0",
             "os": "Windows-11",
+            "pool": "chromium.tests.gpu.experimental",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "gpu_win11_intel_arc_b570_experimental",
+    # We always need this entry to be generated since it is used by
+    # //content/test/gpu/find_bad_machines.py.
+    generate_pyl_entry = targets.IGNORE_UNUSED,
+    swarming = targets.swarming(
+        dimensions = {
+            "display_attached": "1",
+            "gpu": "8086:e20c-32.0.101.8132",
+            "os": "Windows-11-26100",
             "pool": "chromium.tests.gpu.experimental",
         },
     ),
@@ -1343,6 +1358,16 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "ios_beta_test_pool",
+    generate_pyl_entry = False,
+    swarming = targets.swarming(
+        dimensions = {
+            "pool": "chromium.tests.iosbeta",
+        },
+    ),
+)
+
+targets.mixin(
     name = "ios_custom_webkit",
     generate_pyl_entry = False,
     args = [
@@ -1441,13 +1466,13 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "ios_runtime_cache_26_1",
+    name = "ios_runtime_cache_26_2",
     generate_pyl_entry = False,
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "runtime_ios_26_1",
-                path = "Runtime-ios-26.1",
+                name = "runtime_ios_26_2",
+                path = "Runtime-ios-26.2",
             ),
         ],
     ),
@@ -1606,6 +1631,21 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "linux_intel_arc_b570_experimental",
+    # We always need this entry to be generated since it is used by
+    # //content/test/gpu/find_bad_machines.py.
+    generate_pyl_entry = targets.IGNORE_UNUSED,
+    swarming = targets.swarming(
+        dimensions = {
+            "gpu": "8086:e20c-25.0.7",
+            "os": "Ubuntu-24.04",
+            "display_attached": "1",
+            "pool": "chromium.tests.gpu.experimental",
+        },
+    ),
+)
+
+targets.mixin(
     name = "linux_intel_uhd_630_experimental",
     # We always need this entry to be generated since it is used by
     # //content/test/gpu/find_bad_machines.py.
@@ -1684,8 +1724,22 @@ targets.mixin(
     generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
-            "gpu": "10de:2184-440.100|10de:2184-535.183.01",
-            "os": "Ubuntu-18.04.5|Ubuntu-18.04.6|Ubuntu-22.04",
+            "gpu": "10de:2184-535.183.01",
+            "os": "Ubuntu-22.04",
+            "pool": "chromium.tests.gpu",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "linux_nvidia_rtx_4070_super_stable",
+    # We always need this entry to be generated since it is used by
+    # //content/test/gpu/find_bad_machines.py.
+    generate_pyl_entry = targets.IGNORE_UNUSED,
+    swarming = targets.swarming(
+        dimensions = {
+            "gpu": "10de:2783-580.95.05",
+            "os": "Ubuntu-24.04",
             "pool": "chromium.tests.gpu",
         },
     ),
@@ -2087,6 +2141,26 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "mac_retina_amd_555x_gpu_stable",
+    # We always need this entry to be generated since it is used by
+    # //content/test/gpu/find_bad_machines.py.
+    generate_pyl_entry = targets.IGNORE_UNUSED,
+    swarming = targets.swarming(
+        dimensions = {
+            "cpu": "x86-64",
+            "gpu": "1002:67ef",
+            "hidpi": "1",
+            "os": "Mac-14.4.1",
+            "pool": "chromium.tests.gpu",
+            "display_attached": "1",
+        },
+    ),
+)
+
+# TODO(crbug.com/462477380): Switch this to the same as
+# mac_retina_amd_gpu_stable after ANGLE is switched to use
+# mac_retina_amd_555x_gpu_stable.
+targets.mixin(
     name = "mac_retina_amd_gpu_experimental",
     # We always need this entry to be generated since it is used by
     # //content/test/gpu/find_bad_machines.py.
@@ -2173,6 +2247,16 @@ targets.mixin(
             "gpu": "none",
         },
     ),
+)
+
+# Work around failure to clear tombstones on non-rooted devices. This mixin is
+# only valid for builders that only run GTest- and telemetry-based suites.
+targets.mixin(
+    name = "no_tombstones",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
+    args = [
+        "--do-not-store-tombstones",
+    ],
 )
 
 targets.mixin(
@@ -2321,6 +2405,12 @@ targets.mixin(
         "--record-video",
         "failed_only",
     ],
+)
+
+targets.mixin(
+    name = "retry_only_failed_tests",
+    generate_pyl_entry = False,
+    retry_only_failed_tests = True,
 )
 
 targets.mixin(
@@ -2611,6 +2701,7 @@ targets.mixin(
     swarming = targets.swarming(
         dimensions = {
             "display_attached": "1",
+            "screen_scaling_percent": "100",
             "cpu": "arm64",
             "gpu": "qcom:0c36-31.0.121.1",
             "os": "Windows-11-26100",
@@ -2860,12 +2951,12 @@ targets.mixin(
     generate_pyl_entry = False,
     args = [
         "--xcode-build-version",
-        "17b5045g",
+        "17c5013i",
     ],
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "xcode_ios_17b5045g",
+                name = "xcode_ios_17c5013i",
                 path = "Xcode.app",
             ),
         ],
@@ -2876,12 +2967,12 @@ targets.mixin(
     name = "xcode_26_main",
     args = [
         "--xcode-build-version",
-        "17a324",
+        "17a400",
     ],
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "xcode_ios_17a324",
+                name = "xcode_ios_17a400",
                 path = "Xcode.app",
             ),
         ],

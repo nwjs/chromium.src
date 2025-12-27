@@ -293,6 +293,7 @@ class ComputedStyle final : public ComputedStyleBase {
   friend class css_longhand::ColumnRuleWidth;
   friend class css_longhand::OutlineWidth;
   friend class ComputedStylePropertyMap;
+  friend class LengthPropertyFunctions;
   // Access to private Appearance() and HasAppearance().
   friend class LayoutTheme;
   friend class StyleAdjuster;
@@ -511,7 +512,7 @@ class ComputedStyle final : public ComputedStyleBase {
   }
 
   bool MayUseImplicitAnchor() const {
-    return !PositionAnchor() && HasOutOfFlowPosition() &&
+    return PositionAnchor().IsAuto() && HasOutOfFlowPosition() &&
            (HasAnchorFunctions() ||
             AlignSelf().GetPosition() == ItemPosition::kAnchorCenter ||
             JustifySelf().GetPosition() == ItemPosition::kAnchorCenter);
@@ -992,7 +993,7 @@ class ComputedStyle final : public ComputedStyleBase {
   bool NonInheritedEqual(const ComputedStyle&) const;
   inline bool IndependentInheritedEqual(const ComputedStyle&) const;
   inline bool NonIndependentInheritedEqual(const ComputedStyle&) const;
-  bool InheritedDataShared(const ComputedStyle&) const;
+  bool InheritedEqualIncludingInheritedVariables(const ComputedStyle&) const;
 
   bool HasChildDependentFlags() const { return ChildHasExplicitInheritance(); }
   void CopyChildDependentFlagsFrom(const ComputedStyle&) const;
@@ -1160,20 +1161,26 @@ class ComputedStyle final : public ComputedStyleBase {
     return ComputedGridTemplate(SpecifiedGridTemplateRows());
   }
 
-  // Masonry utility functions.
-  GridTrackSizingDirection MasonryTrackSizingDirection() const {
-    switch (MasonryDirection()) {
-      case EMasonryDirection::kColumn:
-      case EMasonryDirection::kColumnReverse:
+  // Grid Lanes utility functions.
+  GridTrackSizingDirection GridLanesTrackSizingDirection() const {
+    switch (GridLanesDirection()) {
+      case EGridLanesDirection::kColumn:
+      case EGridLanesDirection::kColumnReverse:
         return kForColumns;
-      case EMasonryDirection::kRow:
-      case EMasonryDirection::kRowReverse:
+      case EGridLanesDirection::kRow:
+      case EGridLanesDirection::kRowReverse:
         return kForRows;
     }
     NOTREACHED();
   }
 
-  // Grid axis utility functions, usable in Grid and Masonry.
+  bool IsReverseGridLanesDirection() const {
+    const auto grid_lanes_direction = GridLanesDirection();
+    return (grid_lanes_direction == EGridLanesDirection::kColumnReverse ||
+            grid_lanes_direction == EGridLanesDirection::kRowReverse);
+  }
+
+  // Grid axis utility functions, usable in Grid and Grid Lanes.
   const GridTrackList& AutoTracks(
       GridTrackSizingDirection track_direction) const {
     return (track_direction == kForColumns) ? GridAutoColumns()
@@ -1498,7 +1505,11 @@ class ComputedStyle final : public ComputedStyleBase {
   // HasOutline is insufficient to determine whether Node has an outline.
   // Use HasPaintedOutline() instead.
   bool HasOutline() const {
-    return OutlineWidth() > 0 && OutlineStyle() > EBorderStyle::kHidden;
+    if (OutlineWidth() <= 0) {
+      return OutlineStyleIsAuto() &&
+             RuntimeEnabledFeatures::OutlineDrawAutoStyleZeroWidthEnabled();
+    }
+    return OutlineStyle() > EBorderStyle::kHidden;
   }
   bool HasOutlineWithCurrentColor() const {
     return HasOutline() && OutlineColor().DependsOnCurrentColor();
@@ -1614,16 +1625,10 @@ class ComputedStyle final : public ComputedStyleBase {
 
     if (container_type & kContainerTypeInlineSize) {
       effective |= kContainsStyle;
-      if (!RuntimeEnabledFeatures::ContainerTypeNoLayoutContainmentEnabled()) {
-        effective |= kContainsLayout;
-      }
       effective |= kContainsInlineSize;
     }
     if (container_type & kContainerTypeBlockSize) {
       effective |= kContainsStyle;
-      if (!RuntimeEnabledFeatures::ContainerTypeNoLayoutContainmentEnabled()) {
-        effective |= kContainsLayout;
-      }
       effective |= kContainsBlockSize;
     }
     if (container_type & kContainerTypeAnchored) {
@@ -1729,7 +1734,9 @@ class ComputedStyle final : public ComputedStyleBase {
   bool IsDisplayTableBox() const { return IsDisplayTableBox(Display()); }
   bool IsDisplayFlexibleBox() const { return IsDisplayFlexibleBox(Display()); }
   bool IsDisplayGridBox() const { return IsDisplayGridBox(Display()); }
-  bool IsDisplayMasonryBox() const { return IsDisplayMasonryBox(Display()); }
+  bool IsDisplayGridLanesBox() const {
+    return IsDisplayGridLanesBox(Display());
+  }
   bool IsDisplayFlexibleOrGridBox() const {
     return IsDisplayFlexibleBox(Display()) || IsDisplayGridBox(Display());
   }
@@ -1742,7 +1749,7 @@ class ComputedStyle final : public ComputedStyleBase {
   bool IsDisplayMathType() const { return IsDisplayMathBox(Display()); }
 
   bool BlockifiesChildren() const {
-    return IsDisplayFlexibleOrGridBox() || IsDisplayMasonryBox() ||
+    return IsDisplayFlexibleOrGridBox() || IsDisplayGridLanesBox() ||
            IsDisplayMathType() || IsDisplayLayoutCustomBox() ||
            (Display() == EDisplay::kContents && IsInBlockifyingDisplay());
   }
@@ -2470,6 +2477,10 @@ class ComputedStyle final : public ComputedStyleBase {
         pseudo == kPseudoIdScrollButtonBlockEnd) {
       return HasPseudoElementStyle(kPseudoIdScrollButton);
     }
+    if (pseudo == kPseudoIdOverscrollClientArea ||
+        pseudo == kPseudoIdOverscrollAreaParent) {
+      return HasOverscrollArea();
+    }
     if (!HasPseudoElementStyle(pseudo)) {
       return false;
     }
@@ -2490,6 +2501,10 @@ class ComputedStyle final : public ComputedStyleBase {
 
   bool HasScrollMarkerGroupAfter() const {
     return GetScrollMarkerGroup() && GetScrollMarkerGroup()->PositionAfter();
+  }
+
+  bool HasOverscrollArea() const {
+    return OverscrollArea() && !OverscrollArea()->GetNames().empty();
   }
 
   // Empty value means scroll-marker-group: none.
@@ -2628,8 +2643,9 @@ class ComputedStyle final : public ComputedStyleBase {
     return display == EDisplay::kGrid || display == EDisplay::kInlineGrid;
   }
 
-  static bool IsDisplayMasonryBox(EDisplay display) {
-    return display == EDisplay::kMasonry || display == EDisplay::kInlineMasonry;
+  static bool IsDisplayGridLanesBox(EDisplay display) {
+    return display == EDisplay::kGridLanes ||
+           display == EDisplay::kInlineGridLanes;
   }
 
   static bool IsDisplayMathBox(EDisplay display) {
@@ -2647,7 +2663,7 @@ class ComputedStyle final : public ComputedStyleBase {
            display == EDisplay::kInlineFlowRootListItem ||
            display == EDisplay::kInlineGrid ||
            display == EDisplay::kInlineLayoutCustom ||
-           display == EDisplay::kInlineMasonry ||
+           display == EDisplay::kInlineGridLanes ||
            display == EDisplay::kInlineTable || display == EDisplay::kMath ||
            display == EDisplay::kWebkitInlineBox;
   }
@@ -2670,14 +2686,14 @@ class ComputedStyle final : public ComputedStyleBase {
            display == EDisplay::kTableCaption;
   }
 
-  static GridTrackSizingDirection MasonryTrackSizingDirection(
-      EMasonryDirection direction) {
+  static GridTrackSizingDirection GridLanesTrackSizingDirection(
+      EGridLanesDirection direction) {
     switch (direction) {
-      case EMasonryDirection::kColumn:
-      case EMasonryDirection::kColumnReverse:
+      case EGridLanesDirection::kColumn:
+      case EGridLanesDirection::kColumnReverse:
         return kForColumns;
-      case EMasonryDirection::kRow:
-      case EMasonryDirection::kRowReverse:
+      case EGridLanesDirection::kRow:
+      case EGridLanesDirection::kRowReverse:
         return kForRows;
     }
     NOTREACHED();
@@ -2890,6 +2906,7 @@ class ComputedStyleBuilder final : public ComputedStyleBuilderBase {
   // Access to Appearance().
   friend class LayoutTheme;
   friend class StyleAdjuster;
+  friend class StyleCascade;
   friend class StyleResolverState;
   friend class StyleResolver;
   // Access to UserModify().
@@ -3113,6 +3130,12 @@ class ComputedStyleBuilder final : public ComputedStyleBuilderBase {
   void SetHasAutoColumnHeight() {
     SetHasAutoColumnHeightInternal(true);
     SetColumnHeightInternal(0);
+  }
+
+  void SetFontVariantEmoji(FontVariantEmoji emoji_variant) {
+    FontDescription description(GetFontDescription());
+    description.SetVariantEmoji(emoji_variant);
+    SetFontDescription(description);
   }
 
   // contain

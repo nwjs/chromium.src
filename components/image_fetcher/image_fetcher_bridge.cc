@@ -78,6 +78,10 @@ ScopedJavaLocalRef<jstring> ImageFetcherBridge::GetFilePath(
   std::string url = base::android::ConvertJavaStringToUTF8(j_url);
   SimpleFactoryKey* key =
       simple_factory_key::SimpleFactoryKeyFromJavaHandle(j_simple_factory_key);
+  if (!key) {
+    return nullptr;
+  }
+
   std::string file_path = image_fetcher::GetImageFetcherCachePath(
       key, base::FilePath(kPathPostfix)
                .Append(ImageCache::HashUrlToKey(url))
@@ -113,6 +117,11 @@ void ImageFetcherBridge::FetchImageData(
   params.set_skip_transcoding(true);
   SimpleFactoryKey* key =
       simple_factory_key::SimpleFactoryKeyFromJavaHandle(j_simple_factory_key);
+  if (!key) {
+    OnImageDataFetched(callback, std::string(), RequestMetadata());
+    return;
+  }
+
   image_fetcher::GetImageFetcherService(key)
       ->GetImageFetcher(config)
       ->FetchImageData(
@@ -149,6 +158,11 @@ void ImageFetcherBridge::FetchImage(
 
   SimpleFactoryKey* key =
       simple_factory_key::SimpleFactoryKeyFromJavaHandle(j_simple_factory_key);
+  if (!key) {
+    OnImageFetched(callback, gfx::Image(), RequestMetadata());
+    return;
+  }
+
   image_fetcher::GetImageFetcherService(key)
       ->GetImageFetcher(config)
       ->FetchImage(
@@ -196,7 +210,7 @@ void ImageFetcherBridge::ReportTotalFetchTimeFromNative(
 
 // ------------------ JNI functions ------------------
 // static
-ScopedJavaLocalRef<jstring> JNI_ImageFetcherBridge_GetFilePath(
+static ScopedJavaLocalRef<jstring> JNI_ImageFetcherBridge_GetFilePath(
     JNIEnv* j_env,
     const JavaParamRef<jobject>& j_simple_factory_key,
     const JavaParamRef<jstring>& j_url) {
@@ -204,7 +218,7 @@ ScopedJavaLocalRef<jstring> JNI_ImageFetcherBridge_GetFilePath(
 }
 
 // static
-void JNI_ImageFetcherBridge_FetchImageData(
+static void JNI_ImageFetcherBridge_FetchImageData(
     JNIEnv* j_env,
     const JavaParamRef<jobject>& j_simple_factory_key,
     const jint j_image_fetcher_config,
@@ -218,7 +232,7 @@ void JNI_ImageFetcherBridge_FetchImageData(
 }
 
 // static
-void JNI_ImageFetcherBridge_FetchImage(
+static void JNI_ImageFetcherBridge_FetchImage(
     JNIEnv* j_env,
     const JavaParamRef<jobject>& j_simple_factory_key,
     const jint j_image_fetcher_config,
@@ -234,7 +248,7 @@ void JNI_ImageFetcherBridge_FetchImage(
 }
 
 // static
-void JNI_ImageFetcherBridge_ReportEvent(
+static void JNI_ImageFetcherBridge_ReportEvent(
     JNIEnv* j_env,
     const base::android::JavaParamRef<jstring>& j_client_name,
     const jint j_event_id) {
@@ -242,7 +256,7 @@ void JNI_ImageFetcherBridge_ReportEvent(
 }
 
 // static
-void JNI_ImageFetcherBridge_ReportCacheHitTime(
+static void JNI_ImageFetcherBridge_ReportCacheHitTime(
     JNIEnv* j_env,
     const base::android::JavaParamRef<jstring>& j_client_name,
     const jlong start_time_millis) {
@@ -251,7 +265,7 @@ void JNI_ImageFetcherBridge_ReportCacheHitTime(
 }
 
 // static
-void JNI_ImageFetcherBridge_ReportTotalFetchTimeFromNative(
+static void JNI_ImageFetcherBridge_ReportTotalFetchTimeFromNative(
     JNIEnv* j_env,
     const base::android::JavaParamRef<jstring>& j_client_name,
     const jlong start_time_millis) {
@@ -333,3 +347,5 @@ void ImageFetcherBridge::OnImageFetched(
 }
 
 }  // namespace image_fetcher
+
+DEFINE_JNI(ImageFetcherBridge)

@@ -15,6 +15,7 @@
 #include "components/browsing_data/core/pref_names.h"
 #include "components/commerce/core/pref_names.h"
 #include "components/content_settings/core/common/pref_names.h"
+#include "components/desktop_to_mobile_promos/pref_names.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/metrics/demographics/user_demographics.h"
 #include "components/metrics/metrics_pref_names.h"
@@ -156,6 +157,8 @@ enum {
   kCrossDeviceTipsHomeModuleEnabled = 107,
   kCrossDeviceMagicStackHomeModuleEnabled = 108,
   kShowAiModeOmniboxButton = 109,
+  kAutofillAiSyncedOptInStatus = 110,
+  kIOSPromoReminder = 111,
   // See components/sync_preferences/README.md about adding new entries here.
   // vvvvv IMPORTANT! vvvvv
   // Note to the reviewer: IT IS YOUR RESPONSIBILITY to ensure that new syncable
@@ -187,6 +190,9 @@ constexpr auto kCommonSyncablePrefsAllowlist =
         {autofill::prefs::kAutofillAiTravelEntitiesEnabled,
          {syncable_prefs_ids::kAutofillAiTravelEntitiesEnabled,
           syncer::PREFERENCES, PrefSensitivity::kNone, MergeBehavior::kNone}},
+        {autofill::prefs::kAutofillAiSyncedOptInStatus,
+         {syncable_prefs_ids::kAutofillAiSyncedOptInStatus, syncer::PREFERENCES,
+          PrefSensitivity::kNone, MergeBehavior::kNone}},
         {autofill::prefs::kAutofillProfileEnabled,
          {syncable_prefs_ids::kAutofillProfileEnabled, syncer::PREFERENCES,
           PrefSensitivity::kNone, MergeBehavior::kNone}},
@@ -450,6 +456,9 @@ constexpr auto kCommonSyncablePrefsAllowlist =
         {omnibox::kShowAiModeOmniboxButton,
          {syncable_prefs_ids::kShowAiModeOmniboxButton, syncer::PREFERENCES,
           PrefSensitivity::kNone, MergeBehavior::kNone}},
+        {prefs::kIOSPromoReminder,
+         {syncable_prefs_ids::kIOSPromoReminder, syncer::PREFERENCES,
+          PrefSensitivity::kNone, MergeBehavior::kMergeableDict}},
     });
 
 }  // namespace

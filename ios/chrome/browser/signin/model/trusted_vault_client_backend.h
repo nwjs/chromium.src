@@ -85,6 +85,7 @@ class TrustedVaultClientBackend : public KeyedService {
   virtual CancelDialogCallback Reauthentication(
       id<SystemIdentity> identity,
       trusted_vault::SecurityDomainId security_domain_id,
+      trusted_vault::TrustedVaultUserActionTriggerForUMA trigger,
       UIViewController* presenting_view_controller,
       CompletionBlock completion) = 0;
 
@@ -124,7 +125,10 @@ class TrustedVaultClientBackend : public KeyedService {
 
  protected:
   // Functions to notify observers.
-  void NotifyKeysChanged(trusted_vault::SecurityDomainId security_domain_id);
+  void NotifyKeysChanged(
+      trusted_vault::SecurityDomainId security_domain_id,
+      std::optional<trusted_vault::TrustedVaultUserActionTriggerForUMA>
+          trigger);
 
   void NotifyRecoverabilityChanged(
       trusted_vault::SecurityDomainId security_domain_id);

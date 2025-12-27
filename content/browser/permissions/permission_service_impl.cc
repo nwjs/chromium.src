@@ -157,9 +157,17 @@ void PermissionServiceImpl::RegisterPageEmbeddedPermissionControl(
     std::vector<PermissionDescriptorPtr> permissions,
     blink::mojom::EmbeddedPermissionRequestDescriptorPtr descriptor,
     mojo::PendingRemote<EmbeddedPermissionControlClient> observer) {
-  if (!base::FeatureList::IsEnabled(blink::features::kPermissionElement) ||
-      (descriptor->geolocation &&
-       !base::FeatureList::IsEnabled(blink::features::kGeolocationElement))) {
+  if (descriptor->geolocation &&
+      !base::FeatureList::IsEnabled(blink::features::kGeolocationElement)) {
+    bad_message::ReceivedBadMessage(
+        context_->render_frame_host()->GetProcess(),
+        bad_message::PSI_REGISTER_PERMISSION_ELEMENT_WITHOUT_FEATURE);
+    return;
+  }
+
+  if (!descriptor->geolocation &&
+      !base::FeatureList::IsEnabled(blink::features::kPermissionElement) &&
+      !base::FeatureList::IsEnabled(blink::features::kUserMediaElement)) {
     bad_message::ReceivedBadMessage(
         context_->render_frame_host()->GetProcess(),
         bad_message::PSI_REGISTER_PERMISSION_ELEMENT_WITHOUT_FEATURE);
@@ -173,9 +181,9 @@ void PermissionServiceImpl::RegisterPageEmbeddedPermissionControl(
       web_contents->GetPrimaryPage());
   std::set<PermissionName> permission_names;
   for (const auto& permission : permissions) {
-    // Ensure all requested permissions are device permissions and check for
-    // duplicates.
-    if (!PermissionUtil::IsDevicePermission(permission) ||
+    // Check for duplicates, and ensure we're only handling permission types
+    // which can be accessed through embedded controls:
+    if (PermissionUtil::IsEmbeddablePermission(permission) &&
         !permission_names.insert(permission->name).second) {
       ReceivedBadMessage();
       return;
@@ -207,7 +215,11 @@ void PermissionServiceImpl::OnPageEmbeddedPermissionControlRegistered(
   std::vector<PermissionStatus> statuses(permissions.size());
   std::ranges::transform(
       permissions, statuses.begin(), [&](const auto& permission) {
-        return this->GetCombinedPermissionAndDeviceResult(permission).status;
+        bool should_include_device_status =
+            PermissionUtil::IsDevicePermission(permission);
+        return should_include_device_status
+                   ? GetCombinedPermissionAndDeviceResult(permission).status
+                   : GetPermissionResultForCurrentContext(permission).status;
       });
   client->OnEmbeddedPermissionControlRegistered(/*allow=*/true,
                                                 std::move(statuses));
@@ -217,9 +229,9 @@ void PermissionServiceImpl::RequestPageEmbeddedPermission(
     std::vector<PermissionDescriptorPtr> permissions,
     EmbeddedPermissionRequestDescriptorPtr descriptor,
     RequestPageEmbeddedPermissionCallback callback) {
-  if (!base::FeatureList::IsEnabled(blink::features::kPermissionElement) ||
-      (descriptor->geolocation &&
-       !base::FeatureList::IsEnabled(blink::features::kGeolocationElement))) {
+  if (!base::FeatureList::IsEnabled(
+          descriptor->geolocation ? blink::features::kGeolocationElement
+                                  : blink::features::kPermissionElement)) {
     bad_message::ReceivedBadMessage(
         context_->render_frame_host()->GetProcess(),
         bad_message::PSI_REQUEST_EMBEDDED_PERMISSION_WITHOUT_FEATURE);
@@ -388,11 +400,15 @@ void PermissionServiceImpl::AddPageEmbeddedPermissionObserver(
     ReceivedBadMessage();
     return;
   }
+  bool should_include_device_status =
+      PermissionUtil::IsDevicePermission(permission);
   PermissionResult current_result =
-      GetCombinedPermissionAndDeviceResult(permission);
+      should_include_device_status
+          ? GetCombinedPermissionAndDeviceResult(permission)
+          : GetPermissionResultForCurrentContext(permission);
   context_->CreateSubscription(
       permission, origin_, current_result, PermissionResult(last_known_status),
-      /*should_include_device_status=*/true, std::move(observer));
+      should_include_device_status, std::move(observer));
 }
 
 void PermissionServiceImpl::NotifyEventListener(

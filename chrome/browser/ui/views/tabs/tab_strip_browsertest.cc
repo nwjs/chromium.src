@@ -41,6 +41,7 @@
 #include "ui/base/text/bytes_formatting.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event_constants.h"
+#include "ui/gfx/scoped_animation_duration_scale_mode.h"
 #include "ui/views/test/ax_event_counter.h"
 #include "url/gurl.h"
 
@@ -1020,7 +1021,7 @@ IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, AccessibleName) {
   // AccessibleName update with alert on tab
   tab_renderer_data = tab_strip()->tab_at(new_index)->data();
   tab_renderer_data.network_state = TabNetworkState::kLoading;
-  tab_renderer_data.alert_state.push_back(tabs::TabAlert::AUDIO_PLAYING);
+  tab_renderer_data.alert_state.push_back(tabs::TabAlert::kAudioPlaying);
   tab_strip()->tab_at(new_index)->SetData(tab_renderer_data);
   data = ui::AXNodeData();
   tab_strip()->tab_at(new_index)->GetViewAccessibility().GetAccessibleNodeData(

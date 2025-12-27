@@ -44,6 +44,7 @@ class FakeLinuxUi : public LinuxUiAndTheme {
       ui::WindowButtonOrderObserver* observer) override;
   void RemoveWindowButtonOrderObserver(
       ui::WindowButtonOrderObserver* observer) override;
+  bool PrimaryPasteEnabled() const override;
   WindowFrameAction GetWindowFrameAction(
       WindowFrameActionSource source) override;
   std::vector<std::string> GetCmdLineFlagsForCopy() const override;

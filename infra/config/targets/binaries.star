@@ -248,6 +248,13 @@ targets.binaries.console_test_launcher(
 )
 
 targets.binaries.console_test_launcher(
+    name = "base_unittests_android_death_tests",
+    label = "//base:base_unittests_android_death_tests",
+    module_scheme = "gtest",
+    skip_usage_check = True,
+)
+
+targets.binaries.console_test_launcher(
     name = "blink_common_unittests",
     label = "//third_party/blink/common:blink_common_unittests",
     module_scheme = "gtest",
@@ -796,7 +803,6 @@ targets.binaries.script(
             "--smoke-test-mode",
         ],
     ),
-    module_scheme = "flat",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -1709,6 +1715,14 @@ targets.binaries.console_test_launcher(
     name = "mojo_unittests",
     label = "//mojo:mojo_unittests",
     module_scheme = "gtest",
+)
+
+targets.binaries.console_test_launcher(
+    name = "chrome_public_test_ar_apk",
+    label = "//chrome/android:chrome_public_test_ar_apk",
+    # All references have been moved to starlark
+    skip_usage_check = True,
+    module_scheme = "junit",
 )
 
 targets.binaries.generated_script(

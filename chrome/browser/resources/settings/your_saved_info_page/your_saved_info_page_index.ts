@@ -68,9 +68,13 @@ export class SettingsYourSavedInfoPageIndexElement extends
           this.$.viewManager.switchView(
               'parent', 'no-animation', 'no-animation');
           break;
-        case routes.ADDRESSES:
+        case routes.YOUR_SAVED_INFO_CONTACT_INFO:
           this.$.viewManager.switchView(
-              'addresses', 'no-animation', 'no-animation');
+              'contactInfo', 'no-animation', 'no-animation');
+          break;
+        case routes.YOUR_SAVED_INFO_IDENTITY_DOCS:
+          this.$.viewManager.switchView(
+              'identityDocs', 'no-animation', 'no-animation');
           break;
         // <if expr="is_win or is_macosx">
         case routes.PASSKEYS:
@@ -81,6 +85,10 @@ export class SettingsYourSavedInfoPageIndexElement extends
         case routes.PAYMENTS:
           this.$.viewManager.switchView(
               'payments', 'no-animation', 'no-animation');
+          break;
+        case routes.YOUR_SAVED_INFO_TRAVEL:
+          this.$.viewManager.switchView(
+              'travel', 'no-animation', 'no-animation');
           break;
         default:
           // Nothing to do. Other parent elements are responsible for updating

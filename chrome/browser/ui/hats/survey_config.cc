@@ -103,6 +103,7 @@ constexpr char kHatsSurveyTriggerIdentitySwitchProfileFromProfilePicker[] =
     "identity-switch-profile-profile-picker";
 constexpr char kHatsSurveyTriggerLensOverlayResults[] = "lens-overlay-results";
 constexpr char kHatsSurveyTriggerNtpModules[] = "ntp-modules";
+constexpr char kHatsSurveyTriggerNextPanel[] = "next-panel";
 constexpr char kHatsSurveyTriggerNtpPhotosModuleOptOut[] =
     "ntp-photos-module-opt-out";
 constexpr char kHatsSurveyTriggerPasswordChangeCanceled[] =
@@ -121,7 +122,7 @@ constexpr char kHatsSurveyTriggerPrivacyGuide[] = "privacy-guide";
 constexpr char kHatsSurveyTriggerRedWarning[] = "red-warning";
 constexpr char kHatsSurveyTriggerSettings[] = "settings";
 constexpr char kHatsSurveyTriggerSettingsPrivacy[] = "settings-privacy";
-constexpr char kHatsSurveyTriggerSettingsSecurity[] = "settings-security";
+constexpr char kHatsSurveyTriggerSettingsSecurity[] = "settings-security-v2";
 constexpr char kHatsSurveyTriggerTrustSafetyPrivacySettings[] =
     "ts-privacy-settings";
 constexpr char kHatsSurveyTriggerTrustSafetyTrustedSurface[] =
@@ -154,13 +155,6 @@ constexpr char kHatsSurveyTriggerWallpaperSearch[] = "wallpaper-search";
 
 #else   // BUILDFLAG(IS_ANDROID)
 constexpr char kHatsSurveyTriggerAndroidStartupSurvey[] = "startup_survey";
-constexpr char kHatsSurveyTriggerQuickDelete[] = "quick_delete_survey";
-constexpr char kHatsSurveyTriggerClearBrowsingData[] =
-    "clear_browsing_data_survey";
-constexpr char kHatsSurveyTriggerSafetyHubAndroid[] =
-    "safety_hub_android_survey";
-constexpr char kHatsSurveyOrganicTriggerSafetyHubAndroid[] =
-    "safety_hub_android_organic_survey";
 constexpr char kHatsSurveyTriggerSigninFirstRun[] = "signin-first-run";
 constexpr char kHatsSurveyTriggerSigninWeb[] = "signin-web";
 constexpr char kHatsSurveyTriggerSigninNtpAvatar[] = "signin-ntp-avatar";
@@ -313,10 +307,15 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       /*presupplied_trigger_id=*/
       features::kHappinessTrackingSurveysForSecurityPageTriggerId.Get(),
       std::vector<std::string>{},
-      std::vector<std::string>{"Security Page User Action",
-                               "Safe Browsing Setting Before Trigger",
-                               "Safe Browsing Setting After Trigger",
-                               "Client Channel", "Time On Page"});
+      std::vector<std::string>{
+          "Security page user actions",
+          "Safe browsing setting when security page opened",
+          "Security settings bundle setting when security "
+          "page opened",
+          "Safe browsing setting when security page closed",
+          "Security settings bundle setting when security "
+          "page closed",
+          "Client channel", "Time on page (bucketed seconds)"});
   survey_configs.emplace_back(
       &features::kHappinessTrackingSurveysForDesktopPrivacyGuide,
       kHatsSurveyTriggerPrivacyGuide);
@@ -325,6 +324,15 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
   survey_configs.emplace_back(
       &features::kHappinessTrackingSurveysForDesktopNtpModules,
       kHatsSurveyTriggerNtpModules);
+
+  // Next Panel survey.
+  survey_configs.emplace_back(
+      &features::kHappinessTrackingSurveysForDesktopNextPanel,
+      kHatsSurveyTriggerNextPanel,
+      /*presupplied_trigger_id=*/"XWXw3UM1k0ugnJ3q1cK0PKSCtgF3",
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      /*product_specific_string_data_fields=*/
+      std::vector<std::string>{"Experiment ID"});
 
   // History embeddings survey.
   survey_configs.emplace_back(
@@ -531,8 +539,9 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       std::vector<std::string>{}, identity_string_psd_fields);
   survey_configs.emplace_back(
       &switches::kChromeIdentitySurveyProfileMenuDismissed,
-      kHatsSurveyTriggerIdentityProfileMenuDismissed, std::nullopt,
-      std::vector<std::string>{}, identity_string_psd_fields);
+      kHatsSurveyTriggerIdentityProfileMenuDismissed,
+      "AHS3hpM2h0ugnJ3q1cK0TTUsr4mM", std::vector<std::string>{},
+      identity_string_psd_fields);
   survey_configs.emplace_back(&switches::kChromeIdentitySurveyProfileMenuSignin,
                               kHatsSurveyTriggerIdentityProfileMenuSignin,
                               std::nullopt, std::vector<std::string>{},
@@ -559,8 +568,9 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       identity_dismissed_signin_bubble_string_psd_fields);
   survey_configs.emplace_back(
       &switches::kChromeIdentitySurveySwitchProfileFromProfileMenu,
-      kHatsSurveyTriggerIdentitySwitchProfileFromProfileMenu, std::nullopt,
-      std::vector<std::string>{}, identity_string_psd_fields);
+      kHatsSurveyTriggerIdentitySwitchProfileFromProfileMenu,
+      "buPSkStWM0ugnJ3q1cK0RmiQgzK1", std::vector<std::string>{},
+      identity_string_psd_fields);
   survey_configs.emplace_back(
       &switches::kChromeIdentitySurveySwitchProfileFromProfilePicker,
       kHatsSurveyTriggerIdentitySwitchProfileFromProfilePicker, std::nullopt,
@@ -773,28 +783,6 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
 #else  // BUILDFLAG(IS_ANDROID)
   survey_configs.emplace_back(&chrome::android::kChromeSurveyNextAndroid,
                               kHatsSurveyTriggerAndroidStartupSurvey);
-
-  survey_configs.emplace_back(
-      &chrome::android::kQuickDeleteAndroidSurvey,
-      kHatsSurveyTriggerQuickDelete,
-      chrome::android::kQuickDeleteAndroidSurveyTriggerId.Get());
-
-  survey_configs.emplace_back(&chrome::android::kClearBrowsingDataAndroidSurvey,
-                              kHatsSurveyTriggerClearBrowsingData);
-
-  std::vector<std::string> product_specific_bits_data_fields =
-      std::vector<std::string>{"Tapped card", "Has visited"};
-  std::vector<std::string> product_specific_string_data =
-      std::vector<std::string>{"Notification module type", "Global state"};
-  survey_configs.emplace_back(
-      &features::kSafetyHubAndroidSurvey, kHatsSurveyTriggerSafetyHubAndroid,
-      features::kSafetyHubAndroidTriggerId.Get(),
-      product_specific_bits_data_fields, product_specific_string_data);
-  survey_configs.emplace_back(&features::kSafetyHubAndroidOrganicSurvey,
-                              kHatsSurveyOrganicTriggerSafetyHubAndroid,
-                              features::kSafetyHubAndroidOrganicTriggerId.Get(),
-                              product_specific_bits_data_fields,
-                              product_specific_string_data);
 
   std::vector<std::string> signin_string_psd_fields{"Channel", "Chrome Version",
                                                     "Number of Google Accounts",

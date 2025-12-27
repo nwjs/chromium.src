@@ -173,21 +173,24 @@ ash::ShelfAction SelectItem(
   return SelectShelfItem(id, event_type, display_id, source);
 }
 
-// Find the browser that associated with |app_name|.
-Browser* FindBrowserForApp(const std::string& app_name) {
-  for (Browser* browser : *BrowserList::GetInstance()) {
-    std::string browser_app_name =
-        web_app::GetAppIdFromApplicationName(browser->app_name());
-    if (browser_app_name == app_name) {
-      return browser;
-    }
-  }
-  return nullptr;
+// Find the browser window interface that is associated with |app_name|.
+BrowserWindowInterface* FindBrowserForApp(const std::string& app_name) {
+  BrowserWindowInterface* found_browser = nullptr;
+  ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+      [app_name, &found_browser](BrowserWindowInterface* browser) {
+        if (web_app::GetAppIdFromApplicationName(
+                browser->GetBrowserForMigrationOnly()->app_name()) ==
+            app_name) {
+          found_browser = browser;
+        }
+        return !found_browser;  // Continue while not found
+      });
+  return found_browser;
 }
 
 // Close |app_browser| and wait until it's closed.
-void CloseAppBrowserWindow(Browser* app_browser) {
-  app_browser->window()->Close();
+void CloseAppBrowserWindow(BrowserWindowInterface* app_browser) {
+  app_browser->GetWindow()->Close();
   ui_test_utils::WaitForBrowserToClose(app_browser);
 }
 
@@ -200,7 +203,7 @@ void CloseBrowserWindow(Browser* browser,
   ui_test_utils::WaitForBrowserToClose(browser);
 }
 
-int64_t GetDisplayIdForBrowserWindow(BrowserWindow* window) {
+int64_t GetDisplayIdForBrowserWindow(ui::BaseWindow* window) {
   return display::Screen::Get()
       ->GetDisplayNearestWindow(window->GetNativeWindow())
       .id();
@@ -1064,22 +1067,25 @@ IN_PROC_BROWSER_TEST_F(ShelfAppBrowserTest, LaunchAppFromDisplayWithoutFocus0) {
   // Ensures that display 0 has one browser with focus and display 1 has two
   // browsers. Each browser only has one tab.
   BrowserList* browser_list = BrowserList::GetInstance();
-  Browser* browser0 = browser();
-  Browser* browser1 = CreateBrowser(browser()->profile());
-  Browser* browser2 = CreateBrowser(browser()->profile());
-  browser0->window()->SetBounds(displays[0].work_area());
-  browser1->window()->SetBounds(displays[1].work_area());
-  browser2->window()->SetBounds(displays[1].work_area());
+  BrowserWindowInterface* const browser0 = browser();
+  BrowserWindowInterface* const browser1 = CreateBrowser(browser()->profile());
+  BrowserWindowInterface* const browser2 = CreateBrowser(browser()->profile());
+  browser0->GetWindow()->SetBounds(displays[0].work_area());
+  browser1->GetWindow()->SetBounds(displays[1].work_area());
+  browser2->GetWindow()->SetBounds(displays[1].work_area());
   // Ensures browser 2 is above browser 1 in display 1.
-  browser_list->SetLastActive(browser2);
-  browser_list->SetLastActive(browser0);
-  EXPECT_EQ(browser_list->size(), 3U);
-  EXPECT_EQ(displays[0].id(), GetDisplayIdForBrowserWindow(browser0->window()));
-  EXPECT_EQ(displays[1].id(), GetDisplayIdForBrowserWindow(browser1->window()));
-  EXPECT_EQ(displays[1].id(), GetDisplayIdForBrowserWindow(browser2->window()));
-  EXPECT_EQ(browser0->tab_strip_model()->count(), 1);
-  EXPECT_EQ(browser1->tab_strip_model()->count(), 1);
-  EXPECT_EQ(browser2->tab_strip_model()->count(), 1);
+  browser_list->SetLastActive(browser2->GetBrowserForMigrationOnly());
+  browser_list->SetLastActive(browser0->GetBrowserForMigrationOnly());
+  EXPECT_EQ(chrome::GetTotalBrowserCount(), 3U);
+  EXPECT_EQ(displays[0].id(),
+            GetDisplayIdForBrowserWindow(browser0->GetWindow()));
+  EXPECT_EQ(displays[1].id(),
+            GetDisplayIdForBrowserWindow(browser1->GetWindow()));
+  EXPECT_EQ(displays[1].id(),
+            GetDisplayIdForBrowserWindow(browser2->GetWindow()));
+  EXPECT_EQ(browser0->GetTabStripModel()->count(), 1);
+  EXPECT_EQ(browser1->GetTabStripModel()->count(), 1);
+  EXPECT_EQ(browser2->GetTabStripModel()->count(), 1);
 
   // Launches an app from the shelf of display 0 and expects a new tab is opened
   // in the uppermost browser in display 0.
@@ -1089,9 +1095,9 @@ IN_PROC_BROWSER_TEST_F(ShelfAppBrowserTest, LaunchAppFromDisplayWithoutFocus0) {
       shortcut_id.app_id);
 
   SelectItem(shortcut_id, ui::EventType::kMousePressed, displays[1].id());
-  EXPECT_EQ(browser0->tab_strip_model()->count(), 1);
-  EXPECT_EQ(browser1->tab_strip_model()->count(), 1);
-  EXPECT_EQ(browser2->tab_strip_model()->count(), 2);
+  EXPECT_EQ(browser0->GetTabStripModel()->count(), 1);
+  EXPECT_EQ(browser1->GetTabStripModel()->count(), 1);
+  EXPECT_EQ(browser2->GetTabStripModel()->count(), 2);
 }
 
 // Tests behavior of launching app from shelf in the first display while the
@@ -1114,12 +1120,12 @@ IN_PROC_BROWSER_TEST_F(ShelfAppBrowserTest, LaunchAppFromDisplayWithoutFocus1) {
 
   // Ensures that display 0 has one browser with focus and display 1 has no
   // browser. The browser only has one tab.
-  BrowserList* browser_list = BrowserList::GetInstance();
-  Browser* browser0 = browser();
-  browser0->window()->SetBounds(displays[0].work_area());
-  EXPECT_EQ(browser_list->size(), 1U);
-  EXPECT_EQ(displays[0].id(), GetDisplayIdForBrowserWindow(browser0->window()));
-  EXPECT_EQ(browser0->tab_strip_model()->count(), 1);
+  BrowserWindowInterface* const browser0 = browser();
+  browser0->GetWindow()->SetBounds(displays[0].work_area());
+  EXPECT_EQ(chrome::GetTotalBrowserCount(), 1U);
+  EXPECT_EQ(displays[0].id(),
+            GetDisplayIdForBrowserWindow(browser0->GetWindow()));
+  EXPECT_EQ(browser0->GetTabStripModel()->count(), 1);
 
   // Launches an app from the shelf of display 0 and expects a new browser with
   // one tab is opened in display 0.
@@ -1130,7 +1136,7 @@ IN_PROC_BROWSER_TEST_F(ShelfAppBrowserTest, LaunchAppFromDisplayWithoutFocus1) {
   SelectItem(shortcut_id, ui::EventType::kMousePressed, displays[1].id());
   BrowserWindowInterface* browser1 =
       GetLastActiveBrowserWindowInterfaceWithAnyProfile();
-  EXPECT_EQ(browser_list->size(), 2U);
+  EXPECT_EQ(chrome::GetTotalBrowserCount(), 2U);
   EXPECT_NE(browser1, browser0);
   EXPECT_EQ(browser0->GetTabStripModel()->count(), 1);
   EXPECT_EQ(browser1->GetTabStripModel()->count(), 1);
@@ -1272,13 +1278,15 @@ IN_PROC_BROWSER_TEST_F(ShelfWebAppBrowserTest, AppIDForPWA) {
 
   // Find the native window for the app.
   gfx::NativeWindow native_window = gfx::NativeWindow();
-  for (Browser* browser : *BrowserList::GetInstance()) {
-    if (browser->app_controller() &&
-        browser->app_controller()->app_id() == app_id) {
-      native_window = browser->window()->GetNativeWindow();
-      break;
-    }
-  }
+  ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+      [app_id, &native_window](BrowserWindowInterface* browser) {
+        if (web_app::AppBrowserController* const app_controller =
+                web_app::AppBrowserController::From(browser);
+            app_controller && app_controller->app_id() == app_id) {
+          native_window = browser->GetWindow()->GetNativeWindow();
+        }
+        return !native_window;  // Continue while not found
+      });
   ASSERT_TRUE(native_window);
 
   // The native window shelf ID and app ID should match the web app ID.
@@ -1572,9 +1580,9 @@ IN_PROC_BROWSER_TEST_F(ShelfAppBrowserTest, AppWindowRestoreBehaviorTest) {
   const Extension* extension = LoadAndLaunchExtension(
       "app1", apps::GetEventFlags(WindowOpenDisposition::NEW_WINDOW,
                                   false /* prefer_containner */));
-  Browser* app_browser = FindBrowserForApp(extension->id());
+  BrowserWindowInterface* app_browser = FindBrowserForApp(extension->id());
   ASSERT_TRUE(app_browser);
-  BrowserWindow* window = app_browser->window();
+  ui::BaseWindow* window = app_browser->GetWindow();
   EXPECT_FALSE(window->IsMaximized());
   window->Maximize();
   EXPECT_TRUE(window->IsMaximized());
@@ -1586,12 +1594,12 @@ IN_PROC_BROWSER_TEST_F(ShelfAppBrowserTest, AppWindowRestoreBehaviorTest) {
                                   false /* prefer_containner */));
   app_browser = FindBrowserForApp(extension->id());
   ASSERT_TRUE(app_browser);
-  window = app_browser->window();
+  window = app_browser->GetWindow();
   EXPECT_TRUE(window->IsMaximized());
 
   window->Restore();
   EXPECT_FALSE(window->IsMaximized());
-  app_browser->window()->Close();
+  app_browser->GetWindow()->Close();
   CloseAppBrowserWindow(app_browser);
 
   // Reopen the App. It should start un-maximized.
@@ -1600,7 +1608,7 @@ IN_PROC_BROWSER_TEST_F(ShelfAppBrowserTest, AppWindowRestoreBehaviorTest) {
                                   false /* prefer_containner */));
   app_browser = FindBrowserForApp(extension->id());
   ASSERT_TRUE(app_browser);
-  window = app_browser->window();
+  window = app_browser->GetWindow();
   EXPECT_FALSE(window->IsMaximized());
 }
 
@@ -2302,9 +2310,8 @@ IN_PROC_BROWSER_TEST_F(ShelfAppBrowserTest, DISABLED_V1AppNavigation) {
       [&](BrowserWindowInterface* browser) {
         if (browser->GetType() == BrowserWindowInterface::TYPE_APP) {
           app_browser = browser;
-          return false;  // stop iterating
         }
-        return true;  // continue iterating
+        return !app_browser;  // Continue while not found
       });
   ASSERT_TRUE(app_browser);
 
@@ -2666,7 +2673,7 @@ IN_PROC_BROWSER_TEST_F(ShelfAppBrowserTest,
 
   // Close all windows via the menu item.
   CloseBrowserWindow(browser(), menu1.get(), ash::MENU_CLOSE);
-  EXPECT_EQ(0u, BrowserList::GetInstance()->size());
+  EXPECT_EQ(0u, chrome::GetTotalBrowserCount());
 
   // Check if "Close" is removed from the context menu.
   std::unique_ptr<ShelfContextMenu> menu2 = CreateBrowserItemContextMenu();

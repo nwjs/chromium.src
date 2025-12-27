@@ -212,7 +212,6 @@ component("base") {
     "big_endian.h",
     "bit_cast.h",
     "bits.h",
-    "build_time.h",
     "byte_count.cc",
     "byte_count.h",
     "byte_size.cc",
@@ -354,11 +353,14 @@ component("base") {
     "logging.cc",
     "logging.h",
     "logging/log_severity.h",
+    "logging/logging_settings.h",
     "macros/concat.h",
     "macros/if.h",
     "macros/is_empty.h",
     "macros/remove_parens.h",
     "macros/uniquify.h",
+    "memory/advanced_memory_safety_checks.cc",
+    "memory/advanced_memory_safety_checks.h",
     "memory/aligned_memory.cc",
     "memory/aligned_memory.h",
     "memory/asan_interface.h",
@@ -489,6 +491,8 @@ component("base") {
     "metrics/persistent_memory_allocator.h",
     "metrics/persistent_sample_map.cc",
     "metrics/persistent_sample_map.h",
+    "metrics/puma_histogram_functions.cc",
+    "metrics/puma_histogram_functions.h",
     "metrics/ranges_manager.cc",
     "metrics/ranges_manager.h",
     "metrics/record_histogram_checker.h",
@@ -595,7 +599,6 @@ component("base") {
     "run_loop.h",
     "sampling_heap_profiler/lock_free_address_hash_set.cc",
     "sampling_heap_profiler/lock_free_address_hash_set.h",
-    "sampling_heap_profiler/lock_free_bloom_filter.cc",
     "sampling_heap_profiler/lock_free_bloom_filter.h",
     "sampling_heap_profiler/poisson_allocation_sampler.cc",
     "sampling_heap_profiler/poisson_allocation_sampler.h",
@@ -626,6 +629,8 @@ component("base") {
     "strings/escape.h",
     "strings/latin1_string_conversions.cc",
     "strings/latin1_string_conversions.h",
+    "strings/lazy_string_builder.cc",
+    "strings/lazy_string_builder.h",
     "strings/levenshtein_distance.cc",
     "strings/levenshtein_distance.h",
     "strings/pattern.cc",
@@ -957,7 +962,6 @@ component("base") {
     "version_info/channel.h",
     "vlog.cc",
     "vlog.h",
-    _build_date_header,
   ]
 
   # Various files that are unused in the Chromium build, but presumably here to
@@ -1097,7 +1101,6 @@ component("base") {
   public_deps = [
     ":anchor_functions_buildflags",
     ":base_static",
-    ":build_date",
     ":cfi_buildflags",
     ":clang_profiling_buildflags",
     ":debugging_buildflags",
@@ -1550,8 +1553,6 @@ component("base") {
   }
 
   sources += [
-    "hash/md5.cc",
-    "hash/md5.h",
     "hash/sha1.cc",
     "hash/sha1.h",
   ]
@@ -1743,6 +1744,7 @@ component("base") {
       "allocator/partition_alloc_support.h",
       "allocator/scheduler_loop_quarantine_config.cc",
       "allocator/scheduler_loop_quarantine_config.h",
+      "allocator/scheduler_loop_quarantine_support.h",
     ]
   }
   if (use_allocator_shim) {
@@ -1867,6 +1869,8 @@ component("base") {
       "win/i18n.h",
       "win/iat_patch_function.cc",
       "win/iat_patch_function.h",
+      "win/limited_access_features.cc",
+      "win/limited_access_features.h",
       "win/map.h",
       "win/message_window.cc",
       "win/message_window.h",
@@ -2355,6 +2359,8 @@ component("base") {
     sources += [
       "memory/platform_shared_memory_mapper_posix.cc",
       "memory/platform_shared_memory_region_posix.cc",
+      "version_info/nix/version_extra_utils.cc",
+      "version_info/nix/version_extra_utils.h",
     ]
   }
 
@@ -2871,7 +2877,7 @@ if (enable_rust_translit) {
     visibility = [ ":i18n" ]
     deps = [
       "//third_party/rust/icu_casemap/v2:lib",
-      "//third_party/rust/icu_experimental/v0_3:lib",
+      "//third_party/rust/icu_experimental/v0_4:lib",
       "//third_party/rust/icu_locale_core/v2:lib",
       "//third_party/rust/icu_normalizer/v2:lib",
       "//third_party/rust/icu_properties/v2:lib",
@@ -3341,6 +3347,37 @@ if (is_win) {
   }
 }
 
+if (is_android) {
+  # On Android, Death Tests must be ran on raw executables, but the default base_unittests target will run from an APK.
+  # So any test that contains at least one case that uses the Death Test mechanism must be moved here to be ran properly on Android.
+  test("base_unittests_android_death_tests") {
+    use_raw_android_executable = true
+
+    deps = [
+      ":base",
+
+      # TODO(crbug.com/40158212): Move partition_alloc tests into its repository.
+      "allocator/partition_allocator/src/partition_alloc:test_support",
+      "//base/test:test_support",
+      "//testing/gmock",
+      "//testing/gtest",
+      "//testing/gtest:gtest_main",
+    ]
+
+    # TODO(crbug.com/40158212): Move partition_alloc tests into its repository.
+    #
+    # Note: This requires checking `build_with_chromium` because partition_alloc
+    # do not provide ":unittests" when built outside of chromium.
+    # "//base" is a dependency of WebRTC where `build_with_chromium` is false.
+    # TODO(42223878): Remove standalone WebRTC dependency on //base.
+    if (build_with_chromium) {
+      deps += [
+        "allocator/partition_allocator/src/partition_alloc:death_unittests",
+      ]
+    }
+  }
+}
+
 test("base_unittests") {
   sources = [
     "allocator/dispatcher/dispatcher_unittest.cc",
@@ -3365,6 +3402,7 @@ test("base_unittests") {
     "byte_size_unittest.cc",
     "callback_list_unittest.cc",
     "cancelable_callback_unittest.cc",
+    "check_deref_unittest.cc",
     "check_is_test_unittest.cc",
     "check_unittest.cc",
     "command_line_unittest.cc",
@@ -3432,7 +3470,6 @@ test("base_unittests") {
     "gmock_unittest.cc",
     "hash/hash_unittest.cc",
     "hash/legacy_hash_unittest.cc",
-    "hash/md5_unittest.cc",
     "hash/sha1_unittest.cc",
     "i18n/break_iterator_unittest.cc",
     "i18n/case_conversion_unittest.cc",
@@ -3505,6 +3542,7 @@ test("base_unittests") {
     "metrics/persistent_histogram_storage_unittest.cc",
     "metrics/persistent_memory_allocator_unittest.cc",
     "metrics/persistent_sample_map_unittest.cc",
+    "metrics/puma_histogram_functions_unittest.cc",
     "metrics/ranges_manager_unittest.cc",
     "metrics/sample_map_unittest.cc",
     "metrics/sample_vector_unittest.cc",
@@ -3561,6 +3599,7 @@ test("base_unittests") {
     "strings/abseil_string_number_conversions_unittest.cc",
     "strings/cstring_view_unittest.cc",
     "strings/escape_unittest.cc",
+    "strings/lazy_string_builder_unittest.cc",
     "strings/levenshtein_distance_unittest.cc",
     "strings/no_trigraphs_unittest.cc",
     "strings/pattern_unittest.cc",
@@ -3656,7 +3695,6 @@ test("base_unittests") {
     "test/launcher/test_results_tracker_unittest.cc",
     "test/memory/dangling_ptr_instrumentation.cc",
     "test/memory/dangling_ptr_instrumentation.h",
-    "test/metrics/action_suffix_reader_unittest.cc",
     "test/metrics/action_variants_reader_unittest.cc",
     "test/metrics/histogram_enum_reader_unittest.cc",
     "test/metrics/histogram_tester_unittest.cc",
@@ -3771,6 +3809,7 @@ test("base_unittests") {
   deps = [
     ":base",
     ":base_stack_sampling_profiler_test_util",
+    ":build_time",
     ":check_version_internal",
     ":feature_list_buildflags",
     ":hardening_tests",
@@ -3904,6 +3943,7 @@ test("base_unittests") {
       "win/hardware_check_unittest.cc",
       "win/hstring_reference_unittest.cc",
       "win/i18n_unittest.cc",
+      "win/limited_access_features_unittest.cc",
       "win/map_unittest.cc",
       "win/message_window_unittest.cc",
       "win/object_watcher_unittest.cc",
@@ -3955,6 +3995,7 @@ test("base_unittests") {
       "files/scoped_file_linux_unittest.cc",
       "nix/mime_util_xdg_unittest.cc",
       "process/set_process_title_linux_unittest.cc",
+      "version_info/nix/version_extra_utils_unittest.cc",
     ]
 
     deps += [ ":stack_canary_linux_unittests" ]
@@ -4406,10 +4447,20 @@ if (current_toolchain == default_toolchain) {
   }
 }
 
-copy("build_date") {
+copy("build_date_header") {
   sources = [ "$root_build_dir/gen/base/generated_build_date_internal.h" ]
   outputs = [ _build_date_header ]
   deps = [ ":build_date_internal($default_toolchain)" ]
+}
+
+source_set("build_time") {
+  # This is a header, but it should be private.
+  sources = [ _build_date_header ]
+  public_deps = [
+    ":base",
+    ":build_date_header",
+  ]
+  public = [ "build_time.h" ]
 }
 
 if (enable_nocompile_tests) {
@@ -4420,6 +4471,7 @@ if (enable_nocompile_tests) {
       "allocator/partition_allocator/src/partition_alloc/pointers/raw_ref_nocompile.nc",
       "byte_size_nocompile.nc",
       "callback_list_nocompile.nc",
+      "check_deref_nocompile.nc",
       "check_nocompile.nc",
       "containers/buffer_iterator_nocompile.nc",
       "containers/checked_iterators_nocompile.nc",
@@ -4449,6 +4501,7 @@ if (enable_nocompile_tests) {
       "safe_numerics_nocompile.nc",
       "sequence_checker_nocompile.nc",
       "strings/cstring_view_nocompile.nc",
+      "strings/lazy_string_builder_nocompile.nc",
       "strings/span_printf_nocompile.nc",
       "strings/string_split_nocompile.nc",
       "strings/string_view_util_nocompile.nc",
@@ -4625,6 +4678,7 @@ if (is_android) {
       ":flagged_apis_java",
       "//base/version_info/android:version_constants_java",
       "//third_party/android_deps:com_google_code_findbugs_jsr305_java",
+      "//third_party/android_deps:com_google_errorprone_error_prone_annotations_java",
       "//third_party/androidx:androidx_annotation_annotation_experimental_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
       "//third_party/androidx:androidx_collection_collection_java",
@@ -4649,6 +4703,8 @@ if (is_android) {
       "android/java/src/org/chromium/base/process_launcher/RebindServiceConnection.java",
       "android/java/src/org/chromium/base/process_launcher/RebindingChildServiceConnectionController.java",
       "android/java/src/org/chromium/base/process_launcher/ScopedServiceBindingBatch.java",
+      "android/java/src/org/chromium/base/process_launcher/ScopedServiceBindingBatchDuration.java",
+      "android/java/src/org/chromium/base/process_launcher/ScopedServiceBindingBatchImpl.java",
     ]
   }
 
@@ -4964,9 +5020,9 @@ if (is_android) {
 
   android_library("unowned_user_data_java") {
     sources = [
-      "android/java/src/org/chromium/base/UnownedUserData.java",
       "android/java/src/org/chromium/base/UnownedUserDataHost.java",
       "android/java/src/org/chromium/base/UnownedUserDataKey.java",
+      "android/java/src/org/chromium/base/UnownedUserDataListener.java",
     ]
     deps = [
       ":lifetime_java",
@@ -4977,7 +5033,6 @@ if (is_android) {
 
   android_library("supplier_java") {
     sources = [
-      "android/java/src/org/chromium/base/supplier/DestroyableObservableSupplier.java",
       "android/java/src/org/chromium/base/supplier/LazyOneshotSupplier.java",
       "android/java/src/org/chromium/base/supplier/LazyOneshotSupplierImpl.java",
       "android/java/src/org/chromium/base/supplier/ObservableSupplier.java",
@@ -5353,6 +5408,7 @@ if (is_android) {
         "//third_party/android_sdk:public_framework_system_java"
 
     deps = [
+      ":promise_java",
       ":service_loader_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
     ]
@@ -5436,6 +5492,7 @@ if (is_android) {
       "//third_party/androidx:androidx_test_monitor_java",
       "//third_party/androidx:androidx_test_rules_java",
       "//third_party/androidx:androidx_test_runner_java",
+      "//third_party/google-truth:google_truth_java",
       "//third_party/hamcrest:hamcrest_java",
       "//third_party/jni_zero:jni_zero_java",
       "//third_party/junit",
@@ -5730,7 +5787,7 @@ if (is_android) {
       "android/junit/src/org/chromium/base/metrics/CachingUmaRecorderTest.java",
       "android/junit/src/org/chromium/base/process_launcher/ChildConnectionAllocatorTest.java",
       "android/junit/src/org/chromium/base/process_launcher/ChildProcessConnectionTest.java",
-      "android/junit/src/org/chromium/base/process_launcher/ScopedServiceBindingBatchTest.java",
+      "android/junit/src/org/chromium/base/process_launcher/ScopedServiceBindingBatchImplTest.java",
       "android/junit/src/org/chromium/base/shared_preferences/KeyPrefixTest.java",
       "android/junit/src/org/chromium/base/shared_preferences/KnownPreferenceKeyRegistriesTest.java",
       "android/junit/src/org/chromium/base/shared_preferences/SharedPreferencesManagerTest.java",
@@ -5784,6 +5841,7 @@ if (is_android) {
       "//third_party/androidx:androidx_annotation_annotation_java",
       "//third_party/androidx:androidx_test_core_java",
       "//third_party/androidx:androidx_test_runner_java",
+      "//third_party/google-truth:google_truth_java",
       "//third_party/hamcrest:hamcrest_java",
       "//third_party/jni_zero:jni_zero_java",
     ]

@@ -100,6 +100,15 @@ class ExtensionContextMenuModel : public ui::SimpleMenuModel,
   // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.chrome.browser.extensions
   enum class ContextMenuSource { kToolbarAction = 0, kMenuItem = 1 };
 
+  // Actions tracked by Chrome Web Store team for monitoring extension usage.
+  // Do not re-order entries, as these are used in UKM.
+  // Exposed for testing purposes.
+  enum class ExtensionUsageAction {
+    kPinned,
+    kUnpinned,
+    kContextMenuInit,
+  };
+
   // Delegate to handle showing an ExtensionAction popup.
   class PopupDelegate {
    public:
@@ -116,21 +125,12 @@ class ExtensionContextMenuModel : public ui::SimpleMenuModel,
   // prefs::kExtensionsUIDeveloperMode is enabled then a menu item
   // will be shown for "Inspect Popup" which, when selected, will cause
   // ShowPopupForDevToolsWindow() to be called on `delegate`.
-#if BUILDFLAG(ENABLE_EXTENSIONS)
   ExtensionContextMenuModel(const Extension* extension,
                             BrowserWindowInterface* browser,
                             bool is_pinned,
                             PopupDelegate* delegate,
                             bool can_show_icon_in_toolbar,
                             ContextMenuSource source);
-#else
-  ExtensionContextMenuModel(const Extension* extension,
-                            Profile* profile,
-                            content::WebContents* web_contents,
-                            bool is_pinned,
-                            bool can_show_icon_in_toolbar,
-                            ContextMenuSource source);
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
   ExtensionContextMenuModel(const ExtensionContextMenuModel&) = delete;
   ExtensionContextMenuModel& operator=(const ExtensionContextMenuModel&) =
@@ -164,6 +164,11 @@ class ExtensionContextMenuModel : public ui::SimpleMenuModel,
   void CreatePageAccessItems(const Extension* extension,
                              content::WebContents* web_contents);
 
+  // Emits a UKM record for the extension associated with `extension_url` and
+  // the corresponding `action`.
+  void RecordUkmForExtension(const GURL& extension_url,
+                             ExtensionUsageAction action);
+
   // Gets the extension we are displaying the menu for. Returns NULL if the
   // extension has been uninstalled and no longer exists.
   const Extension* GetExtension() const;
@@ -195,11 +200,7 @@ class ExtensionContextMenuModel : public ui::SimpleMenuModel,
   // it has one, otherwise NULL).
   raw_ptr<ExtensionAction, DanglingUntriaged> extension_action_;
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
   const raw_ptr<BrowserWindowInterface> browser_;
-#else
-  raw_ptr<content::WebContents> web_contents_;
-#endif
 
   raw_ptr<Profile> profile_;
 

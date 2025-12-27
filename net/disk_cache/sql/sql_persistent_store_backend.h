@@ -8,7 +8,6 @@
 #include "base/memory/weak_ptr.h"
 #include "net/disk_cache/sql/eviction_candidate_aggregator.h"
 #include "net/disk_cache/sql/sql_persistent_store.h"
-#include "net/disk_cache/sql/sql_persistent_store_in_memory_index.h"
 #include "sql/database.h"
 #include "sql/meta_table.h"
 
@@ -24,23 +23,6 @@ namespace disk_cache {
 // dedicated background sequence to avoid blocking the network IO thread.
 class SqlPersistentStore::Backend {
  public:
-  // A struct to hold the in-memory index and the list of doomed resource IDs.
-  // This is used to return both from the backend task that loads them.
-  struct InMemoryIndexAndDoomedResIds {
-    InMemoryIndexAndDoomedResIds(
-        SqlPersistentStoreInMemoryIndex&& index,
-        std::vector<SqlPersistentStore::ResId> doomed_entry_res_ids);
-    ~InMemoryIndexAndDoomedResIds();
-    InMemoryIndexAndDoomedResIds(InMemoryIndexAndDoomedResIds&& other);
-    InMemoryIndexAndDoomedResIds& operator=(
-        InMemoryIndexAndDoomedResIds&& other);
-
-    SqlPersistentStoreInMemoryIndex index;
-    std::vector<SqlPersistentStore::ResId> doomed_entry_res_ids;
-  };
-  using InMemoryIndexAndDoomedResIdsOrError =
-      base::expected<InMemoryIndexAndDoomedResIds, Error>;
-
   Backend(ShardId shard_id, const base::FilePath& path, net::CacheType type);
   Backend(const Backend&) = delete;
   Backend& operator=(const Backend&) = delete;
@@ -89,6 +71,7 @@ class SqlPersistentStore::Backend {
       const CacheEntryKey& key,
       ResId res_id,
       base::Time last_used,
+      const std::optional<MemoryEntryDataHints>& new_hints,
       scoped_refptr<net::IOBuffer> buffer,
       int64_t header_size_delta,
       base::TimeTicks start_time);
@@ -160,9 +143,7 @@ class SqlPersistentStore::Backend {
 
   void DatabaseErrorCallback(int error, sql::Statement* statement);
 
-  Error InitializeInternal(bool& corruption_detected,
-                           SqlPersistentStoreInMemoryIndex& index,
-                           ResIdList& doomed_entry_res_ids);
+  Error InitializeInternal(bool& corruption_detected);
   EntryInfoOrError OpenOrCreateEntryInternal(const CacheEntryKey& key,
                                              bool& corruption_detected);
   OptionalEntryInfoOrError OpenEntryInternal(const CacheEntryKey& key);
@@ -189,6 +170,7 @@ class SqlPersistentStore::Backend {
       const CacheEntryKey& key,
       ResId res_id,
       base::Time last_used,
+      const std::optional<MemoryEntryDataHints>& new_hints,
       scoped_refptr<net::IOBuffer> buffer,
       int64_t header_size_delta,
       bool& corruption_detected);

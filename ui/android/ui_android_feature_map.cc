@@ -28,6 +28,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &ui::kReportBottomOverscrolls,
     &ui::kRequireLeadingInTextViewWithLeading,
     &ui::kSelectFileOpenDocument,
+    &ui::kAndroidTouchpadOverscrollHistoryNavigation,
 };
 
 // static
@@ -44,3 +45,5 @@ static jlong JNI_UiAndroidFeatureMap_GetNativeMap(JNIEnv* env) {
 }
 
 }  // namespace ui
+
+DEFINE_JNI(UiAndroidFeatureMap)

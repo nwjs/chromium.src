@@ -105,7 +105,7 @@ int GetManifestVersion(const base::Value::Dict& manifest_value,
   // Platform apps were launched after manifest version 2 was the preferred
   // version, so they default to that.
   return manifest_value.FindInt(keys::kManifestVersion)
-    .value_or(type == Manifest::TYPE_PLATFORM_APP || type == Manifest::TYPE_NWJS_APP ? 2 : 1);
+      .value_or(type == Manifest::Type::kPlatformApp || type == Manifest::Type::kNwjsApp ? 2 : 1);
 }
 
 // Helper class to filter available values from a manifest.
@@ -210,37 +210,36 @@ ManifestLocation Manifest::GetHigherPriorityLocation(ManifestLocation loc1,
 Manifest::Type Manifest::GetTypeFromManifestValue(
     const base::Value::Dict& value,
     bool for_login_screen) {
-  Type type = TYPE_UNKNOWN;
+  Type type = Type::kUnknown;
   if (value.Find(keys::kTheme)) {
-    type = TYPE_THEME;
+    type = Type::kTheme;
   } else if (value.Find(api::shared_module::ManifestKeys::kExport)) {
-    type = TYPE_SHARED_MODULE;
+    type = Type::kSharedModule;
   } else if (value.Find(keys::kApp)) {
     if (value.FindByDottedPath(keys::kWebURLs) ||
         value.FindByDottedPath(keys::kLaunchWebURL)) {
-      type = TYPE_HOSTED_APP;
+      type = Type::kHostedApp;
     } else if (value.FindByDottedPath(keys::kPlatformAppBackground)) {
-      type = TYPE_PLATFORM_APP;
+      type = Type::kPlatformApp;
     } else {
-      type = TYPE_LEGACY_PACKAGED_APP;
+      type = Type::kLegacyPackagedApp;
     }
   } else if (value.Find(keys::kChromeOSSystemExtension)) {
-    type = TYPE_CHROMEOS_SYSTEM_EXTENSION;
+    type = Type::kChromeOSSystemExtension;
   } else if (for_login_screen) {
-    type = TYPE_LOGIN_SCREEN_EXTENSION;
+    type = Type::kLoginScreenExtension;
   } else {
-    type = TYPE_EXTENSION;
+    type = Type::kExtension;
   }
   if (value.Find(keys::kNWJSInternalFlag)) {
-    type = TYPE_NWJS_APP;
+    type = Type::kNwjsApp;
   }else if (value.Find(keys::kPermissions)) {
     const base::Value::List& perm = value.Find(keys::kPermissions)->GetList();
     base::Value node("node");
     if (base::Contains(perm, node))
-      type = TYPE_NWJS_APP;
+      type = Type::kNwjsApp;
   }
-
-  DCHECK_NE(type, TYPE_UNKNOWN);
+  DCHECK_NE(type, Type::kUnknown);
 
   return type;
 }

@@ -1,12 +1,6 @@
 // Copyright 2016 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "media/base/win/mf_helpers.h"
 
 #include <initguid.h>
@@ -21,7 +15,12 @@
 #include <mmreg.h>
 #include <wrl.h>
 
+#include <algorithm>
+#include <string_view>
+
 #include "base/check_op.h"
+#include "base/containers/span.h"
+#include "base/containers/span_writer.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
@@ -300,12 +299,24 @@ HRESULT CopyCoTaskMemWideString(LPCWSTR in_string, LPWSTR* out_string) {
     return E_INVALIDARG;
   }
 
-  size_t size = (wcslen(in_string) + 1) * sizeof(wchar_t);
+  std::wstring_view input_str_view = in_string;
+  // `wstring_view::size()` doesn't count the null-terminator.
+  const size_t size_in_chars = input_str_view.size() + 1;
+  const size_t size = size_in_chars * sizeof(wchar_t);
   LPWSTR copy = reinterpret_cast<LPWSTR>(CoTaskMemAlloc(size));
-  if (!copy)
+  if (!copy) {
     return E_OUTOFMEMORY;
+  }
 
-  wcscpy(copy, in_string);
+  // SAFETY: We've just allocated sufficient memory with `CoTaskMemAlloc`
+  // to fit `size_in_chars` characters.
+  auto out_span = UNSAFE_BUFFERS(base::span(copy, size_in_chars));
+
+  // Put a null-terminator at the end of the string.
+  *out_span.rbegin() = 0;
+  // Copy the real characters.
+  out_span.copy_prefix_from(base::span(input_str_view));
+
   *out_string = copy;
   return S_OK;
 }
@@ -364,12 +375,12 @@ ChannelLayout ChannelConfigToChannelLayout(ChannelConfig config) {
 // GUID is little endian. The byte array in network order is big endian.
 std::vector<uint8_t> ByteArrayFromGUID(REFGUID guid) {
   std::vector<uint8_t> byte_array(sizeof(GUID));
-  GUID* reversed_guid = reinterpret_cast<GUID*>(byte_array.data());
-  *reversed_guid = guid;
-  reversed_guid->Data1 = _byteswap_ulong(guid.Data1);
-  reversed_guid->Data2 = _byteswap_ushort(guid.Data2);
-  reversed_guid->Data3 = _byteswap_ushort(guid.Data3);
+  auto writer = base::SpanWriter(base::span(byte_array));
+  CHECK(writer.WriteU32BigEndian(guid.Data1));
+  CHECK(writer.WriteU16BigEndian(guid.Data2));
+  CHECK(writer.WriteU16BigEndian(guid.Data3));
   // Data4 is already a byte array so no need to byte swap.
+  writer.remaining_span().copy_from(base::span(guid.Data4));
   return byte_array;
 }
 
@@ -470,8 +481,10 @@ HRESULT GetAacAudioType(const AudioDecoderConfig& decoder_config,
 
   size_t wave_format_size = sizeof(HEAACWAVEINFO) + extra_data.size();
   std::vector<uint8_t> wave_format_buffer(wave_format_size);
+  // TODO(crbug.com/40285824): Spanify this usage. This is somewhat iffy from
+  // alignment point of view.
   HEAACWAVEINFO* aac_wave_format =
-      reinterpret_cast<HEAACWAVEINFO*>(wave_format_buffer.data());
+      UNSAFE_TODO(reinterpret_cast<HEAACWAVEINFO*>(wave_format_buffer.data()));
 
   aac_wave_format->wfx.wFormatTag = WAVE_FORMAT_MPEG_HEAAC;
   aac_wave_format->wfx.nChannels = decoder_config.channels();
@@ -491,8 +504,9 @@ HRESULT GetAacAudioType(const AudioDecoderConfig& decoder_config,
   aac_wave_format->dwReserved2 = 0;
 
   if (!extra_data.empty()) {
-    memcpy(reinterpret_cast<uint8_t*>(aac_wave_format) + sizeof(HEAACWAVEINFO),
-           extra_data.data(), extra_data.size());
+    base::span(wave_format_buffer)
+        .subspan(sizeof(HEAACWAVEINFO))
+        .copy_from(extra_data);
   }
 
   RETURN_IF_FAILED(MFInitMediaTypeFromWaveFormatEx(
@@ -685,7 +699,9 @@ HRESULT GenerateSampleFromDecoderBuffer(
   BYTE* mf_buffer_data = nullptr;
   DWORD max_length = 0;
   RETURN_IF_FAILED(mf_buffer->Lock(&mf_buffer_data, &max_length, 0));
-  memcpy(mf_buffer_data, buffer_span.data(), buffer_span.size());
+  // SAFETY: `IMFMediaBuffer::Lock` returns buffer size via `max_length`
+  auto mf_buffer_span = UNSAFE_BUFFERS(base::span(mf_buffer_data, max_length));
+  mf_buffer_span.copy_prefix_from(buffer_span);
   RETURN_IF_FAILED(mf_buffer->SetCurrentLength(buffer_span.size()));
   RETURN_IF_FAILED(mf_buffer->Unlock());
 
@@ -749,7 +765,9 @@ HRESULT CreateDecryptConfigFromSample(
   if (!iv) {
     return E_OUTOFMEMORY;
   }
-  ZeroMemory(iv, iv_length * sizeof(BYTE));
+  // SAFETY: `IMFSample::GetBlobSize` returns size via `iv_length`.
+  auto iv_span = UNSAFE_BUFFERS(base::span(iv.get(), iv_length));
+  std::ranges::fill(iv_span, 0);
   RETURN_IF_FAILED(mf_sample->GetBlob(MFSampleExtension_Encryption_SampleID, iv,
                                       iv_length, nullptr));
 
@@ -764,22 +782,24 @@ HRESULT CreateDecryptConfigFromSample(
           MFSampleExtension_Encryption_SubSample_Mapping,
           reinterpret_cast<uint8_t**>(&subsample_mappings),
           &subsample_mappings_size))) {
-    if (subsample_mappings_size >= sizeof(MediaFoundationSubsampleEntry)) {
-      uint32_t subsample_count =
-          subsample_mappings_size / sizeof(MediaFoundationSubsampleEntry);
-      for (uint32_t i = 0; i < subsample_count; ++i) {
-        DVLOG(3) << __func__ << ": subsample_mappings[" << i
-                 << "].clear_bytes=" << subsample_mappings[i].clear_bytes
-                 << ", cipher_bytes=" << subsample_mappings[i].cipher_bytes;
-        subsamples.emplace_back(subsample_mappings[i].clear_bytes,
-                                subsample_mappings[i].cipher_bytes);
-      }
+    // SAFETY: `IMFSample::GetAllocatedBlob` returns the size in bytes via
+    // `subsample_mappings_size`, we get the number of entries by dividing
+    // it by the entry size.
+    auto mappings_span = UNSAFE_BUFFERS(base::span(
+        subsample_mappings.get(),
+        subsample_mappings_size / sizeof(MediaFoundationSubsampleEntry)));
+
+    for (MediaFoundationSubsampleEntry& entry : mappings_span) {
+      DVLOG(3) << __func__ << ": subsample_mapping"
+               << ".clear_bytes=" << entry.clear_bytes
+               << ", cipher_bytes=" << entry.cipher_bytes;
+      subsamples.emplace_back(entry.clear_bytes, entry.cipher_bytes);
     }
   }
 
   // Key ID
   const auto key_id_string = GetStringFromGUID(key_id);
-  const auto iv_string = std::string(iv.get(), iv.get() + iv_length);
+  const auto iv_string = std::string(iv_span.begin(), iv_span.end());
   DVLOG(3) << __func__ << ": key_id_string=" << key_id_string
            << ", iv_string=" << iv_string
            << ", iv_string.size()=" << iv_string.size();
@@ -815,7 +835,7 @@ constexpr size_t kOneMicrosecondInMFSampleTimeUnits = 10;
 
 HRESULT InitializeSampleFromTexture(const VideoFrame* frame,
                                     ID3D11Texture2D* input_texture,
-                                    IMFSample* sample) {
+                                    Microsoft::WRL::ComPtr<IMFSample> sample) {
   Microsoft::WRL::ComPtr<IMFMediaBuffer> mf_buffer;
   HRESULT hr = MFCreateDXGISurfaceBuffer(__uuidof(ID3D11Texture2D),
                                          input_texture, 0, FALSE, &mf_buffer);
@@ -840,6 +860,59 @@ HRESULT InitializeSampleFromTexture(const VideoFrame* frame,
         VideoPrimariesToMFVideoPrimaries(frame->ColorSpace().GetPrimaryID()));
   }
   return S_OK;
+}
+
+Microsoft::WRL::ComPtr<IMFSample> CreateSampleFromTexture(
+    Microsoft::WRL::ComPtr<ID3D11Device> device,
+    scoped_refptr<VideoFrame> frame,
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> input_texture,
+    bool need_perform_copy) {
+  CHECK(device);
+  CHECK(frame);
+  CHECK(input_texture);
+
+  HRESULT hr;
+  if (need_perform_copy) {
+    D3D11_TEXTURE2D_DESC desc;
+    input_texture->GetDesc(&desc);
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_VIDEO_ENCODER;
+    desc.ArraySize = 1;
+    desc.CPUAccessFlags = 0;
+    desc.MiscFlags = 0;
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> copied_texture;
+    hr = device->CreateTexture2D(&desc, nullptr, &copied_texture);
+    if (FAILED(hr)) {
+      LOG(ERROR) << "Failed to create d3d11 texture: "
+                 << logging::SystemErrorCodeToString(hr);
+      return nullptr;
+    }
+    Microsoft::WRL::ComPtr<ID3D11DeviceContext> device_context;
+    device->GetImmediateContext(&device_context);
+    D3D11_BOX src_box = {static_cast<UINT>(frame->visible_rect().x()),
+                         static_cast<UINT>(frame->visible_rect().y()),
+                         0,
+                         static_cast<UINT>(frame->visible_rect().right()),
+                         static_cast<UINT>(frame->visible_rect().bottom()),
+                         1};
+    device_context->CopySubresourceRegion(copied_texture.Get(), 0, 0, 0, 0,
+                                          input_texture.Get(), 0, &src_box);
+    input_texture = copied_texture;
+  }
+
+  Microsoft::WRL::ComPtr<IMFSample> sample;
+  hr = MFCreateSample(&sample);
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Failed to create MF Sample: "
+               << logging::SystemErrorCodeToString(hr);
+    return nullptr;
+  }
+
+  if (FAILED(InitializeSampleFromTexture(frame.get(), input_texture.Get(),
+                                         sample))) {
+    return nullptr;
+  }
+  return sample;
 }
 
 HRESULT GenerateSampleFromVideoFrame(
@@ -891,8 +964,7 @@ HRESULT GenerateSampleFromVideoFrame(
     RETURN_ON_HR_FAILURE(hr, "Failed to open shared GMB D3D texture", hr);
 
     if (use_dxgi_buffer) {
-      hr =
-          InitializeSampleFromTexture(frame, input_texture.Get(), sample.Get());
+      hr = InitializeSampleFromTexture(frame, input_texture.Get(), sample);
       RETURN_ON_HR_FAILURE(hr, "Failed to initialize sample from texture", hr);
     } else {
       Microsoft::WRL::ComPtr<IMFMediaBuffer> input_buffer;
@@ -967,20 +1039,27 @@ HRESULT GenerateSampleFromVideoFrame(
   return S_OK;
 }
 
-void GenerateSampleOnSyncTokenReleased(
+void GenerateResourceOnSyncTokenReleased(
     scoped_refptr<VideoFrame> frame,
-    Microsoft::WRL::ComPtr<ID3D11Device> d3d_device,
+    bool use_same_device,
     scoped_refptr<CommandBufferHelper> command_buffer_helper,
-    SampleAvailableCB sample_available_cb) {
-  TRACE_EVENT_BEGIN0("media", "GenerateInputTextureOnSyncTokenReleased");
+    ResourceAvailableCB sample_available_cb) {
+  TRACE_EVENT0("media", "GenerateResourceOnSyncTokenReleased");
+
+#define RETURN_ON_FAILURE_WITH_CALLBACK(hr, message)                       \
+  if (FAILED(hr)) {                                                        \
+    LOG(ERROR) << message << ": " << logging::SystemErrorCodeToString(hr); \
+    std::move(sample_available_cb)                                         \
+        .Run(std::move(frame), nullptr, std::nullopt, std::nullopt, hr);   \
+    return;                                                                \
+  }
+
   Microsoft::WRL::ComPtr<ID3D11Device> shared_d3d11_device =
       command_buffer_helper->GetSharedImageStub()
           ->shared_context_state()
           ->GetD3D11Device();
-  if (!shared_d3d11_device) {
-    std::move(sample_available_cb).Run(std::move(frame), nullptr, E_FAIL);
-    return;
-  }
+  HRESULT hr = shared_d3d11_device ? S_OK : E_FAIL;
+  RETURN_ON_FAILURE_WITH_CALLBACK(hr, "Invalid shared d3d11 device");
   gpu::SharedImageManager* shared_image_manager =
       command_buffer_helper->GetSharedImageManager();
   std::unique_ptr<gpu::VideoImageRepresentation> image_representation =
@@ -991,152 +1070,110 @@ void GenerateSampleOnSyncTokenReleased(
   Microsoft::WRL::ComPtr<ID3D11Texture2D> input_texture =
       scoped_read_access->GetD3D11Texture();
 
-  if (d3d_device.Get() != shared_d3d11_device.Get()) {
-    Microsoft::WRL::ComPtr<IDXGIResource1> dxgi_resource;
-    HRESULT hr = input_texture.As(&dxgi_resource);
-    CHECK(SUCCEEDED(hr));
-    HANDLE shared_handle;
-    hr = dxgi_resource->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ,
-                                           nullptr, &shared_handle);
-    if (FAILED(hr)) {
-      TRACE_EVENT0("media", "CopyTextureOnCreateSharedHandleFailed");
-      D3D11_TEXTURE2D_DESC texture_desc;
-      input_texture->GetDesc(&texture_desc);
-      texture_desc.Usage = D3D11_USAGE_DEFAULT;
-      texture_desc.BindFlags =
-          D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-      texture_desc.ArraySize = 1;
-      texture_desc.CPUAccessFlags = 0;
-      texture_desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED_NTHANDLE |
-                               D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX;
-      Microsoft::WRL::ComPtr<ID3D11Texture2D> shared_texture;
-      hr = shared_d3d11_device->CreateTexture2D(&texture_desc, nullptr,
-                                                &shared_texture);
-      if (FAILED(hr)) {
-        LOG(ERROR) << "Failed to create shared texture.";
-        std::move(sample_available_cb).Run(std::move(frame), nullptr, hr);
-        return;
-      }
-      Microsoft::WRL::ComPtr<IDXGIKeyedMutex> keyed_mutex;
-      std::unique_ptr<gpu::DXGIScopedReleaseKeyedMutex> scoped_keyed_mutex;
-      if (SUCCEEDED(shared_texture.As(&keyed_mutex))) {
-        hr = keyed_mutex->AcquireSync(0, INFINITE);
-        CHECK(SUCCEEDED(hr));
-        scoped_keyed_mutex =
-            std::make_unique<gpu::DXGIScopedReleaseKeyedMutex>(keyed_mutex, 0);
-      }
-      Microsoft::WRL::ComPtr<ID3D11DeviceContext> device_context;
-      shared_d3d11_device->GetImmediateContext(&device_context);
-      D3D11_BOX src_box = {static_cast<UINT>(frame->visible_rect().x()),
-                           static_cast<UINT>(frame->visible_rect().y()),
-                           0,
-                           static_cast<UINT>(frame->visible_rect().right()),
-                           static_cast<UINT>(frame->visible_rect().bottom()),
-                           1};
-      device_context->CopySubresourceRegion(shared_texture.Get(), 0, 0, 0, 0,
-                                            input_texture.Get(), 0, &src_box);
-
-      Microsoft::WRL::ComPtr<IDXGIResource1> shared_dxgi_resource;
-      hr = shared_texture.As(&shared_dxgi_resource);
-      CHECK(SUCCEEDED(hr));
-      hr = shared_dxgi_resource->CreateSharedHandle(
-          nullptr, DXGI_SHARED_RESOURCE_READ, nullptr, &shared_handle);
-      if (FAILED(hr)) {
-        LOG(ERROR) << "Failed to create shared handle from copied texture.";
-        std::move(sample_available_cb).Run(std::move(frame), nullptr, hr);
-        return;
-      }
-    }
-    base::win::ScopedHandle scoped_shared_handle(shared_handle);
-    base::WaitableEvent event(base::WaitableEvent::ResetPolicy::AUTOMATIC,
-                              base::WaitableEvent::InitialState::NOT_SIGNALED);
-    Microsoft::WRL::ComPtr<IDXGIDevice2> dxgi_device2;
-    hr = shared_d3d11_device.As(&dxgi_device2);
-    if (FAILED(hr)) {
-      std::move(sample_available_cb).Run(std::move(frame), nullptr, hr);
-      return;
-    }
-    hr = dxgi_device2->EnqueueSetEvent(event.handle());
-    if (SUCCEEDED(hr)) {
-      event.Wait();
-    } else {
-      LOG(WARNING) << "Failed to set event: "
-                   << logging::SystemErrorCodeToString(hr);
-      Microsoft::WRL::ComPtr<ID3D11DeviceContext> d3d11_context;
-      shared_d3d11_device->GetImmediateContext(&d3d11_context);
-      if (d3d11_context) {
-        d3d11_context->Flush();
-      }
-    }
-
-    Microsoft::WRL::ComPtr<ID3D11Device1> d3d_device1;
-    hr = d3d_device.As(&d3d_device1);
-    CHECK(SUCCEEDED(hr));
-    Microsoft::WRL::ComPtr<ID3D11Texture2D> opened_texture;
-    hr = d3d_device1->OpenSharedResource1(shared_handle,
-                                          IID_PPV_ARGS(&opened_texture));
-    if (FAILED(hr)) {
-      LOG(ERROR) << "Failed to open shared handle.";
-      std::move(sample_available_cb).Run(std::move(frame), nullptr, hr);
-      return;
-    }
-    input_texture = opened_texture;
+  // If same device, pass the generated IMFSample directly, otherwise, create a
+  // shared handle for cross-device texture sharing.
+  if (use_same_device) {
+    // If this texture is NV12 and going to be fed directly to the encoder,
+    // create a copy of it. Hardware encoders are not guaranteed to be done
+    // with the texture when ProcessInput returns.
+    ComPtr<IMFSample> sample =
+        CreateSampleFromTexture(shared_d3d11_device, frame, input_texture,
+                                frame->format() == PIXEL_FORMAT_NV12);
+    RETURN_ON_FAILURE_WITH_CALLBACK(sample != nullptr ? S_OK : E_FAIL,
+                                    "Failed to create MF sample");
+    std::move(sample_available_cb)
+        .Run(std::move(frame), std::move(sample), std::nullopt, std::nullopt,
+             S_OK);
+    return;
   }
-  TRACE_EVENT_END0("media", "GenerateInputTextureOnSyncTokenReleased");
 
-  if (frame->format() == PIXEL_FORMAT_NV12) {
-    // If this texture is going to be fed directly to the encoder (NV12), create
-    // a copy of it.  Hardware encoders are not guaranteed to be done with
-    // the texture when ProcessInput is finished.
+  TRACE_EVENT0("media", "CreateSharedHandleOnSyncTokenReleased");
+  bool input_texture_has_been_copied = false;
+  Microsoft::WRL::ComPtr<IDXGIResource1> dxgi_resource;
+  hr = input_texture.As(&dxgi_resource);
+  RETURN_ON_FAILURE_WITH_CALLBACK(hr, "Failed to get DXGI resource");
+  HANDLE shared_handle;
+  hr = dxgi_resource->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ,
+                                         nullptr, &shared_handle);
+  if (FAILED(hr)) {
+    TRACE_EVENT0("media", "CopyTextureOnCreateSharedHandleFailed");
     D3D11_TEXTURE2D_DESC texture_desc;
     input_texture->GetDesc(&texture_desc);
     texture_desc.Usage = D3D11_USAGE_DEFAULT;
-    texture_desc.BindFlags = D3D11_BIND_VIDEO_ENCODER;
+    texture_desc.BindFlags =
+        D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
     texture_desc.ArraySize = 1;
     texture_desc.CPUAccessFlags = 0;
-    texture_desc.MiscFlags = 0;
-    Microsoft::WRL::ComPtr<ID3D11Texture2D> copied_texture;
-    HRESULT hr =
-        d3d_device->CreateTexture2D(&texture_desc, nullptr, &copied_texture);
-    if (FAILED(hr)) {
-      std::move(sample_available_cb).Run(std::move(frame), nullptr, hr);
-      return;
-    }
+    texture_desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED_NTHANDLE |
+                             D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX;
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> shared_texture;
+    hr = shared_d3d11_device->CreateTexture2D(&texture_desc, nullptr,
+                                              &shared_texture);
+    RETURN_ON_FAILURE_WITH_CALLBACK(hr, "Failed to create shared texture");
+
+    Microsoft::WRL::ComPtr<IDXGIKeyedMutex> keyed_mutex;
+    hr = shared_texture.As(&keyed_mutex);
+    RETURN_ON_FAILURE_WITH_CALLBACK(hr, "Failed to get mutex");
+    CHECK(SUCCEEDED(keyed_mutex->AcquireSync(0, INFINITE)));
+    gpu::DXGIScopedReleaseKeyedMutex scoped_keyed_mutex(keyed_mutex, 0);
 
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> device_context;
-    d3d_device->GetImmediateContext(&device_context);
+    shared_d3d11_device->GetImmediateContext(&device_context);
     D3D11_BOX src_box = {static_cast<UINT>(frame->visible_rect().x()),
                          static_cast<UINT>(frame->visible_rect().y()),
                          0,
                          static_cast<UINT>(frame->visible_rect().right()),
                          static_cast<UINT>(frame->visible_rect().bottom()),
                          1};
-    device_context->CopySubresourceRegion(copied_texture.Get(), 0, 0, 0, 0,
+    device_context->CopySubresourceRegion(shared_texture.Get(), 0, 0, 0, 0,
                                           input_texture.Get(), 0, &src_box);
-    input_texture = copied_texture;
+    Microsoft::WRL::ComPtr<IDXGIResource1> shared_dxgi_resource;
+    hr = shared_texture.As(&shared_dxgi_resource);
+    CHECK(SUCCEEDED(hr));
+    hr = shared_dxgi_resource->CreateSharedHandle(
+        nullptr, DXGI_SHARED_RESOURCE_READ, nullptr, &shared_handle);
+    RETURN_ON_FAILURE_WITH_CALLBACK(hr, "Failed to create shared handle");
+    input_texture_has_been_copied = true;
   }
+  base::win::ScopedHandle scoped_shared_handle(shared_handle);
 
-  ComPtr<IMFSample> mf_sample;
-  HRESULT hr = MFCreateSample(&mf_sample);
+  // If the producer and consumer are different d3d11 device, we need to
+  // guarantee all previous operations on producer device are finished before
+  // using the texture.
+  base::WaitableEvent event(base::WaitableEvent::ResetPolicy::AUTOMATIC,
+                            base::WaitableEvent::InitialState::NOT_SIGNALED);
+  Microsoft::WRL::ComPtr<IDXGIDevice2> dxgi_device2;
+  hr = shared_d3d11_device.As(&dxgi_device2);
+  RETURN_ON_FAILURE_WITH_CALLBACK(hr, "Failed to query dxgi device2");
+  hr = dxgi_device2->EnqueueSetEvent(event.handle());
   if (SUCCEEDED(hr)) {
-    hr = InitializeSampleFromTexture(frame.get(), input_texture.Get(),
-                                     mf_sample.Get());
+    event.Wait();
+  } else {
+    LOG(WARNING) << "Failed to set event: "
+                 << logging::SystemErrorCodeToString(hr);
+    Microsoft::WRL::ComPtr<ID3D11DeviceContext> d3d11_context;
+    shared_d3d11_device->GetImmediateContext(&d3d11_context);
+    if (d3d11_context) {
+      d3d11_context->Flush();
+    }
   }
 
   std::move(sample_available_cb)
-      .Run(std::move(frame), std::move(mf_sample), hr);
+      .Run(std::move(frame), nullptr, std::move(scoped_shared_handle),
+           input_texture_has_been_copied, S_OK);
+#undef RETURN_ON_FAILURE_WITH_CALLBACK
 }
 
-void GenerateSampleFromSharedImageVideoFrame(
+void GenerateResourceFromSharedImageVideoFrame(
     scoped_refptr<VideoFrame> frame,
-    Microsoft::WRL::ComPtr<ID3D11Device> d3d_device,
+    bool use_same_device,
     scoped_refptr<CommandBufferHelper> command_buffer_helper,
-    SampleAvailableCB sample_available_cb) {
+    ResourceAvailableCB sample_available_cb) {
   gpu::SyncToken acquire_sync_token = frame->acquire_sync_token();
   command_buffer_helper->WaitForSyncToken(
       acquire_sync_token,
-      base::BindOnce(&GenerateSampleOnSyncTokenReleased, std::move(frame),
-                     std::move(d3d_device), std::move(command_buffer_helper),
+      base::BindOnce(&GenerateResourceOnSyncTokenReleased, std::move(frame),
+                     use_same_device, std::move(command_buffer_helper),
                      std::move(sample_available_cb)));
 }
 

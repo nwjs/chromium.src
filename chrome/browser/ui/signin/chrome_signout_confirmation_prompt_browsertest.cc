@@ -4,7 +4,11 @@
 
 #include "chrome/browser/ui/signin/chrome_signout_confirmation_prompt.h"
 
+#include <tuple>
+
 #include "base/functional/callback_helpers.h"
+#include "base/strings/stringprintf.h"
+#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/signin/signin_browser_test_base.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -13,6 +17,7 @@
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome_signout_confirmation_prompt.h"
+#include "components/sync/base/features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -33,9 +38,11 @@
 class ChromeSignoutConfirmationPromptPixelTest
     : public DialogBrowserTest,
       public testing::WithParamInterface<
-          ChromeSignoutConfirmationPromptVariant> {
+          std::tuple<ChromeSignoutConfirmationPromptVariant, size_t>> {
  public:
-  ChromeSignoutConfirmationPromptPixelTest() = default;
+  ChromeSignoutConfirmationPromptPixelTest() {
+    feature_list_.InitAndEnableFeature(syncer::kUnoPhase2FollowUp);
+  }
 
   void ShowUi(const std::string& name) override {
     auto url = GURL(chrome::kChromeUISignoutConfirmationURL);
@@ -51,8 +58,9 @@ class ChromeSignoutConfirmationPromptPixelTest
 
     auto* controller = browser()->GetFeatures().signin_view_controller();
     controller->ShowSignoutConfirmationPrompt(
-        GetVariant(), base::BindOnce([](ChromeSignoutConfirmationChoice choice,
-                                        bool uninstall_extensions) {}));
+        GetVariant(), GetUnsyncedDataCount(),
+        base::BindOnce([](ChromeSignoutConfirmationChoice choice,
+                          bool uninstall_extensions) {}));
 
     widget_waiter.WaitIfNeededAndGet();
     observer.Wait();
@@ -61,14 +69,19 @@ class ChromeSignoutConfirmationPromptPixelTest
   static std::string GetTestSuffix(
       const testing::TestParamInfo<
           ChromeSignoutConfirmationPromptPixelTest::ParamType>& info) {
-    switch (info.param) {
+    ChromeSignoutConfirmationPromptVariant variant = std::get<0>(info.param);
+    size_t unsynced_data_count = std::get<1>(info.param);
+    switch (variant) {
       case ChromeSignoutConfirmationPromptVariant::kNoUnsyncedData:
         return "NoUnsyncedData";
       case ChromeSignoutConfirmationPromptVariant::kUnsyncedData:
-        return "UnsyncedData";
+        return base::StringPrintf("UnsyncedData_%zu_UnsyncedItems",
+                                  unsynced_data_count);
       case ChromeSignoutConfirmationPromptVariant::
           kUnsyncedDataWithReauthButton:
-        return "UnsyncedDataWithReauthButton";
+        return base::StringPrintf(
+            "UnsyncedDataWithReauthButton_%zu_UnsyncedItems",
+            unsynced_data_count);
       case ChromeSignoutConfirmationPromptVariant::kProfileWithParentalControls:
         return "SupervisedProfile";
     }
@@ -76,8 +89,13 @@ class ChromeSignoutConfirmationPromptPixelTest
 
  protected:
   ChromeSignoutConfirmationPromptVariant GetVariant() const {
-    return GetParam();
+    return std::get<0>(GetParam());
   }
+
+  size_t GetUnsyncedDataCount() const { return std::get<1>(GetParam()); }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_P(ChromeSignoutConfirmationPromptPixelTest,
@@ -89,10 +107,21 @@ INSTANTIATE_TEST_SUITE_P(
     ,
     ChromeSignoutConfirmationPromptPixelTest,
     testing::Values(
-        ChromeSignoutConfirmationPromptVariant::kNoUnsyncedData,
-        ChromeSignoutConfirmationPromptVariant::kUnsyncedData,
-        ChromeSignoutConfirmationPromptVariant::kUnsyncedDataWithReauthButton,
-        ChromeSignoutConfirmationPromptVariant::kProfileWithParentalControls),
+        std::make_tuple(ChromeSignoutConfirmationPromptVariant::kNoUnsyncedData,
+                        0U),
+        std::make_tuple(ChromeSignoutConfirmationPromptVariant::kUnsyncedData,
+                        1U),
+        std::make_tuple(ChromeSignoutConfirmationPromptVariant::kUnsyncedData,
+                        2U),
+        std::make_tuple(ChromeSignoutConfirmationPromptVariant::
+                            kUnsyncedDataWithReauthButton,
+                        1U),
+        std::make_tuple(ChromeSignoutConfirmationPromptVariant::
+                            kUnsyncedDataWithReauthButton,
+                        2U),
+        std::make_tuple(ChromeSignoutConfirmationPromptVariant::
+                            kProfileWithParentalControls,
+                        0U)),
     &ChromeSignoutConfirmationPromptPixelTest::GetTestSuffix);
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -144,10 +173,21 @@ INSTANTIATE_TEST_SUITE_P(
     ,
     ChromeSignoutConfirmationPromptWithExtensionsPixelTest,
     testing::Values(
-        ChromeSignoutConfirmationPromptVariant::kNoUnsyncedData,
-        ChromeSignoutConfirmationPromptVariant::kUnsyncedData,
-        ChromeSignoutConfirmationPromptVariant::kUnsyncedDataWithReauthButton,
-        ChromeSignoutConfirmationPromptVariant::kProfileWithParentalControls),
+        std::make_tuple(ChromeSignoutConfirmationPromptVariant::kNoUnsyncedData,
+                        0U),
+        std::make_tuple(ChromeSignoutConfirmationPromptVariant::kUnsyncedData,
+                        1U),
+        std::make_tuple(ChromeSignoutConfirmationPromptVariant::kUnsyncedData,
+                        2U),
+        std::make_tuple(ChromeSignoutConfirmationPromptVariant::
+                            kUnsyncedDataWithReauthButton,
+                        1U),
+        std::make_tuple(ChromeSignoutConfirmationPromptVariant::
+                            kUnsyncedDataWithReauthButton,
+                        2U),
+        std::make_tuple(ChromeSignoutConfirmationPromptVariant::
+                            kProfileWithParentalControls,
+                        0U)),
     &ChromeSignoutConfirmationPromptPixelTest::GetTestSuffix);
 
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)

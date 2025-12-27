@@ -9,6 +9,9 @@
 
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
+#include "components/sessions/core/session_id.h"
+#include "third_party/lens_server_proto/lens_overlay_request_id.pb.h"
+#include "url/gurl.h"
 
 namespace lens {
 enum class MimeType;
@@ -17,6 +20,7 @@ enum class MimeType;
 namespace contextual_search {
 
 // Upload status of a file.
+// GENERATED_JAVA_ENUM_PACKAGE: org.chromium.components.contextual_search
 enum class FileUploadStatus {
   // Not uploaded.
   kNotUploaded = 0,
@@ -57,8 +61,11 @@ enum class FileUploadErrorType {
 // Struct containing file information for a file upload.
 struct FileInfo {
  public:
-  FileInfo() = default;
-  virtual ~FileInfo() = default;
+  FileInfo();
+  virtual ~FileInfo();
+
+  // Gets the context id for this request.
+  uint64_t GetContextId() const { return request_id.context_id(); }
 
   // Client-side unique identifier.
   base::UnguessableToken file_token;
@@ -84,7 +91,43 @@ struct FileInfo {
   // Do not modify this field directly.
   contextual_search::FileUploadErrorType upload_error_type =
       contextual_search::FileUploadErrorType::kUnknown;
+
+  // If populated, the url of the tab corresponding to this uploaded file.
+  std::optional<GURL> tab_url;
+
+  // If populated, the title of the tab corresponding to this uploaded file.
+  std::optional<std::string> tab_title;
+
+  // If populated, the session id corresponding to the tab.
+  std::optional<SessionID> tab_session_id;
+
+  // The request ID for this request. Updated by the context
+  // controller when the file upload is started.
+  lens::LensOverlayRequestId request_id;
 };
+
+// LINT.IfChange(SubmissionType)
+
+// How an AIM Composebox query was submitted.
+enum class SubmissionType {
+  kDefault = 0,
+  kDeepSearch = 1,
+  kCreateImages = 2,
+  kMaxValue = kCreateImages,
+};
+
+// LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_search/enums.xml:SubmissionType)
+
+// LINT.IfChange(AimToolState)
+
+// Value to hold the state of an AIM Tool.
+enum class AimToolState {
+  kDisabled = 0,
+  kEnabled = 1,
+  kMaxValue = kEnabled,
+};
+
+// LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_search/enums.xml:AimToolState)
 
 }  // namespace contextual_search
 

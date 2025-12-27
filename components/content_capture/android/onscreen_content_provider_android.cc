@@ -230,6 +230,41 @@ void OnscreenContentProviderAndroid::DidUpdateFavicon(
   Java_OnscreenContentProvider_didUpdateFavicon(env, java_ref_, jdata);
 }
 
+void OnscreenContentProviderAndroid::DidUpdateSensitivityScore(
+    const GURL& url,
+    float sensitivity_score) {
+  JNIEnv* env = AttachCurrentThread();
+  DCHECK(java_ref_.obj());
+
+  Java_OnscreenContentProvider_didUpdateSensitivityScore(
+      env, java_ref_, ConvertUTF8ToJavaString(env, url.spec()),
+      static_cast<jfloat>(sensitivity_score));
+}
+
+void OnscreenContentProviderAndroid::DidUpdateLanguageDetails(
+    const GURL& url,
+    const std::string& detected_language,
+    float language_confidence) {
+  JNIEnv* env = AttachCurrentThread();
+  if (!java_ref_.obj()) {
+    return;
+  }
+
+  Java_OnscreenContentProvider_didUpdateLanguageDetails(
+      env, java_ref_, base::android::ConvertUTF8ToJavaString(env, url.spec()),
+      base::android::ConvertUTF8ToJavaString(env, detected_language),
+      static_cast<jfloat>(language_confidence));
+}
+
+void OnscreenContentProviderAndroid::ClearContentCaptureMetadata() {
+  JNIEnv* env = AttachCurrentThread();
+  if (!java_ref_.obj()) {
+    return;
+  }
+
+  Java_OnscreenContentProvider_clearContentCaptureMetadata(env, java_ref_);
+}
+
 bool OnscreenContentProviderAndroid::ShouldCapture(const GURL& url) {
   JNIEnv* env = AttachCurrentThread();
   return Java_OnscreenContentProvider_shouldCapture(
@@ -277,3 +312,7 @@ content::WebContents* OnscreenContentProviderAndroid::GetWebContents() {
 }
 
 }  // namespace content_capture
+
+DEFINE_JNI(ContentCaptureData)
+DEFINE_JNI(ContentCaptureFrame)
+DEFINE_JNI(OnscreenContentProvider)

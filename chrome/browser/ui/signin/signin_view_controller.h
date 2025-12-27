@@ -175,6 +175,7 @@ class SigninViewController {
   // of the `browser_`'s window. Executes the provided callback when the dialog
   // closes.
   void ShowModalHistorySyncOptInDialog(
+      bool should_close_modal_dialog,
       HistorySyncOptinHelper::FlowCompletedCallback
           history_optin_completed_callback);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -228,11 +229,14 @@ class SigninViewController {
                            CreateLocalProfile);
   FRIEND_TEST_ALL_PREFIXES(ProfilePickerCreationFlowBrowserTest,
                            CancelLocalProfileCreation);
+  FRIEND_TEST_ALL_PREFIXES(
+      ProfilePickerWithReducedFrictionRemoveSigninBrowserTest,
+      CreateLocalProfileWithoutSigninStep);
   FRIEND_TEST_ALL_PREFIXES(SyncSettingsInteractiveTest,
                            PressingSignOutButtonsSignsOutUser);
   friend class ChromeSignoutConfirmationPromptPixelTest;
   friend class login_ui_test_utils::SigninViewControllerTestUtil;
-  friend class SigninInterceptFirstRunExperienceDialogBrowserTest;
+  friend class SigninInterceptFirstRunExperienceDialogBrowserTestBase;
   friend class SyncConfirmationUIDialogPixelTest;
   friend class SigninViewControllerBrowserTestBase;
   friend class ProfileMenuViewSignoutTest;
@@ -268,6 +272,7 @@ class SigninViewController {
   // prompt.
   void ShowSignoutConfirmationPrompt(
       ChromeSignoutConfirmationPromptVariant prompt_variant,
+      size_t unsynced_data_count,
       SignoutConfirmationCallback callback);
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 

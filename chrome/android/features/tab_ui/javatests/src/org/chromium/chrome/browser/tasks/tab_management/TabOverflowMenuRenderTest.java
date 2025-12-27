@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import android.app.Activity;
 import android.view.View;
 
+import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.MediumTest;
 
 import org.junit.After;
@@ -98,12 +99,16 @@ public class TabOverflowMenuRenderTest {
         when(mTabModelSupplier.get()).thenReturn(mTabModel);
         when(mCollaborationService.getServiceStatus()).thenReturn(mServiceStatus);
         CollaborationServiceFactory.setForTesting(mCollaborationService);
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 
     @After
     public void tearDown() {
         NightModeTestUtils.tearDownNightModeForBlankUiTestActivity();
-        mCoordinator.destroyMenuForTesting();
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mCoordinator.destroyMenuForTesting();
+                });
     }
 
     @Test
@@ -120,6 +125,7 @@ public class TabOverflowMenuRenderTest {
                 () -> {
                     mCoordinator =
                             new TabOverflowMenuCoordinator<>(
+                                    R.layout.tab_switcher_action_menu_layout,
                                     R.layout.tab_switcher_action_menu_layout,
                                     mOnItemClickedCallback,
                                     mTabModelSupplier,
@@ -162,6 +168,7 @@ public class TabOverflowMenuRenderTest {
                     mCoordinator.createAndShowMenu(new View(mActivity), 1, mActivity);
                     mView = mCoordinator.getContentViewForTesting();
                 });
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 
         CriteriaHelper.pollUiThread(
                 () -> mView.getWidth() > 0 && mView.getHeight() > 0, "View not rendered");

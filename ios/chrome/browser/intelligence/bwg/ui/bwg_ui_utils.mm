@@ -4,41 +4,56 @@
 
 #import "ios/chrome/browser/intelligence/bwg/ui/bwg_ui_utils.h"
 
+#import "ios/chrome/browser/shared/ui/symbols/buildflags.h"
+#import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
-#import "ios/chrome/common/ui/util/button_util.h"
 
 @implementation BWGUIUtils
 
-+ (UIButton*)createPrimaryButtonWithTitle:(NSString*)title {
-  ChromeButton* primaryButton = PrimaryActionButton();
-  UIButtonConfiguration* buttonConfiguration = primaryButton.configuration;
-
-  UIFont* font =
-      PreferredFontForTextStyle(UIFontTextStyleHeadline, UIFontWeightSemibold);
-  NSDictionary<NSAttributedStringKey, id>* attributes =
-      @{NSFontAttributeName : font};
-  NSAttributedString* attributedTitle =
-      [[NSAttributedString alloc] initWithString:title attributes:attributes];
-  buttonConfiguration.attributedTitle = attributedTitle;
-  primaryButton.configuration = buttonConfiguration;
-
-  return primaryButton;
++ (UIImage*)brandedGeminiSymbolWithPointSize:(CGFloat)pointSize {
+#if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+  return CustomSymbolWithPointSize(kGeminiBrandedLogoImage, pointSize);
+#else
+  return DefaultSymbolWithPointSize(kGeminiNonBrandedLogoImage, pointSize);
+#endif
 }
 
-+ (UIButton*)createSecondaryButtonWithTitle:(NSString*)title {
-  ChromeButton* secondaryButton = SecondaryActionButton();
-  UIButtonConfiguration* buttonConfiguration = secondaryButton.configuration;
-  buttonConfiguration.title = title;
-  buttonConfiguration.baseForegroundColor = [UIColor colorNamed:kBlueColor];
-  UIBackgroundConfiguration* backgroundConfig = buttonConfiguration.background;
-  backgroundConfig.backgroundColor =
-      [UIColor colorNamed:kPrimaryBackgroundColor];
-  buttonConfiguration.background = backgroundConfig;
++ (UIImage*)createGradientGeminiLogo:(CGFloat)pointSize {
+  UITraitCollection* lightTraitCollection = [UITraitCollection
+      traitCollectionWithUserInterfaceStyle:UIUserInterfaceStyleLight];
+  NSArray<UIColor*>* colors = @[
+    [[UIColor colorNamed:kBlue700Color]
+        resolvedColorWithTraitCollection:lightTraitCollection],
+    [[UIColor colorNamed:kBlue300Color]
+        resolvedColorWithTraitCollection:lightTraitCollection]
+  ];
 
-  secondaryButton.configuration = buttonConfiguration;
+  NSMutableArray<id>* gradientColorArray = [[NSMutableArray alloc] init];
+  for (UIColor* color in colors) {
+    [gradientColorArray addObject:static_cast<id>(color.CGColor)];
+  }
 
-  return secondaryButton;
+  UIImage* geminiIcon = [BWGUIUtils brandedGeminiSymbolWithPointSize:pointSize];
+  CGSize iconSize = [geminiIcon size];
+  CGRect iconFrame = CGRectMake(0, 0, iconSize.width, iconSize.height);
+
+  CAGradientLayer* gradientLayer = [CAGradientLayer layer];
+  gradientLayer.colors = gradientColorArray;
+  gradientLayer.startPoint = CGPointMake(0, 0.5);
+  gradientLayer.endPoint = CGPointMake(0.5, 0.0);
+  gradientLayer.frame = iconFrame;
+
+  UIGraphicsImageRenderer* renderer =
+      [[UIGraphicsImageRenderer alloc] initWithSize:iconSize];
+  UIImage* gradientImage = [renderer
+      imageWithActions:^(UIGraphicsImageRendererContext* rendererContext) {
+        CGContextClipToMask(rendererContext.CGContext, iconFrame,
+                            geminiIcon.CGImage);
+        [gradientLayer renderInContext:rendererContext.CGContext];
+      }];
+
+  return gradientImage;
 }
 
 @end

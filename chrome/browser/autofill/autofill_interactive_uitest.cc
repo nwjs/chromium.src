@@ -10,7 +10,6 @@
 
 #include "base/base_switches.h"
 #include "base/command_line.h"
-#include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
@@ -65,6 +64,7 @@
 #include "components/autofill/core/browser/foundations/test_autofill_manager_waiter.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #include "components/autofill/core/common/autofill_constants.h"
+#include "components/autofill/core/common/autofill_debug_features.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_util.h"
 #include "components/metrics/content/subprocess_metrics_provider.h"
@@ -884,7 +884,7 @@ class AutofillInteractiveTestWithHistogramTester
  public:
   AutofillInteractiveTestWithHistogramTester() {
     feature_list_.InitWithFeatureState(
-        features::test::kAutofillServerCommunication, true);
+        features::debug::kAutofillServerCommunication, true);
   }
 
   void SetUp() override {
@@ -1666,7 +1666,13 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest, DynamicFormFill) {
 }
 
 // Test that form filling works after reloading the current page.
-IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest, AutofillAfterReload) {
+// Disable on Linux due to flakiness: crbug.com/446401455.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_AutofillAfterReload DISABLED_AutofillAfterReload
+#else
+#define MAYBE_AutofillAfterReload AutofillAfterReload
+#endif
+IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest, MAYBE_AutofillAfterReload) {
   CreateTestProfile();
   SetTestUrlResponse(kTestShippingFormString);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GetTestUrl()));

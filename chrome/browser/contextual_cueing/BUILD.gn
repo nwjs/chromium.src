@@ -65,6 +65,9 @@ source_set("impl") {
       "//chrome/browser/glic",
     ]
   }
+  if (!is_android) {
+    deps += [ "//chrome/browser/contextual_tasks:ui" ]
+  }
   if (enable_pdf) {
     deps += [ "//components/pdf/browser" ]
   }
@@ -113,5 +116,8 @@ source_set("unit_tests") {
       "//chrome/browser/glic",
       "//chrome/browser/glic/test_support",
     ]
+  }
+  if (is_chromeos) {
+    deps += [ "//chrome/browser/ash/test:test_support" ]
   }
 }

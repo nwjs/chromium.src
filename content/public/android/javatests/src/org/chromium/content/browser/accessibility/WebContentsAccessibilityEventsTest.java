@@ -159,7 +159,10 @@ public class WebContentsAccessibilityEventsTest {
 
     @Test
     @SmallTest
-    @DisableFeatures(ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE)
+    @DisableFeatures({
+        ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE,
+        ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE
+    })
     @DisabledTest(message = "https://crbug.com/414363686")
     public void test_addAlertContent() {
         performTest("add-alert-content.html", "add-alert-content-expected-android.txt");
@@ -167,9 +170,51 @@ public class WebContentsAccessibilityEventsTest {
 
     @Test
     @SmallTest
-    @EnableFeatures(ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE)
+    @EnableFeatures(ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE)
     public void test_addAlertContent_exp() {
         performTest("add-alert-content.html", "add-alert-content-expected-android-exp.txt");
+    }
+
+    @Test
+    @SmallTest
+    @DisableFeatures({
+        ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE,
+        ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE
+    })
+    public void test_alertShadowDomIgnoredChanged() {
+        performTest(
+                "alert-shadow-dom-ignored-changed.html",
+                "alert-shadow-dom-ignored-changed-expected-android.txt");
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE)
+    public void test_alertShadowDomIgnoredChanged_exp() {
+        performTest(
+                "alert-shadow-dom-ignored-changed.html",
+                "alert-shadow-dom-ignored-changed-expected-android-exp.txt");
+    }
+
+    @Test
+    @SmallTest
+    @DisableFeatures({
+        ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE,
+        ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE
+    })
+    public void test_alertShadowDomIgnoredReparented() {
+        performTest(
+                "alert-shadow-dom-ignored-reparented.html",
+                "alert-shadow-dom-ignored-reparented-expected-android.txt");
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE)
+    public void test_alertShadowDomIgnoredReparented_exp() {
+        performTest(
+                "alert-shadow-dom-ignored-reparented.html",
+                "alert-shadow-dom-ignored-reparented-expected-android-exp.txt");
     }
 
     @Test
@@ -860,14 +905,17 @@ public class WebContentsAccessibilityEventsTest {
 
     @Test
     @SmallTest
-    @DisableFeatures(ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE)
+    @DisableFeatures({
+        ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE,
+        ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE
+    })
     public void test_liveRegionAdd() {
         performTest("live-region-add.html", "live-region-add-expected-android.txt");
     }
 
     @Test
     @SmallTest
-    @EnableFeatures(ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE)
+    @EnableFeatures(ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE)
     public void test_liveRegionAdd_exp() {
         performTest("live-region-add.html", "live-region-add-expected-android-exp.txt");
     }
@@ -882,21 +930,27 @@ public class WebContentsAccessibilityEventsTest {
 
     @Test
     @SmallTest
-    @DisableFeatures(ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE)
+    @DisableFeatures({
+        ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE,
+        ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE
+    })
     public void test_liveRegionChanged() {
         performTest("live-region-change.html", "live-region-change-expected-android.txt");
     }
 
     @Test
     @SmallTest
-    @EnableFeatures(ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE)
+    @EnableFeatures(ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE)
     public void test_liveRegionChanged_exp() {
         performTest("live-region-change.html", "live-region-change-expected-android-exp.txt");
     }
 
     @Test
     @SmallTest
-    @DisableFeatures(ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE)
+    @DisableFeatures({
+        ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE,
+        ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE
+    })
     public void test_liveRegionChangedInnerHtml() {
         performTest(
                 "live-region-change-innerhtml.html",
@@ -905,7 +959,7 @@ public class WebContentsAccessibilityEventsTest {
 
     @Test
     @SmallTest
-    @EnableFeatures(ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE)
+    @EnableFeatures(ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE)
     public void test_liveRegionChangedInnerHtml_exp() {
         performTest(
                 "live-region-change-innerhtml.html",
@@ -914,7 +968,10 @@ public class WebContentsAccessibilityEventsTest {
 
     @Test
     @SmallTest
-    @DisableFeatures(ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE)
+    @DisableFeatures({
+        ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE,
+        ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE
+    })
     public void test_liveRegionChangedInnerText() {
         performTest(
                 "live-region-change-innertext.html",
@@ -923,7 +980,7 @@ public class WebContentsAccessibilityEventsTest {
 
     @Test
     @SmallTest
-    @EnableFeatures(ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE)
+    @EnableFeatures(ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE)
     public void test_liveRegionChangedInnerText_exp() {
         performTest(
                 "live-region-change-innertext.html",
@@ -938,7 +995,10 @@ public class WebContentsAccessibilityEventsTest {
 
     @Test
     @SmallTest
-    @DisableFeatures(ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE)
+    @DisableFeatures({
+        ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE,
+        ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE
+    })
     public void test_liveRegionElemReparent() {
         performTest(
                 "live-region-elem-reparent.html", "live-region-elem-reparent-expected-android.txt");
@@ -946,7 +1006,7 @@ public class WebContentsAccessibilityEventsTest {
 
     @Test
     @SmallTest
-    @EnableFeatures(ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE)
+    @EnableFeatures(ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE)
     public void test_liveRegionElemReparent_exp() {
         performTest(
                 "live-region-elem-reparent.html",

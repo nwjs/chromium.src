@@ -54,9 +54,8 @@ class SyncServiceImplHarness {
   using SetUserSettingsCallback =
       base::OnceCallback<void(syncer::SyncUserSettings*)>;
 
-  static std::unique_ptr<SyncServiceImplHarness> Create(
-      Profile* profile,
-      SigninType signin_type);
+  static std::unique_ptr<SyncServiceImplHarness> Create(Profile* profile,
+                                                        SigninType signin_type);
   ~SyncServiceImplHarness();
 
   SyncServiceImplHarness(const SyncServiceImplHarness&) = delete;
@@ -92,7 +91,7 @@ class SyncServiceImplHarness {
   // syncing user signs out of the content area.
   // TODO(crbug.com/401470426): Replace the usages with
   // Enter/ExitSignInPendingStateForPrimaryAccount().
-  void EnterSyncPausedStateForPrimaryAccount();
+  bool EnterSyncPausedStateForPrimaryAccount();
   bool ExitSyncPausedStateForPrimaryAccount();
 
   // Enters the "Sign-in pending" state and waits until the sync transport
@@ -120,8 +119,7 @@ class SyncServiceImplHarness {
 
   // Enables and configures sync.
   // Does not wait for sync to be ready to process changes -- callers need to
-  // ensure this by calling AwaitSyncSetupCompletion() or
-  // AwaitSyncTransportActive().
+  // ensure this by calling AwaitSyncTransportActive().
   [[nodiscard]] bool SetupSyncNoWaitForCompletion(
       SyncTestAccount account = SyncTestAccount::kDefaultAccount);
 
@@ -162,12 +160,6 @@ class SyncServiceImplHarness {
   // of engine initialization.
   [[nodiscard]] bool AwaitEngineInitialization();
 
-  // Blocks the caller until sync setup is complete, and sync-the-feature is
-  // active. Returns true if and only if sync setup completed successfully. Make
-  // sure to actually start sync setup (usually by calling SetupSync() or one of
-  // its variants) before.
-  [[nodiscard]] bool AwaitSyncSetupCompletion();
-
   // Blocks the caller until the sync transport layer is active. Returns true if
   // successful.
   [[nodiscard]] bool AwaitSyncTransportActive();
@@ -186,19 +178,31 @@ class SyncServiceImplHarness {
   // Returns the debug name for this profile. Used for logging.
   const std::string& profile_debug_name() const { return profile_debug_name_; }
 
-  // Enables sync for a particular selectable sync type (will enable sync for
-  // all corresponding datatypes). Returns true on success.
-  [[nodiscard]] bool EnableSyncForType(syncer::UserSelectableType type);
+  // Enables the history-related sync types. This includes
+  // UserSelectableType::kHistory and UserSelectableType::kTabs. The user must
+  // already be signed in, or this will have no effect. Returns true on success.
+  [[nodiscard]] bool EnableHistorySyncNoWaitForCompletion();
 
-  // Disables sync for a particular selectable sync type (will enable sync for
-  // all corresponding datatypes). Returns true on success.
-  [[nodiscard]] bool DisableSyncForType(syncer::UserSelectableType type);
-
-  // Enables sync for all registered sync datatypes. Returns true on success.
+  // Enables Sync-the-feature for all registered sync datatypes. Returns true on
+  // success.
+  // TODO(crbug.com/353425612): Replace all calls to this with either
+  // SetupSync() or EnableAllSelectableTypes().
   [[nodiscard]] bool EnableSyncForRegisteredDatatypes();
 
   // Disables sync for all sync datatypes. Returns true on success.
+  // TODO(crbug.com/353425612): Replace all calls to this with
+  // DisableAllSelectableTypes() which is identical.
   [[nodiscard]] bool DisableSyncForAllDatatypes();
+
+  // Enables/disables a particular selectable type. The user must already be
+  // signed in, or this has no effect.
+  [[nodiscard]] bool EnableSelectableType(syncer::UserSelectableType type);
+  [[nodiscard]] bool DisableSelectableType(syncer::UserSelectableType type);
+
+  // Enables/disables all available selectable types. The user must already be
+  // signed in, or this has no effect.
+  [[nodiscard]] bool EnableAllSelectableTypes();
+  [[nodiscard]] bool DisableAllSelectableTypes();
 
   // Returns a snapshot of the current sync session.
   syncer::SyncCycleSnapshot GetLastCycleSnapshot() const;

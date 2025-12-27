@@ -42,7 +42,6 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHComposeMSBBSettingsFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHComposeNewBadgeFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopSharedHighlightingFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopCustomizeChromeExperimentFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopCustomizeChromeRefreshFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopCustomizeChromeAutoOpenFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDiscardRingFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDownloadEsbPromoFeature);
@@ -110,6 +109,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPasswordsWebAppProfileSwitchFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPasswordManagerShortcutFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPasswordSharingFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPdfInkSignaturesFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPdfSearchifyFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPerformanceInterventionDialogFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPlusAddressFirstSaveFeature);
@@ -120,6 +120,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPriceTrackingPageActionIconLabelFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingListDiscoveryFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingListEntryPointFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingListInSidePanelFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModePageActionLabelFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModeSidePanelFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHShoppingCollectionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSideBySidePinnableFeature);
@@ -375,13 +376,14 @@ COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 extern const base::FeatureParam<int>
     kDefaultBrowserEligibilitySlidingWindowParam;
 
-// Non-FET feature flag that enables the generic default browser promo to be
-// displayed without matching all the criteria and in depth metrics collection
-// for the displayed promo.
-FEATURE_CONSTANTS_DECLARE_FEATURE(kDefaultBrowserTriggerCriteriaExperiment);
-
 // FET feature flag that enables AI Hub "New" badge.
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSAIHubNewBadge);
+
+// FET feature flag that enabled the Gemini fullscreen promo.
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSGeminiFullscreenPromoFeature);
+
+// FET feature flag that enables omnibox Gemini contextual cue chip.
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSGeminiContextualCueChip);
 
 #endif  // BUILDFLAG(IS_IOS)
 

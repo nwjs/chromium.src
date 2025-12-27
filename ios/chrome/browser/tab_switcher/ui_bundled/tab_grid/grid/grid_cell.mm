@@ -28,7 +28,7 @@
 namespace {
 
 // The size of symbol icons.
-NSInteger kIconSymbolPointSize = 13;
+constexpr NSInteger kIconSymbolPointSize = 13;
 
 // Scale of activity indicator replacing fav icon when active.
 const CGFloat kIndicatorScale = 0.75;
@@ -98,6 +98,7 @@ NSString* GridCellSnapshotAccessibilityIdentifier(NSUInteger index) {
 @property(nonatomic, weak) UIImageView* closeIconView;
 @property(nonatomic, weak) UIImageView* selectIconView;
 @property(nonatomic, weak) UIActivityIndicatorView* activityIndicator;
+@property(nonatomic, weak) UIActivityIndicatorView* snapshotActivityIndicator;
 // Since the close icon dimensions are smaller than the recommended tap target
 // size, use an overlaid tap target button.
 @property(nonatomic, weak) UIButton* closeTapTargetButton;
@@ -108,6 +109,9 @@ NSString* GridCellSnapshotAccessibilityIdentifier(NSUInteger index) {
 // UI elements for highlighted state.
 // Container for the cell's contents to enable shrinking transform.
 @property(nonatomic, strong) UIView* containerView;
+// Horizontal constraints for `containerView`.
+@property(nonatomic, strong) NSLayoutConstraint* containerLeadingConstraint;
+@property(nonatomic, strong) NSLayoutConstraint* containerTrailingConstraint;
 // Background view to show while cell is highlighted.
 @property(nonatomic, strong) UIView* groupingBackgroundView;
 // Dimming view over the cell contents while cell is highlighted.
@@ -188,11 +192,18 @@ NSString* GridCellSnapshotAccessibilityIdentifier(NSUInteger index) {
     }
     PriceCardView* priceCardView = [[PriceCardView alloc] init];
     [snapshotView addSubview:priceCardView];
+
+    UIActivityIndicatorView* snapshotActivityIndicator =
+        [[UIActivityIndicatorView alloc] init];
+    snapshotActivityIndicator.translatesAutoresizingMaskIntoConstraints = NO;
+    [snapshotView addSubview:snapshotActivityIndicator];
+
     [contentContainer addSubview:closeTapTargetButton];
     _topBar = topBar;
     _snapshotView = snapshotView;
     _closeTapTargetButton = closeTapTargetButton;
     _priceCardView = priceCardView;
+    _snapshotActivityIndicator = snapshotActivityIndicator;
     _opacity = 1.0;
 
     self.contentView.backgroundColor = [UIColor colorNamed:kBackgroundColor];
@@ -208,6 +219,12 @@ NSString* GridCellSnapshotAccessibilityIdentifier(NSUInteger index) {
     self.layer.shadowOpacity = 0.5f;
     self.layer.masksToBounds = NO;
     CGFloat margin = IsTabGridEmptyThumbnailUIEnabled() ? kSnapshotInset : 0;
+    self.containerLeadingConstraint = [snapshotView.leadingAnchor
+        constraintEqualToAnchor:contentContainer.leadingAnchor
+                       constant:margin];
+    self.containerTrailingConstraint = [snapshotView.trailingAnchor
+        constraintEqualToAnchor:contentContainer.trailingAnchor
+                       constant:-margin];
     NSArray* constraints = @[
       [topBar.topAnchor constraintEqualToAnchor:contentContainer.topAnchor],
       [topBar.leadingAnchor
@@ -215,12 +232,8 @@ NSString* GridCellSnapshotAccessibilityIdentifier(NSUInteger index) {
       [topBar.trailingAnchor
           constraintEqualToAnchor:contentContainer.trailingAnchor],
       [snapshotView.topAnchor constraintEqualToAnchor:topBar.bottomAnchor],
-      [snapshotView.leadingAnchor
-          constraintEqualToAnchor:contentContainer.leadingAnchor
-                         constant:margin],
-      [snapshotView.trailingAnchor
-          constraintEqualToAnchor:contentContainer.trailingAnchor
-                         constant:-margin],
+      self.containerLeadingConstraint,
+      self.containerTrailingConstraint,
       [snapshotView.bottomAnchor
           constraintEqualToAnchor:contentContainer.bottomAnchor
                          constant:-margin],
@@ -241,6 +254,10 @@ NSString* GridCellSnapshotAccessibilityIdentifier(NSUInteger index) {
       [priceCardView.trailingAnchor
           constraintLessThanOrEqualToAnchor:snapshotView.trailingAnchor
                                    constant:-kGridCellPriceDropTrailingSpacing],
+      [snapshotActivityIndicator.centerXAnchor
+          constraintEqualToAnchor:snapshotView.centerXAnchor],
+      [snapshotActivityIndicator.centerYAnchor
+          constraintEqualToAnchor:snapshotView.centerYAnchor],
     ];
     [NSLayoutConstraint activateConstraints:constraints];
 
@@ -309,7 +326,8 @@ NSString* GridCellSnapshotAccessibilityIdentifier(NSUInteger index) {
   self.priceCardView.hidden = YES;
   self.opacity = 1.0;
   self.hidden = NO;
-  [self hideActivityIndicator];
+  [self hideFaviconActivityIndicator];
+  [self hideSnapshotActivityIndicator];
   if (IsTabGridDragAndDropEnabled()) {
     [self setHighlightForGrouping:NO];
   }
@@ -376,16 +394,27 @@ NSString* GridCellSnapshotAccessibilityIdentifier(NSUInteger index) {
   _icon = icon;
 }
 
-- (void)showActivityIndicator {
+- (void)showFaviconActivityIndicator {
   [self.activityIndicator startAnimating];
   [self.activityIndicator setHidden:NO];
   [self.iconView setHidden:YES];
 }
 
-- (void)hideActivityIndicator {
+- (void)hideFaviconActivityIndicator {
   [self.activityIndicator stopAnimating];
   [self.activityIndicator setHidden:YES];
   [self.iconView setHidden:NO];
+}
+
+- (void)showSnapshotActivityIndicator {
+  [self.snapshotActivityIndicator startAnimating];
+  [self.snapshotActivityIndicator setHidden:NO];
+  [self.emptyView setHidden:YES];
+}
+
+- (void)hideSnapshotActivityIndicator {
+  [self.snapshotActivityIndicator stopAnimating];
+  [self.snapshotActivityIndicator setHidden:YES];
 }
 
 - (CGRect)snapshotFrame {
@@ -924,20 +953,19 @@ NSString* GridCellSnapshotAccessibilityIdentifier(NSUInteger index) {
 }
 
 - (void)positionTabViews {
+  if (!IsNewTabGridTransitionsEnabled()) {
+    self.containerLeadingConstraint.constant = 0;
+    self.containerTrailingConstraint.constant = 0;
+    self.containerView.layer.cornerRadius = 0;
+    self.snapshotView.layer.cornerRadius = 0;
+  }
   [self scaleTabViews];
   self.topBarHeightConstraint.constant = self.topTabView.frame.size.height;
   [self setNeedsUpdateConstraints];
   [self layoutIfNeeded];
   PositionView(self.topTabView, CGPointMake(0, 0));
   // Position the main view so it's top-aligned with the main cell view.
-  CGPoint mainTabViewOrigin = self.mainCellView.frame.origin;
-  if (IsTabGridEmptyThumbnailUIEnabled()) {
-    // With the snapshot inset horizontally to create containerized feel, need
-    // to shift the view to a zero x position so the animation of it aligns with
-    // the frame of the BVC WKWebView.
-    mainTabViewOrigin.x = 0;
-  }
-  PositionView(self.mainTabView, mainTabViewOrigin);
+  PositionView(self.mainTabView, self.mainCellView.frame.origin);
   if (!self.bottomTabView) {
     return;
   }
@@ -949,6 +977,14 @@ NSString* GridCellSnapshotAccessibilityIdentifier(NSUInteger index) {
 }
 
 - (void)positionCellViews {
+  if (!IsNewTabGridTransitionsEnabled()) {
+    self.containerView.layer.cornerRadius = kGridCellCornerRadius;
+    self.containerLeadingConstraint.constant =
+        IsTabGridEmptyThumbnailUIEnabled() ? kSnapshotInset : 0;
+    self.containerTrailingConstraint.constant =
+        IsTabGridEmptyThumbnailUIEnabled() ? -kSnapshotInset : 0;
+    self.snapshotView.layer.cornerRadius = kGridCellCornerRadius;
+  }
   [self scaleTabViews];
   self.topBarHeightConstraint.constant = [self topBarHeight];
   [self setNeedsUpdateConstraints];

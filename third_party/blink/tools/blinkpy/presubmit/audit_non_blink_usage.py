@@ -114,6 +114,8 @@ _CONFIG = [
             'base::MakeRefCounted',
             'base::MatcherStringPattern',
             'base::MatchPattern',
+            'base::MemoryPressureListener',
+            'base::MemoryPressureListenerTag',
             'base::MessagePump',
             'base::MetricsSubSampler',
             'base::MiB',
@@ -660,12 +662,14 @@ _CONFIG = [
             "cc::PropertyChangeForcesCommitCriteria",
             "cc::AnimationHost",
             "cc::AnimationIdProvider",
+            "cc::AnimationTrigger",
             "cc::AnimationTimeline",
             "cc::FilterKeyframe",
             "cc::KeyframedFilterAnimationCurve",
             "cc::KeyframeModel",
             "cc::ScrollOffsetAnimationCurveFactory",
             "cc::TargetProperty",
+            "cc::TimelineTrigger",
             "gfx::AnimationCurve",
             "gfx::ColorKeyframe",
             "gfx::FloatKeyframe",
@@ -970,7 +974,8 @@ _CONFIG = [
         # //third_party/blink/renderer/platform/scheduler/TaskSchedulingInBlink.md
         # for more.
         'inclass_disallowed': [
-            'base::(SingleThread|Sequenced)TaskRunner::(GetCurrentDefault|CurrentDefaultHandle)'
+            'base::(SingleThread|Sequenced)TaskRunner::(GetCurrentDefault|CurrentDefaultHandle)',
+            'base::(SingleThread|Sequenced)TaskRunner::GetCurrentBestEffort',
         ],
     },
     {
@@ -1023,14 +1028,6 @@ _CONFIG = [
         ['third_party/blink/renderer/controller/oom_intervention_impl.cc'],
         'allowed': [
             'base::BindOnce',
-        ],
-    },
-    {
-        'paths': [
-            'third_party/blink/renderer/controller/user_level_memory_pressure_signal_generator.cc'
-        ],
-        'allowed': [
-            'base::MemoryPressureListener',
         ],
     },
     {
@@ -1196,15 +1193,6 @@ _CONFIG = [
         'allowed': [
             'ui::ImeTextSpan',
             'ui::TextInputAction',
-        ],
-    },
-    {
-        'paths': [
-            'third_party/blink/renderer/core/editing/commands/undo_stack.cc',
-            'third_party/blink/renderer/core/editing/commands/undo_stack.h'
-        ],
-        'allowed': [
-            'base::MemoryPressureListener',
         ],
     },
     {
@@ -1485,6 +1473,14 @@ _CONFIG = [
     },
     {
         'paths': [
+            'third_party/blink/public/platform/web_video_frame_submitter.h',
+        ],
+        'allowed': [
+            'gpu::SharedImageInterface',
+        ],
+    },
+    {
+        'paths': [
             'third_party/blink/public/web/web_dom_activity_logger.h',
         ],
         'allowed': [
@@ -1690,6 +1686,7 @@ _CONFIG = [
             'gpu::SharedImageUsageSet',
             'gpu::SyncToken',
             'gpu::webgpu::ReservedTexture',
+            'media::ConvertToMemoryMappedFrame',
             'media::IsOpaque',
             'media::kNoTransformation',
             'media::PaintCanvasVideoRenderer',
@@ -2050,15 +2047,53 @@ _CONFIG = [
         # base::RefCounted and base::RefCountedThreadSafe should still be
         # explicitly blocked. blink::RefCounted and blink::ThreadSafeRefCounted
         # should be used instead.
+        # Also, there is a blink-specific version of
+        # MemoryPressureListenerRegistration and MemoryConsumerRegistration that
+        # should be used over their base counterpart.
         'allowed': ['.+'],
         'inclass_allowed': ['.+'],
         'disallowed': [
             ('base::RefCounted', 'Use RefCounted'),
             ('base::RefCountedThreadSafe', 'Use ThreadSafeRefCounted'),
+            ('base::MemoryConsumerRegistration',
+             'Use blink::MemoryConsumerRegistration'),
+            ('base::AsyncMemoryConsumerRegistration',
+             'Use blink::MemoryConsumerRegistration'),
+            ('base::MemoryPressureListenerRegistration',
+             'Use blink::MemoryPressureListenerRegistration'),
+            ('base::AsyncMemoryPressureListenerRegistration',
+             'Use blink::MemoryPressureListenerRegistration'),
             # TODO(https://crbug.com/1267866): this warning is shown twice for
             # renderer/platform/ violations.
             _DISALLOW_NON_BLINK_MOJOM,
         ]
+    },
+    {
+        'paths': [
+            'third_party/blink/renderer/platform/instrumentation/memory_coordinator/',
+        ],
+        'allowed': [
+            'base::AsyncMemoryConsumerRegistration',
+            'base::MemoryConsumerRegistration',
+        ]
+    },
+    {
+        'paths': [
+            'third_party/blink/renderer/platform/instrumentation/memory_pressure_listener.cc',
+            'third_party/blink/renderer/platform/instrumentation/memory_pressure_listener.h',
+        ],
+        'allowed': [
+            'base::AsyncMemoryPressureListenerRegistration',
+        ]
+    },
+    {
+        'paths': [
+            'third_party/blink/renderer/platform/bindings/parkable_string_manager.h',
+        ],
+        'allowed': [
+            # ParkableStringManager is not garbage-collected, so is safe to use the base version.
+            'base::AsyncMemoryPressureListenerRegistration',
+        ],
     },
     {
         'paths': [
@@ -2274,7 +2309,6 @@ _CONFIG = [
         # are converted to the STL/WebRTC counterparts in the parent directory.
         'allowed': [
             'base::OnTaskRunnerDeleter',
-            'sigslot::.+',
         ],
     },
     {
@@ -2609,6 +2643,8 @@ _CONFIG = [
         'allowed': [
             'blink_mojom::.+',
             'webnn::.+',
+            'gpu::SharedImageInterface',
+            'viz::SinglePlaneFormat',
         ]
     },
     {
@@ -2756,11 +2792,12 @@ _CONFIG = [
     },
     {
         'paths': [
-            'third_party/blink/renderer/modules/canvas/canvas_noise_test_util.h',
-            'third_party/blink/renderer/modules/canvas/canvas_noise_test_util.cc',
+            'third_party/blink/common/loader/code_cache_util.cc',
+            'third_party/blink/public/common/loader/code_cache_util.h',
         ],
         'allowed': [
-            'viz::TestRasterInterface',
+            'GURL',
+            'net::SimplifyUrlForRequest',
         ]
     },
     {
@@ -2769,6 +2806,19 @@ _CONFIG = [
         ],
         'allowed': [
             'gin::kThreadDebuggerCommonImplTag',
+        ]
+    },
+    {
+        'paths': [
+            'third_party/blink/renderer/core/xml/parser/xml_document_parser_rs.cc',
+            'third_party/blink/renderer/core/xml/parser/xml_document_parser_rs.h',
+            'third_party/blink/renderer/core/xml/parser/xml_ffi_callbacks.h',
+        ],
+        'allowed': [
+            'rust::(Str(ing)?|Box|Vec)',
+            'xml_ffi::.*',
+            'base::(StringViewToRustSlice|RustStrToStringView)',
+            're2::StringPiece',
         ]
     }
 ]

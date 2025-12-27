@@ -61,6 +61,7 @@
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service_test_helper.h"
 #include "components/autofill/core/browser/webdata/valuables/valuables_table.h"
+#include "components/autofill/core/common/autofill_debug_features.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/device_reauth/mock_device_authenticator.h"
@@ -149,6 +150,7 @@ class TestAutofillClientTemplate : public T {
   TestPersonalDataManager& GetPersonalDataManager() override {
     if (!test_personal_data_manager_) {
       test_personal_data_manager_ = std::make_unique<TestPersonalDataManager>();
+      test_personal_data_manager_->SetPrefService(GetPrefs());
     }
     return *test_personal_data_manager_.get();
   }
@@ -373,19 +375,17 @@ class TestAutofillClientTemplate : public T {
   }
 
   bool IsAutofillEnabled() const override {
-    return IsAutofillProfileEnabled() || IsAutofillPaymentMethodsEnabled();
+    return IsAutofillProfileEnabled() ||
+           AutofillClient::GetPaymentsAutofillClient()
+               ->IsAutofillPaymentMethodsEnabled();
   }
 
   bool IsAutofillProfileEnabled() const override {
     return autofill_profile_enabled_;
   }
 
-  bool IsAutofillPaymentMethodsEnabled() const override {
-    return autofill_payment_methods_enabled_;
-  }
-
-  bool IsImportingToWalletEnabled() const override {
-    return import_to_wallet_enabled_;
+  bool IsWalletStorageEnabled() const override {
+    return wallet_storage_enabled_;
   }
 
   bool IsAutocompleteEnabled() const override { return true; }
@@ -495,20 +495,8 @@ class TestAutofillClientTemplate : public T {
     }
   }
 
-  void SetAutofillPaymentMethodsEnabled(bool autofill_payment_methods_enabled) {
-    autofill_payment_methods_enabled_ = autofill_payment_methods_enabled;
-    if (PrefService* prefs = GetPrefs()) {
-      prefs->SetBoolean(prefs::kAutofillCreditCardEnabled,
-                        autofill_payment_methods_enabled);
-    }
-    if (!autofill_payment_methods_enabled) {
-      // Credit card data is refreshed when this pref is changed.
-      GetPersonalDataManager().test_payments_data_manager().ClearCreditCards();
-    }
-  }
-
-  void SetImportingToWalletEnabled(bool import_to_wallet_enabled) {
-    import_to_wallet_enabled_ = import_to_wallet_enabled;
+  void SetWalletStorageEnabled(bool wallet_storage_enabled) {
+    wallet_storage_enabled_ = wallet_storage_enabled;
   }
 
   // Sets up prefs and identity state to simulate an opted-in AutofillAI user.
@@ -721,8 +709,7 @@ class TestAutofillClientTemplate : public T {
 #endif
 
   bool autofill_profile_enabled_ = true;
-  bool autofill_payment_methods_enabled_ = true;
-  bool import_to_wallet_enabled_ = true;
+  bool wallet_storage_enabled_ = true;
 
   // NULL by default.
   std::unique_ptr<test::AutofillTestingPrefService> prefs_;
@@ -793,7 +780,7 @@ class TestAutofillClientTemplate : public T {
   struct LogToTerminal {
     explicit LogToTerminal(LogRouter& log_router) {
       if (base::FeatureList::IsEnabled(
-              features::test::kAutofillLogToTerminal)) {
+              features::debug::kAutofillLogToTerminal)) {
         log_router.LogToTerminal();
       }
     }

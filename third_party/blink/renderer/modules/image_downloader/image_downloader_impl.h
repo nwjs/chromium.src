@@ -9,7 +9,6 @@
 #include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_receiver.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_wrapper_mode.h"
-#include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace gfx {
 class Size;
@@ -23,12 +22,9 @@ class MultiResolutionImageResourceFetcher;
 class WebString;
 
 class ImageDownloaderImpl final : public GarbageCollected<ImageDownloaderImpl>,
-                                  public Supplement<LocalFrame>,
                                   public ExecutionContextLifecycleObserver,
                                   public mojom::blink::ImageDownloader {
  public:
-  static const char kSupplementName[];
-
   explicit ImageDownloaderImpl(LocalFrame&);
 
   ImageDownloaderImpl(const ImageDownloaderImpl&) = delete;
@@ -102,6 +98,8 @@ class ImageDownloaderImpl final : public GarbageCollected<ImageDownloaderImpl>,
 
   typedef Vector<std::unique_ptr<MultiResolutionImageResourceFetcher>>
       ImageResourceFetcherList;
+
+  Member<LocalFrame> local_frame_;
 
   // ImageResourceFetchers schedule via FetchImage.
   ImageResourceFetcherList image_fetchers_;

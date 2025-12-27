@@ -141,7 +141,7 @@ ScrollPredictor::GenerateSyntheticScrollUpdate(
     base::TimeDelta frame_interval,
     mojom::blink::GestureDevice gesture_device,
     int modifiers) {
-  if (!HasPrediction(frame_time)) {
+  if (!should_resample_scroll_events_ && !HasPrediction(frame_time)) {
     return nullptr;
   }
   WebGestureEvent gesture_event(WebInputEvent::Type::kGestureScrollUpdate,
@@ -170,6 +170,7 @@ ScrollPredictor::GenerateSyntheticScrollUpdate(
           /*trace_id=*/
           base::IdType64<class ui::LatencyInfo>(latency_info.trace_id()));
   metrics->set_predicted_delta(gesture_event.data.scroll_update.delta_y);
+  metrics->set_is_synthetic(true);
   return std::make_unique<EventWithCallback>(
       std::make_unique<WebCoalescedInputEvent>(std::move(gesture_event),
                                                latency_info),

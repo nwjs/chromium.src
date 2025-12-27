@@ -4,11 +4,11 @@
 
 package org.chromium.chrome.browser.compositor.layouts.phone;
 
-import static org.hamcrest.Matchers.instanceOf;
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -239,8 +239,9 @@ public class NewTabAnimationLayoutUnitTest {
                 mNewTabAnimationLayout.getViewportMode());
         assertTrue(mNewTabAnimationLayout.handlesTabCreating());
         assertFalse(mNewTabAnimationLayout.handlesTabClosing());
-        assertThat(mNewTabAnimationLayout.getEventFilter(), instanceOf(BlackHoleEventFilter.class));
-        assertThat(mNewTabAnimationLayout.getSceneLayer(), instanceOf(StaticTabSceneLayer.class));
+        assertThat(mNewTabAnimationLayout.getEventFilter())
+                .isInstanceOf(BlackHoleEventFilter.class);
+        assertThat(mNewTabAnimationLayout.getSceneLayer()).isInstanceOf(StaticTabSceneLayer.class);
         assertEquals(LayoutType.SIMPLE_ANIMATION, mNewTabAnimationLayout.getLayoutType());
     }
 
@@ -409,7 +410,6 @@ public class NewTabAnimationLayoutUnitTest {
 
         ShadowLooper.runUiThreadTasks();
 
-        assertFalse(mNewTabAnimationLayout.isRunningAnimations());
         verify(mAnimationHostView, times(1))
                 .removeView(any(NewBackgroundTabAnimationHostView.class));
         verify(mTabModelSelector, never()).selectModel(false);
@@ -417,10 +417,38 @@ public class NewTabAnimationLayoutUnitTest {
     }
 
     @Test
-    public void testOnTabCreated_tabCreatedInBackground_ntpToken() {
-        when(mCurrentTab.getUrl()).thenReturn(new GURL("chrome://newtab"));
-        when(mCurrentTab.getNativePage()).thenReturn(mNtp);
+    public void testOnTabCreated_tabCreatedInBackground_forceHidingImmediatelyIfNeeded() {
+        mNewTabAnimationLayout.onTabCreated(
+                FAKE_TIME,
+                NEW_TAB_ID,
+                /* index= */ 1,
+                CURRENT_TAB_ID,
+                /* newIsIncognito= */ false,
+                /* background= */ true,
+                /* originX= */ 0f,
+                /* originY= */ 0f);
+        assertTrue(
+                "Layout should be starting to hide, but not hidden.",
+                mNewTabAnimationLayout.isStartingToHide());
 
+        setNtp();
+        mNewTabAnimationLayout.onTabCreated(
+                FAKE_TIME,
+                NEW_TAB_ID,
+                /* index= */ 1,
+                CURRENT_TAB_ID,
+                /* newIsIncognito= */ false,
+                /* background= */ true,
+                /* originX= */ 0f,
+                /* originY= */ 0f);
+        assertFalse(
+                "Layout should have immediately hidden.",
+                mNewTabAnimationLayout.isStartingToHide());
+    }
+
+    @Test
+    public void testOnTabCreated_tabCreatedInBackground_ntpToken() {
+        setNtp();
         mNewTabAnimationLayout.onTabCreated(
                 FAKE_TIME,
                 NEW_TAB_ID,
@@ -467,5 +495,10 @@ public class NewTabAnimationLayoutUnitTest {
         ShadowLooper.runUiThreadTasks();
 
         verify(mBrowserVisibilityDelegate, times(1)).releasePersistentShowingToken(1);
+    }
+
+    private void setNtp() {
+        when(mCurrentTab.getUrl()).thenReturn(new GURL("chrome://newtab"));
+        when(mCurrentTab.getNativePage()).thenReturn(mNtp);
     }
 }

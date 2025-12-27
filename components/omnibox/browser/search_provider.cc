@@ -405,7 +405,7 @@ const AutocompleteInput SearchProvider::GetInput(bool is_keyword) const {
 void SearchProvider::OnURLLoadComplete(
     const network::SimpleURLLoader* source,
     const int response_code,
-    std::unique_ptr<std::string> response_body) {
+    std::optional<std::string> response_body) {
   TRACE_EVENT0("omnibox", "SearchProvider::OnURLLoadComplete");
   DCHECK(!done_);
   const bool is_keyword = source == keyword_loader_.get();
@@ -705,6 +705,25 @@ base::TimeDelta SearchProvider::GetSuggestQueryDelay() const {
 }
 
 void SearchProvider::StartOrStopSuggestQuery(bool minimal_changes) {
+#if BUILDFLAG(IS_IOS)
+  const bool has_lens_inputs_in_composebox =
+      omnibox::IsComposebox(input_.current_page_classification()) &&
+      input_.lens_overlay_suggest_inputs().has_value() &&
+      !base::FeatureList::IsEnabled(omnibox::kComposeboxAttachmentsTypedState);
+  const bool is_image_gen_mode =
+      input_.aim_tool_mode() ==
+          omnibox::ChromeAimToolsAndModels::TOOL_MODE_IMAGE_GEN_UPLOAD ||
+      input_.aim_tool_mode() ==
+          omnibox::ChromeAimToolsAndModels::TOOL_MODE_IMAGE_GEN;
+
+  // When contextual typed state suggestions are disabled for composebox, or
+  // when in image generation mode, do not query suggest and only show
+  // verbatim matches.
+  if (has_lens_inputs_in_composebox || is_image_gen_mode) {
+    return;
+  }
+#endif
+
   // Since there is currently no contextual search suggest or typed AI mode
   // suggest, lens contextual searchboxes and the composebox, shouldn't query
   // suggest and only the verbatim matches should be shown.

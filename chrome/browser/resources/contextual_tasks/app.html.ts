@@ -11,15 +11,16 @@ import type {ContextualTasksAppElement} from './app.js';
 // clang-format off
 export function getHtml(this: ContextualTasksAppElement) {
   return html`<!--_html_template_start_-->
-  <div id="toolbar">
-    Contextual Tasks UI
-  </div>
-  <!-- TODO(452978117): Switch back to webview tag once it is supported. -->
-  <iframe id="threadFrame" src="${this.threadUrl_}"></iframe>
-  <div id="composeboxContainer">
-    <cr-composebox id="composebox">
-    </cr-composebox>
-  </div>
+  ${this.isShownInTab_ ? '' : html`
+      <top-toolbar .title="${this.threadTitle_}"
+          .attachedTabs="${this.contextTabs_}"
+          @new-thread-click="${this.onNewThreadClick_}">
+      </top-toolbar>
+  `}
+  <webview id="threadFrame" src="${this.threadUrl_}"></webview>
+  <contextual-tasks-composebox id="composebox"
+    ?hidden="${!this.showComposebox_}">
+  </contextual-tasks-composebox>
   <!--_html_template_end_-->`;
 }
 // clang-format on

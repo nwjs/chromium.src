@@ -142,13 +142,6 @@ class MockAutocompleteProviderClient
     return nullptr;
   }
 
-#if BUILDFLAG(IS_IOS)
-  MOCK_METHOD(GeminiPrototypeOmniboxService*,
-              GetGeminiPrototypeOmniboxService,
-              (),
-              (const));
-#endif
-
   MOCK_CONST_METHOD0(GetAcceptLanguages, std::string());
   MOCK_CONST_METHOD0(GetEmbedderRepresentationOfAboutScheme, std::string());
   MOCK_METHOD0(GetBuiltinURLs, std::vector<std::u16string>());
@@ -172,6 +165,10 @@ class MockAutocompleteProviderClient
                      base::CallbackListSubscription(
                          LensOverlaySuggestInputsCallback callback));
   MOCK_METHOD(bool, IsAimEligible, (), (const));
+  MOCK_METHOD(bool,
+              IsOmniboxNextFeatureParamEnabled,
+              (const std::string&),
+              (const));
 
   MOCK_METHOD6(
       Classify,

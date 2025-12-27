@@ -53,13 +53,15 @@ class ArcManagementTransitionNotificationTest
 
   void SetUp() override {
     message_center::MessageCenter::Initialize();
+    arc_app_test_.PreProfileSetUp();
     profile_ = std::make_unique<TestingProfile>();
-    arc_app_test_.SetUp(profile());
+    arc_app_test_.PostProfileSetUp(profile());
   }
 
   void TearDown() override {
-    arc_app_test_.TearDown();
+    arc_app_test_.PreProfileTearDown();
     profile_.reset();
+    arc_app_test_.PostProfileTearDown();
     message_center::MessageCenter::Shutdown();
   }
 

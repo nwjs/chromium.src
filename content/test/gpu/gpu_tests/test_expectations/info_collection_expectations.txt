@@ -38,8 +38,9 @@
 #         google google-0xffff google-0xc0de
 #         imagination
 #         imagination-technologies
-#         intel intel-gen-9 intel-gen-12 intel-0xa2e intel-0xa011 intel-0x3e92
-#             intel-0x3e9b intel-0x4680 intel-0x46a8 intel-0x5912 intel-0x9bc5
+#         intel intel-gen-9 intel-gen-12 intel-0xa2e intel-0xa011 intel-0xe20c
+#             intel-0x3e92 intel-0x3e9b intel-0x4680 intel-0x46a8 intel-0x5912
+#             intel-0x9bc5
 #         microsoft microsoft-0xffff
 #         nvidia nvidia-0x1cb3 nvidia-0x2184 nvidia-0x2783
 #         qualcomm qualcomm-0x41333430 qualcomm-0x36333630 qualcomm-0x36334330 ]
@@ -111,6 +112,9 @@
 # The "Skip" expectations in this section are expected to be removable at some
 # point. This is for things like tests that fail in a way that negatively and
 # significantly impacts other tests, e.g. killing the test device.
+
+# Win11/RTX 4070 Super failures after upgrading to driver 580.88
+crbug.com/438512194 [ win nvidia-0x2783 ] InfoCollection_direct_composition [ Failure ]
 
 
 #######################################################################

@@ -27,10 +27,8 @@ class WorkletGlobalScope;
 // thread.
 class MODULES_EXPORT AnimationWorkletProxyClient
     : public GarbageCollected<AnimationWorkletProxyClient>,
-      public Supplement<WorkerClients>,
       public AnimationWorkletMutator {
  public:
-  static const char kSupplementName[];
   static const int8_t kNumStatelessGlobalScopes;
 
   // This client is hooked to the given |mutatee|, on the given

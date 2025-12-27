@@ -20,9 +20,6 @@
 #include "media/base/supported_types.h"
 #include "media/base/video_decoder_config.h"
 #include "media/media_buildflags.h"
-#include "third_party/blink/public/common/privacy_budget/identifiability_metric_builder.h"
-#include "third_party/blink/public/common/privacy_budget/identifiability_study_settings.h"
-#include "third_party/blink/public/common/privacy_budget/identifiable_surface.h"
 #include "third_party/blink/public/platform/web_media_source.h"
 #include "third_party/blink/public/platform/web_source_buffer.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_audio_decoder_config.h"
@@ -53,7 +50,6 @@
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/network/mime/content_type.h"
 #include "third_party/blink/renderer/platform/network/mime/mime_type_registry.h"
-#include "third_party/blink/renderer/platform/privacy_budget/identifiability_digest_helpers.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
@@ -213,7 +209,7 @@ SourceBuffer* MediaSource::addSourceBuffer(const String& type,
           false /* Allow underspecified codecs in |type| */)) {
     LogAndThrowDOMException(
         exception_state, DOMExceptionCode::kNotSupportedError,
-        "The type provided ('" + type + "') is unsupported.");
+        StrCat({"The type provided ('", type, "') is unsupported."}));
     return nullptr;
   }
 
@@ -639,7 +635,6 @@ bool MediaSource::IsTypeSupportedInternal(ExecutionContext* context,
     DVLOG(1) << __func__ << "(" << type << ", "
              << base::ToString(enforce_codec_specificity)
              << ") -> false (not supported by HTMLMediaElement)";
-    RecordIdentifiabilityMetric(context, type, false);
     return false;
   }
 
@@ -667,28 +662,12 @@ bool MediaSource::IsTypeSupportedInternal(ExecutionContext* context,
   DVLOG(2) << __func__ << "(" << type << ", "
            << base::ToString(enforce_codec_specificity) << ") -> "
            << base::ToString(result);
-  RecordIdentifiabilityMetric(context, type, result);
   return result;
 }
 
 // static
 bool MediaSource::canConstructInDedicatedWorker(ExecutionContext* context) {
   return true;
-}
-
-void MediaSource::RecordIdentifiabilityMetric(ExecutionContext* context,
-                                              const String& type,
-                                              bool result) {
-  if (!IdentifiabilityStudySettings::Get()->ShouldSampleType(
-          blink::IdentifiableSurface::Type::kMediaSource_IsTypeSupported)) {
-    return;
-  }
-  blink::IdentifiabilityMetricBuilder(context->UkmSourceID())
-      .Add(blink::IdentifiableSurface::FromTypeAndToken(
-               blink::IdentifiableSurface::Type::kMediaSource_IsTypeSupported,
-               IdentifiabilityBenignStringToken(type)),
-           result)
-      .Record(context->UkmRecorder());
 }
 
 const AtomicString& MediaSource::InterfaceName() const {
@@ -1028,20 +1007,13 @@ void MediaSource::DurationChangeAlgorithm(
   }
 
   if (new_duration < highest_buffered_presentation_timestamp) {
-    if (RuntimeEnabledFeatures::MediaSourceNewAbortAndDurationEnabled()) {
-      LogAndThrowDOMException(
-          *exception_state, DOMExceptionCode::kInvalidStateError,
-          "Setting duration below highest presentation timestamp of any "
-          "buffered coded frames is disallowed. Instead, first do asynchronous "
-          "remove(newDuration, oldDuration) on all sourceBuffers, where "
-          "newDuration < oldDuration.");
-      return;
-    }
-
-    Deprecation::CountDeprecation(
-        GetExecutionContext(),
-        WebFeature::kMediaSourceDurationTruncatingBuffered);
-    // See also deprecated remove(new duration, old duration) behavior below.
+    LogAndThrowDOMException(
+        *exception_state, DOMExceptionCode::kInvalidStateError,
+        "Setting duration below highest presentation timestamp of any "
+        "buffered coded frames is disallowed. Instead, first do asynchronous "
+        "remove(newDuration, oldDuration) on all sourceBuffers, where "
+        "newDuration < oldDuration.");
+    return;
   }
 
   DCHECK_LE(highest_buffered_presentation_timestamp,
@@ -1051,17 +1023,6 @@ void MediaSource::DurationChangeAlgorithm(
   // Done for step 1 above, already.
   // 4. Update duration to new duration.
   web_media_source_->SetDuration(new_duration);
-
-  if (!RuntimeEnabledFeatures::MediaSourceNewAbortAndDurationEnabled() &&
-      new_duration < old_duration) {
-    // Deprecated behavior: if the new duration is less than old duration,
-    // then call remove(new duration, old duration) on all all objects in
-    // sourceBuffers.
-    for (unsigned i = 0; i < source_buffers_->length(); ++i) {
-      source_buffers_->item(i)->Remove_Locked(new_duration, old_duration,
-                                              &ASSERT_NO_EXCEPTION, pass_key);
-    }
-  }
 
   // 5. If a user agent is unable to partially render audio frames or text cues
   //    that start before and end after the duration, then run the following
@@ -1662,8 +1623,8 @@ std::unique_ptr<WebSourceBuffer> MediaSource::CreateWebSourceBuffer(
       // then throw a NotSupportedError exception and abort these steps.
       LogAndThrowDOMException(
           exception_state, DOMExceptionCode::kNotSupportedError,
-          "The type provided ('" + type +
-              "') is not supported for SourceBuffer creation.");
+          StrCat({"The type provided ('", type,
+                  "') is not supported for SourceBuffer creation."}));
       return nullptr;
     case WebMediaSource::kAddStatusReachedIdLimit:
       DCHECK(!web_source_buffer);

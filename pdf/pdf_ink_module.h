@@ -41,8 +41,10 @@ static_assert(BUILDFLAG(ENABLE_PDF_INK2), "ENABLE_PDF_INK2 not set to true");
 class SkCanvas;
 
 namespace blink {
+class WebKeyboardEvent;
 class WebInputEvent;
 class WebMouseEvent;
+class WebPointerProperties;
 class WebTouchEvent;
 }  // namespace blink
 
@@ -150,19 +152,19 @@ class PdfInkModule {
   // Like DocumentStrokesMap, but for PageV2InkPathShapes.
   using DocumentV2InkPathShapesMap = std::map<int, PageV2InkPathShapes>;
 
+  struct EventDetails {
+    // The event position.  Coordinates match the screen-based position that
+    // are provided during stroking from `blink::WebMouseEvent` positions.
+    gfx::PointF position;
+
+    // The event time.
+    base::TimeTicks timestamp;
+
+    // The type of tool used to generate the input.
+    ink::StrokeInput::ToolType tool_type = ink::StrokeInput::ToolType::kUnknown;
+  };
+
   struct DrawingStrokeState {
-    struct EventDetails {
-      // The event position.  Coordinates match the screen-based position that
-      // are provided during stroking from `blink::WebMouseEvent` positions.
-      gfx::PointF position;
-
-      // The event time.
-      base::TimeTicks timestamp;
-
-      // The type of tool used to generate the input.
-      ink::StrokeInput::ToolType tool_type;
-    };
-
     DrawingStrokeState();
     DrawingStrokeState(const DrawingStrokeState&) = delete;
     DrawingStrokeState& operator=(const DrawingStrokeState&) = delete;
@@ -245,6 +247,17 @@ class PdfInkModule {
     // select text from page A to page B. Strokes will be drawn to cover any
     // selected text and stored in the page index of the page they are on.
     std::map<int, std::vector<ink::Stroke>> highlight_strokes;
+
+    // Details from the last input. Used to compensate for missed events, such
+    // as a missed move event, or an end event that was consumed by a different
+    // view and detected afterwards when PdfInkModule finally sees input events
+    // again. Not wrapped in an `std::optional` because this state is only
+    // active when the user is actively selecting text. The event time is
+    // unused.
+    EventDetails input_last_event;
+
+    // Whether the text highlight was initiated by a keyboard event.
+    bool initiated_by_keyboard = false;
   };
 
   // Drawing brush state changes that are pending the completion of an
@@ -273,6 +286,7 @@ class PdfInkModule {
   };
 
   // Event handlers. Returns whether the event was handled or not.
+  bool OnKeyDown(const blink::WebKeyboardEvent& event);
   bool OnMouseDown(const blink::WebMouseEvent& event);
   bool OnMouseUp(const blink::WebMouseEvent& event);
   bool OnMouseMove(const blink::WebMouseEvent& event);
@@ -287,13 +301,16 @@ class PdfInkModule {
   // Return values have the same semantics as On{Mouse,Touch}*() above.
   bool StartStroke(const gfx::PointF& position,
                    base::TimeTicks timestamp,
-                   ink::StrokeInput::ToolType tool_type);
+                   ink::StrokeInput::ToolType tool_type,
+                   const blink::WebPointerProperties* properties);
   bool ContinueStroke(const gfx::PointF& position,
                       base::TimeTicks timestamp,
-                      ink::StrokeInput::ToolType tool_type);
+                      ink::StrokeInput::ToolType tool_type,
+                      const blink::WebPointerProperties* properties);
   bool FinishStroke(const gfx::PointF& position,
                     base::TimeTicks timestamp,
-                    ink::StrokeInput::ToolType tool_type);
+                    ink::StrokeInput::ToolType tool_type,
+                    const blink::WebPointerProperties* properties);
 
   // Return values have the same semantics as On{Mouse,Touch}*() above.
   bool StartEraseStroke(const gfx::PointF& position,
@@ -309,7 +326,6 @@ class PdfInkModule {
   // Return values have the same semantics as On{Mouse,Touch}*() above.
   bool StartTextHighlight(const gfx::PointF& position,
                           int click_count,
-                          base::TimeTicks timestamp,
                           ink::StrokeInput::ToolType tool_type);
   bool ContinueTextHighlight(const gfx::PointF& position);
   bool FinishTextHighlight(const gfx::PointF& position,
@@ -412,12 +428,14 @@ class PdfInkModule {
   gfx::Transform GetCanonicalToEventTransformForPage(int page_index);
 
   // Helper to convert `position` to a canonical position and record it into
-  // `current_tool_state_` for the indicated `timestamp` and `tool_type`.
+  // `current_tool_state_` for the indicated `timestamp`, `tool_type`, and
+  // optional `properties`.
   // Can only be called when drawing. Returns whether the operation succeeded or
   // not.
   bool RecordStrokePosition(const gfx::PointF& position,
                             base::TimeTicks timestamp,
-                            ink::StrokeInput::ToolType tool_type);
+                            ink::StrokeInput::ToolType tool_type,
+                            const blink::WebPointerProperties* properties);
 
   void ApplyUndoRedoCommands(const PdfInkUndoRedoModel::Commands& commands);
   void ApplyUndoRedoCommandsHelper(std::set<PdfInkUndoRedoModel::IdType> ids,

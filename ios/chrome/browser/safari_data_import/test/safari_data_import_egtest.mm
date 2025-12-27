@@ -5,9 +5,9 @@
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/autofill/ui_bundled/autofill_app_interface.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_storage_type.h"
-#import "ios/chrome/browser/bookmarks/ui_bundled/bookmark_earl_grey.h"
+#import "ios/chrome/browser/bookmarks/test/bookmark_earl_grey.h"
+#import "ios/chrome/browser/data_import/public/accessibility_utils.h"
 #import "ios/chrome/browser/passwords/model/password_manager_app_interface.h"
-#import "ios/chrome/browser/safari_data_import/public/utils.h"
 #import "ios/chrome/browser/safari_data_import/test/safari_data_import_app_interface.h"
 #import "ios/chrome/browser/safari_data_import/test/safari_data_import_earl_grey_ui.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_settings_app_interface.h"
@@ -27,7 +27,7 @@
 #import "ios/testing/earl_grey/earl_grey_test.h"
 #import "ui/base/l10n/l10n_util.h"
 
-using chrome_test_util::PromoScreenSecondaryButtonMatcher;
+using chrome_test_util::ButtonStackSecondaryButton;
 using chrome_test_util::StaticTextWithAccessibilityLabelId;
 
 namespace {
@@ -118,7 +118,7 @@ NSString* const kInvalidPasswordUsername = @"Superman";
         ensureAppLaunchedWithConfiguration:firstRunConfig];
     /// Go through first run screens by tapping the secondary action twice
     /// (skipping default browser settings and sign-in.)
-    id<GREYMatcher> buttonMatcher = PromoScreenSecondaryButtonMatcher();
+    id<GREYMatcher> buttonMatcher = ButtonStackSecondaryButton();
     id<GREYMatcher> scrollViewMatcher =
         grey_accessibilityID(kPromoStyleScrollViewAccessibilityIdentifier);
     id<GREYAction> searchAction =
@@ -149,35 +149,36 @@ NSString* const kInvalidPasswordUsername = @"Superman";
 /// Settings.
 - (void)testShowEntryPointInSettings {
   if (@available(iOS 18.2, *)) {
-    ScopedDisableTimerTracking disabler;
     /// Clean restart without experimental settings.
     [[AppLaunchManager sharedManager]
         ensureAppLaunchedWithConfiguration:
             [self appConfigurationNoOverrideBehavior]];
     [ChromeEarlGreyUI openSettingsMenu];
-    [[[EarlGrey selectElementWithMatcher:
-                    grey_allOf(grey_accessibilityID(
-                                   kSettingsSafariDataImportSettingsCellId),
-                               grey_interactable(), nil)]
-           usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 150)
-        onElementWithMatcher:grey_accessibilityID(kSettingsTableViewId)]
-        performAction:grey_tap()];
-    /// Verify visibility and that the reminder button is not displaying.
-    GREYAssertTrue(IsSafariDataImportEntryPointVisible(),
-                   @"Safari data import workflow is not displayed.");
-    [[EarlGrey selectElementWithMatcher:
-                   grey_accessibilityID(
-                       kConfirmationAlertTertiaryActionAccessibilityIdentifier)]
-        assertWithMatcher:grey_nil()];
-    /// Also verify that swipe would not be supported.
-    [[EarlGrey selectElementWithMatcher:
-                   grey_accessibilityID(
-                       kConfirmationAlertTitleAccessibilityIdentifier)]
-        performAction:grey_swipeSlowInDirection(kGREYDirectionDown)];
-    DismissSafariDataImportEntryPoint(/*verify_visibility=*/YES);
-    [[EarlGrey
-        selectElementWithMatcher:grey_accessibilityID(kSettingsTableViewId)]
-        assertWithMatcher:grey_sufficientlyVisible()];
+    {
+      ScopedDisableTimerTracking disabler;
+      [[[EarlGrey selectElementWithMatcher:
+                      grey_allOf(grey_accessibilityID(
+                                     kSettingsSafariDataImportSettingsCellId),
+                                 grey_interactable(), nil)]
+             usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 150)
+          onElementWithMatcher:grey_accessibilityID(kSettingsTableViewId)]
+          performAction:grey_tap()];
+      /// Verify visibility and that the reminder button is not displaying.
+      GREYAssertTrue(IsSafariDataImportEntryPointVisible(),
+                     @"Safari data import workflow is not displayed.");
+      [[EarlGrey selectElementWithMatcher:chrome_test_util::
+                                              ButtonStackTertiaryButton()]
+          assertWithMatcher:grey_notVisible()];
+      /// Also verify that swipe would not be supported.
+      [[EarlGrey selectElementWithMatcher:
+                     grey_accessibilityID(
+                         kConfirmationAlertTitleAccessibilityIdentifier)]
+          performAction:grey_swipeSlowInDirection(kGREYDirectionDown)];
+      DismissSafariDataImportEntryPoint(/*verify_visibility=*/YES);
+      [[EarlGrey
+          selectElementWithMatcher:grey_accessibilityID(kSettingsTableViewId)]
+          assertWithMatcher:grey_sufficientlyVisible()];
+    }
   }
 }
 
@@ -191,8 +192,8 @@ NSString* const kInvalidPasswordUsername = @"Superman";
     [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPLogo()]
         assertWithMatcher:grey_sufficientlyVisible()];
     /// Rotate.
-    [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationLandscapeLeft
-                                  error:nil];
+    [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationLandscapeLeft
+                                     error:nil];
     /// Verify that NTP logo is mostly hidden after rotation.
     [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPLogo()]
         assertWithMatcher:grey_not(grey_sufficientlyVisible())];
@@ -218,7 +219,7 @@ NSString* const kInvalidPasswordUsername = @"Superman";
     [[EarlGrey selectElementWithMatcher:
                    grey_accessibilityID(
                        kConfirmationAlertUnderTitleViewAccessibilityIdentifier)]
-        assertWithMatcher:grey_sufficientlyVisible()];
+        assertWithMatcher:grey_minimumVisiblePercent(0.5f)];
     /// Dismiss by tapping the "Cancel" button on the top right.
     id<GREYMatcher> buttonInNavBar = grey_allOf(
         grey_kindOfClass([UIButton class]),

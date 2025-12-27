@@ -33,6 +33,7 @@
 #include "base/time/default_tick_clock.h"
 #include "base/trace_event/trace_event.h"
 #include "base/uuid.h"
+#include "components/services/storage/public/mojom/cache_storage_control.mojom.h"
 #include "components/services/storage/public/mojom/service_worker_database.mojom-forward.h"
 #include "content/browser/bad_message.h"
 #include "content/browser/child_process_security_policy_impl.h"
@@ -701,7 +702,7 @@ void ServiceWorkerVersion::ScheduleUpdate() {
   // and soon no one might hold a reference to us.
   context_->ProtectVersion(base::WrapRefCounted(this));
 
-  update_timer_.Start(FROM_HERE, ServiceWorkerContext::GetUpdateDelay(),
+  update_timer_.Start(FROM_HERE, ServiceWorkerContext::kUpdateDelay,
                       base::BindOnce(&ServiceWorkerVersion::StartUpdate,
                                      weak_factory_.GetWeakPtr()));
 }
@@ -1111,15 +1112,9 @@ void ServiceWorkerVersion::EvictBackForwardCachedControllee(
     BackForwardCacheMetrics::NotRestoredReason reason) {
   controllee->EvictFromBackForwardCache(reason);
   controllees_to_be_evicted_[controllee->client_uuid()] = reason;
-  // TODO(crbug.com/341322515): remove this if expression with
-  // CHECK in RemoveControlleeFromBackForwardCacheMap().
-  // As I assumed in #comment21 of the crbug, this behavior can be expected
-  // for a dedicated worker.
-  if (!BFCacheContainsControllee(controllee->client_uuid()) &&
-      controllee->IsContainerForWorkerClient()) {
-    return;
+  if (controllee->was_controlled_when_entered_back_forward_cache()) {
+    RemoveControlleeFromBackForwardCacheMap(controllee->client_uuid());
   }
-  RemoveControlleeFromBackForwardCacheMap(controllee->client_uuid());
 }
 
 void ServiceWorkerVersion::AddObserver(Observer* observer) {

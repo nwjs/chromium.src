@@ -7,7 +7,6 @@
 
 #include <string_view>
 
-#include "base/cancelable_callback.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ref.h"
@@ -27,6 +26,8 @@ class RenderFrame;
 namespace actor {
 
 class Journal;
+class NetworkAndMainThreadStabilityMonitor;
+class PageStabilityMetrics;
 class PaintStabilityMonitor;
 
 // Helper class for monitoring page stability after tool usage. Its lifetime
@@ -65,6 +66,8 @@ class PageStabilityMonitor : public content::RenderFrameObserver,
   void Bind(mojo::PendingReceiver<mojom::PageStabilityMonitor> receiver);
 
  private:
+  friend class PageStabilityMetrics;
+
   enum class State {
     kInitial,
 
@@ -79,19 +82,18 @@ class PageStabilityMonitor : public content::RenderFrameObserver,
     // Entry point into the state machine. Decides which state to start in.
     kStartMonitoring,
 
-    // Wait until all network requests complete.
-    kWaitForNetworkIdle,
+    //  The NetworkAndMainThreadStabilityMonitor or PaintStabilityMonitor has
+    //  determined that the page stability has been reached. If
+    //  `kGlicActorPageStabilityMinWait` is set, the callback passed to
+    // NotifyWhenStable() may be delayed until the said amount of time is
+    // reached.
+    kMonitorCompleted,
 
-    // Wait until the main thread is settled.
-    kWaitForMainThreadIdle,
+    // Timeout state - this just logs and and moves to invoke callback state.
+    kTimeout,
 
-    // Timeout states - these just log and and move to invoke callback state.
-    kTimeoutGlobal,
-    kTimeoutMainThread,
-
-    // If `kGlicActorPageStabilityInvokeCallbackDelay` is set, the callback
-    // passed to NotifyWhenStable() will be delayed by said amount of time.
-    kMaybeDelayCallback,
+    // Delay the callback until the min wait time is reached.
+    kDelayCallback,
 
     // Invoke the callback passed to NotifyWhenStable and cleanup.
     kInvokeCallback,
@@ -100,9 +102,8 @@ class PageStabilityMonitor : public content::RenderFrameObserver,
     // a new RenderFrame).
     kRenderFrameGoingAway,
 
-    // The `paint_stability_monitor_` has determined that paint stability has
-    // been reached. This just moves to kInokeCallback.
-    kPaintStabilityReached,
+    // The mojo pipeline gets disconnected. This just moves to kDone.
+    kMojoDisconnected,
 
     kDone
   } state_ = State::kInitial;
@@ -129,29 +130,16 @@ class PageStabilityMonitor : public content::RenderFrameObserver,
   PostCancelableMoveToStateClosure(State new_state,
                                    base::TimeDelta delay = base::TimeDelta());
 
-  void SetTimeout(State timeout_type, base::TimeDelta delay);
-
   void DCheckStateTransition(State old_state, State new_state);
 
   void OnPaintStabilityReached();
+  void OnNetworkAndMainThreadIdle();
   void OnRenderFrameGoingAway();
   void OnMojoDisconnected();
+  void OnTimeout();
 
-  void Cleanup();
-
-  // The number of active network requests at the time this object was
-  // initialized. Used to compare to the number of requests after monitoring
-  // begins to determine if new network requests were started in that interval.
-  int starting_request_count_;
-
-  // Track the callback given to the RequestNetworkIdle method so that it can be
-  // canceled, the API supports only one request at a time.
-  base::CancelableOnceClosure network_idle_callback_;
-
-  // Track the callback given to the PostIdleTask method so that it can be
-  // canceled, the API supports only one request at a time.
-  base::CancelableOnceCallback<void(base::TimeTicks deadline)>
-      main_thread_idle_callback_;
+  void StopMonitoring();
+  void Teardown();
 
   base::OnceClosure is_stable_callback_;
 
@@ -167,22 +155,27 @@ class PageStabilityMonitor : public content::RenderFrameObserver,
   // and don't move to `kStartMonitoring` when the delay expires in this case.
   base::DelayedTaskHandle start_monitoring_delayed_handle_;
 
+  // Amount of time to delay before invoking the callback.
+  base::TimeDelta callback_invoke_delay_;
+
   TaskId task_id_;
 
   base::raw_ref<Journal> journal_;
+
+  std::unique_ptr<PageStabilityMetrics> metrics_;
 
   // This will be null if paint stability monitoring is disabled, or if we're
   // monitoring an unsupported interaction. This must be destroyed before
   // `journal_entry_` to avoid a dangling pointer.
   std::unique_ptr<PaintStabilityMonitor> paint_stability_monitor_;
 
-  // The main thread may be idle and move to `kMaybeDelayCallback` while the
-  // task to move to `kPaintStabilityReached` is in queue.
-  // Cancel the task to avoid this race condition when
-  // kGlicActorPageStabilityMinWait is enabled.
-  base::DelayedTaskHandle paint_stability_delayed_handle_;
+  // This must be destroyed before `journal_` to avoid a dangling pointer.
+  std::unique_ptr<NetworkAndMainThreadStabilityMonitor>
+      network_and_main_thread_stability_monitor_;
 
   bool render_frame_did_go_away_ = false;
+
+  bool monitoring_complete_ = false;
 
   mojo::Receiver<mojom::PageStabilityMonitor> receiver_{this};
 

@@ -32,7 +32,6 @@
 #include <variant>
 
 #include "base/auto_reset.h"
-#include "base/debug/crash_logging.h"
 #include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
@@ -45,9 +44,6 @@
 #include "media/base/media_track.h"
 #include "services/media_session/public/mojom/media_session.mojom-blink.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
-#include "third_party/blink/public/common/privacy_budget/identifiability_metric_builder.h"
-#include "third_party/blink/public/common/privacy_budget/identifiability_study_settings.h"
-#include "third_party/blink/public/common/privacy_budget/identifiable_surface.h"
 #include "third_party/blink/public/mojom/frame/user_activation_notification_type.mojom-shared.h"
 #include "third_party/blink/public/platform/modules/mediastream/web_media_stream.h"
 #include "third_party/blink/public/platform/task_type.h"
@@ -85,6 +81,7 @@
 #include "third_party/blink/renderer/core/html/media/media_source_attachment.h"
 #include "third_party/blink/renderer/core/html/media/media_source_handle.h"
 #include "third_party/blink/renderer/core/html/media/media_source_tracer.h"
+#include "third_party/blink/renderer/core/html/media/remote_playback_controller.h"
 #include "third_party/blink/renderer/core/html/time_ranges.h"
 #include "third_party/blink/renderer/core/html/track/audio_track.h"
 #include "third_party/blink/renderer/core/html/track/audio_track_list.h"
@@ -118,7 +115,6 @@
 #include "third_party/blink/renderer/platform/network/mime/content_type.h"
 #include "third_party/blink/renderer/platform/network/mime/mime_type_from_url.h"
 #include "third_party/blink/renderer/platform/network/network_state_notifier.h"
-#include "third_party/blink/renderer/platform/privacy_budget/identifiability_digest_helpers.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/event_loop.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
@@ -274,11 +270,9 @@ class AudioSourceProviderClientLockScope {
 };
 
 bool CanLoadURL(const KURL& url, const String& content_type_str) {
-  DEFINE_STATIC_LOCAL(const String, codecs, ("codecs"));
-
   ContentType content_type(content_type_str);
   String content_mime_type = content_type.GetType().DeprecatedLower();
-  String content_type_codecs = content_type.Parameter(codecs);
+  String content_type_codecs = content_type.Parameter("codecs");
 
   // If the MIME type is missing or is not meaningful, try to figure it out from
   // the URL.
@@ -369,13 +363,6 @@ std::ostream& operator<<(std::ostream& stream,
 // static
 MIMETypeRegistry::SupportsType HTMLMediaElement::GetSupportsType(
     const ContentType& content_type) {
-  // TODO(https://crbug.com/809912): Finding source of mime parsing crash.
-  static base::debug::CrashKeyString* content_type_crash_key =
-      base::debug::AllocateCrashKeyString("media_content_type",
-                                          base::debug::CrashKeySize::Size256);
-  base::debug::ScopedCrashKeyString scoped_crash_key(
-      content_type_crash_key, content_type.Raw().Utf8().c_str());
-
   String type = content_type.GetType().DeprecatedLower();
   // The codecs string is not lower-cased because MP4 values are case sensitive
   // per http://tools.ietf.org/html/rfc4281#page-7.
@@ -991,16 +978,6 @@ V8CanPlayTypeResult HTMLMediaElement::canPlayType(
   MIMETypeRegistry::SupportsType support =
       GetSupportsType(ContentType(mime_type));
 
-  if (IdentifiabilityStudySettings::Get()->ShouldSampleType(
-          blink::IdentifiableSurface::Type::kHTMLMediaElement_CanPlayType)) {
-    blink::IdentifiabilityMetricBuilder(GetDocument().UkmSourceID())
-        .Add(
-            blink::IdentifiableSurface::FromTypeAndToken(
-                blink::IdentifiableSurface::Type::kHTMLMediaElement_CanPlayType,
-                IdentifiabilityBenignStringToken(mime_type)),
-            static_cast<uint64_t>(support))
-        .Record(GetDocument().UkmRecorder());
-  }
   V8CanPlayTypeResult can_play =
       V8CanPlayTypeResult(V8CanPlayTypeResult::Enum::k);
 
@@ -1515,8 +1492,9 @@ bool HTMLMediaElement::IsValidBuiltinCommand(HTMLElement& invoker,
 
 bool HTMLMediaElement::HandleCommandInternal(HTMLElement& invoker,
                                              CommandEventType command) {
-  CHECK(IsValidBuiltinCommand(invoker, command));
-
+  if (!IsValidBuiltinCommand(invoker, command)) {
+    return false;
+  }
   if (HTMLElement::HandleCommandInternal(invoker, command)) {
     return true;
   }
@@ -3398,18 +3376,18 @@ void HTMLMediaElement::AddTrack(const media::MediaTrack& track) {
       bool enabled = track.enabled() && videoTracks().selectedIndex() == -1;
       videoTracks().Add(MakeGarbageCollected<VideoTrack>(
           String::FromUTF8(track.track_id().value()),
-          WebString::FromUTF8(track.kind().value()),
-          WebString::FromUTF8(track.label().value()),
-          WebString::FromUTF8(track.language().value()), enabled));
+          AtomicString(String::FromUTF8(track.kind().value())),
+          AtomicString(String::FromUTF8(track.label().value())),
+          AtomicString(String::FromUTF8(track.language().value())), enabled));
       break;
     }
     case media::MediaTrack::Type::kAudio: {
       audioTracks().Add(MakeGarbageCollected<AudioTrack>(
           String::FromUTF8(track.track_id().value()),
-          WebString::FromUTF8(track.kind().value()),
-          WebString::FromUTF8(track.label().value()),
-          WebString::FromUTF8(track.language().value()), track.enabled(),
-          track.exclusive()));
+          AtomicString(String::FromUTF8(track.kind().value())),
+          AtomicString(String::FromUTF8(track.label().value())),
+          AtomicString(String::FromUTF8(track.language().value())),
+          track.enabled(), track.exclusive()));
       break;
     }
   }
@@ -4588,7 +4566,9 @@ void HTMLMediaElement::Trace(Visitor* visitor) const {
   visitor->Trace(media_player_receiver_set_);
   visitor->Trace(opener_document_);
   visitor->Trace(opener_context_observer_);
-  Supplementable<HTMLMediaElement>::Trace(visitor);
+  visitor->Trace(audio_output_device_controller_);
+  visitor->Trace(html_media_element_encrypted_media_);
+  visitor->Trace(remote_playback_controller_);
   HTMLElement::Trace(visitor);
   ExecutionContextLifecycleStateObserver::Trace(visitor);
 }

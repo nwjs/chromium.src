@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/payments/legal_message_line.h"
@@ -29,7 +30,8 @@ enum class BnplIssuerEligibilityForPage {
   kNotEligibleIssuerDoesNotSupportMerchant = 2,
   kNotEligibleCheckoutAmountTooLow = 3,
   kNotEligibleCheckoutAmountTooHigh = 4,
-  kMaxValue = kNotEligibleCheckoutAmountTooHigh
+  kTemporarilyEligibleCheckoutAmountNotYetKnown = 5,
+  kMaxValue = kTemporarilyEligibleCheckoutAmountNotYetKnown
 };
 
 // A struct containing a BNPL issuer and the context necessary to display it.
@@ -59,6 +61,7 @@ struct BnplIssuerContext {
 // Contains a string of text and the location of a substring for a link.
 struct TextWithLink {
   std::u16string text;
+  gfx::Range bold_range;
   gfx::Range offset;
   GURL url;
 };
@@ -66,18 +69,21 @@ struct TextWithLink {
 // A struct containing a BNPL ToS info to be shown on the bottomsheet screen.
 struct BnplIssuerTosDetail {
  public:
-  BnplIssuerTosDetail(int header_icon_id,
+  BnplIssuerTosDetail(BnplIssuer::IssuerId issuer_id,
+                      int header_icon_id,
                       int header_icon_id_dark,
-                      std::u16string title,
-                      std::u16string review_text,
-                      std::u16string approve_text,
-                      TextWithLink link_text,
+                      bool is_linked_issuer,
+                      std::u16string issuer_name,
                       std::vector<LegalMessageLine> legal_message_lines);
   BnplIssuerTosDetail(const BnplIssuerTosDetail& other);
   BnplIssuerTosDetail(BnplIssuerTosDetail&&);
   BnplIssuerTosDetail& operator=(const BnplIssuerTosDetail& other);
   BnplIssuerTosDetail& operator=(BnplIssuerTosDetail&&);
   ~BnplIssuerTosDetail();
+  bool operator==(const BnplIssuerTosDetail&) const;
+
+  // Issuer that the ToS screen is being shown for.
+  BnplIssuer::IssuerId issuer_id;
 
   // Icon shown in the screen title.
   int header_icon_id;
@@ -85,17 +91,11 @@ struct BnplIssuerTosDetail {
   // Icon shown in the screen title in dark mode.
   int header_icon_id_dark;
 
-  // Text shown in the screen title.
-  std::u16string title;
+  // True if the selected issuer is a linked issuer.
+  bool is_linked_issuer;
 
-  // Sign-in/create account message.
-  std::u16string review_text;
-
-  // Eligibility check message.
-  std::u16string approve_text;
-
-  // Account link/unlink message.
-  TextWithLink link_text;
+  // Display name of the BNPL issuer.
+  std::u16string issuer_name;
 
   // Legal messages with links that are shown in screen footer.
   std::vector<LegalMessageLine> legal_message_lines;
@@ -109,6 +109,11 @@ std::u16string GetBnplIssuerSelectionOptionText(
 
 // Returns the footer text to be displayed in a BNPL flow.
 TextWithLink GetBnplUiFooterText();
+
+// Returns the footer text to be displayed in a BNPL flow with AI-based amount
+// extraction.
+TextWithLink GetBnplUiFooterTextForAi(
+    const PaymentsDataManager& payments_data_manager);
 
 // Returns true if the user has initiated an action on the credit card form
 // and the current context meets all conditions for BNPL eligibility to be

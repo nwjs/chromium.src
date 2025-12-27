@@ -365,6 +365,8 @@ class CORE_EXPORT Animation : public EventTarget,
 
   int CompositorGroup() const { return compositor_group_; }
 
+  static bool CompareAnimations(const Member<Animation>& left,
+                                const Member<Animation>& right);
   static bool HasLowerCompositeOrdering(
       const Animation* animation1,
       const Animation* animation2,
@@ -377,6 +379,7 @@ class CORE_EXPORT Animation : public EventTarget,
                                 const StyleChangeReasonForTracing&);
   void InvalidateEffectTargetStyle();
   void InvalidateNormalizedTiming();
+  void InvalidateEffect() { effect()->Invalidate(); }
 
   void Trace(Visitor*) const override;
 
@@ -483,6 +486,7 @@ class CORE_EXPORT Animation : public EventTarget,
 
   void AddTrigger(AnimationTrigger* trigger);
   void RemoveTrigger(AnimationTrigger* trigger);
+  const HeapHashSet<WeakMember<AnimationTrigger>>& GetTriggersForTest();
 
   // Playback rate that will take effect once any pending tasks are resolved.
   // If there are no pending tasks, then the effective playback rate equals the
@@ -777,6 +781,9 @@ class CORE_EXPORT Animation : public EventTarget,
                            PendingActivityWithFinishedEventListener);
   friend class ScriptedTimelineTriggerTest;
   FRIEND_TEST_ALL_PREFIXES(CSSAnimationsTriggerTest, ChangeTriggerName);
+  FRIEND_TEST_ALL_PREFIXES(CSSAnimationsTriggerTest, ChangeTriggerAttachments);
+  FRIEND_TEST_ALL_PREFIXES(CSSAnimationsTriggerTest,
+                           SameTriggerNameDifferentSource);
 };
 
 }  // namespace blink

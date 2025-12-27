@@ -24,6 +24,8 @@
 #include "chrome/browser/ui/lens/lens_overlay_theme_utils.h"
 #include "chrome/browser/ui/lens/lens_overlay_url_builder.h"
 #include "chrome/browser/ui/lens/lens_permission_bubble_controller.h"
+#include "chrome/browser/ui/lens/lens_query_flow_router.h"
+#include "chrome/browser/ui/lens/lens_results_panel_router.h"
 #include "chrome/browser/ui/lens/lens_search_contextualization_controller.h"
 #include "chrome/browser/ui/lens/lens_search_feature_flag_utils.h"
 #include "chrome/browser/ui/lens/lens_searchbox_controller.h"
@@ -31,17 +33,18 @@
 #include "chrome/browser/ui/promos/ios_promo_trigger_service.h"
 #include "chrome/browser/ui/promos/ios_promo_trigger_service_factory.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_entry_key.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/webui/util/image_util.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/grit/branded_strings.h"
+#include "components/desktop_to_mobile_promos/features.h"
 #include "components/lens/lens_features.h"
 #include "components/lens/lens_overlay_permission_utils.h"
 #include "components/lens/lens_url_utils.h"
 #include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/optimization_guide/content/browser/page_context_eligibility.h"
 #include "components/prefs/pref_service.h"
-#include "components/sharing_message/features.h"
 #include "skia/ext/codec_utils.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -224,8 +227,7 @@ void LensSearchController::OpenLensOverlay(
     StartLensSession(invocation_source);
   }
 
-  lens_overlay_controller_->ShowUI(invocation_source,
-                                   lens_overlay_query_controller_.get());
+  lens_overlay_controller_->ShowUI(invocation_source);
 }
 
 void LensSearchController::OpenLensOverlayWithPendingRegionFromBounds(
@@ -260,8 +262,7 @@ void LensSearchController::OpenLensOverlayWithPendingRegion(
   StartLensSession(invocation_source);
 
   lens_overlay_controller_->ShowUIWithPendingRegion(
-      lens_overlay_query_controller_.get(), invocation_source,
-      std::move(region), region_bitmap);
+      invocation_source, std::move(region), region_bitmap);
 }
 
 void LensSearchController::OpenLensOverlayInCurrentSession() {
@@ -278,8 +279,7 @@ void LensSearchController::OpenLensOverlayInCurrentSession() {
 
   // Otherwise, the overlay must be fully closed. Open the overlay as normal.
   lens_overlay_controller_->ShowUI(
-      lens_session_metrics_logger_->GetInvocationSource(),
-      lens_overlay_query_controller_.get());
+      lens_session_metrics_logger_->GetInvocationSource());
 }
 
 void LensSearchController::StartContextualization(
@@ -349,8 +349,7 @@ void LensSearchController::IssueTextSearchRequest(
   // TODO(crbug.com/404941800): This flow should not start the overlay once
   // contextualization is separated from the overlay.
   lens_overlay_controller_->IssueTextSearchRequest(
-      query_text, additional_query_parameters,
-      lens_overlay_query_controller_.get(), match_type,
+      query_text, additional_query_parameters, match_type,
       is_zero_prefix_suggestion, invocation_source);
 }
 
@@ -387,11 +386,12 @@ void LensSearchController::CloseLensAsync(
 
   // Close the side panel if it is showing. This provides a smooth closing
   // animation.
-  auto* side_panel_coordinator =
-      tab_->GetBrowserWindowInterface()->GetFeatures().side_panel_coordinator();
-  CHECK(side_panel_coordinator);
-  if (state_ == State::kActive && side_panel_coordinator->GetCurrentEntryId() ==
-                                      SidePanelEntry::Id::kLensOverlayResults) {
+  auto* const side_panel_ui =
+      tab_->GetBrowserWindowInterface()->GetFeatures().side_panel_ui();
+  CHECK(side_panel_ui);
+  if (state_ == State::kActive &&
+      side_panel_ui->IsSidePanelEntryShowing(
+          SidePanelEntryKey(SidePanelEntry::Id::kLensOverlayResults))) {
     // If a close was triggered while the Lens side panel is showing, instead of
     // just immediately closing all UI, the side panel should close to show a
     // smooth closing animation. Once the side panel deregisters, it will
@@ -399,8 +399,7 @@ void LensSearchController::CloseLensAsync(
     // closing process.
     state_ = State::kClosingSidePanel;
     last_dismissal_source_ = dismissal_source;
-    side_panel_coordinator->Close(
-        lens_overlay_side_panel_coordinator_->GetPanelType());
+    side_panel_ui->Close(lens_overlay_side_panel_coordinator_->GetPanelType());
     // Also trigger the overlay fade out animation, but don't pass a callback
     // to finish the closing process since the side panel will call
     // the finish closing process callback in OnSidePanelHidden().
@@ -558,11 +557,21 @@ LensSearchController::lens_overlay_query_controller() {
   return lens_overlay_query_controller_.get();
 }
 
+lens::LensQueryFlowRouter* LensSearchController::query_router() {
+  CheckInitialized(initialized_);
+  return query_router_.get();
+}
+
 lens::LensOverlaySidePanelCoordinator*
 LensSearchController::lens_overlay_side_panel_coordinator() {
   CheckInitialized(initialized_);
 
   return lens_overlay_side_panel_coordinator_.get();
+}
+
+lens::LensResultsPanelRouter* LensSearchController::results_panel_router() {
+  CheckInitialized(initialized_);
+  return results_panel_router_.get();
 }
 
 lens::LensSearchboxController*
@@ -686,6 +695,7 @@ void LensSearchController::StartLensSession(
   // Create the query controller to be used for the current invocation.
   CHECK(!lens_overlay_query_controller_);
   lens_overlay_query_controller_ = CreateLensQueryController(invocation_source);
+  query_router_ = std::make_unique<lens::LensQueryFlowRouter>(this);
 
   // Start the current metrics logger session.
   lens_session_metrics_logger_->OnSessionStart(invocation_source,
@@ -694,6 +704,10 @@ void LensSearchController::StartLensSession(
   // Let the searchbox controller know that a new session has started so it can
   // initialize any data needed for the searchbox.
   lens_searchbox_controller_->OnSessionStart(suppress_contextualization);
+
+  // Set the results panel delegate to the side panel coordinator owned by
+  // this controller.
+  results_panel_router_ = std::make_unique<lens::LensResultsPanelRouter>(this);
 
   // Reset session state.
   hats_triggered_in_session_ = false;
@@ -769,10 +783,12 @@ void LensSearchController::CloseLensPart2(
   lens_permission_bubble_controller_.reset();
   lens_contextualization_controller_->ResetState();
   lens_overlay_side_panel_coordinator_->DeregisterEntryAndCleanup();
+  results_panel_router_.reset();
 
   // Cleanup the query controller after the overlay controller to prevent
   // dangling ptrs.
   lens_overlay_query_controller_.reset();
+  query_router_.reset();
 
   // Record end of session metrics.
   lens_session_metrics_logger_->RecordEndOfSessionMetrics(dismissal_source);
@@ -782,9 +798,12 @@ void LensSearchController::CloseLensPart2(
 
 void LensSearchController::OnOverlayHidden(
     std::optional<lens::LensOverlayDismissalSource> dismissal_source) {
+  if (state_ == State::kOff) {
+    return;
+  }
+
   // If the side panel is not open, end the session.
-  if (lens_overlay_side_panel_coordinator_->state() ==
-      lens::LensOverlaySidePanelCoordinator::State::kOff) {
+  if (results_panel_router_ && !results_panel_router_->IsEntryShowing()) {
     // The caller should not have called this function without a dismissal
     // source if the side panel is not open, because it would leave the Lens
     // session in an inconsistent state.
@@ -822,6 +841,8 @@ void LensSearchController::OnSidePanelWillHide(
       state_ = State::kClosingSidePanel;
       last_dismissal_source_ =
           lens::LensOverlayDismissalSource::kSidePanelEntryReplaced;
+    } else if (reason == SidePanelEntryHideReason::kBackgrounded) {
+      TabWillEnterBackground(tab_);
     } else {
       // Trigger the close animation and notify the overlay that the side
       // panel is closing so that it can fade out the UI.
@@ -981,7 +1002,8 @@ void LensSearchController::OnPageContextUpdatedForZeroStateRequest(
           ->GetCurrentPageContextEligibility()) {
     // Create a region that consists of the entire viewport.
     auto full_viewport_region = lens::mojom::CenterRotatedBox::New();
-    full_viewport_region->box = gfx::RectF(/*x=*/0.5, /*y=*/0.5, /*width=*/1.0, /*height=*/1.0);
+    full_viewport_region->box =
+        gfx::RectF(/*x=*/0.5, /*y=*/0.5, /*width=*/1.0, /*height=*/1.0);
     full_viewport_region->coordinate_type =
         lens::mojom::CenterRotatedBox_CoordinateType::kNormalized;
 
@@ -994,14 +1016,15 @@ void LensSearchController::OnPageContextUpdatedForZeroStateRequest(
 }
 
 void LensSearchController::MaybeShowMobilePromo() {
-  if (MobilePromoOnDesktopTypeEnabled() ==
-      MobilePromoOnDesktopPromoType::kLensPromo) {
+  if (MobilePromoOnDesktopTypeEnabled(
+          MobilePromoOnDesktopPromoType::kLensPromo)) {
     IOSPromoTriggerService* service =
         IOSPromoTriggerServiceFactory::GetForProfile(
             Profile::FromBrowserContext(
                 tab_->GetContents()->GetBrowserContext()));
     if (service) {
-      service->NotifyPromoShouldBeShown(IOSPromoType::kLens);
+      service->NotifyPromoShouldBeShown(
+          desktop_to_mobile_promos::PromoType::kLens);
     }
   }
 }

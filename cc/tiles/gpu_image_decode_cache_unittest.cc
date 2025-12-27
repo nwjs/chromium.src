@@ -35,7 +35,7 @@
 #include "cc/tiles/raster_dark_mode_filter.h"
 #include "components/viz/test/test_context_provider.h"
 #include "components/viz/test/test_gles2_interface.h"
-#include "gpu/command_buffer/client/raster_implementation_gles.h"
+#include "components/viz/test/test_raster_interface.h"
 #include "gpu/command_buffer/common/command_buffer_id.h"
 #include "gpu/command_buffer/common/constants.h"
 #include "gpu/config/gpu_finch_features.h"
@@ -174,8 +174,7 @@ class GPUImageDecodeTestMockContextProvider : public viz::TestContextProvider {
         transfer_cache_helper);
     auto gl = std::make_unique<FakeGPUImageDecodeTestGLES2Interface>(
         transfer_cache_helper);
-    auto raster = std::make_unique<gpu::raster::RasterImplementationGLES>(
-        gl.get(), support.get(), gpu::Capabilities());
+    auto raster = std::make_unique<viz::TestRasterInterface>();
     return new GPUImageDecodeTestMockContextProvider(
         std::move(support), std::move(gl), std::move(raster));
   }
@@ -191,6 +190,10 @@ class GPUImageDecodeTestMockContextProvider : public viz::TestContextProvider {
     return viz::TestContextProvider::ContextCapabilities();
   }
 
+  gpu::raster::RasterInterface* RasterInterface() override {
+    return raster_interface_gles_.get();
+  }
+
  private:
   ~GPUImageDecodeTestMockContextProvider() override = default;
   GPUImageDecodeTestMockContextProvider(
@@ -199,10 +202,11 @@ class GPUImageDecodeTestMockContextProvider : public viz::TestContextProvider {
       std::unique_ptr<gpu::raster::RasterInterface> raster)
       : TestContextProvider(std::move(support),
                             std::move(gl),
-                            std::move(raster),
                             nullptr /* sii */,
-                            true) {}
+                            true),
+        raster_interface_gles_(std::move(raster)) {}
 
+  std::unique_ptr<gpu::raster::RasterInterface> raster_interface_gles_;
   std::optional<gpu::Capabilities> capabilities_override_;
 };
 
@@ -229,7 +233,7 @@ SkM44 CreateMatrix(const SkSize& scale) {
   return SkM44::Scale(scale.width(), scale.height());
 }
 
-size_t kGpuMemoryLimitBytes = 96 * 1024 * 1024;
+constexpr size_t kGpuMemoryLimitBytes = 96 * 1024 * 1024;
 
 class GpuImageDecodeCacheTest
     : public ::testing::TestWithParam<
@@ -4091,13 +4095,12 @@ SkColorType test_color_types[] = {kN32_SkColorType, kARGB_4444_SkColorType,
                                   kRGBA_F16_SkColorType};
 
 INSTANTIATE_TEST_SUITE_P(
-    GpuImageDecodeCacheTestsOOPR,
+    GpuImageDecodeCacheTests,
     GpuImageDecodeCacheTest,
-    testing::Combine(
-        testing::ValuesIn(test_color_types),
-        testing::Bool() /* do_yuv_decode */,
-        testing::Values(false) /* enable_clipped_image_scaling */,
-        testing::Values(false) /* no_discardable_memory */));
+    testing::Combine(testing::ValuesIn(test_color_types),
+                     testing::Bool() /* do_yuv_decode */,
+                     testing::Values(false) /* enable_clipped_image_scaling */,
+                     testing::Values(false) /* no_discardable_memory */));
 
 class GpuImageDecodeCachePurgeOnTimerTest : public GpuImageDecodeCacheTest {
  public:
@@ -4359,7 +4362,7 @@ TEST_P(GpuImageDecodeCachePurgeOnTimerTest, NoCache) {
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    GpuImageDecodeCacheTestsOOPR,
+    GpuImageDecodeCacheTests,
     GpuImageDecodeCachePurgeOnTimerTest,
     testing::Combine(testing::Values(kN32_SkColorType),
                      testing::Bool() /* do_yuv_decode */,

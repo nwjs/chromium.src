@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "partition_alloc/slot_start.h"
 #ifdef UNSAFE_BUFFERS_BUILD
 // TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
 #pragma allow_unsafe_buffers
@@ -21,9 +22,8 @@
 
 namespace base::internal {
 
-template <bool AllowDangling, bool DisableBRP>
-void RawPtrBackupRefImpl<AllowDangling, DisableBRP>::AcquireInternal(
-    uintptr_t address) {
+template <bool AllowDangling>
+void RawPtrBackupRefImpl<AllowDangling>::AcquireInternal(uintptr_t address) {
 #if PA_BUILDFLAG(DCHECKS_ARE_ON) || \
     PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SLOW_CHECKS)
   PA_BASE_CHECK(UseBrp(address));
@@ -32,18 +32,17 @@ void RawPtrBackupRefImpl<AllowDangling, DisableBRP>::AcquireInternal(
       partition_alloc::PartitionAllocGetSlotStartAndSizeInBRPPool(address);
   if constexpr (AllowDangling) {
     partition_alloc::PartitionRoot::InSlotMetadataPointerFromSlotStartAndSize(
-        slot_start, slot_size)
+        partition_alloc::internal::UntaggedSlotStart(slot_start), slot_size)
         ->AcquireFromUnprotectedPtr();
   } else {
     partition_alloc::PartitionRoot::InSlotMetadataPointerFromSlotStartAndSize(
-        slot_start, slot_size)
+        partition_alloc::internal::UntaggedSlotStart(slot_start), slot_size)
         ->Acquire();
   }
 }
 
-template <bool AllowDangling, bool DisableBRP>
-void RawPtrBackupRefImpl<AllowDangling, DisableBRP>::ReleaseInternal(
-    uintptr_t address) {
+template <bool AllowDangling>
+void RawPtrBackupRefImpl<AllowDangling>::ReleaseInternal(uintptr_t address) {
 #if PA_BUILDFLAG(DCHECKS_ARE_ON) || \
     PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SLOW_CHECKS)
   PA_BASE_CHECK(UseBrp(address));
@@ -52,41 +51,45 @@ void RawPtrBackupRefImpl<AllowDangling, DisableBRP>::ReleaseInternal(
       partition_alloc::PartitionAllocGetSlotStartAndSizeInBRPPool(address);
   if constexpr (AllowDangling) {
     if (partition_alloc::PartitionRoot::
-            InSlotMetadataPointerFromSlotStartAndSize(slot_start, slot_size)
+            InSlotMetadataPointerFromSlotStartAndSize(
+                partition_alloc::internal::UntaggedSlotStart(slot_start),
+                slot_size)
                 ->ReleaseFromUnprotectedPtr()) {
-      partition_alloc::PartitionRoot::FreeAfterBRPQuarantine(slot_start,
-                                                             slot_size);
+      partition_alloc::PartitionRoot::FreeAfterBRPQuarantine(
+          partition_alloc::internal::UntaggedSlotStart(slot_start), slot_size);
     }
   } else {
     if (partition_alloc::PartitionRoot::
-            InSlotMetadataPointerFromSlotStartAndSize(slot_start, slot_size)
+            InSlotMetadataPointerFromSlotStartAndSize(
+                partition_alloc::internal::UntaggedSlotStart(slot_start),
+                slot_size)
                 ->Release()) {
-      partition_alloc::PartitionRoot::FreeAfterBRPQuarantine(slot_start,
-                                                             slot_size);
+      partition_alloc::PartitionRoot::FreeAfterBRPQuarantine(
+          partition_alloc::internal::UntaggedSlotStart(slot_start), slot_size);
     }
   }
 }
 
-template <bool AllowDangling, bool DisableBRP>
-void RawPtrBackupRefImpl<AllowDangling, DisableBRP>::ReportIfDanglingInternal(
+template <bool AllowDangling>
+void RawPtrBackupRefImpl<AllowDangling>::ReportIfDanglingInternal(
     uintptr_t address) {
   if (partition_alloc::internal::IsUnretainedDanglingRawPtrCheckEnabled()) {
     if (IsSupportedAndNotNull(address)) {
       auto [slot_start, slot_size] =
           partition_alloc::PartitionAllocGetSlotStartAndSizeInBRPPool(address);
       partition_alloc::PartitionRoot::InSlotMetadataPointerFromSlotStartAndSize(
-          slot_start, slot_size)
+          partition_alloc::internal::UntaggedSlotStart(slot_start), slot_size)
           ->ReportIfDangling();
     }
   }
 }
 
 // static
-template <bool AllowDangling, bool DisableBRP>
-bool RawPtrBackupRefImpl<AllowDangling, DisableBRP>::
-    CheckPointerWithinSameAlloc(uintptr_t before_addr,
-                                uintptr_t after_addr,
-                                size_t type_size) {
+template <bool AllowDangling>
+bool RawPtrBackupRefImpl<AllowDangling>::CheckPointerWithinSameAlloc(
+    uintptr_t before_addr,
+    uintptr_t after_addr,
+    size_t type_size) {
   partition_alloc::internal::PtrPosWithinAlloc ptr_pos_within_alloc =
       partition_alloc::internal::IsPtrWithinSameAlloc(before_addr, after_addr,
                                                       type_size);
@@ -104,9 +107,8 @@ bool RawPtrBackupRefImpl<AllowDangling, DisableBRP>::
 #endif
 }
 
-template <bool AllowDangling, bool DisableBRP>
-bool RawPtrBackupRefImpl<AllowDangling, DisableBRP>::IsPointeeAlive(
-    uintptr_t address) {
+template <bool AllowDangling>
+bool RawPtrBackupRefImpl<AllowDangling>::IsPointeeAlive(uintptr_t address) {
 #if PA_BUILDFLAG(DCHECKS_ARE_ON) || \
     PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SLOW_CHECKS)
   PA_BASE_CHECK(UseBrp(address));
@@ -114,20 +116,16 @@ bool RawPtrBackupRefImpl<AllowDangling, DisableBRP>::IsPointeeAlive(
   auto [slot_start, slot_size] =
       partition_alloc::PartitionAllocGetSlotStartAndSizeInBRPPool(address);
   return partition_alloc::PartitionRoot::
-      InSlotMetadataPointerFromSlotStartAndSize(slot_start, slot_size)
+      InSlotMetadataPointerFromSlotStartAndSize(
+             partition_alloc::internal::UntaggedSlotStart(slot_start),
+             slot_size)
           ->IsAlive();
 }
 
 // Explicitly instantiates the two BackupRefPtr variants in the .cc. This
 // ensures the definitions not visible from the .h are available in the binary.
-template struct RawPtrBackupRefImpl</*AllowDangling=*/false,
-                                    /*DisableBRP=*/false>;
-template struct RawPtrBackupRefImpl</*AllowDangling=*/false,
-                                    /*DisableBRP=*/true>;
-template struct RawPtrBackupRefImpl</*AllowDangling=*/true,
-                                    /*DisableBRP=*/false>;
-template struct RawPtrBackupRefImpl</*AllowDangling=*/true,
-                                    /*DisableBRP=*/true>;
+template struct RawPtrBackupRefImpl</*AllowDangling=*/false>;
+template struct RawPtrBackupRefImpl</*AllowDangling=*/true>;
 
 #if PA_BUILDFLAG(DCHECKS_ARE_ON) || \
     PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SLOW_CHECKS)

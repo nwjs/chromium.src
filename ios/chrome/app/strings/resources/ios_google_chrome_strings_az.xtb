@@ -75,7 +75,6 @@ Nəzərə alın ki:
 <translation id="2576431527583832481">Chrome yeniləndi! Yeni versiya əlçatandır.</translation>
 <translation id="257708665678654955">Google Chrome'un növbəti dəfə bu saytdakı <ph name="LANGUAGE_NAME" /> səhifələrini tərcümə etməyini istəyirsiniz?</translation>
 <translation id="2668242166988961773">Chrome-da səs ilə axtarın.</translation>
-<translation id="2695886661449553974">Chrome güncəlləmələri yoxlaya bilmədi. Sonra cəhd edin.</translation>
 <translation id="2703746758996815929">Faydalı Chrome məsləhətləri üçün iOS ayarlarında bildirişləri aktiv edin.</translation>
 <translation id="2728851697704606655">Google Linza ilə tərcümə edin</translation>
 <translation id="2736805085127235148">Hazırda Chrome bildirişləri cihaz ayarlarında deaktivdir.</translation>
@@ -170,9 +169,11 @@ Nəzərə alın ki:
 <translation id="5162467219239570114">Chrome köhnəlib. <ph name="BEGIN_LINK" />App Store'da<ph name="END_LINK" /> əlçatan güncəlləmə yoxdursa, ola bilər ki, cihazınız artıq Chrome'un yeni versiyalarını dəstəkləmir.</translation>
 <translation id="5184329579814168207">Chrome'da açın</translation>
 <translation id="5190139289262548459">Təşkilat (<ph name="DOMAIN" />) daxil olduğunuz hesabı və Chrome-un istifadə qaydasını idarə edir.</translation>
+<translation id="5209238444239954363">Chrome güncəlləmələri yoxlaya bilmədi. Sonra cəhd edin.</translation>
 <translation id="5305440589062022504">Chrome-da Parol menecerini açır</translation>
 <translation id="5310957470610282541">Müəyyən Chrome datası Google Hesabında yadda saxlanılmayıb.
 Çıxmazdan əvvəl bir neçə dəqiqə gözləyin. İndi çıxsanız, bu data silinəcək.</translation>
+<translation id="5342685492141499976">Datanız <ph name="USER_EMAIL" /> üçün Google Parol Menecerində saxlanılacaq</translation>
 <translation id="5389212809648216794">Digər tətbiq tərəfindən istifadə olunduğu üçün Google Chrome kameranı istifadə edə bilməz</translation>
 <translation id="5395376160638294582">Google Hesabında hər zaman Chrome datasından istifadə edə biləcəyinizdən əmin olun</translation>
 <translation id="5404252374083197467">Chrome defolt olaraq ayarlansın?</translation>
@@ -200,6 +201,7 @@ Nəzərə alın ki:
 <translation id="5808435672482059465">Chrome Tarixçənizə baxın</translation>
 <translation id="5833027901704861726">Müəyyən Chrome datası hələ də <ph name="EMAIL" /> hesabında yadda saxlanılmayıb.
 Hesabları dəyişməzdən əvvəl bir neçə dəqiqə gözləyin. İndi hesabları dəyişsəniz, bu data silinəcək.</translation>
+<translation id="5853754888722423892">Google Parol Menecerinə import edin</translation>
 <translation id="5998675059699164418">Təşkilatınız Chrome'dan istifadə etmək üçün daxil olmağınızı tələb edir.</translation>
 <translation id="6021312115739110405">Google tərəfindən sizin üçün hazırlanan fərdi lent. Xəbərlər, idman və hava daxil olmaqla.</translation>
 <translation id="6022659036123304283">Chrome'u özünüzküləşdirin</translation>
@@ -302,6 +304,7 @@ Chrome təcrübənizi təkmilləşdirmək məqsədilə data istifadə edən dig�
 <translation id="787226752901403048">Tab qruplarını paylaşmaq və onlara qoşulmaq, ideyalarla bağlı birlikdə işləmək üçün Chrome-a daxil olun</translation>
 <translation id="7897703007638178753">Son Chrome tablarına baxın</translation>
 <translation id="7948283758957877064">Chrome-da yeniliklər</translation>
+<translation id="7996707498590516621">Chrome-da Gemini ilə şəkil yaradın</translation>
 <translation id="8000174216052461231">Chrome məsləhəti: Chrome-un ən güclü təhlükəsizlik səviyyəsini əldə edin</translation>
 <translation id="8006014511203279255">Mesaj və ya digər tətbiqlərdə keçidləri Chrome ilə açın.</translation>
 <translation id="8014670471808569312">Chrome parolu yadda saxlamağı təklif edəcək.</translation>

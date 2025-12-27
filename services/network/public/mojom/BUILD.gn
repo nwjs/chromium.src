@@ -410,6 +410,7 @@ mojom("mojom_proxy_config") {
   public_deps = [
     ":mojom_network_param",
     "//mojo/public/mojom/base",
+    "//url/mojom:url_mojom_scheme_host_port",
   ]
 
   shared_cpp_typemaps = [
@@ -445,8 +446,8 @@ mojom("mojom_proxy_config") {
     {
       types = [
         {
-          mojom = "network.mojom.ProxyBypassRules"
-          cpp = "::net::ProxyBypassRules"
+          mojom = "network.mojom.ProxyHostMatchingRules"
+          cpp = "::net::ProxyHostMatchingRules"
         },
         {
           mojom = "network.mojom.ProxyList"
@@ -1015,6 +1016,10 @@ mojom("url_loader_base") {
           mojom = "network.mojom.DeviceBoundSessionParams"
           cpp = "::net::device_bound_sessions::SessionParams"
           move_only = true
+        },
+        {
+          mojom = "network.mojom.DeviceBoundSessionError"
+          cpp = "::net::device_bound_sessions::SessionError::ErrorType"
         },
       ]
       traits_headers = [
@@ -1731,10 +1736,12 @@ mojom("mojom_permissions_policy") {
 mojom("mojom") {
   generate_java = true
   sources = [
+    "cache_encryption_provider.mojom",
     "cert_verifier_service.mojom",
     "cert_verifier_service_updater.mojom",
     "connection_change_observer_client.mojom",
     "cookie_encryption_provider.mojom",
+    "ct_policy.mojom",
     "default_credentials.mojom",
     "dhcp_wpad_url_client.mojom",
     "digitally_signed.mojom",
@@ -1786,8 +1793,8 @@ mojom("mojom") {
     ":url_loader_base",
     ":websocket_mojom",
     "//components/content_settings/core/common:mojo_bindings",
-    "//components/ip_protection/mojom",
     "//components/os_crypt/async/common:common_mojom",
+    "//components/unexportable_keys/mojom",
     "//mojo/public/mojom/base",
     "//mojo/public/mojom/base:protobuf_support",
     "//sandbox/policy/mojom",

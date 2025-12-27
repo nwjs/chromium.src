@@ -52,6 +52,8 @@ import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.components.external_intents.ExternalNavigationHandler.IncognitoDialogDelegate;
 import org.chromium.components.external_intents.ExternalNavigationHandler.OverrideUrlLoadingResult;
 import org.chromium.components.external_intents.ExternalNavigationHandler.OverrideUrlLoadingResultType;
+import org.chromium.components.external_intents.ExternalNavigationHandler.QueryIntentActivitiesSupplier;
+import org.chromium.components.external_intents.ExternalNavigationHandler.ResolveActivitySupplier;
 import org.chromium.components.external_intents.ExternalNavigationParams.AsyncActionTakenParams;
 import org.chromium.components.external_intents.ExternalNavigationParams.AsyncActionTakenParams.AsyncActionTakenType;
 import org.chromium.content_public.browser.WebContents;
@@ -76,7 +78,6 @@ import java.util.function.Supplier;
 @RunWith(BaseJUnit4ClassRunner.class)
 @Batch(Batch.UNIT_TESTS)
 @Features.DisableFeatures(ExternalIntentsFeatures.EXTERNAL_NAVIGATION_DEBUG_LOGS_NAME)
-@Features.EnableFeatures(ExternalIntentsFeatures.BLOCK_INTENTS_TO_SELF_NAME)
 public class ExternalNavigationHandlerTest {
     // Expectations
     private static final int IGNORE = 0x0;
@@ -2150,7 +2151,6 @@ public class ExternalNavigationHandlerTest {
     }
 
     @Test
-    @Features.EnableFeatures(ExternalIntentsFeatures.REPARENT_TOP_LEVEL_NAVIGATION_FROM_PWA_NAME)
     @SmallTest
     public void testReparentTopLevelNavigationWithNoSpecializedHandler() {
         mDelegate.add(new IntentActivity(YOUTUBE_MOBILE_URL, YOUTUBE_PACKAGE_NAME));
@@ -2175,7 +2175,6 @@ public class ExternalNavigationHandlerTest {
     }
 
     @Test
-    @Features.EnableFeatures(ExternalIntentsFeatures.REPARENT_TOP_LEVEL_NAVIGATION_FROM_PWA_NAME)
     @SmallTest
     public void testDoNotReparentTopLevelNavigationWithSpecializedHandler() {
         mDelegate.add(new IntentActivity(YOUTUBE_MOBILE_URL, YOUTUBE_PACKAGE_NAME));
@@ -2198,7 +2197,6 @@ public class ExternalNavigationHandlerTest {
     }
 
     @Test
-    @Features.EnableFeatures(ExternalIntentsFeatures.REPARENT_TOP_LEVEL_NAVIGATION_FROM_PWA_NAME)
     @SmallTest
     public void testDoNotReparentSelfNavigation() {
         mUrlHandler = new ExternalNavigationHandlerForTesting(mDelegate);
@@ -3664,6 +3662,16 @@ public class ExternalNavigationHandlerTest {
         @Override
         public Intent createIntentToPreventIncognitoAccess(GURL url) {
             return null;
+        }
+
+        @Override
+        public boolean wasTabLaunchedFromLinkCreatingNewForegroundTab() {
+            return false;
+        }
+
+        @Override
+        public boolean wasTabLaunchedFromLinkCreatingNewWindow() {
+            return false;
         }
 
         public void reset() {

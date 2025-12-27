@@ -208,6 +208,8 @@ class CC_EXPORT EventMetrics {
   // events.
   EventMetrics(const EventMetrics& other);
 
+  void CoalesceWith(const EventMetrics& newer_event);
+
   // Copy timestamps of dispatch stages (up to and including
   // `last_dispatch_stage`) from `other`.
   void CopyTimestampsFrom(const EventMetrics& other,
@@ -272,6 +274,26 @@ class CC_EXPORT ScrollEventMetrics : public EventMetrics {
     kTouchscreen,
     kWheel,
     kMaxValue = kWheel,
+  };
+
+  // A small number of fields from `viz::BeginFrameArgs` about the frame in
+  // which an event was dispatched to avoid copying the whole args (>100 bytes).
+  struct CC_EXPORT DispatchBeginFrameArgs {
+    // See `viz::BeginFrameArgs::frame_time`.
+    base::TimeTicks frame_time;
+
+    // See `viz::BeginFrameArgs::interval`.
+    base::TimeDelta interval;
+
+    // See `viz::BeginFrameArgs::frame_id`.
+    viz::BeginFrameId frame_id;
+
+    // Note: If this was an explicit constructor, it would prevent us from using
+    // designated initializers (e.g.
+    // `{.frame_time = X, .interval = Y, .frame_id = Z}`).
+    static DispatchBeginFrameArgs From(const viz::BeginFrameArgs& args);
+
+    bool operator==(const DispatchBeginFrameArgs&) const = default;
   };
 
   // Returns a new instance if the event is of a type we are interested in.
@@ -341,8 +363,11 @@ class CC_EXPORT ScrollEventMetrics : public EventMetrics {
 
   const viz::BeginFrameArgs& begin_frame_args() const { return args_; }
 
-  void set_did_scroll(bool did_scroll) { did_scroll_ = did_scroll; }
-  bool did_scroll() const { return did_scroll_; }
+  void set_dispatch_args(const DispatchBeginFrameArgs& dispatch_args) {
+    dispatch_args_ = dispatch_args;
+  }
+
+  const DispatchBeginFrameArgs& dispatch_args() const { return dispatch_args_; }
 
  protected:
   ScrollEventMetrics(EventType type,
@@ -371,38 +396,13 @@ class CC_EXPORT ScrollEventMetrics : public EventMetrics {
   // is eventually displayed.
   viz::BeginFrameArgs args_;
 
-  // The scroll delta may not be actually applied. Event if it is consumed. This
-  // denotes that a scroll did actually occur.
-  bool did_scroll_ = false;
+  // A small number of fields from `viz::BeginFrameArgs` about the frame in
+  // which this event was dispatched. It's usually the next frame after `args_`.
+  //
+  // These may not match those of CompositorFrameReporter for which the event
+  // is eventually displayed.
+  DispatchBeginFrameArgs dispatch_args_;
 };
-
-// Reason why Chrome's scroll jank v4 metric marked a scroll update as janky. A
-// single scroll update can be janky for more than one reason. See
-// https://docs.google.com/document/d/1AaBvTIf8i-c-WTKkjaL4vyhQMkSdynxo3XEiwpofdeA
-// for more details.
-// LINT.IfChange(JankReason)
-enum class JankReason {
-  // Chrome's input→frame delivery slowed down to the point that it missed one
-  // or more VSyncs.
-  kMissedVsyncDueToDeceleratingInputFrameDelivery,
-  kMinValue = kMissedVsyncDueToDeceleratingInputFrameDelivery,
-
-  // Chrome missed one or more VSyncs in the middle of a fast regular scroll.
-  kMissedVsyncDuringFastScroll,
-
-  // Chrome missed one or more VSyncs during the transition from a fast regular
-  // scroll to a fling.
-  kMissedVsyncAtStartOfFling,
-
-  // Chrome missed one or more VSyncs in the middle of a fling.
-  kMissedVsyncDuringFling,
-  kMaxValue = kMissedVsyncDuringFling,
-};
-// LINT.ThenChange(//base/tracing/protos/chrome_track_event.proto:JankReason,//tools/metrics/histograms/metadata/event/histograms.xml:ScrollJankReasonV4)
-
-template <typename T>
-using JankReasonArray =
-    std::array<T, static_cast<size_t>(JankReason::kMaxValue) + 1>;
 
 class CC_EXPORT ScrollUpdateEventMetrics : public ScrollEventMetrics {
  public:
@@ -477,6 +477,8 @@ class CC_EXPORT ScrollUpdateEventMetrics : public ScrollEventMetrics {
 
   ~ScrollUpdateEventMetrics() override;
 
+  // Note: Synthetic scroll updates (see `is_synthetic_`) should never be
+  // coalesced.
   void CoalesceWith(const ScrollUpdateEventMetrics& newer_scroll_update);
 
   ScrollUpdateEventMetrics* AsScrollUpdate() override;
@@ -502,60 +504,11 @@ class CC_EXPORT ScrollUpdateEventMetrics : public ScrollEventMetrics {
     return is_janky_scrolled_frame_;
   }
 
-  // Result of the Scroll Jank V4 Metric for a scroll update. See
-  // https://docs.google.com/document/d/1AaBvTIf8i-c-WTKkjaL4vyhQMkSdynxo3XEiwpofdeA
-  // and the Event.ScrollJank.DelayedFramesPercentage4.FixedWindow histogram's
-  // documentation for more information.
-  struct ScrollJankV4Result {
-    // Number of VSyncs that that Chrome missed before presenting the scroll
-    // update for each reason. If at least one value is greater than zero, the
-    // frame was delayed and thus the scroll update is considered janky.
-    JankReasonArray<int> missed_vsyncs_per_reason;
+  void set_did_scroll(bool did_scroll) { did_scroll_ = did_scroll; }
+  bool did_scroll() const { return did_scroll_; }
 
-    // The absolute total raw (unpredicted) delta of all scroll updates
-    // included in the frame in which the scroll update was presented (in
-    // pixels).
-    float abs_total_raw_delta_pixels;
-
-    // The maximum absolute raw (unpredicted) delta out of all inertial (fling)
-    // scroll updates included in the frame in which the scroll update was
-    // presented (in pixels). Zero if there were no inertial scroll updates in
-    // the frame.
-    float max_abs_inertial_raw_delta_pixels;
-
-    // How many VSyncs were between (A) the frame in which the scroll update was
-    // presented and (B) the previous frame. If this value is greater than one,
-    // then Chrome potentially missed one or more VSyncs (i.e. might have been
-    // able to present this scroll update earlier). Empty if this scroll update
-    // was presented in the first scroll update of a scroll.
-    std::optional<int> vsyncs_since_previous_frame;
-
-    // The running delivery cut-off based on frames preceding the frame in which
-    // the scroll update was presented. See
-    // `ScrollJankDroppedFrameTracker::running_delivery_cutoff_` for more
-    // information. Empty if this scroll update was presented in the first
-    // scroll update of a scroll.
-    std::optional<base::TimeDelta> running_delivery_cutoff;
-
-    // The running delivery cut-off adjusted for the frame that the scroll
-    // update was presented in. See
-    // `ScrollJankDroppedFrameTracker::CalculateMissedVsyncsPerReasonV4()` for
-    // more information. Empty if this scroll update was presented in the first
-    // scroll update of a scroll or if `vsyncs_since_previous_frame` is one.
-    std::optional<base::TimeDelta> adjusted_delivery_cutoff;
-
-    // The delivery cut-off of the frame that the scroll update was presented
-    // in. See `ScrollJankDroppedFrameTracker::ReportLatestPresentationDataV4()`
-    // for more information.
-    base::TimeDelta current_delivery_cutoff;
-  };
-
-  void set_scroll_jank_v4(std::optional<ScrollJankV4Result> result) {
-    scroll_jank_v4_ = std::move(result);
-  }
-  const std::optional<ScrollJankV4Result>& scroll_jank_v4() const {
-    return scroll_jank_v4_;
-  }
+  void set_is_synthetic(bool is_synthetic) { is_synthetic_ = is_synthetic; }
+  bool is_synthetic() const { return is_synthetic_; }
 
  protected:
   ScrollUpdateEventMetrics(EventType type,
@@ -590,7 +543,24 @@ class CC_EXPORT ScrollUpdateEventMetrics : public ScrollEventMetrics {
   int32_t coalesced_event_count_ = 1;
 
   std::optional<bool> is_janky_scrolled_frame_ = std::nullopt;
-  std::optional<ScrollJankV4Result> scroll_jank_v4_ = std::nullopt;
+
+  // The scroll delta may not be actually applied. Event if it is consumed. This
+  // denotes that a scroll did actually occur.
+  bool did_scroll_ = false;
+
+  // Whether the scroll update is a synthetic event, which was predicted by
+  // Chrome (see `blink::ScrollPredictor::GenerateSyntheticScrollUpdate()`). In
+  // contrast to real scroll updates, metrics cannot blindly "trust" synthetic
+  // scroll updates' input generation timestamps
+  // (`GetDispatchStageTimestamp(DispatchStage::kGenerated)`) and raw scroll
+  // deltas (`delta_`) because the scroll updates didn't originate from
+  // hardware/OS.
+  // TODO(crbug.com/456180776): For now, while we incrementally implement
+  // support for synthetic scroll updates in the scroll jank v4 metric, this
+  // field is only set to true in unit tests. Set this to true in
+  // `blink::ScrollPredictor::GenerateSyntheticScrollUpdate()` once the metric
+  // fully supports synthetic scroll updates.
+  bool is_synthetic_ = false;
 };
 
 class CC_EXPORT PinchEventMetrics : public EventMetrics {

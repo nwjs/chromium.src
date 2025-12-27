@@ -63,8 +63,7 @@ void PasswordProtectionService::MaybeStartPasswordFieldOnFocusRequest(
     WebContents* web_contents,
     const GURL& main_frame_url,
     const GURL& password_form_action,
-    const GURL& password_form_frame_url,
-    const std::string& hosted_domain) {
+    const GURL& password_form_frame_url) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
   LoginReputationClientRequest::TriggerType trigger_type =
       LoginReputationClientRequest::UNFAMILIAR_LOGIN_PAGE;
@@ -139,7 +138,7 @@ void PasswordProtectionService::MaybeStartProtectedPasswordEntryRequest(
 void PasswordProtectionService::MaybeStartOtpPhishingRequest(
     content::WebContents* web_contents,
     const GURL& main_frame_url,
-    OtpPhishingVerdictCallback callback) {
+    PasswordProtectionRequest::OtpPhishingVerdictCallback callback) {
   if (!database_manager()->IsDatabaseReady()) {
     std::move(callback).Run(false);
     return;
@@ -155,7 +154,7 @@ void PasswordProtectionService::MaybeStartOtpPhishingRequest(
 void PasswordProtectionService::OnOtpHighConfidenceAllowlistCheckCompleted(
     content::WebContents* web_contents,
     const GURL& main_frame_url,
-    OtpPhishingVerdictCallback callback,
+    PasswordProtectionRequest::OtpPhishingVerdictCallback callback,
     bool did_match_allowlist,
     std::optional<
         SafeBrowsingDatabaseManager::HighConfidenceAllowlistCheckLoggingDetails>
@@ -165,7 +164,24 @@ void PasswordProtectionService::OnOtpHighConfidenceAllowlistCheckCompleted(
     return;
   }
 
-  otp_phishing_verdict_callback_.emplace(std::move(callback));
+  ReusedPasswordAccountType reused_password_account_type =
+      GetPasswordProtectionReusedPasswordAccountType(
+          PasswordType::PASSWORD_TYPE_UNKNOWN,
+          /*username=*/"");
+
+  if (!CanSendPing(
+          LoginReputationClientRequest::ONE_TIME_PASSWORD_FIELD_DETECTED,
+          main_frame_url, reused_password_account_type)) {
+    LogNoPingingReason(
+        LoginReputationClientRequest::ONE_TIME_PASSWORD_FIELD_DETECTED,
+        GetPingNotSentReason(
+            LoginReputationClientRequest::ONE_TIME_PASSWORD_FIELD_DETECTED,
+            main_frame_url, reused_password_account_type),
+        reused_password_account_type);
+    // If ping is not sent, we should run the callback immediately.
+    std::move(callback).Run(false);
+    return;
+  }
 
   // OTP detection is not tied to a specific password field.
   scoped_refptr<PasswordProtectionRequest> request(
@@ -176,29 +192,9 @@ void PasswordProtectionService::OnOtpHighConfidenceAllowlistCheckCompleted(
           PasswordType::PASSWORD_TYPE_UNKNOWN,
           /*matching_reused_credentials=*/{},
           LoginReputationClientRequest::ONE_TIME_PASSWORD_FIELD_DETECTED,
-          /*password_field_exists=*/false, this, GetRequestTimeoutInMS()));
-
-  ReusedPasswordAccountType reused_password_account_type =
-      GetPasswordProtectionReusedPasswordAccountType(
-          PasswordType::PASSWORD_TYPE_UNKNOWN,
-          /*username=*/"");
-  if (CanSendPing(
-          LoginReputationClientRequest::ONE_TIME_PASSWORD_FIELD_DETECTED,
-          main_frame_url, reused_password_account_type)) {
-    StartRequestInternal(std::move(request));
-  } else {
-    LogNoPingingReason(
-        LoginReputationClientRequest::ONE_TIME_PASSWORD_FIELD_DETECTED,
-        GetPingNotSentReason(
-            LoginReputationClientRequest::ONE_TIME_PASSWORD_FIELD_DETECTED,
-            main_frame_url, reused_password_account_type),
-        reused_password_account_type);
-    if (ShouldRunOtpPhishingVerdictCallback(
-            LoginReputationClientRequest::ONE_TIME_PASSWORD_FIELD_DETECTED)) {
-      std::move(otp_phishing_verdict_callback_.value()).Run(false);
-      otp_phishing_verdict_callback_.reset();
-    }
-  }
+          /*password_field_exists=*/false, this, GetRequestTimeoutInMS(),
+          std::move(callback)));
+  StartRequestInternal(std::move(request));
 }
 
 void PasswordProtectionService::StartRequest(
@@ -211,13 +207,16 @@ void PasswordProtectionService::StartRequest(
     const std::vector<password_manager::MatchingReusedCredential>&
         matching_reused_credentials,
     LoginReputationClientRequest::TriggerType trigger_type,
-    bool password_field_exists) {
+    bool password_field_exists,
+    std::optional<PasswordProtectionRequest::OtpPhishingVerdictCallback>
+        otp_phishing_verdict_callback) {
   scoped_refptr<PasswordProtectionRequest> request(
       new PasswordProtectionRequestContent(
           web_contents, main_frame_url, password_form_action,
           password_form_frame_url, web_contents->GetContentsMimeType(),
           username, password_type, matching_reused_credentials, trigger_type,
-          password_field_exists, this, GetRequestTimeoutInMS()));
+          password_field_exists, this, GetRequestTimeoutInMS(),
+          std::move(otp_phishing_verdict_callback)));
   StartRequestInternal(std::move(request));
 }
 
@@ -231,13 +230,16 @@ void PasswordProtectionService::StartRequestForTesting(
     const std::vector<password_manager::MatchingReusedCredential>&
         matching_reused_credentials,
     LoginReputationClientRequest::TriggerType trigger_type,
-    bool password_field_exists) {
+    bool password_field_exists,
+    std::optional<PasswordProtectionRequest::OtpPhishingVerdictCallback>
+        otp_phishing_verdict_callback) {
   scoped_refptr<PasswordProtectionRequest> request =
       PasswordProtectionRequestContent::CreateForTesting(
           web_contents, main_frame_url, password_form_action,
           password_form_frame_url, web_contents->GetContentsMimeType(),
           username, password_type, matching_reused_credentials, trigger_type,
-          password_field_exists, this, GetRequestTimeoutInMS());
+          password_field_exists, this, GetRequestTimeoutInMS(),
+          std::move(otp_phishing_verdict_callback));
 
   StartRequestInternal(std::move(request));
 }

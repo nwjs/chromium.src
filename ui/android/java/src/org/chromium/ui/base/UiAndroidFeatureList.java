@@ -45,7 +45,7 @@ public class UiAndroidFeatureList {
             newCachedFlag(
                     UiAndroidFeatures.ANDROID_WINDOW_OCCLUSION,
                     /* defaultValue= */ false,
-                    /* defaultValueInTests= */ true);
+                    /* defaultValueInTests= */ false);
 
     public static final CachedFlag sRefactorMinWidthContextOverride =
             newCachedFlag(
@@ -58,6 +58,13 @@ public class UiAndroidFeatureList {
                     UiAndroidFeatures.REPORT_BOTTOM_OVERSCROLLS,
                     /* defaultValue= */ true,
                     /* defaultValueInTests= */ true);
+
+    public static final MutableFlagWithSafeDefault sAndroidTouchpadOverscrollHistoryNavigation =
+            // public static final CachedFlag sAndroidTouchpadOverscrollHistoryNavigation =
+            // newCachedFlag(UiAndroidFeatures.ANDROID_TOUCHPAD_OVERSCROLL_HISTORY_NAVIGATION,
+            newMutableFlagWithSafeDefault(
+                    UiAndroidFeatures.ANDROID_TOUCHPAD_OVERSCROLL_HISTORY_NAVIGATION,
+                    /* defaultValue= */ true);
 
     public static final List<CachedFlag> sFlagsCachedUiAndroid =
             List.of(

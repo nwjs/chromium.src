@@ -85,6 +85,8 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "components/browser_ui/util/android/url_constants.h"
+#include "components/permissions/android/permissions_android_feature_map.h"
+#include "components/permissions/permission_request_manager.h"
 #include "components/resources/android/theme_resources.h"
 #include "components/strings/grit/components_branded_strings.h"
 #else
@@ -416,20 +418,6 @@ void PageInfo::OnThirdPartyToggleClicked(bool block_third_party_cookies) {
   show_info_bar_ = true;
 }
 
-void PageInfo::OnTrackingProtectionButtonPressed() {
-  DCHECK(controls_state_ == CookieControlsState::kPausedTp ||
-         controls_state_ == CookieControlsState::kActiveTp);
-  // Check current controls state to record metrics before updates are made via
-  // `OnTrackingProtectionsChangedForSite`.
-  RecordPageInfoAction(
-      controls_state_ == CookieControlsState::kActiveTp
-          ? page_info::PAGE_INFO_PRIVACY_PAGE_TRACKING_PROTECTIONS_PAUSED
-          : page_info::PAGE_INFO_PRIVACY_PAGE_TRACKING_PROTECTIONS_REENABLED);
-  controller_->OnTrackingProtectionsChangedForSite();
-  show_info_bar_ = true;
-  info_bar_reload_type_ = content::ReloadType::BYPASSING_CACHE;
-}
-
 // static
 bool PageInfo::IsPermissionFactoryDefault(const PermissionInfo& permission,
                                           bool is_incognito) {
@@ -639,18 +627,6 @@ void PageInfo::RecordPageInfoAction(page_info::PageInfoAction action) {
     case page_info::PAGE_INFO_SYNC_SETTINGS_OPENED:
       base::RecordAction(base::UserMetricsAction(
           "PageInfo.CookiesSubpage.SyncSettingsLinkClicked"));
-      break;
-    case page_info::PAGE_INFO_PRIVACY_PAGE_INCOGNITO_SETTINGS_OPENED:
-      base::RecordAction(base::UserMetricsAction(
-          "PageInfo.PrivacySubpage.IncognitoSettingsOpened"));
-      break;
-    case page_info::PAGE_INFO_PRIVACY_PAGE_TRACKING_PROTECTIONS_REENABLED:
-      base::RecordAction(base::UserMetricsAction(
-          "PageInfo.PrivacySubpage.TrackingProtectionsReenabled"));
-      break;
-    case page_info::PAGE_INFO_PRIVACY_PAGE_TRACKING_PROTECTIONS_PAUSED:
-      base::RecordAction(base::UserMetricsAction(
-          "PageInfo.PrivacySubpage.TrackingProtectionsPaused"));
       break;
   }
 }
@@ -866,8 +842,7 @@ void PageInfo::OnUIClosing(bool* reload_prompt) {
     *reload_prompt = false;
   }
   if (show_info_bar_ && web_contents_ && !web_contents_->IsBeingDestroyed()) {
-    if (delegate_->CreateInfoBarDelegate(info_bar_reload_type_) &&
-        reload_prompt) {
+    if (delegate_->CreateInfoBarDelegate() && reload_prompt) {
       *reload_prompt = true;
     }
   }
@@ -904,16 +879,6 @@ void PageInfo::OpenCookiesSettingsView() {
 #else
   RecordPageInfoAction(page_info::PAGE_INFO_COOKIES_SETTINGS_OPENED);
   delegate_->ShowCookiesSettings();
-#endif
-}
-
-void PageInfo::OpenIncognitoSettingsView() {
-#if BUILDFLAG(IS_ANDROID)
-  NOTREACHED();
-#else
-  RecordPageInfoAction(
-      page_info::PAGE_INFO_PRIVACY_PAGE_INCOGNITO_SETTINGS_OPENED);
-  delegate_->ShowIncognitoSettings();
 #endif
 }
 
@@ -1403,6 +1368,27 @@ void PageInfo::PopulatePermissionInfo(PermissionInfo& permission_info,
 // via `HasContentSettingChangedViaPageInfo(type)`.
 bool PageInfo::ShouldShowPermission(
     const PageInfo::PermissionInfo& info) const {
+  // For the Loud Clapper experiment Chrome should display NOTIFICATIONS
+  // permission while it is being requested.
+#if BUILDFLAG(IS_ANDROID)
+  if (info.type == ContentSettingsType::NOTIFICATIONS &&
+      base::FeatureList::IsEnabled(
+          permissions::kPermissionsAndroidClapperLoud) &&
+      web_contents_) {
+    permissions::PermissionRequestManager* manager =
+        permissions::PermissionRequestManager::FromWebContents(
+            web_contents_.get());
+    if (manager && manager->IsRequestInProgress()) {
+      for (const auto& request : manager->Requests()) {
+        if (request->GetContentSettingsType() ==
+            ContentSettingsType::NOTIFICATIONS) {
+          return true;
+        }
+      }
+    }
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+
   // Note |ContentSettingsType::ADS| will show up regardless of its default
   // value when it has been activated on the current origin.
   if (info.type == ContentSettingsType::ADS) {
@@ -1443,10 +1429,6 @@ bool PageInfo::ShouldShowPermission(
     }
 #endif  // BUILDFLAG(IS_ANDROID)
 
-    if (!base::FeatureList::IsEnabled(
-            blink::features::kMediaSessionEnterPictureInPicture)) {
-      return false;
-    }
     if (delegate_->HasAutoPictureInPictureBeenRegistered()) {
       return true;
     }

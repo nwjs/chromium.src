@@ -46,8 +46,6 @@
 #import "ios/chrome/browser/content_suggestions/ui_bundled/app_bundle_promo/ui/app_bundle_promo_config.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/cells/most_visited_tiles_config.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/cells/most_visited_tiles_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/cells/shortcuts_config.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/cells/shortcuts_mediator.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_constants.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_metrics_constants.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_metrics_recorder.h"
@@ -56,22 +54,29 @@
 #import "ios/chrome/browser/content_suggestions/ui_bundled/default_browser/ui/default_browser_config.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack/magic_stack_ranking_model_delegate.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack/magic_stack_utils.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/price_tracking_promo/price_tracking_promo_item.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/price_tracking_promo/price_tracking_promo_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/safety_check_magic_stack_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/safety_check_prefs.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/safety_check_state.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/send_tab_to_self/send_tab_promo_item.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/send_tab_to_self/send_tab_promo_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/set_up_list_config.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/set_up_list_item_view_data.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/set_up_list_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/utils.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/shop_card/shop_card_item.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/shop_card/shop_card_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/tab_resumption_helper_delegate.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/tab_resumption_item.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/tab_resumption_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/price_tracking_promo/coordinator/price_tracking_promo_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/price_tracking_promo/coordinator/price_tracking_promo_mediator_delegate.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/price_tracking_promo/ui/price_tracking_promo_item.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/coordinator/safety_check_magic_stack_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/coordinator/safety_check_magic_stack_mediator_delegate.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/model/safety_check_prefs.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/ui/safety_check_state.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/send_tab_to_self/coordinator/send_tab_promo_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/send_tab_to_self/coordinator/send_tab_promo_mediator_delegate.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/send_tab_to_self/ui/send_tab_promo_item.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/coordinator/set_up_list_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/public/set_up_list_utils.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/ui/set_up_list_config.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/ui/set_up_list_item_view_data.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/shop_card/coordinator/shop_card_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/shop_card/coordinator/shop_card_mediator_delegate.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/shop_card/ui/shop_card_item.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/shortcuts/coordinator/shortcuts_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/shortcuts/coordinator/shortcuts_mediator_delegate.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/shortcuts/ui/shortcuts_config.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/coordinator/tab_resumption_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/coordinator/tab_resumption_mediator_delegate.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/ui/tab_resumption_item.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tips/coordinator/tips_magic_stack_mediator.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tips/ui/tips_module_state.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
@@ -126,7 +131,7 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
                                       ShopCardMediatorDelegate,
                                       SetUpListMediatorAudience,
                                       ShortcutsMediatorDelegate,
-                                      TabResumptionHelperDelegate,
+                                      TabResumptionMediatorDelegate,
                                       TipsMagicStackMediatorDelegate>
 // For testing-only
 @property(nonatomic, assign) BOOL hasReceivedMagicStackResponse;
@@ -379,9 +384,9 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
                          withCompletion:completion];
 }
 
-#pragma mark - TabResumptionHelperDelegate
+#pragma mark - TabResumptionMediatorDelegate
 
-- (void)tabResumptionHelperDidReceiveItem {
+- (void)tabResumptionMediatorDidReceiveItem {
   CHECK(IsTabResumptionEnabled());
   if (tab_resumption_prefs::IsTabResumptionDisabled(_prefService)) {
     return;
@@ -390,7 +395,7 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
   [self showTabResumptionWithItem:_tabResumptionMediator.itemConfig];
 }
 
-- (void)tabResumptionHelperDidReconfigureItem {
+- (void)tabResumptionMediatorDidReconfigureItem {
   if (tab_resumption_prefs::IsTabResumptionDisabled(_prefService)) {
     return;
   }
@@ -439,7 +444,6 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
 // Adds the Safety Check module to `order` based on the current Safety Check
 // state.
 - (void)addSafetyCheckToMagicStackOrder:(NSMutableArray*)order {
-  CHECK(IsSafetyCheckMagicStackEnabled());
   [order addObject:@(int(ContentSuggestionsModuleType::kSafetyCheck))];
 }
 
@@ -778,10 +782,8 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
     // signal for Start.
     BOOL hasNoFreshnessSignal = shortcutsFreshnessImpressionCount != 0 &&
                                 parcelTrackingFreshnessImpressionCount != 0;
-    if (IsSafetyCheckMagicStackEnabled()) {
       hasNoFreshnessSignal =
           hasNoFreshnessSignal && safetyCheckFreshnessImpressionCount != 0;
-    }
     if (hasNoFreshnessSignal && [self.homeStartDataSource isStartSurface]) {
       options = segmentation_platform::PredictionOptions::ForCached(true);
     } else {
@@ -976,11 +978,8 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
         // - No current or previous issues, to avoid consistently displaying the
         // "All Safe" state and taking up carousel space for other modules.
         // - Irrelevant modules are hidden and it's not the first ranked module.
-        BOOL disabled =
-            !IsSafetyCheckMagicStackEnabled() ||
-            safety_check_prefs::IsSafetyCheckInMagicStackDisabled(_prefService);
-
-        if (disabled) {
+        if (safety_check_prefs::IsSafetyCheckInMagicStackDisabled(
+                _prefService)) {
           base::UmaHistogramEnumeration(
               kIOSSafetyCheckMagicStackHiddenReason,
               IOSSafetyCheckHiddenReason::kManuallyDisabled);

@@ -40,7 +40,6 @@
 #include "ash/webui/eche_app_ui/mojom/eche_app.mojom.h"
 #include "ash/wm/window_state.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_forward.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/time/default_tick_clock.h"
@@ -549,7 +548,7 @@ bool EcheTray::LoadBubble(
     const std::u16string& phone_name,
     eche_app::mojom::ConnectionStatus last_connection_status,
     eche_app::mojom::AppStreamLaunchEntryPoint entry_point) {
-  if (Shell::Get()->IsInTabletMode()) {
+  if (display::Screen::Get()->InTabletMode()) {
     ash::ToastManager::Get()->Show(ash::ToastData(
         kEcheTrayTabletModeNotSupportedId,
         ash::ToastCatalogName::kEcheTrayTabletModeNotSupported,

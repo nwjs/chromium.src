@@ -17,6 +17,7 @@ declare_args() {
   # Whether service side logging (actual calls into the GL driver) is enabled
   # or not.
   enable_gpu_service_logging = false
+  use_webgpu_on_vulkan_via_gl_interop = enable_vulkan && is_linux && use_dawn
 }
 
 if (is_android) {
@@ -35,6 +36,7 @@ buildflag_header("buildflags") {
     "USE_OPENGL_APITRACE=$enable_opengl_apitrace",
     "ENABLE_VALIDATING_COMMAND_DECODER=$enable_validating_command_decoder",
     "ENABLE_VULKAN=$enable_vulkan",
+    "USE_WEBGPU_ON_VULKAN_VIA_GL_INTEROP=$use_webgpu_on_vulkan_via_gl_interop",
   ]
 }
 
@@ -171,7 +173,6 @@ component("gl") {
 
   deps = [
     ":buildflags",
-    "//build:android_buildflags",
     "//build:chromeos_buildflags",
     "//mojo/public/cpp/bindings",
     "//ui/base:ozone_buildflags",
@@ -227,7 +228,7 @@ component("gl") {
       "//ui/base:features",
       "//ui/base/x",
       "//ui/events/platform/x11",
-      "//ui/gfx/linux:gpu_memory_buffer_support_x11",
+      "//ui/gfx/linux:gbm_support_x11",
     ]
 
     if (!use_static_angle) {
@@ -284,6 +285,7 @@ component("gl") {
     ]
 
     libs = [
+      "dcomp.lib",
       "dxgi.lib",
       "dxguid.lib",
       "dwmapi.lib",

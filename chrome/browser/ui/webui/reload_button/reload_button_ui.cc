@@ -12,7 +12,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/metrics_handler.h"
-#include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter.h"
+#include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter_service.h"
 #include "chrome/browser/ui/webui/reload_button/reload_button.mojom.h"
 #include "chrome/browser/ui/webui/reload_button/reload_button_page_handler.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
@@ -23,16 +23,13 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
-#include "ui/webui/color_change_listener/color_change_handler.h"
-#include "ui/webui/resources/js/metrics_reporter/metrics_reporter.mojom.h"
 #include "ui/webui/webui_util.h"
 
 ReloadButtonUI::ReloadButtonUI(content::WebUI* web_ui)
     // Sets `enable_chrome_send` to true to allow chrome.send() to be called in
     // TypeScript to record non-timestamp histograms, which can't be done by
     // MetricsReporter.
-    : TopChromeWebUIController(web_ui, /*enable_chrome_send=*/true),
-      metrics_reporter_(std::make_unique<MetricsReporter>()) {
+    : TopChromeWebUIController(web_ui, /*enable_chrome_send=*/true) {
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       web_ui->GetWebContents()->GetBrowserContext(),
       chrome::kChromeUIReloadButtonHost);
@@ -52,11 +49,7 @@ ReloadButtonUI::ReloadButtonUI(content::WebUI* web_ui)
 
 WEB_UI_CONTROLLER_TYPE_IMPL(ReloadButtonUI)
 
-ReloadButtonUI::~ReloadButtonUI() {
-  page_handler_.reset();
-  // Must live longer than `page_handler_`.
-  metrics_reporter_.reset();
-}
+ReloadButtonUI::~ReloadButtonUI() = default;
 
 ReloadButtonUIConfig::ReloadButtonUIConfig()
     : DefaultTopChromeWebUIConfig(content::kChromeUIScheme,
@@ -73,17 +66,6 @@ void ReloadButtonUI::BindInterface(
   page_factory_receiver_.Bind(std::move(receiver));
 }
 
-void ReloadButtonUI::BindInterface(
-    mojo::PendingReceiver<metrics_reporter::mojom::PageMetricsHost> receiver) {
-  metrics_reporter_->BindInterface(std::move(receiver));
-}
-
-void ReloadButtonUI::BindInterface(
-    mojo::PendingReceiver<color_change_listener::mojom::PageHandler> receiver) {
-  color_provider_handler_ = std::make_unique<ui::ColorChangeHandler>(
-      web_ui()->GetWebContents(), std::move(receiver));
-}
-
 void ReloadButtonUI::SetReloadButtonState(bool is_loading,
                                           bool is_menu_enabled) {
   if (page_handler_) {
@@ -96,11 +78,26 @@ void ReloadButtonUI::CreatePageHandler(
     mojo::PendingReceiver<reload_button::mojom::PageHandler> receiver) {
   CHECK(page);
   auto* web_contents = web_ui()->GetWebContents();
-  auto* command_updater = webui::GetBrowserWindowInterface(web_contents)
-                              ->GetFeatures()
-                              .browser_command_controller();
-
+  auto* command_updater = GetCommandUpdater();
   page_handler_ = std::make_unique<ReloadButtonPageHandler>(
-      std::move(receiver), std::move(page), web_contents, command_updater,
-      metrics_reporter_.get());
+      std::move(receiver), std::move(page), web_contents, command_updater);
+}
+
+ReloadButtonPageHandler* ReloadButtonUI::page_handler_for_testing() {
+  return page_handler_.get();
+}
+
+CommandUpdater* ReloadButtonUI::GetCommandUpdater() const {
+  if (command_updater_for_testing_) {
+    return command_updater_for_testing_;  // IN-TEST
+  }
+
+  return webui::GetBrowserWindowInterface(web_ui()->GetWebContents())
+      ->GetFeatures()
+      .browser_command_controller();
+}
+
+void ReloadButtonUI::SetCommandUpdaterForTesting(
+    CommandUpdater* command_updater) {
+  command_updater_for_testing_ = command_updater;
 }

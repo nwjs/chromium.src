@@ -4,13 +4,13 @@
 
 #import "ios/chrome/browser/browser_view/ui_bundled/browser_coordinator.h"
 
-#import "base/files/file_util.h"
 #import "base/test/scoped_feature_list.h"
 #import "components/bookmarks/test/bookmark_test_helpers.h"
 #import "components/commerce/core/mock_shopping_service.h"
 #import "components/sync/service/sync_service_utils.h"
 #import "components/trusted_vault/trusted_vault_server_constants.h"
-#import "ios/chrome/browser/authentication/ui_bundled/trusted_vault_reauthentication/trusted_vault_reauthentication_coordinator.h"
+#import "ios/chrome/browser/authentication/trusted_vault_reauthentication/coordinator/trusted_vault_reauthentication_coordinator.h"
+#import "ios/chrome/browser/autocomplete/model/autocomplete_browser_agent.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_model_factory.h"
 #import "ios/chrome/browser/browser_view/model/browser_view_visibility_notifier_browser_agent.h"
 #import "ios/chrome/browser/browser_view/ui_bundled/browser_coordinator+Testing.h"
@@ -32,6 +32,7 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_coordinator.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_position/omnibox_position_browser_agent.h"
 #import "ios/chrome/browser/save_to_photos/ui_bundled/save_to_photos_coordinator.h"
+#import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/segmentation_platform/model/segmentation_platform_service_factory.h"
 #import "ios/chrome/browser/settings/model/sync/utils/sync_presenter.h"
@@ -122,6 +123,9 @@ class BrowserCoordinatorTest : public PlatformTest {
     test_profile_builder.AddTestingFactory(
         TipsManagerIOSFactory::GetInstance(),
         TipsManagerIOSFactory::GetDefaultFactory());
+    test_profile_builder.AddTestingFactory(
+        tab_groups::TabGroupSyncServiceFactory::GetInstance(),
+        tab_groups::TabGroupSyncServiceFactory::GetDefaultFactory());
     profile_ =
         profile_manager_.AddProfileWithBuilder(std::move(test_profile_builder));
 
@@ -141,6 +145,7 @@ class BrowserCoordinatorTest : public PlatformTest {
     DiscoverFeedVisibilityBrowserAgent::CreateForBrowser(browser_.get());
     ToolbarsSizeBrowserAgent::CreateForBrowser(browser_.get());
     TestFullscreenController::CreateForBrowser(browser_.get());
+    AutocompleteBrowserAgent::CreateForBrowser(browser_.get());
 
     WebUsageEnablerBrowserAgent* enabler =
         WebUsageEnablerBrowserAgent::FromBrowser(browser_.get());
@@ -451,8 +456,8 @@ TEST_F(BrowserCoordinatorTest,
 // Tests that a double tap on the trusted vault reauth errors button don’t
 // trigger two openings of the trusted vault reauth coordinator.
 TEST_F(BrowserCoordinatorTest, TestDoubleTapTrustedVaultReauth) {
-  syncer::TrustedVaultUserActionTriggerForUMA trigger =
-      syncer::TrustedVaultUserActionTriggerForUMA::kSettings;
+  trusted_vault::TrustedVaultUserActionTriggerForUMA trigger =
+      trusted_vault::TrustedVaultUserActionTriggerForUMA::kSettings;
   BrowserCoordinator<SyncPresenter>* browser_coordinator =
       GetBrowserCoordinator();
   TrustedVaultReauthenticationCoordinator* trusted_vault_mock =
@@ -487,8 +492,8 @@ TEST_F(BrowserCoordinatorTest, TestDoubleTapTrustedVaultReauth) {
 // trigger two openings of the trusted vault reauth coordinator.
 TEST_F(BrowserCoordinatorTest,
        TestDoubleTapTrustedVaultReauthForDegradedRecoverability) {
-  syncer::TrustedVaultUserActionTriggerForUMA trigger =
-      syncer::TrustedVaultUserActionTriggerForUMA::kSettings;
+  trusted_vault::TrustedVaultUserActionTriggerForUMA trigger =
+      trusted_vault::TrustedVaultUserActionTriggerForUMA::kSettings;
   BrowserCoordinator<SyncPresenter>* browser_coordinator =
       GetBrowserCoordinator();
   TrustedVaultReauthenticationCoordinator* trusted_vault_mock =

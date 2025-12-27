@@ -24,6 +24,8 @@
 #include "base/types/optional_ref.h"
 #include "base/values.h"
 #include "components/history/core/browser/browsing_history_driver.h"
+#include "components/history/core/browser/features.h"
+#include "components/history/core/browser/history_backend.h"
 #include "components/history/core/browser/history_types.h"
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/sync/protocol/history_delete_directive_specifics.pb.h"
@@ -34,14 +36,6 @@ namespace {
 
 // The amount of time to wait for a response from the WebHistoryService.
 constexpr int kWebHistoryTimeoutSeconds = 3;
-
-// Buckets for UMA histograms.
-enum WebHistoryQueryBuckets {
-  WEB_HISTORY_QUERY_FAILED = 0,
-  WEB_HISTORY_QUERY_SUCCEEDED,
-  WEB_HISTORY_QUERY_TIMED_OUT,
-  NUM_WEB_HISTORY_QUERY_BUCKETS
-};
 
 QueryOptions OptionsWithEndTime(QueryOptions original_options,
                                 base::Time end_time) {
@@ -432,7 +426,6 @@ void BrowsingHistoryService::RemoveVisits(
         (expire_args->begin_time - base::Time::UnixEpoch()).InMicroseconds());
 
     // Delete directives shouldn't have an end time in the future.
-    // TODO(dubroy): Use sane time (crbug.com/146090) here when it's ready.
     base::Time end_time = std::min(expire_args->end_time, now);
 
     // -1 because end time in delete directives is inclusive.
@@ -523,19 +516,33 @@ void BrowsingHistoryService::MergeDuplicateResults(
   std::vector<HistoryEntry> deduped;
   deduped.reserve(sorted.size());
 
-  // Maps a URL to the most recent entry on a particular day.
-  std::map<GURL, HistoryEntry*> current_day_entries;
+  // Maps a URL to the most recent entry on a particular day for
+  // non-actor-initiated visits.
+  std::map<GURL, HistoryEntry*> non_actor_current_day_entries;
+  // Same as above, but for actor-initiated visits.
+  std::map<GURL, HistoryEntry*> actor_current_day_entries;
 
-  // Keeps track of the day that `current_day_entries` is holding entries for
-  // in order to handle removing per-day duplicates.
+  // Keeps track of the day that `*_current_day_entries` is holding
+  // entries for in order to handle removing per-day duplicates.
   base::Time current_day_midnight;
 
   for (HistoryEntry& entry : sorted) {
     // Reset the list of found URLs when a visit from a new day is encountered.
     if (current_day_midnight != entry.time.LocalMidnight()) {
-      current_day_entries.clear();
+      non_actor_current_day_entries.clear();
+      actor_current_day_entries.clear();
       current_day_midnight = entry.time.LocalMidnight();
     }
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+    auto& current_day_entries =
+        base::FeatureList::IsEnabled(kBrowsingHistoryActorIntegrationM2) &&
+                entry.is_actor_visit
+            ? actor_current_day_entries
+            : non_actor_current_day_entries;
+#else   // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+    auto& current_day_entries = non_actor_current_day_entries;
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
     // Keep this visit if it's the first visit to this URL on the current day.
     if (current_day_entries.count(entry.url) == 0) {
@@ -616,12 +623,11 @@ void BrowsingHistoryService::QueryComplete(
   output.reserve(output.size() + results.size());
 
   for (const auto& page : results) {
-    // TODO(dubroy): Use sane time (crbug.com/146090) here when it's ready.
-    output.emplace_back(HistoryEntry(
+    output.emplace_back(
         HistoryEntry::LOCAL_ENTRY, page.url(), page.title(), page.visit_time(),
         std::string(), !state->search_text.empty(), page.snippet().text(),
         page.blocked_visit(), GURL(), page.visit_count(), page.typed_count(),
-        page.has_actor_source(), page.app_id()));
+        page.has_actor_source(), page.app_id());
   }
 
   state->local_status =
@@ -648,6 +654,39 @@ void BrowsingHistoryService::ReturnResultsToDriver(
   // results at the same time as we have pending local.
   if (!state->remote_results.empty()) {
     MergeDuplicateResults(state.get(), &results);
+
+    const base::Time local_expiry_threshold =
+        clock_->Now() - base::Days(HistoryBackend::kExpireDaysThreshold);
+    base::flat_map<HistoryEntry::EntryType, size_t> pre_expiry_counts;
+    base::flat_map<HistoryEntry::EntryType, size_t> post_expiry_counts;
+    for (const HistoryEntry& entry : results) {
+      if (entry.time < local_expiry_threshold) {
+        ++pre_expiry_counts[entry.entry_type];
+      } else {
+        ++post_expiry_counts[entry.entry_type];
+      }
+    }
+    // Note: The histogram max of 150 is chosen to match `RESULTS_PER_PAGE` from
+    // chrome/browser/resources/history/constants.ts and `kMaxQueryCount` from
+    // chrome/browser/android/history/browsing_history_bridge.cc.
+    base::UmaHistogramCustomCounts(
+        "History.WebHistoryMergeResult.LocalOnly.PreExpiryThreshold",
+        pre_expiry_counts[HistoryEntry::LOCAL_ENTRY], 0, 150, 50);
+    base::UmaHistogramCustomCounts(
+        "History.WebHistoryMergeResult.LocalOnly.PostExpiryThreshold",
+        post_expiry_counts[HistoryEntry::LOCAL_ENTRY], 0, 150, 50);
+    base::UmaHistogramCustomCounts(
+        "History.WebHistoryMergeResult.RemoteOnly.PreExpiryThreshold",
+        pre_expiry_counts[HistoryEntry::REMOTE_ENTRY], 0, 150, 50);
+    base::UmaHistogramCustomCounts(
+        "History.WebHistoryMergeResult.RemoteOnly.PostExpiryThreshold",
+        post_expiry_counts[HistoryEntry::REMOTE_ENTRY], 0, 150, 50);
+    base::UmaHistogramCustomCounts(
+        "History.WebHistoryMergeResult.Combined.PreExpiryThreshold",
+        pre_expiry_counts[HistoryEntry::COMBINED_ENTRY], 0, 150, 50);
+    base::UmaHistogramCustomCounts(
+        "History.WebHistoryMergeResult.Combined.PostExpiryThreshold",
+        post_expiry_counts[HistoryEntry::COMBINED_ENTRY], 0, 150, 50);
   } else {
     // TODO(skym): Is the optimization to skip merge on local only results worth
     // the complexity increase here?
@@ -663,8 +702,6 @@ void BrowsingHistoryService::ReturnResultsToDriver(
   info.reached_beginning =
       !CanRetry(state->local_status) && !CanRetry(state->remote_status);
   info.sync_timed_out = state->remote_status == TIMED_OUT;
-  info.has_synced_results = state->remote_status == MORE_RESULTS ||
-                            state->remote_status == REACHED_BEGINNING;
   base::OnceClosure continuation =
       base::BindOnce(&BrowsingHistoryService::QueryHistoryInternal,
                      weak_factory_.GetWeakPtr(), std::move(state));

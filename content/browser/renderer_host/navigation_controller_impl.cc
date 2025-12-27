@@ -62,6 +62,7 @@
 #include "content/browser/blob_storage/chrome_blob_storage_context.h"
 #include "content/browser/browser_context_impl.h"
 #include "content/browser/browser_url_handler_impl.h"
+#include "content/browser/devtools/devtools_instrumentation.h"
 #include "content/browser/dom_storage/dom_storage_context_wrapper.h"
 #include "content/browser/dom_storage/session_storage_namespace_impl.h"
 #include "content/browser/preloading/prerender/prerender_host.h"
@@ -78,7 +79,6 @@
 #include "content/browser/renderer_host/page_delegate.h"
 #include "content/browser/renderer_host/render_frame_host_delegate.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
-#include "content/browser/renderer_host/system_entropy_utils.h"
 #include "content/browser/site_info.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/common/content_constants_internal.h"
@@ -2294,11 +2294,21 @@ void NavigationControllerImpl::RendererDidNavigateToNewEntry(
         nullptr,  // blob_url_loader_factory
         false);   // is_initial_entry
 
+    GURL url = params.url;
+    // If the navigation committed in view-source mode, the corresponding
+    // NavigationEntry's virtual URL needs to be set to the committed URL with a
+    // view-source: prefix. Typically, this is done when the pending
+    // NavigationEntry is created at navigation start time (see
+    // WebContentsImpl::ViewSource). However, if the pending entry was discarded
+    // or couldn't be used, update the new NavigationEntry's virtual URL here.
+    if (request->commit_params().is_view_source) {
+      url = GURL(kViewSourceScheme + std::string(":") + url.spec());
+      new_entry->SetVirtualURL(url);
+    }
+    bool needs_update = false;
     // Find out whether the new entry needs to update its virtual URL on URL
     // change and set up the entry accordingly. This is needed to correctly
     // update the virtual URL when replaceState is called after a pushState.
-    GURL url = params.url;
-    bool needs_update = false;
     // When navigating to a new entry, give the browser URL handler a chance to
     // update the virtual URL based on the new URL. For example, this is needed
     // to show chrome://bookmarks/#1 when the bookmarks webui extension changes
@@ -2351,7 +2361,8 @@ void NavigationControllerImpl::RendererDidNavigateToNewEntry(
 
   SetShouldSkipOnBackForwardUIIfNeeded(
       replace_entry, previous_document_had_history_intervention_activation,
-      request->IsRendererInitiated(), request->GetPreviousPageUkmSourceId());
+      request->IsRendererInitiated(), request->GetPreviousPageUkmSourceId(),
+      rfh);
 
   // If this is a history navigation and the old entry has an existing
   // back/forward cache metrics object, keep using the old one so that the
@@ -2588,7 +2599,8 @@ void NavigationControllerImpl::RendererDidNavigateNewSubframe(
 
   SetShouldSkipOnBackForwardUIIfNeeded(
       replace_entry, previous_document_had_history_intervention_activation,
-      request->IsRendererInitiated(), request->GetPreviousPageUkmSourceId());
+      request->IsRendererInitiated(), request->GetPreviousPageUkmSourceId(),
+      rfh);
 
   // TODO(creis): Update this to add the frame_entry if we can't find the one
   // to replace, which can happen due to a unique name change. See
@@ -2898,7 +2910,12 @@ void NavigationControllerImpl::NotifyUserActivation() {
   // same document clear their skippable bit, so that the history manipulation
   // intervention does not apply to them.
   const bool can_go_back = CanGoBack();
-  SetSkippableForSameDocumentEntries(GetLastCommittedEntryIndex(), false);
+
+  // Because the |skippable| bit has been set to false, |source_rfh_for_report|
+  // won't be used in the following SetSkippableForSameDocumentEntries() call.
+  SetSkippableForSameDocumentEntries(GetLastCommittedEntryIndex(), false,
+                                     /*source_rfh_for_report=*/nullptr);
+
   // If the value of CanGoBack changes as a result of making some entries
   // non-skippable, then we must let the delegate know to update its UI state.
   // See https://crbug.com/1477784.
@@ -4436,7 +4453,6 @@ NavigationControllerImpl::CreateNavigationRequestFromLoadParams(
           net::StorageAccessApiStatus::kNone,
           /*browsing_context_group_info=*/std::nullopt,
           /*lcpp_hint=*/nullptr, blink::CreateDefaultRendererContentSettings(),
-          /*cookie_deprecation_label=*/std::nullopt,
           /*visited_link_salt=*/std::nullopt,
           /*local_surface_id=*/std::nullopt,
           node->current_frame_host()->GetCachedPermissionStatuses(),
@@ -4451,9 +4467,6 @@ NavigationControllerImpl::CreateNavigationRequestFromLoadParams(
 #endif
 
   commit_params->was_activated = params.was_activated;
-  commit_params->navigation_timing->system_entropy_at_navigation_start =
-      SystemEntropyUtils::ComputeSystemEntropyForFrameTreeNode(
-          node, params.suggested_system_entropy);
 
   // extra_headers in params are \n separated; NavigationRequests want \r\n.
   std::string extra_headers_crlf;
@@ -4527,9 +4540,6 @@ NavigationControllerImpl::CreateNavigationRequestFromEntry(
   // RenderFrameHost to execute its BeforeUnload event, the navigation start
   // will be updated when the BeforeUnload ack is received.
   base::TimeTicks navigation_start = base::TimeTicks::Now();
-  const auto navigation_start_system_entropy =
-      SystemEntropyUtils::ComputeSystemEntropyForFrameTreeNode(
-          frame_tree_node, blink::mojom::SystemEntropy::kNormal);
 
   // Look for a pending commit that is to another document in this
   // FrameTreeNode. If one exists, then the last committed URL will not be the
@@ -4585,11 +4595,8 @@ NavigationControllerImpl::CreateNavigationRequestFromEntry(
           GetIndexOfEntry(entry), GetLastCommittedEntryIndex(), GetEntryCount(),
           frame_tree_node->pending_frame_policy(),
           frame_tree_node->AncestorOrSelfHasCSPEE(),
-          navigation_start_system_entropy, soft_navigation_heuristics_task_id);
+          soft_navigation_heuristics_task_id);
   commit_params->post_content_type = post_content_type;
-  commit_params->navigation_timing->system_entropy_at_navigation_start =
-      SystemEntropyUtils::ComputeSystemEntropyForFrameTreeNode(
-          frame_tree_node, blink::mojom::SystemEntropy::kNormal);
   commit_params->initial_permission_statuses =
       frame_tree_node->current_frame_host()->GetCachedPermissionStatuses();
 
@@ -4850,7 +4857,8 @@ void NavigationControllerImpl::SetShouldSkipOnBackForwardUIIfNeeded(
     bool replace_entry,
     bool previous_document_had_history_intervention_activation,
     bool is_renderer_initiated,
-    ukm::SourceId previous_page_load_ukm_source_id) {
+    ukm::SourceId previous_page_load_ukm_source_id,
+    RenderFrameHostImpl* source_rfh_for_report) {
   // Note that for a subframe,
   // previous_document_had_history_intervention_activation is true if the
   // gesture happened in any subframe (propagated to main frame) or in the main
@@ -4863,7 +4871,8 @@ void NavigationControllerImpl::SetShouldSkipOnBackForwardUIIfNeeded(
     return;
   }
 
-  SetSkippableForSameDocumentEntries(last_committed_entry_index_, true);
+  SetSkippableForSameDocumentEntries(last_committed_entry_index_, true,
+                                     source_rfh_for_report);
 
   // Log UKM with the URL we are navigating away from.
   ukm::builders::HistoryManipulationIntervention(
@@ -4873,9 +4882,20 @@ void NavigationControllerImpl::SetShouldSkipOnBackForwardUIIfNeeded(
 
 void NavigationControllerImpl::SetSkippableForSameDocumentEntries(
     int reference_index,
-    bool skippable) {
+    bool skippable,
+    RenderFrameHostImpl* source_rfh_for_report) {
   auto* reference_entry = GetEntryAtIndex(reference_index);
   reference_entry->set_should_skip_on_back_forward_ui(skippable);
+  if (skippable) {
+    DCHECK(source_rfh_for_report);
+    DCHECK(GetLastCommittedEntry());
+    FrameNavigationEntry* frame_entry = GetLastCommittedEntry()->GetFrameEntry(
+        source_rfh_for_report->frame_tree_node());
+    if (frame_entry) {
+      devtools_instrumentation::OnNavigationEntryMarkedSkippable(
+          frame_entry->url(), source_rfh_for_report);
+    }
+  }
 
   int64_t document_sequence_number =
       reference_entry->root_node()->frame_entry->document_sequence_number();
@@ -5414,10 +5434,6 @@ NavigationControllerImpl::CreateNavigationRequestForErrorPage(
   blink::mojom::CommitNavigationParamsPtr commit_params =
       blink::CreateCommitNavigationParams();
   commit_params->original_url = common_params->url;
-
-  commit_params->navigation_timing->system_entropy_at_navigation_start =
-      SystemEntropyUtils::ComputeSystemEntropyForFrameTreeNode(
-          node, blink::mojom::SystemEntropy::kNormal);
 
   // TODO(arthursonzogni): Consider providing the minimal capabilities to the
   // error pages.

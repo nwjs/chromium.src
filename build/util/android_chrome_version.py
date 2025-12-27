@@ -58,6 +58,7 @@ _PACKAGE_NAMES = {
     'TRICHROME_AUTO': 50,
     'TRICHROME_DESKTOP': 60,
     'CHROME_DESKTOP': 70,
+    'CHROME_DESKTOP_BETA': 80,
     'WEBVIEW_STABLE': 0,
     'WEBVIEW_BETA': 10,
     'WEBVIEW_DEV': 20,
@@ -111,7 +112,10 @@ _APKS = {
         ('WEBVIEW_DESKTOP', 'WEBVIEW_DESKTOP', '64'),
     ],
     'hybrid': [
-        ('CHROME', 'CHROME', '64'),
+        ('CHROME', 'CHROME', '64_32'),
+        ('CHROME_HIGH', 'CHROME', '64'),
+        # Obsolete Chrome Modern version code being used for Chrome
+        ('CHROME_HIGH_BETA', 'CHROME_MODERN', '64'),
         ('CHROME_32', 'CHROME', '32'),
         ('CHROME_MODERN', 'CHROME_MODERN', '64'),
         ('MONOCHROME', 'MONOCHROME', '32_64'),
@@ -139,6 +143,7 @@ _APKS = {
         ('TRICHROME_DESKTOP_64', 'TRICHROME_DESKTOP', '64'),
         ('TRICHROME_64_BETA', 'TRICHROME_BETA', '64'),
         ('CHROME_DESKTOP', 'CHROME_DESKTOP', '64'),
+        ('CHROME_DESKTOP_BETA', 'CHROME_DESKTOP_BETA', '64'),
         ('WEBVIEW_STABLE', 'WEBVIEW_STABLE', '32_64'),
         ('WEBVIEW_32_STABLE', 'WEBVIEW_STABLE', '32'),
         ('WEBVIEW_32_64_STABLE', 'WEBVIEW_STABLE', '32_64'),

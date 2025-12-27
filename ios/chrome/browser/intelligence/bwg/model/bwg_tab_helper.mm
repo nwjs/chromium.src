@@ -4,10 +4,16 @@
 
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_tab_helper.h"
 
+#import "base/functional/bind.h"
+#import "base/functional/callback_helpers.h"
+#import "base/ios/block_types.h"
+#import "base/memory/weak_ptr.h"
 #import "base/strings/string_number_conversions.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/time/time.h"
 #import "base/values.h"
+#import "components/feature_engagement/public/feature_constants.h"
+#import "components/feature_engagement/public/tracker.h"
 #import "components/google/core/common/google_util.h"
 #import "components/optimization_guide/core/hints/optimization_guide_decider.h"
 #import "components/optimization_guide/core/hints/optimization_guide_decision.h"
@@ -15,24 +21,36 @@
 #import "components/optimization_guide/proto/contextual_cueing_metadata.pb.h"
 #import "components/prefs/pref_service.h"
 #import "components/prefs/scoped_user_pref_update.h"
+#import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_snapshot_utils.h"
+#import "ios/chrome/browser/intelligence/bwg/ui/bwg_ui_utils.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/bwg_constants.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/zero_state_suggestions/model/zero_state_suggestions_service_impl.h"
+#import "ios/chrome/browser/location_bar/badge/model/badge_type.h"
+#import "ios/chrome/browser/location_bar/badge/model/location_bar_badge_configuration.h"
+#import "ios/chrome/browser/location_bar/badge/ui/location_bar_badge_constants.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/utils/first_run_util.h"
 #import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
+#import "ios/chrome/browser/shared/public/commands/location_bar_badge_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message_action.h"
+#import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
+#import "ios/chrome/browser/web/model/image_fetch/image_fetch_tab_helper.h"
+#import "ios/chrome/grit/ios_strings.h"
 #import "ios/public/provider/chrome/browser/bwg/bwg_api.h"
+#import "ios/web/public/js_messaging/web_frame.h"
+#import "ios/web/public/js_messaging/web_frames_manager.h"
 #import "ios/web/public/navigation/navigation_context.h"
 #import "ios/web/public/web_state.h"
 #import "mojo/public/cpp/bindings/remote.h"
+#import "ui/base/l10n/l10n_util_mac.h"
 #import "url/gurl.h"
 
 namespace {
@@ -194,6 +212,14 @@ void BwgTabHelper::SetPageLoadedCallback(base::OnceClosure callback) {
   page_loaded_callback_ = std::move(callback);
 }
 
+NSString* BwgTabHelper::GetContextualCueLabel() {
+  return contextual_cue_label_;
+}
+
+void BwgTabHelper::SetContextualCueLabel(NSString* cue_label) {
+  contextual_cue_label_ = cue_label;
+}
+
 bool BwgTabHelper::GetIsBwgSessionActiveInBackground() {
   return is_bwg_session_active_in_background_;
 }
@@ -204,7 +230,7 @@ void BwgTabHelper::DeactivateBWGSession() {
   cached_snapshot_ = nil;
 }
 
-bool BwgTabHelper::ShouldShowZeroState() {
+bool BwgTabHelper::IsLastInteractionUrlDifferent() {
   std::optional<std::string> last_interaction_url;
 
   if (IsGeminiCrossTabEnabled()) {
@@ -216,13 +242,10 @@ bool BwgTabHelper::ShouldShowZeroState() {
     last_interaction_url = GetURLOnLastInteraction();
   }
 
-  // Show zero-state if no last interaction URL was found.
   if (!last_interaction_url.has_value()) {
     return true;
   }
 
-  // Show zero-state if the last interaction URL is different from the current
-  // one.
   return !web_state_->GetVisibleURL().EqualsIgnoringRef(
       GURL(last_interaction_url.value()));
 }
@@ -286,8 +309,13 @@ void BwgTabHelper::SetBwgCommandsHandler(id<BWGCommands> handler) {
 }
 
 void BwgTabHelper::SetSnackbarCommandsHandler(id<SnackbarCommands> handler) {
-  CHECK(IsAskGeminiSnackbarEnabled());
+  CHECK(IsAskGeminiSnackbarEnabled() || IsWebPageReportedImagesSheetEnabled());
   snackbar_commands_handler_ = handler;
+}
+
+void BwgTabHelper::SetLocationBarBadgeCommandsHandler(
+    id<LocationBarBadgeCommands> handler) {
+  location_bar_badge_commands_handler_ = handler;
 }
 
 #pragma mark - WebStateObserver
@@ -360,7 +388,7 @@ void BwgTabHelper::DidFinishNavigation(
   if (IsAskGeminiChipEnabled()) {
     optimization_guide_decider_->CanApplyOptimization(
         current_url, optimization_guide::proto::GLIC_CONTEXTUAL_CUEING,
-        base::BindOnce(&BwgTabHelper::OnOptimizationGuideDecision,
+        base::BindOnce(&BwgTabHelper::OnCanApplyContextualCueingDecision,
                        weak_ptr_factory_.GetWeakPtr(), current_url));
   }
 }
@@ -372,20 +400,13 @@ void BwgTabHelper::PageLoaded(
     std::move(page_loaded_callback_).Run();
   }
 
-  ProfileIOS* profile =
-      ProfileIOS::FromBrowserState(web_state->GetBrowserState());
-  bool floaty_shown = profile->GetPrefs()->GetBoolean(prefs::kIOSBwgConsent);
-  bool bwg_promo_shown =
-      profile->GetPrefs()->GetInteger(prefs::kIOSBWGPromoImpressionCount) > 0;
-  bool should_wait_for_new_user =
-      !ShouldSkipBWGPromoNewUserDelay() && IsFirstRunRecent(base::Days(1));
-  if (IsGeminiNavigationPromoEnabled() && !should_wait_for_new_user &&
-      !floaty_shown && !bwg_promo_shown) {
-    [bwg_commands_handler_ showBWGPromoIfPageIsEligible];
+  if (IsWebPageReportedImagesSheetEnabled()) {
+    PrepareWebPageReportedImagesSnackbar();
   }
 }
 
 void BwgTabHelper::WebStateDestroyed(web::WebState* web_state) {
+  weak_ptr_factory_.InvalidateWeakPtrs();
   web_state_observation_.Reset();
   if (!IsGeminiCrossTabEnabled()) {
     CleanupSessionFromPrefs(GetClientId());
@@ -478,6 +499,10 @@ std::optional<std::string> BwgTabHelper::GetURLOnLastInteraction() {
 }
 
 void BwgTabHelper::UpdateWebStateSnapshotInStorage() {
+  if (!cached_snapshot_) {
+    return;
+  }
+
   SnapshotTabHelper* snapshot_tab_helper =
       SnapshotTabHelper::FromWebState(web_state_);
 
@@ -485,12 +510,10 @@ void BwgTabHelper::UpdateWebStateSnapshotInStorage() {
     return;
   }
 
-  if (cached_snapshot_) {
-    snapshot_tab_helper->UpdateSnapshotStorageWithImage(cached_snapshot_);
-  }
+  snapshot_tab_helper->UpdateSnapshotStorageWithImage(cached_snapshot_);
 }
 
-void BwgTabHelper::OnOptimizationGuideDecision(
+void BwgTabHelper::OnCanApplyContextualCueingDecision(
     const GURL& main_frame_url,
     optimization_guide::OptimizationGuideDecision decision,
     const optimization_guide::OptimizationMetadata& metadata) {
@@ -506,7 +529,34 @@ void BwgTabHelper::OnOptimizationGuideDecision(
 
   latest_load_contextual_cueing_metadata_ = metadata.ParsedMetadata<
       optimization_guide::proto::GlicContextualCueingMetadata>();
-  if (latest_load_contextual_cueing_metadata_) {
+
+  if (!latest_load_contextual_cueing_metadata_) {
+    return;
+  }
+
+  ProfileIOS* profile =
+      ProfileIOS::FromBrowserState(web_state_->GetBrowserState());
+
+  // TODO (crbug.com/461595639): Remove pref checks to fully migrate logic to
+  // FET.
+  bool floaty_shown = profile->GetPrefs()->GetBoolean(prefs::kIOSBwgConsent);
+  bool bwg_promo_shown =
+      profile->GetPrefs()->GetInteger(prefs::kIOSBWGPromoImpressionCount) > 0;
+  bool should_wait_for_new_user =
+      !ShouldSkipBWGPromoNewUserDelay() && IsFirstRunRecent(base::Days(1));
+
+  // Show promo if eligible.
+  if (IsGeminiNavigationPromoEnabled() && !should_wait_for_new_user &&
+      !floaty_shown && !bwg_promo_shown &&
+      feature_engagement::TrackerFactory::GetForProfile(profile)
+          ->WouldTriggerHelpUI(
+              feature_engagement::kIPHiOSGeminiFullscreenPromoFeature)) {
+    [bwg_commands_handler_ showBWGPromoIfPageIsEligible];
+    return;
+  }
+
+  // Otherwise, show snackbar if eligible.
+  if (IsAskGeminiSnackbarEnabled()) {
     SnackbarMessageAction* action = [[SnackbarMessageAction alloc] init];
     action.handler = ^{
       [bwg_commands_handler_ startBWGFlowWithEntryPoint:bwg::EntryPoint::Promo];
@@ -517,6 +567,20 @@ void BwgTabHelper::OnOptimizationGuideDecision(
     message.action = action;
 
     [snackbar_commands_handler_ showSnackbarMessage:message];
+  } else {
+    UIImage* badge_image =
+        [BWGUIUtils brandedGeminiSymbolWithPointSize:kBadgeSymbolPointSize];
+    NSString* cue_label =
+        l10n_util::GetNSString(IDS_IOS_ASK_GEMINI_CHIP_CUE_LABEL);
+    LocationBarBadgeConfiguration* badge_config =
+        [[LocationBarBadgeConfiguration alloc]
+             initWithBadgeType:LocationBarBadgeType::kGeminiContextualCueChip
+            accessibilityLabel:cue_label
+                    badgeImage:badge_image];
+
+    badge_config.badgeText = cue_label;
+    badge_config.shouldHideBadgeAfterChipCollapse = true;
+    [location_bar_badge_commands_handler_ updateBadgeConfig:badge_config];
   }
 }
 
@@ -559,4 +623,147 @@ void BwgTabHelper::ParseSuggestionsResponse(
 
   std::move(callback).Run(ZeroStateSuggestionsAsNSArray(
       zero_state_suggestions_->suggestions.value()));
+}
+
+// TODO(crbug.com/456782848): Cleanup when no longer needed/wanted.
+#pragma mark - Experimental. Do not use in production code.
+
+// TODO(crbug.com/456782848): Cleanup when no longer needed/wanted.
+void BwgTabHelper::PrepareWebPageReportedImagesSnackbar() {
+  if (!IsWebPageReportedImagesSheetEnabled() || !web_state_) {
+    return;
+  }
+
+  web::WebFrame* main_frame =
+      web_state_->GetPageWorldWebFramesManager()->GetMainWebFrame();
+
+  if (!main_frame) {
+    return;
+  }
+
+  // Extract the OG image.
+  main_frame->ExecuteJavaScript(
+      u"(() => {"
+      u"return document.querySelector('meta[property=\"og:image\"]')?.content;"
+      u"})()",
+      base::BindOnce(&BwgTabHelper::OnImageExtractedFromWebState,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
+// TODO(crbug.com/456782848): Cleanup when no longer needed/wanted.
+void BwgTabHelper::OnImageExtractedFromWebState(const base::Value* value,
+                                                NSError* error) {
+  if (!IsWebPageReportedImagesSheetEnabled() || !web_state_) {
+    return;
+  }
+
+  if (error) {
+    DLOG(WARNING) << "Failed to fetch og:image."
+                  << base::SysNSStringToUTF8([error localizedDescription]);
+    return;
+  }
+
+  // Skip to the last step if no og:image was found.
+  if (!value || !value->is_string()) {
+    OnImageTranscoded(nil, nil);
+    return;
+  }
+
+  // Fetch the image bytes.
+  ImageFetchTabHelper* image_fetcher =
+      ImageFetchTabHelper::FromWebState(web_state_.get());
+  const GURL& lastCommittedURL = web_state_->GetLastCommittedURL();
+  web::Referrer referrer(lastCommittedURL, web::ReferrerPolicyDefault);
+
+  if (!image_fetcher) {
+    return;
+  }
+
+  image_fetcher->GetImageData(
+      GURL(value->GetString()), referrer,
+      base::CallbackToBlock(base::BindOnce(&BwgTabHelper::OnImageFetched,
+                                           weak_ptr_factory_.GetWeakPtr())));
+}
+
+// TODO(crbug.com/456782848): Cleanup when no longer needed/wanted.
+void BwgTabHelper::OnImageFetched(NSData* data) {
+  if (!IsWebPageReportedImagesSheetEnabled() || !web_state_ || !data) {
+    return;
+  }
+
+  image_transcoder_ = std::make_unique<web::JavaScriptImageTranscoder>();
+  image_transcoder_->TranscodeImage(
+      data, @"image/png", nil, nil, nil,
+      base::BindOnce(&BwgTabHelper::OnImageTranscoded,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
+// TODO(crbug.com/456782848): Cleanup when no longer needed/wanted.
+void BwgTabHelper::OnImageTranscoded(NSData* png_data, NSError* error) {
+  image_transcoder_ = nullptr;
+  if (!IsWebPageReportedImagesSheetEnabled() || !web_state_) {
+    return;
+  }
+
+  if (error) {
+    DLOG(WARNING) << "Failed to transcode og:image."
+                  << base::SysNSStringToUTF8([error localizedDescription]);
+    return;
+  }
+
+  UIWindow* web_state_window = web_state_->GetView().window;
+  UIViewController* parentVC = web_state_window.rootViewController;
+  ProceduralBlock present_sheet = ^{
+    if (!parentVC) {
+      return;
+    }
+
+    // Create the presentation sheet.
+    UIViewController* sheet = [[UIViewController alloc] init];
+    sheet.view.backgroundColor = [UIColor blackColor];
+
+    // Prepare the image if it exists.
+    UIImage* image = nil;
+    if (png_data) {
+      image = [UIImage imageWithData:png_data];
+      UIImageView* imageView = [[UIImageView alloc] initWithImage:image];
+      imageView.contentMode = UIViewContentModeScaleAspectFit;
+      imageView.frame = sheet.view.bounds;
+      imageView.autoresizingMask =
+          UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+      [sheet.view addSubview:imageView];
+    }
+
+    // Prepare the label and its constraints.
+    NSString* labelText =
+        image ? [NSString stringWithFormat:@"og:image %.0fw x %.0fh",
+                                           image.size.width, image.size.height]
+              : @"no og:image reported";
+    UILabel* label = [[UILabel alloc] init];
+    label.text = labelText;
+    label.font = [UIFont boldSystemFontOfSize:16];
+    label.textColor = [UIColor whiteColor];
+    label.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.6];
+    label.translatesAutoresizingMaskIntoConstraints = NO;
+    [sheet.view addSubview:label];
+    [NSLayoutConstraint activateConstraints:@[
+      [label.centerXAnchor constraintEqualToAnchor:sheet.view.centerXAnchor],
+      [label.topAnchor
+          constraintEqualToAnchor:sheet.view.safeAreaLayoutGuide.topAnchor],
+    ]];
+
+    [parentVC presentViewController:sheet animated:YES completion:nil];
+  };
+
+  // Show a snackbar which shows a sheet as action.
+  SnackbarMessage* message = [[SnackbarMessage alloc]
+      initWithTitle:png_data ? @"og:image detected" : @"No og:image detected"];
+  if (png_data) {
+    SnackbarMessageAction* action = [[SnackbarMessageAction alloc] init];
+    action.handler = present_sheet;
+    action.title = @"View image";
+    message.action = action;
+  }
+
+  [snackbar_commands_handler_ showSnackbarMessage:message];
 }

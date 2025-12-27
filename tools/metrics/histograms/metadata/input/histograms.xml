@@ -23,9 +23,10 @@ chromium-metrics-reviews@google.com.
 <histograms>
 
 <histogram name="Input.Digitizer.MaxTouchPoints.{PointerDigitizerType}"
-    units="maximum allowed touch points" expires_after="2025-03-01">
+    units="maximum allowed touch points" expires_after="2027-01-01">
   <owner>kouhei@chromium.org</owner>
-  <owner>Adam.Ettenberger@microsoft.com</owner>
+  <owner>gastonr@microsoft.com</owner>
+  <owner>gerchiko@microsoft.com</owner>
   <owner>input-dev@chromium.org</owner>
   <summary>
     Record the maximum number of active touch points allowed for each pointer
@@ -35,6 +36,8 @@ chromium-metrics-reviews@google.com.
     initializing the singleton `TouchUiController` during startup, and once for
     each pointer digitizer that's connected afterwards in response to OS
     specific events.
+
+    NOTE: this metric was expired from 2025-03-01 to 2025-11-24.
   </summary>
   <token key="PointerDigitizerType">
     <variant name="DirectPen" summary="pen digitizer integrated into display"/>
@@ -46,9 +49,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Input.Digitizer.MaxTouchPointsSupportedBySystemAtStartup"
-    units="maximum supported contacts" expires_after="2025-03-01">
+    units="maximum supported contacts" expires_after="2027-01-01">
   <owner>kouhei@chromium.org</owner>
-  <owner>Adam.Ettenberger@microsoft.com</owner>
+  <owner>gastonr@microsoft.com</owner>
+  <owner>gerchiko@microsoft.com</owner>
   <owner>input-dev@chromium.org</owner>
   <summary>
     Record the maximum number of simultaneous contacts supported by the pointer
@@ -60,13 +64,16 @@ chromium-metrics-reviews@google.com.
     Currently this metric is only available on Windows. This is logged only once
     per browser session, when initializing the singleton `TouchUiController` at
     startup.
+
+    NOTE: this metric was expired from 2025-03-01 to 2025-11-24.
   </summary>
 </histogram>
 
 <histogram name="Input.Digitizer.{Interaction}" enum="PointerDigitizerType"
-    expires_after="2025-03-01">
+    expires_after="2027-01-01">
   <owner>kouhei@chromium.org</owner>
-  <owner>Adam.Ettenberger@microsoft.com</owner>
+  <owner>gastonr@microsoft.com</owner>
+  <owner>gerchiko@microsoft.com</owner>
   <owner>input-dev@chromium.org</owner>
   <summary>
     Record each pointer digitizer found at startup, and each pointer digitizer
@@ -81,6 +88,8 @@ chromium-metrics-reviews@google.com.
 
     OnStartup : Logged only once per browser session for each pointer digitizer
     discovered when initializing the singleton `TouchUiController` at startup.
+
+    NOTE: this metric was expired from 2025-03-01 to 2025-11-24.
   </summary>
   <token key="Interaction">
     <variant name="OnConnected" summary="connected following startup"/>
@@ -113,7 +122,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Input.ToolType.Android" units="tool type"
-    expires_after="2026-03-01">
+    expires_after="2026-05-03">
   <owner>alexmitra@chromium.org</owner>
   <owner>flackr@chromium.org</owner>
   <owner>peconn@chromium.org</owner>
@@ -618,31 +627,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="InputMethod.Assistive.Disabled" enum="IMEAssistiveAction"
-    expires_after="2026-09-01">
-  <owner>jiwan@google.com</owner>
-  <owner>essential-inputs-team@google.com</owner>
-  <summary>
-    The number of times each assistive action could be triggered according to
-    the surrounding text but was not triggered because the user turned off the
-    feature. Recorded when the surrounding text could trigger assistive actions
-    but the corresponding feature was disabled.
-  </summary>
-</histogram>
-
-<histogram name="InputMethod.Assistive.Disabled.Emoji"
-    enum="IMEAssistiveDisabledReason" expires_after="2026-09-01">
-  <owner>curtismcmullan@google.com</owner>
-  <owner>essential-inputs-team@google.com</owner>
-  <summary>
-    Warning: this histogram was expired from 2023-08 to 2023-11; data may be
-    missing. The reason for emoji suggestions not being shown to users. Recorded
-    when the surrounding text could trigger emoji suggestions but the feature
-    was disabled. Only the first applicable reason in IMEAssistiveDisabledReason
-    enum is recorded per occurrence.
-  </summary>
-</histogram>
-
 <histogram name="InputMethod.Assistive.Disabled.MultiWord"
     enum="IMEAssistiveDisabledReason" expires_after="2026-09-01">
   <owner>curtismcmullan@google.com</owner>
@@ -664,18 +648,6 @@ chromium-metrics-reviews@google.com.
     Accuracy is measured as the number of chars correctly predicted by the
     suggestion, divided by the total number of chars in the suggestion. This is
     recorded when the user dismisses the suggestion.
-  </summary>
-</histogram>
-
-<histogram name="InputMethod.Assistive.EmojiSuggestAddition.AcceptanceIndex"
-    units="times" expires_after="2026-09-01">
-  <owner>curtismcmullan@google.com</owner>
-  <owner>essential-inputs-team@google.com</owner>
-  <summary>
-    Warning: this histogram was expired from 2022-05 to 2023-11; data may be
-    missing. The number of times an emoji suggest addition is accepted at a
-    given index. Recorded when an user accepts an emoji suggestion appeared
-    after typing an emoji-triggered word.
   </summary>
 </histogram>
 
@@ -850,19 +822,6 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram name="InputMethod.Assistive.NotAllowed" enum="IMEAssistiveAction"
-    expires_after="2026-09-01">
-  <owner>jiwan@google.com</owner>
-  <owner>essential-inputs-team@google.com</owner>
-  <summary>
-    The number of times each assistive action could be triggered but is blocked
-    because the text is not in the allowed websites or apps. Recorded when the
-    assistive action is blocked because the text is not in the allowed websites
-    or apps. Expired in May 2023, and revived in June (M116). Data may be
-    incomplete for M113 to M115, inclusively.
-  </summary>
-</histogram>
-
 <histogram name="InputMethod.Assistive.Success" enum="IMEAssistiveAction"
     expires_after="2026-09-01">
   <owner>jiwan@google.com</owner>
@@ -892,18 +851,6 @@ chromium-metrics-reviews@google.com.
     The duration from when a multi word suggestion is shown to a user, to the
     time the user dimisses that suggestion. The metric is recorded when the user
     dismisses the suggestion.
-  </summary>
-</histogram>
-
-<histogram name="InputMethod.Assistive.UserPref.Emoji" enum="BooleanEnabled"
-    expires_after="2026-09-01">
-  <owner>curtismcmullan@google.com</owner>
-  <owner>essential-inputs-team@google.com</owner>
-  <summary>
-    Warning: this histogram was expired from 2023-02 to 2023-11; data may be
-    missing. The user's preference for emoji suggestions. Recorded when
-    AssistiveSuggester is initialised. &quot;Enabled&quot; is logged as the
-    default value if the user didn't explicitly set it.
   </summary>
 </histogram>
 
@@ -1591,7 +1538,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InputMethod.PhysicalKeyboard.Japanese.Settings.AutoSwitchToHalfwidth"
-    enum="Boolean" expires_after="2026-03-15">
+    enum="Boolean" expires_after="2026-05-17">
   <owner>jhtin@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -2137,7 +2084,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InputMethod.VirtualKeyboard.Handwriting.DWServiceCallbackFailed"
-    enum="Boolean" expires_after="2025-11-21">
+    enum="Boolean" expires_after="2026-11-21">
   <owner>alexmitra@chromium.org</owner>
   <owner>peconn@chromium.org</owner>
   <summary>

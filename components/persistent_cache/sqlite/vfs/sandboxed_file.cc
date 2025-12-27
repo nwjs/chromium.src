@@ -7,6 +7,8 @@
 #include <utility>
 
 #include "base/files/platform_file.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "build/build_config.h"
 #include "third_party/sqlite/sqlite3.h"
@@ -23,21 +25,28 @@ constexpr uint32_t kMaxSharedLocks = 0x08000000;
 constexpr uint32_t kSharedMask = 0x0FFFFFFF;
 constexpr uint32_t kReservedBit = 0x20000000;
 constexpr uint32_t kPendingBit = 0x40000000;
+constexpr uint32_t kAbandonedBit = 0x80000000;
 
 }  // namespace
 
 SandboxedFile::SandboxedFile(
     base::File file,
-    base::FilePath file_path,
     AccessRights access_rights,
     base::WritableSharedMemoryMapping mapped_shared_lock)
-    : file_path_(std::move(file_path)),
-      underlying_file_(std::move(file)),
+    : underlying_file_(std::move(file)),
       access_rights_(access_rights),
       mapped_shared_lock_(std::move(mapped_shared_lock)) {}
+
 SandboxedFile::~SandboxedFile() = default;
 
-base::File SandboxedFile::TakeUnderlyingFile() {
+base::File SandboxedFile::TakeUnderlyingFile(FileType file_type) {
+  // Lock the file via filesystem APIs if this is the main database file and its
+  // creator wishes this to be the only connection allowed.
+  if (file_type == FileType::kMainDb && is_single_connection() &&
+      !AcquireSingleConnectionlock()) {
+    return {};
+  }
+  file_type_ = file_type;
   return std::move(underlying_file_);
 }
 
@@ -46,54 +55,48 @@ void SandboxedFile::OnFileOpened(base::File file) {
   opened_file_ = std::move(file);
 }
 
-base::File SandboxedFile::DuplicateFile(AccessRights access_rights) {
-  // Can't upgrade from read-only to read-write.
-  CHECK((access_rights == AccessRights::kReadOnly) ||
-        (access_rights_ == AccessRights::kReadWrite));
-  CHECK(underlying_file_.IsValid() || opened_file_.IsValid());
-
-  base::File& source =
-      underlying_file_.IsValid() ? underlying_file_ : opened_file_;
-  if (access_rights == access_rights_) {
-    // Caller requests the same rights. Simple duplication as-is.
-    return source.Duplicate();
-  }
-
-#if BUILDFLAG(IS_WIN)
-  // Duplicate the handle to the file with restricted rights.
-  HANDLE handle = nullptr;
-  if (!::DuplicateHandle(
-          /*hSourceProcessHandle=*/::GetCurrentProcess(),
-          /*hSourceHandle=*/source.GetPlatformFile(),
-          /*hTargetProcessHandle=*/::GetCurrentProcess(),
-          /*lpTargetHandle=*/&handle,
-          /*dwDesiredAccess=*/FILE_GENERIC_READ,
-          /*bInheritHandle=*/FALSE,
-          /*dwOptions=*/0)) {
-    // Duplication failed; return an invalid File.
-    DWORD error = ::GetLastError();
-    return base::File(base::File::OSErrorToFileError(error));
-  }
-  return base::File(handle);
-#else
-  // It's not possible to get a new file descriptor with reduced permissions to
-  // the same file description, so open the file anew with read-only access.
-
-  // It is a programming error to attempt to emit a read-only view to the file
-  // when the path to the file was not provided at construction.
-  CHECK(!file_path_.empty());
-  return base::File(file_path_, base::File::FLAG_OPEN | base::File::FLAG_READ);
-#endif
+const base::File& SandboxedFile::GetFile() const {
+  return underlying_file_.IsValid() ? underlying_file_ : opened_file_;
 }
 
 base::File& SandboxedFile::GetFile() {
-  return underlying_file_.IsValid() ? underlying_file_ : opened_file_;
+  return const_cast<base::File&>(
+      const_cast<const SandboxedFile*>(this)->GetFile());
 }
 
 int SandboxedFile::Close() {
   CHECK(IsValid());
   underlying_file_ = std::move(opened_file_);
+
+  // Unlock the file via filesystem APIs if this is the main database file and
+  // its creator wishes this to be the only connection allowed.
+  if (file_type_ == FileType::kMainDb && is_single_connection()) {
+    ReleaseSingleConnectionlock();
+  }
+  file_type_ = std::nullopt;
   return SQLITE_OK;
+}
+
+LockState SandboxedFile::Abandon() {
+  // Set `kAbandonedBit`, causing all subsequent attempts to raise the lock's
+  // state to a higher level by any party to fail with `SQLITE_IOERR_LOCK`.
+  // Determination of the state of the lock at the time of abandonment is made
+  // based on a snapshot of the lock at the moment that the bit is set. This is
+  // the only point where it is possible to know the state of the lock owing to
+  // the nature of atomic bitwise operations on the lock itself --
+  // `kReservedBit` and `kPendingBit` may be added to the lock after
+  // abandonment; such parties will properly detect that the lock has been
+  // abandoned.
+  uint32_t previous_state = GetSharedAtomicLock().fetch_or(kAbandonedBit);
+
+  LockState state =
+      ((previous_state & (kReservedBit | kPendingBit)) != 0)
+          ? LockState::kWriting
+          : (((previous_state & kSharedMask) != 0) ? LockState::kReading
+                                                   : LockState::kNotHeld);
+  base::UmaHistogramEnumeration(
+      "PersistentCache.SandboxedFile.LockStateOnAbandon", state);
+  return state;
 }
 
 int SandboxedFile::Read(void* buffer, int size, sqlite3_int64 offset) {
@@ -241,6 +244,7 @@ int SandboxedFile::FileSize(sqlite3_int64* result_size) {
 //   see:
 //     https://source.chromium.org/chromium/chromium/src/+/main:third_party/sqlite/src/src/pager.c;l=5260;drc=65d0312c96cd23958372fac8940314c782a6b03c
 int SandboxedFile::Lock(int mode) {
+  CHECK(*file_type_ == FileType::kMainDb);
   // Ensures valid lock states are used (see: sqlite3OsLock(...) assertions).
   CHECK(mode == SQLITE_LOCK_SHARED || mode == SQLITE_LOCK_RESERVED ||
         mode == SQLITE_LOCK_EXCLUSIVE);
@@ -250,23 +254,38 @@ int SandboxedFile::Lock(int mode) {
     return SQLITE_OK;
   }
 
-  auto& lock_state = GetLockState();
+  if (is_single_connection()) {
+    sqlite_lock_mode_ = mode;
+    return SQLITE_OK;
+  }
+
+  auto& shared_atomic_lock = GetSharedAtomicLock();
   switch (mode) {
     case SQLITE_LOCK_SHARED: {
       // Try to increment the SHARED lock count as long as the PENDING lock
       // remains unheld and there is room remaining to count a new SHARED lock.
-      uint32_t shared_state = lock_state.load();
+      uint32_t lock_snapshot = shared_atomic_lock.load();
+
+      if ((lock_snapshot & kAbandonedBit) != 0) {
+        return SQLITE_IOERR_LOCK;
+      }
+
       for (int i = 0; i < 5; ++i) {
-        if ((shared_state & kPendingBit) != 0 ||
-            (shared_state & kSharedMask) == kMaxSharedLocks) {
+        if ((lock_snapshot & kPendingBit) != 0 ||
+            (lock_snapshot & kSharedMask) == kMaxSharedLocks) {
           break;
         }
-        if (lock_state.compare_exchange_strong(shared_state,
-                                               shared_state + 1)) {
+        if (shared_atomic_lock.compare_exchange_strong(lock_snapshot,
+                                                       lock_snapshot + 1)) {
           // The SHARED lock was successfully acquired.
           sqlite_lock_mode_ = SQLITE_LOCK_SHARED;
           return SQLITE_OK;
         }
+
+        if ((lock_snapshot & kAbandonedBit) != 0) {
+          return SQLITE_IOERR_LOCK;
+        }
+
         // Perform up to four retries in case this client is racing against
         // other changes to the shared lock.
       }
@@ -281,8 +300,12 @@ int SandboxedFile::Lock(int mode) {
       // Acquire a RESERVED lock to prevent a different writer to declare its
       // intention to modify the database. At this point, readers are still
       // allowed to get a SHARED lock on the database.
-      const uint32_t acquired_shared_state = lock_state.fetch_or(kReservedBit);
-      if ((acquired_shared_state & kReservedBit) != 0) {
+      const uint32_t lock_snapshot = shared_atomic_lock.fetch_or(kReservedBit);
+      if ((lock_snapshot & kAbandonedBit) != 0) {
+        return SQLITE_IOERR_LOCK;
+      }
+
+      if ((lock_snapshot & kReservedBit) != 0) {
         return SQLITE_BUSY;
       }
 
@@ -303,10 +326,17 @@ int SandboxedFile::Lock(int mode) {
       // Acquire the PENDING lock, if not already acquired. Hold it until the
       // EXCLUSIVE lock is obtained. No new SHARED locks will be granted in
       // the meantime, but current SHARED locks remain valid.
-      uint32_t shared_state = 0;
+      uint32_t lock_snapshot = 0;
       if (sqlite_lock_mode_ < SQLITE_LOCK_PENDING) {
-        shared_state = lock_state.fetch_or(kPendingBit);
-        if ((shared_state & kPendingBit) != 0) {
+        lock_snapshot = shared_atomic_lock.fetch_or(kPendingBit);
+        if ((lock_snapshot & kAbandonedBit) != 0) {
+          // This instance may have just set `kPendingBit`. There is no need to
+          // clear it since all other parties will detect that the instance is
+          // abandoned on their next attempt to acquire any lock.
+          return SQLITE_IOERR_LOCK;
+        }
+
+        if ((lock_snapshot & kPendingBit) != 0) {
           // This connection is not the owner of the PENDING lock.
           return SQLITE_BUSY;
         }
@@ -314,15 +344,19 @@ int SandboxedFile::Lock(int mode) {
         // SHARED locks are released.
         sqlite_lock_mode_ = SQLITE_LOCK_PENDING;
         // Update the copy of the current state of the lock for use below.
-        shared_state |= kPendingBit;
+        lock_snapshot |= kPendingBit;
       } else {
         // Fetch the current state of the lock for use below.
-        shared_state = lock_state.load();
+        lock_snapshot = shared_atomic_lock.load();
+
+        if ((lock_snapshot & kAbandonedBit) != 0) {
+          return SQLITE_IOERR_LOCK;
+        }
       }
 
       // Do not grant the EXCLUSIVE lock until all other readers have released
       // their SHARED locks. This connection still owns and keeps a SHARED lock.
-      if ((shared_state & kSharedMask) != 1) {
+      if ((lock_snapshot & kSharedMask) != 1) {
         return SQLITE_BUSY;
       }
 
@@ -352,6 +386,8 @@ int SandboxedFile::Lock(int mode) {
 // the state never went to EXCLUSIVE. This can happen when a connection gives up
 // on trying to get an EXCLUSIVE lock.
 int SandboxedFile::Unlock(int mode) {
+  CHECK(*file_type_ == FileType::kMainDb);
+
   // Ensures valid lock states are used (see: sqlite3OsUnlock(...) assertions).
   CHECK(mode == SQLITE_LOCK_NONE || mode == SQLITE_LOCK_SHARED);
 
@@ -360,7 +396,12 @@ int SandboxedFile::Unlock(int mode) {
     return SQLITE_OK;
   }
 
-  auto& lock_state = GetLockState();
+  if (is_single_connection()) {
+    sqlite_lock_mode_ = mode;
+    return SQLITE_OK;
+  }
+
+  auto& shared_atomic_lock = GetSharedAtomicLock();
 
   // Release the RESERVED or RESERVED and PENDING bits, if held.
   if (uint32_t clear_mask =
@@ -368,13 +409,13 @@ int SandboxedFile::Unlock(int mode) {
                ? (kPendingBit | kReservedBit)
                : (sqlite_lock_mode_ == SQLITE_LOCK_RESERVED ? kReservedBit
                                                             : 0U))) {
-    lock_state.fetch_and(~clear_mask);
+    shared_atomic_lock.fetch_and(~clear_mask);
   }
 
   // Release the SHARED lock if no longer needed.
   if (mode == SQLITE_LOCK_NONE) {
-    const uint32_t readers_shared_state = lock_state.fetch_sub(1);
-    CHECK_GE(readers_shared_state & kSharedMask, 1u);
+    const uint32_t lock_snapshot = shared_atomic_lock.fetch_sub(1);
+    CHECK_GE(lock_snapshot & kSharedMask, 1u);
   }
 
   // Lock was successfully released.
@@ -383,8 +424,13 @@ int SandboxedFile::Unlock(int mode) {
 }
 
 int SandboxedFile::CheckReservedLock(int* has_reserved_lock) {
-  uint32_t shared_state = GetLockState().load();
-  *has_reserved_lock = (shared_state & kReservedBit) != 0;
+  CHECK(*file_type_ == FileType::kMainDb);
+  if (is_single_connection()) {
+    *has_reserved_lock = sqlite_lock_mode_ >= SQLITE_LOCK_RESERVED;
+  } else {
+    uint32_t lock_snapshot = GetSharedAtomicLock().load();
+    *has_reserved_lock = (lock_snapshot & kReservedBit) != 0;
+  }
   return SQLITE_OK;
 }
 
@@ -404,22 +450,27 @@ int SandboxedFile::ShmMap(int page_index,
                           int page_size,
                           int extend_file_if_needed,
                           void volatile** result) {
-  // TODO(https://crbug.com/377475540): Implement WAL mode.
-  return SQLITE_IOERR_SHMMAP;
+  // Write-ahead logging is only supported in combination with exclusive mode
+  // (is_single_connection() == true); see https://sqlite.org/wal.html#noshm
+  NOTREACHED();
 }
 
 int SandboxedFile::ShmLock(int offset, int size, int flags) {
-  // TODO(https://crbug.com/377475540): Implement WAL mode.
-  return SQLITE_IOERR_SHMLOCK;
+  // Write-ahead logging is only supported in combination with exclusive mode
+  // (is_single_connection() == true); see https://sqlite.org/wal.html#noshm
+  NOTREACHED();
 }
 
 void SandboxedFile::ShmBarrier() {
-  // TODO(https://crbug.com/377475540): Implement WAL mode.
+  // Write-ahead logging is only supported in combination with exclusive mode
+  // (is_single_connection() == true); see https://sqlite.org/wal.html#noshm
+  NOTREACHED();
 }
 
 int SandboxedFile::ShmUnmap(int also_delete_file) {
-  // TODO(https://crbug.com/377475540): Implement WAL mode.
-  return SQLITE_IOERR_SHMMAP;
+  // Write-ahead logging is only supported in combination with exclusive mode
+  // (is_single_connection() == true); see https://sqlite.org/wal.html#noshm
+  NOTREACHED();
 }
 
 int SandboxedFile::Fetch(sqlite3_int64 offset, int size, void** result) {
@@ -433,9 +484,27 @@ int SandboxedFile::Unfetch(sqlite3_int64 offset, void* fetch_result) {
   return SQLITE_IOERR;
 }
 
-LockState& SandboxedFile::GetLockState() {
+SharedAtomicLock& SandboxedFile::GetSharedAtomicLock() {
   CHECK(mapped_shared_lock_.IsValid());
-  return *mapped_shared_lock_.GetMemoryAs<LockState>();
+  return *mapped_shared_lock_.GetMemoryAs<SharedAtomicLock>();
+}
+
+bool SandboxedFile::AcquireSingleConnectionlock() {
+  CHECK(underlying_file_.IsValid());
+  const auto error = underlying_file_.Lock(base::File::LockMode::kExclusive);
+  if (error == base::File::FILE_OK) {
+    return true;
+  }
+
+  base::UmaHistogramExactLinear("PersistentCache.Sqlite.LockError", -error,
+                                -base::File::FILE_ERROR_MAX);
+
+  return false;
+}
+
+void SandboxedFile::ReleaseSingleConnectionlock() {
+  CHECK(underlying_file_.IsValid());
+  underlying_file_.Unlock();
 }
 
 }  // namespace persistent_cache

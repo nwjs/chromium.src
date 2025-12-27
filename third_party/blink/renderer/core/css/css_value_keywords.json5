@@ -522,7 +522,7 @@
     "table",
     "flex",
     "grid",
-    "masonry",
+    "grid-lanes",
     //"math",
     //"ruby",
     // The order must match the order found in IsDisplayBox().
@@ -543,7 +543,7 @@
     "inline-table",
     "inline-flex",
     "inline-grid",
-    "inline-masonry",
+    "inline-grid-lanes",
     "-webkit-box",
     "-webkit-inline-box",
     "-webkit-flex",
@@ -1228,6 +1228,16 @@
     // grid-{column|row}-{start|end}
     "span",
 
+    // grid-lanes-direction
+    // row
+    // row-reverse
+    // column
+    // column-reverse
+
+    // grid-lanes-fill
+    // normal
+    // reverse
+
     // grid-template-{columns|rows}
     "minmax",
     "subgrid",
@@ -1252,16 +1262,6 @@
     // alpha
     // luminance
     "match-source",
-
-    // masonry-direction
-    // row
-    // row-reverse
-    // column
-    // column-reverse
-
-    // masonry-fill
-    // normal
-    // reverse
 
     // color-interpolation / color-interpolation-filters
     // auto
@@ -1618,6 +1618,9 @@
     "log",
     "exp",
 
+    // Random functions
+    "random",
+
     //<calc-constant>
     //https://drafts.csswg.org/css-values/#calc-syntax
     "infinity",
@@ -1810,6 +1813,9 @@
     // Layered @import rule
     "layer",
 
+    // if(route())
+    "route",
+
     // supports in import rule: @import supports()
     "supports",
     // @import scope()
@@ -1981,6 +1987,8 @@
     "flip-block",
     "flip-inline",
     "flip-start",
+    "flip-x",
+    "flip-y",
 
     // position-visibility
     // always
@@ -2069,6 +2077,7 @@
     // "none",
     "inter-word",
     // "inter-character",
+    "distribute",
 
     // animation-trigger
     "play",
@@ -2081,5 +2090,8 @@
     "play-pause",
     "replay",
     // "none",
+
+    // counter-reset
+    "reversed",
   ],
 }

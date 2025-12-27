@@ -350,6 +350,11 @@ QtUi::WindowFrameAction QtUi::GetWindowFrameAction(
   }
 }
 
+bool QtUi::PrimaryPasteEnabled() const {
+  // Qt 6 does not have any setting that controls middle click behavior.
+  return true;
+}
+
 std::vector<std::string> QtUi::GetCmdLineFlagsForCopy() const {
   return {std::string(switches::kUiToolkitFlag) + "=qt",
           base::StrCat({switches::kQtVersionFlag, "=",

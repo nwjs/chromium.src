@@ -27,7 +27,6 @@
 #include "content/common/content_navigation_policy.h"
 #include "content/common/features.h"
 #include "content/public/browser/browser_context.h"
-#include "content/public/browser/browser_or_resource_context.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/process_allocation_context.h"
 #include "content/public/browser/site_isolation_policy.h"
@@ -112,9 +111,7 @@ SiteInstanceImpl::SiteInstanceImpl(BrowsingInstance* browsing_instance)
     : id_(g_site_instance_id_generator.GenerateNextId()),
       browsing_instance_(browsing_instance),
       can_associate_with_spare_process_(true),
-      site_info_(browsing_instance->isolation_context()
-                     .browser_or_resource_context()
-                     .ToBrowserContext()),
+      site_info_(browsing_instance->isolation_context().browser_context()),
       has_site_(false),
       process_reuse_policy_(ProcessReusePolicy::kDefault),
       is_for_service_worker_(false),
@@ -509,7 +506,7 @@ SiteInstanceGroupId SiteInstanceImpl::GetSiteInstanceGroupId() {
 }
 
 bool SiteInstanceImpl::ShouldUseProcessPerSite() const {
-  BrowserContext* browser_context = browsing_instance_->GetBrowserContext();
+  BrowserContext* browser_context = browsing_instance_->browser_context();
   return has_site_ && site_info_.ShouldUseProcessPerSite(browser_context);
 }
 
@@ -1023,7 +1020,7 @@ void SiteInstanceImpl::DecrementRelatedActiveContentsCount() {
 }
 
 BrowserContext* SiteInstanceImpl::GetBrowserContext() {
-  return browsing_instance_->GetBrowserContext();
+  return browsing_instance_->browser_context();
 }
 
 // static
@@ -1299,8 +1296,7 @@ bool SiteInstanceImpl::IsSameSite(const IsolationContext& isolation_context,
   const GURL& real_dest_url = real_dest_url_info.url;
 
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  BrowserContext* browser_context =
-      isolation_context.browser_or_resource_context().ToBrowserContext();
+  BrowserContext* browser_context = isolation_context.browser_context();
   DCHECK(browser_context);
   DCHECK_NE(real_src_url, GetDefaultSiteURL());
 

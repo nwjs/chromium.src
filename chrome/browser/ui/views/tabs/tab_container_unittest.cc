@@ -28,6 +28,7 @@
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/dragdrop/drop_target_event.h"
+#include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -124,6 +125,10 @@ class FakeTabContainerController final : public TabContainerController {
     return tab_strip_controller_->ListTabsInGroup(group);
   }
 
+  bool IsBrowserClosing() const override {
+    return tab_strip_controller_->IsBrowserClosing();
+  }
+
   bool CanExtendDragHandle() const override {
     return !tab_strip_controller_->IsFrameCondensed() &&
            !tab_strip_controller_->EverHasVisibleBackgroundTabShapes();
@@ -139,6 +144,10 @@ class FakeTabContainerController final : public TabContainerController {
 
   void UpdateAnimationTarget(TabSlotView* tab_slot_view,
                              gfx::Rect target_bounds) override {}
+
+  std::optional<tab_groups::TabGroupId> GetFocusedGroup() const override {
+    return std::nullopt;
+  }
 
  private:
   const raw_ref<TabStripController> tab_strip_controller_;
@@ -170,10 +179,10 @@ class TabContainerTest : public ChromeViewsTestBase {
     std::unique_ptr<FakeTabDragContext> drag_context =
         std::make_unique<FakeTabDragContext>();
     std::unique_ptr<TabContainer> tab_container =
-        std::make_unique<TabContainerImpl>(
-            *(tab_container_controller_.get()),
-            nullptr /*hover_card_controller*/, drag_context.get(),
-            *(tab_slot_controller_.get()), nullptr /*scroll_contents_view*/);
+        std::make_unique<TabContainerImpl>(*(tab_container_controller_.get()),
+                                           nullptr /*hover_card_controller*/,
+                                           drag_context.get(),
+                                           *(tab_slot_controller_.get()));
     tab_container->SetAvailableWidthCallback(base::BindRepeating(
         [](TabContainerTest* test) { return test->tab_container_width_; },
         this));
@@ -1003,10 +1012,6 @@ TEST_F(TabContainerTest, UnderlineBoundsTabVisibilityChange) {
   // Validates that group underlines are updated correctly in a single Layout
   // call when the visibility of tabs in the group change. See crbug.com/1356177
 
-  // This test is only valid with scrolling off, since it pertains to tab
-  // visibility stuff that scrolling doesn't do.
-  ASSERT_FALSE(base::FeatureList::IsEnabled(tabs::kScrollableTabStrip));
-
   SetTabContainerWidth(200);
   // Add tabs to a single group until the last one is not visible.
   tab_groups::TabGroupId group = tab_groups::TabGroupId::GenerateNew();
@@ -1038,10 +1043,6 @@ TEST_F(TabContainerTest, UnderlineBoundsCollapsedGroupHeaderVisibilityChange) {
   // Validates that group underlines are updated correctly in a single Layout
   // call when the visibility of the group header changes, even if the group is
   // collapsed. See crbug.com/1374614
-
-  // This test is only valid with scrolling off, since it pertains to tab
-  // visibility stuff that scrolling doesn't do.
-  ASSERT_FALSE(base::FeatureList::IsEnabled(tabs::kScrollableTabStrip));
 
   SetTabContainerWidth(200);
   // Create a tab group with one tab and collapse it.

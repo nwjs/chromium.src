@@ -8,10 +8,10 @@
 #include <set>
 #include <vector>
 
+#include "base/component_export.h"
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/weak_ptr.h"
 #include "net/storage_access_api/status.h"
 #include "services/network/public/mojom/client_security_state.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
@@ -36,7 +36,7 @@ namespace network {
 class NetworkContext;
 class WebSocket;
 
-class WebSocketFactory final {
+class COMPONENT_EXPORT(NETWORK_SERVICE) WebSocketFactory final {
  public:
   explicit WebSocketFactory(NetworkContext* context);
 

@@ -126,8 +126,7 @@ class AndroidAutofillClient : public autofill::ContentAutofillClient {
   void HideAutofillSuggestions(autofill::SuggestionHidingReason reason) final;
   bool IsAutofillEnabled() const final;
   bool IsAutofillProfileEnabled() const final;
-  bool IsAutofillPaymentMethodsEnabled() const final;
-  bool IsImportingToWalletEnabled() const final;
+  bool IsWalletStorageEnabled() const final;
   bool IsAutocompleteEnabled() const final;
   bool IsPasswordManagerEnabled() const final;
   void DidFillForm(autofill::AutofillTriggerSource trigger_source,

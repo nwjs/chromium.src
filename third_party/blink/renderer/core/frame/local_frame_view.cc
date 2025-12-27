@@ -1061,6 +1061,37 @@ LayoutSVGRoot* LocalFrameView::EmbeddedReplacedContent() const {
   return DynamicTo<LayoutSVGRoot>(first_child);
 }
 
+LocalFrameView::NaturalSizeLayoutScope::NaturalSizeLayoutScope(
+    LocalFrameView* view) {
+  const gfx::Size layout_size = view->GetLayoutSize();
+  if (!view->layout_height_for_natural_size_) {
+    // If this is the first time, save the height and return. This will be the
+    // "consistent ICB" size.
+    view->layout_height_for_natural_size_ = layout_size.height();
+    return;
+  }
+  if (*view->layout_height_for_natural_size_ == layout_size.height()) {
+    return;
+  }
+
+  view_ = view;
+  is_fixed_to_frame_size_ = view->LayoutSizeFixedToFrameSize();
+  height_ = layout_size.height();
+  view->SetLayoutSizeFixedToFrameSize(false);
+  view->SetLayoutSizeInternal(
+      {layout_size.width(), *view->layout_height_for_natural_size_});
+}
+
+LocalFrameView::NaturalSizeLayoutScope::~NaturalSizeLayoutScope() {
+  if (!view_) {
+    return;
+  }
+  view_->SetLayoutSizeFixedToFrameSize(is_fixed_to_frame_size_);
+  if (!is_fixed_to_frame_size_) {
+    view_->SetLayoutSizeInternal({view_->GetLayoutSize().width(), height_});
+  }
+}
+
 bool LocalFrameView::RecordNaturalDimensions() {
   if (natural_height_ == layout_overflow_size_.height()) {
     return false;
@@ -1082,6 +1113,30 @@ void LocalFrameView::RequestSameDocumentNavigationPresentationTime(
   }
 }
 
+bool LocalFrameView::HasRunningAnchorTransformAnimation() const {
+  for (Frame* child = frame_->Tree().FirstChild(); child;
+       child = child->Tree().NextSibling()) {
+    const auto* child_view = DynamicTo<LocalFrameView>(child->View());
+    if (!child_view) {
+      // If this is not a local frame (in other words, it's typically a remote
+      // frame), there's no way of answering this. Err on the safe side.
+      return true;
+    }
+    if (child_view->HasRunningAnchorTransformAnimation()) {
+      return true;
+    }
+  }
+  if (LayoutView* layout_view = GetLayoutView()) {
+    if (layout_view->PhysicalFragmentCount()) {
+      DCHECK_EQ(layout_view->PhysicalFragmentCount(), 1u);
+      const PhysicalBoxFragment* root_fragment =
+          layout_view->GetPhysicalFragment(0);
+      return root_fragment->HasRunningAnchorTransformAnimation();
+    }
+  }
+  return false;
+}
+
 std::optional<NaturalSizingInfo> LocalFrameView::GetNaturalDimensions() const {
   if (LayoutSVGRoot* content_layout_object = EmbeddedReplacedContent()) {
     return content_layout_object->UnscaledNaturalSizingInfo();
@@ -1093,11 +1148,7 @@ std::optional<NaturalSizingInfo> LocalFrameView::GetNaturalDimensions() const {
   DCHECK(layout_view);
   const float unscaled_natural_height =
       AdjustForAbsoluteZoom::AdjustFloat(*natural_height_, *layout_view);
-  NaturalSizingInfo info;
-  info.size = gfx::SizeF(0, unscaled_natural_height);
-  info.has_width = false;
-  info.has_height = true;
-  return info;
+  return NaturalSizingInfo::MakeHeight(unscaled_natural_height);
 }
 
 void LocalFrameView::UpdateGeometry() {
@@ -2327,10 +2378,11 @@ void LocalFrameView::UpdateLifecyclePhasesInternal(
         continue;
     }
 
-      DCHECK(ShouldThrottleRendering() ||
-             Lifecycle().GetState() >= DocumentLifecycle::kPrePaintClean);
-      if (ShouldThrottleRendering() || !run_more_lifecycle_phases)
-        return;
+    DCHECK(ShouldThrottleRendering() ||
+           Lifecycle().GetState() >= DocumentLifecycle::kPrePaintClean);
+    if (ShouldThrottleRendering() || !run_more_lifecycle_phases) {
+      return;
+    }
 
     // Some features may require several passes over style and layout
     // within the same lifecycle update.
@@ -2388,9 +2440,10 @@ void LocalFrameView::UpdateLifecyclePhasesInternal(
   }
 
   UpdateIntersectionObserverStatus();
-  if (HasActiveIntersectionObservations()) {
+  if (HasActiveIntersectionObservations() ||
+      HasRunningAnchorTransformAnimation()) {
     GetChromeClient()->RequestMainFrameOnCompositorAnimation(
-        *frame_, NeedsOcclusionTracking()
+        *frame_, NeedsOcclusionTracking() && HasActiveIntersectionObservations()
                      ? cc::PropertyChangeForcesCommitCriteria::kAny
                      : cc::PropertyChangeForcesCommitCriteria::kTransform);
   }
@@ -2623,8 +2676,7 @@ bool LocalFrameView::RunCompositingInputsLifecyclePhase(
       // and then painted during this lifecycle.
       if (LocalDOMWindow* window = frame_view.GetFrame().DomWindow()) {
         if (HighlightRegistry* highlight_registry =
-                window->Supplementable<LocalDOMWindow>::RequireSupplement<
-                    HighlightRegistry>()) {
+                window->GetHighlightRegistry()) {
           highlight_registry->ValidateHighlightMarkers();
         }
       }
@@ -2741,35 +2793,34 @@ void LocalFrameView::RunPaintLifecyclePhase(PaintBenchmarkMode benchmark_mode) {
   }
 
   size_t total_animations_count = 0;
-  ForAllNonThrottledLocalFrameViews(
-      [this, needed_full_update,
-       &total_animations_count](LocalFrameView& frame_view) {
-        if (auto* scrollable_area = frame_view.GetScrollableArea()) {
-          scrollable_area->UpdateCompositorScrollAnimations();
-        }
-        for (PaintLayerScrollableArea* area :
-             frame_view.animating_scrollable_areas_) {
-          area->UpdateCompositorScrollAnimations();
-        }
-        frame_view.GetPage()->GetLinkHighlight().UpdateAfterPaint(
-            paint_artifact_compositor_.Get());
-        Document& document = frame_view.GetLayoutView()->GetDocument();
-        // Attach the compositor timeline during the commit as it blocks on
-        // the previous commit completion.
-        document.AttachCompositorTimeline(
-            document.Timeline().CompositorTimeline());
-        {
-          // Updating animations can notify ready promises which could mutate
-          // the DOM. We should delay these until we have finished the lifecycle
-          // update. https://crbug.com/1196781
-          ScriptForbiddenScope forbid_script;
-          document.GetDocumentAnimations().UpdateAnimations(
-              DocumentLifecycle::kPaintClean, paint_artifact_compositor_.Get(),
-              needed_full_update);
-        }
-        total_animations_count +=
-            document.GetDocumentAnimations().GetAnimationsCount();
-      });
+  ForAllNonThrottledLocalFrameViews([this, needed_full_update,
+                                     &total_animations_count](
+                                        LocalFrameView& frame_view) {
+    if (auto* scrollable_area = frame_view.GetScrollableArea()) {
+      scrollable_area->UpdateCompositorScrollAnimations();
+    }
+    for (PaintLayerScrollableArea* area :
+         frame_view.animating_scrollable_areas_) {
+      area->UpdateCompositorScrollAnimations();
+    }
+    frame_view.GetPage()->GetLinkHighlight().UpdateAfterPaint(
+        paint_artifact_compositor_.Get());
+    Document& document = frame_view.GetLayoutView()->GetDocument();
+    // Attach the compositor timeline during the commit as it blocks on
+    // the previous commit completion.
+    document.AttachCompositorTimeline(document.Timeline().CompositorTimeline());
+    {
+      // Updating animations can notify ready promises which could mutate
+      // the DOM. We should delay these until we have finished the lifecycle
+      // update. https://crbug.com/1196781
+      ScriptForbiddenScope forbid_script;
+      document.GetDocumentAnimations().UpdateAnimations(
+          DocumentLifecycle::kPaintClean, paint_artifact_compositor_.Get(),
+          needed_full_update);
+    }
+    total_animations_count +=
+        document.GetDocumentAnimations().GetAnimationsCount();
+  });
 
   // If this is a throttled local root, then we shouldn't run animation steps
   // below, because the cc animation data structures might not even exist.

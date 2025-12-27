@@ -51,6 +51,7 @@ source_set("configs") {
     "//chrome/browser/ui/webui/accessibility",
     "//chrome/browser/ui/webui/autofill_and_password_manager_internals",
     "//chrome/browser/ui/webui/internal_debug_pages_disabled",
+    "//chrome/browser/ui/webui/regional_capabilities_internals",
     "//components/compose:buildflags",
     "//components/lens:buildflags",
     "//components/security_interstitials/content:security_interstitial_page",
@@ -71,8 +72,9 @@ source_set("configs") {
       "//chrome/browser/ui/webui/autofill_ml_internals",
       "//chrome/browser/ui/webui/color_pipeline_internals",
       "//chrome/browser/ui/webui/infobar_internals",
+      "//chrome/browser/ui/webui/legion_internals",
       "//chrome/browser/ui/webui/new_tab_footer",
-      "//chrome/browser/ui/webui/privacy_sandbox",
+      "//chrome/browser/ui/webui/privacy_sandbox:mojo_bindings",
       "//chrome/browser/ui/webui/reload_button",
       "//chrome/browser/ui/webui_browser",
     ]

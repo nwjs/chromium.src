@@ -117,7 +117,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </variants>
 
 <histogram name="Settings.AddSiteDialog.Incognito" enum="BooleanEnabled"
-    expires_after="2026-03-08">
+    expires_after="2026-05-10">
   <owner>fmacintosh@google.com</owner>
   <owner>koilos@google.com</owner>
   <summary>
@@ -230,7 +230,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.ClearBrowsingData.Advanced.TimePeriod"
-    enum="SettingsClearBrowsingDataTimePeriod" expires_after="2026-03-22">
+    enum="SettingsClearBrowsingDataTimePeriod" expires_after="2026-05-24">
   <owner>rainhard@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
   <owner>chrome-privacy-controls@google.com</owner>
@@ -241,7 +241,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.ClearBrowsingData.Basic.TimePeriod"
-    enum="SettingsClearBrowsingDataTimePeriod" expires_after="2026-03-22">
+    enum="SettingsClearBrowsingDataTimePeriod" expires_after="2026-05-24">
   <owner>rainhard@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
   <owner>chrome-privacy-controls@google.com</owner>
@@ -274,7 +274,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.DefaultBrowserFromSource"
-    enum="IOSDefaultBrowserSettingsPageSource" expires_after="2026-03-08">
+    enum="IOSDefaultBrowserSettingsPageSource" expires_after="2026-05-10">
   <owner>gayane@google.com</owner>
   <owner>bling-mony-pod@google.com</owner>
   <summary>
@@ -296,7 +296,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.FirstPartySets.State" enum="FirstPartySetsState"
-    expires_after="2026-03-01">
+    expires_after="2026-05-03">
   <owner>alimariam@google.com</owner>
   <owner>olesiamarukhno@google.com</owner>
   <owner>sauski@google.com</owner>
@@ -350,7 +350,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.Homepage.LocationType" enum="HomepageLocationType"
-    expires_after="2026-03-01">
+    expires_after="2026-05-03">
   <owner>bttk@chromium.org</owner>
   <owner>twellington@chromium.org</owner>
   <owner>wenyufu@chromium.org</owner>
@@ -433,18 +433,21 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.PinUnlockSetup" enum="LockScreenProgress"
-    expires_after="2025-08-31">
+    expires_after="2026-11-25">
   <owner>antrim@chromium.org</owner>
   <owner>teresachow@google.com</owner>
   <owner>cros-lurs@google.com</owner>
   <summary>
     The users progress through the pin unlock setup wizard. Each type
     corresponds to the user completing a different stage of the setup wizard.
+
+    Warning: this histogram was expired from 2025-08-31 to 2025-11-25; data may
+    be missing.
   </summary>
 </histogram>
 
 <histogram name="Settings.PreloadStatus.OnStartup3" enum="PreloadPagesState"
-    expires_after="2026-03-01">
+    expires_after="2026-05-03">
   <owner>rainhard@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
   <owner>chrome-privacy-controls@google.com</owner>
@@ -456,7 +459,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.PrivacyElementInteractions"
-    enum="SettingsPrivacyElementInteractions" expires_after="2026-03-01">
+    enum="SettingsPrivacyElementInteractions" expires_after="2026-05-03">
   <owner>harrisonsean@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
   <owner>sauski@chromium.org</owner>
@@ -467,7 +470,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.PrivacyGuide.EntryExit"
-    enum="SettingsPrivacyGuideInteractions" expires_after="2026-03-01">
+    enum="SettingsPrivacyGuideInteractions" expires_after="2026-05-03">
   <owner>harrisonsean@chromium.org</owner>
   <owner>rainhard@chromium.org</owner>
   <owner>chrome-privacy-controls@google.com</owner>
@@ -478,7 +481,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.PrivacyGuide.FlowLength" units="steps"
-    expires_after="2026-03-01">
+    expires_after="2026-05-03">
   <owner>rainhard@chromium.org</owner>
   <owner>aisulu@google.com</owner>
   <owner>chrome-privacy-controls@google.com</owner>
@@ -490,7 +493,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.PrivacyGuide.NextNavigation"
-    enum="SettingsPrivacyGuideInteractions" expires_after="2026-03-01">
+    enum="SettingsPrivacyGuideInteractions" expires_after="2026-05-03">
   <owner>harrisonsean@chromium.org</owner>
   <owner>rainhard@chromium.org</owner>
   <owner>chrome-privacy-controls@google.com</owner>
@@ -500,7 +503,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.PrivacyGuide.SettingsStates"
-    enum="SettingsPrivacyGuideSettingsStates" expires_after="2025-12-28">
+    enum="SettingsPrivacyGuideSettingsStates" expires_after="2026-05-03">
   <owner>harrisonsean@chromium.org</owner>
   <owner>rainhard@chromium.org</owner>
   <owner>chrome-privacy-controls@google.com</owner>
@@ -513,7 +516,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram name="Settings.PrivacyGuide.StepsEligibleAndReached"
     enum="SettingsPrivacyGuideStepsEligibleAndReached"
-    expires_after="2026-03-01">
+    expires_after="2026-05-03">
   <owner>rainhard@chromium.org</owner>
   <owner>aisulu@google.com</owner>
   <owner>chrome-privacy-controls@google.com</owner>
@@ -687,7 +690,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.SafetyCheck.Interactions"
-    enum="SettingsSafetyCheckInteractions" expires_after="2026-03-22">
+    enum="SettingsSafetyCheckInteractions" expires_after="2026-05-24">
   <owner>rainhard@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
   <owner>anaudrey@chromium.org</owner>
@@ -699,7 +702,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.SafetyCheck.PasswordsResult2"
-    enum="SafetyCheckPasswordsStatus" expires_after="2026-03-01">
+    enum="SafetyCheckPasswordsStatus" expires_after="2026-05-03">
   <owner>rainhard@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
   <summary>
@@ -745,7 +748,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram name="Settings.SafetyCheck.UnusedSitePermissionsModuleInteractions"
     enum="SafetyCheckUnusedSitePermissionsModuleInteractions"
-    expires_after="2026-03-15">
+    expires_after="2026-05-17">
   <owner>sideyilmaz@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
   <summary>
@@ -803,7 +806,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.AbusiveNotificationPermissionRevocation.BlocklistCheckCount"
-    units="checks" expires_after="2026-03-22">
+    units="checks" expires_after="2026-05-24">
   <owner>skrakowi@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -816,7 +819,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 <histogram
     name="Settings.SafetyHub.AbusiveNotificationPermissionRevocation.Interactions"
     enum="SafetyCheckUnusedSitePermissionsModuleInteractions"
-    expires_after="2026-02-22">
+    expires_after="2026-04-26">
   <owner>skrakowi@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -829,7 +832,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.AbusiveNotificationPermissionRevocation.{NotificationRevocationSource}.{RevokedStatus}.PermissionChanged"
-    enum="ContentSetting" expires_after="2026-02-22">
+    enum="ContentSetting" expires_after="2026-05-10">
   <owner>skrakowi@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -852,7 +855,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.SafetyHub.AutorevokeUnusedSitePermissions.Changed"
-    enum="BooleanEnabled" expires_after="2026-02-22">
+    enum="BooleanEnabled" expires_after="2026-04-26">
   <owner>zalmashni@google.com</owner>
   <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
@@ -864,7 +867,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.AutorevokeUnusedSitePermissions.StateOnStartup"
-    enum="BooleanEnabled" expires_after="2026-03-01">
+    enum="BooleanEnabled" expires_after="2026-05-03">
   <owner>fsenra@google.com</owner>
   <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
@@ -875,7 +878,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.SafetyHub.Dashboard.Interactions"
-    enum="SafetyHubDashboardInteractions" expires_after="2026-02-22">
+    enum="SafetyHubDashboardInteractions" expires_after="2026-04-26">
   <owner>zalmashni@google.com</owner>
   <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
@@ -886,7 +889,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.SafetyHub.DashboardWarning"
-    enum="SafetyHubModuleType" expires_after="2026-03-22">
+    enum="SafetyHubModuleType" expires_after="2026-05-24">
   <owner>sideyilmaz@chromium.org</owner>
   <owner>chrome-privacy-controls@google.com</owner>
   <summary>
@@ -914,7 +917,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.DisruptiveNotificationRevocations.DailyDistribution.{RevocationState}.SiteEngagement{SiteEngagement}.DaysSinceRevocation"
-    units="days" expires_after="2026-02-26">
+    units="days" expires_after="2026-05-03">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
   <summary>
@@ -945,7 +948,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.DisruptiveNotificationRevocations.FalsePositive.DailyAverageVolume"
-    units="count" expires_after="2026-02-26">
+    units="count" expires_after="2026-05-03">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
   <summary>
@@ -961,7 +964,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.DisruptiveNotificationRevocations.FalsePositive.DaysSinceProposedRevocation"
-    units="count" expires_after="2026-02-26">
+    units="count" expires_after="2026-05-03">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
   <summary>
@@ -993,7 +996,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.DisruptiveNotificationRevocations.FalsePositive.PageVisitCount"
-    units="count" expires_after="2026-02-26">
+    units="count" expires_after="2026-05-03">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
   <summary>
@@ -1009,7 +1012,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.DisruptiveNotificationRevocations.FalsePositive.SiteEngagement"
-    units="EngagementScore" expires_after="2026-02-26">
+    units="EngagementScore" expires_after="2026-05-03">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
   <summary>
@@ -1025,7 +1028,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.DisruptiveNotificationRevocations.HasReportedMetricsBeforeRevocation"
-    units="count" expires_after="2026-02-26">
+    units="count" expires_after="2026-05-03">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
   <summary>
@@ -1066,7 +1069,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.DisruptiveNotificationRevocations.NotDisruptiveAnymore.SiteEngagementIncreased"
-    units="count" expires_after="2026-02-26">
+    units="count" expires_after="2026-05-03">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
   <summary>
@@ -1078,7 +1081,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.DisruptiveNotificationRevocations.Proposed.NotificationCount"
-    units="count" expires_after="2026-02-26">
+    units="count" expires_after="2026-05-03">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
   <summary>
@@ -1114,7 +1117,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.DisruptiveNotificationRevocations.RevokedWebsitesCount"
-    units="count" expires_after="2026-02-26">
+    units="count" expires_after="2026-05-03">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
   <summary>
@@ -1126,7 +1129,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.DisruptiveNotificationRevocations.UserRegrant.{RegrantType}.DaysSinceProposedRevocation"
-    units="days" expires_after="2026-02-26">
+    units="days" expires_after="2026-05-03">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
   <summary>
@@ -1139,7 +1142,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.DisruptiveNotificationRevocations.UserRegrant.{RegrantType}.NewSiteEngagement"
-    units="days" expires_after="2026-02-26">
+    units="days" expires_after="2026-05-03">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
   <summary>
@@ -1152,7 +1155,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.DisruptiveNotificationRevocations.UserRegrant.{RegrantType}.PreviousNotificationCount"
-    units="count" expires_after="2026-02-26">
+    units="count" expires_after="2026-05-03">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
   <summary>
@@ -1165,7 +1168,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.DisruptiveNotificationRevocations.{RevocationState}.FalsePositiveInteraction"
-    enum="DisruptiveNotificationFalsePositiveReason" expires_after="2026-02-26">
+    enum="DisruptiveNotificationFalsePositiveReason" expires_after="2026-05-03">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
   <summary>
@@ -1202,7 +1205,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.SafetyHub.ExternalInteractions"
-    enum="SafetyHubExternalInteractions" expires_after="2026-02-22">
+    enum="SafetyHubExternalInteractions" expires_after="2026-04-26">
   <owner>zalmashni@google.com</owner>
   <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
@@ -1278,7 +1281,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram name="Settings.SafetyHub.NotificationPermissionsModule.Interactions"
     enum="SafetyCheckNotificationsModuleInteractions"
-    expires_after="2026-03-01">
+    expires_after="2026-05-03">
   <owner>sideyilmaz@chromium.org</owner>
   <owner>aisulu@google.com</owner>
   <owner>chrome-privacy-controls@google.com</owner>
@@ -1290,7 +1293,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.SafetyHub.NotificationPermissionsModule.ListCount"
-    units="suggestions" expires_after="2026-03-01">
+    units="suggestions" expires_after="2026-05-03">
   <owner>sideyilmaz@chromium.org</owner>
   <owner>aisulu@google.com</owner>
   <owner>chrome-privacy-controls@google.com</owner>
@@ -1338,7 +1341,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram name="Settings.SafetyHub.UnusedSitePermissionsModule.Interactions"
     enum="SafetyCheckUnusedSitePermissionsModuleInteractions"
-    expires_after="2026-03-01">
+    expires_after="2026-05-03">
   <owner>sideyilmaz@chromium.org</owner>
   <owner>aisulu@google.com</owner>
   <owner>chrome-privacy-controls@google.com</owner>
@@ -1350,7 +1353,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.SafetyHub.UnusedSitePermissionsModule.ListCount"
-    units="suggestions" expires_after="2026-03-01">
+    units="suggestions" expires_after="2026-05-03">
   <owner>sideyilmaz@chromium.org</owner>
   <owner>aisulu@google.com</owner>
   <owner>chrome-privacy-controls@google.com</owner>
@@ -1372,7 +1375,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.SafetyHub.{ModuleType}.{LifecycleEvent}"
-    enum="SafetyHubModuleState" expires_after="2026-02-22">
+    enum="SafetyHubModuleState" expires_after="2026-04-26">
   <owner>zalmashni@google.com</owner>
   <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
@@ -1383,7 +1386,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.SearchEngines.Interactions"
-    enum="SettingsSearchEnginesInteractions" expires_after="2026-03-22">
+    enum="SettingsSearchEnginesInteractions" expires_after="2026-05-24">
   <owner>yoangela@chromium.org</owner>
   <owner>chrome-omnibox-team@google.com</owner>
   <summary>
@@ -1403,7 +1406,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.StartupPageEngineTypes2"
-    enum="OmniboxSearchEngineType" expires_after="2026-03-08">
+    enum="OmniboxSearchEngineType" expires_after="2026-05-10">
   <owner>mpearson@chromium.org</owner>
   <owner>csharp@chromium.org</owner>
   <summary>
@@ -1420,7 +1423,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.StartupPageLoadSettings2" enum="SessionStartupPref"
-    expires_after="2026-02-22">
+    expires_after="2026-04-26">
   <owner>mpearson@chromium.org</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1443,7 +1446,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.TrackedPreferenceChangedEncrypted"
-    enum="TrackedPreference" expires_after="2025-12-26">
+    enum="TrackedPreference" expires_after="2026-01-20">
   <owner>zackhan@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1454,7 +1457,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.TrackedPreferenceChangedViaHmacFallback"
-    enum="TrackedPreference" expires_after="2025-12-26">
+    enum="TrackedPreference" expires_after="2026-01-20">
   <owner>zackhan@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1485,7 +1488,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="Settings.TrackedPreferenceClearedEncrypted"
-    enum="TrackedPreference" expires_after="2026-03-01">
+    enum="TrackedPreference" expires_after="2026-05-03">
   <owner>zackhan@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1496,7 +1499,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="Settings.TrackedPreferenceClearedViaHmacFallback"
-    enum="TrackedPreference" expires_after="2025-12-26">
+    enum="TrackedPreference" expires_after="2026-01-20">
   <owner>zackhan@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1573,7 +1576,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="Settings.TrackedPreferenceResetEncrypted"
-    enum="TrackedPreference" expires_after="2026-02-22">
+    enum="TrackedPreference" expires_after="2026-04-26">
   <owner>zackhan@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1640,7 +1643,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="Settings.TrackedPreferenceUnchangedEncrypted"
-    enum="TrackedPreference" expires_after="2026-03-01">
+    enum="TrackedPreference" expires_after="2026-05-03">
   <owner>zackhan@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1651,7 +1654,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="Settings.TrackedPreferenceUnchangedViaHmacFallback"
-    enum="TrackedPreference" expires_after="2026-03-01">
+    enum="TrackedPreference" expires_after="2026-05-03">
   <owner>zackhan@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1691,7 +1694,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="Settings.TrackedPreferenceWantedResetEncrypted"
-    enum="TrackedPreference" expires_after="2026-03-01">
+    enum="TrackedPreference" expires_after="2026-05-03">
   <owner>zackhan@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1701,7 +1704,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="Settings.TrackedPreferenceWantedResetViaHmacFallback"
-    enum="TrackedPreference" expires_after="2025-12-26">
+    enum="TrackedPreference" expires_after="2026-01-20">
   <owner>zackhan@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1713,7 +1716,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="Settings.TrackingProtection.BlockAllThirdParty" enum="Boolean"
-    expires_after="2026-03-01">
+    expires_after="2026-05-03">
   <owner>fmacintosh@google.com</owner>
   <owner>koilos@google.com</owner>
   <summary>
@@ -1724,7 +1727,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="Settings.TrackingProtection.Enabled" enum="BooleanEnabled"
-    expires_after="2026-03-01">
+    expires_after="2026-05-03">
   <owner>fmacintosh@google.com</owner>
   <owner>koilos@google.com</owner>
   <summary>

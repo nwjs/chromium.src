@@ -59,7 +59,7 @@ void OmniboxPopupWebUIContent::ShowUI() {
 
 WebuiOmniboxHandler* OmniboxPopupWebUIContent::omnibox_handler() {
   auto* webui_controller = contents_wrapper()->GetWebUIController();
-  return webui_controller ? webui_controller->handler() : nullptr;
+  return webui_controller ? webui_controller->omnibox_handler() : nullptr;
 }
 
 BEGIN_METADATA(OmniboxPopupWebUIContent)

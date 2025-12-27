@@ -49,6 +49,7 @@ class SingleThreadTaskRunner;
 
 namespace viz {
 
+class CopyOutputResult;
 class SurfaceInfo;
 struct VizTouchState;
 
@@ -247,7 +248,8 @@ class VIZ_HOST_EXPORT HostFrameSinkManager
   const VizTouchState* GetVizTouchStatePtr() const;
 
   using ScreenshotDestinationReadyCallback =
-      base::OnceCallback<void(const SkBitmap& copy_output)>;
+      base::OnceCallback<void(std::unique_ptr<CopyOutputResult>)>;
+
   // Sets the callback which is invoked when a `CopyOutputResult` associated
   // with `destination_token` is received by the host/browser process from the
   // Viz process. Must be called once per `destination_token`.

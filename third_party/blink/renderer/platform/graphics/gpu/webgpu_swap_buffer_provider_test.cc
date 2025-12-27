@@ -337,12 +337,15 @@ TEST_F(WebGPUSwapBufferProviderTest,
   // Release resources one by one and expect shared images to be destroyed.
   provider_ = nullptr;
   std::move(release_callback1).Run(gpu::SyncToken(), false /* lostResource */);
+  resource1 = viz::TransferableResource();
   EXPECT_EQ(sii_->shared_image_count(), 2u);
 
   std::move(release_callback2).Run(gpu::SyncToken(), false /* lostResource */);
+  resource2 = viz::TransferableResource();
   EXPECT_EQ(sii_->shared_image_count(), 1u);
 
   std::move(release_callback3).Run(gpu::SyncToken(), false /* lostResource */);
+  resource3 = viz::TransferableResource();
   EXPECT_EQ(sii_->shared_image_count(), 0u);
 }
 
@@ -361,7 +364,7 @@ TEST_F(WebGPUSwapBufferProviderTest, VerifyResizingProperlyAffectsResources) {
   provider_->GetNewTexture(kSize);
   EXPECT_TRUE(
       provider_->PrepareTransferableResource(&resource, &release_callback));
-  EXPECT_EQ(kSize, resource.size);
+  EXPECT_EQ(kSize, resource.GetSize());
   std::move(release_callback).Run(gpu::SyncToken(), false /* lostResource */);
 
   // Produce one resource of size kOtherSize.
@@ -372,7 +375,7 @@ TEST_F(WebGPUSwapBufferProviderTest, VerifyResizingProperlyAffectsResources) {
   provider_->GetNewTexture(kOtherSize);
   EXPECT_TRUE(
       provider_->PrepareTransferableResource(&resource, &release_callback));
-  EXPECT_EQ(kOtherSize, resource.size);
+  EXPECT_EQ(kOtherSize, resource.GetSize());
   std::move(release_callback).Run(gpu::SyncToken(), false /* lostResource */);
 
   // Produce one resource of size kSize again.
@@ -383,7 +386,7 @@ TEST_F(WebGPUSwapBufferProviderTest, VerifyResizingProperlyAffectsResources) {
   provider_->GetNewTexture(kSize);
   EXPECT_TRUE(
       provider_->PrepareTransferableResource(&resource, &release_callback));
-  EXPECT_EQ(kSize, resource.size);
+  EXPECT_EQ(kSize, resource.GetSize());
   std::move(release_callback).Run(gpu::SyncToken(), false /* lostResource */);
 }
 
@@ -414,6 +417,7 @@ TEST_F(WebGPUSwapBufferProviderTest, VerifyInsertAndWaitSyncTokenCorrectly) {
   gpu::SyncToken release_token;
   webgpu_->GenSyncTokenCHROMIUM(release_token.GetData());
   std::move(release_callback).Run(release_token, false /* lostResource */);
+  resource = viz::TransferableResource();
 
   // Release the unused swap buffers held by the provider.
   provider_ = nullptr;
@@ -681,7 +685,7 @@ TEST_F(WebGPUSwapBufferProviderTest, ReserveTextureDescriptorForReflection) {
   provider_->GetNewTexture(kSize);
   EXPECT_TRUE(
       provider_->PrepareTransferableResource(&resource, &release_callback));
-  EXPECT_EQ(kSize, resource.size);
+  EXPECT_EQ(kSize, resource.GetSize());
   std::move(release_callback).Run(gpu::SyncToken(), false /* lostResource */);
 
   // Produce one resource of size kOtherSize. The descriptor passed to
@@ -697,7 +701,7 @@ TEST_F(WebGPUSwapBufferProviderTest, ReserveTextureDescriptorForReflection) {
   provider_->GetNewTexture(kOtherSize);
   EXPECT_TRUE(
       provider_->PrepareTransferableResource(&resource, &release_callback));
-  EXPECT_EQ(kOtherSize, resource.size);
+  EXPECT_EQ(kOtherSize, resource.GetSize());
   std::move(release_callback).Run(gpu::SyncToken(), false /* lostResource */);
 }
 
@@ -746,7 +750,7 @@ TEST_F(WebGPUSwapBufferProviderTest,
   auto front_buffer_si = provider_->GetFrontBufferSharedImage();
   EXPECT_NE(front_buffer_si, nullptr);
   EXPECT_EQ(front_buffer_si->size(), kSize);
-  EXPECT_EQ(front_buffer_si->format(), resource.format);
+  EXPECT_EQ(front_buffer_si->format(), resource.GetFormat());
 }
 
 // Verifies that GetNewTexture() passes client-specified internal usages to

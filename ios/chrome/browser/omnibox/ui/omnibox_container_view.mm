@@ -46,32 +46,41 @@ const CGFloat kThumbnailImageLeadingMargin = 9;
 const CGFloat kLeadingImageLeadingMarginLensOverlay = 12;
 const CGFloat kLeadingImageTrailingMarginLensOverlay = 9;
 
-/// Size of the leading image when presented in AIM Prototype.
+/// Size of the leading image when presented in composebox.
 const CGFloat kLeadingImageSizeAIM = 22;
-// The leading image margins when presented in AIM Prototype.
+// The leading image margins when presented in composebox.
 const CGFloat kLeadingImageLeadingMarginAIM = 7;
 const CGFloat kLeadingImageTrailingMarginAIM = 11;
 
 /// Space between the clear button and the edge of the omnibox.
 const CGFloat kTextInputViewClearButtonTrailingOffset = 4;
-/// The maximum number of lines for the text view before it starts scrolling.
-const int kMaxLines = 3;
 
 /// Clear button inset on all sides.
 const CGFloat kClearButtonInset = 4.0f;
 /// Clear button image size.
 const CGFloat kClearButtonImageSize = 17.0f;
+const CGFloat kComposeboxClearButtonImageSize = 15.0f;
 const CGFloat kClearButtonSize = 28.0f;
 
 /// Whether the omnibox is using the text view instead of the text field.
 bool UseTextView(OmniboxPresentationContext presentation_context) {
   if (presentation_context == OmniboxPresentationContext::kLocationBar) {
     return IsMultilineBrowserOmniboxEnabled();
-  } else if (presentation_context ==
-             OmniboxPresentationContext::kAIMPrototype) {
-    return base::FeatureList::IsEnabled(kIOSOmniboxUseTextView);
+  } else if (presentation_context == OmniboxPresentationContext::kComposebox) {
+    return YES;
   }
   return NO;
+}
+
+/// The maxium number of lines for the multiline omnibox before it starts
+/// scrolling in the presentation context.
+int MaxNumberOfLines(OmniboxPresentationContext presentation_context) {
+  if (presentation_context == OmniboxPresentationContext::kComposebox) {
+    return 5;
+  }
+  // Lower as the other presentation context don't cap the height of the text
+  // view.
+  return 3;
 }
 
 /// Creates and configures the leading image view.
@@ -81,7 +90,7 @@ UIImageView* CreateLeadingImageView(
   UIImageView* leading_image_view = [[UIImageView alloc] init];
   leading_image_view.translatesAutoresizingMaskIntoConstraints = NO;
   leading_image_view.tintColor = icon_tint;
-  if (presentation_context == OmniboxPresentationContext::kAIMPrototype) {
+  if (presentation_context == OmniboxPresentationContext::kComposebox) {
     leading_image_view.contentMode = UIViewContentModeScaleAspectFit;
     [NSLayoutConstraint activateConstraints:@[
       [leading_image_view.widthAnchor
@@ -120,20 +129,28 @@ OmniboxThumbnailButton* CreateThumbnailButton() {
 }
 
 /// Creates and configures the clear button.
-UIButton* CreateClearButton() {
+UIButton* CreateClearButton(OmniboxPresentationContext presentationContext) {
   UIButtonConfiguration* conf =
       [UIButtonConfiguration plainButtonConfiguration];
-  conf.image =
-      DefaultSymbolWithPointSize(kXMarkCircleFillSymbol, kClearButtonImageSize);
+  CGFloat imageSize =
+      presentationContext == OmniboxPresentationContext::kComposebox
+          ? kComposeboxClearButtonImageSize
+          : kClearButtonImageSize;
+  conf.image = DefaultSymbolWithPointSize(kXMarkCircleFillSymbol, imageSize);
   conf.contentInsets =
       NSDirectionalEdgeInsetsMake(kClearButtonInset, kClearButtonInset,
                                   kClearButtonInset, kClearButtonInset);
   UIButton* clear_button = [UIButton buttonWithType:UIButtonTypeSystem];
   clear_button.translatesAutoresizingMaskIntoConstraints = NO;
   clear_button.configuration = conf;
-  clear_button.tintColor = [UIColor colorNamed:kTextfieldPlaceholderColor];
+  if (presentationContext == OmniboxPresentationContext::kComposebox) {
+    clear_button.tintColor = [UIColor colorNamed:kTextTertiaryColor];
+  } else {
+    clear_button.tintColor = [UIColor colorNamed:kTextfieldPlaceholderColor];
+  }
+
   SetA11yLabelAndUiAutomationName(clear_button, IDS_IOS_ACCNAME_CLEAR_TEXT,
-                                  @"Clear Text");
+                                  kOmniboxClearButtonAccessibilityIdentifier);
   clear_button.pointerInteractionEnabled = YES;
   clear_button.pointerStyleProvider =
       CreateLiftEffectCirclePointerStyleProvider();
@@ -168,9 +185,8 @@ UIButton* CreateClearButton() {
   /// The context in which the omnibox is presented.
   OmniboxPresentationContext _presentationContext;
 
-  // The constraint for the textfield's leading anchor when the thumbnail is
-  // visible.
-  NSLayoutConstraint* _textInputViewLeadingToThumbnailConstraint;
+  // The constraint for the textfield's leading anchor.
+  NSLayoutConstraint* _textInputViewLeadingConstraint;
   // The constraint for the textfield's leading anchor when the thumbnail is
   // hidden.
   NSLayoutConstraint* _textInputViewLeadingToIconConstraint;
@@ -179,9 +195,19 @@ UIButton* CreateClearButton() {
   // The last known width of the text view, used to avoid redundant height
   // calculations.
   CGFloat _lastKnownTextViewWidth;
+  // The last computed ideal height of the text view, before being constrained
+  // by the container's bounds.
+  CGFloat _lastComputedIdealHeight;
+  // The last computed intrinsic height, used by the `intrinsicContentSize`
+  // property.
+  CGFloat _currentIntrinsicHeight;
+  // Constraint determining whether the text input is constraint to the close
+  // button.
+  NSLayoutConstraint* _textInputToCloseButton;
 }
 
 @synthesize heightDelegate = _heightDelegate;
+@synthesize leadingImageHidden = _leadingImageHidden;
 
 #pragma mark - Public
 
@@ -194,7 +220,7 @@ UIButton* CreateClearButton() {
   if (self) {
     _presentationContext = presentationContext;
     _leadingImageView = CreateLeadingImageView(iconTint, presentationContext);
-    self.clearButton = CreateClearButton();
+    self.clearButton = CreateClearButton(presentationContext);
     [self createAndAddTextInputViewWithTextColor:textColor
                                    textInputTint:textInputTint];
 
@@ -216,9 +242,23 @@ UIButton* CreateClearButton() {
     if (_presentationContext == OmniboxPresentationContext::kLensOverlay) {
       leadingImageLeadingOffset = kLeadingImageLeadingMarginLensOverlay;
     } else if (_presentationContext ==
-               OmniboxPresentationContext::kAIMPrototype) {
+               OmniboxPresentationContext::kComposebox) {
       leadingImageLeadingOffset = kLeadingImageLeadingMarginAIM;
     }
+
+    _textInputToCloseButton = [_textInputView.trailingAnchor
+        constraintEqualToAnchor:self.clearButton.leadingAnchor];
+    _textInputToCloseButton.active = NO;
+
+    NSLayoutConstraint* textInputToContainerTrailing =
+        [_textInputView.trailingAnchor
+            constraintEqualToAnchor:self.trailingAnchor];
+    textInputToContainerTrailing.priority = UILayoutPriorityRequired - 1;
+
+    CGFloat clearTrailingOffset =
+        _presentationContext == OmniboxPresentationContext::kComposebox
+            ? 0
+            : kTextInputViewClearButtonTrailingOffset;
 
     [NSLayoutConstraint activateConstraints:@[
       [_leadingImageView.leadingAnchor
@@ -232,9 +272,8 @@ UIButton* CreateClearButton() {
           constraintEqualToAnchor:referenceCenterYAnchor],
       [self.clearButton.trailingAnchor
           constraintEqualToAnchor:self.trailingAnchor
-                         constant:-kTextInputViewClearButtonTrailingOffset],
-      [_textInputView.trailingAnchor
-          constraintEqualToAnchor:self.clearButton.leadingAnchor],
+                         constant:-clearTrailingOffset],
+      textInputToContainerTrailing
     ]];
 
     // Thumbnail image view.
@@ -248,28 +287,9 @@ UIButton* CreateClearButton() {
         [_thumbnailButton.centerYAnchor
             constraintEqualToAnchor:referenceCenterYAnchor]
       ]];
-
-      // The textInputView can be anchored to the thumbnail (if visible) or the
-      // leading icon (if thumbnail is hidden).
-      _textInputViewLeadingToThumbnailConstraint = [_textInputView.leadingAnchor
-          constraintEqualToAnchor:_thumbnailButton.trailingAnchor
-                         constant:kThumbnailImageTrailingMargin];
     }
 
-    CGFloat textInputViewLeadingOffset = kOmniboxTextFieldLeadingOffsetImage;
-    if (_presentationContext == OmniboxPresentationContext::kLensOverlay) {
-      textInputViewLeadingOffset = kLeadingImageTrailingMarginLensOverlay;
-    } else if (_presentationContext ==
-               OmniboxPresentationContext::kAIMPrototype) {
-      textInputViewLeadingOffset = kLeadingImageTrailingMarginAIM;
-    }
-
-    _textInputViewLeadingToIconConstraint = [_textInputView.leadingAnchor
-        constraintEqualToAnchor:_leadingImageView.trailingAnchor
-                       constant:textInputViewLeadingOffset];
-    // By default, the thumbnail is hidden, so the text field is anchored to the
-    // leading icon.
-    _textInputViewLeadingToIconConstraint.active = YES;
+    [self updateLeadingConstraint];
   }
   return self;
 }
@@ -280,6 +300,7 @@ UIButton* CreateClearButton() {
     _lastKnownTextViewWidth = _textView.bounds.size.width;
     [self updateTextViewHeight];
   }
+  [self updateTextViewLayout];
 }
 
 - (void)setLeadingImage:(UIImage*)image
@@ -304,12 +325,7 @@ UIButton* CreateClearButton() {
 - (void)setThumbnailImage:(UIImage*)image {
   [_thumbnailButton setThumbnailImage:image];
   [_thumbnailButton setHidden:!image];
-
-  BOOL thumbnailVisible = ![_thumbnailButton isHidden];
-  if (_textInputViewLeadingToThumbnailConstraint) {
-    _textInputViewLeadingToThumbnailConstraint.active = thumbnailVisible;
-  }
-  _textInputViewLeadingToIconConstraint.active = !thumbnailVisible;
+  [self updateLeadingConstraint];
 }
 
 - (void)setLayoutGuideCenter:(LayoutGuideCenter*)layoutGuideCenter {
@@ -320,24 +336,82 @@ UIButton* CreateClearButton() {
                           underName:kOmniboxTextFieldGuide];
 }
 
+- (void)setLeadingImageHidden:(BOOL)leadingImageHidden {
+  _leadingImageHidden = leadingImageHidden;
+  _leadingImageView.hidden = leadingImageHidden;
+  [self updateLeadingConstraint];
+}
+
+- (void)setLeadingImageAlpha:(BOOL)alpha {
+  _leadingImageView.alpha = alpha;
+}
+
+- (void)forceDisableReturnKey:(BOOL)forceDisable {
+  [_textInputView forceDisableReturnKey:forceDisable];
+}
+
+- (void)setAllowsReturnKeyWithEmptyText:(BOOL)allowsReturnKeyWithEmptyText {
+  _textInputView.allowsReturnKeyWithEmptyText = allowsReturnKeyWithEmptyText;
+}
+
+- (void)setCustomPlaceholderText:(NSString*)customPlaceholderText {
+  [_textInputView setCustomPlaceholderText:[customPlaceholderText copy]];
+}
+
+- (void)updateLeadingConstraint {
+  _textInputViewLeadingConstraint.active = NO;
+
+  BOOL thumbnailVisible = !_thumbnailButton.hidden &&
+                          base::FeatureList::IsEnabled(kEnableLensOverlay);
+  if (self.leadingImageHidden) {
+    _textInputViewLeadingConstraint = [_textInputView.leadingAnchor
+        constraintEqualToAnchor:self.leadingAnchor];
+  } else if (thumbnailVisible) {
+    // The textInputView can be anchored to the thumbnail (if visible) or the
+    // leading icon (if thumbnail is hidden).
+    _textInputViewLeadingConstraint = [_textInputView.leadingAnchor
+        constraintEqualToAnchor:_thumbnailButton.trailingAnchor
+                       constant:kThumbnailImageTrailingMargin];
+  } else {
+    CGFloat textInputViewLeadingOffset = kOmniboxTextFieldLeadingOffsetImage;
+    if (_presentationContext == OmniboxPresentationContext::kLensOverlay) {
+      textInputViewLeadingOffset = kLeadingImageTrailingMarginLensOverlay;
+    } else if (_presentationContext ==
+               OmniboxPresentationContext::kComposebox) {
+      textInputViewLeadingOffset = kLeadingImageTrailingMarginAIM;
+    }
+
+    // By default, the thumbnail is hidden, so the text field is anchored to the
+    // leading icon.
+    _textInputViewLeadingConstraint = [_textInputView.leadingAnchor
+        constraintEqualToAnchor:_leadingImageView.trailingAnchor
+                       constant:textInputViewLeadingOffset];
+  }
+
+  _textInputViewLeadingConstraint.active = YES;
+}
+
 - (void)setClearButtonHidden:(BOOL)isHidden {
   self.clearButton.hidden = isHidden;
+  _textInputToCloseButton.active = !isHidden;
 }
 
 - (id<OmniboxTextInput>)textInput {
   return _textInputView;
 }
 
+#pragma mark - Private
+
+/// Updates the text view intrinsic content height and clip autocomplete text.
 - (void)updateTextViewHeight {
   if (!_textView) {
     return;
   }
 
-  // Recalculate textView height and update it to clip and scroll if necessary.
+  // Computes user text height.
   CGFloat verticalPadding =
       _textView.textContainerInset.top + _textView.textContainerInset.bottom;
-  CGFloat singleLineHeight = [self singleLineHeight];
-  CGFloat maxHeight = (singleLineHeight * kMaxLines) + verticalPadding;
+  CGFloat singleLineHeight = [_textView singleLineHeight];
 
   // Calculate the height of the user text.
   NSAttributedString* userText = _textView.attributedUserText;
@@ -362,8 +436,8 @@ UIButton* CreateClearButton() {
   if (!userTextHeight) {
     userTextHeight = singleLineHeight;
   }
-  CGFloat newHeight = ceilf(userTextHeight + verticalPadding);
 
+  // Records the number of lines and update it in the text view.
   NSInteger numberOfLines = round(userTextHeight / singleLineHeight);
   [self.metricsRecorder setNumberOfLines:numberOfLines];
   _textView.textContainer.maximumNumberOfLines = numberOfLines;
@@ -371,16 +445,38 @@ UIButton* CreateClearButton() {
       [self lineBreakModeForUserText:userText];
   [self updateLastLineClipping:defaultLineBreakMode];
 
-  newHeight = MIN(newHeight, maxHeight);
+  // Limit the number of lines and update intrinsic size.
+  _lastComputedIdealHeight = ceilf(userTextHeight + verticalPadding);
+  CGFloat maxHeightFromLines =
+      (singleLineHeight * MaxNumberOfLines(_presentationContext)) +
+      verticalPadding;
+  CGFloat intrinsicHeight = MIN(_lastComputedIdealHeight, maxHeightFromLines);
+
   if (!_textInputHeightConstraint) {
     _textInputHeightConstraint =
-        [_textView.heightAnchor constraintEqualToConstant:newHeight];
+        [_textView.heightAnchor constraintEqualToConstant:intrinsicHeight];
+    // Lower priority as the height is capped by the available height set by the
+    // embedder.
+    _textInputHeightConstraint.priority = UILayoutPriorityDefaultHigh + 1;
     _textInputHeightConstraint.active = YES;
   } else {
-    _textInputHeightConstraint.constant = newHeight;
+    _textInputHeightConstraint.constant = intrinsicHeight;
   }
-  _textView.scrollEnabled = userTextHeight > maxHeight;
-  [self.heightDelegate textFieldViewContaining:self didChangeHeight:newHeight];
+
+  if (_currentIntrinsicHeight != intrinsicHeight) {
+    _currentIntrinsicHeight = intrinsicHeight;
+    [self.heightDelegate textFieldViewContaining:self
+                                 didChangeHeight:intrinsicHeight];
+  }
+}
+
+/// Updates the text view layout.
+- (void)updateTextViewLayout {
+  if (!_textView) {
+    return;
+  }
+
+  _textView.scrollEnabled = _lastComputedIdealHeight > self.bounds.size.height;
 }
 
 /// Updates the paragraph style to clip the last line.
@@ -436,7 +532,21 @@ UIButton* CreateClearButton() {
   }
 }
 
+- (NSUInteger)numberOfLines {
+  if (_textInputView != _textView) {
+    return 1;
+  }
+
+  return _textView.textContainer.maximumNumberOfLines;
+}
+
 #pragma mark - TextFieldViewContaining
+
+- (void)setMinimumHeight:(CGFloat)minimumHeight {
+  if (UseTextView(_presentationContext)) {
+    _textView.minimumHeight = minimumHeight;
+  }
+}
 
 - (UIView*)textFieldView {
   return _textInputView;
@@ -486,29 +596,6 @@ UIButton* CreateClearButton() {
 }
 
 #pragma mark - Private
-
-/// Returns the height of a single line of text with the current font.
-- (CGFloat)singleLineHeight {
-  UIFont* font = _textView.font ?: _textView.currentFont;
-  // Create a sample attributed string for one line.
-  NSAttributedString* singleLineSampler =
-      [[NSAttributedString alloc] initWithString:@"T"
-                                      attributes:@{NSFontAttributeName : font}];
-  CGSize singleLineConstraint = CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX);
-  NSStringDrawingOptions options =
-      NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading;
-  CGRect singleLineBoundingRect =
-      [singleLineSampler boundingRectWithSize:singleLineConstraint
-                                      options:options
-                                      context:nil];
-  CGFloat measuredSingleLineHeight = ceilf(singleLineBoundingRect.size.height);
-
-  // If for some reason measurement fails, fall back to font.lineHeight.
-  if (measuredSingleLineHeight <= 0) {
-    measuredSingleLineHeight = font.lineHeight;
-  }
-  return measuredSingleLineHeight;
-}
 
 /// Computes the height needed to layout `attributedText` with `drawingWidth`.
 /// The height is computed with `lineBreakModeForUserText`.

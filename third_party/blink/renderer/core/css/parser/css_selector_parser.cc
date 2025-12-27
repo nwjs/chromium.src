@@ -19,6 +19,7 @@
 #include "third_party/blink/renderer/core/css/parser/css_parser_save_point.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token_stream.h"
+#include "third_party/blink/renderer/core/css/parser/route_parser.h"
 #include "third_party/blink/renderer/core/css/properties/css_parsing_utils.h"
 #include "third_party/blink/renderer/core/css/style_sheet_contents.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -404,6 +405,7 @@ CSSSelectorParser::ConsumeForgivingComplexSelectorList(
     if (selector.empty() || failed_parsing_ ||
         !AtEndOfComplexSelector(stream)) {
       output_.resize(subpos);  // Drop what we parsed so far.
+      stream.EnsureLookAhead();
       stream.Restore(state);
       AddPlaceholderSelectorIfNeeded(
           stream);  // Forwards until the end of the argument (i.e. to comma or
@@ -943,7 +945,6 @@ CSSSelector::PseudoType CSSSelectorParser::ParsePseudoType(
 
   return CSSSelector::PseudoType::kPseudoUnknown;
 }
-
 
 // static
 PseudoId CSSSelectorParser::ParsePseudoElement(const String& selector_string,
@@ -1865,6 +1866,16 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream,
       output_.push_back(std::move(selector));
       return true;
     }
+    case CSSSelector::kPseudoOverscrollAreaParent: {
+      const CSSParserToken& ident = stream.Peek();
+      if (ident.GetType() == kDelimiterToken && ident.Delimiter() == '*') {
+        selector.SetArgument(AtomicString("*"));
+      } else {
+        return false;
+      }
+      output_.push_back(std::move(selector));
+      return true;
+    }
     case CSSSelector::kPseudoScrollButton: {
       const CSSParserToken& ident = stream.Peek();
       if (ident.GetType() == kIdentToken) {
@@ -1898,6 +1909,17 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream,
       output_.push_back(std::move(selector));
       return true;
     }
+    case CSSSelector::kPseudoRouteMatch:
+      if (!RuntimeEnabledFeatures::RouteMatchingEnabled()) {
+        return false;
+      }
+      if (RouteLocation* route_location =
+              RouteParser::ParseLocation(stream, *context_->GetDocument())) {
+        selector.SetRouteLocation(route_location);
+        output_.push_back(std::move(selector));
+        return true;
+      }
+      return false;
     default:
       break;
   }

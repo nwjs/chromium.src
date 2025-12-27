@@ -7,7 +7,6 @@
 
 #include "base/byte_count.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
-#include "third_party/blink/public/common/privacy_budget/identifiable_token.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/events/event_dispatcher.h"
@@ -80,7 +79,7 @@ class CORE_EXPORT CanvasRenderingContextHost
 
   void UpdateMemoryUsage();
   base::ByteCount GetMemoryUsage() const {
-    return base::ByteCount(externally_allocated_memory_);
+    return externally_allocated_memory_;
   }
 
   // Initialize the indicated cc::Layer with the HTMLCanvasElement's CSS
@@ -161,12 +160,6 @@ class CORE_EXPORT CanvasRenderingContextHost
 
   bool ContextHasOpenLayers(const CanvasRenderingContext*) const;
 
-  // Computes the digest that corresponds to the "input" of this canvas,
-  // including the context type, and if applicable, canvas digest, and taint
-  // bits.
-  IdentifiableToken IdentifiabilityInputDigest(
-      const CanvasRenderingContext* const context) const;
-
   Member<PlainTextPainter> plain_text_painter_;
   Member<UniqueFontSelector> unique_font_selector_;
   gfx::Size size_;
@@ -178,7 +171,7 @@ class CORE_EXPORT CanvasRenderingContextHost
   RasterModeHint preferred_2d_raster_mode_ = RasterModeHint::kPreferCPU;
 
   // GPU Memory Management
-  intptr_t externally_allocated_memory_;
+  base::ByteCount externally_allocated_memory_;
   // NO_UNIQUE_ADDRESS allows making this member empty in production.
   NO_UNIQUE_ADDRESS V8ExternalMemoryAccounterBase external_memory_accounter_;
 };

@@ -45,7 +45,7 @@ gfx::ColorSpace GetColorSpaceForPixelFormat(media::VideoPixelFormat format) {
 class FakeContext : public RenderableGpuMemoryBufferVideoFramePool::Context {
  public:
   FakeContext()
-      : context_provider_(viz::TestContextProvider::Create()),
+      : context_provider_(viz::TestContextProvider::CreateGLES()),
         weak_factory_(this) {}
   ~FakeContext() override = default;
 
@@ -58,8 +58,6 @@ class FakeContext : public RenderableGpuMemoryBufferVideoFramePool::Context {
       gpu::SyncToken& sync_token) override {
     DoCreateMappableSharedImage(size, buffer_usage, si_format, color_space,
                                 usage, sync_token);
-    context_provider_->SharedImageInterface()
-        ->UseTestGMBInSharedImageCreationWithBufferUsage();
     return context_provider_->SharedImageInterface()->CreateSharedImage(
         {si_format, size, color_space, usage,
          "RenderableGpuMemoryBufferVideoFramePoolTest"},
@@ -376,7 +374,7 @@ TEST_P(RenderableGpuMemoryBufferVideoFramePoolTest,
   base::WeakPtr<FakeContext> context;
   std::unique_ptr<RenderableGpuMemoryBufferVideoFramePool> pool;
 
-  // Case 1 — requires_cpu_access = true
+  // Case 1: requires_cpu_access = true
   {
     auto context_strong = std::make_unique<FakeContext>();
     context = context_strong->GetWeakPtr();
@@ -412,7 +410,7 @@ TEST_P(RenderableGpuMemoryBufferVideoFramePoolTest,
   EXPECT_TRUE(base::test::RunUntil([&]() { return destroy_count == 1; }));
   EXPECT_EQ(destroy_count, 1);
 
-  // Case 2 — requires_cpu_access = false
+  // Case 2: requires_cpu_access = false
   {
     auto context_strong = std::make_unique<FakeContext>();
     context = context_strong->GetWeakPtr();

@@ -106,7 +106,7 @@
 #include "third_party/blink/renderer/core/layout/list/layout_inside_list_marker.h"
 #include "third_party/blink/renderer/core/layout/list/layout_list_item.h"
 #include "third_party/blink/renderer/core/layout/list/layout_outside_list_marker.h"
-#include "third_party/blink/renderer/core/layout/masonry/layout_masonry.h"
+#include "third_party/blink/renderer/core/layout/masonry/layout_grid_lanes.h"
 #include "third_party/blink/renderer/core/layout/mathml/layout_mathml_block.h"
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
 #include "third_party/blink/renderer/core/layout/svg/svg_layout_info.h"
@@ -408,10 +408,10 @@ LayoutObject* LayoutObject::CreateObject(Element* element,
     case EDisplay::kInlineGrid:
       UseCounter::Count(element->GetDocument(), WebFeature::kCSSGridLayout);
       return MakeGarbageCollected<LayoutGrid>(element);
-    case EDisplay::kMasonry:
-    case EDisplay::kInlineMasonry:
-      // TODO(ethavar): Add use counter for CSS Masonry.
-      return MakeGarbageCollected<LayoutMasonry>(element);
+    case EDisplay::kGridLanes:
+    case EDisplay::kInlineGridLanes:
+      // TODO(almaher): Add use counter for CSS Grid Lanes.
+      return MakeGarbageCollected<LayoutGridLanes>(element);
     case EDisplay::kMath:
     case EDisplay::kBlockMath:
       return MakeGarbageCollected<LayoutMathMLBlock>(element);
@@ -560,10 +560,10 @@ bool LayoutObject::IsStyleGenerated() const {
   return !node || node->IsPseudoElement();
 }
 
-void LayoutObject::MarkMayHaveAnchorQuery() {
-  for (LayoutObject* runner = this; runner && !runner->MayHaveAnchorQuery();
+void LayoutObject::MarkMayContainAnchor() {
+  for (LayoutObject* runner = this; runner && !runner->MayContainAnchor();
        runner = runner->Parent()) {
-    runner->SetSelfMayHaveAnchorQuery();
+    runner->SetSelfMayContainAnchor();
   }
 }
 
@@ -717,8 +717,9 @@ void LayoutObject::AddChild(LayoutObject* new_child,
       children->InsertChildNode(this, table, before_child);
     }
     table->AddChild(new_child);
-  } else if (new_child->IsHorizontalWritingMode() || !new_child->IsText())
-      [[likely]] {
+  } else if (!LayoutTextCombine::IsSupportedMode(
+                 new_child->StyleRef().GetWritingMode()) ||
+             !new_child->IsText()) [[likely]] {
     children->InsertChildNode(this, new_child, before_child);
   } else if (IsA<LayoutTextCombine>(*this)) {
     DCHECK(LayoutTextCombine::ShouldBeParentOf(*new_child)) << new_child;
@@ -1253,7 +1254,6 @@ LayoutBox* LayoutObject::EnclosingBox() const {
     curr = curr->Parent();
   }
 
-  DUMP_WILL_BE_NOTREACHED();
   return nullptr;
 }
 
@@ -1364,11 +1364,11 @@ static inline bool ObjectIsRelayoutBoundary(const LayoutObject* object) {
     return false;
   }
 
-  // Similarly to flex items, we can't relayout a grid/masonry item
+  // Similarly to flex items, we can't relayout a grid/grid-lanes item
   // independently of its container. This also applies to out of flow items of
   // the grid, as we need the cached information of the grid to recompute the
   // out of flow item's containing block rect.
-  if (box->ContainingBlock()->IsLayoutGridOrMasonry()) {
+  if (box->ContainingBlock()->IsLayoutGridOrGridLanes()) {
     return false;
   }
 
@@ -1394,9 +1394,9 @@ static inline bool ObjectIsRelayoutBoundary(const LayoutObject* object) {
     return false;
   }
 
-  // Anchor queries should be propagated across the layout boundaries, even
-  // when `contain: strict` is explicitly set.
-  if (fragment.HasAnchorQuery()) {
+  // Anchors should be propagated across the layout boundaries, even when
+  // `contain: strict` is explicitly set.
+  if (fragment.HasChildAnchors()) {
     return false;
   }
 
@@ -1698,10 +1698,10 @@ static inline bool ShouldInvalidateBeyond(LayoutObject* o) {
 
   // Invalidate past any subgrids. NOTE: we do this in both axes as we don't
   // know what writing-mode the root grid is in.
-  if (o->IsLayoutGridOrMasonry()) {
+  if (o->IsLayoutGridOrGridLanes()) {
     const auto& style = o->StyleRef();
-    // TODO(almaher): Masonry can only be subgridded in the grid axis, so we
-    // will only need to check in the grid/track sizing axis for masonry.
+    // TODO(almaher): Grid-lanes can only be subgridded in the grid axis, so we
+    // will only need to check in the grid/track sizing axis for grid-lanes.
     if (style.GridTemplateColumns().IsSubgriddedAxis() ||
         style.GridTemplateRows().IsSubgriddedAxis()) {
       return true;
@@ -3307,7 +3307,7 @@ void LayoutObject::StyleDidChange(
   }
 
   if (StyleRef().AnchorName())
-    MarkMayHaveAnchorQuery();
+    MarkMayContainAnchor();
 
   const bool style_focusability = style_ && style_->IsFocusable();
   const bool old_style_focusability = old_style && old_style->IsFocusable();
@@ -3862,9 +3862,9 @@ void LayoutObject::InsertedIntoTree() {
 
   if (const Element* element = DynamicTo<Element>(GetNode());
       element && element->MayBeImplicitAnchor()) {
-    MarkMayHaveAnchorQuery();
-  } else if (MayHaveAnchorQuery()) {
-    Parent()->MarkMayHaveAnchorQuery();
+    MarkMayContainAnchor();
+  } else if (MayContainAnchor()) {
+    Parent()->MarkMayContainAnchor();
   }
 }
 
@@ -4350,6 +4350,19 @@ void LayoutObject::ImageNotifyFinished(ImageResourceContent* image) {
     ImageElementTiming::From(*window).NotifyImageFinished(*this, image);
   if (LocalFrameView* frame_view = GetFrameView())
     frame_view->GetPaintTimingDetector().NotifyImageFinished(*this, image);
+
+  if (!image->ErrorOccurred() && image->IsAdResource()) {
+    if (auto* element = DynamicTo<Element>(GetNode())) {
+      // Skip setting the ad status for `HTMLFrameOwnerElement`, as frame owners
+      // manage their ad status separately (i.e., requires content frame
+      // notifications and allows untagging).
+      //
+      // TODO(yaoxia): Determine if this can be replaced with a DCHECK.
+      if (!IsA<HTMLFrameOwnerElement>(element)) {
+        element->SetIsAdRelated();
+      }
+    }
+  }
 }
 
 Element* LayoutObject::ScrollParent(const Element* base) const {

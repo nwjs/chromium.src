@@ -345,6 +345,8 @@ class PdfViewWebPlugin::PdfInkModuleClientImpl : public PdfInkModuleClient {
     return plugin_->engine_->GetPageSizeInPoints(page_index).value();
   }
 
+  PdfCaret* GetPdfCaret() override { return plugin_->engine_->caret(); }
+
   PdfInkModuleClient::SelectionRectMap GetSelectionRectMap() override {
     return plugin_->engine_->GetSelectionRectMap();
   }
@@ -781,7 +783,7 @@ void PdfViewWebPlugin::UpdateScroll(const gfx::PointF& scroll_position) {
 
 void PdfViewWebPlugin::UpdateFocus(bool focused,
                                    blink::mojom::FocusType focus_type) {
-  if (has_focus_ != focused) {
+  if (engine_->has_focus() != focused) {
     engine_->UpdateFocus(focused);
     client_->UpdateTextInputState();
 
@@ -792,9 +794,8 @@ void PdfViewWebPlugin::UpdateFocus(bool focused,
       return;
     }
   }
-  has_focus_ = focused;
 
-  if (!has_focus_ || !SupportsKeyboardFocus()) {
+  if (!focused || !SupportsKeyboardFocus()) {
     return;
   }
 
@@ -1089,6 +1090,9 @@ void PdfViewWebPlugin::OnRendererPreferencesUpdated(
           .Set("type", "rendererPreferencesUpdated")
           .Set("caretBrowsingEnabled", preferences.caret_browsing_enabled));
   engine_->SetCaretBrowsingEnabled(preferences.caret_browsing_enabled);
+  // Blink interval can be set to 0 to make the caret not blink.
+  engine_->SetCaretBlinkInterval(preferences.caret_blink_interval.value_or(
+      PdfCaret::kDefaultBlinkInterval));
 }
 
 void PdfViewWebPlugin::ProposeDocumentLayout(const DocumentLayout& layout) {

@@ -48,6 +48,7 @@ bool AudioCapturerChromeOs::Start(const PacketCapturedCallback& callback) {
   // thread.
   audio_helper_chromeos_.AsyncCall(&AudioHelperChromeOs::StartAudioStream)
       .WithArgs(
+          audio_playback_mode_,
           base::BindPostTask(
               base::SequencedTaskRunner::GetCurrentDefault(),
               base::BindRepeating(&AudioCapturerChromeOs::HandleAudioData,
@@ -60,10 +61,8 @@ bool AudioCapturerChromeOs::Start(const PacketCapturedCallback& callback) {
   return true;
 }
 
-void AudioCapturerChromeOs::Stop() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  packet_captured_callback_.Reset();
-  audio_helper_chromeos_.AsyncCall(&AudioHelperChromeOs::StopAudioStream);
+void AudioCapturerChromeOs::SetAudioPlaybackMode(AudioPlaybackMode mode) {
+  audio_playback_mode_ = mode;
 }
 
 void AudioCapturerChromeOs::HandleAudioData(
@@ -74,10 +73,9 @@ void AudioCapturerChromeOs::HandleAudioData(
   }
 }
 
-// TODO(crbug.com/450048643): Figure out error handling
 void AudioCapturerChromeOs::HandleAudioError() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  Stop();
+  packet_captured_callback_.Reset();
 }
 
 // static

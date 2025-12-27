@@ -23,17 +23,6 @@
 #include "third_party/perfetto/include/perfetto/tracing/event_context.h"
 #include "ui/base/page_transition_types.h"
 
-namespace internal {
-
-extern const char
-    kHistogramLayoutInstabilityMaxCumulativeShiftScoreSessionWindowGap1000msMax5000ms2
-        [];
-extern const char
-    kHistogramLayoutInstabilityMaxCumulativeShiftScoreSessionWindowGap1000msMax5000ms2Incognito
-        [];
-
-}  // namespace internal
-
 namespace content {
 class BrowserContext;
 }
@@ -55,11 +44,10 @@ class UkmPageLoadMetricsObserver
  public:
   // Returns a UkmPageLoadMetricsObserver, or nullptr if it is not needed.
   static std::unique_ptr<page_load_metrics::PageLoadMetricsObserver>
-  CreateIfNeeded(bool is_incognito);
+  CreateIfNeeded();
 
   explicit UkmPageLoadMetricsObserver(
-      network::NetworkQualityTracker* network_quality_tracker,
-      bool is_incognito);
+      network::NetworkQualityTracker* network_quality_tracker);
 
   UkmPageLoadMetricsObserver(const UkmPageLoadMetricsObserver&) = delete;
   UkmPageLoadMetricsObserver& operator=(const UkmPageLoadMetricsObserver&) =
@@ -142,6 +130,12 @@ class UkmPageLoadMetricsObserver
       const page_load_metrics::ContentfulPaintTimingInfo&
           all_frames_largest_contentful_paint);
 
+  // Finalizes soft navigation recording - this emits both the last
+  // SoftNavigationEvent, PageLoad.SoftNavigationCount, and the UMA
+  // histogram. This is to be emitted regardless of whether the page started in
+  // the background or is / was backgrounded.
+  void RecordLastSoftNavigation();
+
   // Records metrics based on the page load information exposed by the observer
   // delegate, as well as updating the URL. |app_background_time| should be set
   // to a timestamp if the app was backgrounded, otherwise it should be set to
@@ -176,7 +170,8 @@ class UkmPageLoadMetricsObserver
 
   void RecordSoftNavigationMetrics(
       ukm::SourceId ukm_source_id,
-      page_load_metrics::mojom::SoftNavigationMetrics& soft_navigation_metrics);
+      const page_load_metrics::mojom::SoftNavigationMetrics&
+          soft_navigation_metrics);
 
   void RecordLargestContentfulPaintBeforeSoftNavigation();
 
@@ -388,9 +383,6 @@ class UkmPageLoadMetricsObserver
   page_load_metrics::NavigationHandleUserData::InitiatorLocation
       navigation_trigger_type_ = page_load_metrics::NavigationHandleUserData::
           InitiatorLocation::kOther;
-
-  // Whether the WebContents being observed is for an Incognito profile.
-  bool is_incognito_;
 
   base::WeakPtrFactory<UkmPageLoadMetricsObserver> weak_factory_{this};
 };

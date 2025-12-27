@@ -32,7 +32,7 @@ class Browser;
 class ExtensionsMenuHandler;
 class ToolbarActionsModel;
 class ExtensionMenuItemView;
-class ExtensionActionViewController;
+class ExtensionActionViewModel;
 
 // The main view of the extensions menu.
 class ExtensionsMenuMainPageView : public views::View {
@@ -46,18 +46,12 @@ class ExtensionsMenuMainPageView : public views::View {
   const ExtensionsMenuMainPageView& operator=(
       const ExtensionsMenuMainPageView&) = delete;
 
-  // Creates and adds a menu item for `action_controller` at `index` for a
-  // newly-added extension.
-  void CreateAndInsertMenuItem(
-      std::unique_ptr<ExtensionActionViewController> action_controller,
-      extensions::ExtensionId extension_id,
-      bool is_enterprise,
-      ExtensionMenuItemView::SiteAccessToggleState site_access_toggle_state,
-      ExtensionMenuItemView::SitePermissionsButtonState
-          site_permissions_button_state,
-      ExtensionMenuItemView::SitePermissionsButtonAccess
-          site_permissions_button_access,
-      int index);
+  // Creates and adds a menu item for `model` at `index` for a newly-added
+  // extension.
+  void CreateAndInsertMenuItem(std::unique_ptr<ExtensionActionViewModel> model,
+                               extensions::ExtensionId extension_id,
+                               ExtensionsMenuViewModel::MenuItemInfo menu_item,
+                               int index);
 
   // Removes the menu item corresponding to `action_id`.
   void RemoveMenuItem(const ToolbarActionsModel::ActionId& action_id);

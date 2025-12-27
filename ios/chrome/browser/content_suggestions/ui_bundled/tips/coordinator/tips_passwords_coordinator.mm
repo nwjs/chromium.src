@@ -6,10 +6,12 @@
 
 #import "base/check.h"
 #import "components/segmentation_platform/embedder/home_modules/tips_manager/constants.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/tips/ui/save_passwords_instructional_overlay_view_controller.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tips/ui/save_passwords_instructional_view_controller.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/tips/ui/use_autofill_instructional_overlay_view_controller.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tips/ui/use_autofill_instructional_view_controller.h"
+#import "ios/chrome/browser/instructions_bottom_sheet/ui/instructions_bottom_sheet_view_controller.h"
+#import "ios/chrome/grit/ios_branded_strings.h"
+#import "ios/chrome/grit/ios_strings.h"
+#import "ui/base/l10n/l10n_util_mac.h"
 
 using segmentation_platform::TipIdentifier;
 
@@ -23,6 +25,9 @@ using segmentation_platform::TipIdentifier;
   // The view controller responsible for displaying the instructional overlay.
   InstructionsBottomSheetViewController*
       _tipsInstructionalOverlayViewController;
+
+  // Navigation controller for the instructions.
+  UINavigationController* _instructionsNavigationController;
 }
 
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
@@ -52,6 +57,12 @@ using segmentation_platform::TipIdentifier;
   UINavigationController* navigationController = [[UINavigationController alloc]
       initWithRootViewController:_tipsInstructionalViewController];
 
+  _tipsInstructionalViewController.navigationItem.rightBarButtonItem =
+      [[UIBarButtonItem alloc]
+          initWithBarButtonSystemItem:UIBarButtonSystemItemClose
+                               target:self
+                               action:@selector(dismissSheet)];
+
   navigationController.modalPresentationStyle = UIModalPresentationFormSheet;
 
   [self.baseViewController presentViewController:navigationController
@@ -66,6 +77,7 @@ using segmentation_platform::TipIdentifier;
                                                        completion:nil];
   _tipsInstructionalOverlayViewController.actionHandler = nil;
   _tipsInstructionalOverlayViewController = nil;
+  _instructionsNavigationController = nil;
   _tipsInstructionalViewController.actionHandler = nil;
   _tipsInstructionalViewController = nil;
   _delegate = nil;
@@ -75,7 +87,7 @@ using segmentation_platform::TipIdentifier;
 
 - (void)presentationControllerDidDismiss:
     (UIPresentationController*)presentationController {
-  [_delegate tipsPasswordsCoordinatorDidFinish:self];
+  [self dismissSheet];
 }
 
 #pragma mark - ConfirmationAlertActionHandler
@@ -83,7 +95,7 @@ using segmentation_platform::TipIdentifier;
 - (void)confirmationAlertPrimaryAction {
   // TODO(crbug.com/369457289): Track user interactions with the Tips module
   // using new metrics.
-  [_delegate tipsPasswordsCoordinatorDidFinish:self];
+  [self dismissSheet];
 }
 
 - (void)confirmationAlertSecondaryAction {
@@ -92,30 +104,64 @@ using segmentation_platform::TipIdentifier;
 
   if (_tipsInstructionalViewController) {
     _tipsInstructionalOverlayViewController =
-        _identifier == TipIdentifier::kSavePasswords
-            ? [[SavePasswordsInstructionalOverlayViewController alloc] init]
-            : [[UseAutofillInstructionalOverlayViewController alloc] init];
+        [[InstructionsBottomSheetViewController alloc]
+            initWithTitle:l10n_util::GetNSString(
+                              IDS_IOS_MAGIC_STACK_TIP_TUTORIAL_TITLE)
+             instructions:[self instructionsSteps]];
 
     _tipsInstructionalOverlayViewController.actionHandler = self;
 
+    _instructionsNavigationController = [[UINavigationController alloc]
+        initWithRootViewController:_tipsInstructionalOverlayViewController];
+    _tipsInstructionalOverlayViewController.navigationItem.rightBarButtonItem =
+        [[UIBarButtonItem alloc]
+            initWithBarButtonSystemItem:UIBarButtonSystemItemCancel
+                                 target:self
+                                 action:@selector(dismissInstructions)];
+
     [_tipsInstructionalViewController
-        presentViewController:_tipsInstructionalOverlayViewController
+        presentViewController:_instructionsNavigationController
                      animated:YES
                    completion:nil];
   }
 }
 
-- (void)confirmationAlertDismissAction {
-  if (_tipsInstructionalOverlayViewController) {
-    [_tipsInstructionalOverlayViewController.presentingViewController
-        dismissViewControllerAnimated:YES
-                           completion:nil];
-    _tipsInstructionalOverlayViewController = nil;
+#pragma mark - Private
 
-    return;
-  }
-
+// Dismisses the sheet.
+- (void)dismissSheet {
   [_delegate tipsPasswordsCoordinatorDidFinish:self];
+}
+
+// Dismisses the instructions.
+- (void)dismissInstructions {
+  [_instructionsNavigationController.presentingViewController
+      dismissViewControllerAnimated:YES
+                         completion:nil];
+  _instructionsNavigationController = nil;
+  _tipsInstructionalOverlayViewController = nil;
+}
+
+// Returns the instruction steps.
+- (NSArray<NSString*>*)instructionsSteps {
+  if (_identifier == TipIdentifier::kSavePasswords) {
+    return @[
+      l10n_util::GetNSString(
+          IDS_IOS_MAGIC_STACK_TIP_SAVE_PASSWORDS_TUTORIAL_STEP_1),
+      l10n_util::GetNSString(
+          IDS_IOS_MAGIC_STACK_TIP_SAVE_PASSWORDS_TUTORIAL_STEP_2),
+      l10n_util::GetNSString(
+          IDS_IOS_MAGIC_STACK_TIP_SAVE_PASSWORDS_TUTORIAL_STEP_3),
+    ];
+  }
+  return @[
+    l10n_util::GetNSString(
+        IDS_IOS_MAGIC_STACK_TIP_AUTOFILL_PASSWORDS_TUTORIAL_STEP_1),
+    l10n_util::GetNSString(
+        IDS_IOS_MAGIC_STACK_TIP_AUTOFILL_PASSWORDS_TUTORIAL_STEP_2),
+    l10n_util::GetNSString(
+        IDS_IOS_MAGIC_STACK_TIP_AUTOFILL_PASSWORDS_TUTORIAL_STEP_3),
+  ];
 }
 
 @end

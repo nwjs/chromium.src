@@ -80,6 +80,7 @@
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_prefs.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_capabilities.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/account_managed_status_finder.h"
@@ -227,7 +228,6 @@ void MaybeUpdateRepromptInfoAfterDecline(SigninPrefs& signin_prefs,
       gaia_id, base::Time::Now());
   int new_reprompt_count =
       signin_prefs.IncrementChromeSigninBubbleRepromptCount(gaia_id);
-
   base::UmaHistogramExactLinear("Signin.Intercept.ChromeSignin.RepromptCount",
                                 new_reprompt_count,
                                 kMaxChromeSigninBubbleRepromptCountAllowed + 1);
@@ -1236,7 +1236,6 @@ DiceWebSigninInterceptor::ProcessChromeSigninUserChoice(
     if (dismiss_count >= kMaxChromeSigninInterceptionDismissCount) {
       // Proceed with the result treated as declined since we reached the max
       // dismissal count, or the user is in the always ask mode.
-      // TODO(crbug.com/319396084): Should we record something here?
       processed_result = SigninInterceptionResult::kDeclined;
     } else {
       // Max dismiss count not reached yet, proceed with a simple dismiss.
@@ -1435,7 +1434,7 @@ void DiceWebSigninInterceptor::OnEnterpriseProfileCreationResult(
     if (GetPrimaryAccountInfo(identity_manager_).IsEmpty()) {
       identity_manager_->GetPrimaryAccountMutator()->SetPrimaryAccount(
           account_info.account_id, signin::ConsentLevel::kSignin,
-          signin_metrics::AccessPoint::kChromeSigninInterceptBubble);
+          signin_metrics::AccessPoint::kEnterpriseDialogAfterSigninInterception);
     } else {
       DCHECK_EQ(GetPrimaryAccountInfo(identity_manager_).account_id,
                 account_info.account_id);

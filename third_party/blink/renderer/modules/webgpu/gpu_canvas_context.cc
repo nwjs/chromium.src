@@ -170,7 +170,7 @@ void GPUCanvasContext::Dispose() {
   CanvasRenderingContext::Dispose();
 }
 
-scoped_refptr<StaticBitmapImage> GPUCanvasContext::GetImage(FlushReason) {
+scoped_refptr<StaticBitmapImage> GPUCanvasContext::GetImage() {
   if (!swap_buffers_) {
     return nullptr;
   }
@@ -283,12 +283,11 @@ GPUCanvasContext::PaintRenderingResultsToCanvas(
 
 scoped_refptr<StaticBitmapImage>
 GPUCanvasContext::PaintRenderingResultsToSnapshot(
-    SourceDrawingBuffer source_buffer,
-    FlushReason reason) {
+    SourceDrawingBuffer source_buffer) {
   CanvasResourceProviderSharedImage* provider =
       PaintRenderingResultsToCanvas(source_buffer);
 
-  return provider ? provider->Snapshot(reason) : nullptr;
+  return provider ? provider->Snapshot() : nullptr;
 }
 
 bool GPUCanvasContext::CopyRenderingResultsToVideoFrame(
@@ -469,6 +468,14 @@ void GPUCanvasContext::configure(const GPUCanvasConfiguration* descriptor,
 #if BUILDFLAG(IS_MAC)
   if (texture_descriptor_.format == wgpu::TextureFormat::RGBA8Unorm) {
     // RGBA8Unorm is not natively supported by MacOS's compositor.
+    copy_to_swap_texture_required_ = true;
+  }
+#endif
+
+#if BUILDFLAG(IS_LINUX)
+  if (texture_descriptor_.format == wgpu::TextureFormat::BGRA8Unorm) {
+    // WebGPU on vulkan with GL interop cannot support BGRA due to bugs in
+    // mesa. See anglebug.com/40644739
     copy_to_swap_texture_required_ = true;
   }
 #endif
@@ -1014,7 +1021,7 @@ scoped_refptr<StaticBitmapImage> GPUCanvasContext::SnapshotInternal(
     return nullptr;
   }
 
-  return resource_provider->Snapshot(FlushReason::kNone);
+  return resource_provider->Snapshot();
 }
 
 base::WeakPtr<WebGraphicsContext3DProviderWrapper>

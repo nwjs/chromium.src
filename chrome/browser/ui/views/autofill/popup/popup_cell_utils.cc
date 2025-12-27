@@ -154,7 +154,6 @@ std::u16string GetIconAccessibleName(Suggestion::Icon icon) {
     case Suggestion::Icon::kBnpl:
     case Suggestion::Icon::kClear:
     case Suggestion::Icon::kCode:
-    case Suggestion::Icon::kCreate:
     case Suggestion::Icon::kDelete:
     case Suggestion::Icon::kDevice:
     case Suggestion::Icon::kVehicle:
@@ -169,8 +168,6 @@ std::u16string GetIconAccessibleName(Suggestion::Icon icon) {
     case Suggestion::Icon::kGooglePay:
     case Suggestion::Icon::kGoogleWallet:
     case Suggestion::Icon::kGoogleWalletMonochrome:
-    case Suggestion::Icon::kHttpsInvalid:
-    case Suggestion::Icon::kHttpWarning:
     case Suggestion::Icon::kIdCard:
     case Suggestion::Icon::kKey:
     case Suggestion::Icon::kLocation:
@@ -186,7 +183,6 @@ std::u16string GetIconAccessibleName(Suggestion::Icon icon) {
     case Suggestion::Icon::kSaveAndFill:
     case Suggestion::Icon::kScanCreditCard:
     case Suggestion::Icon::kSettings:
-    case Suggestion::Icon::kSettingsAndroid:
     case Suggestion::Icon::kUndo:
     case Suggestion::Icon::kAndroidMessages:
       return std::u16string();
@@ -326,8 +322,6 @@ bool IsPaymentMethodSuggestion(const Suggestion& suggestion) {
     case SuggestionType::kComposeGoToSettings:
     case SuggestionType::kComposeNeverShowOnThisSiteAgain:
     case SuggestionType::kComposeSavedStateNotification:
-    case SuggestionType::kCreateNewPlusAddress:
-    case SuggestionType::kCreateNewPlusAddressInline:
     case SuggestionType::kDatalistEntry:
     case SuggestionType::kDevtoolsTestAddressByCountry:
     case SuggestionType::kDevtoolsTestAddressEntry:
@@ -343,7 +337,6 @@ bool IsPaymentMethodSuggestion(const Suggestion& suggestion) {
     case SuggestionType::kBackupPasswordEntry:
     case SuggestionType::kTroubleSigningInEntry:
     case SuggestionType::kPasswordFieldByFieldFilling:
-    case SuggestionType::kPlusAddressError:
     case SuggestionType::kSeparator:
     case SuggestionType::kTitle:
     case SuggestionType::kIdentityCredential:
@@ -407,14 +400,6 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
 #else
       return ImageModelFromVectorIcon(vector_icons::kEmailIcon, kIconSize);
 #endif
-    case Suggestion::Icon::kHttpWarning:
-      // For the http warning message, get the icon images from VectorIcon,
-      // which is the same as the security indicator icons in the location bar.
-      return ImageModelFromVectorIcon(omnibox::kHttpIcon, kIconSize);
-    case Suggestion::Icon::kHttpsInvalid:
-      return ui::ImageModel::FromVectorIcon(vector_icons::kNotSecureWarningIcon,
-                                            ui::kColorAlertHighSeverity,
-                                            kIconSize);
     case Suggestion::Icon::kIdCard:
       return ImageModelFromVectorIcon(vector_icons::kIdCardIcon,
                                       kChromeRefreshIconSize);
@@ -484,10 +469,8 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
       return std::nullopt;
 #endif
     case Suggestion::Icon::kIban:
-    case Suggestion::Icon::kCreate:
     case Suggestion::Icon::kOfferTag:
     case Suggestion::Icon::kScanCreditCard:
-    case Suggestion::Icon::kSettingsAndroid:
     case Suggestion::Icon::kCardGeneric:
     case Suggestion::Icon::kCardAmericanExpress:
     case Suggestion::Icon::kCardDiners:

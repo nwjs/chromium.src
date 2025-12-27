@@ -74,6 +74,12 @@ export function getHtml(this: HistoryAppElement) {
             </div>` : ''}
           <div id="tabsScrollContainer" class="cr-scrollable">
             <div class="cr-scrollable-top-shadow" ?hidden="${this.showTabs_}"></div>
+            <if expr="not is_chromeos">
+              ${this.shouldShowHistoryPageHistorySyncPromo_() ? html`
+                <div class="history-cards">
+                  <history-sync-promo></history-sync-promo>
+                </div>` : ''}
+            </if>
             ${this.enableHistoryEmbeddings_ ? html`
               <div id="historyEmbeddingsContainer" class="history-cards">
                 <history-embeddings-promo></history-embeddings-promo>
@@ -128,8 +134,7 @@ export function getHtml(this: HistoryAppElement) {
             <div class="cr-scrollable-top-shadow"></div>
             <history-synced-device-manager id="synced-devices"
                 .sessionList="${this.sessionList_}"
-                .searchTerm="${this.queryState_.searchTerm}"
-                .signInState="${this.signInState_}">
+                .searchTerm="${this.queryState_.searchTerm}">
             </history-synced-device-manager>
           </div>` : ''}
       </cr-page-selector>

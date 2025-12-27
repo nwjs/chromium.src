@@ -16,6 +16,7 @@
 #include "chrome/browser/android/resource_mapper.h"
 #include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_delegate_android_impl.h"
 #include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_payment_method_view.h"
+#include "chrome/browser/ui/autofill/payments/android_bnpl_ui_delegate.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
@@ -26,6 +27,7 @@
 #include "components/autofill/core/browser/integrators/touch_to_fill/touch_to_fill_delegate.h"
 #include "components/autofill/core/browser/payments/bnpl_util.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
+#include "components/autofill/core/browser/ui/payments/bnpl_tos_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "ui/android/window_android.h"
 
@@ -143,12 +145,21 @@ bool TouchToFillPaymentMethodControllerImpl::ShowLoyaltyCards(
   return true;
 }
 
-bool TouchToFillPaymentMethodControllerImpl::UpdateBnplPaymentMethod(
-    std::optional<uint64_t> extracted_amount,
-    bool is_amount_supported_by_any_issuer) {
-  if (!view_ || !view_->UpdateBnplPaymentMethod(
-                    extracted_amount, is_amount_supported_by_any_issuer)) {
+bool TouchToFillPaymentMethodControllerImpl::OnPurchaseAmountExtracted(
+    base::span<const payments::BnplIssuerContext> bnpl_issuer_contexts,
+    std::optional<int64_t> extracted_amount,
+    bool is_amount_supported_by_any_issuer,
+    const std::optional<std::string>& app_locale,
+    base::OnceCallback<void(BnplIssuer)> selected_issuer_callback,
+    base::OnceClosure cancel_callback) {
+  if (!view_ || !view_->OnPurchaseAmountExtracted(
+                    *this, bnpl_issuer_contexts, extracted_amount,
+                    is_amount_supported_by_any_issuer, app_locale)) {
     return false;
+  }
+  if (delegate_) {
+    delegate_->SetCancelCallback(std::move(cancel_callback));
+    delegate_->SetSelectedIssuerCallback(std::move(selected_issuer_callback));
   }
   return true;
 }
@@ -216,10 +227,33 @@ bool TouchToFillPaymentMethodControllerImpl::ShowErrorScreen(
 }
 
 bool TouchToFillPaymentMethodControllerImpl::ShowBnplIssuerTos(
-    const payments::BnplIssuerTosDetail& bnpl_issuer_tos_detail) {
-  if (!view_ || !view_->ShowBnplIssuerTos(*this, bnpl_issuer_tos_detail)) {
+    BnplTosModel bnpl_tos_model,
+    base::OnceClosure accept_callback,
+    base::OnceClosure cancel_callback) {
+  if (!view_ ||
+      !view_->ShowBnplIssuerTos(
+          *this,
+          payments::BnplIssuerTosDetail(
+              bnpl_tos_model.issuer.issuer_id(),
+              /*header_icon_id=*/
+              payments::AndroidBnplUiDelegate::GetDuoBrandedIconForBnplIssuer(
+                  bnpl_tos_model.issuer.issuer_id(),
+                  /*is_dark_mode=*/false),
+              /*header_icon_id_dark=*/
+              payments::AndroidBnplUiDelegate::GetDuoBrandedIconForBnplIssuer(
+                  bnpl_tos_model.issuer.issuer_id(),
+                  /*is_dark_mode=*/true),
+              /*is_linked_issuer=*/
+              bnpl_tos_model.issuer.payment_instrument().has_value(),
+              bnpl_tos_model.issuer.GetDisplayName(),
+              bnpl_tos_model.legal_message_lines))) {
     ResetJavaObject();
     return false;
+  }
+
+  if (delegate_) {
+    delegate_->SetCancelCallback(std::move(cancel_callback));
+    delegate_->SetBnplTosAcceptCallback(std::move(accept_callback));
   }
 
   return true;
@@ -267,11 +301,11 @@ void TouchToFillPaymentMethodControllerImpl::OnContentAutofillDriverCreated(
       std::make_unique<TouchToFillDelegateAndroidImpl>(&manager));
 }
 
-void TouchToFillPaymentMethodControllerImpl::OnDismissed(
-    JNIEnv* env,
-    bool dismissed_by_user) {
+void TouchToFillPaymentMethodControllerImpl::OnDismissed(JNIEnv* env,
+                                                         bool dismissed_by_user,
+                                                         bool should_reshow) {
   if (delegate_) {
-    delegate_->OnDismissed(dismissed_by_user);
+    delegate_->OnDismissed(dismissed_by_user, should_reshow);
   }
   view_.reset();
   delegate_.reset();
@@ -333,19 +367,17 @@ void TouchToFillPaymentMethodControllerImpl::LoyaltyCardSuggestionSelected(
   }
 }
 
-void TouchToFillPaymentMethodControllerImpl::OnErrorOkPressed(JNIEnv* env) {
-  if (delegate_) {
-    delegate_->OnErrorOkPressed();
-  } else {
-    Hide();
-  }
-}
-
 void TouchToFillPaymentMethodControllerImpl::OnBnplIssuerSuggestionSelected(
     JNIEnv* env,
     const std::string& issuer_id) {
   if (delegate_) {
     delegate_->OnBnplIssuerSuggestionSelected(issuer_id);
+  }
+}
+
+void TouchToFillPaymentMethodControllerImpl::OnBnplTosAccepted(JNIEnv* env) {
+  if (delegate_) {
+    delegate_->OnBnplTosAccepted();
   }
 }
 
@@ -373,3 +405,5 @@ void TouchToFillPaymentMethodControllerImpl::ResetJavaObject() {
 }
 
 }  // namespace autofill
+
+DEFINE_JNI(TouchToFillPaymentMethodControllerBridge)

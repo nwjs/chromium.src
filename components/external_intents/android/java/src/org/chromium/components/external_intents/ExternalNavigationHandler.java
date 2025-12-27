@@ -70,7 +70,6 @@ import org.chromium.ui.modaldialog.DialogDismissalCause;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogProperties;
 import org.chromium.ui.modelutil.PropertyModel;
-import org.chromium.ui.mojom.WindowOpenDisposition;
 import org.chromium.ui.permissions.PermissionCallback;
 import org.chromium.url.GURL;
 import org.chromium.url.Origin;
@@ -708,13 +707,6 @@ public class ExternalNavigationHandler {
         RecordHistogram.recordTimesHistogram(
                 "Android.StrictMode.OverrideUrlLoadingTime", SystemClock.elapsedRealtime() - time);
 
-        // Measure how many navigations would be affected if enabling feature flag
-        // AUXILIARY_NAVIGATION_STAYS_IN_BROWSER for all windowing modes.
-        RecordHistogram.recordBooleanHistogram(
-                "Android.Intent.OverrideBrowserAuxiliaryNavigation",
-                isBrowserAuxiliaryNavigation(params)
-                        && result.getResultType() != OverrideUrlLoadingResultType.NO_OVERRIDE);
-
         if (result.getResultType() == OverrideUrlLoadingResultType.NO_OVERRIDE) {
             result =
                     handleFallbackUrl(
@@ -1302,8 +1294,7 @@ public class ExternalNavigationHandler {
     private OverrideUrlLoadingResult fallBackToHandlingInApp(ExternalNavigationParams params) {
         // The default behavior for Desktop windowing should be to open a browser tab. In case
         // a new frame navigation starts in a PWA, we should reparent the tab to the browser.
-        if (ExternalIntentsFeatures.REPARENT_TOP_LEVEL_NAVIGATION_FROM_PWA.isEnabled()
-                && params.isInDesktopWindowingMode()
+        if (params.isInDesktopWindowingMode()
                 && params.isInitialNavigationInFrame()
                 && params.isTabInPWA()
                 && !params.isFromIntent()
@@ -1321,14 +1312,10 @@ public class ExternalNavigationHandler {
      * like websites launching CCTs).
      */
     private boolean isNavigationToSelf(
-            ExternalNavigationParams params,
             QueryIntentActivitiesSupplier resolvingInfos,
             ResolveActivitySupplier resolveActivity,
             boolean isExternalProtocol) {
         if (sAllowIntentsToSelfForTesting) return false;
-        if (!ExternalIntentsFeatures.BLOCK_INTENTS_TO_SELF.isEnabled() && params.isMainFrame()) {
-            return false;
-        }
         if (!isExternalProtocol) return false;
         if (!resolveInfoContainsSelf(resolvingInfos.get())) return false;
         ResolveInfo intentResolveInfo = resolveActivity.get();
@@ -1709,51 +1696,30 @@ public class ExternalNavigationHandler {
             boolean isInitialNavigationInFrame,
             boolean isInDesktopWindowingMode) {
         WebContents webContents = mDelegate.getWebContents();
-        return ExternalIntentsFeatures.REPARENT_AUXILIARY_NAVIGATION_FROM_PWA.isEnabled()
-                && isInitialNavigationInFrame
+        return isInitialNavigationInFrame
                 && isTabInPWA
                 && isInDesktopWindowingMode
                 && webContents != null
                 && webContents.hasOpener()
-                && webContents.getOriginalWindowOpenDisposition()
-                        == WindowOpenDisposition.NEW_FOREGROUND_TAB
+                && mDelegate.wasTabLaunchedFromLinkCreatingNewForegroundTab()
                 && UrlUtilities.isHttpOrHttps(url);
     }
 
-    // A new auxiliary browsing context navigation starting in the browser should not be captured.
-    private boolean isBrowserAuxiliaryNavigation(ExternalNavigationParams params) {
+    // A new auxiliary browsing context navigation starting in the browser in desktop windowing
+    // should not be captured.
+    private boolean isDesktopBrowserAuxiliaryNavigation(ExternalNavigationParams params) {
         // TODO(crbug.com/424781882): open discussion on whether self navigations in auxiliary page
         // should be capturable or not. If opening apps is desirable, add
-        // `isInitialNavigationInFrame()` in
-        // the return statement below, otherwise remove it.
+        // `isInitialNavigationInFrame()`.
         WebContents webContents = mDelegate.getWebContents();
-        if (params.isTabInBrowser()
+        if (params.isInDesktopWindowingMode()
+                && params.isTabInBrowser()
                 && webContents != null
                 && webContents.hasOpener()
-                && webContents.getOriginalWindowOpenDisposition()
-                        == WindowOpenDisposition.NEW_FOREGROUND_TAB
+                && mDelegate.wasTabLaunchedFromLinkCreatingNewForegroundTab()
                 && UrlUtilities.isHttpOrHttps(params.getUrl())) {
             if (debug()) {
                 Log.i(TAG, "Auxiliary browsing context navigation from browser is not overridden.");
-            }
-            return true;
-        }
-        return false;
-    }
-
-    // A new auxiliary browsing context navigation starting in the PWA should not be captured.
-    private boolean isPWAAuxiliaryNavigationInFullscreenWM(ExternalNavigationParams params) {
-        WebContents webContents = mDelegate.getWebContents();
-        if (ExternalIntentsFeatures.AUXILIARY_NAVIGATION_STAYS_IN_PWA.isEnabled()
-                && params.isTabInPWA()
-                && !params.isInDesktopWindowingMode()
-                && webContents != null
-                && webContents.hasOpener()
-                && webContents.getOriginalWindowOpenDisposition()
-                        == WindowOpenDisposition.NEW_FOREGROUND_TAB
-                && UrlUtilities.isHttpOrHttps(params.getUrl())) {
-            if (debug()) {
-                Log.i(TAG, "Do not override auxiliary browsing context navigation from a PWA.");
             }
             return true;
         }
@@ -1829,13 +1795,7 @@ public class ExternalNavigationHandler {
             return OverrideUrlLoadingResult.forReparentToBrowser();
         }
 
-        if (ExternalIntentsFeatures.AUXILIARY_NAVIGATION_STAYS_IN_BROWSER.isEnabled(
-                params.isInDesktopWindowingMode()) &&
-                isBrowserAuxiliaryNavigation(params)) {
-            return OverrideUrlLoadingResult.forNoOverride();
-        }
-
-        if (isPWAAuxiliaryNavigationInFullscreenWM(params)) {
+        if (isDesktopBrowserAuxiliaryNavigation(params)) {
             return OverrideUrlLoadingResult.forNoOverride();
         }
 
@@ -1926,7 +1886,7 @@ public class ExternalNavigationHandler {
         }
 
         ResolveActivitySupplier resolveActivity = new ResolveActivitySupplier(targetIntent);
-        if (isNavigationToSelf(params, resolvingInfos, resolveActivity, isExternalProtocol)) {
+        if (isNavigationToSelf(resolvingInfos, resolveActivity, isExternalProtocol)) {
             return OverrideUrlLoadingResult.forNavigateTab(intentTargetUrl, params);
         }
 

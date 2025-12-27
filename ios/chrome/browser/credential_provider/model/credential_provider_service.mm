@@ -325,7 +325,8 @@ void CredentialProviderService::SyncAllCredentials(
   AddCredentials(memoryCredentialStore, std::move(forms));
   // We only sync passkeys into the account store.
   if (passkey_model_ && (store == account_password_store_)) {
-    AddCredentials(memoryCredentialStore, passkey_model_->GetAllPasskeys());
+    AddCredentials(memoryCredentialStore,
+                   passkey_model_->GetUnShadowedPasskeys());
   }
   SyncStore();
 }
@@ -698,7 +699,7 @@ void CredentialProviderService::OnPasskeysChanged(
         passkeys_to_remove.push_back(passkey);
         break;
       case webauthn::PasskeyModelChange::ChangeType::UPDATE:
-        // TODO(crbug.com/330355124): do something more optimal than this.
+        // TODO(crbug.com/458784354): do something more optimal than this.
         passkeys_to_add.push_back(passkey);
         passkeys_to_remove.push_back(passkey);
         break;

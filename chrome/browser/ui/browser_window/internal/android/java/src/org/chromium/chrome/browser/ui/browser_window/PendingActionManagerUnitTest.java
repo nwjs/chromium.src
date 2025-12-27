@@ -17,6 +17,7 @@ import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTaskImpl.State;
 import org.chromium.chrome.browser.ui.browser_window.PendingActionManager.PendingAction;
 
 /** Unit tests for {@link PendingActionManager}. */
@@ -37,11 +38,7 @@ public class PendingActionManagerUnitTest {
     };
 
     private static final @PendingAction int[] NO_INPUT_GLOBAL_OVERRIDE_ACTIONS = {
-        PendingAction.HIDE,
-        PendingAction.CLOSE,
-        PendingAction.MAXIMIZE,
-        PendingAction.MINIMIZE,
-        PendingAction.RESTORE
+        PendingAction.HIDE, PendingAction.CLOSE, PendingAction.MINIMIZE,
     };
 
     private static final @PendingAction int[] SECONDARY_ACTIONS = {
@@ -434,7 +431,10 @@ public class PendingActionManagerUnitTest {
         mManager.requestAction(PendingAction.ACTIVATE);
 
         // Assert.
-        Assert.assertTrue(mManager.isActiveFuture());
+        assertEquals(
+                "isActive should be true in the future when ACTIVATE is in progress",
+                true,
+                mManager.isActiveFuture(State.PENDING_CREATE));
     }
 
     @Test
@@ -443,18 +443,80 @@ public class PendingActionManagerUnitTest {
         mManager.requestAction(PendingAction.SHOW);
 
         // Assert.
-        Assert.assertTrue(mManager.isVisibleFuture());
+        assertEquals(
+                "isVisible should be true in the future when SHOW is in progress",
+                true,
+                mManager.isVisibleFuture(State.PENDING_UPDATE));
+    }
+
+    @Test
+    public void testIsVisibleFuture_afterRequestMinimize_returnsFalse() {
+        // Arrange.
+        mManager.requestAction(PendingAction.MINIMIZE);
+
+        // Assert.
+        assertEquals(
+                "isVisible should be false in the future when MINIMIZE is in progress",
+                false,
+                mManager.isVisibleFuture(State.PENDING_UPDATE));
+    }
+
+    @Test
+    public void testIsMaximizedFuture_afterRequestMaximize_returnsTrue() {
+        // Arrange.
+        mManager.requestMaximize(new Rect());
+
+        // Assert.
+        assertEquals(
+                "isMaximized should be true in the future when MAXIMIZE is in progress",
+                true,
+                mManager.isMaximizedFuture(State.PENDING_UPDATE));
+    }
+
+    @Test
+    public void testIsActiveFuture_afterRequestMaximize_returnsTrue() {
+        // Arrange.
+        mManager.requestMaximize(new Rect());
+
+        // Assert.
+        assertEquals(
+                "isActive should be true in the future when MAXIMIZE is in progress",
+                true,
+                mManager.isActiveFuture(State.PENDING_UPDATE));
+    }
+
+    @Test
+    public void testSetBounds_afterSetBounds_returnsPendingBounds() {
+        // Arrange.
+        mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1);
+
+        // Assert.
+        assertEquals(
+                "Should return pending bounds",
+                TEST_SET_BOUNDS_INPUT_1,
+                mManager.getPendingBoundsInDp());
+    }
+
+    @Test
+    public void testClearSetBounds_afterSetBounds_returnsNull() {
+        // Arrange.
+        mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1);
+        mManager.getAndClearTargetPendingActions(PendingAction.SET_BOUNDS);
+
+        // Assert.
+        assertNull("Pending bounds should have been clear", mManager.getFutureBoundsInDp());
     }
 
     @Test
     public void testGetAndClearTargetPendingActions_afterClear_stateReturnsNull() {
         // Arrange.
         mManager.requestAction(PendingAction.ACTIVATE);
-        Assert.assertTrue(mManager.isActiveFuture());
+        assertEquals(true, mManager.isActiveFuture(State.PENDING_UPDATE));
 
         mManager.getAndClearTargetPendingActions(PendingAction.ACTIVATE);
-        Assert.assertNull(
-                "No pending action affecting isActive's future state", mManager.isActiveFuture());
+        assertNull(
+                "No pending action affecting isActive's future state",
+                mManager.isActiveFuture(State.PENDING_UPDATE));
     }
 
     private void doTestActionOverridesLowerPrecedenceAction(
@@ -474,6 +536,10 @@ public class PendingActionManagerUnitTest {
             mManager.clearPendingActionsForTesting();
             if (lowerPrecedenceAction == PendingAction.SET_BOUNDS) {
                 mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1);
+            } else if (lowerPrecedenceAction == PendingAction.MAXIMIZE) {
+                mManager.requestMaximize(new Rect());
+            } else if (lowerPrecedenceAction == PendingAction.RESTORE) {
+                mManager.requestRestore(new Rect());
             } else {
                 mManager.requestAction(lowerPrecedenceAction);
             }
@@ -521,6 +587,10 @@ public class PendingActionManagerUnitTest {
             // Arrange.
             if (higherPrecedenceAction == PendingAction.SET_BOUNDS) {
                 mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1);
+            } else if (higherPrecedenceAction == PendingAction.MAXIMIZE) {
+                mManager.requestMaximize(new Rect());
+            } else if (higherPrecedenceAction == PendingAction.RESTORE) {
+                mManager.requestRestore(new Rect());
             } else {
                 mManager.requestAction(higherPrecedenceAction);
             }
@@ -557,8 +627,11 @@ public class PendingActionManagerUnitTest {
                 // Arrange.
                 if (primaryAction == PendingAction.SET_BOUNDS) {
                     mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1);
+                } else if (primaryAction == PendingAction.MAXIMIZE) {
+                    mManager.requestMaximize(new Rect());
                 } else {
-                    mManager.requestAction(primaryAction);
+                    Assert.assertEquals(PendingAction.RESTORE, primaryAction);
+                    mManager.requestRestore(new Rect());
                 }
                 mManager.requestAction(priorSecondaryAction);
 
@@ -601,9 +674,13 @@ public class PendingActionManagerUnitTest {
                 // Arrange.
                 if (priorPrimaryAction == PendingAction.SET_BOUNDS) {
                     mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1);
+                } else if (priorPrimaryAction == PendingAction.MAXIMIZE) {
+                    mManager.requestMaximize(new Rect());
                 } else {
-                    mManager.requestAction(priorPrimaryAction);
+                    Assert.assertEquals(PendingAction.RESTORE, priorPrimaryAction);
+                    mManager.requestRestore(new Rect());
                 }
+
                 mManager.requestAction(priorSecondaryAction);
 
                 // Act.

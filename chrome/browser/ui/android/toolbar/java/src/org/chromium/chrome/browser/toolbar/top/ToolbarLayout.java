@@ -34,6 +34,7 @@ import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsV
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.omnibox.LocationBar;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
+import org.chromium.chrome.browser.omnibox.LocationBarEmbedder;
 import org.chromium.chrome.browser.omnibox.NewTabPageDelegate;
 import org.chromium.chrome.browser.omnibox.UrlBarData;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -67,6 +68,8 @@ import org.chromium.ui.util.MotionEventUtils;
 import org.chromium.ui.util.TokenHolder;
 import org.chromium.url.GURL;
 
+import java.util.function.Supplier;
+
 /**
  * Layout class that contains the base shared logic for manipulating the toolbar component. For
  * interaction that are not from Views inside Toolbar hierarchy all interactions should be done
@@ -74,7 +77,7 @@ import org.chromium.url.GURL;
  */
 @NullMarked
 public abstract class ToolbarLayout extends FrameLayout
-        implements Destroyable, TintObserver, ThemeColorObserver {
+        implements Destroyable, TintObserver, ThemeColorObserver, LocationBarEmbedder {
     private @Nullable ToolbarColorObserver mToolbarColorObserver;
 
     private final int[] mTempPosition = new int[2];
@@ -144,6 +147,8 @@ public abstract class ToolbarLayout extends FrameLayout
      * @param normalThemeColorProvider The {@link ThemeColorProvider} for normal mode.
      * @param incognitoStateProvider The {@link IncognitoStateProvider} for observering incognito
      *     state.
+     * @param incognitoWindowCountSupplier A supplier for the number of incognito windows, used by
+     *     the Incognito Indicator Menu on LFF.
      */
     @CallSuper
     @Initializer
@@ -162,7 +167,8 @@ public abstract class ToolbarLayout extends FrameLayout
             @Nullable HomeButtonDisplay homeButtonDisplay,
             @Nullable ExtensionToolbarCoordinator extensionToolbarCoordinator,
             ThemeColorProvider themeColorProvider,
-            IncognitoStateProvider incognitoStateProvider) {
+            IncognitoStateProvider incognitoStateProvider,
+            @Nullable Supplier<Integer> incognitoWindowCountSupplier) {
         mToolbarDataProvider = toolbarDataProvider;
         mToolbarTabController = tabController;
         mMenuButtonCoordinator = menuButtonCoordinator;
@@ -848,8 +854,16 @@ public abstract class ToolbarLayout extends FrameLayout
         }
     }
 
+    /** Notifies the observer that the toolbar starts expanding or has collapsed. */
+    protected void notifyToolbarExpandingOnNtp(boolean isExpanding) {
+        if (mToolbarColorObserver != null) {
+            mToolbarColorObserver.onToolbarExpandingOnNtp(isExpanding);
+        }
+    }
+
     /**
      * This method sets the toolbar hairline visibility.
+     *
      * @param isHairlineVisible whether the toolbar hairline should be visible.
      */
     public void setHairlineVisibility(boolean isHairlineVisible) {

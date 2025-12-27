@@ -1267,9 +1267,6 @@ void HistoryBackend::InitImpl(
   base::FilePath history_name = history_dir_.Append(kHistoryFilename);
   base::FilePath favicon_name = GetFaviconsFileName();
 
-  // Delete the old index database files which are no longer used.
-  DeleteFTSIndexDatabases();
-
   // History database.
   db_ = std::make_unique<HistoryDatabase>(
       history_database_params.download_interrupt_reason_none,
@@ -1495,7 +1492,8 @@ std::pair<URLID, VisitID> HistoryBackend::AddPageVisit(
   visit_info.is_known_to_sync = is_known_to_sync;
   visit_info.consider_for_ntp_most_visited = consider_for_ntp_most_visited;
   visit_info.app_id = app_id;
-  visit_info.visit_id = db_->AddVisit(&visit_info, visit_source);
+  visit_info.source = visit_source;
+  visit_info.visit_id = db_->AddVisit(&visit_info);
 
   if (visit_info.visit_time < first_recorded_time_)
     first_recorded_time_ = visit_info.visit_time;
@@ -1510,7 +1508,8 @@ std::pair<URLID, VisitID> HistoryBackend::AddPageVisit(
         response_code_category == VisitResponseCodeCategory::k404;
     UMA_HISTOGRAM_BOOLEAN("History.VisitAddedDueTo404", is_saved_due_to_404);
     // Broadcast a notification of the visit.
-    NotifyURLVisited(url_info, visit_info, local_navigation_id);
+    NotifyURLVisited(VisitedURLInfo(
+        url_info, visit_info, response_code_category, local_navigation_id));
   } else {
     DLOG(ERROR) << "Failed to build visit insert statement:  "
                 << "url_id = " << url_id;
@@ -1560,7 +1559,8 @@ void HistoryBackend::AddPagesWithDetails(const URLRows& urls,
                                     ui::PAGE_TRANSITION_CHAIN_END),
           /*arg_segment_id=*/0, /*arg_incremented_omnibox_typed_score=*/false,
           /*arg_opener_visit=*/0);
-      if (!db_->AddVisit(&visit_info, visit_source)) {
+      visit_info.source = visit_source;
+      if (!db_->AddVisit(&visit_info)) {
         DLOG(ERROR) << "AddPagesWithDetails: Adding visit failed: " << i->url();
         return;
       }
@@ -2141,9 +2141,11 @@ HistoryLastVisitResult HistoryBackend::GetLastVisitToHost(
     base::Time end_time,
     VisitQuery404sPolicy policy_for_404_visits) {
   base::Time last_visit;
+  GURL last_visited_url;
   return {db_ && db_->GetLastVisitToHost(host, begin_time, end_time,
-                                         policy_for_404_visits, &last_visit),
-          last_visit};
+                                         policy_for_404_visits, &last_visit,
+                                         &last_visited_url),
+          last_visit, last_visited_url};
 }
 
 HistoryLastVisitResult HistoryBackend::GetLastVisitToOrigin(
@@ -2152,9 +2154,11 @@ HistoryLastVisitResult HistoryBackend::GetLastVisitToOrigin(
     base::Time end_time,
     VisitQuery404sPolicy policy_for_404_visits) {
   base::Time last_visit;
+  GURL last_visited_url;
   return {db_ && db_->GetLastVisitToOrigin(origin, begin_time, end_time,
-                                           policy_for_404_visits, &last_visit),
-          last_visit};
+                                           policy_for_404_visits, &last_visit,
+                                           &last_visited_url),
+          last_visit, last_visited_url};
 }
 
 DailyVisitsResult HistoryBackend::GetDailyVisitsToOrigin(
@@ -2982,18 +2986,6 @@ void HistoryBackend::GetRedirectsToSpecificVisit(VisitID cur_visit,
   }
 }
 
-void HistoryBackend::DeleteFTSIndexDatabases() {
-  // Find files on disk matching the text databases file pattern so we can
-  // quickly test for and delete them.
-  base::FilePath::StringType filepattern = FILE_PATH_LITERAL("History Index *");
-  base::FileEnumerator enumerator(history_dir_, false,
-                                  base::FileEnumerator::FILES, filepattern);
-  base::FilePath current_file;
-  while (!(current_file = enumerator.Next()).empty()) {
-    sql::Database::Delete(current_file);
-  }
-}
-
 std::vector<favicon_base::FaviconRawBitmapResult> HistoryBackend::GetFavicon(
     const GURL& icon_url,
     favicon_base::IconType icon_type,
@@ -3644,14 +3636,12 @@ void HistoryBackend::NotifyFaviconsChanged(const std::set<GURL>& page_urls,
   delegate_->NotifyFaviconsChanged(page_urls, icon_url);
 }
 
-void HistoryBackend::NotifyURLVisited(
-    const URLRow& url_row,
-    const VisitRow& visit_row,
-    std::optional<int64_t> local_navigation_id) {
+void HistoryBackend::NotifyURLVisited(VisitedURLInfo visited_url_info) {
   for (HistoryBackendObserver& observer : observers_)
-    observer.OnURLVisited(this, url_row, visit_row);
+    observer.OnURLVisited(this, visited_url_info.url_row,
+                          visited_url_info.visit_row);
 
-  delegate_->NotifyURLVisited(url_row, visit_row, local_navigation_id);
+  delegate_->NotifyURLVisited(visited_url_info);
 }
 
 void HistoryBackend::NotifyURLsModified(const URLRows& changed_urls,
@@ -3814,6 +3804,16 @@ bool HistoryBackend::ClearAllMainHistory(const URLRows& kept_urls) {
 std::vector<GURL> HistoryBackend::GetCachedRecentRedirectsForPage(
     const GURL& page_url) {
   return GetCachedRecentRedirects(page_url);
+}
+
+std::optional<GURL> HistoryBackend::GetMostRecentlyVisitedURLForOrigin(
+    const url::Origin& origin) {
+  HistoryLastVisitResult result =
+      GetLastVisitToOrigin(origin, base::Time(), base::Time::Now(),
+                           VisitQuery404sPolicy::kInclude404s);
+  return result.success && result.last_visited_url.is_valid()
+             ? std::make_optional(result.last_visited_url)
+             : std::nullopt;
 }
 
 bool HistoryBackend::ProcessSetFaviconsResult(

@@ -437,10 +437,11 @@ TEST_P(DisplayMediaAccessHandlerActiveRfhTest, ProcessRequest) {
                  /*expect_result=*/true, /*expect_picker=*/active_rfh_,
                  request);
 
-  EXPECT_EQ(result,
-            active_rfh_
-                ? blink::mojom::MediaStreamRequestResult::OK
-                : blink::mojom::MediaStreamRequestResult::INVALID_STATE);
+  EXPECT_EQ(
+      result,
+      active_rfh_
+          ? blink::mojom::MediaStreamRequestResult::OK
+          : blink::mojom::MediaStreamRequestResult::FAILED_DUE_TO_SHUTDOWN);
 }
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -464,7 +465,8 @@ TEST_F(DisplayMediaAccessHandlerTest, DlpRestricted) {
   blink::mojom::StreamDevices devices;
   ProcessRequest(media_id, &result, devices, /*request_audio=*/false);
 
-  EXPECT_EQ(blink::mojom::MediaStreamRequestResult::PERMISSION_DENIED, result);
+  EXPECT_EQ(blink::mojom::MediaStreamRequestResult::DLP_PERMISSION_DENIED,
+            result);
   EXPECT_EQ(0u, blink::CountDevices(devices));
 }
 
@@ -828,7 +830,7 @@ TEST_F(DisplayMediaAccessHandlerTest, ChangeSourceDlpRestricted) {
   ChangeSourceRequestTest(
       /*with_audio=*/false,
       /*expected_result=*/
-      blink::mojom::MediaStreamRequestResult::PERMISSION_DENIED,
+      blink::mojom::MediaStreamRequestResult::DLP_PERMISSION_DENIED,
       /*expected_number_of_devices=*/0u);
 }
 
@@ -917,8 +919,9 @@ TEST_F(DisplayMediaAccessHandlerTest,
 #endif
   EXPECT_FALSE(test_flags_[1].picker_created);
   EXPECT_FALSE(test_flags_[1].picker_deleted);
-  EXPECT_EQ(blink::mojom::MediaStreamRequestResult::PERMISSION_DENIED,
-            results[1]);
+  EXPECT_EQ(
+      blink::mojom::MediaStreamRequestResult::CAPTURE_NOT_ALLOWED_BY_POLICY,
+      results[1]);
 }
 
 TEST_F(DisplayMediaAccessHandlerTest,
@@ -952,7 +955,8 @@ TEST_F(DisplayMediaAccessHandlerTest,
   return;
 #endif
   EXPECT_EQ(blink::mojom::MediaStreamRequestResult::OK, results[0]);
-  EXPECT_EQ(blink::mojom::MediaStreamRequestResult::INVALID_STATE, results[1]);
+  EXPECT_EQ(blink::mojom::MediaStreamRequestResult::INVALID_VIDEO_DEVICE_ID,
+            results[1]);
   EXPECT_EQ(blink::mojom::MediaStreamRequestResult::OK, results[2]);
 }
 

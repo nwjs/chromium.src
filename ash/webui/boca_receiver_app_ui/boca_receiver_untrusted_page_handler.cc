@@ -4,12 +4,15 @@
 
 #include "ash/webui/boca_receiver_app_ui/boca_receiver_untrusted_page_handler.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
+#include "ash/public/cpp/network_config_service.h"
 #include "ash/webui/boca_receiver_app_ui/audio_packet_converter.h"
 #include "ash/webui/boca_receiver_app_ui/mojom/boca_receiver.mojom-data-view.h"
 #include "ash/webui/boca_receiver_app_ui/mojom/boca_receiver.mojom.h"
@@ -18,6 +21,8 @@
 #include "base/check_op.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
+#include "base/logging.h"
 #include "chromeos/ash/components/boca/boca_request.h"
 #include "chromeos/ash/components/boca/invalidations/fcm_handler.h"
 #include "chromeos/ash/components/boca/invalidations/invalidation_service_impl.h"
@@ -29,6 +34,9 @@
 #include "chromeos/ash/components/boca/receiver/update_kiosk_receiver_state_request.h"
 #include "chromeos/ash/components/boca/spotlight/spotlight_constants.h"
 #include "chromeos/ash/components/boca/spotlight/spotlight_remoting_client_manager.h"
+#include "chromeos/services/network_config/public/mojom/cros_network_config.mojom-data-view.h"
+#include "chromeos/services/network_config/public/mojom/cros_network_config.mojom.h"
+#include "chromeos/services/network_config/public/mojom/network_types.mojom-data-view.h"
 #include "google_apis/common/base_requests.h"
 #include "google_apis/common/request_sender.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -73,25 +81,52 @@ BocaReceiverUntrustedPageHandler::BocaReceiverUntrustedPageHandler(
     mojo::PendingRemote<mojom::UntrustedPage> page,
     ReceiverHandlerDelegate* delegate)
     : page_(std::move(page)), delegate_(delegate) {
-  if (!delegate_->IsAppEnabled(kChromeBocaReceiverURL)) {
+  if (!delegate_->IsAppEnabled(kChromeBocaReceiverURL) || !fcm_handler()) {
+    LOG_IF(ERROR, !fcm_handler())
+        << "[BocaReceiver] Fcm handler is unexpectedly null";
     page_->OnInitReceiverError();
     return;
   }
   fcm_handler()->AddListener(this);
   fcm_handler()->AddTokenObserver(this);
-  Init();
+  GetNetworkConfigService(cros_network_config_.BindNewPipeAndPassReceiver());
+  cros_network_config_->AddObserver(
+      cros_network_config_observer_.BindNewPipeAndPassRemote());
+  cros_network_config_->GetNetworkStateList(
+      chromeos::network_config::mojom::NetworkFilter::New(
+          chromeos::network_config::mojom::FilterType::kActive,
+          chromeos::network_config::mojom::NetworkType::kAll, /*limit=*/0),
+      base::BindOnce(&BocaReceiverUntrustedPageHandler::OnActiveNetworksChanged,
+                     weak_ptr_factory_.GetWeakPtr()));
 }
 
 BocaReceiverUntrustedPageHandler::~BocaReceiverUntrustedPageHandler() {
+  if (!fcm_handler()) {
+    LOG(ERROR) << "[BocaReceiver] Fcm handler is unexpectedly null";
+    return;
+  }
   fcm_handler()->RemoveListener(this);
   fcm_handler()->RemoveTokenObserver(this);
 }
 
 void BocaReceiverUntrustedPageHandler::OnFCMRegistrationTokenChanged() {
+  should_retry_fcm_fetch_failure_ = false;
+  fetching_fcm_token_ = false;
   if (!fcm_handler()->GetFCMRegistrationToken().has_value()) {
     return;
   }
   Register(fcm_handler()->GetFCMRegistrationToken().value());
+}
+
+void BocaReceiverUntrustedPageHandler::OnFCMTokenFetchFailed() {
+  fetching_fcm_token_ = false;
+  if (!should_retry_fcm_fetch_failure_) {
+    page_->OnInitReceiverError();
+    return;
+  }
+  should_retry_fcm_fetch_failure_ = false;
+  fcm_handler()->StopListening();
+  Init();
 }
 
 void BocaReceiverUntrustedPageHandler::OnInvalidationReceived(
@@ -103,10 +138,15 @@ void BocaReceiverUntrustedPageHandler::OnInvalidationReceived(
 }
 
 void BocaReceiverUntrustedPageHandler::Init() {
+  if (!fcm_handler()) {
+    LOG(ERROR) << "[BocaReceiver] Fcm handler is unexpectedly null";
+    return;
+  }
   if (fcm_handler()->IsListening()) {
     OnFCMRegistrationTokenChanged();
     return;
   }
+  fetching_fcm_token_ = true;
   fcm_handler()->StartListening();
 }
 
@@ -264,12 +304,20 @@ void BocaReceiverUntrustedPageHandler::MaybeStartConnection(
           .empty()) {
     return;
   }
+  if (!remoting_client()) {
+    LOG(ERROR) << "[BocaReceiver] Cannot start connection, remoting client is "
+                  "unexpectedly null.";
+    page_->OnInitReceiverError();
+    return;
+  }
   const ::boca::UserIdentity& initiator =
       connection_info_->connection_details().initiator().user_identity();
   const ::boca::UserIdentity& presenter =
       connection_info_->connection_details().presenter().user_identity();
+  const bool is_initiator_presenting =
+      initiator.gaia_id() == presenter.gaia_id();
   page_->OnConnecting(mojom::UserInfo::New(initiator.full_name()),
-                      initiator.gaia_id() != presenter.gaia_id()
+                      !is_initiator_presenting
                           ? mojom::UserInfo::New(presenter.full_name())
                           : nullptr);
   connection_info_->set_receiver_connection_state(
@@ -279,8 +327,7 @@ void BocaReceiverUntrustedPageHandler::MaybeStartConnection(
   std::string connection_code = connection_info_->connection_details()
                                     .connection_code()
                                     .connection_code();
-  remoting_client_ = delegate_->CreateRemotingClientManager();
-  remoting_client_->StartCrdClient(
+  remoting_client()->StartCrdClient(
       std::move(connection_code),
       base::BindOnce(&BocaReceiverUntrustedPageHandler::OnCrdSessionEnded,
                      weak_ptr_factory_.GetWeakPtr()),
@@ -292,6 +339,15 @@ void BocaReceiverUntrustedPageHandler::MaybeStartConnection(
       base::BindRepeating(
           &BocaReceiverUntrustedPageHandler::OnCrdConnectionStateUpdated,
           weak_ptr_factory_.GetWeakPtr()));
+  if (!is_initiator_presenting) {
+    connection_info_poller_.Start(
+        receiver_id_.value(), connection_info_->connection_id(),
+        delegate_->CreateRequestSender(
+            kRequesterId, GetReceiverConnectionInfoRequest::kTrafficAnnotation),
+        base::BindOnce(
+            &BocaReceiverUntrustedPageHandler::OnConnectionClosedByPoller,
+            weak_ptr_factory_.GetWeakPtr()));
+  }
 }
 
 void BocaReceiverUntrustedPageHandler::MaybeEndConnection(
@@ -301,17 +357,17 @@ void BocaReceiverUntrustedPageHandler::MaybeEndConnection(
   }
   if (connection_info_->receiver_connection_state() == ::boca::CONNECTED ||
       connection_info_->receiver_connection_state() == ::boca::CONNECTING) {
-    CHECK(remoting_client_);
     page_->OnConnectionClosed(reason);
-    auto* remoting_client_ptr = remoting_client_.get();
-    remoting_client_ptr->StopCrdClient(
-        base::BindOnce([](std::unique_ptr<boca::SpotlightRemotingClientManager>
-                              remoting_client) { remoting_client.reset(); },
-                       std::move(remoting_client_)));
+    LOG_IF(ERROR, !remoting_client())
+        << "[BocaReceiver] Remoting client is unexpectedly null.";
+    if (remoting_client()) {
+      remoting_client()->StopCrdClient(base::DoNothing());
+    }
   }
   auto connection_state = reason == mojom::ConnectionClosedReason::kError
                               ? ::boca::ReceiverConnectionState::ERROR
                               : ::boca::ReceiverConnectionState::DISCONNECTED;
+  connection_info_poller_.Stop();
   UpdateConnection(connection_info_->connection_id(), connection_state);
   connection_info_.reset();
 }
@@ -342,7 +398,8 @@ void BocaReceiverUntrustedPageHandler::OnCrdAudioPacketReceived(
   if (mojom_packet) {
     page_->OnAudioPacket(std::move(mojom_packet));
   } else {
-    LOG(ERROR) << "Dropping audio packet due to conversion failure.";
+    LOG(ERROR)
+        << "[BocaReceiver] Dropping audio packet due to conversion failure.";
   }
 }
 
@@ -364,8 +421,48 @@ void BocaReceiverUntrustedPageHandler::OnCrdConnectionStateUpdated(
   }
 }
 
+void BocaReceiverUntrustedPageHandler::OnActiveNetworksChanged(
+    std::vector<chromeos::network_config::mojom::NetworkStatePropertiesPtr>
+        networks) {
+  bool has_online_networks =
+      std::find_if(networks.begin(), networks.end(), [](const auto& network) {
+        return network->connection_state ==
+               chromeos::network_config::mojom::ConnectionStateType::kOnline;
+      }) != networks.end();
+  if (is_online_.has_value() && is_online_.value() == has_online_networks) {
+    return;
+  }
+  is_online_ = has_online_networks;
+  if (!has_online_networks) {
+    page_->OnInitReceiverError();
+    return;
+  }
+  if (fetching_fcm_token_) {
+    should_retry_fcm_fetch_failure_ = true;
+    return;
+  }
+  if (receiver_id_.has_value()) {
+    page_->OnInitReceiverInfo(mojom::ReceiverInfo::New(receiver_id_.value()));
+    GetConnectionInfo();
+    return;
+  }
+  Init();
+}
+
+void BocaReceiverUntrustedPageHandler::OnConnectionClosedByPoller(
+    bool server_unreachable) {
+  MaybeEndConnection(server_unreachable
+                         ? mojom::ConnectionClosedReason::kError
+                         : mojom::ConnectionClosedReason::kInitiatorClosed);
+}
+
 boca::FCMHandler* BocaReceiverUntrustedPageHandler::fcm_handler() const {
   return delegate_->GetFcmHandler();
+}
+
+boca::SpotlightRemotingClientManager*
+BocaReceiverUntrustedPageHandler::remoting_client() const {
+  return delegate_->GetRemotingClient();
 }
 
 }  // namespace ash::boca_receiver

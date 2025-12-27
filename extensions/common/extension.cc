@@ -17,7 +17,6 @@
 #include "base/command_line.h"
 #include "base/containers/contains.h"
 #include "base/containers/map_util.h"
-#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/i18n/rtl.h"
 #include "base/json/json_writer.h"
@@ -32,7 +31,6 @@
 #include "content/public/common/url_constants.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/error_utils.h"
-#include "extensions/common/extension_features.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/common/file_util.h"
 #include "extensions/common/manifest.h"
@@ -57,8 +55,6 @@ namespace values = manifest_values;
 namespace errors = manifest_errors;
 
 namespace {
-
-BASE_FEATURE(kValidateGetResourceURLPath, base::FEATURE_ENABLED_BY_DEFAULT);
 
 constexpr int kMinimumSupportedManifestVersion = 2;
 constexpr int kMaximumSupportedManifestVersion = 3;
@@ -103,7 +99,7 @@ bool IsManifestSupported(int manifest_version,
       manifest_version <= kMaximumSupportedManifestVersion) {
     // Emit a warning for unpacked extensions on Manifest V2 warning that
     // MV2 is deprecated.
-    if (type == Manifest::TYPE_EXTENSION && manifest_version == 2 &&
+    if (type == Manifest::Type::kExtension && manifest_version == 2 &&
         Manifest::IsUnpackedLocation(location) &&
         !g_silence_deprecated_manifest_version_warnings) {
       *warning = errors::kManifestV2IsDeprecatedWarning;
@@ -133,7 +129,7 @@ bool IsManifestSupported(int manifest_version,
   bool allow_legacy_extensions =
       base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kAllowLegacyExtensionManifests);
-  if (type == Manifest::TYPE_EXTENSION && allow_legacy_extensions) {
+  if (type == Manifest::Type::kExtension && allow_legacy_extensions) {
     return true;
   }
 
@@ -142,12 +138,12 @@ bool IsManifestSupported(int manifest_version,
   }
 
   static constexpr int kMinimumExtensionManifestVersion = 2;
-  if (type == Manifest::TYPE_EXTENSION) {
+  if (type == Manifest::Type::kExtension) {
     return manifest_version >= kMinimumExtensionManifestVersion;
   }
 
   static constexpr int kMinimumPlatformAppManifestVersion = 2;
-  if (type == Manifest::TYPE_PLATFORM_APP) {
+  if (type == Manifest::Type::kPlatformApp) {
     return manifest_version >= kMinimumPlatformAppManifestVersion;
   }
 
@@ -302,8 +298,8 @@ scoped_refptr<Extension> Extension::Create(const base::FilePath& path,
 }
 
 Manifest::Type Extension::GetType() const {
-  return converted_from_user_script() ?
-      Manifest::TYPE_USER_SCRIPT : manifest_->type();
+  return converted_from_user_script() ? Manifest::Type::kUserScript
+                                      : manifest_->type();
 }
 
 // static
@@ -322,12 +318,6 @@ GURL Extension::ResolveExtensionURL(const GURL& extension_url,
 GURL Extension::GetResourceURL(const GURL& extension_url,
                                std::string_view relative_url) {
   GURL resolved = Extension::ResolveExtensionURL(extension_url, relative_url);
-
-  // TODO(crbug.com/407932132): Remove this if-check and always validate the
-  // path in M142.
-  if (!base::FeatureList::IsEnabled(kValidateGetResourceURLPath)) {
-    return resolved;
-  }
 
   // Make sure that the relative path is valid. The validation is aligned with
   // GetResource, i.e. we don't allow retrieving resource URLs for paths that
@@ -710,7 +700,7 @@ bool Extension::LoadName(std::u16string* error) {
 }
 
 bool Extension::LoadVersion(std::u16string* error) {
-  if (manifest_->type() == Manifest::TYPE_NWJS_APP) {
+  if (manifest_->type() == Manifest::Type::kNwjsApp) {
     version_ = base::Version("0.1");
     return true;
   }

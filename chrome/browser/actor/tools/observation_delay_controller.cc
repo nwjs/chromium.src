@@ -4,8 +4,11 @@
 
 #include "chrome/browser/actor/tools/observation_delay_controller.h"
 
+#include <memory>
+
 #include "base/check.h"
 #include "base/check_op.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/no_destructor.h"
 #include "base/notreached.h"
@@ -15,6 +18,7 @@
 #include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/aggregated_journal.h"
 #include "chrome/browser/actor/execution_engine.h"
+#include "chrome/browser/actor/tools/observation_delay_metrics.h"
 #include "chrome/browser/actor/tools/tool_callbacks.h"
 #include "chrome/common/actor.mojom-data-view.h"
 #include "chrome/common/actor/journal_details_builder.h"
@@ -50,6 +54,9 @@ base::TimeDelta GetCompletionTimeout() {
 base::TimeDelta GetLcpDelay() {
   return features::kActorObservationDelayLcp.Get();
 }
+
+// This should be similar to the number of redirects.
+constexpr size_t kMaxNavigations = 20;
 
 }  // namespace
 
@@ -100,6 +107,9 @@ void ObservationDelayController::Wait(tabs::TabInterface& target_tab,
                                       ReadyCallback callback) {
   ready_callback_ = std::move(callback);
 
+  metrics_ = std::make_unique<ObservationDelayMetrics>();
+  metrics_->Start();
+
   WebContentsObserver::Observe(target_tab.GetContents());
 
   wait_journal_entry_ = journal_->CreatePendingAsyncEntry(
@@ -113,6 +123,17 @@ void ObservationDelayController::Wait(tabs::TabInterface& target_tab,
   } else {
     MoveToState(State::kWaitForLoadCompletion);
   }
+}
+
+void ObservationDelayController::OnPageStable() {
+  if (state_ != State::kWaitForPageStability) {
+    return;
+  }
+
+  CHECK(metrics_);
+  metrics_->OnPageStable();
+
+  MoveToState(State::kWaitForLoadCompletion);
 }
 
 void ObservationDelayController::OnMonitorDisconnected() {
@@ -134,6 +155,9 @@ void ObservationDelayController::MoveToState(State new_state) {
     return;
   }
 
+  CHECK(metrics_);
+  metrics_->WillMoveToState(new_state);
+
   DCheckStateTransition(state_, new_state);
 
   inner_journal_entry_.reset();
@@ -153,7 +177,8 @@ void ObservationDelayController::MoveToState(State new_state) {
       // Unretained since `this` owns the pipe.
       page_stability_monitor_remote_->NotifyWhenStable(
           page_stability_start_delay_,
-          MoveToStateClosure(State::kWaitForLoadCompletion));
+          base::BindOnce(&ObservationDelayController::OnPageStable,
+                         base::Unretained(this)));
       break;
     }
     case State::kPageStabilityMonitorDisconnected: {
@@ -166,7 +191,12 @@ void ObservationDelayController::MoveToState(State new_state) {
           "WaitForLoadCompletion", {});
       page_stability_monitor_remote_.reset();
 
-      if (web_contents()->IsLoading()) {
+      bool is_web_contents_loading =
+          base::FeatureList::IsEnabled(
+              features::kGlicActorObservationDelayExcludeAdFrameLoading)
+              ? web_contents()->IsLoadingExcludingAdSubframes()
+              : web_contents()->IsLoading();
+      if (is_web_contents_loading) {
         // State will advance from DidStopLoading in this case.
         break;
       }
@@ -179,12 +209,6 @@ void ObservationDelayController::MoveToState(State new_state) {
       inner_journal_entry_ = journal_->CreatePendingAsyncEntry(
           GURL::EmptyGURL(), task_id_, MakeBrowserTrackUUID(task_id_),
           "WaitForVisualStateUpdate", {});
-      // Adapt since InsertVisualStateCallback takes a bool-taking callback.
-      auto callback =
-          base::BindOnce([](base::OnceClosure post_move_to_done,
-                            bool) { std::move(post_move_to_done).Run(); },
-                         PostMoveToStateClosure(State::kMaybeDelayForLcp));
-
       if (base::FeatureList::IsEnabled(
               actor::kGlicSkipAwaitVisualStateForNewTabs) &&
           web_contents()->GetVisibility() != content::Visibility::VISIBLE &&
@@ -198,19 +222,24 @@ void ObservationDelayController::MoveToState(State new_state) {
             web_contents()->GetLastCommittedURL(), task_id_,
             "ObservationDelay: Skip visual state update of non-captured tab",
             {});
-        std::move(callback).Run(true);
+
+        // Posted so that this state transition is consistently async.
+        PostMoveToStateClosure(State::kMaybeDelayForLcp).Run();
       } else {
         // TODO(crbug.com/414662842): This should probably ensure an update from
         // all/selected OOPIFS?
         web_contents()->GetPrimaryMainFrame()->InsertVisualStateCallback(
-            std::move(callback));
+            base::BindOnce(&ObservationDelayController::OnVisualStateUpdated,
+                           weak_ptr_factory_.GetWeakPtr()));
       }
       break;
     }
     case State::kMaybeDelayForLcp: {
-      base::TimeDelta delay;
-      const base::TimeDelta lcp_delay = GetLcpDelay();
-      if (!lcp_delay.is_zero()) {
+      inner_journal_entry_ = journal_->CreatePendingAsyncEntry(
+          GURL::EmptyGURL(), task_id_, MakeBrowserTrackUUID(task_id_),
+          "MaybeDelayForLcp", {});
+      State next_state = State::kDone;
+      if (GetLcpDelay().is_positive()) {
         // Conservatively, only apply delay if we get a clear signal that LCP
         // has not yet occurred on a trackable webpage. This avoids adding
         // unnecessary delays on pages where LCP is not applicable or
@@ -225,13 +254,22 @@ void ObservationDelayController::MoveToState(State new_state) {
                 delegate->GetLargestContentfulPaintHandler()
                     .MergeMainFrameAndSubframes();
             if (!lcp.ContainsValidTime()) {
-              delay = lcp_delay;
+              next_state = State::kDelayForLcp;
             }
           }
         }
       }
       // Posted so that this state transition is consistently async.
-      PostMoveToStateClosure(State::kDone, delay).Run();
+      PostMoveToStateClosure(next_state).Run();
+      break;
+    }
+    case State::kDelayForLcp: {
+      PostMoveToStateClosure(State::kDone, GetLcpDelay()).Run();
+      break;
+    }
+    case State::kPageNavigated: {
+      result_ = Result::kPageNavigated;
+      MoveToState(State::kDone);
       break;
     }
     case State::kDidTimeout: {
@@ -243,7 +281,11 @@ void ObservationDelayController::MoveToState(State new_state) {
       // must be provided.
       CHECK(ready_callback_);
       wait_journal_entry_.reset();
-      PostFinishedTask(std::move(ready_callback_));
+      page_stability_monitor_remote_.reset();
+      PostFinishedTask(
+          base::BindOnce([](ReadyCallback callback,
+                            Result result) { std::move(callback).Run(result); },
+                         std::move(ready_callback_), result_));
       break;
     }
   }
@@ -252,6 +294,18 @@ void ObservationDelayController::MoveToState(State new_state) {
 std::ostream& operator<<(std::ostream& o,
                          const ObservationDelayController::State& state) {
   return o << ObservationDelayController::StateToString(state);
+}
+
+void ObservationDelayController::OnVisualStateUpdated(bool) {
+  if (state_ != State::kWaitForVisualStateUpdate) {
+    return;
+  }
+
+  CHECK(metrics_);
+  metrics_->OnVisualStateUpdated();
+
+  // Posted so that this state transition is consistently async.
+  PostMoveToStateClosure(State::kMaybeDelayForLcp).Run();
 }
 
 void ObservationDelayController::DCheckStateTransition(State old_state,
@@ -266,19 +320,30 @@ void ObservationDelayController::DCheckStateTransition(State old_state,
           {State::kWaitForPageStability,
               {State::kWaitForLoadCompletion,
                State::kPageStabilityMonitorDisconnected,
-               State::kDidTimeout}},
+               State::kDidTimeout,
+              State::kPageNavigated}},
           {State::kPageStabilityMonitorDisconnected,
               {State::kWaitForLoadCompletion}},
           {State::kWaitForLoadCompletion,
               {State::kDidTimeout,
+               State::kPageNavigated,
                State::kWaitForVisualStateUpdate}},
           {State::kWaitForVisualStateUpdate,
               {State::kDidTimeout,
+               State::kPageNavigated,
                State::kMaybeDelayForLcp}},
           {State::kMaybeDelayForLcp,
               {State::kDidTimeout,
+               State::kPageNavigated,
+               State::kDelayForLcp,
+               State::kDone}},
+          {State::kDelayForLcp,
+              {State::kDidTimeout,
+               State::kPageNavigated,
                State::kDone}},
           {State::kDidTimeout,
+              {State::kDone}},
+          {State::kPageNavigated,
               {State::kDone}}
           // clang-format on
       }));
@@ -286,10 +351,30 @@ void ObservationDelayController::DCheckStateTransition(State old_state,
 #endif  // DCHECK_IS_ON()
 }
 
+void ObservationDelayController::DidStartNavigation(
+    content::NavigationHandle* navigation_handle) {
+  if (navigation_handle->IsSameDocument() ||
+      !navigation_handle->IsInPrimaryMainFrame() || state_ == State::kInitial) {
+    return;
+  }
+  if (!base::FeatureList::IsEnabled(
+          kActorRestartObservationDelayControllerOnNavigate)) {
+    return;
+  }
+  // If we exceed the number of navigations just keep waiting for observations.
+  if (navigation_count_ >= kMaxNavigations) {
+    return;
+  }
+  MoveToState(State::kPageNavigated);
+}
+
 void ObservationDelayController::DidStopLoading() {
   if (state_ != State::kWaitForLoadCompletion) {
     return;
   }
+
+  CHECK(metrics_);
+  metrics_->OnLoadCompleted();
 
   MoveToState(State::kWaitForVisualStateUpdate);
 }
@@ -311,9 +396,13 @@ std::string_view ObservationDelayController::StateToString(State state) {
     case State::kWaitForVisualStateUpdate:
       return "WaitForVisualStateUpdate";
     case State::kMaybeDelayForLcp:
-      return "WaitForLcp";
+      return "MaybeDelayForLcp";
+    case State::kDelayForLcp:
+      return "DelayForLcp";
     case State::kDidTimeout:
       return "DidTimeout";
+    case State::kPageNavigated:
+      return "PageNavigated";
     case State::kDone:
       return "Done";
   }
@@ -336,6 +425,14 @@ base::OnceClosure ObservationDelayController::PostMoveToStateClosure(
       },
       base::SequencedTaskRunner::GetCurrentDefault(),
       MoveToStateClosure(new_state), delay);
+}
+
+size_t ObservationDelayController::NavigationCount() const {
+  return navigation_count_;
+}
+
+void ObservationDelayController::SetNavigationCount(size_t count) {
+  navigation_count_ = count;
 }
 
 }  // namespace actor

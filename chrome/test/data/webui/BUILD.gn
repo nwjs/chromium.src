@@ -47,6 +47,7 @@ source_set("browser_tests") {
       "bookmarks/bookmarks_browsertest.cc",
       "chrome_timeticks_browsertest.cc",
       "commerce/product_specifications/product_specifications_browsertest.cc",
+      "contextual_tasks/contextual_tasks_browsertest.cc",
       "cr_components/cr_components_browsertest.cc",
       "css/css_browsertest.cc",
       "data_sharing/data_sharing_browsertest.cc",
@@ -73,7 +74,6 @@ source_set("browser_tests") {
       "optimization_guide_internals/optimization_guide_internals_browsertest.cc",
       "password_manager/password_manager_browsertest.cc",
       "password_manager_internals/password_manager_internals_browsertest.cc",
-      "privacy_sandbox/base_dialog_browsertest.cc",
       "privacy_sandbox/internals/privacy_sandbox_internals_browsertest.cc",
       "privacy_sandbox/internals/private_state_tokens/private_state_tokens_browsertest.cc",
       "privacy_sandbox/internals/related_website_sets/related_website_sets_browsertest.cc",
@@ -96,6 +96,10 @@ source_set("browser_tests") {
       "//chrome/browser/signin:signin_promo",
       "//chrome/browser/subscription_eligibility",
     ]
+
+    if (enable_glic) {
+      deps += [ "//chrome/browser/glic" ]
+    }
 
     if (is_chrome_branded) {
       sources += [ "media_router/cast_feedback_ui_browsertest.cc" ]
@@ -236,6 +240,7 @@ source_set("browser_tests") {
       "//components/commerce/core:feature_list",
       "//components/commerce/core:shopping_service_test_support",
       "//components/compose/core/browser:features",
+      "//components/contextual_tasks/public",
       "//components/data_sharing:test_support",
       "//components/history/core/common",
       "//components/history_clusters/core",
@@ -306,9 +311,12 @@ source_set("interactive_ui_tests") {
 
   sources = [ "cr_elements/cr_elements_focus_test.cc" ]
 
+  deps = []
+
   if (!is_android) {
     sources += [
       "bookmarks/bookmarks_focus_test.cc",
+      "contextual_tasks/contextual_tasks_pixel_interactive_ui_test.cc",
       "cr_components/cr_components_interactive_test.cc",
       "downloads/downloads_focus_test.cc",
       "history/history_focus_test.cc",
@@ -321,6 +329,8 @@ source_set("interactive_ui_tests") {
       "tab_search/split_new_tab_page_interactive_uitest.cc",
       "tab_search/tab_search_focus_test.cc",
     ]
+
+    deps += [ "//chrome/test/data/webui:composebox_pixel_test_support" ]
   }
 
   if (enable_webui_tab_strip) {
@@ -351,12 +361,14 @@ source_set("interactive_ui_tests") {
 
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
-  deps = [ "//chrome/test:test_support" ]
+  deps += [ "//chrome/test:test_support" ]
 
   if (!is_android) {
     deps += [
       "//chrome/browser/autocomplete:aim_eligibility_service",
+      "//chrome/browser/contextual_tasks:ui",
       "//chrome/browser/ui:ui_features",
+      "//components/contextual_tasks/public",
       "//components/history_clusters/core",
       "//components/password_manager/content/common",
       "//components/power_bookmarks/core:features",
@@ -415,7 +427,8 @@ generate_grd("build_chai_grdp") {
   out_grd = "$target_gen_dir/chai_resources.grdp"
   input_files_base_dir =
       rebase_path("//third_party/node/node_modules/chai", "//")
-  input_files = [ "chai.js" ]
+  input_files = [ "index.js" ]
+  resource_path_rewrites = [ "index.js|chai.js" ]
 }
 
 generate_grd("build_mocha_grdp") {
@@ -531,6 +544,7 @@ generate_grd("build_grd") {
       "actor_overlay:build_grdp",
       "bookmarks:build_grdp",
       "commerce/product_specifications:build_grdp",
+      "contextual_tasks:build_grdp",
       "cr_components:build_grdp",
       "cr_components/composebox:build_grdp",
       "cr_components/cr_shortcut_input:build_grdp",
@@ -585,6 +599,7 @@ generate_grd("build_grd") {
       "$target_gen_dir/webview/resources.grdp",
       "$target_gen_dir/bookmarks/resources.grdp",
       "$target_gen_dir/commerce/product_specifications/resources.grdp",
+      "$target_gen_dir/contextual_tasks/resources.grdp",
       "$target_gen_dir/cr_components/resources.grdp",
       "$target_gen_dir/cr_components/cr_shortcut_input/resources.grdp",
       "$target_gen_dir/cr_components/help_bubble/resources.grdp",
@@ -806,4 +821,19 @@ generate_grd("build_grd") {
 
   manifest_files =
       filter_include(get_target_outputs(":build_ts"), [ "*_manifest.json" ])
+}
+
+if (!is_android) {
+  source_set("composebox_pixel_test_support") {
+    testonly = true
+    sources = [
+      "webui_composebox_pixel_test.cc",
+      "webui_composebox_pixel_test.h",
+    ]
+    deps = [
+      "//chrome/test:test_support",
+      "//ui/native_theme:test_support",
+    ]
+    defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+  }
 }

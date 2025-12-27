@@ -7,16 +7,20 @@
 #import "base/feature_list.h"
 #import "base/functional/bind.h"
 #import "base/functional/callback.h"
+#import "base/metrics/histogram_functions.h"
 #import "components/enterprise/data_controls/core/browser/prefs.h"
 #import "components/enterprise/data_controls/core/browser/rule.h"
 #import "components/policy/core/common/policy_types.h"
 #import "components/prefs/pref_service.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/enterprise/common/util.h"
+#import "ios/chrome/browser/enterprise/data_controls/model/data_controls_metrics.h"
 #import "ios/chrome/browser/enterprise/data_controls/model/data_controls_pasteboard_manager.h"
 #import "ios/chrome/browser/enterprise/data_controls/utils/data_controls_utils.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
+#import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/components/enterprise/data_controls/features.h"
 #import "ios/web/public/web_state.h"
 #import "ui/base/clipboard/clipboard_metadata.h"
@@ -53,7 +57,8 @@ void DataControlsTabHelper::ShouldAllowCopy(
           GetManagementDomain(profile),
           base::BindOnce(&DataControlsTabHelper::FinishCopy,
                          weak_factory_.GetWeakPtr(), source_url,
-                         std::move(verdicts), std::move(callback)));
+                         profile->AsWeakPtr(), metadata, std::move(verdicts),
+                         std::move(callback)));
       break;
     case Rule::Level::kBlock:
       ShowRestrictSnackbar(GetManagementDomain(profile));
@@ -61,7 +66,8 @@ void DataControlsTabHelper::ShouldAllowCopy(
     case Rule::Level::kReport:
     case Rule::Level::kAllow:
     case Rule::Level::kNotSet:
-      FinishCopy(source_url, std::move(verdicts), std::move(callback),
+      FinishCopy(source_url, profile->AsWeakPtr(), metadata,
+                 std::move(verdicts), std::move(callback),
                  /*bypassed=*/false);
       break;
   }
@@ -92,15 +98,19 @@ void DataControlsTabHelper::ShouldAllowPaste(
   std::string domain = policy_verdict.dialog_triggered_by_source
                            ? GetManagementDomain(source.source_profile)
                            : GetManagementDomain(profile);
+  base::WeakPtr<ProfileIOS> weakSourceProfile =
+      source.source_profile ? source.source_profile->AsWeakPtr()
+                            : base::WeakPtr<ProfileIOS>{};
 
   switch (policy_verdict.verdict.level()) {
     case Rule::Level::kWarn:
       ShowWarningDialog(
           DataControlsDialog::Type::kClipboardPasteWarn, domain,
-          base::BindOnce(&DataControlsTabHelper::FinishPaste,
-                         weak_factory_.GetWeakPtr(), destination_url,
-                         std::move(policy_verdict.verdict),
-                         std::move(callback)));
+          base::BindOnce(
+              &DataControlsTabHelper::FinishPaste, weak_factory_.GetWeakPtr(),
+              destination_url, source.source_url, profile->AsWeakPtr(),
+              weakSourceProfile, metadata, std::move(policy_verdict.verdict),
+              std::move(callback)));
       break;
     case Rule::Level::kBlock:
       ShowRestrictSnackbar(domain);
@@ -108,8 +118,9 @@ void DataControlsTabHelper::ShouldAllowPaste(
     case Rule::Level::kReport:
     case Rule::Level::kAllow:
     case Rule::Level::kNotSet:
-      FinishPaste(destination_url, std::move(policy_verdict.verdict),
-                  std::move(callback),
+      FinishPaste(destination_url, source.source_url, profile->AsWeakPtr(),
+                  weakSourceProfile, metadata,
+                  std::move(policy_verdict.verdict), std::move(callback),
                   /*bypassed=*/false);
       break;
   }
@@ -121,11 +132,9 @@ void DataControlsTabHelper::ShouldAllowCut(
   ShouldAllowCopy(std::move(callback));
 }
 
-void DataControlsTabHelper::ShouldAllowShare(
-    base::OnceCallback<void(bool)> callback) {
+bool DataControlsTabHelper::ShouldAllowShare() {
   if (!IsClipboardDataControlsEnabled()) {
-    std::move(callback).Run(true);
-    return;
+    return true;
   }
 
   ProfileIOS* profile =
@@ -133,26 +142,8 @@ void DataControlsTabHelper::ShouldAllowShare(
   const GURL& source_url = web_state_->GetLastCommittedURL();
 
   Verdict verdict = IsShareAllowedByPolicy(source_url, profile);
-  std::string domain = GetManagementDomain(profile);
 
-  switch (verdict.level()) {
-    case Rule::Level::kWarn:
-      ShowWarningDialog(
-          DataControlsDialog::Type::kClipboardShareWarn, domain,
-          base::BindOnce(&DataControlsTabHelper::FinishShare,
-                         weak_factory_.GetWeakPtr(), source_url,
-                         std::move(verdict), std::move(callback)));
-      break;
-    case Rule::Level::kBlock:
-      ShowRestrictSnackbar(domain);
-      [[fallthrough]];
-    case Rule::Level::kReport:
-    case Rule::Level::kAllow:
-    case Rule::Level::kNotSet:
-      FinishShare(source_url, std::move(verdict), std::move(callback),
-                  /*bypassed=*/false);
-      break;
-  }
+  return verdict.level() != Rule::Level::kBlock;
 }
 
 void DataControlsTabHelper::SetDataControlsCommandsHandler(
@@ -174,9 +165,17 @@ bool DataControlsTabHelper::IsClipboardDataControlsEnabled() const {
 }
 
 void DataControlsTabHelper::FinishCopy(const GURL& source_url,
+                                       base::WeakPtr<ProfileIOS> source_profile,
+                                       const ui::ClipboardMetadata& metadata,
                                        CopyPolicyVerdicts verdicts,
                                        base::OnceCallback<void(bool)> callback,
                                        bool bypassed) {
+  if (verdicts.copy_action_verdict.level() > Rule::Level::kNotSet &&
+      source_profile.get()) {
+    MaybeReportDataControlsCopy(source_url, source_profile.get(), metadata,
+                                verdicts.copy_action_verdict, bypassed);
+  }
+
   // The user may have navigated away from the page from which the copy
   // operation was initiated. If the URL has changed, we should block the copy
   // operation as the original content is no longer available.
@@ -187,9 +186,18 @@ void DataControlsTabHelper::FinishCopy(const GURL& source_url,
 
   Verdict verdict = std::move(verdicts.copy_action_verdict);
 
+  // Record the verdict level to the Copy histogram.
+  base::UmaHistogramEnumeration(
+      kIOSWebStateDataControlsClipboardCopyVerdictHistogram, verdict.level());
+
   bool allowed = verdict.level() != Rule::Level::kBlock;
   if (verdict.level() == Rule::Level::kWarn) {
     allowed = bypassed;
+
+    // Record whether user ignores the warning and decides to copy anyway.
+    base::UmaHistogramBoolean(
+        kIOSWebStateDataControlsClipboardCopyClipboardWarningBypassedHistogram,
+        bypassed);
   }
 
   if (allowed) {
@@ -223,10 +231,25 @@ void DataControlsTabHelper::FinishShare(const GURL& source_url,
   std::move(callback).Run(allowed);
 }
 
-void DataControlsTabHelper::FinishPaste(const GURL& destination_url,
-                                        Verdict verdict,
-                                        base::OnceCallback<void(bool)> callback,
-                                        bool bypassed) {
+void DataControlsTabHelper::FinishPaste(
+    const GURL& destination_url,
+    const GURL& source_url,
+    base::WeakPtr<ProfileIOS> destination_profile,
+    base::WeakPtr<ProfileIOS> source_profile,
+    const ui::ClipboardMetadata& metadata,
+    Verdict verdict,
+    base::OnceCallback<void(bool)> callback,
+    bool bypassed) {
+  // Record the verdict level to the Paste histogram.
+  base::UmaHistogramEnumeration(
+      kIOSWebStateDataControlsClipboardPasteVerdictHistogram, verdict.level());
+
+  if (verdict.level() > Rule::Level::kNotSet && destination_profile.get()) {
+    MaybeReportDataControlsPaste(
+        source_url, destination_url, source_profile.get(),
+        destination_profile.get(), metadata, verdict, bypassed);
+  }
+
   // The user may have navigated away from the page into which the paste
   // operation was initiated. If the URL has changed, we should block the paste
   // operation as the original destination is no longer available.
@@ -238,6 +261,11 @@ void DataControlsTabHelper::FinishPaste(const GURL& destination_url,
   bool allowed = verdict.level() != Rule::Level::kBlock;
   if (verdict.level() == Rule::Level::kWarn) {
     allowed = bypassed;
+
+    // Record whether user ignores the warning and decides to paste anyway.
+    base::UmaHistogramBoolean(
+        kIOSWebStateDataControlsClipboardPasteClipboardWarningBypassedHistogram,
+        bypassed);
   }
 
   if (allowed) {
@@ -266,15 +294,13 @@ void DataControlsTabHelper::ShowWarningDialog(
 }
 
 void DataControlsTabHelper::ShowRestrictSnackbar(std::string_view org_domain) {
-  NSString* message =
+  NSString* title =
       org_domain.empty()
           ? l10n_util::GetNSString(IDS_POLICY_ACTION_BLOCKED_BY_ORGANIZATION)
           : l10n_util::GetNSStringF(IDS_DATA_CONTROLS_BLOCKED_LABEL_WITH_DOMAIN,
                                     base::UTF8ToUTF16(org_domain));
-  [snackbar_handler_ showSnackbarWithMessage:message
-                                  buttonText:nil
-                               messageAction:nil
-                            completionAction:nil];
+  SnackbarMessage* message = [[SnackbarMessage alloc] initWithTitle:title];
+  [snackbar_handler_ showSnackbarMessageAfterDismissingKeyboard:message];
 }
 
 std::string DataControlsTabHelper::GetManagementDomain(ProfileIOS* profile) {

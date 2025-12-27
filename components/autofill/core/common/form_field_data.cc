@@ -20,6 +20,7 @@
 #include "build/build_config.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_util.h"
+#include "components/autofill/core/common/dense_set.h"
 #include "components/autofill/core/common/logging/log_buffer.h"
 #include "components/autofill/core/common/logging/stream_operator_util.h"
 
@@ -321,14 +322,77 @@ bool FormFieldData::IsFocusable() const {
 }
 
 // static
-bool FormFieldData::DeepEqual(const FormFieldData& a, const FormFieldData& b) {
-  auto equality_tuple = [](const FormFieldData& f) {
-    return std::tie(f.renderer_id_, f.host_frame_, f.label_, f.name_,
-                    f.name_attribute_, f.id_attribute_, f.nonce_,
-                    f.form_control_type_, f.autocomplete_attribute_,
-                    f.placeholder_, f.max_length_, f.css_classes_,
-                    f.is_focusable_, f.should_autocomplete_, f.role_,
-                    f.text_direction_, f.options_);
+bool FormFieldData::IdenticalAndEquivalentDomElements(
+    const FormFieldData& a,
+    const FormFieldData& b,
+    DenseSet<Exclusion> exclusions) {
+  if (!base::FeatureList::IsEnabled(features::kAutofillFixFormEquality)) {
+    auto equality_tuple = [](const FormFieldData& f) {
+      return std::tie(f.renderer_id_, f.host_frame_, f.label_, f.name_,
+                      f.name_attribute_, f.id_attribute_, f.nonce_,
+                      f.form_control_type_, f.autocomplete_attribute_,
+                      f.placeholder_, f.max_length_, f.css_classes_,
+                      f.is_focusable_, f.should_autocomplete_, f.role_,
+                      f.text_direction_, f.options_);
+    };
+    return equality_tuple(a) == equality_tuple(b);
+  }
+
+  auto equality_tuple = [e = exclusions](const FormFieldData& f) {
+    using enum Exclusion;
+    static const bool kFalse = {};
+    static const CheckStatus kNotCheckable = CheckStatus::kNotCheckable;
+    // LINT.IfChange(IdenticalAndEquivalentDomElements)
+    // clang-format off
+    return std::tie(
+        f.name_,
+        f.id_attribute_,
+        f.name_attribute_,
+        f.label_,
+        !e.contains(kValue) ? f.value_ : base::EmptyString16(),
+        !e.contains(kValue) ? f.selected_text_ : base::EmptyString16(),
+        f.form_control_type_,
+        f.autocomplete_attribute_,
+        f.parsed_autocomplete_,
+        f.pattern_,
+        f.placeholder_,
+        f.css_classes_,
+        f.aria_label_,
+        f.aria_description_,
+        f.nonce_,
+        f.host_frame_,
+        f.renderer_id_,
+        f.host_form_id_,
+        // host_form_signature_ is not compared because it (also) relies on
+        // other DOM elements.
+        // origin_ is not compared because by it is initialized to an opaque
+        // origin (a random number).
+        f.form_control_ax_id_,
+        f.max_length_,
+        !e.contains(kValue) ? f.is_autofilled_ : kFalse,
+        !e.contains(kValue) ? f.is_user_edited_ : kFalse,
+        !e.contains(kValue) ? f.check_status_ : kNotCheckable,
+        f.is_focusable_,
+        f.is_visible_,
+        f.should_autocomplete_,
+        f.role_,
+        f.text_direction_,
+        // properties_mask_ is not compared because the properties do not depend
+        // on the DOM.
+        f.is_enabled_,
+        f.is_readonly_,
+        !e.contains(kValue) ? f.user_input_ : base::EmptyString16(),
+        f.allows_writing_suggestions_,
+        f.options_,
+        f.label_source_,
+        // bounds_ is not compared because it (also) relies on other DOM
+        // elements.
+        f.datalist_options_
+        // force_override_ is not compared because it does not depend on the
+        // DOM.
+    );
+    // clang-format on
+    // LINT.ThenChange(form_field_data.h:FormFieldDataMembers)
   };
   return equality_tuple(a) == equality_tuple(b);
 }
@@ -602,19 +666,26 @@ std::ostream& PrintWithIndentation(std::ostream& os,
   PRINT_PROPERTY(global_id);
   PRINT_PROPERTY(label);
   PRINT_PROPERTY(origin);
+  PRINT_PROPERTY(host_form_id);
+  PRINT_PROPERTY(host_form_signature);
   PRINT_PROPERTY(name);
   PRINT_PROPERTY(id_attribute);
   PRINT_PROPERTY(name_attribute);
   PRINT_PROPERTY(value);
+  PRINT_PROPERTY(selected_text);
   PRINT_PROPERTY(form_control_type);
   PRINT_PROPERTY(autocomplete_attribute);
   PRINT_PROPERTY(parsed_autocomplete);
+  PRINT_PROPERTY(pattern);
+  PRINT_PROPERTY(aria_label);
+  PRINT_PROPERTY(aria_description);
+  PRINT_PROPERTY(nonce);
   PRINT_PROPERTY(placeholder);
   PRINT_PROPERTY(max_length);
   PRINT_PROPERTY(css_classes);
   PRINT_PROPERTY(is_autofilled);
+  PRINT_PROPERTY(is_user_edited);
   PRINT_PROPERTY(check_status);
-  PRINT_PROPERTY(is_focusable);
   PRINT_PROPERTY(should_autocomplete);
   PRINT_PROPERTY(role);
   PRINT_PROPERTY(text_direction);

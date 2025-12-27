@@ -37,6 +37,8 @@ BASE_FEATURE(kApiEnterpriseReportingPrivateOnDataMaskingRulesTriggered,
 BASE_FEATURE(kApiRuntimeGetPlatformInfoNaClArch,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kWebRequestSecurityInfo, base::FEATURE_DISABLED_BY_DEFAULT);
+
 ///////////////////////////////////////////////////////////////////////////////
 // Other Features
 ///////////////////////////////////////////////////////////////////////////////
@@ -109,8 +111,7 @@ BASE_FEATURE(kSafeBrowsingCrxAllowlistAutoDisable,
 BASE_FEATURE(kSafeBrowsingCrxAllowlistShowWarnings,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kStructuredCloningForMV3Messaging,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kStructuredCloningForMessaging, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTelemetryExtensionPendingApprovalApi,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -162,7 +163,7 @@ BASE_FEATURE(kDebuggerAPIRestrictedToDevMode,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kExtensionBrowserNamespaceAlternative,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kOptimizeServiceWorkerStartRequests,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -174,11 +175,11 @@ BASE_FEATURE(kContentVerifyJobUseJobVersionForHashing,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kRuntimeOnMessageWebExtensionPolyfillSupport,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableShouldShowPromotion, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kEnableWebRequestCollapsedListeners,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebRequestPersistFilteredEvents,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace extensions_features

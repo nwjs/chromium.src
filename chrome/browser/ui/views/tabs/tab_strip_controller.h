@@ -75,6 +75,9 @@ class TabStripController {
   // Returns true if the selected index is pinned.
   virtual bool IsTabPinned(int index) const = 0;
 
+  // Returns true if all tabs are currently being closed.
+  virtual bool IsBrowserClosing() const = 0;
+
   // Select the tab at the specified index in the model.
   // `event` is the input event that triggers the tab selection.
   virtual void SelectTab(int index, const ui::Event& event) = 0;
@@ -190,6 +193,13 @@ class TabStripController {
   // Returns the `group` collapsed state. Returns false if the group does not
   // exist or is not collapsed.
   virtual bool IsGroupCollapsed(const tab_groups::TabGroupId& group) const = 0;
+
+  // Returns the ID of the group that is focused. If no group is focused,
+  // returns nullopt.
+  virtual std::optional<tab_groups::TabGroupId> GetFocusedGroup() const = 0;
+
+  // Sets the group to be focused.
+  virtual void SetFocusedGroup(std::optional<tab_groups::TabGroupId> group) = 0;
 
   // Sets the title and color ID of the given `group`.
   virtual void SetVisualDataForGroup(

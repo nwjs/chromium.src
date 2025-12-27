@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -21,6 +22,7 @@
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "base/unguessable_token.h"
 #include "build/build_config.h"
 #include "content/browser/fenced_frame/fenced_frame_url_mapping.h"
 #include "content/browser/loader/keep_alive_url_loader_service.h"
@@ -404,6 +406,8 @@ class CONTENT_EXPORT NavigationRequest
   std::optional<ErrorNavigationTrigger> GetErrorNavigationTrigger() override;
   RenderFrameHostImpl* GetRenderFrameHost() const override;
   bool IsSameDocument() const override;
+  std::optional<base::UnguessableToken> GetSameDocumentMetricsToken()
+      const override;
   bool IsHistory() const override;
   bool HasCommitted() const override;
   bool IsErrorPage() const override;
@@ -413,11 +417,9 @@ class CONTENT_EXPORT NavigationRequest
   const GURL& GetPreviousPrimaryMainFrameURL() override;
   net::IPEndPoint GetSocketAddress() override;
   const net::HttpRequestHeaders& GetRequestHeaders() override;
-  void RemoveRequestHeader(const std::string& header_name) override;
-  void SetRequestHeader(const std::string& header_name,
-                        const std::string& header_value) override;
-  void SetCorsExemptRequestHeader(const std::string& header_name,
-                                  const std::string& header_value) override;
+  void RemoveRequestHeader(std::string_view header_name) override;
+  void SetRequestHeader(std::string_view header_name,
+                        std::string_view header_value) override;
   void SetLCPPNavigationHint(
       const blink::mojom::LCPCriticalPathPredictorNavigationTimeHint& hint)
       override;
@@ -1189,6 +1191,11 @@ class CONTENT_EXPORT NavigationRequest
   // Empties this instance's vector.
   std::vector<blink::mojom::WebFeature> TakeWebFeaturesToLog();
 
+  void set_same_document_metrics_token(base::UnguessableToken token) {
+    DCHECK(!same_document_metrics_token_);
+    same_document_metrics_token_ = token;
+  }
+
   void set_subresource_proxying_url_loader_service_bind_context(
       base::WeakPtr<SubresourceProxyingURLLoaderService::BindContext>
           bind_context) {
@@ -1491,17 +1498,6 @@ class CONTENT_EXPORT NavigationRequest
     return frame_entry_document_sequence_number_;
   }
 
-  // Returns the canvas noise token used for canvas noising on the renderer.
-  // Only one token should be generated per page and should use the main frame's
-  // origin to generate such. Main frames should use this accessor to populate
-  // the content::Page and subsequent blink::Pages. Subframes should not use
-  // this accessor, but instead should use `PageImpl::canvas_noise_token()` to
-  // get the canvas noise token.
-  std::optional<blink::NoiseToken> canvas_noise_token() {
-    CHECK(IsInMainFrame());
-    return canvas_noise_token_;
-  }
-
   bool is_ad_tagged() const { return is_ad_tagged_; }
 
   // Called when the browser process is about to process beforeunload handlers
@@ -1705,6 +1701,15 @@ class CONTENT_EXPORT NavigationRequest
   // value will be returned.
   PrerenderHostId GetPrerenderHostId() const;
 
+  const std::optional<base::UnguessableToken>& network_restrictions_id() const {
+    return network_restrictions_id_;
+  }
+
+  void set_network_restrictions_id(
+      const base::UnguessableToken& network_restrictions_id) {
+    network_restrictions_id_ = network_restrictions_id;
+  }
+
   // Checks whether the navigation request contains active view transition
   // resources.
   bool HasViewTransitionResources() const {
@@ -1870,15 +1875,17 @@ class CONTENT_EXPORT NavigationRequest
   void OnWillCommitWithoutUrlLoaderChecksComplete(
       NavigationThrottle::ThrottleCheckResult result);
 
-  // Runs CommitDeferringConditions.
+  // Runs CommitDeferringConditions. Stores the provided callback in
+  // NavigationRequest and runs it after all the conditions finish running.
   //
   // For prerendered page activation, this is called at the beginning of the
   // navigation (i.e., in BeginNavigation()). This is because activating a
   // prerendered page must be an atomic, synchronous operation so there is no
   // chance for the prerender to be cancelled during the operation. The
-  // CommitDeferringConditions are asynchronous, so they run at the beginning
-  // of navigation. Once they finish, the atomic activation sequence runs.
-  void RunCommitDeferringConditions();
+  // CommitDeferringConditions are asynchronous, so they run at the beginning of
+  // navigation. Once they finish, the atomic activation sequence runs.
+  void RunCommitDeferringConditions(
+      base::OnceClosure on_commit_deferring_conditions_complete_callback);
 
   // Similar to the NavigationThrottle checks above but this is called from
   // CommitDeferringConditionRunner rather than NavigationThrottles and is
@@ -1889,9 +1896,17 @@ class CONTENT_EXPORT NavigationRequest
       std::optional<FrameTreeNodeId> candidate_prerender_frame_tree_node_id)
       override;
 
-  // Called either by OnFailureChecksComplete() or OnRequestFailed() directly.
-  // |error_page_content| contains the content of the error page (i.e. flattened
-  // HTML, JS, CSS).
+  // Internal helper to prepare to commit an error page, by running
+  // CommitDeferringConditions and then proceeding to `CommitErrorPage()`.
+  // Called either by `OnFailureChecksComplete()` or `OnRequestFailed()`
+  // directly. `error_page_content` contains the content of the error page (i.e.
+  // flattened HTML, JS, CSS).
+  void PrepareToCommitErrorPage(
+      const std::optional<std::string>& error_page_content);
+
+  // Actually commits an error page after CommitDeferringConditions finish
+  // running. `error_page_content` contains the content of the error page; this
+  // is handed off from `PrepareToCommitErrorPage()`.
   void CommitErrorPage(const std::optional<std::string>& error_page_content);
 
   // Have a RenderFrameHost commit the navigation. The NavigationRequest will
@@ -2834,8 +2849,6 @@ class CONTENT_EXPORT NavigationRequest
   // request.
   net::HttpRequestHeaders modified_request_headers_;
 
-  net::HttpRequestHeaders cors_exempt_request_headers_;
-
   // Set of headers to remove during the redirect phase. This can only be
   // modified during the redirect phase.
   std::vector<std::string> removed_request_headers_;
@@ -3228,6 +3241,12 @@ class CONTENT_EXPORT NavigationRequest
   // time the closure runs.
   base::OnceClosure resume_commit_closure_;
 
+  // This closure is set just before CommitDeferringConditions start to run and
+  // is used to proceed with either a prerender activation, a normal navigation
+  // commit, or an error page commit once all CommitDeferringConditions finish
+  // running.
+  base::OnceClosure commit_deferring_conditions_complete_closure_;
+
   // Metrics for measuring the impact of navigation queueing. Note that while
   // `resume_commit_closure_` is set on the navigation that was *blocked*, these
   // metrics are set on the NavigationRequest that is *blocking*.
@@ -3384,10 +3403,6 @@ class CONTENT_EXPORT NavigationRequest
   blink::mojom::ConfidenceLevel confidence_level_ =
       blink::mojom::ConfidenceLevel::kHigh;
 
-  // The token value for canvas noising. This should only be set on main frame
-  // navigations that subsequently set the token value on the page.
-  std::optional<blink::NoiseToken> canvas_noise_token_ = std::nullopt;
-
   // A container for embedder-specific data that needs to be available during
   // the renderer process selection phase of a navigation.
   ProcessSelectionUserData process_selection_user_data_;
@@ -3395,6 +3410,20 @@ class CONTENT_EXPORT NavigationRequest
   // For NavigationRequests not in a prerendered page, the value will be the
   // default-constructed null value.
   const PrerenderHostId prerender_host_id_;
+
+  // This field is only populated between DidCommit and the deletion of the
+  // NavigationRequest, with a token that's generated in the renderer at commit
+  // time. It uniquely identifies a committed same-document navigation,
+  // including distinguishing multiple visits to the same session history item
+  // (so we can't use item sequence number). The token is used for attributing
+  // soft navigation metrics to the correct UKM Source ID.
+  std::optional<base::UnguessableToken> same_document_metrics_token_;
+
+  // Connection-Allowlist feature: Id used to identify restrictions associated
+  // with this navigation. This is also passed to the network service and
+  // stored in the DocumentAssociatedData at commit. Only used for
+  // cross-document navigations.
+  std::optional<base::UnguessableToken> network_restrictions_id_;
 
   base::WeakPtrFactory<NavigationRequest> weak_factory_{this};
 };

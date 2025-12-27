@@ -9,6 +9,7 @@
 #include "base/test/gtest_util.h"
 #include "base/test/task_environment.h"
 #include "mojo/public/cpp/base/unguessable_token_mojom_traits.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "net/base/isolation_info.h"
 #include "net/base/load_flags.h"
@@ -113,7 +114,6 @@ TEST(URLRequestMojomTraitsTest, Roundtrips_ResourceRequest) {
   original.devtools_accepted_stream_types = std::vector<net::SourceStreamType>(
       {net::SourceStreamType::kBrotli, net::SourceStreamType::kGzip,
        net::SourceStreamType::kDeflate});
-  original.target_ip_address_space = mojom::IPAddressSpace::kLocal;
   original.storage_access_api_status =
       net::StorageAccessApiStatus::kAccessViaAPI;
 

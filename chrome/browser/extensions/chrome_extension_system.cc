@@ -10,7 +10,6 @@
 #include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
-#include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string_tokenizer.h"
@@ -19,6 +18,7 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/extensions/blocklist_factory.h"
 #include "chrome/browser/extensions/chrome_content_verifier_delegate.h"
 #include "chrome/browser/extensions/chrome_extension_system_factory.h"
 #include "chrome/browser/extensions/component_loader.h"
@@ -219,12 +219,12 @@ void ChromeExtensionSystem::Shared::Init(bool extensions_enabled) {
     autoupdate_enabled = false;
   }
 #endif  // BUILDFLAG(IS_CHROMEOS)
-  // TODO(crbug.com/413460628): Port ExtensionService to desktop Android.
   extension_service_ = std::make_unique<ExtensionService>(
       profile_, base::CommandLine::ForCurrentProcess(),
       profile_->GetPath().AppendASCII(kInstallDirectoryName),
       profile_->GetPath().AppendASCII(kUnpackedInstallDirectoryName),
-      ExtensionPrefs::Get(profile_), Blocklist::Get(profile_),
+      ExtensionPrefs::Get(profile_),
+      BlocklistFactory::GetForBrowserContext(profile_),
       ExtensionErrorController::Get(profile_), autoupdate_enabled,
       extensions_enabled, &ready_);
 

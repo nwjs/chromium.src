@@ -461,6 +461,9 @@ class CC_EXPORT InputHandler : public InputDelegateForCompositor {
 
   virtual void SetIsHandlingTouchSequence(bool is_handling_touch_sequence);
 
+  // Returns the ElementId of the currently latched scroller, or invalid id.
+  virtual ElementId LatchedScrollerElementId() const;
+
   bool CanConsumeDelta(const ScrollState& scroll_state,
                        const ScrollNode& scroll_node);
   // Returns the amount of delta that can be applied to scroll_node, taking
@@ -552,7 +555,7 @@ class CC_EXPORT InputHandler : public InputDelegateForCompositor {
   void DidUnregisterScrollbar(ElementId scroll_element_id,
                               ScrollbarOrientation orientation) override;
   void ScrollOffsetAnimationFinished(ElementId element_id) override;
-  void ElasticOverscrollAnimationFinished() override;
+  void ElasticOverscrollAnimationFinished(ElementId finished_id) override;
   void SetPrefersReducedMotion(bool prefers_reduced_motion) override;
   bool IsCurrentlyScrolling() const override;
   ActivelyScrollingType GetActivelyScrollingType() const override;
@@ -735,7 +738,7 @@ class CC_EXPORT InputHandler : public InputDelegateForCompositor {
       TargetSnapAreaElementIds target_ids = TargetSnapAreaElementIds());
   void ClearAnimatingSnapTargetsForElement(ElementId element_id);
 
-  void EnsureSnapAnimationData(ElementId element_id);
+  inline void EnsureSnapAnimationData(ElementId element_id);
 
   // Add |element_id| to the set of scroll containers for which an impl scroll
   // has ended between the last commit and the next one. The main thread will
@@ -825,10 +828,10 @@ class CC_EXPORT InputHandler : public InputDelegateForCompositor {
   ElementId last_latched_scroller_;
 
   // Scroll animation can finish either before or after GSE arrival.
-  // deferred_scroll_end_ is set when the GSE has arrvied before scroll
+  // deferred_scroll_ends_ is set when the GSE has arrived before scroll
   // animation completion. ScrollEnd will get called once the animation is
   // over.
-  bool deferred_scroll_end_ = false;
+  base::flat_set<ElementId> deferred_scroll_ends_;
 
   // True iff some of the delta has been consumed for the current scroll
   // sequence on the specific axis.

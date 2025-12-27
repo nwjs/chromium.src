@@ -112,8 +112,20 @@ class SigninPrefs {
   void IncrementAddressSigninPromoImpressionCount(const GaiaId& gaia_id);
   int GetAddressSigninPromoImpressionCount(const GaiaId& gaia_id) const;
 
+  void IncrementBookmarkSigninPromoImpressionCount(const GaiaId& gaia_id);
+  int GetBookmarkSigninPromoImpressionCount(const GaiaId& gaia_id) const;
+
   void IncrementAutofillSigninPromoDismissCount(const GaiaId& gaia_id);
   int GetAutofillSigninPromoDismissCount(const GaiaId& gaia_id) const;
+
+  void IncrementAddressSigninPromoDismissCount(const GaiaId& gaia_id);
+  int GetAddressSigninPromoDismissCount(const GaiaId& gaia_id) const;
+
+  void IncrementBookmarkSigninPromoDismissCount(const GaiaId& gaia_id);
+  int GetBookmarkSigninPromoDismissCount(const GaiaId& gaia_id) const;
+
+  void IncrementPasswordSigninPromoDismissCount(const GaiaId& gaia_id);
+  int GetPasswordSigninPromoDismissCount(const GaiaId& gaia_id) const;
 
   void SetExtensionsExplicitBrowserSignin(const GaiaId& gaia_id, bool enabled);
   bool GetExtensionsExplicitBrowserSignin(const GaiaId& gaia_id) const;
@@ -133,6 +145,10 @@ class SigninPrefs {
   int GetSyncPromoIdentityPillShownCount(const GaiaId& gaia_id) const;
   void IncrementSyncPromoIdentityPillUsedCount(const GaiaId& gaia_id);
   int GetSyncPromoIdentityPillUsedCount(const GaiaId& gaia_id) const;
+
+  // History sync promo on the history page.
+  void IncrementHistoryPageHistorySyncPromoShownCount(const GaiaId& gaia_id);
+  int GetHistoryPageHistorySyncPromoShownCount(const GaiaId& gaia_id) const;
 
   // Returns a dictionary of the avatar button promo count for `gaia_id`, if the
   // dictionary didn't exist it will create it.

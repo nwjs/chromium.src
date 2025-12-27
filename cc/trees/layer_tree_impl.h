@@ -160,7 +160,7 @@ class CC_EXPORT LayerTreeImpl {
   CreateScrollbarAnimationController(ElementId scroll_element_id,
                                      float initial_opacity);
   void DidAnimateScrollOffset();
-  bool use_gpu_rasterization() const;
+  const RasterCapabilities& raster_caps() const;
   bool RequiresHighResToDraw() const;
   bool SmoothnessTakesPriority() const;
   VideoFrameControllerClient* GetVideoFrameControllerClient() const;
@@ -308,7 +308,9 @@ class CC_EXPORT LayerTreeImpl {
   }
 
   gfx::PointF TotalScrollOffset() const;
+  gfx::PointF TotalScrollOffset(ElementId element_id) const;
   gfx::PointF TotalMaxScrollOffset() const;
+  gfx::PointF TotalMaxScrollOffset(ElementId element_id) const;
 
   void AddPresentationCallbacks(
       std::vector<PresentationTimeCallbackBuffer::Callback> callbacks);

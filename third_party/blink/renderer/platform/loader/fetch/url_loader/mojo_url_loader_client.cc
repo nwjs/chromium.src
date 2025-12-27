@@ -12,6 +12,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/notreached.h"
 #include "base/strings/string_view_util.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
@@ -303,6 +304,10 @@ void MojoURLLoaderClient::OnReceiveResponse(
     std::optional<mojo_base::BigBuffer> cached_metadata) {
   TRACE_EVENT1("loading", "MojoURLLoaderClient::OnReceiveResponse", "url",
                last_loaded_url_.GetString().Utf8());
+
+  // OnReceiveResponse() can be called at most once. This check is added to
+  // debug crbug.com/463388771.
+  CHECK(!has_received_response_head_);
 
   has_received_response_head_ = true;
   has_received_response_body_ = !!body;

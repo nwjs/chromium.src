@@ -6,6 +6,7 @@
 
 #include "base/logging.h"
 #include "base/strings/stringprintf.h"
+#include "media/formats/hls/abr_algorithm.h"
 #include "media/formats/hls/multivariant_playlist.h"
 #include "media/formats/hls/rendition.h"
 #include "media/formats/hls/types.h"
@@ -105,7 +106,9 @@ RenditionManager::~RenditionManager() = default;
 RenditionManager::RenditionManager(scoped_refptr<MultivariantPlaylist> playlist,
                                    SelectedCB reselect_cb,
                                    IsTypeSupportedCallback is_type_supported_cb)
-    : playlist_(std::move(playlist)), reselect_cb_(std::move(reselect_cb)) {
+    : playlist_(std::move(playlist)),
+      reselect_cb_(std::move(reselect_cb)),
+      abr_algorithm_(std::make_unique<EwmaAbrAlgorithm>()) {
   selectable_variants_ = FilterVariants(playlist_.get(), &audio_only_,
                                         std::move(is_type_supported_cb));
   for (const auto& variant : selectable_variants_) {
@@ -123,17 +126,36 @@ const VariantStream* RenditionManager::SelectBestVariant() const {
   }
 
   const VariantStream* best = *selectable_variants_.begin();
+  const auto abr_speed = abr_algorithm_->GetABRSpeed();
+
+  // Figuring out what the "best" resolution that can / should be played is
+  // somewhat tricky. For example, if a user's monitor is 1920x1080 but the
+  // video element isn't fullscreen'd, the actual player space is slightly less
+  // due to window borders or the browser UX on the top. A player should be able
+  // to select a rendition with a _slightly_ larger resolution than the actual
+  // player dimensions as a result - but not too much bigger, because it doesn't
+  // make sense to be playing 2560x1440p content on that same 1080p monitor.
+  constexpr float kPlayerDimensionScaleFactor = 1.1;
+  const types::DecimalInteger max_width =
+      player_resolution_.width() * kPlayerDimensionScaleFactor;
+  const types::DecimalInteger max_height =
+      player_resolution_.height() * kPlayerDimensionScaleFactor;
 
   for (const VariantStream* option : selectable_variants_) {
     if (option->GetResolution().has_value()) {
       if (player_resolution_.Area64() < option->GetResolution()->Area()) {
         // This variant is too large to even fit in the player area, so don't
         // consider it.
-        return best;
+        if (max_height < option->GetResolution()->height &&
+            max_width < option->GetResolution()->width) {
+          // This video variant is too large to be useful to this player
+          // resolution, so don't consider it.
+          return best;
+        }
       }
     }
 
-    if (network_bps_ < option->GetBandwidth()) {
+    if (abr_speed < option->GetBandwidth()) {
       // This variant is predicted to have a bandwidth requirement greater than
       // the connection speed to the host, so don't consider it.
       return best;
@@ -173,22 +195,20 @@ void RenditionManager::Reselect(SelectedCallonce cb) {
   // 3. Declaration order in manifest
   // It's possible that none of the renditions are marked for auto-selection
   // though, so we may get back nothing.
-  if (auto audio_renditions = variant->GetAudioRenditionGroup()) {
-    if (preferred_extra_rendition_.has_value()) {
-      extra_rendition =
-          audio_renditions->MostSimilar(preferred_extra_rendition_);
-    }
-    if (!extra_rendition.has_value()) {
-      extra_rendition = audio_renditions->MostSimilar(selected_extra_);
-    }
-    if (extra_rendition.has_value() &&
-        !std::get<1>(extra_rendition.value())->GetUri().has_value()) {
-      // An audio rendition with no uri just plays the content from the
-      // selected variant. See section 4.4.6.2.1 of the HLS spec for details.
-      // The URI attribute is OPTIONAL unless the TYPE is CLOSED-CAPTIONS, in
-      // which case the URI attribute must not be present.
-      extra_rendition = std::nullopt;
-    }
+  auto audio_renditions = variant->GetAudioRenditionGroup();
+  if (preferred_extra_rendition_.has_value()) {
+    extra_rendition = audio_renditions->MostSimilar(preferred_extra_rendition_);
+  }
+  if (!extra_rendition.has_value()) {
+    extra_rendition = audio_renditions->MostSimilar(selected_extra_);
+  }
+  if (extra_rendition.has_value() &&
+      !std::get<1>(extra_rendition.value())->GetUri().has_value()) {
+    // An audio rendition with no uri just plays the content from the
+    // selected variant. See section 4.4.6.2.1 of the HLS spec for details.
+    // The URI attribute is OPTIONAL unless the TYPE is CLOSED-CAPTIONS, in
+    // which case the URI attribute must not be present.
+    extra_rendition = std::nullopt;
   }
 
   if (!IsSameRendition(extra_rendition, selected_extra_)) {
@@ -208,7 +228,7 @@ void RenditionManager::Reselect(SelectedCallonce cb) {
   }
 }
 
-void RenditionManager::SetPreferredExtraRendition(
+void RenditionManager::SetPreferredAudioRendition(
     std::optional<MediaTrack::Id> track_id) {
   if (!active_variant_) {
     // Track ID's are only unique across a RenditionGroup - so if we don't have
@@ -233,7 +253,7 @@ void RenditionManager::SetPreferredExtraRendition(
   Reselect(base::BindOnce(reselect_cb_, AdaptationReason::kUserSelection));
 }
 
-void RenditionManager::SetPreferredPrimaryRendition(
+void RenditionManager::SetPreferredVideoRendition(
     std::optional<MediaTrack::Id> track_id) {
   // Primary (video) rendition selection is not supported.
   NOTREACHED();
@@ -245,22 +265,29 @@ void RenditionManager::UpdatePlayerResolution(const gfx::Size& resolution) {
 }
 
 void RenditionManager::UpdateNetworkSpeed(uint64_t network_bps) {
-  AdaptationReason reason = network_bps_ > network_bps
+  const auto old_speed = abr_algorithm_->GetABRSpeed();
+  abr_algorithm_->UpdateNetworkSpeed(network_bps);
+  const auto new_speed = abr_algorithm_->GetABRSpeed();
+
+  AdaptationReason reason = old_speed > new_speed
                                 ? AdaptationReason::kNetworkDowngrade
                                 : AdaptationReason::kNetworkUpgrade;
-  network_bps_ = network_bps;
   Reselect(base::BindOnce(reselect_cb_, reason));
 }
 
-std::vector<MediaTrack> RenditionManager::GetSelectableExtraRenditions() const {
+void RenditionManager::SetAbrAlgorithmForTesting(
+    std::unique_ptr<ABRAlgorithm> abr_algorithm) {
+  abr_algorithm_ = std::move(abr_algorithm);
+}
+
+std::vector<MediaTrack> RenditionManager::GetSelectableAudioRenditions() const {
   if (active_variant_) {
     return active_variant_->GetAudioRenditionGroup()->GetTracks();
   }
   return {};
 }
 
-std::vector<MediaTrack> RenditionManager::GetSelectablePrimaryRenditions()
-    const {
+std::vector<MediaTrack> RenditionManager::GetSelectableVideoRenditions() const {
   return selectable_variant_tracks_;
 }
 

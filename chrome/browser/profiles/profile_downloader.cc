@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -22,10 +23,10 @@
 #include "chrome/browser/profiles/profile_downloader_delegate.h"
 #include "components/signin/public/base/avatar_icon_util.h"
 #include "components/signin/public/base/consent_level.h"
+#include "components/signin/public/base/oauth_consumer_id.h"
 #include "components/signin/public/identity_manager/access_token_fetcher.h"
 #include "components/signin/public/identity_manager/access_token_info.h"
 #include "components/signin/public/identity_manager/account_info.h"
-#include "components/signin/public/identity_manager/oauth_consumer_ids.h"
 #include "net/base/load_flags.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_status_code.h"
@@ -226,7 +227,7 @@ void ProfileDownloader::FetchImageData() {
 }
 
 void ProfileDownloader::OnURLLoaderComplete(
-    std::unique_ptr<std::string> response_body) {
+    std::optional<std::string> response_body) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   int response_code = -1;
   if (simple_loader_->ResponseInfo() && simple_loader_->ResponseInfo()->headers)
@@ -235,7 +236,7 @@ void ProfileDownloader::OnURLLoaderComplete(
   if (response_body) {
     simple_loader_.reset();
     DVLOG(1) << "Decoding the image...";
-    ImageDecoder::Start(this, std::move(*response_body));
+    ImageDecoder::Start(this, std::move(response_body).value());
   } else if (response_code == net::HTTP_NOT_FOUND) {
     simple_loader_.reset();
     VLOG(1) << "Got 404, using default picture...";

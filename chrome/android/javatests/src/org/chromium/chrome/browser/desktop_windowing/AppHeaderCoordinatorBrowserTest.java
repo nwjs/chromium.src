@@ -52,12 +52,12 @@ import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperMa
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.hub.HubLayout;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.omnibox.OmniboxFocusReason;
 import org.chromium.chrome.browser.tabwindow.TabWindowManager;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper;
 import org.chromium.chrome.browser.theme.ThemeUtils;
-import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
 import org.chromium.chrome.browser.toolbar.top.ToolbarTablet;
 import org.chromium.chrome.browser.toolbar.top.tab_strip.TabStripTransitionCoordinator;
 import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderCoordinator;
@@ -119,7 +119,6 @@ public class AppHeaderCoordinatorBrowserTest {
 
     @Before
     public void setup() {
-        ToolbarFeatures.setIsTabStripLayoutOptimizationEnabledForTesting(true);
         InsetObserver.setInitialRawWindowInsetsForTesting(BOTTOM_NAV_BAR_INSETS);
         AppHeaderCoordinator.setInsetsRectProviderForTesting(mInsetsRectProvider);
 
@@ -139,7 +138,7 @@ public class AppHeaderCoordinatorBrowserTest {
 
     @Test
     @MediumTest
-    public void testTabStripHeightChangeForTabStripLayoutOptimization() {
+    public void testTabStripHeightChangeInDesktopWindow() {
         ChromeTabbedActivity activity = mActivityTestRule.getActivity();
         triggerDesktopWindowingModeChange(activity, true);
 
@@ -173,13 +172,13 @@ public class AppHeaderCoordinatorBrowserTest {
         Assert.assertNotNull(
                 "Tab strip transition coordinator is null.", tabStripTransitionCoordinator);
 
+        var stripLayoutHelperManager = activity.getLayoutManager().getStripLayoutHelperManager();
+        int fadeTransitionThresholdDp = stripLayoutHelperManager.getFadeTransitionThresholdDp();
+
         // A small strip width should hide the strip by adding the strip fade transition scrim.
-        int smallStripWidth =
-                ViewUtils.dpToPx(
-                        activity, TabStripTransitionCoordinator.getFadeTransitionThresholdDp() - 1);
+        int smallStripWidth = ViewUtils.dpToPx(activity, fadeTransitionThresholdDp - 1);
         ThreadUtils.runOnUiThreadBlocking(() -> simulateResizeDesktopWindow(smallStripWidth));
 
-        var stripLayoutHelperManager = activity.getLayoutManager().getStripLayoutHelperManager();
         var stripAreaMotionEventFilter =
                 (AreaMotionEventFilter) stripLayoutHelperManager.getEventFilter();
         CriteriaHelper.pollUiThread(
@@ -195,9 +194,7 @@ public class AppHeaderCoordinatorBrowserTest {
                 });
 
         // A large strip width should show the strip by removing the strip transition scrim.
-        int largeStripWidth =
-                ViewUtils.dpToPx(
-                        activity, TabStripTransitionCoordinator.getFadeTransitionThresholdDp());
+        int largeStripWidth = ViewUtils.dpToPx(activity, fadeTransitionThresholdDp);
         ThreadUtils.runOnUiThreadBlocking(() -> simulateResizeDesktopWindow(largeStripWidth));
         CriteriaHelper.pollUiThread(
                 () -> {
@@ -330,7 +327,8 @@ public class AppHeaderCoordinatorBrowserTest {
                         TabWindowManager.INVALID_WINDOW_ID,
                         true,
                         false,
-                        true);
+                        true,
+                        NewWindowAppSource.OTHER);
         ChromeTabbedActivity secondActivity =
                 ApplicationTestUtils.waitForActivityWithClass(
                         ChromeTabbedActivity.class,
@@ -597,7 +595,6 @@ public class AppHeaderCoordinatorBrowserTest {
 
     private void doTestOnTopResumedActivityChanged(
             boolean isInDesktopWindow, boolean isActivityFocused) {
-        ToolbarFeatures.setIsTabStripLayoutOptimizationEnabledForTesting(true);
         ChromeTabbedActivity activity = mActivityTestRule.getActivity();
 
         CriteriaHelper.pollUiThread(

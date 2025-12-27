@@ -4,9 +4,12 @@
 
 #include "chrome/browser/unexpire_flags.h"
 
+#include "base/check.h"
+#include "base/check_op.h"
 #include "base/compiler_specific.h"
 #include "base/containers/contains.h"
 #include "base/containers/flat_map.h"
+#include "base/feature_list.h"
 #include "base/no_destructor.h"
 #include "chrome/browser/expired_flags_list.h"
 #include "chrome/browser/unexpire_flags_gen.h"

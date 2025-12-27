@@ -4,6 +4,9 @@
 
 #include "content/browser/webid/idp_network_request_manager.h"
 
+#include <optional>
+#include <string>
+
 #include "base/barrier_closure.h"
 #include "base/base64.h"
 #include "base/containers/flat_set.h"
@@ -822,9 +825,14 @@ void OnTokenRequestParsed(
       GetTokenResponseType(token_value, continue_on, response_error);
 
   if (response_error) {
-    const char* key =
-        webid::IsErrorAttributeEnabled() ? kErrorKey : kErrorCodeKey;
-    std::string error_code = ExtractString(*response_error, key);
+    std::string error_code;
+    if (webid::IsErrorAttributeEnabled()) {
+      error_code = ExtractString(*response_error, kErrorKey);
+    }
+    if (error_code.empty()) {
+      error_code = ExtractString(*response_error, kErrorCodeKey);
+    }
+
     const std::string* url = response_error->FindString(kErrorUrlKey);
     GURL error_url;
     std::optional<ErrorUrlType> error_url_type;
@@ -895,7 +903,7 @@ void OnTokenRequestParsed(
 }
 
 void OnLogoutCompleted(IdpNetworkRequestManager::LogoutCallback callback,
-                       std::unique_ptr<std::string> response_body,
+                       std::optional<std::string> response_body,
                        int response_code,
                        const std::string& mime_type,
                        bool cors_error) {
@@ -971,6 +979,7 @@ IdpNetworkRequestManager::IdpNetworkRequestManager(
     : NetworkRequestManager(relying_party_origin,
                             loader_factory,
                             std::move(client_security_state),
+                            network::mojom::RequestDestination::kWebIdentity,
                             frame_tree_node_id),
       rp_embedding_origin_(rp_embedding_origin),
       permission_delegate_(permission_delegate) {
@@ -1355,7 +1364,8 @@ void IdpNetworkRequestManager::DownloadAndDecodeCachedImage(
     const GURL& url,
     ImageCallback callback) {
   std::unique_ptr<network::ResourceRequest> resource_request =
-      CreateCachedAccountPictureRequest(idp_origin, url, /*cache_only=*/true);
+      CreateCachedAccountPictureRequest(idp_origin, url,
+                                        /*cache_only=*/true);
   DownloadUrl(
       std::move(resource_request),
       /*url_encoded_post_data=*/std::nullopt,
@@ -1393,7 +1403,7 @@ void IdpNetworkRequestManager::FetchClientMetadata(
 
 void IdpNetworkRequestManager::OnDownloadedImage(
     ImageCallback callback,
-    std::unique_ptr<std::string> response_body,
+    std::optional<std::string> response_body,
     int response_code,
     const std::string& mime_type,
     bool cors_error) {

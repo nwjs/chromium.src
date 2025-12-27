@@ -728,12 +728,13 @@ TEST_F(ResourcePoolTest, MetadataSentToDisplayCompositor) {
   EXPECT_EQ(transfer[0].sync_token(), sync_token);
   EXPECT_EQ(transfer[0].texture_target(),
             resource.backing()->shared_image()->GetTextureTarget());
-  EXPECT_EQ(transfer[0].size, resource.backing()->shared_image()->size());
-  EXPECT_EQ(transfer[0].format, resource.backing()->shared_image()->format());
+  EXPECT_EQ(transfer[0].GetSize(), resource.backing()->shared_image()->size());
+  EXPECT_EQ(transfer[0].GetFormat(),
+            resource.backing()->shared_image()->format());
   EXPECT_EQ(
       transfer[0].synchronization_type,
       viz::TransferableResource::SynchronizationType::kGpuCommandsCompleted);
-  EXPECT_TRUE(transfer[0].is_overlay_candidate);
+  EXPECT_TRUE(transfer[0].GetIsOverlayCandidate());
 
   resource_pool_->ReleaseResource(std::move(resource));
 }
@@ -747,8 +748,6 @@ TEST_F(ResourcePoolTest, InvalidResource) {
   // These values are all non-default values so we can tell they are propagated.
   gfx::Size size(100, 101);
   viz::SharedImageFormat format = viz::SinglePlaneFormat::kRGBA_4444;
-  EXPECT_NE(gfx::BufferFormat::RGBA_8888,
-            viz::SinglePlaneSharedImageFormatToBufferFormat(format));
   gfx::ColorSpace color_space = gfx::ColorSpace::CreateSRGB();
 
   ResourcePool::InUsePoolResource resource =

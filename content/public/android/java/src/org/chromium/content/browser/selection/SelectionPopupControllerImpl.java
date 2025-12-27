@@ -155,7 +155,6 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
     private @Nullable ActionModeCallback mCallback;
     private @Nullable RenderFrameHost mRenderFrameHost;
     private long mNativeSelectionPopupController;
-    private final HierarchicalMenuController mHierarchicalMenuController;
 
     private final SelectionClient.ResultCallback mResultCallback;
 
@@ -361,12 +360,6 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
         mResultCallback = new SmartSelectionCallback();
         mLastSelectedText = "";
         getPopupController().registerPopup(this);
-
-        // TODO(crbug.com/433410990): Implement flyouts for selected text context menu.
-        assumeNonNull(mContext);
-        mHierarchicalMenuController =
-                ListMenuUtils.createHierarchicalMenuController(
-                        mContext, /* flyoutHandler= */ null, /* drillDownOverrideValue= */ true);
     }
 
     private void reset() {
@@ -671,7 +664,11 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
             SelectionMenuItem menuItem = delegate.getMinimalMenuItem(item);
             logSelectionAction(menuItem.groupId, menuItem.id);
             boolean isSubmenuParent = item.containsKey(ListMenuSubmenuItemProperties.SUBMENU_ITEMS);
-            mCallback.onDropdownItemClicked(menuItem, !isSubmenuParent);
+            View.OnClickListener clickListener = delegate.getClickListener(item);
+            if (!mCallback.onDropdownItemClicked(menuItem, !isSubmenuParent)
+                    && clickListener != null) {
+                clickListener.onClick(null);
+            }
         };
     }
 
@@ -722,12 +719,16 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
             }
         }
 
-        mHierarchicalMenuController.setupCallbacksRecursively(
+        assumeNonNull(mContext);
+        HierarchicalMenuController hierarchicalMenuController =
+                ListMenuUtils.createHierarchicalMenuController(mContext);
+        hierarchicalMenuController.setupCallbacksRecursively(
                 /* headerModelList= */ null, items, this::dismissMenu);
 
         SelectionDropdownMenuDelegate.ItemClickListener itemClickListener =
                 getDropdownItemClickListener(mDropdownMenuDelegate);
-        mDropdownMenuDelegate.show(mContext, mView, items, itemClickListener, x, y);
+        mDropdownMenuDelegate.show(
+                mContext, mView, items, itemClickListener, hierarchicalMenuController, x, y);
     }
 
     // HideablePopup implementation

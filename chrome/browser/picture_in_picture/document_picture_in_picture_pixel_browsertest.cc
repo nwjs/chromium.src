@@ -7,6 +7,7 @@
 #include "chrome/browser/ui/test/test_browser_ui.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/picture_in_picture_browser_frame_view.h"
+#include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/document_picture_in_picture_window_controller.h"
 #include "content/public/browser/render_widget_host_view.h"
@@ -16,7 +17,7 @@
 #include "content/public/test/browser_test_utils.h"
 #include "net/dns/mock_host_resolver.h"
 #include "third_party/blink/public/common/features.h"
-#include "ui/compositor/scoped_animation_duration_scale_mode.h"
+#include "ui/gfx/scoped_animation_duration_scale_mode.h"
 #include "ui/views/test/widget_activation_waiter.h"
 #include "ui/views/widget/widget.h"
 
@@ -54,8 +55,8 @@ class DocumentPictureInPicturePixelTest : public UiBrowserTest,
 
     // Disable animation for stability.
     animation_duration_ =
-        std::make_unique<ui::ScopedAnimationDurationScaleMode>(
-            ui::ScopedAnimationDurationScaleMode::ZERO_DURATION);
+        std::make_unique<gfx::ScopedAnimationDurationScaleMode>(
+            gfx::ScopedAnimationDurationScaleMode::ZERO_DURATION);
 
     InProcessBrowserTest::SetUp();
   }
@@ -86,7 +87,7 @@ class DocumentPictureInPicturePixelTest : public UiBrowserTest,
   void LoadTabAndEnterPictureInPicture(
       Browser* browser,
       const gfx::Size& window_size = gfx::Size(300, 300)) {
-    GURL test_page_url = ui_test_utils::GetTestUrl(
+    GURL test_page_url = chrome_test_utils::GetTestUrl(
         base::FilePath(base::FilePath::kCurrentDirectory),
         base::FilePath(kPictureInPictureDocumentPipPage));
     ASSERT_TRUE(ui_test_utils::NavigateToURL(browser, test_page_url));
@@ -173,7 +174,7 @@ class DocumentPictureInPicturePixelTest : public UiBrowserTest,
       pip_window_controller_ = nullptr;
   base::test::ScopedFeatureList scoped_feature_list_;
   // Used to force a zero duration animation.
-  std::unique_ptr<ui::ScopedAnimationDurationScaleMode> animation_duration_;
+  std::unique_ptr<gfx::ScopedAnimationDurationScaleMode> animation_duration_;
 };
 
 }  // namespace

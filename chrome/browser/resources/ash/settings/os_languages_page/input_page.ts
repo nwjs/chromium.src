@@ -139,10 +139,6 @@ export class OsSettingsInputPageElement extends OsSettingsInputPageElementBase {
 
       languagePacksInSettingsEnabled_: Boolean,
 
-      allowEmojiSuggestion_: Boolean,
-
-      allowSuggestionSection_: Boolean,
-
       acceleratorFetcher: Object,
 
       isShortcutCustomizationEnabled_: Boolean,
@@ -169,7 +165,6 @@ export class OsSettingsInputPageElement extends OsSettingsInputPageElementBase {
   // From DeepLinkingMixin.
   override supportedSettingIds = new Set([
     Setting.kAddInputMethod,
-    Setting.kShowEmojiSuggestions,
     Setting.kShowInputOptionsInShelf,
     Setting.kSpellCheckOnOff,
   ]);
@@ -195,10 +190,6 @@ export class OsSettingsInputPageElement extends OsSettingsInputPageElementBase {
   private onDeviceGrammarCheckEnabled_: boolean;
   private languagePacksInSettingsEnabled_ =
       loadTimeData.getBoolean('languagePacksInSettingsEnabled');
-  private readonly allowEmojiSuggestion_: boolean =
-      loadTimeData.getBoolean('allowEmojiSuggestion');
-  private readonly allowSuggestionSection_: boolean =
-      this.allowEmojiSuggestion_;
 
   // Computed properties.
   private spellCheckLanguages_: SpellCheckLanguageState[]|undefined;

@@ -27,7 +27,6 @@
 #include "base/containers/enum_set.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/span.h"
-#include "base/feature_list.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
@@ -53,7 +52,6 @@
 #include "components/attribution_reporting/destination_set.h"
 #include "components/attribution_reporting/event_report_windows.h"
 #include "components/attribution_reporting/event_trigger_data.h"
-#include "components/attribution_reporting/features.h"
 #include "components/attribution_reporting/filters.h"
 #include "components/attribution_reporting/privacy_math.h"
 #include "components/attribution_reporting/source_registration.h"
@@ -67,7 +65,6 @@
 #include "content/browser/attribution_reporting/aggregatable_debug_rate_limit_table.h"
 #include "content/browser/attribution_reporting/aggregatable_debug_report.h"
 #include "content/browser/attribution_reporting/aggregatable_named_budget_pair.h"
-#include "content/browser/attribution_reporting/attribution_features.h"
 #include "content/browser/attribution_reporting/attribution_info.h"
 #include "content/browser/attribution_reporting/attribution_report.h"
 #include "content/browser/attribution_reporting/attribution_reporting.pb.h"
@@ -85,7 +82,6 @@
 #include "content/browser/attribution_reporting/stored_source.h"
 #include "content/public/browser/attribution_data_model.h"
 #include "net/base/schemeful_site.h"
-#include "services/network/public/cpp/features.h"
 #include "sql/database.h"
 #include "sql/error_delegate_util.h"
 #include "sql/meta_table.h"
@@ -1520,14 +1516,7 @@ bool AttributionStorageSql::DeleteReport(AttributionReport::Id report_id) {
     return true;
   }
 
-  bool success = DeleteReportInternal(report_id);
-  if (success) {
-    base::UmaHistogramCustomCounts(
-        "Conversions.DbVersionOnReportSentAndDeleted", kCurrentVersionNumber,
-        /*min=*/58,
-        /*exclusive_max=*/88, /*buckets=*/30);
-  }
-  return success;
+  return DeleteReportInternal(report_id);
 }
 
 bool AttributionStorageSql::DeleteReportInternal(
@@ -1607,44 +1596,6 @@ bool AttributionStorageSql::AdjustOfflineReportTimes(
   statement.BindTimeDelta(1, max_delay - min_delay + base::Microseconds(1));
   statement.BindTime(2, now);
   return statement.Run();
-}
-
-base::flat_map<AttributionReport::Type, int>
-AttributionStorageSql::AdjustNavigationRetryReportTimes(
-    base::TimeDelta min_delay,
-    base::TimeDelta max_delay) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
-  CHECK_GE(min_delay, base::TimeDelta());
-  CHECK_GE(max_delay, base::TimeDelta());
-  CHECK_LE(min_delay, max_delay);
-
-  if (!base::FeatureList::IsEnabled(kAttributionReportNavigationBasedRetry) ||
-      !LazyInit(DbCreationPolicy::kIgnoreIfAbsent)) {
-    return {};
-  }
-
-  base::Time now = base::Time::Now();
-
-  sql::Statement statement(db_.GetCachedStatement(
-      SQL_FROM_HERE, attribution_queries::kSetReportTimeOnNavigationSql));
-  statement.BindTime(0, now + min_delay);
-  statement.BindTimeDelta(1, max_delay - min_delay + base::Microseconds(1));
-  statement.BindInt(
-      2, static_cast<int>(kAttributionReportNavigationRetryAttempt.Get()));
-
-  base::flat_map<AttributionReport::Type, int> report_types;
-  while (statement.Step()) {
-    std::optional<AttributionReport::Type> report_type =
-        DeserializeReportType(statement.ColumnInt(0));
-    if (!report_type) {
-      continue;
-    }
-    auto [it, _] = report_types.try_emplace(*report_type, 0);
-    it->second++;
-  }
-
-  return report_types;
 }
 
 void AttributionStorageSql::ClearDataWithFilter(
@@ -2067,11 +2018,6 @@ bool AttributionStorageSql::LazyInit(DbCreationPolicy creation_policy) {
   if (int64_t file_size = GetStorageFileSizeKB(path_to_database_);
       file_size > -1) {
     base::UmaHistogramCounts10M("Conversions.Storage.Sql.FileSize2", file_size);
-    std::optional<int64_t> number_of_sources = NumberOfSources();
-    if (number_of_sources.has_value() && *number_of_sources > 0) {
-      base::UmaHistogramCounts1M("Conversions.Storage.Sql.FileSize2.PerSource",
-                                 file_size * 1024 / *number_of_sources);
-    }
   }
 
   VerifyReports(/*deletion_counts=*/nullptr);
@@ -2081,16 +2027,6 @@ bool AttributionStorageSql::LazyInit(DbCreationPolicy creation_policy) {
                                  /*exclusive_max=*/500, /*buckets=*/50);
 
   return true;
-}
-
-std::optional<int64_t> AttributionStorageSql::NumberOfSources() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  sql::Statement statement(db_.GetCachedStatement(
-      SQL_FROM_HERE, attribution_queries::kCountSourcesSql));
-  if (!statement.Step()) {
-    return std::nullopt;
-  }
-  return statement.ColumnInt64(0);
 }
 
 // Deletes corrupt sources/reports if `deletion_counts` is not `nullptr`.
@@ -3025,10 +2961,6 @@ AttributionStorageSql::GetAggregatableDebugSourceData(
   };
 }
 
-int64_t AttributionStorageSql::StorageFileSizeKB() {
-  return GetStorageFileSizeKB(path_to_database_);
-}
-
 AggregatableDebugRateLimitTable::Result
 AttributionStorageSql::AggregatableDebugReportAllowedForRateLimit(
     const AggregatableDebugReport& report) {
@@ -3204,14 +3136,6 @@ bool AttributionStorageSql::DeleteAttributionRateLimit(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   return rate_limit_table_.DeleteAttributionRateLimit(&db_, scope, report_id);
-}
-
-int64_t AttributionStorageSql::CountUniqueReportingOriginsPerSiteForAttribution(
-    const AttributionTrigger& trigger,
-    const base::Time now) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return rate_limit_table_.CountUniqueReportingOriginsPerSiteForAttribution(
-      &db_, trigger, now);
 }
 
 }  // namespace content

@@ -36,6 +36,7 @@
   E_CPONLY(kColorAvatarButtonHighlightGuest) \
   E_CPONLY(kColorAvatarButtonHighlightSyncError) \
   E_CPONLY(kColorAvatarButtonHighlightSyncPaused) \
+  E_CPONLY(kColorAvatarButtonHighlightPasskeysLocked) \
   E_CPONLY(kColorAvatarButtonHighlightSigninPaused) \
   E_CPONLY(kColorAvatarButtonHighlightExplicitText) \
   E_CPONLY(kColorAvatarButtonHighlightIncognito) \
@@ -286,6 +287,7 @@
   E_CPONLY(kColorComposeboxContextEntrypointTextDisabled) \
   E_CPONLY(kColorComposeboxContextEntrypointHoverBackground) \
   E_CPONLY(kColorComposeboxLink) \
+  E_CPONLY(kColorNewTabPageCommonInputPlaceholder) \
   E_CPONLY(kColorNewTabPageControlBackgroundHovered) \
   E_CPONLY(kColorNewTabPageControlBackgroundSelected) \
   E_CPONLY(kColorNewTabPageFirstRunBackground) \
@@ -474,11 +476,9 @@
   /* Picture-in-Picture window colors. */ \
   E_CPONLY(kColorPipWindowBackToTabButtonBackground) \
   E_CPONLY(kColorPipWindowBackground) \
-  E_CPONLY(kColorPipWindowControlsBackground) \
   E_CPONLY(kColorPipWindowTopBarBackground) \
   E_CPONLY(kColorPipWindowForeground) \
   E_CPONLY(kColorPipWindowForegroundInactive) \
-  E_CPONLY(kColorPipWindowHangUpButtonForeground) \
   E_CPONLY(kColorPipWindowScrimFull) \
   E_CPONLY(kColorPipWindowScrimTopGradientStart) \
   E_CPONLY(kColorPipWindowScrimTopGradientEnd) \

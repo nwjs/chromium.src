@@ -26,7 +26,6 @@
 #include "base/base64.h"
 #include "base/base_paths.h"
 #include "base/files/file_path.h"
-#include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/rand_util.h"
@@ -212,7 +211,6 @@ void AmbientPhotoController::FetchBackupImages() {
 
 void AmbientPhotoController::OnBackupImageFetched(bool success) {
   if (!success) {
-    // TODO(b/169807068) Change to retry individual failed images.
     active_backup_image_downloads_.clear();
     resume_fetch_image_backoff_.InformOfRequest(/*succeeded=*/false);
     LOG(WARNING) << "Downloading backup image failed.";

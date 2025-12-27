@@ -45,6 +45,7 @@ import org.robolectric.shadow.api.Shadow;
 
 import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.blink.mojom.AuthenticatorStatus;
 import org.chromium.blink.mojom.GetCredentialOptions;
 import org.chromium.blink.mojom.Mediation;
@@ -57,6 +58,7 @@ import org.chromium.components.webauthn.Fido2ApiTestHelper;
 import org.chromium.components.webauthn.GetAssertionOutcome;
 import org.chromium.components.webauthn.MakeCredentialOutcome;
 import org.chromium.components.webauthn.WebauthnBrowserBridge;
+import org.chromium.components.webauthn.WebauthnFeatures;
 import org.chromium.components.webauthn.WebauthnModeProvider;
 import org.chromium.components.webauthn.cred_man.CredManMetricsHelper.CredManCreateRequestEnum;
 import org.chromium.components.webauthn.cred_man.CredManMetricsHelper.CredManGetRequestEnum;
@@ -83,6 +85,7 @@ import org.chromium.mojo_base.mojom.String16;
             ShadowGetCredentialResponse.class,
             ShadowPrepareGetCredentialResponse.class
         })
+@DisableFeatures({WebauthnFeatures.WEBAUTHN_ANDROID_CRED_MAN_FOR_DEV})
 public class CredManHelperRobolectricTest {
     private CredManHelper mCredManHelper;
     private Fido2ApiTestHelper.AuthenticatorCallback mCallback;
@@ -321,9 +324,9 @@ public class CredManHelperRobolectricTest {
         assertThat(mCallback.getStatus()).isEqualTo(Integer.valueOf(AuthenticatorStatus.SUCCESS));
         verify(mBrowserBridge, times(1)).onCredManUiClosed(any(), anyBoolean());
         verify(mMetricsHelper, times(1))
-                .reportGetCredentialMetrics(eq(CredManGetRequestEnum.SENT_REQUEST), any());
+                .reportGetCredentialMetrics(eq(CredManGetRequestEnum.SENT_REQUEST), anyInt());
         verify(mMetricsHelper, times(1))
-                .reportGetCredentialMetrics(eq(CredManGetRequestEnum.SUCCESS_PASSKEY), any());
+                .reportGetCredentialMetrics(eq(CredManGetRequestEnum.SUCCESS_PASSKEY), anyInt());
     }
 
     @Test
@@ -428,7 +431,7 @@ public class CredManHelperRobolectricTest {
                         GetAssertionOutcome.USER_CANCELLATION);
         verify(mBrowserBridge, times(1)).onCredManUiClosed(any(), anyBoolean());
         verify(mMetricsHelper, times(1))
-                .reportGetCredentialMetrics(eq(CredManGetRequestEnum.CANCELLED), any());
+                .reportGetCredentialMetrics(eq(CredManGetRequestEnum.CANCELLED), anyInt());
     }
 
     @Test
@@ -454,7 +457,7 @@ public class CredManHelperRobolectricTest {
         verify(mErrorCallback, times(1)).onResult(AuthenticatorStatus.UNKNOWN_ERROR, null);
         verify(mBrowserBridge, times(1)).onCredManUiClosed(any(), anyBoolean());
         verify(mMetricsHelper, times(1))
-                .reportGetCredentialMetrics(eq(CredManGetRequestEnum.FAILURE), any());
+                .reportGetCredentialMetrics(eq(CredManGetRequestEnum.FAILURE), anyInt());
     }
 
     @Test
@@ -566,7 +569,7 @@ public class CredManHelperRobolectricTest {
         verify(mBarrier, times(1)).onCredManCancelled(AuthenticatorStatus.ABORT_ERROR);
         verify(mBrowserBridge, times(1)).cleanupCredManRequest(any());
         verify(mBrowserBridge, never()).onCredManUiClosed(any(), anyBoolean());
-        verify(mMetricsHelper, never()).reportGetCredentialMetrics(anyInt(), any());
+        verify(mMetricsHelper, never()).reportGetCredentialMetrics(anyInt(), anyInt());
     }
 
     @Test
@@ -620,7 +623,7 @@ public class CredManHelperRobolectricTest {
         verify(mBrowserBridge, never()).cleanupCredManRequest(any());
         verify(mBrowserBridge, times(1)).onCredManUiClosed(any(), anyBoolean());
         verify(mMetricsHelper, times(1))
-                .reportGetCredentialMetrics(eq(CredManGetRequestEnum.CANCELLED), any());
+                .reportGetCredentialMetrics(eq(CredManGetRequestEnum.CANCELLED), anyInt());
     }
 
     @Test
@@ -675,7 +678,7 @@ public class CredManHelperRobolectricTest {
         verify(mBrowserBridge, times(1))
                 .onPasswordCredentialReceived(any(), eq(username), eq(password));
         verify(mMetricsHelper, times(1))
-                .reportGetCredentialMetrics(eq(CredManGetRequestEnum.SUCCESS_PASSWORD), any());
+                .reportGetCredentialMetrics(eq(CredManGetRequestEnum.SUCCESS_PASSWORD), anyInt());
     }
 
     @Test
@@ -758,9 +761,9 @@ public class CredManHelperRobolectricTest {
         assertThat(mCallback.getStatus()).isEqualTo(Integer.valueOf(AuthenticatorStatus.SUCCESS));
         verify(mBrowserBridge, times(1)).onCredManUiClosed(any(), anyBoolean());
         verify(mMetricsHelper, times(1))
-                .reportGetCredentialMetrics(eq(CredManGetRequestEnum.SENT_REQUEST), any());
+                .reportGetCredentialMetrics(eq(CredManGetRequestEnum.SENT_REQUEST), anyInt());
         verify(mMetricsHelper, times(1))
-                .reportGetCredentialMetrics(eq(CredManGetRequestEnum.SUCCESS_PASSKEY), any());
+                .reportGetCredentialMetrics(eq(CredManGetRequestEnum.SUCCESS_PASSKEY), anyInt());
     }
 
     @Test
@@ -834,7 +837,7 @@ public class CredManHelperRobolectricTest {
         verify(mBarrier, times(1)).onCredManCancelled(AuthenticatorStatus.NOT_ALLOWED_ERROR);
         verify(mBrowserBridge, times(1)).cleanupCredManRequest(any());
         verify(mBrowserBridge, never()).onCredManUiClosed(any(), anyBoolean());
-        verify(mMetricsHelper, never()).reportGetCredentialMetrics(anyInt(), any());
+        verify(mMetricsHelper, never()).reportGetCredentialMetrics(anyInt(), anyInt());
     }
 
     private Credential createPasskeyCredential() {

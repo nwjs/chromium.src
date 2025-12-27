@@ -140,6 +140,7 @@ void HUDDisplayView::Toggle() {
   params.parent = Shell::GetContainer(Shell::GetPrimaryRootWindow(),
                                       kShellWindowId_OverlayContainer);
   params.bounds = gfx::Rect(kHUDWidth, kHUDHeightWithGraph);
+  params.remove_standard_frame = true;
   auto* widget = CreateViewTreeHostWidget(std::move(params));
   widget->GetLayer()->SetName("HUDDisplayView");
 

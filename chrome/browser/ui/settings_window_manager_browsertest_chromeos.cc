@@ -22,6 +22,8 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
 #include "chrome/common/chrome_switches.h"
@@ -41,11 +43,12 @@ namespace {
 
 // Return the number of windows that hosts OS Settings.
 size_t GetNumberOfSettingsWindows() {
-  auto* browser_list = BrowserList::GetInstance();
-  return std::ranges::count_if(*browser_list, [](Browser* browser) {
-    return ash::IsBrowserForSystemWebApp(browser,
-                                         ash::SystemWebAppType::SETTINGS);
-  });
+  auto settings_browsers =
+      ui_test_utils::FindMatchingBrowsers([](BrowserWindowInterface* browser) {
+        return ash::IsBrowserForSystemWebApp(browser,
+                                             ash::SystemWebAppType::SETTINGS);
+      });
+  return settings_browsers.size();
 }
 
 }  // namespace
@@ -76,16 +79,13 @@ class SettingsWindowManagerTest : public InProcessBrowserTest {
   void TearDownOnMainThread() override { settings_manager_ = nullptr; }
 
   void CloseNonDefaultBrowsers() {
-    std::list<Browser*> browsers_to_close;
-    for (Browser* b : *BrowserList::GetInstance()) {
-      if (b != browser()) {
-        browsers_to_close.push_back(b);
-      }
-    }
-    for (std::list<Browser*>::iterator iter = browsers_to_close.begin();
-         iter != browsers_to_close.end(); ++iter) {
-      CloseBrowserSynchronously(*iter);
-    }
+    ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+        [&](BrowserWindowInterface* browser_window_interface) {
+          if (browser_window_interface != browser()) {
+            CloseBrowserSynchronously(browser_window_interface);
+          }
+          return true;
+        });
   }
 
   void ShowOSSettings() {
@@ -233,6 +233,6 @@ IN_PROC_BROWSER_TEST_F(SettingsWindowManagerLoginTest, OpenBeforeLogin) {
       ash::ProfileHelper::GetSigninProfile());
 
   // We didn't crash, and nothing opened.
-  EXPECT_EQ(0u, BrowserList::GetInstance()->size());
+  EXPECT_EQ(0u, chrome::GetTotalBrowserCount());
   EXPECT_EQ(0u, GetNumberOfSettingsWindows());
 }

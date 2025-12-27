@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "base/base64.h"
+#include "base/containers/fixed_flat_set.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/span.h"
 #include "base/functional/bind.h"
@@ -474,21 +475,6 @@ void PasswordAccessoryControllerImpl::OnOptionSelected(
         }
       }
       return;
-    case autofill::AccessoryAction::CREATE_PLUS_ADDRESS_FROM_PASSWORD_SHEET:
-      if (auto* client = autofill::ContentAutofillClient::FromWebContents(
-              &GetWebContents())) {
-        client->OfferPlusAddressCreation(
-            client->GetLastCommittedPrimaryMainFrameOrigin(),
-            /*is_manual_fallback=*/true,
-            base::BindOnce(
-                &PasswordAccessoryControllerImpl::OnPlusAddressCreated,
-                weak_ptr_factory_.GetWeakPtr()));
-        base::RecordAction(base::UserMetricsAction(
-            "PlusAddresses."
-            "CreateSuggestionOnPasswordManualFallbackSelected"));
-        GetManualFillingController()->Hide();
-      }
-      return;
     case autofill::AccessoryAction::SELECT_PLUS_ADDRESS_FROM_PASSWORD_SHEET:
       all_plus_addresses_bottom_sheet_controller_ = std::make_unique<
           plus_addresses::AllPlusAddressesBottomSheetController>(
@@ -509,8 +495,9 @@ void PasswordAccessoryControllerImpl::OnOptionSelected(
     case autofill::AccessoryAction::RETRIEVE_TRUSTED_VAULT_KEY:
       password_manager_error_message_helper_bridge_
           ->StartTrustedVaultKeyRetrievalFlow(
-              &GetWebContents(), syncer::TrustedVaultUserActionTriggerForUMA::
-                                     kPasswordManagerKeyboardAccessory);
+              &GetWebContents(),
+              trusted_vault::TrustedVaultUserActionTriggerForUMA::
+                  kPasswordManagerKeyboardAccessory);
       return;
     default:
       NOTREACHED() << "Unhandled selected action: "
@@ -715,19 +702,6 @@ PasswordAccessoryControllerImpl::CreateManagePasswordsFooter() const {
       manage_passwords_title, autofill::AccessoryAction::MANAGE_PASSWORDS);
 
   if (plus_address_service_) {
-    // Offer plus address creation if it's supported for the current user
-    // session and if the user doesn't have any plus addresses created for the
-    // current domain.
-    if (plus_address_service_->IsPlusAddressCreationEnabled(
-            password_client_->GetLastCommittedOrigin(),
-            password_client_->IsOffTheRecord()) &&
-        plus_profiles_provider_ &&
-        plus_profiles_provider_->GetAffiliatedPlusProfiles().empty()) {
-      footer_commands_to_add.emplace_back(
-          l10n_util::GetStringUTF16(
-              IDS_PLUS_ADDRESS_CREATE_NEW_PLUS_ADDRESSES_LINK_ANDROID),
-          autofill::AccessoryAction::CREATE_PLUS_ADDRESS_FROM_PASSWORD_SHEET);
-    }
     // Offer the user to select the plus address manually if plus address
     // filling is supported for the last committed origin and the user has at
     // least 1 plus address.
@@ -854,8 +828,6 @@ void PasswordAccessoryControllerImpl::ShowAllPasswords() {
   // |AllPasswordsSheetDismissed| we are sure that this controller is alive as
   // it owns |AllPasswordsBottomSheetController| from which the method is
   // called.
-  // TODO(crbug.com/40139552): Update the controller with the last focused
-  // field.
   all_passords_bottom_sheet_controller_ =
       std::make_unique<AllPasswordsBottomSheetController>(
           &GetWebContents(), password_client_->GetProfilePasswordStore(),

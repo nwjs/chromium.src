@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <optional>
+#include <string>
 #include <utility>
 
 #include "base/functional/bind.h"
@@ -26,9 +27,9 @@
 #include "components/safe_browsing/core/common/safe_browsing_policy_handler.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/safe_browsing/core/common/utils.h"
+#include "components/signin/public/base/oauth_consumer_id.h"
 #include "components/signin/public/identity_manager/access_token_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
-#include "components/signin/public/identity_manager/oauth_consumer_ids.h"
 #include "components/signin/public/identity_manager/primary_account_access_token_fetcher.h"
 #include "components/signin/public/identity_manager/scope_set.h"
 #include "components/sync/base/user_selectable_type.h"
@@ -156,7 +157,7 @@ class RequestImpl : public TailoredSecurityService::Request {
 
   void Shutdown() override {}
 
-  void OnSimpleLoaderComplete(std::unique_ptr<std::string> response_body) {
+  void OnSimpleLoaderComplete(std::optional<std::string> response_body) {
     response_code_ = 0;
     if (simple_url_loader_->ResponseInfo() &&
         simple_url_loader_->ResponseInfo()->headers) {
@@ -180,11 +181,7 @@ class RequestImpl : public TailoredSecurityService::Request {
       return;
     }
 
-    if (response_body) {
-      response_body_ = std::move(*response_body);
-    } else {
-      response_body_.clear();
-    }
+    response_body_ = std::move(response_body).value_or("");
     is_pending_ = false;
     std::move(callback_).Run(this, true);
     // It is valid for the callback to delete |this|, so do not access any

@@ -17,6 +17,7 @@ import org.chromium.base.JniOnceCallback;
 import org.chromium.blink.mojom.DisplayMode;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.navigation_controller.UserAgentOverrideOption;
 import org.chromium.content_public.common.ResourceRequestBody;
@@ -77,15 +78,10 @@ public class WebContentsDelegateAndroid {
     }
 
     @CalledByNative
-    public void onUpdateUrl(GURL url) {}
+    public void onUpdateTargetUrl(GURL url) {}
 
     @CalledByNative
     public boolean takeFocus(boolean reverse) {
-        return false;
-    }
-
-    @CalledByNative
-    public boolean preHandleKeyboardEvent(long nativeKeyEvent) {
         return false;
     }
 
@@ -118,14 +114,14 @@ public class WebContentsDelegateAndroid {
 
     @CalledByNative
     public void enterFullscreenModeForTab(
-            long requestingFrame,
+            RenderFrameHost renderFrameHost,
             boolean prefersNavigationBar,
             boolean prefersStatusBar,
             long displayId) {}
 
     @CalledByNative
     public void fullscreenStateChangedForTab(
-            long requestingFrame,
+            RenderFrameHost renderFrameHost,
             boolean prefersNavigationBar,
             boolean prefersStatusBar,
             long displayId) {}
@@ -234,8 +230,22 @@ public class WebContentsDelegateAndroid {
     public void didBackForwardTransitionAnimationChange() {}
 
     @CalledByNative
-    private boolean maybeCopyContentAreaAsBitmap(JniOnceCallback<@Nullable Bitmap> callback) {
-        boolean result = maybeCopyContentAreaAsBitmap((Callback<@Nullable Bitmap>) callback);
+    private boolean maybeCopyContentAreaAsBitmap(
+            JniOnceCallback<@Nullable ScreenshotResult> callback) {
+        boolean result = maybeCopyContentArea(callback, ScreenshotResult.Destination.BITMAP);
+        if (!result) {
+            // If the method returns false, the callback won't be called, so we need to destroy it
+            // to prevent memory leaks and match the previous behavior of no callback.
+            callback.destroy();
+        }
+        return result;
+    }
+
+    @CalledByNative
+    private boolean maybeCopyContentAreaAsHardwareBuffer(
+            JniOnceCallback<@Nullable ScreenshotResult> callback) {
+        boolean result =
+                maybeCopyContentArea(callback, ScreenshotResult.Destination.HARDWARE_BUFFER);
         if (!result) {
             // If the method returns false, the callback won't be called, so we need to destroy it
             // to prevent memory leaks and match the previous behavior of no callback.
@@ -291,9 +301,12 @@ public class WebContentsDelegateAndroid {
      * @param callback Executed asynchronously with the captured screenshot if this returns true.
      *     Note this callback is guaranteed to not retain a reference to this bitmap once it
      *     returns.
+     * @param destination whether to return the result as a Bitmap or a Hardware Buffer.
      * @return True if a native view such as an NTP is presenting.
      */
-    public boolean maybeCopyContentAreaAsBitmap(Callback<@Nullable Bitmap> callback) {
+    public boolean maybeCopyContentArea(
+            Callback<@Nullable ScreenshotResult> callback,
+            ScreenshotResult.Destination destination) {
         return false;
     }
 

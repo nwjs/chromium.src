@@ -421,6 +421,7 @@ chromium-metrics-reviews@google.com.
   <variant name="Recovery-check.Proceed"/>
   <variant name="Reset.Cancel"/>
   <variant name="Saml-confirm-password.Cancel"/>
+  <variant name="Saml-confirm-password.Success"/>
   <variant name="Saml-confirm-password.TooManyAttempts"/>
   <variant name="Signin-fatal-error.Next"/>
   <variant name="Smart-privacy-protection.ContinueWithFeatureOff"/>
@@ -1065,6 +1066,19 @@ chromium-metrics-reviews@google.com.
     the first OOBE screen is shown. &quot;Completed&quot; is recorded after the
     completion of the last screen in the onboarding flow of the first user and
     before sign-in is completed.
+  </summary>
+</histogram>
+
+<histogram name="OOBE.OobeNotCompletedErrorTrigger"
+    enum="OobeNotCompletedErrorTrigger" expires_after="2026-10-22">
+  <owner>osamafathy@google.com</owner>
+  <owner>cros-oobe@google.com</owner>
+  <summary>
+    Records the specific trigger cause when the &quot;OOBE Not Completed&quot;
+    error screen is displayed. This is emitted before showing the error screen.
+    The enum values capture the different locations in the code where the check
+    for OOBE completion was performed and determined to have failed, leading to
+    this error.
   </summary>
 </histogram>
 

@@ -21,21 +21,40 @@ class SidePanelUI {
  public:
   // Open side panel with entry_id.
   virtual void Show(SidePanelEntryId entry_id,
-                    std::optional<SidePanelOpenTrigger> open_trigger) = 0;
-  void Show(SidePanelEntryId entry_id) { Show(entry_id, std::nullopt); }
+                    std::optional<SidePanelOpenTrigger> open_trigger,
+                    bool suppress_animations) = 0;
+  void Show(SidePanelEntryId entry_id,
+            std::optional<SidePanelOpenTrigger> open_trigger) {
+    Show(entry_id, open_trigger, /*suppress_animations=*/false);
+  }
+  void Show(SidePanelEntryId entry_id) {
+    Show(entry_id, std::nullopt, /*suppress_animations=*/false);
+  }
 
   // Open side panel with entry key.
   virtual void Show(SidePanelEntryKey entry_key,
-                    std::optional<SidePanelOpenTrigger> open_trigger) = 0;
-  void Show(SidePanelEntryKey entry_key) { Show(entry_key, std::nullopt); }
+                    std::optional<SidePanelOpenTrigger> open_trigger,
+                    bool suppress_animations) = 0;
+  void Show(SidePanelEntryKey entry_key,
+            std::optional<SidePanelOpenTrigger> open_trigger) {
+    Show(entry_key, open_trigger, /*suppress_animations=*/false);
+  }
+  void Show(SidePanelEntryKey entry_key) {
+    Show(entry_key, std::nullopt, /*suppress_animations=*/false);
+  }
 
-  // Open side panel with entry key, animating from starting_bounds to its final
-  // open position.
+  // Open side panel with entry key, animating from
+  // starting_bounds_in_browser_coordinates to its final open position.
   virtual void ShowFrom(SidePanelEntryKey entry_key,
-                        gfx::Rect starting_bounds) = 0;
+                        gfx::Rect starting_bounds_in_browser_coordinates) = 0;
 
   // Close the side panel.
-  virtual void Close(SidePanelEntry::PanelType panel_type) = 0;
+  virtual void Close(SidePanelEntry::PanelType panel_type,
+                     SidePanelEntryHideReason hide_reason,
+                     bool suppress_animations) = 0;
+  void Close(SidePanelEntry::PanelType panel_type) {
+    Close(panel_type, SidePanelEntryHideReason::kSidePanelClosed, false);
+  }
 
   // Open the side panel for a key. If side panel for the key is already opened
   // then close the side panel.
@@ -43,7 +62,8 @@ class SidePanelUI {
                       SidePanelOpenTrigger open_trigger) = 0;
 
   // Get the current entry id if the side panel is open.
-  virtual std::optional<SidePanelEntryId> GetCurrentEntryId() const = 0;
+  virtual std::optional<SidePanelEntryId> GetCurrentEntryId(
+      SidePanelEntry::PanelType panel_type) const = 0;
 
   // Returns the current entries default width. Returns nullopt if this value is
   // not set or if the side panel is closed.
@@ -60,6 +80,11 @@ class SidePanelUI {
   // shown.
   virtual bool IsSidePanelEntryShowing(
       const SidePanelEntryKey& entry_key) const = 0;
+
+  // Similar to IsSidePanelEntryShowing, but restricts to either the tab-scoped
+  // or window-scoped registry.
+  virtual bool IsSidePanelEntryShowing(const SidePanelEntry::Key& entry_key,
+                                       bool for_tab) const = 0;
 
   // Register for this callback to detect when the side panel opens or changes.
   // If the open is animated, this will be called at the beginning of the

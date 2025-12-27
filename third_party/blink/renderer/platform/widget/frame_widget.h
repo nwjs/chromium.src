@@ -52,7 +52,7 @@ namespace blink {
 
 class AnimationFrameTimingInfo;
 class LocalFrame;
-// In interface exposed within Blink from local root frames that provides
+// An interface exposed within Blink from local root frames that provides
 // local-root specific things related to compositing and input. This
 // class extends the FrameWidgetInputHandler implementation. All API calls
 // on this class occur on the main thread. input/FrameWidgetInputHandlerImpl
@@ -248,6 +248,7 @@ class PLATFORM_EXPORT FrameWidget {
   virtual gfx::PointF DIPsToBlinkSpace(const gfx::PointF& point) = 0;
   virtual gfx::Point DIPsToRoundedBlinkSpace(const gfx::Point& point) = 0;
   virtual float DIPsToBlinkSpace(float scalar) = 0;
+  virtual gfx::RectF DIPsToBlinkSpace(const gfx::RectF& rect) = 0;
 
   virtual void RequestMouseLock(
       bool has_transient_user_activation,

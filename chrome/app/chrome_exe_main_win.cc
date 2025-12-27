@@ -112,8 +112,7 @@ bool AttemptFastNotify(const base::CommandLine& command_line) {
   HWND chrome = FindRunningChromeWindow(user_data_dir);
   if (!chrome)
     return false;
-  return AttemptToNotifyRunningChrome(chrome) ==
-         NotifyChromeResult::NOTIFY_SUCCESS;
+  return AttemptToNotifyRunningChrome(chrome) == NotifyChromeResult::kSuccess;
 }
 #endif
 
@@ -250,7 +249,7 @@ int main() {
   SetCwdForBrowserProcess();
   install_static::InitializeFromPrimaryModule();
   if (IsBrowserProcess())
-    chrome::DisableDelayLoadFailureHooksForMainExecutable();
+    DisableDelayLoadFailureHooksForMainExecutable();
 #if defined(ARCH_CPU_32_BITS)
   // Intentionally crash if converting to a fiber failed.
   CHECK_EQ(fiber_status, FiberStatus::kSuccess);

@@ -10,7 +10,6 @@
 
 #include "base/containers/flat_set.h"
 #include "base/files/file_path.h"
-#include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
@@ -64,6 +63,7 @@
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
+#include "components/sync/base/features.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/test/mock_sync_service.h"
 #include "components/sync/test/sync_user_settings_mock.h"
@@ -389,6 +389,9 @@ class TurnSyncOnHelperTest : public testing::Test {
   TurnSyncOnHelperTest() = default;
 
   void SetUp() override {
+    // TurnSyncOnHelperTest is no longer used when the feature is enabled.
+    scoped_feature_list_.InitAndDisableFeature(
+        syncer::kReplaceSyncPromosWithSignInPromos);
     const base::FilePath temp_user_data_dir =
         base::CreateUniqueTempDirectoryScopedToTest();
     TestingBrowserProcess::GetGlobal()->SetProfileManager(
@@ -545,7 +548,9 @@ class TurnSyncOnHelperTest : public testing::Test {
     AccountInfo account_info =
         identity_manager()->FindExtendedAccountInfo(core_account_info);
     EXPECT_FALSE(account_info.IsEmpty());
-    account_info.hosted_domain = kEnterpriseHostedDomain;
+    account_info = AccountInfo::Builder(account_info)
+                       .SetHostedDomain(kEnterpriseHostedDomain)
+                       .Build();
     AccountCapabilitiesTestMutator(&account_info.capabilities)
         .set_is_subject_to_enterprise_features(true);
     signin::UpdateAccountInfoForAccount(identity_manager(), account_info);
@@ -785,6 +790,8 @@ class TurnSyncOnHelperTest : public testing::Test {
     kShownManaged,
     kShownNonManaged
   };
+
+  base::test::ScopedFeatureList scoped_feature_list_;
 
   // Delegate behavior.
   signin::SigninChoice merge_data_choice_ = signin::SIGNIN_CHOICE_CANCEL;

@@ -21,6 +21,20 @@
   overflow: hidden;
 }
 
+/* Hide browser frame in tab fullscreen mode */
+:host([fullscreen-mode="tab"]) #topContainer {
+  display: none;
+}
+
+/* Make content fill the window in tab fullscreen mode */
+:host([fullscreen-mode="tab"]) #contentRegion {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
 .caption-button {
   box-shadow: none;
   border-radius: 0;
@@ -77,6 +91,7 @@ cr-searchbox[dropdown-is-visible] {
 }
 
 .titlebarDiv {
+  app-region: drag;
   display: flex;
   /* The tab strip is by default mostly inactive content, so give it the
    * inactive background color. */
@@ -84,13 +99,13 @@ cr-searchbox[dropdown-is-visible] {
 }
 
 .tabstripDiv {
+  app-region: no-drag;
   float: left;
   overflow: hidden;
   text-align: left;
 }
 
 .captionButtonsDiv {
-  app-region: drag;
   float: right;
   flex: 1;
   text-align: right;

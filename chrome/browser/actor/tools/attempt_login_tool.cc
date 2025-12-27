@@ -40,14 +40,13 @@ mojom::ActionResultCode LoginErrorToActorError(
     actor_login::ActorLoginError login_error) {
   switch (login_error) {
     case actor_login::ActorLoginError::kServiceBusy:
-      return mojom::ActionResultCode::kError;
+      return mojom::ActionResultCode::kLoginTooManyRequests;
     case actor_login::ActorLoginError::kInvalidTabInterface:
       return mojom::ActionResultCode::kTabWentAway;
     case actor_login::ActorLoginError::kFillingNotAllowed:
       return mojom::ActionResultCode::kLoginFillingNotAllowed;
-    case actor_login::ActorLoginError::kUnknown:
-    default:
-      return mojom::ActionResultCode::kError;
+    case actor_login::ActorLoginError::kFeatureDisabled:
+      return mojom::ActionResultCode::kLoginFeatureDisabled;
   }
 }
 
@@ -104,7 +103,7 @@ AttemptLoginTool::~AttemptLoginTool() {
   }
 }
 
-void AttemptLoginTool::Validate(ValidateCallback callback) {
+void AttemptLoginTool::Validate(ToolCallback callback) {
   if (!base::FeatureList::IsEnabled(password_manager::features::kActorLogin)) {
     PostResponseTask(std::move(callback),
                      MakeResult(mojom::ActionResultCode::kToolUnknown));
@@ -114,7 +113,7 @@ void AttemptLoginTool::Validate(ValidateCallback callback) {
   PostResponseTask(std::move(callback), MakeOkResult());
 }
 
-void AttemptLoginTool::Invoke(InvokeCallback callback) {
+void AttemptLoginTool::Invoke(ToolCallback callback) {
   tabs::TabInterface* tab = tab_handle_.Get();
   if (!tab) {
     PostResponseTask(std::move(callback),
@@ -482,7 +481,7 @@ AttemptLoginTool::GetObservationDelayer(
 }
 
 void AttemptLoginTool::UpdateTaskBeforeInvoke(ActorTask& task,
-                                              InvokeCallback callback) const {
+                                              ToolCallback callback) const {
   task.AddTab(tab_handle_, std::move(callback));
 }
 

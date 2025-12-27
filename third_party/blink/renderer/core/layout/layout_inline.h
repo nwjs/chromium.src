@@ -297,7 +297,7 @@ class CORE_EXPORT LayoutInline : public LayoutBoxModelObject {
   LayoutBox* CreateAnonymousBoxToSplit(
       const LayoutBox* box_to_split) const final;
 
-  void MarkMayHaveAnchorQuery() final;
+  void MarkMayContainAnchor() final;
 
   void Paint(const PaintInfo&) const override;
 

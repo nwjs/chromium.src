@@ -7,7 +7,6 @@
 #define UI_ACCESSIBILITY_ACCESSIBILITY_FEATURES_H_
 
 #include "base/feature_list.h"
-#include "base/metrics/field_trial_params.h"
 #include "build/build_config.h"
 #include "ui/accessibility/ax_base_export.h"
 
@@ -128,10 +127,6 @@ AX_BASE_EXPORT bool IsAccessibilityLanguageDetectionEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kExtensionManifestV3NetworkSpeechSynthesis);
 AX_BASE_EXPORT bool IsExtensionManifestV3NetworkSpeechSynthesisEnabled();
 
-// Support aria element reflection. For example:
-//     element.ariaActiveDescendantElement = child;
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kEnableAriaElementReflection);
-AX_BASE_EXPORT bool IsAriaElementReflectionEnabled();
 
 // Turn on browser vocalization of 'descriptions' tracks.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kTextBasedAudioDescription);
@@ -290,19 +285,12 @@ AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForSwitchAccess();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityInlineLineSeparators);
 AX_BASE_EXPORT bool IsAccessibilityInlineLineSeparatorsEnabled();
 
-// Propagate bounding rectangles of input events to the Android platform to
-// allow Magnification to follow them. Only applies pre-Baklava 36.1, when a
-// system API was added to allow this.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(
-    kAccessibilityMagnificationFollowsInputFocus);
-AX_BASE_EXPORT bool IsAccessibilityMagnificationFollowsInputFocusEnabled();
-
-// Propagate bounding rectangles of cursor moves to the Android platform to
-// allow Magnification to follow them. Only applies pre-Baklava 36.1, when a
-// system API was added to allow this.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(
-    kAccessibilityMagnificationFollowsTextCursor);
-AX_BASE_EXPORT bool IsAccessibilityMagnificationFollowsTextCursorEnabled();
+// Propagate bounding rectangles of cursor moves and input focus changes to the
+// Android platform to allow Magnification to follow them. For compatibility
+// with older behaviour, Android SDK levels before Baklava 36.1 will only be
+// notified on cursor moves.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityMagnificationFollowsFocus);
+AX_BASE_EXPORT bool IsAccessibilityMagnificationFollowsFocusEnabled();
 
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -333,6 +321,27 @@ AX_BASE_EXPORT bool IsImmersiveReadAnythingEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kMainNodeAnnotations);
 AX_BASE_EXPORT bool IsMainNodeAnnotationsEnabled();
 
+enum class ReadAnythingMenuShuffleExperimentGroup {
+  kDefault,              // Leaves in default position
+  kPlaceWithSeparation,  // Adds a UI separator from previous element.
+  kPlaceAtBottom         // Places at bottom of context menu.
+};
+
+// Current usage of ReadAnything corresponds to fairly short sessions on
+// sites that are not naturally readable sites. We want to research whether
+// people are entering reading mode by accident. Given the proximity to
+// the Lens feature (and similar usage) in the context menu. We want to test
+// the hypothesis of whether or not people are clicking on the ReadAnything
+// menu item by mistake (targeting instead Lens).
+// The parameters allow us to see the effects if we separate Lens and
+// ReadAnything and if we take a more extreme position of sending ReadAnything
+// to the bottom.
+AX_BASE_EXPORT ReadAnythingMenuShuffleExperimentGroup
+GetReadAnythingMenuShuffleExperimentGroup();
+
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingMenuShuffleExperiment);
+AX_BASE_EXPORT bool IsReadAnythingMenuShuffleExperimentEnabled();
+
 // Show the Read Aloud feature in Read Anything.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingReadAloud);
 AX_BASE_EXPORT bool IsReadAnythingReadAloudEnabled();
@@ -344,6 +353,10 @@ AX_BASE_EXPORT bool IsReadAnythingReadAloudPhraseHighlightingEnabled();
 // Enable TypeScript-based text segmentation in Read Anything Read Aloud.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingReadAloudTSTextSegmentation);
 AX_BASE_EXPORT bool IsReadAnythingReadAloudTSTextSegmentationEnabled();
+
+// Enable the omnibox entrypoint for Read Anything.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingOmniboxChip);
+AX_BASE_EXPORT bool IsReadAnythingOmniboxChipEnabled();
 
 // Enable images to be distilled via algorithm. Should be disabled by
 // default.
@@ -406,9 +419,6 @@ AX_BASE_EXPORT bool IsBlockRootWindowAccessibleNameChangeEventEnabled();
 #endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-// Use the v3 version of the wasm tts engine component.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kWasmTtsComponentUpdaterV3Enabled);
-AX_BASE_EXPORT bool IsWasmTtsComponentUpdaterV3Enabled();
 // Disable the wasm tts engine component to use dev version local extension
 // files.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kWasmTtsEngineAutoInstallDisabled);

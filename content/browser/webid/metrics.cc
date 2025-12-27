@@ -9,13 +9,15 @@
 #include "base/types/pass_key.h"
 #include "content/browser/webid/flags.h"
 #include "content/browser/webid/webid_utils.h"
-#include "content/public/browser/login_metrics.h"
+#include "content/public/browser/content_browser_client.h"
+#include "content/public/common/content_client.h"
 #include "net/base/net_errors.h"
 #include "net/base/schemeful_site.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_status_code.h"
 #include "services/metrics/public/cpp/metrics_utils.h"
 #include "third_party/blink/public/mojom/webid/federated_auth_request.mojom.h"
+#include "ui/gfx/geometry/point.h"
 #include "url/gurl.h"
 
 namespace content {
@@ -386,10 +388,10 @@ void Metrics::RecordRequestTokenStatus(
                               *has_signin_account);
   }
   if (is_token_request_successful) {
-    base::UmaHistogramEnumeration(kBrowserAssistedLoginTypeHistogram,
-                                  rp_mode == RpMode::kPassive
-                                      ? BrowserAssistedLoginType::kFedCmPassive
-                                      : BrowserAssistedLoginType::kFedCmActive);
+    GetContentClient()->browser()->RecordAssistedLogin(
+        rp_mode == RpMode::kPassive
+            ? ContentBrowserClient::AssistedLoginType::kFedCmPassive
+            : ContentBrowserClient::AssistedLoginType::kFedCmActive);
   }
   base::UmaHistogramBoolean("Blink.FedCm.DidShowUI", did_show_ui);
 

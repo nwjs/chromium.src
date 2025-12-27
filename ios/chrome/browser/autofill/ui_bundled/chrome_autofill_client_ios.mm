@@ -371,15 +371,6 @@ AutofillPlusAddressDelegate* ChromeAutofillClientIOS::GetPlusAddressDelegate() {
   return PlusAddressServiceFactory::GetForProfile(profile_);
 }
 
-void ChromeAutofillClientIOS::OfferPlusAddressCreation(
-    const url::Origin& main_frame_origin,
-    bool is_manual_fallback,
-    PlusAddressCallback callback) {
-  AutofillBottomSheetTabHelper* bottomSheetTabHelper =
-      AutofillBottomSheetTabHelper::FromWebState(web_state());
-  bottomSheetTabHelper->ShowPlusAddressesBottomSheet(std::move(callback));
-}
-
 void ChromeAutofillClientIOS::UpdateAutofillDataListValues(
     base::span<const autofill::SelectOption> datalist) {
   // No op. ios/web_view does not support display datalist.
@@ -391,18 +382,16 @@ void ChromeAutofillClientIOS::HideAutofillSuggestions(
 }
 
 bool ChromeAutofillClientIOS::IsAutofillEnabled() const {
-  return IsAutofillProfileEnabled() || IsAutofillPaymentMethodsEnabled();
+  return IsAutofillProfileEnabled() ||
+         AutofillClient::GetPaymentsAutofillClient()
+             ->IsAutofillPaymentMethodsEnabled();
 }
 
 bool ChromeAutofillClientIOS::IsAutofillProfileEnabled() const {
   return prefs::IsAutofillProfileEnabled(GetPrefs());
 }
 
-bool ChromeAutofillClientIOS::IsAutofillPaymentMethodsEnabled() const {
-  return prefs::IsAutofillPaymentMethodsEnabled(GetPrefs());
-}
-
-bool ChromeAutofillClientIOS::IsImportingToWalletEnabled() const {
+bool ChromeAutofillClientIOS::IsWalletStorageEnabled() const {
   return false;
 }
 
@@ -419,7 +408,8 @@ void ChromeAutofillClientIOS::DidFillForm(AutofillTriggerSource trigger_source,
                                           bool is_refill) {}
 
 bool ChromeAutofillClientIOS::IsContextSecure() const {
-  return IsContextSecureForWebState(web_state());
+  return consider_as_secure_for_testing_ ||
+         IsContextSecureForWebState(web_state());
 }
 
 FormInteractionsFlowId

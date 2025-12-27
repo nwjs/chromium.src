@@ -876,6 +876,95 @@ IN_PROC_BROWSER_TEST_F(OnDeviceTranslationBrowserTest,
   WaitForConsoleObserver(*console_observer);
 }
 
+// Tests behavior of translator.translateStreaming().
+class OnDeviceTranslateStreamingBrowserTest
+    : public OnDeviceTranslationBrowserTest {
+ public:
+  OnDeviceTranslateStreamingBrowserTest() {
+    scoped_feature_list_.InitAndEnableFeature(kTranslateStreamingBySentence);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// Tests the behavior of streaming translation.
+IN_PROC_BROWSER_TEST_F(OnDeviceTranslateStreamingBrowserTest,
+                       TranslateStreaming) {
+  MockComponentManager mock_component_manager(GetTempDir());
+  mock_component_manager.ExpectCallRegisterTranslateKitComponentAndInstall();
+  mock_component_manager.ExpectCallRegisterLanguagePackComponentAndInstall(
+      {LanguagePackKey::kEn_Ja});
+
+  NavigateToEmptyPage();
+
+  // Create a translator and call translateStreaming().
+  // The mock sentence splitter will split the input by ".".
+  // The mock translator will prepend "en to ja: " to each sentence.
+  // The streaming response will be concatenated with spaces in between.
+  // Confirms correctness of chunk content and the number of chunks streamed.
+  EXPECT_EQ(EvalJsCatchingError(R"(
+      const translator = await Translator.create({
+          sourceLanguage: 'en',
+          targetLanguage: 'ja',
+        });
+      const stream =
+          translator.translateStreaming('Sentence one. Sentence two.');
+      let result = '';
+      const chunks = [];
+      for await (const chunk of stream) {
+        result += chunk;
+        chunks.push(chunk);
+      }
+      if (chunks.length !== 2) return `Expected 2 chunks, got ${chunks.length}`;
+      if (chunks[0] !== 'en to ja: Sentence one')
+        return `Unexpected chunk 0: ${chunks[0]}`;
+      if (chunks[1] !== ' en to ja: Sentence two')
+        return `Unexpected chunk 1: ${chunks[1]}`;
+      return result;
+  )"),
+            "en to ja: Sentence one en to ja: Sentence two");
+}
+
+// Tests the FIFO order of multiple parallel invocations of
+// TranslateStreaming().
+IN_PROC_BROWSER_TEST_F(OnDeviceTranslateStreamingBrowserTest,
+                       MultipleInvocations) {
+  MockComponentManager mock_component_manager(GetTempDir());
+  mock_component_manager.ExpectCallRegisterTranslateKitComponentAndInstall();
+  mock_component_manager.ExpectCallRegisterLanguagePackComponentAndInstall(
+      {LanguagePackKey::kEn_Ja});
+
+  NavigateToEmptyPage();
+
+  // Create one translator and call translateStreaming() multiple times in
+  // parallel. The results should be correct and not interfere with each other.
+  EXPECT_EQ(EvalJsCatchingError(R"(
+      const translator = await Translator.create({
+          sourceLanguage: 'en',
+          targetLanguage: 'ja',
+        });
+
+      async function streamAndCollect(input) {
+        const stream = translator.translateStreaming(input);
+        let result = '';
+        for await (const chunk of stream) {
+          result += chunk;
+        }
+        return result;
+      }
+
+      const results = await Promise.all([
+        streamAndCollect('First call. Sentence one.'),
+        streamAndCollect('Second call. Sentence two.'),
+      ]);
+
+      return results.join('|');
+  )"),
+            "en to ja: First call en to ja: Sentence one|en to ja: Second call "
+            "en to ja: Sentence two");
+}
+
 // Tests progress monitor behavior.
 class OnDeviceTranslationProgressMonitorBrowserTest
     : public OnDeviceTranslationBrowserTest {
@@ -1622,6 +1711,8 @@ IN_PROC_BROWSER_TEST_F(OnDeviceTranslationBrowserTest,
       "en", "ja", CanCreateTranslatorResult::kAfterDownloadLibraryNotReady);
 }
 
+// CreateGuestBrowser isn't available on ChromeOS
+#if !BUILDFLAG(IS_CHROMEOS)
 // Tests the behavior when the Translator API is accessed from an invalid
 // storage partition.
 IN_PROC_BROWSER_TEST_F(OnDeviceTranslationBrowserTest,
@@ -1669,6 +1760,7 @@ IN_PROC_BROWSER_TEST_F(OnDeviceTranslationBrowserTest,
       }));
   run_loop.Run();
 }
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 // Test the behavior of availability() when the language is not supported.
 IN_PROC_BROWSER_TEST_F(OnDeviceTranslationBrowserTest,
@@ -2134,6 +2226,8 @@ IN_PROC_BROWSER_TEST_F(OnDeviceTranslationCrossOriginBrowserTest,
   EXPECT_EQ(CheckTranslateInIframe(iframe1), "NotAllowedError");
 }
 
+// CreateGuestBrowser isn't available on ChromeOS
+#if !BUILDFLAG(IS_CHROMEOS)
 // Tests the behavior of the Translation API in a cross origin iframe using the
 // guest profile.
 IN_PROC_BROWSER_TEST_F(OnDeviceTranslationCrossOriginBrowserTest,
@@ -2150,7 +2244,10 @@ IN_PROC_BROWSER_TEST_F(OnDeviceTranslationCrossOriginBrowserTest,
       AddIframe(0, guest_browser, /*enable_permission_policy=*/true);
   EXPECT_EQ(CheckTranslateInIframe(iframe), "en to ja: hello");
 }
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
+// CreateGuestBrowser isn't available on ChromeOS
+#if !BUILDFLAG(IS_CHROMEOS)
 // TODO(crbug.com/423029203): This is timing out on a CQ bot so it is disabled
 // for now until we can resolve that issue.
 //
@@ -2221,6 +2318,7 @@ IN_PROC_BROWSER_TEST_F(OnDeviceTranslationCrossOriginBrowserTest,
     EXPECT_EQ(CheckTranslateInIframe(iframe), "en to ja: hello");
   }
 }
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 // Tests the behavior of the Translation API in a cross origin iframe using
 // the command line. We need this test because the implementation of

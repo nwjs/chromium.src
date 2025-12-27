@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/auto_reset.h"
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/functional/bind.h"
@@ -24,7 +25,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/not_fatal_until.h"
 #include "base/notreached.h"
-#include "base/strings/stringprintf.h"
+#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
@@ -36,6 +37,7 @@
 #include "components/services/storage/public/mojom/blob_storage_context.mojom-shared.h"
 #include "content/browser/indexed_db/indexed_db_external_object.h"
 #include "content/browser/indexed_db/indexed_db_external_object_storage.h"
+#include "content/browser/indexed_db/indexed_db_reporting.h"
 #include "content/browser/indexed_db/instance/bucket_context.h"
 #include "content/browser/indexed_db/instance/bucket_context_handle.h"
 #include "content/browser/indexed_db/instance/callback_helpers.h"
@@ -48,6 +50,7 @@
 #include "content/browser/indexed_db/status.h"
 #include "mojo/public/cpp/bindings/message.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
+#include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "third_party/blink/public/common/indexeddb/indexeddb_metadata.h"
 #include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
@@ -61,25 +64,6 @@ using blink::IndexedDBObjectStoreMetadata;
 namespace content::indexed_db {
 
 namespace {
-
-std::string WriteBlobToFileResultToString(
-    storage::mojom::WriteBlobToFileResult result) {
-  switch (result) {
-    case storage::mojom::WriteBlobToFileResult::kError:
-      return "Error";
-    case storage::mojom::WriteBlobToFileResult::kBadPath:
-      return "BadPath";
-    case storage::mojom::WriteBlobToFileResult::kInvalidBlob:
-      return "InvalidBlob";
-    case storage::mojom::WriteBlobToFileResult::kIOError:
-      return "IOError";
-    case storage::mojom::WriteBlobToFileResult::kTimestampError:
-      return "TimestampError";
-    case storage::mojom::WriteBlobToFileResult::kSuccess:
-      return "Success";
-  }
-  NOTREACHED();
-}
 
 // Disabled in some tests.
 bool g_inactivity_timeout_enabled = true;
@@ -120,21 +104,16 @@ UmaIDBException ExceptionCodeToUmaEnum(blink::mojom::IDBException code) {
 
 }  // namespace
 
-Transaction::TaskQueue::TaskQueue() = default;
-Transaction::TaskQueue::~TaskQueue() = default;
+Transaction::Task::Task(std::string operation_name_for_metrics,
+                        Operation operation,
+                        VerificationCallback verify)
+    : operation_name_for_metrics(std::move(operation_name_for_metrics)),
+      operation(std::move(operation)),
+      verify(std::move(verify)) {}
 
-void Transaction::TaskQueue::clear() {
-  while (!queue_.empty()) {
-    queue_.pop();
-  }
-}
-
-Transaction::TaskQueue::Task Transaction::TaskQueue::pop() {
-  DCHECK(!queue_.empty());
-  Task task = std::move(queue_.front());
-  queue_.pop();
-  return task;
-}
+Transaction::Task::Task(Task&&) = default;
+Transaction::Task& Transaction::Task::operator=(Task&&) = default;
+Transaction::Task::~Task() = default;
 
 Transaction::Transaction(
     int64_t id,
@@ -183,7 +162,6 @@ Transaction::~Transaction() {
   DCHECK(preemptive_task_queue_.empty());
   DCHECK_EQ(pending_preemptive_events_, 0);
   DCHECK(task_queue_.empty());
-  DCHECK(!processing_event_queue_);
 }
 
 void Transaction::BindReceiver(
@@ -210,7 +188,8 @@ void Transaction::SetCommitFlag() {
 }
 
 void Transaction::ScheduleTask(blink::mojom::IDBTaskType type,
-                               Operation task,
+                               std::string operation_name_for_metrics,
+                               Operation operation,
                                VerificationCallback verify) {
   TRACE_EVENT0("IndexedDB", "Transaction::ScheduleTask");
 
@@ -222,11 +201,13 @@ void Transaction::ScheduleTask(blink::mojom::IDBTaskType type,
   ResetTimeoutTimer();
   used_ = true;
   if (type == blink::mojom::IDBTaskType::Normal) {
-    task_queue_.push(std::move(task), std::move(verify));
+    task_queue_.emplace(std::move(operation_name_for_metrics),
+                        std::move(operation), std::move(verify));
     ++diagnostics_.tasks_scheduled;
     NotifyOfIdbInternalsRelevantChange();
   } else {
-    preemptive_task_queue_.push(std::move(task), std::move(verify));
+    preemptive_task_queue_.emplace(std::move(operation_name_for_metrics),
+                                   std::move(operation), std::move(verify));
   }
   if (state() == STARTED) {
     bucket_context_->QueueRunTasks();
@@ -253,10 +234,9 @@ Status Transaction::Abort(const DatabaseError& error) {
     backing_store_transaction_->Rollback();
   }
 
-  preemptive_task_queue_.clear();
+  preemptive_task_queue_ = {};
   pending_preemptive_events_ = 0;
-
-  task_queue_.clear();
+  task_queue_ = {};
 
   // Backing store resources (held via cursors) must be released
   // before script callbacks are fired, as the script callbacks may
@@ -431,7 +411,7 @@ void Transaction::CreateObjectStore(int64_t object_store_id,
   }
 
   ScheduleTask(
-      blink::mojom::IDBTaskType::Preemptive,
+      blink::mojom::IDBTaskType::Preemptive, "CreateObjectStore",
       base::BindOnce(
           [](int64_t object_store_id, const std::u16string& name,
              const IndexedDBKeyPath& key_path, bool auto_increment,
@@ -470,6 +450,7 @@ void Transaction::DeleteObjectStore(int64_t object_store_id) {
   }
 
   ScheduleTask(
+      "DeleteObjectStore",
       base::BindOnce(
           [](int64_t object_store_id, Transaction* transaction) {
             return transaction->BackingStoreTransaction()->DeleteObjectStore(
@@ -498,10 +479,19 @@ void Transaction::Put(int64_t object_store_id,
     return;
   }
 
+  if (input_value->bits.storage_type() ==
+      mojo_base::BigBuffer::StorageType::kInvalidBuffer) {
+    mojo::ReportBadMessage("Attempted to Put invalid SSV.");
+    return;
+  }
+
   std::vector<IndexedDBExternalObject> external_objects;
   uint64_t total_blob_size = 0;
-  if (!input_value->external_objects.empty()) {
-    total_blob_size = CreateExternalObjects(input_value, &external_objects);
+  if (!input_value->external_objects.empty() &&
+      !CreateExternalObjects(input_value, &external_objects,
+                             &total_blob_size)) {
+    mojo::ReportBadMessage("Couldn't deserialize external objects.");
+    return;
   }
 
   // Increment the total transaction size by the size of this put.
@@ -522,6 +512,7 @@ void Transaction::Put(int64_t object_store_id,
   // This is decremented in DoPut.
   in_flight_memory_ += value.SizeEstimate();
   ScheduleTask(
+      "PutRecord",
       base::BindOnce(&Transaction::DoPut, base::Unretained(this),
                      object_store_id, std::move(value), std::move(key), mode,
                      std::move(index_keys), std::move(wrapped_callback)),
@@ -667,7 +658,7 @@ void Transaction::SetIndexKeys(int64_t object_store_id,
     return;
   }
 
-  ScheduleTask(blink::mojom::IDBTaskType::Preemptive,
+  ScheduleTask(blink::mojom::IDBTaskType::Preemptive, "SetIndexKeys",
                base::BindOnce(&Transaction::DoSetIndexKeys,
                               base::Unretained(this), object_store_id,
                               std::move(primary_key), std::move(index_keys)),
@@ -732,6 +723,7 @@ void Transaction::SetIndexKeysDone() {
   }
 
   ScheduleTask(blink::mojom::IDBTaskType::Preemptive,
+               /*operation_name_for_metrics=*/{},
                base::BindOnce([](Transaction* transaction) {
                  transaction->DidCompletePreemptiveEvent();
                  return Status::OK();
@@ -770,9 +762,10 @@ void Transaction::OnQuotaCheckDone(bool allowed) {
   }
 }
 
-uint64_t Transaction::CreateExternalObjects(
+bool Transaction::CreateExternalObjects(
     blink::mojom::IDBValuePtr& value,
-    std::vector<IndexedDBExternalObject>* external_objects) {
+    std::vector<IndexedDBExternalObject>* external_objects,
+    uint64_t* total_size) {
   // Should only be called if there are external objects to process.
   CHECK(!value->external_objects.empty());
 
@@ -783,11 +776,13 @@ uint64_t Transaction::CreateExternalObjects(
     switch (object->which()) {
       case blink::mojom::IDBExternalObject::Tag::kBlobOrFile: {
         blink::mojom::IDBBlobInfoPtr& info = object->get_blob_or_file();
-        uint64_t size = info->size;
-        total_blob_size += size;
+        if (info->size < 0) {
+          return false;
+        }
+
+        total_blob_size += info->size;
 
         if (info->file) {
-          DCHECK_NE(info->size, IndexedDBExternalObject::kUnknownSize);
           (*external_objects)[i] = IndexedDBExternalObject(
               std::move(info->blob), info->file->name, info->mime_type,
               info->file->last_modified, info->size);
@@ -803,40 +798,47 @@ uint64_t Transaction::CreateExternalObjects(
         break;
     }
   }
-  return total_blob_size.ValueOrDie();
+  *total_size = total_blob_size.ValueOrDie();
+  return true;
 }
 
-Status Transaction::BlobWriteComplete(
-    BlobWriteResult result,
-    storage::mojom::WriteBlobToFileResult error) {
+Status Transaction::BlobWriteComplete(StatusOr<BlobWriteResult> result) {
+  // Log this histogram in both success and error cases, but only when blobs
+  // were actually written in the transaction. An error `result` can only arise
+  // when blob write was attempted. A `result` of `kRunPhaseTwoAsync` indicates
+  // that non-zero blobs were written.
+  constexpr char kHistogramName[] = "IndexedDB.BackingStore.WriteBlobs";
+
   TRACE_EVENT0("IndexedDB", "Transaction::BlobWriteComplete");
   if (state_ == FINISHED) {  // aborted
     return Status::OK();
   }
   DCHECK_EQ(state_, COMMITTING);
 
-  switch (result) {
-    case BlobWriteResult::kFailure: {
-      Status status = Abort(
-          DatabaseError(blink::mojom::IDBException::kDataError,
-                        base::ASCIIToUTF16(base::StringPrintf(
-                            "Failed to write blobs (%s)",
-                            WriteBlobToFileResultToString(error).c_str()))));
-      if (!status.ok()) {
-        bucket_context_->OnDatabaseError(database_.get(), status, {});
-      }
-      // The result is ignored.
-      return Status::OK();
+  if (!result.has_value()) {
+    LogStatus(result.error(), kHistogramName, bucket_context_->in_memory());
+    Status status = Abort(DatabaseError(
+        blink::mojom::IDBException::kDataError,
+        base::ASCIIToUTF16(absl::StrFormat("Failed to write blobs (%s)",
+                                           result.error().ToString()))));
+    if (!status.ok()) {
+      bucket_context_->OnDatabaseError(database_.get(), status, {});
     }
+    // The result is ignored.
+    return Status::OK();
+  }
+
+  switch (result.value()) {
     case BlobWriteResult::kRunPhaseTwoAsync:
-      ScheduleTask(base::BindOnce(&CommitPhaseTwoProxy));
+      LogStatus(Status::OK(), kHistogramName, bucket_context_->in_memory());
+      ScheduleTask(/*operation_name_for_metrics=*/{},
+                   base::BindOnce(&CommitPhaseTwoProxy));
       bucket_context_->QueueRunTasks();
       return Status::OK();
     case BlobWriteResult::kRunPhaseTwoAndReturnResult: {
       return CommitPhaseTwo();
     }
   }
-  NOTREACHED();
 }
 
 Status Transaction::DoPendingCommit() {
@@ -878,50 +880,50 @@ Status Transaction::DoPendingCommit() {
 
   SetState(COMMITTING);
 
-  Status s;
   if (!used_) {
-    s = CommitPhaseTwo();
-  } else {
-    // CommitPhaseOne will call the callback synchronously if there are no blobs
-    // to write.
-    s = backing_store_transaction_->CommitPhaseOne(
-        /*blob_write_callback=*/
-        base::BindOnce(
-            [](base::WeakPtr<Transaction> transaction, BlobWriteResult result,
-               storage::mojom::WriteBlobToFileResult error) {
-              if (!transaction) {
-                return Status::OK();
-              }
-              return transaction->BlobWriteComplete(result, error);
-            },
-            ptr_factory_.GetWeakPtr()),
-        // This callback is only used by SQLite. The LevelDB version of this
-        // code lives in `BackingStore::Transaction::WriteNewBlobs`.
-        /*serialize_fsa_callback=*/
-        base::BindRepeating(
-            [](base::WeakPtr<Transaction> transaction,
-               blink::mojom::FileSystemAccessTransferToken& token_remote,
-               base::OnceCallback<void(const std::vector<uint8_t>&)>
-                   deliver_serialized_token) {
-              if (!transaction) {
-                return;
-              }
-
-              // TODO(dmurph): Refactor IndexedDBExternalObject to not use a
-              // SharedRemote, so this code can just move the remote, instead of
-              // cloning.
-              mojo::PendingRemote<blink::mojom::FileSystemAccessTransferToken>
-                  token_clone;
-              token_remote.Clone(token_clone.InitWithNewPipeAndPassReceiver());
-              transaction->bucket_context()
-                  ->file_system_access_context()
-                  ->SerializeHandle(std::move(token_clone),
-                                    std::move(deliver_serialized_token));
-            },
-            ptr_factory_.GetWeakPtr()));
+    return CommitPhaseTwo();
   }
 
-  return s;
+  // CommitPhaseOne will call the callback synchronously if there are no blobs
+  // to write.
+  return LogStatus(
+      backing_store_transaction_->CommitPhaseOne(
+          /*blob_write_callback=*/
+          base::BindOnce(
+              [](base::WeakPtr<Transaction> transaction,
+                 StatusOr<BlobWriteResult> result) {
+                if (!transaction) {
+                  return Status::OK();
+                }
+                return transaction->BlobWriteComplete(result);
+              },
+              ptr_factory_.GetWeakPtr()),
+          // This callback is only used by SQLite. The LevelDB version of this
+          // code lives in `BackingStore::Transaction::WriteNewBlobs`.
+          /*serialize_fsa_handle=*/
+          base::BindRepeating(
+              [](base::WeakPtr<Transaction> transaction,
+                 blink::mojom::FileSystemAccessTransferToken& token_remote,
+                 base::OnceCallback<void(const std::vector<uint8_t>&)>
+                     deliver_serialized_token) {
+                if (!transaction) {
+                  return;
+                }
+
+                // TODO(dmurph): Refactor IndexedDBExternalObject to not use a
+                // SharedRemote, so this code can just move the remote, instead
+                // of cloning.
+                mojo::PendingRemote<blink::mojom::FileSystemAccessTransferToken>
+                    token_clone;
+                token_remote.Clone(
+                    token_clone.InitWithNewPipeAndPassReceiver());
+                transaction->bucket_context()
+                    ->file_system_access_context()
+                    ->SerializeHandle(std::move(token_clone),
+                                      std::move(deliver_serialized_token));
+              },
+              ptr_factory_.GetWeakPtr())),
+      "IndexedDB.BackingStore.CommitPhaseOne", bucket_context_->in_memory());
 }
 
 Status Transaction::CommitPhaseTwo() {
@@ -941,7 +943,9 @@ Status Transaction::CommitPhaseTwo() {
   if (!used_) {
     committed = true;
   } else {
-    s = backing_store_transaction_->CommitPhaseTwo();
+    s = LogStatus(backing_store_transaction_->CommitPhaseTwo(),
+                  "IndexedDB.BackingStore.CommitPhaseTwo",
+                  bucket_context_->in_memory());
 
     // This measurement includes the time it takes to commit to the backing
     // store (i.e. LevelDB), not just the blobs.
@@ -1027,50 +1031,69 @@ Status Transaction::CommitPhaseTwo() {
   return s;
 }
 
-StatusOr<Transaction::RunTasksResult> Transaction::RunTasks() {
+Status Transaction::RunTasks() {
   TRACE_EVENT1("IndexedDB", "Transaction::RunTasks", "txn.id", id());
 
-  DCHECK(!processing_event_queue_);
+  // No re-entrancy allowed.
+  CHECK(!processing_event_queue_);
+  // Should not be called after completion.
+  CHECK(!aborted_);
+  CHECK_NE(state_, FINISHED);
 
-  // May have been aborted.
-  if (aborted_) {
-    return RunTasksResult::kAborted;
-  }
   if (IsTaskQueueEmpty() && !is_commit_pending_) {
-    return RunTasksResult::kNotFinished;
+    return Status::OK();
   }
 
   if (!backing_store_transaction_begun_) {
-    Status s =
-        backing_store_transaction_->Begin(std::move(locks_receiver_.locks));
-    if (!s.ok()) {
-      return base::unexpected(s);
-    }
+    IDB_RETURN_IF_ERROR(LogStatus(
+        backing_store_transaction_->Begin(std::move(locks_receiver_.locks)),
+        "IndexedDB.BackingStore.BeginTransaction",
+        bucket_context_->in_memory()));
     backing_store_transaction_begun_ = true;
   }
 
+  // `AutoReset` is not used because `this` may be destroyed before the end of
+  // this method.
+  base::ScopedClosureRunner reset(base::BindOnce(
+      [](base::WeakPtr<Transaction> txn) {
+        if (txn) {
+          txn->processing_event_queue_ = false;
+        }
+      },
+      ptr_factory_.GetWeakPtr()));
   processing_event_queue_ = true;
+  base::WeakPtr<Transaction> weak_this = ptr_factory_.GetWeakPtr();
 
   bool run_preemptive_queue =
       !preemptive_task_queue_.empty() || pending_preemptive_events_ != 0;
   TaskQueue* task_queue =
       run_preemptive_queue ? &preemptive_task_queue_ : &task_queue_;
   while (!task_queue->empty() && state_ != FINISHED) {
-    DCHECK(state_ == STARTED || state_ == COMMITTING) << state_;
-    auto [operation, verify] = task_queue->pop();
-    Status result = verify ? std::move(verify).Run(*this) : Status::OK();
+    CHECK(state_ == STARTED || state_ == COMMITTING) << state_;
+    Task task = std::move(task_queue->front());
+    task_queue->pop();
+    Status result =
+        task.verify ? std::move(task.verify).Run(*this) : Status::OK();
     if (result.ok()) {
-      result = std::move(operation).Run(this);
+      // The operation may invalidate the bucket context handle.
+      bool in_memory = bucket_context_->in_memory();
+      result = std::move(task.operation).Run(this);
+      if (!task.operation_name_for_metrics.empty()) {
+        LogStatus(result,
+                  base::StrCat({"IndexedDB.BackingStore.",
+                                task.operation_name_for_metrics}),
+                  in_memory);
+      }
     }
-    if (!run_preemptive_queue) {
-      DCHECK(diagnostics_.tasks_completed < diagnostics_.tasks_scheduled);
+    if (weak_this && !run_preemptive_queue) {
+      CHECK(diagnostics_.tasks_completed < diagnostics_.tasks_scheduled);
       ++diagnostics_.tasks_completed;
       NotifyOfIdbInternalsRelevantChange();
     }
-    if (!result.ok()) {
-      processing_event_queue_ = false;
-      return base::unexpected(result);
-    }
+
+    IDB_RETURN_IF_ERROR(result);
+    // If running the task destroyed `this`, `result` should have been an error.
+    CHECK(weak_this);
 
     run_preemptive_queue =
         !preemptive_task_queue_.empty() || pending_preemptive_events_ != 0;
@@ -1078,34 +1101,21 @@ StatusOr<Transaction::RunTasksResult> Transaction::RunTasks() {
     task_queue = run_preemptive_queue ? &preemptive_task_queue_ : &task_queue_;
   }
 
-  // If there are no pending tasks, we haven't already committed/aborted,
-  // and the front-end requested a commit, it is now safe to do so.
-  if (!HasPendingTasks() && state_ == STARTED && is_commit_pending_) {
-    processing_event_queue_ = false;
-    Status result = DoPendingCommit();
-    if (!result.ok()) {
-      // This can delete |this|.
-      return base::unexpected(result);
-    };
+  if (!HasPendingTasks() && state_ == STARTED) {
+    if (is_commit_pending_) {
+      // If there are no pending tasks, we haven't already committed/aborted,
+      // and the front-end requested a commit, it is now safe to do so.
+      IDB_RETURN_IF_ERROR(DoPendingCommit());
+    } else if (g_inactivity_timeout_enabled) {
+      // Otherwise, start a timer in case the front-end gets wedged and never
+      // requests further activity.
+      timeout_timer_.Start(FROM_HERE, kInactivityTimeoutPollPeriod,
+                           base::BindRepeating(&Transaction::TimeoutFired,
+                                               ptr_factory_.GetWeakPtr()));
+    }
   }
 
-  // The transaction may have been aborted while processing tasks.
-  if (state_ == FINISHED) {
-    processing_event_queue_ = false;
-    return aborted_ ? RunTasksResult::kAborted : RunTasksResult::kCommitted;
-  }
-
-  DCHECK(state_ == STARTED || state_ == COMMITTING) << state_;
-
-  // Otherwise, start a timer in case the front-end gets wedged and never
-  // requests further activity.
-  if (!HasPendingTasks() && state_ == STARTED && g_inactivity_timeout_enabled) {
-    timeout_timer_.Start(FROM_HERE, kInactivityTimeoutPollPeriod,
-                         base::BindRepeating(&Transaction::TimeoutFired,
-                                             ptr_factory_.GetWeakPtr()));
-  }
-  processing_event_queue_ = false;
-  return RunTasksResult::kNotFinished;
+  return Status::OK();
 }
 
 storage::mojom::IdbTransactionMetadataPtr Transaction::GetIdbInternalsMetadata()

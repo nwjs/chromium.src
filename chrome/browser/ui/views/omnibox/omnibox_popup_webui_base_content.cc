@@ -25,8 +25,6 @@
 #include "components/zoom/zoom_controller.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
-#include "third_party/blink/public/common/input/web_gesture_event.h"
-#include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
@@ -122,7 +120,7 @@ void OmniboxPopupWebUIBaseContent::ResizeDueToAutoResize(
     const gfx::Size& new_size) {
   WebView::ResizeDueToAutoResize(source, new_size);
   if (GetVisible()) {
-    popup_presenter_->SetWidgetContentHeight(new_size.height());
+    popup_presenter_->OnContentHeightChanged(new_size.height());
   }
 }
 
@@ -170,24 +168,7 @@ void OmniboxPopupWebUIBaseContent::LoadContent() {
   OnViewBoundsChanged(location_bar_view_);
 }
 
-bool OmniboxPopupWebUIBaseContent::PreHandleGestureEvent(
-    content::WebContents* source,
-    const blink::WebGestureEvent& event) {
-  // Block gestures that will zoom on Mac devices (i.e. pinch to zoom
-  // and double tap to zoom)
-#if BUILDFLAG(IS_MAC)
-  if (blink::WebInputEvent::IsPinchGestureEventType(event.GetType())) {
-    return true;
-  }
-
-  if (event.GetType() == blink::WebInputEvent::Type::kGestureDoubleTap) {
-    return true;
-  }
-#endif
-  return false;
-}
-
-void OmniboxPopupWebUIBaseContent::OnWidgetClosed() {
+void OmniboxPopupWebUIBaseContent::OnPopupHidden() {
   // This removes the content from being considered for rendering by the
   // compositor while the popup is closed. The content is re-inserted right
   // before the view is displayed. This has the effect of tossing out old,

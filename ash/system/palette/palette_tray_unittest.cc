@@ -39,7 +39,6 @@
 #include "components/prefs/pref_service.h"
 #include "components/session_manager/session_manager_types.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/display/manager/display_manager.h"
 #include "ui/display/test/display_manager_test_api.h"
 #include "ui/events/base_event_utils.h"
@@ -48,6 +47,7 @@
 #include "ui/events/devices/stylus_state.h"
 #include "ui/events/event.h"
 #include "ui/events/test/event_generator.h"
+#include "ui/gfx/scoped_animation_duration_scale_mode.h"
 #include "ui/views/accessibility/view_accessibility.h"
 
 namespace ash {
@@ -88,6 +88,12 @@ class PaletteTrayTest : public AshTestBase {
         .SetFirstDisplayAsInternalDisplay();
   }
 
+  void TearDown() override {
+    test_api_.reset();
+    palette_tray_ = nullptr;
+    AshTestBase::TearDown();
+  }
+
   // Sends a stylus event, which makes the `PaletteTray` show up.
   void ShowPaletteTray() {
     ui::test::EventGenerator* generator = GetEventGenerator();
@@ -107,7 +113,7 @@ class PaletteTrayTest : public AshTestBase {
     return Shell::Get()->session_controller()->GetActivePrefService();
   }
 
-  raw_ptr<PaletteTray, DanglingUntriaged> palette_tray_ = nullptr;  // not owned
+  raw_ptr<PaletteTray> palette_tray_ = nullptr;  // not owned
 
   std::unique_ptr<PaletteTrayTestApi> test_api_;
 };
@@ -661,8 +667,14 @@ class PaletteTrayTestMultiDisplay : public PaletteTrayTest {
         std::make_unique<PaletteTrayTestApi>(palette_tray_external_);
   }
 
+  void TearDown() override {
+    test_api_external_.reset();
+    palette_tray_external_ = nullptr;
+    PaletteTrayTest::TearDown();
+  }
+
  protected:
-  raw_ptr<PaletteTray, DanglingUntriaged> palette_tray_external_ = nullptr;
+  raw_ptr<PaletteTray> palette_tray_external_ = nullptr;
 
   std::unique_ptr<PaletteTrayTestApi> test_api_external_;
 };
@@ -774,6 +786,8 @@ TEST_F(PaletteTrayTestMultiDisplay, MirrorModeEnable) {
   EXPECT_TRUE(palette_tray_external_->GetVisible());
 
   // Enable mirror mode
+  // Reset because external display will be gone
+  palette_tray_external_ = nullptr;
   Shell::Get()->display_manager()->SetMultiDisplayMode(
       display::DisplayManager::MIRRORING);
   Shell::Get()->display_manager()->UpdateDisplays();
@@ -803,8 +817,13 @@ class PaletteTrayTestWithProjector : public PaletteTrayTest {
     projector_session_ = ProjectorControllerImpl::Get()->projector_session();
   }
 
+  void TearDown() override {
+    projector_session_ = nullptr;
+    PaletteTrayTest::TearDown();
+  }
+
  protected:
-  raw_ptr<ProjectorSessionImpl, DanglingUntriaged> projector_session_;
+  raw_ptr<ProjectorSessionImpl> projector_session_;
 };
 
 // Verify that the palette tray is hidden during a Projector session.
@@ -879,19 +898,29 @@ TEST_F(PaletteTrayTestWithAnnotator,
       test_api_->palette_tool_manager()->GetActiveTool(PaletteGroup::MODE),
       PaletteToolId::LASER_POINTER);
 
-  // Activate marker tool.
-  test_api_->palette_tool_manager()->ActivateTool(PaletteToolId::MARKER_MODE);
   // Simulate activating marker in the controller.
   annotator_controller()->OnCanvasInitialized(true);
+  annotator_controller()->RegisterView(Shell::GetPrimaryRootWindow());
+  annotator_controller()->CreateAnnotationOverlayForMarkerMode(
+      Shell::GetPrimaryRootWindow());
   annotator_controller()->EnableAnnotatorTool();
 
-  // Verify annotation tray is shown, palette tray is hidden, and the active
-  // tool is marker mode.
+  // Verify annotation tray is shown, palette tray is hidden.
   EXPECT_FALSE(palette_tray_->GetVisible());
+  EXPECT_TRUE(annotation_tray()->visible_preferred());
+
+  // Reset Marker, verify annotation tray is hidden, both marker and palette
+  // tray is shown and the active tool is none.
+  annotator_controller()->ResetTools();
+  EXPECT_TRUE(annotation_tray()->visible_preferred());
+  EXPECT_TRUE(palette_tray_->GetVisible());
   EXPECT_EQ(
       test_api_->palette_tool_manager()->GetActiveTool(PaletteGroup::MODE),
-      PaletteToolId::MARKER_MODE);
-  EXPECT_TRUE(annotation_tray()->visible_preferred());
+      PaletteToolId::NONE);
+
+  // Enable marker tools again.
+  annotator_controller()->OnCanvasInitialized(true);
+  annotator_controller()->EnableAnnotatorTool();
 
   // Disable annotator. Verify annotation tray is hidden, palette tray is shown
   // and the active tool is none.

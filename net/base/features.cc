@@ -72,6 +72,8 @@ const base::FeatureParam<base::TimeDelta> kUseDnsHttpsSvcbSecureExtraTimeMin{
     &kUseDnsHttpsSvcb, "UseDnsHttpsSvcbSecureExtraTimeMin",
     base::Milliseconds(5)};
 
+BASE_FEATURE(kUseStructuredDnsErrors, base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kUseHostResolverCache, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kHappyEyeballsV3, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -113,12 +115,6 @@ BASE_FEATURE(kSplitCacheByIncludeCredentials,
 
 BASE_FEATURE(kSplitCacheByNetworkIsolationKey,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Note: Use of this feature is gated on the HTTP cache itself being
-// partitioned, which is controlled by the kSplitCacheByNetworkIsolationKey
-// feature.
-BASE_FEATURE(kSplitCacheByCrossSiteMainFrameNavigationBoolean,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSplitCodeCacheByNetworkIsolationKey,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -213,9 +209,6 @@ extern const base::FeatureParam<base::TimeDelta>
 BASE_FEATURE(kRequestStorageAccessNoCorsRequired,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kStorageAccessApiFollowsSameOriginPolicy,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kStaticKeyPinningEnforcement, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kCookieDomainRejectNonASCII, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -223,10 +216,6 @@ BASE_FEATURE(kCookieDomainRejectNonASCII, base::FEATURE_DISABLED_BY_DEFAULT);
 // Enables partitioning of third party storage (IndexedDB, CacheStorage, etc.)
 // by the top level site to reduce fingerprinting.
 BASE_FEATURE(kThirdPartyStoragePartitioning, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kTpcdTrialSettings,
-             "TpcdSupportSettings",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTpcdMetadataGrants, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -286,57 +275,6 @@ BASE_FEATURE(kAsyncMultiPortPath,
 #else
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
-
-// Probabilistic reveal tokens configuration settings
-BASE_FEATURE(kEnableProbabilisticRevealTokens,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-const base::FeatureParam<std::string> kProbabilisticRevealTokenServer{
-    &kEnableProbabilisticRevealTokens,
-    /*name=*/"ProbabilisticRevealTokenServer",
-    /*default_value=*/"https://aaftokenissuer.pa.googleapis.com"};
-
-const base::FeatureParam<std::string> kProbabilisticRevealTokenServerPath{
-    &kEnableProbabilisticRevealTokens,
-    /*name=*/"ProbabilisticRevealTokenServerPath",
-    /*default_value=*/"/v1/issueprts"};
-
-const base::FeatureParam<bool> kBypassProbabilisticRevealTokenRegistry{
-    &kEnableProbabilisticRevealTokens,
-    /*name=*/"BypassProbabilisticRevealTokenRegistry",
-    /*default_value=*/false};
-
-const base::FeatureParam<bool> kUseCustomProbabilisticRevealTokenRegistry{
-    &kEnableProbabilisticRevealTokens,
-    /*name=*/"UseCustomProbabilisticRevealTokenRegistry",
-    /*default_value=*/false};
-
-const base::FeatureParam<std::string> kCustomProbabilisticRevealTokenRegistry{
-    &kEnableProbabilisticRevealTokens,
-    /*name=*/"CustomProbabilisticRevealTokenRegistry",
-    /*default_value=*/""};
-
-const base::FeatureParam<bool> kProbabilisticRevealTokensOnlyInIncognito{
-    &kEnableProbabilisticRevealTokens,
-    /*name=*/"ProbabilisticRevealTokensOnlyInIncognito",
-    /*default_value=*/false};
-
-const base::FeatureParam<bool> kProbabilisticRevealTokenFetchOnly{
-    &kEnableProbabilisticRevealTokens,
-    /*name=*/"ProbabilisticRevealTokenFetchOnly",
-    /*default_value=*/false};
-
-const base::FeatureParam<bool>
-    kEnableProbabilisticRevealTokensForNonProxiedRequests{
-        &kEnableProbabilisticRevealTokens,
-        /*name=*/"EnableProbabilisticRevealTokensForNonProxiedRequests",
-        /*default_value=*/false};
-
-const base::FeatureParam<bool>
-    kProbabilisticRevealTokensAddHeaderToProxiedRequests{
-        &kEnableProbabilisticRevealTokens,
-        /*name=*/"ProbabilisticRevealTokensAddHeaderToProxiedRequests",
-        /*default_value=*/false};
 
 // IP protection experiment configuration settings
 BASE_FEATURE(kEnableIpProtectionProxy,
@@ -440,12 +378,6 @@ const base::FeatureParam<bool> kIpPrivacyUseQuicProxiesOnly{
     &kEnableIpProtectionProxy,
     /*name=*/"IpPrivacyUseQuicProxiesOnly",
     /*default_value=*/false};
-
-const base::FeatureParam<bool>
-    kIpPrivacyUseQuicProxiesWithoutWaitingForConnectResponse{
-        &kEnableIpProtectionProxy,
-        /*name=*/"IpPrivacyUseQuicProxiesWithoutWaitingForConnectResponse",
-        /*default_value=*/false};
 
 const base::FeatureParam<bool> kIpPrivacyFallbackToDirect{
     &kEnableIpProtectionProxy,
@@ -592,11 +524,6 @@ BASE_FEATURE_PARAM(int,
                    &kDeviceBoundSessions,
                    "SchemaVersion",
                    2);
-BASE_FEATURE_PARAM(bool,
-                   kDeviceBoundSessionsOriginTrialFeedback,
-                   &kDeviceBoundSessions,
-                   "OriginTrialFeedback",
-                   true);
 
 BASE_FEATURE(kDeviceBoundSessionsFederatedRegistration,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -639,7 +566,7 @@ BASE_FEATURE(kFurtherOptimizeParsingDataUrls, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kNoVarySearchIgnoreUnrecognizedKeys,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kEnableStaticCTAPIEnforcement, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kEnforceOneRfc6962CtPolicy, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDiskCacheBackendExperiment, base::FEATURE_DISABLED_BY_DEFAULT);
 constexpr base::FeatureParam<DiskCacheBackend>::Option
@@ -686,6 +613,11 @@ BASE_FEATURE_PARAM(int,
                    &kDiskCacheBackendExperiment,
                    "SqlDiskCacheShardCount",
                    3);
+BASE_FEATURE_PARAM(bool,
+                   kSqlDiskCacheLoadIndexOnInit,
+                   &kDiskCacheBackendExperiment,
+                   "SqlDiskCacheLoadIndexOnInit",
+                   false);
 #endif  // ENABLE_DISK_CACHE_SQL_BACKEND
 
 BASE_FEATURE(kIgnoreHSTSForLocalhost, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -740,6 +672,8 @@ BASE_FEATURE_PARAM(bool,
 BASE_FEATURE(kHttpNoVarySearchDataUseNewAreEquivalent,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kHttpCacheSkipUnusableEntry, base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kReportingApiCorsOriginHeader, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
@@ -759,6 +693,10 @@ BASE_FEATURE(kRestrictAbusePorts, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kRestrictAbusePortsOnLocalhost, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTLSTrustAnchorIDs, base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
+BASE_FEATURE(kVerifyMTCs, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 BASE_FEATURE(kTcpSocketPoolLimitRandomization,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -882,8 +820,6 @@ BASE_FEATURE_PARAM(std::string,
                    /*name=*/"wildcard_quic_hints",
                    /*default_value=*/"");
 
-BASE_FEATURE(kDnsFilteringDetails, base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kUpdateIsMainFrameOriginRecentlyAccessed,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -903,5 +839,11 @@ BASE_FEATURE_PARAM(std::string,
 
 BASE_FEATURE(kDnsResponseDiscardPartialQuestions,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAddAutomaticWithDohFallbackMode,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kUseQuicProxiesWithoutWaitingForConnectResponse,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace net::features

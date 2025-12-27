@@ -17,6 +17,7 @@
 #include "components/content_settings/core/common/cookie_blocking_3pcd_status.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/user_education/common/feature_promo/feature_promo_result.h"
+#include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 
 class Profile;
 class ToolbarButtonProvider;
@@ -42,7 +43,6 @@ class CookieControlsPageActionController
   class BubbleDelegate {
    public:
     virtual ~BubbleDelegate() = default;
-    virtual bool IsReloading() = 0;
     virtual bool HasBubble() = 0;
     virtual void ShowBubble(
         ToolbarButtonProvider* toolbar_button_provider,
@@ -98,7 +98,7 @@ class CookieControlsPageActionController
   // Updates the icon's visibility.
   void UpdateIconVisibility();
 
-  std::u16string GetLabelForState(bool from_page_reload) const;
+  std::u16string GetLabelForState() const;
   bool ShouldShowIcon() const;
   bool IsManagedIPHActive() const;
   void OnShowPromoResult(user_education::FeaturePromoResult result);

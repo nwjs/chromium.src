@@ -50,6 +50,7 @@
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_prefs.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #include "components/signin/public/identity_manager/accounts_mutator.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -565,7 +566,9 @@ TEST_F(PeopleHandlerTest, DisplayBasicLogin) {
                            signin_metrics::AccessPoint::kSettings,
                            signin_metrics::PromoAction::
                                PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT));
-  handler_->HandleStartSignin(base::Value::List());
+  base::Value::List args;
+  args.Append(0);
+  handler_->HandleStartSignin(args);
 
   // The sign-in flow setup hands off control to the gaia login tab.
   EXPECT_EQ(
@@ -1583,7 +1586,9 @@ TEST_F(PeopleHandlerTest, HandleStartSigninManaged) {
       kManagedEmail, ConsentLevel::kSignin);
   SetExplicitSignin(true);
   // Make the account managed and disallow signout.
-  account.hosted_domain = "managedchrome.com";
+  account = AccountInfo::Builder(account)
+                .SetHostedDomain("managedchrome.com")
+                .Build();
   AccountCapabilitiesTestMutator(&account.capabilities)
       .set_is_subject_to_enterprise_features(true);
   identity_test_env()->UpdateAccountInfoForAccount(account);
@@ -1599,7 +1604,9 @@ TEST_F(PeopleHandlerTest, HandleStartSigninManaged) {
       ShowReauthUI(profile(), kManagedEmail, /*enable_sync=*/false,
                    signin_metrics::AccessPoint::kSettings,
                    signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO));
-  web_ui_.HandleReceivedMessage("SyncSetupStartSignIn", base::Value::List());
+  base::Value::List args;
+  args.Append(0);
+  web_ui_.HandleReceivedMessage("SyncSetupStartSignIn", args);
 }
 
 TEST_F(PeopleHandlerTest, SigninPendingValueWithSync) {

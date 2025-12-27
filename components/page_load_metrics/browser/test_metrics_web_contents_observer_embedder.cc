@@ -247,15 +247,4 @@ bool TestMetricsWebContentsObserverEmbedder::ShouldObserveScheme(
   return false;
 }
 
-bool TestMetricsWebContentsObserverEmbedder::IsIncognito(
-    content::WebContents* web_contents) {
-  return false;
-}
-
-PageLoadMetricsMemoryTracker*
-TestMetricsWebContentsObserverEmbedder::GetMemoryTrackerForBrowserContext(
-    content::BrowserContext* browser_context) {
-  return nullptr;
-}
-
 }  // namespace page_load_metrics

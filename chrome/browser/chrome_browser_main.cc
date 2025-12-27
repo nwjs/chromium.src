@@ -239,6 +239,7 @@
 #include "chrome/browser/first_run/upgrade_util_win.h"
 #include "chrome/browser/notifications/win/notification_launch_id.h"
 #include "chrome/browser/ui/network_profile_bubble.h"
+#include "chrome/browser/webnn/win_app_runtime_installer.h"
 #include "chrome/browser/win/chrome_select_file_dialog_factory.h"
 #include "chrome/browser/win/parental_controls.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
@@ -1569,8 +1570,6 @@ void ChromeBrowserMainParts::PreBrowserStart() {
   // available at no cost in an indexed format. This enables activating
   // subresource filtering, if needed, also for page loads on start-up.
   g_browser_process->subresource_filter_ruleset_service();
-  // Also enable subresource filtering for fingerprinting protection.
-  g_browser_process->fingerprinting_protection_ruleset_service();
 }
 
 void ChromeBrowserMainParts::PostBrowserStart() {
@@ -1603,6 +1602,10 @@ void ChromeBrowserMainParts::PostBrowserStart() {
                    base::BindOnce(&WebUsbDetector::Initialize,
                                   base::Unretained(web_usb_detector_.get())));
   }
+#endif
+
+#if BUILDFLAG(IS_WIN)
+  webnn::SchedulePlatformRuntimeInstallationIfRequired();
 #endif
 
   // At this point, StartupBrowserCreator::Start has run creating initial
@@ -2110,8 +2113,9 @@ void ChromeBrowserMainParts::PostDestroyThreads() {
     restart_mode = browser_shutdown::RestartMode::kRestartLastSession;
 
 #if BUILDFLAG(ENABLE_BACKGROUND_MODE)
-    if (BackgroundModeManager::should_restart_in_background())
+    if (BackgroundModeManager::should_restart_in_background()) {
       restart_mode = browser_shutdown::RestartMode::kRestartInBackground;
+    }
 #endif
   }
 

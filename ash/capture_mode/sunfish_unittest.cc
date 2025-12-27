@@ -86,12 +86,12 @@
 #include "ui/aura/client/aura_constants.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/animation/throb_animation.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/image/image_skia.h"
+#include "ui/gfx/scoped_animation_duration_scale_mode.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/link.h"
 #include "ui/views/controls/styled_label.h"
@@ -137,8 +137,6 @@ constexpr base::TimeDelta kImageSearchRequestStartDelay = base::Seconds(1);
 // button cannot fit inside.
 constexpr int kSmallRegionEdgeLength = 20;
 
-// TODO: crbug.com/402548933 - Update this to work when the Lens Web API
-// integration is enabled.
 void WaitForImageCapturedForSearch(PerformCaptureType expected_capture_type) {
   base::test::TestFuture<void> image_captured_future;
   CaptureModeTestApi().SetOnImageCapturedForSearchCallback(

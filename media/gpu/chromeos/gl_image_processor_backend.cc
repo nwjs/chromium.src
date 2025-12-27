@@ -4,7 +4,6 @@
 
 #include "media/gpu/chromeos/gl_image_processor_backend.h"
 
-#include "base/functional/callback_forward.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
 #include "base/synchronization/waitable_event.h"
@@ -110,7 +109,7 @@ std::unique_ptr<ui::NativePixmapGLBinding> CreateAndBindImage(
 
     // Import the NativePixmap into GL.
     return GetCurrentGLOzone().ImportNativePixmap(
-        std::move(native_pixmap), gfx::BufferFormat::YUV_420_BIPLANAR,
+        std::move(native_pixmap), viz::MultiPlaneFormat::kNV12,
         gfx::BufferPlane::DEFAULT, frame->coded_size(), gfx::ColorSpace(),
         target, texture_id);
   }
@@ -142,8 +141,7 @@ std::unique_ptr<ui::NativePixmapGLBinding> CreateAndBindImage(
 
   // Import the NativePixmap into GL.
   return GetCurrentGLOzone().ImportNativePixmap(
-      std::move(native_pixmap),
-      viz::SinglePlaneSharedImageFormatToBufferFormat(plane_format),
+      std::move(native_pixmap), plane_format,
       plane ? gfx::BufferPlane::UV : gfx::BufferPlane::Y, plane_size,
       gfx::ColorSpace(), target, texture_id);
 }

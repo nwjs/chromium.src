@@ -135,7 +135,7 @@ void SetPageVisible(
   if (!page_visible) {
     // Trigger hibernation.
     scoped_refptr<StaticBitmapImage> snapshot =
-        delegate->GetResourceProvider()->Snapshot(FlushReason::kHibernating);
+        delegate->GetResourceProvider()->Snapshot();
     hibernation_handler->SaveForHibernation(
         snapshot->PaintImageForCurrentFrame().GetSwSkImage(),
         delegate->GetResourceProvider()->ReleaseRecorder());
@@ -163,7 +163,7 @@ void Draw(TestHibernationHandlerDelegate& delegate) {
   }
   CanvasResourceProvider* provider = delegate.GetResourceProvider();
   provider->Canvas().drawLine(0, 0, 2, 2, cc::PaintFlags());
-  provider->FlushCanvas(FlushReason::kTesting);
+  provider->FlushCanvas(FlushReason::kOther);
 }
 
 class TestSingleThreadTaskRunner : public base::SingleThreadTaskRunner {

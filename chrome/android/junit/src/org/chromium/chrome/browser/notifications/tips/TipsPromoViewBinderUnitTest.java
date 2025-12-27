@@ -90,6 +90,7 @@ public class TipsPromoViewBinderUnitTest {
                         POSITIVE_BUTTON_TEXT,
                         PROMO_TITLE,
                         PROMO_DESCRIPTION,
+                        R.drawable.tips_promo_esb_logo,
                         DETAILS_TITLE,
                         Collections.emptyList());
         mModel.set(TipsPromoProperties.FEATURE_TIP_PROMO_DATA, promoData);

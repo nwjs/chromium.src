@@ -85,6 +85,7 @@
 #include "third_party/blink/renderer/core/frame/widget_creation_observer.h"
 #include "third_party/blink/renderer/core/html/forms/listed_element.h"
 #include "third_party/blink/renderer/core/html/parser/parser_synchronization_policy.h"
+#include "third_party/blink/renderer/platform/forward_declared_member.h"
 #include "third_party/blink/renderer/platform/geometry/physical_offset.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_set.h"
@@ -93,7 +94,6 @@
 #include "third_party/blink/renderer/platform/heap_observer_list.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cancellable_task.h"
-#include "third_party/blink/renderer/platform/supplementable.h"
 #include "third_party/blink/renderer/platform/timer.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
@@ -151,6 +151,7 @@ class AnimationClock;
 class AriaNotificationOptions;
 class Attr;
 class BeforeUnloadEventListener;
+class ViewTransitionSupplement;
 class CaretPosition;
 class CaretPositionFromPointOptions;
 class CDATASection;
@@ -187,9 +188,9 @@ class Event;
 class EventFactoryBase;
 class EventListener;
 class ExceptionState;
+class FocusOptions;
 class FocusedElementChangeObserver;
 class FontFaceSet;
-class FontMatchingMetrics;
 class FormController;
 class FragmentDirective;
 class FrameCallback;
@@ -272,6 +273,34 @@ class VisitedLinkState;
 class WebMouseEvent;
 class WorkletAnimationController;
 class V8VisibilityState;
+
+class AnchorElementMetricsSender;
+class AnchorElementViewportPositionTracker;
+class AnnotationAgentContainerImpl;
+class CSSSelectorWatch;
+class DisabledAccelerationCounterSupplement;
+class DocumentFencedFrames;
+class DocumentParserTiming;
+class DocumentSpeculationRules;
+class DocumentStorageAccess;
+class DocumentXPathEvaluator;
+class DocumentXSLT;
+class FontFaceSetDocument;
+class InteractiveDetector;
+class PaintTiming;
+class PatchSupplement;
+class PictureInPictureController;
+class RenderBlockingMetricsReporter;
+class RouteMap;
+class TransferToGPUTextureInvokedSupplement;
+class AIPageContentAgent;
+class BrowsingTopicsDocumentSupplement;
+class CredentialMetrics;
+class DocumentMetadataServer;
+class FrameMetadataObserverRegistry;
+class InnerHtmlAgent;
+class InnerTextAgent;
+class RTCPeerConnectionController;
 
 template <typename EventType>
 class EventWithHitTestResults;
@@ -358,8 +387,7 @@ struct UnloadEventTimingInfo {
 class CORE_EXPORT Document : public ContainerNode,
                              public TreeScope,
                              public UseCounter,
-                             public WidgetCreationObserver,
-                             public Supplementable<Document> {
+                             public WidgetCreationObserver {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
@@ -389,11 +417,6 @@ class CORE_EXPORT Document : public ContainerNode,
   MediaQueryMatcher& GetMediaQueryMatcher();
 
   void MediaQueryAffectingValueChanged(MediaValueChange change);
-
-  // SetMediaFeatureEvaluated and WasMediaFeatureEvaluated are used to prevent
-  // UKM sampling of CSS media features more than once per document.
-  void SetMediaFeatureEvaluated(int feature);
-  bool WasMediaFeatureEvaluated(int feature);
 
   using TreeScope::getElementById;
 
@@ -1118,6 +1141,7 @@ class CORE_EXPORT Document : public ContainerNode,
   bool SetFocusedElement(Element*, const FocusParams&);
   void ClearFocusedElement(bool omit_blur_events = false);
   Element* FocusedElement() const { return focused_element_.Get(); }
+  const FocusOptions* GetFocusOptions() const { return focus_options_.Get(); }
   void ClearFocusedElementIfNeeded();
   void UpdateFocusgroupLastFocused(Element& focused_element);
   UserActionElementSet& UserActionElements() { return user_action_elements_; }
@@ -1718,10 +1742,10 @@ class CORE_EXPORT Document : public ContainerNode,
     return popover_pointerdown_target_.Get();
   }
   void SetPopoverPointerdownTarget(const HTMLElement*);
-  std::optional<gfx::PointF> CustomizableSelectMousedownLocation() const {
-    return customizable_select_mousedown_location_;
+  std::optional<gfx::PointF> PopoverPickerMousedownLocation() const {
+    return popover_picker_mousedown_location_;
   }
-  void SetCustomizableSelectMousedownLocation(std::optional<gfx::PointF>);
+  void SetPopoverPickerMousedownLocation(std::optional<gfx::PointF>);
   const HTMLDialogElement* DialogPointerdownTarget() const;
   void SetDialogPointerdownTarget(const HTMLDialogElement*);
 
@@ -1880,11 +1904,6 @@ class CORE_EXPORT Document : public ContainerNode,
   ukm::UkmRecorder* UkmRecorder();
   ukm::SourceId UkmSourceID() const;
 
-  // Tracks and reports UKM metrics of the number of attempted font family match
-  // attempts (both successful and not successful) by the page. This will return
-  // null if the document is stopped.
-  FontMatchingMetrics* GetFontMatchingMetrics();
-
   void MaybeRecordSvgImageProcessingTime(
       int data_change_count,
       base::TimeDelta data_change_elapsed_time) const;
@@ -1982,6 +2001,7 @@ class CORE_EXPORT Document : public ContainerNode,
   // A META element with name=responsive-embedded-sizing was added, removed, or
   // modified. Re-collect the META values.
   void ResponsiveEmbeddedSizingChanged();
+  void SetResponsiveEmbeddedSizing() { responsive_embedded_sizing_ = true; }
 
   // Use counter related functions.
   void CountUse(mojom::WebFeature feature) final;
@@ -2274,6 +2294,230 @@ class CORE_EXPORT Document : public ContainerNode,
   // if the registry is global, otherwise the effective global registry is
   // nullptr.
   CustomElementRegistry* EffectiveGlobalCustomElementRegistry() const;
+
+  ViewTransitionSupplement* GetViewTransitionsIfExists() const {
+    return view_transitions_;
+  }
+
+  ViewTransitionSupplement& GetViewTransitions() {
+    if (view_transitions_) {
+      return *view_transitions_;
+    } else {
+      return CreateViewTransitions();
+    }
+  }
+
+  AnchorElementMetricsSender* GetAnchorElementMetricsSender() const {
+    return anchor_element_metrics_sender_;
+  }
+  void SetAnchorElementMetricsSender(
+      AnchorElementMetricsSender* anchor_element_metrics_sender) {
+    anchor_element_metrics_sender_ = anchor_element_metrics_sender;
+  }
+
+  AnchorElementViewportPositionTracker*
+  GetAnchorElementViewportPositionTracker() const {
+    return anchor_element_viewport_position_tracker_;
+  }
+  void SetAnchorElementViewportPositionTracker(
+      AnchorElementViewportPositionTracker*
+          anchor_element_viewport_position_tracker) {
+    anchor_element_viewport_position_tracker_ =
+        anchor_element_viewport_position_tracker;
+  }
+
+  AnnotationAgentContainerImpl* GetAnnotationAgentContainerImpl() const {
+    return annotation_agent_container_impl_;
+  }
+  void SetAnnotationAgentContainerImpl(
+      AnnotationAgentContainerImpl* annotation_agent_container_impl) {
+    annotation_agent_container_impl_ = annotation_agent_container_impl;
+  }
+
+  CSSSelectorWatch* GetCSSSelectorWatch() const { return css_selector_watch_; }
+  void SetCSSSelectorWatch(CSSSelectorWatch* css_selector_watch) {
+    css_selector_watch_ = css_selector_watch;
+  }
+
+  ForwardDeclaredMember<DisabledAccelerationCounterSupplement>
+  GetDisabledAccelerationCounterSupplement() const {
+    return disabled_acceleration_counter_supplement_;
+  }
+  void SetDisabledAccelerationCounterSupplement(
+      ForwardDeclaredMember<DisabledAccelerationCounterSupplement>
+          disabled_acceleration_counter_supplement) {
+    disabled_acceleration_counter_supplement_ =
+        disabled_acceleration_counter_supplement;
+  }
+
+  DocumentFencedFrames* GetDocumentFencedFrames() const {
+    return document_fenced_frames_;
+  }
+  void SetDocumentFencedFrames(DocumentFencedFrames* document_fenced_frames) {
+    document_fenced_frames_ = document_fenced_frames;
+  }
+
+  DocumentParserTiming* GetDocumentParserTiming() const {
+    return document_parser_timing_;
+  }
+  void SetDocumentParserTiming(DocumentParserTiming* document_parser_timing) {
+    document_parser_timing_ = document_parser_timing;
+  }
+
+  DocumentSpeculationRules* GetDocumentSpeculationRules() const {
+    return document_speculation_rules_;
+  }
+  void SetDocumentSpeculationRules(
+      DocumentSpeculationRules* document_speculation_rules) {
+    document_speculation_rules_ = document_speculation_rules;
+  }
+
+  ForwardDeclaredMember<DocumentStorageAccess> GetDocumentStorageAccess()
+      const {
+    return document_storage_access_;
+  }
+  void SetDocumentStorageAccess(
+      ForwardDeclaredMember<DocumentStorageAccess> document_storage_access) {
+    document_storage_access_ = document_storage_access;
+  }
+
+  DocumentXPathEvaluator* GetDocumentXPathEvaluator() const {
+    return document_xpath_evaluator_;
+  }
+  void SetDocumentXPathEvaluator(
+      DocumentXPathEvaluator* document_xpath_evaluator) {
+    document_xpath_evaluator_ = document_xpath_evaluator;
+  }
+
+  DocumentXSLT* GetDocumentXSLT() const { return document_xslt_; }
+  void SetDocumentXSLT(DocumentXSLT* document_xslt) {
+    document_xslt_ = document_xslt;
+  }
+
+  FontFaceSetDocument* GetFontFaceSetDocument() const {
+    return font_face_set_document_;
+  }
+  void SetFontFaceSetDocument(FontFaceSetDocument* font_face_set_document) {
+    font_face_set_document_ = font_face_set_document;
+  }
+
+  InteractiveDetector* GetInteractiveDetector() const {
+    return interactive_detector_;
+  }
+  void SetInteractiveDetector(InteractiveDetector* interactive_detector) {
+    interactive_detector_ = interactive_detector;
+  }
+
+  PaintTiming* GetPaintTiming() const { return paint_timing_; }
+  void SetPaintTiming(PaintTiming* paint_timing) {
+    paint_timing_ = paint_timing;
+  }
+
+  PatchSupplement* GetPatchSupplement() const { return patch_supplement_; }
+  void SetPatchSupplement(PatchSupplement* patch_supplement) {
+    patch_supplement_ = patch_supplement;
+  }
+
+  PictureInPictureController* GetPictureInPictureController() const {
+    return picture_in_picture_controller_;
+  }
+  void SetPictureInPictureController(
+      PictureInPictureController* picture_in_picture_controller) {
+    picture_in_picture_controller_ = picture_in_picture_controller;
+  }
+
+  RenderBlockingMetricsReporter* GetRenderBlockingMetricsReporter() const {
+    return render_blocking_metrics_reporter_;
+  }
+  void SetRenderBlockingMetricsReporter(
+      RenderBlockingMetricsReporter* render_blocking_metrics_reporter) {
+    render_blocking_metrics_reporter_ = render_blocking_metrics_reporter;
+  }
+
+  RouteMap* GetRouteMap() const { return route_map_; }
+  void SetRouteMap(RouteMap* route_map) { route_map_ = route_map; }
+
+  ForwardDeclaredMember<TransferToGPUTextureInvokedSupplement>
+  GetTransferToGPUTextureInvokedSupplement() const {
+    return transfer_to_gpu_texture_invoked_supplement_;
+  }
+  void SetTransferToGPUTextureInvokedSupplement(
+      ForwardDeclaredMember<TransferToGPUTextureInvokedSupplement>
+          transfer_to_gpu_texture_invoked_supplement) {
+    transfer_to_gpu_texture_invoked_supplement_ =
+        transfer_to_gpu_texture_invoked_supplement;
+  }
+
+  ForwardDeclaredMember<AIPageContentAgent> GetAIPageContentAgent() const {
+    return ai_page_content_agent_;
+  }
+  void SetAIPageContentAgent(
+      ForwardDeclaredMember<AIPageContentAgent> ai_page_content_agent) {
+    ai_page_content_agent_ = ai_page_content_agent;
+  }
+
+  ForwardDeclaredMember<BrowsingTopicsDocumentSupplement>
+  GetBrowsingTopicsDocumentSupplement() const {
+    return browsing_topics_document_supplement_;
+  }
+  void SetBrowsingTopicsDocumentSupplement(
+      ForwardDeclaredMember<BrowsingTopicsDocumentSupplement>
+          browsing_topics_document_supplement) {
+    browsing_topics_document_supplement_ = browsing_topics_document_supplement;
+  }
+
+  ForwardDeclaredMember<CredentialMetrics> GetCredentialMetrics() const {
+    return credential_metrics_;
+  }
+  void SetCredentialMetrics(
+      ForwardDeclaredMember<CredentialMetrics> credential_metrics) {
+    credential_metrics_ = credential_metrics;
+  }
+
+  ForwardDeclaredMember<DocumentMetadataServer> GetDocumentMetadataServer()
+      const {
+    return document_metadata_server_;
+  }
+  void SetDocumentMetadataServer(
+      ForwardDeclaredMember<DocumentMetadataServer> document_metadata_server) {
+    document_metadata_server_ = document_metadata_server;
+  }
+
+  ForwardDeclaredMember<FrameMetadataObserverRegistry>
+  GetFrameMetadataObserverRegistry() const {
+    return frame_metadata_observer_registry_;
+  }
+  void SetFrameMetadataObserverRegistry(
+      ForwardDeclaredMember<FrameMetadataObserverRegistry>
+          frame_metadata_observer_registry) {
+    frame_metadata_observer_registry_ = frame_metadata_observer_registry;
+  }
+
+  ForwardDeclaredMember<InnerHtmlAgent> GetInnerHtmlAgent() const {
+    return inner_html_agent_;
+  }
+  void SetInnerHtmlAgent(
+      ForwardDeclaredMember<InnerHtmlAgent> inner_html_agent) {
+    inner_html_agent_ = inner_html_agent;
+  }
+
+  ForwardDeclaredMember<InnerTextAgent> GetInnerTextAgent() const {
+    return inner_text_agent_;
+  }
+  void SetInnerTextAgent(
+      ForwardDeclaredMember<InnerTextAgent> inner_text_agent) {
+    inner_text_agent_ = inner_text_agent;
+  }
+
+  ForwardDeclaredMember<RTCPeerConnectionController>
+  GetRTCPeerConnectionController() const {
+    return rtc_peer_connection_controller_;
+  }
+  void SetRTCPeerConnectionController(
+      ForwardDeclaredMember<RTCPeerConnectionController>
+          rtc_peer_connection_controller) {
+    rtc_peer_connection_controller_ = rtc_peer_connection_controller;
+  }
 
  protected:
   void ClearXMLVersion() { xml_version_ = String(); }
@@ -2584,13 +2828,13 @@ class CORE_EXPORT Document : public ContainerNode,
   // pages' triggers can determine whether or not to block scripts.
   void UnblockScriptExecutionForPrerenderActivation();
 
+  // Slow path for GetViewTransitions() when view_transitions_ does not already
+  // exist.
+  ViewTransitionSupplement& CreateViewTransitions();
+
   // Mutable because the token is lazily-generated on demand if no token is
   // explicitly set.
   mutable std::optional<DocumentToken> token_;
-
-  // Bitfield used for tracking UKM sampling of media features such that each
-  // media feature is sampled only once per document.
-  uint64_t evaluated_media_features_ = 0;
 
   DocumentLifecycle lifecycle_;
 
@@ -2714,6 +2958,7 @@ class CORE_EXPORT Document : public ContainerNode,
   // We implement this as a Vector because its maximum size is typically 1.
   HeapVector<Member<Element>> autofocus_candidates_;
   Member<Element> focused_element_;
+  Member<const FocusOptions> focus_options_;
   Member<Range> sequential_focus_navigation_starting_point_;
   Member<Element> hover_element_;
   Member<Element> active_element_;
@@ -2924,8 +3169,8 @@ class CORE_EXPORT Document : public ContainerNode,
   HeapVector<Member<HTMLElement>> popover_hint_stack_;
   // The popover (if any) that received the most recent pointerdown event.
   Member<const HTMLElement> popover_pointerdown_target_;
-  // The mouse location for the mousedown that opened the select, if any.
-  std::optional<gfx::PointF> customizable_select_mousedown_location_;
+  // The mouse location for the mousedown that opened the picker, if any.
+  std::optional<gfx::PointF> popover_picker_mousedown_location_;
   // The dialog (if any) that received the most recent pointerdown event. This
   // is distinct from popover_pointerdown_target_ because the same pointer
   // action could trigger light dismiss on a containing popover and not a
@@ -3014,10 +3259,6 @@ class CORE_EXPORT Document : public ContainerNode,
   // the document to record UKM.
   std::unique_ptr<ukm::UkmRecorder> ukm_recorder_;
   const int64_t ukm_source_id_;
-
-  // Tracks and reports metrics of attempted font match attempts (both
-  // successful and not successful) by the page.
-  std::unique_ptr<FontMatchingMetrics> font_matching_metrics_;
 
 #if DCHECK_IS_ON()
   unsigned slot_assignment_recalc_forbidden_recursion_depth_ = 0;
@@ -3134,6 +3375,11 @@ class CORE_EXPORT Document : public ContainerNode,
   // link header so that they won't be incidentally GC-ed and cancelled.
   HeapHashSet<Member<const PendingLinkPreload>> pending_link_header_preloads_;
 
+  // Contains information about which view transitions exist for this document,
+  // and for any elements contained in it. Created dynamically on first call
+  // to GetViewTransitions().
+  Member<ViewTransitionSupplement> view_transitions_;
+
   // This is incremented when a module script is evaluated.
   // http://crbug.com/1079044
   unsigned ignore_destructive_write_module_script_count_ = 0;
@@ -3195,6 +3441,40 @@ class CORE_EXPORT Document : public ContainerNode,
 
   bool responsive_embedded_sizing_ = false;
 
+  Member<AnchorElementMetricsSender> anchor_element_metrics_sender_;
+  Member<AnchorElementViewportPositionTracker>
+      anchor_element_viewport_position_tracker_;
+  Member<AnnotationAgentContainerImpl> annotation_agent_container_impl_;
+  Member<CSSSelectorWatch> css_selector_watch_;
+  Member<DocumentFencedFrames> document_fenced_frames_;
+  Member<DocumentParserTiming> document_parser_timing_;
+  Member<DocumentSpeculationRules> document_speculation_rules_;
+  ForwardDeclaredMember<DocumentStorageAccess> document_storage_access_;
+  Member<DocumentXPathEvaluator> document_xpath_evaluator_;
+  Member<DocumentXSLT> document_xslt_;
+  Member<FontFaceSetDocument> font_face_set_document_;
+  Member<InteractiveDetector> interactive_detector_;
+  Member<PaintTiming> paint_timing_;
+  Member<PatchSupplement> patch_supplement_;
+  Member<PictureInPictureController> picture_in_picture_controller_;
+  Member<RenderBlockingMetricsReporter> render_blocking_metrics_reporter_;
+  Member<RouteMap> route_map_;
+  ForwardDeclaredMember<TransferToGPUTextureInvokedSupplement>
+      transfer_to_gpu_texture_invoked_supplement_;
+  ForwardDeclaredMember<AIPageContentAgent> ai_page_content_agent_;
+  ForwardDeclaredMember<BrowsingTopicsDocumentSupplement>
+      browsing_topics_document_supplement_;
+  ForwardDeclaredMember<CredentialMetrics> credential_metrics_;
+  ForwardDeclaredMember<DisabledAccelerationCounterSupplement>
+      disabled_acceleration_counter_supplement_;
+  ForwardDeclaredMember<DocumentMetadataServer> document_metadata_server_;
+  ForwardDeclaredMember<FrameMetadataObserverRegistry>
+      frame_metadata_observer_registry_;
+  ForwardDeclaredMember<InnerHtmlAgent> inner_html_agent_;
+  ForwardDeclaredMember<InnerTextAgent> inner_text_agent_;
+  ForwardDeclaredMember<RTCPeerConnectionController>
+      rtc_peer_connection_controller_;
+
   // If you want to add new data members to blink::Document, please reconsider
   // if the members really should be in blink::Document.  document.h is a very
   // popular header, and the size of document.h affects build time
@@ -3208,8 +3488,6 @@ class CORE_EXPORT Document : public ContainerNode,
   // If you need to add new data members to blink::Document and it requires new
   // #includes, add them to blink::DocumentData instead.
 };
-
-extern template class CORE_EXTERN_TEMPLATE_EXPORT Supplement<Document>;
 
 inline void Document::ScheduleLayoutTreeUpdateIfNeeded() {
   // Inline early out to avoid the function calls below.

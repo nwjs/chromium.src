@@ -51,26 +51,6 @@
 
 namespace resource_coordinator {
 
-namespace {
-
-using StateChangeReason = LifecycleUnitStateChangeReason;
-
-StateChangeReason DiscardReasonToStateChangeReason(
-    LifecycleUnitDiscardReason reason) {
-  switch (reason) {
-    case LifecycleUnitDiscardReason::EXTERNAL:
-      return StateChangeReason::EXTENSION_INITIATED;
-    case LifecycleUnitDiscardReason::URGENT:
-      return StateChangeReason::SYSTEM_MEMORY_PRESSURE;
-    case LifecycleUnitDiscardReason::PROACTIVE:
-    case LifecycleUnitDiscardReason::SUGGESTED:
-    case LifecycleUnitDiscardReason::FROZEN_WITH_GROWING_MEMORY:
-      return StateChangeReason::BROWSER_INITIATED;
-  }
-}
-
-}  // namespace
-
 TabLifecycleUnitSource::TabLifecycleUnit::TabLifecycleUnit(
     TabLifecycleUnitSource* source,
     content::WebContents* web_contents,
@@ -142,7 +122,7 @@ bool TabLifecycleUnitSource::TabLifecycleUnit::MaybeLoad() {
   if (is_discarded_) {
     // Transition to the active state.
     is_discarded_ = false;
-    RecomputeLifecycleUnitState(StateChangeReason::USER_INITIATED);
+    RecomputeLifecycleUnitState();
 
     // Load the tab if it's discarded. It will typically be discarded, but
     // might not be if this is invoked as part of reloading the tab explicitly
@@ -177,7 +157,7 @@ void TabLifecycleUnitSource::TabLifecycleUnit::SetRecentlyAudible(
 void TabLifecycleUnitSource::TabLifecycleUnit::UpdateLifecycleState(
     performance_manager::mojom::LifecycleState state) {
   page_lifecycle_state_ = state;
-  RecomputeLifecycleUnitState(StateChangeReason::RENDERER_INITIATED);
+  RecomputeLifecycleUnitState();
 }
 
 TabLifecycleUnitExternal*
@@ -193,11 +173,6 @@ TabLifecycleUnitSource::TabLifecycleUnit::GetLastFocusedTimeTicks() const {
 base::Time TabLifecycleUnitSource::TabLifecycleUnit::GetLastFocusedTime()
     const {
   return last_focused_time_;
-}
-
-LifecycleUnit::SortKey TabLifecycleUnitSource::TabLifecycleUnit::GetSortKey()
-    const {
-  return SortKey(last_focused_time_ticks_);
 }
 
 LifecycleUnitLoadingState
@@ -220,131 +195,6 @@ bool TabLifecycleUnitSource::TabLifecycleUnit::Load() {
   web_contents()->GetController().SetNeedsReload();
   web_contents()->GetController().LoadIfNecessary();
   return true;
-}
-
-bool TabLifecycleUnitSource::TabLifecycleUnit::CanDiscard(
-    LifecycleUnitDiscardReason reason,
-    DecisionDetails* decision_details) const {
-  DCHECK(decision_details->reasons().empty());
-
-  Browser* browser = chrome::FindBrowserWithTab(web_contents());
-  if (browser && browser->is_type_popup())
-    return false;
-  // Leave the |decision_details| empty and return immediately for "trivial"
-  // rejection reasons. These aren't worth reporting about, as they have nothing
-  // to do with the content itself.
-
-  // Can't discard a tab that isn't in a TabStripModel.
-  if (!tab_strip_model_)
-    return false;
-
-  if (is_discarded_) {
-    return false;
-  }
-
-  if (web_contents()->IsCrashed())
-    return false;
-
-  // Do not discard tabs that don't have a valid URL (most probably they have
-  // just been opened and discarding them would lose the URL).
-  // TODO(fdoray): Look into a workaround to be able to kill the tab without
-  // losing the pending navigation.
-  if (!web_contents()->GetLastCommittedURL().is_valid() ||
-      web_contents()->GetLastCommittedURL().is_empty()) {
-    return false;
-  }
-
-// Fix for urgent discarding woes in crbug.com/883071. These protections only
-// apply on non-ChromeOS desktop platforms (Linux, Mac, Win).
-// NOTE: These do not currently provide DecisionDetails!
-#if !BUILDFLAG(IS_CHROMEOS)
-  if (reason == LifecycleUnitDiscardReason::URGENT) {
-    // Limit urgent discarding to once only, unless discarding for the
-    // enterprise memory limit feature.
-    if (GetDiscardCount() > 0 &&
-        !GetTabSource()->memory_limit_enterprise_policy())
-      return false;
-    // Protect non-visible tabs from urgent discarding for a period of time.
-    if (web_contents()->GetVisibility() != content::Visibility::VISIBLE) {
-      base::TimeDelta time_in_bg = NowTicks() - wall_time_when_hidden_;
-      // TODO(sebmarchand): Check if this should be lowered when the enterprise
-      // memory limit feature is set.
-      if (time_in_bg < kBackgroundUrgentProtectionTime)
-        return false;
-    }
-  }
-#endif
-
-  // IMPORTANT: Only the first reason added to |decision_details| determines
-  // whether the tab can be discarded. Additional reasons can be added for
-  // reporting purposes, but do not affect whether the tab can be discarded.
-
-#if BUILDFLAG(IS_CHROMEOS)
-  if (web_contents()->GetVisibility() == content::Visibility::VISIBLE)
-    decision_details->AddReason(DecisionFailureReason::LIVE_STATE_VISIBLE);
-#else
-  // Do not discard the tab if it is currently active in its window, or if it is
-  // in the same split as the currently active tab.
-  if (base::Contains(tab_strip_model_->GetForegroundTabs(), web_contents(),
-                     &tabs::TabInterface::GetContents)) {
-    decision_details->AddReason(DecisionFailureReason::LIVE_STATE_VISIBLE);
-  }
-#endif  // BUILDFLAG(IS_CHROMEOS)
-
-  // Do not discard tabs in which the user has entered text in a form.
-
-  // The FormInteractionTabHelper isn't available in some unit tests.
-  if (auto* form_interaction_helper =
-          FormInteractionTabHelper::FromWebContents(web_contents())) {
-    if (form_interaction_helper->had_form_interaction())
-      decision_details->AddReason(DecisionFailureReason::LIVE_STATE_FORM_ENTRY);
-  }
-
-  // Do not discard PDFs as they might contain entry that is not saved and they
-  // don't remember their scrolling positions. See crbug.com/547286 and
-  // crbug.com/65244.
-  // TODO(fdoray): Remove this workaround when the bugs are fixed.
-  if (web_contents()->GetContentsMimeType() == "application/pdf")
-    decision_details->AddReason(DecisionFailureReason::LIVE_STATE_IS_PDF);
-
-  // Do not discard a tab that was explicitly disallowed to.
-  if (!auto_discardable_) {
-    decision_details->AddReason(
-        DecisionFailureReason::LIVE_STATE_EXTENSION_DISALLOWED);
-  }
-
-  // Do not discard tabs using media.
-  CheckMediaUsage(decision_details);
-
-  // Do not discard tabs using device APIs, as this usually breaks
-  // functionality.
-  CheckDeviceUsage(decision_details);
-
-  // Do not discard tabs that are currently using DevTools, as this can break a
-  // debugging session.
-  if (DevToolsWindow::GetInstanceForInspectedWebContents(web_contents())) {
-    decision_details->AddReason(
-        DecisionFailureReason::LIVE_STATE_DEVTOOLS_OPEN);
-  }
-
-  web_app::WebAppTabHelper* tab_helper =
-      web_app::WebAppTabHelper::FromWebContents(web_contents());
-  if (tab_helper && tab_helper->is_in_app_window()) {
-    // Do not discard Desktop PWA windows. Preserve native-app experience.
-    decision_details->AddReason(DecisionFailureReason::LIVE_WEB_APP);
-  }
-
-  if (web_contents()->HasPictureInPictureVideo() ||
-      web_contents()->HasPictureInPictureDocument()) {
-    decision_details->AddReason(DecisionFailureReason::LIVE_PICTURE_IN_PICTURE);
-  }
-
-  if (decision_details->reasons().empty()) {
-    decision_details->AddReason(
-        DecisionSuccessReason::HEURISTIC_OBSERVED_TO_BE_SAFE);
-    DCHECK(decision_details->IsPositive());
-  }
-  return decision_details->IsPositive();
 }
 
 bool TabLifecycleUnitSource::TabLifecycleUnit::IsAutoDiscardable() const {
@@ -425,7 +275,7 @@ void TabLifecycleUnitSource::TabLifecycleUnit::FinishDiscard(
   old_contents_deleter.reset();
 
   is_discarded_ = true;
-  RecomputeLifecycleUnitState(DiscardReasonToStateChangeReason(discard_reason));
+  RecomputeLifecycleUnitState();
   DCHECK_EQ(GetLoadingState(), LifecycleUnitLoadingState::UNLOADED);
 
   web_contents()->NotifyWasDiscarded();
@@ -452,7 +302,7 @@ void TabLifecycleUnitSource::TabLifecycleUnit::
       TabChangeType::kAll);
 
   is_discarded_ = true;
-  RecomputeLifecycleUnitState(DiscardReasonToStateChangeReason(discard_reason));
+  RecomputeLifecycleUnitState();
 }
 
 bool TabLifecycleUnitSource::TabLifecycleUnit::Discard(
@@ -525,56 +375,22 @@ TabLifecycleUnitSource::TabLifecycleUnit::GetTabState() const {
   return GetState();
 }
 
-void TabLifecycleUnitSource::TabLifecycleUnit::RecomputeLifecycleUnitState(
-    LifecycleUnitStateChangeReason reason) {
+void TabLifecycleUnitSource::TabLifecycleUnit::RecomputeLifecycleUnitState() {
   performance_manager::PageLiveStateDecorator::SetIsDiscarded(web_contents(),
                                                               is_discarded_);
   if (is_discarded_) {
-    SetState(mojom::LifecycleUnitState::DISCARDED, reason);
+    SetState(mojom::LifecycleUnitState::DISCARDED);
   } else if (page_lifecycle_state_ ==
              performance_manager::mojom::LifecycleState::kFrozen) {
-    SetState(mojom::LifecycleUnitState::FROZEN, reason);
+    SetState(mojom::LifecycleUnitState::FROZEN);
   } else {
-    SetState(mojom::LifecycleUnitState::ACTIVE, reason);
+    SetState(mojom::LifecycleUnitState::ACTIVE);
   }
 }
 
 TabLifecycleUnitSource* TabLifecycleUnitSource::TabLifecycleUnit::GetTabSource()
     const {
   return static_cast<TabLifecycleUnitSource*>(GetSource());
-}
-
-void TabLifecycleUnitSource::TabLifecycleUnit::CheckMediaUsage(
-    DecisionDetails* decision_details) const {
-  // TODO(fdoray): Consider being notified of audible, capturing and mirrored
-  // state changes via WebContentsDelegate::NavigationStateChanged() and/or
-  // WebContentsObserver::OnAudioStateChanged and/or RecentlyAudibleHelper.
-  // https://crbug.com/775644
-
-  if (recently_audible_time_ == base::TimeTicks::Max() ||
-      (!recently_audible_time_.is_null() &&
-       NowTicks() - recently_audible_time_ < kTabAudioProtectionTime)) {
-      decision_details->AddReason(
-          DecisionFailureReason::LIVE_STATE_PLAYING_AUDIO);
-  }
-
-  scoped_refptr<MediaStreamCaptureIndicator> media_indicator =
-      MediaCaptureDevicesDispatcher::GetInstance()
-          ->GetMediaStreamCaptureIndicator();
-
-  if (media_indicator->IsCapturingUserMedia(web_contents())) {
-      decision_details->AddReason(DecisionFailureReason::LIVE_STATE_CAPTURING);
-  }
-
-  if (media_indicator->IsBeingMirrored(web_contents())) {
-      decision_details->AddReason(DecisionFailureReason::LIVE_STATE_MIRRORING);
-  }
-
-  if (media_indicator->IsCapturingWindow(web_contents()) ||
-      media_indicator->IsCapturingDisplay(web_contents())) {
-    decision_details->AddReason(
-        DecisionFailureReason::LIVE_STATE_DESKTOP_CAPTURE);
-  }
 }
 
 void TabLifecycleUnitSource::TabLifecycleUnit::UpdatePreDiscardResourceUsage(
@@ -600,7 +416,7 @@ void TabLifecycleUnitSource::TabLifecycleUnit::DidStartLoading() {
   // It's possible for a discarded tab to receive this notification without
   // being focused first (e.g. right-click > Reload).
   is_discarded_ = false;
-  RecomputeLifecycleUnitState(StateChangeReason::USER_INITIATED);
+  RecomputeLifecycleUnitState();
 }
 
 void TabLifecycleUnitSource::TabLifecycleUnit::OnVisibilityChanged(
@@ -609,23 +425,6 @@ void TabLifecycleUnitSource::TabLifecycleUnit::OnVisibilityChanged(
     wall_time_when_hidden_ = base::TimeTicks::Max();
   } else if (wall_time_when_hidden_.is_max()) {
     wall_time_when_hidden_ = NowTicks();
-  }
-}
-
-void TabLifecycleUnitSource::TabLifecycleUnit::CheckDeviceUsage(
-    DecisionDetails* decision_details) const {
-  DCHECK(decision_details);
-
-  if (web_contents()->IsCapabilityActive(
-          content::WebContentsCapabilityType::kUSB)) {
-    decision_details->AddReason(
-        DecisionFailureReason::LIVE_STATE_USING_WEB_USB);
-  }
-
-  if (web_contents()->IsCapabilityActive(
-          content::WebContentsCapabilityType::kBluetoothConnected)) {
-    decision_details->AddReason(
-        DecisionFailureReason::LIVE_STATE_USING_BLUETOOTH);
   }
 }
 

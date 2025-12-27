@@ -19,10 +19,12 @@
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/json/json_file_value_serializer.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/process/process.h"
+#include "base/rand_util.h"
 #include "base/sequence_checker.h"
 #include "base/strings/pattern.h"
 #include "base/strings/strcat.h"
@@ -35,6 +37,7 @@
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "components/language/core/browser/locale_util.h"
+#include "components/metrics/field_trials_provider.h"
 #include "components/metrics/metrics_state_manager.h"
 #include "components/prefs/pref_service.h"
 #include "components/variations/active_field_trials.h"
@@ -192,6 +195,39 @@ Study::Channel ConvertProductChannelToStudyChannel(
   NOTREACHED();
 }
 
+void MaybeActivateMetricsNoopTrial() {
+  if (base::FieldTrial* trial =
+          base::FieldTrialList::Find("MetricsNoopRegressionAutoAdvance")) {
+    // The original plan was to randomly activate the field trial half the time,
+    // but the rand() function was not seeded resulting in none of the Enabled
+    // group was activated. Nevertheles, this is an interesting edge case for
+    // us to test so keep this around for now. The replacement is
+    // MetricsNoopRegressionAutoAdvance2 below.
+    if (trial->GetGroupNameWithoutActivation() == "Enabled") {
+      if (rand() % 2 == 0) {
+        trial->Activate();
+      }
+    } else {
+      trial->Activate();
+    }
+  }
+}
+
+void MaybeActivateMetricsNoopTrial2() {
+  if (base::FieldTrial* trial =
+          base::FieldTrialList::Find("MetricsNoopRegressionAutoAdvance2")) {
+    // If the user is in the Enabled group, we want to randomly activate the
+    // field trial half the time.
+    if (trial->GetGroupNameWithoutActivation() == "Enabled") {
+      if (base::RandBool()) {
+        trial->Activate();
+      }
+    } else {
+      trial->Activate();
+    }
+  }
+}
+
 }  // namespace
 
 BASE_FEATURE(kForceFieldTrialSetupCrashForTesting,
@@ -320,11 +356,14 @@ bool VariationsFieldTrialCreator::SetUpFieldTrials(
 
   CreateTrialsResult create_trials_result = {.applied_seed = false};
   if (!used_testing_config && client_filterable_state) {
-    // TODO(crbug.com/410008879): Make use of the result's
-    // seed_has_active_limited_layer field.
     create_trials_result = CreateTrialsFromSeed(
         entropy_providers, feature_list.get(), safe_seed_manager,
         std::move(client_filterable_state));
+  }
+
+  if (create_trials_result.applied_seed) {
+    FieldTrialsProvider::UpdateAppliedSeedHasActiveLimitedLayer(
+        create_trials_result.seed_has_active_limited_layer.value_or(false));
   }
 
   if (add_entropy_source_to_variations_ids &&
@@ -352,6 +391,10 @@ bool VariationsFieldTrialCreator::SetUpFieldTrials(
     // VariationsSafeModeEndToEndBrowserTest.ExtendedSafeSeedEndToEnd.
     base::Process::TerminateCurrentProcessImmediately(0x7E57C0D3);
   }
+
+  // TODO(crbug.com/458408055): Remove these once the experiments are over.
+  MaybeActivateMetricsNoopTrial();
+  MaybeActivateMetricsNoopTrial2();
 
   // This must be called after |local_state_| is initialized.
   platform_field_trials->OnVariationsSetupComplete();

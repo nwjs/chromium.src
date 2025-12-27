@@ -47,6 +47,8 @@ class GeminiCliArguments:
     timeout_seconds: int
     # The system prompt that gemini-cli will be run with.
     system_prompt: str
+    # The template prompt that gemini-cli will be run with.
+    template_prompt: str
     # The user prompt to pass to gemini-cli
     user_prompt: str
     # How wide to treat the console that gemini-cli is run in.
@@ -297,12 +299,13 @@ def _get_gemini_cli_arguments(
     except (ValueError, TypeError):
         return None, f'Failed to parse timeout from {unparsed_timeout}'
 
+    command = []
+    node_bin = provider_vars.get('node_bin')
+    if node_bin:
+        command.append(node_bin)
     gemini_cli_bin = provider_vars.get('gemini_cli_bin',
                                        gemini_helpers.get_gemini_executable())
-    command = [
-        gemini_cli_bin,
-        '-y',
-    ]
+    command.extend([gemini_cli_bin, '-y'])
 
     sandbox_flags = []
     if provider_vars.get('sandbox', False):
@@ -324,6 +327,7 @@ def _get_gemini_cli_arguments(
         ),
         timeout_seconds=timeout_seconds,
         system_prompt=_get_system_prompt(provider_config),
+        template_prompt=_load_templates(provider_config.get('templates', [])),
         user_prompt=user_prompt,
         console_width=int(provider_vars.get('console_width', 80)),
     ), ''
@@ -338,15 +342,7 @@ def _get_system_prompt(provider_config: dict[str, Any]) -> str:
     Returns:
         A string to use as the system prompt for the test.
     """
-    system_prompt = provider_config.get('system_prompt', '')
-    templates = provider_config.get('templates', [])
-    template_prompt = _load_templates(templates)
-    if template_prompt:
-        if system_prompt:
-            system_prompt = f'{system_prompt}\n\n{template_prompt}'
-        else:
-            system_prompt = template_prompt
-    return system_prompt
+    return provider_config.get('system_prompt', '')
 
 
 def _run_gemini_cli_with_output_streaming(
@@ -369,30 +365,42 @@ def _run_gemini_cli_with_output_streaming(
     process = None
     combined_output = []
     try:
-        process = subprocess.Popen(  # pylint: disable=consider-using-with
-            arguments.command,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            universal_newlines=True,
-            env=arguments.env,
-        )
-        process.stdin.write(f'{arguments.system_prompt}\n\n'
-                            f'{arguments.user_prompt}')
-        process.stdin.close()
-        logging.info('--- Streaming Output (Timeout: %ss) ---',
-                     arguments.timeout_seconds)
-        output_thread = threading.Thread(
-            target=_stream_reader,
-            args=(process.stdout, combined_output, arguments.console_width),
-            daemon=True,
-        )
-        output_thread.start()
-        process.wait(timeout=arguments.timeout_seconds)
-        output_thread.join(timeout=5)
-        logging.info('\n--- End of Stream ---')
-        return process, combined_output
+        pathlib.Path('GEMINI.md').write_text(arguments.template_prompt,
+                                             encoding='utf-8')
+        with tempfile_ext.mkstemp_closed(suffix='.md') as system_prompt_path:
+
+            # If a system prompt is included in the test it should replace the
+            # gemini cli system prompt and is not just another user prompt.
+            env = arguments.env
+            if arguments.system_prompt:
+                system_prompt_path.write_text(arguments.system_prompt,
+                                              encoding='utf-8')
+                env['GEMINI_SYSTEM_MD'] = str(system_prompt_path)
+
+            process = subprocess.Popen(  # pylint: disable=consider-using-with
+                arguments.command,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                universal_newlines=True,
+                env=env,
+            )
+            process.stdin.write(arguments.user_prompt)
+            process.stdin.close()
+            logging.info('--- Streaming Output (Timeout: %ss) ---',
+                         arguments.timeout_seconds)
+            output_thread = threading.Thread(
+                target=_stream_reader,
+                args=(process.stdout, combined_output,
+                      arguments.console_width),
+                daemon=True,
+            )
+            output_thread.start()
+            process.wait(timeout=arguments.timeout_seconds)
+            output_thread.join(timeout=5)
+            logging.info('\n--- End of Stream ---')
+            return process, combined_output
     finally:
         if process and process.poll() is None:
             process.kill()
@@ -402,20 +410,22 @@ def _run_gemini_cli_with_output_streaming(
                 logging.warning('Output thread did not cleanly terminate.')
 
 
-def _extract_token_usage(telemetry_file: pathlib.Path) -> dict[str, int]:
-    """Extracts token usage data from gemini-cli telemetry.
+def _parse_telemetry_data(telemetry_file: pathlib.Path) -> list[dict[str, Any]]:
+    """Parses gemini-cli telemetry into a list of JSON objects.
 
     Args:
         telemetry_file: A path to the file that gemini-cli wrote telemetry
             information to.
 
     Returns:
-        A dict mapping token type to the total usage of that token type during
-        the test. Returns an empty dict if the telemetry file is empty or
-        invalid.
+        A list of telemetry data objects. Returns an empty list if the
+        telemetry file is empty or invalid.
     """
     with open(telemetry_file, encoding='utf-8') as infile:
         contents = infile.read()
+    if not contents:
+        return []
+
     # The file contents are mostly-valid JSON, except the multiple objects it
     # contains aren't within an actual list. So, modify the content to be a
     # valid list.
@@ -424,8 +434,26 @@ def _extract_token_usage(telemetry_file: pathlib.Path) -> dict[str, int]:
     contents_with_commas = re.sub(r'}\s*{', '},{', contents)
     corrected_content = f'[{contents_with_commas}]'
     try:
-        telemetry_data = json.loads(corrected_content)
+        return json.loads(corrected_content)
     except json.JSONDecodeError:
+        logging.warning('Failed to parse telemetry file: %s', telemetry_file)
+        return []
+
+
+def _extract_token_usage(
+        telemetry_data: list[dict[str, Any]]) -> dict[str, int]:
+    """Extracts token usage data from gemini-cli telemetry.
+
+    Args:
+        telemetry_data: A list of telemetry data objects parsed from the
+            telemetry file.
+
+    Returns:
+        A dict mapping token type to the total usage of that token type during
+        the test. Returns an empty dict if the telemetry data is empty or
+        invalid.
+    """
+    if not telemetry_data:
         return {}
 
     def _extract_from_last_report():
@@ -453,6 +481,47 @@ def _extract_token_usage(telemetry_file: pathlib.Path) -> dict[str, int]:
     return _extract_from_last_report()
 
 
+def _extract_tool_calls(
+        telemetry_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Extracts tool call data from gemini-cli telemetry.
+
+    Args:
+        telemetry_data: A list of telemetry data objects parsed from the
+            telemetry file.
+
+    Returns:
+        A list of tool calls made during the test. Each tool call is a dict
+        containing details about the call. Returns an empty list if the
+        telemetry data is empty or invalid.
+    """
+    if not telemetry_data:
+        return []
+
+    tool_calls = []
+    for td in telemetry_data:
+        attributes = td.get('attributes', {})
+        if attributes.get('event.name') == 'gemini_cli.tool_call':
+            function_name = attributes.get('function_name')
+            if function_name:
+                tool_calls.append({
+                    'function_name':
+                    function_name,
+                    'function_args':
+                    attributes.get('function_args', ''),
+                    'success':
+                    attributes.get('success', False),
+                    'duration_ms':
+                    attributes.get('duration_ms', 0),
+                    'tool_type':
+                    attributes.get('tool_type', ''),
+                    'mcp_server_name':
+                    attributes.get('mcp_server_name', ''),
+                    'extension_name':
+                    attributes.get('extension_name', ''),
+                })
+    return tool_calls
+
+
 def call_api(prompt: str, options: dict[str, Any],
              context: dict[str, Any]) -> dict[str, Any]:
     """A flexible promptfoo provider that runs a command-line tool.
@@ -461,7 +530,7 @@ def call_api(prompt: str, options: dict[str, Any],
     reliable timeout.
     """
     provider_config = options.get('config', {})
-    provider_vars = context.get('vars', {})
+    provider_vars = context.get('vars', {}) if context else {}
     logging.basicConfig(
         level=logging.DEBUG
         if provider_vars.get('verbose', False) else logging.INFO,
@@ -497,15 +566,20 @@ def _run_gemini_cli_with_telemetry_output(
     if error:
         return {'error': error}
 
-    _configure_gemini_cli(gcli_arguments.home_dir, telemetry_outfile)
-    _install_extensions(provider_config.get('extensions', DEFAULT_EXTENSIONS),
-                        home_dir=gcli_arguments.home_dir)
-    _apply_changes(provider_config.get('changes', []))
+    # The provider is also used for asserts which do not receive the
+    # full options/context
+    if gcli_arguments.home_dir:
+        _configure_gemini_cli(gcli_arguments.home_dir, telemetry_outfile)
+        _install_extensions(provider_config.get('extensions',
+                                                DEFAULT_EXTENSIONS),
+                            home_dir=gcli_arguments.home_dir)
+        _apply_changes(provider_config.get('changes', []))
 
     process = None
     combined_output: list[str] = []
     metrics = {
         'system_prompt': gcli_arguments.system_prompt,
+        'template_prompt': gcli_arguments.template_prompt,
         'user_prompt': gcli_arguments.user_prompt,
     }
     try:
@@ -520,8 +594,10 @@ def _run_gemini_cli_with_telemetry_output(
         # We put this information in our own field instead of in promptfoo's
         # tokenUsage field since how tokens are grouped differs and there is not
         # a clear mapping from gemini-cli's data to what promptfoo wants.
+        telemetry_data = _parse_telemetry_data(telemetry_outfile)
         metrics[constants.GEMINI_CLI_TOKEN_USAGE] = _extract_token_usage(
-            telemetry_outfile)
+            telemetry_data)
+        metrics['tool_calls'] = _extract_tool_calls(telemetry_data)
         if process.returncode != 0:
             error_message = (
                 f"Command '{' '.join(gcli_arguments.command)}' failed with "

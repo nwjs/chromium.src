@@ -658,6 +658,14 @@ XrResult OpenXrApiWrapper::InitSession(
   on_session_ended_callback_ = std::move(on_session_ended_callback);
   visibility_changed_callback_ = std::move(visibility_changed_callback);
 
+  // The input system uses the system name to help disambiguate certain sets of
+  // controllers, but we also log the system name/vendor id on debug builds.
+  XrSystemProperties system_properties = {XR_TYPE_SYSTEM_PROPERTIES};
+  RETURN_IF_XR_FAILED(
+      xrGetSystemProperties(instance_, system_, &system_properties));
+  DVLOG(1) << __func__ << " : Vendor Id: " << system_properties.vendorId
+           << " : System Name: " << system_properties.systemName;
+
   RETURN_IF_XR_FAILED(CreateSession());
   RETURN_IF_XR_FAILED(
       CreateSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, &local_space_));
@@ -687,8 +695,8 @@ XrResult OpenXrApiWrapper::InitSession(
                      device::mojom::XRSessionFeature::HAND_INPUT);
 
   RETURN_IF_XR_FAILED(OpenXRInputHelper::CreateOpenXRInputHelper(
-      instance_, system_, extension_helper, session_, local_space_,
-      enable_hand_tracking, &input_helper_));
+      instance_, system_properties.systemName, extension_helper, session_,
+      local_space_, enable_hand_tracking, &input_helper_));
 
   // Make sure all of the objects we initialized are there.
   DCHECK(HasSession());
@@ -804,6 +812,46 @@ XrSpace OpenXrApiWrapper::GetReferenceSpace(
   }
 
   NOTREACHED();
+}
+
+std::optional<XrLocation>
+OpenXrApiWrapper::GetXrLocationFromNativeOriginInformation(
+    const mojom::XRNativeOriginInformation& native_origin,
+    const gfx::Transform& native_origin_from_object) {
+  switch (native_origin.which()) {
+    case mojom::XRNativeOriginInformation::Tag::kReferenceSpaceType:
+      return XrLocation{
+          GfxTransformToXrPose(native_origin_from_object),
+          GetReferenceSpace(native_origin.get_reference_space_type())};
+    case mojom::XRNativeOriginInformation::Tag::kAnchorId:
+      if (auto* anchor_manager = GetAnchorManager(); anchor_manager) {
+        return anchor_manager->GetXrLocationFromAnchor(
+            native_origin.get_anchor_id(), native_origin_from_object);
+      }
+      return std::nullopt;
+    case mojom::XRNativeOriginInformation::Tag::kPlaneId:
+      if (auto* plane_manager = GetPlaneManager(); plane_manager) {
+        return plane_manager->GetXrLocationFromPlane(
+            native_origin.get_plane_id(), native_origin_from_object);
+      }
+      return std::nullopt;
+    case mojom::XRNativeOriginInformation::Tag::kHandJointSpaceInfo:
+      if (session_state_ != XR_SESSION_STATE_FOCUSED) {
+        return std::nullopt;
+      }
+      return input_helper_->GetXrLocationFromHandJoint(
+          local_space_, *native_origin.get_hand_joint_space_info(),
+          native_origin_from_object);
+    case mojom::XRNativeOriginInformation::Tag::kInputSourceSpaceInfo:
+      if (session_state_ != XR_SESSION_STATE_FOCUSED) {
+        return std::nullopt;
+      }
+      return input_helper_->GetXrLocationFromInputSource(
+          *native_origin.get_input_source_space_info(),
+          native_origin_from_object);
+    case mojom::XRNativeOriginInformation::Tag::kImageIndex:
+      NOTREACHED();
+  }
 }
 
 // Based on the capabilities of the system and runtime, determine whether
@@ -1113,7 +1161,7 @@ XrResult OpenXrApiWrapper::EndFrame() {
   // layers created by clients. All the projection layers will use
   // the same view configuration defined by primary_view_config_.
   std::unique_ptr<OpenXrLayers> layers =
-      graphics_binding_->GetLayersForViewConfig(primary_view_config_);
+      graphics_binding_->GetLayersForViewConfig(this, primary_view_config_);
 
   // Gather all the layers for active secondary views.
   if (IsFeatureEnabled(mojom::XRSessionFeature::SECONDARY_VIEWS)) {
@@ -1390,6 +1438,10 @@ std::vector<mojom::XRInputSourceStatePtr> OpenXrApiWrapper::GetInputState() {
   return input_helper_->GetInputState(GetPredictedDisplayTime());
 }
 
+void OpenXrApiWrapper::OnHideInputSources() {
+  input_helper_->OnHideInputSources();
+}
+
 void OpenXrApiWrapper::PollFuture(
     XrFutureEXT future,
     base::OnceCallback<void(XrFutureEXT)> on_ready_callback) {
@@ -1577,6 +1629,8 @@ XrResult OpenXrApiWrapper::ProcessEvents() {
 uint32_t OpenXrApiWrapper::GetRecommendedSwapchainSampleCount() const {
   DCHECK(IsInitialized());
 
+  // TODO(crbug.com/444681345) : Add the recommended sample count for the mono
+  // layout.
   return std::ranges::min_element(
              primary_view_config_.Properties(), {},
              [](const OpenXrViewProperties& view) {

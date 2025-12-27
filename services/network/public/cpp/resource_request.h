@@ -14,7 +14,6 @@
 #include "base/debug/crash_logging.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/unguessable_token.h"
-#include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/isolation_info.h"
 #include "net/base/request_priority.h"
 #include "net/cookies/site_for_cookies.h"
@@ -244,17 +243,6 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE) ResourceRequest {
       devtools_accepted_stream_types;
   std::optional<net::NetLogSource> net_log_create_info;
   std::optional<net::NetLogSource> net_log_reference_info;
-
-  // Used internally by the network service. Should not be modified by external
-  // callers, which should pass in address space of the request initiator via
-  // the ClientSecurityState includde either in URLLoaderFactoryParams or
-  // ResourceRequest::TrustedParams.
-  //
-  // See
-  // https://source.chromium.org/chromium/chromium/src/+/main:services/network/public/mojom/url_request.mojom
-  // for more details.
-  mojom::IPAddressSpace target_ip_address_space =
-      mojom::IPAddressSpace::kUnknown;
 
   net::StorageAccessApiStatus storage_access_api_status =
       net::StorageAccessApiStatus::kNone;

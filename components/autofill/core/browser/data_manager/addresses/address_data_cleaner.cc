@@ -19,6 +19,7 @@
 #include "components/autofill/core/browser/metrics/autofill_metrics_utils.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_constants.h"
+#include "components/autofill/core/common/autofill_debug_features.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/prefs/pref_service.h"
@@ -127,9 +128,17 @@ void DeduplicateProfiles(const AutofillProfileComparator& comparator,
 // Merges mergeable profiles in the `profiles` and deletes the subsets.
 // Unlike `DeduplicateProfiles()`, this supports both local and account profiles
 // and preserves the `initial_creator_id`.
-// The algorithm proceeds in two steps:
-// 1) Removes all profiles that are subsets of another profile.
-//   For exact duplicates, keeping the account profile is preferred.
+// The algorithm proceeds in two steps, such that the amount of retained
+// information is maximized without sending the data to the account if it was
+// stored locally. Note that due to normalisation, etc, even if `IsSubsetOf()`
+// is true, the information present in the subset can still look slightly
+// different from the superset and is therefore not silently merged. 1) Removes
+// all profiles that are subsets of another profile.
+//   If a profile is a subset of multiple other profiles, its usage history is
+//   merged with all of them. The silent updates that the subset may have
+//   contained are intentionally dropped, such that this information is not
+//   uploaded to the account without consent. For exact duplicates, keeping the
+//   account profile is preferred.
 // 2) Merges pairs of mergeable profiles into each other.
 //   To prevent silently introducing new information into the account,
 //   local profiles are never merged into account profiles.
@@ -140,30 +149,32 @@ void DeduplicateWithAccountProfiles(const AutofillProfileComparator& comparator,
                                     std::vector<AutofillProfile> profiles,
                                     AddressDataManager& adm) {
   std::set<std::string> guids_to_delete;
+
   for (const AutofillProfile& profile : profiles) {
-    const bool is_subset = std::ranges::any_of(
-        profiles, [&](const AutofillProfile& other_profile) {
-          if (profile.guid() == other_profile.guid() ||
-              guids_to_delete.contains(other_profile.guid())) {
-            return false;
-          }
-          if (!profile.IsSubsetOf(comparator, other_profile)) {
-            return false;
-          }
-          if (!other_profile.IsSubsetOf(comparator, profile)) {
-            // `profile` is a strict subset of `other_profile`.
-            return true;
-          }
-          // `profile` is equal to `other_profile`. Prefer keeping the
-          // account profile and break other ties arbitrarily.
-          if (profile.record_type() != other_profile.record_type()) {
-            return profile.record_type() ==
-                   AutofillProfile::RecordType::kLocalOrSyncable;
-          }
-          return profile.guid() < other_profile.guid();
-        });
-    if (is_subset) {
+    // Returns true if `profile` is a subset of `superset`.
+    auto is_subset = [&](const AutofillProfile& superset) {
+      if (!profile.IsSubsetOf(comparator, superset)) {
+        return false;
+      }
+      if (!superset.IsSubsetOf(comparator, profile)) {
+        // `profile` is a strict subset of `other_profile`.
+        return true;
+      }
+      if (profile.record_type() != superset.record_type()) {
+        return profile.record_type() ==
+               AutofillProfile::RecordType::kLocalOrSyncable;
+      }
+
+      return profile.guid() < superset.guid();
+    };
+
+    for (AutofillProfile& superset : profiles) {
+      if (guids_to_delete.contains(superset.guid()) || !is_subset(superset)) {
+        continue;
+      }
       guids_to_delete.insert(profile.guid());
+      superset.usage_history().MergeUsageHistories(profile.usage_history());
+      adm.UpdateProfile(superset);
     }
   }
 
@@ -265,7 +276,7 @@ void AddressDataCleaner::MaybeCleanupAddressData() {
   if (pref_service_->GetInteger(prefs::kAutofillLastVersionDeduped) <
           chrome_version_major ||
       base::FeatureList::IsEnabled(
-          features::test::kAutofillSkipDeduplicationRequirements)) {
+          features::debug::kAutofillSkipDeduplicationRequirements)) {
     pref_service_->SetInteger(prefs::kAutofillLastVersionDeduped,
                               chrome_version_major);
     // Since the milestone changed the extra deduplication can be run again.

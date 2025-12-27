@@ -10,10 +10,15 @@
 #include "chrome/browser/sessions/session_service_factory.h"
 #include "chrome/browser/sessions/session_service_test_helper.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/startup/startup_tab.h"
+#include "chrome/browser/ui/tabs/features.h"
+#include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
+#include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -44,7 +49,7 @@ class SessionRestoreInteractiveTest : public InProcessBrowserTest {
   }
 
   bool SetUpUserDataDirectory() override {
-    url1_ = ui_test_utils::GetTestUrl(
+    url1_ = chrome_test_utils::GetTestUrl(
         base::FilePath().AppendASCII("session_history"),
         base::FilePath().AppendASCII("bot1.html"));
 
@@ -157,7 +162,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreInteractiveTest, MAYBE_FocusOnLaunch) {
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url1_));
 
   Browser* new_browser = QuitBrowserAndRestore(browser());
-  ASSERT_EQ(1u, BrowserList::GetInstance()->size());
+  ASSERT_EQ(1u, chrome::GetTotalBrowserCount());
   ASSERT_EQ(url1_,
             new_browser->tab_strip_model()->GetActiveWebContents()->GetURL());
 
@@ -220,13 +225,63 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreInteractiveTest,
   browser()->window()->Minimize();
   EXPECT_TRUE(minimize_waiter.Wait());
 
-  EXPECT_EQ(2u, BrowserList::GetInstance()->size());
+  EXPECT_EQ(2u, chrome::GetTotalBrowserCount());
 
   // Quit and restore.
   QuitMultiWindowBrowserAndRestore(profile);
 
   // Quit and restore a second time.
   QuitMultiWindowBrowserAndRestore(profile);
+}
+
+class SessionRestoreVerticalTabsInteractiveTest
+    : public SessionRestoreInteractiveTest {
+ protected:
+  base::test::ScopedFeatureList scoped_feature_list_{tabs::kVerticalTabs};
+
+  const bool kIsCollapsed = true;
+  const int kUncollapsedWidth = 200;
+};
+
+// Verify that in restoring a browser the vertical tab strip's collapsed state
+// and uncollapsed width are preserved.
+IN_PROC_BROWSER_TEST_F(SessionRestoreVerticalTabsInteractiveTest,
+                       VerifyVerticalTabsSessionRestore) {
+  // Enable vertical tabs.
+  browser()
+      ->browser_window_features()
+      ->vertical_tab_strip_state_controller()
+      ->SetVerticalTabsEnabled(true);
+
+  // Set Collapsed State and Uncollapsed Width.
+  browser()
+      ->browser_window_features()
+      ->vertical_tab_strip_state_controller()
+      ->SetCollapsed(kIsCollapsed);
+  browser()
+      ->browser_window_features()
+      ->vertical_tab_strip_state_controller()
+      ->SetUncollapsedWidth(kUncollapsedWidth);
+
+  ASSERT_TRUE(browser()
+                  ->browser_window_features()
+                  ->vertical_tab_strip_state_controller()
+                  ->IsCollapsed() == kIsCollapsed);
+  ASSERT_TRUE(browser()
+                  ->browser_window_features()
+                  ->vertical_tab_strip_state_controller()
+                  ->GetUncollapsedWidth() == 200);
+
+  // Quit and restore.
+  Browser* restored_browser = QuitBrowserAndRestore(browser());
+
+  // Verify states persist after session restore.
+  ASSERT_TRUE(restored_browser->browser_window_features()
+                  ->vertical_tab_strip_state_controller()
+                  ->IsCollapsed() == kIsCollapsed);
+  ASSERT_TRUE(restored_browser->browser_window_features()
+                  ->vertical_tab_strip_state_controller()
+                  ->GetUncollapsedWidth() == kUncollapsedWidth);
 }
 
 #if BUILDFLAG(IS_CHROMEOS)

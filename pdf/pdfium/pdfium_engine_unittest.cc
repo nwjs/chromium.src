@@ -13,8 +13,8 @@
 #include "base/compiler_specific.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
-#include "base/hash/md5.h"
 #include "base/run_loop.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
@@ -25,6 +25,7 @@
 #include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "crypto/hash.h"
 #include "pdf/accessibility_structs.h"
 #include "pdf/buildflags.h"
 #include "pdf/document_attachment_info.h"
@@ -36,6 +37,7 @@
 #include "pdf/pdfium/pdfium_engine_client.h"
 #include "pdf/pdfium/pdfium_page.h"
 #include "pdf/pdfium/pdfium_test_base.h"
+#include "pdf/test/input_event_util.h"
 #include "pdf/test/mouse_event_builder.h"
 #include "pdf/test/test_client.h"
 #include "pdf/test/test_document_loader.h"
@@ -95,16 +97,6 @@ MATCHER_P(LayoutWithOptions, options, "") {
   return arg.options() == options;
 }
 
-blink::WebMouseEvent CreateLeftClickWebMouseEventAtPosition(
-    const gfx::PointF& position) {
-  return MouseEventBuilder().CreateLeftClickAtPosition(position).Build();
-}
-
-blink::WebMouseEvent CreateLeftClickWebMouseUpEventAtPosition(
-    const gfx::PointF& position) {
-  return MouseEventBuilder().CreateLeftMouseUpAtPosition(position).Build();
-}
-
 blink::WebMouseEvent CreateRightClickWebMouseEventAtPosition(
     const gfx::PointF& position) {
   return MouseEventBuilder()
@@ -112,14 +104,6 @@ blink::WebMouseEvent CreateRightClickWebMouseEventAtPosition(
       .SetPosition(position)
       .SetButton(blink::WebPointerProperties::Button::kRight)
       .SetClickCount(1)
-      .Build();
-}
-
-blink::WebMouseEvent CreateMoveWebMouseEventToPosition(
-    const gfx::PointF& position) {
-  return MouseEventBuilder()
-      .SetType(blink::WebInputEvent::Type::kMouseMove)
-      .SetPosition(position)
       .Build();
 }
 
@@ -418,7 +402,8 @@ TEST_P(PDFiumEngineTest, GetDocumentAttachments) {
   }
 
   {
-    static constexpr char kCheckSum[] = "72afcddedf554dda63c0c88e06f1ce18";
+    static constexpr char kCheckSum[] =
+        "137F774765ABC1E8D6E650DB560F5EBBBC1603664BF34D21A6AD846BB26E2165";
     const DocumentAttachmentInfo& attachment = attachments[1];
     EXPECT_EQ("attached.pdf", base::UTF16ToUTF8(attachment.name));
     EXPECT_TRUE(attachment.is_readable);
@@ -431,9 +416,7 @@ TEST_P(PDFiumEngineTest, GetDocumentAttachments) {
     ASSERT_EQ(attachment.size_bytes, content.size());
     // The whole attachment content is too long to do string comparison.
     // Instead, we only verify the checksum value here.
-    base::MD5Digest hash;
-    base::MD5Sum(content, &hash);
-    EXPECT_EQ(kCheckSum, base::MD5DigestToBase16(hash));
+    EXPECT_EQ(kCheckSum, base::HexEncode(crypto::hash::Sha256(content)));
   }
 
   {
@@ -2517,6 +2500,16 @@ TEST_P(PDFiumEngineInkTextSelectionTest, ExtendSelectionByPointMultiPage) {
                           Pair(1, ElementsAre(kExpectedRectPage1))));
 }
 
+TEST_P(PDFiumEngineInkTextSelectionTest, OnTextOrLinkAreaClickWithSingleClick) {
+  PDFiumEngine* engine = CreateEngine(FILE_PATH_LITERAL("hello_world2.pdf"));
+  ASSERT_TRUE(engine);
+
+  engine->OnTextOrLinkAreaClick(kHelloWorldStartPosition, /*click_count=*/1);
+
+  EXPECT_THAT(engine->GetSelectedText(), IsEmpty());
+  EXPECT_THAT(engine->GetSelectionRectMap(), IsEmpty());
+}
+
 TEST_P(PDFiumEngineInkTextSelectionTest, OnTextOrLinkAreaClickWithDoubleClick) {
   PDFiumEngine* engine = CreateEngine(FILE_PATH_LITERAL("hello_world2.pdf"));
   ASSERT_TRUE(engine);
@@ -3002,6 +2995,7 @@ class PDFiumEngineCaretTest : public PDFiumDrawSelectionTestBase {
  public:
   static constexpr gfx::Size kAnnotationFormFieldsVisiblePageSize{816, 1056};
   static constexpr gfx::Size kHelloWorldExpectedVisiblePageSize{266, 266};
+  static constexpr gfx::PointF kHelloWorldGoodbyeWorldCharB{85.0f, 118.0f};
   PDFiumEngineCaretTest() = default;
   PDFiumEngineCaretTest(const PDFiumEngineCaretTest&) = delete;
   PDFiumEngineCaretTest& operator=(const PDFiumEngineCaretTest&) = delete;
@@ -3026,11 +3020,17 @@ class PDFiumEngineCaretTest : public PDFiumDrawSelectionTestBase {
   [[nodiscard]] PDFiumEngine* CreateEngine(
       const base::FilePath::CharType* test_filename) {
     engine_ = InitializeEngine(&client_, test_filename);
+    return engine_.get();
+  }
+
+  [[nodiscard]] PDFiumEngine* CreateEngineWithCaret(
+      const base::FilePath::CharType* test_filename) {
+    engine_ = InitializeEngine(&client_, test_filename);
     if (engine_) {
       // Plugin size chosen so all pages of the document are visible.
       engine_->PluginSizeUpdated({1024, 4096});
-      engine_->SetCaretBrowsingEnabled(true);
       engine_->UpdateFocus(true);
+      engine_->SetCaretBrowsingEnabled(true);
     }
     return engine_.get();
   }
@@ -3050,8 +3050,26 @@ class PDFiumEngineCaretTest : public PDFiumDrawSelectionTestBase {
   NiceMock<MockTestClient> client_;
 };
 
-TEST_P(PDFiumEngineCaretTest, SetCaretBrowsingEnabled) {
+TEST_P(PDFiumEngineCaretTest, InitializeCaretWithoutFocus) {
   PDFiumEngine* engine = CreateEngine(FILE_PATH_LITERAL("hello_world2.pdf"));
+  ASSERT_TRUE(engine);
+
+  // Plugin size chosen so all pages of the document are visible.
+  engine->PluginSizeUpdated({1024, 4096});
+
+  DrawCaretAndExpectBlank(*engine, /*page_index=*/0,
+                          kHelloWorldExpectedVisiblePageSize);
+
+  // Engine does not have focus, so enabling caret browsing still draws blank.
+  engine->SetCaretBrowsingEnabled(true);
+
+  DrawCaretAndExpectBlank(*engine, /*page_index=*/0,
+                          kHelloWorldExpectedVisiblePageSize);
+}
+
+TEST_P(PDFiumEngineCaretTest, SetCaretBrowsingEnabled) {
+  PDFiumEngine* engine =
+      CreateEngineWithCaret(FILE_PATH_LITERAL("hello_world2.pdf"));
   ASSERT_TRUE(engine);
 
   DrawCaretAndCompareWithPlatformExpectations(*engine, /*page_index=*/0,
@@ -3068,8 +3086,87 @@ TEST_P(PDFiumEngineCaretTest, SetCaretBrowsingEnabled) {
                                               "hello_world_caret.png");
 }
 
+TEST_P(PDFiumEngineCaretTest, SetCaretBrowsingEnabledNoOp) {
+  PDFiumEngine* engine =
+      CreateEngineWithCaret(FILE_PATH_LITERAL("hello_world2.pdf"));
+  ASSERT_TRUE(engine);
+
+  DrawCaretAndCompareWithPlatformExpectations(*engine, /*page_index=*/0,
+                                              "hello_world_caret.png");
+
+  EXPECT_TRUE(engine->HandleInputEvent(
+      CreateLeftClickWebMouseEventAtPosition(kHelloWorldGoodbyeWorldCharB)));
+
+  DrawCaretAndCompareWithPlatformExpectations(*engine, /*page_index=*/0,
+                                              "hello_world_caret_1.png");
+
+  // Already enabled. Caret should not move.
+  engine->SetCaretBrowsingEnabled(true);
+
+  DrawCaretAndCompareWithPlatformExpectations(*engine, /*page_index=*/0,
+                                              "hello_world_caret_1.png");
+}
+
+TEST_P(PDFiumEngineCaretTest,
+       SetCaretBrowsingEnabledSetsCaretAtFirstVisibleTextRun) {
+  PDFiumEngine* engine =
+      CreateEngineWithCaret(FILE_PATH_LITERAL("link_annots.pdf"));
+  ASSERT_TRUE(engine);
+
+  // Starts at first text run.
+  DrawCaretAndCompareWithPlatformExpectations(
+      *engine, /*page_index=*/0, "link_annots_visible_text_run_0.png");
+
+  // Scroll so that text on page 0 and page 1 are visible.
+  constexpr gfx::Size kPluginSizeWithPage0AndPage1{617, 900};
+  engine->PluginSizeUpdated(kPluginSizeWithPage0AndPage1);
+  engine->ScrolledToYPosition(400);
+
+  DrawCaretAndExpectBlank(*engine, /*page_index=*/0, {612, 659});
+  DrawCaretAndExpectBlank(*engine, /*page_index=*/1, {612, 227});
+
+  engine->SetCaretBrowsingEnabled(false);
+  engine->SetCaretBrowsingEnabled(true);
+
+  DrawCaretAndCompareWithPlatformExpectations(
+      *engine, /*page_index=*/0, "link_annots_visible_text_run_1.png");
+  DrawCaretAndExpectBlank(*engine, /*page_index=*/1, {612, 227});
+
+  // Scroll so both pages are visible, but only text on page 1 is visible.
+  engine->ScrolledToYPosition(800);
+
+  engine->SetCaretBrowsingEnabled(false);
+  engine->SetCaretBrowsingEnabled(true);
+
+  constexpr gfx::Size kPage0ExpectedVisiblePageSize{612, 259};
+  DrawCaretAndExpectBlank(*engine, /*page_index=*/0,
+                          kPage0ExpectedVisiblePageSize);
+  DrawCaretAndCompareWithPlatformExpectations(
+      *engine, /*page_index=*/1, "link_annots_visible_text_run_2.png");
+
+  // Shrink the plugin's size so that no text is visible.
+  engine->PluginSizeUpdated({617, 300});
+
+  engine->SetCaretBrowsingEnabled(false);
+  engine->SetCaretBrowsingEnabled(true);
+
+  DrawCaretAndExpectBlank(*engine, /*page_index=*/0,
+                          kPage0ExpectedVisiblePageSize);
+  DrawCaretAndExpectBlank(*engine, /*page_index=*/1, {612, 27});
+
+  // Go back to the previous plugin size. The caret should still be at the
+  // previous position.
+  engine->PluginSizeUpdated(kPluginSizeWithPage0AndPage1);
+
+  DrawCaretAndExpectBlank(*engine, /*page_index=*/0,
+                          kPage0ExpectedVisiblePageSize);
+  DrawCaretAndCompareWithPlatformExpectations(
+      *engine, /*page_index=*/1, "link_annots_visible_text_run_2.png");
+}
+
 TEST_P(PDFiumEngineCaretTest, UpdateFocus) {
-  PDFiumEngine* engine = CreateEngine(FILE_PATH_LITERAL("hello_world2.pdf"));
+  PDFiumEngine* engine =
+      CreateEngineWithCaret(FILE_PATH_LITERAL("hello_world2.pdf"));
   ASSERT_TRUE(engine);
 
   DrawCaretAndCompareWithPlatformExpectations(*engine, /*page_index=*/0,
@@ -3087,7 +3184,8 @@ TEST_P(PDFiumEngineCaretTest, UpdateFocus) {
 }
 
 TEST_P(PDFiumEngineCaretTest, DrawOnGeometryChange) {
-  PDFiumEngine* engine = CreateEngine(FILE_PATH_LITERAL("hello_world2.pdf"));
+  PDFiumEngine* engine =
+      CreateEngineWithCaret(FILE_PATH_LITERAL("hello_world2.pdf"));
   ASSERT_TRUE(engine);
 
   engine->ScrolledToXPosition(20);
@@ -3102,12 +3200,13 @@ TEST_P(PDFiumEngineCaretTest, DrawOnGeometryChange) {
 }
 
 TEST_P(PDFiumEngineCaretTest, TextClick) {
-  PDFiumEngine* engine = CreateEngine(FILE_PATH_LITERAL("hello_world2.pdf"));
+  PDFiumEngine* engine =
+      CreateEngineWithCaret(FILE_PATH_LITERAL("hello_world2.pdf"));
   ASSERT_TRUE(engine);
 
   // The "b" in "Goodbye, world!".
   EXPECT_TRUE(engine->HandleInputEvent(
-      CreateLeftClickWebMouseEventAtPosition(gfx::PointF(85, 118))));
+      CreateLeftClickWebMouseEventAtPosition(kHelloWorldGoodbyeWorldCharB)));
 
   DrawCaretAndCompareWithPlatformExpectations(*engine, /*page_index=*/0,
                                               "hello_world_caret_1.png");
@@ -3120,9 +3219,44 @@ TEST_P(PDFiumEngineCaretTest, TextClick) {
                                               "hello_world_caret_newline.png");
 }
 
+TEST_P(PDFiumEngineCaretTest, TextMultiClick) {
+  PDFiumEngine* engine =
+      CreateEngineWithCaret(FILE_PATH_LITERAL("hello_world2.pdf"));
+  ASSERT_TRUE(engine);
+
+  EXPECT_TRUE(engine->HandleInputEvent(
+      CreateLeftClickWebMouseEventAtPosition(kHelloWorldGoodbyeWorldCharB)));
+
+  DrawCaretAndCompareWithPlatformExpectations(*engine, /*page_index=*/0,
+                                              "hello_world_caret_1.png");
+
+  SimulateMultiClick(*engine, kHelloWorldGoodbyeWorldCharB, /*click_count=*/2);
+
+  // Caret should not be visible.
+  DrawCaretAndCompareWithPlatformExpectations(
+      *engine, /*page_index=*/0, "hello_world_caret_text_selection_word.png");
+
+  SimulateMultiClick(*engine, kHelloWorldGoodbyeWorldCharB, /*click_count=*/3);
+
+  // Caret should not be visible.
+  DrawCaretAndCompareWithPlatformExpectations(
+      *engine, /*page_index=*/0, "hello_world_caret_text_selection_line.png");
+
+  SimulateMultiClick(*engine, kHelloWorldGoodbyeWorldCharB, /*click_count=*/4);
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+  DrawCaretAndCompareWithPlatformExpectations(*engine, /*page_index=*/0,
+                                              "hello_world_caret_1.png");
+#else
+  // Caret should not be visible.
+  DrawCaretAndCompareWithPlatformExpectations(
+      *engine, /*page_index=*/0, "hello_world_caret_text_selection_line.png");
+#endif
+}
+
 TEST_P(PDFiumEngineCaretTest, TextClickSyntheticWhitespace) {
   PDFiumEngine* engine =
-      CreateEngine(FILE_PATH_LITERAL("text_synthetic_whitespace.pdf"));
+      CreateEngineWithCaret(FILE_PATH_LITERAL("text_synthetic_whitespace.pdf"));
   ASSERT_TRUE(engine);
 
   // The synthetic whitespace with an empty screen rect.
@@ -3134,7 +3268,7 @@ TEST_P(PDFiumEngineCaretTest, TextClickSyntheticWhitespace) {
 }
 
 TEST_P(PDFiumEngineCaretTest, TextClickMultiPage) {
-  PDFiumEngine* engine = CreateEngine(
+  PDFiumEngine* engine = CreateEngineWithCaret(
       FILE_PATH_LITERAL("multi_page_hello_world_with_empty_page.pdf"));
   ASSERT_TRUE(engine);
 
@@ -3154,7 +3288,8 @@ TEST_P(PDFiumEngineCaretTest, TextClickMultiPage) {
 }
 
 TEST_P(PDFiumEngineCaretTest, TextSelectAndMove) {
-  PDFiumEngine* engine = CreateEngine(FILE_PATH_LITERAL("hello_world2.pdf"));
+  PDFiumEngine* engine =
+      CreateEngineWithCaret(FILE_PATH_LITERAL("hello_world2.pdf"));
   ASSERT_TRUE(engine);
 
   engine->OnTextOrLinkAreaClick(kHelloWorldStartPosition, /*click_count=*/1);
@@ -3177,7 +3312,8 @@ TEST_P(PDFiumEngineCaretTest, TextSelectAndMove) {
 }
 
 TEST_P(PDFiumEngineCaretTest, TextSelectAndBack) {
-  PDFiumEngine* engine = CreateEngine(FILE_PATH_LITERAL("hello_world2.pdf"));
+  PDFiumEngine* engine =
+      CreateEngineWithCaret(FILE_PATH_LITERAL("hello_world2.pdf"));
   ASSERT_TRUE(engine);
 
   engine->OnTextOrLinkAreaClick(kHelloWorldStartPosition, /*click_count=*/1);
@@ -3193,7 +3329,8 @@ TEST_P(PDFiumEngineCaretTest, TextSelectAndBack) {
 }
 
 TEST_P(PDFiumEngineCaretTest, SelectAll) {
-  PDFiumEngine* engine = CreateEngine(FILE_PATH_LITERAL("hello_world2.pdf"));
+  PDFiumEngine* engine =
+      CreateEngineWithCaret(FILE_PATH_LITERAL("hello_world2.pdf"));
   ASSERT_TRUE(engine);
 
   DrawCaretAndCompareWithPlatformExpectations(*engine, /*page_index=*/0,
@@ -3210,7 +3347,7 @@ TEST_P(PDFiumEngineCaretTest, SelectAll) {
 
 TEST_P(PDFiumEngineCaretTest, FormFocus) {
   PDFiumEngine* engine =
-      CreateEngine(FILE_PATH_LITERAL("annotation_form_fields.pdf"));
+      CreateEngineWithCaret(FILE_PATH_LITERAL("annotation_form_fields.pdf"));
   ASSERT_TRUE(engine);
 
   // Focus onto a form field page element.
@@ -3250,7 +3387,7 @@ TEST_P(PDFiumEngineCaretTest, FormFocus) {
 
 TEST_P(PDFiumEngineCaretTest, FormFieldLoseFocusGainFocus) {
   PDFiumEngine* engine =
-      CreateEngine(FILE_PATH_LITERAL("annotation_form_fields.pdf"));
+      CreateEngineWithCaret(FILE_PATH_LITERAL("annotation_form_fields.pdf"));
   ASSERT_TRUE(engine);
 
   // Focus onto a form field page element.
@@ -3277,7 +3414,8 @@ TEST_P(PDFiumEngineCaretTest, FormFieldLoseFocusGainFocus) {
 }
 
 TEST_P(PDFiumEngineCaretTest, ScrollToChar) {
-  PDFiumEngine* engine = CreateEngine(FILE_PATH_LITERAL("hello_world2.pdf"));
+  PDFiumEngine* engine =
+      CreateEngineWithCaret(FILE_PATH_LITERAL("hello_world2.pdf"));
   ASSERT_TRUE(engine);
 
   // Already visible.

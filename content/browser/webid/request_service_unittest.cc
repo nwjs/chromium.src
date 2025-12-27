@@ -11,7 +11,6 @@
 #include <utility>
 #include <vector>
 
-#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
@@ -33,7 +32,6 @@
 #include "content/browser/webid/test/mock_permission_delegate.h"
 #include "content/browser/webid/webid_utils.h"
 #include "content/common/content_navigation_policy.h"
-#include "content/public/browser/login_metrics.h"
 #include "content/public/browser/webid/identity_request_dialog_controller.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/back_forward_cache_util.h"
@@ -638,7 +636,6 @@ class TestDialogController
       const std::vector<IdentityProviderDataPtr>& idp_list,
       const std::vector<IdentityRequestAccountPtr>& accounts,
       blink::mojom::RpMode rp_mode,
-      const std::vector<IdentityRequestAccountPtr>& new_accounts,
       IdentityRequestDialogController::AccountSelectionCallback on_selected,
       IdentityRequestDialogController::LoginToIdPCallback on_add_account,
       IdentityRequestDialogController::DismissCallback dismiss_callback,
@@ -653,7 +650,13 @@ class TestDialogController
     state_->sign_in_mode = SignInMode::kExplicit;
     state_->rp_context = idp_list[0]->rp_context;
 
-    state_->new_accounts = new_accounts;
+    state_->new_accounts.clear();
+    for (const auto& account : accounts) {
+      if (account->display_priority ==
+          IdentityRequestAccount::DisplayPriority::kNew) {
+        state_->new_accounts.push_back(account);
+      }
+    }
 
     state_->all_accounts_for_display = accounts;
     for (const auto& idp_data : idp_list) {
@@ -1494,12 +1497,6 @@ class RequestServiceTest : public RenderViewHostImplTestHarness {
                                          status, 1);
     histogram_tester_.ExpectUniqueSample(
         "Blink.FedCm.Status.MediationRequirement", requirement, 1);
-    if (status == RequestIdTokenStatus::kSuccessUsingTokenInHttpResponse ||
-        status == RequestIdTokenStatus::kSuccessUsingIdentityProviderResolve) {
-      histogram_tester_.ExpectUniqueSample(
-          kBrowserAssistedLoginTypeHistogram,
-          BrowserAssistedLoginType::kFedCmPassive, 1);
-    }
     ExpectStatusUKMInternal(status, requirement, FedCmEntry::kEntryName);
     ExpectStatusUKMInternal(status, requirement, FedCmIdpEntry::kEntryName);
   }
@@ -1905,10 +1902,6 @@ class RequestServiceTest : public RenderViewHostImplTestHarness {
     histogram_tester_.ExpectTotalCount(
         "Blink.FedCm.Timing.ShowAccountsDialogBreakdown.ClientMetadataFetch",
         0);
-
-    histogram_tester_.ExpectUniqueSample(kBrowserAssistedLoginTypeHistogram,
-                                         BrowserAssistedLoginType::kFedCmActive,
-                                         1);
   }
 
  protected:
@@ -3523,7 +3516,7 @@ TEST_F(RequestServiceTest,
   EXPECT_FALSE(DidFetchAnyEndpoint());
 
   // Delete the request before DelayTimer kicks in.
-  federated_auth_request_impl_->ResetAndDeleteThis();
+  federated_auth_request_impl_->ResetAndDeleteThisForTesting();
 
   // If double counted, these samples would not be unique so the following
   // checks will fail.
@@ -3782,7 +3775,6 @@ class DisableApiWhenDialogShownDialogController : public TestDialogController {
       const std::vector<IdentityProviderDataPtr>& idp_list,
       const std::vector<IdentityRequestAccountPtr>& accounts,
       blink::mojom::RpMode rp_mode,
-      const std::vector<IdentityRequestAccountPtr>& new_accounts,
       IdentityRequestDialogController::AccountSelectionCallback on_selected,
       IdentityRequestDialogController::LoginToIdPCallback on_add_account,
       IdentityRequestDialogController::DismissCallback dismiss_callback,
@@ -3794,9 +3786,9 @@ class DisableApiWhenDialogShownDialogController : public TestDialogController {
 
     // Call parent class method in order to store callback parameters.
     return TestDialogController::ShowAccountsDialog(
-        std::move(rp_data), idp_list, accounts, rp_mode, new_accounts,
-        std::move(on_selected), std::move(on_add_account),
-        std::move(dismiss_callback), std::move(accounts_displayed_callback));
+        std::move(rp_data), idp_list, accounts, rp_mode, std::move(on_selected),
+        std::move(on_add_account), std::move(dismiss_callback),
+        std::move(accounts_displayed_callback));
   }
 
  private:
@@ -4144,7 +4136,7 @@ TEST_F(RequestServiceTest, NavigateDuringClientMetadataFetchBFCacheDisabled) {
           base::BindOnce(&NavigateToUrl, web_contents(), GURL(kRpOtherUrl))));
 
   RequestExpectations expectations = {
-      /*return_status=*/std::nullopt,
+      RequestTokenStatus::kError,
       // When the RenderFrameHost changes on navigation, no console message is
       // received, so pass FederatedAuthRequestResult::kSuccess.
       main_rfh()->ShouldChangeRenderFrameHostOnSameSiteNavigation()
@@ -4603,7 +4595,7 @@ TEST_F(RequestServiceTest, AllSuccessfulMultiIdpRequestWithoutIdpReorder) {
   EXPECT_EQ(2u, NumFetched(FetchedEndpoint::ACCOUNTS));
 
   // Check that the appropriate metrics are recorded upon destruction.
-  federated_auth_request_impl_->ResetAndDeleteThis();
+  federated_auth_request_impl_->ResetAndDeleteThisForTesting();
   ukm_loop.Run();
   histogram_tester_.ExpectUniqueSample("Blink.FedCm.NumRequestsPerDocument", 1,
                                        1);
@@ -5269,7 +5261,7 @@ TEST_F(RequestServiceTest, TooManyRequests) {
   EXPECT_FALSE(DidFetchAnyEndpoint());
 
   // Check that the appropriate metrics are recorded upon destruction.
-  federated_auth_request_impl_->ResetAndDeleteThis();
+  federated_auth_request_impl_->ResetAndDeleteThisForTesting();
 
   ukm_loop.Run();
 
@@ -5326,7 +5318,7 @@ TEST_F(RequestServiceTest, TooManyRequestsDifferentIdP) {
   EXPECT_FALSE(DidFetchAnyEndpoint());
 
   // Check that the appropriate metrics are recorded upon destruction.
-  federated_auth_request_impl_->ResetAndDeleteThis();
+  federated_auth_request_impl_->ResetAndDeleteThisForTesting();
 
   ukm_loop.Run();
 
@@ -5370,7 +5362,7 @@ TEST_F(RequestServiceTest, ActiveModeTooManyRequestsWithNewPassiveFlow) {
   EXPECT_FALSE(DidFetchAnyEndpoint());
 
   // Check that the appropriate metrics are recorded upon destruction.
-  federated_auth_request_impl_->ResetAndDeleteThis();
+  federated_auth_request_impl_->ResetAndDeleteThisForTesting();
 
   ukm_loop.Run();
 
@@ -5425,7 +5417,7 @@ TEST_F(RequestServiceTest, ActiveModeTooManyRequestsWithNewActiveFlow) {
   EXPECT_FALSE(DidFetchAnyEndpoint());
 
   // Check that the appropriate metrics are recorded upon destruction.
-  federated_auth_request_impl_->ResetAndDeleteThis();
+  federated_auth_request_impl_->ResetAndDeleteThisForTesting();
 
   ukm_loop.Run();
 
@@ -5480,7 +5472,7 @@ TEST_F(RequestServiceTest, PassiveReplacedByActiveFlow) {
   CheckAuthExpectations(configuration, passive_flow_expectations);
 
   // Check that the appropriate metrics are recorded upon destruction.
-  federated_auth_request_impl_->ResetAndDeleteThis();
+  federated_auth_request_impl_->ResetAndDeleteThisForTesting();
 
   ukm_loop.Run();
 
@@ -6756,7 +6748,7 @@ TEST_F(RequestServiceTest, DoubleMismatchDialog) {
   base::RunLoop().RunUntilIdle();
 
   // Check that the appropriate metrics are recorded upon destruction.
-  federated_auth_request_impl_->ResetAndDeleteThis();
+  federated_auth_request_impl_->ResetAndDeleteThisForTesting();
   ukm_loop.Run();
 
   // The additional mismatch should be recorded in the metrics.
@@ -6903,7 +6895,7 @@ TEST_F(RequestServiceTest, RecordNumRequestsPerDocumentMetric) {
   EXPECT_FALSE(did_show_idp_signin_status_mismatch_dialog());
 
   // Check that the appropriate metrics are recorded upon destruction.
-  federated_auth_request_impl_->ResetAndDeleteThis();
+  federated_auth_request_impl_->ResetAndDeleteThisForTesting();
 
   ukm_loop.Run();
 
@@ -7815,7 +7807,6 @@ class TestDialogControllerWithImmediateDismiss : public TestDialogController {
       const std::vector<IdentityProviderDataPtr>& idp_list,
       const std::vector<IdentityRequestAccountPtr>& accounts,
       blink::mojom::RpMode rp_mode,
-      const std::vector<IdentityRequestAccountPtr>& new_accounts,
       IdentityRequestDialogController::AccountSelectionCallback on_selected,
       IdentityRequestDialogController::LoginToIdPCallback on_add_account,
       IdentityRequestDialogController::DismissCallback dismiss_callback,
@@ -7899,6 +7890,13 @@ TEST_F(RequestServiceTest, UseOtherAccountAccountOrder) {
         // accounts, kAccountIdNicolas, kAccountIdPeter and kAccountIdZach,
         // in that order.
         test_network_request_manager_->accounts_list_ = kMultipleAccounts;
+        for (const auto& account :
+             test_network_request_manager_->accounts_list_) {
+          if (account->id == kAccountIdPeter) {
+            account->display_priority =
+                IdentityRequestAccount::DisplayPriority::kNew;
+          }
+        }
         federated_auth_request_impl_->OnIdpSigninStatusReceived(
             OriginFromString(kProviderUrlFull), true);
         return modal.get();
@@ -7950,6 +7948,14 @@ TEST_F(RequestServiceTest, UseOtherAccountMultipleNewAccounts) {
         // that order.
         test_network_request_manager_->accounts_list_ = {
             kSingleAccount[0], kTwoAccounts[0], kTwoAccounts[1]};
+        for (const auto& account :
+             test_network_request_manager_->accounts_list_) {
+          if (account->id == kTwoAccounts[0]->id ||
+              account->id == kTwoAccounts[1]->id) {
+            account->display_priority =
+                IdentityRequestAccount::DisplayPriority::kNew;
+          }
+        }
         federated_auth_request_impl_->OnIdpSigninStatusReceived(
             OriginFromString(kProviderUrlFull), true);
         return modal.get();
@@ -8141,7 +8147,7 @@ TEST_F(RequestServiceTest, VerifyingDialogDestroyExplicitMetrics) {
   config.delay_token_response = true;
 
   RunAuthDontWaitForCallback(kDefaultRequestParameters, config);
-  federated_auth_request_impl_->ResetAndDeleteThis();
+  federated_auth_request_impl_->ResetAndDeleteThisForTesting();
 
   histogram_tester_.ExpectUniqueSample("Blink.FedCm.VerifyingDialogResult",
                                        VerifyingDialogResult::kDestroyExplicit,
@@ -8170,7 +8176,7 @@ TEST_F(RequestServiceTest, VerifyingDialogDestroyAutoReauthnMetrics) {
   config.delay_token_response = true;
 
   RunAuthDontWaitForCallback(kDefaultRequestParameters, config);
-  federated_auth_request_impl_->ResetAndDeleteThis();
+  federated_auth_request_impl_->ResetAndDeleteThisForTesting();
 
   histogram_tester_.ExpectUniqueSample(
       "Blink.FedCm.VerifyingDialogResult",
@@ -8457,6 +8463,29 @@ TEST_F(RequestServiceTest, NonPrimaryPageMetrics) {
   histogram_tester_.ExpectUniqueSample(
       "Blink.FedCm.LifecycleStateFailureReason",
       LifecycleStateFailureReason::kInBackForwardCache, 1);
+}
+
+// Test that if there are multiple IdPs, the UI should not be suppressed even if
+// configuration.suppressed_by_segmentation_platform is set to true.
+TEST_F(RequestServiceTest, SuppressedBySegmentationPlatformButMultipleIdps) {
+  // Use IdpNetworkRequestManagerParamChecker to validate passed-in parameters
+  // to IdpNetworkRequestManager methods.
+  std::unique_ptr<IdpNetworkRequestManagerParamChecker> checker =
+      std::make_unique<IdpNetworkRequestManagerParamChecker>();
+  SetNetworkRequestManager(std::move(checker));
+
+  RequestExpectations expectations = kExpectationSuccess;
+  // Since the first IDP does not set the login state of the account but the
+  // second IDP has one with state set to SignIn, selecting the first account
+  // means that the second IDP is the one that is selected.
+  expectations.selected_idp_config_url = kProviderTwoUrlFull;
+  MockConfiguration config = kConfigurationMultiIdpValid;
+  config.suppressed_by_segmentation_platform = true;
+  RunAuthTest(kDefaultMultiIdpRequestParameters, expectations, config);
+
+  EXPECT_TRUE(DidFetch(FetchedEndpoint::ACCOUNTS));
+  histogram_tester_.ExpectUniqueSample("Blink.FedCm.DidShowUI", true, 1);
+  ExpectUkmValueInEntry("DidShowUI", FedCmEntry::kEntryName, true);
 }
 
 }  // namespace content::webid

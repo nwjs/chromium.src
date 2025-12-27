@@ -19,7 +19,6 @@
 #include "base/scoped_observation.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
-#include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_state_manager.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/views/location_bar/content_setting_image_view.h"
@@ -429,13 +428,21 @@ class LocationBarView
   // PageActionIconView::Delegate:
   content::WebContents* GetWebContentsForPageActionIconView() override;
   bool ShouldHidePageActionIcons() const override;
-  bool ShouldHidePageActionIcon(PageActionIconView* icon_view) const override;
-
-  bool ShouldHidePageActionIconsForContext(
+  bool ShouldHidePageActionIcon(
+      const PageActionIconView* icon_view) const override;
+  bool ShouldHidePageActionIconForContext(
+      const PageActionIconView* icon_view,
       metrics::OmniboxEventProto::PageClassification page_context) const;
 
-  // Returns true if the AIM page action is the right-most visible page action.
-  bool IsAimLastVisiblePageAction() const;
+  struct PageActionInfo {
+    // Is the AIM page action the right-most visible page action?
+    bool is_aim_last_visible_page_action = false;
+    // How many migrated page actions are shown?
+    size_t num_migrated_page_actions_shown = 0;
+    // How many legacy (non-migrated) page actions are shown?
+    size_t num_legacy_page_actions_shown = 0;
+  };
+  PageActionInfo GetPageActionInfo() const;
 
   // views::AnimationDelegateViews:
   void AnimationProgressed(const gfx::Animation* animation) override;

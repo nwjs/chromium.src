@@ -325,7 +325,6 @@ int CreditCard::IconResourceId(Suggestion::Icon icon) {
     case Suggestion::Icon::kAccount:
     case Suggestion::Icon::kClear:
     case Suggestion::Icon::kCode:
-    case Suggestion::Icon::kCreate:
     case Suggestion::Icon::kDelete:
     case Suggestion::Icon::kDevice:
     case Suggestion::Icon::kVehicle:
@@ -339,8 +338,6 @@ int CreditCard::IconResourceId(Suggestion::Icon icon) {
     case Suggestion::Icon::kGooglePasswordManager:
     case Suggestion::Icon::kGooglePay:
     case Suggestion::Icon::kHome:
-    case Suggestion::Icon::kHttpsInvalid:
-    case Suggestion::Icon::kHttpWarning:
     case Suggestion::Icon::kIdCard:
     case Suggestion::Icon::kIban:
     case Suggestion::Icon::kKey:
@@ -357,7 +354,6 @@ int CreditCard::IconResourceId(Suggestion::Icon icon) {
     case Suggestion::Icon::kSaveAndFill:
     case Suggestion::Icon::kScanCreditCard:
     case Suggestion::Icon::kSettings:
-    case Suggestion::Icon::kSettingsAndroid:
     case Suggestion::Icon::kUndo:
     case Suggestion::Icon::kBnpl:
     case Suggestion::Icon::kGoogleWallet:
@@ -1007,8 +1003,7 @@ std::pair<std::u16string, std::u16string> CreditCard::LabelPieces() const {
     return std::make_pair(name_on_card_, std::u16string());
   }
 
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillEnableNewFopDisplayDesktop)) {
+  if (ShouldUseNewFopDisplay()) {
     if (CardIdentifierForAutofillDisplay().has_value()) {
       return std::make_pair(CardIdentifierForAutofillDisplay().value(),
                             NetworkAndLastFourDigits(/*obfuscation_length=*/2));

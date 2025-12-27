@@ -13,6 +13,7 @@
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/contextual_search/contextual_search_metrics_recorder.h"
 #include "components/omnibox/browser/aim_eligibility_service.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -124,7 +125,9 @@ omnibox::NTPComposeboxConfig GetNTPComposeboxConfig() {
   if (!kConfigParam.Get().empty()) {
     bool parsed =
         ParseProtoFromBase64String(kConfigParam.Get(), fieldtrial_config);
-    base::UmaHistogramBoolean(kConfigParamParseSuccessHistogram, parsed);
+    contextual_search::ContextualSearchMetricsRecorder::
+        RecordConfigParseSuccess(
+            contextual_search::ContextualSearchSource::kOmnibox, parsed);
     if (!parsed) {
       return default_config;
     }
@@ -285,10 +288,15 @@ const base::FeatureParam<bool> kShowCreateImageTool(
     &internal::kWebUIOmniboxAimPopup,
     "ShowCreateImageTool",
     false);
+// TODO(crbug.com/462739330): Enable lens chip.
+const base::FeatureParam<bool> kShowLensSearchChip(
+    &internal::kWebUIOmniboxAimPopup,
+    "ShowLensSearchChip",
+    false);
 const base::FeatureParam<bool> kShowRecentTabChip(
     &internal::kWebUIOmniboxAimPopup,
     "ShowRecentTabChip",
-    true);
+    false);
 const base::FeatureParam<bool> kShowSmartCompose(
     &internal::kWebUIOmniboxAimPopup,
     "ShowSmartCompose",
@@ -299,6 +307,14 @@ const base::FeatureParam<bool> kShowSubmit(&internal::kWebUIOmniboxAimPopup,
 const base::FeatureParam<bool> kShowToolsAndModels(
     &internal::kWebUIOmniboxAimPopup,
     "ShowToolsAndModels",
+    false);
+const base::FeatureParam<bool> kShowVoiceSearchInSteadyComposebox(
+    &internal::kWebUIOmniboxAimPopup,
+    "ShowVoiceSearchInSteadyComposebox",
+    false);
+const base::FeatureParam<bool> kShowVoiceSearchInExpandedComposebox(
+    &internal::kWebUIOmniboxAimPopup,
+    "ShowVoiceSearchInExpandedComposebox",
     false);
 const base::FeatureParam<bool> kSuppressLnsSurfaceParamIfNoImage(
     &internal::kWebUIOmniboxAimPopup,

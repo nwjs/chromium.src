@@ -41,9 +41,9 @@ class VisitDatabase {
 
   // Adds a line to the visit database with the given information, returning
   // the added row ID on success, 0 on failure. The given visit is updated with
-  // the new row ID on success. In addition, adds its source into visit_source
-  // table.
-  VisitID AddVisit(VisitRow* visit, VisitSource source);
+  // the new row ID on success. In addition, adds its `VisitRow.source` into
+  // `visit_source` table.
+  VisitID AddVisit(VisitRow* visit);
 
   // Deletes the given visit from the database. If a visit with the given ID
   // doesn't exist, it will not do anything.
@@ -246,23 +246,26 @@ class VisitDatabase {
                        VisitQuery404sPolicy policy_for_404_visits,
                        int* count);
 
-  // Gets the last time any webpage on the given host was visited within the
-  // time range [`begin_time`, `end_time`). If the given host has not been
-  // visited in the given time range, this will return true and `last_visit`
-  // will be set to base::Time(). False will be returned if the host is not a
-  // valid HTTP or HTTPS url or for other database errors.
+  // Gets the time and the URL of the most recently visited webpage on the given
+  // host within the time range [`begin_time`, `end_time`). If the given host
+  // has not been visited in the given time range, this will return true and
+  // `last_visit` will be set to base::Time() and `last_visited_url` will be
+  // set to `GURL()`. False will be returned if the host is not a valid HTTP or
+  // HTTPS url or for other database errors.
   bool GetLastVisitToHost(const std::string& host,
                           base::Time begin_time,
                           base::Time end_time,
                           VisitQuery404sPolicy policy_for_404_visits,
-                          base::Time* last_visit);
+                          base::Time* last_visit,
+                          GURL* last_visited_url);
 
   // Same as the above, but for the given origin instead of host.
   bool GetLastVisitToOrigin(const url::Origin& origin,
                             base::Time begin_time,
                             base::Time end_time,
                             VisitQuery404sPolicy policy_for_404_visits,
-                            base::Time* last_visit);
+                            base::Time* last_visit,
+                            GURL* last_visited_url);
 
   // Gets counts for total visits and days visited for pages matching `origin`.
   // Counts only user-visible visits. Counts or ignores visits with an HTTP
@@ -379,12 +382,15 @@ class VisitDatabase {
 };
 
 // Columns, in order, of the visit table.
-#define HISTORY_VISIT_ROW_FIELDS                                    \
-  " id,url,visit_time,from_visit,external_referrer_url,transition," \
-  "segment_id,visit_duration,incremented_omnibox_typed_score,"      \
-  "opener_visit,originator_cache_guid,originator_visit_id,"         \
-  "originator_from_visit,originator_opener_visit,is_known_to_sync," \
-  "consider_for_ntp_most_visited,visited_link_id,app_id "
+#define HISTORY_VISIT_ROW_FIELDS                                      \
+  " visits.id,visits.url,visits.visit_time,visits.from_visit,"        \
+  "visits.external_referrer_url,visits.transition,visits.segment_id," \
+  "visits.visit_duration,visits.incremented_omnibox_typed_score,"     \
+  "visits.opener_visit,visits.originator_cache_guid,"                 \
+  "visits.originator_visit_id,visits.originator_from_visit,"          \
+  "visits.originator_opener_visit,visits.is_known_to_sync,"           \
+  "visits.consider_for_ntp_most_visited,visits.visited_link_id,"      \
+  "visits.app_id "
 
 }  // namespace history
 

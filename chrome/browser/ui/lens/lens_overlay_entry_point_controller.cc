@@ -29,6 +29,7 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
+#include "chrome/browser/ui/views/location_bar/lens_overlay_homework_page_action_controller.h"
 #include "chrome/browser/ui/views/page_action/page_action_controller.h"
 #include "chrome/browser/ui/views/page_action/page_action_triggers.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
@@ -162,8 +163,7 @@ bool LensOverlayEntryPointController::IsEnabled() const {
   lens::prefs::LensOverlaySettingsPolicyValue policy_value =
       static_cast<lens::prefs::LensOverlaySettingsPolicyValue>(
           pref_service->GetInteger(lens::prefs::kLensOverlaySettings));
-  if (policy_value ==
-      lens::prefs::LensOverlaySettingsPolicyValue::kDisabled) {
+  if (policy_value == lens::prefs::LensOverlaySettingsPolicyValue::kDisabled) {
     return false;
   }
 
@@ -202,13 +202,23 @@ void LensOverlayEntryPointController::UpdateEntryPointsState(
   }
   UpdatePageActionState();
 
-  // Update the homework action chip.
-  // TODO(crbug.com/433813408): Remove GetBrowserForMigrationOnly after Page
-  // Actions migration.
   CHECK(browser_window_interface_);
-  browser_window_interface_->GetBrowserForMigrationOnly()
-      ->window()
-      ->UpdatePageActionIcon(PageActionIconType::kLensOverlayHomework);
+
+  if (IsPageActionMigrated(PageActionIconType::kLensOverlayHomework)) {
+    // `tab_interface` can be null early during browser startup.
+    if (auto* tab_interface =
+            browser_window_interface_->GetActiveTabInterface()) {
+      LensOverlayHomeworkPageActionController::From(*tab_interface)
+          ->UpdatePageActionIcon();
+    }
+  } else {
+    // Update the homework action chip.
+    // TODO(crbug.com/433813408): Remove GetBrowserForMigrationOnly after Page
+    // Actions migration.
+    browser_window_interface_->GetBrowserForMigrationOnly()
+        ->window()
+        ->UpdatePageActionIcon(PageActionIconType::kLensOverlayHomework);
+  }
 }
 
 bool LensOverlayEntryPointController::IsUrlEduEligible(const GURL& url) const {
@@ -301,6 +311,19 @@ void LensOverlayEntryPointController::OnViewRemovedFromWidget(
 void LensOverlayEntryPointController::OnDidChangeFocus(views::View* before,
                                                        views::View* now) {
   UpdatePageActionState();
+
+  if (IsPageActionMigrated(PageActionIconType::kLensOverlayHomework)) {
+    // `tab_interface` can be null early during browser startup.
+    if (auto* tab_interface =
+            browser_window_interface_->GetActiveTabInterface()) {
+      // The controller may be null during tab destruction, which triggers the
+      // focus change leading to this.
+      if (auto* controller =
+              LensOverlayHomeworkPageActionController::From(*tab_interface)) {
+        controller->UpdatePageActionIcon();
+      }
+    }
+  }
 }
 
 void LensOverlayEntryPointController::OnFullscreenStateChanged() {

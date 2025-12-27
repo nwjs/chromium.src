@@ -13,7 +13,6 @@
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/metrics/field_trial_params.h"
 #include "base/scoped_observation.h"
 #include "base/time/tick_clock.h"
 #include "build/build_config.h"
@@ -82,8 +81,7 @@ class AdsPageLoadMetricsObserver
       heavy_ad_intervention::HeavyAdService* heavy_ad_service,
       history::HistoryService* history_service,
       const ApplicationLocaleGetter& application_local_getter,
-      bool is_in_foreground,
-      bool is_incognito);
+      bool is_in_foreground);
 
   // For a given frame, returns whether or not the frame's url would be
   // considered same origin to the outermost main frame's url.
@@ -97,7 +95,6 @@ class AdsPageLoadMetricsObserver
       history::HistoryService* history_service,
       const ApplicationLocaleGetter& application_local_getter,
       bool is_in_foreground,
-      bool is_incognito,
       base::TickClock* clock = nullptr,
       heavy_ad_intervention::HeavyAdBlocklist* blocklist = nullptr);
 
@@ -150,8 +147,6 @@ class AdsPageLoadMetricsObserver
   void OnMainFrameAdRectsChanged(
       const base::flat_map<int, gfx::Rect>& main_frame_ad_rects) override;
   void OnSubFrameDeleted(content::FrameTreeNodeId frame_tree_node_id) override;
-  void OnV8MemoryChanged(
-      const std::vector<MemoryUpdate>& memory_updates) override;
   void OnAdAuctionComplete(bool is_server_auction,
                            bool is_on_device_auction,
                            content::AuctionResult result) override;
@@ -160,9 +155,6 @@ class AdsPageLoadMetricsObserver
       std::unique_ptr<HeavyAdThresholdNoiseProvider> noise_provider) {
     heavy_ad_threshold_noise_provider_ = std::move(noise_provider);
   }
-
-  void UpdateAggregateMemoryUsage(base::ByteCount bytes,
-                                  FrameVisibility visibility);
 
   void CleanupDeletedFrame(content::FrameTreeNodeId id,
                            FrameTreeData* frame_data,
@@ -360,9 +352,6 @@ class AdsPageLoadMetricsObserver
 
   // Tracks number of memory updates received.
   int memory_update_count_ = 0;
-
-  // Whether the WebContents being observed is for an Incognito profile.
-  bool is_incognito_;
 };
 
 }  // namespace page_load_metrics

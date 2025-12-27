@@ -23,8 +23,6 @@
 
 BASE_FEATURE(kTestFeature, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kSafetyCheckMagicStack, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kSafetyCheckAutorunByManagerKillswitch,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -56,9 +54,6 @@ const char kSafetyCheckAllowSafeBrowsingNotifications[] =
 
 const char kSafetyCheckAllowUpdateChromeNotifications[] =
     "SafetyCheckAllowUpdateChromeNotifications";
-
-const char kSafetyCheckMagicStackAutorunHoursThreshold[] =
-    "SafetyCheckMagicStackAutorunHoursThreshold";
 
 const char kSafetyCheckNotificationsProvisionalEnabled[] =
     "SafetyCheckNotificationsProvisionalEnabled";
@@ -114,19 +109,9 @@ const base::TimeDelta InactiveThresholdForSafetyCheckNotifications() {
       kSafetyCheckNotificationDefaultDelay);
 }
 
-// How many hours between each autorun of the Safety Check in the Magic Stack.
-const base::TimeDelta TimeDelayForSafetyCheckAutorun() {
-  int delay = base::GetFieldTrialParamByFeatureAsInt(
-      kSafetyCheckMagicStack, kSafetyCheckMagicStackAutorunHoursThreshold,
-      /*default_value=*/720);
-  return base::Hours(delay);
-}
-
 BASE_FEATURE(kHideToolbarsInOverflowMenu, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSharedHighlightingIOS, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kShareInWebContextMenuIOS, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIOSBrowserEditMenuMetrics, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -206,27 +191,26 @@ BASE_FEATURE(kNTPMIAEntrypointAllLocales,
              "kNTPMIAEntrypointAllLocales",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled the AIM ZPS entrypoint will open the AIM prototype which
-// contains temporary UI exploration for AIM.
-BASE_FEATURE(kAIMPrototype, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kComposeboxAutoattachTab, base::FEATURE_DISABLED_BY_DEFAULT);
 
-const char kAIMPrototypeParam[] = "AIMPrototypeParam";
-const char kAIMPrototypeParamAllOmniboxEntrypoints[] =
-    "AIMPrototypeAllOmniboxEntrypoints";
+// Used to gate the immersive SRP in the Composebox.
+BASE_FEATURE(kComposeboxImmersiveSRP, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAIMPrototypeAutoattachTab, base::FEATURE_DISABLED_BY_DEFAULT);
+const char kComposeboxTabPickerVariationParam[] =
+    "kComposeboxTabPickerVariationParam";
+const char kComposeboxTabPickerVariationParamCachedAPC[] =
+    "kComposeboxTabPickerVariationParamCachedAPC";
+const char kComposeboxTabPickerVariationParamOnFlightAPC[] =
+    "kComposeboxTabPickerVariationParamOnFlightAPC";
 
-// Used to gate the immersive SRP in the AIM prototype.
-BASE_FEATURE(kAIMPrototypeImmersiveSRP, base::FEATURE_DISABLED_BY_DEFAULT);
+// Feature flag for the tab picker in the Composebox.
+BASE_FEATURE(kComposeboxTabPickerVariation, base::FEATURE_DISABLED_BY_DEFAULT);
 
-const char kAIMPrototypeTabPickerParam[] = "kAIMPrototypeTabPickerParam";
-const char kAIMPrototypeTabPickerParamCachedAPC[] =
-    "kAIMPrototypeTabPickerParamCachedAPC";
-const char kAIMPrototypeTabPickerParamOnFlightAPC[] =
-    "kAIMPrototypeTabPickerParamOnFlightAPC";
-
-// Feature flag for the tab picker in the aim prototype.
-BASE_FEATURE(kAIMPrototypeTabPicker, base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsComposeboxTabPickerCachedAPCEnabled() {
+  std::string param = base::GetFieldTrialParamValueByFeature(
+      kComposeboxTabPickerVariation, kComposeboxTabPickerVariationParam);
+  return param == kComposeboxTabPickerVariationParamCachedAPC;
+}
 
 BASE_FEATURE(kOmniboxDRSPrototype, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -245,7 +229,7 @@ bool IsTabGridDragAndDropEnabled() {
   return base::FeatureList::IsEnabled(kTabGridDragAndDrop);
 }
 
-BASE_FEATURE(kTabGridEmptyThumbnail, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kTabGridEmptyThumbnail, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsTabGridEmptyThumbnailUIEnabled() {
   return base::FeatureList::IsEnabled(kTabGridEmptyThumbnail);
@@ -336,10 +320,6 @@ BASE_FEATURE(kOnlyAccessClipboardAsync, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsSafetyCheckAutorunByManagerEnabled() {
   return base::FeatureList::IsEnabled(kSafetyCheckAutorunByManagerKillswitch);
-}
-
-bool IsSafetyCheckMagicStackEnabled() {
-  return base::FeatureList::IsEnabled(kSafetyCheckMagicStack);
 }
 
 bool ShouldHideSafetyCheckModuleIfNoIssues() {
@@ -658,6 +638,13 @@ bool IsLiquidGlassEffectEnabled() {
   }
 
   return false;
+}
+
+BASE_FEATURE(kIOSKeyboardAccessoryDefaultView,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+bool IsIOSKeyboardAccessoryDefaultViewEnabled() {
+  return base::FeatureList::IsEnabled(kIOSKeyboardAccessoryDefaultView);
 }
 
 BASE_FEATURE(kIOSKeyboardAccessoryTwoBubble, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1042,6 +1029,12 @@ int MaxRecentlyUsedBackgrounds() {
   return kMaxRecentlyUsedBackgrounds.Get();
 }
 
+BASE_FEATURE(kNTPBackgroundColorSlider, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsNTPBackgroundColorSliderEnabled() {
+  return base::FeatureList::IsEnabled(kNTPBackgroundColorSlider);
+}
+
 BASE_FEATURE(kRunDefaultStatusCheck, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsRunDefaultStatusCheckEnabled() {
@@ -1188,7 +1181,8 @@ int GetSyncedSetUpImpressionLimit() {
 BASE_FEATURE(kMultilineBrowserOmnibox, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsMultilineBrowserOmniboxEnabled() {
-  if (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_PHONE) {
+  if (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_PHONE ||
+      IsComposeboxIOSEnabled()) {
     return false;
   }
   return base::FeatureList::IsEnabled(kMultilineBrowserOmnibox);
@@ -1238,6 +1232,34 @@ bool ShouldShowKeyboardAccessoryFeatures() {
   return feature_param == kDisableKeyboardAccessoryOnlyFeatures;
 }
 
+BASE_FEATURE(kLocationBarBadgeMigration, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsLocationBarBadgeMigrationEnabled() {
+  return base::FeatureList::IsEnabled(kLocationBarBadgeMigration);
+}
+
+BASE_FEATURE(kComposeboxIOS, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsComposeboxIOSEnabled() {
+  if (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_PHONE) {
+    return false;
+  }
+  return base::FeatureList::IsEnabled(kComposeboxIOS);
+}
+
+BASE_FEATURE(kTabGroupColorOnSurface, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsTabGroupColorOnSurfaceEnabled() {
+  return base::FeatureList::IsEnabled(kTabGroupColorOnSurface);
+}
+
+BASE_FEATURE(kAIMEligibilityServiceStartWithProfile,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+bool IsAIMEligibilityServiceStartWithProfileEnabled() {
+  return base::FeatureList::IsEnabled(kAIMEligibilityServiceStartWithProfile);
+}
+
 BASE_FEATURE(kAIMNTPEntrypointTablet, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsAIMNTPEntrypointTabletEnabled() {
@@ -1251,9 +1273,8 @@ bool IsAIMEligibilityRefreshNTPModulesEnabled() {
   return base::FeatureList::IsEnabled(kAIMEligibilityRefreshNTPModules);
 }
 
-BASE_FEATURE(kAIMEligibilityServiceStartWithProfile,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIOSWebContextMenuNewTitle, base::FEATURE_DISABLED_BY_DEFAULT);
 
-bool IsAIMEligibilityServiceStartWithProfileEnabled() {
-  return base::FeatureList::IsEnabled(kAIMEligibilityServiceStartWithProfile);
+bool IsIOSWebContextMenuNewTitleEnabled() {
+  return base::FeatureList::IsEnabled(kIOSWebContextMenuNewTitle);
 }

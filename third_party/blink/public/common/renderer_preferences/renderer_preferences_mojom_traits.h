@@ -199,6 +199,13 @@ struct BLINK_COMMON_EXPORT
   }
 #endif
 
+#if BUILDFLAG(IS_LINUX)
+  static const bool& middle_click_paste_allowed(
+      const ::blink::RendererPreferences& data) {
+    return data.middle_click_paste_allowed;
+  }
+#endif
+
   static const std::string& nw_inject_js_doc_start(
       const ::blink::RendererPreferences& data) {
     return data.nw_inject_js_doc_start;

@@ -442,7 +442,8 @@ class BlockingNetworkDelegate : public TestNetworkDelegate {
       const HttpResponseHeaders* original_response_headers,
       scoped_refptr<HttpResponseHeaders>* override_response_headers,
       const IPEndPoint& endpoint,
-      std::optional<GURL>* preserve_fragment_on_redirect_url) override;
+      std::optional<GURL>* preserve_fragment_on_redirect_url,
+      const std::optional<net::SSLInfo>& ssl_info) override;
 
   // Resets the callbacks and |stage_blocked_for_callback_|.
   void Reset();
@@ -549,13 +550,14 @@ int BlockingNetworkDelegate::OnHeadersReceived(
     const HttpResponseHeaders* original_response_headers,
     scoped_refptr<HttpResponseHeaders>* override_response_headers,
     const IPEndPoint& endpoint,
-    std::optional<GURL>* preserve_fragment_on_redirect_url) {
+    std::optional<GURL>* preserve_fragment_on_redirect_url,
+    const std::optional<net::SSLInfo>& ssl_info) {
   // TestNetworkDelegate always completes synchronously.
   CHECK_NE(ERR_IO_PENDING,
            TestNetworkDelegate::OnHeadersReceived(
                request, base::NullCallback(), original_response_headers,
                override_response_headers, endpoint,
-               preserve_fragment_on_redirect_url));
+               preserve_fragment_on_redirect_url, ssl_info));
 
   return MaybeBlockStage(ON_HEADERS_RECEIVED, std::move(callback));
 }
@@ -2069,7 +2071,7 @@ TEST_F(URLRequestTest, DoNotSendCookies) {
     TestDelegate d;
     std::unique_ptr<URLRequest> req = CreateFirstPartyRequest(
         default_context(), test_server.GetURL("/echoheader?Cookie"), &d);
-    req->set_allow_credentials(false);
+    req->set_disallow_credentials();
     req->Start();
     d.RunUntilComplete();
 
@@ -3685,7 +3687,8 @@ class FixedDateNetworkDelegate : public TestNetworkDelegate {
       const HttpResponseHeaders* original_response_headers,
       scoped_refptr<HttpResponseHeaders>* override_response_headers,
       const IPEndPoint& endpoint,
-      std::optional<GURL>* preserve_fragment_on_redirect_url) override;
+      std::optional<GURL>* preserve_fragment_on_redirect_url,
+      const std::optional<net::SSLInfo>& ssl_info) override;
 
  private:
   std::string fixed_date_;
@@ -3697,7 +3700,8 @@ int FixedDateNetworkDelegate::OnHeadersReceived(
     const HttpResponseHeaders* original_response_headers,
     scoped_refptr<HttpResponseHeaders>* override_response_headers,
     const IPEndPoint& endpoint,
-    std::optional<GURL>* preserve_fragment_on_redirect_url) {
+    std::optional<GURL>* preserve_fragment_on_redirect_url,
+    const std::optional<net::SSLInfo>& ssl_info) {
   *override_response_headers = base::MakeRefCounted<HttpResponseHeaders>(
       original_response_headers->raw_headers());
 
@@ -3705,7 +3709,8 @@ int FixedDateNetworkDelegate::OnHeadersReceived(
 
   return TestNetworkDelegate::OnHeadersReceived(
       request, std::move(callback), original_response_headers,
-      override_response_headers, endpoint, preserve_fragment_on_redirect_url);
+      override_response_headers, endpoint, preserve_fragment_on_redirect_url,
+      ssl_info);
 }
 
 // Test that cookie expiration times are adjusted for server/client clock
@@ -5146,13 +5151,14 @@ class AsyncLoggingNetworkDelegate : public TestNetworkDelegate {
       const HttpResponseHeaders* original_response_headers,
       scoped_refptr<HttpResponseHeaders>* override_response_headers,
       const IPEndPoint& endpoint,
-      std::optional<GURL>* preserve_fragment_on_redirect_url) override {
+      std::optional<GURL>* preserve_fragment_on_redirect_url,
+      const std::optional<net::SSLInfo>& ssl_info) override {
     // TestNetworkDelegate always completes synchronously.
     CHECK_NE(ERR_IO_PENDING,
              TestNetworkDelegate::OnHeadersReceived(
                  request, base::NullCallback(), original_response_headers,
                  override_response_headers, endpoint,
-                 preserve_fragment_on_redirect_url));
+                 preserve_fragment_on_redirect_url, ssl_info));
     return RunCallbackAsynchronously(request, std::move(callback));
   }
 
@@ -10149,7 +10155,9 @@ TEST_F(HTTPSRequestTest, NoSessionResumptionBetweenPrivacyModes) {
     TestDelegate d;
     std::unique_ptr<URLRequest> r(default_context().CreateRequest(
         url, DEFAULT_PRIORITY, &d, TRAFFIC_ANNOTATION_FOR_TESTS));
-    r->set_allow_credentials(allow_credentials);
+    if (!allow_credentials) {
+      r->set_disallow_credentials();
+    }
 
     // Start the request and check the SSL handshake type.
     r->Start();
@@ -12980,7 +12988,7 @@ TEST_F(URLRequestTest, SetIsolationInfoFromNak) {
   r->set_isolation_info_from_network_anonymization_key(
       populated_cross_site_nak);
   r->SetLoadFlags(LOAD_DISABLE_CACHE);
-  r->set_allow_credentials(false);
+  r->set_disallow_credentials();
   EXPECT_TRUE(r->is_created_from_network_anonymization_key());
   EXPECT_EQ(r->isolation_info().network_anonymization_key(),
             populated_cross_site_nak);
@@ -13191,7 +13199,7 @@ TEST_F(PartitionConnectionsByNetworkAnonymizationKey,
     r1->set_isolation_info_from_network_anonymization_key(
         network_anonymization_key1);
     r1->SetLoadFlags(LOAD_DISABLE_CACHE);
-    r1->set_allow_credentials(false);
+    r1->set_disallow_credentials();
 
     // Verify NetworkAnonymizationKey is set correctly
     EXPECT_TRUE(r1->is_created_from_network_anonymization_key());
@@ -13217,7 +13225,7 @@ TEST_F(PartitionConnectionsByNetworkAnonymizationKey,
     r2->set_isolation_info_from_network_anonymization_key(
         network_anonymization_key2);
     r2->SetLoadFlags(LOAD_DISABLE_CACHE);
-    r2->set_allow_credentials(false);
+    r2->set_disallow_credentials();
 
     // Verify NetworkAnonymizationKey is set correctly.
     EXPECT_TRUE(r2->is_created_from_network_anonymization_key());
@@ -13253,7 +13261,7 @@ TEST_F(PartitionConnectionsByNetworkAnonymizationKey,
     r1->set_isolation_info_from_network_anonymization_key(
         network_anonymization_key1);
     r1->SetLoadFlags(LOAD_DISABLE_CACHE);
-    r1->set_allow_credentials(false);
+    r1->set_disallow_credentials();
 
     // Verify NetworkAnonymizationKey is set correctly
     EXPECT_TRUE(r1->is_created_from_network_anonymization_key());
@@ -13278,7 +13286,7 @@ TEST_F(PartitionConnectionsByNetworkAnonymizationKey,
     r2->set_isolation_info_from_network_anonymization_key(
         network_anonymization_key2);
     r2->SetLoadFlags(LOAD_DISABLE_CACHE);
-    r2->set_allow_credentials(false);
+    r2->set_disallow_credentials();
 
     // Verify NetworkAnonymizationKey is set correctly.
     EXPECT_TRUE(r2->is_created_from_network_anonymization_key());
@@ -13315,7 +13323,7 @@ TEST_F(
     r1->set_isolation_info_from_network_anonymization_key(
         network_anonymization_key1);
     r1->SetLoadFlags(LOAD_DISABLE_CACHE);
-    r1->set_allow_credentials(false);
+    r1->set_disallow_credentials();
 
     // Verify NetworkAnonymizationKey is set correctly
     EXPECT_TRUE(r1->is_created_from_network_anonymization_key());
@@ -13342,7 +13350,7 @@ TEST_F(
     r2->set_isolation_info_from_network_anonymization_key(
         network_anonymization_key2);
     r2->SetLoadFlags(LOAD_DISABLE_CACHE);
-    r2->set_allow_credentials(false);
+    r2->set_disallow_credentials();
 
     // Verify NetworkAnonymizationKey is set correctly.
     EXPECT_TRUE(r2->is_created_from_network_anonymization_key());
@@ -13380,7 +13388,7 @@ TEST_F(PartitionConnectionsByNetworkAnonymizationKey,
     r1->set_isolation_info_from_network_anonymization_key(
         network_anonymization_key1);
     r1->SetLoadFlags(LOAD_DISABLE_CACHE);
-    r1->set_allow_credentials(false);
+    r1->set_disallow_credentials();
 
     // Verify NetworkAnonymizationKey is set correctly
     EXPECT_TRUE(r1->is_created_from_network_anonymization_key());
@@ -13407,7 +13415,7 @@ TEST_F(PartitionConnectionsByNetworkAnonymizationKey,
     r2->set_isolation_info_from_network_anonymization_key(
         network_anonymization_key2);
     r2->SetLoadFlags(LOAD_DISABLE_CACHE);
-    r2->set_allow_credentials(false);
+    r2->set_disallow_credentials();
 
     // Verify NetworkAnonymizationKey is set correctly.
     EXPECT_TRUE(r2->is_created_from_network_anonymization_key());

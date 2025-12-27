@@ -121,6 +121,19 @@ TEST_F(DevToolsUIBindingsTest, SanitizeFrontendURL) {
        "?enabledExperiments=explosionsWhileTyping;newA11yTool"},
       {"devtools://devtools/?enabledExperiments=invalidExperiment$",
        "devtools://devtools/"},
+      {"devtools://devtools/?panel=elements",
+       "devtools://devtools/?panel=elements"},
+      {"devtools://devtools/?panel=network",
+       "devtools://devtools/?panel=network"},
+      {"devtools://devtools/?panel=console",
+       "devtools://devtools/?panel=console"},
+      {"devtools://devtools/?panel=sources",
+       "devtools://devtools/?panel=sources"},
+      {"devtools://devtools/?panel=resources",
+       "devtools://devtools/?panel=resources"},
+      {"devtools://devtools/?panel=performance",
+       "devtools://devtools/?panel=performance"},
+      {"devtools://devtools/?panel=unsupported", "devtools://devtools/"},
   };
 
   for (const auto& pair : tests) {
@@ -175,8 +188,8 @@ TEST_F(DevToolsUIBindingsSyncInfoTest, PreferencesNotSynced) {
 
 TEST_F(DevToolsUIBindingsSyncInfoTest, ImageAlwaysProvided) {
   AccountInfo account_info = identity_test_env_.MakePrimaryAccountAvailable(
-      "sync@devtools.dev", signin::ConsentLevel::kSync);
-  sync_service_->SetSignedIn(signin::ConsentLevel::kSync, account_info);
+      "sync@devtools.dev", signin::ConsentLevel::kSignin);
+  sync_service_->SetSignedIn(signin::ConsentLevel::kSignin, account_info);
 
   EXPECT_TRUE(account_info.account_image.IsEmpty());
 

@@ -1790,7 +1790,7 @@ TEST_F(LayerContextImplUpdateDisplayTreeTileDisplayLayerPropertiesTest,
   auto* tile_display_layer_impl =
       static_cast<cc::TileDisplayLayerImpl*>(layer_impl_base);
 
-  EXPECT_FALSE(tile_display_layer_impl->is_directly_composited_image());
+  EXPECT_FALSE(tile_display_layer_impl->IsDirectlyCompositedImage());
 
   // Second update: Set is_directly_composited_image to true.
   auto update2 = CreateDefaultUpdate();
@@ -1805,7 +1805,7 @@ TEST_F(LayerContextImplUpdateDisplayTreeTileDisplayLayerPropertiesTest,
   EXPECT_TRUE(
       layer_context_impl_->DoUpdateDisplayTree(std::move(update2)).has_value());
 
-  EXPECT_TRUE(tile_display_layer_impl->is_directly_composited_image());
+  EXPECT_TRUE(tile_display_layer_impl->IsDirectlyCompositedImage());
 
   // Third update: Set is_directly_composited_image to false.
   auto update3 = CreateDefaultUpdate();
@@ -1820,7 +1820,7 @@ TEST_F(LayerContextImplUpdateDisplayTreeTileDisplayLayerPropertiesTest,
   EXPECT_TRUE(
       layer_context_impl_->DoUpdateDisplayTree(std::move(update3)).has_value());
 
-  EXPECT_FALSE(tile_display_layer_impl->is_directly_composited_image());
+  EXPECT_FALSE(tile_display_layer_impl->IsDirectlyCompositedImage());
 }
 
 TEST_F(LayerContextImplUpdateDisplayTreeTileDisplayLayerPropertiesTest,
@@ -1923,7 +1923,7 @@ TEST_F(LayerContextImplUpdateDisplayTreeTilingTest, TilingAndTileLifecycle) {
   EXPECT_TRUE(
       layer_context_impl_->DoUpdateDisplayTree(std::move(update_create_tiling))
           .has_value());
-  const cc::TileDisplayLayerImpl::Tiling* tiling_impl1 =
+  const cc::TileDisplayLayerTiling* tiling_impl1 =
       tile_display_layer_impl->GetTilingForTesting(kScaleKey1);
   ASSERT_NE(nullptr, tiling_impl1);
   EXPECT_EQ(tiling_impl1->tile_size(), kTileSize1);
@@ -1948,7 +1948,6 @@ TEST_F(LayerContextImplUpdateDisplayTreeTilingTest, TilingAndTileLifecycle) {
   auto resource_contents = mojom::TileResource::New();
   resource_contents->resource = MakeFakeResource(kTileSize2);
   resource_contents->resource.id = kResourceId1;
-  resource_contents->is_checkered = false;
   tile2_resource->contents =
       mojom::TileContents::NewResource(std::move(resource_contents));
   tiling1_updated->tiles.push_back(std::move(tile2_resource));
@@ -1985,7 +1984,7 @@ TEST_F(LayerContextImplUpdateDisplayTreeTilingTest, TilingAndTileLifecycle) {
   EXPECT_TRUE(
       layer_context_impl_->DoUpdateDisplayTree(std::move(update_add_tiling2))
           .has_value());
-  const cc::TileDisplayLayerImpl::Tiling* tiling_impl2 =
+  const cc::TileDisplayLayerTiling* tiling_impl2 =
       tile_display_layer_impl->GetTilingForTesting(kScaleKey2);
   ASSERT_NE(nullptr, tiling_impl2);
   EXPECT_EQ(tiling_impl2->tile_size(), kTileSize1);
@@ -2072,7 +2071,6 @@ TEST_F(LayerContextImplUpdateDisplayTreeTilingTest, TilingAndTileLifecycle) {
   auto resource_contents_updated = mojom::TileResource::New();
   resource_contents_updated->resource = MakeFakeResource(kTileSize1);
   resource_contents_updated->resource.id = kResourceId2;
-  resource_contents_updated->is_checkered = true;
   tile_updated_to_resource->contents =
       mojom::TileContents::NewResource(std::move(resource_contents_updated));
   tiling1_tile_update->tiles.push_back(std::move(tile_updated_to_resource));
@@ -2084,7 +2082,6 @@ TEST_F(LayerContextImplUpdateDisplayTreeTilingTest, TilingAndTileLifecycle) {
   ASSERT_NE(nullptr, tiling_impl1->TileAt(kTileIndex1));
   EXPECT_FALSE(tiling_impl1->TileAt(kTileIndex1)->solid_color().has_value());
   EXPECT_TRUE(tiling_impl1->TileAt(kTileIndex1)->resource().has_value());
-  EXPECT_TRUE(tiling_impl1->TileAt(kTileIndex1)->resource()->is_checkered);
 
   // Test Case 7: Attempt to add a tile with an invalid resource ID.
   auto update_invalid_resource_tile = CreateDefaultUpdate();
@@ -2099,8 +2096,8 @@ TEST_F(LayerContextImplUpdateDisplayTreeTilingTest, TilingAndTileLifecycle) {
   tile_invalid_resource->column_index = kTileIndex1.i;  // Use existing index
   tile_invalid_resource->row_index = kTileIndex1.j;
   auto invalid_resource_contents = mojom::TileResource::New();
+  invalid_resource_contents->resource = MakeFakeResource(kTileSize1);
   invalid_resource_contents->resource.id = kInvalidResourceId;  // Invalid ID
-  invalid_resource_contents->resource.size = kTileSize1;
   tile_invalid_resource->contents =
       mojom::TileContents::NewResource(std::move(invalid_resource_contents));
   tiling1_invalid_resource_update->tiles.push_back(
@@ -3943,6 +3940,397 @@ TEST_F(LayerContextImplTest, UpdateDisplayTreeWithTargetLocalSurfaceId) {
   EXPECT_EQ(layer_context_impl_->host_impl()->target_local_surface_id(),
             target_local_surface_id);
 }
+
+TEST_F(LayerContextImplTest, UpdateDisplayTreeWithTargetSurfaceRanges) {
+  const SurfaceRange ranges[] = {
+      {SurfaceId(kDefaultFrameSinkId,
+                 {1, base::UnguessableToken::CreateForTesting(2, 3)}),
+       SurfaceId(kDefaultFrameSinkId,
+                 {10, base::UnguessableToken::CreateForTesting(11, 12)})},
+      {SurfaceId(kDefaultFrameSinkId,
+                 {4, base::UnguessableToken::CreateForTesting(5, 6)}),
+       SurfaceId(kDefaultFrameSinkId,
+                 {13, base::UnguessableToken::CreateForTesting(14, 15)})},
+      {SurfaceId(kDefaultFrameSinkId,
+                 {7, base::UnguessableToken::CreateForTesting(8, 9)}),
+       SurfaceId(kDefaultFrameSinkId,
+                 {16, base::UnguessableToken::CreateForTesting(17, 18)})}};
+
+  auto update = CreateDefaultUpdate();
+  update->surface_ranges.emplace({ranges[0], ranges[1]});
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  EXPECT_TRUE(result.has_value());
+  EXPECT_EQ(
+      layer_context_impl_->host_impl()->active_tree()->SurfaceRanges().size(),
+      2U);
+  EXPECT_TRUE(
+      layer_context_impl_->host_impl()->active_tree()->SurfaceRanges().contains(
+          ranges[0]));
+  EXPECT_TRUE(
+      layer_context_impl_->host_impl()->active_tree()->SurfaceRanges().contains(
+          ranges[1]));
+  EXPECT_FALSE(
+      layer_context_impl_->host_impl()->active_tree()->SurfaceRanges().contains(
+          ranges[2]));
+}
+
+TEST_F(LayerContextImplTest, UpdateDisplayTreeWithNextFrameToken) {
+  auto update = CreateDefaultUpdate();
+  const uint32_t kTestNextFrameToken = 12345;
+  update->next_frame_token = kTestNextFrameToken;
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  EXPECT_TRUE(result.has_value());
+  EXPECT_EQ(layer_context_impl_->host_impl()->next_frame_token(),
+            kTestNextFrameToken);
+}
+
+TEST_F(LayerContextImplTest, UpdateDisplayTreeWithSendFrameTokenToEmbedder) {
+  auto update = CreateDefaultUpdate();
+  const bool kTestSendFrameTokenToEmbedder = true;
+  update->send_frame_token_to_embedder = kTestSendFrameTokenToEmbedder;
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  EXPECT_TRUE(result.has_value());
+  EXPECT_EQ(layer_context_impl_->host_impl()->send_frame_token_to_embedder(),
+            kTestSendFrameTokenToEmbedder);
+}
+
+TEST_F(LayerContextImplTest, UpdateDisplayTreeWithFullTreeDamaged) {
+  auto update = CreateDefaultUpdate();
+  const bool kTestFullTreeDamaged = true;
+  update->full_tree_damaged = kTestFullTreeDamaged;
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  cc::LayerTreeImpl* active_tree =
+      layer_context_impl_->host_impl()->active_tree();
+  gfx::Rect viewport_rect = active_tree->GetDeviceViewport();
+  EXPECT_TRUE(result.has_value());
+  EXPECT_EQ(
+      viewport_rect,
+      layer_context_impl_->host_impl()->viewport_damage_rect_for_testing());
+}
+
+class LayerContextImplUpdateDisplayTreeInvalidValuesTest
+    : public LayerContextImplTest,
+      public ::testing::WithParamInterface<float> {};
+
+TEST_P(LayerContextImplUpdateDisplayTreeInvalidValuesTest, PageScaleFactor) {
+  const float invalid_value = GetParam();
+  auto update = CreateDefaultUpdate();
+  update->page_scale_factor = invalid_value;
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid page scale factors");
+}
+
+TEST_P(LayerContextImplUpdateDisplayTreeInvalidValuesTest, MinPageScaleFactor) {
+  const float invalid_value = GetParam();
+  auto update = CreateDefaultUpdate();
+  update->min_page_scale_factor = invalid_value;
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid page scale factors");
+}
+
+TEST_P(LayerContextImplUpdateDisplayTreeInvalidValuesTest, MaxPageScaleFactor) {
+  const float invalid_value = GetParam();
+  auto update = CreateDefaultUpdate();
+  update->max_page_scale_factor = invalid_value;
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid page scale factors");
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    InvalidFloats,
+    LayerContextImplUpdateDisplayTreeInvalidValuesTest,
+    ::testing::Values(std::numeric_limits<float>::infinity(),
+                      -std::numeric_limits<float>::infinity(),
+                      std::numeric_limits<float>::quiet_NaN(),
+                      0.0f,
+                      -1.0f),
+    [](const testing::TestParamInfo<
+        LayerContextImplUpdateDisplayTreeInvalidValuesTest::ParamType>& info) {
+      if (std::isinf(info.param)) {
+        return info.param > 0 ? "Infinity" : "NegativeInfinity";
+      }
+      if (std::isnan(info.param)) {
+        return "NaN";
+      }
+      if (info.param == 0.0f) {
+        return "Zero";
+      }
+      if (info.param < 0.0f) {
+        return "Negative";
+      }
+      return "Other";
+    });
+
+TEST_F(LayerContextImplTest, InvalidMinMaxPageScaleFactor) {
+  auto update = CreateDefaultUpdate();
+  update->min_page_scale_factor = 2.0f;
+  update->max_page_scale_factor = 1.0f;
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid page scale factors");
+}
+
+class LayerContextImplUpdateDisplayTreeInvalidBrowserControlsTest
+    : public LayerContextImplTest,
+      public ::testing::WithParamInterface<float> {};
+
+TEST_P(LayerContextImplUpdateDisplayTreeInvalidBrowserControlsTest,
+       TopControlsHeight) {
+  const float invalid_value = GetParam();
+  auto update = CreateDefaultUpdate();
+  update->browser_controls_params.top_controls_height = invalid_value;
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid browser controls params");
+}
+
+TEST_P(LayerContextImplUpdateDisplayTreeInvalidBrowserControlsTest,
+       TopControlsMinHeight) {
+  const float invalid_value = GetParam();
+  auto update = CreateDefaultUpdate();
+  update->browser_controls_params.top_controls_min_height = invalid_value;
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid browser controls params");
+}
+
+TEST_P(LayerContextImplUpdateDisplayTreeInvalidBrowserControlsTest,
+       BottomControlsHeight) {
+  const float invalid_value = GetParam();
+  auto update = CreateDefaultUpdate();
+  update->browser_controls_params.bottom_controls_height = invalid_value;
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid browser controls params");
+}
+
+TEST_P(LayerContextImplUpdateDisplayTreeInvalidBrowserControlsTest,
+       BottomControlsMinHeight) {
+  const float invalid_value = GetParam();
+  auto update = CreateDefaultUpdate();
+  update->browser_controls_params.bottom_controls_min_height = invalid_value;
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid browser controls params");
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    InvalidFloats,
+    LayerContextImplUpdateDisplayTreeInvalidBrowserControlsTest,
+    ::testing::Values(std::numeric_limits<float>::infinity(),
+                      -std::numeric_limits<float>::infinity(),
+                      std::numeric_limits<float>::quiet_NaN(),
+                      -1.0f),
+    [](const testing::TestParamInfo<
+        LayerContextImplUpdateDisplayTreeInvalidBrowserControlsTest::ParamType>&
+           info) {
+      if (std::isinf(info.param)) {
+        return info.param > 0 ? "Infinity" : "NegativeInfinity";
+      }
+      if (std::isnan(info.param)) {
+        return "NaN";
+      }
+      if (info.param < 0.0f) {
+        return "Negative";
+      }
+      return "Other";
+    });
+
+TEST_F(LayerContextImplTest, InvalidMinMaxBrowserControlsHeight) {
+  auto update = CreateDefaultUpdate();
+  update->browser_controls_params.top_controls_height = 10.f;
+  update->browser_controls_params.top_controls_min_height = 20.f;
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid browser controls params");
+
+  update = CreateDefaultUpdate();
+  update->browser_controls_params.bottom_controls_height = 10.f;
+  update->browser_controls_params.bottom_controls_min_height = 20.f;
+
+  result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid browser controls params");
+}
+
+class LayerContextImplUpdateDisplayTreeInvalidElasticOverscrollTest
+    : public LayerContextImplTest,
+      public ::testing::WithParamInterface<float> {};
+
+TEST_P(LayerContextImplUpdateDisplayTreeInvalidElasticOverscrollTest,
+       ElasticOverscrollX) {
+  const float invalid_value = GetParam();
+  auto update = CreateDefaultUpdate();
+  update->scroll_tree_update = mojom::ScrollTreeUpdate::New();
+  update->scroll_tree_update->elastic_overscroll[cc::ElementId(123)] =
+      gfx::Vector2dF(invalid_value, 0.f);
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid elastic_overscroll");
+}
+
+TEST_P(LayerContextImplUpdateDisplayTreeInvalidElasticOverscrollTest,
+       ElasticOverscrollY) {
+  const float invalid_value = GetParam();
+  auto update = CreateDefaultUpdate();
+  update->scroll_tree_update = mojom::ScrollTreeUpdate::New();
+  update->scroll_tree_update->elastic_overscroll[cc::ElementId(123)] =
+      gfx::Vector2dF(0.f, invalid_value);
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid elastic_overscroll");
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    InvalidFloats,
+    LayerContextImplUpdateDisplayTreeInvalidElasticOverscrollTest,
+    ::testing::Values(std::numeric_limits<float>::infinity(),
+                      -std::numeric_limits<float>::infinity(),
+                      std::numeric_limits<float>::quiet_NaN()),
+    [](const testing::TestParamInfo<
+        LayerContextImplUpdateDisplayTreeInvalidElasticOverscrollTest::
+            ParamType>& info) {
+      if (std::isinf(info.param)) {
+        return info.param > 0 ? "Infinity" : "NegativeInfinity";
+      }
+      if (std::isnan(info.param)) {
+        return "NaN";
+      }
+      return "Other";
+    });
+
+class LayerContextImplUpdateDisplayTreeInvalidBackdropFilterQualityTest
+    : public LayerContextImplTest,
+      public ::testing::WithParamInterface<float> {};
+
+TEST_P(LayerContextImplUpdateDisplayTreeInvalidBackdropFilterQualityTest,
+       BackdropFilterQuality) {
+  const float invalid_value = GetParam();
+  auto update = CreateDefaultUpdate();
+  update->num_effect_nodes = 2;
+  auto effect_node = mojom::EffectNode::New();
+  effect_node->id = 1;
+  effect_node->parent_id = 0;
+  effect_node->transform_id = 0;
+  effect_node->clip_id = 0;
+  effect_node->target_id = 0;
+  effect_node->backdrop_filter_quality = invalid_value;
+  update->effect_nodes.push_back(std::move(effect_node));
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid backdrop_filter_quality");
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    InvalidFloats,
+    LayerContextImplUpdateDisplayTreeInvalidBackdropFilterQualityTest,
+    ::testing::Values(std::numeric_limits<float>::infinity(),
+                      -std::numeric_limits<float>::infinity(),
+                      std::numeric_limits<float>::quiet_NaN(),
+                      0.0f,
+                      -0.1f,  // Less than 0
+                      1.1f),  // Greater than 1
+    [](const testing::TestParamInfo<
+        LayerContextImplUpdateDisplayTreeInvalidBackdropFilterQualityTest::
+            ParamType>& info) {
+      if (std::isinf(info.param)) {
+        return info.param > 0 ? "Infinity" : "NegativeInfinity";
+      }
+      if (std::isnan(info.param)) {
+        return "NaN";
+      }
+      if (info.param == 0.0f) {
+        return "Zero";
+      }
+      if (info.param < 0.0f) {
+        return "Negative";
+      }
+      if (info.param > 1.0f) {
+        return "GreaterThanOne";
+      }
+      return "Other";
+    });
+
+class LayerContextImplUpdateDisplayTreeInvalidTransformTreeUpdateTest
+    : public LayerContextImplTest,
+      public ::testing::WithParamInterface<float> {};
+
+TEST_P(LayerContextImplUpdateDisplayTreeInvalidTransformTreeUpdateTest,
+       PageScaleFactor) {
+  const float invalid_value = GetParam();
+  auto update = CreateDefaultUpdate();
+  update->transform_tree_update = mojom::TransformTreeUpdate::New();
+  update->transform_tree_update->page_scale_factor = invalid_value;
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid page_scale_factor");
+}
+
+TEST_P(LayerContextImplUpdateDisplayTreeInvalidTransformTreeUpdateTest,
+       DeviceScaleFactor) {
+  const float invalid_value = GetParam();
+  auto update = CreateDefaultUpdate();
+  update->transform_tree_update = mojom::TransformTreeUpdate::New();
+  update->transform_tree_update->device_scale_factor = invalid_value;
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid device_scale_factor");
+}
+
+TEST_P(LayerContextImplUpdateDisplayTreeInvalidTransformTreeUpdateTest,
+       DeviceTransformScaleFactor) {
+  const float invalid_value = GetParam();
+  auto update = CreateDefaultUpdate();
+  update->transform_tree_update = mojom::TransformTreeUpdate::New();
+  update->transform_tree_update->device_transform_scale_factor = invalid_value;
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid device_transform_scale_factor");
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    InvalidFloats,
+    LayerContextImplUpdateDisplayTreeInvalidTransformTreeUpdateTest,
+    ::testing::Values(std::numeric_limits<float>::infinity(),
+                      -std::numeric_limits<float>::infinity(),
+                      std::numeric_limits<float>::quiet_NaN(),
+                      -1.0f),
+    [](const testing::TestParamInfo<
+        LayerContextImplUpdateDisplayTreeInvalidTransformTreeUpdateTest::
+            ParamType>& info) {
+      if (std::isinf(info.param)) {
+        return info.param > 0 ? "Infinity" : "NegativeInfinity";
+      }
+      if (std::isnan(info.param)) {
+        return "NaN";
+      }
+      if (info.param < 0.0f) {
+        return "Negative";
+      }
+      return "Other";
+    });
 
 }  // namespace
 }  // namespace viz

@@ -16,12 +16,12 @@
 ExclusiveAccessManagerAndroid::ExclusiveAccessManagerAndroid(
     JNIEnv* env,
     const jni_zero::JavaRef<jobject>& j_eam,
-    const jni_zero::JavaRef<jobject>& j_activity,
+    const jni_zero::JavaRef<jobject>& j_context,
     const jni_zero::JavaRef<jobject>& j_fullscreen_manager,
     const jni_zero::JavaRef<jobject>& j_activity_tab_provider)
     : eac_(std::make_unique<ExclusiveAccessContextAndroid>(
           env,
-          j_activity,
+          j_context,
           j_fullscreen_manager,
           j_activity_tab_provider)),
       eam_(eac_.get()) {
@@ -32,15 +32,17 @@ ExclusiveAccessManagerAndroid::~ExclusiveAccessManagerAndroid() = default;
 
 void ExclusiveAccessManagerAndroid::EnterFullscreenModeForTab(
     JNIEnv* env,
-    jlong requesting_frame,
+    const jni_zero::JavaRef<jobject>& jrender_frame_host_android,
     bool prefersNavigationBar,
     bool prefersStatusBar,
     jlong displayId) {
   FullscreenTabParams fullscreen_tab_params{displayId, prefersNavigationBar,
                                             prefersStatusBar};
+  content::RenderFrameHost* rfh =
+      content::RenderFrameHost::FromJavaRenderFrameHost(
+          jrender_frame_host_android);
   eam_.fullscreen_controller()->EnterFullscreenModeForTab(
-      reinterpret_cast<content::RenderFrameHost*>(requesting_frame),
-      fullscreen_tab_params);
+      rfh, fullscreen_tab_params);
 }
 
 void ExclusiveAccessManagerAndroid::ExitFullscreenModeForTab(
@@ -97,6 +99,10 @@ void ExclusiveAccessManagerAndroid::CancelKeyboardLockRequest(
   eam_.keyboard_lock_controller()->CancelKeyboardLockRequest(wc);
 }
 
+bool ExclusiveAccessManagerAndroid::IsKeyboardLocked(JNIEnv* env) {
+  return eam_.keyboard_lock_controller()->IsKeyboardLockActive();
+}
+
 void ExclusiveAccessManagerAndroid::RequestPointerLock(
     JNIEnv* env,
     const jni_zero::JavaRef<jobject>& jweb_contents,
@@ -137,17 +143,29 @@ void ExclusiveAccessManagerAndroid::OnTabClosing(
   eam_.OnTabClosing(content::WebContents::FromJavaWebContents(jweb_contents));
 }
 
+bool ExclusiveAccessManagerAndroid::IsPointerLocked(JNIEnv* env) {
+  return eam_.pointer_lock_controller()->IsPointerLocked();
+}
+
+void ExclusiveAccessManagerAndroid::ForceActiveTab(
+    JNIEnv* env,
+    const jni_zero::JavaRef<jobject>& j_tab) {
+  eac_->ForceActiveTab(env, j_tab);
+}
+
 void ExclusiveAccessManagerAndroid::Destroy(JNIEnv* env) {
   delete this;
 }
 
-jlong JNI_ExclusiveAccessManager_Init(
+static jlong JNI_ExclusiveAccessManager_Init(
     JNIEnv* env,
     const jni_zero::JavaParamRef<jobject>& jeam,
-    const jni_zero::JavaParamRef<jobject>& j_activity,
+    const jni_zero::JavaParamRef<jobject>& j_context,
     const jni_zero::JavaParamRef<jobject>& j_fullscreen_manager,
     const jni_zero::JavaParamRef<jobject>& j_activity_tab_provider) {
   ExclusiveAccessManagerAndroid* content = new ExclusiveAccessManagerAndroid(
-      env, jeam, j_activity, j_fullscreen_manager, j_activity_tab_provider);
+      env, jeam, j_context, j_fullscreen_manager, j_activity_tab_provider);
   return reinterpret_cast<intptr_t>(content);
 }
+
+DEFINE_JNI(ExclusiveAccessManager)

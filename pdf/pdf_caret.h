@@ -12,6 +12,7 @@
 #include "base/timer/timer.h"
 #include "pdf/page_character_index.h"
 #include "pdf/pdf_caret_client.h"
+#include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/geometry/rect.h"
 
 namespace blink {
@@ -41,11 +42,12 @@ class PdfCaret {
   static constexpr base::TimeDelta kDefaultBlinkInterval =
       base::Milliseconds(500);
 
-  // PdfCaret should only be instantiated on a text page with chars.
-  PdfCaret(PdfCaretClient* client, const PageCharacterIndex& index);
+  explicit PdfCaret(PdfCaretClient* client);
   PdfCaret(const PdfCaret&) = delete;
   PdfCaret& operator=(const PdfCaret&) = delete;
-  ~PdfCaret();
+  virtual ~PdfCaret();
+
+  bool enabled() const { return enabled_; }
 
   // Sets whether the caret is enabled. No-op if state does not change. Draws
   // the caret if it should be visible, hides it otherwise. See
@@ -85,9 +87,14 @@ class PdfCaret {
   // viewport geometry changes.
   void OnGeometryChanged();
 
-  // Handles key presses that move the caret. Returns true when the key press is
-  // handled, false otherwise.
-  bool OnKeyDown(const blink::WebKeyboardEvent& event);
+  // Returns whether `OnKeyDown()` will handle `event`. Only arrow key events
+  // are handled. Events are not handled if the caret is disabled.
+  bool WillHandleKeyDownEvent(const blink::WebKeyboardEvent& event);
+
+  // Handles key events that move the caret. See `WillHandleKeyDownEvent()` for
+  // what key events are handled. Returns true when the key event is handled,
+  // false otherwise. Virtual to support testing.
+  virtual bool OnKeyDown(const blink::WebKeyboardEvent& event);
 
  private:
   // Return result of `GetScreenRectForCaret()`.
@@ -121,7 +128,11 @@ class PdfCaret {
   // Returns the screen rect for a char, which may be empty.
   gfx::Rect GetScreenRectForChar(const PageCharacterIndex& index) const;
 
-  // Returns the text direction of `index`, taking page rotations into account.
+  // Returns the text direction of `index`.
+  AccessibilityTextDirection GetTextDirectionAt(
+      const PageCharacterIndex& index) const;
+
+  // Same as `GetTextDirectionAt()`, but takes page rotations into account.
   AccessibilityTextDirection GetTextDirectionAfterRotationAt(
       const PageCharacterIndex& index) const;
 
@@ -133,6 +144,13 @@ class PdfCaret {
   // position if not yet text selecting. If `should_select` is false, text
   // selection will be cleared, and the caret will be set visible.
   void MoveToChar(const PageCharacterIndex& new_index, bool should_select);
+
+  // Returns the arrow key converted from the `key` input after taking text
+  // direction into account. E.g. if the text direction is RTL and `key` is
+  // `ui::KeyboardCode::VKEY_LEFT`, the return result will be
+  // `ui::KeyboardCode::VKEY_RIGHT`. `key` must be an arrow key, otherwise
+  // crashes.
+  ui::KeyboardCode GetLogicalKeyAfterTextDirection(ui::KeyboardCode key) const;
 
   // Determines the next valid char, handling moving horizontally to a char on a
   // different page and ignoring newlines. Does nothing if the current char
@@ -216,6 +234,10 @@ class PdfCaret {
 
   // Whether the caret is visible on screen, taking into account blinking.
   bool is_blink_visible_ = false;
+
+  // Whether the caret has been drawn on screen at least once. Only used to
+  // report metrics.
+  mutable bool first_visible_ = false;
 
   // How often the caret should blink. 0 if the caret should not blink. Never
   // negative.

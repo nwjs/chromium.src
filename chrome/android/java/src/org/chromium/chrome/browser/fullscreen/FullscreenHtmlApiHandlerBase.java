@@ -228,8 +228,7 @@ public abstract class FullscreenHtmlApiHandlerBase
         @Override
         public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
             if (isDisplayEdgeToEdgeFullscreenFeatureEnabledOn2DDevice()
-                    && !ChromeFeatureList.isEnabled(
-                            ChromeFeatureList.ENABLE_EXCLUSIVE_ACCESS_MANAGER)) {
+                    && !ChromeFeatureList.sEnableExclusiveAccessManager.isEnabled()) {
                 // Fix for https://crbug.com/416443642 exiting from full screen mode when
                 // transition to PIP is done.
                 // When playing video in full screen mode and the home button is pushed the page
@@ -361,7 +360,7 @@ public abstract class FullscreenHtmlApiHandlerBase
     @VisibleForTesting
     private FullscreenToast getToast() {
         if (mToast == null) {
-            if (ChromeFeatureList.isEnabled(ChromeFeatureList.ENABLE_EXCLUSIVE_ACCESS_MANAGER)) {
+            if (ChromeFeatureList.sEnableExclusiveAccessManager.isEnabled()) {
                 mToast = new FullscreenToast.NoEffectToastStub();
             } else {
                 mToast =
@@ -661,18 +660,32 @@ public abstract class FullscreenHtmlApiHandlerBase
         updateMultiTouchZoomSupport(true);
     }
 
+    @SuppressWarnings("NewApi")
     private void returnFromTargetScreenIfNeeded() {
-        if (mTabInFullscreen != null) {
-            Pair<Long, Rect> homeAttrs =
-                    TabAttributes.from(mTabInFullscreen)
-                            .get(TabAttributeKeys.FULLSCREEN_START_POSITION);
-            clearFullscreenStartingPositionAndOptions(mTabInFullscreen);
+        if (mTabInFullscreen == null
+                || mTabInFullscreen.isDestroyed()
+                || !isWindowMoveAvailable()) {
+            return;
+        }
 
-            if (homeAttrs != null) {
-                if (!isWindowMoveAvailable()) return;
-                maybeExitActivityFullscreenMode(null);
-                tryToMoveTaskTo(homeAttrs.first, homeAttrs.second);
-            }
+        Pair<Long, Rect> homeAttrs =
+                TabAttributes.from(mTabInFullscreen)
+                        .get(TabAttributeKeys.FULLSCREEN_START_POSITION);
+        clearFullscreenStartingPositionAndOptions(mTabInFullscreen);
+
+        if (homeAttrs != null) {
+            // Exiting fullscreen requires window to be focused. When exiting fullscreen as the
+            // result of action in another window, e.g. closing Presenter Notes window in Slides,
+            // window is not focused, as the last action was performed on another display. To allow
+            // fullscreen exit in that scenario, we are moving window to the front.
+            ensureTaskMovedToFront();
+            maybeExitActivityFullscreenMode(
+                    new OutcomeReceiver<@Nullable Void, Throwable>() {
+                        @Override
+                        public void onResult(@Nullable Void unused) {
+                            tryToMoveTaskTo(homeAttrs.first, homeAttrs.second);
+                        }
+                    });
         }
     }
 

@@ -54,6 +54,7 @@
 #include "third_party/blink/renderer/core/html/anchor_element_viewport_position_tracker.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
+#include "third_party/blink/renderer/core/layout/layout_embedded_content.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_shift_tracker.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
@@ -157,9 +158,10 @@ void ScrollableArea::SetMacScrollbarAnimatorForTesting(
   mac_scrollbar_animator_ = animator_for_testing;
 }
 
-bool ScrollableArea::FadeInScrollbarIfExists() {
+bool ScrollableArea::FadeInScrollbarIfExists(bool horizontal, bool vertical) {
   if (GetMacScrollbarAnimator()) {
-    return GetMacScrollbarAnimator()->FadeInScrollbarIfExists();
+    return GetMacScrollbarAnimator()->FadeInScrollbarIfExists(horizontal,
+                                                              vertical);
   }
   return false;
 }
@@ -414,65 +416,6 @@ bool ScrollableArea::SetScrollOffset(const ScrollOffset& offset,
   return SetScrollOffset(offset, type, source_type, behavior, ScrollCallback());
 }
 
-float ScrollableArea::ScrollStartValueToOffsetAlongAxis(
-    const ScrollStartData& data,
-    cc::SnapAxis axis) const {
-  using Type = blink::ScrollStartValueType;
-  using Axis = cc::SnapAxis;
-  DCHECK(axis == Axis::kX || axis == Axis::kY);
-  const float axis_scroll_extent = axis == Axis::kX
-                                       ? ScrollSize(kHorizontalScrollbar)
-                                       : ScrollSize(kVerticalScrollbar);
-  switch (data.value_type) {
-    case Type::kAuto:
-    case Type::kStart:
-    case Type::kTop:
-    case Type::kLeft:
-      return axis == Axis::kX ? MinimumScrollOffset().x()
-                              : MinimumScrollOffset().y();
-    case Type::kCenter:
-      return axis == Axis::kX
-                 ? MinimumScrollOffset().x() + 0.5 * axis_scroll_extent
-                 : MinimumScrollOffset().y() + 0.5 * axis_scroll_extent;
-    case Type::kEnd:
-      return axis == Axis::kX ? MaximumScrollOffset().x()
-                              : MaximumScrollOffset().y();
-    case Type::kBottom:
-      return axis == Axis::kY ? MaximumScrollOffset().y()
-                              : MinimumScrollOffset().x();
-    case Type::kRight:
-      return axis == Axis::kX ? MaximumScrollOffset().x()
-                              : MinimumScrollOffset().y();
-    case Type::kLengthOrPercentage: {
-      float offset = FloatValueForLength(data.value, axis_scroll_extent);
-      return axis == Axis::kY ? MinimumScrollOffset().y() + offset
-                              : MinimumScrollOffset().x() + offset;
-    }
-    default:
-      return axis == Axis::kX ? MinimumScrollOffset().x()
-                              : MinimumScrollOffset().y();
-  }
-}
-
-ScrollOffset ScrollableArea::ScrollOffsetFromScrollStartData(
-    const ScrollStartData& y_value,
-    const ScrollStartData& x_value) const {
-  ScrollOffset offset;
-
-  offset.set_x(ScrollStartValueToOffsetAlongAxis(x_value, cc::SnapAxis::kX));
-  offset.set_y(ScrollStartValueToOffsetAlongAxis(y_value, cc::SnapAxis::kY));
-
-  return ClampScrollOffset(offset);
-}
-
-bool ScrollableArea::ScrollStartIsDefault() const {
-  if (!GetLayoutBox()) {
-    return true;
-  }
-  return GetLayoutBox()->Style()->ScrollStartX() == ScrollStartData() &&
-         GetLayoutBox()->Style()->ScrollStartY() == ScrollStartData();
-}
-
 const LayoutObject* ScrollableArea::GetScrollInitialTarget() const {
   for (const auto& fragment : GetLayoutBox()->PhysicalFragments()) {
     if (auto scroll_start_target = fragment.ScrollInitialTarget()) {
@@ -545,16 +488,6 @@ void ScrollableArea::ApplyScrollStart() {
       // return here.
       return;
     }
-  }
-
-  if (RuntimeEnabledFeatures::CSSScrollStartEnabled()) {
-    const auto& y_data = GetLayoutBox()->Style()->ScrollStartY();
-    const auto& x_data = GetLayoutBox()->Style()->ScrollStartX();
-    ScrollOffset scroll_start_offset =
-        ScrollOffsetFromScrollStartData(y_data, x_data);
-    SetScrollOffset(scroll_start_offset, mojom::blink::ScrollType::kScrollStart,
-                    cc::ScrollSourceType::kAbsoluteScroll,
-                    mojom::blink::ScrollBehavior::kInstant);
   }
 }
 
@@ -1479,6 +1412,69 @@ ScrollOffset ScrollableArea::GetScrollOffsetForScrollMarkerUpdate() {
         GetProgrammaticScrollAnimator().TargetOffset();
   }
   return offset_for_scroll_marker_update;
+}
+
+namespace {
+
+LayoutBox* GetEnclosingLayoutBoxCrossingDocumentBoundary(
+    LayoutBox* layout_box) {
+  CHECK(layout_box);
+
+  return IsA<LayoutView>(layout_box)
+             ? static_cast<LayoutBox*>(
+                   layout_box->GetFrame()->OwnerLayoutObject())
+             : static_cast<LayoutBox*>(layout_box->ContainingBlock());
+}
+
+ScrollableArea* GetNearestScrollableArea(LayoutBox* current_box) {
+  CHECK(current_box);
+  LayoutBox* next_box = current_box;
+
+  // Scrolling propagates along the containing block chain and ends at the
+  // RootScroller node. The RootScroller node will have a custom applyScroll
+  // callback that performs scrolling as well as associated "root" actions like
+  // browser control movement and overscroll glow.
+  do {
+    if (next_box->IsGlobalRootScroller() ||
+        (next_box->IsScrollContainer() &&
+         (next_box->GetScrollableArea()->ScrollsOverflow() ||
+          !next_box->GetScrollableArea()->CanPropagateScroll()))) {
+      return next_box->GetScrollableArea();
+    }
+
+    next_box = GetEnclosingLayoutBoxCrossingDocumentBoundary(next_box);
+  } while (next_box);
+
+  return &current_box->GetDocument().GetPage()->GetVisualViewport();
+}
+
+}  // namespace
+
+ScrollableAreaTraversal::ScrollableAreaTraversal(Node* target_node) {
+  if (!target_node || !target_node->GetLayoutObject()) {
+    return;
+  }
+
+  auto* layout_box = target_node->GetLayoutObject()->EnclosingBox();
+  start_scrollable_area_ =
+      layout_box ? GetNearestScrollableArea(layout_box)
+                 : &target_node->GetDocument().GetPage()->GetVisualViewport();
+}
+
+ScrollableAreaTraversal::Iterator&
+ScrollableAreaTraversal::Iterator::operator++() {
+  CHECK(current_scrollable_area_);
+
+  if (auto* current_box = current_scrollable_area_->GetLayoutBox()) {
+    auto* next_box = GetEnclosingLayoutBoxCrossingDocumentBoundary(current_box);
+    current_scrollable_area_ =
+        next_box ? GetNearestScrollableArea(next_box)
+                 : &current_box->GetDocument().GetPage()->GetVisualViewport();
+    return *this;
+  }
+
+  current_scrollable_area_ = nullptr;
+  return *this;
 }
 
 }  // namespace blink

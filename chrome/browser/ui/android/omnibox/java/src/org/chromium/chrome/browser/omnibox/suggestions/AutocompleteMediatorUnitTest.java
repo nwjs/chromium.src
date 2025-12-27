@@ -53,12 +53,14 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.omnibox.DeferredIMEWindowInsetApplicationCallback;
 import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
+import org.chromium.chrome.browser.omnibox.NewTabPageDelegate;
 import org.chromium.chrome.browser.omnibox.OmniboxMetrics;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
-import org.chromium.chrome.browser.omnibox.navattach.NavigationAttachmentsCoordinator;
+import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.header.HeaderProcessor;
 import org.chromium.chrome.browser.omnibox.test.R;
@@ -127,11 +129,10 @@ public class AutocompleteMediatorUnitTest {
     private @Mock AutocompleteCoordinator.OmniboxSuggestionsVisualStateObserver
             mVisualStateObserver;
     private @Mock DeferredIMEWindowInsetApplicationCallback mDeferredImeCallback;
-    private @Mock NavigationAttachmentsCoordinator mNavigationAttachmentsCoordinator;
+    private @Mock FuseboxCoordinator mFuseboxCoordinator;
     private @Captor ArgumentCaptor<OmniboxLoadUrlParams> mOmniboxLoadUrlParamsCaptor;
     private @Mock CachedZeroSuggestionsManager.OverridesForTesting
             mMockCachedZeroSuggestionsManager;
-
     private PropertyModel mListModel;
     private AutocompleteMediator mMediator;
     private List<AutocompleteMatch> mSuggestionsList;
@@ -174,8 +175,10 @@ public class AutocompleteMediatorUnitTest {
 
         lenient()
                 .doReturn(mAutocompleteRequestTypeSupplier)
-                .when(mNavigationAttachmentsCoordinator)
+                .when(mFuseboxCoordinator)
                 .getAutocompleteRequestTypeSupplier();
+
+        lenient().doReturn(0).when(mFuseboxCoordinator).getAttachmentsCount();
 
         mMediator =
                 new AutocompleteMediator(
@@ -195,7 +198,7 @@ public class AutocompleteMediatorUnitTest {
                         mEmbedder,
                         mWindowAndroid,
                         mDeferredImeCallback,
-                        mNavigationAttachmentsCoordinator,
+                        mFuseboxCoordinator,
                         false);
         mMediator
                 .getDropdownItemViewInfoListBuilderForTest()
@@ -266,9 +269,7 @@ public class AutocompleteMediatorUnitTest {
         lenient().when(mLocationBarDataProvider.getCurrentGurl()).thenReturn(url);
         lenient().when(mLocationBarDataProvider.getTitle()).thenReturn(title);
         lenient()
-                .when(
-                        mLocationBarDataProvider.getPageClassification(
-                                AutocompleteRequestType.SEARCH))
+                .when(mLocationBarDataProvider.getPageClassification(/* prefetch= */ false))
                 .thenReturn(pageClassification);
     }
 
@@ -1633,7 +1634,7 @@ public class AutocompleteMediatorUnitTest {
         when(mTextStateProvider.getTextWithAutocomplete()).thenReturn("test");
         mAutocompleteRequestTypeSupplier.set(AutocompleteRequestType.AI_MODE);
         GURL url = JUnitTestGURLs.BLUE_2;
-        when(mNavigationAttachmentsCoordinator.getAimUrl("test")).thenReturn(url);
+        when(mFuseboxCoordinator.getAimUrl(any())).thenReturn(url);
 
         AutocompleteMatch defaultMatch =
                 AutocompleteMatchBuilder.searchWithType(OmniboxSuggestionType.SEARCH_SUGGEST)
@@ -1645,9 +1646,113 @@ public class AutocompleteMediatorUnitTest {
         mSuggestionsList.add(0, defaultMatch);
         mMediator.onSuggestionsReceived(AutocompleteResult.fromCache(mSuggestionsList, null), true);
 
-        mMediator.loadTypedOmniboxText(123L, false);
+        mMediator.loadTypedOmniboxText(
+                123L, /* openInNewTab= */ false, /* openInNewWindow= */ false);
 
         verify(mAutocompleteDelegate).loadUrl(mOmniboxLoadUrlParamsCaptor.capture());
         assertEquals(mOmniboxLoadUrlParamsCaptor.getValue().url, url.getSpec());
+    }
+
+    @Test
+    @SmallTest
+    public void loadTypedOmniboxText_imageGenerationUrl() {
+        mMediator.setAutocompleteProfile(mProfile);
+        mMediator.onNativeInitialized();
+        mMediator.onOmniboxSessionStateChange(true);
+        when(mTextStateProvider.getTextWithoutAutocomplete()).thenReturn("test");
+        when(mTextStateProvider.getTextWithAutocomplete()).thenReturn("test");
+        mAutocompleteRequestTypeSupplier.set(AutocompleteRequestType.IMAGE_GENERATION);
+        GURL url1 = JUnitTestGURLs.BLUE_1;
+        when(mFuseboxCoordinator.getAimUrl(any())).thenReturn(url1);
+        GURL url2 = JUnitTestGURLs.BLUE_2;
+        when(mFuseboxCoordinator.getImageGenerationUrl(any())).thenReturn(url2);
+
+        AutocompleteMatch defaultMatch =
+                AutocompleteMatchBuilder.searchWithType(OmniboxSuggestionType.SEARCH_SUGGEST)
+                        .setDisplayText("test suggestion")
+                        .setInlineAutocompletion("")
+                        .setAllowedToBeDefaultMatch(true)
+                        .setUrl(JUnitTestGURLs.GOOGLE_URL)
+                        .build();
+        mSuggestionsList.add(0, defaultMatch);
+        mMediator.onSuggestionsReceived(AutocompleteResult.fromCache(mSuggestionsList, null), true);
+
+        mMediator.loadTypedOmniboxText(
+                123L, /* openInNewTab= */ false, /* openInNewWindow= */ false);
+
+        verify(mAutocompleteDelegate).loadUrl(mOmniboxLoadUrlParamsCaptor.capture());
+        assertEquals(mOmniboxLoadUrlParamsCaptor.getValue().url, url2.getSpec());
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(
+            ChromeFeatureList.OMNIBOX_AUTOFOCUS_ON_INCOGNITO_NTP + ":disable_zero_suggest/true")
+    public void
+            onTextChanged_cachedZpsNotInvoked_whenOmniboxAutofocusOnIncognitoNtpAllowed_withoutZeroSuggest() {
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectBooleanRecordTimes(
+                                OmniboxMetrics.HISTOGRAM_ZERO_SUGGEST_SUPPRESSED_ON_INCOGNITO_NTP,
+                                true,
+                                1)
+                        .build();
+
+        NewTabPageDelegate ntpDelegate = mock(NewTabPageDelegate.class);
+        doReturn(ntpDelegate).when(mLocationBarDataProvider).getNewTabPageDelegate();
+        mMediator
+                .getAutocompleteInputForTesting()
+                .setPageClassification(PageClassification.ANDROID_SEARCH_WIDGET_VALUE);
+
+        doReturn(mAutocompleteResult)
+                .when(mMockCachedZeroSuggestionsManager)
+                .readFromCache(anyInt());
+
+        // Cached suggestions should be suppressed when on an Incognito NTP with autofocus enabled
+        // and zero suggest disabled.
+        doReturn(true).when(ntpDelegate).isIncognitoNewTabPageCurrentlyVisible();
+        mMediator.onTextChanged("", /* isOnFocusContext= */ true);
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+        verify(mMockCachedZeroSuggestionsManager, never()).readFromCache(anyInt());
+
+        // Histogram should be recorded once.
+        histogramWatcher.assertExpected();
+
+        // When not on an Incognito NTP, cached suggestions should be shown.
+        doReturn(false).when(ntpDelegate).isIncognitoNewTabPageCurrentlyVisible();
+        mMediator.onTextChanged("", /* isOnFocusContext= */ true);
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+        verify(mMockCachedZeroSuggestionsManager, times(1)).readFromCache(anyInt());
+
+        // Histogram record count should not be increased.
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(
+            ChromeFeatureList.OMNIBOX_AUTOFOCUS_ON_INCOGNITO_NTP + ":disable_zero_suggest/false")
+    public void
+            onTextChanged_cachedZpsShown_whenOmniboxAutofocusOnIncognitoNtpAllowed_withZeroSuggest() {
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                OmniboxMetrics.HISTOGRAM_ZERO_SUGGEST_SUPPRESSED_ON_INCOGNITO_NTP)
+                        .build();
+
+        mMediator
+                .getAutocompleteInputForTesting()
+                .setPageClassification(PageClassification.ANDROID_SEARCH_WIDGET_VALUE);
+        doReturn(mAutocompleteResult)
+                .when(mMockCachedZeroSuggestionsManager)
+                .readFromCache(anyInt());
+
+        // When the feature is enabled and zero suggest should be enabled,
+        // cached suggestions should be shown, and the Incognito NTP check should be skipped.
+        mMediator.onTextChanged("", /* isOnFocusContext= */ false);
+        verify(mMockCachedZeroSuggestionsManager, times(1)).readFromCache(anyInt());
+        verify(mLocationBarDataProvider, never()).getNewTabPageDelegate();
+
+        histogramWatcher.assertExpected();
     }
 }

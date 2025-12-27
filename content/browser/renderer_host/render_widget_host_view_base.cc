@@ -47,6 +47,7 @@
 #include "ui/display/display_util.h"
 #include "ui/display/screen.h"
 #include "ui/events/event.h"
+#include "ui/events/gesture_detection/filtered_gesture_provider.h"
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/gfx/geometry/dip_util.h"
 #include "ui/gfx/geometry/point_conversions.h"
@@ -58,6 +59,8 @@
 #endif
 
 namespace content {
+
+void RenderWidgetHostViewBase::OnUnconfirmedTapConvertedToTap() {}
 
 RenderWidgetHostViewBase::RenderWidgetHostViewBase(RenderWidgetHost* host)
     : host_(RenderWidgetHostImpl::From(host)),
@@ -281,6 +284,11 @@ void RenderWidgetHostViewBase::CopyFromExactSurface(
   std::move(callback).Run(viz::CopyOutputBitmapWithMetadata());
 }
 
+ui::FilteredGestureProvider*
+RenderWidgetHostViewBase::GetFilteredGestureProviderForTesting() {
+  return nullptr;
+}
+
 #if BUILDFLAG(IS_ANDROID)
 void RenderWidgetHostViewBase::CopyFromExactSurfaceWithIpcDelay(
     const gfx::Rect& src_rect,
@@ -472,6 +480,7 @@ void RenderWidgetHostViewBase::UpdateScreenInfo() {
   }
 
   auto new_screen_infos = GetNewScreenInfosForUpdate();
+  new_screen_infos.mutable_current().handwriting_radius = handwriting_radius_;
 
   if (scale_override_for_capture_ != 1.0f) {
     // If HiDPI capture mode is active, adjust the device scale factor to

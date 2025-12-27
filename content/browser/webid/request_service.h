@@ -26,12 +26,13 @@
 #include "content/browser/webid/metrics.h"
 #include "content/browser/webid/url_computations.h"
 #include "content/common/content_export.h"
-#include "content/public/browser/document_service.h"
+#include "content/public/browser/document_user_data.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/webid/autofill_source.h"
 #include "content/public/browser/webid/federated_identity_api_permission_context_delegate.h"
 #include "content/public/browser/webid/federated_identity_permission_context_delegate.h"
 #include "content/public/browser/webid/identity_request_dialog_controller.h"
+#include "mojo/public/cpp/bindings/receiver_set.h"
 #include "third_party/blink/public/mojom/credentialmanagement/credential_manager.mojom.h"
 #include "third_party/blink/public/mojom/webid/federated_auth_request.mojom.h"
 #include "url/gurl.h"
@@ -40,6 +41,7 @@ namespace content {
 
 class FederatedIdentityAutoReauthnPermissionContextDelegate;
 class FederatedIdentityPermissionContextDelegate;
+class NavigationHandle;
 class RenderFrameHost;
 
 namespace webid {
@@ -60,12 +62,11 @@ using TokenError = IdentityCredentialTokenError;
 // fulfill WebID-related requests.
 //
 // In practice, it is owned and managed by a RenderFrameHost. It accomplishes
-// that via subclassing DocumentService, which observes the lifecycle of a
+// that via subclassing DocumentUserData, which observes the lifecycle of a
 // RenderFrameHost and manages its own memory.
-// Create() creates a self-managed instance of RequestService and
-// binds it to the receiver.
 class CONTENT_EXPORT RequestService
-    : public DocumentService<blink::mojom::FederatedAuthRequest>,
+    : public DocumentUserData<RequestService>,
+      public blink::mojom::FederatedAuthRequest,
       public content::FederatedIdentityPermissionContextDelegate::
           IdpSigninStatusObserver,
       public IdentityRegistryDelegate,
@@ -73,20 +74,53 @@ class CONTENT_EXPORT RequestService
  public:
   static constexpr char kWildcardDomainHint[] = "any";
 
-  static void Create(RenderFrameHost*,
-                     mojo::PendingReceiver<blink::mojom::FederatedAuthRequest>);
-  static RequestService& CreateForTesting(
-      RenderFrameHost&,
-      FederatedIdentityApiPermissionContextDelegate*,
-      FederatedIdentityAutoReauthnPermissionContextDelegate*,
-      FederatedIdentityPermissionContextDelegate*,
-      IdentityRegistry*,
-      mojo::PendingReceiver<blink::mojom::FederatedAuthRequest>);
+  DOCUMENT_USER_DATA_KEY_DECL();
+
+  explicit RequestService(RenderFrameHost* rfh);
+
+  RequestService(
+      RenderFrameHost* rfh,
+      FederatedIdentityApiPermissionContextDelegate* api_permission_delegate,
+      FederatedIdentityAutoReauthnPermissionContextDelegate*
+          auto_reauthn_permission_delegate,
+      FederatedIdentityPermissionContextDelegate* permission_delegate,
+      IdentityRegistry* identity_registry);
 
   RequestService(const RequestService&) = delete;
   RequestService& operator=(const RequestService&) = delete;
 
   ~RequestService() override;
+
+  // Creates a RequestService for testing and binds it to the receiver.
+  static RequestService& CreateForTesting(
+      RenderFrameHost& rfh,
+      FederatedIdentityApiPermissionContextDelegate* api_permission_delegate,
+      FederatedIdentityAutoReauthnPermissionContextDelegate*
+          auto_reauthn_permission_delegate,
+      FederatedIdentityPermissionContextDelegate* permission_delegate,
+      IdentityRegistry* identity_registry,
+      mojo::PendingReceiver<blink::mojom::FederatedAuthRequest>
+          pending_receiver);
+
+  void BindReceiver(mojo::PendingReceiver<blink::mojom::FederatedAuthRequest>
+                        pending_receiver);
+
+  void ReportBadMessage(const char* message);
+
+  // Unassociates and deletes `this` from the document for use by tests.
+  // TODO(crbug.com/459135671): Change tests to navigate instead and remove
+  // this method.
+  void ResetAndDeleteThisForTesting();
+
+  // An overload of the mojo version of RequestToken. If |navigation_handle|
+  // is provided, that handle is checked to see if user activation is present.
+  // This is virtual so that it can be mocked.MockNavigationThrottleRegistry
+  virtual void RequestToken(
+      std::vector<blink::mojom::IdentityProviderGetParametersPtr>
+          idp_get_params_ptrs,
+      MediationRequirement requirement,
+      NavigationHandle* navigation_handle,
+      RequestTokenCallback);
 
   // blink::mojom::FederatedAuthRequest:
   void RequestToken(std::vector<blink::mojom::IdentityProviderGetParametersPtr>
@@ -300,13 +334,6 @@ class CONTENT_EXPORT RequestService
     bool did_succeed_for_at_least_one_idp{false};
   };
 
-  RequestService(RenderFrameHost&,
-                 FederatedIdentityApiPermissionContextDelegate*,
-                 FederatedIdentityAutoReauthnPermissionContextDelegate*,
-                 FederatedIdentityPermissionContextDelegate*,
-                 IdentityRegistry*,
-                 mojo::PendingReceiver<blink::mojom::FederatedAuthRequest>);
-
   bool HasPendingRequest() const;
 
   // Fetch well-known, config, accounts and client metadata endpoints for
@@ -475,9 +502,6 @@ class CONTENT_EXPORT RequestService
   base::flat_map<GURL, std::vector<IdentityRequestAccountPtr>> idp_accounts_;
   // The accounts to be displayed by the UI.
   std::vector<IdentityRequestAccountPtr> accounts_;
-  // The newly logged in accounts, to be prioritized by the UI. Subset of
-  // `accounts_`.
-  std::vector<IdentityRequestAccountPtr> new_accounts_;
 
   // Contains the set of account IDs of an IDP before a login URL is displayed
   // to the user. Used to compute the account ID of the account that the user
@@ -613,6 +637,8 @@ class CONTENT_EXPORT RequestService
   std::optional<VerifyingDialogResult> verifying_dialog_result_;
 
   perfetto::NamedTrack perfetto_track_;
+
+  mojo::Receiver<blink::mojom::FederatedAuthRequest> receiver_{this};
 
   base::WeakPtrFactory<RequestService> weak_ptr_factory_{this};
 };

@@ -10,6 +10,7 @@
 #include "build/build_config.h"
 #include "components/autofill/core/browser/foundations/with_test_autofill_client_driver_manager.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
+#include "components/autofill/core/browser/payments/mock_credit_card_access_manager_observer.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/test/test_credit_card_otp_authenticator.h"
 #include "components/autofill/core/browser/payments/test_payments_autofill_client.h"
@@ -164,6 +165,12 @@ class CreditCardAccessManagerTestBase
 
   void InvokeDelayedGetUnmaskDetailsResponse();
   void InvokeUnmaskDetailsTimeout();
+
+  void FastForwardBy(base::TimeDelta delta) {
+    task_environment_.FastForwardBy(delta);
+  }
+
+  // Runs until the task environment is idle.
   void WaitForCallbacks();
 
   void SetCreditCardFIDOAuthEnabled(bool enabled);
@@ -182,17 +189,15 @@ class CreditCardAccessManagerTestBase
   void VerifyOnSelectChallengeOptionInvoked();
 
  protected:
+  TestAccessor& accessor() { return accessor_; }
+
   CreditCardAccessManager& credit_card_access_manager() {
-    return autofill_manager().GetCreditCardAccessManager();
+    return *autofill_manager().GetCreditCardAccessManager();
   }
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
   TestCreditCardFidoAuthenticator& fido_authenticator();
 #endif
-
-  payments::TestPaymentsAutofillClient& payments_autofill_client() {
-    return *autofill_client().GetPaymentsAutofillClient();
-  }
 
   TestCreditCardOtpAuthenticator& otp_authenticator() {
     return static_cast<TestCreditCardOtpAuthenticator&>(
@@ -211,8 +216,22 @@ class CreditCardAccessManagerTestBase
 
   void FetchCreditCard(const CreditCard* card);
 
-  std::unique_ptr<TestAccessor> accessor_;
+  // Sets the expectation that `observer` witnesses a fetch card request for
+  // `card_to_fetch` that fails.
+  void ExpectCardRetrievalFailure(
+      CreditCard card_to_fetch,
+      MockCreditCardAccessManagerObserver& observer);
+
+  // Sets the expectation that `observer` witnesses a fetch card request for
+  // `card_to_fetch`, which succeeds in the retrieval of `retrieved_card`.
+  void ExpectCardRetrievalSuccess(
+      CreditCard card_to_fetch,
+      CreditCard retrieved_card,
+      MockCreditCardAccessManagerObserver& observer);
+
+ private:
   base::test::TaskEnvironment task_environment_;
+  TestAccessor accessor_;
   variations::test::ScopedVariationsIdsProvider scoped_variations_ids_provider_{
       variations::VariationsIdsProvider::Mode::kUseSignedInState};
   syncer::TestSyncService sync_service_;

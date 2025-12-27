@@ -28,7 +28,6 @@
 #include "components/services/storage/public/mojom/storage_usage_info.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
-#include "mojo/public/cpp/bindings/remote.h"
 #include "storage/common/database/db_status.h"
 #include "third_party/blink/public/mojom/dom_storage/storage_area.mojom.h"
 
@@ -130,7 +129,6 @@ class LocalStorageImpl : public base::trace_event::MemoryDumpProvider,
   // Part of our asynchronous directory opening called from RunWhenConnected().
   void InitiateConnection(bool in_memory_only = false);
   void OnDatabaseOpened(DbStatus status);
-  void OnGotDatabaseVersion(DbStatus status, DomStorageDatabase::Value value);
   void OnConnectionFinished();
   void DeleteAndRecreateDatabase();
   void OnDBDestroyed(bool recreate_in_memory, DbStatus status);
@@ -142,7 +140,7 @@ class LocalStorageImpl : public base::trace_event::MemoryDumpProvider,
   // from that function, or through |on_database_open_callbacks_|.
   void RetrieveStorageUsage(GetUsageCallback callback);
   void OnGotWriteMetaData(GetUsageCallback callback,
-                          std::vector<DomStorageDatabase::KeyValuePair> data);
+                          StatusOr<DomStorageDatabase::Metadata> all_metadata);
 
   void OnGotStorageUsageForShutdown(
       std::vector<mojom::StorageUsageInfoPtr> usage);
@@ -156,7 +154,7 @@ class LocalStorageImpl : public base::trace_event::MemoryDumpProvider,
   // the database. See crbug.com/40281870 for more info.
   void DeleteStaleStorageAreas();
   void OnGotMetaDataToDeleteStaleStorageAreas(
-      std::vector<DomStorageDatabase::KeyValuePair> data);
+      StatusOr<DomStorageDatabase::Metadata> all_metadata);
   void OnReceiverDisconnected();
 
   // Passed in by the StorageServiceImpl that owns this object. Used to signal
@@ -171,7 +169,6 @@ class LocalStorageImpl : public base::trace_event::MemoryDumpProvider,
     CONNECTION_FINISHED,
     CONNECTION_SHUTDOWN
   } connection_state_ = NO_CONNECTION;
-  bool database_initialized_ = false;
 
   bool force_keep_session_state_ = false;
 

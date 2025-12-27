@@ -92,17 +92,26 @@ NamedMojoServerEndpointConnectorWin::NamedMojoServerEndpointConnectorWin(
 
 NamedMojoServerEndpointConnectorWin::~NamedMojoServerEndpointConnectorWin() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (pending_named_pipe_handle_.is_valid()) {
+    CancelIoEx(pending_named_pipe_handle_.Get(), &connect_overlapped_);
+    DWORD bytes = 0;
+    GetOverlappedResult(pending_named_pipe_handle_.Get(), &connect_overlapped_,
+                        &bytes, TRUE);
+  }
 }
 
 void NamedMojoServerEndpointConnectorWin::Connect() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(!pending_named_pipe_handle_.IsValid());
+  DCHECK(!pending_named_pipe_handle_.is_valid());
 
   mojo::NamedPlatformChannel::Options options;
   options.server_name = options_.server_name;
   options.security_descriptor = options_.security_descriptor;
-  // Must be set to false to allow multiple clients to connect.
+
+  // Allow multiple clients to connect.
   options.enforce_uniqueness = false;
+  options.max_clients = PIPE_UNLIMITED_INSTANCES;
+
   mojo::PlatformChannelServerEndpoint server_endpoint =
       mojo::NamedPlatformChannel(options).TakeServerEndpoint();
   if (!server_endpoint.is_valid()) {

@@ -21,6 +21,7 @@ import org.chromium.chrome.browser.homepage.settings.RadioButtonGroupHomepagePre
 import org.chromium.chrome.browser.homepage.settings.RadioButtonGroupHomepagePreference.PreferenceValues;
 import org.chromium.chrome.browser.settings.ChromeBaseSettingsFragment;
 import org.chromium.chrome.browser.settings.ChromeManagedPreferenceDelegate;
+import org.chromium.chrome.browser.settings.search.BaseSearchIndexProvider;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
 import org.chromium.components.embedder_support.util.UrlUtilities;
@@ -265,4 +266,13 @@ public class HomepageSettings extends ChromeBaseSettingsFragment {
     public @AnimationType int getAnimationType() {
         return AnimationType.PROPERTY;
     }
+
+    @Override
+    public @Nullable String getMainMenuKey() {
+        return "homepage";
+    }
+
+    public static final BaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new BaseSearchIndexProvider(
+                    HomepageSettings.class.getName(), R.xml.homepage_preferences);
 }

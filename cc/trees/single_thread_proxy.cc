@@ -561,6 +561,8 @@ void SingleThreadProxy::SetVideoNeedsBeginFrames(bool needs_begin_frames) {
     scheduler_on_impl_thread_->SetVideoNeedsBeginFrames(needs_begin_frames);
 }
 
+void SingleThreadProxy::DidChangeBeginFrameSourcePaused(bool paused) {}
+
 bool SingleThreadProxy::IsInsideDraw() {
   DCHECK(!task_runner_provider_->HasImplThread() ||
          task_runner_provider_->IsImplThread());
@@ -840,7 +842,7 @@ void SingleThreadProxy::CompositeImmediatelyForTest(
     host_impl_->Animate();
 
     if (raster) {
-      LayerTreeHostImpl::FrameData frame;
+      FrameData frame;
       frame.begin_frame_ack = viz::BeginFrameAck(begin_frame_args, true);
       frame.origin_begin_main_frame_args = begin_frame_args;
       DoComposite(&frame);
@@ -878,7 +880,7 @@ void SingleThreadProxy::ScheduleRequestNewLayerTreeFrameSink() {
   }
 }
 
-DrawResult SingleThreadProxy::DoComposite(LayerTreeHostImpl::FrameData* frame) {
+DrawResult SingleThreadProxy::DoComposite(FrameData* frame) {
   TRACE_EVENT0("cc", "SingleThreadProxy::DoComposite");
 
   DrawResult draw_result;
@@ -1221,7 +1223,7 @@ void SingleThreadProxy::BeginMainFrameAbortedOnImplThread(
 
 DrawResult SingleThreadProxy::ScheduledActionDrawIfPossible() {
   DebugScopedSetImplThread impl(task_runner_provider_);
-  LayerTreeHostImpl::FrameData frame;
+  FrameData frame;
   frame.begin_frame_ack =
       scheduler_on_impl_thread_->CurrentBeginFrameAckForActiveTree();
   frame.origin_begin_main_frame_args =

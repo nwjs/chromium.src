@@ -319,8 +319,10 @@ inline constexpr char kWebkitTabsToLinks[] = "webkit.webprefs.tabs_to_links";
 inline constexpr char kWebKitAllowRunningInsecureContent[] =
     "webkit.webprefs.allow_running_insecure_content";
 #if BUILDFLAG(IS_ANDROID)
-inline constexpr char kWebKitPasswordEchoEnabled[] =
-    "webkit.webprefs.password_echo_enabled";
+inline constexpr char kWebKitPasswordEchoEnabledPhysical[] =
+    "webkit.webprefs.password_echo_enabled_physical";
+inline constexpr char kWebKitPasswordEchoEnabledTouch[] =
+    "webkit.webprefs.password_echo_enabled_touch";
 #endif
 inline constexpr char kWebKitForceDarkModeEnabled[] =
     "webkit.webprefs.force_dark_mode_enabled";
@@ -1318,6 +1320,15 @@ inline constexpr char kShowForwardButton[] = "browser.show_forward_button";
 // toolbar.
 inline constexpr char kPinSplitTabButton[] = "browser.pin_split_tab_button";
 
+// A boolean pref set to true if the contextual task button should be pinned to
+// the toolbar.
+inline constexpr char kPinContextualTaskButton[] =
+    "browser.pin_contextual_task_button";
+
+// An integer pref that tracks how many times the next panel has been opened.
+inline constexpr char kContextualTasksNextPanelOpenCount[] =
+    "contextual_tasks.next_panel_open_count";
+
 // A boolean pref set to true if links/tabs can be dragged to create split tabs.
 inline constexpr char kSplitViewDragAndDropEnabled[] =
     "browser.split_view_drag_and_drop_enabled";
@@ -1539,6 +1550,9 @@ inline constexpr char kEnableHyperlinkAuditing[] = "enable_a_ping";
 
 // Whether to enable sending referrers.
 inline constexpr char kEnableReferrers[] = "enable_referrers";
+
+// Whether to send the DNT header.
+inline constexpr char kEnableDoNotTrack[] = "enable_do_not_track";
 
 // Whether to allow the use of Encrypted Media Extensions (EME), except for the
 // use of Clear Key key sytems, which is always allowed as required by the spec.
@@ -1787,6 +1801,9 @@ inline constexpr char kAccessibilityForceEnableZoom[] =
 inline constexpr char kAccessibilityTextSizeContrastFactor[] =
     "settings.a11y.text_size_contrast_factor";
 
+inline constexpr char kAccessibilityTouchpadOverscrollHistoryNavigation[] =
+    "settings.a11y.touchpad_overscroll_history_navigation";
+
 // Boolean pref indicating whether notification permissions were migrated to
 // notification channels (on Android O+ we use channels to store notification
 // permission, so any existing permissions must be migrated).
@@ -2005,6 +2022,10 @@ inline constexpr char kSkyVaultMigrationScheduledStartTime[] =
 inline constexpr char kSkyVaultMigrationStartTime[] =
     "skyvault.migration_start_time";
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+// Boolean that when set overrides the kStaticStorageQuota feature flag.
+inline constexpr char kStaticStorageQuotaEnabled[] =
+    "static_storage_quota_enabled";
 
 // *************** LOCAL STATE ***************
 // These are attached to the machine/installation
@@ -2385,6 +2406,15 @@ inline constexpr char kDisableExtensions[] = "extensions.disabled";
 inline constexpr char kNtpCollapsedForeignSessions[] =
     "ntp.collapsed_foreign_sessions";
 
+inline constexpr char kNtpCustomBackgroundDict[] =
+    "ntp.custom_background_dict2";
+inline constexpr char kNtpCustomBackgroundLocalToDevice[] =
+    "ntp.custom_background_local_to_device";
+inline constexpr char kNtpCustomBackgroundLocalToDeviceId[] =
+    "ntp.custom_background_local_to_device_id";
+inline constexpr char kNtpCustomBackgroundInspiration[] =
+    "ntp.custom_background_inspiration";
+
 #if BUILDFLAG(IS_ANDROID)
 // Keeps track of recently closed tabs collapsed state in the Other Devices
 // menu.
@@ -2405,14 +2435,6 @@ inline const char kNtpComposeButtonShownCountPrefName[] =
 // Use `kNtpCustomBackgroundDict` only.
 inline constexpr char kDeprecatedNtpCustomBackgroundDictDoNotUse[] =
     "ntp.custom_background_dict";
-inline constexpr char kNtpCustomBackgroundDict[] =
-    "ntp.custom_background_dict2";
-inline constexpr char kNtpCustomBackgroundLocalToDevice[] =
-    "ntp.custom_background_local_to_device";
-inline constexpr char kNtpCustomBackgroundLocalToDeviceId[] =
-    "ntp.custom_background_local_to_device_id";
-inline constexpr char kNtpCustomBackgroundInspiration[] =
-    "ntp.custom_background_inspiration";
 // Number of times the user has opened the side panel with the customize chrome
 // button.
 inline constexpr char kNtpCustomizeChromeButtonOpenCount[] =
@@ -2512,6 +2534,16 @@ inline constexpr char kDevToolsLastOpenTimestamp[] =
 // Defines administrator-set availability of developer tools remote debugging.
 inline constexpr char kDevToolsRemoteDebuggingAllowed[] =
     "devtools.remote_debugging.allowed";
+
+// A boolean specifying whether remote debugging server was enabled by the user
+// through chrome://inspect.
+// The preference does not reflect the actual state of the remote debugging
+// server, it's intended to be used to determine whether the remote debugging
+// server should be started in the per-connection approval mode.
+// This preference is application-wide, not per-profile since the debugging
+// server is global.
+inline constexpr char kDevToolsRemoteDebuggingEnabled[] =
+    "devtools.remote_debugging.user-enabled";
 
 // Dictionary from background service to recording expiration time.
 inline constexpr char kDevToolsBackgroundServicesExpirationDict[] =
@@ -2895,6 +2927,11 @@ inline constexpr char kDnsOverHttpsMode[] = "dns_over_https.mode";
 // mode, we will attempt discovery of DoH servers associated with the configured
 // insecure resolvers.
 inline constexpr char kDnsOverHttpsTemplates[] = "dns_over_https.templates";
+
+// Boolean that specifies whether Secure DNS in automatic mode should prefer to
+// fallback to DoH with Google DNS instead of using insecure DNS.
+inline constexpr char kDnsOverHttpsAutomaticModeFallbackToDoh[] =
+    "dns_over_https.automatic_mode_fallback_to_doh";
 
 #if BUILDFLAG(IS_CHROMEOS)
 // String containing a space-separated list of DNS over HTTPS URI templates,
@@ -4316,6 +4353,21 @@ inline constexpr char kOriginKeyedProcessesEnabled[] =
 inline constexpr char kNonMilestoneUpdateToastVersion[] =
     "toast.non_milestone_update_toast_version";
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_ANDROID)
+
+// LINT.IfChange(TipsShownPrefs)
+// Boolean prefs indicating whether a tip notification has already been shown.
+inline constexpr char kAndroidTipNotificationShownESB[] =
+    "android.tips.notifications.esb_shown";
+inline constexpr char kAndroidTipNotificationShownQuickDelete[] =
+    "android.tips.notifications.quick_delete_shown";
+inline constexpr char kAndroidTipNotificationShownLens[] =
+    "android.tips.notifications.lens_shown";
+inline constexpr char kAndroidTipNotificationShownBottomOmnibox[] =
+    "android.tips.notifications.bottom_omnibox_shown";
+// LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/notifications/tips/TipsUtils.java:TipsShownPrefs)
+#endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace prefs
 

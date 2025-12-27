@@ -25,7 +25,7 @@ Feature::Availability ManifestFeature::IsAvailableToContextImpl(
     bool check_developer_mode,
     const ContextData& context_data) const {
   if (extension && extension->is_nwjs_app())
-    return CreateAvailability(IS_AVAILABLE);
+    return CreateAvailability(AvailabilityResult::kIsAvailable);
   Availability availability = SimpleFeature::IsAvailableToContextImpl(
       extension, context, url, platform, context_id, check_developer_mode,
       context_data);
@@ -35,9 +35,10 @@ Feature::Availability ManifestFeature::IsAvailableToContextImpl(
   // We know we can skip manifest()->GetKey() here because we just did the same
   // validation it would do above.
   if (extension && !extension->manifest()->value()->contains(name()))
-    return CreateAvailability(NOT_PRESENT, extension->GetType());
+    return CreateAvailability(AvailabilityResult::kNotPresent,
+                              extension->GetType());
 
-  return CreateAvailability(IS_AVAILABLE);
+  return CreateAvailability(AvailabilityResult::kIsAvailable);
 }
 
 }  // namespace extensions

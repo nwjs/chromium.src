@@ -9,7 +9,6 @@
 #include <string>
 
 #include "base/containers/flat_set.h"
-#include "base/feature_list.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
@@ -81,6 +80,9 @@ class PasskeySyncBridge : public syncer::DataTypeSyncBridge,
   std::optional<sync_pb::WebauthnCredentialSpecifics> GetPasskeyByCredentialId(
       const std::string& rp_id,
       const std::string& credential_id) const override;
+  std::optional<sync_pb::WebauthnCredentialSpecifics> GetPasskeyByUserId(
+      const std::string& rp_id,
+      const std::string& user_id) const override;
   std::vector<sync_pb::WebauthnCredentialSpecifics>
   GetPasskeysForRelyingPartyId(const std::string& rp_id) const override;
   bool DeletePasskey(const std::string& credential_id,

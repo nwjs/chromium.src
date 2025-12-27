@@ -12,8 +12,8 @@
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/tabs/tab_strip_api/tab_strip_service_feature.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry_id.h"
+#include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_handler.h"
 #include "chrome/browser/ui/webui/searchbox/realbox_handler.h"
-#include "chrome/browser/ui/webui/searchbox/searchbox_handler.h"
 #include "chrome/browser/ui/webui_browser/bookmark_bar_page_handler.h"
 #include "chrome/browser/ui/webui_browser/webui_browser.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_extensions_container.h"
@@ -34,6 +34,10 @@
 #include "ui/views/interaction/element_tracker_views.h"
 #include "ui/webui/tracked_element/tracked_element_handler.h"
 #include "ui/webui/webui_util.h"
+
+#if BUILDFLAG(IS_MAC)
+#include "base/mac/mac_util.h"
+#endif
 
 namespace {
 
@@ -102,7 +106,9 @@ WebUIBrowserUI::WebUIBrowserUI(content::WebUI* web_ui)
   source->AddLocalizedStrings(kStrings);
 
   SearchboxHandler::SetupWebUIDataSource(source, Profile::FromWebUI(web_ui));
+  source->AddBoolean("composeboxContextDragAndDropEnabled", false);
   source->AddBoolean("expandedSearchboxShowVoiceSearch", false);
+
   // TODO(crbug.com/445510209): Uncomment after installing WebUIOmniboxHandler.
   // source->AddBoolean("reportMetrics", true);
   // source->AddString("charTypedToPaintMetricName",
@@ -144,11 +150,6 @@ void WebUIBrowserUI::BindInterface(
 }
 
 void WebUIBrowserUI::BindInterface(
-    mojo::PendingReceiver<metrics_reporter::mojom::PageMetricsHost> receiver) {
-  metrics_reporter_.BindInterface(std::move(receiver));
-}
-
-void WebUIBrowserUI::BindInterface(
     mojo::PendingReceiver<guest_contents::mojom::GuestContentsHost> receiver) {
   guest_contents::GuestContentsHostImpl::Create(web_ui()->GetWebContents(),
                                                 std::move(receiver));
@@ -174,12 +175,6 @@ void WebUIBrowserUI::BindInterface(
       GetKnownElementIdentifiers());
 }
 
-void WebUIBrowserUI::BindInterface(
-    mojo::PendingReceiver<color_change_listener::mojom::PageHandler> receiver) {
-  color_provider_handler_ = std::make_unique<ui::ColorChangeHandler>(
-      web_ui()->GetWebContents(), std::move(receiver));
-}
-
 base::WeakPtr<WebUIBrowserUI> WebUIBrowserUI::GetWeakPtr() {
   return weak_factory_.GetWeakPtr();
 }
@@ -192,6 +187,17 @@ void WebUIBrowserUI::CreatePageHandler(
   auto* render_frame_host = web_ui()->GetRenderFrameHost();
   WebUIBrowserPageHandler::CreateForRenderFrameHost(*render_frame_host,
                                                     std::move(receiver), this);
+}
+
+void WebUIBrowserUI::GetTabStripInset(GetTabStripInsetCallback callback) {
+  std::move(callback).Run(
+#if BUILDFLAG(IS_MAC)
+      // Values from BrowserFrameViewMac::GetCaptionButtonBounds()
+      (base::mac::MacOSVersion() >= 26'00'00) ? 76 : 82
+#else
+      0
+#endif
+  );
 }
 
 void WebUIBrowserUI::CreatePageHandler(

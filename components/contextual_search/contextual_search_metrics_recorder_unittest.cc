@@ -28,17 +28,26 @@ const char kContextualSearchFileUploadAttemptPdf[] =
     "ContextualSearch.Session.File.Browser.UploadAttemptCount.Pdf.Unknown";
 const char kContextualSearchFileUploadSuccessPdf[] =
     "ContextualSearch.Session.File.Browser.UploadSuccessCount.Pdf.Unknown";
+const char kContextualSearchFileUploadSuccessAll[] =
+    "ContextualSearch.Session.File.Browser.UploadSuccessCount.Unknown";
 const char kContextualSearchFileUploadServerErrorPdf[] =
     "ContextualSearch.Session.File.Browser.UploadFailureCount.Pdf.Unknown";
 const char kContextualSearchFileValidationBrowserErrorForPdf[] =
     "ContextualSearch.Session.File.Browser.ValidationFailureCount.Pdf."
     "BrowserProcessingError.Unknown";
+const char kContextualSearchFileValidationBrowserErrorAll[] =
+    "ContextualSearch.Session.File.Browser.ValidationFailureCount."
+    "BrowserProcessingError.Unknown";
+const char kContextualSearchFileUploadAttemptAll[] =
+    "ContextualSearch.Session.File.Browser.UploadAttemptCount.Unknown";
 const char kContextualSearchFileUploadAttempt[] =
     "ContextualSearch.Session.File.Browser.UploadAttemptCount.";
 const char kContextualSearchFileUploadSuccess[] =
     "ContextualSearch.Session.File.Browser.UploadSuccessCount.";
 const char kContextualSearchFileUploadFailure[] =
     "ContextualSearch.Session.File.Browser.UploadFailureCount.";
+const char kContextualSearchFileUploadFailureAll[] =
+    "ContextualSearch.Session.File.Browser.UploadFailureCount.Unknown";
 const char kContextualSearchFileValidationErrorTypes[] =
     "ContextualSearch.Session.File.Browser.ValidationFailureCount.";
 const char kContextualSearchQueryTextLength[] =
@@ -51,6 +60,14 @@ const char kContextualSearchQueryCount[] =
     "ContextualSearch.Session.QueryCount.Unknown";
 const char kContextualSearchFileSizePdf[] =
     "ContextualSearch.File.Size.Pdf.Unknown";
+const char kContextualSearchFileSizeAll[] =
+    "ContextualSearch.File.Size.Unknown";
+const char kContextualSearchFileSizeImage[] =
+    "ContextualSearch.File.Size.Image.Unknown";
+const char kContextualSearchToolsSubmissionType[] =
+    "ContextualSearch.Tools.SubmissionType.Unknown";
+const char kContextualSearchDeepSearchToolState[] =
+    "ContextualSearch.Tools.DeepSearch.Unknown";
 
 std::string UploadStatusToString(FileUploadStatus status) {
   switch (status) {
@@ -211,6 +228,25 @@ TEST_F(ContextualSearchMetricsRecorderTest, MultimodalQuerySubmissionSession) {
                                        file_count, 1);
 }
 
+TEST_F(ContextualSearchMetricsRecorderTest, ToolsSubmissionType) {
+  // Setup user flow.
+  metrics().NotifySessionStateChanged(SessionState::kSessionStarted);
+  metrics().RecordToolsSubmissionType(SubmissionType::kDeepSearch);
+
+  histogram_tester().ExpectBucketCount(kContextualSearchToolsSubmissionType,
+                                       SubmissionType::kDeepSearch, 1);
+}
+
+TEST_F(ContextualSearchMetricsRecorderTest, ToolState) {
+  // Setup user flow.
+  metrics().NotifySessionStateChanged(SessionState::kSessionStarted);
+  metrics().RecordToolState(SubmissionType::kDeepSearch,
+                            AimToolState::kEnabled);
+
+  histogram_tester().ExpectBucketCount(kContextualSearchDeepSearchToolState,
+                                       AimToolState::kEnabled, 1);
+}
+
 TEST_F(ContextualSearchMetricsRecorderTest, FileUploadSuccess) {
   // Setup user flow.
   metrics().NotifySessionStateChanged(SessionState::kSessionStarted);
@@ -250,6 +286,33 @@ TEST_F(ContextualSearchMetricsRecorderTest, FileUploadError) {
                                       1);
 }
 
+TEST_F(ContextualSearchMetricsRecorderTest, AggregatedUploadMetrics) {
+  metrics().NotifySessionStateChanged(SessionState::kSessionStarted);
+  task_environment().FastForwardBy(base::Seconds(30));
+
+  metrics().OnFileUploadStatusChanged(
+      lens::MimeType::kPdf, FileUploadStatus::kProcessing, std::nullopt);
+  metrics().OnFileUploadStatusChanged(
+      lens::MimeType::kPdf, FileUploadStatus::kUploadSuccessful, std::nullopt);
+
+  metrics().OnFileUploadStatusChanged(
+      lens::MimeType::kImage, FileUploadStatus::kProcessing, std::nullopt);
+  metrics().OnFileUploadStatusChanged(lens::MimeType::kImage,
+                                      FileUploadStatus::kUploadFailed,
+                                      FileUploadErrorType::kServerError);
+
+  DestructMetricsRecorder();
+
+  histogram_tester().ExpectUniqueSample(kContextualSearchFileUploadAttemptAll,
+                                        2, 1);
+
+  histogram_tester().ExpectUniqueSample(kContextualSearchFileUploadSuccessAll,
+                                        1, 1);
+
+  histogram_tester().ExpectUniqueSample(kContextualSearchFileUploadFailureAll,
+                                        1, 1);
+}
+
 TEST_F(ContextualSearchMetricsRecorderTest, FileValidationError) {
   // Setup user flow.
   FileUploadErrorType error = FileUploadErrorType::kBrowserProcessingError;
@@ -280,6 +343,44 @@ TEST_F(ContextualSearchMetricsRecorderTest, FileValidationError) {
       kContextualSearchFileValidationBrowserErrorForPdf, 2, 1);
   histogram_tester().ExpectBucketCount(kContextualSearchFileSizePdf, file_size,
                                        1);
+}
+
+TEST_F(ContextualSearchMetricsRecorderTest, AggregatedFileValidationError) {
+  FileUploadErrorType error = FileUploadErrorType::kBrowserProcessingError;
+  metrics().NotifySessionStateChanged(SessionState::kSessionStarted);
+  task_environment().FastForwardBy(base::Seconds(30));
+
+  metrics().OnFileUploadStatusChanged(
+      lens::MimeType::kPdf, FileUploadStatus::kProcessing, std::nullopt);
+  metrics().OnFileUploadStatusChanged(
+      lens::MimeType::kPdf, FileUploadStatus::kValidationFailed, error);
+
+  metrics().OnFileUploadStatusChanged(
+      lens::MimeType::kImage, FileUploadStatus::kProcessing, std::nullopt);
+  metrics().OnFileUploadStatusChanged(
+      lens::MimeType::kImage, FileUploadStatus::kValidationFailed, error);
+  std::string error_string = metrics().FileErrorToString(error);
+  DestructMetricsRecorder();
+
+  histogram_tester().ExpectUniqueSample(kContextualSearchFileUploadAttemptAll,
+                                        2, 1);
+  histogram_tester().ExpectUniqueSample(
+      kContextualSearchFileValidationBrowserErrorAll, 2, 1);
+}
+
+TEST_F(ContextualSearchMetricsRecorderTest, AggregatedFileSizeMetrics) {
+  metrics().NotifySessionStateChanged(SessionState::kSessionStarted);
+  metrics().RecordFileSizeMetric(lens::MimeType::kPdf, 100);
+
+  metrics().RecordFileSizeMetric(lens::MimeType::kImage, 200);
+  DestructMetricsRecorder();
+
+  histogram_tester().ExpectUniqueSample(kContextualSearchFileSizePdf, 100, 1);
+  histogram_tester().ExpectUniqueSample(kContextualSearchFileSizeImage, 200, 1);
+
+  histogram_tester().ExpectTotalCount(kContextualSearchFileSizeAll, 2);
+  histogram_tester().ExpectBucketCount(kContextualSearchFileSizeAll, 100, 1);
+  histogram_tester().ExpectBucketCount(kContextualSearchFileSizeAll, 200, 1);
 }
 
 TEST_F(ContextualSearchMetricsRecorderTest, MultiFileUpload) {
@@ -375,6 +476,7 @@ INSTANTIATE_TEST_SUITE_P(
                                      FileUploadStatus::kUploadFailed),
                      testing::Values(lens::MimeType::kPdf,
                                      lens::MimeType::kImage,
+                                     lens::MimeType::kAnnotatedPageContent,
                                      lens::MimeType::kUnknown)));
 
 class MetricsRecorderFileValidationTest
@@ -430,6 +532,7 @@ INSTANTIATE_TEST_SUITE_P(
                         FileUploadErrorType::kImageProcessingError),
         testing::Values(lens::MimeType::kPdf,
                         lens::MimeType::kImage,
+                        lens::MimeType::kAnnotatedPageContent,
                         lens::MimeType::kUnknown)));
 
 class MetricsRecorderFileDeletionTest
@@ -472,6 +575,7 @@ INSTANTIATE_TEST_SUITE_P(
     MetricsRecorderFileDeletionTest,
     testing::Combine(testing::Values(lens::MimeType::kPdf,
                                      lens::MimeType::kImage,
+                                     lens::MimeType::kAnnotatedPageContent,
                                      lens::MimeType::kUnknown),
                      testing::Values(FileUploadStatus::kNotUploaded,
                                      FileUploadStatus::kProcessing,

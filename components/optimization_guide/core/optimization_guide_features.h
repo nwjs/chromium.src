@@ -57,8 +57,6 @@ BASE_DECLARE_FEATURE(kOptimizationGuideModelExecution);
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 BASE_DECLARE_FEATURE(kOptimizationGuideOnDeviceModel);
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-BASE_DECLARE_FEATURE(kOptimizationGuideComposeOnDeviceEval);
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 BASE_DECLARE_FEATURE(kModelQualityLogging);
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 BASE_DECLARE_FEATURE(kLogOnDeviceMetricsOnStartup);
@@ -112,6 +110,18 @@ BASE_DECLARE_FEATURE(kOptimizationGuideIconView);
 // Whether model sessions may be brokered to untrusted processes.
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 BASE_DECLARE_FEATURE(kBrokerModelSessionsForUntrustedProcesses);
+
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+BASE_DECLARE_FEATURE(kGetAIPageContentSubframeTimeoutEnabled);
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+extern const base::FeatureParam<base::TimeDelta>
+    kGetAIPageContentSubframeTimeoutParam;
+
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+BASE_DECLARE_FEATURE(kGetAIPageContentMainFrameTimeoutEnabled);
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+extern const base::FeatureParam<base::TimeDelta>
+    kGetAIPageContentMainFrameTimeoutParam;
 
 typedef base::EnumSet<proto::RequestContext,
                       proto::RequestContext_MIN,
@@ -371,6 +381,17 @@ std::vector<uint32_t> GetOnDeviceModelAllowedAdaptationRanks();
 // Returns whether the icon view should be enabled.
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 bool ShouldEnableOptimizationGuideIconView();
+
+// Returns what the timeout for calls to GetAIPageContent should be for
+// subframes. An empty return value indicates no timeout should be applied.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+std::optional<base::TimeDelta> GetSubframeGetAIPageContentTimeout();
+
+// Returns what the timeout for calls to GetAIPageContent should be for
+// the main frame. An empty return value indicates no timeout should be
+// applied.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+std::optional<base::TimeDelta> GetMainFrameGetAIPageContentTimeout();
 
 }  // namespace features
 }  // namespace optimization_guide

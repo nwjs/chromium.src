@@ -26,7 +26,7 @@
 #include "chrome/browser/ui/hats/mock_hats_service.h"
 #include "chrome/browser/ui/save_to_drive/get_account.h"
 #include "chrome/common/extensions/api/pdf_viewer_private.h"
-#include "chrome/test/base/ui_test_utils.h"
+#include "chrome/test/base/chrome_test_utils.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
@@ -47,14 +47,12 @@ namespace save_to_drive {
 namespace {
 
 AccountInfo CreateAccountInfo(bool is_managed) {
-  AccountInfo account_info;
-  account_info.email = "test@mail.com";
-  account_info.gaia = GaiaId("1234567890");
-  account_info.account_id = CoreAccountId::FromGaiaId(account_info.gaia);
+  AccountInfo::Builder builder(GaiaId("123456789"), "test@mail.com");
+  builder.SetAccountId(CoreAccountId::FromGaiaId(GaiaId("123456789")));
   if (is_managed) {
-    account_info.hosted_domain = "mail.com";
+    builder.SetHostedDomain("mail.com");
   }
-  return account_info;
+  return builder.Build();
 }
 
 }  // namespace
@@ -121,7 +119,7 @@ class SaveToDriveFlowBrowserTest : public base::test::WithFeatureOverride,
   void SetUpOnMainThread() override {
     PDFExtensionTestBase::SetUpOnMainThread();
 
-    GURL page_url = ui_test_utils::GetTestUrl(
+    GURL page_url = chrome_test_utils::GetTestUrl(
         base::FilePath(FILE_PATH_LITERAL("pdf")),
         base::FilePath(FILE_PATH_LITERAL("test.pdf")));
     auto* rfh = LoadPdfGetExtensionHost(page_url);
@@ -242,7 +240,8 @@ IN_PROC_BROWSER_TEST_P(SaveToDriveFlowBrowserTest, AccountChooserCanceled) {
 
 IN_PROC_BROWSER_TEST_P(SaveToDriveFlowBrowserTest, ContentReadFails) {
   AccountInfo account_info = CreateAccountInfo(/*is_managed=*/false);
-  account_info.hosted_domain = "example.com";
+  account_info =
+      AccountInfo::Builder(account_info).SetHostedDomain("example.com").Build();
   SimulateAccountChooserAction(std::move(account_info));
   EXPECT_CALL(event_dispatcher(),
               Notify(AllOf(Field(&SaveToDriveProgress::status,

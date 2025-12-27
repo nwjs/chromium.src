@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/tab_switcher/tab_grid/base_grid/coordinator/base_grid_coordinator.h"
 
 #import "base/check.h"
+#import "base/functional/callback_helpers.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/collaboration/public/collaboration_flow_type.h"
 #import "components/collaboration/public/collaboration_service.h"
@@ -262,13 +263,26 @@ using collaboration::CollaborationControllerDelegate;
 
 - (void)showTabGroupCreationForTabs:
     (const std::set<web::WebStateID>&)identifiers {
-  CHECK(!_tabGroupCreator) << "There is an atemps to create a tab group when a "
-                              "creation process is still running.";
+  CHECK(!_tabGroupCreator)
+      << "There is an attempt to create a tab group when a "
+         "creation process is still running.";
 
   _tabGroupCreator = [[CreateTabGroupCoordinator alloc]
       initTabGroupCreationWithBaseViewController:self.baseViewController
                                          browser:self.browser
                                     selectedTabs:identifiers];
+  _tabGroupCreator.delegate = self;
+  [_tabGroupCreator start];
+}
+
+- (void)showTabGroupCreationWithoutTabs {
+  CHECK(!_tabGroupCreator)
+      << "There is an attempt to create a tab group when a "
+         "creation process is still running.";
+
+  _tabGroupCreator = [[CreateTabGroupCoordinator alloc]
+      initEmptyTabGroupCreationWithBaseViewController:self.baseViewController
+                                              browser:self.browser];
   _tabGroupCreator.delegate = self;
   [_tabGroupCreator start];
 }

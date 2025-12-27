@@ -18,6 +18,7 @@
 #include "components/google/core/common/google_util.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
+#include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/sync/base/features.h"
 #include "content/public/browser/browser_context.h"
@@ -184,6 +185,24 @@ void RegisterProfilePrefs(
                                 0);
   registry->RegisterIntegerPref(prefs::kAddressSignInPromoShownCountPerProfile,
                                 0);
+  registry->RegisterIntegerPref(prefs::kBookmarkSignInPromoShownCountPerProfile,
+                                0);
+  registry->RegisterIntegerPref(
+      prefs::kHistoryPageHistorySyncPromoShownCountPerProfile, 0);
+
+  // Signin promo limits experiment prefs.
+  registry->RegisterIntegerPref(
+      prefs::kAddressSignInPromoShownCountPerProfileForLimitsExperiment, 0);
+  registry->RegisterIntegerPref(
+      prefs::kBookmarkSignInPromoShownCountPerProfileForLimitsExperiment, 0);
+  registry->RegisterIntegerPref(
+      prefs::kPasswordSignInPromoShownCountPerProfileForLimitsExperiment, 0);
+  registry->RegisterIntegerPref(
+      prefs::kAddressSignInPromoDismissCountPerProfileForLimitsExperiment, 0);
+  registry->RegisterIntegerPref(
+      prefs::kPasswordSignInPromoDismissCountPerProfileForLimitsExperiment, 0);
+  registry->RegisterIntegerPref(
+      prefs::kBookmarkSignInPromoDismissCountPerProfileForLimitsExperiment, 0);
 }
 
 }  // namespace signin

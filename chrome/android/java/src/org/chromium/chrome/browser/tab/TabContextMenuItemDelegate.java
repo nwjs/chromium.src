@@ -36,6 +36,8 @@ import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
 import org.chromium.chrome.browser.offlinepages.RequestCoordinatorBridge;
@@ -283,9 +285,17 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
      */
     public void openInOtherWindow(GURL url, @Nullable Referrer referrer, boolean isIncognito) {
         LoadUrlParams loadUrlParams = new LoadUrlParams(url.getSpec());
-        loadUrlParams.setReferrer(referrer);
+        if (!isIncognito) {
+            loadUrlParams.setReferrer(referrer);
+        }
         if (IncognitoUtils.shouldOpenIncognitoAsWindow() && mMultiInstanceManager != null) {
-            mMultiInstanceManager.openUrlInSelectedWindow(loadUrlParams, mTab.getParentId());
+            mMultiInstanceManager.openUrlInOtherWindow(
+                    loadUrlParams,
+                    mTab.getParentId(),
+                    /* preferNew= */ false,
+                    isIncognito
+                            ? PersistedInstanceType.ACTIVE | PersistedInstanceType.OFF_THE_RECORD
+                            : PersistedInstanceType.ACTIVE);
         } else {
             openInAnotherWindow(url, referrer, isIncognito);
         }
@@ -302,7 +312,9 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
     public void openInAnotherWindow(GURL url, @Nullable Referrer referrer, boolean isIncognito) {
         ChromeAsyncTabLauncher chromeAsyncTabLauncher = new ChromeAsyncTabLauncher(isIncognito);
         LoadUrlParams loadUrlParams = new LoadUrlParams(url.getSpec());
-        loadUrlParams.setReferrer(referrer);
+        if (!isIncognito) {
+            loadUrlParams.setReferrer(referrer);
+        }
         Activity activity = TabUtils.getActivity(mTab);
         assumeNonNull(activity);
         // null if there are no foreground window activities.
@@ -317,7 +329,8 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
                 activity,
                 mTab.getParentId(),
                 otherWindowActivity,
-                MultiWindowUtils.NewWindowEntryPoint.MENU);
+                NewWindowAppSource.MENU,
+                /* preferNew= */ false);
     }
 
     /**

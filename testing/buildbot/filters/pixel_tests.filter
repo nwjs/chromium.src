@@ -7,6 +7,7 @@
 # non-pixel tests here.
 
 AccessCodeCastDialogBrowserTest.*
+AccountSettingsPagePixelBrowserTest.*
 ActorUiDomNodeGeometryBrowserTest.*
 ActorUiHandoffButtonControllerPixelTest.*
 AddNewAddressProfileTest.*
@@ -75,7 +76,9 @@ IntentPickerDialogTest.*
 IntentPickerDialogGridViewTest.*
 InteractionTestUtilBrowserTest.CompareScreenshot_*
 InteractionTestUtilBrowserUiTest.CompareScreenshot_*
+*IOSPromoBubbleBrowserTest.*
 IsolatedWebAppInstallerViewUiPixelTest.*
+*ContextualTasks*PixelTest*
 *LensSidePanel*PixelTest*
 LHSIndicatorsUiBrowserTest.*
 LocalCardMigrationBrowserUiTest.*

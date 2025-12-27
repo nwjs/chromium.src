@@ -45,7 +45,9 @@ enum class ReaderModeHeuristicResult {
   kReaderModeNotEligibleContentOnly = 2,
   kReaderModeNotEligibleContentLength = 3,
   kReaderModeNotEligibleContentAndLength = 4,
-  kMaxValue = kReaderModeNotEligibleContentAndLength,
+  kReaderModeNotEligibleOptimizationGuideIneligible = 5,
+  kReaderModeNotEligibleOptimizationGuideUnknown = 6,
+  kMaxValue = kReaderModeNotEligibleOptimizationGuideUnknown,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/ios/enums.xml:ReaderModeHeuristicResult)
 
@@ -198,6 +200,10 @@ extern const char kReaderModeAccessPointHistogram[];
 
 // Histogram name for Reader Mode access point with application mode.
 extern const char kReaderModeAccessPointWithModeHistogram[];
+
+// Deprecated. Pref holding the latest timestamps of when the user has
+// interacted with Reading Mode.
+extern const char kReaderModeRecentlyUsedTimestampsPref[];
 
 // Returns the Reader mode symbol name.
 NSString* GetReaderModeSymbolName();

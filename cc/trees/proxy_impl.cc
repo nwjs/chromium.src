@@ -513,6 +513,12 @@ void ProxyImpl::SetVideoNeedsBeginFrames(bool needs_begin_frames) {
     scheduler_->SetVideoNeedsBeginFrames(needs_begin_frames);
 }
 
+void ProxyImpl::DidChangeBeginFrameSourcePaused(bool paused) {
+  MainThreadTaskRunner()->PostTask(
+      FROM_HERE, base::BindOnce(&ProxyMain::DidChangeBeginFrameSourcePaused,
+                                proxy_main_weak_ptr_, paused));
+}
+
 bool ProxyImpl::IsInsideDraw() {
   return inside_draw_;
 }
@@ -925,7 +931,7 @@ DrawResult ProxyImpl::DrawInternal(bool forced_draw) {
   // DrawLayers() depends on the result of PrepareToDraw(), it is guarded on
   // CanDraw() as well.
 
-  LayerTreeHostImpl::FrameData frame;
+  FrameData frame;
   frame.begin_frame_ack = scheduler_->CurrentBeginFrameAckForActiveTree();
   frame.origin_begin_main_frame_args =
       scheduler_->last_activate_origin_frame_args();

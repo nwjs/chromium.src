@@ -5,9 +5,11 @@
 #include "components/optimization_guide/core/model_execution/on_device_context.h"
 
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/to_string.h"
 #include "components/optimization_guide/core/model_execution/multimodal_message.h"
 #include "components/optimization_guide/core/model_execution/on_device_capability.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
+#include "components/optimization_guide/public/mojom/model_broker.mojom-data-view.h"
 #include "services/on_device_model/ml/chrome_ml_audio_buffer.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
@@ -96,14 +98,15 @@ OnDeviceOptions::OnDeviceOptions(const OnDeviceOptions& orig)
       adapter(orig.adapter),
       safety_checker(std::make_unique<SafetyChecker>(*orig.safety_checker)),
       token_limits(orig.token_limits),
-      session_params(orig.session_params) {}
+      session_params(orig.session_params),
+      logger(orig.logger) {}
 
 bool OnDeviceOptions::ShouldUse() const {
   return model_client->ShouldUse();
 }
 
 OnDeviceContext::OnDeviceContext(OnDeviceOptions opts,
-                                 ModelBasedCapabilityKey feature)
+                                 mojom::OnDeviceFeature feature)
     : opts_(std::move(opts)), feature_(feature) {
   CHECK(opts_.session_params.sampling_params.has_value());
 }
@@ -228,7 +231,7 @@ void OnDeviceContext::OnComplete(uint32_t tokens_processed) {
   base::UmaHistogramCounts10000(
       base::StrCat({"OptimizationGuide.ModelExecution."
                     "OnDeviceContextTokensProcessed.",
-                    GetStringNameForModelExecutionFeature(feature_)}),
+                    base::ToString(feature_)}),
       tokens_processed);
 }
 

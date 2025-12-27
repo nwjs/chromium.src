@@ -14,13 +14,11 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.util.Pair;
-import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
@@ -183,9 +181,6 @@ public class BookmarkBarCoordinator
         mViewResourceAdapter = mViewResourceFrameLayout.getResourceAdapter();
         registerResource();
 
-        mBookmarkBarSceneLayer = new BookmarkBarSceneLayer(mResourceManager);
-        mBookmarkBarSceneLayer.setVisibility(true);
-
         mHeightChangeCallback = heightChangeCallback;
         mContentContainer.addOnLayoutChangeListener(this);
         mShouldBookmarkBarBeShown = true;
@@ -196,28 +191,10 @@ public class BookmarkBarCoordinator
         // Bind view/model for 'All Bookmarks' button.
         final var allBookmarksButtonModel =
                 new PropertyModel.Builder(BookmarkBarButtonProperties.ALL_KEYS).build();
-
-        final BookmarkBarButton allBookmarksButton =
-                mViewResourceFrameLayout.findViewById(R.id.bookmark_bar_all_bookmarks_button);
-
-        // Binds the model to the view.
         PropertyModelChangeProcessor.create(
-                allBookmarksButtonModel, allBookmarksButton, BookmarkBarButtonViewBinder::bind);
-        ImageView starIcon = allBookmarksButton.findViewById(R.id.bookmark_bar_button_icon);
-
-        // We need this because otherwise the star icon is lower than the "All Bookmarks" text. If
-        // we add setTranslationY directly in bookmark_bar_button_icon in bookmark_bar_button.xml,
-        // the top parts of the web page icons in the bookmarks bar are cut off.
-        if (starIcon != null) {
-            final float translationInDp = -2f;
-            // Converts dp values to raw pixels.
-            float translationInPx =
-                    TypedValue.applyDimension(
-                            TypedValue.COMPLEX_UNIT_DIP,
-                            translationInDp,
-                            activity.getResources().getDisplayMetrics());
-            starIcon.setTranslationY(translationInPx);
-        }
+                allBookmarksButtonModel,
+                mViewResourceFrameLayout.findViewById(R.id.bookmark_bar_all_bookmarks_button),
+                BookmarkBarButtonViewBinder::bind);
 
         // Bind adapter/model and initialize view for bookmark bar items.
         final var itemsModel = new ModelList();
@@ -268,12 +245,14 @@ public class BookmarkBarCoordinator
         PropertyModelChangeProcessor.create(model, mView, BookmarkBarViewBinder::bind);
 
         // All dimensions and offsets require the first layout pass to complete, so don't set here.
+        // Do not set visibility to true by default in case we are in web fullscreen mode.
+        mBookmarkBarSceneLayer = new BookmarkBarSceneLayer(mResourceManager);
+        updateSceneLayerVisibility();
         mBookmarkBarSceneLayerModel =
                 new PropertyModel.Builder(BookmarkBarSceneLayerProperties.ALL_KEYS)
                         .with(
                                 BookmarkBarSceneLayerProperties.RESOURCE_ID,
                                 mViewResourceFrameLayout.getId())
-                        .with(BookmarkBarSceneLayerProperties.VISIBILITY, true)
                         .with(BookmarkBarSceneLayerProperties.HAIRLINE_HEIGHT, mHairlineHeight)
                         .build();
 
@@ -422,6 +401,26 @@ public class BookmarkBarCoordinator
     // TopControlLayer implementation:
 
     @Override
+    public void onBrowserControlsOffsetUpdate(int layerYOffset, boolean reachRestingPosition) {
+        // When we are given yOffsets, we must handle translation of the Android widgets manually.
+        // See comment in {@link TopControlLayer} for full details. The yOffset is the positive
+        // distance from the top of the window. The view will already be shifted by the top margin
+        // amount, but we do not want to continue to adjust that because it requires a layout pass
+        // and would be janky. Instead we adjust to the yOffset using translationY, and when the
+        // view has reached its resting position, we can switch back to using a top margin only.
+        if (!reachRestingPosition) {
+            // The view is positioned at TOP_MARGIN, but it is supposed to be positioned at the
+            // |layerYOffset|. If the |layerYOffset| is greater than TOP_MARGIN, this means the view
+            // is currently too high on the screen and needs to shift down, and vice versa.
+            mView.setTranslationY(layerYOffset - mModel.get(BookmarkBarProperties.TOP_MARGIN));
+        } else {
+            // Once we have reached our resting position, we only need a top margin.
+            mMediator.setTopMargin(layerYOffset);
+            mView.setTranslationY(0);
+        }
+    }
+
+    @Override
     public @TopControlType int getTopControlType() {
         return TopControlType.BOOKMARK_BAR;
     }
@@ -546,8 +545,13 @@ public class BookmarkBarCoordinator
         // make the SceneLayer visible, except when in full screen, which will account for cases
         // when the bookmark bar is enabled while top controls are offscreen. A change in either the
         // top or bottom controls heights may require resizing the anchored pop-up view if it is
-        // visible, so we provide those updated values as well.
-        updateAndroidWidgetVisibility();
+        // visible, so we provide those updated values as well. In the cases where BCIV can't handle
+        // the scroll, e.g. on NTP, we do not change visibility of the Android widgets or there
+        // would be a quick blinking effect.
+        if (!requestNewFrame && !isVisibilityForced) {
+            updateAndroidWidgetVisibility();
+        }
+
         mMediator.onBrowserControlsChanged(
                 mBrowserControlsStateProvider.getTopControlsHeight(),
                 mBrowserControlsStateProvider.getBottomControlsHeight());
@@ -589,9 +593,13 @@ public class BookmarkBarCoordinator
     @Override
     public void onEnterFullscreen(Tab tab, FullscreenOptions options) {
         // When fullscreen mode is entered, we need to hide the scene layer and Android widgets.
-        mIsInFullscreenMode = true;
-        updateSceneLayerVisibility();
-        updateAndroidWidgetVisibility();
+        // However, if LockTopControls is enabled, we never remove the bookmark bar.
+        if (!ChromeFeatureList.sLockTopControlsOnLargeTablets.isEnabled()
+                && !ChromeFeatureList.sLockTopControlsOnLargeTabletsV2.isEnabled()) {
+            mIsInFullscreenMode = true;
+            updateSceneLayerVisibility();
+            updateAndroidWidgetVisibility();
+        }
     }
 
     @Override
@@ -599,6 +607,13 @@ public class BookmarkBarCoordinator
         // When fullscreen mode is exited, we need to make the scene layer visible again, if needed.
         // It is possible that the bookmarks bar was turned off while in fullscreen mode, so we
         // don't force this to true, but use the current state instead. Same for Android widgets.
+
+        // We should never get into the fullscreen mode state while LockTopControls is enabled.
+        if (ChromeFeatureList.sLockTopControlsOnLargeTablets.isEnabled()
+                || ChromeFeatureList.sLockTopControlsOnLargeTabletsV2.isEnabled()) {
+            assert !mIsInFullscreenMode : "Should not be in fullscreen mode with LockTopControls";
+        }
+
         mIsInFullscreenMode = false;
         updateSceneLayerVisibility();
         updateAndroidWidgetVisibility();
@@ -703,6 +718,13 @@ public class BookmarkBarCoordinator
 
         // The Android widgets should never be visible when in full screen mode.
         if (mIsInFullscreenMode) {
+            mMediator.setVisibility(false);
+            return;
+        }
+
+        // The Android widgets should not be visible if the Android controls aren't visible. This
+        // allows us to match hiding behavior of the other controls, for example with the scrim.
+        if (mBrowserControlsStateProvider.getAndroidControlsVisibility() != VISIBLE) {
             mMediator.setVisibility(false);
             return;
         }

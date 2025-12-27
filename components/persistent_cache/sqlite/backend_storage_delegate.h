@@ -8,19 +8,34 @@
 #include "base/component_export.h"
 #include "components/persistent_cache/backend_storage.h"
 
+namespace persistent_cache {
+class SqliteVfsFileSet;
+}
+
 namespace persistent_cache::sqlite {
 
-// A delegate that emits SqliteBackendImpl instances and manages their
-// storage.
+// A delegate that manages storage on behalf of SqliteBackendImpl.
 class COMPONENT_EXPORT(PERSISTENT_CACHE) BackendStorageDelegate
     : public BackendStorage::Delegate {
  public:
   // BackendStorage::Delegate:
-
-  // Returns a SqliteBackendImpl backend with read-write access to `base_name`.
-  std::unique_ptr<Backend> MakeBackend(
+  std::optional<PendingBackend> MakePendingBackend(
       const base::FilePath& directory,
-      const base::FilePath& base_name) override;
+      const base::FilePath& base_name,
+      bool single_connection,
+      bool journal_mode_wal) override;
+  std::unique_ptr<Backend> MakeBackend(const base::FilePath& directory,
+                                       const base::FilePath& base_name,
+                                       bool single_connection,
+                                       bool journal_mode_wal) override;
+  std::optional<PendingBackend> ShareReadOnlyConnection(
+      const base::FilePath& directory,
+      const base::FilePath& base_name,
+      const Backend& backend) override;
+  std::optional<PendingBackend> ShareReadWriteConnection(
+      const base::FilePath& directory,
+      const base::FilePath& base_name,
+      const Backend& backend) override;
 
   // Returns the basename of `file` without its extension if its extension is
   // ".db".
@@ -30,6 +45,16 @@ class COMPONENT_EXPORT(PERSISTENT_CACHE) BackendStorageDelegate
   // .journal files).
   int64_t DeleteFiles(const base::FilePath& directory,
                       const base::FilePath& base_name) override;
+
+  // Returns a new `PendingBackend` sharing the database connection in
+  // `directory` for the cache named `base_name` and referenced by `file_set`.
+  // The returned instance is granted read-only access if `read_write` is false;
+  // otherwise, read/write access.
+  std::optional<PendingBackend> ShareConnection(
+      const base::FilePath& directory,
+      const base::FilePath& base_name,
+      const SqliteVfsFileSet& file_set,
+      bool read_write);
 };
 
 }  // namespace persistent_cache::sqlite

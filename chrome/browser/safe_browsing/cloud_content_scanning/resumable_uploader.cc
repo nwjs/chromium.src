@@ -10,6 +10,7 @@
 #include "base/files/file_path.h"
 #include "base/files/memory_mapped_file.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
@@ -32,6 +33,9 @@ namespace safe_browsing {
 
 namespace {
 
+using ::enterprise_connectors::ConnectorDataPipeGetter;
+using ::enterprise_connectors::ConnectorUploadRequest;
+
 // HTTP headers for resumable upload requests
 constexpr char kUploadProtocolHeader[] = "X-Goog-Upload-Protocol";
 constexpr char kUploadCommandHeader[] = "X-Goog-Upload-Command";
@@ -48,6 +52,8 @@ constexpr char kUploadIntermediateHeader[] =
 constexpr char kUploadContentType[] = "application/octet-stream";
 // Content type of metadata.
 constexpr char kMetadataContentType[] = "application/json";
+// Content type of pasted images.
+constexpr char kImageContentType[] = "image/png";
 
 std::unique_ptr<ConnectorDataPipeGetter> CreateFileDataPipeGetterBlocking(
     const base::FilePath& path,
@@ -71,7 +77,7 @@ ResumableUploadRequest::ResumableUploadRequest(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     const GURL& base_url,
     const std::string& metadata,
-    BinaryUploadService::Result get_data_result,
+    enterprise_connectors::ScanRequestUploadResult get_data_result,
     const base::FilePath& path,
     uint64_t file_size,
     bool is_obfuscated,
@@ -101,7 +107,7 @@ ResumableUploadRequest::ResumableUploadRequest(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     const GURL& base_url,
     const std::string& metadata,
-    BinaryUploadService::Result get_data_result,
+    enterprise_connectors::ScanRequestUploadResult get_data_result,
     base::ReadOnlySharedMemoryRegion page_region,
     const std::string& histogram_suffix,
     const net::NetworkTrafficAnnotationTag& traffic_annotation,
@@ -140,7 +146,7 @@ ResumableUploadRequest::ResumableUploadRequest(
                              traffic_annotation,
                              base::DoNothing()),
       verdict_received_callback_(std::move(verdict_received_callback)),
-      get_data_result_(BinaryUploadService::Result::SUCCESS),
+      get_data_result_(enterprise_connectors::ScanRequestUploadResult::SUCCESS),
       content_uploaded_callback_(std::move(content_uploaded_callback)),
       force_sync_upload_(force_sync_upload) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
@@ -159,9 +165,10 @@ void ResumableUploadRequest::SetMetadataRequestHeaders(
   request->headers.SetHeader(kUploadCommandHeader, "start");
   request->headers.SetHeader(kUploadHeaderContentLengthHeader,
                              base::NumberToString(data_size_));
-  request->headers.SetHeader(kUploadHeaderContentTypeHeader,
-                             kUploadContentType);
-
+  // `STRING` is only used for resumable requests for image pasting.
+  request->headers.SetHeader(
+      kUploadHeaderContentTypeHeader,
+      data_source_ == STRING ? kImageContentType : kUploadContentType);
   if (!access_token_.empty()) {
     LogAuthenticatedCookieResets(
         *request, SafeBrowsingAuthenticatedEndpoint::kDeepScanning);
@@ -225,7 +232,7 @@ ResumableUploadRequest::CreateFileRequest(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     const GURL& base_url,
     const std::string& metadata,
-    BinaryUploadService::Result get_data_result,
+    enterprise_connectors::ScanRequestUploadResult get_data_result,
     const base::FilePath& path,
     uint64_t file_size,
     bool is_obfuscated,
@@ -254,7 +261,7 @@ ResumableUploadRequest::CreatePageRequest(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     const GURL& base_url,
     const std::string& metadata,
-    BinaryUploadService::Result get_data_result,
+    enterprise_connectors::ScanRequestUploadResult get_data_result,
     base::ReadOnlySharedMemoryRegion page_region,
     const std::string& histogram_suffix,
     const net::NetworkTrafficAnnotationTag& traffic_annotation,
@@ -339,8 +346,11 @@ void ResumableUploadRequest::OnMetadataUploadCompleted(
 
   // If chrome is being told to upload the content but the content is too large
   // or is encrypted and encrypted file upload is not enabled, fail now.
-  if (get_data_result_ == BinaryUploadService::Result::FILE_TOO_LARGE ||
-    (get_data_result_ == BinaryUploadService::Result::FILE_ENCRYPTED && !ShouldUploadEncryptedFile())) {
+  if (get_data_result_ ==
+          enterprise_connectors::ScanRequestUploadResult::FILE_TOO_LARGE ||
+      (get_data_result_ ==
+           enterprise_connectors::ScanRequestUploadResult::FILE_ENCRYPTED &&
+       !ShouldUploadEncryptedFile())) {
     Finish(net::ERR_FAILED, net::HTTP_BAD_REQUEST, std::move(response_body));
     return;
   }
@@ -433,7 +443,7 @@ void ResumableUploadRequest::SendContentNow(
   url_loader_->SetAllowHttpErrorResults(true);
 
   if (!data_pipe_getter_) {
-    url_loader_->AttachStringForUpload(data_, kUploadContentType);
+    url_loader_->AttachStringForUpload(data_, kImageContentType);
   }
 
   url_loader_->DownloadToStringOfUnboundedSizeUntilCrashAndDie(

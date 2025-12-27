@@ -87,35 +87,16 @@ FeatureState FeatureStateForContext(RequestContext request_context) {
         return FeatureState::kEnabled;
     }
   } else {
+    // TODO(crbug.com/394636065): clean this up once we remove the
+    // kLocalNetworkAccessChecks feature flag.
     switch (request_context) {
       case RequestContext::kSubresource:
-        return FeatureState::kEnabled;
       case RequestContext::kWorker:
-        if (!base::FeatureList::IsEnabled(
-                features::kPrivateNetworkAccessForWorkers)) {
-          return FeatureState::kDisabled;
-        }
-
-        if (base::FeatureList::IsEnabled(
-                features::kPrivateNetworkAccessForWorkersWarningOnly)) {
-          return FeatureState::kWarningOnly;
-        }
-
         return FeatureState::kEnabled;
       case RequestContext::kMainFrameNavigation:
       case RequestContext::kSubframeNavigation:
       case RequestContext::kFencedFrameNavigation:
-        if (!base::FeatureList::IsEnabled(
-                features::kPrivateNetworkAccessForNavigations)) {
-          return FeatureState::kDisabled;
-        }
-
-        if (base::FeatureList::IsEnabled(
-                features::kPrivateNetworkAccessForNavigationsWarningOnly)) {
-          return FeatureState::kWarningOnly;
-        }
-
-        return FeatureState::kEnabled;
+        return FeatureState::kDisabled;
     }
   }
 }
@@ -202,8 +183,6 @@ Policy ApplyFeatureStateToPolicy(FeatureState feature_state,
         case Policy::kBlock:
           return local_network_access_checks_enabled ? Policy::kPermissionWarn
                                                      : Policy::kWarn;
-        case Policy::kPreflightBlock:
-          return Policy::kPreflightWarn;
         case Policy::kPermissionBlock:
           return Policy::kPermissionWarn;
         default:
@@ -275,8 +254,8 @@ network::mojom::ClientSecurityStatePtr DeriveClientSecurityState(
 // This means a couple of things:
 // - They cannot embed anything private or loopback without being secure
 // contexts
-//   and triggering a CORS preflight.
-// - Private Network Access does not prevent them being embedded by less private
+//   and triggering a permission prompt.
+// - Local Network Access does not prevent them being embedded by less private
 //   content.
 // - It pollutes metrics since kUnknown could also mean a missed edge case.
 // To address these issues we list here a number of schemes that should be
@@ -349,13 +328,10 @@ network::mojom::PrivateNetworkRequestPolicy OverrideToBlockInsteadOfWarn(
   switch (policy) {
     case network::mojom::PrivateNetworkRequestPolicy::kWarn:
       return network::mojom::PrivateNetworkRequestPolicy::kBlock;
-    case network::mojom::PrivateNetworkRequestPolicy::kPreflightWarn:
-      return network::mojom::PrivateNetworkRequestPolicy::kPreflightBlock;
     case network::mojom::PrivateNetworkRequestPolicy::kPermissionWarn:
       return network::mojom::PrivateNetworkRequestPolicy::kPermissionBlock;
     case network::mojom::PrivateNetworkRequestPolicy::kAllow:
     case network::mojom::PrivateNetworkRequestPolicy::kBlock:
-    case network::mojom::PrivateNetworkRequestPolicy::kPreflightBlock:
     case network::mojom::PrivateNetworkRequestPolicy::kPermissionBlock:
       return policy;
   }
@@ -366,13 +342,10 @@ network::mojom::PrivateNetworkRequestPolicy OverrideToWarnInsteadOfBlock(
   switch (policy) {
     case network::mojom::PrivateNetworkRequestPolicy::kBlock:
       return network::mojom::PrivateNetworkRequestPolicy::kWarn;
-    case network::mojom::PrivateNetworkRequestPolicy::kPreflightBlock:
-      return network::mojom::PrivateNetworkRequestPolicy::kPreflightWarn;
     case network::mojom::PrivateNetworkRequestPolicy::kPermissionBlock:
       return network::mojom::PrivateNetworkRequestPolicy::kPermissionWarn;
     case network::mojom::PrivateNetworkRequestPolicy::kAllow:
     case network::mojom::PrivateNetworkRequestPolicy::kWarn:
-    case network::mojom::PrivateNetworkRequestPolicy::kPreflightWarn:
     case network::mojom::PrivateNetworkRequestPolicy::kPermissionWarn:
       return policy;
   }

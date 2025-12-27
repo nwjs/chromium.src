@@ -2141,8 +2141,6 @@ int SplitViewController::GetClosestFixedDividerPosition(int divider_position) {
   // center of the divider, so extract the origin, unless the result is on of
   // the endpoints.
   int divider_upper_limit = GetDividerPositionUpperLimit(root_window_);
-  // TODO(b/319334795): Move this function and `divider_closest_ratio_` to
-  // SplitViewDivider.
   divider_closest_ratio_ = FindClosestPositionRatio(
       float(divider_position + kSplitviewDividerShortSideLength / 2) /
       divider_upper_limit);
@@ -2695,9 +2693,8 @@ void SplitViewController::EndWindowDragImpl(
 
   DCHECK_EQ(root_window_, window->GetRootWindow());
 
-  const bool was_splitview_active = InSplitViewMode();
   if (desired_snap_position == SnapPosition::kNone) {
-    if (was_splitview_active) {
+    if (InSplitViewMode()) {
       // Even though |snap_position| equals |SnapPosition::kNone|, the dragged
       // window still needs to be snapped if splitview mode is active at the
       // moment.
@@ -2735,6 +2732,12 @@ void SplitViewController::EndWindowDragImpl(
       TabletModeWindowState::UpdateWindowPosition(
           WindowState::Get(window),
           WindowState::BoundsChangeAnimationType::kAnimate);
+
+      if (InTabletMode()) {
+        // We get here if split view ended during the drag (we dragged the only
+        // window that was snapped). Unsnap the window now.
+        MaximizeIfSnapped(window);
+      }
     }
   } else {
     // Note SnapWindow() might put the previous window that was snapped at the

@@ -41,6 +41,7 @@ lucicfg.config(
         "builders/gn_args_locations.json",
         "builder-owners/*.txt",
         "cq-builders.md",
+        "cq-tests.md",
         "cq-usage/default.cfg",
         "cq-usage/full.cfg",
         "cq-usage/mega_cq_bots.txt",
@@ -166,6 +167,7 @@ chromium_luci.configure_project(
     experiments = [
         "builder_config.targets_spec_directory_relative_to_source_dir",
         "targets.module_name_without_slash",
+        "targets.module_scheme_generator",
         "targets.module_scheme_junit_tests",
         "targets.module_scheme_regex",
         "targets.module_scheme_script_tests",
@@ -182,6 +184,9 @@ chromium_luci.configure_builder_config(
     mega_cq_excluded_gardener_rotations = mega_cq_excluded_gardener_rotations,
     standalone_trybot_excluded_builder_groups = standalone_trybot_excluded_builder_groups,
     standalone_trybot_excluded_builders = standalone_trybot_excluded_builders,
+    cq_groups_to_generate_test_coverage_files = {
+        "cq": "cq-tests.md",
+    },
 )
 
 chromium_luci.configure_builder_health_indicators(
@@ -237,6 +242,11 @@ luci.realm(
             roles = "role/resultdb.invocationCreator",
             groups = "project-chromium-tryjob-access",
         ),
+        # Allow everyone to view Turbo CI workflows
+        luci.binding(
+            roles = "role/turboci.graph.reader",
+            groups = "all",
+        ),
         # Other roles are inherited from @root which grants them to group:all.
     ],
 )
@@ -269,6 +279,11 @@ luci.realm(
                 "chromium-led-users",
                 "project-chromium-tryjob-access",
             ],
+        ),
+        # Allow everyone to view Turbo CI workflows
+        luci.binding(
+            roles = "role/turboci.graph.reader",
+            groups = "all",
         ),
     ],
 )

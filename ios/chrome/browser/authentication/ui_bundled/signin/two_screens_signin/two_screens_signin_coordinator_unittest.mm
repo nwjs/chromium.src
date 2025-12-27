@@ -14,11 +14,11 @@
 #import "components/sync/test/test_sync_service.h"
 #import "components/test/ios/test_utils.h"
 #import "ios/chrome/app/profile/profile_state.h"
+#import "ios/chrome/browser/authentication/fullscreen_signin_screen/coordinator/fullscreen_signin_screen_coordinator.h"
+#import "ios/chrome/browser/authentication/fullscreen_signin_screen/ui/fullscreen_signin_screen_view_controller.h"
+#import "ios/chrome/browser/authentication/history_sync/coordinator/history_sync_coordinator.h"
+#import "ios/chrome/browser/authentication/history_sync/ui/history_sync_view_controller.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_test_util.h"
-#import "ios/chrome/browser/authentication/ui_bundled/fullscreen_signin_screen/coordinator/fullscreen_signin_screen_coordinator.h"
-#import "ios/chrome/browser/authentication/ui_bundled/fullscreen_signin_screen/ui/fullscreen_signin_screen_view_controller.h"
-#import "ios/chrome/browser/authentication/ui_bundled/history_sync/history_sync_coordinator.h"
-#import "ios/chrome/browser/authentication/ui_bundled/history_sync/history_sync_view_controller.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_in_progress.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
@@ -106,7 +106,7 @@ class TwoScreensSigninCoordinatorTest : public PlatformTest {
                                        PROMO_ACTION_NO_SIGNIN_PROMO
               continuationProvider:NotReachedContinuationProvider()];
     coordinator_.signinCompletion = ^(
-        SigninCoordinatorResult signinResult,
+        SigninCoordinator* coordinator, SigninCoordinatorResult signinResult,
         id<SystemIdentity> signinCompletionIdentity) {
       EXPECT_EQ(signinResult, expected_result);
       EXPECT_EQ(expected_signin_completion_identity, signinCompletionIdentity);

@@ -15,6 +15,7 @@
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback_helpers.h"
+#include "base/memory/safe_ref.h"
 #include "base/no_destructor.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
@@ -28,6 +29,7 @@
 #include "components/language_detection/content/common/language_detection.mojom.h"
 #include "components/language_detection/core/browser/language_detection_model_provider.h"
 #include "content/browser/ai/echo_ai_manager_impl.h"
+#include "content/browser/cpu_performance/cpu_performance.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/webauth/default_authenticator_request_client_delegate.h"
 #include "content/public/browser/anchor_element_preconnect_delegate.h"
@@ -426,7 +428,7 @@ bool ContentBrowserClient::ShouldUrlUseApplicationIsolationLevel(
 }
 
 #if !BUILDFLAG(IS_ANDROID)
-bool ContentBrowserClient::IsInitialWebUIScheme(const GURL& url) {
+bool ContentBrowserClient::IsInitialWebUIURL(const GURL& url) {
   return false;
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -1644,10 +1646,12 @@ bool ContentBrowserClient::IsJitDisabledForSite(BrowserContext* browser_context,
   return false;
 }
 
-bool ContentBrowserClient::AreV8OptimizationsDisabledForSite(
+bool ContentBrowserClient::AreV8OptimizationsEnabledForSite(
     BrowserContext* browser_context,
+    const std::optional<base::SafeRef<ProcessSelectionUserData>>&
+        process_selection_user_data,
     const GURL& site_url) {
-  return false;
+  return true;
 }
 
 bool ContentBrowserClient::DisallowV8FeatureFlagOverridesForSite(
@@ -1876,11 +1880,6 @@ void ContentBrowserClient::PreferenceRankVideoDeviceInfos(
     BrowserContext* browser_context,
     blink::WebMediaDeviceInfoArray& infos) {}
 
-network::mojom::IpProtectionProxyBypassPolicy
-ContentBrowserClient::GetIpProtectionProxyBypassPolicy() {
-  return network::mojom::IpProtectionProxyBypassPolicy::kNone;
-}
-
 void ContentBrowserClient::MaybePrewarmHttpDiskCache(
     BrowserContext& browser_context,
     const std::optional<url::Origin>& initiator_origin,
@@ -2026,12 +2025,6 @@ ContentBrowserClient::GetClipboardTypesIfPolicyApplied(
   return std::nullopt;
 }
 
-bool ContentBrowserClient::ShouldEnableCanvasNoise(
-    BrowserContext* browser_context,
-    const GURL& origin) {
-  return false;
-}
-
 bool ContentBrowserClient::UsePrefetchPrerenderIntegration() {
   return false;
 }
@@ -2053,6 +2046,17 @@ bool ContentBrowserClient::ShouldAnimateBackForwardTransitions() {
 #else
   return false;
 #endif
+}
+
+blink::mojom::PerformanceTier ContentBrowserClient::GetCpuPerformanceTier() {
+  return content::cpu_performance::GetTier();
+}
+
+void ContentBrowserClient::RecordAssistedLogin(AssistedLoginType login_type) {}
+
+std::optional<bool> ContentBrowserClient::GetOverrideValueForStaticStorageQuota(
+    BrowserContext* browser_context) {
+  return std::nullopt;
 }
 
 }  // namespace content

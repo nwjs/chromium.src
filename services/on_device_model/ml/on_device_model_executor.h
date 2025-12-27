@@ -18,7 +18,6 @@
 #include "base/native_library.h"
 #include "base/types/expected.h"
 #include "base/types/pass_key.h"
-#include "mojo/public/cpp/bindings/remote.h"
 #include "services/on_device_model/backend.h"
 #include "services/on_device_model/backend_model.h"
 #include "services/on_device_model/backend_session.h"
@@ -43,7 +42,6 @@ class COMPONENT_EXPORT(ON_DEVICE_MODEL_ML) BackendImpl final
     : public on_device_model::Backend {
  public:
   explicit BackendImpl(const ml::ChromeML* chrome_ml);
-  ~BackendImpl() override;
 
   // on_device_model::Backend:
   base::expected<void, on_device_model::ServiceDisconnectReason> CanCreate()
@@ -61,6 +59,9 @@ class COMPONENT_EXPORT(ON_DEVICE_MODEL_ML) BackendImpl final
   std::pair<on_device_model::mojom::DevicePerformanceInfoPtr,
             on_device_model::mojom::DeviceInfoPtr>
   GetDeviceAndPerformanceInfo() override;
+
+ protected:
+  ~BackendImpl() override;
 
  private:
   const raw_ptr<const ml::ChromeML> chrome_ml_;

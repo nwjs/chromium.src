@@ -330,6 +330,8 @@ PhysicalFragment::PhysicalFragment(FragmentBuilder* builder,
       style_variant_((unsigned)builder->style_variant_),
       is_hidden_for_paint_(builder->is_hidden_for_paint_),
       has_floating_descendants_for_paint_(false),
+      has_running_anchor_transform_animation_(
+          builder->has_running_anchor_transform_animation_),
       children_valid_(true),
       is_opaque_(builder->is_opaque_),
       is_block_in_inline_(builder->is_block_in_inline_),
@@ -360,7 +362,7 @@ PhysicalFragment::PhysicalFragment(FragmentBuilder* builder,
                            : nullptr),
       break_token_(std::move(builder->break_token_)),
       oof_data_(builder->oof_positioned_descendants_.empty() &&
-                        !builder->AnchorQuery() &&
+                        !builder->GetAnchorMap() &&
                         !has_fragmented_out_of_flow_data_
                     ? nullptr
                     : OofDataFromBuilder(builder)) {
@@ -463,7 +465,7 @@ bool PhysicalFragment::NeedsOOFPositionedInfoPropagation() const {
   // If we have |oof_data_|, it should mean at least one of OOF propagation data
   // exists.
   DCHECK_EQ(!!oof_data_,
-            HasOutOfFlowPositionedDescendants() || HasAnchorQuery() ||
+            HasOutOfFlowPositionedDescendants() || HasChildAnchors() ||
                 (GetFragmentedOofData() &&
                  GetFragmentedOofData()->NeedsOOFPositionedInfoPropagation()));
   return !!oof_data_;
@@ -497,11 +499,11 @@ PhysicalFragment::OofData* PhysicalFragment::OofDataFromBuilder(
     }
   }
 
-  if (builder->anchor_query_) {
+  if (builder->anchor_map_) {
     if (!oof_data) {
       oof_data = MakeGarbageCollected<OofData>();
     }
-    oof_data->SetAnchorQuery(builder->anchor_query_);
+    oof_data->SetAnchorMap(builder->anchor_map_);
   }
 
   return oof_data;
@@ -571,10 +573,11 @@ PhysicalFragment::OofData* PhysicalFragment::FragmentedOofDataFromBuilder(
 void PhysicalFragment::ClearOofData() {
   if (!oof_data_)
     return;
-  if (HasAnchorQuery())
+  if (HasChildAnchors()) {
     oof_data_->OofPositionedDescendants().clear();
-  else
+  } else {
     oof_data_ = nullptr;
+  }
 }
 
 PhysicalFragment::OofData* PhysicalFragment::CloneOofData() const {
@@ -778,14 +781,14 @@ bool PhysicalFragment::DependsOnPercentageBlockSize(
 
 void PhysicalFragment::OofData::Trace(Visitor* visitor) const {
   visitor->Trace(oof_positioned_descendants_);
-  visitor->Trace(anchor_query_);
+  visitor->Trace(anchor_map_);
 }
 
-PhysicalAnchorQuery& PhysicalFragment::OofData::EnsureAnchorQuery() {
-  if (!anchor_query_) {
-    anchor_query_ = MakeGarbageCollected<PhysicalAnchorQuery>();
+AnchorMap& PhysicalFragment::OofData::EnsureAnchorMap() {
+  if (!anchor_map_) {
+    anchor_map_ = MakeGarbageCollected<AnchorMap>();
   }
-  return *anchor_query_;
+  return *anchor_map_;
 }
 
 void PhysicalFragment::PropagatedData::Trace(Visitor* visitor) const {

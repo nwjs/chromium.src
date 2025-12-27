@@ -6,7 +6,6 @@
 
 #include <memory>
 
-#include "base/files/file_util.h"
 #include "base/path_service.h"
 #include "base/scoped_observation.h"
 #include "base/test/scoped_feature_list.h"
@@ -35,6 +34,7 @@
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view_base.h"
 #include "chrome/browser/ui/views/page_info/page_info_view_factory.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -140,6 +140,10 @@ const char kMediaPlaybackTotalTimeForSessionHistogram[] =
 const char kMediaPlaybackTotalPlaybackTimeHistogram[] =
     "Media.AutoPictureInPicture.EnterPictureInPicture.AutomaticReasonV2."
     "MediaPlayback.TotalPlaybackTime";
+
+const char kMediaPlaybackPlaybackToTotalTimeRatioHistogram[] =
+    "Media.AutoPictureInPicture.EnterPictureInPicture.AutomaticReasonV2."
+    "MediaPlayback.PlaybackToTotalTimeRatio";
 
 const char kBrowserInitiatedHistogram[] =
     "Media.AutoPictureInPicture.EnterPictureInPicture.AutomaticReasonV2."
@@ -410,7 +414,7 @@ class AutoPictureInPictureTabHelperBrowserTest : public WebRtcTestBase {
   }
 
   void LoadAutoVideoPipPage(Browser* browser) {
-    GURL test_page_url = ui_test_utils::GetTestUrl(
+    GURL test_page_url = chrome_test_utils::GetTestUrl(
         base::FilePath(base::FilePath::kCurrentDirectory),
         base::FilePath(kAutoVideoPipPage));
     ASSERT_TRUE(ui_test_utils::NavigateToURL(browser, test_page_url));
@@ -420,7 +424,7 @@ class AutoPictureInPictureTabHelperBrowserTest : public WebRtcTestBase {
                                std::string_view hostname = {}) {
     GURL test_page_url;
     if (hostname.empty()) {
-      test_page_url = ui_test_utils::GetTestUrl(
+      test_page_url = chrome_test_utils::GetTestUrl(
           base::FilePath(base::FilePath::kCurrentDirectory),
           base::FilePath(kAutoDocumentPipPage));
       ASSERT_TRUE(ui_test_utils::NavigateToURL(browser, test_page_url));
@@ -446,7 +450,7 @@ class AutoPictureInPictureTabHelperBrowserTest : public WebRtcTestBase {
                                 std::string_view hostname = {}) {
     GURL test_page_url;
     if (hostname.empty()) {
-      test_page_url = ui_test_utils::GetTestUrl(
+      test_page_url = chrome_test_utils::GetTestUrl(
           base::FilePath(base::FilePath::kCurrentDirectory),
           base::FilePath(kCameraPage));
       ASSERT_TRUE(ui_test_utils::NavigateToURL(browser, test_page_url));
@@ -462,28 +466,28 @@ class AutoPictureInPictureTabHelperBrowserTest : public WebRtcTestBase {
   }
 
   void LoadNotRegisteredPage(Browser* browser) {
-    GURL test_page_url = ui_test_utils::GetTestUrl(
+    GURL test_page_url = chrome_test_utils::GetTestUrl(
         base::FilePath(base::FilePath::kCurrentDirectory),
         base::FilePath(kNotRegisteredPage));
     ASSERT_TRUE(ui_test_utils::NavigateToURL(browser, test_page_url));
   }
 
   void LoadAutopipDelayPage(Browser* browser) {
-    GURL test_page_url = ui_test_utils::GetTestUrl(
+    GURL test_page_url = chrome_test_utils::GetTestUrl(
         base::FilePath(base::FilePath::kCurrentDirectory),
         base::FilePath(kAutopipDelayPage));
     ASSERT_TRUE(ui_test_utils::NavigateToURL(browser, test_page_url));
   }
 
   void LoadAutopipToggleRegistrationPage(Browser* browser) {
-    GURL test_page_url = ui_test_utils::GetTestUrl(
+    GURL test_page_url = chrome_test_utils::GetTestUrl(
         base::FilePath(base::FilePath::kCurrentDirectory),
         base::FilePath(kAutopipToggleRegistrationPage));
     ASSERT_TRUE(ui_test_utils::NavigateToURL(browser, test_page_url));
   }
 
   void OpenNewTab(Browser* browser) {
-    GURL test_page_url = ui_test_utils::GetTestUrl(
+    GURL test_page_url = chrome_test_utils::GetTestUrl(
         base::FilePath(base::FilePath::kCurrentDirectory),
         base::FilePath(kBlankPage));
     ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
@@ -492,7 +496,7 @@ class AutoPictureInPictureTabHelperBrowserTest : public WebRtcTestBase {
   }
 
   void OpenPopUp(Browser* browser) {
-    GURL test_page_url = ui_test_utils::GetTestUrl(
+    GURL test_page_url = chrome_test_utils::GetTestUrl(
         base::FilePath(base::FilePath::kCurrentDirectory),
         base::FilePath(kBlankPage));
     ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
@@ -917,8 +921,7 @@ class AutoPictureInPictureTabHelperBrowserTest : public WebRtcTestBase {
 
  protected:
   virtual std::vector<base::test::FeatureRef> GetEnabledFeatures() {
-    return {blink::features::kDocumentPictureInPictureAPI,
-            blink::features::kMediaSessionEnterPictureInPicture};
+    return {blink::features::kDocumentPictureInPictureAPI};
   }
 
   virtual std::vector<base::test::FeatureRef> GetDisabledFeatures() {
@@ -2756,6 +2759,64 @@ IN_PROC_BROWSER_TEST_F(AutoPictureInPictureWithVideoPlaybackBrowserTest,
   histograms.ExpectTotalCount(kMediaPlaybackTotalPlaybackTimeHistogram, 1);
   histograms.ExpectBucketCount(kMediaPlaybackTotalPlaybackTimeHistogram, 8000,
                                1);
+}
+
+IN_PROC_BROWSER_TEST_F(AutoPictureInPictureWithVideoPlaybackBrowserTest,
+                       MediaPlayback_PlaybackToTotalTimeRatioRecorded) {
+  // Load a page that registers for autopip and start video playback.
+  LoadAutoVideoPipPage(browser());
+  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  PlayVideo(web_contents);
+  WaitForAudioFocusGained();
+  WaitForMediaSessionPlaying(web_contents);
+  WaitForWasRecentlyAudible(web_contents);
+  SetExpectedHasHighEngagement(true);
+
+  // Set clock for testing.
+  base::SimpleTestTickClock test_clock;
+  test_clock.SetNowTicks(base::TimeTicks::Now());
+  auto* tab_helper =
+      AutoPictureInPictureTabHelper::FromWebContents(web_contents);
+  tab_helper->set_clock_for_testing(&test_clock);
+
+  base::HistogramTester histograms;
+
+  // Trigger Auto-PiP.
+  SwitchToNewTabAndWaitForAutoPip();
+
+  // Advance clock by 10 seconds while playing.
+  test_clock.Advance(base::Milliseconds(10000));
+
+  // Pause video.
+  PauseVideo(web_contents);
+  WaitForMediaSessionPaused(web_contents);
+
+  // Advance clock by another 10 seconds while paused.
+  test_clock.Advance(base::Milliseconds(10000));
+
+  // Close Auto-PiP.
+  SwitchBackToOpenerAndWaitForPipToClose();
+
+  // Verify metrics.
+  metrics::SubprocessMetricsProvider::MergeHistogramDeltasForTesting();
+
+  // Total Playback Time should be 10s.
+  auto playback_samples = histograms.GetHistogramSamplesSinceCreation(
+      kMediaPlaybackTotalPlaybackTimeHistogram);
+  EXPECT_EQ(1, playback_samples->TotalCount());
+  EXPECT_EQ(1, playback_samples->GetCount(10000));
+
+  // Total Time should be 20s.
+  auto total_time_samples = histograms.GetHistogramSamplesSinceCreation(
+      kMediaPlaybackTotalTimeHistogram);
+  EXPECT_EQ(1, total_time_samples->TotalCount());
+  EXPECT_EQ(1, total_time_samples->GetCount(20000));
+
+  // Ratio should be 50%.
+  auto ratio_samples = histograms.GetHistogramSamplesSinceCreation(
+      kMediaPlaybackPlaybackToTotalTimeRatioHistogram);
+  EXPECT_EQ(1, ratio_samples->TotalCount());
+  EXPECT_EQ(1, ratio_samples->GetCount(50));
 }
 
 IN_PROC_BROWSER_TEST_F(AutoPictureInPictureWithVideoPlaybackBrowserTest,

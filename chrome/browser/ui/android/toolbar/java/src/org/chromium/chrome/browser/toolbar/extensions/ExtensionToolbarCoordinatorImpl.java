@@ -12,6 +12,7 @@ import android.widget.LinearLayout;
 import org.chromium.base.Callback;
 import org.chromium.base.lifetime.LifetimeAssert;
 import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.build.annotations.ServiceImpl;
@@ -19,6 +20,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
+import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTask;
 import org.chromium.chrome.browser.ui.extensions.ExtensionActionsBridge;
 import org.chromium.chrome.browser.ui.extensions.R;
 import org.chromium.ui.base.WindowAndroid;
@@ -28,10 +30,10 @@ import org.chromium.ui.base.WindowAndroid;
 @ServiceImpl(ExtensionToolbarCoordinator.class)
 public class ExtensionToolbarCoordinatorImpl implements ExtensionToolbarCoordinator {
     private final @Nullable LifetimeAssert mLifetimeAssert = LifetimeAssert.create(this);
-    private final Callback<Profile> mProfileUpdatedCallback =
+    private final Callback<@Nullable Profile> mProfileUpdatedCallback =
             (profile) -> mCurrentProfile = profile;
 
-    private ObservableSupplier<Profile> mProfileSupplier;
+    private ObservableSupplier<@Nullable Profile> mProfileSupplier;
     private ExtensionActionListCoordinator mExtensionActionListCoordinator;
     private ExtensionsMenuCoordinator mExtensionsMenuCoordinator;
 
@@ -42,8 +44,9 @@ public class ExtensionToolbarCoordinatorImpl implements ExtensionToolbarCoordina
             Context context,
             ViewStub extensionToolbarStub,
             WindowAndroid windowAndroid,
-            ObservableSupplier<Profile> profileSupplier,
-            ObservableSupplier<Tab> currentTabSupplier,
+            OneshotSupplier<ChromeAndroidTask> taskSupplier,
+            ObservableSupplier<@Nullable Profile> profileSupplier,
+            ObservableSupplier<@Nullable Tab> currentTabSupplier,
             TabCreator tabCreator,
             ThemeColorProvider themeColorProvider) {
         mProfileSupplier = profileSupplier;
@@ -56,6 +59,7 @@ public class ExtensionToolbarCoordinatorImpl implements ExtensionToolbarCoordina
                         context,
                         container.findViewById(R.id.extension_action_list),
                         windowAndroid,
+                        taskSupplier,
                         profileSupplier,
                         currentTabSupplier);
         mExtensionsMenuCoordinator =
@@ -64,6 +68,7 @@ public class ExtensionToolbarCoordinatorImpl implements ExtensionToolbarCoordina
                         container.findViewById(R.id.extensions_menu_button),
                         container.findViewById(R.id.extensions_divider),
                         themeColorProvider,
+                        taskSupplier,
                         profileSupplier,
                         currentTabSupplier,
                         tabCreator);

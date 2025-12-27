@@ -111,7 +111,10 @@ TEST_F(PerFillMetricsTest, RefillTriggerReason_FormChanged) {
   FillForm(form, &credit_card);
 
   base::HistogramTester histogram_tester;
-  form.set_url(GURL("https://foo.com/bar"));
+  std::vector<FormFieldData> fields = form.ExtractFields();
+  fields.push_back(fields.back());
+  form.set_fields(std::move(fields));
+
   SeeForm({form});
 
   histogram_tester.ExpectUniqueSample("Autofill.RefillTriggerReason",
@@ -132,7 +135,8 @@ TEST_F(PerFillMetricsTest, RefillTriggerReason_OnSelectFieldOptionsDidChange) {
   FillForm(form, &credit_card);
 
   base::HistogramTester histogram_tester;
-  autofill_manager().OnSelectFieldOptionsDidChange(form);
+  autofill_manager().OnSelectFieldOptionsDidChange(
+      form, form.fields().back().global_id());
 
   histogram_tester.ExpectUniqueSample(
       "Autofill.RefillTriggerReason",

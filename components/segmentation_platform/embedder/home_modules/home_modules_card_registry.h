@@ -26,6 +26,7 @@ extern const char kTabGroupSyncPromoImpressionCounterPref[];
 extern const char kQuickDeletePromoImpressionCounterPref[];
 extern const char kAuxiliarySearchPromoImpressionCounterPref[];
 extern const char kHistorySyncPromoImpressionCounterPref[];
+extern const char kTipsNotificationsPromoImpressionCounterPref[];
 
 // Interaction flag for each card.
 extern const char kDefaultBrowserPromoInteractedPref[];
@@ -34,6 +35,7 @@ extern const char kTabGroupSyncPromoInteractedPref[];
 extern const char kQuickDeletePromoInteractedPref[];
 extern const char kAuxiliarySearchPromoInteractedPref[];
 extern const char kHistorySyncPromoInteractedPref[];
+extern const char kTipsNotificationsPromoInteractedPref[];
 #endif
 
 // Registry that manages all ephemeral cards in mobile home modules.
@@ -136,12 +138,6 @@ class HomeModulesCardRegistry : public base::SupportsUserData::Data {
 #endif
 
   base::WeakPtrFactory<HomeModulesCardRegistry> weak_ptr_factory_{this};
-
-  // Returns the list of card names configured via the
-  // "names_of_ephemeral_cards_to_show" feature param. The param is expected to
-  // be a comma-separated string (e.g.,
-  // "TabGroupPromo,TabGroupSyncPromo,QuickDeletePromo").
-  std::vector<std::string> GetEnabledCardList();
 };
 
 }  // namespace segmentation_platform::home_modules

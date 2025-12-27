@@ -10,7 +10,6 @@
 #include "base/command_line.h"
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
-#include "base/functional/callback_forward.h"
 #include "base/location.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -106,8 +105,10 @@ std::unique_ptr<GlicWindowController> CreateWindowController(
     GlicKeyedService* glic_service,
     GlicEnabling* glic_enabling,
     contextual_cueing::ContextualCueingService* contextual_cueing_service) {
-  // Update eligibility state in case a new profile has been loaded that was not
-  // captured in the initial eligibility check.
+  // Update the eligibility state for future runs of Chrome in case this
+  // newly loaded profile was not captured in the initial eligibility check.
+  // This will not affect the multi-instance eligibiltiy state of the current
+  // run.
   GlicEnabling::GetAndUpdateEligibilityForGlicMultiInstanceTieredRollout(
       profile);
 
@@ -301,6 +302,11 @@ void GlicKeyedService::CloseAndShutdown() {
   window_controller().Shutdown();
   host_manager().Shutdown();
   fre_controller_->Shutdown();
+}
+
+void GlicKeyedService::CloseAndShutdown(
+    content::RenderFrameHost* render_frame_host) {
+  window_controller().CloseAndShutdownInstanceWithFrame(render_frame_host);
 }
 
 void GlicKeyedService::CloseFloatingPanel() {
@@ -617,12 +623,6 @@ void GlicKeyedService::TryPreloadAfterDelay() {
 }
 
 void GlicKeyedService::TryPreloadFre(GlicPrewarmingFreSource source) {
-  if (!base::FeatureList::IsEnabled(features::kGlicFreWarming)) {
-    // Early/duplicate FRE warming enabling check just to record this metric.
-    base::UmaHistogramEnumeration(
-        "Glic.PrewarmingFre.DisabledShouldNotPreloadFreForSource", source);
-    return;
-  }
   GlicProfileManager* glic_profile_manager = GlicProfileManager::GetInstance();
   CHECK(glic_profile_manager);
 
@@ -683,16 +683,20 @@ void GlicKeyedService::FinishPreload(GlicPrewarmingChecksResult result) {
 }
 
 void GlicKeyedService::FinishPreloadFre(GlicPrewarmingFreSource source,
-                                        bool should_preload) {
-  if (!should_preload) {
+                                        GlicPrewarmingChecksResult result) {
+  if (result != GlicPrewarmingChecksResult::kSuccess) {
+    // If FRE preloading was rejected, log error metrics and return.
     base::UmaHistogramEnumeration(
         "Glic.PrewarmingFre.ShouldNotPreloadFreForSource", source);
+    if (result == GlicPrewarmingChecksResult::kWarmingDisabled) {
+      base::UmaHistogramEnumeration(
+          "Glic.PrewarmingFre.DisabledShouldNotPreloadFreForSource", source);
+    }
     return;
   }
 
   base::UmaHistogramEnumeration("Glic.PrewarmingFre.ShouldPreloadFreForSource",
                                 source);
-
   fre_controller().TryPreload();
 }
 
@@ -735,11 +739,7 @@ void GlicKeyedService::SendAdditionalContext(
 
 void GlicKeyedService::Close(
     content::RenderFrameHost* outermost_render_frame_host) {
-  for (auto* instance : window_controller().GetInstances()) {
-    if (instance) {
-      instance->host().Close(outermost_render_frame_host);
-    }
-  }
+  window_controller().CloseInstanceWithFrame(outermost_render_frame_host);
 }
 
 void GlicKeyedService::OnWebClientCleared() {

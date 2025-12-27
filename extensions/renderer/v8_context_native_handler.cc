@@ -45,7 +45,7 @@ void V8ContextNativeHandler::GetAvailability(
   ret->Set(context, v8::String::NewFromUtf8(isolate, "message", v8::NewStringType::kNormal).ToLocalChecked(),
            v8::String::NewFromUtf8(isolate, "", v8::NewStringType::kNormal).ToLocalChecked()).ToChecked();
   ret->Set(context, v8::String::NewFromUtf8(isolate, "result", v8::NewStringType::kNormal).ToLocalChecked(),
-           v8::Integer::New(isolate, Feature::IS_AVAILABLE)).ToChecked();
+           v8::Integer::New(isolate, (int)Feature::AvailabilityResult::kIsAvailable)).ToChecked();
   args.GetReturnValue().Set(ret);
   return;
   }
@@ -71,7 +71,7 @@ void V8ContextNativeHandler::GetAvailability(
            v8::String::NewFromUtf8(isolate, "result",
                                    v8::NewStringType::kInternalized)
                .ToLocalChecked(),
-           v8::Integer::New(isolate, availability.result()))
+           v8::Integer::New(isolate, availability.result_as_int32()))
       .ToChecked();
   args.GetReturnValue().Set(ret);
 }

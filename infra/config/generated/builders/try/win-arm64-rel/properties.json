@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "win-arm64-rel",
-              "project": "chromium-m143"
+              "project": "chromium-m144"
             },
             "builder_spec": {
               "builder_group": "chromium.win",
@@ -38,7 +38,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "win11-arm64-rel-tests",
-              "project": "chromium-m143"
+              "project": "chromium-m144"
             },
             "builder_spec": {
               "builder_group": "chromium.win",
@@ -62,7 +62,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "win-arm64-rel",
-                "project": "chromium-m143"
+                "project": "chromium-m144"
               }
             }
           }
@@ -72,26 +72,19 @@
         {
           "bucket": "ci",
           "builder": "win-arm64-rel",
-          "project": "chromium-m143"
+          "project": "chromium-m144"
         }
       ],
       "builder_ids_in_scope_for_testing": [
         {
           "bucket": "ci",
           "builder": "win11-arm64-rel-tests",
-          "project": "chromium-m143"
+          "project": "chromium-m144"
         }
       ],
       "targets_spec_directory": "infra/config/generated/builders/try/win-arm64-rel/targets",
       "targets_spec_directory_relative_to_source_dir": true
     }
-  },
-  "$build/code_coverage": {
-    "coverage_test_types": [
-      "unit",
-      "overall"
-    ],
-    "use_clang_coverage": true
   },
   "$build/flakiness": {
     "check_for_flakiness": true,

@@ -19,9 +19,10 @@
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/search/omnibox_utils.h"
 #include "chrome/browser/ui/views/location_bar/selected_keyword_view.h"
+#include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_handler.h"
+#include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_omnibox_client.h"
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_ui.h"
-#include "chrome/browser/ui/webui/searchbox/searchbox_omnibox_client.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/grit/new_tab_page_resources.h"
 #include "components/lens/lens_features.h"
@@ -29,7 +30,9 @@
 #include "components/omnibox/browser/autocomplete_classifier.h"
 #include "components/omnibox/browser/autocomplete_controller.h"
 #include "components/omnibox/browser/autocomplete_controller_emitter.h"
+#include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match.h"
+#include "components/omnibox/browser/contextual_search_provider.h"
 #include "components/omnibox/browser/omnibox_client.h"
 #include "components/omnibox/browser/omnibox_event_global_tracker.h"
 #include "components/omnibox/browser/omnibox_log.h"
@@ -42,7 +45,6 @@
 #include "components/search_engines/template_url_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "net/cookies/cookie_util.h"
-#include "searchbox_handler.h"
 #include "third_party/metrics_proto/omnibox_focus_type.pb.h"
 #include "third_party/omnibox_proto/types.pb.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -94,6 +96,15 @@ WebuiOmniboxHandler::WebuiOmniboxHandler(
 }
 
 WebuiOmniboxHandler::~WebuiOmniboxHandler() = default;
+
+void WebuiOmniboxHandler::OnStart(AutocompleteController* controller,
+                                  const AutocompleteInput& input) {
+  const AutocompleteProviderClient* client =
+      autocomplete_controller()->autocomplete_provider_client();
+  page_->UpdateLensSearchEligibility(
+      ContextualSearchProvider::LensEntrypointEligible(input, client) &&
+      input.IsZeroSuggest());
+}
 
 void WebuiOmniboxHandler::OnResultChanged(AutocompleteController* controller,
                                           bool default_match_changed) {

@@ -5,7 +5,6 @@
 #ifndef IOS_CHROME_BROWSER_ENTERPRISE_DATA_CONTROLS_UTILS_CLIPBOARD_UTILS_H_
 #define IOS_CHROME_BROWSER_ENTERPRISE_DATA_CONTROLS_UTILS_CLIPBOARD_UTILS_H_
 
-#import "base/functional/callback.h"
 #import "base/functional/callback_forward.h"
 #import "components/enterprise/data_controls/core/browser/verdict.h"
 #import "ios/web/public/web_state.h"
@@ -59,6 +58,22 @@ CopyPolicyVerdicts IsCopyAllowedByPolicy(
 Verdict IsShareAllowedByPolicy(const GURL& source_url,
                                ProfileIOS* source_profile  // Must be non-null.
 );
+
+// Reports a paste action if applicable.
+void MaybeReportDataControlsPaste(const GURL& source_url,
+                                  const GURL& destination_url,
+                                  ProfileIOS* source_profile,
+                                  ProfileIOS* destination_profile,
+                                  const ui::ClipboardMetadata& metadata,
+                                  const Verdict& verdict,
+                                  bool bypassed = false);
+
+// Reports a copy action if applicable.
+void MaybeReportDataControlsCopy(const GURL& source_url,
+                                 ProfileIOS* source_profile,
+                                 const ui::ClipboardMetadata& metadata,
+                                 const Verdict& verdict,
+                                 bool bypassed = false);
 
 }  // namespace data_controls
 

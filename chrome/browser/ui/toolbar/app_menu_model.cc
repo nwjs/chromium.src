@@ -189,6 +189,9 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kIncognitoMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel,
                                       kPasswordAndAutofillMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kPasswordManagerMenuItem);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kContactInfoMenuItem);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kIdentityDocsMenuItem);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kTravelMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kShowLensOverlay);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kSaveAndShareMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kCastTitleItem);
@@ -674,6 +677,10 @@ bool ProfileSubMenuModel::BuildSyncSection() {
           command_id = IDC_SHOW_SYNC_SETTINGS;
           icon = &vector_icons::kErrorOutlineIcon;
           break;
+        case syncer::SyncService::UserActionableError::kBookmarksLimitExceeded:
+          // TODO(crbug.com/452968646): Adjust this with providing the concrete
+          // help center article link.
+          break;
       }
       AddItemWithStringIdAndVectorIcon(this, command_id, button_string_id,
                                        *icon);
@@ -761,12 +768,38 @@ PasswordsAndAutofillSubMenuModel::PasswordsAndAutofillSubMenuModel(
                                    vector_icons::kPasswordManagerIcon);
   SetElementIdentifierAt(GetIndexOfCommandId(IDC_SHOW_PASSWORD_MANAGER).value(),
                          AppMenuModel::kPasswordManagerMenuItem);
-  AddItemWithStringIdAndVectorIcon(this, IDC_SHOW_PAYMENT_METHODS,
-                                   IDS_PAYMENT_METHOD_SUBMENU_OPTION,
-                                   kCreditCardChromeRefreshIcon);
-  AddItemWithStringIdAndVectorIcon(this, IDC_SHOW_ADDRESSES,
-                                   IDS_ADDRESSES_AND_MORE_SUBMENU_OPTION,
-                                   vector_icons::kLocationOnChromeRefreshIcon);
+
+  AddItemWithStringIdAndVectorIcon(
+      this, IDC_SHOW_PAYMENT_METHODS,
+      base::FeatureList::IsEnabled(
+          autofill::features::kYourSavedInfoSettingsPage)
+          ? IDS_YOUR_SAVED_INFO_PAYMENTS_SUBMENU_OPTION
+          : IDS_PAYMENT_METHOD_SUBMENU_OPTION,
+      kCreditCardChromeRefreshIcon);
+
+  if (!base::FeatureList::IsEnabled(
+          autofill::features::kYourSavedInfoSettingsPage)) {
+    AddItemWithStringIdAndVectorIcon(
+        this, IDC_SHOW_ADDRESSES, IDS_ADDRESSES_AND_MORE_SUBMENU_OPTION,
+        vector_icons::kLocationOnChromeRefreshIcon);
+  } else {
+    AddItemWithStringIdAndVectorIcon(
+        this, IDC_SHOW_CONTACT_INFO,
+        IDS_YOUR_SAVED_INFO_CONTACT_INFO_SUBMENU_OPTION,
+        vector_icons::kLocationOnChromeRefreshIcon);
+    SetElementIdentifierAt(GetIndexOfCommandId(IDC_SHOW_CONTACT_INFO).value(),
+                           AppMenuModel::kContactInfoMenuItem);
+    AddItemWithStringIdAndVectorIcon(this, IDC_SHOW_IDENTITY_DOCS,
+                                     IDS_IDENTITY_DOCS_SUBMENU_OPTION,
+                                     vector_icons::kIdCardIcon);
+    SetElementIdentifierAt(GetIndexOfCommandId(IDC_SHOW_IDENTITY_DOCS).value(),
+                           AppMenuModel::kIdentityDocsMenuItem);
+    AddItemWithStringIdAndVectorIcon(this, IDC_SHOW_TRAVEL,
+                                     IDS_TRAVEL_SUBMENU_OPTION,
+                                     vector_icons::kTripIcon);
+    SetElementIdentifierAt(GetIndexOfCommandId(IDC_SHOW_TRAVEL).value(),
+                           AppMenuModel::kTravelMenuItem);
+  }
 }
 
 class FindAndEditSubMenuModel : public ui::SimpleMenuModel {
@@ -991,7 +1024,7 @@ void ToolsMenuModel::Build(Browser* browser) {
   if (base::FeatureList::IsEnabled(contextual_tasks::kContextualTasks)) {
     AddItemWithStringIdAndVectorIcon(
         this, IDC_SHOW_CONTEXTUAL_TASKS_SIDE_PANEL,
-        IDS_CONTEXTUAL_TASKS_CONTEXTUAL_TASKS_TITLE, vector_icons::kChatIcon);
+        IDS_CONTEXTUAL_TASKS_CONTEXTUAL_TASKS_TITLE, kDockToRightSparkIcon);
   }
 
   AddSeparator(ui::NORMAL_SEPARATOR);
@@ -1485,11 +1518,6 @@ void AppMenuModel::LogMenuMetrics(int command_id) {
             "WrenchMenu.TimeToAction.ShowCustomizeChromeSidePanel", delta);
       }
       LogMenuAction(MENU_ACTION_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL);
-      // Close IPH for side panel menu, if shown.
-      BrowserUserEducationInterface::From(browser())
-          ->NotifyFeaturePromoFeatureUsed(
-              feature_engagement::kIPHDesktopCustomizeChromeRefreshFeature,
-              FeaturePromoFeatureUsedAction::kIgnorePromoIfPresent);
       break;
     // Zoom menu
     case IDC_ZOOM_MINUS:
@@ -1736,6 +1764,27 @@ void AppMenuModel::LogMenuMetrics(int command_id) {
                                       delta);
       }
       LogMenuAction(MENU_ACTION_SHOW_ADDRESSES);
+      break;
+    case IDC_SHOW_CONTACT_INFO:
+      if (!uma_action_recorded_) {
+        base::UmaHistogramMediumTimes("WrenchMenu.TimeToAction.ShowContactInfo",
+                                      delta);
+      }
+      LogMenuAction(MENU_ACTION_SHOW_CONTACT_INFO);
+      break;
+    case IDC_SHOW_IDENTITY_DOCS:
+      if (!uma_action_recorded_) {
+        base::UmaHistogramMediumTimes(
+            "WrenchMenu.TimeToAction.ShowIdentityDocs", delta);
+      }
+      LogMenuAction(MENU_ACTION_SHOW_IDENTITY_DOCS);
+      break;
+    case IDC_SHOW_TRAVEL:
+      if (!uma_action_recorded_) {
+        base::UmaHistogramMediumTimes("WrenchMenu.TimeToAction.ShowTravel",
+                                      delta);
+      }
+      LogMenuAction(MENU_ACTION_SHOW_TRAVEL);
       break;
     case IDC_PERFORMANCE:
       if (!uma_action_recorded_) {

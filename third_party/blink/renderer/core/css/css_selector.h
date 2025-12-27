@@ -46,6 +46,7 @@ namespace blink {
 class CSSParserContext;
 class CSSSelectorList;
 class Document;
+class RouteLocation;
 class StyleRule;
 
 // This class represents a simple selector for a StyleRule.
@@ -296,8 +297,6 @@ class CORE_EXPORT CSSSelector {
     kPseudoOptional,
     kPseudoParent,  // Written as & (in nested rules).
     kPseudoPart,
-    kPseudoPermissionElementInvalidStyle,
-    kPseudoPermissionElementOccluded,
     kPseudoPermissionGranted,
     kPseudoPermissionIcon,
     kPseudoPlaceholder,
@@ -407,6 +406,12 @@ class CORE_EXPORT CSSSelector {
     kPseudoScrollMarkerGroup,
     // Scroll button pseudo for Carousel
     kPseudoScrollButton,
+
+    kPseudoOverscrollAreaParent,
+    kPseudoOverscrollClientArea,
+
+    // :route-match(<route-location>)
+    kPseudoRouteMatch,
   };
 
   enum class AttributeMatchType : int {
@@ -439,7 +444,7 @@ class CORE_EXPORT CSSSelector {
   // Sets this CSSSelector to a :where() class with the specified argument.
   void SetWhere(CSSSelectorList*);
   void UpdatePseudoPage(const AtomicString&, const Document*);
-  static PseudoType NameToPseudoType(const AtomicString&,
+  static PseudoType NameToPseudoType(StringView,
                                      bool has_arguments,
                                      const Document* document);
   static PseudoId GetPseudoId(PseudoType);
@@ -503,6 +508,9 @@ class CORE_EXPORT CSSSelector {
   const CSSSelectorList* SelectorList() const {
     return HasRareData() ? data_.rare_data_->selector_list_.Get() : nullptr;
   }
+  const RouteLocation* GetRouteLocation() const {
+    return HasRareData() ? data_.rare_data_->route_location_.Get() : nullptr;
+  }
   // Similar to SelectorList(), but also works for kPseudoParent
   // (i.e., nested selectors); on &, will give the parent's selector list.
   // Will return nullptr if no such list exists (e.g. if we are not a
@@ -534,6 +542,7 @@ class CORE_EXPORT CSSSelector {
   void SetValue(const AtomicString&, bool match_lower_case);
   void SetArgument(const AtomicString&);
   void SetSelectorList(CSSSelectorList*);
+  void SetRouteLocation(RouteLocation*);
   void SetIdentList(std::unique_ptr<Vector<AtomicString>>);
   void SetContainsPseudoInsideHasPseudoClass();
   void SetContainsComplexLogicalCombinationsInsideHasPseudoClass();
@@ -782,6 +791,7 @@ class CORE_EXPORT CSSSelector {
     AtomicString argument_;    // Used for :contains, :lang, :dir, etc.
     Member<CSSSelectorList>
         selector_list_;  // Used :is, :not, :-webkit-any, etc.
+    Member<RouteLocation> route_location_;  // Used for :route-match().
     std::unique_ptr<Vector<AtomicString>>
         ident_list_;  // Used for ::part(), :active-view-transition-type().
 

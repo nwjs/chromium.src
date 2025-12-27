@@ -38,7 +38,7 @@ class ProfilePickerFlowController : public ProfileManagementFlowControllerImpl {
       StepSwitchFinishedCallback switch_finished_callback,
       base::OnceCallback<void(const ForceSigninUIError&)> on_error_callback);
 
-  void CancelPostSignInFlow() override;
+  void CancelSigninFlow() override;
 
   std::u16string GetFallbackAccessibleWindowTitle() const override;
 
@@ -77,6 +77,7 @@ class ProfilePickerFlowController : public ProfileManagementFlowControllerImpl {
   // Callback after loading a profile and opening a browser.
   void OnSwitchToProfileComplete(
       bool open_settings,
+      bool exit_flow_after_profile_picked,
       base::OnceCallback<void(bool)> pick_profile_complete_callback,
       Browser* browser);
 

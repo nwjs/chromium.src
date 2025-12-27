@@ -12,6 +12,7 @@
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "content/browser/devtools/devtools_instrumentation.h"
+#include "content/browser/picture_in_picture/document_picture_in_picture_navigation_throttle.h"
 #include "content/browser/preloading/prefetch/contamination_delay_navigation_throttle.h"
 #include "content/browser/preloading/prerender/prerender_navigation_throttle.h"
 #include "content/browser/preloading/prerender/prerender_subframe_navigation_throttle.h"
@@ -25,15 +26,15 @@
 #include "content/browser/renderer_host/navigation_throttle_runner.h"
 #include "content/browser/renderer_host/navigation_throttle_runner2.h"
 #include "content/browser/renderer_host/navigator_delegate.h"
-#include "content/browser/renderer_host/partitioned_popins/partitioned_popins_navigation_throttle.h"
 #include "content/browser/renderer_host/renderer_cancellation_throttle.h"
 #include "content/browser/renderer_host/subframe_history_navigation_throttle.h"
+#include "content/browser/webid/navigation_interceptor.h"
 #include "content/common/features.h"
 #include "content/public/browser/navigation_handle.h"
 
-#if !BUILDFLAG(IS_ANDROID)
-#include "content/browser/picture_in_picture/document_picture_in_picture_navigation_throttle.h"
-#endif  // !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
+#include "content/browser/renderer_host/android_spare_renderer_navigation_throttle.h"
+#endif  // BUILDFLAG(IS_ANDROID)
 
 namespace content {
 
@@ -86,11 +87,17 @@ void NavigationThrottleRegistryImpl::RegisterNavigationThrottles() {
   // navigation altogether.
   BlockedSchemeNavigationThrottle::MaybeCreateAndAdd(*this);
 
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(
+          features::kAndroidWarmUpSpareRendererWithTimeout) &&
+      features::kAndroidSpareRendererAddNavigationThrottle.Get()) {
+    AndroidSpareRendererNavigationThrottle::CreateAndAdd(*this);
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+
   // Prevent cross-document navigations from document picture-in-picture
   // windows.
   DocumentPictureInPictureNavigationThrottle::MaybeCreateAndAdd(*this);
-#endif  // !BUILDFLAG(IS_ANDROID)
 
   AncestorThrottle::CreateAndAdd(*this);
 
@@ -138,9 +145,10 @@ void NavigationThrottleRegistryImpl::RegisterNavigationThrottles() {
   // This must be the last throttle to run. See https://crrev.com/c/5316738.
   BackForwardCacheSubframeNavigationThrottle::MaybeCreateAndAdd(*this);
 
-  // Add a throttle to manage top-frame navigations from a partitioned popin.
-  // See https://explainers-by-googlers.github.io/partitioned-popins/
-  PartitionedPopinsNavigationThrottle::MaybeCreateAndAdd(*this);
+  // Maybe add a throttle to manage navigations from relying parties to FedCM
+  // identity providers.
+  content::webid::NavigationInterceptor::MaybeCreateAndAdd(*this);
+
   // DO NOT ADD any throttles after this line.
 
   // Insert all testing NavigationThrottles last.
@@ -208,7 +216,8 @@ void NavigationThrottleRegistryImpl::ProcessNavigationEvent(
 
 void NavigationThrottleRegistryImpl::ResumeProcessingNavigationEvent(
     NavigationThrottle* resuming_throttle) {
-  if (!deferring_throttles_.contains(resuming_throttle)) {
+  auto it = deferring_throttles_.find(resuming_throttle);
+  if (it == deferring_throttles_.end()) {
     // TODO(https://crbug.com/411238078): Upgrade to CHECK_EQ once remaining
     // known cases are fixed. Until then, collect dump data and ignore the
     // resume request to avoid bypassing required throttle checks.
@@ -223,7 +232,7 @@ void NavigationThrottleRegistryImpl::ResumeProcessingNavigationEvent(
     base::debug::DumpWithoutCrashing();
     return;
   }
-  CHECK_EQ(1u, deferring_throttles_.erase(resuming_throttle));
+  deferring_throttles_.erase(it);
 
   navigation_throttle_runner_->ResumeProcessingNavigationEvent(
       resuming_throttle);

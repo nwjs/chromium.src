@@ -4,11 +4,12 @@
 
 package org.chromium.components.browser_ui.widget.containment;
 
-import static org.chromium.components.browser_ui.styles.ChromeColors.getSettingsContainerBackgroundColor;
+import static org.chromium.components.browser_ui.styles.SemanticColorUtils.getSettingsContainerBackgroundColor;
 import static org.chromium.components.browser_ui.widget.containment.ContainmentItem.DEFAULT_COLOR;
-import static org.chromium.components.browser_ui.widget.containment.ContainmentItem.DEFAULT_MARGIN;
+import static org.chromium.components.browser_ui.widget.containment.ContainmentItem.DEFAULT_VALUE;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -25,30 +26,28 @@ import java.util.List;
 /**
  * Controller that assigns styling to items in a settings screen.
  *
- * <p>This controller is responsible for generating {@link ContainerStyle} objects for both {@link
- * Preference} items and generic {@link View}s.
+ * <p>This controller generates {@link ContainerStyle} objects for {@link Preference} items and
+ * generic {@link View}s. It determines styles based on an item's position within a styling section
+ * and its custom styling properties. Styling is composed by calling a series of helper methods:
  *
- * <p>The core logic is based on the concept of a "styling section," which is a contiguous block of
- * standard items. Special items that require custom styling (see {@link
- * #isCustomStyledPreference(Preference)} and {@link #isCustomStyledView(View)}) act as delimiters
- * that break up these sections.
- *
- * <p>For a standard item (either a Preference or a View), the controller determines if it's at the
- * top, middle, bottom, or is a standalone item in its section. This position is then passed to
- * {@link #createBuilderWithDefaultStyle}, which creates the final style with the correct corner
- * radii and default margins.
- *
- * <p>Custom preferences are handled separately in {@link #getStyleForCustomContainer}, where their
- * own styling values are prioritized over the controller's defaults.
+ * <ul>
+ *   <li>{@link #addStandardStyling}: Applies standard margins and padding.
+ *   <li>{@link #addPositionBasedStyling}: Applies corner radii and margins based on the item's
+ *       position in a section.
+ *   <li>{@link #addCustomStyling}: Applies custom styles from {@link ContainmentItem}.
+ * </ul>
  */
 @NullMarked
 public class ContainmentItemController {
     private final float mDefaultRadius;
     private final float mInnerRadius;
-    private final int mDefaultVerticalMargin;
-    private final int mDefaultHorizontalMargin;
+    private final int mDefaultContainerVerticalMargin;
+    private final int mDefaultMargin;
     private final int mSectionBottomAdditionalMargin;
+    private final int mDefaultPadding;
+    private final int mMultiLineVerticalPadding;
     private final int mDefaultBackgroundColor;
+    static final int TRANSPARENT_BACKGROUND_COLOR = Color.TRANSPARENT;
 
     /**
      * Constructor for the styling controller.
@@ -62,14 +61,18 @@ public class ContainmentItemController {
         mInnerRadius =
                 context.getResources()
                         .getDimensionPixelSize(R.dimen.settings_item_rounded_corner_radius_inner);
-        mDefaultVerticalMargin =
-                context.getResources().getDimensionPixelSize(R.dimen.settings_item_vertical_margin);
-        mDefaultHorizontalMargin =
+        mDefaultContainerVerticalMargin =
                 context.getResources()
-                        .getDimensionPixelSize(R.dimen.settings_item_horizontal_margin);
+                        .getDimensionPixelSize(R.dimen.settings_item_container_vertical_margin);
+        mDefaultMargin = context.getResources().getDimensionPixelSize(R.dimen.settings_item_margin);
         mSectionBottomAdditionalMargin =
                 context.getResources()
                         .getDimensionPixelSize(R.dimen.settings_section_bottom_margin);
+        mDefaultPadding =
+                context.getResources().getDimensionPixelSize(R.dimen.settings_item_default_padding);
+        mMultiLineVerticalPadding =
+                context.getResources()
+                        .getDimensionPixelSize(R.dimen.settings_item_vertical_padding_multi_line);
         mDefaultBackgroundColor = getSettingsContainerBackgroundColor(context);
     }
 
@@ -104,7 +107,14 @@ public class ContainmentItemController {
     }
 
     /**
-     * Determines the style for a preference based on its position in the list.
+     * Determines the style for a preference based on its position in the list and its custom
+     * styling properties.
+     *
+     * <p>This method evaluates the preference's position relative to its neighbors to determine if
+     * it's at the top, middle, bottom, or a standalone item in a section. It also checks if the
+     * preference implements {@link ContainmentItem} to apply custom styles. The final {@link
+     * ContainerStyle} is composed by calling helper methods to add position-based and custom
+     * styling.
      *
      * @param visiblePreferences The list of all visible preferences.
      * @param position The position of the current preference in the list.
@@ -114,25 +124,40 @@ public class ContainmentItemController {
             ArrayList<Preference> visiblePreferences, int position) {
         Preference currentPref = visiblePreferences.get(position);
 
-        if (isCustomStyledPreference(currentPref)) {
-            if (currentPref instanceof PreferenceCategory) {
+        if (currentPref instanceof PreferenceCategory) {
+            return new ContainerStyle.Builder()
+                    .setBottomMargin(mDefaultMargin)
+                    .setHorizontalMargin(mDefaultMargin)
+                    .setBackgroundColor(TRANSPARENT_BACKGROUND_COLOR)
+                    .build();
+        }
+        if (currentPref instanceof ContainmentItem customStyledPreference) {
+            if (customStyledPreference.getCustomBackgroundStyle() == BackgroundStyle.NONE) {
                 return ContainerStyle.EMPTY;
             }
-            return getStyleForCustomContainer((ContainmentItem) currentPref);
         }
 
-        // For standard items, styling is determined by their position within a section.
+        ContainerStyle.Builder containerStyleBuilder = new ContainerStyle.Builder();
 
+        // Evaluate position of preference
         Preference prefAbove = (position > 0) ? visiblePreferences.get(position - 1) : null;
         Preference prefBelow =
                 (position < visiblePreferences.size() - 1)
                         ? visiblePreferences.get(position + 1)
                         : null;
-
         boolean isTop = (prefAbove == null) || isCustomStyledPreference(prefAbove);
         boolean isBottom = (prefBelow == null) || isCustomStyledPreference(prefBelow);
 
-        return createBuilderWithDefaultStyle(isTop, isBottom);
+        addStandardStyling(containerStyleBuilder, currentPref.getSummary() == null);
+        if (currentPref instanceof ContainmentItem customStyledPreference) {
+            if (customStyledPreference.getCustomBackgroundStyle() == BackgroundStyle.CARD) {
+                isTop = true;
+                isBottom = true;
+            }
+            addCustomStyling(containerStyleBuilder, customStyledPreference);
+        }
+        addPositionBasedStyling(containerStyleBuilder, isTop, isBottom);
+        return containerStyleBuilder.build();
     }
 
     /**
@@ -150,25 +175,39 @@ public class ContainmentItemController {
     }
 
     /**
-     * Determines the style for a view based on its position in the list.
+     * Determines the style for a view based on its position in a list. This method only applies
+     * styling to views that implement the {@link ContainmentItem} interface.
+     *
+     * <p>The method determines the view's position in a styling section (e.g., top, bottom) based
+     * on its {@link BackgroundStyle} and its neighbors. It then composes the final {@link
+     * ContainerStyle} by calling helper methods for custom and position-based styling.
      *
      * @param views The list of all views to be styled.
      * @param position The position of the current view in the list.
-     * @return The {@link ContainerStyle} for the view.
+     * @return The {@link ContainerStyle} for the view, or {@link ContainerStyle#EMPTY} if the view
+     *     is not a {@link ContainmentItem}.
      */
     private ContainerStyle getViewStyleForPosition(List<View> views, int position) {
         View view = views.get(position);
 
-        if (isCustomStyledView(view)) {
-            return getStyleForCustomContainer((ContainmentItem) view);
+        if (!(view instanceof ContainmentItem customStyledView)
+                || customStyledView.getCustomBackgroundStyle() == BackgroundStyle.NONE) {
+            return ContainerStyle.EMPTY;
         }
-
-        // For standard items, styling is determined by their position within a section.
 
         boolean isTop = position == 0 || isCustomStyledView(views.get(position - 1));
         boolean isBottom =
                 position == views.size() - 1 || isCustomStyledView(views.get(position + 1));
-        return createBuilderWithDefaultStyle(isTop, isBottom);
+
+        ContainerStyle.Builder containerStyleBuilder = new ContainerStyle.Builder();
+        addStandardStyling(containerStyleBuilder, /* isSingleLine= */ true);
+        if (customStyledView.getCustomBackgroundStyle() == BackgroundStyle.CARD) {
+            isTop = true;
+            isBottom = true;
+        }
+        addCustomStyling(containerStyleBuilder, customStyledView);
+        addPositionBasedStyling(containerStyleBuilder, isTop, isBottom);
+        return containerStyleBuilder.build();
     }
 
     /**
@@ -186,56 +225,74 @@ public class ContainmentItemController {
     }
 
     /**
-     * Creates a {@link ContainerStyle} for a {@link ContainmentItem}. This method respects the
-     * custom values provided by the container, falling back to controller defaults if they are not
-     * provided.
-     *
-     * @param container The container to generate a style for.
-     * @return The {@link ContainerStyle} for the container.
-     */
-    private ContainerStyle getStyleForCustomContainer(ContainmentItem container) {
-        if (container.getCustomBackgroundStyle() == BackgroundStyle.CARD) {
-            int topMargin = container.getCustomTopMargin();
-            if (topMargin == DEFAULT_MARGIN) topMargin = mDefaultVerticalMargin;
-
-            int bottomMargin = container.getCustomBottomMargin();
-            if (bottomMargin == DEFAULT_MARGIN) {
-                bottomMargin = mDefaultVerticalMargin + mSectionBottomAdditionalMargin;
-            }
-
-            int horizontalMargin = container.getCustomHorizontalMargin();
-            if (horizontalMargin == DEFAULT_MARGIN) {
-                horizontalMargin = mDefaultHorizontalMargin;
-            }
-
-            int backgroundColor = container.getCustomBackgroundColor();
-            if (backgroundColor == DEFAULT_COLOR) backgroundColor = mDefaultBackgroundColor;
-
-            return new ContainerStyle.Builder()
-                    .setTopRadius(mDefaultRadius)
-                    .setBottomRadius(mDefaultRadius)
-                    .setTopMargin(topMargin)
-                    .setBottomMargin(bottomMargin)
-                    .setHorizontalMargin(horizontalMargin)
-                    .setBackgroundColor(backgroundColor)
-                    .build();
-        }
-
-        return ContainerStyle.EMPTY;
-    }
-
-    /**
-     * Creates a default {@link ContainerStyle} for a standard item. The style is determined by
-     * whether the item is at the top or bottom of a styling section.
+     * Creates a {@link ContainerStyle.Builder} and applies standard, custom, and position-based
+     * styling.
      *
      * @param isTop Whether the item is at the top of a section.
      * @param isBottom Whether the item is at the bottom of a section.
-     * @return The {@link ContainerStyle} for the item.
+     * @param isSingleLine Whether the item is single-line, affecting vertical padding.
+     * @return A {@link ContainerStyle.Builder} with all styles applied.
      */
-    private ContainerStyle createBuilderWithDefaultStyle(boolean isTop, boolean isBottom) {
+    public ContainerStyle.Builder createStandardBuilder(
+            boolean isTop, boolean isBottom, boolean isSingleLine) {
+        ContainerStyle.Builder containerStyleBuilder = new ContainerStyle.Builder();
+        addStandardStyling(containerStyleBuilder, isSingleLine);
+        addPositionBasedStyling(containerStyleBuilder, isTop, isBottom);
+        return containerStyleBuilder;
+    }
+
+    /**
+     * Applies standard margins, padding, and the default background color to a {@link
+     * ContainerStyle.Builder}.
+     *
+     * @param containerStyleBuilder The {@link ContainerStyle.Builder} to apply the styles to.
+     * @param isSingleLine Whether the item is single-line, affecting vertical padding.
+     */
+    private void addStandardStyling(
+            ContainerStyle.Builder containerStyleBuilder, boolean isSingleLine) {
+        containerStyleBuilder
+                .setTopMargin(mDefaultContainerVerticalMargin)
+                .setHorizontalMargin(mDefaultMargin)
+                .setVerticalPadding(isSingleLine ? mDefaultPadding : mMultiLineVerticalPadding)
+                .setBackgroundColor(mDefaultBackgroundColor);
+    }
+
+    /**
+     * Applies custom styling from a {@link ContainmentItem} to a {@link ContainerStyle.Builder}.
+     * This includes background color and minimum height. If the item does not specify custom
+     * values, defaults are used.
+     *
+     * @param containerStyleBuilder The {@link ContainerStyle.Builder} to apply the styles to.
+     * @param container The {@link ContainmentItem} from which to source custom styles.
+     */
+    public void addCustomStyling(
+            ContainerStyle.Builder containerStyleBuilder, ContainmentItem container) {
+
+        int backgroundColor = container.getCustomBackgroundColor();
+        if (backgroundColor == DEFAULT_COLOR) backgroundColor = mDefaultBackgroundColor;
+
+        containerStyleBuilder.setBackgroundColor(backgroundColor);
+
+        int minHeight = container.getCustomMinHeight();
+        if (minHeight != DEFAULT_VALUE) {
+            // Only set the default height if a custom value was provided
+            containerStyleBuilder.setMinHeight(minHeight);
+        }
+    }
+
+    /**
+     * Applies corner radii and bottom margin to a {@link ContainerStyle.Builder} based on the
+     * item's position within a styling section (top, bottom, middle, or standalone).
+     *
+     * @param containerStyleBuilder The {@link ContainerStyle.Builder} to apply the styles to.
+     * @param isTop Whether the item is at the top of a section.
+     * @param isBottom Whether the item is at the bottom of a section.
+     */
+    public void addPositionBasedStyling(
+            ContainerStyle.Builder containerStyleBuilder, boolean isTop, boolean isBottom) {
         float topRadius = mDefaultRadius;
         float bottomRadius = mDefaultRadius;
-        int bottomMargin = mDefaultVerticalMargin;
+        int bottomMargin = mDefaultContainerVerticalMargin;
 
         if (isTop && isBottom) { // Standalone
             // Standalone items have an additional bottom margin
@@ -251,13 +308,9 @@ public class ContainmentItemController {
             bottomRadius = mInnerRadius;
         }
 
-        return new ContainerStyle.Builder()
-                .setTopRadius(topRadius)
-                .setBottomRadius(bottomRadius)
-                .setTopMargin(mDefaultVerticalMargin)
+        containerStyleBuilder
                 .setBottomMargin(bottomMargin)
-                .setHorizontalMargin(mDefaultHorizontalMargin)
-                .setBackgroundColor(mDefaultBackgroundColor)
-                .build();
+                .setTopRadius(topRadius)
+                .setBottomRadius(bottomRadius);
     }
 }

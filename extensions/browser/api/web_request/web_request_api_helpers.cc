@@ -578,8 +578,7 @@ IgnoredAction::IgnoredAction(extensions::ExtensionId extension_id,
 
 IgnoredAction::IgnoredAction(IgnoredAction&& rhs) = default;
 
-bool ExtraInfoSpec::InitFromValue(content::BrowserContext* browser_context,
-                                  const base::Value& value,
+bool ExtraInfoSpec::InitFromValue(const base::Value& value,
                                   int* extra_info_spec) {
   *extra_info_spec = 0;
   if (!value.is_list()) {
@@ -603,6 +602,11 @@ bool ExtraInfoSpec::InitFromValue(content::BrowserContext* browser_context,
       *extra_info_spec |= REQUEST_BODY;
     } else if (*str == "extraHeaders") {
       *extra_info_spec |= EXTRA_HEADERS;
+    } else if (*str == "securityInfo") {
+      *extra_info_spec |= SECURITY_INFO;
+    } else if (*str == "securityInfoRawDer") {
+      *extra_info_spec |= SECURITY_INFO_RAW_DER;
+      *extra_info_spec |= SECURITY_INFO;
     } else {
       return false;
     }

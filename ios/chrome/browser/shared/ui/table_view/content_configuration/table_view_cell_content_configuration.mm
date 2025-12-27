@@ -58,6 +58,17 @@
   return cell;
 }
 
+- (UIView*)makeAccessibilityConfiguredContentView {
+  UIView* contentView = [self makeContentView];
+  contentView.isAccessibilityElement = YES;
+  contentView.accessibilityLabel = [self accessibilityLabel];
+  contentView.accessibilityValue = [self accessibilityValue];
+  contentView.accessibilityHint = [self accessibilityHint];
+  contentView.accessibilityUserInputLabels =
+      [self accessibilityUserInputLabels];
+  return contentView;
+}
+
 #pragma mark - UIContentConfiguration
 
 - (UIView<UIContentView>*)makeContentView {
@@ -88,11 +99,14 @@
   copy.subtitleColor = self.subtitleColor;
   copy.subtitleNumberOfLines = self.subtitleNumberOfLines;
   copy.subtitleLineBreakMode = self.subtitleLineBreakMode;
+  copy.secondSubtitle = self.secondSubtitle;
+  copy.secondSubtitleNumberOfLines = self.secondSubtitleNumberOfLines;
   copy.trailingText = self.trailingText;
   copy.attributedTrailingText = self.attributedTrailingText;
   copy.trailingTextColor = self.trailingTextColor;
   copy.trailingTextNumberOfLines = self.trailingTextNumberOfLines;
   copy.customAccessibilityLabel = self.customAccessibilityLabel;
+  copy.hasAccessoryView = self.hasAccessoryView;
   // LINT.ThenChange(table_view_cell_content_configuration.h:Copy)
   return copy;
 }
@@ -114,6 +128,9 @@
     [parts addObject:self.attributedSubtitle.string];
   } else if (self.subtitle.length > 0) {
     [parts addObject:self.subtitle];
+  }
+  if (self.secondSubtitle.length > 0) {
+    [parts addObject:self.secondSubtitle];
   }
   return [parts componentsJoinedByString:@", "];
 }

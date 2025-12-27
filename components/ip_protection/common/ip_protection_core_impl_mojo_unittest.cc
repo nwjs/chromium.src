@@ -9,7 +9,6 @@
 #include <utility>
 #include <vector>
 
-#include "base/functional/callback_forward.h"
 #include "base/notreached.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
@@ -84,8 +83,6 @@ TEST_F(IpProtectionCoreImplMojoTest,
       /*masked_domain_list_manager=*/nullptr,
       std::move(ipp_proxy_config_manager),
       IpProtectionCoreImpl::ProxyTokenManagerMap(),
-      /*probabilistic_reveal_token_registry=*/nullptr,
-      /*ipp_prt_manager=*/nullptr,
       /*is_ip_protection_enabled=*/true, /*ip_protection_incognito=*/true);
 
   ip_protection_core.AuthTokensMayBeAvailable();
@@ -98,8 +95,6 @@ TEST_F(IpProtectionCoreImplMojoTest, ChangeEnabledStatus) {
       /*masked_domain_list_manager=*/nullptr,
       /*ip_protection_proxy_config_manager=*/nullptr,
       IpProtectionCoreImpl::ProxyTokenManagerMap(),
-      /*probabilistic_reveal_token_registry=*/nullptr,
-      /*ipp_prt_manager=*/nullptr,
       /*is_ip_protection_enabled=*/false, /*ip_protection_incognito=*/true);
   EXPECT_FALSE(ip_protection_core.IsIpProtectionEnabled());
 

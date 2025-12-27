@@ -122,6 +122,17 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//ui/accessibility/platform/ax_platform_node_auralinux.cc:UmaAtkApi) -->
 
+<!-- LINT.IfChange(AccessibilityCaretBrowsingAction)-->
+
+<enum name="AccessibilityCaretBrowsingAction">
+  <summary>Tracks overall usage of caret browsing.</summary>
+  <int value="0" label="Enabled"/>
+  <int value="1" label="Disabled"/>
+  <int value="2" label="Cancel - Keyboard dialog dismissed"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/accessibility/settings/AccessibilitySettingsBridge.java:AccessibilityCaretBrowsingAction) -->
+
 <!-- LINT.IfChange(AccessibilityImageLabelModeAndroid)-->
 
 <enum name="AccessibilityImageLabelModeAndroid">
@@ -161,6 +172,7 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="User Enabled"/>
   <int value="2" label="OS Enabled"/>
   <int value="3" label="User Disabled"/>
+  <int value="4" label="Form Factor Enabled"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/browser_ui/accessibility/android/java/src/org/chromium/components/browser_ui/accessibility/PageZoomUma.java:AccessibilityPageZoomAppMenuEnabledState) -->
@@ -2197,16 +2209,7 @@ Unknown properties are collapsed to zero. -->
   <int value="4" label="Hihglight sentence"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/resources/side_panel/read_anything/metrics_browser_proxy.ts:ReadAloudHighlightGranularity) -->
-
-<!-- LINT.IfChange(ReadAnythingHighlightState) -->
-
-<enum name="ReadAnythingHighlightState">
-  <int value="0" label="Reading highlight shown"/>
-  <int value="1" label="Reading highlight hidden"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/resources/side_panel/read_anything/metrics_browser_proxy.ts:ReadAloudHighlightState) -->
+<!-- LINT.ThenChange(//chrome/browser/resources/side_panel/read_anything/shared/metrics_browser_proxy.ts:ReadAloudHighlightGranularity) -->
 
 <!-- LINT.IfChange(ReadAnythingLetterSpacing) -->
 
@@ -2237,7 +2240,7 @@ Unknown properties are collapsed to zero. -->
   <int value="1" label="Speech played on new page"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/resources/side_panel/read_anything/metrics_browser_proxy.ts:ReadAnythingNewPage) -->
+<!-- LINT.ThenChange(//chrome/browser/resources/side_panel/read_anything/shared/metrics_browser_proxy.ts:ReadAnythingNewPage) -->
 
 <!-- LINT.IfChange(ReadAnythingReadAloudSettingsChange) -->
 
@@ -2247,7 +2250,7 @@ Unknown properties are collapsed to zero. -->
   <int value="2" label="Highlight change"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/resources/side_panel/read_anything/metrics_browser_proxy.ts:ReadAloudSettingsChange) -->
+<!-- LINT.ThenChange(//chrome/browser/resources/side_panel/read_anything/shared/metrics_browser_proxy.ts:ReadAloudSettingsChange) -->
 
 <!-- LINT.IfChange(ReadAnythingReadAloudVoice2) -->
 
@@ -2258,7 +2261,7 @@ Unknown properties are collapsed to zero. -->
   <int value="3" label="System voice"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/resources/side_panel/read_anything/metrics_browser_proxy.ts:ReadAnythingVoiceType) -->
+<!-- LINT.ThenChange(//chrome/browser/resources/side_panel/read_anything/shared/metrics_browser_proxy.ts:ReadAnythingVoiceType) -->
 
 <!-- LINT.IfChange(ReadAnythingScrollEvent) -->
 
@@ -2283,7 +2286,7 @@ Unknown properties are collapsed to zero. -->
   <int value="6" label="Images enabled change"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/resources/side_panel/read_anything/metrics_browser_proxy.ts:ReadAnythingSettingsChange) -->
+<!-- LINT.ThenChange(//chrome/browser/resources/side_panel/read_anything/shared/metrics_browser_proxy.ts:ReadAnythingSettingsChange) -->
 
 <!-- LINT.IfChange(ReadAnythingSpeechError) -->
 
@@ -2299,7 +2302,7 @@ Unknown properties are collapsed to zero. -->
   <int value="8" label="Network"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/resources/side_panel/read_anything/metrics_browser_proxy.ts:ReadAnythingSpeechError) -->
+<!-- LINT.ThenChange(//chrome/browser/resources/side_panel/read_anything/shared/metrics_browser_proxy.ts:ReadAnythingSpeechError) -->
 
 <!-- LINT.IfChange(ReadAnythingSpeechStopSource) -->
 

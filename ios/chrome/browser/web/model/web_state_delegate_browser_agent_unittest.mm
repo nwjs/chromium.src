@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/web/model/web_state_delegate_browser_agent.h"
 
+#import "base/functional/callback_helpers.h"
 #import "base/run_loop.h"
 #import "base/test/bind.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_request.h"
@@ -230,17 +231,5 @@ TEST_F(WebStateDelegateBrowserAgentTest, ShouldAllowCut) {
                                EXPECT_TRUE(allowed);
                                run_loop.Quit();
                              }));
-  run_loop.Run();
-}
-
-// Tests that share is allowed by default for non-enterprise profiles.
-TEST_F(WebStateDelegateBrowserAgentTest, ShouldAllowShare) {
-  web::WebState* web_state = InsertNewWebState(GURL(kURL1));
-  base::RunLoop run_loop;
-  delegate()->ShouldAllowShare(web_state,
-                               base::BindLambdaForTesting([&](bool allowed) {
-                                 EXPECT_TRUE(allowed);
-                                 run_loop.Quit();
-                               }));
   run_loop.Run();
 }

@@ -77,7 +77,7 @@ enum HistogramIndex {
 };
 
 // The order (indices) must match HistogramIndex enum above
-auto kHistogramNames = std::to_array<const char*>({
+constexpr auto kHistogramNames = std::to_array<const char*>({
     "WebApp.Engagement.InTab",
     "WebApp.Engagement.InWindow",
     "WebApp.Engagement.DefaultInstalled.InTab",
@@ -682,7 +682,7 @@ IN_PROC_BROWSER_TEST_F(WebAppEngagementBrowserTest,
   BrowserWindowInterface* const app_browser =
       GetLastActiveBrowserWindowInterfaceWithAnyProfile();
   EXPECT_EQ(app_browser->GetType(), BrowserWindowInterface::Type::TYPE_APP);
-  EXPECT_TRUE(app_browser->GetFeatures().app_browser_controller());
+  EXPECT_TRUE(web_app::AppBrowserController::IsWebApp(app_browser));
   EXPECT_TRUE(AppBrowserController::IsWebApp(app_browser));
 
 #if BUILDFLAG(IS_WIN)

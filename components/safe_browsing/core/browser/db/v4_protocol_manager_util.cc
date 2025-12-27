@@ -18,7 +18,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "components/version_info/version_info.h"
+#include "components/safe_browsing/core/browser/db/v4_protocol_config.h"
 #include "crypto/sha2.h"
 #include "google_apis/google_api_keys.h"
 #include "net/base/ip_address.h"
@@ -77,13 +77,6 @@ std::string Escape(const std::string& url) {
 }
 
 }  // namespace
-
-V4ProtocolConfig GetV4ProtocolConfig(const std::string& client_name,
-                                     bool disable_auto_update) {
-  return V4ProtocolConfig(client_name, disable_auto_update,
-                          google_apis::GetAPIKey(),
-                          std::string(version_info::GetVersionNumber()));
-}
 
 void SetSbV4UrlPrefixForTesting(const char* url_prefix) {
   g_sbv4_url_prefix_for_testing = url_prefix;
@@ -239,19 +232,6 @@ ListIdentifier::ListIdentifier(const ListUpdateResponse& response)
     : ListIdentifier(response.platform_type(),
                      response.threat_entry_type(),
                      response.threat_type()) {}
-
-V4ProtocolConfig::V4ProtocolConfig(const std::string& client_name,
-                                   bool disable_auto_update,
-                                   const std::string& key_param,
-                                   const std::string& version)
-    : client_name(client_name),
-      disable_auto_update(disable_auto_update),
-      key_param(key_param),
-      version(version) {}
-
-V4ProtocolConfig::V4ProtocolConfig(const V4ProtocolConfig& other) = default;
-
-V4ProtocolConfig::~V4ProtocolConfig() = default;
 
 // static
 base::TimeDelta V4ProtocolManagerUtil::GetNextBackOffInterval(
@@ -437,7 +417,7 @@ void V4ProtocolManagerUtil::CanonicalizeUrl(const GURL& url,
   // 2. Do URL unescaping until no more hex encoded characters exist.
   std::string url_unescaped_str(Unescape(url_without_fragment.spec()));
   std::string_view url_unescaped_str_view(url_unescaped_str);
-  url::Parsed parsed = url::ParseStandardURL(url_unescaped_str);
+  url::Parsed parsed = url::ParseStandardUrl(url_unescaped_str);
 
   // 3. In hostname, remove all leading and trailing dots.
   std::string_view host;
@@ -458,12 +438,8 @@ void V4ProtocolManagerUtil::CanonicalizeUrl(const GURL& url,
   std::string path_without_consecutive_slash(RemoveConsecutiveChars(path, '/'));
 
   url::Replacements<char> hp_replacements;
-  hp_replacements.SetHost(
-      host_without_consecutive_dots.data(),
-      url::Component(0, host_without_consecutive_dots.length()));
-  hp_replacements.SetPath(
-      path_without_consecutive_slash.data(),
-      url::Component(0, path_without_consecutive_slash.length()));
+  hp_replacements.SetHostStr(host_without_consecutive_dots);
+  hp_replacements.SetPathStr(path_without_consecutive_slash);
 
   std::string url_unescaped_with_can_hostpath;
   url::StdStringCanonOutput output(&url_unescaped_with_can_hostpath);
@@ -478,7 +454,7 @@ void V4ProtocolManagerUtil::CanonicalizeUrl(const GURL& url,
   // 7. After performing all above steps, percent-escape all chars in url which
   // are <= ASCII 32, >= 127, #, %. Escapes must be uppercase hex characters.
   std::string escaped_canon_url_str(Escape(url_unescaped_with_can_hostpath));
-  url::Parsed final_parsed = url::ParseStandardURL(escaped_canon_url_str);
+  url::Parsed final_parsed = url::ParseStandardUrl(escaped_canon_url_str);
 
   if (canonicalized_hostname && final_parsed.host.is_nonempty()) {
     *canonicalized_hostname = escaped_canon_url_str.substr(

@@ -68,9 +68,21 @@ TEST_F(TipsNotificationsRankerTest, ExecuteModelWithInputForTrustAndSafety) {
 
   // Test BottomOmnibox with ESB, QuickDelete and Google Lens being used.
   std::vector<float> input4(TipsFeature::kFeatureCount, 1);
+  input4[TipsFeature::kAllFeatureTipsShownCountIdx] = 0;
   input4[TipsFeature::kBottomOmniboxIsEnabledIdx] = 0;
   input4[TipsFeature::kBottomOmniboxWasEverUsedIdx] = 0;
+  input4[TipsFeature::kBottomOmniboxTipShownIdx] = 0;
   ExpectClassifierResults(input4, {kBottomOmnibox});
+
+  // Test AllFeatureTipsShownCount blocks scheduling notifications.
+  std::vector<float> input5(TipsFeature::kFeatureCount, 0);
+  input5[TipsFeature::kAllFeatureTipsShownCountIdx] = 1;
+  ExpectClassifierResults(input5, {});
+
+  // Test TipShown blocks scheduling ESB as first eligible.
+  std::vector<float> input6(TipsFeature::kFeatureCount, 0);
+  input6[TipsFeature::kEnhancedSafeBrowsingTipShownIdx] = 1;
+  ExpectClassifierResults(input6, {kQuickDelete});
 }
 
 TEST_F(TipsNotificationsRankerTest, ExecuteModelWithInputForEssentials) {
@@ -103,10 +115,23 @@ TEST_F(TipsNotificationsRankerTest, ExecuteModelWithInputForEssentials) {
 
   // Test GoogleLens with QuickDelete, BottomOmnibox and ESB being used.
   std::vector<float> input4(TipsFeature::kFeatureCount, 1);
+  input4[TipsFeature::kAllFeatureTipsShownCountIdx] = 0;
   input4[TipsFeature::kGoogleLensNewTabPageUseCountIdx] = 0;
   input4[TipsFeature::kGoogleLensMobileOmniboxUseCountIdx] = 0;
   input4[TipsFeature::kGoogleLensTasksSurfaceUseCountIdx] = 0;
+  input4[TipsFeature::kGoogleLensTipsNotificationsUseCountIdx] = 0;
+  input4[TipsFeature::kGoogleLensTipShownIdx] = 0;
   ExpectClassifierResults(input4, {kGoogleLens});
+
+  // Test AllFeatureTipsShownCount blocks scheduling notifications.
+  std::vector<float> input5(TipsFeature::kFeatureCount, 0);
+  input5[TipsFeature::kAllFeatureTipsShownCountIdx] = 1;
+  ExpectClassifierResults(input5, {});
+
+  // Test TipShown blocks scheduling Quick Delete as first eligible.
+  std::vector<float> input6(TipsFeature::kFeatureCount, 0);
+  input6[TipsFeature::kQuickDeleteTipShownIdx] = 1;
+  ExpectClassifierResults(input6, {kBottomOmnibox});
 }
 
 TEST_F(TipsNotificationsRankerTest, ExecuteModelWithInputForNewFeatures) {
@@ -128,6 +153,7 @@ TEST_F(TipsNotificationsRankerTest, ExecuteModelWithInputForNewFeatures) {
   input2[TipsFeature::kGoogleLensNewTabPageUseCountIdx] = 1;
   input2[TipsFeature::kGoogleLensMobileOmniboxUseCountIdx] = 1;
   input2[TipsFeature::kGoogleLensTasksSurfaceUseCountIdx] = 1;
+  input2[TipsFeature::kGoogleLensTipsNotificationsUseCountIdx] = 1;
   ExpectClassifierResults(input2, {kBottomOmnibox});
 
   // Test QuickDelete with GoogleLens and BottomOmnibox being used.
@@ -137,13 +163,26 @@ TEST_F(TipsNotificationsRankerTest, ExecuteModelWithInputForNewFeatures) {
   input3[TipsFeature::kGoogleLensNewTabPageUseCountIdx] = 1;
   input3[TipsFeature::kGoogleLensMobileOmniboxUseCountIdx] = 1;
   input3[TipsFeature::kGoogleLensTasksSurfaceUseCountIdx] = 1;
+  input3[TipsFeature::kGoogleLensTipsNotificationsUseCountIdx] = 1;
   ExpectClassifierResults(input3, {kQuickDelete});
 
   // Test ESB with GoogleLens, BottomOmnibox and QuickDelete being used.
   std::vector<float> input4(TipsFeature::kFeatureCount, 1);
+  input4[TipsFeature::kAllFeatureTipsShownCountIdx] = 0;
   input4[TipsFeature::kEnhancedSafeBrowsingUseCountIdx] = 0;
   input4[TipsFeature::kEnhancedSafeBrowsingIsEnabledIdx] = 0;
+  input4[TipsFeature::kEnhancedSafeBrowsingTipShownIdx] = 0;
   ExpectClassifierResults(input4, {kEnhancedSafeBrowsing});
+
+  // Test AllFeatureTipsShownCount blocks scheduling notifications.
+  std::vector<float> input5(TipsFeature::kFeatureCount, 0);
+  input5[TipsFeature::kAllFeatureTipsShownCountIdx] = 1;
+  ExpectClassifierResults(input5, {});
+
+  // Test TipShown blocks scheduling Google Lens as first eligible.
+  std::vector<float> input6(TipsFeature::kFeatureCount, 0);
+  input6[TipsFeature::kGoogleLensTipShownIdx] = 1;
+  ExpectClassifierResults(input6, {kBottomOmnibox});
 }
 
 }  // namespace segmentation_platform

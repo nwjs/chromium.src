@@ -22,6 +22,7 @@ enum class ContextualTaskContextSource {
   kFaviconService,
   kHistoryService,
   kTabStrip,
+  kPendingContextDecorator,
 };
 
 class ContextualTask;
@@ -61,6 +62,14 @@ struct UrlAttachmentDecoratorData {
     bool is_open_in_tab_strip = false;
   };
   TabStripData tab_strip_data;
+
+  // Filled in by ContextualTaskContextSource::kPendingContextDecorator.
+  struct ContextualSearchContextData {
+    std::u16string title;
+    // From SessionTabHelper.
+    SessionID tab_session_id = SessionID::InvalidValue();
+  };
+  ContextualSearchContextData contextual_search_context_data;
 };
 
 // Represents a URL that is attached to a `ContextualTask`. This struct contains
@@ -70,17 +79,25 @@ struct UrlAttachment {
   explicit UrlAttachment(const GURL& url);
   ~UrlAttachment();
 
+  UrlAttachment(const UrlAttachment&);
+  UrlAttachment(UrlAttachment&&);
+  UrlAttachment& operator=(const UrlAttachment&);
+  UrlAttachment& operator=(UrlAttachment&&);
+
   // Accessor methods.
   GURL GetURL() const;
   std::u16string GetTitle() const;
   gfx::Image GetFavicon() const;
   bool IsOpen() const;
+  // The tab SessionID of the tab that was the source of this attachment.
+  SessionID GetTabSessionId() const;
 
   // Gives access to internal data sources.
   UrlAttachmentDecoratorData& GetMutableDecoratorDataForTesting();
 
  private:
   friend class ContextDecorator;
+  friend struct ContextualTaskContext;
 
   // ContextDecorator implementation can access this method through a protected
   // method.
@@ -88,6 +105,12 @@ struct UrlAttachment {
 
   // The URL that is attached.
   GURL url_;
+
+  // The title of the web page, if available from the ContextualTask directly.
+  std::optional<std::u16string> title_;
+
+  // The tab SessionID, if available from the ContextualTask directly.
+  std::optional<SessionID> tab_session_id_;
 
   // A data block that can be populated by decorators with additional metadata
   // about the URL.

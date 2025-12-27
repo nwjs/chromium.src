@@ -74,6 +74,7 @@
 <translation id="1274654146705270731">arance</translation>
 <translation id="1275718070701477396">Selezionato</translation>
 <translation id="1290331692326790741">Segnale debole</translation>
+<translation id="1292474106138697109">Display Strumenti del corso</translation>
 <translation id="1300115153046603471">APN è di tipo predefinito e <ph name="ATTACH" />.</translation>
 <translation id="1301069673413256657">GSM</translation>
 <translation id="1301340234286078471">Converti</translation>
@@ -1046,6 +1047,7 @@
 <translation id="5596627076506792578">Altre opzioni</translation>
 <translation id="5600027863942488546">Tasto <ph name="KEY_NAME" /> testato</translation>
 <translation id="5606865426897221650">Tab</translation>
+<translation id="5612205513582918357">Strumenti del corso sta condividendo il tuo schermo con <ph name="RECEIVER_NAME" /></translation>
 <translation id="5613201299517339763">Account disconnesso</translation>
 <translation id="5620281292257375798">Solo per uso interno</translation>
 <translation id="5628106863521633649">Lingue disponibili</translation>
@@ -1473,7 +1475,6 @@ Scarica il modello di trascrizione (fino a 100 MB) per ottenere queste trascrizi
 <translation id="7425832472614771259">Avanzamento download modello di trascrizione <ph name="LANGUAGE_NAME" />: <ph name="PROGRESS_PERCENTAGE" />%</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">Impossibile disattivare o rimuovere questo APN. Assicurati che gli APN <ph name="ATTACH" /> abilitati siano disattivati o rimossi.</translation>
-<translation id="7458359366992324037">Display remoto</translation>
 <translation id="7458970041932198923">Connettiti a una rete e ricarica la pagina per visualizzare e impostare gli avatar.</translation>
 <translation id="7469648432129124067">Portale rilevato</translation>
 <translation id="7481312909269577407">Avanti</translation>

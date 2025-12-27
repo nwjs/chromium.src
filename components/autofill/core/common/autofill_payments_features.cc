@@ -12,6 +12,11 @@ namespace autofill::features {
 BASE_FEATURE(kAutofillCreditCardScannerIos, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
+// Enables testing BNPL in countries where it would otherwise be disabled. This
+// is a testing flag that should never be enabled.
+BASE_FEATURE(kAutofillDisableBnplCountryCheckForTesting,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, Chrome will extract the checkout amount from the checkout
 // page using server-side AI.
 BASE_FEATURE(kAutofillEnableAiBasedAmountExtraction,
@@ -67,7 +72,7 @@ BASE_FEATURE(kAutofillEnableBuyNowPayLaterForKlarna,
 // When enabled, buy now pay later (BNPL) data will be synced to Chrome clients.
 BASE_FEATURE(kAutofillEnableBuyNowPayLaterSyncing,
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS)
+    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT);
 #else
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -91,12 +96,12 @@ BASE_FEATURE(kAutofillEnableCardBenefitsForAmericanExpress,
 // UI.
 BASE_FEATURE(kAutofillEnableCardBenefitsForBmo,
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS)
+    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT);
 #else
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_CHROMEOS)
+        // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 
 // When enabled, card benefits IPH will be shown in Payments Autofill UI.
 BASE_FEATURE(kAutofillEnableCardBenefitsIph, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -156,12 +161,12 @@ BASE_FEATURE(kAutofillEnableFlatRateCardBenefitsBlocklist,
 // Payments Autofill UI.
 BASE_FEATURE(kAutofillEnableFlatRateCardBenefitsFromCurinos,
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS)
+    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT);
 #else
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_CHROMEOS)
+        // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 
 // When enabled, server card retrieval will begin with a risk-based check
 // instead of jumping straight to CVC or biometric auth.
@@ -173,36 +178,38 @@ BASE_FEATURE(kAutofillEnableFpanRiskBasedAuthentication,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-// When enabled, the Virtual Card enrollment bottom sheet uses the Java
-// payments data manager and associated image fetcher to retrieve the cached
-// card art images (when available on Android). When not enabled, the native
-// payments data manager and associated image fetcher are used, where the image
-// is not cached.
-BASE_FEATURE(kAutofillEnableVirtualCardJavaPaymentsDataManager,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// When enabled, Buy now pay later issuer allow lists will be loaded after
-// payment data syncing instead of credit card form parsing.
-BASE_FEATURE(kAutofillEnableLoadBnplAllowlistAfterSyncing,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, virtual card downstream enrollment will support multiple
 // requests at a time.
 BASE_FEATURE(kAutofillEnableMultipleRequestInVirtualCardDownstreamEnrollment,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, the card benefits toggle in settings will show updated text.
 BASE_FEATURE(kAutofillEnableNewCardBenefitsToggleText,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_ANDROID)
+// When enabled, card and IBAN autofill will be shown in new FOP style.
+BASE_FEATURE(kAutofillEnableNewFopDisplayAndroid,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 // When enabled, card and IBAN autofill will be shown in new FOP style.
 BASE_FEATURE(kAutofillEnableNewFopDisplayDesktop,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, offers will be displayed in the Clank keyboard accessory during
 // downstream.
 BASE_FEATURE(kAutofillEnableOffersInClankKeyboardAccessory,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_CHROMEOS)
+// When enabled, in use-cases where we would not have triggered any interactive
+// authentication to autofill payment methods, we will trigger a device
+// authentication on ChromeOS.
+BASE_FEATURE(kAutofillEnablePaymentsMandatoryReauthChromeOs,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 // When enabled, risk data is prefetched during payments autofill flows to
 // reduce user-perceived latency.
@@ -218,11 +225,13 @@ BASE_FEATURE(kAutofillEnableSaveAndFill, base::FEATURE_DISABLED_BY_DEFAULT);
 // bundling them together with the non-card payment preference menu item.
 BASE_FEATURE(kAutofillEnableSeparatePixPreferenceItem,
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
 
-// When enabled, Pix bank accounts are synced from Chrome Sync backend and
-// stored in the local db.
-BASE_FEATURE(kAutofillEnableSyncingOfPixBankAccounts,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_ANDROID)
+// When enabled, the Touch To Fill bottom sheet on Android can be reshown after
+// a BNPL flow is dismissed by a user.
+BASE_FEATURE(kAutofillEnableTouchToFillReshowForBnpl,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // When enabled, Chrome will trigger 3DS authentication during a virtual card
@@ -230,6 +239,14 @@ BASE_FEATURE(kAutofillEnableSyncingOfPixBankAccounts,
 // the card, and FIDO is not.
 BASE_FEATURE(kAutofillEnableVcn3dsAuthentication,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, the Virtual Card enrollment bottom sheet uses the Java
+// payments data manager and associated image fetcher to retrieve the cached
+// card art images (when available on Android). When not enabled, the native
+// payments data manager and associated image fetcher are used, where the image
+// is not cached.
+BASE_FEATURE(kAutofillEnableVirtualCardJavaPaymentsDataManager,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_IOS)
 // When enabled, save card bottomsheet will be shown to save the card locally
@@ -279,6 +296,12 @@ BASE_FEATURE(kAutofillShowManualFillForVirtualCards,
 BASE_FEATURE(kAutofillSkipSaveCardForTabModalPopup,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_ANDROID)
+// When enabled, eWallet accounts are synced from the Google Payments servers
+// and displayed on the payment methods settings page.
+BASE_FEATURE(kAutofillSyncEwalletAccounts, base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 // When enabled, adds a timeout on the network request for Unmask requests.
 BASE_FEATURE(kAutofillUnmaskCardRequestTimeout,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -298,12 +321,6 @@ BASE_FEATURE(kAutofillVcnEnrollStrikeExpiryTime,
 const base::FeatureParam<int> kAutofillVcnEnrollStrikeExpiryTimeDays{
     &kAutofillVcnEnrollStrikeExpiryTime, "autofill_vcn_strike_expiry_time_days",
     /*default_value=*/180};
-
-#if BUILDFLAG(IS_ANDROID)
-// When enabled, eWallet accounts are synced from the Google Payments servers
-// and displayed on the payment methods settings page.
-BASE_FEATURE(kAutofillSyncEwalletAccounts, base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
 
 bool ShouldShowImprovedUserConsentForCreditCardSave() {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX)

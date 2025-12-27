@@ -32,15 +32,19 @@ source_set("internal") {
     ]
   } else {
     sources += [
+      "browser_collection.cc",
       "browser_window_features.cc",
       "browser_window_interface_iterator_non_android.cc",
       "create_browser_window_non_android.cc",
       "desktop_browser_window_capabilities.cc",
       "embedder_browser_window_features.cc",
+      "global_browser_collection.cc",
+      "profile_browser_collection.cc",
     ]
     public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 
     deps += [
+      "//chrome/browser:global_features",
       "//chrome/browser/actor/ui",
       "//chrome/browser/actor/ui/task_list_bubble:controller",
       "//chrome/browser/autocomplete:aim_eligibility_service",
@@ -71,6 +75,7 @@ source_set("internal") {
       "//chrome/browser/ui/tabs/tab_strip_api:impl_header",
       "//chrome/browser/ui/toasts",
       "//chrome/browser/ui/toolbar/chrome_labs",
+      "//chrome/browser/ui/views/contextual_tasks",
       "//chrome/browser/ui/views/download",
       "//chrome/browser/ui/views/interaction:impl",
       "//chrome/browser/ui/views/location_bar/cookie_controls",
@@ -84,6 +89,7 @@ source_set("internal") {
       "//components/collaboration/public",
       "//components/commerce/core:feature_list",
       "//components/data_sharing/public",
+      "//components/desktop_to_mobile_promos",
       "//components/lens:features",
       "//components/profile_metrics",
       "//components/saved_tab_groups/public",
@@ -139,8 +145,13 @@ source_set("unit_tests") {
       "//chrome/test:test_support",
       "//components/sessions:session_id",
       "//content/test:test_support",
-      "//ui/android",
       "//ui/base",
+    ]
+  } else {
+    sources += [ "browser_collection_unittest.cc" ]
+    deps += [
+      "//chrome/browser/ui:test_support",
+      "//chrome/browser/ui/browser_window",
     ]
   }
 }
@@ -212,7 +223,6 @@ if (is_android) {
     testonly = true
     sources = [
       "android/java/src/org/chromium/chrome/browser/ui/browser_window/AndroidBrowserWindowCreateParamsImplUnitTest.java",
-      "android/java/src/org/chromium/chrome/browser/ui/browser_window/BrowserWindowCreatorBridgeUnitTest.java",
       "android/java/src/org/chromium/chrome/browser/ui/browser_window/ChromeAndroidTaskBoundsConstraintsUnitTest.java",
       "android/java/src/org/chromium/chrome/browser/ui/browser_window/ChromeAndroidTaskImplUnitTest.java",
       "android/java/src/org/chromium/chrome/browser/ui/browser_window/ChromeAndroidTaskTrackerImplUnitTest.java",
@@ -222,12 +232,14 @@ if (is_android) {
       ":java",
       "//base:activity_state_java",
       "//base:base_java",
+      "//base:base_java_test_support",
       "//base:base_java_test_support_uncommon",
       "//base:base_junit_test_support",
       "//base:flagged_apis_java",
       "//base:tasks_java",
       "//base:time_utils_java",
       "//build/android:build_java",
+      "//chrome/browser/android/browserservices/intents:java",
       "//chrome/browser/android/lifecycle:java",
       "//chrome/browser/profiles/android:java",
       "//chrome/browser/tab:java",
@@ -251,9 +263,9 @@ if (is_android) {
       ":java",
       "//base:base_java_test_support",
       "//base/test:public_transit_java",
-      "//chrome/android:chrome_java",
       "//chrome/android/javatests:chrome_test_java_helper",
       "//chrome/browser/flags:java",
+      "//chrome/browser/profiles/android:java",
       "//chrome/browser/tab:java",
       "//chrome/browser/tabmodel:java",
       "//chrome/browser/ui/browser_window/public/android:java",
@@ -261,9 +273,12 @@ if (is_android) {
       "//chrome/test/android:chrome_java_test_support_common",
       "//chrome/test/android:chrome_java_transit",
       "//third_party/androidx:androidx_test_runner_java",
+      "//third_party/hamcrest:hamcrest_core_java",
+      "//third_party/hamcrest:hamcrest_library_java",
       "//third_party/junit",
       "//third_party/mockito:mockito_java",
       "//ui/android:ui_no_recycler_view_java",
+      "//ui/base/mojom:ui_base_types_java",
     ]
     data = [ "//chrome/test/data/android/about.html" ]
   }
@@ -271,14 +286,21 @@ if (is_android) {
   source_set("android_browsertests") {
     testonly = true
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
-    sources = [ "android/create_browser_window_android_browsertest.cc" ]
+    sources = [
+      "android/android_base_window_browsertest.cc",
+      "android/create_browser_window_android_browsertest.cc",
+    ]
     deps = [
       "//base",
+      "//chrome/browser/flags:flags_android",
       "//chrome/browser/profiles",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/browser_window:create_browser_window",
+      "//chrome/browser/ui/tabs:tab_list_interface",
       "//chrome/test:test_support_ui_android",
+      "//components/feed:feature_list",
       "//testing/gtest",
+      "//ui/android",
     ]
   }
 }

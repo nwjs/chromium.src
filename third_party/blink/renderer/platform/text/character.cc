@@ -40,12 +40,15 @@
 #include "base/synchronization/lock.h"
 #include "third_party/abseil-cpp/absl/strings/ascii.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
+#include "third_party/blink/renderer/platform/text/character_break_iterator.h"
 #include "third_party/blink/renderer/platform/text/character_property_data.h"
 #include "third_party/blink/renderer/platform/text/icu_error.h"
+#include "third_party/blink/renderer/platform/text/justification_opportunity.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
 #include "third_party/blink/renderer/platform/wtf/text/ascii_ctype.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/unicode.h"
+#include "third_party/blink/renderer/platform/wtf/text/utf16.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_uchar.h"
 
 namespace blink {
@@ -136,27 +139,20 @@ bool Character::MaybeHanKerningCloseSlow(UChar32 ch) {
 }
 
 unsigned Character::ExpansionOpportunityCount(
+    TextJustify method,
     base::span<const LChar> characters,
     TextDirection direction,
     bool& is_after_expansion) {
   unsigned count = 0;
   if (direction == TextDirection::kLtr) {
     for (size_t i = 0; i < characters.size(); ++i) {
-      if (TreatAsSpace(characters[i])) {
-        count++;
-        is_after_expansion = true;
-      } else {
-        is_after_expansion = false;
-      }
+      count += CountJustificationOpportunity8(method, characters[i],
+                                              is_after_expansion);
     }
   } else {
     for (size_t i = characters.size(); i > 0; --i) {
-      if (TreatAsSpace(characters[i - 1])) {
-        count++;
-        is_after_expansion = true;
-      } else {
-        is_after_expansion = false;
-      }
+      count += CountJustificationOpportunity8(method, characters[i - 1],
+                                              is_after_expansion);
     }
   }
 
@@ -164,54 +160,50 @@ unsigned Character::ExpansionOpportunityCount(
 }
 
 unsigned Character::ExpansionOpportunityCount(
+    TextJustify method,
     base::span<const UChar> characters,
     TextDirection direction,
     bool& is_after_expansion) {
+  if (characters.size() == 0) {
+    return 0;
+  }
   unsigned count = 0;
-  if (direction == TextDirection::kLtr) {
-    for (size_t i = 0; i < characters.size(); ++i) {
-      UChar32 character = characters[i];
-      if (TreatAsSpace(character)) {
-        count++;
-        is_after_expansion = true;
-        continue;
+
+  if (!RuntimeEnabledFeatures::EmojiJustificationEnabled()) {
+    if (direction == TextDirection::kLtr) {
+      for (size_t i = 0; i < characters.size();) {
+        UChar32 character = CodePointAtAndNext(characters, i);
+        count += CountJustificationOpportunity16(method, character,
+                                                 is_after_expansion);
       }
-      if (U16_IS_LEAD(character) && i + 1 < characters.size() &&
-          U16_IS_TRAIL(characters[i + 1])) {
-        character = U16_GET_SUPPLEMENTARY(character, characters[i + 1]);
-        i++;
-      }
-      if (IsCJKIdeographOrSymbol(character)) {
-        if (!is_after_expansion)
-          count++;
-        count++;
-        is_after_expansion = true;
-        continue;
-      } else if (!IsDefaultIgnorable(character)) {
-        is_after_expansion = false;
+    } else {
+      for (size_t i = characters.size(); i > 0; --i) {
+        UChar32 character = characters[i - 1];
+        if (U16_IS_TRAIL(character) && i > 1 &&
+            U16_IS_LEAD(characters[i - 2])) {
+          character = U16_GET_SUPPLEMENTARY(characters[i - 2], character);
+          i--;
+        }
+        count += CountJustificationOpportunity16(method, character,
+                                                 is_after_expansion);
       }
     }
+    return count;
+  }
+  CharacterBreakIterator iter(characters);
+  if (direction == TextDirection::kLtr) {
+    for (int i = 0; static_cast<size_t>(i) < characters.size();
+         i = iter.Next()) {
+      UChar32 character = CodePointAt(characters, i);
+      count += CountJustificationOpportunity16(method, character,
+                                               is_after_expansion);
+    }
   } else {
-    for (size_t i = characters.size(); i > 0; --i) {
-      UChar32 character = characters[i - 1];
-      if (TreatAsSpace(character)) {
-        count++;
-        is_after_expansion = true;
-        continue;
-      }
-      if (U16_IS_TRAIL(character) && i > 1 && U16_IS_LEAD(characters[i - 2])) {
-        character = U16_GET_SUPPLEMENTARY(characters[i - 2], character);
-        i--;
-      }
-      if (IsCJKIdeographOrSymbol(character)) {
-        if (!is_after_expansion)
-          count++;
-        count++;
-        is_after_expansion = true;
-        continue;
-      } else if (!IsDefaultIgnorable(character)) {
-        is_after_expansion = false;
-      }
+    for (int i = iter.Preceding(characters.size()); i != kTextBreakDone;
+         i = iter.Preceding(i)) {
+      UChar32 character = CodePointAt(characters, i);
+      count += CountJustificationOpportunity16(method, character,
+                                               is_after_expansion);
     }
   }
   return count;
@@ -371,13 +363,59 @@ bool Character::IsNonCharacter(UChar32 character) {
   return U_IS_UNICODE_NONCHAR(character);
 }
 
-bool Character::HasDefiniteScript(UChar32 character) {
+bool Character::HasLikelyScript(UChar32 character) {
   ICUError err;
-  UScriptCode hint_char_script = uscript_getScript(character, &err);
+  UScriptCode script = uscript_getScript(character, &err);
+
   if (!U_SUCCESS(err))
     return false;
-  return hint_char_script != USCRIPT_INHERITED &&
-         hint_char_script != USCRIPT_COMMON;
+
+  if (RuntimeEnabledFeatures::ScriptBasedOnUnicodeBlockEnabled()) {
+    if (script == USCRIPT_INHERITED || script == USCRIPT_COMMON) {
+      // For characters whose ICU script is USCRIPT_INHERITED or
+      // USCRIPT_COMMON, infer a likely script based on their Unicode block.
+      // This helps select more accurate fallback fonts for
+      // inherited marks, punctuation, and similar characters.
+      script = GetScriptBasedOnUnicodeBlock(character);
+    }
+  }
+  return script != USCRIPT_COMMON && script != USCRIPT_INHERITED;
+}
+
+// There are a lot of characters in USCRIPT_COMMON that can be covered
+// by fonts for scripts closely related to them. See
+// http://unicode.org/cldr/utility/list-unicodeset.jsp?a=[:Script=Common:]
+// FIXME: make this more efficient with a wider coverage
+UScriptCode Character::GetScriptBasedOnUnicodeBlock(int ucs4) {
+  UBlockCode block = ublock_getCode(ucs4);
+  switch (block) {
+    case UBLOCK_CJK_SYMBOLS_AND_PUNCTUATION:
+      return USCRIPT_HAN;
+    case UBLOCK_HIRAGANA:
+    case UBLOCK_KATAKANA:
+      return USCRIPT_KATAKANA_OR_HIRAGANA;
+    case UBLOCK_ARABIC:
+      return USCRIPT_ARABIC;
+    case UBLOCK_THAI:
+      return USCRIPT_THAI;
+    case UBLOCK_GREEK:
+      return USCRIPT_GREEK;
+    case UBLOCK_DEVANAGARI:
+      // For Danda and Double Danda (U+0964, U+0965), use a Devanagari
+      // font for now although they're used by other scripts as well.
+      // Without a context, we can't do any better.
+      return USCRIPT_DEVANAGARI;
+    case UBLOCK_ARMENIAN:
+      return USCRIPT_ARMENIAN;
+    case UBLOCK_GEORGIAN:
+      return USCRIPT_GEORGIAN;
+    case UBLOCK_KANNADA:
+      return USCRIPT_KANNADA;
+    case UBLOCK_GOTHIC:
+      return USCRIPT_GOTHIC;
+    default:
+      return USCRIPT_COMMON;
+  }
 }
 
 // https://w3c.github.io/mathml-core/#stretchy-operator-axis

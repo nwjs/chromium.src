@@ -38,8 +38,9 @@
 #         google google-0xffff google-0xc0de
 #         imagination
 #         imagination-technologies
-#         intel intel-gen-9 intel-gen-12 intel-0xa2e intel-0xa011 intel-0x3e92
-#             intel-0x3e9b intel-0x4680 intel-0x46a8 intel-0x5912 intel-0x9bc5
+#         intel intel-gen-9 intel-gen-12 intel-0xa2e intel-0xa011 intel-0xe20c
+#             intel-0x3e92 intel-0x3e9b intel-0x4680 intel-0x46a8 intel-0x5912
+#             intel-0x9bc5
 #         microsoft microsoft-0xffff
 #         nvidia nvidia-0x1cb3 nvidia-0x2184 nvidia-0x2783
 #         qualcomm qualcomm-0x41333430 qualcomm-0x36333630 qualcomm-0x36334330 ]
@@ -546,6 +547,9 @@ crbug.com/365680830 [ mac arch-arm64 angle-metal ] deqp/functional/gles3/occlusi
 # Win failures     #
 ####################
 
+# Flaky across the board on Windows; implementation likely isn't sufficiently parallelized and async
+crbug.com/438691606 [ win ] conformance/extensions/khr-parallel-shader-compile.html [ Failure ]
+
 crbug.com/angleproject/4417 [ win angle-d3d11 ] conformance2/rendering/framebuffer-render-to-layer-angle-issue.html [ Failure ]
 crbug.com/angleproject/1465 [ win angle-d3d11 ] conformance2/glsl3/tricky-loop-conditions.html [ Failure ]
 
@@ -620,6 +624,8 @@ crbug.com/41496274 [ win11 qualcomm-0x36334330 angle-d3d11 ] deqp/functional/gle
 crbug.com/41496274 [ win11 qualcomm-0x36334330 angle-d3d11 ] deqp/functional/gles3/transformfeedback/random_separate_points.html [ Failure ]
 crbug.com/41496274 [ win11 qualcomm-0x36334330 angle-d3d11 ] deqp/functional/gles3/transformfeedback/random_separate_triangles.html [ Failure ]
 
+# Win / Intel Arc B570
+crbug.com/462642964 [ win11 intel-0xe20c ] deqp/functional/gles3/transformfeedback/basic_types_interleaved_triangles.html [ RetryOnFailure ]
 
 # Graphite
 crbug.com/332745399 [ win graphite-enabled ] conformance2/extensions/webgl-shader-pixel-local-storage.html [ Failure ]
@@ -683,8 +689,6 @@ crbug.com/844311 [ angle-opengl mac ] conformance/glsl/misc/fragcolor-fragdata-i
 crbug.com/630800 [ angle-opengl intel mac ] conformance2/rendering/framebuffer-completeness-unaffected.html [ Failure ]
 crbug.com/630800 [ angle-opengl intel mac ] deqp/functional/gles3/fbocompleteness.html [ Failure ]
 crbug.com/1289803 [ angle-opengl arch-x86_64 mac ] conformance2/extensions/webgl-multi-draw-instanced-base-vertex-base-instance.html [ Failure ]
-crbug.com/407622671 [ amd-0x7340 asan graphite-disabled mac ] deqp/functional/gles3/clipping.html [ RetryOnFailure ]
-crbug.com/407622671 [ intel-0x3e9b asan graphite-disabled mac ] deqp/functional/gles3/clipping.html [ RetryOnFailure ]
 
 ## Mac AMD ##
 
@@ -806,6 +810,7 @@ crbug.com/444250724 [ mac angle-metal graphite-enabled intel-0x3e9b ] conformanc
 ## Linux NVIDIA ##
 
 crbug.com/1115314 [ linux nvidia-0x2184 angle-opengl passthrough ] deqp/functional/gles3/fbocompleteness.html [ Failure ]
+crbug.com/40144307 [ linux nvidia-0x2783 angle-opengl passthrough ] deqp/functional/gles3/fbocompleteness.html [ Failure ]
 
 ## Linux AMD RX 5500 XT ##
 
@@ -813,7 +818,6 @@ crbug.com/1152588 [ linux amd-0x7340 angle-opengl passthrough ] conformance2/ren
 
 ## Linux AMD RX 7600 ##
 
-crbug.com/436274257 [ linux amd-0x7480 ] deqp/functional/gles3/uniformbuffers/multi_nested_struct.html [ Failure ]
 
 ## Linux AMD 780M ##
 # Commented out until full procurement is ready since UAT is done.
@@ -827,7 +831,8 @@ crbug.com/329698340 [ linux intel angle-opengl passthrough mesa_ge_23.2 ] confor
 # Android failures #
 ####################
 
-crbug.com/angleproject/4417 [ android graphite-disabled ] conformance2/rendering/framebuffer-render-to-layer.html [ Failure ]
+crbug.com/angleproject/4417 [ android graphite-disabled mobile qualcomm renderer-skia-gl target-cpu-32 ] conformance2/rendering/framebuffer-render-to-layer.html [ Failure ]
+crbug.com/angleproject/4417 [ android-16 android-brya angle-vulkan desktop graphite-disabled intel-0x46a8 mesa_lt_19.1 passthrough renderer-skia-vulkan target-cpu-64 ] conformance2/rendering/framebuffer-render-to-layer.html [ Failure ]
 
 # Video uploads to some texture formats new in WebGL 2.0 are
 # failing.
@@ -877,20 +882,6 @@ crbug.com/446941342 [ android android-pixel-10 passthrough ] WebglExtension_NV_s
 crbug.com/446941342 [ android android-pixel-10 passthrough ] WebglExtension_WEBGL_clip_cull_distance [ Failure ]
 crbug.com/446941342 [ android android-pixel-10 imagination-technologies ] WebglExtension_WEBGL_compressed_texture_s3tc [ Failure ]
 crbug.com/446941342 [ android android-pixel-10 imagination-technologies ] WebglExtension_WEBGL_compressed_texture_s3tc_srgb [ Failure ]
-# transform feedback
-crbug.com/446941342 [ android android-pixel-10 ] conformance2/transform_feedback/transform_feedback.html [ Failure ]
-crbug.com/446941342 [ android android-pixel-10 ] conformance2/transform_feedback/unwritten-output-defaults-to-zero.html [ Failure ]
-crbug.com/446941342 [ android android-pixel-10 ] deqp/functional/gles3/transformfeedback/interpolation_centroid.html [ Failure ]
-crbug.com/446941342 [ android android-pixel-10 ] deqp/functional/gles3/transformfeedback/interpolation_flat.html [ Failure ]
-crbug.com/446941342 [ android android-pixel-10 ] deqp/functional/gles3/transformfeedback/interpolation_smooth.html [ Failure ]
-crbug.com/446941342 [ android android-pixel-10 ] deqp/functional/gles3/transformfeedback/point_size.html [ Failure ]
-crbug.com/446941342 [ android android-pixel-10 ] deqp/functional/gles3/transformfeedback/position.html [ Failure ]
-crbug.com/446941342 [ android android-pixel-10 ] deqp/functional/gles3/transformfeedback/random_interleaved_lines.html [ Failure ]
-crbug.com/446941342 [ android android-pixel-10 ] deqp/functional/gles3/transformfeedback/random_interleaved_points.html [ Failure ]
-crbug.com/446941342 [ android android-pixel-10 ] deqp/functional/gles3/transformfeedback/random_interleaved_triangles.html [ Failure ]
-crbug.com/446941342 [ android android-pixel-10 ] deqp/functional/gles3/transformfeedback/random_separate_lines.html [ Failure ]
-crbug.com/446941342 [ android android-pixel-10 ] deqp/functional/gles3/transformfeedback/random_separate_points.html [ Failure ]
-crbug.com/446941342 [ android android-pixel-10 ] deqp/functional/gles3/transformfeedback/random_separate_triangles.html [ Failure ]
 # misc
 crbug.com/446941342 [ android android-pixel-10 imagination-technologies ] conformance/extensions/webgl-compressed-texture-astc.html [ Failure ]
 crbug.com/332743717 [ android android-pixel-10 ] conformance2/canvas/drawingbuffer-storage-test.html [ Failure ]
@@ -926,7 +917,6 @@ crbug.com/416417899 [ android android-brya passthrough ] deqp/functional/gles3/n
 crbug.com/416417899 [ android android-brya passthrough ] deqp/functional/gles3/shaderoperator/unary_operator_00.html [ Failure ]
 crbug.com/416408899 [ android android-brya passthrough angle-vulkan ] conformance2/textures/misc/copy-texture-image-same-texture.html [ Failure ]
 crbug.com/416408899 [ android android-brya passthrough angle-vulkan ] conformance2/misc/uninitialized-test-2.html [ Failure ]
-crbug.com/439644379 [ android android-brya ] conformance2/textures/misc/npot-video-sizing.html [ Failure ]
 
 #####################
 # ChromeOS failures #

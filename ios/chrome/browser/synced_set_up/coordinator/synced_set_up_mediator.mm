@@ -30,6 +30,7 @@
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message_action.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
+#import "ios/chrome/browser/signin/model/avatar_provider.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/system_identity.h"
 #import "ios/chrome/browser/synced_set_up/coordinator/synced_set_up_mediator_delegate.h"
@@ -500,12 +501,14 @@ void LogSnackbarInteraction(SyncedSetUpState state,
     return;
   }
 
-  // Get the avatar. `GetIdentityAvatarWithIdentity()` handles asynchronous
-  // loading. It returns a cached image or a placeholder immediately and
-  // initiates a fetch in the background if necessary. When the fetch completes,
+  // Get the avatar. `GetIdentityAvatarWithIdentityOnDevice()` handles
+  // asynchronous loading. It returns a cached image or a placeholder
+  // immediately and initiates a fetch in the background if necessary. When the
+  // fetch completes,
   // `-onExtendedAccountInfoUpdated:` will be called.
-  UIImage* avatar = _accountManagerService->GetIdentityAvatarWithIdentity(
-      _primaryIdentity, IdentityAvatarSize::Large);
+  UIImage* avatar =
+      GetApplicationContext()->GetIdentityAvatarProvider()->GetIdentityAvatar(
+          _primaryIdentity, IdentityAvatarSize::Large);
 
   [_consumer setWelcomeMessage:
                  l10n_util::GetNSStringF(

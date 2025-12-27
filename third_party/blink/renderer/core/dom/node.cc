@@ -389,6 +389,8 @@ NodeList* Node::childNodes() {
   return EnsureRareData().EnsureNodeLists().EnsureEmptyChildNodeList(*this);
 }
 
+// TODO(crbug.com/447642032): Implement previous / next sibling for overscroll
+// pseudo-elements.
 Node* Node::PseudoAwarePreviousSibling() const {
   Element* parent = parentElement();
   if (!parent || HasPreviousSibling()) {
@@ -2627,17 +2629,17 @@ std::ostream& operator<<(std::ostream& ostream, const Node* node) {
 
 String Node::ToString() const {
   if (getNodeType() == Node::kProcessingInstructionNode)
-    return "?" + nodeName();
+    return StrCat({"?", nodeName()});
   if (auto* shadow_root = DynamicTo<ShadowRoot>(this)) {
     // nodeName of ShadowRoot is #document-fragment.  It's confused with
     // DocumentFragment.
     std::stringstream shadow_root_type;
     shadow_root_type << shadow_root->GetMode();
     String shadow_root_type_str(shadow_root_type.str().c_str());
-    return "#shadow-root(" + shadow_root_type_str + ")";
+    return StrCat({"#shadow-root(", shadow_root_type_str, ")"});
   }
   if (IsDocumentTypeNode())
-    return "DOCTYPE " + nodeName();
+    return StrCat({"DOCTYPE ", nodeName()});
 
   StringBuilder builder;
   builder.Append(nodeName());
@@ -2660,8 +2662,14 @@ String Node::ToString() const {
     DumpAttributeDesc(*this, html_names::kClassAttr, builder);
     DumpAttributeDesc(*this, html_names::kStyleAttr, builder);
   }
+#if DCHECK_IS_ON()
+  if (!GetDocument().IsSlotAssignmentRecalcForbidden() && IsEditable(*this)) {
+    builder.Append(" (editable)");
+  }
+#else
   if (IsEditable(*this))
     builder.Append(" (editable)");
+#endif
   if (GetDocument().FocusedElement() == this)
     builder.Append(" (focused)");
   return builder.ReleaseString();
@@ -2887,13 +2895,15 @@ static void PrintSubTreeAcrossFrame(const Node* node,
   stream << indent.Utf8() << *node << "\n";
   if (auto* frame_owner_element = DynamicTo<HTMLFrameOwnerElement>(node)) {
     PrintSubTreeAcrossFrame(frame_owner_element->contentDocument(), marked_node,
-                            indent + "\t", stream);
+                            StrCat({indent, "\t"}), stream);
   }
-  if (ShadowRoot* shadow_root = node->GetShadowRoot())
-    PrintSubTreeAcrossFrame(shadow_root, marked_node, indent + "\t", stream);
+  if (ShadowRoot* shadow_root = node->GetShadowRoot()) {
+    PrintSubTreeAcrossFrame(shadow_root, marked_node, StrCat({indent, "\t"}),
+                            stream);
+  }
   for (const Node* child = node->firstChild(); child;
        child = child->nextSibling())
-    PrintSubTreeAcrossFrame(child, marked_node, indent + "\t", stream);
+    PrintSubTreeAcrossFrame(child, marked_node, StrCat({indent, "\t"}), stream);
 }
 
 void Node::ShowTreeForThisAcrossFrame() const {

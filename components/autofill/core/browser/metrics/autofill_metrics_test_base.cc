@@ -55,8 +55,7 @@ MockPaymentsAutofillClient::~MockPaymentsAutofillClient() = default;
 
 MockCreditCardAccessManager::MockCreditCardAccessManager(
     BrowserAutofillManager* bam)
-    : CreditCardAccessManager(bam,
-                              test_api(*bam).credit_card_form_event_logger()) {
+    : CreditCardAccessManager(bam) {
   ON_CALL(*this, FetchCreditCard)
       .WillByDefault(
           [this](const CreditCard* card, OnCreditCardFetchedCallback cb) {
@@ -110,7 +109,6 @@ AutofillMetricsBaseTest::~AutofillMetricsBaseTest() = default;
 
 void AutofillMetricsBaseTest::InitAutofillClient() {
   WithTestAutofillClientDriverManager::InitAutofillClient();
-  autofill_client().SetPrefs(test::PrefServiceForTesting());
   autofill_client().set_payments_autofill_client(
       std::make_unique<NiceMock<MockPaymentsAutofillClient>>(
           &autofill_client()));
@@ -126,7 +124,6 @@ void AutofillMetricsBaseTest::SetUpHelper() {
 
   test_api(personal_data().address_data_manager())
       .set_auto_accept_address_imports(true);
-  personal_data().SetPrefService(autofill_client().GetPrefs());
   personal_data().SetSyncServiceForTest(&sync_service_);
 
   auto payments_network_interface =
@@ -145,7 +142,7 @@ void AutofillMetricsBaseTest::SetUpHelper() {
   autofill_driver().SetLocalFrameToken(test::MakeLocalFrameToken());
 
 #if !BUILDFLAG(IS_IOS)
-  test_api(autofill_manager().GetCreditCardAccessManager())
+  test_api(*autofill_manager().GetCreditCardAccessManager())
       .set_fido_authenticator(std::make_unique<TestCreditCardFidoAuthenticator>(
           &autofill_driver(), &autofill_client()));
 #endif
@@ -193,7 +190,7 @@ void AutofillMetricsBaseTest::RecreateProfile() {
 
 void AutofillMetricsBaseTest::SetFidoEligibility(bool is_verifiable) {
   CreditCardAccessManager& access_manager =
-      autofill_manager().GetCreditCardAccessManager();
+      *autofill_manager().GetCreditCardAccessManager();
 #if !BUILDFLAG(IS_IOS)
   static_cast<TestCreditCardFidoAuthenticator*>(
       access_manager.GetOrCreateFidoAuthenticator())
@@ -216,10 +213,10 @@ void AutofillMetricsBaseTest::OnDidGetRealPan(
   // challenge is required.
   if (autofill_manager()
           .GetCreditCardAccessManager()
-          .IsMaskedServerCardRiskBasedAuthAvailable()) {
+          ->IsMaskedServerCardRiskBasedAuthAvailable()) {
     autofill_manager()
         .GetCreditCardAccessManager()
-        .OnRiskBasedAuthenticationResponseReceived(
+        ->OnRiskBasedAuthenticationResponseReceived(
             CreditCardRiskBasedAuthenticator::RiskBasedAuthenticationResponse()
                 .with_result(CreditCardRiskBasedAuthenticator::
                                  RiskBasedAuthenticationResponse::Result::

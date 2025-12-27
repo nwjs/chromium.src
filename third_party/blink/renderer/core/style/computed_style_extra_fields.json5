@@ -53,7 +53,7 @@
         "inline list-item", "flow-root list-item", "inline flow-root list-item",
         "ruby", "block ruby", "ruby-text",
         // Available only if CSSMasonryLayout is enabled:
-        "masonry", "inline-masonry"
+        "grid-lanes", "inline-grid-lanes"
       ],
       default_value: "inline",
     },
@@ -602,6 +602,16 @@
       include_paths: ["third_party/blink/renderer/core/style/nine_piece_image.h"],
       computed_style_custom_functions: ["getter", "setter"],
       invalidate: ["mask", "paint"],
+    },
+    {
+      // Scrollbar sizes we subtract from the viewport for viewport units.
+      // Derived during the cascade and stored on ComputedStyle for later use.
+      name: "UnconditionalScrollbarSize",
+      field_template: "external",
+      type_name: "gfx::Size",
+      field_group: "*",
+      default_value: "gfx::Size()",
+      include_paths: ["ui/gfx/geometry/size.h"],
     },
     {
       name: "PageSize",

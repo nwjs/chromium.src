@@ -415,35 +415,6 @@ class AutofillClient {
   virtual PasswordManagerDelegate* GetPasswordManagerDelegate(
       const FieldGlobalId& field_id);
 
-  // TODO(crbug.com/365494310): Move these methods to a plus-address-specific
-  // client class.
-
-  // Orchestrates UI for enterprise plus address creation; no-op
-  // except on supported platforms.
-  virtual void OfferPlusAddressCreation(const url::Origin& main_frame_origin,
-                                        bool is_manual_fallback,
-                                        PlusAddressCallback callback);
-
-  enum class PlusAddressErrorDialogType {
-    kGenericError,
-    // The quota for plus address creation is exhausted (account-wide or
-    // site-specific).
-    kQuotaExhausted,
-    // The network request timed out.
-    kTimeout,
-  };
-  // Shows UI to inform the user about a plus address error (apart from
-  // affiliation errors).
-  virtual void ShowPlusAddressError(
-      PlusAddressErrorDialogType error_dialog_type,
-      base::OnceClosure on_accepted);
-
-  // Shows UI to inform the user about a plus address affiliation error.
-  virtual void ShowPlusAddressAffiliationError(
-      std::u16string affiliated_domain,
-      std::u16string affiliated_plus_address,
-      base::OnceClosure on_accepted);
-
   // Gets the preferences associated with the client.
   virtual PrefService* GetPrefs() = 0;
   virtual const PrefService* GetPrefs() const = 0;
@@ -618,16 +589,16 @@ class AutofillClient {
       EntityType entity_type,
       const base::flat_set<EntityTypeName>& saved_entities);
 
+  // Returns whether there is an active actor task for this client's tab (if
+  // one exists).
+  virtual bool IsActorTaskActive() const;
+
   // Returns true if either Profile or CreditCard Autofill is enabled.
   virtual bool IsAutofillEnabled() const = 0;
 
   // Returns true if the value of the AutofillProfileEnabled pref is true and
   // the client supports Autofill.
   virtual bool IsAutofillProfileEnabled() const = 0;
-
-  // Returns true if the value of the AutofillCreditCardEnabled pref is true
-  // and the client supports Autofill.
-  virtual bool IsAutofillPaymentMethodsEnabled() const = 0;
 
   // Whether the Autocomplete feature of Autofill should be enabled.
   virtual bool IsAutocompleteEnabled() const = 0;
@@ -643,7 +614,7 @@ class AutofillClient {
   virtual bool IsContextSecure() const = 0;
 
   // Returns whether Google Wallet storage is supported.
-  virtual bool IsImportingToWalletEnabled() const = 0;
+  virtual bool IsWalletStorageEnabled() const = 0;
 
   // Returns true if the client supports saving CVCs. This allows specific
   // clients (IosWebView) to opt out of the CVC saving feature.

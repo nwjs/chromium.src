@@ -19,7 +19,9 @@
 #import "ios/chrome/browser/authentication/ui_bundled/signin/consistency_promo_signin/consistency_default_account/consistency_default_account_consumer.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_context_style.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/signin/model/avatar_provider.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/system_identity.h"
 #import "ios/chrome/grit/ios_branded_strings.h"
@@ -89,6 +91,7 @@ NSString* GetPromoLabelString(
       return l10n_util::GetNSString(
           IDS_IOS_NOTIFICATIONS_OPT_IN_SIGN_IN_MESSAGE_CONTENT);
     case signin_metrics::AccessPoint::kSettings:
+    case signin_metrics::AccessPoint::kSettingsYourSavedInfo:
       // No text.
       return nil;
     case signin_metrics::AccessPoint::kStartPage:
@@ -141,8 +144,8 @@ NSString* GetPromoLabelString(
     case signin_metrics::AccessPoint::kWebauthnModalDialog:
     case signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo:
     case signin_metrics::AccessPoint::kProductSpecifications:
-    case signin_metrics::AccessPoint::kAccountMenu:
-    case signin_metrics::AccessPoint::kAccountMenuFailedSwitch:
+    case signin_metrics::AccessPoint::kAccountMenuSwitchAccount:
+    case signin_metrics::AccessPoint::kAccountMenuSwitchAccountFailed:
     case signin_metrics::AccessPoint::kAddressBubble:
     case signin_metrics::AccessPoint::kCctAccountMismatchNotification:
     case signin_metrics::AccessPoint::kDriveFilePickerIos:
@@ -164,6 +167,7 @@ NSString* GetPromoLabelString(
     case signin_metrics::AccessPoint::
         kEnterpriseManagementDisclaimerAfterSignin:
     case signin_metrics::AccessPoint::kNtpFeaturePromo:
+    case signin_metrics::AccessPoint::kEnterpriseDialogAfterSigninInterception:
       // Nothing prevents instantiating ConsistencyDefaultAccountViewController
       // with an arbitrary entry point, API-wise. In doubt, no label is a good,
       // generic default that fits all entry points.
@@ -308,8 +312,9 @@ NSString* GetPromoLabelString(
   }
 
   id<SystemIdentity> selectedIdentity = self.selectedIdentity;
-  UIImage* avatar = _accountManagerService->GetIdentityAvatarWithIdentity(
-      selectedIdentity, IdentityAvatarSize::TableViewIcon);
+  UIImage* avatar =
+      GetApplicationContext()->GetIdentityAvatarProvider()->GetIdentityAvatar(
+          selectedIdentity, IdentityAvatarSize::TableViewIcon);
   CHECK(self.selectedIdentity, base::NotFatalUntil::M147);
   BOOL isManaged = [self isIdentityKnownToBeManaged:selectedIdentity];
   [self.consumer showDefaultAccountWithFullName:selectedIdentity.userFullName

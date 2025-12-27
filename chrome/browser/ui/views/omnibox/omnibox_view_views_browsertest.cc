@@ -2,15 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 
 #include <stddef.h>
 
+#include "base/compiler_specific.h"
 #include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/utf_string_conversions.h"
@@ -988,7 +984,7 @@ class OmniboxViewViewsUIATest : public OmniboxViewViewsTest {
     size_t count = array_upper_bound - array_lower_bound + 1;
     ASSERT_EQ(expected_property_values.size(), count);
     for (size_t i = 0; i < count; ++i) {
-      EXPECT_EQ(array_data[i], expected_property_values[i]);
+      EXPECT_EQ(UNSAFE_TODO(array_data[i]), expected_property_values[i]);
     }
     ASSERT_HRESULT_SUCCEEDED(::SafeArrayUnaccessData(safearray));
   }
@@ -1524,12 +1520,13 @@ class OmniboxViewViewsAIMBrowserTest : public OmniboxViewViewsTest {
         Profile::FromBrowserContext(context),
         base::BindLambdaForTesting([=](content::BrowserContext* context) {
           Profile* profile = Profile::FromBrowserContext(context);
-          auto mock_service = std::make_unique<MockAimEligibilityService>(
-              *profile->GetPrefs(),
-              TemplateURLServiceFactory::GetForProfile(profile),
-              /*url_loader_factory=*/nullptr,
-              /*identity_manager=*/nullptr,
-              /*is_off_the_record=*/false);
+          auto mock_service =
+              std::make_unique<testing::NiceMock<MockAimEligibilityService>>(
+                  *profile->GetPrefs(),
+                  TemplateURLServiceFactory::GetForProfile(profile),
+                  /*url_loader_factory=*/nullptr,
+                  /*identity_manager=*/nullptr,
+                  /*is_off_the_record=*/false);
           ON_CALL(*mock_service, IsAimLocallyEligible())
               .WillByDefault(Return(is_locally_eligible));
           ON_CALL(*mock_service, IsServerEligibilityEnabled())

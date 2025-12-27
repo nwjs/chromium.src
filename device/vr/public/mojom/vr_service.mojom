@@ -731,22 +731,25 @@ struct XRProjectionLayerData {
   // There is nothing here yet.
 };
 struct XRQuadLayerData {
-  gfx.mojom.Transform transform;
+  gfx.mojom.Transform native_origin_from_layer;
   float width;
   float height;
 };
 struct XRCylinderLayerData {
-  gfx.mojom.Transform transform;
+  gfx.mojom.Transform native_origin_from_layer;
   float radius;
   float central_angle;
   float aspect_ratio;
 };
 struct XREquirectLayerData {
-  gfx.mojom.Transform transform;
+  gfx.mojom.Transform native_origin_from_layer;
   float radius;
   float central_horizontal_angle;
   float upper_vertical_angle;
   float lower_vertical_angle;
+};
+struct XRCubeLayerData {
+  gfx.mojom.Quaternion orientation;
 };
 
 // A union of layer specific mutable data.
@@ -755,6 +758,15 @@ union XRLayerSpecificData {
   XRQuadLayerData quad;
   XRCylinderLayerData cylinder;
   XREquirectLayerData equirect;
+  XRCubeLayerData cube;
+};
+
+enum XRLayerLayout {
+  kDefault = 0,
+  kMono = 1,
+  kStereo = 2,
+  kStereoLeftRight = 3,
+  kStereoTopBottom = 4,
 };
 
 // Read-only data is only used to create a layer,
@@ -762,6 +774,7 @@ union XRLayerSpecificData {
 struct XRLayerReadOnlyData {
   // Unique id of the client-created layer, which is provided by the client.
   LayerId layer_id;
+  XRLayerLayout layout;
   uint32 texture_width;
   uint32 texture_height;
   bool is_static;
@@ -772,7 +785,7 @@ struct XRLayerReadOnlyData {
 struct XRLayerMutableData {
   bool blend_texture_source_alpha;
   float opacity;
-  XRReferenceSpaceType reference_space_type;
+  XRNativeOriginInformation native_origin_information;
   XRLayerSpecificData layer_data;
 };
 

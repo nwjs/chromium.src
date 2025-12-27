@@ -395,6 +395,7 @@ class CORE_EXPORT HTMLInputElement
  protected:
   void DefaultEventHandler(Event&) override;
   bool IsInnerEditorValueEmpty() const final;
+  bool SupportsBaseAppearanceInternal(BaseAppearanceValue) const override;
 
  private:
   enum AutoCompleteSetting { kUninitialized, kOn, kOff };

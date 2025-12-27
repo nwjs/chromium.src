@@ -51,6 +51,7 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bubble_view.h"
+#include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_button.h"
 #include "chrome/browser/ui/views/extensions/extension_popup.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_button.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_container.h"
@@ -69,8 +70,10 @@
 #include "chrome/browser/ui/views/page_action/page_action_view.h"
 #include "chrome/browser/ui/views/performance_controls/battery_saver_button.h"
 #include "chrome/browser/ui/views/performance_controls/performance_intervention_button.h"
+#include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_controller.h"
+#include "chrome/browser/ui/views/tabs/tab_strip_like_background.h"
 #include "chrome/browser/ui/views/toolbar/app_menu.h"
 #include "chrome/browser/ui/views/toolbar/back_forward_button.h"
 #include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
@@ -92,6 +95,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/send_tab_to_self/features.h"
@@ -152,21 +156,22 @@ namespace {
 ToolbarView::DisplayMode GetDisplayMode(Browser* browser) {
 #if BUILDFLAG(IS_CHROMEOS)
   if (browser->is_type_custom_tab()) {
-    return ToolbarView::DisplayMode::CUSTOM_TAB;
+    return ToolbarView::DisplayMode::kCustomTab;
   }
 #endif
 
   // Checked in this order because even tabbed PWAs use the CUSTOM_TAB
   // display mode.
   if (web_app::AppBrowserController::IsWebApp(browser)) {
-    return ToolbarView::DisplayMode::CUSTOM_TAB;
+    return ToolbarView::DisplayMode::kCustomTab;
   }
 
-  if (browser->SupportsWindowFeature(Browser::FEATURE_TABSTRIP)) {
-    return ToolbarView::DisplayMode::NORMAL;
+  if (browser->SupportsWindowFeature(
+          Browser::WindowFeature::kFeatureTabStrip)) {
+    return ToolbarView::DisplayMode::kNormal;
   }
 
-  return ToolbarView::DisplayMode::LOCATION;
+  return ToolbarView::DisplayMode::kLocation;
 }
 
 auto& GetViewCommandMap() {
@@ -181,28 +186,6 @@ auto& GetViewCommandMap() {
 
 constexpr int kBrowserAppMenuRefreshExpandedMargin = 5;
 constexpr int kBrowserAppMenuRefreshCollapsedMargin = 2;
-
-// Draws background akin to the tabstrip.
-class TabstripLikeBackground : public views::Background {
- public:
-  explicit TabstripLikeBackground(BrowserView* browser_view)
-      : browser_view_(browser_view) {}
-
- private:
-  // views::Background:
-  void Paint(gfx::Canvas* canvas, views::View* view) const override {
-    bool painted = TopContainerBackground::PaintThemeCustomImage(canvas, view,
-                                                                 browser_view_);
-    if (!painted) {
-      SkColor frame_color =
-          browser_view_->browser_widget()->GetFrameView()->GetFrameColor(
-              BrowserFrameActiveState::kUseCurrent);
-      canvas->DrawColor(frame_color);
-    }
-  }
-
-  const raw_ptr<BrowserView> browser_view_;
-};
 
 bool IsMigratedClickToCallBubble(
     IntentPickerBubbleView::BubbleType bubble_type) {
@@ -248,7 +231,7 @@ ToolbarView::ToolbarView(Browser* browser, BrowserView* browser_view)
 
   GetViewAccessibility().SetRole(ax::mojom::Role::kToolbar);
 
-  if (display_mode_ == DisplayMode::NORMAL) {
+  if (display_mode_ == DisplayMode::kNormal) {
     container_view_->SetBackground(
         std::make_unique<TopContainerBackground>(browser_view));
 
@@ -261,7 +244,7 @@ ToolbarView::ToolbarView(Browser* browser, BrowserView* browser_view)
 }
 
 ToolbarView::~ToolbarView() {
-  if (display_mode_ != DisplayMode::NORMAL) {
+  if (display_mode_ != DisplayMode::kNormal) {
     return;
   }
 
@@ -287,10 +270,10 @@ void ToolbarView::Init() {
   // The background views must be behind container_view_.
   background_view_left_ = AddChildViewAt(std::make_unique<View>(), 0);
   background_view_left_->SetBackground(
-      std::make_unique<TabstripLikeBackground>(browser_view_));
+      std::make_unique<TabStripLikeBackground>(browser_view_));
   background_view_right_ = AddChildViewAt(std::make_unique<View>(), 0);
   background_view_right_->SetBackground(
-      std::make_unique<TabstripLikeBackground>(browser_view_));
+      std::make_unique<TabStripLikeBackground>(browser_view_));
 
   active_state_subscription_ =
       GetWidget()->RegisterPaintAsActiveChangedCallback(base::BindRepeating(
@@ -298,22 +281,22 @@ void ToolbarView::Init() {
 
   auto location_bar = std::make_unique<LocationBarView>(
       browser_, browser_->profile(), browser_->command_controller(), this,
-      display_mode_ != DisplayMode::NORMAL);
+      display_mode_ != DisplayMode::kNormal);
   // Make sure the toolbar shows by default.
   size_animation_.Reset(1);
 
-  if (display_mode_ != DisplayMode::NORMAL) {
+  if (display_mode_ != DisplayMode::kNormal) {
     location_bar_ = container_view_->AddChildView(std::move(location_bar));
     location_bar_->Init();
   }
 
-  if (display_mode_ == DisplayMode::CUSTOM_TAB) {
+  if (display_mode_ == DisplayMode::kCustomTab) {
     custom_tab_bar_ = container_view_->AddChildView(
         std::make_unique<CustomTabBarView>(browser_view_, this));
     container_view_->SetLayoutManager(std::make_unique<views::FillLayout>());
     initialized_ = true;
     return;
-  } else if (display_mode_ == DisplayMode::LOCATION) {
+  } else if (display_mode_ == DisplayMode::kLocation) {
     // Add the pinned toolbar actions container so that downloads can be shown
     // in popups.
     pinned_toolbar_actions_container_ = container_view_->AddChildView(
@@ -391,6 +374,15 @@ void ToolbarView::Init() {
     std::unique_ptr<SplitTabsToolbarButton> split =
         std::make_unique<SplitTabsToolbarButton>(browser_);
     split_tabs_ = container_view_->AddChildView(std::move(split));
+  }
+
+  if (base::FeatureList::IsEnabled(contextual_tasks::kContextualTasks) &&
+      ((contextual_tasks::kShowEntryPoint.Get() ==
+        contextual_tasks::EntryPointOption::kToolbarPermanent) ||
+       (contextual_tasks::kShowEntryPoint.Get() ==
+        contextual_tasks::EntryPointOption::kToolbarRevisit))) {
+    container_view_->AddChildView(
+        std::make_unique<ContextualTasksButton>(browser_));
   }
 
   location_bar_ = container_view_->AddChildView(std::move(location_bar));
@@ -587,7 +579,7 @@ bool ToolbarView::UpdateSecurityState() {
 
 void ToolbarView::SetToolbarVisibility(bool visible) {
   SetVisible(visible);
-  views::View* bar = display_mode_ == DisplayMode::CUSTOM_TAB
+  views::View* bar = display_mode_ == DisplayMode::kCustomTab
                          ? static_cast<views::View*>(custom_tab_bar_)
                          : static_cast<views::View*>(location_bar_);
 
@@ -595,7 +587,7 @@ void ToolbarView::SetToolbarVisibility(bool visible) {
 }
 
 void ToolbarView::UpdateCustomTabBarVisibility(bool visible, bool animate) {
-  DCHECK_EQ(display_mode_, DisplayMode::CUSTOM_TAB);
+  DCHECK_EQ(display_mode_, DisplayMode::kCustomTab);
 
   if (!animate) {
     size_animation_.Reset(visible ? 1.0 : 0.0);
@@ -679,7 +671,7 @@ void ToolbarView::ShowIntentPickerBubble(
 void ToolbarView::ShowBookmarkBubble(const GURL& url, bool already_bookmarked) {
   views::View* const anchor_view = location_bar();
   views::Button* const bookmark_star_icon =
-      GetPageActionIconView(PageActionIconType::kBookmarkStar);
+      GetPageActionView(kActionBookmarkThisTab);
   CHECK(bookmark_star_icon);
   BookmarkBubbleView::ShowBubble(anchor_view, GetWebContents(),
                                  bookmark_star_icon, browser_, url,
@@ -727,7 +719,7 @@ ToolbarView::GetContentSettingBubbleModelDelegate() {
 // ToolbarView, CommandObserver implementation:
 
 void ToolbarView::EnabledStateChangedForCommand(int id, bool enabled) {
-  DCHECK(display_mode_ == DisplayMode::NORMAL);
+  DCHECK(display_mode_ == DisplayMode::kNormal);
   const std::array<views::Button*, 5> kButtons{back_, forward_, reload_, home_,
                                                avatar_};
   auto* button = *std::ranges::find(kButtons, id, &views::Button::tag);
@@ -751,13 +743,13 @@ gfx::Size ToolbarView::CalculatePreferredSize(
     const views::SizeBounds& available_size) const {
   gfx::Size size;
   switch (display_mode_) {
-    case DisplayMode::CUSTOM_TAB:
+    case DisplayMode::kCustomTab:
       size = custom_tab_bar_->GetPreferredSize();
       break;
-    case DisplayMode::LOCATION:
+    case DisplayMode::kLocation:
       size = location_bar_->GetPreferredSize();
       break;
-    case DisplayMode::NORMAL:
+    case DisplayMode::kNormal:
       size = container_view_->GetPreferredSize();
       // Because there are odd cases where something causes one of the views in
       // the toolbar to report an unreasonable height (see crbug.com/985909), we
@@ -780,13 +772,13 @@ gfx::Size ToolbarView::CalculatePreferredSize(
 gfx::Size ToolbarView::GetMinimumSize() const {
   gfx::Size size;
   switch (display_mode_) {
-    case DisplayMode::CUSTOM_TAB:
+    case DisplayMode::kCustomTab:
       size = custom_tab_bar_->GetMinimumSize();
       break;
-    case DisplayMode::LOCATION:
+    case DisplayMode::kLocation:
       size = location_bar_->GetMinimumSize();
       break;
-    case DisplayMode::NORMAL:
+    case DisplayMode::kNormal:
       size = container_view_->GetMinimumSize();
       // Because there are odd cases where something causes one of the views in
       // the toolbar to report an unreasonable height (see crbug.com/985909), we
@@ -823,14 +815,14 @@ void ToolbarView::Layout(PassKey) {
                                     receding_corner_radius_,
                                     receding_corner_radius_);
 
-  if (display_mode_ == DisplayMode::CUSTOM_TAB) {
+  if (display_mode_ == DisplayMode::kCustomTab) {
     custom_tab_bar_->SetBounds(0, 0, width(),
                                custom_tab_bar_->GetPreferredSize().height());
     location_bar_->SetVisible(false);
     return;
   }
 
-  if (display_mode_ == DisplayMode::NORMAL) {
+  if (display_mode_ == DisplayMode::kNormal) {
     LayoutCommon();
     UpdateClipPath();
   }
@@ -863,7 +855,7 @@ void ToolbarView::OnThemeChanged() {
     return;
   }
 
-  if (display_mode_ == DisplayMode::NORMAL) {
+  if (display_mode_ == DisplayMode::kNormal) {
     LoadImages();
   }
 
@@ -906,7 +898,7 @@ void ToolbarView::ActiveStateChanged() {
 
 void ToolbarView::NewTabButtonPressed(const ui::Event& event) {
   chrome::NewTab(browser_view_->browser(),
-                 NewTabTypes::NEW_TAB_BUTTON_IN_TOOLBAR_FOR_TOUCH);
+                 NewTabTypes::kNewTabButtonInToolbarForTouch);
 }
 
 bool ToolbarView::AcceleratorPressed(const ui::Accelerator& accelerator) {
@@ -1004,7 +996,7 @@ void ToolbarView::InitLayout() {
 }
 
 void ToolbarView::LayoutCommon() {
-  DCHECK(display_mode_ == DisplayMode::NORMAL);
+  DCHECK(display_mode_ == DisplayMode::kNormal);
 
   gfx::Insets interior_margin =
       GetLayoutInsets(browser_view_->webui_tab_strip()
@@ -1083,11 +1075,11 @@ PinnedToolbarActionsContainer* ToolbarView::GetPinnedToolbarActionsContainer() {
 }
 
 gfx::Size ToolbarView::GetToolbarButtonSize() const {
-  // Since DisplayMode::LOCATION is for a slimline toolbar showing only compact
+  // Since DisplayMode::kLocation is for a slimline toolbar showing only compact
   // location bar used for popups, toolbar buttons (ie downloads) must be
   // smaller to accommodate the smaller size.
   const int size =
-      display_mode_ == DisplayMode::LOCATION
+      display_mode_ == DisplayMode::kLocation
           ? location_bar_->GetPreferredSize().height()
           : GetLayoutConstant(LayoutConstant::TOOLBAR_BUTTON_HEIGHT);
   return gfx::Size(size, size);
@@ -1128,7 +1120,8 @@ AppMenuButton* ToolbarView::GetAppMenuButton() {
 }
 
 gfx::Rect ToolbarView::GetFindBarBoundingBox(int contents_bottom) {
-  if (!browser_->SupportsWindowFeature(Browser::FEATURE_LOCATIONBAR)) {
+  if (!browser_->SupportsWindowFeature(
+          Browser::WindowFeature::kFeatureLocationBar)) {
     return gfx::Rect();
   }
 
@@ -1159,6 +1152,14 @@ views::View* ToolbarView::GetAnchorView(
   }
 
   return location_bar_;
+}
+
+views::BubbleAnchor ToolbarView::GetBubbleAnchor(
+    std::optional<actions::ActionId> action_id) {
+  if (views::View* view = GetAnchorView(action_id)) {
+    return view;
+  }
+  return nullptr;
 }
 
 void ToolbarView::ZoomChangedForActiveTab(bool can_show_bubble) {
@@ -1232,7 +1233,7 @@ void ToolbarView::OnChromeLabsPrefChanged() {
 }
 
 void ToolbarView::LoadImages() {
-  DCHECK_EQ(display_mode_, DisplayMode::NORMAL);
+  DCHECK_EQ(display_mode_, DisplayMode::kNormal);
 
   if (extensions_container_) {
     extensions_container_->UpdateAllIcons();
@@ -1249,7 +1250,7 @@ void ToolbarView::OnShowHomeButtonChanged() {
 }
 
 void ToolbarView::OnTouchUiChanged() {
-  if (display_mode_ == DisplayMode::NORMAL) {
+  if (display_mode_ == DisplayMode::kNormal) {
     // Update the internal margins for touch layout.
     // TODO(dfried): I think we can do better than this by making the touch UI
     // code cleaner.

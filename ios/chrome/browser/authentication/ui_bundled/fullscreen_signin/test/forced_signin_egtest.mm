@@ -219,8 +219,8 @@ void CompleteSigninFlow() {
                                                        fakeIdentity1]
                                      assertVisible:NO];
   // History sync opt-in screen.
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::
-                                          PromoScreenPrimaryButtonMatcher()]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::ButtonStackPrimaryButton()]
       performAction:grey_tap()];
 }
 
@@ -336,7 +336,7 @@ void CompleteSigninFlow() {
 
   // Make sure the SSO view controller is fully removed before ending the test.
   // The tear down needs to remove other view controllers, and it cannot be done
-  // during the animation of the SSO view controler.
+  // during the animation of the SSO view controller.
   [ChromeEarlGreyUI waitForAppToIdle];
 
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];

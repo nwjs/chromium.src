@@ -23,6 +23,7 @@
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_tab_helper.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/page_action_menu/ui/page_action_menu_feature.h"
+#import "ios/chrome/browser/intelligence/page_action_menu/utils/ai_hub_metrics.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_modality.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_request_queue.h"
@@ -263,7 +264,8 @@ const CGFloat kFeatureRowIconSize = 20;
   return base::SysUTF8ToNSString(url.GetHost());
 }
 
-- (void)revokePermission:(PageActionMenuFeatureType)featureType {
+- (void)updatePermission:(BOOL)granted
+              forFeature:(PageActionMenuFeatureType)featureType {
   if (!_webState) {
     return;
   }
@@ -276,22 +278,15 @@ const CGFloat kFeatureRowIconSize = 20;
     case PageActionMenuMicrophonePermission:
       permission = web::PermissionMicrophone;
       break;
-    case PageActionMenuTranslate:
-    case PageActionMenuPopupBlocker:
-    case PageActionMenuPriceTracking:
-      CHECK(false)
-          << "revokePermission called with non-permission feature type: "
-          << featureType;
+    default:
+      return;
   }
 
-  _webState->SetStateForPermission(web::PermissionStateBlocked, permission);
-
-  // Post task to ensure WebState has processed the permission change.
-  __weak PageActionMenuMediator* weakSelf = self;
-  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(^{
-        [weakSelf.consumer updateFeatureRowsAvailability];
-      }));
+  if (granted) {
+    _webState->SetStateForPermission(web::PermissionStateAllowed, permission);
+  } else {
+    _webState->SetStateForPermission(web::PermissionStateBlocked, permission);
+  }
 }
 
 - (NSArray<PageActionMenuFeature*>*)activeFeatures {
@@ -300,12 +295,14 @@ const CGFloat kFeatureRowIconSize = 20;
 
   // Translate feature.
   if ([self isFeatureAvailable:PageActionMenuTranslate]) {
+    RecordPageActionMenuFeatureRowShown(
+        IOSPageActionMenuFeatureType::kTranslate);
     PageActionMenuFeature* translateFeature = [[PageActionMenuFeature alloc]
         initWithFeatureType:PageActionMenuTranslate
                       title:l10n_util::GetNSString(
                                 IDS_IOS_AI_HUB_TRANSLATE_LABEL)
-                       icon:DefaultSymbolWithPointSize(kTranslateSymbol,
-                                                       kFeatureRowIconSize)
+                       icon:CustomSymbolTemplateWithPointSize(
+                                kTranslateSymbol, kFeatureRowIconSize)
                  actionType:PageActionMenuButtonAction];
     translateFeature.subtitle = [self translateLanguagePair];
     translateFeature.actionType = PageActionMenuSettingsAction;
@@ -316,6 +313,8 @@ const CGFloat kFeatureRowIconSize = 20;
 
   // Popup blocker feature.
   if ([self isFeatureAvailable:PageActionMenuPopupBlocker]) {
+    RecordPageActionMenuFeatureRowShown(
+        IOSPageActionMenuFeatureType::kPopupBlocker);
     PageActionMenuFeature* popupFeature = [[PageActionMenuFeature alloc]
         initWithFeatureType:PageActionMenuPopupBlocker
                       title:l10n_util::GetNSString(
@@ -337,6 +336,8 @@ const CGFloat kFeatureRowIconSize = 20;
 
   // Camera permission feature.
   if ([self isFeatureAvailable:PageActionMenuCameraPermission]) {
+    RecordPageActionMenuFeatureRowShown(
+        IOSPageActionMenuFeatureType::kCameraPermission);
     PageActionMenuFeature* cameraFeature = [[PageActionMenuFeature alloc]
         initWithFeatureType:PageActionMenuCameraPermission
                       title:l10n_util::GetNSString(
@@ -344,12 +345,16 @@ const CGFloat kFeatureRowIconSize = 20;
                        icon:CustomSymbolWithPointSize(kCameraFillSymbol,
                                                       kFeatureRowIconSize)
                  actionType:PageActionMenuToggleAction];
-    cameraFeature.toggleState = YES;
+    web::PermissionState state =
+        _webState->GetStateForPermission(web::PermissionCamera);
+    cameraFeature.toggleState = (state == web::PermissionStateAllowed);
     [features addObject:cameraFeature];
   }
 
   // Microphone permission feature.
   if ([self isFeatureAvailable:PageActionMenuMicrophonePermission]) {
+    RecordPageActionMenuFeatureRowShown(
+        IOSPageActionMenuFeatureType::kMicrophonePermission);
     PageActionMenuFeature* micFeature = [[PageActionMenuFeature alloc]
         initWithFeatureType:PageActionMenuMicrophonePermission
                       title:l10n_util::GetNSString(
@@ -357,11 +362,15 @@ const CGFloat kFeatureRowIconSize = 20;
                        icon:DefaultSymbolWithPointSize(kMicrophoneFillSymbol,
                                                        kFeatureRowIconSize)
                  actionType:PageActionMenuToggleAction];
-    micFeature.toggleState = YES;
+    web::PermissionState state =
+        _webState->GetStateForPermission(web::PermissionMicrophone);
+    micFeature.toggleState = (state == web::PermissionStateAllowed);
     [features addObject:micFeature];
   }
   // Price tracking feature.
   if ([self isFeatureAvailable:PageActionMenuPriceTracking]) {
+    RecordPageActionMenuFeatureRowShown(
+        IOSPageActionMenuFeatureType::kPriceTracking);
     PageActionMenuFeature* priceTrackingFeature = [[PageActionMenuFeature alloc]
         initWithFeatureType:PageActionMenuPriceTracking
                       title:l10n_util::GetNSString(
@@ -393,6 +402,9 @@ const CGFloat kFeatureRowIconSize = 20;
 
   GURL currentUrl = _webState->GetLastCommittedURL();
 
+  RecordPageActionMenuFeatureRowUsed(
+      IOSPageActionMenuFeatureType::kPopupBlocker);
+
   // Open each blocked popup and allow future popups from this site.
   for (const auto& popup : popups) {
     web::WebState::OpenURLParams params(popup.popup_url, popup.referrer,
@@ -406,8 +418,6 @@ const CGFloat kFeatureRowIconSize = 20;
         ContentSettingsPattern::Wildcard(), ContentSettingsType::POPUPS,
         CONTENT_SETTING_ALLOW);
   }
-
-  [self.consumer updateFeatureRowsAvailability];
 }
 
 - (void)revertTranslation {
@@ -421,9 +431,11 @@ const CGFloat kFeatureRowIconSize = 20;
     return;
   }
 
+  RecordPageActionMenuFeatureRowUsed(IOSPageActionMenuFeatureType::kTranslate);
+
   translateClient->GetTranslateManager()->RevertTranslation();
 
-  [self.consumer updateFeatureRowsAvailability];
+  [self updateTranslateInfobarAcceptedState:NO];
 }
 
 #pragma mark - CRWWebStateObserver
@@ -489,6 +501,9 @@ std::string GetTargetLanguageCode(ChromeIOSTranslateClient* translate_client) {
     return;
   }
 
+  RecordPageActionMenuFeatureRowSettingsOpened(
+      IOSPageActionMenuFeatureType::kPriceTracking);
+
   [self.contextualSheetHandler openContextualSheet];
 }
 
@@ -504,33 +519,25 @@ std::string GetTargetLanguageCode(ChromeIOSTranslateClient* translate_client) {
     return;
   }
 
-  translate::TranslateManager* translateManager =
-      translateClient->GetTranslateManager();
-  translate::LanguageState* languageState =
-      translateManager->GetLanguageState();
-  std::string sourceLanguage = languageState->source_language();
-  std::string targetLanguage = languageState->current_language();
+  RecordPageActionMenuFeatureRowSettingsOpened(
+      IOSPageActionMenuFeatureType::kTranslate);
 
-  // Create translate infobar without showing banner.
-  // Setting triggered_from_menu=false with TRANSLATE_STEP_AFTER_TRANSLATE
-  // suppresses the banner per ChromeIOSTranslateClient::CreateInfoBar logic.
-  translateClient->ShowTranslateUI(translate::TRANSLATE_STEP_AFTER_TRANSLATE,
-                                   sourceLanguage, targetLanguage,
-                                   translate::TranslateErrors::NONE, false);
+  InfoBarIOS* translateInfobar = [self findTranslateInfobar];
+  if (!translateInfobar) {
+    translate::TranslateManager* translateManager =
+        translateClient->GetTranslateManager();
+    translate::LanguageState* languageState =
+        translateManager->GetLanguageState();
+    std::string sourceLanguage = languageState->source_language();
+    std::string targetLanguage = languageState->current_language();
 
-  infobars::InfoBarManager* infoBarManager =
-      InfoBarManagerImpl::FromWebState(webState);
-  if (!infoBarManager) {
-    return;
-  }
-
-  InfoBarIOS* translateInfobar = nullptr;
-  for (infobars::InfoBar* infobar : infoBarManager->infobars()) {
-    InfoBarIOS* infobarIOS = static_cast<InfoBarIOS*>(infobar);
-    if (infobarIOS->infobar_type() == InfobarType::kInfobarTypeTranslate) {
-      translateInfobar = infobarIOS;
-      break;
-    }
+    // Create translate infobar without showing banner.
+    // Setting triggered_from_menu=false with TRANSLATE_STEP_AFTER_TRANSLATE
+    // suppresses the banner per ChromeIOSTranslateClient::CreateInfoBar logic.
+    translateClient->ShowTranslateUI(translate::TRANSLATE_STEP_AFTER_TRANSLATE,
+                                     sourceLanguage, targetLanguage,
+                                     translate::TranslateErrors::NONE, false);
+    translateInfobar = [self findTranslateInfobar];
   }
 
   if (!translateInfobar) {
@@ -568,6 +575,30 @@ std::string GetTargetLanguageCode(ChromeIOSTranslateClient* translate_client) {
       base::BindOnce(^(NSArray<NSString*>* suggestions){
           // No-op.
       }));
+}
+
+// Finds the translate infobar.
+- (InfoBarIOS*)findTranslateInfobar {
+  InfoBarManagerImpl* manager = InfoBarManagerImpl::FromWebState(_webState);
+  if (!manager) {
+    return nullptr;
+  }
+
+  for (infobars::InfoBar* infobar : manager->infobars()) {
+    InfoBarIOS* infobarIOS = static_cast<InfoBarIOS*>(infobar);
+    if (infobarIOS->infobar_type() == InfobarType::kInfobarTypeTranslate) {
+      return infobarIOS;
+    }
+  }
+  return nullptr;
+}
+
+// Updates the translate infobar's accepted state.
+- (void)updateTranslateInfobarAcceptedState:(BOOL)accepted {
+  InfoBarIOS* translateInfobar = [self findTranslateInfobar];
+  if (translateInfobar) {
+    translateInfobar->set_accepted(accepted);
+  }
 }
 
 @end

@@ -121,8 +121,8 @@
 // The current BanneredPromoViewProvider, if any.
 @property(nonatomic, weak) id<BanneredPromoViewProvider> banneredProvider;
 
-// The current ConfirmationAlertViewController, if any.
-@property(nonatomic, strong) ConfirmationAlertViewController* viewController;
+// The current promo view controller, if any.
+@property(nonatomic, strong) UIViewController* viewController;
 
 // The current PromoStyleViewController, if any.
 @property(nonatomic, strong) PromoStyleViewController* banneredViewController;
@@ -283,9 +283,8 @@
       provider.handler = promosManagerCommandsHandler;
     }
 
-    self.viewController = [provider viewController];
+    self.viewController = [provider viewControllerWithActionHandler:self];
     self.viewController.presentationController.delegate = self;
-    self.viewController.actionHandler = self;
 
     self.provider = provider;
 
@@ -444,6 +443,7 @@
   }
 
   [self.banneredProvider standardPromoPrimaryAction];
+  [self dismissPromo];
 }
 
 // Invoked when the secondary action button is tapped.
@@ -459,6 +459,7 @@
   } else if ([self.banneredProvider
                  respondsToSelector:@selector(standardPromoSecondaryAction)]) {
     [self.banneredProvider standardPromoSecondaryAction];
+    [self dismissPromo];
   }
 }
 
@@ -476,14 +477,7 @@
 
 // Invoked when the top left question mark button is tapped.
 - (void)didTapLearnMoreButton {
-  DCHECK(self.banneredProvider);
-
-  if (![self.banneredProvider
-          respondsToSelector:@selector(standardPromoLearnMoreAction)]) {
-    return;
-  }
-
-  [self.banneredProvider standardPromoLearnMoreAction];
+  NOTREACHED();
 }
 
 #pragma mark - ConfirmationAlertActionHandler
@@ -497,6 +491,7 @@
   }
 
   [self.provider standardPromoPrimaryAction];
+  [self dismissPromo];
 }
 
 - (void)confirmationAlertSecondaryAction {
@@ -508,6 +503,7 @@
   }
 
   [self.provider standardPromoSecondaryAction];
+  [self dismissPromo];
 }
 
 - (void)confirmationAlertTertiaryAction {
@@ -519,31 +515,6 @@
   }
 
   [self.provider standardPromoTertiaryAction];
-}
-
-- (void)confirmationAlertLearnMoreAction {
-  DCHECK(self.provider);
-
-  if (![self.provider
-          respondsToSelector:@selector(standardPromoLearnMoreAction)]) {
-    return;
-  }
-
-  [self.provider standardPromoLearnMoreAction];
-}
-
-- (void)confirmationAlertDismissAction {
-  DCHECK(self.provider || self.banneredProvider);
-
-  if ([self.provider
-          respondsToSelector:@selector(standardPromoDismissAction)]) {
-    [self.provider standardPromoDismissAction];
-  } else if ([self.banneredProvider
-                 respondsToSelector:@selector(standardPromoDismissAction)]) {
-    [self.banneredProvider standardPromoDismissAction];
-  }
-
-  [self dismissViewControllers];
 }
 
 #pragma mark - UIAdaptivePresentationControllerDelegate
@@ -560,11 +531,26 @@
     [self.banneredProvider standardPromoDismissSwipe];
     [self dismissViewControllers];
   } else {
-    [self confirmationAlertDismissAction];
+    [self dismissPromo];
   }
 }
 
 #pragma mark - Private
+
+// Dismisses the promo.
+- (void)dismissPromo {
+  DCHECK(self.provider || self.banneredProvider);
+
+  if ([self.provider
+          respondsToSelector:@selector(standardPromoDismissAction)]) {
+    [self.provider standardPromoDismissAction];
+  } else if ([self.banneredProvider
+                 respondsToSelector:@selector(standardPromoDismissAction)]) {
+    [self.banneredProvider standardPromoDismissAction];
+  }
+
+  [self dismissViewControllers];
+}
 
 - (void)dismissViewControllers {
   if (self.viewController) {
@@ -629,7 +615,7 @@
   }
 
   // Welcome Back promo handler.
-  if (IsWelcomeBackInFirstRunEnabled()) {
+  if (IsWelcomeBackEnabled()) {
     _displayHandlerPromos[promos_manager::Promo::WelcomeBack] =
         [[WelcomeBackDisplayHandler alloc] init];
   }

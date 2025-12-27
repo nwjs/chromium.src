@@ -7,7 +7,6 @@
 #include <memory>
 
 #include "base/functional/bind.h"
-#include "base/functional/callback_forward.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/app/vector_icons/vector_icons.h"
@@ -525,8 +524,12 @@ std::unique_ptr<views::View> ManagePasswordsDetailsView::CreateTitleView(
 
   std::string shown_origin = password_manager::GetShownOrigin(
       password_manager::CredentialUIEntry(password_form));
-  header->AddChildView(views::BubbleFrameView::CreateDefaultTitleLabel(
-      base::UTF8ToUTF16(shown_origin)));
+  views::Label* title_label =
+      header->AddChildView(views::BubbleFrameView::CreateDefaultTitleLabel(
+          base::UTF8ToUTF16(shown_origin)));
+  // Multiline doesn't work well with eliding the URL from the left.
+  title_label->SetMultiLine(false);
+  title_label->SetElideBehavior(gfx::ELIDE_HEAD);
   return header;
 }
 

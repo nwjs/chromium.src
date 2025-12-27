@@ -107,10 +107,10 @@ ui::ImageModel GetTabAlertIndicatorImageForPressedState(
     tabs::TabAlert alert_state,
     ui::ColorId button_color) {
   tabs::TabAlert pressed_alert_state = alert_state;
-  if (alert_state == tabs::TabAlert::AUDIO_PLAYING) {
-    alert_state = tabs::TabAlert::AUDIO_MUTING;
-  } else if (alert_state == tabs::TabAlert::AUDIO_MUTING) {
-    alert_state = tabs::TabAlert::AUDIO_PLAYING;
+  if (alert_state == tabs::TabAlert::kAudioPlaying) {
+    alert_state = tabs::TabAlert::kAudioMuting;
+  } else if (alert_state == tabs::TabAlert::kAudioMuting) {
+    alert_state = tabs::TabAlert::kAudioPlaying;
   }
 
   return tabs::GetAlertImageModel(pressed_alert_state, button_color);
@@ -140,15 +140,15 @@ class AlertIndicatorButton::FadeAnimationDelegate
   void AnimationEnded(const gfx::Animation* animation) override {
     button_->showing_alert_state_ = button_->alert_state_;
     button_->SchedulePaint();
-    button_->parent_tab_->AlertStateChanged();
+    button_->delegate_->AlertStateChanged();
   }
 
   const raw_ptr<AlertIndicatorButton> button_;
 };
 
-AlertIndicatorButton::AlertIndicatorButton(Tab* parent_tab)
-    : parent_tab_(parent_tab) {
-  DCHECK(parent_tab_);
+AlertIndicatorButton::AlertIndicatorButton(Delegate* delegate)
+    : delegate_(delegate) {
+  DCHECK(delegate_);
   SetEventTargeter(std::make_unique<views::ViewTargeter>(this));
 
   GetViewAccessibility().SetName(
@@ -233,10 +233,10 @@ void AlertIndicatorButton::TransitionToAlertState(
     UpdateIconForAlertState(next_state.value());
   }
 
-  if ((alert_state_ == tabs::TabAlert::AUDIO_PLAYING &&
-       next_state == tabs::TabAlert::AUDIO_MUTING) ||
-      (alert_state_ == tabs::TabAlert::AUDIO_MUTING &&
-       next_state == tabs::TabAlert::AUDIO_PLAYING)) {
+  if ((alert_state_ == tabs::TabAlert::kAudioPlaying &&
+       next_state == tabs::TabAlert::kAudioMuting) ||
+      (alert_state_ == tabs::TabAlert::kAudioMuting &&
+       next_state == tabs::TabAlert::kAudioPlaying)) {
     // Instant user feedback: No fade animation.
     showing_alert_state_ = next_state;
     fade_animation_.reset();
@@ -257,7 +257,7 @@ void AlertIndicatorButton::TransitionToAlertState(
   alert_state_ = next_state;
 
   if (previous_alert_showing_state != showing_alert_state_) {
-    parent_tab_->AlertStateChanged();
+    delegate_->AlertStateChanged();
   }
 
   UpdateEnabledForMuteToggle();
@@ -267,18 +267,16 @@ void AlertIndicatorButton::UpdateEnabledForMuteToggle() {
   const bool was_enabled = GetEnabled();
 
   bool enable = base::FeatureList::IsEnabled(media::kEnableTabMuting) &&
-                (alert_state_ == tabs::TabAlert::AUDIO_PLAYING ||
-                 alert_state_ == tabs::TabAlert::AUDIO_MUTING);
+                (alert_state_ == tabs::TabAlert::kAudioPlaying ||
+                 alert_state_ == tabs::TabAlert::kAudioMuting);
 
   // If the tab is not the currently-active tab, make sure it is wide enough
   // before enabling click-to-mute.  This ensures that there is enough click
   // area for the user to activate a tab rather than unintentionally muting it.
   // Note that IsTriggerableEvent() is also overridden to provide an even wider
   // requirement for tap gestures.
-  if (enable && !GetTab()->IsActive()) {
-    const int required_width = width() * kMinMouseSelectableAreaPercent / 100;
-    enable = GetTab()->GetWidthOfLargestSelectableRegion() >= required_width;
-  }
+  const int required_width = width() * kMinMouseSelectableAreaPercent / 100;
+  enable = enable && delegate_->ShouldEnableMuteToggle(required_width);
 
   if (enable == was_enabled) {
     return;
@@ -288,8 +286,8 @@ void AlertIndicatorButton::UpdateEnabledForMuteToggle() {
 }
 
 void AlertIndicatorButton::OnParentTabButtonColorChanged() {
-  if (alert_state_ == tabs::TabAlert::AUDIO_PLAYING ||
-      alert_state_ == tabs::TabAlert::AUDIO_MUTING) {
+  if (alert_state_ == tabs::TabAlert::kAudioPlaying ||
+      alert_state_ == tabs::TabAlert::kAudioMuting) {
     UpdateIconForAlertState(alert_state_.value());
   }
 }
@@ -332,16 +330,16 @@ void AlertIndicatorButton::NotifyClick(const ui::Event& event) {
   // instant feedback.  In the very unlikely event that the mute toggle fails,
   // TransitionToAlertState() will be called again, via another code path, to
   // set the image to be consistent with the final outcome.
-  if (alert_state_ == tabs::TabAlert::AUDIO_PLAYING) {
+  if (alert_state_ == tabs::TabAlert::kAudioPlaying) {
     base::RecordAction(base::UserMetricsAction("AlertIndicatorButton_Mute"));
-    TransitionToAlertState(tabs::TabAlert::AUDIO_MUTING);
+    TransitionToAlertState(tabs::TabAlert::kAudioMuting);
   } else {
-    DCHECK(alert_state_ == tabs::TabAlert::AUDIO_MUTING);
+    DCHECK(alert_state_ == tabs::TabAlert::kAudioMuting);
     base::RecordAction(base::UserMetricsAction("AlertIndicatorButton_Unmute"));
-    TransitionToAlertState(tabs::TabAlert::AUDIO_PLAYING);
+    TransitionToAlertState(tabs::TabAlert::kAudioPlaying);
   }
 
-  GetTab()->controller()->ToggleTabAudioMute(GetTab());
+  delegate_->ToggleTabAudioMute();
 }
 
 bool AlertIndicatorButton::IsTriggerableEvent(const ui::Event& event) {
@@ -356,11 +354,10 @@ bool AlertIndicatorButton::IsTriggerableEvent(const ui::Event& event) {
   // For gesture events on an inactive tab, require an even wider tab before
   // click-to-mute can be triggered.  See comments in
   // UpdateEnabledForMuteToggle().
-  if (event.IsGestureEvent() && !GetTab()->IsActive()) {
-    const int required_width = width() * kMinGestureSelectableAreaPercent / 100;
-    if (GetTab()->GetWidthOfLargestSelectableRegion() < required_width) {
-      return false;
-    }
+  const int required_width = width() * kMinGestureSelectableAreaPercent / 100;
+  if (event.IsGestureEvent() &&
+      !delegate_->ShouldEnableMuteToggle(required_width)) {
+    return false;
   }
 
   return views::ImageButton::IsTriggerableEvent(event);
@@ -390,7 +387,7 @@ gfx::ImageSkia AlertIndicatorButton::GetImageToPaint() {
 void AlertIndicatorButton::UpdateAlertIndicatorAnimation() {
   // Can add different cases for other alert states that require an animation.
   if (alert_state_.has_value() &&
-      alert_state_.value() == tabs::TabAlert::ACTOR_ACCESSING) {
+      alert_state_.value() == tabs::TabAlert::kActorAccessing) {
     MaybeLoadActorAccessingSpinner();
 
     actor_indicator_spinner_->SetVisible(true);
@@ -404,14 +401,14 @@ void AlertIndicatorButton::UpdateAlertIndicatorAnimation() {
 std::unique_ptr<gfx::Animation>
 AlertIndicatorButton::CreateTabAlertIndicatorFadeAnimation(
     std::optional<tabs::TabAlert> alert_state) {
-  if (alert_state == tabs::TabAlert::MEDIA_RECORDING ||
-      alert_state == tabs::TabAlert::AUDIO_RECORDING ||
-      alert_state == tabs::TabAlert::VIDEO_RECORDING ||
-      alert_state == tabs::TabAlert::TAB_CAPTURING ||
-      alert_state == tabs::TabAlert::DESKTOP_CAPTURING) {
-    if ((alert_state == tabs::TabAlert::MEDIA_RECORDING ||
-         alert_state == tabs::TabAlert::AUDIO_RECORDING ||
-         alert_state == tabs::TabAlert::VIDEO_RECORDING) &&
+  if (alert_state == tabs::TabAlert::kMediaRecording ||
+      alert_state == tabs::TabAlert::kAudioRecording ||
+      alert_state == tabs::TabAlert::kVideoRecording ||
+      alert_state == tabs::TabAlert::kTabCapturing ||
+      alert_state == tabs::TabAlert::kDesktopCapturing) {
+    if ((alert_state == tabs::TabAlert::kMediaRecording ||
+         alert_state == tabs::TabAlert::kAudioRecording ||
+         alert_state == tabs::TabAlert::kVideoRecording) &&
         camera_mic_indicator_start_time_ == base::Time()) {
       camera_mic_indicator_start_time_ = base::Time::Now();
     }
@@ -450,19 +447,11 @@ AlertIndicatorButton::CreateTabAlertIndicatorFadeAnimation(
   return std::move(animation);
 }
 
-Tab* AlertIndicatorButton::GetTab() {
-  DCHECK_EQ(static_cast<views::View*>(parent_tab_), parent());
-  return parent_tab_;
-}
-
 void AlertIndicatorButton::UpdateIconForAlertState(tabs::TabAlert state) {
   const ui::ColorId color =
-      parent_tab_->GetColorProvider()
-          ? tabs::GetAlertIndicatorColor(
-                state,
-                parent_tab_->tab_style_views()->GetApparentActiveState() ==
-                    TabActive::kActive,
-                GetWidget()->ShouldPaintAsActive())
+      GetColorProvider()
+          ? tabs::GetAlertIndicatorColor(state, delegate_->IsApparentlyActive(),
+                                         GetWidget()->ShouldPaintAsActive())
           : gfx::kPlaceholderColor;
   const ui::ImageModel indicator_image = tabs::GetAlertImageModel(state, color);
 

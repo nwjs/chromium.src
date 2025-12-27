@@ -25,7 +25,9 @@ enum class EntryPoint {
   TabReopen = 4,
   // Gemini was opened from the Diamond prototype.
   Diamond = 5,
-  kMaxValue = Diamond,
+  // Gemini was opened via the image long-press context menu.
+  ImageContextMenu = 6,
+  kMaxValue = ImageContextMenu,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/ios/enums.xml:IOSGeminiEntryPoint)
 
@@ -71,5 +73,10 @@ extern NSString* const kBwgFootnoteLinkActionManagedAccount;
 extern NSString* const kBwgSecondBoxLinkActionManagedAccount;
 extern NSString* const kBwgSecondBoxLink1ActionNonManagedAccount;
 extern NSString* const kBwgSecondBoxLink2ActionNonManagedAccount;
+
+// The sliding window for displaying a Gemini contextual cue chip. Chips are
+// shown within this time range (in hours) relative to the last chip that was
+// displayed.
+extern const int kGeminiContextualCueChipSlidingWindow;
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_BWG_UTILS_BWG_CONSTANTS_H_

@@ -43,22 +43,17 @@ using mojom::blink::PermissionName;
 using mojom::blink::PermissionService;
 
 // static
-const char Permissions::kSupplementName[] = "Permissions";
-
-// static
 Permissions* Permissions::permissions(NavigatorBase& navigator) {
-  Permissions* supplement =
-      Supplement<NavigatorBase>::From<Permissions>(navigator);
+  Permissions* supplement = navigator.GetPermissions();
   if (!supplement) {
     supplement = MakeGarbageCollected<Permissions>(navigator);
-    ProvideTo(navigator, supplement);
+    navigator.SetPermissions(supplement);
   }
   return supplement;
 }
 
 Permissions::Permissions(NavigatorBase& navigator)
-    : Supplement<NavigatorBase>(navigator),
-      ExecutionContextLifecycleObserver(navigator.GetExecutionContext()),
+    : ExecutionContextLifecycleObserver(navigator.GetExecutionContext()),
       service_(navigator.GetExecutionContext()) {}
 
 ScriptPromise<PermissionStatus> Permissions::query(
@@ -229,7 +224,6 @@ void Permissions::Trace(Visitor* visitor) const {
   visitor->Trace(service_);
   visitor->Trace(listeners_);
   ScriptWrappable::Trace(visitor);
-  Supplement<NavigatorBase>::Trace(visitor);
   ExecutionContextLifecycleObserver::Trace(visitor);
 }
 

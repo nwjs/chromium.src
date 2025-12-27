@@ -22,6 +22,7 @@
 #include "content/public/common/bindings_policy.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/url_constants.h"
+#include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "third_party/blink/public/common/security/protocol_handler_security_level.h"
 #include "third_party/blink/public/mojom/input/pointer_lock_result.mojom.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
@@ -182,14 +183,16 @@ void WebContentsDelegate::CreateSmsPrompt(
     base::OnceCallback<void()> on_confirm,
     base::OnceCallback<void()> on_cancel) {}
 
+bool WebContentsDelegate::GetCanResize() {
+  return false;
+}
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 bool WebContentsDelegate::CanUseWindowingControls(
     RenderFrameHost* requesting_frame) {
   return false;
 }
-
-bool WebContentsDelegate::GetCanResize() {
-  return false;
-}
+#endif
 
 ui::mojom::WindowShowState WebContentsDelegate::GetWindowShowState() const {
   return ui::mojom::WindowShowState::kDefault;
@@ -455,12 +458,24 @@ bool WebContentsDelegate::MaybeCopyContentAreaAsBitmap(
   return false;
 }
 
+void WebContentsDelegate::GetAIPageContent(
+    WebContents* web_contents,
+    bool include_actionable_elements,
+    base::OnceCallback<void(const std::string&)> callback) {
+  std::move(callback).Run(std::string());
+}
+
 bool WebContentsDelegate::IsWaitingForPointerLockPrompt(
     WebContents* web_contents) {
   return false;
 }
 
 #if BUILDFLAG(IS_ANDROID)
+
+bool WebContentsDelegate::MaybeCopyContentAreaAsHardwareBuffer(
+    HardwareBufferResultCallback callback) {
+  return false;
+}
 SkBitmap WebContentsDelegate::MaybeCopyContentAreaAsBitmapSync() {
   return SkBitmap();
 }

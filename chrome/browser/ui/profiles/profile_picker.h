@@ -8,7 +8,6 @@
 #include <optional>
 #include <variant>
 
-#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_forward.h"
@@ -264,6 +263,8 @@ class ProfilePicker {
     // Whether we are recording timing metrics about loading the profile and
     // opening the first web content.
     bool should_record_startup_metrics = false;
+    // Whether to exit the flow after the profile is picked.
+    bool exit_flow_after_profile_picked = true;
   };
 
   // Picks the profile with `profile_path`.
@@ -275,11 +276,11 @@ class ProfilePicker {
       ProfilePickingArgs args,
       base::OnceCallback<void(bool)> pick_profile_complete_callback);
 
-  // Cancel the signed-in flow and returns back to the main picker screen (if
+  // Cancel the sign-in flow and returns back to the main picker screen (if
   // the original EntryPoint was to open the picker). Must only be called from
-  // within the signed-in flow. This will delete the profile previously created
+  // within the sign-in flow. This will delete the profile previously created
   // for the signed-in flow.
-  static void CancelSignedInFlow();
+  static void CancelSignInFlow();
 
   // Returns the path of the default profile used for rendering the picker.
   static base::FilePath GetPickerProfilePath();

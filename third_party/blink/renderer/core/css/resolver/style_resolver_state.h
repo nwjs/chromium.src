@@ -140,6 +140,9 @@ class CORE_EXPORT StyleResolverState {
   void SetConversionZoom(float zoom) {
     css_to_length_conversion_data_.SetZoom(zoom);
   }
+  void SubtractScrollbarsFromViewportUnits(const gfx::Size& scrollbars) {
+    css_to_length_conversion_data_.SubtractScrollbars(scrollbars);
+  }
 
   CSSAnimationUpdate& AnimationUpdate() { return animation_update_; }
   const CSSAnimationUpdate& AnimationUpdate() const {
@@ -190,8 +193,12 @@ class CORE_EXPORT StyleResolverState {
   void SetWritingMode(WritingMode);
   void SetTextSizeAdjust(TextSizeAdjust);
   void SetTextOrientation(ETextOrientation);
-  void SetPositionAnchor(ScopedCSSName*);
+  void SetPositionAnchor(const StylePositionAnchor&);
   void SetPositionAreaOffsets(const std::optional<PositionAreaOffsets>&);
+
+  // Return the writing-direction of the abs-pos container for an anchored
+  // element.
+  WritingDirectionMode GetAnchoredContainerWritingDirection() const;
 
   CSSParserMode GetParserMode() const;
 

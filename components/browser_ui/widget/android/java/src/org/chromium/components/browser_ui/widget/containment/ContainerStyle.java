@@ -5,8 +5,8 @@
 package org.chromium.components.browser_ui.widget.containment;
 
 import static org.chromium.components.browser_ui.widget.containment.ContainmentItem.DEFAULT_COLOR;
-import static org.chromium.components.browser_ui.widget.containment.ContainmentItem.DEFAULT_MARGIN;
 import static org.chromium.components.browser_ui.widget.containment.ContainmentItem.DEFAULT_RADIUS;
+import static org.chromium.components.browser_ui.widget.containment.ContainmentItem.DEFAULT_VALUE;
 
 import org.chromium.build.annotations.NullMarked;
 
@@ -18,6 +18,8 @@ public class ContainerStyle {
     private final int mTopMargin;
     private final int mBottomMargin;
     private final int mHorizontalMargin;
+    private final int mVerticalPadding;
+    private final int mMinHeight;
     private final int mBackgroundColor;
 
     /** A container with no background. */
@@ -29,6 +31,8 @@ public class ContainerStyle {
         mTopMargin = builder.mTopMargin;
         mBottomMargin = builder.mBottomMargin;
         mHorizontalMargin = builder.mHorizontalMargin;
+        mVerticalPadding = builder.mVerticalPadding;
+        mMinHeight = builder.mMinHeight;
         mBackgroundColor = builder.mBackgroundColor;
     }
 
@@ -36,9 +40,11 @@ public class ContainerStyle {
     public static class Builder {
         private float mTopRadius = DEFAULT_RADIUS;
         private float mBottomRadius = DEFAULT_RADIUS;
-        private int mTopMargin = DEFAULT_MARGIN;
-        private int mBottomMargin = DEFAULT_MARGIN;
-        private int mHorizontalMargin = DEFAULT_MARGIN;
+        private int mTopMargin = DEFAULT_VALUE;
+        private int mBottomMargin = DEFAULT_VALUE;
+        private int mHorizontalMargin = DEFAULT_VALUE;
+        private int mVerticalPadding = DEFAULT_VALUE;
+        private int mMinHeight = DEFAULT_VALUE;
         private int mBackgroundColor = DEFAULT_COLOR;
 
         public Builder setTopRadius(float topRadius) {
@@ -63,6 +69,16 @@ public class ContainerStyle {
 
         public Builder setHorizontalMargin(int horizontalMargin) {
             mHorizontalMargin = horizontalMargin;
+            return this;
+        }
+
+        public Builder setVerticalPadding(int verticalPadding) {
+            mVerticalPadding = verticalPadding;
+            return this;
+        }
+
+        public Builder setMinHeight(int minHeight) {
+            mMinHeight = minHeight;
             return this;
         }
 
@@ -109,6 +125,20 @@ public class ContainerStyle {
      */
     public int getHorizontalMargin() {
         return mHorizontalMargin;
+    }
+
+    /**
+     * @return The vertical padding in pixels.
+     */
+    public int getVerticalPadding() {
+        return mVerticalPadding;
+    }
+
+    /**
+     * @return The minimum height in pixels.
+     */
+    public int getMinHeight() {
+        return mMinHeight;
     }
 
     /**

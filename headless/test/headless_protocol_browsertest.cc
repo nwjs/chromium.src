@@ -622,6 +622,9 @@ HEADLESS_PROTOCOL_TEST(MaximizedWindowSize, "shared/maximized-window-size.js")
 
 HEADLESS_PROTOCOL_TEST(FullscreenWindowSize, "shared/fullscreen-window-size.js")
 
+HEADLESS_PROTOCOL_TEST(FullscreenWindowSizeScaled,
+                       "shared/fullscreen-window-size-scaled.js")
+
 HEADLESS_PROTOCOL_TEST(WindowOpenOnSecondaryScreen,
                        "shared/window-open-on-secondary-screen.js")
 
@@ -708,6 +711,9 @@ HEADLESS_PROTOCOL_TEST(DispatchTouchEventScreenCoordinates,
 HEADLESS_PROTOCOL_TEST(
     EmulateTouchFromMouseEventScreenCoordinates,
     "shared/emulate-touch-from-mouse-event-screen-coordinates.js")
+
+HEADLESS_PROTOCOL_TEST(WindowWithNewContext,
+                       "shared/window-with-new-context.js")
 
 HEADLESS_PROTOCOL_TEST(SetZoomedWindowBounds,
                        "shared/set-zoomed-window-bounds.js")

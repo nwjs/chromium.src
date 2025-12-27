@@ -20,13 +20,14 @@
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
+#include "components/sync/base/features.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace glic {
 namespace {
 
 GlicInstanceCoordinatorImpl& GetInstanceCoordinator(GlicKeyedService& service) {
-  CHECK(GlicEnabling::IsMultiInstanceEnabledByFlags());
+  CHECK(base::FeatureList::IsEnabled(features::kGlicMultiInstance));
   return static_cast<GlicInstanceCoordinatorImpl&>(service.window_controller());
 }
 
@@ -140,7 +141,7 @@ GlicInstance* GlicInstanceTracker::GetGlicInstance() {
     return instances.empty() ? nullptr : instances[0];
   }
 
-  if (GlicEnabling::IsMultiInstanceEnabledByFlags()) {
+  if (base::FeatureList::IsEnabled(features::kGlicMultiInstance)) {
     if (track_floating_glic_instance_) {
       return GetInstanceCoordinator(*service).GetInstanceWithFloaty();
     }
@@ -161,13 +162,16 @@ GlicInstance* GlicInstanceTracker::GetGlicInstance() {
   return service->GetInstanceForActiveTab(GetBrowser());
 }
 
-Browser* GlicInstanceTracker::GetBrowser() {
-  for (auto& browser : *BrowserList::GetInstance()) {
-    if (browser->profile() == profile_) {
-      return browser;
-    }
-  }
-  return nullptr;
+BrowserWindowInterface* GlicInstanceTracker::GetBrowser() {
+  BrowserWindowInterface* found = nullptr;
+  ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+      [this, &found](BrowserWindowInterface* browser) {
+        if (browser->GetProfile() == profile_) {
+          found = browser;
+        }
+        return !found;
+      });
+  return found;
 }
 
 std::string GlicInstanceTracker::DescribeGlicTracking() {
@@ -265,8 +269,11 @@ void InvalidateAccount(Profile* profile) {
       identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
           identity_manager->GetPrimaryAccountId(
               signin::ConsentLevel::kSignin)));
-  ASSERT_FALSE(
-      identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync));
+  if (!base::FeatureList::IsEnabled(
+          syncer::kReplaceSyncPromosWithSignInPromos)) {
+    ASSERT_FALSE(
+        identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync));
+  }
   ASSERT_TRUE(
       identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin));
 }

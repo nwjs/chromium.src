@@ -57,7 +57,7 @@ bool PageActionIconView::Delegate::ShouldHidePageActionIcons() const {
 }
 
 bool PageActionIconView::Delegate::ShouldHidePageActionIcon(
-    PageActionIconView* icon_view) const {
+    const PageActionIconView* icon_view) const {
   return false;
 }
 
@@ -234,7 +234,7 @@ void PageActionIconView::SetIconColor(SkColor icon_color) {
   }
   icon_color_ = icon_color;
   UpdateIconImage();
-  OnPropertyChanged(&icon_color_, views::kPropertyEffectsNone);
+  OnPropertyChanged(&icon_color_, views::PropertyEffects::kNone);
 }
 
 SkColor PageActionIconView::GetIconColor() const {
@@ -247,7 +247,7 @@ void PageActionIconView::SetActive(bool active) {
   }
   active_ = active;
   UpdateIconImage();
-  OnPropertyChanged(&active_, views::kPropertyEffectsNone);
+  OnPropertyChanged(&active_, views::PropertyEffects::kNone);
   // For StarView
   UpdateTooltipText();
 }

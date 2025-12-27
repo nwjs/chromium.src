@@ -19,7 +19,6 @@
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/files/file.h"
-#include "base/files/file_util.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
@@ -311,10 +310,6 @@ blink::UserAgentMetadata GetShellUserAgentMetadata() {
 
   return metadata;
 }
-
-// static
-bool ShellContentBrowserClient::allow_any_cors_exempt_header_for_browser_ =
-    false;
 
 ShellContentBrowserClient* ShellContentBrowserClient::Get() {
   auto& instances = GetShellContentBrowserClientInstancesImpl();
@@ -765,7 +760,8 @@ void ShellContentBrowserClient::OnNetworkServiceCreated(
         base::FeatureList::IsEnabled(net::features::kHappyEyeballsV3),
         /*secure_dns_mode=*/net::SecureDnsMode::kAutomatic,
         net::DnsOverHttpsConfig(),
-        /*additional_dns_types_enabled=*/true);
+        /*additional_dns_types_enabled=*/true,
+        /*fallback_doh_nameservers=*/{});
   }
 #endif
 }
@@ -830,8 +826,6 @@ void ShellContentBrowserClient::ConfigureNetworkContextParamsForShell(
     network::mojom::NetworkContextParams* context_params,
     cert_verifier::mojom::CertVerifierCreationParams*
         cert_verifier_creation_params) {
-  context_params->allow_any_cors_exempt_header_for_browser =
-      allow_any_cors_exempt_header_for_browser_;
   context_params->user_agent = GetUserAgent();
   context_params->accept_language = GetAcceptLangs(context);
   context_params->enable_zstd = true;

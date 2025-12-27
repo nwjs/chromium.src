@@ -18,6 +18,7 @@ import "services/network/public/mojom/first_party_sets.mojom";
 import "services/network/public/mojom/host_resolver.mojom";
 import "services/network/public/mojom/http_raw_headers.mojom";
 import "services/network/public/mojom/ip_address_space.mojom";
+import "services/network/public/mojom/ip_endpoint.mojom";
 import "services/network/public/mojom/key_pinning.mojom";
 import "services/network/public/mojom/mutable_network_traffic_annotation_tag.mojom";
 import "services/network/public/mojom/net_log.mojom";
@@ -136,11 +137,6 @@ struct NetworkServiceParams {
   // A SystemDnsResolver to provide out-of-process system DNS resolution, in
   // case the system DNS resolver cannot always run sandboxed.
   pending_remote<SystemDnsResolver>? system_dns_resolver;
-
-  // The policy used for bypassing requests that are eligible for IP Protection.
-  // Even if a domain is part of the masked domain list, the bypass policy can
-  // be used to bypass certain network requests from IP Protection.
-  IpProtectionProxyBypassPolicy ip_protection_proxy_bypass_policy;
 };
 
 // Configuration settings for SCT Auditing.
@@ -253,11 +249,17 @@ interface NetworkService {
   //
   // `happy_eyeballs_v3_enabled` controls whether the Happy Eyeballs V3 is
   //  enabled.
+  //
+  // `fallback_doh_nameservers` may be used in AUTOMATIC mode if falling back to
+  // DoH is preferred to falling back to insecure DNS. If these nameservers are
+  // successfully upgraded to DoH, they are used in the order defined by
+  // `net::ResolveContext::GetDohIterator`.
   ConfigureStubHostResolver(bool insecure_dns_client_enabled,
                             bool happy_eyeballs_v3_enabled,
                             SecureDnsMode secure_dns_mode,
                             DnsOverHttpsConfig dns_over_https_config,
-                            bool additional_dns_types_enabled);
+                            bool additional_dns_types_enabled,
+                            array<IPEndPoint> fallback_doh_nameservers);
 
   // Disables QUIC for the NetworkService. Affects all existing NetworkContexts,
   // and all new ones that are created. Once called, QUIC cannot be re-enabled.
@@ -288,10 +290,9 @@ interface NetworkService {
   SetRawHeadersAccess(int32 process_id, array<url.mojom.Origin> origins);
 
   // Sets the maximum number of connections for a proxy chain.
-  //   * Negative values will set the default proxy connection limit (32)
   //   * Values larger than 99 will saturate to 99.
   //   * Values smaller than 6 will saturate to 6.
-  SetMaxConnectionsPerProxyChain(int32 max_connections);
+  SetMaxConnectionsPerProxyChain(uint32 max_connections);
 
   // Gets the NetworkChangeManager.
   GetNetworkChangeManager(
@@ -382,28 +383,6 @@ interface NetworkService {
   // Sets the list of ports which will be permitted even if they normally would
   // be restricted.
   SetExplicitlyAllowedPorts(array<uint16> ports);
-
-  // Updates the Masked Domain List data used to generate custom proxy configs
-  // for the Privacy Proxy, with files pointing to flatbuffer files. Any
-  // existing NetworkContexts that are using the custom proxy configs will have
-  // their configs updated. This is not compatible with MDL policies that
-  // require exclusion list.
-  //
-  // These files are opened read-only, but are also deleted. Per comments in
-  // the mojom traits for `ReadOnlyFile`, the underlying file must not be
-  // deleted, so we use `File` here.
-  //
-  // File sizes must be included here, as otherwise `MemoryMappedFile` cannot
-  // tell how much memory to map.
-  UpdateMaskedDomainList(mojo_base.mojom.File default_file,
-                         uint64 default_file_size,
-                         mojo_base.mojom.File regular_browsing_file,
-                         uint64 regular_browsing_file_size);
-
-  // Updates the Probabilistic Reveal Token registry used to determine whether a
-  // request should include a PRT in the headers.
-  UpdateProbabilisticRevealTokenRegistry(
-      mojo_base.mojom.DictionaryValue registry);
 
   // Parses response headers and returns a structured version to the caller.
   // This call originates from the browser process. Used for navigations when

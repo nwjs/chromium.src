@@ -36,6 +36,7 @@
 #include "third_party/blink/renderer/core/css/css_selector_list.h"
 #include "third_party/blink/renderer/core/css/part_names.h"
 #include "third_party/blink/renderer/core/css/post_style_update_scope.h"
+#include "third_party/blink/renderer/core/css/route_query.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/css/style_rule.h"
 #include "third_party/blink/renderer/core/css/style_scope_data.h"
@@ -71,6 +72,7 @@
 #include "third_party/blink/renderer/core/html/html_dialog_element.h"
 #include "third_party/blink/renderer/core/html/html_document.h"
 #include "third_party/blink/renderer/core/html/html_frame_element_base.h"
+#include "third_party/blink/renderer/core/html/html_menu_bar_element.h"
 #include "third_party/blink/renderer/core/html/html_menu_item_element.h"
 #include "third_party/blink/renderer/core/html/html_menu_list_element.h"
 #include "third_party/blink/renderer/core/html/html_permission_element.h"
@@ -88,6 +90,7 @@
 #include "third_party/blink/renderer/core/page/spatial_navigation.h"
 #include "third_party/blink/renderer/core/page/spatial_navigation_controller.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
+#include "third_party/blink/renderer/core/route_matching/route.h"
 #include "third_party/blink/renderer/core/scroll/scrollable_area.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
@@ -573,8 +576,6 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoOnlyOfType:
     case CSSSelector::kPseudoOptional:
     case CSSSelector::kPseudoPart:
-    case CSSSelector::kPseudoPermissionElementInvalidStyle:
-    case CSSSelector::kPseudoPermissionElementOccluded:
     case CSSSelector::kPseudoPermissionGranted:
     case CSSSelector::kPseudoPermissionIcon:
     case CSSSelector::kPseudoPlaceholder:
@@ -585,6 +586,7 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoResizer:
     case CSSSelector::kPseudoRightPage:
     case CSSSelector::kPseudoRoot:
+    case CSSSelector::kPseudoRouteMatch:
     case CSSSelector::kPseudoScrollbar:
     case CSSSelector::kPseudoScrollbarButton:
     case CSSSelector::kPseudoScrollbarCorner:
@@ -659,6 +661,8 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoScrollMarker:
     case CSSSelector::kPseudoScrollMarkerGroup:
     case CSSSelector::kPseudoScrollButton:
+    case CSSSelector::kPseudoOverscrollAreaParent:
+    case CSSSelector::kPseudoOverscrollClientArea:
       // These pseudos are not allowed to match featureless elements. When
       // adding new pseudos here, they would typically be allowed if they are
       // logical pseudos which take selector arguments.
@@ -2052,6 +2056,21 @@ bool SelectorChecker::CheckPseudoHas(const SelectorCheckingContext& context,
   return false;
 }
 
+bool SelectorChecker::CheckPseudoRouteMatch(
+    const SelectorCheckingContext& context,
+    MatchResult& result) const {
+  DCHECK(context.selector);
+  DCHECK(context.selector->GetRouteLocation());
+  Element& element = GetCandidateElement(context, result);
+  const auto* anchor = DynamicTo<HTMLAnchorElement>(&element);
+  if (!anchor) {
+    return false;
+  }
+  const Route* route = context.selector->GetRouteLocation()->FindOrCreateRoute(
+      element.GetDocument());
+  return route && route->MatchesUrl(anchor->Href());
+}
+
 bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
                                        MatchResult& result) const {
   Element& element = GetCandidateElement(context, result);
@@ -2632,6 +2651,9 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
     }
     case CSSSelector::kPseudoRoot:
       return element == element.GetDocument().documentElement();
+    case CSSSelector::kPseudoRouteMatch:
+      DCHECK(RuntimeEnabledFeatures::RouteMatchingEnabled());
+      return CheckPseudoRouteMatch(context, result);
     case CSSSelector::kPseudoLang: {
       auto* vtt_element = DynamicTo<VTTElement>(element);
       AtomicString value = vtt_element ? vtt_element->Language()
@@ -2703,7 +2725,7 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       if (auto* menulist = DynamicTo<HTMLMenuListElement>(element)) {
         if (auto* menuitem_anchor = DynamicTo<HTMLMenuItemElement>(
                 menulist->GetPopoverData()->invoker())) {
-          return menuitem_anchor->OwnerMenuBarElement();
+          return IsA<HTMLMenuBarElement>(menuitem_anchor->OwningMenuElement());
         }
       }
       return false;
@@ -2711,7 +2733,7 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       if (auto* menulist = DynamicTo<HTMLMenuListElement>(element)) {
         if (auto* menuitem_anchor = DynamicTo<HTMLMenuItemElement>(
                 menulist->GetPopoverData()->invoker())) {
-          return menuitem_anchor->OwnerMenuListElement();
+          return IsA<HTMLMenuListElement>(menuitem_anchor->OwningMenuElement());
         }
       }
       return false;
@@ -2728,21 +2750,13 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
     }
     case CSSSelector::kPseudoPermissionGranted: {
       CHECK(RuntimeEnabledFeatures::PermissionElementEnabled(
-          element.GetExecutionContext()));
+                element.GetExecutionContext()) ||
+            RuntimeEnabledFeatures::GeolocationElementEnabled(
+                element.GetExecutionContext()) ||
+            RuntimeEnabledFeatures::UserMediaElementEnabled(
+                element.GetExecutionContext()));
       auto* permission_element = DynamicTo<HTMLPermissionElement>(element);
       return permission_element && permission_element->granted();
-    }
-    case CSSSelector::kPseudoPermissionElementInvalidStyle: {
-      CHECK(RuntimeEnabledFeatures::PermissionElementEnabled(
-          element.GetExecutionContext()));
-      auto* permission_element = DynamicTo<HTMLPermissionElement>(element);
-      return permission_element && permission_element->HasInvalidStyle();
-    }
-    case CSSSelector::kPseudoPermissionElementOccluded: {
-      CHECK(RuntimeEnabledFeatures::PermissionElementEnabled(
-          element.GetExecutionContext()));
-      auto* permission_element = DynamicTo<HTMLPermissionElement>(element);
-      return permission_element && permission_element->IsOccluded();
     }
     case CSSSelector::kPseudoPictureInPicture:
       return PictureInPictureController::IsElementInPictureInPicture(&element);
@@ -3130,6 +3144,10 @@ bool SelectorChecker::CheckPseudoElement(const SelectorCheckingContext& context,
       }
       result.dynamic_pseudo = context.pseudo_id;
       return true;
+    }
+    case CSSSelector::kPseudoOverscrollAreaParent:
+    case CSSSelector::kPseudoOverscrollClientArea: {
+      return element.GetPseudoIdForStyling() == pseudo_id;
     }
     case CSSSelector::kPseudoScrollButton:
       return MatchScrollButton(element, context, result);

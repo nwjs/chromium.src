@@ -52,6 +52,7 @@ class LinuxInputMethodContextDelegate;
 class LinuxUiTheme;
 class NativeTheme;
 class NavButtonProvider;
+class PrimaryPastePrefObserver;
 class SelectFileDialog;
 class SelectFilePolicy;
 class WindowButtonOrderObserver;
@@ -116,6 +117,11 @@ class COMPONENT_EXPORT(LINUX_UI) LinuxUi {
   void AddCursorThemeObserver(CursorThemeManagerObserver* observer);
 
   void RemoveCursorThemeObserver(CursorThemeManagerObserver* observer);
+
+  // Adds `observer` and calls if the middle click paste preference changes.
+  void AddPrimaryPastePrefObserver(PrimaryPastePrefObserver* observer);
+
+  void RemovePrimaryPastePrefObserver(PrimaryPastePrefObserver* observer);
 
   // Returns details about the default UI font.
   FontSettings GetDefaultFontDescription();
@@ -199,6 +205,8 @@ class COMPONENT_EXPORT(LINUX_UI) LinuxUi {
   virtual WindowFrameAction GetWindowFrameAction(
       WindowFrameActionSource source) = 0;
 
+  // Whether a middle mouse click should paste the primary clipboard contents.
+  virtual bool PrimaryPasteEnabled() const = 0;
   // Returns the command line flags that should be copied to subprocesses
   // to have the same toolkit and version as this process.
   virtual std::vector<std::string> GetCmdLineFlagsForCopy() const = 0;
@@ -233,6 +241,10 @@ class COMPONENT_EXPORT(LINUX_UI) LinuxUi {
     return cursor_theme_observer_list_;
   }
 
+  base::ObserverList<PrimaryPastePrefObserver>& primary_paste_observers() {
+    return primary_paste_observer_list_;
+  }
+
   display::DisplayConfig& display_config() { return display_config_; }
 
   void set_default_font_settings(
@@ -247,6 +259,9 @@ class COMPONENT_EXPORT(LINUX_UI) LinuxUi {
 
   // Objects to notify when the cursor theme or size changes.
   base::ObserverList<CursorThemeManagerObserver> cursor_theme_observer_list_;
+
+  // Objects to notify when the middle click paste preference changes.
+  base::ObserverList<PrimaryPastePrefObserver> primary_paste_observer_list_;
 
   display::DisplayConfig display_config_;
 
@@ -355,6 +370,18 @@ struct ScopedObservationTraits<ui::LinuxUi, ui::WindowButtonOrderObserver> {
   static void RemoveObserver(ui::LinuxUi* source,
                              ui::WindowButtonOrderObserver* observer) {
     source->RemoveWindowButtonOrderObserver(observer);
+  }
+};
+
+template <>
+struct ScopedObservationTraits<ui::LinuxUi, ui::PrimaryPastePrefObserver> {
+  static void AddObserver(ui::LinuxUi* source,
+                          ui::PrimaryPastePrefObserver* observer) {
+    source->AddPrimaryPastePrefObserver(observer);
+  }
+  static void RemoveObserver(ui::LinuxUi* source,
+                             ui::PrimaryPastePrefObserver* observer) {
+    source->RemovePrimaryPastePrefObserver(observer);
   }
 };
 

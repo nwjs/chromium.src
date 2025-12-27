@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {gCrWeb, gCrWebLegacy} from '//ios/web/public/js_messaging/resources/gcrweb.js';
+import {gCrWeb} from '//ios/web/public/js_messaging/resources/gcrweb.js';
 import {isTextField} from '//ios/web/public/js_messaging/resources/utils.js';
 
 /**
@@ -134,7 +134,7 @@ function findChildTextInner(
     if (node.tagName === 'OPTION') {
       return '';
     }
-    if (gCrWebLegacy.form.isFormControlElement(/** @type {Element} */ (node))) {
+    if (isFormControlElement(/** @type {Element} */ (node))) {
       const input = /** @type {FormControlElement} */ (node);
       if (isAutofillableElement(input)) {
         return '';
@@ -380,4 +380,15 @@ export function buildInferredLabelIfValid(label: string): InferredLabel|null {
  */
 function nodeValue(node: Node): string {
   return (node.nodeValue || '').replace(/[\n\t]/gm, '');
+}
+
+/**
+ * Based on Element::isFormControlElement() (WebKit)
+ * @param element A DOM element.
+ * @return true if the `element` is a form control element.
+ */
+export function isFormControlElement(element: Element): boolean {
+  const tagName = element.tagName;
+  return (
+      tagName === 'INPUT' || tagName === 'SELECT' || tagName === 'TEXTAREA');
 }

@@ -17,7 +17,6 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
@@ -540,7 +539,7 @@ std::unique_ptr<HttpResponse> HandleAuthBasic(const HttpRequest& request) {
 }
 
 std::string Sha256String(std::string_view input) {
-  return base::ToLowerASCII(base::HexEncode(crypto::hash::Sha256(input)));
+  return base::HexEncodeLower(crypto::hash::Sha256(input));
 }
 
 // /auth-digest

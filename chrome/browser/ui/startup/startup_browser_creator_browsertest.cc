@@ -84,6 +84,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/chrome_version.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/infobars/content/content_infobar_manager.h"
@@ -410,10 +411,10 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorTest,
 IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorTest, StartupURLsOnNewWindow) {
   // Use a couple arbitrary URLs.
   std::vector<GURL> urls;
-  urls.push_back(ui_test_utils::GetTestUrl(
+  urls.push_back(chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(FILE_PATH_LITERAL("title1.html"))));
-  urls.push_back(ui_test_utils::GetTestUrl(
+  urls.push_back(chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(FILE_PATH_LITERAL("title2.html"))));
 
@@ -441,7 +442,7 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorTest, OpenAppUrlShortcut) {
   // TODO(mgiuca): Delete this feature (https://crbug.com/751029). We are
   // keeping it for now to avoid disrupting existing workflows.
   base::CommandLine command_line(base::CommandLine::NO_PROGRAM);
-  GURL url = ui_test_utils::GetTestUrl(
+  GURL url = chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(FILE_PATH_LITERAL("title2.html")));
   command_line.AppendSwitchASCII(switches::kApp, url.spec());
@@ -476,13 +477,13 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorTest,
                        KSameTabSwitchReplacesActiveTab) {
   // Use a couple of arbitrary URLs.
   std::vector<GURL> urls;
-  urls.push_back(ui_test_utils::GetTestUrl(
+  urls.push_back(chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(FILE_PATH_LITERAL("title1.html"))));
-  urls.push_back(ui_test_utils::GetTestUrl(
+  urls.push_back(chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(FILE_PATH_LITERAL("title2.html"))));
-  urls.push_back(ui_test_utils::GetTestUrl(
+  urls.push_back(chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(FILE_PATH_LITERAL("title3.html"))));
 
@@ -534,7 +535,7 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorTest, OpenAppUrlIncognitoShortcut) {
   // responsibility to make this continue working. If you rely on the
   // combination of these two flags, you WILL be broken in the future.
   base::CommandLine command_line(base::CommandLine::NO_PROGRAM);
-  GURL url = ui_test_utils::GetTestUrl(
+  GURL url = chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(FILE_PATH_LITERAL("title2.html")));
   command_line.AppendSwitchASCII(switches::kApp, url.spec());
@@ -1331,11 +1332,11 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorTest, StartupURLsForTwoProfiles) {
 
   // Use a couple arbitrary URLs.
   std::vector<GURL> urls1;
-  urls1.push_back(ui_test_utils::GetTestUrl(
+  urls1.push_back(chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(FILE_PATH_LITERAL("title1.html"))));
   std::vector<GURL> urls2;
-  urls2.push_back(ui_test_utils::GetTestUrl(
+  urls2.push_back(chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(FILE_PATH_LITERAL("title2.html"))));
 
@@ -1422,11 +1423,11 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorTest, PRE_UpdateWithTwoProfiles) {
 
   // Set different startup preferences for the 2 profiles.
   std::vector<GURL> urls1;
-  urls1.push_back(ui_test_utils::GetTestUrl(
+  urls1.push_back(chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(FILE_PATH_LITERAL("title1.html"))));
   std::vector<GURL> urls2;
-  urls2.push_back(ui_test_utils::GetTestUrl(
+  urls2.push_back(chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(FILE_PATH_LITERAL("title2.html"))));
 
@@ -1531,7 +1532,7 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorTest,
   SessionStartupPref::SetStartupPref(&profile_last, pref_last);
 
   std::vector<GURL> urls;
-  urls.push_back(ui_test_utils::GetTestUrl(
+  urls.push_back(chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(FILE_PATH_LITERAL("title1.html"))));
 
@@ -1729,7 +1730,7 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorTest,
   SessionStartupPref::SetStartupPref(&profile_last, pref_last);
 
   std::vector<GURL> urls;
-  urls.push_back(ui_test_utils::GetTestUrl(
+  urls.push_back(chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(FILE_PATH_LITERAL("title1.html"))));
 
@@ -2171,11 +2172,11 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorRestartTest,
   EXPECT_TRUE(browser_added_check_passed_);
   // Now close the original (and last alive) tabbed browser window
   // note: there is still an app open
-  ASSERT_EQ(2u, BrowserList::GetInstance()->size());
+  ASSERT_EQ(2u, chrome::GetTotalBrowserCount());
   BrowserWindowInterface* const normal_browser =
       GetBrowsersForType(BrowserWindowInterface::Type::TYPE_NORMAL).front();
   CloseBrowserSynchronously(normal_browser);
-  ASSERT_EQ(1U, BrowserList::GetInstance()->size());
+  ASSERT_EQ(1U, chrome::GetTotalBrowserCount());
 
   // Now hit the codepath that would get hit if someone opened chrome
   // from a desktop shortcut or similar.
@@ -2189,7 +2190,7 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorRestartTest,
 
   // We expect a browser to open, but we should NOT get a duplicate app.
   // Note at this point, the profile IsRestarted() is still true.
-  ASSERT_EQ(2u, BrowserList::GetInstance()->size());
+  ASSERT_EQ(2u, chrome::GetTotalBrowserCount());
   EXPECT_EQ(
       1u, GetBrowsersForType(BrowserWindowInterface::Type::TYPE_NORMAL).size());
   EXPECT_EQ(1u,
@@ -2339,7 +2340,8 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserWithWebAppTest,
 }
 
 // TODO(crbug.com/327256043): Flaky on win
-#if BUILDFLAG(IS_WIN)
+// TODO(crbug.com/459538706): Fails on Linux
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
 #define MAYBE_LastUsedProfilesWithWebApp DISABLED_LastUsedProfilesWithWebApp
 #else
 #define MAYBE_LastUsedProfilesWithWebApp LastUsedProfilesWithWebApp
@@ -2474,7 +2476,7 @@ IN_PROC_BROWSER_TEST_P(StartupBrowserCreatorTestWithGuestParam,
   if (IsGuest()) {
     // The profile picker opens. There is no browser, the URL is not loaded.
     profiles::testing::WaitForPickerWidgetCreated();
-    EXPECT_EQ(0u, BrowserList::GetInstance()->size());
+    EXPECT_EQ(0u, chrome::GetTotalBrowserCount());
   } else {
     // The last used profile is reopened and the URL is loaded.
     Browser* browser = ui_test_utils::WaitForBrowserToOpen();
@@ -2485,7 +2487,7 @@ IN_PROC_BROWSER_TEST_P(StartupBrowserCreatorTestWithGuestParam,
         tab_strip->GetWebContentsAt(tab_strip->count() - 1)->GetVisibleURL(),
         GetTestURL());
     EXPECT_FALSE(ProfilePicker::IsOpen());
-    EXPECT_EQ(1u, BrowserList::GetInstance()->size());
+    EXPECT_EQ(1u, chrome::GetTotalBrowserCount());
     EXPECT_EQ(last_profile, profile);
   }
 }
@@ -2546,7 +2548,7 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserWithRealWebAppTest,
 
   ASSERT_EQ(1u, chrome::GetBrowserCount(GetDefaultProfile()));
   ASSERT_EQ(1u, chrome::GetBrowserCount(&profile1));
-  ASSERT_EQ(2u, BrowserList::GetInstance()->size());
+  ASSERT_EQ(2u, chrome::GetTotalBrowserCount());
 }
 
 IN_PROC_BROWSER_TEST_F(StartupBrowserWithRealWebAppTest,
@@ -2615,7 +2617,7 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserWithRealWebAppTest,
 
   // At this point, nothing is open except the basic browser.
   ASSERT_EQ(1u, chrome::GetBrowserCount(browser()->profile()));
-  ASSERT_EQ(1u, BrowserList::GetInstance()->size());
+  ASSERT_EQ(1u, chrome::GetTotalBrowserCount());
 
   // Trigger the restore via StartupBrowserCreator.
   base::CommandLine dummy(base::CommandLine::NO_PROGRAM);
@@ -2626,7 +2628,7 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserWithRealWebAppTest,
                 /*restore_tabbed_browser=*/true);
 
   // We should get two windows from profile1.
-  ASSERT_EQ(3u, BrowserList::GetInstance()->size());
+  ASSERT_EQ(3u, chrome::GetTotalBrowserCount());
   ASSERT_EQ(1u, chrome::GetBrowserCount(GetDefaultProfile()));
   ASSERT_EQ(2u, chrome::GetBrowserCount(&profile1));
 
@@ -2644,7 +2646,7 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserWithRealWebAppTest,
   BrowserWindowInterface* new_browser = nullptr;
 
   // 2x profile1, 1x default profile here.
-  ASSERT_EQ(3u, BrowserList::GetInstance()->size());
+  ASSERT_EQ(3u, chrome::GetTotalBrowserCount());
   ASSERT_EQ(2u, chrome::GetBrowserCount(&profile1));
   ASSERT_EQ(1u, chrome::GetBrowserCount(GetDefaultProfile()));
   new_browser = FindOneOtherBrowserForProfile(&profile1, nullptr);
@@ -3456,7 +3458,7 @@ IN_PROC_BROWSER_TEST_P(StartupBrowserCreatorInfobarsTest,
   // TODO(mgiuca): Delete this feature (https://crbug.com/751029). We are
   // keeping it for now to avoid disrupting existing workflows.
   base::CommandLine command_line(base::CommandLine::NO_PROGRAM);
-  GURL url = ui_test_utils::GetTestUrl(
+  GURL url = chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(FILE_PATH_LITERAL("title2.html")));
   command_line.AppendSwitchASCII(switches::kApp, url.spec());

@@ -5,14 +5,14 @@
 #import "ios/chrome/common/ui/confirmation_alert/confirmation_alert_view_controller.h"
 
 #import "base/check.h"
-#import "ios/chrome/common/app_group/app_group_utils.h"
+#import "base/metrics/histogram_functions.h"
+#import "ios/chrome/common/ui/button_stack/button_stack_action_delegate.h"
+#import "ios/chrome/common/ui/button_stack/button_stack_configuration.h"
+#import "ios/chrome/common/ui/button_stack/button_stack_utils.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/confirmation_alert/confirmation_alert_action_handler.h"
+#import "ios/chrome/common/ui/confirmation_alert/confirmation_alert_constants.h"
 #import "ios/chrome/common/ui/confirmation_alert/constants.h"
-#import "ios/chrome/common/ui/elements/gradient_view.h"
-#import "ios/chrome/common/ui/promo_style/utils.h"
-#import "ios/chrome/common/ui/util/button_util.h"
-#import "ios/chrome/common/ui/util/chrome_button.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/common/ui/util/dynamic_type_util.h"
 #import "ios/chrome/common/ui/util/pointer_interaction_util.h"
@@ -20,24 +20,15 @@
 
 namespace {
 
-const CGFloat kDefaultActionsBottomMargin = 10;
-const CGFloat kActionButtonImageInsets = 10;
-const CGFloat kButtonStackViewSpacing = 12;
-// Gradient height.
-const CGFloat kGradientHeight = 40.;
-const CGFloat kScrollViewBottomInsets = 20;
 const CGFloat kStackViewSpacing = 8;
 const CGFloat kStackViewSpacingAfterIllustration = 27;
 
-// The size of the symbol image.
-const CGFloat kSymbolBadgeImagePointSize = 13;
+// The name of the checkmark symbol in filled circle.
+NSString* const kCheckmarkSymbol = @"checkmark.circle.fill";
 
 // The size of the checkmark symbol in the confirmation state on the primary
 // button.
 const CGFloat kSymbolConfirmationCheckmarkPointSize = 17;
-
-// The name of the checkmark symbol in filled circle.
-NSString* const kCheckmarkSymbol = @"checkmark.circle.fill";
 
 // Properties of the favicon.
 const CGFloat kFaviconCornerRadius = 13;
@@ -56,104 +47,41 @@ const CGFloat kFaviconSideLength = 30;
 // Length of each side of the favicon badge.
 const CGFloat kFaviconBadgeSideLength = 24;
 
-// Sets the activity indicator of the button in the button configuration.
-void SetConfigurationActivityIndicator(UIButton* button,
-                                       BOOL shows_activity_indicator,
-                                       UIColor* activity_indicator_color) {
-  UIButtonConfiguration* button_configuration = button.configuration;
-  button_configuration.showsActivityIndicator = shows_activity_indicator;
-  button_configuration.activityIndicatorColorTransformer =
-      ^UIColor*(UIColor* _) {
-        return activity_indicator_color;
-      };
-  button.configuration = button_configuration;
-}
-
-// Sets the image in the button's configuration and the accessiblitityIdentifier
-// on the button's image.
-void SetConfigurationImage(UIButton* button,
-                           UIImage* image,
-                           UIColor* image_color) {
-  UIButtonConfiguration* button_configuration = button.configuration;
-  button_configuration.image = image;
-  button_configuration.imageColorTransformer = ^UIColor*(UIColor* input_color) {
-    return image_color ? image_color : input_color;
-  };
-  button.configuration = button_configuration;
-  button.imageView.accessibilityIdentifier = image.accessibilityIdentifier;
-}
-
-// Gets the default checkmark circle fill symbol with default configuration of
-// the given point size.
-//
-// Since this code is in ios/chrome/common we cannot include the standard
-// symbol helpers from ios/chrome/browser/shared/ui/symbols.
-UIImage* DefaultCheckmarkCircleFillSymbol(CGFloat point_size) {
-  UIImageSymbolConfiguration* configuration = [UIImageSymbolConfiguration
-      configurationWithPointSize:point_size
-                          weight:UIImageSymbolWeightMedium
-                           scale:UIImageSymbolScaleMedium];
-  UIImage* image = [UIImage systemImageNamed:kCheckmarkSymbol
-                           withConfiguration:configuration];
-  image.accessibilityIdentifier = kConfirmationAlertCheckmarkSymbolIdentifier;
-  return image;
-}
-
 }  // namespace
 
-@interface ConfirmationAlertViewController () <UIScrollViewDelegate>
+@interface ConfirmationAlertViewController () <ButtonStackActionDelegate>
 
 // References to the UI properties that need to be updated when the trait
 // collection changes.
-@property(nonatomic, strong) UILayoutGuide* widthLayoutGuide;
 @property(nonatomic, strong) UIStackView* stackView;
-@property(nonatomic, strong) UIView* actionStackView;
-@property(nonatomic, strong) UIButton* tertiaryActionButton;
-@property(nonatomic, strong) UINavigationBar* navigationBar;
 @property(nonatomic, strong) UIImageView* imageView;
 @property(nonatomic, strong) UIView* imageContainerView;
 @property(nonatomic, strong) NSLayoutConstraint* imageViewAspectRatioConstraint;
-@property(nonatomic, strong) UIView* scrollContainerView;
-@property(nonatomic, strong) UIScrollView* scrollView;
-@property(nonatomic, strong) CAGradientLayer* gradientMask;
-@property(nonatomic, strong)
-    NSLayoutConstraint* scrollViewBottomAnchorConstraint;
 @end
 
-@implementation ConfirmationAlertViewController {
-  ChromeButton* _primaryButton;
-}
+@implementation ConfirmationAlertViewController
 
-#pragma mark - Public
-
-- (instancetype)init {
-  self = [super initWithNibName:nil bundle:nil];
+- (instancetype)initWithConfiguration:(ButtonStackConfiguration*)configuration {
+  self = [super initWithConfiguration:configuration];
   if (self) {
+    self.actionDelegate = self;
     _customSpacingAfterImage = kStackViewSpacingAfterIllustration;
-    _customGradientViewHeight = kGradientHeight;
-    _customScrollViewBottomInsets = kScrollViewBottomInsets;
     _customSpacing = kStackViewSpacing;
-    _showsVerticalScrollIndicator = YES;
-    _scrollEnabled = YES;
-    _showDismissBarButton = YES;
-    _dismissBarButtonSystemItem = UIBarButtonSystemItemDone;
     _shouldFillInformationStack = NO;
-    _actionStackBottomMargin = kDefaultActionsBottomMargin;
     _imageBackgroundColor = [UIColor colorNamed:kBackgroundColor];
     _mainBackgroundColor = [UIColor colorNamed:kPrimaryBackgroundColor];
   }
   return self;
 }
 
+- (instancetype)init {
+  return [self initWithConfiguration:[[ButtonStackConfiguration alloc] init]];
+}
+
 - (void)viewDidLoad {
   [super viewDidLoad];
 
   self.view.backgroundColor = self.mainBackgroundColor;
-
-  if (self.hasNavigationBar) {
-    self.navigationBar = [self createNavigationBar];
-    [self.view addSubview:self.navigationBar];
-  }
 
   NSMutableArray* stackSubviews = [[NSMutableArray alloc] init];
 
@@ -196,135 +124,38 @@ UIImage* DefaultCheckmarkCircleFillSymbol(CGFloat point_size) {
     [stackSubviews addObject:self.underTitleView];
   }
 
-  DCHECK(stackSubviews);
+  CHECK(stackSubviews);
 
   self.stackView = [self createStackViewWithArrangedSubviews:stackSubviews];
-
-  self.scrollContainerView = [self createScrollContainerView];
-  [self.view addSubview:self.scrollContainerView];
-
-  self.scrollView = [self createScrollView];
-  [self.scrollView addSubview:self.stackView];
-  [self.scrollContainerView addSubview:self.scrollView];
-  AddSameConstraints(self.scrollView, self.scrollContainerView);
+  [self.contentView addSubview:self.stackView];
 
   self.view.preservesSuperviewLayoutMargins = YES;
-  UILayoutGuide* margins = self.view.layoutMarginsGuide;
 
-  if (self.hasNavigationBar) {
-    // Constraints the navigation bar to the top.
-    AddSameConstraintsToSides(
-        self.navigationBar, self.view.safeAreaLayoutGuide,
-        LayoutSides::kTrailing | LayoutSides::kTop | LayoutSides::kLeading);
-  }
-
-  // Constraint top/bottom of the stack view to the scroll view. This defines
-  // the content area. No need to contraint horizontally as we don't want
-  // horizontal scroll.
+  // Constraint the stack view to the content view.
   [NSLayoutConstraint activateConstraints:@[
-    [self.stackView.topAnchor
-        constraintEqualToAnchor:self.scrollView.topAnchor],
     [self.stackView.bottomAnchor
-        constraintEqualToAnchor:self.scrollView.bottomAnchor
-                       constant:-self.customScrollViewBottomInsets]
+        constraintEqualToAnchor:self.contentView.bottomAnchor],
+    [self.stackView.leadingAnchor
+        constraintEqualToAnchor:self.contentView.leadingAnchor],
+    [self.stackView.trailingAnchor
+        constraintEqualToAnchor:self.contentView.trailingAnchor],
   ]];
-
-  // Scroll View constraints to the height of its content. This allows to center
-  // the scroll view.
-  NSLayoutConstraint* heightConstraint = [self.scrollView.heightAnchor
-      constraintEqualToAnchor:self.scrollView.contentLayoutGuide.heightAnchor];
-  // UILayoutPriorityDefaultHigh is the default priority for content
-  // compression. Setting this lower avoids compressing the content of the
-  // scroll view.
-  heightConstraint.priority = UILayoutPriorityDefaultHigh - 1;
-  heightConstraint.active = YES;
-
-  // The bottom anchor for the scroll view.
-  NSLayoutYAxisAnchor* scrollViewBottomAnchor =
-      self.view.safeAreaLayoutGuide.bottomAnchor;
-
-  BOOL hasActionButton = self.primaryActionString ||
-                         self.secondaryActionString ||
-                         self.tertiaryActionString;
-  if (hasActionButton) {
-    UIView* actionStackView = [self createActionStackView];
-    [self.view addSubview:actionStackView];
-
-    // Also constrain the bottom of the action stack view to the bottom of the
-    // safe area, but with a lower priority, so that the action stack view is
-    // put as close to the bottom as possible.
-    NSLayoutConstraint* actionBottomConstraint = [actionStackView.bottomAnchor
-        constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor];
-    actionBottomConstraint.priority = UILayoutPriorityDefaultLow;
-    actionBottomConstraint.active = YES;
-
-    CGFloat extraBottomMargin =
-        self.secondaryActionString ? 0 : self.actionStackBottomMargin;
-    [NSLayoutConstraint activateConstraints:@[
-      [actionStackView.bottomAnchor
-          constraintLessThanOrEqualToAnchor:self.view.bottomAnchor
-                                   constant:-self.actionStackBottomMargin -
-                                            extraBottomMargin],
-      [actionStackView.bottomAnchor
-          constraintLessThanOrEqualToAnchor:self.view.safeAreaLayoutGuide
-                                                .bottomAnchor
-                                   constant:-extraBottomMargin],
-    ]];
-
-    scrollViewBottomAnchor = actionStackView.topAnchor;
-    self.actionStackView = actionStackView;
-
-    if (self.customGradientViewHeight > 0) {
-      self.gradientMask = [CAGradientLayer layer];
-      self.gradientMask.endPoint = CGPointMake(0.0, 1.0);
-      UIColor* bottomColor =
-          BlendColors([UIColor clearColor], [UIColor whiteColor],
-                      kScrollViewBottomInsets / self.customGradientViewHeight);
-      self.gradientMask.colors =
-          @[ (id)[UIColor whiteColor].CGColor, (id)bottomColor.CGColor ];
-      self.scrollContainerView.layer.mask = self.gradientMask;
-    }
-  }
-
-  self.scrollViewBottomAnchorConstraint = [self.scrollContainerView.bottomAnchor
-      constraintLessThanOrEqualToAnchor:scrollViewBottomAnchor
-                               constant:-kScrollViewBottomInsets];
-  self.scrollViewBottomAnchorConstraint.active = YES;
-
-  [NSLayoutConstraint activateConstraints:@[
-    [self.scrollContainerView.leadingAnchor
-        constraintEqualToAnchor:self.view.leadingAnchor],
-    [self.scrollContainerView.trailingAnchor
-        constraintEqualToAnchor:self.view.trailingAnchor],
-  ]];
-
-  NSLayoutYAxisAnchor* scrollViewTopAnchor;
-  CGFloat scrollViewTopConstant = 0;
-  if (self.hasNavigationBar) {
-    scrollViewTopAnchor = self.navigationBar.bottomAnchor;
-  } else {
-    scrollViewTopAnchor = self.view.safeAreaLayoutGuide.topAnchor;
-    scrollViewTopConstant = self.customSpacingBeforeImageIfNoNavigationBar;
-  }
+  CGFloat stackViewTopConstant = self.customSpacingBeforeImageIfNoNavigationBar;
   if (self.topAlignedLayout) {
-    [self.scrollContainerView.topAnchor
-        constraintEqualToAnchor:scrollViewTopAnchor
-                       constant:scrollViewTopConstant]
+    [self.stackView.topAnchor constraintEqualToAnchor:self.contentView.topAnchor
+                                             constant:stackViewTopConstant]
         .active = YES;
   } else {
-    [self.scrollContainerView.topAnchor
-        constraintGreaterThanOrEqualToAnchor:scrollViewTopAnchor
-                                    constant:scrollViewTopConstant]
+    [self.stackView.topAnchor
+        constraintGreaterThanOrEqualToAnchor:self.contentView.topAnchor
+                                    constant:stackViewTopConstant]
         .active = YES;
 
-    // Scroll View constraint to the vertical center.
-    NSLayoutConstraint* centerYConstraint =
-        [self.scrollContainerView.centerYAnchor
-            constraintEqualToAnchor:margins.centerYAnchor];
+    // Stack View constraint to the vertical center.
+    NSLayoutConstraint* centerYConstraint = [self.stackView.centerYAnchor
+        constraintEqualToAnchor:self.contentView.centerYAnchor];
     // This needs to be lower than the height constraint, so it's deprioritized.
-    // If this breaks, the scroll view is still constrained to the navigation
-    // bar and the bottom safe area or button.
-    centerYConstraint.priority = heightConstraint.priority - 1;
+    centerYConstraint.priority = UILayoutPriorityDefaultHigh - 1;
     centerYConstraint.active = YES;
   }
 
@@ -347,8 +178,6 @@ UIImage* DefaultCheckmarkCircleFillSymbol(CGFloat point_size) {
                      multiplier:imageAspectRatio];
     self.imageViewAspectRatioConstraint.active = YES;
   }
-  [self updateButtonState];
-  [self updatePromoStyleWidth];
 
   NSArray<UITrait>* traits = @[
     UITraitPreferredContentSizeCategory.class, UITraitHorizontalSizeClass.class,
@@ -360,50 +189,6 @@ UIImage* DefaultCheckmarkCircleFillSymbol(CGFloat point_size) {
     [weakSelf updateRegisteredTraits:previousCollection];
   };
   [self.view registerForTraitChanges:traits withHandler:handler];
-}
-
-- (void)setIsLoading:(BOOL)isLoading {
-  if (_isLoading != isLoading) {
-    _isLoading = isLoading;
-    [self updateButtonState];
-  }
-}
-
-- (void)setIsConfirmed:(BOOL)isConfirmed {
-  if (_isConfirmed != isConfirmed) {
-    _isConfirmed = isConfirmed;
-    [self updateButtonState];
-  }
-}
-
-- (void)viewDidAppear:(BOOL)animated {
-  [super viewDidAppear:animated];
-
-  // Flash the scroll indicators when the view appeared.
-  [self.scrollView flashScrollIndicators];
-}
-
-- (void)viewDidLayoutSubviews {
-  [super viewDidLayoutSubviews];
-
-  // The portion of the gradient view actually covering the scroll view.
-  CGFloat effectiveGradientHeight =
-      self.customGradientViewHeight - kScrollViewBottomInsets;
-  if (effectiveGradientHeight <= 0) {
-    return;
-  }
-
-  // Match the mask's size to the scroll view's size.
-  self.gradientMask.frame = self.scrollContainerView.bounds;
-
-  // Determine the starting point of the gradient so that it has the desired
-  // number of pixels of height at the bottom of the scroll view.
-  CGFloat startY =
-      (effectiveGradientHeight >= self.gradientMask.frame.size.height)
-          ? 0.0
-          : 1.0 -
-                (effectiveGradientHeight / self.gradientMask.frame.size.height);
-  self.gradientMask.startPoint = CGPointMake(0.0, startY);
 }
 
 - (void)viewSafeAreaInsetsDidChange {
@@ -429,9 +214,6 @@ UIImage* DefaultCheckmarkCircleFillSymbol(CGFloat point_size) {
   [self.imageContainerView setHidden:!showImageView];
   self.imageViewAspectRatioConstraint.active = showImageView;
 
-  // Allow the navigation bar to update its height based on new layout.
-  [self.navigationBar invalidateIntrinsicContentSize];
-
   [super updateViewConstraints];
 }
 
@@ -443,200 +225,48 @@ UIImage* DefaultCheckmarkCircleFillSymbol(CGFloat point_size) {
   // Do nothing by default. Subclasses can override this.
 }
 
-- (void)displayGradientView:(BOOL)shouldShow {
-  self.scrollContainerView.layer.mask = shouldShow ? self.gradientMask : nil;
-}
-
-- (UIButton*)primaryActionButton {
-  return _primaryButton;
-}
-
-- (BOOL)isScrolledToBottom {
-  CGFloat scrollPosition =
-      self.scrollView.contentOffset.y + self.scrollView.frame.size.height;
-  CGFloat scrollLimit =
-      self.scrollView.contentSize.height + self.scrollView.contentInset.bottom;
-  return scrollPosition >= scrollLimit;
-}
-
-- (UISheetPresentationControllerDetent*)preferredHeightDetent {
-  __typeof(self) __weak weakSelf = self;
-  auto resolver = ^CGFloat(
-      id<UISheetPresentationControllerDetentResolutionContext> context) {
-    return [weakSelf detentForPreferredHeightInContext:context];
-  };
-  return [UISheetPresentationControllerDetent
-      customDetentWithIdentifier:@"preferred_height"
-                        resolver:resolver];
-}
-
 - (CGFloat)preferredHeightForContent {
-  // Obtain container view from presentation controller directly because
-  // this view may not have been added to its container view yet.
-  UIView* containerView = self.sheetPresentationController.containerView;
+  CGFloat height = [super preferredHeightForContent];
 
-  // Measure compressed height without safe area inset (detent values are
-  // generally expressed without safe area insets).
-  CGFloat fittingWidth = containerView.bounds.size.width;
-  CGSize fittingSize =
-      CGSizeMake(fittingWidth, UILayoutFittingCompressedSize.height);
-  CGFloat height = [self.view systemLayoutSizeFittingSize:fittingSize].height;
+    height += self.customSpacingBeforeImageIfNoNavigationBar;
 
-  // These adjustments are necessary for devices in a non regular x regular size
-  // class with home indicators in their displays, as they have a non zero safe
-  // area inset at their bottom edge and a bottom sheet that attaches to it.
-  if (!IsRegularXRegularSizeClass(containerView.traitCollection) &&
-      containerView.safeAreaInsets.bottom != 0) {
-    height -= containerView.safeAreaInsets.bottom;
-
-    // Replace bottom margin calculated based on view's own safe area with
-    // bottom margin calculated based on the safe area of the container view
-    // it will eventually live in. This is needed in case the detent value
-    // is requested before the view has been added to its superview.
-    height -=
-        MAX(self.actionStackBottomMargin, self.view.safeAreaInsets.bottom);
-    height +=
-        MAX(self.actionStackBottomMargin, containerView.safeAreaInsets.bottom);
-  }
   return height;
 }
 
-- (void)scrollToBottom {
-  CGFloat scrollLimit = self.scrollView.contentSize.height -
-                        self.scrollView.bounds.size.height +
-                        self.scrollView.contentInset.bottom;
-  [self.scrollView setContentOffset:CGPointMake(0, scrollLimit) animated:YES];
-}
+#pragma mark - ButtonStackActionDelegate
 
-#pragma mark - Private
-
-- (CGFloat)detentForPreferredHeightInContext:
-    (id<UISheetPresentationControllerDetentResolutionContext>)context
-    API_AVAILABLE(ios(16)) {
-  // Only activate this detent in portrait orientation on iPhone.
-  UITraitCollection* traitCollection = context.containerTraitCollection;
-  if (traitCollection.horizontalSizeClass != UIUserInterfaceSizeClassCompact ||
-      traitCollection.verticalSizeClass != UIUserInterfaceSizeClassRegular) {
-    return UISheetPresentationControllerDetentInactive;
-  }
-
-  CGFloat height = [self preferredHeightForContent];
-
-  // Make sure detent is not larger than 75% of the maximum detent value but at
-  // least as large as a standard medium detent.
-  height = MIN(height, 0.75 * context.maximumDetentValue);
-  CGFloat mediumDetentHeight =
-      [[UISheetPresentationControllerDetent mediumDetent]
-          resolvedValueInContext:context];
-  height = MAX(height, mediumDetentHeight);
-  return height;
-}
-
-// Handle taps on the dismiss button.
-- (void)didTapDismissBarButton {
-  DCHECK(self.showDismissBarButton);
-  if ([self.actionHandler
-          respondsToSelector:@selector(confirmationAlertDismissAction)]) {
-    [self.actionHandler confirmationAlertDismissAction];
-  }
-}
-
-// Handle taps on the help button.
-- (void)didTapHelpButton {
-  if ([self.actionHandler
-          respondsToSelector:@selector(confirmationAlertLearnMoreAction)]) {
-    [self.actionHandler confirmationAlertLearnMoreAction];
-  }
-}
-
-// Handle taps on the primary action button.
 - (void)didTapPrimaryActionButton {
   [self.actionHandler confirmationAlertPrimaryAction];
+  base::UmaHistogramEnumeration(
+      "IOS.ConfirmationAlertSheet.Outcome",
+      ConfirmationAlertSheetAction::kPrimaryButtonTapped);
 }
 
-// Handle taps on the secondary action button
 - (void)didTapSecondaryActionButton {
-  DCHECK(self.secondaryActionString);
   if ([self.actionHandler
           respondsToSelector:@selector(confirmationAlertSecondaryAction)]) {
     [self.actionHandler confirmationAlertSecondaryAction];
+    base::UmaHistogramEnumeration(
+        "IOS.ConfirmationAlertSheet.Outcome",
+        ConfirmationAlertSheetAction::kSecondaryButtonTapped);
   }
 }
 
 - (void)didTapTertiaryActionButton {
-  DCHECK(self.tertiaryActionString);
   if ([self.actionHandler
           respondsToSelector:@selector(confirmationAlertTertiaryAction)]) {
     [self.actionHandler confirmationAlertTertiaryAction];
+    base::UmaHistogramEnumeration(
+        "IOS.ConfirmationAlertSheet.Outcome",
+        ConfirmationAlertSheetAction::kTertiaryButtonTapped);
   }
 }
 
-// Helper to create the navigation bar.
-- (UINavigationBar*)createNavigationBar {
-  UINavigationBar* navigationBar = [[UINavigationBar alloc] init];
-  navigationBar.translucent =
-      CGColorGetAlpha(self.mainBackgroundColor.CGColor) < 1.0;
-  [navigationBar setShadowImage:[[UIImage alloc] init]];
-  [navigationBar setBarTintColor:self.mainBackgroundColor];
-
-  UINavigationItem* navigationItem = [[UINavigationItem alloc] init];
-  if (self.helpButtonAvailable) {
-    UIBarButtonItem* helpButton =
-        [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"help_icon"]
-                                         style:UIBarButtonItemStylePlain
-                                        target:self
-                                        action:@selector(didTapHelpButton)];
-    navigationItem.leftBarButtonItem = helpButton;
-
-    if (self.helpButtonAccessibilityLabel) {
-      helpButton.isAccessibilityElement = YES;
-      helpButton.accessibilityLabel = self.helpButtonAccessibilityLabel;
-    }
-
-    helpButton.accessibilityIdentifier =
-        kConfirmationAlertMoreInfoAccessibilityIdentifier;
-    // Set the help button as the left button item so it can be used as a
-    // popover anchor.
-    _helpButton = helpButton;
-  }
-
-  if (self.titleView) {
-    navigationItem.titleView = self.titleView;
-  }
-
-  if (self.showDismissBarButton) {
-    UIBarButtonItem* dismissButton;
-    if (self.customDismissBarButtonImage) {
-      dismissButton = [[UIBarButtonItem alloc]
-          initWithImage:self.customDismissBarButtonImage
-                  style:UIBarButtonItemStylePlain
-                 target:self
-                 action:@selector(didTapDismissBarButton)];
-    } else {
-      dismissButton = [[UIBarButtonItem alloc]
-          initWithBarButtonSystemItem:self.dismissBarButtonSystemItem
-                               target:self
-                               action:@selector(didTapDismissBarButton)];
-    }
-    navigationItem.rightBarButtonItem = dismissButton;
-  }
-
-  navigationBar.translatesAutoresizingMaskIntoConstraints = NO;
-  [navigationBar setItems:@[ navigationItem ]];
-
-  return navigationBar;
-}
+#pragma mark - Private
 
 - (void)setImage:(UIImage*)image {
   _image = image;
   _imageView.image = image;
-}
-
-- (void)setScrollEnabled:(BOOL)scrollEnabled {
-  _scrollEnabled = scrollEnabled;
-  if (_scrollView) {
-    _scrollView.scrollEnabled = _scrollEnabled;
-  }
 }
 
 // Helper to create the image view.
@@ -656,9 +286,15 @@ UIImage* DefaultCheckmarkCircleFillSymbol(CGFloat point_size) {
 // corner badge with a green checkmark. `self.imageView` is set in this method.
 - (UIView*)createImageContainerViewWithShadowAndBadge {
   UIImageView* faviconBadgeView = [[UIImageView alloc] init];
+  UIImageSymbolConfiguration* configuration = [UIImageSymbolConfiguration
+      configurationWithPointSize:kSymbolConfirmationCheckmarkPointSize
+                          weight:UIImageSymbolWeightMedium
+                           scale:UIImageSymbolScaleMedium];
+  // Use the system symbol name directly to avoid a dependency on the browser
+  // layer's symbol helpers.
+  faviconBadgeView.image = [UIImage systemImageNamed:kCheckmarkSymbol
+                                   withConfiguration:configuration];
   faviconBadgeView.translatesAutoresizingMaskIntoConstraints = NO;
-  faviconBadgeView.image =
-      DefaultCheckmarkCircleFillSymbol(kSymbolBadgeImagePointSize);
   faviconBadgeView.tintColor = [UIColor colorNamed:kGreenColor];
 
   UIImageView* faviconView = [[UIImageView alloc] initWithImage:self.image];
@@ -790,45 +426,6 @@ UIImage* DefaultCheckmarkCircleFillSymbol(CGFloat point_size) {
   return subtitle;
 }
 
-- (BOOL)hasNavigationBar {
-  return self.helpButtonAvailable || self.showDismissBarButton ||
-         self.titleView;
-}
-
-// Helper to create the scroll view.
-- (UIScrollView*)createScrollView {
-  UIScrollView* scrollView = [[UIScrollView alloc] init];
-  scrollView.alwaysBounceVertical = NO;
-  scrollView.showsHorizontalScrollIndicator = NO;
-  scrollView.translatesAutoresizingMaskIntoConstraints = NO;
-  scrollView.scrollEnabled = self.scrollEnabled;
-  [scrollView
-      setShowsVerticalScrollIndicator:self.showsVerticalScrollIndicator];
-  scrollView.delegate = self;
-  return scrollView;
-}
-
-- (UIView*)createScrollContainerView {
-  UIView* containerView = [[UIView alloc] init];
-
-  // Set content hugging priority for both axes.
-  [containerView setContentHuggingPriority:UILayoutPriorityDefaultHigh
-                                   forAxis:UILayoutConstraintAxisHorizontal];
-  [containerView setContentHuggingPriority:UILayoutPriorityDefaultHigh
-                                   forAxis:UILayoutConstraintAxisVertical];
-
-  // Set content compression resistance for both axes.
-  [containerView
-      setContentCompressionResistancePriority:UILayoutPriorityRequired
-                                      forAxis:UILayoutConstraintAxisHorizontal];
-  [containerView
-      setContentCompressionResistancePriority:UILayoutPriorityRequired
-                                      forAxis:UILayoutConstraintAxisVertical];
-
-  containerView.translatesAutoresizingMaskIntoConstraints = NO;
-  return containerView;
-}
-
 // Helper to create the stack view.
 - (UIStackView*)createStackViewWithArrangedSubviews:
     (NSArray<UIView*>*)subviews {
@@ -849,155 +446,6 @@ UIImage* DefaultCheckmarkCircleFillSymbol(CGFloat point_size) {
   return stackView;
 }
 
-- (UIView*)createActionStackView {
-  UIStackView* actionStackView = [[UIStackView alloc] init];
-  actionStackView.alignment = UIStackViewAlignmentFill;
-  actionStackView.axis = UILayoutConstraintAxisVertical;
-  actionStackView.translatesAutoresizingMaskIntoConstraints = NO;
-
-  if (@available(iOS 26, *)) {
-    actionStackView.spacing = kButtonStackViewSpacing;
-  }
-
-  // Tertiary button should always be at the top.
-  if (self.tertiaryActionString) {
-    self.tertiaryActionButton = [self createTertiaryButton];
-    [actionStackView addArrangedSubview:self.tertiaryActionButton];
-  }
-
-  if (self.primaryActionString) {
-    _primaryButton = [self createPrimaryActionButton];
-  }
-
-  if (self.secondaryActionString) {
-    _secondaryActionButton = [self createSecondaryActionButton];
-  }
-
-  if (app_group::IsConfirmationButtonSwapOrderEnabled()) {
-    if (_secondaryActionButton) {
-      [actionStackView addArrangedSubview:_secondaryActionButton];
-    }
-    if (_primaryButton) {
-      [actionStackView addArrangedSubview:_primaryButton];
-    }
-  } else {
-    // Default order: Primary, then Secondary.
-    if (_primaryButton) {
-      [actionStackView addArrangedSubview:_primaryButton];
-    }
-    if (_secondaryActionButton) {
-      [actionStackView addArrangedSubview:_secondaryActionButton];
-    }
-  }
-
-  return actionStackView;
-}
-
-// Helper to create the primary action button.
-- (ChromeButton*)createPrimaryActionButton {
-  ChromeButton* primaryActionButton = self.destructiveAction
-                                          ? PrimaryDestructiveActionButton()
-                                          : PrimaryActionButton();
-  [primaryActionButton addTarget:self
-                          action:@selector(didTapPrimaryActionButton)
-                forControlEvents:UIControlEventTouchUpInside];
-  SetConfigurationTitle(primaryActionButton, self.primaryActionString);
-  primaryActionButton.accessibilityIdentifier =
-      kConfirmationAlertPrimaryActionAccessibilityIdentifier;
-
-  return primaryActionButton;
-}
-
-// Helper to create the primary action button.
-- (UIButton*)createSecondaryActionButton {
-  DCHECK(self.secondaryActionString);
-  UIButton* secondaryActionButton = SecondaryActionButton();
-  [secondaryActionButton addTarget:self
-                            action:@selector(didTapSecondaryActionButton)
-                  forControlEvents:UIControlEventTouchUpInside];
-
-  UIButtonConfiguration* buttonConfiguration =
-      secondaryActionButton.configuration;
-  buttonConfiguration.title = self.secondaryActionString;
-
-  if (self.secondaryActionImage) {
-    buttonConfiguration.image = self.secondaryActionImage;
-    buttonConfiguration.imagePadding = kActionButtonImageInsets;
-  }
-
-  buttonConfiguration.background.backgroundColor = [UIColor clearColor];
-  secondaryActionButton.configuration = buttonConfiguration;
-
-  secondaryActionButton.accessibilityIdentifier =
-      kConfirmationAlertSecondaryActionAccessibilityIdentifier;
-
-  return secondaryActionButton;
-}
-
-- (UIButton*)createTertiaryButton {
-  DCHECK(self.tertiaryActionString);
-  UIButton* tertiaryActionButton = SecondaryActionButton();
-  [tertiaryActionButton addTarget:self
-                           action:@selector(didTapTertiaryActionButton)
-                 forControlEvents:UIControlEventTouchUpInside];
-
-  SetConfigurationTitle(tertiaryActionButton, self.tertiaryActionString);
-  tertiaryActionButton.accessibilityIdentifier =
-      kConfirmationAlertTertiaryActionAccessibilityIdentifier;
-
-  return tertiaryActionButton;
-}
-
-// Applies an activity indicator to the primary button and disables buttons when
-// loading is true; otherwise, applies button labels and enables buttons.
-- (void)updateButtonState {
-  const BOOL showingProgressState = _isLoading || _isConfirmed;
-  _primaryButton.enabled = !showingProgressState;
-  if (_isConfirmed) {
-    _primaryButton.tunedDownStyle = YES;
-    SetConfigurationImage(
-        _primaryButton,
-        DefaultCheckmarkCircleFillSymbol(kSymbolConfirmationCheckmarkPointSize),
-        self.destructiveAction ? [UIColor colorNamed:kRed600Color]
-                               : [UIColor colorNamed:kBlue700Color]);
-  } else {
-    SetConfigurationImage(_primaryButton, /*image=*/nil, /*color=*/nil);
-  }
-  SetConfigurationActivityIndicator(_primaryButton, _isLoading,
-                                    UIColor.whiteColor);
-  SetConfigurationTitle(_primaryButton,
-                        showingProgressState ? @"" : _primaryActionString);
-
-  _secondaryActionButton.enabled = !showingProgressState;
-  _tertiaryActionButton.enabled = !showingProgressState;
-}
-
-// Update the width of the content area and action buttons to match
-// `PromoStyleViewController`. Should be invoked on `-viewDidLoad` to setup the
-// initial width, and also when the horizontal size class changes.
-- (void)updatePromoStyleWidth {
-  if (self.widthLayoutGuide) {
-    [self.view removeLayoutGuide:self.widthLayoutGuide];
-  }
-  self.widthLayoutGuide = AddPromoStyleWidthLayoutGuide(self.view);
-  [NSLayoutConstraint activateConstraints:@[
-    [self.stackView.leadingAnchor
-        constraintEqualToAnchor:self.widthLayoutGuide.leadingAnchor],
-    // Width Scroll View constraint for regular mode.
-    [self.stackView.trailingAnchor
-        constraintEqualToAnchor:self.widthLayoutGuide.trailingAnchor],
-  ]];
-  UIView* actionStackView = self.actionStackView;
-  if (actionStackView) {
-    [NSLayoutConstraint activateConstraints:@[
-      [actionStackView.leadingAnchor
-          constraintEqualToAnchor:self.widthLayoutGuide.leadingAnchor],
-      [actionStackView.trailingAnchor
-          constraintEqualToAnchor:self.widthLayoutGuide.trailingAnchor]
-    ]];
-  }
-}
-
 // Checks which trait has been changed and adapts the UI to reflect this new
 // environment.
 - (void)updateRegisteredTraits:(UITraitCollection*)previousTraitCollection {
@@ -1010,7 +458,6 @@ UIImage* DefaultCheckmarkCircleFillSymbol(CGFloat point_size) {
 
   if (hasNewHorizontalSizeClass || hasNewVerticalSizeClass) {
     [self.view setNeedsUpdateConstraints];
-    [self updatePromoStyleWidth];
   }
 }
 

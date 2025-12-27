@@ -775,13 +775,10 @@ device::mojom::blink::XRSessionOptionsPtr XRSystem::XRSessionOptionsFromQuery(
   return session_options;
 }
 
-const char XRSystem::kSupplementName[] = "XRSystem";
-
 XRSystem* XRSystem::FromIfExists(Document& document) {
   if (!document.domWindow())
     return nullptr;
-  return Supplement<Navigator>::From<XRSystem>(
-      document.domWindow()->navigator());
+  return document.domWindow()->navigator()->GetXRSystem();
 }
 
 XRSystem* XRSystem::From(Document& document) {
@@ -798,10 +795,10 @@ XRSystem* XRSystem::xr(Navigator& navigator) {
   if (!window)
     return nullptr;
 
-  XRSystem* xr = Supplement<Navigator>::From<XRSystem>(navigator);
+  XRSystem* xr = navigator.GetXRSystem();
   if (!xr) {
     xr = MakeGarbageCollected<XRSystem>(navigator);
-    ProvideTo(navigator, xr);
+    navigator.SetXRSystem(xr);
 
     ukm::builders::XR_WebXR(window->UkmSourceID())
         .SetDidUseNavigatorXR(1)
@@ -811,8 +808,7 @@ XRSystem* XRSystem::xr(Navigator& navigator) {
 }
 
 XRSystem::XRSystem(Navigator& navigator)
-    : Supplement<Navigator>(navigator),
-      ExecutionContextLifecycleObserver(navigator.DomWindow()),
+    : ExecutionContextLifecycleObserver(navigator.DomWindow()),
       FocusChangedObserver(navigator.DomWindow()->GetFrame()->GetPage()),
       service_(navigator.DomWindow()),
       environment_provider_(navigator.DomWindow()),
@@ -1193,26 +1189,27 @@ XRSystem::RequestedXRSessionFeatureSet XRSystem::ParseRequestedFeatures(
     auto feature_enum = StringToXRSessionFeature(feature_string);
 
     if (!feature_enum) {
-      AddConsoleMessage(error_level,
-                        "Unrecognized feature requested: " + feature_string);
+      AddConsoleMessage(error_level, StrCat({"Unrecognized feature requested: ",
+                                             feature_string}));
       result.invalid_features = true;
     } else if (!IsFeatureEnabledForContext(feature_enum.value(),
                                            GetExecutionContext())) {
-      AddConsoleMessage(error_level,
-                        "Unsupported feature requested: " + feature_string);
+      AddConsoleMessage(error_level, StrCat({"Unsupported feature requested: ",
+                                             feature_string}));
       result.invalid_features = true;
     } else if (!IsFeatureValidForMode(feature_enum.value(), session_mode,
                                       session_init, GetExecutionContext(),
                                       error_level)) {
-      AddConsoleMessage(error_level, "Feature '" + feature_string +
-                                         "' is not supported for mode: " +
-                                         SessionModeToString(session_mode));
+      AddConsoleMessage(
+          error_level,
+          StrCat({"Feature '", feature_string, "' is not supported for mode: ",
+                  SessionModeToString(session_mode)}));
       result.invalid_features = true;
     } else if (!HasRequiredPermissionsPolicy(GetExecutionContext(),
                                              feature_enum.value())) {
       AddConsoleMessage(error_level,
-                        "Feature '" + feature_string +
-                            "' is not permitted by permissions policy");
+                        StrCat({"Feature '", feature_string,
+                                "' is not permitted by permissions policy"}));
       result.invalid_features = true;
     } else {
       DVLOG(3) << __func__ << ": Adding feature " << feature_string
@@ -1307,11 +1304,12 @@ ScriptPromise<XRSession> XRSystem::requestSession(
       DVLOG(2) << __func__
                << ": permissions policy not satisfied for a default feature: "
                << feature;
-      AddConsoleMessage(mojom::blink::ConsoleMessageLevel::kError,
-                        "Permissions policy is not satisfied for feature '" +
-                            XRSessionFeatureToString(feature) +
-                            "' please ensure that appropriate permissions "
-                            "policy is enabled.");
+      AddConsoleMessage(
+          mojom::blink::ConsoleMessageLevel::kError,
+          StrCat({"Permissions policy is not satisfied for feature '",
+                  XRSessionFeatureToString(feature),
+                  "' please ensure that appropriate permissions policy is "
+                  "enabled."}));
       required_features.invalid_features = true;
     }
   }
@@ -1815,7 +1813,6 @@ void XRSystem::Trace(Visitor* visitor) const {
   visitor->Trace(outstanding_request_queries_);
   visitor->Trace(fullscreen_enter_observer_);
   visitor->Trace(fullscreen_exit_observer_);
-  Supplement<Navigator>::Trace(visitor);
   ExecutionContextLifecycleObserver::Trace(visitor);
   EventTarget::Trace(visitor);
 }

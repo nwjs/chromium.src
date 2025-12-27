@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_bubble_coordinator.h"
 
 #include "base/callback_list.h"
-#include "base/functional/callback_forward.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
@@ -74,18 +73,10 @@ void CookieControlsBubbleCoordinator::ShowBubble(
 
   views::Widget* const widget =
       views::BubbleDialogDelegateView::CreateBubble(std::move(bubble_view));
-  view_controller_->SetIsReloadingState(false);
   controller->Update(web_contents);
   widget->Show();
 
   action_item_->SetIsShowingBubble(true);
-}
-
-bool CookieControlsBubbleCoordinator::IsReloadingState() const {
-  if (!view_controller_) {
-    return false;
-  }
-  return view_controller_->IsReloadingState();
 }
 
 CookieControlsBubbleViewImpl* CookieControlsBubbleCoordinator::GetBubble()

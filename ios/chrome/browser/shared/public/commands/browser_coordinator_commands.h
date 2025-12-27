@@ -8,7 +8,7 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
-enum class AIMPrototypeEntrypoint;
+enum class ComposeboxEntrypoint;
 namespace base {
 class ScopedClosureRunner;
 }
@@ -18,7 +18,7 @@ enum class NotificationOptInAccessPoint;
 namespace signin_metrics {
 enum class AccessPoint;
 }  // namespace signin_metrics
-namespace syncer {
+namespace trusted_vault {
 enum class TrustedVaultUserActionTriggerForUMA;
 }
 
@@ -55,13 +55,13 @@ enum class TrustedVaultUserActionTriggerForUMA;
 // Shows the online help page in a tab.
 - (void)showHelpPage;
 
-// Shows the AIM prototype.
-- (void)showAIMPrototypeFromEntrypoint:(AIMPrototypeEntrypoint)entryPoint
-                             withQuery:(NSString*)query;
+// Shows the composebox.
+- (void)showComposeboxFromEntrypoint:(ComposeboxEntrypoint)entryPoint
+                           withQuery:(NSString*)query;
 
-// Hides the AIM prototype. If not `immediately`, the prototype will be stopped
+// Hides the composebox. If not `immediately`, the prototype will be stopped
 // on the next run loop.
-- (void)hideAIMPrototypeImmediately:(BOOL)immediately;
+- (void)hideComposeboxImmediately:(BOOL)immediately;
 
 // Shows the activity indicator overlay that appears over the view to prevent
 // interaction with the web page until the returned value is destructed.
@@ -73,9 +73,6 @@ enum class TrustedVaultUserActionTriggerForUMA;
 // Shows the dialog for sending the page with `url` and `title` between a user's
 // devices.
 - (void)showSendTabToSelfUI:(const GURL&)url title:(NSString*)title;
-
-// Hides the dialog shown by -showSendTabToSelfUI:.
-- (void)hideSendTabToSelfUI;
 
 #if !defined(NDEBUG)
 // Inserts a new tab showing the HTML source of the current page.
@@ -146,7 +143,7 @@ enum class TrustedVaultUserActionTriggerForUMA;
 // Presents the Trusted Vault reauthentication dialog. `trigger` indicates an
 // entry point from which the trusted vault reauth has been triggered.
 - (void)performReauthToRetrieveTrustedVaultKey:
-    (syncer::TrustedVaultUserActionTriggerForUMA)trigger;
+    (trusted_vault::TrustedVaultUserActionTriggerForUMA)trigger;
 
 // Forces fullscreen mode which means that toolbars are collapsed.
 - (void)forceFullscreenMode;

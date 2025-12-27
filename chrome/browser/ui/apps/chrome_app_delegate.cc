@@ -72,7 +72,7 @@
 namespace {
 
 // Time to wait for an app window to show before allowing Chrome to quit.
-//int kAppWindowFirstShowTimeoutSeconds = 10;
+//constexpr int kAppWindowFirstShowTimeoutSeconds = 10;
 
 bool disable_external_open_for_testing_ = false;
 
@@ -95,10 +95,10 @@ content::WebContents* OpenURLFromTabInternal(
     // it would not be acceptable to open in a new tab of a non-incognito
     // window.
     new_tab_params.disposition = WindowOpenDisposition::OFF_THE_RECORD;
-    new_tab_params.window_action = NavigateParams::SHOW_WINDOW;
+    new_tab_params.window_action = NavigateParams::WindowAction::kShowWindow;
   } else {
     new_tab_params.disposition = WindowOpenDisposition::NEW_POPUP;
-    new_tab_params.window_action = NavigateParams::SHOW_WINDOW;
+    new_tab_params.window_action = NavigateParams::WindowAction::kShowWindow;
   }
 
   new_tab_params.initiating_profile = Profile::FromBrowserContext(context);

@@ -745,7 +745,8 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
 
 // TODO(crbug.com/40842434): Federate ClearPresentedState.
 - (void)clearPresentedStateWithCompletion:(ProceduralBlock)completion
-                           dismissOmnibox:(BOOL)dismissOmnibox {
+                           dismissOmnibox:(BOOL)dismissOmnibox
+           dismissPresentedViewController:(BOOL)dismissPresentedViewController {
   [_bookmarksCoordinator dismissBookmarkModalControllerAnimated:NO];
   if (dismissOmnibox) {
     [self.omniboxCommandsHandler cancelOmniboxEdit];
@@ -757,7 +758,7 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
 
   [self.popupMenuCommandsHandler dismissPopupMenuAnimated:NO];
 
-  if (self.presentedViewController) {
+  if (self.presentedViewController && dismissPresentedViewController) {
     // Dismisses any other modal controllers that may be present, e.g. Recent
     // Tabs.
     //
@@ -2028,7 +2029,7 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
 
   if (_lensOverlayVisible) {
     // The typing shield has to be inserted right below the presented popup
-    // omnibox to avoid being ostructed by the Lens Overlay.
+    // omnibox to avoid being obstructed by the Lens Overlay.
     self.typingShield.frame = UIEdgeInsetsInsetRect(
         self.contentArea.bounds,
         UIEdgeInsetsMake([self expandedTopToolbarHeight], 0, 0, 0));

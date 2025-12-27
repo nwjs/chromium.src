@@ -187,11 +187,9 @@ class ExtensionTabUtil {
       WindowController::PopulateTabBehavior populate_tab_behavior,
       mojom::ContextType context);
 
-#if !BUILDFLAG(IS_ANDROID)
   // Creates a tab MutedInfo object (see chrome/common/extensions/api/tabs.json)
   // with information about the mute state of a browser tab.
   static api::tabs::MutedInfo CreateMutedInfo(content::WebContents* contents);
-#endif
 
   // Gets the level of scrubbing of tab data that needs to happen for a given
   // extension and web contents. This is the preferred way to get
@@ -360,6 +358,7 @@ class ExtensionTabUtil {
   // the extension via chrome.runtime.openOptionsPage.
   static bool OpenOptionsPageFromAPI(const Extension* extension,
                                      content::BrowserContext* browser_context);
+#endif  // !BUILDFLAG(IS_ANDROID)
 
   // Open the extension's options page. Returns true if an options page was
   // successfully opened (though it may not necessarily *load*, e.g. if the
@@ -367,6 +366,7 @@ class ExtensionTabUtil {
   static bool OpenOptionsPage(const Extension* extension,
                               BrowserWindowInterface* browser);
 
+#if !BUILDFLAG(IS_ANDROID)
   // Returns true if the given Browser can report tabs to extensions.
   // Example of Browsers which don't support tabs include apps and devtools.
   static bool BrowserSupportsTabs(BrowserWindowInterface* browser);

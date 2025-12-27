@@ -16,8 +16,8 @@
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_profile.h"
+#include "components/signin/public/base/oauth_consumer_id.h"
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
-#include "components/signin/public/identity_manager/oauth_consumer_ids.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_utils.h"
@@ -45,7 +45,7 @@ class AidaClientTest : public testing::Test {
     profile_->GetPrefs()->SetInteger(prefs::kDevToolsGenAiSettings, 0);
 
     auto account_info = identity_test_env_->MakePrimaryAccountAvailable(
-        kEmail, signin::ConsentLevel::kSync);
+        kEmail, signin::ConsentLevel::kSignin);
     AccountCapabilitiesTestMutator mutator(&account_info.capabilities);
     mutator.set_can_use_devtools_generative_ai_features(true);
     signin::UpdateAccountInfoForAccount(identity_test_env_->identity_manager(),

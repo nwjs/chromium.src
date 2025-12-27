@@ -91,7 +91,7 @@ def get_current_milestone(src_root):
     sys.exit(1)
 
 
-def update_features_h(content, feature_name):
+def update_features_h(content, feature_name, features_h_path):
     """Adds the feature flag declaration and function prototype to
     features.h."""
     camel_case_feature_name = to_camel_case(feature_name)
@@ -106,13 +106,16 @@ def update_features_h(content, feature_name):
 
     added_code = f"\n\n{feature_declaration}\n\n{function_declaration}\n\n"
 
-    endif_marker = (
-        "#endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_")
+    guard = features_h_path.upper().replace('/', '_').replace('.', '_') + '_'
+    endif_marker = f"#endif  // {guard}"
 
     last_endif_pos = content.rfind(endif_marker)
     if last_endif_pos != -1:
         content = content[:last_endif_pos] + \
             added_code + content[last_endif_pos:]
+    else:
+        print(f"Warning: Could not find #endif marker '{endif_marker}' in "
+              f"'{features_h_path}'. File not modified.")
 
     return content
 
@@ -186,7 +189,8 @@ def update_about_flags_mm(content, feature_name):
      FEATURE_VALUE_TYPE({feature_flag_name})
     }},
 """
-    array_start_str = "const flags_ui::FeatureEntry kFeatureEntries[] = {"
+    array_start_str = ("constexpr auto kFeatureEntries = "
+                       "std::to_array<flags_ui::FeatureEntry>({")
     array_start_index = content.find(array_start_str)
     if array_start_index == -1:
         print("Error: Could not find the start of the kFeatureEntries array.")
@@ -198,7 +202,7 @@ def update_about_flags_mm(content, feature_name):
         print("Error: Could not find '{' for kFeatureEntries array.")
         sys.exit(1)
 
-    end_of_array_marker = "};"
+    end_of_array_marker = "});"
     insertion_index = content.find(end_of_array_marker, array_start_index)
     if insertion_index == -1:
         print("Error: Could not find the end of the kFeatureEntries array.")
@@ -399,7 +403,9 @@ def main():
     ]
 
     # Modify the files
-    modify_file(features_h, lambda c: update_features_h(c, feature_name))
+    modify_file(
+        features_h,
+        lambda c: update_features_h(c, feature_name, features_h_rel_path))
     modify_file(features_mm, lambda c: update_features_mm(c, feature_name))
     modify_file(flag_descriptions_h,
                 lambda c: update_flag_descriptions_h(c, feature_name))

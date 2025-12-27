@@ -49,7 +49,7 @@ NavigateTool::NavigateTool(TaskId task_id,
 
 NavigateTool::~NavigateTool() = default;
 
-void NavigateTool::Validate(ValidateCallback callback) {
+void NavigateTool::Validate(ToolCallback callback) {
   if (!url_.is_valid()) {
     // URL is invalid.
     PostResponseTask(std::move(callback),
@@ -64,7 +64,7 @@ void NavigateTool::Validate(ValidateCallback callback) {
               base::BindOnce(&MayActOnUrlToResult).Then(std::move(callback)));
 }
 
-void NavigateTool::Invoke(InvokeCallback callback) {
+void NavigateTool::Invoke(ToolCallback callback) {
   CHECK(web_contents());
   invoke_callback_ = std::move(callback);
 
@@ -124,7 +124,7 @@ std::unique_ptr<ObservationDelayController> NavigateTool::GetObservationDelayer(
 }
 
 void NavigateTool::UpdateTaskBeforeInvoke(ActorTask& task,
-                                          InvokeCallback callback) const {
+                                          ToolCallback callback) const {
   task.AddTab(tab_handle_, std::move(callback));
 }
 
@@ -142,7 +142,7 @@ void NavigateTool::DidFinishNavigation(NavigationHandle* navigation_handle) {
     auto result =
         navigation_handle->HasCommitted() && !navigation_handle->IsErrorPage()
             ? MakeOkResult()
-            : MakeErrorResult();
+            : MakeResult(mojom::ActionResultCode::kNavigateCommittedErrorPage);
 
     if (invoke_callback_) {
       PostResponseTask(std::move(invoke_callback_), std::move(result));

@@ -285,6 +285,22 @@ class CORE_EXPORT LocalFrameView final
     return layout_size_fixed_to_frame_size_;
   }
 
+  // The natural size should be computed with a consistent ICB, to mitigate the
+  // risk of layout loops. This class sets up the ICB to be consistent for the
+  // natural size. The destructor restores it.
+  class NaturalSizeLayoutScope {
+    STACK_ALLOCATED();
+
+   public:
+    explicit NaturalSizeLayoutScope(LocalFrameView*);
+    ~NaturalSizeLayoutScope();
+
+   public:
+    LocalFrameView* view_ = nullptr;
+    bool is_fixed_to_frame_size_ = false;
+    int height_ = 0;
+  };
+
   std::optional<NaturalSizingInfo> GetNaturalDimensions() const override;
 
   void Dispose() override;
@@ -849,6 +865,13 @@ class CORE_EXPORT LocalFrameView final
   void RequestSameDocumentNavigationPresentationTime(
       base::OnceCallback<void(const viz::FrameTimingDetails&)>);
 
+  // Return true if this frame, or any of its sub-frames, has an anchor-
+  // positioned element that is anchored against something with a transform, AND
+  // the transform is currently being animated. This means that a transform on
+  // one element may affect layout of another element, which means that the main
+  // thread needs to be involved during the animation.
+  bool HasRunningAnchorTransformAnimation() const;
+
  protected:
   void FrameRectsChanged(const gfx::Rect&) override;
   void SelfVisibleChanged() override;
@@ -868,6 +891,8 @@ class CORE_EXPORT LocalFrameView final
   void EnqueueScrollEvents();
 
  private:
+  friend class NaturalSizeLayoutScope;
+
   LocalFrameView(LocalFrame&, gfx::Rect);
 
 #if DCHECK_IS_ON()
@@ -1145,6 +1170,7 @@ class CORE_EXPORT LocalFrameView final
 
   Member<PaginationState> pagination_state_;
   gfx::Size layout_size_;
+  std::optional<int> layout_height_for_natural_size_;
   bool layout_size_fixed_to_frame_size_;
 
   bool needs_update_geometries_;

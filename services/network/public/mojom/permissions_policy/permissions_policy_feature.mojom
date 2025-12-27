@@ -126,9 +126,10 @@ enum PermissionsPolicyFeature {
   // [Deprecated]
   // kInterestCohort = 82,
 
-  // Controls whether Autofill may fill fields in that frame when triggered on
-  // a field with the main frame's origin.
-  kSharedAutofill = 83,
+  // Controls whether Autofill may fill fields in a frame.
+  // See https://github.com/explainers-by-googlers/safe-text-input and
+  // crbug.com/40178859.
+  kAutofill = 83,
 
   // Controls access to Direct Sockets.
   // See https://github.com/WICG/direct-sockets.
@@ -260,10 +261,6 @@ enum PermissionsPolicyFeature {
   // Capture all screens (https://screen-share.github.io/capture-all-screens/)
   kAllScreensCapture = 122,
 
-  // Allow Partitioned Popins to be opened.
-  // See https://explainers-by-googlers.github.io/partitioned-popins/
-  kPartitionedPopins = 123,
-
   // Web App Installation API.
   kWebAppInstallation = 124,
 
@@ -342,8 +339,12 @@ enum PermissionsPolicyFeature {
   kDigitalCredentialsCreate = 141,
 
   // Controls access to Multicast in Direct Sockets.
-  // See https://github.com/explainers-by-googlers/multicast-in-direct-sockets.
+  // See https://github.com/WICG/direct-sockets/blob/main/docs/multicast-explainer.md.
   kMulticastInDirectSockets = 142,
+
+  // Controls whether Autofill may fill fields in that frame when triggered on
+  // a field with the main frame's origin.
+  kManualText = 143,
 
   // Don't change assigned numbers of any item, and don't reuse removed slots.
   // Add new features at the end of the enum.

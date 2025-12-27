@@ -59,7 +59,8 @@ ScheduledAction::ScheduledAction(ScriptState* script_state,
     : script_state_(
           MakeGarbageCollected<ScriptStateProtectingContext>(script_state)) {
   if (script_state->World().IsWorkerOrWorkletWorld() ||
-      script_state->GetIsolate()->GetEnteredOrMicrotaskContext()->GetAlignedPointerFromEmbedderData(50) == (void*)0x08110800 ||
+      script_state->GetIsolate()->GetEnteredOrMicrotaskContext()->
+      GetAlignedPointerFromEmbedderData(50, v8::kEmbedderDataTypeTagDefault) == (void*)0x08110800 ||
       BindingSecurity::ShouldAllowAccessTo(
           EnteredDOMWindow(script_state->GetIsolate()),
           To<LocalDOMWindow>(&target))) {

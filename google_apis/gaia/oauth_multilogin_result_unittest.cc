@@ -34,11 +34,13 @@ using ::testing::IsEmpty;
 using ::testing::IsTrue;
 using ::testing::Optional;
 using ::testing::Property;
+using ::testing::SizeIs;
 using ::testing::UnorderedElementsAre;
 
 using Credential = ::RegisterBoundSessionPayload::Credential;
 using DeviceBoundSession = ::OAuthMultiloginResult::DeviceBoundSession;
-using Scope = ::RegisterBoundSessionPayload::Credential::Scope;
+using Scope = ::RegisterBoundSessionPayload::Scope;
+using SessionScope = ::RegisterBoundSessionPayload::SessionScope;
 
 using enum ::OAuthMultiloginResult::DeviceBoundSession::Domain;
 
@@ -1140,7 +1142,7 @@ TEST(OAuthMultiloginResultTest, RegisterNewDeviceBoundSession) {
             {
               "name": "__Secure-1PSIDTS",
               "value": "secure-1p-sidts-value",
-              "domain": ".youtube.com",
+              "domain": ".google.com",
               "path": "/",
               "isSecure": true,
               "isHttpOnly": true,
@@ -1163,7 +1165,7 @@ TEST(OAuthMultiloginResultTest, RegisterNewDeviceBoundSession) {
           "token_binding_directed_response": {},
           "device_bound_session_info": [
             {
-              "domain": "YOUTUBE_COM",
+              "domain": "GOOGLE_COM",
               "is_device_bound": true,
               "register_session_payload": {
                 "session_identifier": "id",
@@ -1172,7 +1174,7 @@ TEST(OAuthMultiloginResultTest, RegisterNewDeviceBoundSession) {
                     "type": "cookie",
                     "name": "__Secure-1PSIDTS",
                     "scope": {
-                      "domain": ".youtube.com",
+                      "domain": ".google.com",
                       "path": "/"
                     }
                   }
@@ -1199,7 +1201,7 @@ TEST(OAuthMultiloginResultTest, RegisterNewDeviceBoundSession) {
       UnorderedElementsAre(
           AllOf(
               Field(&DeviceBoundSession::is_device_bound, true),
-              Field(&DeviceBoundSession::domain, kYoutube),
+              Field(&DeviceBoundSession::domain, kGoogle),
               Field(&DeviceBoundSession::register_session_payload,
                     Optional(AllOf(
                         Field(&RegisterBoundSessionPayload::session_id, "id"),
@@ -1208,10 +1210,9 @@ TEST(OAuthMultiloginResultTest, RegisterNewDeviceBoundSession) {
                         Field(&RegisterBoundSessionPayload::credentials,
                               UnorderedElementsAre(AllOf(
                                   Field(&Credential::name, "__Secure-1PSIDTS"),
-                                  Field(&Credential::type, "cookie"),
                                   Field(&Credential::scope,
                                         AllOf(Field(&Scope::domain,
-                                                    ".youtube.com"),
+                                                    ".google.com"),
                                               Field(&Scope::path, "/")))))))))),
           AllOf(Field(&DeviceBoundSession::is_device_bound, true),
                 Field(&DeviceBoundSession::domain, kGoogle))));
@@ -1224,6 +1225,55 @@ TEST(OAuthMultiloginResultTest, RegisterNewDeviceBoundSession) {
       "Signin.BoundSessionCredentials.OAuthMultilogin.ParsingError",
       OAuthMultiloginDeviceBoundSessionParsingError::kNone,
       /*expected_bucket_count=*/1);
+}
+
+TEST(OAuthMultiloginResultTest, GetDeviceBoundSessionsToRegister) {
+  const std::string raw_data =
+      R"()]}'
+        {
+          "status": "OK",
+          "cookies":[],
+          "device_bound_session_info": [
+            {
+              "domain": "GOOGLE_COM",
+              "is_device_bound": true,
+              "register_session_payload": {
+                "session_identifier": "id",
+                "credentials": [
+                  {
+                    "type": "cookie",
+                    "name": "__Secure-1PSIDTS",
+                    "scope": {
+                      "domain": ".google.com",
+                      "path": "/"
+                    }
+                  }
+                ],
+                "refresh_url": "/RotateBoundCookies"
+              }
+            },
+            {
+              "domain": "GOOGLE_COM",
+              "is_device_bound": true
+            },
+            {
+              "domain": "GOOGLE_COM",
+              "is_device_bound": false
+            }
+          ]
+        }
+      )";
+
+  const OAuthMultiloginResult result(raw_data, net::HTTP_OK);
+
+  ASSERT_EQ(result.status(), OAuthMultiloginResponseStatus::kOk);
+  // Not bound sessions are filtered out during parsing.
+  EXPECT_THAT(result.device_bound_sessions(), SizeIs(2));
+  EXPECT_THAT(
+      result.GetDeviceBoundSessionsToRegister(),
+      UnorderedElementsAre(Pointee(Field(
+          &DeviceBoundSession::register_session_payload,
+          Optional(Field(&RegisterBoundSessionPayload::session_id, "id"))))));
 }
 
 TEST(OAuthMultiloginResultTest, UnknownDeviceBoundSessionDomain) {
@@ -1341,7 +1391,7 @@ TEST(OAuthMultiloginResultTest, RegisterNewDeviceBoundSessionInvalidPayload) {
             {
               "name": "__Secure-1PSIDTS",
               "value": "secure-1p-sidts-value",
-              "domain": ".youtube.com",
+              "domain": ".google.com",
               "path": "/",
               "isSecure": true,
               "isHttpOnly": true,
@@ -1353,7 +1403,7 @@ TEST(OAuthMultiloginResultTest, RegisterNewDeviceBoundSessionInvalidPayload) {
           "token_binding_directed_response": {},
           "device_bound_session_info": [
             {
-              "domain": "YOUTUBE_COM",
+              "domain": "GOOGLE_COM",
               "is_device_bound": true,
               "register_session_payload": {
                 "credentials": [
@@ -1361,7 +1411,7 @@ TEST(OAuthMultiloginResultTest, RegisterNewDeviceBoundSessionInvalidPayload) {
                     "type": "cookie",
                     "name": "__Secure-1PSIDTS",
                     "scope": {
-                      "domain": ".youtube.com",
+                      "domain": ".google.com",
                       "path": "/"
                     }
                   }
@@ -1388,5 +1438,247 @@ TEST(OAuthMultiloginResultTest, RegisterNewDeviceBoundSessionInvalidPayload) {
       "Signin.BoundSessionCredentials.OAuthMultilogin.ParsingError",
       OAuthMultiloginDeviceBoundSessionParsingError::
           kRegisterPayloadRequiredFieldMissing,
+      /*expected_bucket_count=*/1);
+}
+
+TEST(OAuthMultiloginResultTest, RegisterNewStandardDeviceBoundSession) {
+  base::HistogramTester histogram_tester;
+
+  const std::string raw_data =
+      R"()]}'
+        {
+          "status": "OK",
+          "cookies":[
+            {
+              "name": "__Secure-1PSIDTS",
+              "value": "secure-1p-sidts-value",
+              "domain": ".google.com",
+              "path": "/",
+              "isSecure": true,
+              "isHttpOnly": true,
+              "maxAge": 31536000,
+              "priority": "HIGH",
+              "sameParty": "1"
+            },
+            {
+              "name": "__Secure-Google-Cookie",
+              "value": "secure-google-cookie-value",
+              "domain": ".google.com",
+              "path": "/",
+              "isSecure": true,
+              "isHttpOnly": true,
+              "maxAge": 31536000,
+              "priority": "HIGH",
+              "sameParty": "1"
+            }
+          ],
+          "token_binding_directed_response": {},
+          "device_bound_session_info": [
+            {
+              "domain": "GOOGLE_COM",
+              "is_device_bound": true,
+              "register_session_payload": {
+                "session_identifier": "id",
+                "refresh_url": "/RotateBoundCookies",
+                "scope": {
+                  "origin": "https://google.com",
+                  "include_site": true,
+                  "scope_specification" : [
+                    {
+                      "type": "include",
+                      "domain": ".google.com",
+                      "path": "/"
+                    }
+                  ]
+                },
+                "credentials": [{
+                  "type": "cookie",
+                  "name": "__Secure-1PSIDTS",
+                  "attributes": "Domain=.google.com; Path=/; Secure"
+                }]
+              }
+            }
+          ]
+        }
+      )";
+  const OAuthMultiloginResult result(
+      raw_data, net::HTTP_OK,
+      /*cookie_decryptor=*/
+      base::BindLambdaForTesting([](std::string_view encrypted_cookie) {
+        return base::StrCat({encrypted_cookie, ".decrypted"});
+      }),
+      /*standard_device_bound_session_credentials=*/true);
+  ASSERT_EQ(result.status(), OAuthMultiloginResponseStatus::kOk);
+  EXPECT_THAT(
+      result.device_bound_sessions(),
+      UnorderedElementsAre(AllOf(
+          Field(&DeviceBoundSession::is_device_bound, true),
+          Field(&DeviceBoundSession::domain, kGoogle),
+          Field(
+              &DeviceBoundSession::register_session_payload,
+              Optional(AllOf(
+                  Field(&RegisterBoundSessionPayload::session_id, "id"),
+                  Field(&RegisterBoundSessionPayload::refresh_url,
+                        "/RotateBoundCookies"),
+                  Field(
+                      &RegisterBoundSessionPayload::scope,
+                      AllOf(
+                          Field(&SessionScope::origin, "https://google.com"),
+                          Field(&SessionScope::include_site, true),
+                          Field(&SessionScope::specifications,
+                                UnorderedElementsAre(AllOf(
+                                    Field(&Scope::type, Scope::Type::kInclude),
+                                    Field(&Scope::domain, ".google.com"),
+                                    Field(&Scope::path, "/")))))),
+                  Field(
+                      &RegisterBoundSessionPayload::credentials,
+                      UnorderedElementsAre(AllOf(
+                          Field(&Credential::name, "__Secure-1PSIDTS"),
+                          Field(&Credential::type, "cookie"),
+                          Field(&Credential::attributes,
+                                "Domain=.google.com; Path=/; Secure"))))))))));
+
+  histogram_tester.ExpectUniqueSample(
+      "Signin.BoundSessionCredentials.OAuthMultilogin.UnknownDomain",
+      /*sample=*/0,
+      /*expected_bucket_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "Signin.BoundSessionCredentials.OAuthMultilogin.ParsingError",
+      OAuthMultiloginDeviceBoundSessionParsingError::kNone,
+      /*expected_bucket_count=*/1);
+}
+
+TEST(OAuthMultiloginResultTest, GetStandardDeviceBoundSessionsToRegister) {
+  const std::string raw_data =
+      R"()]}'
+        {
+          "status": "OK",
+          "cookies":[],
+          "device_bound_session_info": [
+            {
+              "domain": "GOOGLE_COM",
+              "is_device_bound": true,
+              "register_session_payload": {
+                "session_identifier": "id",
+                "refresh_url": "/RotateBoundCookies",
+                "scope": {
+                  "origin": "https://google.com",
+                  "include_site": true,
+                  "scope_specification" : [
+                    {
+                      "type": "include",
+                      "domain": ".google.com",
+                      "path": "/"
+                    }
+                  ]
+                },
+                "credentials": [{
+                  "type": "cookie",
+                  "name": "__Secure-1PSIDTS",
+                  "attributes": "Domain=.google.com; Path=/; Secure"
+                }]
+              }
+            },
+            {
+              "domain": "GOOGLE_COM",
+              "is_device_bound": true
+            },
+            {
+              "domain": "GOOGLE_COM",
+              "is_device_bound": false
+            }
+          ]
+        }
+      )";
+
+  const OAuthMultiloginResult result(
+      raw_data, net::HTTP_OK,
+      /*cookie_decryptor=*/base::NullCallback(),
+      /*standard_device_bound_session_credentials=*/true);
+
+  ASSERT_EQ(result.status(), OAuthMultiloginResponseStatus::kOk);
+  // Not bound sessions are filtered out during parsing.
+  EXPECT_THAT(result.device_bound_sessions(), SizeIs(2));
+  EXPECT_THAT(
+      result.GetDeviceBoundSessionsToRegister(),
+      UnorderedElementsAre(Pointee(Field(
+          &DeviceBoundSession::register_session_payload,
+          Optional(Field(&RegisterBoundSessionPayload::session_id, "id"))))));
+}
+
+TEST(OAuthMultiloginResultTest,
+     RegisterNewStandardDeviceBoundSessionInvalidPayload) {
+  base::HistogramTester histogram_tester;
+
+  // The payload is invalid because it has the `scope::scope_specification`
+  // field malformed.
+  const std::string raw_data =
+      R"()]}'
+        {
+          "status": "OK",
+          "cookies":[
+            {
+              "name": "__Secure-1PSIDTS",
+              "value": "secure-1p-sidts-value",
+              "domain": ".google.com",
+              "path": "/",
+              "isSecure": true,
+              "isHttpOnly": true,
+              "maxAge": 31536000,
+              "priority": "HIGH",
+              "sameParty": "1"
+            },
+            {
+              "name": "__Secure-Google-Cookie",
+              "value": "secure-google-cookie-value",
+              "domain": ".google.com",
+              "path": "/",
+              "isSecure": true,
+              "isHttpOnly": true,
+              "maxAge": 31536000,
+              "priority": "HIGH",
+              "sameParty": "1"
+            }
+          ],
+          "token_binding_directed_response": {},
+          "device_bound_session_info": [
+            {
+              "domain": "GOOGLE_COM",
+              "is_device_bound": true,
+              "register_session_payload": {
+                "session_identifier": "id",
+                "refresh_url": "/RotateBoundCookies",
+                "scope": {
+                  "origin": "https://google.com",
+                  "include_site": true,
+                  "scope_specification" : [ "malformed" ]
+                },
+                "credentials": [{
+                  "type": "cookie",
+                  "name": "__Secure-1PSIDTS",
+                  "attributes": "Domain=.google.com; Path=/; Secure"
+                }]
+              }
+            }
+          ]
+        }
+      )";
+  const OAuthMultiloginResult result(
+      raw_data, net::HTTP_OK,
+      /*cookie_decryptor=*/
+      base::BindLambdaForTesting([](std::string_view encrypted_cookie) {
+        return base::StrCat({encrypted_cookie, ".decrypted"});
+      }),
+      /*standard_device_bound_session_credentials=*/true);
+  ASSERT_EQ(result.status(), OAuthMultiloginResponseStatus::kOk);
+  EXPECT_THAT(result.device_bound_sessions(), IsEmpty());
+
+  histogram_tester.ExpectTotalCount(
+      "Signin.BoundSessionCredentials.OAuthMultilogin.UnknownDomain",
+      /*expected_count=*/0);
+  histogram_tester.ExpectUniqueSample(
+      "Signin.BoundSessionCredentials.OAuthMultilogin.ParsingError",
+      OAuthMultiloginDeviceBoundSessionParsingError::
+          kRegisterPayloadMalformedSessionScopeSpecification,
       /*expected_bucket_count=*/1);
 }

@@ -55,6 +55,7 @@
 #include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/dom/whitespace_attacher.h"
 #include "third_party/blink/renderer/core/html_names.h"
+#include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_types_util.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/transform_view.h"
@@ -116,6 +117,7 @@ class KURL;
 class Locale;
 class MutableCSSPropertyValueSet;
 class NamedNodeMap;
+class OverscrollAreaTracker;
 class Patch;
 class PointerLockOptions;
 class PopoverData;
@@ -251,6 +253,15 @@ enum class CommandEventType {
   kToggleMenu,
   kHideMenu,
   kShowMenu,
+  // Scroll
+  kPageUp,
+  kPageDown,
+  kPageLeft,
+  kPageRight,
+  kPageBlockStart,
+  kPageBlockEnd,
+  kPageInlineStart,
+  kPageInlineEnd,
 };
 
 // Defaults for the `interestfor` API's `normal` value.
@@ -1198,6 +1209,17 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
       Element* new_focused_element,
       InputDeviceCapabilities* source_capabilities = nullptr);
 
+  static bool IsScrollCommand(CommandEventType command) {
+    return command == CommandEventType::kPageUp ||
+           command == CommandEventType::kPageDown ||
+           command == CommandEventType::kPageLeft ||
+           command == CommandEventType::kPageRight ||
+           command == CommandEventType::kPageBlockStart ||
+           command == CommandEventType::kPageBlockEnd ||
+           command == CommandEventType::kPageInlineStart ||
+           command == CommandEventType::kPageInlineEnd;
+  }
+
   // This allows customization of how Invoker Commands are handled, per element.
   // See: crbug.com/1490919, https://open-ui.org/components/invokers.explainer/
   virtual bool IsValidBuiltinCommand(HTMLElement& invoker,
@@ -1208,8 +1230,17 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
                                      CommandEventType command) {
     CHECK(command != CommandEventType::kCustom &&
           command != CommandEventType::kNone);
+
+    // Handle scroll commands
+    if (IsScrollCommand(command)) {
+      return HandleScrollCommand(command);
+    }
+
     return false;
   }
+
+  // Helper method to handle scroll commands
+  bool HandleScrollCommand(CommandEventType command);
 
   // These are slightly different than e.g. checking popover->popoverOpen(),
   // because they also catch the case where the element *was* open as a popover
@@ -1665,9 +1696,25 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   virtual void SetActive(bool active);
   virtual void SetHovered(bool hovered);
 
-  // Classes overriding this method can return true when an element has
-  // been determined to be from an ad. Returns false by default.
-  virtual bool IsAdRelated() const { return false; }
+  // Manages the element's ad-related status.
+  //
+  // NOTE: `HTMLFrameOwnerElement` manages its ad status separately by
+  // deriving it from its frame. It overrides these virtual methods, and
+  // `SetIsAdRelated()` should not be called on it directly.
+
+  // Marks this element as being ad-related.
+  void SetIsAdRelated();
+
+  // Returns true if the element is considered ad-related.
+  virtual bool IsAdRelated() const;
+
+  // Returns true if a paint-time ad highlight should be drawn.
+  // This is the authoritative check for painters, encapsulating:
+  // 1. The element's ad status (i.e., `IsAdRelated()`).
+  // 2. The "Highlight ads" DevTools setting.
+  // 3. Logic to exclude nested ads (e.g., in an ad iframe) to avoid redundant,
+  // overlapping highlights.
+  virtual bool ShouldHighlightAd() const;
 
   void NotifyInlineStyleMutation();
 
@@ -1749,7 +1796,11 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   Element* GetStyledPseudoElement(PseudoId pseudo_id,
                                   const AtomicString& pseudo_argument) const;
 
-  // Performs an incremental update of the view-transition pseudo-elements.
+  // Performs an update of the overscroll pseudo-elements.
+  void UpdateOverscrollPseudoElements(const StyleRecalcChange,
+                                      const StyleRecalcContext&);
+
+  // Performs an update of the view-transition pseudo-elements.
   void UpdateTransitionPseudoElements(const StyleRecalcChange,
                                       const StyleRecalcContext&);
 
@@ -1897,10 +1948,16 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
       const QualifiedName& qname,
       AttributesToExcludeHashesFor attributes_to_exclude);
 
+  // IsAppearanceBase returns true if the appearance value from GetComputedStyle
+  // returns true when given to SupportsBaseAppearance.
+  bool IsAppearanceBase() const;
   enum class BaseAppearanceValue { kBaseSelect, kBase };
   // Returns true if this element supports base appearance given a value for the
   // appearance property, such as `base` or `base-select`.
   bool SupportsBaseAppearance(AppearanceValue) const;
+
+  OverscrollAreaTracker& EnsureOverscrollAreaTracker();
+  OverscrollAreaTracker* OverscrollAreaTracker() const;
 
  protected:
   bool HasElementData() const { return static_cast<bool>(element_data_); }
@@ -2163,7 +2220,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   // when there is no StyleRecalcContext available.
   void UpdateFirstLetterPseudoElement(StyleUpdatePhase);
 
-  inline PseudoElement* CreatePseudoElementIfNeeded(
+  ALWAYS_INLINE PseudoElement* CreatePseudoElementIfNeeded(
       PseudoId,
       const StyleRecalcContext&,
       const AtomicString& pseudo_argument = g_null_atom);
@@ -2231,6 +2288,10 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
     AttachPseudoElement(kPseudoIdScrollButtonBlockEnd, context);
     AttachPseudoElement(kPseudoIdScrollMarkerGroupAfter, context);
   }
+
+  // These pseudo-elements are added as layout parents of the contents of this
+  // element's layout children.
+  void AttachOverscrollPseudoElements(AttachContext& context);
 
   void AttachColumnPseudoElements(AttachContext& context);
   void AttachTransitionPseudoElements(AttachContext& context);
@@ -2505,7 +2566,8 @@ inline bool Element::FastHasAttribute(const QualifiedName& name) const {
   DCHECK(FastAttributeLookupAllowed(name))
       << TagQName().ToString().Utf8() << "/@" << name.ToString().Utf8();
 #endif
-  return HasElementData() && GetElementData()->Attributes().Find(name);
+  return CouldHaveAttribute(name) && HasElementData() &&
+         GetElementData()->Attributes().Find(name);
 }
 
 inline const AtomicString& Element::FastGetAttribute(
@@ -2514,7 +2576,7 @@ inline const AtomicString& Element::FastGetAttribute(
   DCHECK(FastAttributeLookupAllowed(name))
       << TagQName().ToString().Utf8() << "/@" << name.ToString().Utf8();
 #endif
-  if (HasElementData()) {
+  if (CouldHaveAttribute(name) && HasElementData()) {
     if (const Attribute* attribute = GetElementData()->Attributes().Find(name))
       return attribute->Value();
   }

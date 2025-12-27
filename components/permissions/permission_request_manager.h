@@ -189,6 +189,7 @@ class PermissionRequestManager
       const override;
   void SetDismissOnTabClose() override;
   void SetPromptShown() override;
+  GeolocationAccuracy GetInitialGeolocationAccuracySelection() const override;
   void SetDecisionTime() override;
   void SetManageClicked() override;
   void SetLearnMoreClicked() override;
@@ -245,6 +246,20 @@ class PermissionRequestManager
 
   void set_current_request_first_display_time_for_testing(base::Time time) {
     current_request_first_display_time_ = time;
+  }
+
+  void set_notification_request_first_display_time_for_testing(
+      base::TimeTicks time) {
+    notification_request_first_display_time_ = time;
+  }
+
+  void set_geolocation_request_first_display_time_for_testing(
+      base::TimeTicks time) {
+    geolocation_request_first_display_time_ = time;
+  }
+
+  void set_on_page_loaded_time_for_testing(base::TimeTicks time) {
+    on_page_loaded_time_ = time;
   }
 
   std::optional<PermissionUiSelector::PredictionGrantLikelihood>
@@ -448,6 +463,7 @@ class PermissionRequestManager
 
   void OnPermissionUiSelectorDone(size_t selector_index,
                                   const UiDecision& decision);
+  std::optional<UiDecision> TakePermissionUiDecisionIfReady();
 
   PermissionPromptDisposition DetermineCurrentRequestUIDisposition();
   PermissionPromptDispositionReason
@@ -577,6 +593,11 @@ class PermissionRequestManager
   // When the view for the current |requests_| has been first shown to the user,
   // or zero if not at all, specifically for a GEOLOCATION request.
   base::TimeTicks geolocation_request_first_display_time_;
+
+  // When the page was loaded, or zero if not at all.
+  // This is used to record the duration of the browsing session before a
+  // permission prompt was displayed.
+  base::TimeTicks on_page_loaded_time_;
 
   // Whether to use the normal or quiet UI to display the current permission
   // |requests_|, and whether to show warnings. This will be nullopt if we are

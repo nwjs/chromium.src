@@ -13,8 +13,8 @@ import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaym
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ItemType.ALL_LOYALTY_CARDS;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ItemType.BNPL;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ItemType.BNPL_ISSUER;
-import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ItemType.BNPL_SELECTION_PROGRESS_FOOTER;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ItemType.BNPL_SELECTION_PROGRESS_HEADER;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ItemType.BNPL_SELECTION_PROGRESS_TERMS;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ItemType.BNPL_TOS_TEXT;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ItemType.CREDIT_CARD;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ItemType.ERROR_DESCRIPTION;
@@ -59,7 +59,8 @@ import java.util.function.Function;
  * credit card to be filled into the focused form.
  */
 public class TouchToFillPaymentMethodCoordinator implements TouchToFillPaymentMethodComponent {
-    private final TouchToFillPaymentMethodMediator mMediator = new TouchToFillPaymentMethodMediator();
+    private final TouchToFillPaymentMethodMediator mMediator =
+            new TouchToFillPaymentMethodMediator();
     private PropertyModel mTouchToFillPaymentMethodModel;
     private Function<TouchToFillPaymentMethodProperties.CardImageMetaData, Drawable>
             mCardImageFunction;
@@ -90,7 +91,8 @@ public class TouchToFillPaymentMethodCoordinator implements TouchToFillPaymentMe
                                 loyaltyCard.getProgramLogo(),
                                 ImageSize.LARGE,
                                 loyaltyCard.getMerchantName());
-        mMediator.initialize(delegate, mTouchToFillPaymentMethodModel, bottomSheetFocusHelper);
+        mMediator.initialize(
+                context, delegate, mTouchToFillPaymentMethodModel, bottomSheetFocusHelper);
         setUpModelChangeProcessors(
                 mTouchToFillPaymentMethodModel,
                 new TouchToFillPaymentMethodView(context, sheetController));
@@ -118,9 +120,12 @@ public class TouchToFillPaymentMethodCoordinator implements TouchToFillPaymentMe
     }
 
     @Override
-    public void updateBnplPaymentMethod(
-            Long extractedAmount, boolean isAmountSupportedByAnyIssuer) {
-        mMediator.updateBnplPaymentMethod(extractedAmount, isAmountSupportedByAnyIssuer);
+    public void onPurchaseAmountExtracted(
+            List<BnplIssuerContext> bnplIssuerContexts,
+            Long extractedAmount,
+            boolean isAmountSupportedByAnyIssuer) {
+        mMediator.onPurchaseAmountExtracted(
+                bnplIssuerContexts, extractedAmount, isAmountSupportedByAnyIssuer);
     }
 
     @Override
@@ -228,9 +233,9 @@ public class TouchToFillPaymentMethodCoordinator implements TouchToFillPaymentMe
                 TouchToFillPaymentMethodViewBinder::createBnplIssuerTosItemView,
                 TouchToFillPaymentMethodViewBinder::bindBnplIssuerTosItemView);
         adapter.registerType(
-                BNPL_SELECTION_PROGRESS_FOOTER,
-                TouchToFillPaymentMethodViewBinder::createBnplSelectionProgressFooterItemView,
-                TouchToFillPaymentMethodViewBinder::bindBnplSelectionProgressFooterView);
+                BNPL_SELECTION_PROGRESS_TERMS,
+                TouchToFillPaymentMethodViewBinder::createBnplSelectionProgressTermsItemView,
+                TouchToFillPaymentMethodViewBinder::bindBnplSelectionProgressTermsView);
         adapter.registerType(
                 TOS_FOOTER,
                 TouchToFillPaymentMethodViewBinder::createLegalMessageItemView,
@@ -248,7 +253,7 @@ public class TouchToFillPaymentMethodCoordinator implements TouchToFillPaymentMe
                 .with(CURRENT_SCREEN, HOME_SCREEN)
                 .with(FOCUSED_VIEW_ID_FOR_ACCESSIBILITY, 0)
                 .with(SHEET_ITEMS, new ModelList())
-                .with(BACK_PRESS_HANDLER, mediator::showHomeScreen)
+                .with(BACK_PRESS_HANDLER, mediator::onBackButtonPressed)
                 .with(DISMISS_HANDLER, mediator::onDismissed)
                 .build();
     }

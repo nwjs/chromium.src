@@ -161,8 +161,7 @@ bool DoScheme(std::optional<std::basic_string_view<CHAR>> input,
 
       // This will escape the output and also handle encoding issues.
       // Ignore the return value since we already failed.
-      AppendUTF8EscapedChar(input_value.data(), &i, input_value.length(),
-                            output);
+      AppendUtf8EscapedChar(input_value, &i, output);
     }
   }
 
@@ -229,8 +228,7 @@ bool DoPort(std::optional<std::basic_string_view<CHAR>> port_view,
     *out_port = Component();
     return true;  // Leave port empty.
   }
-  int port_num = ParsePort(port_view->data(),
-                           {0, base::checked_cast<int>(port_view->length())});
+  int port_num = ParsePort(*port_view, Component(*port_view));
   if (port_num == PORT_UNSPECIFIED || port_num == default_port_for_scheme) {
     *out_port = Component();
     return true;  // Leave port empty.
@@ -323,8 +321,7 @@ void DoCanonicalizeRef(std::optional<std::basic_string_view<CHAR>> input,
       else
         output->push_back(static_cast<char>(input_value[i]));
     } else {
-      AppendUTF8EscapedChar(input_value.data(), &i, input_value.length(),
-                            output);
+      AppendUtf8EscapedChar(input_value, &i, output);
     }
   }
   out_ref->len = output->length() - out_ref->begin;

@@ -17,7 +17,6 @@
 #import "ios/chrome/browser/authentication/ui_bundled/cells/table_view_account_item.h"
 #import "ios/chrome/browser/policy/model/management_state.h"
 #import "ios/chrome/browser/settings/model/sync/utils/account_error_ui_info.h"
-#import "ios/chrome/browser/settings/ui_bundled/cells/settings_image_detail_text_cell.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_table_view_controller_constants.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
@@ -27,6 +26,7 @@
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
+#import "ios/chrome/browser/signin/model/avatar_provider.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
 #import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
@@ -93,7 +93,7 @@ UIImage* kPrimaryAccountAvatar = [[UIImage alloc] init];
 
 #pragma mark - AccountMenuDataSource
 
-- (const std::vector<GaiaId>)secondaryAccountsGaiaIDs {
+- (std::vector<GaiaId>)secondaryAccountsGaiaIDs {
   return _secondaryAccountsGaiaIDs;
 }
 
@@ -106,8 +106,10 @@ UIImage* kPrimaryAccountAvatar = [[UIImage alloc] init];
 }
 
 - (UIImage*)imageForGaiaID:(const GaiaId&)gaiaID {
-  return _accountManagerService->GetIdentityAvatarWithIdentity(
-      [self identityForGaiaID:gaiaID], IdentityAvatarSize::TableViewIcon);
+  return GetApplicationContext()
+      ->GetIdentityAvatarProvider()
+      ->GetIdentityAvatar([self identityForGaiaID:gaiaID],
+                          IdentityAvatarSize::TableViewIcon);
 }
 
 - (BOOL)isGaiaIDManaged:(const GaiaId&)gaiaID {
@@ -215,6 +217,17 @@ class AccountMenuViewControllerTest : public PlatformTest,
         static_cast<TableViewCellContentConfiguration*>(
             add_account_cell.contentConfiguration);
     EXPECT_NSEQ(content_configuration.title, text);
+  }
+
+  // Expects that the cell at `path` has `text` as subtitle.
+  void ExpectSubtitleAtPath(NSString* text, NSIndexPath* path) {
+    UITableViewCell* add_account_cell = GetCell(path);
+    EXPECT_TRUE([add_account_cell.contentConfiguration
+        isKindOfClass:[TableViewCellContentConfiguration class]]);
+    TableViewCellContentConfiguration* content_configuration =
+        static_cast<TableViewCellContentConfiguration*>(
+            add_account_cell.contentConfiguration);
+    EXPECT_NSEQ(content_configuration.subtitle, text);
   }
 
   // Selects the cell at `path`.
@@ -339,14 +352,11 @@ TEST_P(AccountMenuViewControllerTest, TestSetError) {
 
   NSIndexPath* path_for_error_message = [NSIndexPath indexPathForRow:0
                                                            inSection:0];
-  UITableViewCell* error_message_cell_ = GetCell(path_for_error_message);
-  EXPECT_TRUE(
-      [error_message_cell_ isKindOfClass:[SettingsImageDetailTextCell class]]);
-  SettingsImageDetailTextCell* error_message_cell =
-      static_cast<SettingsImageDetailTextCell*>(error_message_cell_);
-  EXPECT_NSEQ(error_message_cell.detailTextLabel.text,
-              l10n_util::GetNSString(
-                  IDS_IOS_ACCOUNT_TABLE_ERROR_ENTER_PASSPHRASE_MESSAGE));
+  ExpectSubtitleAtPath(
+      l10n_util::GetNSString(
+          IDS_IOS_ACCOUNT_TABLE_ERROR_ENTER_PASSPHRASE_MESSAGE),
+      path_for_error_message);
+
   NSIndexPath* path_for_error_button = [NSIndexPath indexPathForRow:1
                                                           inSection:0];
   ExpectTextAtPath(l10n_util::GetNSString(

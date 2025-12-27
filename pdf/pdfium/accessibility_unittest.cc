@@ -16,6 +16,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/types/zip.h"
 #include "pdf/accessibility_structs.h"
+#include "pdf/pdf_accessibility_constants_helper.h"
 #include "pdf/pdf_features.h"
 #include "pdf/pdfium/pdfium_engine.h"
 #include "pdf/pdfium/pdfium_test_base.h"
@@ -72,6 +73,15 @@ std::string AccessibilityStructureElementToString(
       base::StrAppend(&element_str, {" ", base::NumberToString(text_run->len)});
     }
     base::StrAppend(&element_str, {" }"});
+  }
+  if (element.associated_image_if_available) {
+    base::StrAppend(
+        &element_str,
+        {" AssociatedImage={page_object_index=",
+         base::NumberToString(
+             element.associated_image_if_available->page_object_index),
+         " bounds=", element.associated_image_if_available->bounds.ToString(),
+         "}"});
   }
   for (const auto& child : element.children) {
     if (!child) {
@@ -201,15 +211,40 @@ TEST_P(AccessibilityTest, AccessibilityStructureTree) {
       engine->GetStructureTree();
   ASSERT_TRUE(doc_structure);
 
-  static constexpr char kExpectedStructureTree[] =
-      "/S /Document\n"
-      "++/S /Part\n"
-      "++++/S /Document /Lang (en-US)\n"
-      "++++++/S /Art\n"
-      "++++++/S /BlockQuote\n"
-      "++++++/S /P\n"
-      "++++++/S /H1\n"
-      "++++++/S /H2";
+  static constexpr char kExpectedStructureTree[] = R"(/S /Document
+++/S /Part
+++++/S /Document /Lang (en-US)
+++++++/S /Art AssociatedTextRunLens={ 9 }
+++++++/S /BlockQuote AssociatedTextRunLens={ 12 }
+++++++/S /P AssociatedTextRunLens={ 11 }
+++++++/S /H1 AssociatedTextRunLens={ 10 }
+++++++/S /H2 AssociatedTextRunLens={ 8 })";
+
+  EXPECT_EQ(kExpectedStructureTree,
+            AccessibilityStructureElementToString(*doc_structure));
+}
+
+TEST_P(AccessibilityTest, AccessibilityStructureTreeWithImages) {
+  base::test::ScopedFeatureList pdf_tags;
+  pdf_tags.InitAndEnableFeature(features::kPdfTags);
+
+  TestClient client;
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("image_alt_text.pdf"));
+  ASSERT_TRUE(engine);
+  ASSERT_EQ(1, engine->GetNumberOfPages());
+
+  std::unique_ptr<AccessibilityStructureElement> doc_structure =
+      engine->GetStructureTree();
+  ASSERT_TRUE(doc_structure);
+
+  static constexpr char kExpectedStructureTree[] = R"(/S /Document
+++/S /Part
+++++/S /Document
+++++++/S /P
+++++++++/S /Figure /Alt (Image 1) AssociatedImage={page_object_index=0 bounds=380,78 67x68}
+++++++++/S /Figure /Alt (Image 2) AssociatedImage={page_object_index=1 bounds=380,385 27x28}
+++++++++/S /Figure /Alt (Image 3) AssociatedImage={page_object_index=2 bounds=380,678 1x1})";
 
   EXPECT_EQ(kExpectedStructureTree,
             AccessibilityStructureElementToString(*doc_structure));

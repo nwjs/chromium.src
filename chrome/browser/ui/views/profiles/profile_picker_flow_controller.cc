@@ -8,7 +8,6 @@
 #include <variant>
 
 #include "base/functional/bind.h"
-#include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/utf_string_conversions.h"
@@ -210,8 +209,11 @@ class ProfileCreationPostSignInAdapter : public ProfilePickerPostSignInAdapter {
       return;
     }
     is_finishing_ = true;
+    std::vector<PostHostClearedCallback> callbacks;
+    callbacks.push_back(std::move(callback));
+    callbacks.push_back(CreateFreshProfileExperienceCallback());
     callback = CombineCallbacks<PostHostClearedCallback, Browser*>(
-        std::move(callback), CreateFreshProfileExperienceCallback());
+        std::move(callbacks));
 
     profile_name_resolver_->RunWithProfileName(base::BindOnce(
         &ProfileCreationPostSignInAdapter::FinishFlow,
@@ -586,9 +588,7 @@ void ProfilePickerFlowController::OnProfilePickerStepShownReauthError(
   std::move(on_error_callback).Run(error);
 }
 
-// TODO(crbug.com/447585139): Rename this function as it is not longer
-// only in PostSigin flow
-void ProfilePickerFlowController::CancelPostSignInFlow() {
+void ProfilePickerFlowController::CancelSigninFlow() {
   // Triggered from either entreprise welcome or profile switch screens.
   DCHECK(current_step() == Step::kPostSignInFlow ||
          current_step() == Step::kAccountSelection);
@@ -619,8 +619,8 @@ void ProfilePickerFlowController::CancelPostSignInFlow() {
     }
     case ProfilePicker::EntryPoint::kFirstRun:
     case ProfilePicker::EntryPoint::kGlicManager:
-      NOTREACHED()
-          << "CancelPostSignInFlow() is not reachable from this entry point";
+      NOTREACHED() << "CancelSigninFlow() is not reachable from "
+                      "this entry point";
   }
 }
 
@@ -684,12 +684,14 @@ void ProfilePickerFlowController::PickProfile(
       profile_path, /*always_create=*/false,
       base::BindOnce(&ProfilePickerFlowController::OnSwitchToProfileComplete,
                      weak_ptr_factory_.GetWeakPtr(), args.open_settings,
+                     args.exit_flow_after_profile_picked,
                      std::move(pick_profile_complete_callback)),
       open_command_line_urls);
 }
 
 void ProfilePickerFlowController::OnSwitchToProfileComplete(
     bool open_settings,
+    bool exit_flow_after_profile_picked,
     base::OnceCallback<void(bool)> pick_profile_complete_callback,
     Browser* browser) {
   if (!browser || browser->is_delete_scheduled()) {
@@ -757,7 +759,7 @@ void ProfilePickerFlowController::OnSwitchToProfileComplete(
   // TODO(crbug.com/389887233): Investigate further how often this happens to
   // consider having a better architecture to avoid those issues with multiple
   // flow-exiting calls being executed at the same time.
-  if (!HasFlowExited()) {
+  if (!HasFlowExited() && exit_flow_after_profile_picked) {
     ExitFlow();
   }
 }

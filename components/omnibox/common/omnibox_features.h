@@ -26,10 +26,6 @@ BASE_DECLARE_FEATURE(kGroupingFrameworkForNonZPS);
 // focus, page context, provider, or URL v non-URL.
 BASE_DECLARE_FEATURE(kMaxZeroSuggestMatches);
 BASE_DECLARE_FEATURE(kUIExperimentMaxAutocompleteMatches);
-// The default value is established here as a bool so it can be referred to in
-// OmniboxFieldTrial.
-extern const bool kOmniboxMaxURLMatchesEnabledByDefault;
-BASE_DECLARE_FEATURE(kOmniboxMaxURLMatches);
 BASE_DECLARE_FEATURE(kDynamicMaxAutocomplete);
 
 // Local history zero-prefix (aka zero-suggest) and prefix suggestions.
@@ -66,7 +62,6 @@ BASE_DECLARE_FEATURE(kRichAutocompletion);
 BASE_DECLARE_FEATURE(kAiModeOmniboxEntryPoint);
 BASE_DECLARE_FEATURE(kAiModeOmniboxEntryPointEnUs);
 BASE_DECLARE_FEATURE(kHideAimEntrypointOnUserInput);
-BASE_DECLARE_FEATURE(kOmniboxAssistantVoiceSearch);
 BASE_DECLARE_FEATURE(kOmniboxMultimodalInput);
 BASE_DECLARE_FEATURE(kRemoveSearchReadyOmnibox);
 
@@ -146,16 +141,11 @@ BASE_DECLARE_FEATURE(kOmniboxAimShortcutTypedState);
 // users to type in multiline / longer text.
 BASE_DECLARE_FEATURE(kMultilineEditField);
 
-#if BUILDFLAG(IS_IOS)
-// Enables the Gemini Prototype Omnibox Provider.
-BASE_DECLARE_FEATURE(kGeminiPrototypeOmniboxProvider);
-
-// Returns whether the Gemini Prototype provider is enabled.
-bool IsGeminiPrototypeProviderEnabled();
-#endif
-
 // Whether the composebox should use the new `chrome-compose` client.
 BASE_DECLARE_FEATURE(kComposeboxUsesChromeComposeClient);
+
+// Controls whether or not contextual composebox should display suggestions.
+BASE_DECLARE_FEATURE(kComposeboxAttachmentsTypedState);
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_DECLARE_FEATURE(kDiagnostics);

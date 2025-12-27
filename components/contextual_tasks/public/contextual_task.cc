@@ -59,6 +59,7 @@ std::optional<Thread> ContextualTask::GetThread() const {
   return thread_;
 }
 
+UrlResource::UrlResource(const GURL& url) : url(url) {}
 UrlResource::UrlResource(const base::Uuid& url_id, const GURL& url)
     : url_id(url_id), url(url) {}
 UrlResource::UrlResource(const UrlResource& other) = default;
@@ -74,6 +75,11 @@ bool ContextualTask::AddUrlResource(const UrlResource& url_resource) {
     return true;
   }
   return false;
+}
+
+void ContextualTask::SetUrlResourcesFromServer(
+    std::vector<UrlResource> url_resources) {
+  url_resources_ = std::move(url_resources);
 }
 
 std::vector<UrlResource> ContextualTask::GetUrlResources() const {
@@ -105,8 +111,7 @@ void ContextualTask::AddTabId(SessionID tab_id) {
 }
 
 void ContextualTask::RemoveTabId(SessionID tab_id) {
-  tab_ids_.erase(std::remove(tab_ids_.begin(), tab_ids_.end(), tab_id),
-                 tab_ids_.end());
+  std::erase(tab_ids_, tab_id);
 }
 
 void ContextualTask::ClearTabIds() {

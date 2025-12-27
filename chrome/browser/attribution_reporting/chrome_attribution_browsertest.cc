@@ -13,6 +13,7 @@
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_attestations/privacy_sandbox_attestations_mixin.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/test/base/mixin_based_in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -148,7 +149,7 @@ IN_PROC_BROWSER_TEST_F(ChromeAttributionBrowserTest,
   // the web contents would not belong to the tab strip.
   EXPECT_EQ(1,
             browser()->tab_strip_model()->GetIndexOfWebContents(new_contents));
-  EXPECT_EQ(BrowserList::GetInstance()->size(), 1u);
+  EXPECT_EQ(chrome::GetTotalBrowserCount(), 1u);
   EXPECT_EQ(browser()->tab_strip_model()->count(), 2);
 }
 
@@ -237,6 +238,33 @@ IN_PROC_BROWSER_TEST_F(ChromeAttributionBrowserTest,
                    blink::mojom::WebFeature::kAttributionReportingAPIAll);
   ExpectUseCounter(histogram_tester,
                    blink::mojom::WebFeature::kPrivacySandboxAdsAPIs);
+}
+
+IN_PROC_BROWSER_TEST_F(ChromeAttributionBrowserTest, XhrUseCounterRecorded) {
+  base::HistogramTester histogram_tester;
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  page_load_metrics::PageLoadMetricsTestWaiter waiter(web_contents);
+  waiter.AddWebFeatureExpectation(
+      blink::mojom::WebFeature::kAttributionReportingXhr);
+
+  ASSERT_TRUE(server_.Start());
+
+  EXPECT_TRUE(ui_test_utils::NavigateToURL(
+      browser(),
+      server_.GetURL("a.test", "/page_with_conversion_redirect.html")));
+
+  GURL register_source_url =
+      server_.GetURL("c.test", "/register_source_headers.html");
+  EXPECT_TRUE(
+      ExecJs(web_contents, content::JsReplace("doAttributionEligibleXHR($1);",
+                                              register_source_url)));
+
+  waiter.Wait();
+
+  ExpectUseCounter(histogram_tester,
+                   blink::mojom::WebFeature::kAttributionReportingXhr);
 }
 
 class ChromeAttributionTriggerUseCounterBrowserTest

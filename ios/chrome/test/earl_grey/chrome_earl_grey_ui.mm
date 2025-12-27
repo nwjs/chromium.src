@@ -240,7 +240,7 @@ const int kMaxNumberOfAttemptsAtTypingTextInOmnibox = 3;
 }
 
 - (void)tapSettingsMenuButton:(id<GREYMatcher>)buttonMatcher {
-  ScopedSynchronizationDisabler disabler;
+  ScopedDisableTimerTracking disabler;
   id<GREYMatcher> interactableButtonMatcher =
       grey_allOf(buttonMatcher, grey_interactable(), nil);
   [[[EarlGrey selectElementWithMatcher:interactableButtonMatcher]
@@ -286,7 +286,7 @@ const int kMaxNumberOfAttemptsAtTypingTextInOmnibox = 3;
 
   // Make sure there are no history entry cells.
   id<GREYMatcher> historyEntryMatcher =
-      grey_allOf(grey_kindOfClassName(@"TableViewURLCell"),
+      grey_allOf(grey_kindOfClassName(@"UITableViewCell"),
                  grey_sufficientlyVisible(), nil);
   [[EarlGrey selectElementWithMatcher:historyEntryMatcher]
       assertWithMatcher:grey_nil()];
@@ -350,13 +350,25 @@ const int kMaxNumberOfAttemptsAtTypingTextInOmnibox = 3;
   }
 }
 
-- (void)focusOmniboxAndReplaceText:(NSString*)text {
-  [self focusOmnibox];
+- (void)pressEnter {
+  // Press enter to navigate.
+  // TODO(crbug.com/40916974): Use simulatePhysicalKeyboardEvent until
+  // replaceText can properly handle \n.
+  [ChromeEarlGrey simulatePhysicalKeyboardEvent:@"\n" flags:0];
+}
 
+- (void)replaceTextInOmnibox:(NSString*)text {
   if (text.length) {
+    [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
+        performAction:chrome_test_util::NotifyChangeTextInRange(text)];
     [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
         performAction:grey_replaceText(text)];
   }
+}
+
+- (void)focusOmniboxAndReplaceText:(NSString*)text {
+  [self focusOmnibox];
+  [self replaceTextInOmnibox:text];
 }
 
 - (void)focusOmnibox {
@@ -623,11 +635,7 @@ const int kMaxNumberOfAttemptsAtTypingTextInOmnibox = 3;
   while (!textHasBeenTypedProperly &&
          numberOfAttemptsPerformed <
              kMaxNumberOfAttemptsAtTypingTextInOmnibox) {
-    [ChromeEarlGreyUI focusOmnibox];
-
-    // Type the text.
-    [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
-        performAction:grey_replaceText(base::SysUTF8ToNSString(text))];
+    [self focusOmniboxAndReplaceText:base::SysUTF8ToNSString(text)];
     numberOfAttemptsPerformed++;
 
     // Check that the omnibox contains the typed text.
@@ -653,10 +661,7 @@ const int kMaxNumberOfAttemptsAtTypingTextInOmnibox = 3;
   }
 
   if (textHasBeenTypedProperly && shouldPressEnter) {
-    // Press enter to navigate.
-    // TODO(crbug.com/40916974): Use simulatePhysicalKeyboardEvent until
-    // replaceText can properly handle \n.
-    [ChromeEarlGrey simulatePhysicalKeyboardEvent:@"\n" flags:0];
+    [self pressEnter];
   }
 
   // Assert the text has been typed properly.

@@ -16,6 +16,7 @@ namespace tabs {
 namespace {
 constexpr int kUncollapsedWidth1 = 100;
 constexpr int kUncollapsedWidth2 = 200;
+constexpr int kSessionIDValue = 123;
 }  // namespace
 
 class VerticalTabStripStateControllerTest : public testing::Test {
@@ -28,8 +29,12 @@ class VerticalTabStripStateControllerTest : public testing::Test {
     pref_service_.registry()->RegisterBooleanPref(
         prefs::kVerticalTabsEnabled, false,
         user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
-    controller_ =
-        std::make_unique<VerticalTabStripStateController>(&pref_service_);
+    SessionID test_session_id = SessionID::FromSerializedValue(kSessionIDValue);
+
+    // Action items like CollapseActionItem are tested in interactive ui tests.
+    controller_ = std::make_unique<VerticalTabStripStateController>(
+        &pref_service_, /*root_action_item=*/nullptr,
+        /*session_service*/ nullptr, test_session_id);
   }
 
   void TearDown() override {

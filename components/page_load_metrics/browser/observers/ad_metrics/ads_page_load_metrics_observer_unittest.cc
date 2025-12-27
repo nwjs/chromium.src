@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "base/byte_count.h"
-#include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
@@ -36,7 +35,6 @@
 #include "components/page_load_metrics/browser/metrics_web_contents_observer.h"
 #include "components/page_load_metrics/browser/observers/ad_metrics/frame_tree_data.h"
 #include "components/page_load_metrics/browser/observers/page_load_metrics_observer_tester.h"
-#include "components/page_load_metrics/browser/page_load_metrics_memory_tracker.h"
 #include "components/page_load_metrics/browser/page_load_metrics_observer.h"
 #include "components/page_load_metrics/browser/page_load_tracker.h"
 #include "components/page_load_metrics/common/page_load_metrics_util.h"
@@ -126,10 +124,7 @@ constexpr char kOtherAdUrl[] = "https://other-ads.com/ad/disallowed.html";
 constexpr char kNonAdUrl[] = "https://foo.com/";
 constexpr char kNonAdUrlSameOrigin[] = "https://ads.com/foo";
 constexpr char kAllowedUrl[] = "https://foo.com/ad/not_disallowed.html";
-constexpr char kMemoryMainFrameMaxHistogramId[] =
-    "PageLoad.Clients.Ads.Memory.MainFrame.Max";
-constexpr char kMemoryUpdateCountHistogramId[] =
-    "PageLoad.Clients.Ads.Memory.UpdateCount";
+
 constexpr char kAdClickHistoryQueryCountHistogramId[] =
     "PageLoad.Clients.Ads.AdClick.HistoryQueryCount2";
 constexpr char kAdClickEtldPlusOneHistoryQueryCountHistogramId[] =
@@ -872,11 +867,6 @@ class AdsPageLoadMetricsObserverTest
                              "Activated.PostActivation");
   }
 
-  void SimulateV8MemoryChange(content::RenderFrameHost* render_frame_host,
-                              base::ByteCount delta_bytes) {
-    tester()->SimulateMemoryUpdate(render_frame_host, delta_bytes);
-  }
-
  protected:
   virtual void SetUpScopedFeatureList() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
@@ -888,8 +878,6 @@ class AdsPageLoadMetricsObserverTest
   }
 
   bool WithFencedFrames() { return GetParam(); }
-
-  virtual bool IsIncognito() { return false; }
 
   base::test::ScopedFeatureList scoped_feature_list_;
   std::unique_ptr<PageLoadMetricsObserverTester> tester_;
@@ -908,8 +896,7 @@ class AdsPageLoadMetricsObserverTest
         /*heavy_ad_service=*/nullptr,
         /*history_service=*/nullptr,
         base::BindRepeating([]() { return std::string("en-US"); }),
-        /*is_in_foreground=*/true, IsIncognito(), clock_.get(),
-        test_blocklist_.get());
+        /*is_in_foreground=*/true, clock_.get(), test_blocklist_.get());
     // Mock the noise provider to make tests deterministic. Tests can override
     // this again to test non-zero noise.
     observer->SetHeavyAdThresholdNoiseProviderForTesting(
@@ -3048,8 +3035,6 @@ TEST_P(AdsPageLoadMetricsObserverTest, NoFirstContentfulPaint_NotRecorded) {
   histogram_tester().ExpectTotalCount(
       "AdPaintTiming.NavigationToFirstContentfulPaint3", 0);
   histogram_tester().ExpectTotalCount(
-      "AdPaintTiming.NavigationToFirstContentfulPaint3.Incognito", 0);
-  histogram_tester().ExpectTotalCount(
       "AdPaintTiming.TopFrameNavigationToFirstAdFirstContentfulPaint", 0);
   histogram_tester().ExpectTotalCount(
       SuffixedHistogram(
@@ -3112,10 +3097,6 @@ TEST_P(AdsPageLoadMetricsObserverTest, FirstContentfulPaint_Recorded) {
   histogram_tester().ExpectUniqueSample(
       SuffixedHistogram("AdPaintTiming.NavigationToFirstContentfulPaint3"), 100,
       1);
-  histogram_tester().ExpectUniqueSample(
-      SuffixedHistogram(
-          "AdPaintTiming.NavigationToFirstContentfulPaint3.Incognito"),
-      100, 0);
 
   histogram_tester().ExpectUniqueSample(
       SuffixedHistogram(
@@ -3638,174 +3619,6 @@ TEST_P(AdsPageLoadMetricsObserverTest,
       ukm::builders::AdFrameLoad::kTiming_FirstContentfulPaintName, 90);
 }
 
-class AdsMemoryMeasurementTest : public AdsPageLoadMetricsObserverTest {
- private:
-  void SetUpScopedFeatureList() override {
-    scoped_feature_list_.InitWithFeaturesAndParameters(
-        {
-            {blink::features::kFencedFrames,
-             {{"implementation_type", "mparch"}}},
-            {page_load_metrics::features::kV8PerFrameMemoryMonitoring, {}},
-        },
-        {});
-  }
-};
-
-INSTANTIATE_TEST_SUITE_P(All, AdsMemoryMeasurementTest, testing::Bool());
-
-TEST_P(AdsMemoryMeasurementTest, SingleAdFrame_MaxMemoryBytesRecorded) {
-  RenderFrameHost* main_frame = NavigateMainFrame(kNonAdUrl);
-  RenderFrameHost* ad_frame = CreateAndNavigateSubFrame(kAdUrl, main_frame);
-
-  // Load kilobytes in frame so that aggregates are recorded.
-  ResourceDataUpdate(ad_frame, ResourceCached::kNotCached, base::KiB(10));
-
-  // Notify that memory measurement is available.
-  SimulateV8MemoryChange(ad_frame, base::KiB(10));
-
-  // Update memory usage. The max will change, as 30 is positive.
-  SimulateV8MemoryChange(ad_frame, base::KiB(30));
-
-  // Update memory usage. The max will remain the same, as -20 is negative.
-  SimulateV8MemoryChange(ad_frame, base::KiB(-20));
-
-  // Navigate main frame to record histograms.
-  NavigateMainFrame(kNonAdUrl);
-
-  histogram_tester().ExpectUniqueSample(kMemoryUpdateCountHistogramId, 3, 1);
-}
-
-TEST_P(AdsMemoryMeasurementTest, MultiAdFramesNested_MaxMemoryBytesRecorded) {
-  RenderFrameHost* main_frame = NavigateMainFrame(kNonAdUrl);
-  RenderFrameHost* ad_frame1 = CreateAndNavigateSubFrame(kAdUrl, main_frame);
-
-  // Create a nested subframe with the same origin as its parent.
-  RenderFrameHost* ad_frame2 = CreateAndNavigateSubFrame(kAdUrl, ad_frame1);
-
-  // Load kilobytes in each frame so that aggregates are recorded.
-  ResourceDataUpdate(ad_frame1, ResourceCached::kNotCached, base::KiB(10));
-  ResourceDataUpdate(ad_frame2, ResourceCached::kNotCached, base::KiB(10));
-
-  // Notify that memory measurement is available.
-  SimulateV8MemoryChange(ad_frame1, base::KiB(10));
-  SimulateV8MemoryChange(ad_frame2, base::KiB(10));
-
-  // Update memory usage. The max will change, as these values are both
-  // positive.
-  SimulateV8MemoryChange(ad_frame1, base::KiB(30));
-  SimulateV8MemoryChange(ad_frame2, base::KiB(10));
-
-  // Update memory usage. The max will remain the same, as these values
-  // are both negative.
-  SimulateV8MemoryChange(ad_frame1, base::KiB(-25));
-  SimulateV8MemoryChange(ad_frame2, base::KiB(-5));
-
-  // Navigate main frame to record histograms.
-  NavigateMainFrame(kNonAdUrl);
-
-  histogram_tester().ExpectUniqueSample(kMemoryUpdateCountHistogramId, 6, 1);
-}
-
-TEST_P(AdsMemoryMeasurementTest,
-       MultiAdFramesNonNested_MaxMemoryBytesRecorded) {
-  RenderFrameHost* main_frame = NavigateMainFrame(kNonAdUrl);
-  RenderFrameHost* ad_frame1 = CreateAndNavigateSubFrame(kAdUrl, main_frame);
-
-  // Create another ad subframe with a different origin.
-  RenderFrameHost* ad_frame2 =
-      CreateAndNavigateSubFrame(kOtherAdUrl, main_frame);
-
-  // Load kilobytes in each frame so that aggregates are recorded.
-  ResourceDataUpdate(ad_frame1, ResourceCached::kNotCached, base::KiB(10));
-  ResourceDataUpdate(ad_frame2, ResourceCached::kNotCached, base::KiB(10));
-
-  // Notify that memory measurement is available.
-  SimulateV8MemoryChange(ad_frame1, base::KiB(10));
-  SimulateV8MemoryChange(ad_frame2, base::KiB(10));
-
-  // Update memory usage. The second max and aggregate max
-  // will change.
-  SimulateV8MemoryChange(ad_frame1, base::KiB(-9));
-  SimulateV8MemoryChange(ad_frame2, base::KiB(100));
-
-  // Update memory usage. The aggregate max will change
-  // again after the first update.
-  SimulateV8MemoryChange(ad_frame1, base::KiB(1));
-  SimulateV8MemoryChange(ad_frame2, base::KiB(-90));
-
-  // Update memory usage. The first max will change.
-  SimulateV8MemoryChange(ad_frame1, base::KiB(50));
-  SimulateV8MemoryChange(ad_frame2, base::KiB(-5));
-
-  // Navigate main frame to record histograms.
-  NavigateMainFrame(kNonAdUrl);
-
-  histogram_tester().ExpectUniqueSample(kMemoryUpdateCountHistogramId, 8, 1);
-}
-
-TEST_P(AdsMemoryMeasurementTest, MainFrame_MaxMemoryBytesRecorded) {
-  RenderFrameHost* main_frame = NavigateMainFrame(kNonAdUrl);
-  RenderFrameHost* ad_frame = CreateAndNavigateSubFrame(kAdUrl, main_frame);
-
-  // Load kilobytes in each frame. |ad_frame| must exist for ad metrics to be
-  // tracked.
-  ResourceDataUpdate(main_frame, ResourceCached::kNotCached, base::KiB(1000));
-  ResourceDataUpdate(ad_frame, ResourceCached::kNotCached, base::KiB(10));
-
-  // Notify that memory measurement is available.
-  SimulateV8MemoryChange(main_frame, base::KiB(1000));
-
-  // Update memory usage. The max will also change, as this value is
-  // positive.
-  SimulateV8MemoryChange(main_frame, base::KiB(1000));
-
-  // Update memory usage. The max will remain the same, as this value is
-  // negative.
-  SimulateV8MemoryChange(main_frame, base::KiB(-1980));
-
-  // Navigate to record histograms.
-  NavigateFrame(kNonAdUrl, main_frame);
-
-  histogram_tester().ExpectUniqueSample(kMemoryMainFrameMaxHistogramId, 2000,
-                                        1);
-  histogram_tester().ExpectUniqueSample(kMemoryUpdateCountHistogramId, 3, 1);
-}
-
-class AdsPageLoadMetricsObserverIncognitoTest
-    : public AdsPageLoadMetricsObserverTest {
- private:
-  bool IsIncognito() override { return true; }
-};
-
-INSTANTIATE_TEST_SUITE_P(All,
-                         AdsPageLoadMetricsObserverIncognitoTest,
-                         testing::Bool());
-
-TEST_P(AdsPageLoadMetricsObserverIncognitoTest, FirstContentfulPaint_Recorded) {
-  base::TimeTicks start = base::TimeTicks::Now();
-  RenderFrameHost* main_frame =
-      NavigateFrame(kNonAdUrl, web_contents()->GetPrimaryMainFrame(), start);
-
-  RenderFrameHost* ad_frame = CreateAndNavigateSubFrame(
-      kAdUrl, main_frame, start + base::Milliseconds(100));
-
-  // Load some bytes so that the frame is recorded.
-  ResourceDataUpdate(ad_frame, ResourceCached::kNotCached, base::KiB(100));
-
-  // Set FirstContentfulPaint.
-  SimulateFirstContentfulPaint(ad_frame, base::Milliseconds(100));
-
-  // Navigate away and check the histogram.
-  NavigateFrame(kNonAdUrl, main_frame);
-
-  histogram_tester().ExpectUniqueSample(
-      SuffixedHistogram("AdPaintTiming.NavigationToFirstContentfulPaint3"), 100,
-      1);
-  histogram_tester().ExpectUniqueSample(
-      SuffixedHistogram(
-          "AdPaintTiming.NavigationToFirstContentfulPaint3.Incognito"),
-      100, 1);
-}
 
 class AdsPageLoadMetricsObserverAdUrlInHistoryTest : public testing::Test {
  public:

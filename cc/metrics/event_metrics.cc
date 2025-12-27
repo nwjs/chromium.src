@@ -347,6 +347,10 @@ EventMetrics::~EventMetrics() {
   }
 }
 
+void EventMetrics::CoalesceWith(const EventMetrics& newer_event) {
+  caused_frame_update_ |= newer_event.caused_frame_update_;
+}
+
 const char* EventMetrics::GetTypeName() const {
   return GetTypeName(type_);
 }
@@ -458,6 +462,17 @@ void EventMetrics::CopyTimestampsFrom(const EventMetrics& other,
 }
 
 // ScrollEventMetrics
+
+// static
+ScrollEventMetrics::DispatchBeginFrameArgs
+ScrollEventMetrics::DispatchBeginFrameArgs::From(
+    const viz::BeginFrameArgs& args) {
+  return {
+      .frame_time = args.frame_time,
+      .interval = args.interval,
+      .frame_id = args.frame_id,
+  };
+}
 
 // static
 std::unique_ptr<ScrollEventMetrics> ScrollEventMetrics::Create(
@@ -766,10 +781,14 @@ ScrollUpdateEventMetrics::~ScrollUpdateEventMetrics() {
 
 void ScrollUpdateEventMetrics::CoalesceWith(
     const ScrollUpdateEventMetrics& newer_scroll_update) {
+  DCHECK(!is_synthetic_);
+  DCHECK(!newer_scroll_update.is_synthetic_);
+  EventMetrics::CoalesceWith(newer_scroll_update);
   last_timestamp_ = newer_scroll_update.last_timestamp_;
   delta_ += newer_scroll_update.delta_;
   predicted_delta_ += newer_scroll_update.predicted_delta_;
   coalesced_event_count_ += newer_scroll_update.coalesced_event_count_;
+  did_scroll_ |= newer_scroll_update.did_scroll_;
 }
 
 ScrollUpdateEventMetrics* ScrollUpdateEventMetrics::AsScrollUpdate() {

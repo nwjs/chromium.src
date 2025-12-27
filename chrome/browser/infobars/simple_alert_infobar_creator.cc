@@ -19,10 +19,11 @@ void CreateSimpleAlertInfoBar(
     const std::u16string& message,
     bool auto_expire,
     bool should_animate,
-    bool closeable) {
+    bool closeable,
+    infobars::InfoBarDelegate::InfobarPriority infobar_priority) {
   if (infobar_manager) //NWJS#6340
   infobar_manager->AddInfoBar(
       CreateConfirmInfoBar(std::make_unique<SimpleAlertInfoBarDelegate>(
           infobar_identifier, vector_icon, message, auto_expire, should_animate,
-          closeable)));
+          closeable, infobar_priority)));
 }

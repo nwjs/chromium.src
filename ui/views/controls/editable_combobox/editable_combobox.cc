@@ -54,6 +54,7 @@
 #include "ui/views/controls/button/button_controller.h"
 #include "ui/views/controls/combobox/combobox_util.h"
 #include "ui/views/controls/combobox/empty_combobox_model.h"
+#include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/menu/menu_config.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/controls/menu/menu_types.h"
@@ -74,8 +75,8 @@ namespace views {
 
 namespace {
 
-int kEditableComboboxButtonSize = 24;
-int kEditableComboboxControlsContainerInsets = 6;
+constexpr int kEditableComboboxButtonSize = 24;
+constexpr int kEditableComboboxControlsContainerInsets = 6;
 
 class Arrow : public Button {
   METADATA_HEADER(Arrow, Button)

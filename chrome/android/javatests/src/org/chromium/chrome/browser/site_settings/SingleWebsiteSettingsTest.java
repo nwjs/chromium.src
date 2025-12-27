@@ -28,6 +28,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
 import androidx.preference.Preference;
+import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 
 import org.junit.Assume;
@@ -164,6 +165,8 @@ public class SingleWebsiteSettingsTest {
                                             ContentSettingsType.NOTIFICATIONS)));
                 });
 
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+
         settingsActivity.finish();
     }
 
@@ -175,7 +178,7 @@ public class SingleWebsiteSettingsTest {
                 new GeolocationSetting(ContentSetting.ALLOW, ContentSetting.ALLOW);
         GeolocationSetting blockSetting =
                 new GeolocationSetting(ContentSetting.BLOCK, ContentSetting.BLOCK);
-        runGeolocationTest(allowSetting, blockSetting, "Allowed • Precise", "Blocked");
+        runGeolocationTest(allowSetting, blockSetting, "Allowed • Precise", "Not allowed");
     }
 
     @Test
@@ -186,7 +189,7 @@ public class SingleWebsiteSettingsTest {
                 new GeolocationSetting(ContentSetting.ALLOW, ContentSetting.BLOCK);
         GeolocationSetting blockSetting =
                 new GeolocationSetting(ContentSetting.BLOCK, ContentSetting.BLOCK);
-        runGeolocationTest(allowSetting, blockSetting, "Allowed • Approximate", "Blocked");
+        runGeolocationTest(allowSetting, blockSetting, "Allowed • Approximate", "Not allowed");
     }
 
     private static void runGeolocationTest(
@@ -364,6 +367,23 @@ public class SingleWebsiteSettingsTest {
         assertEquals(
                 "You can turn on precise location in Android Settings.",
                 warning.getTitle().toString());
+
+        // Open the location settings subpage.
+        onView(withText(containsString("Location"))).perform(click());
+
+        int summaryResId = R.string.website_settings_using_approximate_location_summary;
+        // The subpage should show the summary on the 'Precise' option.
+        onView(withText("Precise")).check(matches(hasSibling(withText(summaryResId))));
+
+        // When 'Approximate' is selected, the summary should disappear.
+        onView(withText(R.string.website_settings_permissions_geolocation_approximate))
+                .perform(click());
+        onView(withText(summaryResId)).check(doesNotExist());
+
+        // When 'Precise' is selected again, the summary should reappear.
+        onView(withText(R.string.website_settings_permissions_geolocation_precise))
+                .perform(click());
+        onView(withText("Precise")).check(matches(hasSibling(withText(summaryResId))));
 
         settingsActivity.finish();
     }
@@ -551,6 +571,7 @@ public class SingleWebsiteSettingsTest {
                                     SingleWebsiteSettings.getPreferenceKey(
                                             ContentSettingsType.REQUEST_DESKTOP_SITE)));
                 });
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         settingsActivity.finish();
     }
 
@@ -677,6 +698,7 @@ public class SingleWebsiteSettingsTest {
                                     primaryUrl,
                                     secondaryUrl);
                 });
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         return result[0];
     }
 
@@ -732,6 +754,8 @@ public class SingleWebsiteSettingsTest {
                         doTest(websitePreferences);
                     });
 
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+
             mSettingsActivity.finish();
         }
 
@@ -778,6 +802,7 @@ public class SingleWebsiteSettingsTest {
                 () ->
                         info.setGeolocationSetting(
                                 ProfileManager.getLastUsedRegularProfile(), setting));
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         website.setPermissionInfo(info);
         return website;
     }
@@ -795,6 +820,7 @@ public class SingleWebsiteSettingsTest {
                         sessionModel);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> info.setContentSetting(ProfileManager.getLastUsedRegularProfile(), setting));
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         website.setPermissionInfo(info);
         return website;
     }
@@ -817,6 +843,7 @@ public class SingleWebsiteSettingsTest {
                 () -> {
                     info.setContentSetting(ProfileManager.getLastUsedRegularProfile(), setting);
                 });
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         website.addEmbeddedPermission(info);
         return website;
     }

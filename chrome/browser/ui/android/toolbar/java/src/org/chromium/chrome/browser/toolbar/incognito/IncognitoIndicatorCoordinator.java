@@ -15,6 +15,7 @@ import android.view.ViewStub;
 
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -34,6 +35,8 @@ import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.widget.AnchoredPopupWindow;
 import org.chromium.ui.widget.ViewRectProvider;
 
+import java.util.function.Supplier;
+
 @NullMarked
 public class IncognitoIndicatorCoordinator extends ToolbarChild
         implements View.OnClickListener, View.OnLongClickListener, View.OnContextClickListener {
@@ -44,6 +47,7 @@ public class IncognitoIndicatorCoordinator extends ToolbarChild
     private final int mDefaultFallbackWidth;
     private int mCachedWidth;
     private @Nullable AnchoredPopupWindow mMenuWindow;
+    private final Supplier<Integer> mIncognitoWindowCountSupplier;
 
     /**
      * Creates an IncognitoIndicatorCoordinator for managing the incognito indicator on the top
@@ -53,16 +57,19 @@ public class IncognitoIndicatorCoordinator extends ToolbarChild
      * @param topUiThemeColorProvider Provides theme and tint color that should be applied to the
      *     view.
      * @param incognitoStateProvider Provides incognito state to update view.
+     * @param incognitoWindowCountSupplier A supplier for the number of incognito windows.
      * @param visible Whether the toolbar buttons should start out being visible.
      */
     public IncognitoIndicatorCoordinator(
             ToolbarLayout parentToolbar,
             ThemeColorProvider topUiThemeColorProvider,
             IncognitoStateProvider incognitoStateProvider,
+            Supplier<Integer> incognitoWindowCountSupplier,
             boolean visible) {
         super(topUiThemeColorProvider, incognitoStateProvider);
         mParentToolbar = parentToolbar;
         mVisible = visible;
+        mIncognitoWindowCountSupplier = incognitoWindowCountSupplier;
         setVisibility(mVisible);
 
         // Use a width of three toolbar buttons as a fallback for displaying the incognito
@@ -179,6 +186,7 @@ public class IncognitoIndicatorCoordinator extends ToolbarChild
                 (model, view) -> {
                     int menuId = model.get(ListMenuItemProperties.MENU_ITEM_ID);
                     if (menuId == R.id.close_all_incognito_windows_menu_id) {
+                        RecordUserAction.record("MobileIncognitoIndicatorCloseAllWindows");
                         IncognitoTabHostUtils.closeAllIncognitoTabs();
                     }
                     if (mMenuWindow != null) {
@@ -217,8 +225,7 @@ public class IncognitoIndicatorCoordinator extends ToolbarChild
 
     @VisibleForTesting
     ModelList buildMenuItems(Context context) {
-        // TODO(crbug.com/435491652): Add functionality to get number of Incognito windows.
-        int incognitoWindowCount = 10;
+        int incognitoWindowCount = mIncognitoWindowCountSupplier.get();
         String title =
                 context.getResources()
                         .getQuantityString(
@@ -244,6 +251,7 @@ public class IncognitoIndicatorCoordinator extends ToolbarChild
             mMenuWindow.dismiss();
             return;
         }
+        RecordUserAction.record("MobileIncognitoIndicatorClicked");
         Context context = mIncognitoIndicator.getContext();
         createAndShowMenu(context, buildMenuItems(context));
     }

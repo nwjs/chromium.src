@@ -240,6 +240,18 @@ static_library("browser") {
     deps += [ "//components/webauthn/core/browser:passkey_model" ]
   }
 
+  if (is_win || is_mac || is_linux || is_chromeos) {
+    sources += [
+      "password_manager_blocklist_policy.cc",
+      "password_manager_blocklist_policy.h",
+    ]
+    deps += [ "//components/user_prefs" ]
+    public_deps += [
+      "//components/keyed_service/content",
+      "//components/policy/core/browser",
+    ]
+  }
+
   if (use_blink) {
     sources += [
       "http_credentials_cleaner.cc",
@@ -574,6 +586,7 @@ source_set("unit_tests") {
     "//components/sync_preferences:test_support",
     "//components/ukm:test_support",
     "//components/url_formatter",
+    "//device/fido",
     "//net:test_support",
     "//services/metrics/public/cpp:ukm_builders",
     "//services/network:network_service",

@@ -69,8 +69,13 @@
 using content_settings::SettingSource;
 using content_settings::mojom::SessionModel;
 using ::testing::_;
+using ::testing::AllOf;
+using ::testing::Field;
 using ::testing::MockFunction;
+using ::testing::Property;
+using ::testing::ResultOf;
 using ::testing::Return;
+using ::testing::UnorderedElementsAre;
 
 namespace {
 
@@ -2071,6 +2076,91 @@ TEST_F(HostContentSettingsMapTest, CanSetNarrowestSetting) {
                                                   ContentSettingsType::POPUPS));
 }
 
+TEST_F(HostContentSettingsMapTest, MigrateSettingsEmbeddingOriginToWildcard) {
+  TestingProfile profile;
+  HostContentSettingsMap* map =
+      HostContentSettingsMapFactory::GetForProfile(&profile);
+
+  GURL origin("https://requester.com");
+
+  ContentSettingsPattern pattern =
+      ContentSettingsPattern::FromURLNoWildcard(origin);
+
+  map->AllowInvalidSecondaryPatternForTesting(true);
+
+  map->SetContentSettingCustomScope(pattern, pattern,
+                                    ContentSettingsType::GEOLOCATION,
+                                    CONTENT_SETTING_ALLOW);
+
+  map->MigrateSettingsPrecedingPermissionDelegationActivation();
+
+  EXPECT_THAT(
+      map->GetSettingsForOneType(ContentSettingsType::GEOLOCATION),
+      UnorderedElementsAre(
+          AllOf(Field(&ContentSettingPatternSource::primary_pattern,
+                      ContentSettingsPattern::Wildcard()),
+                Field(&ContentSettingPatternSource::secondary_pattern,
+                      ContentSettingsPattern::Wildcard()),
+                Property(&ContentSettingPatternSource::GetContentSetting,
+                         CONTENT_SETTING_ASK)),
+          AllOf(Field(&ContentSettingPatternSource::primary_pattern, pattern),
+                Field(&ContentSettingPatternSource::secondary_pattern,
+                      ContentSettingsPattern::Wildcard()),
+                Property(&ContentSettingPatternSource::GetContentSetting,
+                         CONTENT_SETTING_ALLOW))));
+}
+
+TEST_F(HostContentSettingsMapTest,
+       MigrateSettingsEmbeddingOriginToWildcardForGeolocationWithOptions) {
+  base::test::ScopedFeatureList enable_approx_geolocation(
+      content_settings::features::kApproximateGeolocationPermission);
+  TestingProfile profile;
+  HostContentSettingsMap* map =
+      HostContentSettingsMapFactory::GetForProfile(&profile);
+
+  GURL origin("https://requester.com");
+
+  ContentSettingsPattern pattern =
+      ContentSettingsPattern::FromURLNoWildcard(origin);
+
+  map->AllowInvalidSecondaryPatternForTesting(true);
+
+  GeolocationSetting geolocation_setting =
+      GeolocationSetting{.approximate = PermissionOption::kAllowed,
+                         .precise = PermissionOption::kDenied};
+  map->SetPermissionSettingCustomScope(
+      pattern, pattern, ContentSettingsType::GEOLOCATION_WITH_OPTIONS,
+      geolocation_setting);
+
+  map->MigrateSettingsPrecedingPermissionDelegationActivation();
+
+  auto value_to_permission_setting = [](const base::Value& value) {
+    return content_settings::ValueToPermissionSetting(
+        content_settings::PermissionSettingsRegistry::GetInstance()->Get(
+            ContentSettingsType::GEOLOCATION_WITH_OPTIONS),
+        value);
+  };
+
+  EXPECT_THAT(
+      map->GetSettingsForOneType(ContentSettingsType::GEOLOCATION_WITH_OPTIONS),
+      UnorderedElementsAre(
+          AllOf(Field(&ContentSettingPatternSource::primary_pattern,
+                      ContentSettingsPattern::Wildcard()),
+                Field(&ContentSettingPatternSource::secondary_pattern,
+                      ContentSettingsPattern::Wildcard()),
+                Field(&ContentSettingPatternSource::setting_value,
+                      ResultOf(value_to_permission_setting,
+                               GeolocationSetting{
+                                   .approximate = PermissionOption::kAsk,
+                                   .precise = PermissionOption::kAsk}))),
+          AllOf(Field(&ContentSettingPatternSource::primary_pattern, pattern),
+                Field(&ContentSettingPatternSource::secondary_pattern,
+                      ContentSettingsPattern::Wildcard()),
+                Field(&ContentSettingPatternSource::setting_value,
+                      ResultOf(value_to_permission_setting,
+                               geolocation_setting)))));
+}
+
 TEST_F(HostContentSettingsMapTest, MigrateRequestingAndTopLevelOriginSettings) {
   TestingProfile profile;
   HostContentSettingsMap* map =
@@ -2232,11 +2322,11 @@ TEST_F(HostContentSettingsMapTest, GetPatternsFromScopingType) {
   // Testing cases:
   //   WebsiteSettingsInfo::REQUESTING_ORIGIN_AND_TOP_SCHEMEFUL_SITE_SCOPE,
   host_content_settings_map->SetContentSettingDefaultScope(
-      primary_url, secondary_url, ContentSettingsType::TPCD_TRIAL,
+      primary_url, secondary_url, ContentSettingsType::TOP_LEVEL_STORAGE_ACCESS,
       CONTENT_SETTING_ALLOW);
 
   settings = host_content_settings_map->GetSettingsForOneType(
-      ContentSettingsType::TPCD_TRIAL);
+      ContentSettingsType::TOP_LEVEL_STORAGE_ACCESS);
 
   EXPECT_EQ(settings[0].primary_pattern,
             ContentSettingsPattern::FromURLNoWildcard(primary_url));
@@ -2305,7 +2395,8 @@ TEST_F(HostContentSettingsMapTest, GetPatternsForContentSettingsType) {
   // Testing cases:
   //   WebsiteSettingsInfo::REQUESTING_ORIGIN_AND_TOP_SCHEMEFUL_SITE_SCOPE,
   patterns = HostContentSettingsMap::GetPatternsForContentSettingsType(
-      primary_url, secondary_url, ContentSettingsType::TPCD_TRIAL);
+      primary_url, secondary_url,
+      ContentSettingsType::TOP_LEVEL_STORAGE_ACCESS);
 
   EXPECT_EQ(patterns.first,
             ContentSettingsPattern::FromURLNoWildcard(primary_url));
@@ -2863,3 +2954,28 @@ TEST_F(HostContentSettingsMapTest, DevToolsFileAccess) {
                 ContentSettingsType::FILE_SYSTEM_WRITE_GUARD));
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+TEST_F(HostContentSettingsMapTest, ExtensionContentSetting) {
+  TestingProfile profile;
+  HostContentSettingsMap* map =
+      HostContentSettingsMapFactory::GetForProfile(&profile);
+
+  const std::string extension_id = "abcdefghijklmnopqrstuvwxyzabcdef";
+  const std::string extension_url_str = "chrome-extension://" + extension_id;
+  const GURL extension_url(extension_url_str + "/index.html");
+  map->SetContentSettingDefaultScope(
+      extension_url, GURL(), ContentSettingsType::SOUND, CONTENT_SETTING_BLOCK);
+
+  EXPECT_EQ(CONTENT_SETTING_BLOCK,
+            map->GetContentSetting(extension_url, extension_url,
+                                   ContentSettingsType::SOUND));
+
+  // Verify the setting is not applied to a web URL that has the same host as
+  // the extension ID.
+  const GURL domain_url("https://" + extension_id);
+  EXPECT_NE(CONTENT_SETTING_BLOCK,
+            map->GetContentSetting(domain_url, domain_url,
+                                   ContentSettingsType::SOUND));
+}
+#endif

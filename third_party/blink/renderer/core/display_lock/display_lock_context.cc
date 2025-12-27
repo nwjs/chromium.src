@@ -354,6 +354,12 @@ void DisplayLockContext::DidStyleChildren() {
   element_->MarkAncestorsWithChildNeedsReattachLayoutTree();
 }
 
+bool DisplayLockContext::ShouldActivateForScreenReader() const {
+  return document_->GetStyleEngine().SkippedContainerRecalc() &&
+         IsActivatable(DisplayLockActivationReason::kAccessibility) &&
+         IsScreenReaderActive();
+}
+
 void DisplayLockContext::DidLayoutChildren() {
   // Since we did layout on children already, we'll clear this.
   child_layout_was_blocked_ = false;
@@ -1288,7 +1294,7 @@ bool DisplayLockContext::DescendantIsAnchorTargetFromOutsideDisplayLock() {
       for (const PhysicalBoxFragment& fragment :
            ancestor_box->PhysicalFragments()) {
         // Early out if there are no anchor targets in the subtree.
-        if (!fragment.HasAnchorQuery()) {
+        if (!fragment.HasChildAnchors()) {
           return false;
         }
         // Early out if there are not OOF children.

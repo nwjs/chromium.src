@@ -418,7 +418,8 @@ std::string SanitizeFrontendQueryParam(const std::string& key,
   }
 
   if (key == "panel" &&
-      (value == "elements" || value == "console" || value == "sources")) {
+      (value == "elements" || value == "console" || value == "sources" ||
+       value == "network" || value == "resources" || value == "performance")) {
     return value;
   }
 
@@ -777,7 +778,9 @@ bool IsAnyAidaPoweredFeatureEnabled() {
              ::features::kDevToolsAiAssistanceNetworkAgent) ||
          base::FeatureList::IsEnabled(
              ::features::kDevToolsAiAssistancePerformanceAgent) ||
-         base::FeatureList::IsEnabled(::features::kDevToolsAiCodeCompletion);
+         base::FeatureList::IsEnabled(
+             ::features::kDevToolsAiCodeCompletion) ||
+         base::FeatureList::IsEnabled(::features::kDevToolsAiCodeGeneration);
 }
 }  // namespace
 
@@ -1851,6 +1854,23 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
                       std::move(ai_code_completion_dict));
   }
 
+  if (base::FeatureList::IsEnabled(::features::kDevToolsAiCodeGeneration)) {
+    base::Value::Dict ai_code_generation_dict;
+    ai_code_generation_dict.Set(
+        "enabled",
+        base::FeatureList::IsEnabled(::features::kDevToolsAiCodeGeneration));
+    ai_code_generation_dict.Set(
+        "modelId", features::kDevToolsAiCodeGenerationModelId.Get());
+    ai_code_generation_dict.Set(
+        "temperature", features::kDevToolsAiCodeGenerationTemperature.Get());
+    ai_code_generation_dict.Set(
+        "userTier",
+        features::kDevToolsAiCodeGenerationUserTier.GetName(
+            features::kDevToolsAiCodeGenerationUserTier.Get()));
+    response_dict.Set("devToolsAiCodeGeneration",
+                      std::move(ai_code_generation_dict));
+  }
+
   if (base::FeatureList::IsEnabled(
           ::features::kDevToolsEnableDurableMessages)) {
     base::Value::Dict devtools_durable_message_dict;
@@ -1936,16 +1956,6 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
                        ::features::kDevToolsAnimationStylesInStylesTab));
     response_dict.Set("devToolsAnimationStylesInStylesTab",
                       std::move(devtools_animation_styles_in_styles_tab_dict));
-  }
-
-  if (net::features::kIpPrivacyEnableIppInDevTools.Get()) {
-    response_dict.Set("devToolsIpProtectionInDevTools",
-                      base::Value::Dict().Set("enabled", true));
-  }
-
-  if (net::features::kIpPrivacyEnableIppPanelInDevTools.Get()) {
-    response_dict.Set("devToolsIpProtectionPanelInDevTools",
-                      base::Value::Dict().Set("enabled", true));
   }
 
   base::Value::Dict deep_links_via_extensibility_api_dict;
@@ -2050,13 +2060,21 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
                     std::move(starting_style_debugging));
 
   base::Value::Dict prompt_api_dict;
-  prompt_api_dict.Set(
-      "enabled",
-      base::FeatureList::IsEnabled(::features::kDevToolsAiPromptApi) &&
-          base::FeatureList::IsEnabled(blink::features::kBuiltInAIAPI));
+  prompt_api_dict.Set("enabled", base::FeatureList::IsEnabled(
+                                     ::features::kDevToolsAiPromptApi));
   prompt_api_dict.Set("allowWithoutGpu",
                       features::kDevToolsAiPromptApiAllowWithoutGpu.Get());
   response_dict.Set("devToolsAiPromptApi", std::move(prompt_api_dict));
+
+  if (base::FeatureList::IsEnabled(
+          ::features::kDevToolsAiAssistanceContextSelectionAgent)) {
+    base::Value::Dict devtools_context_selection_agent;
+    devtools_context_selection_agent.Set(
+        "enabled", base::FeatureList::IsEnabled(
+                       ::features::kDevToolsAiAssistanceContextSelectionAgent));
+    response_dict.Set("devToolsAiAssistanceContextSelectionAgent",
+                      std::move(devtools_context_selection_agent));
+  }
 
   base::Value response = base::Value(std::move(response_dict));
   std::move(callback).Run(&response);

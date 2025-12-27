@@ -83,7 +83,6 @@ enum WebUiState {
   // Web view is displayed.
   kReady = 8,
   // Glic is unresponsive. Currently this will show the same UI as kError.
-  // TODO(crbug.com/394162784): create an unresponsive UI.
   kUnresponsive = 9,
   // Sign in panel is displayed.
   kSignIn = 10,
@@ -336,6 +335,8 @@ struct WebClientInitialState {
   bool enable_get_tab_by_id;
   // Whether kGlicOpenPasswordManagerSettingsPageApi is enabled.
   bool enable_open_password_manager_settings_page;
+  // Whether kGlicLoadAndExtractContent is enabled.
+  bool enable_load_and_extract_content;
 };
 
 // Options for getting tab context.
@@ -1049,6 +1050,8 @@ enum WebUseCounter {
   // Default counter. Never used.
   [Default] kDefault = 0,
   kSubmitPromptWithAutoMode = 1,
+  kTaskInterruptedForUserConfirmation = 2,
+  kTaskInterruptedForUserClarification = 3,
 };
 
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicWebUseCounter)

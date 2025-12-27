@@ -50,12 +50,11 @@ WebNNContextImpl::WebNNContextImpl(
     scoped_refptr<base::SingleThreadTaskRunner> owning_task_runner,
     gpu::SharedImageManager* shared_image_manager,
     scoped_refptr<base::SingleThreadTaskRunner> main_task_runner)
-    : WebNNObjectImpl<mojom::WebNNContext,
+    : WebNNObjectBase<mojom::WebNNContext,
                       blink::WebNNContextToken,
                       mojo::Receiver<mojom::WebNNContext>>(
           std::move(receiver),
-          sequence->scheduler_task_runner(),
-          std::move(owning_task_runner)),
+          sequence->scheduler_task_runner()),
       context_provider_(std::move(context_provider)),
       properties_(IntersectWithBaseProperties(std::move(properties))),
       options_(std::move(options)),
@@ -65,7 +64,8 @@ WebNNContextImpl::WebNNContextImpl(
       read_tensor_producer_(std::move(read_tensor_producer)),
       memory_type_tracker_(std::move(memory_tracker)),
       shared_image_manager_(shared_image_manager),
-      main_task_runner_(std::move(main_task_runner)) {
+      main_task_runner_(std::move(main_task_runner)),
+      owning_task_runner_(std::move(owning_task_runner)) {
 #if BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
   // Initialize XNNPACK
   const xnn_status status = xnn_initialize(/*allocator=*/nullptr);
@@ -295,36 +295,32 @@ void WebNNContextImpl::CreateTensorFromMailbox(mojom::TensorInfoPtr tensor_info,
   // Wait for the SharedImage to be created.
   WaitSyncToken(fence);
 
-  mojo::PendingAssociatedRemote<mojom::WebNNTensor> remote;
-  auto receiver = remote.InitWithNewEndpointAndPassReceiver();
-
   // Must be a scheduled task since this depends on shared image creation task.
   scheduler_task_runner()->PostTask(
       FROM_HERE,
       base::BindOnce(
-          [](base::WeakPtr<WebNNContextImpl> self,
-             mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
-             mojom::TensorInfoPtr tensor_info, const gpu::Mailbox& mailbox,
-             CreateTensorCallback callback,
-             mojo::PendingAssociatedRemote<mojom::WebNNTensor> remote) {
-            if (!self) {
-              return;
-            }
-
+          [](WebNNContextImpl* self, mojom::TensorInfoPtr tensor_info,
+             const gpu::Mailbox& mailbox, CreateTensorCallback callback) {
             CHECK(self->shared_image_manager_);
 
             constexpr char kWebNNCreateTensorErrorMessage[] =
                 "Failed to create tensor.";
 
-            std::unique_ptr<gpu::WebNNTensorRepresentation> representation =
-                self->shared_image_manager_->ProduceWebNNTensor(
-                    mailbox, &self->memory_type_tracker_);
+            // Tensor will own the representation.
+            WebNNTensorImpl::RepresentationPtr representation(
+                self->shared_image_manager_
+                    ->ProduceWebNNTensor(mailbox, &self->memory_type_tracker_)
+                    .release(),
+                OnTaskRunnerDeleter(self->main_task_runner()));
             if (!representation) {
               std::move(callback).Run(ToError<mojom::CreateTensorResult>(
                   mojom::Error::Code::kUnknownError,
                   kWebNNCreateTensorErrorMessage));
               return;
             }
+
+            mojo::PendingAssociatedRemote<mojom::WebNNTensor> remote;
+            auto receiver = remote.InitWithNewEndpointAndPassReceiver();
 
             auto result = self->CreateTensorFromSharedImageImpl(
                 std::move(receiver), std::move(tensor_info),
@@ -348,8 +344,10 @@ void WebNNContextImpl::CreateTensorFromMailbox(mojom::TensorInfoPtr tensor_info,
                 mojom::CreateTensorResult::NewSuccess(std::move(success)));
             self->tensor_impls_.emplace(*std::move(result));
           },
-          AsWeakPtr(), std::move(receiver), std::move(tensor_info), mailbox,
-          std::move(callback), std::move(remote)));
+          // Safe to use base::Unretained because this context owns the sequence
+          // used by the task runner to run this task.
+          base::Unretained(this), std::move(tensor_info), mailbox,
+          std::move(callback)));
 }
 
 void WebNNContextImpl::RemoveWebNNTensorImpl(

@@ -15,7 +15,7 @@ IpcMouseCursorMonitor::IpcMouseCursorMonitor(
 
 IpcMouseCursorMonitor::~IpcMouseCursorMonitor() = default;
 
-void IpcMouseCursorMonitor::Init(Callback* callback, Mode mode) {
+void IpcMouseCursorMonitor::Init(Callback* callback) {
   DCHECK(!callback_);
   DCHECK(callback);
   callback_ = callback;
@@ -32,7 +32,13 @@ void IpcMouseCursorMonitor::SetPreferredCaptureInterval(
 void IpcMouseCursorMonitor::OnMouseCursor(
     std::unique_ptr<webrtc::MouseCursor> cursor) {
   DCHECK(callback_);
-  callback_->OnMouseCursor(cursor.release());
+  callback_->OnMouseCursor(std::move(cursor));
+}
+
+void IpcMouseCursorMonitor::OnMouseCursorFractionalPosition(
+    const protocol::FractionalCoordinate& position) {
+  DCHECK(callback_);
+  callback_->OnMouseCursorFractionalPosition(position);
 }
 
 }  // namespace remoting

@@ -37,7 +37,6 @@
 
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_forward.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/trace_event/common/trace_event_common.h"
 #include "base/trace_event/trace_event.h"
@@ -1392,6 +1391,7 @@ void WindowPerformance::AddContainerTiming(
     const DOMPaintTimingInfo& paint_timing_info,
     const gfx::Rect& rect,
     uint64_t size,
+    Element* root_element,
     const AtomicString& identifier,
     Element* last_painted_element,
     const DOMPaintTimingInfo& first_paint_timing_info) {
@@ -1402,9 +1402,8 @@ void WindowPerformance::AddContainerTiming(
 
   PerformanceContainerTiming* entry = PerformanceContainerTiming::Create(
       AtomicString("container-paints"), paint_timing_info.presentation_time,
-      rect, size, identifier, last_painted_element,
-      first_paint_timing_info.presentation_time, DomWindow(),
-      NavigationId());
+      rect, size, root_element, identifier, last_painted_element,
+      first_paint_timing_info.presentation_time, DomWindow(), NavigationId());
   TRACE_EVENT2("loading", "PerformanceContainerTiming", "data",
                entry->ToTracedValue(), "frame",
                GetFrameIdForTracing(DomWindow()->GetFrame()));

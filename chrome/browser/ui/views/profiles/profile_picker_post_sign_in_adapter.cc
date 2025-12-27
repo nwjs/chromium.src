@@ -5,9 +5,9 @@
 #include "chrome/browser/ui/views/profiles/profile_picker_post_sign_in_adapter.h"
 
 #include <memory>
+#include <optional>
 
 #include "base/functional/bind.h"
-#include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/string_util.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
@@ -73,7 +73,7 @@ void OnManagementUserChoice(signin::SigninChoiceCallback callback,
   // - from main view: returns to the main view,
   // - from FRE: opens a signed out browser,
   // - from profile menu: closes the picker.
-  ProfilePicker::CancelSignedInFlow();
+  ProfilePicker::CancelSignInFlow();
 }
 
 }  //  namespace
@@ -160,11 +160,13 @@ void ProfilePickerPostSignInAdapter::ShowHistorySyncOptinScreen(
         history_optin_completed_callback) {
   CHECK(history_optin_completed_callback.value());
   CHECK(on_post_signin_in_finished_callback_.value());
+  std::vector<HistorySyncOptinHelper::FlowCompletedCallback> callbacks;
+  callbacks.push_back(std::move(on_post_signin_in_finished_callback_));
+  callbacks.push_back(std::move(history_optin_completed_callback));
   on_post_signin_in_finished_callback_ =
       CombineCallbacks<HistorySyncOptinHelper::FlowCompletedCallback,
                        HistorySyncOptinHelper::ScreenChoiceResult>(
-          std::move(on_post_signin_in_finished_callback_),
-          std::move(history_optin_completed_callback));
+          std::move(callbacks));
 
   // Finishes the sign-in process by moving to the history sync optin screen.
   CHECK(IsInitialized());
@@ -204,8 +206,11 @@ void ProfilePickerPostSignInAdapter::FinishAndOpenBrowser(
   if (url_to_open_.is_valid()) {
     auto open_url_callback = PostHostClearedCallback(
         base::BindOnce(&OpenNewTabInBrowser, url_to_open_));
+    std::vector<PostHostClearedCallback> callbacks;
+    callbacks.push_back(std::move(open_url_callback));
+    callbacks.push_back(std::move(callback));
     callback = CombineCallbacks<PostHostClearedCallback, Browser*>(
-        std::move(open_url_callback), std::move(callback));
+        std::move(callbacks));
   }
 
   FinishAndOpenBrowserInternal(std::move(callback), is_continue_callback);
@@ -326,7 +331,11 @@ void ProfilePickerPostSignInAdapter::SwitchToHistorySyncOptinFinished() {
       static_cast<HistorySyncOptinUI*>(contents()->GetWebUI()->GetController());
   CHECK(!on_post_signin_in_finished_callback_->is_null());
   history_sync_optin_ui->Initialize(
-      /*browser=*/nullptr, std::move(on_post_signin_in_finished_callback_));
+      /*browser=*/nullptr,
+      // Note: the value of `should_close_modal_dialog` does not matter, it has
+      // no effect when `browser` is set to null.
+      /*should_close_modal_dialog=*/std::nullopt,
+      std::move(on_post_signin_in_finished_callback_));
 }
 
 void ProfilePickerPostSignInAdapter::SwitchToManagedUserProfileNoticeFinished(

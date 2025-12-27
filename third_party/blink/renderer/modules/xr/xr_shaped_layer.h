@@ -28,14 +28,15 @@ class XRShapedLayer : public XRCompositionLayer {
   void setSpace(XRSpace* space);
 
   // xr layer init parameters
-  bool isStatic() const { return is_static_; }
+  bool isStatic() const override;
   bool clearOnAccess() const { return clear_on_access_; }
 
   void Trace(Visitor*) const override;
 
  protected:
+  bool IsRedrawEventSupported() const override;
   void UpdateLayerBackend() override;
-  device::mojom::blink::XRReferenceSpaceType GetReferenceSpaceType()
+  device::mojom::blink::XRNativeOriginInformationPtr NativeOrigin()
       const override;
 
  private:

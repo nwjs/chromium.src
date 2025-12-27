@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="bn">
+<translation id="1004825134262590729">{count,plural, =1{{count}টি পাসকী}one{{count}টি পাসকী}other{{count}টি পাসকী}}</translation>
 <translation id="1005023885865154304">অটোফিল পাসওয়ার্ড সেটিংস খুলুন</translation>
 <translation id="1005230401424685968">YYYY</translation>
 <translation id="1013952917065545813">আপনি যেসব ট্যাবগুলি সম্প্রতি বন্ধ করেছন, সেগুলি আবার খুলতে আপনি এখানে ফিরে আসতে পারেন</translation>
@@ -41,6 +42,7 @@
 <translation id="1122068467107743258">অফিস</translation>
 <translation id="1126696498560056882">এই ডিভাইসে থাকা অ্যাকাউন্ট ম্যানেজ করুন</translation>
 <translation id="1126809382673880764">এই মোডে আপনার ডিভাইসের ক্ষতি করতে পারে এমন ওয়েবসাইট, ডাউনলোড অথবা এক্সটেনশন থেকে কোনও সুরক্ষা পাওয়া সম্ভব হয় না। তবে Gmail এবং Search-এর মতো অন্যান্য Google পরিষেবায়, যেখানে উপলভ্য সেখানে আপনি এখনও 'Safe Browsing'-এর সুরক্ষা পাবেন।</translation>
+<translation id="1133418583142946603">বর্তমান ট্যাব যোগ করুন</translation>
 <translation id="1136104150802877429">প্রোডাক্ট রিভিউ দেখায়</translation>
 <translation id="1142371195993008685"><ph name="FEATURE_NAME" /> সংক্রান্ত বিজ্ঞপ্তি বন্ধ করুন</translation>
 <translation id="1147031633655575115"><ph name="USER" /> হিসেবে সাইন-ইন করেছেন</translation>
@@ -77,6 +79,7 @@
 <translation id="1285320974508926690">কখনই এই সাইটটিকে অনুবাদ করবেন না</translation>
 <translation id="1287229685519872919">Google Workspace সম্পর্কিত ডেটা</translation>
 <translation id="1291506870746876680">আপনি এই সাইট বন্ধ করে দিলে, <ph name="BEGIN_BOLD" />"<ph name="SITE_NAME" />"<ph name="END_BOLD" /> এর সাথে সম্পর্কিত অনুমতি রিসেট হয়ে বন্ধ হয়ে যাবে।</translation>
+<translation id="1293556467332435079">Files</translation>
 <translation id="129553762522093515">সম্প্রতি বন্ধ হয়েছে</translation>
 <translation id="1296581780163690620">ফাইল ডাউনলোড করবেন? (<ph name="FILE_SIZE" />)</translation>
 <translation id="1305822519689023679">আপনার Google অ্যাকাউন্টে সবসময় পাসওয়ার্ড যাতে ব্যবহার করতে পারেন তা কনফার্ম করার জন্য, নিজের পরিচয় যাচাই করুন।</translation>
@@ -172,6 +175,7 @@
 <translation id="1622717322707146952">“Google Calendar-এ যোগ করুন“ বা “Apple Calendar-এ যোগ করুন“ বিকল্প বেছে নিন।</translation>
 <translation id="1629162218487290695">নিজের পরিচয় যাচাই করুন…</translation>
 <translation id="1636234353664774105">নেভিগেশন ফিচার ব্যবহার করে এক এক করে আপনার গন্তব্যের দিকনির্দেশ সংক্রান্ত নির্দেশিকা দেখুন</translation>
+<translation id="1637811476055996098">ফাইল বেছে নিন</translation>
 <translation id="1641113438599504367">নিরাপদ ব্রাউজিং</translation>
 <translation id="1644574205037202324">ইতিহাস</translation>
 <translation id="164673457281113247">{count,plural, =1{বুকমার্ক সেভ করা হয়েছে}one{বুকমার্ক সেভ করা হয়েছে}other{বুকমার্ক সেভ করা হয়েছে}}</translation>
@@ -207,6 +211,7 @@
 <translation id="1764070164487214210">দিকনির্দেশ</translation>
 <translation id="1767766085187034454">Google Translate</translation>
 <translation id="1771016937398045251">টুল মেনু</translation>
+<translation id="1772468122139624049">ট্যাব আবার লোড করা যাচ্ছে না</translation>
 <translation id="1779354709911146450">যাচাইকরণ সংক্রান্ত সমস্যা</translation>
 <translation id="1780152987505130652">গ্রুপ বন্ধ করুন</translation>
 <translation id="178400879184240105">আপনার পাসওয়ার্ড আগে ব্যবহার করা হয়নি</translation>
@@ -239,7 +244,6 @@
 <translation id="188237709236611317">স্মার্ট সর্ট মেনু বার</translation>
 <translation id="1883255238294161206">তালিকা সঙ্কুচিত করুন</translation>
 <translation id="1888854257756214946">পাসওয়ার্ড বেছে নিন…</translation>
-<translation id="1889872080060107187">আপনি <ph name="URL" />-এ সাইন-ইন করবেন</translation>
 <translation id="1890237935065108104">এই সেটিং উপলভ্য নেই।</translation>
 <translation id="1894023287452300670">এখানে দাম ট্র্যাক করুন</translation>
 <translation id="189531189292803889">আপনার iPad সম্প্রতি ফিরিয়ে আনা হয়েছে, যেটি হয়ত আপনার ডিফল্ট ব্রাউজার পরিবর্তন করেছে।</translation>
@@ -259,6 +263,7 @@
 <translation id="1962969542251276847">স্ক্রিন লক করুন</translation>
 <translation id="1963976881984600709">স্ট্যান্ডার্ড সুরক্ষা</translation>
 <translation id="1964507856799750384"><ph name="BEGIN_BOLD" />Browser অ্যাপ<ph name="END_BOLD" /> বিকল্পে ট্যাপ করুন</translation>
+<translation id="1965633132497641148">ভুল নিরাপত্তা কোড</translation>
 <translation id="1966313166384086081">সাইট ডেটা</translation>
 <translation id="1967461193809857427">{count,plural, =1{Android-এ আপনি যে ট্যাব ইতিমধ্যে ব্যবহার করেছেন সেগুলি দেখবেন?}one{Android-এ আপনি যে ট্যাব ইতিমধ্যে ব্যবহার করেছেন সেগুলি দেখবেন?}other{Android-এ আপনি যে ট্যাব ইতিমধ্যে ব্যবহার করেছেন সেগুলি দেখবেন?}}</translation>
 <translation id="1972325230031091483">আপনি আরও দ্রুত ব্রাউজ করবেন কারণ, আপনার বর্তমান ওয়েবপেজ দেখার উপরে ভিত্তি করে কন্টেন্ট নিজে থেকে লোড হয়</translation>
@@ -340,6 +345,7 @@
 <translation id="2245007488813216650">অনুবাদ করা হচ্ছে…</translation>
 <translation id="2249119578464404734">স্ক্রিনের উপরে, Search আইকনে ট্যাপ করুন</translation>
 <translation id="2251686759395008410">মেনু → ইতিহাস</translation>
+<translation id="2252378061043785266">এই সাইট একেবারে দেখতে চান না</translation>
 <translation id="2252749852083403809"><ph name="USER_EMAIL" />-এর জন্য Drive-এ সেভ করা হচ্ছে।</translation>
 <translation id="2256933947031277845">আপনার সংস্থা আপনাকে শুধু কিছু নির্দিষ্ট অ্যাকাউন্ট ব্যবহার করে সাইন-ইন করার অনুমতি দিয়েছে।</translation>
 <translation id="2257567812274161158">সিঙ্ক কাজ করছে না।</translation>
@@ -510,7 +516,6 @@
 <translation id="2918688092312652908">'পড়া হয়নি' হিসেবে চিহ্নিত করুন</translation>
 <translation id="2922210239002704889">আপনার হোমপেজ বা কীবোর্ডে যান</translation>
 <translation id="2924940770243654951">নতুন ছদ্মবেশী ট্যাবে খুলুন</translation>
-<translation id="2931440415625410757">নির্দেশাবলী দেখুন</translation>
 <translation id="2952278131021475699">Lens-এর ক্যামেরার মাধ্যমে সার্চ করার সুবিধা</translation>
 <translation id="2962516096219646456">সব অটোফিল ডেটা দেখুন</translation>
 <translation id="2965594942405840553">এই অ্যাকশন আগের অবস্থায় ফেরানো যাবে না</translation>
@@ -573,6 +578,7 @@
 <translation id="3186796054637504691">ইতিহাস ও ওয়েবসাইটের ডেটা মুছুন</translation>
 <translation id="3190736958609431397">ট্র্যাক করার বিকল্প বন্ধ করুন</translation>
 <translation id="3208260410153224535">আপনার প্রতিষ্ঠান সাইন-ইন করার সুবিধা বন্ধ করে দিয়েছে। নতুন বুকমার্ক, পাসওয়ার্ড ও আরও অনেক কিছু শুধুমাত্র এই ডিভাইসে সেভ হবে।</translation>
+<translation id="3211969308836412674">সাইট আনপিন করুন</translation>
 <translation id="3213807041830307252">আপনার ক্যামেরা ও ফটো গ্যালারি ব্যবহার করে যা দেখেন তা কিনুন, অনুবাদ ও শনাক্ত করুন।</translation>
 <translation id="3214379938835224220">আপনার iPad রিসেটের অংশ হিসেবে আপনি সাইন-আউট হয়ে গেছেন। সাইন-ইন করার জন্য নিচে 'চালিয়ে যান' বোতামে ট্যাপ করুন।</translation>
 <translation id="3218296450292600703">আপনার ম্যানেজ করা অ্যাকাউন্ট দিয়ে সাইন-ইন করলে এটি আপনার প্রতিষ্ঠানের সাথে সম্পর্কিত ব্রাউজিং (ট্যাব, ইতিহাস ও পাসওয়ার্ড সহ) অন্য ব্রাউজিং থেকে আলাদা রাখতে সাহায্য করে</translation>
@@ -602,6 +608,7 @@
 <translation id="3324193307694657476">ঠিকানা ২</translation>
 <translation id="3328801116991980348">সাইট তথ্য</translation>
 <translation id="333229797575847124">কীভাবে এই ফিচার চালু করতে হয়</translation>
+<translation id="3344233834747405775">কার্ডহোল্ডারের নাম ভুল আছে</translation>
 <translation id="3344485292736684439">{count,plural, =1{আপনার অ্যাকাউন্ট {email}-এর মধ্যে, "{title}"-এ বুকমার্ক সেভ করা হয়েছে}one{আপনার অ্যাকাউন্ট {email}-এর মধ্যে, "{title}"-এ বুকমার্ক সেভ করা হয়েছে}other{আপনার অ্যাকাউন্ট {email}-এর মধ্যে, "{title}"-এ বুকমার্ক সেভ করা হয়েছে}}</translation>
 <translation id="334690320928261823">সাম্প্রতিক ট্যাব</translation>
 <translation id="3349031117032695619">পপ-আপ ব্লক করুন</translation>
@@ -657,6 +664,7 @@
 <translation id="3547933853190131743">AI মোডের মাধ্যমে সার্চ করুন</translation>
 <translation id="3557336313807607643">পরিচিতিতে যোগ করুন</translation>
 <translation id="355765753469272474">আগের অবস্থায় ফিরুন</translation>
+<translation id="3565012355885596568">ছবি লোড করা যায়নি</translation>
 <translation id="3565930036634619844">ট্যাব। <ph name="NUMBER_OF_TABS" />টির মধ্যে <ph name="TAB_INDEX" /> নম্বর।</translation>
 <translation id="3572607909481582402">আপনার Google অ্যাকাউন্টে</translation>
 <translation id="3575234738189584619">Lens-এর মাধ্যমে সার্চ করুন</translation>
@@ -702,6 +710,7 @@
 <translation id="3779810277399252432">কোনও ইন্টারনেট সংযোগ নেই৷</translation>
 <translation id="3782614601387961027">সতর্কতা বাতিল করুন</translation>
 <translation id="3789841737615482174">ইনস্টল করুন</translation>
+<translation id="3789849526426236410">নতুন ট্যাব খুলুন</translation>
 <translation id="380329542618494757">নাম</translation>
 <translation id="3803696231112616155">এই সাইট অনুবাদ করার প্রস্তাব দিন</translation>
 <translation id="3810973564298564668">পরিচালনা করুন</translation>
@@ -743,6 +752,7 @@
 <translation id="3926703470020109118">ডাউনলোড বাতিল করা হয়েছে</translation>
 <translation id="3929457972718048006">ঠিকানা</translation>
 <translation id="3931215329146376310">{count,plural, =1{এই সাইটের জন্য নতুন পাসওয়ার্ড}one{এই সাইটের জন্য নতুন পাসওয়ার্ড}other{এই সাইটের জন্য নতুন পাসওয়ার্ড}}</translation>
+<translation id="3933372629914873850">আপনি <ph name="URL" />-এ সাইন-ইন করবেন</translation>
 <translation id="3934905113567851655">সাইজ পরিবর্তন করতে পিঞ্চ করুন</translation>
 <translation id="3940195383040445971">ট্যাবে দাম ট্র্যাক করুন</translation>
 <translation id="3941941395924123592">{COUNT,plural, =1{{COUNT}টি ট্যাব বন্ধ করুন}one{{COUNT}টি ট্যাব বন্ধ করুন}other{{COUNT}টি ট্যাব বন্ধ করুন}}</translation>
@@ -783,6 +793,7 @@
 <translation id="4049507953662678203">আপনি একটি নেটওয়ার্ক সংযোগে আছেন কিনা তা নিশ্চিত করুন এবং আবার চেষ্টা করুন।</translation>
 <translation id="4070132839822635162">সাইন-ইন করবেন না</translation>
 <translation id="4092655288299341041">সহায়তা দেখান</translation>
+<translation id="4095483462103784441">নতুন ট্যাব গ্রুপ তৈরি করুন</translation>
 <translation id="4099756562043439968">একটি রিমাইন্ডার সেট করুন</translation>
 <translation id="4108998448622696017">কোনও ঝুঁকিপূর্ণ ঘটনা ঘটলে সেটি শনাক্ত করে আপনাকে সতর্ক করা হয়।</translation>
 <translation id="4111985840824673503">সব পড়া হয়েছে হিসেবে চিহ্নিত করুন</translation>
@@ -792,7 +803,6 @@
 <translation id="4113957097611235433">আপনার পাসওয়ার্ড পরিবর্তন করুন</translation>
 <translation id="4120936477286528673">এই সাইটটি বারংবার অন্য একটি অ্যাপ্লিকেশন খোলার চেষ্টা করছে।</translation>
 <translation id="4121993058175073134">নেট-রপ্তানি ডেটা পাঠানোর জন্য, অনুগ্রহ করে সিস্টেম অ্যাপে আপনার ইমেল অ্যাকাউন্ট কনফিগার করুন৷</translation>
-<translation id="4132991308423633339">পাসওয়ার্ড ও পাসকী এক্সপোর্ট করুন…</translation>
 <translation id="4133139945030148655">আপনি সবকিছু সেট-আপ করেছেন</translation>
 <translation id="4133265950310064865">উন্নত সুরক্ষা</translation>
 <translation id="4145507240503767005"><ph name="SEARCH_ENGINE_NAME" />, <ph name="SEARCH_ENGINE_DOMAIN" /></translation>
@@ -874,6 +884,7 @@
 <translation id="4430505936695785931">অন্য অ্যাপে সেভ করা পাসওয়ার্ড পান</translation>
 <translation id="4431224949908513835">সম্পূর্ণ করার জন্য পেমেন্ট পদ্ধতি বেছে নিন।</translation>
 <translation id="4432122368769493392">সেটিংস…</translation>
+<translation id="443975520858086928">Google-কে যেকোনও কিছু সম্পর্কে জিজ্ঞাসা করুন</translation>
 <translation id="4442550905108052454"><ph name="BEGIN_BOLD" />সেটিংস<ph name="END_BOLD" /> খুলুন</translation>
 <translation id="4445840280797509738"><ph name="CELL_ACCESSIBILITY_LABEL" />-এর জন্য আরও বিকল্প</translation>
 <translation id="4455710003856931944">পিছনে বা সামনে যেতে স্ক্রিনের প্রান্তটি সোয়াইপ করুন।</translation>
@@ -997,6 +1008,7 @@
 <translation id="4877597489778380935">পরে রিমাইন্ডার পেতে চাই</translation>
 <translation id="4881695831933465202">খুলুন</translation>
 <translation id="4883766694719903356">ছদ্মবেশী ট্যাব গ্রিড</translation>
+<translation id="4884937942297374058">"উন্নত সুরক্ষা" ফিচার বন্ধ করা আছে</translation>
 <translation id="488785315393301722">বিশদ বিবরণ দেখান</translation>
 <translation id="4889521386764567563">বর্তমান প্রোফাইল</translation>
 <translation id="4893713555726946316">'পৃষ্ঠা খুঁজুন' বিকল্পটি লুকান</translation>
@@ -1041,6 +1053,7 @@
 <translation id="5055015094595227120">সুনির্দিষ্ট লোকেশন</translation>
 <translation id="5055551113846164633">এটি এই ডিভাইসে সেভ করা ঠিকানাগুলি মুছে দেয়। এছাড়াও এটি আপনার Google অ্যাকাউন্ট <ph name="USER_EMAIL" /> থেকে সেভ করা ঠিকানাগুলি মুছে দেয়।</translation>
 <translation id="5056446788882570708"><ph name="TIME" /> যে সমস্যাগুলি পাওয়া গেছে।</translation>
+<translation id="5056587122125565772">ছবি তৈরি করুন</translation>
 <translation id="5059136629401106827">ঠিক আছে</translation>
 <translation id="5062321486222145940">Google ড্রাইভ ইনস্টল করুন</translation>
 <translation id="5067540696062462445">ডাউনলোড</translation>
@@ -1093,6 +1106,7 @@
 <translation id="5220945116117011963">তারিখ থেকে ক্যালেন্ডার ইভেন্ট তৈরি করুন</translation>
 <translation id="5222676887888702881">সাইন-আউট করুন</translation>
 <translation id="5225388483876575107">A</translation>
+<translation id="5229315183665181733">সাইট এডিট করুন</translation>
 <translation id="5233638681132016545">নতুন ট্যাব</translation>
 <translation id="5234094073825090254">{count,plural, =1{আপনার Google অ্যাকাউন্ট {email}-এ যে বুকমার্ক সেভ করা আছে।}one{আপনার Google অ্যাকাউন্ট {email}-এ যেসব বুকমার্ক সেভ করা আছে।}other{আপনার Google অ্যাকাউন্ট {email}-এ যেসব বুকমার্ক সেভ করা আছে।}}</translation>
 <translation id="5234764350956374838">খারিজ</translation>
@@ -1279,6 +1293,7 @@
 <translation id="5902752768726620872">{count,plural, =1{{count}টি নতুন ট্যাব}one{{count}টি নতুন ট্যাব}other{{count}টি নতুন ট্যাব}}</translation>
 <translation id="5911030830365207728">Google Translate</translation>
 <translation id="5922999516621365983">এটি পিন করার জন্য এখানে ট্যাব টেনে আনুন।</translation>
+<translation id="5930982343430790032">{COUNT,plural, =1{সর্বাধিক ১টি ফাইল, ট্যাব বা ছবি যোগ করুন}one{সর্বাধিক {COUNT}টি ফাইল, ট্যাব বা ছবি যোগ করুন}other{সর্বাধিক {COUNT}টি ফাইল, ট্যাব বা ছবি যোগ করুন}}</translation>
 <translation id="5936006948844852401">স্টোরেজ ম্যানেজ করুন</translation>
 <translation id="5936065461722368675">সম্পূর্ণ পৃষ্ঠা অনুবাদ করুন</translation>
 <translation id="5937560539988385583">পৃষ্ঠা অনুবাদ করা হয়ে গেছে</translation>
@@ -1314,10 +1329,12 @@
 <translation id="6045460247888249350">শিরোনাম যোগ করুন</translation>
 <translation id="6052269326659653305">প্রোফাইল পাল্টান</translation>
 <translation id="605721222689873409">YY</translation>
+<translation id="6058415747854995776">ভিডিও রেকর্ড করুন</translation>
 <translation id="6059830886158432458">আপনার খবর ও গতিবিধি এখানে নিয়ন্ত্রণ করুন</translation>
 <translation id="6066301408025741299">বাতিল করতে আলতো চাপুন৷</translation>
 <translation id="6074656473835429958">বিজ্ঞপ্তি পান</translation>
 <translation id="607620096698446287"><ph name="FILENAME" /> (<ph name="FILESIZE" />) আপলোড করা যায়নি</translation>
+<translation id="6076618233738284461">সাইট পিন করুন</translation>
 <translation id="6077126322656614846">ক্যামেরা অ্যাক্সেসের অনুমতি আছে</translation>
 <translation id="607730456154980869">Chrome-এ Gemini ব্যবহার করে আরও দ্রুত উত্তর পান</translation>
 <translation id="6078236141387574983">শিটের উচ্চতা আবার অ্যাডজাস্ট করুন</translation>
@@ -1332,6 +1349,7 @@
 <translation id="6103540626693881831">অন-ডিভাইস এনক্রিপশন</translation>
 <translation id="611361228753138223">এই ডিভাইসে সম্প্রতি দেখেছেন এমন সাইট</translation>
 <translation id="611705554202268369">কোনও ট্যাব গ্রুপ যোগ করতে বেশিক্ষণ প্রেস করে রাখুন</translation>
+<translation id="6117260878488959646">কোনও সমস্যা হয়েছে। পরে আবার চেষ্টা করুন।</translation>
 <translation id="6122191549521593678">অনলাইন</translation>
 <translation id="6122831415929794347">Safe Browsing বন্ধ করতে চান?</translation>
 <translation id="6123514585040403489">আপনার ট্যাব বন্ধ হয়ে যাবে</translation>
@@ -1354,6 +1372,7 @@
 <translation id="6172428250974276014">হ্যাঁ, ডেটা আলাদা রাখুন (সাজেস্ট করা হয়)</translation>
 <translation id="6173499589275053515">পাসওয়ার্ড আপনার Google অ্যাকাউন্ট, <ph name="EMAIL" />-এ সেভ করা আছে</translation>
 <translation id="6181969657494915430">সার্চের স্ক্রিন</translation>
+<translation id="6182851675249594487">কাস্টম রঙের থিম</translation>
 <translation id="6187302354554850004">শেষে সিঙ্ক হয়েছে: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6188737759358894319"><ph name="DATE" /> তারিখে তৈরি করা হয়েছে</translation>
 <translation id="6189413832092199491">অপঠিত</translation>
@@ -1381,6 +1400,7 @@
 <translation id="6259928806013786178">রিডিং মোড কাজ করছে না</translation>
 <translation id="6268773951964630964">কপি করা ছবি সার্চ করুন</translation>
 <translation id="6271462272606946663">মোবাইল সাইটের অনুরোধ লুকান</translation>
+<translation id="6271556257184622612">ট্যাব ও আরও অনেক কিছু সম্পর্কে Google-কে জিজ্ঞাসা করুন</translation>
 <translation id="6271824294945464304">পাসওয়ার্ড শেয়ার করা হচ্ছে</translation>
 <translation id="628251768213143684">আপনার Google অ্যাকাউন্টে কী কী সেভ করা রয়েছে, তা সব সময় ম্যানেজ করতে পারবেন</translation>
 <translation id="6284652193729350524"><ph name="LANGUAGE" /> ভাষায় অনুবাদ করার প্রস্তাব দিন</translation>
@@ -1428,7 +1448,6 @@
 <translation id="6418346271604475326">পিডিএফ প্রস্তুত হচ্ছে</translation>
 <translation id="6421038304268477484">অনুবাদ হওয়া টেক্সট</translation>
 <translation id="6429213933892582367">পাসওয়ার্ড বিকল্প খুলুন</translation>
-<translation id="6434591244308415567">কোনও সমস্যা হয়েছে। পরে আবার চেষ্টা করুন।</translation>
 <translation id="6435236283694032571">পড়ার তালিকায় যোগ করুন</translation>
 <translation id="6435307030888827407">সাইন-আউট করে থাকুন</translation>
 <translation id="6436318499800111867"><ph name="SHARED_WITH_ME_DATE" />-এ আমার সাথে শেয়ার করা হয়েছে</translation>
@@ -1501,6 +1520,7 @@
 <translation id="6659660757330712663">টুলবার সোয়াইপ করে আপনি একটি ট্যাব থেকে আরেকটি ট্যাবে পরিবর্তন করে নিতে পারবেন।</translation>
 <translation id="6663529247339810546">ছবি সেভ করা যাচ্ছে না</translation>
 <translation id="6668619169535738264">বুকমার্ক এডিট করুন</translation>
+<translation id="6670729408462528018">গ্যালারি</translation>
 <translation id="6671294218820966278">'পড়া হয়েছে' হিসেবে চিহ্নিত করুন</translation>
 <translation id="6672697278890207089">আপনার পাসফ্রেজটি প্রবেশ করান</translation>
 <translation id="6674917187596384849">আপনি সহজেই অ্যাকাউন্টের মধ্যে পরিবর্তন করতে পারবেন</translation>
@@ -1531,6 +1551,7 @@
 <translation id="6761393919622941301">অডিও</translation>
 <translation id="6770452996697898492">[বুক করা হয়েছে]</translation>
 <translation id="6779455296366983087">আপনার ব্রাউজ করা ডেটা মুছে দেওয়া হবে</translation>
+<translation id="6782531425936234573">ডেটা এক্সপোর্ট করুন</translation>
 <translation id="6791425686608802741">"নতুন গ্রুপে ট্যাব যোগ করুন" বিকল্পে ট্যাপ করুন</translation>
 <translation id="6794476726485507147">এই পৃষ্ঠা আবার ঘুরে দেখতে তারিখ ও সময় বেছে নিয়ে একটি রিমাইন্ডার বিজ্ঞপ্তি পান</translation>
 <translation id="6795481620482106033">ভুল ডেটা</translation>
@@ -1575,6 +1596,7 @@
 <translation id="693761253105515415">একটি পাসকোড সেট করুন</translation>
 <translation id="6945221475159498467">নির্বাচন</translation>
 <translation id="6950522403736391608">লুকানো আছে</translation>
+<translation id="6962809930976936328">Gemini-এর সাহায্যে ইনসাইট পান</translation>
 <translation id="6964300328304469089">বর্তমানে, <ph name="NAME" />, <ph name="EMAIL" /> আইডি বেছে নেওয়া হয়েছে। একটি অ্যাকাউন্ট বেছে নিন।</translation>
 <translation id="6964760285928603117">গ্রুপ থেকে সরান</translation>
 <translation id="6965382102122355670">ঠিক আছে</translation>
@@ -1600,6 +1622,7 @@
 <translation id="7039345315346323556">সাম্প্রতিক</translation>
 <translation id="704692552158601232">ডিফল্ট ব্রাউজার অ্যাপ</translation>
 <translation id="7055240621761583113">পাসওয়ার্ড অটোফিল করুন</translation>
+<translation id="7057567173736333354">আপনার ছবির বর্ণনা দিন</translation>
 <translation id="7063811929043357292">তোমার অ্যাকাউন্ট তোমার অভিভাবক ম্যানেজ করেন।
 <ph name="BEGIN_LINK" />আরও জানুন<ph name="END_LINK" /></translation>
 <translation id="7067780033517902110">সব ফাইল</translation>
@@ -1657,6 +1680,7 @@
 <translation id="7328162502911382168">(<ph name="COUNT" />)</translation>
 <translation id="7334364820047587268">আপনার Google Password Manager-এ আগে থেকেই এইসব অ্যাকাউন্টের পাসওয়ার্ড আছে। ইমপোর্ট করার জন্য আপনি নিচের যেকোনও একটি পাসওয়ার্ড বেছে নিলে, সেটি আগে থাকা পাসওয়ার্ড পরিবর্তন করে দেবে।</translation>
 <translation id="7336264872878993241"><ph name="PERCENT" /> শতাংশ ডাউনলোড হয়েছে</translation>
+<translation id="7345061034321640811">ইমপোর্ট করার অনুমতি নেই</translation>
 <translation id="7352651011704765696">কিছু সমস্যা হয়েছে</translation>
 <translation id="7363349185727752629">আপনার গোপনীয়তা পছন্দ গাইড</translation>
 <translation id="7364796246159120393">ফাইল বেছে নিন</translation>
@@ -1671,6 +1695,7 @@
 <translation id="7398211386814746684">আপনার অ্যাকাউন্ট ম্যানেজ করা হচ্ছে</translation>
 <translation id="7399802613464275309">নিরাপত্তা পরীক্ষা</translation>
 <translation id="7400418766976504921">URL</translation>
+<translation id="7402375256128852434">সাম্প্রতিক ট্যাব যোগ করুন</translation>
 <translation id="7402602673739047753">{count,plural, =1{১টি বুকমার্ক শুধুমাত্র এই ডিভাইসে সেভ করা হয়েছে। অন্য ডিভাইসে এটি ব্যবহার করার জন্য, আপনার Google অ্যাকাউন্ট {email}-এ এটি সেভ করুন।}one{{count}টি বুকমার্ক শুধুমাত্র এই ডিভাইসে সেভ করা হয়েছে। আপনার অন্যান্য ডিভাইসেও সেগুলি ব্যবহার করতে হলে, Google অ্যাকাউন্ট {email}-এ সেভ করুন।}other{{count}টি বুকমার্ক শুধুমাত্র এই ডিভাইসে সেভ করা হয়েছে। আপনার অন্যান্য ডিভাইসেও সেগুলি ব্যবহার করতে হলে, Google অ্যাকাউন্ট {email}-এ সেভ করুন।}}</translation>
 <translation id="7403227077090127147"><ph name="USER_NAME" /> (<ph name="USER_EMAIL" />) অবিলম্বে “<ph name="GROUP_NAME" />" ট্যাব গ্রুপের অ্যাক্সেস হারাবেন</translation>
 <translation id="7409985198648820906">পড়া হয়নি এমন <ph name="UNREAD_COUNT" />টি নিবন্ধ।</translation>
@@ -1814,6 +1839,7 @@
 <translation id="7866872729285243843">আপনার সব ডিভাইসে নিজের পড়ার তালিকা পেতে সেটিংসে গিয়ে “পড়ার তালিকা” চালু করুন।</translation>
 <translation id="7874107544081154809"><ph name="CELL_ACCESSIBILITY_LABEL" />-এর সাহায্যে ফর্ম অটোফিল করুন</translation>
 <translation id="7879275349003161544">ডাউনলোড দেখুন</translation>
+<translation id="7882689957034389473">ফটো তুলুন</translation>
 <translation id="7883882164760409935">আপনার কাছে একই পাসওয়ার্ড আছে যা আবার ব্যবহার করা হয়েছে।</translation>
 <translation id="7887174313503389866">মূল গোপনীয়তা এবং নিরাপত্তা নিয়ন্ত্রণ সম্পর্কিত প্রোডাক্টটি ঘুরে দেখা বিকল্পে যান আরও বিকল্পের জন্য, আলাদা আলাদা সেটিংসে যান।</translation>
 <translation id="7887198238286927132">আপনার গোপনীয়তা রক্ষার জন্য, Chrome এই ক্ষেত্রটি নিজে থেকে পূরণ করবে না।</translation>
@@ -1862,6 +1888,7 @@
 <translation id="8032569120109842252">ফলো করছেন</translation>
 <translation id="8035133914807600019">নতুন ফোল্ডার...</translation>
 <translation id="8035412398498507358">ফটো</translation>
+<translation id="8037713009824540257">সাইট যোগ করুন</translation>
 <translation id="8040407350301524547">রুট সম্পর্কিত বিকল্পের জন্য, “দিকনির্দেশ পান” বিকল্পে ট্যাপ করুন।</translation>
 <translation id="804427445359061970">আপনি অন্যান্য ডিভাইস থেকে নিজের ট্যাবগুলি এখানে দেখতে পাবেন</translation>
 <translation id="8058655154417507695">মেয়াদ শেষের বছর</translation>
@@ -1885,6 +1912,7 @@
 <translation id="8114753159095730575">ফাইল ডাউনলোড করা যাবে। স্ক্রিনের নিচের দিকে বিকল্পগুলি উপলভ্য।</translation>
 <translation id="8123502380991596210">'নতুন কী আছে' আইটেম লুকান</translation>
 <translation id="8123953306357309250">সিঙ্ক বাতিল করতে চান? আপনি সেটিংস থেকে যেকোনও সময় সিঙ্ক চালু করতে পারবেন।</translation>
+<translation id="8130712116203026166">আমাকে এই পৃষ্ঠার বাইরে এক লাইনের সারসংক্ষেপ ও প্রয়োজনীয় ইনসাইট দাও। সংক্ষিপ্ত, ক্যাজুয়াল টোন ব্যবহার করো। ১০০টি শব্দের মধ্যে সীমাবদ্ধ রাখো।</translation>
 <translation id="81313319706244542">২. পাসওয়ার্ডে ট্যাপ করুন</translation>
 <translation id="8131740175452115882">নিশ্চিত হন</translation>
 <translation id="8132598642024322408">আগে <ph name="PREVIOUS_PRICE" /> ছিল এখন <ph name="PRICE" />।</translation>
@@ -1997,6 +2025,7 @@
 <translation id="8551311254462607218">অ্যাড্রেস বারে, Google Lens ক্যামেরা আইকনে ট্যাপ করুন</translation>
 <translation id="8556590991644167667">{count,plural, =1{আপনি {count}টি সতর্কতা বাতিল করেছেন}one{আপনি {count}টি সতর্কতা বাতিল করেছেন}other{আপনি {count}টি সতর্কতা বাতিল করেছেন}}</translation>
 <translation id="8558046478684552694">গ্রুপ বন্ধ করুন।</translation>
+<translation id="8559858985063901027">পাসকী</translation>
 <translation id="8560253818350321773">প্রায়শই ব্যবহার করা আইটেমগুলিকে আগে দেখায়।</translation>
 <translation id="8561999115126307258">{count,plural, =1{আপনার কীবোর্ডের উপরে পাসওয়ার্ডের জন্য {count}টি বিকল্প উপলভ্য আছে।}one{আপনার কীবোর্ডের উপরে পাসওয়ার্ডের জন্য {count}টি বিকল্প উপলভ্য আছে।}other{আপনার কীবোর্ডের উপরে পাসওয়ার্ডের জন্য {count}টি বিকল্প উপলভ্য আছে।}}</translation>
 <translation id="8564894539416715395">'নতুন ট্যাব' পৃষ্ঠা</translation>
@@ -2156,6 +2185,7 @@
 <translation id="91023216973987714">পেমেন্ট পদ্ধতি</translation>
 <translation id="9106655997975673326">"<ph name="SOURCE_DEVICE" />"-এর থেকে</translation>
 <translation id="9107664647686727385">কোনও পাসওয়ার্ড লিক হয়েছে কিনা দেখুন</translation>
+<translation id="9119764377203471454">অ্যাটাচমেন্ট যোগ করা যায়নি</translation>
 <translation id="9124387962554796433">সার্চ এবং অন্যান্য Google পরিষেবা আপনার পছন্দমতো সাজানোর জন্য Google আপনার ইতিহাস ব্যবহার করতে পারে।</translation>
 <translation id="9124978074365039456">আপনার ক্যামেরা ও ফটো গ্যালারি ব্যবহার করে যা দেখেন তা কিনুন, অনুবাদ ও শনাক্ত করুন</translation>
 <translation id="9130317582644834675">'টেক্সট বড় করুন' বিকল্পটি লুকান</translation>
@@ -2196,6 +2226,7 @@
 <translation id="952704832371081537">বাতিল করুন</translation>
 <translation id="95332591904104970">কানেক্ট করা অ্যাপ</translation>
 <translation id="954667170699278022">পড়ার তালিকা</translation>
+<translation id="956066588046842680">আপনার সংস্থার নীতি অনুযায়ী এই ডেটা ইমপোর্ট করার অনুমতি নেই।</translation>
 <translation id="956218893102219091">Gemini থেকে সবচেয়ে নিখুঁত ফলাফল পেতে, আনুমানিক লোকেশনের পরিবর্তে, আপনার IP অ্যাড্রেসের ভিত্তিতে পাওয়া সুনির্দিষ্ট লোকেশন ব্যবহার করুন। <ph name="BEGIN_LINK" />আরও জানুন<ph name="END_LINK" /></translation>
 <translation id="961856697154696964">ব্রাউজ করা ডেটা মুছে দিন</translation>
 <translation id="963102227019621224">ওয়েব ও অ্যাপ অ্যাক্টিভিটি</translation>
@@ -2207,5 +2238,6 @@
 <translation id="984275831282074731">পেমেন্ট পদ্ধতি</translation>
 <translation id="985379595344853742">সব ছদ্মবেশী ট্যাব বন্ধ করুন</translation>
 <translation id="988141524645182168">অন্যান্য ডিভাইস</translation>
+<translation id="995174784802614337">{count,plural, =1{{count}টি পাসকী ইমপোর্ট করা হয়েছে}one{{count}টি পাসকী ইমপোর্ট করা হয়েছে}other{{count}টি পাসকী ইমপোর্ট করা হয়েছে}}</translation>
 <translation id="999768147936949692">এখনকার জন্য, আপনি শুধুমাত্র পরিবারের সদস্যদের সাথে পাসওয়ার্ড শেয়ার করতে পারবেন। আপনার গ্রুপে যোগ দিতে আপনার <ph name="BEGIN_LINK" />পরিবারের সদস্যদের আমন্ত্রণ জানান<ph name="END_LINK" /> এবং Google জুড়ে আপনার প্রোডাক্ট ও সাবস্ক্রিপশনের আরও অনেক সুবিধা পান।</translation>
 </translationbundle>

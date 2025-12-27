@@ -58,6 +58,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/collaboration/public/messaging/message.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/grit/components_scaled_resources.h"
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_visual_data.h"
@@ -107,6 +108,7 @@
 
 #if BUILDFLAG(ENABLE_GLIC)
 #include "chrome/browser/glic/browser_ui/tab_underline_view.h"
+#include "chrome/browser/glic/browser_ui/tab_underline_view_controller_impl.h"
 #endif
 
 using base::UserMetricsAction;
@@ -257,13 +259,16 @@ Tab::Tab(TabSlotController* controller)
       AddChildView(std::make_unique<AlertIndicatorButton>(this));
 
 #if BUILDFLAG(ENABLE_GLIC)
-  if (base::FeatureList::IsEnabled(features::kGlicMultitabUnderlines) &&
-      glic::GlicEnabling::IsProfileEligible(
-          controller_->GetBrowser()->GetProfile())) {
+  if (controller_->GetBrowser() &&
+      ((base::FeatureList::IsEnabled(features::kGlicMultitabUnderlines) &&
+        glic::GlicEnabling::IsProfileEligible(
+            controller_->GetBrowser()->GetProfile())) ||
+       base::FeatureList::IsEnabled(contextual_tasks::kContextualTasks))) {
     glic_tab_underline_view_ = AddChildView(
         views::Builder<glic::TabUnderlineView>(
-            glic::TabUnderlineView::Factory::Create(controller->GetBrowser(),
-                                                    this))
+            glic::TabUnderlineView::Factory::Create(
+                std::make_unique<glic::TabUnderlineViewControllerImpl>(),
+                controller->GetBrowser(), this))
             // Needed so that expectations of visibility that
             // inform underline updates are correct on first show.
             .SetVisible(false)
@@ -279,7 +284,6 @@ Tab::Tab(TabSlotController* controller)
       base::BindRepeating(&Tab::CloseButtonPressed, base::Unretained(this)),
       base::BindRepeating(&TabSlotController::OnMouseEventInTab,
                           base::Unretained(controller_))));
-  close_button_->SetHasInkDropActionOnClick(true);
 
 #if BUILDFLAG(IS_CHROMEOS)
   showing_close_button_ = !controller_->IsLockedForOnTask();
@@ -905,6 +909,18 @@ void Tab::ActiveStateChanged() {
   DeprecatedLayoutImmediately();
 }
 
+bool Tab::ShouldEnableMuteToggle(int required_width) {
+  return IsActive() || GetWidthOfLargestSelectableRegion() >= required_width;
+}
+
+void Tab::ToggleTabAudioMute() {
+  controller()->ToggleTabAudioMute(this);
+}
+
+bool Tab::IsApparentlyActive() const {
+  return tab_style_views()->GetApparentActiveState() == TabActive::kActive;
+}
+
 void Tab::AlertStateChanged() {
   if (controller_->HoverCardIsShowingForTab(this)) {
     controller_->UpdateHoverCard(
@@ -1122,8 +1138,8 @@ void Tab::UpdateIconVisibility() {
   std::optional<tabs::TabAlert> current_alert_state =
       alert_indicator_button_->showing_alert_state();
   if (glic_tab_underline_view_ &&
-      (current_alert_state == tabs::TabAlert::GLIC_ACCESSING ||
-       current_alert_state == tabs::TabAlert::GLIC_SHARING)) {
+      (current_alert_state == tabs::TabAlert::kGlicAccessing ||
+       current_alert_state == tabs::TabAlert::kGlicSharing)) {
     // Tab underlines for glic multitab replace `alert_indicator_button` as the
     // UI indicator for sharing. In this case, ensure the alert indicator is
     // hidden.
@@ -1268,7 +1284,7 @@ void Tab::CloseButtonPressed(const ui::Event& event) {
   if (!alert_indicator_button_ || !alert_indicator_button_->GetVisible()) {
     base::RecordAction(UserMetricsAction("CloseTab_NoAlertIndicator"));
   } else if (GetAlertStateToShow(data_.alert_state) ==
-             tabs::TabAlert::AUDIO_PLAYING) {
+             tabs::TabAlert::kAudioPlaying) {
     base::RecordAction(UserMetricsAction("CloseTab_AudioIndicator"));
   } else {
     base::RecordAction(UserMetricsAction("CloseTab_RecordingIndicator"));

@@ -19,6 +19,8 @@
 #include "net/disk_cache/buildflags.h"
 #include "net/disk_cache/disk_cache.h"
 #include "net/disk_cache/sql/cache_entry_key.h"
+#include "net/disk_cache/sql/sql_backend_aliases.h"
+#include "net/disk_cache/sql/sql_persistent_store_in_memory_index.h"
 
 // This backend is experimental and only available when the build flag is set.
 static_assert(BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND));
@@ -47,10 +49,10 @@ class NET_EXPORT_PRIVATE SqlPersistentStore {
 
   // The primary key for resources managed in the SqlPersistentStore's resources
   // table.
-  using ResId = base::StrongAlias<class ResIdTag, int64_t>;
+  using ResId = SqlPersistentStoreResId;
 
   // A unique identifier for a database shard.
-  using ShardId = base::StrongAlias<class ResIdTag, uint8_t>;
+  using ShardId = SqlPersistentStoreShardId;
 
   // Represents the error of SqlPersistentStore operation.
   // These values are persisted to logs. Entries should not be renumbered and
@@ -159,22 +161,19 @@ class NET_EXPORT_PRIVATE SqlPersistentStore {
     int64_t total_size = 0;
   };
 
-  // The result of a successful initialization.
-  struct InitResult {
-    InitResult(std::optional<int64_t> max_bytes,
-               const StoreStatus& store_status,
-               int64_t database_size)
-        : max_bytes(max_bytes),
-          store_status(store_status),
-          database_size(database_size) {}
-    ~InitResult() = default;
-    InitResult(InitResult&& other) = default;
-    InitResult& operator=(InitResult&& other) = default;
+  // A struct to hold the in-memory index and the list of doomed resource IDs.
+  // This is used to return both from the backend task that loads them.
+  struct InMemoryIndexAndDoomedResIds {
+    InMemoryIndexAndDoomedResIds(
+        SqlPersistentStoreInMemoryIndex&& index,
+        std::vector<SqlPersistentStore::ResId> doomed_entry_res_ids);
+    ~InMemoryIndexAndDoomedResIds();
+    InMemoryIndexAndDoomedResIds(InMemoryIndexAndDoomedResIds&& other);
+    InMemoryIndexAndDoomedResIds& operator=(
+        InMemoryIndexAndDoomedResIds&& other);
 
-    // max_bytes is set only on the first shard.
-    std::optional<int64_t> max_bytes;
-    StoreStatus store_status;
-    int64_t database_size;
+    SqlPersistentStoreInMemoryIndex index;
+    std::vector<SqlPersistentStore::ResId> doomed_entry_res_ids;
   };
 
   // A helper struct to bundle an operation's result with a flag indicating
@@ -214,8 +213,6 @@ class NET_EXPORT_PRIVATE SqlPersistentStore {
   using Int64OrError = base::expected<int64_t, Error>;
   using Int64OrErrorCallback = base::OnceCallback<void(Int64OrError)>;
 
-  using InitResultOrError = base::expected<InitResult, Error>;
-  using InitResultOrErrorCallback = base::OnceCallback<void(InitResultOrError)>;
   using ResIdList = std::vector<ResId>;
   using ResIdListOrError = base::expected<ResIdList, Error>;
   using ResIdListOrErrorCallback = base::OnceCallback<void(ResIdListOrError)>;
@@ -226,6 +223,8 @@ class NET_EXPORT_PRIVATE SqlPersistentStore {
   using ResIdListOrErrorAndStoreStatus = ResultAndStoreStatus<ResIdListOrError>;
   using ResIdListOrErrorAndStoreStatusCallback =
       base::OnceCallback<void(ResIdListOrErrorAndStoreStatus)>;
+  using InMemoryIndexAndDoomedResIdsOrError =
+      base::expected<InMemoryIndexAndDoomedResIds, Error>;
 
   // Creates a new instance of the persistent store. The returned object must be
   // initialized by calling `Initialize()`.
@@ -311,19 +310,21 @@ class NET_EXPORT_PRIVATE SqlPersistentStore {
                                   base::Time last_used,
                                   ErrorCallback callback);
 
-  // Updates the header data (stream 0) and the `last_used` timestamp for a
-  // specific cache entry. The `bytes_usage` for the entry is adjusted based
-  // on `header_size_delta`. `callback` is invoked with `kOk` on success,
-  // `kNotFound` if the entry (matching `key` and `res_id`) is not found or is
-  // doomed, or `kInvalidData` if internal data consistency checks fail.
-  // `buffer` must not be null. `header_size_delta` is the change in the size
-  // of the header data.
-  void UpdateEntryHeaderAndLastUsed(const CacheEntryKey& key,
-                                    ResId res_id,
-                                    base::Time last_used,
-                                    scoped_refptr<net::IOBuffer> buffer,
-                                    int64_t header_size_delta,
-                                    ErrorCallback callback);
+  // Updates the header data (stream 0), `last_used` timestamp, and optionally
+  // the in-memory `hints` for a specific cache entry. The `bytes_usage` for
+  // the entry is adjusted based on `header_size_delta`. `callback` is invoked
+  // with `kOk` on success, `kNotFound` if the entry (matching `key` and
+  // `res_id`) is not found or is doomed, or `kInvalidData` if internal data
+  // consistency checks fail. `buffer` must not be null. `header_size_delta`
+  // is the change in the size of the header data.
+  void UpdateEntryHeaderAndLastUsed(
+      const CacheEntryKey& key,
+      ResId res_id,
+      base::Time last_used,
+      const std::optional<MemoryEntryDataHints>& new_hints,
+      scoped_refptr<net::IOBuffer> buffer,
+      int64_t header_size_delta,
+      ErrorCallback callback);
 
   // Writes data to an entry's body. This can be used to write new data,
   // overwrite existing data, or append to the entry.
@@ -456,6 +457,22 @@ class NET_EXPORT_PRIVATE SqlPersistentStore {
   // Synchronously checks the state of a key hash against the in-memory index.
   IndexState GetIndexStateForHash(CacheEntryKey::Hash key_hash) const;
 
+  // Updates the in-memory index with the given hints for the specified entry.
+  void SetInMemoryEntryDataHints(CacheEntryKey::Hash key_hash,
+                                 ResId res_id,
+                                 MemoryEntryDataHints hints);
+
+  // Retrieves the hints for the specified entry from the in-memory index, if
+  // available.
+  std::optional<MemoryEntryDataHints> GetInMemoryEntryDataHints(
+      CacheEntryKey::Hash key_hash) const;
+
+  // Attempts to retrieve a single resource ID associated with the given key
+  // hash from the in-memory index. Returns the resource ID if a unique entry
+  // exists for the hash; otherwise, returns std::nullopt.
+  std::optional<ResId> TryGetSingleResIdFromInMemoryIndex(
+      CacheEntryKey::Hash key_hash) const;
+
   // Returns the shard ID for a given cache key hash.
   ShardId GetShardIdForHash(CacheEntryKey::Hash key_hash) const;
 
@@ -470,6 +487,27 @@ class NET_EXPORT_PRIVATE SqlPersistentStore {
   void RazeAndPoisonForTesting();
 
  private:
+  // The result of a successful initialization.
+  struct InitResult {
+    InitResult(std::optional<int64_t> max_bytes,
+               const StoreStatus& store_status,
+               int64_t database_size,
+               std::optional<InMemoryIndexAndDoomedResIds> in_memory_data);
+    ~InitResult();
+    InitResult(InitResult&& other);
+    InitResult& operator=(InitResult&& other);
+
+    // max_bytes is set only on the first shard.
+    std::optional<int64_t> max_bytes;
+    StoreStatus store_status;
+    int64_t database_size;
+    // Used only when features::kSqlDiskCacheLoadIndexOnInit is true.
+    std::optional<InMemoryIndexAndDoomedResIds> in_memory_data;
+  };
+
+  using InitResultOrError = base::expected<InitResult, Error>;
+  using InitResultOrErrorCallback = base::OnceCallback<void(InitResultOrError)>;
+
   void SetMaxSize(int64_t max_bytes);
   base::RepeatingCallback<void(Error)> CreateBarrierErrorCallback(
       ErrorCallback callback);
@@ -505,7 +543,7 @@ class NET_EXPORT_PRIVATE SqlPersistentStore {
   ErrorCallback eviction_result_callback_;
 
   // Whether loading of the in-memory index has been triggered.
-  bool in_memory_load_trigered_ = false;
+  bool in_memory_load_triggered_ = false;
 
   base::WeakPtrFactory<SqlPersistentStore> weak_factory_{this};
 };

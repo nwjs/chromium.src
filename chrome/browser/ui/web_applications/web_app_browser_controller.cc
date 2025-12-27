@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/web_applications/web_app_browser_controller.h"
 
+#include <algorithm>
+
 #include "ash/constants/web_app_id_constants.h"
 #include "base/callback_list.h"
 #include "base/check_is_test.h"
@@ -33,8 +35,10 @@
 #include "chrome/browser/web_applications/locks/app_lock.h"
 #include "chrome/browser/web_applications/proto/web_app.pb.h"
 #include "chrome/browser/web_applications/ui_manager/update_dialog_types.h"
+#include "chrome/browser/web_applications/url_pattern_with_regex_matcher.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
+#include "chrome/browser/web_applications/web_app_filter.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_icon_manager.h"
 #include "chrome/browser/web_applications/web_app_install_manager.h"
@@ -140,6 +144,12 @@ WebAppBrowserController::WebAppBrowserController(
 
 WebAppBrowserController::~WebAppBrowserController() = default;
 
+WebAppBrowserController* WebAppBrowserController::From(
+    BrowserWindowInterface* browser) {
+  auto* result = AppBrowserController::From(browser);
+  return result ? result->AsWebAppBrowserController() : nullptr;
+}
+
 bool WebAppBrowserController::HasMinimalUiButtons() const {
   if (has_tab_strip()) {
     return false;
@@ -189,6 +199,19 @@ bool WebAppBrowserController::AppUsesBorderlessMode() const {
          effective_display_mode_ == DisplayMode::kBorderless;
 }
 
+bool WebAppBrowserController::UrlMatchesBorderlessPattern(
+    const GURL& url) const {
+  const WebApp* app = registrar().GetAppById(app_id());
+  if (app == nullptr) {
+    return false;
+  }
+  return app->borderless_url_patterns().empty() ||
+         std::ranges::any_of(app->borderless_url_patterns(),
+                             [&url](const blink::SafeUrlPattern& p) {
+                               return UrlPatternWithRegexMatcher(p).Match(url);
+                             });
+}
+
 bool WebAppBrowserController::AppUsesTabbed() const {
   if (!base::FeatureList::IsEnabled(blink::features::kDesktopPWAsTabStrip)) {
     return false;
@@ -197,7 +220,8 @@ bool WebAppBrowserController::AppUsesTabbed() const {
 }
 
 bool WebAppBrowserController::IsIsolatedWebApp() const {
-  return is_isolated_web_app_for_testing_ || registrar().IsIsolated(app_id());
+  return is_isolated_web_app_for_testing_ ||
+         registrar().AppMatches(app_id(), WebAppFilter::IsIsolatedApp());
 }
 
 void WebAppBrowserController::SetIsolatedWebAppTrueForTesting() {
@@ -655,6 +679,12 @@ void WebAppBrowserController::OnTabInserted(content::WebContents* contents) {
 
   WebAppTabHelper* tab_helper = WebAppTabHelper::FromWebContents(contents);
   tab_helper->SetIsInAppWindow(app_id());
+
+  if (!did_notify_first_tab_) {
+    did_notify_first_tab_ = true;
+    tab_helper->NotifyIsFirstWebContentsInAppWindow(
+        base::PassKey<WebAppBrowserController>());
+  }
 }
 
 void WebAppBrowserController::OnTabRemoved(content::WebContents* contents) {

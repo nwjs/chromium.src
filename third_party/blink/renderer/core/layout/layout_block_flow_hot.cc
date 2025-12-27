@@ -19,10 +19,11 @@ bool LayoutBlockFlow::CreatesNewFormattingContext() const {
   NOT_DESTROYED();
   if (IsInline() || IsFloatingOrOutOfFlowPositioned() || IsScrollContainer() ||
       IsFlexItem() || IsCustomItem() || IsDocumentElement() || IsGridItem() ||
-      IsMasonryItem() || IsWritingModeRoot() || IsMathItem() ||
+      IsGridLanesItem() || IsWritingModeRoot() || IsMathItem() ||
       StyleRef().Display() == EDisplay::kFlowRoot ||
       StyleRef().Display() == EDisplay::kFlowRootListItem ||
       ShouldApplyPaintContainment() || ShouldApplyLayoutContainment() ||
+      StyleRef().IsContainerForSizeContainerQueries() ||
       StyleRef().HasLineClamp() || StyleRef().SpecifiesColumns() ||
       StyleRef().GetColumnSpan() == EColumnSpan::kAll) {
     // The specs require this object to establish a new formatting context.
@@ -32,12 +33,6 @@ bool LayoutBlockFlow::CreatesNewFormattingContext() const {
   if (RuntimeEnabledFeatures::CanvasDrawElementEnabled() &&
       Parent()->IsCanvas()) {
     return true;
-  }
-
-  if (RuntimeEnabledFeatures::ContainerTypeNoLayoutContainmentEnabled()) {
-    if (StyleRef().IsContainerForSizeContainerQueries()) {
-      return true;
-    }
   }
 
   // https://drafts.csswg.org/css-align/#distribution-block

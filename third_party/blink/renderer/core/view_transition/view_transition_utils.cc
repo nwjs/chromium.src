@@ -152,7 +152,7 @@ PseudoElement* ViewTransitionUtils::FindPseudoIf(const Element& element,
 
 // static
 ViewTransition* ViewTransitionUtils::GetTransition(const Document& document) {
-  auto* supplement = ViewTransitionSupplement::FromIfExists(document);
+  auto* supplement = document.GetViewTransitionsIfExists();
   if (!supplement) {
     return nullptr;
   }
@@ -165,8 +165,7 @@ ViewTransition* ViewTransitionUtils::GetTransition(const Document& document) {
 
 // static
 ViewTransition* ViewTransitionUtils::GetTransition(const Element& element) {
-  auto* supplement =
-      ViewTransitionSupplement::FromIfExists(element.GetDocument());
+  auto* supplement = element.GetDocument().GetViewTransitionsIfExists();
   if (!supplement) {
     return nullptr;
   }
@@ -203,7 +202,7 @@ ViewTransition* ViewTransitionUtils::TransitionForTaggedElement(
 void ViewTransitionUtils::ForEachTransition(
     const Document& document,
     base::FunctionRef<void(ViewTransition&)> function) {
-  if (auto* supplement = ViewTransitionSupplement::FromIfExists(document)) {
+  if (auto* supplement = document.GetViewTransitionsIfExists()) {
     supplement->ForEachTransition(function);
   }
 }
@@ -229,33 +228,9 @@ ViewTransition* ViewTransitionUtils::GetOutgoingCrossDocumentTransition(
 }
 
 // static
-DOMViewTransition* ViewTransitionUtils::GetTransitionScriptDelegate(
-    const Document& document) {
-  ViewTransition* view_transition =
-      ViewTransitionUtils::GetTransition(document);
-  if (!view_transition) {
-    return nullptr;
-  }
-
-  return view_transition->GetScriptDelegate();
-}
-
-// static
-PseudoElement* ViewTransitionUtils::GetRootPseudo(const Document& document) {
-  if (!document.documentElement()) {
-    return nullptr;
-  }
-
-  PseudoElement* view_transition_pseudo =
-      document.documentElement()->GetPseudoElement(kPseudoIdViewTransition);
-  DCHECK(!view_transition_pseudo || GetTransition(document));
-  return view_transition_pseudo;
-}
-
-// static
 VectorOf<std::unique_ptr<ViewTransitionRequest>>
 ViewTransitionUtils::GetPendingRequests(const Document& document) {
-  auto* supplement = ViewTransitionSupplement::FromIfExists(document);
+  auto* supplement = document.GetViewTransitionsIfExists();
   if (supplement) {
     return supplement->TakePendingRequests();
   }
@@ -290,7 +265,7 @@ ViewTransitionUtils::GetPropertyCSSValueScope::GetPropertyCSSValueScope(
     return;
   }
 
-  if (auto* supplement = ViewTransitionSupplement::FromIfExists(document_)) {
+  if (auto* supplement = document_.GetViewTransitionsIfExists()) {
     supplement->WillEnterGetComputedStyleScope();
   }
 }
@@ -300,13 +275,13 @@ ViewTransitionUtils::GetPropertyCSSValueScope::~GetPropertyCSSValueScope() {
     return;
   }
 
-  if (auto* supplement = ViewTransitionSupplement::FromIfExists(document_)) {
+  if (auto* supplement = document_.GetViewTransitionsIfExists()) {
     supplement->WillExitGetComputedStyleScope();
   }
 }
 
 void ViewTransitionUtils::WillUpdateStyleAndLayoutTree(Document& document) {
-  if (auto* supplement = ViewTransitionSupplement::FromIfExists(document)) {
+  if (auto* supplement = document.GetViewTransitionsIfExists()) {
     supplement->WillUpdateStyleAndLayoutTree();
   }
 }

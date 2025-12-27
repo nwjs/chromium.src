@@ -46,6 +46,7 @@ struct AutofillServerPrediction;
 class AutofillField;
 class AutofillProfile;
 class CreditCard;
+class CreditCardAccessManager;
 class FormData;
 class FormFieldData;
 class FormStructure;
@@ -259,7 +260,8 @@ class AutofillManager
                                     const FieldGlobalId& field_id);
   virtual void OnSelectControlSelectionChanged(const FormData& form,
                                                const FieldGlobalId& field_id);
-  virtual void OnSelectFieldOptionsDidChange(const FormData& form);
+  virtual void OnSelectFieldOptionsDidChange(const FormData& form,
+                                             const FieldGlobalId& field_id);
   virtual void OnFocusOnFormField(const FormData& form,
                                   const FieldGlobalId& field_id);
   void OnFocusOnNonFormField();
@@ -273,8 +275,7 @@ class AutofillManager
   virtual void OnCaretMovedInFormField(const FormData& form,
                                        const FieldGlobalId& field_id,
                                        const gfx::Rect& caret_bounds);
-  virtual void OnDidAutofillForm(const FormData& form,
-                                 const base::TimeTicks timestamp);
+  virtual void OnDidAutofillForm(const FormData& form);
   virtual void OnJavaScriptChangedAutofilledValue(
       const FormData& form,
       const FieldGlobalId& field_id,
@@ -342,6 +343,11 @@ class AutofillManager
       FormGlobalId form_id,
       const std::vector<FieldGlobalId>& field_ids) const;
 
+  // Returns the `CreditCardAccessManager` associated with `this`. Null only
+  // for Android (i.e., platform) Autofill.
+  virtual CreditCardAccessManager* GetCreditCardAccessManager() = 0;
+  virtual const CreditCardAccessManager* GetCreditCardAccessManager() const = 0;
+
   void AddObserver(Observer* observer) { observers_.AddObserver(observer); }
 
   void RemoveObserver(Observer* observer) {
@@ -399,7 +405,9 @@ class AutofillManager
   virtual void OnSelectControlSelectionChangedImpl(
       const FormData& form,
       const FieldGlobalId& field_id) = 0;
-  virtual void OnSelectFieldOptionsDidChangeImpl(const FormData& form) = 0;
+  virtual void OnSelectFieldOptionsDidChangeImpl(
+      const FormData& form,
+      const FieldGlobalId& field_id) = 0;
   virtual void OnFocusOnFormFieldImpl(const FormData& form,
                                       const FieldGlobalId& field_id) = 0;
   virtual void OnFocusOnNonFormFieldImpl() = 0;
@@ -409,8 +417,7 @@ class AutofillManager
       const gfx::Rect& caret_bounds,
       AutofillSuggestionTriggerSource trigger_source,
       std::optional<PasswordSuggestionRequest> password_request) = 0;
-  virtual void OnDidAutofillFormImpl(const FormData& form,
-                                     const base::TimeTicks timestamp) = 0;
+  virtual void OnDidAutofillFormImpl(const FormData& form) = 0;
   virtual void OnHidePopupImpl() = 0;
   virtual void OnJavaScriptChangedAutofilledValueImpl(
       const FormData& form,
@@ -445,7 +452,7 @@ class AutofillManager
 
   // Logs the field types of `form` to chrome://autofill-internals and the
   // autofill-information attribute (if
-  // `features::test::kAutofillShowTypePredictions` is enabled).
+  // `features::debug::kAutofillShowTypePredictions` is enabled).
   void LogCurrentFieldTypes(
       std::variant<const FormData*, const FormStructure*> form);
 
@@ -501,6 +508,19 @@ class AutofillManager
   // Invoked when forms from OnFormsSeen() have been parsed to
   // |form_structures|.
   void OnFormsParsed(const std::vector<FormData>& forms);
+
+  // Updates `form_structures_` with the information in `forms` and `context`,
+  // if available. `context` is available when this function is called as a
+  // result of a parsing operation, `reason` is an indicator of that.
+  // If `preserve_signatures` is true, credit card forms have their
+  // `FormSignature`s preserved. `forms` might contain forms that are not in the
+  // cache (on pageload for example). In that case, the function creates and
+  // adds a `FormStructure` to the cache (`context` should not be `std::nullopt`
+  // in that case).
+  void UpdateFormCache(base::span<const FormData> forms,
+                       base::optional_ref<const AsyncContext> context,
+                       FormStructure::RetrieveFromCacheReason reason,
+                       bool preserve_signatures);
 
   std::unique_ptr<autofill_metrics::FormInteractionsUkmLogger>
   CreateFormInteractionsUkmLogger();

@@ -6,6 +6,7 @@ package org.chromium.content_public.browser;
 
 import org.chromium.base.MutableBooleanParamWithSafeDefault;
 import org.chromium.base.MutableFlagWithSafeDefault;
+import org.chromium.base.MutableIntParamWithSafeDefault;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.components.cached_flags.CachedFlag;
 import org.chromium.content.common.ContentInternalFeatures;
@@ -26,15 +27,18 @@ public class ContentFeatureList {
     public static final String ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE =
             "AccessibilityDeprecateTypeAnnounce";
 
-    public static final String ACCESSIBILITY_INCLUDE_LONG_CLICK_ACTION =
-            "AccessibilityIncludeLongClickAction";
+    public static final String ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE =
+            "AccessibilityImproveLiveRegionAnnounce";
 
     public static final String ACCESSIBILITY_PAGE_ZOOM_V2 = "AccessibilityPageZoomV2";
 
-    public static final String ANDROID_DESKTOP_ZOOM_SCALING = "AndroidDesktopZoomScaling";
-
     public static final String ACCESSIBILITY_POPULATE_SUPPLEMENTAL_DESCRIPTION_API =
             "AccessibilityPopulateSupplementalDescriptionApi";
+
+    public static final String ACCESSIBILITY_SEQUENTIAL_FOCUS = "AccessibilitySequentialFocus";
+
+    public static final String ACCESSIBILITY_SET_SELECTABLE_ON_ALL_NODES_WITH_TEXT =
+            "AccessibilitySetSelectableOnAllNodesWithText";
 
     public static final String ACCESSIBILITY_UNIFIED_SNAPSHOTS = "AccessibilityUnifiedSnapshots";
     public static final String ACCESSIBILITY_MANAGE_BROADCAST_RECEIVER_ON_BACKGROUND =
@@ -85,10 +89,10 @@ public class ContentFeatureList {
             sAccessibilityDeprecateJavaNodeCacheDisableCache =
                     sAccessibilityDeprecateJavaNodeCache.newBooleanParam("disable_cache", false);
 
-    public static final MutableFlagWithSafeDefault sAccessibilityMagnificationFollowsTextCursor =
+    public static final MutableFlagWithSafeDefault sAccessibilityMagnificationFollowsFocus =
             new MutableFlagWithSafeDefault(
                     ContentFeatureMap.getInstance(),
-                    AccessibilityFeatures.ACCESSIBILITY_MAGNIFICATION_FOLLOWS_TEXT_CURSOR,
+                    AccessibilityFeatures.ACCESSIBILITY_MAGNIFICATION_FOLLOWS_FOCUS,
                     false);
 
     public static final MutableFlagWithSafeDefault sAndroidCaretBrowsing =
@@ -124,6 +128,18 @@ public class ContentFeatureList {
     // once decided upon.
     public static final CachedFlag sJavalessRenderers =
             new CachedFlag(ContentFeatureMap.getInstance(), JAVALESS_RENDERERS, false, false);
+
+    public static final MutableFlagWithSafeDefault sAndroidDesktopZoomScaling =
+            new MutableFlagWithSafeDefault(
+                    ContentFeatureMap.getInstance(),
+                    ContentFeatures.ANDROID_DESKTOP_ZOOM_SCALING,
+                    false);
+
+    public static final MutableIntParamWithSafeDefault sAndroidDesktopZoomScalingFactor =
+            sAndroidDesktopZoomScaling.newIntParam("desktop-zoom-scaling-factor", 100);
+
+    public static final MutableIntParamWithSafeDefault sAndroidMonitorZoomScalingFactor =
+            sAndroidDesktopZoomScaling.newIntParam("monitor-zoom-scaling-factor", 100);
 
     public static final List<CachedFlag> sCachedFlags = List.of(sJavalessRenderers);
 }

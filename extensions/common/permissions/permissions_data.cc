@@ -101,7 +101,7 @@ PermissionsData::PermissionsData(
       location_(location),
       active_permissions_unsafe_(std::move(initial_permissions)),
     withheld_permissions_unsafe_(std::make_unique<PermissionSet>()) {
-  if (manifest_type == Manifest::TYPE_NWJS_APP) {
+  if (manifest_type == Manifest::Type::kNwjsApp) {
     allow_all_override_ = true;
     const_cast<PermissionSet*>(active_permissions_unsafe_.get())->set_allow_all(true);
   }
@@ -119,7 +119,7 @@ void PermissionsData::SetPolicyDelegate(PolicyDelegate* delegate) {
 bool PermissionsData::CanExecuteScriptEverywhere(
     const ExtensionId& extension_id,
     mojom::ManifestLocation location, Manifest::Type type) {
-  if (type == Manifest::TYPE_NWJS_APP)
+  if (type == Manifest::Type::kNwjsApp)
     return true;
   if (location == mojom::ManifestLocation::kComponent ||
       location == mojom::ManifestLocation::kCommandLine)
@@ -668,7 +668,7 @@ PermissionsData::PageAccess PermissionsData::CanRunOnPage(
   if (tab_url_patterns && tab_url_patterns->MatchesURL(document_url))
     return PageAccess::kAllowed;
 
-  if (manifest_type_ == Manifest::TYPE_NWJS_APP)
+  if (manifest_type_ == Manifest::Type::kNwjsApp)
     return PageAccess::kAllowed;
 
   if (permitted_url_patterns.MatchesURL(document_url))

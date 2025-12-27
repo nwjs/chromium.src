@@ -4,10 +4,11 @@
 
 package org.chromium.chrome.browser.ui;
 
-import android.app.Activity;
+import android.content.Context;
 
 import org.jni_zero.CalledByNative;
 
+import org.chromium.base.Log;
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -25,36 +26,43 @@ import org.chromium.content_public.browser.WebContents;
  */
 @NullMarked
 public class ExclusiveAccessContext implements Destroyable {
-    private final Activity mActivity;
+    private static final String TAG = "ExclusiveAccessCtx";
+
+    private final Context mContext;
     private final FullscreenManager mFullscreenManager;
     private final ActivityTabProvider.ActivityTabTabObserver mActiveTabObserver;
     @Nullable private Tab mActiveTab;
 
     @CalledByNative
     public static ExclusiveAccessContext create(
-            Activity activity,
+            Context context,
             FullscreenManager fullscreenManager,
             ActivityTabProvider activityTabProvider) {
-        return new ExclusiveAccessContext(activity, fullscreenManager, activityTabProvider);
+        return new ExclusiveAccessContext(context, fullscreenManager, activityTabProvider);
     }
 
     public ExclusiveAccessContext(
-            Activity activity,
+            Context context,
             FullscreenManager fullscreenManager,
             ActivityTabProvider activityTabProvider) {
-        mActivity = activity;
+        mContext = context;
         mFullscreenManager = fullscreenManager;
         mActiveTabObserver =
-                new ActivityTabProvider.ActivityTabTabObserver(activityTabProvider) {
+                new ActivityTabProvider.ActivityTabTabObserver(
+                        activityTabProvider, /* shouldTrigger= */ true) {
                     @Override
                     protected void onObservingDifferentTab(@Nullable Tab tab) {
+                        if (mActiveTab == null || tab == null) {
+                            Log.i(TAG, "onObservingDifferentTab is new tab null? " + (tab == null));
+                        }
+
                         mActiveTab = tab;
                     }
                 };
     }
 
-    Activity getActivity() {
-        return mActivity;
+    Context getAppContext() {
+        return mContext;
     }
 
     @Override
@@ -65,7 +73,12 @@ public class ExclusiveAccessContext implements Destroyable {
 
     @CalledByNative
     public @Nullable Profile getProfile() {
-        return mActiveTab != null ? mActiveTab.getProfile() : null;
+        if (mActiveTab == null) {
+            Log.e(TAG, "mActiveTab is null in getProfile");
+            return null;
+        }
+
+        return mActiveTab.getProfile();
     }
 
     @CalledByNative
@@ -92,5 +105,10 @@ public class ExclusiveAccessContext implements Destroyable {
         if (mActiveTab != null) {
             mFullscreenManager.onExitFullscreen(mActiveTab);
         }
+    }
+
+    @CalledByNative
+    public void forceActiveTab(Tab tab) {
+        mActiveTab = tab;
     }
 }

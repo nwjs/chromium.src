@@ -6,7 +6,7 @@
 
 #import "base/time/time.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_ui_features.h"
-#import "ios/chrome/browser/omnibox/ui/popup/content_providing.h"
+#import "ios/chrome/browser/omnibox/ui/popup/omnibox_popup_view_controller.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
@@ -38,11 +38,9 @@ const CGFloat kFadeAnimationVerticalOffset = 12;
 @property(nonatomic, strong) NSLayoutConstraint* heightConstraintTablet;
 
 @property(nonatomic, weak) id<OmniboxPopupPresenterDelegate> delegate;
-@property(nonatomic, weak) UIViewController<ContentProviding>* viewController;
+@property(nonatomic, weak) OmniboxPopupViewController* viewController;
 /// Readwrite internal redefinition.
 @property(nonatomic, strong) UIView* popupContainerView;
-/// Separator for the bottom edge of the popup on iPad.
-@property(nonatomic, strong) UIView* bottomSeparator;
 /// Top constraint between the popup and it's container. This is used to animate
 /// suggestions when focusing the omnibox.
 @property(nonatomic, strong) NSLayoutConstraint* popupTopConstraint;
@@ -74,8 +72,7 @@ const CGFloat kFadeAnimationVerticalOffset = 12;
 
 - (instancetype)
     initWithPopupPresenterDelegate:(id<OmniboxPopupPresenterDelegate>)delegate
-               popupViewController:
-                   (UIViewController<ContentProviding>*)viewController
+               popupViewController:(OmniboxPopupViewController*)viewController
                  layoutGuideCenter:(LayoutGuideCenter*)layoutGuideCenter
                          incognito:(BOOL)incognito
                presentationContext:
@@ -122,28 +119,6 @@ const CGFloat kFadeAnimationVerticalOffset = 12;
       _popupTopConstraint = [viewController.view.topAnchor
           constraintEqualToAnchor:_popupContainerView.topAnchor];
       _popupTopConstraint.active = YES;
-
-      // Add bottom separator. This will only be visible on iPad where
-      // the omnibox doesn't fill the whole screen.
-      _bottomSeparator = [[UIView alloc] initWithFrame:CGRectZero];
-      _bottomSeparator.translatesAutoresizingMaskIntoConstraints = NO;
-      _bottomSeparator.backgroundColor =
-          [UIColor colorNamed:kToolbarShadowColor];
-
-      [_popupContainerView addSubview:self.bottomSeparator];
-
-      CGFloat separatorHeight =
-          ui::AlignValueToUpperPixel(kToolbarSeparatorHeight);
-      [NSLayoutConstraint activateConstraints:@[
-        [self.bottomSeparator.heightAnchor
-            constraintEqualToConstant:separatorHeight],
-        [self.bottomSeparator.leadingAnchor
-            constraintEqualToAnchor:_popupContainerView.leadingAnchor],
-        [self.bottomSeparator.trailingAnchor
-            constraintEqualToAnchor:_popupContainerView.trailingAnchor],
-        [self.bottomSeparator.topAnchor
-            constraintEqualToAnchor:_popupContainerView.bottomAnchor],
-      ]];
     }
   }
   return self;
@@ -157,7 +132,6 @@ const CGFloat kFadeAnimationVerticalOffset = 12;
     // popup view.
     if (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET) {
       self.bottomConstraintPhone.active = NO;
-      self.bottomSeparator.hidden = YES;
     }
 
     [self.viewController willMoveToParentViewController:nil];
@@ -215,8 +189,14 @@ const CGFloat kFadeAnimationVerticalOffset = 12;
     self.heightConstraintTablet.active = showRegularLayout;
   } else {
     self.bottomConstraintPhone.active = YES;
-    self.bottomSeparator.hidden = NO;
   }
+}
+
+// Sets the additional vertical content inset for the suggestion list.
+- (void)setAdditionalVerticalContentInset:
+    (CGFloat)additionalVerticalContentInset {
+  [_viewController
+      setAdditionalVerticalContentInset:additionalVerticalContentInset];
 }
 
 #pragma mark - ToolbarOmniboxConsumer
@@ -396,8 +376,11 @@ const CGFloat kFadeAnimationVerticalOffset = 12;
 }
 
 - (BOOL)useBottomOmniboxInPopup {
-  if (_presentationContext == OmniboxPresentationContext::kLensOverlay ||
-      _presentationContext == OmniboxPresentationContext::kAIMPrototype) {
+  if (_presentationContext == OmniboxPresentationContext::kComposebox) {
+    return _preferredOmniboxPosition == ToolbarType::kSecondary;
+  }
+
+  if (_presentationContext == OmniboxPresentationContext::kLensOverlay) {
     return NO;
   }
 

@@ -1446,20 +1446,6 @@ int HttpNetworkTransaction::BuildRequestHeaders(
     request_headers_.SetHeader("IP-Protection", "1");
   }
 
-  if (bool is_prt_eligible =
-          features::kEnableProbabilisticRevealTokensForNonProxiedRequests
-              .Get() ||
-          is_proxied_request;
-      features::kProbabilisticRevealTokensAddHeaderToProxiedRequests.Get() &&
-      is_prt_eligible) {
-    if (std::optional<std::string> maybe_prt_header_value =
-            proxy_info_.prt_header_value();
-        maybe_prt_header_value.has_value()) {
-      request_headers_.SetHeader("Sec-Probabilistic-Reveal-Token",
-                                 std::move(maybe_prt_header_value.value()));
-    }
-  }
-
   request_headers_.MergeFrom(request_->extra_headers);
 
   if (modify_headers_callbacks_) {
@@ -2395,8 +2381,9 @@ void HttpNetworkTransaction::CopyConnectionAttemptsFromStreamRequest() {
   // Since the transaction can restart with auth credentials, it may create a
   // stream more than once. Accumulate all of the connection attempts across
   // those streams by appending them to the vector:
-  for (const auto& attempt : stream_request_->connection_attempts())
-    connection_attempts_.push_back(attempt);
+  const auto& request_attempts = stream_request_->connection_attempts();
+  connection_attempts_.insert(connection_attempts_.end(),
+                              request_attempts.begin(), request_attempts.end());
 }
 
 bool HttpNetworkTransaction::ContentEncodingsValid() const {

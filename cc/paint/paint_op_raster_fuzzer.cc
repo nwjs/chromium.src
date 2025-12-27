@@ -136,6 +136,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   [[maybe_unused]] static Environment* env = new Environment();
   base::CommandLine::Init(0, nullptr);
 
+  // SAFETY: required from fuzzer.
+  base::span<const uint8_t> data_span = UNSAFE_BUFFERS(base::span(data, size));
+
   // Partition the data to use some bytes for populating the font cache.
   uint32_t bytes_for_fonts = data[0];
   if (bytes_for_fonts > size) {
@@ -156,10 +159,11 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   cc::ServicePaintCache paint_cache;
   std::vector<SkDiscardableHandleId> locked_handles;
   if (bytes_for_fonts > 0u) {
-    font_manager->Deserialize(data, bytes_for_fonts, &locked_handles);
+    font_manager->Deserialize(data_span.first(bytes_for_fonts),
+                              &locked_handles);
   }
 
-  auto context_provider_no_support = viz::TestContextProvider::Create();
+  auto context_provider_no_support = viz::TestContextProvider::CreateGLES();
   context_provider_no_support->BindToCurrentSequence();
   auto gr_context_no_support =
       GrDirectContexts::MakeGL(skia_bindings::CreateGLES2InterfaceBindings(
@@ -170,7 +174,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   Raster(gr_context_no_support.get(), font_manager->strike_client(),
          &paint_cache, raster_data, raster_size);
 
-  auto context_provider_with_support = viz::TestContextProvider::Create(
+  auto context_provider_with_support = viz::TestContextProvider::CreateGLES(
       std::string("GL_OES_standard_derivatives"));
   context_provider_with_support->BindToCurrentSequence();
   auto gr_context_with_support =

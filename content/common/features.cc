@@ -6,6 +6,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/time/time.h"
 #include "third_party/blink/public/common/features.h"
 
 namespace features {
@@ -113,6 +114,11 @@ BASE_FEATURE(kHidePastePopupOnGSB, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kHoldbackDebugReasonStringRemoval,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_MAC)
+BASE_FEATURE(kCancelCompositionWhenWindowLosesFocus,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_MAC)
+
 // If Canvas2D Image Chromium is allowed, this feature controls whether it is
 // enabled.
 BASE_FEATURE(kCanvas2DImageChromium,
@@ -157,12 +163,6 @@ BASE_FEATURE(kCopyFromSurfaceAlwaysCallCallback,
 // https://github.com/WICG/client-hints-infrastructure/blob/master/reliability.md#critical-ch
 BASE_FEATURE(kCriticalClientHint, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Delay the destructions of RenderFrameHostImpls during a navigation (on
-// Unload) or frame Detach, by delaying the call to
-// PendingDeletionCheckCompletedOnSubTree.
-BASE_FEATURE(kDelayRfhDestructionsOnUnloadAndDetach,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enable document policy negotiation mechanism.
 BASE_FEATURE(kDocumentPolicyNegotiation, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -200,10 +200,6 @@ BASE_FEATURE(kExperimentalContentSecurityPolicyFeatures,
 // and account labels features.
 BASE_FEATURE(kFedCmUseOtherAccountAndLabelsNewSyntax,
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables sending SameSite=Lax cookies in credentialed FedCM requests
-// (accounts endpoint, ID assertion endpoint and disconnect endpoint).
-BASE_FEATURE(kFedCmSameSiteLax, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables NonString Tokens
 BASE_FEATURE(kFedCmNonStringToken, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -265,6 +261,50 @@ const base::FeatureParam<double>
     kFledgeBidderWorkletThreadPoolSizeLogarithmicScalingFactor{
         &kFledgeBidderWorkletThreadPool,
         "bidder_worklet_thread_pool_size_logarithmic_scaling_factor", 2};
+
+// This feature controls whether the renderer should use FontDataManager to
+// fetch fonts from the Browser's FontDataService. It is currently scoped to
+// Windows and Linux (via separate features and experiments). See
+// crbug.com/335680565.
+#if BUILDFLAG(IS_WIN)
+BASE_FEATURE(kFontDataServiceAllWebContents, base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<FontDataServiceTypefaceType>::Option
+    font_data_service_typeface[] = {
+        {FontDataServiceTypefaceType::kDwrite, "DWrite"},
+        {FontDataServiceTypefaceType::kFreetype, "Freetype"},
+        {FontDataServiceTypefaceType::kFontations, "Fontations"}};
+BASE_FEATURE_ENUM_PARAM(FontDataServiceTypefaceType,
+                        kFontDataServiceTypefaceType,
+                        &kFontDataServiceAllWebContents,
+                        "typeface",
+                        FontDataServiceTypefaceType::kDwrite,
+                        &font_data_service_typeface);
+#endif  // BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_LINUX)
+BASE_FEATURE(kFontDataServiceLinux, base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<FontDataServiceTypefaceType>::Option
+    font_data_service_typeface[] = {
+        {FontDataServiceTypefaceType::kFreetype, "Freetype"},
+        {FontDataServiceTypefaceType::kFontations, "Fontations"}};
+BASE_FEATURE_ENUM_PARAM(FontDataServiceTypefaceType,
+                        kFontDataServiceTypefaceType,
+                        &kFontDataServiceLinux,
+                        "typeface",
+                        FontDataServiceTypefaceType::kFontations,
+                        &font_data_service_typeface);
+#endif  // BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+bool IsFontDataServiceEnabled() {
+#if BUILDFLAG(IS_WIN)
+  return base::FeatureList::IsEnabled(features::kFontDataServiceAllWebContents);
+#elif BUILDFLAG(IS_LINUX)
+  return base::FeatureList::IsEnabled(features::kFontDataServiceLinux);
+#else
+  return false;
+#endif
+}
+#endif
 
 // Enables fixes for matching src: local() for web fonts correctly against full
 // font name or postscript name. Rolling out behind a flag, as enabling this
@@ -514,7 +554,7 @@ BASE_FEATURE(kProcessReuseOnPrerenderCOOPSwap,
 // Causes the browser to progressively enable accessibility for WebContents as
 // they are unhidden and, optionally, disable accessibility some time after they
 // become hidden.
-BASE_FEATURE(kProgressiveAccessibility, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kProgressiveAccessibility, base::FEATURE_ENABLED_BY_DEFAULT);
 
 namespace {
 
@@ -609,6 +649,10 @@ BASE_FEATURE(kServiceWorkerStaticRouterStartServiceWorker,
 // including changes to history.pushState().
 BASE_FEATURE(kServiceWorkerClientUrlIsCreationUrl,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Handles blocking the file picker when a visible but inactive tab in a split
+// triggers it. This serves as a kill switch for crbug.com/444653104.
+BASE_FEATURE(kSideBySideFilePickerCancelling, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables skipping the early call to CommitPending when navigating away from a
 // crashed frame.

@@ -305,23 +305,11 @@ class BookmarkManagerMediator
                 public void onBookmarkRowDisplayPrefChanged(
                         @BookmarkRowDisplayPref int displayPref) {
                     refresh();
-
-                    if (AccessibilityState.isTouchExplorationEnabled()) {
-                        mRecyclerView.announceForAccessibility(
-                                mBookmarkUiPrefs.getViewOptionsAccessibilityAnnouncementText(
-                                        mContext, displayPref));
-                    }
                 }
 
                 @Override
                 public void onBookmarkRowSortOrderChanged(@BookmarkRowSortOrder int sortOrder) {
                     refresh();
-
-                    if (AccessibilityState.isTouchExplorationEnabled()) {
-                        mRecyclerView.announceForAccessibility(
-                                mBookmarkUiPrefs.getSortOrderAccessibilityAnnouncementText(
-                                        mContext, sortOrder));
-                    }
                 }
             };
 
@@ -1836,8 +1824,6 @@ class BookmarkManagerMediator
 
     // The shopping filter should only be visible if the shopping feature is enabled and
     // there's at least one price-tracked bookmark available.
-    // TODO(crbug.com/40279892): Make this method private when price-tracking utils are mocked
-    // properly.
     @VisibleForTesting
     void updateShoppingFilterVisible() {
         if (!CommerceFeatureUtils.isShoppingListEligible(mShoppingService)) {
