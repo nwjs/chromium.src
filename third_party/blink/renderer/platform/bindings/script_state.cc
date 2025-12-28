@@ -43,9 +43,11 @@ ScriptState::ScriptState(v8::Local<v8::Context> context,
   RendererResourceCoordinator::Get()->OnScriptStateCreated(this,
                                                            execution_context);
   for (int i = 32; i <= 36; i++) { //node_context_data.h
-    context->SetAlignedPointerInEmbedderData(i, nullptr);
+    context->SetAlignedPointerInEmbedderData(
+        i, nullptr, v8::kEmbedderDataTypeTagDefault);
   }
-  context->SetAlignedPointerInEmbedderData(50, nullptr);
+  context->SetAlignedPointerInEmbedderData(
+      50, nullptr, v8::kEmbedderDataTypeTagDefault);
 }
 
 ScriptState::~ScriptState() {
