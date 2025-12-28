@@ -140,9 +140,8 @@ void MaybeSetLockedFullscreenState(const api::windows::Update::Params& params,
 
 // Updates `window_bounds` from `params`. Returns true if bounds were set.
 bool UpdateWindowBoundsFromParams(const api::windows::Update::Params& params,
-                                  gfx::Rect& window_bounds, Browser* b) {
+                                  gfx::Rect& window_bounds, Browser* b, bool& set_pos_only) {
   bool set_window_bounds = false;
-  bool set_pos_only = false;
   bool set_min_size = false;
   bool set_max_size = false;
   gfx::Size min_size = BrowserView::GetBrowserViewForBrowser(b)->GetMinimumSize();
@@ -578,8 +577,9 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
   gfx::Rect window_bounds = browser_window->IsMinimized()
                                 ? browser_window->GetRestoredBounds()
                                 : browser_window->GetBounds();
+  bool set_pos_only = false;
   const bool set_window_bounds =
-      UpdateWindowBoundsFromParams(*params, window_bounds, b);
+      UpdateWindowBoundsFromParams(*params, window_bounds, b, set_pos_only);
 
   bool set_client_bounds = false;
   BrowserWidget* frame = BrowserView::GetBrowserViewForBrowser(b)->browser_widget();
@@ -632,7 +632,7 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
   MaybeSetLockedFullscreenState(*params, browser, is_locked_fullscreen);
 
   UpdateWindowState(*params, browser, window_controller, show_state,
-                    set_window_bounds, window_bounds);
+                    set_window_bounds, window_bounds, set_pos_only);
 
   return RespondNow(
       WithArguments(window_controller->CreateWindowValueForExtension(
@@ -646,7 +646,8 @@ void WindowsUpdateFunction::UpdateWindowState(
     WindowController* window_controller,
     ui::mojom::WindowShowState show_state,
     bool set_window_bounds,
-    const gfx::Rect& window_bounds) {
+    const gfx::Rect& window_bounds,
+    bool set_pos_only) {
   ui::BaseWindow* browser_window = browser->GetWindow();
   Browser* b = window_controller->GetBrowser();
 
@@ -684,7 +685,8 @@ void WindowsUpdateFunction::UpdateWindowState(
     // general solution is needed. See http://crbug.com/251813 .
 #if defined(OS_WIN)
     if (set_pos_only)
-      browser_window->SetPosition(window_bounds.origin());
+      BrowserView::GetBrowserViewForBrowser(b)
+      ->SetPosition(window_bounds.origin());
     else
 #endif
       browser_window->SetBounds(window_bounds);

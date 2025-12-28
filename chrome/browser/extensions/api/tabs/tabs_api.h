@@ -235,7 +235,8 @@ class WindowsUpdateFunction : public ExtensionFunction {
                          WindowController* window_controller,
                          ui::mojom::WindowShowState show_state,
                          bool set_window_bounds,
-                         const gfx::Rect& window_bounds);
+                         const gfx::Rect& window_bounds,
+                         bool set_pos_only);
 };
 class WindowsRemoveFunction : public ExtensionFunction {
   ~WindowsRemoveFunction() override = default;
