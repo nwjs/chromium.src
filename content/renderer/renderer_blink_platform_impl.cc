@@ -8,6 +8,7 @@
 #include <memory>
 #include <string_view>
 #include "content/nw/src/nw_version.h"
+#include "gin/public/gin_embedders.h"
 
 #include <utility>
 #include <vector>
@@ -942,9 +943,12 @@ void RendererBlinkPlatformImpl::WorkerContextCreated(
 
       v8::Local<v8::Context> new_node_context;
       new_node_context = v8::Context::New(isolate);
-      void* data = worker->GetAlignedPointerFromEmbedderData(2); //v8ContextPerContextDataIndex
-      new_node_context->SetAlignedPointerInEmbedderData(2, data);
-      new_node_context->SetAlignedPointerInEmbedderData(50, (void*)0x08110800);
+      void* data = worker->GetAlignedPointerFromEmbedderData(
+          2, gin::kBlinkScriptState); //v8ContextPerContextDataIndex
+      new_node_context->SetAlignedPointerInEmbedderData(
+          2, data, gin::kBlinkScriptState);
+      new_node_context->SetAlignedPointerInEmbedderData(
+          50, (void*)0x08110800, v8::kEmbedderDataTypeTagDefault);
 
       v8::MicrotasksScope microtasks(new_node_context, v8::MicrotasksScope::kDoNotRunMicrotasks);
 
@@ -967,7 +971,8 @@ void RendererBlinkPlatformImpl::WorkerContextCreated(
           v8::Script::Compile(new_node_context, v8::String::NewFromUtf8(isolate, main_script.c_str(), v8::NewStringType::kNormal).ToLocalChecked()).ToLocalChecked();
         std::ignore = script->Run(new_node_context);
       }
-      worker->SetAlignedPointerInEmbedderData(NODE_CONTEXT_EMBEDDER_DATA_INDEX, g_get_node_env_fn());
+      worker->SetAlignedPointerInEmbedderData(
+          NODE_CONTEXT_EMBEDDER_DATA_INDEX, g_get_node_env_fn(), v8::kEmbedderDataTypeTagDefault);
       worker->SetSecurityToken(new_node_context->GetSecurityToken());
 
       v8::Handle<v8::Object> nw = v8::Object::New(isolate);
