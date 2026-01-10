@@ -829,6 +829,7 @@ void DevToolsHttpHandler::OnWebSocketRequest(
     return;
   }
 
+#if BUILDFLAG(NWJS_SDK)
   // If we require user approval, we do not require guid.
   if (mode_ ==
       DevToolsAgentHost::RemoteDebuggingServerMode::kWithApprovalOnly) {
@@ -843,6 +844,7 @@ void DevToolsHttpHandler::OnWebSocketRequest(
     Send403(connection_id, "Connection rejected");
     return;
   }
+#endif
 
   if (base::StartsWith(request.path, browser_guid_,
                        base::CompareCase::SENSITIVE)) {
