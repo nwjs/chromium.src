@@ -527,7 +527,6 @@ Je kunt je wachtwoorden altijd checken in <ph name="GOOGLE_PASSWORD_MANAGER" />.
 <translation id="1342886103232377846">Ga naar Google Wachtwoordmanager om te checken op gehackte wachtwoorden</translation>
 <translation id="1343920184519992513">Ga verder waar je gebleven was en open een specifieke set pagina's.</translation>
 <translation id="1344141078024003905">Je cast nu je scherm. Je kunt het casten van je scherm op elk moment onderbreken of stoppen.</translation>
-<translation id="13449088910457661">Gemini werkt in je tabbladen om taken uit te voeren die je Gemini geeft. <ph name="LINK_BEGIN" />Meer informatie<ph name="LINK_END" /></translation>
 <translation id="1346403631707626730">Stuur gebruiks- en diagnostische gegevens. Verbeter de Android-functionaliteit voor je kind door automatisch diagnostische, apparaat- en app-gebruiksgegevens naar Google te sturen. Deze gegevens worden niet gebruikt om je kind te identificeren en kunnen helpen om de systeem- en app-stabiliteit te verbeteren en andere optimalisaties mogelijk te maken. Ook zijn bepaalde verzamelde gegevens nuttig voor Google-apps en -partners, zoals Android-ontwikkelaars. Als je Web- en app-activiteit aanstaat voor het account van je kind, kunnen deze gegevens worden opgeslagen in hun Google-account. <ph name="BEGIN_LINK1" />Meer informatie over statistieken<ph name="BEGIN_LINK1_END" />Meer informatie<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">Bevestigen en opnieuw opstarten</translation>
 <translation id="1346748346194534595">Rechts</translation>
@@ -1972,6 +1971,7 @@ https://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featu
 <translation id="2319072477089403627">Verbinding maken met je Android-telefoon...</translation>
 <translation id="2319459402137712349">Selecteer een tekstveld om het toetsenbord te openen. Je kunt ook het toetsenbordicoon onderaan je scherm selecteren.</translation>
 <translation id="2319993584768066746">Foto's voor inlogscherm</translation>
+<translation id="2321487076181785382">Tabbladen splitsen</translation>
 <translation id="2322193970951063277">Kop- en voettekst</translation>
 <translation id="2322318151094136999">Goedkeuring vragen wanneer een site toegang wil tot seriële poorten (aanbevolen)</translation>
 <translation id="2322622365472107569">Eindtijd: <ph name="TIME" /></translation>
@@ -2119,7 +2119,6 @@ https://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featu
 <translation id="2428939361789119025">Wifi uitzetten</translation>
 <translation id="2431027948063157455">De Google Assistent kan niet worden geladen. Controleer de netwerkverbinding en probeer het opnieuw.</translation>
 <translation id="243179355394256322">Je organisatie beperkt apparaatinschrijving tot alleen geautoriseerde gebruikers. Deze gebruiker is niet geautoriseerd om apparaten in te schrijven. Zorg ervoor dat de gebruiker het beheerdersrecht Google Meet-hardware inschrijven heeft in het gedeelte Gebruikers van de Beheerdersconsole.</translation>
-<translation id="2431896368788252518">Je persoonlijke context bekijken en beheren</translation>
 <translation id="243275146591958220">Download annuleren</translation>
 <translation id="2433237965825924228">Geïsoleerde web-apps beheren verificatie-apparaten en smartcards die toegankelijk zijn voor deze apparaten. Smartcards bevatten meestal ID's die worden gebruikt om jou te verifiëren.</translation>
 <translation id="2433452467737464329">Voeg een queryparameter toe aan de URL om de pagina automatisch te laten vernieuwen: chrome://network/?refresh=&lt;sec&gt;</translation>
@@ -4377,6 +4376,7 @@ Je kunt instellingen beheren via het kaartmenu of meer opties bekijken in het ge
 <translation id="394984172568887996">Geïmporteerd uit Internet Explorer</translation>
 <translation id="3949999964543783947"><ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" /> om het downloaden van bestanden veiliger te maken</translation>
 <translation id="3950479158728806902">Automatisch een toegangssleutel maken om sneller in te loggen</translation>
+<translation id="3950755269510650933">Beheer de informatie die Gemini kan gebruiken om de functionaliteit te personaliseren</translation>
 <translation id="3950820424414687140">Inloggen</translation>
 <translation id="3950841222883198950">Spraakgestuurd typen</translation>
 <translation id="3953834000574892725">Mijn accounts</translation>
@@ -4406,6 +4406,7 @@ Je kunt instellingen beheren via het kaartmenu of meer opties bekijken in het ge
 <translation id="3968739731834770921">Kana</translation>
 <translation id="3970114302595058915">ID</translation>
 <translation id="397105322502079400">Berekenen...</translation>
+<translation id="3971355433478412726">Instructies voor Gemini</translation>
 <translation id="3971764089670057203">Vingerafdrukken op deze beveiligingssleutel</translation>
 <translation id="3973005893595042880">Gebruiker is niet toegestaan</translation>
 <translation id="3973660817924297510">Wachtwoorden controleren (<ph name="CHECKED_PASSWORDS" /> van <ph name="TOTAL_PASSWORDS" />)…</translation>
@@ -5809,6 +5810,7 @@ Gebruik Ctrl + Alt + Helderheid omlaag om uit te zoomen.</translation>
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">Alleen opslaan in een map op dit apparaat?</translation>
 <translation id="4959262764292427323">Wachtwoorden worden in je Google-account opgeslagen, zodat je deze op elk apparaat kunt gebruiken</translation>
+<translation id="4959581970694896608">Pas aan hoe Gemini op je reageert</translation>
 <translation id="4960020053211143927">Niet ondersteund door bepaalde apps</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> - <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">Scherm casten</translation>
@@ -6157,7 +6159,6 @@ Gebruik Ctrl + Alt + Helderheid omlaag om uit te zoomen.</translation>
 <translation id="5204967432542742771">Wachtwoord invoeren</translation>
 <translation id="5205484256512407285">Nooit mobiele data gebruiken voor overdracht</translation>
 <translation id="520568280985468584">Het netwerk is toegevoegd. Het kan een paar minuten duren voordat je mobiele netwerk actief wordt.</translation>
-<translation id="520576054436518354">Laat Gemini voor je browsen</translation>
 <translation id="5207949376430453814">Tekstcursor markeren</translation>
 <translation id="520840839826327499"><ph name="SERVICE_NAME" /> wil checken of je een geschikt Chrome OS-apparaat gebruikt.</translation>
 <translation id="5208722776934437424">Rechten wijzigen</translation>
@@ -6403,6 +6404,7 @@ Zichtbaar als <ph name="DEVICE_TYPE" />…</translation>
 <translation id="5388719243178419614">Kan niet uploaden. Kan afbeeldingsbestand niet verwerken.</translation>
 <translation id="5388885445722491159">Gekoppeld</translation>
 <translation id="5389224261615877010">Regenboog</translation>
+<translation id="538945906186309152">Sneltoets voor Gemini aanzetten</translation>
 <translation id="5389794555912875905">Waarschuwingen tonen voordat je naar niet-beveiligde sites gaat (aanbevolen)</translation>
 <translation id="5389943529251318913">Muissnelheid verlagen met</translation>
 <translation id="5390112241331447203">Het bestand system_logs.txt opnemen dat in feedbackrapporten wordt gestuurd.</translation>
@@ -10198,6 +10200,7 @@ Bewaar je sleutelbestand op een veilige plaats. Je hebt het bestand nodig om nie
 <translation id="8011372169388649948"><ph name="BOOKMARK_TITLE" /> verplaatst.</translation>
 <translation id="8012188750847319132">caps lock</translation>
 <translation id="8012463809859447963">Details van instant hotspot</translation>
+<translation id="8013181884974864006">Contextuele taken</translation>
 <translation id="8013534738634318212">Deze sites zitten in een groep die is gedefinieerd door <ph name="RWS_OWNER" />. Sites in een groep kunnen je activiteit in de groep zien.</translation>
 <translation id="8013993649590906847">Als een afbeelding geen nuttige beschrijving bevat, probeert Chrome je er een te geven. Afbeeldingen worden naar Google verzonden om beschrijvingen te maken.</translation>
 <translation id="8014154204619229810">De updater wordt momenteel uitgevoerd. Klik op Vernieuwen om opnieuw te controleren.</translation>

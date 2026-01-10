@@ -82,4 +82,39 @@ bool IsUrlForPrimaryAccount(signin::IdentityManager* identity_manager,
   return primary_account.gaia == account_from_url->gaia_id;
 }
 
+bool IsUserSignedInToWeb(signin::IdentityManager* identity_manager,
+                         const GURL& url) {
+  std::optional<gaia::ListedAccount> account_from_url =
+      GetAccountFromCookieJar(identity_manager, url);
+  if (!account_from_url.has_value()) {
+    return false;
+  }
+  return true;
+}
+
+bool CookieJarContainsPrimaryAccount(
+    signin::IdentityManager* identity_manager) {
+  // Identity manager can be null for guest browsers
+  if (!identity_manager) {
+    return false;
+  }
+
+  CoreAccountInfo primary_account =
+      identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
+
+  auto accounts_in_cookie_jar = identity_manager->GetAccountsInCookieJar();
+  const std::vector<gaia::ListedAccount>& accounts =
+      accounts_in_cookie_jar.GetAllAccounts();
+  if (accounts.empty()) {
+    return false;
+  }
+
+  for (const gaia::ListedAccount& account : accounts) {
+    if (account.gaia_id == primary_account.gaia) {
+      return true;
+    }
+  }
+  return false;
+}
+
 }  // namespace contextual_tasks

@@ -75,9 +75,6 @@ using LensOverlayUrlResponseCallback =
 // Callback type alias for the lens overlay interaction response.
 using LensOverlayInteractionResponseCallback =
     base::RepeatingCallback<void(lens::mojom::TextPtr)>;
-// Callback type alias for the lens overlay suggest inputs response.
-using LensOverlaySuggestInputsCallback =
-    base::RepeatingCallback<void(lens::proto::LensOverlaySuggestInputs)>;
 // Callback type alias for the thumbnail image creation.
 using LensOverlayThumbnailCreatedCallback =
     base::RepeatingCallback<void(const std::string&, const SkBitmap&)>;
@@ -94,7 +91,6 @@ class LensOverlayQueryController {
       LensOverlayFullImageResponseCallback full_image_callback,
       LensOverlayUrlResponseCallback url_callback,
       LensOverlayInteractionResponseCallback interaction_callback,
-      LensOverlaySuggestInputsCallback suggest_inputs_callback,
       LensOverlayThumbnailCreatedCallback thumbnail_created_callback,
       UploadProgressCallback page_content_upload_progress_callback,
       variations::VariationsClient* variations_client,
@@ -207,9 +203,14 @@ class LensOverlayQueryController {
   }
 
   // Returns whether the query controller is off.
-  bool IsOff() {
-    return query_controller_state_ == QueryControllerState::kOff;
-  }
+  virtual bool IsOff();
+
+  // Returns the suggest inputs for the current query flow.
+  virtual const lens::proto::LensOverlaySuggestInputs& GetLensSuggestInputs()
+      const;
+
+  // Sets a callback that will be called when the suggest inputs are ready.
+  virtual void SetSuggestInputsReadyCallback(base::RepeatingClosure callback);
 
   uint64_t gen204_id() const { return gen204_id_; }
 
@@ -234,16 +235,21 @@ class LensOverlayQueryController {
     return visual_search_interaction_data_;
   }
 
+  // After this is called, for the remainder of the current session, requests do
+  // not need to check prefs for whether the user has granted permissions
+  // permanently.
+  void GrantPermissionForSession();
+
+  // Returns true if either GrantPermissionForSession() has been called or the
+  // user has granted permissions permanently.
+  bool HasPermissionForSession();
+
   base::TimeTicks partial_page_contents_request_start_time_for_testing() const {
     return partial_page_contents_request_start_time_;
   }
 
   lens::LensOverlayRequestIdGenerator* request_id_generator_for_testing() {
     return request_id_generator_.get();
-  }
-
-  lens::proto::LensOverlaySuggestInputs suggest_inputs_for_testing() {
-    return suggest_inputs_;
   }
 
   size_t total_chunk_progress_for_testing() { return total_chunk_progress_; }
@@ -312,9 +318,8 @@ class LensOverlayQueryController {
   // The callback for interaction requests, including text received.
   LensOverlayInteractionResponseCallback interaction_response_callback_;
 
-  // Suggest inputs callback, used for sending Lens suggest data to the
-  // search box.
-  LensOverlaySuggestInputsCallback suggest_inputs_callback_;
+  // Callback for when the suggest inputs are ready.
+  base::RepeatingClosure suggest_inputs_ready_callback_;
 
   // Callback for when a thumbnail image is created from a region selection.
   LensOverlayThumbnailCreatedCallback thumbnail_created_callback_;
@@ -996,6 +1001,11 @@ class LensOverlayQueryController {
   // latency events that should only be logged once per query flow.
   base::flat_set<lens::LensOverlayGen204Controller::LatencyType>
       sent_initial_latency_request_events_;
+
+  // True if permission has been granted for the current session, so requests do
+  // not need to check prefs for whether the user has granted permissions
+  // permanently.
+  bool has_permission_for_session_ = false;
 
   base::WeakPtrFactory<LensOverlayQueryController> weak_ptr_factory_{this};
 };

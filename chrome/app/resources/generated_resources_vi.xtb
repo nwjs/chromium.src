@@ -527,7 +527,6 @@ Bạn có thể kiểm tra mật khẩu bất cứ lúc nào trong <ph name="GOO
 <translation id="1342886103232377846">Để kiểm tra xem có mật khẩu nào bị lộ không, hãy truy cập vào Trình quản lý mật khẩu của Google</translation>
 <translation id="1343920184519992513">Tiếp tục từ nơi bạn đang xem dở và mở một nhóm trang cụ thể</translation>
 <translation id="1344141078024003905">Bạn đang truyền màn hình của mình. Bạn có thể tạm dừng hoặc ngừng truyền bất cứ lúc nào.</translation>
-<translation id="13449088910457661">Gemini hoạt động trong các thẻ để hoàn thành nhiệm vụ bạn giao. <ph name="LINK_BEGIN" />Tìm hiểu thêm<ph name="LINK_END" /></translation>
 <translation id="1346403631707626730">Gửi dữ liệu sử dụng và dữ liệu chẩn đoán. Giúp cải thiện trải nghiệm của con bạn trên Android bằng cách tự động gửi dữ liệu chẩn đoán, dữ liệu về thiết bị và dữ liệu về mức sử dụng ứng dụng cho Google. Google sẽ không dùng dữ liệu này để nhận dạng con bạn mà chỉ dùng cho mục đích tăng độ ổn định của hệ thống và ứng dụng cũng như cải thiện các mặt khác. Một số dữ liệu tổng hợp cũng sẽ giúp ích cho các ứng dụng và đối tác của Google, chẳng hạn như nhà phát triển Android. Nếu bạn bật chế độ cài đặt Hoạt động bổ sung trên web và ứng dụng cho con mình thì dữ liệu này có thể được lưu vào Tài khoản Google của trẻ. <ph name="BEGIN_LINK1" />Tìm hiểu thêm về các chỉ số<ph name="BEGIN_LINK1_END" />Tìm hiểu thêm<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">Xác nhận và khởi động lại</translation>
 <translation id="1346748346194534595">Phải</translation>
@@ -1985,6 +1984,7 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="2319072477089403627">Đang kết nối với điện thoại Android của bạn...</translation>
 <translation id="2319459402137712349">Chọn một trường văn bản để mở bàn phím. Bạn cũng có thể chọn biểu tượng Bàn phím ở cuối màn hình.</translation>
 <translation id="2319993584768066746">Ảnh trên màn hình đăng nhập</translation>
+<translation id="2321487076181785382">Tách thẻ</translation>
 <translation id="2322193970951063277">Đầu trang và chân trang</translation>
 <translation id="2322318151094136999">Hỏi khi có trang web muốn truy cập vào cổng nối tiếp (khuyên dùng)</translation>
 <translation id="2322622365472107569">Thời gian kết thúc <ph name="TIME" /></translation>
@@ -2132,7 +2132,6 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="2428939361789119025">Tắt Wi-Fi</translation>
 <translation id="2431027948063157455">Không thể tải Trợ lý Google, vui lòng kiểm tra kết nối mạng của bạn rồi thử lại.</translation>
 <translation id="243179355394256322">Tổ chức của bạn chỉ cho phép những người dùng được ủy quyền đăng ký thiết bị. Người dùng này không được phép đăng ký thiết bị. Hãy kiểm tra trong phần Người dùng của Bảng điều khiển dành cho quản trị viên để đảm bảo rằng người dùng này có đặc quyền của quản trị viên "Đăng ký thiết bị Google Meet".</translation>
-<translation id="2431896368788252518">Xem và quản lý bối cảnh cá nhân của bạn</translation>
 <translation id="243275146591958220">Hủy quá trình tải xuống</translation>
 <translation id="2433237965825924228">Các ứng dụng web tách biệt kiểm soát các thiết bị xác thực và thẻ thông minh mà ứng dụng có thể truy cập. Thẻ thông minh thường chứa các giá trị nhận dạng dùng để xác thực danh tính của bạn.</translation>
 <translation id="2433452467737464329">Thêm một tham số truy vấn trong URL để tự động làm mới trang: chrome://network/?refresh=&lt;sec&gt;</translation>
@@ -4392,6 +4391,7 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="394984172568887996">Đã nhập từ IE</translation>
 <translation id="3949999964543783947"><ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" /> để việc tải tệp xuống trở nên an toàn hơn</translation>
 <translation id="3950479158728806902">Tự động tạo khoá truy cập để đăng nhập nhanh hơn</translation>
+<translation id="3950755269510650933">Quản lý thông tin mà Gemini có thể sử dụng để cá nhân hoá trải nghiệm của bạn</translation>
 <translation id="3950820424414687140">Đăng nhập</translation>
 <translation id="3950841222883198950">Nhập liệu bằng giọng nói</translation>
 <translation id="3953834000574892725">Tài khoản của tôi</translation>
@@ -4421,6 +4421,7 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="3968739731834770921">Kana</translation>
 <translation id="3970114302595058915">Mã nhận dạng</translation>
 <translation id="397105322502079400">Đang tính...</translation>
+<translation id="3971355433478412726">Chỉ dẫn cho Gemini</translation>
 <translation id="3971764089670057203">Vân tay số trên khóa bảo mật này</translation>
 <translation id="3973005893595042880">Người dùng không được phép</translation>
 <translation id="3973660817924297510">Đang kiểm tra mật khẩu (<ph name="CHECKED_PASSWORDS" />/<ph name="TOTAL_PASSWORDS" />)…</translation>
@@ -5826,6 +5827,7 @@ Nhấn tổ hợp phím Ctrl + Alt + Giảm độ sáng để thu nhỏ.</transl
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">Chỉ lưu vào một thư mục trên thiết bị này?</translation>
 <translation id="4959262764292427323">Các mật khẩu được lưu trong Tài khoản Google của bạn, vì vậy, bạn có thể sử dụng các mật khẩu đó trên bất cứ thiết bị nào</translation>
+<translation id="4959581970694896608">Tuỳ chỉnh cách Gemini trả lời bạn</translation>
 <translation id="4960020053211143927">Một số ứng dụng vẫn chưa hỗ trợ</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> - <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">Truyền màn hình</translation>
@@ -6174,7 +6176,6 @@ Nhấn tổ hợp phím Ctrl + Alt + Giảm độ sáng để thu nhỏ.</transl
 <translation id="5204967432542742771">Nhập mật khẩu</translation>
 <translation id="5205484256512407285">Không bao giờ dùng dữ liệu di động để chuyển</translation>
 <translation id="520568280985468584">Đã thêm mạng thành công. Có thể mất ít phút để kích hoạt mạng di động của bạn.</translation>
-<translation id="520576054436518354">Hãy để Gemini duyệt web giúp bạn</translation>
 <translation id="5207949376430453814">Đánh dấu điểm chèn văn bản</translation>
 <translation id="520840839826327499"><ph name="SERVICE_NAME" /> muốn kiểm tra xem thiết bị ChromeOS bạn đang sử dụng có đủ điều kiện hay không.</translation>
 <translation id="5208722776934437424">Thay đổi quyền</translation>
@@ -6421,6 +6422,7 @@ Nhấn tổ hợp phím Ctrl + Alt + Giảm độ sáng để thu nhỏ.</transl
 <translation id="5388719243178419614">Không tải lên được. Không xử lý được tệp hình ảnh.</translation>
 <translation id="5388885445722491159">Được ghép nối</translation>
 <translation id="5389224261615877010">Cầu vồng</translation>
+<translation id="538945906186309152">Bật phím tắt Gemini</translation>
 <translation id="5389794555912875905">Hiện cảnh báo trước khi truy cập vào các trang web không an toàn (nên chọn)</translation>
 <translation id="5389943529251318913">Giảm tốc độ chuột</translation>
 <translation id="5390112241331447203">Thêm tệp system_logs.txt được gửi trong báo cáo phản hồi.</translation>
@@ -10222,6 +10224,7 @@ Giữ tệp khóa của bạn ở nơi an toàn. Bạn sẽ cần tệp khóa đ
 <translation id="8011372169388649948">Đã di chuyển "<ph name="BOOKMARK_TITLE" />".</translation>
 <translation id="8012188750847319132">Caps Lock</translation>
 <translation id="8012463809859447963">Thông tin chi tiết về Điểm phát sóng tức thì</translation>
+<translation id="8013181884974864006">Thao tác theo ngữ cảnh</translation>
 <translation id="8013534738634318212">Các trang web này nằm trong một nhóm do <ph name="RWS_OWNER" /> xác định. Các trang web nằm trong một nhóm có thể xem hoạt động của bạn trong nhóm.</translation>
 <translation id="8013993649590906847">Chrome sẽ cố gắng mô tả cho bạn những hình ảnh không có nội dung mô tả hữu ích. Để tạo nội dung mô tả, các hình ảnh sẽ được gửi đến Google.</translation>
 <translation id="8014154204619229810">Trình cập nhật hiện đang chạy. Hãy làm mới sau một phút nữa để kiểm tra lại.</translation>
@@ -10594,7 +10597,7 @@ Giữ tệp khóa của bạn ở nơi an toàn. Bạn sẽ cần tệp khóa đ
 <translation id="8263149565724023141">Các ứng dụng liên quan</translation>
 <translation id="8263228331881858381">Đã lưu khoá truy cập</translation>
 <translation id="8263336784344783289">Đặt tên cho nhóm này</translation>
-<translation id="8264024885325823677">Quản trị viên của bạn quản lý tùy chọn cài đặt này.</translation>
+<translation id="8264024885325823677">Chế độ cài đặt này do quản trị viên của bạn quản lý.</translation>
 <translation id="8264195025773092348">Chỉ những thiết bị được hỗ trợ mới hiển thị. Các ứng dụng gốc sẽ không thấy thiết bị USB cho đến khi bạn ngắt kết nối thiết bị USB.</translation>
 <translation id="8265018477030547118">Chỉ trên thiết bị này</translation>
 <translation id="826511437356419340">Đã vào chế độ tổng quan về cửa sổ. Vuốt để di chuyển hoặc nhấn vào phím Thẻ nếu dùng bàn phím.</translation>

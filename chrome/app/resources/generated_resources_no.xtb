@@ -527,7 +527,6 @@ Du kan når som helst sjekke passordene dine i <ph name="GOOGLE_PASSWORD_MANAGER
 <translation id="1342886103232377846">For å sjekke om du har passord som er utsatt for sikkerhetsbrudd, gå til Google Passordlagring</translation>
 <translation id="1343920184519992513">Fortsett der du slapp, og åpne et spesifikt sett med sider</translation>
 <translation id="1344141078024003905">Du caster skjermen. Du kan når som helst stoppe castingen av skjermen eller sette den på pause.</translation>
-<translation id="13449088910457661">Gemini jobber i fanene dine for å fullføre oppgaver du gir den. <ph name="LINK_BEGIN" />Finn ut mer<ph name="LINK_END" /></translation>
 <translation id="1346403631707626730">Send bruks- og diagnostikkdata. Hjelp til med å gjøre Android-opplevelsen bedre for barnet ditt ved å sende diagnostikk-, enhets- og appbruksdata til Google automatisk. Disse dataene brukes ikke til å identifisere barnet ditt, men bidrar til å gjøre systemet og appene bedre og mer stabile. Noen samlede data er også til nytte for Google-apper og partnere, for eksempel Android-utviklere. Hvis du har slått på annen nett- og appaktivitet for barnet ditt, kan disse dataene bli lagret i barnets Google-konto. <ph name="BEGIN_LINK1" />Finn ut mer om beregninger<ph name="BEGIN_LINK1_END" />Finn ut mer<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">Bekreft og start på nytt</translation>
 <translation id="1346748346194534595">Høyre</translation>
@@ -1979,6 +1978,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="2319072477089403627">Kobler til Android-telefonen din …</translation>
 <translation id="2319459402137712349">Velg et tekstfelt for å åpne tastaturet. Du kan også velge Tastatur-ikonet nederst på skjermen.</translation>
 <translation id="2319993584768066746">Bilder på påloggingsskjermen</translation>
+<translation id="2321487076181785382">Del faner</translation>
 <translation id="2322193970951063277">Topp- og bunntekst</translation>
 <translation id="2322318151094136999">Spør når et nettsted vil ha tilgang til serielle porter (anbefales)</translation>
 <translation id="2322622365472107569">Sluttid: <ph name="TIME" /></translation>
@@ -2126,7 +2126,6 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="2428939361789119025">Slå av wifi</translation>
 <translation id="2431027948063157455">Google-assistenten kunne ikke lastes inn. Kontroller nettverkstilkoblingen din, og prøv på nytt.</translation>
 <translation id="243179355394256322">Organisasjonen din begrenser registrering av enheter til kun autoriserte brukere. Denne brukeren er ikke autorisert til å registrere enheter. Sørg for at brukeren har administratorrettigheten «Registrer Google Meet-enheter» i Brukere-delen av administrasjonskonsollen.</translation>
-<translation id="2431896368788252518">Se og administrer den personlige konteksten din</translation>
 <translation id="243275146591958220">Avbryt nedlastingen</translation>
 <translation id="2433237965825924228">Isolerte nettapper kontrollerer autentiseringsenheter og smartkort som er tilgjengelige for dem. Smartkort inneholder vanligvis identifikatorer som brukes til å autentisere deg.</translation>
 <translation id="2433452467737464329">Legg til en søkeparameter i nettadressen for å automatisk laste inn siden på nytt: chrome://network/?refresh=&lt;sec&gt;</translation>
@@ -4384,6 +4383,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="394984172568887996">Importert fra Internet Explorer</translation>
 <translation id="3949999964543783947"><ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" /> for å gjøre det tryggere å laste ned filer</translation>
 <translation id="3950479158728806902">Opprett en passnøkkel automatisk for å logge på raskere</translation>
+<translation id="3950755269510650933">Administrer informasjonen som Gemini kan bruke til å tilpasse opplevelsen din</translation>
 <translation id="3950820424414687140">Logg på</translation>
 <translation id="3950841222883198950">Stemmestyrt skriving</translation>
 <translation id="3953834000574892725">Mine kontoer</translation>
@@ -4413,6 +4413,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="3968739731834770921">Kana</translation>
 <translation id="3970114302595058915">ID</translation>
 <translation id="397105322502079400">Beregner …</translation>
+<translation id="3971355433478412726">Instruksjoner for Gemini</translation>
 <translation id="3971764089670057203">Fingeravtrykk på denne sikkerhetsnøkkelen</translation>
 <translation id="3973005893595042880">Brukeren er ikke tillatt</translation>
 <translation id="3973660817924297510">Sjekker passord (<ph name="CHECKED_PASSWORDS" /> av <ph name="TOTAL_PASSWORDS" />) …</translation>
@@ -5817,6 +5818,7 @@ Bruk Ctrl + Alt + lysstyrke ned for å zoome ut.</translation>
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">Vil du lagre dette i en mappe bare på denne enheten?</translation>
 <translation id="4959262764292427323">Passordene er lagret i Google-kontoen din, slik at du kan bruke dem på alle enheter</translation>
+<translation id="4959581970694896608">Tilpass hvordan Gemini svarer deg</translation>
 <translation id="4960020053211143927">Støttes ikke av enkelte apper</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> – <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">Cast skjermen</translation>
@@ -6165,7 +6167,6 @@ Bruk Ctrl + Alt + lysstyrke ned for å zoome ut.</translation>
 <translation id="5204967432542742771">Skriv inn passordet</translation>
 <translation id="5205484256512407285">Bruk aldri mobildata til å overføre</translation>
 <translation id="520568280985468584">Nettverket ble lagt til. Det kan ta flere minutter før mobilnettverket blir aktivt.</translation>
-<translation id="520576054436518354">La Gemini surfe for deg</translation>
 <translation id="5207949376430453814">Fremhev tekstinnsettingspunktet</translation>
 <translation id="520840839826327499"><ph name="SERVICE_NAME" /> ønsker å bekrefte at du bruker en kvalifisert ChromeOS-enhet.</translation>
 <translation id="5208722776934437424">Endre tillatelser</translation>
@@ -6411,6 +6412,7 @@ Bruk Ctrl + Alt + lysstyrke ned for å zoome ut.</translation>
 <translation id="5388719243178419614">Kan ikke laste opp. Kunne ikke behandle bildefilen.</translation>
 <translation id="5388885445722491159">Sammenkoblet</translation>
 <translation id="5389224261615877010">Regnbue</translation>
+<translation id="538945906186309152">Slå på hurtigtasten for Gemini</translation>
 <translation id="5389794555912875905">Få advarsler før du går til usikre nettsteder (anbefales)</translation>
 <translation id="5389943529251318913">Reduser musehastigheten med</translation>
 <translation id="5390112241331447203">Inkluder filen system_logs.txt som sendes i tilbakemeldingsrapporter.</translation>
@@ -10209,6 +10211,7 @@ Oppbevar nøkkelfilen på et trygt sted. Du får bruk for den når du skal oppre
 <translation id="8011372169388649948">«<ph name="BOOKMARK_TITLE" />» ble flyttet.</translation>
 <translation id="8012188750847319132">caps lock</translation>
 <translation id="8012463809859447963">Detaljer om umiddelbar wifi-sone</translation>
+<translation id="8013181884974864006">Kontekstuelle oppgaver</translation>
 <translation id="8013534738634318212">Disse nettstedene er med i en gruppe som er definert av <ph name="RWS_OWNER" />. Nettsteder i grupper kan se aktiviteten din i gruppen.</translation>
 <translation id="8013993649590906847">Hvis et bilde ikke har noen nyttig beskrivelse, prøver Chrome å finne en til deg. For å opprette beskrivelser blir bilder sendt til Google.</translation>
 <translation id="8014154204619229810">Oppdateringsprogrammet kjører. Last inn siden på nytt om en liten stund for å sjekke igjen.</translation>

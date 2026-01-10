@@ -6,6 +6,7 @@
 
 #include "base/barrier_closure.h"
 #include "base/containers/flat_set.h"
+#include "base/feature_list.h"
 #include "base/notimplemented.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/actor/actor_features.h"
@@ -18,6 +19,7 @@
 #include "chrome/browser/password_manager/actor_login/actor_login_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/common/actor.mojom-data-view.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/actor_webui.mojom-data-view.h"
 #include "chrome/common/actor_webui.mojom.h"
@@ -189,10 +191,21 @@ void AttemptLoginTool::OnGetCredentials(
   std::erase_if(credentials_, [](const actor_login::Credential& cred) {
     return !cred.immediatelyAvailableToLogin;
   });
+
   if (credentials_.empty()) {
-    PostResponseTask(
-        std::move(invoke_callback_),
-        MakeResult(mojom::ActionResultCode::kLoginNoCredentialsAvailable));
+    if (base::FeatureList::IsEnabled(
+            password_manager::features::kActorLoginGetCredentialsNoLoginForm)) {
+      // Saved credentials exist, but none are available for login, which
+      // means that this is not a signin page.
+      PostResponseTask(std::move(invoke_callback_),
+                       MakeResult(mojom::ActionResultCode::kLoginNotLoginPage));
+    } else {
+      // Don't differentiate between no saved credentials and no login form if
+      // the flag isn't enabled.
+      PostResponseTask(
+          std::move(invoke_callback_),
+          MakeResult(mojom::ActionResultCode::kLoginNoCredentialsAvailable));
+    }
     return;
   }
 
@@ -326,13 +339,21 @@ void AttemptLoginTool::OnCredentialSelected(
     quality_logger_.SetPermissionPicked(
         optimization_guide::proto::ActorLoginQuality_PermissionOption_UNKNOWN);
   }
-  // Cache the user selected credential for reuse.
-  tool_delegate().SetUserSelectedCredential(
-      ToolDelegate::CredentialWithPermission(
-          *selected_credential,
-          response->permission_duration.value_or(
-              webui::mojom::UserGrantedPermissionDuration::kOneTime)));
 
+  webui::mojom::UserGrantedPermissionDuration permission_duration =
+      response->permission_duration.value_or(
+          webui::mojom::UserGrantedPermissionDuration::kOneTime);
+  tool_delegate().SetUserSelectedCredential(
+      ToolDelegate::CredentialWithPermission(*selected_credential,
+                                             permission_duration),
+      base::BindOnce(&AttemptLoginTool::OnCredentialCachingDone,
+                     weak_ptr_factory_.GetWeakPtr(), *selected_credential,
+                     permission_duration));
+}
+
+void AttemptLoginTool::OnCredentialCachingDone(
+    actor_login::Credential selected_credential,
+    webui::mojom::UserGrantedPermissionDuration permission_duration) {
   tabs::TabInterface* tab = tab_handle_.Get();
   if (!tab) {
     PostResponseTask(std::move(invoke_callback_),
@@ -351,13 +372,13 @@ void AttemptLoginTool::OnCredentialSelected(
   }
 
   const bool should_store_permission =
-      response->permission_duration ==
+      permission_duration ==
       webui::mojom::UserGrantedPermissionDuration::kAlwaysAllow;
   GetActorLoginService().AttemptLogin(
-      tab, *selected_credential, should_store_permission,
+      tab, selected_credential, should_store_permission,
       quality_logger_.AsWeakPtr(),
       base::BindOnce(&AttemptLoginTool::OnAttemptLogin,
-                     weak_ptr_factory_.GetWeakPtr(), *selected_credential,
+                     weak_ptr_factory_.GetWeakPtr(), selected_credential,
                      should_store_permission));
 }
 

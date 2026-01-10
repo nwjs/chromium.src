@@ -7177,6 +7177,46 @@
             ]
         }
     ],
+    "ContextualTasks": [
+        {
+            "platforms": [
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "params": {
+                        "ContextualTasksEntryPoint": "toolbar-permanent"
+                    },
+                    "enable_features": [
+                        "ContextualTasks",
+                        "TabbedBrowserUseNewLayout"
+                    ]
+                }
+            ]
+        }
+    ],
+    "ContextualTasksContext": [
+        {
+            "platforms": [
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "ContextualTasksContext"
+                    ]
+                }
+            ]
+        }
+    ],
     "ControlsVisibilityFromNavigations": [
         {
             "platforms": [
@@ -16305,6 +16345,21 @@
             ]
         }
     ],
+    "MobilePromoOnDesktopDataCollection": [
+        {
+            "platforms": [
+                "ios"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "MobilePromoOnDesktopRecordActiveDays"
+                    ]
+                }
+            ]
+        }
+    ],
     "MojoChannelAssociatedSendUsesRunOrPostTask": [
         {
             "platforms": [
@@ -16654,6 +16709,21 @@
             ]
         }
     ],
+    "NetworkServiceSandboxWindows": [
+        {
+            "platforms": [
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled_20231025",
+                    "enable_features": [
+                        "NetworkServiceSandbox"
+                    ]
+                }
+            ]
+        }
+    ],
     "NetworkServiceTaskScheduler2": [
         {
             "platforms": [
@@ -16925,7 +16995,6 @@
                     "name": "Enabled",
                     "params": {
                         "ConfigParam": "CgIIAxI8CAEQARoXCAAQ4MZbGMAMIMAMKCgyB2ltYWdlLyoiGwiAhK9fEhQucGRmLGFwcGxpY2F0aW9uL3BkZigB",
-                        "SendLnsSurfaceParam": "true",
                         "ShowComposeboxZps": "true",
                         "ShowContextMenu": "true"
                     },
@@ -17035,7 +17104,8 @@
                 {
                     "name": "Enabled",
                     "enable_features": [
-                        "EnableOAuthMultiloginStandardCookiesBinding"
+                        "EnableOAuthMultiloginStandardCookiesBinding",
+                        "UseUnexportableKeyServiceInBrowserProcess"
                     ]
                 }
             ]
@@ -18057,6 +18127,46 @@
                     },
                     "enable_features": [
                         "PartitionAllocBackupRefPtr"
+                    ]
+                }
+            ]
+        }
+    ],
+    "PartitionAllocFreeWithSize": [
+        {
+            "platforms": [
+                "android",
+                "android_webview",
+                "chromeos",
+                "ios",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "enabled_with_strict_check_20251212",
+                    "params": {
+                        "strict-free-size-check": "true"
+                    },
+                    "enable_features": [
+                        "PartitionAllocFreeWithSize"
+                    ]
+                }
+            ]
+        }
+    ],
+    "PartitionAllocLockTuneSpin": [
+        {
+            "platforms": [
+                "android",
+                "android_webview"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "PartitionAllocLockTuneSpin"
                     ]
                 }
             ]

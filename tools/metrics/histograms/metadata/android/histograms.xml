@@ -2591,7 +2591,19 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Android.InputOnViz.Browser.NumEventsInDroppedSequence"
+<histogram name="Android.InputOnViz.Browser.NewSequenceTransferredByOS"
+    enum="TransferredSequenceType" expires_after="2026-04-26">
+  <owner>amanvr@google.com</owner>
+  <owner>kartarsingh@google.com</owner>
+  <owner>woa-performance-team@google.com</owner>
+  <summary>
+    Logged whenever an ACTION_UP event is received on Browser while in
+    kConsumeEventsUntilCancel state. This indicates that the OS transferred a
+    different touch sequence than the one Chrome requested.
+  </summary>
+</histogram>
+
+<histogram name="Android.InputOnViz.Browser.NumEventsInDroppedSequence2"
     units="counts" expires_after="2026-04-26">
   <owner>kartarsingh@google.com</owner>
   <owner>woa-performance-team@google.com</owner>
@@ -2625,7 +2637,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Android.InputOnViz.Browser.SequenceDroppedReason2"
+<histogram name="Android.InputOnViz.Browser.SequenceDroppedReason3"
     enum="InputOnVizSequenceDroppedReason" expires_after="2026-04-26">
   <owner>kartarsingh@google.com</owner>
   <owner>woa-performance-team@google.com</owner>
@@ -2639,7 +2651,7 @@ chromium-metrics-reviews@google.com.
     procoess due to various reasons, when InputOnViz feature is enabled.
 
     `Android.InputOnViz.Browser.EventTypesInDroppedSequence` and
-    `Android.InputOnViz.Browser.NumEventsInDroppedSequence` could be used to
+    `Android.InputOnViz.Browser.NumEventsInDroppedSequence2` could be used to
     know what type of events exist in dropped sequences and the number of events
     in these dropped sequences.
   </summary>
@@ -2743,7 +2755,7 @@ chromium-metrics-reviews@google.com.
   <owner>kartarsingh@google.com</owner>
   <owner>woa-performance-team@google.com</owner>
   <summary>
-    Viz side variant of `Android.InputOnViz.Browser.SequenceDroppedReason2`
+    Viz side variant of `Android.InputOnViz.Browser.SequenceDroppedReason3`
     histogram.
 
     The metric records whenever a touch sequence is dropped on Viz side.
@@ -5740,6 +5752,48 @@ chromium-metrics-reviews@google.com.
     When a tab group open from the tab group pane failes because there is no
     local id, this metric is emitted with the state that the tab is in. This
     should help narrow down why this is happening.
+  </summary>
+</histogram>
+
+<histogram name="Android.TabItemPicker.ActiveTabs.Count" units="count"
+    expires_after="2026-05-01">
+  <owner>bbetini@google.com</owner>
+  <owner>ssid@chromium.org</owner>
+  <summary>
+    Records the number of 'active' (currently loaded in memory/session) tabs
+    that are eligible for the tab picker. Recorded when the Tab Picker UI is
+    preparing its list of displayable tabs.
+  </summary>
+</histogram>
+
+<histogram name="Android.TabItemPicker.ActiveTabsPicked.Count" units="count"
+    expires_after="2026-05-01">
+  <owner>bbetini@google.com</owner>
+  <owner>ssid@chromium.org</owner>
+  <summary>
+    Records the number of 'active' (live) tabs actually selected by the user,
+    when the user confirms their selection in the Tab Picker.
+  </summary>
+</histogram>
+
+<histogram name="Android.TabItemPicker.CachedTabs.Count" units="count"
+    expires_after="2026-05-01">
+  <owner>bbetini@google.com</owner>
+  <owner>ssid@chromium.org</owner>
+  <summary>
+    Records the number of tabs found in the PageContentExtractionService cache
+    that are eligible for the tab picker. Recorded when the Tab Picker UI is
+    preparing its list of displayable tabs.
+  </summary>
+</histogram>
+
+<histogram name="Android.TabItemPicker.CachedTabsPicked.Count" units="count"
+    expires_after="2026-05-01">
+  <owner>bbetini@google.com</owner>
+  <owner>ssid@chromium.org</owner>
+  <summary>
+    Records the number of 'cached' tabs actually selected by the user, when the
+    user confirms their selection in the Tab Picker.
   </summary>
 </histogram>
 

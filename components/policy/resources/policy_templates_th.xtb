@@ -8444,6 +8444,34 @@ URL ที่ไม่ตรงกันจะเป็นไปตามนโ�
       หากไม่ได้ตั้งค่านโยบายนี้ ทั้งผู้ใช้ที่มีองค์กรเป็นผู้จัดการและผู้ใช้ที่ไม่มีการจัดการจะใช้ค่าเริ่มต้นได้</translation>
 <translation id="6640748114867542396">ไม่อนุญาตให้ส่วนขยายที่มีการจัดการใช้ Enterprise Hardware Platform API</translation>
 <translation id="6641109870010271671">ใบรับรอง TLS ที่ <ph name="PRODUCT_NAME" /> ควรเชื่อถือสำหรับการตรวจสอบสิทธิ์เซิร์ฟเวอร์</translation>
+<translation id="6641851832244467923">การตั้งค่านโยบายนี้จะกำหนดค่ากฎที่เลือกพร็อกซีที่เบราว์เซอร์จะใช้โดยขึ้นอยู่กับ URL ของปลายทางและเงื่อนไขอื่นๆ นโยบายนี้จะมีความสำคัญเหนือกว่าการตั้งค่าพร็อกซีที่ตั้งจากนโยบาย <ph name="PROXY_SETTINGS_POLICY_NAME" />, API ส่วนขยายของ <ph name="PROXY_SETTINGS_EXTENSION_API" /> หรือการตั้งค่าของผู้ใช้ด้วยตนเอง หากมีการตั้งค่าไว้
+
+การไม่ตั้งค่านโยบายนี้จะไม่มีผลต่อนโยบายพร็อกซีหรือการตั้งค่าของผู้ใช้อื่นๆ
+
+เมื่อเบราว์เซอร์ต้องตัดสินใจว่าจะใช้พร็อกซีใด รายการของนโยบาย <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> จะได้รับการประเมินตามลำดับจนกว่ารายการจะเป็นไปตามหัวข้อต่อไปนี้ทั้งหมด
+  * ตรงกับรูปแบบ URL อย่างน้อย 1 รายการใน <ph name="PROXY_OVERRIDE_RULES_DESTINATION_MATCHERS" />
+  * ไม่มีรูปแบบ URL ใน <ph name="PROXY_OVERRIDE_RULES_EXCLUDE_DESTINATION_MATCHERS" /> ที่ตรงกัน
+  * หากมีการระบุ <ph name="PROXY_OVERRIDE_RULES_CONDITIONS" /> และเป็นรายการที่ไม่ว่างเปล่า ระบบจะถือว่าตรงตามเงื่อนไขทั้งหมดที่แสดงโดยรายการนั้น
+ระบบจะใช้ค่าใน <ph name="PROXY_OVERRIDE_RULES_PROXY_LIST" /> เป็นพร็อกซีสำหรับการจับคู่ดังกล่าว หากไม่พบรายการที่ตรงกัน การตั้งค่าพร็อกซีจะกลับไปใช้การตั้งค่าที่กำหนดไว้ในนโยบาย <ph name="PROXY_SETTINGS_POLICY_NAME" />
+
+รูปแบบ URL ที่ <ph name="PROXY_OVERRIDE_RULES_DESTINATION_MATCHERS" /> และ <ph name="PROXY_OVERRIDE_RULES_EXCLUDE_DESTINATION_MATCHERS" /> รองรับมีการบันทึกไว้ใน https://chromium.googlesource.com/chromium/src/+/HEAD/net/docs/proxy.md#proxy-config-url-patterns
+
+รายการในช่อง <ph name="PROXY_OVERRIDE_RULES_PROXY_LIST" /> จะสอดคล้องกับค่าสตริงของไฟล์ PAC เช่น
+  * DIRECT
+  * PROXY host:port
+  * HTTPS host:port
+  * SOCKS4 host:port
+  * SOCKS5 host:port
+หรือคุณจะใช้ตัวระบุพร็อกซีที่คล้าย URL เพื่อระบุพร็อกซีโดยตรงก็ได้ เช่น
+  * http://host:port
+  * https://host:port
+  * socks4://host:port
+  * socks5://host:port
+ระบบจะใช้รายการแรกที่เข้าถึงได้ในลิสต์เป็นพร็อกซี ระบบจะไม่สนใจรายการที่ไม่ถูกต้องในลิสต์
+
+ช่อง <ph name="PROXY_OVERRIDE_RULES_CONDITIONS" /> มีรายการเงื่อนไขทั้งหมดที่ต้องเป็นไปตามกฎการลบล้างเพื่อตัดสินใจเลือกพร็อกซีที่จะใช้ หากไม่ได้ตั้งค่า ระบบจะใช้รายการนี้ตราบใดที่ตรงกับโฮสต์อย่างน้อย 1 รายการใน <ph name="PROXY_OVERRIDE_RULES_DESTINATION_MATCHERS" />
+
+เงื่อนไข <ph name="PROXY_OVERRIDE_RULES_DNS_PROBE" /> จะตรวจสอบว่า DNS <ph name="PROXY_OVERRIDE_RULES_HOST" /> ที่ระบุสามารถแก้ปัญหาที่อยู่ IP ได้หรือไม่ ต้องมีโฮสต์ (เช่น example.com) และอาจมีรูปแบบหรือพอร์ต (เช่น https://example.com, example.com:123, https://example.com:123) หากใช้สคีมาที่ปลอดภัย (เช่น https) การค้นหา DNS อาจขอระเบียน HTTPS ด้วย (ดูรายละเอียดเพิ่มเติมได้ที่ RFC 9460) หากค่าของ <ph name="PROXY_OVERRIDE_RULES_RESULT" /> เป็น "<ph name="PROXY_OVERRIDE_RULES_RESOLVED" />" ระบบจะถือว่าตรงตามเงื่อนไข หากตั้งค่าเป็น <ph name="PROXY_OVERRIDE_RULES_NOT_FOUND" /> แทน ระบบจะถือว่าตรงตามเงื่อนไขในกรณีที่การแก้ปัญหาล้มเหลว</translation>
 <translation id="6641981670621198190">ปิดใช้งานการสนับสนุน API ของกราฟิก 3 มิติ</translation>
 <translation id="6646912445796087001">เปิดหรือปิดใช้ฟีเจอร์ต่างๆ ในแป้นพิมพ์บนหน้าจอ นโยบายนี้จะมีผลต่อเมื่อมีการเปิดใช้นโยบาย "VirtualKeyboardEnabled"
 

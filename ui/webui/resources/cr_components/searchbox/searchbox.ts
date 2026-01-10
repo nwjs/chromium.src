@@ -8,6 +8,7 @@ import './searchbox_icon.js';
 import './searchbox_thumbnail.js';
 import '//resources/cr_components/composebox/contextual_entrypoint_and_carousel.js';
 import '//resources/cr_components/composebox/error_scrim.js';
+import '//resources/cr_components/composebox/recent_tab_chip.js';
 import '//resources/cr_components/search/animated_glow.js';
 
 import type {ComposeboxFile, ContextualUpload, FileUpload, TabUpload} from '//resources/cr_components/composebox/common.js';
@@ -255,6 +256,10 @@ export class SearchboxElement extends SearchboxElementBase implements
         reflect: true,
       },
 
+      multiLineEnabled: {
+        type: Boolean,
+      },
+
       /** The aria description to include on the input element. */
       searchboxAriaDescription: {type: String},
 
@@ -392,6 +397,7 @@ export class SearchboxElement extends SearchboxElementBase implements
         reflect: true,
       },
       tabSuggestions_: {type: Array},
+      recentTabForChip_: {type: Object},
       isDraggingFile: {
         reflect: true,
         type: Boolean,
@@ -411,6 +417,7 @@ export class SearchboxElement extends SearchboxElementBase implements
   accessor isDark: boolean = false;
   accessor matchSearchbox: boolean =
       loadTimeData.getBoolean('searchboxMatchSearchboxTheme');
+  accessor multiLineEnabled: boolean = false;
   accessor searchboxAriaDescription: string = '';
   accessor searchboxLensSearchEnabled: boolean =
       loadTimeData.getBoolean('searchboxLensSearch');
@@ -453,6 +460,7 @@ export class SearchboxElement extends SearchboxElementBase implements
   protected accessor isThumbnailDeletable_: boolean = false;
   private accessor useWebkitSearchIcons_: boolean = false;
   protected accessor tabSuggestions_: TabInfo[] = [];
+  protected accessor recentTabForChip_: TabInfo|null = null;
   protected showVoiceSearchInExpandedRealbox: boolean =
       loadTimeData.getBoolean('expandedSearchboxShowVoiceSearch') ?? false;
 
@@ -562,6 +570,15 @@ export class SearchboxElement extends SearchboxElementBase implements
     if (this.ntpRealboxNextEnabled) {
       if (changedPrivateProperties.has('inputFocused_')) {
         this.fire('searchbox-input-focus-changed', {value: this.inputFocused_});
+      }
+    }
+
+    if (changedPrivateProperties.has('tabSuggestions_')) {
+      this.recentTabForChip_ =
+          this.tabSuggestions_.find(tab => tab.showInCurrentTabChip) || null;
+      if (!this.recentTabForChip_) {
+        this.recentTabForChip_ =
+            this.tabSuggestions_.find(tab => tab.showInPreviousTabChip) || null;
       }
     }
   }
@@ -813,7 +830,7 @@ export class SearchboxElement extends SearchboxElementBase implements
         e.preventDefault();
         const dataTransfer = new DataTransfer();
         files.forEach(file => dataTransfer.items.add(file));
-        this.$.context.addFiles(dataTransfer.files);
+        this.$.context.addPastedFiles(dataTransfer.files);
         return;
       }
     }
@@ -918,6 +935,25 @@ export class SearchboxElement extends SearchboxElementBase implements
         thumbnail?.focus();
         e.preventDefault();
       }
+    }
+
+    if (this.composeButtonEnabled && e.key === 'Tab' &&
+        this.lastInput_.inline &&
+        this.$.input === this.shadowRoot.activeElement) {
+      if (e.shiftKey) {
+        this.updateInput_({inline: ''});
+        return;
+      }
+
+      const newText = this.lastInput_.text + this.lastInput_.inline;
+      this.updateInput_({
+        text: newText,
+        inline: '',
+        moveCursorToEnd: true,
+      });
+      this.queryAutocomplete_(newText);
+      e.preventDefault();
+      return;
     }
 
     if (e.key === 'Backspace' || e.key === 'Tab') {
@@ -1210,6 +1246,13 @@ export class SearchboxElement extends SearchboxElementBase implements
       return null;
     }
     return this.result_.matches[this.selectedMatchIndex_] || null;
+  }
+
+  protected computeShowRecentTabChip_(): boolean {
+    // composeboxShowRecentTabChip is unavailable in the WebUI Browser.
+    return loadTimeData.valueExists('composeboxShowRecentTabChip') &&
+        loadTimeData.getBoolean('composeboxShowRecentTabChip') &&
+        this.result_?.input.length === 0;
   }
 
   protected computePlaceholderText_(placeholderText: string): string {

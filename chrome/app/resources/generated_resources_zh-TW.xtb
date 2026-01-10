@@ -527,7 +527,6 @@
 <translation id="1342886103232377846">如要檢查密碼是否外洩，請前往 Google 密碼管理工具</translation>
 <translation id="1343920184519992513">繼續瀏覽上次開啟的網頁並開啟某組特定網頁</translation>
 <translation id="1344141078024003905">你正在投放螢幕畫面。你隨時可以暫停或停止投放螢幕畫面。</translation>
-<translation id="13449088910457661">Gemini 可在分頁中完成你交辦的工作。<ph name="LINK_BEGIN" />瞭解詳情<ph name="LINK_END" /></translation>
 <translation id="1346403631707626730">傳送使用狀況與診斷資料。如要協助改善貴子女的 Android 使用體驗，可以選擇讓系統自動將診斷情形、裝置狀態和應用程式使用資料傳送給 Google。這些資料將有助於改善系統和應用程式的穩定性與其他功能，並不會用於識別貴子女的身分。部分匯總資料還能協助 Google 應用程式和合作夥伴 (例如 Android 開發人員) 提升產品和服務品質。如果將貴子女的「其他網路和應用程式活動」設定為開啟，這類資料可能會儲存在他們的 Google 帳戶中。<ph name="BEGIN_LINK1" />進一步瞭解指標<ph name="BEGIN_LINK1_END" />瞭解詳情<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">確認並重新啟動</translation>
 <translation id="1346748346194534595">向右</translation>
@@ -1505,7 +1504,7 @@
 <translation id="2002109485265116295">即時</translation>
 <translation id="2003130567827682533">如要啟用「<ph name="NAME" />」的數據服務，請先連上 Wi-Fi 網路</translation>
 <translation id="200321182559008924">妥善整理分頁</translation>
-<translation id="2003596238737586336">目前設定的時間表為<ph name="SUNRISE" /> 到<ph name="SUNSET" />。這項設定是由系統管理員管理。</translation>
+<translation id="2003596238737586336">目前設定的時間表為<ph name="SUNRISE" /> 到<ph name="SUNSET" />。這項設定是由管理員管理。</translation>
 <translation id="2004413981947727241">在任何裝置都能使用你的密碼</translation>
 <translation id="2006638907958895361">在「<ph name="APP" />」中開啟連結</translation>
 <translation id="2007404777272201486">回報問題...</translation>
@@ -1972,6 +1971,7 @@
 <translation id="2319072477089403627">正在連線到 Android 手機...</translation>
 <translation id="2319459402137712349">選取文字欄位即可開啟鍵盤。你也可以選取畫面底部的「鍵盤」圖示。</translation>
 <translation id="2319993584768066746">登入畫面上的相片</translation>
+<translation id="2321487076181785382">分割分頁</translation>
 <translation id="2322193970951063277">頁首及頁尾</translation>
 <translation id="2322318151094136999">當網站要存取序列埠時，必須先詢問你 (建議)</translation>
 <translation id="2322622365472107569">結束時間 <ph name="TIME" /></translation>
@@ -2119,7 +2119,6 @@
 <translation id="2428939361789119025">關閉 Wi-Fi</translation>
 <translation id="2431027948063157455">無法載入 Google 助理，請檢查網路連線狀態並重試。</translation>
 <translation id="243179355394256322">貴機構限制只有授權使用者可以註冊裝置。這位使用者未獲授權，因此無法註冊裝置。請前往管理控制台的「使用者」專區，確認該使用者具有「註冊 Google Meet 設備」的管理員權限。</translation>
-<translation id="2431896368788252518">查看及管理個人化建議</translation>
 <translation id="243275146591958220">取消下載</translation>
 <translation id="2433237965825924228">隔離網頁應用程式可控制驗證裝置和可存取的智慧卡。智慧卡通常內含用於驗證身分的 ID。</translation>
 <translation id="2433452467737464329">在網址中新增查詢參數即可自動重新整理網頁：chrome://network/?refresh=&lt;sec&gt;</translation>
@@ -3768,7 +3767,7 @@
 <translation id="3568431410312984116">允許「幫我寫」功能自動開啟</translation>
 <translation id="3569382839528428029">你想讓 <ph name="APP_NAME" /> 共用你的畫面嗎？</translation>
 <translation id="3569614820047645079">「我的雲端硬碟」中的檔案會自動同步至 Chromebook，這樣你就能在沒有網際網路連線的情況下存取檔案。</translation>
-<translation id="3569617221227793022">目前時區設為 <ph name="TIME_ZONE_ENTRY" />。這項設定是由系統管理員管理。</translation>
+<translation id="3569617221227793022">目前時區設為 <ph name="TIME_ZONE_ENTRY" />。這項設定是由管理員管理。</translation>
 <translation id="3569682580018832495"><ph name="ORIGIN" /> 可以檢視下列檔案和資料夾</translation>
 <translation id="3571734092741541777">設定</translation>
 <translation id="3572031449439748861"><ph name="NUM_EXTENSIONS" /> 項擴充功能已關閉</translation>
@@ -4336,7 +4335,7 @@
 <translation id="3924145049010392604">Meta</translation>
 <translation id="3924259174674732591">顯示和文字大小：<ph name="DISPLAY_ZOOM" />%</translation>
 <translation id="3924487862883651986">可將網址傳送至安全瀏覽功能進行檢查。同時也會傳送少量網頁、下載內容、擴充功能活動及系統資訊，以協助找出新的威脅。當你登入 Google 帳戶後，系統會將這些資料暫時連結至你的帳戶，以便在你使用各項 Google 應用程式時提供保護。</translation>
-<translation id="3924788966103416622">為了進行偵錯，外部應用程式想要完全掌控這個 Chrome 工作階段，包括存取你儲存的資料、Cookie 和網站資料，以及前往任何網址。</translation>
+<translation id="3924788966103416622">為進行偵錯，外部應用程式要求取得這個 Chrome 工作階段的完整權限，包括存取你儲存的資料、Cookie 和網站資料，以及前往任何網址。</translation>
 <translation id="3925573269917483990">相機：</translation>
 <translation id="3925926055063465902">這部裝置的其他使用者也可以使用這個網路</translation>
 <translation id="3926002189479431949">Smart Lock 手機已變更</translation>
@@ -4375,6 +4374,7 @@
 <translation id="394984172568887996">從 IE 匯入</translation>
 <translation id="3949999964543783947"><ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" />，以更安全的方式下載檔案</translation>
 <translation id="3950479158728806902">自動建立密碼金鑰，加快登入速度</translation>
+<translation id="3950755269510650933">管理 Gemini 可用來提供個人化體驗的資訊</translation>
 <translation id="3950820424414687140">登入</translation>
 <translation id="3950841222883198950">語音輸入</translation>
 <translation id="3953834000574892725">我的帳戶</translation>
@@ -4404,6 +4404,7 @@
 <translation id="3968739731834770921">假名</translation>
 <translation id="3970114302595058915">ID</translation>
 <translation id="397105322502079400">計算中…</translation>
+<translation id="3971355433478412726">給 Gemini 的指令</translation>
 <translation id="3971764089670057203">這個安全金鑰上的指紋</translation>
 <translation id="3973005893595042880">不允許這位使用者</translation>
 <translation id="3973660817924297510">正在檢查密碼 (已檢查 <ph name="CHECKED_PASSWORDS" /> 個，共 <ph name="TOTAL_PASSWORDS" /> 個)…</translation>
@@ -4474,7 +4475,7 @@
 <translation id="4015250302257349679">按下 <ph name="ACCELERATOR" /> 鍵可聚焦這個泡泡，再次按下即可聚焦泡泡指向的元素。</translation>
 <translation id="4016762287427926315">如果你將權限授予「<ph name="APP_NAME" />」，這個應用程式也會取得同樣的權限。<ph name="BEGIN_LINK" />管理<ph name="END_LINK" /></translation>
 <translation id="4017225831995090447">為這個連結建立 QR 圖碼</translation>
-<translation id="4018953474106733212">這項功能只有網頁程式開發人員可以開啟，而且只能搭配可信任的應用程式使用。</translation>
+<translation id="4018953474106733212">只建議由網頁程式開發人員開啟這項功能，請先確認應用程式的可信度再授權。</translation>
 <translation id="4019983356493507433">編輯書籤清單</translation>
 <translation id="4020701737692625681">管理員可以錄製你的螢幕內容</translation>
 <translation id="4021279097213088397">–</translation>
@@ -5805,6 +5806,7 @@
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">要儲存到這部裝置的資料夾嗎？</translation>
 <translation id="4959262764292427323">系統會將密碼儲存在你的 Google 帳戶中，方便你在任何裝置上使用密碼</translation>
+<translation id="4959581970694896608">自訂 Gemini 的回覆方式</translation>
 <translation id="4960020053211143927">部分應用程式不支援這項功能</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> - <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">投放螢幕</translation>
@@ -6153,7 +6155,6 @@
 <translation id="5204967432542742771">輸入密碼</translation>
 <translation id="5205484256512407285">一律不使用行動數據進行傳輸</translation>
 <translation id="520568280985468584">已成功新增網路。行動網路可能要過幾分鐘才會啟用。</translation>
-<translation id="520576054436518354">讓 Gemini 幫你瀏覽網頁</translation>
 <translation id="5207949376430453814">醒目顯示文字插入點</translation>
 <translation id="520840839826327499">「<ph name="SERVICE_NAME" />」想要確認你是否使用合格的 Chrome OS 裝置。</translation>
 <translation id="5208722776934437424">變更權限</translation>
@@ -6399,6 +6400,7 @@
 <translation id="5388719243178419614">無法上傳。無法處理圖片檔。</translation>
 <translation id="5388885445722491159">已配對</translation>
 <translation id="5389224261615877010">彩虹</translation>
+<translation id="538945906186309152">啟用 Gemini 鍵盤快速鍵</translation>
 <translation id="5389794555912875905">前往不安全的網站前發出警告 (建議)</translation>
 <translation id="5389943529251318913">將滑鼠速度降低</translation>
 <translation id="5390112241331447203">納入透過使用狀況報告所傳送的 system_logs.txt 檔案。</translation>
@@ -10153,7 +10155,7 @@
 <translation id="7985528042147759910">要允許外接配件存取記憶體嗎？</translation>
 <translation id="7986295104073916105">讀取及變更已儲存的密碼設定</translation>
 <translation id="7986764869610100215">這樣做會持續與訪客共用 USB 裝置。裝置與訪客共用後，會自動嘗試連線至該訪客。如果手動中斷裝置連線，就會停用這項持續性設定；如果完全停用這項功能，系統會重設所有持續性設定。確定嗎？</translation>
-<translation id="798779949890829624">這項設定是由系統管理員管理</translation>
+<translation id="798779949890829624">這項設定是由管理員管理</translation>
 <translation id="7987814697832569482">一律透過這個 VPN 建立連線</translation>
 <translation id="7988355189918024273">啟用無障礙功能</translation>
 <translation id="7988805580376093356">保留現有作業系統，並透過 USB 執行 <ph name="DEVICE_OS" />。</translation>
@@ -10193,6 +10195,7 @@
 <translation id="8011372169388649948">已移動「<ph name="BOOKMARK_TITLE" />」。</translation>
 <translation id="8012188750847319132">Caps Lock 鍵</translation>
 <translation id="8012463809859447963">即時無線基地台詳細資料</translation>
+<translation id="8013181884974864006">關聯工作</translation>
 <translation id="8013534738634318212">這些網站屬於由 <ph name="RWS_OWNER" /> 定義的群組，群組中的網站可以查看你在該群組的活動。</translation>
 <translation id="8013993649590906847">如果圖片缺少有用的說明，Chrome 會嘗試為你提供說明。系統會將圖片傳送給 Google，以便產生說明。</translation>
 <translation id="8014154204619229810">正在執行更新程式。請稍後片刻，重新整理之後再試一次。</translation>
@@ -10565,7 +10568,7 @@
 <translation id="8263149565724023141">相關應用程式</translation>
 <translation id="8263228331881858381">密碼金鑰已儲存</translation>
 <translation id="8263336784344783289">為這個群組命名</translation>
-<translation id="8264024885325823677">這項設定是由系統管理員管理。</translation>
+<translation id="8264024885325823677">這項設定是由管理員管理。</translation>
 <translation id="8264195025773092348">只顯示支援的裝置。中斷連線之前，原生應用程式將無法再使用 USB 裝置。</translation>
 <translation id="8265018477030547118">僅儲存到這部裝置</translation>
 <translation id="826511437356419340">已進入視窗總覽模式。滑動畫面或按下鍵盤上的 Tab 鍵即可瀏覽。</translation>

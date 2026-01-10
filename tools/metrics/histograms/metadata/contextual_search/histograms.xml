@@ -83,6 +83,20 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
+    name="ContextualSearch.ContextAdded.ContextAddedMethod.{ContextualSearchSource}"
+    enum="ContextAddedMethod" expires_after="2026-06-10">
+  <owner>niharm@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Tracks the total number of times a context addition method was used.
+    Recorded once every time a file or files are added using a certain context
+    addition method. i.e. Recorded once for copy and paste, drag and drop,
+    context menu add, etc.
+  </summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram
     name="ContextualSearch.ContextMenuEntry.Clicked.{ContextualSearchSource}"
     enum="BooleanOccurred" expires_after="2026-03-29">
   <owner>hujasonx@google.com</owner>
@@ -410,6 +424,18 @@ chromium-metrics-reviews@google.com.
     Tracks the number of queries submitted per session. Multiple queries may be
     submitted when the AIM page is opened in a new tab or window and the
     composebox remains open. Recorded at the end of the session.
+  </summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram
+    name="ContextualSearch.Session.QuerySubmittedWithoutSessionStart.{ContextualSearchSource}"
+    enum="Boolean" expires_after="2026-06-21">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Tracks queries that were submitted without calling session start. This
+    should never happen. Always recorded as true.
   </summary>
   <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
 </histogram>

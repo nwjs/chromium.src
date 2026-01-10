@@ -105,6 +105,8 @@ class ComposeboxInputPlateMediatorTest : public PlatformTest {
   void SetUp() override {
     PlatformTest::SetUp();
     omnibox::RegisterProfilePrefs(pref_service_.registry());
+    contextual_search::ContextualSearchService::RegisterProfilePrefs(
+        pref_service_.registry());
     AimEligibilityService::RegisterProfilePrefs(pref_service_.registry());
     profile_ = TestProfileIOS::Builder().Build();
     shared_url_loader_factory_ =
@@ -137,18 +139,22 @@ class ComposeboxInputPlateMediatorTest : public PlatformTest {
         .WillOnce(
             testing::DoAll(testing::SaveArg<0>(&aim_callback_),
                            testing::Return(base::CallbackListSubscription())));
+    auto session_handle = service_->CreateSession(
+        std::move(config_params),
+        contextual_search::ContextualSearchSource::kUnknown);
+    // Check the search content sharing settings to notify the session handle
+    // that the client is properly checking the pref value.
+    session_handle->CheckSearchContentSharingSettings(&pref_service_);
     mediator_ = [[ComposeboxInputPlateMediator alloc]
-        initWithContextualSearchSession:
-            service_->CreateSession(
-                std::move(config_params),
-                contextual_search::ContextualSearchSource::kUnknown)
+        initWithContextualSearchSession:std::move(session_handle)
                            webStateList:web_state_list_.get()
                           faviconLoader:nullptr
                  persistTabContextAgent:nullptr
                             isIncognito:NO
                              modeHolder:[[ComposeboxModeHolder alloc] init]
                      templateURLService:template_url_service()
-                  aimEligibilityService:aim_eligibility_service_.get()];
+                  aimEligibilityService:aim_eligibility_service_.get()
+                            prefService:&pref_service_];
     consumer_ = [[TestComposeboxInputPlateConsumer alloc] init];
     mediator_.consumer = consumer_;
 
@@ -352,6 +358,15 @@ TEST_F(ComposeboxInputPlateMediatorTest,
   SetOmniboxText(u"some text");
 
   EXPECT_FALSE([consumer_ showsControls:ComposeboxInputPlateControls::kAIM]);
+}
+
+// Tests that QR code button is shown with non Google DSE.
+TEST_F(ComposeboxInputPlateMediatorTest, ShowsQRScannerButtonWithNonGoogleDSE) {
+  SetAIMEligible(false);
+  SetDSEGoogle(false);
+  EXPECT_TRUE(
+      [consumer_ showsControls:ComposeboxInputPlateControls::kQRScanner]);
+  EXPECT_FALSE([consumer_ showsControls:ComposeboxInputPlateControls::kLens]);
 }
 
 }  // namespace

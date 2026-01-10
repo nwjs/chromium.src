@@ -2253,3 +2253,45 @@ suite('EnterpriseShortcuts', () => {
         $$<HTMLButtonElement>(mostVisited, '#actionMenuRemove').disabled);
   });
 });
+
+suite('ShortcutsAutoRemovalToast', () => {
+  setup(async () => {
+    await setUpTest();
+  });
+
+  test('auto removal event fired', async () => {
+    let autoRemovalEvent: CustomEvent<{message: string, undo: () => void}>|
+        null = null;
+    mostVisited.addEventListener('most-visited-auto-removed', (e: any) => {
+      autoRemovalEvent = e;
+    }, {once: true});
+
+    callbackRouterRemote.onMostVisitedTilesAutoRemoval();
+    await callbackRouterRemote.$.flushForTesting();
+    await microtasksFinished();
+
+    assertNotEquals(null, autoRemovalEvent);
+    assertEquals(
+        loadTimeData.getString('shortcutsInactivityRemovalMsg'),
+        autoRemovalEvent!.detail.message);
+    assertFalse(mostVisited.$.toastManager.isToastOpen);
+  });
+
+  test('undo auto removal via event callback', async () => {
+    let autoRemovalEvent: CustomEvent<{message: string, undo: () => void}>|
+        null = null;
+    mostVisited.addEventListener('most-visited-auto-removed', (e: any) => {
+      autoRemovalEvent = e;
+    }, {once: true});
+
+    callbackRouterRemote.onMostVisitedTilesAutoRemoval();
+    await callbackRouterRemote.$.flushForTesting();
+    await microtasksFinished();
+
+    assertNotEquals(null, autoRemovalEvent);
+
+    const wait = handler.whenCalled('undoMostVisitedAutoRemoval');
+    autoRemovalEvent!.detail.undo();
+    await wait;
+  });
+});

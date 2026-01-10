@@ -67,7 +67,6 @@
 #include "chrome/browser/ui/tabs/tab_group_home/constants.h"
 #include "chrome/browser/ui/toasts/toast_features.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/webui/new_tab_page/composebox/variations/aim_entrypoint_fieldtrial.h"
 #include "chrome/browser/ui/webui/new_tab_page/composebox/variations/composebox_fieldtrial.h"
 #include "chrome/browser/unexpire_flags.h"
 #include "chrome/browser/unexpire_flags_gen.h"
@@ -123,6 +122,7 @@
 #include "components/lens/buildflags.h"
 #include "components/lens/lens_features.h"
 #include "components/manta/features.h"
+#include "components/metrics/private_metrics/private_metrics_features.h"
 #include "components/mirroring/service/mirroring_features.h"
 #include "components/network_session_configurator/common/network_switches.h"
 #include "components/no_state_prefetch/browser/no_state_prefetch_field_trial.h"
@@ -863,45 +863,29 @@ const FeatureEntry::FeatureVariation
 #if !BUILDFLAG(IS_ANDROID)
 const FeatureEntry::FeatureParam kWebUIOmniboxAimPopupAddContextButtonNone[] = {
     {"AddContextButtonVariant", "none"},
-    {"ShowCreateImageTool", "true"},
-    {"ShowToolsAndModels", "true"},
-    {"ShowVoiceSearchInSteadyComposebox","true"},
-    {"ShowVoiceSearchInExpandedComposebox","true"},
+    {"ShowVoiceSearchInSteadyComposebox", "true"},
+    {"ShowVoiceSearchInExpandedComposebox", "true"},
 };
 const FeatureEntry::FeatureParam
     kWebUIOmniboxAimPopupAddContextButtonBelowResults[] = {
         {"AddContextButtonVariant", "below_results"},
-        {"ShowCreateImageTool", "true"},
-        {"ShowRecentTabChip", "true"},
-        {"ShowToolsAndModels", "true"},
-        {"ShowVoiceSearchInSteadyComposebox","true"},
-        {"ShowVoiceSearchInExpandedComposebox","true"},
+        {"ShowVoiceSearchInSteadyComposebox", "true"},
+        {"ShowVoiceSearchInExpandedComposebox", "true"},
 };
 const FeatureEntry::FeatureParam
     kWebUIOmniboxAimPopupAddContextButtonAboveResults[] = {
         {"AddContextButtonVariant", "above_results"},
-        {"ShowCreateImageTool", "true"},
-        {"ShowRecentTabChip", "true"},
-        {"ShowToolsAndModels", "true"},
-        {"ShowVoiceSearchInSteadyComposebox","true"},
-        {"ShowVoiceSearchInExpandedComposebox","true"},
 };
 const FeatureEntry::FeatureParam kWebUIOmniboxAimPopupAddContextButtonInline[] =
     {
         {"AddContextButtonVariant", "inline"},
-        {"ShowCreateImageTool", "true"},
         {"ShowRecentTabChip", "true"},
-        {"ShowToolsAndModels", "true"},
-        {"ShowVoiceSearchInSteadyComposebox","true"},
-        {"ShowVoiceSearchInExpandedComposebox","true"},
 };
 const FeatureEntry::FeatureParam
-    kWebUIOmniboxAimPopupAddContextButtonMultiFile[] = {
+    kWebUIOmniboxAimPopupAddContextButtonDragAndDrop[] = {
         {"AddContextButtonVariant", "below_results"},
-        {"ShowCreateImageTool", "true"},
+        {"EnableContextDragAndDrop", "true"},
         {"ShowRecentTabChip", "true"},
-        {"ShowToolsAndModels", "true"},
-        {"MaxNumFiles", "5"},
 };
 
 const FeatureEntry::FeatureVariation kWebUIOmniboxAimPopupVariations[] = {
@@ -916,9 +900,9 @@ const FeatureEntry::FeatureVariation kWebUIOmniboxAimPopupVariations[] = {
     {"- \"Add Context\" Button inline (Variant 3)",
      kWebUIOmniboxAimPopupAddContextButtonInline,
      std::size(kWebUIOmniboxAimPopupAddContextButtonInline), nullptr},
-    {"- \"Add Context\" Button below results, 5 File Limit",
-     kWebUIOmniboxAimPopupAddContextButtonMultiFile,
-     std::size(kWebUIOmniboxAimPopupAddContextButtonMultiFile), nullptr}};
+    {"- \"Add Context\" Button enable drag and drop",
+     kWebUIOmniboxAimPopupAddContextButtonDragAndDrop,
+     std::size(kWebUIOmniboxAimPopupAddContextButtonDragAndDrop), nullptr}};
 
 const FeatureEntry::FeatureParam kWebUIOmniboxPopupDebugSxS[] = {
     {"SxS", "true"}};
@@ -1650,7 +1634,6 @@ const FeatureEntry::FeatureVariation kOmniboxToolbeltVariations[] = {
 
 const FeatureEntry::FeatureParam
     kComposeboxShowContextMenuAndSuggestMultiFile[] = {
-        {"MaxNumFiles", "5"},
         {"ShowComposeboxZps", "true"},
         {"ShowComposeboxTypedSuggest", "true"},
         {"ShowContextMenu", "true"},
@@ -1658,7 +1641,6 @@ const FeatureEntry::FeatureParam
 };
 const FeatureEntry::FeatureParam
     kComposeboxShowContextMenuAndSuggestMultiFileNoViewport[] = {
-        {"MaxNumFiles", "5"},
         {"ShowComposeboxZps", "true"},
         {"ShowComposeboxTypedSuggest", "true"},
         {"ShowContextMenu", "true"},
@@ -1667,7 +1649,6 @@ const FeatureEntry::FeatureParam
 };
 const FeatureEntry::FeatureParam
     kComposeboxShowContextMenuAndSuggestMultiFileAndTabPreviews[] = {
-        {"MaxNumFiles", "5"},
         {"ShowComposeboxZps", "true"},
         {"ShowComposeboxTypedSuggest", "true"},
         {"ShowContextMenu", "true"},
@@ -1677,22 +1658,21 @@ const FeatureEntry::FeatureParam
 const FeatureEntry::FeatureParam kShowToolsAndModels[] = {
     {"ShowContextMenu", "true"},     {"ShowToolsAndModels", "true"},
     {"ShowComposeboxZps", "true"},   {"ShowComposeboxTypedSuggest", "true"},
-    {"ForceToolsAndModels", "true"},
 };
 const FeatureEntry::FeatureParam kShowCreateImageTool[] = {
-    {"ShowContextMenu", "true"},     {"ShowToolsAndModels", "true"},
-    {"ShowCreateImageTool", "true"}, {"ShowComposeboxZps", "true"},
-    {"ForceToolsAndModels", "true"}, {"ShowComposeboxTypedSuggest", "true"},
+    {"ShowContextMenu", "true"},
+    {"ShowToolsAndModels", "true"},
+    {"ShowCreateImageTool", "true"},
+    {"ShowComposeboxZps", "true"},
+    {"ShowComposeboxTypedSuggest", "true"},
 };
 const FeatureEntry::FeatureParam kComposeboxNext[] = {
-    {"MaxNumFiles", "5"},
     {"ShowContextMenu", "true"},
     {"ShowContextMenuTabPreviews", "true"},
     {"ShowComposeboxZps", "true"},
     {"ShowComposeboxTypedSuggest", "true"},
     {"ShowToolsAndModels", "true"},
     {"ShowCreateImageTool", "true"},
-    {"ForceToolsAndModels", "true"},
     {"ShowRecentTabChip", "true"},
     {"CloseComposeboxByEscape", "false"},
     {"CloseComposeboxByClickOutside", "false"},
@@ -1706,7 +1686,6 @@ const FeatureEntry::FeatureParam kComposeboxNextSingleContext[] = {
     {"ShowComposeboxTypedSuggest", "true"},
     {"ShowToolsAndModels", "true"},
     {"ShowCreateImageTool", "true"},
-    {"ForceToolsAndModels", "true"},
     {"ShowRecentTabChip", "true"},
     {"CloseComposeboxByEscape", "false"},
     {"CloseComposeboxByClickOutside", "false"},
@@ -1721,10 +1700,8 @@ const FeatureEntry::FeatureParam kComposeboxNextSingleContextForRealboxNext[] =
         {"ShowCreateImageTool", "true"},
         {"ShowRecentTabChip", "true"},
         {"ShowSubmit", "true"},
-        {"SendLnsSurfaceParam", "true"},
 };
 const FeatureEntry::FeatureParam kComposeboxNextForRealboxNext[] = {
-    {"MaxNumFiles", "10"},
     {"ShowContextMenu", "true"},
     {"ShowComposeboxZps", "true"},
     {"ShowComposeboxTypedSuggest", "true"},
@@ -1733,23 +1710,8 @@ const FeatureEntry::FeatureParam kComposeboxNextForRealboxNext[] = {
     {"ShowRecentTabChip", "true"},
     {"ContextMenuEnableMultiTabSelection", "true"},
     {"ShowSubmit", "true"},
-    {"SendLnsSurfaceParam", "true"},
-};
-const FeatureEntry::FeatureParam
-    kComposeboxNextForRealboxNextWithContextIdMigration[] = {
-        {"MaxNumFiles", "10"},
-        {"ShowContextMenu", "true"},
-        {"ShowComposeboxZps", "true"},
-        {"ShowComposeboxTypedSuggest", "true"},
-        {"ShowToolsAndModels", "true"},
-        {"ShowCreateImageTool", "true"},
-        {"ShowRecentTabChip", "true"},
-        {"ContextMenuEnableMultiTabSelection", "true"},
-        {"ShowSubmit", "true"},
-        {"SendLnsSurfaceParam", "true"},
-        {"EnableContextIdMigration", "true"},
-        {"UseSeparateRequestIdsForMultiContextViewportImages", "true"},
-};
+    {"EnableEphemeralContextMenuDescription", "true"}};
+
 
 const FeatureEntry::FeatureVariation kNtpComposeboxVariations[] = {
     {"- Show Contextual Input Menu and Suggest, 5 File Limit",
@@ -1777,9 +1739,6 @@ const FeatureEntry::FeatureVariation kNtpComposeboxVariations[] = {
     {"- Next Experience Single Context for Realbox Next",
      kComposeboxNextSingleContextForRealboxNext,
      std::size(kComposeboxNextSingleContextForRealboxNext), nullptr},
-    {"- Next Experience for Realbox Next with Context ID Migration",
-     kComposeboxNextForRealboxNextWithContextIdMigration,
-     std::size(kComposeboxNextForRealboxNextWithContextIdMigration), nullptr},
 };
 
 const FeatureEntry::FeatureParam kShowNextRealboxTallBottomContext[] = {
@@ -1834,9 +1793,17 @@ const FeatureEntry::FeatureParam kNtpNextShowStaticText[] = {
 const FeatureEntry::FeatureParam kNtpNextShowDeepDiveSuggestions[] = {
     {"NtpNextShowDeepDiveSuggestionsParam", "true"},
     {"NtpNextSuggestionsFromNewSearchSuggestionsEndpointParam", "false"},
+    {"NtpNextClientSensitivityCheckParam", "true"},
 };
 const FeatureEntry::FeatureParam kNtpNextShowSimplificationUI[] = {
     {"NtpNextShowSimplificationUIParam", "true"},
+    {"NtpNextClientSensitivityCheckParam", "true"},
+};
+const FeatureEntry::FeatureParam kNtpNextShowSimplificationUIWithDeepDive[] = {
+    {"NtpNextShowSimplificationUIParam", "true"},
+    {"NtpNextShowDeepDiveSuggestionsParam", "true"},
+    {"NtpNextSuggestionsFromNewSearchSuggestionsEndpointParam", "false"},
+    {"NtpNextClientSensitivityCheckParam", "true"},
 };
 
 const FeatureEntry::FeatureVariation kNtpNextVariations[] = {
@@ -1844,30 +1811,54 @@ const FeatureEntry::FeatureVariation kNtpNextVariations[] = {
      std::size(kNtpNextShowStaticText), nullptr},
     {"- Show Deep Dive Suggestions", kNtpNextShowDeepDiveSuggestions,
      std::size(kNtpNextShowDeepDiveSuggestions), nullptr},
-    {"- Show NTP Simplification", kNtpNextShowSimplificationUI,
+    {"- Show Row UI", kNtpNextShowSimplificationUI,
      std::size(kNtpNextShowSimplificationUI), nullptr},
+    {"- Show Row UI With Deep Dive", kNtpNextShowSimplificationUIWithDeepDive,
+     std::size(kNtpNextShowSimplificationUIWithDeepDive), nullptr},
 };
 
-const FeatureEntry::FeatureParam kNtpFeatureOptimizationDefault[] = {
-    {"EnableStaleShortcutsAutoRemoval", "true"},
-    {"EnableStaleModulesAutoRemoval", "true"},
-    {"RemoveDismissModules", "true"},
+const FeatureEntry::FeatureParam
+    kNtpFeatureOptimizationModuleRemovalDefault[] = {
+        {"ModuleMinStalenessUpdateTimeInterval", "24h"},
+        {"StaleModulesCountThreshold", "14"},
 };
 
-const FeatureEntry::FeatureParam kNtpFeatureOptimizationTesting[] = {
-    {"EnableStaleShortcutsAutoRemoval", "true"},
-    {"EnableStaleModulesAutoRemoval", "true"},
-    {"RemoveDismissModules", "true"},
-    {"MinStalenessUpdateTimeInterval", "1m"},
-    {"StaleShortcutsCountThreshold", "5"},
-    {"StaleModulesCountThreshold", "2"},
+const FeatureEntry::FeatureParam
+    kNtpFeatureOptimizationModuleRemovalTesting[] = {
+        {"ModuleMinStalenessUpdateTimeInterval", "1s"},
+        {"StaleModulesCountThreshold", "2"},
 };
 
-const FeatureEntry::FeatureVariation kNtpFeatureOptimizationVariations[] = {
-    {"- Default Auto-Removal Timing", kNtpFeatureOptimizationDefault,
-     std::size(kNtpFeatureOptimizationDefault), nullptr},
-    {"- Auto-Removal Timing for Testing", kNtpFeatureOptimizationTesting,
-     std::size(kNtpFeatureOptimizationTesting), nullptr},
+const FeatureEntry::FeatureVariation
+    kNtpFeatureOptimizationModuleRemovalVariations[] = {
+        {"- Default Auto-Removal Timing",
+        kNtpFeatureOptimizationModuleRemovalDefault,
+        std::size(kNtpFeatureOptimizationModuleRemovalDefault), nullptr},
+        {"- Auto-Removal Timing for Testing",
+        kNtpFeatureOptimizationModuleRemovalTesting,
+        std::size(kNtpFeatureOptimizationModuleRemovalTesting), nullptr},
+};
+
+const FeatureEntry::FeatureParam
+    kNtpFeatureOptimizationShortcutsRemovalDefault[] = {
+        {"ShortcutsMinStalenessUpdateTimeInterval", "24h"},
+        {"StaleShortcutsCountThreshold", "60"},
+};
+
+const FeatureEntry::FeatureParam
+    kNtpFeatureOptimizationShortcutsRemovalTesting[] = {
+        {"ShortcutsMinStalenessUpdateTimeInterval", "1s"},
+        {"StaleShortcutsCountThreshold", "5"},
+};
+
+const FeatureEntry::FeatureVariation
+    kNtpFeatureOptimizationShortcutsRemovalVariations[] = {
+        {"- Default Auto-Removal Timing",
+        kNtpFeatureOptimizationShortcutsRemovalDefault,
+        std::size(kNtpFeatureOptimizationShortcutsRemovalDefault), nullptr},
+        {"- Auto-Removal Timing for Testing",
+        kNtpFeatureOptimizationShortcutsRemovalTesting,
+        std::size(kNtpFeatureOptimizationShortcutsRemovalTesting), nullptr},
 };
 
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) ||
@@ -2171,7 +2162,7 @@ const FeatureEntry::FeatureVariation kOmniboxMultimodalInputVariants[] = {
     {"MC (Multi context)", kOmniboxAimMultiContext,
      std::size(kOmniboxAimMultiContext), nullptr},
     {"MC Dedicated Button", kOmniboxAimMultiContextDedicatedModeButton,
-     std::size(kOmniboxAimDedicatedModeButton), nullptr},
+     std::size(kOmniboxAimMultiContextDedicatedModeButton), nullptr},
     {"MC Button with Hint", kOmniboxAimMultiContextDedicatedModeButtonWithHint,
      std::size(kOmniboxAimMultiContextDedicatedModeButtonWithHint), nullptr},
     {"MC Compact", kOmniboxAimMultiContextCompactFusebox,
@@ -7768,11 +7759,6 @@ const FeatureEntry kFeatureEntries[] = {
                                     kNtpCalendarModuleVariations,
                                     "DesktopNtpModules")},
 
-    {"ntp-compose-entrypoint",
-     flag_descriptions::kNtpSearchboxComposeEntrypointName,
-     flag_descriptions::kNtpSearchboxComposeEntrypointDescription, kOsDesktop,
-     FEATURE_VALUE_TYPE(ntp_composebox::kNtpSearchboxComposeEntrypoint)},
-
     {"ntp-composebox", flag_descriptions::kNtpComposeboxName,
      flag_descriptions::kNtpComposeboxDescription, kOsDesktop,
      FEATURE_WITH_PARAMS_VALUE_TYPE(ntp_composebox::kNtpComposebox,
@@ -7817,11 +7803,30 @@ const FeatureEntry kFeatureEntries[] = {
      FEATURE_VALUE_TYPE(ntp_features::kNtpDummyModules)},
 #endif
 
-    {"ntp-feature-optimization", flag_descriptions::kNtpFeatureOptimizationName,
-     flag_descriptions::kNtpFeatureOptimizationDescription, kOsDesktop,
-     FEATURE_WITH_PARAMS_VALUE_TYPE(ntp_features::kNtpFeatureOptimization,
-                                    kNtpFeatureOptimizationVariations,
-                                    "NtpFeatureOptimization")},
+    {"ntp-feature-optimization-module-removal",
+     flag_descriptions::kNtpFeatureOptimizationModuleRemovalName,
+     flag_descriptions::kNtpFeatureOptimizationModuleRemovalDescription,
+     kOsDesktop,
+     FEATURE_WITH_PARAMS_VALUE_TYPE(
+        ntp_features::kNtpFeatureOptimizationModuleRemoval,
+        kNtpFeatureOptimizationModuleRemovalVariations,
+        "NtpFeatureOptimizationModuleRemoval")},
+
+    {"ntp-feature-optimization-shortcuts-removal",
+     flag_descriptions::kNtpFeatureOptimizationShortcutsRemovalName,
+     flag_descriptions::kNtpFeatureOptimizationShortcutsRemovalDescription,
+     kOsDesktop,
+     FEATURE_WITH_PARAMS_VALUE_TYPE(
+        ntp_features::kNtpFeatureOptimizationShortcutsRemoval,
+        kNtpFeatureOptimizationShortcutsRemovalVariations,
+        "NtpFeatureOptimizationShortcutsRemoval")},
+
+    {"ntp-feature-optimization-dismiss-modules-removal",
+     flag_descriptions::kNtpFeatureOptimizationDismissModulesRemovalName,
+     flag_descriptions::kNtpFeatureOptimizationDismissModulesRemovalDescription,
+     kOsDesktop,
+     FEATURE_VALUE_TYPE(
+        ntp_features::kNtpFeatureOptimizationDismissModulesRemoval)},
 
     {"ntp-footer", flag_descriptions::kNtpFooterName,
      flag_descriptions::kNtpFooterDescription, kOsDesktop,
@@ -10364,6 +10369,11 @@ const FeatureEntry kFeatureEntries[] = {
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
+    {"aim-entry-point-direct-navigation",
+     flag_descriptions::kAiModeEntryPointAlwaysNavigatesName,
+     flag_descriptions::kAiModeEntryPointAlwaysNavigatesDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(omnibox::kAiModeEntryPointAlwaysNavigates)},
+
     {"webui-omnibox-aim-popup", flag_descriptions::kWebUIOmniboxAimPopupName,
      flag_descriptions::kWebUIOmniboxAimPopupDescription, kOsDesktop,
      FEATURE_WITH_PARAMS_VALUE_TYPE(omnibox::internal::kWebUIOmniboxAimPopup,
@@ -13297,6 +13307,13 @@ const FeatureEntry kFeatureEntries[] = {
      kOsDesktop,
      FEATURE_VALUE_TYPE(contextual_tasks::kContextualTasksSuggestionsEnabled)},
 
+    {"contextual-tasks-context-library",
+     contextual_tasks::flag_descriptions::kContextualTasksContextLibraryName,
+     contextual_tasks::flag_descriptions::
+         kContextualTasksContextLibraryDescription,
+     kOsDesktop,
+     FEATURE_VALUE_TYPE(contextual_tasks::kContextualTasksContextLibrary)},
+
 #if !BUILDFLAG(IS_ANDROID)
     {"create-new-tab-group-app-menu-top-level",
      flag_descriptions::kCreateNewTabGroupAppMenuTopLevelName,
@@ -13731,6 +13748,16 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kReportOmniboxAutofocusHeaderDescription, kOsAndroid,
      FEATURE_VALUE_TYPE(variations::kReportOmniboxAutofocusHeader)},
 #endif
+
+    {"private-metrics-enable-puma",
+     flag_descriptions::kPrivateMetricsEnablePumaName,
+     flag_descriptions::kPrivateMetricsEnablePumaDescription, kOsAll,
+     FEATURE_VALUE_TYPE(metrics::private_metrics::kPrivateMetricsPuma)},
+
+    {"private-metrics-enable-puma-rc",
+     flag_descriptions::kPrivateMetricsEnablePumaRcName,
+     flag_descriptions::kPrivateMetricsEnablePumaRcDescription, kOsAll,
+     FEATURE_VALUE_TYPE(metrics::private_metrics::kPrivateMetricsPumaRc)},
 
     // Add new entries above this line.
     // NOTE: Adding a new flag requires adding a corresponding entry to enum

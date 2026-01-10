@@ -109,6 +109,14 @@
     "expiry_milestone": 149
   },
   {
+    "name": "aim-entry-point-direct-navigation",
+    "owners": [
+      "pauladedeji@google.com",
+      "mahmadi@chromium.org",
+      "chrome-desktop-search@google.com"],
+    "expiry_milestone": 150
+  },
+  {
     "name": "aim-server-eligibility",
     "owners": ["ameurhosni@google.com", "mahmadi@chromium.org"],
     "expiry_milestone": 145
@@ -1942,6 +1950,11 @@
     "expiry_milestone": 145
   },
   {
+    "name": "composebox-close-button-top-align",
+    "owners": [ "radunitescu@google.com", "bling-search@google.com" ],
+    "expiry_milestone": 149
+  },
+  {
     "name": "composebox-compact-mode",
     "owners": [ "christianxu@google.com", "bling-search@google.com" ],
     "expiry_milestone": 149
@@ -2088,6 +2101,11 @@
   {
     "name": "contextual-tasks-context",
     "owners": ["sophiechang@chromium.org", "chrome-contextual-tasks-eng@google.com"],
+    "expiry_milestone": 150
+  },
+  {
+    "name": "contextual-tasks-context-library",
+    "owners": ["nyquist@chromium.org", "chrome-contextual-tasks-eng@google.com"],
     "expiry_milestone": 150
   },
   {
@@ -7149,6 +7167,11 @@
     "expiry_milestone": 145
   },
   {
+    "name": "mobile-promo-on-desktop-data-collection",
+    "owners": ["hiramahmood@google.com", "scottyoder@google.com", "bling-get-set-up@google.com"],
+    "expiry_milestone": 148
+  },
+  {
     "name": "mojo-use-eventfd",
     "owners": ["bgeffon@chromium.org", "pasko@chromium.org"],
     "expiry_milestone": 150
@@ -7379,11 +7402,6 @@
     "expiry_milestone": 150
   },
   {
-    "name": "ntp-compose-entrypoint",
-    "owners": [ "ananyaseelam@google.com", "chrome-desktop-ntp@google.com" ],
-    "expiry_milestone": 150
-  },
-  {
     "name": "ntp-composebox",
     "owners": [ "ananyaseelam@google.com", "chrome-desktop-ntp@google.com" ],
     "expiry_milestone": 150
@@ -7419,7 +7437,17 @@
     "expiry_milestone": 108
   },
   {
-    "name": "ntp-feature-optimization",
+    "name": "ntp-feature-optimization-dismiss-modules-removal",
+    "owners": [ "hannahrogers@chromium.org", "tiborg@chromium.org" ],
+    "expiry_milestone": 150
+  },
+  {
+    "name": "ntp-feature-optimization-module-removal",
+    "owners": [ "hannahrogers@chromium.org", "tiborg@chromium.org" ],
+    "expiry_milestone": 150
+  },
+  {
+    "name": "ntp-feature-optimization-shortcuts-removal",
     "owners": [ "hannahrogers@chromium.org", "tiborg@chromium.org" ],
     "expiry_milestone": 150
   },
@@ -8626,6 +8654,22 @@
       "koilos@google.com"
     ],
     "expiry_milestone": 150
+  },
+  {
+    "name": "private-metrics-enable-puma",
+    "owners": [
+      "kjarosz@google.com",
+      "private-metrics@google.com"
+    ],
+    "expiry_milestone": 148
+  },
+  {
+    "name": "private-metrics-enable-puma-rc",
+    "owners": [
+      "kjarosz@google.com",
+      "private-metrics@google.com"
+    ],
+    "expiry_milestone": 148
   },
   {
     "name": "proactive-suggestions-framework",

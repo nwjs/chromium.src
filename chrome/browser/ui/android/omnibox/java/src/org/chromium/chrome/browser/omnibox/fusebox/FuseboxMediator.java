@@ -250,19 +250,18 @@ public class FuseboxMediator {
 
     /**
      * @param url The search URL to get the AIM analog of.
-     * @return The URL for the AIM service.
+     * @param callback The callback to run with the URL for the AIM service.
      */
-    GURL getAimUrl(GURL url) {
-        return mComposeBoxQueryControllerBridge.getAimUrl(url);
+    void getAimUrl(GURL url, Callback<GURL> callback) {
+        mComposeBoxQueryControllerBridge.getAimUrl(url, callback);
     }
 
     /**
      * @param url The search URL to get the Image generator analog of.
-     * @param queryText The query text to be used for the image generation URL.
-     * @return The URL for the image generation service.
+     * @param callback The callback to run with the URL for the image generation service.
      */
-    GURL getImageGenerationUrl(GURL url) {
-        return mComposeBoxQueryControllerBridge.getImageGenerationUrl(url);
+    void getImageGenerationUrl(GURL url, Callback<GURL> callback) {
+        mComposeBoxQueryControllerBridge.getImageGenerationUrl(url, callback);
     }
 
     @VisibleForTesting
@@ -361,6 +360,7 @@ public class FuseboxMediator {
         mModel.set(
                 FuseboxProperties.POPUP_CREATE_IMAGE_BUTTON_ENABLED,
                 areAttachmentsCompatibleWithCreateImage());
+        updatePopupButtonEnabledStates();
     }
 
     private boolean areAttachmentsCompatibleWithCreateImage() {
@@ -490,10 +490,24 @@ public class FuseboxMediator {
                 type == AutocompleteRequestType.SEARCH
                         && OmniboxFeatures.sCompactFusebox.getValue());
         mModel.set(FuseboxProperties.AUTOCOMPLETE_REQUEST_TYPE, type);
-        boolean allowNonImage = type != AutocompleteRequestType.IMAGE_GENERATION;
+        updatePopupButtonEnabledStates();
+    }
+
+    private void updatePopupButtonEnabledStates() {
+        // Disable Camera and Gallery Selection popup buttons if no remaining attachments are left.
+        boolean allowByCapacity = mModelList.getRemainingAttachments() > 0;
+
+        // Disables popup buttons for Current Tab, Tab Picker, and File selection if the
+        // autocomplete request is not image generation and if there are no remaining attachments.
+        boolean allowNonImage =
+                mAutocompleteRequestTypeSupplier.get() != AutocompleteRequestType.IMAGE_GENERATION
+                        && allowByCapacity;
+
         mModel.set(FuseboxProperties.CURRENT_TAB_BUTTON_ENABLED, allowNonImage);
         mModel.set(FuseboxProperties.POPUP_FILE_BUTTON_ENABLED, allowNonImage);
         mModel.set(FuseboxProperties.POPUP_TAB_PICKER_ENABLED, allowNonImage);
+        mModel.set(FuseboxProperties.POPUP_CAMERA_BUTTON_ENABLED, allowByCapacity);
+        mModel.set(FuseboxProperties.POPUP_GALLERY_BUTTON_ENABLED, allowByCapacity);
     }
 
     @VisibleForTesting

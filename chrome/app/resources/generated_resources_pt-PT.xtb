@@ -527,7 +527,6 @@ Verifique as suas palavras-passe em qualquer altura no <ph name="GOOGLE_PASSWORD
 <translation id="1342886103232377846">Para verificar se existem palavras-passe comprometidas, aceda ao Gestor de Palavras-passe da Google</translation>
 <translation id="1343920184519992513">Continue onde parou e abra um conjunto específico de páginas</translation>
 <translation id="1344141078024003905">Está a transmitir o ecrã. Pode pausar ou parar a transmissão do ecrã em qualquer altura.</translation>
-<translation id="13449088910457661">O Gemini funciona nos seus separadores para concluir as tarefas que lhe atribuir. <ph name="LINK_BEGIN" />Saiba mais<ph name="LINK_END" /></translation>
 <translation id="1346403631707626730">Envie dados de utilização e diagnósticos. Ajude a melhorar a experiência Android da criança enviando automaticamente dados de diagnósticos, de utilização de apps e do dispositivo para a Google. Estes dados não vão ser usados para identificar a criança e vão ajudar a melhorar a estabilidade das apps e do sistema, entre outras melhorias. Alguns dados agregados também ajudam as apps e os parceiros Google, como os programadores Android. Se a Atividade da Web e de apps adicional estiver ativada para a criança, estes dados podem ser guardados na respetiva Conta Google. <ph name="BEGIN_LINK1" />Saiba mais sobre as métricas<ph name="BEGIN_LINK1_END" />Saiba mais<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">Confirmar e reiniciar</translation>
 <translation id="1346748346194534595">Direita</translation>
@@ -1972,6 +1971,7 @@ Pode gerir as definições desta conta ao instalar a aplicação Family Link no 
 <translation id="2319072477089403627">A ligar ao seu telemóvel Android…</translation>
 <translation id="2319459402137712349">Selecione um campo de texto para abrir o teclado. Também pode selecionar o ícone de teclado na parte inferior do ecrã.</translation>
 <translation id="2319993584768066746">Fotos do ecrã de início de sessão</translation>
+<translation id="2321487076181785382">Separadores divididos</translation>
 <translation id="2322193970951063277">Cabeçalhos e rodapés</translation>
 <translation id="2322318151094136999">Quando um site pretender aceder a portas de série, perguntar se tem autorização (recomendado)</translation>
 <translation id="2322622365472107569">Hora de fim: <ph name="TIME" /></translation>
@@ -2119,7 +2119,6 @@ Pode gerir as definições desta conta ao instalar a aplicação Family Link no 
 <translation id="2428939361789119025">Desligar o Wi-Fi</translation>
 <translation id="2431027948063157455">Não foi possível carregar o Assistente Google. Verifique a sua ligação à rede e tente novamente.</translation>
 <translation id="243179355394256322">A sua entidade limita a inscrição de dispositivos apenas a utilizadores autorizados. Este utilizador não está autorizado a inscrever dispositivos. Certifique-se de que o utilizador tem o privilégio de administrador "Inscrever hardware Google Meet" na secção Utilizadores da consola do administrador.</translation>
-<translation id="2431896368788252518">Veja e faça a gestão do seu contexto pessoal</translation>
 <translation id="243275146591958220">Cancelar transferência</translation>
 <translation id="2433237965825924228">As apps Web isoladas controlam os dispositivos de autenticação e os cartões inteligentes acessíveis para estas. Normalmente, os cartões inteligentes contêm identificadores usados para a sua autenticação.</translation>
 <translation id="2433452467737464329">Adicione um parâmetro de consulta ao URL para atualizar automaticamente a página: chrome://network/?refresh=&lt;sec&gt;</translation>
@@ -4380,6 +4379,7 @@ Quer pará-lo?</translation>
 <translation id="394984172568887996">Importado do IE</translation>
 <translation id="3949999964543783947"><ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" /> para tornar a transferência de ficheiros mais segura</translation>
 <translation id="3950479158728806902">Criar automaticamente uma chave de acesso para iniciar sessão mais rápido</translation>
+<translation id="3950755269510650933">Faça a gestão das informações que o Gemini pode usar para personalizar a sua experiência</translation>
 <translation id="3950820424414687140">Iniciar sessão</translation>
 <translation id="3950841222883198950">Digitação por voz</translation>
 <translation id="3953834000574892725">As minhas contas</translation>
@@ -4409,6 +4409,7 @@ Quer pará-lo?</translation>
 <translation id="3968739731834770921">Kana</translation>
 <translation id="3970114302595058915">ID</translation>
 <translation id="397105322502079400">A calcular...</translation>
+<translation id="3971355433478412726">Instruções para o Gemini</translation>
 <translation id="3971764089670057203">Impressões digitais nesta chave de segurança</translation>
 <translation id="3973005893595042880">O utilizador não é permitido</translation>
 <translation id="3973660817924297510">A verificar palavras-passe (<ph name="CHECKED_PASSWORDS" /> de <ph name="TOTAL_PASSWORDS" />)…</translation>
@@ -5814,6 +5815,7 @@ Use Ctrl + Alt + Diminuir o brilho para diminuir o zoom.</translation>
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">Guardar numa pasta apenas neste dispositivo?</translation>
 <translation id="4959262764292427323">As palavras-passe são guardadas na sua Conta Google para que as possa utilizar em qualquer dispositivo.</translation>
+<translation id="4959581970694896608">Personalize a forma como o Gemini lhe responde</translation>
 <translation id="4960020053211143927">Não suportado por algumas apps</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> – <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">Transmitir ecrã</translation>
@@ -6162,7 +6164,6 @@ Use Ctrl + Alt + Diminuir o brilho para diminuir o zoom.</translation>
 <translation id="5204967432542742771">Introduzir palavra-passe</translation>
 <translation id="5205484256512407285">Nunca utilizar dados móveis para transferir</translation>
 <translation id="520568280985468584">A rede foi adicionada com êxito. Pode demorar vários minutos para que a rede móvel fique ativa.</translation>
-<translation id="520576054436518354">Permita que o Gemini navegue por si</translation>
 <translation id="5207949376430453814">Realçar cursor do texto</translation>
 <translation id="520840839826327499">O <ph name="SERVICE_NAME" /> quer verificar se está a usar um dispositivo com ChromeOS elegível.</translation>
 <translation id="5208722776934437424">Alterar autorizações</translation>
@@ -6409,6 +6410,7 @@ Use Ctrl + Alt + Diminuir o brilho para diminuir o zoom.</translation>
 <translation id="5388719243178419614">Não é possível carregar. Falha ao processar o ficheiro de imagem.</translation>
 <translation id="5388885445722491159">Emparelhado</translation>
 <translation id="5389224261615877010">Arco-íris</translation>
+<translation id="538945906186309152">Ativar atalho de teclado do Gemini</translation>
 <translation id="5389794555912875905">Ver avisos antes de aceder a sites inseguros (recomendado)</translation>
 <translation id="5389943529251318913">Reduzir a velocidade do rato em</translation>
 <translation id="5390112241331447203">Inclua o ficheiro system_logs.txt enviado nos relatórios de feedback.</translation>
@@ -10209,6 +10211,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8011372169388649948">"<ph name="BOOKMARK_TITLE" />" movido.</translation>
 <translation id="8012188750847319132">caps lock</translation>
 <translation id="8012463809859447963">Detalhes da zona Wi-Fi instantânea</translation>
+<translation id="8013181884974864006">Tarefas contextuais</translation>
 <translation id="8013534738634318212">Estes sites estão num grupo definido por <ph name="RWS_OWNER" />. Os sites num grupo podem ver a sua atividade no grupo.</translation>
 <translation id="8013993649590906847">Se uma imagem não tiver uma descrição útil, o Chrome tenta fornecer uma. Para criar as descrições, são enviadas imagens para a Google.</translation>
 <translation id="8014154204619229810">O atualizador está em execução atualmente. Atualize dentro de um minuto para verificar novamente.</translation>

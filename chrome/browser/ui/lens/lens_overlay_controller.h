@@ -266,7 +266,7 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
   void SendObjects(std::vector<lens::mojom::OverlayObjectPtr> objects);
 
   // Send message to overlay notifying that the results side panel opened.
-  void NotifyResultsPanelOpened();
+  virtual void NotifyResultsPanelOpened();
 
   // Send message to overlay to copy the currently selection if any.
   void TriggerCopy();
@@ -323,6 +323,15 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
 
   // Called when the side panel alignment chgces.
   void OnSidePanelAlignmentChanged();
+
+  // TODO(crbug.com/404941800): All the Handle*Response methods should not exist
+  // in this class. They currently exist to unblock development. They will be
+  // removed once the migration is complete. Handles the response to the Lens
+  // start query request.
+  virtual void HandleStartQueryResponse(
+      std::vector<lens::mojom::OverlayObjectPtr> objects,
+      lens::mojom::TextPtr text,
+      bool is_error);
 
   // Testing function to issue a Lens region selection request.
   void IssueLensRegionRequestForTesting(lens::mojom::CenterRotatedBoxPtr region,
@@ -389,9 +398,6 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
   // Returns the current thumbnail URI for testing.
   const std::string& GetThumbnailForTesting();
 
-  // Clears the region selection for testing.
-  void ClearRegionSelectionForTesting();
-
   // Handles the event where text was modified in the searchbox for testing.
   void OnTextModifiedForTesting();
 
@@ -412,8 +418,11 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
   // Sets the invocation time for WebUI binding.
   void SetInvocationTimeForWebUIBinding(base::TimeTicks time);
 
+  // Clears the selected region.
+  void ClearRegionSelection();
+
   // Returns the lens suggest inputs stored in this controller for testing.
-  const lens::proto::LensOverlaySuggestInputs& GetLensSuggestInputsForTesting();
+  lens::proto::LensOverlaySuggestInputs GetLensSuggestInputsForTesting();
 
   // Returns true if tutorial IPH is eligible to be shown for the given URL for
   // testing.
@@ -504,9 +513,6 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
   // Clears the selected text from the overlay if there is any.
   void ClearTextSelection();
 
-  // Clears the selected region.
-  void ClearRegionSelection();
-
   // Called by the searchbox controller when the focus on the searchbox changes.
   void OnSearchboxFocusChanged(bool focused);
 
@@ -534,7 +540,8 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
       const std::string& search_box_text,
       AutocompleteMatchType::Type match_type,
       bool is_zero_prefix_suggestion,
-      std::map<std::string, std::string> additional_query_params);
+      std::map<std::string, std::string> additional_query_params,
+      std::optional<lens::LensOverlayInvocationSource> invocation_source);
 
   // Issues a contextual text request to the query controller.
   void IssueContextualTextRequest(
@@ -544,15 +551,6 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
 
   // Returns a search query struct containing the current state of the overlay.
   void AddOverlayStateToSearchQuery(lens::SearchQuery& search_query);
-
-  // TODO(crbug.com/404941800): All the Handle*Response methods should not exist
-  // in this class. They currently exist to unblock development. They will be
-  // removed once the migration is complete. Handles the response to the Lens
-  // start query request.
-  void HandleStartQueryResponse(
-      std::vector<lens::mojom::OverlayObjectPtr> objects,
-      lens::mojom::TextPtr text,
-      bool is_error);
 
   // Handles the URL response to the Lens interaction request.
   void HandleInteractionURLResponse(
@@ -882,6 +880,8 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
   void FetchSupportedLanguages(
       FetchSupportedLanguagesCallback callback) override;
   void FinishReshowOverlay() override;
+  void AcceptPrivacyNotice() override;
+  void DismissPrivacyNotice() override;
 
   // Tries to show the translate feature promo after the translate button
   // element is shown.
@@ -901,7 +901,8 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
       const std::string& search_box_text,
       AutocompleteMatchType::Type match_type,
       bool is_zero_prefix_suggestion,
-      std::map<std::string, std::string> additional_query_params);
+      std::map<std::string, std::string> additional_query_params,
+      std::optional<lens::LensOverlayInvocationSource> invocation_source);
 
   // Launches the Lens overlay HaTS survey if eligible.
   void MaybeLaunchSurvey();
@@ -959,15 +960,16 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
   // exist.
   void SetOverlayWebViewOpacity(float opacity);
 
-  // Grants the permissions needed for contextualization if the non-blocking
-  // privacy notice is being used and the permissions have not already been
-  // granted.
-  void MaybeGrantLensOverlayPermissions();
+  // For the current session only, grants the permissions needed for
+  // contextualization if the non-blocking privacy notice is being used and the
+  // permissions have not already been permanently granted.
+  virtual void MaybeGrantLensOverlayPermissionsForSession();
 
   // Shorthand to grab the LensSearchboxController for this instance of Lens.
   lens::LensSearchboxController* GetLensSearchboxController();
 
-  // Shorthand to grab the LensOverlaySidePanelCoordinator for this instance of Lens.
+  // Shorthand to grab the LensOverlaySidePanelCoordinator for this instance of
+  // Lens.
   lens::LensOverlaySidePanelCoordinator* GetLensOverlaySidePanelCoordinator();
 
   // Shorthand to grab the LensResultsPanelRouter for this instance of Lens.
@@ -1192,6 +1194,10 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
 
   // Whether to use AIM for visual searches.
   bool use_aim_for_visual_search_ = false;
+
+  // Whether the user performed an interaction without accepting the privacy
+  // notice.
+  bool user_interacted_without_accepting_privacy_notice = false;
 
   // --------------------Browser window scoped state: END---------------------
 

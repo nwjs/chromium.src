@@ -504,7 +504,7 @@ Proverite lozinke u bilo kom trenutku u: <ph name="GOOGLE_PASSWORD_MANAGER" />.<
 <translation id="1325898422473267360"><ph name="PERMISSION_USAGE" /> <ph name="PERMISSION_INDICATOR_DESCRIPTION" /></translation>
 <translation id="1327272175893960498">Kerberos tiketi</translation>
 <translation id="1327495825214193325">Da biste omogućili ADB otklanjanje grešaka, morate da restartujete ovaj <ph name="DEVICE_TYPE" />. Da biste ga onemogućili, moraćete da resetujete uređaj na fabrička podešavanja.</translation>
-<translation id="1327527584824210101">Koristite pristupni kôd</translation>
+<translation id="1327527584824210101">Koristite pristupni ključ</translation>
 <translation id="1327794256477341646">Funkcije kojima je potrebna vaša lokacija neće raditi</translation>
 <translation id="1328364753167940710">Za <ph name="NUM_HR" /> s</translation>
 <translation id="1328928545650070438">Spustite obrve</translation>
@@ -529,7 +529,6 @@ Proverite lozinke u bilo kom trenutku u: <ph name="GOOGLE_PASSWORD_MANAGER" />.<
 <translation id="1342886103232377846">Da biste proverili da li ima ugroženih lozinki, idite u Google menadžer lozinki</translation>
 <translation id="1343920184519992513">Nastavite gde ste stali i otvorite određenu grupu stranica</translation>
 <translation id="1344141078024003905">Prebacujete ekran. Prebacivanje ekrana možete da pauzirate ili zaustavite u svakom trenutku.</translation>
-<translation id="13449088910457661">Gemini radi na karticama da bi obavljao zadatke koje mu zadate. <ph name="LINK_BEGIN" />Saznajte više<ph name="LINK_END" /></translation>
 <translation id="1346403631707626730">Šaljite podatke o korišćenju i dijagnostičke podatke. Pomozite nam da poboljšamo Android doživljaj za dete tako što ćete automatski slati Google-u podatke o dijagnostici i korišćenju uređaja i aplikacija. Te informacije se neće koristiti za identifikaciju deteta i pomoći će u održavanju stabilnosti sistema i aplikacije i drugim podešavanjima. Neki objedinjeni podaci će takođe pomoći Google aplikacijama i partnerima, poput Android programera. Ako za dete uključite dodatne aktivnosti na vebu i u aplikacijama, ti podaci će se možda čuvati na Google nalogu deteta. <ph name="BEGIN_LINK1" />Saznajte više o pokazateljima<ph name="BEGIN_LINK1_END" />Saznajte više<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">Potvrdi i restartuj</translation>
 <translation id="1346748346194534595">Udesno</translation>
@@ -1970,6 +1969,7 @@ Možete da upravljate podešavanjima ovog naloga ako instalirate aplikaciju Fami
 <translation id="2319072477089403627">Uspostavlja se veza sa Android telefonom...</translation>
 <translation id="2319459402137712349">Izaberite polje za tekst da biste otvorili tastaturu. Možete i da izaberete ikonu tastature u dnu ekrana.</translation>
 <translation id="2319993584768066746">Slike ekrana za prijavljivanje</translation>
+<translation id="2321487076181785382">Podeli kartice</translation>
 <translation id="2322193970951063277">Zaglavlja i podnožja</translation>
 <translation id="2322318151094136999">Pitaj kada sajt želi da pristupi serijskim portovima (preporučeno)</translation>
 <translation id="2322622365472107569">Vreme završetka <ph name="TIME" /></translation>
@@ -2117,7 +2117,6 @@ Možete da upravljate podešavanjima ovog naloga ako instalirate aplikaciju Fami
 <translation id="2428939361789119025">Isključite WiFi</translation>
 <translation id="2431027948063157455">Google pomoćnik nije uspeo da se učita. Proverite mrežnu vezu, pa pokušajte ponovo.</translation>
 <translation id="243179355394256322">Organizacija ograničava registraciju uređaja samo na ovlašćene korisnike. Ovaj korisnik nije ovlašćen za registrovanje uređaja. Proverite da li korisnik ima administratorsku privilegiju Registracija Google Meet hardvera u odeljku Korisnici na administratorskoj konzoli.</translation>
-<translation id="2431896368788252518">Pregledajte lični kontekst i upravljajte njim</translation>
 <translation id="243275146591958220">Otkaži preuzimanje</translation>
 <translation id="2433237965825924228">Izolovane veb-aplikacije kontrolišu uređaje za potvrdu identiteta i pametne kartice kojima mogu da pristupaju. Pametne kartice obično sadrže identifikatore koji se koriste za potvrdu identiteta.</translation>
 <translation id="2433452467737464329">Dodajte parametar upita u URL da biste automatski osvežili stranicu: chrome://network/?refresh=&lt;sec&gt;</translation>
@@ -4377,6 +4376,7 @@ Možete da upravljate podešavanjima ovog naloga ako instalirate aplikaciju Fami
 <translation id="394984172568887996">Uvezeno iz IE pregledača</translation>
 <translation id="3949999964543783947"><ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" /> da bi preuzimanje fajlova bilo bezbednije</translation>
 <translation id="3950479158728806902">Automatski napravi pristupni ključ da biste se brže prijavljivali</translation>
+<translation id="3950755269510650933">Upravljajte podacima koje Gemini može da koristi za personalizovanje doživljaja</translation>
 <translation id="3950820424414687140">Prijavi me</translation>
 <translation id="3950841222883198950">Unos teksta glasom</translation>
 <translation id="3953834000574892725">Moji nalozi</translation>
@@ -4406,6 +4406,7 @@ Možete da upravljate podešavanjima ovog naloga ako instalirate aplikaciju Fami
 <translation id="3968739731834770921">kana</translation>
 <translation id="3970114302595058915">ID</translation>
 <translation id="397105322502079400">Izračunavanje...</translation>
+<translation id="3971355433478412726">Uputstva za Gemini</translation>
 <translation id="3971764089670057203">Otisci prstiju na ovom bezbednosnom ključu</translation>
 <translation id="3973005893595042880">Korisnik nije dozvoljen</translation>
 <translation id="3973660817924297510">Lozinke se proveravaju (<ph name="CHECKED_PASSWORDS" /> od <ph name="TOTAL_PASSWORDS" />)…</translation>
@@ -5811,6 +5812,7 @@ Koristite Ctrl + Alt + taster za smanjivanje osvetljenosti da biste umanjili pri
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">Želite da sačuvate u folderu samo na ovom uređaju?</translation>
 <translation id="4959262764292427323">Lozinke se čuvaju na Google nalogu da biste mogli da ih koristite na bilo kom uređaju</translation>
+<translation id="4959581970694896608">Prilagodite način na koji vam Gemini odgovara</translation>
 <translation id="4960020053211143927">Neke aplikacije ne podržavaju ovo</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> – <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">Prebacivanje ekrana</translation>
@@ -6159,7 +6161,6 @@ Koristite Ctrl + Alt + taster za smanjivanje osvetljenosti da biste umanjili pri
 <translation id="5204967432542742771">Unesite lozinku</translation>
 <translation id="5205484256512407285">Nikada ne koristite mobilne podatke za prenos</translation>
 <translation id="520568280985468584">Mreža je dodata. Možda će proći par minuta dok mobilna mreža postane aktivna.</translation>
-<translation id="520576054436518354">Dozvolite da Gemini pregleda za vas</translation>
 <translation id="5207949376430453814">Istakni kursor za tekst</translation>
 <translation id="520840839826327499"><ph name="SERVICE_NAME" /> želi da proveri da li koristite Chrome OS uređaj koji ispunjava uslove.</translation>
 <translation id="5208722776934437424">Promeni dozvole</translation>
@@ -6405,6 +6406,7 @@ Koristite Ctrl + Alt + taster za smanjivanje osvetljenosti da biste umanjili pri
 <translation id="5388719243178419614">Otpremanje nije uspelo. Obrada fajla slike nije uspela.</translation>
 <translation id="5388885445722491159">Upareno</translation>
 <translation id="5389224261615877010">Duga</translation>
+<translation id="538945906186309152">Uključi tastersku prečicu za Gemini</translation>
 <translation id="5389794555912875905">Prikaži upozorenja pre odlaska na nebezbedne sajtove (preporučeno)</translation>
 <translation id="5389943529251318913">Smanjite brzinu miša za</translation>
 <translation id="5390112241331447203">Uvrsti datoteku system_logs.txt koja se šalje u izveštajima sa povratnim informacijama.</translation>
@@ -9638,7 +9640,7 @@ Imate još # ugroženih lozinki. Google menadžer lozinki preporučuje da odmah 
 <translation id="7642778300616172920">Sakrij osetljiv sadržaj</translation>
 <translation id="7643117827468520640">Pregledajte ove uslove</translation>
 <translation id="7644953783774050577">Opozovi sav izbor</translation>
-<translation id="7645176681409127223"><ph name="USER_NAME" /> (vlasnik)</translation>
+<translation id="7645176681409127223"><ph name="USER_NAME" /> (vlasnik/ca)</translation>
 <translation id="7645681574855902035">Otkazuje se pravljenje rezervne kopije za Linux</translation>
 <translation id="7646425900255826066">Lozinke možete da čuvate pomoću Google menadžera lozinki kada ste prijavljni u Chrome</translation>
 <translation id="7646499124171960488">Upozorava vas na nebezbedne javne sajtove</translation>
@@ -10208,6 +10210,7 @@ Datoteka ključa: <ph name="KEY_FILE" />
 <translation id="8011372169388649948">Obeleživač <ph name="BOOKMARK_TITLE" /> je premešten.</translation>
 <translation id="8012188750847319132">caps lock</translation>
 <translation id="8012463809859447963">Detalji o instant hotspotu</translation>
+<translation id="8013181884974864006">Kontekstualni zadaci</translation>
 <translation id="8013534738634318212">Ovi sajtovi su u grupi koju definiše <ph name="RWS_OWNER" />. Sajtovi u grupi mogu da vide vaše aktivnosti u grupi.</translation>
 <translation id="8013993649590906847">Ako slika nema koristan opis, Chrome će probati da vam ga pruži. Slike se šalju Google-u radi pravljenja opisa.</translation>
 <translation id="8014154204619229810">Program za ažuriranje je trenutno aktivan. Sačekajte malo, pa osvežite i proverite ponovo.</translation>

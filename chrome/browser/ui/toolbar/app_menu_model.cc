@@ -97,7 +97,6 @@
 #include "chrome/grit/theme_resources.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
-#include "components/contextual_tasks/public/features.h"
 #include "components/dom_distiller/content/browser/distillable_page_utils.h"
 #include "components/dom_distiller/content/browser/uma_helper.h"
 #include "components/dom_distiller/core/dom_distiller_features.h"
@@ -1019,12 +1018,6 @@ void ToolsMenuModel::Build(Browser* browser) {
     AddItemWithStringIdAndVectorIcon(this, IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL,
                                      IDS_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL,
                                      kEditChromeRefreshIcon);
-  }
-
-  if (base::FeatureList::IsEnabled(contextual_tasks::kContextualTasks)) {
-    AddItemWithStringIdAndVectorIcon(
-        this, IDC_SHOW_CONTEXTUAL_TASKS_SIDE_PANEL,
-        IDS_CONTEXTUAL_TASKS_CONTEXTUAL_TASKS_TITLE, kDockToRightSparkIcon);
   }
 
   AddSeparator(ui::NORMAL_SEPARATOR);

@@ -14,7 +14,11 @@ BASE_FEATURE(kActorActiveDisablesFillingOnPageLoad,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kActorLogin, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kActorLoginFieldVisibilityCheck, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kActorLoginGetCredentialsNoLoginForm,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kActorLoginLocalClassificationModel,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kActorLoginPermissionsUseStrongAffiliations,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kActorLoginReauthTaskRefocus, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kActorLoginQualityLogs, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -87,7 +91,8 @@ BASE_FEATURE(kFetchChangePasswordUrlForPasswordChange,
 #endif
 );
 
-BASE_FEATURE(kFillChangePasswordFormByTyping, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kFillChangePasswordFormByTyping,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kFillOnAccountSelect,
              "fill-on-account-select",

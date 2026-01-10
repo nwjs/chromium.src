@@ -35,6 +35,12 @@ class ApiTests extends ApiTestFixtureBase {
   // WARNING: Remember to update
   // chrome/browser/glic/host/glic_api_browsertest.cc if you add a new test!
 
+  async testHibernateAllOnMemoryPressure() {}
+
+  async testHibernateAllAggressiveOnMemoryPressure() {}
+
+  async testHibernateOnMemoryUsage() {}
+
   async testDoNothing() {}
 
   // This test should fail even if the ApiTestError is captured in a try-catch
@@ -894,9 +900,9 @@ class ApiTests extends ApiTestFixtureBase {
     assertDefined(this.host.getUserProfileInfo);
     const profileInfo = await this.host.getUserProfileInfo();
 
-    assertEquals('', profileInfo.displayName);
+    assertEquals('Glic Testing', profileInfo.displayName);
     assertEquals('glic-test@example.com', profileInfo.email);
-    assertEquals('', profileInfo.givenName);
+    assertEquals('Glic', profileInfo.givenName);
     assertEquals(false, profileInfo.isManaged!);
     assertTrue((profileInfo.localProfileName?.length ?? 0) > 0);
     // Can be 'Your Chrome' or 'Your Chromium'.
@@ -923,9 +929,9 @@ class ApiTests extends ApiTestFixtureBase {
     assertDefined(this.host.getUserProfileInfo);
     const profileInfo = await this.host.getUserProfileInfo();
 
-    assertEquals('', profileInfo.displayName);
+    assertEquals('Glic Testing', profileInfo.displayName);
     assertEquals('glic-test@example.com', profileInfo.email);
-    assertEquals('', profileInfo.givenName);
+    assertEquals('Glic', profileInfo.givenName);
     assertEquals(false, profileInfo.isManaged!);
     assertTrue((profileInfo.localProfileName?.length ?? 0) > 0);
   }

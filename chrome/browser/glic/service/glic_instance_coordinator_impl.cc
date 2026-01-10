@@ -53,8 +53,8 @@
 #include "components/prefs/pref_service.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
-#include "third_party/skia/include/core/SkRegion.h"
 #include "ui/display/screen.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/widget/widget_observer.h"
@@ -71,10 +71,34 @@ BASE_FEATURE(kGlicLiveModeOnlyGlow, base::FEATURE_DISABLED_BY_DEFAULT);
 constexpr base::FeatureParam<base::TimeDelta> kGlicMaxRecencyValue{
     &kGlicMaxRecency, "duration", base::Minutes(30)};
 
+BASE_FEATURE(kGlicMemoryPressureResponse, base::FEATURE_ENABLED_BY_DEFAULT);
+
+constexpr base::FeatureParam<base::MemoryPressureLevel>::Option
+    kGlicMemoryPressureResponseLevelOptions[] = {
+        {base::MEMORY_PRESSURE_LEVEL_MODERATE, "moderate"},
+        {base::MEMORY_PRESSURE_LEVEL_CRITICAL, "critical"}};
+
+constexpr base::FeatureParam<base::MemoryPressureLevel>
+    kGlicMemoryPressureResponseLevel{&kGlicMemoryPressureResponse, "level",
+                                     base::MEMORY_PRESSURE_LEVEL_CRITICAL,
+                                     &kGlicMemoryPressureResponseLevelOptions};
+
 base::TimeDelta GetTimeSinceLastActive(GlicInstanceImpl* instance) {
   return base::TimeTicks::Now() - instance->GetLastActiveTime();
 }
 }  // namespace
+
+BASE_FEATURE(kGlicHibernateOnMemoryUsage, base::FEATURE_DISABLED_BY_DEFAULT);
+constexpr base::FeatureParam<int> kGlicHibernateMemoryThresholdMb{
+    &kGlicHibernateOnMemoryUsage, "threshold_mb", 800};
+constexpr base::FeatureParam<base::TimeDelta>
+    kGlicHibernateMemoryPollingInterval{&kGlicHibernateOnMemoryUsage,
+                                        "polling_interval", base::Minutes(10)};
+
+BASE_FEATURE(kGlicHibernateAllOnMemoryPressure,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+constexpr base::FeatureParam<bool> kGlicHibernateAllAggressive{
+    &kGlicHibernateAllOnMemoryPressure, "aggressive", false};
 
 // TODO(refactor): Remove after launching kGlicMultiInstance.
 HostManager& GlicInstanceCoordinatorImpl::host_manager() {
@@ -100,6 +124,12 @@ GlicInstanceCoordinatorImpl::GlicInstanceCoordinatorImpl(
         profile_,
         base::BindRepeating(&GlicInstanceCoordinatorImpl::OnTabCreated,
                             weak_ptr_factory_.GetWeakPtr()));
+  }
+  if (base::FeatureList::IsEnabled(kGlicHibernateOnMemoryUsage)) {
+    memory_monitor_timer_.Start(
+        FROM_HERE, kGlicHibernateMemoryPollingInterval.Get(),
+        base::BindRepeating(&GlicInstanceCoordinatorImpl::CheckMemoryUsage,
+                            base::Unretained(this)));
   }
   host_manager_ = std::make_unique<HostManager>(profile, GetWeakPtr());
 }
@@ -268,13 +298,6 @@ void GlicInstanceCoordinatorImpl::RemoveGlobalStateObserver(
   // the floating window is showing and one for the state of an individual
   // panel.
   NOTIMPLEMENTED();
-}
-
-void GlicInstanceCoordinatorImpl::SetDraggableRegion(
-    const SkRegion& draggable_region) {
-  if (auto* floaty_instance = GetInstanceWithFloaty()) {
-    floaty_instance->host().SetPanelDraggableRegion(draggable_region);
-  }
 }
 
 bool GlicInstanceCoordinatorImpl::IsDetached() const {
@@ -478,7 +501,12 @@ void GlicInstanceCoordinatorImpl::ToggleSidePanel(
   } else {
     instance = GetOrCreateGlicInstanceImplForTab(tab);
   }
-  instance->Toggle(ShowOptions::ForSidePanel(*tab), prevent_close, source);
+  // If the tab is already bound, then it already has a pin trigger and this pin
+  // trigger will not be used. If it's not already bound, then we know it's a
+  // newly created instance, so we provide the instance creation trigger.
+  instance->Toggle(
+      ShowOptions::ForSidePanel(*tab, GlicPinTrigger::kInstanceCreation),
+      prevent_close, source);
 }
 
 void GlicInstanceCoordinatorImpl::RemoveInstance(GlicInstanceImpl* instance) {
@@ -638,6 +666,7 @@ void GlicInstanceCoordinatorImpl::OnTabCreated(tabs::TabInterface& old_tab,
   auto* instance = CreateGlicInstance();
   SidePanelShowOptions side_panel_options{new_tab};
   side_panel_options.suppress_opening_animation = true;
+  side_panel_options.pin_trigger = GlicPinTrigger::kNewTabDaisyChain;
   instance->Show(ShowOptions{side_panel_options});
 }
 
@@ -645,7 +674,35 @@ void GlicInstanceCoordinatorImpl::OnMemoryPressure(
     base::MemoryPressureLevel level) {
   metrics_.OnMemoryPressure(level);
 
-  if (level != base::MEMORY_PRESSURE_LEVEL_CRITICAL) {
+  if (!base::FeatureList::IsEnabled(kGlicMemoryPressureResponse)) {
+    return;
+  }
+
+  if (level < kGlicMemoryPressureResponseLevel.Get()) {
+    return;
+  }
+
+  if (base::FeatureList::IsEnabled(kGlicHibernateAllOnMemoryPressure)) {
+    warmed_instance_.reset();
+
+    // Iterate over a copy of instances to avoid issues with modification during
+    // iteration.
+    std::vector<GlicInstanceImpl*> instances_to_process;
+    for (auto const& [id, instance] : instances_) {
+      instances_to_process.push_back(instance.get());
+    }
+
+    for (GlicInstanceImpl* instance : instances_to_process) {
+      if (kGlicHibernateAllAggressive.Get()) {
+        auto is_showing = instance->IsShowing();
+        instance->Hibernate();
+        if (is_showing) {
+          instance->CloseAllEmbedders();
+        }
+      } else if (!instance->IsShowing() && !instance->IsActuating()) {
+        instance->Hibernate();
+      }
+    }
     return;
   }
 
@@ -671,6 +728,61 @@ void GlicInstanceCoordinatorImpl::OnMemoryPressure(
 
   if (least_recently_active_instance) {
     least_recently_active_instance->Hibernate();
+  }
+}
+
+void GlicInstanceCoordinatorImpl::CheckMemoryUsage() {
+  struct ProcessInfo {
+    uint64_t total_private_footprint_bytes = 0;
+    std::vector<GlicInstanceImpl*> instances;
+  };
+
+  std::map<content::RenderProcessHost*, ProcessInfo> process_info_map;
+
+  // Group instances by RenderProcessHost and sum up memory.
+  for (auto const& [_, instance] : instances_) {
+    content::RenderProcessHost* process =
+        instance->host().GetWebClientRenderProcessHost();
+    if (!process) {
+      continue;
+    }
+    auto& info = process_info_map[process];
+    info.instances.push_back(instance.get());
+    // Only fetch memory once per process.
+    if (info.total_private_footprint_bytes == 0) {
+      info.total_private_footprint_bytes = process->GetPrivateMemoryFootprint();
+    }
+  }
+
+  uint64_t threshold_bytes =
+      static_cast<uint64_t>(kGlicHibernateMemoryThresholdMb.Get()) * 1024 *
+      1024;
+
+  for (const auto& [process, info] : process_info_map) {
+    if (info.instances.empty()) {
+      continue;
+    }
+    uint64_t average_memory_bytes =
+        info.total_private_footprint_bytes / info.instances.size();
+
+    if (average_memory_bytes < threshold_bytes) {
+      continue;
+    }
+    for (GlicInstanceImpl* instance : info.instances) {
+      if (instance->IsHibernated() || instance->IsActuating()) {
+        continue;
+      }
+      metrics_.OnHighMemoryUsage(average_memory_bytes / 1024 / 1024);
+      if (instance->IsShowing()) {
+        // Only reload if the page has finished loading to avoid reload loops
+        // during high load or slow startup.
+        if (instance->host().IsPrimaryClientOpen()) {
+          instance->host().Reload();
+        }
+      } else {
+        instance->Hibernate();
+      }
+    }
   }
 }
 

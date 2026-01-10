@@ -8,7 +8,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
+// #include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
@@ -23,6 +23,15 @@ namespace base {
 class Uuid;
 }
 
+namespace contextual_search {
+class ContextualSearchService;
+class ContextualSearchSessionHandle;
+}  // namespace contextual_search
+
+namespace content {
+class NavigationHandle;
+}  // namespace content
+
 namespace views {
 class View;
 class WebView;
@@ -31,7 +40,7 @@ class WebView;
 namespace contextual_tasks {
 
 class ContextualTask;
-class ContextualTasksContextController;
+class ContextualTasksService;
 class ContextualTasksUiService;
 class ContextualTasksWebView;
 class ActiveTaskContextProvider;
@@ -113,7 +122,29 @@ class ContextualTasksSidePanelCoordinator : public TabStripModelObserver,
   // Returns the number of active tasks tracked by `this`.
   size_t GetNumberOfActiveTasks() const;
 
+  // Helper method to get the session handle from the side panel's WebUI.
+  contextual_search::ContextualSearchSessionHandle*
+  GetContextualSearchSessionHandleForSidePanel();
+
+  // Helper method to set task ID and session handle on the
+  // ContextualSearchWebContentsHelper associated with the given `web_contents`.
+  // Must be invoked whenever a the thread associated with the `web_contents`.
+  // changes. Finds an existing session open in browser if possible. If not
+  // found, creates a new session.
+  void UpdateContextualSearchWebContentsHelperForTask(
+      content::WebContents* web_contents,
+      const base::Uuid& task_id);
+
+  // Returns a list of all cached side panel WebContents.
+  std::vector<content::WebContents*> GetSidePanelWebContentsList() const;
+
+  // Returns the tab handle of the auto suggested tab if the auto suggested tab
+  // chip is shown in the compose box.
+  std::optional<tabs::TabHandle> GetAutoSuggestedTabHandle();
+
  private:
+  friend class ContextualTasksSidePanelCoordinatorInteractiveUiTest;
+
   // Get the task associated with the active tab.
   std::optional<ContextualTask> GetCurrentTask();
 
@@ -130,7 +161,7 @@ class ContextualTasksSidePanelCoordinator : public TabStripModelObserver,
   bool UpdateWebContentsForActiveTab();
 
   // Handle swapping WebContents if thread changes.
-  void OnActiveTabChanged(BrowserWindowInterface* browser_interface);
+  void OnActiveTabChanged();
 
   // TabStripModelObserver:
   void OnTabStripModelChanged(
@@ -141,9 +172,15 @@ class ContextualTasksSidePanelCoordinator : public TabStripModelObserver,
   // Create the side panel view.
   std::unique_ptr<views::View> CreateSidePanelView(SidePanelEntryScope& scope);
 
-  // Create side panel contents for active tab. Return nullptr if no thread is
+  // Get the side panel contents for active tab. Return nullptr if no thread is
   // associated with the current tab.
-  content::WebContents* MaybeGetOrCreateSidePanelWebContentsForActiveTab();
+  content::WebContents* GetSidePanelWebContentsForActiveTab();
+
+  // Create a cached WebContents if one does not exist for the current task.
+  void MaybeCreateCachedWebContents();
+
+  // Create a cached WebContents for a task. For tests only.
+  void CreateCachedWebContentsForTesting(base::Uuid task_id, bool is_open);
 
   // Hide/Unhide the side panel and don't update any task associated with it.
   void Hide();
@@ -174,21 +211,26 @@ class ContextualTasksSidePanelCoordinator : public TabStripModelObserver,
   // active tab does not have an open state.
   void MaybeInitTabScopedOpenState();
 
-  // Helper method to get the session handle from the side panel's web contents.
-  contextual_search::ContextualSearchSessionHandle*
-  GetContextualSearchSessionHandleForSidePanel();
-
   // Closes any active Lens sessions for tabs associated with the given task.
   void CloseLensSessionsForTask(const ContextualTask& task);
+
+  // Notifies the ActiveTaskContextProvider about the current session state.
+  // This checks both the side panel and the active tab for a valid session
+  // handle.
+  void NotifyActiveTaskContextProvider();
+
+  std::pair<std::optional<base::Uuid>,
+            contextual_search::ContextualSearchSessionHandle*>
+  GetSessionHandleForActiveTabOrSidePanel();
 
   // Browser window of the current side panel.
   const raw_ptr<BrowserWindowInterface> browser_window_ = nullptr;
 
-  // Subscription to listen for tab change.
-  base::CallbackListSubscription active_tab_subscription_;
-
   // Context controller to query task information.
-  const raw_ptr<ContextualTasksContextController> context_controller_;
+  const raw_ptr<ContextualTasksService> contextual_tasks_service_;
+
+  const raw_ptr<contextual_search::ContextualSearchService>
+      contextual_search_service_;
 
   const raw_ptr<ContextualTasksUiService> ui_service_;
 

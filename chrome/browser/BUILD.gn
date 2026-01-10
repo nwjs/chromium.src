@@ -2020,6 +2020,7 @@ static_library("browser") {
     "//chrome/browser/ui/bluetooth:impl",
     "//chrome/browser/ui/color:color_headers",
     "//chrome/browser/ui/color:mixers",
+    "//chrome/browser/ui/contextual_search",
     "//chrome/browser/ui/cookie_controls",
     "//chrome/browser/ui/cookie_controls:impl",
     "//chrome/browser/ui/exclusive_access",
@@ -2254,6 +2255,7 @@ static_library("browser") {
     "//components/metrics:ui",
     "//components/metrics/demographics",
     "//components/metrics/private_metrics",
+    "//components/metrics/private_metrics:private_metrics_features",
     "//components/metrics/structured",
     "//components/metrics/structured:structured_events",
     "//components/metrics/structured:structured_metrics_validator",
@@ -2640,6 +2642,7 @@ static_library("browser") {
 
   if (!is_android) {
     deps += [
+      "//chrome/browser/contextual_tasks:ui_impl",
       "//chrome/browser/startup",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/webui/omnibox_popup/mojom",
@@ -4509,6 +4512,7 @@ static_library("browser") {
       "//components/commerce/core:proto",
       "//components/commerce/core/mojom:mojo_bindings",
       "//components/constrained_window",
+      "//components/contextual_search:policy_handler",
       "//components/endpoint_fetcher",
       "//components/enterprise/buildflags",
       "//components/feedback",
@@ -4596,6 +4600,10 @@ static_library("browser") {
       # TODO(crbug.com/441649482): Remove this circular dependency with cleaning up
       # - c/b/apps/app_service/publishers.
       "//chrome/browser/apps/app_service/publishers",
+
+      # TODO(crbug.com/469850388): Decouple profile manager dependencies
+      # For contextual tasks usage here:
+      "//chrome/browser/contextual_tasks:ui_impl",
 
       # TODO(b/220386256): Remove circular dependency from the browser.
       "//chrome/browser/media/router/discovery/access_code:access_code_sink_service",

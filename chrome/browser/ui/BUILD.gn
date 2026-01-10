@@ -249,6 +249,8 @@ static_library("ui") {
     "//chrome/browser/search",
     "//chrome/browser/task_manager",
     "//chrome/browser/ui/tabs:tab_enums",
+    "//chrome/browser/ui/webui/omnibox/aim_eligibility",
+    "//chrome/browser/ui/webui/omnibox/aim_eligibility:mojo_bindings",
   ]
 
   deps = [
@@ -432,6 +434,7 @@ static_library("ui") {
     "//components/compose/core/browser",
     "//components/compose/core/browser:features",
     "//components/consent_auditor/",
+    "//components/content_capture/common",
     "//components/content_settings/browser",
     "//components/content_settings/common:mojom",
     "//components/content_settings/core/browser",
@@ -1465,6 +1468,7 @@ static_library("ui") {
       "//chrome/browser/ui/task_manager",
       "//chrome/browser/ui/thumbnails",
       "//chrome/browser/ui/translate:impl",
+      "//chrome/browser/ui/waap",
       "//chrome/browser/ui/web_applications",
       "//chrome/browser/ui/web_applications:impl",
       "//chrome/browser/ui/web_applications:launch_utils",
@@ -4014,6 +4018,8 @@ static_library("ui") {
       "views/omnibox/omnibox_popup_presenter.h",
       "views/omnibox/omnibox_popup_presenter_base.cc",
       "views/omnibox/omnibox_popup_presenter_base.h",
+      "views/omnibox/omnibox_popup_tab_selection_listener.cc",
+      "views/omnibox/omnibox_popup_tab_selection_listener.h",
       "views/omnibox/omnibox_popup_view_views.cc",
       "views/omnibox/omnibox_popup_view_views.h",
       "views/omnibox/omnibox_popup_view_webui.cc",

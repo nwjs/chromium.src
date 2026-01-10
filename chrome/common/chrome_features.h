@@ -230,6 +230,8 @@ BASE_DECLARE_FEATURE(kGlicActorUiNudgeRedesign);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicActorUiTaskIconV2);
 COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kGlicActorUiTaskNudgeUiFix);
+COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicActorUiTabIndicatorSpinnerIgnoreReducedMotion);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kActorUiThemed);
@@ -320,6 +322,10 @@ extern const base::FeatureParam<size_t>
     kGlicActorIncrementalTypingLongTextThreshold;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<base::TimeDelta> kGlicActorTypeToolEnterDelay;
+// Configures which tiers of users are eligible for Actor. It should be a
+// comma-separated list of tier ints ("1,2,3").
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<std::string> kGlicActorEligibleTiers;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<size_t>
     kGlicActorIncrementalTypingLongTextPasteThreshold;
@@ -576,6 +582,8 @@ BASE_DECLARE_FEATURE(kGlicPanelResetSizeAndLocationOnOpen);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicPersonalContext);
 COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kGlicGeminiInstructions);
+COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicPopupWindowsEnabled);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicRecordActorJournal);
@@ -693,6 +701,8 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicWebActuationSetting);
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<std::string> kGlicWebActuationAllowedTiers;
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kGlicWebActuationSettingsToggle);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kPrivacyGuideForceAvailable);

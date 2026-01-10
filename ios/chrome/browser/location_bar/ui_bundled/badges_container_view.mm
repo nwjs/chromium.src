@@ -383,6 +383,10 @@ const CGFloat kBackgroundHorizontalInset = 5.0;
     [self updateBackgroundVisibility];
     [self updateTapOverlayButtonVisibility];
   }
+
+  if (IsProactiveSuggestionsFrameworkEnabled() && _incognito) {
+    _containerStackView.userInteractionEnabled = YES;
+  }
 }
 
 // Creates and configures transparent overlay button for unified badge tapping.
@@ -476,20 +480,11 @@ const CGFloat kBackgroundHorizontalInset = 5.0;
     return;
   }
 
-  if ([self hasVisibleBadges]) {
-    _tapOverlayButton.hidden = NO;
-    return;
-  }
-
-  switch (_placeholderType) {
-    // Placeholder views that don't open AI Hub.
-    case LocationBarPlaceholderType::kNone:
-    case LocationBarPlaceholderType::kDefaultSearchEngineIcon:
-      _tapOverlayButton.hidden = YES;
-      break;
-    default:
-      _tapOverlayButton.hidden = NO;
-  }
+  // If there are no visible badges, the placeholder badge should be shown and
+  // we should use the default badge tap logic instead of the tap overlay.
+  BOOL hasVisibleBadges = ![self hasVisibleBadges];
+  _tapOverlayButton.hidden = hasVisibleBadges;
+  _containerStackView.userInteractionEnabled = hasVisibleBadges;
 }
 
 @end

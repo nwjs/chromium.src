@@ -34,7 +34,10 @@ class ContextualTasksComposeBoxPixelTest
       public testing::WithParamInterface<ComposeBoxPixelTestParams> {
  public:
   void SetUp() override {
-    feature_list_.InitWithFeatures({contextual_tasks::kContextualTasks}, {});
+    feature_list_.InitWithFeatures(
+        {contextual_tasks::kContextualTasks,
+         contextual_tasks::kContextualTasksForceEntryPointEligibility},
+        {});
     WebUIComposeBoxPixelTest::SetUp();
   }
 
@@ -140,5 +143,5 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksComposeBoxPixelTest, Screenshots) {
       // Take a screenshot of the composebox.
       ScreenshotWebUi(kActiveTab, kComposebox,
                       /*screenshot_name=*/"ContextualTasksComposebox",
-                      /*baseline_cl=*/"7204822"));
+                      /*baseline_cl=*/"7262899"));
 }

@@ -463,7 +463,7 @@
 <translation id="1292849930724124745">أدخِل بطاقة ذكية لتظل مسجلاً الدخول</translation>
 <translation id="1293264513303784526">‏جهاز USB-C (المنفذ الأيسر)</translation>
 <translation id="1293360286536751243">قد تتعارض إيماءة "<ph name="MAIN_GESTURE" />" مع الإيماءات "<ph name="CONFLICTING_GESTURE_ONE" />" و"<ph name="CONFLICTING_GESTURE_TWO" />" و"<ph name="CONFLICTING_GESTURE_THREE" />". يُرجى اختيار إيماءة أخرى، إن أمكن ذلك.</translation>
-<translation id="1293556467332435079">ملفات</translation>
+<translation id="1293556467332435079">الملفات</translation>
 <translation id="1294807885394205587">قد تستغرق هذه العملية بضع دقائق. جار تشغيل مدير الحاويات.</translation>
 <translation id="12951065153783848">تدير المؤسسة حسابك</translation>
 <translation id="1296410481664942178">‏عدم إظهار "تقويم Google"</translation>
@@ -531,7 +531,6 @@
 <translation id="1342886103232377846">‏للتحقّق من كلمات المرور المحتمَل تعرّضها للاختراق، يُرجى الانتقال إلى "مدير كلمات المرور في Google".</translation>
 <translation id="1343920184519992513">المتابعة من حيث توقفت وفتح مجموعة مُحدَّدة من الصفحات</translation>
 <translation id="1344141078024003905">يجري حاليًا بث المحتوى المعروض على شاشتك. يمكنك إيقاف البث مؤقتًا أو إيقافه متى شئت.</translation>
-<translation id="13449088910457661">‏يعمل Gemini في علامات التبويب لإكمال المهام التي تُطلب منه. <ph name="LINK_BEGIN" />مزيد من المعلومات<ph name="LINK_END" /></translation>
 <translation id="1346403631707626730">‏إرسال بيانات الاستخدام والتشخيص: يمكنك المساهمة في تحسين تجربة طفلك على Android من خلال إرسال بيانات التشخيص وبيانات استخدام التطبيقات والجهاز تلقائيًا إلى Google. ولن يتم استخدام هذه البيانات لتحديد هوية طفلك، بل ستُستخدَم لتعزيز استقرار النظام والتطبيقات وإجراء المزيد من التحسينات. ستساعد أيضًا بعض البيانات المجمّعة تطبيقات Google وشركاءها، مثل مطوّري تطبيقات Android. في حال تفعيل إعداد "النشاط الإضافي على الويب وفي التطبيقات" لطفلك، قد يتم حفظ هذه البيانات في حسابه على Google. <ph name="BEGIN_LINK1" />مزيد من المعلومات حول المقاييس<ph name="BEGIN_LINK1_END" />مزيد من المعلومات<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">التأكيد وإعادة التشغيل</translation>
 <translation id="1346748346194534595">يمين</translation>
@@ -1541,7 +1540,7 @@
 <translation id="2023167225947895179">قد يكون رقم التعريف الشخصي سهل التخمين</translation>
 <translation id="202352106777823113">استغرق التنزيل وقتًا طويلاً للغاية وتم إيقافه بواسطة الشبكة.</translation>
 <translation id="2024195579772565064">حذف محرك البحث</translation>
-<translation id="202500043506723828">EID</translation>
+<translation id="202500043506723828">‏معرّف شريحة SIM المضمّنة (EID)</translation>
 <translation id="2025123106058020990">النقر الدقيق</translation>
 <translation id="2025632980034333559">لقد تعطل <ph name="APP_NAME" />. انقر على هذا البالون لإعادة تحميل الإضافة.</translation>
 <translation id="2026377162111110983">صوت المنطقة</translation>
@@ -1977,6 +1976,7 @@
 <translation id="2319072477089403627">‏يجري الاتصال بهاتف Android…</translation>
 <translation id="2319459402137712349">اختَر حقلاً نصيًا لفتح لوحة المفاتيح. ويمكنك أيضًا النقر على رمز لوحة المفاتيح في أسفل الشاشة.</translation>
 <translation id="2319993584768066746">الصور في شاشة تسجيل الدخول</translation>
+<translation id="2321487076181785382">علامات تبويب مقسَّمة</translation>
 <translation id="2322193970951063277">الرؤوس والتذييلات</translation>
 <translation id="2322318151094136999">طلب الإذن في حال محاولة موقع إلكتروني الوصول إلى المنافذ التسلسلية (مُستحسَن)</translation>
 <translation id="2322622365472107569">وقت الانتهاء: <ph name="TIME" /></translation>
@@ -2124,7 +2124,6 @@
 <translation id="2428939361789119025">‏إيقاف شبكة Wi-Fi</translation>
 <translation id="2431027948063157455">‏تعذّر تحميل مساعد Google، يُرجى التحقُّق من اتصال الشبكة وإعادة المحاولة.</translation>
 <translation id="243179355394256322">‏لا تسمح مؤسستك بتسجيل الأجهزة إلا للمستخدمين المصرّح لهم. هذا المستخدم غير مصرح له بتسجيل الأجهزة. يُرجى التأكّد من أنّ المستخدم لديه امتياز المشرف "تسجيل جهاز Google Meet" في قسم المستخدمين ضِمن وحدة تحكُّم المشرف.</translation>
-<translation id="2431896368788252518">عرض سياقك الذكي وإدارته</translation>
 <translation id="243275146591958220">إلغاء التنزيل</translation>
 <translation id="2433237965825924228">تتحكّم "تطبيقات الويب المعزولة" في أجهزة المصادقة والبطاقات الذكية المتاحة لها. وتحتوي البطاقات الذكية عادةً على معرّفات تُستخدَم في مصادقتك.</translation>
 <translation id="2433452467737464329">‏إضافة معلمة لطلب البحث في عنوان URL لإعادة تحميل الصفحة تلقائيًا: chrome://network/?refresh=&lt;sec&gt;</translation>
@@ -4382,6 +4381,7 @@
 <translation id="394984172568887996">‏تمّ الاستيراد من IE</translation>
 <translation id="3949999964543783947">يمكنك <ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" /> لتنزيل الملفات بطريقة أكثر أمانًا.</translation>
 <translation id="3950479158728806902">إنشاء مفتاح مرور تلقائيًا لتسجيل الدخول بشكل أسرع</translation>
+<translation id="3950755269510650933">‏يمكنك إدارة المعلومات التي يمكن أن يستخدمها Gemini لتخصيص تجربتك</translation>
 <translation id="3950820424414687140">تسجيل الدخول</translation>
 <translation id="3950841222883198950">الكتابة بالصوت</translation>
 <translation id="3953834000574892725">الحسابات الخاصة بي</translation>
@@ -4411,6 +4411,7 @@
 <translation id="3968739731834770921">كانا</translation>
 <translation id="3970114302595058915">رقم التعريف</translation>
 <translation id="397105322502079400">جارٍ الحساب...</translation>
+<translation id="3971355433478412726">‏تعليمات استخدام Gemini</translation>
 <translation id="3971764089670057203">بصمات الأصابع المُسجلة في مفتاح الأمان هذا</translation>
 <translation id="3973005893595042880">المستخدم الحالي غير مسموح به.</translation>
 <translation id="3973660817924297510">جارٍ التحقّق من كلمات المرور (<ph name="CHECKED_PASSWORDS" /> من <ph name="TOTAL_PASSWORDS" />)…</translation>
@@ -5816,6 +5817,7 @@
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">هل تريد حفظ الإشارة المرجعية في مجلد على هذا الجهاز فقط؟</translation>
 <translation id="4959262764292427323">‏يتم حفظ كلمات المرور في حسابك على Google حتى تتمكَّن من استخدامها على أي جهاز.</translation>
+<translation id="4959581970694896608">‏يمكنك تخصيص طريقة استجابة Gemini لطلباتك</translation>
 <translation id="4960020053211143927">هذا الخيار غير متاح في بعض التطبيقات.</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> - <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">إرسال الشاشة</translation>
@@ -6164,7 +6166,6 @@
 <translation id="5204967432542742771">إدخال كلمة المرور</translation>
 <translation id="5205484256512407285">عدم استخدام بيانات الجوّال للنقل مطلقًا</translation>
 <translation id="520568280985468584">تمت إضافة الشبكة. قد يستغرق تفعيل شبكة الجوّال بضع دقائق.</translation>
-<translation id="520576054436518354">‏ما رأيك بالاستفادة من قدرات Gemini في التصفّح؟</translation>
 <translation id="5207949376430453814">تمييز علامة إقحام النص</translation>
 <translation id="520840839826327499">‏تريد خدمة <ph name="SERVICE_NAME" /> التحقق من أنّك تستخدم جهازًا مؤهَّلاً يعمل بنظام التشغيل Chrome.</translation>
 <translation id="5208722776934437424">تغيير الأذونات</translation>
@@ -6411,6 +6412,7 @@
 <translation id="5388719243178419614">تعدَّر تحميل ملف الصورة بسبب عدم القدرة على معالجته.</translation>
 <translation id="5388885445722491159">مقترن</translation>
 <translation id="5389224261615877010">قوس قزح</translation>
+<translation id="538945906186309152">‏تفعيل اختصار لوحة المفاتيح لاستخدام Gemini</translation>
 <translation id="5389794555912875905">عرض تحذيرات قبل الانتقال إلى المواقع الإلكترونية غير الآمنة (يُنصح به)</translation>
 <translation id="5389943529251318913">تقليل سرعة الماوس بمقدار</translation>
 <translation id="5390112241331447203">‏إدراج ملف system_logs.txt المُرسَل في تقارير التعليقات</translation>
@@ -10218,6 +10220,7 @@
 <translation id="8011372169388649948">تم نقل الإشارة المرجعية "<ph name="BOOKMARK_TITLE" />".</translation>
 <translation id="8012188750847319132">Caps Lock</translation>
 <translation id="8012463809859447963">تفاصيل نقطة الاتصال الفورية</translation>
+<translation id="8013181884974864006">المهام السياقية</translation>
 <translation id="8013534738634318212">تندرج هذه المواقع الإلكترونية ضمن مجموعة حدّدها "<ph name="RWS_OWNER" />". يمكن للمواقع الإلكترونية المُدرَجة في إحدى المجموعات الاطّلاع على نشاطك في هذه المجموعة.</translation>
 <translation id="8013993649590906847">‏في حال لم تتضمن صورة ما وصفًا مفيدًا، سيحاول Chrome توفير وصف لك. لإنشاء الأوصاف، سيتم إرسال الصور إلى Google.</translation>
 <translation id="8014154204619229810">يتم تشغيل أداة التحديث حاليًا. يمكنك إعادة التحميل بعد دقيقة واحدة للتحقق مجددًا.</translation>

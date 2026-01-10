@@ -1062,7 +1062,7 @@
 <translation id="5075939510584558547">Spremite bez šifriranja</translation>
 <translation id="5076534614343816664">Praćenje cijene</translation>
 <translation id="5078303485429639424">Uključi obavijesti za značajku <ph name="FEATURE_NAME" /></translation>
-<translation id="5079950360618752063">Upotrijebite predloženu zaporku</translation>
+<translation id="5079950360618752063">Upotrijebi predloženu zaporku</translation>
 <translation id="5083464117946352670">Veličina datoteke nije utvrđena.</translation>
 <translation id="5085558938118581974">Pretražujte kartice na sinkroniziranim uređajima</translation>
 <translation id="508645147179720015">Napomena ima više od 1000 znakova</translation>
@@ -1450,7 +1450,7 @@ Handoff mora biti omogućen i u odjeljku Općenito u Postavkama, a vaši uređaj
 <translation id="6435236283694032571">Dodaj na popis za čitanje</translation>
 <translation id="6435307030888827407">Ostanite odjavljeni</translation>
 <translation id="6436318499800111867">Dijeljeno sa mnom <ph name="SHARED_WITH_ME_DATE" /></translation>
-<translation id="6442697326824312960">Odvoji karticu</translation>
+<translation id="6442697326824312960">Otkvači karticu</translation>
 <translation id="6443118737398455446">Datum isteka nije važeći</translation>
 <translation id="6444435711855078002">Više opcija</translation>
 <translation id="6445051938772793705">Država</translation>

@@ -275,6 +275,10 @@ export class MostVisitedElement extends MostVisitedElementBase {
           this.info_ = info;
         });
 
+    this.callbackRouter_.onMostVisitedTilesAutoRemoval.addListener(() => {
+      this.autoRemovalToast_();
+    });
+
     this.pageHandler_.getMostVisitedExpandedState().then(({isExpanded}) => {
       this.showAll_ = isExpanded;
     });
@@ -1153,6 +1157,15 @@ export class MostVisitedElement extends MostVisitedElementBase {
     } else if (this.showShowLess_ && index === tileElements.length) {
       this.$.showLess.focus();
     }
+  }
+
+  private autoRemovalToast_() {
+    this.fire('most-visited-auto-removed', {
+      message: loadTimeData.getString('shortcutsInactivityRemovalMsg'),
+      undo: () => {
+        this.pageHandler_.undoMostVisitedAutoRemoval();
+      },
+    });
   }
 
   private toast_(msgId: string, showButtons: boolean, source: TileSource) {

@@ -528,7 +528,6 @@ Inaatasan ka ng <ph name="DOMAIN" /> na panatilihing nakalagay ang iyong smart c
 <translation id="1342886103232377846">Para tingnan kung may mga nakompromisong password, pumunta sa Google Password Manager</translation>
 <translation id="1343920184519992513">Magpatuloy kung saan ka huminto at magbukas ng partikular na hanay ng mga page</translation>
 <translation id="1344141078024003905">Kina-cast mo ang iyong screen. Puwede mong i-pause o ihinto ang pag-cast ng iyong screen sa anumang oras.</translation>
-<translation id="13449088910457661">Gumagana ang Gemini sa iyong mga tab para kumpletuhin ang mga gawaing ibibigay mo rito. <ph name="LINK_BEGIN" />Matuto pa<ph name="LINK_END" /></translation>
 <translation id="1346403631707626730">Magpadala ng data ng paggamit at diagnostic. Tumulong na pagandahin ang experience sa Android ng iyong anak sa pamamagitan ng awtomatikong pagpapadala ng data ng diagnostic, device, at paggamit ng app sa Google. Hindi ito gagamitin para tukuyin ang iyong anak, at makakatulong ito sa stability ng system at ng app, at sa iba pang pagpapahusay. Makakatulong din ang ilang pinagsama-samang data sa mga app at partner ng Google, gaya ng mga developer ng Android. Kung naka-on ang karagdagang Aktibidad sa Web at App para sa iyong anak, posibleng ma-save ang data na ito sa kanyang Google account. <ph name="BEGIN_LINK1" />Matuto pa tungkol sa mga sukatan<ph name="BEGIN_LINK1_END" />Matuto Pa<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">Kumpirmahin at i-restart</translation>
 <translation id="1346748346194534595">Kanan</translation>
@@ -1986,6 +1985,7 @@ Puwede mong pamahalaan ang mga setting ng account na ito sa pamamagitan ng pag-i
 <translation id="2319072477089403627">Kumokonekta sa iyong Android phone...</translation>
 <translation id="2319459402137712349">Pumili ng field ng text para buksan ang keyboard. Puwede mo ring piliin ang icon ng Keyboard sa ibaba ng iyong screen.</translation>
 <translation id="2319993584768066746">Mga larawan sa screen sa pag-sign in</translation>
+<translation id="2321487076181785382">Mga split tab</translation>
 <translation id="2322193970951063277">Mga header at footer</translation>
 <translation id="2322318151094136999">Magtanong kapag gustong i-access ng isang site ang mga serial port (inirerekomenda)</translation>
 <translation id="2322622365472107569">Oras ng pagtatapos <ph name="TIME" /></translation>
@@ -2133,7 +2133,6 @@ Puwede mong pamahalaan ang mga setting ng account na ito sa pamamagitan ng pag-i
 <translation id="2428939361789119025">I-off ang Wi-Fi</translation>
 <translation id="2431027948063157455">Hindi na-load ang Google Assistant, pakitingnan ang iyong koneksyon sa network at subukan ulit.</translation>
 <translation id="243179355394256322">Nililimitahan lang ng iyong organisasyon ang pag-enroll ng device sa mga pinapahintulutang user. Hindi pinapahintulutan ang user na ito na mag-enroll ng mga device. Pakitiyak na may pribilehiyong pang-administrator na "I-enroll ang hardware ng Google Meet" ang user sa seksyong Mga User ng Admin console.</translation>
-<translation id="2431896368788252518">Tingnan at pamahalaan ang personal context mo</translation>
 <translation id="243275146591958220">Kanselahin ang pag-download</translation>
 <translation id="2433237965825924228">Kinokontrol ng mga naka-isolate na web app ang mga device sa pag-authenticate at mga smart card na naa-access ng mga ito. Karaniwang naglalaman ang mga smart card ng mga identifier na ginagamit para i-authenticate ka.</translation>
 <translation id="2433452467737464329">Magdagdag ng query param sa URL upang i-auto-refresh ang pahina: chrome://network/?refresh=&lt;sec&gt;</translation>
@@ -4393,6 +4392,7 @@ Inaatasan ka ng <ph name="DOMAIN" /> na panatilihing nakalagay ang iyong smart c
 <translation id="394984172568887996">Nag-import mula sa IE</translation>
 <translation id="3949999964543783947"><ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" /> para gawing mas ligtas ang pag-download ng mga file</translation>
 <translation id="3950479158728806902">Awtomatikong gumawa ng passkey para mas mabilis na makapag-sign in</translation>
+<translation id="3950755269510650933">Pamahalaan ang impormasyong puwedeng gamitin ng Gemini para i-personalize ang iyong experience</translation>
 <translation id="3950820424414687140">Mag-sign in</translation>
 <translation id="3950841222883198950">Voice typing</translation>
 <translation id="3953834000574892725">Aking mga account</translation>
@@ -4422,6 +4422,7 @@ Inaatasan ka ng <ph name="DOMAIN" /> na panatilihing nakalagay ang iyong smart c
 <translation id="3968739731834770921">Kana</translation>
 <translation id="3970114302595058915">ID</translation>
 <translation id="397105322502079400">Kinakalkula...</translation>
+<translation id="3971355433478412726">Mga Tagubilin para sa Gemini</translation>
 <translation id="3971764089670057203">Mga fingerprint sa security key na ito</translation>
 <translation id="3973005893595042880">Hindi pinapayagan ang user</translation>
 <translation id="3973660817924297510">Sinusuri ang mga password (<ph name="CHECKED_PASSWORDS" /> sa <ph name="TOTAL_PASSWORDS" />)…</translation>
@@ -5827,6 +5828,7 @@ Gamitin ang Ctrl + Alt + Bawasan ang Liwanag para mag-zoom out.</translation>
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">I-save lang sa folder sa device na ito?</translation>
 <translation id="4959262764292427323">Sine-save ang mga password sa iyong Google Account para magamit mo ang mga ito sa anumang device</translation>
+<translation id="4959581970694896608">I-customize kung paano sumasagot sa iyo ang Gemini</translation>
 <translation id="4960020053211143927">Hindi sinusuportahan ng ilang app</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> - <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">I-cast ang screen</translation>
@@ -6175,7 +6177,6 @@ Gamitin ang Ctrl + Alt + Bawasan ang Liwanag para mag-zoom out.</translation>
 <translation id="5204967432542742771">Ipasok ang password</translation>
 <translation id="5205484256512407285">Huwag gumamit ng mobile data para maglipat</translation>
 <translation id="520568280985468584">Naidagdag na ang network. Posibleng abutin nang ilang minuto para maging aktibo ang iyong celluar network.</translation>
-<translation id="520576054436518354">Hayaan ang Gemini na mag-browse para sa iyo</translation>
 <translation id="5207949376430453814">I-highlight ang text caret</translation>
 <translation id="520840839826327499">Gustong suriin ng <ph name="SERVICE_NAME" /> kung gumagamit ka ng kwalipikadong ChromeOS device.</translation>
 <translation id="5208722776934437424">Baguhin ang mga pahintulot</translation>
@@ -6422,6 +6423,7 @@ Gamitin ang Ctrl + Alt + Bawasan ang Liwanag para mag-zoom out.</translation>
 <translation id="5388719243178419614">Hindi ma-upload. Hindi maiproseso ang image file.</translation>
 <translation id="5388885445722491159">Ipinares</translation>
 <translation id="5389224261615877010">Bahaghari</translation>
+<translation id="538945906186309152">I-on ang keyboard shortcut ng Gemini</translation>
 <translation id="5389794555912875905">Makakita ng mga babala bago makapunta sa mga hindi secure na site (inirerekomenda)</translation>
 <translation id="5389943529251318913">Bawasan ang bilis ng mouse nang</translation>
 <translation id="5390112241331447203">Isama ang file na system_logs.txt na ipinadala sa mga feedback report.</translation>
@@ -10223,6 +10225,7 @@ Ilagay ang iyong key file sa ligtas na lugar. Kailangan mo ito upang lumikha ng 
 <translation id="8011372169388649948">Inilipat ang '<ph name="BOOKMARK_TITLE" />.'</translation>
 <translation id="8012188750847319132">caps lock</translation>
 <translation id="8012463809859447963">Mga detalye ng instant hotspot</translation>
+<translation id="8013181884974864006">Mga Gawaing Batay sa Konteksto</translation>
 <translation id="8013534738634318212">Ang mga site na ito ay nasa isang grupong tinukoy ng <ph name="RWS_OWNER" />. Makikita ng mga site sa isang grupo ang iyong aktibidad sa grupo.</translation>
 <translation id="8013993649590906847">Kung hindi sapat ang deskripsyon ng isang larawan, susubukan ng Chrome na ayusin ito para sa iyo. Para gumawa ng mga deskripsyon, ipinapadala ang mga larawan sa Google.</translation>
 <translation id="8014154204619229810">Kasalukuyang tumatakbo ang updater. I-refresh pagkatapos ng isang minuto upang muling suriin.</translation>

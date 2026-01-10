@@ -78,6 +78,10 @@ void CreateAndAddNewTabPageThirdPartyUiHtmlSource(Profile* profile,
       {"undo", IDS_NEW_TAB_UNDO_THUMBNAIL_REMOVE},
       {"showMore", IDS_NTP_SHOW_MORE_BUTTON_LABEL},
       {"showLess", IDS_NTP_SHOW_LESS_BUTTON_LABEL},
+      {"shortcutsInactivityRemovalMsg",
+       IDS_NTP_MOST_VISITED_SHORTCUTS_INACTIVITY_REMOVAL},
+      {"moduleInactivityRemovalMsg", IDS_NTP_MODULE_INACTIVITY_REMOVAL},
+      {"modulesInactivityRemovalMsg", IDS_NTP_MODULES_INACTIVITY_REMOVAL},
   };
 
   source->AddLocalizedStrings(kStrings);

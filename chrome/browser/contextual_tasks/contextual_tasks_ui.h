@@ -16,10 +16,13 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_composebox_handler.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_internals.mojom.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_page_handler.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.h"
 #include "chrome/browser/contextual_tasks/task_info_delegate.h"
 #include "chrome/browser/ui/webui/top_chrome/top_chrome_web_ui_controller.h"
 #include "chrome/browser/ui/webui/top_chrome/top_chrome_webui_config.h"
 #include "chrome/common/webui_url_constants.h"
+#include "components/contextual_search/contextual_search_session_handle.h"
+#include "components/contextual_tasks/public/contextual_task_context.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_ui_controller.h"
@@ -46,9 +49,14 @@ struct AccessTokenInfo;
 }  // namespace signin
 
 namespace contextual_tasks {
-class ContextualTasksContextController;
+class ContextualTasksService;
+class ContextualTasksSidePanelCoordinator;
 class ContextualTasksUiService;
 }  // namespace contextual_tasks
+
+namespace tabs {
+class TabInterface;
+}  // namespace tabs
 
 class ContextualTasksComposeboxHandler;
 class ContextualTasksInternalsPageHandler;
@@ -70,7 +78,7 @@ class ContextualTasksUI : public TaskInfoDelegate,
     explicit FrameNavObserver(
         content::WebContents* web_contents,
         contextual_tasks::ContextualTasksUiService* ui_service,
-        contextual_tasks::ContextualTasksContextController* context_controller,
+        contextual_tasks::ContextualTasksService* contextual_tasks_service,
         TaskInfoDelegate* task_info_delegate);
     ~FrameNavObserver() override = default;
 
@@ -79,17 +87,11 @@ class ContextualTasksUI : public TaskInfoDelegate,
 
    private:
     raw_ptr<contextual_tasks::ContextualTasksUiService> ui_service_;
-    raw_ptr<contextual_tasks::ContextualTasksContextController>
-        context_controller_;
+    raw_ptr<contextual_tasks::ContextualTasksService> contextual_tasks_service_;
     raw_ref<TaskInfoDelegate> task_info_delegate_;
-  };
 
-  // Enum representing the upload status of tab context.
-  enum class TabContextStatus {
-    kNotUploaded,
-    kPendingUpload,
-    kUploaded,
-    kIgnored,
+    // Last committed URL used to check if URL changes.
+    GURL last_committed_url_;
   };
 
   explicit ContextualTasksUI(content::WebUI* web_ui);
@@ -117,16 +119,31 @@ class ContextualTasksUI : public TaskInfoDelegate,
   void SetTaskId(std::optional<base::Uuid> id) override;
   const std::optional<std::string>& GetThreadId() override;
   void SetThreadId(std::optional<std::string> id) override;
+  void SetThreadTurnId(std::optional<std::string> id) override;
   const std::optional<std::string>& GetThreadTitle() override;
   void SetThreadTitle(std::optional<std::string> title) override;
+  void SetIsAiPage(bool is_ai_page) override;
   bool IsShownInTab() override;
   BrowserWindowInterface* GetBrowser() override;
   content::WebContents* GetWebUIWebContents() override;
+  void OnZeroStateChange(bool is_zero_state) override;
+
+  // Returns whether the given URL is an AI page zero state. This is used to
+  // determine if the UI should be rendered in zero state. Static so it can be
+  // used by the FrameNavObserver and easily tested.
+  static bool IsZeroState(
+      const GURL& url,
+      contextual_tasks::ContextualTasksUiService* ui_service);
 
   // Get the URL of the page currently embedded in this WebUI.
   const GURL& GetInnerFrameUrl() const;
 
   void CloseSidePanel();
+
+  // Lazily creates and returns a reference to the owned contextual search
+  // session handle for `composebox_handler_`.
+  contextual_search::ContextualSearchSessionHandle*
+  GetOrCreateContextualSessionHandle();
 
   void BindInterface(
       mojo::PendingReceiver<contextual_tasks::mojom::PageHandlerFactory>
@@ -164,17 +181,24 @@ class ContextualTasksUI : public TaskInfoDelegate,
   void OnSidePanelStateChanged();
 
   // Called to disable active tab context suggestion on compose box.
-  void DisableActiveTabContextSuggestion();
+  virtual void DisableActiveTabContextSuggestion();
 
   // Called when the active tab has been changed, either a new page is loaded or
   // a title change. This is only called when the of this class is rendered in
   // the side panel.
-  void OnActiveTabContextStatusChanged(TabContextStatus status);
+  void OnActiveTabContextStatusChanged();
+
+  // Notify the UI that the Lens overlay has either started showing or is now
+  // hidden.
+  void OnLensOverlayStateChanged(bool is_showing);
 
   void SetComposeboxHandlerForTesting(
       std::unique_ptr<ContextualTasksComposeboxHandler> handler) {
     composebox_handler_ = std::move(handler);
   }
+
+  // Notify the UI of the page context eligibility of the page.
+  void OnPageContextEligibilityChecked(bool is_page_context_eligible);
 
   // Called by the browser process to send a message to the <webview>
   // guest. The WebUI is responsible for taking the 'message' (a serialized
@@ -187,6 +211,9 @@ class ContextualTasksUI : public TaskInfoDelegate,
   // Transfers an existing navigation to the page embedded in this WebUI. This
   // API will only accept navigations to the AI or search results pages.
   void TransferNavigationToEmbeddedPage(content::OpenURLParams params);
+
+  // Returns whether the active tab context suggestion is showing.
+  bool IsActiveTabContextSuggestionShowing() const;
 
  private:
   void RequestOAuthToken();
@@ -215,6 +242,21 @@ class ContextualTasksUI : public TaskInfoDelegate,
   // the embedded remote page.
   void OnInnerWebContentsCreated(content::WebContents* inner_contents);
 
+  // Called when the contextual task context is returned by the service.
+  void OnContextRetrievedForActiveTab(
+      int32_t tab_id,
+      const GURL& last_committed_url,
+      std::unique_ptr<contextual_tasks::ContextualTaskContext> context);
+
+  // Called to update the suggested tab chip on composebox.
+  void UpdateSuggestedTabContext(tabs::TabInterface* tab);
+
+  // Update the task's details in the WebUI.
+  void PushTaskDetailsToPage();
+
+  contextual_tasks::ContextualTasksSidePanelCoordinator*
+  GetSidePanelCoordinator();
+
   // The OAuth token fetcher is used to fetch the OAuth token for the signed in
   // user. This is used to authenticate the user when making requests in the
   // embedded page.
@@ -226,11 +268,7 @@ class ContextualTasksUI : public TaskInfoDelegate,
   std::unique_ptr<ContextualTasksComposeboxHandler> composebox_handler_;
   raw_ptr<contextual_tasks::ContextualTasksUiService> ui_service_;
 
-  // A handle to the class that extends the ContextualTasksService - the backend
-  // component responsible for maintaining associations between open tabs and
-  // threads.
-  raw_ptr<contextual_tasks::ContextualTasksContextController>
-      context_controller_;
+  raw_ptr<contextual_tasks::ContextualTasksService> contextual_tasks_service_;
 
   mojo::Receiver<composebox::mojom::PageHandlerFactory>
       composebox_page_handler_factory_receiver_{this};
@@ -263,6 +301,11 @@ class ContextualTasksUI : public TaskInfoDelegate,
   // changing, it is very likely that `task_id` should also change.
   std::optional<std::string> thread_id_;
 
+  // The ID of the current turn (a single submission and response) for the
+  // active thread, if it exists. This will be empty for a new thread and is
+  // used to keep the UI URL up to date.
+  std::optional<std::string> thread_turn_id_;
+
   std::optional<std::string> thread_title_;
 
   mojo::Remote<contextual_tasks::mojom::Page> page_;
@@ -273,6 +316,14 @@ class ContextualTasksUI : public TaskInfoDelegate,
 
   std::unique_ptr<ContextualTasksInternalsPageHandler>
       contextual_tasks_internals_page_handler_;
+
+  enum class WebUIState {
+    kUnknown,
+    kShownInTab,
+    kShownInSidePanel,
+  };
+  WebUIState previous_web_ui_state_ = WebUIState::kUnknown;
+  bool was_ai_page_ = false;
 
   base::WeakPtrFactory<ContextualTasksUI> weak_ptr_factory_{this};
 

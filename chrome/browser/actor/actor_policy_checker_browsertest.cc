@@ -23,6 +23,7 @@
 #include "chrome/browser/signin/chrome_signin_client_test_util.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
+#include "chrome/browser/subscription_eligibility/subscription_eligibility_prefs.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_features.h"
@@ -53,10 +54,8 @@ struct TestAccount {
 };
 
 constexpr TestAccount kNonEnterpriseAccount = {"foo@testbar.com", ""};
-#if !BUILDFLAG(IS_CHROMEOS)
 constexpr TestAccount kEnterpriseAccount = {"foo@testenterprise.com",
                                             "testenterprise.com"};
-#endif  // !BUILDFLAG(IS_CHROMEOS)
 }  // namespace
 
 class ActorPolicyCheckerBrowserTestBase : public ActorToolsTest {
@@ -112,7 +111,7 @@ class ActorPolicyCheckerBrowserTestBase : public ActorToolsTest {
     identity_test_env_->SetAutomaticIssueOfAccessTokens(true);
 
     AccountInfo account_info = identity_test_env_->MakePrimaryAccountAvailable(
-        std::string(account->email), signin::ConsentLevel::kSync);
+        std::string(account->email), signin::ConsentLevel::kSignin);
 
     AccountCapabilitiesTestMutator mutator(&account_info.capabilities);
     mutator.set_can_use_model_execution_features(true);
@@ -155,11 +154,11 @@ class ActorPolicyCheckerBrowserTestBase : public ActorToolsTest {
 
  protected:
   bool ShouldForceActOnWeb() override { return false; }
+  raw_ptr<signin::IdentityManager> identity_manager_;
+  raw_ptr<signin::IdentityTestEnvironment> identity_test_env_;
 
  private:
   std::unique_ptr<IdentityTestEnvironmentProfileAdaptor> adaptor_;
-  raw_ptr<signin::IdentityManager> identity_manager_;
-  raw_ptr<signin::IdentityTestEnvironment> identity_test_env_;
   network::TestURLLoaderFactory test_url_loader_factory_;
   base::ScopedClosureRunner disclaimer_service_resetter_;
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -168,9 +167,14 @@ class ActorPolicyCheckerBrowserTestBase : public ActorToolsTest {
 // Tests that exercise the policy checker for non managed browser
 // (!browser_management_service->IsManaged()).
 class ActorPolicyCheckerBrowserTestNonManagedBrowser
-    : public ActorPolicyCheckerBrowserTestBase {
+    : public ActorPolicyCheckerBrowserTestBase,
+      public ::testing::WithParamInterface<int32_t> {
  public:
-  ActorPolicyCheckerBrowserTestNonManagedBrowser() = default;
+  ActorPolicyCheckerBrowserTestNonManagedBrowser() {
+    scoped_feature_list_.InitAndEnableFeatureWithParameters(
+        features::kGlicActor, {{features::kGlicActorEligibleTiers.name,
+                                base::ToString(kAllowedTier)}});
+  }
   ~ActorPolicyCheckerBrowserTestNonManagedBrowser() override = default;
 
   void SetUpOnMainThread() override {
@@ -181,15 +185,47 @@ class ActorPolicyCheckerBrowserTestNonManagedBrowser
         management_service_factory->GetForProfile(GetProfile());
     ASSERT_TRUE(!browser_management_service ||
                 !browser_management_service->IsManaged());
+
+    browser()->profile()->GetPrefs()->SetInteger(
+        subscription_eligibility::prefs::kAiSubscriptionTier, GetParam());
+
     SimulatePrimaryAccountChangedSignIn(&kNonEnterpriseAccount);
+    CoreAccountInfo core_account_info =
+        identity_manager_->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
+    AccountInfo account_info =
+        identity_manager_->FindExtendedAccountInfoByAccountId(
+            core_account_info.account_id);
+    AccountCapabilitiesTestMutator mutator(&account_info.capabilities);
+    mutator.set_can_use_model_execution_features(true);
+    identity_test_env_->UpdateAccountInfoForAccount(account_info);
   }
+
+  bool TestHasChromeBenefits() {
+    int32_t tier = GetParam();
+    return tier == kAllowedTier;
+  }
+
+  int32_t GetOppositeTier() {
+    if (TestHasChromeBenefits()) {
+      return kDisallowedTier;
+    }
+    return kAllowedTier;
+  }
+
+ private:
+  static constexpr int32_t kAllowedTier = 1;
+  static constexpr int32_t kDisallowedTier = 0;
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_F(ActorPolicyCheckerBrowserTestNonManagedBrowser,
-                       AlwaysHaveActuationCapability) {
-  EXPECT_TRUE(ActorKeyedService::Get(browser()->profile())
-                  ->GetPolicyChecker()
-                  .can_act_on_web());
+// On non-managed browsers, the user follows consumer terms, which is based on
+// kAiSubscriptionTier.
+IN_PROC_BROWSER_TEST_P(ActorPolicyCheckerBrowserTestNonManagedBrowser,
+                       CapabilityBasedOnSubscriptionTier) {
+  EXPECT_EQ(ActorKeyedService::Get(browser()->profile())
+                ->GetPolicyChecker()
+                .can_act_on_web(),
+            TestHasChromeBenefits());
 
   // Toggle the pref to kDisabled, but won't change the capability for
   // non-managed clients.
@@ -197,12 +233,23 @@ IN_PROC_BROWSER_TEST_F(ActorPolicyCheckerBrowserTestNonManagedBrowser,
   prefs->SetInteger(glic::prefs::kGlicActuationOnWeb,
                     base::to_underlying(
                         glic::prefs::GlicActuationOnWebPolicyState::kDisabled));
+  EXPECT_EQ(ActorKeyedService::Get(browser()->profile())
+                ->GetPolicyChecker()
+                .can_act_on_web(),
+            TestHasChromeBenefits());
 
-  // Non-managed clients always have the capability.
-  EXPECT_TRUE(ActorKeyedService::Get(browser()->profile())
-                  ->GetPolicyChecker()
-                  .can_act_on_web());
+  // Set the user pref from Allowed to Disallowed or from Disallowed to Allowed.
+  browser()->profile()->GetPrefs()->SetInteger(
+      subscription_eligibility::prefs::kAiSubscriptionTier, GetOppositeTier());
+  EXPECT_NE(ActorKeyedService::Get(browser()->profile())
+                ->GetPolicyChecker()
+                .can_act_on_web(),
+            TestHasChromeBenefits());
 }
+
+INSTANTIATE_TEST_SUITE_P(/* no prefix */,
+                         ActorPolicyCheckerBrowserTestNonManagedBrowser,
+                         ::testing::Values(0, 1));
 
 // Tests that exercise the policy checker for managed browser
 // (browser_management_service->IsManaged()).
@@ -436,16 +483,23 @@ class ActorPolicyCheckerBrowserTestWithManagedAccount
         features::kGlicActor,
         {{features::kGlicActorEnterprisePrefDefault.name,
           features::kGlicActorEnterprisePrefDefault.GetName(
-              features::GlicActorEnterprisePrefDefault::kEnabledByDefault)}});
+              features::GlicActorEnterprisePrefDefault::kEnabledByDefault)},
+         {features::kGlicActorEligibleTiers.name,
+          base::ToString(kAllowedTier)}});
   }
   ~ActorPolicyCheckerBrowserTestWithManagedAccount() override = default;
 
+  void SetUpOnMainThread() override {
+    ActorPolicyCheckerBrowserTestBase::SetUpOnMainThread();
+    browser()->profile()->GetPrefs()->SetInteger(
+        subscription_eligibility::prefs::kAiSubscriptionTier, kAllowedTier);
+  }
+
  private:
+  static constexpr int32_t kAllowedTier = 1;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-// Note: sign-out from enterprise account is not allowed in ChromeOS.
-#if !BUILDFLAG(IS_CHROMEOS)
 IN_PROC_BROWSER_TEST_F(ActorPolicyCheckerBrowserTestWithManagedAccount,
                        CapabilityUpdatedForAccount) {
   // No account is signed in, thus no capability.
@@ -460,6 +514,8 @@ IN_PROC_BROWSER_TEST_F(ActorPolicyCheckerBrowserTestWithManagedAccount,
                    ->GetPolicyChecker()
                    .can_act_on_web());
 
+// Note: sign-out from enterprise account is not allowed in ChromeOS.
+#if !BUILDFLAG(IS_CHROMEOS)
   ClearPrimaryAccount();
   EXPECT_FALSE(ActorKeyedService::Get(browser()->profile())
                    ->GetPolicyChecker()
@@ -470,8 +526,8 @@ IN_PROC_BROWSER_TEST_F(ActorPolicyCheckerBrowserTestWithManagedAccount,
   EXPECT_TRUE(ActorKeyedService::Get(browser()->profile())
                   ->GetPolicyChecker()
                   .can_act_on_web());
-}
 #endif  // !BUILDFLAG(IS_CHROMEOS)
+}
 
 IN_PROC_BROWSER_TEST_F(ActorPolicyCheckerBrowserTestWithManagedAccount,
                        GlicUserStatusChanged) {
@@ -498,8 +554,6 @@ IN_PROC_BROWSER_TEST_F(ActorPolicyCheckerBrowserTestWithManagedAccount,
 using ActorPolicyCheckerBrowserTestWithManagedAccountWithPolicy =
     ActorPolicyCheckerBrowserTestManagedBrowser;
 
-// Note: sign-out from enterprise account is not allowed in ChromeOS.
-#if !BUILDFLAG(IS_CHROMEOS)
 IN_PROC_BROWSER_TEST_F(
     ActorPolicyCheckerBrowserTestWithManagedAccountWithPolicy,
     CapabilityUpdatedForAccount) {
@@ -509,6 +563,8 @@ IN_PROC_BROWSER_TEST_F(
                    ->GetPolicyChecker()
                    .can_act_on_web());
 
+// Note: sign-out from enterprise account is not allowed in ChromeOS.
+#if !BUILDFLAG(IS_CHROMEOS)
   ClearPrimaryAccount();
   // No capability because the policy is disabled.
   SimulatePrimaryAccountChangedSignIn(&kNonEnterpriseAccount);
@@ -521,7 +577,7 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(ActorKeyedService::Get(browser()->profile())
                   ->GetPolicyChecker()
                   .can_act_on_web());
-}
 #endif  // !BUILDFLAG(IS_CHROMEOS)
+}
 
 }  // namespace actor

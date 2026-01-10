@@ -458,7 +458,7 @@ Periksa sandi Anda kapan saja di <ph name="GOOGLE_PASSWORD_MANAGER" />.</transla
 <translation id="1291421198328146277">Reset tombol</translation>
 <translation id="1292849930724124745">Pasang kartu smart agar tetap login</translation>
 <translation id="1293264513303784526">Perangkat USB-C (port sebelah kiri)</translation>
-<translation id="1293360286536751243">"<ph name="MAIN_GESTURE" />" mungkin tumpang-tindih dengan "<ph name="CONFLICTING_GESTURE_ONE" />", "<ph name="CONFLICTING_GESTURE_TWO" />", dan "<ph name="CONFLICTING_GESTURE_THREE" />". Jika memungkinkan, coba pilih gestur yang berbeda.</translation>
+<translation id="1293360286536751243">"<ph name="MAIN_GESTURE" />" mungkin tumpang tindih dengan "<ph name="CONFLICTING_GESTURE_ONE" />", "<ph name="CONFLICTING_GESTURE_TWO" />", dan "<ph name="CONFLICTING_GESTURE_THREE" />". Jika memungkinkan, coba pilih gestur yang berbeda.</translation>
 <translation id="1293556467332435079">File</translation>
 <translation id="1294807885394205587">Proses ini mungkin memerlukan waktu beberapa menit. Memulai pengelola penampung.</translation>
 <translation id="12951065153783848">Organisasi mengelola akun Anda</translation>
@@ -527,7 +527,6 @@ Periksa sandi Anda kapan saja di <ph name="GOOGLE_PASSWORD_MANAGER" />.</transla
 <translation id="1342886103232377846">Untuk memeriksa sandi yang telah dibobol, buka Pengelola Sandi Google</translation>
 <translation id="1343920184519992513">Lanjutkan dari halaman terakhir yang dibuka dan buka rangkaian halaman tertentu</translation>
 <translation id="1344141078024003905">Anda mentransmisikan layar Anda. Anda dapat menjeda atau menghentikan transmisi layar kapan saja.</translation>
-<translation id="13449088910457661">Gemini berfungsi di tab Anda untuk menyelesaikan tugas yang Anda berikan. <ph name="LINK_BEGIN" />Pelajari lebih lanjut<ph name="LINK_END" /></translation>
 <translation id="1346403631707626730">Kirim data penggunaan dan diagnostik. Bantu tingkatkan pengalaman penggunaan Android anak Anda dengan otomatis mengirim data diagnostik, perangkat, dan penggunaan aplikasi ke Google. Data ini tidak akan digunakan untuk mengidentifikasi anak Anda serta akan membantu sistem dan stabilitas aplikasi serta peningkatan lainnya. Beberapa data gabungan juga akan membantu aplikasi dan partner Google, seperti developer Android. Jika Aktivitas Web &amp; Aplikasi tambahan diaktifkan untuk anak Anda, data ini mungkin akan disimpan ke Akun Google miliknya. <ph name="BEGIN_LINK1" />Pelajari lebih lanjut metrik<ph name="BEGIN_LINK1_END" />Pelajari Lebih Lanjut<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">Konfirmasi dan mulai ulang</translation>
 <translation id="1346748346194534595">Kanan</translation>
@@ -1985,6 +1984,7 @@ Anda dapat mengelola setelan akun ini dengan menginstal aplikasi Family Link di 
 <translation id="2319072477089403627">Menghubungkan ke ponsel Android Anda...</translation>
 <translation id="2319459402137712349">Pilih kolom teks untuk membuka keyboard. Anda juga dapat memilih ikon Keyboard di bagian bawah layar.</translation>
 <translation id="2319993584768066746">Foto layar login</translation>
+<translation id="2321487076181785382">Pisah Tab</translation>
 <translation id="2322193970951063277">Header dan footer</translation>
 <translation id="2322318151094136999">Tanyakan saat situs ingin mengakses port serial (direkomendasikan)</translation>
 <translation id="2322622365472107569">Waktu berakhir <ph name="TIME" /></translation>
@@ -2132,7 +2132,6 @@ Anda dapat mengelola setelan akun ini dengan menginstal aplikasi Family Link di 
 <translation id="2428939361789119025">Nonaktifkan Wi-Fi</translation>
 <translation id="2431027948063157455">Asisten Google tidak dapat dimuat, periksa koneksi internet dan coba lagi.</translation>
 <translation id="243179355394256322">Organisasi Anda membatasi pendaftaran perangkat hanya untuk pengguna yang diberi otorisasi. Pengguna ini tidak memiliki otorisasi untuk mendaftarkan perangkat. Pastikan pengguna memiliki hak istimewa administrator "Mendaftar Google Meet hardware" di bagian Pengguna pada konsol Admin.</translation>
-<translation id="2431896368788252518">Melihat dan mengelola konteks personal Anda</translation>
 <translation id="243275146591958220">Batalkan download</translation>
 <translation id="2433237965825924228">Aplikasi web terisolasi mengontrol perangkat autentikasi dan kartu smart yang dapat oleh perangkat tersebut. Kartu smart biasanya berisi ID yang digunakan untuk mengautentikasi Anda.</translation>
 <translation id="2433452467737464329">Tambahkan parameter kueri di URL untuk menyegarkan halaman secara otomatis: chrome://network/?refresh=&lt;sec&gt;</translation>
@@ -2713,7 +2712,7 @@ Anda dapat mengelola setelan akun ini dengan menginstal aplikasi Family Link di 
 <translation id="2806372837663997957">Perangkat yang Anda coba ajak berbagi tidak menerima</translation>
 <translation id="2806891468525657116">Pintasan sudah ada</translation>
 <translation id="2807517655263062534">File yang Anda download muncul di sini</translation>
-<translation id="2808985063107661499">"<ph name="MAIN_GESTURE" />" mungkin tumpang-tindih dengan "<ph name="CONFLICTING_GESTURE_ONE" />" dan "<ph name="CONFLICTING_GESTURE_TWO" />". Jika memungkinkan, coba pilih gestur yang berbeda.</translation>
+<translation id="2808985063107661499">"<ph name="MAIN_GESTURE" />" mungkin tumpang tindih dengan "<ph name="CONFLICTING_GESTURE_ONE" />" dan "<ph name="CONFLICTING_GESTURE_TWO" />". Jika memungkinkan, coba pilih gestur yang berbeda.</translation>
 <translation id="2809346626032021864">Membaca</translation>
 <translation id="2811205483104563968">Akun</translation>
 <translation id="2812049959647166806">Thunderbolt tidak didukung</translation>
@@ -4392,6 +4391,7 @@ Anda dapat mengelola setelan akun ini dengan menginstal aplikasi Family Link di 
 <translation id="394984172568887996">Diimpor dari IE</translation>
 <translation id="3949999964543783947"><ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" /> untuk membuat file didownload dengan lebih aman</translation>
 <translation id="3950479158728806902">Buat kunci sandi secara otomatis untuk login lebih cepat</translation>
+<translation id="3950755269510650933">Kelola informasi yang dapat digunakan Gemini untuk mempersonalisasi pengalaman Anda</translation>
 <translation id="3950820424414687140">Login</translation>
 <translation id="3950841222883198950">Dikte</translation>
 <translation id="3953834000574892725">Akun saya</translation>
@@ -4421,6 +4421,7 @@ Anda dapat mengelola setelan akun ini dengan menginstal aplikasi Family Link di 
 <translation id="3968739731834770921">Kana</translation>
 <translation id="3970114302595058915">ID</translation>
 <translation id="397105322502079400">Menghitung...</translation>
+<translation id="3971355433478412726">Petunjuk untuk Gemini</translation>
 <translation id="3971764089670057203">Sidik jari pada kunci keamanan ini</translation>
 <translation id="3973005893595042880">Pengguna tidak diizinkan</translation>
 <translation id="3973660817924297510">Memeriksa sandi (<ph name="CHECKED_PASSWORDS" /> dari <ph name="TOTAL_PASSWORDS" />) …</translation>
@@ -4540,7 +4541,7 @@ Anda dapat mengelola setelan akun ini dengan menginstal aplikasi Family Link di 
 <translation id="404894744863342743">Setelah selesai menggunakan file yang didownload, hapus agar orang lain yang menggunakan perangkat ini tidak dapat melihat sandi Anda.</translation>
 <translation id="4049783682480068824">{COUNT,plural, =1{# kontak tidak tersedia. Untuk menggunakan fitur Berbagi Langsung dengan kontak tersebut, tambahkan alamat email yang terkait dengan Akun Google mereka ke kontak Anda.}other{# kontak tidak tersedia. Untuk menggunakan fitur Berbagi Langsung dengan kontak tersebut, tambahkan alamat email yang terkait dengan Akun Google mereka ke kontak Anda.}}</translation>
 <translation id="4050225813016893843">Metode autentikasi</translation>
-<translation id="4050379682069019014">"<ph name="MAIN_GESTURE" />" mungkin tumpang-tindih dengan "<ph name="CONFLICTING_GESTURE" />". Jika memungkinkan, coba pilih gestur yang berbeda.</translation>
+<translation id="4050379682069019014">"<ph name="MAIN_GESTURE" />" mungkin tumpang tindih dengan "<ph name="CONFLICTING_GESTURE" />". Jika memungkinkan, coba pilih gestur yang berbeda.</translation>
 <translation id="4050534976465737778">Pastikan kedua perangkat tidak terkunci, berdekatan, serta mengaktifkan Bluetooth. Jika Anda berbagi dengan Chromebook yang tidak ada dalam kontak Anda, pastikan Chromebook sudah mengaktifkan visibilitas Berbagi Langsung (buka area status, lalu aktifkan visibilitas Berbagi Langsung). <ph name="LINK_BEGIN" />Pelajari lebih lanjut<ph name="LINK_END" /></translation>
 <translation id="4050931325744810690">Untuk beralih ke metode input yang terakhir digunakan, tekan <ph name="KEY_CODES" /></translation>
 <translation id="4051177682900543628">penelusuran + panah kanan</translation>
@@ -5826,6 +5827,7 @@ Gunakan Ctrl + Alt + Kurangi kecerahan untuk memperkecil.</translation>
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">Simpan ke folder hanya di perangkat ini?</translation>
 <translation id="4959262764292427323">Sandi disimpan di Akun Google agar Anda dapat menggunakannya di perangkat mana pun</translation>
+<translation id="4959581970694896608">Sesuaikan cara Gemini merespons Anda</translation>
 <translation id="4960020053211143927">Tidak didukung oleh beberapa aplikasi</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> - <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">Transmisikan layar</translation>
@@ -6174,7 +6176,6 @@ Gunakan Ctrl + Alt + Kurangi kecerahan untuk memperkecil.</translation>
 <translation id="5204967432542742771">Masukkan sandi</translation>
 <translation id="5205484256512407285">Jangan gunakan data seluler untuk mentransfer</translation>
 <translation id="520568280985468584">Jaringan berhasil ditambahkan. Mungkin perlu waktu beberapa menit agar jaringan seluler aktif.</translation>
-<translation id="520576054436518354">Izinkan Gemini melakukan penjelajahan untuk Anda</translation>
 <translation id="5207949376430453814">Sorot tempat penyisipan teks</translation>
 <translation id="520840839826327499"><ph name="SERVICE_NAME" /> ingin memeriksa apakah Anda menggunakan perangkat ChromeOS yang memenuhi syarat.</translation>
 <translation id="5208722776934437424">Ubah izin</translation>
@@ -6421,6 +6422,7 @@ Gunakan Ctrl + Alt + Kurangi kecerahan untuk memperkecil.</translation>
 <translation id="5388719243178419614">Tidak dapat mengupload. Gagal memproses file gambar.</translation>
 <translation id="5388885445722491159">Disandingkan</translation>
 <translation id="5389224261615877010">Pelangi</translation>
+<translation id="538945906186309152">Aktifkan pintasan keyboard Gemini</translation>
 <translation id="5389794555912875905">Berikan peringatan sebelum membuka situs yang tidak aman (direkomendasikan)</translation>
 <translation id="5389943529251318913">Kurangi kecepatan mouse sebesar</translation>
 <translation id="5390112241331447203">Sertakan file system_logs.txt yang dikirimkan di laporan masukan.</translation>
@@ -10219,6 +10221,7 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="8011372169388649948">'<ph name="BOOKMARK_TITLE" />' dipindahkan.</translation>
 <translation id="8012188750847319132">caps lock</translation>
 <translation id="8012463809859447963">Detail hotspot instan</translation>
+<translation id="8013181884974864006">Tugas Kontekstual</translation>
 <translation id="8013534738634318212">Situs ini berada dalam grup yang ditentukan oleh <ph name="RWS_OWNER" />. Situs dalam grup dapat melihat aktivitas Anda dalam grup tersebut.</translation>
 <translation id="8013993649590906847">Jika gambar tidak memiliki deskripsi yang berguna, Chrome akan mencoba memberikan deskripsi untuk Anda. Untuk membuat deskripsi, gambar akan dikirim ke Google.</translation>
 <translation id="8014154204619229810">Alat pembaru sedang berjalan. Segarkan dalam satu menit untuk memeriksa lagi.</translation>

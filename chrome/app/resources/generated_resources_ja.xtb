@@ -527,7 +527,6 @@
 <translation id="1342886103232377846">Google パスワード マネージャーに移動して、不正使用されたパスワードを確認してください。</translation>
 <translation id="1343920184519992513">前回中断したところから再開して、特定のページを開く</translation>
 <translation id="1344141078024003905">画面をキャストしています。いつでも画面のキャストを一時停止または停止できます。</translation>
-<translation id="13449088910457661">Gemini がタブの情報を使用して、リクエストされたタスクを行います。<ph name="LINK_BEGIN" />詳細<ph name="LINK_END" /></translation>
 <translation id="1346403631707626730">使用状況データや診断データを送信します。診断データやデバイスとアプリの使用状況データを Google に自動送信して、お子様向けの Android 機能の向上にご協力ください。この情報を使ってお子様個人が特定されることはありません。この情報は、システムとアプリの安定性の向上やその他の機能の改善に役立てられます。また、Google のアプリやパートナー（Android デベロッパーなど）も、集計データとしてこの情報を活用します。お子様の [その他のウェブとアプリのアクティビティ] の設定がオンになっている場合、このデータはお子様の Google アカウントに保存されます。<ph name="BEGIN_LINK1" />統計情報の詳細<ph name="BEGIN_LINK1_END" />詳細<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">確定して再起動</translation>
 <translation id="1346748346194534595">右</translation>
@@ -1968,6 +1967,7 @@
 <translation id="2319072477089403627">Android スマートフォンに接続中...</translation>
 <translation id="2319459402137712349">テキスト フィールドを選択してキーボードを開きます。画面の下部にあるキーボード アイコンを選択することもできます。</translation>
 <translation id="2319993584768066746">ログイン画面の写真</translation>
+<translation id="2321487076181785382">タブを分割</translation>
 <translation id="2322193970951063277">ヘッダーとフッター</translation>
 <translation id="2322318151094136999">サイトからシリアルポートへのアクセス許可を求められたときに確認する（推奨）</translation>
 <translation id="2322622365472107569">終了時間: <ph name="TIME" /></translation>
@@ -2115,7 +2115,6 @@
 <translation id="2428939361789119025">Wi-Fi をオフにする</translation>
 <translation id="2431027948063157455">Google アシスタントを読み込めませんでした。ネットワーク接続を確認してから、もう一度お試しください。</translation>
 <translation id="243179355394256322">お客様の組織では、デバイスの登録は権限のあるユーザーしか行えません。このユーザーにはデバイスを登録する権限がありません。管理コンソールの [ユーザー] で、ユーザーに「Google Meet ハードウェアの登録」管理者権限があることをご確認ください。</translation>
-<translation id="2431896368788252518">パーソナライズ設定を表示して管理します</translation>
 <translation id="243275146591958220">ダウンロードをキャンセル</translation>
 <translation id="2433237965825924228">独立したウェブアプリは、認証デバイスと、そのデバイスで読み取り可能なスマートカードを制御できます。通常、スマートカードには、ユーザーの認証に使用する識別子が含まれます。</translation>
 <translation id="2433452467737464329">ページを自動更新するには URL に次のようなクエリ パラメータを追加してください: chrome://network/?refresh=&lt;sec&gt;</translation>
@@ -2670,7 +2669,7 @@
 <translation id="2792697226874849938">制限の画像</translation>
 <translation id="2794522004398861033">eSIM を設定するには Wi-Fi またはイーサネットに接続してください</translation>
 <translation id="2794977172822818797">現在のサイトを追加</translation>
-<translation id="2795716239552913152">多くのサイトは、ローカル ニュースや近くのお店の情報などを取得するためにユーザーの位置情報を使用します。</translation>
+<translation id="2795716239552913152">多くのサイトは、地域のニュースや近くの店舗情報の表示など、最適な機能を提供するために位置情報を利用します</translation>
 <translation id="2797712124653482791"><ph name="DISMISS_DAYS" /> 日間表示しない</translation>
 <translation id="2798347533012571708">常に更新</translation>
 <translation id="2799162042226656283">Chrome</translation>
@@ -4371,6 +4370,7 @@
 <translation id="394984172568887996">IE ブックマーク</translation>
 <translation id="3949999964543783947">ファイルのダウンロードの安全性を高めるために <ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" /></translation>
 <translation id="3950479158728806902">パスキーを自動作成してすばやくログイン</translation>
+<translation id="3950755269510650933">Gemini がエクスペリエンスをカスタマイズするために使用できる情報を管理します</translation>
 <translation id="3950820424414687140">ログイン</translation>
 <translation id="3950841222883198950">音声入力</translation>
 <translation id="3953834000574892725">マイ アカウント</translation>
@@ -4400,6 +4400,7 @@
 <translation id="3968739731834770921">かな</translation>
 <translation id="3970114302595058915">ID</translation>
 <translation id="397105322502079400">計算しています...</translation>
+<translation id="3971355433478412726">Gemini への指示</translation>
 <translation id="3971764089670057203">このセキュリティ キーのフィンガープリント</translation>
 <translation id="3973005893595042880">ユーザーは許可されていません</translation>
 <translation id="3973660817924297510">パスワードを確認しています（<ph name="CHECKED_PASSWORDS" /> 件目 / <ph name="TOTAL_PASSWORDS" /> 件中）…</translation>
@@ -5802,6 +5803,7 @@
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">このデバイスのフォルダにのみ保存しますか？</translation>
 <translation id="4959262764292427323">パスワードは Google アカウントに保存されるため、どのデバイスからでも使用できます</translation>
+<translation id="4959581970694896608">Gemini の回答をカスタマイズします</translation>
 <translation id="4960020053211143927">一部のアプリではサポート対象外</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> - <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">画面をキャスト</translation>
@@ -6148,7 +6150,6 @@
 <translation id="5204967432542742771">パスワードを入力</translation>
 <translation id="5205484256512407285">転送にモバイルデータを使用しない</translation>
 <translation id="520568280985468584">ネットワークを追加しました。モバイル ネットワークが有効になるまでに数分かかる場合があります。</translation>
-<translation id="520576054436518354">Gemini のブラウジング サポート</translation>
 <translation id="5207949376430453814">テキスト カーソルをハイライト表示する</translation>
 <translation id="520840839826327499"><ph name="SERVICE_NAME" /> により、ご使用の ChromeOS デバイスが対象かどうかの確認が行われます。</translation>
 <translation id="5208722776934437424">権限を変更</translation>
@@ -6394,6 +6395,7 @@
 <translation id="5388719243178419614">アップロードできません。画像ファイルを処理できませんでした。</translation>
 <translation id="5388885445722491159">ペア設定済み</translation>
 <translation id="5389224261615877010">虹</translation>
+<translation id="538945906186309152">Gemini のキーボード ショートカットをオンにする</translation>
 <translation id="5389794555912875905">安全でないサイトにアクセスする前に警告を表示する（推奨）</translation>
 <translation id="5389943529251318913">マウスの速度を遅くする</translation>
 <translation id="5390112241331447203">送信された system_logs.txt ファイルをフィードバック レポートに含める。</translation>
@@ -10189,6 +10191,7 @@
 <translation id="8011372169388649948">「<ph name="BOOKMARK_TITLE" />」を移動しました。</translation>
 <translation id="8012188750847319132">CapsLock</translation>
 <translation id="8012463809859447963">インスタント アクセス ポイントの詳細</translation>
+<translation id="8013181884974864006">コンテキスト タスク</translation>
 <translation id="8013534738634318212">これらのサイトは、<ph name="RWS_OWNER" /> により定義されたグループに属しています。グループ内のサイトは、グループでのあなたのアクティビティを確認できます。</translation>
 <translation id="8013993649590906847">画像に有効な説明が設定されていない場合に、Chrome で説明を自動的に生成できるよう Google に画像が送信されます。</translation>
 <translation id="8014154204619229810">現在アップデータを実行中です。しばらくしてから更新して、もう一度ご確認ください。</translation>

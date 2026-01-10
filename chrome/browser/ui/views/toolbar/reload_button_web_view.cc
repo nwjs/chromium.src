@@ -12,11 +12,13 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/view_ids.h"
+#include "chrome/browser/ui/waap/initial_web_ui_manager.h"
 #include "chrome/browser/ui/webui/reload_button/reload_button_ui.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "content/public/browser/context_menu_params.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/accessibility/ax_enums.mojom-data-view.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -36,7 +38,7 @@
 ReloadButtonWebView::ReloadButtonWebView(
     BrowserWindowInterface* browser,
     chrome::BrowserCommandController* controller)
-    : controller_(controller) {
+    : browser_(browser), controller_(controller) {
   SetLayoutManager(std::make_unique<views::FillLayout>());
 
   auto web_view = std::make_unique<views::WebView>(browser->GetProfile());
@@ -44,16 +46,17 @@ ReloadButtonWebView::ReloadButtonWebView(
   auto* web_contents = web_view->GetWebContents(kUrl);
   // PLM has to be initialized before loading the URL.
   InitializePageLoadMetricsForWebContents(web_contents);
-  web_view->LoadInitialURL(kUrl);
+
   const int size = GetLayoutConstant(LayoutConstant::TOOLBAR_BUTTON_HEIGHT);
   web_view->SetPreferredSize(gfx::Size(size, size));
-  webui::SetBrowserWindowInterface(web_contents, browser);
   web_contents->SetPageBaseBackgroundColor(SK_ColorTRANSPARENT);
-  reload_button_ui_ =
-      web_contents->GetWebUI()->GetController()->GetAs<ReloadButtonUI>();
   web_view->SetID(VIEW_ID_RELOAD_BUTTON);
-  AddChildView(std::move(web_view));
+
+  // We must save the pointer to the WebView so we can load the URL after the
+  // view is added to a widget.
+  web_view_ = AddChildView(std::move(web_view));
   web_contents->SetDelegate(this);
+  Observe(web_contents);
 
   menu_model_ = std::make_unique<ui::SimpleMenuModel>(this);
   menu_model_->AddItemWithStringId(IDC_RELOAD,
@@ -74,11 +77,32 @@ ReloadButtonWebView::ReloadButtonWebView(
   UpdateAccessibleHasPopup();
   UpdateTooltipText();
   SetProperty(views::kElementIdentifierKey, kReloadButtonElementId);
-  SetReloadButtonUIState();
   SetFocusBehavior(FocusBehavior::ACCESSIBLE_ONLY);
 }
 
 ReloadButtonWebView::~ReloadButtonWebView() = default;
+
+void ReloadButtonWebView::AddedToWidget() {
+  CHECK(web_view_);
+  if (reload_button_ui_) {
+    return;
+  }
+  // Ensure the browser window interface is associated with the WebContents
+  // before the WebUI acts on it.
+  webui::SetBrowserWindowInterface(web_view_->GetWebContents(), browser_);
+  web_view_->LoadInitialURL(GURL(chrome::kChromeUIReloadButtonURL));
+  reload_button_ui_ = web_view_->GetWebContents()
+                          ->GetWebUI()
+                          ->GetController()
+                          ->GetAs<ReloadButtonUI>();
+  SetReloadButtonUIState();
+}
+
+void ReloadButtonWebView::DidFinishLoad(
+    content::RenderFrameHost* render_frame_host,
+    const GURL& validated_url) {
+  InitialWebUIManager::From(browser_)->OnReloadButtonLoaded();
+}
 
 void ReloadButtonWebView::ChangeMode(ReloadControl::Mode mode, bool force) {
   // TODO(crbug.com/444358999): Now the mode is always updated immediately from

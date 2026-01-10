@@ -527,7 +527,6 @@ Controlla le password in qualsiasi momento in <ph name="GOOGLE_PASSWORD_MANAGER"
 <translation id="1342886103232377846">Per controllare la presenza di password compromesse, vai a Gestore delle password di Google</translation>
 <translation id="1343920184519992513">Continua dal punto in cui avevi interrotto e apri un insieme di pagine specifiche</translation>
 <translation id="1344141078024003905">Stai trasmettendo lo schermo. Puoi mettere in pausa la trasmissione dello schermo o interromperla in qualsiasi momento.</translation>
-<translation id="13449088910457661">Gemini agisce nelle tue schede per completare le attività che gli assegni. <ph name="LINK_BEGIN" />Scopri di più<ph name="LINK_END" /></translation>
 <translation id="1346403631707626730">Invia dati su utilizzo e diagnostica. Contribuisci a migliorare l'esperienza Android di tuo figlio tramite l'invio automatico a Google di dati diagnostici e sull'utilizzo delle app e del dispositivo. Non verranno utilizzati per identificare tuo figlio e contribuiranno alla stabilità delle app e del sistema, nonché ad altri miglioramenti. Alcuni dati aggregati saranno utili anche per app e partner di Google, ad esempio gli sviluppatori Android. Se l'impostazione Attività web e app aggiuntiva è attiva per tuo figlio, queste informazioni potrebbero essere salvate nel suo Account Google. <ph name="BEGIN_LINK1" />Scopri di più sulle metriche<ph name="BEGIN_LINK1_END" />Scopri di più<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">Conferma e riavvia</translation>
 <translation id="1346748346194534595">Destra</translation>
@@ -1341,7 +1340,7 @@ A questo account potrebbero essere applicate le autorizzazioni già concesse all
 <translation id="189358972401248634">Altre lingue</translation>
 <translation id="1895658205118569222">Chiusura</translation>
 <translation id="1896043844785689584">Per configurare l'impronta, chiedi a tuo figlio di toccare il sensore di impronte digitali nell'angolo in basso a destra della tastiera. I dati relativi all'impronta di tuo figlio vengono memorizzati in modo sicuro e non possono essere trasferiti in alcun modo da questo <ph name="DEVICE_TYPE" />.</translation>
-<translation id="1897120393475391208">Usa password efficace</translation>
+<translation id="1897120393475391208">Usa una password efficace</translation>
 <translation id="1897860317037652061">Analisi non riuscita</translation>
 <translation id="1898804291554630487">Chiedi info su questa pagina</translation>
 <translation id="1900305421498694955">Le app di Google Play potrebbero richiedere accesso completo al file system per leggere e scrivere sui file memorizzati sui dispositivi di archiviazione esterni. I file e le cartelle creati sul dispositivo sono visibili a chiunque usi l'unità esterna. <ph name="LINK_BEGIN" />Ulteriori informazioni<ph name="LINK_END" /></translation>
@@ -1972,6 +1971,7 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="2319072477089403627">Connessione al tuo smartphone Android in corso…</translation>
 <translation id="2319459402137712349">Seleziona un campo di testo per aprire la tastiera. Puoi anche selezionare l'icona Tastiera nella parte inferiore dello schermo.</translation>
 <translation id="2319993584768066746">Foto nella schermata di accesso</translation>
+<translation id="2321487076181785382">Schede divise</translation>
 <translation id="2322193970951063277">Intestazioni e piè di pagina</translation>
 <translation id="2322318151094136999">Chiedi conferma quando un sito vuole accedere alle porte seriali (opzione consigliata)</translation>
 <translation id="2322622365472107569">Ora di fine: <ph name="TIME" /></translation>
@@ -2119,7 +2119,6 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="2428939361789119025">Disattiva Wi-Fi</translation>
 <translation id="2431027948063157455">Impossibile caricare l'Assistente Google, controlla la connessione di rete e riprova.</translation>
 <translation id="243179355394256322">La tua organizzazione ha limitato la registrazione dei dispositivi ai soli utenti autorizzati. Questo utente non è autorizzato a registrare i dispositivi. Assicurati che l'utente disponga del privilegio di amministratore per Registrazione dell'hardware Google Meet nella sezione Utenti della Console di amministrazione.</translation>
-<translation id="2431896368788252518">Visualizza e gestisci il tuo contesto personale</translation>
 <translation id="243275146591958220">Annulla download</translation>
 <translation id="2433237965825924228">Le app web isolate controllano i dispositivi di autenticazione e le smart card a cui possono accedere. Le smart card in genere contengono identificatori utilizzati per autenticarti.</translation>
 <translation id="2433452467737464329">Aggiungi un parametro di ricerca nell'URL per aggiornare automaticamente la pagina: chrome://network/?refresh=&lt;sec&gt;</translation>
@@ -4379,6 +4378,7 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="394984172568887996">Importati da IE</translation>
 <translation id="3949999964543783947"><ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" /> per rendere più sicuro il download dei file</translation>
 <translation id="3950479158728806902">Crea automaticamente una passkey per accedere più velocemente</translation>
+<translation id="3950755269510650933">Gestisci le informazioni che Gemini può utilizzare per personalizzare la tua esperienza</translation>
 <translation id="3950820424414687140">Accedi</translation>
 <translation id="3950841222883198950">Digitazione vocale</translation>
 <translation id="3953834000574892725">Account personali</translation>
@@ -4408,6 +4408,7 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="3968739731834770921">Kana</translation>
 <translation id="3970114302595058915">ID</translation>
 <translation id="397105322502079400">Calcolo in corso...</translation>
+<translation id="3971355433478412726">Istruzioni per Gemini</translation>
 <translation id="3971764089670057203">Impronte registrate con questo token di sicurezza</translation>
 <translation id="3973005893595042880">L'utente non è consentito</translation>
 <translation id="3973660817924297510">Verifica delle password (<ph name="CHECKED_PASSWORDS" /> di <ph name="TOTAL_PASSWORDS" />)…</translation>
@@ -5812,6 +5813,7 @@ Premi Ctrl + Alt + Diminuisci luminosità per diminuire lo zoom.</translation>
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">Salvare in una cartella solo su questo dispositivo?</translation>
 <translation id="4959262764292427323">Le password vengono salvate nel tuo Account Google affinché tu possa usarle su qualsiasi dispositivo</translation>
+<translation id="4959581970694896608">Personalizza il modo in cui Gemini ti risponde</translation>
 <translation id="4960020053211143927">Non supportata da alcune app</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> - <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">Trasmetti schermo</translation>
@@ -6160,7 +6162,6 @@ Premi Ctrl + Alt + Diminuisci luminosità per diminuire lo zoom.</translation>
 <translation id="5204967432542742771">Inserisci la password</translation>
 <translation id="5205484256512407285">Non utilizzare mai i dati mobili per il trasferimento</translation>
 <translation id="520568280985468584">La rete è stata aggiunta. Potrebbero occorrere diversi minuti per attivare la rete mobile.</translation>
-<translation id="520576054436518354">Lascia che Gemini navighi per te</translation>
 <translation id="5207949376430453814">Evidenzia il cursore di testo</translation>
 <translation id="520840839826327499"><ph name="SERVICE_NAME" /> chiede di controllare che tu stia utilizzando un dispositivo ChromeOS idoneo.</translation>
 <translation id="5208722776934437424">Modifica le autorizzazioni</translation>
@@ -6407,6 +6408,7 @@ Premi Ctrl + Alt + Diminuisci luminosità per diminuire lo zoom.</translation>
 <translation id="5388719243178419614">Caricamento non riuscito. Impossibile elaborare il file immagine.</translation>
 <translation id="5388885445722491159">Accoppiato</translation>
 <translation id="5389224261615877010">Arcobaleno</translation>
+<translation id="538945906186309152">Attiva la scorciatoia da tastiera di Gemini</translation>
 <translation id="5389794555912875905">Visualizza gli avvisi prima di visitare siti non sicuri (opzione consigliata)</translation>
 <translation id="5389943529251318913">Riduci la velocità del mouse di</translation>
 <translation id="5390112241331447203">Includi il file system_logs.txt inviato nei rapporti di feedback.</translation>
@@ -10203,6 +10205,7 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="8011372169388649948">Preferito "<ph name="BOOKMARK_TITLE" />" spostato.</translation>
 <translation id="8012188750847319132">bloc maiusc</translation>
 <translation id="8012463809859447963">Dettagli hotspot istantaneo</translation>
+<translation id="8013181884974864006">Attività contestuali</translation>
 <translation id="8013534738634318212">Questi siti fanno parte di un gruppo definito da <ph name="RWS_OWNER" />. I siti di un gruppo possono vedere le tue attività nel gruppo.</translation>
 <translation id="8013993649590906847">Se un'immagine è senza descrizione utile, Chrome proverà a fornirne una. Per la creazione delle descrizioni, le immagini vengono inviate a Google.</translation>
 <translation id="8014154204619229810">Lo strumento di aggiornamento è in esecuzione. Aggiorna tra un minuto per ricontrollare.</translation>

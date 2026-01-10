@@ -64,6 +64,7 @@
 #include "chrome/browser/ui/lens/lens_overlay_side_panel_coordinator.h"
 #include "chrome/browser/ui/lens/lens_overlay_untrusted_ui.h"
 #include "chrome/browser/ui/lens/lens_overlay_url_builder.h"
+#include "chrome/browser/ui/lens/lens_overlay_wait_for_paint_utils.h"
 #include "chrome/browser/ui/lens/lens_permission_bubble_controller.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
 #include "chrome/browser/ui/lens/lens_searchbox_controller.h"
@@ -98,6 +99,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/base32/base32.h"
 #include "components/constrained_window/constrained_window_views.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/lens/lens_features.h"
 #include "components/lens/lens_overlay_dismissal_source.h"
@@ -136,6 +138,7 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "net/base/mock_network_change_notifier.h"
 #include "net/base/network_change_notifier.h"
+#include "net/base/url_search_params.h"
 #include "net/base/url_util.h"
 #include "net/test/embedded_test_server/http_response.h"
 #include "pdf/pdf_features.h"
@@ -266,11 +269,6 @@ constexpr char kHistoryStateScript[] =
     "(function() {history.replaceState({'test':1}, 'test'); "
     "history.pushState({'test':1}, 'test'); history.back();})();";
 
-// `content::ExecJs` can handle promises, so queue a promise that only succeeds
-// after the contents have been rendered.
-constexpr char kPaintWorkaroundFunction[] =
-    "() => new Promise(resolve => requestAnimationFrame(() => resolve(true)))";
-
 constexpr char kTestSuggestSignals[] = "encoded_image_signals";
 
 constexpr char kQuerySubmissionTimeQueryParameter[] = "qsubts";
@@ -294,45 +292,6 @@ std::string EncodeRequestId(const lens::LensOverlayRequestId& request_id) {
                         base::Base64UrlEncodePolicy::OMIT_PADDING,
                         &encoded_request_id);
   return encoded_request_id;
-}
-
-// Opens the given URL in the given browser and waits for the first paint to
-// complete.
-void WaitForPaintImpl(
-    Browser* browser,
-    const GURL& url,
-    WindowOpenDisposition disposition = WindowOpenDisposition::CURRENT_TAB,
-    int browser_test_flags = ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP) {
-  ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
-      browser, url, disposition, browser_test_flags));
-  const bool first_paint_completed =
-      browser->tab_strip_model()
-          ->GetActiveTab()
-          ->GetContents()
-          ->CompletedFirstVisuallyNonEmptyPaint();
-
-  // Return early if first paint is already completed.
-  if (first_paint_completed) {
-    return;
-  }
-  // Wait for the first paint to complete. The below code works for a majority
-  // of cases, but loading non-html files can lead to the workaround failing, so
-  // this check is still needed.
-  ASSERT_TRUE(base::test::RunUntil([&]() {
-    return browser->tab_strip_model()
-        ->GetActiveTab()
-        ->GetContents()
-        ->CompletedFirstVisuallyNonEmptyPaint();
-  }));
-  // If the first paint was not mark as completed by the WebContents, use a
-  // workaround to request a frame on the WebContents. This function will only
-  // return when the promise is resolved and thus there is content painted on
-  // the WebContents to allow screenshotting. See crbug.com/334747109 for
-  // details on this possible race condition and the workaround used in
-  // interactive tests.
-  ASSERT_TRUE(
-      content::ExecJs(browser->tab_strip_model()->GetActiveTab()->GetContents(),
-                      kPaintWorkaroundFunction));
 }
 
 void ClickBubbleDialogButton(
@@ -629,7 +588,6 @@ class LensSearchControllerFake : public lens::TestLensSearchController {
       lens::LensOverlayFullImageResponseCallback full_image_callback,
       lens::LensOverlayUrlResponseCallback url_callback,
       lens::LensOverlayInteractionResponseCallback interaction_callback,
-      lens::LensOverlaySuggestInputsCallback suggest_inputs_callback,
       lens::LensOverlayThumbnailCreatedCallback thumbnail_created_callback,
       lens::UploadProgressCallback upload_progress_callback,
       variations::VariationsClient* variations_client,
@@ -645,10 +603,9 @@ class LensSearchControllerFake : public lens::TestLensSearchController {
             base::BindRepeating(
                 &LensSearchControllerFake::RecordUrlResponseCallback,
                 base::Unretained(this)),
-            interaction_callback, suggest_inputs_callback,
-            thumbnail_created_callback, upload_progress_callback,
-            variations_client, identity_manager, profile, invocation_source,
-            use_dark_mode, gen204_controller);
+            interaction_callback, thumbnail_created_callback,
+            upload_progress_callback, variations_client, identity_manager,
+            profile, invocation_source, use_dark_mode, gen204_controller);
     // Set up the fake responses for the query controller.
     fake_query_controller->set_next_full_image_request_should_return_error(
         full_image_request_should_return_error_);
@@ -763,6 +720,7 @@ class LensOverlayControllerBrowserTest : public InProcessBrowserTest {
          {lens::features::kLensOverlaySurvey, {}},
          {lens::features::kLensOverlaySidePanelOpenInNewTab, {}}},
         /*disabled_features=*/{
+            contextual_tasks::kContextualTasks,
             lens::features::kLensSearchZeroStateCsb,
             lens::features::kLensAimSuggestions,
             lens::features::kLensOverlaySuggestionsMigration,
@@ -889,7 +847,7 @@ class LensOverlayControllerBrowserTest : public InProcessBrowserTest {
       WindowOpenDisposition disposition = WindowOpenDisposition::CURRENT_TAB,
       int browser_test_flags = ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP) {
     const GURL url = embedded_test_server()->GetURL(relative_url);
-    WaitForPaintImpl(browser(), url, disposition, browser_test_flags);
+    lens::WaitForPaint(browser(), url, disposition, browser_test_flags);
   }
 
   // Helper to remove the start time, client upload duration, and viewport size
@@ -5554,7 +5512,8 @@ class LensOverlayControllerBrowserPDFContextualizationTest
   }
 
   std::vector<base::test::FeatureRef> GetDisabledFeatures() const override {
-    return {lens::features::kLensSearchZeroStateCsb};
+    return {contextual_tasks::kContextualTasks,
+            lens::features::kLensSearchZeroStateCsb};
   }
 
  protected:
@@ -6047,7 +6006,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
 
   // Load a non PDF.
   const GURL url = embedded_test_server()->GetURL(kDocumentWithNamedElement);
-  WaitForPaintImpl(browser(), url);
+  lens::WaitForPaint(browser(), url);
 
   // State should start in off.
   auto* controller = GetLensOverlayController();
@@ -6209,7 +6168,8 @@ class LensOverlayControllerBrowserPDFUpdatedContentFieldsTest
   }
 
   std::vector<base::test::FeatureRef> GetDisabledFeatures() const override {
-    return {lens::features::kLensSearchZeroStateCsb};
+    return {contextual_tasks::kContextualTasks,
+            lens::features::kLensSearchZeroStateCsb};
   }
 
  protected:
@@ -6264,7 +6224,8 @@ class LensOverlayControllerBrowserPDFIncreaseLimitTest
   }
 
   std::vector<base::test::FeatureRef> GetDisabledFeatures() const override {
-    return {lens::features::kLensSearchZeroStateCsb};
+    return {contextual_tasks::kContextualTasks,
+            lens::features::kLensSearchZeroStateCsb};
   }
 
  protected:
@@ -6330,6 +6291,7 @@ class LensOverlayControllerBrowserWithPixelsTest
   void SetupFeatureList() override {
     feature_list_.InitWithFeatures(
         /*enabled_features=*/{}, /*disabled_features=*/{
+            contextual_tasks::kContextualTasks,
             lens::features::kLensOverlayVisualSelectionUpdates,
             lens::features::kLensSearchZeroStateCsb});
   }
@@ -7808,7 +7770,8 @@ class LensOverlayControllerIframeBrowserTest
           {{"results-search-url", embedded_test_server()
                                       ->GetURL(kDocumentWithNamedElement)
                                       .spec()}}}},
-        /*disabled_features=*/{lens::features::kLensSearchZeroStateCsb});
+        /*disabled_features=*/{contextual_tasks::kContextualTasks,
+                               lens::features::kLensSearchZeroStateCsb});
   }
 };
 
@@ -8166,7 +8129,8 @@ class LensOverlayControllerInnerTextAndApc
               {"use-updated-content-fields", "true"},
           }},
          {lens::features::kLensSearchProtectedPage, {}}},
-        {lens::features::kLensSearchZeroStateCsb});
+        {contextual_tasks::kContextualTasks,
+         lens::features::kLensSearchZeroStateCsb});
   }
 };
 
@@ -8412,6 +8376,7 @@ class LensOverlayControllerContextualFeaturesDisabledTest
     feature_list_.InitWithFeatures(
         /*enabled_features=*/{},
         /*disabled_features=*/{
+            contextual_tasks::kContextualTasks,
             lens::features::kLensOverlayContextualSearchbox,
             lens::features::kLensSearchZeroStateCsb,
             lens::features::kLensOverlayNonBlockingPrivacyNotice});
@@ -8665,14 +8630,39 @@ class LensOverlayControllerOverlaySearchbox
     feature_list_.InitWithFeatures(
         /*enabled_features=*/{lens::features::kLensOverlay,
                               lens::features::kLensOverlayContextualSearchbox},
-        /*disabled_features=*/{lens::features::kLensSearchZeroStateCsb});
+        /*disabled_features=*/{contextual_tasks::kContextualTasks,
+                               lens::features::kLensSearchZeroStateCsb});
   }
 
   void VerifyContextualSearchQueryParameters(const GURL& url_to_process) {
-    EXPECT_THAT(url_to_process.spec(),
-                testing::MatchesRegex(std::string(kResultsSearchBaseUrl) +
-                                      ".*source=chrome.cr.menu.*&vit=.*&gsc=2&"
-                                      "hl=.*&q=.*&biw=\\d+&bih=\\d+"));
+    const GURL base_url(kResultsSearchBaseUrl);
+    EXPECT_EQ(url_to_process.scheme(), base_url.scheme());
+    EXPECT_EQ(url_to_process.host(), base_url.host());
+    EXPECT_EQ(url_to_process.path(), base_url.path());
+
+    std::string value;
+    EXPECT_TRUE(net::GetValueForKeyInQuery(url_to_process, "source", &value));
+    EXPECT_EQ(value, "chrome.cr.menu");
+
+    EXPECT_TRUE(net::GetValueForKeyInQuery(url_to_process, "vit", &value));
+    EXPECT_FALSE(value.empty());
+
+    EXPECT_TRUE(net::GetValueForKeyInQuery(url_to_process, "gsc", &value));
+    EXPECT_EQ(value, "2");
+
+    EXPECT_TRUE(net::GetValueForKeyInQuery(url_to_process, "hl", &value));
+    EXPECT_FALSE(value.empty());
+
+    EXPECT_TRUE(net::GetValueForKeyInQuery(url_to_process, "q", &value));
+    EXPECT_FALSE(value.empty());
+
+    EXPECT_TRUE(net::GetValueForKeyInQuery(url_to_process, "biw", &value));
+    int biw_val;
+    EXPECT_TRUE(base::StringToInt(value, &biw_val));
+
+    EXPECT_TRUE(net::GetValueForKeyInQuery(url_to_process, "bih", &value));
+    int bih_val;
+    EXPECT_TRUE(base::StringToInt(value, &bih_val));
   }
 };
 
@@ -8874,7 +8864,8 @@ class LensOverlayControllerSideBySideBrowserTest
     feature_list_.InitWithFeaturesAndParameters(
         {{lens::features::kLensOverlay, {{"use-blur", "true"}}},
          {features::kSideBySide, {}}},
-        {lens::features::kLensSearchZeroStateCsb});
+        {contextual_tasks::kContextualTasks,
+         lens::features::kLensSearchZeroStateCsb});
   }
 
   bool AreAnyRoundedCornersShowing() {
@@ -9375,7 +9366,8 @@ class LensOverlayControllerReinvocationBrowserTest
         {lens::features::kLensOverlay,
          lens::features::kLensOverlayContextualSearchbox,
          lens::features::kLensSearchReinvocationAffordance},
-        {lens::features::kLensSearchZeroStateCsb});
+        {contextual_tasks::kContextualTasks,
+         lens::features::kLensSearchZeroStateCsb});
   }
 };
 
@@ -9552,7 +9544,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
   GetLensSearchController()->OpenLensOverlayInCurrentSession();
   ASSERT_TRUE(
       base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
-  ASSERT_TRUE(base::test::RunUntil([&]() { return controller->state() == State::kOverlay; }));
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
 
   // We need to flush the mojo receiver calls to make sure the screenshot was
   // passed back to the WebUI or else the region selection UI will not render.
@@ -9819,4 +9812,57 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
   // Verify that the navigation occurred.
   search_observer.WaitForNavigationFinished();
   EXPECT_EQ(query_controller->last_lens_selection_type(), lens::REGION_SEARCH);
+}
+
+class LensOverlayControllerContextualTasksBrowserTest
+    : public LensOverlayControllerBrowserTest {
+ protected:
+  void SetupFeatureList() override {
+    feature_list_.InitWithFeatures(
+        {lens::features::kLensOverlay,
+         lens::features::kLensOverlayContextualSearchbox,
+         lens::features::kLensSearchReinvocationAffordance,
+         contextual_tasks::kContextualTasks},
+        {lens::features::kLensSearchZeroStateCsb});
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerContextualTasksBrowserTest,
+                       EnterprisePolicy) {
+  // The default policy is to allow the feature to be enabled.
+  EXPECT_TRUE(browser()
+                  ->GetFeatures()
+                  .lens_overlay_entry_point_controller()
+                  ->IsEnabled());
+
+  // Even if the LensOverlaySettings policy is set to disabled, the feature
+  // should still be enabled since the enterprise policy for contextual tasks is
+  // not set.
+  policy::PolicyMap policies;
+  policies.Set("LensOverlaySettings", policy::POLICY_LEVEL_MANDATORY,
+               policy::POLICY_SCOPE_USER, policy::POLICY_SOURCE_CLOUD,
+               base::Value(1), nullptr);
+  policy_provider()->UpdateChromePolicy(policies);
+  EXPECT_TRUE(browser()
+                  ->GetFeatures()
+                  .lens_overlay_entry_point_controller()
+                  ->IsEnabled());
+
+  policies.Set("SearchContentSharingSettings", policy::POLICY_LEVEL_MANDATORY,
+               policy::POLICY_SCOPE_USER, policy::POLICY_SOURCE_CLOUD,
+               base::Value(1), nullptr);
+  policy_provider()->UpdateChromePolicy(policies);
+  EXPECT_FALSE(browser()
+                   ->GetFeatures()
+                   .lens_overlay_entry_point_controller()
+                   ->IsEnabled());
+
+  policies.Set("SearchContentSharingSettings", policy::POLICY_LEVEL_MANDATORY,
+               policy::POLICY_SCOPE_USER, policy::POLICY_SOURCE_CLOUD,
+               base::Value(0), nullptr);
+  policy_provider()->UpdateChromePolicy(policies);
+  EXPECT_TRUE(browser()
+                  ->GetFeatures()
+                  .lens_overlay_entry_point_controller()
+                  ->IsEnabled());
 }

@@ -531,7 +531,6 @@ Mae <ph name="DOMAIN" /> yn gofyn i chi gadw'ch cerdyn smart wedi'i fewnosod.}}<
 <translation id="1342886103232377846">I wirio am gyfrineiriau sydd wedi'u darganfod, ewch i Reolwr Cyfrineiriau Google</translation>
 <translation id="1343920184519992513">Parhau lle y gwnaethoch adael ac agor set penodol o dudalennau</translation>
 <translation id="1344141078024003905">Rydych yn castio i'ch sgrîn. Gallwch oedi neu stopio castio eich sgrîn unrhyw bryd.</translation>
-<translation id="13449088910457661">Mae Gemini yn gweithio yn eich tabiau i gwblhau tasgau rydych yn eu rhoi iddo. <ph name="LINK_BEGIN" />Dysgu rhagor<ph name="LINK_END" /></translation>
 <translation id="1346403631707626730">Anfon data defnydd a diagnostig. Helpwch i wella profiad Android eich plentyn drwy anfon data diagnostig, dyfais a defnydd apiau yn awtomatig at Google. Ni ddefnyddir hyn i adnabod eich plentyn a bydd yn helpu sefydlogrwydd system ac ap a gwelliannau eraill. Bydd rhywfaint o ddata cyfanredol hefyd yn helpu apiau a phartneriaid Google, megis datblygwyr Android. Os yw Gweithgarwch ar y We ac Apiau ychwanegol wedi'i droi ymlaen ar gyfer eich plentyn, gellir cadw'r data hyn i'w gyfrif Google. <ph name="BEGIN_LINK1" />Dysgu rhagor am fetrigau<ph name="BEGIN_LINK1_END" />Dysgu rhagor<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">Cadarnhau ac ailgychwyn</translation>
 <translation id="1346748346194534595">De</translation>
@@ -1988,6 +1987,7 @@ Gallwch reoli gosodiadau'r cyfrif hwn drwy osod yr ap Family Link ar eich dyfais
 <translation id="2319072477089403627">Wrthi'n cysylltu â'ch ffôn Android...</translation>
 <translation id="2319459402137712349">Dewiswch faes testun i agor y bysellfwrdd. Gallwch hefyd ddewis yr eicon Bysellfwrdd ar waelod eich sgrîn.</translation>
 <translation id="2319993584768066746">Lluniau'r sgrîn mewngofnodi</translation>
+<translation id="2321487076181785382">Rhannu Tabiau</translation>
 <translation id="2322193970951063277">Penawdau a throedynnau</translation>
 <translation id="2322318151094136999">Gofyn pan fydd gwefan eisiau cyrchu pyrth cyfresol (argymhellir)</translation>
 <translation id="2322622365472107569">Amser gorffen <ph name="TIME" /></translation>
@@ -2135,7 +2135,6 @@ Gallwch reoli gosodiadau'r cyfrif hwn drwy osod yr ap Family Link ar eich dyfais
 <translation id="2428939361789119025">Diffodd Wi-Fi</translation>
 <translation id="2431027948063157455">Mae Google Assistant wedi methu â llwytho, gwiriwch eich cysylltiad rhwydwaith a rhowch gynnig arall arni.</translation>
 <translation id="243179355394256322">Mae eich sefydliad yn cyfyngu cofrestru dyfais i ddefnyddwyr awdurdodedig yn unig. Nid yw'r defnyddiwr hwn wedi'i awdurdodi i gofrestru dyfeisiau. Gwnewch yn siŵr bod gan y defnyddiwr y fraint gweinyddwr "Cofrestru caledwedd Google Meet" yn adran Defnyddwyr y Panel Gweinyddwr.</translation>
-<translation id="2431896368788252518">Gweld a rheoli eich cyd-destun personol</translation>
 <translation id="243275146591958220">Canslo lawrlwytho</translation>
 <translation id="2433237965825924228">Mae apiau gwe ynysig yn rheoli dyfeisiau dilysu a chardiau clyfar sydd ar gael iddynt. Mae cardiau clyfar fel arfer yn cynnwys dynodwyr a ddefnyddir i'ch dilysu.</translation>
 <translation id="2433452467737464329">Ychwanegu paramedr ymholiad yn yr URL i ail-lwytho'r dudalen yn awtomatig: chrome://network/?refresh=&lt;sec&gt;</translation>
@@ -4395,6 +4394,7 @@ Mae <ph name="DOMAIN" /> yn gofyn i chi gadw'ch cerdyn smart wedi'i fewnosod.</t
 <translation id="394984172568887996">Mewnforiwyd O IE</translation>
 <translation id="3949999964543783947"><ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" /> i wneud lawrlwytho ffeiliau yn fwy diogel</translation>
 <translation id="3950479158728806902">Creu cod pas yn awtomatig i fewngofnodi'n gyflymach</translation>
+<translation id="3950755269510650933">Rheoli'r wybodaeth y gall Gemini ei defnyddio i bersonoleiddio'ch profiad</translation>
 <translation id="3950820424414687140">Mewngofnodwch</translation>
 <translation id="3950841222883198950">Teipio â llais</translation>
 <translation id="3953834000574892725">Fy nghyfrifon</translation>
@@ -4424,6 +4424,7 @@ Mae <ph name="DOMAIN" /> yn gofyn i chi gadw'ch cerdyn smart wedi'i fewnosod.</t
 <translation id="3968739731834770921">Kana</translation>
 <translation id="3970114302595058915">Dull adnabod</translation>
 <translation id="397105322502079400">Wrthi'n cyfrifo…</translation>
+<translation id="3971355433478412726">Cyfarwyddiadau ar gyfer Gemini</translation>
 <translation id="3971764089670057203">Olion bysedd ar yr allwedd ddiogelwch hon</translation>
 <translation id="3973005893595042880">Ni chaniateir y defnyddiwr</translation>
 <translation id="3973660817924297510">Wrthi'n gwirio cyfrineiriau (<ph name="CHECKED_PASSWORDS" /> o <ph name="TOTAL_PASSWORDS" />)…</translation>
@@ -5829,6 +5830,7 @@ Defnyddiwch Ctrl + Alt + Lleihau disgleirdeb i bellhau.</translation>
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">Cadw i ffolder ar y ddyfais hon yn unig?</translation>
 <translation id="4959262764292427323">Mae cyfrineiriau'n cael eu cadw i'ch Cyfrif Google fel y gallwch eu defnyddio ar unrhyw ddyfais</translation>
+<translation id="4959581970694896608">Addasu sut mae Gemini yn ymateb i chi</translation>
 <translation id="4960020053211143927">Ni chefnogir hyn gan rai apiau</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> - <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">Castio'r sgrîn</translation>
@@ -6177,7 +6179,6 @@ Defnyddiwch Ctrl + Alt + Lleihau disgleirdeb i bellhau.</translation>
 <translation id="5204967432542742771">Rhowch eich cyfrinair</translation>
 <translation id="5205484256512407285">Peidiwch byth â defnyddio data symudol i drosglwyddo</translation>
 <translation id="520568280985468584">Ychwanegwyd rhwydwaith yn llwyddiannus. Gall gymryd sawl munud i'ch rhwydwaith symudol weithredu.</translation>
-<translation id="520576054436518354">Gadewch i Gemini bori i chi</translation>
 <translation id="5207949376430453814">Amlygu caret testun</translation>
 <translation id="520840839826327499">Mae <ph name="SERVICE_NAME" /> eisiau gwirio a ydych yn defnyddio dyfais ChromeOS cymwys.</translation>
 <translation id="5208722776934437424">Newid caniatadau</translation>
@@ -6424,6 +6425,7 @@ Defnyddiwch Ctrl + Alt + Lleihau disgleirdeb i bellhau.</translation>
 <translation id="5388719243178419614">Methu ag uwchlwytho. Wedi methu â phrosesu'r ffeil delwedd.</translation>
 <translation id="5388885445722491159">Wedi paru</translation>
 <translation id="5389224261615877010">Enfys</translation>
+<translation id="538945906186309152">Troi llwybr byr bysellfwrdd Gemini ymlaen</translation>
 <translation id="5389794555912875905">Gweld rhybuddion cyn mynd i wefannau anniogel (argymhellir)</translation>
 <translation id="5389943529251318913">Lleihau cyflymder llygoden gan</translation>
 <translation id="5390112241331447203">Cynnwys y ffeil system_logs.txt yr anfonwyd mewn adroddiadau adborth.</translation>
@@ -10230,6 +10232,7 @@ Cadwch eich ffeil allwedd mewn man diogel. Bydd ei hangen arnoch i greu fersiyna
 <translation id="8011372169388649948">Mae '<ph name="BOOKMARK_TITLE" />' wedi'i symud.</translation>
 <translation id="8012188750847319132">Clo CAPS</translation>
 <translation id="8012463809859447963">Manylion poethfan sydyn</translation>
+<translation id="8013181884974864006">Tasgau Cyd-destunol</translation>
 <translation id="8013534738634318212">Mae'r gwefannau hyn mewn grŵp a ddiffinnir gan <ph name="RWS_OWNER" />. Gall gwefannau mewn grŵp weld eich gweithgarwch yn y grŵp.</translation>
 <translation id="8013993649590906847">Os nad oes gan ddelwedd ddisgrifiad defnyddiol, bydd Chrome yn ceisio darparu un ar eich cyfer. Rydym yn anfon delweddau at Google er mwyn creu disgrifiadau.</translation>
 <translation id="8014154204619229810">Mae'r rhaglen diweddaru wrthi'n rhedeg. Ail-lwythwch mewn munud i wirio eto.</translation>

@@ -278,17 +278,19 @@ void MetricsWebContentsObserver::MediaStartedPlaying(
   }
 }
 
-void MetricsWebContentsObserver::WillStartNavigationRequest(
+void MetricsWebContentsObserver::DidStartNavigation(
     content::NavigationHandle* navigation_handle) {
-  // Same-document navigations should never go through
-  // WillStartNavigationRequest.
-  CHECK(!navigation_handle->IsSameDocument());
-
-  if (!navigation_handle->IsInMainFrame()) {
+  if (navigation_handle->IsSameDocument() ||
+      !navigation_handle->NeedsUrlLoader() ||
+      !navigation_handle->IsInMainFrame()) {
+    // Skip non-main frame and same-document navigations because we only care
+    // about page loads / main frame navigations. Also skip cases without
+    // URLLoaders (about:blank, srcdoc, etc) to not pollute the performance
+    // metrics.
     return;
   }
 
-  WillStartNavigationRequestImpl(navigation_handle);
+  DidStartNavigationImpl(navigation_handle);
   has_navigated_ = true;
 }
 
@@ -311,7 +313,7 @@ MetricsWebContentsObserver::MetricsWebContentsObserver(
   RegisterInputEventObserver(web_contents->GetPrimaryMainFrame());
 }
 
-void MetricsWebContentsObserver::WillStartNavigationRequestImpl(
+void MetricsWebContentsObserver::DidStartNavigationImpl(
     content::NavigationHandle* navigation_handle) {
   UserInitiatedInfo user_initiated_info(
       CreateUserInitiatedInfo(navigation_handle));
@@ -958,7 +960,8 @@ void MetricsWebContentsObserver::NavigationStopped() {
 
 void MetricsWebContentsObserver::OnInputEvent(
     const content::RenderWidgetHost& widget,
-    const blink::WebInputEvent& event) {
+    const blink::WebInputEvent& event,
+    input::InputEventSource source) {
   // Ignore browser navigation or reload which comes with type Undefined.
   if (event.GetType() == blink::WebInputEvent::Type::kUndefined) {
     return;

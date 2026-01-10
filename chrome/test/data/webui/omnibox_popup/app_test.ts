@@ -41,6 +41,7 @@ function createSearchMatch(modifiers: Partial<AutocompleteMatch> = {}):
 
 type Constructor<T> = new (...args: any[]) => T;
 type Installer<T> = (instance: T) => void;
+
 export function installMock<T extends object>(
     clazz: Constructor<T>, installer?: Installer<T>): TestMock<T> {
   installer = installer ||
@@ -61,6 +62,7 @@ class TestSearchboxBrowserProxy extends TestBrowserProxy {
     super();
     this.callbackRouter = new PageCallbackRouter();
     this.handler = TestMock.fromClass(PageHandlerRemote);
+    this.handler.setResultFor('getRecentTabs', Promise.resolve({tabs: []}));
     this.page = this.callbackRouter.$.bindNewPipeAndPassRemote();
   }
 
@@ -141,27 +143,45 @@ suite('AppTest', function() {
       document.body.innerHTML = window.trustedTypes!.emptyHTML;
       loadTimeData.overrideValues({
         searchboxLayoutMode: 'TallTopContext',
-        showContextMenuEntrypoint: true,
       });
 
       localApp = document.createElement('omnibox-popup-app');
       document.body.appendChild(localApp);
+      testProxy.page.updateAimEligibility(true);
+      await microtasksFinished();
+
+      testProxy.page.onShowAiModePrefChanged(true);
       await microtasksFinished();
     });
 
     test('ContextMenuEntrypointHiddenWhenDisabled', async () => {
-      loadTimeData.overrideValues({
-        searchboxLayoutMode: 'TallTopContext',
-        showContextMenuEntrypoint: false,
-      });
-      localApp.remove();
-      localApp = document.createElement('omnibox-popup-app');
-      document.body.appendChild(localApp);
+      testProxy.page.updateAimEligibility(false);
       await microtasksFinished();
-
       const carousel = localApp.shadowRoot?.querySelector(
           'contextual-entrypoint-and-carousel');
       assertFalse(!!carousel);
+    });
+
+    test('AiModePrefUpdatesCarouselVisibility', async () => {
+      let carousel = localApp.shadowRoot?.querySelector(
+          'contextual-entrypoint-and-carousel');
+      assertTrue(!!carousel);
+      assertTrue(isVisible(carousel));
+
+      // Disable AI Mode Shortcuts.
+      testProxy.page.onShowAiModePrefChanged(false);
+      await microtasksFinished();
+      carousel = localApp.shadowRoot?.querySelector(
+          'contextual-entrypoint-and-carousel');
+      assertFalse(!!carousel);
+
+      // Enable AI Mode Shortcuts.
+      testProxy.page.onShowAiModePrefChanged(true);
+      await microtasksFinished();
+      carousel = localApp.shadowRoot?.querySelector(
+          'contextual-entrypoint-and-carousel');
+      assertTrue(!!carousel);
+      assertTrue(isVisible(carousel));
     });
 
     test('KeywordModeUpdatesCarouselVisibility', async () => {
@@ -202,6 +222,72 @@ suite('AppTest', function() {
 
       // Assert: The button is no longer focused.
       assertFalse(entrypointButton.matches(':focus-within'));
+    });
+
+    test('RecentTabChipShown', async () => {
+      loadTimeData.overrideValues({
+        searchboxLayoutMode: 'TallTopContext',
+        composeboxShowRecentTabChip: true,
+        addTabUploadDelayOnRecentTabChipClick: true,
+      });
+      testProxy.page.updateAimEligibility(true);
+      const tabInfo = {
+        tabId: 1,
+        title: 'Tab 1',
+        url: {url: 'https://www.google.com/search?q=foo'},
+        showInPreviousTabChip: true,
+      };
+      testProxy.handler.setResultFor(
+          'getRecentTabs', Promise.resolve({tabs: [tabInfo]}));
+      localApp.remove();
+      localApp = document.createElement('omnibox-popup-app');
+      document.body.appendChild(localApp);
+      await microtasksFinished();
+
+      testProxy.page.onShowAiModePrefChanged(true);
+      await microtasksFinished();
+
+      const carousel = localApp.shadowRoot?.querySelector(
+          'contextual-entrypoint-and-carousel');
+      assertTrue(!!carousel);
+      const recentTabChip =
+          carousel.shadowRoot.querySelector<HTMLElement>('#recentTabChip');
+      // Assert chip shows.
+      assertTrue(!!recentTabChip);
+    });
+  });
+
+  suite('AimEligibility', () => {
+    let localApp: OmniboxPopupAppElement;
+
+    setup(async () => {
+      // Use setup instead of suiteSetup to ensure a clean state for each test.
+      document.body.innerHTML = window.trustedTypes!.emptyHTML;
+      localApp = document.createElement('omnibox-popup-app');
+      document.body.appendChild(localApp);
+
+      testProxy.page.onShowAiModePrefChanged(true);
+      await microtasksFinished();
+    });
+
+    test('AimEligibility', async () => {
+      testProxy.page.updateAimEligibility(false);
+      await microtasksFinished();
+      let carousel = localApp.shadowRoot?.querySelector(
+          'contextual-entrypoint-and-carousel');
+      assertFalse(isVisible(carousel));
+
+      testProxy.page.updateAimEligibility(true);
+      await microtasksFinished();
+      carousel = localApp.shadowRoot?.querySelector(
+          'contextual-entrypoint-and-carousel');
+      assertTrue(isVisible(carousel));
+
+      testProxy.page.updateAimEligibility(false);
+      await microtasksFinished();
+      carousel = localApp.shadowRoot?.querySelector(
+          'contextual-entrypoint-and-carousel');
+      assertFalse(isVisible(carousel));
     });
   });
 });

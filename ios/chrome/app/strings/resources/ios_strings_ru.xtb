@@ -215,7 +215,7 @@
 <translation id="1779354709911146450">Ошибка аутентификации</translation>
 <translation id="1780152987505130652">Закрыть группу</translation>
 <translation id="178400879184240105">Нет одинаковых паролей</translation>
-<translation id="17906873777101817">Предл. сохр. пароли и ключи доступа</translation>
+<translation id="17906873777101817">Предлагать сохранять пароли и ключи доступа</translation>
 <translation id="1794893174442046596">Группа вкладок</translation>
 <translation id="1807893857950749072">Включить уведомления об изменении цены</translation>
 <translation id="1809929083618343438">Выбранные данные будут удалены из Chrome, но не из аккаунта Google.</translation>
@@ -1399,7 +1399,7 @@
 <translation id="6259928806013786178">Не удалось запустить Режим чтения.</translation>
 <translation id="6268773951964630964">Поиск по скопированному изображению</translation>
 <translation id="6271462272606946663">Скрыть пункт "Мобильная версия"</translation>
-<translation id="6271556257184622612">Задайте Google вопрос о вкладках и не только</translation>
+<translation id="6271556257184622612">Спрашивайте Google о вкладках и не только</translation>
 <translation id="6271824294945464304">Общий доступ к паролю</translation>
 <translation id="628251768213143684">Вы можете в любое время изменить настройки сохранения данных в аккаунте Google</translation>
 <translation id="6284652193729350524">Предлагать перевести страницы на этом языке (<ph name="LANGUAGE" />)</translation>

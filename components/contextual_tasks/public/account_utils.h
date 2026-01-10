@@ -38,6 +38,14 @@ std::optional<gaia::ListedAccount> GetAccountFromCookieJar(
 bool IsUrlForPrimaryAccount(signin::IdentityManager* identity_manager,
                             const GURL& url);
 
+// Determine whether the user is signed in with a web identity via params on
+// the provided URL.
+bool IsUserSignedInToWeb(signin::IdentityManager* identity_manager,
+                         const GURL& url);
+
+// Returns if the cookie jar contains the primary signed in account.
+bool CookieJarContainsPrimaryAccount(signin::IdentityManager* identity_manager);
+
 }  // namespace contextual_tasks
 
 #endif  // COMPONENTS_CONTEXTUAL_TASKS_PUBLIC_ACCOUNT_UTILS_H_

@@ -107,6 +107,12 @@ class NewTabPageHandler
   // Histograms being recorded when a module is dismissed or restored.
   static const char kModuleDismissedHistogram[];
   static const char kModuleRestoredHistogram[];
+  // Histograms being recorded when auto removal/undo event is triggered.
+  static const char kModuleAutoRemovalHistogram[];
+  static const char kModuleAutoRemovalUndoneHistogram[];
+  // Histograms being recorded when a module is automatically removed or undone.
+  static const char kModuleAutoRemovalModuleIdHistogram[];
+  static const char kModuleAutoRemovalUndoneModuleIdHistogram[];
 
   static void RegisterProfilePrefs(PrefRegistrySimple* registry);
 
@@ -130,12 +136,16 @@ class NewTabPageHandler
   void OnRestoreModule(const std::string& module_id) override;
   void SetModulesVisible(bool visible) override;
   void SetModuleDisabled(const std::string& module_id, bool disabled) override;
+  void SetModulesDisabled(const std::vector<std::string>& module_ids,
+                          bool disabled) override;
   void UpdateDisabledModules() override;
   void UpdateFooterVisibility() override;
   void OnModulesLoadedWithData(
       const std::vector<std::string>& module_ids) override;
   void OnModuleUsed(const std::string& module_id) override;
   void GetModulesIdNames(GetModulesIdNamesCallback callback) override;
+  void GetModulesEligibleForRemoval(
+      GetModulesEligibleForRemovalCallback callback) override;
   void SetModulesOrder(const std::vector<std::string>& module_ids) override;
   void GetModulesOrder(GetModulesOrderCallback callback) override;
   void UpdateModulesLoadable() override;
@@ -158,6 +168,7 @@ class NewTabPageHandler
   void OnPromoLinkClicked() override;
   void IncrementComposeButtonShownCount() override;
   void MaybeTriggerAutomaticCustomizeChromePromo() override;
+  void RecordContextMenuClick() override;
 
  private:
   // ui::NativeThemeObserver:
@@ -224,6 +235,12 @@ class NewTabPageHandler
       const std::string& module_id);
 
   void SetModuleHidden(const std::string& module_id, bool hidden);
+
+  // Returns a list of module ids that are eligible for removal, which is
+  // determined the module staleness and the staleness threshold.
+  std::vector<std::string> GetModulesEligibleForRemoval() const;
+  void SetStaleModulesDisabled(const std::vector<std::string>& module_ids,
+                               bool disabled);
 
   // Synchronizes Microsoft module enablement with their current authentication
   // state. The return value indicates whether the modules should be considered

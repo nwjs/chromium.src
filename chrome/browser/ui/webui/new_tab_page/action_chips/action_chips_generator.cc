@@ -39,6 +39,7 @@
 #include "components/search/ntp_features.h"
 #include "components/url_formatter/url_formatter.h"
 #include "content/public/browser/web_contents.h"
+#include "third_party/omnibox_proto/groups.pb.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/url_util.h"
 
@@ -115,27 +116,11 @@ ChipsGenerationScenario GetScenario(
 ActionChipPtr CreateRecentTabChip(TabInfoPtr tab, std::string_view suggestion) {
   ActionChipPtr chip = ActionChip::New();
   chip->type = ChipType::kRecentTab;
-
-  if (ntp_features::kNtpNextShowSimplificationUIParam.Get()) {
-    std::string_view host = tab->url.host();
-
-    if (base::StartsWith(host, "www.", base::CompareCase::INSENSITIVE_ASCII)) {
-      host = host.substr(4);
-    }
-
-    chip->title = !suggestion.empty()
-                      ? suggestion
-                      : l10n_util::GetStringUTF8(
-                            IDS_WEBUI_OMNIBOX_COMPOSE_ASK_ABOUT_THIS_TAB);
-    chip->suggestion = host;
-  } else {
-    chip->title = tab->title;
-    chip->suggestion = !suggestion.empty()
-                           ? suggestion
-                           : l10n_util::GetStringUTF8(
-                                 IDS_WEBUI_OMNIBOX_COMPOSE_ASK_ABOUT_THIS_TAB);
-  }
-
+  chip->title =
+      !suggestion.empty()
+          ? suggestion
+          : l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_TAB_HEADING_1);
+  chip->suggestion = tab->title;
   chip->tab = std::move(tab);
   return chip;
 }
@@ -166,7 +151,7 @@ ActionChipPtr CreateImageCreationChip(std::string_view suggestion) {
   ActionChipPtr chip = ActionChip::New();
   chip->type = ChipType::kImage;
   chip->title =
-      l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_CREATE_IMAGE_HEADING);
+      l10n_util::GetStringUTF8(IDS_NTP_COMPOSE_CREATE_IMAGES);
   chip->suggestion =
       !suggestion.empty()
           ? suggestion
@@ -202,28 +187,15 @@ std::vector<ActionChipPtr> CreateDeepDiveChips(
     if (chips.size() == 3) {
       break;
     }
-    if (suggestion.type() != AutocompleteMatchType::SEARCH_SUGGEST) {
+    if (suggestion.type() != AutocompleteMatchType::SEARCH_SUGGEST ||
+        (suggestion.suggestion_group_id().has_value() &&
+         suggestion.suggestion_group_id().value() !=
+             omnibox::GroupId::GROUP_CONTEXTUAL_SEARCH)) {
       continue;
     }
     chips.push_back(CreateDeepDiveChip(tab->Clone(), suggestion.suggestion()));
   }
   return chips;
-}
-
-void AppendStaticAimChipsBasedOnEligibility(
-    std::vector<ActionChipPtr>& chips,
-    const AimEligibilityService* aim_eligibility_service) {
-  for (base::FunctionRef<std::optional<ActionChipPtr>(
-           std::string_view, const AimEligibilityService*)> generator :
-       {&CreateDeepSearchChipIfEligible, &CreateImageCreationChipIfEligible}) {
-    if (chips.size() >= 3) {
-      break;
-    }
-    std::optional<ActionChipPtr> chip = generator("", aim_eligibility_service);
-    if (chip.has_value()) {
-      chips.push_back(*std::move(chip));
-    }
-  }
 }
 
 TabInfoPtr CreateTabInfo(const TabIdGenerator& tab_id_generator,
@@ -358,11 +330,5 @@ void ActionChipsGeneratorImpl::GenerateDeepDiveChipsFromRemoteResponse(
     return;
   }
   std::vector<ActionChipPtr> chips = CreateDeepDiveChips(tab, *result);
-  if (chips.size() < 3) {
-    // This ensures that at least two chips are available for display.
-    // Assumption: The user is either deepsearch eligible or nanobanana
-    // eligible (and can be both).
-    AppendStaticAimChipsBasedOnEligibility(chips, aim_eligibility_service_);
-  }
   std::move(callback).Run(std::move(chips));
 }

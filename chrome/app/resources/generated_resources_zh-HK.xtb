@@ -256,7 +256,7 @@
 <translation id="1166457390969131095">使用並儲存 Google 帳戶中的密碼和密鑰</translation>
 <translation id="1166583374608765787">檢查新名稱</translation>
 <translation id="1166596238782048887">「<ph name="TAB_TITLE" />」分頁屬於「<ph name="DESK_TITLE" />」桌面</translation>
-<translation id="1167008614036441342">由於你最近沒有使用，因此系統已移除付款卡</translation>
+<translation id="1167008614036441342">由於你近期沒有使用，因此系統已移除卡片</translation>
 <translation id="1168020859489941584">將於 <ph name="TIME_REMAINING" /> 後開啟…</translation>
 <translation id="1168704243733734901">最近嘅<ph name="SUBJECT" /> AI 主題 <ph name="INDEX" />，風格係<ph name="STYLE" />，情境係<ph name="MOOD" />。</translation>
 <translation id="1168799042879144934">問 Google 有關上一個頁面的問題</translation>
@@ -527,7 +527,6 @@
 <translation id="1342886103232377846">如要檢查密碼是否被盜用，請前往「Google 密碼管理工具」</translation>
 <translation id="1343920184519992513">繼續瀏覽上次開啟的網頁並開啟某組特定網頁</translation>
 <translation id="1344141078024003905">您正在投放螢幕畫面。您可以隨時暫停或停止投放螢幕畫面。</translation>
-<translation id="13449088910457661">Gemini 會在分頁中完成你指派的任務。<ph name="LINK_BEGIN" />瞭解詳情<ph name="LINK_END" /></translation>
 <translation id="1346403631707626730">傳送使用情況和診斷資料。將診斷、裝置及應用程式的使用情況資料自動傳送至 Google，協助改善你子女的 Android 使用體驗。這些資料不會用來識別你子女的身分，而是用於改善系統和應用程式的穩定性和其他效能。部分彙整資料亦會用於協助 Google 應用程式與合作夥伴 (例如 Android 開發人員)。如果你為子女開啟「其他網絡及應用程式活動記錄」設定，此資料可能會儲存在他們的 Google 帳戶中。<ph name="BEGIN_LINK1" />進一步瞭解數據<ph name="BEGIN_LINK1_END" />瞭解詳情<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">確認並重新啟動</translation>
 <translation id="1346748346194534595">向右</translation>
@@ -1985,6 +1984,7 @@
 <translation id="2319072477089403627">正在連接 Android 手機…</translation>
 <translation id="2319459402137712349">選取文字欄位即弄開啟鍵盤。您亦可選取畫面底部的「鍵盤」圖示。</translation>
 <translation id="2319993584768066746">登入畫面相片</translation>
+<translation id="2321487076181785382">分割分頁</translation>
 <translation id="2322193970951063277">頁首及頁尾</translation>
 <translation id="2322318151094136999">在網站要存取序列連接埠時詢問您 (建議)</translation>
 <translation id="2322622365472107569">結束時間：<ph name="TIME" /></translation>
@@ -2132,7 +2132,6 @@
 <translation id="2428939361789119025">關閉 Wi-Fi</translation>
 <translation id="2431027948063157455">無法載入「Google 助理」，請檢查您的網絡連線，然後再試一次。</translation>
 <translation id="243179355394256322">您的機構限制只有授權使用者可以註冊裝置。這位使用者未獲授權，因此無法註冊裝置。請前往管理控制台的「使用者」部分，確認該使用者擁有「註冊 Google Meet 硬件」的管理員權限。</translation>
-<translation id="2431896368788252518">查看和管理個人畫面內容</translation>
 <translation id="243275146591958220">取消下載</translation>
 <translation id="2433237965825924228">隔離的網絡應用程式可控制驗證裝置和可存取的智能卡。智能卡通常包含用於驗證身分的識別碼。</translation>
 <translation id="2433452467737464329">在網址中新增查詢參數即可自動重新整理網頁：chrome://network/?refresh=&lt;sec&gt;</translation>
@@ -4389,6 +4388,7 @@
 <translation id="394984172568887996">從 IE 匯入</translation>
 <translation id="3949999964543783947"><ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" />，以更安全的方式下載檔案</translation>
 <translation id="3950479158728806902">自動建立密鑰，加快登入速度</translation>
+<translation id="3950755269510650933">管理 Gemini 在提供個人化體驗時可用的資料</translation>
 <translation id="3950820424414687140">登入</translation>
 <translation id="3950841222883198950">語音輸入</translation>
 <translation id="3953834000574892725">我的帳戶</translation>
@@ -4418,6 +4418,7 @@
 <translation id="3968739731834770921">假名</translation>
 <translation id="3970114302595058915">ID</translation>
 <translation id="397105322502079400">計算中…</translation>
+<translation id="3971355433478412726">Gemini 指示</translation>
 <translation id="3971764089670057203">此安全金鑰上的指紋</translation>
 <translation id="3973005893595042880">不允許此使用者</translation>
 <translation id="3973660817924297510">正在檢查密碼 (已檢查 <ph name="CHECKED_PASSWORDS" /> 個，共 <ph name="TOTAL_PASSWORDS" /> 個)…</translation>
@@ -5819,6 +5820,7 @@
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">只將資料夾儲存至此裝置嗎？</translation>
 <translation id="4959262764292427323">密碼會儲存在您的 Google 帳戶中，讓您可在任何裝置上使用</translation>
+<translation id="4959581970694896608">自訂 Gemini 的答覆方式</translation>
 <translation id="4960020053211143927">部分應用程式不支援此設定</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> - <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">投放螢幕</translation>
@@ -6167,7 +6169,6 @@
 <translation id="5204967432542742771">輸入密碼</translation>
 <translation id="5205484256512407285">一律不使用流動數據進行傳輸</translation>
 <translation id="520568280985468584">已成功新增網絡。流動網絡可能需時幾分鐘才能啟用。</translation>
-<translation id="520576054436518354">讓 Gemini 為你瀏覽</translation>
 <translation id="5207949376430453814">突顯文字插入符號</translation>
 <translation id="520840839826327499">「<ph name="SERVICE_NAME" />」想檢查您是否使用符合資格的 Chrome OS 裝置。</translation>
 <translation id="5208722776934437424">變更權限</translation>
@@ -6413,6 +6414,7 @@
 <translation id="5388719243178419614">無法上載。無法處理圖像檔案。</translation>
 <translation id="5388885445722491159">已配對</translation>
 <translation id="5389224261615877010">彩虹</translation>
+<translation id="538945906186309152">開啟 Gemini 鍵盤快速鍵</translation>
 <translation id="5389794555912875905">前往不安全的網站前先顯示警告 (建議)</translation>
 <translation id="5389943529251318913">將滑鼠速度降低</translation>
 <translation id="5390112241331447203">在意見報告中包含 system_logs.txt 檔案進行傳送。</translation>
@@ -10206,6 +10208,7 @@
 <translation id="8011372169388649948">郁咗 <ph name="BOOKMARK_TITLE" />。</translation>
 <translation id="8012188750847319132">大寫鎖定鍵</translation>
 <translation id="8012463809859447963">即時熱點詳情</translation>
+<translation id="8013181884974864006">內容相關工作</translation>
 <translation id="8013534738634318212">這些網站屬於由 <ph name="RWS_OWNER" /> 定義的群組，群組中的網站可以查看你在該群組的活動。</translation>
 <translation id="8013993649590906847">如果圖片並無有用的說明，Chrome 會嘗試為您提供說明。因此，圖片將傳送至 Google 以建立說明。</translation>
 <translation id="8014154204619229810">正在執行更新程式。請稍後重新整理並再次查看。</translation>

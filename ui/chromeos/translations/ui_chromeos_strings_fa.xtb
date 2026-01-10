@@ -295,7 +295,7 @@
 <translation id="3353984535370177728">انتخاب یک پوشه برای بارگذاری</translation>
 <translation id="3356580349448036450">کامل</translation>
 <translation id="3358452157379365236">گیتار</translation>
-<translation id="3368922792935385530">متصل</translation>
+<translation id="3368922792935385530">متصل‌شده</translation>
 <translation id="3382143449143186018">نپالی با صفحه‌کلید هندی</translation>
 <translation id="338691029516748599">شبکه <ph name="NETWORK_INDEX" /> از <ph name="NETWORK_COUNT" />، <ph name="NETWORK_NAME" />، <ph name="SECURITY_STATUS" />، قدرت سیگنال <ph name="SIGNAL_STRENGTH" />٪، تحت‌مدیریت سرپرست، اتصال</translation>
 <translation id="3408072735282270043">فعال کردن <ph name="NETWORK_NAME" /></translation>
@@ -529,7 +529,7 @@
 <translation id="5123433949759960244">بسکتبال</translation>
 <translation id="5129662217315786329">لهستانی</translation>
 <translation id="5144820558584035333">مجموعه هانگول ۳ (۳۹۰‏)</translation>
-<translation id="5145331109270917438">تاریخ تغییر</translation>
+<translation id="5145331109270917438">تاریخ اصلاح شدن</translation>
 <translation id="515594325917491223">شطرنج</translation>
 <translation id="5158983316805876233">استفاده از پراکسی یکسان برای همه پروتکل ها</translation>
 <translation id="5159383109919732130">‏<ph name="BEGIN_BOLD" />هنوز دستگاه خود را جدا نکنید!<ph name="END_BOLD" />
@@ -986,7 +986,7 @@
 <translation id="8475647382427415476">‏Google Drive نتوانست در این لحظه «<ph name="FILENAME" />» را همگام‌سازی کند. Google Drive بعداً دوباره امتحان می‌کند.</translation>
 <translation id="8477649328507734757">اسپینینگ</translation>
 <translation id="8484284835977497781">از عکس‌های اخیرتان انتخاب کنید.</translation>
-<translation id="8487700953926739672">امکان دسترسی به صورت آفلاین</translation>
+<translation id="8487700953926739672">دردسترس در حالت آفلاین</translation>
 <translation id="8492972329130824181">شبکه خانه دردسترس نیست. برای اتصال، رومینگ داده تلفن همراه باید فعال باشد.</translation>
 <translation id="8499098729323186194">درحال استخراج <ph name="NUMBER_OF_ITEMS" /> مورد…</translation>
 <translation id="8502913769543567768">شبکه <ph name="NETWORK_INDEX" /> از <ph name="NETWORK_COUNT" /> شبکه، <ph name="NETWORK_NAME" />، <ph name="NETWORK_PROVIDER_NAME" />، بعداز راه‌اندازی دستگاه فعال کنید، تحت مدیریت سرپرست است</translation>

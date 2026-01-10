@@ -1445,6 +1445,7 @@ I motsatt fall blir dette blokkert av personverninnstillingene. Dette gjør at i
 <translation id="3342018947887487892">Senere kan nettsteder du besøker, be om denne informasjonen – enten annonseemner eller annonser som er foreslått av nettsteder som du har besøkt.</translation>
 <translation id="334438173029876234">Rullebrettutstyr</translation>
 <translation id="3347146863028219517">Ski og snøbrett</translation>
+<translation id="3349610303043713601">Bla med AI</translation>
 <translation id="3349952286488694786">SRA2</translation>
 <translation id="3350450887151703713">Spill av de siste 10 sekundene på nytt</translation>
 <translation id="3352881017886802007">Sportsspill</translation>
@@ -1691,7 +1692,7 @@ I motsatt fall blir dette blokkert av personverninnstillingene. Dette gjør at i
 <translation id="3713277100229669269">Nå kan du se kortfordelene før du betaler</translation>
 <translation id="371420189621607696">Videospillkonkurranser</translation>
 <translation id="3714633008798122362">nettkalender</translation>
-<translation id="3714780639079136834">Slå på mobildata eller Wifi</translation>
+<translation id="3714780639079136834">Slå på mobildata eller wifi</translation>
 <translation id="3715016660240337709">{0,plural, =1{Filen er blokkert for opplasting}other{<ph name="FILE_COUNT" /> filer er blokkert for opplasting}}</translation>
 <translation id="3715597595485130451">Tilkobling til wifi</translation>
 <translation id="3717027428350673159"><ph name="BEGIN_LINK" />Sjekk proxy-tjener-, brannmur- og DNS-konfigurasjonen<ph name="END_LINK" /></translation>
@@ -4059,7 +4060,6 @@ I motsatt fall blir dette blokkert av personverninnstillingene. Dette gjør at i
 <translation id="753556296624075801">Drevet av Google</translation>
 <translation id="753713322968419914">Vil du fjerne hjemmeadressen fra autofyll i Chrome?</translation>
 <translation id="7537536606612762813">Obligatorisk</translation>
-<translation id="7541043894191476250">Kontekstuelle oppgaver</translation>
 <translation id="7543525346216957623">Spør forelderen din</translation>
 <translation id="7546409722674205727">Starter <ph name="APP_NAME" /></translation>
 <translation id="7548892272833184391">Fiks tilkoblingsfeil</translation>

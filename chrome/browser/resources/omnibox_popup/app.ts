@@ -17,7 +17,8 @@ import {loadTimeData} from '//resources/js/load_time_data.js';
 import {MetricsReporterImpl} from '//resources/js/metrics_reporter/metrics_reporter.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
-import type {AutocompleteResult, OmniboxPopupSelection, PageCallbackRouter, PageHandlerInterface} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {AutocompleteResult, OmniboxPopupSelection, PageCallbackRouter, PageHandlerInterface, TabInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
@@ -84,12 +85,15 @@ export class OmniboxPopupAppElement extends I18nMixinLit
       },
 
       isInKeywordMode_: {type: Boolean},
-
       result_: {type: Object},
       searchboxLayoutMode_: {type: String},
       showContextEntrypoint_: {type: Boolean},
+      showAiModePrefEnabled_: {type: Boolean},
       isLensSearchEnabled_: {type: Boolean},
       isLensSearchEligible_: {type: Boolean},
+      isAimEligible_: {type: Boolean},
+      isRecentTabChipEnabled_: {type: Boolean},
+      tabSuggestions_: {type: Array},
     };
   }
 
@@ -98,6 +102,7 @@ export class OmniboxPopupAppElement extends I18nMixinLit
   accessor hasSecondarySide: boolean = false;
   accessor isDebug: boolean = false;
   protected accessor isInKeywordMode_: boolean = false;
+  protected accessor showAiModePrefEnabled_: boolean = false;
   protected accessor hasVisibleMatches_: boolean = false;
   protected accessor result_: AutocompleteResult|null = null;
   protected accessor searchboxLayoutMode_: string =
@@ -105,7 +110,11 @@ export class OmniboxPopupAppElement extends I18nMixinLit
   protected accessor showContextEntrypoint_: boolean = false;
   protected accessor isLensSearchEnabled_: boolean =
       loadTimeData.getBoolean('composeboxShowLensSearchChip');
+  protected accessor isRecentTabChipEnabled_: boolean =
+      loadTimeData.getBoolean('composeboxShowRecentTabChip');
   protected accessor isLensSearchEligible_: boolean = false;
+  protected accessor isAimEligible_: boolean = false;
+  protected accessor tabSuggestions_: TabInfo[] = [];
 
   private callbackRouter_: PageCallbackRouter;
   private eventTracker_ = new EventTracker();
@@ -122,6 +131,9 @@ export class OmniboxPopupAppElement extends I18nMixinLit
 
   override connectedCallback() {
     super.connectedCallback();
+    // TODO(b:468113419): the handlers and their definitions are not ordered the
+    // same as the
+    //   mojom file.
     this.listenerIds_ = [
       this.callbackRouter_.autocompleteResultChanged.addListener(
           this.onAutocompleteResultChanged_.bind(this)),
@@ -136,9 +148,21 @@ export class OmniboxPopupAppElement extends I18nMixinLit
           (eligible: boolean) => {
             this.isLensSearchEligible_ = this.isLensSearchEnabled_ && eligible;
           }),
+      this.callbackRouter_.onTabStripChanged.addListener(
+          this.refreshTabSuggestions_.bind(this)),
+      this.callbackRouter_.updateAimEligibility.addListener(
+          (eligible: boolean) => {
+            this.isAimEligible_ = eligible;
+          }),
+      this.callbackRouter_.onShowAiModePrefChanged.addListener(
+          (canShow: boolean) => {
+            this.showAiModePrefEnabled_ = canShow;
+          }),
     ];
     canShowSecondarySideMediaQueryList.addEventListener(
         'change', this.onCanShowSecondarySideChanged_.bind(this));
+
+    this.refreshTabSuggestions_();
 
     if (!this.isDebug) {
       this.eventTracker_.add(
@@ -170,8 +194,13 @@ export class OmniboxPopupAppElement extends I18nMixinLit
           this.result_?.matches.some(match => !match.isHidden) ?? false;
     }
 
-    if (changedPrivateProperties.has('searchboxLayoutMode_') ||
-        changedPrivateProperties.has('isInKeywordMode_')) {
+    if (changedPrivateProperties.has('isAimEligible_') ||
+        changedPrivateProperties.has('searchboxLayoutMode_') ||
+        changedPrivateProperties.has('isInKeywordMode_') ||
+        changedPrivateProperties.has('showAiModePrefEnabled_') ||
+        changedPrivateProperties.has('tabSuggestions_') ||
+        changedPrivateProperties.has('result_') ||
+        changedPrivateProperties.has('isLensSearchEligible_')) {
       this.showContextEntrypoint_ = this.computeShowContextEntrypoint_();
     }
   }
@@ -183,10 +212,19 @@ export class OmniboxPopupAppElement extends I18nMixinLit
     return this.shadowRoot.querySelector('cr-searchbox-dropdown')!;
   }
 
+  protected get shouldHideEntrypointButton_(): boolean {
+    return this.searchboxLayoutMode_ === 'Compact';
+  }
+
   private computeShowContextEntrypoint_(): boolean {
     const isTallSearchbox = this.searchboxLayoutMode_.startsWith('Tall');
-    return loadTimeData.getBoolean('showContextMenuEntrypoint') &&
-        isTallSearchbox && !this.isInKeywordMode_;
+    const showRecentTabChip = this.computeShowRecentTabChip_();
+    const showContextualChips = showRecentTabChip || this.isLensSearchEligible_;
+    const showContextualChipsInCompactMode =
+        showContextualChips && this.searchboxLayoutMode_ === 'Compact';
+    return this.isAimEligible_ && this.showAiModePrefEnabled_
+        && (isTallSearchbox || showContextualChipsInCompactMode) &&
+        !this.isInKeywordMode_;
   }
 
   private onCanShowSecondarySideChanged_(e: MediaQueryListEvent) {
@@ -246,6 +284,38 @@ export class OmniboxPopupAppElement extends I18nMixinLit
       y: e.detail.y,
     };
     this.pageHandler_.showContextMenu(point);
+  }
+
+  protected async refreshTabSuggestions_() {
+    const {tabs} = await this.pageHandler_.getRecentTabs();
+    this.tabSuggestions_ = [...tabs];
+  }
+
+  protected onLensSearchChipClicked_() {
+    this.pageHandler_.openLensSearch();
+  }
+
+  protected addTabContext_(e: CustomEvent<{
+    id: number,
+    title: string,
+    url: Url,
+    delayUpload: boolean,
+  }>) {
+    this.pageHandler_.addTabContext(e.detail.id, e.detail.delayUpload);
+  }
+
+  protected computeShowRecentTabChip_() {
+    const input = this.result_?.input;
+    let recentTabForChip =
+        this.tabSuggestions_.find(tab => tab.showInCurrentTabChip) || null;
+    if (!recentTabForChip) {
+      recentTabForChip =
+          this.tabSuggestions_.find(tab => tab.showInPreviousTabChip) || null;
+    }
+    return loadTimeData.getBoolean('composeboxShowRecentTabChip') &&
+        (input?.length === 0 || recentTabForChip?.showInPreviousTabChip ||
+         input ===
+             recentTabForChip?.url.url.replace(/^https?:\/\/(?:www\.)?/, ''));
   }
 }
 

@@ -110,6 +110,11 @@ IN_PROC_BROWSER_TEST_F(CrComponentsSearchboxTest, SearchboxIconTest) {
   RunTest("cr_components/searchbox/searchbox_icon_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(CrComponentsSearchboxTest, SearchboxFocusTest) {
+  set_test_loader_host(chrome::kChromeUINewTabPageHost);
+  RunTest("cr_components/searchbox/searchbox_focus_test.js", "mocha.run()");
+}
+
 class CrComponentsHistoryClustersTest : public WebUIMochaBrowserTest {
  protected:
   CrComponentsHistoryClustersTest() {
@@ -203,6 +208,11 @@ IN_PROC_BROWSER_TEST_F(CrComponentsMostVisitedTest, ExpandableTiles) {
           "runMochaSuite('ExpandableTiles');");
 }
 
+IN_PROC_BROWSER_TEST_F(CrComponentsMostVisitedTest, ShortcutsAutoRemovalToast) {
+  RunTest("cr_components/most_visited_test.js",
+          "runMochaSuite('ShortcutsAutoRemovalToast');");
+}
+
 typedef WebUIMochaBrowserTest CrComponentsThemeColorPickerTest;
 IN_PROC_BROWSER_TEST_F(CrComponentsThemeColorPickerTest, ThemeColor) {
   set_test_loader_host(chrome::kChromeUICustomizeChromeSidePanelHost);
@@ -278,4 +288,8 @@ IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ComposeboxVoiceSearch) {
 IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ComposeboxDragAndDrop) {
   RunTest("cr_components/composebox/composebox_drag_drop_test.js",
           "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ComposeboxFileCarousel) {
+  RunTest("cr_components/composebox/file_carousel_test.js", "mocha.run()");
 }

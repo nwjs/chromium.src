@@ -19,6 +19,7 @@
 #include "chrome/browser/contextual_tasks/active_task_context_provider_impl.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.h"
+#include "chrome/browser/contextual_tasks/entry_point_eligibility_manager.h"
 #include "chrome/browser/devtools/devtools_ui_controller.h"
 #include "chrome/browser/enterprise/data_protection/data_protection_ui_controller.h"
 #include "chrome/browser/extensions/browser_extension_window_controller.h"
@@ -115,6 +116,7 @@
 #include "chrome/browser/ui/views/translate/translate_bubble_controller.h"
 #include "chrome/browser/ui/views/upgrade_notification_controller.h"
 #include "chrome/browser/ui/views/user_education/impl/browser_user_education_interface_impl.h"
+#include "chrome/browser/ui/waap/initial_web_ui_manager.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/webui_browser/browser_elements_webui_browser.h"
@@ -418,15 +420,6 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
               *browser, browser);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
-  if (base::FeatureList::IsEnabled(contextual_tasks::kContextualTasks) &&
-      (contextual_tasks::kShowEntryPoint.Get() ==
-       contextual_tasks::EntryPointOption::kToolbarRevisit)) {
-    contextual_tasks_ephemeral_button_controller_ =
-        GetUserDataFactory()
-            .CreateInstance<ContextualTasksEphemeralButtonController>(*browser,
-                                                                      browser);
-  }
-
   // Initialize embedder features last.
   embedder_browser_window_features_ =
       GetUserDataFactory().CreateInstance<EmbedderBrowserWindowFeatures>(
@@ -646,6 +639,8 @@ void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
             extension_keybinding_delegate_.get());
   }
 
+  initial_web_ui_manager_ = std::make_unique<InitialWebUIManager>(browser);
+
   // Initialize post-window dependent embedder features last.
   embedder_browser_window_features_->InitPostWindowConstruction(browser);
 }
@@ -707,6 +702,19 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
             .CreateInstance<
                 contextual_tasks::ContextualTasksSidePanelCoordinator>(
                 *browser_, browser_);
+
+    contextual_tasks_entry_point_eligibility_manager_ =
+        GetUserDataFactory()
+            .CreateInstance<contextual_tasks::EntryPointEligibilityManager>(
+                *browser_, browser_);
+
+    if (contextual_tasks::kShowEntryPoint.Get() ==
+        contextual_tasks::EntryPointOption::kToolbarRevisit) {
+      contextual_tasks_ephemeral_button_controller_ =
+          GetUserDataFactory()
+              .CreateInstance<ContextualTasksEphemeralButtonController>(
+                  *browser_, browser_);
+    }
   }
 
   side_panel_coordinator_->Init(browser_view->browser());
@@ -847,6 +855,7 @@ void BrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
   upgrade_notification_controller_.reset();
   memory_saver_opt_in_iph_controller_.reset();
   lens_overlay_entry_point_controller_.reset();
+  initial_web_ui_manager_.reset();
   tab_search_toolbar_button_controller_.reset();
   profile_menu_coordinator_.reset();
   toast_service_.reset();

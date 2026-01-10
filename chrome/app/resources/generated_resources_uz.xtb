@@ -527,7 +527,6 @@ Parollarni istalgan vaqtda <ph name="GOOGLE_PASSWORD_MANAGER" /> orqali tekshiri
 <translation id="1342886103232377846">Oshkor etilgan parollarni tekshirish uchun Google Parollar Menejerini oching</translation>
 <translation id="1343920184519992513">Qolgan joyingizdan davom eting va maxsus sahifalar jamlanmasini oching</translation>
 <translation id="1344141078024003905">Ekran translatsiya qilinmoqda. Ekran translatsiyasini instalgan vaqt pauza qilish yoki tugatish mumkin.</translation>
-<translation id="13449088910457661">Gemini siz bergan vazifalarni bajarishda varaqlar ichida ishlaydi. <ph name="LINK_BEGIN" />Batafsil<ph name="LINK_END" /></translation>
 <translation id="1346403631707626730">Foydalanish statistikasi va diagnostika axborotini yuborish. Diagnostika hamda qurilma va ilovadan foydalanish statistikasini Google kompaniyasiga avtomatik yuborish orqali Androidni yaxshilashga yordam bering. Ushbu axborotdan farzandingiz shaxsini aniqlash uchun foydalanilmaydi. Ular tizim va ilovalar barqarorligi kabilarni yaxshilash uchun ishlatiladi. Ayrim jamlangan axborotlar Google ilovalari va Android dasturchilar kabi hamkorlarga ham yordam beradi. Agar farzandingiz uchun Kengaytirilgan veb-qidiruv va ilovalar tarixi yoqilgan boʻlsa, bu maʼlumotlar uning Google hisobiga saqlanadi. <ph name="BEGIN_LINK1" />Koʻrsatkichlar haqida <ph name="BEGIN_LINK1_END" />batafsil<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">Tasdiqlang va oʻchirib yoqing</translation>
 <translation id="1346748346194534595">O‘ngga</translation>
@@ -1974,6 +1973,7 @@ Oʻz qurilmangizda Family Link ilovasini oʻrnatib, bu hisob sozlamalarini boshq
 <translation id="2319072477089403627">Android telefoniga ulanmoqda...</translation>
 <translation id="2319459402137712349">Klaviaturani ochish uchun matn maydonchasini tanlang. Shuningdek, ekranning quyi qismidagi klaviatura belgisini tanlash mumkin.</translation>
 <translation id="2319993584768066746">Kirish ekranidagi suratlar</translation>
+<translation id="2321487076181785382">Varaqlarni ajratish</translation>
 <translation id="2322193970951063277">Sarlavha va taglavhalar</translation>
 <translation id="2322318151094136999">Sayt ketma-ket portlardan foydalanish oldidan ruxsat olinsin (tavsiya etiladi)</translation>
 <translation id="2322622365472107569">Tugash vaqti: <ph name="TIME" /></translation>
@@ -2121,7 +2121,6 @@ Oʻz qurilmangizda Family Link ilovasini oʻrnatib, bu hisob sozlamalarini boshq
 <translation id="2428939361789119025">Wi-Fi aloqasini uzish</translation>
 <translation id="2431027948063157455">Google Assistent yuklanmadi, tarmoq sozlamalarini tekshiring va qaytadan urining.</translation>
 <translation id="243179355394256322">Tashkilotingiz qurilmalarini faqatgina vakolatli foydalanuvchilar qayd qilishi mumkin. Bu foydalanuvchi qurilmalarni qayd qilish vakolatiga ega emas. Foydalanuvchi uchun Administrator konsoli orqali foydalanuvchilar boʻlimida ”Google Meet qurilmalarini qayd qilish” vakolati yoqilgan boʻlishi kerak.</translation>
-<translation id="2431896368788252518">Shaxsiy kontekstni koʻrish va boshqarish</translation>
 <translation id="243275146591958220">Yuklab olishni bekor qilish</translation>
 <translation id="2433237965825924228">Izolyatsiyalangan veb-ilovalar autentifikatsiya qurilmalari va ushbu qurilmalarga ulangan smart kartalarni boshqaradi. Smart kartalarda odatda shaxsni tasdiqlovchi identifikatsiya maʼlumotlari saqlanadi.</translation>
 <translation id="2433452467737464329">Sahifa avtomatik yangilanishi uchun URL manzilga so‘rov parametrini qo‘shing: chrome://network/?refresh=&lt;sec&gt;</translation>
@@ -4379,6 +4378,7 @@ Oʻz qurilmangizda Family Link ilovasini oʻrnatib, bu hisob sozlamalarini boshq
 <translation id="394984172568887996">IE brauzeridan import qilinganlar</translation>
 <translation id="3949999964543783947">Fayllarni xavfsiz yuklab olish uchun <ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" /></translation>
 <translation id="3950479158728806902">Tezkor kirish kalitlarini avtomatik yaratish</translation>
+<translation id="3950755269510650933">Gemini tajribangizni moslash uchun ishlatiladigan maʼlumotlarni boshqaring</translation>
 <translation id="3950820424414687140">Kirish</translation>
 <translation id="3950841222883198950">Ovoz bilan yozish</translation>
 <translation id="3953834000574892725">Hisoblarim</translation>
@@ -4408,6 +4408,7 @@ Oʻz qurilmangizda Family Link ilovasini oʻrnatib, bu hisob sozlamalarini boshq
 <translation id="3968739731834770921">Kana</translation>
 <translation id="3970114302595058915">ID</translation>
 <translation id="397105322502079400">Hisoblanmoqda...</translation>
+<translation id="3971355433478412726">Gemini uchun koʻrsatmalar</translation>
 <translation id="3971764089670057203">Bu elektron kalitdagi barmoq izlari</translation>
 <translation id="3973005893595042880">Foydalanuvchiga ruxsat berilmagan</translation>
 <translation id="3973660817924297510">Parollar tekshirilmoqda (<ph name="CHECKED_PASSWORDS" />/<ph name="TOTAL_PASSWORDS" />)…</translation>
@@ -5812,6 +5813,7 @@ Kichiklashtirish uchun Ctrl+Alt+Yorqinlikni pasaytirish tugmalarini bosing.</tra
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">Jild faqat shu qurilmada saqlansinmi?</translation>
 <translation id="4959262764292427323">Google hisobingizga saqlangan parollardan har qanday qurilmada foydalanishingiz mumkin.</translation>
+<translation id="4959581970694896608">Gemini sizga qanday javob berishini sozlang</translation>
 <translation id="4960020053211143927">Ayrim ilovalarda ishlamaydi</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> - <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">Ekranni translatsiya qilish</translation>
@@ -6160,7 +6162,6 @@ Kichiklashtirish uchun Ctrl+Alt+Yorqinlikni pasaytirish tugmalarini bosing.</tra
 <translation id="5204967432542742771">Parolni kiriting</translation>
 <translation id="5205484256512407285">Hech qachon mobil internetdan yuborilmasin</translation>
 <translation id="520568280985468584">Tarmoq kiritildi. Mobil tarmoq faollashtirilishi bir necha daqiqa vaqt oladi.</translation>
-<translation id="520576054436518354">Gemini siz uchun kezishiga ruxsat bering</translation>
 <translation id="5207949376430453814">Matn kiritish joyi ajratib ko‘rsatilsin</translation>
 <translation id="520840839826327499"><ph name="SERVICE_NAME" /> mos ChromeOS qurilmadan foydalanayotganingizni tekshirmoqchi.</translation>
 <translation id="5208722776934437424">Ruxsatlarni oʻzgartirish</translation>
@@ -6407,6 +6408,7 @@ Kichiklashtirish uchun Ctrl+Alt+Yorqinlikni pasaytirish tugmalarini bosing.</tra
 <translation id="5388719243178419614">Yuklash imkonsiz. Rasmni qayta ishlashda xatolik yuz berdi.</translation>
 <translation id="5388885445722491159">Ulandi</translation>
 <translation id="5389224261615877010">Kamalak</translation>
+<translation id="538945906186309152">Gemini tezkor tugmasini yoqish</translation>
 <translation id="5389794555912875905">Himoyalanmagan saytlarni ochishdan oldin ogohlantirishlarni koʻrsatish (tavsiya etiladi)</translation>
 <translation id="5389943529251318913">Sichqoncha tezligini pasaytirish</translation>
 <translation id="5390112241331447203">Fikr-mulohaza hisobotlarida system_logs.txt fayli ham yuborilsin.</translation>
@@ -10205,6 +10207,7 @@ Kalit faylini ishonchli joyda saqlang. U kengaytmaning yangi versiyalarini yarat
 <translation id="8011372169388649948">“<ph name="BOOKMARK_TITLE" />” boshqa joyga olindi.</translation>
 <translation id="8012188750847319132">caps lock</translation>
 <translation id="8012463809859447963">Tezkor modem tafsilotlari</translation>
+<translation id="8013181884974864006">Kontekstli vazifalar</translation>
 <translation id="8013534738634318212">Bu saytlar <ph name="RWS_OWNER" /> guruhiga kiradi. Guruhdagi saytlar guruhdagi faoliyatni koʻra oladi.</translation>
 <translation id="8013993649590906847">Agar rasmga foydali tavsif berilmagan boʻlsa, Google Chrome uni sizga tavsiflaydi. Tavsif yaratish uchun rasmlar Googlega yuboriladi.</translation>
 <translation id="8014154204619229810">Yangilash vositasi ishlamoqda. Bir necha daqiqadan so‘ng qayta urinib ko‘ring.</translation>

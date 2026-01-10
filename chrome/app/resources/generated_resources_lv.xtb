@@ -529,7 +529,6 @@ Saskaņā ar domēna <ph name="DOMAIN" /> prasībām viedkartei ir jābūt ievie
 <translation id="1342886103232377846">Lai pārbaudītu, vai neviena parole nav uzlauzta, pārejiet uz Google paroļu pārvaldnieku.</translation>
 <translation id="1343920184519992513">Atsākt darbu no vietas, kur to beidzāt, un atvērt konkrētu lapu kopu</translation>
 <translation id="1344141078024003905">Jūs apraidāt ekrānu. Jebkurā brīdī varat apturēt vai pārtraukt ekrāna apraidi.</translation>
-<translation id="13449088910457661">Gemini darbojas jūsu cilnēs, lai veiktu jūsu dotos uzdevumus. <ph name="LINK_BEGIN" />Uzziniet vairāk<ph name="LINK_END" />.</translation>
 <translation id="1346403631707626730">Lietojuma un diagnostikas datu sūtīšana. Palīdziet uzlabot bērna Android lietošanas pieredzi, automātiski nosūtot diagnostikas, ierīces un lietotņu lietojuma datus uzņēmumam Google. Šī informācija netiks izmantota jūsu bērna identificēšanai, un tā palīdzēs uzlabot sistēmas un lietotņu stabilitāti un daudz ko citu. Noteiktus apkopotos datus izmantos arī Google lietotņu izstrādātāji un partneri, piemēram, Android izstrādātāji. Ja jūsu bērnam ir ieslēgts papildu iestatījums “Darbības tīmeklī un lietotnēs”, šie dati var tikt saglabāti bērna Google kontā. <ph name="BEGIN_LINK1" />Uzzināt vairāk par rādītājiem<ph name="BEGIN_LINK1_END" />Uzzināt vairāk<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">Apstiprināt un restartēt</translation>
 <translation id="1346748346194534595">Pa labi</translation>
@@ -1974,6 +1973,7 @@ Varat pārvaldīt šī konta iestatījumus, savā ierīcē instalējot lietotni 
 <translation id="2319072477089403627">Notiek savienojuma izveide ar jūsu Android tālruni…</translation>
 <translation id="2319459402137712349">Atlasiet teksta lauku, lai atvērtu tastatūru. Varat arī atlasīt ekrāna apakšdaļā esošo tastatūras ikonu.</translation>
 <translation id="2319993584768066746">Pierakstīšanās ekrāna fotoattēli</translation>
+<translation id="2321487076181785382">Sadalīt cilnes</translation>
 <translation id="2322193970951063277">Galvenes un kājenes</translation>
 <translation id="2322318151094136999">Vaicāt, ja vietne vēlas piekļūt seriālajiem portiem (ieteicams)</translation>
 <translation id="2322622365472107569">Beigu laiks: <ph name="TIME" /></translation>
@@ -2121,7 +2121,6 @@ Varat pārvaldīt šī konta iestatījumus, savā ierīcē instalējot lietotni 
 <translation id="2428939361789119025">Izslēgt Wi-Fi savienojumu</translation>
 <translation id="2431027948063157455">Nevarēja ielādēt Google asistentu, lūdzu, pārbaudiet tīkla savienojumu un pēc tam mēģiniet vēlreiz.</translation>
 <translation id="243179355394256322">Jūsu organizācijā tikai pilnvaroti lietotāji drīkst reģistrēt ierīces. Šis lietotājs nav pilnvarots reģistrēt ierīces. Administrēšanas konsoles sadaļā “Lietotāji” piešķiriet lietotājam administrēšanas atļauju reģistrēt Google Meet aparatūru.</translation>
-<translation id="2431896368788252518">Skatiet un pārvaldiet savu personisko kontekstu.</translation>
 <translation id="243275146591958220">Atcelt lejupielādi</translation>
 <translation id="2433237965825924228">Izolētas tīmekļa lietotnes kontrolē autentifikācijas ierīces un tām pieejamās viedkartes. Viedkartēs parasti ir ietverti identifikatori, kas tiek izmantoti, lai jūs autentificētu.</translation>
 <translation id="2433452467737464329">Pievienojiet vaicājuma parametru vietrādī URL, lai atsvaidzinātu šo lapu: chrome://network/?refresh=&lt;sec&gt;.</translation>
@@ -4379,6 +4378,7 @@ Vai vēlaties palaist rīku <ph name="CONTROL_PANEL_APPLET_NAME" />?</translatio
 <translation id="394984172568887996">Importēts no IE</translation>
 <translation id="3949999964543783947"><ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" />, lai uzlabotu failu lejupielādes drošību</translation>
 <translation id="3950479158728806902">Automātiski izveidot piekļuves atslēgu, lai ātrāk pierakstītos</translation>
+<translation id="3950755269510650933">Pārvaldiet informāciju, ko Gemini var izmantot, lai personalizētu jūsu lietošanas pieredzi.</translation>
 <translation id="3950820424414687140">Pierakstīties</translation>
 <translation id="3950841222883198950">Rakstīšana ar balsi</translation>
 <translation id="3953834000574892725">Mani konti</translation>
@@ -4408,6 +4408,7 @@ Vai vēlaties palaist rīku <ph name="CONTROL_PANEL_APPLET_NAME" />?</translatio
 <translation id="3968739731834770921">Kana</translation>
 <translation id="3970114302595058915">ID</translation>
 <translation id="397105322502079400">Aprēķina...</translation>
+<translation id="3971355433478412726">Norādījumi Gemini</translation>
 <translation id="3971764089670057203">Šai drošības atslēgai ir pirkstu nospiedumi</translation>
 <translation id="3973005893595042880">Lietotājs nav atļauts</translation>
 <translation id="3973660817924297510">Notiek paroļu pārbaude (<ph name="CHECKED_PASSWORDS" /> no <ph name="TOTAL_PASSWORDS" />)…</translation>
@@ -5813,6 +5814,7 @@ Lai tālinātu, nospiediet Ctrl + Alt + spilgtuma samazināšanas taustiņu.
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">Vai saglabāt mapē tikai šajā ierīcē?</translation>
 <translation id="4959262764292427323">Paroles tiek saglabātas jūsu Google kontā, lai jūs tās varētu izmantot jebkurā ierīcē.</translation>
+<translation id="4959581970694896608">Pielāgojiet, kā Gemini sniedz atbildes.</translation>
 <translation id="4960020053211143927">Šis iestatījums netiek atbalstīts dažās lietotnēs.</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> — <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">Ekrāna apraide</translation>
@@ -6161,7 +6163,6 @@ Lai tālinātu, nospiediet Ctrl + Alt + spilgtuma samazināšanas taustiņu.
 <translation id="5204967432542742771">Ievadiet paroli</translation>
 <translation id="5205484256512407285">Nekad neizmantot pārsūtīšanai mobilos datus</translation>
 <translation id="520568280985468584">Tīkls ir sekmīgi pievienots. Mobilā tīkla aktivizēšana var ilgt vairākas minūtes.</translation>
-<translation id="520576054436518354">Ļaujiet Gemini veikt pārlūkošanu jūsu vietā</translation>
 <translation id="5207949376430453814">Izcelt teksta ievietošanas punktu</translation>
 <translation id="520840839826327499"><ph name="SERVICE_NAME" /> vēlas pārbaudīt, vai izmantojat piemērotu Chrome OS ierīci.</translation>
 <translation id="5208722776934437424">Mainīt atļaujas</translation>
@@ -6407,6 +6408,7 @@ Lai tālinātu, nospiediet Ctrl + Alt + spilgtuma samazināšanas taustiņu.
 <translation id="5388719243178419614">Nevar augšupielādēt. Neizdevās apstrādāt attēla failu.</translation>
 <translation id="5388885445722491159">Sapārots</translation>
 <translation id="5389224261615877010">Varavīksne</translation>
+<translation id="538945906186309152">Ieslēgt Gemini īsinājumtaustiņu</translation>
 <translation id="5389794555912875905">Skatīt brīdinājumus pirms nedrošu vietņu apmeklēšanas (ieteicams)</translation>
 <translation id="5389943529251318913">Samazināt peles ātrumu par</translation>
 <translation id="5390112241331447203">Iekļaut atsauksmju ziņojumos nosūtīto failu system_logs.txt.</translation>
@@ -10207,6 +10209,7 @@ Glabājiet atslēgas failu drošā vietā. Tas būs vajadzīgs, lai izveidotu ja
 <translation id="8011372169388649948">Pārvietota grāmatzīme: <ph name="BOOKMARK_TITLE" />.</translation>
 <translation id="8012188750847319132">burtslēga taustiņš</translation>
 <translation id="8012463809859447963">Detalizēta informācija par tūlītējo tīklāju</translation>
+<translation id="8013181884974864006">Kontekstuāli uzdevumi</translation>
 <translation id="8013534738634318212">Šīs vietnes ir uzņēmuma <ph name="RWS_OWNER" /> definētā grupā. Grupā iekļauto vietņu īpašnieki var skatīt darbības, ko veicat jebkurā grupas vietnē.</translation>
 <translation id="8013993649590906847">Ja attēlam nav vērtīga apraksta, pārlūks Chrome mēģinās jums tādu nodrošināt. Lai izveidotu aprakstus, attēli tiek nosūtīti uzņēmumam Google.</translation>
 <translation id="8014154204619229810">Pašlaik darbojas atjauninātājs. Pēc brīža atsvaidziniet, lai pārbaudītu vēlreiz.</translation>

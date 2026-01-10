@@ -10,6 +10,7 @@
 
 #include "base/containers/flat_map.h"
 #include "base/functional/callback_forward.h"
+#include "chrome/browser/actor/site_policy.h"
 #include "chrome/common/actor_webui.mojom.h"
 #include "components/autofill/core/browser/integrators/glic/actor_form_filling_types.h"
 #include "components/password_manager/core/browser/actor_login/actor_login_types.h"
@@ -58,6 +59,12 @@ class ToolDelegate {
   // Returns the favicon service for the profile associated with the task.
   virtual favicon::FaviconService* GetFaviconService() = 0;
 
+  // Invokes the given callback according to whether the tool may navigate to
+  // the given URL.
+  virtual void IsAcceptableNavigationDestination(
+      const GURL& url,
+      DecisionCallbackWithReason callback) = 0;
+
   // Prompts the user to select a credential from the list of credentials, and
   // with optional icons for each site or app that is associated with the
   // credential.
@@ -94,8 +101,13 @@ class ToolDelegate {
   // within the same task.
   // `permission_duration` can be one-time or permanent. Permanent permission
   // means the `credential` can be used in future calls to the tool.
+  // `affiliations_fetched` is invoked when the operation to fetch affiliated
+  // domains is completed. Affiliations are fetched in order to reuse the
+  // permission given to the selected `credential` in other domains that are
+  // strongly affiliated.
   virtual void SetUserSelectedCredential(
-      const CredentialWithPermission& credential) = 0;
+      const CredentialWithPermission& credential,
+      base::OnceClosure affiliations_fetched) = 0;
   virtual const std::optional<CredentialWithPermission>
   GetUserSelectedCredential(const url::Origin& request_origin) const = 0;
 

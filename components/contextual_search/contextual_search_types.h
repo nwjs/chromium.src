@@ -12,6 +12,7 @@
 #include "components/sessions/core/session_id.h"
 #include "third_party/lens_server_proto/lens_overlay_request_id.pb.h"
 #include "url/gurl.h"
+#include "components/lens/contextual_input.h"
 
 namespace lens {
 enum class MimeType;
@@ -62,10 +63,12 @@ enum class FileUploadErrorType {
 struct FileInfo {
  public:
   FileInfo();
+  FileInfo(const FileInfo& other);
+  FileInfo& operator=(const FileInfo& other);
   virtual ~FileInfo();
 
   // Gets the context id for this request.
-  uint64_t GetContextId() const { return request_id.context_id(); }
+  int64_t GetContextId() const { return request_id.context_id(); }
 
   // Client-side unique identifier.
   base::UnguessableToken file_token;
@@ -104,6 +107,12 @@ struct FileInfo {
   // The request ID for this request. Updated by the context
   // controller when the file upload is started.
   lens::LensOverlayRequestId request_id;
+
+  // The raw response bodies from the upload requests.
+  std::vector<std::string> response_bodies;
+
+  // The input data associated with this file.
+  std::unique_ptr<lens::ContextualInputData> input_data;
 };
 
 // LINT.IfChange(SubmissionType)

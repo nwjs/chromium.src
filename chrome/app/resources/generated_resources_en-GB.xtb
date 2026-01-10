@@ -527,7 +527,6 @@ Check your passwords at any time in <ph name="GOOGLE_PASSWORD_MANAGER" />.</tran
 <translation id="1342886103232377846">To check for compromised passwords, go to Google Password Manager</translation>
 <translation id="1343920184519992513">Continue from where you left off and open a specific set of pages</translation>
 <translation id="1344141078024003905">You are casting your screen. You can pause or stop casting your screen at any time.</translation>
-<translation id="13449088910457661">Gemini works in your tabs to complete tasks that you give it. <ph name="LINK_BEGIN" />Learn more<ph name="LINK_END" /></translation>
 <translation id="1346403631707626730">Send usage and diagnostic data. Help improve your child's Android experience by automatically sending diagnostic, device and app usage data to Google. This won't be used to identify your child and will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. If the additional Web &amp; App Activity is turned on for your child, this data may be saved to their Google Account. <ph name="BEGIN_LINK1" />Learn more about metrics<ph name="BEGIN_LINK1_END" />Learn more<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">Confirm and restart</translation>
 <translation id="1346748346194534595">Right</translation>
@@ -1985,6 +1984,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="2319072477089403627">Connecting to your Android phone...</translation>
 <translation id="2319459402137712349">Select a text field to open the keyboard. You can also select the keyboard icon at the bottom of your screen.</translation>
 <translation id="2319993584768066746">Sign-in screen photos</translation>
+<translation id="2321487076181785382">Split tabs</translation>
 <translation id="2322193970951063277">Headers and footers</translation>
 <translation id="2322318151094136999">Ask when a site wants to access serial ports (recommended)</translation>
 <translation id="2322622365472107569">End time <ph name="TIME" /></translation>
@@ -2132,7 +2132,6 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="2428939361789119025">Turn off Wi-Fi</translation>
 <translation id="2431027948063157455">Google Assistant was unable to load. Please check your network connection and retry.</translation>
 <translation id="243179355394256322">Your organisation limits device enrolment to authorised users only. This user is not authorised to enrol devices. Please make sure that the user has the 'Enrol Google Meet hardware' administrator privilege in the Users section of the Admin console.</translation>
-<translation id="2431896368788252518">View and manage your personal context</translation>
 <translation id="243275146591958220">Cancel download</translation>
 <translation id="2433237965825924228">Isolated web apps control authentication devices and smart cards accessible to them. Smart cards usually contain identifiers used to authenticate you.</translation>
 <translation id="2433452467737464329">Add a query param in URL to auto-refresh the page: chrome://network/?refresh=&lt;sec&gt;</translation>
@@ -4392,6 +4391,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="394984172568887996">Imported From IE</translation>
 <translation id="3949999964543783947"><ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" /> to make downloading files safer</translation>
 <translation id="3950479158728806902">Automatically create a passkey to sign in faster</translation>
+<translation id="3950755269510650933">Manage the information that Gemini can use to personalise your experience</translation>
 <translation id="3950820424414687140">Sign in</translation>
 <translation id="3950841222883198950">Voice typing</translation>
 <translation id="3953834000574892725">My accounts</translation>
@@ -4421,6 +4421,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="3968739731834770921">Kana</translation>
 <translation id="3970114302595058915">ID</translation>
 <translation id="397105322502079400">Calculating...</translation>
+<translation id="3971355433478412726">Instructions for Gemini</translation>
 <translation id="3971764089670057203">Fingerprints on this security key</translation>
 <translation id="3973005893595042880">User is not allowed</translation>
 <translation id="3973660817924297510">Checking passwords (<ph name="CHECKED_PASSWORDS" /> of <ph name="TOTAL_PASSWORDS" />)…</translation>
@@ -5826,6 +5827,7 @@ Use Ctrl + Alt + Brightness down to zoom out.</translation>
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">Save to a folder only on this device?</translation>
 <translation id="4959262764292427323">Passwords are saved in your Google Account so that you can use them on any device</translation>
+<translation id="4959581970694896608">Customise how Gemini responds to you</translation>
 <translation id="4960020053211143927">Not supported by some apps</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> – <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">Cast screen</translation>
@@ -6174,7 +6176,6 @@ Use Ctrl + Alt + Brightness down to zoom out.</translation>
 <translation id="5204967432542742771">Enter password</translation>
 <translation id="5205484256512407285">Never use mobile data to transfer</translation>
 <translation id="520568280985468584">Network has been added successfully. It may take several minutes for your mobile network to become active.</translation>
-<translation id="520576054436518354">Let Gemini browse for you</translation>
 <translation id="5207949376430453814">Highlight text caret</translation>
 <translation id="520840839826327499"><ph name="SERVICE_NAME" /> wants to check if you are using an eligible Chrome OS device.</translation>
 <translation id="5208722776934437424">Change permissions</translation>
@@ -6421,6 +6422,7 @@ Use Ctrl + Alt + Brightness down to zoom out.</translation>
 <translation id="5388719243178419614">Can't upload. Failed to process image file.</translation>
 <translation id="5388885445722491159">Paired</translation>
 <translation id="5389224261615877010">Rainbow</translation>
+<translation id="538945906186309152">Turn on Gemini keyboard shortcut</translation>
 <translation id="5389794555912875905">See warnings before going to insecure sites (recommended)</translation>
 <translation id="5389943529251318913">Reduce mouse speed by</translation>
 <translation id="5390112241331447203">Include the system_logs.txt file sent in feedback reports.</translation>
@@ -10220,6 +10222,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="8011372169388649948">'<ph name="BOOKMARK_TITLE" />' moved.</translation>
 <translation id="8012188750847319132">caps lock</translation>
 <translation id="8012463809859447963">Instant hotspot details</translation>
+<translation id="8013181884974864006">Contextual tasks</translation>
 <translation id="8013534738634318212">These sites are in a group defined by <ph name="RWS_OWNER" />. Sites in a group can see your activity in the group.</translation>
 <translation id="8013993649590906847">If an image doesn’t have a useful description, Chrome will try to provide one for you. To create descriptions, images are sent to Google.</translation>
 <translation id="8014154204619229810">The updater is currently running. Refresh in a minute to check again.</translation>

@@ -61,6 +61,7 @@ class MostVisitedHandler : public most_visited::mojom::MostVisitedPageHandler,
   void RestoreMostVisitedDefaults(ntp_tiles::TileSource source) override;
   void ReorderMostVisitedTile(most_visited::mojom::MostVisitedTilePtr tile,
                               uint8_t new_pos) override;
+  void UndoMostVisitedAutoRemoval() override;
   void UndoMostVisitedTileAction(ntp_tiles::TileSource source) override;
   void UpdateMostVisitedInfo() override;
   void UpdateMostVisitedTile(most_visited::mojom::MostVisitedTilePtr tile,
@@ -97,6 +98,8 @@ class MostVisitedHandler : public most_visited::mojom::MostVisitedPageHandler,
   void OnIconMadeAvailable(const GURL& site_url) override;
 
   NewTabPagePreloadPipelineManager* GetNewTabPagePreloadPipelineManager();
+
+  void MaybeRemoveStaleShortcuts();
 
   raw_ptr<Profile> profile_;
   // web_app::PreinstalledWebAppManager::Observer

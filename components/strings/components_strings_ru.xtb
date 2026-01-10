@@ -243,7 +243,7 @@
 <translation id="138218114945450791">Голубой</translation>
 <translation id="1382194467192730611">Это устройство USB входит в список разрешенных</translation>
 <translation id="1384725838384960382">Экран проверки учетных данных для защищенных платежей</translation>
-<translation id="1386623374109090026">Заметки</translation>
+<translation id="1386623374109090026">Аннотации</translation>
 <translation id="138810468159004008">Разрешить, когда я на сайте</translation>
 <translation id="1391145880481608015">Подробнее об этом уведомлении…</translation>
 <translation id="139161720020179799">Темно-серый 1</translation>
@@ -1444,6 +1444,7 @@
 <translation id="3342018947887487892">Сайты, на которые вы зайдете в дальнейшем, смогут запрашивать эту информацию – либо темы рекламы, либо объявления, предложенные сайтами, которые вы посетили.</translation>
 <translation id="334438173029876234">Инвентарь для скейтбординга</translation>
 <translation id="3347146863028219517">Лыжи и сноуборд</translation>
+<translation id="3349610303043713601">Поиск с помощью ИИ</translation>
 <translation id="3349952286488694786">SRA2</translation>
 <translation id="3350450887151703713">Перемотать на 10 секунд назад</translation>
 <translation id="3352881017886802007">Спортивные игры</translation>
@@ -4059,7 +4060,6 @@
 <translation id="753556296624075801">Технологии Google</translation>
 <translation id="753713322968419914">Удалить домашний адрес из данных автозаполнения Chrome?</translation>
 <translation id="7537536606612762813">Обязательная</translation>
-<translation id="7541043894191476250">Контекстные задачи</translation>
 <translation id="7543525346216957623">Попроси родителя помочь</translation>
 <translation id="7546409722674205727">Запуск приложения "<ph name="APP_NAME" />"…</translation>
 <translation id="7548892272833184391">Как устранить ошибки при подключении к Интернету</translation>

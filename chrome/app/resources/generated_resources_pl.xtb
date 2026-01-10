@@ -529,7 +529,6 @@ Domena <ph name="DOMAIN" /> wymaga, by karta inteligentna pozostała w gnieźdz
 <translation id="1342886103232377846">Aby sprawdzić, czy jakieś hasła nie zostały przejęte, otwórz Menedżera haseł Google</translation>
 <translation id="1343920184519992513">Kontynuuj od tego samego miejsca i otwórz konkretny zestaw stron</translation>
 <translation id="1344141078024003905">Przesyłasz ekran. Przesyłanie ekranu możesz w każdej chwili wstrzymać lub zakończyć.</translation>
-<translation id="13449088910457661">Gemini działa na kartach, aby wykonywać zadania, o które poprosisz. <ph name="LINK_BEGIN" />Więcej informacji<ph name="LINK_END" /></translation>
 <translation id="1346403631707626730">Wysyłaj dane o użytkowaniu i diagnostyce. Pomóż ulepszyć działanie Androida na urządzeniu dziecka, automatycznie wysyłając do Google dane o diagnostyce i korzystaniu z urządzenia i aplikacji. Nie zostaną one użyte do zidentyfikowania Twojego dziecka. Wykorzystamy je, aby poprawić stabilność systemu i aplikacji oraz wprowadzić inne ulepszenia. Niektóre dane zbiorcze pomogą nam też udoskonalić aplikacje Google lub zostaną wykorzystane przez naszych partnerów, na przykład deweloperów aplikacji na Androida. Jeśli na koncie Google dziecka włączysz ustawienie Dodatkowa aktywność w internecie i aplikacjach, te dane mogą być na nim zapisywane. <ph name="BEGIN_LINK1" />Więcej informacji o danych<ph name="BEGIN_LINK1_END" />Więcej informacji<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">Potwierdź i uruchom ponownie</translation>
 <translation id="1346748346194534595">W prawo</translation>
@@ -1356,7 +1355,7 @@ Na tym koncie mogą obowiązywać uprawnienia przyznane wcześniej aplikacjom. U
 <translation id="1907044622262489040">Umożliwia pisanie za pomocą głosu. Naciśnij klawisz wyszukiwania + D i zacznij mówić.</translation>
 <translation id="1907659324308286326">Niektóre akcesoria Thunderbolt i USB4 w celu prawidłowego działania wymagają dostępu do pamięci.</translation>
 <translation id="1908591798274282246">Otwórz ponownie zamkniętą grupę</translation>
-<translation id="1909677622563887527">Przeglądarką Chrome steruje zautomatyzowane oprogramowanie testowe.</translation>
+<translation id="1909677622563887527">Przeglądarką Chrome steruje zautomatyzowane oprogramowanie testowe</translation>
 <translation id="1909880997794698664">Czy na pewno chcesz trwale utrzymywać to urządzenie w trybie kiosku?</translation>
 <translation id="1910721550319506122">Witamy!</translation>
 <translation id="1910736334623230603">Nie można wyszukiwać wielu obrazów. Dodawaj obrazy pojedynczo.</translation>
@@ -1962,6 +1961,7 @@ Możesz zarządzać ustawieniami konta, korzystając z aplikacji Family Link na
 <translation id="2319072477089403627">Łączę z Twoim telefonem z Androidem…</translation>
 <translation id="2319459402137712349">Aby otworzyć klawiaturę, wybierz pole tekstowe. Możesz też kliknąć ikonę Klawiatura u dołu ekranu.</translation>
 <translation id="2319993584768066746">Zdjęcia na ekranie logowania</translation>
+<translation id="2321487076181785382">Podziel karty</translation>
 <translation id="2322193970951063277">Nagłówki i stopki</translation>
 <translation id="2322318151094136999">Pytaj, gdy strona chce uzyskać dostęp do portów szeregowych (zalecane)</translation>
 <translation id="2322622365472107569">Czas zakończenia: <ph name="TIME" /></translation>
@@ -2109,7 +2109,6 @@ Możesz zarządzać ustawieniami konta, korzystając z aplikacji Family Link na
 <translation id="2428939361789119025">Wyłączanie sieci Wi-Fi</translation>
 <translation id="2431027948063157455">Nie udało się załadować Asystenta Google. Spróbuj ponownie.</translation>
 <translation id="243179355394256322">W Twojej organizacji urządzenia mogą rejestrować tylko autoryzowani użytkownicy. Ten użytkownik nie ma takich uprawnień. Przyznaj mu uprawnienia administratora „Rejestrowanie sprzętu do Google Meet” w sekcji Użytkownicy w konsoli administracyjnej.</translation>
-<translation id="2431896368788252518">Wyświetlanie spersonalizowanego kontekstu i zarządzanie nim</translation>
 <translation id="243275146591958220">Anuluj pobieranie</translation>
 <translation id="2433237965825924228">Izolowane aplikacje internetowe sterują urządzeniami uwierzytelniającymi i kartami inteligentnymi, do których mają dostęp. Karty inteligentne zwykle zawierają identyfikatory używane do uwierzytelniania.</translation>
 <translation id="2433452467737464329">Aby strona była odświeżana automatycznie, dodaj parametr zapytania w adresie URL: chrome://network/?refresh=&lt;sec&gt;</translation>
@@ -4359,6 +4358,7 @@ Domena <ph name="DOMAIN" /> wymaga, by karta inteligentna pozostała w gnieźdz
 <translation id="394984172568887996">Zaimportowane z IE</translation>
 <translation id="3949999964543783947"><ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" />, aby zwiększyć bezpieczeństwo pobierania plików</translation>
 <translation id="3950479158728806902">Automatycznie utwórz klucz dostępu, aby szybciej się logować</translation>
+<translation id="3950755269510650933">Zarządzaj informacjami, które Gemini może wykorzystywać, by dostosować działanie do Twoich potrzeb</translation>
 <translation id="3950820424414687140">Zaloguj się</translation>
 <translation id="3950841222883198950">Pisanie głosowe</translation>
 <translation id="3953834000574892725">Moje konta</translation>
@@ -4388,6 +4388,7 @@ Domena <ph name="DOMAIN" /> wymaga, by karta inteligentna pozostała w gnieźdz
 <translation id="3968739731834770921">Tryb znaków kana</translation>
 <translation id="3970114302595058915">Identyfikator</translation>
 <translation id="397105322502079400">Obliczanie...</translation>
+<translation id="3971355433478412726">Instrukcje dla Gemini</translation>
 <translation id="3971764089670057203">Odciski cyfrowe na tym kluczu bezpieczeństwa</translation>
 <translation id="3973005893595042880">Użytkownik nie został dopuszczony</translation>
 <translation id="3973660817924297510">Sprawdzam hasła (<ph name="CHECKED_PASSWORDS" /> z <ph name="TOTAL_PASSWORDS" />)…</translation>
@@ -5792,6 +5793,7 @@ Aby pomniejszyć, naciśnij Ctrl + Alt + zmniejsz jasność.</translation>
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">Zapisać w folderze tylko na tym urządzeniu?</translation>
 <translation id="4959262764292427323">Hasła są zapisywane na Twoim koncie Google, dzięki czemu możesz ich używać na dowolnym urządzeniu</translation>
+<translation id="4959581970694896608">Dostosuj, jak Gemini ma odpowiadać</translation>
 <translation id="4960020053211143927">Nieobsługiwane przez niektóre aplikacje</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> – <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">Przesyłanie ekranu</translation>
@@ -6140,7 +6142,6 @@ Aby pomniejszyć, naciśnij Ctrl + Alt + zmniejsz jasność.</translation>
 <translation id="5204967432542742771">Wpisz hasło</translation>
 <translation id="5205484256512407285">Nigdy nie używaj mobilnej transmisji danych</translation>
 <translation id="520568280985468584">Sieć komórkowa została dodana. Może minąć kilka minut, zanim się uaktywni.</translation>
-<translation id="520576054436518354">Pozwól Gemini przeglądać za Ciebie</translation>
 <translation id="5207949376430453814">Podświetlaj kursor tekstu</translation>
 <translation id="520840839826327499"><ph name="SERVICE_NAME" /> chce sprawdzić, czy używasz odpowiedniego urządzenia z Chrome OS.</translation>
 <translation id="5208722776934437424">Zmień uprawnienia</translation>
@@ -6386,6 +6387,7 @@ Aby pomniejszyć, naciśnij Ctrl + Alt + zmniejsz jasność.</translation>
 <translation id="5388719243178419614">Nie udało się przesłać. Nie udało się przetworzyć pliku graficznego.</translation>
 <translation id="5388885445722491159">Sparowane</translation>
 <translation id="5389224261615877010">Tęcza</translation>
+<translation id="538945906186309152">Włącz skrót klawiszowy Gemini</translation>
 <translation id="5389794555912875905">Wyświetlaj ostrzeżenia przed wejściem na niezabezpieczone strony (zalecane)</translation>
 <translation id="5389943529251318913">Zmniejsz prędkość myszy o</translation>
 <translation id="5390112241331447203">Uwzględnij plik system_logs.txt przesłany razem z opiniami.</translation>
@@ -10185,6 +10187,7 @@ Przechowuj plik klucza w bezpiecznym miejscu. Będzie on potrzebny do utworzenia
 <translation id="8011372169388649948">Zakładka „<ph name="BOOKMARK_TITLE" />” została przeniesiona.</translation>
 <translation id="8012188750847319132">caps lock</translation>
 <translation id="8012463809859447963">Szczegóły szybkiego hotspota</translation>
+<translation id="8013181884974864006">Zadania kontekstowe</translation>
 <translation id="8013534738634318212">Te witryny należą do grupy zdefiniowanej przez firmę <ph name="RWS_OWNER" />. Witryny z tej grupy mają dostęp do danych o Twojej aktywności w grupie.</translation>
 <translation id="8013993649590906847">Jeśli obraz nie ma przydatnego opisu, Chrome spróbuje go dla Ciebie stworzyć. W tym celu obrazy zostaną wysłane do Google.</translation>
 <translation id="8014154204619229810">Obecnie działa aktualizator. Odśwież za minutę, by sprawdzić ponownie.</translation>

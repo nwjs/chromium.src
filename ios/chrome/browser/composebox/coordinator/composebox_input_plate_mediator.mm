@@ -28,6 +28,7 @@
 #import "base/time/time.h"
 #import "base/unguessable_token.h"
 #import "components/contextual_search/contextual_search_context_controller.h"
+#import "components/contextual_search/contextual_search_service.h"
 #import "components/contextual_search/contextual_search_session_handle.h"
 #import "components/lens/contextual_input.h"
 #import "components/lens/lens_bitmap_processing.h"
@@ -37,6 +38,7 @@
 #import "components/omnibox/common/omnibox_features.h"
 #import "components/omnibox/composebox/ios/composebox_file_upload_observer_bridge.h"
 #import "components/omnibox/composebox/ios/composebox_query_controller_ios.h"
+#import "components/prefs/pref_service.h"
 #import "components/search/search.h"
 #import "components/search_engines/template_url_service.h"
 #import "components/search_engines/util.h"
@@ -173,6 +175,8 @@ CreateInputDataFromAnnotatedPageContent(
   raw_ptr<AimEligibilityService> _aimEligibilityService;
   // Subscription for AIM eligibility changes.
   base::CallbackListSubscription _aimEligibilitySubscription;
+  // The preference service.
+  raw_ptr<PrefService> _prefService;
 
   // Stores the page context wrappers for the duration of the APC retrieval.
   std::unordered_map<web::WebStateID, PageContextWrapper*> _pageContextWrappers;
@@ -212,12 +216,14 @@ CreateInputDataFromAnnotatedPageContent(
                          modeHolder:(ComposeboxModeHolder*)modeHolder
                  templateURLService:(TemplateURLService*)templateURLService
               aimEligibilityService:
-                  (AimEligibilityService*)aimEligibilityService {
+                  (AimEligibilityService*)aimEligibilityService
+                        prefService:(PrefService*)prefService {
   self = [super init];
   if (self) {
     _items = [[ComposeboxInputItemCollection alloc]
         initWithAttachmentLimit:kAttachmentLimit];
     _items.delegate = self;
+    _prefService = prefService;
     _contextualSearchSession = std::move(contextualSearchSession);
     _contextualSearchSession->NotifySessionStarted();
     CHECK(_contextualSearchSession->GetController());
@@ -271,6 +277,7 @@ CreateInputDataFromAnnotatedPageContent(
   _items = nil;
   _URLLoader = nil;
   _consumer = nil;
+  _prefService = nullptr;
 }
 
 - (void)processImageItemProvider:(NSItemProvider*)itemProvider
@@ -425,25 +432,20 @@ CreateInputDataFromAnnotatedPageContent(
   search_url_request_info->query_text = base::SysNSStringToUTF8(text);
   search_url_request_info->query_start_time = base::Time::Now();
   search_url_request_info->additional_params = additionalParams;
+  search_url_request_info->invocation_source =
+      lens::LensOverlayInvocationSource::kOmniboxContextualQuery;
   if (_modeHolder.mode == ComposeboxMode::kImageGeneration) {
     search_url_request_info->additional_params["imgn"] = "1";
   }
 
-  GURL URL = _contextualSearchSession->CreateSearchUrl(
-      std::move(search_url_request_info));
-  // TODO(crbug.com/40280872): Handle AIM enabled in the query controller.
-  if ([_modeHolder isRegularSearch]) {
-    URL = net::AppendOrReplaceQueryParameter(URL, "udm", "24");
-  }
+  __weak __typeof(self) weakSelf = self;
+  auto callback =
+      base::BindPostTaskToCurrentDefault(base::BindOnce(^(GURL URL) {
+        [weakSelf didCreateSearchURL:URL];
+      }));
 
-  UrlLoadParams params = CreateOmniboxUrlLoadParams(
-      URL, /*post_content=*/nullptr, WindowOpenDisposition::CURRENT_TAB,
-      ui::PAGE_TRANSITION_GENERATED,
-      /*destination_url_entered_without_scheme=*/false, _isIncognito);
-
-  _inNavigation = YES;
-
-  [self.URLLoader loadURLParams:params];
+  _contextualSearchSession->CreateSearchUrl(std::move(search_url_request_info),
+                                            std::move(callback));
 }
 
 #pragma mark - ComposeboxModeObserver
@@ -830,6 +832,23 @@ CreateInputDataFromAnnotatedPageContent(
 
 #pragma mark - Private
 
+- (void)didCreateSearchURL:(GURL)URL {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(_sequenceChecker);
+  // TODO(crbug.com/40280872): Handle AIM enabled in the query controller.
+  if ([_modeHolder isRegularSearch]) {
+    URL = net::AppendOrReplaceQueryParameter(URL, "udm", "24");
+  }
+
+  UrlLoadParams params = CreateOmniboxUrlLoadParams(
+      URL, /*post_content=*/nullptr, WindowOpenDisposition::CURRENT_TAB,
+      ui::PAGE_TRANSITION_GENERATED,
+      /*destination_url_entered_without_scheme=*/false, _isIncognito);
+
+  _inNavigation = YES;
+
+  [self.URLLoader loadURLParams:params];
+}
+
 // Records whether the session resulted in navigation.
 - (void)recordNavigationResult {
   switch (_modeHolder.mode) {
@@ -1135,6 +1154,11 @@ CreateInputDataFromAnnotatedPageContent(
   if (!_aimEligibilityService) {
     return NO;
   }
+  if (!_prefService || !_contextualSearchSession ||
+      !_contextualSearchSession->CheckSearchContentSharingSettings(
+          _prefService)) {
+    return NO;
+  }
   return _aimEligibilityService->IsAimEligible();
 }
 
@@ -1303,7 +1327,7 @@ CreateInputDataFromAnnotatedPageContent(
     trailingAction = kSend;
   } else if (showShortcuts) {
     trailingAction |= kVoice;
-    trailingAction |= lensAvailable ? kLens : kNone;
+    trailingAction |= lensAvailable ? kLens : kQRScanner;
   }
 
   ComposeboxInputPlateControls visibleControls =

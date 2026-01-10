@@ -79,8 +79,9 @@ class ComposeboxQueryController
 
   // ContextualSearchContextController:
   void InitializeIfNeeded() override;
-  GURL CreateSearchUrl(std::unique_ptr<CreateSearchUrlRequestInfo>
-                           search_url_request_info) override;
+  void CreateSearchUrl(
+      std::unique_ptr<CreateSearchUrlRequestInfo> search_url_request_info,
+      base::OnceCallback<void(GURL)> callback) override;
   lens::ClientToAimMessage CreateClientToAimRequest(
       std::unique_ptr<CreateClientToAimRequestInfo>
           create_client_to_aim_request_info) override;
@@ -98,6 +99,7 @@ class ComposeboxQueryController
   const contextual_search::FileInfo* GetFileInfo(
       const base::UnguessableToken& file_token) override;
   std::vector<const contextual_search::FileInfo*> GetFileInfoList() override;
+  base::WeakPtr<ContextualSearchContextController> AsWeakPtr() override;
 
   // Returns a request id to use for the viewport image upload request for the
   // given file info, setting the viewport request id on the file info if it is
@@ -170,6 +172,8 @@ class ComposeboxQueryController
     // StartFileUploadFlow() is called.
     std::unique_ptr<std::vector<std::string>> request_headers_;
 
+    std::vector<uint8_t> file_content;
+
     // The access token fetcher used for getting OAuth for the file upload
     // request. Will be discarded after the OAuth headers are created.
     std::unique_ptr<signin::PrimaryAccountAccessTokenFetcher>
@@ -232,8 +236,9 @@ class ComposeboxQueryController
       std::string query_text,
       std::optional<lens::ImageCrop> image_crop,
       std::optional<lens::LensOverlayClientLogs> client_logs,
-      std::optional<lens::LensOverlaySelectionType>
-          lens_overlay_selection_type);
+      std::optional<lens::LensOverlaySelectionType> lens_overlay_selection_type,
+      base::OnceCallback<void(lens::LensOverlayInteractionResponse)>
+          interaction_response_callback);
 
   // The internal state of the query controller. Protected to allow tests to
   // access the state. Do not modify this state directly, use
@@ -289,6 +294,10 @@ class ComposeboxQueryController
     // A callback to run once the request has been sent. This is optional, but
     // can be used to run some logic once the request has been sent.
     std::optional<base::OnceClosure> request_sent_callback_;
+
+    // The callback to run when the interaction response is received.
+    base::OnceCallback<void(lens::LensOverlayInteractionResponse)>
+        interaction_response_callback_;
 
     // Whether or not the request has been sent.
     bool request_sent_ = false;
@@ -414,9 +423,19 @@ class ComposeboxQueryController
   // Creates the encoded visual search interaction log data and attaches it to
   // the url param list.
   void AddEncodedVisualSearchInteractionLogDataParam(
+      const FileInfo* file_info,
       const std::optional<std::string>& query_text,
       std::optional<lens::LensOverlaySelectionType> lens_overlay_selection_type,
       std::map<std::string, std::string>& url_params_map);
+
+  // Constructs the visual search interaction data based on the file info and
+  // interaction request data.
+  std::optional<lens::LensOverlayVisualSearchInteractionData>
+  ConstructVisualSearchInteractionData(
+      const FileInfo* file_info,
+      const std::optional<std::string>& query_text,
+      std::optional<lens::LensOverlaySelectionType>
+          lens_overlay_selection_type);
 
   // The last received cluster info.
   std::optional<lens::LensOverlayClusterInfo> cluster_info_ = std::nullopt;
@@ -484,10 +503,6 @@ class ComposeboxQueryController
   // attachment is available (false).
   bool prioritize_suggestions_for_the_first_attached_document_;
 
-  // Whether or not to support the context_id migration on the server, for
-  // the multi-context input flow.
-  bool enable_context_id_migration_;
-
   // Whether or not to attach the page title and url directly to the suggest
   // request params.
   bool attach_page_title_and_url_to_suggest_requests_;
@@ -499,6 +514,10 @@ class ComposeboxQueryController
 
   // The number of files that are sent in the AIM request.
   int num_files_in_request_ = 0;
+
+  // The latest pending search URL request that was not sent due to waiting on
+  // cluster info.
+  base::OnceClosure pending_search_url_request_;
 
   base::WeakPtrFactory<ComposeboxQueryController> weak_ptr_factory_{this};
 };

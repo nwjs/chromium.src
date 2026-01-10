@@ -528,7 +528,6 @@ Vérifiez vos mots de passe à tout moment dans le <ph name="GOOGLE_PASSWORD_MAN
 <translation id="1342886103232377846">Pour vérifier les mots de passe compromis, accédez au Gestionnaire de mots de passe de Google</translation>
 <translation id="1343920184519992513">Reprendre là où vous en étiez et ouvrir un ensemble de pages spécifiques</translation>
 <translation id="1344141078024003905">Vous castez votre écran. Vous pouvez suspendre ou arrêter la diffusion à tout moment.</translation>
-<translation id="13449088910457661">Gemini fonctionne dans vos onglets pour effectuer les tâches que vous lui confiez. <ph name="LINK_BEGIN" />En savoir plus<ph name="LINK_END" /></translation>
 <translation id="1346403631707626730">Envoyer des données d'utilisation et de diagnostic. Contribuez à l'amélioration de l'expérience de votre enfant sur Android en envoyant automatiquement à Google des données liées aux diagnostics, à l'appareil et à l'utilisation des applis. Ces données ne serviront pas à identifier votre enfant, mais elles nous aideront à améliorer, entre autres, la stabilité du système et des applis. Certaines données globales seront aussi utiles aux développeurs d'applis Google et à nos partenaires tels que les développeurs Android. Si le paramètre "Activité additionnelle sur le Web et les applications" est activé pour votre enfant, ces données pourront être enregistrées dans son compte Google. <ph name="BEGIN_LINK1" />En savoir plus sur les métriques<ph name="BEGIN_LINK1_END" />En savoir plus<ph name="END_LINK1" /></translation>
 <translation id="1346630054604077329">Confirmer et redémarrer</translation>
 <translation id="1346748346194534595">À droite</translation>
@@ -1973,6 +1972,7 @@ Vous pouvez gérer les paramètres de ce compte en installant l'application Fami
 <translation id="2319072477089403627">Connexion à votre téléphone Android…</translation>
 <translation id="2319459402137712349">Sélectionnez l'icône Clavier en bas de l'écran ou un champ de texte pour activer le clavier</translation>
 <translation id="2319993584768066746">Photos sur l'écran de connexion</translation>
+<translation id="2321487076181785382">Diviser les onglets</translation>
 <translation id="2322193970951063277">En-têtes et pieds de page</translation>
 <translation id="2322318151094136999">Me demander lorsqu'un site souhaite accéder aux ports série (recommandé)</translation>
 <translation id="2322622365472107569">Heure de fin : <ph name="TIME" /></translation>
@@ -2120,7 +2120,6 @@ Vous pouvez gérer les paramètres de ce compte en installant l'application Fami
 <translation id="2428939361789119025">Désactiver le Wi-Fi</translation>
 <translation id="2431027948063157455">Impossible de charger l'Assistant Google. Veuillez vérifier votre connexion réseau et réessayer.</translation>
 <translation id="243179355394256322">Votre organisation limite l'enregistrement d'un appareil aux seuls utilisateurs autorisés. Cet utilisateur n'est pas autorisé à enregistrer des appareils. Veuillez vous assurer qu'il dispose du droit d'administrateur "Enregistrer du matériel Google Meet" dans la section "Utilisateurs" de la Console d'administration.</translation>
-<translation id="2431896368788252518">Afficher et gérer votre contexte personnel</translation>
 <translation id="243275146591958220">Annuler le téléchargement</translation>
 <translation id="2433237965825924228">Les applications Web isolées contrôlent les appareils d'authentification et les cartes à puce auxquelles ils ont accès. Les cartes à puce contiennent généralement des identifiants utilisés pour vous authentifier.</translation>
 <translation id="2433452467737464329">Ajoutez un paramètre de requête dans l'URL pour une actualisation automatique de la page : chrome://network/?refresh=&lt;sec&gt;.</translation>
@@ -2676,7 +2675,7 @@ Vous pouvez gérer les paramètres de ce compte en installant l'application Fami
 <translation id="2792697226874849938">Image "Restriction"</translation>
 <translation id="2794522004398861033">Connectez-vous au Wi-Fi ou à Ethernet pour configurer la carte eSIM</translation>
 <translation id="2794977172822818797">Ajouter les sites actuels</translation>
-<translation id="2795716239552913152">Les sites utilisent généralement votre position pour proposer des fonctionnalités ou des informations pertinentes, comme la météo locale ou des magasins à proximité</translation>
+<translation id="2795716239552913152">Les sites utilisent généralement votre position pour vous proposer des fonctionnalités ou des informations pertinentes, comme les actualités locales ou les magasins à proximité</translation>
 <translation id="2797712124653482791">Masquer pendant <ph name="DISMISS_DAYS" /> jours</translation>
 <translation id="2798347533012571708">Garder les mises à jour</translation>
 <translation id="2799162042226656283">Votre Chrome</translation>
@@ -4378,6 +4377,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="394984172568887996">Importés depuis IE</translation>
 <translation id="3949999964543783947"><ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" /> pour sécuriser davantage le téléchargement de fichiers</translation>
 <translation id="3950479158728806902">Créer automatiquement une clé d'accès pour vous connecter plus vite</translation>
+<translation id="3950755269510650933">Gérez les informations que Gemini peut utiliser pour personnaliser votre expérience</translation>
 <translation id="3950820424414687140">Se connecter</translation>
 <translation id="3950841222883198950">Saisie vocale</translation>
 <translation id="3953834000574892725">Mes comptes</translation>
@@ -4407,6 +4407,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="3968739731834770921">Kana</translation>
 <translation id="3970114302595058915">Identifiant</translation>
 <translation id="397105322502079400">Calcul en cours…</translation>
+<translation id="3971355433478412726">Instructions pour Gemini</translation>
 <translation id="3971764089670057203">Empreintes sur cette clé de sécurité</translation>
 <translation id="3973005893595042880">Utilisateur non autorisé</translation>
 <translation id="3973660817924297510">Vérification des mots de passe (<ph name="CHECKED_PASSWORDS" /> sur <ph name="TOTAL_PASSWORDS" />)…</translation>
@@ -5811,6 +5812,7 @@ Appuyez sur Ctrl+Alt+Baisser la luminosité pour faire un zoom arrière.</transl
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">Enregistrer dans un dossier sur cet appareil uniquement ?</translation>
 <translation id="4959262764292427323">Les mots de passe sont enregistrés dans votre compte Google, afin que vous puissiez les utiliser sur tous vos appareils</translation>
+<translation id="4959581970694896608">Personnalisez la façon dont Gemini vous répond</translation>
 <translation id="4960020053211143927">Non compatible avec certaines applis</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> – <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">Caster l'écran</translation>
@@ -6159,7 +6161,6 @@ Appuyez sur Ctrl+Alt+Baisser la luminosité pour faire un zoom arrière.</transl
 <translation id="5204967432542742771">Mot de passe</translation>
 <translation id="5205484256512407285">Ne jamais utiliser les données mobiles pour les transferts</translation>
 <translation id="520568280985468584">Le réseau a bien été ajouté. L'activation de votre réseau cellulaire peut prendre plusieurs minutes.</translation>
-<translation id="520576054436518354">Laissez Gemini naviguer pour vous</translation>
 <translation id="5207949376430453814">Mettre le curseur de texte en surbrillance</translation>
 <translation id="520840839826327499"><ph name="SERVICE_NAME" /> veut vérifier si vous utilisez un appareil Chrome OS éligible.</translation>
 <translation id="5208722776934437424">Modifier les autorisations</translation>
@@ -6405,6 +6406,7 @@ Appuyez sur Ctrl+Alt+Baisser la luminosité pour faire un zoom arrière.</transl
 <translation id="5388719243178419614">Impossible d'importer. Échec du traitement du fichier image.</translation>
 <translation id="5388885445722491159">Associé</translation>
 <translation id="5389224261615877010">Arc-en-ciel</translation>
+<translation id="538945906186309152">Activer le raccourci clavier de Gemini</translation>
 <translation id="5389794555912875905">Voir des avertissements avant d'accéder à des sites non sécurisés (recommandé)</translation>
 <translation id="5389943529251318913">Réduire la vitesse de la souris de</translation>
 <translation id="5390112241331447203">Ajouter le fichier system_logs.txt envoyé dans les rapports de commentaires.</translation>
@@ -10188,7 +10190,7 @@ Fichier de clé : <ph name="KEY_FILE" />
 
 Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la création de nouvelles versions de l'extension.</translation>
 <translation id="8000020256436988724">Barre d'outils</translation>
-<translation id="800117767980299235">Retranscription vocale</translation>
+<translation id="800117767980299235">Mise en surbrillance du texte lu</translation>
 <translation id="8001561107130904792">Partage du contenu de la page</translation>
 <translation id="8002274832045662704">Configuration avancée de l'imprimante</translation>
 <translation id="8002597610026749658">Chrome peut créer des sous-titres pour les langues affichées ici</translation>
@@ -10207,6 +10209,7 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="8011372169388649948"><ph name="BOOKMARK_TITLE" /> a été déplacé.</translation>
 <translation id="8012188750847319132">verrouillage des majuscules</translation>
 <translation id="8012463809859447963">Détails du point d'accès instantané</translation>
+<translation id="8013181884974864006">Tâches contextuelles</translation>
 <translation id="8013534738634318212">Ces sites font partie d'un groupe défini par <ph name="RWS_OWNER" />. Les sites d'un groupe peuvent voir votre activité dans celui-ci.</translation>
 <translation id="8013993649590906847">Si une image n'est pas accompagnée d'une description utile, Chrome essaiera de vous en proposer une. Pour nous permettre de créer des descriptions, les images sont envoyées à Google.</translation>
 <translation id="8014154204619229810">Le processus de mise à jour est en cours. Actualisez la page dans quelques instants et revérifiez.</translation>
@@ -10870,7 +10873,7 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="8458627787104127436">Tout ouvrir (<ph name="URL_COUNT" />) dans une nouvelle fenêtre</translation>
 <translation id="8459023460357294721">Ouvrir <ph name="FILE_NAME" /> quand même</translation>
 <translation id="8459333762072051247">État de connexion</translation>
-<translation id="8460448946170646641">Examinez les paramètres clés de confidentialité et de sécurité</translation>
+<translation id="8460448946170646641">Passez en revue les principaux paramètres de confidentialité et de sécurité</translation>
 <translation id="8460490661223303637">Chrome a supprimé certains contenus afin de libérer de la mémoire</translation>
 <translation id="8460932807646981183">Gérer les moteurs de recherche et la recherche sur les sites</translation>
 <translation id="84613761564611563">Demande d'interface utilisateur en cours pour la configuration réseau. Merci de patienter…</translation>

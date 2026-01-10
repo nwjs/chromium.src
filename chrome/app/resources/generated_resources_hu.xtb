@@ -527,7 +527,6 @@ A(z) <ph name="DOMAIN" /> megköveteli, hogy ne távolítsa el az intelligens k�
 <translation id="1342886103232377846">Az illetéktelen kézbe került jelszavak előfordulásának ellenőrzéséhez nyissa meg a Google Jelszókezelőt</translation>
 <translation id="1343920184519992513">Ott folytathatja, ahol abbahagyta, és megnyithatja az oldalak egy adott készletét.</translation>
 <translation id="1344141078024003905">A képernyő átküldése folyamatban van. Bármikor szüneteltetheti vagy leállíthatja a képernyő átküldését.</translation>
-<translation id="13449088910457661">A Gemini az Ön lapjain dolgozva elvégzi az Ön által adott feladatokat. <ph name="LINK_BEGIN" />További információ<ph name="LINK_END" />.</translation>
 <translation id="1346403631707626730">Használati és diagnosztikai adatok küldése. Segítsen gyermeke Android-élményének továbbfejlesztésében azzal, hogy automatikusan diagnosztikai, valamint eszköz- és alkalmazáshasználati adatokat küld a Google-nak. Az adatok a rendszer- és alkalmazásstabilitás javításában, valamint más fejlesztésekben segítenek, és nem használjuk fel őket az Ön gyermekének azonosítására. Bizonyos összesített adatok a Google-alkalmazásoknak és -partnereknek, például az Android-fejlesztőknek is segítenek. Ha az Internetes és alkalmazástevékenységek beállítás is be van kapcsolva a gyermekénél, akkor a rendszer ezeket az adatokat mentheti az ő Google-fiókjába. <ph name="BEGIN_LINK1" />További információ a mutatókról<ph name="BEGIN_LINK1_END" />További információ<ph name="END_LINK1" />.</translation>
 <translation id="1346630054604077329">Megerősítés és újraindítás</translation>
 <translation id="1346748346194534595">Jobbra</translation>
@@ -1984,6 +1983,7 @@ Ha kezelni szeretné a fiók beállításait, telepítse eszközére a Family Li
 <translation id="2319072477089403627">Csatlakozás az androidos telefonhoz…</translation>
 <translation id="2319459402137712349">A billentyűzet megnyitásához válasszon ki egy szövegmezőt. Kiválaszthatja a képernyő alján található Billentyűzet ikont is.</translation>
 <translation id="2319993584768066746">Fotók a bejelentkezési képernyőn</translation>
+<translation id="2321487076181785382">Lapok felosztása</translation>
 <translation id="2322193970951063277">Fejlécek és láblécek</translation>
 <translation id="2322318151094136999">Kérdezzen rá, ha valamelyik webhely hozzá szeretne férni a soros portokhoz (ajánlott)</translation>
 <translation id="2322622365472107569">Befejezési idő: <ph name="TIME" /></translation>
@@ -2131,7 +2131,6 @@ Ha kezelni szeretné a fiók beállításait, telepítse eszközére a Family Li
 <translation id="2428939361789119025">A Wi-Fi kikapcsolása</translation>
 <translation id="2431027948063157455">A Google Segéd betöltése sikertelen volt. Ellenőrizze a hálózati kapcsolatot, majd próbálja újra.</translation>
 <translation id="243179355394256322">Szervezete csak a jogosult felhasználók számára engedélyezi az eszközregisztrációt. Ez a felhasználó nem jogosult eszközök regisztrációjára. A felhasználónak az „Enroll Google Meet hardware” (Google Meet-hardver regisztrációja) adminisztrátori jogosultsággal kell rendelkeznie a Felügyeleti Konzol Felhasználók szakaszában.</translation>
-<translation id="2431896368788252518">A személyes kontextus megtekintése és kezelése</translation>
 <translation id="243275146591958220">Letöltés megszakítása</translation>
 <translation id="2433237965825924228">Az izolált internetes alkalmazások vezérelhetik a hitelesítési eszközöket és a számukra hozzáférhető intelligens kártyákat Az intelligens kártyák általában olyan azonosítókat tartalmaznak, amelyek az Ön hitelesítésére szolgálnak.</translation>
 <translation id="2433452467737464329">Adjon meg egy lekérdezési paramétert az URL-címben az oldal automatikus frissítéséhez: chrome://network/?refresh=&lt;sec&gt;</translation>
@@ -4390,6 +4389,7 @@ Elindítja a következőt: <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation
 <translation id="394984172568887996">Az IE alkalmazásból importálva</translation>
 <translation id="3949999964543783947"><ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" /> a fájlok letöltésének biztonságosabbá tétele érdekében</translation>
 <translation id="3950479158728806902">Azonosítókulcs automatikus létrehozása a gyorsabb bejelentkezéshez</translation>
+<translation id="3950755269510650933">Itt kezelheti az információt, melyet a Gemini felhasználhat a felhasználói élmény személyre szabásához</translation>
 <translation id="3950820424414687140">Bejelentkezés</translation>
 <translation id="3950841222883198950">Hangvezérelt írás</translation>
 <translation id="3953834000574892725">Saját fiókok</translation>
@@ -4419,6 +4419,7 @@ Elindítja a következőt: <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation
 <translation id="3968739731834770921">Kana</translation>
 <translation id="3970114302595058915">Azonosító</translation>
 <translation id="397105322502079400">Számítás…</translation>
+<translation id="3971355433478412726">Utasítások a Gemininek</translation>
 <translation id="3971764089670057203">A biztonsági kulcson található ujjlenyomatok</translation>
 <translation id="3973005893595042880">Nem engedélyezett felhasználó</translation>
 <translation id="3973660817924297510">Jelszavak ellenőrzése (<ph name="TOTAL_PASSWORDS" />/<ph name="CHECKED_PASSWORDS" />)…</translation>
@@ -5824,6 +5825,7 @@ kicsinyítéshez pedig a Ctrl + Alt + Fényerő csökkentése billentyűpara
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">Csak az ezen az eszközön lévő mappába menti a könyvjelzőt?</translation>
 <translation id="4959262764292427323">A jelszavakat Google-fiókjába mentjük, hogy bármelyik eszközén használhassa őket</translation>
+<translation id="4959581970694896608">A Gemini válaszainak személyre szabása</translation>
 <translation id="4960020053211143927">Egyes alkalmazások nem támogatják</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> – <ph name="PROFILE_NAME" /></translation>
 <translation id="4961318399572185831">Képernyő átküldése</translation>
@@ -6172,7 +6174,6 @@ kicsinyítéshez pedig a Ctrl + Alt + Fényerő csökkentése billentyűpara
 <translation id="5204967432542742771">Írja be a jelszót</translation>
 <translation id="5205484256512407285">A rendszer nem használ mobiladatokat az átvitelhez</translation>
 <translation id="520568280985468584">Hálózat hozzáadva. Szükség lehet néhány percre a mobilhálózat aktiválásához.</translation>
-<translation id="520576054436518354">A Gemini böngészhet az Ön nevében</translation>
 <translation id="5207949376430453814">Szövegbeszúrási pont kiemelése</translation>
 <translation id="520840839826327499">A(z) <ph name="SERVICE_NAME" /> ellenőrizni szeretné, hogy Ön megfelelő ChromeOS-eszközt használ-e.</translation>
 <translation id="5208722776934437424">Engedélyek módosítása</translation>
@@ -6419,6 +6420,7 @@ kicsinyítéshez pedig a Ctrl + Alt + Fényerő csökkentése billentyűpara
 <translation id="5388719243178419614">Nem sikerült a feltöltés. Nem sikerült feldolgozni a képfájlt.</translation>
 <translation id="5388885445722491159">Párosítva</translation>
 <translation id="5389224261615877010">Szivárvány</translation>
+<translation id="538945906186309152">A Gemini billentyűparancsának bekapcsolása</translation>
 <translation id="5389794555912875905">Figyelmeztetések megjelenítése a nem biztonságos webhelyek felkeresése előtt (ajánlott)</translation>
 <translation id="5389943529251318913">Egérsebesség csökkentése ennyivel:</translation>
 <translation id="5390112241331447203">A system_logs.txt fájl is kerüljön be a visszajelzési jelentésekbe.</translation>
@@ -10218,6 +10220,7 @@ A kulcsfájlt tartsa biztonságos helyen. Szüksége lesz rá ahhoz, hogy új ve
 <translation id="8011372169388649948">„<ph name="BOOKMARK_TITLE" />” áthelyezve.</translation>
 <translation id="8012188750847319132">Caps Lock</translation>
 <translation id="8012463809859447963">Az azonnali hotspot részletei</translation>
+<translation id="8013181884974864006">Kontextuális feladatok</translation>
 <translation id="8013534738634318212">Ezek a webhelyek egy olyan csoportban találhatók, amelyet, a(z) <ph name="RWS_OWNER" /> határozott meg. A csoportban lévő webhelyek láthatják az Ön csoportban végzett tevékenységét.</translation>
 <translation id="8013993649590906847">Ha valamelyik kép nem rendelkezik hasznos leírással, akkor a Chrome igyekszik leírást adni róla. A Google automatikusan megkapja a leírások létrehozásához szükséges képeket.</translation>
 <translation id="8014154204619229810">A frissítő most fut. Frissítsen egy perc múlva, és ellenőrizze az állapotát.</translation>

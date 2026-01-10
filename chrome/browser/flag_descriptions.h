@@ -51,6 +51,12 @@ inline constexpr char kAiModeOmniboxEntryPointName[] =
 inline constexpr char kAiModeOmniboxEntryPointDescription[] =
     "Enables icon button for AI Mode entrypoint in the Omnibox.";
 
+inline constexpr char kAiModeEntryPointAlwaysNavigatesName[] =
+    "AI Mode Omnibox Entrypoint always navigates";
+inline constexpr char kAiModeEntryPointAlwaysNavigatesDescription[] =
+    "If enabled, clicking aim button in omnibox always navigates directly to "
+    "google.com/aimode.";
+
 inline constexpr char kOmniboxAimServerEligibilityName[] =
     "AIM Server Eligibility";
 inline constexpr char kOmniboxAimServerEligibilityDescription[] =
@@ -3618,6 +3624,17 @@ inline constexpr char kPrivacySandboxInternalsName[] =
 inline constexpr char kPrivacySandboxInternalsDescription[] =
     "Enables the chrome://privacy-sandbox-internals debugging page.";
 
+inline constexpr char kPrivateMetricsEnablePumaName[] =
+    "Enable Private User Metrics";
+inline constexpr char kPrivateMetricsEnablePumaDescription[] =
+    "Enables collection of Private User Metrics.";
+
+inline constexpr char kPrivateMetricsEnablePumaRcName[] =
+    "Enable Private User Metrics for Regional Capabilities";
+inline constexpr char kPrivateMetricsEnablePumaRcDescription[] =
+    "Enables collection of Private User Metrics for Regional Capabilities. For "
+    "it to work, Private User Metrics need to be enabled too.";
+
 inline constexpr char kProfileSignalsReportingEnabledName[] =
     "Profile Signals Reporting Enabled";
 inline constexpr char kProfileSignalsReportingEnabledDescription[] =
@@ -6209,11 +6226,6 @@ inline constexpr char kNtpRealboxNextName[] = "NTP Realbox Next";
 inline constexpr char kNtpRealboxNextDescription[] =
     "Enables the Realbox 'Next' experience.";
 
-inline constexpr char kNtpSearchboxComposeEntrypointName[] =
-    "NTP Compose Entrypoint";
-inline constexpr char kNtpSearchboxComposeEntrypointDescription[] =
-    "Shows the Compose entrypoint on the New Tab Page Searchbox.";
-
 inline constexpr char kNtpDriveModuleName[] = "NTP Drive Module";
 inline constexpr char kNtpDriveModuleDescription[] =
     "Shows the Google Drive module on the New Tab Page";
@@ -6234,10 +6246,21 @@ inline constexpr char kNtpDummyModulesDescription[] =
     "Adds dummy modules to New Tab Page when 'NTP Modules Redesigned' is "
     "enabled.";
 
-inline constexpr char kNtpFeatureOptimizationName[] =
-    "NTP Feature Optimization";
-inline constexpr char kNtpFeatureOptimizationDescription[] =
-    "Enables auto-removal of stale features from the NTP.";
+inline constexpr char kNtpFeatureOptimizationDismissModulesRemovalName[] =
+    "NTP Feature Optimization Dismiss Modules Removal";
+inline constexpr char
+    kNtpFeatureOptimizationDismissModulesRemovalDescription[] =
+        "Removes the dismiss module buttons from the NTP modules.";
+
+inline constexpr char kNtpFeatureOptimizationModuleRemovalName[] =
+    "NTP Feature Optimization Module Removal";
+inline constexpr char kNtpFeatureOptimizationModuleRemovalDescription[] =
+    "Enables auto-removal of stale modules from the NTP.";
+
+inline constexpr char kNtpFeatureOptimizationShortcutsRemovalName[] =
+    "NTP Feature Optimization Shortcuts Removal";
+inline constexpr char kNtpFeatureOptimizationShortcutsRemovalDescription[] =
+    "Enables auto-removal of stale shortcuts from the NTP.";
 
 inline constexpr char kNtpFooterName[] = "NTP Footer";
 inline constexpr char kNtpFooterDescription[] =

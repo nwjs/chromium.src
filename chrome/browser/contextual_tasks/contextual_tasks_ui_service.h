@@ -18,6 +18,7 @@
 class BrowserWindowInterface;
 class ContextualTasksUI;
 class Profile;
+class TabStripModel;
 
 namespace base {
 class Uuid;
@@ -37,17 +38,17 @@ class TabInterface;
 }  // namespace tabs
 
 namespace contextual_tasks {
-
-class ContextualTasksContextController;
+class ContextualTasksService;
 
 // A service used to coordinate all of the side panel instances showing an AI
 // thread. Events like tab switching and Intercepted navigations from both the
 // sidepanel and omnibox will be routed here.
 class ContextualTasksUiService : public KeyedService {
  public:
-  ContextualTasksUiService(Profile* profile,
-                           ContextualTasksContextController* context_controller,
-                           signin::IdentityManager* identity_manager);
+  ContextualTasksUiService(
+      Profile* profile,
+      contextual_tasks::ContextualTasksService* contextual_tasks_service,
+      signin::IdentityManager* identity_manager);
   ContextualTasksUiService(const ContextualTasksUiService&) = delete;
   ContextualTasksUiService operator=(const ContextualTasksUiService&) = delete;
   ~ContextualTasksUiService() override;
@@ -112,13 +113,13 @@ class ContextualTasksUiService : public KeyedService {
   // loaded in the absence of any other context.
   virtual GURL GetDefaultAiPageUrl();
 
-  // Called when the side panel in a given browser window started showing a new
-  // task. If |task_id| is invalid, the panel is in a zero-state that is waiting
-  // for user to create a new task.
-  virtual void OnTaskChangedInPanel(
-      BrowserWindowInterface* browser_window_interface,
-      content::WebContents* web_contents,
-      const base::Uuid& task_id);
+  // Called when a UI in a given browser window started showing a new task,
+  // either in a full tab or in the side panel. If |task_id| is invalid, the
+  // UI is in a zero-state that is waiting for user to create a new task.
+  virtual void OnTaskChanged(BrowserWindowInterface* browser_window_interface,
+                             content::WebContents* web_contents,
+                             const base::Uuid& task_id,
+                             bool is_shown_in_tab);
 
   // Opens the contextual tasks side panel and creates a new task with the given
   // URL as its initial thread URL.
@@ -132,8 +133,17 @@ class ContextualTasksUiService : public KeyedService {
   // Returns whether the provided URL is to an AI page.
   bool IsAiUrl(const GURL& url);
 
+  // Returns whether the provided URL is to a contextual tasks WebUI page.
+  bool IsContextualTasksUrl(const GURL& url);
+
   // Returns whether the provided URL is for the search results page.
-  bool IsSearchResultsPage(const GURL& url);
+  bool IsValidSearchResultsPage(const GURL& url);
+
+  // Called when the Lens overlay is shown/hidden. No-op if the active UI is not
+  // in the side panel since the Lens button is always hidden in a tab.
+  virtual void OnLensOverlayStateChanged(
+      BrowserWindowInterface* browser_window_interface,
+      bool is_showing);
 
   // Associates a WebContents with a task, assuming the URL of the WebContents'
   // main frame or side panel is a contextual task URL.
@@ -159,6 +169,13 @@ class ContextualTasksUiService : public KeyedService {
     return auto_tab_context_suggestion_enabled_;
   }
 
+  // Return whether there is a user signed into the browser with valid
+  // credentials (aka, an OAuth token can be obtained).
+  virtual bool IsSignedInToBrowserWithValidCredentials();
+
+  // Return whether the cookie jar contains the primary account.
+  virtual bool CookieJarContainsPrimaryAccount();
+
  protected:
   // The actual implementation of `HandleNavigation` that extracts more of the
   // components needed to decide if the navigation should be handled by this
@@ -173,10 +190,15 @@ class ContextualTasksUiService : public KeyedService {
   virtual bool IsUrlForPrimaryAccount(const GURL& url);
 
  private:
+  // Focus an existing tab based on the provided URL if it exists. The URLs must
+  // be identical in order for the existing tab to be selected.
+  bool MaybeFocusExistingOpenTab(const GURL& url,
+                                 TabStripModel* tab_strip_model,
+                                 const base::Uuid& task_id);
+
   const raw_ptr<Profile> profile_;
 
-  raw_ptr<contextual_tasks::ContextualTasksContextController>
-      context_controller_;
+  raw_ptr<contextual_tasks::ContextualTasksService> contextual_tasks_service_;
 
   raw_ptr<signin::IdentityManager> identity_manager_;
 

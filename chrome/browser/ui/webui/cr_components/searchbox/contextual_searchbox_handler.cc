@@ -11,10 +11,16 @@
 #include <vector>
 
 #include "base/containers/span.h"
+#include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/sequenced_task_runner.h"
+#include "chrome/browser/contextual_search/contextual_search_service_factory.h"
 #include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
+#include "chrome/browser/contextual_tasks/entry_point_eligibility_manager.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/contextual_search/tab_contextualization_controller.h"
+#include "chrome/browser/ui/lens/lens_search_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_renderer_data.h"
@@ -24,11 +30,16 @@
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_web_contents_helper.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "components/contextual_search/contextual_search_metrics_recorder.h"
+#include "components/contextual_search/contextual_search_service.h"
+#include "components/contextual_search/contextual_search_session_handle.h"
 #include "components/google/core/common/google_util.h"
 #include "components/lens/contextual_input.h"
-#include "components/lens/tab_contextualization_controller.h"
 #include "components/omnibox/browser/vector_icons.h"
+#include "components/sessions/content/session_tab_helper.h"
+#include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
 #include "ui/base/webui/web_ui_util.h"
 #include "ui/base/window_open_disposition.h"
@@ -55,17 +66,6 @@ std::optional<lens::ImageEncodingOptions> CreateImageEncodingOptions() {
       .compression_quality = image_upload_config.image_compression_quality()};
 }
 
-// Returns the ContextualSearchSessionHandle for the given WebContents, or
-// nullptr if there is none.
-contextual_search::ContextualSearchSessionHandle* GetSessionHandle(
-    content::WebContents* web_contents) {
-  auto* contextual_search_web_contents_helper =
-      ContextualSearchWebContentsHelper::FromWebContents(web_contents);
-  return contextual_search_web_contents_helper
-             ? contextual_search_web_contents_helper->session_handle()
-             : nullptr;
-}
-
 }  // namespace
 
 ContextualOmniboxClient::ContextualOmniboxClient(
@@ -77,10 +77,12 @@ ContextualOmniboxClient::~ContextualOmniboxClient() = default;
 
 std::optional<lens::proto::LensOverlaySuggestInputs>
 ContextualOmniboxClient::GetLensOverlaySuggestInputs() const {
-  auto* contextual_session_handle = GetSessionHandle(web_contents());
-  return contextual_session_handle
-             ? contextual_session_handle->GetSuggestInputs()
-             : std::nullopt;
+  return suggest_inputs_callback_ ? suggest_inputs_callback_.Run()
+                                  : std::nullopt;
+}
+
+int ContextualSearchboxHandler::GetContextMenuMaxTabSuggestions() {
+  return ntp_composebox::kContextMenuMaxTabSuggestions.Get();
 }
 
 void ContextualSearchboxHandler::GetRecentTabs(GetRecentTabsCallback callback) {
@@ -115,8 +117,17 @@ void ContextualSearchboxHandler::GetRecentTabs(GetRecentTabsCallback callback) {
     tab_data->tab_id = tab->GetHandle().raw_value();
     tab_data->title = base::UTF16ToUTF8(tab_renderer_data.title);
     tab_data->url = last_committed_url;
-    tab_data->show_in_recent_tab_chip =
-        !google_util::IsGoogleSearchUrl(last_committed_url);
+    const bool show_in_current_tab_chip =
+        tab_strip_model->GetActiveWebContents()->GetLastCommittedURL() ==
+        last_committed_url;
+    tab_data->show_in_current_tab_chip = show_in_current_tab_chip;
+
+    lens::TabContextualizationController* tab_context_controller =
+        tab->GetTabFeatures()->tab_contextualization_controller();
+    tab_data->show_in_previous_tab_chip =
+        !google_util::IsGoogleSearchUrl(last_committed_url) &&
+        tab_context_controller->GetInitialPageContextEligibility() &&
+        !show_in_current_tab_chip;
     tab_data->last_active =
         std::max(web_contents->GetLastActiveTimeTicks(),
                  web_contents->GetLastInteractionTimeTicks());
@@ -138,9 +149,8 @@ void ContextualSearchboxHandler::GetRecentTabs(GetRecentTabsCallback callback) {
 
   // Sort the tabs by last active time, and truncate to the maximum number of
   // tabs to return.
-  int max_tab_suggestions =
-      std::min(static_cast<int>(tabs.size()),
-               ntp_composebox::kContextMenuMaxTabSuggestions.Get());
+  int max_tab_suggestions = std::min(static_cast<int>(tabs.size()),
+                                     GetContextMenuMaxTabSuggestions());
   std::partial_sort(tabs.begin(), tabs.begin() + max_tab_suggestions,
                     tabs.end(),
                     [](const searchbox::mojom::TabInfoPtr& a,
@@ -220,23 +230,20 @@ ContextualSearchboxHandler::ContextualSearchboxHandler(
         pending_searchbox_handler,
     Profile* profile,
     content::WebContents* web_contents,
-    std::unique_ptr<OmniboxController> controller)
+    std::unique_ptr<OmniboxController> controller,
+    GetSessionHandleCallback get_session_callback)
     : SearchboxHandler(std::move(pending_searchbox_handler),
                        profile,
                        web_contents,
                        std::move(controller)),
-      web_contents_(web_contents) {
-  auto* contextual_session_handle = GetSessionHandle(web_contents_);
-  if (contextual_session_handle) {
-    if (auto* query_controller = contextual_session_handle->GetController()) {
-      file_upload_status_observer_.Observe(query_controller);
-    }
+      get_session_callback_(std::move(get_session_callback)) {
+  // This implicitly also initializes the file upload status observer.
+  GetContextualSessionHandle();
 
-    auto* browser_window_interface =
-        webui::GetBrowserWindowInterface(web_contents_);
-    if (browser_window_interface) {
-      browser_window_interface->GetTabStripModel()->AddObserver(this);
-    }
+  auto* browser_window_interface =
+      webui::GetBrowserWindowInterface(web_contents_);
+  if (browser_window_interface) {
+    browser_window_interface->GetTabStripModel()->AddObserver(this);
   }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -246,35 +253,64 @@ ContextualSearchboxHandler::ContextualSearchboxHandler(
 #endif
 }
 
+contextual_search::ContextualSearchSessionHandle*
+ContextualSearchboxHandler::GetContextualSessionHandle() {
+  if (!get_session_callback_) {
+    return nullptr;
+  }
+
+  auto* session_handle = get_session_callback_.Run();
+  auto* context_controller =
+      session_handle ? session_handle->GetController() : nullptr;
+  // Remove the old context controller if it's different from the new one.
+  if (context_controller_ && context_controller_.get() != context_controller) {
+    context_controller_->RemoveObserver(this);
+    context_controller_ = nullptr;
+  }
+  // Reset to the new context controller if it is different.
+  if (context_controller && !context_controller_) {
+    context_controller->AddObserver(this);
+    context_controller_ = context_controller->AsWeakPtr();
+  }
+  return session_handle;
+}
+
 ContextualSearchboxHandler::~ContextualSearchboxHandler() {
-  auto* helper =
-      ContextualSearchWebContentsHelper::FromWebContents(web_contents_);
-  if (helper && helper->session_handle()) {
-    auto* browser_window_interface =
-        webui::GetBrowserWindowInterface(web_contents_);
-    if (browser_window_interface) {
-      browser_window_interface->GetTabStripModel()->RemoveObserver(this);
-    }
+  auto* browser_window_interface =
+      webui::GetBrowserWindowInterface(web_contents_);
+  if (browser_window_interface) {
+    browser_window_interface->GetTabStripModel()->RemoveObserver(this);
+  }
+  if (context_controller_) {
+    context_controller_->RemoveObserver(this);
   }
 }
 
 contextual_search::ContextualSearchMetricsRecorder*
 ContextualSearchboxHandler::GetMetricsRecorder() {
-  auto* contextual_session_handle = GetSessionHandle(web_contents_);
+  auto* contextual_session_handle = GetContextualSessionHandle();
   return contextual_session_handle
              ? contextual_session_handle->GetMetricsRecorder()
              : nullptr;
 }
 
+std::optional<lens::proto::LensOverlaySuggestInputs>
+ContextualSearchboxHandler::GetSuggestInputs() {
+  auto* contextual_session_handle = GetContextualSessionHandle();
+  return contextual_session_handle
+             ? contextual_session_handle->GetSuggestInputs()
+             : std::nullopt;
+}
+
 void ContextualSearchboxHandler::NotifySessionStarted() {
-  auto* contextual_session_handle = GetSessionHandle(web_contents_);
+  auto* contextual_session_handle = GetContextualSessionHandle();
   if (contextual_session_handle) {
     contextual_session_handle->NotifySessionStarted();
   }
 }
 
 void ContextualSearchboxHandler::NotifySessionAbandoned() {
-  auto* contextual_session_handle = GetSessionHandle(web_contents_);
+  auto* contextual_session_handle = GetContextualSessionHandle();
   if (contextual_session_handle) {
     contextual_session_handle->NotifySessionAbandoned();
   }
@@ -284,7 +320,7 @@ void ContextualSearchboxHandler::AddFileContext(
     searchbox::mojom::SelectedFileInfoPtr file_info_mojom,
     mojo_base::BigBuffer file_bytes,
     AddFileContextCallback callback) {
-  auto* contextual_session_handle = GetSessionHandle(web_contents_);
+  auto* contextual_session_handle = GetContextualSessionHandle();
   if (contextual_session_handle) {
     context_input_data_ = std::nullopt;
     contextual_session_handle->AddFileContext(
@@ -293,10 +329,23 @@ void ContextualSearchboxHandler::AddFileContext(
   }
 }
 
+void ContextualSearchboxHandler::AddFileContextFromBrowser(
+    std::string mime_type,
+    mojo_base::BigBuffer file_bytes,
+    std::optional<lens::ImageEncodingOptions> image_encoding_options,
+    AddFileContextCallback callback) {
+  auto* contextual_session_handle = GetContextualSessionHandle();
+  if (contextual_session_handle) {
+    contextual_session_handle->AddFileContext(
+        std::move(mime_type), std::move(file_bytes),
+        std::move(image_encoding_options), std::move(callback));
+  }
+}
+
 void ContextualSearchboxHandler::AddTabContext(int32_t tab_id,
                                                bool delay_upload,
                                                AddTabContextCallback callback) {
-  auto* contextual_session_handle = GetSessionHandle(web_contents_);
+  auto* contextual_session_handle = GetContextualSessionHandle();
   if (!contextual_session_handle) {
     std::move(callback).Run(std::nullopt);
     return;
@@ -322,7 +371,7 @@ void ContextualSearchboxHandler::AddTabContext(int32_t tab_id,
 
 std::vector<base::UnguessableToken>
 ContextualSearchboxHandler::GetUploadedContextTokens() {
-  auto* contextual_session_handle = GetSessionHandle(web_contents_);
+  auto* contextual_session_handle = GetContextualSessionHandle();
   if (contextual_session_handle) {
     return contextual_session_handle->GetUploadedContextTokens();
   }
@@ -351,7 +400,8 @@ void ContextualSearchboxHandler::OnAddTabContextTokenCreated(
   const tabs::TabHandle handle = tabs::TabHandle(tab_id);
   tabs::TabInterface* const tab = handle.Get();
   if (!tab) {
-    std::move(callback).Run(std::nullopt);
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), std::nullopt));
     return;
   }
 
@@ -360,7 +410,50 @@ void ContextualSearchboxHandler::OnAddTabContextTokenCreated(
   tab_contextualization_controller->GetPageContext(base::BindOnce(
       &ContextualSearchboxHandler::OnGetTabPageContext,
       weak_ptr_factory_.GetWeakPtr(), delay_upload, context_token));
-  std::move(callback).Run(context_token);
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(std::move(callback), context_token));
+}
+
+void ContextualSearchboxHandler::UploadTabContextWithData(
+    int32_t tab_id,
+    std::optional<int64_t> context_id,
+    std::unique_ptr<lens::ContextualInputData> data,
+    RecontextualizeTabCallback callback) {
+  auto* contextual_session_handle = GetContextualSessionHandle();
+  if (!contextual_session_handle) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), false));
+    return;
+  }
+
+  // TODO(crbug.com/458050417): Move more of the tab context logic to
+  // ContextualSessionHandle.
+  const tabs::TabHandle handle = tabs::TabHandle(tab_id);
+  tabs::TabInterface* const tab = handle.Get();
+  if (!tab) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), false));
+    return;
+  }
+
+  contextual_session_handle->AddTabContext(
+      tab_id,
+      base::BindOnce(
+          &ContextualSearchboxHandler::OnUploadTabContextWithDataTokenCreated,
+          weak_ptr_factory_.GetWeakPtr(), context_id, std::move(data),
+          std::move(callback)));
+}
+
+void ContextualSearchboxHandler::OnUploadTabContextWithDataTokenCreated(
+    std::optional<int64_t> context_id,
+    std::unique_ptr<lens::ContextualInputData> data,
+    RecontextualizeTabCallback callback,
+    const base::UnguessableToken& context_token) {
+  if (context_id.has_value()) {
+    data->context_id = context_id.value();
+  }
+  UploadTabContext(context_token, std::move(data));
+  std::move(callback).Run(true);
 }
 
 void ContextualSearchboxHandler::RecordTabClickedMetric(
@@ -429,12 +522,11 @@ void ContextualSearchboxHandler::RecordTabClickedMetric(
 void ContextualSearchboxHandler::DeleteContext(
     const base::UnguessableToken& context_token,
     bool from_automatic_chip) {
-  auto* contextual_session_handle = GetSessionHandle(web_contents_);
+  auto* contextual_session_handle = GetContextualSessionHandle();
   int num_files = 0;
   if (contextual_session_handle) {
     contextual_session_handle->DeleteFile(context_token);
-    num_files =
-        contextual_session_handle->GetController()->GetFileInfoList().size();
+    num_files = contextual_session_handle->GetUploadedContextFileInfos().size();
   }
 
   // If the context token matches the cached tab context, we clear the snapshot.
@@ -448,7 +540,7 @@ void ContextualSearchboxHandler::DeleteContext(
 }
 
 void ContextualSearchboxHandler::ClearFiles() {
-  if (auto* contextual_session_handle = GetSessionHandle(web_contents_)) {
+  if (auto* contextual_session_handle = GetContextualSessionHandle()) {
     contextual_session_handle->ClearFiles();
   }
   context_input_data_ = std::nullopt;
@@ -479,11 +571,13 @@ void ContextualSearchboxHandler::OnFileUploadStatusChanged(
     lens::MimeType mime_type,
     contextual_search::FileUploadStatus file_upload_status,
     const std::optional<contextual_search::FileUploadErrorType>& error_type) {
-  page_->OnContextualInputStatusChanged(
-      file_token, contextual_search::ToMojom(file_upload_status),
-      error_type.has_value()
-          ? std::make_optional(contextual_search::ToMojom(error_type.value()))
-          : std::nullopt);
+  if (IsRemoteBound()) {
+    page_->OnContextualInputStatusChanged(
+        file_token, contextual_search::ToMojom(file_upload_status),
+        error_type.has_value()
+            ? std::make_optional(contextual_search::ToMojom(error_type.value()))
+            : std::nullopt);
+  }
 }
 
 std::string ContextualSearchboxHandler::AutocompleteIconToResourceName(
@@ -503,7 +597,7 @@ void ContextualSearchboxHandler::ComputeAndOpenQueryUrl(
     WindowOpenDisposition disposition,
     omnibox::ChromeAimEntryPoint aim_entry_point,
     std::map<std::string, std::string> additional_params) {
-  auto* contextual_session_handle = GetSessionHandle(web_contents_);
+  auto* contextual_session_handle = GetContextualSessionHandle();
   std::vector<const contextual_search::FileInfo*> file_info_list;
   if (contextual_session_handle) {
     // Upload the cached tab context if it exists.
@@ -519,10 +613,18 @@ void ContextualSearchboxHandler::ComputeAndOpenQueryUrl(
     search_url_request_info->query_text = query_text;
     search_url_request_info->additional_params = additional_params;
     search_url_request_info->aim_entry_point = aim_entry_point;
+    search_url_request_info->invocation_source = GetInvocationSource();
 
-    OpenUrl(contextual_session_handle->CreateSearchUrl(
-                std::move(search_url_request_info)),
-            disposition);
+    contextual_session_handle->CreateSearchUrl(
+        std::move(search_url_request_info),
+        base::BindOnce(
+            [](base::WeakPtr<ContextualSearchboxHandler> self,
+               WindowOpenDisposition disposition, GURL url) {
+              if (self) {
+                self->OpenUrl(url, disposition);
+              }
+            },
+            weak_ptr_factory_.GetWeakPtr(), disposition));
 
     file_info_list =
         contextual_session_handle->GetController()->GetFileInfoList();
@@ -570,10 +672,10 @@ void ContextualSearchboxHandler::OnGetTabPageContext(
 void ContextualSearchboxHandler::SnapshotTabContext(
     const base::UnguessableToken& context_token,
     std::unique_ptr<lens::ContextualInputData> page_content_data) {
-  auto* contextual_session_handle = GetSessionHandle(web_contents_);
+  auto* contextual_session_handle = GetContextualSessionHandle();
   if (contextual_session_handle) {
     context_input_data_ =
-        contextual_session_handle->GetController()->GetFileInfoList().size() > 0
+        contextual_session_handle->GetUploadedContextFileInfos().size() > 0
             ? std::nullopt
             : std::optional(*page_content_data);
   }
@@ -589,7 +691,7 @@ void ContextualSearchboxHandler::SnapshotTabContext(
 void ContextualSearchboxHandler::UploadTabContext(
     const base::UnguessableToken& context_token,
     std::unique_ptr<lens::ContextualInputData> page_content_data) {
-  auto* contextual_session_handle = GetSessionHandle(web_contents_);
+  auto* contextual_session_handle = GetContextualSessionHandle();
 
   if (contextual_session_handle) {
     context_input_data_ = std::nullopt;
@@ -602,17 +704,87 @@ void ContextualSearchboxHandler::UploadTabContext(
 void ContextualSearchboxHandler::OpenUrl(
     GURL url,
     const WindowOpenDisposition disposition) {
+  auto* contextual_session_handle = GetContextualSessionHandle();
+
+  auto* contextual_session_service =
+      ContextualSearchServiceFactory::GetForProfile(profile_);
+  std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
+      new_contextual_session_handle = contextual_session_service->GetSession(
+          contextual_session_handle->session_id());
+  new_contextual_session_handle->set_submitted_context_tokens(
+      contextual_session_handle->GetSubmittedContextTokens());
+
+  // TODO(crbug.com/470404040): Determine what to do with the return
+  // value of this call, or move this call to a different location.
+  new_contextual_session_handle->CheckSearchContentSharingSettings(
+      profile_->GetPrefs());
+
+  auto navigation_handle_callback = base::BindOnce(
+      [](std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
+             handle,
+         content::NavigationHandle& navigation_handle) {
+        content::WebContents* new_web_contents =
+            navigation_handle.GetWebContents();
+        ContextualSearchWebContentsHelper::GetOrCreateForWebContents(
+            new_web_contents)
+            ->SetTaskSession(std::nullopt, std::move(handle));
+      },
+      std::move(new_contextual_session_handle));
+  // TODO(crbug.com/469137247): Consider moving this logic to the specific
+  // subclasses that have aim navigation.
   if (OmniboxPopupWebContentsHelper::FromWebContents(web_contents_.get())) {
+    // For the omnibox navigation case, the active tab's web contents differs
+    // from the omnibox one. We transfer the session by creating a new handle
+    // (copied from the omnibox handle) and assigning it to the active tab.
     auto* browser_window_interface =
         webui::GetBrowserWindowInterface(web_contents_);
     content::OpenURLParams params(url, content::Referrer(), disposition,
                                   ui::PAGE_TRANSITION_LINK, false);
-    browser_window_interface->GetTabStripModel()
-        ->GetActiveWebContents()
-        ->OpenURL(params, base::DoNothing());
+    // If the current tab is part of the context list, navigate in the lens side
+    // panel if co-browsing is disabled.
+    auto* active_web_contents =
+        browser_window_interface->GetTabStripModel()->GetActiveWebContents();
+    auto* eligibility_manager =
+        contextual_tasks::EntryPointEligibilityManager::From(
+            browser_window_interface);
+    if ((!eligibility_manager ||
+         !eligibility_manager->AreEntryPointsEligible()) &&
+        contextual_session_handle->IsTabInContext(
+            sessions::SessionTabHelper::IdForTab(active_web_contents))) {
+      // Open in AIM in lens side panel.
+      if (auto* lens_search_controller =
+              LensSearchController::FromWebUIWebContents(active_web_contents)) {
+        // There technically might not be a match associated with this query
+        // since a user can submit a query with just a file.
+        std::string query_text;
+        net::GetValueForKeyInQuery(url, "q", &query_text);
+        lens_search_controller->IssueContextualSearchRequest(
+            lens::LensOverlayInvocationSource::kOmniboxContextualSuggestion,
+            url,
+            query_text.empty()
+                ? AutocompleteMatchType::Type::SEARCH_SUGGEST
+                : AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+            /*is_zero_prefix_suggestion=*/query_text.empty());
+        active_web_contents->Focus();
+        contextual_session_handle->ClearSubmittedContextTokens();
+        return;
+      }
+    }
+
+    auto* target_web_contents = active_web_contents->OpenURL(
+        params, std::move(navigation_handle_callback));
+
+    // Manually set the focus to the newly navigated content. Without this,
+    // the focus is re-captured by the Omnibox after query submission (see:
+    // http://crbug.com/469458346).
+    if (target_web_contents &&
+        disposition != WindowOpenDisposition::NEW_BACKGROUND_TAB) {
+      target_web_contents->Focus();
+    }
   } else {
     content::OpenURLParams params(url, content::Referrer(), disposition,
                                   ui::PAGE_TRANSITION_LINK, false);
-    web_contents_->OpenURL(params, base::DoNothing());
+    web_contents_->OpenURL(params, std::move(navigation_handle_callback));
   }
+  contextual_session_handle->ClearSubmittedContextTokens();
 }
