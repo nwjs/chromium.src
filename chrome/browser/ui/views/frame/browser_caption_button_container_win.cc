@@ -145,7 +145,7 @@ void BrowserCaptionButtonContainer::OnThemeChanged() {
 
 void BrowserCaptionButtonContainer::ResetWindowControls() {
   minimize_button_->SetState(views::Button::STATE_NORMAL);
-  if (frame_view_->browser_view()->CanMaximize()) {
+  if (frame_view_->GetBrowserView()->CanMaximize()) {
     maximize_button_->SetState(views::Button::STATE_NORMAL);
     restore_button_->SetState(views::Button::STATE_NORMAL);
   } else {

@@ -358,7 +358,7 @@ void BrowserFrameViewWin::PaintAsActiveChanged() {
 }
 
 gfx::Size BrowserFrameViewWin::GetMaximumSize() const {
-  gfx::Size max_size(browser_view()->GetMaximumSize());
+  gfx::Size max_size(GetBrowserView()->GetMaximumSize());
   if (max_size.height() > 0 || max_size.width() > 0)
     max_size.Enlarge(0, GetTopInset(false));
 
@@ -376,7 +376,7 @@ gfx::Rect BrowserFrameViewWin::GetWindowBoundsForClientBounds(
     const gfx::Rect& client_bounds) const {
   HWND hwnd = views::HWNDForWidget(browser_widget());
   if (!GetBrowserView()->GetTabStripVisible() && hwnd) {
-    if (ShouldBrowserCustomDrawTitlebar(browser_view())) {
+    if (ShouldBrowserCustomDrawTitlebar(GetBrowserView())) {
       const int top_inset = GetTopInset(false);
       const int thickness = std::floor(
         FrameTopBorderThicknessPx(false) /
@@ -415,7 +415,7 @@ int BrowserFrameViewWin::NonClientHitTest(const gfx::Point& point) {
   // If the point isn't within our bounds, then it's in the native portion of
   // the frame so again Windows can figure it out.
   if (!bounds().Contains(point)) {
-    if (browser_view()->size_constraints().HasFixedSize())
+    if (GetBrowserView()->size_constraints().HasFixedSize())
       return HTCAPTION;
     return HTNOWHERE;
   }
@@ -653,7 +653,7 @@ int BrowserFrameViewWin::FrameTopBorderThicknessPx(bool restored) const {
   }
 
 #if 0
-  if (!browser_view()->CanResize() && !restored)
+  if (!GetBrowserView()->CanResize() && !restored)
     return 0;
 #endif
   // Note that this method assumes an equal resize handle thickness on all
@@ -729,7 +729,7 @@ int BrowserFrameViewWin::WindowTopY() const {
   // FrameTopBorderThickness()) and floor(system dsf) pixels when restored.
   // Unfortunately we can't represent either of those at hidpi without using
   // non-integral dips, so we return the closest reasonable values instead.
-  if (!browser_view()->CanResize() && IsMaximized())
+  if (!GetBrowserView()->CanResize() && IsMaximized())
     return 1;
   if (IsMaximized()) {
     return FrameTopBorderThickness(false);
